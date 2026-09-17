@@ -40552,3 +40552,77 @@ Eight arms, one shared control, a fresh seed base so nothing here inherits CH's 
 and P4 is decided by a handful of near-zero signs that mean nothing. That is a real weakness of this
 design and the honest response is to report the agreement count *and* the margins it was computed
 from, so a reader can see whether the signs being compared were ever large enough to be signs.
+
+## CI result -- the proxy points backwards where it matters, and a second row beats the first
+
+9216 paired bouts, 36 cells, fresh seed base 20260918, 256 bouts a cell, four replicates an arm.
+Pooled replicate sd of the paired score **0.0231**, against the 0.0313 a binomial of 256 bouts would
+give -- the paired statistic is again *quieter* than a coin, which is the opposite of the damage
+rate's behaviour and the reason CH bought this instrument.
+
+| arm | score | vs control | verdict | W-D-L | seconds | Elo |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| shipped v shipped | 0.4941 | -- | the control | 506-0-518 | 37.9 | -- |
+| `followLift` 0.95 | **0.6396** | +0.1455 | 6.3 sd clear | 655-0-369 | 36.1 | **+104** |
+| `chamberReach` 0.00 | 0.6143 | +0.1201 | 5.2 sd clear | 629-0-395 | 34.2 | +85 |
+| `chamberSeconds` 0.30 | 0.5098 | +0.0156 | inside the noise (0.7 sd) | 522-0-502 | 37.9 | -- |
+| `followSwing` 1.20 | 0.5054 | +0.0112 | inside the noise (0.5 sd) | 517-1-506 | 39.0 | -- |
+| `chamberLift` 0.00 | 0.5010 | +0.0068 | inside the noise (0.3 sd) | 513-0-511 | 37.5 | -- |
+| `chamberSwing` 0.00 | 0.4990 | +0.0049 | inside the noise (0.2 sd) | 511-0-513 | 38.0 | -- |
+| `cutRoll` 0.00 | 0.4941 | +0.0000 | **void, see below** | 506-0-518 | 37.9 | -- |
+| `strokeSeconds` 0.35 | 0.3232 | -0.1709 | 7.4 sd WORSE | 331-0-693 | 46.8 | **-124** |
+
+**P1 held.** The control came back **0.4941**, 0.26 sd off even, on a seed base CH never touched.
+The bench was even-handed twice, on different seeds, which is what makes it an instrument rather
+than a run that got lucky once.
+
+**P2 held, and this is the night's most useful single number.** `strokeSeconds` 0.35 is the
+best-aligned value ever measured on any of these rows -- 6.2 sd clear on the proxy -- and across the
+table it loses **331-0-693, at 7.4 sd, worth -124 Elo**. The proxy did not merely fail to rank it;
+it ranked it first while the objective ranks it last of eight. A slower, better-turned stroke is
+punished exactly as hard as the rate column said it would be.
+
+**P3 held: two of eight cleared, as registered.** But the second one was not the one that was
+expected to clear.
+
+**`followLift` 0.95 beats `chamberReach`**, at 0.6396 against 0.6143, +104 Elo against +85. It went
+into this run on a 2.1 sd mirror reading that nobody had followed up, listed fifth of eight in the
+registration's own table. It is now the largest single-constant margin this project has measured.
+The two are not obviously the same effect -- one says how far the hand draws back, the other how
+high it lifts on the follow -- and whether they compose or overlap is unmeasured. **That is the
+first thing worth buying next, because if they add, the pair is worth ~190 Elo and every number in
+this document was taken with both of them wrong.**
+
+**P4 is refused: five of eight signs agreed, and six were needed.** The registration said what that
+would cost -- *"every mirror result in this document becomes uninterpretable rather than merely
+limited"* -- and the honest answer is that the refusal does not support that reading, for a reason
+the registration itself predicted.
+
+| where the paired margin was | rows | mirror sign agreed |
+| --- | ---: | ---: |
+| clear of the noise (\|z\| >= 2) | 3 | **3 of 3** |
+| inside the noise (\|z\| < 2) | 5 | 2 of 5 |
+
+Every row where there was a sign to predict, the mirror predicted it: `chamberReach` +0.239 and
++5.2 sd, `followLift` +0.106 and +6.3 sd, `strokeSeconds` -0.422 and -7.4 sd. Every disagreement is
+a row whose paired margin is between 0.0000 and +0.0112 -- signs of noise, compared against mirror
+gaps of -0.041 to -0.060 that are themselves inside their own spreads of 0.093 to 0.100. **This is
+the weakness the registration named before the run**, and naming it in advance is what stops it
+being reported now as either a finding or a near miss. The prediction was badly constructed: it
+counted eight signs without requiring any of them to be signs.
+
+So the rule that replaces P4, which is what should have been registered: **a mirror predicts the
+direction of a paired margin when the mirror's own gap clears its spread, and is a coin flip
+otherwise.** That keeps the mirror useful as a screen -- it is roughly forty times cheaper -- and
+refuses it as an arbiter. Three for three is three, and the next mirror-screened row should be
+duelled before it is believed.
+
+**The `cutRoll` row of this run measured nothing, and the table above says so.** It came back
+506-0-518 against a control of 506-0-518: not a null result but the same bouts. `cutRoll` is the one
+live row whose name is not a field of `StrokeShape` -- `CUT` exposes it as `roll` and `windRoll`,
+two getters onto the one table row -- so the per-side override spread a key nothing reads and the
+arm ran the shipped stroke. Fixed in `strokeOverrideFor`, pinned by three tests, and re-run as CJ.
+It cost one arm of one run and it was caught by the shape of the failure rather than by a test: a
+*perfect* null on exactly the row whose name is not a field. **A bench that can report the control
+under another name is the failure mode to design against**, and the general fix is that the mapping
+is now total over the row list, so a row without a field to drive is a compile error.
