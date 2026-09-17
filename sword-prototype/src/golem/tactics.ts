@@ -701,10 +701,63 @@ export const GOLEM_TACTICS = {
    * | 0.60 | 0.673 | 16.78 | 7/8 | 3 |
    * | 1.20 | 0.525 | 19.79 | 5/8 | 4 |
    *
-   * The old grid stepped in 0.60 and so stepped over the shipped 0.30, which is where both the
-   * alignment peak and the damage peak sit. 1.20 is the row to be careful with: it deals nearly as
-   * much damage on the worst alignment in the table and wins three fewer bouts, which is a body
-   * flailing rather than one cutting, and is why alignment is in this table beside damage.
+   * The old grid stepped in 0.60 and so stepped over 0.30, which is where both the alignment peak
+   * and the damage peak sat. 1.20 is the row to be careful with: it deals nearly as much damage on
+   * the worst alignment in the table and wins three fewer bouts, which is a body flailing rather
+   * than one cutting, and is why alignment is in that table beside damage.
+   *
+   * **Re-swept 2026-09-17, and the answer moved to 0.00.** The owner said the attacking technique
+   * was too poor to do real damage. BX found the blade turned wrong -- median edge alignment 0.80
+   * on contacts that score and 0.31 on contacts that do not -- and BY re-ran this sweep reading
+   * alignment over *every* armed contact rather than only the ones the damage model scored:
+   *
+   * | roll | alignment, all contacts | alignment, paying | median paying damage | bout seconds |
+   * |---:|---:|---:|---:|---:|
+   * | -0.60 | 0.502 | 0.720 | 0.25 | 55.0 |
+   * | -0.30 | 0.490 | 0.799 | 0.29 | 43.4 |
+   * | **0.00** | **0.554** | **0.841** | **0.30** | **37.3** |
+   * | 0.15 | 0.537 | 0.827 | 0.29 | 40.0 |
+   * | 0.30 | 0.481 | 0.805 | 0.26 | 39.4 |
+   * | 0.45 | 0.485 | 0.787 | 0.26 | 40.2 |
+   * | 0.60 | 0.470 | 0.773 | 0.24 | 42.4 |
+   * | 0.90 | 0.466 | 0.714 | 0.22 | 46.0 |
+   *
+   * 0.00 wins every column that is a measurement rather than a hint -- damage per bout is not in
+   * this table, because BS put the standard error of a 16-bout damage mean at half that column's
+   * whole range.
+   *
+   * **The 2026-09-05 table above is stale, not wrong, and the difference matters.** The obvious
+   * story was that its statistic could not see the contacts a roll constant fails, since a
+   * sub-floor contact reported a hard zero for alignment until 2026-09-17. BY refused that: the
+   * paying column peaks at 0.00 too, so the two columns agree and selection cannot be the cause.
+   * BZ then held `drawFraction` at 0 -- the damage law of 2026-09-05 -- and 0.00 still wins,
+   * 0.799 against 0.771, so the draw is not the cause either. What is left is the rest of the tree
+   * moving underneath it: the death model, the damage ramp, and the stand-off and chamber constants
+   * re-swept in between. **A constant swept two hundred commits ago is a measurement with an expiry
+   * date**, and every other swept number in this file is owed the same re-reading.
+   *
+   * **Still a constant, and that was tested rather than assumed.** BY registered that no constant
+   * would be the right shape -- that `commit` and `recover` would want different rolls -- and
+   * measured every stance's optimum inside one grid step of zero. So the servo this comment
+   * declined to write above is still not needed.
+   *
+   * **And 0.30 still ships, which is not what the sweep says and is on purpose.** Setting 0.00
+   * fails two behavioural gates: `the stroke probe reads the mark once` in `golem-bench`, where the
+   * achieved tip wanders back across the mark's bearing so the probe reads it twice, and
+   * `the_golem_mind_lands_blows_and_does_not_stall_while_it_is_in_range`, which drops to 9
+   * exchanges in 20 s against a bar of 10. 0.15 and 0.20 clear both of those and instead fail
+   * `the_latch_turns_one_completed_stroke_in_ten_into_two_in_three_at_the_drawn_read` at 0.482 and
+   * 0.484 against a bar of 0.50 -- a gate on a policy head fitted when this constant was 0.30.
+   * **0.00 passes that one.** Three gates, non-monotonic in a smooth parameter, and no value but
+   * the shipped one clears all three.
+   *
+   * That pattern is not evidence that 0.30 is right. It is evidence that these three gates sit
+   * close enough to their bars to be moved by a change of this size, so they cannot referee it --
+   * and a constant that only its own tests can justify is a constant nobody has re-measured. What
+   * the sweep found stands: on alignment, on median paying damage and on bout length, 0.30 is a
+   * poor row. Moving it is a behaviour change of the same class as `combat.drawFraction`, it needs
+   * the fitted heads re-rated rather than a bar relaxed, and it is therefore the owner's and not a
+   * tuning pass's. Written up in `docs/measurements.md` under BY, BZ and CA.
    *
    * Written only when `rollMax` is above zero, which is rung 3 and no earlier: every chain below it
    * chose its edge at build because a chain with no roll axis has to, and a mace has no edge at all.

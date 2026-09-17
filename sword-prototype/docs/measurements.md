@@ -39730,3 +39730,86 @@ refused, `cutRoll` goes to 0.00 *anyway* -- BY measured today's tree and today's
 ships -- but the note records the cause as the physics moving, and the 2026-09-05 sweep stands as
 correct for its own tree rather than as a mistake. Same edit, different sentence, and the sentence
 is the part that has to be true.
+
+### BZ result -- the draw did not flip it, and the old sweep does not reproduce under its own law
+
+16 side-swapped bouts a cell, cap 150, mirrored default golem, the same seeds in all four.
+
+| `drawFraction` | `cutRoll` | contacts | align ALL | align paying | pays | p50 dmg | seconds |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0 | **0.00** | 3883 | **0.556** | **0.799** | 27 % | 0.29 | 42.3 |
+| 0 | 0.30 | 4173 | 0.478 | 0.771 | 25 % | 0.26 | 42.7 |
+| 0.3 | **0.00** | 3318 | **0.554** | **0.841** | 32 % | 0.30 | 37.3 |
+| 0.3 | 0.30 | 3753 | 0.481 | 0.805 | 32 % | 0.26 | 39.4 |
+
+**P1 is confirmed.** At `drawFraction` 0 -- the law the 2026-09-05 sweep ran under -- paying-contact
+alignment still prefers 0.00 to 0.30, 0.799 against 0.771. The draw is not what flipped the
+ordering. So the old sweep does not reproduce even under its own damage law, and `drawFraction` is
+exonerated as the cause.
+
+**P2 is refused.** I predicted the penalty for the wrong roll would grow with the dial, because
+paying for the slide rewards a square edge twice over. On the paying column the gap is 0.028 at
+draw 0 and 0.036 at draw 0.3 -- the right direction but far too small to call, on medians of
+thousands of contacts whose own spread is a third of the scale. On the all-contact column it goes
+the other way, 0.078 against 0.073. Two columns disagreeing by less than a hundredth is not an
+effect; it is a flat line, and the mechanism I argued for is not visible in it.
+
+**P3 is confirmed.** The all-contact column prefers 0.00 in both laws, 0.556 to 0.478 and 0.554 to
+0.481, and those two pairs are very nearly the same numbers -- which is the cleanest thing in this
+table. The unselected alignment statistic is *indifferent to the draw dial* and cares only about
+the roll. That is what a kinematic quantity should do, it is BX's P2 confirmed a second time by a
+different route, and it is the reason to trust the column.
+
+**So what was it?** Not the draw, and BY already refused the selection story -- both columns agree
+today. What is left is the rest of the tree moving between 2026-09-05 and now: the death model, the
+damage-per-second ramp, and the stand-off and chamber constants re-swept in between. This cell does
+not isolate which, and it does not need to: the 2026-09-05 sweep was correct for the tree that ran
+it, it is stale rather than wrong, and **a constant swept two hundred commits ago is a measurement
+with an expiry date.** That is the lesson worth keeping, and it applies to every other swept
+constant in `src/golem/tactics.ts` that has not been re-read since.
+
+**What ships, per BZ's registration, written before the numbers arrived.** `cutRoll` goes to
+**0.00** either way; P1 decided only the sentence. The sentence is: the old sweep was right for its
+own tree and the tree moved out from under it.
+
+## CA -- the sweep's winner does not survive the gates, and no value but the shipped one does
+
+BZ registered that `cutRoll` would go to 0.00 either way. It does not, and this section is why.
+
+Setting it and running the tree:
+
+| `cutRoll` | stroke probe reads its mark once | 10 exchanges in 20 s | latched completion > 0.50 |
+| ---: | --- | --- | --- |
+| 0.00 | **fails** -- reads it twice | **fails** -- 9 | passes |
+| 0.15 | passes | passes | **fails** -- 0.482 |
+| 0.20 | passes | passes | **fails** -- 0.484 |
+| 0.30 (ships) | passes | passes | passes |
+
+**Three gates, non-monotonic in a smooth parameter, and only the shipped value clears all three.**
+The latch gate is the tell: it fails at 0.15 and 0.20 and *passes* at 0.00, which no property of the
+roll explains. That gate reads a policy head fitted while this constant was 0.30, over four seeds,
+against a bar of 0.50 that 0.482 misses by less than the spacing between two of its own rows.
+
+**What this does and does not license.** It does not say 0.30 is right -- a constant that only its
+own tests can justify is a constant nobody has re-measured, and BY's table still has it third-worst
+of eight on alignment, on median paying damage and on bout length. It does say I cannot ship 0.00
+tonight, for two reasons that are both stronger than the table:
+
+1. **The gates cannot referee it.** They sit close enough to their bars to be moved by a change of
+   this size, so a pass here is not evidence and neither is a fail. Relaxing whichever bar my
+   preferred value missed would be choosing the answer and then choosing the test, which is the
+   failure mode this document exists to prevent.
+2. **The fitted artifacts are calibrated to it.** The latch gate is one of them and the snapshots
+   are the rest; nothing has been rated since `99b217b`. Moving a tactics constant under a fitted
+   head invalidates the head, and the honest order is re-rate first, then move.
+
+**So it goes to the owner**, as `drawFraction` did, and for the same reason: it is a behaviour
+change that moves every measurement taken under the old value, and this project's standing rule is
+that the owner's eye beats my tables. The eye gate exists now -- `?drawFraction=` shipped today -- and the
+same affordance is what a roll comparison would want next.
+
+**The lesson, which outlives this constant.** `cutRoll` was swept in 2026-09-05 and was correct
+then; BZ showed it is stale rather than wrong. Every other swept number in `src/golem/tactics.ts` is
+in the same position, and none of them have a date on their re-reading. **A swept constant is a measurement
+with an expiry date, and this tree has no process that expires one.** That is a bigger finding than
+the roll, and it is the one I would spend the next phase on.
