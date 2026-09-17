@@ -40320,3 +40320,69 @@ this phase is taken on.
 **Then CH**, which is the measurement this exists for: `chamberReach` at whatever value CF leaves
 standing, put against the shipped stroke as a paired margin on the project's own win/draw/loss
 statistic rather than on a population statistic in a mirror.
+
+### CF result -- all three held, the shipped `chamberReach` is wrong, and the noise has a floor
+
+40 cells at 128 bouts. Replicated baseline: alignment 0.514, **1.411 damage a second**, 38.0 s.
+
+| `chamberReach` | align | | damage/second | | bout |
+| ---: | ---: | --- | ---: | --- | ---: |
+| -0.70 (ships) | 0.514 | -- | 1.411 | -- | 38.0 s |
+| -0.40 | 0.546 | 5.5 sd | 1.617 | 3.6 sd | 33.3 s |
+| -0.20 | 0.566 | 8.9 sd | 1.660 | 4.4 sd | 32.5 s |
+| 0.00 | 0.571 | 9.6 sd | 1.649 | 4.2 sd | 32.1 s |
+| 0.15 | 0.575 | 10.4 sd | **1.722** | **5.5 sd** | 31.5 s |
+| 0.30 | 0.578 | 10.8 sd | 1.607 | 3.4 sd | 33.7 s |
+
+**P2 held, and by more than it was asked to.** Not one positive value but *every* value on the grid
+beats the shipped -0.70 on damage a second, by 3.4 to 5.5 sd, and on alignment by 5.5 to 10.8. The
+shipped value is not merely off the best cell, **it is worse than every alternative offered across a
+full metre of the row.** CE's headline survives confirmation and grows.
+
+**P1 held.** The positive side is a plateau and not a peak. CE's 1.837 at 0.15 came back at 1.722,
+and its margin over its neighbours is 1.3 sd against 0.00 and 2.0 sd against 0.30 -- inside, or at,
+the bar it would need to be called a peak. The honest statement is a **plateau from -0.20 to 0.30
+worth about +0.25 damage a second**, roughly 17 % over the shipped stroke, with about six seconds
+off the bout. Best-of-four inflation was worth about 0.12 of the rate here, which is the size the
+correction has been assumed to have all night.
+
+**And the corroboration got sharper.** `COMMITTED_SHAPES.sword` carries `chamberReach: -0.20`, from
+Session 02 of the style set, swept on distance-to-mark, on a v3 mind. That value lands inside this
+plateau at 4.4 sd. Two methods with nothing in common but the row agree on where it should be, and
+both disagree with what ships.
+
+**P3 held, and the interesting part is by how little.**
+
+| | CE, 16 bouts | CF, 128 bouts | pure 1/sqrt(n) would give |
+| --- | ---: | ---: | ---: |
+| `chamberReach` rate sd | 0.137 | 0.057 | 0.048 |
+| `followLift` rate sd | 0.107 | 0.051 | 0.038 |
+
+Under 0.06, so the prediction stands and the replicate design is sound. But eight times the bouts
+bought a factor of 2.4 rather than 2.83, on both rows, which is a mild and reproducible excess.
+Solve `sd^2 = a^2/n + b^2` on each pair and the floor `b` comes out at **0.032 and 0.037** -- two
+independent rows agreeing on an irreducible component of about 0.035 damage a second that no number
+of bouts will remove, because it is shared within a cell rather than accumulated across it. The
+per-cell seed base is the obvious suspect.
+
+**That is a budget, and it says to stop buying bouts.** The rate can never resolve better than about
+2 sd of 0.035, which is 5 %. CF sits at 0.051 to 0.057, within 1.5x of the floor; going to 1024
+bouts would reach roughly 0.037 for eight times the compute. There is nothing left to buy here.
+`chamberReach`'s +0.31 is nine times the floor, so its size is not in question -- only its meaning
+is, and that is CG's problem rather than a sample-size problem.
+
+**`followLift`, and what "nothing clears" meant in CE.**
+
+| `followLift` | align | | damage/second | |
+| ---: | ---: | --- | ---: | --- |
+| 0.73 (ships) | 0.514 | -- | 1.411 | -- |
+| 0.95 | 0.536 | 2.8 sd | 1.517 | 2.1 sd |
+| 1.20 | 0.541 | 3.4 sd | 1.439 | 0.6 sd |
+| 1.50 | 0.546 | 4.1 sd | 1.380 | -0.6 sd |
+
+0.95 clears the objective at 2.1 sd, where CE put it at 1.0 and called it nothing. **So CE's
+"nothing clears" meant "nothing this design could see", exactly as registered, and every such
+verdict in CE has to be read that way.** That said, 0.95 is the best of three and best-of-three is
+worth about 0.85 sd, which leaves roughly 1.25; the rate column is non-monotone while alignment
+rises monotonically across the same grid. The honest reading is that `followLift`'s alignment effect
+is real and modest and its rate effect is not established. It is not a second `chamberReach`.
