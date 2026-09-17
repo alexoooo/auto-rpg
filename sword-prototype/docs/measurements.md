@@ -40754,3 +40754,29 @@ that mirror came from CD at 16 bouts a cell, the weakest reading in the record, 
 be computed for it at all -- but it is the closest thing to a counterexample the record holds, and
 the rule should be read as provisional until a mirror with a real spread is tested against a duel on
 the same row.
+
+## CK, corroborated from a third place, and what shipping these rows would actually cost
+
+`scripts/golem-bench.mjs:1043` holds the style set's own grid:
+
+```js
+  chamberReach: Object.freeze([-0.70, -0.20]),
+```
+
+Two candidates, the live table's value and the committed table's, and Session 02 chose the second.
+So CK's reading of the source is not an inference from two tables happening to differ -- the grid
+that chose the committed value had the live value in front of it and rejected it, a week before CF
+measured the same thing on a different statistic and CH measured it again on a third.
+
+**What it would cost to move these rows, checked rather than assumed.** No test in the suite pins
+the shipped value of `chamberReach`, `followLift` or `cutRoll`. Every assertion that names one uses
+a posed table or an override value -- `tests/stroke-link.test.mjs` says so in a comment at the top,
+*"A posed table, so no test here depends on what the tree currently ships"* -- and the two that read
+the live table read it as a parameter rather than as a literal. So the change is:
+
+1. four numbers in `src/golem/tactics.ts`,
+2. a re-rate, because two of the five minds in `PPO_LEAGUE` are the ones that read them,
+3. nothing else -- no test churn, no golden hash, no generated table.
+
+That is a much smaller ship than the phase has been assuming, and it is worth having checked
+*before* the owner is asked, rather than discovering it in the middle of doing it.
