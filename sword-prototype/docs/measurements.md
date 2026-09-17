@@ -37503,3 +37503,68 @@ Five cells, 0.150 (shipped) down to 0.035, 112 mirrored bouts each, same pool an
 
 **What kills it:** if `decided` does not rise, or rises without the sever share rising, then the
 path to the sever is not what health is gating and the mechanism above is wrong.
+
+## AY -- the blade is the part that breaks the mass rule, not the fist and not the plate
+
+The owner said three things about mass: the blade at 1.30 kg "seems very low", a fist heavier than
+a blade "seems very unphysical", and the plate "should weigh less". Taken together they read as
+three separate complaints. They are one, and it points at the blade.
+
+### The file has a frozen rule, and every module but one obeys it
+
+`src/golem/config.ts` derives mass as volume times stone's **2600 kg/m3**, stated at every module
+and never as a taste: the cap, the link, the collar, the upper arm, the wrist sphere, the mace
+haft, the whip link, the fist, the bench stand. The plate's own comment does the arithmetic in
+full -- 0.28 x 0.42 x 0.080 is 0.009408 m3, 24.5 kg at stone's density, less 32 % for the chamfer
+the shell draws, giving **16.6** -- and then says the quiet part out loud: *"a mass held still while
+its own volume changes is a density nobody chose."*
+
+So the shipped masses are not arbitrary:
+
+| terminal | derivation | mass |
+| --- | --- | ---: |
+| fist | a 0.09 m stone sphere, 0.003054 m3 at 2600 | 8.0 kg |
+| plate | a 0.28 x 0.42 x 0.080 board, less a 32 % chamfer | 16.6 kg |
+| mace | a 0.80 m stone haft plus a 0.07 m bronze head | 18.0 kg |
+| **blade** | **set by hand** | **1.30 kg** |
+
+AU already measured what the rule would give the blade: **3.14 kg** from its own density and
+volume. **The blade is the only terminal in the file whose mass was chosen rather than derived**,
+and it is the one the owner's eye caught.
+
+### Which resolves all three complaints at once
+
+- *"1.30 kg seems very low"* -- correct, and it is low against the file's own rule by 2.4x.
+- *"A fist heavier than a blade seems very unphysical"* -- the inversion is real, but the fist is
+  not the wrong half. A stone golem's fist **is** 8 kg of rock; that is what the sphere weighs.
+  The inversion closes from the blade's side, not the fist's.
+- *"The plate should weigh less"* -- the plate is faithful. 16.6 kg is what that board weighs, and
+  its comment records that it was *deliberately* not brought down, twice dated, on the grounds that
+  weight comes from a finite force budget against real mass.
+
+### So the plate is a geometry decision, not a mass decision
+
+Mass follows volume here, so the only honest ways down are to shrink the board or thin it:
+
+| option | thickness | mass | note |
+| --- | ---: | ---: | --- |
+| shipped | 80 mm | 16.6 kg | 4.7x a real heater shield |
+| stone, half as thick | 40 mm | 8.3 kg | stone is weak in bending; 40 mm is a thin slab |
+| steel at equivalent stopping power | 14 mm | 12.9 kg | the file's own comparison, and barely lighter |
+| an oak board | 25 mm | 2.1 kg | a real shield weight, and a new material in the file |
+
+**The steel row is the interesting one.** The plate's comment already notes that a stone board is
+"nearly six times" a steel one in thickness, and the arithmetic says that swapping to steel at
+equal stopping power saves only 22 % -- 16.6 to 12.9. A golem's shield is heavy because it is a
+slab, and the material is not what makes it so. Getting to a human-scale shield means wood, which
+is a material decision about what golems are made of and squarely the owner's.
+
+### Recommended, and not taken unattended
+
+Move the blade to **3.14 kg**, the value AU derived and measured. AU already established the
+trade: 1.30 -> 2.00 kg buys +45 % damage a contact for 6.6 % of stroke speed, and the useful gain
+is all inside the first 0.7 kg. It is the change that makes the file consistent with its own rule,
+it is the one the owner's eye independently found, and it is the only one of the three that does
+not need a new decision about what a golem is made of.
+
+The plate's geometry and the material question are recorded here and left to the owner.
