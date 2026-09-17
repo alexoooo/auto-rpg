@@ -22,6 +22,46 @@ added three more, and two spellings of one of them that are also not one column.
 once, with the sections that belong to each, under "The golem benches" below; the rule above is
 unchanged and applies to all of them.
 
+**And a margin is only worth what its noise is worth, so every margin below is quoted in units of
+that noise or it is not quoted.** This is the third rule and it was paid for on 2026-09-17, in a run
+that reported all seven constants it swept as mistuned. None of them were. Every cell of that sweep
+shared one baseline run, and the baseline happened to be the lowest of eight replicates of the same
+configuration, so twenty-eight comparisons inherited one piece of bad luck and five findings
+evaporated when the baseline was replicated. What survived shrank by half. That failure does not
+invent results out of nothing -- it inflates real ones until they look settled, which is why it is
+hard to catch by looking at the answers.
+
+So, in order, and each one cost something:
+
+1. **Replicate the baseline.** A sweep that shares one control cell is not a cheaper sweep, it is a
+   sweep that reports its own noise. `scripts/stroke-sweep.mjs` has a replicate floor of two and no
+   way to turn it off.
+2. **Quote the margin in the statistic's own spread**, and say which spread. Margins here use the
+   spread of a *single* replicate rather than the standard error of their mean, which is
+   conservative by the square root of the replicate count. That convention is only honest if it is
+   stated, so it is stated.
+3. **Take the winner's curse off before believing a best cell.** The maximum of four draws is
+   inflated by roughly one standard deviation before any other error. Best-of-four cost about 0.12
+   of the damage rate, measured, when CE's headline was re-run.
+4. **Carry the objective beside the proxy.** Median edge alignment was chosen because it has no
+   selection in it, and it is still not what anybody wants. On one row the two are cleanly
+   anti-correlated: the best-aligned `strokeSeconds` is 30 % less dangerous a second than the one
+   that ships. A proxy that is never checked against the objective is a proxy nobody has calibrated.
+5. **Report losses as losses.** A verdict with two states printed a factor-of-three loss as "inside
+   the noise", because the state it lacked was the one that mattered for reading the column.
+6. **Know the floor before buying more samples.** The damage rate's spread has an irreducible
+   per-cell component of about 0.035, derived twice independently, so no number of bouts resolves it
+   better than about 5 %. The paired score has no such floor. One of those is worth buying and the
+   other is not.
+7. **A mirror cannot answer whether something wins.** Both fighters read one stroke table, so a
+   swept row moves both of them; that measures how dangerous a configuration is.
+   `scripts/stroke-duel.mjs` measures the other thing, and it scores the shipped stroke against
+   itself first, because a bench whose null case is unchecked reports its own asymmetry as a
+   finding.
+8. **A prediction that cannot name the number that would refuse it is a hope with a paragraph
+   attached.** One registered here could not have been refused by any result the run could produce,
+   and saying so afterwards is worth less than registering the mapping would have been.
+
 **Combat-value unit note (2026-09-01):** historical damage and durability rows recorded before
 ruleset v2 remain in their measured legacy units. Divide those values by 20 only when comparing
 their scale with fresh v2 evidence; the historical tables themselves are not rewritten.
