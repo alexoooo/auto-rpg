@@ -40270,3 +40270,53 @@ two rest on and nothing has ever tested it.
 here is a mirror, and a mirror measures how dangerous a configuration is rather than whether it
 wins. The paired margin the project's own criterion asks for needs per-side stroke shapes, which
 this architecture does not have. That is CG, and it is a code change rather than a measurement.
+
+## CG -- per-side stroke shapes, so that a paired margin becomes possible at all
+
+Not a measurement. A code change, registered here because it removes a limit every cell from BY to
+CF has been silently subject to, and because the safety argument is the part worth writing down
+before rather than after.
+
+**The limit.** `STROKE_SHAPES.sword` is one module-global object whose fields are getters onto
+`GOLEM_TACTICS`, and `tactics-v2.ts` reads it at stroke time as `STROKE_SHAPES[me.weapon]`. Both
+fighters in a process therefore run the same stroke, always. Every sweep in this document is a
+mirror: it can say a configuration is more dangerous than another configuration, and it cannot say
+a golem with the change beats a golem without it. The project's own criterion is the second thing --
+a paired margin between two designed minds -- and for these eight rows this architecture cannot
+express it.
+
+**The change, and why it is this one.** `FencerTactics` is the fencer's own per-side table and
+`golemFencer(seed, T)` already takes it; it simply has no stroke rows on it. Add one nullable field,
+`strokeOver`, holding a partial stroke shape. When it is null the two read sites are untouched and
+resolve exactly as today, through the live getters, with no allocation and no snapshot. When it is
+not null the mind merges it over the weapon's shape once at construction and uses that. `runBout`
+already accepts `leftMind` and `rightMind`, so nothing in the harness needs a new parameter: a bench
+builds two fencers from two tables and hands them in.
+
+**The contract this has to keep, and how it is checked:**
+
+- **A default fencer is byte-for-byte the fencer that ships.** `strokeOver` defaults to null, no
+  existing table sets it, and the null path is the current expression unchanged. The test is a
+  bout run both ways against a pinned outcome, not an inspection of the field.
+- **The live read survives where it is relied on.** `?tactic=` and `scripts/stroke-sweep.mjs` both
+  work by writing `GOLEM_TACTICS` and letting the getters carry it. Those write the *global*, which
+  the null path still reads at stroke time, so both keep working. A test drives the getter through
+  a mind rather than trusting that sentence.
+- **An override moves one side only.** The point of the change. Two fencers, one overridden, and
+  the assertion is on the shapes the two minds actually run.
+
+**What this deliberately does not do.** It does not touch `tune.mjs`. Putting stroke rows on the
+fencer's table makes them reachable by the tuner for the first time, which would retire
+`INERT_ROWS` and end the "nine constants nothing re-reads" defect permanently -- and it would also
+let a fitted champion move nine constants that every fitted head in the tree was trained under.
+That is a large decision with the owner's name on it, not a side effect of a bench affordance, and
+`INERT_ROWS` stays exactly as it is until it is taken on its own merits. The three-list pin in
+`tests/stroke-rows.test.mjs` will hold it honest either way.
+
+It also stays out of `tactics.ts`'s own v1 duelist and out of v3's `COMMITTED_SHAPES`, which have
+their own reasons for reading what they read. Scoped to v2, which is the mind every measurement in
+this phase is taken on.
+
+**Then CH**, which is the measurement this exists for: `chamberReach` at whatever value CF leaves
+standing, put against the shipped stroke as a paired margin on the project's own win/draw/loss
+statistic rather than on a population statistic in a mirror.
