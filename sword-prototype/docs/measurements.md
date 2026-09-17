@@ -37982,3 +37982,55 @@ seconds of fight, and the choice on it is the owner's: they asked for resolution
 minutes, and if buying a margin worth watching costs three, that is a trade they should be shown
 rather than one I should make. **The one outcome that is mine to act on is a miss on prediction 2**,
 which would be a bug in `drain`.
+
+### BD results
+
+The same cell as BC-2, with the ramp's two knobs moved. BC-2 is the shipped row, repeated here.
+
+| cell | start | kill | resolves by | decided | median s | mean s | max s | **bar med** | bar mean | **bar < 0.10** |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| BD-a | 60 | 30 | 90 s | 100 % | 62.5 | 56.1 | 89.9 | 0.135 | 0.215 | 46 % |
+| BD-b = BC-2 | 60 | 60 | 120 s | 99 % | 63.7 | 65.9 | 119.6 | 0.148 | 0.221 | 44 % |
+| BD-d | 90 | 60 | 150 s | 100 % | 66.9 | 78.9 | 149.6 | 0.150 | 0.224 | 43 % |
+| BD-c | 60 | 120 | 180 s | 100 % | 66.9 | 84.2 | 179.2 | 0.150 | 0.225 | 44 % |
+| BD-e | 120 | 60 | 180 s | 100 % | 66.9 | 90.9 | 179.6 | 0.153 | 0.227 | 45 % |
+
+**2. The margin collapses onto one curve against bout length. Hit, and it is the cleanest result of
+the night.** BD-c and BD-e resolve at the same time by opposite routes -- a slow drain from one
+minute against a fast drain from two -- and land on 0.150 against 0.153 median, 0.225 against 0.227
+mean, 44 % against 45 % under a tenth. `drain` is symmetric in practice as well as on paper, so the
+one outcome that would have been mine to act on is not there.
+
+**1. Median margin rises with resolution time. Hit on direction, and the direction is worthless.**
+0.135, 0.148, 0.150, 0.150, 0.153 -- **tripling the window buys 0.018 of a bar.**
+
+**3. BD-c's share under a tenth falls below 30 %. Miss** -- 44 %, not one point off BC-2.
+**5. BD-a is worse on every margin column. Hit** -- 0.135 median, 0.215 mean, 46 % under a tenth.
+**4. No cell reaches BC-0's 0.374. Hit** -- the best is 0.227 mean.
+
+**So margin cannot be bought with length, and the price list has one line: there is nothing to
+buy.** The mechanism is in the median-seconds column, which is pinned at 63 to 67 seconds in every
+cell however far out the ramp is pushed. Half the bouts are already decided before 60 s, and of the
+rest the median dies within seven seconds of the drain starting. Work the arithmetic back: at 67 s
+the drain has taken 0.117, so the loser was carrying 0.883 of injury from the fighting alone and
+the winner 0.735. **Both bodies are already nearly destroyed when the clock arrives, and they are
+close to each other.** More time cannot separate two fighters who have finished separating.
+
+**The setting therefore stays at 60 and 60**, and it stays there on evidence: 120/60 resolves at
+three minutes instead of two, costs every sweep in the tree half as much wall clock again, and buys
+five thousandths of a bar.
+
+### The confound in my own framing, recorded because it changes the reading
+
+**Every cell in BC and BD is a mirror.** Same build, same mind, both corners. A near-tie is the
+*correct* outcome for two identical fighters, so "44 % of bouts finish under a tenth of a bar" is
+not evidence that the ramp decides arbitrarily -- it is evidence that the cell was built out of
+even matchups, which is what a mirror is for. BC's registration named the number as the one that
+could refuse the design, and it cannot, because it was never measured on a cell where the two sides
+were supposed to differ.
+
+The cell that can answer it is random pairs, which is what the screen actually asks and where a
+body's class is most of the outcome. BE runs it: the same three arms on two *different* bodies. The
+prediction, stated before it returns, is that **the median margin on random pairs is at least double
+the mirror's 0.148**, because the thing being measured there is a difference between bodies and not
+the noise between two copies of one.
