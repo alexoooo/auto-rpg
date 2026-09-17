@@ -40141,3 +40141,89 @@ that now prints the objective beside the proxy and dumps every cell to JSON.
 **Nothing ships off this table.** CA settled that for all nine rows and CD did not change it. The
 one thing that would change it is P3 coming back with a row that improves the objective and the
 proxy together, and even then the decision is the owner's and a re-rate comes first.
+
+### CE result -- all three predictions held, and one row moves the thing the owner asked about
+
+112 cells across seven rows, all against the same replicated shipped baseline: alignment 0.502,
+**1.415 damage a second**, 54.7 damage a bout over 38.6 s. Pooled alignment sd 0.009 to 0.016 by
+row; pooled rate sd 0.063 to 0.137.
+
+| row | shipped | best on alignment | best on damage/second |
+| --- | ---: | --- | --- |
+| chamberSwing | 0.05 | nothing clears | nothing clears |
+| chamberLift | 0.04 | 0.00, 2.1 sd | nothing clears |
+| followSwing | 0.94 | nothing clears | nothing clears |
+| followLift | 0.73 | 1.20, 2.7 sd | nothing clears |
+| chamberSeconds | 0.22 | nothing clears | nothing clears |
+| chamberReach | -0.70 | 0.50, 5.3 sd | **0.15, 3.1 sd** |
+| strokeSeconds | 0.15 | 0.45, 6.2 sd | nothing clears |
+
+**P1 held, exactly.** Two of the five withdrawn rows cleared two sd on alignment and three cleared
+nothing. CB's direction reproduced on both survivors -- it named 0.00 for `chamberLift` and 1.20 for
+`followLift` and so did this -- and failed on the three that did not clear, where CB's winners came
+back at 0.5, 0.8 and 0.1 sd. So CC's withdrawal was right about three rows and wrong about two, and
+the cost of getting that wrong was one re-run.
+
+**P2 held on the claim that mattered and was wrong about the shape.** `strokeSeconds` has no
+interior optimum: damage a second falls monotonically and steeply across the extended grid --
+0.992, 0.767, 0.678, **0.461** at 0.70, against 1.415 shipped, a factor of three -- so it is a dial
+on a trade and not a mistuned constant. What I predicted and did not get is alignment *rising*
+across the grid. It does not; it saturates, 0.591 at 0.45 and then 0.580 and 0.587, three values
+inside one sd of each other. The blade reaches as square as this stroke can hold it by about 0.45
+and every millisecond after that is spent buying nothing at all.
+
+**P3 held, exactly, and produced the only row in nine that moves the objective.**
+
+| `chamberReach` | align | | damage/second | | bout |
+| ---: | ---: | --- | ---: | --- | ---: |
+| -0.70 (ships) | 0.502 | -- | 1.415 | -- | 38.6 s |
+| 0.00 | 0.576 | 4.6 sd | 1.549 | 1.0 sd | 32.7 s |
+| **0.15** | 0.585 | 5.3 sd | **1.837** | **3.1 sd** | **30.2 s** |
+| 0.30 | 0.570 | 4.3 sd | 1.613 | 1.4 sd | 34.2 s |
+| 0.50 | 0.586 | 5.3 sd | 1.567 | 1.1 sd | 35.6 s |
+
+Every value on the positive side turns the blade better *and* ends the fight faster, and 0.15 is
+30 % more damage a second than the stroke that ships. `chamberReach` is how far the hand is drawn in
+at the chamber, shipped at -0.70, which is drawn right into the body. **The owner's sentence was
+that the golems get into each other's face and flail, and the one row that moves the objective is
+the row that says how cramped the wind-up is.** That is the first mechanical story in this phase
+where the measurement and the complaint are about the same thing.
+
+**And an independent corroboration nobody was looking for.** `COMMITTED_SHAPES.sword` in
+`src/golem/tactics-v3.ts` carries `chamberReach: -0.20`, put there by Session 02 of the style set,
+swept on distance-to-mark rather than on alignment or damage, on a different mind. It moved this row
+the same way off the same shipped -0.70. Two sweeps, two statistics, two minds, one direction.
+
+**What is established here is the sign, not the value.** 0.15's rate margin is the best of four
+non-shipped cells, and best-of-four inflates by about one sd before anything else; its neighbours
+sit at 1.549, 1.613 and 1.567 while it sits at 1.837, which is the shape of a high draw rather than
+of a peak. The honest reading is that **the whole positive side beats -0.70 on both statistics by
+roughly +0.15 damage a second**, and that 0.15 specifically is not yet a number. CF confirms it or
+does not.
+
+**Two limits of this design, both worth more than the table.**
+
+*The objective is about three times noisier than the proxy, in relative terms.* Alignment's sd is
+0.014 on 0.502, or 2.8 %; the rate's is about 0.11 on 1.415, or 7.8 %. At four replicates of sixteen
+bouts this design can only resolve a rate change of roughly 15 %, so "nothing clears" in that column
+means *nothing larger than 15 %*, not *nothing*. Several rows show 5 to 10 % rate movements this
+cannot referee. Matching the proxy's resolving power needs about eight times the bouts, which is
+four hours a row rather than six minutes -- affordable, and it is what CF spends. **This is also,
+retroactively, why every sweep in this document chose the proxy**, and no sweep in this document
+ever said so.
+
+*Every cell is a mirror, so this measures how dangerous a configuration is, not whether it wins.*
+Both golems get the changed stroke, because `STROKE_SHAPES.sword` reads one module-global table that
+both sides share -- the same live read that makes these rows sweepable at all. The project's own
+criterion is a paired margin between two designed minds, and **this architecture structurally
+cannot produce one for these eight rows.** Damage a second in a mirror is a real statistic and it is
+not that one. Putting a changed golem against a shipped one needs per-side stroke shapes threaded
+through `tactics-v2`, which is a code change and not a measurement, and it is now the most valuable
+unbuilt thing in this area.
+
+**A defect in the instrument, found by reading its own output.** Three of these rows produced large
+*losses* on damage a second -- `followLift` 0.35 at -6.5 sd, `strokeSeconds` 0.70 at -15.2 sd -- and
+the sweep printed every one of them as "inside the noise", because `verdict` had two states and the
+missing one was the one that mattered for reading the column. A table that reports a factor-of-three
+loss as a flat row is worse than a table that reports nothing. Fixed: better, worse, and the band
+between them. The numbers above are as the run printed them; only the labels were wrong.
