@@ -51,7 +51,7 @@ const at = (p) => pathToFileURL(`${ROOT}/${p}`).href;
  * `scripts/tournament.mjs` scores a win 1, a loss 0 and a draw 0.5, and nothing here invents its
  * own statistic on top of that.
  */
-export async function cell({ row, value, seed, bouts, cap }) {
+export async function cell({ rows, seed, bouts, cap }) {
   const { GOLEM_TACTICS_V2, golemFencer } = await import(at("src/golem/tactics-v2.ts"));
   const { freshHavok, runBout } = await import(at("scripts/bout-runner.mjs"));
   const { seedFor } = await import(at("scripts/tournament.mjs"));
@@ -62,7 +62,9 @@ export async function cell({ row, value, seed, bouts, cap }) {
   // name is not a `StrokeShape` field -- it drives `roll` and `windRoll` -- so the object literal
   // put a key on the shape that nothing reads and the arm ran the shipped stroke. CI's `cutRoll 0`
   // came back 506-0-518 against a control of 506-0-518 before this was found.
-  const over = value === null ? null : strokeOverrideFor(row, value);
+  const over = rows.length === 0
+    ? null
+    : Object.assign({}, ...rows.map(({ row, value }) => strokeOverrideFor(row, value)));
   const mind = (mindSeed, strokeOver) => {
     const tactics = strokeOver === null
       ? GOLEM_TACTICS_V2
@@ -113,29 +115,50 @@ export async function cell({ row, value, seed, bouts, cap }) {
  * Refuses both spellings at once rather than picking one, and refuses a row a fencer cannot
  * actually override -- `LIVE_STROKE_ROWS` is the same list `?tactic=` and the sweep validate
  * against, so a row that stops being live stops being offered in all three places together.
+ *
+ * **`+` joins rows into one arm**: `chamberReach:0+followLift:0.95` is a single fighter carrying
+ * both changes, where `chamberReach:0,followLift:0.95` is two fighters carrying one each. CI
+ * measured eight rows one at a time and two of them won; whether they add or overlap cannot be
+ * asked a row at a time, and the comma could not express the question.
+ *
+ * Every arm carries `rows`, the control included, whose `rows` is empty. One shape for all of
+ * them, so the control exercises the same construction the contenders do rather than a branch
+ * that skips it.
  */
 export const readArms = (row, values, spec) => {
   if (spec !== null && (row !== null || values !== null)) {
     throw new Error("--arms and --row/--values are two spellings of one thing; pass one");
   }
-  const pairs = spec !== null
-    ? spec.split(",").filter((part) => part.trim() !== "").map((part) => {
-      const at = part.indexOf(":");
-      if (at === -1) throw new Error(`--arms wants name:value, got "${part}"`);
-      return [part.slice(0, at).trim(), part.slice(at + 1).trim()];
-    })
-    : (values ?? "").split(",").filter((v) => v.trim() !== "")
-      .map((v) => [row ?? "", v.trim()]);
-  if (pairs.length === 0) {
-    throw new Error("nothing to run: pass --arms name:value,... or --row R --values a,b");
-  }
-  return pairs.map(([name, raw]) => {
+  const one = (part) => {
+    const at = part.indexOf(":");
+    if (at === -1) throw new Error(`--arms wants name:value, got "${part}"`);
+    const name = part.slice(0, at).trim();
+    const raw = part.slice(at + 1).trim();
     if (!LIVE_STROKE_ROWS.includes(name)) {
       throw new Error(`"${name}" is not one of ${LIVE_STROKE_ROWS.join(", ")}`);
     }
     const value = Number(raw);
     if (!Number.isFinite(value)) throw new Error(`"${name}" was given a non-number`);
-    return { row: name, value, key: `${name}:${value}` };
+    return { row: name, value };
+  };
+  const groups = spec !== null
+    ? spec.split(",").filter((part) => part.trim() !== "")
+      .map((part) => part.split("+").filter((q) => q.trim() !== "").map(one))
+    : (values ?? "").split(",").filter((v) => v.trim() !== "")
+      .map((v) => [one(`${row ?? ""}:${v.trim()}`)]);
+  if (groups.length === 0) {
+    throw new Error("nothing to run: pass --arms name:value,... or --row R --values a,b");
+  }
+  return groups.map((rows) => {
+    if (rows.length === 0) throw new Error("an arm named no rows at all");
+    // A row twice in one arm is refused rather than last-wins: `strokeOverrideFor` merges into one
+    // object, so the loser would vanish silently and the arm would report under both names.
+    const seen = new Set();
+    for (const { row: r } of rows) {
+      if (seen.has(r)) throw new Error(`"${r}" is named twice in one arm`);
+      seen.add(r);
+    }
+    return { rows, key: rows.map(({ row: r, value }) => `${r}:${value}`).join("+") };
   });
 };
 
@@ -162,17 +185,17 @@ async function main(argv) {
   // The control runs first, because if it does not come back at 0.500 the rest of the table is a
   // measurement of the harness. Its null row and null value are what `cell` reads as the shipped
   // stroke against itself.
-  const wanted = [{ row: null, value: null, key: "control" }, ...arms];
+  const wanted = [{ rows: [], key: "control" }, ...arms];
   const plan = wanted.flatMap((arm) => seeds.map((seed) => ({ ...arm, seed })));
 
-  const what = arms.length === 1 ? arms[0].row : `${arms.length} arms`;
+  const what = arms.length === 1 ? arms[0].key : `${arms.length} arms`;
   console.log(`stroke duel: ${what} against the shipped stroke, ${plan.length} cells`
     + ` (${wanted.length} arms x ${replicates} replicates x ${bouts} bouts),`
     + ` ${availableParallelism()} cores`);
   console.log("the first arm is the shipped stroke against itself, which has to come back at 0.500");
 
   const runOne = (c) => new Promise((resolve) => {
-    const spec = JSON.stringify({ row: c.row, value: c.value, seed: c.seed, bouts, cap });
+    const spec = JSON.stringify({ rows: c.rows, seed: c.seed, bouts, cap });
     execFile(process.execPath, [process.argv[1], "--child", spec], {
       encoding: "utf8", cwd: ROOT, maxBuffer: 1 << 28,
     }, (error, stdout, stderr) => {
@@ -233,8 +256,10 @@ async function main(argv) {
   console.log("| --- | ---: | ---: | ---: | --- | ---: | ---: |");
   for (const arm of wanted) {
     const rs = ok(arm.key);
-    const isControl = arm.row === null;
-    const name = isControl ? "shipped v shipped" : `${arm.row} ${arm.value}`;
+    const isControl = arm.rows.length === 0;
+    const name = isControl
+      ? "shipped v shipped"
+      : arm.rows.map(({ row, value }) => `${row} ${value}`).join(" + ");
     if (rs.length === 0) {
       console.log(`| ${name} | 0 | every cell failed | | | | |`);
       continue;
@@ -266,14 +291,15 @@ async function main(argv) {
   }
   console.log(`The control is ${control.toFixed(4)}, within ${(2 * bar).toFixed(4)} of 0.500, so`
     + " the bench is even-handed.");
-  const scored = wanted.filter((a) => a.row !== null)
+  const scored = wanted.filter((a) => a.rows.length > 0)
     .map((a) => ({ ...a, m: mean(ok(a.key).map((r) => r.score)) }))
     .sort((a, b) => b.m - a.m);
   // Losses are named before wins, and named at all, for the reason CE had to fix in the sweep: a
   // row that makes the golem measurably worse is a finding, and printing only winners reports it
   // as an absence.
+  const say = (a) => a.rows.map(({ row, value }) => `${row} ${value}`).join(" + ");
   for (const l of scored.filter(({ m }) => verdict(m, control, noise, sigmas).worse)) {
-    console.log(`${l.row} ${l.value} LOSES to the shipped stroke at ${l.m.toFixed(4)}.`);
+    console.log(`${say(l)} LOSES to the shipped stroke at ${l.m.toFixed(4)}.`);
   }
   const winners = scored.filter(({ m }) => verdict(m, control, noise, sigmas).better);
   if (winners.length === 0) {
@@ -281,7 +307,7 @@ async function main(argv) {
     console.log("statistic moving without this one moving is the interesting outcome, not a null.");
     return;
   }
-  console.log(`${winners[0].row} ${winners[0].value} beats the shipped stroke`
+  console.log(`${say(winners[0])} beats the shipped stroke`
     + ` at ${winners[0].m.toFixed(4)}.`);
   console.log("This is the project's own criterion and it is still not a ruling: every fitted head");
   console.log("in the tree was trained under the shipped stroke, so re-rate before moving a row.");

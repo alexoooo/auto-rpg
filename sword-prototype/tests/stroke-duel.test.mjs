@@ -62,3 +62,39 @@ test("every_arm_carries_a_key_the_plan_and_the_table_can_both_use", () => {
   assert.equal(new Set(keys).size, keys.length, "two arms share a key");
   assert.equal(keys.includes("control"), false, "an arm collided with the control");
 });
+
+test("a_plus_joins_rows_into_one_arm_and_a_comma_keeps_them_apart", () => {
+  // The distinction CK1 turns on: one fighter carrying both changes, against two fighters
+  // carrying one each. The comma could not express the first and the question needs it.
+  const together = readArms(null, null, "chamberReach:0+followLift:0.95");
+  assert.equal(together.length, 1, "a joined arm was split into two");
+  assert.deepEqual(together[0].rows, [
+    { row: "chamberReach", value: 0 }, { row: "followLift", value: 0.95 },
+  ]);
+  assert.equal(together[0].key, "chamberReach:0+followLift:0.95");
+
+  const apart = readArms(null, null, "chamberReach:0,followLift:0.95");
+  assert.equal(apart.length, 2);
+  assert.deepEqual(apart.map((a) => a.rows.length), [1, 1]);
+});
+
+test("every_arm_carries_rows_including_a_single_one_from_either_spelling", () => {
+  // One shape for all arms, so the table and the plan never have to ask which spelling made one.
+  for (const arms of [readArms(null, null, "cutRoll:0"), readArms("cutRoll", "0", null)]) {
+    assert.equal(arms.length, 1);
+    assert.deepEqual(arms[0].rows, [{ row: "cutRoll", value: 0 }]);
+  }
+});
+
+test("a_row_named_twice_in_one_arm_is_refused_rather_than_last_wins", () => {
+  // The overrides merge into one object, so a silent loser would leave the arm reporting under a
+  // name it is not running -- which is the failure `cutRoll` already cost this bench once.
+  assert.throws(() => readArms(null, null, "cutRoll:0+cutRoll:0.2"), /named twice/);
+  // Across arms it is fine: two fighters, each carrying one value of the row.
+  assert.equal(readArms(null, null, "cutRoll:0,cutRoll:0.2").length, 2);
+});
+
+test("a_joined_arm_refuses_a_dead_row_the_same_way_a_lone_one_does", () => {
+  assert.throws(() => readArms(null, null, "chamberReach:0+nonsense:1"), /is not one of/);
+  assert.throws(() => readArms(null, null, "chamberReach:0+followLift:abc"), /non-number/);
+});
