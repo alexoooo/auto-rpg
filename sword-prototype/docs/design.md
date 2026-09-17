@@ -5137,12 +5137,20 @@ style set set to **-0.20** in Session 02 and which has shipped at -0.20 ever sin
 five minds in `PPO_LEAGUE` have been cutting at the value CF and CH went on to re-derive, on two
 other statistics, a week later.
 
-So `chamberReach` was never an untuned constant. **A fix landed in one of two stroke tables and was
-never carried across**, and what moving the live table invalidates is not the fitted heads' own
-strokes but two of the five opponents they were rated against -- `golem-duelist` (v1) and
-`golem-fencer` (v2). That is still a re-rate, because a rating is a rating against a pool, but it is
-a far smaller one than refitting anything. The order is unchanged and the decision stays the
-owner's; the reason is smaller than it looked.
+What moving the live table invalidates is therefore not the fitted heads' own strokes but two of
+the five opponents they were rated against -- `golem-duelist` (v1) and `golem-fencer` (v2). That is
+still a re-rate, because a rating is a rating against a pool, but a far smaller one than refitting
+anything. The order is unchanged and the decision stays the owner's; the reason is smaller than it
+looked.
+
+**And the tempting generalisation is refused, which is worth recording next to it.** CK read the
+two tables, found them four rows apart, and I wrote that a fix had landed in one code path and was
+never carried across -- as though all four rows were the same story. CK3 tested that directly by
+putting the committed values on the live path, and three of the four do not transfer:
+`chamberSwing` 1.20 loses at 5.4 sd, `strokeSeconds` 0.20 loses at 2.0 sd, `chamberSeconds` 0.32 is
+flat, and only `chamberReach` wins. The committed rows are **coupled to the committed arc** rather
+than being better numbers, and `chamberReach` winning on both paths is a fact about that one row.
+A story that fits one row is not a mechanism.
 
 ### How much measurement is worth buying, which turned out to have an answer
 

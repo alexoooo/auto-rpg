@@ -40780,3 +40780,78 @@ the live table read it as a parameter rather than as a literal. So the change is
 
 That is a much smaller ship than the phase has been assuming, and it is worth having checked
 *before* the owner is asked, rather than discovering it in the middle of doing it.
+
+## CK result -- composition holds, and the framing that produced it is refused
+
+8192 paired bouts, 32 cells, seed base 20260918, so the control is the same 0.4941 CI and CJ read.
+
+| arm | score | vs control | verdict | W-D-L | seconds | Elo |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| shipped v shipped | 0.4941 | -- | the control | 506-0-518 | 37.9 | -- |
+| both, on one fighter | **0.7217** | +0.2275 | 8.2 sd | 739-0-285 | 32.7 | **+170** |
+| `followLift` 0.95 | 0.6396 | +0.1455 | 5.2 sd clear | 655-0-369 | 36.1 | +104 |
+| `chamberReach` 0.00 | 0.6143 | +0.1201 | 4.3 sd clear | 629-0-395 | 34.2 | +85 |
+| `strokeSeconds` 0.12 | 0.5742 | +0.0801 | 2.9 sd clear | 588-0-436 | 37.8 | +56 |
+| `chamberSeconds` 0.32 | 0.5083 | +0.0142 | inside the noise (0.5 sd) | 520-1-503 | 38.0 | -- |
+| `strokeSeconds` 0.20 | 0.4385 | -0.0557 | 2.0 sd WORSE | 449-0-575 | 40.7 | -39 |
+| `chamberSwing` 1.20 | 0.3447 | -0.1494 | 5.4 sd WORSE | 353-0-671 | 38.1 | -107 |
+
+### CK1 held, in the middle of its band
+
+Registered: *0.70 to 0.74 if independent, and anything at or below 0.64 is a shared mechanism.*
+Measured **0.7217**. In Elo the two are +85 and +104 alone and **+170** together, which is 90 % of
+their sum -- they compose, with a slight overlap that is itself inside the noise of the estimate.
+
+**So the rows are separable and the phase's row-at-a-time reading was sound.** That is worth more
+than the margin: it means the four rows now measured wrong can be reasoned about independently, and
+that a stroke carrying all of them is worth roughly the sum of their parts rather than the best of
+them. The bout also gets five seconds shorter, 37.9 to 32.7, which is the same direction every
+winning row has moved it.
+
+### CK2 refused: faster is better, and the shipped value is not near a peak
+
+Registered: *faster is worse too, and the shipped 0.15 is near the peak.* **Wrong.**
+`strokeSeconds` 0.12 beats the shipped 0.15 at 2.9 sd, +56 Elo. With 0.20 losing at 2.0 sd and 0.35
+losing at 7.4 sd, the row is now monotone over every value ever measured:
+
+| `strokeSeconds` | 0.12 | **0.15 ships** | 0.20 | 0.35 |
+| --- | ---: | ---: | ---: | ---: |
+| Elo vs shipped | **+56** | -- | -39 | -124 |
+
+Every cell says the same thing and the shipped value is not the best of them. **The peak is below
+0.12 and this run does not bound it**, which is the direct consequence of the coverage hole CK
+named: a row swept only on one side of where the tree sits had never been asked the question whose
+answer was interesting.
+
+### CK3 refused, and it takes CK's framing with it
+
+Registered: *1.20 clears the shipped 0.05 across the table*, on the reasoning that both times the
+live table disagreed with the style set, the style set had been right. `chamberSwing` 1.20 loses at
+**5.4 sd, -107 Elo** -- the second-worst cell measured in this phase. The registration said what
+that costs, and it is paid in full:
+
+> *Refused if it lands inside the noise or loses, which would say the committed rows are tuned to
+> the committed arc rather than being better numbers, and that CK's whole framing is wrong.*
+
+Of the four rows where the two tables disagree, tested on the live path at the committed value:
+
+| row | committed value | on the live path |
+| --- | ---: | --- |
+| `chamberReach` | -0.20 | **wins, +85 Elo** |
+| `chamberSeconds` | 0.32 | flat, 0.5 sd |
+| `strokeSeconds` | 0.20 | **loses, -39 Elo** |
+| `chamberSwing` | 1.20 | **loses, -107 Elo** |
+
+**Three of four do not transfer, so "these are simply better constants and the live table should
+take all four" is dead.** What replaces it: the committed rows are **coupled to the committed arc**
+-- a long chamber swing of 1.20 presumably works with a chamber of 0.32 s and a stroke of 0.20 s and
+falls apart without them -- and `chamberReach` winning on both paths is a property of that one row,
+not evidence about the set.
+
+**What survives of CK, stated narrowly.** The source fact is unchanged: two tables, four rows apart,
+and `golem-bench.mjs:1043` shows the style set had both `chamberReach` values in front of it. The
+narrow claim also survives: `chamberReach` -0.20 is better on the live path, now measured three ways
+on two statistics. **The inference between them does not.** I wrote "a fix landed in one code path
+and was never carried across" as though it explained all four rows; it explains one, and the run
+that was supposed to confirm it refused it at 5.4 sd. A story that fits one row is not a mechanism,
+and the pattern-match to the day's other findings is what made it feel like more than that.
