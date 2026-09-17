@@ -294,6 +294,32 @@ const FENCER = {
    */
   replanSeconds: 0.167,
 
+  /**
+   * A stroke shape for this fencer alone, laid over its weapon's, or null to read the shipped one.
+   *
+   * **This is the only per-side handle on the sword's arc, and it exists so that two fencers in
+   * one process can swing differently.** `STROKE_SHAPES.sword` is a module global whose fields are
+   * getters onto `GOLEM_TACTICS`; both fighters in a bout read it, so every sweep of those eight
+   * rows from BY to CF was necessarily a mirror. A mirror can say one configuration is more
+   * dangerous than another. It cannot say a golem with a change beats a golem without it, which is
+   * the paired margin this project judges a designed mind by.
+   *
+   * **Null is not a value, it is the untouched path.** When this is null the mind reads
+   * `STROKE_SHAPES[weapon]` exactly as it always did -- live, through the getters, no merge and no
+   * copy -- which is what keeps `?tactic=` and `scripts/stroke-sweep.mjs` working, since both move
+   * the *global* and rely on the read staying live.
+   *
+   * **Why a new field rather than a read of the eight rows already on this table.** The spread of
+   * `GOLEM_TACTICS` at the top of `FENCER` copies `chamberReach` and its seven neighbours onto
+   * every fencer, and those copies are *dead*: the stroke reads the global getters and never looks
+   * at them. Wiring the stroke to read them instead would be tidier and would immediately make all
+   * eight reachable by `scripts/tune.mjs`, whose `INERT_ROWS` refuses them precisely because they
+   * are dead. That is not a tidying, it is a decision -- it would let a fitted champion move nine
+   * constants every fitted head in this tree was trained under. So the dead copies stay dead,
+   * `INERT_ROWS` stays correct as written, and the bench gets a handle nothing fits against.
+   */
+  strokeOver: null as Partial<StrokeShape> | null,
+
   guardByTheirs: true,
   guardReachVs: {
     sword: 0.70, axe: 0.70, bow: 0.70, shield: 0.70, buckler: 0.70,
@@ -467,6 +493,15 @@ export interface GolemFencer {
   readonly reading: DuelReading;
   /** The options open this step, which is what a director chooses among. */
   readonly available: readonly DuelOption[];
+  /**
+   * The arc this fencer swings a kind of weapon on -- the shipped one, or its own override.
+   *
+   * Published for the same reason `option` and `reading` are: a harness has to see what the mind
+   * is doing rather than infer it. Here it is also the contract. The one thing a paired stroke
+   * bench must prove is that an override moved one side and not both, and without this that claim
+   * can only be made by watching damage numbers and hoping.
+   */
+  strokeFor(kind: WeaponKind): StrokeShape;
   decide(view: FighterView, dt: number): Intent;
 }
 
@@ -503,12 +538,40 @@ interface Stroke {
   strokeSeconds: number;
 }
 
+/**
+ * One fencer's arc for a weapon kind: the shipped shape, or the shipped shape with an override on.
+ *
+ * Pure and exported so the contract can be asserted without a body, a scene or a bout. The null
+ * case returns the module global **by identity**, which is what keeps the read live; a test that
+ * checks that with `assert.equal` rather than `deepEqual` is checking the thing that matters,
+ * because a copy would pass a deep comparison and still have turned `?tactic=` off.
+ *
+ * The override case freezes, once and deliberately. A shape that changed under a stroke halfway
+ * through its own arc is not something any of this is written to survive.
+ */
+export const fencerStroke = (
+  kind: WeaponKind, over: Partial<StrokeShape> | null,
+): StrokeShape => (over === null
+  ? STROKE_SHAPES[kind]
+  : Object.freeze({ ...STROKE_SHAPES[kind], ...over }));
+
 export function golemFencer(
   seed: number, T: FencerTactics = GOLEM_TACTICS_V2, director: DuelDirector | null = null,
 ): GolemFencer {
   const random = mulberry32(seed);
   const intent = freshGolemIntent();
   const reader = strokeReader(T);
+
+  /** This fencer's arc per weapon kind, memoised because `T` does not change mid-bout. */
+  const overrides = new Map<WeaponKind, StrokeShape>();
+  const strokeFor = (kind: WeaponKind): StrokeShape => {
+    if (T.strokeOver === null) return STROKE_SHAPES[kind];
+    const already = overrides.get(kind);
+    if (already !== undefined) return already;
+    const merged = fencerStroke(kind, T.strokeOver);
+    overrides.set(kind, merged);
+    return merged;
+  };
 
   const aim: Aim = { swing: 0, lift: 0, horizontal: 0 };
   const cover: Aim = { swing: 0, lift: 0, horizontal: 0 };
@@ -667,7 +730,7 @@ export function golemFencer(
     const off = intent[spare];
     const me = self.hands[attacker];
     const socket = me.shoulder;
-    const shape = STROKE_SHAPES[me.weapon];
+    const shape = strokeFor(me.weapon);
     const reach = me.reach;
 
     // ---- what their business end is doing, and their arm's phase (feature 1) ----------------
@@ -1080,7 +1143,7 @@ export function golemFencer(
       if (combo === null && t >= 1 && !caps.pairedHands && T.comboFraction > 0 &&
         !self.hands[spare].lost && canAttack(spareCap) && !isShield(self.hands[spare].weapon) &&
         random() < T.comboFraction) {
-        const spareShape = STROKE_SHAPES[self.hands[spare].weapon];
+        const spareShape = strokeFor(self.hands[spare].weapon);
         const spareScale = strokeInertiaScale(spareCap.swingInertia);
         combo = {
           hand: spare, shape: spareShape, elapsed: 0,
@@ -1117,6 +1180,7 @@ export function golemFencer(
     get option(): DuelOption { return option; },
     get reading(): DuelReading { return reading; },
     get available(): readonly DuelOption[] { return available; },
+    strokeFor,
     decide(view: FighterView, dt: number): Intent {
       plan(view, dt);
       if (view.self.capabilities?.pairedHands) mirror(intent.primary, intent.secondary);
