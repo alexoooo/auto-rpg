@@ -5130,10 +5130,19 @@ ranks it last, both spreads about one standard deviation wide. Neither resolves 
 mirror's ordering *inside* a plateau carries no information. Read this as "anywhere from -0.20 to
 0.00 is worth about 75 Elo over what ships", not as a recommendation of a value.
 
-**Why it still has not shipped.** Every fitted policy head in this tree was trained with the stroke
-at -0.70, so moving it invalidates them; the honest order is re-rate first and move the constant
-second. That is unchanged by having a better statistic -- it is what CA settled -- and the decision
-stays the owner's.
+**Why it still has not shipped, and what the reason turned out actually to be.** This paragraph
+used to say that every fitted policy head was trained with the stroke at -0.70. That is wrong, and
+CK in `docs/measurements.md` is the correction: v3 and v4 minds read `COMMITTED_SHAPES`, which the
+style set set to **-0.20** in Session 02 and which has shipped at -0.20 ever since. Three of the
+five minds in `PPO_LEAGUE` have been cutting at the value CF and CH went on to re-derive, on two
+other statistics, a week later.
+
+So `chamberReach` was never an untuned constant. **A fix landed in one of two stroke tables and was
+never carried across**, and what moving the live table invalidates is not the fitted heads' own
+strokes but two of the five opponents they were rated against -- `golem-duelist` (v1) and
+`golem-fencer` (v2). That is still a re-rate, because a rating is a rating against a pool, but it is
+a far smaller one than refitting anything. The order is unchanged and the decision stays the
+owner's; the reason is smaller than it looked.
 
 ### How much measurement is worth buying, which turned out to have an answer
 

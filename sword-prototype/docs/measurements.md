@@ -40626,3 +40626,72 @@ It cost one arm of one run and it was caught by the shape of the failure rather 
 *perfect* null on exactly the row whose name is not a field. **A bench that can report the control
 under another name is the failure mode to design against**, and the general fix is that the mapping
 is now total over the row list, so a row without a field to drive is a compile error.
+
+## CK -- the tree has two stroke tables and they disagree on half the rows
+
+Not a bout was run for this. It is a reading of the source, taken because CI's `followLift` result
+raised the question of what else in the stroke had never been looked at, and it reframes every cell
+from BY to CJ.
+
+**There are two paths to a sword's arc and they are not the same numbers.** `STROKE_SHAPES.sword`
+is `CUT`, whose fields are getters onto `GOLEM_TACTICS`, read live at stroke time by v1 and v2
+minds. `COMMITTED_SHAPES.sword` in `tactics-v3.ts` is `Object.freeze({ ...STROKE_SHAPES[kind],
+...over })`, built at module load, read by v3 and v4 minds. The spread materialises the getters, and
+then `over` writes four rows on top:
+
+| row | live (v1/v2) | committed (v3/v4) | CE/CF swept | was the committed value covered? |
+| --- | ---: | ---: | --- | --- |
+| `chamberSwing` | 0.05 | **1.20** | 0 to 0.6 | **no -- 1.20 is twice the top of the sweep** |
+| `chamberSeconds` | 0.22 | 0.32 | 0.1 to 0.4 | yes |
+| `chamberReach` | -0.70 | -0.20 | 0 to 0.5, CF -0.4 to 0.3 | yes |
+| `strokeSeconds` | 0.15 | **0.20** | 0.35 to 0.7 | **no -- the whole sweep is above both** |
+| `chamberLift` | 0.04 | 0.04 | 0 to 0.5 | same value |
+| `followSwing` | 0.94 | 0.94 | 0.5 to 1.5 | same value |
+| `followLift` | 0.73 | 0.73 | 0.35 to 1.2 | same value |
+| `cutRoll` -> `roll` | 0.30 | 0.30 | 0 to 0.45 | same value |
+
+**Half the rows differ, and the two that differ most were never swept where the other path sits.**
+
+**This is what `chamberReach` actually was, and the phase should be renamed in the record.** It was
+never an untuned constant. The style set swept it on distance-to-mark in Session 02, put **-0.20**
+into `COMMITTED_SHAPES`, and never carried it back to the live table -- so for over a week three of
+the five minds in `PPO_LEAGUE` have been cutting at -0.20 while `golem-duelist` (v1) and
+`golem-fencer` (v2) cut at -0.70. CF and CH did not discover a new value. **They independently
+re-derived, on two different statistics, the value the other half of the tree already shipped**, and
+the finding is not "a constant is mistuned" but **"a fix landed in one code path and was never
+carried across"**. That is a much cheaper thing to believe and a much more alarming thing to have.
+
+**It also repairs the re-rate argument, which was stated too broadly.** `docs/design.md` said every
+fitted head was trained with the stroke at -0.70; that is wrong for any head riding a committed arc,
+which is v3 and v4 -- `golem-form`, `golem-brawler`, `golem-driver`. What moving the live table
+changes is not those heads' own strokes but **two of the five opponents they were rated against**,
+`golem-duelist` and `golem-fencer`. Still an invalidation, because a rating is a rating against a
+pool, but a different and far more tractable one than "everything must be refitted".
+
+### Registered before the run, in the order they are worth buying
+
+- **CK1 -- do `followLift` 0.95 and `chamberReach` 0.00 compose?** Three arms against one control:
+  each alone, and both together. *Prediction: they add to within a third of their sum* -- 0.61 and
+  0.64 alone, so 0.70 to 0.74 together if independent, and I will call anything at or below 0.64
+  a shared mechanism. *Refused if* the pair scores below the better of the two singles, which would
+  mean they interfere and that the eight rows cannot be read one at a time at all. The bench cannot
+  currently express a two-row arm, which is the small piece of work this needs first.
+- **CK2 -- `strokeSeconds` below 0.15, which no sweep has ever asked about.** Every cell ever run on
+  this row is at 0.35 or slower, and the objective falls off a cliff going that way (-124 Elo at
+  0.35). The tree sits at 0.15 and the committed path at 0.20, and nobody has asked whether 0.10 or
+  0.12 is better still. *Prediction: faster is worse too, and the shipped 0.15 is near the peak.*
+  A row whose sweep lies entirely on one side of the shipped value has not been swept, and this is
+  the clearest coverage hole in the record.
+- **CK3 -- `chamberSwing` at the committed path's 1.20.** CE swept 0 to 0.6 against a live 0.05 and
+  found nothing on either statistic; CI duelled 0.00 and got 0.4990. Meanwhile half the tree swings
+  1.20. *Prediction: 1.20 clears the shipped 0.05 across the table*, on the same reasoning that made
+  `chamberReach` work -- the style set chose it on a real criterion, and both times the live table
+  has disagreed with the style set, the style set has been right. *Refused if* it lands inside the
+  noise or loses, which would say the committed rows are tuned to the committed arc rather than
+  being better numbers, and that CK's whole framing is wrong.
+
+**What CK3 is really testing** is whether the style set's four rows are *portable* or *coupled*. If
+`chamberSwing` 1.20 wins on the live path too, the answer is that these are simply better constants
+and the live table should take all four. If it loses, `chamberReach` -0.20 winning on both paths is
+a coincidence of one row and each path needs its own sweep. Every remaining decision in this phase
+turns on which.
