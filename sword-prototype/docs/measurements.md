@@ -39647,3 +39647,86 @@ contacts and is what this cell is read on -- the same rule BV was read under.
 
 **The control.** Each row is a different fight, so the populations differ between rows; nothing here
 claims a per-contact comparison. What is held is the seed set, the body, and the opponent.
+
+### BY result -- 0.30 is the wrong roll, a constant is the right shape, and one confound is open
+
+16 side-swapped bouts a row, cap 150, mirrored default golem, `drawFraction` at its shipped 0.3.
+
+| `cutRoll` | contacts | align ALL | align paying | pays | p50 dmg | damage/bout | seconds |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| -0.60 | 4130 | 0.502 | 0.720 | 32 % | 0.25 | 45.2 | 55.0 |
+| -0.30 | 4234 | 0.490 | 0.799 | 31 % | 0.29 | 57.6 | 43.4 |
+| **0.00** | 3318 | **0.554** | **0.841** | 32 % | **0.30** | 49.0 | **37.3** |
+| 0.15 | 3253 | 0.537 | 0.827 | 32 % | 0.29 | 50.2 | 40.0 |
+| 0.30 (ships) | 3753 | 0.481 | 0.805 | 32 % | 0.26 | 52.5 | 39.4 |
+| 0.45 | 3938 | 0.485 | 0.787 | 31 % | 0.26 | 54.0 | 40.2 |
+| 0.60 | 3700 | 0.470 | 0.773 | 29 % | 0.24 | 46.3 | 42.4 |
+| 0.90 | 4473 | 0.466 | 0.714 | 32 % | 0.22 | 52.8 | 46.0 |
+
+Every row decided 100 %.
+
+**P1 is confirmed.** The optimum of the unselected statistic is **0.00**, at 0.554, two grid steps
+from the shipped 0.30's 0.481 -- which is the third-worst row of eight. 0.00 is also the shortest
+bout in the table and the best median paying damage.
+
+**P2 is refused, and I am calling it refused rather than reading the grid the way I predicted.**
+The per-stance optima over all contacts are: approach 0.00, measure 0.00, recover 0.15, chamber
+0.15, commit nominally -0.30. Only `commit` looks like a different answer, and it does not survive
+being looked at: it reads 0.691 at -0.30 against 0.683 at 0.00, a gap of 0.008 on a few hundred
+contacts, which is noise. Every stance's optimum is within one grid step of zero, which is exactly
+the refusal condition I registered. **A constant is the right shape after all.** It is the value
+that is wrong, not the model, and the servo the 2026-09-05 comment declined to write is still not
+needed.
+
+**P3 is refused, and it is refused the other way round.** I predicted the paying column would move
+less than the all-contact column, because a contact enters the paying set partly by being aligned.
+It moves *more*: the paying column spans 0.714 to 0.841, a spread of 0.127, against 0.466 to 0.554
+and a spread of 0.088. So the selection does not flatten this statistic, and the reasoning I
+registered was simply wrong.
+
+**The confound, which is mine and which this cell cannot settle.** I registered BY on the story that
+the 2026-09-05 sweep picked 0.30 because its statistic could not see the contacts a roll constant
+fails. That story predicts the two columns disagree -- unselected likes 0.00, selected likes 0.30.
+**They do not disagree.** The paying column also peaks at 0.00 (0.841) and puts the shipped 0.30
+fourth (0.805). The old sweep read 0.739 at 0.30 against 0.711 at 0.00, so the ordering has flipped
+*on the old sweep's own statistic*, which selection bias cannot explain and a changed tree can: the
+death model, the damage ramp and now `drawFraction` have all moved since. Two things changed at
+once and this cell holds neither fixed, so it does not get to name a cause. BZ holds the draw at 0
+and re-reads the two rolls, which is the nearest thing to the 2026-09-05 conditions that exists
+today.
+
+**No value changes on this table.** `cutRoll` stays at 0.30 until BZ says which of the two stories
+is true, because the recommendation and the reason are the same edit and I would rather ship neither
+than ship one with the other guessed.
+
+## BZ -- which of the two stories is it (registered before the run)
+
+BY left one question. The shipped `cutRoll` 0.30 was chosen in 2026-09-05 on a sweep reading 0.739
+at 0.30 against 0.711 at 0.00; BY reads the same statistic today and gets 0.805 against 0.841, the
+other way round. Either the old statistic was blind and the ordering was always wrong, or the tree
+moved under it. BY cannot tell, because it changed both.
+
+**The cell.** `cutRoll` at 0.00 and 0.30, crossed with `drawFraction` at 0 and 0.3, same seeds in
+all four, reading alignment over paying contacts and over all of them. `drawFraction` 0 is the law
+the 2026-09-05 sweep ran under; it is not the whole of that tree, but it is the only part of the
+difference that is still a dial.
+
+**Registered predictions:**
+
+- **P1: the draw is not what flipped it.** At `drawFraction` 0, the paying-contact alignment still
+  prefers 0.00 to 0.30. *Refused if* 0.30 wins the paying column at draw 0 -- which would say the
+  old sweep reproduces under its own law, the flip is something today's physics did, and 0.30 was
+  right for the tree that chose it.
+- **P2: the gap is wider at 0.3 than at 0.** Paying for the slide rewards a square edge twice --
+  once through `edgeExponent`, once by weighting the draw by alignment -- so the penalty for the
+  wrong roll should grow with the dial. *Refused if* the 0.00-minus-0.30 gap is the same or smaller
+  at draw 0.3 than at draw 0.
+- **P3: the all-contact column prefers 0.00 in both.** It is the statistic with no selection in it
+  and BY put it 0.554 against 0.481. *Refused if* either draw puts 0.30 ahead on it.
+
+**What ships on which outcome, decided now rather than after looking.** If P1 holds, `cutRoll` goes
+to 0.00 and the design note records that the old sweep's statistic was the problem. If P1 is
+refused, `cutRoll` goes to 0.00 *anyway* -- BY measured today's tree and today's tree is what
+ships -- but the note records the cause as the physics moving, and the 2026-09-05 sweep stands as
+correct for its own tree rather than as a mistake. Same edit, different sentence, and the sentence
+is the part that has to be true.
