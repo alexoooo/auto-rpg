@@ -39243,9 +39243,9 @@ fighting from both sides. 96 pairings, 192 bouts, sharded 16 ways.
 | damage dealt - taken | 96 pairings | +1.20 +- 1.98 | 0.062 | 0.61 |
 | score against 0.5 | 192 bouts | 0.5260 +- 0.0361 | 0.052 | 0.72 |
 
-**Both predictions fail.** No-retreat is indistinguishable from shipped on both measures, and the two
-agree, so there is nothing to adjudicate. **BR's +22 % was a mirror measuring its own noise**, which
-is the outcome P1's failing branch named in advance and the reason the rule exists.
+**Both predictions fail.** No-retreat is indistinguishable from shipped on both measures, and
+the two agree, so there is nothing to adjudicate. **BR's +22 % was a mirror measuring its own
+noise**, which is the outcome P1's failing branch named in advance and the reason the rule exists.
 
 It was a good story. These fighters really do back out of their own commits, forbidding it really is
 one line, all six rows of the sweep really did beat the control, and the mechanism was plausible
@@ -39263,9 +39263,9 @@ Applied backwards, and it costs me one claim and leaves two standing:
 
 - **BO's 0.20 row, +16 %**: already refused, on the grounds that a lone point flanked by lower
   neighbours is noise. Correct, and now quantified -- it was about one standard error.
-- **BQ's damage column**: I wrote that closing costs "a third of the damage", 35.6 against 46.2. That
-  difference is about two standard errors on two effectively independent measurements, and the four
-  close rows agreeing tells me nothing extra because they are the same engagement four times.
+- **BQ's damage column**: I wrote that closing costs "a third of the damage", 35.6 against 46.2.
+  That difference is about two standard errors on two effectively independent measurements, and
+  the four close rows agreeing tells me nothing extra: they are the same engagement four times.
   **Weaken that to: the damage evidence is suggestive and under-powered, and BQ's conclusion should
   rest on its tight columns instead.**
 - **BQ's tight columns stand, and they carry the conclusion anyway.** The normal component and
