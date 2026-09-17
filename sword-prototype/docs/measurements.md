@@ -40855,3 +40855,65 @@ on two statistics. **The inference between them does not.** I wrote "a fix lande
 and was never carried across" as though it explained all four rows; it explains one, and the run
 that was supposed to confirm it refused it at 5.4 sd. A story that fits one row is not a mechanism,
 and the pattern-match to the day's other findings is what made it feel like more than that.
+
+## CL -- the whole stroke at once, and where the fast side actually bottoms out (registered first)
+
+Four rows are now measured better than what ships: `followLift` 0.95 (+104), `chamberReach` 0.00
+(+85), `strokeSeconds` 0.12 (+56) and `cutRoll` 0.15 (+31). CK1 showed the first two compose at
+90 % of their summed Elo. Two things are owed: whether that holds at three and four rows, and where
+`strokeSeconds` stops improving, since CK2 refused the claim that it already had.
+
+Four arms against the shared control, seed base 20260918 so every number here is comparable to CI,
+CJ and CK without re-running anything.
+
+| arm | what it asks |
+| --- | --- |
+| `strokeSeconds` 0.09 | is the peak below 0.12, and by how much |
+| `strokeSeconds` 0.06 | is there a floor at all, or does the row run to zero |
+| `chamberReach` 0 + `followLift` 0.95 + `cutRoll` 0.15 | does composition survive a third row |
+| the same three + `strokeSeconds` 0.12 | the whole stroke, four rows on one fighter |
+
+### The predictions, with a verdict for every outcome the run can produce
+
+Rule 9 of the governing section exists because CI's P3 left a gap between its claim and its refusal
+and the answer landed in it. So each prediction below enumerates the cases and every case has a
+verdict.
+
+**CL1 -- where `strokeSeconds` bottoms out.** Let `d` be 0.06's score minus 0.12's, in sd of the
+pooled replicate spread.
+
+| outcome | verdict |
+| --- | --- |
+| `d >= +2` | **refused**: still unbounded below, and CL bought a bound it did not get |
+| `-2 < d < +2` | **held**: a plateau at or below 0.12, and 0.12 is a usable value |
+| `d <= -2` | **held, sharply**: the peak is bracketed between 0.06 and 0.15 |
+
+Predicted: `d <= -2`. A stroke of 0.06 s is 40 % of the shipped duration and the arm has to
+accelerate a blade through an arc in it; somewhere below 0.12 the blade must stop arriving with
+anything on it. *If 0.09 also loses to 0.12, the peak is at 0.12 itself and the plateau is narrow.*
+
+**CL2 -- does composition survive more rows.** Summed singles give **+220 Elo** for the three-way
+and **+276** for the four-way; at CK1's observed 90 % that is scores of **0.7533** and **0.8032**.
+
+| outcome | verdict |
+| --- | --- |
+| both at or above 80 % of summed Elo | **held**: separable, the stroke is its parts |
+| either between 50 % and 80 % | **partly held**: composition decays with row count |
+| either below 50 % | **refused**: they share a mechanism; the singles were over-read |
+| either above 110 % | **refused the other way**: positive interaction, which nothing predicts |
+
+Predicted: both at or above 80 %, so the three-way at or above **0.7340** and the four-way at or
+above **0.7770**.
+
+**CL3 -- the bout clock.** Every winning row has shortened the bout: 37.9 s shipped, 34.2 s on
+`chamberReach`, 32.7 s on the pair. Predicted: the four-way comes in **under 31 s**. *Refused if it
+is at or above 33 s*, which would mean the margin is being bought by something other than the golems
+finishing each other faster, and the owner's complaint would not be the thing being fixed.
+
+### What no outcome of this licenses
+
+Nothing ships off CL. Four constants moving at once is a bigger change than this phase has proposed
+so far and it still lands on two of the five minds in `PPO_LEAGUE`, so the re-rate is unchanged as
+the precondition and the decision is unchanged as the owner's. What CL buys is the number that
+decision would be made on, and the eye gate that has to come with it:
+`?tactic=chamberReach:0,followLift:0.95,cutRoll:0.15,strokeSeconds:0.12`.
