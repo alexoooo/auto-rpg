@@ -39095,3 +39095,72 @@ else moves with it, and nothing does. Calling it a result would be the third bad
 this time I would have had no excuse, having written the guard against it myself two hours earlier.
 
 So `strikeBite` is not the fix and the depth of aim does not reach squareness. BQ is the phase.
+
+## BQ result -- closing squares the blow a little and costs a third of the speed
+
+16 bouts a row. `holdFraction` and `standOffFraction` move together on the multiplier; the realised
+column is measured, not commanded.
+
+| scale | commanded hold m | **realised m** | contacts | normal | speed m/s | paying | damage/bout |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.55 | 0.98 | **1.51** | 6352 | 0.36 | 4.55 | 19 % | 35.4 |
+| 0.65 | 1.16 | **1.51** | 6347 | 0.36 | 4.56 | 19 % | 35.6 |
+| 0.70 | 1.25 | **1.52** | 6337 | 0.36 | 4.57 | 19 % | 35.6 |
+| 0.80 | 1.42 | **1.52** | 6311 | 0.36 | 4.58 | 19 % | 35.6 |
+| 0.90 | 1.60 | 1.66 | 6212 | 0.33 | 5.28 | 22 % | 48.3 |
+| **1.00, shipped** | 1.78 | 1.82 | 4173 | 0.29 | 6.32 | 25 % | 46.2 |
+| 1.10 | 1.96 | 1.95 | 4022 | 0.28 | 5.93 | 23 % | 50.7 |
+
+**There is a hard floor at 1.51 m and the command cannot cross it.** Asking for 0.98 m gets 1.51 m,
+and so does asking for 1.16, 1.25 or 1.42 -- four rows identical in every column because they are
+all resting on `near + slack` and the bodies themselves. The guard earned its place: without the
+realised column this table reads as "four different distances make no difference", which is false
+and would have been the fourth reading tonight that restated its own construction.
+
+**P1 fails: +0.07 against the 0.10 registered.** Closing does square the blow, monotonically and in
+the direction BN's weak gradient pointed -- 0.28, 0.29, 0.33, 0.36 -- and then it runs out of floor
+at 0.36. That is not remotely the 0.70 a paying contact needs.
+
+**P2 fails.** There is no interior optimum below 1.00. Damage per bout is *worst* at every close row
+(35.6) and best at the farthest one tested (50.7 at 1.10). And the guard says exactly why: **contact
+speed collapses from 6.32 to 4.55 m/s, a 28 % loss, and energy goes as its square.** The blow gets
+squarer and much weaker, and 0.36/0.29 against (4.55/6.32)^2 is a net loss of a third.
+
+### Which vindicates the 2026-09-05 fix a second time and closes the stance as a lever
+
+The owner's reading was that the golems are too close. Three cells now say the opposite from three
+directions: they stand 0.04 m *outside* what they ask for (BG); a landing blow and a glancing one
+are thrown from 2 mm apart (BN); and *making* them stand closer costs a third of the damage (BQ).
+Standing off is right, it was right in 2026-09-05, and it is right now.
+
+**So the stance is spent.** Where they stand is not reachable as a fix, how deep they aim is a dead
+knob, and the arm is against its rail at every distance they can actually occupy. What is left is
+not where the body is but whether it is *moving* when the blow lands -- which is a different
+quantity from all of these, and the one thing a real cut has that these do not.
+
+## BR -- registration: does anything carry the body through the stroke?
+
+`intent.forward = clamp((gap - hold) * T.closeGain, -1, 1)` is a setpoint controller and it is set
+once for every stance, `commit` included. At the moment of a stroke a fighter that has arrived at
+its hold is therefore commanding **zero forward drive**: it is standing still and rotating. A real
+cut is delivered through a step, and the body's own velocity is part of what arrives.
+
+This is a different quantity from BQ. BQ moved where they stand and paid for it in swing speed. This
+adds velocity *at* the contact without moving the setpoint and without slowing the arm -- body
+motion adds to the weapon's velocity rather than competing with it.
+
+Probed by **wrapping** `golemFencer` rather than editing it: the mind is `{ ...getters, decide() }`,
+so a wrapper can delegate, read `stance`, and floor `intent.forward` during `commit`. No source file
+is touched to take the reading, which is the rule this record has kept all night.
+
+- **P1:** at drive 0.6 the median normal component beats shipped by **more than 0.10**.
+  - *Holds* -> the missing ingredient is the step, and it is a fighter fix.
+  - *Fails* -> body motion does not reach the contact either, and the constraint is the golem's
+    proportions: 0.42 m of arm travel carrying 1.06 m of overhang. That is a body question and the
+    owner's to rule on, not mine.
+- **P2:** damage per bout at the best drive beats shipped by **more than 15 %**, with a monotone
+  neighbourhood around it. A lone point between two lower ones is noise, as BO's 0.20 row was.
+- **Guard, and it is the owner's original complaint:** report realised separation and the share of
+  samples inside `near`. If driving forward during the stroke walks them into each other's faces,
+  this reproduces the 2026-09-05 defect, and no damage number redeems it -- that is an eye gate and
+  it outranks the table.
