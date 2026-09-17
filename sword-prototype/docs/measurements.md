@@ -39603,3 +39603,47 @@ flat.
 job, and the reach chain may simply not be able to keep an edge square through an arc. And the two
 draw columns are different fights, not the same contacts re-scored, so no row here is a per-contact
 comparison; the seeds are what is held fixed. That is the control BV got wrong and this one states.
+
+## BY -- the roll was chosen by a statistic that could not see the contacts it fails
+
+BX put median edge alignment at 0.80 among contacts that pay and 0.31 among contacts that do not.
+The source says why that is possible. `GOLEM_TACTICS.cutRoll` is **a constant, 0.30 radians**
+(`src/golem/tactics.ts:713`), and its own comment is explicit that this was a choice: *"A constant
+chosen from a sweep, and not a servo. The alternative was to derive it from the commanded stroke
+the way `rollForStroke` does for a Warrior, and the derivation there is a page of spherical geometry
+that is right for one arm."* So the wrist turns to the same angle whatever direction the blade is
+actually travelling, and a fixed roll is square for one stroke and flat for another.
+
+**The statistic that picked it was selected.** That sweep read *"the mean edge alignment of every
+contact the damage model scored"* -- the paying contacts. Until today a contact under the floor
+reported a hard zero for its alignment and `scripts/bout-runner.mjs` dropped it from the column
+outright, so there was no way to read the other population. The contacts that fail are exactly the
+ones a roll constant would fail, and they were invisible to the sweep that chose the constant. That
+is not a mistake anybody made; it is an instrument that did not exist until this morning.
+
+**The cell.** Re-sweep `cutRoll` on the same mirrored default golem, 16 side-swapped bouts a row,
+and read alignment **over every armed contact** as well as over the paying ones, broken out by
+stance.
+
+**Registered predictions:**
+
+- **P1: the shipped 0.30 is not the optimum of the unselected statistic.** The roll that maximises
+  median alignment over *all* contacts sits at least one grid step away from 0.30. *Refused if* the
+  all-contact optimum lands on 0.30 as well -- which would say the selection did no harm and the
+  constant is simply right.
+- **P2: no constant is the right shape.** The roll maximising alignment in `commit` differs by more
+  than one grid step from the one maximising it in `recover`. *Refused if* every stance's optimum
+  lands within one step of the same value, which would say a constant is the correct model and only
+  its value is in question.
+- **P3: the paying-contact column moves less than the all-contact column.** Over the sweep, the
+  spread of median alignment among paying contacts is smaller than among all contacts -- because a
+  contact only enters the paying set by being well aligned, so that column partly measures its own
+  selection. *Refused if* the paying column has the wider spread.
+
+**Decided on alignment, not damage.** BS put the standard error of a 16-bout damage mean at 5 to 6
+against a column whose whole range is about ten, so damage per bout cannot rank eight rows here. It
+is reported because leaving it out would be hiding it. Alignment is a median over thousands of
+contacts and is what this cell is read on -- the same rule BV was read under.
+
+**The control.** Each row is a different fight, so the populations differ between rows; nothing here
+claims a per-contact comparison. What is held is the seed set, the body, and the opponent.
