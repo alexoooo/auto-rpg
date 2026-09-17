@@ -37052,3 +37052,130 @@ times the collider's own volume, the rule every other terminal follows, and the 
 the case against it is that it is measurably slower for nothing. **Recorded as a decision for the
 owner rather than taken here**, because it trades a principle against a tenth of a stroke and the
 owner is the one who said the mass looked wrong in the first place.
+
+## AS -- AP's four cells under the new physics, and a registered prediction falsified
+
+| cell | lineage | opponent | AP cosine | AP t | AS cosine | AS t | its |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| f2 | an-ramp2 | `golem-fencer` | 0.0272 | 1.23 | 0.0023 | **0.12** | 30 |
+| i2 | an-ramp2 | `idle` | 0.0655 | 4.17 | 0.0444 | 1.91 | 30 |
+| f11 | ao-ramp11 | `golem-fencer` | 0.0213 | 1.50 | 0.0364 | **2.11** | 30 |
+| i11 | ao-ramp11 | `idle` | 0.0477 | 2.27 | 0.0659 | 4.03 | 30 |
+
+AP's `i11` was contaminated by my own source edit and its 2.27 is not quotable, so that one cell
+has no clean baseline to be compared against. The other three do.
+
+### Prediction 2 is falsified, and it was the prediction the run was built around
+
+The registration said, in as many words, that neither fencer cell would rise above t 2.0. **`f11`
+came in at 2.11.** That is over the line, and the prediction as written is wrong. The kill criterion
+was stricter -- it asked for *both* fencer cells -- and it did not fire, but a registered prediction
+is scored as registered and this one missed.
+
+**I also over-claimed it in-session.** When only the first pair had landed I reported prediction 2
+as confirmed on the strength of `f2` alone. `f2` is the cell that collapsed, from 1.23 to 0.12, and
+reporting the half that agreed with the registration before the half that did not is the error the
+pre-registration discipline exists to prevent. Recorded here rather than quietly fixed.
+
+### What the four cells do and do not support
+
+The two fencer cells disagree violently -- 0.12 and 2.11 -- on the same opponent, the same bout
+count, the same seed and the same class cut, differing only in which lineage the weights came from.
+With `sem` near 0.018 in both, one cell of four crossing two sigma is close to what four draws give
+for free, and the honest reading is **the fencer cell is marginal at best and is not reliably
+non-zero.** It is not the clean zero AP reported and it is not a working gradient either.
+
+What survives in both lineages is the *ordering*: the idle cell beats its own fencer cell in each,
+1.91 against 0.12 and 4.03 against 2.11. **The dissociation's direction is unchanged by the timing
+fix**, which is the question AS was built to answer, and the answer is that the missing signal
+against a fencer is not an artifact of strokes having been timed by a constant.
+
+### The other three predictions
+
+**Prediction 1 missed, and was stated in the wrong quantity.** It asked both idle cells to land
+within 1.0 of AP's t. `i2` moved 4.17 -> 1.91 and missed; `i11` has no clean baseline and cannot be
+scored. But `i2`'s *cosine* moved only 0.0655 -> 0.0444 while its t moved 2.26, because `t` is a
+ratio whose denominator is itself a noisy estimate at n = 30. **The registration should have named
+the cosine.** A prediction stated on a t-statistic is partly a prediction about the standard error,
+which is not what was being claimed.
+
+**Prediction 3 is mixed and therefore false as stated.** It said the fencer cells would get worse
+and the maul cell worse than the mace cell. `f2` fell 1.23 -> 0.12 and `f11` rose 1.50 -> 2.11.
+
+**Prediction 4 holds where it can be checked.** The margin against `idle` in the fencer cells fell,
+`f2` from +0.0098 to -0.0341, with `f11` at -0.0797 against no clean baseline.
+
+### What AS closes
+
+The timing fix was worth making -- it is the physics, the owner asked for it, and AT and AU are both
+built on it -- but **it bought no training signal in the cell that matters**, and the record should
+stop expecting the next physics correction to. Four independent measurements have now found the same
+dissociation and none of the eight explanations tried against it has survived contact with a fifth.
+The next candidate is not a physics defect at all; it is in AV.
+
+## AV -- damage is concentrated, and there are two squared terms making it so
+
+216 bouts, 24 builds of the whole pool, `golem-fencer` on both sides, cap 60, seed 20260906. Every
+blow of one side recorded individually rather than summed.
+
+**First, a unit correction that applies to AT as well.** `Combat` files a report every physics step
+a weapon is touching something, so one sweep across a torso is several reports. Measured here at
+**3.5 contact-steps per stroke**. AT's "77 % of contacts under floor" is therefore a statement about
+steps, and when I relayed it as "77 % of attacks do nothing" that was wrong by that factor. Per
+stroke -- the unit a person watching actually counts -- the number is **62 %**.
+
+| | per contact-step | per stroke |
+| --- | ---: | ---: |
+| events a bout | 267 | 75.5 |
+| share paying anything | 20 % | 38 % |
+| median paying event | 0.21 | 0.39 |
+| p90 | 1.26 | 2.69 |
+| p99 | 5.38 | 9.63 |
+| max | 37.16 | 37.16 |
+| top 1 % of paying events carries | 17.2 % | 13.7 % |
+| top 5 % carries | 40.1 % | 36.4 % |
+| top 10 % carries | 54.4 % | 52.2 % |
+
+### The owner's two complaints are one distribution
+
+They read as opposites -- "a lot of attacks didn't really seem to do anything" and "then the fight
+was over in one or two key attacks" -- and they are the two tails of the same histogram. Three
+strokes in five are priced at zero; of the two that are not, the median does 0.39 damage and the
+top tenth carries **more than half of all damage delivered**. A decided bout takes 28.8 paying
+strokes and a third of a side's damage arrives in its three heaviest blows.
+
+### Two squared terms, and only one of them is physics
+
+`scoreHit` in `src/scoring.ts` is explicit, and its own comment calls those lines "the balance
+surface of the whole prototype":
+
+```
+damage = quality * energyJ / joulesPerDamage
+quality = alignment ^ edgeExponent          // edgeExponent = 2.0
+energyJ = 1/2 mu v^2
+```
+
+So an edge's damage goes as **alignment squared times closing speed squared**. Over the measured
+ranges each term spans about elevenfold and the product about a hundred and twentyfold, which is the
+observed median-to-max spread of 177x with nothing else needed to explain it.
+
+**The two terms are not equally defensible.** `1/2 mu v^2` is kinetic energy and the record should
+not go looking for a way around it. `edgeExponent` is a named tuning constant with no conservation
+law behind it: the choice to price a half-aligned edge at a quarter rather than a half is a
+modelling decision, and it is doing as much tail-making as the physics is. It is also already a dial
+in `CONFIG.combat`, it touches only edged weapons, and the blade is the terminal the owner asked
+about.
+
+### Why this is the candidate for the training failure as well
+
+AS has now found the fencer cell marginal or dead under the new physics, four measurements deep,
+with eight explanations eliminated. A policy gradient is a sample mean of returns, and its
+signal-to-noise falls as the return distribution's spread over its mean. **A reward whose top tenth
+of events carries half its mass is close to the worst case for a sample-mean estimator**, and it is
+exactly the shape the fencer cell has and the dummy cell does not: against `idle`, contact is dense
+and steady and the same reward is collected in many small pieces.
+
+That makes one mechanism responsible for both the thing the owner saw and the thing thirteen
+sessions of training could not get past, and it is falsifiable in the obvious direction: **compress
+the tail and the fencer cell's gradient should come alive.** That is AW, and it is the first
+experiment this record has had that predicts a training result from a rendering complaint.
