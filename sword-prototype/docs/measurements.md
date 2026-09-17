@@ -40695,3 +40695,43 @@ pool, but a different and far more tractable one than "everything must be refitt
 and the live table should take all four. If it loses, `chamberReach` -0.20 winning on both paths is
 a coincidence of one row and each path needs its own sweep. Every remaining decision in this phase
 turns on which.
+
+## CJ result -- the roll row re-run, now that the override reaches it
+
+CI's `cutRoll` arm measured nothing. This is the same row on the same seed base, 4096 paired bouts,
+after `strokeOverrideFor` made the override reach `roll` and `windRoll` instead of putting a dead
+key on the shape. Three values, because a row that has never been duelled at all deserves more than
+the one BY happened to name.
+
+| arm | score | vs control | verdict | W-D-L | seconds | Elo |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| shipped v shipped (0.30) | 0.4941 | -- | the control | 506-0-518 | 37.9 | -- |
+| `cutRoll` 0.15 | 0.5391 | +0.0449 | 3.0 sd clear | 552-0-472 | 38.1 | **+31** |
+| `cutRoll` 0.00 | 0.5332 | +0.0391 | 2.6 sd clear | 546-0-478 | 38.7 | +27 |
+| `cutRoll` 0.45 | 0.4258 | -0.0684 | 4.5 sd WORSE | 436-0-588 | 38.5 | -48 |
+
+The control reproduced CI's 0.4941 to the bout, which it should have -- same seed base, same shipped
+stroke against itself -- and that is a useful thing to have seen twice.
+
+**The row is monotone across the range and the shipped value is on the losing side of it.** Less
+roll wins, more roll loses, and 0.30 ships. The two winning cells are inside each other's noise, so
+this is another plateau rather than a peak at 0.15; what is established is that **somewhere at or
+below 0.15 is worth about 30 Elo over what ships**, and that 0.45 costs 48.
+
+**BY was right and its statistic was not.** BY named `cutRoll` 0 on median edge alignment, CA threw
+it out because it did not survive the gates, and the row sat unresolved for the rest of the phase.
+Across the table it wins by 2.6 sd. The proxy picked the right row here and the wrong row on
+`strokeSeconds`, which is the same lesson from both sides: the proxy nominates, it does not decide.
+
+**And it is a fourth constant worth Elo**, after `chamberReach` (+85), `followLift` (+104) and
+whatever CK finds. Four of the eight rows `tune.mjs` structurally cannot reach are now measured
+wrong across the table, which is no longer a run of bad luck on individual constants. It is what
+`docs/design.md` calls the nine constants nothing re-reads, priced.
+
+**A caution this result puts on CI's replacement rule.** CI proposed that a mirror predicts the
+direction of a paired margin when the mirror's own gap clears its spread. The mirror for `cutRoll` 0
+was **-0.052**, the wrong sign against a paired +0.039 at 2.6 sd. It does not refuse the rule --
+that mirror came from CD at 16 bouts a cell, the weakest reading in the record, and no spread could
+be computed for it at all -- but it is the closest thing to a counterexample the record holds, and
+the rule should be read as provisional until a mirror with a real spread is tested against a duel on
+the same row.
