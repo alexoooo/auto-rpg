@@ -5066,6 +5066,63 @@ The process that replaces this is `scripts/stroke-sweep.mjs`, and it carries CC'
 every value replicated on its own seed bases, every margin quoted in units of the pooled replicate
 spread, nothing named under two of them, and a refusal printed as a result rather than as a blank.
 
+### The row that is actually wrong is `chamberReach`, and it is the row the complaint names
+
+`cutRoll` is where this phase started and it is not where the answer is. Of the eight rows the
+tuner cannot reach, **one moves the thing the owner asked about**, and it moves it a long way.
+
+`chamberReach` is how far the hand is drawn in at the chamber, as a fraction of reach. It ships at
+**-0.70**, which is drawn right into the body. Re-read at 128 bouts a cell with every value
+replicated:
+
+| `chamberReach` | median edge alignment | damage a second | bout |
+| ---: | ---: | ---: | ---: |
+| **-0.70 (ships)** | 0.514 | **1.411** | 38.0 s |
+| -0.40 | 0.546 (5.5 sd) | 1.617 (3.6 sd) | 33.3 s |
+| -0.20 | 0.566 (8.9 sd) | 1.660 (4.4 sd) | 32.5 s |
+| 0.00 | 0.571 (9.6 sd) | 1.649 (4.2 sd) | 32.1 s |
+| 0.15 | 0.575 (10.4 sd) | 1.722 (5.5 sd) | 31.5 s |
+| 0.30 | 0.578 (10.8 sd) | 1.607 (3.4 sd) | 33.7 s |
+
+**The shipped value is not off the best cell. It is worse than every alternative offered across a
+full metre of the row**, on both statistics, by three to eleven standard deviations. What is
+established is a plateau from -0.20 to 0.30 worth about **+17 % damage a second and six seconds off
+the bout**; the peak at 0.15 is inside its neighbours' noise and is not a number.
+
+**The owner's sentence was that the golems get into each other's face and flail.** The one row in
+nine that moves the objective is the row that says how cramped the wind-up is. That is the first
+place in this phase where the measurement and the complaint are plainly about the same thing.
+
+**Two independent methods agree, and neither was looking for the other.**
+`COMMITTED_SHAPES.sword` in `tactics-v3.ts` carries `chamberReach: -0.20`, put there by Session 02
+of the style set, swept on distance-to-mark, on a v3 mind. It lands inside this plateau. Two
+statistics with nothing in common but the row, and both disagree with what ships.
+
+**Watch it rather than take the table's word for it:** `?tactic=chamberReach:0.15` on the setup
+screen runs one page on the changed stroke and says so on the boot note. Two tabs, same matchup
+link, is the comparison. See `src/golem/stroke-rows.ts` for which minds the override reaches.
+
+**Why it has not shipped.** The same reason as `cutRoll`, and it has not weakened: every fitted
+policy head in this tree was trained with the stroke at -0.70, so moving it invalidates them and
+the honest order is re-rate first. On top of that, until CG every cell measuring it was a *mirror*:
+both fighters read one module-global stroke shape, so a swept row moved both of them. A mirror can
+say a configuration is more dangerous. It cannot say a golem with the change beats a golem without
+it, which is the criterion this project judges a designed mind by. That measurement now exists to
+be taken and the decision stays the owner's.
+
+### How much measurement is worth buying, which turned out to have an answer
+
+Eight times the bouts bought a factor of 2.4 in the damage rate's spread rather than the square root
+of eight, on two rows independently. Solving `sd^2 = a^2/n + b^2` on each gives a floor of **0.032
+and 0.037** damage a second -- an irreducible component of about 2.5 % that no number of bouts
+removes, because it is shared within a cell rather than accumulated across its bouts. The per-cell
+seed base is the obvious suspect.
+
+So the damage rate cannot be resolved better than about 5 %, ever, under this design. At 128 bouts
+a cell it is within one and a half times that floor. **There is nothing left to buy by running more
+bouts**, and a sweep that wants a finer answer needs a different design rather than a longer one.
+`chamberReach`'s effect is nine times the floor, so its size is not in question.
+
 ### The proxy is not the objective, and on one row they point opposite ways
 
 Median edge alignment was chosen because it has no selection in it: BZ showed the unselected column
