@@ -340,12 +340,23 @@ async function main(argv) {
   for (const line of summarise(row, shipped, stats, sigmas)) console.log(line);
 }
 
+/**
+ * The child dispatch, guarded on this file being the one that was *run*.
+ *
+ * Without the guard, any module that imports a helper from here inherits this branch: the import
+ * executes the top level, `--child` is still on the argv of the process that is running, and this
+ * file answers a child call meant for the importer -- printing its own `|CELL|` line first and
+ * handing the parent a cell with the wrong statistics on it. That is not hypothetical; it is how
+ * `scripts/stroke-duel.mjs` first came back with a table of NaN while reporting sane bout lengths,
+ * because the sweep's cell and the duel's cell both end in `seconds`.
+ */
+const RUN_AS = process.argv[1] ?? "";
 const childAt = process.argv.indexOf("--child");
-if (childAt !== -1) {
+if (RUN_AS.endsWith("stroke-sweep.mjs") && childAt !== -1) {
   cell(JSON.parse(process.argv[childAt + 1]))
     .then((out) => console.log(`|CELL|${JSON.stringify(out)}`))
     .catch((error) => { console.error(error); process.exit(1); });
-} else if (process.argv[1] && process.argv[1].endsWith("stroke-sweep.mjs")) {
+} else if (RUN_AS.endsWith("stroke-sweep.mjs")) {
   main(process.argv.slice(2)).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
