@@ -1,3 +1,5 @@
+import type { StrokeShape } from "./tactics.ts";
+
 /**
  * The rows of `GOLEM_TACTICS` that a sword's stroke reads *live*, and who actually sees a change.
  *
@@ -95,3 +97,28 @@ export const setLiveStrokeRow = (
 ): void => {
   (table as { [key in LiveStrokeRow]: number })[row] = value;
 };
+
+/**
+ * The `StrokeShape` fields one live row drives, for a **per-side** override that cannot write the
+ * table because the other fighter is reading it.
+ *
+ * **Seven of the eight rows share a name with the field they drive, and `cutRoll` does not.** `CUT`
+ * exposes it as two getters, `roll` and `windRoll`, both onto the one table row -- an edge is
+ * turned the same amount going back as coming forward. So `{ ...STROKE_SHAPES.sword, cutRoll: 0 }`
+ * spreads a key nothing reads, and the stroke that comes out is the shipped stroke with a piece of
+ * junk attached.
+ *
+ * That is not hypothetical. CI ran `cutRoll 0` over 1024 paired bouts and it came back 506-0-518,
+ * which is the control's record to the bout, because the override reached nothing. A row that
+ * silently measures the null hypothesis is worse than one that throws, and the shape of the failure
+ * -- a perfect null on the one row whose name is not a field -- is what named it.
+ *
+ * Going through here rather than through the row name is what makes that unrepresentable: the
+ * mapping is total over `LiveStrokeRow`, so a row added to the list without a field to drive is a
+ * compile error rather than an arm that quietly reports 0.500.
+ */
+export const strokeOverrideFor = (
+  row: LiveStrokeRow, value: number,
+): Partial<StrokeShape> => (row === "cutRoll"
+  ? { roll: value, windRoll: value }
+  : { [row]: value });

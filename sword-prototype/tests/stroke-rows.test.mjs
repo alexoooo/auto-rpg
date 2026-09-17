@@ -5,7 +5,7 @@ import { INERT_ROWS } from "../scripts/tune.mjs";
 import { SHAPE_ROWS } from "../scripts/stroke-sweep.mjs";
 import { GOLEM_TACTICS, STROKE_SHAPES } from "../src/golem/tactics.ts";
 import {
-  LIVE_STROKE_ROWS, isLiveStrokeRow, parseStrokeOverrides, setLiveStrokeRow,
+  LIVE_STROKE_ROWS, isLiveStrokeRow, parseStrokeOverrides, setLiveStrokeRow, strokeOverrideFor,
 } from "../src/golem/stroke-rows.ts";
 
 test("the_live_rows_are_exactly_the_ones_the_sword_shape_reads_through_a_getter", () => {
@@ -82,4 +82,38 @@ test("one_bad_pair_is_visible_to_the_caller_beside_the_good_ones", () => {
   const parsed = parseStrokeOverrides("cutRoll:0,nonsense:1,strokeSeconds:0.2");
   assert.equal(parsed.length, 3);
   assert.deepEqual(parsed.map((p) => p.ok), [true, false, true]);
+});
+
+test("every_live_row_drives_a_field_the_shape_actually_reads", () => {
+  // The bug this pins: `cutRoll` is the one live row whose name is not a `StrokeShape` field, so
+  // `{ [row]: value }` produced an override nothing read and the arm silently ran the shipped
+  // stroke. A perfect null on one row of a table is indistinguishable from a real null, which is
+  // why this is asserted structurally rather than left to a bench to notice.
+  const fields = Object.keys(STROKE_SHAPES.sword);
+  for (const row of LIVE_STROKE_ROWS) {
+    const over = strokeOverrideFor(row, 0.37);
+    const keys = Object.keys(over);
+    assert.ok(keys.length > 0, `${row} maps to no field at all`);
+    for (const k of keys) {
+      assert.ok(fields.includes(k), `${row} maps to "${k}", which is not a field of the shape`);
+      assert.equal(over[k], 0.37, `${row} -> ${k} did not carry the value`);
+    }
+  }
+});
+
+test("cutRoll_drives_both_halves_of_the_turn_and_nothing_else", () => {
+  // Two getters, one row: an edge is turned the same amount winding up as coming through. An
+  // override that moved only one of them would be a stroke that rolls in and does not roll out.
+  assert.deepEqual(strokeOverrideFor("cutRoll", 0.5), { roll: 0.5, windRoll: 0.5 });
+  assert.deepEqual(strokeOverrideFor("chamberReach", -0.2), { chamberReach: -0.2 });
+});
+
+test("an_override_built_from_a_row_actually_moves_the_merged_shape", () => {
+  // Driven through the merge the bench performs, because the defect was invisible at the row and
+  // only showed up in what came out the other side.
+  for (const row of LIVE_STROKE_ROWS) {
+    const merged = Object.freeze({ ...STROKE_SHAPES.sword, ...strokeOverrideFor(row, 0.37) });
+    const moved = Object.keys(merged).filter((k) => merged[k] !== STROKE_SHAPES.sword[k]);
+    assert.ok(moved.length > 0, `${row} produced a merged shape identical to the shipped one`);
+  }
 });

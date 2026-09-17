@@ -33,7 +33,7 @@ import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { writeFile } from "node:fs/promises";
 
-import { LIVE_STROKE_ROWS } from "../src/golem/stroke-rows.ts";
+import { LIVE_STROKE_ROWS, strokeOverrideFor } from "../src/golem/stroke-rows.ts";
 import { mean, sd, verdict } from "./stroke-sweep.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -58,7 +58,11 @@ export async function cell({ row, value, seed, bouts, cap }) {
   const { defaultGolemSetup } = await import(at("src/golem/build.ts"));
   const setup = defaultGolemSetup();
 
-  const over = value === null ? null : { [row]: value };
+  // Through `strokeOverrideFor` and never `{ [row]: value }`: `cutRoll` is the one live row whose
+  // name is not a `StrokeShape` field -- it drives `roll` and `windRoll` -- so the object literal
+  // put a key on the shape that nothing reads and the arm ran the shipped stroke. CI's `cutRoll 0`
+  // came back 506-0-518 against a control of 506-0-518 before this was found.
+  const over = value === null ? null : strokeOverrideFor(row, value);
   const mind = (mindSeed, strokeOver) => {
     const tactics = strokeOver === null
       ? GOLEM_TACTICS_V2
@@ -167,7 +171,7 @@ async function main(argv) {
     + ` ${availableParallelism()} cores`);
   console.log("the first arm is the shipped stroke against itself, which has to come back at 0.500");
 
-  const results = await Promise.all(plan.map((c) => new Promise((resolve) => {
+  const runOne = (c) => new Promise((resolve) => {
     const spec = JSON.stringify({ row: c.row, value: c.value, seed: c.seed, bouts, cap });
     execFile(process.execPath, [process.argv[1], "--child", spec], {
       encoding: "utf8", cwd: ROOT, maxBuffer: 1 << 28,
@@ -178,7 +182,36 @@ async function main(argv) {
         resolve({ ...c, failed: why ?? "no output" });
       } else resolve({ ...c, ...JSON.parse(line.slice(6)) });
     });
-  })));
+  });
+
+  // Cells run through a pool bounded by the core count. `Promise.all` over the whole plan spawned
+  // every child at once -- `availableParallelism()` was printed and never used -- which
+  // oversubscribes the box on a big table and, worse, makes every cell land at the end: a run that
+  // takes an hour reported nothing for an hour and could not be told apart from a hung one.
+  const lanes = Math.max(1, Math.min(availableParallelism(), plan.length));
+  const results = new Array(plan.length);
+  let next = 0;
+  let done = 0;
+  let spent = 0;
+  const lane = async () => {
+    while (next < plan.length) {
+      const at = next++;
+      const began = Date.now();
+      const r = await runOne(plan[at]);
+      results[at] = r;
+      done += 1;
+      spent += (Date.now() - began) / 60000;
+      // The estimate counts waves rather than dividing elapsed by cells finished. With a saturated
+      // pool the first `lanes` cells all land at once, and the naive rate would call four cells
+      // left on thirty-two lanes four minutes rather than the one full wave they actually are.
+      const left = Math.ceil((plan.length - done) / lanes) * (spent / done);
+      // Progress on stderr, so a redirected stdout still holds nothing but the table.
+      process.stderr.write(`[${done}/${plan.length}] ${r.key} seed ${r.seed}: `
+        + `${r.failed ? `FAILED ${r.failed}` : r.score.toFixed(4)}`
+        + ` -- about ${left.toFixed(0)} min to go${NL}`);
+    }
+  };
+  await Promise.all(Array.from({ length: lanes }, lane));
 
   const ok = (key) => results.filter((r) => r.key === key && !r.failed);
   const noise = mean(wanted.map((a) => sd(ok(a.key).map((r) => r.score))).filter((x) => x > 0));
