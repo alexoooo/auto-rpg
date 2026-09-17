@@ -39164,3 +39164,47 @@ is touched to take the reading, which is the rule this record has kept all night
   samples inside `near`. If driving forward during the stroke walks them into each other's faces,
   this reproduces the 2026-09-05 defect, and no damage number redeems it -- that is an eye gate and
   it outranks the table.
+
+## BR result -- driving forward does not square the blow, but retreating mid-stroke is costing damage
+
+16 bouts a row. `off` is a true pass-through and it reproduces BO's shipped row to the contact --
+4173 contacts, 0.29, 6.32 m/s, 25 %, 46.2 -- which is the check that the wrapper changes nothing by
+existing.
+
+| drive during `commit` | realised m | inside `near` | contacts | normal | speed m/s | damage/bout |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **off (shipped)** | 1.82 | 0.0 % | 4173 | 0.29 | 6.32 | **46.2** |
+| 0.00 | 1.81 | 0.1 % | 4603 | 0.33 | 6.21 | **56.3** |
+| 0.20 | 1.79 | 0.3 % | 4553 | 0.32 | 5.73 | 48.1 |
+| 0.40 | 1.77 | 0.7 % | 5234 | 0.32 | 6.00 | 52.8 |
+| 0.60 | 1.74 | 1.2 % | 5597 | 0.31 | 5.72 | 49.2 |
+| 0.80 | 1.73 | 1.3 % | 5226 | 0.33 | 5.46 | 48.5 |
+| 1.00 | 1.72 | 3.5 % | 5570 | 0.33 | 5.66 | 47.9 |
+
+**P1 fails: +0.02 at drive 0.6, against the 0.10 registered.** Carrying the body forward does not
+square the blow. The normal component moves from 0.29 to 0.31-0.33 and stops, nowhere near the 0.70
+a paying contact carries. **The rake is not fixed by stepping into it**, and that is now the third
+intervention -- depth of aim, where they stand, and body motion -- that fails to reach it.
+
+**The guard passes cleanly.** Inside-`near` stays at or under 1.3 % up to drive 0.8 and reaches only
+3.5 % at full drive, against the 6.8 % that the 2026-09-05 defect was diagnosed at. Driving forward
+during the stroke does not walk them into each other's faces.
+
+### The row that matters is the control, and it is not the one I designed it to be
+
+**Drive 0.00 is not "no drive".** `max(forward, 0)` leaves a forward command untouched and clips a
+*negative* one -- it forbids **backing off during a commit** and does nothing else. It is the
+cheapest row in the sweep and it is the best one: **56.3 against 46.2, +22 %**, with contact speed
+essentially intact at 6.21 against 6.32 and `near` untouched at 0.1 %.
+
+And unlike BO's 0.20 row, it is not a lone point. **Every one of the six rows beats the control**,
+from 47.9 to 56.3, and the thing they all share is exactly this -- none of them can retreat during a
+stroke. The rows that additionally push forward do no better, and pay for it in contact speed.
+
+So the reading is: **these fighters start a commit and then walk backwards out of their own stroke**,
+and simply forbidding that is worth a fifth of the damage.
+
+**It is not confirmed and I am not shipping it on this table.** 16 bouts of a mirror against itself
+is a mind measured against its own noise, which is the one comparison this project has a standing
+rule against. The confirmation is a paired margin between two designed minds -- shipped against
+no-retreat, same seeds, both sides -- reported as Cohen's d. That is BS.
