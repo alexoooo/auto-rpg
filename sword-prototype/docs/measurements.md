@@ -40992,3 +40992,56 @@ margin, whatever they do to the clock is unopposed by a gain, and what they do i
 slower in wall time. The owner's complaint is about golems flailing at close quarters, and **the
 pair is what answers it** -- 5.2 fewer seconds and +170 Elo. The four-row stroke is 3.8 fewer
 seconds and +166, which is worse on both counts and carries twice the risk to every fitted head.
+
+## CM -- the re-rate question, asked of the pool rather than of the fit (registered before the run)
+
+CL settled what to ship: `chamberReach` 0.00 and `followLift` 0.95, +170 Elo on golem-fencer against
+itself. Everything since CA has ended on the same sentence -- *re-rate before moving a row* -- and
+until tonight the flag that would have done it could not reach the stroke at all.
+
+**What actually changes when these two rows move.** They live on `GOLEM_TACTICS`, read live by v1
+and v2 minds. Of the five minds in `PPO_LEAGUE`, `golem-duelist` (v1) and `golem-fencer` (v2) read
+them; `golem-form`, `golem-brawler` (v3) and `golem-driver` (v4) run committed arcs and do not. So
+moving the rows does not change a fitted head's own stroke -- it makes **two of the five opponents
+it was rated against stronger**, and a rating is a rating against a pool.
+
+**The cells.** One cross tournament over `golem-policy`, `golem-driver`, `golem-fencer` and
+`golem-duelist`, run twice on the same seed and the same builds: once as shipped, once under
+`--override chamberReach=0,followLift=0.95`. The difference between the two tables is the whole
+measurement, and the overridden run is a mirror in the sense that matters here -- both corners get
+the row when both corners read it.
+
+### The predictions, with a verdict for every outcome
+
+**CM1 -- the two live-stroke minds gain on the two that do not.** Let `g` be the change in
+`golem-fencer`'s score against `golem-policy` and `golem-driver`, in sd of the run's own spread.
+
+| outcome | verdict |
+| --- | ---: |
+| `g >= +2` | **held**: the pool's balance moves, and the re-rate is a real precondition |
+| `-2 < g < +2` | **refused**: +170 Elo in the mirror does not reach the rest of the pool |
+| `g <= -2` | **refused, strangely**: a better stroke lost ground, and CL measured something else |
+
+Predicted `g >= +2`. A row worth 170 Elo in the mirror should be visible against a different mind
+unless its whole effect is specific to fencer-against-fencer -- which is itself the thing worth
+knowing, because every cell from BY to CL was measured in exactly that matchup.
+
+**CM2 -- does the ordering of the four minds change.** Verdicts: *no change in order* is the cheap
+outcome and means the re-rate is bookkeeping; *`golem-fencer` passes one mind it was behind* means
+the re-rate is load-bearing and the shipped ratings are wrong by a place; *any other reordering*
+means the pool is not transitive under this row and the whole rating is the thing to look at.
+
+Predicted: no change in order, because +170 in the mirror is large but the fencer's standing
+against the fitted heads is not known to be that close.
+
+**CM3 -- the clock, again.** The pair took 5.2 s off a fencer-against-fencer bout. Predicted: the
+mean bout of the overridden run is shorter than the shipped run's by **at least 2 s**. *Refused if
+the difference is under 1 s in either direction*, which would say the shortening is another
+fencer-against-fencer effect and not a property of the stroke.
+
+### What no outcome of this licenses
+
+CM cannot license a ship on its own, because the pool it rates over is not the pool the fitted heads
+were fitted against and four minds are not `PPO_LEAGUE`. What it buys is the first number anybody
+has on whether this row survives contact with a mind that is not `golem-fencer`, which is the
+question every "re-rate first" sentence in this document has been deferring.
