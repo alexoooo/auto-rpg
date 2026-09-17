@@ -39772,6 +39772,12 @@ constant in `src/golem/tactics.ts` that has not been re-read since.
 **0.00** either way; P1 decided only the sentence. The sentence is: the old sweep was right for its
 own tree and the tree moved out from under it.
 
+**And then it did not ship, which CA is the record of.** That paragraph stood for about an hour.
+Setting the value turned up three behavioural gates that move under it, and the registration above
+had promised an outcome it had no business promising -- a pre-registration can bind *which reading
+of the data* I am allowed to take, and it cannot bind the tree to accept the result. Read CA before
+acting on this section; `cutRoll` is still 0.30.
+
 ## CA -- the sweep's winner does not survive the gates, and no value but the shipped one does
 
 BZ registered that `cutRoll` would go to 0.00 either way. It does not, and this section is why.
