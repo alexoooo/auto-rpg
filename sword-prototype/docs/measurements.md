@@ -39987,3 +39987,38 @@ of the same runs, and nothing measured here bears on it.
    out to dominate.
 
 The third is the one that cost tonight a finding, and it is now the standing rule for this document.
+
+## CD -- the three rows that survived, re-run by the tool that will not share a baseline
+
+`scripts/stroke-sweep.mjs` is CC's rules made executable: every value replicated on its own seed
+bases, every margin quoted in units of the pooled replicate sd, and nothing named under two of them.
+CD is its first real use, on the three rows that are still standing after CC:
+
+- **`cutRoll`**, shipped 0.30, BY's finding. It has been read twice already and both readings used
+  a single seed base for every cell. It is the night's headline and it should be the first thing put
+  on the new footing rather than the last.
+- **`chamberReach`**, shipped -0.70, CB's candidate at 0.00 (+0.067 over the replicate mean).
+- **`strokeSeconds`**, shipped 0.15, CB's candidate at 0.28 (+0.071).
+
+Four values a row, four replicates a value, 16 bouts a cell.
+
+**Registered predictions:**
+
+- **P1: `cutRoll` survives replication.** 0.00 beats the shipped 0.30 by at least two sd on the
+  pooled estimate. *Refused if* it comes back inside the noise -- which withdraws BY, and with it
+  the design ruling written from it and the answer this phase gave the owner. BY's margin was 4.6 sd
+  against CC's sd of 0.016 and BZ reproduced it under a second damage law, so this is a prediction I
+  expect to hold; writing down what its failure costs is what keeps it a prediction.
+- **P2: at most one of the two CB candidates survives.** CB's seven rows produced two that cleared
+  every replicate, from a procedure CC showed inflates every margin it reports. *Refused if* both
+  clear two sd, which would mean CB's design was noisy rather than biased and its five withdrawn
+  rows deserve a second look too.
+- **P3: the pooled sd lands near CC's 0.016.** CC measured it on one configuration; if the width is
+  a property of the harness rather than of a particular parameter setting, a pooled estimate over
+  twelve different settings should agree. *Refused if* it comes back above 0.025 or below 0.010 --
+  either would mean the noise depends on where in the parameter space you stand, and every margin
+  in this document would need its own local estimate rather than a shared one.
+
+**Nothing ships off this table either.** CA settled that for all nine of these rows: moving one
+changes behaviour and invalidates every fitted head, so the measurement is the deliverable and the
+decision is the owner's.
