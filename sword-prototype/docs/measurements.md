@@ -39547,3 +39547,59 @@ adequate and still under the floor.
 population of contacts -- BV's registered control was wrong in exactly that way and the correction
 is four sections up. So the 0 and 0.3 columns are two different sets of contacts from two different
 fights, and nothing below claims a per-contact identity between them.
+
+### BX result -- alignment is the discriminant, and two of three predictions are refused
+
+16 bouts a column, cap 150, the default golem mirrored, seeds held across the two draws.
+
+| | draw 0 | draw 0.3 |
+| --- | ---: | ---: |
+| contacts | 4173 | 3753 |
+| pays | 25 % | 32 % |
+| bout seconds | 42.7 | 39.4 |
+| decided | 100 % | 100 % |
+| median `|edgeAlignment|`, paying | 0.77 | **0.80** |
+| median `|edgeAlignment|`, non-paying | 0.36 | **0.31** |
+
+**Why a contact scored nothing, as a share of the ones that did not:**
+
+| reason | draw 0 | draw 0.3 | median tip m/s | median J at 0.3 |
+| --- | ---: | ---: | ---: | ---: |
+| blocked by the other blade | 25 % | 28 % | 13.4 | 0.00 |
+| graze: tip under 4 m/s | 19 % | 19 % | 1.9 | 0.27 |
+| flat: aligned under 0.5 | 24 % | 26 % | 8.6 | 1.03 |
+| fast, aligned, and still under the floor | 32 % | 27 % | 9.1 | 2.20 |
+
+**P1 is refused, and I will not round in my own favour about how.** The prediction was that the
+remaining non-payers are *mostly grazes*. They are not: 22 % of them carry under 4 m/s. That claim
+is refused outright. The registered refusal condition was the stronger *"contacts over 8 m/s are
+more than half the non-paying set"*, and that reads **50 %** -- the line itself, to the rounding. So
+the condition I wrote to force a revisit of the constant is exactly balanced, and I am not going to
+resolve a tie by picking the side I like. What the table does say without any tie-breaking is that
+half the wasted contacts are fast ones, which is a lot of energy going nowhere, and that raising
+`drawFraction` further is not the way to collect it -- going 0 to 0.3 moved this bucket from 32 % to
+27 %, five points for the whole width of the owner's ruling.
+
+**P2 is confirmed.** The tangential pattern is kinematics and survived the repricing: the 12-20 m/s
+bucket reads a median normal fraction of 0.24 at draw 0.3, inside the predicted 0.30 and well inside
+the 0.35 that would have refused it. Paying for the slide changed what a contact is worth and not
+where the arm was pointing, which is what a repricing is supposed to do.
+
+**P3 is refused, and it is the finding.** I predicted the median `|edgeAlignment|` among non-payers
+would be above 0.5 -- that these were not mostly flat slaps. It is **0.31**, under the 0.4 I
+registered as the refusal, against **0.80** among the contacts that pay. That is not a small gap
+between two populations, it is nearly the whole range of the quantity. The registered consequence
+was written down before the number arrived and stands: *the next phase is on how the wrist is held,
+rather than on spacing or timing.*
+
+**Which closes the phase the owner opened.** They said *"the attacking technique is just too poor to
+do real damage"* and eleven cells went looking for it in where the golems stood and when they
+launched. Both were fine. The technique that is poor is the one the sentence actually names: the
+blade is turned wrong. A golem that pays 0.80 alignment when it bites and 0.31 when it does not is a
+golem whose edge is square about half the time, and half a bout's fast contacts are landing with the
+flat.
+
+**Two things this does not say.** It does not say the wrist *can* be held better -- that is BY's
+job, and the reach chain may simply not be able to keep an edge square through an arc. And the two
+draw columns are different fights, not the same contacts re-scored, so no row here is a per-contact
+comparison; the seeds are what is held fixed. That is the control BV got wrong and this one states.

@@ -258,6 +258,56 @@ async function boot(): Promise<void> {
    * table this build refuses by version -- is somebody's typo or somebody's stale run, and none of
    * them is a reason for a page not to open.
    */
+  /**
+   * `?drawFraction=` -- the physics dial, overridden for the length of one page.
+   *
+   * **This exists for one job: letting the owner watch the same seed under two damage laws.**
+   * `CONFIG.combat.drawFraction` is how much of a cut's sliding speed an aligned edge is paid
+   * for, it ships at 0.3 on the owner's 2026-09-17 ruling, and 0 is the law every measurement
+   * before that date was taken under. Comparing them by eye used to mean editing the constant and
+   * waiting for a rebuild, which is a comparison nobody makes twice; two tabs on the same matchup
+   * link is a comparison somebody actually makes.
+   *
+   * **It says so on the boot note, loudly, whenever it is not the shipped number.** A screen
+   * running physics that is not the tree's physics and does not admit it is a screen that will
+   * eventually be used to report a bug that does not exist. Anything unparseable is refused and
+   * named rather than silently treated as zero, for the reason the matchup codec gives: a link
+   * that half-decodes is a link that lies about what was fought.
+   */
+  /**
+   * The link for a matchup, carrying whatever else the page was opened with.
+   *
+   * `matchupQuery` builds a query string from the matchup alone, and the three places below hand
+   * it straight to `replaceState`, which replaces the *whole* query. So every parameter that is
+   * not the matchup -- `snapshot`, `snapshotSide`, `snapshotDraw`, `drawFraction` -- was silently
+   * dropped from the address bar the first time anybody touched the setup screen. The running page
+   * was unaffected, because all four are read once at boot, which is exactly what made it hard to
+   * notice: the screen kept doing what the link asked while the link stopped saying so, and a URL
+   * copied out of that bar into a second tab quietly became a different page.
+   */
+  const bootExtras = [...query.entries()].filter(([key]) => key !== MATCHUP_PARAM);
+  const linkFor = (matchup: Matchup): string => {
+    const base = matchupQuery(matchup);
+    if (bootExtras.length === 0) return base;
+    return `${base}&${new URLSearchParams(bootExtras).toString()}`;
+  };
+
+  const SHIPPED_DRAW = CONFIG.combat.drawFraction;
+  let drawNote = "";
+  const drawAsked = query.get("drawFraction");
+  if (drawAsked !== null) {
+    const value = Number(drawAsked);
+    if (!Number.isFinite(value) || value < 0 || value > 1) {
+      drawNote = `The drawFraction link was refused -- "${drawAsked}" is not a number in 0..1.`
+        + ` Running the shipped ${SHIPPED_DRAW}.`;
+    } else if (value !== SHIPPED_DRAW) {
+      CONFIG.combat.drawFraction = value;
+      drawNote = `PHYSICS OVERRIDDEN: drawFraction ${value}, not the shipped ${SHIPPED_DRAW}.`
+        + ` Cuts are paid for ${value === 0 ? "none" : `${Math.round(value * 100)} %`}`
+        + ` of their slide. This is not what the tree ships.`;
+    }
+  }
+
   const snapshotPath = query.get("snapshot");
   const snapshotSide: Side = query.get("snapshotSide") === "right" ? "right" : "left";
   const snapshotDrawn = query.get("snapshotDraw") === "1";
@@ -313,7 +363,7 @@ async function boot(): Promise<void> {
     if (state.phase !== "select") return;
     const changed = bodies(matchup) !== bodies(state.matchup);
     state = selectScreen(matchup);
-    window.history.replaceState(null, "", matchupQuery(matchup));
+    window.history.replaceState(null, "", linkFor(matchup));
     if (changed && setup.refusal === null) rebuild();
   };
   const setup = new SetupScreen(need("matchup"), state.matchup, beginButton, partsBin, onSelection);
@@ -354,7 +404,7 @@ async function boot(): Promise<void> {
       if (state.phase !== "select") return;
       state = selectScreen(withSnapshotPolicy(state.matchup, snapshotSide));
       setup.show(state.matchup);
-      window.history.replaceState(null, "", matchupQuery(state.matchup));
+      window.history.replaceState(null, "", linkFor(state.matchup));
     } catch (error) {
       bootNote.classList.add("error");
       bootNote.textContent = `The snapshot was refused: ${error instanceof Error ? error.message : String(error)}`;
@@ -1078,7 +1128,7 @@ async function boot(): Promise<void> {
         return;
       }
       state = begin(state, setup.selection);
-      window.history.replaceState(null, "", matchupQuery(state.matchup));
+      window.history.replaceState(null, "", linkFor(state.matchup));
       rebuild();
     }
     presentation.showSetup(false);
@@ -1605,6 +1655,7 @@ async function boot(): Promise<void> {
       ? "Havok ready."
       : `Havok ready. The link was refused and the showcase pair is shown instead: ${linkRefusal}`,
     snapshotNote,
+    drawNote,
   ].filter((part) => part !== "").join(" ");
   beginButton.disabled = false;
   presentation.showSetup(true);
