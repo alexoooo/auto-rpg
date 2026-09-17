@@ -37780,3 +37780,69 @@ A knob that buys an outcome has to be swept on the failure mode as well as the o
 failure mode is usually already named beside the knob. Both of tonight's withdrawn recommendations
 -- the blade's mass and this one -- were refuted by a comment sitting next to the constant being
 changed. That is now four for four: read the argument attached to a constant before moving it.
+
+## BC -- the death model the owner chose, and whether the clock decides too much of it
+
+Registered 2026-09-17, before collecting. Two changes shipped in `99b217b`, and this is the
+measurement of what they did.
+
+**The changes.** Losing a limb now costs capability rather than life: `Golem.sever` destroys only
+the piece the blow found, so a severed arm books roughly 0.1 of the vitality bar instead of the
+0.854 the whole module used to book. And past `CONFIG.bout.overtimeSeconds` both bodies lose a
+fixed share of their own bar per second, so a bout resolves near two minutes on its own.
+
+Both were the owner's call, made against a record this page had been arguing from the wrong end of:
+*"a game where hitting once ends a fight is a very pointless and not fun game."* AX and BA had spent
+two sweeps optimising `decided` and its failure mode, and neither had asked whether the fights those
+numbers describe are fights anybody would watch.
+
+**The cells.** `golem-fencer` mirrored on 16 random builds, 4 bouts each, 128 bouts a cell, seed
+20260906 -- the same cell BA ran, so its shipped row is the before column.
+
+| cell | sever rule | ramp | cap |
+| --- | --- | --- | ---: |
+| BC-0 | capability-only | off | 60 s |
+| BC-1 | capability-only | off | 150 s |
+| BC-2 | capability-only | **on** | 150 s |
+
+BC-0 against BA's shipped row isolates the limb change; BC-2 against BC-1 isolates the ramp.
+
+**BA's shipped row, for the before column:** 54 % decided, winner's bar 0.384 (max 0.781), 0.34
+severs a bout, 0 % under eight seconds, decided at 27.9 s.
+
+### The predictions
+
+1. **BC-0 decides less than 30 %**, down from BA's 54 %. AX measured that a sever ends its bout 38
+   times out of 38 and that all of the decided fraction's movement runs through that channel; take
+   the sever's lethality away and what is left is attrition, which AX measured at P(dec|none) = 30 %
+   with no trend. This is the prediction that would say the limb change did what it was meant to.
+
+2. **BC-0's winner's bar falls below 0.35.** The bouts that stop deciding are the fast ones the
+   winner walked out of nearly untouched, so removing them leaves the grind, and the grind's winner
+   is hurt. A *rise* here would mean severs were ending bouts the sever had not won.
+
+3. **BC-1 still decides under 50 % at a 150 s cap.** Two and a half times the clock, on a body that
+   can no longer be ended with one cut. If this comes back high the ramp is unnecessary and should
+   not have shipped.
+
+4. **BC-2 decides at least 95 %,** and no bout runs past 125 s. This is the ramp's whole job and it
+   is close to arithmetic rather than a finding: an untouched body is spent 60 s after the drain
+   starts. A miss here is a bug, not a result.
+
+5. **BC-2's median bout lands between 60 and 120 s.** Below 60 would mean the fighting is ending
+   fights before the ramp and the ramp is decoration; at the ceiling would mean nothing is landing.
+
+6. **BC-2's winner's bar lands between 0.10 and 0.30** -- and this is the one that can refute the
+   design rather than confirm it. The winner's remaining bar at the moment the loser is spent *is*
+   the margin, because the loser's is zero. Above 0.30 and the ramp is finishing fights that were
+   already decided, which is fine but means it is doing little. **Below 0.10 and the two sides were
+   nearly tied when the clock picked one**, which is a coin flip wearing a damage model, and is a
+   worse game than the one it replaced. That would send `overtimeKillSeconds` up, not down.
+
+7. **Draws stay under 5 %.** The ramp is symmetric, so an exactly-tied pair draws; a real pair is
+   never exactly tied.
+
+**Not measured here, and owed:** the paired `d` against a designed mind. Every column above is a
+description of the fights, not a rating, and nothing ships off it. The viability tables are also
+stale from the moment this landed -- they were measured at a 60 s cap under the old sever rule --
+and re-deriving them is the next thing after this.
