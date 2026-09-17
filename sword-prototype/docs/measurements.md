@@ -40424,3 +40424,49 @@ number no cell in this phase could have produced.
 
 **Still nothing ships.** Every fitted head in this tree was trained under the shipped stroke, so
 even a clean paired win means re-rate first. CA's rule is unchanged by having a better statistic.
+
+### CH result -- the shipped stroke loses to every value tried, by 60 to 85 Elo
+
+8192 bouts. Pooled replicate sd of the paired score 0.0294.
+
+| arm | score | vs control | | W-D-L | bout | Elo |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| shipped v shipped | 0.4971 | -- | the control | 1018-0-1030 | 38.3 s | -- |
+| `chamberReach` -0.20 | 0.6055 | +0.1084 | 3.7 sd | 1240-0-808 | 34.8 s | +75 |
+| `chamberReach` 0.00 | **0.6191** | +0.1221 | 4.2 sd | 1268-0-780 | 34.4 s | **+84** |
+| `chamberReach` 0.15 | 0.5874 | +0.0903 | 3.1 sd | 1203-0-845 | 34.5 s | +61 |
+
+**P1 held, and it is the first time anything in this tree has checked it.** The shipped stroke
+against itself, side-swapped, over 2048 bouts: 1018-0-1030, a score of 0.4971. The bench is
+even-handed, so every margin beside it is a property of the row rather than of the arena. Every
+mirror cell here would have hidden a side bias perfectly, and now one of them has looked.
+
+**P2 held.** All three plateau values beat the shipped stroke, at 3.1 to 4.2 sd. In the project's
+own currency that is **61 to 84 Elo from one constant**, which is a larger gap than most of the
+minds in this document have ever opened on each other. The phase's claim has now met the criterion
+this project actually judges a designed mind by, and it survived.
+
+**P3 held, and the contrast with CF is the useful part.** The paired score's replicate sd came back
+at 0.0294 against a binomial 0.0313 -- at, or slightly inside, what independent bouts would give.
+**There is no per-cell floor here**, where the damage rate had one of about 0.035 that no number of
+bouts could remove. The paired statistic is the better-behaved of the two as well as the more
+meaningful one, and a bench that wants a finer answer on it can simply buy it.
+
+**Zero draws in 8192 bouts.** The damage-per-second ramp decides every fight, which is what it was
+put in for and had not been measured at this scale.
+
+**The two statistics agree on the plateau and disagree about its peak.** The mirror ranked
+0.15 > -0.20 > 0.00; the paired bench ranks 0.00 > -0.20 > 0.15, with the mirror's best coming last.
+Both spreads are about one sd wide, so **neither resolves a peak and the disagreement is not
+evidence of one** -- but it does mean the mirror's ordering inside a plateau carries no information,
+and CF's "0.15" should not be quoted as a recommendation. What is established is the plateau.
+
+**My own registered expectation was not falsifiable, and that is worth recording.** I predicted P2
+would hold "by less than the mirror implies", and that a paired margin at a third of the rate margin
+would be the defensive cost of pulling the chamber out from behind the guard. There is no principled
+mapping from a damage-rate ratio to a win rate, so that prediction could not have been refused by
+any number this run produced. The bout did shorten less in the paired cell than in the mirror, 10 %
+against 16 %, which is what one side carrying the change rather than both should do, and that is the
+only part of the expectation the data speaks to. **A prediction that cannot name the number that
+would refuse it is a hope with a paragraph attached**, and the fix is to register the mapping or
+to register nothing.
