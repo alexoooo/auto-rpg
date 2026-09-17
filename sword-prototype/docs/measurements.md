@@ -39165,7 +39165,7 @@ is touched to take the reading, which is the rule this record has kept all night
   this reproduces the 2026-09-05 defect, and no damage number redeems it -- that is an eye gate and
   it outranks the table.
 
-## BR result -- driving forward does not square the blow, but retreating mid-stroke is costing damage
+## BR result -- driving forward does not square the blow; retreating mid-stroke costs damage
 
 16 bouts a row. `off` is a true pass-through and it reproduces BO's shipped row to the contact --
 4173 contacts, 0.29, 6.32 m/s, 25 %, 46.2 -- which is the check that the wrapper changes nothing by
@@ -39201,8 +39201,8 @@ And unlike BO's 0.20 row, it is not a lone point. **Every one of the six rows be
 from 47.9 to 56.3, and the thing they all share is exactly this -- none of them can retreat during a
 stroke. The rows that additionally push forward do no better, and pay for it in contact speed.
 
-So the reading is: **these fighters start a commit and then walk backwards out of their own stroke**,
-and simply forbidding that is worth a fifth of the damage.
+So the reading is: **these fighters start a commit and then walk backwards out of their own
+stroke**, and simply forbidding that is worth a fifth of the damage.
 
 **It is not confirmed and I am not shipping it on this table.** 16 bouts of a mirror against itself
 is a mind measured against its own noise, which is the one comparison this project has a standing
