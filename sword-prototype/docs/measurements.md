@@ -39415,3 +39415,67 @@ Reported: paying share overall and by tip-speed bucket, median and p90 of a payi
 bout, bout seconds, decided share. The normal component is reported as a control -- **the dial
 cannot move it**, since it changes what a blow is paid for and not how it is thrown, so a normal
 column that moves would mean the instrument is wrong.
+
+## BV result -- the draw dial, measured, with the decision left where it belongs
+
+16 bouts a row, `golem-fencer` mirror on default golems. `drawFraction` 0 is the shipped law.
+
+| `drawFraction` | contacts | pays | median J | p50 | p90 | damage/bout | seconds | decided |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **0, shipped** | 4173 | 25 % | 0.9 | 0.26 | 1.81 | 46.2 | 42.7 | 100 % |
+| 0.10 | 4143 | 27 % | 1.1 | 0.27 | 1.84 | 51.3 | 43.0 | 100 % |
+| 0.20 | 4700 | 28 % | 1.2 | 0.28 | 1.71 | 57.1 | 43.7 | 100 % |
+| 0.30 | 3753 | 32 % | 1.8 | 0.26 | 1.69 | 52.5 | 39.4 | 100 % |
+| 0.50 | 3310 | 35 % | 2.3 | 0.33 | 2.05 | 55.8 | 34.0 | 100 % |
+| 0.70 | 2459 | 41 % | 3.4 | 0.34 | 2.46 | 54.2 | 24.4 | 100 % |
+| 1.00 | 1432 | 45 % | 3.9 | 0.50 | 3.75 | 55.0 | 20.2 | 100 % |
+
+### Against the three things registered as disqualifying
+
+**It must not pay for grazes -- passes, and this is the good news.**
+
+| paying share, by tip speed at contact | 0 | 0.2 | 0.5 | 1.0 |
+| --- | ---: | ---: | ---: | ---: |
+| 0-4 m/s (the blade brushing somebody) | 3 % | 4 % | 4 % | **6 %** |
+| 4-8 | 16 % | 16 % | 19 % | 32 % |
+| 8-12 | 24 % | 29 % | 41 % | 54 % |
+| 12-20 | 33 % | 38 % | 50 % | 62 % |
+| 20+ | 47 % | 56 % | 61 % | 62 % |
+
+A slow contact stays worthless across the whole range -- 3 % to 6 % at the top of the dial. Every
+bit of the lift lands on strokes that were thrown hard. That is exactly the shape wanted, and it
+follows from the construction: the credit is `drawFraction x slide x alignment`, and a blade that is
+barely moving has no slide to be paid for.
+
+**It must not blow up the top end -- passes to about 0.5, then stops.** p90 over p50 runs 7.0, 6.8,
+6.1, 6.5, 6.2, 7.2, 7.5. Concentration is flat or slightly better up to 0.5 and worsens past it. At
+1.0 the heaviest blows nearly double while the median rises by half, which is the one-blow fight the
+death model was built to answer.
+
+**It must not shorten fights -- passes to 0.3, marginal at 0.5, fails past it.** Bout seconds: 42.7,
+43.0, 43.7, 39.4, 34.0, then **24.4 and 20.2**. Above 0.5 the dial is not making cuts count, it is
+ending fights.
+
+So the guards, taken together, admit roughly **0.2 to 0.5** and refuse everything above it. At 0.3
+the paying share goes 25 % to 32 %, the top end is unchanged, and a bout still runs 39 seconds.
+
+### A registered control that was badly written, and it is mine
+
+I wrote that the normal component is a control because "the dial cannot move it, so a normal column
+that moves would mean the instrument is wrong." It moves: 0.29 to 0.33. **The instrument is fine and
+the control was wrong.** The dial cannot change the normal component *of a given contact*, which is
+what I was thinking, but it changes which contacts happen -- different damage, different fights,
+different populations. A control has to name the population it holds fixed, and mine did not. This
+is the same defect as BH-c's prediction whose branches did not exhaust the outcomes, and it is the
+second time tonight I have written a check I could not have failed correctly.
+
+### What is not claimed
+
+**The damage-per-bout column is not evidence here.** BS measured its noise at roughly 5 to 6 per
+16-bout cell, and the whole spread of that column is 46 to 57. It is in the table because leaving it
+out would be hiding it. The finding rests on the paying share, which is a proportion over thousands
+of contacts, and on the by-speed table, which is the same.
+
+**And no value ships.** `drawFraction` is 0 in the tree, four tests hold it there, and every number
+in this document was measured under 0. Raising it is a change to the physics, it is defensible on
+the evidence, and it is the owner's to make.
