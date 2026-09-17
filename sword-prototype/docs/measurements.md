@@ -39327,3 +39327,69 @@ drifting into somebody at 6 m/s with no lean -- during guard, recovery or footwo
 stroke detector's 1.5 m/s threshold admits all of it as a "stroke". That would make the owner's
 "most attacks do nothing" into "most contacts are not attacks", which is a different complaint
 with a different fix. BU tests it.
+## BU result -- squareness falls as the stroke gets faster, and that is the whole problem
+
+16 bouts, 4173 contacts, partitioned by what the fighter was doing and by how fast the blade was
+actually moving.
+
+| stance | contacts | share | pays | normal | tip m/s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| approach | 835 | 20 % | 17 % | 0.26 | 7.54 |
+| chamber | 514 | 12 % | 29 % | 0.18 | 12.77 |
+| **commit** | 894 | 21 % | **36 %** | 0.28 | **18.42** |
+| feint | 82 | 2 % | 24 % | 0.23 | 12.24 |
+| measure | 472 | 11 % | 18 % | **0.36** | **7.33** |
+| recover | 1376 | 33 % | 25 % | 0.33 | 8.58 |
+
+| tip speed at contact | contacts | share | pays | **normal** |
+| --- | ---: | ---: | ---: | ---: |
+| 0-2 | 339 | 8 % | 1 % | **0.45** |
+| 2-4 | 353 | 8 % | 6 % | **0.39** |
+| 4-6 | 453 | 11 % | 11 % | 0.30 |
+| 6-8 | 478 | 11 % | 20 % | 0.30 |
+| 8-10 | 397 | 10 % | 25 % | 0.30 |
+| 10-12 | 361 | 9 % | 23 % | 0.25 |
+| 12-15 | 405 | 10 % | 29 % | **0.22** |
+| 15-20 | 541 | 13 % | 36 % | **0.22** |
+| 20+ | 846 | 20 % | 47 % | 0.28 |
+
+**BT's reframing is refused.** Committed contacts are not rare accidents -- they are 21 % of all
+contacts, they carry the fastest blade in the fight at 18.42 m/s, and **64 % of them still pay
+nothing.** These are deliberate attacks, thrown hard, and most of them fail. The owner's "most
+attacks do nothing" is about attacks.
+
+**And here is the finding the whole night has been walking toward.** The normal component **falls as
+the stroke speeds up** -- 0.45, 0.39, 0.30, 0.30, 0.30, 0.25, 0.22, 0.22 -- and the two stances
+prove it from the other side: `measure`, the slowest blade at 7.33 m/s, is the **squarest** at 0.36;
+`commit`, the fastest at 18.42, is down at 0.28. The paying rate rises with speed anyway, because
+energy goes as the square of speed and a fast rake can still clear a floor that a slow square blow
+cannot.
+
+**The golem generates blade speed by rotating, and rotation is tangential.** Speed and squareness
+are traded against each other by the geometry of a swing, and there is no stroke shape available to
+the mind that is both. That is why every intervention failed:
+
+| intervention | what it moved | normal |
+| --- | --- | ---: |
+| aim deeper (`strikeBite`, BO) | nothing -- saturated | 0.29 -> 0.29 |
+| stand closer (BQ) | speed down 28 % | 0.29 -> 0.36 |
+| carry the body through (BR) | nothing measurable, BS | 0.29 -> 0.33 |
+| swing harder (BU) | speed up | 0.29 -> **0.22** |
+
+Three of the four buy squareness only by giving up speed, and the fourth spends speed to lose it.
+
+### Which puts the fork from BL-b back on the table, much better supported
+
+The fighters hold the edge correctly (0.63 alignment), swing hard (18.4 m/s at commit), stand where
+they mean to (within 0.04 m), and arrive on time. What they throw is a fast, edge-aligned, sweeping
+cut. `scoring.ts` prices it from the normal component alone and therefore pays almost nothing for
+it, on a stated and deliberate argument: *"Only the normal component of a collision is lost to
+deformation -- the tangential part is friction's business."*
+
+That argument is right about a **blunt** impact. It is the whole physics of a club. Whether it is
+right about an **edge** is a different question, and it is the owner's, because the answer changes
+the physics every number in this record was measured under. A real draw cut is tangential and it
+cuts, because an edge parts material rather than deforming it.
+
+**I am not going to decide that.** What I can do without deciding it is build the instrument, at a
+default that changes nothing, and put numbers next to the choice. That is BV.
