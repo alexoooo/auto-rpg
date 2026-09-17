@@ -5098,9 +5098,12 @@ place in this phase where the measurement and the complaint are plainly about th
 of the style set, swept on distance-to-mark, on a v3 mind. It lands inside this plateau. Two
 statistics with nothing in common but the row, and both disagree with what ships.
 
-**Watch it rather than take the table's word for it:** `?tactic=chamberReach:0.15` on the setup
-screen runs one page on the changed stroke and says so on the boot note. Two tabs, same matchup
-link, is the comparison. See `src/golem/stroke-rows.ts` for which minds the override reaches.
+**Watch it rather than take the table's word for it:** `?tactic=chamberReach:0` on the setup screen
+runs one page on the changed stroke and says so on the boot note. Two tabs, same matchup link, is
+the comparison. Zero rather than 0.15 because that is the value the paired bench below puts first;
+0.15 is inside the same plateau and looks the same to the eye, which is the point of the plateau.
+See `src/golem/stroke-rows.ts` for which minds the override reaches -- v2 only, so pick a
+golem-fencer matchup or the link will apply to nothing and say so.
 
 **And it wins across the table, which is the criterion that counts.** Until CG every cell measuring
 this row was a *mirror*: both fighters read one module-global stroke shape, so a swept row moved
