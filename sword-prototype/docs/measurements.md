@@ -38709,41 +38709,51 @@ flat."** `src/combat.ts` early-outs any contact whose arriving energy is under t
 floor and returns `edgeAlignment: 0` **without ever computing it**. So that column reads zero for
 precisely the population the question was about, and "the median contact has zero edge alignment"
 restates "the median contact is under the floor". It is the third time this record has caught the
-same shape -- a column that co-occurs with an outcome by construction -- and the second time tonight.
+same shape -- a column that co-occurs with an outcome by construction -- and the second tonight.
 
 `report.edge` and `report.velocity` are written into the report *before* the early-out, so the
-alignment can be recomputed from them for every contact. Done:
+alignment can be recomputed from them for every contact. Two minds, 16 bouts each, guard 2.2e-16:
 
-| | into the surface | lever | timing | chain | **edge, recomputed** | edge, as reported | median J |
+| mind / set | contacts | into surface | lever | timing | chain | **edge, recomputed** | reported |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| all contacts | 0.29 | 0.69 | 0.42 | 0.06 | **0.62** | 0.00 | 0.9 |
-| contacts that pay | 0.68 | 0.70 | 0.69 | 0.24 | **0.63** | 0.63 | 23.1 |
+| fencer, all | 3910 | 0.28 | 0.67 | 0.46 | 0.06 | **0.63** | 0.00 |
+| fencer, paying | 1060 | 0.70 | 0.76 | 0.57 | 0.22 | **0.77** | 0.77 |
+| driver, all | 3852 | 0.34 | 0.62 | 0.51 | 0.07 | **0.57** | 0.00 |
+| driver, paying | 968 | 0.74 | 0.69 | 0.65 | 0.24 | **0.73** | 0.73 |
 
-**The blade is held the same way in both: 0.62 against 0.63.** Edge alignment does not distinguish a
-blow that pays from one that does not, and the flat-blade reading is wrong.
+On the paying rows the recomputed column reproduces the reported one exactly, which is the check
+that the recomputation is the same quantity `combat.ts` would have written had it not early-outed.
 
-### What survives, and it is the whole finding
+**The flat-blade reading is withdrawn:** the median contact is held at 0.57-0.63 of full alignment,
+not at zero. The 0.00 was the early-out.
 
-Of the four factors, exactly one separates a paying contact from a worthless one:
+**And a smoke reading is withdrawn with it.** The 189-contact smoke that prompted this section put
+the edge at 0.62 against 0.63 and I wrote that edge alignment distinguishes nothing. At 3910
+contacts it moves +0.14 on the fencer and +0.16 on the driver. It is a real secondary factor. The
+lesson is the boring one and I have now paid for it twice tonight: a smoke cell sizes a probe, it
+does not settle a column.
 
-| factor | all | paying | moves |
-| --- | ---: | ---: | ---: |
-| edge alignment | 0.62 | 0.63 | +0.01 |
-| lever (where on the weapon) | 0.69 | 0.70 | +0.01 |
-| timing (when in the arc) | 0.42 | 0.69 | +0.27 |
-| **normal (into the surface)** | **0.29** | **0.68** | **+0.39** |
+### What separates a paying contact from a worthless one
 
-The fighters swing hard, arrive on time enough, stand where they mean to, and hold the edge square
-to the cut. **What they do not do is drive the blow into the surface.** The median contact carries
-29 % of its speed onto the contact normal, and `scoring.ts` prices a blow from that component alone,
-on an argument it states plainly:
+| factor | fencer, all | fencer, paying | moves | driver moves |
+| --- | ---: | ---: | ---: | ---: |
+| lever (where on the weapon) | 0.67 | 0.76 | +0.09 | +0.07 |
+| timing (when in the arc) | 0.46 | 0.57 | +0.11 | +0.14 |
+| edge alignment | 0.63 | 0.77 | +0.14 | +0.16 |
+| **normal (into the surface)** | **0.28** | **0.70** | **+0.42** | **+0.40** |
+
+Every factor moves in the right direction and one moves three times as far as any other. The
+fighters swing hard, arrive roughly on time, stand where they mean to, and hold the edge more or
+less correctly. **What they do not do is drive the blow into the surface.** The median contact
+carries 28 % of its speed onto the contact normal, and `scoring.ts` prices a blow from that
+component alone, on an argument it states plainly:
 
 > Only the normal component of a collision is lost to deformation -- the tangential part is
 > friction's business -- which is what entitles this to be squared. [...] the difference between a
 > square blow and a rake is exactly the difference between the two.
 
-**So this is not a scoring bug. It is the scoring model reporting that the median stroke is a rake.**
-The arcs sweep across the target instead of driving into it, and at 0.29 on the normal a blow keeps
+**So this is not a scoring bug. It is the model reporting that the median stroke is a rake.**
+The arcs sweep across the target instead of driving into it, and at 0.28 on the normal a blow keeps
 8 % of the energy the same speed would deliver square.
 
 ### The fork, which is the owner's and not mine
