@@ -54,7 +54,7 @@ const at = (p) => pathToFileURL(`${ROOT}/${p}`).href;
 export async function cell({ rows, seed, bouts, cap }) {
   const { GOLEM_TACTICS_V2, golemFencer } = await import(at("src/golem/tactics-v2.ts"));
   const { freshHavok, runBout } = await import(at("scripts/bout-runner.mjs"));
-  const { seedFor } = await import(at("scripts/tournament.mjs"));
+  const { seedFor, strokeColumns, strokeInstrument } = await import(at("scripts/tournament.mjs"));
   const { defaultGolemSetup } = await import(at("src/golem/build.ts"));
   const setup = defaultGolemSetup();
 
@@ -79,9 +79,20 @@ export async function cell({ rows, seed, bouts, cap }) {
   let losses = 0;
   let seconds = 0;
   let ran = 0;
+  // What the row does to the stroke, as a difference **inside** each bout rather than between
+  // runs. The two corners of a duel bout differ in the stroke and in nothing else -- same build,
+  // same cap, same physics, mirrored seeds -- so `challenger minus control` on a stroke column is
+  // the cleanest reading of the row this harness can take, and it is the reading CM showed
+  // survives a change of opponent where the paired score does not.
+  const gained = { strokes: 0, blows: 0, strokeDamage: 0, scoringSpeed: 0, damage: 0 };
   for (let k = 0; k < Math.max(1, bouts / 2); k += 1) {
     for (const challengerLeft of [true, false]) {
       const seeds = [seedFor(seed, k, challengerLeft ? 0 : 1), seedFor(seed, k, challengerLeft ? 1 : 0)];
+      // One instrument a side a bout. `strokeInstrument` groups contact reports into strokes by
+      // effector and gap, which is `tournament.mjs`'s definition and not a second one invented
+      // here; `committedFraction` is left off because it needs a posture written from `onSample`
+      // and this cell has no use for it.
+      const swung = { left: strokeInstrument(), right: strokeInstrument() };
       const result = await runBout({
         left: "golem-fencer", right: "golem-fencer",
         leftUnit: "golem", rightUnit: "golem",
@@ -91,6 +102,7 @@ export async function cell({ rows, seed, bouts, cap }) {
         leftMind: mind(seeds[0], challengerLeft ? over : null),
         rightMind: mind(seeds[1], challengerLeft ? null : over),
         maxSeconds: cap, physics: await freshHavok(),
+        onEvent(event) { swung[event.side].event(event); },
       });
       const mine = challengerLeft ? "left" : "right";
       const theirs = challengerLeft ? "right" : "left";
@@ -99,13 +111,23 @@ export async function cell({ rows, seed, bouts, cap }) {
       } else { score += 0.5; draws += 1; }
       ran += 1;
       seconds += result.seconds ?? 0;
+      const mineCols = strokeColumns(swung[mine].close());
+      const theirCols = strokeColumns(swung[theirs].close());
+      for (const col of ["strokes", "blows", "strokeDamage", "scoringSpeed"]) {
+        gained[col] += mineCols[col] - theirCols[col];
+      }
+      gained.damage += (result[mine]?.damage ?? 0) - (result[theirs]?.damage ?? 0);
     }
   }
+  const per = Math.max(1, ran);
   return {
     bouts: ran,
-    score: score / Math.max(1, ran),
+    score: score / per,
     wins, draws, losses,
-    seconds: seconds / Math.max(1, ran),
+    seconds: seconds / per,
+    // Means of the within-bout differences, so a control cell reads zero on every one of them and
+    // reads it for the same reason its score reads 0.500.
+    gained: Object.fromEntries(Object.entries(gained).map(([k, v]) => [k, v / per])),
   };
 }
 
@@ -274,6 +296,49 @@ async function main(argv) {
     const l = rs.reduce((a, r) => a + r.losses, 0);
     console.log(`| ${name} | ${rs.length} | ${m.toFixed(4)} | ${gap} | ${v.why} | ${w}-${d}-${l}`
       + ` | ${mean(rs.map((r) => r.seconds)).toFixed(1)} |`);
+  }
+
+  // The second table, and CM is the reason it exists. A paired score is mirror Elo: it says how
+  // reliably this stroke beats the shipped one when the stroke is the only thing that differs,
+  // and CM measured at most a twentieth of such a margin surviving a change of opponent. These
+  // columns did survive it, at two to three sigma on a matchup they were never fitted on, so a
+  // row that moves them has moved something about the golem rather than something about the
+  // mirror. Each number is a mean over cells of a mean over bouts of a within-bout difference.
+  console.log("");
+  console.log("What the row does to the stroke, challenger minus control inside the same bout:");
+  console.log("");
+  console.log("| arm | cells | dmg/stroke | v@blow | strokes | blows | damage |");
+  console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
+  const signed = (x, digits) => `${x >= 0 ? "+" : ""}${x.toFixed(digits)}`;
+  for (const arm of wanted) {
+    const rs = ok(arm.key).filter((r) => r.gained !== undefined);
+    const name = arm.rows.length === 0
+      ? "shipped v shipped"
+      : arm.rows.map(({ row, value }) => `${row} ${value}`).join(" + ");
+    if (rs.length === 0) {
+      console.log(`| ${name} | 0 | -- | -- | -- | -- | -- |`);
+      continue;
+    }
+    const col = (k) => mean(rs.map((r) => r.gained[k]));
+    // Beside each mean, its own spread across replicates, because a column with no bar on it is
+    // the thing this harness spent CI through CL learning not to print.
+    const bar = (k) => sd(rs.map((r) => r.gained[k]));
+    console.log(`| ${name} | ${rs.length} | ${signed(col("strokeDamage"), 3)}`
+      + ` +-${bar("strokeDamage").toFixed(3)} | ${signed(col("scoringSpeed"), 3)}`
+      + ` | ${signed(col("strokes"), 1)} | ${signed(col("blows"), 2)}`
+      + ` | ${signed(col("damage"), 2)} |`);
+  }
+  // The control has to read zero here for the same reason it has to read 0.500 above: it is the
+  // shipped stroke against itself, so every within-bout difference is a difference of a thing
+  // from itself. A control that drifts says the instrument is reading something other than the
+  // row, and that is worth more than any margin in either table.
+  const zero = ok("control").filter((r) => r.gained !== undefined);
+  if (zero.length > 0) {
+    const off = Math.abs(mean(zero.map((r) => r.gained.strokeDamage)));
+    const spread = Math.max(sd(zero.map((r) => r.gained.strokeDamage)), 1e-9);
+    console.log("");
+    console.log(`The control's damage per stroke differs from itself by ${signed(off, 4)},`
+      + ` ${(off / spread).toFixed(1)} sd of its own spread.`);
   }
 
   console.log("");

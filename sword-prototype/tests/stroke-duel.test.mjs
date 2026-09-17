@@ -98,3 +98,33 @@ test("a_joined_arm_refuses_a_dead_row_the_same_way_a_lone_one_does", () => {
   assert.throws(() => readArms(null, null, "chamberReach:0+nonsense:1"), /is not one of/);
   assert.throws(() => readArms(null, null, "chamberReach:0+followLift:abc"), /non-number/);
 });
+
+test("the_stroke_columns_the_duel_reports_are_the_tournament_s_own", async () => {
+  // CM's lesson put a second table on this bench: what the row does to the stroke, as a
+  // difference inside each bout. The columns have to be the *tournament's*, or a margin measured
+  // here could not be compared with the cross-tournament tables that motivated them -- which was
+  // the entire point of adding them. This pins the dependency so a refactor over there fails here
+  // rather than silently giving the duel a private definition of a stroke.
+  const { strokeColumns, strokeInstrument } = await import("../scripts/tournament.mjs");
+  const inst = strokeInstrument();
+  // Two blows off one effector, close enough in time to be one stroke, then one far later.
+  const blow = (at, damage, speed) =>
+    inst.event({ effectorId: "a", report: { at, damage, speed, kind: "cut", key: "torso" } });
+  blow(1.0, 2, 9);
+  blow(1.05, 5, 11);
+  blow(9.0, 1, 4);
+  const cols = strokeColumns(inst.close());
+  assert.equal(cols.strokes, 2, "a gap has to end a stroke, or every bout is one stroke");
+  for (const col of ["strokes", "blows", "strokeDamage", "scoringSpeed"]) {
+    assert.ok(col in cols, `the duel reads ${col} off this and the tournament stopped writing it`);
+    assert.equal(typeof cols[col], "number");
+  }
+  // Both columns are means over *strokes* of a per-stroke quantity, and not means over blows.
+  // Writing this test is what established that: the first stroke's scoring blow is its hardest
+  // (11 m/s at 5 damage, not the 9 it opened with), the second stroke's is its only one, and the
+  // column is the mean of those two -- so a stroke that lands once counts as much as one that
+  // lands five times. The duel's `dmg/stroke` and `v@blow` inherit that weighting whole.
+  assert.equal(cols.scoringSpeed, (11 + 4) / 2, "a mean over strokes, each at its scoring blow");
+  assert.equal(cols.strokeDamage, (7 + 1) / 2, "damage is summed per stroke and meaned over them");
+  assert.equal(cols.blows, (2 + 1) / 2, "and blows is the same shape, which is why it is not 3");
+});
