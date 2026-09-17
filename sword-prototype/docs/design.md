@@ -4973,3 +4973,71 @@ taken under. That is why it was put to the owner in plain language rather than d
 and the owner ruled for it. **It is not yet closed.** The ruling was made from numbers; this
 project has a standing rule that the owner's eye beats my tables, and BJ registered that the phase
 does not close on a table. The before/after on the same matchup and seed is owed.
+
+## The blade is turned wrong, and the nine constants nothing re-reads
+
+**The complaint this answers.** *"The attacking technique is just too poor to do real damage."* The
+2026-09-17 phase spent twelve cells on it. Eleven refused a cause -- the stand-off had not
+regressed, the bodies stood where they were told within four centimetres, they committed from inside
+their own reach, the blade was not landing flat on the measure that existed then, aim depth was a
+saturated knob, and carrying the body through the stroke was worth a paired `d` of 0.06. The twelfth
+found the scoring law was only counting the press, which is the `drawFraction` ruling above.
+
+**With that fixed, the same question asked again gives a different answer.** BX partitioned every
+contact that still scored nothing. A quarter are blocked by the other blade, a fifth are genuine
+grazes under 4 m/s, and the rest are fast contacts that arrive turned wrong. The numbers:
+
+| | median `|edgeAlignment|` |
+| --- | ---: |
+| contacts that score | **0.80** |
+| contacts that score nothing | **0.31** |
+
+That is nearly the whole range of the quantity, and it is the technique the owner's sentence names.
+A golem whose edge is square when it bites and flat when it does not is not mis-spaced or
+mis-timed; it is holding the blade wrong on half its fast contacts.
+
+**Why it can be wrong at all.** `GOLEM_TACTICS.cutRoll` is a constant, 0.30 radians. The wrist turns
+to the same angle whatever direction the blade is travelling, and its comment is explicit that this
+was a choice over a servo. BY tested whether a constant is even the right *shape* -- whether
+`commit` and `recover` want different rolls -- and measured every stance's optimum inside one grid
+step of each other. **A constant is the right shape.** The value is what is wrong: re-swept over
+every armed contact rather than only the ones the damage model scored, 0.30 is third-worst of eight
+rows on alignment, on median paying damage and on bout length, and 0.00 wins all three.
+
+**It is not shipped, and the reason is a rule rather than a hesitation.** Three of the tree's
+behavioural gates move under this constant: setting 0.00 fails two of them and 0.15 and 0.20 fail
+the third, at 0.482 against a bar of 0.50, while 0.00 passes that one. Non-monotonic in a smooth
+parameter, and only the shipped value clears all three. That does not vindicate 0.30 -- it says the
+gates sit too close to their bars to referee a change of this size, and that the fitted policy heads
+were all trained while this constant was 0.30. **Relaxing whichever bar the preferred value missed
+would be choosing the answer and then choosing the test**, which is the one thing the measurement
+record exists to prevent. So it goes to the owner, as `drawFraction` did, and the honest order is
+re-rate the heads first and move the constant second.
+
+### The general defect, which is worth more than the constant
+
+`scripts/tune.mjs` evolves sixty-two numeric rows of the fencer's table against the tournament
+harness. Its `INERT_ROWS` names nine it cannot move:
+
+```
+chamberSwing chamberLift chamberReach followSwing followLift
+strokeSeconds chamberSeconds cutRoll guardReach
+```
+
+**The tuner is right to refuse them.** `STROKE_SHAPES.sword` reads the duelist's `GOLEM_TACTICS`
+*live* rather than copying it, so a fencer's override of one of these moves no decision at all --
+which Session 07's dead-row census measured to the byte. Spending genome on them would be spending
+it on nothing.
+
+The side effect is the defect. Those nine are the only numeric rows in the fencer's reach that no
+automatic process has ever re-read, every one of them was swept by hand against a tree that has
+since changed its death model, its damage ramp and now its cut law, and the first of them anybody
+checked had drifted three grid steps. BZ ruled out the obvious explanations one at a time: it is not
+selection in the old statistic, because the unselected and selected columns agree today, and it is
+not `drawFraction`, because 0.00 still wins with the dial held at the old law.
+
+**A swept constant is a measurement with an expiry date.** The live-read that makes these nine
+correct for the tuner to skip is the same live-read that makes them invisible to it, and nothing
+else is looking. Whatever replaces this should re-read them on a statistic with no selection in it
+-- median edge alignment over *every* armed contact, which BZ showed is indifferent to the damage
+law and reads the geometry alone -- and it should carry a date.
