@@ -705,7 +705,13 @@ export class Combat {
     // that fails here would have failed there too.
     if (!weapon.projectileImpact && energyJ < biteFloorJ(weapon.kind)
       && biteMechanism(weapon.kind) !== "blunt") {
-      return { ...base, kind: "weak", edgeAlignment: 0, damage: 0,
+      // The alignment is reported rather than zeroed. It used to be a hard zero because it had
+      // genuinely not been computed yet at this point in the method; `drawFraction` moved the
+      // edge dot products above this early-out, so zeroing now discards a number sitting in
+      // scope and tells the HUD a brush was flat when it may have been square. Nothing keys off
+      // the old zero -- `scripts/bout-runner.mjs` drops weak contacts by `kind`, which is what
+      // its `alignments` column is about -- so this is strictly more of what happened.
+      return { ...base, kind: "weak", edgeAlignment, damage: 0,
         preArmourDamage: 0, postArmourDamage: 0, severed: false };
     }
 

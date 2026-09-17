@@ -380,10 +380,12 @@ export function runBout({
       if (hit.weapon === "empty" && hit.damage > 0) side.record.punches += 1;
       side.record.damage += hit.damage;
       if (hit.severed) side.record.severs += 1;
-      // `weak` is a contact below `combat.minCutSpeed`, which the model does not
-      // compute an alignment for at all -- it reports a hard zero. Folding those
-      // in would measure how often a blade brushed something, not how well it
-      // was turned when it bit.
+      // `weak` is a contact under the weapon's energy floor. Folding those in
+      // would measure how often a blade brushed something, not how well it was
+      // turned when it bit, which is what this column is for. The exclusion is
+      // by `kind` and stays that way: since 2026-09-17 a weak report carries its
+      // real alignment rather than a hard zero, so excluding by value would both
+      // miss them and silently move every number this column has ever produced.
       if (hit.kind !== "weak") {
         side.record.alignments.push(hit.edgeAlignment);
         side.record.speeds.push(hit.speed);

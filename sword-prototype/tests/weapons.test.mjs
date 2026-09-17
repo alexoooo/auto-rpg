@@ -560,3 +560,36 @@ test("the axe's head is on +X, which is the axis the wrist turns", async () => {
     engine.dispose();
   }
 });
+
+test("a_contact_under_the_floor_still_reports_how_it_was_turned", () => {
+  // The alignment of a blow that scored nothing is a diagnostic, not a score, and `src/hud.ts`
+  // draws a bar with it. The early-out below the floor used to report a hard zero, which was the
+  // only honest answer while it fired before the edge dot products existed; `drawFraction` moved
+  // those above it on 2026-09-17, so a square brush reported as a flat one is now a discarded
+  // measurement rather than an absent one.
+  let contact;
+  const reports = [];
+  // Along its own edge and far too slow to bite: alignment 1, energy under the blade's cut floor.
+  const weapon = {
+    kind: "sword", hand: "primary", spent: false,
+    body: { getCollisionObservable: () => ({
+      add: (callback) => { contact = callback; return {}; }, remove: () => {},
+    }) },
+    velocityAt: () => new Vector3(0.2, 0, 0), edgeDirection: () => new Vector3(1, 0, 0),
+    bladeDirection: () => new Vector3(0, 1, 0), tipPosition: () => Vector3.Zero(),
+    impactMassKg: CONFIG.sword.mass,
+  };
+  const limb = { key: "torso", label: "Torso", health: 1000, maxHealth: 1000, severed: false,
+    lastHitAt: -999, part: { body: standingTorso() } };
+  const combat = new Combat("left", [weapon], (event) => reports.push(event));
+  combat.attach({ limbFor: () => limb, parriedBy: () => null, sever: () => {} });
+  contact({ type: PhysicsEventType.COLLISION_STARTED, point: Vector3.Zero(),
+    impulse: 1, collidedAgainst: {} });
+
+  assert.equal(reports.length, 1);
+  const report = reports[0].report;
+  assert.equal(report.kind, "weak", "0.2 m/s of sword is under the cut floor");
+  assert.equal(report.damage, 0);
+  assert.ok(Math.abs(report.edgeAlignment - 1) < 1e-9,
+    `a brush along the edge reports 1, not 0; got ${report.edgeAlignment}`);
+});
