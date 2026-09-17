@@ -334,6 +334,47 @@ instead of quietly giving it no effect. This is why arrows and fists can finish 
 being allowed to sever, and why local damage remains meaningful after the HUD stopped showing
 twelve competing life bars.
 
+### Losing a limb costs capability, and the clock finishes what the blades do not
+
+Two rules decide a fight beside the damage model, and both were settled on 2026-09-17 by the
+owner, against a record that had spent two sweeps optimising the wrong end of the question.
+
+**A severed limb spends the piece that was cut, not the module.** `Golem.sever` used to zero every
+part of the module it took off, so a blade cut at the wrist booked the whole arm's vitality weight
+-- 0.854 against a bar of 1 -- and one good cut was the fight. It destroys only the piece the blow
+found now, and the rest of the module detaches still carrying its health, which is what
+`Fighter.sever` has always done to a Warrior's arm. What losing the arm takes is the weapon on the
+end of it, its reach and its guard, all of which the same loop already took by putting the module
+on `DEBRIS`. Dismemberment is a swing in the fight and never a kill: the exceptions are the parts
+that carry `fatal`, so a head or a pelvis is exactly as lethal to lose as it reads.
+
+The argument for it is not a number. *"A game where hitting once ends a fight is a very pointless
+and not fun game."* A bar that one cut can empty makes every other exchange in the bout decoration,
+and the measurements that were celebrating a rising decided fraction were measuring how quickly
+that cut arrived.
+
+**Past a minute, the clock does damage to both sides.** `drain` in `src/bout.ts` takes a fixed
+share of the whole-body bar per second from every part, starting at `CONFIG.bout.overtimeSeconds`
+and sized by `overtimeKillSeconds` so that an untouched body is spent after a minute of it. A bout
+therefore resolves near two minutes whatever the two minds are doing, which is what a bar deep
+enough to survive a dismemberment needs behind it.
+
+It divides by the body's own summed vitality weights, and that is what makes one wall-clock number
+true of every body: a Warrior's weights sum to 3.6 and a golem's are scaled to `vitalityTotal`, and
+neither number reaches the drain rate. The ramp is symmetric on purpose. Both sides lose the same
+share of *their own* bar each second, so whichever is already carrying more damage reaches zero
+first, and "the side ahead on accumulated damage wins" falls out of the drain rather than being a
+scoring rule invented by the function that needed a tie-break. `settle` still invents nothing, and
+the comment there that refuses to is still the rule.
+
+Three caps, and they are three different questions. `CONFIG.bout.capSeconds` is 600 and is the
+page's safety net -- its own comment records what shipping 60 did to the people playing.
+`CONFIG.bout.probeSeconds` is 150 and is what every harness in `scripts/` defaults `--cap` to,
+reached through `PROBE_CAP`; it exists because the old default was the literal 60 in fifteen files,
+which is also `overtimeSeconds`, so a sweep would have stopped every bout in the instant before the
+ramp fires and reported the game as it was -- with no error, since a bout cut off at the cap reads
+exactly like a bout nobody won. `tests/bout.test.mjs` asserts the ordering of the three.
+
 ### Combat values are low authoritative units
 
 Combat-value ruleset v2 is a unit migration, not a display divisor. An ordinary Warrior part is
@@ -1407,7 +1448,11 @@ today. A fight would end with two intact-looking bodies, one of which falls over
 longer describes the body it is drawn over is a worse defect than a small effect size**, so the
 choice is 5.4 -- which also stays under **5.95**, the total at which a severed primary arm would
 empty a default golem's whole bar on its own and `tests/golem-arena.test.mjs` would stop being
-able to say that a golem fights on with the other one. That ceiling is arithmetic and not taste: a
+able to say that a golem fights on with the other one. (That ceiling stopped binding on
+2026-09-17: a sever spends the cut piece rather than the module, so the arm's share of the bar is
+one limb's weight and not the arm's. The value stays 5.4 because the ceiling is not why it was
+chosen -- the dismemberment column above is -- and nothing has been measured that would move it.)
+That ceiling is arithmetic and not taste: a
 module of share `s` carries weight `s * total`, so it empties a bar alone once `total >= 1 / s`,
 and the default build's primary is 16.8 % of its bar. Running that test file at 5.9 passes and at
 6.0 does not.
