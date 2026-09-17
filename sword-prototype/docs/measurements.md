@@ -37717,3 +37717,66 @@ number the config had already refused in writing.
 comment has an argument attached to it; read the argument before quoting the constant as
 unprincipled. AW's first error read a table measured against a different mind, AX's read one
 measured against a different knob, and this one read a comment's neighbours instead of the comment.
+
+## BA -- AX recommended a health setting on half the trade, and the other half refuses it
+
+AX swept `healthScale` and read the result as a recommendation: 0.055, on 64 % decided and a
+2.7x faster first sever. **That recommendation is withdrawn.** `healthScale`'s own comment already
+carried a sweep that refused 0.10 -- *"its winner's bar is the highest in the table, and it doubles
+the bouts that are over before either body has done anything"* -- and recorded 0.06 as worse again
+at 18 % inside eight seconds. AX measured neither of those columns. BA measures them.
+
+Same pool, same seeds, same 112 mirrored `golem-fencer` bouts a cell as AX:
+
+| healthScale | decided | winner's bar, mean | max | severs/bout | **under 8 s** | decided in |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.150 (shipped) | 54 % | 0.384 | 0.781 | 0.34 | **0 %** | 27.9 s |
+| 0.110 | 54 % | 0.446 | 1.000 | 0.40 | **2 %** | 19.4 s |
+| 0.080 | 58 % | 0.477 | 1.000 | 0.44 | **10 %** | 16.6 s |
+| 0.055 | 64 % | 0.587 | 1.000 | 0.55 | **28 %** | 13.8 s |
+| 0.035 | 72 % | 0.663 | 1.000 | 0.58 | **46 %** | 11.7 s |
+
+Every point of decided fraction is bought with a stomp. The winner's own remaining bar climbs
+0.384 -> 0.663 and from 0.110 down there is at least one bout a cell the winner finishes
+**untouched**. At AX's recommended 0.055, 28 % of bouts are over inside eight seconds -- 4.7x the
+6 % that refused 0.10 on the original table, and worse than the 18 % that refused 0.06.
+
+### The metric AX celebrated was the defect
+
+AX's prediction 3 -- time to the first sever falls below 15 s -- was scored a hit and called a
+2.7x speed-up. Set the two sweeps side by side:
+
+| healthScale | first sever | bout decided at | gap |
+| ---: | ---: | ---: | ---: |
+| 0.150 | 26.0 s | 27.9 s | 1.9 s |
+| 0.110 | 17.9 s | 19.4 s | 1.5 s |
+| 0.080 | 12.7 s | 16.6 s | 3.9 s |
+| 0.055 | 10.4 s | 13.8 s | 3.4 s |
+| 0.035 | 9.5 s | 11.7 s | 2.2 s |
+
+**Time to the first sever is bout length.** AX had already measured that a sever ends its bout 38
+times out of 38, so the two columns are the same column, and a prediction that the first sever
+arrives sooner is a prediction that fights get shorter. Past a point that is not a livelier fight,
+it is a shorter one -- and BA says the point is between the shipped setting and the next cell down.
+
+### What survives from AX, and what does not
+
+**Survives.** The mechanism is unchanged and still the most useful thing on this page: every sever
+ends its bout, health gates how long you wait for one, and all of the decided fraction's movement
+runs through the sever channel while attrition never trends. The per-build bimodality survives
+too -- a build either always decides or never does.
+
+**Does not survive.** The recommendation. `decided` is not an objective on its own, and AX treated
+it as one. A sweep that reports only the column it set out to move will recommend the extreme of
+that column every time.
+
+**The setting stays at 0.15**, and it stays there on BA's evidence rather than on inertia: 0.110
+costs 0.062 of winner's bar and the first untouched winner, and buys **nothing** -- not one point
+of decided fraction, and no widening of the mirror-viable set either.
+
+### The rule, recorded
+
+A knob that buys an outcome has to be swept on the failure mode as well as the outcome, and the
+failure mode is usually already named beside the knob. Both of tonight's withdrawn recommendations
+-- the blade's mass and this one -- were refuted by a comment sitting next to the constant being
+changed. That is now four for four: read the argument attached to a constant before moving it.
