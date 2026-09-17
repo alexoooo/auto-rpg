@@ -39208,3 +39208,28 @@ stroke**, and simply forbidding that is worth a fifth of the damage.
 is a mind measured against its own noise, which is the one comparison this project has a standing
 rule against. The confirmation is a paired margin between two designed minds -- shipped against
 no-retreat, same seeds, both sides -- reported as Cohen's d. That is BS.
+
+## BS -- registration: the paired margin for no-retreat
+
+The intervention is one line, and it is the control row BR got by accident:
+
+```js
+if (stance === "commit") intent.forward = Math.max(intent.forward, 0);
+```
+
+Forbid backing off during a stroke. Nothing else. `golemFencer` is wrapped, not edited.
+
+**Scored on the project's own statistic, not on a mirror's absolute damage.** The bout result
+carries no per-side vitality, so two measures are reported: the tournament's score -- win 1, draw
+0.5, loss 0 -- and the continuous `damage dealt - taken`, paired on the same seeds with each mind
+fighting from both sides. 96 pairings, 192 bouts, sharded 16 ways.
+
+- **P1:** the paired score beats 0.5 by more than **2 standard errors**.
+  - *Holds* -> a real edge, cheap, and it ships.
+  - *Fails* -> BR's +22 % was a mirror measuring its own noise, and the honest entry is that a
+    single mirrored table at 16 bouts produced a 22 % effect that a paired test at 96 pairings could
+    not find. That would be worth recording for its own sake.
+- **P2:** `damage dealt - taken` is positive at more than 2 standard errors.
+- **What I will not do:** ship on one of the two. They measure different things -- a mind can deal
+  more damage and lose -- and if they disagree, that disagreement is the result, not something to
+  resolve by choosing the friendlier number.
