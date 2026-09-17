@@ -514,6 +514,31 @@ export const scoreProjectileImpact = (impact: ProjectileImpact): Score =>
  * striker is worth more because `impactEnergyJ` says so, and a lighter part is worth less to hit
  * for the same reason.
  */
+/**
+ * A wound's price, joules over joules-per-damage, with the speed dependence the dial asks for.
+ *
+ * At `damageSpeedExponent` 2 -- the shipped value -- this is `energyJ / joulesPerDamage` and takes
+ * a branch that is the old expression to the bit, so every number in `docs/measurements.md` taken
+ * before this existed still reads exactly as it did. There is no interpolation and no tolerance on
+ * that comparison on purpose: a dial whose default is *nearly* the old behaviour is a dial that
+ * silently moves a hundred recorded constants.
+ *
+ * Away from 2 the blow is re-priced as its own weapon arriving at the pivot speed, times the speed
+ * ratio raised to the exponent. Writing it that way rather than as a power of the energy is what
+ * keeps the mass scaling exact: `refJ` carries the same reduced mass the blow actually had, so
+ * only the speed term is bent.
+ */
+function pricedDamage(energyJ: number, contact: Contact, joulesPerDamage: number,
+  tuning: Tuning): number {
+  const exponent = tuning.damageSpeedExponent;
+  if (exponent === 2) return energyJ / joulesPerDamage;
+  const pivot = tuning.damagePivotSpeed;
+  if (!(pivot > 0)) return energyJ / joulesPerDamage;
+  const refJ = impactEnergyJ(contact.strikerMassKg, contact.partMassKg, pivot);
+  const ratio = Math.max(0, contact.closingSpeed) / pivot;
+  return (refJ / joulesPerDamage) * Math.pow(ratio, exponent);
+}
+
 export function scoreHit(
   contact: Contact,
   by: Striker = "sword",
@@ -556,7 +581,8 @@ export function scoreHit(
   if (bite.how === "blunt") {
     // Quality stays 1 for the club's reason -- there is nothing to place -- and every difference
     // between a bead, a fist, a club, a mace, a maul, a bash and a ram is already in the energy.
-    return { kind: "crush", quality: 1, damage: energyJ / bite.joulesPerDamage(tuning) };
+    return { kind: "crush", quality: 1,
+      damage: pricedDamage(energyJ, contact, bite.joulesPerDamage(tuning), tuning) };
   }
 
   // Which way round the blade was travelling, for the kinds that care. A sword
@@ -580,7 +606,8 @@ export function scoreHit(
   const quality = thrusting ? thrustQuality : cutQuality;
   const kind: HitKind = quality < 0.25 ? "slap" : thrusting ? "thrust" : "cut";
 
-  return { kind, quality, damage: quality * energyJ / bite.joulesPerDamage(tuning) };
+  return { kind, quality,
+    damage: quality * pricedDamage(energyJ, contact, bite.joulesPerDamage(tuning), tuning) };
 }
 
 /**

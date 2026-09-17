@@ -840,6 +840,42 @@ export const CONFIG = {
     referenceSpeed: 11.0,
     /** How sharply an edge's damage falls off as it turns away from the cut. */
     edgeExponent: 2.0,
+    /**
+     * The power of closing speed a wound is charged at. **2 is kinetic energy**, and 2 is the
+     * default, at which `scoreHit` takes a branch that is the old expression to the bit.
+     *
+     * It is a dial rather than a law because the record needed one. AV measured the damage of a
+     * bout to be extremely concentrated -- the top tenth of paying strokes carries 52 % of all
+     * damage -- and traced it to two squared terms multiplied, `edgeExponent` on alignment and
+     * this one on speed, each spanning about elevenfold over a bout. That concentration is the
+     * owner's "a lot of attacks didn't really seem to do anything, and then the fight was over in
+     * one or two key attacks" in one histogram, and it is also close to the worst case for the
+     * sample-mean estimator a policy gradient is.
+     *
+     * **Only the speed dependence is softened; mass scaling is untouched.** A blow is still
+     * charged the full reduced mass, so a 48 kg maul still outweighs a 1.3 kg blade by the ratio
+     * physics gives it. What moves is how sharply the same weapon's damage separates a fast
+     * arrival from a slow one. 2026-09-16.
+     */
+    damageSpeedExponent: 2.0,
+    /**
+     * The closing speed at which `damageSpeedExponent` leaves damage exactly where it was, m/s.
+     *
+     * **Defaulting it to `referenceSpeed` is what makes the exponent a shape change rather than a
+     * level change -- but only at the default.** Every joules-per-damage constant below was
+     * derived from a blow at `referenceSpeed`, so pivoting there keeps each of them meaning what
+     * its comment says it means. The catch, measured rather than assumed: golem bouts close at
+     * about 2 m/s, not 11, so an exponent moved with the pivot left at 11 would multiply damage at
+     * the speeds that actually occur -- at 2.2 m/s, dropping the exponent to 1 pays five times the
+     * damage. A pivot inside the distribution being measured is what separates "the tail is
+     * flatter" from "everything hits harder".
+     *
+     * So it is a separate constant from `referenceSpeed`, which stays the anchor for the wound
+     * prices, and an experiment that moves the exponent is expected to move this with it and to
+     * say which value it calibrated to. At the shipped exponent of 2 this field is not read at
+     * all. 2026-09-16.
+     */
+    damagePivotSpeed: 11.0,
     /** A thrust only counts if it lands within this distance of the tip. */
     thrustTipZone: 0.30,
 

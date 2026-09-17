@@ -726,3 +726,55 @@ test("a golem's blade is worth the same on a limb as on a trunk, to within a six
       "a light edge barely notices what it is hitting");
   }
 });
+
+// ---- the damage-shape dial ------------------------------------------------
+
+/**
+ * `damageSpeedExponent` is the dial AV asked for, and its whole safety argument is that the
+ * shipped value takes a branch which is the old expression *to the bit*. These pin that, pin the
+ * pivot's meaning, and pin the one property the dial exists to deliver.
+ */
+test("the_shipped_damage_exponent_is_kinetic_energy_to_the_bit", () => {
+  assert.equal(T.damageSpeedExponent, 2);
+  for (const v of [3.1, 5, 7.25, 11, 19.87]) {
+    const contact = cleanCut(v);
+    const expected = joules(CONFIG.sword.mass, TORSO, v) / T.cutJoulesPerDamage;
+    assert.equal(scoreHit(contact, "sword").damage, expected,
+      `a clean cut at ${v} m/s must price exactly as energy over joules-per-damage`);
+  }
+});
+
+// Every speed below is above `cutFloorJ`, which for this fixture is 3.06 m/s. Under the floor a
+// clean cut scores exactly zero and every ratio these tests take is degenerate -- which is itself
+// the point AT measured, and is why the numbers here are not the ones a bout actually sees.
+test("the_damage_pivot_is_the_speed_the_exponent_leaves_alone", () => {
+  const pivot = 5.0;
+  const tuned = { ...T, damageSpeedExponent: 1, damagePivotSpeed: pivot };
+  const atPivot = scoreHit(cleanCut(pivot), "sword", tuned).damage;
+  const shipped = scoreHit(cleanCut(pivot), "sword").damage;
+  assert.ok(Math.abs(atPivot - shipped) < 1e-9,
+    `at the pivot speed the exponent must change nothing: ${atPivot} against ${shipped}`);
+});
+
+test("a_lower_damage_exponent_compresses_the_spread_between_a_slow_and_a_fast_blow", () => {
+  const pivot = 5.0;
+  const tuned = { ...T, damageSpeedExponent: 1, damagePivotSpeed: pivot };
+  const slow = 4.0;
+  const fast = 12.0;
+  const spreadAt = (t) => scoreHit(cleanCut(fast), "sword", t).damage
+    / scoreHit(cleanCut(slow), "sword", t).damage;
+  // Squared against linear in speed, so the ratio of ratios is exactly the speed ratio itself.
+  assert.ok(Math.abs(spreadAt(T) - (fast / slow) ** 2) < 1e-9, "shipped spread is the speed ratio squared");
+  assert.ok(Math.abs(spreadAt(tuned) - fast / slow) < 1e-9, "at exponent 1 the spread is the speed ratio");
+  assert.ok(spreadAt(tuned) < spreadAt(T), "the dial's whole purpose is a narrower spread");
+});
+
+test("the_damage_dial_leaves_mass_scaling_exactly_where_physics_puts_it", () => {
+  const tuned = { ...T, damageSpeedExponent: 1, damagePivotSpeed: 5.0 };
+  const heavy = { ...cleanCut(5.0), strikerMassKg: CONFIG.sword.mass * 8 };
+  const light = cleanCut(5.0);
+  const ratio = scoreHit(heavy, "sword", tuned).damage / scoreHit(light, "sword", tuned).damage;
+  const massRatio = reduced(CONFIG.sword.mass * 8, TORSO) / reduced(CONFIG.sword.mass, TORSO);
+  assert.ok(Math.abs(ratio - massRatio) < 1e-9,
+    `only the speed term bends: ${ratio} must be the reduced-mass ratio ${massRatio}`);
+});
