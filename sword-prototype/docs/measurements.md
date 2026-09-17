@@ -38334,3 +38334,56 @@ hard hit almost never closes, so the gradient on that axis is mostly noise.
 **This is a reading, not a result.** What it predicts -- that a drawn read stands materially closer
 than a greedy one, and that shrinking sigma on `standOff` alone moves the spacing -- is a cell, and
 it is owed before any of it is called a cause.
+
+## BG-b result -- the policy did not fail to learn spacing; it was paid to randomise it
+
+Read off `tournaments/league-long/league.jsonl`, 400 iterations, still on disk. No bouts were run.
+
+**The stand-off sigma grew monotonically for the whole run.**
+
+| iteration | sigma, `standOff` | metres at a 1.78 m reach | decided |
+| ---: | ---: | ---: | ---: |
+| 1 | 0.4959 | 0.88 | 0.850 |
+| 81 | 0.5114 | 0.91 | 0.310 |
+| 161 | 0.5603 | 1.00 | 0.595 |
+| 241 | 0.5752 | 1.02 | 0.619 |
+| 321 | 0.6383 | 1.14 | 0.357 |
+| 400 | **0.7154** | **1.27** | 0.643 |
+
+The policy's neutral stand-off is correct by construction -- the head's zero is 1.0 x the opponent's
+reach, the fencer's shipped value. What four hundred iterations bought was **plus forty centimetres
+of noise on that axis**, and a decided fraction that fell from 0.850 to 0.643.
+
+**Nothing in the reward opposed it.** The shipped table is:
+
+```ts
+win: 0.5, clinch: 0.004, idle: 0.004, tick: 0,
+closing: 0, stall: 0, outside: 0, swing: 0,
+```
+
+The four rows that are zero are exactly the four that price spacing: `closing` **pays** a metre of
+ground given up toward the other body, `outside` charges a second spent outside reach, `stall`
+charges a second of near-range stall, `swing` charges a stroke that finished on air. Every one of
+them is off. `reward.ts` states the consequence itself, before any of this was measured:
+
+> the only part of a mirrored reward that survives averaging is the part that charges for engaging
+
+In a mirrored rollout the outcome cancels and `dealt - taken` telescopes, so what is left with a
+non-zero mean is `-0.004 * clinchSeconds - 0.004 * idleMetres` -- **both minimised by standing out
+of reach and holding still.** The entropy bonus then widens `logSigma` with nothing pushing back.
+
+**And the shipped weights, read greedily, do exactly that.** A smoke cell of `golem-snapshot` on 26
+bouts stands at a median **1.71 x the opponent's reach** and takes 2.3 damage a bout, against the
+fencer's 6.54 m/s contact speed over four times as many contacts.
+
+So the answer to the owner's question is not "it has not learned yet". **It learned exactly what it
+was paid for.** The reward never mentions distance; three of the four rows that would are zero, and
+the fourth -- the one that pays for closing -- is zero too.
+
+### What this does not yet establish
+
+That turning a row on fixes it. `reward.ts` ships those four at zero on purpose -- *"a coefficient
+the record has not chosen is a guess, and a guess that ships is a guess nobody can tell from a
+measurement afterwards"* -- and BC's lesson is that a column co-occurring with an outcome has not
+been shown to cause it. The counterfactual here costs a fit rather than a cell, and it is the first
+training run this record has had a stated reason to do.
