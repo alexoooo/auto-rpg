@@ -37568,3 +37568,106 @@ it is the one the owner's eye independently found, and it is the only one of the
 not need a new decision about what a golem is made of.
 
 The plate's geometry and the material question are recorded here and left to the owner.
+
+## AX result -- health gates how a fight ends, and severing is the only channel it works through
+
+Five cells, 112 mirrored `golem-fencer` bouts each over the same 16 random viable builds, seed
+20260906, 60 s cap. `GOLEM_ASSEMBLY.healthScale` was mutated in the cell process before any body
+was built; no source file was edited and nothing here is shipped.
+
+| healthScale | decided | bouts with a sever | severs/bout | P(dec\|sever) | P(dec\|none) | first sever |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.150 (shipped) | 54 % | 34 % | 0.34 | 100 % | 30 % | 26.0 s |
+| 0.110 | 54 % | 40 % | 0.40 | 100 % | 22 % | 17.9 s |
+| 0.080 | 58 % | 43 % | 0.44 | 100 % | 27 % | 12.7 s |
+| 0.055 | 64 % | 51 % | 0.55 | 98 % | 29 % | 10.4 s |
+| 0.035 | 72 % | 57 % | 0.58 | 100 % | 35 % | 9.5 s |
+
+### The predictions, scored
+
+**1 -- MISSED.** `decided` was to rise monotonically and clear 80 % by 0.055. It rose 54 % -> 72 %,
+but not monotonically -- the first two cells are flat -- and it reached 64 % at 0.055, sixteen
+points short. **The bar was badly registered and that is the more useful half of this miss**: the
+`vitalityTotal` comment already records that a quarter of the reference pool decides nothing at any
+setting, *"because those bodies cannot hurt each other"*, which is a fact about weapons and reach
+that no health number touches. A ceiling near 75 % was written down in this repository before AX
+registered a bar of 80 % above it. Checking the ceiling before stating the bar is the lesson, and
+it is the same shape as AS's prediction stated in the wrong quantity.
+
+**2 -- HIT, and tightly.** `decided` was to stay within 12 points of `sever + 0.30 * (1 - sever)`.
+The largest miss over five cells is **4 points** and four of the five are within 2.
+
+**3 -- HIT, two cells early.** Time to the first sever was to fall below 15 s by 0.055. It was
+12.7 s already at 0.080 and 9.5 s at 0.035, against 26.0 s shipped -- a **2.7x** speed-up.
+
+**4 -- HIT.** Severs a bout stayed at or near one, rising only 0.34 -> 0.58. Bodies do not start
+shedding modules wholesale even at 4.3x less health, so no cell in this range crosses from
+disablement into dissolution.
+
+**The kill criterion is survived.** `decided` rose and the sever share rose with it, which is what
+AX said would have to happen for the mechanism to be right.
+
+### The finding, which is sharper than the bar it missed
+
+Decompose `decided` into the two ways a bout can end:
+
+| healthScale | via a sever | via attrition | total |
+| ---: | ---: | ---: | ---: |
+| 0.150 | 34 points | 19.8 points | 54 % |
+| 0.035 | 57 points | 15.1 points | 72 % |
+
+**All of the gain, and more, comes through severing.** The sever channel adds 23 points while the
+attrition channel *loses* 4.7, and `P(decided | no sever)` never trends at all across the sweep --
+30, 22, 27, 29, 35 -- so lowering health does not make the grinding path any more likely to reach a
+decision. It only makes the dismembering path arrive sooner and more often.
+
+That is the mechanism AX registered, confirmed, and it settles what the knob is for. **Health does
+not control whether fights end. It controls how long you wait for the event that ends them.**
+Shipped, that event arrives at 26 seconds in a third of bouts; at 0.055 it arrives at 10 seconds in
+half of them. The owner watching a bout is watching the wait, and the wait is what the knob moves.
+
+`P(decided | a sever happened)` also finally cracked, at 0.055, at 98 %: one bout shed a module and
+fought on. That is the arm's 0.854 injury against a bar of 1 showing up exactly where it should --
+once health is low enough to sever early, an arm can come off before the rest of the body has
+accumulated the remaining 0.146.
+
+### Per build, the pool is bimodal, and the dead half is not structurally dead
+
+The same 28 build-pairings, broken out, at both ends of the sweep:
+
+| | shipped, 0.150 | 0.035 |
+| --- | ---: | ---: |
+| builds deciding **every** bout | 15 | 20 |
+| builds deciding **no** bout | **13** | **7** |
+| builds anywhere in between | 0 | 1 |
+
+**A build either always decides or never does.** At the shipped setting not one of the 28 sits
+between 0 % and 100 % -- the pool's "54 % decided" is not a per-bout probability at all, it is
+fifteen builds that work and thirteen that do not. That is a much more useful description of the
+problem than any rate, and no measurement on this page had it before.
+
+**And six of the thirteen dead builds come alive.** Dropping health to 0.035 takes the dead set
+from 13 to 7, and the six that wake are exactly the ones with the weakest terminals: two whips, two
+fists, and a plate. Both fist builds decide **100 % of their bouts with 0 % severs** -- a fist can
+never sever, so that is pure attrition finally reaching the bar inside the cap.
+
+So the ceiling is not a property of the pool. **It moves with the knob**, from 54 % at the shipped
+setting to 75 % at 0.035, and the sweep's measured 72 % is essentially sitting on it.
+
+### Which makes prediction 1 wrong twice over, in opposite directions
+
+AX registered 80 % and then, watching the cells land, this page reasoned that a quarter of builds
+are structurally undecidable and the bar had been set above a fixed ceiling of about 75 %. **Both
+halves of that were wrong.** The bar was badly registered, but not because the ceiling is 75 % --
+it is 54 % at the shipped setting, far lower than the reasoning assumed, and it *rises* as health
+falls. Treating "those bodies cannot hurt each other" as an invariant of the bodies was the error,
+and it is the second time tonight a claim was taken from a table that was measured against a
+different knob.
+
+**The tension with the record, stated rather than resolved.** `vitalityTotal`'s comment records
+thirteen of fifty-two reference builds deciding nothing *"at any total tried, up to 25.2"*. That is
+a different knob on a different pool, and the two are not interchangeable: `vitalityTotal` and
+`healthScale` are equivalent for attrition -- injury per damage goes as one over the other -- but
+**only `healthScale` changes how fast a part reaches zero, and severing is gated on a part reaching
+zero.** That would explain both observations at once, and it is a direct test rather than a story:
+sweep `vitalityTotal` on *this* pool and see whether the dead set moves. It is not claimed here.
