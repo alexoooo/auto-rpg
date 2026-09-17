@@ -37846,3 +37846,85 @@ severs a bout, 0 % under eight seconds, decided at 27.9 s.
 description of the fights, not a rating, and nothing ships off it. The viability tables are also
 stale from the moment this landed -- they were measured at a 60 s cap under the old sever rule --
 and re-deriving them is the next thing after this.
+
+### BC results
+
+`golem-fencer` mirrored, 28 builds x 4 bouts = 112 bouts a cell, seed 20260906.
+
+| cell | decided | draws | median s | mean s | max s | under 8 s | decided < 60 s | winner's bar, median | mean | max | **bar < 0.10** | severs/bout |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| BA shipped (old sever, cap 60) | 54 % | -- | -- | 27.9 | -- | 0 % | -- | 0.384 | -- | 0.781 | -- | 0.34 |
+| BC-0 ramp off, cap 60 | 49 % | 0 % | 28.2 | 29.1 | 60.0 | 0 % | 49 % | 0.374 | 0.373 | 0.781 | 4 % | 0.40 |
+| BC-1 ramp off, cap 150 | 61 % | 0 % | 31.2 | 43.3 | 150.0 | 0 % | 49 % | 0.329 | 0.348 | 0.781 | 7 % | 0.42 |
+| **BC-2 ramp on, cap 150** | **99 %** | 1 % | **63.7** | 65.9 | 119.6 | 0 % | 49 % | **0.148** | 0.221 | 0.781 | **44 %** | 0.41 |
+
+The `decided < 60 s` column is 49 % in all three cells, which it has to be -- nothing differs before
+the mark -- and is the arithmetic check that the three cells are the same cell.
+
+**1. BC-0 decides under 30 %. Miss, and the miss is the most useful thing on this page.** It decided
+49 % against BA's 54 %, which at 112 bouts is inside one standard error of no change at all. Taking
+the lethality out of dismemberment moved the decided fraction by about five points, not the
+twenty-four AX's mechanism predicted.
+
+**AX read a correlation as a mechanism, and this is the counterfactual it never ran.** AX measured
+that a sever ends its bout 38 times out of 38 and concluded that the sever channel is what decides
+bouts. But `severs` in `src/scoring.ts` refuses to take a part off until that part is already at
+zero health, so a sever is the *tail* of sustained damage to one region and not an event that
+arrives on its own. Under the old rule it then added the other 0.819 of the module and finished a
+body that was already losing. Take that away and the same bouts are still decided -- a little
+later, by the damage that was going to do it anyway. Severing was a marker of a won position, not
+the way positions were won. Every reading in AX and BA that was stated on the sever channel is
+weaker than it was written, and this is the fifth time the rule has been earned: **a column that
+always co-occurs with an outcome has not been shown to cause it, and the counterfactual is usually
+one cell.**
+
+**2. BC-0's winner's bar falls below 0.35. Miss** -- 0.374 against BA's 0.384, unchanged, and for
+the same reason as 1.
+
+**3. BC-1 still decides under 50 % at a 150 s cap. Miss** -- 61 %. Two and a half times the clock
+buys twelve points, and **39 % of bouts still run the full 150 s with both bodies up.** The miss is
+in my direction and not the design's: attrition does keep deciding bouts, slowly, and the ramp is
+still doing work no amount of extra clock would do.
+
+**4. BC-2 decides at least 95 %, nothing past 125 s. Hit** -- 99 %, longest bout 119.6 s, and the
+one undecided bout is a genuine tie rather than a timeout.
+
+**5. BC-2's median lands between 60 and 120 s. Hit** -- 63.7 s. Read it with the row above: half the
+fights are settled by the fighting before the ramp starts, and most of the rest end in the first
+seconds after it, because a body that has been losing for a minute is close to the floor when the
+drain reaches it.
+
+**6. BC-2's winner's bar lands between 0.10 and 0.30. Hit on the median at 0.148 -- and the median
+is not the whole answer.** 44 % of decided bouts finish with the winner holding less than a tenth
+of a bar. That is not the coin flip the registration named, because the winner's remaining bar *is*
+the accumulated damage margin and a tenth of a bar is a real lead rather than a rounding error. But
+it is thin, and it is the number to watch: the ramp resolves the half of fights the fighting could
+not, and it resolves them at a quarter of the margin the fighting itself produces (0.148 against
+BC-0's 0.374).
+
+**7. Draws stay under 5 %. Hit** -- 1 %, one bout of 112, exactly tied.
+
+### What the ramp costs, stated exactly
+
+The arithmetic is worth writing down because it makes the next experiment obvious. Both sides take
+the same drain, so it cancels in the difference: at the moment the loser is spent,
+
+```text
+winner's remaining bar = injury(loser) - injury(winner), counting the fighting only
+```
+
+**The margin is the fighting's own margin, read at the moment the clock happens to finish the
+loser.** The ramp cannot add margin and cannot take it away; all it does is choose *when* to read
+it. So margin is a function of how long the bout ran, and nothing else -- which means **margin can
+only be bought with length**, and where to sit on that exchange is a decision rather than a
+measurement. BD prices it.
+
+### A note for the next fit, found by reading rather than by measuring
+
+The drain enters `GOLEM_REWARD` as `taken` with no matching `dealt`, because nobody dealt it. In a
+mirrored rollout, where `dealt - taken` normally telescopes to zero, it therefore does **not**
+cancel: both corners carry a negative that grows with every second spent past `overtimeSeconds`.
+That is a time penalty the reward table never declared and it points the right way -- finish before
+the clock does -- but it is undeclared, it is not in the table, and its size is one part in
+`overtimeKillSeconds` a second against coefficients of 0.004. Nothing is changed here; it is recorded so the next fit does
+not discover it as an anomaly.
