@@ -39277,3 +39277,53 @@ Applied backwards, and it costs me one claim and leaves two standing:
 **The rule going forward, which should have been the rule all night:** damage per bout at 16 bouts
 is not a measurement, it is a hint. Contact-level medians are measurements. Anything that turns on a
 damage difference gets the paired instrument, and BS is now sitting there ready to run.
+
+## BT -- stop guessing, and let the data name the difference
+
+Ten candidates proposed and refused one at a time is an expensive search. This takes a bundle of
+observables at each stroke's squarest contact and reports the medians for strokes that pay against
+strokes that do not, ranked by separation in interquartile ranges so columns in different units
+sit on one scale. 16 bouts, 959 strokes. `HandView` carries `tip` and `shoulder`, so the arm's
+**actual** extension at contact is measured here rather than derived, which is what BP could only
+reach as arithmetic.
+
+| observable | paying (461) | worthless (498) | difference, in IQRs |
+| --- | ---: | ---: | ---: |
+| *normal into surface* | *0.85* | *0.40* | *+0.82* |
+| *contact speed, m/s* | *8.89* | *3.33* | *+0.81* |
+| **tip speed, m/s** | **14.24** | **6.05** | **+0.64** |
+| **trunk lean** | **0.14** | **0.03** | **+0.37** |
+| gap - extension, m | 0.28 | 0.23 | +0.20 |
+| arm+weapon extension, m | 1.54 | 1.58 | -0.15 |
+| extension / reach | 0.87 | 0.89 | -0.15 |
+| off-line, degrees | 19.46 | 20.39 | -0.07 |
+| trunk twist | 0.01 | 0.00 | +0.06 |
+| gap, m | 1.81 | 1.80 | +0.05 |
+| crouch | 0.00 | 0.00 | -0.05 |
+
+**The top two rows are italicised because they are circular and I am not going to be caught by
+that a fourth time.** The normal component and the contact speed are the two factors of the floor
+test: `energyJ = 1/2 mu v_closing^2` against `biteFloorJ`. "Contacts that pay are squarer and
+faster" is the definition of paying, not a finding about it. They are shown because leaving them
+out would hide the scale the other rows are being judged against, and for no other reason.
+
+**Below them the field is thin and two rows stand up.** A paying stroke's tip is moving at 14.24
+m/s against 6.05, and its trunk is leaning 0.14 against 0.03 where `commitLean` is 0.4.
+
+**And the extension rows refute my own account.** BP argued that the arm is pinned at its rail and
+that this is why blows are sweeps. Measured at the contact, a paying stroke is at 0.87 of reach
+and a worthless one at 0.89 -- two hundredths apart, in the direction BP wanted, and far too small
+to carry the story. The smoke cell said -0.43 and full N says -0.15, the third time tonight a
+smoke reading has been larger than its own result. **BP's mechanism is not supported by the
+measurement it predicted.** The arithmetic in BP is still correct -- `strikeBite` really is a dead
+knob -- but the causal claim built on it, that a railed arm is what makes the blow tangential, has
+now failed its own test and is withdrawn.
+
+Off-line is -0.07 and gap is +0.05: **where the blade is pointing and where the feet are do not
+distinguish a landing blow from a glancing one at all.**
+
+The reading this suggests is that a worthless contact is not a badly-thrown cut but a blade
+drifting into somebody at 6 m/s with no lean -- during guard, recovery or footwork -- and that the
+stroke detector's 1.5 m/s threshold admits all of it as a "stroke". That would make the owner's
+"most attacks do nothing" into "most contacts are not attacks", which is a different complaint
+with a different fix. BU tests it.
