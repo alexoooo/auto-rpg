@@ -40091,3 +40091,53 @@ not follow that moving them makes the golems fight better, and on one of the thr
 objective is the other way round. The rate column is a hint and not a verdict: this sweep never
 measured damage's own replicate spread, so it cannot say which of these gaps clears noise. It should
 have, and the tool is being fixed rather than the column being quoted as if it had been.
+
+## CE -- the debt CD left, and the first look at the objective (registered before the run)
+
+CD refused P2, and the registration said what that costs. Both CB candidates cleared by 5.0 and
+3.9 sd, which no shared control explains, so CB was **noisy rather than uniformly biased** and the
+five rows I withdrew were withdrawn on an argument the data no longer supports. They are owed a
+re-reading. CD also left both its survivors sitting on the edge of their grid, which names a
+direction and not a value, and produced a damage-per-second column nobody had measured the noise of.
+
+Seven rows, four values a row, four replicates a value, 16 bouts a cell -- 112 cells, on the tool
+that now prints the objective beside the proxy and dumps every cell to JSON.
+
+**The five owed a re-reading**, on CB's own grids so the comparison is like for like:
+
+| row | shipped | grid | CB's best |
+| --- | ---: | --- | ---: |
+| chamberSwing | 0.05 | 0 / 0.15 / 0.30 / 0.60 | 0.30 |
+| chamberLift | 0.04 | 0 / 0.12 / 0.25 / 0.50 | 0.00 |
+| followSwing | 0.94 | 0.50 / 0.70 / 1.20 / 1.50 | 0.70 |
+| followLift | 0.73 | 0.35 / 0.55 / 0.95 / 1.20 | 1.20 |
+| chamberSeconds | 0.22 | 0.10 / 0.16 / 0.30 / 0.40 | 0.30 |
+
+**The two whose grids ran out**, extended past the edge CD stopped at: `chamberReach` on
+0 / 0.15 / 0.30 / 0.50 -- CD's grid had no positive side at all -- and `strokeSeconds` on
+0.35 / 0.45 / 0.55 / 0.70, past the 0.35 it rose monotonically to.
+
+**Registered predictions:**
+
+- **P1: at most two of the five withdrawn rows clear two sd on alignment.** CB read each row's
+  best of five single cells, and the maximum of four draws from a width of 0.016 is inflated by
+  about one of them before any control error. Against CD's replicated shipped mean of 0.502 the
+  five sat at roughly 2.1, 1.6, 2.4, 1.7 and 1.6 sd; take the winner's curse off and most are
+  around one. *Refused if* three or more clear, which would mean the stroke shape is broadly
+  mistuned rather than mistuned in two places, and CB was closer to right than either CC or I
+  allowed.
+- **P2: `strokeSeconds` has no interior optimum.** Alignment keeps rising and damage a second keeps
+  falling across the whole extended grid, because it is not a mistuned constant but a dial on a
+  trade between blade angle and tempo. *Refused if* alignment turns over inside 0.35 to 0.70 --
+  then there is a real optimum out there, CD simply stopped short of it, and the trade reading is
+  wrong.
+- **P3: at most one of the seven rows clears two sd on damage a second.** This is the first time
+  the objective has been measured against its own noise, and it is the question the whole phase has
+  been circling: alignment moves, but does anything here make the golems more dangerous? CD's rate
+  column put `chamberReach` up and everything else flat or down. *Refused if* three or more clear,
+  which would say the nine rows want a joint optimisation rather than the row-at-a-time reading
+  every sweep in this document has given them.
+
+**Nothing ships off this table.** CA settled that for all nine rows and CD did not change it. The
+one thing that would change it is P3 coming back with a row that improves the objective and the
+proxy together, and even then the decision is the owner's and a re-rate comes first.
