@@ -39233,3 +39233,47 @@ fighting from both sides. 96 pairings, 192 bouts, sharded 16 ways.
 - **What I will not do:** ship on one of the two. They measure different things -- a mind can deal
   more damage and lose -- and if they disagree, that disagreement is the result, not something to
   resolve by choosing the friendlier number.
+
+## BS result -- there is no effect, and the +22 % was noise with a mechanism attached
+
+96 pairings, 192 bouts, each mind fighting from both sides on the same seeds.
+
+| measure | n | mean +- se | Cohen's d | t |
+| --- | ---: | ---: | ---: | ---: |
+| damage dealt - taken | 96 pairings | +1.20 +- 1.98 | 0.062 | 0.61 |
+| score against 0.5 | 192 bouts | 0.5260 +- 0.0361 | 0.052 | 0.72 |
+
+**Both predictions fail.** No-retreat is indistinguishable from shipped on both measures, and the two
+agree, so there is nothing to adjudicate. **BR's +22 % was a mirror measuring its own noise**, which
+is the outcome P1's failing branch named in advance and the reason the rule exists.
+
+It was a good story. These fighters really do back out of their own commits, forbidding it really is
+one line, all six rows of the sweep really did beat the control, and the mechanism was plausible
+enough that I wrote three paragraphs of it. None of that is evidence. **A consistent direction
+across six rows of one mirrored sweep is one measurement, not six** -- the rows share seeds, bodies
+and opponent, so they agree with each other for the same reason a number agrees with itself.
+
+### And this convicts a column I have been quoting all night
+
+From BS's own spread: the paired difference has a standard deviation of about **19 damage** per
+pairing. A 16-bout unpaired mean of damage per bout therefore carries a standard error of roughly
+**5 to 6**, which is the same size as most of the differences I have been reading off these tables.
+
+Applied backwards, and it costs me one claim and leaves two standing:
+
+- **BO's 0.20 row, +16 %**: already refused, on the grounds that a lone point flanked by lower
+  neighbours is noise. Correct, and now quantified -- it was about one standard error.
+- **BQ's damage column**: I wrote that closing costs "a third of the damage", 35.6 against 46.2. That
+  difference is about two standard errors on two effectively independent measurements, and the four
+  close rows agreeing tells me nothing extra because they are the same engagement four times.
+  **Weaken that to: the damage evidence is suggestive and under-powered, and BQ's conclusion should
+  rest on its tight columns instead.**
+- **BQ's tight columns stand, and they carry the conclusion anyway.** The normal component and
+  contact speed are medians over four to six thousand contacts, not means over 16 bouts: closing
+  squares the blow from 0.29 to 0.36 and costs contact speed from 6.32 to 4.55 m/s. Those are solid,
+  and since energy goes as the square of speed they settle the trade on their own without the damage
+  column being asked to.
+
+**The rule going forward, which should have been the rule all night:** damage per bout at 16 bouts
+is not a measurement, it is a hint. Contact-level medians are measurements. Anything that turns on a
+damage difference gets the paired instrument, and BS is now sitting there ready to run.
