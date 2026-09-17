@@ -5004,6 +5004,14 @@ step of each other. **A constant is the right shape.** The value is what is wron
 every armed contact rather than only the ones the damage model scored, 0.30 is third-worst of eight
 rows on alignment, on median paying damage and on bout length, and 0.00 wins all three.
 
+**Half of that margin was an unlucky baseline, and the correction is the useful part.** BY, BZ and
+CB all shared one control cell, and CC measured that cell as the lowest of eight replicates of the
+same configuration. Re-run with every value replicated on its own seed bases, `cutRoll` 0.00 still
+beats 0.30 and the gap is 0.502 -> 0.541 rather than 0.481 -> 0.554: **2.5 standard deviations
+instead of 4.6.** That is the characteristic way a shared low control fails. It does not invent
+findings; it inflates real ones until they look settled. The direction here is real and has now
+been reproduced three times. The size is a hint that has been checked once.
+
 **It is not shipped, and the reason is a rule rather than a hesitation.** Three of the tree's
 behavioural gates move under this constant: setting 0.00 fails two of them and 0.15 and 0.20 fail
 the third, at 0.482 against a bar of 0.50, while 0.00 passes that one. Non-monotonic in a smooth
@@ -5044,10 +5052,48 @@ else is looking.
 swept the other seven and reported every one of them mistuned; CC then measured what nobody had
 measured -- the run-to-run spread of this statistic at fixed parameters, sd 0.016 -- and found CB's
 shipped cell was a single run reused across all seven rows which happened to be the lowest of eight
-replicates. Five of the seven collapsed into the noise; `chamberReach` and `strokeSeconds` cleared
-every replicate and are candidates awaiting a replicated re-run. So the *defect* -- nine rows no
-process re-reads -- is established, and its *extent* is one confirmed row and two candidates.
+replicates.
 
-Whatever replaces this should re-read them on a statistic with no selection in it
--- median edge alignment over *every* armed contact, which BZ showed is indifferent to the damage
-law and reads the geometry alone -- and it should carry a date.
+CD then re-ran the survivors properly, and the correction does not go the way CC assumed.
+`chamberReach` cleared by 5.0 sd and `strokeSeconds` by 3.9 -- far too wide for a shared control to
+explain -- so **CB was noisy rather than uniformly biased.** The low baseline did not manufacture
+seven findings out of nothing; it promoted five marginal ones over the line and left two that were
+always real. The five withdrawn rows were therefore withdrawn on an argument the data does not
+support, and CE is re-reading them. The *defect* -- nine rows no process re-reads -- is established.
+Its *extent* is three rows that move the proxy by more than two sd and five awaiting a verdict.
+
+The process that replaces this is `scripts/stroke-sweep.mjs`, and it carries CC's rules as code:
+every value replicated on its own seed bases, every margin quoted in units of the pooled replicate
+spread, nothing named under two of them, and a refusal printed as a result rather than as a blank.
+
+### The proxy is not the objective, and on one row they point opposite ways
+
+Median edge alignment was chosen because it has no selection in it: BZ showed the unselected column
+is indifferent to the damage law and reads the geometry alone, which is what makes it the right
+thing to sweep a stroke shape on. It is still not what the owner asked for. The complaint was that
+the golems do not *do real damage*, and the statistic for that is damage a second.
+
+CD printed both. They come apart:
+
+| row | value | alignment | damage/second |
+| --- | ---: | ---: | ---: |
+| -- | shipped | 0.502 | 1.42 |
+| `cutRoll` | 0.00 | 0.541 | 1.37 |
+| `chamberReach` | 0.00 | 0.576 | 1.55 |
+| `chamberReach` | -0.15 | 0.558 | **1.74** |
+| `strokeSeconds` | 0.35 | 0.566 | **0.99** |
+
+`strokeSeconds` is cleanly *anti*-correlated. Every value that turns the blade better lengthens the
+bout more than it adds damage, and the best-aligned setting is 30 % less dangerous a second than the
+one that ships. That is not a paradox, it is what a median over contacts cannot see: it weights a
+contact the same whether it arrived in a second or in a minute, so a slower stroke reads as a better
+one. `chamberReach` agrees on direction and disagrees on value -- the proxy's winner is 0.00 and the
+best rate is at -0.15.
+
+**So the phase's headline is true and narrower than it sounds.** The blade *is* turned wrong: the
+0.80-against-0.31 split stands and three constants move alignment by several sd. It does not follow
+that moving them makes the golems fight better, and on one of the three the sign of the objective is
+the other way round. `stroke-sweep.mjs` now measures damage a second against its own replicate noise
+beside the proxy and says so out loud when the two disagree, so this is the tool's trap to remember
+rather than its reader's. Whether *any* of these nine rows improves the objective is what CE asks,
+and until it answers, nothing here is a reason to move a constant.
