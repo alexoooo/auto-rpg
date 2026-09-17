@@ -235,10 +235,14 @@ test("a_severed_primary_is_loot_at_the_durability_it_had_when_its_socket_broke",
   assert.ok(Math.abs(armAfter.durability - expected) < 1e-9,
     `the snapshot reads ${armAfter.durability} against ${expected} taken before the sever`);
   // The snapshot survives the zeroing `sever` does on its way past, which is the whole reason it
-  // is a snapshot: every part of the module reads zero health now.
-  for (const limb of arm) assert.equal(limb.health, 0, limb.key);
+  // is a snapshot: the struck piece reads zero health now. The pieces behind it keep theirs --
+  // capability is what an arm costs, not life -- which is also why `severedIntact` above is true.
+  assert.equal(struck.health, 0, struck.key);
+  for (const limb of arm) {
+    if (limb !== struck) assert.ok(limb.health > 0, `${limb.key} was zeroed at ${limb.health}`);
+  }
   assert.ok(armAfter.durability > 0,
-    "the module report reads the arm as worthless, so the snapshot was taken after the zeroing");
+    "the module report reads the arm as worn, not as worthless");
 
   // And the other four slots are untouched, which is what makes the loot list exactly one long.
   const loot = partsBinLoot(after);

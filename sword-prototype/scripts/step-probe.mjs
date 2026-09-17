@@ -4,7 +4,7 @@
 //   node scripts/step-probe.mjs --from tournaments/<arm>/pool-30.json
 //        [--draws 8] [--bouts 128] [--evaluate 128] [--steps 0.02,0.08]
 //        [--opponent golem-fencer] [--seed 20260917] [--workers N] [--shards 4]
-//        [--terminals maul,mace|all] [--tactics latchAbort=true] [--cap 60] [--random 40]
+//        [--terminals maul,mace|all] [--tactics latchAbort=true] [--cap 150] [--random 40]
 //        [--half-life 4] [--lambda 0.95] [--clip 0.2] [--log tournaments/...] [--label arm]
 //
 // ## The one link in the chain nothing in this record has tested
@@ -113,6 +113,7 @@ import { PILOT_FEATURES_DEFAULT } from "../src/golem/pilot.ts";
 import { POLICY_VERSION } from "../src/golem/policy.ts";
 import { GOLEM_REWARD } from "../src/golem/reward.ts";
 import { mulberry32 } from "../src/rng.ts";
+import { PROBE_CAP } from "./tournament.mjs";
 import { meanOf, semOf } from "./train-learner.mjs";
 import { epochOrder, wholeGradient } from "./gradient-probe.mjs";
 import {
@@ -248,7 +249,7 @@ async function main() {
   }
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
   const shards = Math.max(1, Number(flag("shards", 4)));
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const random = Math.max(0, Number(flag("random", 40)));
   const halfLife = Number(flag("half-life", 4));
   const lambda = Number(flag("lambda", 0.95));

@@ -41,7 +41,7 @@ import { isMainThread } from "node:worker_threads";
 import { armedTerminal } from "../src/golem/viability.ts";
 import { GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
 import { GOLEM_TACTICS } from "../src/golem/tactics.ts";
-import { TOURNAMENT_VERSION, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
+import { PROBE_CAP, TOURNAMENT_VERSION, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 
 /** Bumped when a cell's shape or a row's probe columns change; `--read` refuses another. */
 export const AXIS_PROBE_VERSION = 1;
@@ -458,7 +458,8 @@ export function readProbe(path) {
  * take a table nobody could reproduce from the run's own header.
  */
 export async function axisProbe({
-  seed, bouts, workers, cap = 60, random = 40, axis = "all", base = "uniform", terminals = "viable",
+  seed, bouts, workers, cap = PROBE_CAP, random = 40, axis = "all", base = "uniform",
+  terminals = "viable",
   pool = null, cells = null, out, onProgress = null, opponent = PROBE_OPPONENT,
 }) {
   pool ??= buildPool({ seed, random });
@@ -503,7 +504,7 @@ if (isMain) {
     const bouts = Math.max(2, Number(flag("bouts", 16)));
     const workers = Math.max(1, Number(flag("workers", Math.max(1, Math.floor(availableParallelism() / 2)))));
     const random = Math.max(0, Number(flag("random", 40)));
-    const cap = Number(flag("cap", 60));
+    const cap = Number(flag("cap", PROBE_CAP));
     const axis = flag("axis", "all");
     const base = flag("base", "uniform");
     if (!PROBE_BASES.includes(base)) {

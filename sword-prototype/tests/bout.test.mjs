@@ -9,6 +9,7 @@ import {
   advance,
   beaten,
   begin,
+  drain,
   defaultMatchup,
   golemMatchup,
   humanSide,
@@ -485,6 +486,108 @@ test("a bout that is being won on damage is still a draw at the cap", () => {
   assert.equal(outcome.ending, "time");
 });
 
+// ---- the overtime ramp ----------------------------------------------------
+//
+// Past `CONFIG.bout.overtimeSeconds` the clock does damage to both sides, and
+// the bout resolves on its own near two minutes whatever the two minds are
+// doing. The alternative the game had was a bar deep enough that two cautious
+// minds circle each other until `capSeconds` and one lucky cut decides
+// everything before that -- which is not a fight anybody wants to watch.
+
+/** A body whose weights sum to `vitalityTotal` the way a golem's are scaled to. */
+const golemish = () =>
+  BODY.map((key) => ({
+    key, health: 40, maxHealth: 40, severed: false, vitalityWeight: 5.4 / BODY.length,
+  }));
+
+test("the harness cap stays past the ramp, so a sweep measures the game that ships", () => {
+  // The trap this closes: `overtimeSeconds` and the old harness default were both
+  // 60, so every probe in `scripts/` would have stopped its bouts in the instant
+  // before the drain and reported the game as it was -- with no error, because a
+  // bout cut off at the cap reads exactly like a bout nobody won. `PROBE_CAP` in
+  // `scripts/tournament.mjs` is this number, and this is what keeps it honest.
+  const { overtimeSeconds, overtimeKillSeconds, probeSeconds, capSeconds } = CONFIG.bout;
+  assert.ok(probeSeconds > overtimeSeconds + overtimeKillSeconds,
+    `a harness capped at ${probeSeconds} s never sees the ramp finish`);
+  assert.ok(capSeconds > probeSeconds, "the page's safety net is the loosest of the three");
+});
+
+test("the ramp takes an untouched body from full to finished in overtimeKillSeconds", () => {
+  const kill = CONFIG.bout.overtimeKillSeconds;
+  for (const body of [whole(), golemish()]) {
+    const parts = body;
+    drain(parts, kill * 0.5);
+    assert.ok(Math.abs(vitality(parts) - 0.5) < 1e-9,
+      `half the clock should be half the bar, got ${vitality(parts)}`);
+    drain(parts, kill * 0.49);
+    assert.ok(vitality(parts) > 0, "and it is not finished a moment early");
+    drain(parts, kill * 0.02);
+    assert.equal(vitality(parts), 0);
+    assert.equal(beaten(parts), true);
+  }
+});
+
+test("the ramp is the same clock however a body's weights are scaled", () => {
+  // The Warrior's weights sum to 3.6 and a golem's to `vitalityTotal`. `drain`
+  // divides by the body's own sum, so neither number reaches the wall clock --
+  // which is the whole reason the rate is not written as health per second.
+  const warrior = whole();
+  const golem = golemish();
+  drain(warrior, 7);
+  drain(golem, 7);
+  assert.ok(Math.abs(vitality(warrior) - vitality(golem)) < 1e-9,
+    `${vitality(warrior)} against ${vitality(golem)}`);
+});
+
+test("nothing drains before the mark, and the first drained frame is only its overhang", () => {
+  const still = ring(corner(whole()), corner(whole()));
+  let state = begin(selectScreen(defaultMatchup()), defaultMatchup());
+
+  state = advance(state, still, CONFIG.bout.overtimeSeconds - 9);
+  assert.equal(state.phase, "fight");
+  assert.equal(vitality(still.left.parts), 1, "before the mark, nothing");
+
+  // A ten-second frame that straddles the mark by one second drains one second,
+  // not ten, so the ramp begins at `overtimeSeconds` and not at whatever frame
+  // boundary follows it.
+  state = advance(state, still, 10);
+  const expected = 1 - 1 / CONFIG.bout.overtimeKillSeconds;
+  assert.ok(Math.abs(vitality(still.left.parts) - expected) < 1e-9,
+    `${vitality(still.left.parts)} against ${expected}`);
+});
+
+test("the ramp resolves a bout on accumulated damage, and names the side that was ahead", () => {
+  // The tie-break the record kept asking for, and it is not a scoring rule: both
+  // sides lose the same share of their own bar each second, so the one already
+  // carrying damage simply reaches zero first. `settle` still invents nothing.
+  const hurt = whole().map((part) => (part.key === "torso" ? { ...part, health: 50 } : part));
+  const board = ring(corner(hurt, blow("left")), corner(whole(), blow("right")));
+  let state = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  for (let frame = 0; frame < 60 * 200 && state.phase === "fight"; frame += 1) {
+    state = advance(state, board, 1 / 60);
+  }
+  assert.equal(state.phase, "over");
+  assert.equal(state.outcome.ending, "exhausted");
+  assert.equal(state.outcome.winner, "right", "the side that had taken less is the one still up");
+  const ceiling = CONFIG.bout.overtimeSeconds + CONFIG.bout.overtimeKillSeconds;
+  assert.ok(state.clock < ceiling,
+    `a damaged body should finish inside ${ceiling} s, not ${state.clock}`);
+  assert.ok(state.clock > CONFIG.bout.overtimeSeconds, "and not before the ramp starts");
+});
+
+test("a body that has lost an arm is on the same clock as one that has not", () => {
+  // Severed parts drain with the rest, and this is the shape `Golem.sever` now
+  // leaves behind: an arm detached with its health intact. Skipping it would pay
+  // for losing a limb with a longer clock, which is backwards, and would make the
+  // ramp's rate a function of how much of a body is still attached.
+  const detached = whole().map((part) => (part.key === "hand" ? { ...part, severed: true } : part));
+  const intact = whole();
+  drain(detached, 10);
+  drain(intact, 10);
+  assert.ok(Math.abs(vitality(detached) - vitality(intact)) < 1e-9,
+    `${vitality(detached)} against ${vitality(intact)}`);
+});
+
 test("the verdict spells the four kinds of blow, and lower-cases the limb", () => {
   const at = (kind) => verdict("left", "exhausted", blow("left", { kind, limb: "Sword arm" }));
   assert.equal(at("cut"), "left, as the other was exhausted by a cut to the sword arm at 14.2 m/s");
@@ -512,9 +615,14 @@ test("one pass through every phase, in the order a player walks it", () => {
   state = restart(state);
   assert.equal(state.clock, 0, "and R starts the same bout over");
 
+  // Not "time". `advance` runs the overtime drain, and one step of `capSeconds`
+  // is nine lethal doses of it, so both untouched bodies are spent together. The
+  // cap is still the safety net it was written as -- it just no longer has two
+  // live bodies to arbitrate over. See `drain`.
   state = advance(state, still, CONFIG.bout.capSeconds);
   assert.equal(state.phase, "over");
-  assert.equal(state.outcome.ending, "time");
+  assert.equal(state.outcome.ending, "exhausted");
+  assert.equal(state.outcome.winner, null, "the ramp is symmetric, so equals draw");
 
   state = toSelect(state);
   assert.equal(state.phase, "select");

@@ -51,7 +51,7 @@ import { backward, forward, initWeights, netScratch, netSize } from "../src/gole
 import { NEURAL_LAYOUT, NEURAL_VERSION, checkNeuralWeights } from "../src/golem/neural.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { mergeSamples, readSamples, writeSamples } from "./decision-log.mjs";
-import { buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
+import { PROBE_CAP, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { DEFAULT_LEAGUE, evaluate } from "./tune.mjs";
 
 // The samples file moved to `scripts/decision-log.mjs` in Session 08 of the style set, when the
@@ -362,7 +362,7 @@ if (isMain) {
   const confirmBouts = Math.max(2, Number(flag("confirm", bouts * 4)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, Math.floor(availableParallelism() / 2)))));
   const random = Math.max(0, Number(flag("random", 40)));
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const league = flag("league", DEFAULT_LEAGUE.join(",")).split(",").map((s) => s.trim()).filter(Boolean);
   const teacher = flag("teacher", DEFAULT_TEACHER);
   const samplesPath = flag("samples", null);

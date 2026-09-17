@@ -1,7 +1,7 @@
 // The decisiveness floor: can a mind kill a body that does nothing?
 //
 //   node scripts/idle-probe.mjs [--mind golem-policy] [--checkpoint run-checkpoint.json]
-//     [--read greedy|drawn] [--bouts 4] [--workers N] [--cap 60] [--seed 20260906] [--random 40]
+//     [--read greedy|drawn] [--bouts 4] [--workers N] [--cap 150] [--seed 20260906] [--random 40]
 //     [--terminals maul,mace|all] [--tactics latchAbort=true] [--separation 1.2]
 //
 // Every bout is a build against *itself*, one side driven and the other on `idle`, so the only
@@ -24,7 +24,7 @@ import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { armedTerminal, runJobs, seedFor } from "./tournament.mjs";
+import { PROBE_CAP, armedTerminal, runJobs, seedFor } from "./tournament.mjs";
 import { parseSeparationStage, parseTactics, parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
 import { viablePair } from "../src/golem/viability.ts";
 
@@ -102,7 +102,8 @@ export function probePartners(pool, build, mirror = true) {
  * the pool and is printed rather than thrown.
  */
 export function probeJobs({
-  pool, name = "golem-policy", bouts = 4, cap = 60, seed = 20260906, mirror = true, separation = null,
+  pool, name = "golem-policy", bouts = 4, cap = PROBE_CAP, seed = 20260906, mirror = true,
+  separation = null,
 }) {
   if (pool.length === 0) throw new Error("an idle probe needs a build to run");
   if (separation !== null && (!Number.isFinite(separation) || separation <= 0)) {
@@ -136,7 +137,8 @@ export function probeJobs({
 }
 
 export async function idleProbe({
-  pool, name = "golem-policy", contender = null, bouts = 4, workers = 8, cap = 60, seed = 20260906,
+  pool, name = "golem-policy", contender = null, bouts = 4, workers = 8, cap = PROBE_CAP,
+  seed = 20260906,
   mirror = true, separation = null, onProgress = null,
 }) {
   const contenders = contender === null ? null : { [name]: contender };
@@ -302,7 +304,7 @@ if (isMain) {
   }
   const bouts = Math.max(2, Number(flag("bouts", 4)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const seed = Number(flag("seed", 20260906)) >>> 0;
   const random = Math.max(0, Number(flag("random", 40)));
   // The viable set by default since Session 01 of the learn set, and `--terminals all` is the

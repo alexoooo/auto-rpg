@@ -1105,6 +1105,60 @@ export const CONFIG = {
     capSeconds: 600,
 
     /**
+     * When the clock itself starts doing damage, in seconds.
+     *
+     * Past this mark `drain` in `src/bout.ts` takes health off both bodies at a
+     * fixed share of the vitality bar per second, so a bout resolves on its own
+     * near `overtimeSeconds + overtimeKillSeconds` whatever the two minds are
+     * doing. It exists because a fight decided by a single blow is not a fight:
+     * losing a limb costs capability rather than life, which is deliberate, and
+     * a bar that deep needs a clock behind it or two cautious minds circle each
+     * other until `capSeconds`.
+     *
+     * The ramp is symmetric, and that is the point. Both sides lose the same
+     * fraction of their *own* bar each second, so whichever is already carrying
+     * more damage reaches zero first. That makes "the side ahead on accumulated
+     * damage wins" a consequence of the drain rather than a scoring rule
+     * invented in passing by the function that needed a tie-break -- which is
+     * exactly the rule `settle` in `src/bout.ts` declines to invent.
+     */
+    overtimeSeconds: 60,
+
+    /**
+     * How long the drain alone takes an untouched body from full to finished,
+     * in seconds.
+     *
+     * Stated as a time rather than as a rate because the time is what it is
+     * chosen for: 60 here and 60 above put a fight's natural end near two
+     * minutes. `drain` divides by the body's own summed vitality weights, so
+     * this is the same wall-clock number for a Warrior, whose weights sum to 1,
+     * and for a golem, whose weights are scaled to `vitalityTotal`.
+     */
+    overtimeKillSeconds: 60,
+
+    /**
+     * The cap a *harness* runs under, in seconds of simulation time.
+     *
+     * Not `capSeconds`, which is the page's safety net and is 600 for reasons
+     * that are entirely about somebody at a keyboard. This is the number every
+     * probe, sweep and tournament in `scripts/` defaults to, and it exists as a
+     * named constant because it has one job: **be past the ramp.** A harness
+     * capped at 60 with `overtimeSeconds` at 60 would take every one of its
+     * readings in the last instant before the drain begins, and would report the
+     * game as it was rather than as it is -- silently, with no error and no
+     * empty column to notice.
+     *
+     * So it is the ramp's own resolution plus a margin: 60 + 60 is where an
+     * untouched pair finishes, and 150 leaves a quarter of that again. It is a
+     * literal rather than a sum because a harness cap that moved every time
+     * somebody adjusted the ramp would silently re-price every sweep in the
+     * record; `tests/bout.test.mjs` asserts it stays past the ramp instead, so
+     * moving one of the two above without this one is caught rather than
+     * measured.
+     */
+    probeSeconds: 150,
+
+    /**
      * How long the takeover hint stays on the banner at the start of a bout.
      *
      * Long enough to be read once without being read twice. The feature it

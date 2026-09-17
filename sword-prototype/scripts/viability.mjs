@@ -2,7 +2,7 @@
 // Session 01 of the learn set.
 //
 //   node scripts/viability.mjs [--bouts 8] [--seed 20260906] [--random 40] [--workers N]
-//                              [--cap 60] [--mind golem-driver] [--out tables.json]
+//                              [--cap 150] [--mind golem-driver] [--out tables.json]
 //
 // `src/golem/viability.ts` ships two frozen constants -- the classes a pool draws from, and the
 // class pairs that can finish each other -- and a constant with no table beside it is an opinion.
@@ -33,7 +33,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { armedTerminal, pairKey } from "../src/golem/viability.ts";
-import { buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
+import { PROBE_CAP, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { idleProbe, rollupByTerminal } from "./idle-probe.mjs";
 
 /** At least half, which is the whole of the rule both tables are read against. */
@@ -57,7 +57,8 @@ export const VIABLE_FLOOR = 0.5;
  * a reader can see which of its numbers is worth anything.
  */
 export async function pairSweep({
-  pool, mind = "golem-driver", bouts = 8, workers = 8, cap = 60, seed = 20260906, onProgress = null,
+  pool, mind = "golem-driver", bouts = 8, workers = 8, cap = PROBE_CAP, seed = 20260906,
+  onProgress = null,
 }) {
   if (pool.length < 2) throw new Error("a pair sweep needs two builds to draw between");
   const pairings = Math.max(1, Math.ceil((pool.length * (pool.length - 1) / 2) * bouts / 2));
@@ -198,7 +199,7 @@ if (isMain) {
   const seed = Number(flag("seed", 20260906)) >>> 0;
   const bouts = Math.max(2, Number(flag("bouts", 8)));
   const random = Math.max(0, Number(flag("random", 40)));
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
   const mind = flag("mind", "golem-driver");
   const out = flag("out", null);

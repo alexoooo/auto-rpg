@@ -2,7 +2,8 @@
 // Session 14 of the style set.
 //
 //   node scripts/probe-snapshots.mjs --dir tournaments/league-anchored [--bouts 4] [--workers 28]
-//                                    [--cap 60] [--seed 20260906] [--only 8,16] [--out curve.jsonl]
+//                                    [--cap 150] [--seed 20260906] [--only 8,16]
+//                                    [--out curve.jsonl]
 //                                    [--baseline 9/28] [--terminals maul,mace|all]
 //                                    [--pools mirror,random]
 //
@@ -36,6 +37,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { VIABLE_TERMINALS } from "../src/golem/viability.ts";
+import { PROBE_CAP } from "./tournament.mjs";
 import { parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
 import { contenderFor, loadLeague, poolPath, roleFromJson } from "./league.mjs";
 import { formatIdleProbe, idleProbe } from "./idle-probe.mjs";
@@ -153,7 +155,7 @@ export function probeRow(iteration, probe, baseline = null) {
 }
 
 export async function probeSnapshots({
-  dir, bouts = 4, workers = 28, cap = 60, seed = 20260906, random = 40, only = null,
+  dir, bouts = 4, workers = 28, cap = PROBE_CAP, seed = 20260906, random = 40, only = null,
   baseline = null, onRow = null, terminals = VIABLE_TERMINALS, pools = null,
 }) {
   const wanted = pools === null ? ["mirror"] : [...pools];
@@ -233,11 +235,11 @@ if (isMain) {
     : `, maul class tested against ${baseline.kills}/${baseline.bouts}`;
   console.log(`${dir}: iteration ${state.iteration}, probing ${chosen.length + 1} minds `
     + `over ${pools.map((which) => `${builds[which]} ${which}`).join(" and ")} builds at seed `
-    + `${seed}, ${poolSentence(terminals)}, cap ${flag("cap", 60)} s${against}`);
+    + `${seed}, ${poolSentence(terminals)}, cap ${flag("cap", PROBE_CAP)} s${against}`);
   let last = null;
   const { rows } = await probeSnapshots({
     dir, bouts: Number(flag("bouts", 4)), workers: Number(flag("workers", 28)),
-    cap: Number(flag("cap", 60)), seed, random, only, baseline, terminals, pools,
+    cap: Number(flag("cap", PROBE_CAP)), seed, random, only, baseline, terminals, pools,
     onRow: (row, probe) => {
       console.log(formatProbeRow(row, builds[probe.mirror === false ? "random" : "mirror"]));
       last = probe;

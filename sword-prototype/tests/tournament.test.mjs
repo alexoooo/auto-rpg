@@ -570,8 +570,14 @@ test("overrides_are_name_value_pairs_the_worker_applies_to_the_fencer_and_refuse
 test("the_body_prefix_reaches_the_assembly_and_a_thinner_bar_takes_more_of_it", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "sword-tournament-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
+  // Four builds and eight bouts rather than two and four. The gap this asserts used to be carried
+  // mostly by severing -- a cut arm spent the module's whole weight of bar -- and now that losing
+  // a limb costs capability instead, what is left is the direct effect of the flag: a thinner bar
+  // means a given blow takes a larger share of it. That effect is real and quieter, so the pool is
+  // widened to hear it. Measured at 0.053, 0.171 and 0.096 of a bar on three seeds, against the
+  // 0.02 asserted below.
   const run = (name, overrides) => runTournament({
-    seed: SEED, bouts: 4, workers: 2, policies: ["golem-fencer"], random: 2, cap: 4,
+    seed: SEED, bouts: 8, workers: 4, policies: ["golem-fencer"], random: 4, cap: 4,
     out: join(dir, name), overrides, mirror: true,
   });
   const shipped = await run("shipped.jsonl", null);

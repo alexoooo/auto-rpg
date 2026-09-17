@@ -4,7 +4,8 @@
 //
 //   node scripts/tune.mjs --seed 20260907 --generations 30 --lambda 4 --bouts 64 --workers 16
 //                         [--classes general|auto|general,sword/long,...] [--min-builds 3]
-//                         [--sigma 0.25] [--rate 0.15] [--margin 0] [--random 40] [--cap 60] [--confirm 128]
+//                         [--sigma 0.25] [--rate 0.15] [--margin 0] [--random 40]
+//                         [--cap 150] [--confirm 128]
 //                         [--league golem-duelist,golem-fencer,golem-planner]
 //                         [--start tournaments/earlier.jsonl] --out tournaments/tune.jsonl
 //                         [--write src/golem/tactics-champions.ts]
@@ -63,7 +64,7 @@ import { CHAMPION_VERSION, checkChampions } from "../src/golem/champion.ts";
 import { GOLEM_PLANNER } from "../src/golem/planner.ts";
 import { GOLEM_TACTICS_V2 } from "../src/golem/tactics-v2.ts";
 import { mulberry32 } from "../src/rng.ts";
-import { buildPool, runJobs, scheduleJobs, summarize } from "./tournament.mjs";
+import { PROBE_CAP, buildPool, runJobs, scheduleJobs, summarize } from "./tournament.mjs";
 
 /** The planner's rows the tuner moves. */
 export const PLANNER_ROWS = Object.freeze(["horizon", "discount", "aggression", "caution"]);
@@ -410,7 +411,7 @@ if (isMain) {
   const confirm = Math.max(2, Number(flag("confirm", bouts * 2)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, Math.floor(availableParallelism() / 2)))));
   const random = Math.max(0, Number(flag("random", 40)));
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const sigma = Number(flag("sigma", 0.25));
   const rate = Number(flag("rate", 0.15));
   const margin = Number(flag("margin", 0));

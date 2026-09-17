@@ -4,7 +4,7 @@
 //        [--seed 20260910] [--iterations 30] [--epochs 3] [--batch 128] [--rate 1e-3]
 //        [--replay 600000] [--half-life 8] [--win-bonus 0] [--explore 0.1]
 //        [--rounds 3] [--round-bouts 2048] [--self-play 512] [--confirm 1536]
-//        [--workers 30] [--cap 60] [--log tournaments/learner.jsonl]
+//        [--workers 30] [--cap 150] [--log tournaments/learner.jsonl]
 //
 // **What is learned.** A value an option: what naming this option in this state is worth from
 // here to the end of the bout, in bar units. The mind plays the best open one; nothing else about
@@ -41,7 +41,7 @@ import { STYLE_FEATURES_VERSION } from "../src/golem/style-features.ts";
 import { STYLE_OPTIONS } from "../src/golem/tactics-v3.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { mergeSamples, readSamples, writeSamples } from "./decision-log.mjs";
-import { buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
+import { PROBE_CAP, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { evaluate } from "./tune.mjs";
 
 /** The nine hand-coded minds a round collects against, and the confirmation rates on. */
@@ -513,7 +513,7 @@ if (isMain) {
   const selfPlay = Math.max(0, Number(flag("self-play", 512)));
   const confirmBouts = Math.max(0, Number(flag("confirm", 1536)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const random = Math.max(0, Number(flag("random", 60)));
   const league = flag("league", LEARNER_LEAGUE.join(",")).split(",").map((s) => s.trim()).filter(Boolean);
   const samplesPaths = flag("samples", "").split(",").map((s) => s.trim()).filter(Boolean);

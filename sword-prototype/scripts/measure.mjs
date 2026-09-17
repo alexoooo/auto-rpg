@@ -41,22 +41,23 @@ import { FIXED, FRAME, buildArena, freshHavok, runBout, seedFor } from "./bout-r
 export { freshHavok, runBout };
 
 /**
- * The bench's bout cap, in seconds of simulation time. Sixty, and the argument
- * for sixty is entirely about running a lot of them.
+ * The bench's bout cap, in seconds of simulation time.
  *
  * A policy here is reported as a distribution over N bouts. Headless Babylon
  * runs at about 250x real time -- 10 s of simulated time in 39 ms -- so a
  * hundred *capped* bouts cost about twenty-five seconds of wall clock at 60 s
- * and four minutes at the 600 s the page ships. The only bouts that ever reach
- * the cap are the ones that were never going to end, and they are the ones being
- * paid for, so 60 over 90 or 120 is bought and not guessed.
+ * and four minutes at the 600 s the page ships. That arithmetic is what bought
+ * the bench a cap of its own, and it is still the argument for having one.
  *
- * It lives here rather than in `config.ts` because the page is not running a
- * hundred bouts, it is running one, with a person in it -- and 60 s in the page
- * ended a fight underneath whoever was having it. `CONFIG.bout.capSeconds` says
- * the rest.
+ * **It is no longer 60.** `CONFIG.bout.overtimeSeconds` is 60, so a bench capped
+ * there would stop every bout in the instant before the drain that resolves it
+ * and would report the game as it was before the ramp existed -- quietly, since
+ * a bout cut off at the cap looks exactly like a bout nobody won. So the bench
+ * takes `probeSeconds`, which is the number chosen to be past the ramp, and
+ * pays the extra wall clock. `CONFIG.bout.capSeconds` says why the page's is
+ * different again.
  */
-CONFIG.bout.capSeconds = 60;
+CONFIG.bout.capSeconds = CONFIG.bout.probeSeconds;
 
 /**
  * One swinger, swinging at nothing, so the stroke can be read on its own.

@@ -2,7 +2,7 @@
 // random numbers. Session 14 of the style set.
 //
 //   node scripts/rate-snapshots.mjs --dir tournaments/league-anchored [--bouts 200] [--workers 28]
-//                                   [--cap 60] [--random 40] [--only 8,16,24] [--out curve.jsonl]
+//                                   [--cap 150] [--random 40] [--only 8,16,24] [--out curve.jsonl]
 //                                   [--terminals maul,mace|all] [--pools mirror,random]
 //
 // A league's own `--evaluate` is deliberately coarse: a rating costs bouts the fit could have had,
@@ -80,6 +80,7 @@ import {
   PPO_LEAGUE, RATING_POOLS, parseTerminals, policyShapeOf, poolFor, poolSentence, poolWord,
   ratePolicy,
 } from "./train-ppo.mjs";
+import { PROBE_CAP } from "./tournament.mjs";
 import { loadLeague, poolPath, readLog, roleFromJson } from "./league.mjs";
 
 /** The iterations this directory has a checkpoint for, in the order they were taken. */
@@ -240,7 +241,8 @@ export function instrumentSeed(leagueSeed, ratingSeed = null) {
 }
 
 export async function rateSnapshots({
-  dir, bouts = 200, workers = 28, cap = 60, random = 40, only = null, terminals = VIABLE_TERMINALS,
+  dir, bouts = 200, workers = 28, cap = PROBE_CAP, random = 40, only = null,
+  terminals = VIABLE_TERMINALS,
   pools = null, mirror = true, onRow = null, ratingSeed = null,
 }) {
   const wanted = pools === null ? [mirror ? "mirror" : "random"] : [...pools];
@@ -436,7 +438,7 @@ if (isMain) {
   const partial = new Map(paths.map((target) => [target.which, target.partial]));
   for (const handle of partial.values()) writeFileSync(handle, "");
   const { rows } = await rateSnapshots({
-    dir, bouts, workers: Number(flag("workers", 28)), cap: Number(flag("cap", 60)),
+    dir, bouts, workers: Number(flag("workers", 28)), cap: Number(flag("cap", PROBE_CAP)),
     random, only, terminals, pools, ratingSeed,
     onRow: (row) => {
       console.log(formatRow(row));

@@ -2,7 +2,7 @@
 // the two halves ask for. Experiment B of the signal set's menu.
 //
 //   node scripts/gradient-probe.mjs [--bouts 32] [--iterations 30] [--opponent self]
-//        [--seed 20260917] [--workers N] [--shards 8] [--cap 60] [--random 40]
+//        [--seed 20260917] [--workers N] [--shards 8] [--cap 150] [--random 40]
 //        [--terminals maul,mace|all] [--mirror-share 1]
 //        [--entropy 0.0003] [--rate 1e-4] [--value-rate 1e-3] [--sigma-rate 10x rate]
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03] [--half-life 4] [--lambda 0.95]
@@ -266,6 +266,7 @@ import { mulberry32 } from "../src/rng.ts";
 import {
   COMMAND_AXES, COMMAND_BITS, COMMAND_FIELDS, COMMAND_GATES, EVERY_COMMAND_BIT,
 } from "../src/golem/tactics-v4.ts";
+import { PROBE_CAP } from "./tournament.mjs";
 import { PARAM } from "./fit-worker.mjs";
 import { meanOf, semOf } from "./train-learner.mjs";
 import {
@@ -2354,7 +2355,7 @@ if (isMain) {
   // arrangement the interesting second axis.
   const opponentWord = parseOpponentStage(flag("opponent", "self"), "--opponent");
   const seed = Number(flag("seed", 20260917)) >>> 0;
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const random = Math.max(0, Number(flag("random", 40)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
   // At least one, and one is legal: a pool of a single shard allocates the shared memory, walks

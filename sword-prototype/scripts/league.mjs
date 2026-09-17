@@ -2,7 +2,7 @@
 //
 //   node scripts/league.mjs [--iterations 40] [--bouts 64] [--workers N] [--shards 8]
 //     [--seed 20260914]
-//     [--cap 60] [--random 40] [--terminals maul,mace|all] [--emphasise maul,mace] [--emphasis 3]
+//     [--cap 150] [--random 40] [--terminals maul,mace|all] [--emphasise maul,mace] [--emphasis 3]
 //     [--pool-every 4] [--pool-cap 8]
 //     [--exploiters 2] [--exploiter-every 1] [--share-self 1] [--share-pool 2] [--share-exploiter 1]
 //     [--anchor golem-driver,golem-fencer] [--share-anchor 1]
@@ -105,7 +105,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { availableParallelism } from "node:os";
 
-import { armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
+import { PROBE_CAP, armedTerminal, runJobs, scheduleJobs } from "./tournament.mjs";
 import { formatIdleProbe, idleProbe, normalisationOf } from "./idle-probe.mjs";
 import {
   FIT_NAME, FitPool, GAUSSIAN_ENTROPY_OFFSET, PPO_LEAGUE, RATING_POOLS, REWARD_KEYS, UNIFORM_NAME,
@@ -952,7 +952,7 @@ if (isMain) {
   const iterations = Math.max(1, Number(flag("iterations", 40)));
   const bouts = Math.max(2, Number(flag("bouts", 64)));
   const exploiterBouts = Math.max(2, Number(flag("exploiter-bouts", bouts)));
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const random = Math.max(0, Number(flag("random", 40)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
   // The fit's own threads, Session 05 of the learn set. One is the single thread this script has

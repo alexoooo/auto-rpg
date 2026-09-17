@@ -1084,6 +1084,19 @@ export class Golem implements Combatant {
    * drives let go, because a motor still hauling a chain that has come off is the haunting the
    * Warrior's anchors produce.
    *
+   * **What a limb costs is capability, not life.** Only the piece the blow
+   * destroyed is zeroed; the other pieces of the module detach still carrying
+   * their health, so `vitality` in `src/bout.ts` books the wound at the weight
+   * of the one piece rather than at the weight of the whole arm. That is a
+   * design decision and not an accident of bookkeeping: an arm severed at the
+   * wrist used to spend 0.854 of a bar of 1, which made one good cut the whole
+   * fight, and a game a single blow decides is not a game. What losing the arm
+   * takes instead is the weapon on the end of it, the reach it had, and the
+   * guard it could hold -- all of which this same loop takes by detaching it.
+   * Death by dismemberment is still reachable: `beaten` ends a bout the moment a
+   * `fatal` part is severed, so the head and the pelvis remain exactly as lethal
+   * to lose as they read.
+   *
    * **A golem does not bleed.** Nothing here calls the blood system: `src/blood.ts` reads the
    * combat log and decides for itself, and what a stone body should throw off -- dust, chips,
    * nothing at all -- is a decision for somebody looking at it rather than a call from the sever
@@ -1105,7 +1118,11 @@ export class Golem implements Combatant {
     module.severed = true;
     for (const part of module.limbs) {
       part.severed = true;
-      part.health = 0;
+      // **Only the piece that was actually cut is destroyed.** The rest of the
+      // module leaves with its health intact -- see the "what a limb costs"
+      // paragraph above -- which is the difference between an arm coming off
+      // and an arm being deleted from the vitality bar.
+      if (part === limb) part.health = 0;
       // On the leaf. Every golem part is a single box, capsule or sphere and never a container,
       // which is what makes this one line correct rather than a write nothing consults.
       part.part.shape.filterMembershipMask = LAYER.DEBRIS;

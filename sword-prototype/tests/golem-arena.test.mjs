@@ -482,7 +482,11 @@ test("a_severed_effector_becomes_debris_and_the_golem_fights_on_with_the_other_o
   stand.golem.sever(arm[arm.length - 1], new Vector3(1, 0.2, 0));
   for (const limb of arm) {
     assert.equal(limb.severed, true, `${limb.key} stayed attached`);
-    assert.equal(limb.health, 0, limb.key);
+    // Only the piece the blow destroyed is spent. The rest of the arm leaves with its health
+    // intact, because what losing an arm costs is the weapon, the reach and the guard -- not a
+    // share of the vitality bar sized to the whole module. See `Golem.sever`.
+    if (limb === arm[arm.length - 1]) assert.equal(limb.health, 0, limb.key);
+    else assert.ok(limb.health > 0, `${limb.key} was zeroed at ${limb.health}`);
     assert.equal(limb.part.shape.filterMembershipMask, LAYER.DEBRIS, limb.key);
     assert.equal(limb.part.shape.filterCollideMask, COLLIDES.DEBRIS, limb.key);
   }
@@ -546,6 +550,33 @@ test("a_severed_plate_is_debris_and_stops_answering_for_the_golem", async (t) =>
   // doors have to be shut or a blade would start scoring on debris.
   assert.equal(stand.golem.limbFor(plate.part.body), undefined);
   assert.equal(stand.golem.alive, true, "an arm off is a golem with a problem, not a dead golem");
+});
+
+/**
+ * What an arm costs is the arm, not the fight.
+ *
+ * `Golem.sever` used to zero every part of the module, so a blade cut off at the wrist booked the
+ * whole arm's vitality weight -- 0.854 against a bar of 1 -- and one good cut was the fight. It
+ * destroys only the piece the blow found now, and the rest of the module detaches still carrying
+ * its health. What losing the arm takes instead is the weapon on the end of it, its reach and its
+ * guard, all of which the same loop takes by putting the module on `DEBRIS`.
+ *
+ * The bar is a third, stated generously on purpose: the exact figure depends on which piece of
+ * which chain the blow found, and what this pins is that no single sever is most of a body.
+ */
+test("a_severed_arm_costs_capability_rather_than_most_of_the_vitality_bar", async (t) => {
+  const stand = await standAGolem(t);
+  stand.run(1.0);
+  const arm = moduleLimbs(stand.golem, "primary");
+  const struck = arm[arm.length - 1];
+  const before = vitality(stand.golem.limbs);
+  assert.equal(before, 1, `an untouched golem reads ${before}`);
+
+  stand.golem.sever(struck, new Vector3(1, 0.2, 0));
+  const after = vitality(stand.golem.limbs);
+  assert.ok(after > 2 / 3,
+    `a severed arm should cost under a third of the bar, and cost ${(before - after).toFixed(3)}`);
+  assert.equal(stand.golem.alive, true, "and the golem is still in the fight");
 });
 
 /**

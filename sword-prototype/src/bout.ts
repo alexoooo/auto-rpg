@@ -731,6 +731,38 @@ export function beaten(parts: readonly PartState[]): boolean {
   );
 }
 
+/**
+ * The overtime ramp: past `CONFIG.bout.overtimeSeconds`, the clock does damage.
+ *
+ * A fixed share of the whole-body bar per second, taken off every part in
+ * proportion to that part's own maximum, so `vitality` falls by exactly
+ * `seconds / overtimeKillSeconds` and an untouched body is finished after
+ * `overtimeKillSeconds` of it. Dividing by the body's summed weights is what
+ * makes that sentence true of a golem as well as a Warrior: a golem's weights
+ * are scaled to `vitalityTotal`, which is 5.4 rather than 1, and a drain that
+ * ignored the sum would take 5.4 times as long to finish one.
+ *
+ * **Severed parts drain with the rest.** Every other rule here skips them, and
+ * skipping them here would run the clock slower for a body that has lost an
+ * arm -- paying for dismemberment with more time, which is backwards. This is a
+ * clock on the bout, not a wound on a limb.
+ *
+ * Mutates, because `PartState.health` is the body's own field and the bodies
+ * taking this damage is the whole point: perception reads it, the readout shows
+ * it, and a part the clock emptied can be cut off by the next blow that lands
+ * on it. Parts already at zero stay there.
+ */
+export function drain(parts: readonly PartState[], seconds: number): void {
+  if (parts.length === 0 || !(seconds > 0)) return;
+  let total = 0;
+  for (const part of parts) total += part.vitalityWeight ?? vitalWeight(part.key);
+  if (!(total > 0)) return;
+  const fraction = seconds / (total * CONFIG.bout.overtimeKillSeconds);
+  for (const part of parts) {
+    part.health = Math.max(0, part.health - part.maxHealth * fraction);
+  }
+}
+
 const KIND_NOUN: Record<HitKind, string> = {
   crush: "crushing blow",
   cut: "cut",
@@ -852,6 +884,16 @@ export function toSelect(state: BoutState): BoutState {
 export function advance(state: BoutState, ring: Ring, dt: number): BoutState {
   if (state.phase !== "fight") return state;
   const clock = state.clock + dt;
+  // The ramp runs before the reading that can end on it, and only over the part
+  // of this frame that falls past the mark -- so the drain begins at
+  // `overtimeSeconds` however coarse `dt` is, rather than at the first frame
+  // boundary after it.
+  const over = clock - CONFIG.bout.overtimeSeconds;
+  if (over > 0) {
+    const seconds = Math.min(dt, over);
+    drain(ring.left.parts, seconds);
+    drain(ring.right.parts, seconds);
+  }
   const outcome = settle(ring, clock);
   if (!outcome) return { ...state, clock };
   return { ...state, clock, phase: "over", outcome };

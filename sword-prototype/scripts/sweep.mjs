@@ -86,6 +86,7 @@ import {
   PPO_LEAGUE, checkpointFor, cohensD, contenderShape, parseTerminals, poolFor, poolSentence,
   ratePolicy,
 } from "./train-ppo.mjs";
+import { PROBE_CAP } from "./tournament.mjs";
 import { boutsPerOpponent, parsePools, rateSnapshots } from "./rate-snapshots.mjs";
 import { contenderFor, loadLeague } from "./league.mjs";
 import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
@@ -501,7 +502,7 @@ export function checkShape(name, contender, weights) {
     + "disagreement between that header and this reader rather than a bad checkpoint");
 }
 export async function rateArms(manifest, {
-  dir, bouts, workers, cap = 60, pools = ["mirror", "random"], onRow = null,
+  dir, bouts, workers, cap = PROBE_CAP, pools = ["mirror", "random"], onRow = null,
 }) {
   const rows = [];
   const keep = (arm, row) => {
@@ -634,7 +635,8 @@ export function designedMind(policy) {
  * the refusal a statement about the column rather than about the arm count.
  */
 export async function ratePaired(manifest, {
-  dir, bouts, workers, cap = 60, control, league = PPO_LEAGUE, mirror = false, onProgress = null,
+  dir, bouts, workers, cap = PROBE_CAP, control, league = PPO_LEAGUE, mirror = false,
+  onProgress = null,
   seed = null, designed = [],
 }) {
   // The evaluation seed is the sweep's own unless a caller names one. A named one is how a bar

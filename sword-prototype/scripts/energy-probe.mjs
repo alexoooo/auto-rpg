@@ -2,7 +2,7 @@
 // not.
 //
 //   node scripts/energy-probe.mjs [--opponent golem-fencer|idle|both] [--mind golem-fencer]
-//     [--bouts 4] [--random 40] [--terminals maul,mace|all] [--seed 20260906] [--cap 60]
+//     [--bouts 4] [--random 40] [--terminals maul,mace|all] [--seed 20260906] [--cap 150]
 //     [--separation 1.2]
 //
 // **Why this exists.** AR established that damage against `idle` is not a function of stroke speed:
@@ -26,7 +26,7 @@
 import { availableParallelism } from "node:os";
 
 import { freshHavok, runBout } from "./bout-runner.mjs";
-import { armedTerminal, seedFor } from "./tournament.mjs";
+import { PROBE_CAP, armedTerminal, seedFor } from "./tournament.mjs";
 import { parseTerminals, poolFor, poolSentence } from "./train-ppo.mjs";
 import { biteFloorJ, biteMechanism } from "../src/scoring.ts";
 
@@ -57,7 +57,7 @@ function tally() {
  * opponent and not the pool.
  */
 export async function energyCell({
-  pool, mind = "golem-fencer", opponent = "idle", bouts = 4, seed = 20260906, cap = 60,
+  pool, mind = "golem-fencer", opponent = "idle", bouts = 4, seed = 20260906, cap = PROBE_CAP,
   separation = null, onProgress = null,
 }) {
   const per = Math.max(2, Math.ceil(bouts / 2) * 2);
@@ -164,7 +164,7 @@ async function main(argv) {
   const seed = num("--seed", 20260906);
   const bouts = num("--bouts", 4);
   const random = num("--random", 40);
-  const cap = num("--cap", 60);
+  const cap = num("--cap", PROBE_CAP);
   const separation = flag("--separation", null) === null ? null : num("--separation", 0);
   const terminals = parseTerminals(flag("--terminals", null));
   const pool = poolFor({ seed, random, terminals, mirror: true });

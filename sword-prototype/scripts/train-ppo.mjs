@@ -1,6 +1,6 @@
 // Fit `golem-policy` by PPO on the dense reward, in mirrored self-play. Session 13 of the style set.
 //
-//   node scripts/train-ppo.mjs [--seed 20260913] [--iterations 30] [--bouts 32] [--cap 60]
+//   node scripts/train-ppo.mjs [--seed 20260913] [--iterations 30] [--bouts 32] [--cap 150]
 //        [--workers N] [--shards 8] [--random 40] [--half-life 4] [--lambda 0.95] [--clip 0.2]
 //        [--entropy 0.003] [--rate 1e-4] [--value-rate 1e-3] [--sigma-rate 10x rate]
 //        [--epochs 4] [--batch 4096] [--target-kl 0.03]
@@ -187,7 +187,7 @@ import { GOLEM_REWARD, boutParts, stepReward } from "../src/golem/reward.ts";
 import { EVERY_COMMAND_BIT, GOLEM_TACTICS_V4 } from "../src/golem/tactics-v4.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { VIABLE_TERMINALS, viableMirror } from "../src/golem/viability.ts";
-import { armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
+import { PROBE_CAP, armedTerminal, buildPool, runJobs, scheduleJobs } from "./tournament.mjs";
 import { columnsOf, meanOf, semOf } from "./train-learner.mjs";
 import { evaluate } from "./tune.mjs";
 import { CTL, COMMAND, FIT_ROLE, NOTE_BYTES, PARAM, SCALARS, readNote } from "./fit-worker.mjs";
@@ -2485,7 +2485,7 @@ if (isMain) {
   const seed = Number(flag("seed", 20260913)) >>> 0;
   const iterations = Math.max(1, Number(flag("iterations", 30)));
   const bouts = Math.max(2, Number(flag("bouts", 32)));
-  const cap = Number(flag("cap", 60));
+  const cap = Number(flag("cap", PROBE_CAP));
   const random = Math.max(0, Number(flag("random", 40)));
   const workers = Math.max(1, Number(flag("workers", Math.max(1, availableParallelism() - 2))));
   // How many threads the fit itself runs on. One is the single thread this script has always been,

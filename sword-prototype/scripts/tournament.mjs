@@ -35,7 +35,23 @@ import { REACH_BANDS, reachBand } from "../src/golem/champion.ts";
 import { armedHand, armedTerminal, viableBuild, viableMirror, viablePair } from "../src/golem/viability.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { unitDefinition } from "../src/units.ts";
+import { CONFIG } from "../src/config.ts";
 import { mergeSamples, writeSamples } from "./decision-log.mjs";
+
+/**
+ * Every `--cap` default in `scripts/`, in one place, and past the overtime ramp.
+ *
+ * It used to be the literal 60 in fifteen files, which was fine while the only
+ * thing a cap did was stop a hung pairing. It is not fine now: `CONFIG.bout`
+ * starts draining both bodies at `overtimeSeconds`, which is also 60, so a
+ * harness capped at 60 would take every reading in the last instant before the
+ * game's own resolution rule fires -- and would report that nothing had changed,
+ * with no error and no empty column to catch it.
+ *
+ * `--cap` still overrides it everywhere it did, and a probe that deliberately
+ * wants the pre-ramp shape asks for 60 by name. See `CONFIG.bout.probeSeconds`.
+ */
+export const PROBE_CAP = CONFIG.bout.probeSeconds;
 
 /** Bumped when a row's shape changes; `--read` refuses a file written under another. */
 export const TOURNAMENT_VERSION = 1;
@@ -783,7 +799,7 @@ if (isMain) {
     const workers = Math.max(1, Number(flag("workers", Math.max(1, Math.floor(availableParallelism() / 2)))));
     const policies = flag("policies", "golem-duelist").split(",").map((name) => name.trim()).filter(Boolean);
     const random = Math.max(0, Number(flag("random", 20)));
-    const cap = Number(flag("cap", 60));
+    const cap = Number(flag("cap", PROBE_CAP));
     // Session 08 of the learn set, and here for the probes rather than for the curriculum: a
     // question about what a start distance does to a hand-coded mind is a tournament question, and
     // asking it by editing `CONFIG.fighter.separation` would restate every other table in the
