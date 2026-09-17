@@ -38271,3 +38271,66 @@ stand-off floor has stopped binding, and that is the finding ahead of everything
 The instrument reads published positions and reaches off the view and computes the commanded hold
 itself. It asks the mind for nothing, so -- unlike BF -- the reading does not depend on which mind
 is driving.
+
+## BH -- where in its own arc does a stroke make contact
+
+Registered 2026-09-17. The cells were already running when this was written and **no output had been
+read**; the predictions below are stated against numbers nobody in this session has seen.
+
+The owner's second clause -- *"the attacking technique is just too poor to do real damage"* -- as a
+number. A swing that lands at a fifth of its peak reached the other body before it had finished
+accelerating, and energy goes as the square of what arrives, so a quarter of the speed is a
+sixteenth of the blow.
+
+**A stroke is detected from the tip-speed trace, not from a mind's stance.** That is BF's lesson
+spent rather than repeated: `DrivenStance` is v4-only and `golem-fencer` is a v2 mind, so any
+reading keyed on a mind's internals is a reading about that mind. A run of samples above 1.5 m/s on
+`HandView.tipSpeed` is an episode; its peak and the time of that peak are the arc, and every contact
+inside it is placed against them. Run on `golem-fencer` and `golem-driver` so a finding about one
+mind cannot be mistaken for one about the game.
+
+### Predictions
+
+1. Contact falls **before** the episode's peak more than half the time.
+2. The median contact speed is **under half** the episode peak it belongs to.
+3. Both hold for both minds, within 0.15 of each other -- this is a property of the bodies and the
+   spacing, not of a policy.
+
+**The guard:** an episode count of zero, or a mean peak sitting on the open threshold, is an
+instrument that saw nothing, and is reported as such rather than as a finding that strokes are slow.
+
+## BG-b -- why the learned policy has not picked spacing up
+
+The owner asked the obvious follow-up: *"if the issue with hits is there is no space to swing, why
+isn't the learning policy learning to keep a bit of distance?"*
+
+Answered by reading, in one sitting, and it is not "it has not learned yet".
+
+**Its neutral is already correct.** `COMMAND_RANGES.standOff` is `[0, 2]` and `freshCommand()` sets
+`standOff: 1`; `commandFromAction` centres an axis on the midpoint of its range, so the policy head's
+**zero maps to 1.0 x the opponent's reach** -- exactly the fencer's shipped `standOffFraction`. The
+comment on `COMMAND_RANGES` says the roof was chosen for that reason.
+
+**And then the axis is randomised by almost a metre.** The shipped `logSigma[0]` is `-0.69803`, so
+sigma is `0.4976` in action units, and on a `[0, 2]` range one action unit is one stand-off unit. At
+the 1.78 m reach both default golems publish that is **+-0.89 m of stand-off noise, one sigma, on
+every ask.** A mind commanding "their reach, plus or minus most of a metre" stands chest to chest a
+large fraction of the time. The entropy bonus holds sigma up; `entropyGrad` is the same mechanism
+the record already caught pulling the three gate logits toward a coin flip.
+
+**And it has no floor, where the fencer has three.** `tactics-v4.ts` says it outright -- *"The
+stand-off is the mind's and the executor floors it at nothing."* v2 floors its hold at
+`max(reach * holdFraction, near + slack, theirReach * standOffFraction)`, so the fencer **cannot**
+stand inside its own inner radius by mistake. The policy can, and the only thing charging it is
+`clinch` at 0.004 a second.
+
+**Nobody saw any of this because the bar reads greedily.** At sigma zero the shipped policy stands
+at 1.0 of their reach and looks correct. The policy the optimiser improved never did.
+
+A fourth reason, weaker but in the same direction: spacing only pays off *through a completed
+stroke*, and the fit's policy completes about one stroke in eight. The chain from good spacing to a
+hard hit almost never closes, so the gradient on that axis is mostly noise.
+
+**This is a reading, not a result.** What it predicts -- that a drawn read stands materially closer
+than a greedy one, and that shrinking sigma on `standOff` alone moves the spacing -- is a cell, and
+it is owed before any of it is called a cause.
