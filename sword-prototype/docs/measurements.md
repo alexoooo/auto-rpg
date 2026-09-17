@@ -38818,3 +38818,68 @@ step 1 understates every blow; what matters is whether the blade then drives in.
 **What closes this either way:** P1 and P3 both holding is the geometry reading, and it makes the
 question a design question about the damage law rather than a defect in the fighters. Either failing
 keeps it a fighter fix and BM chooses which.
+
+## BM result -- a worthless stroke has no square moment in it, and the blade never drives in
+
+16 bouts, `golem-fencer` mirror on default golems, 959 strokes and 3910 contacts.
+
+| contact-step within the stroke | contacts | normal | speed m/s |
+| --- | ---: | ---: | ---: |
+| 1 | 959 | 0.26 | 5.91 |
+| 2 | 695 | 0.27 | 6.32 |
+| 3 or later | 2256 | 0.29 | 6.91 |
+
+**P2 fails: +0.024, against the 0.15 registered.** The blade does not square up as the contact
+proceeds. First touch on a convex body understates any blow, and stripping that changes nothing
+here, so 0.28 is the whole truth about the blow rather than an artifact of when it is sampled.
+
+| stroke | n | best step's normal | contact-steps |
+| --- | ---: | ---: | ---: |
+| pays nothing | 457 | 0.36 | 1.0 |
+| pays | 502 | **0.85** | 5.0 |
+
+**P3 holds: 0.36, against the 0.5 registered.** A worthless stroke is never square at any moment of
+its contact. A paying one reaches 0.85 -- as square as it is possible to be.
+
+And the shape of the two is different in a way nothing asked for: **a worthless stroke touches for
+one step and a paying stroke for five.** That is the difference between a blade that clips a surface
+and leaves, and one that drives in and stays. The two populations are not the same event delivered
+well or badly; they are two different events.
+
+### The arc geometry does not explain it, which was worth checking before believing it
+
+For a tip on a rigid arc of radius `L` about the shoulder, striking a cylinder of radius `R` whose
+axis is `D` away, the normal fraction at contact is `D sin a / R` with
+`cos a = (L^2 + D^2 - R^2) / (2 L D)`. It is 1 where the arc passes through the axis and falls to 0
+at `D = L + R`, the outermost point the tip can reach -- a blow taken at the very limit of extension
+is a graze, exactly.
+
+BI measured the target surface 0.32 m *inside* maximum extension on 99 % of strokes. Put that
+through the relation with the shipped 1.78 m reach and a quarter-metre trunk and it predicts a
+normal fraction of **0.94**. The measurement is 0.28.
+
+**So the rigid-arc model is refuted, and with it the tidy story that they are simply striking too
+far out.** It was refuted independently by BH: the contact moves at 0.67 of tip speed, and a rigid
+arc would then put the contact 1.19 m from the shoulder when the nearest point of the target surface
+is 1.46 m away -- which is not a place a contact can happen. The arm is a chain and the hand travels
+too. Where the blow is square is therefore not settled by where the feet are, and the next cell asks
+what it *is* settled by, rather than assuming.
+
+## BN -- registration: does separation at the moment of contact explain squareness?
+
+The normal fraction is a ratio, so it is not moved by the speed difference between the two
+populations, which is what makes separation a fair thing to bin it against.
+
+- **P1:** binned by shoulder separation at contact, the closest quartile's median normal exceeds the
+  farthest quartile's by **more than 0.20**.
+  - *Holds* -> where they stand at the moment of contact is the lever on squareness, and there is a
+    fighter fix even though the rigid-arc account of it is wrong.
+  - *Fails* -> separation does not explain squareness. The cause is the orientation of the arc, not
+    the distance, and no stand-off constant reaches it.
+- **P2:** paying contacts occur at a median separation **more than 0.10 m closer** than worthless
+  ones.
+  - *Holds* -> and in that direction the 2026-09-05 stand-off fix, which pushed them to exactly
+    their opponent's reach, is now buying speed at the cost of squareness. That trade has never been
+    measured, because squareness was not a column when it was made.
+  - *Fails* -> they graze and they land from the same distance, which puts the whole cause inside
+    the stroke.
