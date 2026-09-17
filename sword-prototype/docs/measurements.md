@@ -38767,3 +38767,54 @@ The arcs sweep across the target instead of driving into it, and at 0.28 on the 
    every number in this record was measured under.
 
 They are not exclusive and the first is cheaper to test. Neither is a thing to choose by argument.
+
+## BM -- registration: is 0.28 a defect, or is it what a swing is?
+
+BL-b leaves one factor standing and no account of it. The median contact drives 28 % of its speed
+into the surface, and there are two readings with opposite consequences.
+
+**The technique reading.** The fighters mistime or misaim, the blade arrives across the target
+instead of through it, and better strokes would fix it without touching the physics.
+
+**The geometry reading, which nothing has ruled out.** A horizontal cut is a rotation about the
+shoulder, and the target's near surface sits at roughly arm's length along the radius of that
+rotation. The tip's velocity there is *perpendicular to the line to the target* -- which is to say
+tangential to the surface it is about to meet. On that reading a sweeping cut delivers a low normal
+component **by construction**, at any speed and any distance, and a damage law that prices
+`closingSpeed` alone is a law that pays for thrusts and refuses cuts. The fighters would then be
+doing nothing wrong; they would be playing a game in which swinging a sword cannot work.
+
+These are distinguished by two readings, neither of which restates the thing it is testing.
+
+### Cell 1 -- the same strokes against a dummy that does not move
+
+`idle` neither retreats, turns, nor drives in. Everything the opponent's motion contributes to a
+rake is removed, and the fighter's own arc is left.
+
+- **P1:** against `idle` the median normal component stays **under 0.45**.
+  - *Holds* -> the opponent's motion is not the cause. The arc is tangential on its own, which is
+    the geometry reading, and the fix is not a better-timed stroke.
+  - *Fails* (0.45 or above) -> a moving opponent is what turns a square blow into a rake. That is a
+    reading problem -- leading the target -- and it is a fighter fix, not a model one.
+
+### Cell 2 -- where in a contact the blade is square
+
+A stroke is 2.4 contact-steps. First touch on a smooth convex body is grazing whatever the arc, so
+step 1 understates every blow; what matters is whether the blade then drives in.
+
+- **P2:** the median normal component at contact-step 3 or later exceeds step 1 by **more than
+  0.15**.
+  - *Holds* -> the blade does drive in and the reports are sampling the graze. The question becomes
+    why the square step is not the one that pays, and the floor test is the suspect.
+  - *Fails* -> the blade never squares up at any point of the contact. Nothing is being missed by
+    sampling, and 0.28 is the whole truth about the blow.
+- **P3:** among strokes that pay **nothing**, the median of each stroke's *best* step is **under
+  0.5**.
+  - *Holds* -> a worthless stroke is never square at any moment, which is the geometry reading
+    again.
+  - *Fails* -> worthless strokes do contain a square moment, and the loss is in which moment the
+    damage law reads.
+
+**What closes this either way:** P1 and P3 both holding is the geometry reading, and it makes the
+question a design question about the damage law rather than a defect in the fighters. Either failing
+keeps it a fighter fix and BM chooses which.
