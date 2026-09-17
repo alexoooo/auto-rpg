@@ -40470,3 +40470,45 @@ against 16 %, which is what one side carrying the change rather than both should
 only part of the expectation the data speaks to. **A prediction that cannot name the number that
 would refuse it is a hope with a paragraph attached**, and the fix is to register the mapping or
 to register nothing.
+
+## CI -- every row that moved the proxy, judged across the table (registered before the run)
+
+CH proved one row wins a duel. The obvious next question is whether the other seven do, and the
+more valuable one is whether the mirror statistic that named them predicts the answer at all.
+Eight arms, one shared control, a fresh seed base so nothing here inherits CH's draws:
+
+| arm | why this value | mirror damage/second vs shipped |
+| --- | --- | ---: |
+| `chamberReach` 0.00 | CH's winner, re-run on new seeds | +0.238 |
+| `followLift` 0.95 | cleared the rate at 2.1 sd in CF | +0.106 |
+| `chamberSeconds` 0.30 | best rate in CE, 1.0 sd, cleared nothing | +0.103 |
+| `chamberSwing` 0.00 | cleared nothing either way | +0.001 |
+| `chamberLift` 0.00 | cleared alignment at 2.1 sd | -0.041 |
+| `cutRoll` 0.00 | BY's headline, the row this phase began on | -0.052 |
+| `followSwing` 1.20 | best alignment in CE, cleared nothing | -0.060 |
+| `strokeSeconds` 0.35 | cleared alignment at 6.2 sd | **-0.423** |
+
+**Registered predictions:**
+
+- **P1: the control lands within two sd of 0.500 again**, on a seed base CH never touched. Cheap,
+  and it is the difference between "the bench was even-handed once" and "the bench is even-handed".
+- **P2: `strokeSeconds` 0.35 loses by at least two sd.** It is the best-aligned value ever measured
+  on any of these rows -- 6.2 sd clear -- and it is a third as dangerous a second. If the proxy can
+  point the wrong way anywhere, it points the wrong way here. *Refused if* it wins or lands inside
+  the noise, which would mean a slower, better-turned stroke is not actually punished across the
+  table and the rate column has been over-read all night.
+- **P3: at most two of the eight beat the shipped stroke by two sd.** `chamberReach` and at most one
+  other. *Refused if* four or more clear, which would say the stroke shape is broadly mistuned
+  rather than wrong in one place, and that the row-at-a-time reading every sweep here has given it
+  is the wrong frame.
+- **P4: the mirror rate margin agrees in sign with the paired margin on at least six of the eight.**
+  This is the one worth the compute. Every cell from BY to CF is a mirror, and a mirror is cheap;
+  if its sign predicts the duel, it stays a useful screen for the rows nobody has time to duel.
+  *Refused if* five or fewer agree -- which would mean the mirror does not even get the direction
+  right, and every mirror result in this document becomes uninterpretable rather than merely
+  limited.
+
+**A note on what P3 and P4 cannot both fail quietly.** If most rows land flat, P3 holds trivially
+and P4 is decided by a handful of near-zero signs that mean nothing. That is a real weakness of this
+design and the honest response is to report the agreement count *and* the margins it was computed
+from, so a reader can see whether the signs being compared were ever large enough to be signs.
