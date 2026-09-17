@@ -38979,3 +38979,57 @@ same columns so the two are comparable.
 - **Guard:** report the paying share and the contact speed in every row. A bite that drives deeper
   also shortens the effective lever, and if damage rises while contact speed collapses, the sweep is
   buying squareness with speed and the peak is a trade rather than a fix.
+
+## BP -- `strikeBite` is a dead knob, because the arm is already against its rail
+
+BO's smoke returned byte-identical rows for `strikeBite` 0.66 and 1.00 -- same contact count, same
+every column -- which is what a saturated command looks like. Settled directly, as arithmetic on a
+real golem's real capability rather than inferred from two rows agreeing:
+
+```
+reach 1.780 m, hand reachMin 0.300, reachMax 0.720, overhang 1.060 m
+shoulder-to-shoulder over 7203 samples: p10 1.72  p50 1.84  p90 1.96 m
+```
+
+| shoulder-to-mark | bite 0.00 | 0.40 | 0.66 | 0.80 | 1.00 | 1.20 | saturates at bite |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.40 | -0.810 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.36 |
+| 1.60 | 0.143 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.17 |
+| 1.70 | 0.619 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.08 |
+| **1.84 (median)** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** | **0** |
+| 1.96 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 0.00 |
+
+**At the distance these golems actually fight, every value of `strikeBite` returns full extension,
+including zero.** The knob does nothing anywhere at or beyond 1.84 m, and by 1.70 m it is already
+spent by 0.08. Sweeping it is sweeping a constant that is not read.
+
+### And that is the mechanism, which no candidate so far has been
+
+Look at the shell rather than the knob. **The hand has 0.42 m of travel -- 0.300 to 0.720 -- and the
+weapon overhangs it by 1.060 m.** The blade is two and a half times the arm's entire usable
+extension. At 1.84 m the arm is pinned at the far end of that 0.42 m for the whole stroke.
+
+An arm at its rail cannot push. The only thing left that can move the blade is the trunk coming
+round, and a blade moved by a turning trunk travels *across* what it meets. **That is a sweep, and a
+sweep is a tangential blow by construction** -- which is precisely the 0.28 that BL-b isolated, that
+BM found unchanged against a motionless dummy, and that BN found unmoved by 20 cm of separation.
+
+It also explains the two populations BM found. A stroke that pays is one where something --
+footwork, the opponent walking in, the trunk arriving at the right angle -- happened to put the target where
+the sweep ran into it rather than across it. That is luck, it happens about a quarter of the time,
+and no constant governs it because nothing in the stance is aiming for it.
+
+### What this says about the 2026-09-05 fix, which was correct and is now the binding constraint
+
+`standOffFraction` was raised to 1.00 -- *stand where their point just reaches you and no closer* --
+and it bought contact speed from 5.64 to 7.35 m/s and damage from 209.6 to 292.4. It was measured on
+speed, because squareness was not a column in 2026.
+
+**Standing at exactly the opponent's reach is standing where the arm has no extension left.**
+The fix that stopped them flailing at close quarters is the same fix that guarantees every blow is
+delivered by a locked arm. BN could not see this because BN only sampled 1.70 to 1.90 m -- the whole
+of that range is at or past saturation, and the fighters never stand anywhere else, so the gradient
+that matters was never in the data.
+
+**The next cell has to look below 1.70 m, where the arm still has travel to spend.** That is a
+`standOffFraction` sweep again, twelve days on, with the column it never had.
