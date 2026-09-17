@@ -37671,3 +37671,49 @@ a different knob on a different pool, and the two are not interchangeable: `vita
 **only `healthScale` changes how fast a part reaches zero, and severing is gated on a part reaching
 zero.** That would explain both observations at once, and it is a direct test rather than a story:
 sweep `vitalityTotal` on *this* pool and see whether the dead set moves. It is not claimed here.
+
+## AY withdrawn -- the blade's mass is derived, and the derivation refuses 3.14 by name
+
+The section above claimed the blade is *"the only terminal in the file whose mass was chosen
+rather than derived"* and recommended moving it to 3.14 kg. **Both halves are wrong**, and
+`TERMINAL_BLADE.mass`'s own comment says so in the sentence before the number:
+
+> `CONFIG.sword.mass` is 1.35 for an arming sword 0.84 m in the blade; this is that scaled by
+> length, 1.35 x 0.80 / 0.84 = 1.286, rounded to 1.30. Deliberately **not** derived from the box's
+> own volume: 0.050 x 0.80 x 0.010 m of solid steel would be 3.1 kg, and the Warrior's sword is not
+> 3.3 kg either, because a real blade is tapered and hollow-ground and the collider is a slab
+> standing in for it. The mass is the weapon's; the box is the collider.
+
+So the blade *is* derived -- from a real arming sword's mass, scaled by length -- and **3.14 kg is
+precisely the number that derivation refuses**, with a physical reason: a sword is tapered and
+hollow-ground, and the box that collides for it is a solid slab. Density times volume is the right
+rule for a carved stone part, which is what every module it was quoted from is. It is the wrong
+rule for a steel blade, and the file had already worked that out.
+
+**The recommendation is withdrawn.** 1.30 kg is what an arming sword weighs. 3.14 kg is a crowbar.
+
+### What survives, and what the owner's eye actually caught
+
+- *"1.30 kg seems very low"* -- it is not low; it is a real sword. What is low is what the blade
+  **delivers**, and AT already found that and named the mechanism: at the closing speeds golem
+  bouts actually reach, a blade is under its own cut floor, and a contact carries about 1.2 % of
+  the bench-peak energy. The weapon feels light because most of its blows score zero, not because
+  the number on the weapon is wrong.
+- *"A fist heavier than a blade seems very unphysical"* -- the inversion is real and both numbers
+  are individually right. A stone golem's fist is 8 kg of rock because that is what a 90 mm sphere
+  of stone weighs; a steel arming sword is 1.3 kg because that is what one weighs. What is strange
+  is not either mass but the pairing: a body of carved stone holding a human-scale steel sword.
+  That is an art and scale question about what golems are, and it is the owner's.
+- **The plate section stands.** 16.6 kg is faithful to its own arithmetic, lightening it is a
+  geometry or material decision, and steel at equivalent stopping power saves only 22 %.
+
+**The live blade question is AU's, not this one's.** AU measured 1.30 -> 2.00 kg as +45 % damage a
+contact for 6.6 % of stroke speed. That is a gameplay argument about what the weapon should
+deliver, made on a measurement, and it stands on its own. It is *not* the physics-consistency
+argument this section made, and conflating the two is what produced a recommendation to ship a
+number the config had already refused in writing.
+
+**The rule, recorded because this is the third time tonight.** A constant with a derivation in its
+comment has an argument attached to it; read the argument before quoting the constant as
+unprincipled. AW's first error read a table measured against a different mind, AX's read one
+measured against a different knob, and this one read a comment's neighbours instead of the comment.
