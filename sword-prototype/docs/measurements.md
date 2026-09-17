@@ -37926,5 +37926,5 @@ mirrored rollout, where `dealt - taken` normally telescopes to zero, it therefor
 cancel: both corners carry a negative that grows with every second spent past `overtimeSeconds`.
 That is a time penalty the reward table never declared and it points the right way -- finish before
 the clock does -- but it is undeclared, it is not in the table, and its size is one part in
-`overtimeKillSeconds` a second against coefficients of 0.004. Nothing is changed here; it is recorded so the next fit does
-not discover it as an anomaly.
+`overtimeKillSeconds` a second against coefficients of 0.004. Nothing is changed here; it is
+recorded so the next fit does not discover it as an anomaly.
