@@ -119,3 +119,25 @@ test("nothing_clearing_either_statistic_is_reported_as_a_result", () => {
   assert.doesNotMatch(said, /A measurement, not a ruling/, "there is no measurement to caveat");
   assert.equal(STATISTICS.length, 2);
 });
+
+test("a_large_loss_is_reported_as_a_loss_rather_than_as_an_absence", () => {
+  // CE's followLift 0.35: 6.5 sd less dangerous a second, printed as "inside the noise (-6.5 sd)"
+  // because the verdict had only two states. A table that reports a large real loss as an absence
+  // is worse than one that reports nothing, since a reader scanning the column sees a flat row.
+  const bad = verdict(0.722, 1.415, 0.107, 2);
+  assert.equal(bad.better, false);
+  assert.equal(bad.worse, true);
+  assert.match(bad.why, /6\.5 sd WORSE/);
+  assert.doesNotMatch(bad.why, /inside the noise/);
+
+  // The band between the two bars is the only place "inside the noise" is honest.
+  const flat = verdict(1.374, 1.415, 0.107, 2);
+  assert.equal(flat.better, false);
+  assert.equal(flat.worse, false);
+  assert.match(flat.why, /inside the noise/);
+
+  // A winner is still a winner, and is never also a loss.
+  const good = verdict(1.837, 1.415, 0.137, 2);
+  assert.equal(good.better, true);
+  assert.equal(good.worse, false);
+});

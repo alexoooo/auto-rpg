@@ -38,10 +38,13 @@
 // the geometry alone, which is what makes it the right thing to sweep a stroke shape on. Damage per
 // bout is printed and is not ranked on: BS put its standard error at half its own range.
 //
-// **A winner is named only if it clears the noise.** `--sigmas` is how many standard deviations of
-// the pooled replicate spread a value must beat the shipped row by before this file will call it
-// better; under that it prints "inside the noise" and names nothing. That refusal is the
-// deliverable as much as the table is.
+// **Three verdicts, not two: better, worse, and unresolved.** `--sigmas` is how many standard
+// deviations of the pooled replicate spread a value must clear the shipped row by before this file
+// will call it better, and the same distance below makes it WORSE. Only the band between them is
+// "inside the noise". That distinction was missing until CE, where `followLift` 0.35 came back six
+// and a half standard deviations less dangerous a second and got printed as though nothing had
+// happened; a table that reports a large real loss as an absence is worse than one that reports
+// nothing. The refusal in the middle is still the deliverable as much as the table is.
 //
 // **A child process a cell, deliberately.** `GOLEM_TACTICS` has to be mutated before the modules
 // that read it are first imported, and a fresh module graph is the only way to get that per cell.
@@ -91,10 +94,22 @@ export const median = (xs) => {
  */
 export const verdict = (value, shipped, noise, sigmas) => {
   const gap = value - shipped;
-  if (!(noise > 0)) return { gap, sigmas: 0, better: false, why: "no noise estimate" };
+  if (!(noise > 0)) {
+    return { gap, sigmas: 0, better: false, worse: false, why: "no noise estimate" };
+  }
   const z = gap / noise;
-  if (z >= sigmas) return { gap, sigmas: z, better: true, why: `${z.toFixed(1)} sd clear` };
-  return { gap, sigmas: z, better: false, why: `inside the noise (${z.toFixed(1)} sd)` };
+  if (z >= sigmas) {
+    return { gap, sigmas: z, better: true, worse: false, why: `${z.toFixed(1)} sd clear` };
+  }
+  // A value far below the shipped one is not "inside the noise", and calling it that is how CE's
+  // followLift 0.35 -- six and a half standard deviations less dangerous a second -- got printed as
+  // if nothing had happened. Three states, not two: better, worse, and genuinely unresolved.
+  if (z <= -sigmas) {
+    return { gap, sigmas: z, better: false, worse: true, why: `${(-z).toFixed(1)} sd WORSE` };
+  }
+  return {
+    gap, sigmas: z, better: false, worse: false, why: `inside the noise (${z.toFixed(1)} sd)`,
+  };
 };
 
 /** The name each statistic goes by in prose, and the key it lives under on a cell. */
