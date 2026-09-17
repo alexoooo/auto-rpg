@@ -38584,3 +38584,54 @@ left is the arc itself -- a stroke that at every playable distance lands at abou
 tip's speed and about half of its own peak, delivering a **twelfth** of the energy it was carrying.
 The knobs are `strokeSeconds`, `chamberSeconds`, `commitSeconds` and `strikeFraction`: where in the
 sweep the target sits. **Nothing in this record has swept them against the timing factor.**
+
+## BI result -- the "commit from outside your own reach" hypothesis is refused by one column
+
+Default build, 16 bouts a cell. Per stroke episode: the gap when it opened, that gap against the
+striker's own published reach, and -- the column that decided it -- what the tip still had to find
+after the opponent's own collision radius was taken off.
+
+| standOff | strokes | gap at open | over own reach | opened past reach | surplus to surface | surplus > 0 | touched | gap at contact |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.85 | 3258 | 1.57 | 0.88 | 4 % | -0.55 | 1 % | 52 % | 1.57 |
+| 0.92 | 2952 | 1.67 | 0.94 | 12 % | -0.45 | 1 % | 53 % | 1.68 |
+| **1.00** | 1886 | 1.80 | 1.01 | **59 %** | **-0.32** | **1 %** | 58 % | 1.80 |
+| 1.15 | 1712 | 2.00 | 1.13 | 95 % | -0.12 | 15 % | 49 % | 2.00 |
+
+The arithmetic that prompted this is correct as far as it goes: `strike` is
+`max(reach * strikeFraction, hold + slack)` and the `standOffFraction` floor makes `hold` the
+opponent's full reach, so `strike` comes out at 1.948 m against the body's own 1.780 m and **59 % of
+strokes do open from beyond the published reach.**
+
+**And it does not matter, because the published reach is not what a stroke has to cross.** The
+target is a body with a radius and a blow lands on its surface. Once that is taken off, the surface
+is **0.32 m inside the arc's maximum extension** at the shipped stand-off, on 99 % of strokes. There
+is no shortfall to explain. The hypothesis that the 2026-09-05 spacing fix bought the stand-off by
+pushing the commit out of range is **refused**, and it would have been *confirmed* by the same cell
+without that one column.
+
+Recorded as the rule it is: **a reach published by a limb is not the distance a blow has to travel,
+and any argument that compares the two without the target's own radius is off by a third of a
+metre.** It is the same shape of error as reading a bench peak against a bout mean.
+
+One column beside it is worth keeping: **the gap at contact equals the gap at the stroke's opening,
+to two decimals, at every stand-off.** The bodies do not close during a stroke. `StrokeShape.stepIn`
+exists and asks the feet to close during the commit, and whatever it is doing it is not moving the
+distance the blow is struck at.
+
+## BJ -- a guard on BH's headline, because the peak might be the wind-up
+
+A stroke is a chamber and then a commit, and a chamber draws the arm *back*. BH's episode was a run
+of tip speed above a threshold, so if the wind-up is the fastest part of that run then "contact at
+0.28 of peak" compares a blow against a backswing and the fighters are doing nothing wrong.
+
+Decided by direction rather than by a threshold: at the fastest moment of the episode, is the tip
+travelling toward the other body? `HandView` publishes `tipVelocity`, so the sign of its dot with
+the unit vector to their shoulder answers it, and the peak can be retaken over closing samples only.
+
+**The smoke cell says BH survives.** Against the fastest *closing* moment the median contact sits at
+**0.29**, against 0.27 for the episode peak. The correction is worth two hundredths and the finding
+is unchanged. Full cells at 16 bouts on both minds are running.
+
+The same cell reports something worth its own line: the episode's peak was a closing sample in only
+**48 %** of strokes. Half of these strokes are fastest while travelling away from the opponent.
