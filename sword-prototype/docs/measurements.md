@@ -41131,3 +41131,38 @@ in the direction of "there was nothing to revalidate" rather than "the revalidat
 
 `?tactic=chamberReach:0,followLift:0.95` remains the eye gate, and the eye is the gate that matters
 for a behavioural claim, which this now is.
+
+## CN -- the one cell CL refused to draw a curve through (registered before the run)
+
+CL1's ladder is monotone from 0.12 upward and not ordered below it: `strokeSeconds` 0.09 came back
+at +31 Elo between 0.06 at +54 and 0.12 at +56, two sd below one neighbour and 1.8 below the other,
+on the same control, seeds and bouts as both. CL offered no explanation and said the honest move was
+to re-run it. This is that re-run.
+
+**Fresh seeds are the whole point.** CL ran seed base 20260918; a re-run there would reproduce the
+same draw and the same fluctuation and would prove nothing. CN runs 20260919 and re-runs all three
+rungs -- 0.06, 0.09, 0.12 -- so the ordering is read inside one run rather than across two.
+
+Four replicates of 256 bouts an arm against the shipped stroke, the same shape as CL1.
+
+**CN1 -- is 0.09 below both its neighbours again?** Let `h` be 0.09's score minus the mean of
+0.06's and 0.12's, in sd of the run's own replicate spread.
+
+| outcome | verdict |
+| --- | ---: |
+| `h <= -2` | **held**: the dip reproduces on fresh seeds and is a property of the row |
+| `-2 < h < 0` | **refused as a dip**: low but inside noise, so CL's cell was a fluctuation |
+| `h >= 0` | **refused**: 0.09 is not below its neighbours at all, and CL's cell was noise |
+
+Predicted `-2 < h < 0`. A two-sd cell on a well-characterised noise floor is a fluctuation about a
+third of the time, and nothing in the executor suggests a mechanism that would put a hole at 0.09
+and not at 0.06.
+
+**CN2 -- and this is the one CM makes worth asking.** Every Elo in CL1's ladder is mirror Elo, which
+CM has just shown does not transport. So CN reports the ladder in **bout seconds** beside the score,
+and the prediction is that seconds is monotone in `strokeSeconds` across all three rungs even if
+score is not. *Refused if seconds is also out of order at 0.09*, which would say the disorder is in
+the bouts rather than in the scoring.
+
+Whatever CN returns, no constant moves: `strokeSeconds` was measured at +0 on top of the shipped
+pair in CL2 and is not a candidate for shipping. CN buys confidence in the ladder, not a row.
