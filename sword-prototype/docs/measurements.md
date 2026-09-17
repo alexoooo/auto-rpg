@@ -38461,3 +38461,49 @@ halfway down a blade is slower than the tip by construction, so some unknown sha
 *where on the weapon* contact happens rather than *when in the arc*. Separating those two is one
 more column -- the contact point's distance along the weapon -- and it is owed before the ratio is
 attributed entirely to timing.
+
+## BH-b and BH-c -- splitting the 0.28, and asking whether distance can move it
+
+Registered 2026-09-17 with the full cells running. A smoke cell of two bouts had been read and its
+numbers are quoted below, so these are **not** predictions made blind; what is registered is the
+direction and the bar, against 16-bout cells nobody has seen.
+
+BH left an ambiguity it could not resolve. `report.speed` is the striker's speed **at the contact
+point**, and a blow landing halfway down a blade is slower than the tip for the same swing. So the
+0.28 is a product of two different failures:
+
+```
+report.speed / peak  =  (report.speed / tipNow)  x  (tipNow / peak)
+                         ^ where on the weapon      ^ when in the arc
+```
+
+The split is exact and assumes nothing about the arm. **The first draft was not.** It derived the
+lever from the contact radius over the published reach, which assumes the limb rotates rigidly about
+its shoulder; it is a chain and it does not. The guard caught it -- 0.73 x 0.59 = 0.43 against a
+measured 0.27 -- and the second bug it then caught was subtler: `timing` was taken against the
+episode's *running* peak at contact time while `ratio` used the final one, so every contact landing
+before the stroke's fastest moment disagreed with itself. Both are the same lesson in different
+clothes: **an identity that must hold by construction is the cheapest guard there is, and it should
+be asserted per row rather than across two medians.** It now closes to 1.1e-16.
+
+The smoke cell, default build, two bouts:
+
+| | where on the weapon | when in the arc | product |
+| --- | ---: | ---: | ---: |
+| all contacts | 0.72 | 0.42 | 0.27 |
+| contacts that pay | 0.70 | 0.69 | 0.40 |
+
+### What is registered
+
+1. **The lever is not the story.** At 16 bouts the median lever stays within 0.05 between paying and
+   non-paying contacts, while the timing factor differs by more than 0.20.
+2. **BH-c: stand-off does not rescue the timing.** Sweeping `standOffFraction` over
+   0.85 / 1.00 / 1.15 / 1.30 / 1.50 moves the median timing factor by **less than 0.10** end to end.
+   If that holds, spacing cannot fix the stroke and the arc itself is the thing to change -- which
+   is the finding that would pick the fix.
+3. If instead timing climbs monotonically with stand-off across more than 0.10, then BG's damage
+   peak at 1.00 is a genuine two-sided trade and the stroke is fine at the right distance.
+
+**What refuses 1:** a lever that differs as much as the timing does between paying and non-paying
+contacts. Then the golems are hitting with the wrong part of the weapon as much as at the wrong
+moment, and the fix has two halves rather than one.
