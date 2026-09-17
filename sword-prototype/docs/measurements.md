@@ -40227,3 +40227,46 @@ the sweep printed every one of them as "inside the noise", because `verdict` had
 missing one was the one that mattered for reading the column. A table that reports a factor-of-three
 loss as a flat row is worse than a table that reports nothing. Fixed: better, worse, and the band
 between them. The numbers above are as the run printed them; only the labels were wrong.
+
+## CF -- the objective at the resolution it needs (registered before the run)
+
+CE resolved the objective to about 15 % and found one row that beat it. That is enough to name a
+direction and not enough to name a value, and CE's own arithmetic says what closing the gap costs:
+the rate's noise is bout-to-bout, so eight times the bouts should halve it twice. Sixteen bouts a
+cell becomes **128**, which is about twenty-five minutes a row on this box rather than six.
+
+Two rows, both chosen because CE left a specific question on them:
+
+- **`chamberReach`**, shipped -0.70, on -0.40 / -0.20 / 0.00 / 0.15 / 0.30. Six values including the
+  shipped one, so the positive side is sampled densely enough to tell a plateau from a peak, and
+  `-0.20` is in there because `COMMITTED_SHAPES.sword` independently arrived at it from a different
+  statistic.
+- **`followLift`**, shipped 0.73, on 0.95 / 1.20 / 1.50. It cleared alignment at 2.7 sd and missed
+  the rate at 0.7 and 1.0 sd -- exactly the size of effect CE could not referee. At the new noise
+  those become roughly 1.8 and 2.8 sd, so this row is a direct test of whether "nothing clears"
+  meant *nothing* or meant *nothing this design could see*.
+
+**Registered predictions:**
+
+- **P1: the positive side of `chamberReach` is a plateau, not a peak.** 0.00, 0.15 and 0.30 land
+  within one sd of each other on damage a second, and CE's 1.837 at 0.15 comes back nearer its
+  neighbours' 1.55 to 1.61. *Refused if* 0.15 still stands two sd clear of both neighbours, which
+  would make it a real peak and mean best-of-four inflation is a smaller correction than I have been
+  applying all night.
+- **P2: at least one positive value still beats the shipped -0.70 on damage a second by two sd.**
+  This is CE's headline, and the whole point of confirming it. *Refused if* nothing clears, which
+  withdraws the one finding in this phase that touches what the owner actually complained about and
+  says the 3.1 sd was winner's curse in full.
+- **P3: the pooled rate sd comes back near 0.039.** CE measured about 0.11 at sixteen bouts; if the
+  variance is bout-to-bout, eight times the bouts divides it by the square root of eight. *Refused
+  if* it comes back above 0.06 -- which would mean a large part of the spread is shared within a
+  cell rather than accumulated across its bouts, and every replicate design in this document,
+  including the one CC wrote and CD vindicated, would need rethinking from the bottom.
+
+P3 is the one I would most like to be wrong about cheaply, because it is the assumption the other
+two rest on and nothing has ever tested it.
+
+**Still nothing ships.** CA's rule holds for all nine rows, and CE added a second reason: every cell
+here is a mirror, and a mirror measures how dangerous a configuration is rather than whether it
+wins. The paired margin the project's own criterion asks for needs per-side stroke shapes, which
+this architecture does not have. That is CG, and it is a code change rather than a measurement.
