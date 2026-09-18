@@ -43183,3 +43183,40 @@ It is **not taken here**, for the reason the registration gave in advance: `gole
 yardstick every rating in this record is quoted against, and moving it re-prices the whole record.
 The numbers are above so the call can be made on them. The other rungs are measured in DA3 below,
 because a row that helps against one opponent and hurts against three is not a candidate at all.
+
+#### DA3 -- the candidate row across the whole ladder, which is what a ship decision needs
+
+`cutLean` 1.00 measured at every rung, not only the one that chose it. 128 seeds at `idle`, 256 at
+`brawler` and at the mirror, 384 at `fencer` (from DA2). Paired against the stock driver.
+
+| rung | `driver` | `driver@cutLean=1` | paired | `ct3` |
+| --- | ---: | ---: | ---: | ---: |
+| `golem-idle` | 1.0000 | 1.0000 | **+0.0000 +-0.0000** | 1.0000 |
+| `golem-brawler` | 0.3594 | 0.3398 | **-0.0195 +-0.0882** | 1.0000 |
+| `golem-driver` *(mirror)* | 0.4844 | 0.6719 | **+0.1875 +-0.0889** | 0.7578 |
+| `golem-fencer` | 0.3854 | 0.6406 | **+0.2552 +-0.0698** | 0.8490 |
+
+**The row helps at two rungs, does nothing at one and is not separated from zero at the fourth.**
+Against `golem-fencer` and against a mirror of itself it is a clear gain, both separated. Against
+`golem-idle` nothing moves, which is expected -- every arm wins there on the clock and no lean
+changes that. Against `golem-brawler` it is **-0.0195 +-0.0882**: not a loss, not a gain, and the
+interval is wide enough to hold either. Damage is +1.11 +-1.86 and strokes -0.33 +-1.74, so nothing
+in the behaviour columns moves either.
+
+That is the honest shape of the candidate, and it is a **weaker** case than the fencer number alone
+suggested. The lean pays against minds that keep distance and read the exchange -- the fencer, and
+the driver itself -- and buys nothing against a brawler that closes regardless. A row that is
+strongly positive at two of four rungs and neutral at two is still worth having; it is not the
+unambiguous win the fencer column on its own reads as, and quoting only that column would have been
+the mirror mistake the tenth governing rule was written for.
+
+**CT3 remains ahead at every rung it can be ahead at**: +0.6406 at the brawler where the row gives
+nothing, +0.2734 at the mirror, +0.4635 at the fencer, and level at idle where everything is level.
+Nothing in DA changes the ordering the phase closed on.
+
+**The decision, stated for the owner and not taken here.** Ship `cutLean` 1.00 on `golem-driver`
+and the hand-coded yardstick gets roughly a quarter better against the fencer and against itself, at
+no cost anywhere measured -- and every rating in this record that quotes `golem-driver` is re-priced
+by that much, including CS1, CS2, CT3, CT4, CT5 and DA itself. Leave it and the record stays
+comparable and the yardstick stays one number below its own best. Both are defensible; the numbers
+are here; the call is the owner's.
