@@ -2257,6 +2257,24 @@ export async function ratePolicy({
  * `emptyStrokes` is absent on a row whose mind has no fourth executor to publish one, and reads
  * as zero here rather than as absent, because a mean over a mixed block would be a mean over two
  * populations.
+ *
+ * ## The six structural columns, added by CQ of the learn set
+ *
+ * **The score is the blindest instrument in this tree and the record has now measured how blind.**
+ * A 600-bout paired bar *"cannot see a 2.5-fold change in completed strokes a bout at all"*, and
+ * CM found the same thing from the other side: shipping two stroke rows moved `strokeDamage` at
+ * t 2.06, `contacts` at t 2.56 and `insideInner` at t -2.37 over 682 side-bouts on which the score
+ * moved by -0.0015 +- 0.0060. A phase whose whole difficulty is that nothing it tries moves the
+ * score cannot be refereed by the score alone.
+ *
+ * These are not a second instrument and that is the point: they come off the same rows, indexed
+ * the same way, paired the same way, so a difference between two contenders carries its own `sem`
+ * exactly as `bar` does. The tournament worker has emitted all six on every row since Session 00
+ * of the style set; nothing read them, which is why a mind could be rebuilt from the ground up and
+ * report as flat.
+ *
+ * They are absent rather than zero on a mind with no stroke instrument behind it, and take the
+ * `emptyStrokes` treatment above for the same reason.
  */
 export function behaviourColumns(rows, names) {
   const per = rows.length / names.length;
@@ -2264,7 +2282,10 @@ export function behaviourColumns(rows, names) {
   const out = {};
   for (let k = 0; k < names.length; k += 1) {
     const name = names[k];
-    const totals = { stall: 0, outside: 0, emptyStrokes: 0, seconds: 0, decided: 0 };
+    const totals = {
+      stall: 0, outside: 0, emptyStrokes: 0, seconds: 0, decided: 0,
+      strokes: 0, strokeDamage: 0, scoringSpeed: 0, contacts: 0, insideInner: 0, clinchSeconds: 0,
+    };
     for (let i = 0; i < per; i += 1) {
       const row = rows[k * per + i];
       const me = row.left.policy === name ? "left" : "right";
@@ -2272,6 +2293,12 @@ export function behaviourColumns(rows, names) {
       totals.stall += row[me].nearRangeStallSeconds ?? 0;
       totals.outside += row[me].retreatOutsideReachSeconds ?? 0;
       totals.emptyStrokes += row[me].emptyStrokes ?? 0;
+      totals.strokes += row[me].strokes ?? 0;
+      totals.strokeDamage += row[me].strokeDamage ?? 0;
+      totals.scoringSpeed += row[me].scoringSpeed ?? 0;
+      totals.contacts += row[me].contacts ?? 0;
+      totals.insideInner += row[me].insideInner ?? 0;
+      totals.clinchSeconds += row[me].clinchSeconds ?? 0;
       totals.seconds += row.seconds;
       if (row.winner !== null) totals.decided += 1;
     }

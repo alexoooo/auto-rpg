@@ -98,12 +98,18 @@ export interface InstalledSnapshot {
  *
  * **A table carries no executor and the two are not separable in what a person sees.** Every
  * league from AM onward trained and rated under `--tactics latchAbort=true`, and the shipped row
- * is `false`: un-latched, the abort gate is re-read on each of the six or seven asks a stroke
- * spans, so the same weights abandon most of what they start. A person watching those weights
- * through the shipped row would be watching a mind that flinches, and would conclude the training
- * did nothing. That is not a hypothetical -- reading a latched mind through the shipped executor
- * is the defect that cost experiments S, U, X and Z their ratings on 2026-09-14, and this is the
- * same defect on the watching side.
+ * was `false` until 2026-09-17: un-latched, the abort gate is re-read on each of the six or seven
+ * asks a stroke spans, so the same weights abandon most of what they start. Reading a latched mind
+ * through the un-latched executor is the defect that cost experiments S, U, X and Z their ratings
+ * on 2026-09-14, and it was the same defect on the watching side.
+ *
+ * **CP closed that particular hole by shipping `latchAbort: true`, and did not close this one.**
+ * The mismatch this field exists for is between the row a snapshot was *measured* under and the row
+ * it is *watched* under, and those can now differ in either direction: the shipped row moved once
+ * and can move again, and a file older than the field names nothing at all. CP also found the cost
+ * is entirely on the drawn read -- un-latched, drawn completion is 0.108 against 0.516 latched,
+ * while greedy is 0.594 against 0.566 -- so a mismatch shows up in watching long before it shows up
+ * in a rating, which is an argument for the field rather than against it.
  *
  * So the file says which executor it was measured under, in a `tactics` field beside its weights,
  * and it is refused by name when it names a row the table does not have or a value of the wrong

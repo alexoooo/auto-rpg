@@ -181,12 +181,26 @@ const DRIVEN = {
    * refuses it, on the very next step and at the same `abortCooldown`. What a mind loses is the
    * ability to change its mind mid-stroke, which is the thing v3 called `chamberAbort` and which
    * this executor made continuous; what it gains is that "abort" means one decision per stroke
-   * rather than five to eight of them. Which of those a fit wants is not settled here, and the
-   * measurement that would settle it is in `docs/measurements.md` under Session 04 of the signal
-   * set -- where it is reported as the size of an effect a fit *would be optimising into*, with no
-   * default following from it.
+   * rather than five to eight of them.
+   *
+   * **It ships `true` since CP of the learn set, which measured the thing the older note here said
+   * was unsettled.** 256 paired bouts against `golem-fencer`, the same weights read both ways:
+   *
+   * | read | latch off | latch on | |
+   * | --- | ---: | ---: | --- |
+   * | drawn, which is what a rollout does | 0.1080 | **0.5163** | 4.78x the strokes completed |
+   * | greedy, which is what a rating and an eye do | 0.5935 | 0.5663 | 0.95x, i.e. nothing |
+   *
+   * The asymmetry is the mechanism. Drawn, this gate is a fresh coin at every ask and a stroke
+   * spanning `n` of them survives `(1 - p)^n`; greedy it is a threshold on a state that barely
+   * moves inside one stroke, so re-reading it returns what it just returned. **The row is a
+   * rollout-variance knob wearing a tactics table's clothes**: worth 4.8x to a fit and worth
+   * nothing measurable to play, which is what makes `true` the only defensible default.
+   *
+   * It is also what every league from AM onward already trained and rated under, so the `false`
+   * that shipped until 2026-09-17 was a default no experiment in this record ever used.
    */
-  latchAbort: false,
+  latchAbort: true,
   /**
    * The trunk twist a stroke sweeps, scaled by how wide the arc is.
    *

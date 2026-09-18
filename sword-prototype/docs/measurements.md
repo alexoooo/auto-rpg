@@ -41315,3 +41315,89 @@ proper cap and sixteen times the seeds, and whether the *ratio between the two r
 the actual claim -- holds up: even at the smoke numbers the drawn read moves about three times as
 far as the greedy one, which is the shape the hypothesis predicts even if the greedy arm is not the
 no-op `design.md` implies.
+
+### CP's result: both quotes were right, about two different minds
+
+`node scripts/latch-probe.mjs --seeds 64 --cap 150 --seed 20260917`, 256 bouts against
+`golem-fencer` on `POLICY_WEIGHTS`, paired seed by seed, every bout decided.
+
+| read | latchAbort | strokes | completed | raised | strokes/bout | score | bout |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| greedy | false | 5638 | **0.5935** | 0.3441 | 88.1 | 0.5781 | 67.5 s |
+| greedy | true | 5773 | **0.5663** | 0.3424 | 90.2 | 0.6719 | 65.8 s |
+| drawn | false | 9666 | **0.1080** | 0.4035 | 151.0 | 0.5000 | 54.4 s |
+| drawn | true | 4980 | **0.5163** | 0.4172 | 77.8 | 0.5938 | 52.4 s |
+
+**CP1 held.** The greedy latch multiplies completion by **0.95** -- it very slightly *lowers* it --
+against a held band of under 1.2. The four-seed smoke's 1.45 was the 20 s cap, where a bout is over
+before the mind has taken enough strokes to average.
+
+**CP2 held.** The drawn latch multiplies completion by **4.78**, against a held band above 2.5.
+
+**CP3 held.** The greedy score moves +0.0938, inside its own +-0.1768 two-sigma band. It is worth
+saying plainly that 64 bouts an arm can only exclude a large difference; this excludes one. Both
+reads moved the score by exactly +0.0938, which is six bouts in sixty-four twice over and is a
+coincidence rather than a reading.
+
+**The two entries that could not both be the headline were both correct.** At the drawn read the
+mind completes **0.108** of the strokes it starts, so `snapshots/README.md`'s *"flinches out of
+nearly every swing"* is not an overstatement -- it is an understatement of one flinch in nine.
+At the greedy read the same weights complete **0.594** with the gate re-read on every ask and
+**0.566** with it read once, so `design.md`'s *"as though it were already latched"* is exactly
+right. Neither entry was wrong. Neither said which mind it was about.
+
+**Why the greedy read is indifferent, which is the mechanism and not the measurement.** A policy
+head is a Gaussian with a learned sigma. Drawn, the abort gate is a fresh coin at every ask, so a
+stroke spanning `n` asks survives `(1 - p)^n`: at the measured p of 0.40 and the measured 151
+strokes a bout, that is the 0.108 in the table. Greedy, the same head is a *threshold* on a state
+that moves slowly within one stroke, so re-reading it returns what it returned a moment ago and
+latching is close to a no-op. The row is a rollout-variance knob wearing a tactics table's clothes.
+
+**Ruling, and it settles the owner's question twice asked.**
+
+1. **`latchAbort` ships as `true`.** It is worth 4.8x of the strokes a training run completes and
+   costs play nothing measurable -- and it is what every league from AM onward already trained
+   under, so the shipped `false` was a default no run has used and every snapshot disagrees with.
+2. **The README's warning is narrowed to the drawn read.** A snapshot watched at `snapshotDraw=1`
+   does flinch out of nine swings in ten. The same file watched greedy does not, and the greedy
+   mind is the one every rating in the record is stated on.
+
+**What this does not settle.** The latch is not free for the *fit* in the other direction: the drawn
+arm takes 151 strokes a bout un-latched and 78 latched, so latching roughly halves how many strokes
+a rollout starts while quintupling how many it finishes. Which of those a gradient prefers is a
+different question from which produces a mind that fights, and this cell measured the second.
+
+### What flipping the row cost, which CP did not measure and the suite caught
+
+CP read the latch on `golem-policy` and ruled on the default from that. Flipping it turned four
+tests red, and one of them was not a guard on a constant:
+
+**`golem-driver` feints by taking a stroke back mid-stroke, and the latch deletes that outright.**
+`styles/driver.ts:44` says it plainly -- *"the mind starts a stroke, waits `feintHoldSeconds`, and
+raises the abort gate"* -- so `feintFraction` 0.15 is implemented **as** a mid-stroke abort. Under
+the latch the gate is read at the chamber and that raise lands on a decision already made:
+`golem_driver_fights_a_real_bout` went from a reliable abort count to zero.
+
+So the row wants opposite defaults for opposite reasons, and the reason is what a mind's aborts
+*are*:
+
+| mind | where its aborts come from | wants |
+| --- | --- | --- |
+| `golem-policy` | a sampled Gaussian gate, re-drawn five to eight times a stroke | latched |
+| `golem-driver` | rule 3, on purpose, at a rate it chooses | un-latched |
+
+**The latch is a variance fix, not a tactic.** It is worth 4.78x to a mind whose aborts are noise
+and is pure loss to a mind whose aborts are a plan. `DRIVER_TABLE` therefore carries
+`latchAbort: false` explicitly, which is what a per-mind table is for.
+
+**This is the second time in one day that a row shipped wider than the thing that measured it** --
+CO found `followLift` reaching four minds through `COMMITTED_SHAPES`, and this is a v4 executor row
+reaching a hand-written mind through a table spread. Both were found by a test rather than by the
+cell that shipped the row, and in both cases the cell's own instrument could not have seen it. The
+eleventh rule is stated for tables read at load; the general form is that **a shipped row's blast
+radius is every table that spreads the one it lives in, and the cell that measures it usually
+measures one mind in that radius.**
+
+The other three were guards pinning `false` as the shipped constant, and one of them --
+`an_abort_mid_chamber_and_mid_commit...` -- is now stated over an explicit un-latched table, because
+timing what a mid-stroke abort costs requires a mid-stroke abort to exist.

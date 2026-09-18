@@ -534,13 +534,21 @@ test("their_phase_turning_is_an_ask_of_its_own_and_the_control_row_is_the_same_b
 test("an_abort_mid_chamber_and_mid_commit_leaves_a_legal_pose_and_charges_half_a_cooldown", async (t) => {
   const golem = await standAGolem(t);
 
+  // **Un-latched throughout, and that is the subject rather than a workaround.** Everything below
+  // times what an abort *taken mid-stroke* costs: the pose it leaves, whether the arm comes free
+  // on the same step, and how much cooldown it charges. Since CP the shipped row reads the gate
+  // once at the chamber, under which a fixture that raises its gate after the stroke has opened
+  // raises it into a decision already made and there is no mid-stroke abort left to time. The
+  // latched semantics are the next test's subject; these are this one's.
+  const UNLATCHED = { ...GOLEM_TACTICS_V4, latchAbort: false };
+
   // The pilot raises the gate itself, so that the abort lands on the ask that carried it rather
   // than up to a period later: what is being timed is the executor and not the ask cadence.
   const run = (abortIn) => {
     const fixture = place(fixtureOf(golem.view), { x: 0, z: 1.35 });
     let driven = null;
     let raisedAt = -1;
-    driven = golemDriven(SEED, GOLEM_TACTICS_V4, () => {
+    driven = golemDriven(SEED, UNLATCHED, () => {
       const wanted = { ...freshCommand(), commit: 1, swing: 1, advance: 0 };
       if (driven !== null && driven.stance === abortIn) {
         wanted.abort = 1;
@@ -571,7 +579,7 @@ test("an_abort_mid_chamber_and_mid_commit_leaves_a_legal_pose_and_charges_half_a
   // gates at the ask alone would abort a fifth of a second later and this count would be zero.
   const quiet = place(fixtureOf(golem.view), { x: 0, z: 1.35 });
   const both = { ...freshCommand(), commit: 1, abort: 1, swing: 1, advance: 0 };
-  const holding = golemDriven(SEED, { ...GOLEM_TACTICS_V4, eventAsks: false }, () => both);
+  const holding = golemDriven(SEED, { ...UNLATCHED, eventAsks: false }, () => both);
   let offAsk = 0;
   let lastAsks = 0;
   let lastAborts = 0;
@@ -594,7 +602,7 @@ test("an_abort_mid_chamber_and_mid_commit_leaves_a_legal_pose_and_charges_half_a
     let driven = null;
     let abortedAt = -1;
     let secondAt = -1;
-    driven = golemDriven(SEED, { ...GOLEM_TACTICS_V4, abortCooldown: abort }, () => {
+    driven = golemDriven(SEED, { ...UNLATCHED, abortCooldown: abort }, () => {
       const wanted = { ...freshCommand(), commit: 1, swing: 1, advance: 0 };
       if (driven !== null && driven.stance === "chamber" && driven.strokes === 1) wanted.abort = 1;
       return wanted;
@@ -616,8 +624,9 @@ test("an_abort_mid_chamber_and_mid_commit_leaves_a_legal_pose_and_charges_half_a
 });
 
 // ---------------------------------------------------------------------------------------
-// `latchAbort`: the same gate read once a stroke instead of once a step. Session 04 of the
-// signal set, and the row ships **off** -- that session measures it and adopts nothing.
+// `latchAbort`: the same gate read once a stroke instead of once a step. Session 04 of the signal
+// set measured it and adopted nothing; **CP of the learn set measured it on both reads and the row
+// ships on** -- 4.78x the strokes completed drawn, 0.95x greedy.
 // ---------------------------------------------------------------------------------------
 
 /**
@@ -632,7 +641,7 @@ test("an_abort_mid_chamber_and_mid_commit_leaves_a_legal_pose_and_charges_half_a
  * row, and a latch that merely delayed the read by a step would leave both columns equal.
  */
 test("the_latch_reads_the_abort_gate_at_the_stroke_and_the_row_down_reads_it_every_step", async (t) => {
-  assert.equal(GOLEM_TACTICS_V4.latchAbort, false, "the latch flag shipped up");
+  assert.equal(GOLEM_TACTICS_V4.latchAbort, true, "the latch flag shipped down");
 
   const golem = await standAGolem(t);
   // The gate goes up only once a stroke is in flight, and comes down again while the arm is free.

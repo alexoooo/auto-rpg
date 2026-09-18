@@ -48,6 +48,22 @@ import {
  */
 const DRIVER_TABLE = {
   ...GOLEM_TACTICS_V4,
+  /**
+   * Un-latched, against a table that ships `true` since CP -- because this mind's aborts are not
+   * the thing the latch exists to fix.
+   *
+   * `latchAbort` reads the abort gate once a stroke instead of on all six or seven asks, and CP
+   * measured why that matters: a *sampled* gate is a fresh coin at every ask, so a policy's stroke
+   * survives `(1 - p)^n` and completes 0.108 of the time un-latched against 0.516 latched. That is
+   * a rollout-variance problem and the latch is its fix.
+   *
+   * **This mind has no such problem, because its aborts are on purpose.** A feint here *is* a
+   * mid-stroke abort -- rule 3 opens a stroke, waits `feintHoldSeconds` and raises the gate -- so
+   * latching does not de-noise the driver, it deletes `feintFraction` outright and takes a
+   * hand-written behaviour with it. The two rows want opposite defaults for opposite reasons and
+   * the table is where they are allowed to differ.
+   */
+  latchAbort: false,
   /** `FORM.standOffFraction`: a hand's breadth further out than v2's 1.00. */
   standOffFraction: 1.06,
   /** `FORM.patience`: seconds of nothing happening before it opens one anyway. */

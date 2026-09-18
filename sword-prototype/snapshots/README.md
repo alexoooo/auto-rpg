@@ -9,15 +9,24 @@ weights themselves cannot carry: `tactics`, the executor row the mind was **meas
 ## Why `tactics` is in the file
 
 A table of weights does not say whether the strokes it starts survive the ask that started them.
-`latchAbort` ships `false`; every league from experiment AM onward trained and rated with
-`latchAbort=true`. Un-latched, the abort gate is re-read on each of the six or seven asks a stroke
-spans, so most strokes are abandoned -- which is the defect that cost experiments S, U, X and Z
-their ratings. Watching one of these files under the shipped row would show a mind that flinches
-out of nearly every swing, and would look like training that did nothing.
+`latchAbort` shipped `false` until 2026-09-17 and ships `true` now, which is what every league from
+experiment AM onward trained and rated under; un-latched, the abort gate is re-read on each of the
+six or seven asks a stroke spans, so most strokes are abandoned -- the defect that cost experiments
+S, U, X and Z their ratings.
+
+**The "flinches out of nearly every swing" this file used to warn about is real and is a property
+of the drawn read, not of the shipped row.** CP measured both on the same weights: drawn, an
+un-latched mind completes **0.108** of the strokes it starts, which is a flinch out of nine swings
+in ten; greedy it completes **0.594** un-latched against 0.566 latched, so the row is worth nothing
+either way. Every rating in this record is greedy. So a file watched at the default is not flinching
+and never was -- watch it at `snapshotDraw=1` and it is.
 
 So the file names its executor and `src/golem/snapshot.ts` reads it. **Check the boot note or the
-command readout: it should say `{"latchAbort":true}` and not `shipped executor`.** A snapshot
-written before this field existed still loads, under the shipped row, and still says so.
+command readout: it should say `{"latchAbort":true}` and not `shipped executor`.** Since the
+shipped row is now `true` those two agree for these four files, which is a reason to keep reading
+the note rather than to stop: the field exists so a snapshot measured under *any* row says which,
+and a file that names one the table does not have is still refused by name. A snapshot written
+before the field existed still loads, under the shipped row, and still says so.
 
 ## Watching one
 

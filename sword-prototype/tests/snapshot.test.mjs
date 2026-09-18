@@ -387,7 +387,11 @@ test("a_snapshot_names_the_executor_it_was_measured_under_and_the_mind_plays_tha
   // un-latched the same weights abandon most of the strokes they start. That is the S/U/X/Z defect
   // on the watching side rather than the rating side, and it would read as "the training did
   // nothing" to somebody watching rather than as a bug.
-  assert.equal(GOLEM_TACTICS_V4.latchAbort, false, "the shipped row, which is what makes this matter");
+  // The shipped row moved to `true` with CP, which closes the AM-onward mismatch this paragraph
+  // describes and does not close the general one: a snapshot still has to say what it was measured
+  // under, because the shipped row has now moved once and a file older than the field names none.
+  assert.equal(GOLEM_TACTICS_V4.latchAbort, true,
+    "the shipped row, which this reader is stated against");
   // The reader, first: absence is null, an empty object is null, and a row that does not exist or
   // carries the wrong kind of value is refused by name rather than silently doing nothing.
   assert.equal(tacticsFromJson(undefined, "f.json"), null);
@@ -403,10 +407,16 @@ test("a_snapshot_names_the_executor_it_was_measured_under_and_the_mind_plays_tha
   assert.deepEqual(named.tactics, { latchAbort: true });
   assert.equal(snapshotFromJson(poolMemberJson(), "pool-120.json").tactics, null,
     "and a file written before the field existed still loads, under the shipped row");
-  // And then the mind, which is the claim that matters: the same weights and the same seed abandon
-  // strokes under the shipped row and stop abandoning them under the row the file names. Drawn,
-  // because the abort gate's logit is negative at the greedy read and a greedy mind never aborts --
-  // which is the very gap `scripts/idle-probe.mjs` measured and the reason this is asserted drawn.
+  // And then the mind, which is the claim that matters: the same weights and the same seed behave
+  // differently under the shipped row and under the row the file names, so the named row is the
+  // one actually being played. Drawn, because the abort gate's logit is negative at the greedy
+  // read and a greedy mind never aborts -- the very gap `scripts/idle-probe.mjs` measured, and the
+  // reason this is asserted drawn.
+  //
+  // **Taken against `latchAbort: false` since CP moved the shipped row to `true`.** The pairing is
+  // what carries the claim, not which way round it runs: whichever row the file names has to be
+  // the one the mind plays, and the only way to see that is to name a row the table does not
+  // already hold. Before CP this contrast ran shipped-un-latched against a file saying `true`.
   const armUnder = (tactics) => {
     let arm = null;
     withSlot(() => {
@@ -418,11 +428,13 @@ test("a_snapshot_names_the_executor_it_was_measured_under_and_the_mind_plays_tha
     return arm;
   };
   const shipped = armUnder(null);
-  const latched = armUnder({ latchAbort: true });
+  const unlatched = armUnder({ latchAbort: false });
   assert.ok(shipped.strokes > 0, `the fixture has to start strokes at all; it started ${shipped.strokes}`);
-  assert.ok(shipped.aborts > 0, `and the shipped row has to abandon some; it abandoned ${shipped.aborts}`);
-  assert.ok(latched.aborts < shipped.aborts,
-    `latched abandoned ${latched.aborts} of ${latched.strokes}, shipped ${shipped.aborts} of ${shipped.strokes}`);
+  assert.ok(unlatched.aborts > 0,
+    `an un-latched row has to abandon some; it abandoned ${unlatched.aborts}`);
+  assert.ok(unlatched.aborts > shipped.aborts,
+    `un-latched abandoned ${unlatched.aborts} of ${unlatched.strokes}, shipped ${shipped.aborts}`
+    + ` of ${shipped.strokes}`);
   // The readout says which one is playing, because "is this the mind that was measured" is the
   // question somebody watching a pulled file actually has.
   withSlot(() => {
