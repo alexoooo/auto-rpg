@@ -42906,3 +42906,162 @@ refuse it.
 A note on what this does **not** decide. Moving `golem-driver` moves the yardstick every rating in
 this record is quoted against, so a winning row is a **candidate**, reported with its effect against
 a mind that does not read it (eleventh governing rule), and the decision to ship is the owner's.
+
+### The next phase, written from what this one found rather than from what it assumed
+
+Three premises this phase opened on are now refuted by its own numbers, and the agenda has to be
+rebuilt on what replaced them.
+
+| the premise | what the phase measured |
+| --- | --- |
+| *"PPO has never shipped anything here"* | `golem-policy` beats `golem-driver` at **every** rung |
+| *"the gradient is the broken part"* | the **ruler** was: a cap that hid the clock |
+| *"evolution from random is a long shot"* | from a **clone** it beat the driver in 14 gens |
+| *"DAgger fixes the states the clone visits"* | not when the label there explains nothing |
+| *"the reach move is what the search bought"* | it is worth **-0.0260 +-0.1090**; `lean` is |
+
+And one premise survived intact and is now the phase's method: **compose a copy with a search.**
+Behaviour cloning reaches the expert and stops, because matching the expert is its objective. A
+search's objective is winning, so it is free to leave the expert behind -- and it did, on the two
+axes the clone had copied most faithfully.
+
+#### CU -- ship CT3 and make it a yardstick, or the next phase has nothing to beat
+
+Every rating in this record is against hand-coded minds. The moment one learned mind is better than
+all of them, *that* is the bar, and a phase that keeps quoting `golem-driver` is measuring against
+something it has already passed. CT3 goes to `snapshots/`, gets a row in the snapshot register with
+the provenance the run paid, and joins `{idle, brawler, driver, fencer, policy}` as a standing arm.
+
+Nothing here is optional and none of it is science; it is the bookkeeping without which CV-CY cannot
+be read.
+
+#### CV -- the normalisation, which clips a legal reading for every mind here
+
+CS3 found `theirsSeconds` at **z = 11.74** against a body that does not move, pinned at the
+five-sigma clip, with `sinceContact`, `clock`, `theirCommits`, `gap` and `mineSeconds` past it too.
+Measured over the whole idle collection, **8.891 % of all feature cells** stand outside the clip.
+
+**The columns are not the problem and a first draft of this said they were.** `clockColumn` is
+`clamp(seconds / 10, 0, 1)`; all six clocks are bounded by design and the fencer data reaches 1.000
+on every one. What breaks is that a column legally in [0, 1] whose training distribution hugs zero
+gets a fitted sd of 0.08, so **the far end of its own declared range is eleven sigma out** and the
+clip -- there to stop an outlier blowing up a first layer -- amputates a reading the designer
+deliberately allowed.
+
+**CS4 then proved this is hygiene rather than the cure, and the section is written down to size
+accordingly.** The refit cuts clipped cells from 8.891 % to 0.009 % and its `commit` gate against
+idle gets *further* from firing, -0.93 to -3.24. Whatever the clip costs, the dead rung is not it.
+
+What still makes it the most valuable item here is CS5d. Raising the clip to a literal 12 is free
+for both clone-derived minds -- CS5b and CS5c hold -- and **breaks `golem-policy`**, which throws
+29 % more strokes for 46 % less damage. One global constant cannot serve a regression-fitted mind
+and a gradient-fitted one at once. So the fix is not a bigger number. It is:
+
+- a column that **declares a range** is standardised against that range, not against whatever spread
+  one collection happened to show;
+- a **bounded** column is not clipped inside its own domain;
+- the table records which reading it was fitted under, because a mind fitted on one cannot be driven
+  on the other, which is exactly what CS5d measured.
+
+`pilotFeatureNames` and `PILOT_FEATURES_VERSION` already carry the versioning. What is new is a
+declared range per column, which the file mostly has already -- every `clamp` in `pilotFeatures` is
+a range nobody wrote down.
+
+**The bars, re-registered because CS4's are spent.** A range-aware refit must (a) put clipped cells
+below 0.1 % on the idle collection, (b) hold its fencer score within 0.10 of 0.3359, and (c) leave
+`golem-policy`'s idle stroke count within a fifth of 149.21 when that mind is re-fitted under the
+same reading. The idle gate is **not** a bar here -- CS4 showed no normalisation can buy it -- and
+promising it again would be the same mistake twice.
+
+#### DA -- the bottom rung, which now needs a search rather than a copy
+
+The letters run on from CZ. CS4 closed the cloning route to `golem-idle` for good: the driver's own
+`commit` label on those states correlates with **nothing** the pilot can see (strongest \|r\| 0.019
+over 64,088 rows), so the fit predicts the base rate and the base rate is below the firing
+threshold. More data cannot fix a label that carries no signal.
+
+Three ways out, in cost order, and the first two are cheap enough to run together:
+
+- **Search it.** CT3's calibration was found by ranking whole minds on a score, and a score against
+  `golem-idle` exists and is not degenerate -- 0 strokes and 35 strokes are different numbers even
+  when both win on the clock. Re-run `calibrate` with `golem-idle` in the objective beside the
+  fencer. This needs no label at all, which is exactly why it is the route that is still open.
+- **Ask the expert a question it can answer.** The driver's idle `commit` is unpredictable because
+  the features it decides on are flat there -- `mine:recover`, `cooldown` and `armed` are the
+  clone's *own* phase and never move because it never swings. A label taken from a **rollout** --
+  did committing here end better than not -- is a different and learnable target.
+- **Change the rung.** CS's original plan was a dummy that recedes rather than one that stands.
+  A body that moves restores the spread the whole feature vector lost, and the record already
+  argues (AR) that a stationary dummy teaches shoving rather than hitting.
+
+The bar is unchanged and is the owner's: **more than five strokes a bout against the bottom rung,
+while the fencer score does not move.**
+
+#### CW -- the loop, which is the actual answer to "properly fighting learned AIs"
+
+The expert in DAgger is **a function you can call on any state**, and CT3 is now such a function and
+is better than `golem-driver`. So the composition closes into a loop:
+
+1. run the current champion, collect the states it visits
+2. ask the *previous* champion what it would have done there -- or better, run the search's own
+   objective and keep what wins
+3. clone that, calibrate the clone, and the calibration's output is the next champion
+
+This is approximate policy iteration with **evolution as the improvement operator** and cloning as
+the projection back onto a network. It has the property the record has been missing everywhere: the
+opponent at round *n* is the champion of round *n-1*, so the difficulty rises on its own and nobody
+has to hand-write a curriculum -- which matters because this record refuses curricula on evidence
+(Z, AN, AO) and this is not one.
+
+The bar is the only one that means anything: **round two beats round one head to head, on fresh
+seeds, past the ramp.** If it does not, the loop is a fixed point at CT3 and that is worth knowing
+in
+one round rather than ten.
+
+#### CX -- how much does more than twenty-one numbers buy
+
+21 numbers bought +0.3906. The question nobody can answer from one point is whether that is the
+shape of the curve or a lucky corner of it. Three arms, same search, same budget:
+
+- **21** -- the gain-and-offset head, as shipped, the control
+- **~270** -- gains and offsets on the last *two* layers
+- **~3,100** -- a rank-4 correction to the final weight matrix, `12r + 256r`, which is the cheapest
+  way to let outputs mix rather than only scale
+
+(1+lambda) scales badly with dimension and the honest expectation is that 21 is near the sweet spot
+for this budget -- but *"near"* is a number and the record does not have it.
+
+#### CY -- a rating that transports, which this record has never had
+
+Everything above is pairwise: a score against one named opponent. CM already found what that is
+worth when the opponent reads the same table -- **+170 Elo that was +-8** against a mind that does
+not. The pool is now large enough to do this properly: a round-robin over
+`{idle, brawler, driver, fencer, policy, dagger, ct3}`, seeds shared across every pairing,
+**anchored
+on the four hand-coded minds** so that no learned mind's rating is a fact about its own mirror.
+
+One number a mind, an interval on it, and the ladder falls out of the table instead of being
+asserted.
+
+#### CZ -- the owner's decision, still theirs
+
+Whether to make the stroke pay. CT2 wins without ever raising `commit`; the shipped policy throws
+149 strokes a bout at a stationary body for 7.8 damage; damage here comes overwhelmingly from the
+opponent's motion into the blade rather than from the stroke that drives it. An energy term, a
+higher cut floor or a speed-scaled wound would change that -- and would re-price **every** mind in
+the tree, including both yardsticks and everything above. `tournaments/ct/ct2-void.json` keeps the
+mind that forces the question.
+
+Not taken here. It is a game-design decision and it belongs to the owner.
+
+#### Backlog, correct and still outranked
+
+- `VIABLE_FLOOR = 0.5` refuses nothing (`scripts/viability.mjs:119`).
+- `VIABLE_TERMINALS` / `VIABLE_PAIRS` were measured at cap 60 under the old sever rule -- and cap 60
+  is now a known defect, so these are not merely stale, they are wrong.
+- `evolve --cap 40` and `calibrate --cap 60` still pick their own caps. Either move them to
+  `PROBE_CAP` or document the lower cap as a deliberate pre-ramp objective; CT3 shows the lower cap
+  did no harm *here*, which is evidence and not a licence.
+- `clone-duel.mjs` hard-codes `PROBE_CAP = 150` instead of importing the one in `tournament.mjs`.
+- One ladder, one list: `scripts/ladder.mjs` exists to stop a third script inventing its own set of
+  opponent names.
