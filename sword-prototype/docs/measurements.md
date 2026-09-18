@@ -43922,3 +43922,41 @@ cannot be waited out, which is DE.
 
 So DF and DE are one move in two parts, and DF has to land first, because without the floor DE's
 result would be unreadable for exactly the reason CY was.
+
+### Correcting my own mechanism: it is not "the body that moved", it is the normal component
+
+Several entries above say damage is paid for by **how fast the body that gets hit was moving**.
+That is loose enough to be wrong, and the precise version is better because the repository already
+measured it.
+
+`impactEnergyJ` in `src/scoring.ts:146` is `0.5 * reduced * closingSpeed * closingSpeed`, and
+`closingSpeed` is the **projection on the contact normal** -- the relative approach speed, square
+to the surface. It is symmetric: physics does not care which body supplied the motion. So "the one
+that moved gets hurt" cannot be the mechanism on its own.
+
+The asymmetry is in what each side presents, and BU already measured it. `src/config.ts` records
+the finding in `drawFraction`'s own note: a golem makes blade speed **by rotating**, rotation is
+tangential, and squareness *falls as the stroke speeds up* -- **0.45 of the blade's speed driven
+into the surface at 2 m/s, down to 0.22 at 15-20 m/s.** With **64 % of committed contacts scoring
+nothing.**
+
+So the chain, stated properly:
+
+1. A wound is charged the square of the **normal** component only.
+2. A golem's hardest, most committed cut is its most tangential, so the fraction that counts
+   **halves** exactly as the stroke gets fast.
+3. Committing is therefore paid least when it is executed best.
+4. A body walking onto a held, aligned edge supplies a large normal component and eats the square
+   of it.
+5. Hold the guard, hold the distance, let them come.
+
+`drawFraction` at 0.3 pays back part of step 2 -- that is precisely what the owner moved it for on
+2026-09-17 -- but only three tenths of the tangential slide, combined in quadrature, so a 10 m/s
+slide beside a 1 m/s press is charged `hypot(1, 3)` and still loses to a 5 m/s walk-in.
+
+**This does not change any verdict above; it changes the reason.** And it sharpens DC, which is no
+longer a shot in the dark: the dial's whole job is step 2, BU measured step 2 at a factor of two,
+and DC asks whether paying it back is enough to invert steps 3 to 5. It also explains why the effect
+would be *gradual* rather than a switch -- `drawFraction` buys back the slide in quadrature, so
+going 0.3 to 1.0 does not triple a cut's damage, and DCb asking for a rank inversion at 1.0 may
+simply be asking more than the arithmetic allows.
