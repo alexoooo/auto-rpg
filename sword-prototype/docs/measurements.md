@@ -43881,3 +43881,44 @@ That keeps the shipped game exactly as it is, needs no ruling from the owner, an
 from the two places it does harm -- the rating that ranks these minds and the objective that trains
 them. The floor is a number to measure, and the two rows above bracket it: **above 0.22 and below
 1.83**, which is narrow enough that the first job is to widen the evidence rather than pick a value.
+
+### DF registered -- a drain floor, and the four things it must and must not do
+
+`runBout` gains an optional `drawFloor`. When a bout runs past `overtimeSeconds` and the two sides
+finish within that much damage of each other, the winner is set to null and `drawFloorFired` is
+reported so the rate is readable rather than assumed. **Off unless asked**, so every number in this
+record still reads as it did.
+
+Re-run CY's diagonal and its fencer column at floors 0 (control), 1.0 and 3.0, 64 seeds.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **DFa** | at floor 1.0 the `ct3` mirror lands between 0.40 and 0.60 | it stays outside |
+| **DFb** | at floor 1.0 the `driver` mirror fires on under half its bouts | it fires on more |
+| **DFc** | no cell against `golem-fencer` changes at any floor | any of them moves |
+| **DFd** | `ct3` against `golem-idle` still scores 1.0000 at floor 1.0 | it falls |
+
+**DFc is the control and it is the one that matters most.** Those bouts end near 40 s, before the
+drain exists, so the rule must be unable to touch them. If a fencer cell moves, the implementation
+is wrong -- not the idea -- and nothing else in the table can be read.
+
+**DFd guards the other edge.** Beating a statue by 7.13 damage is a thin win but it is a real one,
+and a floor that erases it is a floor that has stopped distinguishing "no contest" from "not much
+of a contest".
+
+**DFb is the discriminator.** The driver mirror is a genuine fight separated by 1.83 damage, and a
+floor of 1.0 sits below that. If it converts most of *those* bouts too, the floor is eating real
+results and 1.0 is already too high -- which would make the usable window narrower than the 0.22 to
+1.83 bracket suggests, and is exactly what the 3.0 arm is there to expose from the other side.
+
+#### The risk, stated before the data
+
+If DFa holds, every learned-versus-learned bout becomes a draw, and a search carrying a learned
+opponent in its pool gets **no signal at all** from that opponent. That looks like a failure and is
+not one. **A draw is an honest "nothing happened"; a coin-flip win is a lie**, and thirteen sessions
+of this record were spent chasing the lie. Removing it does not create a gradient -- it stops
+manufacturing a fake one, and it makes the real deficiency legible: the pool needs an opponent that
+cannot be waited out, which is DE.
+
+So DF and DE are one move in two parts, and DF has to land first, because without the floor DE's
+result would be unreadable for exactly the reason CY was.
