@@ -119,7 +119,7 @@ export function driverTactics(arm, base) {
 }
 
 /** One arm over some seeds, in a child, so a crashed bout cannot take the table with it. */
-async function cell({ arm: named, seeds, cap, opponent, tablePath, swap, draw }) {
+async function cell({ arm: named, seeds, cap, opponent, tablePath, swap, draw, floor }) {
   const [arm, clip] = armClip(named);
   // `--draw` moves `CONFIG.combat.drawFraction`, which is the **world**, not a row a mind
   // reads: it re-prices every contact for both bodies at once. So a score taken under it is
@@ -236,6 +236,8 @@ async function cell({ arm: named, seeds, cap, opponent, tablePath, swap, draw })
       leftGolem: defaultGolemSetup(), rightGolem: defaultGolemSetup(),
       locomotionMode: "supported", seeds: [mySeed, theirSeed], maxSeconds: cap, physics,
       leftMind: left, rightMind: right,
+      // DF. Null unless `--floor` is given, so a run without it is the old harness to the bit.
+      drawFloor: floor,
     });
     const me = bout.left;
     const them = bout.right;
@@ -261,6 +263,7 @@ async function cell({ arm: named, seeds, cap, opponent, tablePath, swap, draw })
       commitRate: gates.asks === 0 ? 0 : gates.commit / gates.asks,
       abortRate: gates.asks === 0 ? 0 : gates.abort / gates.asks,
       parryRate: gates.asks === 0 ? 0 : gates.parry / gates.asks,
+      floored: bout.drawFloorFired === true ? 1 : 0,
     });
   }
   return { arm: named, rows };
@@ -269,7 +272,7 @@ async function cell({ arm: named, seeds, cap, opponent, tablePath, swap, draw })
 const COLUMNS = [
   "score", "decided", "seconds", "strokes", "completion", "damage", "taken",
   "hits", "severs", "contacts", "speed", "peak", "retreat", "inside",
-  "asked", "commitRate", "abortRate", "parryRate",
+  "asked", "commitRate", "abortRate", "parryRate", "floored",
 ];
 
 async function main(argv) {
@@ -280,6 +283,8 @@ async function main(argv) {
   const swap = argv.includes("--swap");
   const drawFlag = flagOf(argv, "--draw", null);
   const draw = drawFlag === null ? null : Number(drawFlag);
+  const floorFlag = flagOf(argv, "--floor", null);
+  const floor = floorFlag === null ? null : Number(floorFlag);
   const shards = Math.max(1, Math.min(availableParallelism(), 16));
 
   // `policy` is the shipped fitted mind and is here as the floor, not as a contender: it is what
@@ -307,7 +312,7 @@ async function main(argv) {
   const seeds = Array.from({ length: count }, (_, i) => base + i * 101);
   const slice = Math.ceil(seeds.length / shards);
   const plan = arms.flatMap((arm) => Array.from({ length: shards }, (_, s) => ({
-    arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent, swap, draw,
+    arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent, swap, draw, floor,
     // The table is looked up under the bare name, so `dagger` and `dagger@clip=12` are the same
     // weights and `--tables` does not have to name the arm twice.
     tablePath: tables[armClip(arm)[0]] ?? null,

@@ -217,6 +217,7 @@ export function runBout({
   onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
   maxSeconds = CONFIG.bout.capSeconds,
   separation = CONFIG.fighter.separation,
+  drawFloor = null,
 }) {
   if (!Number.isFinite(maxSeconds) || maxSeconds <= 0) {
     throw new Error("runBout maxSeconds must be a positive finite number");
@@ -433,8 +434,29 @@ export function runBout({
   const outcome = state.outcome ?? { winner: null, ending: "time", text: "unfinished" };
   leftRecord.blocks = recorder.records.left.blocks;
   rightRecord.blocks = recorder.records.right.blocks;
+  // **DF: a bout the drain decided on nothing is a draw.** Past `overtimeSeconds` the clock takes
+  // the same fraction of each body's own bar per second, so whoever is already ahead on damage
+  // reaches zero first -- `src/config.ts:1163` states that as the design and it is a fair rule for
+  // a game. It carries no threshold, though, and the harness reads its output as a clean win.
+  //
+  // CY measured what that costs. Two statues take zero damage, go down in the same frame and draw
+  // 64 of 64 at exactly 120.00 s. Two `ct3` clones take 0.81 and 1.03, and that **0.22** brings one
+  // down 0.68 s early -- a winner 64 of 64, off a difference a third of one per cent the size of a
+  // real bout's damage. The rating launders it and the search trains on it.
+  //
+  // So the fix lives here rather than in `src/bout.ts`: the game keeps its rule and the instrument
+  // stops believing it. Off unless asked, so every number taken before this reads as it did.
+  let winner = outcome.winner;
+  let drawFloorFired = false;
+  if (drawFloor !== null && winner !== null
+    && state.clock >= CONFIG.bout.overtimeSeconds
+    && Math.abs(sides[0].record.damage - sides[1].record.damage) < drawFloor) {
+    winner = null;
+    drawFloorFired = true;
+  }
   const result = {
-    winner: outcome.winner,
+    winner,
+    drawFloorFired,
     ending: outcome.ending,
     text: outcome.text,
     deathRegion: outcome.blow?.limb ?? "none",
