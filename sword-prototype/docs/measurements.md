@@ -42290,3 +42290,84 @@ is withdrawn to "beats the fencer", and the ladder's third rung is still open.
 
 CS2 runs in the same batch and puts `ct3` on the 512-seed fencer duel as a fourth arm, so the
 headline number gets an interval half the width of this one at the same time.
+
+### CT5 -- what the calibration actually changed, and the hand-set constants nothing could question
+
+CT3 moved twenty-one numbers and the head is affine, so what it did is readable exactly rather than
+guessed at. Running the DAgger clone forward over 20,193 of its own recorded states and applying the
+calibration to the result, in **command** space -- metres and fractions, not logits:
+
+| axis | driver | driver sd | clone | **ct3** | the change in words |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `reach` | 0.700 | **0.0000** | 0.699 | **1.000** | the blade out to the stop |
+| `lean` | 0.159 | 0.2831 | 0.156 | **0.757** | leans into everything |
+| `strafe` | 0.162 | 0.2960 | 0.154 | **0.560** | circles instead of squaring up |
+| `advance` | 0.246 | 0.5036 | 0.236 | **0.110** | closes less than half as much |
+| `targetHeight` | 0.702 | 0.0122 | 0.699 | **0.579** | cuts lower |
+| `bite` | 0.660 | 0.0322 | 0.657 | 0.731 | a deeper edge angle |
+| `standOff` | 1.060 | **0.0000** | 1.056 | 1.068 | nothing |
+| `targetLateral` | 0.000 | **0.0000** | -0.006 | -0.038 | nothing |
+| `swing` | 0.999 | 0.0487 | 0.996 | 0.987 | nothing |
+
+plus an `abort` bias of **-0.511** on the gate logit, which is the mind flinching out of fewer
+of its own strokes.
+
+**Say that in the owner's words and it is the owner's own complaint, solved by search**: *"instead
+of maintaining proper swing distance, the golems get into each other's face and kinda just flail
+around, the attacking technique is just too poor to do real damage."* Hold the point out to the
+stop, close half as much, circle, lean in, cut low, and stop aborting. That is the whole of the
+twenty-one numbers, and it is worth +0.3906 +-0.1069 against `golem-driver`.
+
+**The hypothesis this was run to test is refused.** I expected the gains to be reciprocals of
+least-squares shrinkage -- a regression to the mean fits a *narrower* command than the expert emits,
+and a per-axis gain would undo it exactly. It is not that. The clone's spread matches the driver's
+closely on every axis that moves at all (`lean` 0.278 against 0.283, `advance` 0.491 against 0.504),
+and the gains do not track the ratios. The fit was not shrunk. It was simply copying a mind that was
+in the wrong pose.
+
+#### The part that should have been found thirteen sessions ago
+
+**Three of the nine axes have a driver standard deviation of exactly 0.0000.** `standOff`,
+`targetLateral` and `reach` are hand-set constants that `golem-driver` never varies, across 181,744
+recorded asks. Behaviour cloning therefore reproduces them perfectly, and **no learner that starts
+from a clone can ever discover they are wrong** -- there is no variation in the label to learn from.
+Policy gradient could have moved them and never had the samples to (AW: 4,800-9,200 bouts an
+iteration, every run in the record used 32).
+
+`reach` is where CT3 made its single largest move, and the sweep that set it is in `tactics.ts`
+above the constant:
+
+| `guardReach` | damage taken / bout | seconds to win | |
+| ---: | ---: | ---: | --- |
+| **0.70** | **42.10** | **8.15** | what ships |
+| 1.00 | 43.06 | 9.32 | against the outboard stop |
+
+**It was chosen over the stop on sixteen bouts and a difference of 0.96 damage.** This record's own
+standing finding is that *"any lever smaller than 0.04 is invisible to a six-seed design in this
+cell"* and that a 600-bout paired bar cannot see a 2.5-fold change in completed strokes. A 16-bout
+sweep separating 42.10 from 43.06 was never separating anything. The constant is not wrong because
+somebody was careless; it is wrong because the instrument that set it could not see.
+
+#### The cell
+
+An arm is `golem-driver` with named constants overridden -- no training, no network, one flag -- run
+against `golem-fencer` on 256 paired seeds at cap 150 beside the stock driver and `ct3`.
+
+| | arm | claim | refused if |
+| --- | --- | --- | --- |
+| **CT5a** | `guardReach` 1.00 | beats the stock driver by **over 0.05** | loses by over 0.05 |
+| **CT5b** | best single constant | recovers **over a quarter** of ct3's +0.3906 | under +0.05 |
+| **CT5c** | any single row | **none reaches 0.80**; ct3 is more than a row | one reaches 0.80 |
+
+**The total verdict mapping (rule 9).** If CT5a holds, a hand-coded yardstick this whole project is
+measured against has been standing in the wrong guard since 2026-09-06, and every rating in the
+record is against a mind that was beatable for one number -- which does not invalidate a single
+paired comparison, but does mean the bar was lower than it read. If CT5a and CT5b both hold and CT5c
+is refused, **the twenty-one numbers were worth one number** and CT is a very expensive constant
+sweep; the phase's answer would be "sweep the constants the clone cannot see", which is cheaper than
+anything on this agenda. If CT5a is refused, the reach move is not what pays and the credit belongs
+to `lean`, `strafe` and `advance` together -- a *pose*, which no single row expresses and which is
+exactly the thing a search can find and a hand cannot.
+
+I expect CT5a to hold small, CT5b to hold, and CT5c to hold -- that the pose is worth more than any
+of its parts. That is a prediction, and the three bars are set so that it can be wrong.
