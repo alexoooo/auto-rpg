@@ -36,18 +36,13 @@ import {
   cursorForElevation,
   blankIntent,
   postureFor,
-  archerMind,
-  duelistMind,
-  swingerMind,
 } from "./policies.ts";
 import { CONFIG } from "./config.ts";
-import { crawlerMind } from "./bodies/centipede.ts";
 // The two surface tags, from the leaf that owns them. Taking either from its own endpoint would
 // close a run-time cycle -- both endpoints import this file for values, and `POLICIES` below reads
 // the tag while this module is still evaluating. `control-surfaces.ts` imports nothing at all.
 import {
   GOLEM_CONTROL_SURFACE as GOLEM_SURFACE,
-  HUMANOID_CONTROL_SURFACE as HUMANOID_SURFACE,
 } from "./control-surfaces.ts";
 // The golem's own mind, registered here for the reason every other policy is: the list *is* the
 // registry the setup screen builds its picker from, so a policy that exists is selectable and a
@@ -1234,10 +1229,6 @@ export interface Policy {
 
 export const POLICIES: readonly Policy[] = [
   { name: "idle", label: "Idle", surface: null, create: idleMind },
-  { name: "swinger", label: "Swinger", surface: HUMANOID_SURFACE, create: swingerMind },
-  { name: "duelist", label: "Duelist", surface: HUMANOID_SURFACE, create: duelistMind },
-  { name: "archer", label: "Archer", surface: HUMANOID_SURFACE, create: archerMind },
-  { name: "crawler", label: "Crawler", surface: HUMANOID_SURFACE, create: crawlerMind },
   { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
   { name: "golem-fencer", label: "Golem fencer", surface: GOLEM_SURFACE, create: golemFencerMind },
   { name: "golem-planner", label: "Golem planner", surface: GOLEM_SURFACE, create: golemPlannerMind },

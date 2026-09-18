@@ -8,7 +8,7 @@ import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 
 import { CONFIG } from "./config.ts";
 import type { Side } from "./physics.ts";
-import type { WeaponKind } from "./weapon.ts";
+import type { WeaponKind } from "./hands.ts";
 import type { Limb } from "./fighter.ts";
 import type { Combatant } from "./units.ts";
 import type { HandName } from "./hands.ts";

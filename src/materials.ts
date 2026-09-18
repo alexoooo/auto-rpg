@@ -1,4 +1,4 @@
-import textureRegistry from "../asset-src/textures.json" with { type: "json" };
+import textureRegistry from "./textures.json" with { type: "json" };
 
 export type TextureChannel = "albedo" | "normal" | "orm";
 export type TangentBasis = "babylon-lh" | "gltf-rh-imported";

@@ -13,7 +13,7 @@
 // between immediate calls and the simulation crawls -- and it advances
 // `scene._renderId` once per simulated frame, because Babylon's world-matrix cache is
 // keyed on it and a harness that never renders otherwise freezes every matrix at its
-// first sample. The readings it takes are `Fighter.view`'s, which are cache-free by
+// first sample. The readings it takes are the body's own `view`, which is cache-free by
 // construction and are the ones the policies are actually being shown.
 //
 // **The bout cap is the caller's.** `runBout` defaults `maxSeconds` to
@@ -44,8 +44,8 @@ import HavokPhysics from "@babylonjs/havok";
 import { CONFIG } from "../../src/config.ts";
 import { attachPhysics, LAYER, COLLIDES } from "../../src/physics.ts";
 import { ROOM_WALL_COLLIDERS } from "../../src/arena-room.ts";
-import { Fighter, stepPair } from "../../src/fighter.ts";
-import { isArticulatedCombatant, policyForUnit, unitDefinition } from "../../src/units.ts";
+import { stepPair } from "../../src/fighter.ts";
+import { policyForUnit, unitDefinition } from "../../src/units.ts";
 import { Combat } from "../../src/combat.ts";
 import { policyMind } from "../../src/mind.ts";
 import { advance, begin, selectScreen } from "../../src/bout.ts";
@@ -210,7 +210,7 @@ export function sideRecord(policy) {
  */
 export function runBout({
   left: leftPolicy, right: rightPolicy, seeds, leftLoadout, rightLoadout,
-  leftUnit = "warrior", rightUnit = "warrior",
+  leftUnit = "golem", rightUnit = "golem",
   leftGolem = undefined, rightGolem = undefined,
   locomotionMode = undefined,
   leftMind = null, rightMind = null, onSample = null, onEvent = null, onRefusal = null,
@@ -348,7 +348,7 @@ export function runBout({
     for (const side of sides) {
       const speed = side.fighter.view.self.tipSpeed;
       if (speed > side.record.peakTip) side.record.peakTip = speed;
-      if (quiet && (!isArticulatedCombatant(side.fighter) || side.fighter.armed) && speed > side.record.peakTipDriven) {
+      if (quiet && speed > side.record.peakTipDriven) {
         side.record.peakTipDriven = speed;
       }
     }

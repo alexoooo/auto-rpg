@@ -28,7 +28,6 @@ import { CONFIG } from "./config";
 import { OBJECT_SURFACE_VARIANTS, TEXTURED_SURFACES } from "./materials";
 import { attachPhysics } from "./physics";
 import { sharedSurface, surfaceVariant } from "./surface";
-import type { FigureMaterials } from "./figure";
 import { buildArenaWorld, type ArenaAudit, type RoomOcclusionTarget } from "./arena-room";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
@@ -54,8 +53,6 @@ export interface Palette {
   timber: PBRMaterial;
   banner: PBRMaterial;
   arrowAccent: PBRMaterial;
-  /** Authored costume surfaces, separated from weapon/fallback geometry. */
-  figure: FigureMaterials;
 }
 
 export interface Arena {
@@ -131,17 +128,11 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   shadows.bias = 0.0015;
   shadows.normalBias = 0.012;
 
+  // The two textured parents. Steel and leather have the same decoded image and Babylon-LH
+  // tangent basis on every geometry family that uses them, so the scene owns one wrapper for each
+  // image file and the weapon materials below are scalar variants of it.
   const figureSteel = sharedSurface(scene, TEXTURED_SURFACES.figureSteel);
   const figureLeather = sharedSurface(scene, TEXTURED_SURFACES.figureLeather);
-  const figure: FigureMaterials = {
-    steel: figureSteel,
-    leather: figureLeather,
-    cloth: sharedSurface(scene, TEXTURED_SURFACES.figureCloth),
-    flesh: sharedSurface(scene, TEXTURED_SURFACES.figureFlesh),
-  };
-  // Steel and leather have the same decoded image and Babylon-LH tangent basis
-  // on both geometry families. Keep distinct scalar materials, but make the
-  // scene own only one wrapper for each image file.
   const weaponSteel = surfaceVariant(scene, { ...TEXTURED_SURFACES.weaponSteel, textures: {} }, figureSteel);
   const weaponLeather = surfaceVariant(scene, { ...TEXTURED_SURFACES.weaponLeather, textures: {} }, figureLeather);
   const weaponWood = sharedSurface(scene, TEXTURED_SURFACES.weaponWood);
@@ -168,7 +159,6 @@ export async function buildArena(engine: Engine): Promise<Arena> {
       0.0,
       1.0,
     ),
-    figure,
   };
   materials.arrowAccent.unlit = true;
   materials.arrowAccent.emissiveColor.copyFrom(materials.arrowAccent.albedoColor);

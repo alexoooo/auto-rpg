@@ -92,17 +92,15 @@ const setupWith = (over) => ({ ...defaultGolemSetup(), ...over });
  * baseline was taken on.
  */
 test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface", () => {
-  const warrior = unitDefinition("warrior");
   const golem = unitDefinition("golem");
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
-  assert.ok(!names(warrior).includes("golem-duelist"),
-    `a Warrior's picker offers ${names(warrior).join(", ")}`);
   assert.deepEqual(names(golem), [
     "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
   ]);
-  assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
-    /does not support policy/);
+  // The other surface has no body in the tree any more -- the Warrior went with the research --
+  // so what is asserted is the half of the rule that can still be run: a name that is not one of
+  // the golem's own is refused by the unit rather than quietly built.
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
     /does not support policy/);
   // And the field that does the work, so a policy added without one is caught here rather than by
@@ -234,7 +232,7 @@ function fixtureOf(view) {
 /** Put the opponent somewhere, as a body of the same rough size, and re-derive `measure`. */
 function place(fixture, { x, z, facing = Math.PI, shoulderY = 1.42, crownY = 1.75 }) {
   const them = fixture.opponent;
-  them.unit = "warrior";
+  them.unit = "golem";
   them.ground.x = x; them.ground.y = 0; them.ground.z = z;
   them.facing = facing;
   them.shoulder.x = x + 0.21; them.shoulder.y = shoulderY; them.shoulder.z = z;
@@ -744,10 +742,10 @@ test("every_hand_command_over_a_whole_bout_sits_inside_the_published_envelope", 
   let checked = 0;
   let wired = false;
   const bout = runBout({
-    left: "golem-duelist", right: "duelist",
-    leftUnit: "golem", rightUnit: "warrior",
+    left: "golem-duelist", right: "golem-fencer",
+    leftUnit: "golem", rightUnit: "golem",
     leftGolem: defaultGolemSetup(),
-    rightLoadout: { primary: "sword", secondary: "empty" },
+    rightGolem: defaultGolemSetup(),
     locomotionMode: "supported",
     seeds: [SEED, SEED + 17],
     maxSeconds: 12,
@@ -822,14 +820,11 @@ test("the_golem_mind_lands_blows_and_does_not_stall_while_it_is_in_range", async
     const tactics = golemTactics(SEED);
     const watched = { name: "golem-duelist", decide: (view, dt) => tactics.decide(view, dt) };
     const result = runBout({
-      left: golemLeft ? "golem-duelist" : "duelist",
-      right: golemLeft ? "duelist" : "golem-duelist",
-      leftUnit: golemLeft ? "golem" : "warrior",
-      rightUnit: golemLeft ? "warrior" : "golem",
-      leftGolem: golemLeft ? defaultGolemSetup() : undefined,
-      rightGolem: golemLeft ? undefined : defaultGolemSetup(),
-      leftLoadout: golemLeft ? undefined : { primary: "sword", secondary: "empty" },
-      rightLoadout: golemLeft ? { primary: "sword", secondary: "empty" } : undefined,
+      left: golemLeft ? "golem-duelist" : "golem-fencer",
+      right: golemLeft ? "golem-fencer" : "golem-duelist",
+      leftUnit: "golem", rightUnit: "golem",
+      leftGolem: defaultGolemSetup(),
+      rightGolem: defaultGolemSetup(),
       locomotionMode: "supported",
       seeds: [SEED, SEED + 17],
       maxSeconds: 20,
@@ -883,10 +878,10 @@ test("a_golem_with_capped_sockets_closes_and_fights_with_its_head", async () => 
   let lunges = 0;
   let wired = false;
   const result = runBout({
-    left: "golem-duelist", right: "duelist",
-    leftUnit: "golem", rightUnit: "warrior",
+    left: "golem-duelist", right: "golem-fencer",
+    leftUnit: "golem", rightUnit: "golem",
     leftGolem: setup,
-    rightLoadout: { primary: "sword", secondary: "empty" },
+    rightGolem: defaultGolemSetup(),
     locomotionMode: "supported",
     seeds: [SEED, SEED + 17],
     maxSeconds: 20,

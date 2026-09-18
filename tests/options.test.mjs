@@ -23,7 +23,7 @@ import {
   tacticTargets,
   targetHeight,
 } from "../src/options.ts";
-import { archerMind, azimuthOf, cursorForAzimuth, duelistMind } from "../src/policies.ts";
+import { azimuthOf, cursorForAzimuth } from "../src/policies.ts";
 // The mutable block, imported here and *only* by this file's cross-check.
 // `options.ts` may not reach it -- `options_and_features_have_no_mutable_config_backdoor`
 // reads the source text to say so -- which is the whole reason there are two
@@ -208,14 +208,6 @@ test("movement_partials_own_only_the_three_locomotion_axes", () => {
   const cover = handActionOption("cover", asMeasured("primary")); cover.enter(v);
   assert.throws(() => composeTactic(v, "close", "cover", contaminated, cover.decide(v, 1 / 240)),
     /close.*cover.*hand or posture/);
-});
-
-test("the_composed_scripted_controller_matches_the_frozen_specialist_trace", () => {
-  const specialist = duelistMind(991); const composed = scriptedMetaMind("duelist", 991); const v = view();
-  for (let frame = 0; frame < 720; frame += 1) {
-    v.clock = frame / 240; v.measure = frame < 200 ? 1.8 : 1.1; v.opponent.ground.z = v.measure + 0.2;
-    assert.deepEqual(composed.decide(v, 1 / 240), specialist.decide(v, 1 / 240));
-  }
 });
 
 test("specialists_and_options_share_the_full_stroke_and_shot_timeline", () => {
@@ -856,104 +848,6 @@ test("a_named_target_is_a_body_region_derived_from_published_facts", () => {
 test("intent_leaf_paths_cover_exactly_the_combat_fields", () => {
   const heads = [...new Set(INTENT_FIELDS.map((path) => path.split(".")[0]))].sort();
   assert.deepEqual(heads, [...COMBAT_FIELDS]);
-});
-
-test("the_scripted_meta_controller_matches_the_policy_it_replaces", () => {
-  const old = duelistMind(991); const meta = scriptedMetaMind("duelist", 991); const v = view();
-  const trace = [];
-  const directions = { oldForward: 0, oldBack: 0, metaForward: 0, metaBack: 0 };
-  const deltaReport = Object.fromEntries(INTENT_FIELDS.map((field) => [field, { changed: 0, max: 0 }]));
-  for (let i = 0; i < 1200; i += 1) {
-    v.clock = i / 240;
-    const distance = i < 180 ? 2.2 - i / 300 : i < 360 ? 1.6 : i < 540 ? 1.1 : 1.42;
-    v.opponent.ground.z = distance; v.opponent.shoulder.z = distance;
-    v.measure = Math.max(0.9, distance - 0.2);
-    closing(v.opponent.hands.primary, i > 700 && i < 760 ? 9 : 0);
-    const before = old.decide(v, 1 / 240); const after = meta.decide(v, 1 / 240);
-    for (const delta of intentFieldDeltas(before, after)) {
-      if (!delta.equal) deltaReport[delta.field].changed += 1;
-      if (delta.delta !== null) deltaReport[delta.field].max = Math.max(deltaReport[delta.field].max, Math.abs(delta.delta));
-    }
-    complete(after);
-    if (before.forward > 0) directions.oldForward++; if (before.forward < 0) directions.oldBack++;
-    if (after.forward > 0) directions.metaForward++; if (after.forward < 0) directions.metaBack++;
-    trace.push(meta.selected);
-  }
-  assert.ok(trace.includes("cover") && trace.includes("cut"), JSON.stringify(meta.entries));
-  assert.ok(directions.oldForward > 0 && directions.oldBack > 0 && directions.metaForward > 0,
-    JSON.stringify({ directions, deltaReport }));
-  assert.ok(Object.values(meta.entries).reduce((a, b) => a + b, 0) > 4, "the meta-controller really enters options");
-  assert.deepEqual(Object.keys(deltaReport), INTENT_FIELDS, JSON.stringify(deltaReport));
-  assert.ok(Object.values(deltaReport).every((row) => row.changed === 0 && row.max <= 1e-12),
-    `all movement, posture and both-hand fields match: ${JSON.stringify(deltaReport)}`);
-  // The archer's draw beside the specialist's, not on its own. This ran only the
-  // meta archer and asserted that it both held and released, which the
-  // specialist could have disagreed with in every frame while still passing.
-  // The paired 520-sample comparison was in `evaluate-options.mjs`, which
-  // session 17 deleted; its limits were shot duty within 0.01 and edge count
-  // within 1, and the recorded answer was exact on both.
-  const count = (mind) => { const bow = view({ primary: "bow", secondary: "empty" });
-    const totals = { held: 0, released: 0, edges: 0 }; let previous = null;
-    for (let i = 0; i < 520; i += 1) { bow.clock = i / 240; const held = mind.decide(bow, 1 / 240).primary.thrust;
-      held ? totals.held += 1 : totals.released += 1;
-      if (previous !== null && held !== previous) totals.edges += 1; previous = held; }
-    return totals; };
-  const specialistShots = count(archerMind(44)); const metaShots = count(scriptedMetaMind("archer", 44));
-  assert.ok(metaShots.held > 200 && metaShots.released > 0, "the option trace preserves draw then release timing");
-  assert.ok(metaShots.edges >= 2, `a trace that never changes button proves no draw: ${JSON.stringify(metaShots)}`);
-  assert.deepEqual(metaShots, specialistShots, "the composed archer holds and looses on the specialist's exact frames");
-  const seededA = scriptedMetaMind("duelist", 1); const seededB = scriptedMetaMind("duelist", 2);
-  const seededView = view(); seededView.opponent.shoulder.x = seededView.self.shoulder.x;
-  let firstA = -1; let firstB = -1;
-  for (let i = 0; i < 900; i += 1) {
-    seededView.clock = i / 240; seededA.decide(seededView, 1 / 240); seededB.decide(seededView, 1 / 240);
-    if (firstA < 0 && seededA.selected === "cut") firstA = i;
-    if (firstB < 0 && seededB.selected === "cut") firstB = i;
-  }
-  assert.notEqual(firstA, firstB, "the public seed changes the first option timing");
-});
-
-test("the_meta_guard_uses_the_same_fallback_after_both_enemy_arms_are_gone", () => {
-  const v = view();
-  v.opponent.hands.primary.lost = true;
-  v.opponent.hands.secondary.lost = true;
-  assert.deepEqual(scriptedMetaMind("duelist", 991).decide(v, 1 / 240),
-    duelistMind(991).decide(v, 1 / 240));
-});
-
-test("a_specialist_and_scripted_meta_use_the_same_bare_crowding_boundary", () => {
-  for (const measure of [bareCrowdDistance(0.6) - 0.01, bareCrowdDistance(0.6) + 0.01]) {
-    const v = view({ primary: "empty", secondary: "empty" });
-    v.opponent.ground.z = 0.78;
-    v.opponent.shoulder.z = 0.78;
-    v.measure = measure;
-    const specialist = duelistMind(51).decide(v, 1 / 240);
-    const meta = scriptedMetaMind("duelist", 51).decide(v, 1 / 240);
-    assert.equal(Math.sign(meta.forward), Math.sign(specialist.forward), `measure ${measure}`);
-  }
-});
-
-test("a_bare_scripted_meta_duelist_can_enter_punch_range", () => {
-  const meta = scriptedMetaMind("duelist", 7);
-  const v = view({ primary: "empty", secondary: "empty" });
-  v.opponent.shoulder.x = v.self.shoulder.x;
-  v.opponent.ground.z = 0.90;
-  v.opponent.shoulder.z = 0.90;
-  v.measure = 0.65;
-  let closed = false;
-  let punched = false;
-  for (let i = 0; i < 1200; i += 1) {
-    v.clock = i / 240;
-    const intent = meta.decide(v, 1 / 240);
-    closed ||= intent.forward > 0;
-    const progress = Math.max(0, intent.forward) / 60;
-    v.opponent.ground.z = Math.max(0.70, v.opponent.ground.z - progress);
-    v.opponent.shoulder.z = v.opponent.ground.z;
-    v.measure = v.opponent.ground.z - 0.25;
-    punched ||= meta.selected === "punch";
-  }
-  assert.equal(closed, true);
-  assert.equal(punched, true, JSON.stringify({ z: v.opponent.shoulder.z, measure: v.measure, entries: meta.entries }));
 });
 
 test("the_behaviour_record_counts_events_instead_of_the_truncated_combat_log", () => {

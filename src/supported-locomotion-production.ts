@@ -221,7 +221,17 @@ export interface PhysicalSupportGroupDiagnostic {
 
 export interface PhysicalSupportedLocomotionDiagnostic {
   readonly state: SupportedLocomotionState;
-  readonly stability: Readonly<{ specificImpulseMps: number; staggerAtMps: number; fallAtMps: number }>;
+  /**
+   * What a shove is worth to this body, and the mass it was divided by to say so.
+   *
+   * `supportedMassKg` is on the readout because without it the other three numbers cannot be
+   * checked or reproduced: a shove arrives in newton-seconds and becomes a specific impulse by
+   * one division, and the divisor is a getter on the carrier that changes as modules are bolted
+   * on or cut off. A reading that reports the quotient and hides the denominator is one nobody
+   * can compute the next shove from.
+   */
+  readonly stability: Readonly<{ specificImpulseMps: number; supportedMassKg: number;
+    staggerAtMps: number; fallAtMps: number }>;
   readonly authority: boolean;
   readonly activeGroup: string | null;
   readonly liveSupport: boolean;
@@ -390,6 +400,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     })));
     return Object.freeze({ state: Object.freeze({ ...this.supportState }), ...this.lastBoundary,
       stability: Object.freeze({ specificImpulseMps: this.supportState.specificImpulseMps,
+        supportedMassKg: this.options.supportedMassKg,
         staggerAtMps: SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity,
         fallAtMps: SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity }),
       activeGroup: this.activeAuthorityOwner?.split("/", 1)[0] ?? null,

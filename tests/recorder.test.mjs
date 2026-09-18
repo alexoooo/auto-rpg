@@ -43,18 +43,18 @@ test("the_bench_report_carries_the_versioned_records_from_the_shared_recorder", 
   let samples = 0;
   const result = runBout({
     left: "idle", right: "idle", seeds: [17, 23],
-    leftLoadout: { primary: "sword", secondary: "empty" },
-    rightLoadout: { primary: "sword", secondary: "empty" },
+    locomotionMode: "supported",
     onSample({ right }) {
       samples += 1;
-      if (samples === 2) right.limbs.find((limb) => limb.key === "torso").health = 0;
+      // Killed by hand so the bout reaches a verdict in two samples instead of a capped minute.
+      // The key is the golem's, and the limb list is what a body publishes whatever it is made of.
+      if (samples === 2) right.limbs.find((limb) => limb.key.endsWith("trunk.core")).health = 0;
     },
   });
   assert.equal(result.engagementInstrumentVersion, ENGAGEMENT_INSTRUMENT_VERSION);
   assert.equal(result.behaviour.left.seconds > 0, true);
   assert.equal(result.behaviour.right.seconds > 0, true);
-  // The bout loop moved from `scripts/measure.mjs` to `scripts/bout-runner.mjs` in Session 04 of
-  // the matchup set; the measure re-exports `runBout` and the text being asserted is the runner's.
+  // The runner is the headless bout loop, and the text being asserted is its wiring.
   const source = await readFile(new URL("./harness/bout-runner.mjs", import.meta.url), "utf8");
   assert.match(source, /wireBoutRecorder\(recorder, left, right\)/,
     "the bench attaches both bodies through the shared intent adapter");
@@ -164,8 +164,12 @@ test("the_engagement_recorder_reads_no_controls_or_mind_identity", async () => {
 // All three runners are gone. The version constant itself survives in `src/recorder.ts` and is
 // still read by the page; nothing left in this tree resumes a run against it.
 
-test("every_humanoid_driver_records_the_intent_immediately_after_deciding", async () => {
-  const source = await readFile(new URL("../src/humanoid-control.ts", import.meta.url), "utf8");
+test("every_driver_records_the_intent_immediately_after_deciding", async () => {
+  // Asserted as text, on the one endpoint there is. What it pins is an *order*: the intent
+  // reaches the recorder before it reaches the body, so a bout's record is what the mind asked
+  // for and not what survived the arm. It was two endpoints until the humanoid one went with the
+  // Warrior; `src/humanoid-control.ts` carried the identical three lines.
+  const source = await readFile(new URL("../src/golem/golem-control.ts", import.meta.url), "utf8");
   assert.match(source, /this\.apply\(dt, this\.mind\.decide\(this\.view, dt\)\)/);
   assert.match(source, /this\.recording\.intent\(intent\);\s*this\.observer\?\.\(this\.options\.view, intent\);\s*this\.options\.apply/);
 });

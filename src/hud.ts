@@ -1,7 +1,6 @@
 import type { Combatant } from "./units";
 import type { HitReport } from "./combat";
 import type { Side } from "./physics";
-import type { RigReadout } from "./rigview";
 
 export interface Telemetry {
   fps: number;
@@ -20,8 +19,6 @@ export interface Telemetry {
    * from the physics engine.
    */
   meshes: number;
-  /** Present only while the rig overlay is up; null takes the panel away. */
-  rig: RigReadout | null;
   /**
    * Which of the two bodies is yours, or null when two policies are fighting.
    *
@@ -167,16 +164,6 @@ export class Hud {
   private readonly vitalityFills: Record<"left" | "right", HTMLElement>;
   private readonly vitalityValues: Record<"left" | "right", HTMLElement>;
   private readonly perf: HTMLElement;
-  private readonly rigPanel: HTMLElement;
-  private readonly rigLabel: HTMLElement;
-  private readonly rigError: HTMLElement;
-  private readonly rigDrift: HTMLElement;
-  private readonly rigTip: HTMLElement;
-  private readonly rigRoll: HTMLElement;
-  private readonly rigBend: HTMLElement;
-  private readonly rigCrouch: HTMLElement;
-  private readonly rigWaist: HTMLElement;
-  private readonly rigLimits: HTMLElement;
   /**
    * The two halves of the command readout, rewritten in place and never opened.
    *
@@ -209,19 +196,6 @@ export class Hud {
           <div class="gauge-label">Edge alignment</div>
           <div class="gauge-track"><div class="gauge-fill edge" data-edge></div></div>
           <div class="gauge-value" data-edge-value>&mdash;</div>
-        </div>
-        <div class="gauge" data-rig>
-          <div class="gauge-label" data-rig-label>Rig <span class="unit">G</span></div>
-          <table class="hit-rows">
-            <tr><th>anchor error</th><td data-rig-error>&mdash;</td></tr>
-            <tr><th>elbow drift 1 s</th><td data-rig-drift>&mdash;</td></tr>
-            <tr><th>tip speed</th><td data-rig-tip>&mdash;</td></tr>
-            <tr><th>forearm roll</th><td data-rig-roll>&mdash;</td></tr>
-            <tr><th>wrist bend</th><td data-rig-bend>&mdash;</td></tr>
-            <tr><th>crouch</th><td data-rig-crouch>&mdash;</td></tr>
-            <tr><th>waist error</th><td data-rig-waist>&mdash;</td></tr>
-            <tr><th>joint limits</th><td data-rig-limits>&mdash;</td></tr>
-          </table>
         </div>
         <div class="hit" data-hit></div>
       </div>
@@ -283,17 +257,6 @@ export class Hud {
       right: pick("[data-vitality-value-right]"),
     };
     this.perf = pick("[data-perf]");
-    this.rigPanel = pick("[data-rig]");
-    this.rigLabel = pick("[data-rig-label]");
-    this.rigError = pick("[data-rig-error]");
-    this.rigDrift = pick("[data-rig-drift]");
-    this.rigTip = pick("[data-rig-tip]");
-    this.rigRoll = pick("[data-rig-roll]");
-    this.rigBend = pick("[data-rig-bend]");
-    this.rigCrouch = pick("[data-rig-crouch]");
-    this.rigWaist = pick("[data-rig-waist]");
-    this.rigLimits = pick("[data-rig-limits]");
-    this.rigPanel.style.display = "none";
     this.commandLists = {
       left: pick("[data-command-left]"),
       right: pick("[data-command-right]"),
@@ -326,34 +289,6 @@ export class Hud {
 
     this.edgeFill.style.width = `${(telemetry.edgeAlignment * 100).toFixed(1)}%`;
     this.edgeValue.textContent = `${Math.round(telemetry.edgeAlignment * 100)}%`;
-
-    // The three numbers every feel complaint so far has actually been about.
-    // They appear only with the overlay, because they are only worth reading
-    // beside the thing they describe -- a millimetre figure with nothing drawn to
-    // attribute it to is how the last two of these ended up being chased through
-    // a bench harness instead of being looked at.
-    this.rigPanel.style.display = telemetry.rig ? "" : "none";
-    if (telemetry.rig) {
-      // Named, because these three follow whoever is being driven and `C` can
-      // change that mid-bout. Three unlabelled millimetre figures that quietly
-      // swap subject would be read as the left fighter's by habit -- which is
-      // what every number in `config.ts`'s arm tables actually is.
-      this.rigLabel.innerHTML =
-        `Rig &middot; ${telemetry.rig.side} <span class="unit">G</span>`;
-      this.rigError.textContent = `${telemetry.rig.errorMm.toFixed(1)} mm`;
-      this.rigDrift.textContent = `${telemetry.rig.elbowDriftMm.toFixed(0)} mm`;
-      this.rigTip.textContent = `${telemetry.rig.tipSpeed.toFixed(1)} m/s`;
-      this.rigRoll.textContent = `${((telemetry.rig.roll * 180) / Math.PI).toFixed(0)} deg`;
-      this.rigBend.textContent = `${(telemetry.rig.wristBend * 90).toFixed(0)} deg`;
-      this.rigCrouch.textContent = `${Math.round(telemetry.rig.crouch * 100)}%`;
-      this.rigWaist.textContent = `${telemetry.rig.waistErrorMm.toFixed(1)} mm`;
-      const limits = [
-        telemetry.rig.waistAtLimit ? "waist" : "",
-        telemetry.rig.hipAtLimit ? "hip" : "",
-        telemetry.rig.kneeAtLimit ? "knee" : "",
-      ].filter(Boolean);
-      this.rigLimits.textContent = limits.length > 0 ? limits.join(", ") : "clear";
-    }
 
     if (lastHit) {
       const age = now - lastHit.at;

@@ -83,7 +83,13 @@ export interface ControlHooks {
   onPauseOnly: () => void;
   /** `?`: the controls sheet, over whatever is already on screen. */
   onToggleHelp: () => void;
-  /** The rig overlay: what the solver is holding, over the top of the costume. */
+  /**
+   * `G`: the effector overlay -- what the solver is holding, drawn over the body.
+   *
+   * The arena has nothing to draw here since the humanoid rig went, so `main.ts` binds it
+   * to nothing. The bench does: `src/bench/overlay.ts` is the envelope view a golem arm is
+   * tuned against, and it is the reason this hook is still in the surface.
+   */
   onToggleRig: () => void;
   /** Overhead or Fixed: whether the camera's bearing belongs to the fighter or to
    *  the world. */
@@ -337,9 +343,9 @@ export class Controls {
         this.hooks.onToggleHelp();
         return;
       case "KeyG":
-        // Gated on `active` like the lock, and for the same reason: the overlay
-        // reads live rig state. It remains a running-mode control even though
-        // the frozen arena is now visible behind the compact pause overlay.
+        // Gated on `active` like the lock, and for the same reason: an overlay reads live solver
+        // state. It remains a running-mode control even though the frozen arena is now visible
+        // behind the compact pause overlay.
         if (this.active) this.hooks.onToggleRig();
         return;
       case "KeyV":

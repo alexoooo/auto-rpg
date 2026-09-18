@@ -21,7 +21,6 @@ import { blankIntent } from "../src/policies.ts";
 import { BoutRecorder } from "../src/recorder.ts";
 import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
-import { FIGURE_SIDE_COLOURS } from "../src/figure.ts";
 import { ROOM_METRES, TEXTURED_SURFACES } from "../src/materials.ts";
 import {
   ROOM,
@@ -346,11 +345,6 @@ test("room_instances_share_materials_and_textures", async (t) => {
     assert.ok(Math.abs(density - 1 / ROOM.floorMetresPerRepeat) < 1e-5, "floor metre scale");
   }
 
-  const saturation = ([r, g, b]) => Math.max(r, g, b) - Math.min(r, g, b);
-  const roomSaturation = [TEXTURED_SURFACES.roomWall, TEXTURED_SURFACES.roomTimber, TEXTURED_SURFACES.roomBanner]
-    .map((surface) => saturation(surface.albedo));
-  const fighterSaturation = Object.values(FIGURE_SIDE_COLOURS).map(saturation);
-  assert.ok(Math.max(...roomSaturation) < Math.min(...fighterSaturation), "room fallback colour stays below team contrast");
   const luminance = ([r, g, b]) => r * 0.2126 + g * 0.7152 + b * 0.0722;
   const arrow = CONFIG.arrow.visual.emissive;
   assert.ok(luminance([arrow.r, arrow.g, arrow.b]) > Math.max(

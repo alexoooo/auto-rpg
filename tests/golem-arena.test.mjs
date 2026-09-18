@@ -626,15 +626,12 @@ test("a_decapitated_golem_is_dead_and_the_bouts_own_rule_agrees", async (t) => {
  * verdict without a thrown error. What the duelist actually manages against a golem is a
  * measurement and it is in `docs/measurements.md`.
  */
-test("a_golem_and_a_warrior_duelist_reach_a_verdict_from_either_corner", async () => {
+test("a_golem_reaches_a_verdict_against_a_live_opponent_from_either_corner", async () => {
   for (const golemLeft of [true, false]) {
     const result = runBout({
-      left: golemLeft ? "idle" : "duelist",
-      right: golemLeft ? "duelist" : "idle",
-      leftUnit: golemLeft ? "golem" : "warrior",
-      rightUnit: golemLeft ? "warrior" : "golem",
-      leftLoadout: golemLeft ? undefined : { primary: "sword", secondary: "empty" },
-      rightLoadout: golemLeft ? { primary: "sword", secondary: "empty" } : undefined,
+      left: golemLeft ? "idle" : "golem-duelist",
+      right: golemLeft ? "golem-duelist" : "idle",
+      leftUnit: "golem", rightUnit: "golem",
       // The pair is atomic: a golem's locomotion *is* the physical supported port, and
       // `stepControlledPair` throws by name if only one side of a pair has one.
       locomotionMode: "supported",

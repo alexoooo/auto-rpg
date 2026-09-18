@@ -6,14 +6,11 @@ import { horizontalForward, orbitFraming } from "./camera";
 import { buildArena } from "./arena";
 import { refreshShadowCasters, type RoomOcclusionTarget } from "./arena-room";
 import { stepPair } from "./fighter";
-import { prepareWarriorFigure } from "./figure";
-import { Arrow } from "./arrow";
 import { Combat } from "./combat";
 import { Hud, type CommandReadout, type CommandSideReadout } from "./hud";
 import { Controls } from "./input";
 import { AimIndicator } from "./aim";
 import { Takeover, Targeting } from "./targeting";
-import { RigView } from "./rigview";
 import { Blood } from "./blood";
 import { advanceFight, FightEnd } from "./fight-end";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
@@ -54,7 +51,7 @@ import {
   type Combatant,
   type DrivableCombatant,
 } from "./units";
-import type { HumanoidHumanSource } from "./humanoid-control";
+import type { HumanDriverSource } from "./control-host";
 import {
   begin,
   golemMatchup,
@@ -192,12 +189,6 @@ async function boot(): Promise<void> {
   // sub-step so that stiff joints carrying a heavy lever behave the same on a
   // 144 Hz monitor as on a 60 Hz one.
   const arena = await buildArena(engine);
-  // A skinned fighter has to publish its real meshes at construction time:
-  // picking, shadows and the rig overlay all keep those identities. Parse the
-  // shared source while the arena is already waiting on startup work, then both
-  // fighters and every rebuild instantiate it synchronously.
-  await prepareWarriorFigure(arena.scene);
-
   // Babylon's own input manager cancels `pointerdown`, and cancelling that
   // suppresses every compatibility mouse event for the rest of the gesture. It
   // costs nothing to turn off here, and leaving it on makes any future
@@ -361,7 +352,9 @@ async function boot(): Promise<void> {
       restartBout({ resume: true });
     },
     onToggleReadout: () => hud.toggle(),
-    onToggleRig: () => rigview.toggle(),
+    // Nothing to draw: the effector overlay lives on the bench, where an arm is tuned.
+    // See `ControlHooks.onToggleRig` in `src/input.ts`.
+    onToggleRig: () => {},
     onToggleCamera: () => {
       // A mode, not a rebuild: the camera object, the scene and the engine are
       // untouched and the next frame's goals simply move somewhere else. Nothing
@@ -462,7 +455,7 @@ async function boot(): Promise<void> {
   const you = humanMind(controls);
 
   /** Typed page injection; each definition constructs its own policy/split driver. */
-  const humanSource: HumanoidHumanSource = {
+  const humanSource: HumanDriverSource = {
     mind: you,
     ownership: controls.ownership,
     // A cursor and not a pose, since session 08: a golem's effectors are chains with their own
@@ -557,23 +550,12 @@ async function boot(): Promise<void> {
     // the same thing in the solver; this says it again in the scoring.
     sides[0].combat.attach(right);
     sides[1].combat.attach(left);
-    // Built once with the bout. Every point is a live Vector3 already owned by
-    // a body or pooled arrow, so the render loop follows both fighters and the
-    // actual projectile trace without minting a target list every frame.
+    // Built once with the bout. Every point is a live Vector3 already owned by a body, so the
+    // render loop follows both fighters without minting a target list every frame.
     const occlusionTargets: RoomOcclusionTarget[] = [
       ...left.occlusionPoints().map((point) => ({ point })),
       ...right.occlusionPoints().map((point) => ({ point })),
     ];
-    for (const striker of [...leftStrikers, ...rightStrikers]) {
-      if (!(striker instanceof Arrow)) continue;
-      const live = () => striker.live;
-      const traced = () => striker.live && striker.trail.visibility > 0;
-      occlusionTargets.push(
-        { point: striker.root.position, active: live },
-        { point: striker.tracePoints[0], active: traced },
-        { point: striker.tracePoints[striker.tracePoints.length - 1], active: traced },
-      );
-    }
     return { left, right, sides, recorder, ending: new FightEnd(sides), occlusionTargets };
   };
 
@@ -637,20 +619,6 @@ async function boot(): Promise<void> {
   targeting.attach(yours(), theirs());
   const takeover = new Takeover(arena.scene);
   takeover.attach(bout.left, bout.right);
-  const rigview = new RigView(arena.scene);
-  const attachRig = (): void => {
-    const left = bout.left.articulated;
-    const right = bout.right.articulated;
-    if (left && right) {
-      rigview.attach([
-        { fighter: left, combat: bout.sides[0].combat },
-        { fighter: right, combat: bout.sides[1].combat },
-      ]);
-    } else {
-      rigview.attach([]);
-    }
-  };
-  attachRig();
   const blood = new Blood(arena.scene);
   refreshShadowCasters(arena.scene, arena.shadows);
 
@@ -718,9 +686,6 @@ async function boot(): Promise<void> {
    * wherever it was watching the left one.
    */
   const rebuild = (): void => {
-    const rigWasUp = rigview.isVisible;
-    if (rigWasUp) rigview.hide();
-
     // Before the bodies go: a stump's emitter is parented to the severed part's
     // mesh, and a node whose parent has been disposed does not go with it. It
     // stays exactly where it last stood, bleeding, for the rest of the run.
@@ -736,8 +701,6 @@ async function boot(): Promise<void> {
 
     targeting.attach(yours(), theirs());
     takeover.attach(bout.left, bout.right);
-    attachRig();
-    if (rigWasUp) rigview.show();
     refreshShadowCasters(arena.scene, arena.shadows);
     presentRebuiltFrame({
       placeCamera: () => placeCamera(yours(), 0, true),
@@ -1372,10 +1335,6 @@ async function boot(): Promise<void> {
       // rendering and camera all continue after attack authority has ended.
       const driven = yours();
       aim.update(driven.feetPosition(), driven.aimPoint());
-      // The overlay's three numbers follow whoever is being driven, and the panel
-      // names the side, because they used to be the left fighter's by definition
-      // and `C` made that a thing that can change under you.
-      rigview.update(dt, humanSide(state.matchup));
     }, () => {
       // Camera gestures remain presentation while paused. Their own clock is the
       // bounded render delta, never the bout clock, so orbit/pan/zoom can reframe
@@ -1445,7 +1404,6 @@ async function boot(): Promise<void> {
         tipSpeed: strike?.tipSpeed ?? 0,
         edgeAlignment: strike?.edgeAlignment ?? 0,
         meshes: arena.scene.meshes.length,
-        rig: rigview.readout(),
         driving: humanSide(state.matchup),
         command: commandReadout(),
       },
@@ -1557,10 +1515,6 @@ async function boot(): Promise<void> {
       },
       controls,
       setup,
-      // `__sword.rigview.audit()` is where the overlay's central boundary is
-      // pinned -- that it creates no body, no shape and no constraint. It cannot
-      // be pinned in `tests/`, which has no Babylon to run.
-      rigview,
       /**
        * Blood, for looking at it without having to be hit.
        *

@@ -9,7 +9,7 @@ import {
   unitDefinition,
 } from "../src/units.ts";
 import { stepControlledPair } from "../src/control-host.ts";
-import { HumanoidControlEndpoint } from "../src/humanoid-control.ts";
+import { GolemControlEndpoint } from "../src/golem/golem-control.ts";
 
 test("the_unit_picker_is_derived_from_the_buildable_unit_registry", () => {
   assert.deepEqual(
@@ -19,17 +19,6 @@ test("the_unit_picker_is_derived_from_the_buildable_unit_registry", () => {
   for (const row of UNITS) assert.equal(typeof unitDefinition(row.name).build, "function");
 });
 
-test("an_unknown_unit_is_refused_by_name_instead_of_becoming_a_warrior", () => {
-  assert.throws(() => unitDefinition("dragon"), /unknown unit "dragon"/);
-});
-
-test("an_incompatible_loadout_is_refused_with_the_unit_and_equipment_named", () => {
-  assert.throws(
-    () => loadoutForUnit("warrior", "laser", "empty"),
-    /unit "warrior" does not support equipment "laser"/,
-  );
-});
-
 // Deleted 2026-09-04 with their subjects: `the_kaykit_knight_exposes_one_authored_sword_and_buckler_pair`,
 // `built_in_Construct_picker_bodies_read_the_installed_production_durability_seam`, and the four
 // per-body identity tests for the Swordbearer, Twinblade and Arbalest Effigies and the Bronze
@@ -37,21 +26,18 @@ test("an_incompatible_loadout_is_refused_with_the_unit_and_equipment_named", () 
 // an exact loadout set, vitality weights covering exactly a unit's parts, and the v2 durability
 // range -- are all still asserted below over the three surviving units.
 
-test("existing_units_keep_their_exact_reachable_loadout_sets", () => {
-  for (const kind of ["warrior", "broot"]) {
-    const unit = unitDefinition(kind);
-    assert.equal(unit.loadouts.length, 27);
-    assert.deepEqual(unit.defaultLoadout, { primary: "sword", secondary: "empty" });
-    assert.equal(supportsLoadoutForUnit(kind, "sword", "shield"), true);
-    assert.equal(supportsLoadoutForUnit(kind, "bow", "bow"), true);
-    assert.equal(supportsLoadoutForUnit(kind, "bow", "sword"), false);
-    assert.equal(supportsLoadoutForUnit(kind, "club", "club"), true);
-  }
+test("an_unknown_unit_is_refused_by_name_rather_than_becoming_the_default_one", () => {
+  assert.throws(() => unitDefinition("dragon"), /unknown unit "dragon"/);
+});
 
-  const centipede = unitDefinition("centipede");
-  assert.deepEqual(centipede.loadouts, [{ primary: "empty", secondary: "empty" }]);
-  assert.deepEqual(centipede.defaultLoadout, { primary: "empty", secondary: "empty" });
-  assert.equal(centipede.defaultPolicy, "crawler");
+test("an_incompatible_loadout_is_refused_with_the_unit_and_equipment_named", () => {
+  // A golem carries nothing, so `empty` is the only thing either socket accepts. The refusal has
+  // to name both the unit and the thing asked for, because the setup link is the caller that gets
+  // this wrong and a bare "bad loadout" would not say which corner of it was bad.
+  assert.throws(
+    () => loadoutForUnit("golem", "sword", "empty"),
+    /unit "golem" does not support equipment "sword"/,
+  );
 });
 
 /**
@@ -88,31 +74,10 @@ test("every_selectable_body_uses_the_v2_low_number_range", () => {
   }
 });
 
-const endpoint = () => new HumanoidControlEndpoint({
+const endpoint = () => new GolemControlEndpoint({
   initialMind: { name: "idle", decide: () => ({}) },
   view: {}, canStep: () => true, apply: () => {}, stopBody: () => {},
   policies: [{ name: "idle", label: "Idle" }],
-});
-
-test("legacy_units_keep_the_humanoid_surface_and_policy_factory", () => {
-  for (const unit of Object.values(UNIT_REGISTRY)) {
-    // The golem is the first body here that is not on `humanoid-v1`, and its own surface is
-    // asserted below. Everything else in this loop is true of both and is checked over both.
-    if (unit.kind !== "golem") assert.equal(unit.controlSurface, "humanoid-v1", unit.kind);
-    // The literal is the point. A unit with `compatiblePolicies: null` gets every policy its
-    // *surface* admits, not every policy in the program, and since Session 09 those differ:
-    // `golem-duelist` is in `POLICIES` and is absent from this list, so the day the surface filter
-    // in `drivers` is dropped a Warrior's picker grows a sixth row and this line goes red.
-    // `golem-snapshot` is compatible with the golem and is withheld from the picker until a
-    // checkpoint has been installed, which is how the setup screen is made to mark it incompatible
-    // without a second mechanism. It is the only row that can be in one list and not the other, and
-    // this loop runs with an empty slot, so it is subtracted here rather than the equality being
-    // loosened -- every other row must still be in both.
-    assert.deepEqual(unit.driverOptions.map(({ name }) => name),
-      (unit.compatiblePolicies ?? ["idle", "swinger", "duelist", "archer", "crawler"])
-        .filter((name) => name !== "golem-snapshot"));
-    assert.equal(unit.createPolicy(unit.defaultPolicy).name, unit.defaultPolicy);
-  }
 });
 
 /**
@@ -155,11 +120,11 @@ test("a_driver_for_one_surface_is_refused_by_the_other_surface_name", () => {
   const control = endpoint();
   assert.throws(() => control.install({
     surface: "construct-v1", name: "construct-hold", step: () => {}, stop: () => {},
-  }), /control source for surface construct-v1 cannot drive surface humanoid-v1/);
+  }), /control source for surface construct-v1 cannot drive surface golem-v1/);
 });
 
 test("a_body_without_a_human_adapter_disables_you_instead_of_installing_a_policy", () => {
-  assert.throws(() => endpoint().installHuman(), /control surface humanoid-v1 has no human adapter/);
+  assert.throws(() => endpoint().installHuman(), /control surface golem-v1 has no human adapter/);
 });
 
 test("both_bodies_observe_before_either_installed_driver_steps", () => {
@@ -172,7 +137,7 @@ test("both_bodies_observe_before_either_installed_driver_steps", () => {
   assert.deepEqual(order, ["observe-left", "observe-right", "step-left", "step-right"]);
 });
 
-test("the_host_never_switches_on_a_concrete_Fighter_or_Construct_class", () => {
+test("the_host_never_switches_on_a_concrete_body_class", () => {
   const order = [];
   const alien = (name) => ({
     observe: () => order.push(`${name}-saw`),
