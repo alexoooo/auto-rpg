@@ -41281,3 +41281,37 @@ both sides of the ship, so the drift is the body's, from physics that landed aft
 Nothing caught it because the bench test asserts on `sword` alone and the fist's row had no gate.
 Re-taken. It is the same staleness the next agenda opens on, found by accident rather than by
 looking.
+
+## CP -- what `latchAbort` costs a mind that is played rather than trained (registered)
+
+The owner has asked twice what `latchAbort` is and whether it should be on by default, and the
+record answers with two quotes that disagree. `snapshots/README.md` says a snapshot watched under
+the shipped row is *"a mind that flinches out of nearly every swing"*. `docs/design.md:1930` says
+the greedy read behaves *"as though it were already latched"*, at an effective exponent of **0.86
+greedy against 3.13 drawn**. Both cannot be the headline.
+
+The hypothesis is that they are readings of two different minds rather than a contradiction. A
+policy head is a Gaussian with a learned sigma: training rolls out **drawn**, so a gate near a coin
+flip is re-drawn five to eight times a stroke and the stroke survives `(1 - p)^n`; rating and play
+are **greedy**, where the head is a threshold on a slowly-moving state and re-reading it should
+change little. If that is right, the row is expensive for the fit and nearly free for the fight.
+
+`scripts/latch-probe.mjs` runs all four cells -- {greedy, drawn} x {latch off, on} -- on one
+instrument, paired seed by seed, against `golem-fencer` on `POLICY_WEIGHTS`.
+
+**The predictions are the ones in the phase plan, written before any latch data existed:**
+
+| | prediction | held | undecided | refused |
+| --- | --- | --- | --- | --- |
+| **CP1** | greedy completion barely moves | ratio < 1.2 | 1.2-1.5 | **ratio >= 1.5** |
+| **CP2** | drawn completion moves a lot | ratio > 2.5 | 2.0-2.5 | ratio <= 2.0 |
+| **CP3** | greedy score is unmoved | inside 2 sd | -- | outside 2 sd |
+
+**Disclosure: a four-seed smoke test at a 20 s cap has already been seen**, run to prove the
+instrument rather than to answer the question, and it puts greedy at **1.45** and drawn at **4.20**.
+So CP1 is already leaning at or past its refusal line and CP2 is leaning held. The full run is not
+blind and this entry does not pretend it is. What it can still settle is whether 1.45 survives a
+proper cap and sixteen times the seeds, and whether the *ratio between the two reads* -- which is
+the actual claim -- holds up: even at the smoke numbers the drawn read moves about three times as
+far as the greedy one, which is the shape the hypothesis predicts even if the greedy arm is not the
+no-op `design.md` implies.
