@@ -510,8 +510,17 @@ export const GOLEM_TACTICS = {
    * not the arc, not the rate, not where in the arc the mark fell. These four numbers are that
    * stroke restated as something a mind chooses, and their defaults were picked to reproduce it to
    * the digit: the arc runs from `+chamberSwing` outboard of the mark to `-followSwing` inboard of
-   * it, so with the shipped chamber the commanded point travels 0.05 + 0.94 = 0.99 rad and
+   * it, so with the shipped chamber the commanded point travelled 0.05 + 0.94 = 0.99 rad and
    * 0.04 + 0.73 = 0.77 rad over `strokeSeconds`, which is 9 and 7 rad/s.
+   *
+   * **`followLift` no longer reproduces it, as of 2026-09-17.** CL measured 0.95 paired with
+   * `chamberReach` 0, and the drop is now 0.04 + 0.95 = 0.99 rad -- the same distance the arc
+   * travels inboard, so the commanded point runs a true diagonal and finishes through the mark
+   * rather than at the old chop's height. **That +170 is mirror Elo and CM bounds what it is worth
+   * against a mind which does not read this table at +-8 Elo, point estimate nothing**; what the
+   * pair buys outside the mirror is 1.6 % more damage a stroke and 2.7 % less time inside the
+   * golem's own inner radius, which is behavioural and is why it ships. `followSwing` and the
+   * chamber are still the numbers that reproduce the old stroke.
    *
    * **What changes is what `chamberSwing` now means.** It used to shift a fixed-length sweep, so
    * chambering further only moved where in the arc the mark fell -- and the measured answer was
@@ -526,7 +535,7 @@ export const GOLEM_TACTICS = {
    * got: `raise` steps to zero and rung 1's own rate limit is the whole of the motion.
    */
   followSwing: 0.94,
-  followLift: 0.73,
+  followLift: 0.95,
   /**
    * How long the commanded point takes to travel the whole arc, seconds.
    *
@@ -610,7 +619,7 @@ export const GOLEM_TACTICS = {
    */
   guardReach: 0.70,
   shieldReach: -0.70,
-  chamberReach: -0.70,
+  chamberReach: 0.00,
 
   /**
    * Where along the business end the cut is meant to land, as a fraction of the terminal's overhang

@@ -73,9 +73,31 @@ type Widened<T> = {
   -readonly [K in keyof T]: T[K] extends boolean ? boolean : T[K] extends number ? number : T[K];
 };
 
-/** One committed arc, laid over the kind's shipped stroke: the four axes the bench swept. */
+/**
+ * One committed arc, laid over the kind's shipped stroke: the four axes the bench swept.
+ *
+ * **`followLift` is pinned on the three CUT kinds rather than inherited, and that is not an
+ * optimisation.** For `sword`,
+ * `axe` and `bow` the shipped shape is `CUT`, which is getters onto `GOLEM_TACTICS`; spreading it
+ * here snapshots whatever the table says at module load. So a row shipped into `GOLEM_TACTICS`
+ * silently rebuilt this arc -- and this arc is what **every** executor above v2 cuts with, v3's
+ * `cut` option and v4's blend alike, which is four of the shipped minds.
+ *
+ * That is invisible to the instrument the rows are measured on. `?tactic=` and the paired duel
+ * bench both write an *override*, and `stroke-link.ts` says in as many words that an override
+ * "moves v2 minds (golem-fencer) only -- a v3 mind on a committed arc froze its shape at load and
+ * will ignore this". So the bench measures the row reaching one mind while shipping it reaches
+ * five. CL's +170 and CM's +-8 bound are both statements about the narrow change.
+ *
+ * Found 2026-09-17, shipping `followLift` 0.95: it moved `golem-policy`'s abort rate from 0.377 to
+ * 0.438 and this arc's bench miss from 0.070 m to 0.209 m, neither of which any row in the record
+ * had measured. 0.73 is the value the 2026-09-06 grid was swept under and every committed number
+ * in `COMMITTED_SHAPE_CANDIDATES` was taken at. Re-sweeping the grid under a different `followLift`
+ * is how this moves; inheriting it is not.
+ */
 const committed = (kind: WeaponKind, over: {
   chamberSwing: number; strokeSeconds: number; chamberReach: number; chamberSeconds: number;
+  followLift?: number;
 }): StrokeShape => Object.freeze({ ...STROKE_SHAPES[kind], ...over });
 
 /**
@@ -94,9 +116,18 @@ const committed = (kind: WeaponKind, over: {
  * global would have made `--override form.cutSeconds` move a number the style's own copy never read.
  */
 export const COMMITTED_SHAPES: Record<WeaponKind, StrokeShape> = Object.freeze({
-  sword: committed("sword", { chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32 }),
-  axe: committed("axe", { chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32 }),
-  bow: committed("bow", { chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32 }),
+  sword: committed("sword", {
+    chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32,
+    followLift: 0.73,
+  }),
+  axe: committed("axe", {
+    chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32,
+    followLift: 0.73,
+  }),
+  bow: committed("bow", {
+    chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32,
+    followLift: 0.73,
+  }),
   shield: committed("shield", { chamberSwing: 1.20, strokeSeconds: 0.15, chamberReach: -0.70, chamberSeconds: 0.32 }),
   buckler: committed("buckler", { chamberSwing: 1.20, strokeSeconds: 0.15, chamberReach: -0.70, chamberSeconds: 0.32 }),
   empty: committed("empty", { chamberSwing: 1.20, strokeSeconds: 0.11, chamberReach: -0.20, chamberSeconds: 0.32 }),

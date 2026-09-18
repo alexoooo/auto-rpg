@@ -5171,8 +5171,10 @@ result rather than a disappointment about it.
 
 **So the recommendation is two constants and not four**, and it drops the two rows whose effect
 turned out to be another route to the same thing the first two already do. `chamberReach` says how
-cramped the wind-up is and `followLift` says how high the hand finishes; a stroke that fixes both is
-apparently already getting whatever `cutRoll` and a faster `strokeSeconds` were buying separately.
+cramped the wind-up is and `followLift` says how far below the mark the hand finishes -- 0.95 is a
+*longer* follow-through, down through the mark rather than a chop that stops at it. A stroke that
+fixes both is apparently already getting whatever `cutRoll` and a faster `strokeSeconds` were
+buying separately.
 
 **Every number in that table is mirror Elo, and CM measured what it is worth outside the mirror: at
 most a twentieth of it.** Two 2048-bout cross tournaments over four minds, paired on one seed,
@@ -5199,6 +5201,24 @@ in the direction of there having been nothing to revalidate.
 The eye gate is `?tactic=chamberReach:0,followLift:0.95` against an unmodified tab, and the decision
 is the owner's as it has been throughout -- now on a behavioural claim, which is the kind of claim
 the eye is the right gate for.
+
+**Shipped 2026-09-17, and shipping it was not the same operation as measuring it.** An override --
+`?tactic=`, the paired duel bench, everything CL and CM read the rows on -- reaches the minds that
+read `GOLEM_TACTICS` live, which is `golem-fencer` and `golem-duelist`. Writing the row into the
+table also rebuilds `COMMITTED_SHAPES`, which is spread from `STROKE_SHAPES.sword`'s getters at
+module load and is what **every executor above v2** cuts with: `golem-form`, `golem-brawler`,
+`golem-driver` and `golem-policy`. Uncaught, `followLift` 0.95 moved `golem-policy`'s abort rate
+from 0.377 of asks to 0.438 and the committed arc's bench miss from 0.070 m to 0.209 m -- four
+minds changed by a row whose entire evidence base is about two. The committed arc is therefore
+pinned at `followLift` 0.73 on the three kinds that inherit it, so what shipped is what CM
+measured. CO in `docs/measurements.md` has the reading and the governing rule it earned.
+
+**An independent instrument agrees with the behavioural case.** `runStrokeBench` puts one golem in
+front of a mark with no opponent and no mirror, so it shares neither the pairing nor the pool that
+CM warned about. On it the shipped cut now reaches the mark at 22.10 against 15.23, a 45 % faster
+blade, and arrives 49 ms *inside* its own arc where it used to arrive 17 ms after the arc had
+ended -- a defect `tests/golem-bench.test.mjs` had pinned as a defect since 2026-09-06 and which
+these two rows fix. The aim half is untouched: the cut still misses by 0.65 m.
 
 ### How much measurement is worth buying, which turned out to have an answer
 

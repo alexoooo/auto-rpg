@@ -1063,6 +1063,11 @@ export const STROKE_GRID = Object.freeze({
 export const COMMITTED_SHAPE_CANDIDATES = Object.freeze({
   sword: Object.freeze({
     chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32,
+    // Pinned 2026-09-17, for the reason `committed` in `tactics-v3.ts` gives at length: the sword's
+    // shipped shape is getters onto `GOLEM_TACTICS`, so leaving this inherited made the bench row
+    // silently a measurement of whatever the table last shipped. At `followLift` 0.95 this cell
+    // misses by 0.209 m rather than 0.070. The grid was swept at 0.73 and this names it.
+    followLift: 0.73,
     /** miss 0.070 m, 22.34 m/s at the mark, peak 23.42, anchor stray 8 mm, on `effector.wrist.blade`. */
     bench: Object.freeze({ missMetres: 0.070, speedAtMark: 22.34, peakAnchorStrayMm: 8 }),
   }),
@@ -1073,8 +1078,15 @@ export const COMMITTED_SHAPE_CANDIDATES = Object.freeze({
   }),
   empty: Object.freeze({
     chamberSwing: 1.20, strokeSeconds: 0.11, chamberReach: -0.20, chamberSeconds: 0.32,
-    /** miss 0.031 m, 12.45 m/s, stray 182 mm, on `effector.wrist.fist`. */
-    bench: Object.freeze({ missMetres: 0.031, speedAtMark: 12.45, peakAnchorStrayMm: 182 }),
+    /**
+     * miss 0.108 m, 11.82 m/s, stray 64 mm, on `effector.wrist.fist`.
+     *
+     * Re-taken 2026-09-17. The row said 0.031 m, 12.45 m/s and 182 mm, and none of the three were
+     * still true: this shape reads no getter, so the drift is the body's, from the physics that
+     * landed after 2026-09-06 rather than from any stroke row. It went unnoticed because the bench
+     * test asserts on `sword` alone -- the fist's row had no gate at all.
+     */
+    bench: Object.freeze({ missMetres: 0.108, speedAtMark: 11.82, peakAnchorStrayMm: 64 }),
   }),
 });
 

@@ -1633,13 +1633,23 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
     `the bearing was crossed at ${shipped.crossedAt.toFixed(3)} s, after the arc ended at ${strokeEnds.toFixed(3)}`);
   assert.ok(shipped.markAt > shipped.crossedAt,
     "the weapon was nearest the mark before it crossed its bearing, which is not a swing");
-  // Provisional, pinned from the 2026-09-06 Node bench: the shipped cut misses by 0.63 m and
-  // arrives 17 ms after its arc has finished. It is a defect and not a floor; Session 03 is
-  // where it is meant to move, and this assertion is what will say that it did.
+  // Re-taken 2026-09-17, when `chamberReach` 0 and `followLift` 0.95 shipped. The old entry was
+  // pinned from the 2026-09-06 bench, where the cut missed by 0.63 m and arrived 17 ms *after* its
+  // own arc had finished, and it was recorded as a defect rather than a floor. **The shipped
+  // stroke fixes the timing half of it and not the aim half.** On this bench the cut now arrives
+  // 49 ms *inside* the arc, and reaches the mark at 22.1 against the old 15.2 -- a 45 % faster
+  // blade, measured on one golem with no opponent and no mirror, which is an instrument entirely
+  // independent of the paired tournament CL and CM read the row on. The miss is unmoved at 0.65 m,
+  // so `missMetres` still pins an open defect and is still a ceiling rather than a floor.
   assert.ok(shipped.missMetres > 0.4,
     `the shipped cut now comes within ${shipped.missMetres.toFixed(3)} m of its mark; re-take the entry`);
-  assert.ok(shipped.markAt > strokeEnds,
-    `the shipped cut now arrives at ${shipped.markAt.toFixed(3)} s, inside its arc; re-take the entry`);
+  assert.ok(shipped.markAt < strokeEnds,
+    `the shipped cut arrives at ${shipped.markAt.toFixed(3)} s, after its arc ended at `
+    + `${strokeEnds.toFixed(3)}; the 2026-09-17 stroke brought it inside and this says it`
+    + " left again");
+  assert.ok(shipped.speedAtMark > 18,
+    `the shipped cut reaches the mark at ${shipped.speedAtMark.toFixed(1)}, under the 22.1 the `
+    + "2026-09-17 stroke measured; re-take the entry");
 
   // What the grid chose, which is the row `COMMITTED_SHAPE_CANDIDATES` carries.
   const chosen = COMMITTED_SHAPE_CANDIDATES.sword;

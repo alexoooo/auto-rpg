@@ -41209,3 +41209,75 @@ combination*, not of the row.
 
 Reproduction is otherwise good: CN's 0.12 at 2.1 sd and 0.06 at 1.8 sd land where CL's +56 and +54
 Elo put them, on an independent draw.
+
+## CO -- shipping a stroke row is not the change the bench measures, and four minds proved it
+
+Registered and run 2026-09-17, while shipping CL's two constants. Not a bout experiment: it is a
+reading of what the shipped rows reach, taken because the ship turned three tests red and the
+reasons turned out to matter more than the tests did.
+
+**The finding, in one line: `?tactic=` and the paired duel bench write an *override*, which reaches
+one mind; writing the row into `GOLEM_TACTICS` reaches five.**
+
+`stroke-link.ts` has said so in as many words since CG -- an override *"moves v2 minds
+(golem-fencer) only -- a v3 mind on a committed arc froze its shape at load and will ignore this"*.
+What nothing said is the converse. `COMMITTED_SHAPES` in `tactics-v3.ts` is built as
+`{ ...STROKE_SHAPES[kind], ...over }` at module load, and for `sword`, `axe` and `bow`
+`STROKE_SHAPES` is `CUT`, which is **getters onto `GOLEM_TACTICS`**. So the spread snapshots
+whatever the table says when the module loads, and `COMMITTED_SHAPES` is what every executor above
+v2 cuts with: v3's `cut` option and v4's blend alike, at `tactics-v4.ts:420` and
+`tactics-v4.ts:1126`. That is
+`golem-form`, `golem-brawler`, `golem-driver` and `golem-policy`, none of which an override can
+touch and none of which the bench has ever measured the row on.
+
+The row is `followLift`, the only one of the shipped pair that leaks: `chamberReach` is overridden
+by the grid cell in every committed row, so it never reaches them.
+
+| what moved when `followLift` went 0.73 -> 0.95 | before | after | instrument |
+| --- | ---: | ---: | --- |
+| `golem-policy` raises abort, share of asks | 0.377 | **0.438** | `tactics-v4.test.mjs`, 4 seeds |
+| `golem-policy` completes its strokes | 0.580 | **0.482** | the same run |
+| the committed arc's bench miss | 0.070 m | **0.209 m** | `runStrokeBench`, one golem |
+| the shipped (v2) cut's speed at the mark | 15.23 | **22.10** | `runStrokeBench`, one golem |
+| the shipped (v2) cut arrives, against its arc end | +17 ms | **-49 ms** | `runStrokeBench` |
+
+**The bottom two rows are the ship working and the top three are the ship doing something nobody
+measured.** CL's +170 and CM's +-8 Elo bound are both statements about the override, so they are
+statements about `golem-fencer` and `golem-duelist`. `golem-policy` moving its abort rate by a
+sixth is outside everything either cell measured, and it is not a small change: the weights were
+fitted under `followLift` 0.73 and read features the row moves.
+
+**Resolution: the committed arc is pinned at `followLift` 0.73, which is the value the 2026-09-06
+grid was swept under and every row in `COMMITTED_SHAPE_CANDIDATES` was taken at.** The pin is on
+`sword`, `axe` and `bow` only -- `shield`, `buckler` and `empty` carry literal shapes and inherit
+nothing. With it, the shipped change is exactly the change CM measured: the two live-reading minds
+move, the other four do not, and the v4 abort rate and the committed bench go back to where they
+were. Re-sweeping the grid under a different `followLift` is how the committed arc moves; inheriting
+it is not.
+
+**The eleventh governing rule follows from this.** *A row measured through an override is a claim
+about the minds that read the table live. Before shipping it, name every mind that reads it at load
+as well, because those are measured by nothing.*
+
+### What it cost, and the one row that was already wrong
+
+Three tests went red on the ship and all three were load-bearing in a way a bare re-pin would have
+destroyed:
+
+- `golem-bench.test.mjs` pinned *"the shipped cut misses by 0.63 m and arrives 17 ms after its arc
+  has finished"* and said in its own comment that this was **a defect and not a floor**, and that
+  the assertion was what would say when it moved. It moved: the cut now arrives 49 ms inside its
+  arc at 22.10 against 15.23, a 45 % faster blade. Re-taken, and the aim half is still open at
+  0.65 m. **This is an instrument entirely independent of the paired tournament** -- one golem, no
+  opponent, no mirror -- and it agrees with CM's `strokeDamage` and `scoringSpeed` signs.
+- `tactics-v4.test.mjs` failed on the abort rate above and passes unchanged once the arc is pinned.
+- `golem-mind.test.mjs` asserted `plain.shove > 0` for `golem-brawler`, which was passing on **2 of
+  61 asks** and went to 0 of 62 because its opponent's stroke changed. That assertion was pinning
+  noise and is replaced by one the bout actually supports: the brawler closes on a majority of asks.
+
+And a row that had nothing to do with any of it: `COMMITTED_SHAPE_CANDIDATES.empty` claimed miss
+0.031 m, 12.45 m/s and 182 mm of anchor stray, and measures **0.108 m, 11.82 m/s and 64 mm** -- on
+both sides of the ship, so the drift is the body's, from physics that landed after 2026-09-06.
+Nothing caught it because the bench test asserts on `sword` alone and the fist's row had no gate.
+Re-taken. It is the same staleness the next agenda opens on, found by accident rather than by
+looking.
