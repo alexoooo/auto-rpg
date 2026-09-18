@@ -119,7 +119,7 @@ export function driverTactics(arm, base) {
 }
 
 /** One arm over some seeds, in a child, so a crashed bout cannot take the table with it. */
-async function cell({ arm: named, seeds, cap, opponent, tablePath }) {
+async function cell({ arm: named, seeds, cap, opponent, tablePath, swap }) {
   const [arm, clip] = armClip(named);
   const { freshHavok, runBout } = await import("./bout-runner.mjs");
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
@@ -166,6 +166,15 @@ async function cell({ arm: named, seeds, cap, opponent, tablePath }) {
   const rows = [];
 
   for (const seed of seeds) {
+    // `--swap` exchanges the two seeds, and that is the whole of what "exchange the sides" can
+    // mean here. In a mirror both seats hold the **same table**, so swapping the minds is a no-op;
+    // the seats themselves are symmetric by construction (`bout-runner.mjs:244` puts left at the
+    // origin facing 0 and right at `separation` facing PI). The seed pairing is the only asymmetry
+    // left, and CY found three learned mirrors sitting at 0.6406, 0.1563 and 0.2969 with the two
+    // hand-coded controls clean, so something is choosing a winner and this is the only candidate
+    // a mirror exposes.
+    const mySeed = swap === true ? seed + 17 : seed;
+    const theirSeed = swap === true ? seed : seed + 17;
     let driven = null;
     let left = null;
     // What the mind *asks for*, not what the body managed: CR3 found the clone's failure entirely
@@ -185,7 +194,7 @@ async function cell({ arm: named, seeds, cap, opponent, tablePath }) {
       // competitive here. It has no executor, so it throws no strokes and asks for nothing.
       left = { name: "golem-idle", driven: null, decide: idleMind().decide };
     } else if (arm === "driver" || arm.startsWith("driver@")) {
-      driven = golemDriver(seed, driverTactics(arm, DRIVER), watch);
+      driven = golemDriver(mySeed, driverTactics(arm, DRIVER), watch);
       left = { name: `golem-${arm}`, driven, decide: (v, dt) => driven.decide(v, dt) };
     } else if (loaded !== null && loaded.kind === COMPACT_KIND) {
       // CT evolves a genome, not a policy table, and it has to be rateable on the instrument every
@@ -206,16 +215,16 @@ async function cell({ arm: named, seeds, cap, opponent, tablePath }) {
       // being two readings.
       const base = loaded ?? POLICY_WEIGHTS;
       const table = clip === null ? base : { ...base, normaliseClip: clip };
-      const mind = golemPolicy(seed, table, GOLEM_TACTICS_V4, null, false, watch);
+      const mind = golemPolicy(mySeed, table, GOLEM_TACTICS_V4, null, false, watch);
       driven = mind.driven;
       left = { name: `golem-${named}`, driven, decide: (v, dt) => mind.decide(v, dt) };
     }
-    const right = opponentOf(seed + 17);
+    const right = opponentOf(theirSeed);
     const bout = runBout({
       left: `golem-${arm}`, right: opponent,
       leftUnit: "golem", rightUnit: "golem",
       leftGolem: defaultGolemSetup(), rightGolem: defaultGolemSetup(),
-      locomotionMode: "supported", seeds: [seed, seed + 17], maxSeconds: cap, physics,
+      locomotionMode: "supported", seeds: [mySeed, theirSeed], maxSeconds: cap, physics,
       leftMind: left, rightMind: right,
     });
     const me = bout.left;
@@ -258,6 +267,7 @@ async function main(argv) {
   const cap = Number(flagOf(argv, "--cap", String(PROBE_CAP)));
   const base = Number(flagOf(argv, "--seed", "20260919"));
   const opponent = flagOf(argv, "--opponent", "golem-fencer");
+  const swap = argv.includes("--swap");
   const shards = Math.max(1, Math.min(availableParallelism(), 16));
 
   // `policy` is the shipped fitted mind and is here as the floor, not as a contender: it is what
@@ -285,7 +295,7 @@ async function main(argv) {
   const seeds = Array.from({ length: count }, (_, i) => base + i * 101);
   const slice = Math.ceil(seeds.length / shards);
   const plan = arms.flatMap((arm) => Array.from({ length: shards }, (_, s) => ({
-    arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent,
+    arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent, swap,
     // The table is looked up under the bare name, so `dagger` and `dagger@clip=12` are the same
     // weights and `--tables` does not have to name the arm twice.
     tablePath: tables[armClip(arm)[0]] ?? null,

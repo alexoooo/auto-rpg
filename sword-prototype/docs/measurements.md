@@ -43435,21 +43435,21 @@ four opponents, 256 bouts, and carries +-0.0625.
 
 Rows are the arm, columns the opponent. Every cell is the arm's win-draw-loss score.
 
-| arm \ opp | idle | brawler | driver | fencer | dagger | ct3 | cw2 |
+| arm \ opp | idle | brawler | driver | fencer | dagger | ct3 | cw1r2 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `idle` | 0.5000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
 | `driver` | 1.0000 | 0.3906 | 0.4688 | 0.3438 | 0.6094 | 0.2344 | 0.1094 |
 | `policy` | 1.0000 | 1.0000 | 0.6563 | 0.5469 | 1.0000 | **0.6406** | 0.1563 |
 | `dagger` | 1.0000 | 0.9219 | 0.4844 | 0.4063 | 0.6406 | 0.0000 | 0.0000 |
 | `ct3` | 1.0000 | 1.0000 | 0.7031 | 0.8281 | 1.0000 | 0.1563 | 0.0000 |
-| `cw2` | 1.0000 | 0.5469 | 0.9375 | 0.8594 | 0.6563 | **1.0000** | 0.2969 |
+| `cw1r2` | 1.0000 | 0.5469 | 0.9375 | 0.8594 | 0.6563 | **1.0000** | 0.2969 |
 
 **The anchored rating**, mean over the four hand-coded opponents:
 
 | mind | anchored mean |
 | --- | ---: |
 | `ct3` | **0.8828** |
-| `cw2` | 0.8359 |
+| `cw1r2` | 0.8359 |
 | `policy` | 0.8008 |
 | `dagger` | 0.7032 |
 | `driver` | 0.5508 |
@@ -43486,7 +43486,7 @@ its information, so the anchored mean is effectively a three-opponent mean, and 
 `ct3` against a copy of itself: **zero strokes**, 119.3 seconds, over 64 seeds. The mind with the
 best anchored rating in this record, which beats every hand-coded opponent, **does not swing once at
 a body that moves like it does**. It is not a general freeze -- the same mind throws 12.9 strokes
-against `dagger` and 17.8 against `cw2`. It is specific to its own reflection.
+against `dagger` and 17.8 against `cw1r2`. It is specific to its own reflection.
 
 This is CS4's mechanism arriving where it matters. The clone was fitted on states `golem-driver`
 produces; the calibration was searched against `golem-fencer`. Neither ever saw a state that a mind
@@ -43499,7 +43499,7 @@ which is exactly what CW2 does by carrying the frozen champion as one of its fiv
 
 #### CYc is refused and I am not going to explain it away
 
-Three learned mirrors, none near 0.5000: `dagger` 0.6406, `ct3` 0.1563, `cw2` 0.2969. The two
+Three learned mirrors, none near 0.5000: `dagger` 0.6406, `ct3` 0.1563, `cw1r2` 0.2969. The two
 hand-coded controls are fine -- `driver` 0.4688 and `idle` exactly 0.5000 on all draws -- which
 rules out the crude reading that left simply beats right.
 
@@ -43518,3 +43518,40 @@ needs the pair averaged; if it does not flip, the asymmetry is in the seed offse
 draw both minds' seeds from the same stream. Until CZ1 runs, **every learned-versus-learned cell in
 the matrix above carries an unquantified bias** and is quoted here as provisional. The
 arm-versus-hand-coded columns are unaffected: those mirrors check out.
+
+**A label correction, applied above.** The sixth arm was first written up as `cw2`; it is
+`tournaments/ct/cw1-round2.json`, **CW1's round-two champion**, and CW2 is a different experiment
+still running. The column is `cw1r2` throughout. Nothing measured changes, and the reading is if
+anything sharper: this is the mind CW1d caught collapsing at the brawler, and the matrix shows the
+same collapse independently at 0.5469 while it beats CT3 1.0000 -- one arm, two rungs, opposite
+directions, which is the non-transitivity again.
+
+### CZ1 -- what a mirror can actually exchange, registered before the data
+
+CZ1 was registered as *"run each learned mirror with the sides exchanged"* and that cell, as
+written, measures nothing. **In a mirror both seats hold the same table**, so exchanging the minds
+swaps two identical objects. The seats are symmetric by construction -- `bout-runner.mjs:244` puts
+left at the origin facing 0 and right at `separation` facing PI. Once those two are set aside there
+is exactly one asymmetry left in the harness, and it is that `clone-duel.mjs` draws the arm on
+`seed` and the opponent on `seed + 17`.
+
+So CZ1 exchanges **the seeds**, behind a new `--swap`, and runs `dagger`, `ct3` and `cw1r2` against
+themselves at 64 seeds with `driver` as the control. Three outcomes and what each rules:
+
+| | if the swapped score comes back | then |
+| --- | --- | --- |
+| **CZ1a** | near `1 - unswapped` | the **seed pairing** picks the winner |
+| **CZ1b** | near the unswapped score | the **seat** picks the winner |
+| **CZ1c** | neither, scattered | a greedy mirror is chaotic |
+
+The fix each one implies: CZ1a means averaging the swapped pair, and every learned mirror in CY is
+half a measurement. CZ1b means a harness defect -- `stepPair(left, right)` steps left first on every
+tick -- and that correction reaches every paired number in this record. CZ1c means mirror scores
+carry no information at this seed count and should stop being quoted.
+
+Predicted: **CZ1a**, and not confidently. The argument for it is that a greedy mirror is
+near-deterministic, so the bout has no coin to flip and whatever tiny difference the two seeds
+introduce is the only thing left to decide it. The argument against is `driver`, which is also
+deterministic-ish and mirrors cleanly at 0.4688. If CZ1b lands instead, the correction reaches every
+paired number in this record, not just the mirrors, and that is precisely why it is being run rather
+than assumed.
