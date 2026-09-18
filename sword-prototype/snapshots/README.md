@@ -1,10 +1,10 @@
-# Four minds, and how to watch them
+# Five minds, and how to watch them
 
 `tournaments/` is gitignored, so until this directory existed no mind this project has fitted could
-be pulled onto another machine. These four can. Each file is a league pool member -- the weights,
-the critic, the spread and the observation statistics the run accumulated -- plus two fields the
-weights themselves cannot carry: `tactics`, the executor row the mind was **measured** under, and
-`note`, prose for whoever opens the file.
+be pulled onto another machine. These five can. Four are league pool members -- the weights, the
+critic, the spread and the observation statistics the run accumulated -- plus two fields the weights
+themselves cannot carry: `tactics`, the executor row the mind was **measured** under, and `note`,
+prose for whoever opens the file. The fifth was never trained by a league at all; see below.
 
 ## Why `tactics` is in the file
 
@@ -61,4 +61,26 @@ estimate. `an-ramp2` is the one to watch first, because it is not selected.
 from 25 % to 67 % at t 6.30. Watch it against `golem-idle`, which is the task it was paid for.
 Against `golem-fencer` it has never been asked to do anything.
 
-The full record for all of this is `docs/measurements.md`, experiments AM, AN and AO.
+## The fifth, which is not one of the four
+
+| file | what it is | outright wins vs `golem-fencer` |
+| --- | --- | ---: |
+| `cr-dagger1.json` | `golem-driver`, copied -- no reward, no rollout | **43 of 128** |
+
+`cr-dagger1.json` is not a league mind and nothing about the four above applies to it. It is a
+supervised fit: 512 bouts of `golem-driver`'s own asks, 326,868 pairs of (71 pilot columns, 12
+command fields), two rounds with the second collected from the states the first round's clone
+actually reached. Experiment CR in `docs/measurements.md` is the whole story.
+
+**Its `score`, `opponent`, `baselines` and reward rows are deliberately empty.** A clone is never
+rolled out and never meets a reward, so there is no held-out points-a-bout for it to carry; the
+fields exist only because every reader of a policy table expects them, and they were overwritten so
+that the template's 0.546 could not be quoted as this mind's rating. The number above is from
+`scripts/clone-duel.mjs`, paired seed by seed against the mind it was copied from.
+
+Watch it the same way, and compare it to `golem-driver` rather than to the four: the thing to look
+for is that it commits to the strokes it starts. It completes **all** of them, against the driver's
+half, which is the one behaviour of the expert it did not copy.
+
+The full record for the four is `docs/measurements.md`, experiments AM, AN and AO; for
+`cr-dagger1.json` it is CR.

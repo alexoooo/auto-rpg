@@ -41743,3 +41743,67 @@ this prediction assumes.
 
 If CR4a and CR4b hold and CR4c holds too, the reading is: distribution shift was the mechanism,
 aggregation is the right fix, and the residual gap belongs to CT rather than to more rounds.
+
+### CR4's result -- two of three, and the one that was refused is mine
+
+512 bouts aggregated over both rounds, 326,868 asks, 261,876 train and 64,992 held out by bout,
+eight epochs. Held-out R2 **0.3856** meaned over the five live axes, against CR1's 0.8223 on the
+first round alone -- the fit got *harder*, which is what aggregating the states the clone's own
+errors reach is supposed to do. Then 128 paired seeds against `golem-fencer`, four arms, the same
+bodies and the same streams bout for bout.
+
+| | claim | registered | measured | verdict |
+| --- | --- | --- | --- | --- |
+| **CR4a** | closed-loop `commit` falls | below 0.20 | **0.1001**, from 0.5686 | **holds** |
+| **CR4b** | score rises | above 0.20 | **0.3672**, from 0.0273 | **holds** |
+| **CR4c** | it still misses the driver | by more than 0.10 | **0.0859** +-0.1205 | **refused** |
+
+**CR4c was my prediction and it was wrong.** One round of DAgger did not narrow the gap, it closed
+it to the width of the instrument. The interval straddles the bar, so what is claimed is only this:
+a 128-seed paired duel can no longer separate the clone from the mind it was copied from, and the
+registration already said what that would mean -- *"the ceiling is far below where the strafe
+residual suggested"*. The strafe residual measured the wrong thing. Imitating a hidden circling
+phase badly costs almost nothing, because the phase is a jittered clock and any plausible strafe is
+as good as the one the driver happened to pick.
+
+| column | driver | clone | **dagger** | policy |
+| --- | ---: | ---: | ---: | ---: |
+| score | 0.4531 | 0.0273 | **0.3672** | 0.5117 |
+| outright wins | 0.4375 | **0.0000** | **0.3359** | 0.2109 |
+| decided | 0.9688 | 0.9453 | 0.9375 | 0.3984 |
+| strokes a bout | 32.38 | 93.95 | **21.76** | 77.61 |
+| completion | 0.4787 | 0.1613 | **1.0000** | 0.5888 |
+| damage | 57.94 | 34.12 | **56.62** | 44.79 |
+| taken | 59.47 | 66.77 | **59.53** | 35.49 |
+| hits | 405.7 | 311.5 | **427.6** | 312.8 |
+| `commit` a ask | 0.0864 | 0.5686 | **0.1001** | 0.7371 |
+| `abort` a ask | 0.0317 | 0.6154 | **0.0244** | 0.3799 |
+| `parry` a ask | 0.0675 | 0.6634 | **0.0638** | 0.7723 |
+
+Every gate is back within two points of the driver's, and the difference has its own interval:
+`commit` +0.0137 +-0.0050, `abort` -0.0073 +-0.0021, `parry` -0.0037 +-0.0043. **The flailing was
+distribution shift and nothing else.** The owner's standing complaint -- *"the golem get into each
+other's face and kinda just flail around"* -- had a number, 93.9 strokes a bout at 16 % completion,
+and one round of asking the expert about the states the learner actually reaches took it to 21.8 at
+100 %.
+
+**The `outright wins` row is the one to read, and it is not in the score.** Score credits a draw a
+half, so the shipped PPO mind's 0.5117 is 27 wins, 24 losses and **77 draws in 128** -- it spends
+55 seconds of a 60-second cap not deciding. The DAgger clone's 0.3672 is **43 wins**, 80 losses and
+8 draws. On the only column that asks who won a fight, the night's clone beats thirteen sessions of
+policy gradient by half again, and it was fitted in twenty minutes with no reward function at all.
+
+**What did not transfer: the abort.** `completion` reads 1.0000 for the clone against the driver's
+0.4787 -- a difference of +0.5213 +-0.0170, now the largest structural gap left. It is not that the
+clone never raises `abort`; it raises it on 2.4 % of asks against the driver's 3.2 %. It raises it
+at the wrong moments. `latchAbort` samples the gate once, at the chamber, and holds that read for
+the whole stroke, so a gate that is right on average and wrong at the latch aborts nothing. The
+clone therefore commits to every stroke it starts. On this evidence that costs it very little:
+damage -1.33 +-3.33 and taken +0.07 +-2.57 against the driver, both flat. **Half the driver's
+strokes are aborted and the record cannot show that the aborts are worth anything.** That is a
+question for the hand-coded mind, not for the clone, and it is registered here rather than chased.
+
+`snapshots/cr-dagger1.json` is the mind, re-rated from the snapshot path to check the file and not
+merely the fit. Its `score`, `opponent`, `baselines` and reward row are written as empty on purpose:
+a clone is never rolled out, and the policy template's 0.546 would otherwise have been quoted by
+`snapshot.ts` and `renderPolicyModule` as this mind's rating.

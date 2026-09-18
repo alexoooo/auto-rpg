@@ -184,7 +184,7 @@ async function collect({ seeds, cap, opponent, file, tablePath = null }) {
  * round re-fitted on its own new data alone would forget the states the previous rounds taught and
  * merely move the failure somewhere else.
  */
-function loadShards(dirs) {
+export function loadShards(dirs) {
   const parts = [];
   let total = 0;
   let boutBase = 0;
@@ -449,9 +449,21 @@ async function fit(argv) {
     iterations: epochs,
     bouts,
     steps: train.length,
+    // Spread from the template so that every reader of a policy table keeps working, and then
+    // **overwritten so that none of them can quote a training run that did not happen.** A clone
+    // is never rolled out, never scored on a held-out seed and never sees a reward, so the
+    // template's `score`, `opponent`, `baselines` and reward row describe the shipped PPO mind,
+    // not this one -- and `score` in particular is read by `snapshot.ts` for provenance and
+    // printed by `renderPolicyModule`, where 0.546 would have been quoted as the clone's rating.
+    score: 0,
+    opponent: "nothing -- golem-driver's own commands, by regression",
+    baselines: {},
+    terminals: [],
+    reward: Object.fromEntries(Object.keys(POLICY_WEIGHTS.reward ?? {}).map((k) => [k, 0])),
     note: `CR: behaviour cloning from golem-driver over ${bouts} bouts, ${train.length} asks`
       + ` in ${rounds.length} round(s). Supervised regression onto the pilot surface --`
-      + " no advantage, no reward, no rollout.",
+      + " no advantage, no reward, no rollout, so `score` here is not a measurement and the"
+      + " half-life, lambda, clip and entropy rows are the template's, not this fit's.",
   };
   mkdirSync(dirname(resolve(ROOT, out)), { recursive: true });
   writeFileSync(resolve(ROOT, out), `${JSON.stringify(table)}\n`);

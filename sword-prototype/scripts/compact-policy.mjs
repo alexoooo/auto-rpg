@@ -21,7 +21,9 @@
 // the same numbers.
 
 import { COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, freshCommand } from "../src/golem/tactics-v4.ts";
-import { PILOT_FEATURE_NAMES, pilotFeatureCount, pilotFeatures, pilotTrace } from "../src/golem/pilot.ts";
+import {
+  pilotFeatureCount, pilotFeatureNames, pilotFeatures, pilotTrace,
+} from "../src/golem/pilot.ts";
 
 export const COMPACT_KIND = "compact";
 
@@ -60,11 +62,12 @@ export const CORE_COLUMNS = Object.freeze([
 
 /** The indices a named column set picks out, refusing a name the pilot does not publish. */
 export function columnsOf(which, features) {
-  const width = pilotFeatureCount(features);
+  const published = pilotFeatureNames(features);
+  const width = published.length;
   if (which === "all") return Array.from({ length: width }, (_, i) => i);
   const names = which === "core" ? CORE_COLUMNS : which.split(",").map((n) => n.trim());
   return names.map((name) => {
-    const at = PILOT_FEATURE_NAMES.indexOf(name);
+    const at = published.indexOf(name);
     // Refused rather than dropped: a genome quietly built over fifteen columns because one was
     // misspelled would train, rate and ship, and the missing column would never be looked for.
     if (at === -1) throw new Error(`"${name}" is not a pilot column`);
@@ -77,26 +80,25 @@ export function columnsOf(which, features) {
 export const compactSize = (n) => (n + 1) * COMPACT_OUTPUTS;
 
 /**
- * A pilot over a compact genome.
+ * The genome's arithmetic, over an already-filled feature row.
  *
- * `norm` is the mean and standard deviation of each selected column, carried with the genome
- * because a weight is only meaningful against the scaling it was fitted under -- a genome that
- * travelled without it would be a different mind on the next dataset.
+ * Split from `compactPilot` so that the part with an index in it can be read against a genome
+ * written by hand. The weight layout is **column-major over outputs** -- output `j` of column `k`
+ * lives at `k * 12 + j` and the bias row is last -- and a transposed read of that would still
+ * train, still rate, and be a different mind; there is no way to see it from a score.
  */
-export function compactPilot(genome, { columns, norm, features }) {
-  const width = pilotFeatureCount(features);
-  const raw = new Float64Array(width);
-  const trace = features >= 2 ? pilotTrace() : null;
+export function compactDecoder(genome, { columns, norm }) {
   const command = freshCommand();
   const n = columns.length;
   const weights = genome instanceof Float64Array ? genome : Float64Array.from(genome);
 
-  return (reading, view) => {
-    pilotFeatures(reading, view, raw, trace);
+  return (raw) => {
     for (let j = 0; j < COMPACT_OUTPUTS; j += 1) {
       let sum = weights[n * COMPACT_OUTPUTS + j];
       for (let k = 0; k < n; k += 1) {
         const sd = norm.sd[k];
+        // A column the dataset never saw move is dropped rather than divided by nothing: its
+        // weight then does not matter, and the bias carries whatever that output should be.
         const x = sd < 1e-9 ? 0 : (raw[columns[k]] - norm.mean[k]) / sd;
         sum += weights[k * COMPACT_OUTPUTS + j] * (x < -5 ? -5 : x > 5 ? 5 : x);
       }
@@ -113,11 +115,28 @@ export function compactPilot(genome, { columns, norm, features }) {
   };
 }
 
+/**
+ * A pilot over a compact genome.
+ *
+ * `norm` is the mean and standard deviation of each selected column, carried with the genome
+ * because a weight is only meaningful against the scaling it was fitted under -- a genome that
+ * travelled without it would be a different mind on the next dataset.
+ */
+export function compactPilot(genome, { columns, norm, features }) {
+  const raw = new Float64Array(pilotFeatureCount(features));
+  const trace = features >= 2 ? pilotTrace() : null;
+  const decode = compactDecoder(genome, { columns, norm });
+  return (reading, view) => {
+    pilotFeatures(reading, view, raw, trace);
+    return decode(raw);
+  };
+}
+
 /** A genome as it is written to disk, with everything needed to rebuild the mind that ran it. */
 export function compactTable(genome, { columns, norm, features, note = "" }) {
   return {
     kind: COMPACT_KIND, features, columns: [...columns],
-    names: columns.map((at) => PILOT_FEATURE_NAMES[at]),
+    names: columns.map((at) => pilotFeatureNames(features)[at]),
     norm: { mean: [...norm.mean], sd: [...norm.sd] },
     weights: Array.from(genome), note,
   };

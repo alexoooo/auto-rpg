@@ -66,14 +66,24 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
   for (const seed of seeds) {
     let driven = null;
     let left = null;
+    // What the mind *asks for*, not what the body managed: CR3 found the clone's failure entirely
+    // in its gate rates -- a commit on six asks in ten against the driver's one in eleven -- and a
+    // duel that reports only the outcome cannot see that at all.
+    const gates = { asks: 0, commit: 0, abort: 0, parry: 0 };
+    const watch = (reading, view, command) => {
+      gates.asks += 1;
+      if (command.commit >= 0.5) gates.commit += 1;
+      if (command.abort >= 0.5) gates.abort += 1;
+      if (command.parry >= 0.5) gates.parry += 1;
+    };
     if (arm === "driver") {
-      driven = golemDriver(seed, DRIVER);
+      driven = golemDriver(seed, DRIVER, watch);
       left = { name: "golem-driver", driven, decide: (v, dt) => driven.decide(v, dt) };
     } else {
       // Greedy, always: the mean of the head is what a played mind does, and CP measured what
       // sampling costs a stroke. An arm drawn from its own spread would be a different mind.
       const table = loaded ?? POLICY_WEIGHTS;
-      const mind = golemPolicy(seed, table, GOLEM_TACTICS_V4, null, false, null);
+      const mind = golemPolicy(seed, table, GOLEM_TACTICS_V4, null, false, watch);
       driven = mind.driven;
       left = { name: `golem-${arm}`, driven, decide: (v, dt) => mind.decide(v, dt) };
     }
@@ -103,6 +113,10 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
       peak: me.peakTipDriven,
       retreat: me.retreatTime,
       inside: me.insidePunchRange,
+      asked: gates.asks,
+      commitRate: gates.asks === 0 ? 0 : gates.commit / gates.asks,
+      abortRate: gates.asks === 0 ? 0 : gates.abort / gates.asks,
+      parryRate: gates.asks === 0 ? 0 : gates.parry / gates.asks,
     });
   }
   return { arm, rows };
@@ -111,6 +125,7 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
 const COLUMNS = [
   "score", "decided", "seconds", "strokes", "completion", "damage", "taken",
   "hits", "contacts", "speed", "peak", "retreat", "inside",
+  "asked", "commitRate", "abortRate", "parryRate",
 ];
 
 async function main(argv) {
