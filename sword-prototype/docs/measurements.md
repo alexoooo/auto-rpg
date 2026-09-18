@@ -44088,3 +44088,66 @@ having at 0.3, not a fix for this.
 advantage is not an artefact of how cuts are priced; it survives a three-fold change in that price
 untouched. It is a property of the fight itself, and the only remaining levers are what we *score*
 and who we *train against*.
+
+### CW2's result -- a learned opponent in the pool taught it to commit *less*
+
+CW2 anchored the search on five opponents at once -- `golem-fencer`, `golem-brawler`,
+`golem-driver`, `golem-idle` and the frozen `ct3` -- dealt round robin, 30 seeds a candidate, 25
+generations, with the damage margin breaking ties at a hundredth of a body.
+
+**It converged at generation 4 and then kept the parent for twenty-one consecutive generations.**
+
+| gen | parent fit | score | strokes | margin | kept |
+| ---: | ---: | ---: | ---: | ---: | --- |
+| 1 | 0.9603 | 0.8333 | 11.7 | 12.7 | parent |
+| 5 | 1.0986 | 0.9333 | 7.5 | 18.2 | parent |
+| 13 | 1.0769 | 0.9333 | 7.5 | 16.0 | parent |
+| 21 | 1.2036 | 1.0000 | 6.6 | 20.4 | parent |
+| 25 | 1.1932 | 0.9667 | **6.5** | 22.7 | parent |
+
+The last accepted child was generation 4. Everything after it -- roughly **7,500 bouts** -- bought
+nothing. The parent's re-measured fitness drifts up from 1.0986 to 1.2189 across those generations
+while the genome never changes, which is the seed set moving underneath a fixed mind, not progress.
+
+#### The genome says what it learned, and it is the opposite of what was wanted
+
+The calibration's final output-layer biases:
+
+| gate | bias |
+| --- | ---: |
+| `commit` | **-0.3251** |
+| `swing` | **-0.2715** |
+| `parry` | -0.1662 |
+| `bite` | -0.1079 |
+| `abort` | **+0.2542** |
+
+**Every term that makes a mind attack moved down and the one that makes it break off moved up.**
+Strokes fell from 11.7 a bout at generation 1 to **6.5** at the end. This is a search that was given
+a standoff mind to beat and responded by standing off harder.
+
+That is the agenda's prediction, tested and confirmed: *"against a standoff opponent the winning
+reply is also to stand off, so DE on its own probably only sharpens the equilibrium."* CW2 is DE's
+cheap half run in advance -- a learned mind **was** in the pool -- and it sharpened the equilibrium
+exactly as written.
+
+#### What that settles
+
+**Adding learned opponents to the training pool does not fix this on its own.** That was the most
+plausible remaining idea that did not require changing anything, and it is now measured rather than
+assumed. Twenty-five generations, five opponents, a margin tie-break, and the answer is a mind that
+swings 44 % less than the one it started from.
+
+It also explains why CW2 never saturated the way CW1 did while still going nowhere. CW1 hit 1.0000
+at generation 2 and had nothing left to climb; CW2's score sat between 0.88 and 1.00 for twenty
+generations with a *margin* that kept improving, so the objective was still live -- and what it was
+live **on** was the margin, which a mind maximises by taking less damage, which it does by not going
+in.
+
+**The margin tie-break, added in CW2 precisely to stop saturation, is itself a standoff incentive.**
+That is worth writing down as a design lesson rather than a defect: a fitness term that rewards
+`damage - taken` cannot distinguish a mind that hits harder from one that gets hit less, and in this
+build the second is far cheaper to achieve.
+
+So DF is not one of three options any more. **It is the only untested lever left**, and every other
+route the phase has tried -- better search, more samples, a richer pool, a re-priced cut -- has now
+been measured and returned the same mind.
