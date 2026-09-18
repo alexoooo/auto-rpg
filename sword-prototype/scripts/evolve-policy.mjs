@@ -85,6 +85,7 @@ import {
  * choice.
  */
 import { PROBE_CAP } from "./tournament.mjs";
+import { rungOf } from "./ladder.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NL = /\r?\n/;
@@ -327,9 +328,41 @@ async function cell({ weights, spec, seeds, cap, opponent, kind = "compact", tab
   const { golemFencer } = await import("../src/golem/tactics-v2.ts");
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
   const { golemBrawler } = await import("../src/golem/styles/brawler.ts");
+  const { idleMind } = await import("../src/mind.ts");
   const { defaultGolemSetup } = await import("../src/golem/build.ts");
 
   const physics = await freshHavok();
+
+  /**
+   * The opponent, resolved once and by an enumeration that **throws**.
+   *
+   * This used to be a chain ending `: golemFencer(seed + 17)`, so `--opponent golem-idle` fought
+   * the fencer, wrote "golem-idle" into the log and reported a number for a matchup that never
+   * happened. That is the third instance of the same shape this phase has found and the second it
+   * has had to pay for; `ladder.mjs` exists so there is one list of rung names and `rungOf` refuses
+   * anything not on it.
+   *
+   * A path rather than a rung is a **learned** opponent -- a snapshot table, driven greedily -- and
+   * that is what closes the loop in CW: the champion of round n-1 becomes the body round n has to
+   * beat, so the difficulty rises without anybody hand-writing a curriculum.
+   */
+  const rivalTable = opponent.endsWith(".json")
+    ? JSON.parse(readFileSync(resolve(ROOT, opponent), "utf8")) : null;
+  const rival = (seed) => {
+    if (rivalTable !== null) {
+      const mind = golemPolicy(seed, rivalTable, GOLEM_TACTICS_V4, null, false, null);
+      return { name: opponent, driven: mind.driven, decide: (v, dt) => mind.decide(v, dt) };
+    }
+    const rung = rungOf(opponent);
+    if (rung === "golem-fencer") return golemFencer(seed);
+    if (rung === "golem-brawler") return golemBrawler(seed);
+    if (rung === "golem-idle") {
+      return { name: "golem-idle", driven: null, decide: idleMind().decide };
+    }
+    const it = golemDriver(seed, DRIVER);
+    return { name: "golem-driver", driven: it, decide: (v, dt) => it.decide(v, dt) };
+  };
+
   const genome = Float64Array.from(weights);
   // Built once a child rather than once a bout: a calibrated table is 87,308 numbers and rebuilding
   // it per seed would cost more than the bouts do.
@@ -356,10 +389,7 @@ async function cell({ weights, spec, seeds, cap, opponent, kind = "compact", tab
       driven = mind.driven;
       leftMind = { name: "golem-calibrated", driven, decide: (v, dt) => mind.decide(v, dt) };
     }
-    const right = opponent === "golem-driver" ? golemDriver(seed + 17, DRIVER)
-      : opponent === "golem-brawler" ? golemBrawler(seed + 17) : golemFencer(seed + 17);
-    const rightMind = opponent === "golem-driver"
-      ? { name: "golem-driver", driven: right, decide: (v, dt) => right.decide(v, dt) } : right;
+    const rightMind = rival(seed + 17);
     const bout = runBout({
       left: leftMind.name, right: opponent,
       leftUnit: "golem", rightUnit: "golem",

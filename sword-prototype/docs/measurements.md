@@ -42973,12 +42973,13 @@ below 0.1 % on the idle collection, (b) hold its fencer score within 0.10 of 0.3
 same reading. The idle gate is **not** a bar here -- CS4 showed no normalisation can buy it -- and
 promising it again would be the same mistake twice.
 
-#### DA -- the bottom rung, which now needs a search rather than a copy
+#### DB -- the bottom rung, which now needs a search rather than a copy
 
-The letters run on from CZ. CS4 closed the cloning route to `golem-idle` for good: the driver's own
-`commit` label on those states correlates with **nothing** the pilot can see (strongest \|r\| 0.019
-over 64,088 rows), so the fit predicts the base rate and the base rate is below the firing
-threshold. More data cannot fix a label that carries no signal.
+The letters run on from CZ, and **DA was taken by the constant census above** before this agenda
+was written -- so the bottom rung is DB. CS4 closed the cloning route to `golem-idle` for good:
+the driver's own `commit` label on those states correlates with **nothing** the pilot can see
+(strongest \|r\| 0.019 over 64,088 rows), so the fit predicts the base rate and the base rate is
+below the firing threshold. More data cannot fix a label that carries no signal.
 
 Three ways out, in cost order, and the first two are cheap enough to run together:
 
