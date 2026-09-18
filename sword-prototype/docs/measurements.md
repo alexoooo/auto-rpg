@@ -43372,3 +43372,55 @@ its outcome.
 I expect CW2a to hold smaller than CW1's 1.0000, CW2b and CW2c to hold, CW2d to hold, and CW2e to
 hold. The prediction that matters is CW2b: **CW1 sold that rung and the anchor exists to stop it,
 so if it sells again the fix is wrong and not merely weak.**
+
+### CY -- one number a mind, anchored, registered before the matrix
+
+CW1 forced this. Round two beats CT3 **96-0** and is worse than CT3 at `golem-brawler` by 0.53. No
+column in this record can say which of those two minds is better, because every number in it is a
+score against one named opponent. The phase needs a rating, and CM already said what a bad one
+costs: **+170 Elo that was worth +-8** against a mind that did not read the same table.
+
+**The pool**, eight minds, every one of them rateable today:
+
+`golem-idle`, `golem-brawler`, `golem-driver`, `golem-fencer` -- the anchors, none of which learns
+anything and none of which changes between cells -- and `golem-policy`, `cr-dagger1`,
+`ct-calib1` (CT3) and `cw1-round2` (round two).
+
+**The instrument.** Eight duels, each putting all eight arms against one of the eight as opponent,
+96 shared paired seeds, cap 150. That is a full 8x8 matrix including the diagonal, 6,144 bouts, and
+it costs no new machinery now that a snapshot can stand on the opponent side.
+
+**The rating, and why it is not Elo.** One number a mind: its **mean score against the four
+hand-coded anchors**, which do not move, do not learn, and are identical in every cell. Elo over a
+pool that contains four minds derived from each other floats its own scale and would quote a
+learned mind's rating partly against its own ancestry -- the tenth governing rule exists because
+that already happened once here. The anchored mean cannot do that. The full matrix is reported
+beside it so the pairwise structure the mean hides stays visible.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **CYa** | the anchored mean separates CT3 from round two | their intervals overlap |
+| **CYb** | `golem-policy` sits above `golem-driver` and below `ct3` | either ordering inverts |
+| **CYc** | every learned mind's **mirror** is near 0.5000 | one is outside 0.40-0.60 |
+| **CYd** | `ct3` throws **under 5 strokes** in its own mirror, as the smoke read said | over 15 |
+
+CYd is the one that is not about rating at all, and it may be the most important cell here. An
+eight-seed smoke run put `ct3` at **zero strokes in 119 seconds against a copy of itself** -- the
+same freeze CS4 diagnosed at `golem-idle`, in a matchup nobody had ever run. If that holds at 96
+seeds, then **the mind that beats every hand-coded opponent cannot fight one that moves like it
+does**, and the owner's actual goal -- *"properly fighting learned AIs"* -- has a named obstacle
+sitting directly in front of it. The mechanism would be the same one CS4 measured: the clone's
+competence is a function fitted on states a hand-coded mind produces, and a mind derived from it
+produces different ones.
+
+**The total verdict mapping (rule 9).** If CYa and CYb hold, the phase has a yardstick that
+transports and every later cell quotes one number with an interval instead of four scores. If CYc
+is refused for any mind, the harness has a **side bias** -- left and right are not symmetric --
+and every paired number in this record is suspect by that much, which would be the largest single
+finding of the phase and is exactly why the diagonal is being run rather than assumed. If CYd
+holds, the next agenda item is not a better search, it is **fitting on states learned minds
+visit**, and DB's third route -- change the rung -- becomes change the *opponent*: put a learned
+mind in the training pool, which is what CW2 has just started doing.
+
+I expect CYa and CYb to hold, CYc to hold for every mind, and **CYd to hold** -- that is, the freeze
+is real. It was measured rather than guessed, and eight seeds at zero does not move to fifteen.
