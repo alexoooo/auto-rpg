@@ -2,9 +2,15 @@
 // Cell CR of the learn set.
 //
 //   node scripts/clone-policy.mjs collect [--bouts 256] [--opponent golem-fencer] [--cap 60]
-//                                         [--seed 20260918] [--out DIR]
-//   node scripts/clone-policy.mjs fit [--in DIR] [--epochs 40] [--batch 256] [--rate 0.001]
+//                                         [--seed 20260918] [--out DIR] [--table PATH]
+//   node scripts/clone-policy.mjs fit [--in DIR,DIR] [--epochs 40] [--batch 256] [--rate 0.001]
 //                                     [--out snapshots/cr-clone.json]
+//
+// `--table` is the DAgger round: the named policy **drives**, and the label written down is what
+// `golem-driver` would have commanded in the state the policy reached. Without it the driver drives
+// and labels itself, which is the first round. `--in` takes several directories so a fit sees every
+// round at once -- aggregation is the whole of DAgger and re-fitting on the new data alone would
+// merely move the failure.
 //
 // ## Why this needs no gradient, and why that is the whole argument
 //
@@ -82,17 +88,39 @@ export function actionFromCommand(command, ranges, axes, gates) {
 
 // ---------------------------------------------------------------------------------- the collector
 
-/** One shard: some seeds of driver-against-opponent, every ask written down as a row. */
-async function collect({ seeds, cap, opponent, file }) {
+/**
+ * One shard, every ask written down as a row of (features, what the driver wanted).
+ *
+ * With no `tablePath` the driver drives and labels its own states: that is behaviour cloning, and
+ * CR2 measured what it is worth on its own -- a clone that matches the expert on 99.6 % of the asks
+ * it was tested on raises its gates seven to twenty times too often once it is the one steering.
+ *
+ * With a `tablePath` the **policy drives** and the driver is asked, at every ask, what it would
+ * have done in the state the policy reached. That is DAgger, and it is cheap here in a way it
+ * never is with human demonstrations, because the expert is a function and not a person.
+ *
+ * **The approximation, stated rather than discovered later:** `driverPilot` is not a pure function
+ * of the reading. It carries `opened`, `patience`, `circling`, `phaseUntil` and `feinting`, and
+ * those advance on what it *sees* while never executing what it *decides*. So a label here is not
+ * "what the driver does in this state" but "what the driver, having watched this bout from the
+ * outside, would do now". For a mind whose hidden state is a patience clock and a circling phase
+ * that is close; it is not identical, and no amount of aggregation makes it identical.
+ */
+async function collect({ seeds, cap, opponent, file, tablePath = null }) {
   const { freshHavok, runBout } = await import("./bout-runner.mjs");
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
   const { golemFencer } = await import("../src/golem/tactics-v2.ts");
   const { golemBrawler } = await import("../src/golem/styles/brawler.ts");
   const { defaultGolemSetup } = await import("../src/golem/build.ts");
-  const { COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES } = await import("../src/golem/tactics-v4.ts");
+  const { COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, GOLEM_TACTICS_V4 } =
+    await import("../src/golem/tactics-v4.ts");
   const { POLICY_WEIGHTS } = await import("../src/golem/policy-weights.ts");
   const { pilotFeatures, pilotFeatureCount, pilotTrace } = await import("../src/golem/pilot.ts");
+  const { driverPilot } = await import("../src/golem/styles/driver.ts");
+  const { golemPolicy } = await import("../src/golem/policy.ts");
 
+  const steering = tablePath === null
+    ? null : JSON.parse(readFileSync(resolve(ROOT, tablePath), "utf8"));
   const columns = pilotFeatureCount(POLICY_WEIGHTS.features);
   const width = COMMAND_AXES.length + COMMAND_GATES.length;
   const physics = await freshHavok();
@@ -105,25 +133,39 @@ async function collect({ seeds, cap, opponent, file }) {
     // will never have at inference.
     const trace = POLICY_WEIGHTS.features >= 2 ? pilotTrace() : null;
     const raw = new Float64Array(columns);
-    const driven = golemDriver(seed, DRIVER, (reading, view, command) => {
+    /** Write one row: the state as a policy would see it, and what the driver wanted there. */
+    const write = (reading, view, wanted) => {
       pilotFeatures(reading, view, raw, trace);
-      const target = actionFromCommand(command, COMMAND_RANGES, COMMAND_AXES, COMMAND_GATES);
+      const target = actionFromCommand(wanted, COMMAND_RANGES, COMMAND_AXES, COMMAND_GATES);
       const row = new Float64Array(1 + columns + width);
       row[0] = bouts;
       row.set(raw, 1);
       row.set(target, 1 + columns);
       rows.push(row);
-    });
+    };
+
+    let driven = null;
+    let leftMind = null;
+    if (steering === null) {
+      driven = golemDriver(seed, DRIVER, (reading, view, command) => write(reading, view, command));
+      leftMind = { name: "golem-driver", driven, decide: (v, dt) => driven.decide(v, dt) };
+    } else {
+      // The expert runs beside the bout rather than in it: one call an ask, the same cadence it
+      // would have had if it were steering, so its patience and circling clocks advance once per
+      // ask exactly as they do in a round it drives.
+      const expert = driverPilot(seed, DRIVER);
+      const mind = golemPolicy(seed, steering, GOLEM_TACTICS_V4, null, false,
+        (reading, view) => write(reading, view, expert(reading, view)));
+      driven = mind.driven;
+      leftMind = { name: "golem-clone", driven, decide: (v, dt) => mind.decide(v, dt) };
+    }
     const right = opponent === "golem-brawler" ? golemBrawler(seed + 17) : golemFencer(seed + 17);
     runBout({
-      left: "golem-driver", right: opponent,
+      left: steering === null ? "golem-driver" : "golem-clone", right: opponent,
       leftUnit: "golem", rightUnit: "golem",
       leftGolem: defaultGolemSetup(), rightGolem: defaultGolemSetup(),
       locomotionMode: "supported", seeds: [seed, seed + 17], maxSeconds: cap, physics,
-      leftMind: {
-        name: "golem-driver", driven, decide: (v, dt) => driven.decide(v, dt),
-      },
-      rightMind: right,
+      leftMind, rightMind: right,
     });
     bouts += 1;
   }
@@ -135,30 +177,51 @@ async function collect({ seeds, cap, opponent, file }) {
   return { file, rows: rows.length, stride, columns, width, bouts };
 }
 
-/** Every shard back as one block, with the bout ids made unique across shards. */
-function loadShards(dir) {
-  const meta = JSON.parse(readFileSync(resolve(dir, "meta.json"), "utf8"));
-  const { columns, width } = meta;
-  const stride = 1 + columns + width;
+/**
+ * Every shard of every round back as one block, with the bout ids made unique throughout.
+ *
+ * **Aggregation is the whole of DAgger**, so this takes a list of directories rather than one: a
+ * round re-fitted on its own new data alone would forget the states the previous rounds taught and
+ * merely move the failure somewhere else.
+ */
+function loadShards(dirs) {
   const parts = [];
   let total = 0;
   let boutBase = 0;
-  for (const shard of meta.shards) {
-    const buffer = readFileSync(resolve(dir, shard.file));
-    const block = new Float64Array(
-      buffer.buffer, buffer.byteOffset, buffer.byteLength / Float64Array.BYTES_PER_ELEMENT,
-    );
-    // A shard numbered its bouts from zero, so without this every shard's bout 0 would be one
-    // group and the held-out split would leak across shards rather than hold a bout out.
-    for (let i = 0; i < block.length; i += stride) block[i] += boutBase;
-    boutBase += shard.bouts;
-    parts.push(block);
-    total += block.length / stride;
+  let columns = null;
+  let width = null;
+  let stride = 0;
+  const rounds = [];
+  for (const dir of dirs) {
+    const meta = JSON.parse(readFileSync(resolve(dir, "meta.json"), "utf8"));
+    if (columns === null) {
+      ({ columns, width } = meta);
+      stride = 1 + columns + width;
+    } else if (meta.columns !== columns || meta.width !== width) {
+      // Two rounds on different feature versions would concatenate into a block whose columns mean
+      // different things in different halves, and nothing downstream could see it.
+      throw new Error(`${dir} carries ${meta.columns}x${meta.width};`
+        + ` the first round carries ${columns}x${width}`);
+    }
+    const before = boutBase;
+    for (const shard of meta.shards) {
+      const buffer = readFileSync(resolve(dir, shard.file));
+      const block = new Float64Array(
+        buffer.buffer, buffer.byteOffset, buffer.byteLength / Float64Array.BYTES_PER_ELEMENT,
+      );
+      // A shard numbered its bouts from zero, so without this every shard's bout 0 would be one
+      // group and the held-out split would leak across shards rather than hold a bout out.
+      for (let i = 0; i < block.length; i += stride) block[i] += boutBase;
+      boutBase += shard.bouts;
+      parts.push(block);
+      total += block.length / stride;
+    }
+    rounds.push({ dir, bouts: boutBase - before, steered: meta.table ?? "golem-driver" });
   }
   const flat = new Float64Array(total * stride);
   let at = 0;
   for (const part of parts) { flat.set(part, at); at += part.length; }
-  return { flat, stride, columns, width, rows: total, bouts: boutBase, meta };
+  return { flat, stride, columns, width, rows: total, bouts: boutBase, rounds };
 }
 
 // ------------------------------------------------------------------------------------ the fit
@@ -184,7 +247,8 @@ function normalisationOf(flat, stride, columns, pick) {
 const sigmoid = (x) => 1 / (1 + Math.exp(-x));
 
 async function fit(argv) {
-  const dir = flagOf(argv, "--in", resolve(ROOT, "tournaments/cr-clone"));
+  const dirs = flagOf(argv, "--in", "tournaments/cr-clone")
+    .split(",").map((d) => d.trim()).filter((d) => d !== "").map((d) => resolve(ROOT, d));
   const epochs = Number(flagOf(argv, "--epochs", "40"));
   const batch = Number(flagOf(argv, "--batch", "256"));
   const rate = Number(flagOf(argv, "--rate", "0.001"));
@@ -206,7 +270,7 @@ async function fit(argv) {
     // and is wrong in a way no gate would catch.
     throw new Error(`clone-policy fits a gaussian head; this table's axes are ${spec.kinds}`);
   }
-  const { flat, stride, columns, width, rows, bouts } = loadShards(dir);
+  const { flat, stride, columns, width, rows, bouts, rounds } = loadShards(dirs);
   const layout = policyLayout(POLICY_WEIGHTS.features, spec);
   if (layout.inputs !== columns) {
     throw new Error(`the shards carry ${columns} columns; the layout reads ${layout.inputs}`);
@@ -291,6 +355,8 @@ async function fit(argv) {
 
   console.log(`clone: ${rows} rows over ${bouts} bouts, ${train.length} train`
     + ` / ${held.length} held out, ${netSize(layout)} weights`);
+  for (const r of rounds) console.log(`  round ${r.dir.split(/[\/]/).pop()}:`
+    + ` ${r.bouts} bouts steered by ${r.steered}`);
 
   const order = Uint32Array.from(train);
   let seed = 20260918 >>> 0;
@@ -383,8 +449,9 @@ async function fit(argv) {
     iterations: epochs,
     bouts,
     steps: train.length,
-    note: `CR: behaviour cloning from golem-driver over ${bouts} bouts, ${train.length} asks.`
-      + " Supervised regression onto the pilot surface -- no advantage, no reward, no rollout.",
+    note: `CR: behaviour cloning from golem-driver over ${bouts} bouts, ${train.length} asks`
+      + ` in ${rounds.length} round(s). Supervised regression onto the pilot surface --`
+      + " no advantage, no reward, no rollout.",
   };
   mkdirSync(dirname(resolve(ROOT, out)), { recursive: true });
   writeFileSync(resolve(ROOT, out), `${JSON.stringify(table)}\n`);
@@ -404,6 +471,7 @@ async function main(argv) {
   const cap = Number(flagOf(rest, "--cap", "60"));
   const base = Number(flagOf(rest, "--seed", "20260918"));
   const opponent = flagOf(rest, "--opponent", "golem-fencer");
+  const tablePath = flagOf(rest, "--table", null);
   const dir = resolve(ROOT, flagOf(rest, "--out", "tournaments/cr-clone"));
   mkdirSync(dir, { recursive: true });
   for (const stale of readdirSync(dir)) {
@@ -416,12 +484,12 @@ async function main(argv) {
   const seeds = Array.from({ length: count }, (_, i) => base + i * 101);
   const slice = Math.ceil(seeds.length / shards);
   const plan = Array.from({ length: shards }, (_, s) => ({
-    seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent,
+    seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent, tablePath,
     file: resolve(dir, "shard-".concat(s, ".bin")),
   })).filter((c) => c.seeds.length > 0);
 
-  console.log(`clone collect: golem-driver against ${opponent}, ${count} bouts at cap ${cap} s,`
-    + ` ${plan.length} shards`);
+  console.log(`clone collect: ${tablePath === null ? "golem-driver" : tablePath} steering against`
+    + ` ${opponent}, ${count} bouts at cap ${cap} s, ${plan.length} shards`);
 
   const runOne = (c) => new Promise((done) => {
     execFile(process.execPath, [process.argv[1], "--child", JSON.stringify(c)], {
@@ -451,7 +519,7 @@ async function main(argv) {
   if (bad.length > 0) throw new Error(`${bad.length} of ${plan.length} shards failed`);
 
   const meta = {
-    opponent, cap, bouts: count, seed: base,
+    opponent, cap, bouts: count, seed: base, table: tablePath,
     columns: results[0].columns, width: results[0].width,
     shards: results.map((r) => ({ file: r.file.split(/[\\/]/).pop(), rows: r.rows, bouts: r.bouts })),
   };

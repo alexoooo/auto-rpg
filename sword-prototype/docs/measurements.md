@@ -41695,8 +41695,9 @@ explained does not turn 32 strokes into 94.
 driver's 0.9688 and its bouts run 55.1 s of a 60 s cap -- it draws three fights in five by standing
 off, takes 35.5 damage where the driver takes 59.5, and collects the draw. Against the driver its
 score difference is +0.0586 +-0.1002, which is nothing; its `decided` difference is
--0.5703 +-0.0933, which is enormous. **A rating that reads only the score cannot tell the better fighter from the
-better staller**, and this is the phase's second worked example of why CQ came before CR.
+-0.5703 +-0.0933, which is enormous. **A rating that reads only the score cannot tell the
+better fighter from the better staller**, and this is the phase's second worked example of why CQ
+came before CR.
 
 **`golem-driver` loses narrowly to `golem-fencer`**, at 0.4531 over 128 seeds. So the ceiling a
 perfect clone of it could reach is below the fencer, and the ladder's third rung is not reachable by
@@ -41706,3 +41707,39 @@ clone is a *starting point* for search, which is what the plan said it was for.
 The two `retreat` and `inside` columns read 0.0000 for every arm -- they are populated for bodies
 with punches, and a blade-and-plate golem never fills them. They are noise in this table and are
 named here so the next reader does not mine them.
+
+### CR4 -- the DAgger round, registered before it is collected
+
+The registered mapping's pass/fail corner says to run it, and CR2's mechanism says why it should
+work: the clone is right where the driver goes and wrong where its own errors take it, so the fix
+is to label the states *it* reaches. 256 fresh bouts with the clone steering, the driver asked at
+every ask what it would have done, and a re-fit over **both** rounds together -- aggregation is the
+whole of DAgger, and a fit on the new data alone would move the failure rather than mend it.
+
+**The approximation, stated now rather than discovered later.** `driverPilot` is not a pure function
+of the reading: it carries `opened`, `patience`, `circling`, `phaseUntil` and `feinting`, and in a
+DAgger round those advance on what it *sees* while it never executes what it *decides*. So a label
+is not "what the driver does in this state" but "what the driver, having watched this bout from the
+outside, would do now". For a patience clock and a circling phase that is close. It is not
+identical, and no amount of aggregation makes it identical.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **CR4a** | closed-loop `commit` falls below **0.20** | it stays above 0.40 |
+| **CR4b** | score rises above **0.20** | it stays below 0.10 |
+| **CR4c** | it still misses the driver by more than 0.10 | it lands within 0.10 |
+
+The driver's own numbers are `commit` 0.0885 and score 0.4531; the clone's today are 0.5970 and
+0.0273.
+
+**CR4c predicts the round is not enough, and that is the point of registering it.** Two reasons it
+should fall short, and they are different in kind. The label approximation above is one. The other
+is that `strafe` is *unobservable in part* -- written only while a hidden `circling` flag is true,
+flipped by an internal clock jittered by the driver's own `random()` stream -- so there is a ceiling
+on how well any mind reading `pilotFeatures` can imitate this expert, and **DAgger does not lift a
+ceiling it cannot see**. A round that lands *within* 0.10 would say the ceiling is far below where
+the strafe residual suggested, and would make the clone a much better starting point for CT than
+this prediction assumes.
+
+If CR4a and CR4b hold and CR4c holds too, the reading is: distribution shift was the mechanism,
+aggregation is the right fix, and the residual gap belongs to CT rather than to more rounds.
