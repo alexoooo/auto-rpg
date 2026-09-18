@@ -42518,3 +42518,49 @@ curriculum question and the record already refuses curricula on evidence (Z, AN,
 refused while CS4b holds, the gate fires and the executor still throws nothing, and the fault is
 below the mind entirely -- in which case no amount of training touches it and the finding belongs to
 the game rather than to the learner.
+
+### CT4's result -- it fights, and the owner's bar is met by a mind this phase built
+
+Three rungs `ct3` has never been searched against, every bout decided, the driver rung at 512
+paired seeds and the other two at 128.
+
+| rung | `golem-driver` | `golem-policy` | **`ct3`** | ct3 - driver |
+| --- | ---: | ---: | ---: | ---: |
+| `golem-idle` | 1.0000 | 1.0000 | 1.0000 | +0.0000 |
+| `golem-brawler` | 0.3672 | 1.0000 | **1.0000** | **+0.6328 +-0.0855** |
+| `golem-driver` | 0.4805 *(mirror)* | 0.6348 | **0.7969** | **+0.3164 +-0.0562** |
+| `golem-fencer` | 0.4531 | 0.5625 | **0.8438** | **+0.3906 +-0.1069** |
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **CT4a** | vs `driver`, score above 0.60 | **0.7969** | holds |
+| **CT4b** | vs `brawler`, score above 0.50 | **1.0000** | holds |
+| **CT4c** | vs `idle`, more than 5 strokes a bout | **0.0000** | refused |
+
+**The specialisation worry is answered and the answer is no.** The calibration was searched
+against `golem-fencer` alone, on 24 seeds a candidate, and it transfers to two opponents it has
+never met -- outright, not marginally. Against the brawler it is **128 wins in 128**. Against the
+mind it was cloned from it is 408 in 512. This is not a fencer-counter.
+
+**And it is not a staller either, which is the reading this record got wrong about the last mind
+it under-rated.** `ct3` beats the driver while fighting *less*: 19.0 strokes a bout against 35.7,
+ending the fight three seconds sooner, dealing **+6.86 +-0.99** more damage and taking **-6.79
++-1.28** less, at a stroke completion of **1.0000** against the driver's 0.4337. Every stroke it
+starts, it finishes. It is the cleanest fighter in the tree by a distance.
+
+Registered mapping, and it is the first arm of it: *"if CT4a and CT4b both hold, the phase is done
+and its answer is CR composed with CT."* Both hold. **The owner's bar -- beat the hand-coded minds
+-- is met, by clone-then-calibrate, for about one PPO iteration's worth of samples.**
+
+**CT4c is refused and CS3 has already explained it exactly.** `ct3` throws zero strokes at a body
+that does nothing, because its commit logit there tops out at -0.93 and the calibration adds
++0.71. It is short by a quarter of a logit. Generation 23 of the same search pushed the offset to
++0.8662 -- still short, by 0.06 -- which is worth recording because it says the search was walking
+toward the fix and would have arrived by accident rather than by understanding. CS4 is the version
+that arrives on purpose.
+
+**One thing has to be said plainly rather than buried.** Every rung above is a *game* this project
+designed against *opponents* this project wrote, and CS1 already found that nobody kills the dummy
+by hitting it. A mind that beats every hand-coded mind in a game where the stroke barely pays is a
+real result about the search and a much smaller one about swordsmanship. CZ is where that gets
+decided and it is not decided here.
