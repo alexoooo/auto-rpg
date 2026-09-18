@@ -13,13 +13,16 @@ import {
   COMPACT_OUTPUTS, CORE_COLUMNS, columnsOf, compactDecoder, compactFromTable, compactSize,
   compactTable,
 } from "../scripts/compact-policy.mjs";
-import { solve } from "../scripts/evolve-policy.mjs";
+import { CALIBRATION_GENES, calibrated, solve } from "../scripts/evolve-policy.mjs";
+import { forward } from "../src/golem/neural-net.ts";
 import { COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES } from "../src/golem/tactics-v4.ts";
 import { PILOT_FEATURE_NAMES, pilotFeatureCount } from "../src/golem/pilot.ts";
 
 const STRAFE = COMMAND_AXES.indexOf("strafe");
 const COMMIT = COMMAND_AXES.length + COMMAND_GATES.indexOf("commit");
 const centreOf = (axis) => (COMMAND_RANGES[axis][0] + COMMAND_RANGES[axis][1]) / 2;
+/** `lean`, which is an axis in the middle of the head rather than at either end of it. */
+const AXES_UNDER_TEST = COMMAND_AXES.indexOf("lean");
 
 /** Two columns, already standardised, so a raw row is the normalised row and reads as one. */
 const twoColumns = (over = {}) => ({
@@ -160,4 +163,81 @@ test("the_ridge_solve_answers_a_small_dense_system_and_survives_a_dead_column", 
   const dead = solve(Float64Array.from([0, 0, 0, 1]), Float64Array.from([1, 2]), 2);
   assert.equal(dead[0], 0);
   assert.equal(dead[1], 2);
+});
+
+/**
+ * A network small enough to read, with the same head width a calibration wants.
+ *
+ * Deliberately not the shipped layout: the offset arithmetic that finds the output layer is the
+ * thing under test, and a fixture with one hidden layer of four rather than two of 256 would catch
+ * an offset that happens to be right only for the shape it was written against.
+ */
+const FIXTURE = { inputs: 3, hidden: [4], outputs: COMPACT_OUTPUTS };
+const fixtureTable = () => {
+  const size = 4 * (3 + 1) + COMPACT_OUTPUTS * (4 + 1);
+  const weights = Array.from({ length: size }, (_, i) => Math.sin(i * 1.7) * 0.9);
+  return { layout: FIXTURE, weights, note: "a fixture" };
+};
+const headOf = (table, input) => forward(
+  table.layout, Float64Array.from(table.weights), Float64Array.from(input),
+  [new Float64Array(4), new Float64Array(COMPACT_OUTPUTS)],
+);
+
+test("the_zero_calibration_is_the_mind_it_calibrates_weight_for_weight", () => {
+  // The whole argument for this mode is that the search starts at a mind that already fights. If
+  // the identity genome moved a single weight, generation 1 would be measuring something else and
+  // every later comparison against "the clone" would be against a mind nobody rated.
+  const table = fixtureTable();
+  const same = calibrated(table, new Float64Array(CALIBRATION_GENES));
+  assert.deepEqual(same.weights, table.weights);
+  assert.equal(same.layout, table.layout, "a calibration is not supposed to restate the layout");
+});
+
+test("a_gain_and_an_offset_move_the_head_by_exactly_that_gain_and_that_offset", () => {
+  // The property, rather than the arithmetic restated: `g * (w . h + b) + c` is what a calibration
+  // means, and the only way to see that the right *layer* was scaled is to run the network. An
+  // offset that landed on the first layer instead would change the head too, just not like this.
+  const table = fixtureTable();
+  const genes = new Float64Array(CALIBRATION_GENES);
+  genes[AXES_UNDER_TEST] = Math.log(1.75);
+  genes[COMMAND_AXES.length + AXES_UNDER_TEST] = -0.4;
+  const moved = calibrated(table, genes);
+
+  for (const input of [[0.3, -0.8, 0.5], [-1.2, 0.1, 2.0], [0, 0, 0]]) {
+    const before = headOf(table, input);
+    const after = headOf(moved, input);
+    for (let j = 0; j < COMPACT_OUTPUTS; j += 1) {
+      const want = j === AXES_UNDER_TEST ? 1.75 * before[j] - 0.4 : before[j];
+      assert.ok(Math.abs(after[j] - want) < 1e-12,
+        `output ${j} on ${input}: ${after[j]} rather than ${want}`);
+    }
+  }
+});
+
+test("a_gate_takes_an_offset_and_no_gain_because_only_its_sign_is_ever_read", () => {
+  // A gate gain is degenerate -- positive changes nothing, negative inverts the gate -- so it is
+  // not in the genome at all. What this pins is that the gate genes land on the gate biases and
+  // nowhere else: one gene, one weight.
+  const table = fixtureTable();
+  const genes = new Float64Array(CALIBRATION_GENES);
+  genes[COMMAND_AXES.length * 2 + COMMAND_GATES.indexOf("commit")] = 0.75;
+  const moved = calibrated(table, genes);
+  const differ = moved.weights.filter((w, i) => w !== table.weights[i]);
+  assert.equal(differ.length, 1, "a gate offset touched more than its own bias");
+
+  const before = headOf(table, [0.3, -0.8, 0.5]);
+  const after = headOf(moved, [0.3, -0.8, 0.5]);
+  assert.ok(Math.abs((after[COMMIT] - before[COMMIT]) - 0.75) < 1e-12, "the gate bias");
+  for (let j = 0; j < COMPACT_OUTPUTS; j += 1) {
+    if (j !== COMMIT) assert.ok(Math.abs(after[j] - before[j]) < 1e-12, `${j} moved`);
+  }
+});
+
+test("a_calibration_refuses_a_genome_or_a_head_that_is_not_the_shape_it_calibrates", () => {
+  const table = fixtureTable();
+  assert.throws(() => calibrated(table, new Float64Array(CALIBRATION_GENES - 1)),
+    /a calibration is 21 numbers; given 20/);
+  assert.throws(() => calibrated({ ...table, layout: { ...FIXTURE, outputs: 8 } },
+    new Float64Array(CALIBRATION_GENES)), /wants a 12-wide head; this table's is 8/);
+  assert.equal(CALIBRATION_GENES, 21, "nine gains, nine offsets and three gate offsets");
 });
