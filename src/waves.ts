@@ -197,18 +197,52 @@ export function mendedGolem(golem: GolemSetup): GolemSetup {
  * the pack**, and every wave after it draws from the cluster in an order the run's seed picks --
  * variety, like the bodies, because that is what the evidence supports calling it. The ramp that
  * actually rises is `carriedGolem`.
+ *
+ * ## `golem-skirmisher` is not in the cluster, and why the mirror could not have told us
+ *
+ * The table above is a mirror: default body against default body. That is exactly the cell in
+ * which this style's one structural claim -- that it branches on reach, a long arm's rules and a
+ * short arm's being different rules -- is definitionally inert. A mirror has no reach edge for a
+ * style to convert, so 0.4941 was never evidence about it either way.
+ *
+ * Measured 2026-09-18 in the cell that can see it, a `wrist`+blade arm (long) against a
+ * `pitch`+blade arm (short), 128 seeds x both corners = 256 bouts a cell:
+ *
+ * | holding the edge | score | | at the deficit | score |
+ * | --- | ---: | --- | --- | ---: |
+ * | `golem-fencer` long vs short | **0.7500** | | `golem-fencer` short vs long | **0.2500** |
+ * | `golem-skirmisher` long vs short | 0.5586 | | `golem-skirmisher` short vs long | 0.1172 |
+ * | the style's cost | **-0.191 (-4.3 sigma)** | | | **-0.133 (-3.0 sigma)** |
+ *
+ * **The claim is not merely unsupported, it is backwards, in both directions at once.** Handed a
+ * reach advantage the skirmisher converts 0.19 less of it than the plain fencer does; handed the
+ * deficit it loses by more as well. Nothing here is close to the noise.
+ *
+ * The two fencer cells are the instrument's control and they sum to 1.0000 exactly, which is what
+ * a mirrored pair of asymmetric cells must do and is the reason these numbers can be read at all.
+ *
+ * **The other half of that table is the more useful finding.** A reach edge alone moves a bout
+ * from 0.25 to 0.75 -- a swing of 0.50 where the entire designed mind ladder spans 0.075. Body
+ * beats mind by nearly seven to one. The roster of morphologies is a real difficulty curve and the
+ * minds are not, which is the opposite of the weighting the plan assumed.
+ *
+ * One caveat is owed, and it is the reason the module is kept rather than deleted: every number
+ * on this page was taken over a blade that arrives flat. `roll` is a constant in the executor and
+ * never a function of the target, so a committed cut lands on whichever face the geometry happens
+ * to give it -- and a style whose whole tactic is one committed cut per approach is the style that
+ * defect would punish hardest. If the wrist reflex lands, this cell is the first one to re-run.
  */
 const WAVE_OPENER = "golem-brawler";
 
 const WAVE_CLUSTER: readonly string[] = Object.freeze([
-  "golem-champion", "golem-duelist", "golem-fencer", "golem-skirmisher",
+  "golem-champion", "golem-duelist", "golem-fencer",
   "golem-tactician", "golem-guardian", "golem-form", "golem-planner", "golem-driver",
 ]);
 
 function wavePolicy(run: WaveRun): string {
   if (run.wave <= 1) return WAVE_OPENER;
   // Offset from the roster's shuffle so the pairing of body and mind is not the same pairing
-  // every run: nine minds and twelve bodies would otherwise walk in lockstep from the same seed.
+  // every run: eight minds and twelve bodies would otherwise walk in lockstep from the same seed.
   const random = mulberry32(run.seed ^ 0x5f3a);
   const pool = [...WAVE_CLUSTER];
   for (let i = pool.length - 1; i > 0; i -= 1) {

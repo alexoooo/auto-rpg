@@ -2737,111 +2737,41 @@ test("golem_skirmisher_stays_inside_the_envelope_and_is_deterministic_under_a_se
 });
 
 /**
- * The whole thing on a real body: `golem-skirmisher` against `golem-fencer` for fourteen seconds.
+ * RETRACTED 2026-09-18: `golem_skirmisher_fights_the_fencer_and_asks_its_feet_backwards_more_often`
  *
- * The claim is the style's shape rather than its rating -- the rating is the tournament's and
- * lives in `docs/measurements.md`. What is asserted is that the bout runs end to end, that the
- * skirmisher lands, and that it asks its feet to go **backwards** more often than the fencer does.
+ * This test asserted that the skirmisher asks its feet backwards more often than the fencer does,
+ * pooled over ten seeds and holding on a majority of them. It is gone rather than relaxed, and the
+ * distinction matters, so here is what was measured and what was decided.
  *
- * The measure is the commanded step and not the gap, and the first draft of this test got that
- * wrong in a way worth recording: on a mirrored build the socket-to-socket gap is one number
- * shared by both sides and every geometric column derived from it is symmetric, so "the skirmisher
- * stayed further out than the fencer" is not a sentence that can be false. Worse, the version that
- * compared the mean gap against a fencer-versus-fencer control *failed*: 1.808 m against 1.853,
- * because a committed cut walks its feet in through the wind-up, so a style that comes in for one
- * cut and leaves brings the pair closer than two styles that stand at their own points. That is a
- * finding about the executor rather than a broken test, and the tournament in Session 05's entry
- * is where it is measured properly.
+ * It first went red when `TORSO_WAIST.twistRate` moved 1.0 -> 4.0. With the trunk finally turning
+ * behind a stroke the pooled ratio fell from 1.50 to 1.06, and isolated over five seeds the
+ * skirmisher's own back-stepping barely moved (-4 %) while the fencer's rose 19 %. The style did
+ * not stop being evasive; the thing it was evasive against became evasive too. That left the
+ * question the note ended on -- whether `golem-skirmisher` still earns its own row -- open, and it
+ * was escalated rather than answered, because footwork alone could not answer it.
+ *
+ * It is answered now, and not on footwork. Every measurement this style had ever been judged on,
+ * including the one above, was taken on a **mirrored** build, which is the one cell in which its
+ * single structural claim cannot be tested: it is the only style that branches on reach, and a
+ * mirror has no reach to branch on. Run in the cell that can see it -- a `wrist`+blade arm against
+ * a `pitch`+blade arm, 256 bouts a cell -- the claim comes back backwards. Holding the reach edge
+ * it scores 0.5586 where the plain fencer scores 0.7500 (-4.3 sigma); holding the deficit, 0.1172
+ * against 0.2500 (-3.0 sigma). The two fencer cells sum to 1.0000 exactly, which is the control.
+ *
+ * So the style is dominated in both directions, and it is no longer distinguishable by the
+ * footwork this test was watching. A test can be re-derived when its claim is true at a new
+ * operating point and merely stated wrongly. This claim is false at the new operating point, so
+ * there is nothing to re-derive and nothing to keep: `golem-skirmisher` is out of `WAVE_CLUSTER`,
+ * the full table is on `wavePolicy` in `src/waves.ts`, and the style's remaining tests below still
+ * assert what is still true of it -- its patience, its stand-off, and that it does not retreat
+ * from outside their reach.
+ *
+ * The module is kept for one stated reason: every number above was taken over a blade that arrives
+ * flat, because `roll` in the executor is a constant and never a function of the target. A style
+ * built on one committed cut per approach is the style that defect punishes hardest, so if the
+ * wrist reflex lands, this is the first cell to re-run -- and this block is what to re-run it
+ * against.
  */
-test("golem_skirmisher_fights_the_fencer_and_asks_its_feet_backwards_more_often", async () => {
-  const setup = defaultGolemSetup();
-  const blows = { left: 0, right: 0 };
-  const counting = (name, inner, side, back) => ({
-    name,
-    decide: (view, dt) => {
-      const intent = inner.decide(view, dt);
-      if (intent.forward < 0) back[side] += 1;
-      return intent;
-    },
-  });
-  // **Ten seeds, because the claim is distributional and one bout cannot carry it.**
-  //
-  // This ran one seed until 2026-09-18 and asserted `back.left > back.right` on it. It went red
-  // after the arm was corrected -- 1249 against 1349 -- and the useful thing is what happened when
-  // the same comparison was taken over ten seeds instead of one:
-  //
-  //     seed   skirmisher   fencer   ratio        seed   skirmisher   fencer   ratio
-  //     ...904     1249      1349    0.926        ...969     1203      1411    0.853
-  //     ...917     1030       619    1.664        ...982     1691      1290    1.311
-  //     ...930     1063       949    1.120        ...995     1739      1383    1.257
-  //     ...943     2312      1102    2.098        ...008     2956       461    6.412
-  //     ...956     1362      1566    0.870        ...021     1285       455    2.824
-  //
-  // **The style's claim is true and the bout this test was pinned to is one of the three where it
-  // is not.** Seven of ten, and 15890 back-steps against 10585 pooled -- a ratio of 1.50, which is
-  // not a close thing. A single bout was never evidence for a claim of this shape; it happened to
-  // agree before the arm changed, and agreeing by luck is the failure mode the house rule about
-  // a mind against its own noise exists to catch. So the comparison is taken over the ten, pooled
-  // and by seed, which asserts more than the single bout did rather than less.
-  //
-  // ---
-  //
-  // **2026-09-18, later the same day: this is red on purpose, and what moved was the fencer.**
-  // `TORSO_WAIST.twistRate` went 1.0 -> 4.0 because the mind's commanded trunk twist was arriving
-  // on 0 strokes in 18, and with the trunk finally turning behind a stroke the pooled ratio fell
-  // from 1.50 to 1.06. Isolated over five seeds, holding everything else:
-  //
-  //     twistRate   skirmisher back-steps   fencer back-steps   ratio
-  //        1.0              8451                  6981          1.211
-  //        4.0              8093                  8279          0.978
-  //
-  // **The skirmisher barely changed -- 4 % -- and the fencer backed off 19 % more.** The style did
-  // not stop being evasive; the thing it was evasive *against* became evasive too, and on this
-  // measure the two styles have converged. That is a statement about what a style is, and
-  // rewriting the claim to whatever still separates them would be fitting the test to the code.
-  // So it stays red with the numbers, and the question -- whether `golem-skirmisher` still earns
-  // its own row now that a committed stroke moves the whole body -- is the owner's.
-  const SEEDS = [];
-  for (let k = 0; k < 10; k += 1) SEEDS.push(20260904 + k * 13);
-  const pooled = { left: 0, right: 0 };
-  let seedsBackingOff = 0;
-  let result = null;
-  for (const seed of SEEDS) {
-    const back = { left: 0, right: 0 };
-    const run = runBout({
-      left: "golem-skirmisher", right: "golem-fencer",
-      leftUnit: "golem", rightUnit: "golem",
-      leftGolem: setup, rightGolem: setup,
-      locomotionMode: "supported",
-      seeds: [seed, seed + 17],
-      maxSeconds: 14,
-      physics: await freshHavok(),
-      leftMind: counting("golem-skirmisher", golemSkirmisher(seed), "left", back),
-      rightMind: counting("golem-fencer", golemFencer(seed + 17), "right", back),
-      onEvent: (event) => { blows[event.side] += 1; },
-    });
-    pooled.left += back.left;
-    pooled.right += back.right;
-    if (back.left > back.right) seedsBackingOff += 1;
-    if (seed === SEED) result = run;
-  }
-  // The window floor, restated 2026-09-18 for the reason written out at the planner's cadence
-  // test above: a bout that ends early because one of them won is the game working, and the seed
-  // this reads ran 10.7 s of fourteen. What follows counts back-steps on both sides, so it needs
-  // a window and not a full window.
-  assert.ok(result.ending === "exhausted" || result.seconds > 13,
-    `the bout ran ${result.seconds.toFixed(1)} s of fourteen and ended "${result.ending}"`);
-  assert.ok(result.seconds > 5,
-    `the bout ran ${result.seconds.toFixed(1)} s, too short to compare two minds' footwork over`);
-  assert.ok(blows.left > 0, "golem-skirmisher landed nothing at all in fourteen seconds");
-  assert.ok(pooled.left > pooled.right * 1.15,
-    `over ${SEEDS.length} seeds the skirmisher asked for a step back on ${pooled.left} steps and `
-    + `the fencer on ${pooled.right}, a ratio of `
-    + `${(pooled.left / pooled.right).toFixed(3)} against the 1.50 measured`);
-  assert.ok(seedsBackingOff > SEEDS.length / 2,
-    `the skirmisher backed off more than the fencer on ${seedsBackingOff} of ${SEEDS.length} `
-    + "seeds, so the style's shape does not survive a change of seed");
-});
 
 /** The guardian, with a hook that writes down every ask: `skirmisherSaying` for the third style. */
 function guardianSaying(seed, over = {}) {
