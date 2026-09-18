@@ -1,10 +1,11 @@
 // CR2: does the clone fight like the mind it was copied from? Paired, seed by seed.
 //
-//   node scripts/clone-duel.mjs [--seeds 128] [--cap 60] [--opponent golem-fencer]
+//   node scripts/clone-duel.mjs [--seeds 128] [--cap 60] [--opponent golem-fencer] [--lanes 32]
 //                               [--arms driver,clone,policy] [--seed 20260919]
 //                               [--tables clone=snapshots/cr-clone.json,ao=snapshots/x.json]
 //
-// `driver` and `policy` are built in -- the hand-coded mind and the shipped fitted one. Any other
+// `driver`, `policy` and `idle` are built in -- the hand-coded mind, the shipped fitted one, and a
+// body that does nothing, which is the control CT2 made necessary. Any other
 // arm name must be given a table by `--tables`, which is what lets a snapshot from an older physics
 // be re-rated on exactly this instrument rather than on a second one that merely resembles it.
 //
@@ -53,7 +54,8 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
   const { golemPolicy } = await import("../src/golem/policy.ts");
   const { POLICY_WEIGHTS } = await import("../src/golem/policy-weights.ts");
-  const { GOLEM_TACTICS_V4 } = await import("../src/golem/tactics-v4.ts");
+  const { compactFromTable, COMPACT_KIND } = await import("./compact-policy.mjs");
+  const { GOLEM_TACTICS_V4, golemDriven } = await import("../src/golem/tactics-v4.ts");
   const { golemFencer } = await import("../src/golem/tactics-v2.ts");
   const { golemBrawler } = await import("../src/golem/styles/brawler.ts");
   const { idleMind } = await import("../src/mind.ts");
@@ -96,9 +98,25 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
       if (command.abort >= 0.5) gates.abort += 1;
       if (command.parry >= 0.5) gates.parry += 1;
     };
-    if (arm === "driver") {
+    if (arm === "idle") {
+      // The control, and the cheapest one in the record: a body that holds its blade out and does
+      // nothing at all. CT2 evolved a mind that wins without ever raising `commit`, and the
+      // question that answers is whether the genome found something or whether a statue is simply
+      // competitive here. It has no executor, so it throws no strokes and asks for nothing.
+      left = { name: "golem-idle", driven: null, decide: idleMind().decide };
+    } else if (arm === "driver") {
       driven = golemDriver(seed, DRIVER, watch);
       left = { name: "golem-driver", driven, decide: (v, dt) => driven.decide(v, dt) };
+    } else if (loaded !== null && loaded.kind === COMPACT_KIND) {
+      // CT evolves a genome, not a policy table, and it has to be rateable on the instrument every
+      // other arm is rated on -- a second rating path is a second set of numbers to reconcile.
+      const pilot = compactFromTable(loaded);
+      driven = golemDriven(seed, GOLEM_TACTICS_V4, (reading, view) => {
+        const command = pilot(reading, view);
+        watch(reading, view, command);
+        return command;
+      });
+      left = { name: `golem-${arm}`, driven, decide: (v, dt) => driven.decide(v, dt) };
     } else {
       // Greedy, always: the mean of the head is what a played mind does, and CP measured what
       // sampling costs a stroke. An arm drawn from its own spread would be a different mind.
@@ -122,12 +140,14 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
       score: bout.winner === "left" ? 1 : bout.winner === null ? 0.5 : 0,
       decided: bout.winner === null ? 0 : 1,
       seconds: bout.seconds,
-      strokes: driven.strokes,
-      aborts: driven.aborts,
-      completion: driven.strokes === 0 ? 0 : (driven.strokes - driven.aborts) / driven.strokes,
+      strokes: driven === null ? 0 : driven.strokes,
+      aborts: driven === null ? 0 : driven.aborts,
+      completion: driven === null || driven.strokes === 0
+        ? 0 : (driven.strokes - driven.aborts) / driven.strokes,
       damage: me.damage,
       taken: them.damage,
       hits: me.hits,
+      severs: me.severs,
       contacts: me.speeds.length,
       speed: mean(me.speeds),
       peak: me.peakTipDriven,
@@ -144,7 +164,7 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
 
 const COLUMNS = [
   "score", "decided", "seconds", "strokes", "completion", "damage", "taken",
-  "hits", "contacts", "speed", "peak", "retreat", "inside",
+  "hits", "severs", "contacts", "speed", "peak", "retreat", "inside",
   "asked", "commitRate", "abortRate", "parryRate",
 ];
 
@@ -168,7 +188,7 @@ async function main(argv) {
   // Refused rather than quietly fetching `POLICY_WEIGHTS`, which would report the shipped mind
   // under a snapshot's name and be indistinguishable in the table from a real reading of it.
   for (const arm of arms) {
-    if (arm !== "driver" && arm !== "policy" && tables[arm] === undefined) {
+    if (arm !== "driver" && arm !== "policy" && arm !== "idle" && tables[arm] === undefined) {
       throw new Error(`arm "${arm}" has no table; pass --tables ${arm}=path/to/weights.json`);
     }
   }
@@ -196,7 +216,10 @@ async function main(argv) {
     });
   });
 
-  const lanes = Math.max(1, Math.min(availableParallelism(), plan.length));
+  // Capped by a flag rather than only by the host, because a duel run beside a search would
+  // otherwise take every thread the search is already using and slow both.
+  const lanes = Math.max(1, Math.min(Number(flagOf(argv, "--lanes", String(availableParallelism()))),
+    plan.length));
   const results = new Array(plan.length);
   let next = 0;
   const lane = async () => {

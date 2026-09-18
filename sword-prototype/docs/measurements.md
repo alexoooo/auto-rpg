@@ -41922,3 +41922,76 @@ shoving"* -- so CS1c is not a skill claim. It is a claim about whether the mind 
 expert is a function, so a DAgger round can be collected against any opponent: `idle`, `brawler`,
 `driver`, and the fencer it already has. That costs one collection run and no new machinery. It is
 registered here as the consequence rather than run now, because CT2 and CT3 own the threads.
+
+### CT2's result -- withdrawn as a test, kept as a measurement of the game
+
+One generation, and the run was stopped.
+
+| gen | parent fit | best fit | score | decided | strokes | completion |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0.0729 | 0.6771 | 0.7292 | 0.792 | **2.1** | 0.760 |
+
+On the face of it every bar reads: CT2a holds (the distilled seed wins about one bout in
+twenty-four), CT2b holds by six times its bar, and CT2c is refused outright -- 0.7292 against the
+clone's 0.3672 and the driver's 0.4531, in **one generation of a 864-number search**.
+
+**All three are withdrawn.** The mind that did it does not fight. Rated on the same instrument every
+other arm is rated on, 8 paired seeds at a 60-second cap:
+
+| column | driver | the evolved compact mind |
+| --- | ---: | ---: |
+| score | 0.5000 | **0.7500** |
+| strokes a bout | 34.88 | **0.00** |
+| `commit` a ask | 0.0906 | **0.0000** |
+| damage dealt | 57.16 | 53.83 |
+| damage taken | 59.90 | **44.05** |
+| contacts | 221.0 | **282.0** |
+| mean contact speed | 7.000 | **4.250** |
+| peak tip speed | 27.35 | **11.45** |
+
+It raises `commit` on **zero** asks of 606 a bout, and throws no strokes at all, while collecting
+282 contacts at 4.25 m/s against the driver's 221 at 7.00 -- within seven per cent of the same
+damage, while taking a quarter less. **The search found this in one generation.**
+
+#### The statue control, which is what the first reading of that table would have got wrong
+
+The obvious story is that it holds its blade out and lets the fencer run onto the edge. **That story
+is wrong, and the cheapest possible control says so.** `clone-duel.mjs` grew an `idle` arm -- a body
+that holds its blade out and does nothing whatever -- and over 24 paired seeds at a 60-second cap:
+
+| column | driver | **idle** | the evolved mind |
+| --- | ---: | ---: | ---: |
+| score | 0.3750 | **0.1875** | 0.6458 |
+| damage dealt | 54.62 | **1.19** | 47.78 |
+| contacts | 205.8 | 128.6 | 292.7 |
+| mean contact speed | 7.038 | **1.229** | 3.996 |
+| peak tip speed | 25.57 | **4.940** | 12.49 |
+| strokes a bout | 31.79 | 0.00 | 0.96 |
+| `commit` a ask | 0.0881 | 0.0000 | 0.0128 |
+
+A statue deals **1.19 damage a bout** and loses. Standing still is not the exploit. The evolved mind
+drives its blade at a peak of 12.5 m/s where the statue's drifts at 4.9, and steers it into 293
+contacts where the statue catches 129. It is fighting -- it is just fighting **entirely outside the
+stroke machinery**, on the continuous axes, and never entering a committed stroke at all.
+
+So the finding is sharper and more uncomfortable than an exploit. **The whole chamber-and-cut
+apparatus the fourth executor provides -- `commit`, the arc, the abort, the cooldown, the two stroke
+constants this phase shipped -- is not necessary to beat `golem-driver`.** On these seeds a mind
+that never uses it scores 0.6458 against the driver's 0.3750, dealing 87 % of the damage and taking
+73 % of it, at 57 % of the contact speed.
+
+This is the owner's own complaint seen from behind. The standing note is *"the attacking technique
+is just too poor to do real damage"*. Thirteen sessions have asked why a learned mind will not
+strike properly, and part of the answer is that **striking properly is not what pays**. AR found
+the same shape against a dummy -- *"a 9.81x slower arc keeps 89 % of the damage"* -- and concluded
+*"any bar stated on `idle` measures shoving"*. CT2 says the conclusion was too narrow: it is not
+only the dummy that pays for slow contact.
+
+**This is a decision for the owner and is not being taken here.** Making the stroke pay -- an energy
+term, a higher cut floor, a speed-scaled wound -- changes the game for every mind in the tree,
+including `golem-fencer` and `golem-driver`, which are the yardsticks this whole phase is measured
+against, and every rating in this record would have to be re-taken. `tournaments/ct/ct2-void.json`
+keeps the mind so the reading can be reproduced.
+
+What CT2 was actually asking -- **is a small mind enough?** -- is unanswerable on this fitness. A
+search that can win without striking never has to find out whether 864 numbers can express striking.
