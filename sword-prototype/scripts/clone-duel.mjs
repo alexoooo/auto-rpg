@@ -1,7 +1,12 @@
 // CR2: does the clone fight like the mind it was copied from? Paired, seed by seed.
 //
 //   node scripts/clone-duel.mjs [--seeds 128] [--cap 60] [--opponent golem-fencer]
-//                               [--clone snapshots/cr-clone.json] [--seed 20260919]
+//                               [--arms driver,clone,policy] [--seed 20260919]
+//                               [--tables clone=snapshots/cr-clone.json,ao=snapshots/x.json]
+//
+// `driver` and `policy` are built in -- the hand-coded mind and the shipped fitted one. Any other
+// arm name must be given a table by `--tables`, which is what lets a snapshot from an older physics
+// be re-rated on exactly this instrument rather than on a second one that merely resembles it.
 //
 // ## What this is for
 //
@@ -43,7 +48,7 @@ const sem = (xs) => {
 };
 
 /** One arm over some seeds, in a child, so a crashed bout cannot take the table with it. */
-async function cell({ arm, seeds, cap, opponent, clonePath }) {
+async function cell({ arm, seeds, cap, opponent, tablePath }) {
   const { freshHavok, runBout } = await import("./bout-runner.mjs");
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
   const { golemPolicy } = await import("../src/golem/policy.ts");
@@ -53,8 +58,8 @@ async function cell({ arm, seeds, cap, opponent, clonePath }) {
   const { golemBrawler } = await import("../src/golem/styles/brawler.ts");
   const { defaultGolemSetup } = await import("../src/golem/build.ts");
 
-  const clone = arm === "clone"
-    ? JSON.parse(readFileSync(resolve(ROOT, clonePath), "utf8")) : null;
+  const loaded = tablePath === null
+    ? null : JSON.parse(readFileSync(resolve(ROOT, tablePath), "utf8"));
   const physics = await freshHavok();
   const rows = [];
 
@@ -67,7 +72,7 @@ async function cell({ arm, seeds, cap, opponent, clonePath }) {
     } else {
       // Greedy, always: the mean of the head is what a played mind does, and CP measured what
       // sampling costs a stroke. An arm drawn from its own spread would be a different mind.
-      const table = arm === "clone" ? clone : POLICY_WEIGHTS;
+      const table = loaded ?? POLICY_WEIGHTS;
       const mind = golemPolicy(seed, table, GOLEM_TACTICS_V4, null, false, null);
       driven = mind.driven;
       left = { name: `golem-${arm}`, driven, decide: (v, dt) => mind.decide(v, dt) };
@@ -113,16 +118,32 @@ async function main(argv) {
   const cap = Number(flagOf(argv, "--cap", "60"));
   const base = Number(flagOf(argv, "--seed", "20260919"));
   const opponent = flagOf(argv, "--opponent", "golem-fencer");
-  const clonePath = flagOf(argv, "--clone", "snapshots/cr-clone.json");
   const shards = Math.max(1, Math.min(availableParallelism(), 16));
 
-  const seeds = Array.from({ length: count }, (_, i) => base + i * 101);
   // `policy` is the shipped fitted mind and is here as the floor, not as a contender: it is what
   // thirteen sessions of gradient bought, and a clone that cannot beat it has not earned the phase.
-  const arms = ["driver", "clone", "policy"];
+  const arms = (flagOf(argv, "--arms", "driver,clone,policy"))
+    .split(",").map((a) => a.trim()).filter((a) => a !== "");
+  const tables = Object.fromEntries((flagOf(argv, "--tables", "clone=snapshots/cr-clone.json"))
+    .split(",").filter((part) => part.trim() !== "").map((part) => {
+      const at = part.indexOf("=");
+      if (at === -1) throw new Error(`--tables wants name=path, got "${part}"`);
+      return [part.slice(0, at).trim(), part.slice(at + 1).trim()];
+    }));
+  // Refused rather than quietly fetching `POLICY_WEIGHTS`, which would report the shipped mind
+  // under a snapshot's name and be indistinguishable in the table from a real reading of it.
+  for (const arm of arms) {
+    if (arm !== "driver" && arm !== "policy" && tables[arm] === undefined) {
+      throw new Error(`arm "${arm}" has no table; pass --tables ${arm}=path/to/weights.json`);
+    }
+  }
+  if (arms.length < 2) throw new Error("a paired table wants at least two arms");
+
+  const seeds = Array.from({ length: count }, (_, i) => base + i * 101);
   const slice = Math.ceil(seeds.length / shards);
   const plan = arms.flatMap((arm) => Array.from({ length: shards }, (_, s) => ({
-    arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent, clonePath,
+    arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent,
+    tablePath: tables[arm] ?? null,
   }))).filter((c) => c.seeds.length > 0);
 
   console.log(`clone duel: ${arms.join(", ")} against ${opponent}, ${count} paired seeds`
@@ -171,26 +192,32 @@ async function main(argv) {
     console.log(`| ${column} | ${cells.map((c) => c.toFixed(4)).join(" | ")} |`);
   }
 
+  // Everything is differenced against the first arm, which is the reference by construction --
+  // for CR that is the driver, and for a snapshot re-rating it is whatever the caller put first.
+  const ref = arms[0];
+  const rest = arms.slice(1);
   console.log("");
-  console.log(`Paired against the driver over ${shared.length} shared seeds,`
+  console.log(`Paired against ${ref} over ${shared.length} shared seeds,`
     + " mean difference and two sigma:");
   console.log("");
-  console.log("| column | clone - driver | policy - driver |");
-  console.log("| --- | ---: | ---: |");
+  console.log(`| column | ${rest.map((a) => `${a} - ${ref}`).join(" | ")} |`);
+  console.log(`| --- | ${rest.map(() => "---:").join(" | ")} |`);
   for (const column of COLUMNS) {
-    const cells = ["clone", "policy"].map((arm) => {
-      const d = shared.map((s) => table[arm].get(s)[column] - table.driver.get(s)[column]);
+    const cells = rest.map((arm) => {
+      const d = shared.map((s) => table[arm].get(s)[column] - table[ref].get(s)[column]);
       const m = mean(d);
       return `${m >= 0 ? "+" : ""}${m.toFixed(4)} +-${(2 * sem(d)).toFixed(4)}`;
     });
     console.log(`| ${column} | ${cells.join(" | ")} |`);
   }
 
-  const gap = mean(shared.map((s) => table.clone.get(s).score))
-    - mean(shared.map((s) => table.driver.get(s).score));
-  console.log("");
-  console.log(`CR2: the clone is ${Math.abs(gap).toFixed(4)} ${gap >= 0 ? "above" : "below"}`
-    + ` the driver on score. Registered bar: within 0.10, refused beyond 0.20.`);
+  if (arms.includes("clone") && arms.includes("driver")) {
+    const gap = mean(shared.map((s) => table.clone.get(s).score))
+      - mean(shared.map((s) => table.driver.get(s).score));
+    console.log("");
+    console.log(`CR2: the clone is ${Math.abs(gap).toFixed(4)} ${gap >= 0 ? "above" : "below"}`
+      + ` the driver on score. Registered bar: within 0.10, refused beyond 0.20.`);
+  }
 }
 
 const RUN_AS = process.argv[1] ?? "";

@@ -41554,3 +41554,47 @@ mean rather than counted as a free 1.0.
 **That the expert is constant on most of its command surface is itself the first CR finding**, and
 it reframes what a clone has to learn: not nine continuous axes, but four that move and three rare
 gates -- and the rare gates are where the fighting is. `commit` at one ask in ten is the swing.
+
+### CR, first result: `golem-driver`'s whole repertoire is five degrees of freedom
+
+Before any clone was fitted, the collected corpus was read for what the **expert** does. 145,124
+asks over 256 bouts against `golem-fencer`, every field as the action space sees it:
+
+| field | min | max | mean | sd | what it does |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `standOff` | 0.0600 | 0.0600 | 0.0600 | 0.00000 | **constant** |
+| `strafe` | -0.9000 | 0.9000 | 0.1239 | 0.27879 | continuous |
+| `lean` | -0.2500 | 0.6000 | 0.2460 | 0.31918 | three values |
+| `advance` | -0.8000 | 1.0000 | 0.3834 | 0.58018 | three values |
+| `targetHeight` | -0.0905 | 0.4251 | 0.4015 | 0.01323 | fixed but for rare dips |
+| `targetLateral` | 0.0000 | 0.0000 | 0.0000 | 0.00000 | **constant** |
+| `reach` | 0.7000 | 0.7000 | 0.7000 | 0.00000 | **constant** |
+| `swing` | 1.0000 | 1.0000 | 1.0000 | 0.00000 | **constant** |
+| `bite` | 0.3200 | 0.3200 | 0.3200 | 0.00000 | **constant** |
+| `commit` | 0 | 1 | 0.0857 | 0.27989 | gate |
+| `abort` | 0 | 1 | 0.0319 | 0.17567 | gate |
+| `parry` | 0 | 1 | 0.0674 | 0.25073 | gate |
+
+**Five of the nine axes are literally constant** -- not nearly, not within a tolerance: minimum
+equals maximum over a hundred and forty-five thousand asks. `targetHeight` is a sixth for every
+practical purpose, at a spread of 0.013. What moves is `strafe` continuously, `lean` over
+{-0.25, 0, 0.6}, `advance` over {-0.8, 0, 1}, and three rare bits.
+
+The constants say what the mind is: it always cuts with a fully committed arc (`swing` 1.0) at a
+bite of two-thirds, holds its guard at a fixed 0.7 of the shell, aims at a fixed height on the
+centre line, and stands at a fixed 1.06 of the opponent's reach. **It never varies its stroke. It
+varies where its feet are and whether it swings.**
+
+#### Why this is the most useful thing CR has produced so far
+
+The plan's argument for CT -- evolution over a *compact* policy of tens to low hundreds of
+parameters -- rested on the claim that *"competent behaviour on this surface is five hand-written
+rules"*. That was an assertion about a file. **It is now a measurement over the expert's own
+output, and it came out at five effective degrees of freedom, three of them all but discrete.**
+A gradient-free search scales badly with parameter count, and the reason to think a small policy
+is enough here is no longer an argument from source code.
+
+It also resizes CR itself. A clone is not learning nine continuous axes and three gates; it is
+learning three axes, of which two take three values each, plus when to raise `commit` -- which at
+one ask in twelve is the swing, and is the only part of this that is the fighting. The shipped
+actor spends 87,308 weights on a function with this much in it.
