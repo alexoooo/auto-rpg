@@ -43221,3 +43221,44 @@ no cost anywhere measured -- and every rating in this record that quotes `golem-
 by that much, including CS1, CS2, CT3, CT4, CT5 and DA itself. Leave it and the record stays
 comparable and the yardstick stays one number below its own best. Both are defensible; the numbers
 are here; the call is the owner's.
+
+### CW1 -- the loop's second round, registered before it runs
+
+The agenda's CW asks whether this composition closes into a loop. Round one is on the record: a
+clone of `golem-driver`, then twenty-one numbers searched over its output layer, giving `ct3` at
+0.8490 against `golem-fencer` where the mind it copied scores 0.3854. Round two is the same search
+with **the champion of round one as the body to beat**.
+
+`node scripts/evolve-policy.mjs calibrate --table snapshots/ct-calib1.json --opponent
+snapshots/ct-calib1.json` -- start from CT3's own weights, search a fresh twenty-one numbers,
+and score every candidate against a **frozen** CT3. Frozen is the whole design. The record already
+measured what happens when both sides move together: `dealt - taken` telescopes to zero, `win`
+cancels, and the surviving objective is maximised by standing still outside reach -- the
+400-iteration run that did exactly that is in the record at maul damage 37.6 to 9.3. A frozen
+opponent has none of that. It is an opponent, not a mirror.
+
+20 generations, (1+12), 20 seeds a candidate, cap 150 -- roughly 4,400 bouts, which is under half
+what round one cost because the cap is now correct and the bouts resolve.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **CW1a** | round two beats **frozen CT3** over 0.60 on the search's own seeds | under 0.50 |
+| **CW1b** | round two beats CT3 head to head on **fresh** seeds, over 0.55 | at or under 0.50 |
+| **CW1c** | round two holds its `golem-fencer` score within 0.10 of 0.8490 | below 0.70 |
+| **CW1d** | round two holds `golem-brawler` at 1.0000 and `golem-idle` at 1.0000 | either drops |
+
+**The total verdict mapping (rule 9).** If CW1b holds and CW1c holds, **the loop turns**: a mind
+improved on the previous champion without any new labels, any new hand-written opponent, or any
+curriculum, and the phase has a self-improvement operator rather than a one-shot trick. That is the
+answer to *"properly fighting learned AIs"* -- the opponent that gets harder is the thing we just
+built. If CW1b holds and CW1c is **refused**, the loop turns but it turns into a specialist: round
+two beats round one by learning round one rather than by getting better, which is the classic
+self-play failure and means the objective needs the hand-coded minds in it as anchors. If CW1a
+holds and CW1b does not, the search overfitted its own twenty seeds, and the answer is more seeds a
+candidate, not more generations. If CW1a is refused, CT3 is a fixed point of this operator and the
+loop is one round deep -- which is worth knowing in one night rather than ten.
+
+I expect CW1a to hold, CW1b to hold small, and **CW1c to be the one at risk**: a search whose only
+objective is beating CT3 has no reason to keep CT3's fencer score, and nothing in the loop as
+written tells it to. If that is what happens, the fix is already named above and CW2 becomes the
+anchored objective rather than the pure one.
