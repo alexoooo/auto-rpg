@@ -43085,3 +43085,101 @@ cheap. The note is now at the `execFile` call, where somebody about to make the 
 read it.
 
 The screen was relaunched unchanged after the gates, and its numbers follow.
+
+#### DA1's result -- the driver is at a local optimum in sixteen of seventeen directions
+
+34 arms, 128 paired seeds each against `golem-fencer` at cap 150. Screening numbers, not quotable;
+DA2 confirms below. The driver's own score on these seeds is **0.4531**.
+
+| move | delta | move | delta |
+| --- | ---: | --- | ---: |
+| `cutLean` 1.00 | **+0.1641** | `guardReach` 1.00 | -0.1015 |
+| `holdFraction` 0.55 / 0.95 | 0.0000 / 0.0000 | `circleStrafe` 1.00 | -0.1093 |
+| `longStandOff` 0.80 / 1.40 | 0.0000 / 0.0000 | `voidStrafe` 1.00 | -0.1172 |
+| `patience` 1.0 | 0.0000 | `circleSeconds` 0.40 | -0.1250 |
+| `strikeBite` 0.90 | 0.0000 | `feintHoldSeconds` 0.08 | -0.1250 |
+| `standOffFraction` 0.80 | -0.0117 | `patience` 4.0 | -0.1328 |
+| `withdrawLean` -0.60 | -0.0234 | `strikeBite` 0.40 | -0.1406 |
+| `circleDuty` 0.15 | -0.0312 | `circleStrafe` 0.25 | -0.1484 |
+| `standOffFraction` 1.40 | -0.0468 | `circleDuty` 0.80 | -0.1562 |
+| `cutReachMetres` 0.60 | -0.0547 | `guardReach` 0.45 | -0.1718 |
+| `feintFraction` 0.00 | -0.0547 | `voidStep` 0.40 | -0.1953 |
+| `withdrawLean` 0.10 | -0.0547 | `feintFraction` 0.40 | -0.2500 |
+| `feintHoldSeconds` 0.36 | -0.0781 | `strokeSwing` 0.60 | -0.3281 |
+| `circleSeconds` 1.80 | -0.0859 | `cutLean` 0.25 | -0.4140 |
+| `voidStep` 1.00 | -0.0859 | `cutReachMetres` 0.10 | **-0.4531** |
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **DA1a** | `cutLean` is still the largest single lever | **+0.1641**, next is 0.0000 | holds |
+| **DA1b** | at least one *other* row clears +0.05 | **none is even positive** | refused |
+| **DA1c** | the best single row stays under +0.35 | **+0.1641** | holds |
+
+**DA1b is refused and it is the finding of the cell.** Thirty-three moves, and exactly one is an
+improvement. Six are inert to the bout -- `holdFraction` and `longStandOff` do nothing in either
+direction, so two of the seventeen rows are dead levers against this opponent -- and the other
+twenty-six all lose, several of them catastrophically: `cutReachMetres` at 0.10 loses **every one of
+128 bouts**.
+
+So the mapping's third arm fires as written. **`golem-driver` is at a local optimum in sixteen of
+seventeen coordinate directions**, which is a surprising thing to be able to say about a mind that
+was written by hand in an afternoon on 2026-09-06 and whose numbers have never been swept. The one
+row it is wrong about is a pose row, which is the same story CT5 told and CT3 told before it.
+
+The mechanism is the same too, and it is the owner's complaint stated as a measurement. `cutLean` 1
+does **not** fight more -- 32.98 strokes against 32.38, `commit` 0.0891 against 0.0864, both inside
+noise. It deals **+4.83** damage and takes **-5.09**, and finishes 1.2 s sooner. *"The attacking
+technique is just too poor to do real damage"*: the fix here was not more swings, it was leaning
+into the ones already being thrown.
+
+**What this settles about the phase's method.** The hand-coded yardstick has one number of slack in
+it and no more. Whatever CT3's remaining +0.28 is, it is **not** reachable by setting constants,
+because there are no other constants left to set. That is the strongest evidence this record has
+that the search is buying something structural rather than doing an expensive parameter sweep -- and
+it is evidence that was only available by running the sweep and finding it empty.
+
+#### DA2's result -- the split is 55 to 45, and the second half has no constant
+
+384 paired seeds against `golem-fencer`, cap 150, every bout decided. These are the quotable
+numbers. `cutLean` 0.80 is added to read the shape of the lever, since the screen only sampled its
+two ends.
+
+| arm | score | paired vs driver |
+| --- | ---: | ---: |
+| `driver` | 0.3854 | -- |
+| `driver@cutLean=0.8` | 0.5677 | **+0.1823 +-0.0690** |
+| `driver@cutLean=1` | 0.6406 | **+0.2552 +-0.0698** |
+| `ct3` | 0.8490 | **+0.4635 +-0.0625** |
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **DA2a** | the positive rows together stay under CT3 | **+0.2552 vs +0.4635** | holds |
+
+**DA2a holds, and it holds with room.** There is only one positive row in the whole table, so "the
+positive rows together" is `cutLean` alone: **+0.2552 +-0.0698**, against CT3's **+0.4635 +-0.0625**
+on the same 384 seeds. The gap is **+0.2083**, larger than either interval and larger than the two
+combined. The lever is still climbing at its stop -- 0.80 buys +0.1823 and 1.00 buys +0.2552 -- so
+this is the whole of it; the row has nowhere further to go.
+
+So the phase's method survives its own hardest test. **Fifty-five per cent of the search's edge is
+one number a hand could have set, and forty-five per cent is not reachable by setting any number at
+all** -- not because nobody looked, but because DA1 looked at all seventeen and found the other
+sixteen already right. Whatever CT3 has left is conditional structure: the same axis moved *when the
+state calls for it* rather than always, which is exactly what a table of constants cannot say and a
+network can.
+
+The mechanism confirms at 384 seeds and is unchanged from CT5's 192. `cutLean` 1 throws **the same
+number of strokes** -- -0.52 +-1.06, and `commit` 0.0899 against 0.0852 -- while dealing **+5.63
++-1.66** and taking **-6.56 +-1.45**, finishing 3.3 s sooner. Not more swings. Better ones.
+
+#### A candidate row, and the decision is the owner's
+
+`cutLean` 1.00 on `golem-driver` is worth **+0.2552 +-0.0698** against `golem-fencer`, a mind that
+does not read the row (eleventh governing rule). It is one number, it is the largest single
+improvement available to any hand-coded mind in this tree, and it answers the owner's oldest
+standing complaint about the golems' technique in the direction they complained about.
+
+It is **not taken here**, for the reason the registration gave in advance: `golem-driver` is the
+yardstick every rating in this record is quoted against, and moving it re-prices the whole record.
+The numbers are above so the call can be made on them. The other rungs are measured in DA3 below,
+because a row that helps against one opponent and hurts against three is not a candidate at all.
