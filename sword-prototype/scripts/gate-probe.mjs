@@ -32,6 +32,12 @@ const argv = process.argv.slice(2);
 const baseDir = argv[0] ?? "tournaments/cr-dagger1";
 const otherDir = argv[1] ?? "tournaments/cs2-idle";
 const tablePath = argv[2] ?? "snapshots/cr-dagger1.json";
+/**
+ * The five-sigma clip, as a knob, so that the question "is the clip the cause" can be asked without
+ * refitting anything. Inference uses 5; passing something larger lets a bounded column reach the far
+ * end of its own declared range and reports what the same weights then do there.
+ */
+const CLIP = Number(argv[3] ?? "5");
 
 const table = JSON.parse(readFileSync(resolve(ROOT, tablePath), "utf8"));
 const widths = [table.layout.inputs, ...table.layout.hidden, table.layout.outputs];
@@ -106,7 +112,7 @@ function survey(dir, step) {
     for (let k = 0; k < columns; k += 1) {
       const s = sd[k];
       const z = s < 1e-9 ? 0 : (flat[at + 1 + k] - mean[k]) / s;
-      const c = z < -5 ? -5 : z > 5 ? 5 : z;
+      const c = z < -CLIP ? -CLIP : z > CLIP ? CLIP : z;
       input[k] = c;
       zSum[k] += z;
     }
@@ -138,7 +144,8 @@ function survey(dir, step) {
 const STEP = 9;
 const a = survey(baseDir, STEP);
 const b = survey(otherDir, STEP);
-console.log(`gate probe: ${a.n} rows from ${a.dir}, ${b.n} from ${b.dir}, table ${tablePath}`);
+console.log(`gate probe: ${a.n} rows from ${a.dir}, ${b.n} from ${b.dir},`
+  + ` table ${tablePath}, clip ${CLIP}`);
 console.log("");
 console.log("| gate | base mean | base sd | base max | base fires"
   + " | other mean | other sd | other max | other fires |");

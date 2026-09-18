@@ -42593,3 +42593,54 @@ designed against *opponents* this project wrote, and CS1 already found that nobo
 by hitting it. A mind that beats every hand-coded mind in a game where the stroke barely pays is a
 real result about the search and a much smaller one about swordsmanship. CZ is where that gets
 decided and it is not decided here.
+
+### CS5 -- the clip is the whole of the dead rung, offline, and the cell that has to confirm it
+
+`normalise` in `src/golem/policy.ts:501` ends every column at `clamp(z, -5, 5)`. The five is a bare
+literal. Sweeping it on the **same weights**, over the same recorded states, changes nothing about
+the fencer and everything about the dummy:
+
+| clip | idle `commit` mean | idle max | idle fires | fencer mean | fencer fires |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| **5** *(what ships)* | -2.07 | **-0.93** | **0.0000** | -10.65 | 0.0881 |
+| 8 | -1.37 | +0.08 | 0.0409 | -10.64 | 0.0881 |
+| 12 | -0.58 | **+1.21** | **0.2999** | -10.64 | 0.0881 |
+| 40 | -0.58 | +1.21 | 0.2999 | -10.64 | 0.0881 |
+
+**No retraining, no new data, no change to a single weight.** The mind that throws zero strokes at a
+motionless body raises `commit` on **three asks in ten** the moment its inputs are allowed to reach
+the far end of a range the feature file itself declared. Twelve and forty agree exactly, which is
+the saturation ending: `theirsSeconds` peaks at 11.06 sigma, so a clip above that is no clip at all.
+
+And the cost on the distribution it was fitted for is **nothing measurable** -- the fencer column
+moves by 0.01 of a logit and its firing rate not at all, because against an opponent that moves
+these columns never approach five in the first place.
+
+**What this does not yet show.** The gate is the mind's request, not the body's stroke. CS4's
+registration already names the failure mode where the gate fires and the executor throws nothing
+anyway, and a probe over recorded states cannot see an executor. So the table above is a
+*mechanism*, and the cell below is the claim.
+
+The arm is every existing mind under a raised clip -- no refit, the shipped weights, one constant.
+
+| | arm | claim | refused if |
+| --- | --- | --- | --- |
+| **CS5a** | `dagger` clip 12 vs `idle` | **over 5 strokes** a bout, from 0 | still exactly 0 |
+| **CS5b** | `dagger` at clip 12 vs `fencer` | score within **0.10** of 0.3359 | outside 0.15 |
+| **CS5c** | `ct3` at clip 12 vs `fencer` | score within **0.10** of 0.8438 | outside 0.15 |
+| **CS5d** | `policy` at clip 12 vs `idle` | strokes move by less than a fifth | a larger move |
+
+CS5b and CS5c are the ones that decide whether this is shippable rather than merely true. A clip is
+a guard, and the guard is there because an unbounded column with a near-zero fitted variance divides
+by `sqrt(variance + 1e-8)` and can produce an enormous z from a quarter-millimetre difference --
+`policy.ts:447` already documents that defect, on the seven columns of the shipped table that came
+back at exactly zero variance. **Raising the clip for everyone re-opens that.** If CS5b or CS5c
+moves, the right fix is not a bigger number but a per-column one: clip a column against its declared
+range where it has one, and keep five where it does not.
+
+**The total verdict mapping (rule 9).** If CS5a holds and CS5b-d do not move, then a single literal
+in one line has been the bottom rung of this ladder the whole time, and it costs one constant to
+fix -- for `golem-policy` and every future mind as much as for the clone, since they all read the
+same function. If CS5a is refused while the gate fires, the fault is in the executor and the finding
+belongs to the game rather than to the normalisation. If CS5b or CS5c moves, the global clip is
+load-bearing somewhere it should not be, and the per-column form is the only safe version.
