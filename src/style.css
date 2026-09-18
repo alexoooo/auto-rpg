@@ -505,6 +505,29 @@ body:has(#curtain:not(.gone)) #direct-controls {
   min-width: 0;
 }
 
+/* Arena or Waves: one row above both corners, spanning the grid for the same reason the bin row
+   does -- it is about neither corner in particular. It is first in the DOM as well as first in
+   the grid, so a reader with no CSS at all still meets the choice before the things it governs. */
+.mode-row {
+  grid-column: 1 / -1;
+}
+
+.mode-row .choice {
+  margin-top: 6px;
+}
+
+.mode-row .note {
+  text-align: left;
+  margin: 6px 0 0;
+}
+
+/* A corner the wave queue owns. Its controls carry `disabled`, which is what actually stops them;
+   this only says so at a glance, because a whole panel of natively-greyed selects reads as a bug
+   unless something explains that the panel is the thing that is off. */
+.corner.inert {
+  opacity: 0.45;
+}
+
 /* The one line about the pair rather than about either corner: "these two cannot finish each
    other". Full width for the same reason the bin row is -- it is under both corners because it is
    about both of them -- and left alone otherwise, because a warning that shouts is a warning

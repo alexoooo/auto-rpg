@@ -6,8 +6,11 @@ import {
   withGolemEffector,
   withGolemSlot,
   withPolicy,
+  withMode,
   withUnit,
+  modeOf,
   type GolemEffectorSetup,
+  type Mode,
   type GolemSlotName,
   type Matchup,
 } from "./bout";
@@ -121,6 +124,9 @@ export class SetupScreen {
   private readonly customizePanels: Record<Side, HTMLElement>;
   private readonly customizeButtons: Record<Side, HTMLButtonElement>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
+  private readonly modes: HTMLInputElement[];
+  private readonly modeNote: HTMLElement;
+  private readonly rightCorner: HTMLElement;
   private readonly beginButton: HTMLButtonElement | null;
   private readonly binRow: HTMLElement;
   private readonly binNote: HTMLElement;
@@ -141,7 +147,8 @@ export class SetupScreen {
     this.bin = bin;
     this.onSelection = onSelection;
 
-    host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}`
+    host.innerHTML = `${this.modePanel()}`
+      + `${this.corner("left", "Left")}${this.corner("right", "Right")}`
       + `${this.pairPanel()}${this.binPanel()}`;
 
     const one = <T extends HTMLElement>(selector: string): T => {
@@ -171,6 +178,9 @@ export class SetupScreen {
       left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
       right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
     };
+    this.modes = [...host.querySelectorAll<HTMLInputElement>('[data-field="mode"]')];
+    this.modeNote = one<HTMLElement>('[data-field="modeNote"]');
+    this.rightCorner = one<HTMLElement>('.corner[data-side="right"]');
     this.binRow = one<HTMLElement>('[data-field="partsBin"]');
     this.binNote = one<HTMLElement>('[data-field="partsBinNote"]');
     this.pairNote = one<HTMLElement>('[data-field="pairNote"]');
@@ -216,6 +226,27 @@ export class SetupScreen {
    * -- "a prototype without one is a prototype somebody has to clear from the console", which is
    * the session plan's own sentence and the whole of why the button exists.
    */
+  /**
+   * Arena or Waves, above both corners because it is the one choice that is about neither.
+   *
+   * Wave mode keeps your corner and takes the other one over -- the queue picks the body and the
+   * mind, one per wave -- so the right-hand pickers go inert while it is selected rather than
+   * disappearing. Inert and still legible: what is in them is the pairing Arena will go back to,
+   * and a control that vanishes is a control the player has to rediscover.
+   */
+  private modePanel(): string {
+    return `
+      <div class="corner mode-row">
+        <div class="corner-title">Mode</div>
+        <span class="choice">
+          <label><input type="radio" name="mode" value="arena" data-field="mode" /> arena</label>
+          <label><input type="radio" name="mode" value="waves" data-field="mode" /> waves</label>
+        </span>
+        <p class="note" data-field="modeNote"></p>
+      </div>
+    `;
+  }
+
   private binPanel(): string {
     return `
       <div class="corner bin-row" data-field="partsBin">
@@ -285,6 +316,14 @@ export class SetupScreen {
   private readonly onChange = (event: Event): void => {
     const target = event.target;
     if (!(target instanceof HTMLSelectElement) && !(target instanceof HTMLInputElement)) return;
+    // The mode is the one control on this screen that belongs to neither corner, so it is read
+    // before the side is demanded rather than given a fake `data-side`.
+    if (target.dataset.field === "mode") {
+      this.matchup = withMode(this.matchup, target.value as Mode);
+      this.render();
+      this.onSelection?.(this.matchup);
+      return;
+    }
     const side = target.dataset.side as Side | undefined;
     if (side !== "left" && side !== "right") return;
 
@@ -455,6 +494,21 @@ export class SetupScreen {
   }
 
   private render(): void {
+    // The mode first, because the right corner's state depends on it and one of the loops below
+    // is what puts that corner's controls in it.
+    const mode = modeOf(this.matchup);
+    for (const box of this.modes) box.checked = box.value === mode;
+    const waves = mode === "waves";
+    this.modeNote.textContent = waves
+      ? "The queue picks the other body and the mind it fights on, one per wave. Yours is the left."
+      : "";
+    this.rightCorner.classList.toggle("inert", waves);
+    for (const control of this.rightCorner
+      .querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(
+        "input, select, button")) {
+      control.disabled = waves;
+    }
+
     for (const side of ["left", "right"] as const) {
       const setup = this.matchup[side];
       const definition = unitDefinition(setup.unit);
@@ -523,8 +577,13 @@ export class SetupScreen {
       this.policies[side].value = setup.policy;
       for (const box of this.controls[side]) {
         box.checked = box.value === "move" ? drivesMove(setup) : drivesAttack(setup);
-        box.disabled = !definition.humanAdapter;
-        box.title = box.disabled ? `control surface ${definition.kind} has no human adapter` : "";
+        // Two reasons a box is inert and they are different sentences, so the title says which.
+        // The wave lock wins where both apply: a corner the queue owns is not a corner to argue
+        // with about human adapters.
+        const locked = waves && side === "right";
+        box.disabled = locked || !definition.humanAdapter;
+        box.title = locked ? "the wave picks this corner"
+          : box.disabled ? `control surface ${definition.kind} has no human adapter` : "";
       }
     }
     this.renderBin();

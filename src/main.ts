@@ -52,12 +52,22 @@ import {
   type DrivableCombatant,
 } from "./units";
 import type { HumanDriverSource } from "./control-host";
+import { randomSeed } from "./rng";
+import {
+  afterWave,
+  carriedGolem,
+  mendedGolem,
+  startRun,
+  waveMatchup,
+  type WaveRun,
+} from "./waves";
 import {
   begin,
   drivesAttack,
   drivesMove,
   golemMatchup,
   humanSide,
+  modeOf,
   matchupFromQuery,
   matchupQuery,
   MATCHUP_PARAM,
@@ -872,6 +882,58 @@ async function boot(): Promise<void> {
   let salvageNotice = "";
 
   /**
+   * The wave run, or null in the arena.
+   *
+   * Session state and deliberately not part of `BoutState`: `src/bout.ts` cannot import
+   * `src/waves.ts` because that module imports it, and the split is the honest one anyway --
+   * a link carries which game you chose and not how far you got through it. See `Mode`.
+   */
+  let run: WaveRun | null = null;
+  /** The wave line on the banner, so the verdict says which fight it decided. */
+  let waveNotice = "";
+
+  /** Deal a fresh run, in a body with no previous run's wounds on it. */
+  const openRun = (): void => {
+    const fresh = startRun(randomSeed());
+    run = fresh;
+    const mine = state.matchup.left;
+    const whole: SideSetup =
+      mine.golem ? { ...mine, golem: mendedGolem(mine.golem) } : mine;
+    state = { ...state, matchup: waveMatchup(fresh, whole) };
+  };
+
+  /**
+   * The verdict edge, in wave mode: forward one, or the run is finished.
+   *
+   * It writes the *next* wave into the matchup and stops there rather than rebuilding, because
+   * the verdict is still on screen and a wave that swapped bodies out from under it would throw
+   * away the moment the fight was for. `R` is what starts the next one, through the restart path
+   * that already existed -- in this mode "the same bout again" is a fight you cannot have, so
+   * the key that meant it now means the only thing left to do.
+   *
+   * Runs after `collectSalvage`, never before: the bin settles against the body that fought, and
+   * this replaces the corner it fought in.
+   */
+  const advanceWave = (): void => {
+    if (!run) return;
+    const mine = humanSide(state.matchup);
+    const won = mine !== null && state.outcome?.winner === mine;
+    run = afterWave(run, won);
+    if (run.over) {
+      waveNotice = `RUN OVER &mdash; wave ${run.wave} &mdash; R deals a new run`;
+      return;
+    }
+    // `mine` is non-null here: `afterWave` only advances on a win, and a win needs a side.
+    const side = state.matchup[mine as Side];
+    const body = (mine === "left" ? bout.left : bout.right).moduleReport?.() ?? [];
+    const carried: SideSetup = side.golem
+      ? { ...side, golem: carriedGolem(side.golem, body) }
+      : side;
+    state = { ...state, matchup: waveMatchup(run, carried) };
+    waveNotice = `WAVE ${run.wave} &mdash; R to face it`;
+  };
+
+  /**
    * The One Must Fall loop, closed at the verdict.
    *
    * **No in-arena pickup**, which is the session's own frozen choice: the winner collects here,
@@ -1009,6 +1071,10 @@ async function boot(): Promise<void> {
   };
 
   const restartBout = ({ resume: shouldResume }: { resume: boolean }): void => {
+    // A finished run has nothing to restart into, so `R` deals another one. The arena is
+    // untouched by this: `run` is null there and the key means what it always meant.
+    if (run?.over) openRun();
+    waveNotice = run ? `WAVE ${run.wave}` : "";
     state = restartHost(state, runningHost, shouldResume);
   };
 
@@ -1046,7 +1112,15 @@ async function boot(): Promise<void> {
         beginButton.title = refusal;
         return;
       }
-      state = begin(state, setup.selection);
+      const chosen = setup.selection;
+      state = begin(state, chosen);
+      if (modeOf(chosen) === "waves") {
+        openRun();
+        waveNotice = `WAVE 1`;
+      } else {
+        run = null;
+        waveNotice = "";
+      }
       window.history.replaceState(null, "", linkFor(state.matchup));
       rebuild();
     }
@@ -1358,7 +1432,10 @@ async function boot(): Promise<void> {
       // The verdict edge, and the only place the parts bin is written. Read from the phase pair
       // rather than from the outcome, because an outcome stays set for as long as the bout is over
       // and collecting once per frame from then on would fill the bin with the same arm forever.
-      if (wasFighting && state.phase === "over") collectSalvage();
+      if (wasFighting && state.phase === "over") {
+        collectSalvage();
+        advanceWave();
+      }
       // Observers remain installed after the verdict: blood, corpse integration,
       // rendering and camera all continue after attack authority has ended.
       const driven = yours();
@@ -1386,7 +1463,12 @@ async function boot(): Promise<void> {
 
     const decided = state.outcome;
     const banner = [
-      decided ? `BOUT OVER &mdash; ${decided.text} &mdash; R to restart` : "",
+      decided
+        ? `BOUT OVER &mdash; ${decided.text}${run ? "" : " &mdash; R to restart"}`
+        : "",
+      // The wave line, which in this mode is what "R" is for and so replaces the arena's
+      // instruction rather than sitting beside it. Silent outside a run.
+      run ? waveNotice : "",
       // What the winner kept, beside the verdict that earned it and never without one.
       decided ? salvageNotice : "",
       // Ahead of the lock's own line, because it is the mode you just entered and
