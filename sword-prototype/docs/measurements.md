@@ -42299,15 +42299,21 @@ calibration to the result, in **command** space -- metres and fractions, not log
 
 | axis | driver | driver sd | clone | **ct3** | the change in words |
 | --- | ---: | ---: | ---: | ---: | --- |
-| `reach` | 0.700 | **0.0000** | 0.699 | **1.000** | the blade out to the stop |
-| `lean` | 0.159 | 0.2831 | 0.156 | **0.757** | leans into everything |
-| `strafe` | 0.162 | 0.2960 | 0.154 | **0.560** | circles instead of squaring up |
-| `advance` | 0.246 | 0.5036 | 0.236 | **0.110** | closes less than half as much |
-| `targetHeight` | 0.702 | 0.0122 | 0.699 | **0.579** | cuts lower |
-| `bite` | 0.660 | 0.0322 | 0.657 | 0.731 | a deeper edge angle |
-| `standOff` | 1.060 | **0.0000** | 1.056 | 1.068 | nothing |
-| `targetLateral` | 0.000 | **0.0000** | -0.006 | -0.038 | nothing |
-| `swing` | 0.999 | 0.0487 | 0.996 | 0.987 | nothing |
+| `reach` | 0.700 | **2e-13** | 0.699 | **1.000** | the blade out to the stop |
+| `lean` | 0.159 | 0.283 | 0.156 | **0.757** | leans into everything |
+| `strafe` | 0.162 | 0.296 | 0.154 | **0.560** | circles instead of squaring up |
+| `advance` | 0.246 | 0.504 | 0.236 | **0.110** | closes less than half as much |
+| `targetHeight` | 0.702 | 0.006 | 0.699 | **0.579** | cuts lower |
+| `bite` | 0.660 | 0.016 | 0.657 | 0.731 | a deeper edge angle |
+| `standOff` | 1.060 | **3e-14** | 1.056 | 1.068 | nothing |
+| `targetLateral` | 0.000 | **0** | -0.006 | -0.038 | nothing |
+| `swing` | 0.999 | 0.024 | 0.995 | 0.987 | nothing |
+
+`reach` is the only one that clamps: the calibration asks for 1.154 and the decode stops it at the
+axis maximum. Spreads are in the same units as the column beside them, which the first draft of this
+table got wrong -- three of them were left in head space and have been corrected.
+
+The whole table is `node scripts/shrinkage-probe.mjs`, which is offline and takes seconds.
 
 plus an `abort` bias of **-0.511** on the gate logit, which is the mind flinching out of fewer
 of its own strokes.
@@ -42321,16 +42327,18 @@ twenty-one numbers, and it is worth +0.3906 +-0.1069 against `golem-driver`.
 **The hypothesis this was run to test is refused.** I expected the gains to be reciprocals of
 least-squares shrinkage -- a regression to the mean fits a *narrower* command than the expert emits,
 and a per-axis gain would undo it exactly. It is not that. The clone's spread matches the driver's
-closely on every axis that moves at all (`lean` 0.278 against 0.283, `advance` 0.491 against 0.504),
-and the gains do not track the ratios. The fit was not shrunk. It was simply copying a mind that was
-in the wrong pose.
+closely on every axis that moves at all, and across the eight axes with any spread to speak of the
+correlation between the log ratio and the log gene is **-0.2721** -- the wrong sign, and nowhere
+near the +1 the hypothesis predicts. The fit was not shrunk. It was copying a mind in the wrong
+pose.
 
 #### The part that should have been found thirteen sessions ago
 
-**Three of the nine axes have a driver standard deviation of exactly 0.0000.** `standOff`,
-`targetLateral` and `reach` are hand-set constants that `golem-driver` never varies, across 181,744
-recorded asks. Behaviour cloning therefore reproduces them perfectly, and **no learner that starts
-from a clone can ever discover they are wrong** -- there is no variation in the label to learn from.
+**Three of the nine axes have no spread at all.** `targetLateral` is exactly zero; `standOff` and
+`reach` are constant to 3e-14 and 2e-13, which is the same number every ask up to rounding. They are
+hand-set constants that `golem-driver` never varies, across 181,744 recorded asks. Behaviour
+cloning therefore reproduces them perfectly, and **no learner that starts from a clone can ever
+discover they are wrong** -- there is no variation in the label to learn from.
 Policy gradient could have moved them and never had the samples to (AW: 4,800-9,200 bouts an
 iteration, every run in the record used 32).
 
