@@ -42483,11 +42483,40 @@ are clocks:
 | `sinceMyStroke` | +0.01 | +3.50 | -1.83 |
 
 `theirsSeconds` alone accounts for **+6.57 of the +8.58**. It is the clock on how long the opponent
-has held its current state, and against a body that never changes state it runs away without bound.
-The fit's normalisation was built on fights that end, so eleven sigma is outside anything the first
-layer ever took a gradient through -- and the clip then pins it at five, where it stops being a
-clock at all. Three columns saturated is three constants, and a network fed three constants it has
-never seen together produces the one thing it has no reason not to: the same answer forever.
+has held its current state, and against a body that never changes state it sits at its ceiling.
+
+**A first draft of this paragraph said the clocks run away unbounded, and that is wrong -- the
+mechanism is worse and more general.** `clockColumn` in `src/golem/pilot.ts` is
+`clamp(seconds / 10, 0, 1)`, so every one of these columns is **already bounded to [0, 1]**, and the
+fencer data reaches 1.000 on all six of them. Nothing overflows. What happens is this:
+
+| column | design range | fit mean | fit sd | fencer mean | idle mean | idle z |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `theirsSeconds` | [0, 1] | 0.0312 | 0.0825 | 0.0264 | **0.9441** | **+11.06** |
+| `mineSeconds` | [0, 1] | 0.0684 | 0.1598 | 0.0696 | **0.9528** | +5.54 |
+| `theirCommits` | [0, 4] | 3.9100 | 0.5748 | 3.9075 | **0.7336** | **-5.53** |
+| `sinceTheirCommit` | [0, 1] | 0.1089 | 0.1759 | 0.1033 | 0.9518 | +4.79 |
+| `sinceMyStroke` | [0, 1] | 0.1376 | 0.2464 | 0.1400 | 1.0000 | +3.50 |
+| `sinceContact` | [0, 1] | 0.0467 | 0.1309 | 0.0400 | 0.3916 | +2.64 |
+
+**The feature is fine. The standardisation is the defect.** A column whose legal range is [0, 1] but
+whose training distribution hugs zero gets an sd of 0.08, and the far end of *its own declared
+range* is then eleven sigma out. The five-sigma clip -- which exists to stop an outlier from blowing
+up a first layer -- amputates the top of a column the designer deliberately gave a ceiling to. Two
+of these columns clip to the same constant 5, and `theirCommits` clips to -5, so three legal,
+meaningful, in-range readings arrive at the network as two numbers it has never seen.
+
+This is not a clone defect and not an `idle` defect. **Every learned mind in this tree reads these
+columns through the same normalisation**, `golem-policy` included, and any situation rare in
+training but legal in the game reaches them amputated. It is a general reason a mind here would fail
+on the unusual case while looking healthy on the average one -- which is the shape of complaint this
+record has been recording about learned minds since the beginning.
+
+**The fix is correspondingly general and it is cheap**: a column with a declared range should be
+standardised against *that range*, not against whatever spread a particular collection happened to
+show, and a bounded column should not be clipped inside its own domain at all. That is a change to
+`normalise` and to what a table records beside its `normalisation`, and it is a feature-version
+concern because a table fitted under one reading cannot be driven under the other.
 
 This is the same failure as CS1's, one level down. CS1 said the clone stops against a body that does
 nothing. It does -- but not because it cannot see a threat. It is because *nothing changing* is
