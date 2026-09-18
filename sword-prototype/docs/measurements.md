@@ -44151,3 +44151,65 @@ build the second is far cheaper to achieve.
 So DF is not one of three options any more. **It is the only untested lever left**, and every other
 route the phase has tried -- better search, more samples, a richer pool, a re-priced cut -- has now
 been measured and returned the same mind.
+
+### DF's result -- all four bars hold, and the window is thirty times wider than I feared
+
+Floors 0 (control), 1.0 and 3.0, four arms, four opponents, 64 seeds. The `floored` column is the
+share of bouts the rule converted.
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **DFa** | the `ct3` mirror lands in 0.40 to 0.60 at floor 1.0 | **0.5000** | **holds** |
+| **DFb** | the `driver` mirror fires on under half its bouts | **0.0000** | **holds** |
+| **DFc** | no cell against `golem-fencer` moves at any floor | **nothing moved** | **holds** |
+| **DFd** | `ct3` against `golem-idle` still scores 1.0000 | **1.0000** | **holds** |
+
+The `ct3` mirror, floor 0 against floor 1.0, every other column bit-identical:
+
+| | score | `decided` | `floored` | seconds | damage | taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| floor 0 | 0.1563 | 1.0000 | 0.0000 | 119.3156 | 0.8083 | 1.0298 |
+| floor 1.0 | **0.5000** | **0.0000** | **1.0000** | 119.3156 | 0.8083 | 1.0298 |
+
+**Sixty-four bouts, sixty-four conversions, and not one number from the simulation changed.** Same
+seconds, same damage, same contacts. The rule reaches the verdict and nothing else, which is what it
+was built to do and the only way it could have been safe to add.
+
+**DFc is the control and it is exact.** Every cell against `golem-fencer` is identical to four
+decimal places at all three floors, with `floored` at 0.0000 throughout. Those bouts end near 40 s
+and the drain never runs, so the rule is structurally unable to reach them. Nothing else in the
+table would have been readable without that.
+
+And the floor touches only the null mirror. Against `ct3`, at floor 1.0: `driver` stays 0.2344,
+`dagger` stays 0.0000, `cw1r2` stays 1.0000. Three real results untouched, one non-result corrected.
+
+#### DFb's premise was wrong, and the mistake is the useful part
+
+I registered DFb worried the floor would eat the `driver` mirror -- a genuine fight separated by
+1.83 damage, which sits under a floor of 3.0. It fires on **0.0000** of those bouts, and the reason
+is one I had not accounted for: **the driver mirror ends at 34.5 s.** The drain starts at 60. The
+`clock >= overtimeSeconds` gate does the discriminating work before the damage floor is ever
+consulted.
+
+So the floor never has to separate a real fight from a null one in general -- only among bouts that
+have already run past a minute doing nothing. Among those, the comparison is the `ct3` mirror's
+**0.22** against `ct3`-versus-idle's **7.13**, and both floors tested sit cleanly between. **The
+usable window is a factor of thirty-two, not the 0.22-to-1.83 squeeze the registration feared**, and
+1.0 and 3.0 give identical results everywhere, which is what a wide window looks like.
+
+#### What this is
+
+It is the first thing in this phase that worked on the first try, and it is worth being precise
+about what it did and did not do. **It did not make any mind better.** It removed a number that was
+never a measurement: 119 seconds of two identical minds circling, settled in the last two thirds of
+a second by a difference a third of one per cent the size of a real bout, and reported as a clean
+five-in-six win.
+
+That number was feeding both the ratings in this record and the objective of every search run
+against a learned opponent. It now reads 0.5000, which is the truth: **nothing happened.**
+
+**The correct next step is DE, and for the first time it is readable.** CW2 has already shown what a
+learned opponent in the pool buys under the old scoring -- a mind that commits 33 % less. Re-run
+with the floor on, a standoff opponent stops paying a fake win and starts paying an honest zero, and
+the question the phase has never been able to ask becomes askable: *can anything in this tree find a
+way into a guard that does not open?*
