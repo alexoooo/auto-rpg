@@ -41995,3 +41995,47 @@ keeps the mind so the reading can be reproduced.
 
 What CT2 was actually asking -- **is a small mind enough?** -- is unanswerable on this fitness. A
 search that can win without striking never has to find out whether 864 numbers can express striking.
+
+### The cap defect -- every duel in CR was read in the instant before the clock started working
+
+Found while reading CS1's first rung, which said that **nothing kills the dummy**: at a 60-second
+cap, `driver`, `dagger` and `policy` all score exactly 0.5000 against `golem-idle` over 128 seeds,
+`decided` 0.0000, every bout running the full cap. The driver was dealing 28.9 damage and taking
+0.95 and the table called it a draw.
+
+`config.ts` had already written the warning, against `probeSeconds`:
+
+> a harness capped at 60 with `overtimeSeconds` at 60 would take every one of its readings in the
+> last instant before the drain begins, and would report the game as it was rather than as it is --
+> silently, with no error and no empty column to notice.
+
+That is exactly what happened. The overtime ramp starts at 60 s and finishes an untouched body 60 s
+later; a harness that stops at 60 never lets it run. `clone-duel.mjs` was written with `--cap 60`
+as its default and **every duel in CR, CR2, CR3 and CR4 was run at it**. The default is now
+`probeSeconds`, 150, with the reason in the file beside it.
+
+What it costs, on the same rung, 12 paired seeds:
+
+| arm | cap 60 score | cap 150 score | cap 150 seconds | strokes |
+| --- | ---: | ---: | ---: | ---: |
+| `driver` | 0.5000 | **1.0000** | 80.7 | 35.3 |
+| `dagger` | 0.5000 | **1.0000** | 111.1 | **0.0** |
+| `idle` vs `idle` | -- | 0.5000 | **120.0** | 0.0 |
+
+The control in the third row is the ramp seen working: two bodies that never touch each other drain
+at the same rate and finish together at exactly `overtimeSeconds + overtimeKillSeconds`.
+
+**This does not overturn CR4, and it has to be said why rather than assumed.** Against
+`golem-fencer` the arms decided 94-97 % of their bouts inside 60 s, so the draw column that the
+missing clock inflates was already nearly empty there -- except for the shipped `policy`, whose
+0.5117 was **77 draws in 128**, and which is therefore the one number in this record that the defect
+flatters most. Every headline is being re-taken at 150 regardless, because "mostly unaffected" is
+not a measurement.
+
+**What it does overturn is CS1c**, which was registered two hours earlier and predicted the clone
+would score below 0.60 against a body that does not fight back. At 150 it scores **1.0000** -- and
+it still throws **zero strokes** and deals 7.3 damage, winning entirely because the drain finishes
+an opponent that never touched it either. CS1c is refused on its number and the prediction behind
+it survives intact: the clone does not fight the dummy, it merely outlives it. A score was the wrong
+column to have bet on, which is the third time this record has caught a scalar agreeing with nothing
+the eye would call a win.

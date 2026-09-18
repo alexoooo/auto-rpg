@@ -1,6 +1,6 @@
 // CR2: does the clone fight like the mind it was copied from? Paired, seed by seed.
 //
-//   node scripts/clone-duel.mjs [--seeds 128] [--cap 60] [--opponent golem-fencer] [--lanes 32]
+//   node scripts/clone-duel.mjs [--seeds 128] [--cap 150] [--opponent golem-fencer] [--lanes 32]
 //                               [--arms driver,clone,policy] [--seed 20260919]
 //                               [--tables clone=snapshots/cr-clone.json,ao=snapshots/x.json]
 //
@@ -35,6 +35,20 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NL = /\r?\n/;
+/**
+ * The cap, and why it is not 60.
+ *
+ * `CONFIG.bout.probeSeconds` exists so that a harness reads the game **past the overtime ramp**.
+ * The ramp starts at `overtimeSeconds` 60 and finishes an untouched body `overtimeKillSeconds` 60
+ * later, and `config.ts` states the trap in as many words: a harness capped at 60 *"would take
+ * every one of its readings in the last instant before the drain begins, and would report the game
+ * as it was rather than as it is -- silently, with no error and no empty column to notice"*.
+ *
+ * **Every duel in experiment CR ran at 60 and hit exactly that.** At the bottom rung of the ladder
+ * it turned a fight the driver is winning 28.9 damage to 0.95 into a 0.5000 draw, for all 128
+ * seeds, because the clock that would have settled it never ran.
+ */
+const PROBE_CAP = 150;
 
 const flagOf = (argv, name, fallback) => {
   const at = argv.indexOf(name);
@@ -170,7 +184,7 @@ const COLUMNS = [
 
 async function main(argv) {
   const count = Number(flagOf(argv, "--seeds", "128"));
-  const cap = Number(flagOf(argv, "--cap", "60"));
+  const cap = Number(flagOf(argv, "--cap", String(PROBE_CAP)));
   const base = Number(flagOf(argv, "--seed", "20260919"));
   const opponent = flagOf(argv, "--opponent", "golem-fencer");
   const shards = Math.max(1, Math.min(availableParallelism(), 16));
