@@ -43838,3 +43838,41 @@ And it connects to the oldest finding in the record. Thirteen sessions could not
 content in the actor gradient. **One reason is now visible: in every long bout the win signal
 itself is noise, sharpened to +-1 by a drain with no threshold.** That is the worst possible input
 to a sample-mean estimator, and it was never in the list of suspects.
+
+#### The idle mirror is the control that proves it, and the whole fight is 0.7 seconds long
+
+`src/config.ts` sets `overtimeSeconds` 60 and `overtimeKillSeconds` 60, so an untouched body is
+finished by the drain at **exactly 120 s**. `settle` in `src/bout.ts:810` returns a null winner when
+both sides go down in the same frame. Put that beside CY's seconds column and the mechanism is not
+an inference any more:
+
+| mirror | damage dealt | taken | difference | bout ends | score |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `golem-idle` | 0.0000 | 0.0000 | **0.00** | **120.00 s** | **0.5000** |
+| `ct3` | 0.8083 | 1.0298 | **0.22** | **119.32 s** | **0.1563** |
+
+Two statues take exactly zero damage, the drain finishes them in the same frame, `settle` returns
+null, and the mirror reads **exactly 0.5000** -- a genuine double death, not a coin landing fairly.
+
+Two `ct3` clones take almost zero damage, and the 0.22 that separates them brings one down **0.68
+seconds early**. That is the entire contest. A hundred and nineteen seconds of circling, decided in
+the last two thirds of a second, by a difference no instrument in this repository would call real
+anywhere else.
+
+**So `decided: 1.0000` on that row is true and worthless.** A winner emerged from every bout. Not
+one of them settled anything.
+
+#### DF, in its final shape: change the rating, not the game
+
+The fix does **not** belong in `src/bout.ts`. The drain is a reasonable rule for a game -- it stops
+two cautious players circling until the cap, which is what it was built for. The defect is that the
+**harness** reads its output as a clean win and feeds that to a rating and to a search.
+
+So DF lands in `scripts/bout-runner.mjs`, where the result already carries both damage totals and
+the clock: **a bout that reaches the drain with the two sides within a damage floor of each other
+is scored a draw.** Behind a flag, so every number taken before it still reads as it did.
+
+That keeps the shipped game exactly as it is, needs no ruling from the owner, and removes the noise
+from the two places it does harm -- the rating that ranks these minds and the objective that trains
+them. The floor is a number to measure, and the two rows above bracket it: **above 0.22 and below
+1.83**, which is narrow enough that the first job is to widen the evidence rather than pick a value.
