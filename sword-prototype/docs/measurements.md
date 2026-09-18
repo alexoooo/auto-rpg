@@ -43555,3 +43555,81 @@ introduce is the only thing left to decide it. The argument against is `driver`,
 deterministic-ish and mirrors cleanly at 0.4688. If CZ1b lands instead, the correction reaches every
 paired number in this record, not just the mirrors, and that is precisely why it is being run rather
 than assumed.
+
+### CY's addendum -- the mind is not frozen, it is counter-punching, and that is the whole phase
+
+The gate columns were in CY's log the whole time and they say something better than "it freezes".
+
+Against a copy of itself `ct3` is **asked 1,435.8 times a bout** -- more than any other cell in the
+matrix, `golem-policy`'s 1,369 included -- and over roughly 91,900 asks across 64 bouts it raises
+`commit` **zero** times, `parry` zero, `abort` zero. Its blade is moving the whole time: mean speed
+6.79 m/s, peak 21.3, against the genuinely inert `idle` mirror's 0.69 and 7.34. And the two bodies
+make **9.4 contacts** a bout, against 195.5 when the same mind fights a statue. They are not locked
+up. **They are circling each other outside reach for two minutes, and neither one ever decides to
+go in.**
+
+#### What the mind is actually selling
+
+Line the same mind up across three opponents and its damage is not a property of the mind at all:
+
+| `ct3` against | opponent's behaviour | strokes | `commit` | damage dealt |
+| --- | --- | ---: | ---: | ---: |
+| its own reflection | stands off | 0.0 | 0.0000 | **0.81** |
+| `golem-idle` | motionless | 0.0 | 0.0000 | **7.29** |
+| `golem-fencer` | attacks | 20.2 | 0.0898 | **65.54** |
+
+**It throws no strokes against the statue and beats it 1.0000 anyway**, on 195 contacts and the
+overtime drain. Its damage rises eighty-fold between its own reflection and the fencer without the
+mind changing at all. What changed is how hard the other body came at it.
+
+And the fencer column says the same thing across minds. Sort the four arms by how often they commit:
+
+| arm vs `golem-fencer` | `commit` | strokes | damage dealt |
+| --- | ---: | ---: | ---: |
+| `golem-driver` | 0.0849 | 31.5 | 54.17 |
+| `ct3` | 0.0898 | 20.2 | **65.54** |
+| `dagger` | 0.1040 | 22.2 | 58.16 |
+| `cw1r2` | 0.1128 | 18.9 | **65.62** |
+| `golem-policy` | 0.7176 | 86.6 | 49.89 |
+
+**The mind that swings eight times as often deals the least.** And against the statue the gap is
+grotesque: `golem-policy` throws **148.5 strokes** for **7.88 damage** while `golem-driver` throws
+35.2 for **38.67** -- four times the swinging for a fifth of the damage.
+
+#### So the search did its job, and the job was the wrong one
+
+Every optimiser pointed at this cell, by every method the phase has tried -- supervised cloning,
+DAgger, a 21-number calibration, two rounds of evolution -- has converged on the same mind: **keep
+the blade up, keep the distance, never commit, and let the other body run onto the edge.** That is
+not a bug in the search. It is the best available answer to the question the search was asked,
+because in this build **damage is paid for by the closing speed of the body that gets hit, and a
+stroke you drive yourself contributes almost none of it.**
+
+Three consequences follow, and they are the phase's actual position:
+
+1. **The owner's complaint has a mechanism, and it is not the learner.** *"The attacking technique
+   is just too poor to do real damage"* is correct, and thirteen sessions of training could not fix
+   it because the technique is not what the fight pays for. A better stroke is worth nearly nothing
+   at the margin here.
+2. **Learned-versus-learned is a null bout by construction.** Two counter-punchers have nobody to
+   counter. CY's mirror is not an artefact to be corrected away -- it is the correct outcome of
+   putting two minds in a ring when both have learned that going in loses. Training a mind to beat
+   learned minds, on this damage model, means training it to solve a problem whose optimum is to
+   stand still.
+3. **No amount of better search fixes either of the first two.** CT3 already beats every hand-coded
+   mind on the ladder -- brawler 1.0000, driver 0.7031, fencer 0.8281. **The owner's stated bar is
+   met.** What is not met is anything past it, and the obstacle is in the rules of the game rather
+   than in the mind that plays it.
+
+#### The design question this puts to the owner
+
+Making a committed stroke worth throwing is a **game-design** change, not a research one, and it
+re-prices every mind in this record including the two everything is measured against. It is the
+owner's call and is put here rather than taken. The cheapest shape is a term that pays for the
+energy a blade actually carries into a body -- the instruments to verify it already exist
+(`energy-probe.mjs`, `axis-probe.mjs`) and CS's registration already anticipated needing them.
+
+The prediction, stated now so it can be wrong: under a damage model that pays for blade speed,
+**`golem-policy` becomes the strongest mind in this tree and the counter-punchers collapse**,
+because it is the only one in the record that has ever learned to swing -- 148 strokes a bout at
+`commit` 0.89 -- and it is currently being punished for exactly that.
