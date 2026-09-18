@@ -1,4 +1,4 @@
-# Five minds, and how to watch them
+# Six minds, and how to watch them
 
 `tournaments/` is gitignored, so until this directory existed no mind this project has fitted could
 be pulled onto another machine. These five can. Four are league pool members -- the weights, the
@@ -60,6 +60,36 @@ estimate. `an-ramp2` is the one to watch first, because it is not selected.
 `idle-far11.json` is the mind that plainly learned something: over its arm the idle kill rate went
 from 25 % to 67 % at t 6.30. Watch it against `golem-idle`, which is the task it was paid for.
 Against `golem-fencer` it has never been asked to do anything.
+
+## The sixth, and the only one here that beats every hand-coded mind
+
+| file | vs `golem-idle` | vs `golem-brawler` | vs `golem-driver` | vs `golem-fencer` |
+| --- | ---: | ---: | ---: | ---: |
+| `ct-calib1.json` | 1.0000 | **1.0000** | **0.7969** | **0.8438** |
+| `golem-driver`, for scale | 1.0000 | 0.3672 | 0.4805 *(mirror)* | 0.4531 |
+
+`ct-calib1.json` is `cr-dagger1.json` with **twenty-one numbers** changed: a gain and an offset on
+each of the nine command axes, and an offset on each of the three gates, folded into the output
+layer. Nothing else about the network moved. The twenty-one were found by a (1+16) evolution
+strategy against `golem-fencer` over twelve generations at 24 fresh seeds a candidate -- roughly
+5,400 bouts, which is about what one useful policy-gradient iteration would have cost in this cell.
+
+**Watch it for the distance, because that is what it changed.** Read back into command space the
+calibration holds the point out to the axis stop (`reach` 0.700 to 1.000), leans in (`lean` 0.159 to
+0.757), circles (`strafe` 0.162 to 0.560), closes less than half as far (`advance` 0.246 to 0.110)
+and cuts lower. It throws **19 strokes a bout against the driver's 36** and completes every one of
+them, where the driver completes fewer than half, and it wins three seconds sooner taking less
+damage. It is the mind that stopped flailing forward.
+
+**Two things it is not.** It is not a fencer-specialist, though it was searched against one: it
+takes 128 of 128 from `golem-brawler`, which it has never met. And it is **not** a fighter at the
+bottom rung -- against `golem-idle` it throws **no strokes at all** and wins only because the
+overtime drain finishes a body that never touched it either. Its commit gate tops out at -0.93
+against a motionless opponent and the calibration adds +0.71; it is short by a quarter of a logit.
+CS3 in `docs/measurements.md` measures that, and it is a property of the features rather than of
+this mind.
+
+Its `score` and `baselines` are empty for the same reason `cr-dagger1.json`'s are, below.
 
 ## The fifth, which is not one of the four
 
