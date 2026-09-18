@@ -43960,3 +43960,60 @@ and DC asks whether paying it back is enough to invert steps 3 to 5. It also exp
 would be *gradual* rather than a switch -- `drawFraction` buys back the slide in quadrature, so
 going 0.3 to 1.0 does not triple a cut's damage, and DCb asking for a rank inversion at 1.0 may
 simply be asking more than the arithmetic allows.
+
+### CZ1's result -- the seat decides, not the seed, and my registered consequence was too strong
+
+Eight runs, four mirrors, each taken with the seeds exchanged and again as a control in the same
+build. Diagonal cells are the mirrors; the two hypotheses make different predictions for their sum.
+
+| mirror | control | swapped | sum | CZ1a expects | CZ1b expects |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `golem-driver` | 0.4688 | 0.5469 | 1.0157 | 1.0000 | 0.9376 |
+| `dagger` | 0.6406 | 0.5000 | 1.1406 | 1.0000 | 1.2812 |
+| `ct3` | 0.1563 | 0.2969 | **0.4532** | 1.0000 | 0.3126 |
+| `cw1r2` | 0.2969 | 0.1563 | **0.4532** | 1.0000 | 0.5938 |
+
+| | claim | verdict |
+| --- | --- | --- |
+| **CZ1a** | swapping the seeds flips the mirror | **refused** |
+| **CZ1b** | the mirror stays where it was -- the seat decides | **holds** |
+| **CZ1c** | scattered, a greedy mirror is chaotic | refused |
+
+`golem-driver` cannot discriminate and was never going to -- it sits near 0.5000, where both
+hypotheses predict a sum near one. `dagger` at 1.1406 falls between 1.0000 and 1.2812 with a two
+sigma of about +-0.18 on the sum, so it is inconclusive on its own. **The two standoff mirrors
+decide it and they agree.** Both sum to 0.4532, which is five sigma from CZ1a's 1.0000 and inside
+one sigma of CZ1b. Exchanging the seeds does **not** flip them. The left seat loses either way.
+
+The damage columns say the same thing from underneath. In the `ct3` mirror the left body is behind
+on damage in **both** orientations -- 0.8083 against 1.0298 as the control, 0.7496 against 0.8696
+swapped. In the `golem-driver` mirror, a real fight, the sign **flips** with the seed: left is 1.41
+behind as the control and 1.83 ahead swapped. So in a bout that carries damage the seed moves the
+result and the seat does not; in a bout that carries none, the seat is all there is.
+
+#### The consequence I registered for CZ1b does not hold, and the same run refutes it
+
+CZ1b was registered as *"a harness defect ... and it is the largest finding of the phase"*, on the
+reasoning that a side bias reaches **every paired number in this record**. The off-diagonal cells
+were collected in the same eight runs and they refuse that:
+
+**Twelve non-mirror cells, swapped against control: mean absolute change 0.0319, largest 0.1094,
+and four of them exactly 0.0000** -- all inside the +-0.125 that a single 64-seed cell carries
+anyway. Where a bout carries damage, exchanging the seats changes nothing measurable.
+
+So the finding is real but **small and sharply bounded**: there is a systematic advantage to the
+right-hand seat, it is far too small to see in any fight that does real damage, and it becomes
+decisive only where the drain is converting a sub-1-damage difference into a win. **CZ1 and the
+CYc explanation are the same finding from two sides**, and together they say the harness is sound
+everywhere except the case the phase should not have been quoting in the first place.
+
+**Nothing in this record needs re-taking.** That is a stronger claim than I expected to be able to
+make when CZ1 was registered, and it is the off-diagonal row that earns it.
+
+#### What is still unknown
+
+CZ1b's *mechanism* is not established. `stepPair(left, right)` stepping left first on every tick is
+a plausible candidate and remains a guess; CZ1 establishes only that the bias rides on the **seat**
+rather than the seed. Since DF removes the consequence without needing the cause, the mechanism is
+left open rather than chased, and recorded here as open so a later reader does not mistake the
+hypothesis for the result.
