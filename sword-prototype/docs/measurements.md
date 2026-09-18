@@ -43786,7 +43786,7 @@ and every method we own has independently discovered that.** The next move is to
 
 ### CYc explained, before CZ1 reports -- the drain has no threshold
 
-`config.ts:1163` states the drain's design plainly: past 60 s it takes the same fraction of each
+`src/config.ts:1163` states the drain's design plainly: past 60 s it takes the same fraction of each
 body's **own** bar per second, so *"whichever is already carrying more damage reaches zero first"*.
 The comment defends this as principled, and it is -- "the side ahead on damage wins" falls out of
 the physics instead of being a tie-break invented by whatever function needed one.
