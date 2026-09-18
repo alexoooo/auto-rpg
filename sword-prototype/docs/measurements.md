@@ -43860,9 +43860,9 @@ null, and the mirror reads **exactly 0.5000** -- a genuine double death, not a c
 
 Two `ct3` clones take almost zero damage, and the 0.22 that separates them brings one down **0.68
 seconds early** -- and it is not a constant winner either: the left side takes 10 of the 64, so the
-bias is strong but not total. That is the entire contest. A hundred and nineteen seconds of circling, decided in
-the last two thirds of a second, by a difference no instrument in this repository would call real
-anywhere else.
+bias is strong but not total. That is the entire contest. A hundred and nineteen seconds of
+circling, decided in the last two thirds of a second, by a difference no instrument in this
+repository would call real anywhere else.
 
 **So `decided: 1.0000` on that row is true and worthless.** A winner emerged from every bout. Not
 one of them settled anything.
