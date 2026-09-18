@@ -42644,3 +42644,165 @@ fix -- for `golem-policy` and every future mind as much as for the clone, since 
 same function. If CS5a is refused while the gate fires, the fault is in the executor and the finding
 belongs to the game rather than to the normalisation. If CS5b or CS5c moves, the global clip is
 load-bearing somewhere it should not be, and the per-column form is the only safe version.
+
+### CS2's result -- the coin is separated, and the shipped mind clears the owner's bar
+
+512 paired seeds at each yardstick, cap 150. Every bout decided except one of `ct3`'s 512 against
+the fencer.
+
+| | rung | claim | measured | verdict |
+| --- | --- | --- | ---: | --- |
+| **CS2a** | `fencer` | `policy` score above 0.544 | **0.5762** | holds |
+| **CS2b** | `driver` | `policy` score above 0.550 | **0.6348** | holds |
+| **CS2c** | `fencer` | severs above 0.40, driver below 0.15 | **0.7773** and 0.0762 | holds |
+
+**All three hold, so the registered mapping's first arm fires: the owner's bar is met by a mind
+that shipped before this phase opened.** Paired over the 512 shared seeds, `policy - driver` is
+**+0.2090 +-0.0621** against the fencer and **+0.1543 +-0.0599** against the driver -- both edges
+are more than three times their own two sigma, and neither is a coin. The question this phase is
+answering changes accordingly: not *can anything here learn*, but *can anything here learn
+something better than what we already have*.
+
+CS2c is the mechanism and it is the largest behavioural gap in this record. `golem-policy` takes a
+limb on **0.7773** of its fencer bouts where `golem-driver` takes one on 0.0762 -- ten to one,
++0.7012 +-0.0797 paired. A mind that severs at that rate is not winning by variance.
+
+#### The yardstick itself moved, which is worth recording
+
+`golem-driver`'s own fencer score went **0.4531 at 128 seeds to 0.3672 at 512**. That is a 0.0859
+move in the number every arm in this phase is compared against, and it is the same size as the
+edges being claimed against it. Two sigma at 128 is +-0.0884; the move is inside it, so this is not
+a contradiction -- it is the 128-seed reading having been worth less than it looked. **Every
+comparison in this record taken at 128 seeds against a hand-coded yardstick carries about +-0.09 of
+slack in the yardstick alone**, on top of the arm's own interval. CS1's table and CT3's rating both
+predate this and should be read with that width.
+
+The re-take also sharpens CT3 rather than softening it. On the same 512 seeds `ct3` scores
+**0.8506** against the fencer, +0.4834 +-0.0536 over the driver and +0.2744 over `golem-policy` --
+so the calibrated clone is above the shipped mind by more than four times two sigma, at both
+yardsticks, on the widest cell this phase has run.
+
+### CS4's result, and the reconciliation CS5 forced -- the dead rung is a label problem
+
+CS4 refitted the clone on the aggregate of both collections, so the states where it stands frozen
+are in its own training set with the driver's answer attached. That is textbook DAgger and it did
+not work.
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **CS4b** | commit logit against `idle` reaches above 0 at least once | **-3.24** | refused |
+
+Over 7,120 held-out idle asks the refitted gate's closest approach is **-3.24**, and it fires on
+**0.0000**. Aggregation bought nothing at the gate.
+
+**And it is not the clip, which is the correction this section owes CS5.** The refit also fixes
+the distribution shift outright. Measured as the fraction of all feature cells standing outside the
++-5 clip on those same states:
+
+| table | worst \|z\| | cells clipped | idle commit max | fires |
+| --- | ---: | ---: | ---: | ---: |
+| `cr-dagger1` | 11.74 (`theirsSeconds`) | **8.891 %** | -0.93 | 0.0000 |
+| CS4 refit | 6.53 (`gap`) | **0.009 %** | -3.24 | 0.0000 |
+
+The clone that saturates one cell in eleven and the clone that saturates one in eleven thousand
+have the **same** dead gate. So the saturation CS3 found is real, and it is not the cause. A
+thousand-fold reduction in clipping moved the gate *further* from firing.
+
+#### What the cause is: the expert's own label is unpredictable there
+
+The direct test. Correlate the driver's `commit` label against all 71 pilot features, in each
+collection:
+
+| collection | rows | label rate | strongest single-feature \|r\| |
+| --- | ---: | ---: | --- |
+| fencer states | 181,744 | 0.0899 | **0.391** `mine:recover`, ten features above 0.13 |
+| idle states | 64,088 | 0.0368 | **0.019** `gap`, nothing above 0.02 |
+
+**Against a stationary body the driver's decision to swing is not a function of anything the pilot
+can see.** Twenty-fold weaker than against the fencer, and 0.019 over 64,088 rows is
+indistinguishable from nothing. A least-squares fit on a 0/1 target that correlates with no input
+has exactly one minimiser -- **predict the base rate** -- and the base rate is 0.0368, which is
+below the 0.5 the gate fires at. The clone is not broken. It is correct, and correctness here is
+silence.
+
+The reason is in the feature vector. On idle states **34 of the 71 columns have zero spread**,
+against 24 on fencer states, and the ten the fencer decision leans on are among the dead ones:
+`mine:recover`, `cooldown` and `armed` are all **exactly flat**, because they are the *clone's own*
+executor phase and the clone never swings. Half the remaining signal is `theirs:*`, and the
+opponent never leaves idle. So the circle closes: it cannot learn to swing because it never swings,
+and it never swings because it cannot learn to. **This is precisely the failure DAgger exists to
+break, and DAgger cannot break it**, because the expert's answer on the visited states is noise
+rather than a rule -- there is nothing in the aggregate to aggregate.
+
+#### Which re-reads CS5a honestly
+
+CS5a's smoke test was real: at clip 12 the original clone goes from **0 strokes to 6.0** against
+`golem-idle`, damage 7.29 to 24.34, and wins 17 seconds sooner. But offline the same clip puts the
+gate's fire rate at **0.2999** where the expert's own rate is 0.0368 -- **eight times too high**.
+Both readings are correct and they are consistent: past its clip the network extrapolates on
+weights that were never fitted there, and the number that comes out is arbitrary. In game it lands
+at 0.0053; offline on frozen states it lands at 0.2999; neither is the clone's judgement, because
+on these states the clone has no judgement to express.
+
+So the honest verdict is that **raising the clip buys strokes by accident.** It is worth having --
+a mind that clips one cell in eleven is mis-specified whatever else is true, and `theirsSeconds`
+reaching 11.74 sigma on a column whose own range is [0,1] is a defect in the standardisation, not
+in the mind. But it is not the fix for the dead rung, and CS5's registration said so in advance:
+*"if CS5b or CS5c moves, the global clip is load-bearing somewhere it should not be."*
+
+#### The thirteenth governing rule
+
+**Behaviour cloning can only transfer a decision the expert makes for a reason the student can
+see.** Before cloning a behaviour, check that the label correlates with something in the feature
+vector on the states where the behaviour is wanted. If it does not, no amount of data, aggregation
+or capacity will produce it, and the fit will be *right* to refuse -- so the failure looks like a
+training bug and is not one. The check is one correlation and it costs nothing; CR, CS3, CS4 and
+CS5 are four sessions that would have been one.
+
+This also narrows what CT3 did. The calibration search beats the fencer without any of this
+machinery because **search does not need the expert's reason** -- it needs only a score. That is
+the complementarity the CT5 addendum claimed, now with a mechanism: regression is bounded by what
+the labels explain, and on the rung where the labels explain nothing, only the search has anything
+to work with.
+
+#### CS4 and CS5 in game, which confirm the offline reading and refuse one bar apiece
+
+128 paired seeds at `golem-idle`, 256 at `golem-fencer`, cap 150.
+
+| | rung | claim | measured | verdict |
+| --- | --- | --- | ---: | --- |
+| **CS4a** | `idle` | refit throws over 5 strokes a bout | **0.0000** | refused |
+| **CS4b** | `idle` | commit logit reaches above 0 | **-3.24** | refused |
+| **CS4c** | `fencer` | score within 0.10 of 0.3359 | **0.4063** | holds |
+| **CS5a** | `idle` | `dagger` at clip 12 over 5 strokes | **6.0156** | holds |
+| **CS5b** | `fencer` | `dagger` at clip 12 within 0.10 | **0.3672** | holds |
+| **CS5c** | `fencer` | `ct3` at clip 12 within 0.10 | **0.9141** | holds |
+| **CS5d** | `idle` | `policy` strokes move under a fifth | **+29 %** | refused |
+
+**CS4 is the cleanest possible confirmation of the label diagnosis.** Aggregation cost the clone
+nothing it had -- against the fencer the refit is 0.4063 where the original is 0.3359, a shade
+*better* and well inside CS4c -- and bought it nothing it lacked: still exactly zero strokes at
+`idle`. The extra data was not too little. It was unlearnable.
+
+It is worse than that, and this is the number to keep. Against a body that does nothing, the refit
+scores **0.7461 with only 0.4922 of its bouts decided**, and at clip 12 it scores **0.0000** --
+**the first mind in this record that loses to `golem-idle`**. It deals 0.24 damage, takes 0.77, and
+loses on the overtime drain. A fit that correctly predicts "never swing" and is then asked to fight
+produces a body that walks into a statue and bleeds.
+
+**CS5a holds and reproduces the smoke test exactly**: `dagger` at clip 12 goes from 0 to **6.0156**
+strokes at completion **1.000**, damage 7.29 to 24.31, and finishes 16.9 s sooner. CS5b and CS5c
+hold, so the clip is free for both clone-derived minds -- 0.3359 to 0.3672 and 0.8516 to 0.9141,
+both moves inside their own two sigma and neither separated from zero.
+
+**CS5d is refused, and it is the one arm that stops this shipping as a global constant.**
+`golem-policy` at clip 12 throws **192.80 strokes against 149.21**, +29 % where the bar was a
+fifth, and its damage *falls* 7.79 to 4.20 while completion drops 0.697 to 0.475. The mind fitted
+by PPO is the one that depends on the clip. So the registered mapping's last arm fires: *"the
+global clip is load-bearing somewhere it should not be, and the per-column form is the only safe
+version."* A literal 5 raised to a literal 12 fixes the regression-fitted minds and breaks the
+gradient-fitted one, which is the strongest argument yet for standardising against a column's
+**declared range** rather than against one collection's spread.
+
+`ct3` at clip 12 is the best fencer score this record holds -- **0.9141**, +0.5195 +-0.0691 over
+`golem-driver` -- but the +0.0625 over `ct3` itself sits inside both intervals and is not claimed.
