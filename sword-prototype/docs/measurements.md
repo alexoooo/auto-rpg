@@ -42262,6 +42262,40 @@ means it is not fitted to seeds, but it is specialised to one body by constructi
 has been burned by exactly this before -- CM found +170 Elo that turned out to be a mirror. A score
 against the opponent you searched on is not a rating. CT4 registers the transfer before it is taken.
 
+#### Where the regression failed is where the search worked, and where it did not is the finding
+
+The DAgger fit's own per-axis report, beside what the calibration then did to each axis:
+
+| axis | fit R2 | what the fit managed | CT3 gain | CT3 offset | moved? |
+| --- | ---: | --- | ---: | ---: | --- |
+| `reach` | flat | nothing to fit -- no spread | **1.480** | +0.120 | **to the stop** |
+| `standOff` | flat | nothing to fit -- no spread | 1.177 | +0.002 | no |
+| `targetLateral` | flat | nothing to fit -- no spread | 0.609 | -0.034 | no |
+| `targetHeight` | flat | spread 0.0122, under the live floor | 0.855 | **-0.182** | **yes** |
+| `bite` | **-0.318** | worse than predicting the mean | **1.724** | -0.078 | **yes** |
+| `swing` | **-0.149** | worse than predicting the mean | 0.714 | +0.266 | a little |
+| `strafe` | 0.431 | half of it | 1.170 | **+0.380** | **yes** |
+| `lean` | **0.981** | almost exactly | 1.210 | **+0.568** | **yes** |
+| `advance` | **0.983** | almost exactly | 1.286 | **-0.193** | **yes** |
+
+**Six of the nine axes gave the regression nothing to work with** -- four with no spread at all and
+two it fitted worse than a constant -- and the calibration made three of its largest moves in there.
+That half is repair: evolution supplying, from outcomes, what supervision could not read out of the
+labels because the labels had no variation to read.
+
+**The other half is not repair and it is the part that matters.** `lean` and `advance` were copied
+at R2 0.981 and 0.983 -- the clone reproduces the driver on those two almost exactly -- and the search
+moved them anyway, `lean` by +0.60 of command and `advance` down by more than half. There was
+nothing broken there to fix. **The search disagreed with the expert**, on the two axes the expert is most
+legible on, and won 108 bouts in 128 doing it.
+
+That is the cleanest statement this phase has of what the composition buys. Behaviour cloning gets a
+mind to the expert's competence and stops, by construction, because matching the expert *is* its
+objective and a perfect copy is a perfect score. The search has a different objective -- winning --
+so it is free to leave the expert behind, and the twenty-one numbers are where it did. CR alone
+would have been a clone. CT alone, from a random start, is the long shot the agenda admitted it was.
+Neither half is the result; the composition is.
+
 ### CT4 -- does the calibration fight, or only fight fencers, registered before the seeds
 
 `ct3` on the three rungs it has never seen, same instrument, arms `driver`, `policy` and `ct3`.
