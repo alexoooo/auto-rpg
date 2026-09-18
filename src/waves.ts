@@ -222,9 +222,11 @@ export function mendedGolem(golem: GolemSetup): GolemSetup {
  * a mirrored pair of asymmetric cells must do and is the reason these numbers can be read at all.
  *
  * **The other half of that table is the more useful finding.** A reach edge alone moves a bout
- * from 0.25 to 0.75 -- a swing of 0.50 where the entire designed mind ladder spans 0.075. Body
- * beats mind by nearly seven to one. The roster of morphologies is a real difficulty curve and the
- * minds are not, which is the opposite of the weighting the plan assumed.
+ * from 0.25 to 0.75 -- a swing of 0.50, against 0.158 for the entire designed mind ladder from
+ * `golem-brawler` to `golem-champion` and 0.075 across the flat cluster inside it. **Body beats
+ * mind by three to one at its most generous reading and by nearly seven to one at its least.** The
+ * roster of morphologies is a real difficulty curve and the minds are not, which is the opposite
+ * of the weighting the plan assumed.
  *
  * One caveat is owed, and it is the reason the module is kept rather than deleted: every number
  * on this page was taken over a blade that arrives flat. `roll` is a constant in the executor and
