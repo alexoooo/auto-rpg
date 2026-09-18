@@ -43783,3 +43783,58 @@ with a measured slope. **Nothing ships from it without them.**
 
 **We can beat the hand-coded minds. We cannot beat each other, because the game pays for waiting,
 and every method we own has independently discovered that.** The next move is to stop paying for it.
+
+### CYc explained, before CZ1 reports -- the drain has no threshold
+
+`config.ts:1163` states the drain's design plainly: past 60 s it takes the same fraction of each
+body's **own** bar per second, so *"whichever is already carrying more damage reaches zero first"*.
+The comment defends this as principled, and it is -- "the side ahead on damage wins" falls out of
+the physics instead of being a tie-break invented by whatever function needed one.
+
+**But it has no threshold, and that is what CYc is.**
+
+In the `ct3` mirror the left body deals **0.8083** damage and takes **1.0298**. That 0.22 difference
+-- on a scale where a real fight against the fencer moves 65 -- is about **a third of one per cent**
+of a normal bout's damage. The drain converts it into a decisive result: the left side loses
+**0.1563**, which is to say five bouts in six. A quantity indistinguishable from noise is being
+amplified into a crisp win.
+
+Now put the two mirrors side by side:
+
+| mirror | strokes | damage dealt | taken | difference | score |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `golem-driver` | 36.2 | 59.19 | 57.36 | **1.83 on 59** | 0.4688 |
+| `ct3` | 0.0 | 0.81 | 1.03 | **-0.22 on 1** | **0.1563** |
+
+**The driver mirror is a real fight, so noise cannot flip it, and it sits at 0.4688 where a mirror
+belongs.** The learned mirrors are near-zero-damage standoffs, where any systematic difference at
+all -- however small -- decides every bout the same way. That is why the three learned mirrors are
+far from 0.5000 and the two controls are not, and it is why their directions disagree: each mind's
+tiny residual asymmetry has its own sign.
+
+So **CYc is not evidence of a broken harness.** It is evidence that a mirror score is meaningless
+whenever the bout carries no damage, which is exactly the case the phase kept quoting it in.
+
+**This sharpens CZ1 rather than replacing it,** and CZ1's mapping still stands: if exchanging the
+seeds flips the mirrors, the residual asymmetry rides on the seed pairing (CZ1a); if it does not,
+it rides on the seat, and the most likely mechanism is that `stepPair(left, right)` steps left
+first on every tick, handing right a half-tick of extra reaction (CZ1b). Recorded now, before CZ1
+reports, so it counts as a prediction: **CZ1b, on the argument that the seats are the only thing a
+mirror does not randomise.** This reverses the call made at CZ1's registration, where I predicted
+CZ1a without having read the drain's design.
+
+#### What it does to DF
+
+DF as drafted said "a bout with no killing blow scores zero for both". That is too blunt -- the
+drain is a legitimate rule and against the fencer it never fires, because those bouts end at forty
+seconds on real blows. The defect is the **missing threshold**, so DF is restated:
+
+**A bout resolved by the drain on a damage difference below a floor is a draw, not a win.** The
+floor is a number to be measured rather than guessed; the `ct3` mirror puts it somewhere above 0.22
+and the driver mirror somewhere below 1.83, which is an uncomfortably narrow gap and the first thing
+to check.
+
+And it connects to the oldest finding in the record. Thirteen sessions could not find reproducible
+content in the actor gradient. **One reason is now visible: in every long bout the win signal
+itself is noise, sharpened to +-1 by a drain with no threshold.** That is the worst possible input
+to a sample-mean estimator, and it was never in the list of suspects.
