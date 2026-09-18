@@ -1159,6 +1159,27 @@ export const CONFIG = {
      * damage wins" a consequence of the drain rather than a scoring rule
      * invented in passing by the function that needed a tie-break -- which is
      * exactly the rule `settle` in `src/bout.ts` declines to invent.
+     *
+     * ---
+     *
+     * **2026-09-18: nothing reaches this any more, and that is the measurement rather than a
+     * hope.** The drain was the thing deciding golem bouts -- a 0.22 damage difference out of
+     * about 60 settled 54 of 64 in one run, because nothing was lethal enough to settle them
+     * first. After the mass re-scale, `GOLEM_ASSEMBLY.healthScale` and `TORSO_WAIST.twistRate`,
+     * twelve bouts of each of four pairings at a 150 s cap:
+     *
+     *     pairing                        median   longest   past 60 s   ending
+     *     golem-form v golem-fencer       14.3 s   30.0 s     0 / 12    12 exhausted
+     *     golem-fencer v golem-fencer     12.0 s   20.9 s     0 / 12    12 exhausted
+     *     golem-guardian v golem-brawler  12.8 s   17.0 s     0 / 12    12 exhausted
+     *     golem-form v golem-form         11.1 s   16.3 s     0 / 12    12 exhausted
+     *
+     * **48 of 48 decided on the bar, none on the clock, and the longest fight ends at half the
+     * distance to this number.** So the ramp is left exactly where it is and neither of the two
+     * repairs the phase planned -- a margin under it, or deleting it -- is taken: a constant
+     * nothing reaches is not a constant to re-tune, and the reason it was written still stands
+     * for the cases that can still stall, two cautious minds and whatever a wave mode puts in
+     * front of the player. It is a safety net again instead of the referee.
      */
     overtimeSeconds: 60,
 
