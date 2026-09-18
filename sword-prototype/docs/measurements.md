@@ -43329,3 +43329,46 @@ named in the registration:
   decides on.
 
 CW2 is both, and it is the cell this phase should end on.
+
+### CW2 -- the anchored round, registered before it runs
+
+CW1 turned the loop and showed what the loop costs when its objective can only see one body. CW2 is
+the same operator with the objective CW1's own registration named in advance: **anchored** on the
+four hand-coded minds *and* the frozen champion, and **graded** on the bar margin so it does not
+saturate.
+
+`--opponent golem-fencer,golem-brawler,golem-driver,golem-idle,snapshots/ct-calib1.json`, 30 seeds
+a candidate dealt round robin so each of the five gets six, 25 generations, (1+12), cap 150, started
+from CT3's weights. About 9,800 bouts.
+
+Five opponents is the point. A candidate that sells `golem-brawler` to buy the champion now loses
+six bouts to gain six, and the margin term prices the trade rather than hiding it. **An anchor set
+inside the objective is not a curriculum** -- the record refuses curricula on evidence (Z, AN, AO),
+and those were *schedules*, an ordering of what to train against over time. This is a fixed ruler
+applied identically at every generation.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **CW2a** | beats frozen CT3 head to head on fresh seeds, over 0.55 | at or under 0.50 |
+| **CW2b** | holds `golem-brawler` **over 0.85** -- the rung CW1 sold | under 0.70 |
+| **CW2c** | holds `golem-fencer` within 0.10 of CT3's 0.8516 | below 0.70 |
+| **CW2d** | keeps the strokes CW1 found at `golem-idle`, **over 5** | back at 0 |
+| **CW2e** | fitness is still climbing at generation 25 | flat for the last five |
+
+CW2e is the cheap one and it is the whole reason the margin term exists: CW1's objective was done at
+generation 2 and nobody could see it from the score column, which read 1.0000 the entire time.
+
+**The total verdict mapping (rule 9).** If CW2a through CW2d all hold, **the loop is an
+improvement operator and not a trade** -- a mind that beats its parent while keeping every rung, and
+the phase can recommend running it repeatedly. If CW2a holds and CW2b does not, the anchor is too
+weak against an opponent this specialised and the next version weights the rungs rather than
+counting them equally. If CW2a is refused while CW2b-d hold, the anchors have cost the search its
+edge over the champion, which would say the two objectives are in genuine conflict and that the loop
+buys generality at the price of progress -- a real answer, and the one that would send this back to
+CY to decide which mind is actually better. If CW2e is refused with everything else holding, the
+margin term is not enough and the objective needs a continuous reading of the bout rather than of
+its outcome.
+
+I expect CW2a to hold smaller than CW1's 1.0000, CW2b and CW2c to hold, CW2d to hold, and CW2e to
+hold. The prediction that matters is CW2b: **CW1 sold that rung and the anchor exists to stop it,
+so if it sells again the fix is wrong and not merely weak.**
