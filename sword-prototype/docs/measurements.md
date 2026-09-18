@@ -41598,3 +41598,111 @@ It also resizes CR itself. A clone is not learning nine continuous axes and thre
 learning three axes, of which two take three values each, plus when to raise `commit` -- which at
 one ask in twelve is the swing, and is the only part of this that is the fighting. The shipped
 actor spends 87,308 weights on a function with this much in it.
+
+### CR1: passed, and at six epochs rather than forty
+
+116,642 training asks, 28,482 held out over 52 bouts no training row came from.
+
+| axis | driver sd | R2 held out | rmse |
+| --- | ---: | ---: | ---: |
+| `strafe` | 0.2768 | **0.4986** | 0.1960 |
+| `lean` | 0.3197 | **0.9823** | 0.0425 |
+| `advance` | 0.5817 | **0.9860** | 0.0689 |
+| the other six | 0.0000-0.0110 | flat | 0.0165-0.0270 |
+
+| gate | raised | agreement | majority | lift |
+| --- | ---: | ---: | ---: | ---: |
+| `commit` | 0.0856 | 0.9962 | 0.9144 | **0.9561** |
+| `abort` | 0.0328 | 0.9915 | 0.9672 | 0.7401 |
+| `parry` | 0.0686 | 1.0000 | 0.9314 | **1.0000** |
+
+**Both halves clear their bars**: mean R2 **0.8223** against a registered 0.75, and commit lift
+**0.9561** against the restated 0.5. `parry` is reproduced exactly on every one of 28,482 held-out
+asks. The six flat axes come back at an rmse of 0.017-0.027 on a scale two wide, which is the
+network learning a constant, as it should.
+
+So `pilotFeatures` **does** determine the driver's command. The fail/fail corner of the verdict
+mapping -- the partial-observability finding that would have stopped CT outright -- is excluded.
+
+**The one soft number is `strafe` at 0.4986**, and it is soft in an interesting place: it is the
+only genuinely continuous axis the driver has, the other two moving over three values each. Half
+its variance is unexplained by the columns the mind is allowed to read. If CR2 fails, this is the
+first place to look, because strafe is the footwork and the footwork is what decides whether the
+fight happens at the driver's distance or somebody else's.
+
+Six epochs, not forty. The loss was 0.3034 after one pass and 0.0767 after six, and R2 moved
+0.7746 -> 0.8210 -> 0.8223 over epochs 1, 5 and 6 -- so this is a flat optimum reached quickly, not
+a fit that wanted the night it was given. **That is itself the contrast the phase was opened on:**
+thirteen sessions of policy gradient could not move the criterion at any batch size the project can
+afford, and the supervised fit of the same network on the same surface was done in six passes over
+a quarter of a million labelled asks that cost one collection run.
+
+### CR2: refused, CR3 confirmed, and the mechanism caught on the way past
+
+128 paired seeds against `golem-fencer`, every arm greedy, cap 60 s.
+
+| column | driver | clone | policy |
+| --- | ---: | ---: | ---: |
+| score | 0.4531 | **0.0273** | 0.5117 |
+| decided | 0.9688 | 0.9453 | 0.3984 |
+| seconds | 36.84 | 40.84 | 55.10 |
+| strokes | 32.38 | **93.95** | 77.61 |
+| completion | 0.4787 | **0.1613** | 0.5888 |
+| damage dealt | 57.94 | 34.12 | 44.79 |
+| damage taken | 59.47 | 66.77 | 35.49 |
+
+Paired against the driver, mean difference and two sigma: score **-0.4258 +-0.0895**, strokes
+**+61.57 +-6.31**, completion **-0.3174 +-0.0224**, damage dealt -23.83 +-2.97.
+
+**CR2 is refused** -- the bar was within 0.10 and refusal beyond 0.20, and the gap is 0.4258.
+**CR3, which predicted exactly this pair, holds.** CR1 passed at 0.8223 and 0.9561 and the mind
+built from it scores 0.027.
+
+#### What the columns say, which a score could not
+
+The clone throws **2.9 times as many strokes as the driver and aborts 84 % of them**. That is not a
+mind that is slightly worse; it is a mind that flails -- which is the owner's standing complaint
+about this arena, arriving here as a measurement. A bar reading 0.027 against 0.453 says "bad"; the
+columns say *what* is bad, and CQ is the only reason they are in this table.
+
+#### The mechanism, measured rather than inferred
+
+Gate rates in **closed loop**, 24 bouts, beside the same clone's agreement on the driver's own
+held-out states:
+
+| gate | driver, playing | clone, playing | clone's agreement on driver states |
+| --- | ---: | ---: | ---: |
+| `commit` | 0.0885 | **0.5970** | 0.9962 |
+| `abort` | 0.0301 | **0.6509** | 0.9915 |
+| `parry` | 0.0662 | **0.6908** | 1.0000 |
+
+**The clone raises every gate seven to twenty times more often than the mind it copied, while
+reproducing that same mind on 99.6 % of the asks it was tested on.** Those two facts are not in
+tension: they are the definition of distribution shift. The clone is right where the driver goes
+and hopeless where its own errors take it, and it takes about a second to get there.
+
+This is the failure behaviour cloning reliably has, it is the one DAgger exists to fix, and the
+pass/fail corner of the registered mapping says to run that round. It also settles what the fix is
+*not*: `strafe` is the axis the clone learned worst (R2 0.4986) and it is genuinely unlearnable in
+part -- `command.strafe` is written only while a hidden `circling` flag is true, and that flag flips
+on an internal clock jittered by the driver's own `random()` stream, which no feature exposes. That
+ceiling is real and DAgger cannot lift it. **But it is not what broke this**: a footwork axis half
+explained does not turn 32 strokes into 94.
+
+#### Two things nobody asked for
+
+**The shipped policy scores 0.5117 and wins by not fighting.** Its `decided` is 0.3984 against the
+driver's 0.9688 and its bouts run 55.1 s of a 60 s cap -- it draws three fights in five by standing
+off, takes 35.5 damage where the driver takes 59.5, and collects the draw. Against the driver its
+score difference is +0.0586 +-0.1002, which is nothing; its `decided` difference is
+-0.5703 +-0.0933, which is enormous. **A rating that reads only the score cannot tell the better fighter from the
+better staller**, and this is the phase's second worked example of why CQ came before CR.
+
+**`golem-driver` loses narrowly to `golem-fencer`**, at 0.4531 over 128 seeds. So the ceiling a
+perfect clone of it could reach is below the fencer, and the ladder's third rung is not reachable by
+cloning alone however well the cloning goes. That is an argument for CT rather than against CR: the
+clone is a *starting point* for search, which is what the plan said it was for.
+
+The two `retreat` and `inside` columns read 0.0000 for every arm -- they are populated for bodies
+with punches, and a blade-and-plate golem never fills them. They are noise in this table and are
+named here so the next reader does not mine them.
