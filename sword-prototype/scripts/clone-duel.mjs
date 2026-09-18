@@ -142,6 +142,14 @@ async function cell({ arm: named, seeds, cap, opponent, tablePath }) {
    * win there measures shoving and is not rung one in any useful sense.
    */
   const opponentOf = (seed) => {
+    // A path rather than a rung puts a **learned** mind on the other side, driven greedily. CW1 is
+    // why: a mind that beats its own parent 96-0 and sells a rung to do it cannot be ordered
+    // against that parent by any one column, and a round robin is the only instrument that can.
+    if (opponent.endsWith(".json")) {
+      const table = JSON.parse(readFileSync(resolve(ROOT, opponent), "utf8"));
+      const it = golemPolicy(seed, table, GOLEM_TACTICS_V4, null, false, null);
+      return { name: opponent, driven: it.driven, decide: (v, dt) => it.decide(v, dt) };
+    }
     const rung = rungOf(opponent);
     if (rung === "golem-brawler") return golemBrawler(seed);
     if (rung === "golem-idle") return idleMind();
