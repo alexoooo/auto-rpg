@@ -42284,10 +42284,10 @@ That half is repair: evolution supplying, from outcomes, what supervision could 
 labels because the labels had no variation to read.
 
 **The other half is not repair and it is the part that matters.** `lean` and `advance` were copied
-at R2 0.981 and 0.983 -- the clone reproduces the driver on those two almost exactly -- and the search
-moved them anyway, `lean` by +0.60 of command and `advance` down by more than half. There was
-nothing broken there to fix. **The search disagreed with the expert**, on the two axes the expert is most
-legible on, and won 108 bouts in 128 doing it.
+at R2 0.981 and 0.983 -- the clone reproduces the driver on those two almost exactly -- and the
+search moved them anyway, `lean` by +0.60 of command and `advance` down by more than half. There
+was nothing broken there to fix. **The search disagreed with the expert**, on the two axes the
+expert is most legible on, and won 108 bouts in 128 doing it.
 
 That is the cleanest statement this phase has of what the composition buys. Behaviour cloning gets a
 mind to the expert's competence and stops, by construction, because matching the expert *is* its
