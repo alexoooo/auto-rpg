@@ -1418,9 +1418,11 @@ async function boot(): Promise<void> {
   // A live handle on everything, for tuning from the console. CONFIG is
   // deliberately mutable, so `__sword.config.arm.linearMotorForce = 1600` takes
   // effect on the very next frame -- which is the whole point of a feel
-  // prototype. Anything the solver caches natively needs `applyTuning()` on the
-  // fighter it belongs to, and that now includes every joint of the body:
-  // `__sword.left.applyTuning()`.
+  // prototype. Anything the solver caches natively -- a motor ceiling, chiefly --
+  // does not move until something re-applies it. `__sword.left.applyTuning()` was
+  // the humanoid fighter's way of doing that and went with it on 2026-09-18; a
+  // golem's `applyTuning` lives per arm chain on `AnchorDrive` and no one call
+  // reaches every chain, so a rebuild with `R` is the reliable way for now.
   //
   // `left` and `right` are getters rather than fields because `R` replaces
   // both fighters, and a console handle that quietly refers to a disposed body

@@ -1341,9 +1341,12 @@ export const CONFIG = {
      *     ...
      *
      * Take it by striking the right-hand fighter's head square at a measured tip
-     * speed with `body.jointStiffness` at 17, 34 and 68 -- calling
-     * `__sword.right.applyTuning()` after each change, which is what makes the
-     * edit reach the solver at all -- and write the three rows here.
+     * speed with `body.jointStiffness` at 17, 34 and 68 -- rebuilding the bout
+     * with `R` after each change, which is what makes the edit reach the solver
+     * at all -- and write the three rows here. *(Was
+     * `__sword.right.applyTuning()`, which was the humanoid fighter's method and
+     * went with it on 2026-09-18. A golem's equivalent lives per chain on
+     * `AnchorDrive` and nothing yet reaches all of them at once.)*
      */
     jointStiffness: 34,
     neckStrength: 6,
@@ -1368,9 +1371,9 @@ export const CONFIG = {
      * Not yet measured against a person's eye -- nobody has played this. Set at
      * 0.08, which puts the waist at 60 N.m against its usual 748 and the neck at
      * 16 against 204. If a corpse looks stiff, lower it; if it looks boneless,
-     * raise it, and write the two readings here. It is live-tunable on a body
-     * already on the floor: `__sword.config.body.deadJointStrength = 0.3;
-     * __sword.left.applyTuning()`.
+     * raise it, and write the two readings here. It was live-tunable on a body
+     * already on the floor through the humanoid fighter's `applyTuning`; on a
+     * golem it takes a rebuild, for the reason given at `jointStiffness` above.
      */
     deadJointStrength: 0.08,
 
