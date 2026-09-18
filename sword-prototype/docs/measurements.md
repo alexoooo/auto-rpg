@@ -44017,3 +44017,74 @@ a plausible candidate and remains a guess; CZ1 establishes only that the bias ri
 rather than the seed. Since DF removes the consequence without needing the cause, the mechanism is
 left open rather than chased, and recorded here as open so a later reader does not mistake the
 hypothesis for the result.
+
+### DC's result -- the damage dial is not the lever, and my prediction is refused
+
+Three settings of `CONFIG.combat.drawFraction`, three arms, 64 seeds, against `golem-fencer` and
+against `ct3`. Scores compare only **within a column**, per rule 11 as restated at registration.
+
+| vs `golem-fencer` | `driver` | `policy` | `ct3` | `policy - ct3` |
+| --- | ---: | ---: | ---: | ---: |
+| 0.3 *(shipped)* | 0.3438 | 0.5469 | **0.8281** | -0.2812 |
+| 0.6 | 0.3438 | 0.5313 | **0.7969** | -0.2656 |
+| 1.0 | 0.3750 | 0.5156 | **0.7031** | -0.1875 |
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **DCa** | `policy - ct3` rises with the dial | -0.2812 to -0.1875 | **not established** |
+| **DCb** | they cross at 1.0 | `ct3` still leads by 0.1875 | **refused** |
+| **DCc** | the `ct3` mirror throws over 5 strokes at 1.0 | **1.22** | **refused** |
+| **DCd** | the `ct3` mirror falls below 60 s at 1.0 | **112.7 s** | **refused** |
+
+**The prediction I registered is refused.** Paying a cut for its slide does not make the mind that
+swings win. `golem-policy` does not improve at all -- it goes 0.5469, 0.5313, **0.5156**, drifting
+the wrong way. The gap narrows only because `ct3` gets *worse*, and the 0.0937 it narrows by is well
+inside the interval a difference of two unpaired 64-seed scores carries. **DCa survives in sign and
+nothing else, and the sign is being produced by the wrong term.**
+
+#### Why it fails, which is obvious in hindsight
+
+The dial pays for **an aligned edge carried across a body**. That is not the charging swordsman's
+move; it is the counter-puncher's. `ct3` holds a square, aligned guard and lets the fencer run
+along it -- the single contact the dial was built to pay for. So raising it hands the
+counter-puncher a raise too, and the ordering holds because **both sides are scaled together.**
+
+The columns show it exactly. Against the fencer, from 0.3 to 1.0: `ct3`'s damage is **flat** at
+65.5 to 64.0 while its bouts **halve**, 39.7 s to 19.8 s. Its strokes fall 20.2 to 8.8. It deals the
+same damage in half the time with half the swings. Everyone gets more lethal in proportion --
+`driver` 37.3 s to 16.4 s, `policy` 66.3 s to 44.0 s -- and nobody gets more aggressive. The dial is
+a **tempo** control, not an aggression control.
+
+That also cross-checks BV from a different instrument: BV measured 20 s a bout at 1.0, and this run
+puts `ct3` against the fencer at 19.8 s. Two sweeps, two years of code apart, same number.
+
+#### The mirror flipped sides, and it is the best evidence DF has
+
+The `ct3` mirror across the three settings, same two identical minds each time:
+
+| draw | strokes | damage | taken | difference | bout ends | score |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.3 | 0.00 | 0.81 | 1.03 | **-0.22** | 119.3 s | **0.1563** |
+| 0.6 | 2.38 | 11.77 | 11.34 | **+0.43** | 108.7 s | **1.0000** |
+| 1.0 | 1.22 | 11.19 | 6.07 | **+5.12** | 112.7 s | **1.0000** |
+
+At 0.6 a **0.43** damage difference -- on a scale where a real bout moves 65 -- produces a **clean
+sweep, 64 wins from 64**. The same pair of minds read 0.1563 one setting earlier. Nothing about
+either mind changed; the sign of a sub-half-point difference did.
+
+This was not what DC was for and it is the most useful thing it returned. **A mirror score for these
+minds is not a measurement of anything**, and DF's floor is now supported by three independent
+points rather than one. It also widens the bracket the floor has to sit in: above **0.43** now, not
+0.22, and still below the 1.83 that separates a real fight.
+
+#### What it means for the agenda
+
+The damage model is **not** the lever, and the owner does not need to rule on anything. That is a
+cleaner outcome than a dial with a slope, because it removes a game-design change from the critical
+path entirely. `drawFraction` remains what BV and the owner set it to be -- a tempo control, worth
+having at 0.3, not a fix for this.
+
+**So the agenda narrows to DF and DE, which were already the cheap ones.** The counter-punching
+advantage is not an artefact of how cuts are priced; it survives a three-fold change in that price
+untouched. It is a property of the fight itself, and the only remaining levers are what we *score*
+and who we *train against*.
