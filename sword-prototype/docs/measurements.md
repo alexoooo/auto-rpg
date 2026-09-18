@@ -43702,3 +43702,84 @@ Splitting it, before the run reports:
 
 Registering the correction rather than quietly restating it, because the first version is committed
 in `afb9f44` and a bar that moves after its data arrives is not a bar either.
+
+## The agenda, rewritten around what CY found
+
+The agenda published earlier this phase (CU, CV, DB, CW, CX, CY, CZ) was written on the assumption
+that **the learner is the weak part**. CY refutes that, and the plan has to move.
+
+**What is actually true now.** Five different methods -- supervised cloning, DAgger, a 21-number
+calibration, and two rounds of evolution -- have all converged on *the same mind*: stay at range,
+keep the guard up, never commit, let the other body run onto the edge. That mind beats **every**
+hand-coded opponent: brawler 1.0000, driver 0.7031, fencer 0.8281. **The owner's stated bar is
+met.** The learner is not broken. It found the best strategy available, and the best strategy
+available is one nobody wants to watch.
+
+**Why the goal past that bar is blocked, stated as plainly as it goes.** Damage in this build is
+paid for by how fast the body that gets *hit* was moving. So going in is how you lose and standing
+off is how you win. When two minds both know that, neither goes in -- `ct3` against itself is 1,435
+asks a bout and **zero** commits, two bodies circling for two minutes. **Standing off is not a bug
+in the search; it is the equilibrium of the game.** No better optimiser reaches past it, because
+there is nothing past it to reach. Every one we have tried has already found it.
+
+That kills most of the old agenda. A better search, a bigger batch, NEAT topology growth -- all of
+it is buying a faster route to a destination we are already standing on. What is left is to change
+**what winning means** or **what damage means**, and those are three levers, cheapest first.
+
+### DF -- stop paying for wins nobody threw a punch for (free, no physics change)
+
+The cheapest lever and the one I would run first. Right now a bout that reaches 119 s with no real
+blow still produces a **winner**: the overtime drain takes a fixed share of both bodies per second
+and somebody's runs out first. **The search is being paid for outlasting, and it has noticed.**
+
+Change the objective, not the game: a bout that ends without a killing blow scores **zero for both
+sides** rather than one-nil for whoever drained slower. Then standing off stops winning, and the
+only way to score is to actually land something. This touches the scoring in the harness, costs no
+physics, and re-prices nothing in the shipped build.
+
+**The honest risk, registered:** this may simply produce a mind that loses more slowly, or collapse
+every learned-versus-learned bout to 0-0 and hand the search no gradient at all. That is worth
+finding out, and it is one afternoon.
+
+### DE -- put a mind in the pool that the search cannot out-wait (cheap)
+
+The training pool is `idle`, `brawler`, `driver`, `fencer`. **Every one of them comes forward.** So
+the search has never once been asked to beat an opponent that stands off, and counter-punching has
+never been punished. CW2 half-does this by carrying the frozen champion, and the result so far is
+telling: it has kept the parent for eleven straight generations at **7.3 strokes a bout**.
+
+Against a standoff opponent the winning reply is *also* to stand off, so DE on its own probably only
+sharpens the equilibrium. **DE is therefore registered as a companion to DF, not an alternative**:
+with drain wins worth nothing, a standoff opponent becomes a mind you *must* find a way into, and
+that is the first time this project would have posed that question.
+
+### DC -- re-price the stroke (running; the owner's call if it works)
+
+Already registered and described above. `drawFraction` exists, the owner set it to 0.3 themselves,
+and BV measured that it shortens bouts sharply as it rises. If DCa and DCb hold, the ranking of
+these minds is a property of the damage model rather than of the minds, and the owner has a dial
+with a measured slope. **Nothing ships from it without them.**
+
+### What is dropped, and why
+
+- **NEAT and topology growth.** Dropped. The argument for it was that the search was
+  under-powered. It is not; it is converging, repeatedly, from four different starting points.
+- **PPO fine-tuning at AW's batch size.** Dropped for now. ~4,800 bouts an iteration buys a better
+  estimate of a gradient pointing at the same equilibrium.
+- **CU, CV, CX as written.** They assumed the old frame.
+
+### What is kept
+
+- **CZ1**, running -- the mirror asymmetry has to be settled before any learned-versus-learned
+  number is trusted.
+- **CW2**, running to completion, as the control that says what a learned opponent in the pool buys
+  under the *current* rules. Its answer so far looks like "nothing", which is itself the evidence
+  DE needs.
+- The backlog: `VIABLE_FLOOR = 0.5` refusing nothing, and `VIABLE_TERMINALS`/`VIABLE_PAIRS` measured
+  at the defective cap 60. Both blocked until the box is free -- `scripts/tournament.mjs` imports
+  `src/golem/viability.ts` and both running jobs re-read it on every cell.
+
+### The one-line version
+
+**We can beat the hand-coded minds. We cannot beat each other, because the game pays for waiting,
+and every method we own has independently discovered that.** The next move is to stop paying for it.
