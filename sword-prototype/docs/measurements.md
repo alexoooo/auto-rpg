@@ -43262,3 +43262,70 @@ I expect CW1a to hold, CW1b to hold small, and **CW1c to be the one at risk**: a
 objective is beating CT3 has no reason to keep CT3's fencer score, and nothing in the loop as
 written tells it to. If that is what happens, the fix is already named above and CW2 becomes the
 anchored objective rather than the pure one.
+
+### CW1's result -- the loop turns, it wakes the dead rung, and it sells a rung to do it
+
+Round two: twenty-one fresh numbers over CT3's own weights, every candidate scored against a
+**frozen** CT3. 20 generations, (1+12), 20 seeds a candidate, cap 150.
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **CW1a** | beats frozen CT3 over 0.60 on the search's seeds | **1.0000** | holds |
+| **CW1b** | beats CT3 over 0.55 on **fresh** seeds | **1.0000**, 96 of 96 | holds |
+| **CW1c** | holds its `golem-fencer` score within 0.10 of 0.8490 | **0.8086** | holds |
+| **CW1d** | holds `brawler` and `idle` at 1.0000 | **0.4740** and 1.0000 | refused |
+
+**CW1b holds as completely as a bar can.** Round two beats the mind it was grown from **96 times out
+of 96**, on seeds the search never saw. That is not a winner's-curse number and it is not close.
+The registered mapping's first arm fires: **the loop turns.** A mind improved on the previous
+champion with no new labels, no new hand-written opponent and no curriculum -- the thing that got
+harder is the thing we had just built.
+
+And it turned fast. The objective hit 1.0000 at **generation 2** and stayed there for eighteen more,
+which is its own finding: beating a frozen predecessor is too easy to fill a run, so roughly 3,100
+of the 4,400 bouts bought nothing. A win-draw-loss objective against one frozen body saturates, and
+the next round wants a graded one.
+
+#### The whole ladder, which is the part a single score cannot say
+
+| rung | `ct3` | round two | note |
+| --- | ---: | ---: | --- |
+| `golem-idle` | 1.0000 | 1.0000 | **0 strokes becomes 13.5**, damage 7.3 to 17.4 |
+| `golem-brawler` | 1.0000 | **0.4740** | -0.5260 +-0.0723 |
+| `golem-driver` | 0.7396 | **0.9167** | +0.1771 |
+| `golem-fencer` | 0.8516 | 0.8086 | -0.0430, inside CW1c |
+| frozen `ct3` | -- | **1.0000** | 96 of 96, fresh seeds |
+
+**The dead rung woke up.** Against `golem-idle` round two throws **13.5 strokes at completion
+1.000** and deals 17.4 damage where CT3 throws **zero** and deals 7.3. That rung has been dead since
+CR, survived a DAgger round (CS4) and a clip raise (CS5), and CS4 proved *why* cloning can never fix
+it -- the expert's label there explains nothing. DB named search as the only route left. **This is
+that prediction paid, and nobody asked for it**: the objective was CT3, not the dummy, and the
+bottom rung came along for free.
+
+**And CW1d is refused, hard.** `golem-brawler` goes from 1.0000 to 0.4740. The mechanism is legible
+and it is the owner's own complaint regenerated: round two fights the brawler for **70.3 s against
+40.5**, throws **43.2 strokes against 25.5**, doubles its commit rate to 0.2046 -- and deals
+**less** damage, 43.1 against 57.2, with a slower blade, 2.84 against 3.89. It swings more, and
+worse.
+The stance it learned is tuned to a body that keeps distance, and against one that closes regardless
+that stance is flailing.
+
+So the honest verdict is not "round two is better". It is **round two is different, and the ladder
+is the only thing that can price it**: ahead at two rungs, level at one, collapsed at one, and 96-0
+against its own parent. A pairwise score cannot order these two minds, which is precisely the gap
+CY was put on the agenda to close -- and CY is now the next thing that has to run, not a nicety.
+
+#### What this changes about the loop
+
+The design is sound and the failure is in the objective, not the operator. Two fixes, both already
+named in the registration:
+
+- **Anchor it.** Score a candidate against the frozen champion *and* the four hand-coded minds, and
+  a round that sells the brawler cannot win. The record refuses hand-written *curricula* on evidence
+  (Z, AN, AO); a fixed anchor set in the objective is not a curriculum, it is a ruler.
+- **Grade it.** Win-draw-loss against one body saturates in two generations. The bar margin
+  `tune.mjs` uses -- vitality less the opponent's -- does not, and it is the reading the cap
+  decides on.
+
+CW2 is both, and it is the cell this phase should end on.
