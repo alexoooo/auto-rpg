@@ -2217,6 +2217,9 @@ export async function ratePolicy({
     // it is the only column in this result that a *designed* mind can carry at all -- a rollout
     // needs a policy to record and `golem-fencer` has none.
     const { ret, returns } = returnColumns(rows, names, reward);
+    // CQ: the same rows again, as per-bout vectors, so every structural column can be differenced
+    // and carry its own interval rather than arriving as two means a reader has to eyeball.
+    const vectors = behaviourVectors(rows, names);
     const differences = {};
     for (const other of names) {
       if (other === FIT_NAME) continue;
@@ -2227,6 +2230,7 @@ export async function ratePolicy({
         points: meanOf(p), pointsSem: semOf(p),
         bar: meanOf(b), barSem: semOf(b), d: cohensD(b),
         ret: meanOf(r), retSem: semOf(r), retD: cohensD(r),
+        behaviour: behaviourDifferences(vectors, FIT_NAME, other),
       };
     }
     byPool[which] = {
@@ -2275,35 +2279,78 @@ export async function ratePolicy({
  *
  * They are absent rather than zero on a mind with no stroke instrument behind it, and take the
  * `emptyStrokes` treatment above for the same reason.
+ *
+ * This returns the per-bout vectors; `behaviourColumns` folds them to the block means a printed
+ * row wants, and `behaviourDifferences` subtracts two blocks bout by bout. One indexing path, so
+ * a mean and an interval can never be read off differently-ordered rows.
  */
-export function behaviourColumns(rows, names) {
+export function behaviourVectors(rows, names) {
   const per = rows.length / names.length;
-  if (!Number.isInteger(per)) throw new Error(`${rows.length} rows do not divide among ${names.length} contenders`);
+  if (!Number.isInteger(per)) {
+    throw new Error(`${rows.length} rows do not divide among ${names.length} contenders`);
+  }
   const out = {};
   for (let k = 0; k < names.length; k += 1) {
     const name = names[k];
-    const totals = {
-      stall: 0, outside: 0, emptyStrokes: 0, seconds: 0, decided: 0,
-      strokes: 0, strokeDamage: 0, scoringSpeed: 0, contacts: 0, insideInner: 0, clinchSeconds: 0,
+    const columns = {
+      stall: [], outside: [], emptyStrokes: [], seconds: [], decided: [],
+      strokes: [], strokeDamage: [], scoringSpeed: [], contacts: [], insideInner: [],
+      clinchSeconds: [],
     };
     for (let i = 0; i < per; i += 1) {
       const row = rows[k * per + i];
       const me = row.left.policy === name ? "left" : "right";
-      if (row[me].policy !== name) throw new Error(`row ${i} of the ${name} block names neither side`);
-      totals.stall += row[me].nearRangeStallSeconds ?? 0;
-      totals.outside += row[me].retreatOutsideReachSeconds ?? 0;
-      totals.emptyStrokes += row[me].emptyStrokes ?? 0;
-      totals.strokes += row[me].strokes ?? 0;
-      totals.strokeDamage += row[me].strokeDamage ?? 0;
-      totals.scoringSpeed += row[me].scoringSpeed ?? 0;
-      totals.contacts += row[me].contacts ?? 0;
-      totals.insideInner += row[me].insideInner ?? 0;
-      totals.clinchSeconds += row[me].clinchSeconds ?? 0;
-      totals.seconds += row.seconds;
-      if (row.winner !== null) totals.decided += 1;
+      if (row[me].policy !== name) {
+        throw new Error(`row ${i} of the ${name} block names neither side`);
+      }
+      columns.stall.push(row[me].nearRangeStallSeconds ?? 0);
+      columns.outside.push(row[me].retreatOutsideReachSeconds ?? 0);
+      columns.emptyStrokes.push(row[me].emptyStrokes ?? 0);
+      columns.strokes.push(row[me].strokes ?? 0);
+      columns.strokeDamage.push(row[me].strokeDamage ?? 0);
+      columns.scoringSpeed.push(row[me].scoringSpeed ?? 0);
+      columns.contacts.push(row[me].contacts ?? 0);
+      columns.insideInner.push(row[me].insideInner ?? 0);
+      columns.clinchSeconds.push(row[me].clinchSeconds ?? 0);
+      columns.seconds.push(row.seconds);
+      columns.decided.push(row.winner !== null ? 1 : 0);
     }
-    out[name] = { bouts: per, ...Object.fromEntries(
-      Object.entries(totals).map(([column, total]) => [column, per === 0 ? 0 : total / per])) };
+    out[name] = columns;
+  }
+  return out;
+}
+
+/** The block means, which is what a caller printing one contender's row wants. */
+export function behaviourColumns(rows, names) {
+  const out = {};
+  for (const [name, columns] of Object.entries(behaviourVectors(rows, names))) {
+    out[name] = {
+      bouts: columns.seconds.length,
+      ...Object.fromEntries(Object.entries(columns).map(([c, v]) => [c, meanOf(v)])),
+    };
+  }
+  return out;
+}
+
+/**
+ * The paired difference on every behaviour column, with the interval that makes it readable.
+ *
+ * **A mean with no interval is the instrument CQ was opened to replace.** The plan's own evidence
+ * for the columns is that they *"moved at 2-3 sd where the score moved not at all"* -- and a
+ * sentence of that shape cannot be written about a number that arrives without a `sem`. Reporting
+ * the block means alone would have reproduced the blindness one level up: a reader would see
+ * `strokeDamage` 4.1 against 3.6 and have no way to tell a result from a draw of the dice.
+ *
+ * `evaluate` schedules every contender over the same pairings from the same seed, so bout `i` of
+ * one block met the same body under the same streams as bout `i` of every other. That is what
+ * makes subtraction legitimate here, and it is the same property `points`, `bar` and `ret` are
+ * already differenced on -- these are not a second instrument, which is the whole design.
+ */
+export function behaviourDifferences(vectors, mine, other) {
+  const out = {};
+  for (const column of Object.keys(vectors[mine])) {
+    const diffs = vectors[mine][column].map((x, i) => x - vectors[other][column][i]);
+    out[column] = { mean: meanOf(diffs), sem: semOf(diffs), d: cohensD(diffs) };
   }
   return out;
 }

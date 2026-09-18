@@ -143,7 +143,8 @@ import {
   creditColumn, creditedDimensions,
   parseTerminalsStage, poolFor, poolWord, ppoFit, priceRollout, ratePolicy, ratingSeed,
   realisedMirrorShare,
-  renderPolicyModule, resumesOwnLog, rolloutPairs, returnColumns, scheduled, strokeTally,
+  behaviourColumns, behaviourDifferences, behaviourVectors, renderPolicyModule,
+  resumesOwnLog, rolloutPairs, returnColumns, scheduled, strokeTally,
   surrogateGrad, surrogateObjective,
 } from "../scripts/train-ppo.mjs";
 import { CONFIG } from "../src/config.ts";
@@ -2751,4 +2752,98 @@ test("the_return_column_prices_each_contender_bout_by_bout_off_the_rows_the_bar_
   // average, which is `columnsOf`'s own refusal and is repeated here rather than assumed.
   assert.throws(() => returnColumns(rows, ["fit", "nobody"], GOLEM_REWARD), /names neither side/);
   assert.throws(() => returnColumns(rows, ["fit", "fencer", "x"], GOLEM_REWARD), /do not divide/);
+});
+
+test("the_behaviour_columns_are_block_means_of_the_side_that_names_the_contender", () => {
+  // This function is the phase's referee and had no test at all until CQ, which is how six columns
+  // the tournament worker has emitted since Session 00 of the style set went unread for a month.
+  // A mind can be rebuilt from the ground up and report as flat on a score that "cannot see a
+  // 2.5-fold change in completed strokes a bout", so what the columns say has to be arithmetic
+  // somebody checked rather than whatever the rows happened to carry.
+  const side = (policy, over = {}) => ({ policy, ...over });
+  // Two blocks of two. `rows[k * per + i]`, so rows 0-1 are the first contender's and 2-3 the
+  // second's -- and the contender is read off whichever side names it, which is the whole reason
+  // a block is not just "the left column".
+  const rows = [
+    { seconds: 10, winner: "left",
+      left: side("fit", {
+        strokes: 10, strokeDamage: 4, scoringSpeed: 12, contacts: 6, insideInner: 0.4,
+        clinchSeconds: 2, nearRangeStallSeconds: 1, retreatOutsideReachSeconds: 0.5,
+        emptyStrokes: 3,
+      }),
+      right: side("x", { strokes: 999, strokeDamage: 999 }) },
+    { seconds: 20, winner: null,
+      left: side("x", { strokes: 999, strokeDamage: 999 }),
+      right: side("fit", {
+        strokes: 20, strokeDamage: 6, scoringSpeed: 8, contacts: 4, insideInner: 0.2,
+        clinchSeconds: 0, nearRangeStallSeconds: 3, retreatOutsideReachSeconds: 1.5,
+        emptyStrokes: 1,
+      }) },
+    // A mind with no stroke instrument behind it: every structural column is absent rather than
+    // zero, and reads as zero here for `emptyStrokes`' stated reason -- a mean over a mixed block
+    // would be a mean over two populations.
+    { seconds: 30, winner: "right", left: side("rival"), right: side("x") },
+    { seconds: 30, winner: "right", left: side("rival", { strokes: 8 }), right: side("x") },
+  ];
+
+  const out = behaviourColumns(rows, ["fit", "rival"]);
+  assert.deepEqual(out.fit, {
+    bouts: 2,
+    stall: 2, outside: 1, emptyStrokes: 2, seconds: 15, decided: 0.5,
+    strokes: 15, strokeDamage: 5, scoringSpeed: 10, contacts: 5, insideInner: 0.30000000000000004,
+    clinchSeconds: 1,
+  });
+  // The opponent's 999s are in neither block, which is the property the side lookup exists for.
+  assert.equal(out.rival.strokes, 4);
+  assert.equal(out.rival.strokeDamage, 0);
+  assert.equal(out.rival.insideInner, 0);
+  assert.equal(out.rival.decided, 1);
+  assert.equal(out.rival.seconds, 30);
+
+  // The two refusals `columnsOf` makes, repeated here rather than assumed: a contender absent from
+  // its own block is a scheduling mistake, not a zero to average.
+  assert.throws(() => behaviourColumns(rows, ["fit", "nobody"]), /names neither side/);
+  assert.throws(() => behaviourColumns(rows, ["fit", "rival", "x"]), /do not divide/);
+});
+
+test("a_behaviour_column_is_differenced_bout_by_bout_and_carries_its_own_interval", () => {
+  // The half of CQ that actually fixes the ruler. Two block means are not a reading: the plan's
+  // case for these columns is that they "moved at 2-3 sd where the score moved not at all", and
+  // nobody can write that sentence about a number that arrives without a `sem`. So the columns
+  // are differenced on the same pairing the bar is, and quote an interval and a `d` beside it.
+  const side = (policy, over = {}) => ({ policy, ...over });
+  const at = (policy, strokes, clinch) =>
+    side(policy, { strokes, clinchSeconds: clinch });
+  // Three bouts a block, because `semOf` is NaN below two and a fixture that cannot show the
+  // interval would not be testing the thing this exists for.
+  const rows = [
+    { seconds: 10, winner: "left", left: at("fit", 10, 5), right: at("x", 0, 0) },
+    { seconds: 10, winner: "left", left: at("fit", 20, 5), right: at("x", 0, 0) },
+    { seconds: 10, winner: null, left: at("fit", 30, 5), right: at("x", 0, 0) },
+    { seconds: 10, winner: "left", left: at("rival", 4, 5), right: at("x", 0, 0) },
+    { seconds: 10, winner: "left", left: at("rival", 8, 5), right: at("x", 0, 0) },
+    { seconds: 10, winner: null, left: at("rival", 12, 5), right: at("x", 0, 0) },
+  ];
+
+  const vectors = behaviourVectors(rows, ["fit", "rival"]);
+  assert.deepEqual(vectors.fit.strokes, [10, 20, 30]);
+  assert.deepEqual(vectors.rival.strokes, [4, 8, 12]);
+  assert.deepEqual(vectors.fit.decided, [1, 1, 0], "decided is per bout, not a block total");
+
+  const diff = behaviourDifferences(vectors, "fit", "rival");
+  // diffs [6, 12, 18]: mean 12, sd 6 over n-1, sem 6/sqrt(3).
+  assert.equal(diff.strokes.mean, 12);
+  assert.ok(Math.abs(diff.strokes.sem - 6 / Math.sqrt(3)) < 1e-12, `sem ${diff.strokes.sem}`);
+  assert.equal(diff.strokes.d, 2);
+  // A column identical on both sides is a zero with no spread, and `cohensD` must return 0 rather
+  // than divide by it. This is the branch that decides whether a flat night reads as flat or NaN.
+  assert.deepEqual(diff.clinchSeconds, { mean: 0, sem: 0, d: 0 });
+  // Paired, so the bouts that cancel really cancel: both blocks drew their third bout.
+  assert.equal(diff.decided.mean, 0);
+  assert.equal(diff.seconds.mean, 0);
+
+  // The means still come off the same indexing, which is the property that keeps these from being
+  // a second instrument disagreeing with the first.
+  const means = behaviourColumns(rows, ["fit", "rival"]);
+  assert.equal(means.fit.strokes - means.rival.strokes, diff.strokes.mean);
 });

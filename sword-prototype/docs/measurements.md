@@ -41401,3 +41401,53 @@ measures one mind in that radius.**
 The other three were guards pinning `false` as the shipped constant, and one of them --
 `an_abort_mid_chamber_and_mid_commit...` -- is now stated over an explicit un-latched table, because
 timing what a mid-stroke abort costs requires a mid-stroke abort to exist.
+
+## CQ -- the ruler gets an interval, because a mean is not a reading
+
+**No experiment. A repair to the instrument every cell below CQ is read on**, taken first for the
+reason the plan gives: *"a rating that cannot see a 2.5-fold change in completed strokes cannot
+referee this phase."*
+
+`behaviourColumns` had **no test at all** and was about to referee the phase. Worse, it reported
+block means and nothing else, while `points`, `bar` and `ret` have each carried a paired per-bout
+vector with `semOf` and `cohensD` since the signal set. That asymmetry is not cosmetic: the case
+for these columns in the first place is CM's finding that they *"moved at 2-3 sd where the score
+moved not at all"*, and **no sentence of that shape can be written about a number with no `sem`.**
+Reporting the means alone would have reproduced the blindness one level up -- a reader sees
+`strokeDamage` 4.1 against 3.6 and cannot tell a result from a draw of the dice.
+
+So the function is split along the one indexing path it already had:
+
+| function | returns | who wants it |
+| --- | --- | --- |
+| `behaviourVectors` | per-bout columns, per contender | the difference |
+| `behaviourColumns` | block means | `rate-snapshots.mjs`, a printed row |
+| `behaviourDifferences` | `{ mean, sem, d }` a column | the referee |
+
+`ratePolicy` now folds `behaviour` into `differences[other]` beside `bar` and `ret`. The subtraction
+is legitimate for exactly the reason the other three are differenced: `evaluate` schedules every
+contender over the same pairings from the same seed, so bout `i` of one block met the same body
+under the same streams as bout `i` of every other.
+
+### What the tests pin, and the check that they are not decoration
+
+Two tests, both written against hand-computed arithmetic rather than against whatever the rows
+happened to carry. The second pins the branch that decides whether a flat night reads as flat or as
+`NaN`: a column identical on both sides is `{ mean: 0, sem: 0, d: 0 }`, because `cohensD` returns 0
+on a zero spread instead of dividing by it.
+
+A test written after the fact that passes first try is worth nothing until it has failed, so three
+mutations were run against `behaviourColumns`:
+
+| mutation | caught by |
+| --- | --- |
+| the side lookup pinned to `left` | the new test **and two others** |
+| `insideInner` reads `contacts` | **the new test only** |
+| `decided` counts left wins rather than verdicts | **the new test only** |
+
+Two of the three columns had no coverage anywhere in 1,152 tests. That is the honest measure of how
+much of this instrument was unexamined: it was emitting six columns the tournament worker has
+published since Session 00 of the style set, and a mind could have been rebuilt from the ground up
+and reported as flat.
+
+Gates green at **1154** tests. Nothing about a golem changed; only what we can see about one.
