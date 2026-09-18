@@ -43424,3 +43424,97 @@ mind in the training pool, which is what CW2 has just started doing.
 
 I expect CYa and CYb to hold, CYc to hold for every mind, and **CYd to hold** -- that is, the freeze
 is real. It was measured rather than guessed, and eight seeds at zero does not move to fifteen.
+
+### CY's result -- the pool is not a ladder, and two of the four bars are refused
+
+**Two departures from the registration, declared before the numbers.** It was registered as an 8x8
+matrix at 96 seeds; it ran as **six arms against seven opponents at 64 seeds**, because CW2 held
+half the box. `golem-policy` and `golem-brawler` appear as opponents or as arms but not both, so
+the matrix is not square. Two sigma on a single cell at 64 seeds is +-0.125; the anchored mean pools
+four opponents, 256 bouts, and carries +-0.0625.
+
+Rows are the arm, columns the opponent. Every cell is the arm's win-draw-loss score.
+
+| arm \ opp | idle | brawler | driver | fencer | dagger | ct3 | cw2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `idle` | 0.5000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0.0000 |
+| `driver` | 1.0000 | 0.3906 | 0.4688 | 0.3438 | 0.6094 | 0.2344 | 0.1094 |
+| `policy` | 1.0000 | 1.0000 | 0.6563 | 0.5469 | 1.0000 | **0.6406** | 0.1563 |
+| `dagger` | 1.0000 | 0.9219 | 0.4844 | 0.4063 | 0.6406 | 0.0000 | 0.0000 |
+| `ct3` | 1.0000 | 1.0000 | 0.7031 | 0.8281 | 1.0000 | 0.1563 | 0.0000 |
+| `cw2` | 1.0000 | 0.5469 | 0.9375 | 0.8594 | 0.6563 | **1.0000** | 0.2969 |
+
+**The anchored rating**, mean over the four hand-coded opponents:
+
+| mind | anchored mean |
+| --- | ---: |
+| `ct3` | **0.8828** |
+| `cw2` | 0.8359 |
+| `policy` | 0.8008 |
+| `dagger` | 0.7032 |
+| `driver` | 0.5508 |
+| `idle` | 0.1250 |
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **CYa** | the anchored mean separates CT3 from round two | 0.8828 vs 0.8359 | **refused** |
+| **CYb** | `policy` above `driver`, below `ct3` | 0.8008, between | holds |
+| **CYc** | every learned mirror near 0.5000 | 0.6406 / 0.1563 / 0.2969 | **refused** |
+| **CYd** | `ct3` under 5 strokes in its own mirror | **0.0000** | holds |
+
+#### CYa is refused, and the reason is better than noise
+
+The two means are 0.0469 apart against an interval of +-0.0625, so they do not separate. But the
+interval is the least of it. **Their per-opponent differences have opposite signs and are five to
+ten times the mean**: CT3 is +0.4531 at the brawler, -0.2344 at the driver, -0.0313 at the fencer,
+level at idle. A mean over a profile like that is not a rating, it is an average of a disagreement.
+
+And the matrix says why plainly. **The top-rated mind loses head to head to two minds rated below
+it.** `golem-policy` beats `ct3` **0.6406**, and round two beats it **1.0000**. Meanwhile `ct3`
+beats `golem-fencer` 0.8281 where `policy` manages 0.5469. There is no ordering of this pool that
+respects both the anchors and the head-to-heads, because **the pool is not transitive**. That is not
+a defect in the instrument; it is the thing the instrument was built to see, and no single number --
+anchored mean, Elo, or otherwise -- can survive it.
+
+One caveat on the rating that the matrix makes obvious: **the `idle` anchor contributes nothing.**
+Five of six arms score exactly 1.0000 there. It is a quarter of the rating's weight carrying none of
+its information, so the anchored mean is effectively a three-opponent mean, and CS1 already said why
+-- everything wins that fight on the clock.
+
+#### CYd holds, and it is the result to take away
+
+`ct3` against a copy of itself: **zero strokes**, 119.3 seconds, over 64 seeds. The mind with the
+best anchored rating in this record, which beats every hand-coded opponent, **does not swing once at
+a body that moves like it does**. It is not a general freeze -- the same mind throws 12.9 strokes
+against `dagger` and 17.8 against `cw2`. It is specific to its own reflection.
+
+This is CS4's mechanism arriving where it matters. The clone was fitted on states `golem-driver`
+produces; the calibration was searched against `golem-fencer`. Neither ever saw a state that a mind
+*like itself* produces, and on those states its `commit` gate does what CS4 proved it must do when
+the inputs carry no signal it was fitted on -- nothing. **The owner's goal is a mind that properly
+fights learned AIs, and the best mind here cannot fight its own shadow.**
+
+That makes the next move clear and it is already in flight: **put a learned mind in the objective**,
+which is exactly what CW2 does by carrying the frozen champion as one of its five opponents.
+
+#### CYc is refused and I am not going to explain it away
+
+Three learned mirrors, none near 0.5000: `dagger` 0.6406, `ct3` 0.1563, `cw2` 0.2969. The two
+hand-coded controls are fine -- `driver` 0.4688 and `idle` exactly 0.5000 on all draws -- which
+rules out the crude reading that left simply beats right.
+
+The directions disagree, so this is **not a simple side bias**, and the honest position is that it
+is unexplained. What the matrix does suggest is a pattern worth testing rather than asserting: the
+two worst offenders are the two mirrors where at least one side barely fights. `ct3`'s mirror throws
+**zero** strokes and runs to 119 s, so the bout is settled entirely by the overtime drain, and it
+settles 84 % of the time for the right-hand body. The `driver` mirror, a real fight at 32 strokes,
+sits at 0.4688. A candidate explanation is that a small start asymmetry decides any bout that
+nothing else decides -- but that is a hypothesis with one supporting case and one weak counter-case
+(`dagger` fights and is still 0.6406).
+
+**CZ1, registered here and cheap:** run each learned mirror with the sides exchanged. If the score
+flips about 0.5 the asymmetry is positional and every learned-versus-learned number in this section
+needs the pair averaged; if it does not flip, the asymmetry is in the seed offset and the fix is to
+draw both minds' seeds from the same stream. Until CZ1 runs, **every learned-versus-learned cell in
+the matrix above carries an unquantified bias** and is quoted here as provisional. The
+arm-versus-hand-coded columns are unaffected: those mirrors check out.
