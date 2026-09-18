@@ -43065,3 +43065,23 @@ Not taken here. It is a game-design decision and it belongs to the owner.
 - `clone-duel.mjs` hard-codes `PROBE_CAP = 150` instead of importing the one in `tournament.mjs`.
 - One ladder, one list: `scripts/ladder.mjs` exists to stop a third script inventing its own set of
   opponent names.
+
+#### DA1's first screen died, and the reason is worth more than the run
+
+The first screen was launched and then, while it was in flight, `clone-duel.mjs` was edited to take
+its cap from `tournament.mjs` instead of restating the literal. The script re-execs **itself** --
+`execFile(process.execPath, [process.argv[1], "--child", ...])` -- once per cell, so every cell
+scheduled after the write ran the new file and the cell that landed inside the half-written one died
+on a parse error. 34 arms, the table returned `+0.0000 +-NaN` in every column, and about
+forty minutes of box time bought nothing.
+
+Two things make this worth a paragraph rather than a shrug. The **standing rule** -- never edit a
+file a running job has loaded -- was already written down and was still broken, because "loaded"
+read as "loaded once at start" and this script loads its source 544 times. And the failure was
+**loud**: `FAILED` on every line, `NaN` in every interval, nothing that could be mistaken for a
+result. Compare the two defects this session already cost -- a collector that silently fought the
+wrong opponent, and a cap that silently turned won fights into draws. A run that dies noisily is
+cheap. The note is now at the `execFile` call, where somebody about to make the same edit will
+read it.
+
+The screen was relaunched unchanged after the gates, and its numbers follow.
