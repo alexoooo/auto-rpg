@@ -42857,3 +42857,52 @@ training: **`cutLean` 1.00 is a candidate row for `golem-driver` itself**, and u
 governing rule its effect against a mind that does not read it is stated above -- +0.2240 +-0.1041
 against `golem-fencer`. Whether to take it is a question about what the yardstick should be, since
 moving `golem-driver` moves the thing every rating in this record is quoted against.
+
+### DA -- how much of the search's edge a hand could have set, registered before the census
+
+CT5 changed the question. One constant, `cutLean` 0.60 to 1.00, bought **+0.2240 +-0.1041** against
+`golem-fencer` -- half of CT3's +0.4479 on the same seeds -- and it was found by reading a search's
+output, not by searching. Nobody has ever swept `golem-driver`'s own numbers. `tune.mjs` exists and
+does exactly this, but it tunes `GOLEM_TACTICS_V2`, which is the *fencer's* table; the driver reads
+seventeen rows of its own and not one of them has been moved since it was written on 2026-09-06.
+
+So before another night is spent on networks, the cheap question: **how much of the edge is sitting
+in seventeen numbers?** If most of it is, the whole clone-and-calibrate pipeline is an expensive way
+to find constants and the phase should say so.
+
+**DA1, the screen.** Every one of the seventeen rows `styles/driver.ts` actually reads, moved one
+step down and one step up, 128 paired seeds each against `golem-fencer` at cap 150. Steps are sized
+to the row rather than by a uniform percentage -- roughly two thirds of the way to a plausible bound
+-- because a fixed percentage is a rounding error on `patience` and nonsense on `withdrawLean`.
+`strokeSwing` is already at its ceiling of 1, so it gets one arm. 34 arms, ~4,400 bouts.
+
+128 seeds is a screen and is declared as one: two sigma is +-0.088, so it sees a `cutLean`-sized
+lever and nothing under about 0.10. **DA2 re-takes every arm that clears +0.05 at 384 seeds**,
+where two sigma is +-0.051, and only DA2's numbers are quotable. A screen that chose its winners
+and reported their screening scores would be a winner's-curse table, which is the trap
+`tune.mjs`'s own header warns about and the reason it confirms on a held-out seed.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **DA1a** | `cutLean` is still the largest single lever | two rows beat it |
+| **DA1b** | at least one **other** row clears **+0.05** | none does |
+| **DA1c** | the best single row stays **under +0.35**, short of CT3's +0.4479 | one reaches it |
+| **DA2a** | the positive rows, **applied together**, stay under CT3 at 384 seeds | they reach it |
+
+**The total verdict mapping (rule 9).** If DA1b and DA1c hold and DA2a holds, then the driver has
+real slack a hand can take, and the search still has an edge nothing constant reaches -- which is
+CT5's reading confirmed at the level of the whole table rather than one row, and the phase's method
+survives. If DA2a is **refused** -- the hand-set combination matching CT3 -- then twenty-one evolved
+numbers over an 87,308-weight network bought what seventeen hand-set rows buy, the clone pipeline is
+not earning its cost, and CV through CX should be replaced by a proper (1+lambda) search over the
+driver's table, which is the optimiser this tree has actually shipped minds with. If DA1b is refused
+-- `cutLean` alone and nothing else -- then the driver is at a local optimum in sixteen of seventeen
+directions and the one row it is wrong about is a pose row, which is the same story CT5 told twice.
+
+I expect DA1a and DA1c to hold, DA1b to hold, and DA2a to hold with the combination landing
+somewhere near +0.30 -- most but not all of the way. That is a prediction and all four bars can
+refuse it.
+
+A note on what this does **not** decide. Moving `golem-driver` moves the yardstick every rating in
+this record is quoted against, so a winning row is a **candidate**, reported with its effect against
+a mind that does not read it (eleventh governing rule), and the decision to ship is the owner's.
