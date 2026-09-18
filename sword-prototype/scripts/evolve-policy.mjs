@@ -346,14 +346,15 @@ async function cell({ weights, spec, seeds, cap, opponent, kind = "compact", tab
    * that is what closes the loop in CW: the champion of round n-1 becomes the body round n has to
    * beat, so the difficulty rises without anybody hand-writing a curriculum.
    */
-  const rivalTable = opponent.endsWith(".json")
-    ? JSON.parse(readFileSync(resolve(ROOT, opponent), "utf8")) : null;
-  const rival = (seed) => {
-    if (rivalTable !== null) {
-      const mind = golemPolicy(seed, rivalTable, GOLEM_TACTICS_V4, null, false, null);
-      return { name: opponent, driven: mind.driven, decide: (v, dt) => mind.decide(v, dt) };
+  const names = opponent.split(",").map((t) => t.trim()).filter((t) => t !== "");
+  const tables = names.map((n) => (n.endsWith(".json")
+    ? JSON.parse(readFileSync(resolve(ROOT, n), "utf8")) : null));
+  const rival = (name, table, seed) => {
+    if (table !== null) {
+      const mind = golemPolicy(seed, table, GOLEM_TACTICS_V4, null, false, null);
+      return { name, driven: mind.driven, decide: (v, dt) => mind.decide(v, dt) };
     }
-    const rung = rungOf(opponent);
+    const rung = rungOf(name);
     if (rung === "golem-fencer") return golemFencer(seed);
     if (rung === "golem-brawler") return golemBrawler(seed);
     if (rung === "golem-idle") {
@@ -376,6 +377,7 @@ async function cell({ weights, spec, seeds, cap, opponent, kind = "compact", tab
   let damage = 0;
   let taken = 0;
   let decided = 0;
+  let at = 0;
   for (const seed of seeds) {
     let driven = null;
     let leftMind = null;
@@ -389,9 +391,15 @@ async function cell({ weights, spec, seeds, cap, opponent, kind = "compact", tab
       driven = mind.driven;
       leftMind = { name: "golem-calibrated", driven, decide: (v, dt) => mind.decide(v, dt) };
     }
-    const rightMind = rival(seed + 17);
+    // Round robin rather than a split: seed `i` meets opponent `i % k`, so every candidate in a
+    // generation faces the same body on the same seed and the paired comparison survives. CW1 is
+    // why there is a list at all -- a search scored against one frozen champion sold the brawler
+    // rung from 1.0000 to 0.4740 to buy it, and nothing in that objective could see the sale.
+    const which = at % names.length;
+    at += 1;
+    const rightMind = rival(names[which], tables[which], seed + 17);
     const bout = runBout({
-      left: leftMind.name, right: opponent,
+      left: leftMind.name, right: names[which],
       leftUnit: "golem", rightUnit: "golem",
       leftGolem: defaultGolemSetup(), rightGolem: defaultGolemSetup(),
       locomotionMode: "supported", seeds: [seed, seed + 17], maxSeconds: cap, physics,
@@ -428,7 +436,22 @@ async function cell({ weights, spec, seeds, cap, opponent, kind = "compact", tab
  * reported `score` stays the record's own win-draw-loss number** so that a row here can be read
  * against CR2's table; only the ranking uses this.
  */
-const fitnessOf = (r, drawWeight) => r.wins + drawWeight * r.draws;
+/**
+ * The margin term, and why the win rate alone was not enough.
+ *
+ * CW1 scored every candidate win-draw-loss against one frozen champion and **hit 1.0000 at
+ * generation 2**, then spent eighteen more generations with nothing to climb: roughly 3,100 of its
+ * 4,400 bouts bought no information at all. A saturated objective is a search with no gradient.
+ *
+ * So the ranking gets a tie-break on the bar margin -- damage dealt less damage taken, per bout --
+ * which keeps moving after every bout is already won. `MARGIN_SCALE` is the full body, so a
+ * candidate that wins everything by a whole body outranks one that wins everything by a scratch by
+ * **one** unit, less than a single win. The win rate stays primary on purpose: this breaks ties, it
+ * does not trade wins for damage.
+ */
+const MARGIN_SCALE = 100;
+const fitnessOf = (r, drawWeight) => r.wins + drawWeight * r.draws
+  + (r.damage - r.taken) / MARGIN_SCALE;
 
 /** A Gaussian pair from a uniform stream, which is all an ES needs of its randomness. */
 function gaussian(rnd) {
@@ -468,11 +491,12 @@ async function runSearch({
 
   const lanes = Math.max(1, Math.min(availableParallelism(), lambda + 1));
   console.log("");
-  console.log(`a draw is worth ${drawWeight} in selection; the score column stays win-draw-loss`);
+  console.log(`a draw is worth ${drawWeight} in selection, and the bar margin breaks ties at`
+    + ` 1/${MARGIN_SCALE} of a body; the score column stays win-draw-loss`);
   console.log("");
   console.log("| gen | sigma | parent fit | best fit | score | decided | strokes"
-    + " | completion | kept |");
-  console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |");
+    + " | completion | margin | kept |");
+  console.log("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |");
 
   let parentScore = null;
   for (let gen = 1; gen <= generations; gen += 1) {
@@ -512,7 +536,7 @@ async function runSearch({
     console.log(`| ${gen} | ${sigma.toFixed(4)} | ${fit[0].toFixed(4)}`
       + ` | ${fit[bestAt].toFixed(4)} | ${best.score.toFixed(4)} | ${best.decided.toFixed(3)}`
       + ` | ${best.strokes.toFixed(1)} | ${best.completion.toFixed(3)}`
-      + ` | ${kept ? "child" : "parent"} |`);
+      + ` | ${(best.damage - best.taken).toFixed(1)} | ${kept ? "child" : "parent"} |`);
 
     write(parent, gen, parentScore, fit[bestAt]);
   }
