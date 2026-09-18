@@ -42039,3 +42039,52 @@ an opponent that never touched it either. CS1c is refused on its number and the 
 it survives intact: the clone does not fight the dummy, it merely outlives it. A score was the wrong
 column to have bet on, which is the third time this record has caught a scalar agreeing with nothing
 the eye would call a win.
+
+### CR4 re-taken at 150, and a claim of mine that has to be withdrawn
+
+The same 128 paired seeds against `golem-fencer`, the same arms, the only change being the cap. At
+150 every bout is decided -- `decided` reads 1.0000 for all five arms -- so **the score is now a
+plain win rate** and there is no draw credit left in it at all.
+
+| column | driver | clone | dagger | policy | idle |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| score at cap 60 | 0.4531 | 0.0273 | **0.3672** | 0.5117 | -- |
+| **score at cap 150** | 0.4531 | 0.0000 | **0.3359** | **0.5625** | 0.0000 |
+| decided | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
+| seconds | 36.9 | 41.1 | 40.0 | **66.2** | 55.3 |
+| damage dealt | 57.95 | 34.15 | 56.74 | 50.01 | 1.26 |
+| damage taken | 59.49 | 66.86 | 59.78 | **38.30** | 60.79 |
+| severs a bout | 0.070 | 0.039 | 0.039 | **0.750** | 0.000 |
+| strokes | 32.4 | 94.0 | 21.9 | 88.7 | 0.0 |
+| completion | 0.479 | 0.162 | **1.000** | 0.592 | 0.000 |
+
+**The withdrawal.** CR4's write-up said, of the shipped PPO mind: *"On the only column that asks who
+won a fight, the night's clone beats thirteen sessions of policy gradient by half again."* That was
+43 outright wins against 27, and it was **an artifact of the broken cap**. The policy's 77 draws
+were not stalling; they were fights it was ahead in, on a clock that had been stopped. Given the
+clock, 72 of them are wins. The corrected row is **policy 0.5625, driver 0.4531, dagger 0.3359,
+clone 0.0000** -- the shipped mind is the best of the four, and is the only arm in this record that
+has ever been above `golem-driver` on an honest instrument.
+
+It wins the way its columns always said it did and nobody read: it takes **38.3 damage where the
+driver takes 59.5**, and it takes limbs -- 0.75 severs a bout against the driver's 0.07, a
+difference of +0.68 +-0.16. It is not a staller. It is a counter-fighter, and the phase has been
+describing it wrongly since CR2.
+
+**CR4c flips back.** Registered: *"it still misses the driver by more than 0.10"*. At cap 60 the
+miss was 0.0859 and it was refused. At 150 it is **0.1172 +-0.1228** -- the point estimate holds and
+the interval still straddles the bar, so the honest verdict is what it was before the cap was found:
+a 128-seed paired duel cannot separate the DAgger clone from the mind it copied. Both readings
+agree on that. What changed is that the clone is now clearly *below* the driver rather than level
+with it, and clearly below the shipped policy.
+
+| | claim | cap 60 | cap 150 | verdict |
+| --- | --- | ---: | ---: | --- |
+| **CR4a** | `commit` below 0.20 | 0.1001 | 0.1001 | holds |
+| **CR4b** | score above 0.20 | 0.3672 | 0.3359 | holds |
+| **CR4c** | misses the driver by > 0.10 | 0.0859 | 0.1172 | **cap-dependent** |
+
+Nothing about the mechanism changes: `commit` 0.5681 to 0.1001, `abort` 0.6149 to 0.0244, `parry`
+0.6630 to 0.0638, all within two points of the driver and each with its own interval, and strokes a
+bout 94.0 to 21.9 at completion 1.000. **Distribution shift was the whole of the clone's failure and
+one DAgger round fixed it.** What the corrected cap changes is only the ranking it is fixed *to*.

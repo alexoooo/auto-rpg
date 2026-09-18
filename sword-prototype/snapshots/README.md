@@ -63,7 +63,7 @@ Against `golem-fencer` it has never been asked to do anything.
 
 ## The fifth, which is not one of the four
 
-| file | what it is | outright wins vs `golem-fencer` |
+| file | what it is | wins vs `golem-fencer`, cap 150 |
 | --- | --- | ---: |
 | `cr-dagger1.json` | `golem-driver`, copied -- no reward, no rollout | **43 of 128** |
 
@@ -77,6 +77,12 @@ rolled out and never meets a reward, so there is no held-out points-a-bout for i
 fields exist only because every reader of a policy table expects them, and they were overwritten so
 that the template's 0.546 could not be quoted as this mind's rating. The number above is from
 `scripts/clone-duel.mjs`, paired seed by seed against the mind it was copied from.
+
+**It is not the best mind here, and an earlier version of this file implied it was.** Over the same
+128 seeds at a cap that clears the overtime ramp, `golem-driver` wins 58 and the shipped
+`golem-policy` wins 72. The clone's 43 is below both. The claim that it beat the shipped mind came
+from a duel capped at 60 s, where the policy's 77 undecided fights were scored as draws rather than
+run to a finish; see the cap defect in `docs/measurements.md`.
 
 Watch it the same way, and compare it to `golem-driver` rather than to the four: the thing to look
 for is that it commits to the strokes it starts. It completes **all** of them, against the driver's
