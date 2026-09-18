@@ -119,8 +119,18 @@ export function driverTactics(arm, base) {
 }
 
 /** One arm over some seeds, in a child, so a crashed bout cannot take the table with it. */
-async function cell({ arm: named, seeds, cap, opponent, tablePath, swap }) {
+async function cell({ arm: named, seeds, cap, opponent, tablePath, swap, draw }) {
   const [arm, clip] = armClip(named);
+  // `--draw` moves `CONFIG.combat.drawFraction`, which is the **world**, not a row a mind
+  // reads: it re-prices every contact for both bodies at once. So a score taken under it is
+  // comparable only to another score at the same setting, and DC quotes orderings within a
+  // column rather than any single number across columns. The field is writable by design --
+  // `main.ts:307` already drives it from the debug UI -- and it is set here, inside the child,
+  // before the first bout, so a cell cannot inherit a half-applied world from its parent.
+  if (draw !== null && draw !== undefined) {
+    const { CONFIG } = await import("../src/config.ts");
+    CONFIG.combat.drawFraction = draw;
+  }
   const { freshHavok, runBout } = await import("./bout-runner.mjs");
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
   const { golemPolicy } = await import("../src/golem/policy.ts");
@@ -268,6 +278,8 @@ async function main(argv) {
   const base = Number(flagOf(argv, "--seed", "20260919"));
   const opponent = flagOf(argv, "--opponent", "golem-fencer");
   const swap = argv.includes("--swap");
+  const drawFlag = flagOf(argv, "--draw", null);
+  const draw = drawFlag === null ? null : Number(drawFlag);
   const shards = Math.max(1, Math.min(availableParallelism(), 16));
 
   // `policy` is the shipped fitted mind and is here as the floor, not as a contender: it is what
@@ -295,7 +307,7 @@ async function main(argv) {
   const seeds = Array.from({ length: count }, (_, i) => base + i * 101);
   const slice = Math.ceil(seeds.length / shards);
   const plan = arms.flatMap((arm) => Array.from({ length: shards }, (_, s) => ({
-    arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent, swap,
+    arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent, swap, draw,
     // The table is looked up under the bare name, so `dagger` and `dagger@clip=12` are the same
     // weights and `--tables` does not have to name the arm twice.
     tablePath: tables[armClip(arm)[0]] ?? null,
