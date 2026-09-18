@@ -604,6 +604,66 @@ rather than about any mind that came out of one -- which is just as well, becaus
   and `git diff --ignore-cr-at-eol --numstat` against plain `--numstat` is the after-the-fact
   check: any file where the two disagree has had its endings rewritten.
 
+- **A uniform mass scale does not size a force, because one mass in the arm refuses to
+  scale.** `SHIPPED_MASS_SCALE` at the head of `src/golem/config.ts` is 0.162 and `kg()` wraps
+  every mass derived as volume times 2600 kg/m3. **`TERMINAL_BLADE.mass` is 1.30 kg and is
+  deliberately not wrapped** -- an arming sword already weighs what an arming sword weighs -- and
+  it is about a third of what the hand holds. So "the arm lost five sixths of its mass, scale its
+  forces by 0.162" is false, and on 2026-09-18 it was applied to five constants before anybody
+  noticed: `STROKE_INERTIA.ref`, `CHAIN_PITCH.motorTorque`, `CHAIN_REACH.anchorForce`,
+  `ANCHOR_DRIVE.linearForce` and `CHAIN_WRIST.rollTorque`/`bendTorque`. The blade is the *only*
+  such exception -- the legs, neck and waist hold nothing that refuses to scale, and their tables
+  were left alone correctly -- so the rule is narrow and it is entirely about the arm.
+
+  **Size a force off the arm rather than off the scale.** Every one of those constants has its own
+  derivation in its own doc comment and every one of them still works: `linearForce` is "850 N per
+  the Warrior's 6.50 kg of arm and sword, times whatever the Node bench prints for this chain",
+  and running that rule unchanged gives 854 N. The bench prints the driven mass
+  (`runGolemBench(...).massKg`) for exactly this purpose.
+
+- **A conclusion is void if the thing it was measured against has since been corrected, even
+  when the number it picked was right.** Three tables in `config.ts` were swept twice on
+  2026-09-18 and `CHAIN_REACH.anchorRate` three times. Its second take reasoned "a force scaled
+  with the mass it moves leaves the acceleration alone, so the rate is the rate it was" -- and the
+  force had not been scaled with the mass it moves. The third sweep put it back at 5 with a
+  measurement. **Re-deriving a value that does not move is not wasted work**, because what is
+  being kept in the file is the argument and not the digit.
+
+- **The fight columns and the bench columns disagree, and the bench is the one to believe.**
+  Raising `CHAIN_REACH.anchorRate` improves every bout-level number -- fewer contacts, a larger
+  share of them real blows, a higher closing speed -- monotonically, past the point where the arm
+  has stopped following its command at all. At rate 18 the driven anchor sat 217 mm from where it
+  was sent and a blade tip peaked at 75.5 m/s. **A flung blade is fast, and fast is not the same
+  as good at fighting.** `stroke stray` in the `reachRate` sweep is the column that catches it,
+  and `tests/golem-bench.test.mjs` already refuses a cut that strays more than 50 mm from its own
+  anchor.
+
+- **Counts over a bout are not scale-free, and Phase 2 deliberately changes what a bout is.**
+  Nine assertions across three test files went red on 2026-09-18 without anything breaking: floors
+  like "100 contacts", "25 plate blocks", "20 second blows" and "the bout ran 13 of its 14
+  seconds". Fights got shorter and cleaner -- which is the entire point of the phase -- so every
+  count taken over one went down. Three repairs, in order of preference:
+  1. **A rate**, if the floor is guarding against a bout that did not happen.
+  2. **More bouts**, if it is a corpus for a per-event rule. `a_golem_stroke_claims_each_part_once`
+     takes three seed pairs now; the honest answer to a thin corpus is more bouts, not a lower
+     floor. Tag events with their bout -- `report.at` restarts at zero in each one.
+  3. **`result.ending`**, if the floor spelt "the bout ran its cap" and meant "there was a bout to
+     measure". That proxy only ever worked because nothing could win.
+
+  And a fourth, which is not a floor at all: **a distributional claim pinned to one seed.** The
+  skirmisher backs off more than the fencer on 7 of 10 seeds and by 1.50 pooled, and the single
+  bout the test was pinned to is one of the three where it does not.
+
+- **A bench that excludes a fixed number of steps is assuming a speed.** Two instruments were
+  wrong rather than their thresholds on 2026-09-18. `peakGripStrayMm` excluded exactly one step
+  after the maul's grip latches, because on a slow arm one step was enough for the solver to clear
+  the violation the latch builds; on a corrected arm the latch fires 38.9 mm out and the clearing
+  takes seven steps, so the bench reported the second of them as the joint's error. `parryProbe`'s
+  2.0 s hold was too short for an arm with real authority to stop moving in -- its own
+  `settleRippleMm` said so, and the *arrival* was the number that moved. **Prefer an exclusion
+  that times itself** (wait for the error to stop falling) over one that counts steps, and when a
+  reading depends on how long you watched, watch longer until it stops.
+
 ## House rules
 
 Each one was paid for.

@@ -1081,12 +1081,54 @@ export const CHAIN_REACH = {
    * "robot arm" failure the paragraphs above this one describe, and the fight numbers improved
    * because a flung blade is fast rather than because anything got better at fighting.
    *
-   * So `anchorForce` was scaled after all, to 632 N, and this ceiling went back to 5. The check
-   * is that the 554.8 kg arm's own bench readings reproduce: the maul's grip is taken at 0.246 s
-   * on the reach chain and 0.467 s on the wrist chain against the 0.246 and 0.462 measured on
-   * 2026-09-06, with 0.042 and 0.084 mm of grip stray against 0.043 and 0.085. A force scaled
-   * with the mass it moves leaves the acceleration alone, so the rate at which a command stops
-   * leading is the same rate it was, and 5 is still it.
+   * So `anchorForce` was scaled after all, to 632 N, and this ceiling went back to 5, on the
+   * argument that a force scaled with the mass it moves leaves the acceleration alone, so the rate
+   * at which a command stops leading is the rate it was.
+   *
+   * ---
+   *
+   * **That argument was void the moment it was written, and the ceiling is re-taken here on a
+   * third sweep.** The force was not scaled with the mass it moves, because a third of what the
+   * hand holds is a 1.30 kg sword that does not scale -- the account is beside
+   * `ANCHOR_DRIVE.linearForce` -- and `anchorForce` is 1584 N now, not 632. The bench readings
+   * quoted as the check do not reproduce either: the maul's grip is taken at 0.146 s and 0.921 s
+   * on the corrected arm, not 0.246 and 0.467. A conclusion drawn from a wrong premise is not
+   * made right by landing on a defensible number, so it was re-swept rather than left standing.
+   *
+   * On the bench, at the shipped force, read at the `extend` mark:
+   *
+   *     anchorRate   arrival   peak at mark   lag mm   stroke stray mm
+   *         2         0.092s      12.34        776.0        3.44
+   *         3         0.062s      14.28        772.7        5.61
+   *       **5**       0.037s      13.14        768.0       21.36
+   *         8         0.021s      12.78        890.7       65.30
+   *        12         0.021s      11.96        911.1      148.56
+   *
+   * And in twelve side-swapped `golem-fencer` mirrors a row, 150 s cap, every bout decided:
+   *
+   *     anchorRate   clean hits   seconds   hardest blow   contacts   real blows   closing p50
+   *         2          10.3        23.3         1.00          361        9.5%         5.14
+   *         3           5.7        11.0         2.82          145       13.8%         6.54
+   *       **5**         5.8        10.6         2.72          136       18.9%         6.44
+   *         8           6.7         9.8         2.66          116       21.2%         7.39
+   *
+   * **The two tables disagree, and the paragraph above this one is the reason to believe the
+   * bench.** The fight columns get monotonically better with rate -- fewer contacts, a larger
+   * share of them real blows, a higher closing speed -- and that is exactly the signature the
+   * first sweep of the day produced at rate 18, where the arm turned out to be a limb being flung
+   * by a motor closing an error. `stroke stray` is the column that catches it: 5.61 mm at rate 3,
+   * 21.36 at 5, **65.30 at 8**. `tests/golem-bench.test.mjs` already refuses a cut that strays
+   * more than 50 mm from its own anchor, so rate 8 is an arm that has stopped doing what it is
+   * told, and its better fight is a flung blade being fast rather than anything getting better at
+   * fighting.
+   *
+   * **5 is the highest rate that still tracks, and it costs nothing to take it there**: against
+   * rate 8 it gives up 0.9 clean hits and 0.8 seconds and gets back a harder hardest blow. Rate 2
+   * is the control at the other end and is the flail this whole phase is against -- 361 contacts a
+   * bout, one in eleven of them a real blow, and a hardest blow of 1.00 against 2.72.
+   *
+   * The value is unchanged. The reason for it is not, and the reason is the part that had to be
+   * re-taken. 2026-09-18, third sweep.
    *
    * **The speed the first sweep was chasing is bought at `CHAIN_PITCH.targetRate` instead**, where
    * the same re-sweep has a plateau and a rollover of its own and the limb is still tracking at
