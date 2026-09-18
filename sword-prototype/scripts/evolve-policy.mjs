@@ -3,12 +3,12 @@
 //   node scripts/evolve-policy.mjs distil [--in DIR,DIR] [--columns core|all] [--ridge 1]
 //                                         [--out tournaments/ct/seed.json]
 //   node scripts/evolve-policy.mjs evolve [--genome PATH] [--generations 40] [--lambda 16]
-//                                         [--seeds 16] [--cap 40] [--sigma 0.1]
+//                                         [--seeds 16] [--cap 150] [--sigma 0.1]
 //                                         [--opponent golem-fencer] [--draw-weight 0.25]
 //                                         [--out PATH]
 //   node scripts/evolve-policy.mjs calibrate [--table snapshots/cr-dagger1.json] [--sigma 0.15]
 //                                            [--generations 40] [--lambda 16] [--seeds 24]
-//                                            [--cap 60] [--opponent golem-fencer] [--out PATH]
+//                                            [--cap 150] [--opponent golem-fencer] [--out PATH]
 //
 // ## The argument, which is empirical rather than fashionable
 //
@@ -69,6 +69,22 @@ import { fileURLToPath } from "node:url";
 import {
   COMPACT_OUTPUTS, columnsOf, compactSize, compactTable,
 } from "./compact-policy.mjs";
+/**
+ * The cap defaults to the shared one, and a search that wants the cheaper pre-ramp bout asks for
+ * it by name.
+ *
+ * Both entry points used to default to their own literal -- `evolve` to 40 and `calibrate` to 60
+ * -- on the reasonable argument that a search buys more candidates per hour from a shorter bout.
+ * The argument is real and the default was still wrong: 60 is exactly where `CONFIG.bout` starts
+ * draining, so a search capped there is ranking candidates on **a different game from the one they
+ * will be rated on**, and it cannot tell a fight won outright from one merely ahead when the
+ * whistle blew.
+ *
+ * CT3 was found at 60 and rates 0.8506 at 150, so the pre-ramp objective transferred that time.
+ * That is evidence and not a licence -- a run that wants it now says `--cap 60` and owns the
+ * choice.
+ */
+import { PROBE_CAP } from "./tournament.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NL = /\r?\n/;
@@ -478,7 +494,7 @@ async function evolve(argv) {
   const generations = Number(flagOf(argv, "--generations", "40"));
   const lambda = Number(flagOf(argv, "--lambda", "16"));
   const count = Number(flagOf(argv, "--seeds", "16"));
-  const cap = Number(flagOf(argv, "--cap", "40"));
+  const cap = Number(flagOf(argv, "--cap", String(PROBE_CAP)));
   const opponent = flagOf(argv, "--opponent", "golem-fencer");
   const drawWeight = Number(flagOf(argv, "--draw-weight", "0.25"));
   const out = flagOf(argv, "--out", "tournaments/ct/evolved.json");
@@ -518,7 +534,7 @@ async function calibrate(argv) {
   const generations = Number(flagOf(argv, "--generations", "40"));
   const lambda = Number(flagOf(argv, "--lambda", "16"));
   const count = Number(flagOf(argv, "--seeds", "24"));
-  const cap = Number(flagOf(argv, "--cap", "60"));
+  const cap = Number(flagOf(argv, "--cap", String(PROBE_CAP)));
   const opponent = flagOf(argv, "--opponent", "golem-fencer");
   const drawWeight = Number(flagOf(argv, "--draw-weight", "0.25"));
   const out = flagOf(argv, "--out", "tournaments/ct/calibrated.json");

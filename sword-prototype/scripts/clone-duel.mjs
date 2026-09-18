@@ -33,23 +33,22 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { rungOf } from "./ladder.mjs";
-
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const NL = /\r?\n/;
 /**
- * The cap, and why it is not 60.
+ * The cap comes from `tournament.mjs`, which is where every `--cap` default in `scripts/` lives.
  *
- * `CONFIG.bout.probeSeconds` exists so that a harness reads the game **past the overtime ramp**.
- * The ramp starts at `overtimeSeconds` 60 and finishes an untouched body `overtimeKillSeconds` 60
- * later, and `config.ts` states the trap in as many words: a harness capped at 60 *"would take
- * every one of its readings in the last instant before the drain begins, and would report the game
- * as it was rather than as it is -- silently, with no error and no empty column to notice"*.
+ * It is worth restating why, because this script is the one that paid for it. `CONFIG.bout` starts
+ * draining both bodies at `overtimeSeconds` 60 and finishes an untouched one `overtimeKillSeconds`
+ * 60 later, so a harness capped at 60 takes every reading in the last instant before the game's own
+ * resolution rule fires -- *"silently, with no error and no empty column to notice"*.
  *
  * **Every duel in experiment CR ran at 60 and hit exactly that.** At the bottom rung of the ladder
  * it turned a fight the driver is winning 28.9 damage to 0.95 into a 0.5000 draw, for all 128
  * seeds, because the clock that would have settled it never ran.
  */
-const PROBE_CAP = 150;
+import { PROBE_CAP } from "./tournament.mjs";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const NL = /\r?\n/;
 
 const flagOf = (argv, name, fallback) => {
   const at = argv.indexOf(name);
@@ -288,6 +287,11 @@ async function main(argv) {
     + ` at cap ${cap} s, ${plan.length} cells`);
 
   const runOne = (c) => new Promise((done) => {
+    // `process.argv[1]` is **this file**, re-read from disk on every cell. So editing this script
+    // while a duel is in flight replaces the child's source mid-run: every cell scheduled after the
+    // write runs the new file, and a cell that lands inside a half-written one dies with a parse
+    // error. That cost experiment DA its first screen -- 34 arms, every one after the edit
+    // `FAILED`, the table all `+0.0000 +-NaN`. Loud rather than silent, which is the only mercy.
     execFile(process.execPath, [process.argv[1], "--child", JSON.stringify(c)], {
       encoding: "utf8", cwd: ROOT, maxBuffer: 1 << 27,
     }, (error, stdout, stderr) => {
