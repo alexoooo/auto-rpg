@@ -43633,3 +43633,46 @@ The prediction, stated now so it can be wrong: under a damage model that pays fo
 **`golem-policy` becomes the strongest mind in this tree and the counter-punchers collapse**,
 because it is the only one in the record that has ever learned to swing -- 148 strokes a bout at
 `commit` 0.89 -- and it is currently being punished for exactly that.
+
+### DC -- does the damage model decide which mind wins? Registered before the data
+
+The addendum's prediction is testable **without inventing anything**, because the dial already
+exists and the owner already set it. `CONFIG.combat.drawFraction` is how much of a cut's sliding
+speed an aligned edge is paid for. It shipped at 0 -- pure normal-impact physics, where a tangential
+draw is worth nothing -- and the owner personally moved it to **0.3 on 2026-09-17**, on BV's sweep.
+
+BV asked whether the dial makes cuts count, and answered yes: paying contacts 25 % to 32 %, and no
+growth at the top end. **BV did not ask whether it changes which strategy wins**, because when BV
+ran there were no counter-punchers to lose. That is the question now, and there is a mechanism
+predicting the answer rather than a hope.
+
+**The mechanism.** BV measured bouts shortening sharply as the dial rises: 39 s at 0.3, **24 s at
+0.7, 20 s at 1.0**. The overtime drain starts at 60 s. Every win the counter-punchers take against a
+statue, and the 119 s mirror, and a good part of CS1's "everything wins on the clock", **live
+entirely past that 60 s mark**. A dial that ends fights before 60 s does not merely re-price a
+stroke -- it deletes the counter-puncher's win condition outright.
+
+**Rule 11 applies sideways here.** This is not a row one mind reads and another does not; it is the
+world, and it moves under every arm at once. So no single score transfers, and **the only readable
+quantity is the ordering between arms at the same setting.** Scores are quoted per setting and
+compared only within a column.
+
+`drawFraction` in {0.3 shipped, 0.6, 1.0}, arms `policy`, `ct3`, `driver`, against `golem-fencer`
+at 64 seeds, plus the `ct3` mirror at each setting. Nothing ships from this cell; it is evidence
+for a decision that is the owner's.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **DCa** | `policy` minus `ct3` against the fencer rises with the dial | it falls or stays flat |
+| **DCb** | they cross -- `policy` above `ct3` -- at 1.0 | `ct3` still leads at 1.0 |
+| **DCc** | the `ct3` mirror throws over 5 strokes at 1.0 | it stays under 5 |
+| **DCd** | mean bout seconds against the fencer falls below 60 at 1.0 | it stays above |
+
+**Predicted: DCa and DCd hold, DCb and DCc are coin flips.** DCd is nearly arithmetic from BV. DCa
+follows from the mechanism above. DCb asks the dial to overturn a 0.28 gap, which is a lot to ask of
+one constant. DCc is the one I would most like to be wrong about, because a mirror that wakes up
+means the null bout is an artefact of the damage model rather than a fixed point of the mind -- and
+that is the difference between a game-design problem and a research dead end.
+
+If DCa holds and DCb is refused, the honest reading is that **the damage model moves the ranking but
+does not own it**, and the owner gets a dial with a measured slope rather than an argument.
