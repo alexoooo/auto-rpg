@@ -494,11 +494,30 @@ export function flooredVariance(variance: number): number {
  * *below* `DEAD_VARIANCE` is not clipped but zeroed, for the argument written there: the clip is
  * what a dead column saturates into rather than what saves it from doing so.
  */
-export function normalise(raw: Float64Array, norm: Normalisation, into: Float64Array): Float64Array {
+/**
+ * How many fitted standard deviations a column may reach before it is cut off.
+ *
+ * Five is what every table in this tree was fitted and driven under, and it stays the default so
+ * that no mind changes behaviour because this line acquired a name. **It is not a free parameter.**
+ * CS5 measured what moving it does: the clone's `commit` logit against `golem-idle` tops out at
+ * -0.93 at five and at +1.21 at twelve, and its firing rate goes 0.0000 to 0.2999 -- against an
+ * expert that raises the gate on 0.0368 of the same asks. Five is too tight and twelve is eight
+ * times too loose, because past the clip the network is extrapolating and nothing constrains what
+ * it extrapolates to.
+ *
+ * The parameter exists so that the question can be *asked* by an arm without a refit. The real fix
+ * is per-column and is CV on the agenda: a column that declares a range is standardised against
+ * that range, and a bounded column is not cut off inside its own domain.
+ */
+export const NORMALISE_CLIP = 5;
+
+export function normalise(
+  raw: Float64Array, norm: Normalisation, into: Float64Array, clip: number = NORMALISE_CLIP,
+): Float64Array {
   for (let k = 0; k < raw.length; k += 1) {
     if (norm.variance[k] < DEAD_VARIANCE) { into[k] = 0; continue; }
     const sd = Math.sqrt(norm.variance[k] + 1e-8);
-    into[k] = clamp((raw[k] - norm.mean[k]) / sd, -5, 5);
+    into[k] = clamp((raw[k] - norm.mean[k]) / sd, -clip, clip);
   }
   return into;
 }
@@ -1008,7 +1027,14 @@ export function golemPolicy(
 
   const pilot: Pilot = (reading, view): StyleCommand => {
     pilotFeatures(reading, view, raw, trace);
-    normalise(raw, table.normalisation, observation);
+    // A table may declare its own observation clip as `normaliseClip`. Absent the field this is
+    // `NORMALISE_CLIP`, so an old file drives exactly as it always has.
+    //
+    // **Not `table.clip`**, which is already taken and is PPO's *surrogate* clip ratio, 0.2 on
+    // every table here. Reading that one by mistake clamps every observation to a fifth of a
+    // standard deviation and produces a mind that still loads, still runs and is unrecognisable.
+    normalise(raw, table.normalisation, observation,
+      (table as { normaliseClip?: number }).normaliseClip ?? NORMALISE_CLIP);
     const head = forward(table.layout, weights, observation, scratch);
     let logp = 0;
     if (sample) { logp = sampleAction(head, logSigma, random, action, spec); drawn += 1; }

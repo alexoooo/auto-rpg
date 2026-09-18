@@ -48,6 +48,7 @@ import { execFile } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { rungOf } from "./ladder.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NL = /\r?\n/;
@@ -135,17 +136,14 @@ async function collect({ seeds, cap, opponent, file, tablePath = null }) {
    * hour in beats labelling an hour of the wrong data.
    */
   const opponentOf = (name, seed) => {
-    if (name === "golem-fencer") return golemFencer(seed);
-    if (name === "golem-brawler") return golemBrawler(seed);
-    if (name === "golem-idle" || name === "idle") {
+    const rung = rungOf(name);
+    if (rung === "golem-fencer") return golemFencer(seed);
+    if (rung === "golem-brawler") return golemBrawler(seed);
+    if (rung === "golem-idle") {
       return { name: "golem-idle", driven: null, decide: idleMind().decide };
     }
-    if (name === "golem-driver") {
-      const it = golemDriver(seed, DRIVER);
-      return { name: "golem-driver", driven: it, decide: (v, dt) => it.decide(v, dt) };
-    }
-    throw new Error(`there is no opponent called "${name}";`
-      + " it is golem-fencer, golem-brawler, golem-driver or golem-idle");
+    const it = golemDriver(seed, DRIVER);
+    return { name: "golem-driver", driven: it, decide: (v, dt) => it.decide(v, dt) };
   };
 
   const steering = tablePath === null

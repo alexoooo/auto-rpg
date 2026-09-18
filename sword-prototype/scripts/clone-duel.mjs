@@ -32,6 +32,7 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { rungOf } from "./ladder.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const NL = /\r?\n/;
@@ -62,8 +63,65 @@ const sem = (xs) => {
   return Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / (xs.length - 1) / xs.length);
 };
 
+/**
+ * A per-arm observation clip, written into the arm's name the way `driver@` overrides are.
+ *
+ * `dagger` is the shipped reading and `dagger@clip=12` is the same weights with `normalise`
+ * allowed to carry a column further from its fitted mean before cutting it off. Both in one run
+ * means both on the **same seeds**, which is the only way this record has ever been able to see a
+ * difference smaller than the noise between two runs.
+ *
+ * Returns `[bareArm, clip]`, the clip being null when the arm does not ask for one.
+ */
+export function armClip(arm) {
+  const at = arm.indexOf("@clip=");
+  if (at < 0) return [arm, null];
+  const clip = Number(arm.slice(at + 6));
+  if (!Number.isFinite(clip) || clip <= 0) throw new Error(`"${arm}" wants a positive clip`);
+  return [arm.slice(0, at), clip];
+}
+
+/**
+ * `golem-driver` with named constants overridden, written as the arm's own name.
+ *
+ * `driver` is the shipped table; `driver@guardReach=1` is that table with one row moved, and
+ * `driver@guardReach=1&circleDuty=1` moves two. The overrides live in the arm name and not in a
+ * separate flag so that every column header in the output says exactly what produced it -- a table
+ * of results where one column is "driver" and you have to look elsewhere for which driver is how
+ * this record has mis-read its own numbers before.
+ *
+ * **Nothing here writes a file.** CO is the reason: an override reaches only the minds that read a
+ * tactics table live, but *writing* the row rebuilds `COMMITTED_SHAPES` and silently moves every
+ * executor above v2, including the opponent. An arm has to be an arm.
+ *
+ * `guardReach` is special-cased because `DRIVER` sets `guardByTheirs`, so the scalar is dead and
+ * the live row is the per-weapon table beside it. Setting only the scalar would move nothing,
+ * and the duel would report a null result as a refusal -- the worst shape a measurement takes.
+ */
+export function driverTactics(arm, base) {
+  const at = arm.indexOf("@");
+  if (at < 0) return base;
+  const table = { ...base };
+  for (const term of arm.slice(at + 1).split("&")) {
+    const eq = term.indexOf("=");
+    if (eq < 0) throw new Error(`an override is name=value; "${term}" has no value`);
+    const name = term.slice(0, eq);
+    const value = Number(term.slice(eq + 1));
+    if (!Number.isFinite(value)) throw new Error(`"${term}" is not a number`);
+    if (!(name in table)) throw new Error(`golem-driver has no constant called "${name}"`);
+    table[name] = value;
+    if (name === "guardReach" && table.guardByTheirs) {
+      table.guardReachVs = Object.fromEntries(
+        Object.keys(table.guardReachVs).map((k) => [k, value]),
+      );
+    }
+  }
+  return table;
+}
+
 /** One arm over some seeds, in a child, so a crashed bout cannot take the table with it. */
-async function cell({ arm, seeds, cap, opponent, tablePath }) {
+async function cell({ arm: named, seeds, cap, opponent, tablePath }) {
+  const [arm, clip] = armClip(named);
   const { freshHavok, runBout } = await import("./bout-runner.mjs");
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
   const { golemPolicy } = await import("../src/golem/policy.ts");
@@ -85,9 +143,10 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
    * win there measures shoving and is not rung one in any useful sense.
    */
   const opponentOf = (seed) => {
-    if (opponent === "golem-brawler") return golemBrawler(seed);
-    if (opponent === "golem-idle" || opponent === "idle") return idleMind();
-    if (opponent === "golem-driver") {
+    const rung = rungOf(opponent);
+    if (rung === "golem-brawler") return golemBrawler(seed);
+    if (rung === "golem-idle") return idleMind();
+    if (rung === "golem-driver") {
       const it = golemDriver(seed, DRIVER);
       return { name: "golem-driver", driven: it, decide: (v, dt) => it.decide(v, dt) };
     }
@@ -118,9 +177,9 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
       // question that answers is whether the genome found something or whether a statue is simply
       // competitive here. It has no executor, so it throws no strokes and asks for nothing.
       left = { name: "golem-idle", driven: null, decide: idleMind().decide };
-    } else if (arm === "driver") {
-      driven = golemDriver(seed, DRIVER, watch);
-      left = { name: "golem-driver", driven, decide: (v, dt) => driven.decide(v, dt) };
+    } else if (arm === "driver" || arm.startsWith("driver@")) {
+      driven = golemDriver(seed, driverTactics(arm, DRIVER), watch);
+      left = { name: `golem-${arm}`, driven, decide: (v, dt) => driven.decide(v, dt) };
     } else if (loaded !== null && loaded.kind === COMPACT_KIND) {
       // CT evolves a genome, not a policy table, and it has to be rateable on the instrument every
       // other arm is rated on -- a second rating path is a second set of numbers to reconcile.
@@ -134,10 +193,15 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
     } else {
       // Greedy, always: the mean of the head is what a played mind does, and CP measured what
       // sampling costs a stroke. An arm drawn from its own spread would be a different mind.
-      const table = loaded ?? POLICY_WEIGHTS;
+      //
+      // The clip rides on a *copy* of the table. Writing it onto `POLICY_WEIGHTS` would change the
+      // shipped constant for every later arm in the same child, and the two readings would stop
+      // being two readings.
+      const base = loaded ?? POLICY_WEIGHTS;
+      const table = clip === null ? base : { ...base, normaliseClip: clip };
       const mind = golemPolicy(seed, table, GOLEM_TACTICS_V4, null, false, watch);
       driven = mind.driven;
-      left = { name: `golem-${arm}`, driven, decide: (v, dt) => mind.decide(v, dt) };
+      left = { name: `golem-${named}`, driven, decide: (v, dt) => mind.decide(v, dt) };
     }
     const right = opponentOf(seed + 17);
     const bout = runBout({
@@ -173,7 +237,7 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
       parryRate: gates.asks === 0 ? 0 : gates.parry / gates.asks,
     });
   }
-  return { arm, rows };
+  return { arm: named, rows };
 }
 
 const COLUMNS = [
@@ -201,9 +265,12 @@ async function main(argv) {
     }));
   // Refused rather than quietly fetching `POLICY_WEIGHTS`, which would report the shipped mind
   // under a snapshot's name and be indistinguishable in the table from a real reading of it.
-  for (const arm of arms) {
-    if (arm !== "driver" && arm !== "policy" && arm !== "idle" && tables[arm] === undefined) {
-      throw new Error(`arm "${arm}" has no table; pass --tables ${arm}=path/to/weights.json`);
+  for (const named of arms) {
+    const [arm] = armClip(named);
+    const built = arm === "policy" || arm === "idle"
+      || arm === "driver" || arm.startsWith("driver@");
+    if (!built && tables[arm] === undefined) {
+      throw new Error(`arm "${named}" has no table; pass --tables ${arm}=path/to/weights.json`);
     }
   }
   if (arms.length < 2) throw new Error("a paired table wants at least two arms");
@@ -212,7 +279,9 @@ async function main(argv) {
   const slice = Math.ceil(seeds.length / shards);
   const plan = arms.flatMap((arm) => Array.from({ length: shards }, (_, s) => ({
     arm, seeds: seeds.slice(s * slice, (s + 1) * slice), cap, opponent,
-    tablePath: tables[arm] ?? null,
+    // The table is looked up under the bare name, so `dagger` and `dagger@clip=12` are the same
+    // weights and `--tables` does not have to name the arm twice.
+    tablePath: tables[armClip(arm)[0]] ?? null,
   }))).filter((c) => c.seeds.length > 0);
 
   console.log(`clone duel: ${arms.join(", ")} against ${opponent}, ${count} paired seeds`
