@@ -755,7 +755,8 @@ export function humanMind(source: { readonly state: Intent }, name = "you"): Min
 export function splitMind(
   person: Mind,
   policy: Mind,
-  ownership: HumanOwnership = { posture: false, drivenWrist: false },
+  ownership: HumanOwnership =
+    { posture: false, drivenWrist: false, locomotion: true, attack: true },
 ): Mind {
   const blended: Intent = {
     ...NEUTRAL,
@@ -776,14 +777,38 @@ export function splitMind(
       // a hand for somebody: a body whose striker is its head has nothing for
       // one mouse to divide, and answering "primary" would put the person on an
       // arm that does not exist.
+      // **The feet, on their own switch.** A person who has taken only the attack still wants the
+      // body to walk itself, and `theirs` is a whole plan for this body rather than a fallback --
+      // the policy is driven every step either way, so what arrives here is what it would have
+      // done had nobody taken anything.
+      const feet = ownership.locomotion ? mine : theirs;
+      blended.forward = feet.forward;
+      blended.strafe = feet.strafe;
+      blended.turn = feet.turn;
+
+      // **The hand, on its own switch, and the refusal moves inside it.** Dividing a command that
+      // names no acting hand is impossible and still throws -- but only when there is something to
+      // divide. With `attack` off there is no person's hand in this at all, so a body a cursor
+      // could never have been put on (a centipede, a golem built with no arms) is drivable by the
+      // feet alone instead of being refused outright.
+      if (!ownership.attack) {
+        blended.actingHand = theirs.actingHand;
+        blended.natural.thrust = theirs.natural.thrust;
+        blended.natural.guard = theirs.natural.guard;
+        const posture = ownership.posture ? mine.posture : theirs.posture;
+        blended.posture.trunkLean = posture.trunkLean;
+        blended.posture.trunkTwist = posture.trunkTwist;
+        blended.posture.crouch = posture.crouch;
+        composeHand(blended.primary, theirs.primary, theirs.primary);
+        composeHand(blended.secondary, theirs.secondary, theirs.secondary);
+        return blended;
+      }
+
       const driven = mine.actingHand;
       if (driven === null) {
         throw new Error(`splitMind cannot divide "${person.name}": a command that names no acting hand has no hand to hand over`);
       }
 
-      blended.forward = mine.forward;
-      blended.strafe = mine.strafe;
-      blended.turn = mine.turn;
       blended.actingHand = driven;
       // The jaws are the person's, on the same two buttons as the hand.
       //

@@ -76,6 +76,38 @@ export function pauseAction(phase: Phase, running: boolean): PauseAction {
 /** Whether a side reads a policy or a person. */
 export type Control = "mind" | "you";
 
+/**
+ * How much of a body a person is driving, when that body is theirs.
+ *
+ * `control` answers *which* body is yours; this answers *how much of it*, and the two are kept
+ * apart rather than folded into one four-valued field because almost nothing needs the second.
+ * The camera, `humanSide`, the aim indicator, `Targeting` and `withControl`'s one-person
+ * invariant all ask the same yes-or-no question they always asked, and only `splitMind` reads
+ * the split. One field spelling all four states would make every one of those readers enumerate
+ * three cases to learn one bit.
+ *
+ * There is no fourth value for *neither*: a body you drive nothing of is a body the mind has,
+ * which is `control: "mind"` and already spelled. The screen offers it as both boxes unchecked.
+ */
+export type Channels = "move" | "attack" | "both";
+
+/**
+ * Whether the person is driving this side's feet, and whether they are driving its hands.
+ *
+ * Asked through a predicate rather than off the field because the answer is a conjunction --
+ * a side only has channels at all while it is yours -- and because both are total over a
+ * `channels` that is missing. That is not defensiveness: links made before this field existed
+ * carry `control: "you"` and nothing else, and back then taking a body took all of it, so
+ * absent reads as `both` and an old link still means what it meant.
+ */
+export function drivesMove(side: SideSetup): boolean {
+  return side.control === "you" && side.channels !== "attack";
+}
+
+export function drivesAttack(side: SideSetup): boolean {
+  return side.control === "you" && side.channels !== "move";
+}
+
 /** One corner of the setup screen. */
 /**
  * What a hand can be given, and what the picker offers.
@@ -163,6 +195,11 @@ export interface SideSetup {
   /** Which policy, by `Policy.name` in `mind.ts`. */
   policy: string;
   control: Control;
+  /**
+   * Which channels are yours, read only while `control` is `"you"`. Optional, because a link
+   * or a harness from before the split says nothing and means `"both"`; see `drivesMove`.
+   */
+  channels?: Channels;
   /** The primary hand -- the one the mouse starts on. */
   handA: string;
   /** The secondary. `empty` is a choice rather than an absence. */
@@ -256,7 +293,8 @@ export function defaultMatchup(): Matchup {
     // there was a choice -- so the default matchup is the body every number in
     // `docs/measurements.md` was taken from, and a bout opened without touching
     // the pickers is still that measurement's bout.
-    left: { unit: "warrior", policy: "idle", control: "you", handA: "sword", handB: "empty" },
+    left: { unit: "warrior", policy: "idle", control: "you", channels: "both",
+      handA: "sword", handB: "empty" },
     right: { unit: "warrior", policy: "idle", control: "mind", handA: "sword", handB: "empty" },
   };
 }
@@ -405,7 +443,7 @@ export function withGolemBuild(
  * screen is golem-only by the owner's decision and a Warrior is a regression cell rather than a
  * fighter to watch. Two minds rather than the left side yours, because the thing the screen is
  * for is *watching* -- "high level fighting for random body layout matchups" is the owner's
- * sentence -- and the radio button that hands you a body is one click away. The build is passed
+ * sentence -- and the box that hands you a body is one click away. The build is passed
  * in for the reason `withGolemBuild` gives; `unit` and `policy` are the registry's own ids,
  * spelled here because this module cannot ask the registry, and `tests/bout.test.mjs` checks
  * them against it. The policy is the fencer, and the style set's final table is the reason it
@@ -493,6 +531,14 @@ const readSide = (value: unknown): SideSetup | null => {
     unit: value.unit, policy: value.policy, control: value.control,
     handA: value.handA, handB: value.handB,
   };
+  // Absent is not a shape the codec has to refuse, unlike the fields above: every link written
+  // before the channel split omits it and every one of them meant `both`, so reading it that
+  // way decodes the link that was actually shared rather than repairing a broken one.
+  if (value.channels !== undefined) {
+    if (value.channels !== "move" && value.channels !== "attack"
+      && value.channels !== "both") return null;
+    side.channels = value.channels;
+  }
   if (value.golem !== undefined) {
     const golem = readGolem(value.golem);
     if (!golem) return null;
@@ -533,10 +579,15 @@ export function withPolicy(matchup: Matchup, side: Side, policy: string): Matchu
  * Choosing who you are, which is also choosing who you are not.
  *
  * There is one of you, so taking a side gives the other one back to its policy.
- * Two radio groups cannot say that on their own -- each only knows its own two
- * buttons -- so the rule lives here where it can be tested, and the screen
- * re-reads both groups from the answer. Letting the DOM own it instead is how
- * you get a setup screen that offers two humans and an arena that has one.
+ * Four checkboxes cannot say that on their own -- none of them knows the other
+ * three exist -- so the rule lives here where it can be tested, and the screen
+ * re-reads all four from the answer. Letting the DOM own it instead is how you
+ * get a setup screen that offers two humans and an arena that has one.
+ *
+ * The screen reaches this through `withChannels` rather than directly, because
+ * on the page "whose body is it" and "how much of it" are one gesture. This
+ * stays exported for the two doors that mean the whole body and nothing less:
+ * `takeBody`, and a test that wants the invariant on its own.
  */
 /**
  * Put something in a hand.
@@ -577,6 +628,26 @@ export function withControl(matchup: Matchup, side: Side, control: Control): Mat
 }
 
 /**
+ * Tick or clear one of a corner's two boxes.
+ *
+ * The screen draws **Move** and **Attack** and this is the reducer under both, so the rule that
+ * clearing the last box hands the body back to its mind lives here rather than in the DOM --
+ * same reason "there is one of you" does. Ticking either box takes the body, which takes it off
+ * the other corner, because `withControl` still enforces the one person this game has.
+ */
+export function withChannels(
+  matchup: Matchup,
+  side: Side,
+  move: boolean,
+  attack: boolean,
+): Matchup {
+  if (!move && !attack) return withControl(matchup, side, "mind");
+  const next = copy(withControl(matchup, side, "you"));
+  next[side].channels = move && attack ? "both" : move ? "move" : "attack";
+  return next;
+}
+
+/**
  * Taking a body in the middle of a bout.
  *
  * It is `withControl` and nothing else, which is the point rather than a
@@ -596,10 +667,10 @@ export function withControl(matchup: Matchup, side: Side, control: Control): Mat
  * again with the right-hand body yours. That is the same argument `toSelect`
  * already makes for keeping the matchup at all -- the thing you want after a
  * bout is the same bout again -- applied to a choice you made with a click
- * instead of with a radio button.
+ * instead of with a checkbox.
  *
  * Refused from the screen, by returning exactly the state it was handed. There
- * is no body to take there, the radio buttons already own the same field, and a
+ * is no body to take there, the checkboxes already own the same field, and a
  * takeover armed behind the curtain would be a click on a fighter nobody can
  * see. `over` is allowed: a decided bout deliberately does not stop the world --
  * see `Phase` -- so there are still two bodies being driven, and refusing to let

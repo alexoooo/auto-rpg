@@ -55,10 +55,26 @@ import { CAMERA_ZOOM_NOTCHES, dragCamera, slewCameraZoom, type CameraGestureStat
  * no pointer binding at all. Two comments in this file said the same wrong thing.
  */
 
-/** Host-only switches; ownership is not part of the combat command. */
+/**
+ * Host-only switches; ownership is not part of the combat command.
+ *
+ * **Four of these and not one flag, because a person takes a body one channel at a time.** The
+ * screen offers *Move* and *Attack* separately, so all four combinations are reachable: the feet
+ * and the hand, the feet alone with the mind still fighting, the hand alone with the mind still
+ * walking, or neither, which is the mind driving a body you are merely watching from. `splitMind`
+ * is where each of these picks a side, and it is the only place they are read.
+ *
+ * `posture` and `drivenWrist` are the two older ones and stay as they are: they are finer than the
+ * screen's two, they default off, and the host toggles them from the readout rather than the
+ * setup screen.
+ */
 export interface HumanOwnership {
   posture: boolean;
   drivenWrist: boolean;
+  /** The feet: `forward`, `strafe` and `turn`. Off leaves the body walking itself. */
+  locomotion: boolean;
+  /** The acting hand and the buttons on it. Off leaves the mind fighting with it. */
+  attack: boolean;
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -108,7 +124,8 @@ export interface ControlHooks {
 }
 
 export class Controls {
-  readonly ownership: HumanOwnership = { posture: false, drivenWrist: false };
+  readonly ownership: HumanOwnership =
+    { posture: false, drivenWrist: false, locomotion: true, attack: true };
   readonly camera: CameraGestureState = {
     mode: "none", pointerId: null, yaw: 0, pitch: 0, panX: 0, panZ: 0, zoom: 1,
   };
@@ -132,7 +149,7 @@ export class Controls {
     // cleared by `releaseButtons` beside both hands. It was initialised here and
     // never written again for the whole of the session that introduced it, which
     // is a command channel a person cannot press: the setup screen offers the
-    // "you" radio for either side whatever the unit, so a person could take a
+    // control boxes for either side whatever the unit, so a person could take a
     // centipede, steer it, and never close its jaws.
     natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },

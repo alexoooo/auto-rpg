@@ -54,6 +54,8 @@ import {
 import type { HumanDriverSource } from "./control-host";
 import {
   begin,
+  drivesAttack,
+  drivesMove,
   golemMatchup,
   humanSide,
   matchupFromQuery,
@@ -338,6 +340,7 @@ async function boot(): Promise<void> {
     if (state.phase !== "select") return;
     const changed = bodies(matchup) !== bodies(state.matchup);
     state = selectScreen(matchup);
+    syncChannels();
     window.history.replaceState(null, "", linkFor(matchup));
     if (changed && setup.refusal === null) rebuild();
   };
@@ -443,6 +446,26 @@ async function boot(): Promise<void> {
       return targeting.primaryDown();
     },
   });
+
+  /**
+   * The corner's two boxes, pushed onto the ownership a split mind reads.
+   *
+   * A push and not a pull, because `splitMind` is handed the ownership *object* once and reads
+   * its fields every step (`src/mind.ts`), so a body already fighting changes hands the moment
+   * this runs -- no rebuild, no re-install. It is called from the three places the matchup can
+   * move: the setup screen, taking a body mid-fight, and the opening.
+   *
+   * With nobody human the two fields are left at what a person taking this body *would* get,
+   * rather than false. Nothing reads them in that state -- there is no split mind to read them --
+   * and a field that means "the person drives the feet" should not say no while there is no
+   * person to say it of.
+   */
+  const syncChannels = (): void => {
+    const mine = humanSide(state.matchup);
+    const side = mine === null ? null : state.matchup[mine];
+    controls.ownership.locomotion = side === null || drivesMove(side);
+    controls.ownership.attack = side === null || drivesAttack(side);
+  };
 
   /**
    * You, as a mind like any other.
@@ -560,6 +583,7 @@ async function boot(): Promise<void> {
   };
 
   let bout = buildBout(state.matchup);
+  syncChannels();
   // The showcase is the arena with physics off, from the first frame: two bodies standing at
   // their marks exactly as built, with no gravity to sag them and no mind to move them, until
   // Fight enables the solver through `resumeHost`. `leave` puts it back this way.
@@ -808,6 +832,10 @@ async function boot(): Promise<void> {
     }
 
     state = takeBody(state, side);
+    // `C` takes the whole body: the corner it lands on carries whatever channels the screen last
+    // gave it, and a corner the screen never gave any carries none, which `drivesMove` reads as
+    // both. Taking a body with a key is not the place to discover you have only half of it.
+    syncChannels();
     // Only when the side actually moved. `attach` drops the lock, and dropping
     // somebody's lock because they clicked the body they were already in would
     // be a punishment for reading the mode's own instructions.

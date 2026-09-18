@@ -1,11 +1,12 @@
 import {
-  withControl,
+  drivesAttack,
+  drivesMove,
+  withChannels,
   withGolemBuild,
   withGolemEffector,
   withGolemSlot,
   withPolicy,
   withUnit,
-  type Control,
   type GolemEffectorSetup,
   type GolemSlotName,
   type Matchup,
@@ -81,7 +82,7 @@ const wearLabel = (id: string, durability: number): string => {
  * character selection.
  *
  * Two corners and nothing else in the way of a picker. Each corner is a one-line caption of the
- * build, a Randomize button, a policy picker, the control radios, and a Customize toggle that
+ * build, a Randomize button, a policy picker, the two control boxes, and a Customize toggle that
  * reveals the nine slot pickers for anyone who wants a hand-picked body or a salvaged arm. The
  * unit picker left the screen with this session: golem-only is the owner's decision, and the
  * Warrior, the Broot and the Centipede stay in code, in `withUnit`, and in the headless measure as
@@ -89,10 +90,10 @@ const wearLabel = (id: string, durability: number): string => {
  * `index.html`, so an option that exists is selectable and an option that is selectable exists.
  *
  * This holds the live selection and `src/bout.ts` holds the rules that constrain it -- notably
- * that there is one of you, so taking a side gives the other back to its policy. Two radio groups
- * cannot express that between them, because neither knows the other exists; `withControl` does,
- * and `render` puts its answer back into both groups. That is why every change re-reads the whole
- * screen from the matchup instead of trusting the control that was just clicked.
+ * that there is one of you, so taking a side gives the other back to its policy. Four checkboxes
+ * cannot express that between them, because none of them knows the other three exist;
+ * `withChannels` does, and `render` puts its answer back into all four. That is why every change
+ * re-reads the whole screen from the matchup instead of trusting the box that was just clicked.
  *
  * **The host is told, not asked.** `onSelection` fires after every change a person makes here,
  * with the matchup as it now stands, and `src/main.ts` is what decides whether the bodies behind
@@ -263,10 +264,10 @@ export class SetupScreen {
           <div class="field">
             <span class="field-name">Control</span>
             <span class="choice">
-              <label><input type="radio" name="control-${side}" value="mind"
-                data-side="${side}" data-field="control" /> mind</label>
-              <label><input type="radio" name="control-${side}" value="you"
-                data-side="${side}" data-field="control" /> you</label>
+              <label><input type="checkbox" value="move"
+                data-side="${side}" data-field="control" /> move</label>
+              <label><input type="checkbox" value="attack"
+                data-side="${side}" data-field="control" /> attack</label>
             </span>
           </div>
         </div>
@@ -291,9 +292,15 @@ export class SetupScreen {
       case "policy":
         this.matchup = withPolicy(this.matchup, side, target.value);
         break;
-      case "control":
-        this.matchup = withControl(this.matchup, side, target.value as Control);
+      case "control": {
+        // Both boxes, read off the screen rather than toggled in the matchup, because the two
+        // are one choice: `withChannels` needs to know that clearing `move` left `attack` still
+        // ticked, which is the difference between narrowing what you drive and letting go.
+        const ticked = (value: string) =>
+          this.controls[side].some((box) => box.value === value && box.checked);
+        this.matchup = withChannels(this.matchup, side, ticked("move"), ticked("attack"));
         break;
+      }
       case "golemLocomotion":
       case "golemTorso":
       case "golemHead": {
@@ -514,10 +521,10 @@ export class SetupScreen {
         option.disabled = !definition.driverOptions.some((driver) => driver.name === option.value);
       }
       this.policies[side].value = setup.policy;
-      for (const button of this.controls[side]) {
-        button.checked = button.value === setup.control;
-        button.disabled = button.value === "you" && !definition.humanAdapter;
-        button.title = button.disabled ? `control surface ${definition.kind} has no human adapter` : "";
+      for (const box of this.controls[side]) {
+        box.checked = box.value === "move" ? drivesMove(setup) : drivesAttack(setup);
+        box.disabled = !definition.humanAdapter;
+        box.title = box.disabled ? `control surface ${definition.kind} has no human adapter` : "";
       }
     }
     this.renderBin();
