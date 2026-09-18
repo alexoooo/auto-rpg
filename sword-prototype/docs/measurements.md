@@ -43846,16 +43846,21 @@ finished by the drain at **exactly 120 s**. `settle` in `src/bout.ts:810` return
 both sides go down in the same frame. Put that beside CY's seconds column and the mechanism is not
 an inference any more:
 
-| mirror | damage dealt | taken | difference | bout ends | score |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `golem-idle` | 0.0000 | 0.0000 | **0.00** | **120.00 s** | **0.5000** |
-| `ct3` | 0.8083 | 1.0298 | **0.22** | **119.32 s** | **0.1563** |
+| mirror | damage dealt | taken | difference | bout ends | `decided` | score |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `golem-idle` | 0.0000 | 0.0000 | **0.00** | **120.00 s** | **0.0000** | **0.5000** |
+| `ct3` | 0.8083 | 1.0298 | **0.22** | **119.32 s** | **1.0000** | **0.1563** |
+
+The `decided` column is the proof and it is as clean as this record gets. The statues draw **64
+times out of 64**, at 120.0000 s with no spread at all across the seeds. The clones produce a
+winner **64 times out of 64**. Nothing separates those two rows except 0.22 damage.
 
 Two statues take exactly zero damage, the drain finishes them in the same frame, `settle` returns
 null, and the mirror reads **exactly 0.5000** -- a genuine double death, not a coin landing fairly.
 
 Two `ct3` clones take almost zero damage, and the 0.22 that separates them brings one down **0.68
-seconds early**. That is the entire contest. A hundred and nineteen seconds of circling, decided in
+seconds early** -- and it is not a constant winner either: the left side takes 10 of the 64, so the
+bias is strong but not total. That is the entire contest. A hundred and nineteen seconds of circling, decided in
 the last two thirds of a second, by a difference no instrument in this repository would call real
 anywhere else.
 
