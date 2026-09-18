@@ -43676,3 +43676,29 @@ that is the difference between a game-design problem and a research dead end.
 
 If DCa holds and DCb is refused, the honest reading is that **the damage model moves the ranking but
 does not own it**, and the owner gets a dial with a measured slope rather than an argument.
+
+#### DC, corrected before any data: DCd as registered was already satisfied
+
+Re-reading the registration against CY's own seconds column, **DCd measures nothing as written.**
+It asked whether bouts against `golem-fencer` fall under 60 s at the top of the dial. They are
+already there at the shipped setting -- `ct3` takes 39.7 s, `policy` 66.3, `driver` 37.3. A bar that
+the control passes before the treatment is applied is not a bar.
+
+Worse, the slip propagates to the mechanism. The drain argument is correct **only where bouts
+actually run past 60 s**, and that is the statue and the mirrors -- 113.5 s and 119.3 s -- not the
+fencer, which resolves in forty. So the registration quietly attached a drain explanation to a
+column the drain never touches.
+
+Splitting it, before the run reports:
+
+- **Against `golem-fencer`** the dial does one thing only: it re-prices a stroke. DCa is therefore a
+  clean test of *pricing*, with no drain in it, and it is a **weaker** prediction than registered --
+  the mechanism I leaned on does not apply there. Calling DCa a coin flip now, not a hold.
+- **Against itself** the dial can do both, and that is where the drain argument lives. **DCd is
+  restated: the `ct3` mirror's mean bout falls below 60 s at 1.0**, from 119.3 s. Refused if it
+  stays above. This is the version tied to DCc, and the pair is the real question -- does the null
+  bout end because the minds start fighting (DCc), or merely because the clock stops protecting
+  them (DCd without DCc)?
+
+Registering the correction rather than quietly restating it, because the first version is committed
+in `afb9f44` and a bar that moves after its data arrives is not a bar either.
