@@ -41807,3 +41807,81 @@ question for the hand-coded mind, not for the clone, and it is registered here r
 merely the fit. Its `score`, `opponent`, `baselines` and reward row are written as empty on purpose:
 a clone is never rolled out, and the policy template's 0.546 would otherwise have been quoted by
 `snapshot.ts` and `renderPolicyModule` as this mind's rating.
+
+### CT -- evolution, over two different things, registered before either runs
+
+CR4 changed what CT is for. The plan wrote it as *"evolution seeded from the clone"*, and the seed
+it meant was a **distillation**: a compact mind fitted to the same labels, because a `(1+lambda)`
+cannot search 87,308 weights. That is still one arm. But a distillation throws the clone away and
+keeps only its labels, and CR4 just made the clone worth keeping.
+
+#### The distil, which ran unregistered and is descriptive
+
+It is stated here as a measurement and **not** as a passed test: it was run before any bar was
+written down, so rule 9 excludes it from the record as evidence for anything. What it says:
+
+| columns | numbers | held-out R2, 5 live axes | commit lift | abort lift | parry lift |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `core`, 19 | 240 | 0.2723 | 0.0846 | **0.0000** | **0.0000** |
+| `all`, 71 | 864 | 0.3446 | 0.2843 | **0.0000** | 0.4418 |
+| *(the clone, for scale)* | 87,308 | 0.3856 | 0.9570 | 0.7768 | 1.0000 |
+
+Two readings, both worth having. **The nineteen-column hypothesis is refused**: `CORE_COLUMNS` was a
+written-down guess at which columns `driver.ts` consults, and moving to all seventy-one lifts every
+number, so the guess was missing something the expert uses. And **a linear map holds the axes and
+not the gates**. At 71 columns it is within half a point of the clone on the axes it can move, and
+it reproduces almost none of the commit decision -- which is the decision that matters, because CR3
+measured the whole of the clone's failure in its gate rates. `abort` regresses to zero lift under
+both column sets; it is raised on 2.1 % of asks, and a squared loss onto -1 and +1 answers a rare
+class by predicting the common one everywhere.
+
+#### CT2 -- the compact mind, evolved from the `all` seed
+
+`(1+16)`, 24 seeds a candidate, 60 s cap, against `golem-fencer`, 40 generations, fresh seeds each
+generation with the parent re-scored. Selection climbs wins plus a quarter of draws, never the
+score, because CR2 found the shipped mind collecting 77 draws in 128 and a search is very good at
+holes.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **CT2a** | the seed itself scores **below 0.15** against `golem-fencer` | it starts above 0.30 |
+| **CT2b** | evolution lifts it by **more than 0.10** over its own seed | it gains less than 0.03 |
+| **CT2c** | it finishes **below the clone's 0.3672** | it reaches 0.3672 |
+
+CT2c is the honest prediction and it is the interesting one. A linear map that cannot express the
+commit decision has to find a *different* way to fight, and forty generations of a 864-number
+search is not obviously enough to find one.
+
+#### CT3 -- the calibration, which keeps the clone
+
+The net-new arm, and the one this record expects most from. **Freeze the clone and search 21
+numbers**: a gain and an offset on each of the nine axis means, an offset on each of the three gate
+logits. The reparameterisation is exact -- scaling row `j` of the output layer by `g` and writing
+its bias as `g * b + c` makes the head read `g * (w . h + b) + c` -- so **the zero genome is the
+clone, weight for weight**, and it was checked that way rather than argued: total drift 0.
+
+Why this and not more rounds of DAgger: DAgger can only ever approach the expert, and the expert
+loses to `golem-fencer` 56-72. **Imitation has a ceiling and it is `golem-driver`.** A calibration
+searched on wins is the first thing in this phase allowed to be *better* than what it copied.
+It is also aimed at the one residual CR4 measured -- the clone completes every stroke it starts
+because it raises `abort` where the latch does not sample -- and a gate offset is exactly that
+knob.
+
+Same search settings as CT2, from `snapshots/cr-dagger1.json`.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **CT3a** | it beats its own start by **more than 0.05** on score | it gains less than 0.02 |
+| **CT3b** | it beats the clone's 0.3672 and lands **above 0.42** | it stays below 0.3672 |
+| **CT3c** | `completion` moves **off 1.0000, below 0.90** | completion stays above 0.98 |
+
+CT3c is a mechanism claim and it is separable from the other two: the search could find its gain by
+standing further off rather than by aborting, and if CT3b holds while CT3c is refused then aborting
+is not what the clone was missing and the driver's half-aborted strokes are decoration.
+
+**The total mapping.** If CT3b holds, the phase has a mind that beats `golem-driver` and the ladder
+has its third rung in sight; CT2 then only says whether a small mind was ever necessary. If CT3b is
+refused and CT3a holds, a calibration is a real but small lever and the residual is in the body of
+the network, which points at CU's fine-tune rather than at more search. If both CT3a and CT3b are
+refused, the clone is at a local optimum that 21 numbers cannot leave, and the next move is the
+ladder CS builds rather than any further search from here.

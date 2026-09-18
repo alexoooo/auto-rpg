@@ -6,6 +6,9 @@
 //                                         [--seeds 16] [--cap 40] [--sigma 0.1]
 //                                         [--opponent golem-fencer] [--draw-weight 0.25]
 //                                         [--out PATH]
+//   node scripts/evolve-policy.mjs calibrate [--table snapshots/cr-dagger1.json] [--sigma 0.15]
+//                                            [--generations 40] [--lambda 16] [--seeds 24]
+//                                            [--cap 60] [--opponent golem-fencer] [--out PATH]
 //
 // ## The argument, which is empirical rather than fashionable
 //
@@ -35,6 +38,27 @@
 // Gate targets are regressed onto **-1 and +1**, not 0 and 1, because a compact gate fires when its
 // output is above **zero**. Regressing onto {0, 1} and thresholding at zero would build a mind that
 // raises every gate on every ask.
+//
+// ## `calibrate`, and why it exists beside the compact mind rather than instead of it
+//
+// The compact route pays for a searchable parameter count by **throwing the clone away**: a linear
+// map over the pilot's columns is not the 87,308-weight mind CR fitted, it is a fresh mind fitted to
+// the same labels, and the distillation measured what that costs. The third mode pays nothing. It
+// **freezes the clone** and searches a 21-number calibration of its output layer: a gain and an
+// offset on each of the nine axis means, and an offset on each of the three gate logits.
+//
+// The reparameterisation is exact and needs no change to `policy.ts`. An output is `w . h + b`, so
+// scaling row `j` of the final layer by `g` and writing the bias as `g * b + c` makes the head read
+// `g * (w . h + b) + c` -- which is the calibration, applied where it belongs, before any clip and
+// before the gate is thresholded. **The zero genome is the clone, bit for bit**, so the search
+// starts at a mind that already fights and every generation is a comparison against it.
+//
+// Twenty-one numbers is a space a `(1+lambda)` can actually cover, and it is aimed at the one
+// residual CR4 measured: the clone completes *every* stroke it starts against the driver's half,
+// because it raises `abort` at moments the latch does not sample. A gate offset is exactly the
+// knob that moves. Gate *gains* are not in the genome: only the sign of a gate logit is read, so a
+// positive gain changes nothing and a negative one inverts the gate, and neither is a search
+// direction worth spending a generation on.
 
 import { availableParallelism } from "node:os";
 import { execFile } from "node:child_process";
@@ -239,12 +263,50 @@ async function distil(argv) {
   console.log(`wrote ${out}`);
 }
 
+// ------------------------------------------------------------------------------- the calibration
+
+/** Nine log-gains and nine offsets for the axis means, then three offsets for the gate logits. */
+export const CALIBRATION_GENES = AXES * 2 + 3;
+
+/**
+ * A policy table with its output layer rescaled and shifted, which is the same mind seen through a
+ * calibration rather than a different mind that resembles it.
+ *
+ * `out[j] = w[j] . h + b[j]`, so `g * out[j] + c` is `(g * w[j]) . h + (g * b[j] + c)`. The gain is
+ * carried as a **logarithm** so that the zero genome is the identity and a step is multiplicative:
+ * a search stepping additively on a gain would cross zero and invert an axis on the way past.
+ */
+export function calibrated(table, genes) {
+  const widths = [table.layout.inputs, ...table.layout.hidden, table.layout.outputs];
+  let at = 0;
+  for (let l = 0; l + 2 < widths.length; l += 1) at += widths[l + 1] * (widths[l] + 1);
+  const n = widths[widths.length - 2];
+  const m = widths[widths.length - 1];
+  if (m !== COMPACT_OUTPUTS) {
+    throw new Error(`a calibration wants a ${COMPACT_OUTPUTS}-wide head; this table's is ${m}`);
+  }
+  if (genes.length !== CALIBRATION_GENES) {
+    throw new Error(`a calibration is ${CALIBRATION_GENES} numbers; given ${genes.length}`);
+  }
+  const weights = Float64Array.from(table.weights);
+  for (let j = 0; j < m; j += 1) {
+    // A gate reads only the sign of its logit, so it takes an offset and no gain.
+    const gain = j < AXES ? Math.exp(genes[j]) : 1;
+    const shift = j < AXES ? genes[AXES + j] : genes[AXES * 2 + (j - AXES)];
+    const row = at + j * n;
+    for (let k = 0; k < n; k += 1) weights[row + k] *= gain;
+    weights[at + m * n + j] = weights[at + m * n + j] * gain + shift;
+  }
+  return { ...table, weights: Array.from(weights) };
+}
+
 // ------------------------------------------------------------------------------------ the evolve
 
 /** One candidate over some seeds, in a child. Returns the mean score and what it did. */
-async function cell({ weights, spec, seeds, cap, opponent }) {
+async function cell({ weights, spec, seeds, cap, opponent, kind = "compact", table = null }) {
   const { freshHavok, runBout } = await import("./bout-runner.mjs");
   const { compactPilot } = await import("./compact-policy.mjs");
+  const { golemPolicy } = await import("../src/golem/policy.ts");
   const { GOLEM_TACTICS_V4, golemDriven } = await import("../src/golem/tactics-v4.ts");
   const { golemFencer } = await import("../src/golem/tactics-v2.ts");
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
@@ -253,6 +315,10 @@ async function cell({ weights, spec, seeds, cap, opponent }) {
 
   const physics = await freshHavok();
   const genome = Float64Array.from(weights);
+  // Built once a child rather than once a bout: a calibrated table is 87,308 numbers and rebuilding
+  // it per seed would cost more than the bouts do.
+  const loaded = kind === "calibrate"
+    ? calibrated(JSON.parse(readFileSync(resolve(ROOT, table), "utf8")), genome) : null;
   let score = 0;
   let wins = 0;
   let draws = 0;
@@ -262,19 +328,28 @@ async function cell({ weights, spec, seeds, cap, opponent }) {
   let taken = 0;
   let decided = 0;
   for (const seed of seeds) {
-    const pilot = compactPilot(genome, spec);
-    const driven = golemDriven(seed, GOLEM_TACTICS_V4, pilot);
+    let driven = null;
+    let leftMind = null;
+    if (loaded === null) {
+      driven = golemDriven(seed, GOLEM_TACTICS_V4, compactPilot(genome, spec));
+      leftMind = { name: "golem-compact", driven, decide: (v, dt) => driven.decide(v, dt) };
+    } else {
+      // Greedy, as every rating in this record is: the calibration moves the mean of the head, and
+      // a candidate drawn from its own spread would be scored on the draw and not on the change.
+      const mind = golemPolicy(seed, loaded, GOLEM_TACTICS_V4, null, false, null);
+      driven = mind.driven;
+      leftMind = { name: "golem-calibrated", driven, decide: (v, dt) => mind.decide(v, dt) };
+    }
     const right = opponent === "golem-driver" ? golemDriver(seed + 17, DRIVER)
       : opponent === "golem-brawler" ? golemBrawler(seed + 17) : golemFencer(seed + 17);
     const rightMind = opponent === "golem-driver"
       ? { name: "golem-driver", driven: right, decide: (v, dt) => right.decide(v, dt) } : right;
     const bout = runBout({
-      left: "golem-compact", right: opponent,
+      left: leftMind.name, right: opponent,
       leftUnit: "golem", rightUnit: "golem",
       leftGolem: defaultGolemSetup(), rightGolem: defaultGolemSetup(),
       locomotionMode: "supported", seeds: [seed, seed + 17], maxSeconds: cap, physics,
-      leftMind: { name: "golem-compact", driven, decide: (v, dt) => driven.decide(v, dt) },
-      rightMind,
+      leftMind, rightMind,
     });
     score += bout.winner === "left" ? 1 : bout.winner === null ? 0.5 : 0;
     if (bout.winner === "left") wins += 1;
@@ -315,22 +390,18 @@ function gaussian(rnd) {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rnd());
 }
 
-async function evolve(argv) {
-  const genomePath = flagOf(argv, "--genome", "tournaments/ct/seed.json");
-  const generations = Number(flagOf(argv, "--generations", "40"));
-  const lambda = Number(flagOf(argv, "--lambda", "16"));
-  const count = Number(flagOf(argv, "--seeds", "16"));
-  const cap = Number(flagOf(argv, "--cap", "40"));
-  const opponent = flagOf(argv, "--opponent", "golem-fencer");
-  const drawWeight = Number(flagOf(argv, "--draw-weight", "0.25"));
-  const out = flagOf(argv, "--out", "tournaments/ct/evolved.json");
-  const base = Number(flagOf(argv, "--seed", "20260921"));
-  let sigma = Number(flagOf(argv, "--sigma", "0.1"));
-
-  const table = JSON.parse(readFileSync(resolve(ROOT, genomePath), "utf8"));
-  const spec = { columns: table.columns, norm: table.norm, features: table.features };
-  let parent = Float64Array.from(table.weights);
-
+/**
+ * A `(1+lambda)` over whatever `entryOf` turns a genome into, with the parent re-scored every
+ * generation on fresh seeds.
+ *
+ * Shared by both modes on purpose. The two searches differ only in what a genome *is* -- 240 or 864
+ * numbers that are a whole mind, or 21 that are a calibration of one -- and a second copy of the
+ * loop would be a second set of selection rules to keep in step with this one.
+ */
+async function runSearch({
+  start, generations, lambda, count, cap, opponent, drawWeight, base, sigma, entryOf, write,
+}) {
+  let parent = Float64Array.from(start);
   let rng = (base ^ 0x5eed) >>> 0;
   const rnd = () => {
     rng = (Math.imul(rng, 1664525) + 1013904223) >>> 0;
@@ -350,9 +421,6 @@ async function evolve(argv) {
   });
 
   const lanes = Math.max(1, Math.min(availableParallelism(), lambda + 1));
-  console.log(`evolve: ${parent.length} numbers over ${table.columns.length} columns,`
-    + ` (1+${lambda}) against ${opponent}, ${count} seeds a candidate at cap ${cap} s,`
-    + ` ${generations} generations`);
   console.log("");
   console.log(`a draw is worth ${drawWeight} in selection; the score column stays win-draw-loss`);
   console.log("");
@@ -371,9 +439,7 @@ async function evolve(argv) {
       for (let k = 0; k < w.length; k += 1) w[k] += sigma * gaussian(rnd);
       return w;
     });
-    const plan = [parent, ...children].map((weights) => ({
-      weights: Array.from(weights), spec, seeds, cap, opponent,
-    }));
+    const plan = [parent, ...children].map((weights) => entryOf(weights, seeds, cap, opponent));
     const results = new Array(plan.length);
     let next = 0;
     const lane = async () => {
@@ -384,7 +450,6 @@ async function evolve(argv) {
     };
     await Promise.all(Array.from({ length: lanes }, lane));
 
-    const here = results[0];
     const fit = results.map((r) => (r.failed ? -1 : fitnessOf(r, drawWeight)));
     let bestAt = 0;
     for (let i = 1; i < results.length; i += 1) if (fit[i] > fit[bestAt]) bestAt = i;
@@ -403,25 +468,115 @@ async function evolve(argv) {
       + ` | ${best.strokes.toFixed(1)} | ${best.completion.toFixed(3)}`
       + ` | ${kept ? "child" : "parent"} |`);
 
-    const written = compactTable(parent, {
-      columns: table.columns, norm: table.norm, features: table.features,
-      note: `CT evolve: generation ${gen} of ${generations}, (1+${lambda}) against ${opponent},`
-        + ` ${count} seeds a candidate, draw weight ${drawWeight},`
-        + ` score ${parentScore.toFixed(4)} at fitness ${fit[bestAt].toFixed(4)}.`,
-    });
-    written.names = table.names;
-    mkdirSync(dirname(resolve(ROOT, out)), { recursive: true });
-    writeFileSync(resolve(ROOT, out), `${JSON.stringify(written)}\n`);
+    write(parent, gen, parentScore, fit[bestAt]);
+  }
+  return { parent, score: parentScore };
+}
+
+async function evolve(argv) {
+  const genomePath = flagOf(argv, "--genome", "tournaments/ct/seed.json");
+  const generations = Number(flagOf(argv, "--generations", "40"));
+  const lambda = Number(flagOf(argv, "--lambda", "16"));
+  const count = Number(flagOf(argv, "--seeds", "16"));
+  const cap = Number(flagOf(argv, "--cap", "40"));
+  const opponent = flagOf(argv, "--opponent", "golem-fencer");
+  const drawWeight = Number(flagOf(argv, "--draw-weight", "0.25"));
+  const out = flagOf(argv, "--out", "tournaments/ct/evolved.json");
+  const base = Number(flagOf(argv, "--seed", "20260921"));
+  const sigma = Number(flagOf(argv, "--sigma", "0.1"));
+
+  const table = JSON.parse(readFileSync(resolve(ROOT, genomePath), "utf8"));
+  const spec = { columns: table.columns, norm: table.norm, features: table.features };
+
+  console.log(`evolve: ${table.weights.length} numbers over ${table.columns.length} columns,`
+    + ` (1+${lambda}) against ${opponent}, ${count} seeds a candidate at cap ${cap} s,`
+    + ` ${generations} generations`);
+
+  const { score } = await runSearch({
+    start: table.weights, generations, lambda, count, cap, opponent, drawWeight, base, sigma,
+    entryOf: (weights, seeds) => ({
+      kind: "compact", weights: Array.from(weights), spec, seeds, cap, opponent,
+    }),
+    write: (parent, gen, parentScore, fit) => {
+      const written = compactTable(parent, {
+        columns: table.columns, norm: table.norm, features: table.features,
+        note: `CT evolve: generation ${gen} of ${generations}, (1+${lambda}) against ${opponent},`
+          + ` ${count} seeds a candidate, draw weight ${drawWeight},`
+          + ` score ${parentScore.toFixed(4)} at fitness ${fit.toFixed(4)}.`,
+      });
+      written.names = table.names;
+      mkdirSync(dirname(resolve(ROOT, out)), { recursive: true });
+      writeFileSync(resolve(ROOT, out), `${JSON.stringify(written)}\n`);
+    },
+  });
+  console.log("");
+  console.log(`wrote ${out} at ${score === null ? "nothing" : score.toFixed(4)}`);
+}
+
+async function calibrate(argv) {
+  const tablePath = flagOf(argv, "--table", "snapshots/cr-dagger1.json");
+  const generations = Number(flagOf(argv, "--generations", "40"));
+  const lambda = Number(flagOf(argv, "--lambda", "16"));
+  const count = Number(flagOf(argv, "--seeds", "24"));
+  const cap = Number(flagOf(argv, "--cap", "60"));
+  const opponent = flagOf(argv, "--opponent", "golem-fencer");
+  const drawWeight = Number(flagOf(argv, "--draw-weight", "0.25"));
+  const out = flagOf(argv, "--out", "tournaments/ct/calibrated.json");
+  const genesOut = flagOf(argv, "--genes", "tournaments/ct/calibration.json");
+  const base = Number(flagOf(argv, "--seed", "20260922"));
+  const sigma = Number(flagOf(argv, "--sigma", "0.15"));
+
+  const { COMMAND_AXES, COMMAND_GATES } = await import("../src/golem/tactics-v4.ts");
+  const table = JSON.parse(readFileSync(resolve(ROOT, tablePath), "utf8"));
+  console.log(`calibrate: ${CALIBRATION_GENES} numbers over the output layer of ${tablePath},`
+    + ` (1+${lambda}) against ${opponent}, ${count} seeds a candidate at cap ${cap} s,`
+    + ` ${generations} generations`);
+  console.log("");
+  console.log("generation 0 is the clone itself: the zero genome is the identity calibration,"
+    + " so the parent row of generation 1 is that mind's own fitness on those seeds");
+
+  const { parent, score } = await runSearch({
+    // **Zero, always.** The point of this mode is that the search begins at a mind that already
+    // fights, and any other start would give that up for nothing.
+    start: new Float64Array(CALIBRATION_GENES),
+    generations, lambda, count, cap, opponent, drawWeight, base, sigma,
+    entryOf: (weights, seeds) => ({
+      kind: "calibrate", weights: Array.from(weights), spec: null, table: tablePath,
+      seeds, cap, opponent,
+    }),
+    write: (genes, gen, parentScore, fit) => {
+      const note = `CT calibrate: generation ${gen} of ${generations}, (1+${lambda}) against`
+        + ` ${opponent}, ${count} seeds a candidate, draw weight ${drawWeight},`
+        + ` score ${parentScore.toFixed(4)} at fitness ${fit.toFixed(4)}.`
+        + ` A ${CALIBRATION_GENES}-number calibration of an output layer, folded in.`;
+      mkdirSync(dirname(resolve(ROOT, out)), { recursive: true });
+      writeFileSync(resolve(ROOT, genesOut), `${JSON.stringify({
+        kind: "calibration", table: tablePath, genes: Array.from(genes), generation: gen, note,
+      }, null, 2)}\n`);
+      writeFileSync(resolve(ROOT, out),
+        `${JSON.stringify({ ...calibrated(table, genes), note })}\n`);
+    },
+  });
+  console.log("");
+  console.log("| gene | gain | offset |");
+  console.log("| --- | ---: | ---: |");
+  for (let j = 0; j < AXES; j += 1) {
+    console.log(`| ${COMMAND_AXES[j]} | ${Math.exp(parent[j]).toFixed(4)}`
+      + ` | ${parent[AXES + j].toFixed(4)} |`);
+  }
+  for (let j = 0; j < 3; j += 1) {
+    console.log(`| ${COMMAND_GATES[j]} | -- | ${parent[AXES * 2 + j].toFixed(4)} |`);
   }
   console.log("");
-  console.log(`wrote ${out} at ${parentScore === null ? "nothing" : parentScore.toFixed(4)}`);
+  console.log(`wrote ${out} and ${genesOut} at ${score === null ? "nothing" : score.toFixed(4)}`);
 }
 
 async function main(argv) {
   const what = argv[0] ?? "distil";
   if (what === "distil") return distil(argv.slice(1));
   if (what === "evolve") return evolve(argv.slice(1));
-  throw new Error(`evolve-policy takes "distil" or "evolve", not "${what}"`);
+  if (what === "calibrate") return calibrate(argv.slice(1));
+  throw new Error(`evolve-policy takes "distil", "evolve" or "calibrate", not "${what}"`);
 }
 
 const RUN_AS = process.argv[1] ?? "";
