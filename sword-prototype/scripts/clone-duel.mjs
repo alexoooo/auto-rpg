@@ -56,7 +56,27 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
   const { GOLEM_TACTICS_V4 } = await import("../src/golem/tactics-v4.ts");
   const { golemFencer } = await import("../src/golem/tactics-v2.ts");
   const { golemBrawler } = await import("../src/golem/styles/brawler.ts");
+  const { idleMind } = await import("../src/mind.ts");
   const { defaultGolemSetup } = await import("../src/golem/build.ts");
+
+  /**
+   * The rung the arm is being measured on.
+   *
+   * The owner asked for a ladder -- *"a dummy, and then some kind of intermediate AI, and then the
+   * good hand-coded policy"* -- and until this took more than two names it could only ever report
+   * the top of it. `idle` is the dummy and AR is the warning that comes with it: damage against a
+   * body that never steps away is a function of mass in contact rather than of blade speed, so a
+   * win there measures shoving and is not rung one in any useful sense.
+   */
+  const opponentOf = (seed) => {
+    if (opponent === "golem-brawler") return golemBrawler(seed);
+    if (opponent === "golem-idle" || opponent === "idle") return idleMind();
+    if (opponent === "golem-driver") {
+      const it = golemDriver(seed, DRIVER);
+      return { name: "golem-driver", driven: it, decide: (v, dt) => it.decide(v, dt) };
+    }
+    return golemFencer(seed);
+  };
 
   const loaded = tablePath === null
     ? null : JSON.parse(readFileSync(resolve(ROOT, tablePath), "utf8"));
@@ -87,7 +107,7 @@ async function cell({ arm, seeds, cap, opponent, tablePath }) {
       driven = mind.driven;
       left = { name: `golem-${arm}`, driven, decide: (v, dt) => mind.decide(v, dt) };
     }
-    const right = opponent === "golem-brawler" ? golemBrawler(seed + 17) : golemFencer(seed + 17);
+    const right = opponentOf(seed + 17);
     const bout = runBout({
       left: `golem-${arm}`, right: opponent,
       leftUnit: "golem", rightUnit: "golem",

@@ -41885,3 +41885,40 @@ refused and CT3a holds, a calibration is a real but small lever and the residual
 the network, which points at CU's fine-tune rather than at more search. If both CT3a and CT3b are
 refused, the clone is at a local optimum that 21 numbers cannot leave, and the next move is the
 ladder CS builds rather than any further search from here.
+
+### CS1 -- the ladder, and a four-seed probe that has to be disclosed
+
+The owner asked for a ladder: *"we need to be able to beat a dummy, and then some kind of
+intermediate AI, and then the good hand-coded policy"*. Until now `clone-duel.mjs` could only name
+`golem-fencer` and `golem-brawler`, so it could only ever report the top of it. It now takes
+`golem-idle` and `golem-driver` too, and the whole ladder is one instrument.
+
+**A four-seed probe at a 30-second cap was run before this was registered, and it is why this cell
+exists.** Against `golem-idle` it read: driver 12.5 strokes a bout and 18.2 damage, the DAgger clone
+**0 strokes and 0.83 damage**. That is an observation, not a result -- four seeds, half the cap, and
+no interval -- so what is registered here is what the full run has to show for it to stand.
+
+128 paired seeds, 60-second cap, arms `driver`, `dagger` and `policy`, run at each rung.
+
+| | rung | claim about the clone | refused if |
+| --- | --- | --- | --- |
+| **CS1a** | `idle` | fewer than **5 strokes** a bout, the driver above 20 | above 15 |
+| **CS1b** | `idle` | `commit` **below 0.02**, from 0.1001 vs the fencer | above 0.05 |
+| **CS1c** | `idle` | scores **below 0.60** against a body that does not fight | above 0.80 |
+| **CS1d** | `brawler` | `commit` stays **above 0.05** on an unseen opponent | below 0.02 |
+
+CS1d is the one that separates two very different diagnoses, and it is deliberately the opposite
+shape from the other three. If the clone goes quiet against `idle` but keeps fighting the brawler,
+the failure is specific to a body that does nothing -- the clone's `commit` is conditioned on a
+threat it can no longer see, and the rung is a bad rung rather than the mind being narrow. If it
+goes quiet against both, **the clone is not a fighter but a fencer-fighter**: it learned the
+driver's behaviour only on the distribution the driver was recorded against, and the whole of CR
+generalises no further than `golem-fencer`.
+
+AR already warns what a win at this rung would be worth -- *"any bar stated on `idle` measures
+shoving"* -- so CS1c is not a skill claim. It is a claim about whether the mind acts at all.
+
+**The fix, if the narrow reading holds, is cheap and is the same trick CR already paid for.** The
+expert is a function, so a DAgger round can be collected against any opponent: `idle`, `brawler`,
+`driver`, and the fencer it already has. That costs one collection run and no new machinery. It is
+registered here as the consequence rather than run now, because CT2 and CT3 own the threads.
