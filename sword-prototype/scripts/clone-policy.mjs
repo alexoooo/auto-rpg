@@ -111,6 +111,7 @@ async function collect({ seeds, cap, opponent, file, tablePath = null }) {
   const { golemDriver, DRIVER } = await import("../src/golem/styles/driver.ts");
   const { golemFencer } = await import("../src/golem/tactics-v2.ts");
   const { golemBrawler } = await import("../src/golem/styles/brawler.ts");
+  const { idleMind } = await import("../src/mind.ts");
   const { defaultGolemSetup } = await import("../src/golem/build.ts");
   const { COMMAND_AXES, COMMAND_GATES, COMMAND_RANGES, GOLEM_TACTICS_V4 } =
     await import("../src/golem/tactics-v4.ts");
@@ -118,6 +119,34 @@ async function collect({ seeds, cap, opponent, file, tablePath = null }) {
   const { pilotFeatures, pilotFeatureCount, pilotTrace } = await import("../src/golem/pilot.ts");
   const { driverPilot } = await import("../src/golem/styles/driver.ts");
   const { golemPolicy } = await import("../src/golem/policy.ts");
+
+  /**
+   * The body on the other side, by name, and **it refuses a name it does not know**.
+   *
+   * It used to be a ternary that fell through to the fencer, and the fall-through was a defect of
+   * exactly the shape the cap defect had: `--opponent golem-idle` collected sixty-four bouts
+   * against `golem-fencer`, wrote `"opponent": "golem-idle"` into the round's own `meta.json`, and
+   * told `runBout` the right-hand mind was called something it was not. Nothing errored, no column
+   * was empty, and the collection was indistinguishable from a real one until a probe on it came
+   * back saying no feature had moved.
+   *
+   * A default is the wrong shape for this argument. There is no opponent a collection can sensibly
+   * *mean* when it names one that does not exist, and a round is expensive enough that failing an
+   * hour in beats labelling an hour of the wrong data.
+   */
+  const opponentOf = (name, seed) => {
+    if (name === "golem-fencer") return golemFencer(seed);
+    if (name === "golem-brawler") return golemBrawler(seed);
+    if (name === "golem-idle" || name === "idle") {
+      return { name: "golem-idle", driven: null, decide: idleMind().decide };
+    }
+    if (name === "golem-driver") {
+      const it = golemDriver(seed, DRIVER);
+      return { name: "golem-driver", driven: it, decide: (v, dt) => it.decide(v, dt) };
+    }
+    throw new Error(`there is no opponent called "${name}";`
+      + " it is golem-fencer, golem-brawler, golem-driver or golem-idle");
+  };
 
   const steering = tablePath === null
     ? null : JSON.parse(readFileSync(resolve(ROOT, tablePath), "utf8"));
@@ -159,7 +188,7 @@ async function collect({ seeds, cap, opponent, file, tablePath = null }) {
       driven = mind.driven;
       leftMind = { name: "golem-clone", driven, decide: (v, dt) => mind.decide(v, dt) };
     }
-    const right = opponent === "golem-brawler" ? golemBrawler(seed + 17) : golemFencer(seed + 17);
+    const right = opponentOf(opponent, seed + 17);
     runBout({
       left: steering === null ? "golem-driver" : "golem-clone", right: opponent,
       leftUnit: "golem", rightUnit: "golem",

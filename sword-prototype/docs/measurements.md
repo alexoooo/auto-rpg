@@ -42379,3 +42379,108 @@ exactly the thing a search can find and a hand cannot.
 
 I expect CT5a to hold small, CT5b to hold, and CT5c to hold -- that the pose is worth more than any
 of its parts. That is a prediction, and the three bars are set so that it can be wrong.
+
+### A second silent fall-through, found the same way the first one was
+
+`scripts/clone-policy.mjs` chose the body on the other side of a collection with a ternary:
+
+```js
+const right = opponent === "golem-brawler" ? golemBrawler(seed + 17) : golemFencer(seed + 17);
+```
+
+So `--opponent golem-idle` collected sixty-four bouts **against `golem-fencer`**, wrote
+`"opponent": "golem-idle"` into the round's own `meta.json`, and handed `runBout` a right-hand mind
+whose declared name was not the mind it was given. Nothing errored. No column was empty. The round
+was indistinguishable from a real one.
+
+It was caught because the probe run on it came back saying that **nothing had moved** -- no feature
+past the five-sigma clip, the commit logit -10.65 against -10.04, the gate firing 0.1026 of asks
+where the duel measures it at exactly 0.0000. Two instruments disagreeing by that much is not a
+finding, it is a bug, and the bug was in the newer one.
+
+**This is the cap defect's shape exactly**, one day later and in a different file: an argument
+with a default, a name that falls through it, and a label written down that says the run was what
+it was asked for. The fix is the same in kind -- the collector now names its four opponents and
+**refuses one it does not know**, because there is no opponent a round can sensibly *mean* when it
+names one that does not exist, and an hour of correctly-labelled failure beats an hour of
+mislabelled data. The bad collection was deleted rather than kept and annotated; nothing should be
+able to train on it by accident.
+
+**The twelfth governing rule, then, and it is the one this record keeps paying for.** *An argument
+that selects a mind, a body, a cap or an opponent takes no default. It is given by name, the names
+are enumerated, and an unrecognised one is an error -- never the nearest thing to hand.* Both
+defects in this phase were a default standing in for a name, and in both the cost was not a crash
+but a table of numbers that meant something other than what it said.
+
+### CS3 -- the clone is not silent against the dummy, it is frozen, and that is a different bug
+
+Descriptive, and run to explain CT4c's refusal rather than registered in advance -- which is stated
+here rather than dressed up. 48 bouts of the DAgger clone steering against a **real** `golem-idle`,
+64,088 asks, read against the fencer round it was fitted on. `node scripts/gate-probe.mjs`.
+
+| gate | fencer mean | sd | max | fires | idle mean | sd | max | fires |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `commit` | -10.65 | 7.55 | **+13.69** | 0.0881 | **-2.07** | **1.57** | **-0.93** | **0.0000** |
+| `abort` | -13.83 | 5.47 | +10.15 | 0.0106 | -14.76 | 0.46 | -12.97 | 0.0000 |
+| `parry` | -24.96 | 9.61 | +22.01 | 0.0363 | -29.76 | 1.45 | -22.02 | 0.0000 |
+
+**Every reading the phase has taken of this had the sign backwards.** Against the dummy the clone's
+commit logit is **8.58 closer to firing** than against the fencer, not further from it. What
+collapses is the *spread*: 7.55 to 1.57, and over 7,120 sampled asks the gate's high-water mark is
+**-0.93**. It never comes within a point of the threshold. The mind is not deciding against the
+stroke. It has stopped deciding at all.
+
+**And that is CT4c, explained to two decimal places.** CT3's calibration adds **+0.7085** to this
+gate. The gap it had to close is **0.93**. The search bought 76 % of a threshold, and 76 % of a
+threshold is none of it -- so a mind that fights better than `golem-driver` everywhere else still
+throws exactly zero strokes at a body that does nothing, for want of a quarter of a logit.
+
+#### What froze, and it is the clocks
+
+Three of the seventy-one features sit **past the five-sigma clip** in the idle round, and all three
+are clocks:
+
+| feature | fencer z | idle z | attributed to `commit` |
+| --- | ---: | ---: | ---: |
+| `theirsSeconds` | -0.06 | **+11.06** | **+6.57** |
+| `mineSeconds` | +0.01 | +5.53 | +1.77 |
+| `theirCommits` | -0.00 | **-5.53** | -0.44 |
+| `armed` | -0.23 | +0.71 | +3.20 |
+| `sinceMyStroke` | +0.01 | +3.50 | -1.83 |
+
+`theirsSeconds` alone accounts for **+6.57 of the +8.58**. It is the clock on how long the opponent
+has held its current state, and against a body that never changes state it runs away without bound.
+The fit's normalisation was built on fights that end, so eleven sigma is outside anything the first
+layer ever took a gradient through -- and the clip then pins it at five, where it stops being a
+clock at all. Three columns saturated is three constants, and a network fed three constants it has
+never seen together produces the one thing it has no reason not to: the same answer forever.
+
+This is the same failure as CS1's, one level down. CS1 said the clone stops against a body that does
+nothing. It does -- but not because it cannot see a threat. It is because *nothing changing* is
+itself a state its features cannot represent, and the representation runs out before the policy
+does. The attribution is a linearisation of a tanh network and is quoted as one: it says where to
+look, and the clip figures are exact.
+
+#### CS4 -- the round that this diagnosis says should work, registered before it is fitted
+
+The data already exists: 64,088 asks of the driver's own commands on states the clone visited
+against `golem-idle`. DAgger aggregates, so the round is the fencer collection **plus** this one.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **CS4a** | the refit throws **more than 5 strokes** a bout at `golem-idle` | exactly 0 |
+| **CS4b** | its `commit` logit against idle reaches **above 0** at least once | still below 0 |
+| **CS4c** | it holds its fencer score **within 0.10** of 0.3359 | below 0.20 |
+
+CS4c is the bar that matters and it is the one I am least sure of. Aggregation is supposed to make
+forgetting impossible, but the idle round is a third of the corpus and every row in it is a state
+where the right answer is *"stand there"* -- so the honest risk is that the refit learns to stand
+still in general, and buys the dummy rung by giving back the one it already had.
+
+**The total verdict mapping (rule 9).** If all three hold, the dead rung was a data gap and the
+ladder is complete -- every rung beaten by a mind derived from the driver. If CS4a and CS4b hold and
+CS4c does not, aggregation is not enough and the two behaviours need separate weight, which is a
+curriculum question and the record already refuses curricula on evidence (Z, AN, AO). If CS4a is
+refused while CS4b holds, the gate fires and the executor still throws nothing, and the fault is
+below the mind entirely -- in which case no amount of training touches it and the finding belongs to
+the game rather than to the learner.
