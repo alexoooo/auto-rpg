@@ -2,25 +2,19 @@ import type { Intent, Mind } from "../mind.ts";
 import { golemTactics } from "./tactics.ts";
 import { golemChampionMind as championMind, type GolemChampionMind } from "./champion.ts";
 import { golemPlanner } from "./planner.ts";
-import { golemSelectorMind as selectorMind } from "./selector.ts";
-import { SELECTOR_TABLE } from "./selector-table.ts";
-import { golemLearner } from "./learner.ts";
 import { golemTactician } from "./tactician.ts";
 import { GOLEM_CHAMPIONS } from "./tactics-champions.ts";
-import { golemNeural } from "./neural.ts";
 import { golemFencer, type GolemFencer } from "./tactics-v2.ts";
 import { FORM, formDirector, golemForm } from "./styles/form.ts";
 import { BRAWLER, brawlerDirector, golemBrawler } from "./styles/brawler.ts";
 import { GUARDIAN, guardianDirector, golemGuardian } from "./styles/guardian.ts";
 import { SKIRMISHER, golemSkirmisher, skirmisherDirector } from "./styles/skirmisher.ts";
 import { golemDriver } from "./styles/driver.ts";
-import { golemPolicy } from "./policy.ts";
-import { installedSnapshot } from "./snapshot.ts";
 import {
   exploringDirector, golemStyled, watchedDirector,
   type GolemStyled, type StyleAskHook, type StyleDirector,
 } from "./tactics-v3.ts";
-import { GOLEM_TACTICS_V4, type GolemDriven } from "./tactics-v4.ts";
+import type { GolemDriven } from "./tactics-v4.ts";
 
 /**
  * The golem's entry in the policy picker.
@@ -103,22 +97,6 @@ export function golemPlannerMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
  */
 export function golemChampionMind(seed = (Math.random() * 0x100000000) >>> 0): GolemChampionMind {
   return championMind(seed, GOLEM_CHAMPIONS);
-}
-
-/**
- * The fifth golem mind, the learned one. Session 08 of the matchup set.
- *
- * The fencer's executor under a network that names the option, from the checked-in
- * `NEURAL_WEIGHTS`; `fencer` is published for the exchange log as the others publish it.
- * Same seed argument, same reasons.
- */
-export function golemNeuralMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { fencer: GolemFencer } {
-  const neural = golemNeural(seed);
-  return {
-    name: "golem-neural",
-    fencer: neural.fencer,
-    decide: (view, dt): Intent => neural.decide(view, dt),
-  };
 }
 
 /**
@@ -294,22 +272,6 @@ export function golemTacticianMind(seed = (Math.random() * 0x100000000) >>> 0): 
  * A mind registers here, in `src/mind.ts` and in `src/units.ts`, and the three lists are checked
  * against each other by `tests/minds.test.mjs`.
  */
-/**
- * The twelfth golem mind, the learned one: `golem-learner`. Session 10 of the style set.
- *
- * The checked-in `LEARNER_WEIGHTS` and the shipped v3 table, played greedy -- the epsilon the
- * trainer's collecting rounds run at is the trainer's, not the shipped mind's. It publishes
- * `styled` for the same reason the tactician does: its vocabulary is the styles' fifteen, so the
- * exchange logger and the decision recorder can both read it. Same seed argument, same reasons.
- */
-export function golemLearnerMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { styled: GolemStyled } {
-  const learner = golemLearner(seed);
-  return {
-    name: "golem-learner",
-    styled: learner.styled,
-    decide: (view, dt): Intent => learner.decide(view, dt),
-  };
-}
 
 /**
  * The thirteenth golem mind, and the first one over the fourth executor: `golem-driver`.
@@ -328,106 +290,5 @@ export function golemDriverMind(seed = (Math.random() * 0x100000000) >>> 0): Min
     name: "golem-driver",
     driven,
     decide: (view, dt): Intent => driven.decide(view, dt),
-  };
-}
-
-/**
- * The fourteenth golem mind, and the first fitted one over the fourth executor: `golem-policy`.
- * Session 13 of the style set.
- *
- * The same command surface `golem-driver` writes by hand, written by a network instead. It plays
- * the **mean** of its head and draws nothing, which is what makes a bout under a seed the bout;
- * the trainer's rollouts are the only thing that ever samples. Like the driver it publishes
- * `driven` and neither `fencer` nor `styled`, for the same reason: there is no option in force to
- * log, only a command. Same seed argument, same reasons.
- */
-export function golemPolicyMind(seed = (Math.random() * 0x100000000) >>> 0): Mind & { driven: GolemDriven } {
-  const policy = golemPolicy(seed);
-  return {
-    name: "golem-policy",
-    driven: policy.driven,
-    decide: (view, dt): Intent => policy.decide(view, dt),
-  };
-}
-
-/**
- * The fifteenth golem mind, and the only one whose weights are not in the tree: `golem-snapshot`.
- * Session 03 of the learn set.
- *
- * `golem-policy`'s executor over whatever table the page has been handed -- a `train-ppo`
- * checkpoint, a league pool member, a league's main -- from the module-level slot in
- * `snapshot.ts`. Everything else about it is the policy mind: the same v4 executor, the same head,
- * `driven` published for the readout and neither `fencer` nor `styled`, because there is no option
- * in force to log. `lastHead` is published as well, which the shipped mind does not do, and it is
- * here rather than there because this is the mind somebody is *watching*: the twelve numbers the
- * network answered are what the command readout is a decoding of, and a person comparing iteration
- * 8 with iteration 93 wants to be able to reach them from the console.
- *
- * **It refuses by name when the slot is empty**, which is the whole reason the slot exists. The
- * alternative -- falling back to `POLICY_WEIGHTS` -- would give two names to the shipped mind and
- * would make "I loaded iteration 40 and it fights exactly like the shipped one" an observation
- * nobody could distinguish from a fetch that quietly failed. `src/units.ts` keeps the row out of
- * the golem's `driverOptions` until something is installed, so the picker marks it incompatible in
- * the same way it marks a policy the unit cannot take, and this refusal is what catches every other
- * way of asking: a link, a restart, a console assignment, a test.
- *
- * The seed is the mind's own and does not come from the snapshot. A table's `seed` is the seed the
- * *fit* ran under and reusing it here would make two golems on one snapshot fight in lockstep,
- * which is the thing every factory in this file has a fresh seed to prevent.
- */
-export function golemSnapshotMind(
-  seed = (Math.random() * 0x100000000) >>> 0,
-): Mind & { driven: GolemDriven; readonly lastHead: Float64Array } {
-  const held = installedSnapshot();
-  if (held === null) {
-    throw new Error('"golem-snapshot" has no snapshot installed: fetch a checkpoint, a pool member '
-      + "or a league state and install it before building the mind");
-  }
-  // **The executor the file was measured under, over the shipped row.** A table carries no
-  // executor, so the weights alone do not say whether their strokes survive the ask that started
-  // them -- and every league from AM onward trained latched while the shipped row is not. A
-  // snapshot that names none plays the shipped row, which is what every snapshot did before the
-  // field existed. `snapshotProvenance` names whichever is playing.
-  const T = held.tactics === null ? GOLEM_TACTICS_V4 : { ...GOLEM_TACTICS_V4, ...held.tactics };
-  const policy = golemPolicy(seed, held.table, T, null, held.sample);
-  return {
-    name: "golem-snapshot",
-    driven: policy.driven,
-    get lastHead(): Float64Array { return policy.lastHead; },
-    decide: (view, dt): Intent => policy.decide(view, dt),
-  };
-}
-
-export const GOLEM_CANDIDATES: Readonly<Record<string, (seed: number) => Mind>> = Object.freeze({
-  "golem-duelist": golemDuelistMind,
-  "golem-fencer": golemFencerMind,
-  "golem-planner": golemPlannerMind,
-  "golem-champion": golemChampionMind,
-  "golem-neural": golemNeuralMind,
-  "golem-form": golemFormMind,
-  "golem-skirmisher": golemSkirmisherMind,
-  "golem-guardian": golemGuardianMind,
-  "golem-brawler": golemBrawlerMind,
-  "golem-tactician": golemTacticianMind,
-  "golem-learner": golemLearnerMind,
-  "golem-driver": golemDriverMind,
-  "golem-policy": golemPolicyMind,
-});
-
-/**
- * The eleventh golem mind, the one that picks a mind: `golem-selector`. Session 09 of the style
- * set.
- *
- * The checked-in `SELECTOR_TABLE` and the eleven candidates above; everything else about it is in
- * `src/golem/selector.ts`. It publishes neither `fencer` nor `styled`, because until the first view it is
- * not yet any executor and after it the executor is the chosen mind's -- the exchange logger
- * takes that as "no log", which is honest: a log labelled `golem-selector` would name a
- * vocabulary that changes with the body. Same seed argument, same reasons.
- */
-export function golemSelectorMind(seed = (Math.random() * 0x100000000) >>> 0): Mind {
-  const selector = selectorMind(seed, SELECTOR_TABLE, GOLEM_CANDIDATES);
-  return {
-    name: "golem-selector",
-    decide: (view, dt): Intent => selector.decide(view, dt),
   };
 }

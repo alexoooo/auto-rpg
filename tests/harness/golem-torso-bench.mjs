@@ -22,12 +22,12 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
-import { CONFIG } from "../src/config.ts";
-import { slewTowards } from "../src/golem/anchor-drive.ts";
-import { BENCH_READOUT, HEAD_NECK, HEAD_RAM, TORSO_WAIST } from "../src/golem/config.ts";
-import { BenchReadout, blankSample, formatReadout } from "../src/golem/readout.ts";
-import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
-import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
+import { CONFIG } from "../../src/config.ts";
+import { slewTowards } from "../../src/golem/anchor-drive.ts";
+import { BENCH_READOUT, HEAD_NECK, HEAD_RAM, TORSO_WAIST } from "../../src/golem/config.ts";
+import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readout.ts";
+import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
+import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
 
 export const HARNESS =

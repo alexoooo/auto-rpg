@@ -41,22 +41,22 @@ import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import HavokPhysics from "@babylonjs/havok";
 
-import { CONFIG } from "../src/config.ts";
-import { attachPhysics, LAYER, COLLIDES } from "../src/physics.ts";
-import { ROOM_WALL_COLLIDERS } from "../src/arena-room.ts";
-import { Fighter, stepPair } from "../src/fighter.ts";
-import { isArticulatedCombatant, policyForUnit, unitDefinition } from "../src/units.ts";
-import { Combat } from "../src/combat.ts";
-import { policyMind } from "../src/mind.ts";
-import { advance, begin, selectScreen } from "../src/bout.ts";
-import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
+import { CONFIG } from "../../src/config.ts";
+import { attachPhysics, LAYER, COLLIDES } from "../../src/physics.ts";
+import { ROOM_WALL_COLLIDERS } from "../../src/arena-room.ts";
+import { Fighter, stepPair } from "../../src/fighter.ts";
+import { isArticulatedCombatant, policyForUnit, unitDefinition } from "../../src/units.ts";
+import { Combat } from "../../src/combat.ts";
+import { policyMind } from "../../src/mind.ts";
+import { advance, begin, selectScreen } from "../../src/bout.ts";
+import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-production.ts";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
-  wireBoutRecorder } from "../src/recorder.ts";
+  wireBoutRecorder } from "../../src/recorder.ts";
 
 export const FIXED = 1 / CONFIG.world.physicsHz;
 export const FRAME = 1 / 60;
 
-const wasmPath = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
+const wasmPath = new URL("../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 
 // The ordinary benchmark shares one Havok module because it measures throughput.
 // We previously claimed disposed worlds made repeated bouts independent. The

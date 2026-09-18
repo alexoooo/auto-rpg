@@ -10,7 +10,7 @@ import { Fighter, stepPair } from "../src/fighter.ts";
 import { policyMind, idleMind } from "../src/mind.ts";
 import { LAYER } from "../src/physics.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
-import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
+import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
 

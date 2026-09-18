@@ -24,26 +24,26 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
-import { BUTTON_REACH, reachFromButtons } from "../src/buttons.ts";
-import { CONFIG } from "../src/config.ts";
-import { GOLEM_EFFECTORS } from "../src/golem/build.ts";
+import { BUTTON_REACH, reachFromButtons } from "../../src/buttons.ts";
+import { CONFIG } from "../../src/config.ts";
+import { GOLEM_EFFECTORS } from "../../src/golem/build.ts";
 import {
   BENCH_READOUT, BENCH_STAND_LOCOMOTION, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED,
   LOCOMOTION_MULTILEG, LOCOMOTION_WHEEL,
-} from "../src/golem/config.ts";
-import { formatLocomotion, locomotionCommand } from "../src/golem/locomotion.ts";
-import { bipedModule } from "../src/golem/locomotion/biped.ts";
-import { multilegModule } from "../src/golem/locomotion/multileg.ts";
-import { wheelModule } from "../src/golem/locomotion/wheel.ts";
-import { buildLocomotionCourse, registerLocomotionCourse } from "../src/golem/locomotion/course.ts";
-import { BenchReadout, blankSample, formatReadout } from "../src/golem/readout.ts";
-import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
-import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
+} from "../../src/golem/config.ts";
+import { formatLocomotion, locomotionCommand } from "../../src/golem/locomotion.ts";
+import { bipedModule } from "../../src/golem/locomotion/biped.ts";
+import { multilegModule } from "../../src/golem/locomotion/multileg.ts";
+import { wheelModule } from "../../src/golem/locomotion/wheel.ts";
+import { buildLocomotionCourse, registerLocomotionCourse } from "../../src/golem/locomotion/course.ts";
+import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readout.ts";
+import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
+import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
 import {
   GOLEM_TACTICS, STROKE_SHAPES, aimAt, canCover, canSwing, distance, reachForDistance,
   tacticalRanges, writeAim,
-} from "../src/golem/tactics.ts";
-import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
+} from "../../src/golem/tactics.ts";
+import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
 
 export const HARNESS = "the Node bench (scripts/golem-bench.mjs, NullEngine, real Havok, no rendering)";

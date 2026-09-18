@@ -12,7 +12,6 @@ import { GOLEM_CONTROL_SURFACE } from "./golem/golem-control.ts";
 // what it calls the row. It reaches nothing this module already has: `snapshot.ts` imports the
 // policy head and the checker, and the policy head imports `mind.ts` for types only, so the edge
 // runs one way at run time exactly as `POLICIES` does below.
-import { installedSnapshot, snapshotOptionLabel } from "./golem/snapshot.ts";
 import { BROOT_PROFILE, Fighter, type FighterMaterials, type Limb } from "./fighter.ts";
 import type { Striking } from "./combat.ts";
 import type { ControlEndpoint } from "./control-host.ts";
@@ -454,42 +453,28 @@ const centipede: UnitDefinition = Object.freeze({
  * read against. The exclusion now runs both ways: `Policy.surface` keeps `golem-duelist` out of a
  * Warrior's picker for exactly the mirror reason.
  *
- * **`golem-snapshot` is in this list and is not always in `driverOptions`**, which is the one place
- * the two genuinely differ and is Session 03 of the learn set's doing. It is a policy this body can
- * take -- it is the v4 executor over the same head `golem-policy` runs -- so it belongs here; what
- * it needs beyond a name is a table, which is fetched into the slot in
- * `src/golem/snapshot.ts` before the screen is built. Until something is in that slot the row is
- * withheld from the picker, and `SetupScreen.render` therefore shows a matchup that names it as an
- * option marked incompatible and disabled, exactly as it shows a policy a unit cannot take or a
- * parts-bin entry that is no longer in the bin. The person sees what happened and Fight is blocked
- * with the reason, which is the shape this screen already uses for every other refusal.
+ * **The fitted minds are gone and this list is the record of it.** `golem-neural`, `golem-learner`,
+ * `golem-policy`, `golem-snapshot` and `golem-selector` were all weights -- three of them checked
+ * in, one fetched into a slot at boot, one a table choosing between the others -- and every one was
+ * fitted under a body that weighed 560 kg and a damage scale calibrated at a speed the fight never
+ * reached. Keeping them would have meant shipping a mind whose competence was an artefact of
+ * numbers this project is about to change.
  */
-const GOLEM_POLICIES: readonly string[] = Object.freeze(["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-policy", "golem-snapshot", "golem-selector"]);
+const GOLEM_POLICIES: readonly string[] = Object.freeze([
+  "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
+  "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
+]);
 
 /**
- * The rows a golem's picker offers *now*, which is the only picker in the program that is not a
- * constant.
+ * The rows a golem's picker offers.
  *
- * A getter rather than a field, and the reason is `Policy.create`'s signature: it is synchronous,
- * so a snapshot's two megabytes have to be fetched and installed before a mind can be built from
- * it, and the picker is rendered from this every time the setup screen redraws. So "is a snapshot
- * loaded" is a question with a different answer at boot than after a drop, and a frozen array
- * computed once at module evaluation could only ever answer it one way.
- *
- * The label carries the iteration and the score when there is one, because "Golem snapshot" on its
- * own is a row that says nothing about which of ninety-three iterations is about to fight -- and
- * the whole point of the session is being able to tell iteration 8 from iteration 93 by watching
- * them.
+ * A function rather than a constant because `driverOptions` is a getter on the unit and the
+ * intersection it takes is the one thing that keeps the picker honest: an option offered here is
+ * one `policyMind` can actually build. It stopped being genuinely dynamic when the snapshot slot
+ * went -- there is no longer a row whose availability depends on what the page fetched.
  */
-const golemDriverOptions = (): readonly { readonly name: string; readonly label: string }[] => {
-  const held = installedSnapshot();
-  const rows = drivers(GOLEM_CONTROL_SURFACE,
-    held === null ? GOLEM_POLICIES.filter((name) => name !== "golem-snapshot") : GOLEM_POLICIES);
-  if (held === null) return rows;
-  return Object.freeze(rows.map((row) => (row.name === "golem-snapshot"
-    ? Object.freeze({ name: row.name, label: snapshotOptionLabel() })
-    : row)));
-};
+const golemDriverOptions = (): readonly { readonly name: string; readonly label: string }[] =>
+  drivers(GOLEM_CONTROL_SURFACE, GOLEM_POLICIES);
 
 const golem: UnitDefinition = Object.freeze({
   kind: "golem",

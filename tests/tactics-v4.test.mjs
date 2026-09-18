@@ -71,11 +71,9 @@ import {
 } from "../src/golem/pilot.ts";
 import { DRIVER, golemDriver } from "../src/golem/styles/driver.ts";
 import { golemFencer } from "../src/golem/tactics-v2.ts";
-import { golemPolicy } from "../src/golem/policy.ts";
-import { POLICY_WEIGHTS } from "../src/golem/policy-weights.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
-const { freshHavok, runBout } = await import("../scripts/measure.mjs");
+const { freshHavok, runBout } = await import("./harness/bout-runner.mjs");
 
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 const FIXED = 1 / CONFIG.world.physicsHz;
@@ -963,89 +961,6 @@ test("a_stroke_spans_five_to_eight_asks_which_is_what_the_two_published_abort_ra
         `a driven ${kind} stroke at swing ${swing} spanned ${asks} asks`);
     }
   });
-
-/**
- * The property Session 04 of the signal set is stated on: the shipped head, read **drawn**, in a
- * real bout, completes about one stroke in ten with the gate held and about two in three latched.
- *
- * **This is checked here and not inferred from a rating**, because a rating is a margin and a
- * margin cannot say why it moved. What the two columns have to show is the exponent: a gate at `p`
- * re-drawn on every ask of a stroke survives `(1 - p)^k` and the same gate read once survives
- * `1 - p`, so `ln(held) / ln(latched)` recovers the number of draws a stroke actually pays for.
- *
- * **The band asserted on it is deliberately wider than the five to eight the test above pins, and
- * the reason is a finding rather than slack.** The asks inside one stroke are independent coin
- * flips only if the logit they are drawn at is independent, and it is not: the observation barely
- * moves through a stroke, so a stroke is closer to one draw of `p` followed by `k` flips at that
- * same `p`, and `E[(1-p)^k]` over a spread of `p` is well above `(1-E[p])^k`. Measured, the
- * effective exponent is **5.58 on this fixture and 3.13 over the 600-bout random-viable rating in
- * `docs/measurements.md`** -- both above one, neither as high as the ask count. So what is
- * asserted is the pair of bounds the argument actually supports: more than one draw a stroke, and
- * no more than the asks a stroke spans.
- *
- * The bar the plan stated was **0.80 latched** and it is missed; the reason is not the row and is
- * written down where the miss is, in `docs/measurements.md`. In short: under the latch the
- * completion rate *is* one minus the gate's own rate on the ask that starts the stroke, by
- * construction, and that rate is a third to a half on the shipped head. A latch cannot make a gate
- * say something the head did not.
- */
-test("the_latch_turns_one_completed_stroke_in_ten_into_two_in_three_at_the_drawn_read", async () => {
-  const physics = await freshHavok();
-  const run = (latchAbort) => {
-    let strokes = 0;
-    let aborts = 0;
-    let asks = 0;
-    let raised = 0;
-    for (const seed of [SEED, SEED + 101, SEED + 202, SEED + 303]) {
-      const mind = golemPolicy(seed, POLICY_WEIGHTS, { ...GOLEM_TACTICS_V4, latchAbort }, null, true,
-        (reading, view, command) => { asks += 1; if (command.abort >= 0.5) raised += 1; });
-      runBout({
-        left: "golem-policy", right: "golem-fencer",
-        leftUnit: "golem", rightUnit: "golem",
-        leftGolem: defaultGolemSetup(), rightGolem: defaultGolemSetup(),
-        locomotionMode: "supported",
-        seeds: [seed, seed + 17], maxSeconds: 30, physics,
-        leftMind: { name: "golem-policy", driven: mind.driven, decide: (v, dt) => mind.decide(v, dt) },
-        rightMind: golemFencer(seed + 17),
-      });
-      strokes += mind.driven.strokes;
-      aborts += mind.driven.aborts;
-    }
-    return { strokes, completion: (strokes - aborts) / strokes, p: raised / asks };
-  };
-
-  const held = run(false);
-  const latched = run(true);
-  assert.ok(held.strokes > 100 && latched.strokes > 40,
-    `${held.strokes} held strokes and ${latched.strokes} latched ones is too few to read a rate off`);
-
-  // The head sits near a coin flip on this gate, which is the thing `entropyGrad` does to every
-  // gate logit and the reason the exponent matters at all. If this ever leaves the band, the two
-  // completion figures below are about a different policy and the arithmetic has to be re-taken.
-  for (const [label, arm] of [["held", held], ["latched", latched]]) {
-    assert.ok(arm.p > 0.2 && arm.p < 0.7,
-      `${label}: the drawn head raised abort on ${(arm.p * 100).toFixed(1)} % of asks, which is not `
-      + "the near-coin-flip the survival arithmetic is stated over");
-  }
-
-  assert.ok(held.completion < 0.20,
-    `the held gate completed ${held.completion.toFixed(3)} of the strokes it started, and a gate `
-    + "re-drawn five to eight times a stroke cannot complete a fifth of them");
-  assert.ok(latched.completion > 0.50,
-    `the latched gate completed ${latched.completion.toFixed(3)} of its strokes, and one draw at a `
-    + "rate under a half cannot lose more than half of them");
-  assert.ok(latched.completion > held.completion * 4,
-    `${latched.completion.toFixed(3)} latched against ${held.completion.toFixed(3)} held is less `
-    + "than the fourfold the exponent asks for");
-
-  // And the exponent itself, recovered from the two rates, against the two bounds the argument
-  // supports rather than against the ask count it does not. See the block comment above.
-  const k = Math.log(held.completion) / Math.log(latched.completion);
-  assert.ok(k > 2 && k < 9,
-    `two measured completion rates imply ${k.toFixed(2)} effective draws a stroke, and the held `
-    + "gate has to cost more than the one draw the latch costs and cannot cost more than the "
-    + "five to eight asks a stroke spans");
-});
 
 // ---------------------------------------------------------------------------------------
 // The clamp, the envelope, and what the surface resolves against.

@@ -54,9 +54,8 @@ import {
 // policy that is selectable exists. It reaches this file for types only, so the edge runs one way
 // at run time and there is no cycle to be careful about.
 import {
-  golemBrawlerMind, golemChampionMind, golemDuelistMind, golemFencerMind, golemFormMind,
-  golemGuardianMind, golemNeuralMind, golemPlannerMind, golemSelectorMind, golemSkirmisherMind,
-  golemDriverMind, golemLearnerMind, golemPolicyMind, golemSnapshotMind, golemTacticianMind,
+  golemBrawlerMind, golemChampionMind, golemDriverMind, golemDuelistMind, golemFencerMind,
+  golemFormMind, golemGuardianMind, golemPlannerMind, golemSkirmisherMind, golemTacticianMind,
 } from "./golem/golem-policies.ts";
 
 /**
@@ -1243,23 +1242,12 @@ export const POLICIES: readonly Policy[] = [
   { name: "golem-fencer", label: "Golem fencer", surface: GOLEM_SURFACE, create: golemFencerMind },
   { name: "golem-planner", label: "Golem planner", surface: GOLEM_SURFACE, create: golemPlannerMind },
   { name: "golem-champion", label: "Golem champion", surface: GOLEM_SURFACE, create: golemChampionMind },
-  { name: "golem-neural", label: "Golem neural", surface: GOLEM_SURFACE, create: golemNeuralMind },
   { name: "golem-form", label: "Golem form", surface: GOLEM_SURFACE, create: golemFormMind },
   { name: "golem-skirmisher", label: "Golem skirmisher", surface: GOLEM_SURFACE, create: golemSkirmisherMind },
   { name: "golem-guardian", label: "Golem guardian", surface: GOLEM_SURFACE, create: golemGuardianMind },
   { name: "golem-brawler", label: "Golem brawler", surface: GOLEM_SURFACE, create: golemBrawlerMind },
   { name: "golem-tactician", label: "Golem tactician", surface: GOLEM_SURFACE, create: golemTacticianMind },
-  { name: "golem-learner", label: "Golem learner", surface: GOLEM_SURFACE, create: golemLearnerMind },
   { name: "golem-driver", label: "Golem driver", surface: GOLEM_SURFACE, create: golemDriverMind },
-  { name: "golem-policy", label: "Golem policy", surface: GOLEM_SURFACE, create: golemPolicyMind },
-  // The one row whose `create` can refuse. Every other policy here is buildable from its name
-  // alone; this one plays a table the page fetched, so with the slot empty it throws by name --
-  // and `driverOptions` in `src/units.ts` keeps the row out of the picker until something is
-  // installed, which is how a person sees the refusal as an incompatible option rather than as a
-  // screen that will not start. See `golemSnapshotMind` for why a fallback to the shipped table
-  // was refused.
-  { name: "golem-snapshot", label: "Golem snapshot", surface: GOLEM_SURFACE, create: golemSnapshotMind },
-  { name: "golem-selector", label: "Golem selector", surface: GOLEM_SURFACE, create: golemSelectorMind },
 ];
 
 /**

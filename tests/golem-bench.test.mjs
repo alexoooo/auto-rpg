@@ -39,11 +39,11 @@ import {
 } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
-import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
+import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import {
   COMMITTED_SHAPE_CANDIDATES, PARRY_ACROSS_METRES, PARRY_ARRIVED_METRES, STROKE_GUARD_SECONDS,
   runGolemBench, runParryBench, runStrokeBench,
-} from "../scripts/golem-bench.mjs";
+} from "./harness/golem-bench.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SUBSTEP = 1 / CONFIG.world.physicsHz;

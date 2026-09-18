@@ -62,8 +62,8 @@ import { NO_CHAMPIONS, golemChampionMind } from "../src/golem/champion.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
-const { freshHavok, runBout } = await import("../scripts/measure.mjs");
-const { strokeSequence } = await import("../scripts/golem-bench.mjs");
+const { freshHavok, runBout } = await import("./harness/bout-runner.mjs");
+const { strokeSequence } = await import("./harness/golem-bench.mjs");
 
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 const FIXED = 1 / CONFIG.world.physicsHz;
@@ -97,7 +97,10 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.ok(!names(warrior).includes("golem-duelist"),
     `a Warrior's picker offers ${names(warrior).join(", ")}`);
-  assert.deepEqual(names(golem), ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-neural", "golem-form", "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-learner", "golem-driver", "golem-policy", "golem-selector"]);
+  assert.deepEqual(names(golem), [
+    "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
+    "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
+  ]);
   assert.throws(() => unitDefinition("warrior").createPolicy("golem-duelist"),
     /does not support policy/);
   assert.throws(() => unitDefinition("golem").createPolicy("duelist"),
@@ -113,7 +116,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   assert.equal(POLICIES.find((policy) => policy.name === "golem-fencer").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-planner").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-champion").surface, "golem-v1");
-  assert.equal(POLICIES.find((policy) => policy.name === "golem-neural").surface, "golem-v1");
+  assert.equal(POLICIES.find((policy) => policy.name === "golem-driver").surface, "golem-v1");
 });
 
 // ---------------------------------------------------------------------------------------

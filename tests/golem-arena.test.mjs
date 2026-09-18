@@ -50,7 +50,7 @@ import { BUTTON_REACH } from "../src/buttons.ts";
 import { STROKE_INERTIA, strokeInertiaScale } from "../src/golem/tactics.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
-const { freshHavok, runBout } = await import("../scripts/measure.mjs");
+const { freshHavok, runBout } = await import("./harness/bout-runner.mjs");
 
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 const FIXED = 1 / CONFIG.world.physicsHz;

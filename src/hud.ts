@@ -64,8 +64,6 @@ export interface CommandSideReadout {
   readonly side: Side;
   /** The mind's own name, which is a wrapper's inner name when a takeover is rebasing. */
   readonly mind: string;
-  /** Where a loaded table came from, or null for a mind whose weights are in the tree. */
-  readonly provenance: string | null;
   /** Commanded stand-off, as a multiple of their published reach. */
   readonly standOff: number;
   /** The gap actually held, in the same coordinate. */
@@ -442,7 +440,6 @@ function commandRows(read: CommandSideReadout): string {
   const title = read.side === "left" ? "Left" : "Right";
   return `
     <div class="limb"><span class="limb-name">${title}: ${read.mind}</span></div>
-    ${read.provenance === null ? "" : `<div class="limb"><span class="limb-name">${read.provenance}</span></div>`}
     <table class="hit-rows">
       <tr><th>stand-off</th><td>${read.standOff.toFixed(2)} asked &middot; ${read.heldOff.toFixed(2)} held</td></tr>
       <tr><th>advance</th><td>${read.advance.toFixed(2)}</td></tr>

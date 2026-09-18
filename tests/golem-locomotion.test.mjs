@@ -31,8 +31,8 @@ import { SUPPORTED_LOCOMOTION_V1, constructPostureIsSupported } from
   "../src/supported-locomotion-state.ts";
 import {
   LOCOMOTION_SEQUENCE, WALK_SEQUENCE, runGolemLocomotion, walkSequenceFor,
-} from "../scripts/golem-bench.mjs";
-import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
+} from "./harness/golem-bench.mjs";
+import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
 /**
  * The locomotion bench's assertions, and the physical obstacle corpus the demolition owed.

@@ -20,9 +20,6 @@ import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBout
   wireBoutRecorder } from "./recorder";
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
   runHostFrame, SKIM_SPEEDS, type RunningHost } from "./host-run";
-import {
-  installSnapshot, installedSnapshot, snapshotFromJson, snapshotProvenance,
-} from "./golem/snapshot";
 import type { GolemDriven } from "./golem/tactics-v4";
 import { GOLEM_TACTICS } from "./golem/tactics";
 import { setLiveStrokeRow } from "./golem/stroke-rows";
@@ -233,34 +230,14 @@ async function boot(): Promise<void> {
   const query = new URLSearchParams(window.location.search);
   const linked = matchupFromQuery(window.location.search);
   const linkRefusal = linked === null
-    // `has` rather than "is there any query at all", because there is a second parameter now.
-    // `?snapshot=...` on its own used to report the *matchup* as malformed, which is a refusal of
+    // `has` rather than "is there any query at all", because there are other parameters: one of
+    // those on its own used to report the *matchup* as malformed, which is a refusal of
     // something nobody wrote.
     ? (query.has(MATCHUP_PARAM) ? "the link's matchup was not the right shape" : null)
     : [linked.left.golem, linked.right.golem]
       .map((build) => (build ? golemSetupRefusal(build) : null))
       .find((refusal) => refusal !== null) ?? null;
 
-  /**
-   * The snapshot the link asked for, fetched and installed **before the screen is built**.
-   *
-   * That ordering is forced rather than chosen. `Policy.create` is synchronous and `driverOptions`
-   * is what the picker renders from, so a table that arrived after `SetupScreen` was constructed
-   * would be a table the picker could not offer until something else redrew it. Boot is the one
-   * moment where waiting costs nothing, because the arena is behind the sheet either way.
-   *
-   * `/runs/` is the dev server's window onto the gitignored `tournaments/` directory, which
-   * Session 02 of this set adds; the path after it is the run's own, so
-   * a `snapshot` of league-anchored/pool-40.json is the fortieth iteration of the anchored league.
-   * `snapshotSide` says which corner takes it and `snapshotDraw=1` plays the head's draw instead of
-   * its mean -- two different fighters, per `policy.ts`'s note, so it is a parameter and not a
-   * default somebody has to remember.
-   *
-   * **A failure leaves the screen exactly as it was and says so on the boot note.** Everything that
-   * can go wrong here -- no middleware, a path with nothing at it, JSON that is not a snapshot, a
-   * table this build refuses by version -- is somebody's typo or somebody's stale run, and none of
-   * them is a reason for a page not to open.
-   */
   /**
    * `?drawFraction=` -- the physics dial, overridden for the length of one page.
    *
@@ -282,7 +259,7 @@ async function boot(): Promise<void> {
    *
    * `matchupQuery` builds a query string from the matchup alone, and the three places below hand
    * it straight to `replaceState`, which replaces the *whole* query. So every parameter that is
-   * not the matchup -- `snapshot`, `snapshotSide`, `snapshotDraw`, `drawFraction` -- was silently
+   * not the matchup -- `drawFraction`, `tactic` -- was silently
    * dropped from the address bar the first time anybody touched the setup screen. The running page
    * was unaffected, because all four are read once at boot, which is exactly what made it hard to
    * notice: the screen kept doing what the link asked while the link stopped saying so, and a URL
@@ -338,31 +315,8 @@ async function boot(): Promise<void> {
   for (const { row, value } of tactic.apply) setLiveStrokeRow(GOLEM_TACTICS, row, value);
   const tacticNote = tactic.note;
 
-  const snapshotPath = query.get("snapshot");
-  const snapshotSide: Side = query.get("snapshotSide") === "right" ? "right" : "left";
-  const snapshotDrawn = query.get("snapshotDraw") === "1";
-  let snapshotNote = "";
-  if (snapshotPath !== null) {
-    try {
-      const response = await fetch(`/runs/${snapshotPath}`);
-      if (!response.ok) throw new Error(`/runs/${snapshotPath} answered ${response.status} ${response.statusText}`);
-      const { table, source, tactics } = snapshotFromJson(await response.json(), snapshotPath);
-      installSnapshot(table, { sample: snapshotDrawn, source, tactics });
-      snapshotNote = `Snapshot: ${snapshotProvenance()}.`;
-    } catch (error) {
-      snapshotNote = `The snapshot was refused: ${error instanceof Error ? error.message : String(error)}`;
-    }
-  }
-
-  const withSnapshotPolicy = (matchup: Matchup, side: Side): Matchup => ({
-    ...matchup,
-    [side]: { ...matchup[side], policy: "golem-snapshot" },
-  } as Matchup);
-
   const opening = linked && linkRefusal === null ? linked : golemMatchup(defaultGolemSetup());
-  let state = selectScreen(
-    installedSnapshot() === null ? opening : withSnapshotPolicy(opening, snapshotSide),
-  );
+  let state = selectScreen(opening);
   /**
    * The parts bin: what this browser has taken off beaten golems, and nothing else.
    *
@@ -397,62 +351,6 @@ async function boot(): Promise<void> {
     if (changed && setup.refusal === null) rebuild();
   };
   const setup = new SetupScreen(need("matchup"), state.matchup, beginButton, partsBin, onSelection);
-
-  /**
-   * The same snapshot, without a server: drop a file on the page, or pick one.
-   *
-   * Two ways in because they answer two different situations and neither covers the other. `/runs/`
-   * needs a dev server with Session 02's middleware in it, which is the way to watch iteration 8
-   * and iteration 93 in a row without touching the mouse -- and a built page served from `dist`,
-   * or somebody handed one checkpoint out of a run on another machine, has no such route. A file
-   * off the disk needs nothing at all.
-   *
-   * The row is built here rather than in `index.html` because it is a diagnostics affordance for
-   * this session and not part of the sheet's argument, and because the whole of what it needs is
-   * an input and a handler; the drop target is the window, so the file can be let go anywhere.
-   * Both paths end in `installSnapshot`, which is the point of the slot: a snapshot fetched by the
-   * page, dropped on it, or picked from a file input are one installed table and not three.
-   */
-  const snapshotRow = document.createElement("p");
-  snapshotRow.className = "note";
-  const snapshotInput = document.createElement("input");
-  snapshotInput.type = "file";
-  snapshotInput.accept = ".json,application/json";
-  snapshotRow.append("Watch a snapshot -- drop a checkpoint, a pool member or a league state here, or ", snapshotInput);
-  bootNote.parentElement?.insertBefore(snapshotRow, bootNote);
-
-  const takeSnapshotFile = async (file: File): Promise<void> => {
-    try {
-      const { table, source, tactics } = snapshotFromJson(JSON.parse(await file.text()), file.name);
-      installSnapshot(table, { sample: snapshotDrawn, source, tactics });
-      bootNote.classList.remove("error");
-      bootNote.textContent = `Snapshot: ${snapshotProvenance()}.`;
-      // Only from the sheet. Installing mid-fight is allowed -- the table is what the *next* mind
-      // built from it will read -- but rewriting the matchup under a bout that is still standing
-      // would be the setup screen editing a fight, which is the boundary `ArenaPresentation` exists
-      // to keep. The picker picks it up the next time somebody leaves for setup.
-      if (state.phase !== "select") return;
-      state = selectScreen(withSnapshotPolicy(state.matchup, snapshotSide));
-      setup.show(state.matchup);
-      window.history.replaceState(null, "", linkFor(state.matchup));
-    } catch (error) {
-      bootNote.classList.add("error");
-      bootNote.textContent = `The snapshot was refused: ${error instanceof Error ? error.message : String(error)}`;
-    }
-  };
-
-  snapshotInput.addEventListener("change", () => {
-    const file = snapshotInput.files?.[0];
-    if (file) void takeSnapshotFile(file);
-  });
-  // `dragover` has to be cancelled or the browser never fires `drop`, and an uncancelled drop
-  // navigates the tab to the file -- which loses the whole session rather than failing visibly.
-  window.addEventListener("dragover", (event) => { event.preventDefault(); });
-  window.addEventListener("drop", (event) => {
-    event.preventDefault();
-    const file = event.dataTransfer?.files?.[0];
-    if (file) void takeSnapshotFile(file);
-  });
 
   const controls = new Controls(canvas, {
     onReset: () => {
@@ -1403,7 +1301,6 @@ async function boot(): Promise<void> {
       sides.push({
         side,
         mind: mind.name,
-        provenance: mind.name === "golem-snapshot" ? snapshotProvenance() : null,
         standOff: driven.command.standOff,
         // The same coordinate the command is written in -- multiples of *their* published reach --
         // because the whole value of the pair is that the two numbers can be subtracted.
@@ -1684,7 +1581,6 @@ async function boot(): Promise<void> {
     linkRefusal === null
       ? "Havok ready."
       : `Havok ready. The link was refused and the showcase pair is shown instead: ${linkRefusal}`,
-    snapshotNote,
     drawNote,
     tacticNote,
   ].filter((part) => part !== "").join(" ");

@@ -7,11 +7,11 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import HavokPhysics from "@babylonjs/havok";
 
-import { ROOM_WALL_COLLIDERS } from "../src/arena-room.ts";
-import { CONFIG } from "../src/config.ts";
-import { COLLIDES, LAYER, attachPhysics } from "../src/physics.ts";
+import { ROOM_WALL_COLLIDERS } from "../../src/arena-room.ts";
+import { CONFIG } from "../../src/config.ts";
+import { COLLIDES, LAYER, attachPhysics } from "../../src/physics.ts";
 
-const wasmPath = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
+const wasmPath = new URL("../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 const wasmBinary = await readFile(wasmPath);
 
 /**

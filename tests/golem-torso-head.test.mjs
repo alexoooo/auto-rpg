@@ -33,8 +33,8 @@ import { RigidStrike } from "../src/golem/effectors/striker.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
-import { createHeadlessArena } from "../scripts/golem-headless-arena.mjs";
-import { runTorsoBench } from "../scripts/golem-torso-bench.mjs";
+import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
+import { runTorsoBench } from "./harness/golem-torso-bench.mjs";
 
 const FRAME = 1 / 60;
 const SUBSTEP = 1 / CONFIG.world.physicsHz;

@@ -39,7 +39,7 @@ test("the_engagement_instrument_has_an_explicit_resume_version", () => {
 
 test("the_bench_report_carries_the_versioned_records_from_the_shared_recorder", async () => {
   process.env.SWORD_MEASURE_LIBRARY = "1";
-  const { runBout } = await import("../scripts/measure.mjs");
+  const { runBout } = await import("./harness/bout-runner.mjs");
   let samples = 0;
   const result = runBout({
     left: "idle", right: "idle", seeds: [17, 23],
@@ -55,7 +55,7 @@ test("the_bench_report_carries_the_versioned_records_from_the_shared_recorder", 
   assert.equal(result.behaviour.right.seconds > 0, true);
   // The bout loop moved from `scripts/measure.mjs` to `scripts/bout-runner.mjs` in Session 04 of
   // the matchup set; the measure re-exports `runBout` and the text being asserted is the runner's.
-  const source = await readFile(new URL("../scripts/bout-runner.mjs", import.meta.url), "utf8");
+  const source = await readFile(new URL("./harness/bout-runner.mjs", import.meta.url), "utf8");
   assert.match(source, /wireBoutRecorder\(recorder, left, right\)/,
     "the bench attaches both bodies through the shared intent adapter");
   assert.match(source, /combatRecorder\(recorder, "left"/,
