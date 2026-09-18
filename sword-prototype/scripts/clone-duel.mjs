@@ -125,7 +125,7 @@ async function cell({ arm: named, seeds, cap, opponent, tablePath, swap, draw })
   // reads: it re-prices every contact for both bodies at once. So a score taken under it is
   // comparable only to another score at the same setting, and DC quotes orderings within a
   // column rather than any single number across columns. The field is writable by design --
-  // `main.ts:307` already drives it from the debug UI -- and it is set here, inside the child,
+  // `src/main.ts:307` already drives it from the debug UI -- and it is set here, inside the child,
   // before the first bout, so a cell cannot inherit a half-applied world from its parent.
   if (draw !== null && draw !== undefined) {
     const { CONFIG } = await import("../src/config.ts");
