@@ -197,6 +197,26 @@ export interface HitReport {
   energyJ: number;
   /** How squarely the edge was travelling into the cut, 0..1. */
   edgeAlignment: number;
+  /**
+   * How squarely the blade's own axis was driven into the contact, 0..1 -- the thrust's
+   * counterpart to `edgeAlignment`.
+   *
+   * `scoreHit` books a thrust rather than a cut when this beats `edgeAlignment` *and* the
+   * contact was made near the point. Both columns are carried because a commanded thrust that
+   * booked as a cut has missed one of those two conditions and the report should say which:
+   * without this the log showed a thrust-shaped stroke scoring `cut` and gave no way to tell
+   * a mistimed edge from a contact made with the middle of the blade.
+   */
+  bladeAlignment: number;
+  /**
+   * Metres from the contact to the weapon's tip.
+   *
+   * The other half of the thrust test: `combat.thrustTipZone` is the distance inside which a
+   * contact counts as made with the point. The distance rather than the boolean, because a
+   * point that landed 0.35 m back and a blade caught at the hilt are different diagnoses and
+   * only one of them is a near miss.
+   */
+  tipDistanceM: number;
   /** What the solver actually resolved, kept as a diagnostic. */
   solverImpulse: number;
   damage: number;
@@ -565,12 +585,17 @@ export class Combat {
       key: `block:${stopped.kind}`,
       kind: "weak",
       speed: velocity.length(),
-      // A block is not a wound and has no struck part, so the three scoring columns are zero
+      // A block is not a wound and has no struck part, so the four scoring columns are zero
       // rather than invented. `isBlock` is what tells the readout and the log which it is.
+      // `tipDistanceM` is not one of them: where on the blade the block landed is a fact about
+      // the geometry, true whether or not anything was scored, and it is what says whether a
+      // shield caught the point or the forte.
       closingSpeed: 0,
       partMassKg: 0,
       energyJ: 0,
       edgeAlignment: 0,
+      bladeAlignment: 0,
+      tipDistanceM: Vector3.Distance(point, weapon.tipPosition()),
       solverImpulse: event.impulse,
       damage: 0,
       preArmourDamage: 0,
@@ -662,6 +687,16 @@ export class Combat {
     // magnitude because the HUD draws a bar with it.
     const alongEdge = Vector3.Dot(direction, weapon.edgeDirection());
     const edgeAlignment = Math.abs(alongEdge);
+    // Hoisted above the early-out for the same reason `alongEdge` was: these two describe the
+    // contact, not the score, and a weak contact that is dropped without them cannot be told
+    // apart from a square one afterwards. The cost is a normalize, a dot and a distance on the
+    // path that skips scoring, which is what the log is worth.
+    const impactAxis = (weapon.impactBladeDirection?.() ?? weapon.bladeDirection())
+      .clone().normalize();
+    const shaftAlignment = Vector3.Dot(direction, impactAxis);
+    const bladeAlignment = Math.abs(shaftAlignment);
+    const tipDistanceM = Vector3.Distance(point, weapon.tipPosition());
+    const nearTip = tipDistanceM < C.thrustTipZone;
     // What the blow is actually charged at, which is `closingSpeed` alone unless `drawFraction`
     // is paying an aligned edge for its slide. One copy of that rule, in `scoring.ts`, because
     // this file and `scoreHit` have to agree on it or a dial set in one does nothing in the other.
@@ -671,8 +706,8 @@ export class Combat {
       strikerMassKg: weapon.impactMassKg,
       partMassKg,
       edgeAlignment: alongEdge,
-      bladeAlignment: 0,
-      nearTip: false,
+      bladeAlignment,
+      nearTip,
     }, weapon.kind);
 
     const base = {
@@ -685,6 +720,8 @@ export class Combat {
       closingSpeed,
       partMassKg,
       energyJ,
+      bladeAlignment,
+      tipDistanceM,
       at: this.clock,
       point: point.clone(),
       velocity: velocity.clone(),
@@ -716,8 +753,6 @@ export class Combat {
     }
 
     let projectile: ProjectileImpactEvidence | undefined;
-    const impactAxis = (weapon.impactBladeDirection?.() ?? weapon.bladeDirection()).clone().normalize();
-    const shaftAlignment = Vector3.Dot(direction, impactAxis);
     const score = weapon.projectileImpact
       ? (() => {
         const profile = weapon.projectileImpact as NonNullable<Striking["projectileImpact"]>;
@@ -758,8 +793,8 @@ export class Combat {
           strikerMassKg: weapon.impactMassKg,
           partMassKg,
           edgeAlignment: alongEdge,
-          bladeAlignment: Math.abs(shaftAlignment),
-          nearTip: Vector3.Distance(point, weapon.tipPosition()) < C.thrustTipZone,
+          bladeAlignment,
+          nearTip,
           speed,
         },
         weapon.kind,

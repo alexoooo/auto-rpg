@@ -2999,9 +2999,46 @@ export const TORSO_WAIST = {
    * `CHAIN_PITCH.targetRate` binds hard for a person; an arrow key cannot, so this one binds only
    * for a policy. What is left to carry the weight is the torque cap against real mass, which is
    * why that is the number with the sweep beside it. 2026-09-04.
+   *
+   * ---
+   *
+   * **2026-09-18: that last paragraph was right that this binds only for a policy and wrong about
+   * what that costs, and `twistRate` moves 1.0 -> 4.0.** The premise above is that a policy should
+   * be held to the ceiling a person is. A person's ceiling was measured against an arrow key --
+   * a posture a body settles into and holds -- and a stroke is not an arrow key. The two are
+   * different things wearing one number: what an *interface* smooths, and what a *body* can do.
+   *
+   * A stroke reverses its twist. `enterExchange` winds the trunk to `+trunkSweep` through the
+   * chamber and the commit asks for `-trunkSweep`, so the waist has to cross
+   * 2 x 0.75 x `twistMax` 0.55 = **0.825 rad** inside one commit, which `commitSeconds` and the
+   * stroke rows put at about a quarter of a second: **3.3 rad/s** before the motor is even asked.
+   * At 1.0 it cannot, so it spends the chamber winding up and the commit still winding up, and
+   * the stroke ends before the twist has crossed zero. The wind-up and the blow cancel exactly.
+   *
+   * Measured as the thing it is -- whether the mind's own posture command ever arrives -- over
+   * three seeds of `golem-form`, as the shortfall between what the mind asked the waist for and
+   * what the waist was commanded by the end of that stroke:
+   *
+   *     twistRate   median shortfall, rad of 0.55   strokes where it arrived
+   *        1.0                0.463                        0 / 18
+   *        2.0                0.275                        6 / 20
+   *        3.0                0.000                       18 / 18
+   *      **4.0**              0.000                       19 / 19
+   *        6.0                0.000                       20 / 21
+   *       10.0                0.000                       17 / 17
+   *
+   * **At the shipped rate the command arrived not once in eighteen strokes**, 84 % of it thrown
+   * away, which is why `GOLEM_TACTICS.trunkSweep` 0.75 -- a cut's main power source -- has never
+   * fired and every golem blow has been struck with the arm alone. The arithmetic and the bench
+   * agree on 3, and 4 is taken rather than 3 because 3 is the edge of the band and this file has
+   * three times had a number chosen at an edge pushed out by the next correction.
+   *
+   * `leanRate` is left alone, and that is measured too rather than assumed: a stroke's lean does
+   * not reverse, so the same bench on the lean axis arrives 15 / 15 at 0.8 and gains nothing from
+   * 1.5, 2, 3 or 4.
    */
   leanRate: 0.8,
-  twistRate: 1.0,
+  twistRate: 4.0,
 
   /**
    * The waist hinges' solver damping.

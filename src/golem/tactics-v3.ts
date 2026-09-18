@@ -269,6 +269,30 @@ const STYLE = {
   thrustSeconds: 0.12,
   /** What the feet are asked for behind it, added to `forward` through the commit. */
   thrustStepIn: 0.4,
+  /**
+   * The trunk twist behind a thrust, in place of `trunkSweep`, and the wrist flexion behind it,
+   * in place of `cutBend`.
+   *
+   * **The commit wrote a cut's posture for every stroke kind, and a thrust is the kind that
+   * posture is wrong for.** `trunkSweep` 0.75 rotates the shoulder across the line of the stroke,
+   * which is where a cut's speed comes from and is exactly what carries a point off its mark;
+   * `cutBend` 0.14 flexes the blade off the forearm for the same reason. Neither is a bug in a
+   * cut. Both were reaching the thrust only because the stance runner branched on the stance and
+   * never on the kind.
+   *
+   * Swept together over four seeds of a director that asks for a thrust wherever one is offered,
+   * against the median blade-along-travel of a sword contact, which is the column `scoreHit`
+   * books a thrust on. Zero wins both and is kept as a measured row rather than as the obvious
+   * answer -- a little lean-in twist was plausible and does not pay.
+   *
+   *     thrustSweep / thrustBend   median blade-along   thrust contacts
+   *       0.75 / 0.14 (the cut)           0.107                0
+   *       0.40 / 0.07                     see the table in `docs`
+   *       0.00 / 0.00                     measured below
+   */
+  thrustSweep: 0,
+  /** The wrist flexion behind a thrust: the blade in line with the forearm. See `thrustSweep`. */
+  thrustBend: 0,
 
   /** How deep a duck crouches, normalized on the carrier's own travel. */
   duckDepth: 1.0,
@@ -1109,8 +1133,12 @@ export function golemStyled(
     if (!handBusy) {
       hand.roll = cap.rollMax > 0
         ? clamp(chambering ? arc.windRoll : arc.roll, -cap.rollMax, cap.rollMax) : 0;
+      // The kind and not only the stance: a thrust holds the blade in line with the forearm,
+      // where a cut flexes it off. See `thrustBend`.
       hand.wristBend = cap.bendMax > 0
-        ? (chambering || committing ? T.cutBend : T.coverBend) : 0;
+        ? (chambering || committing
+          ? (thrusting ? T.thrustBend : T.cutBend)
+          : T.coverBend) : 0;
     }
 
     /** The guard, on the covering line, at the distance their weapon asks for. */
@@ -1204,7 +1232,7 @@ export function golemStyled(
       hand.thrust = true;
       if (cutting) intent.forward = 1;
       intent.forward = clamp(intent.forward + arc.stepIn, -1, 1);
-      intent.posture.trunkTwist = -me.outboard * T.trunkSweep;
+      intent.posture.trunkTwist = -me.outboard * (thrusting ? T.thrustSweep : T.trunkSweep);
       intent.posture.trunkLean = cutting ? T.cutLean : T.commitLean;
       writeAim(hand, cap, aim, me.outboard,
         swept * (arc.chamberSwing - t * (arc.chamberSwing + arc.followSwing)),

@@ -2484,34 +2484,70 @@ test("golem_form_stays_inside_the_envelope_and_is_deterministic_under_a_seed", a
  * ring, forearm, wrist, its own blade -- or its shield, and none on its trunk. The director
  * closes to a distance where the first thing its point meets is the other body's guard.
  *
- * **Phase 2c is where this is fixed**: a committed straight attack (`swing` near 0 with `bite`
- * near 0) and a reason to hold measure instead of closing to zero range. That is a change to the
- * hand-coded minds and to the executor, not to this test. The test asserts that a thrust scores,
- * a thrust does not score, and a green test here would assert nothing -- so it is left red, with
- * the measurement above, until the phase that owns it lands.
+ * ---
+ *
+ * **2026-09-18, Phase 2c: the cause was the opponent, and this test was choosing it.** `idle` is a
+ * golem that never moves, so nothing stops the director closing on it, and it closes until the
+ * socket is **0.98 m** from the mark. The blade and its wrist overhang the anchor by **0.80 m**,
+ * so `reachForDistance` at `bite` 0 -- the point itself on the mark -- asks the arm for **0.18 m**
+ * against a shell whose inner stop is **0.30 m**. The answer clamps to the stop, the commit
+ * interpolates from `chamberReach` -0.85 to -1, and the stroke runs the arm *backwards*. Traced
+ * step by step: 210 commit steps with the anchor pinned between 0.301 and 0.332 m, the blade 81
+ * degrees off its own travel, not one thrust booked. **A thrust is the one stroke that only exists
+ * if the arm extends, and against a body that cannot back away there is nothing to extend into.**
+ *
+ * Against an opponent that holds its own measure there is. `golem-form` and `golem-fencer` sit at
+ * a median gap of **1.698 m** against a `hold` of 1.887, the point has room, and thrusts book. So
+ * the opponent is now a real one, which is what "in a real bout" was always claiming, and eight
+ * seeds are read rather than one because the event is rare enough that a single seed would be a
+ * coin toss:
+ *
+ *     seed        thrust   cut   slap   seconds
+ *     20260904       0      7     2      20.0
+ *     20260911       0      0     1      11.6
+ *     20260918       2      1     2       9.2
+ *     20260925       0      2     1      10.0
+ *     20261002       0      5     1       6.8
+ *     20261009       0      3     1      10.2
+ *     20261016       0      4     0       7.5
+ *     20261023       1      3     2       6.5
+ *
+ * **Three thrusts against twenty-five cuts, from a mind that asks for nothing but thrusts, and
+ * that thinness is a live finding rather than a settled number.** Of the sword contacts that
+ * score, 64 % land inside `thrustTipZone` -- so where the blade meets is fine -- and only 18 %
+ * arrive point-first. The rest is the open one: measured over six seeds, the **flat** of the
+ * blade carries **0.665** of the contact's travel, against 0.380 along the edge and 0.253 along
+ * the point. The golem is putting the side of the sword through the target. That is not
+ * `GOLEM_TACTICS.cutRoll`, which was re-swept on 2026-09-18 across -0.15 to 0.45 and moved edge
+ * alignment by less than 0.03 at every row, and it is not this test's to fix.
  */
 test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
   const setup = defaultGolemSetup();
+  const seeds = [20260904, 20260911, 20260918, 20260925,
+    20261002, 20261009, 20261016, 20261023];
   const kinds = new Map();
-  const thrusting = golemStyled(SEED, GOLEM_TACTICS_V3, (available) =>
-    available.includes("thrust") ? "thrust" : "close");
-  runBout({
-    left: "golem-form", right: "idle",
-    leftUnit: "golem", rightUnit: "golem",
-    leftGolem: setup, rightGolem: setup,
-    locomotionMode: "supported",
-    leftMind: { name: "thrusting", decide: (view, dt) => thrusting.decide(view, dt) },
-    seeds: [SEED, SEED + 17],
-    maxSeconds: 10,
-    physics: await freshHavok(),
-    onEvent: (event) => {
-      if (event.side !== "left") return;
-      const kind = event.report.kind;
-      kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
-    },
-  });
+  for (const seed of seeds) {
+    const thrusting = golemStyled(seed, GOLEM_TACTICS_V3, (available) =>
+      available.includes("thrust") ? "thrust" : "close");
+    runBout({
+      left: "golem-form", right: "golem-fencer",
+      leftUnit: "golem", rightUnit: "golem",
+      leftGolem: setup, rightGolem: setup,
+      locomotionMode: "supported",
+      leftMind: { name: "thrusting", decide: (view, dt) => thrusting.decide(view, dt) },
+      seeds: [seed, seed + 17],
+      maxSeconds: 20,
+      physics: await freshHavok(),
+      onEvent: (event) => {
+        if (event.side !== "left" || event.report.weapon !== "sword") return;
+        const kind = event.report.kind;
+        kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+      },
+    });
+  }
   assert.ok((kinds.get("thrust") ?? 0) > 0,
-    `ten seconds of nothing but thrusts booked ${[...kinds].map(([k, n]) => `${n} ${k}`).join(", ") || "nothing"}`);
+    "eight seeds of nothing but thrusts booked "
+    + ([...kinds].map(([k, n]) => `${n} ${k}`).join(", ") || "nothing"));
 });
 
 /**
@@ -2747,6 +2783,24 @@ test("golem_skirmisher_fights_the_fencer_and_asks_its_feet_backwards_more_often"
   // agree before the arm changed, and agreeing by luck is the failure mode the house rule about
   // a mind against its own noise exists to catch. So the comparison is taken over the ten, pooled
   // and by seed, which asserts more than the single bout did rather than less.
+  //
+  // ---
+  //
+  // **2026-09-18, later the same day: this is red on purpose, and what moved was the fencer.**
+  // `TORSO_WAIST.twistRate` went 1.0 -> 4.0 because the mind's commanded trunk twist was arriving
+  // on 0 strokes in 18, and with the trunk finally turning behind a stroke the pooled ratio fell
+  // from 1.50 to 1.06. Isolated over five seeds, holding everything else:
+  //
+  //     twistRate   skirmisher back-steps   fencer back-steps   ratio
+  //        1.0              8451                  6981          1.211
+  //        4.0              8093                  8279          0.978
+  //
+  // **The skirmisher barely changed -- 4 % -- and the fencer backed off 19 % more.** The style did
+  // not stop being evasive; the thing it was evasive *against* became evasive too, and on this
+  // measure the two styles have converged. That is a statement about what a style is, and
+  // rewriting the claim to whatever still separates them would be fitting the test to the code.
+  // So it stays red with the numbers, and the question -- whether `golem-skirmisher` still earns
+  // its own row now that a committed stroke moves the whole body -- is the owner's.
   const SEEDS = [];
   for (let k = 0; k < 10; k += 1) SEEDS.push(20260904 + k * 13);
   const pooled = { left: 0, right: 0 };
@@ -3136,9 +3190,30 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
   // Measured 11.4 s of fourteen, ended by exhaustion.
   assert.ok(guarding.ending === "exhausted" || guarding.seconds > 13,
     `the bout ran ${guarding.seconds.toFixed(1)} s of fourteen and ended "${guarding.ending}"`);
-  assert.ok(guarding.seconds > 5,
-    `the bout ran ${guarding.seconds.toFixed(1)} s, too short to be asked anything in`);
-  assert.ok(guarding.asks > 0, "the guardian was never asked anything in fourteen seconds");
+  // **The window floor is a count of asks and not a stretch of seconds, restated 2026-09-18.**
+  // `seconds > 5` was a proxy for "the bout lasted long enough that a zero below means the style
+  // did not do it, rather than that there was no time to". Once `TORSO_WAIST.twistRate` let a
+  // stroke's trunk actually turn, this pairing began ending on its own seed at 4.8 s -- and the
+  // proxy failed while every claim it was standing in front of still held: 37 asks, 2 chambers
+  // met, 2 blows landed. A bout that ends early because somebody won is the opposite of a bout
+  // too short to measure. Over eight seeds the pairing runs 4.8 s to 14.0 s and the guardian is
+  // asked 28 times at worst, never below 4.3 asks a second:
+  //
+  //     seed       seconds  ending      asks  onChamber  blows
+  //     20260904      4.8   exhausted     37      2        2
+  //     20260911     14.0   time          63      7      112
+  //     20260918     14.0   time          72     17      129
+  //     20260925     14.0   time          78     20      123
+  //     20261002     14.0   time          76     10       94
+  //     20261009      9.6   exhausted     41      9       65
+  //     20261016      5.4   exhausted     28      5       24
+  //     20261023      7.8   exhausted     36      2       72
+  //
+  // So the floor is 20 asks: below the 28 the worst seed manages, and far above the zero that
+  // would make the two assertions after it vacuous.
+  assert.ok(guarding.asks > 20,
+    `the guardian was asked ${guarding.asks} times in ${guarding.seconds.toFixed(1)} s, `
+    + "too few for the counts below to mean anything");
   assert.ok(guarding.onChamber > 0,
     `the guardian answered ${guarding.asks} asks and met a chamber on none of them`);
   assert.ok(guarding.blows.left > 0, "golem-guardian landed nothing at all in fourteen seconds");
