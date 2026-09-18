@@ -438,6 +438,19 @@ export async function runGolemBench({
   let peakGripStrayMm = null;
   /** When a two-socket terminal's second grip was first held: the seam's own first number. */
   let gripTakenAt = null;
+  /**
+   * **The violation the latch builds, and how long the solver takes to clear it.** `maul.ts`
+   * takes the grip on the first step the trailing hand is within `TERMINAL_MAUL.joinWithin` of
+   * the point -- 50 mm -- so the joint is born with its two frames up to 50 mm apart and the
+   * solver pulls them together over the following steps. That transient is not the joint failing
+   * to hold, and `peakGripStrayMm` is a claim about the held joint, so the two are separated
+   * here. `gripJoinMm` is the separation at the instant of the latch and `gripSettleSeconds` is
+   * how long it took to come in.
+   */
+  let gripJoinMm = null;
+  let gripSettleSeconds = null;
+  let gripSettled = false;
+  let lastGripMm = null;
 
   const control = scene.onBeforePhysicsObservable.add(() => {
     module.step(SUBSTEP);
@@ -463,11 +476,33 @@ export async function runGolemBench({
       // Outside the startup window, for the reason every other peak here excludes it: a limb
       // lifting out of its build pose is not the thing being measured.
       if (view.gripStray !== null) {
-        if (gripTakenAt === null) gripTakenAt = t;
-        // Outside the join, too: the step the grip is taken is the one step its error is the
-        // join distance rather than the solver's.
-        if (t >= BENCH_READOUT.startupExclusionSeconds && t > gripTakenAt) {
-          const mm = view.gripStray * 1000;
+        const mm = view.gripStray * 1000;
+        if (gripTakenAt === null) {
+          gripTakenAt = t;
+          gripJoinMm = mm;
+        }
+        // **Outside the take-up, and the take-up times itself.** This read `t > gripTakenAt`
+        // until 2026-09-18: one step excluded, on the reasoning that the step the grip is taken
+        // is the one step whose error is the join distance rather than the solver's. One step was
+        // enough while the arm was slow enough to creep through the 50 mm shell and latch at the
+        // bottom of it -- the reach chain still does, at 0.19 mm. It is not enough for an arm
+        // with the force to cross the whole shell in a step: correcting the chains for the sword
+        // they carry (the account is beside `CHAIN_PITCH.motorTorque`) had the wrist chain latch
+        // 38.9 mm out, and the solver walked that in over seven steps -- 38.9, 15.5, 6.2, 2.5,
+        // 1.0, 0.39, 0.15, 0.055 -- before holding at 0.04..0.08 mm, which is the 0.085 mm this
+        // bench recorded on 2026-09-06. Excluding one step read the *second* number, 15.5.
+        //
+        // So the cut is taken where the physics puts it rather than at a step count: the error
+        // falls monotonically while the solver is clearing the violation, and the first step it
+        // stops falling is the step the joint has taken up. Nothing is excluded that the joint is
+        // responsible for, and `gripJoinMm` keeps the violation itself on the record, because a
+        // latch that builds one is the thing `TERMINAL_MAUL.joinWithin` is a bound on.
+        if (!gripSettled && lastGripMm !== null && mm >= lastGripMm) {
+          gripSettled = true;
+          gripSettleSeconds = t - gripTakenAt;
+        }
+        lastGripMm = mm;
+        if (t >= BENCH_READOUT.startupExclusionSeconds && gripSettled) {
           peakGripStrayMm = peakGripStrayMm === null ? mm : Math.max(peakGripStrayMm, mm);
         }
       }
@@ -515,6 +550,11 @@ export async function runGolemBench({
       peakGripStrayMm,
       /** Seconds into the run at which the second grip was first held; null if it never was. */
       gripTakenAt,
+      /** How far apart the two frames were when the latch built the joint, millimetres. It is a
+       *  violation by construction and `TERMINAL_MAUL.joinWithin` is its bound. */
+      gripJoinMm,
+      /** How long the solver took to clear that violation, seconds; null if it never settled. */
+      gripSettleSeconds,
     };
   } finally {
     scene.onBeforePhysicsObservable.remove(control);
@@ -671,7 +711,9 @@ export function strokeSequence({
  * of a swinging limb carries the angular part too -- so the difference is the honest reading, and
  * it is taken at `CONFIG.world.physicsHz` rather than at the frame rate.
  */
-export function strokeProbe({ socket, mark, outboard = 1, heading = 0, from = 0, to = Infinity }) {
+export function strokeProbe({
+  socket, mark, outboard = 1, heading = 0, from = 0, to = Infinity, sweptUntil = Infinity,
+}) {
   const markAim = aimAt(socket, mark, heading, outboard, { swing: 0, lift: 0, horizontal: 0 });
   const aim = { swing: 0, lift: 0, horizontal: 0 };
   const tipWas = new Vector3();
@@ -681,6 +723,20 @@ export function strokeProbe({ socket, mark, outboard = 1, heading = 0, from = 0,
   let have = false;
   let side = 0;
   let crossings = 0;
+  /**
+   * **The same count, taken over the swept phase alone.**
+   *
+   * `from`..`to` deliberately runs from the start of the arc to the end of the *follow-through*,
+   * because the weapon's closest approach falls in the follow -- that is the correction this
+   * probe's header records. So a crossing counted over the whole window cannot say whether the
+   * blade crossed twice while swinging or once while swinging and once while following, and on
+   * 2026-09-18 that distinction was the whole question: the count went from 1 to 2 when the arm
+   * was corrected, and the two readings mean opposite things. Split, it answers -- the blade
+   * crosses **twice inside the arc**, at 0.7542 s and again before the arc ends at 0.870, and
+   * not once in the follow at all.
+   */  let sweptCrossings = 0;
+  /** When each crossing fell, seconds, so a count of two can be read rather than guessed at. */
+  const crossingTimes = [];
   let crossedAt = null;
   let nearest = null;
   let peakTipSpeed = 0;
@@ -726,7 +782,12 @@ export function strokeProbe({ socket, mark, outboard = 1, heading = 0, from = 0,
     aimAt(socket, tip, heading, outboard, aim);
     const now = Math.sign(aim.swing - markAim.swing);
     if (now !== 0) {
-      if (side !== 0 && now !== side) { crossings += 1; if (crossedAt === null) crossedAt = t; }
+      if (side !== 0 && now !== side) {
+        crossings += 1;
+        if (t <= sweptUntil) sweptCrossings += 1;
+        crossingTimes.push(t);
+        if (crossedAt === null) crossedAt = t;
+      }
       side = now;
     }
   };
@@ -742,8 +803,11 @@ export function strokeProbe({ socket, mark, outboard = 1, heading = 0, from = 0,
     alongMetres: nearest ? nearest.alongMetres : null,
     /** Seconds into the run at which that step fell. */
     markAt: nearest ? nearest.at : null,
-    /** Bearing crossings inside the swept phase: zero for a chain that cannot swing. */
+    /** Bearing crossings over the whole window, arc and follow-through together. */
     crossings,
+    /** Bearing crossings inside the swept phase: zero for a chain that cannot swing. */
+    sweptCrossings,
+    crossingTimes: Object.freeze([...crossingTimes]),
     crossedAt,
     peakTipSpeedDriven: peakTipSpeed,
     peakAnchorStrayMm: peakStrayMm,
@@ -757,8 +821,31 @@ export const PARRY_ACROSS_METRES = 0.25;
 export const PARRY_UP_METRES = 0.10;
 /** How close the cover has to be to its resting place to count as arrived. Metres. */
 export const PARRY_ARRIVED_METRES = 0.05;
-/** How long the cover is held after the command moves: long enough to stop moving. Seconds. */
-export const PARRY_HOLD_SECONDS = 2.0;
+/**
+ * How long the cover is held after the command moves: long enough to stop moving. Seconds.
+ *
+ * **4.0 from 2026-09-18, and the bench diagnosed this itself.** `settleRippleMm` exists so that an
+ * arrival taken over too short a hold is not believed -- "a run whose ripple is near the arrival
+ * tolerance is a run whose hold was too short" is written beside it -- and at 2.0 s the blade was
+ * reading a ripple of 50.20 mm against an arrival tolerance of 50.0. It was right, and swept:
+ *
+ *     hold      blade ripple   blade arrival      plate ripple   plate arrival
+ *     2.0 s       50.20 mm       1.920 s            35.75 mm       1.283 s
+ *     3.0 s       50.16 mm       2.825 s             0.39 mm       1.120 s
+ *     4.0 s        3.85 mm       2.262 s             0.00 mm       1.120 s
+ *     6.0 s        0.00 mm       2.262 s             0.00 mm       1.120 s
+ *
+ * **The arrival was the number moving, which is the point.** It is what Session 05's guardian
+ * branches on, and over a hold too short to settle it read 1.920 s, then 2.825, then 2.262 twice.
+ * The last two agreeing is the reading converging; the first two were the cover still travelling
+ * when the window closed. 4.0 s is where both terminals settle and where the arrival stops
+ * depending on how long anyone happened to watch, and 6.0 s is the control that says so.
+ *
+ * It read 2.0 s from 2026-09-06, when the arm was too weakly driven to carry a cover past its
+ * resting place at all. A cover with real authority overshoots and comes back, and that takes
+ * longer than a cover that crept up on it.
+ */
+export const PARRY_HOLD_SECONDS = 4.0;
 
 /**
  * The parry sequence: hold the cover, then ask for it a quarter of a metre across and a tenth up.
@@ -954,7 +1041,7 @@ export async function runStrokeBench({
       const follow = script.find((phase) => phase.name === "follow");
       reader = strokeProbe({
         socket: socket.world, mark, outboard: socket.outboard,
-        from: swept.until - shape.strokeSeconds, to: follow.until,
+        from: swept.until - shape.strokeSeconds, to: follow.until, sweptUntil: swept.until,
       });
       plan = {
         shape, mark, reach: envelope.reach, markMetres: distance(socket.world, mark),

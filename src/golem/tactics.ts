@@ -1175,8 +1175,30 @@ export const STROKE_INERTIA = {
    * scene. So it is a literal, and `tests/golem-arena.test.mjs` pins the default arm's scale at
    * exactly 1 so that a chain or a terminal whose geometry moves fails loudly here rather than
    * quietly retiming every stroke in the game.
+   *
+   * **3.7728880533333333 from 2026-09-18**, which is the same arm after `SHIPPED_MASS_SCALE` took
+   * the golem from 554.8 kg to 89.9 -- and it is **not** 10.12428 x 0.162.
+   *
+   * That was the first answer written here and it was wrong, on an argument that reads well: the
+   * scale is applied to every mass literal in `golem/config.ts`, an inertia is linear in mass, so
+   * the arm's inertia scales by the same factor and every terminal's ratio to it is unchanged.
+   * The premise is false. **`TERMINAL_BLADE.mass` is the one mass in that file `kg()` does not
+   * wrap** -- it is an arming sword's own 1.30 kg, carried across from `CONFIG.sword.mass`, and
+   * scaling it would have made it a 0.21 kg foil -- and the blade sits at the far end of the arm,
+   * where an inertia weights a mass by the square of its distance. So the arm fell to 0.3727 of
+   * what it was and not to 0.162 of it, and the ratios this reference exists to publish *did*
+   * move: every chain's inertia is now a larger share blade than it was, which is what carrying a
+   * real sword on a body a sixth of its old mass means.
+   *
+   * What the wrong value cost is worth recording, because it is the argument for the pin. At
+   * 1.64013336 the default arm's ratio is 2.3004 and `strokeInertiaScale` returns **1.5167**:
+   * every stroke in the game timed 52 % longer than the shape it was benched at, and the mind
+   * asking for it none the wiser. It showed up as strokes overrunning their own shapes -- 208
+   * frames against the 142 asked for, 143 against 106 -- eight tests across three files, none of
+   * which name inertia. The pin in `tests/golem-arena.test.mjs` is the one that says why, and it
+   * says it by comparing against the arm rather than against a number somebody derived.
    */
-  ref: 10.12428,
+  ref: 3.7728880533333333,
   /**
    * How much of the physical scaling to apply, as an exponent on the inertia ratio.
    *

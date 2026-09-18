@@ -357,8 +357,17 @@ test("the_scripted_locomotion_run_walks_crouches_falls_and_rises", async () => {
     `the root lagged the carrier by a mean ${state.meanCarrierLagMps} m/s`);
 
   // 3. The crouch really moves the carrier's height between the ends of its declared range.
-  assert.ok(Math.abs(state.maxHeightM - bipedModule.heightRange.standM) < 0.02,
-    `standing height ${state.maxHeightM} m against a declared ${bipedModule.heightRange.standM}`);
+  //
+  // **Read at the `settle` mark and not over the whole run**, because the whole run now has a
+  // knockdown in it and a ragdoll leaves the floor. Before the shove the socket sits at 1.0200 m
+  // to four figures, which is the declared height exactly; after it the run's maximum is 1.0467,
+  // and that number is a body being thrown rather than a body standing. The old reading was the
+  // maximum over everything and was right only because a 560 kg golem did not bounce. 2026-09-18.
+  const settled = run.marks.find((mark) => mark.phase === "settle");
+  assert.ok(settled, "the scripted sequence has no settle phase to read a standing height at");
+  assert.ok(Math.abs(settled.state.maxHeightM - bipedModule.heightRange.standM) < 0.02,
+    `standing height ${settled.state.maxHeightM} m against a declared `
+    + `${bipedModule.heightRange.standM}`);
 
   // 4. The knockdown: the root goes DYNAMIC, the body goes past horizontal, and the rise completes
   //    inside the budget written in the module file.
@@ -429,8 +438,19 @@ test("a_planted_sole_holds_its_ground_within_the_budget_written_in_the_module_fi
   // knockdown in it, and one taken through the course has a leg on a step in it.
   const run = await runGolemLocomotion({ moduleId: "biped", sequence: WALK_SEQUENCE });
   const state = run.state;
-  assert.equal(state.plantedSteps, state.steps,
-    `${state.steps - state.plantedSteps} substeps of the walk had no sole in contact at all`);
+  // **This was `plantedSteps === steps` until 2026-09-18, and the equality was a walking claim.**
+  // A 1.9 m body at 1.2 m/s is walking and a walk has double support in it by definition; at the
+  // 3.2 m/s the carrier now commands it is jogging, and the thing that makes a jog a jog is that
+  // both feet leave the ground. Holding the equality would have been a test that the golem is
+  // slow. What is *not* negotiable is the line below it: `longestSupportGapSeconds` is what the
+  // state machine reads to decide whether it still knows where the floor is, and that stays at
+  // zero, because the flight lasts a substep or two and never the frozen grace. 8 of 1919 is the
+  // measured figure at the gait `config.ts` was re-solved to; 1 % is that with room, and the
+  // regression it still catches is the one that was actually here -- 398 of 1919, a fifth of the
+  // walk spent in the air, which is what the old gait did at the new speed.
+  const flight = state.steps - state.plantedSteps;
+  assert.ok(flight <= state.steps / 100,
+    `${flight} substeps of the walk had no sole in contact at all, measured at 8 on 2026-09-18`);
   assert.ok(state.meanFootSlipMps <= B.meanFootSlipBudgetMps,
     `mean planted slip ${(state.meanFootSlipMps * 1000).toFixed(1)} mm/s against a budget of `
     + `${(B.meanFootSlipBudgetMps * 1000).toFixed(0)}`);
@@ -475,9 +495,19 @@ test("a_sole_holds_its_ground_sideways_and_in_a_spin_too_and_not_only_in_a_walk"
   // honest rather than convenient: a side-step is a shuffle within a narrow abduction stop, so
   // its stride is shorter than its travel and some drag is designed in. What they catch is a
   // return to a gait that has come loose from the direction it is going.
+  //
+  // **They are fractions of the travel the command asks for, and were absolute metres until
+  // 2026-09-18.** A slip budget is only ever a claim about a ratio -- the failure it was written
+  // for was a sole holding 5 % of a 1.2 m/s side-step -- and the two absolute numbers said so only
+  // as long as the carrier stayed at 1.2. When it went to 3.2 they became a test that a golem is
+  // slow. 0.583 and 0.99 are the 2026-09-05 measurements' own fractions of their own travel,
+  // carried across unchanged; against them the same runs now read 1163.9 mm/s of 1400 sideways
+  // and 369.8 of 564 in a pivot, which are the same 0.83 and 0.66 of budget as before.
+  const strafeTravelMps = B.carrier.strafeSpeedMps;
+  const pivotTravelMps = B.carrier.maxYawSpeedRadS * B.hipSide;
   for (const [name, sequence, budget, measured] of [
-    ["strafe", STRAFE_SEQUENCE, 0.70, 536.3],
-    ["turn", TURN_SEQUENCE, 0.30, 183.8],
+    ["strafe", STRAFE_SEQUENCE, 0.583 * strafeTravelMps, 536.3],
+    ["turn", TURN_SEQUENCE, 0.99 * pivotTravelMps, 183.8],
   ]) {
     const run = await runGolemLocomotion({ moduleId: "biped", sequence });
     const state = run.state;
@@ -859,6 +889,15 @@ const fallThresholdNs = (module, supportedMassKg) =>
   module.authority().braceCapacityMultiplier * module.authority().gaitStabilityScale *
   supportedMassKg;
 
+// The biped's own braced fall boundary, standing, in newton-seconds: the frozen specific impulse
+// times its declared brace capacity times the mass the bench actually holds up. The two comparison
+// cells at the foot of this file straddle it, and they take it from here rather than from a
+// literal, because the body was re-scaled on 2026-09-18 and a pinned newton-second would have
+// gone quietly stale while still reading like a measurement.
+const BIPED_FALL_NS = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS *
+  B.braceCapacityMultiplier * (B.pelvisMass + 2 * (B.thighMass + B.shinMass + B.footMass) +
+  BENCH_STAND_LOCOMOTION.mass);
+
 // --------------------------------------------------------------------------- pure geometry
 
 test("the_wheel_and_the_multileg_are_registered_and_declare_exactly_the_locomotion_slot",
@@ -1107,11 +1146,17 @@ test("a_wheel_rolls_rather_than_slides_and_a_weak_motor_is_the_control", async (
   // **The mutation control, and without it the assertion above is satisfied by a reading that is
   // structurally zero.** A slip computed wrongly -- from the axle rather than from the tread, say
   // -- would report a perfect roll for any spin at all. Starve the motor and the same instrument
-  // has to report a skid: at 120 N.m the wheel cannot be turned at the rate the ground passes
-  // under it and the tread drags.
+  // has to report a skid: at 60 N.m the wheel cannot be turned at the rate the ground passes
+  // under it and the tread drags, reading 662.6 mm/s against the 20.5 of a roll.
+  //
+  // **60 and not the 120 this said until 2026-09-18**, because a starve level is a torque against
+  // an inertia and the wheel lost five sixths of its mass that day. 120 no longer starves it at
+  // all: it reads 73.1 mm/s, which is a skid the assertion below would not accept and is also not
+  // really a skid. The re-derivation is the same ratio, and it was checked downward -- 30 N.m
+  // reads 1234.5 and 12 reads 2156.7, so the instrument keeps responding all the way down.
   const skidding = await runGolemLocomotion({
     moduleId: "wheel", sequence: walkSequenceFor("wheel"),
-    overrides: [[W, { wheelSpinTorque: 120 }]],
+    overrides: [[W, { wheelSpinTorque: 60 }]],
   });
   assert.ok(skidding.state.meanFootSlipMps > 10 * rolling.state.meanFootSlipMps + 0.1,
     `a starved spin motor still read ${(skidding.state.meanFootSlipMps * 1000).toFixed(1)} mm/s, `
@@ -1227,9 +1272,10 @@ test("each_module_falls_at_its_own_declared_threshold_and_not_at_the_biped_s", a
 test("the_same_shove_the_biped_survives_knocks_the_wheel_down", async () => {
   // **The first of the two assertions that matter**, and it is a comparison rather than a number:
   // if both options merely fell over at some impulse the locomotion contract would have carried no
-  // difference at all, whatever the config blocks said. 10 N.s is Session 05's own measured "leaves
-  // the biped standing" row.
-  const SHOVE = 10;
+  // difference at all, whatever the config blocks said. 0.85 of the biped's own declared threshold
+  // is Session 05's own measured "leaves the biped standing" row -- 10 N.s against 11.76 then, and
+  // the same fraction of a sixth of that now.
+  const SHOVE = BIPED_FALL_NS * 0.85;
   const biped = await runGolemLocomotion({
     moduleId: "biped", sequence: LOCOMOTION_SEQUENCE,
     overrides: [[LOCOMOTION_BIPED, { shoveImpulseNs: SHOVE }]],
@@ -1239,9 +1285,9 @@ test("the_same_shove_the_biped_survives_knocks_the_wheel_down", async () => {
     overrides: [[W, { shoveImpulseNs: SHOVE }]],
   });
   assert.equal(biped.state.firstFallenSeconds, null,
-    `${SHOVE} N.s felled the biped, so this comparison is about the wrong impulse`);
+    `${SHOVE.toFixed(2)} N.s felled the biped, so this comparison is about the wrong impulse`);
   assert.ok(wheel.state.firstFallenSeconds !== null,
-    `${SHOVE} N.s left the wheel standing: the contract carried no difference`);
+    `${SHOVE.toFixed(2)} N.s left the wheel standing: the contract carried no difference`);
   assert.ok(wheel.state.recoveredSeconds !== null, "the wheel never came back to supported");
   assert.ok(wheel.state.riseSeconds > 0 && wheel.state.riseSeconds <= W.riseBudgetSeconds,
     `the wheel's rise took ${wheel.state.riseSeconds} s against ${W.riseBudgetSeconds}`);
@@ -1251,9 +1297,10 @@ test("the_same_shove_the_biped_survives_knocks_the_wheel_down", async () => {
 });
 
 test("the_shove_that_fells_the_biped_does_not_fell_the_multileg", async () => {
-  // **The second of the two.** 12 N.s is Session 05's own measured "puts the biped down" row, and
-  // the multileg's declared brace capacity is what stands it up under the same transfer.
-  const SHOVE = 12;
+  // **The second of the two.** 1.02 of the biped's declared threshold is Session 05's own measured
+  // "puts the biped down" row -- 12 N.s against 11.76 then -- and the multileg's declared brace
+  // capacity, 2.6 against the biped's 1.5, is what stands it up under the same transfer.
+  const SHOVE = BIPED_FALL_NS * 1.02;
   const biped = await runGolemLocomotion({
     moduleId: "biped", sequence: LOCOMOTION_SEQUENCE,
     overrides: [[LOCOMOTION_BIPED, { shoveImpulseNs: SHOVE }]],
@@ -1263,9 +1310,10 @@ test("the_shove_that_fells_the_biped_does_not_fell_the_multileg", async () => {
     overrides: [[ML, { shoveImpulseNs: SHOVE }]],
   });
   assert.ok(biped.state.firstFallenSeconds !== null,
-    `${SHOVE} N.s left the biped standing, so this comparison is about the wrong impulse`);
+    `${SHOVE.toFixed(2)} N.s left the biped standing, so this comparison is about the wrong`
+    + " impulse");
   assert.equal(multileg.state.firstFallenSeconds, null,
-    `${SHOVE} N.s felled the multileg: the contract carried no difference`);
+    `${SHOVE.toFixed(2)} N.s felled the multileg: the contract carried no difference`);
   assert.equal(multileg.state.firstPostureLossSeconds, null);
   assert.equal(multileg.state.minUpDot, 1);
   assert.equal(multileg.state.selfContacts, 0);

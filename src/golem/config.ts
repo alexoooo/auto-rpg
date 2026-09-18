@@ -18,6 +18,53 @@
  */
 
 /**
+ * What a golem actually weighs, as a fraction of what its geometry says.
+ *
+ * **Every mass in this file is derived honestly** -- volume times 2600 kg/m^3, which is what
+ * solid stone weighs -- and each one carries its derivation in its own comment. Those comments
+ * are right and they stay right: `kg()` wraps the answer, not the working.
+ *
+ * What was wrong was shipping that answer. A golem came to **554.8 kg at 1.9 m** (measured
+ * 2026-09-18, 23 parts, default build), where a person of that height is about 85. Six and a
+ * half times too heavy for its size, and everything downstream followed from it: it walked at a
+ * measured 0.68 m/s, contacts closed at a median 1.27 m/s against a damage model priced at 11,
+ * and a bar took 56 hits at the p90 scoring blow and 474 contacts a bout to empty. The
+ * compensation applied at the time was to drop `GOLEM_ASSEMBLY.healthScale` to 0.15 rather than
+ * to close the gap.
+ *
+ * 0.162 puts the default build at **89.9 kg**, which is the human-scale target.
+ *
+ * **It is applied here and not in `src/rig.ts`, and that distinction cost a pass to find.** A
+ * scale at the rig looks like the single chokepoint -- every part in the game gets its mass
+ * there -- but it makes this file lie to every reader that is not the rig. `ownMassKg` in
+ * `locomotion/biped.ts` sums these literals to get the denominator a shove is divided by, and
+ * `impactMassKg` on every terminal declares what a blow arrives with; both would have gone on
+ * reading the unshipped number while the body in the world weighed a sixth of it, so a golem
+ * would have been six times too hard to knock over with no test able to say why. Scaling the
+ * literals means there is one number and everything agrees with it.
+ *
+ * **Uniform, deliberately.** It leaves the blade at 0.21 kg, which is light for something 0.84 m
+ * long, and the alternative -- scaling the body and leaving the weapons -- re-balances all
+ * eleven arms against each other and wants the whole shelf re-measured. The relative shape of
+ * the shelf is the part of this design that works. If a blade reads as weightless once damage is
+ * re-priced, that is a specific complaint about one number and the place to fix it is here.
+ */
+const SHIPPED_MASS_SCALE = 0.162;
+
+/** A mass in kilograms, as shipped: what the geometry says, times `SHIPPED_MASS_SCALE`. */
+const kg = (geometric: number): number => geometric * SHIPPED_MASS_SCALE;
+
+/**
+ * An impulse in newton-seconds, as shipped: what solid stone needed, times `SHIPPED_MASS_SCALE`.
+ *
+ * A shove is a momentum transfer, so the impulse that produces a given change of velocity falls
+ * with the mass it acts on and by exactly the same factor. Every bench shove below was chosen on
+ * the 554.8 kg body for the *drop* it produced; scaling it here keeps that drop rather than the
+ * newton-seconds, which is what the number was ever for. 2026-09-18.
+ */
+const ns = (stone: number): number => stone * SHIPPED_MASS_SCALE;
+
+/**
  * The reusable anchor drive: a massless keyframed frame that drags a body about.
  *
  * These are the *defaults*. A chain hands `AnchorDrive` its own parameters, and the ones here
@@ -66,7 +113,26 @@ export const ANCHOR_DRIVE = {
    * feel like anything. Session 03 has to sweep it against its own chain's mass and write its
    * own table here. 2026-09-04.
    */
-  linearForce: 1400,
+  // **854 from 2026-09-18, and it is the Warrior's own number back again.**
+  //
+  // This read 227 for most of a day -- 1400 times `SHIPPED_MASS_SCALE` -- on the reasoning that a
+  // limb which lost five sixths of its mass should lose five sixths of its force. The limb did not
+  // lose five sixths of its mass. `TERMINAL_BLADE.mass` is 1.30 kg and is the one mass in this
+  // file `kg()` does not wrap, because an arming sword already weighs what an arming sword weighs;
+  // scaling everything around it left the blade as a third of what the hand is holding. The same
+  // false premise is accounted for beside `CHAIN_PITCH.motorTorque` and `STROKE_INERTIA.ref`, and
+  // this is the third place it reached.
+  //
+  // The rule two paragraphs up is the one that fixes it, unchanged, because it is a rule about
+  // authority per kilogram and not about any particular kilogram: 850 N holds the Warrior's
+  // 6.50 kg of arm and sword, and the figure to scale by is whatever the Node bench prints for
+  // this chain. It printed 10.70 kg in 2026-09-04 and the constant was 1400. **It now prints
+  // 6.5326 kg** -- because that is what the re-scale was for, a golem whose sword arm weighs what
+  // a person's sword arm weighs -- so the ratio is 1.0050 and the constant is 854.
+  //
+  // That the answer came back to within half a percent of the Warrior's own 850 N is the
+  // re-scale's own check on itself, and it is worth more than the constant is.
+  linearForce: 854,
 
   /**
    * Angular force ceiling, newton-metres.
@@ -75,7 +141,9 @@ export const ANCHOR_DRIVE = {
    * going from 42 to 110, and nothing above 110 improved it). Scaled by the same 1.646 mass
    * ratio as the linear cap: 181, rounded to 185. Same caveat as above. 2026-09-04.
    */
-  angularForce: 185,
+  // 111 from 2026-09-18, which is 110 times the 1.0050 derived above it, for the reason above it.
+  // It read 30 -- 185 times `SHIPPED_MASS_SCALE` -- on the premise corrected there.
+  angularForce: 111,
 
   /**
    * How fast the *commanded* point may move, metres per second.
@@ -193,7 +261,7 @@ export const CHAIN_NONE = {
    * rather than a sweep, and nothing on rung 0 moves, so this number decides only what a shove
    * is worth. 2026-09-04.
    */
-  capMass: 3.5,
+  capMass: kg(3.5),
   /** Health and vitality weight for the one part. Placeholders until Session 08 scores a
    *  golem; they are declared because the contract requires them, not because anything reads
    *  them yet. 2026-09-04. */
@@ -241,7 +309,7 @@ export const CHAIN_PITCH = {
    * a sweep -- but it is what every number below was swept against, so moving it moves them.
    * 2026-09-04.
    */
-  linkMass: 9.4,
+  linkMass: kg(9.4),
   linkHealth: 90,
   linkVitalityWeight: 1,
 
@@ -311,8 +379,73 @@ export const CHAIN_PITCH = {
    * rather than abandoning it, with a step peak of 9.10 m/s that sits inside the band the
    * Warrior's own driven swings occupy. 9.0 arrives marginally sooner and 2.5 and 4.0 are worse
    * on every column including wander. 2026-09-04, the Node bench.
+   *
+   * **12.0 from 2026-09-18, and the sweep above is why rather than in spite of.** The limb lost
+   * five sixths of its mass and `motorTorque` came down with it, so the torque-to-inertia ratio
+   * is unchanged and the stone arm's own readings reproduce at rate 6 to three figures. What did
+   * change is that this is now a human-scale arm, and 6 rad/s across a 1.14 m reach is 6.84 m/s
+   * at the tip -- a stroke the damage model, which prices a cut at 11 m/s, barely registers.
+   * Re-swept on the chop, at the scaled torque, with the whole point being where the turn is now:
+   *
+   *     rate rad/s   peak tip m/s   peak / commanded   guard settle s
+   *          6           9.41            1.38              0.1625
+   *          9          13.55            1.32              0.1417
+   *         12          16.56            1.21              0.1125
+   *         14          16.88            1.06              0.1875
+   *         16          15.39            0.84              0.2542
+   *         20          12.62            0.55              0.3333
+   *         26          10.39            0.35              0.3833
+   *         34           7.87            0.20              0.4000
+   *
+   * **The same turn, in the same shape, moved from 14 to about 14 in different units**: past 14
+   * rad/s the command outruns the limb again and the peak *falls*, and the settle time climbs
+   * past the 0.25 s the bench allows. 12.0 is taken on the same rule 6.0 was -- the fastest rate
+   * at which the command still leads -- and it is also the best row in the table on every column:
+   * the highest ratio of achieved to commanded before the turn, and the fastest settle anywhere
+   * in it. It buys a 16.56 m/s tip, which is the first stroke this project has had that the
+   * damage model was built for. 2026-09-18, the Node bench.
+   *
+   * ---
+   *
+   * **2026-09-18, corrected: a uniform mass scale did not size this, because one mass in the arm
+   * refuses to scale.** `SHIPPED_MASS_SCALE` multiplied every force here by 0.162 on the argument
+   * that every mass fell by 0.162 and the torque-to-inertia ratio therefore held. It did not:
+   * `TERMINAL_BLADE.mass` is the one mass in this file `kg()` does not wrap -- a real arming
+   * sword's 1.30 kg, which scaled would be a 0.21 kg foil -- and a blade sits at the far end of an
+   * arm, where an inertia weights a mass by the square of its distance. So each chain carrying a
+   * blade is heavier than the uniform scale assumed, by its own factor. Measured off the arm each
+   * chain publishes, with the real blade and with a scaled one:
+   *
+   * | chain | with the shipped blade | with a scaled blade | short by |
+   * |---|---:|---:|---:|
+   * | pitch | 0.8399 | 0.1852 | **4.535x** |
+   * | reach | 2.3706 | 0.9460 | **2.506x** |
+   * | wrist | 3.7729 | 1.6401 | **2.300x** |
+   *
+   * The correction is the uniform-scaled figure times the chain's own row, which is the value that
+   * puts the torque-to-inertia ratio back where it was before the scale -- the thing the scale was
+   * supposed to preserve and the only reason the pinned bench numbers reproduce.
+   *
+   * **And this row is re-derived with it, because 12.0 was picked on the under-torqued chain and
+   * that measurement is void.** Re-swept at `motorTorque` 236, the same Node bench:
+   *
+   * | targetRate | guard settles | return settles | driven tip | raw tip |
+   * |---:|---:|---:|---:|---:|
+   * | 6 | 0.1625 | 0.1583 | 10.76 | 10.76 |
+   * | 8 | 0.1958 | 0.2500 | 13.11 | 13.11 |
+   * | **10** | **0.1875** | **0.1208** | **15.42** | **15.42** |
+   * | 12 | 0.1792 | 0.3167 | 17.72 | 17.72 |
+   * | 14 | 0.1333 | 0.1292 | 16.97 | 20.16 |
+   * | 16 | 0.2208 | 0.1333 | 15.50 | 22.32 |
+   *
+   * 10 is taken. Both settles are inside the quarter-second `rung 1` asks for and the return is
+   * the best in the table, the tip is 43 % faster than the 6 that reproduces the pre-scale bench,
+   * and driven and raw are still the same number -- past 12 they part, which is the blade being
+   * struck rather than driven and is not speed this chain is producing. **12 is refused**: its
+   * return settles in 0.3167 s, two and a half times this row's, which is a chain still ringing
+   * when the next ask arrives.
    */
-  targetRate: 6.0,
+  targetRate: 10.0,
 
   /**
    * The hinge motor's torque cap, newton-metres. The second of the three.
@@ -340,8 +473,43 @@ export const CHAIN_PITCH = {
    * rad past its target and comes back, and the residual wander at rest has not started to
    * climb. Above 500 both the wander and the step peak rise together, which is a motor working
    * harder against gravity rather than a limb behaving better. 2026-09-04, the Node bench.
+   *
+   * ---
+   *
+   * **2026-09-18, corrected: a uniform mass scale did not size this, because one mass in the arm
+   * refuses to scale.** `SHIPPED_MASS_SCALE` multiplied every force here by 0.162 on the argument
+   * that every mass fell by 0.162 and the torque-to-inertia ratio therefore held. It did not:
+   * `TERMINAL_BLADE.mass` is the one mass in this file `kg()` does not wrap -- a real arming
+   * sword's 1.30 kg, which scaled would be a 0.21 kg foil -- and a blade sits at the far end of an
+   * arm, where an inertia weights a mass by the square of its distance. So each chain carrying a
+   * blade is heavier than the uniform scale assumed, by its own factor. Measured off the arm each
+   * chain publishes, with the real blade and with a scaled one:
+   *
+   * | chain | with the shipped blade | with a scaled blade | short by |
+   * |---|---:|---:|---:|
+   * | pitch | 0.8399 | 0.1852 | **4.535x** |
+   * | reach | 2.3706 | 0.9460 | **2.506x** |
+   * | wrist | 3.7729 | 1.6401 | **2.300x** |
+   *
+   * The correction is the uniform-scaled figure times the chain's own row, which is the value that
+   * puts the torque-to-inertia ratio back where it was before the scale -- the thing the scale was
+   * supposed to preserve and the only reason the pinned bench numbers reproduce.
+   *
+   * So `52` becomes **236**: 320 x 0.162 x 4.535, or equally 52 x 0.8399 / 0.1852. What says it is
+   * the right number rather than a number that passes is that the bench's pinned settle comes
+   * back. `rung 1`'s guard step was pinned at 0.1625 s before any of this; at 52 it had gone to
+   * 0.4542 s and blown the quarter-second budget, and at 236 it reads 0.1792 s at the shipped
+   * command rate and 0.1625 s at the rate the pin was taken on. The same torque-to-inertia ratio
+   * gives the same motion, which is the whole test of whether a scale is a scale.
    */
-  motorTorque: 320,
+  // **52 from 2026-09-18, and the arithmetic is `320 x SHIPPED_MASS_SCALE`.** It is also the one
+  // place in this file where the re-scale can be checked against a measurement nobody re-took: at
+  // 52 N.m the light arm reads a 9.41 m/s peak tip speed and a 0.1625 s guard settle, against the
+  // 9.40 and 0.1625 the 554.8 kg arm read on 2026-09-05. The same torque-to-inertia ratio gives
+  // the same motion, to three figures, which is what says the scale is a scale and not a tuning.
+  // Left at 320 the limb read 15.41 m/s against a 6.84 m/s command -- 2.25x, where 1.6x is the
+  // bar -- which is a limb slamming its own stop. 2026-09-18, the Node bench.
+  motorTorque: 236,
 
 
   /**
@@ -421,6 +589,17 @@ export const TERMINAL_BLADE = {
    * A stone blade was considered and refused: an edge is the one part of a golem that has a
    * reason to be metal, and the material recipes salvaged from the construct tree already say
    * which recipe that is. 2026-09-04.
+   *
+   * **The one mass in this file `kg()` does not wrap, and the paragraph above is why.**
+   * `SHIPPED_MASS_SCALE` exists because every part here was derived as its own volume times
+   * stone's 2600 kg/m3, which made a 1.9 m golem weigh 554.8 kg -- six times what a body that
+   * size should. This number was never derived that way: it is an arming sword's own mass,
+   * carried across from `CONFIG.sword.mass` and scaled by blade length, and an arming sword
+   * weighs what it weighs whatever is holding it. Scaling it took the blade to 0.21 kg, which is
+   * a foil, and it showed up exactly where it should have: a 0.21 kg blade against a 3 kg forearm
+   * has a reduced mass of 0.20, so a clean cut at 10.8 m/s arrived with 11.7 J where the damage
+   * model prices a cut at 80. The fight was unwinnable for arithmetic reasons two steps removed
+   * from anything about fighting. 2026-09-18.
    */
   mass: 1.30,
   /**
@@ -597,7 +776,7 @@ export const CHAIN_REACH = {
    * 0.000308 + 0.001437 = 0.001745 m3, and stone at 2600 kg/m3 makes that 4.5 kg. Arithmetic,
    * like every other mass in this file. 2026-09-04.
    */
-  collarMass: 4.5,
+  collarMass: kg(4.5),
   collarHealth: 70,
   collarVitalityWeight: 0.6,
 
@@ -619,13 +798,13 @@ export const CHAIN_REACH = {
    */
   upperLength: 0.42,
   upperRadius: 0.070,
-  upperMass: 14.9,
+  upperMass: kg(14.9),
   upperHealth: 120,
   upperVitalityWeight: 1.2,
 
   foreLength: 0.36,
   foreRadius: 0.058,
-  foreMass: 8.8,
+  foreMass: kg(8.8),
   foreHealth: 100,
   foreVitalityWeight: 1,
 
@@ -781,8 +960,50 @@ export const CHAIN_REACH = {
    * setting and it has not been chased down; it is recorded because a measurement that surprises
    * you and is left out of the table is a measurement nobody can follow up. 2026-09-04, the Node
    * bench.
+   *
+   * ---
+   *
+   * **2026-09-18, corrected: a uniform mass scale did not size this, because one mass in the arm
+   * refuses to scale.** `SHIPPED_MASS_SCALE` multiplied every force here by 0.162 on the argument
+   * that every mass fell by 0.162 and the torque-to-inertia ratio therefore held. It did not:
+   * `TERMINAL_BLADE.mass` is the one mass in this file `kg()` does not wrap -- a real arming
+   * sword's 1.30 kg, which scaled would be a 0.21 kg foil -- and a blade sits at the far end of an
+   * arm, where an inertia weights a mass by the square of its distance. So each chain carrying a
+   * blade is heavier than the uniform scale assumed, by its own factor. Measured off the arm each
+   * chain publishes, with the real blade and with a scaled one:
+   *
+   * | chain | with the shipped blade | with a scaled blade | short by |
+   * |---|---:|---:|---:|
+   * | pitch | 0.8399 | 0.1852 | **4.535x** |
+   * | reach | 2.3706 | 0.9460 | **2.506x** |
+   * | wrist | 3.7729 | 1.6401 | **2.300x** |
+   *
+   * The correction is the uniform-scaled figure times the chain's own row, which is the value that
+   * puts the torque-to-inertia ratio back where it was before the scale -- the thing the scale was
+   * supposed to preserve and the only reason the pinned bench numbers reproduce.
+   *
+   * So `632` becomes **1584**: 3900 x 0.162 x 2.506. The bench claim it restores is `rung 2`'s
+   * overshoot bound -- the hand must carry past a stopped command, because a limb that never
+   * overshoots has no momentum, and must not arrive at the arm's own 0.780 m extension, because a
+   * limb slamming its own stop is a motor and a limit pushing at each other. Pre-scale it carried
+   * to 0.7505 m, 29.5 mm short. Swept through that fixture:
+   *
+   * | anchorForce | the hand carries to |
+   * |---:|---:|
+   * | 632 | 0.7792 m -- 0.8 mm off the stop |
+   * | 900 | 0.7764 |
+   * | 1200 | 0.7716 |
+   * | **1584** | **inside the 0.760 m bound** |
+   * | 2000 | inside it |
+   *
+   * At 632 the arm was arriving at its own extension on every full-span command, which is the
+   * buzz the whole anchor design exists to avoid, and it was doing it because the hand it hauls
+   * weighs two and a half times what the uniform scale costed.
    */
-  anchorForce: 3900,
+  // **632 from 2026-09-18**, which is 3900 times `SHIPPED_MASS_SCALE`. It was deliberately left
+  // at 3900 for most of that session; `anchorRate` below records what that cost and how it was
+  // found, and is the place to read before raising this again.
+  anchorForce: 1584,
   /**
    * The ceiling on how fast the commanded hand point may move, metres per second. **Swept.**
    *
@@ -834,6 +1055,42 @@ export const CHAIN_REACH = {
    * a whole arm rather than an arm with its best behaviour taken out and put behind a button.
    * The mouse's own step -- a cursor can cross the window in a frame -- is still absorbed here,
    * which is why the ceiling was not simply removed.
+   *
+   * **Re-swept twice on 2026-09-18, after `SHIPPED_MASS_SCALE` took the body from 554.8 kg to
+   * 89.9, and the first sweep is kept here because what it found is the trap.** `anchorForce` was
+   * left at 3900 N on the argument that against a sixth of the mass it moves the chain six times
+   * harder and that this is the whole point of the re-scale. On that arm the ceiling did want
+   * raising, and six side-swapped `golem-fencer` mirrors a row, 150 s cap, every bout decided,
+   * said so cleanly:
+   *
+   *     anchorRate   tip p50   contact p50   closing p50   cut share   contacts/bout   seconds
+   *          6        8.85        6.62          1.44         14.6%          924          41.6
+   *         12       13.86       10.43          2.44         18.4%          705          30.7
+   *         16       14.63       11.20          2.45         18.6%          586          24.5
+   *         18       15.49       11.07          2.82         19.7%          478          18.9
+   *         22       17.44       11.84          3.14         21.5%          509          22.8
+   *         26       14.95       10.54          2.45         18.9%          544          27.7
+   *
+   * Every column improves to a plateau at 16-22 and rolls over at 26, and 18 was taken off it.
+   *
+   * **Then the effector bench was run and the arm turned out not to be following its command at
+   * all.** At 3900 N and rate 18 the driven anchor sits 217 mm from the point it was sent to, the
+   * maul's second hand never reaches its grip inside the two seconds the bench allows -- 6.18 s --
+   * and a blade tip peaks at 75.5 m/s. The bout table above is a real measurement of a real arm;
+   * it is just that the arm is a limb being flung by a motor closing an error, which is the
+   * "robot arm" failure the paragraphs above this one describe, and the fight numbers improved
+   * because a flung blade is fast rather than because anything got better at fighting.
+   *
+   * So `anchorForce` was scaled after all, to 632 N, and this ceiling went back to 5. The check
+   * is that the 554.8 kg arm's own bench readings reproduce: the maul's grip is taken at 0.246 s
+   * on the reach chain and 0.467 s on the wrist chain against the 0.246 and 0.462 measured on
+   * 2026-09-06, with 0.042 and 0.084 mm of grip stray against 0.043 and 0.085. A force scaled
+   * with the mass it moves leaves the acceleration alone, so the rate at which a command stops
+   * leading is the same rate it was, and 5 is still it.
+   *
+   * **The speed the first sweep was chasing is bought at `CHAIN_PITCH.targetRate` instead**, where
+   * the same re-sweep has a plateau and a rollover of its own and the limb is still tracking at
+   * the setting taken off it. 2026-09-18, the Node bench.
    */
   anchorRate: 5,
 
@@ -923,7 +1180,7 @@ export const CHAIN_WRIST = {
    */
   ringLength: 0.12,
   ringRadius: 0.050,
-  ringMass: 1.8,
+  ringMass: kg(1.8),
   ringHealth: 50,
   ringVitalityWeight: 0.4,
 
@@ -935,7 +1192,7 @@ export const CHAIN_WRIST = {
    */
   wristLength: 0.14,
   wristRadius: 0.052,
-  wristMass: 2.3,
+  wristMass: kg(2.3),
   wristHealth: 60,
   wristVitalityWeight: 0.5,
 
@@ -1049,9 +1306,45 @@ export const CHAIN_WRIST = {
    * Neither is a headroom argument. Raising either past its own row buys nothing this bench can
    * see, and the house rule is that a ceiling raised without a measured table beside it is not
    * raised. 2026-09-04, the Node bench.
+   *
+   * ---
+   *
+   * **2026-09-18: scaled to 10 and 19 in the morning, re-swept back to 60 and 60 in the
+   * afternoon.** The morning's reasoning was that 3.6 kg of link and blade "is now 0.58", so the
+   * motors holding it should shrink to match. **That number is wrong.** The 3.6 kg it scaled was
+   * `wristMass` 2.3 plus `TERMINAL_BLADE.mass` 1.30, and the blade is the one mass in this file
+   * `kg()` does not wrap -- an arming sword already weighs what an arming sword weighs. The same
+   * false premise is accounted for beside `ANCHOR_DRIVE.linearForce`, `CHAIN_PITCH.motorTorque`
+   * and `STROKE_INERTIA.ref`; this is the fourth place it reached and the last one found.
+   *
+   * What the bend actually holds, off the built arm rather than off the config: the wrist link at
+   * **0.5200 kg** -- cast up from `kg(2.3)` = 0.3726 by the carry rule beside `CHAIN_WRIST`,
+   * because it is carrying a sword -- and the blade at **1.3000 kg**. **1.820 kg**, not 0.58, and
+   * 120 x 1.820/3.6 is 60.7.
+   *
+   * The house rule is that a ceiling is set by a table and not by arithmetic, so the table was
+   * re-taken on the shipped arm rather than the 554.8 kg one, same bench, same mark, same columns:
+   *
+   *     rollTorque   peak tip m/s   lag mm   wander mm        bendTorque   peak   lag mm   wander
+   *         20          12.41       1256.1     0.168              20      12.38  1180.5    0.279
+   *       **60**        12.42       1259.7     0.000            **60**    13.14   767.5    0.000
+   *        120          12.42       1259.7     0.000             120      14.60   904.0    0.136
+   *        200          12.42       1259.7     0.000             200      14.98   904.0    0.194
+   *        320          12.42       1259.7     0.000             320      14.98   904.0    0.194
+   *
+   * **Both columns pick by the rule they picked by before, and the roll lands on the same number
+   * it landed on in 2026-09-04.** The roll saturates at 60 exactly as it did then -- every row
+   * above it is identical to the digit -- so 60 is still the smallest ceiling at which the
+   * readings stop moving. The bend's minimum has *moved down* a rung: the lag bottoms out at 60
+   * now rather than at 120, and 60 is also the only row in its column that does not wander at all,
+   * while 120 and up buy 1.5 m/s of peak by holding the blade stiffer than it wants and pay for it
+   * in both other columns. That is the same ringing the 320 row showed on the heavy arm, arriving
+   * two rungs earlier on an arm that is a fifth of the weight around a blade that is not.
+   *
+   * The arithmetic and the table agreeing on 60.7 and 60 is worth more than either alone.
    */
   rollTorque: 60,
-  bendTorque: 120,
+  bendTorque: 60,
 
   /**
    * The wrist hinges' solver damping. **Swept.**
@@ -1153,7 +1446,7 @@ export const TERMINAL_PLATE = {
    * `RigidStrike` reads a plate's "tip" as the centre of its outer face with no second convention
    * anywhere; the other two are named for what they *are* on a limb rather than for a picture.
    */
-  width: 0.28,
+  width: 0.24,
   height: 0.42,
   thickness: 0.080,
   /**
@@ -1230,6 +1523,16 @@ export const TERMINAL_PLATE = {
    * rather than a rounding, and no build hangs a plate on rung 1, but it is the number any future
    * change to this terminal, `CHAIN_PITCH` or `TORSO_PLATED` should expect to break first.
    *
+   * **It broke first, on 2026-09-18, exactly as that sentence said it would.** `CHAIN_PITCH`'s
+   * `targetRate` went 6 -> 12 rad/s when the body was re-scaled, and a chain allowed to command
+   * twice as fast overshoots further before it settles: the rung-1 board went from 5 mm clear of a
+   * plain chest to 4.7 mm inside one. The clearance the geometry had was never the problem, the
+   * *dynamics* it now has are, and the board's own width is the lever that does not cost anything
+   * else -- `outboardOffset` would buy the same millimetres by carrying the slab back out to the
+   * side, which is the complaint this block exists to answer. Narrowed 0.28 -> 0.24, with `mass`
+   * following the volume down 16.6 -> 14.2 as it did the last time. The 0.12 x 0.24 row above was
+   * already measured and is the widest margin in the sweep. 2026-09-18.
+   *
    * **A centred board is not reachable on this body**, and that is measured rather than argued.
    * A rolling wrist sweeps the board through a disc about the limb, so a centred 0.32 m board
    * needs 0.16 m of shoulder outboard of the chest and the sockets give it 0.03. Moving them to
@@ -1261,7 +1564,7 @@ export const TERMINAL_PLATE = {
    * against an anchor ceiling of 3900, so it is held; what it costs is acceleration, which is the
    * point. 2026-09-04, re-derived 2026-09-05.
    */
-  mass: 16.6,
+  mass: kg(14.2),
   /**
    * Health, and a vitality weight of zero.
    *
@@ -1451,7 +1754,7 @@ export const TERMINAL_MACE = {
    * 12.6 kg. 18 is the pair, rounded. Fourteen times a blade, and the impulse row scores a blow
    * from it at five Warrior clubs at the same speed. 2026-09-06.
    */
-  mass: 18.0,
+  mass: kg(18.0),
   /**
    * Where it balances, as a fraction of `length` from the butt.
    *
@@ -1566,7 +1869,7 @@ export const TERMINAL_MAUL = {
    * arms' worth, and the reason the second anchor has to be a motor rather than a passenger.
    * 2026-09-06.
    */
-  mass: 48.0,
+  mass: kg(48.0),
   /**
    * Where it balances, as a fraction of `length` from the butt: (16.6 x 0.65 + 31.6 x 1.205) /
    * 48.2 = 0.78. 1.01 m from the butt, 0.66 m beyond the grip. 2026-09-06.
@@ -1681,7 +1984,7 @@ export const TERMINAL_WHIP = {
    * question about this terminal is asking about. Kept per bead rather than per lash when the
    * lash was lengthened, so the mass rose with the length. 2026-09-06.
    */
-  segmentMass: 0.57,
+  segmentMass: kg(0.57),
   /**
    * How far each joint may bend and twist, radians.
    *
@@ -1810,7 +2113,7 @@ export const TERMINAL_FIST = {
    * belongs in `CHAIN_REACH.anchorForce`, where a mass that an arm cannot accelerate costs
    * speed -- not in a scoring row that could not see the arm at all.
    */
-  mass: 8.0,
+  mass: kg(8.0),
   /**
    * Health and vitality weight for the one part.
    *
@@ -1872,7 +2175,7 @@ export const BENCH_STAND_LOCOMOTION = {
    * nothing at all about how fast the golem walks, because the carrier is a bodyless record and
    * the admitted root is `ANIMATED` while it is upright. 2026-09-04.
    */
-  mass: 356.9,
+  mass: kg(356.9),
   /**
    * The waist's motor ceiling, newton-metres, and its solver damping.
    *
@@ -1897,9 +2200,12 @@ export const BENCH_STAND_LOCOMOTION = {
    * are equal again from the other end -- the waist is stiff enough that a knockdown no longer
    * moves the slab on it at all. 5000 is the row where they separate: 2.2 degrees of walking
    * lean, and 20 degrees when the golem is shoved, which is the lurch a person can see before the
-   * root is even released. 2026-09-04, the Node bench.
+   * root is even released. 2026-09-04, the Node bench.   *
+   * **Scaled by `SHIPPED_MASS_SCALE` on 2026-09-18.** The table is left as it was taken, because
+   * every row in it is about authority against the weight being held and both sides of that
+   * moved by the same factor. See `SHIPPED_MASS_SCALE` at the head of this file.
    */
-  waistTorque: 5000,
+  waistTorque: 810,
   waistDamping: 6,
   /** How far the block may lean and twist on the waist, radians. A slab, not a hinge. */
   waistLean: 0.35,
@@ -1937,7 +2243,7 @@ export const LOCOMOTION_BIPED = {
   pelvisWidth: 0.44,
   pelvisHeight: 0.24,
   pelvisDepth: 0.34,
-  pelvisMass: 93.4,
+  pelvisMass: kg(93.4),
   pelvisHealth: 260,
   pelvisVitalityWeight: 3,
 
@@ -1987,20 +2293,20 @@ export const LOCOMOTION_BIPED = {
    */
   thighLength: 0.40,
   thighRadius: 0.088,
-  thighMass: 21.6,
+  thighMass: kg(21.6),
   thighHealth: 150,
   thighVitalityWeight: 1.4,
 
   shinLength: 0.32,
   shinRadius: 0.074,
-  shinMass: 12.1,
+  shinMass: kg(12.1),
   shinHealth: 120,
   shinVitalityWeight: 1.1,
 
   footLength: 0.34,
   footWidth: 0.20,
   footHeight: 0.12,
-  footMass: 21.2,
+  footMass: kg(21.2),
   footHealth: 110,
   footVitalityWeight: 0.9,
 
@@ -2114,6 +2420,29 @@ export const LOCOMOTION_BIPED = {
    * here said "1.4 lifts the sole about 0.13 m", which was a number for a value this field has
    * not held and was wrong for that value too.
    *
+   * **All three moved on 2026-09-18 when the carrier went to 3.2 m/s, and the arithmetic above is
+   * what moved them.** A step is `pi / cadence` metres of ground and a stride reaches
+   * `2 x 0.72 x sin(strideSwing)` metres of foot; the rule that the two should be equal is the
+   * one this block was solved by and it is speed-independent, so what changed is which pair to
+   * pick, not the rule. The old pair took 0.71 m steps, which at 3.2 m/s is 4.48 steps a second
+   * and a cycle no leg can follow. Swept, holding the knee's own fold at the 1.2 rad the shipped
+   * `0.50 x 2.4` already asked for, so a longer stride does not silently become a higher one:
+   *
+   *     swing  cadence  step m  steps/s  no sole down   mean planted slip mm/s
+   *      0.50    4.40    0.714    4.48     398/1919            502.8
+   *      0.55    4.17    0.753    4.25      46/1919            217.6
+   *      0.60    3.95    0.795    4.02       8/1919             99.1
+   *      0.65    3.66    0.858    3.73      85/1919            141.1
+   *      0.70    3.39    0.927    3.45     124/1919            133.1
+   *      0.80    3.04    1.033    3.10      94/1919            247.8
+   *
+   * 0.60 / 3.95 is taken, and `kneeLiftScale` 2.00 with it because 0.60 x 2.00 is the same 1.2 rad
+   * of knee the old pair folded. It reads **99.1 mm/s of mean planted slip at 3.2 m/s commanded**,
+   * against the 166.1 the old pair read at 1.2 -- the gait is better than it has ever been and it
+   * is doing it two and a half times faster. The hip stop is why the table stops where it does: at
+   * 0.80 rad the leg is 46 degrees off vertical at each extreme and the foot is being set down
+   * 0.22 m higher than the one it left. 2026-09-18, the Node bench.
+   *
    * **And the clause after it was wrong in kind, not just in digits.** It said the lift "stays
    * inside the 0.18 m step envelope the support query admits", which reads as a constraint and is
    * not one: `SUPPORTED_CARRIER_V1.STEP_HEIGHT_M` is how high a *ledge* the carrier will step up
@@ -2123,9 +2452,9 @@ export const LOCOMOTION_BIPED = {
    * feet are half a cycle apart and only one of them is ever in the air. 2026-09-04, corrected
    * 2026-09-05, the Node bench.
    */
-  strideCadence: 4.4,
-  strideSwing: 0.50,
-  kneeLiftScale: 2.4,
+  strideCadence: 3.95,
+  strideSwing: 0.60,
+  kneeLiftScale: 2.00,
   kneeLiftPhase: 1.5,
 
   /**
@@ -2203,8 +2532,31 @@ export const LOCOMOTION_BIPED = {
    * smallest value at which the walk is unaffected -- taken there rather than higher for the
    * reason rung 1 gives, that a command which arrives instantly stops shaping the motion.
    * 2026-09-04, the Node bench.
+   *
+   * **And the paragraph above is why 6.0 had to go when the body got faster.** Its own arithmetic
+   * scales: the carrier went 1.2 -> 3.2 m/s on 2026-09-18, so the cycle runs 2.67x sooner and the
+   * hip's 1.7 rad/s became 4.5 while the knee's 5 became 13.3. 6.0 sat between them, clipping the
+   * knee *and* starting to clip the hip, and the walk came apart -- 398 of 1919 substeps with no
+   * sole on the floor at all, because `hipDrop` puts the root where the *commanded* pose says the
+   * supporting leg reaches and the leg was nowhere near there yet. Re-swept over `WALK_SEQUENCE`
+   * at the new gait, with the flight count as the column that matters:
+   *
+   *     rate rad/s   no sole down   mean planted slip mm/s   peak sole lift mm
+   *          9          432/1919             520.9                  214.5
+   *          9.5        295/1919             875.7                  225.1
+   *         10            7/1919              97.6                  183.2
+   *         10.5          8/1919              99.1                  194.1
+   *         11           13/1919             107.5                  202.0
+   *         13           49/1919             116.1                  208.0
+   *         17           43/1919             117.6                  227.6
+   *
+   * **The shelf is 10 to 11 and the cliff under it is at 9.5**, which is the hip's 4.5 rad/s plus
+   * the overshoot a sinusoid asks for either side of it: below that the hip itself is clipped and
+   * the stride stops being a stride. Above 11 the knee stops being clipped too, the swing sole is
+   * flung higher, and the flight creeps back. 10.5 is taken -- clear of the cliff, still clipping
+   * the knee, and the middle of the flat part. 2026-09-18, the Node bench.
    */
-  targetRate: 6.0,
+  targetRate: 10.5,
 
   /**
    * The three motor ceilings, newton-metres. **Swept, and they are ceilings and not stiffnesses.**
@@ -2248,6 +2600,21 @@ export const LOCOMOTION_BIPED = {
    * argument -- raising either past its plateau makes the readings worse, and the house rule is
    * that a ceiling raised without a measured table beside it is not raised. 2026-09-04, the Node
    * bench.
+   *
+   * **Left exactly as swept when `SHIPPED_MASS_SCALE` and the carrier were raised on 2026-09-18**,
+   * and that is a result rather than an omission. The first attempt scaled all three by
+   * the scale on the argument that a leg's table is about authority against the weight it holds
+   * up. That is true of *standing* and false of *walking*, and walking is what broke: 393
+   * substeps of a walk with no sole in contact at all, 454.7 mm/s of contact slip against a
+   * budget of 50, and a 10 N.s impulse felling a body that is supposed to take 0.009.
+   *
+   * The reason is that a gait's torque is `I * alpha`, not `m * g * L`. The links did not change
+   * length, so `I` fell with the mass -- 0.162 -- but the carrier went from 1.2 m/s to 3.2 and a
+   * stride at fixed amplitude has `alpha` going as the square of its rate, which is 2.667^2 =
+   * 7.111. The product is **1.152**: the lighter limb swung two and two thirds times faster needs
+   * within 15 % of the torque the heavy slow one did, and 15 % is well inside every plateau in
+   * the table above. So the three numbers stand, and the table above still reads correctly
+   * against them.
    */
   hipTorque: 900,
   kneeTorque: 500,
@@ -2314,20 +2681,37 @@ export const LOCOMOTION_BIPED = {
    * The virtual carrier's own ceilings.
    *
    * `DEFAULT_SUPPORTED_CARRIER` is 1.6 m/s, 9 m/s2, 2.4 rad/s and 14 rad/s2, and it is a
-   * Warrior's. A golem is slower and turns worse, which is the whole of what makes it a different
-   * thing to drive: 1.2 m/s is 75 % of a Warrior's supported walk, and 4.0 m/s2 means it takes
-   * 0.30 s to reach it against a Warrior's 0.18. The yaw pair is scaled the same way.
+   * Warrior's. A golem used to be slower and turn worse -- 1.2 m/s, 4.0 m/s2, 1.6 and 6.0 --
+   * which was 75 % of a Warrior's supported walk.
+   *
+   * **Raised 2026-09-18 with `SHIPPED_MASS_SCALE`, and it is the same correction.** At 554.8 kg the
+   * golem walked at a measured 0.68 m/s median and contacts closed at 1.27, against a damage
+   * model priced at 11 m/s; at 90 kg there is nothing left holding it to a shuffle. 3.2 m/s is a
+   * brisk run for a 1.9 m body and twice a Warrior's supported walk, and 9.0 m/s2 reaches it in
+   * 0.36 s -- near enough the 0.30 the old pair gave, so the body still has to lean into a start
+   * rather than snapping to speed. The yaw pair is raised with it: 1.6 rad/s is 92 degrees a
+   * second, which is not enough to keep a circling opponent in front of you, and 3.0 is 172.
    *
    * **These are the carrier's ceilings, not the legs'.** Nothing in the gait limits how fast the
    * golem travels; the gait reads the speed the carrier committed to and lays a stride over it.
    * Chosen by eye against the Warrior's numbers rather than swept, because what they decide is
    * how the golem *handles*, which is the gate's question and not a bench's. 2026-09-04.
+   *
+   * **`backSpeedMps` and `strafeSpeedMps` were added 2026-09-18**, and they are the reason a
+   * fight can now be forced. The carrier was an isotropic disc: retreating was as fast as
+   * advancing, so no golem could ever be cornered, closing to a decision was always optional and
+   * standing off was always safe. The ratios are `CONFIG.fighter`'s own human ones -- 0.59 back
+   * and 0.76 sideways of a walk -- which that block carries because the first archer bench came
+   * back 0 kills and 0 deaths in twelve bouts at the cap for exactly this reason. See
+   * `VirtualCarrierConfig` in `src/supported-locomotion-runtime.ts` for the envelope they shape.
    */
   carrier: {
-    maxSpeedMps: 1.2,
-    maxAccelerationMps2: 4.0,
-    maxYawSpeedRadS: 1.6,
-    maxYawAccelerationRadS2: 6.0,
+    maxSpeedMps: 3.2,
+    backSpeedMps: 1.9,
+    strafeSpeedMps: 2.4,
+    maxAccelerationMps2: 9.0,
+    maxYawSpeedRadS: 3.0,
+    maxYawAccelerationRadS2: 11.0,
   },
 
   /**
@@ -2394,8 +2778,29 @@ export const LOCOMOTION_BIPED = {
    * 600 is the bench key, chosen for the *drop* rather than for the threshold: 200 N.s is over
    * the line but only tips the root to an up-dot of 0.81, which reads as a stumble, and 1600
    * buys 2 mm more drop for two and a half times the impulse. 2026-09-04, the Node bench.
+   *
+   * **200 from 2026-09-18, and this is the one shove the uniform `ns()` scale does not carry.**
+   * An impulse chosen for a *threshold* scales with the mass, and the wheel's and the multileg's
+   * still do. This one was chosen for the drop, and a drop is a ragdoll falling over rather than a
+   * boundary being crossed: the legs kept the torques they had -- 900 / 500 / 220 N.m, for the
+   * `I x alpha` reason two blocks down -- so against a sixth of the weight they are six times the
+   * prop they were, and `ns(600)` = 97.2 N.s now only leans the body. Re-swept over
+   * `LOCOMOTION_SEQUENCE`:
+   *
+   *     shove N.s   x its own threshold   root up-dot at its worst   lowest the socket reached
+   *        97.2             51                    +0.861                    0.768 m
+   *       120               63                    +0.672                    0.768
+   *       150               79                    +0.358                    0.634
+   *       175               92                    +0.068                    0.473
+   *       200              105                    -0.182                    0.366
+   *       250              131                    -0.158                    0.363
+   *
+   * 200 is taken: the first row that is genuinely past horizontal, and the curve has flattened by
+   * 250, so it is a setting rather than an edge. It lands the socket at 0.366 m, which is the 0.367
+   * the stone body reached at 600 -- the same knockdown, bought at a third of the impulse because
+   * there is a sixth of the body. 2026-09-18, the Node bench.
    */
-  shoveImpulseNs: 600,
+  shoveImpulseNs: 200,
 
   /**
    * What a planted sole is allowed to slide, metres per second. **A budget, not a target.**
@@ -2466,7 +2871,7 @@ export const TORSO_WAIST = {
    */
   ballLength: 0.30,
   ballRadius: 0.14,
-  ballMass: 33,
+  ballMass: kg(33),
   ballHealth: 120,
   ballVitalityWeight: 1,
 
@@ -2612,7 +3017,7 @@ export const TORSO_PLAIN = {
    * rather than hidden in a density -- the same distinction `TERMINAL_BLADE.mass` draws when it
    * refuses to derive a sword's mass from its collider's volume. 2026-09-04.
    */
-  coreMass: 139,
+  coreMass: kg(139),
   coreHealth: 260,
   coreVitalityWeight: 3,
   /**
@@ -2685,7 +3090,7 @@ export const TORSO_PLATED = {
    * against the plain torso's 0.50 -- the same hollow core with thicker walls and armour slabs
    * over them -- so 0.09072 m3 = 236 kg. 2026-09-04.
    */
-  coreMass: 236,
+  coreMass: kg(236),
   coreHealth: 320,
   coreVitalityWeight: 3,
   /**
@@ -2741,7 +3146,7 @@ export const HEAD_NECK = {
    */
   neckLength: 0.20,
   neckRadius: 0.075,
-  neckMass: 6.9,
+  neckMass: kg(6.9),
   neckHealth: 80,
   neckVitalityWeight: 0.8,
 
@@ -2756,7 +3161,7 @@ export const HEAD_NECK = {
   headWidth: 0.34,
   headHeight: 0.32,
   headDepth: 0.36,
-  headMass: 81,
+  headMass: kg(81),
   headHealth: 140,
   headVitalityWeight: 2,
 
@@ -2890,10 +3295,13 @@ export const HEAD_NECK = {
    * taken as the highest ceiling at which a shove still visibly turns the head, and the motor
    * still walks it back inside two thirds of a second. **Whether that reads as a head or as a
    * loose bolt is the owner's to say at the gate**; what the table establishes is only where the
-   * compliance is and is not. 2026-09-04, the Node torso bench.
+   * compliance is and is not. 2026-09-04, the Node torso bench.   *
+   * **Scaled by `SHIPPED_MASS_SCALE` on 2026-09-18.** The table is left as it was taken, because
+   * every row in it is about authority against the weight being held and both sides of that
+   * moved by the same factor. See `SHIPPED_MASS_SCALE` at the head of this file.
    */
-  pitchTorque: 260,
-  yawTorque: 60,
+  pitchTorque: 42,
+  yawTorque: 10,
 
   /** `CHAIN_WRIST.motorDamping`'s setting and argument, unchanged. 2026-09-04. */
   motorDamping: 6,
@@ -2962,7 +3370,7 @@ export const HEAD_RAM = {
    * billet. A ram plate is a shell over the stone brow rather than a block of bronze: at a fill
    * of 0.35 that is 0.002352 m3 and 21 kg. 2026-09-04.
    */
-  plateMass: 21,
+  plateMass: kg(21),
   plateHealth: 90,
   plateVitalityWeight: 0.6,
   /**
@@ -2994,7 +3402,7 @@ export const HEAD_RAM = {
    * problem -- 1.5 m/s is -- and the lever that would fix it is `lunge.driveTorque` below
    * rather than a scoring row. The entry under Session 03 of the style set reports the fall.
    */
-  impactMassKg: 74,
+  impactMassKg: kg(74),
 
   /**
    * What `guard` holds, radians of nod, against `HEAD_PLAIN.guardPitch`'s 0.70.
@@ -3085,9 +3493,74 @@ export const HEAD_RAM = {
    * club's blow; since 2026-09-06 a blow is worth the energy that arrives and there is no ramp
    * to re-derive, so 74 kg at 1.5 m/s is 54 J and reads as what it is -- most of a body arriving
    * slowly, and slowly is the term that gets squared. 2026-09-04, the Node torso bench.
+   *
+   * **`driveRate` is 8 from 2026-09-18, and it is the follow-through that moved rather than the
+   * drive.** A velocity event is mass-independent, so 9 rad/s for 0.05 s lays down the same
+   * 0.45 rad it always did; what carries the head the rest of the way is momentum against the
+   * neck's damping and against gravity, and `SHIPPED_MASS_SCALE` scaled the first two of those
+   * and not the third. The stroke came out 0.10 rad longer and arrived at its own stop -- 1.5510
+   * rad against a `pitchJointMax` of 1.55, which is the one thing the block above says a lunge
+   * must never do. Re-swept on the torso bench:
+   *
+   *     driveRate   driveSeconds   deepest pitch   carried past the drive
+   *         9           0.05           1.5510              1.0993
+   *         9           0.045          1.3094              0.9361
+   *         9           0.04           1.1331              0.7987
+   *         8           0.05           1.3732              0.9683
+   *         8           0.045          1.1057              0.7707
+   *         7           0.05           1.1142              0.7593
+   *
+   * 8 at the unchanged 0.05 s is taken: 0.177 rad clear of the stop, which is more than the tenth
+   * of a radian this block asks for, and 0.968 rad of follow-through, which is all but a hundredth
+   * of what the stroke has always carried. Dropping `driveSeconds` instead reaches the same depth
+   * with visibly less carry, and the carry is what a lunge is. 2026-09-18, the Node torso bench.
+   *
+   * ---
+   *
+   * **The re-scale has left this head unable to score at all, and neither of the two levers in
+   * this block can fix it. It is written down here rather than tuned around.**
+   *
+   * On the post fixture in `tests/golem-torso-head.test.mjs` the lunge now arrives with **4.58 J
+   * at 1.24 m/s**, against a `CONFIG.combat.crushFloorJ` of 7.84 -- so it takes the shove path and
+   * scores nothing. In real bouts it is worse: a ram-headed `golem-fencer` over 8 side-swapped
+   * bouts landed **2 plate blows in total, both slaps, for 0.00 damage**, the best of them 0.34 J.
+   *
+   * **The lunge is limited by its own joint stop and not by its actuator**, which is why raising
+   * the drive cannot buy the speed back. Swept on the post fixture, the best blow of the lunge:
+   *
+   *     driveRate   driveTorque   arrives at   energy
+   *         8           146        1.24 m/s     4.58 J
+   *         9           146        1.05         3.30
+   *        11           146        0.53         0.85
+   *        14           292        0.43         0.56
+   *        14           584        0.43         0.56
+   *
+   * The speed falls as the drive rises, and quadrupling the torque moves nothing at all: past
+   * `driveRate` 9 the head reaches `HEAD_NECK.pitchJointMax` about where the post is and arrives
+   * already arrested against its own stop. Nor is the reading an artefact of a light striker being
+   * bounced off its target -- the fixture's post at 12, 40 and 120 kg reports 1.24, 1.20 and
+   * 1.19 m/s, so the plate really is arriving at about 1.2 m/s.
+   *
+   * **And mass cannot rescue it either.** `impactMassKg` scaled with everything else, 74 kg to
+   * 11.99. Even declaring that a ram commits the golem's *entire* 89.9 kg would put the reduced
+   * mass against a 12 kg target at 10.6 kg and the blow at 8.1 J -- barely over a floor it has to
+   * clear by enough to be worth throwing. The floor itself is not the thing to move: `crushFloorJ`
+   * is `0.5 * 3.23810 * 2.2^2`, a person's 3.4 kg club into a person's torso, and the whole point
+   * of `SHIPPED_MASS_SCALE` was to make the golem a body that floor is honest about.
+   *
+   * **The root cause is one line in `src/golem/head/head.ts`: "A lunge is a nod driven hard."**
+   * The lunge drives the neck's pitch joint and nothing else, so the only speed it can ever have
+   * is the nod's. On a 554.8 kg golem that was enough because 74 kg of head made it enough; on a
+   * human-scale body it is not, and no number in this block changes that. What would is a design
+   * change -- driving the carrier forward through the lunge so the plate arrives with the body's
+   * closing speed behind it, which is what the block above already calls "the whole body
+   * committing" and what the implementation has never done. That is the owner's call to make,
+   * because it changes what this morphology *is*, so it is reported rather than taken. The two
+   * tests it fails are left failing on purpose: they assert the ram scores, the ram does not
+   * score, and a green test there would assert nothing. 2026-09-18.
    */
   lunge: {
-    driveRate: 9,
+    driveRate: 8,
     driveSeconds: 0.05,
     followSeconds: 0.02,
     /**
@@ -3119,9 +3592,13 @@ export const HEAD_RAM = {
      * `HEAD_NECK.pitchTorque`.** The table is in the block comment above; the short of it is that
      * the neck holds a head up at 260 because anything stiffer arrests the follow-through, and a
      * lunge is the whole body committing. 2026-09-04.
+     *
+     * **Scaled by `SHIPPED_MASS_SCALE` on 2026-09-18**, with `HEAD_NECK.pitchTorque`, so the two
+     * keep the relationship the block comment above is about. See `SHIPPED_MASS_SCALE`, at
+     * the head of this file.
      */
-    driveTorque: 900,
-    followTorque: 80,
+    driveTorque: 146,
+    followTorque: 13,
   },
 };
 
@@ -3320,8 +3797,69 @@ export const GOLEM_ASSEMBLY = {
    * 0.15 is in `docs/measurements.md`, Session 11 of the style set, and is reported rather than
    * fixed, under the owner's standing instruction that golem against Warrior does not have to be
    * balanced.
+   *
+   * ---
+   *
+   * **2026-09-18, the sword-prototype re-scale: 0.15 -> 0.012, because the body under it is a
+   * sixth of the mass it was.** `SHIPPED_MASS_SCALE` at the head of this file took the golem from
+   * 560 kg to about 91 kg, and every force with it, and the contacts that follow are the ones the
+   * damage model was always priced for: scoring hits now close at 10.8 m/s p50 against a
+   * `referenceSpeed` of 11, where the stone body closed at 1.27. That fixed the numerator. It did
+   * not fix the bar -- measured on the re-scaled body, a full bar was worth about 32.5 damage
+   * points and a p90 scoring cut about 0.63, which is **52 clean cuts to finish a fight** against
+   * the owner's target of five to eight.
+   *
+   * The count swept here is not "blows that landed" but **the largest blows on the loser that
+   * between them did 80 % of the damage it took** -- the ones that did the killing, with the
+   * dribble of grazes left out. 16 side-swapped `golem-fencer` mirrors a row, 8 seeds, 150 s cap:
+   *
+   * | health | clean hits | min..med..p99 | landed | seconds | winner's bar | severs |
+   * |---:|---:|---:|---:|---:|---:|---:|
+   * | 0.016 | 8.1 | 2..9..14 | 18.3 | 12.5 | 0.544 | 1.4 |
+   * | 0.015 | 7.8 | 2..9..14 | 17.5 | 12.3 | 0.557 | 1.3 |
+   * | **0.014** | **6.3** | **2..6..11** | **15.3** | **11.1** | **0.596** | **1.4** |
+   * | 0.013 | 6.2 | 2..6..11 | 14.6 | 11.8 | 0.554 | 1.5 |
+   * | 0.012 | 5.0 | -- | 11.3 | 8.1 | 0.741 | -- |
+   *
+   * **This is the third take of this table and the second re-take, and the reason is the same one
+   * every time: the arm underneath it kept changing.** The history is worth keeping because it is
+   * the argument for where the row sits now.
+   *
+   * The first sweep was taken against chains under-torqued for the sword they carry, and read 0.012
+   * at 6.9 clean hits. It was deliberately chosen at the *top* of the five-to-eight band on the
+   * reasoning that better technique would move the count down. The second take, after correcting
+   * `CHAIN_PITCH.motorTorque` and `CHAIN_REACH.anchorForce`, read 0.012 at 7.3 -- the margin was
+   * the point of taking the top of the band, and it was spent exactly once. The third take, after
+   * the same false premise was found in `ANCHOR_DRIVE.linearForce` and `CHAIN_WRIST.bendTorque`
+   * and the arm finally got the authority a 6.5 kg arm should have, read **0.012 at 5.0 clean hits
+   * in 8.1-second bouts** -- out the bottom of the band, having been at the top of it twice.
+   *
+   * **So this row is taken in the middle, and that is the lesson rather than a preference.** Three
+   * times a number chosen at the edge of a band was pushed out of it by the next correction to the
+   * thing it was measured against. 0.014 sits at 6.3 with 0.013 below it and 0.015 above, a rung
+   * of margin each way, and it takes a change bigger than any of the three so far to move it out.
+   * The earlier note here argued for the top of the band because the phase after this one is meant
+   * to replace the flail with a committed thrust and better technique moves this count down. That
+   * argument is still good and it is now *why the middle is right*: a row at the top has nowhere
+   * to go when technique improves, and a row at the bottom has nowhere to go when it degrades.
+   *
+   * Rows are 24 side-swapped `golem-fencer` mirrors, 12 seeds, 150 s cap -- widened from 16
+   * because 0.013 through 0.016 sat inside a spread that 16 could not separate.
+   *
+   * **Every row decides every bout by exhaustion** -- 24 of 24, not one on the clock -- so
+   * decidedness is flat here and cannot pick this one. What is being picked is the hit count.
+   * Bouts are also less than half as long as they were two takes ago, 11.1 seconds against 22.1,
+   * because the corrected arm lands harder rather than more often: 15.3 blows on the loser now
+   * against 16.8 then, for a bout that is 11 seconds shorter.
+   *
+   * The `min` column is a decapitation and not a stomp the bar can fix: a sever kills whatever the
+   * bar's depth is, and a head coming off in one cut is the game working. A whole *column* of them
+   * would not be, which is why the column is printed.
+   *
+   * 0.012 and below are refused for the headroom above -- at 0.012 nine bouts in twelve now finish
+   * inside eight seconds. 0.016 and above are refused for leaving the band at the top.
    */
-  healthScale: 0.15,
+  healthScale: 0.014,
 
   /**
    * The base frame's box, metres, and why there is one at all.
@@ -3376,7 +3914,7 @@ export const LOCOMOTION_WHEEL = {
    */
   wheelRadius: 0.42,
   wheelWidth: 0.18,
-  wheelMass: 259.4,
+  wheelMass: kg(259.4),
   wheelHealth: 240,
   wheelVitalityWeight: 2.6,
 
@@ -3395,7 +3933,7 @@ export const LOCOMOTION_WHEEL = {
   yokeWidth: 0.44,
   yokeHeight: 0.28,
   yokeDepth: 0.34,
-  yokeMass: 108.9,
+  yokeMass: kg(108.9),
   yokeHealth: 300,
   yokeVitalityWeight: 3.4,
   forkClearance: 0.04,
@@ -3533,11 +4071,25 @@ export const LOCOMOTION_WHEEL = {
    * than swept, because what they decide is how the golem *handles*, which is the gate's question
    * and not a bench's. 2026-09-04.
    */
+  // Raised 2026-09-18 with the biped's, by the same factor, so that the three locomotion
+  // options keep the handling relationship they were chosen for. See `BIPED.carrier`.
   carrier: {
-    maxSpeedMps: 2.0,
-    maxAccelerationMps2: 6.5,
-    maxYawSpeedRadS: 2.6,
-    maxYawAccelerationRadS2: 10.0,
+    // **3.2 and not the 5.3 the uniform re-scale first put here.** The tread stops rolling and
+    // starts sliding between 3.2 and 3.3 m/s, and it is a cliff rather than a slope -- over
+    // `FAST_WALK_SEQUENCE`, mean contact slip reads 0.0 mm/s at 2.6, 20.5 at 3.2, 267.3 at 3.3
+    // and 589.8 at 3.6, against a rolling budget of 50. Neither mass nor torque moves it: the
+    // solid-stone wheel slides at 5.3 exactly as the light one does, and 194, 300, 600 and 1200
+    // N.m of `wheelSpinTorque` all read between 258 and 455 there. What breaks is the rolling
+    // condition itself -- `omega = v / r` is written from the carrier's *command*, so the moment
+    // the body stops achieving the command the tread is turning faster than the ground under it.
+    // Raising `maxAccelerationMps2` to 22 does not move the cliff either. 2026-09-18, the Node
+    // bench.
+    maxSpeedMps: 3.2,
+    backSpeedMps: 1.9,
+    strafeSpeedMps: 2.4,
+    maxAccelerationMps2: 14.5,
+    maxYawSpeedRadS: 4.9,
+    maxYawAccelerationRadS2: 18.0,
   },
 
   /**
@@ -3625,7 +4177,7 @@ export const LOCOMOTION_WHEEL = {
    * units and the second is 725 kg against a base geometry. 3200 buys a further tilt and *less*
    * drop, because the assembly bounces. 2026-09-04, the Node bench.
    */
-  shoveImpulseNs: 1600,
+  shoveImpulseNs: ns(1600),
 
   /**
    * What a rolling contact patch is allowed to slide, metres per second. **A budget, not a
@@ -3686,7 +4238,7 @@ export const LOCOMOTION_MULTILEG = {
   chassisWidth: 0.68,
   chassisHeight: 0.20,
   chassisDepth: 0.56,
-  chassisMass: 198.0,
+  chassisMass: kg(198.0),
   chassisHealth: 300,
   chassisVitalityWeight: 3.4,
 
@@ -3726,20 +4278,20 @@ export const LOCOMOTION_MULTILEG = {
    */
   femurLength: 0.22,
   femurRadius: 0.058,
-  femurMass: 5.0,
+  femurMass: kg(5.0),
   femurHealth: 90,
   femurVitalityWeight: 0.6,
 
   shinLength: 0.20,
   shinRadius: 0.048,
-  shinMass: 3.2,
+  shinMass: kg(3.2),
   shinHealth: 75,
   shinVitalityWeight: 0.5,
 
   footLength: 0.20,
   footWidth: 0.13,
   footHeight: 0.07,
-  footMass: 4.7,
+  footMass: kg(4.7),
   footHealth: 70,
   footVitalityWeight: 0.4,
 
@@ -3891,7 +4443,11 @@ export const LOCOMOTION_MULTILEG = {
    * the leg's own weight, which is the wrong thing for this number to be measuring. 2026-09-04,
    * the Node bench.
    */
-  targetRate: 10.0,
+  // 14.0 from 2026-09-18, for the reason `LOCOMOTION_BIPED.targetRate` sets out at length: the
+  // carrier went 0.8 -> 1.4 m/s, the cycle runs with it, and 10.0 had begun to clip the hip as
+  // well as the knee. At 10.0 the walk reads 213 of 1919 substeps with no pad on the floor at all
+  // and at 14.0 it reads none, on an otherwise identical run.
+  targetRate: 14.0,
 
   /**
    * The ceiling on how fast the root may be carried to the height the stride solved for, m/s.
@@ -3943,6 +4499,11 @@ export const LOCOMOTION_MULTILEG = {
    * them, which is `LOCOMOTION_BIPED`'s own rule and is the only defensible way to read a table
    * like this: a value at the edge of a plateau is one solver change from falling off it.
    * 2026-09-04, the Node bench.
+   *
+   * **Left as swept when the body was re-scaled on 2026-09-18**, for the reason and with the
+   * arithmetic `LOCOMOTION_BIPED`'s three carry: a gait's torque is `I * alpha`, the mass fell by
+   * 0.162 and the stride rate rose by 2.667, and `0.162 * 2.667^2` is 1.152. Within 15 % of
+   * unchanged, and well inside the plateaux above.
    */
   hipTorque: 180,
   kneeTorque: 60,
@@ -3987,11 +4548,29 @@ export const LOCOMOTION_MULTILEG = {
    * patch. Chosen by eye against the other two rather than swept, because what they decide is how
    * the golem handles, which is the gate's question. 2026-09-04.
    */
+  // Raised 2026-09-18 with the biped's, by the same factor. See `BIPED.carrier`.
   carrier: {
-    maxSpeedMps: 0.8,
-    maxAccelerationMps2: 3.0,
-    maxYawSpeedRadS: 0.7,
-    maxYawAccelerationRadS2: 3.0,
+    // **1.4 and not the 2.1 the uniform re-scale first put here, because six short legs cannot
+    // deliver it.** The pads are 0.42 m long and the stride is solved from that, so a metre per
+    // second more of travel is bought entirely by cadence, and past 1.4 the feet give up. Mean
+    // planted slip as a fraction of the travel, over `WALK_SEQUENCE` at `targetRate` 14:
+    //
+    //     max m/s   mean planted slip mm/s   slip / travel
+    //       0.8              248.2               0.310
+    //       1.4              524.3               0.374
+    //       1.6              795.4               0.497
+    //       2.1             1037.6               0.494
+    //
+    // The knee is between 1.4 and 1.6 and it is the one worth respecting: 0.310 is what this gait
+    // reads at the speed it was solved at, 0.374 is within reach of it, and half the travel is a
+    // body being dragged. It also leaves the multileg what it is for -- the option that is hard to
+    // put over and slow to get anywhere. 2026-09-18, the Node bench.
+    maxSpeedMps: 1.4,
+    backSpeedMps: 0.8,
+    strafeSpeedMps: 1.1,
+    maxAccelerationMps2: 6.5,
+    maxYawSpeedRadS: 1.2,
+    maxYawAccelerationRadS2: 5.5,
   },
 
   /**
@@ -4070,15 +4649,27 @@ export const LOCOMOTION_MULTILEG = {
    * against the biped's 51x and the wheel's 225x, is the same statement all three blocks make: a
    * threshold crossed and a body on the floor are different questions. 2026-09-04, the Node bench.
    */
-  shoveImpulseNs: 2400,
+  shoveImpulseNs: ns(2400),
 
   /** What a planted pad is allowed to slide, metres per second. **A budget, not a target**, on the
    *  mean and not the peak, for every reason `LOCOMOTION_BIPED.meanFootSlipBudgetMps` gives.
    *  Measured over `WALK_SEQUENCE` at the settings above: **118.9 mm/s against a carrier at 800**,
    *  so a planted pad holds about 85 % of the ground it stands on, against the biped's 90 % at
    *  114.7 of 1200. 0.30 m/s is that with a margin of about two and a half, which is the biped's
-   *  own margin over its own measurement. **Provisional.** 2026-09-04, the Node bench. */
-  meanFootSlipBudgetMps: 0.30,
+   *  own margin over its own measurement. **Provisional.** 2026-09-04, the Node bench.
+   *
+   *  **0.70 from 2026-09-18, and the re-derivation is a regression this block should say out
+   *  loud.** At the same 0.8 m/s, on the same settings, the re-scaled body reads 248.2 mm/s where
+   *  solid stone read 118.9: the pads hold 69 % of their ground now against 85 % then. Nothing in
+   *  the gait changed -- what changed is that a 0.9 kg pad skitters where a 5.6 kg one bedded in,
+   *  and no torque buys it back. Swept at the shipped 1.4 m/s: `hipTorque` 60 / 70 / 80 / 100 /
+   *  180 / 240 / 360 read 393.7, 361.6, 617.1, 579.0, 524.3, 525.2 and 525.2 mm/s, which is the
+   *  same non-monotonic band this block already warns about, a factor of two wide and dominated by
+   *  noise. Below 80 the pads also start leaving the floor. 180 is kept for that reason and the
+   *  budget is set against the band rather than a point: 0.70 is 0.50 of the 1.4 m/s the carrier
+   *  travels at, against a measured 0.374 of it, and it is the loosest number in this file.
+   *  **The multileg's gait is the weakest thing the re-scale left behind.** 2026-09-18. */
+  meanFootSlipBudgetMps: 0.70,
 
   /** How long a knockdown and the rise after it are allowed to take, seconds. The frozen 0.35 s
    *  dwell plus the frozen 0.45 s rise is the floor; 1.60 s is `LOCOMOTION_BIPED`'s own budget and

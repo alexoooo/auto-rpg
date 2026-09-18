@@ -575,8 +575,18 @@ test("the plated torso takes less of the same scored blow than the plain one", a
   // below is reading. The bound here is what makes that explicit: 1 % apart is the same blow,
   // and anything wider means the two runs stopped being comparable and nothing under it means
   // anything -- which is the failure mode a bare "the plated one took less" has by construction.
+  //
+  // **3 % from 2026-09-18, and it is the same arithmetic run again rather than a looser bound.**
+  // `SHIPPED_MASS_SCALE` took every golem mass to 0.162 of what it was, so the two cores are now
+  // 22.5 kg and 38.2 kg; the hammer this fixture swings is built here and is still 1.35 kg. The
+  // reduced masses are 1.35 x 22.5 / 23.85 = 1.27358 and 1.35 x 38.2 / 39.55 = 1.30392, which is
+  // **2.38 % apart** where the stone bodies were 0.40 % apart -- because a 1.35 kg hammer is a
+  // much larger fraction of a 22.5 kg core than of a 139 kg one, so the term that was rounding
+  // error is now visible. Measured: 1.17049 and 1.19835, 2.38 % apart to three figures. The bound
+  // stays what it was for -- comparable, not identical -- and the `coreArmour` gap it has to
+  // survive is still tens of percent, which the two lines below check directly.
   const spread = Math.abs(a.preArmourDamage - b.preArmourDamage) / a.preArmourDamage;
-  assert.ok(spread < 0.01,
+  assert.ok(spread < 0.03,
     `the two runs scored different blows: ${a.preArmourDamage} against ${b.preArmourDamage}`);
   assert.ok(b.preArmourDamage > a.preArmourDamage,
     "the heavier core has to be struck harder, not softer, by the same hammer");
@@ -727,7 +737,16 @@ test("the ram's lunge scores on a post and the plain head scores nothing on the 
   // making.
   assert.ok(ram.contacts > 0, "the ram never reached the post; the fixture is out of range");
   const wounds = ram.reports.filter((report) => report.damage > 0);
-  assert.ok(wounds.length > 0, "the ram lunged and scored nothing");
+  // The message carries the blow it did land, because "scored nothing" has two causes that want
+  // opposite fixes: a plate that never arrived, and a plate that arrived under `crushFloorJ` and
+  // took the shove path. The energy and the speed tell them apart at a glance.
+  const arrived = ram.reports.reduce(
+    (a, b) => (a === null || b.energyJ > a.energyJ ? b : a), null);
+  assert.ok(wounds.length > 0,
+    `the ram lunged and scored nothing: ${ram.contacts} contacts, ${ram.reports.length} reports, `
+    + `the best of them ${arrived ? `${arrived.energyJ.toFixed(2)} J at `
+      + `${arrived.closingSpeed.toFixed(2)} m/s on ${arrived.partMassKg} kg` : "none"}, `
+    + `against a blunt floor of ${CONFIG.combat.crushFloorJ} J`);
   const best = wounds.reduce((a, b) => (b.damage > a.damage ? b : a));
   // The blunt row, which is now the club's row and every other blunt row as well. It had two
   // speeds of its own until 2026-09-06, because a floor in metres per second is a statement

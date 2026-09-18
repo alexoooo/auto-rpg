@@ -27,7 +27,8 @@ import { capsulePart } from "../src/rig.ts";
 import { AnchorDrive, slewTowards } from "../src/golem/anchor-drive.ts";
 import {
   ANCHOR_DRIVE, BENCH_READOUT, BENCH_STAND, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
-  TERMINAL_MACE, TERMINAL_MAUL, TERMINAL_PLATE, TERMINAL_WHIP, TORSO_PLAIN, TORSO_PLATED,
+  TERMINAL_BLADE, TERMINAL_MACE, TERMINAL_MAUL, TERMINAL_PLATE, TERMINAL_WHIP,
+  TORSO_PLAIN, TORSO_PLATED,
 } from "../src/golem/config.ts";
 import { BenchReadout, blankSample } from "../src/golem/readout.ts";
 import {
@@ -1247,11 +1248,30 @@ test("the maul's second hand arrives, takes the grip, and holds it as a constrai
   // Measured in the Node bench, 2026-09-06: the grip taken at 0.246 s on the reach chain and
   // 0.462 s on the wrist chain, 0.043 and 0.085 mm of grip stray against 206 and 230 mm at the
   // driven anchor. The bounds below are provisional and are to be re-taken after the owner's gate.
+  //
+  // **2026-09-18: the held joint is unchanged, and what moved is the violation the latch builds.**
+  // `maul.ts` takes the grip on the first step the trailing hand is inside
+  // `TERMINAL_MAUL.joinWithin`, so the joint is born with its frames up to 50 mm apart. Correcting
+  // the arm chains for the sword they carry gave the wrist chain the force to cross that whole
+  // shell in a step, and it began latching 38.9 mm out where it used to creep in and latch near
+  // coincident. The solver clears it in 0.029 s and then holds 0.079 mm -- the 2026-09-06 number.
+  // The bench used to exclude a single step after the latch, which read the *second* step of that
+  // clearing, 15.5 mm, and called it the joint's error; it now waits for the error to stop
+  // falling. Two claims are added rather than removed: that the violation is inside the bound
+  // `joinWithin` sets, and that it clears, which is what the 48.3 m/s incident in that config
+  // block was. Measured: join 0.2 and 38.9 mm, settling in 0.004 and 0.029 s.
   for (const id of ["effector.reach.maul", "effector.wrist.maul"]) {
     const run = await runGolemBench({ moduleId: id });
     assert.ok(run.gripTakenAt !== null && run.gripTakenAt < 2,
       `${id}: the second hand took ${run.gripTakenAt} s to reach the grip`);
     assert.ok(run.peakGripStrayMm !== null, `${id} published no trailing grip error`);
+    // The latch's own violation: within the shell it is allowed to build one in, and cleared.
+    assert.ok(run.gripJoinMm <= TERMINAL_MAUL.joinWithin * 1000,
+      `${id}: the grip was latched ${run.gripJoinMm} mm out, past the `
+      + `${TERMINAL_MAUL.joinWithin * 1000} mm the join allows`);
+    assert.ok(run.gripSettleSeconds !== null && run.gripSettleSeconds < 0.2,
+      `${id}: the solver took ${run.gripSettleSeconds} s to pull a `
+      + `${run.gripJoinMm} mm violation in, and a joint that cannot is a joint being torn`);
     assert.ok(run.state.peakAnchorStrayMm !== null, `${id} drives an anchor and must publish it`);
     assert.ok(run.peakGripStrayMm < run.state.peakAnchorStrayMm,
       `${id}: the grip strayed ${run.peakGripStrayMm} mm against ${run.state.peakAnchorStrayMm}`
@@ -1312,11 +1332,29 @@ test("the maul narrows the chain it is on, the mace does not, and the chain publ
   assert.equal(axis(wristBlade, "bend").max, CHAIN_WRIST.bendMax);
 });
 
-test("a wrist is cast to the load it carries, and a blade's is what the config says", async () => {
+test("a wrist is cast to the load it carries, and nothing on the shelf is under the floor",
+  async () => {
   // `CHAIN_WRIST.carryRatio`'s whole reason: an 18 kg bar on a 1.8 kg ring is a mass ratio the
   // solver does not hold, and the cure is the ring's mass. Read back off the built parts rather
   // than the config, because the rule lives in `wrist.ts` and a config with the number in it
   // and a chain that ignored it would pass a test that read the config.
+  //
+  // **This was "and a blade's is what the config says" until 2026-09-18, and that half of it is
+  // now false.** The rule in `wrist.ts` is `max(ringMass, carryRatio * carried)`, and a blade used
+  // to sit under the floor: 1.30 kg of blade against a 1.8 kg ring cast to 0.52, so the floor won
+  // and the ring weighed what the config said. `SHIPPED_MASS_SCALE` took the ring to 0.2916 kg and
+  // left `TERMINAL_BLADE.mass` at 1.30 -- it is the one mass in `golem/config.ts` that `kg()` does
+  // not wrap, being a real arming sword's -- so the blade's cast of 0.52 now beats the floor and
+  // the blade goes down the same branch as the mace. That is the rule working, not failing: a
+  // 1.30 kg blade on a 0.2916 kg ring is a 4.5-to-1 ratio across a locked hinge, which is exactly
+  // the thing `carryRatio` exists to stop the solver having to hold.
+  //
+  // The floor is not merely unused by the blade; it is unreachable by anything the registry
+  // offers. It binds below `ringMass / carryRatio` = 0.7290 kg on the ring and 0.9315 kg on the
+  // link, and the whole shelf, lightest first, is whip 1.2960, fist 1.2960, blade 1.3000, plate
+  // 2.3004, mace 2.9160, maul 7.7760. So the test asserts the rule rather than either branch of
+  // it, and pins the fact that only one branch is currently live -- which is the thing that would
+  // silently change if somebody added a terminal lighter than a sword.
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const stand = buildGolemStand(arena.scene, { side: "left" });
   const ctx = {
@@ -1326,17 +1364,41 @@ test("a wrist is cast to the load it carries, and a blade's is what the config s
   const massOf = (module, suffix) =>
     module.parts.find((part) => part.id.endsWith(suffix)).part.body.getMassProperties().mass;
   try {
-    const blade = golemModule("effector.wrist.blade").build(ctx);
-    // Havok stores mass as float32, so the config's 1.8 comes back as 1.7999999523.
-    assert.ok(Math.abs(massOf(blade, ".rollRing") - CHAIN_WRIST.ringMass) < 1e-6);
-    assert.ok(Math.abs(massOf(blade, ".wrist") - CHAIN_WRIST.wristMass) < 1e-6);
-    blade.dispose();
-    const mace = golemModule("effector.wrist.mace").build(ctx);
-    const cast = CHAIN_WRIST.carryRatio * TERMINAL_MACE.mass;
-    assert.ok(cast > CHAIN_WRIST.ringMass, "the mace is over the floor, or this test says nothing");
-    assert.ok(Math.abs(massOf(mace, ".rollRing") - cast) < 1e-6);
-    assert.ok(Math.abs(massOf(mace, ".wrist") - cast) < 1e-6);
-    mace.dispose();
+    // The rule itself, on the two ends of the shelf that the registry actually offers on this
+    // chain. Havok stores mass as float32, so the comparisons are to a part in a million.
+    const ringOf = (carried) => Math.max(CHAIN_WRIST.ringMass, CHAIN_WRIST.carryRatio * carried);
+    const linkOf = (carried) => Math.max(CHAIN_WRIST.wristMass, CHAIN_WRIST.carryRatio * carried);
+    for (const [id, carried] of [
+      ["effector.wrist.blade", TERMINAL_BLADE.mass],
+      ["effector.wrist.mace", TERMINAL_MACE.mass],
+      ["effector.wrist.maul", TERMINAL_MAUL.mass],
+    ]) {
+      const built = golemModule(id).build(ctx);
+      assert.ok(Math.abs(massOf(built, ".rollRing") - ringOf(carried)) < 1e-6,
+        `${id}'s ring weighs ${massOf(built, ".rollRing")} and the rule says ${ringOf(carried)}`);
+      assert.ok(Math.abs(massOf(built, ".wrist") - linkOf(carried)) < 1e-6,
+        `${id}'s link weighs ${massOf(built, ".wrist")} and the rule says ${linkOf(carried)}`);
+      built.dispose();
+    }
+    // And the fact the comment above turns on: the cast is what binds, for every terminal the
+    // shelf offers on this chain and not just the three above. Read off the built ring rather than
+    // computed from a config field, because the terminals do not all declare their load the same
+    // way -- a whip publishes `segmentMass` and a count, not a mass -- and the built body is the
+    // only place the carried figure is the same kind of thing for all of them. If this ever fails
+    // the floor has come back and a branch dead since the re-scale is live again.
+    let checked = 0;
+    for (const terminal of Object.keys(EFFECTOR_TERMINALS)) {
+      const definition = golemModule(`effector.wrist.${terminal}`);
+      if (!definition) continue;
+      const built = definition.build(ctx);
+      const ring = massOf(built, ".rollRing");
+      assert.ok(ring > CHAIN_WRIST.ringMass,
+        `${terminal}'s ring weighs ${ring}, which is the floor of ${CHAIN_WRIST.ringMass} `
+        + `rather than a cast, so the floor is live again`);
+      built.dispose();
+      checked += 1;
+    }
+    assert.ok(checked >= 5, `only ${checked} wrist terminals were built, so the sweep is empty`);
   } finally {
     stand.dispose();
     arena.dispose();
@@ -1382,8 +1444,41 @@ test("the whip's lash outruns the wrist that flicks it, outside both exclusion w
   // 0.6 s at 21.49 m/s against the 19.55 m/s driven peak (2026-09-06). With zero post-contact
   // steps asserted above, the startup window is the only one there is, so a raw peak far above
   // the driven one would be a stroke being hidden rather than a rope being dropped.
-  assert.ok(state.peakTipSpeedRaw <= state.peakTipSpeedDriven * 1.2,
-    `the lash's fastest moment was ${state.peakTipSpeedRaw} m/s inside an exclusion window`);
+  //
+  // **2026-09-18, and this bound was rewritten twice in one day. The second time is the one that
+  // holds, and the reading it holds on is the cleanest in this file.**
+  //
+  // The morning's version put the bound on the drop -- `peakTipSpeedRaw < 23` -- on the argument
+  // that gravity against a 1.28 m lash is 21.5 m/s whatever the body weighs, and that the ratio to
+  // the driven peak was the wrong instrument because the driven peak had fallen (19.55 to 17.74)
+  // while the drop had not. Both halves of that were true of an arm that was under-forced. With
+  // `ANCHOR_DRIVE.linearForce` corrected -- the account is beside it -- the whip now reads:
+  //
+  //     driven peak 25.78 m/s    raw peak 25.78 m/s    ratio 1.000
+  //
+  // **The two are the same number, and the same event.** The fastest moment in the run is no
+  // longer inside the startup window at all: the crack now outruns the drop, 25.78 against 21.5,
+  // where a flick on the weak arm could not. So the morning's bound was not measuring a hidden
+  // stroke, it was measuring the stroke, and it failed because the stroke got faster -- which is
+  // what this whole correction was for. (The 2026-09-04 stone body read 27.27 m/s here. Coming
+  // back to within 6 % of it, on a body a sixth of the weight, is the re-scale checking itself.)
+  //
+  // What the claim has always been is that **nothing inside an exclusion window beat what was
+  // measured outside it**, because a window that hides a faster event makes every reading of this
+  // terminal a lie. That is a comparison between the two peaks and it always was; the ratio was
+  // only the wrong instrument while the thing it was compared against was wrong. It is asserted
+  // directly now, and the drop is kept beside it as the floor the driven peak has to clear to be
+  // a crack at all rather than a rope falling over.
+  assert.ok(state.peakTipSpeedRaw <= state.peakTipSpeedDriven * 1.05,
+    `the lash's fastest moment was ${state.peakTipSpeedRaw} m/s against a driven peak of `
+    + `${state.peakTipSpeedDriven}, so an exclusion window is hiding a stroke`);
+  assert.ok(state.peakTipSpeedDriven > 21.5,
+    `the lash peaked at ${state.peakTipSpeedDriven} m/s, under the 21.5 m/s it reaches by being `
+    + "let go of, so the wrist is not cracking it so much as dropping it");
+  // And a ceiling, because the two peaks agreeing says nothing about whether either is physical:
+  // a solver that throws the lash reports the same number in both columns.
+  assert.ok(state.peakTipSpeedRaw < 45,
+    `the lash reached ${state.peakTipSpeedRaw} m/s, which is a constraint letting go`);
 
   // **The chain underneath is pulled by what is hanging off it, and by how much is the reading.**
   // Measured 17.27 mm on the 2026-09-05 bench against the same chain's 2.17 mm with a 1.30 kg
@@ -1625,8 +1720,30 @@ test("a plate keeps clear of its own stand and of a real torso in its own envelo
  */
 test("the stroke probe reads the mark once, and the shipped cut arrives after its own arc", async () => {
   const shipped = await runStrokeBench({ moduleId: "effector.wrist.blade" });
-  assert.equal(shipped.crossings, 1,
-    `the blade crossed the mark's bearing ${shipped.crossings} times inside one arc`);
+  // **The blade crosses its mark's bearing twice inside the arc, and that is the corrected arm
+  // aiming rather than missing.** This read `crossings === 1` until 2026-09-18. The count is taken
+  // over a window that runs from the start of the arc to the end of the follow-through, so 2 could
+  // have meant either "twice while swinging" or "once swinging and once following", and those mean
+  // opposite things -- the probe now splits them (`sweptCrossings`) so the question is answered
+  // instead of argued. Both are in the arc. Measured, with the arc ending at 0.870 s:
+  //
+  //     crosses at 0.7542   crosses back at 0.8208   nearest the mark at 0.8417   miss 0.294 m
+  //
+  // The blade sweeps past the bearing, comes back across it, and is closest just after -- it
+  // settles onto the mark inside its own arc, and the miss went from 0.639 m to 0.294 m in the
+  // same change. A single crossing was what a blade too weakly driven to reach its bearing and
+  // return did, and asserting it required that the blade never swing past what it is aiming at.
+  //
+  // What the claim was protecting is that `crossedAt` is one reading and not the first of a
+  // shiver, so that is what is asserted: the bearing is swept, and it is not crossed more than a
+  // swing and a return. The closest approach was never at risk -- it is the minimum over the
+  // window and is one step by construction, which is the probe's own header.
+  assert.ok(shipped.sweptCrossings >= 1,
+    "the blade never crossed the mark's bearing inside its own arc, so it did not swing at it");
+  assert.ok(shipped.sweptCrossings <= 2,
+    `the blade crossed the mark's bearing ${shipped.sweptCrossings} times inside one arc, at `
+    + `${shipped.crossingTimes.map((at) => at.toFixed(4)).join(", ")}, which is a shiver rather `
+    + "than a swing and a return");
   assert.ok(shipped.crossedAt !== null && shipped.markAt !== null, "the probe read no mark at all");
   const strokeEnds = STROKE_GUARD_SECONDS + shipped.shape.chamberSeconds + shipped.shape.strokeSeconds;
   assert.ok(shipped.crossedAt < strokeEnds,
@@ -1641,8 +1758,22 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   // blade, measured on one golem with no opponent and no mirror, which is an instrument entirely
   // independent of the paired tournament CL and CM read the row on. The miss is unmoved at 0.65 m,
   // so `missMetres` still pins an open defect and is still a ceiling rather than a floor.
-  assert.ok(shipped.missMetres > 0.4,
-    `the shipped cut now comes within ${shipped.missMetres.toFixed(3)} m of its mark; re-take the entry`);
+  // **Re-taken 2026-09-18, and this entry is a floor now rather than a ceiling.** It read
+  // `> 0.4` and said so in as many words: the miss was an open defect at 0.65 m, the bound was a
+  // ceiling, and improving it meant re-taking the entry. It improved. Correcting the arm chains
+  // for the sword they carry -- the account is beside `ANCHOR_DRIVE.linearForce` -- took the miss
+  // to **0.294 m** and put the mark at `alongMetres` 0.000, which is the point of the blade
+  // rather than a third of the way down it. So the entry is re-taken the way it asked to be, and
+  // pinned from below so the improvement cannot quietly go away.
+  //
+  // The defect is smaller and is not gone: the grid's chosen shape, asserted below, comes within
+  // 0.10 m on the same bench, so the shipped stroke is still missing by three times what this
+  // body can do. That gap is Session 03's and is still open.
+  assert.ok(shipped.missMetres < 0.35,
+    `the shipped cut misses by ${shipped.missMetres.toFixed(3)} m against the 0.294 measured`);
+  assert.ok(shipped.missMetres > 0.15,
+    `the shipped cut now comes within ${shipped.missMetres.toFixed(3)} m of its mark, which is `
+    + "the chosen shape's own accuracy; re-take the entry and the aim defect with it");
   assert.ok(shipped.markAt < strokeEnds,
     `the shipped cut arrives at ${shipped.markAt.toFixed(3)} s, after its arc ended at `
     + `${strokeEnds.toFixed(3)}; the 2026-09-17 stroke brought it inside and this says it`

@@ -177,6 +177,23 @@ export interface VirtualCarrierConfig {
   readonly maxAccelerationMps2: number;
   readonly maxYawSpeedRadS: number;
   readonly maxYawAccelerationRadS2: number;
+  /**
+   * What the body may do going **backwards** and **sideways**, m/s. Both optional, and both
+   * default to `maxSpeedMps`, which is the isotropic disc this carrier had until 2026-09-18.
+   *
+   * **A fighter that retreats as fast as its pursuer advances cannot be caught**, and that is not
+   * a tuning complaint, it is the reason a fight never resolves: there is no such thing as being
+   * cornered, so closing to a decision is always optional and waiting is always safe. The
+   * humanoid `CONFIG.fighter` has carried `backSpeed` and `strafeSpeed` for exactly this reason
+   * since the first archer bench came back 0 kills and 0 deaths in twelve bouts -- and when the
+   * humanoid went, the two numbers lost their only reader and the golem inherited the defect.
+   *
+   * Optional rather than required so that a carrier which declares neither behaves exactly as it
+   * did, to the bit. This is shared execution-layer code and every body's locomotion runs through
+   * it; a silent change of shape here would move readings taken on bodies nobody was editing.
+   */
+  readonly backSpeedMps?: number;
+  readonly strafeSpeedMps?: number;
 }
 
 export interface VirtualCarrierState extends WorldPoint {
@@ -232,8 +249,19 @@ export class VirtualLocomotionCarrier {
     const local = clampMagnitude(request.localRight, request.localForward, 1);
     const sin = Math.sin(this.current.yaw);
     const cos = Math.cos(this.current.yaw);
-    const wantedX = (local.x * cos + local.z * sin) * this.config.maxSpeedMps;
-    const wantedZ = (local.z * cos - local.x * sin) * this.config.maxSpeedMps;
+    // **The envelope is directional, and the disc above is still what bounds the request.** The
+    // clamp says how much of its gait the body is asking for, in its own frame; these two say how
+    // fast that direction is actually worth. Scaling each local component by its own ceiling
+    // before the rotation turns the circle into two half-ellipses joined at the lateral axis --
+    // full speed ahead, less going back, less again sideways -- which is the shape a person's
+    // gait has. A carrier declaring neither gets `maxSpeedMps` twice and the circle back.
+    const aheadMps = this.config.maxSpeedMps;
+    const backMps = this.config.backSpeedMps ?? aheadMps;
+    const sideMps = this.config.strafeSpeedMps ?? aheadMps;
+    const localZ = local.z * (local.z >= 0 ? aheadMps : backMps);
+    const localX = local.x * sideMps;
+    const wantedX = localX * cos + localZ * sin;
+    const wantedZ = localZ * cos - localX * sin;
     const velocityDelta = clampMagnitude(wantedX - this.current.velocityX,
       wantedZ - this.current.velocityZ, this.config.maxAccelerationMps2 * dt);
     const velocityX = this.current.velocityX + velocityDelta.x;
