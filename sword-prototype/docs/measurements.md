@@ -42806,3 +42806,54 @@ gradient-fitted one, which is the strongest argument yet for standardising again
 
 `ct3` at clip 12 is the best fencer score this record holds -- **0.9141**, +0.5195 +-0.0691 over
 `golem-driver` -- but the +0.0625 over `ct3` itself sits inside both intervals and is not claimed.
+
+### CT5's result -- one of the four moves transfers, and it is not the one I bet on
+
+192 paired seeds against `golem-fencer`, cap 150, every bout decided. Each arm is the stock
+`golem-driver` with one constant rewritten to the level CT3's calibration reached in command space.
+
+| arm | constant | score | paired vs driver |
+| --- | --- | ---: | ---: |
+| `driver` | stock | 0.4115 | -- |
+| `driver@guardReach=1` | 0.70 to 1.00 | 0.3854 | **-0.0260 +-0.1090** |
+| `driver@circleDuty=1` | 0.40 to 1.00 | 0.3281 | **-0.0833 +-0.1037** |
+| `driver@cutLean=1` | 0.60 to 1.00 | **0.6354** | **+0.2240 +-0.1041** |
+| `driver@strikeBite=0.8` | 0.66 to 0.80 | 0.4115 | **+0.0000 +-0.0000** |
+| `driver@guardReach=1&circleDuty=1` | both | 0.2656 | **-0.1458 +-0.0957** |
+| `ct3` | -- | **0.8594** | **+0.4479 +-0.0895** |
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **CT5a** | `guardReach` 1.00 beats the driver by over 0.05 | **-0.0260** | not held |
+| **CT5b** | best single constant recovers over a quarter of ct3 | **50.0 %** | holds |
+| **CT5c** | no single row reaches 0.80 | best is **0.6354** | holds |
+
+**I predicted CT5a would hold and it did not, and that is the useful part.** The reach move was the
+largest in command space -- 0.700 to 1.000, pinned against its own stop -- and I read largest as
+most valuable. It is worth nothing: -0.0260 with two sigma of +-0.1090 is not separated from zero
+and points the wrong way. `circleDuty` is worse, -0.0833, and the two together are **-0.1458
++-0.0957**, which is separated and is very nearly the sum of the parts -- so there is no interaction
+rescuing them either. The hand-coded yardstick is not standing in the wrong guard, and the record's
+bar was not lower than it read.
+
+`cutLean` is the one that transfers: **+0.2240 +-0.1041**, half of CT3's own +0.4479 on the same
+seeds, bought by one number. It deals +5.49 damage and takes **-5.80**, and it finishes 2.6 s
+sooner. That is the owner's standing complaint about the golems *"getting into each other's face
+and flailing"* answered by leaning into the cut, and it is a one-line change to a hand-coded mind.
+
+`strikeBite` moved **nothing** -- score and strokes identical to four places over 192 seeds, with
+only 0.014 s of timing jitter. The bite constant is inert against this opponent, which is consistent
+with the calibration barely moving it (0.660 to 0.731).
+
+So the mapping's third arm fires, with one correction to its wording. The credit does **not** belong
+to `lean`, `strafe` and `advance` together -- `strafe` on its own is a loss. It belongs to `lean`,
+plus roughly as much again that no constant expresses at all. **Half of CT3's edge is one number a
+hand could have set, and half of it is the search making that number conditional.** A constant says
+*always lean*; the network says *lean when this state calls for it*, and the second half is worth
+exactly as much as the first.
+
+This sharpens rather than deflates CT3. It also hands the phase a cheap, immediate win that costs no
+training: **`cutLean` 1.00 is a candidate row for `golem-driver` itself**, and under the eleventh
+governing rule its effect against a mind that does not read it is stated above -- +0.2240 +-0.1041
+against `golem-fencer`. Whether to take it is a question about what the yardstick should be, since
+moving `golem-driver` moves the thing every rating in this record is quoted against.
