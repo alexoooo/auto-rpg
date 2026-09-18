@@ -42088,3 +42088,73 @@ Nothing about the mechanism changes: `commit` 0.5681 to 0.1001, `abort` 0.6149 t
 0.6630 to 0.0638, all within two points of the driver and each with its own interval, and strokes a
 bout 94.0 to 21.9 at completion 1.000. **Distribution shift was the whole of the clone's failure and
 one DAgger round fixed it.** What the corrected cap changes is only the ranking it is fixed *to*.
+
+### CS1's result -- the ladder, and the mind this phase has been mis-rating for thirteen sessions
+
+Four rungs at a cap that clears the ramp, every bout decided at every one of them.
+
+**Two departures from the registration, declared before the numbers.** It was registered at 128
+seeds and a **60-second cap**; the cap defect was found between the registration and the run, so the
+three new rungs were taken at **150 seconds and 96 seeds** -- the cap because 60 is the one number
+`config.ts` warns against, the seed count to buy that back inside the same wall clock. The
+`golem-fencer` row is the 128-seed re-take from CR4. Intervals below are two sigma over the shared
+seeds and are quoted where a difference is claimed.
+
+| opponent | `golem-driver` | `cr-dagger1` | `golem-policy` |
+| --- | ---: | ---: | ---: |
+| `golem-idle` | 1.0000 | 1.0000 | 1.0000 |
+| `golem-brawler` | 0.3958 | **0.9167** | **1.0000** |
+| `golem-driver` | 0.4792 *(mirror)* | 0.4792 | **0.6458** |
+| `golem-fencer` | 0.4531 | 0.3359 | **0.5625** |
+
+**The shipped `golem-policy` beats or matches `golem-driver` at every rung**, by +0.6042 +-0.1003
+against the brawler and +0.1667 +-0.1346 head to head. It is the strongest mind in this tree and it
+has been in the repository since before this phase started. Thirteen sessions concluded that the
+actor gradient bought nothing; what they actually had was a mind nobody had rated past the ramp.
+Every one of those sessions read its draws as stalling. The draws were fights it was ahead in.
+
+That does not overturn the gradient verdicts -- A, E, AP and AS measured the *estimator*, on
+brackets and probes, not on this table -- but it does overturn the summary judgement the phase has
+been repeating, that PPO "has never shipped anything here". It shipped this.
+
+#### The four registered bars
+
+| | rung | claim | measured | verdict |
+| --- | --- | --- | ---: | --- |
+| **CS1a** | `idle` | clone under 5 strokes, driver over 20 | **0.0** and 35.4 | holds |
+| **CS1b** | `idle` | clone `commit` under 0.02 | **0.0000** | holds |
+| **CS1c** | `idle` | clone scores under 0.60 | **1.0000** | refused |
+| **CS1d** | `brawler` | clone `commit` stays over 0.05 | **0.1099** | holds |
+
+CS1d was registered as the separator between two diagnoses and it did its job. **The narrow one is
+refused.** The clone is not a fencer-fighter: against `golem-brawler`, an opponent it has never
+seen, it raises `commit` on 0.1099 of asks -- *more* than against the fencer -- throws 35.6 strokes
+a bout at completion 1.000, and wins 0.9167 where the mind it copied wins 0.3958. What CR fitted
+transfers to an opponent that moves. It stops dead only against one that does not.
+
+#### Nobody beats the dummy, which is the owner's own question answered
+
+The owner asked whether this project can beat a dummy before anything else. On the corrected
+instrument all three arms score 1.0000 against `golem-idle` -- and **not one of them does it by
+fighting**. The bouts end at 80.8 s, 111.1 s and 113.2 s, all of them past the 60 s mark where the
+overtime drain starts taking a fixed share of the body per second. The driver deals 38.2 damage in
+that time. The DAgger clone deals **7.3 and throws no strokes at all**. The shipped policy throws
+**149.4 strokes a bout** and deals 7.8.
+
+So the honest answer to *"can we even beat the idle bot in a reasonable way?"* is **no**. Every arm
+in this tree wins that fight on the clock. A stationary golem cannot be killed by being hit, inside
+the time the ramp allows, by any mind here including the hand-coded one.
+
+Read beside CT2 -- where a mind that never raises `commit` beats `golem-driver` outright -- these
+are the same finding from two directions. **Damage in this build comes overwhelmingly from the
+opponent's own motion into the blade, not from the stroke that drives it.** `golem-policy`'s 149
+strokes a bout buying 7.8 damage against a body that does not move, against the driver's 35 strokes
+buying 38.2, is the sharpest single number for it: the policy's strokes are near-worthless without
+an opponent to supply the closing speed, and it wins anyway, everywhere, by taking less damage than
+it deals.
+
+This is the owner's standing complaint with a mechanism under it. *"The attacking technique is just
+too poor to do real damage"* -- and the measurement is that technique is not what is being paid for.
+Whether to change that is a game-design decision and is put to the owner rather than taken here: an
+energy term or a higher cut floor would re-price every mind in the tree, including the two the whole
+record is measured against.
