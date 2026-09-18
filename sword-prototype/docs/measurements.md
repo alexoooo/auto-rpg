@@ -41451,3 +41451,106 @@ published since Session 00 of the style set, and a mind could have been rebuilt 
 and reported as flat.
 
 Gates green at **1154** tests. Nothing about a golem changed; only what we can see about one.
+
+## CR -- behaviour cloning from `golem-driver`, registered before the data
+
+**The centrepiece of the phase, and the first thing in thirteen sessions that asks for no gradient
+at all.**
+
+The record's verdict is not "the fit is too small". It is that a per-step policy gradient has no
+reproducible content in this cell, reproduced four independent ways, with AW's back-computed bill at
+**4,800-9,200 bouts an iteration** against the 32 every run actually used. That number is a property
+of the *estimator* -- an advantage read off a return, divided by its own noise -- and not of the
+data. Supervised regression has no advantage, no reward table and no rollout variance, so the
+150-300x starvation does not apply to it. Every ask of every driver bout is a free labelled example.
+
+### The seam turned out smaller than the plan budgeted for
+
+CR was planned as a `decisionRecorder` in `tournament-worker.mjs` plus a `pilot` kind in
+`scripts/decision-log.mjs`. **Neither is needed and neither was written.** `golemDriven(seed, T,
+pilot)` takes the pilot as an argument and `watchedPilot(pilot, onAsk)` already wraps one, so the
+recording lives entirely in `scripts/clone-policy.mjs` and no shared file moves. The features come
+from calling `pilotFeatures` inside the hook -- the same function `golemPolicy` calls, on the same
+step, from the same reading.
+
+Two details that would have made a silently wrong table:
+
+- **The gate threshold is zero, not a half.** `meanAction` reads `head[gateAt + j] > 0`, and only
+  then does `commandFromAction` see a value already one or nought. A clone regressing its gate logit
+  toward 1.0 would be fitted against the wrong decision boundary, so the target is the bit and the
+  loss is logistic on it.
+- **The held-out split is by bout, not by row.** Twelve asks a second off one bout are not twelve
+  independent observations; a row-wise split puts a state's own neighbours on both sides of the wall
+  and reports a memorised frame as generalisation.
+
+### Registered before collecting
+
+Both bars are read against `golem-driver` itself: CR1 on held-out bouts at the level of a single
+ask, CR2 on the clone played **greedily** against `golem-fencer` over paired seeds.
+
+| | claim | refused if |
+| --- | --- | --- |
+| **CR1** | mean R2 **> 0.75**, commit agreement **> 0.90** | R2 < 0.40, or gate < 0.75 |
+| **CR2** | within **0.10** of the driver's own score | the gap exceeds 0.20 |
+| **CR3** | **CR1 passes and CR2 fails** | either the other way round |
+
+R2 is stated against the driver's own spread on each axis, and an axis the driver never moves
+reports as `flat` rather than as a perfect 1.0 -- otherwise a column of constants would be counted
+as a success and inflate the mean.
+
+**CR3 is the interesting prediction and it predicts a failure.** Behaviour cloning has exactly one
+reliable failure mode -- the clone's small errors walk it into states the driver never visited,
+where it has been taught nothing -- and this is closed-loop control at 12 Hz over roughly 360 asks
+a bout, which is 360 chances for a small bias to compound. Predicting the clone *fails* at the bout
+level while succeeding at the step level is the honest reading of what BC is.
+
+### The total verdict mapping, all four corners (rule 9)
+
+| CR1 | CR2 | what it means, and what happens next |
+| --- | --- | --- |
+| pass | pass | the clone is already competent. Skip DAgger, seed CT from it. |
+| pass | fail | compounding error, as CR3 says. **Run the DAgger round.** |
+| fail | pass | incoherent: suspect the ruler, not the clone. Read CQ's columns. |
+| fail | fail | **the pipeline is broken.** Nothing below CR is worth running. |
+
+The two failing corners in full. **fail/pass** would say the rating cannot see a mind that does not
+reproduce the driver, which makes the instrument the suspect rather than the fit. **fail/fail** has
+two candidate causes and they are not equally interesting: either the fit is misconfigured, or
+`pilotFeatures` does not determine the driver's command -- a partial-observability finding about
+the surface itself, which would be the largest result in the phase and would stop CT outright.
+
+The falsifier is the bottom row and it is deliberately the cheapest thing to reach: if a clone
+cannot reproduce the mind it was copied from, nothing downstream of it means anything.
+
+### The registered CR1 bar was defective, and this is the correction rather than a quiet rewrite
+
+A four-bout shape test -- run to shake out API errors, at cap 15, five epochs, one bout in the
+held-out block -- did not produce a result, but it did produce two facts about **`golem-driver`
+itself**, which are properties of the expert and not of the clone or of the prediction:
+
+| gate | raised on | majority-class baseline |
+| --- | ---: | ---: |
+| `commit` | 0.101 of asks | **0.899** |
+| `abort` | 0.022 of asks | **0.978** |
+| `parry` | 0.088 of asks | **0.912** |
+
+**So CR1's "commit-gate agreement > 0.90" is a bar that a clone which never swings would clear.**
+It is not a hard bar or a soft one; it is the wrong statistic, and it was registered in that form
+above. Stating it was a mistake, and deleting it would be a worse one.
+
+The gate half of CR1 is therefore **withdrawn as ill-posed and replaced** by the lift over always
+guessing the majority class -- `(agreement - majority) / (1 - majority)` -- which is zero for a
+constant predictor and one for a perfect one. **New bar: commit lift > 0.5.** What was known when
+this was written: the three base rates above, and that an essentially untrained net at five epochs
+sits far below zero. No trained result, at any scale, had been read.
+
+The R2 half stands unchanged at **> 0.75**, with one clarification that the same shape test forced:
+it is meaned over the axes the driver actually *moves*. Five of the nine -- `standOff`,
+`targetLateral`, `reach`, `swing`, `bite` -- came back at a spread of exactly `0.0000` over that
+block, which is what a mind built from five hand-written rules looks like from the inside. An axis
+with no spread has no ratio to explain, so it reports `flat`, is named, and is excluded from the
+mean rather than counted as a free 1.0.
+
+**That the expert is constant on most of its command surface is itself the first CR finding**, and
+it reframes what a clone has to learn: not nine continuous axes, but four that move and three rare
+gates -- and the rare gates are where the fighting is. `commit` at one ask in ten is the swing.
