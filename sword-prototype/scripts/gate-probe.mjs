@@ -34,8 +34,8 @@ const otherDir = argv[1] ?? "tournaments/cs2-idle";
 const tablePath = argv[2] ?? "snapshots/cr-dagger1.json";
 /**
  * The five-sigma clip, as a knob, so that the question "is the clip the cause" can be asked without
- * refitting anything. Inference uses 5; passing something larger lets a bounded column reach the far
- * end of its own declared range and reports what the same weights then do there.
+ * refitting anything. Inference uses 5; passing something larger lets a bounded column reach
+ * the far end of its own declared range and reports what the same weights do there.
  */
 const CLIP = Number(argv[3] ?? "5");
 
