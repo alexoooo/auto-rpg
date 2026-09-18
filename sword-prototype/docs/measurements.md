@@ -42158,3 +42158,135 @@ too poor to do real damage"* -- and the measurement is that technique is not wha
 Whether to change that is a game-design decision and is put to the owner rather than taken here: an
 energy term or a higher cut floor would re-price every mind in the tree, including the two the whole
 record is measured against.
+
+### CS2 -- does the shipped mind actually clear the bar, registered before the seeds
+
+CS1 changed what this phase is about. The success criterion the owner set is **beat the hand-coded
+minds**, and the table above says a mind already in the repository does it: `golem-policy` scores
+0.6458 against `golem-driver` and 0.5625 against `golem-fencer`. But 0.5625 over 128 seeds is
+**72 wins in 128**, and a coin flipped 128 times lands two sigma wide at +-0.0884. The fencer row
+sits inside that. **The single most consequential number in this phase is currently not separated
+from a coin**, and it has to be taken at a seed count that can see it before anything is built on
+it.
+
+512 paired seeds against each yardstick, cap 150, arms `driver`, `policy` and `dagger`. Two sigma on
+a win rate at 512 is +-0.0442, which is half the edge being claimed, and the paired design is
+tighter than that again.
+
+| | against | `policy` claim | refused if |
+| --- | --- | --- | --- |
+| **CS2a** | `fencer` | score **above 0.544**, clear of two sigma | at or below 0.500 |
+| **CS2b** | `driver` | score **above 0.550**, from 0.6458 at 96 | at or below 0.500 |
+| **CS2c** | `fencer` | severs **above 0.40** a bout, driver below 0.15 | below 0.25 |
+
+CS2c is the mechanism bar and it is the one I most expect to move. The 0.75 severs a bout at 128
+seeds is the largest single behavioural gap in this record -- more than ten times the driver's
+0.0703 -- and it is the reason to believe the score is real rather than a lucky draw: a mind that
+takes limbs at that rate is not winning by variance. If CS2c holds while CS2a fails, the policy
+fights better and converts worse, which is a different and more interesting problem than noise. If
+both fail, CR4's correction was itself over-read and the phase is back to having no mind above
+`golem-driver`.
+
+**The total verdict mapping (rule 9).** If CS2a and CS2b both hold, **the owner's bar is already
+met by a mind that shipped before this phase opened**, and the agenda's question changes from *can
+anything here learn* to *can anything here learn something better than what we already have* -- CT
+and CU then have a real yardstick to beat rather than a hand-coded one. If CS2b holds and CS2a does
+not, the ladder has three rungs and the fourth is genuinely open, which is the plan as written. If
+CS2b fails, CR4's withdrawal was an over-correction, the 96-seed head-to-head was itself noise, and
+the record owes a second withdrawal -- this time of a claim I made in this session, which is exactly
+why the bar is registered at a seed count that can refuse it.
+
+No new machinery: this is `clone-duel.mjs` at `--seeds 512`, twice.
+
+### CT3's result -- twenty-one numbers beat the best hand-coded mind, and beat it while fencing
+
+The calibration search was still running at generation 14 of 40, so its generation-11 best was
+snapshotted mid-flight and rated on the same instrument as everything else: 128 paired seeds against
+`golem-fencer`, cap 150, every bout decided.
+
+| column | driver | dagger | policy | **ct3** |
+| --- | ---: | ---: | ---: | ---: |
+| score | 0.4531 | 0.3359 | 0.5625 | **0.8438** |
+| seconds | 36.9 | 40.0 | 66.2 | 39.9 |
+| strokes | 32.4 | 21.9 | 88.7 | 20.2 |
+| completion | 0.479 | 1.000 | 0.592 | **1.000** |
+| damage dealt | 57.95 | 56.74 | 50.01 | **65.86** |
+| damage taken | 59.49 | 59.78 | 38.30 | 45.56 |
+| severs | 0.070 | 0.039 | 0.750 | 0.063 |
+| commitRate | 0.086 | 0.100 | 0.729 | 0.089 |
+
+Paired against the driver over the shared seeds: **score +0.3906 +-0.1069**, damage dealt
+**+7.91 +-2.70**, damage taken **-13.92 +-2.60**. All three are many times their own interval.
+
+**This is the first mind in this record that beats `golem-driver` outright and is not the thing it
+was copied from.** It is 108 wins in 128 against the mind the whole project is measured against, and
+it was produced by moving **twenty-one numbers** -- a per-output gain and offset on the last layer
+of the DAgger clone, nothing else -- for fourteen generations of a (1+16) search at sixteen
+candidates an hour.
+
+| | claim | measured | verdict |
+| --- | --- | ---: | --- |
+| **CT3a** | beats its own start by more than 0.05 | **+0.5079** | holds |
+| **CT3b** | beats the clone and lands above 0.42 | **0.8438** | holds |
+| **CT3c** | `completion` moves off 1.0000, below 0.90 | **1.0000** | refused |
+
+CT3b's bar was registered against cap-60 numbers, so the clone's comparison point is **0.3359**, not
+the 0.3672 written down at the time; the bar clears either way and the change is disclosed rather
+than quietly re-based.
+
+**CT3c is the finding, not the failure.** It was registered on a guess that the search would buy its
+score by abandoning the chamber-and-cut -- shortening or aborting strokes to trade blade discipline
+for tempo, which is what CT2's void mind did to an extreme. The opposite happened. Completion stays
+pinned at **1.000**, strokes a bout fall only 21.9 to 20.2, `commit` sits at 0.089 against the
+driver's 0.086, and `abort` goes **down**, 0.0244 to 0.0188. The mind gets better by throwing
+*fewer, fully completed* strokes and landing more with them: 20.2 strokes buying 65.9 damage where
+the driver's 32.4 buy 57.95.
+
+Read against CT2 this is the more important half of the pair. CT2 found that the stroke apparatus is
+**not necessary** to beat the driver -- a mind that never raises `commit` can do it by shoving. CT3
+finds that the apparatus is **sufficient, and better**: the same search, on the same opponent, from
+a start that fences, reaches a higher score than CT2's void mind (0.8438 against 0.6458) while
+fencing properly the whole way. The void was a shortcut, not a ceiling.
+
+**What the search cost, and the cap caveat.** Fourteen generations at (1+16) with 24 seeds a
+candidate -- roughly 5,400 bouts total. For scale, AW back-computed that a *single* useful
+policy-gradient iteration in this cell needs 4,800-9,200. **This whole result cost about one PPO
+iteration's worth of samples.** The search ran at `--cap 60`, which is the number the cap defect was
+about; it is not a defect here, because these fights end at 39.9 s and the search's own `decided`
+column reads 0.958-1.000 throughout. The independent rating at 150 is what the table above reports
+regardless.
+
+**The caveat that has to lead the next cell rather than trail this one: the fencer is the opponent
+this calibration was selected against.** Fresh seeds every generation and 128 fresh seeds at rating
+means it is not fitted to seeds, but it is specialised to one body by construction, and the record
+has been burned by exactly this before -- CM found +170 Elo that turned out to be a mirror. A score
+against the opponent you searched on is not a rating. CT4 registers the transfer before it is taken.
+
+### CT4 -- does the calibration fight, or only fight fencers, registered before the seeds
+
+`ct3` on the three rungs it has never seen, same instrument, arms `driver`, `policy` and `ct3`.
+
+| | against | `ct3` claim | refused if |
+| --- | --- | --- | --- |
+| **CT4a** | `driver` | score **above 0.60**, from 0.8438 on the fencer | at or below 0.50 |
+| **CT4b** | `brawler` | score **above 0.50**, clear of the driver's 0.3958 | below 0.40 |
+| **CT4c** | `idle` | **more than 5 strokes** a bout, unlike its parent's 0 | exactly 0 |
+
+CT4c is the cheap one and it asks whether the calibration repaired what CS1 found broken. The DAgger
+clone throws **zero** strokes against a body that does nothing -- CS1a and CS1b both held on that --
+and the calibration is a gain-and-offset on the very head whose `commit` gate was going silent. If
+21 numbers fixed the dead rung as a side effect of chasing the fencer, that is worth more than the
+score: it would say the clone's failure was a *calibration* failure, not a representation failure,
+and the cheapest possible fix was available the whole time.
+
+**The total verdict mapping (rule 9).** If CT4a and CT4b both hold, **the phase is done and its
+answer is CR composed with CT**: clone a hand-coded mind, then evolve a handful of numbers on its
+output layer, and you get a mind above every yardstick on every rung, for the sample cost of one
+gradient step. CU then becomes worth running because there is finally something to fine-tune *from*.
+If CT4a holds and CT4b does not, the calibration generalises across skilled opponents but not across
+styles, and the fix is the obvious one -- search against a rotation of rungs rather than one. If
+neither holds, **CT3's 0.8438 is a specialisation and must be reported as one**, the headline above
+is withdrawn to "beats the fencer", and the ladder's third rung is still open.
+
+CS2 runs in the same batch and puts `ct3` on the 512-seed fencer duel as a fourth arm, so the
+headline number gets an interval half the width of this one at the same time.
