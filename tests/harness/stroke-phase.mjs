@@ -40,6 +40,17 @@
 // Every knob in every table above this was set by measuring a mind that spends most of its damage
 // somewhere none of those knobs point.
 //
+// **The same join run on a searched table says the split is not a fact about the executor.** Over
+// the same 192 bouts, the cross-entropy champion of run 3 throws at the same rate as the shipped
+// reaper -- 9.6 strokes and 12.8 cuts a bout against 9.3 and 13.0 -- and puts 58.2 % of its
+// cutting damage in `commit` against 46.7 %, almost all of it taken out of `recover`, which its
+// `recoverSeconds` of 0.099 shrinks from 21.2 % of cuts to 12.4 %. It also hits harder in every
+// phase: a committed cut worth 0.6919 at 12.51 m/s against 0.5698 at 11.64.
+//
+// So "most of the damage is not swung" is a fact about *a* mind, and a searched one moves it
+// eleven points toward the swing without throwing any more often. Run the join on the mind whose
+// knob is being argued about; do not carry a share across from another one.
+//
 // The second table is the swing seen from inside, and it is a straight line:
 //
 // ```
