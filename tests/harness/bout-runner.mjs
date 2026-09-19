@@ -215,6 +215,7 @@ export function runBout({
   locomotionMode = undefined,
   leftMind = null, rightMind = null, onSample = null, onEvent = null, onRefusal = null,
   onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
+  settleSeconds = 0,
   maxSeconds = CONFIG.bout.capSeconds,
   separation = CONFIG.fighter.separation,
   drawFloor = null,
@@ -284,6 +285,52 @@ export function runBout({
       onRefusal === null ? undefined : (event) => onRefusal({ side: "right", ...event })),
       record: rightRecord, last: null },
   ];
+  /**
+   * Seconds of physics run before either `Combat` is allowed to watch the other body.
+   *
+   * **Opt-in, and zero by default, because turning it on moves every recorded number.** Both
+   * fighters are built with their arms hanging at the hip and spawn 2.6 m apart, and the anchor
+   * sweeps each hand up to guard over the first tenth of a second. The hand is rate-limited to
+   * 6 m/s, but a 6 m/s hand whips a 0.9 m blade to about 20 m/s, and at 2.6 m the two points
+   * reach each other: **both blades clash and score at t = 0.067 s**, four frames in, before any
+   * mind has influenced anything.
+   *
+   * Measured across seven minds in their own mirrors, that opening is worth 1.0 to 1.3 of the
+   * roughly 8 damage in a bout -- 13 to 16 % of the whole budget -- and it is **lopsided**, by up
+   * to 0.45 of a bar to one side, deterministically, every time. Three different minds on two
+   * different executors (`golem-reaper`, `golem-driver`, `golem-form`) score byte-identical
+   * openings, which is the tell that it is construction and not tactics: it is `WARMUP`'s 77 m/s
+   * snap, one layer on, and `WARMUP` only ever kept it out of a *readout*.
+   *
+   * Settling first is what a fight actually does -- both fighters are on guard before it starts.
+   * **It is a partial cure and is not claimed as more.** At 0.6 s, 16 mirror bouts a row, the
+   * construction asymmetry goes but an early exchange does not:
+   *
+   * ```
+   *                    settle 0                       settle 0.6
+   * mirror        L dmg  R dmg   L-R   left-win    L dmg  R dmg   L-R   left-win
+   * golem-duelist  0.476  0.617 -0.141   62.5      0.471  0.614 -0.143   43.8
+   * golem-fencer   0.476  0.617 -0.141   31.3      0.471  0.614 -0.143   50.0
+   * golem-champion 0.620  0.575 +0.045   62.5      0.615  0.565 +0.050   50.0
+   * golem-reaper   0.889  0.438 +0.451    0.0      0.792  0.526 +0.266   31.3
+   * golem-driver   0.889  0.438 +0.451   62.5      0.403  0.451 -0.048   43.8
+   * golem-form     0.889  0.438 +0.451   81.3      0.403  0.451 -0.048   37.5
+   * ```
+   *
+   * The three minds that shared a byte-identical +0.451 opening no longer do, and every mirror
+   * moves toward 50 -- but a first blow still lands 0.05 s after scoring opens, at 13.4 m/s, so
+   * by 0.6 s the bodies have closed and are genuinely fighting rather than still standing up.
+   * The win-rate columns are 16 bouts each and carry a +/-24 point band; the damage columns are
+   * what carries the finding. Curing it properly means building the arms at guard rather than
+   * sweeping them there, which is a change to the body and not to the harness.
+   */
+  if (settleSeconds > 0) {
+    const settleFrames = Math.round(settleSeconds * 60);
+    for (let i = 0; i < settleFrames; i += 1) {
+      scene._renderId += 1;
+      scene._advancePhysicsEngineStep(1000 * FRAME);
+    }
+  }
   sides[0].combat.attach(right);
   sides[1].combat.attach(left);
 
