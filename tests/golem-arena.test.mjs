@@ -682,16 +682,37 @@ test("a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks", async 
   const snapshot = {};
   // Read the bodies while they are still alive. `runBout` disposes both at the verdict and a
   // golem's `dispose` empties its own limb list, so a body asked afterwards reads as no body.
+  //
+  // **Accumulated over the bout rather than read at the end of it, since 2026-09-19.** The last
+  // sample was fine while the shield arm always survived twelve seconds, and at the re-derived
+  // `healthScale` it does not always: a plate whose arm has been cut off answers `parriedBy` with
+  // null, so the body read as carrying no shield and the test called that a missing plate. That
+  // is the test asking a structural question at a moment that can have a severing in front of it.
+  //
+  // Everything asserted here is a property of the *build* -- one plate, weight zero, not
+  // addressable as a limb -- and those are true from the first frame. The one claim that is about
+  // the bout is that nothing ever wounds it, and a claim about "ever" wants every sample, not the
+  // final one. So the plate is found once, and then watched.
   const read = (side, golem) => {
+    const shields = golem.limbs.filter((limb) => golem.shields.has(limb.part.body))
+      .map((limb) => ({
+        key: limb.key, health: limb.health, maxHealth: limb.maxHealth,
+        weight: limb.vitalityWeight, addressable: golem.limbFor(limb.part.body) !== undefined,
+        severed: limb.severed, blocks: golem.parriedBy(limb.part.body) !== null,
+      }));
+    const held = golem.limbs
+      .filter((limb) => limb.guarding === true && limb.health < limb.maxHealth - 1e-9)
+      .map((limb) => limb.key);
+    const had = snapshot[side];
     snapshot[side] = {
-      shields: golem.limbs.filter((limb) => golem.parriedBy(limb.part.body) !== null)
-        .map((limb) => ({
-          key: limb.key, health: limb.health, maxHealth: limb.maxHealth,
-          weight: limb.vitalityWeight, addressable: golem.limbFor(limb.part.body) !== undefined,
-        })),
-      woundedHeld: golem.limbs
-        .filter((limb) => limb.guarding === true && limb.health < limb.maxHealth - 1e-9)
-        .map((limb) => limb.key),
+      shields,
+      // The worst each plate ever read, which is what "never wounded" has to be measured against.
+      worst: shields.map((plate, at) => Math.min(plate.health, had?.worst?.[at] ?? Infinity)),
+      // Whether it stopped blocking at any point while still attached -- the failure the last
+      // sample was standing in for, and which a severing is not.
+      quietlyStopped: shields.some((plate, at) =>
+        (!plate.blocks && !plate.severed) || (had?.quietlyStopped?.[at] ?? false)),
+      woundedHeld: [...new Set([...(had?.woundedHeld ?? []), ...held])],
     };
   };
   // **Three bouts, because one stopped being a corpus.**
@@ -743,8 +764,11 @@ test("a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks", async 
         `${side} carried ${snapshot[side].shields.length} shields rather than its one plate`);
       const [plate] = snapshot[side].shields;
       plateKeys.add(plate.key);
-      assert.equal(plate.health, plate.maxHealth,
-        `${plate.key} came out of the bout at ${plate.health} of ${plate.maxHealth}`);
+      assert.equal(snapshot[side].worst[0], plate.maxHealth,
+        `${plate.key} was wounded to ${snapshot[side].worst[0]} of ${plate.maxHealth} during the`
+        + " bout, and a shield is an indestructible damage sink");
+      assert.equal(snapshot[side].quietlyStopped, false,
+        `${plate.key} stopped answering as a shield while it was still attached`);
       assert.equal(plate.weight, 0, `${plate.key} carries a share of a bar it can never lose`);
       assert.equal(plate.addressable, false, `${plate.key} is still addressable as a limb`);
     }

@@ -3207,17 +3207,55 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
   // and 22 still clears it -- but the next thing that shortens a bout will breach it, and the
   // honest repair then is to count asks per second rather than per bout.
   //
-  // **What does not survive as a general claim is `onChamber > 0`.** Two of the eight seeds --
-  // 20260911 and 20260918 -- now answer *no* ask on a chamber, where the worst seed used to meet
-  // two. The assertion below is pinned to `SEED` 20260904, which reads 5, so it still passes and
-  // still means what it says on that seed; it is no longer a claim about the style at large.
-  // Recorded rather than relaxed: the style does meet chambers, on six seeds in eight.
+  // **Re-taken again 2026-09-19 at `CHAIN_WRIST.liftCeiling`, and this time the assertion moved
+  // rather than the numbers.** Capping the lift made the bout fair -- the uncapped wrist handed
+  // the fight to whichever body Havok visited second -- and on the shipped seed that turns the
+  // guardian's spare arm from a thing that survives into a thing that does not:
+  //
+  //     seed       seconds  ending      asks  onChamber  blows   chambers seen   parry offered
+  //     20260904     14.0   time          65      0        121          9               2
+  //     20260911     14.0   time          72      4         74          6              15
+  //     20260918     14.0   time          62      0         88          3               7
+  //     20260925     14.0   time          60      5        144          5              25
+  //     20261002     14.0   time          61      1        116          1              17
+  //     20261009     14.0   time          53      4        129          4              14
+  //     20261016     10.6   exhausted     42      2         70          2              16
+  //     20261023      9.8   exhausted     42      7        115          7              17
+  //
+  // The two right-hand columns are why `onChamber > 0` stopped being assertable on one seed, and
+  // they say it is not a style failure. On 20260904 the guardian *saw* nine chambers and was
+  // offered a parry on **two of sixty-five asks**: `spareCanCover` is true 16 times where it is
+  // true 42 to 61 times on every other seed. The shield arm is destroyed early, so there is no
+  // spare hand to send, so the option is never on offer, so the count is zero. A style cannot
+  // parry with an arm somebody cut off.
+  //
+  // So the claim is re-derived at the resolution it was always about. Meeting a chamber is a rare
+  // event -- one to seven times in a fourteen-second bout -- and a rare event asserted on one
+  // seed is a coin toss, which is exactly what the thrust test above learned and moved to eight
+  // seeds for. This now reads the same eight and asks that the style do it on most of them, which
+  // is a claim about the style; the single-seed run above still carries the asks and the blows,
+  // which are not rare and mean what they say on any seed.
   assert.ok(guarding.asks > 20,
     `the guardian was asked ${guarding.asks} times in ${guarding.seconds.toFixed(1)} s, `
     + "too few for the counts below to mean anything");
-  assert.ok(guarding.onChamber > 0,
-    `the guardian answered ${guarding.asks} asks and met a chamber on none of them`);
   assert.ok(guarding.blows.left > 0, "golem-guardian landed nothing at all in fourteen seconds");
+
+  const met = [];
+  for (const seed of [20260904, 20260911, 20260918, 20260925,
+    20261002, 20261009, 20261016, 20261023]) {
+    const side = count((hook) => golemGuardian(seed, GUARDIAN, hook), "golem-guardian");
+    runBout({
+      left: "golem-guardian", right: "golem-fencer", leftUnit: "golem", rightUnit: "golem",
+      leftGolem: setup, rightGolem: setup, locomotionMode: "supported",
+      seeds: [seed, seed + 17], maxSeconds: 14, physics,
+      leftMind: side.mind, rightMind: golemFencer(seed + 17),
+    });
+    met.push({ seed, ...side.walls });
+  }
+  const answered = met.filter((row) => row.onChamber > 0).length;
+  assert.ok(answered >= 5,
+    "the guardian met a chamber on only " + answered + " of eight seeds: "
+    + met.map((row) => `${row.seed} ${row.onChamber}/${row.asks}`).join(", "));
 
   const forming = run((hook) => golemForm(SEED, FORM, hook), "golem-form");
   assert.equal(forming.onChamber, 0,

@@ -531,9 +531,15 @@ export const wristChain = defineChain({
         // fight, and the maul's ring went 417 mm to 733 mm on exactly that: the cast alone
         // helps it (448 -> 417) and the lift alone breaks it. The mace pins only its bend, so
         // its roll lifts and its bend does not, which is the same sentence read per axis.
-        if (lifted <= 1) return;
-        if (rollLimit > 0) rollJoint?.setAxisMotorMaxForce(HINGE, W.rollTorque * lifted);
-        if (bendLimit > 0) bendJoint?.setAxisMotorMaxForce(HINGE, W.bendTorque * lifted);
+        //
+        // **And capped, because past `liftCeiling` the wrist out-runs the substep.** The
+        // derivation says 20.7x for a blade and the solver cannot integrate that at 240 Hz: what
+        // comes out is not a shaky blade but a bout decided by which body Havok visits second,
+        // measured at 3 wins in 64 for the one built first. The table is beside the constant.
+        const capped = Math.min(lifted, W.liftCeiling);
+        if (capped <= 1) return;
+        if (rollLimit > 0) rollJoint?.setAxisMotorMaxForce(HINGE, W.rollTorque * capped);
+        if (bendLimit > 0) bendJoint?.setAxisMotorMaxForce(HINGE, W.bendTorque * capped);
       },
       step(dt: number): void {
         if (severed) return;

@@ -1514,6 +1514,54 @@ export const CHAIN_WRIST = {
   bendTorque: 60,
 
   /**
+   * The most the grip cast may multiply those two ceilings by. **Swept, and the sweep is a
+   * fairness table rather than a tracking one.**
+   *
+   * `castToCarried` lifts both hinges by the same factor it lifted the ring's inertia, because a
+   * torque ceiling is an authority *per inertia* and a motor asked to turn twenty times the
+   * inertia with the same ceiling is twenty times weaker. That derivation is right and it is not
+   * the whole story: the factor it computes for a blade is 20.7, and a wrist with 1244 N m in it
+   * out-runs the substep the world is solved at.
+   *
+   * What that looks like is not a shaky blade. It looks like the fight being decided by which
+   * body Havok visits second. Two identical fencers on one seed, 64 bouts, at `gripInertiaRatio`
+   * 0.5, against the cap:
+   *
+   *     cap    left  right     damage L / R      z     droop rad   miss m   at m/s   stray mm
+   *       1      29     35     13.01 / 14.02   -0.75       1.809    0.637     10.5         18
+   *       2      33     31     13.43 / 13.39   +0.25       1.411    0.361     16.2         17
+   *     **4**    28     36     12.88 / 13.89   -1.00       0.544    0.206     17.1         36
+   *       8       5     59      5.67 / 16.16   -6.75       0.177    0.158     20.2         56
+   *      16       3     61      4.36 / 16.74   -7.25       0.069    0.158     20.2         56
+   *
+   * **The knee is between 4 and 8 and it is a cliff, not a slope.** Below it the corner is a coin;
+   * above it the body built second wins nine bouts in ten. Building the right fighter first flips
+   * the bias exactly -- 29 to 3 the other way -- and a fencer against a statue swings the same
+   * from either corner (driven tip 25.98 against 24.50, sixteen bouts each), so what is being
+   * measured is Havok's list order and not the arena. `AGENTS.md` already records that order as
+   * worth 9.5 % of an arm's peak transient; an uncapped lift turns 9.5 % of a transient into the
+   * whole bout.
+   *
+   * Four is picked as the largest cap that is still a coin, and what it costs is written above:
+   * the bend tracks its command to 0.544 rad rather than 0.069, and the stroke's miss is 0.206 m
+   * rather than 0.158. Both are inside their own bars and neither is free. The ring -- the
+   * complaint all of this exists to answer -- does not pay at all: the blade reads 0.0 mm over 0
+   * reversals at every row in the table, as do the plate and the fist, and the mace reads 0.7.
+   *
+   * Two things were tried first and are recorded because they are the obvious ones.
+   * **Backing the cast down instead** trades the ring away and does not even buy fairness
+   * cleanly -- at 240 Hz the split goes 38-26, 25-39, 22-42, 16-48, 10-54 across
+   * `gripInertiaRatio` 0.25 to 0.375, a slope with no knee, and 0.25 leaves the blade ringing
+   * 19.2 mm over two reversals. **Doubling `world.physicsHz` to 480** fixes the fairness outright
+   * (51-61-16 across eight minds, z = -0.94, against 40-79-9 and z = -3.58 at 240) and costs 1.8x
+   * the physics time, which is affordable -- but it silently re-tunes every position motor in the
+   * body, and the gait is what noticed: 23 % of the walk spent airborne against 0.4 %, which is
+   * the exact regression `a_planted_sole_holds_its_ground...` was written to catch. A rate change
+   * is a body-wide retune wearing a one-line diff, and it is not this defect's fix.
+   */
+  liftCeiling: 4,
+
+  /**
    * The wrist hinges' solver damping. **Swept.**
    *
    * A position motor is a spring, and a spring with no damper rings. That is the same finding
@@ -4112,8 +4160,59 @@ export const GOLEM_ASSEMBLY = {
    * on the control. Four of that table's five columns do reproduce within a rung, so this is an
    * instrument difference in what `landed` counts and not a drift: it is reported here and
    * nothing is picked on it.
+   *
+   * ---
+   *
+   * ## Fifth take, 2026-09-19, and the fourth take's cliff is **retracted**
+   *
+   * Everything above was measured with `castToCarried`'s motor lift uncapped, and an uncapped
+   * lift is a wrist the 240 Hz substep cannot integrate. What that produced was not a visible
+   * fault but an unfair bout: in a mirror match on one seed the body Havok builds first won **3
+   * of 64**, and the winner in that table was very often simply the favoured corner.
+   *
+   * So **the winner's-bar cliff was the bias, not the lethality.** 0.95 of bar at every setting
+   * up to 0.032 is what a side that cannot lose looks like; the fall to 0.662 at 0.036 is health
+   * rising far enough to let the disadvantaged side survive long enough to score, not a threshold
+   * where "the first solid cut stops taking a head off". The claim is withdrawn with its
+   * reasoning, which is the point of writing it down rather than deleting it.
+   *
+   * Re-taken at `CHAIN_WRIST.liftCeiling` on the same 24 side-swapped mirrors over 12 seeds:
+   *
+   *     health   clean   min..med..p99   landed   seconds   winner's bar   severs   <8 s
+   *      0.010     4.8     1.. 4..11       42.8       5.9          0.776      1.3    83 %
+   *      0.014     6.5     1.. 7..14       78.8       8.4          0.641      1.3    50 %
+   *      0.018     8.6     3.. 8..15      104.3      11.1          0.510      0.9    21 %
+   *      0.020     9.7     4..10..15      116.0      12.2          0.521      0.8    17 %
+   *      0.022    11.4     5..12..19      134.3      14.6          0.487      0.8    13 %
+   *    **0.024**  11.9     6..13..21      146.0      16.2          0.490      0.8     8 %
+   *      0.028    13.1     7..14..20      156.7      17.0          0.449      0.7     8 %
+   *      0.032    14.3     7..15..23      166.8      18.3          0.434      0.7     0 %
+   *      0.036    17.0     8..17..24      201.4      22.1          0.355      0.5     0 %
+   *      0.042    18.7    13..19..26      229.5      25.0          0.331      0.4     0 %
+   *
+   * **There is no cliff in this column any more**, which is the strongest evidence that the old
+   * one was the bias: the bar now falls smoothly from 0.776 to 0.331 across the range, because a
+   * fair bout is a close bout and the winner ends near half a bar whatever the scale.
+   *
+   * So the pick moves to the column that still has an edge in it: bouts finished inside eight
+   * seconds, which is the reading that says two bodies never got to fight. It goes 83, 50, 21,
+   * 17, 13, **8**, 8, 0, 0, 0 -- and 0.024 is the smallest setting at which it is under a tenth,
+   * which is this file's usual rule. Above it nothing is bought: 0.028 reads the same 8 % for a
+   * longer bout and more blows, and 0.032 upward buys 0 % by making a duel last twenty seconds
+   * and take two hundred contacts, which is the flailing the phase exists to remove.
+   *
+   * The clean-hit band is still breached and this take says more about why. 11.9 is outside the
+   * five-to-eight, and the band is not reachable anywhere above 0.018 -- where a fifth of bouts
+   * are over inside eight seconds. The two criteria are in genuine opposition at this operating
+   * point, and the reason is the one the fourth take identified and is worth restating now that
+   * the bias is gone rather than confounding it: damage arrives as a long tail of small contacts
+   * under a few decisive ones, so a count of "the biggest blows making 80 % of the damage" counts
+   * the tail. The diagnostic that prices the tail was taken on 2026-09-19 over 320 bouts among
+   * the five strongest minds: **7.6 % of contacts are cuts and they carry 91 % of all damage**,
+   * while 79 % are `weak` and carry exactly none. Re-deriving the clean-hit criterion against
+   * that distribution is still open, and `healthScale` is not the knob that closes it.
    */
-  healthScale: 0.036,
+  healthScale: 0.024,
 
   /**
    * The base frame's box, metres, and why there is one at all.
