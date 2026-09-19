@@ -28,11 +28,17 @@
 //   recover           549    22.2 %    0.5134   10.86   0.828      23.0 %
 // ```
 //
-// **Under half of this mind's cutting damage is made by swinging.** Two cuts in three land while
-// the arm is winding up, returning to guard, or simply holding one -- and the ones made by an arm
-// doing nothing at all are the *fastest* on the board at 12.56 m/s, because that speed is the
-// body's, not the arm's. Every knob in every table above this was set by measuring a mind that
-// spends most of its damage somewhere none of those knobs point.
+// **Under half of this mind's cutting damage is delivered by a swing.** `commit` is the swing and
+// carries 45.5 %; three cuts in five land outside it, winding up, returning to guard, or simply
+// holding one. The ones made by an arm doing nothing at all are the *fastest* on the board at
+// 12.56 m/s, because that speed is the body's, not the arm's.
+//
+// Sweep tables elsewhere print `swung%` counting `chamber` with `commit`, since a knob that
+// lengthens the wind-up is a knob on the stroke. That is a different cut of this data, not a
+// disagreement with it -- say which one a number came from.
+//
+// Every knob in every table above this was set by measuring a mind that spends most of its damage
+// somewhere none of those knobs point.
 //
 // The second table is the swing seen from inside, and it is a straight line:
 //

@@ -85,10 +85,16 @@ import {
  *   recover         549    22.2 %    0.5134   10.86   0.828      23.0 %
  * ```
  *
- * **Two cuts in three land while the arm is not swinging**, and they carry 54.5 % of the cutting
- * damage: winding up, returning to guard, or simply holding one. The cuts made by an arm doing
- * nothing at all are the *fastest* in the table at 12.56 m/s, which is the tell -- that speed is
- * the body's and not the arm's, a held blade carried into a body by the feet and the waist.
+ * **Three cuts in five land while the arm is not delivering a swing** -- 59.6 % of them -- and
+ * they carry 54.5 % of the cutting damage: winding up, returning to guard, or simply holding one.
+ * "Delivering" is `commit` and nothing else, which is the split to hold in mind whenever a table
+ * elsewhere prints a `swung%` column: those count the chamber as part of the swing, because a
+ * knob that lengthens the wind-up is a knob on the stroke, and they are a different cut of the
+ * same data rather than a disagreement with this one.
+ *
+ * The cuts made by an arm doing nothing at all are the *fastest* in the table at 12.56 m/s, which
+ * is the tell -- that speed is the body's and not the arm's, a held blade carried into a body by
+ * the feet and the waist.
  *
  * This reframes everything above it. `patience`, `openFloor`, `openCeiling`, `circleDuty`, the
  * feint, the void, the whole throwing window -- every one of them is a rule about the 45 % of
