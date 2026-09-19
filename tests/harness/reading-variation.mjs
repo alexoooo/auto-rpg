@@ -39,8 +39,9 @@
 // one weapon; `rushing` is constant because the row that drives it ships off. Both are correct.
 // What the column is for is making you ask.
 process.env.SWORD_MEASURE_LIBRARY = "1";
-const { REAPER, golemReaper } = await import("file:///C:/Users/ostro/RustroverProjects/auto-rpg/src/golem/styles/reaper.ts");
-const { freshHavok, runBout } = await import("file:///C:/Users/ostro/RustroverProjects/auto-rpg/tests/harness/bout-runner.mjs");
+const here = (p) => new URL(p, import.meta.url).href;
+const { REAPER, golemReaper } = await import(here("../../src/golem/styles/reaper.ts"));
+const { freshHavok, runBout } = await import(here("./bout-runner.mjs"));
 const cols = new Map();
 for (const foe of ["golem-duelist", "golem-champion", "golem-planner", "golem-fencer"]) {
   for (let k = 0; k < 2; k += 1) {
@@ -51,7 +52,8 @@ for (const foe of ["golem-duelist", "golem-champion", "golem-planner", "golem-fe
           const c = cols.get(key) ?? { kind: "bool", n: 0, t: 0 };
           c.n += 1; if (v) c.t += 1; cols.set(key, c);
         } else if (typeof v === "number" && Number.isFinite(v)) {
-          const c = cols.get(key) ?? { kind: "num", n: 0, s: 0, ss: 0, lo: Infinity, hi: -Infinity };
+          const c = cols.get(key)
+            ?? { kind: "num", n: 0, s: 0, ss: 0, lo: Infinity, hi: -Infinity };
           c.n += 1; c.s += v; c.ss += v * v;
           c.lo = Math.min(c.lo, v); c.hi = Math.max(c.hi, v); cols.set(key, c);
         } else if (typeof v === "string") {
@@ -87,8 +89,10 @@ for (const [key, c] of cols) {
   }
 }
 rows.sort((a, b) => a[4] - b[4]);
-console.log("reading              kind   distribution                                    variation");
+console.log("reading              kind   distribution"
+  + "                                    variation");
 for (const [k, kind, dist, range, v] of rows) {
   const flag = v < 0.02 ? "  <-- carries almost nothing" : "";
-  console.log(k.padEnd(20), kind.padEnd(6), `${dist} ${range}`.padEnd(48), v.toFixed(4).padStart(8), flag);
+  console.log(k.padEnd(20), kind.padEnd(6), `${dist} ${range}`.padEnd(48),
+    v.toFixed(4).padStart(8), flag);
 }
