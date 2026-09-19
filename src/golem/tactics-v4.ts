@@ -330,13 +330,63 @@ const DRIVEN = {
    * one. That is a migration, and it should be bought by a measurement rather than spent on a
    * hypothesis. A row is reversible, has a control at 0, and answers the same question first.
    *
-   * **The cost is named in advance and the sweep must show it.** This is the guard. Pointing it at
-   * a mark instead of at their point is dropping it, so `taken` is expected to rise, and the row
-   * is only worth setting if `dealt` rises faster. A table for it carries both columns or it has
-   * not been measured. `coverLift` still applies on top, so what a bias buys is priced together
-   * with a lift that was swept against the undeviated guard.
+   * **The cost was named in advance, the sweep showed something else, and the prediction written
+   * before it was wrong in both halves.** What was predicted: this is the guard, so pointing it at
+   * a mark instead of at their point is dropping it, `taken` should rise, and since the searched
+   * table wins on `taken` the row should pay on the shipped reaper and lose on the champion.
    *
-   * **UNMEASURED IN SCORE.** It ships at 0, which is the guard exactly as it has always been held.
+   * Shipped reaper, 2304 bouts, base 70250101:
+   *
+   * ```
+   * guardBias         n   score      95 % band    dealt  taken  cuts/s   m/s   held%
+   *   0 ctl         384    49.9   [44.9..54.9]     8.66   8.52    12.9  11.79   44.3
+   *   0.2           384    39.1   [34.1..44.1]     7.63   9.40    10.7  11.36   44.1
+   *   0.4           384    38.5   [33.5..43.5]     8.17   9.18    13.0  10.76   43.2
+   *   0.6           384    45.7   [40.7..50.7]     8.02   8.70    12.8  10.54   40.3
+   *   0.8           384    41.9   [36.9..46.9]     8.00   8.71    12.0  10.64   38.3
+   *   1             384    39.5   [34.5..44.5]     8.01   9.11    12.4  10.55   40.9
+   * ```
+   *
+   * Every cell deals less and takes more, and the column that explains it is the only monotone
+   * one: **contact speed falls from 11.79 m/s to about 10.55 and stays there**, while `held%`
+   * falls from 44.3 to around 40. Biasing the guard makes the held blade contribute *less*.
+   *
+   * Over the searched table, 2304 bouts, base 13250101, the sign reverses:
+   *
+   * ```
+   * guardBias         n   score      95 % band    dealt  taken  cuts/s   m/s   held%
+   *   0 ctl         384    69.8   [64.8..74.8]     8.68   6.57    12.0  12.81   33.5
+   *   0.2           384    52.2   [47.2..57.2]     8.39   8.37    11.7  12.36   31.3
+   *   0.4           384    68.8   [63.7..73.8]     9.48   7.14    13.1  12.49   30.1
+   *   0.6           384    71.4   [66.4..76.4]     9.57   6.89    13.7  11.75   28.7
+   *   0.8           384    74.7   [69.7..79.7]     9.70   6.29    13.0  12.31   33.4
+   *   1             384    63.9   [58.9..68.9]     9.78   8.02    14.4  12.04   41.1
+   * ```
+   *
+   * `dealt` climbs 8.68 to 9.78 and `cuts` 12.0 to 14.4, and at 0.8 `taken` is 6.29 against the
+   * control's 6.57 -- so the predicted price is not paid here at all. The score gain of 4.9 sits
+   * well inside the band and is not on its own a result; the damage columns are lower variance
+   * and they move together and monotonically, which is.
+   *
+   * **The mechanism both tables agree on.** `guardMark` is *their tip* whenever their point is
+   * inside my reach, so the guard is parked where the moving things are and a contact there is two
+   * blades converging -- that is where its speed comes from. The bias trades that interposition
+   * for a line. **Whether it pays is a question about how much of your damage is interposition**,
+   * and the `held%` column answers it for each mind: the shipped table takes 44.3 % of its cutting
+   * damage off the held blade and loses by giving it up; the searched one takes 33.5 % and does
+   * not. `coverAcross`'s doc says the same thing about a plate in one line -- most of what it does
+   * it does by being in the way.
+   *
+   * Which also refines the phase table this row was built on. "The free cuts are the fastest at
+   * 12.56 m/s because that speed is the body's, not the arm's" is half right: it is the *relative*
+   * speed of two bodies and two blades converging, and the guard sits where they converge. The
+   * 46 % was never unaimed damage waiting to be aimed.
+   *
+   * **UNMEASURED AS A CONSTANT, AND DELIBERATELY A SEARCH DIMENSION.** It ships at 0, no mind sets
+   * it, and unlike `chamberScale` it is *not* settled: two tables of the same size disagree on its
+   * sign depending on the rest of the table around it. A row whose value depends on twenty-four
+   * others is exactly what a joint search is for and exactly what a one-row sweep cannot answer,
+   * so run 4 carries it as a dimension rather than this file carrying it as a number.
    */
   guardBias: 0,
   /**
@@ -1301,16 +1351,18 @@ export function golemDriven(
       // At a bias the held line is the threat's and the mark's, mixed as world points rather than
       // as aims: `aimAt` is what turns a point into a swing and a lift, and mixing its outputs
       // would interpolate two angles about different centres and name a point on neither line.
+      // At zero -- which is everything that ships -- `guardMark` is passed straight through, so
+      // the branch costs one compare on the hot path and not three writes.
+      let target = guardMark;
       if (T.guardBias > 0) {
         touched |= COMMAND_BITS.targetHeight | COMMAND_BITS.targetLateral;
         const bias = clamp(T.guardBias, 0, 1);
         held.x = guardMark.x + (mark.x - guardMark.x) * bias;
         held.y = guardMark.y + (mark.y - guardMark.y) * bias;
         held.z = guardMark.z + (mark.z - guardMark.z) * bias;
-      } else {
-        held.x = guardMark.x; held.y = guardMark.y; held.z = guardMark.z;
+        target = held;
       }
-      aimAt(socket, held, trunkHeading, me.outboard, cover);
+      aimAt(socket, target, trunkHeading, me.outboard, cover);
       writeAim(hand, cap, cover, me.outboard, 0, T.coverLift, 1, command.reach);
       hand.roll = 0;
     };
