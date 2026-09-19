@@ -217,6 +217,8 @@ export interface BallShellOptions {
   readonly name: string;
   readonly host: Mesh;
   readonly radius: number;
+  /** Span between the roll bearing's two physical pivots, when longer than its ball. */
+  readonly axleLength?: number;
   /**
    * Which way the bronze band lies.
    *
@@ -246,8 +248,28 @@ export function ballShell(scene: Scene, options: BallShellOptions): readonly Abs
     ? Quaternion.Identity()
     : Quaternion.RotationAxis(new Vector3(0, 0, 1), Math.PI / 2);
 
+  const axle = options.axleLength ? socketShell(scene, {
+    name: `${options.name}.axle`, host: options.host, materials: options.materials,
+    from: new Vector3(0, -options.axleLength / 2 - .008, 0),
+    to: new Vector3(0, options.axleLength / 2 + .008, 0), radius: options.radius * .62,
+  }) : [];
   return Object.freeze([
     attach(ball, options.host, Vector3.Zero()),
     attach(band, options.host, Vector3.Zero(), rotation),
+    ...axle,
   ]);
+}
+
+/** A cosmetic metal socket between two points in its physical host's local frame. */
+export function socketShell(scene: Scene, options: {
+  name: string; host: Mesh; from: Vector3; to: Vector3; radius: number; materials: GolemMaterialPalette;
+}): readonly AbstractMesh[] {
+  const delta=options.to.subtract(options.from), direction=delta.normalizeToNew();
+  const axis=Vector3.Cross(Vector3.Up(),direction);
+  const rotation=axis.lengthSquared()<1e-10
+    ? Quaternion.RotationAxis(Vector3.Right(),direction.y<0?Math.PI:0)
+    : Quaternion.RotationAxis(axis.normalize(),Math.acos(Math.max(-1,Math.min(1,direction.y))));
+  const mesh=MeshBuilder.CreateCylinder(options.name,{height:delta.length(),diameter:options.radius*2,tessellation:16},scene);
+  mesh.material=materialForGolemRole(options.materials,"joint");
+  return Object.freeze([attach(mesh,options.host,options.from.add(options.to).scale(.5),rotation)]);
 }

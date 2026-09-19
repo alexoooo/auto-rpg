@@ -70,7 +70,7 @@ export function refreshShadowCasters(scene: Scene, shadows: ShadowGenerator): vo
   if (!list) return;
   list.length = 0;
   for (const mesh of scene.meshes) {
-    if (mesh.name === "ground") continue;
+    if (mesh.name === "ground" || mesh.metadata?.forgeNoShadow) continue;
     const roomPlacement = mesh.metadata?.roomPlacement as { role?: string; solid?: boolean } | undefined;
     if (roomPlacement?.role === "floor" || roomPlacement?.solid === false) continue;
     // A temporarily culled beam remains a caster. Otherwise refresh removes it
@@ -540,7 +540,7 @@ export function buildArenaWorld(
   ): void => {
     for (const mesh of room.meshes) {
       const placement = mesh.metadata?.roomPlacement as { role?: string } | undefined;
-      if (placement?.role !== "beam") continue;
+      if (placement?.role !== "beam" && !mesh.metadata?.forgeOpaqueWall) continue;
       mesh.isVisible = true;
       for (const target of targets) {
         if (target.active && !target.active()) continue;

@@ -45,6 +45,7 @@ import {
 import { GOLEM_ASSEMBLY } from "./config.ts";
 import { GolemControlEndpoint } from "./golem-control.ts";
 import { locomotionCommand, type BuiltLocomotion } from "./locomotion.ts";
+import { dressGolemPart } from "./appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
 import {
   partArmour,
@@ -557,14 +558,15 @@ export class Golem implements Combatant {
       this.byBody.set(part.part.body, limb);
       if (part.shield) this.shields.add(part.part.body);
       this.moduleOfLimb.set(limb, record);
-      for (const mesh of part.shell) {
+      const shells = dressGolemPart({ slot, moduleId: id, id: part.id, host: part.part.mesh, shells: part.shell }, this.materials);
+      for (const mesh of shells) {
         mesh.isPickable = true;
         this.costume.push(mesh);
         this.owned.add(mesh);
       }
       // Wear is seeded here for the same reason a pick is decided here: the shell passes through
       // this loop and nowhere else, and a module builder has no idea what it was fitted at.
-      this.wear.push({ of: limb, bindings: seedGolemWear(slot, part.id, part.shell, worn) });
+      this.wear.push({ of: limb, bindings: seedGolemWear(slot, part.id, shells, worn) });
     }
     for (const striker of built.strikers) this.strikers.push(striker);
     this.modules.push(record);

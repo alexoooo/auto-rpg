@@ -14,7 +14,7 @@ import {
   type GolemPart,
   type ModuleBuild,
 } from "../../module.ts";
-import { plateShell } from "../shell.ts";
+import { plateShell, socketShell } from "../shell.ts";
 import { RigidStrike } from "../striker.ts";
 
 /**
@@ -181,6 +181,12 @@ export const plateTerminal = defineTerminal({
         // a plate that blocks 30 mm wider than it looks.
         shell: Object.freeze([
           part.mesh,
+          ...socketShell(ctx.scene, {name:`${name}.grip`,host:part.mesh,materials:ctx.materials,radius:.027,
+            from:new Vector3(0,-alongLimb-.016,-lateralSign*P.outboardOffset),
+            to:new Vector3(0,-P.thickness/2+.012,-lateralSign*P.outboardOffset)}),
+          ...socketShell(ctx.scene, {name:`${name}.bracket`,host:part.mesh,materials:ctx.materials,radius:.025,
+            from:new Vector3(0,-P.thickness/2+.002,-lateralSign*P.outboardOffset),
+            to:new Vector3(0,-P.thickness/2+.002,0)}),
           ...plateShell(ctx.scene, {
             name, host: part.mesh, size: new Vector3(P.height, P.thickness, P.width),
             chamferInset: P.chamferInset, rimProud: P.rimProud, materials: ctx.materials,

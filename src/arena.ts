@@ -7,8 +7,6 @@ import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration.js";
-import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
 import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
 import HavokPhysics from "@babylonjs/havok";
@@ -24,6 +22,8 @@ import HavokPhysics from "@babylonjs/havok";
 // post-processing pipeline, so it is where a browser-only import belongs.
 import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 
+import { dressForgeRoom } from "./forge-room";
+import { loadForgeStyle, paveForge, forgePost } from "./forge-style";
 import { CONFIG } from "./config";
 import { OBJECT_SURFACE_VARIANTS, TEXTURED_SURFACES } from "./materials";
 import { attachPhysics } from "./physics";
@@ -120,7 +120,7 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   const sun = new DirectionalLight("sun", new Vector3(-0.45, -1, 0.62), scene);
   sun.position = new Vector3(9, 16, -12);
   sun.intensity = 2.6;
-  sun.diffuse = new Color3(1, 0.95, 0.86);
+  sun.diffuse = new Color3(1, 0.85, 0.66);
 
   const shadows = new ShadowGenerator(2048, sun);
   shadows.usePercentageCloserFiltering = true;
@@ -166,22 +166,18 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   // The invisible authoritative slab and fourteen post colliders retain their
   // session-09 dimensions. The visible floor and room dressing are a separate
   // owner with no body, so art can be removed without changing the solver.
+  const forge = await loadForgeStyle(scene);
+  materials.ground = forge.materials.basalt;
+  materials.wall = forge.materials.basalt;
+  materials.banner = forge.materials.banner;
   const world = buildArenaWorld(scene, materials, {
     add: (mesh) => shadows.addShadowCaster(mesh),
     remove: (mesh) => shadows.removeShadowCaster(mesh),
   });
 
-  const pipeline = new DefaultRenderingPipeline("post", true, scene, [camera]);
-  pipeline.samples = 4;
-  pipeline.imageProcessing.toneMappingEnabled = true;
-  pipeline.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
-  pipeline.imageProcessing.contrast = 1.35;
-  pipeline.imageProcessing.exposure = 1.05;
-  pipeline.imageProcessing.vignetteEnabled = true;
-  pipeline.imageProcessing.vignetteWeight = 2.2;
-  pipeline.bloomEnabled = true;
-  pipeline.bloomThreshold = 0.82;
-  pipeline.bloomWeight = 0.22;
+  paveForge(scene, forge.kit, forge.materials.pavement, forge.materials.lava);
+  dressForgeRoom(scene, forge);
+  forgePost(scene, camera);
 
   return {
     scene, camera, materials, shadows, audit: world.audit,

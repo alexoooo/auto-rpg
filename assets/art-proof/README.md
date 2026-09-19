@@ -3,7 +3,7 @@
 A graphics proof in the actual Babylon/Havok renderer. Open `/art-proof.html` with the normal
 Vite server (`npm run dev`). The production build includes the arena, bench, and proof page.
 
-The default biped has 23 registered physical parts and 61 visible modeled pieces. Its original
+The default biped has 23 registered physical parts and 66 visible modeled pieces. Its original
 collision geometry, masses, constraints and control remain authoritative. The proof adds a
 separate presentation binding at module registration; it does not discover anatomy by parsing
 mesh names. The asset manifest identifies the exact supported build and refuses incomplete assets.
@@ -22,8 +22,8 @@ mesh names. The asset manifest identifies the exact supported build and refuses 
 The 16-second motion sequence is an `Intent` producer, not skeletal animation. It settles,
 guards, sweeps, thrusts, advances, and returns through the same physical controller as the game.
 It then holds guard; Restart replays the sequence without accumulating locomotion drift.
-It is an inspection demo, not a second combat mode. Impacts, opponents, fracture, additional body
-builds and the main game's UI redesign are deferred.
+It remains an inspection demo, not a second combat mode. The arena and module bench now share
+its models, maps, lighting treatment, and forge interface theme.
 
 ## Editable assets and rebuilding
 
@@ -93,3 +93,22 @@ To measure frame pacing, focus the tab, warm the scene, then call `__artProof.st
 It records 60 seconds of animation-frame intervals and exposes `benchmarkResult`. A hidden tab
 invalidates the run. Compare at 1920×1080 render resolution; browser emulation is useful for pinning
 the viewport to that size. Read the recorded hardware before interpreting a result as a desktop-GPU claim.
+
+## Game-wide appearance
+
+`src/forge-style.ts` installs the art at scene startup for the arena and bench. The assembly
+registers cosmetic replacements through `src/golem/appearance.ts`; visible meshes retain the
+live wear bindings, picking ownership, and disposal of their physical hosts. The default build
+uses its exact modeled pieces. Other registered builds reuse carved blocks and turned bearings
+while specialised wheels, lashes, and striking shapes keep their original silhouettes.
+
+The sword ferrule, wrist axle, and shield grip/bracket are shared module cosmetics. They bridge
+the real mount locations and add no bodies, constraints, mass, or hit surfaces.
+
+`src/forge-room.ts` fills the existing wall colliders with masonry and decorates existing posts
+with flames. Walls crossing the camera sight line are hidden. Shallow paving and glowing seams
+lie on the ground slab. Physics and combat controls are unchanged; setup uses a shallow camera
+sway so contenders remain side by side. High-DPI rendering is capped at 1920×1080; CSS/UI remains
+at the display resolution. The proof page remains available for inspection and comparison.
+
+Validation for the rollout is recorded in [review/rollout.md](review/rollout.md).

@@ -201,6 +201,7 @@ export const wristChain = defineChain({
         part: ring,
         shell: ballShell(ctx.scene, {
           name: ring.name, host: ring.mesh, radius: W.ringRadius,
+          axleLength: W.ringLength,
           // Along the limb, because that is the axis this bearing turns about. A band drawn
           // across it would say the joint turns somewhere it does not.
           band: "along", materials: ctx.materials,

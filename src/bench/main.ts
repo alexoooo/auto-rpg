@@ -1,3 +1,8 @@
+import { dressForgeRoom } from "../forge-room.ts";
+import { loadForgeStyle, paveForge, forgePost } from "../forge-style.ts";
+import { dressGolemPart } from "../golem/appearance.ts";
+import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
+import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
@@ -169,7 +174,13 @@ async function main(): Promise<void> {
   sun.position = new Vector3(6, 10, -8);
   sun.intensity = 2.2;
 
+  const forge = await loadForgeStyle(scene);
+  const shadows = new ShadowGenerator(2048, sun);
+  shadows.usePercentageCloserFiltering = true;
+  shadows.bias = .0012; shadows.normalBias = .015;
+  forgePost(scene, camera);
   const surfaces = roomMaterials(scene);
+  surfaces.ground = forge.materials.basalt;
   const room = buildArenaColliders(scene, surfaces);
   // **A floor you can see.** `buildArenaColliders` builds the ground slab invisible, because in
   // the arena the cosmetic room draws the visible floor over it and the bench does not want the
@@ -183,6 +194,8 @@ async function main(): Promise<void> {
   floor.material = surfaces.ground;
   floor.isPickable = false;
   floor.receiveShadows = true;
+  paveForge(scene, forge.kit, forge.materials.pavement, forge.materials.lava);
+  dressForgeRoom(scene, forge);
   const layers = golemLayers("left");
 
   /**
@@ -369,6 +382,9 @@ async function main(): Promise<void> {
       watchers.push([body, observer as never]);
     };
     watch(rebuilt.block.body);
+    forge.configure(rebuilt.materials);
+    shadows.getShadowMap()!.renderList = [];
+    shadows.addShadowCaster(rebuilt.block.mesh, false);
 
     for (const filling of filled) {
       const socket = rebuilt.socket(filling);
@@ -386,7 +402,12 @@ async function main(): Promise<void> {
       const overlay = new BenchOverlay(scene, socket, module.envelope());
       if (rigWanted) overlay.toggle();
       overlays.set(filling, overlay);
-      for (const part of module.parts) watch(part.part.body);
+      for (const part of module.parts) {
+        watch(part.part.body);
+        const shells = dressGolemPart({ slot: filling, moduleId: chosen[filling].id, id: part.id,
+          host: part.part.mesh, shells: part.shell }, rebuilt.materials);
+        for (const mesh of shells) shadows.addShadowCaster(mesh, false);
+      }
     }
 
     // The band is the **acting** module's, because the readout is: rung 1's first axis is an
@@ -406,7 +427,11 @@ async function main(): Promise<void> {
         scene, side: "left", name: "golem.bench.head", socket: neck, layers,
         materials: rebuilt.materials, world,
       });
-      for (const part of carried.parts) watch(part.part.body);
+      for (const part of carried.parts) {
+        watch(part.part.body);
+        for (const mesh of dressGolemPart({ slot: "head", moduleId: chosen.head.id, id: part.id,
+          host: part.part.mesh, shells: part.shell }, rebuilt.materials)) shadows.addShadowCaster(mesh, false);
+      }
     }
     renderPicker();
   };

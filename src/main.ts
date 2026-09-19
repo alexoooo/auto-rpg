@@ -1160,11 +1160,11 @@ async function boot(): Promise<void> {
   const forward = new Vector3();
 
   /**
-   * Where the showcase camera is on its slow walk round the pair, radians; see `placeCamera`.
+   * Phase of the showcase camera's shallow sway, radians; see `placeCamera`.
    * It starts side-on with the left fighter on the left of the frame, which is the one bearing
    * at which the two corners of the sheet and the two bodies above them read as the same pair.
    */
-  let showcaseBearing = -Math.PI * 0.5;
+  let showcaseOrbit = 0;
   const showcaseMid = new Vector3();
 
   const placeCamera = (follow: CameraSubject, dt: number, snap: boolean): void => {
@@ -1172,16 +1172,17 @@ async function boot(): Promise<void> {
     const P = C[C.mode];
 
     // **The showcase framing, by phase and not by mode.** Behind the sheet there is no fight to
-    // follow, so the camera looks at the midpoint of the two fighters' feet and walks round
+    // follow, so the camera looks at the midpoint of the two fighters' feet and sways around
     // them, and `C.mode` -- a person's choice of how to watch a fight -- is not read and not
     // touched. The gesture state still applies: the wheel and an orbit drag work on the pair
     // exactly as they work on one fighter. The bearing carries over from frame to frame, so a
     // Randomize, whose rebuild snaps the camera, snaps it to where it already was.
     if (state.phase === "select") {
       const W = C.showcase;
-      showcaseBearing += dt * (Math.PI * 2) / W.orbitSeconds;
+      showcaseOrbit += dt * (Math.PI * 2) / W.orbitSeconds;
       const gesture = controls.camera;
-      const bearing = showcaseBearing + gesture.yaw;
+      // A shallow sway keeps both contenders readable; manual orbit still covers every angle.
+      const bearing = -Math.PI * .5 + Math.sin(showcaseOrbit) * .18 + gesture.yaw;
       forward.set(Math.sin(bearing), 0, Math.cos(bearing));
       const leftFeet = bout.left.feetPosition();
       const rightFeet = bout.right.feetPosition();

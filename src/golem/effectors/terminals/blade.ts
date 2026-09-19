@@ -15,6 +15,7 @@ import {
   type ModuleBuild,
 } from "../../module.ts";
 import { RigidStrike } from "../striker.ts";
+import { socketShell } from "../shell.ts";
 
 /**
  * The blade: one slender steel body on the end of whatever chain hands it a weld.
@@ -108,10 +109,13 @@ export const bladeTerminal = defineTerminal({
         id: name,
         part,
         // The collider *is* the drawn mesh here, which is the one case where that is honest: a
-        // blade is a flat slab and a shell over it would be the same slab twice. The field
+        // blade is a flat slab. Its bronze ferrule overlaps the hand-side end; the field
         // stays separate because a shell carries no authority, so a later blade that grows a
         // fuller adds meshes here without the collider moving.
-        shell: Object.freeze([part.mesh]),
+        shell: Object.freeze([part.mesh, ...socketShell(ctx.scene, {
+          name: `${name}.socket`, host: part.mesh, materials: ctx.materials, radius: .026,
+          from: new Vector3(0,-B.length/2-.024,0), to: new Vector3(0,-B.length/2+.040,0),
+        })]),
         health: B.health,
         vitalityWeight: B.vitalityWeight,
         fatal: false,
