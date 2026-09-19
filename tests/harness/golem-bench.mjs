@@ -1260,34 +1260,61 @@ export const STROKE_GRID = Object.freeze({
  */
 export const COMMITTED_SHAPE_CANDIDATES = Object.freeze({
   sword: Object.freeze({
-    chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32,
-    // Pinned 2026-09-17, for the reason `committed` in `tactics-v3.ts` gives at length: the sword's
-    // shipped shape is getters onto `GOLEM_TACTICS`, so leaving this inherited made the bench row
-    // silently a measurement of whatever the table last shipped. At `followLift` 0.95 this cell
-    // misses by 0.209 m rather than 0.070. The grid was swept at 0.73 and this names it.
+    chamberSwing: 0.80, strokeSeconds: 0.11, chamberReach: -0.20, chamberSeconds: 0.32,
+    // Pinned 2026-09-17, for the reason `committed` in `tactics-v3.ts` gives at length: the
+    // sword's shipped shape is getters onto `GOLEM_TACTICS`, so leaving this inherited made the
+    // bench row silently a measurement of whatever the table last shipped. The grid was swept
+    // at 0.73 and this names it.
     followLift: 0.73,
-    /** miss 0.070 m, 22.34 m/s at the mark, peak 23.42, anchor stray 8 mm, on `effector.wrist.blade`. */
-    bench: Object.freeze({ missMetres: 0.070, speedAtMark: 22.34, peakAnchorStrayMm: 8 }),
+    /** miss 0.028 m, 15.30 m/s at the mark, anchor stray 16 mm, on `effector.wrist.blade`. */
+    bench: Object.freeze({ missMetres: 0.028, speedAtMark: 15.30, peakAnchorStrayMm: 16 }),
   }),
   shield: Object.freeze({
-    chamberSwing: 1.20, strokeSeconds: 0.15, chamberReach: -0.70, chamberSeconds: 0.32,
-    /** miss 0.014 m, 11.10 m/s, stray 56 mm, on `effector.wrist.plate`: a third of the 0.22 s wind's stray for 4 mm. */
-    bench: Object.freeze({ missMetres: 0.014, speedAtMark: 11.10, peakAnchorStrayMm: 56 }),
+    chamberSwing: 0.80, strokeSeconds: 0.11, chamberReach: -0.70, chamberSeconds: 0.22,
+    /** miss 0.059 m, 10.47 m/s, stray 33 mm, on `effector.wrist.plate`. */
+    bench: Object.freeze({ missMetres: 0.059, speedAtMark: 10.47, peakAnchorStrayMm: 33 }),
   }),
   empty: Object.freeze({
-    chamberSwing: 1.20, strokeSeconds: 0.11, chamberReach: -0.20, chamberSeconds: 0.32,
-    /**
-     * miss 0.108 m, 11.82 m/s, stray 64 mm, on `effector.wrist.fist`.
-     *
-     * Re-taken 2026-09-17. The row said 0.031 m, 12.45 m/s and 182 mm, and none of the three were
-     * still true: this shape reads no getter, so the drift is the body's, from the physics that
-     * landed after 2026-09-06 rather than from any stroke row. It went unnoticed because the bench
-     * test asserts on `sword` alone -- the fist's row had no gate at all.
-     */
-    bench: Object.freeze({ missMetres: 0.108, speedAtMark: 11.82, peakAnchorStrayMm: 64 }),
+    chamberSwing: 0.80, strokeSeconds: 0.15, chamberReach: -0.20, chamberSeconds: 0.22,
+    /** miss 0.008 m, 12.62 m/s, stray 9 mm, on `effector.wrist.fist`. */
+    bench: Object.freeze({ missMetres: 0.008, speedAtMark: 12.62, peakAnchorStrayMm: 9 }),
   }),
 });
 
+/**
+ * **Re-taken whole on 2026-09-18, because the grid had been fitted to a defect.**
+ *
+ * Every row above was swept against a wrist whose grip rang -- 90 mm of unprovoked bob on the
+ * blade, 212 on the mace, 26 on the plate -- and whose bend hinge missed its command by 1.3
+ * radians during a stroke. `CHAIN_WRIST.gripInertiaRatio` fixes both, and the moment it does,
+ * all three old cells stop being the best cell and two of them stop being good ones: the sword's
+ * went 0.070 m to 0.253, the shield's 0.014 to 0.167. That is not the fix regressing the stroke,
+ * it is a grid whose optimum was a property of the ring being re-read now the ring is gone --
+ * the same thing that happened to `empty` on 2026-09-17 and was called the body's drift then.
+ *
+ * These rows are therefore **operating-point-dependent by construction**, which is worth stating
+ * plainly rather than rediscovering a third time: any change to the wrist's conditioning, its
+ * hinge ceilings or the anchor's authority invalidates all of them, and the honest response is to
+ * re-run the 64 cells rather than to nudge a constant.
+ *
+ * Read on `missMetres` first and `speedAtMark` second, as before. What that rule buys and costs,
+ * against the rows it replaces:
+ *
+ *     kind     was                          now                          best miss now reachable
+ *     sword    0.070 m, 22.34 m/s, 8 mm     0.028 m, 15.30 m/s, 16 mm    0.009 m (at 12.64 m/s)
+ *     shield   0.014 m, 11.10 m/s, 56 mm    0.059 m, 10.47 m/s, 33 mm    0.051 m (at  8.03 m/s)
+ *     empty    0.108 m, 11.82 m/s, 64 mm    0.008 m, 12.62 m/s,  9 mm    0.008 m
+ *
+ * The sword lands two and a half times closer and arrives 7 m/s slower, and the trade is the
+ * owner's, taken in advance: *"it's totally fine if attacks do less damage as a result of this
+ * fix, because we can just adjust health downwards if that's a problem."* Peak tip speed on the
+ * *shipped* shape moves the other way over the same change, 13.1 to 31.8 m/s, so the blade is
+ * faster and the committed cell is simply one that spends less of that on the approach.
+ *
+ * **The shield is a real regression and is recorded as one.** 0.014 m is no longer available at
+ * any cell of the grid; the best the plate can now do is 0.051 m. It keeps its stray, which
+ * nearly halves, and it wants its own pass rather than a number borrowed from this one.
+ */
 /** The modules the grid is taken on: one chain per weapon, the one the arena actually fields. */
 export const STROKE_BENCH_MODULES = Object.freeze([
   "effector.wrist.blade",

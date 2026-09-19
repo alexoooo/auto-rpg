@@ -2386,9 +2386,26 @@ test("the_control_row_switches_take_the_parry_and_the_committed_arc_back_out", a
     atGap(fixture, 4.5, high);
     theirArm(fixture, { extension: 0.88, toward: false });
     drive(fixture, mind, 2.5);
-    atGap(fixture, 2.10, high);
+    // **They walk the last half-metre in rather than appearing at it, and that is a fix to this
+    // fixture rather than a change to what is asked.** `theirArm` puts their point on the
+    // bearing of *my* primary socket, so where their tip sits is a function of where my body is
+    // standing; the mind reads a tip *velocity*, which is a difference across steps. Jumping
+    // them from 4.5 m to 2.10 m and reading the next few asks therefore differenced a teleport,
+    // and `AGENTS.md` already says what that is worth -- a jump carries no momentum, so what
+    // comes out is not a speed. It survived because the artefact happened to point the right
+    // way: `solveIntercept` rejects a point that is not closing, and on 2026-09-18 a change that
+    // moved this golem's spare shoulder by **14 mm** flipped the differenced velocity from
+    // (-0.48, 1.87, -2.27) to (-6.56, 3.73, +1.39) -- receding -- so the intercept came back
+    // null, `parry` was never offered, and a test about a style's rules failed over a
+    // centimetre of stance.
+    //
+    // Closing in from 2.60 at the same 1.5 m/s reaches the same 2.10 m gap with a tip velocity
+    // that is an actual movement. Both assertions below are untouched and both rows still say
+    // what they said: the shipped style meets the point and the control row steps off it.
+    atGap(fixture, 2.60, high);
     fixture.opponent.reach = 2.40;
     theirArm(fixture, { extension: 0.62 });
+    drive(fixture, mind, 0.33, { closing: 1.5 });
     drive(fixture, mind, 0.25, { closing: 1.5 });
   };
   const met = named({ patience: 99 }, onACommit);
@@ -2520,6 +2537,34 @@ test("golem_form_stays_inside_the_envelope_and_is_deterministic_under_a_seed", a
  * the point. The golem is putting the side of the sword through the target. That is not
  * `GOLEM_TACTICS.cutRoll`, which was re-swept on 2026-09-18 across -0.15 to 0.45 and moved edge
  * alignment by less than 0.03 at every row, and it is not this test's to fix.
+ *
+ * ---
+ *
+ * **Re-taken 2026-09-18 after the grip cast, with a column the first take did not have.** The
+ * wrist now carries the blade's rotational inertia across the weld instead of ringing against it,
+ * so the point is where the arm put it rather than somewhere on a 90 mm orbit around it:
+ *
+ *     seed        thrust   cut   slap   weak   seconds   ending
+ *     20260904       0     10      4     36       8.6    exhausted
+ *     20260911       1     10      2     27      13.1    exhausted
+ *     20260918       0     12      4     52      11.4    exhausted
+ *     20260925       0      6      0     12       3.2    exhausted
+ *     20261002       0      6      3     20       6.5    exhausted
+ *     20261009       1     20      6     70      16.5    exhausted
+ *     20261016       1     23      7    145      20.0    time
+ *     20261023       0      2      2     22      11.2    exhausted
+ *
+ * **Three thrusts again, out of eight seeds, and that is the same thinness as before.** What has
+ * moved is everything around them: 89 cuts against 25, and seven of eight bouts now end in a
+ * verdict rather than running the cap. So the cast bought contact and lethality and bought this
+ * test's own claim nothing, which is the honest reading -- a point arrives point-first because of
+ * how the wrist is *aimed*, and the cast is about how the wrist is *held*.
+ *
+ * The `weak` column is new and it is the finding worth carrying forward: 384 weak contacts
+ * against 117 scoring ones. A still blade rests against what it touches instead of bouncing off
+ * it, so the contact log now has a long tail of grazes that book nothing. That is not a
+ * regression -- nothing is paid for a weak contact -- but it means contact *counts* are no longer
+ * a proxy for pressure, and any bar phrased as contacts a second wants re-reading.
  */
 test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
   const setup = defaultGolemSetup();
@@ -3117,7 +3162,7 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
 
   const guarding = run((hook) => golemGuardian(SEED, GUARDIAN, hook), "golem-guardian");
   // The window floor, restated 2026-09-18; the reasoning is at the planner's cadence test above.
-  // Measured 11.4 s of fourteen, ended by exhaustion.
+  // Re-measured 2026-09-18 after the grip cast: 14.0 s of fourteen, ended by the cap.
   assert.ok(guarding.ending === "exhausted" || guarding.seconds > 13,
     `the bout ran ${guarding.seconds.toFixed(1)} s of fourteen and ended "${guarding.ending}"`);
   // **The window floor is a count of asks and not a stretch of seconds, restated 2026-09-18.**
@@ -3141,6 +3186,32 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
   //
   // So the floor is 20 asks: below the 28 the worst seed manages, and far above the zero that
   // would make the two assertions after it vacuous.
+  //
+  // **Re-taken whole 2026-09-18, because the grip cast moved every row.** The wrist now carries
+  // its blade's rotational inertia instead of ringing against it, which lands more blows, ends
+  // more bouts, and -- the part that matters here -- changes how often a fencer's arm is *read*
+  // as a chamber at all, because a still blade spends less of the bout drawing back:
+  //
+  //     seed       seconds  ending      asks  onChamber  blows
+  //     20260904     14.0   time          57      5      111
+  //     20260911     12.7   exhausted     52      0       51
+  //     20260918      8.3   exhausted     41      0       40
+  //     20260925     14.0   time          53      1      189
+  //     20261002     14.0   time          56      3      130
+  //     20261009      5.7   exhausted     22      2       61
+  //     20261016     11.8   exhausted     47      1      106
+  //     20261023     14.0   time          56      3      124
+  //
+  // The 20-ask floor survives, but only just: the worst seed now reads **22**, where it read 28.
+  // It is kept rather than lowered because the floor is an argument about vacuity and not a fit,
+  // and 22 still clears it -- but the next thing that shortens a bout will breach it, and the
+  // honest repair then is to count asks per second rather than per bout.
+  //
+  // **What does not survive as a general claim is `onChamber > 0`.** Two of the eight seeds --
+  // 20260911 and 20260918 -- now answer *no* ask on a chamber, where the worst seed used to meet
+  // two. The assertion below is pinned to `SEED` 20260904, which reads 5, so it still passes and
+  // still means what it says on that seed; it is no longer a claim about the style at large.
+  // Recorded rather than relaxed: the style does meet chambers, on six seeds in eight.
   assert.ok(guarding.asks > 20,
     `the guardian was asked ${guarding.asks} times in ${guarding.seconds.toFixed(1)} s, `
     + "too few for the counts below to mean anything");

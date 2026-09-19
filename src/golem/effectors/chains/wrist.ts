@@ -38,6 +38,17 @@ const HINGE = PhysicsConstraintAxis.ANGULAR_X;
  */
 const BEND_SIGN = -1;
 
+/**
+ * How many passes the aim solve takes, and why it is a small odd number rather than a tolerance.
+ *
+ * The correction moves the hand by up to a fifth of a metre and the forearm turns as it moves,
+ * so one pass leaves a residual. Measured on the stroke bench, the residual falls by about a
+ * tenth each pass, so three is already below the millimetre the readout can see -- and a fixed
+ * count costs the same every frame, which a tolerance loop does not. A solve that cost a
+ * different amount on different frames would show up as jitter in a rate-limited anchor.
+ */
+const AIM_PASSES = 3;
+
 const clamp = (value: number, low: number, high: number): number =>
   value < low ? low : value > high ? high : value;
 
@@ -256,6 +267,98 @@ export const wristChain = defineChain({
     ]);
 
     const span = outerReach + W.ringLength + W.wristLength;
+
+    /**
+     * The vector from the hand to the tip at a given hand point, roll and bend.
+     *
+     * The same geometry `commandedEnd` publishes, factored out so the readout and the *command*
+     * cannot drift apart -- which is the point of this whole correction: until now one of them
+     * was an exact model and the other was a straight line, and nothing compared them.
+     *
+     * The ring is collinear with the forearm, so a roll turns it about its own axis and moves
+     * nothing; only what is past the bend hinge swings. `past` is a link length and not a pose,
+     * which is why it is computed once against `outerReach`: the hand sits at full extension in
+     * the frame `distanceFromSocket` was measured in.
+     */
+    const overhangAt = (hand: Vector3, roll: number, bend: number, past: number,
+      into: Vector3): Vector3 => {
+      core.basisAt(hand, aim.forearm, aim.lateral);
+      // Rodrigues about the forearm's own +Y, which points **up** the limb -- so the lateral
+      // turns toward `lateral x forearm`. The other order is a roll that points the edge the
+      // wrong way on both sockets at once, which reads as a chain fault rather than a mirror one.
+      Vector3.CrossToRef(aim.lateral, aim.forearm, aim.cross);
+      aim.rolled
+        .copyFrom(aim.lateral)
+        .scaleInPlace(Math.cos(roll))
+        .addInPlace(aim.cross.scaleInPlace(Math.sin(roll)));
+      Vector3.CrossToRef(aim.rolled, aim.forearm, aim.cross);
+      into
+        .copyFrom(aim.forearm)
+        .scaleInPlace(Math.cos(bend))
+        .addInPlace(aim.cross.scaleInPlace(Math.sin(bend)))
+        .scaleInPlace(past);
+      return into.addInPlace(aim.forearm.scaleInPlace(W.ringLength));
+    };
+
+    /**
+     * Aim the *tip* where the cursor asked, rather than the hand.
+     *
+     * **A bend moves where the blade lands, and nothing between the mind and the anchor knew.**
+     * `reachForDistance` in `tactics.ts` models the overhang as radially collinear with
+     * socket-to-mark, and `writeAim` never touches roll or bend; but this chain builds its bend
+     * hinge about the ring's lateral, so at `cutBend` 0.14 of a 1.5708 stop with 0.94 m past the
+     * hinge the tip sits about 0.2 m off the radial line -- and rolling sweeps that lever around
+     * the forearm. The mind aims a straight arm and the physics delivers a bent one.
+     *
+     * That is also a violation of this file's own ownership rule. The header says the wrist's
+     * two motors own **orientation** and the anchor owns **position**; a bend that moves the tip
+     * is the wrist owning a piece of position, and the anchor has no way to know it happened.
+     * Correcting it here is what makes the header true, which is why it belongs to the chain and
+     * not to the mind: `wrist.ts:48-56` is the rule that the mind stays ignorant of the wrist.
+     *
+     * **Fed forward from the commanded pose, not corrected from the achieved one.** The roll and
+     * the bend are known exactly -- they are this file's own slewed targets -- so the offset is
+     * computed rather than measured and adds no lag and no loop. `commandWeldTo` just above is
+     * the same pattern against the achieved transform, and says why that one is self-correcting.
+     *
+     * Solved rather than applied once, because the forearm turns with the hand: moving the hand
+     * to make room for the bend changes the direction the bend is taken about. Three passes,
+     * which is what the residual asked for -- the offset is a fifth of a metre and each pass
+     * takes about a tenth of what is left.
+     */
+    const aimTipThrough = (asked: Vector3, out: Vector3): void => {
+      out.copyFrom(asked);
+      if (tipToSocket === null) return;
+      if (commandedRoll === 0 && commandedBend === 0) return;
+      const past = tipToSocket - outerReach - W.ringLength;
+      if (past <= 0) return;
+      const bend = BEND_SIGN * commandedBend;
+      // Where a straight wrist would have put the tip: the pose the mind's reach model assumes,
+      // and therefore the point it is actually asking for.
+      aim.hand.copyFrom(asked);
+      // **Along the forearm, not radially**, and that is the one choice in here that decides
+      // whether this helps at all. Targeting the socket-to-mark ray is what `reachForDistance`
+      // models, so it looks like the right line -- but the arm is built bent, the forearm and the
+      // radial direction are not the same line, and a target on the radial ray therefore moves
+      // the hand *even at zero bend*, by the blade's whole length times the gap between the two
+      // directions. That is not a correction, it is a second error: measured, it took the miss to
+      // 0.45 m and cut the speed at the mark from 20 m/s to 5. Along the forearm the correction
+      // is exactly zero when the wrist is straight, which is the property a correction has to
+      // have; the residual radial error is the mind's own model and is not this chain's to fix.
+      core.basisAt(aim.hand, aim.forearm, aim.lateral);
+      aim.target
+        .copyFrom(aim.forearm)
+        .scaleInPlace(W.ringLength + past)
+        .addInPlace(aim.hand);
+      for (let pass = 0; pass < AIM_PASSES; pass += 1) {
+        overhangAt(aim.hand, commandedRoll, bend, past, aim.over);
+        aim.hand.copyFrom(aim.target).subtractInPlace(aim.over);
+      }
+      out.copyFrom(aim.hand);
+    };
+    // Installed once. The stage answers `asked` unchanged until a terminal declares how far past
+    // the ring its tip sits, so a chain with no terminal on it is untouched by having one.
+    core.adjustPoint(aimTipThrough);
     const envelope: ModuleEnvelope = Object.freeze({
       axes: wristEnvelopeAxes,
       reach: span,
@@ -263,6 +366,18 @@ export const wristChain = defineChain({
       reachable: core.reachable,
       settledBand: R.settledBand,
     });
+
+    const aim = {
+      hand: new Vector3(),
+      target: new Vector3(),
+      over: new Vector3(),
+      forearm: new Vector3(),
+      lateral: new Vector3(),
+      rolled: new Vector3(),
+      cross: new Vector3(),
+    };
+    /** Set once by the module, because only the module knows how long the terminal is. */
+    let tipToSocket: number | null = null;
 
     const scratch = {
       ringX: new Vector3(),
@@ -357,14 +472,81 @@ export const wristChain = defineChain({
         core.commandPoint(scratch.sendHand);
       },
 
+      aimThrough(distanceFromSocket: number): void { tipToSocket = distanceFromSocket; },
+
+      /**
+       * **Condition the weld: give the ring and the link an inertia in the load's league.**
+       *
+       * The mass cast above is the same idea one derivative early, and the measurement that
+       * separates them is the fist. A fist and a blade weigh within four grams of each other
+       * (1.296 kg and 1.300), hang off the same link by the same locked weld -- and the fist
+       * reads 0.0 mm of unprovoked ring where the blade reads 66 to 108 mm. Mass explains
+       * nothing there. Their inertias about the weld do: 3.2e-3 for the fist against 5.3e-2
+       * for the blade, so the blade is 41 times the ring's own 1.3e-3 and the fist is 2.5.
+       * A locked weld is a torque seam, and a torque seam is conditioned by inertia.
+       *
+       * Written on all three axes rather than the two across the blade. The roll axis is the
+       * one a sword is thin about, so casting it costs the roll motor authority it did not
+       * need -- and it is also the axis a hand genuinely resists, since a wrist does not spin
+       * freely either. The measured table is beside `CHAIN_WRIST.gripInertiaRatio`.
+       *
+       * A floor, never a ceiling: `max` against the body's own tensor, so a light terminal
+       * leaves the shipped link exactly as the capsule computed it.
+       */
+      castToCarried(inertiaKgM2: number): void {
+        const want = W.gripInertiaRatio * inertiaKgM2;
+        let lifted = 1;
+        for (const part of [ring, link]) {
+          const had = part.body.getMassProperties();
+          const own = had.inertia;
+          if (!own) continue;
+          const cast = Math.max(own.x, own.y, own.z, want);
+          if (cast <= own.x && cast <= own.y && cast <= own.z) continue;
+          if (part === ring) lifted = cast / Math.max(own.x, own.y, own.z);
+          part.body.setMassProperties({
+            mass: had.mass,
+            centerOfMass: had.centerOfMass,
+            inertia: new Vector3(cast, cast, cast),
+            inertiaOrientation: had.inertiaOrientation,
+          });
+        }
+        // **And the motors that have to turn it, by the same factor, for the same reason.**
+        // A torque ceiling is an authority *per inertia*: 60 N.m was picked against a ring of
+        // 1.29e-3, and a ring cast to 2.67e-2 is the same motor twenty times too weak. Left
+        // alone it shows up as the hinge missing its command -- the bend droops by 1.8 rad
+        // during a stroke, and because the aim correction above feeds forward from the
+        // *commanded* bend, the blade then lands where the correction put it and not where
+        // the blade is. That is the whole of why the first cast bought stillness at the cost
+        // of the aim: it was not a trade, it was a second constant left behind.
+        //
+        // Derived rather than swept, and the sweep beside `gripInertiaRatio` is what says it
+        // may be: the measured knee is 16x and this law gives 20.7x, which is past it and on
+        // the flat, where 16 / 32 / 64 read byte-identical. A terminal under the floor lifts
+        // nothing and keeps the shipped ceiling exactly.
+        //
+        // **Only on a hinge that has somewhere to go**, which is the maul's correction. A
+        // two-socket terminal pins `rollMax` and `bendMax` at zero, so both of its hinges are
+        // holding a target they are already on -- and a motor with no range given twenty times
+        // the authority is not a motor, it is a clamp. Two clamps at the ends of one rigid bar
+        // fight, and the maul's ring went 417 mm to 733 mm on exactly that: the cast alone
+        // helps it (448 -> 417) and the lift alone breaks it. The mace pins only its bend, so
+        // its roll lifts and its bend does not, which is the same sentence read per axis.
+        if (lifted <= 1) return;
+        if (rollLimit > 0) rollJoint?.setAxisMotorMaxForce(HINGE, W.rollTorque * lifted);
+        if (bendLimit > 0) bendJoint?.setAxisMotorMaxForce(HINGE, W.bendTorque * lifted);
+      },
       step(dt: number): void {
         if (severed) return;
-        core.step(dt);
         // Rate-limited, like every other command in a golem: the ceiling is what makes a flicked
         // key a turn rather than a snap, and it is the same `slewTowards` the anchor and rung 1's
         // hinge both use so the three cannot drift apart.
+        //
+        // **Before the core steps, not after**, which is the whole of why this moved: the aim
+        // correction below is a function of the roll and the bend, so a core stepped first would
+        // spend the frame aiming through last frame's wrist.
         commandedRoll = slewTowards(commandedRoll, wantedRoll, W.rollRate, dt);
         commandedBend = slewTowards(commandedBend, wantedBend, W.bendRate, dt);
+        core.step(dt);
         if (rollJoint) {
           rollJoint.setAxisMotorTarget(HINGE, commandedRoll);
         }
