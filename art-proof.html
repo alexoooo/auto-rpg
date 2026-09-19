@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>The Cinder Forge · Golem art proof</title><link rel="stylesheet" href="/src/art-proof/style.css"/></head>
+<body>
+  <canvas id="stage" aria-label="Live golem in the Cinder Forge" tabindex="0"></canvas>
+  <header><a href="/" class="brand"><span class="sigil">◇</span> GOLEM DUEL</a><span class="edition">ART STUDY <i>01</i></span></header>
+  <main class="caption"><p class="eyebrow">STONE BODIES. LIVING MACHINES.</p><h1>The Cinder<br> <em>Forge</em></h1>
+    <p class="description">Carved limestone. Cast bronze.<br>A body moved by physics.</p><span class="rule"></span>
+    <p class="specimen">THE STONEWARD <span>01 / BIPED</span></p>
+  </main>
+  <aside id="status" role="status">Lighting the forge…</aside>
+  <pre id="metrics" hidden></pre>
+  <footer><div class="tools" aria-label="Scene controls">
+    <div class="control-group"><button id="gameplay" aria-pressed="true">Arena view</button><button id="closeup" aria-pressed="false">Inspect</button></div>
+    <div class="control-group"><button id="appearance" aria-pressed="true">Modeled</button><button id="stone" aria-pressed="false">Limestone</button></div>
+    <div class="control-group"><button id="pause" aria-pressed="false">Pause</button><button id="restart">Restart</button></div>
+    <button id="stats" aria-pressed="false">Readout</button>
+  </div><div class="footnote"><span>DRAG TO ORBIT <b>·</b> SHIFT + DRAG TO PAN <b>·</b> SCROLL TO ZOOM</span><span id="phase">Preparing the stoneward</span></div></footer>
+  <script type="module" src="/src/art-proof/main.ts"></script>
+</body></html>

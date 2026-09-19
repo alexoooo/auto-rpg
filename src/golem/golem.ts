@@ -177,6 +177,16 @@ export interface GolemOptions {
   readonly locomotionWorld?: StandableWorldRegistry;
 }
 
+/** Presentation reads these bindings; it never owns or changes their bodies. */
+export interface GolemVisualPart {
+  readonly slot: GolemSlot;
+  readonly moduleId: string;
+  readonly id: string;
+  readonly host: GolemPart["part"]["mesh"];
+  readonly shells: readonly AbstractMesh[];
+  readonly damage: Readonly<Pick<Limb, "health" | "maxHealth" | "severed">>;
+}
+
 /**
  * A readable label for a part, from the module id its own builder gave it.
  *
@@ -248,6 +258,9 @@ export class Golem implements Combatant {
   readonly limbs: Limb[] = [];
   readonly strikers: Striking[] = [];
   readonly costume: AbstractMesh[] = [];
+  private readonly visualBindings: GolemVisualPart[] = [];
+  /** A frozen view of actual module registration, including shield and collider-only visuals. */
+  visualParts(): readonly GolemVisualPart[] { return Object.freeze([...this.visualBindings]); }
   readonly view: FighterView;
   lockTarget: Vector3 | null = null;
 
@@ -536,6 +549,10 @@ export class Golem implements Combatant {
         guarding: slot === "primary" || slot === "secondary",
       };
       this.limbs.push(limb);
+      this.visualBindings.push(Object.freeze({
+        slot, moduleId: id, id: part.id, host: part.part.mesh,
+        shells: part.shell, damage: limb,
+      }));
       record.limbs.push(limb);
       this.byBody.set(part.part.body, limb);
       if (part.shield) this.shields.add(part.part.body);

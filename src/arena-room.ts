@@ -212,12 +212,12 @@ const existingColliders = new Set([
   ...roomWalls().map((placement) => placement.collider as string),
 ]);
 
-export function validateRoomPlacements(groups: readonly RoomGroup[]): string[] {
+export function validateRoomPlacements(groups: readonly RoomGroup[], registeredColliders: ReadonlySet<string> = existingColliders): string[] {
   const failures: string[] = [];
   for (const group of groups) {
     for (const placement of group.placements) {
       if (placement.role !== group.role) failures.push(`${placement.name} is in the ${group.role} instance group`);
-      if (placement.collider && !existingColliders.has(placement.collider)) {
+      if (placement.collider && !registeredColliders.has(placement.collider)) {
         failures.push(`${placement.name} names missing collider ${placement.collider}`);
       }
       if (!placement.solid || placement.collider) continue;

@@ -1,0 +1,615 @@
+{
+  "version": 1,
+  "parts": [
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.pelvis:0",
+      "asset": "part_0",
+      "family": "carvedStone",
+      "extents": [
+        0.44,
+        0.24,
+        0.34
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.thighL:0",
+      "asset": "part_1",
+      "family": "carvedStone",
+      "extents": [
+        0.176,
+        0.4,
+        0.15488
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.thighL:1",
+      "asset": "part_2",
+      "family": "carvedStone",
+      "extents": [
+        0.11967999999999998,
+        0.23199999999999998,
+        0.0704
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.thighL:2",
+      "asset": "part_3",
+      "family": "functionalMetal",
+      "extents": [
+        0.20415999999999998,
+        0.18656,
+        0.20415999999999998
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.shinL:0",
+      "asset": "part_4",
+      "family": "carvedStone",
+      "extents": [
+        0.148,
+        0.32,
+        0.13024
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.shinL:1",
+      "asset": "part_5",
+      "family": "carvedStone",
+      "extents": [
+        0.10655999999999999,
+        0.1856,
+        0.0592
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.shinL:2",
+      "asset": "part_6",
+      "family": "functionalMetal",
+      "extents": [
+        0.17167999999999997,
+        0.15688,
+        0.17167999999999997
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.footL:0",
+      "asset": "part_7",
+      "family": "carvedStone",
+      "extents": [
+        0.2,
+        0.12,
+        0.34
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.footL:1",
+      "asset": "part_8",
+      "family": "functionalMetal",
+      "extents": [
+        0.20800000000000002,
+        0.0408,
+        0.0748
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.thighR:0",
+      "asset": "part_9",
+      "family": "carvedStone",
+      "extents": [
+        0.176,
+        0.4,
+        0.15488
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.thighR:1",
+      "asset": "part_10",
+      "family": "carvedStone",
+      "extents": [
+        0.11967999999999998,
+        0.23199999999999998,
+        0.0704
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.thighR:2",
+      "asset": "part_11",
+      "family": "functionalMetal",
+      "extents": [
+        0.20415999999999998,
+        0.18656,
+        0.20415999999999998
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.shinR:0",
+      "asset": "part_12",
+      "family": "carvedStone",
+      "extents": [
+        0.148,
+        0.32,
+        0.13024
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.shinR:1",
+      "asset": "part_13",
+      "family": "carvedStone",
+      "extents": [
+        0.10655999999999999,
+        0.1856,
+        0.0592
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.shinR:2",
+      "asset": "part_14",
+      "family": "functionalMetal",
+      "extents": [
+        0.17167999999999997,
+        0.15688,
+        0.17167999999999997
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.footR:0",
+      "asset": "part_15",
+      "family": "carvedStone",
+      "extents": [
+        0.2,
+        0.12,
+        0.34
+      ]
+    },
+    {
+      "key": "locomotion:locomotion.biped:golem.legs.footR:1",
+      "asset": "part_16",
+      "family": "functionalMetal",
+      "extents": [
+        0.20800000000000002,
+        0.0408,
+        0.0748
+      ]
+    },
+    {
+      "key": "torso:torso.plain:golem.trunk.waist:0",
+      "asset": "part_17",
+      "family": "carvedStone",
+      "extents": [
+        0.28,
+        0.28,
+        0.28
+      ]
+    },
+    {
+      "key": "torso:torso.plain:golem.trunk.waist:1",
+      "asset": "part_18",
+      "family": "functionalMetal",
+      "extents": [
+        0.30800000000000005,
+        0.196,
+        0.30800000000000005
+      ]
+    },
+    {
+      "key": "torso:torso.plain:golem.trunk.core:0",
+      "asset": "part_19",
+      "family": "carvedStone",
+      "extents": [
+        0.62,
+        0.54,
+        0.32
+      ]
+    },
+    {
+      "key": "torso:torso.plain:golem.trunk.core:1",
+      "asset": "part_20",
+      "family": "carvedStone",
+      "extents": [
+        0.5332,
+        0.38880000000000003,
+        0.030000000000000002
+      ]
+    },
+    {
+      "key": "torso:torso.plain:golem.trunk.core:2",
+      "asset": "part_21",
+      "family": "carvedStone",
+      "extents": [
+        0.5332,
+        0.38880000000000003,
+        0.030000000000000002
+      ]
+    },
+    {
+      "key": "torso:torso.plain:golem.trunk.core:3",
+      "asset": "part_22",
+      "family": "functionalMetal",
+      "extents": [
+        0.2268,
+        0.06,
+        0.2268
+      ]
+    },
+    {
+      "key": "torso:torso.plain:golem.trunk.core:4",
+      "asset": "part_23",
+      "family": "functionalMetal",
+      "extents": [
+        0.2268,
+        0.06,
+        0.2268
+      ]
+    },
+    {
+      "key": "torso:torso.plain:golem.trunk.core:5",
+      "asset": "part_24",
+      "family": "functionalMetal",
+      "extents": [
+        0.21080000000000002,
+        0.07,
+        0.21080000000000002
+      ]
+    },
+    {
+      "key": "head:head.plain:golem.head.neck:0",
+      "asset": "part_25",
+      "family": "carvedStone",
+      "extents": [
+        0.15,
+        0.2,
+        0.132
+      ]
+    },
+    {
+      "key": "head:head.plain:golem.head.neck:1",
+      "asset": "part_26",
+      "family": "carvedStone",
+      "extents": [
+        0.105,
+        0.11599999999999999,
+        0.06
+      ]
+    },
+    {
+      "key": "head:head.plain:golem.head.neck:2",
+      "asset": "part_27",
+      "family": "functionalMetal",
+      "extents": [
+        0.174,
+        0.159,
+        0.174
+      ]
+    },
+    {
+      "key": "head:head.plain:golem.head.head:0",
+      "asset": "part_28",
+      "family": "carvedStone",
+      "extents": [
+        0.34,
+        0.32,
+        0.36
+      ]
+    },
+    {
+      "key": "head:head.plain:golem.head.head:1",
+      "asset": "part_29",
+      "family": "carvedStone",
+      "extents": [
+        0.3128,
+        0.0704,
+        0.036
+      ]
+    },
+    {
+      "key": "head:head.plain:golem.head.head:2",
+      "asset": "part_30",
+      "family": "rune",
+      "extents": [
+        0.10200000000000001,
+        0.10880000000000001,
+        0.021599999999999998
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.collar:0",
+      "asset": "part_31",
+      "family": "carvedStone",
+      "extents": [
+        0.14,
+        0.14,
+        0.14
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.collar:1",
+      "asset": "part_32",
+      "family": "functionalMetal",
+      "extents": [
+        0.15400000000000003,
+        0.098,
+        0.15400000000000003
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.upperArm:0",
+      "asset": "part_33",
+      "family": "carvedStone",
+      "extents": [
+        0.14,
+        0.42,
+        0.12320000000000002
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.upperArm:1",
+      "asset": "part_34",
+      "family": "carvedStone",
+      "extents": [
+        0.0924,
+        0.24359999999999998,
+        0.05600000000000001
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.upperArm:2",
+      "asset": "part_35",
+      "family": "functionalMetal",
+      "extents": [
+        0.16240000000000002,
+        0.14840000000000003,
+        0.16240000000000002
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.forearm:0",
+      "asset": "part_36",
+      "family": "carvedStone",
+      "extents": [
+        0.116,
+        0.36,
+        0.10208
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.forearm:1",
+      "asset": "part_37",
+      "family": "carvedStone",
+      "extents": [
+        0.0812,
+        0.20879999999999999,
+        0.046400000000000004
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.forearm:2",
+      "asset": "part_38",
+      "family": "functionalMetal",
+      "extents": [
+        0.13455999999999999,
+        0.12296000000000001,
+        0.13455999999999999
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.rollRing:0",
+      "asset": "part_39",
+      "family": "carvedStone",
+      "extents": [
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.rollRing:1",
+      "asset": "part_40",
+      "family": "functionalMetal",
+      "extents": [
+        0.11000000000000001,
+        0.06999999999999999,
+        0.11000000000000001
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.wrist:0",
+      "asset": "part_41",
+      "family": "carvedStone",
+      "extents": [
+        0.104,
+        0.14,
+        0.09151999999999999
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.wrist:1",
+      "asset": "part_42",
+      "family": "carvedStone",
+      "extents": [
+        0.07696,
+        0.08120000000000001,
+        0.0416
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.wrist:2",
+      "asset": "part_43",
+      "family": "functionalMetal",
+      "extents": [
+        0.12063999999999998,
+        0.11024,
+        0.12063999999999998
+      ]
+    },
+    {
+      "key": "primary:effector.wrist.blade:golem.primary.blade:0",
+      "asset": "part_44",
+      "family": "steel",
+      "extents": [
+        0.05,
+        0.8,
+        0.01
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.collar:0",
+      "asset": "part_45",
+      "family": "carvedStone",
+      "extents": [
+        0.14,
+        0.14,
+        0.14
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.collar:1",
+      "asset": "part_46",
+      "family": "functionalMetal",
+      "extents": [
+        0.15400000000000003,
+        0.098,
+        0.15400000000000003
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.upperArm:0",
+      "asset": "part_47",
+      "family": "carvedStone",
+      "extents": [
+        0.14,
+        0.42,
+        0.12320000000000002
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.upperArm:1",
+      "asset": "part_48",
+      "family": "carvedStone",
+      "extents": [
+        0.0924,
+        0.24359999999999998,
+        0.05600000000000001
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.upperArm:2",
+      "asset": "part_49",
+      "family": "functionalMetal",
+      "extents": [
+        0.16240000000000002,
+        0.14840000000000003,
+        0.16240000000000002
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.forearm:0",
+      "asset": "part_50",
+      "family": "carvedStone",
+      "extents": [
+        0.116,
+        0.36,
+        0.10208
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.forearm:1",
+      "asset": "part_51",
+      "family": "carvedStone",
+      "extents": [
+        0.0812,
+        0.20879999999999999,
+        0.046400000000000004
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.forearm:2",
+      "asset": "part_52",
+      "family": "functionalMetal",
+      "extents": [
+        0.13455999999999999,
+        0.12296000000000001,
+        0.13455999999999999
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.rollRing:0",
+      "asset": "part_53",
+      "family": "carvedStone",
+      "extents": [
+        0.1,
+        0.1,
+        0.1
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.rollRing:1",
+      "asset": "part_54",
+      "family": "functionalMetal",
+      "extents": [
+        0.11000000000000001,
+        0.06999999999999999,
+        0.11000000000000001
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.wrist:0",
+      "asset": "part_55",
+      "family": "carvedStone",
+      "extents": [
+        0.104,
+        0.14,
+        0.09151999999999999
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.wrist:1",
+      "asset": "part_56",
+      "family": "carvedStone",
+      "extents": [
+        0.07696,
+        0.08120000000000001,
+        0.0416
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.wrist:2",
+      "asset": "part_57",
+      "family": "functionalMetal",
+      "extents": [
+        0.12063999999999998,
+        0.11024,
+        0.12063999999999998
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.plate:0",
+      "asset": "part_58",
+      "family": "carvedStone",
+      "extents": [
+        0.42,
+        0.08,
+        0.24
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.plate:1",
+      "asset": "part_59",
+      "family": "carvedStone",
+      "extents": [
+        0.3,
+        0.048,
+        0.12
+      ]
+    },
+    {
+      "key": "secondary:effector.wrist.plate:golem.secondary.plate:2",
+      "asset": "part_60",
+      "family": "functionalMetal",
+      "extents": [
+        0.44999999999999996,
+        0.044000000000000004,
+        0.27
+      ]
+    }
+  ]
+}
