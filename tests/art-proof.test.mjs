@@ -50,6 +50,10 @@ test('modeled assets cover registered parts and preserve physical state over the
       const bindings=f.golem.visualParts();assert.equal(bindings.length,f.golem.limbs.length);
       assert.ok(Object.isFrozen(bindings));assert.ok(bindings.every(Object.isFrozen));
       assert.equal(f.presenter.meshes.length,manifest.parts.length);
+      assert.ok(f.presenter.meshes.every(m=>!m.hasVertexAlpha),'opaque vertex-colored covers must participate in depth and shadows');
+      // The approved refinement budget is 20% above the first proof's 16,472 triangles.
+      assert.ok(f.presenter.meshes.reduce((sum,m)=>sum+m.getTotalIndices()/3,0)<=19766,
+        'refinement exceeds the golem geometry budget');
       for(const binding of bindings) {
         assert.ok(f.golem.limbs.some(l=>l.part.mesh===binding.host&&l===binding.damage));
         assert.ok(binding.host.isEnabled());

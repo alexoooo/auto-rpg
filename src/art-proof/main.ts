@@ -65,7 +65,8 @@ async function main() {
   const rim=new DirectionalLight("proof.rim",new Vector3(-.8,-.5,-.65),scene);
   rim.diffuse=new Color3(.42,.61,1);rim.intensity=1.6;
   const shadows=new ShadowGenerator(2048,key);shadows.usePercentageCloserFiltering=true;
-  shadows.filteringQuality=ShadowGenerator.QUALITY_MEDIUM;shadows.bias=.0003;shadows.normalBias=.007;
+  // Sharper flat faces reveal self-shadow striping at the old bias.
+  shadows.filteringQuality=ShadowGenerator.QUALITY_MEDIUM;shadows.bias=.0012;shadows.normalBias=.015;
   const environmentReady=new Promise<void>((resolve,reject)=> {
     scene.environmentTexture=new HDRCubeTexture("/assets/env.hdr",scene,256,false,true,false,true,
       ()=>resolve(),(message)=>reject(new Error(`Environment: ${message}`)));

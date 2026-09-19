@@ -47,6 +47,14 @@ All assets in `public/assets/art-proof` are original generated work; the scene r
 repository's existing environment HDR. No remote fonts, images, model services or CDN assets are
 needed at runtime. Rebuilding overwrites generated assets and the Blender source shelf.
 
+The refinement adds narrow stone chamfers and varied inward chips, periodic angular mineral
+fractures, and per-part UV offsets. Turned bronze covers have shallow recessed caps, stepped rims,
+and baked vertex-color recess shading; the cap depth stays outside the adjoining stone surface.
+The metal blade retains its physical envelope and receives a directional roughness map.
+New `carved-*`, `joint-*`, and `steel-orm` maps are 2K; new normal/ORM maps are saved as non-color
+data. Original maps remain on walls and braziers. Pavement has independent material settings.
+The rune uses the existing bloom, and a shadow-bias adjustment removes striping on flat stone faces.
+
 Normal builds use the committed GLBs and images and require no Blender installation. The Blender
 binary is an existing local 4.5.12 LTS portable installation under ignored `.tools`, not a repository
 dependency. A different Blender 4.5 LTS executable can run the same Python script.

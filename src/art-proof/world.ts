@@ -63,7 +63,7 @@ export function buildProofWorld(scene: Scene, kit: Map<string,Mesh>, m: ProofMat
     return mesh;
   };
   // Tops coincide with the physical slab; only tiny bevels/gaps break the visual plane.
-  const pavement=place("pavement","proof.floor",Vector3.Zero(),Vector3.One(),m.basalt,false);
+  const pavement=place("pavement","proof.floor",Vector3.Zero(),Vector3.One(),m.pavement,false);
   pairs.push({visual:pavement.name,collider:"proof.ground"});
   place("fissures","proof.molten-joints",Vector3.Zero(),Vector3.One(),m.lava,false);
   const underlay=MeshBuilder.CreateGround("proof.underlay",{width:60,height:60},scene);
@@ -95,7 +95,7 @@ export function buildProofWorld(scene: Scene, kit: Map<string,Mesh>, m: ProofMat
     groups.push({role:"banner",metresPerRepeat:1,placements:[{name:banner.name,role:"banner",position:[x,3.6,4.97],
       halfExtent:[.5,1.2,.08],rotationY:0,solid:false,collider:null}]});
     const emblem=MeshBuilder.CreateTorus(`proof.sigil.${x}`,{diameter:.28,thickness:.018,tessellation:4},scene);
-    emblem.position.set(x,3.55,4.90);emblem.rotation.x=Math.PI/2;emblem.rotation.z=Math.PI/4;emblem.material=m.bronze;
+    emblem.position.set(x,3.55,4.90);emblem.rotation.x=Math.PI/2;emblem.rotation.z=Math.PI/4;emblem.material=m.brazierBronze;
   }
   const fire=new ShaderMaterial("proof.fire",scene,"proofFire",{
     attributes:["position","uv"],uniforms:["worldViewProjection","time"],needAlphaBlending:true});
@@ -106,7 +106,7 @@ export function buildProofWorld(scene: Scene, kit: Map<string,Mesh>, m: ProofMat
     place("plinth",`proof.brazier.foot.${i}`,new Vector3(p.x,.10,p.z),Vector3.One(),m.basalt);
     const h=p.y-.25;
     place("column",`proof.brazier.stem.${i}`,new Vector3(p.x,h/2+.12,p.z),new Vector3(.8,h/1.2,.8),m.basalt);
-    place("brazier",`proof.brazier.bowl.${i}`,new Vector3(p.x,p.y-.07,p.z),Vector3.One(),m.bronze);
+    place("brazier",`proof.brazier.bowl.${i}`,new Vector3(p.x,p.y-.07,p.z),Vector3.One(),m.brazierBronze);
     const plane=MeshBuilder.CreatePlane(`proof.flame.${i}`,{width:.6,height:.90},scene);
     plane.position.copyFrom(p.add(new Vector3(0,.34,0)));plane.material=fire;plane.billboardMode=Mesh.BILLBOARDMODE_Y;plane.isPickable=false;
     const light=new PointLight(`proof.firelight.${i}`,p.add(new Vector3(0,.25,0)),scene);
