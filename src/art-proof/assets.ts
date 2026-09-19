@@ -10,16 +10,23 @@ import type { Scene } from "@babylonjs/core/scene.js";
 
 export const ASSET_ROOT = "/assets/art-proof/";
 export interface ProofManifest { version: number; parts: { key: string; asset: string; family: string; extents: number[] }[] }
+/** glTF can deduplicate identical limbs. Baking must not transform their shared buffers twice. */
+export function prepareTemplate(mesh: Mesh): void {
+  mesh.makeGeometryUnique();
+  // Distinct glTF meshes can still reference the same index accessor. flipFaces mutates it.
+  mesh.setIndices(Array.from(mesh.getIndices()!));
+  mesh.bakeTransformIntoVertices(mesh.computeWorldMatrix(true).clone());
+  mesh.parent = null;
+  mesh.position.setAll(0); mesh.scaling.setAll(1); mesh.rotationQuaternion = Quaternion.Identity();
+  mesh.setEnabled(false); mesh.isPickable = false;
+}
 export async function loadTemplates(scene: Scene, file: string): Promise<Map<string, Mesh>> {
   const container = await LoadAssetContainerAsync(ASSET_ROOT + file, scene);
   container.addAllToScene();
   const templates = new Map<string, Mesh>();
   for (const mesh of container.meshes) {
     if (!(mesh instanceof Mesh) || !mesh.getTotalVertices()) continue;
-    mesh.bakeTransformIntoVertices(mesh.computeWorldMatrix(true).clone());
-    mesh.parent = null;
-    mesh.position.setAll(0); mesh.scaling.setAll(1); mesh.rotationQuaternion = Quaternion.Identity();
-    mesh.setEnabled(false); mesh.isPickable = false;
+    prepareTemplate(mesh);
     templates.set(mesh.name, mesh);
   }
   return templates;

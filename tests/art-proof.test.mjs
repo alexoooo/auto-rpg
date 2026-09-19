@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { Vector3, Quaternion } from '@babylonjs/core/Maths/math.vector.js';
+import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader.js';
@@ -12,6 +12,7 @@ import { Golem } from '../src/golem/golem.ts';
 import { defaultGolemSetup } from '../src/golem/build.ts';
 import { proofIntent, stepProofGolem } from '../src/art-proof/motion.ts';
 import { dressGolem } from '../src/art-proof/presenter.ts';
+import { prepareTemplate } from '../src/art-proof/assets.ts';
 import { validateRoomPlacements } from '../src/arena-room.ts';
 const manifest=JSON.parse(await readFile(new URL('../public/assets/art-proof/manifest.json',import.meta.url),'utf8'));
 const source=JSON.parse(await readFile(new URL('../assets/art-proof/source.json',import.meta.url),'utf8'));
@@ -27,8 +28,7 @@ async function fixture(upgraded) {
   const templates=new Map();
   for(const mesh of container.meshes) {
     if(!(mesh instanceof Mesh)||!mesh.getTotalVertices())continue;
-    mesh.bakeTransformIntoVertices(mesh.computeWorldMatrix(true).clone());mesh.parent=null;
-    mesh.position.setAll(0);mesh.scaling.setAll(1);mesh.rotationQuaternion=Quaternion.Identity();mesh.setEnabled(false);
+    prepareTemplate(mesh);
     templates.set(mesh.name,mesh);
   }
   const materials=Object.fromEntries(['stone','bronze','steel','rune','wood'].map(k=>[k,new StandardMaterial(k,scene)]));
@@ -57,6 +57,17 @@ test('modeled assets cover registered parts and preserve physical state over the
       // Import handedness and modelling must preserve the original local envelope, not just counts.
       for(const row of source.parts){
         const mesh=f.templates.get(row.asset), box=mesh.getBoundingInfo().boundingBox;
+        // Every exported solid must face outward after the glTF handedness bake.
+        // Bounds alone cannot detect a shared buffer reflected twice by matching limbs.
+        const vertices=mesh.getVerticesData('position'), indices=mesh.getIndices();
+        let signedVolume=0;
+        for(let i=0;i<indices.length;i+=3) {
+          const a=Vector3.FromArray(vertices,indices[i]*3);
+          const b=Vector3.FromArray(vertices,indices[i+1]*3);
+          const c=Vector3.FromArray(vertices,indices[i+2]*3);
+          signedVolume+=Vector3.Dot(a,Vector3.Cross(b,c))/6;
+        }
+        assert.ok(signedVolume>0,`${row.asset} has inward-facing triangles`);
         const ext=box.extendSize.scale(2).asArray();
         for(let axis=0;axis<3;axis++) {
           assert.ok(ext[axis]<=row.extents[axis]+.012,`${row.asset} expands outside source on ${axis}`);
