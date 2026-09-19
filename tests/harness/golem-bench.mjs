@@ -45,6 +45,7 @@ import {
 } from "../../src/golem/tactics.ts";
 import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
+import { RingMeter } from "./ring-meter.mjs";
 
 export const HARNESS = "the Node bench (scripts/golem-bench.mjs, NullEngine, real Havok, no rendering)";
 
@@ -258,6 +259,39 @@ export const WHIP_SEQUENCE = Object.freeze([
  * for the opposite reason: each is judged on something (a face, a lash) the blade sequence never
  * asks for.
  */
+/**
+ * How long a nudge phase holds, and how long after it opens the push lands.
+ *
+ * 3.0 s because rung 3 takes about 1.75 s to stop ringing on a commanded step and **a window
+ * shorter than the ring reports its own length back as a settle time** -- the defect the torso's
+ * shove phase found first, at 1.8 s, and wrote down. The 0.10 s delay is so the phase's opening
+ * step, where the script hands over, is not also the impulse step.
+ */
+const NUDGE_PHASE = Object.freeze({ seconds: 3.0, delay: 0.10 });
+
+/**
+ * The same script with a still, held phase appended: where a nudge is measured.
+ *
+ * **An appendix rather than a phase in each sequence, and opt-in rather than always.** There are
+ * five scripts in this file and a copy of the same phase in each would be five places for one
+ * rule to drift; and appending it unconditionally would lengthen every run, which moves the
+ * whole-run columns (`tipWanderMm`, `stuckSteps`, the run peak) that `docs/measurements.md`
+ * already has tables of. A caller that wants a ring asks for one and nothing else changes.
+ *
+ * The appended command is **the last phase's, repeated exactly**, so the limb enters already
+ * settled and the meter reads the nudge alone rather than the limb still arriving -- which is the
+ * correction the torso's shove phase needed twice, and the reason `untwist` exists there.
+ */
+export const withNudge = (sequence) => {
+  const last = sequence[sequence.length - 1];
+  const until = last.until + NUDGE_PHASE.seconds;
+  return {
+    sequence: Object.freeze([...sequence, Object.freeze({ ...last, name: "nudge", until })]),
+    at: last.until + NUDGE_PHASE.delay,
+    until,
+  };
+};
+
 export const sequenceFor = (moduleId) => {
   if (moduleId.endsWith(".mace")) return MACE_SEQUENCE;
   if (moduleId.endsWith(".maul")) return MAUL_SEQUENCE;
@@ -899,6 +933,83 @@ export function parrySequence({
       write: hold(across / radius, up / radius),
     }),
   ]);
+}
+
+/**
+ * The nudge: the smallest disturbance that answers the owner's complaint, and why it is sized in
+ * metres per second rather than in newton-seconds.
+ *
+ * `BENCH_SHOVE` on the torso is 84 N.s, and copying that number here would be a mistake worth
+ * naming: 84 N.s against the 1.82 kg a wrist chain carries is about 46 m/s, which is not a nudge,
+ * it is a demolition. **An impulse is only a disturbance relative to the inertia it lands on**,
+ * and the inertia at the end of an effector chain is a hundredth of a trunk's. So the constant
+ * below is picked against `peakTipSpeedMps`, which every ring row reports for exactly this
+ * reason -- the row says what the nudge actually did, so the constant cannot silently mean
+ * something different on a heavier terminal than it does on a lighter one.
+ *
+ * The table that picked it is in `CHAIN_WRIST`'s own doc, beside the gain it exists to measure.
+ */
+export const BENCH_NUDGE = Object.freeze({
+  newtonSeconds: 1,
+  // Across the chain rather than along it: a push down the arm's own axis is taken by the reach
+  // drive as a compression and produces no swing, and a swing is what rings.
+  direction: Object.freeze([0.3, -1, 0.4]),
+});
+
+/**
+ * The ring probe: how far one small push moved the tip, how long the tip took to stop, and **how
+ * many times it changed its mind on the way**.
+ *
+ * This is the column the whole damping change is judged in, and the reason it had to be built is
+ * that nothing in `BenchReadout` can see a ring -- `ring-meter.mjs`'s own doc lists the four
+ * metrics that look like they should and the structural reason each one cannot. The short of it
+ * is that every existing column is about *lag*, and the complaint is about *oscillation*.
+ *
+ * **It nudges rather than teleporting the cursor**, which `AGENTS.md:181-185` is emphatic about:
+ * a jumped command gives the limb no momentum to carry, so it reports a clean monotonic settle
+ * that says nothing about what a blow does. The impulse lands on the terminal at the tip, which
+ * is where a blow lands, and the meter is armed on the same step so the reference is the tip's
+ * position before the push rather than a step into it.
+ *
+ * `peakTipSpeedMps` is what makes the reading self-checking and is what sizes `BENCH_NUDGE`: a
+ * run whose tip never exceeded the readout's own `restTipSpeed` was not disturbed at all and its
+ * settle time is a statement about the noise floor.
+ */
+export function ringProbe({
+  at, until, bandMm = 2, newtonSeconds = BENCH_NUDGE.newtonSeconds,
+}) {
+  const meter = new RingMeter(bandMm);
+  const previous = new Vector3();
+  const push = new Vector3();
+  let fired = false;
+  let peakTipSpeed = 0;
+
+  const probe = ({ t, view, module }) => {
+    if (!view) return;
+    const tip = view.tip;
+    if (!fired) {
+      if (t >= at) {
+        const [dx, dy, dz] = BENCH_NUDGE.direction;
+        push.set(dx, dy, dz).normalize().scaleInPlace(newtonSeconds);
+        // The last part is the terminal: `effector.ts` composes `parts` as chain, then trailing
+        // grip, then end. A blow lands on the weapon, not on the forearm.
+        const end = module.parts[module.parts.length - 1];
+        end.part.body.applyImpulse(push, tip.clone());
+        meter.arm(t, until, tip.x, tip.y, tip.z);
+        fired = true;
+      }
+      previous.copyFrom(tip);
+      return;
+    }
+    const speed = Vector3.Distance(tip, previous) / SUBSTEP;
+    previous.copyFrom(tip);
+    if (speed > peakTipSpeed) peakTipSpeed = speed;
+    meter.sample(t, tip.x, tip.y, tip.z);
+  };
+
+  const read = () => Object.freeze({ ...meter.state(), peakTipSpeedMps: peakTipSpeed });
+
+  return { probe, read };
 }
 
 /**

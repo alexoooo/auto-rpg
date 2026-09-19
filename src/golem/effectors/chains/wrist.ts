@@ -191,8 +191,10 @@ export const wristChain = defineChain({
     });
     rollJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
     rollJoint.setAxisMotorTarget(HINGE, 0);
+    rollJoint.setAxisMotorMaxForce(HINGE, W.rollTorque);
     bendJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
     bendJoint.setAxisMotorTarget(HINGE, 0);
+    bendJoint.setAxisMotorMaxForce(HINGE, W.bendTorque);
 
     const parts: readonly GolemPart[] = Object.freeze([
       ...core.parts,
@@ -365,11 +367,9 @@ export const wristChain = defineChain({
         commandedBend = slewTowards(commandedBend, wantedBend, W.bendRate, dt);
         if (rollJoint) {
           rollJoint.setAxisMotorTarget(HINGE, commandedRoll);
-          rollJoint.setAxisMotorMaxForce(HINGE, W.rollTorque);
         }
         if (bendJoint) {
           bendJoint.setAxisMotorTarget(HINGE, BEND_SIGN * commandedBend);
-          bendJoint.setAxisMotorMaxForce(HINGE, W.bendTorque);
         }
         wristAxes[0].commanded = commandedRoll;
         wristAxes[0].achieved = achievedRoll();

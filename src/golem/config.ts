@@ -43,11 +43,19 @@
  * would have been six times too hard to knock over with no test able to say why. Scaling the
  * literals means there is one number and everything agrees with it.
  *
- * **Uniform, deliberately.** It leaves the blade at 0.21 kg, which is light for something 0.84 m
- * long, and the alternative -- scaling the body and leaving the weapons -- re-balances all
- * eleven arms against each other and wants the whole shelf re-measured. The relative shape of
- * the shelf is the part of this design that works. If a blade reads as weightless once damage is
- * re-priced, that is a specific complaint about one number and the place to fix it is here.
+ * **Not uniform, and the exception is `TERMINAL_BLADE.mass`** -- the one mass `kg()` does not
+ * wrap, because an arming sword weighs what an arming sword weighs whatever is holding it. The
+ * argument for that exemption is beside the number, and it stands: scaling it took the blade to
+ * 0.21 kg, a foil, and a clean cut then arrived with 11.7 J where the damage model prices a cut
+ * at 80.
+ *
+ * **What the exemption also did, and nobody costed at the time**, is halve the blade's wrist
+ * link against the blade: `CHAIN_WRIST.wristMass` fell with everything else while the blade did
+ * not, so `carryRatio`'s floor -- a floor the blade had never touched -- began to bind. A
+ * constraint solver holds a mass ratio rather than a load, so a scale that is uniform in mass is
+ * not uniform in the thing the solver cares about. `carryRatio` is re-derived there and carries
+ * the table; this note exists so the next reader of *this* number knows the exemption has a
+ * second consequence and where it is paid for. 2026-09-18.
  */
 const SHIPPED_MASS_SCALE = 0.162;
 
@@ -1251,11 +1259,63 @@ export const CHAIN_WRIST = {
    * held the same bar to 3 degrees and 57 mm, and the blade's own numbers did not move (11 mm of
    * mean tip-to-command either way).
    *
-   * 0.4 is that fourfold, expressed against the load so the blade's wrist stays what it was: 0.4
-   * of 18 is 7.2 kg, which is the 4x figure the sweep chose (2x held to 6 degrees and 150 mm of
-   * mean error, 3x to 71 mm, 4x to 38 mm); 0.4 of 1.3 is under the floor. The sweep is in
-   * `docs/measurements.md` under Session 02 of the matchup set. A maul at 48 kg makes a 19 kg
-   * ring, which is what a wrist that holds a maul has to be. 2026-09-06.
+   * 0.4 was that fourfold, expressed against the load so the blade's wrist stayed what it was:
+   * 0.4 of 18 is 7.2 kg, which is the 4x figure the sweep chose (2x held to 6 degrees and 150 mm
+   * of mean error, 3x to 71 mm, 4x to 38 mm); 0.4 of 1.3 was under the floor. That sweep is in
+   * `docs/measurements.md` under Session 02 of the matchup set. 2026-09-06.
+   *
+   * ## Swept again against the ring, and left at 0.4: it is not the lever
+   *
+   * **0.4 was chosen as a floor that the blade never touched, and `SHIPPED_MASS_SCALE` pushed
+   * the blade onto it.** `wristMass` is `kg(2.3)`, so it fell 2.3 -> 0.37 with everything else,
+   * while `TERMINAL_BLADE.mass` stayed at 1.30 by the deliberate exemption argued beside it. The
+   * blade's wrist link was 1.77x the blade's own mass the day the sweep above ran; afterwards
+   * the floor bound for the first time and pinned it at 0.4x -- **the worst ratio this design
+   * permits**, reached by a change that was about weight and never mentioned ratios.
+   *
+   * It is also the wrong bar. The 2026-09-06 sweep asked "does a mace hold its command", and 0.4
+   * answered that: 3 degrees, 57 mm. It never asked "does a limb hold *still*", which is a
+   * different question with a different answer, and the one the owner asked -- *"the golem looks
+   * like a collective of bobbleheads, every body part springs and jiggles around."*
+   *
+   * So it is re-derived on `ringProbe` (`tests/harness/golem-bench.mjs`), whose `nudge` column is
+   * what a limb does with **nothing commanded and nothing touching it**. Every ring below is
+   * that: an unprovoked limit cycle, which a spring cannot produce and a badly conditioned
+   * solver can.
+   *
+   *     ratio   blade ring   revs   blade peak m/s   mace ring   revs   plate ring
+   *       0.4      66.1 mm      9            13.14    211.3 mm     10      26.6 mm
+   *       1.0      35.4 mm      5            20.66     43.9 mm      8
+   *       1.4      10.0 mm      2            24.34     17.0 mm      4
+   *       1.8      15.8 mm      1            24.43     32.3 mm      3
+   *       2.2       0.0 mm      0            24.21     19.2 mm      2       0.8 mm
+   *       2.6       0.3 mm      0            23.81     13.5 mm      2
+   *       3.0       0.0 mm      0            22.48     14.2 mm      2
+   *
+   * 2.2 is the smallest ratio at which the blade stops moving on its own, and peak tip speed
+   * *rises* to meet it -- 13.14 -> 24.21 m/s, because a limb that fights itself spends the
+   * stroke's energy on the fight. **So the first reading of this table was that stillness here is
+   * free. It is not, and the column that says so is the one this table did not have.**
+   *
+   * `peakTipErrorMm` runs 768 / 1101 / 1456 / 1576 / 1555 / 1524 / 1386 down the same rows: the
+   * lag **doubles** by 1.4 and never comes back. The arm is heavier, the anchor drive's force
+   * ceiling is not, and a stroke that arrives faster arrives further from where it was sent --
+   * `tests/golem-bench.test.mjs`'s stroke probe misses by 0.674 m at 2.2 against the 0.294 it is
+   * pinned at. A maul makes it worse still: this floor is a fraction of the *terminal*, so 2.2
+   * of a maul is a 17 kg wrist link, and the trailing grip fails to hold at all.
+   *
+   * **A ratio big enough to condition the joint is a limb too heavy to aim, and that is the
+   * finding.** The ring this block was re-swept for is real, but its cause is upstream: the
+   * blade is the one mass `SHIPPED_MASS_SCALE` does not wrap, so the scale moved the *link* and
+   * not the *load* and drove the ratio onto this floor. Fixing a ratio by raising the floor
+   * treats the symptom; the fix is at the scale, and it is argued there. 0.4 stands.
+   *
+   * The mace is the one case this would have helped that the scale does not: it falls 211 -> 19
+   * mm here and is unmoved by the scale, because a ratio is scale-invariant and a mace has always
+   * bound this floor. That is a real defect, it is pre-existing rather than new, and it wants its
+   * own measurement rather than a number borrowed from the blade's problem. The whip is excluded
+   * from the reading entirely -- its terminal is a chain of segments, and a hanging lash is the
+   * thing itself moving rather than the joint failing. 2026-09-18.
    */
   carryRatio: 0.4,
 
