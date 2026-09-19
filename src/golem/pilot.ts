@@ -111,6 +111,18 @@ export interface PilotReading extends StyleReading {
   /** `weakestSlot` as a target command: height up their body, and across it. */
   weakestHeight: number;
   weakestLateral: number;
+  /**
+   * Whether their point has lately crossed `readTipSpeed` -- the high-recall read of an incoming
+   * blow, beside `theirs`, which is the high-precision one.
+   *
+   * Always `false` while `readTipSpeed` is 0, which is every table that ships, so a style that
+   * does not mention this row cannot be moved by it. The two are published separately on purpose:
+   * on blows that actually land, `theirs === "commit"` is 34.5 % precise with 1.8 % recall and
+   * this is 47.4 % precise with 70.8 %. Spend this one on a response that costs nothing if it is
+   * wrong -- a spare hand already at guard moving to cover -- and `theirs` on one that does, like
+   * giving up ground. Merging them was measured and is recorded as retracted in `readTipSpeed`.
+   */
+  rushing: boolean;
 }
 
 /** A pilot writes the whole command every ask; the executor holds it until the next one. */

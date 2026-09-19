@@ -1190,42 +1190,79 @@ test("the_stroke_reader_tells_a_chamber_a_commit_and_a_recover_from_the_arms_ext
 });
 
 /**
- * The tip-speed disjunct: silent at its shipped setting, and the whole point of it when turned up.
+ * The tip-speed read: silent at its shipped setting, and its own channel when turned up.
  *
- * The first half is the one that protects the tree. `readTipSpeed` defaults to 0, and every mind
- * in the repo was measured with the reader as it was, so the row has to be provably inert until
- * somebody asks for it -- including when the caller passes no fourth argument at all, which is
- * every call site that predates it.
+ * The first half is what protects the tree. `readTipSpeed` defaults to 0, and every mind in the
+ * repo was measured with the reader as it was, so the row has to be provably inert until somebody
+ * asks for it -- including when the caller passes no fourth argument at all, which is every call
+ * site that predates it.
+ *
+ * The second half is the shape. This does **not** feed `phase`: merging it was measured, cost the
+ * reaper 1.2 of damage dealt for none saved, and is recorded as retracted on the row itself. It is
+ * published as `rushing` so a style can spend it on a response that costs nothing when it is
+ * wrong, and leave `theirs` to the responses that cost something.
  */
-test("the_tip_speed_disjunct_is_silent_until_it_is_turned_up", () => {
+test("the_tip_speed_read_is_silent_until_it_is_turned_up", () => {
   assert.equal(GOLEM_TACTICS_V2.readTipSpeed, 0, "the shipped reader must not read tip speed");
 
   // An arm held at guard with its point flying: nothing the extension rule would call a commit.
   const off = strokeReader();
   const on = strokeReader(fencerWith({ readTipSpeed: 5 }));
-  for (let step = 0; step < 30; step += 1) {
+  for (let step = 0; step < 6; step += 1) {
     off.update(0.95, 0, FIXED, 18);
     on.update(0.95, 0, FIXED, 18);
   }
+  assert.equal(off.rushing, false, "the shipped reader moved on a tip speed it should not read");
   assert.equal(off.phase, "idle", "the shipped reader moved on a tip speed it should not read");
-  assert.equal(on.phase, "commit", `a point at 18 m/s reads as ${on.phase}`);
+  assert.equal(on.rushing, true, "a point at 18 m/s did not read as rushing");
+  assert.equal(on.phase, "idle",
+    `the tip-speed read reached \`phase\`, which is the shape that was retracted: ${on.phase}`);
 
   // And the argument being absent reads the same as the row being off, which is what makes the
   // three call sites safe to leave alone if one is ever added.
   const absent = strokeReader(fencerWith({ readTipSpeed: 5 }));
   for (let step = 0; step < 30; step += 1) absent.update(0.95, 0, FIXED);
-  assert.equal(absent.phase, "idle",
-    "a caller passing no tip speed must not be read as committing");
+  assert.equal(absent.rushing, false, "a caller passing no tip speed must not read as rushing");
 });
 
 /**
- * The extension rule survives the disjunct, which is the claim that keeps its own table standing.
+ * The latch, which is the whole of why this row is shaped the way it is.
  *
- * `readTipSpeed` is added as an `||`, not a replacement, so a slow arm drawn in with its point
- * closing must still read as a commit with the new row turned up. If this fails the disjunct has
- * become a substitution and the measured table above it no longer describes the code.
+ * Tested as a level -- `tipSpeed >= readTipSpeed` compared every ask -- the read was up on 43.6 %
+ * of asks, which is a signal carrying nothing however well its edges predict. A crossing latched
+ * for `readRushSeconds` is what turns an informative edge into an informative level, so the two
+ * properties that shape has and the level does not both get pinned: it lets go on its own, and a
+ * point that stays fast does not hold it up for ever.
  */
-test("the_extension_rule_still_fires_with_the_tip_speed_row_up", () => {
+test("the_tip_speed_read_is_a_latched_crossing_and_not_a_level", () => {
+  const T = fencerWith({ readTipSpeed: 5, readRushSeconds: 0.10 });
+  const held = strokeReader(T);
+  // Five steps and not one, because the speed is low-passed over `readSeconds` before it meets
+  // the threshold. From a standing zero toward 18 m/s it crosses 5 on the fourth step at 240 Hz.
+  // That lag is the price of a crossing rate that does not depend on how fast the caller steps,
+  // and at about 0.017 s it is an eighth of the warning the signal was measured to carry.
+  for (let step = 0; step < 5; step += 1) held.update(0.95, 0, FIXED, 18);
+  assert.equal(held.rushing, true, "the crossing did not latch");
+  const steps = Math.round(0.10 * CONFIG.world.physicsHz) + 2;
+  for (let step = 0; step < steps; step += 1) held.update(0.95, 0, FIXED, 18);
+  assert.equal(held.rushing, false,
+    `a point still at 18 m/s ${steps} steps on still reads rushing, so the latch never let go`);
+
+  // And a point that never crosses the threshold never latches, however long it is watched.
+  const slow = strokeReader(T);
+  for (let step = 0; step < 240; step += 1) slow.update(0.95, 0, FIXED, 4.9);
+  assert.equal(slow.rushing, false, "a point under the threshold read as rushing");
+});
+
+/**
+ * The extension rule is untouched by the new row, which is the claim that keeps its own table
+ * standing.
+ *
+ * A slow arm drawn in with its point closing must still read as a commit with `readTipSpeed` up.
+ * If this fails, the new row has reached `phase` after all and the measured table above it no
+ * longer describes the code.
+ */
+test("the_extension_rule_is_untouched_by_the_tip_speed_row", () => {
   const reader = strokeReader(fencerWith({ readTipSpeed: 5 }));
   // 18 steps and not the 9 a first draft guessed at: `FIXED` is `1 / 240`, not a sixtieth, and the
   // extension is low-passed over `readSeconds` from a standing 1.0, so it crosses

@@ -198,8 +198,52 @@ const FENCER = {
    * stands, and turning this on globally would re-baseline all of them at once behind a change
    * whose own table above is 16 bouts. A style that wants it sets it; what that is worth in score
    * is the style's table to take, not this row's.
+   *
+   * ## Two corrections, both paid for
+   *
+   * **The first: an edge is not a level, and this does not feed `phase`.** The detector table
+   * above scores *rising edges* -- warning events -- which is the right frame for "how much
+   * notice does a blow give". But nothing consumes `theirs` as an event: every rule reads it as a
+   * level, once an ask. Folded into `committing`, at 6 m/s it read `commit` on **43.6 %** of asks
+   * against the extension rule's 3.0 %; the reaper voided on 13.2 % of asks against 1.0 %, opened
+   * *fewer* cuts (7.4 % against 10.4 %), and dealt **8.32 against 9.56 for the same damage
+   * taken**. Latching the crossing and low-passing it first brought the occupancy down to 18-27 %
+   * and did not rescue it: at thresholds 8, 11 and 14 the mind dealt 6.68, 8.79 and 9.16 against
+   * the control's 9.56 and took 9.34, 9.14 and 8.79 against 7.93. **Every cell was worse than
+   * off, so the merged shape is retracted.**
+   *
+   * The reason is in the two signals' shapes rather than in any threshold. On landed blows the
+   * extension rule is 34.5 % precise at 1.8 % recall and this is 47.4 % precise at 70.8 %. A rule
+   * that gives up ground and cancels a throwing window wants the first; a rule that moves a spare
+   * hand already at guard wants the second. Merged, the expensive response reads the cheap
+   * signal, which is exactly what the void count shows. So the latch is published beside `phase`
+   * as `rushing` and `phase` is left as it was -- which also means this row cannot move any mind
+   * that does not name `rushing`, whatever it is set to.
+   *
+   * **The second: the occupancy of a threshold depends on who is sampling it.** A first table of
+   * occupancy against coverage was taken off a 60 Hz trace and read 13.0 % occupancy at threshold
+   * 11. The reader runs inside `decide`, which steps at `CONFIG.world.physicsHz` -- **240** -- so
+   * four times as many samples cross the threshold on noise, and the same setting measured 46.3 %
+   * in a live bout. **That table is withdrawn**; a crossing rate that moves with the caller's
+   * step rate is a reading of the clock, not of the other fighter. The speed is now low-passed
+   * over `readSeconds` before it meets the threshold, as the extension beside it always was,
+   * which costs about 0.017 s of lag against the 0.133 s of warning the signal carries.
+   *
+   * What is *not* yet measured is what `rushing` is worth to a style that spends it correctly.
+   * The row buys a signal, and the tables above say only that the signal exists and that one way
+   * of spending it fails. A style that reads it owes its own table.
    */
   readTipSpeed: 0,
+  /**
+   * How long a crossing of `readTipSpeed` keeps the arm read as committed, in seconds.
+   *
+   * Read only when `readTipSpeed` is up, so its value is inert in everything that ships. 0.10 and
+   * not something longer because coverage is flat in this parameter and occupancy is not: going
+   * to 0.25 buys under two points of coverage for half again as much of the bout spent believing
+   * a blow is coming. The stroke it is meant to span is the 0.20 s of a committed cut, and the
+   * latch does not need to cover the stroke -- only to still be up when the blade arrives.
+   */
+  readRushSeconds: 0.10,
   readGuardExtension: 0.82,
   /**
    * Seconds after an exchange ends during which their arm is recovering.
@@ -411,6 +455,13 @@ export interface StrokeReader {
   /** Seconds since the last chamber or commit was read, or infinity. */
   readonly sinceExchange: number;
   /**
+   * Whether the watched point has lately crossed `readTipSpeed`, which is the high-recall read.
+   *
+   * Always `false` while `readTipSpeed` is 0, which is everything that ships. Deliberately not
+   * part of `phase`: see the note in the reader, and `readTipSpeed`'s own row for the tables.
+   */
+  readonly rushing: boolean;
+  /**
    * @param extension the point's distance from its own socket over the hand's reach, 0..1
    * @param gapRate how fast the point is getting further from my socket, m/s, low-passed
    * @param tipSpeed the point's own speed, m/s, read only when `readTipSpeed` is up
@@ -424,10 +475,16 @@ export function strokeReader(tactics: FencerTactics = GOLEM_TACTICS_V2): StrokeR
   let last = -1;
   let phase: StrokePhase = "idle";
   let sinceExchange = Number.POSITIVE_INFINITY;
+  let lastTipSpeed = 0;
+  /** The watched point's speed, low-passed over `readSeconds` like the extension beside it. */
+  let point = 0;
+  /** Seconds left on the tip-speed latch, or 0. Inert unless `readTipSpeed` is up. */
+  let rush = 0;
   return {
     get phase(): StrokePhase { return phase; },
     get extension(): number { return extension; },
     get sinceExchange(): number { return sinceExchange; },
+    get rushing(): boolean { return tactics.readTipSpeed > 0 && rush > 0; },
     update(sample: number, gapRate: number, dt: number, tipSpeed = 0): StrokePhase {
       if (!tactics.readStroke) { phase = "idle"; return phase; }
       if (dt > 0) {
@@ -436,13 +493,29 @@ export function strokeReader(tactics: FencerTactics = GOLEM_TACTICS_V2): StrokeR
         if (last >= 0) rate += ((extension - last) / dt - rate) * k;
         last = extension;
         sinceExchange += dt;
+        rush = Math.max(0, rush - dt);
+        // Low-passed over `readSeconds`, exactly as the extension above it is, and for a reason
+        // the first cut of this row paid for: an instantaneous threshold on a noisy signal is
+        // crossed more often the faster it is sampled, so the same table read 20.6 % occupancy
+        // off a 60 Hz trace and over half the bout in a reader stepping at 240. A crossing that
+        // depends on the caller's step rate is not a reading of the other fighter, it is a
+        // reading of the clock. Smoothed, the crossing rate is a property of the arm again.
+        point += (tipSpeed - point) * (1 - Math.exp(-dt / tactics.readSeconds));
       }
-      // A disjunct and not a replacement: where the extension rule still fires it is the more
-      // precise of the two (34.5 % against 47.4 % on landed blows, off a twentieth of the
-      // firings), so nothing is gained by taking it away and a measured row would be lost.
-      const rushing = tactics.readTipSpeed > 0 && tipSpeed >= tactics.readTipSpeed;
-      const committing = rushing
-        || (extension < tactics.readCommitExtension && gapRate < -tactics.readClosing);
+      if (tactics.readTipSpeed > 0
+        && point >= tactics.readTipSpeed && lastTipSpeed < tactics.readTipSpeed) {
+        rush = tactics.readRushSeconds;
+      }
+      lastTipSpeed = point;
+      // The extension rule alone, as it always was. The tip-speed latch is **not** folded in
+      // here; it is published beside this as `rushing`, and the reason is the two signals'
+      // measured shapes. On landed blows the extension rule is 34.5 % precise with 1.8 % recall
+      // and the latch is 47.4 % precise with 70.8 %. A rule that gives up ground wants the first
+      // and a rule that raises a guard wants the second, and collapsing them into one phase
+      // spends the cheap signal on the expensive response: merged at 6 m/s the reaper voided on
+      // 13.2 % of asks against 1.0 %, opened fewer cuts, and dealt 8.32 against 9.56 for the same
+      // damage taken. Two signals with different costs do not share one gate.
+      const committing = extension < tactics.readCommitExtension && gapRate < -tactics.readClosing;
       const drawing = extension < tactics.readChamberExtension && rate < -tactics.readDrawRate;
       if (committing) {
         phase = "commit";

@@ -635,7 +635,7 @@ export function golemDriven(
 
   const reading: PilotReading = {
     gap: 0, strike: 0, slack: 0, gapRate: 0, theirWeapon: "empty", myWeapon: "empty",
-    theirs: "idle", mine: "free",
+    theirs: "idle", mine: "free", rushing: false,
     near: 0, hold: 0, theirReach: 0, inside: false, cooldown: 0,
     sinceTheirExchange: Number.POSITIVE_INFINITY, lead: 0, weakestSlot: "trunk", intercept: null,
     longer: false, shorter: false, headfirst: false, paired: false, spareCanCover: false,
@@ -978,6 +978,7 @@ export function golemDriven(
     reading.theirWeapon = theirWeapon;
     reading.myWeapon = me.weapon;
     reading.theirs = theirs;
+    reading.rushing = reader.rushing;
     reading.mine = mine;
     reading.near = near;
     reading.hold = hold;
