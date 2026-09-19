@@ -742,6 +742,45 @@ export const GOLEM_TACTICS = {
    * a fighter interposes, so most of what it does it does by being in the way.
    */
   coverAcross: 0.55,
+
+  /**
+   * How far below the bearing to the threat the cover is held, radians.
+   *
+   * It had no table. The block above belongs to `coverAcross`, and this row sat on the next line
+   * with nothing of its own -- which matters more than it looks, because `coverLift` is on the
+   * larger half of the fight: `tests/harness/stroke-phase.mjs` measures 44.4 % of a reaper's
+   * cutting damage arriving off a blade that is being *held*, and this and `guardReach` are what
+   * say where it is held. The 2026-09-06 league search left every one of its seven classes within
+   * 0.007 of the initial -0.15, which is a search reporting that it never moved the row, not a
+   * search confirming it.
+   *
+   * Swept 2026-09-19 against the four-mind gauntlet, both sides, 2304 bouts, base 71250101:
+   *
+   * | coverLift | n | score | 95 % band | dealt | taken | cuts/s | m/s |
+   * |---:|---:|---:|:--|---:|---:|---:|---:|
+   * | **-0.15** | 384 | **46.4** | [41.4..51.4] | **8.50** | 8.69 | 12.2 | **11.82** |
+   * | -0.45 | 384 | 43.0 | [38.0..48.0] | 8.03 | 8.72 | 11.6 | 11.23 |
+   * | -0.30 | 384 | 41.9 | [36.9..46.9] | 8.13 | 8.97 | 11.6 | 11.31 |
+   * | 0.00 | 384 | 42.7 | [37.7..47.7] | 7.97 | 8.94 | 12.4 | 11.19 |
+   * | 0.15 | 384 | 41.1 | [36.1..46.1] | 7.91 | 8.70 | 11.4 | 11.13 |
+   * | 0.30 | 384 | 37.5 | [32.5..42.5] | 7.82 | 9.26 | 11.3 | 11.23 |
+   *
+   * **The shipped value is the peak of the bracket and it is a peak in three columns at once.**
+   * Score, damage dealt and contact speed all top out at -0.15 and fall away on both sides; every
+   * other cell deals less and every one of them meets things slower. A single score column at this
+   * count could be a six-cell maximum, which is the known way to invent a winner -- three columns
+   * agreeing on the same cell, with the two low-variance ones monotone away from it in both
+   * directions, is not.
+   *
+   * **Why a peak and not a slope**, on the account `guardBias` arrived at independently: the held
+   * blade earns by being in the way of something moving, so its damage is interposition and its
+   * speed is two things converging. Lift it and it leaves the line their point travels on; drop it
+   * and it leaves the line their body arrives on. There is a height where it is in the way of
+   * both, and -0.15 is the one this bracket finds.
+   *
+   * So the row keeps the value it always had and now has the measurement it never did. A knob
+   * without a table beside it is not set, even when it turns out to have been right.
+   */
   coverLift: -0.15,
 
   /**
