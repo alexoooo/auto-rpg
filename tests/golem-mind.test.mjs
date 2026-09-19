@@ -97,6 +97,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   assert.deepEqual(names(golem), [
     "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
+    "golem-reaper",
   ]);
   // The other surface has no body in the tree any more -- the Warrior went with the research --
   // so what is asserted is the half of the rule that can still be run: a name that is not one of
@@ -115,6 +116,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   assert.equal(POLICIES.find((policy) => policy.name === "golem-planner").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-champion").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-driver").surface, "golem-v1");
+  assert.equal(POLICIES.find((policy) => policy.name === "golem-reaper").surface, "golem-v1");
 });
 
 // ---------------------------------------------------------------------------------------
