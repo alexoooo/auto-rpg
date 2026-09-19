@@ -616,6 +616,41 @@ export const GOLEM_TACTICS = {
    * chain's anchor: 0.36 m on a 0.30..0.72 shell is -0.714. So the shield row that ships is the
    * pose the body used to impose on everything, and the blade row that ships is one the old
    * vocabulary could not ask for at all.
+   *
+   * ## Re-asked on the matchup that is tuned, and on a question the first table never put
+   *
+   * The blade table above is 32 bouts against the **Warrior**, and its only column is damage taken
+   * because every row of it won every bout -- so it priced the guard purely as a defence. That is
+   * half a question. `tests/harness/stroke-phase.mjs` measures 46 % of a golem mind's damage being
+   * made by an arm that is not swinging, most of it by a held blade a body walks into, so the
+   * guard has an offensive price the first table could not see. Re-swept on `golem-reaper` against
+   * the four-mind gauntlet, 384 bouts a cell, both sides, seed base 70250101:
+   *
+   * ```
+   * guardReach     n   score      95 % band     dealt  taken  cuts  m/s   swung%  held%
+   * **0.70**     384    49.9   [44.9..54.9]     8.66   8.52  12.9 11.79    55.7   44.3
+   *   -0.30      384    42.8   [37.8..47.8]     8.16   8.71  12.5 11.35    55.5   44.5
+   *    0.20      384    43.1   [38.1..48.1]     8.20   9.00  11.3 11.40    50.7   49.3
+   *    0.45      384    48.2   [43.2..53.2]     8.68   8.53  12.9 11.34    56.2   43.8
+   *    0.90      384    35.4   [30.4..40.4]     7.18   9.42  10.2 11.70    55.8   44.2
+   *    1.00      384    40.1   [35.1..45.1]     7.95   8.98  12.1 11.30    57.4   42.6
+   * ```
+   *
+   * **The shipped 0.70 survives a matchup it was never measured on, at twelve times the count.**
+   * It and 0.45 are a plateau at the top and everything else is below both; pushing the blade out
+   * to the stop costs dealt damage *and* takes more, which is the one shape the Warrior table
+   * could not have predicted, since out there the arm is past what the feet can support. On the
+   * shell this doc already names, the swept span is about 1.51 m of held point at -0.30 to 1.78 m
+   * at 1.00, so the plateau is a quarter of a metre wide and the stop is 6 cm past its far edge.
+   * The 0.90 cell reads below 1.00, which is not a shape to believe: its sides split 25.5 / 45.3
+   * where the others are within a few points, and that is the v4 side asymmetry, not a dip.
+   *
+   * **And the column the sweep was built for says no.** `held%` -- the share of damage dealt by an
+   * arm in `free` or `recover` -- is 44.3, 44.5, 49.3, 43.8, 44.2, 42.6 across a range that moves
+   * score by fifteen points. Drawing the blade in or shoving it out does not change how much of
+   * the bar the passive blade carries. **The hypothesis that `guardReach` is the lever on the held
+   * blade is refuted**: the passive share is a fact about two bodies closing, not about where one
+   * of them parks its point, and a mind that wants to move it will have to move something else.
    */
   guardReach: 0.70,
   shieldReach: -0.70,
