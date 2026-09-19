@@ -241,7 +241,12 @@ const REAPER_TABLE = {
    * every cut thrown in those bouts went into their blade instead -- which is a parry, and is the
    * cheapest contact on the board.
    *
-   * **And the row ships null, because aiming there is worse.** 768 bouts, both sides, the gauntlet:
+   * **And the row ships null, because aiming there is worse.** 768 bouts, both sides, the
+   * gauntlet. **The score column is from the leaked-seed era and its levels are wrong** -- the
+   * probe seeded a right-side mind from `job.seed` where `runBout` seeds one from `seeds[1]`, so
+   * every cell reads high. The leak is symmetric across the cells of one sweep, so the *ordering*
+   * and the mechanism columns beside it are what this table is kept for; no absolute number in
+   * the `score` column should be quoted.
    *
    * ```
    * markHeight   score          strokes  cuts  cut m/s  dmg/cut  severs  dealt  taken  seconds
