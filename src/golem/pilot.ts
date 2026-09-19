@@ -118,9 +118,19 @@ export interface PilotReading extends StyleReading {
    * Always `false` while `readTipSpeed` is 0, which is every table that ships, so a style that
    * does not mention this row cannot be moved by it. The two are published separately on purpose:
    * on blows that actually land, `theirs === "commit"` is 34.5 % precise with 1.8 % recall and
-   * this is 47.4 % precise with 70.8 %. Spend this one on a response that costs nothing if it is
-   * wrong -- a spare hand already at guard moving to cover -- and `theirs` on one that does, like
-   * giving up ground. Merging them was measured and is recorded as retracted in `readTipSpeed`.
+   * this is 47.4 % precise with 70.8 %.
+   *
+   * **The obvious way to spend it has been measured and does not pay.** The sentence that used to
+   * end this block told the reader to spend this signal on a response that costs nothing if it is
+   * wrong -- a spare hand already at guard moving to cover -- and `theirs` on one that does. That
+   * advice is withdrawn: `golem-reaper` grew exactly those two rules and every cell of the sweep
+   * came in at or below the control, the cover cells taking *more* damage while dealing less. The
+   * table is in `readTipSpeed`, together with the earlier retraction of merging the two channels.
+   * The lesson underneath both is that a hand at cover is not a free response, so a detector
+   * under half precise cannot be spent on it.
+   *
+   * What the field is still worth is the finding it was built to make: the extension reader is
+   * blind on these bodies, and this is the evidence. A style that wants to spend it owes a table.
    */
   rushing: boolean;
 }

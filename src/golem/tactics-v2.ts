@@ -229,9 +229,40 @@ const FENCER = {
    * over `readSeconds` before it meets the threshold, as the extension beside it always was,
    * which costs about 0.017 s of lag against the 0.133 s of warning the signal carries.
    *
-   * What is *not* yet measured is what `rushing` is worth to a style that spends it correctly.
-   * The row buys a signal, and the tables above say only that the signal exists and that one way
-   * of spending it fails. A style that reads it owes its own table.
+   * ## The third correction: spending it correctly does not pay either
+   *
+   * The paragraph that used to close this row said the tables above showed only that *one* way of
+   * spending the signal fails, and that a style spending it as its shape recommends still owed
+   * its own table. That table has now been taken, and it says no. `golem-reaper` grew two rows --
+   * `coverOnRush`, which raises the spare hand on a rush, and `holdOnRush`, which declines to
+   * open a stroke into one -- against the shipped mind on the gauntlet, 384 bouts a cell, common
+   * random numbers, seed base 30250101:
+   *
+   * ```
+   * cell        n    score    95 % band     left  right   dealt   taken
+   * shipped    384    47.9   [42.9..52.9]   42.7   53.1    8.44    8.58
+   * cover 8    384    40.1   [35.2..45.0]   32.8   47.4    8.19    9.21
+   * cover 11   384    41.4   [36.5..46.3]   31.8   51.0    8.32    8.96
+   * hold 11    384    43.5   [38.5..48.4]   39.1   47.9    8.32    8.95
+   * hold 14    384    48.2   [43.2..53.2]   46.9   49.5    8.48    8.59
+   * both 11    384    45.4   [40.5..50.4]   37.8   53.1    8.60    8.63
+   * ```
+   *
+   * **Not one cell beats the control, and the ordering is the giveaway**: inside each pair the
+   * lower threshold -- the one that fires more often -- is the worse of the two, cover 8 under
+   * cover 11 and hold 11 under hold 14, and the best cell of the six is `hold 14`, the setting
+   * that fires least and sits squarely inside the control's own band. The cover cells also take
+   * *more* damage than the control while dealing less, which is the opposite of what raising a
+   * guard is for. The monotone read is that acting on this signal costs about what it is worth in
+   * proportion to how often it acts, which is what a detector under 50 % precise does to any
+   * response that is not actually free -- and neither of these is. A hand at cover is a hand not
+   * available for the counter, and a window declined is a window gone.
+   *
+   * So the row stays at 0 and stays in the tree, because what it bought is not a behaviour but a
+   * **measurement**: it is the instrument that showed `strokeReader` is blind on these bodies
+   * (the blindness table above), and that finding outlives the two rules that failed to cash it.
+   * A later style may still find a genuinely free response to hang on it. It owes a table, and it
+   * should expect this one.
    */
   readTipSpeed: 0,
   /**
