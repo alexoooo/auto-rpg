@@ -435,6 +435,38 @@ export const GOLEM_TACTICS = {
    * for byte where it was, while a smash whose `strokeSeconds` is 0.22 is not cut off at the
    * bottom of its arc by a constant written for a cut. 0.07 is the sword's own remainder,
    * 0.22 - 0.15, stated once. 2026-09-06.
+   *
+   * ## Swept 2026-09-19, and it turns out to be the knob on the passive blade
+   *
+   * The value above was derived rather than measured -- it is an arithmetic remainder, and the
+   * arithmetic is sound, but nothing had ever put a bout behind it. `golem-reaper` against the
+   * four-mind gauntlet, 384 bouts a cell, both sides, seed base 80250101. `held%` is the share of
+   * damage dealt by an arm in `free` or `recover` rather than mid-stroke:
+   *
+   * ```
+   * followSeconds   n   score      95 % band    dealt  taken  cuts  m/s   swung%  held%
+   * **0.07**      384    49.7   [44.7..54.7]   8.29   8.45  11.9 11.80    55.6   44.4
+   *   0           384    46.4   [41.4..51.4]   8.28   8.71  11.7 12.09    35.7   64.3
+   *   0.03        384    48.7   [43.7..53.7]   8.29   8.37  12.1 11.85    40.6   59.4
+   *   0.12        384    39.1   [34.1..44.1]   7.72   9.14  11.5 11.78    62.7   37.3
+   *   0.20        384    39.1   [34.1..44.1]   7.85   9.16  11.6 11.72    63.3   36.7
+   *   0.30        384    40.2   [35.2..45.2]   7.81   8.92  11.7 11.58    62.7   37.3
+   * ```
+   *
+   * **The derived value survives, and 0.03 ties it.** Everything past 0.12 costs about ten points
+   * and does it in both columns at once -- less dealt and more taken -- which is what parking an
+   * arm at the end of its arc buys: the blade is out there finished, and the body behind it is
+   * inside someone else's reach with nothing in hand. Note the independent confirmation: the
+   * 24-dimensional search over this table, which has never seen this sweep, settled on **0.0385**,
+   * inside the 0.03..0.07 plateau found here by hand.
+   *
+   * **And this is the row that moves the passive share**, which `guardReach` next door does not:
+   * `held%` runs 64.3 down to 36.7 across the range. **Part of that is definitional and must not
+   * be over-read** -- a longer follow keeps the arm in `commit` for longer, so a contact that
+   * would have been labelled `recover` gets labelled `commit` without anything about the blow
+   * changing. What is *not* definitional is the score and the damage columns falling together
+   * while it happens. The passive half of a mind's damage is not a thing to be converted into
+   * swung damage by holding the swing longer; the conversion is available and it is a bad trade.
    */
   followSeconds: 0.07,
 
