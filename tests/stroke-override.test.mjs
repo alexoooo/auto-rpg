@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync, readdirSync } from "node:fs";
 
+import {
+  LIVE_STROKE_ROWS, TABLE_INERT_STROKE_ROWS, isTableInertRow,
+} from "../src/golem/stroke-rows.ts";
 import { GOLEM_TACTICS, STROKE_SHAPES } from "../src/golem/tactics.ts";
 import { GOLEM_TACTICS_V2, fencerStroke, golemFencer } from "../src/golem/tactics-v2.ts";
 
@@ -63,4 +67,57 @@ test("nothing_that_ships_sets_an_override", () => {
   // that the field is null on the shipped table and no other table in the tree sets it.
   assert.equal(GOLEM_TACTICS_V2.strokeOver, null);
   assert.equal(golemFencer(1).strokeFor("sword"), STROKE_SHAPES.sword);
+});
+
+test("no_executor_reads_a_table_inert_row_off_a_per_mind_table", () => {
+  // The guard `scripts/tune.mjs`'s `INERT_ROWS` used to be, restored to the tree that outlived it.
+  //
+  // Source-level and not behavioural, deliberately. The behavioural form of this claim is vacuous:
+  // the way you show `blendArc` ignores `T.strokeSeconds` is that `blendArc` has no `T` parameter,
+  // and a test that a function does not take an argument asserts nothing a compiler did not. What
+  // is worth pinning is what actually changes under maintenance -- that no executor *grows* such a
+  // read without the fitters being told -- and that is a fact about the text.
+  //
+  // Failing this test is not necessarily a bug. It means someone wired one of these rows to a
+  // per-mind table, which is a reasonable thing to do; the fix is to take that row out of the
+  // inert reading and tell whatever is fitting a genome that it has a new dimension. What must not
+  // happen is the wiring landing silently, because then the fitters go on refusing a live row.
+  const files = readdirSync(new URL("../src/golem/", import.meta.url))
+    .filter((name) => name.startsWith("tactics") && name.endsWith(".ts"));
+  assert.ok(files.length >= 4, `expected the four executors, found ${files.join(", ")}`);
+  const read = (name) => readFileSync(new URL(`../src/golem/${name}`, import.meta.url), "utf8")
+    // Comments quote these names constantly -- this very list is discussed in three of the four
+    // files -- so strip block and line comments before looking, or the test reads its own prose.
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  const reads = (code, row) => new RegExp(String.raw`\bT\.` + row + String.raw`\b`).test(code);
+
+  // **The positive control, and why it is not optional.** The first draft of this test built that
+  // regexp from a string literal whose backslashes were eaten one layer down, leaving a pattern
+  // that was a literal backspace followed by any character. It matched nothing, in any file, for
+  // any row -- and the test passed green while asserting precisely nothing. That is the same
+  // failure this file already records for `cutRoll`'s 506-0-518 one level down, and it is the
+  // failure mode of every test whose pass condition is an empty result: "found none" and "cannot
+  // find any" are indistinguishable from the outside. So the detector is made to find a row that
+  // is genuinely there before its silence about the others is allowed to mean anything.
+  assert.equal(reads(read("tactics-v4.ts"), "cutSeconds"), true,
+    "the detector found no `T.cutSeconds` in v4, which reads it when it sizes a committed cut -- "
+    + "the detector is broken, and every absence it reports below is worthless");
+  assert.equal(reads(read("tactics-v4.ts"), "cutSecondsNotAThing"), false);
+
+  const found = [];
+  for (const name of files) {
+    const code = read(name);
+    for (const row of TABLE_INERT_STROKE_ROWS) {
+      if (reads(code, row)) found.push(`${name}: T.${row}`);
+    }
+  }
+  assert.deepEqual(found, [], `a table-inert row grew a per-mind read: ${found.join(", ")}`);
+});
+
+test("the_inert_predicate_covers_every_row_the_live_list_names", () => {
+  // The two exports must not drift apart, since the whole point of the second name is that a
+  // fitter can consult it without having to know it is the same set as the first.
+  for (const row of LIVE_STROKE_ROWS) assert.equal(isTableInertRow(row), true, row);
+  assert.equal(isTableInertRow("patience"), false);
+  assert.equal(isTableInertRow("cutSeconds"), false);
 });

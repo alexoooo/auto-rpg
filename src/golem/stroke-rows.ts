@@ -122,3 +122,47 @@ export const strokeOverrideFor = (
 ): Partial<StrokeShape> => (row === "cutRoll"
   ? { roll: value, windRoll: value }
   : { [row]: value });
+
+/**
+ * The same eight names again, under the name that matters to anything fitting a **per-mind** table.
+ *
+ * `LIVE_STROKE_ROWS` says these rows are read live *off the module global*. The corollary, which is
+ * the half a fitter needs and which this file only ever stated in prose, is that they are therefore
+ * **dead on a per-mind table**: `STROKE_SHAPES.sword` is getters onto `GOLEM_TACTICS`, so a style
+ * that sets `strokeSeconds` in its own table has set a key that nothing on any executor reads. No
+ * executor reads `T.chamberSwing`, `T.chamberLift`, `T.chamberReach`, `T.followSwing`,
+ * `T.followLift`, `T.strokeSeconds`, `T.chamberSeconds` or `T.cutRoll` -- not v1, v2, v3 or v4.
+ * v2 reads them off `shape`, and v3 and v4 off `COMMITTED_SHAPES` / `THRUST_SHAPES`, which froze
+ * their values at module load.
+ *
+ * **This used to be guarded and is not any more.** `scripts/tune.mjs` carried an `INERT_ROWS` list
+ * naming exactly these eight plus `guardReach`, and refused to spend genome on them; three doc
+ * blocks in this directory still cite it (here at the top, and `tactics-v2.ts:316-319`). That
+ * script went with the rest of `scripts/` when the prototype became the whole game, and the
+ * knowledge went back to being a paragraph -- which is why, on 2026-09-19, a 24-dimension search
+ * over `golem-reaper` was launched with four of these eight in it. A third of that space did
+ * nothing, and the search would have reported a confident value for each.
+ *
+ * A dimension a searcher cannot move is worse than a null result about that knob. It is a
+ * *fabricated* one: the elite mean lands somewhere, the number gets written down, and it reads
+ * exactly like a finding. `cutRoll`'s 506-0-518 above is the same failure one level down.
+ *
+ * **Four rows are inert for a second, style-local reason and are deliberately not here**, because
+ * this list is the universal one and a fitter for another style must still check its own: a
+ * `golem-reaper` table's `standOffFraction` and `cutReachMetres` are read by `driver.ts` and by v2
+ * and v3 but not by the reaper's own pilot, which replaced the stand-off with its throwing window
+ * (see `REAPER_TABLE.openHold`); `commitLean` and `T.strafe` are read by v2 and v3 only. Naming
+ * them here would promise a universality they do not have -- the mistake this file's `guardReach`
+ * note already warns about in the opposite direction.
+ */
+export const TABLE_INERT_STROKE_ROWS = LIVE_STROKE_ROWS;
+
+/**
+ * Whether a per-mind tactics row is one nothing will read, so a fitter can refuse it up front.
+ *
+ * Deliberately a separate predicate from `isLiveStrokeRow` rather than an alias, even though they
+ * answer with the same set: the two questions are asked by different callers for opposite reasons,
+ * and a caller that reads `isLiveStrokeRow(row)` as "safe to put in my genome" has it exactly
+ * backwards. The names are the documentation at the call site.
+ */
+export const isTableInertRow = (name: string): name is LiveStrokeRow => isLiveStrokeRow(name);
