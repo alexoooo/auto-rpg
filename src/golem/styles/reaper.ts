@@ -69,6 +69,49 @@ import {
  * kind. Three quarters of everything that touches is a blade resting on a body at 2.9 m/s and
  * scoring nothing at all. So a mind is its cuts, and nothing else it does shows up in a bar.
  *
+ * ## Under half of those cuts are made by swinging
+ *
+ * The table above says a mind is its cuts. It does not say where a cut comes from, and the answer
+ * is not the one every knob in this file was set against. `tests/harness/stroke-phase.mjs` samples
+ * the executor's own stroke machine at `physicsHz` -- `GolemDriven.stance` is published and
+ * `decide` runs every step, so the sampling is exact rather than the 12 Hz an ask hook gives --
+ * and joins it to the contact log on the shared clock. 192 bouts against the gauntlet, both sides:
+ *
+ * ```
+ * arm was...          n    share   dmg each   speed    edge   dmg share
+ *   chamber         264    10.7 %    0.3916   10.92   0.778       8.4 %
+ *   commit         1000    40.4 %    0.5575   11.56   0.820      45.5 %
+ *   free            664    26.8 %    0.4236   12.56   0.844      23.0 %
+ *   recover         549    22.2 %    0.5134   10.86   0.828      23.0 %
+ * ```
+ *
+ * **Two cuts in three land while the arm is not swinging**, and they carry 54.5 % of the cutting
+ * damage: winding up, returning to guard, or simply holding one. The cuts made by an arm doing
+ * nothing at all are the *fastest* in the table at 12.56 m/s, which is the tell -- that speed is
+ * the body's and not the arm's, a held blade carried into a body by the feet and the waist.
+ *
+ * This reframes everything above it. `patience`, `openFloor`, `openCeiling`, `circleDuty`, the
+ * feint, the void, the whole throwing window -- every one of them is a rule about the 45 % of
+ * damage that comes out of a swing, and they were tuned against a score that is mostly made of
+ * the other 55 %. It also retro-explains the flattest results in this file: a gate on the throw
+ * moves a minority of the damage, so even a gate that works has most of the bar shouting over it.
+ *
+ * The swing seen from inside is a straight line, and it runs into its own cap:
+ *
+ * ```
+ * seconds into the swing     n    share   dmg each   speed    edge
+ *   0.12..0.16            137    13.7 %    0.2989    9.63   0.732
+ *   0.16..0.20            226    22.6 %    0.4895   11.14   0.801
+ *   0.20..0.27            576    57.6 %    0.6652   12.13   0.849
+ *   0.27..0.40             29     2.9 %    0.4041   13.19   0.874
+ * ```
+ *
+ * The stroke ends at `max(commitSeconds, arc.strokeSeconds + followSeconds)`, which is 0.27 s on
+ * the shipped table, and contact speed is still climbing when it arrives. **Read the direction of
+ * that and not the level**: a blade that touches late touched something further away, which is
+ * exactly the selection effect this file's opening section already retracted a lever over. What
+ * the column licenses is a sweep of the cap, not a claim about it.
+ *
  * **And a cut is its speed.** Pooled over every cut in those bouts:
  *
  * ```
