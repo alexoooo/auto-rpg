@@ -264,8 +264,41 @@ const REAPER_TABLE = {
    * more swinging, fewer connections, and each one worth a fifth less. The pelvis is worth more
    * *when a cut arrives there*; aiming at it is how you stop cuts arriving.
    *
-   * The row stays because the sweep is the claim and a reader who has the same idea should be able
-   * to see it priced. It is the only row here that ships at its control value.
+   * ## Re-taken on clean seeds, and one number withdrawn
+   *
+   * The table above was re-run with the seeding defect fixed, 384 bouts a cell on a seed base the
+   * row had never seen (40250101), both sides, the same gauntlet:
+   *
+   * ```
+   * markHeight   score          strokes  cuts  cut m/s  dmg/cut  severs  dealt  taken  blade%
+   * **trunk**  41.0 [36.1..45.9]    18.2  26.2    10.11   0.3112    0.23   8.16   9.06    10.1
+   *   0.35     25.7 [21.3..30.0]    21.7  26.2    10.08   0.2781    0.17   7.28   9.99    11.9
+   *   0.45     27.9 [23.4..32.3]    20.0  25.0    10.11   0.2883    0.20   7.21   9.82    12.1
+   *   0.55     35.4 [30.6..40.2]    19.3  25.7    10.10   0.3064    0.24   7.87   9.51    11.2
+   *   0.65     43.8 [38.8..48.7]    18.5  26.3    10.30   0.3201    0.28   8.41   9.07    11.4
+   *   0.75     43.8 [38.8..48.7]    18.0  24.7    10.21   0.3262    0.32   8.05   8.88    11.7
+   * ```
+   *
+   * **The 56.3 is withdrawn.** It was a single cell of a six-cell sweep at n=128, where the band
+   * is about nine points wide and the expected maximum sits above the true mean even when every
+   * cell is identical; on clean seeds at three times the count the same setting reads 41.0. No
+   * fixed height beats it either, so the row still ships null -- but it ships null on a tie, not
+   * on a win, and that is a different sentence from the one this block used to end with.
+   *
+   * **What survives, and is now the whole of the row's content, is the slope.** Every mechanism
+   * column moves monotonically with the mark and in the same direction: from 0.35 up to 0.75 the
+   * damage a cut carries goes 0.278 -> 0.288 -> 0.306 -> 0.320 -> 0.326, severed limbs go 0.17 ->
+   * 0.32, damage taken falls 9.99 -> 8.88, and the strokes thrown to get there fall 21.7 -> 18.0.
+   * A monotone march across five adjacent cells is believable where a single peak is not, and it
+   * says the same thing the confounded table did with a number that now holds: **a cut aimed low
+   * is a worse cut, not the same cut landing lower.**
+   *
+   * And the control is not a sixth point beside those five, it is a point *on* that curve. The
+   * dynamic mark is `(shoulder.y - ground.y) / (crown - ground)` off the watched body, which over
+   * a bout runs p05 0.550, p50 **0.697**, p95 0.725 -- so `trunk` is a mark at about 0.70 that
+   * ducks when they duck, sitting exactly between the two best fixed rows and reading the same
+   * score as both. The six rows are one curve with a flat top, the shipped setting is on the top,
+   * and the reason to keep the row is that it prices the idea of aiming lower at eighteen points.
    */
   markHeight: null as number | null,
   /** The fraction of its idle time spent circling rather than standing. */
