@@ -11,6 +11,7 @@ import { GUARDIAN, guardianDirector, golemGuardian } from "./styles/guardian.ts"
 import { SKIRMISHER, golemSkirmisher, skirmisherDirector } from "./styles/skirmisher.ts";
 import { golemDriver } from "./styles/driver.ts";
 import { golemReaper } from "./styles/reaper.ts";
+import { golemMiser } from "./styles/miser.ts";
 import {
   exploringDirector, golemStyled, watchedDirector,
   type GolemStyled, type StyleAskHook, type StyleDirector,
@@ -310,6 +311,24 @@ export function golemReaperMind(
   const driven = golemReaper(seed);
   return {
     name: "golem-reaper",
+    driven,
+    decide: (view, dt): Intent => driven.decide(view, dt),
+  };
+}
+
+/**
+ * The fifteenth golem mind, and the second rung of the ladder: `golem-miser`.
+ *
+ * `golem-reaper`'s pilot over a table a cross-entropy search found. It publishes `driven` for the
+ * same reason every v4 mind does, and takes its seed the same way; the table and what it is worth
+ * are in `styles/miser.ts`, because a mind's provenance belongs beside its numbers.
+ */
+export function golemMiserMind(
+  seed = (Math.random() * 0x100000000) >>> 0,
+): Mind & { driven: GolemDriven } {
+  const driven = golemMiser(seed);
+  return {
+    name: "golem-miser",
     driven,
     decide: (view, dt): Intent => driven.decide(view, dt),
   };

@@ -295,7 +295,7 @@ test("the picker offers exactly the policies that exist", () => {
     POLICIES.map((policy) => policy.name),
     ["idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
       "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-      "golem-reaper"],
+      "golem-reaper", "golem-miser"],
   );
   for (const policy of POLICIES) {
     // Every row builds. The one row that could refuse was `golem-snapshot`, a slot with nothing

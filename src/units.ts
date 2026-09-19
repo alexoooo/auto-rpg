@@ -320,7 +320,7 @@ const initialMind = (ctx: CombatantBuild, definition: UnitDefinition): Mind => {
 const GOLEM_POLICIES: readonly string[] = Object.freeze([
   "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
   "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-  "golem-reaper",
+  "golem-reaper", "golem-miser",
 ]);
 
 /**
