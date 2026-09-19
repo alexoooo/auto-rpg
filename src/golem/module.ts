@@ -641,6 +641,38 @@ export interface BuiltChain {
    * rungs 2 and 3 can, rung 1 has one axis and cannot, and rung 0 has nothing. `effectorModule`
    * refuses a two-socket terminal on a chain without it, by name.
    */
+  /**
+   * Tell the chain how far its terminal's tip is from the socket, so it can aim through it.
+   *
+   * **Which is the module's to say and not the chain's**, for the same reason `commandedEnd`
+   * takes a distance: a chain hands out a weld and takes whatever terminal it is given, so it
+   * knows where its own far end is and not where the *tip* is. Called once after the terminal
+   * is built, never per step, because it is a length and lengths do not move.
+   *
+   * Optional, because only a chain whose orientation axes move its tip owes the correction.
+   * Rungs 0 to 2 point their terminal straight out of the forearm, so where the tip goes is
+   * already what the mind asked for; rung 3 has a bend hinge, and a bend swings the tip off the
+   * radial line by an arc the whole length of the terminal.
+   */
+  aimThrough?(distanceFromSocket: number): void;
+  /**
+   * Give the grip a rotational inertia to match what it is holding, kg m2.
+   *
+   * **The counterpart of the mass cast, and the one that turned out to matter.** A terminal is
+   * welded to the chain's last link by a constraint with every axis locked, and what that
+   * constraint has to hold is a *torque* balance: the solver corrects the weld by exchanging
+   * angular impulse between two bodies, and the correction it computes is divided by each
+   * body's inertia. Give it a light link and a long stick and the same impulse that nudges the
+   * stick throws the link, which throws the stick back, which is the bobbling the owner saw.
+   *
+   * Told by the module for the same reason `aimThrough` is: the chain hands out a weld and
+   * takes whatever is bolted to it, so what it is carrying is not its to know. Called once
+   * after the terminal is built, because an inertia is a property of the thing and things do
+   * not change shape mid-fight.
+   *
+   * Optional, because only a chain with a link light enough to be thrown owes the cast.
+   */
+  castToCarried?(inertiaKgM2: number): void;
   commandWeldTo?(world: Vector3): void;
   /**
    * Let go of the drive and keep the linkage: what a **carried** limb is.

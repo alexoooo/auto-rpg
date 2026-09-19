@@ -10,6 +10,8 @@ import { BRAWLER, brawlerDirector, golemBrawler } from "./styles/brawler.ts";
 import { GUARDIAN, guardianDirector, golemGuardian } from "./styles/guardian.ts";
 import { SKIRMISHER, golemSkirmisher, skirmisherDirector } from "./styles/skirmisher.ts";
 import { golemDriver } from "./styles/driver.ts";
+import { golemReaper } from "./styles/reaper.ts";
+import { golemMiser } from "./styles/miser.ts";
 import {
   exploringDirector, golemStyled, watchedDirector,
   type GolemStyled, type StyleAskHook, type StyleDirector,
@@ -288,6 +290,45 @@ export function golemDriverMind(seed = (Math.random() * 0x100000000) >>> 0): Min
   const driven = golemDriver(seed);
   return {
     name: "golem-driver",
+    driven,
+    decide: (view, dt): Intent => driven.decide(view, dt),
+  };
+}
+
+/**
+ * The fourteenth golem mind, and the first rung of the ladder: `golem-reaper`.
+ *
+ * The second mind over the fourth executor, and the first one written from the contact log rather
+ * than from another mind. Its whole doc is the four things it measured and the three of them it
+ * threw away; what survived is a spare hand that covers whenever there is anything to cover, and a
+ * patience a sixth of the style set's. It publishes `driven` for the reason `golem-driver` does,
+ * and neither `fencer` nor `styled`, because it has no option in force to log. Same seed argument,
+ * same reasons.
+ */
+export function golemReaperMind(
+  seed = (Math.random() * 0x100000000) >>> 0,
+): Mind & { driven: GolemDriven } {
+  const driven = golemReaper(seed);
+  return {
+    name: "golem-reaper",
+    driven,
+    decide: (view, dt): Intent => driven.decide(view, dt),
+  };
+}
+
+/**
+ * The fifteenth golem mind, and the second rung of the ladder: `golem-miser`.
+ *
+ * `golem-reaper`'s pilot over a table a cross-entropy search found. It publishes `driven` for the
+ * same reason every v4 mind does, and takes its seed the same way; the table and what it is worth
+ * are in `styles/miser.ts`, because a mind's provenance belongs beside its numbers.
+ */
+export function golemMiserMind(
+  seed = (Math.random() * 0x100000000) >>> 0,
+): Mind & { driven: GolemDriven } {
+  const driven = golemMiser(seed);
+  return {
+    name: "golem-miser",
     driven,
     decide: (view, dt): Intent => driven.decide(view, dt),
   };

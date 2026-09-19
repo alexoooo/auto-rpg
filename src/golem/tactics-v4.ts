@@ -212,6 +212,184 @@ const DRIVEN = {
    */
   sweepBySwing: 1,
   /**
+   * The wind-up's duration as a multiple of the blended arc's, which is the one phase of a stroke
+   * no table could reach.
+   *
+   * `cutSeconds` and `thrustSeconds` already override the arc's *swing* from the mind's table, and
+   * the four lines that do it say why: a row `--override` can move that nothing reads is worse
+   * than no row. The chamber beside them had no such override, so `arc.chamberSeconds` came only
+   * from `blendArc` and `inertiaScale`, and the only way a mind could shorten its wind-up was to
+   * drop `command.swing` -- which turns the whole stroke into a thrust. The two were welded
+   * together and this is the wedge.
+   *
+   * **Why it is a scale and not an absolute.** `cutSeconds` is a number of seconds, which is right
+   * for a row that exists to be swept against one weapon's arc and wrong for this one: a maul's
+   * chamber is 0.22 s and a whip's is 0.40, and `inertiaScale` stretches both by what is in the
+   * hand. An absolute would make a mind that names it hold every weapon to a swordsman's wind-up.
+   * A multiple composes with all of that and leaves 1 meaning exactly what ships.
+   *
+   * **Why the chamber looked like the interesting one.** It is the largest fixed cost in the
+   * cycle. On the shipped table the sword chambers for 0.32 s against a 0.27 s swing, a 0.30 s
+   * recover and a 0.30 s cooldown -- so more than half the stroke is spent before the blade
+   * starts moving, and `tests/harness/stroke-phase.mjs` measures 10.7 % of cuts landing during it
+   * at the worst damage of any phase.
+   *
+   * **Swept twice, and it is not set. The argument for building it is also retracted.** The row
+   * was built on the reading that the searched table wins on throughput: it had driven
+   * `recoverSeconds` to 0.099, `cooldown` to 0.149 and `patience` to the floor of its band, which
+   * looked like a search shortening every phase it could reach and then running out. The chamber
+   * was the one it could not reach. Both halves of that are now measured and the second half is
+   * wrong.
+   *
+   * On the shipped reaper, 2304 bouts, base 90250101:
+   *
+   * ```
+   * chamberScale      n   score      95 % band    dealt  taken  cuts/s   m/s
+   *   1 ctl         384    43.2   [38.2..48.2]     8.29   8.88    12.3  11.66
+   *   0.5           384    47.0   [42.0..52.0]     8.50   8.88    12.7  12.02
+   *   0.7           384    52.3   [47.3..57.3]     8.74   8.59    12.5  11.78
+   *   0.85          384    40.4   [35.4..45.4]     8.06   9.19    11.9  11.73
+   *   1.2           384    38.8   [33.8..43.8]     8.00   9.23    11.8  11.75
+   *   1.5           384    43.4   [38.4..48.4]     8.08   8.74    11.9  11.78
+   * ```
+   *
+   * 0.7 is nine points over the control and 0.85, between it and the control, is three points
+   * *under* -- a shape no knob has. That is a six-cell maximum at the count where a six-cell
+   * maximum is the known failure, so the score column here is read as noise and only the slope in
+   * `dealt` is believed: the short side deals more, the long side deals less.
+   *
+   * And over the searched table, 1920 bouts, base 12250101, which is the question that decides
+   * it, because only a mind at the throughput frontier can be paid for reaching the chamber:
+   *
+   * ```
+   * chamberScale      n   score      95 % band    dealt  taken  cuts/s   m/s
+   *   1 ctl         384    66.7   [61.7..71.7]     9.05   6.96    12.5  12.93
+   *   0.5           384    54.7   [49.7..59.7]     8.96   8.21    13.0  12.98
+   *   0.7           384    58.5   [53.5..63.5]     9.30   8.32    12.9  12.55
+   *   0.85          384    64.1   [59.1..69.1]     9.67   7.34    13.3  12.88
+   *   1.2           384    55.7   [50.7..60.7]     9.26   8.24    13.7  12.74
+   * ```
+   *
+   * The control is the best cell and every deviation costs. Note what the other columns do while
+   * it happens: **`dealt` rises in four cells out of four and `taken` rises further in all four.**
+   * The mechanism works -- a different wind-up does buy cuts -- and it is bought with exposure the
+   * mind cannot afford.
+   *
+   * **So the premise was wrong about which column the searched table wins on.** It deals 9.05
+   * against the shipped reaper's 8.29, which is worth about nine tenths of a hit; it takes 6.96
+   * against 8.88, which is worth two. Most of its edge is the column it is not hit in, and a knob
+   * that buys cuts is being asked to pay in the currency it is winning with.
+   *
+   * What it is *not* doing is throwing more. `tests/harness/stroke-phase.mjs` run on both tables
+   * over the same 192 bouts puts the shipped reaper at 9.3 strokes and 13.0 cuts a bout and the
+   * champion at 9.6 and 12.8 -- the same fight, at the same rate. What moved is where a cut lands
+   * and what it is worth: `commit` goes from 41.6 % of cuts to 52.8 % and from 46.7 % of the
+   * cutting damage to 58.2 %, almost all of it out of `recover`, which `recoverSeconds` 0.099
+   * shrinks from 21.2 % of cuts to 12.4 %. Every phase also hits harder and faster -- a committed
+   * cut is worth 0.6919 at 12.51 m/s against 0.5698 at 11.64.
+   *
+   * Why it is hit less is a separate question and this row does not answer it. What the row
+   * establishes is that the answer is not the wind-up, and that is its return: the knob is flat
+   * and the question found something.
+   *
+   * **It ships at 1 and no mind sets it, and it is not in the search either.** A dimension is for
+   * a question a table cannot answer, and a table answered this one over 4224 bouts. The row stays
+   * because `--override` can still put the question to a body that is not either of these two, and
+   * because a reader who wonders why the wind-up is untouchable should find the reason here rather
+   * than rediscover it.
+   */
+  chamberScale: 1,
+  /**
+   * How far the held blade is allowed to point at the mark instead of at the threat: 0 the guard
+   * this executor has always held, 1 the same line a stroke would be aimed along.
+   *
+   * **This is the row the phase table asked for.** `tests/harness/stroke-phase.mjs` joins the
+   * stroke machine to the contact log at 240 Hz over 192 bouts, and it splits a reaper's cutting
+   * damage in half by who chose the line:
+   *
+   * ```
+   * aimed by             cuts    share   dmg share   speed    edge
+   *   the command    1264 (chamber+commit)   51.1 %     53.9 %   11.43   0.811
+   *   the threat     1213 (free+recover)     49.0 %     46.0 %   11.79   0.837
+   * ```
+   *
+   * The second row is a blade nobody aimed. `holdGuard` runs in `free`, `recover` and `ram`, and
+   * it aims at `guardMark` -- their point when their point is inside my reach, otherwise a spot at
+   * their shoulder height over their feet. Both are functions of *their* geometry alone. The one
+   * field of the command it reads is `reach`, how far out along that line to hold; `targetHeight`,
+   * `targetLateral` and `bite` are untouched, so a mind that has decided to cut at a knee says so
+   * and then holds its blade at their shoulder anyway until a stroke opens.
+   *
+   * And that blade lands. The `free` cuts are the *fastest* of the four phases at 12.56 m/s and
+   * the best aligned at 0.844, because that speed is the body's -- the feet and the waist carrying
+   * a parked edge into someone. They are 23 % of the damage, arriving well, pointed by the enemy.
+   *
+   * **Why a tactics row and not a thirteenth command field.** A field would be the better surface
+   * and it is not free: `COMMAND_FIELDS` is the policy head's width, `COMMAND_BITS` is a bitfield
+   * indexed by position, and `POLICY_VERSION` exists to refuse a table trained against a different
+   * one. That is a migration, and it should be bought by a measurement rather than spent on a
+   * hypothesis. A row is reversible, has a control at 0, and answers the same question first.
+   *
+   * **The cost was named in advance, the sweep showed something else, and the prediction written
+   * before it was wrong in both halves.** What was predicted: this is the guard, so pointing it at
+   * a mark instead of at their point is dropping it, `taken` should rise, and since the searched
+   * table wins on `taken` the row should pay on the shipped reaper and lose on the champion.
+   *
+   * Shipped reaper, 2304 bouts, base 70250101:
+   *
+   * ```
+   * guardBias         n   score      95 % band    dealt  taken  cuts/s   m/s   held%
+   *   0 ctl         384    49.9   [44.9..54.9]     8.66   8.52    12.9  11.79   44.3
+   *   0.2           384    39.1   [34.1..44.1]     7.63   9.40    10.7  11.36   44.1
+   *   0.4           384    38.5   [33.5..43.5]     8.17   9.18    13.0  10.76   43.2
+   *   0.6           384    45.7   [40.7..50.7]     8.02   8.70    12.8  10.54   40.3
+   *   0.8           384    41.9   [36.9..46.9]     8.00   8.71    12.0  10.64   38.3
+   *   1             384    39.5   [34.5..44.5]     8.01   9.11    12.4  10.55   40.9
+   * ```
+   *
+   * Every cell deals less and takes more, and the column that explains it is the only monotone
+   * one: **contact speed falls from 11.79 m/s to about 10.55 and stays there**, while `held%`
+   * falls from 44.3 to around 40. Biasing the guard makes the held blade contribute *less*.
+   *
+   * Over the searched table, 2304 bouts, base 13250101, the sign reverses:
+   *
+   * ```
+   * guardBias         n   score      95 % band    dealt  taken  cuts/s   m/s   held%
+   *   0 ctl         384    69.8   [64.8..74.8]     8.68   6.57    12.0  12.81   33.5
+   *   0.2           384    52.2   [47.2..57.2]     8.39   8.37    11.7  12.36   31.3
+   *   0.4           384    68.8   [63.7..73.8]     9.48   7.14    13.1  12.49   30.1
+   *   0.6           384    71.4   [66.4..76.4]     9.57   6.89    13.7  11.75   28.7
+   *   0.8           384    74.7   [69.7..79.7]     9.70   6.29    13.0  12.31   33.4
+   *   1             384    63.9   [58.9..68.9]     9.78   8.02    14.4  12.04   41.1
+   * ```
+   *
+   * `dealt` climbs 8.68 to 9.78 and `cuts` 12.0 to 14.4, and at 0.8 `taken` is 6.29 against the
+   * control's 6.57 -- so the predicted price is not paid here at all. The score gain of 4.9 sits
+   * well inside the band and is not on its own a result; the damage columns are lower variance
+   * and they move together and monotonically, which is.
+   *
+   * **The mechanism both tables agree on.** `guardMark` is *their tip* whenever their point is
+   * inside my reach, so the guard is parked where the moving things are and a contact there is two
+   * blades converging -- that is where its speed comes from. The bias trades that interposition
+   * for a line. **Whether it pays is a question about how much of your damage is interposition**,
+   * and the `held%` column answers it for each mind: the shipped table takes 44.3 % of its cutting
+   * damage off the held blade and loses by giving it up; the searched one takes 33.5 % and does
+   * not. `coverAcross`'s doc says the same thing about a plate in one line -- most of what it does
+   * it does by being in the way.
+   *
+   * Which also refines the phase table this row was built on. "The free cuts are the fastest at
+   * 12.56 m/s because that speed is the body's, not the arm's" is half right: it is the *relative*
+   * speed of two bodies and two blades converging, and the guard sits where they converge. The
+   * 46 % was never unaimed damage waiting to be aimed.
+   *
+   * **UNMEASURED AS A CONSTANT, AND DELIBERATELY A SEARCH DIMENSION.** It ships at 0, no mind sets
+   * it, and unlike `chamberScale` it is *not* settled: two tables of the same size disagree on its
+   * sign depending on the rest of the table around it. A row whose value depends on twenty-four
+   * others is exactly what a joint search is for and exactly what a one-row sweep cannot answer,
+   * so run 4 carries it as a dimension rather than this file carrying it as a number.
+   */
+  guardBias: 0,
+  /**
    * Whether a stroke may be started with the mark outside this arm's strike range.
    *
    * On, and on is the executor giving up a gate rather than gaining one. v3 offers `strike` only
@@ -573,6 +751,8 @@ export function golemDriven(
   };
   const mark: Point = { x: 0, y: 0, z: 0 };
   const guardMark: Point = { x: 0, y: 0, z: 0 };
+  /** Where the guard is actually pointed: `guardMark`, or a mix of it and `mark`. */
+  const held: Point = { x: 0, y: 0, z: 0 };
   const probe: Point = { x: 0, y: 0, z: 0 };
   /** Where the parry is being sent: the intercept, or the closest approach, or the wall. */
   const meeting: Point = { x: 0, y: 0, z: 0 };
@@ -635,7 +815,7 @@ export function golemDriven(
 
   const reading: PilotReading = {
     gap: 0, strike: 0, slack: 0, gapRate: 0, theirWeapon: "empty", myWeapon: "empty",
-    theirs: "idle", mine: "free",
+    theirs: "idle", mine: "free", rushing: false,
     near: 0, hold: 0, theirReach: 0, inside: false, cooldown: 0,
     sinceTheirExchange: Number.POSITIVE_INFINITY, lead: 0, weakestSlot: "trunk", intercept: null,
     longer: false, shorter: false, headfirst: false, paired: false, spareCanCover: false,
@@ -864,7 +1044,8 @@ export function golemDriven(
     }
     lastGap = tipGap;
     const theirs = reader.update(
-      threat.reach > 0 ? distance(threat.tip, threat.shoulder) / threat.reach : 1, gapRate, dt);
+      threat.reach > 0 ? distance(threat.tip, threat.shoulder) / threat.reach : 1, gapRate, dt,
+      threat.tipSpeed);
     const theirWeapon = threat.weapon;
 
     // ---- the reach pair, the body, and the two distances that are facts about the arm ---------
@@ -977,6 +1158,7 @@ export function golemDriven(
     reading.theirWeapon = theirWeapon;
     reading.myWeapon = me.weapon;
     reading.theirs = theirs;
+    reading.rushing = reader.rushing;
     reading.mine = mine;
     reading.near = near;
     reading.hold = hold;
@@ -1151,7 +1333,9 @@ export function golemDriven(
         // `THRUST_SHAPES` stay the measurements Session 02 took and this stays one multiplication
         // at the one place a stroke is born.
         arc.strokeSeconds *= inertiaScale;
-        arc.chamberSeconds *= inertiaScale;
+        // `chamberScale` after the inertia, so it is a multiple of the wind-up this weapon
+        // actually gets rather than of the one the shape names for a sword.
+        arc.chamberSeconds *= inertiaScale * T.chamberScale;
         strokes += 1;
         sinceMyStroke = 0;
         nextPrefer = spare;
@@ -1164,7 +1348,21 @@ export function golemDriven(
       hand.guard = canCover(cap);
       hand.thrust = false;
       touched |= COMMAND_BITS.reach;
-      aimAt(socket, guardMark, trunkHeading, me.outboard, cover);
+      // At a bias the held line is the threat's and the mark's, mixed as world points rather than
+      // as aims: `aimAt` is what turns a point into a swing and a lift, and mixing its outputs
+      // would interpolate two angles about different centres and name a point on neither line.
+      // At zero -- which is everything that ships -- `guardMark` is passed straight through, so
+      // the branch costs one compare on the hot path and not three writes.
+      let target = guardMark;
+      if (T.guardBias > 0) {
+        touched |= COMMAND_BITS.targetHeight | COMMAND_BITS.targetLateral;
+        const bias = clamp(T.guardBias, 0, 1);
+        held.x = guardMark.x + (mark.x - guardMark.x) * bias;
+        held.y = guardMark.y + (mark.y - guardMark.y) * bias;
+        held.z = guardMark.z + (mark.z - guardMark.z) * bias;
+        target = held;
+      }
+      aimAt(socket, target, trunkHeading, me.outboard, cover);
       writeAim(hand, cap, cover, me.outboard, 0, T.coverLift, 1, command.reach);
       hand.roll = 0;
     };

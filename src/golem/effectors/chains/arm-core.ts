@@ -143,7 +143,9 @@ export interface ArmCommand {
   reach: number;
 }
 
-export interface ArmCore {
+export type PointCorrection = (wantedWorld: Vector3, out: Vector3) => void;
+
+interface ArmCore {
   readonly parts: readonly GolemPart[];
   readonly collar: Part;
   readonly upper: Part;
@@ -172,6 +174,42 @@ export interface ArmCore {
   commandedForearm(): Vector3;
   /** The arm plane's lateral unit at that commanded pose, world, into a ref this core owns. */
   commandedLateral(): Vector3;
+  /**
+   * Install a stage between the command and the clamp: given the point the cursor asked for,
+   * write the point to actually send. Pass `null` to remove it.
+   *
+   * **A stage, not a second command, and the difference is the whole reason this exists.** The
+   * obvious way to correct an aim from above is to read the wanted pose back and call
+   * `commandPoint` with a fixed-up one -- and it does not work, because `commandPoint` writes
+   * `wanted`, so the next step's read returns the previous correction and the correction is
+   * applied to itself. Measured, that walked the stroke probe's miss from 0.294 m to over a
+   * metre and collapsed the tip speed at the mark from 20 m/s to under 2: an unbounded
+   * accumulator, not a mis-tuned one. A stage cannot do that, because its input is `wanted` and
+   * its output is not.
+   *
+   * It runs inside `step`, before the clamp and the rate limit, so a correction is inside the
+   * envelope by exactly the argument a cursor is -- and it sees the command rather than the
+   * rate-limited point, so it does not chase its own lag.
+   */
+  adjustPoint(correct: PointCorrection | null): void;
+  /**
+   * Where this chain's socket is now, world, into a ref this core owns.
+   *
+   * Published because the radial direction -- socket to hand -- is the line the mind's own reach
+   * model puts a terminal's overhang along, so a chain correcting for its own geometry needs the
+   * origin of that line. See `reachForDistance` in `tactics.ts`.
+   */
+  socketPoint(): Vector3;
+  /**
+   * The forearm and arm-plane lateral units for the pose that would put the hand at `world`.
+   *
+   * The same basis `commandedForearm` and `commandedLateral` publish, at a pose this core is not
+   * currently holding -- which is what a chain above needs to ask "if I sent the hand *there*,
+   * which way would my own links point?" without driving anything to find out. Clamped to the
+   * reachable set, because an unreachable query would otherwise answer with a two-bone solution
+   * that does not exist.
+   */
+  basisAt(world: Vector3, forearm: Vector3, lateral: Vector3): void;
   stroke(): EffectorStroke;
   anchorPoint(): Vector3;
   anchorStray(): number;
@@ -503,6 +541,8 @@ export function buildArmCore(
   const slewed: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
   /** Where the hand actually got to, in the same three terms. Allocated once, read every step. */
   const achieved: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
+  /** The aim stage, if a chain above installed one. See `adjustPoint`. */
+  let correct: PointCorrection | null = null;
   let severed = false;
   /** Set once by `unmotorise`: this limb is being carried rather than driven. */
   let passive = false;
@@ -524,6 +564,9 @@ export function buildArmCore(
     lateral: new Vector3(),
     target: new Vector3(),
     socket: new Vector3(),
+    point: new Vector3(),
+    adjusted: new Vector3(),
+    pose: { swing: 0, lift: 0, reach: 0 } as ArmCommand,
     inverse: new Quaternion(),
   };
 
@@ -604,6 +647,28 @@ export function buildArmCore(
    * envelope rather than an azimuth limit: a long cross-body command is refused a pose that a
    * short one is given, and neither is refused by a branch anywhere downstream.
    */
+  /**
+   * The forearm and the arm plane's lateral, as units in world space, at any pose.
+   *
+   * **One law, read by four callers.** `commandedForearm` and `commandedLateral` each carried
+   * their own copy of this arithmetic until rung 3 needed the same basis at a pose the core is
+   * not holding, and a third copy is how the `outboard` mirror gets applied twice in one place
+   * and not at all in another. The forearm's pitch is the lift plus the two-bone solution's own
+   * offset, which is why this cannot be read off the hand point alone: two poses that put the
+   * hand in the same place with different elbow bends point the forearm differently.
+   */
+  const basisOf = (pose: ArmCommand, forearm: Vector3, lateral: Vector3): void => {
+    const { alpha, beta } = twoBone(clamp(pose.reach, L.reachMin, L.reachMax));
+    const forearmPitch = pose.lift + Math.PI / 2 - alpha + beta;
+    const az = outboard * pose.swing;
+    const across = Math.sin(forearmPitch);
+    scratch.local.set(across * Math.sin(az), -Math.cos(forearmPitch), across * Math.cos(az));
+    scratch.local.rotateByQuaternionToRef(mountRotation(), forearm);
+    // The collar's own +X after the yaw, which is the arm plane's lateral.
+    scratch.local.set(Math.cos(az), 0, -Math.sin(az));
+    scratch.local.rotateByQuaternionToRef(mountRotation(), lateral);
+  };
+
   const clampInto = (into: ArmCommand, swing: number, lift: number, reach: number): void => {
     into.reach = clamp(reach, L.reachMin, L.reachMax);
     into.lift = clamp(lift, L.liftMin, L.liftMax);
@@ -696,21 +761,25 @@ export function buildArmCore(
       scratch.commandedHand.copyFrom(anchor.commandedPoint()),
 
     commandedForearm: (): Vector3 => {
-      const { alpha, beta } = twoBone(clamp(slewed.reach, L.reachMin, L.reachMax));
-      const forearmPitch = slewed.lift + Math.PI / 2 - alpha + beta;
-      const az = outboard * slewed.swing;
-      const across = Math.sin(forearmPitch);
-      scratch.local.set(across * Math.sin(az), -Math.cos(forearmPitch), across * Math.cos(az));
-      scratch.local.rotateByQuaternionToRef(mountRotation(), scratch.forearm);
+      basisOf(slewed, scratch.forearm, scratch.lateral);
       return scratch.forearm;
     },
 
     commandedLateral: (): Vector3 => {
-      const az = outboard * slewed.swing;
-      // The collar's own +X after the yaw, which is the arm plane's lateral.
-      scratch.local.set(Math.cos(az), 0, -Math.sin(az));
-      scratch.local.rotateByQuaternionToRef(mountRotation(), scratch.lateral);
+      basisOf(slewed, scratch.forearm, scratch.lateral);
       return scratch.lateral;
+    },
+
+    socketPoint: (): Vector3 => scratch.socket.copyFrom(socketWorld()),
+
+    adjustPoint: (next: PointCorrection | null): void => {
+      correct = next;
+    },
+
+    basisAt: (world: Vector3, forearm: Vector3, lateral: Vector3): void => {
+      sphericalOf(world, scratch.pose);
+      clampInto(scratch.pose, scratch.pose.swing, scratch.pose.lift, scratch.pose.reach);
+      basisOf(scratch.pose, forearm, lateral);
     },
 
     /**
@@ -792,7 +861,17 @@ export function buildArmCore(
       // answered a policy's step more slowly than the swing and the lift beside it did. The
       // anchor's own rate ceiling is the single limiter now, and it is the same one all three
       // axes go through.
-      clampInto(demanded, wanted.swing, wanted.lift, wanted.reach);
+      if (correct === null) {
+        clampInto(demanded, wanted.swing, wanted.lift, wanted.reach);
+      } else {
+        // The stage's input is the wanted point, clamped first so an unreachable request is not
+        // handed to a correction that would answer it with a two-bone pose that does not exist.
+        clampInto(scratch.pose, wanted.swing, wanted.lift, wanted.reach);
+        pointAt(scratch.pose.swing, scratch.pose.lift, scratch.pose.reach, scratch.point);
+        correct(scratch.point, scratch.adjusted);
+        sphericalOf(scratch.adjusted, scratch.pose);
+        clampInto(demanded, scratch.pose.swing, scratch.pose.lift, scratch.pose.reach);
+      }
       // And the rate limit, in the same coordinates the clamp is written in, so that every point
       // the anchor is ever handed is inside the envelope rather than merely every point the
       // mapping asks for. The second clamp is cheap insurance and not decoration: the carry floor

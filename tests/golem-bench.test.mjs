@@ -1778,9 +1778,21 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
     `the shipped cut arrives at ${shipped.markAt.toFixed(3)} s, after its arc ended at `
     + `${strokeEnds.toFixed(3)}; the 2026-09-17 stroke brought it inside and this says it`
     + " left again");
-  assert.ok(shipped.speedAtMark > 18,
-    `the shipped cut reaches the mark at ${shipped.speedAtMark.toFixed(1)}, under the 22.1 the `
-    + "2026-09-17 stroke measured; re-take the entry");
+  // **22.1 was retracted on 2026-09-19 and the reason is worth keeping.** That reading was taken
+  // with the grip cast's motor lift uncapped, and an uncapped lift is a wrist carrying 1244 N m
+  // -- which the 240 Hz substep cannot integrate, and which showed up not as a shaky blade but as
+  // the bout being decided by which body Havok visits second: 3 wins in 64 for the one built
+  // first, in a mirror match on one seed. `CHAIN_WRIST.liftCeiling` caps it at 4x and the table
+  // is beside the constant. So the blade really is slower here than it was for those two days,
+  // and it was never honestly that fast: 22.1 was a number bought with a fairness bug.
+  //
+  // Re-measured at the cap: 17.14 m/s, against the 15.2 that stood before any of this work and
+  // the 22.1 that stood between. The bar is placed under the reading and above the old floor, so
+  // it still catches the regression it was written for -- a cut that arrives at walking pace --
+  // without asserting a speed only an unfair wrist could reach.
+  assert.ok(shipped.speedAtMark > 16,
+    `the shipped cut reaches the mark at ${shipped.speedAtMark.toFixed(1)}, under the 17.1 `
+    + "measured at the shipped lift cap on 2026-09-19; re-take the entry");
 
   // What the grid chose, which is the row `COMMITTED_SHAPE_CANDIDATES` carries.
   const chosen = COMMITTED_SHAPE_CANDIDATES.sword;

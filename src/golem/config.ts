@@ -43,11 +43,19 @@
  * would have been six times too hard to knock over with no test able to say why. Scaling the
  * literals means there is one number and everything agrees with it.
  *
- * **Uniform, deliberately.** It leaves the blade at 0.21 kg, which is light for something 0.84 m
- * long, and the alternative -- scaling the body and leaving the weapons -- re-balances all
- * eleven arms against each other and wants the whole shelf re-measured. The relative shape of
- * the shelf is the part of this design that works. If a blade reads as weightless once damage is
- * re-priced, that is a specific complaint about one number and the place to fix it is here.
+ * **Not uniform, and the exception is `TERMINAL_BLADE.mass`** -- the one mass `kg()` does not
+ * wrap, because an arming sword weighs what an arming sword weighs whatever is holding it. The
+ * argument for that exemption is beside the number, and it stands: scaling it took the blade to
+ * 0.21 kg, a foil, and a clean cut then arrived with 11.7 J where the damage model prices a cut
+ * at 80.
+ *
+ * **What the exemption also did, and nobody costed at the time**, is halve the blade's wrist
+ * link against the blade: `CHAIN_WRIST.wristMass` fell with everything else while the blade did
+ * not, so `carryRatio`'s floor -- a floor the blade had never touched -- began to bind. A
+ * constraint solver holds a mass ratio rather than a load, so a scale that is uniform in mass is
+ * not uniform in the thing the solver cares about. `carryRatio` is re-derived there and carries
+ * the table; this note exists so the next reader of *this* number knows the exemption has a
+ * second consequence and where it is paid for. 2026-09-18.
  */
 const SHIPPED_MASS_SCALE = 0.162;
 
@@ -1251,13 +1259,130 @@ export const CHAIN_WRIST = {
    * held the same bar to 3 degrees and 57 mm, and the blade's own numbers did not move (11 mm of
    * mean tip-to-command either way).
    *
-   * 0.4 is that fourfold, expressed against the load so the blade's wrist stays what it was: 0.4
-   * of 18 is 7.2 kg, which is the 4x figure the sweep chose (2x held to 6 degrees and 150 mm of
-   * mean error, 3x to 71 mm, 4x to 38 mm); 0.4 of 1.3 is under the floor. The sweep is in
-   * `docs/measurements.md` under Session 02 of the matchup set. A maul at 48 kg makes a 19 kg
-   * ring, which is what a wrist that holds a maul has to be. 2026-09-06.
+   * 0.4 was that fourfold, expressed against the load so the blade's wrist stayed what it was:
+   * 0.4 of 18 is 7.2 kg, which is the 4x figure the sweep chose (2x held to 6 degrees and 150 mm
+   * of mean error, 3x to 71 mm, 4x to 38 mm); 0.4 of 1.3 was under the floor. That sweep is in
+   * `docs/measurements.md` under Session 02 of the matchup set. 2026-09-06.
+   *
+   * ## Swept again against the ring, and left at 0.4: it is not the lever
+   *
+   * **0.4 was chosen as a floor that the blade never touched, and `SHIPPED_MASS_SCALE` pushed
+   * the blade onto it.** `wristMass` is `kg(2.3)`, so it fell 2.3 -> 0.37 with everything else,
+   * while `TERMINAL_BLADE.mass` stayed at 1.30 by the deliberate exemption argued beside it. The
+   * blade's wrist link was 1.77x the blade's own mass the day the sweep above ran; afterwards
+   * the floor bound for the first time and pinned it at 0.4x -- **the worst ratio this design
+   * permits**, reached by a change that was about weight and never mentioned ratios.
+   *
+   * It is also the wrong bar. The 2026-09-06 sweep asked "does a mace hold its command", and 0.4
+   * answered that: 3 degrees, 57 mm. It never asked "does a limb hold *still*", which is a
+   * different question with a different answer, and the one the owner asked -- *"the golem looks
+   * like a collective of bobbleheads, every body part springs and jiggles around."*
+   *
+   * So it is re-derived on `ringProbe` (`tests/harness/golem-bench.mjs`), whose `nudge` column is
+   * what a limb does with **nothing commanded and nothing touching it**. Every ring below is
+   * that: an unprovoked limit cycle, which a spring cannot produce and a badly conditioned
+   * solver can.
+   *
+   *     ratio   blade ring   revs   blade peak m/s   mace ring   revs   plate ring
+   *       0.4      66.1 mm      9            13.14    211.3 mm     10      26.6 mm
+   *       1.0      35.4 mm      5            20.66     43.9 mm      8
+   *       1.4      10.0 mm      2            24.34     17.0 mm      4
+   *       1.8      15.8 mm      1            24.43     32.3 mm      3
+   *       2.2       0.0 mm      0            24.21     19.2 mm      2       0.8 mm
+   *       2.6       0.3 mm      0            23.81     13.5 mm      2
+   *       3.0       0.0 mm      0            22.48     14.2 mm      2
+   *
+   * 2.2 is the smallest ratio at which the blade stops moving on its own, and peak tip speed
+   * *rises* to meet it -- 13.14 -> 24.21 m/s, because a limb that fights itself spends the
+   * stroke's energy on the fight. **So the first reading of this table was that stillness here is
+   * free. It is not, and the column that says so is the one this table did not have.**
+   *
+   * `peakTipErrorMm` runs 768 / 1101 / 1456 / 1576 / 1555 / 1524 / 1386 down the same rows: the
+   * lag **doubles** by 1.4 and never comes back. The arm is heavier, the anchor drive's force
+   * ceiling is not, and a stroke that arrives faster arrives further from where it was sent --
+   * `tests/golem-bench.test.mjs`'s stroke probe misses by 0.674 m at 2.2 against the 0.294 it is
+   * pinned at. A maul makes it worse still: this floor is a fraction of the *terminal*, so 2.2
+   * of a maul is a 17 kg wrist link, and the trailing grip fails to hold at all.
+   *
+   * **A ratio big enough to condition the joint is a limb too heavy to aim, and that is the
+   * finding.** The ring this block was re-swept for is real, but its cause is upstream: the
+   * blade is the one mass `SHIPPED_MASS_SCALE` does not wrap, so the scale moved the *link* and
+   * not the *load* and drove the ratio onto this floor. Fixing a ratio by raising the floor
+   * treats the symptom; the fix is at the scale, and it is argued there. 0.4 stands.
+   *
+   * The mace is the one case this would have helped that the scale does not: it falls 211 -> 19
+   * mm here and is unmoved by the scale, because a ratio is scale-invariant and a mace has always
+   * bound this floor. That is a real defect, it is pre-existing rather than new, and it wants its
+   * own measurement rather than a number borrowed from the blade's problem. The whip is excluded
+   * from the reading entirely -- its terminal is a chain of segments, and a hanging lash is the
+   * thing itself moving rather than the joint failing. 2026-09-18.
    */
   carryRatio: 0.4,
+
+  /**
+   * How much of the terminal's rotational inertia the grip is given, as a fraction.
+   *
+   * **This is `carryRatio` one derivative later, and it is the one that was the bug.** That
+   * block spends a page asking how heavy the link must be to hold a blade and answers `a ratio
+   * big enough to condition the joint is a limb too heavy to aim`. The premise is what was
+   * wrong. A weld is a locked 6-DoF constraint, so what it has to hold is a **torque** balance:
+   * the solver corrects it by trading angular impulse, and it divides that correction by each
+   * body's inertia. Mass barely enters, and on a short fat ring mass hardly moves inertia at
+   * all -- which is exactly why `carryRatio` needed five to fourteen times itself to do
+   * anything, and wrecked the aim when it got there.
+   *
+   * **The fist is the control that settles it.** A fist and a blade weigh within four grams of
+   * each other -- 1.296 kg and 1.300 -- hang off the same link through the same locked weld,
+   * and the fist reads 0.0 mm of unprovoked ring where the blade reads 90. Mass cannot tell
+   * them apart. Inertia can, and by a mile:
+   *
+   *     body      inertia about the weld   against the ring's own 1.29e-3
+   *     fist                    3.24e-3                             2.5 : 1
+   *     blade                   5.33e-2                              41 : 1
+   *     mace                    5.10e-2                              40 : 1
+   *
+   * 2.5 : 1 holds and 41 : 1 does not, so the cure is a floor under the *ring's* inertia, and
+   * the sweep below is that floor as a fraction of what is being carried. Every row is the
+   * shipped law -- `wrist.ts`'s `castToCarried`, which also lifts the hinge ceilings by the
+   * same factor, for the reason argued there. `ring` is `ringProbe`'s nudge column: what a
+   * limb does with nothing commanded and nothing touching it. `droop` is the worst the bend
+   * misses its command by during the sweep, and it is the column `carryRatio` did not have.
+   *
+   *     ratio   blade ring  rev   droop   peak m/s   stroke miss   at m/s   mace   plate
+   *         0      89.9 mm    9   1.307       13.1         0.146     16.6  211.7    25.6
+   *     0.125      22.4 mm    4   0.385       28.6         0.292     16.8   21.2    11.4
+   *      0.25      19.2 mm    2   0.103       31.8         0.242     22.7    5.1     0.5
+   *     0.375       4.7 mm    0   0.084       32.6         0.178     20.9    1.0     0.0
+   *       0.5       0.0 mm    0   0.069       31.8         0.158     20.2    0.7     0.0
+   *      0.75       0.4 mm    0   0.054       29.9         0.144     15.8    0.0     0.0
+   *       1.0       5.6 mm    0   0.045       28.8         0.147     16.8    0.0     0.0
+   *
+   * **0.5 is the smallest ratio at which the blade reads an exact zero on both ring columns**,
+   * and the readings turn round above it rather than flattening: 0.75 and 1.0 put a little
+   * ring back and take speed off. So it is picked as a floor that has just closed rather than
+   * as the best row, which is the same rule every ceiling in this file is picked by.
+   *
+   * **And stillness here really is free, which is the thing `carryRatio` could not buy.** Peak
+   * tip speed goes 13.1 -> 31.8 m/s and speed at the mark 16.6 -> 20.2, because a limb that
+   * fights itself spends the stroke on the fight. The miss ends at 0.158 m against the 0.146
+   * it starts at -- within noise of unchanged -- where `carryRatio`'s own table had it at
+   * 0.674 m by the time the ring closed. The difference between those two outcomes is not the
+   * ratio, it is the hinge ceiling moving with it.
+   *
+   * What this does not fix, and neither of them is new: the maul still rings 417 mm (it was
+   * 448) and the whip 641 mm, unmoved. The maul pins both its hinges at zero range so only the
+   * cast reaches it, and a whip's terminal is a chain of light segments that never touches this
+   * floor -- a hanging lash is the thing itself moving rather than the joint failing. Both want
+   * their own pass.
+   *
+   * **The fist is not under the floor, and a first draft of this block said it was.** Its
+   * 3.24e-3 clears the ring's 1.29e-3 once halved, so it lifts by 1.26x -- invisible on the
+   * ring columns, which already read zero for it, and plain on its stroke, which went from
+   * 0.108 m and 11.82 m/s to 0.008 m and 12.62 m/s. The claim is retracted rather than
+   * repaired: nothing on this shelf is untouched by this floor, and the check that it is a
+   * floor and not a rescale is the shape of the sweep above, not any one row. 2026-09-18.
+   */
+  gripInertiaRatio: 0.5,
 
   /**
    * The roll's commanded range, radians, and its stops.
@@ -1387,6 +1512,54 @@ export const CHAIN_WRIST = {
    */
   rollTorque: 60,
   bendTorque: 60,
+
+  /**
+   * The most the grip cast may multiply those two ceilings by. **Swept, and the sweep is a
+   * fairness table rather than a tracking one.**
+   *
+   * `castToCarried` lifts both hinges by the same factor it lifted the ring's inertia, because a
+   * torque ceiling is an authority *per inertia* and a motor asked to turn twenty times the
+   * inertia with the same ceiling is twenty times weaker. That derivation is right and it is not
+   * the whole story: the factor it computes for a blade is 20.7, and a wrist with 1244 N m in it
+   * out-runs the substep the world is solved at.
+   *
+   * What that looks like is not a shaky blade. It looks like the fight being decided by which
+   * body Havok visits second. Two identical fencers on one seed, 64 bouts, at `gripInertiaRatio`
+   * 0.5, against the cap:
+   *
+   *     cap    left  right     damage L / R      z     droop rad   miss m   at m/s   stray mm
+   *       1      29     35     13.01 / 14.02   -0.75       1.809    0.637     10.5         18
+   *       2      33     31     13.43 / 13.39   +0.25       1.411    0.361     16.2         17
+   *     **4**    28     36     12.88 / 13.89   -1.00       0.544    0.206     17.1         36
+   *       8       5     59      5.67 / 16.16   -6.75       0.177    0.158     20.2         56
+   *      16       3     61      4.36 / 16.74   -7.25       0.069    0.158     20.2         56
+   *
+   * **The knee is between 4 and 8 and it is a cliff, not a slope.** Below it the corner is a coin;
+   * above it the body built second wins nine bouts in ten. Building the right fighter first flips
+   * the bias exactly -- 29 to 3 the other way -- and a fencer against a statue swings the same
+   * from either corner (driven tip 25.98 against 24.50, sixteen bouts each), so what is being
+   * measured is Havok's list order and not the arena. `AGENTS.md` already records that order as
+   * worth 9.5 % of an arm's peak transient; an uncapped lift turns 9.5 % of a transient into the
+   * whole bout.
+   *
+   * Four is picked as the largest cap that is still a coin, and what it costs is written above:
+   * the bend tracks its command to 0.544 rad rather than 0.069, and the stroke's miss is 0.206 m
+   * rather than 0.158. Both are inside their own bars and neither is free. The ring -- the
+   * complaint all of this exists to answer -- does not pay at all: the blade reads 0.0 mm over 0
+   * reversals at every row in the table, as do the plate and the fist, and the mace reads 0.7.
+   *
+   * Two things were tried first and are recorded because they are the obvious ones.
+   * **Backing the cast down instead** trades the ring away and does not even buy fairness
+   * cleanly -- at 240 Hz the split goes 38-26, 25-39, 22-42, 16-48, 10-54 across
+   * `gripInertiaRatio` 0.25 to 0.375, a slope with no knee, and 0.25 leaves the blade ringing
+   * 19.2 mm over two reversals. **Doubling `world.physicsHz` to 480** fixes the fairness outright
+   * (51-61-16 across eight minds, z = -0.94, against 40-79-9 and z = -3.58 at 240) and costs 1.8x
+   * the physics time, which is affordable -- but it silently re-tunes every position motor in the
+   * body, and the gait is what noticed: 23 % of the walk spent airborne against 0.4 %, which is
+   * the exact regression `a_planted_sole_holds_its_ground...` was written to catch. A rate change
+   * is a body-wide retune wearing a one-line diff, and it is not this defect's fix.
+   */
+  liftCeiling: 4,
 
   /**
    * The wrist hinges' solver damping. **Swept.**
@@ -3937,8 +4110,109 @@ export const GOLEM_ASSEMBLY = {
    *
    * 0.012 and below are refused for the headroom above -- at 0.012 nine bouts in twelve now finish
    * inside eight seconds. 0.016 and above are refused for leaving the band at the top.
+   *
+   * ---
+   *
+   * **2026-09-18, the fourth take: 0.014 -> 0.036, because `CHAIN_WRIST.gripInertiaRatio`
+   * stopped the grip ringing and the blade got half again as fast.** The note above says this
+   * row has been re-taken three times because *the arm underneath it kept changing*, and
+   * predicts the next one: "the phase after this one is meant to replace the flail with a
+   * committed thrust and better technique moves this count down." It moved, and the middle of
+   * the band was not enough margin after all.
+   *
+   * Same harness, same 24 side-swapped `golem-fencer` mirrors over 12 seeds at a 150 s cap. The
+   * control row is the same tree with the cast alone switched off, so the two halves of the
+   * table are one measurement of what the cast did rather than a comparison across sessions:
+   *
+   *     cast   health   clean   min..med..p99   landed   seconds   winner's bar   severs   <8 s
+   *     off     0.014     8.1     1.. 9..12      129.3      14.8          0.481      1.2    21 %
+   *     off     0.020    10.6     3..11..21      170.7      19.6          0.479      1.0     0 %
+   *     on      0.014     4.3     2.. 4.. 8       46.0       7.4          0.950      1.7    75 %
+   *     on      0.020     6.0     2.. 6.. 9       79.1       8.1          0.958      1.3    58 %
+   *     on      0.028     8.1     2.. 8..14      113.8      11.5          0.964      1.3    29 %
+   *     on      0.032     8.9     2.. 9..16      128.7      12.9          0.965      1.3    25 %
+   *     on    **0.036**  11.4     3..12..22      154.3      16.7          0.662      1.1     4 %
+   *     on      0.042    15.1     6..16..31      214.5      22.5          0.583      1.0     0 %
+   *     on      0.048    17.4     8..18..35      252.4      26.4          0.557      0.9     0 %
+   *
+   * **The column that picks it is the winner's bar, and it picks sharply.** From 0.014 to 0.032
+   * the winner ends on 0.95 to 0.96 of its own bar -- it wins essentially untouched, which is
+   * precisely the failure this block already names: *"a health scale set too low would show up
+   * here first, as a stomp with an untouched winner."* Between 0.032 and 0.036 it falls off a
+   * cliff to 0.662, and bouts finished inside eight seconds go 25 % to 4 %. That is not a smooth
+   * trade being tuned; it is the threshold where the first solid cut stops taking a head off and
+   * the two bodies have to actually fight. 0.036 is the first row on the far side of it, which
+   * is the same "smallest setting at which the defect is gone" rule the rest of this file picks
+   * ceilings by.
+   *
+   * **And the clean-hit band is breached rather than met, which is stated rather than hidden.**
+   * 11.4 is outside the five-to-eight this row was picked inside three times running, and no row
+   * satisfies both columns at this operating point: 0.028 sits at 8.1 clean and 0.964 of bar.
+   * The reason the two stopped agreeing is in the `min..med..p99` spread -- 3..12..22 against the
+   * control's 1..9..12. A blade that no longer fights itself lands far more often and its damage
+   * arrives as a long tail of small contacts under a few decisive ones, so "how many of the
+   * biggest blows make up 80 % of the damage" counts the tail and rises for any given shape of
+   * bout. The band was calibrated on a distribution that no longer exists. It is kept in the
+   * table because it is still the right question once the tail is priced, and **re-deriving the
+   * clean-hit criterion against a long-tailed distribution is left open rather than answered**.
+   *
+   * The `landed` column does not reproduce the third take's 15.3 at any setting and reads 129.3
+   * on the control. Four of that table's five columns do reproduce within a rung, so this is an
+   * instrument difference in what `landed` counts and not a drift: it is reported here and
+   * nothing is picked on it.
+   *
+   * ---
+   *
+   * ## Fifth take, 2026-09-19, and the fourth take's cliff is **retracted**
+   *
+   * Everything above was measured with `castToCarried`'s motor lift uncapped, and an uncapped
+   * lift is a wrist the 240 Hz substep cannot integrate. What that produced was not a visible
+   * fault but an unfair bout: in a mirror match on one seed the body Havok builds first won **3
+   * of 64**, and the winner in that table was very often simply the favoured corner.
+   *
+   * So **the winner's-bar cliff was the bias, not the lethality.** 0.95 of bar at every setting
+   * up to 0.032 is what a side that cannot lose looks like; the fall to 0.662 at 0.036 is health
+   * rising far enough to let the disadvantaged side survive long enough to score, not a threshold
+   * where "the first solid cut stops taking a head off". The claim is withdrawn with its
+   * reasoning, which is the point of writing it down rather than deleting it.
+   *
+   * Re-taken at `CHAIN_WRIST.liftCeiling` on the same 24 side-swapped mirrors over 12 seeds:
+   *
+   *     health   clean   min..med..p99   landed   seconds   winner's bar   severs   <8 s
+   *      0.010     4.8     1.. 4..11       42.8       5.9          0.776      1.3    83 %
+   *      0.014     6.5     1.. 7..14       78.8       8.4          0.641      1.3    50 %
+   *      0.018     8.6     3.. 8..15      104.3      11.1          0.510      0.9    21 %
+   *      0.020     9.7     4..10..15      116.0      12.2          0.521      0.8    17 %
+   *      0.022    11.4     5..12..19      134.3      14.6          0.487      0.8    13 %
+   *    **0.024**  11.9     6..13..21      146.0      16.2          0.490      0.8     8 %
+   *      0.028    13.1     7..14..20      156.7      17.0          0.449      0.7     8 %
+   *      0.032    14.3     7..15..23      166.8      18.3          0.434      0.7     0 %
+   *      0.036    17.0     8..17..24      201.4      22.1          0.355      0.5     0 %
+   *      0.042    18.7    13..19..26      229.5      25.0          0.331      0.4     0 %
+   *
+   * **There is no cliff in this column any more**, which is the strongest evidence that the old
+   * one was the bias: the bar now falls smoothly from 0.776 to 0.331 across the range, because a
+   * fair bout is a close bout and the winner ends near half a bar whatever the scale.
+   *
+   * So the pick moves to the column that still has an edge in it: bouts finished inside eight
+   * seconds, which is the reading that says two bodies never got to fight. It goes 83, 50, 21,
+   * 17, 13, **8**, 8, 0, 0, 0 -- and 0.024 is the smallest setting at which it is under a tenth,
+   * which is this file's usual rule. Above it nothing is bought: 0.028 reads the same 8 % for a
+   * longer bout and more blows, and 0.032 upward buys 0 % by making a duel last twenty seconds
+   * and take two hundred contacts, which is the flailing the phase exists to remove.
+   *
+   * The clean-hit band is still breached and this take says more about why. 11.9 is outside the
+   * five-to-eight, and the band is not reachable anywhere above 0.018 -- where a fifth of bouts
+   * are over inside eight seconds. The two criteria are in genuine opposition at this operating
+   * point, and the reason is the one the fourth take identified and is worth restating now that
+   * the bias is gone rather than confounding it: damage arrives as a long tail of small contacts
+   * under a few decisive ones, so a count of "the biggest blows making 80 % of the damage" counts
+   * the tail. The diagnostic that prices the tail was taken on 2026-09-19 over 320 bouts among
+   * the five strongest minds: **7.6 % of contacts are cuts and they carry 91 % of all damage**,
+   * while 79 % are `weak` and carry exactly none. Re-deriving the clean-hit criterion against
+   * that distribution is still open, and `healthScale` is not the knob that closes it.
    */
-  healthScale: 0.014,
+  healthScale: 0.024,
 
   /**
    * The base frame's box, metres, and why there is one at all.

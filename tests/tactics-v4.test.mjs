@@ -70,6 +70,7 @@ import {
   askCadence, pilotFeatureCount, pilotFeatureNames, pilotFeatures, pilotTrace,
 } from "../src/golem/pilot.ts";
 import { DRIVER, golemDriver } from "../src/golem/styles/driver.ts";
+import { REAPER, golemReaper } from "../src/golem/styles/reaper.ts";
 import { golemFencer } from "../src/golem/tactics-v2.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
@@ -1653,4 +1654,90 @@ test("golem_driver_fights_a_real_bout_and_the_ram_head_charges", async () => {
     secondary: { chain: "none", terminal: "none" } }), "the ram head");
   assert.ok(capped.strokes > 0, "a body whose only weapon is its head never charged");
   assert.ok(capped.blows.left > 0, "the ram head landed nothing at all in fourteen seconds");
+});
+
+/**
+ * `golem-reaper`'s own claim, which is the one thing it does that no other mind on this executor
+ * does: **the spare hand covers whenever there is anything to cover.**
+ *
+ * This is not a rating and does not pretend to be one -- the rating is in the mind's own doc, over
+ * 256 gauntlet bouts. What it pins is the behaviour the doc's table bought, because that table is
+ * the only argument for the row and a green suite with a mind that never parries would be the
+ * worst defect this tree produces.
+ *
+ * The bar is derived rather than guessed, and the first draft's 0.5 was guessed and went red at
+ * 48.7 %. Both minds against `golem-fencer`, fourteen seconds, eight seeds, counting the share of
+ * the samples offering a solved crossing on which the spare hand is actually there:
+ *
+ * ```
+ * seed        reaper                     driver
+ *             offered  cover  share      offered  cover  share
+ * 20260908       1149    559   48.7 %       1042      0    0.0 %
+ * 20260904 *       70      2    2.9 %        155      0    0.0 %
+ * 20260911        477    205   43.0 %        181      0    0.0 %
+ * 20260918       1306    562   43.0 %        912      7    0.8 %
+ * 20260925        142     48   33.8 %        358     16    4.5 %
+ * 20261002       1057    488   46.2 %        995      7    0.7 %
+ * 20261009        840    451   53.7 %        474      0    0.0 %
+ * 20261016       1085    469   43.2 %        117      0    0.0 %
+ * ```
+ *
+ * The starred row is a bout that ended after 215 samples -- under a second -- and is the reason
+ * the bar is not set at the minimum of the column: a bout that barely happened says nothing about
+ * a standing posture. Over the seven that ran, the reaper's worst share is 33.8 % and the driver's
+ * best is 4.5 %, so **0.25 sits below every real reaper row and above every driver row**, which is
+ * the separation this row was added to buy. It is a floor under a behaviour, not a target.
+ *
+ * Fourteen seconds is chosen for the same reason the driver's bout test chooses it: long enough
+ * for the cadence, the strokes and the spare hand to all be real, short enough for a suite.
+ */
+test("golem_reaper_covers_with_the_spare_hand_whenever_there_is_a_crossing", async () => {
+  const physics = await freshHavok();
+  const driven = golemReaper(SEED, REAPER);
+  const seen = { samples: 0, offered: 0, parrying: 0, committing: 0 };
+  const blows = { left: 0, right: 0 };
+  const result = runBout({
+    left: "golem-reaper", right: "golem-fencer",
+    leftUnit: "golem", rightUnit: "golem",
+    leftGolem: defaultGolemSetup(), rightGolem: defaultGolemSetup(),
+    locomotionMode: "supported",
+    seeds: [SEED, SEED + 17],
+    maxSeconds: 14,
+    physics,
+    leftMind: { name: "golem-reaper", driven, decide: (view, dt) => driven.decide(view, dt) },
+    rightMind: golemFencer(SEED + 17),
+    onSample: () => {
+      const reading = driven.reading;
+      if (!reading) return;
+      seen.samples += 1;
+      if (reading.spareCanCover && reading.intercept !== null) seen.offered += 1;
+      if (reading.theirs === "commit") seen.committing += 1;
+      if (driven.parrying) seen.parrying += 1;
+    },
+    onEvent: (event) => { blows[event.side] += 1; },
+  });
+
+  assert.ok(driven.asks > 0, "the reaper was never asked anything in fourteen seconds");
+  assert.ok(driven.strokes > 0, "the reaper never threw a stroke in fourteen seconds");
+  assert.ok(blows.left > 0, "golem-reaper landed nothing at all in fourteen seconds");
+  for (const [name, count] of Object.entries(driven.refusals)) {
+    assert.equal(count, 0, `the reaper wrote ${name} out of range ${count} times`);
+  }
+
+  // The claim. A crossing has to be offered at all, or the rest of the assertion is vacuous and
+  // would stay green on a body whose spare hand had been deleted.
+  assert.ok(seen.offered > seen.samples * 0.02,
+    `only ${seen.offered} of ${seen.samples} samples offered a crossing at all, so this bout`
+    + " cannot say anything about what the mind does with one");
+  // Their arm is committing on a hundredth of a bout, which is the whole reason the commit gate
+  // is the wrong one. If this ever stops being true the row's table has to be re-taken.
+  assert.ok(seen.committing < seen.samples * 0.1,
+    `their arm committed on ${(100 * seen.committing / seen.samples).toFixed(1)} % of samples,`
+    + " against the 1.0 % the row was derived against; re-take the table");
+  // And what it does with one: covers through most of it, rather than through a five-hundredth.
+  assert.ok(seen.parrying > seen.offered * 0.25,
+    `the spare hand covered on ${seen.parrying} samples of the ${seen.offered} that offered a`
+    + " crossing, under the 33.8 % worst of the eight-seed table and heading for the driver's"
+    + " 0.0 to 4.5 %, which is the commit-gated behaviour this mind exists to not have");
+  assert.ok(result.seconds > 1, "the bout did not run");
 });

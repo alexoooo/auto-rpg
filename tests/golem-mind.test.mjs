@@ -97,6 +97,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   assert.deepEqual(names(golem), [
     "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
+    "golem-reaper", "golem-miser",
   ]);
   // The other surface has no body in the tree any more -- the Warrior went with the research --
   // so what is asserted is the half of the rule that can still be run: a name that is not one of
@@ -115,6 +116,8 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   assert.equal(POLICIES.find((policy) => policy.name === "golem-planner").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-champion").surface, "golem-v1");
   assert.equal(POLICIES.find((policy) => policy.name === "golem-driver").surface, "golem-v1");
+  assert.equal(POLICIES.find((policy) => policy.name === "golem-reaper").surface, "golem-v1");
+  assert.equal(POLICIES.find((policy) => policy.name === "golem-miser").surface, "golem-v1");
 });
 
 // ---------------------------------------------------------------------------------------
@@ -1185,6 +1188,90 @@ test("the_stroke_reader_tells_a_chamber_a_commit_and_a_recover_from_the_arms_ext
   const blind = strokeReader(fencerWith({ readStroke: false }));
   for (let step = 0; step < 60; step += 1) blind.update(0.5, -4, FIXED);
   assert.equal(blind.phase, "idle");
+});
+
+/**
+ * The tip-speed read: silent at its shipped setting, and its own channel when turned up.
+ *
+ * The first half is what protects the tree. `readTipSpeed` defaults to 0, and every mind in the
+ * repo was measured with the reader as it was, so the row has to be provably inert until somebody
+ * asks for it -- including when the caller passes no fourth argument at all, which is every call
+ * site that predates it.
+ *
+ * The second half is the shape. This does **not** feed `phase`: merging it was measured, cost the
+ * reaper 1.2 of damage dealt for none saved, and is recorded as retracted on the row itself. It is
+ * published as `rushing` so a style can spend it on a response that costs nothing when it is
+ * wrong, and leave `theirs` to the responses that cost something.
+ */
+test("the_tip_speed_read_is_silent_until_it_is_turned_up", () => {
+  assert.equal(GOLEM_TACTICS_V2.readTipSpeed, 0, "the shipped reader must not read tip speed");
+
+  // An arm held at guard with its point flying: nothing the extension rule would call a commit.
+  const off = strokeReader();
+  const on = strokeReader(fencerWith({ readTipSpeed: 5 }));
+  for (let step = 0; step < 6; step += 1) {
+    off.update(0.95, 0, FIXED, 18);
+    on.update(0.95, 0, FIXED, 18);
+  }
+  assert.equal(off.rushing, false, "the shipped reader moved on a tip speed it should not read");
+  assert.equal(off.phase, "idle", "the shipped reader moved on a tip speed it should not read");
+  assert.equal(on.rushing, true, "a point at 18 m/s did not read as rushing");
+  assert.equal(on.phase, "idle",
+    `the tip-speed read reached \`phase\`, which is the shape that was retracted: ${on.phase}`);
+
+  // And the argument being absent reads the same as the row being off, which is what makes the
+  // three call sites safe to leave alone if one is ever added.
+  const absent = strokeReader(fencerWith({ readTipSpeed: 5 }));
+  for (let step = 0; step < 30; step += 1) absent.update(0.95, 0, FIXED);
+  assert.equal(absent.rushing, false, "a caller passing no tip speed must not read as rushing");
+});
+
+/**
+ * The latch, which is the whole of why this row is shaped the way it is.
+ *
+ * Tested as a level -- `tipSpeed >= readTipSpeed` compared every ask -- the read was up on 43.6 %
+ * of asks, which is a signal carrying nothing however well its edges predict. A crossing latched
+ * for `readRushSeconds` is what turns an informative edge into an informative level, so the two
+ * properties that shape has and the level does not both get pinned: it lets go on its own, and a
+ * point that stays fast does not hold it up for ever.
+ */
+test("the_tip_speed_read_is_a_latched_crossing_and_not_a_level", () => {
+  const T = fencerWith({ readTipSpeed: 5, readRushSeconds: 0.10 });
+  const held = strokeReader(T);
+  // Five steps and not one, because the speed is low-passed over `readSeconds` before it meets
+  // the threshold. From a standing zero toward 18 m/s it crosses 5 on the fourth step at 240 Hz.
+  // That lag is the price of a crossing rate that does not depend on how fast the caller steps,
+  // and at about 0.017 s it is an eighth of the warning the signal was measured to carry.
+  for (let step = 0; step < 5; step += 1) held.update(0.95, 0, FIXED, 18);
+  assert.equal(held.rushing, true, "the crossing did not latch");
+  const steps = Math.round(0.10 * CONFIG.world.physicsHz) + 2;
+  for (let step = 0; step < steps; step += 1) held.update(0.95, 0, FIXED, 18);
+  assert.equal(held.rushing, false,
+    `a point still at 18 m/s ${steps} steps on still reads rushing, so the latch never let go`);
+
+  // And a point that never crosses the threshold never latches, however long it is watched.
+  const slow = strokeReader(T);
+  for (let step = 0; step < 240; step += 1) slow.update(0.95, 0, FIXED, 4.9);
+  assert.equal(slow.rushing, false, "a point under the threshold read as rushing");
+});
+
+/**
+ * The extension rule is untouched by the new row, which is the claim that keeps its own table
+ * standing.
+ *
+ * A slow arm drawn in with its point closing must still read as a commit with `readTipSpeed` up.
+ * If this fails, the new row has reached `phase` after all and the measured table above it no
+ * longer describes the code.
+ */
+test("the_extension_rule_is_untouched_by_the_tip_speed_row", () => {
+  const reader = strokeReader(fencerWith({ readTipSpeed: 5 }));
+  // 18 steps and not the 9 a first draft guessed at: `FIXED` is `1 / 240`, not a sixtieth, and the
+  // extension is low-passed over `readSeconds` from a standing 1.0, so it crosses
+  // `readCommitExtension` on step 15. Measured, not padded -- at 9 steps the extension is 0.789
+  // and the reader correctly says `chamber`, which is the rule working rather than failing.
+  for (let step = 0; step < 18; step += 1) reader.update(0.60, -3.0, FIXED, 1.0);
+  assert.equal(reader.phase, "commit",
+    `a drawn arm with its point closing reads as ${reader.phase}`);
 });
 
 /**
@@ -2386,9 +2473,26 @@ test("the_control_row_switches_take_the_parry_and_the_committed_arc_back_out", a
     atGap(fixture, 4.5, high);
     theirArm(fixture, { extension: 0.88, toward: false });
     drive(fixture, mind, 2.5);
-    atGap(fixture, 2.10, high);
+    // **They walk the last half-metre in rather than appearing at it, and that is a fix to this
+    // fixture rather than a change to what is asked.** `theirArm` puts their point on the
+    // bearing of *my* primary socket, so where their tip sits is a function of where my body is
+    // standing; the mind reads a tip *velocity*, which is a difference across steps. Jumping
+    // them from 4.5 m to 2.10 m and reading the next few asks therefore differenced a teleport,
+    // and `AGENTS.md` already says what that is worth -- a jump carries no momentum, so what
+    // comes out is not a speed. It survived because the artefact happened to point the right
+    // way: `solveIntercept` rejects a point that is not closing, and on 2026-09-18 a change that
+    // moved this golem's spare shoulder by **14 mm** flipped the differenced velocity from
+    // (-0.48, 1.87, -2.27) to (-6.56, 3.73, +1.39) -- receding -- so the intercept came back
+    // null, `parry` was never offered, and a test about a style's rules failed over a
+    // centimetre of stance.
+    //
+    // Closing in from 2.60 at the same 1.5 m/s reaches the same 2.10 m gap with a tip velocity
+    // that is an actual movement. Both assertions below are untouched and both rows still say
+    // what they said: the shipped style meets the point and the control row steps off it.
+    atGap(fixture, 2.60, high);
     fixture.opponent.reach = 2.40;
     theirArm(fixture, { extension: 0.62 });
+    drive(fixture, mind, 0.33, { closing: 1.5 });
     drive(fixture, mind, 0.25, { closing: 1.5 });
   };
   const met = named({ patience: 99 }, onACommit);
@@ -2520,6 +2624,34 @@ test("golem_form_stays_inside_the_envelope_and_is_deterministic_under_a_seed", a
  * the point. The golem is putting the side of the sword through the target. That is not
  * `GOLEM_TACTICS.cutRoll`, which was re-swept on 2026-09-18 across -0.15 to 0.45 and moved edge
  * alignment by less than 0.03 at every row, and it is not this test's to fix.
+ *
+ * ---
+ *
+ * **Re-taken 2026-09-18 after the grip cast, with a column the first take did not have.** The
+ * wrist now carries the blade's rotational inertia across the weld instead of ringing against it,
+ * so the point is where the arm put it rather than somewhere on a 90 mm orbit around it:
+ *
+ *     seed        thrust   cut   slap   weak   seconds   ending
+ *     20260904       0     10      4     36       8.6    exhausted
+ *     20260911       1     10      2     27      13.1    exhausted
+ *     20260918       0     12      4     52      11.4    exhausted
+ *     20260925       0      6      0     12       3.2    exhausted
+ *     20261002       0      6      3     20       6.5    exhausted
+ *     20261009       1     20      6     70      16.5    exhausted
+ *     20261016       1     23      7    145      20.0    time
+ *     20261023       0      2      2     22      11.2    exhausted
+ *
+ * **Three thrusts again, out of eight seeds, and that is the same thinness as before.** What has
+ * moved is everything around them: 89 cuts against 25, and seven of eight bouts now end in a
+ * verdict rather than running the cap. So the cast bought contact and lethality and bought this
+ * test's own claim nothing, which is the honest reading -- a point arrives point-first because of
+ * how the wrist is *aimed*, and the cast is about how the wrist is *held*.
+ *
+ * The `weak` column is new and it is the finding worth carrying forward: 384 weak contacts
+ * against 117 scoring ones. A still blade rests against what it touches instead of bouncing off
+ * it, so the contact log now has a long tail of grazes that book nothing. That is not a
+ * regression -- nothing is paid for a weak contact -- but it means contact *counts* are no longer
+ * a proxy for pressure, and any bar phrased as contacts a second wants re-reading.
  */
 test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
   const setup = defaultGolemSetup();
@@ -3117,7 +3249,7 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
 
   const guarding = run((hook) => golemGuardian(SEED, GUARDIAN, hook), "golem-guardian");
   // The window floor, restated 2026-09-18; the reasoning is at the planner's cadence test above.
-  // Measured 11.4 s of fourteen, ended by exhaustion.
+  // Re-measured 2026-09-18 after the grip cast: 14.0 s of fourteen, ended by the cap.
   assert.ok(guarding.ending === "exhausted" || guarding.seconds > 13,
     `the bout ran ${guarding.seconds.toFixed(1)} s of fourteen and ended "${guarding.ending}"`);
   // **The window floor is a count of asks and not a stretch of seconds, restated 2026-09-18.**
@@ -3141,12 +3273,76 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
   //
   // So the floor is 20 asks: below the 28 the worst seed manages, and far above the zero that
   // would make the two assertions after it vacuous.
+  //
+  // **Re-taken whole 2026-09-18, because the grip cast moved every row.** The wrist now carries
+  // its blade's rotational inertia instead of ringing against it, which lands more blows, ends
+  // more bouts, and -- the part that matters here -- changes how often a fencer's arm is *read*
+  // as a chamber at all, because a still blade spends less of the bout drawing back:
+  //
+  //     seed       seconds  ending      asks  onChamber  blows
+  //     20260904     14.0   time          57      5      111
+  //     20260911     12.7   exhausted     52      0       51
+  //     20260918      8.3   exhausted     41      0       40
+  //     20260925     14.0   time          53      1      189
+  //     20261002     14.0   time          56      3      130
+  //     20261009      5.7   exhausted     22      2       61
+  //     20261016     11.8   exhausted     47      1      106
+  //     20261023     14.0   time          56      3      124
+  //
+  // The 20-ask floor survives, but only just: the worst seed now reads **22**, where it read 28.
+  // It is kept rather than lowered because the floor is an argument about vacuity and not a fit,
+  // and 22 still clears it -- but the next thing that shortens a bout will breach it, and the
+  // honest repair then is to count asks per second rather than per bout.
+  //
+  // **Re-taken again 2026-09-19 at `CHAIN_WRIST.liftCeiling`, and this time the assertion moved
+  // rather than the numbers.** Capping the lift made the bout fair -- the uncapped wrist handed
+  // the fight to whichever body Havok visited second -- and on the shipped seed that turns the
+  // guardian's spare arm from a thing that survives into a thing that does not:
+  //
+  //     seed       seconds  ending      asks  onChamber  blows   chambers seen   parry offered
+  //     20260904     14.0   time          65      0        121          9               2
+  //     20260911     14.0   time          72      4         74          6              15
+  //     20260918     14.0   time          62      0         88          3               7
+  //     20260925     14.0   time          60      5        144          5              25
+  //     20261002     14.0   time          61      1        116          1              17
+  //     20261009     14.0   time          53      4        129          4              14
+  //     20261016     10.6   exhausted     42      2         70          2              16
+  //     20261023      9.8   exhausted     42      7        115          7              17
+  //
+  // The two right-hand columns are why `onChamber > 0` stopped being assertable on one seed, and
+  // they say it is not a style failure. On 20260904 the guardian *saw* nine chambers and was
+  // offered a parry on **two of sixty-five asks**: `spareCanCover` is true 16 times where it is
+  // true 42 to 61 times on every other seed. The shield arm is destroyed early, so there is no
+  // spare hand to send, so the option is never on offer, so the count is zero. A style cannot
+  // parry with an arm somebody cut off.
+  //
+  // So the claim is re-derived at the resolution it was always about. Meeting a chamber is a rare
+  // event -- one to seven times in a fourteen-second bout -- and a rare event asserted on one
+  // seed is a coin toss, which is exactly what the thrust test above learned and moved to eight
+  // seeds for. This now reads the same eight and asks that the style do it on most of them, which
+  // is a claim about the style; the single-seed run above still carries the asks and the blows,
+  // which are not rare and mean what they say on any seed.
   assert.ok(guarding.asks > 20,
     `the guardian was asked ${guarding.asks} times in ${guarding.seconds.toFixed(1)} s, `
     + "too few for the counts below to mean anything");
-  assert.ok(guarding.onChamber > 0,
-    `the guardian answered ${guarding.asks} asks and met a chamber on none of them`);
   assert.ok(guarding.blows.left > 0, "golem-guardian landed nothing at all in fourteen seconds");
+
+  const met = [];
+  for (const seed of [20260904, 20260911, 20260918, 20260925,
+    20261002, 20261009, 20261016, 20261023]) {
+    const side = count((hook) => golemGuardian(seed, GUARDIAN, hook), "golem-guardian");
+    runBout({
+      left: "golem-guardian", right: "golem-fencer", leftUnit: "golem", rightUnit: "golem",
+      leftGolem: setup, rightGolem: setup, locomotionMode: "supported",
+      seeds: [seed, seed + 17], maxSeconds: 14, physics,
+      leftMind: side.mind, rightMind: golemFencer(seed + 17),
+    });
+    met.push({ seed, ...side.walls });
+  }
+  const answered = met.filter((row) => row.onChamber > 0).length;
+  assert.ok(answered >= 5,
+    "the guardian met a chamber on only " + answered + " of eight seeds: "
+    + met.map((row) => `${row.seed} ${row.onChamber}/${row.asks}`).join(", "));
 
   const forming = run((hook) => golemForm(SEED, FORM, hook), "golem-form");
   assert.equal(forming.onChamber, 0,

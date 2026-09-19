@@ -156,6 +156,33 @@ export function effectorModule(
       // How far the business end is from the socket: the chain's own reach out to the weld,
       // plus the terminal's length beyond it. Fixed at build, because both halves are.
       const tipToSocket = built.reach + end.tipOffset;
+      // **And told to the chain, once, because a chain that can bend aims through its terminal.**
+      // Rung 3's bend hinge swings the tip off the radial line by an arc the whole length of what
+      // is welded on, and the mind's reach model has the overhang collinear -- so without this the
+      // chain is asked for a point and silently delivers a different one. Every rung below points
+      // its terminal straight out of the forearm and declines the call.
+      // **Gated on the edge, and the gate is load-bearing rather than tidy.** The correction models
+      // the terminal as a rigid stick the bend swings about the ring, and it aims the *tip*. That
+      // is a true model of a sword and a false one of everything else on the shelf: a whip's lash
+      // is not rigid, and a plate's tip is not what anybody aims -- a shield is pointed by its
+      // face. Ungated, this moved both: the whip's crack fell from 25.78 m/s to 20.41 and stopped
+      // outrunning its own drop, and a bout where one side carries a plate ended in 0.7 s having
+      // carried no shield at all. The blade is the only `edge` on the shelf, which is the same
+      // gate the edge-squaring law takes and for the same reason.
+      if (terminal?.bite === "edge") built.aimThrough?.(tipToSocket);
+      // **And what it weighs to turn, which is a different number from what it weighs.**
+      // Read off the built bodies rather than derived, because the terminal already told the
+      // solver its own shape and a formula here would be a second opinion about it. The largest
+      // principal inertia across the terminal's parts is the one the weld has to hold: a blade
+      // is 5.3e-2 about the two axes across it and 2.2e-4 along, and it is the across that
+      // throws a 1.3e-3 link. Ungated, unlike the aim above -- every terminal on the shelf is
+      // welded through the same locked constraint, and a fist is simply already under the floor.
+      let carriedInertia = 0;
+      for (const piece of end.parts) {
+        const spread = piece.part.body.getMassProperties().inertia;
+        if (spread) carriedInertia = Math.max(carriedInertia, spread.x, spread.y, spread.z);
+      }
+      built.castToCarried?.(carriedInertia);
       const chainEnvelope = built.envelope();
       // What this pair costs to swing about its socket, kg m2. The chain states its own links --
       // it is the only thing that knows how its mass is laid out along itself -- and the terminal's

@@ -45,6 +45,7 @@ import {
 } from "../../src/golem/tactics.ts";
 import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
+import { RingMeter } from "./ring-meter.mjs";
 
 export const HARNESS = "the Node bench (scripts/golem-bench.mjs, NullEngine, real Havok, no rendering)";
 
@@ -258,6 +259,39 @@ export const WHIP_SEQUENCE = Object.freeze([
  * for the opposite reason: each is judged on something (a face, a lash) the blade sequence never
  * asks for.
  */
+/**
+ * How long a nudge phase holds, and how long after it opens the push lands.
+ *
+ * 3.0 s because rung 3 takes about 1.75 s to stop ringing on a commanded step and **a window
+ * shorter than the ring reports its own length back as a settle time** -- the defect the torso's
+ * shove phase found first, at 1.8 s, and wrote down. The 0.10 s delay is so the phase's opening
+ * step, where the script hands over, is not also the impulse step.
+ */
+const NUDGE_PHASE = Object.freeze({ seconds: 3.0, delay: 0.10 });
+
+/**
+ * The same script with a still, held phase appended: where a nudge is measured.
+ *
+ * **An appendix rather than a phase in each sequence, and opt-in rather than always.** There are
+ * five scripts in this file and a copy of the same phase in each would be five places for one
+ * rule to drift; and appending it unconditionally would lengthen every run, which moves the
+ * whole-run columns (`tipWanderMm`, `stuckSteps`, the run peak) that `docs/measurements.md`
+ * already has tables of. A caller that wants a ring asks for one and nothing else changes.
+ *
+ * The appended command is **the last phase's, repeated exactly**, so the limb enters already
+ * settled and the meter reads the nudge alone rather than the limb still arriving -- which is the
+ * correction the torso's shove phase needed twice, and the reason `untwist` exists there.
+ */
+export const withNudge = (sequence) => {
+  const last = sequence[sequence.length - 1];
+  const until = last.until + NUDGE_PHASE.seconds;
+  return {
+    sequence: Object.freeze([...sequence, Object.freeze({ ...last, name: "nudge", until })]),
+    at: last.until + NUDGE_PHASE.delay,
+    until,
+  };
+};
+
 export const sequenceFor = (moduleId) => {
   if (moduleId.endsWith(".mace")) return MACE_SEQUENCE;
   if (moduleId.endsWith(".maul")) return MAUL_SEQUENCE;
@@ -902,6 +936,83 @@ export function parrySequence({
 }
 
 /**
+ * The nudge: the smallest disturbance that answers the owner's complaint, and why it is sized in
+ * metres per second rather than in newton-seconds.
+ *
+ * `BENCH_SHOVE` on the torso is 84 N.s, and copying that number here would be a mistake worth
+ * naming: 84 N.s against the 1.82 kg a wrist chain carries is about 46 m/s, which is not a nudge,
+ * it is a demolition. **An impulse is only a disturbance relative to the inertia it lands on**,
+ * and the inertia at the end of an effector chain is a hundredth of a trunk's. So the constant
+ * below is picked against `peakTipSpeedMps`, which every ring row reports for exactly this
+ * reason -- the row says what the nudge actually did, so the constant cannot silently mean
+ * something different on a heavier terminal than it does on a lighter one.
+ *
+ * The table that picked it is in `CHAIN_WRIST`'s own doc, beside the gain it exists to measure.
+ */
+export const BENCH_NUDGE = Object.freeze({
+  newtonSeconds: 1,
+  // Across the chain rather than along it: a push down the arm's own axis is taken by the reach
+  // drive as a compression and produces no swing, and a swing is what rings.
+  direction: Object.freeze([0.3, -1, 0.4]),
+});
+
+/**
+ * The ring probe: how far one small push moved the tip, how long the tip took to stop, and **how
+ * many times it changed its mind on the way**.
+ *
+ * This is the column the whole damping change is judged in, and the reason it had to be built is
+ * that nothing in `BenchReadout` can see a ring -- `ring-meter.mjs`'s own doc lists the four
+ * metrics that look like they should and the structural reason each one cannot. The short of it
+ * is that every existing column is about *lag*, and the complaint is about *oscillation*.
+ *
+ * **It nudges rather than teleporting the cursor**, which `AGENTS.md:181-185` is emphatic about:
+ * a jumped command gives the limb no momentum to carry, so it reports a clean monotonic settle
+ * that says nothing about what a blow does. The impulse lands on the terminal at the tip, which
+ * is where a blow lands, and the meter is armed on the same step so the reference is the tip's
+ * position before the push rather than a step into it.
+ *
+ * `peakTipSpeedMps` is what makes the reading self-checking and is what sizes `BENCH_NUDGE`: a
+ * run whose tip never exceeded the readout's own `restTipSpeed` was not disturbed at all and its
+ * settle time is a statement about the noise floor.
+ */
+export function ringProbe({
+  at, until, bandMm = 2, newtonSeconds = BENCH_NUDGE.newtonSeconds,
+}) {
+  const meter = new RingMeter(bandMm);
+  const previous = new Vector3();
+  const push = new Vector3();
+  let fired = false;
+  let peakTipSpeed = 0;
+
+  const probe = ({ t, view, module }) => {
+    if (!view) return;
+    const tip = view.tip;
+    if (!fired) {
+      if (t >= at) {
+        const [dx, dy, dz] = BENCH_NUDGE.direction;
+        push.set(dx, dy, dz).normalize().scaleInPlace(newtonSeconds);
+        // The last part is the terminal: `effector.ts` composes `parts` as chain, then trailing
+        // grip, then end. A blow lands on the weapon, not on the forearm.
+        const end = module.parts[module.parts.length - 1];
+        end.part.body.applyImpulse(push, tip.clone());
+        meter.arm(t, until, tip.x, tip.y, tip.z);
+        fired = true;
+      }
+      previous.copyFrom(tip);
+      return;
+    }
+    const speed = Vector3.Distance(tip, previous) / SUBSTEP;
+    previous.copyFrom(tip);
+    if (speed > peakTipSpeed) peakTipSpeed = speed;
+    meter.sample(t, tip.x, tip.y, tip.z);
+  };
+
+  const read = () => Object.freeze({ ...meter.state(), peakTipSpeedMps: peakTipSpeed });
+
+  return { probe, read };
+}
+
+/**
  * The parry probe: arrival, the standing offset, peak speed and overshoot.
  *
  * **Arrival is measured against where the cover ends up, not where it was sent.** Measured
@@ -1149,34 +1260,76 @@ export const STROKE_GRID = Object.freeze({
  */
 export const COMMITTED_SHAPE_CANDIDATES = Object.freeze({
   sword: Object.freeze({
-    chamberSwing: 1.20, strokeSeconds: 0.20, chamberReach: -0.20, chamberSeconds: 0.32,
-    // Pinned 2026-09-17, for the reason `committed` in `tactics-v3.ts` gives at length: the sword's
-    // shipped shape is getters onto `GOLEM_TACTICS`, so leaving this inherited made the bench row
-    // silently a measurement of whatever the table last shipped. At `followLift` 0.95 this cell
-    // misses by 0.209 m rather than 0.070. The grid was swept at 0.73 and this names it.
+    chamberSwing: 0.80, strokeSeconds: 0.11, chamberReach: -0.20, chamberSeconds: 0.32,
+    // Pinned 2026-09-17, for the reason `committed` in `tactics-v3.ts` gives at length: the
+    // sword's shipped shape is getters onto `GOLEM_TACTICS`, so leaving this inherited made the
+    // bench row silently a measurement of whatever the table last shipped. The grid was swept
+    // at 0.73 and this names it.
     followLift: 0.73,
-    /** miss 0.070 m, 22.34 m/s at the mark, peak 23.42, anchor stray 8 mm, on `effector.wrist.blade`. */
-    bench: Object.freeze({ missMetres: 0.070, speedAtMark: 22.34, peakAnchorStrayMm: 8 }),
+    /**
+     * miss 0.046 m, 16.83 m/s at the mark, anchor stray 11 mm, on `effector.wrist.blade`.
+     *
+     * **Re-taken 2026-09-19 at `CHAIN_WRIST.liftCeiling`**, which is the second time this row has
+     * moved for the reason the block below warns it will. Capping the lift cost the miss (0.028
+     * to 0.046) and bought back the two columns beside it (15.30 to 16.83 m/s, 16 to 11 mm), so
+     * the cell is a better stroke on two of three readings and a worse one on the reading the
+     * grid is sorted by.
+     *
+     * The cell itself did not move: all 64 were re-swept at the cap and 0.80 / 0.11 / -0.20 /
+     * 0.32 still clears every bar the test asserts. It is no longer the *best* cell, though --
+     * 0.80 / **0.15** / -0.20 / 0.32 reads 0.026 m at 16.88 m/s with the same 11 mm stray, which
+     * dominates this row on all three columns. It is written down rather than taken, because a
+     * bench that says a shape is better is not a bout that says it, and swapping the shipped arc
+     * on one instrument's word is what produced the fitted-to-a-defect grid in the first place.
+     */
+    bench: Object.freeze({ missMetres: 0.046, speedAtMark: 16.83, peakAnchorStrayMm: 11 }),
   }),
   shield: Object.freeze({
-    chamberSwing: 1.20, strokeSeconds: 0.15, chamberReach: -0.70, chamberSeconds: 0.32,
-    /** miss 0.014 m, 11.10 m/s, stray 56 mm, on `effector.wrist.plate`: a third of the 0.22 s wind's stray for 4 mm. */
-    bench: Object.freeze({ missMetres: 0.014, speedAtMark: 11.10, peakAnchorStrayMm: 56 }),
+    chamberSwing: 0.80, strokeSeconds: 0.11, chamberReach: -0.70, chamberSeconds: 0.22,
+    /** miss 0.059 m, 10.47 m/s, stray 33 mm, on `effector.wrist.plate`. */
+    bench: Object.freeze({ missMetres: 0.059, speedAtMark: 10.47, peakAnchorStrayMm: 33 }),
   }),
   empty: Object.freeze({
-    chamberSwing: 1.20, strokeSeconds: 0.11, chamberReach: -0.20, chamberSeconds: 0.32,
-    /**
-     * miss 0.108 m, 11.82 m/s, stray 64 mm, on `effector.wrist.fist`.
-     *
-     * Re-taken 2026-09-17. The row said 0.031 m, 12.45 m/s and 182 mm, and none of the three were
-     * still true: this shape reads no getter, so the drift is the body's, from the physics that
-     * landed after 2026-09-06 rather than from any stroke row. It went unnoticed because the bench
-     * test asserts on `sword` alone -- the fist's row had no gate at all.
-     */
-    bench: Object.freeze({ missMetres: 0.108, speedAtMark: 11.82, peakAnchorStrayMm: 64 }),
+    chamberSwing: 0.80, strokeSeconds: 0.15, chamberReach: -0.20, chamberSeconds: 0.22,
+    /** miss 0.008 m, 12.62 m/s, stray 9 mm, on `effector.wrist.fist`. */
+    bench: Object.freeze({ missMetres: 0.008, speedAtMark: 12.62, peakAnchorStrayMm: 9 }),
   }),
 });
 
+/**
+ * **Re-taken whole on 2026-09-18, because the grid had been fitted to a defect.**
+ *
+ * Every row above was swept against a wrist whose grip rang -- 90 mm of unprovoked bob on the
+ * blade, 212 on the mace, 26 on the plate -- and whose bend hinge missed its command by 1.3
+ * radians during a stroke. `CHAIN_WRIST.gripInertiaRatio` fixes both, and the moment it does,
+ * all three old cells stop being the best cell and two of them stop being good ones: the sword's
+ * went 0.070 m to 0.253, the shield's 0.014 to 0.167. That is not the fix regressing the stroke,
+ * it is a grid whose optimum was a property of the ring being re-read now the ring is gone --
+ * the same thing that happened to `empty` on 2026-09-17 and was called the body's drift then.
+ *
+ * These rows are therefore **operating-point-dependent by construction**, which is worth stating
+ * plainly rather than rediscovering a third time: any change to the wrist's conditioning, its
+ * hinge ceilings or the anchor's authority invalidates all of them, and the honest response is to
+ * re-run the 64 cells rather than to nudge a constant.
+ *
+ * Read on `missMetres` first and `speedAtMark` second, as before. What that rule buys and costs,
+ * against the rows it replaces:
+ *
+ *     kind     was                          now                          best miss now reachable
+ *     sword    0.070 m, 22.34 m/s, 8 mm     0.028 m, 15.30 m/s, 16 mm    0.009 m (at 12.64 m/s)
+ *     shield   0.014 m, 11.10 m/s, 56 mm    0.059 m, 10.47 m/s, 33 mm    0.051 m (at  8.03 m/s)
+ *     empty    0.108 m, 11.82 m/s, 64 mm    0.008 m, 12.62 m/s,  9 mm    0.008 m
+ *
+ * The sword lands two and a half times closer and arrives 7 m/s slower, and the trade is the
+ * owner's, taken in advance: *"it's totally fine if attacks do less damage as a result of this
+ * fix, because we can just adjust health downwards if that's a problem."* Peak tip speed on the
+ * *shipped* shape moves the other way over the same change, 13.1 to 31.8 m/s, so the blade is
+ * faster and the committed cell is simply one that spends less of that on the approach.
+ *
+ * **The shield is a real regression and is recorded as one.** 0.014 m is no longer available at
+ * any cell of the grid; the best the plate can now do is 0.051 m. It keeps its stray, which
+ * nearly halves, and it wants its own pass rather than a number borrowed from this one.
+ */
 /** The modules the grid is taken on: one chain per weapon, the one the arena actually fields. */
 export const STROKE_BENCH_MODULES = Object.freeze([
   "effector.wrist.blade",

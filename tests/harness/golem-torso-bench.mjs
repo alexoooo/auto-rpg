@@ -29,6 +29,7 @@ import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readou
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
+import { RingMeter } from "./ring-meter.mjs";
 
 export const HARNESS =
   "the Node torso bench (scripts/golem-torso-bench.mjs, NullEngine, real Havok, no rendering)";
@@ -98,82 +99,6 @@ const benchIntent = () => ({
   primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
   secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
 });
-
-/**
- * How far a point has moved from where it was when the shove landed, and how long it took to come
- * back: the head bob, in millimetres and seconds.
- *
- * **It only means anything with `setActivationControl(body, 1)` set on every body**, which the
- * runner does before a single reading is believed: Havok deactivates a body at rest, and a
- * sleeping head reads a perfect zero however badly it would shake awake.
- */
-class BobMeter {
-  constructor(bandMm) {
-    this.bandMm = bandMm;
-    this.rest = null;
-    this.peakMm = 0;
-    this.lastOutsideAt = null;
-    this.startedAt = null;
-    this.closesAt = 0;
-    this.history = [];
-  }
-
-  /**
-   * Plant the reference the instant the impulse is applied, not a step later, and say when the
-   * window shuts.
-   *
-   * **The window is the correction, and the first draft did not have one.** Without it the meter
-   * ran to the end of the script and the "bob" it reported was the *guard* and the *lunge* that
-   * come after the shove -- 490 mm of it, which is a head deliberately nodding half a metre and
-   * not a head being knocked. A measurement that keeps reading after the thing it is measuring
-   * has finished is the same defect as a peak with no exclusion window, which is why this file
-   * already carries two of those.
-   */
-  arm(at, closesAt, x, y, z) {
-    this.rest = { x, y, z };
-    this.startedAt = at;
-    this.closesAt = closesAt;
-    this.peakMm = 0;
-    this.history.length = 0;
-  }
-
-  sample(at, x, y, z) {
-    if (!this.rest || at > this.closesAt) return;
-    const mm = Math.hypot(x - this.rest.x, y - this.rest.y, z - this.rest.z) * 1000;
-    if (mm > this.peakMm) this.peakMm = mm;
-    this.history.push(at, mm);
-  }
-
-  /**
-   * How long the knock took to decay to a tenth of itself, seconds.
-   *
-   * **A fraction of its own peak rather than a fixed band, and that is the second correction this
-   * meter needed.** A fixed 8 mm band never closed at any setting swept, because it is *below the
-   * standing noise floor of the thing being measured*: a trunk's own tip wanders about 20 mm at
-   * rest and a head's about 30 mm, so "still outside 8 mm" was a statement about the floor rather
-   * than about the shove, and every row reported the window's own length back as a settle time.
-   * A tenth of the peak scales with the blow, which is what a decay time has to do, and is above
-   * the floor for any shove worth measuring.
-   *
-   * Read retrospectively, which is why the samples are kept: the peak is not known until the
-   * window closes.
-   */
-  state() {
-    const bar = Math.max(this.bandMm, this.peakMm * 0.1);
-    let lastOutside = this.startedAt;
-    for (let index = 0; index < this.history.length; index += 2) {
-      if (this.history[index + 1] > bar) lastOutside = this.history[index];
-    }
-    return {
-      peakMm: this.peakMm,
-      settleSeconds: this.startedAt === null ? null : lastOutside - this.startedAt,
-      // How long the window was open, so a settle time equal to it is visibly a window and not a
-      // measurement.
-      windowSeconds: this.startedAt === null ? null : this.closesAt - this.startedAt,
-      barMm: bar,
-    };
-  }
-}
 
 /**
  * How deep the lunge went, and how much of that depth the *follow* phase bought.
@@ -305,7 +230,7 @@ export async function runTorsoBench({
     : null;
   const torsoReadout = make(torso);
   const headReadout = make(head);
-  const bob = new BobMeter(bobBandMm);
+  const bob = new RingMeter(bobBandMm);
   const lunge = new LungeMeter();
 
   const intent = benchIntent();
@@ -502,6 +427,7 @@ async function main() {
         stuckSteps: (run[on] ?? {}).stuckSteps ?? 0,
         bobPeakMm: run.bob.peakMm,
         bobSettleSeconds: run.bob.settleSeconds,
+        bobReversals: run.bob.directionChanges,
         // The neck's second axis, which nothing commands: its whole excursion is what a knock did
         // to it. Reported in the sweep because "a blow from the side turns the head" is a claim
         // and this is the number that either supports it or does not.
@@ -519,7 +445,8 @@ async function main() {
     process.stdout.write(`harness: ${HARNESS}\n`);
     process.stdout.write(`torso ${args.torso ?? "none"}, head ${args.head ?? "none"};`
       + ` sweeping ${args.sweep} (${sweep.key}), read at the "${sweep.mark}" mark\n\n`);
-    process.stdout.write("  value   arrival   overshoot   peak at mark   peak on run   lag mm   bob mm   bob settle   yaw rad   deepest   carried   stuck\n");
+    process.stdout.write("  value   arrival   overshoot   peak at mark   peak on run"
+      + "   lag mm   bob mm   bob settle   revs   yaw rad   deepest   carried   stuck\n");
     for (const row of rows) {
       process.stdout.write(
         `  ${String(row.value).padStart(5)}  ${fixed(row.arrivalSeconds, 3).padStart(7)}s`
@@ -529,6 +456,7 @@ async function main() {
         + `   ${row.peakTipErrorMm.toFixed(1).padStart(6)}`
         + `   ${row.bobPeakMm.toFixed(1).padStart(6)}`
         + `   ${fixed(row.bobSettleSeconds, 3).padStart(9)}s`
+        + `   ${String(row.bobReversals).padStart(4)}`
         + `   ${row.yawPeakRad.toFixed(4).padStart(7)}`
         + `   ${fixed(row.deepestPitch, 4).padStart(7)}`
         + `   ${fixed(row.carriedPastDrive, 4).padStart(7)}`
@@ -569,7 +497,9 @@ async function main() {
     + ` bob peak ${run.bob.peakMm.toFixed(2)} mm,`
     + ` decayed to ${run.bob.barMm.toFixed(1)} mm (a tenth of the peak)`
     + ` after ${fixed(run.bob.settleSeconds, 3)} s`
-    + ` in a ${fixed(run.bob.windowSeconds, 2)} s window\n\n`);
+    + ` in a ${fixed(run.bob.windowSeconds, 2)} s window,`
+    + ` reversing ${run.bob.directionChanges} times`
+    + ` (at ${run.bob.reversalTimes.map((at) => fixed(at, 2)).join(", ") || "never"} s)\n\n`);
   for (const mark of run.marks) {
     const parts = [];
     if (mark.torso) {

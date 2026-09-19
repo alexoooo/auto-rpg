@@ -435,6 +435,38 @@ export const GOLEM_TACTICS = {
    * for byte where it was, while a smash whose `strokeSeconds` is 0.22 is not cut off at the
    * bottom of its arc by a constant written for a cut. 0.07 is the sword's own remainder,
    * 0.22 - 0.15, stated once. 2026-09-06.
+   *
+   * ## Swept 2026-09-19, and it turns out to be the knob on the passive blade
+   *
+   * The value above was derived rather than measured -- it is an arithmetic remainder, and the
+   * arithmetic is sound, but nothing had ever put a bout behind it. `golem-reaper` against the
+   * four-mind gauntlet, 384 bouts a cell, both sides, seed base 80250101. `held%` is the share of
+   * damage dealt by an arm in `free` or `recover` rather than mid-stroke:
+   *
+   * ```
+   * followSeconds   n   score      95 % band    dealt  taken  cuts  m/s   swung%  held%
+   * **0.07**      384    49.7   [44.7..54.7]   8.29   8.45  11.9 11.80    55.6   44.4
+   *   0           384    46.4   [41.4..51.4]   8.28   8.71  11.7 12.09    35.7   64.3
+   *   0.03        384    48.7   [43.7..53.7]   8.29   8.37  12.1 11.85    40.6   59.4
+   *   0.12        384    39.1   [34.1..44.1]   7.72   9.14  11.5 11.78    62.7   37.3
+   *   0.20        384    39.1   [34.1..44.1]   7.85   9.16  11.6 11.72    63.3   36.7
+   *   0.30        384    40.2   [35.2..45.2]   7.81   8.92  11.7 11.58    62.7   37.3
+   * ```
+   *
+   * **The derived value survives, and 0.03 ties it.** Everything past 0.12 costs about ten points
+   * and does it in both columns at once -- less dealt and more taken -- which is what parking an
+   * arm at the end of its arc buys: the blade is out there finished, and the body behind it is
+   * inside someone else's reach with nothing in hand. Note the independent confirmation: the
+   * 24-dimensional search over this table, which has never seen this sweep, settled on **0.0385**,
+   * inside the 0.03..0.07 plateau found here by hand.
+   *
+   * **And this is the row that moves the passive share**, which `guardReach` next door does not:
+   * `held%` runs 64.3 down to 36.7 across the range. **Part of that is definitional and must not
+   * be over-read** -- a longer follow keeps the arm in `commit` for longer, so a contact that
+   * would have been labelled `recover` gets labelled `commit` without anything about the blow
+   * changing. What is *not* definitional is the score and the damage columns falling together
+   * while it happens. The passive half of a mind's damage is not a thing to be converted into
+   * swung damage by holding the swing longer; the conversion is available and it is a bad trade.
    */
   followSeconds: 0.07,
 
@@ -616,6 +648,41 @@ export const GOLEM_TACTICS = {
    * chain's anchor: 0.36 m on a 0.30..0.72 shell is -0.714. So the shield row that ships is the
    * pose the body used to impose on everything, and the blade row that ships is one the old
    * vocabulary could not ask for at all.
+   *
+   * ## Re-asked on the matchup that is tuned, and on a question the first table never put
+   *
+   * The blade table above is 32 bouts against the **Warrior**, and its only column is damage taken
+   * because every row of it won every bout -- so it priced the guard purely as a defence. That is
+   * half a question. `tests/harness/stroke-phase.mjs` measures 46 % of a golem mind's damage being
+   * made by an arm that is not swinging, most of it by a held blade a body walks into, so the
+   * guard has an offensive price the first table could not see. Re-swept on `golem-reaper` against
+   * the four-mind gauntlet, 384 bouts a cell, both sides, seed base 70250101:
+   *
+   * ```
+   * guardReach     n   score      95 % band     dealt  taken  cuts  m/s   swung%  held%
+   * **0.70**     384    49.9   [44.9..54.9]     8.66   8.52  12.9 11.79    55.7   44.3
+   *   -0.30      384    42.8   [37.8..47.8]     8.16   8.71  12.5 11.35    55.5   44.5
+   *    0.20      384    43.1   [38.1..48.1]     8.20   9.00  11.3 11.40    50.7   49.3
+   *    0.45      384    48.2   [43.2..53.2]     8.68   8.53  12.9 11.34    56.2   43.8
+   *    0.90      384    35.4   [30.4..40.4]     7.18   9.42  10.2 11.70    55.8   44.2
+   *    1.00      384    40.1   [35.1..45.1]     7.95   8.98  12.1 11.30    57.4   42.6
+   * ```
+   *
+   * **The shipped 0.70 survives a matchup it was never measured on, at twelve times the count.**
+   * It and 0.45 are a plateau at the top and everything else is below both; pushing the blade out
+   * to the stop costs dealt damage *and* takes more, which is the one shape the Warrior table
+   * could not have predicted, since out there the arm is past what the feet can support. On the
+   * shell this doc already names, the swept span is about 1.51 m of held point at -0.30 to 1.78 m
+   * at 1.00, so the plateau is a quarter of a metre wide and the stop is 6 cm past its far edge.
+   * The 0.90 cell reads below 1.00, which is not a shape to believe: its sides split 25.5 / 45.3
+   * where the others are within a few points, and that is the v4 side asymmetry, not a dip.
+   *
+   * **And the column the sweep was built for says no.** `held%` -- the share of damage dealt by an
+   * arm in `free` or `recover` -- is 44.3, 44.5, 49.3, 43.8, 44.2, 42.6 across a range that moves
+   * score by fifteen points. Drawing the blade in or shoving it out does not change how much of
+   * the bar the passive blade carries. **The hypothesis that `guardReach` is the lever on the held
+   * blade is refuted**: the passive share is a fact about two bodies closing, not about where one
+   * of them parks its point, and a mind that wants to move it will have to move something else.
    */
   guardReach: 0.70,
   shieldReach: -0.70,
@@ -675,6 +742,45 @@ export const GOLEM_TACTICS = {
    * a fighter interposes, so most of what it does it does by being in the way.
    */
   coverAcross: 0.55,
+
+  /**
+   * How far below the bearing to the threat the cover is held, radians.
+   *
+   * It had no table. The block above belongs to `coverAcross`, and this row sat on the next line
+   * with nothing of its own -- which matters more than it looks, because `coverLift` is on the
+   * larger half of the fight: `tests/harness/stroke-phase.mjs` measures 44.4 % of a reaper's
+   * cutting damage arriving off a blade that is being *held*, and this and `guardReach` are what
+   * say where it is held. The 2026-09-06 league search left every one of its seven classes within
+   * 0.007 of the initial -0.15, which is a search reporting that it never moved the row, not a
+   * search confirming it.
+   *
+   * Swept 2026-09-19 against the four-mind gauntlet, both sides, 2304 bouts, base 71250101:
+   *
+   * | coverLift | n | score | 95 % band | dealt | taken | cuts/s | m/s |
+   * |---:|---:|---:|:--|---:|---:|---:|---:|
+   * | **-0.15** | 384 | **46.4** | [41.4..51.4] | **8.50** | 8.69 | 12.2 | **11.82** |
+   * | -0.45 | 384 | 43.0 | [38.0..48.0] | 8.03 | 8.72 | 11.6 | 11.23 |
+   * | -0.30 | 384 | 41.9 | [36.9..46.9] | 8.13 | 8.97 | 11.6 | 11.31 |
+   * | 0.00 | 384 | 42.7 | [37.7..47.7] | 7.97 | 8.94 | 12.4 | 11.19 |
+   * | 0.15 | 384 | 41.1 | [36.1..46.1] | 7.91 | 8.70 | 11.4 | 11.13 |
+   * | 0.30 | 384 | 37.5 | [32.5..42.5] | 7.82 | 9.26 | 11.3 | 11.23 |
+   *
+   * **The shipped value is the peak of the bracket and it is a peak in three columns at once.**
+   * Score, damage dealt and contact speed all top out at -0.15 and fall away on both sides; every
+   * other cell deals less and every one of them meets things slower. A single score column at this
+   * count could be a six-cell maximum, which is the known way to invent a winner -- three columns
+   * agreeing on the same cell, with the two low-variance ones monotone away from it in both
+   * directions, is not.
+   *
+   * **Why a peak and not a slope**, on the account `guardBias` arrived at independently: the held
+   * blade earns by being in the way of something moving, so its damage is interposition and its
+   * speed is two things converging. Lift it and it leaves the line their point travels on; drop it
+   * and it leaves the line their body arrives on. There is a height where it is in the way of
+   * both, and -0.15 is the one this bracket finds.
+   *
+   * So the row keeps the value it always had and now has the measurement it never did. A knob
+   * without a table beside it is not set, even when it turns out to have been right.
+   */
   coverLift: -0.15,
 
   /**
