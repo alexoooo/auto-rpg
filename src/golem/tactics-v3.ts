@@ -819,7 +819,8 @@ export function golemStyled(
     }
     lastGap = tipGap;
     const theirs = reader.update(
-      threat.reach > 0 ? distance(threat.tip, threat.shoulder) / threat.reach : 1, gapRate, dt);
+      threat.reach > 0 ? distance(threat.tip, threat.shoulder) / threat.reach : 1, gapRate, dt,
+      threat.tipSpeed);
     const theirWeapon = threat.weapon;
 
     // ---- the reach pair, the body, the ranges -------------------------------------------------

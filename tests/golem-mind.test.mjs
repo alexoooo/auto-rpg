@@ -1190,6 +1190,53 @@ test("the_stroke_reader_tells_a_chamber_a_commit_and_a_recover_from_the_arms_ext
 });
 
 /**
+ * The tip-speed disjunct: silent at its shipped setting, and the whole point of it when turned up.
+ *
+ * The first half is the one that protects the tree. `readTipSpeed` defaults to 0, and every mind
+ * in the repo was measured with the reader as it was, so the row has to be provably inert until
+ * somebody asks for it -- including when the caller passes no fourth argument at all, which is
+ * every call site that predates it.
+ */
+test("the_tip_speed_disjunct_is_silent_until_it_is_turned_up", () => {
+  assert.equal(GOLEM_TACTICS_V2.readTipSpeed, 0, "the shipped reader must not read tip speed");
+
+  // An arm held at guard with its point flying: nothing the extension rule would call a commit.
+  const off = strokeReader();
+  const on = strokeReader(fencerWith({ readTipSpeed: 5 }));
+  for (let step = 0; step < 30; step += 1) {
+    off.update(0.95, 0, FIXED, 18);
+    on.update(0.95, 0, FIXED, 18);
+  }
+  assert.equal(off.phase, "idle", "the shipped reader moved on a tip speed it should not read");
+  assert.equal(on.phase, "commit", `a point at 18 m/s reads as ${on.phase}`);
+
+  // And the argument being absent reads the same as the row being off, which is what makes the
+  // three call sites safe to leave alone if one is ever added.
+  const absent = strokeReader(fencerWith({ readTipSpeed: 5 }));
+  for (let step = 0; step < 30; step += 1) absent.update(0.95, 0, FIXED);
+  assert.equal(absent.phase, "idle",
+    "a caller passing no tip speed must not be read as committing");
+});
+
+/**
+ * The extension rule survives the disjunct, which is the claim that keeps its own table standing.
+ *
+ * `readTipSpeed` is added as an `||`, not a replacement, so a slow arm drawn in with its point
+ * closing must still read as a commit with the new row turned up. If this fails the disjunct has
+ * become a substitution and the measured table above it no longer describes the code.
+ */
+test("the_extension_rule_still_fires_with_the_tip_speed_row_up", () => {
+  const reader = strokeReader(fencerWith({ readTipSpeed: 5 }));
+  // 18 steps and not the 9 a first draft guessed at: `FIXED` is `1 / 240`, not a sixtieth, and the
+  // extension is low-passed over `readSeconds` from a standing 1.0, so it crosses
+  // `readCommitExtension` on step 15. Measured, not padded -- at 9 steps the extension is 0.789
+  // and the reader correctly says `chamber`, which is the rule working rather than failing.
+  for (let step = 0; step < 18; step += 1) reader.update(0.60, -3.0, FIXED, 1.0);
+  assert.equal(reader.phase, "commit",
+    `a drawn arm with its point closing reads as ${reader.phase}`);
+});
+
+/**
  * Counter-timing, feature 2, on a synthetic arm: while their point is coming at me the fencer's
  * feet go back and no exchange starts; the moment their arm is read recovering, it chambers,
  * in line or not. The duelist under the same view waits for its patience, which is the

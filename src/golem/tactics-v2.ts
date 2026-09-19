@@ -141,6 +141,65 @@ const FENCER = {
   readDrawRate: 0.4,
   readCommitExtension: 0.72,
   readClosing: 1.0,
+  /**
+   * The watched point's speed, in m/s, above which their arm is read as committed -- or **0, off,
+   * which is what everything that exists today ships**.
+   *
+   * ## Why a second signal, when the extension table above is a measured one
+   *
+   * That table is not withdrawn: read against the duelist's *declared* stance it does what it says,
+   * calling a commit a commit 59 % of the time. What has changed underneath it is the body. These
+   * golems fight with the watched arm at **0.95 of its reach essentially all the time**, so the
+   * quantity the rule keys on barely moves, and the rule's two inputs no longer separate an
+   * incoming blow from any other moment. Measured on the reaper against the four-mind gauntlet,
+   * 16 bouts of 30 s, sampling the reader's own two inputs at 60 Hz:
+   *
+   * ```
+   * window                   n   ext10   ext50   ext90   gapRate10  gr50    gr90
+   * 0.20 s before a strike  22412    0.82    0.95    1.01     -0.87   -0.07    0.88
+   * everything else         18344    0.84    0.96    1.03     -0.82   -0.03    1.01
+   * ```
+   *
+   * `extension < readCommitExtension && gapRate < -readClosing` fires on **0.3 %** of the frames
+   * before a strike and **0.4 %** of the rest -- very slightly *less* often before a blow than at
+   * random. That is not a threshold set too tight, which is why no sweep of the two rows above
+   * recovers it: the distributions overlap, so there is no setting that separates them.
+   *
+   * The cost is paid where the tactics read the answer. `reading.theirs` is `"idle"` for 82 % of
+   * asks and in the 0.25 s before 88.5 % of incoming strikes, so a style that voids, aborts or
+   * parries on `theirs === "commit"` does so on about one blow in twenty.
+   *
+   * ## What this buys, scored against blows that actually land
+   *
+   * A tip-speed peak is a proxy; the target here is the event a defence exists to prevent, which
+   * is a blow of theirs that carries damage onto me. Same 16 bouts, 329 landed blows, a firing
+   * counted as predicting one if a blow follows within 0.30 s, and **recall counted only where the
+   * warning arrived at least one 12 Hz ask (0.083 s) ahead**, since a warning later than that is
+   * one the mind cannot act on:
+   *
+   * ```
+   * detector                 fires  precision  recall   median lead
+   * reader: theirs=commit       29     34.5 %    1.8 %       0.200
+   * reader: theirs!=idle        61     41.0 %    5.8 %       0.167
+   * tipSpeed >= 5              939     47.4 %   70.8 %       0.133
+   * tipSpeed >= 8              851     48.1 %   64.1 %       0.100
+   * tipSpeed >= 11             718     50.1 %   53.8 %       0.100
+   * sp>=8 & closing            650     49.4 %   47.1 %       0.083
+   * ```
+   *
+   * **Read the precision column before spending this.** A blow lands about 0.69 times a second, so
+   * roughly a fifth of any 0.30 s window contains one anyway; 47 % is about two and a half times
+   * that base rate, not a certainty. Half of what this fires on is nothing. That makes it worth
+   * spending on a cheap response -- a spare hand already at guard moving to cover -- and an open
+   * question whether it is worth spending on an expensive one, such as aborting a stroke in flight
+   * or giving up ground. Those two are separate claims and want separate tables.
+   *
+   * **Off by default, deliberately.** Every mind in the tree was measured with the reader as it
+   * stands, and turning this on globally would re-baseline all of them at once behind a change
+   * whose own table above is 16 bouts. A style that wants it sets it; what that is worth in score
+   * is the style's table to take, not this row's.
+   */
+  readTipSpeed: 0,
   readGuardExtension: 0.82,
   /**
    * Seconds after an exchange ends during which their arm is recovering.
@@ -354,8 +413,9 @@ export interface StrokeReader {
   /**
    * @param extension the point's distance from its own socket over the hand's reach, 0..1
    * @param gapRate how fast the point is getting further from my socket, m/s, low-passed
+   * @param tipSpeed the point's own speed, m/s, read only when `readTipSpeed` is up
    */
-  update(extension: number, gapRate: number, dt: number): StrokePhase;
+  update(extension: number, gapRate: number, dt: number, tipSpeed?: number): StrokePhase;
 }
 
 export function strokeReader(tactics: FencerTactics = GOLEM_TACTICS_V2): StrokeReader {
@@ -368,7 +428,7 @@ export function strokeReader(tactics: FencerTactics = GOLEM_TACTICS_V2): StrokeR
     get phase(): StrokePhase { return phase; },
     get extension(): number { return extension; },
     get sinceExchange(): number { return sinceExchange; },
-    update(sample: number, gapRate: number, dt: number): StrokePhase {
+    update(sample: number, gapRate: number, dt: number, tipSpeed = 0): StrokePhase {
       if (!tactics.readStroke) { phase = "idle"; return phase; }
       if (dt > 0) {
         const k = 1 - Math.exp(-dt / tactics.readSeconds);
@@ -377,7 +437,12 @@ export function strokeReader(tactics: FencerTactics = GOLEM_TACTICS_V2): StrokeR
         last = extension;
         sinceExchange += dt;
       }
-      const committing = extension < tactics.readCommitExtension && gapRate < -tactics.readClosing;
+      // A disjunct and not a replacement: where the extension rule still fires it is the more
+      // precise of the two (34.5 % against 47.4 % on landed blows, off a twentieth of the
+      // firings), so nothing is gained by taking it away and a measured row would be lost.
+      const rushing = tactics.readTipSpeed > 0 && tipSpeed >= tactics.readTipSpeed;
+      const committing = rushing
+        || (extension < tactics.readCommitExtension && gapRate < -tactics.readClosing);
       const drawing = extension < tactics.readChamberExtension && rate < -tactics.readDrawRate;
       if (committing) {
         phase = "commit";
@@ -742,7 +807,8 @@ export function golemFencer(
     }
     lastGap = tipGap;
     const theirs = reader.update(
-      threat.reach > 0 ? distance(threat.tip, threat.shoulder) / threat.reach : 1, gapRate, dt);
+      threat.reach > 0 ? distance(threat.tip, threat.shoulder) / threat.reach : 1, gapRate, dt,
+      threat.tipSpeed);
     // What their armed hand holds, for the guard (feature 8): the hand being watched is the
     // faster non-shield hand, and the body's own `weapon` is the primary's.
     const theirWeapon = threat.weapon;
