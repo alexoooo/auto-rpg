@@ -442,6 +442,8 @@ export function buildArmCore(
   const anchor = new AnchorDrive(ctx.scene, {
     name: ctx.name,
     target: fore,
+    reference: socket.mount,
+    referencePivot: socket.local,
     position: handWorld.clone(),
     rotation: anchorFrame,
     pivot: handPivot,

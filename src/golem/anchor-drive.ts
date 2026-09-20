@@ -83,6 +83,10 @@ export interface AnchorDriveOptions {
   readonly name: string;
   /** The body this anchor drags. */
   readonly target: Part;
+  /** Physical reaction body for a position-only drive; omitted for a world-space anchor. */
+  readonly reference?: Part;
+  /** Where the reference receives the reaction force, in its own local frame. */
+  readonly referencePivot?: Vector3;
   /** Where the anchor starts, in world space. */
   readonly position: Vector3;
   /**
@@ -111,40 +115,16 @@ export interface AnchorDriveOptions {
 }
 
 /**
- * A massless keyframed frame that drags a body about, with a finite force budget.
+ * A rate-limited, force-capped position drive with a world-space target marker.
  *
- * **A copy-and-cut of what `src/arm.ts` does** in its `handAnchor` construction, `driveAnchor`
- * and `applyTuning`, standing on its own so that a golem chain can have one without importing
- * `Arm`. It does not import `Arm`, and it must not: `Arm` is a Warrior's three-bone chain with
- * a weapon welded into a fist and a shield-clearance routine bolted to the side of it, and a
- * golem has none of those things.
+ * Articulated arms supply a physical reference body: linear motor targets are offsets in
+ * that body's frame, so Havok solves the arm force and its reaction in the same step.
+ * The marker stays massless, collision-free and unconnected to the driven body.
  *
- * What was copied, and why each piece is load-bearing:
- *
- * - **Massless, `ANIMATED`, on no collision layer.** It exists only to be a frame the solver
- *   can pull the target toward. A body with mass here would be a second thing to simulate; a
- *   body on a layer would be a second thing to collide with.
- * - **Every axis FREE, the chosen ones motorised toward zero offset with a force ceiling.**
- *   These are ceilings, not stiffnesses. The lag, overshoot and follow-through that make a
- *   heavy thing read as heavy come from the ceiling being finite -- from the motor simply
- *   being unable to drag it instantly -- rather than from a tuned spring. That is frozen
- *   rule 4 and it is also the measured finding behind every number in `CONFIG.arm`.
- * - **`setTargetTransform` rather than writing the transform node.** It gives a keyframed body
- *   a real velocity, so the constraint sees motion instead of a jump and the driven thing
- *   trails properly when the command sweeps. Note this is exactly the call that does *nothing*
- *   against a DYNAMIC body -- see `arrow.ts` -- and everything against a keyframed one.
- *
- * What was deliberately **not** copied: `Arm.driveAnchor` also derives the commanded angular
- * velocity from consecutive bases, purely so that `dampGrip` can bleed off the difference
- * between how a sword is turning and how it was told to turn. That is a *weapon* damper on a
- * body a hand is holding; a golem terminal is welded, so there is no grip to damp and no
- * second body to damp it against. If a later chain wants it, it wants it with its own
- * measurement.
- *
- * What is new here and is not in `Arm`: the target is **rate-limited**. A Warrior's anchor is
- * teleported to wherever the cursor says, which is exactly why a Warrior arm keyframes onto
- * its commanded pose on the first control step and reads 77 m/s of tip speed while standing
- * still. See `ANCHOR_DRIVE.linearRate`.
+ * Without a reference, the marker itself is the keyframed reaction body. That standalone
+ * mode also supports angular motors. In either mode every constraint axis is free unless
+ * motorised, and the finite force ceiling preserves lag and follow-through under load.
+ * The commanded world point keeps the same vector rate limit in both modes.
  */
 export class AnchorDrive {
   readonly anchor: Part;
@@ -152,6 +132,10 @@ export class AnchorDrive {
 
   private readonly parameters: AnchorDriveParameters;
   private readonly target: Part;
+  private readonly reference: Part | undefined;
+  private readonly referencePivot: Vector3;
+  private readonly referenceFrame = Quaternion.Identity();
+  private readonly inverseReferenceFrame = Quaternion.Identity();
   /** Which point of the target is pinned, in the target's own local frame. */
   private readonly pivot: Vector3;
   /** The rate-limited command: where the anchor is actually being sent this step. */
@@ -171,17 +155,30 @@ export class AnchorDrive {
     pinned: new Vector3(),
     step: new Quaternion(),
     toTarget: new Vector3(),
+    localTarget: new Vector3(),
+    inverseReference: new Quaternion(),
   };
   private released = false;
 
   constructor(scene: Scene, options: AnchorDriveOptions) {
+    if (options.reference && options.parameters.angular.length > 0) {
+      throw new Error("A reference-body anchor supports position motors only; the wrist owns orientation.");
+    }
     this.parameters = options.parameters;
     this.target = options.target;
+    this.reference = options.reference;
+    this.referencePivot = options.referencePivot?.clone() ?? Vector3.Zero();
     this.pivot = (options.pivot ?? Vector3.Zero()).clone();
     this.linearForceNow = options.parameters.linearForce;
     this.linearRateNow = options.parameters.linearRate;
     this.commanded.copyFrom(options.position);
     this.commandedRotation.copyFrom(options.rotation);
+    if (this.reference) {
+      (this.reference.mesh.rotationQuaternion ?? Quaternion.Identity())
+        .conjugateToRef(this.scratch.inverseReference);
+      this.scratch.inverseReference.multiplyToRef(options.rotation, this.referenceFrame);
+      this.referenceFrame.conjugateToRef(this.inverseReferenceFrame);
+    }
 
     this.anchor = spherePart(scene, {
       name: `${options.name}.anchor`,
@@ -197,18 +194,22 @@ export class AnchorDrive {
 
     this.constraint = new Physics6DoFConstraint(
       {
-        pivotA: Vector3.Zero(),
+        pivotA: this.referencePivot,
         pivotB: (options.pivot ?? Vector3.Zero()).clone(),
-        axisA: new Vector3(1, 0, 0),
+        axisA: new Vector3(1, 0, 0).applyRotationQuaternion(this.referenceFrame),
         axisB: new Vector3(1, 0, 0),
-        perpAxisA: new Vector3(0, 1, 0),
+        perpAxisA: new Vector3(0, 1, 0).applyRotationQuaternion(this.referenceFrame),
         perpAxisB: new Vector3(0, 1, 0),
         collision: false,
       },
       [],
       scene,
     );
-    this.anchor.body.addConstraint(this.target.body, this.constraint);
+    // Solve the arm's force and the torso's reaction together. A world anchor whose target
+    // follows the live torso instead feeds the torso's solver motion back through an
+    // infinitely heavy body one substep later, sustaining violent oscillation at rest.
+    // The unconnected anchor remains a world-space diagnostic marker in reference mode.
+    (this.reference ?? this.anchor).body.addConstraint(this.target.body, this.constraint);
 
     for (const axis of [...LINEAR, ...ANGULAR]) {
       this.constraint.setAxisMode(axis, PhysicsConstraintAxisLimitMode.FREE);
@@ -218,6 +219,25 @@ export class AnchorDrive {
       this.constraint.setAxisMotorTarget(axis, 0);
     }
     this.applyTuning();
+    this.updateReferenceTarget();
+  }
+
+  private updateReferenceTarget(): void {
+    if (!this.reference) return;
+    const mount = this.reference.mesh;
+    (mount.rotationQuaternion ?? Quaternion.Identity()).conjugateToRef(this.scratch.inverseReference);
+    this.commanded.subtractToRef(mount.position, this.scratch.toTarget);
+    this.scratch.toTarget.rotateByQuaternionToRef(this.scratch.inverseReference, this.scratch.localTarget);
+    this.scratch.localTarget.subtractInPlace(this.referencePivot);
+    // Preserve the original anchor's motor axes (and therefore its per-axis force budget),
+    // expressed in the physical reference instead of replacing them with the torso's axes.
+    this.scratch.localTarget.rotateByQuaternionToRef(this.inverseReferenceFrame, this.scratch.localTarget);
+    const local = this.scratch.localTarget;
+    for (const axis of this.parameters.linear) {
+      this.constraint.setAxisMotorTarget(axis,
+        axis === PhysicsConstraintAxis.LINEAR_X ? local.x :
+          axis === PhysicsConstraintAxis.LINEAR_Y ? local.y : local.z);
+    }
   }
 
   /**
@@ -320,6 +340,7 @@ export class AnchorDrive {
     }
 
     this.anchor.body.setTargetTransform(this.commanded, this.commandedRotation);
+    this.updateReferenceTarget();
   }
 
   /**
@@ -337,6 +358,7 @@ export class AnchorDrive {
     this.anchor.body.setLinearVelocity(Vector3.Zero());
     this.anchor.body.setAngularVelocity(Vector3.Zero());
     this.anchor.body.setTargetTransform(this.commanded, this.commandedRotation);
+    this.updateReferenceTarget();
   }
 
   /**

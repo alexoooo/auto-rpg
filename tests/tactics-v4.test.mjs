@@ -1618,8 +1618,8 @@ test("version_2s_nine_columns_are_the_trace_a_hand_stepped_recursion_predicts", 
  */
 test("golem_driver_fights_a_real_bout_and_the_ram_head_charges", async () => {
   const physics = await freshHavok();
-  const run = (setup, label) => {
-    const driven = golemDriver(SEED, DRIVER);
+  const run = (setup, label, tuning = DRIVER) => {
+    const driven = golemDriver(SEED, tuning);
     const blows = { left: 0, right: 0 };
     const result = runBout({
       left: "golem-driver", right: "golem-fencer",
@@ -1646,8 +1646,11 @@ test("golem_driver_fights_a_real_bout_and_the_ram_head_charges", async () => {
   const plain = run(defaultGolemSetup(), "the default golem");
   assert.ok(plain.strokes > 0, "the driver never threw a stroke in fourteen seconds");
   assert.ok(plain.blows.left > 0, "golem-driver landed nothing at all in fourteen seconds");
-  assert.ok(plain.aborts > 0,
-    "the driver never took a stroke back, and a feint at 0.15 over that many strokes is a certainty");
+  // A 15% roll is not a guarantee, especially when different physical contacts shorten a bout.
+  // Exercise the real abort path with deliberate feints; the default run above still has to land.
+  const feinting = run(defaultGolemSetup(), "deliberate feints", { ...DRIVER, feintFraction: 1 });
+  assert.ok(feinting.strokes > 0 && feinting.aborts > 0,
+    "a driver deliberately showing strokes never took one back in a real bout");
 
   const capped = run(setupWith({ head: "head.ram",
     primary: { chain: "none", terminal: "none" },

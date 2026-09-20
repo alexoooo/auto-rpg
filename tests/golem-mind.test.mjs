@@ -3219,9 +3219,10 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
   const setup = defaultGolemSetup();
   const physics = await freshHavok();
   const count = (make, name) => {
-    const walls = { asks: 0, onChamber: 0 };
+    const walls = { asks: 0, onChamber: 0, chamberOffered: 0 };
     const mind = make((available, reading, view, option) => {
       walls.asks += 1;
+      if (reading.theirs === "chamber" && available.includes("parry")) walls.chamberOffered += 1;
       if (option === "parry" && reading.theirs === "chamber") walls.onChamber += 1;
     });
     return {
@@ -3319,9 +3320,14 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
   // So the claim is re-derived at the resolution it was always about. Meeting a chamber is a rare
   // event -- one to seven times in a fourteen-second bout -- and a rare event asserted on one
   // seed is a coin toss, which is exactly what the thrust test above learned and moved to eight
-  // seeds for. This now reads the same eight and asks that the style do it on most of them, which
-  // is a claim about the style; the single-seed run above still carries the asks and the blows,
-  // which are not rare and mean what they say on any seed.
+  // seeds for. The single-seed run above still carries the asks and the blows.
+  //
+  // 2026-09-20: coupling the arm motors to their physical shoulders removes the idle feedback
+  // oscillation and changes the contact/guard windows again. Only three seeds now offer a
+  // chamber parry. A five-of-eight floor measures those opportunities, not whether the guardian
+  // answers them. Count the offers themselves: require real opportunities across the corpus,
+  // and require the guardian to take EVERY offered chamber parry, including abort decisions.
+  // Disabling wallOnChamber or declining an available chamber parry must fail this assertion.
   assert.ok(guarding.asks > 20,
     `the guardian was asked ${guarding.asks} times in ${guarding.seconds.toFixed(1)} s, `
     + "too few for the counts below to mean anything");
@@ -3339,10 +3345,12 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
     });
     met.push({ seed, ...side.walls });
   }
-  const answered = met.filter((row) => row.onChamber > 0).length;
-  assert.ok(answered >= 5,
-    "the guardian met a chamber on only " + answered + " of eight seeds: "
-    + met.map((row) => `${row.seed} ${row.onChamber}/${row.asks}`).join(", "));
+  assert.ok(met.some(row => row.chamberOffered > 0),
+    "eight real bouts offered no chamber parry; the response assertion would be vacuous");
+  for (const row of met) {
+    assert.equal(row.onChamber, row.chamberOffered,
+      `seed ${row.seed}: guardian answered ${row.onChamber} of ${row.chamberOffered} chamber parries`);
+  }
 
   const forming = run((hook) => golemForm(SEED, FORM, hook), "golem-form");
   assert.equal(forming.onChamber, 0,
