@@ -1,3 +1,5 @@
+import { JointActuator } from "../../joint-servo.ts";
+import { PhysicsConstraintAxis } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
@@ -435,6 +437,37 @@ export function buildArmCore(
     swing: { x: { min: -R.elbowJointMax, max: -R.elbowJointMin } },
   });
 
+  // The hand's position drive cannot brake every internal arm motion equally. In raised
+  // poses, the heavy terminal can keep rocking the elbow/shoulder around a nearly stationary
+  // hand. Brake relative hinge motion inside the solver, with equal reaction on the parent.
+  // Track only the commanded joint velocity, with bounded resistance to its residual error.
+  // Fade that assistance out during deliberate motion so cuts retain their momentum. This
+  // depends on continuous target rates, not player/AI identity or an attack state machine.
+  const dampers = ([
+    [yaw, socket.mount, collar, new Vector3(0, 1, 0)],
+    [pitch, collar, upper, new Vector3(1, 0, 0)],
+    [elbowJoint, upper, fore, new Vector3(1, 0, 0)],
+  ] as const).map(([constraint, parent, child, axis]) => ({
+    actuator: new JointActuator(constraint, PhysicsConstraintAxis.ANGULAR_X),
+    parent, child, axis,
+  }));
+  const dampingAxis = new Vector3();
+  const lastJointTargets = [0, -upperPitch, -buildBones.beta];
+  const dampArm = (dt: number): void => {
+    const bones = twoBone(slewed.reach);
+    const targets = [outboard * slewed.swing, -(slewed.lift + Math.PI / 2 - bones.alpha), -bones.beta];
+    const rates = targets.map((target, i) => dt > 0 ? (target - lastJointTargets[i]) / dt : 0);
+    const holding = Math.max(0, 1 - Math.max(...rates.map(Math.abs)) / R.jointBrakeFadeRate);
+    for (const [i, { actuator, parent, child, axis }] of dampers.entries()) {
+      axis.rotateByQuaternionToRef(parent.mesh.rotationQuaternion ?? Quaternion.Identity(), dampingAxis);
+      const speed = Vector3.Dot(child.body.getAngularVelocity().subtract(parent.body.getAngularVelocity()), dampingAxis);
+      const wantedSpeed = rates[i];
+      lastJointTargets[i] = targets[i];
+      actuator.drive(wantedSpeed, Math.min(R.jointBrakeTorque, Math.abs(speed - wantedSpeed) * R.jointViscosity * holding));
+    }
+  };
+  const releaseDampers = (): void => { for (const { actuator } of dampers) actuator.release(); };
+
   // --- the anchor -------------------------------------------------------------------------
   const handPivot = new Vector3(0, -R.foreLength / 2, 0);
   const handWorld = elbowWorld.add(foreDir.scale(R.foreLength));
@@ -546,6 +579,8 @@ export function buildArmCore(
   /** The aim stage, if a chain above installed one. See `adjustPoint`. */
   let correct: PointCorrection | null = null;
   let severed = false;
+  let acquiring = true;
+  let driveAge = 0;
   /** Set once by `unmotorise`: this limb is being carried rather than driven. */
   let passive = false;
 
@@ -879,8 +914,18 @@ export function buildArmCore(
       // mapping asks for. The second clamp is cheap insurance and not decoration: the carry floor
       // is a curve in these coordinates and a straight interpolation between two poses that both
       // clear it is not obliged to.
-      stepToward(sent, demanded, R.anchorRate * dt);
-      clampInto(sent, sent.swing, sent.lift, sent.reach);
+      // The construction pose can be below the aiming envelope. Acquire it with a smooth
+      // speed ramp rather than clamping the hanging arm onto the envelope on the first step.
+      // Once acquired, normal continuous control keeps its existing speed and range limits.
+      driveAge += dt;
+      const ramp = Math.min(1, driveAge / R.acquireSeconds);
+      stepToward(sent, demanded, R.anchorRate * ramp * ramp * (3 - 2 * ramp) * dt);
+      clampInto(scratch.pose, sent.swing, sent.lift, sent.reach);
+      if (acquiring && Math.abs(scratch.pose.swing - sent.swing)
+        + Math.abs(scratch.pose.lift - sent.lift) + Math.abs(scratch.pose.reach - sent.reach) < 1e-8) {
+        acquiring = false;
+      }
+      if (!acquiring) Object.assign(sent, scratch.pose);
 
       pointAt(sent.swing, sent.lift, sent.reach, scratch.target);
       // The rotation handed over never changes, because no angular axis is motorised on this
@@ -889,6 +934,7 @@ export function buildArmCore(
       // be a second owner appearing.
       anchor.drive(dt, scratch.target, anchorFrame);
       sphericalOf(anchor.commandedPoint(), slewed);
+      dampArm(dt);
 
       // The achieved half, read back out of the hand's actual position in the mount's frame --
       // `mesh.position` and `mesh.rotationQuaternion` and nothing else, so nothing here stamps a
@@ -909,6 +955,7 @@ export function buildArmCore(
       // `AnchorDrive.release`. Nothing else moves: the yaw, pitch and elbow joints and every
       // one of their stops are what makes the trailing limb an *arm* rather than a rope, and
       // they are the half of the linkage that is still doing a job.
+      releaseDampers();
       anchor.release();
     },
 
@@ -917,6 +964,7 @@ export function buildArmCore(
       severed = true;
       // The drives go with the limb. A motor still dragging a chain that has been cut off is the
       // haunting the Warrior's anchors produce when an arm comes away from them.
+      releaseDampers();
       anchor.release();
       yaw?.dispose();
       yaw = null;
@@ -928,6 +976,7 @@ export function buildArmCore(
 
     dispose(): void {
       severed = true;
+      releaseDampers();
       anchor.dispose();
       yaw?.dispose();
       yaw = null;

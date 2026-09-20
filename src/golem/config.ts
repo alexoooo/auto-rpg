@@ -1143,6 +1143,14 @@ export const CHAIN_REACH = {
    * the setting taken off it. 2026-09-18, the Node bench.
    */
   anchorRate: 5,
+  /** Smooth acquisition from the hanging build pose; normal target rates are unchanged. */
+  acquireSeconds: 0.2,
+  // Raised-arm sweep then hold: 3 Nm/(rad/s) left 0.34 m/s blade motion after one
+  // second; 10 settled below 0.03 m/s. Effort is capped, so impacts can still move it.
+  jointViscosity: 10,
+  jointBrakeTorque: 60,
+  /** At this commanded joint rate (rad/s), hold assistance is fully faded out. */
+  jointBrakeFadeRate: 0.5,
 
   /**
    * Damping on the three links, per `CONFIG.arm`'s pair and rung 1's.
@@ -3068,11 +3076,9 @@ export const LOCOMOTION_BIPED = {
  * than it does against 139 kg of plain, and giving the heavier option a bigger motor would be
  * exactly the "raise the ceiling until the complaint goes away" move the house rule forbids.
  *
- * **Two hinges in series rather than one two-axis waist**, for the reason
- * `CHAIN_REACH.collarLength` gives: a `Physics6DoFConstraint` with two free angular axes
- * decomposes the relative rotation in an order this directory has never established, and the
- * achieved lean and twist are read back from that decomposition. A hinge is one free angular
- * axis with the other two locked, which is the shape rungs 1 to 3 already proved.
+ * Since 2026-09-20 the waist connects the carried trunk directly to its mount, with pitch
+ * and yaw on one joint. The bearing is a welded, severable part rather than a light dynamic
+ * link between two motors. The older sweeps below describe the retired serial linkage.
  */
 export const TORSO_WAIST = {
   /**
@@ -3153,8 +3159,12 @@ export const TORSO_WAIST = {
    * measured behind it, which is the move the house rule forbids. 2026-09-04, the Node torso
    * bench.
    */
-  leanTorque: 1500,
-  twistTorque: 900,
+  // 2026-09-20, direct waist joint and velocity servo, full awake golem:
+  // lean/twist 250/150: combined walk/aim head tilt 9.63 deg; 400/240: 1.59 deg;
+  // 600/360: 0.42 deg; 1500/900 absorbs a 20 Ns shove almost completely.
+  // 600/360 provides movement headroom while retaining finite impact response.
+  leanTorque: 600,
+  twistTorque: 360,
 
   /**
    * How fast the *commanded* lean and twist may move, radians per second.
@@ -3851,6 +3861,10 @@ export const HEAD_RAM = {
      */
     driveTorque: 146,
     followTorque: 13,
+    // Braking after the free follow, not extra drive power. The direct head joint carries to
+    // 1.555 rad (its stop) with the 42 Nm holding motor; 100 Nm recovers at 0.760 rad while
+    // retaining 0.543 rad of follow-through and a 3.06 m/s driven tip (Node torso bench).
+    recoveryTorque: 100,
   },
 };
 

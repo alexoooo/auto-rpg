@@ -1,10 +1,10 @@
+import { JointActuator, JointServo } from "../joint-servo.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import {
   PhysicsConstraintAxis,
-  PhysicsConstraintMotorType,
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 import type { Scene } from "@babylonjs/core/scene.js";
@@ -41,7 +41,7 @@ import {
  * armour plate's own thickness is a function of `coreArmour`, so a torso that looks better
  * armoured is one that is.
  *
- * **The waist is two hinges in series and the mount is whatever it is given.** On the bench that
+ * **The waist is a two-axis joint and the mount is whatever it is given.** On the bench that
  * is `buildGolemStand`'s kinematic block, standing in for a locomotion root; in Session 08 it is a
  * real one. Nothing here knows the difference, because a `GolemSocket` is the whole of what the
  * mount has to be: a body, a point in its local frame, that point in the world at construction,
@@ -249,35 +249,20 @@ export function torsoModule(
 
       // --- the waist ------------------------------------------------------------------------
       //
-      // Twist at the root and lean above it, so a lean happens in whatever plane the twist chose
-      // -- which is what a trunk does, and is the same ordering `arm-core.ts` uses for its yaw
-      // collar and shoulder pitch. Both pivots are the socket itself, so the waist is one place.
-      let twistJoint: Physics6DoFConstraint | null = joint(ctx.scene, socket.mount, ball, {
-        pivotParent: socket.local,
-        pivotChild: Vector3.Zero(),
-        axisParent: AXIS_UP.clone(),
-        axisChild: AXIS_UP.clone(),
-        perpParent: AXIS_FORWARD.clone(),
-        perpChild: AXIS_FORWARD.clone(),
-        swing: { x: { min: -(T.twistMax + W.jointMargin), max: T.twistMax + W.jointMargin } },
+      // The load-bearing joint joins pelvis to trunk directly. Putting a light bearing body
+      // between two hinges made solver error at that bearing move the entire upper body.
+      // Both continuous axes remain motorized; the stone bearing is welded to the trunk.
+      let bearingWeld: Physics6DoFConstraint | null = joint(ctx.scene, ball, core, {
+        pivotParent: Vector3.Zero(), pivotChild: new Vector3(0, -T.coreHeight / 2, 0), swing: {},
+      });
+      let waistJoint: Physics6DoFConstraint | null = joint(ctx.scene, socket.mount, core, {
+        pivotParent: socket.local, pivotChild: new Vector3(0, -T.coreHeight / 2, 0),
+        swing: {
+          x: { min: -(T.leanMax + W.jointMargin), max: T.leanMax + W.jointMargin },
+          y: { min: -(T.twistMax + W.jointMargin), max: T.twistMax + W.jointMargin },
+        },
         damping: W.motorDamping,
       });
-      // The lean, about the ball's own lateral -- which the twist has already turned. A positive
-      // rotation about +X carries the core's +Y toward +Z, so a positive joint angle is the trunk
-      // tipping *forward*, which is what `trunkLean` of +1 means. That identity is why there is no
-      // sign constant here: the joint's sense and the command's sense are already the same.
-      let leanJoint: Physics6DoFConstraint | null = joint(ctx.scene, ball, core, {
-        pivotParent: Vector3.Zero(),
-        pivotChild: new Vector3(0, -T.coreHeight / 2, 0),
-        swing: { x: { min: -(T.leanMax + W.jointMargin), max: T.leanMax + W.jointMargin } },
-        damping: W.motorDamping,
-      });
-      twistJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
-      twistJoint.setAxisMotorTarget(HINGE, 0);
-      twistJoint.setAxisMotorMaxForce(HINGE, W.twistTorque);
-      leanJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
-      leanJoint.setAxisMotorTarget(HINGE, 0);
-      leanJoint.setAxisMotorMaxForce(HINGE, W.leanTorque);
 
       // --- parts ----------------------------------------------------------------------------
       const parts: readonly GolemPart[] = Object.freeze([
@@ -356,6 +341,7 @@ export function torsoModule(
         commandedNeck: new Vector3(),
         socket: new Vector3(),
         inverse: new Quaternion(),
+        relative: new Quaternion(),
       };
       const clamp = (value: number, low: number, high: number): number =>
         value < low ? low : value > high ? high : value;
@@ -381,26 +367,26 @@ export function torsoModule(
       };
 
       /**
-       * The twist the ball actually achieved, radians.
+       * The twist the core actually achieved, radians.
        *
-       * The ball's own +Z expressed in the mount's frame is `(sin t, 0, cos t)` for a rotation of
+       * The core's own +Z expressed in the mount's frame is `(sin t, 0, cos t)` for a rotation of
        * `t` about the shared +Y, so an `atan2` recovers it with no convention left to get
        * backwards. The mount's inverse is taken every step rather than cached because Session 08's
        * locomotion root turns, and this arithmetic has to still be right when it does.
        */
       const achievedTwist = (): number => {
-        rotate(AXIS_FORWARD, ball.mesh.rotationQuaternion, scratch.read);
+        rotate(AXIS_FORWARD, core.mesh.rotationQuaternion, scratch.read);
         mountRotation().conjugateToRef(scratch.inverse);
         rotate(scratch.read, scratch.inverse, scratch.local);
         return Math.atan2(scratch.local.x, scratch.local.z);
       };
 
-      /** The lean the core achieved: its own +Y in the ball's frame is `(0, cos l, sin l)`. */
+      /** The core's pitch in the mount frame, independent of the commanded yaw. */
       const achievedLean = (): number => {
-        rotate(AXIS_UP, core.mesh.rotationQuaternion, scratch.read);
-        (ball.mesh.rotationQuaternion ?? Quaternion.Identity()).conjugateToRef(scratch.inverse);
-        rotate(scratch.read, scratch.inverse, scratch.local);
-        return Math.atan2(scratch.local.z, scratch.local.y);
+        mountRotation().conjugateToRef(scratch.inverse);
+        scratch.inverse.multiplyToRef(core.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.relative);
+        scratch.relative.toEulerAnglesToRef(scratch.read);
+        return scratch.read.x;
       };
 
       /** Where the neck frame actually is, world, into a ref this module owns. */
@@ -472,9 +458,11 @@ export function torsoModule(
         });
       };
 
-      const writeMotors = (): void => {
-        twistJoint?.setAxisMotorTarget(HINGE, commandedTwist);
-        leanJoint?.setAxisMotorTarget(HINGE, commandedLean);
+      const twistServo = new JointServo(new JointActuator(waistJoint, PhysicsConstraintAxis.ANGULAR_Y), achievedTwist);
+      const leanServo = new JointServo(new JointActuator(waistJoint, HINGE), achievedLean);
+      const writeMotors = (dt: number): void => {
+        twistServo.track(commandedTwist, dt, W.twistTorque);
+        leanServo.track(commandedLean, dt, W.leanTorque);
       };
 
       return Object.freeze({
@@ -495,7 +483,7 @@ export function torsoModule(
           if (severed) return;
           commandedLean = slewTowards(commandedLean, wantedLean, W.leanRate, dt);
           commandedTwist = slewTowards(commandedTwist, wantedTwist, W.twistRate, dt);
-          writeMotors();
+          writeMotors(dt);
           axisViews[0].commanded = commandedLean;
           axisViews[0].achieved = achievedLean();
           axisViews[1].commanded = commandedTwist;
@@ -518,18 +506,22 @@ export function torsoModule(
           severed = true;
           // The waist goes with the trunk. A motor still driving a body that has been cut off is
           // the haunting the Warrior's anchors produce when an arm comes away from them.
-          twistJoint?.dispose();
-          twistJoint = null;
-          leanJoint?.dispose();
-          leanJoint = null;
+          twistServo.actuator.release();
+          leanServo.actuator.release();
+          bearingWeld?.dispose();
+          bearingWeld = null;
+          waistJoint?.dispose();
+          waistJoint = null;
         },
 
         dispose(): void {
           severed = true;
-          twistJoint?.dispose();
-          twistJoint = null;
-          leanJoint?.dispose();
-          leanJoint = null;
+          twistServo.actuator.release();
+          leanServo.actuator.release();
+          bearingWeld?.dispose();
+          bearingWeld = null;
+          waistJoint?.dispose();
+          waistJoint = null;
           for (const part of [core, ball]) {
             part.body.dispose();
             part.shape.dispose();

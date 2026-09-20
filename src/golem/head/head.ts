@@ -1,10 +1,10 @@
+import { JointActuator, JointServo } from "../joint-servo.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import {
   PhysicsConstraintAxis,
-  PhysicsConstraintMotorType,
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 import type { Scene } from "@babylonjs/core/scene.js";
@@ -52,7 +52,7 @@ import {
  * blade fires this lunge, and `tests/golem-torso-head.test.mjs` drives it through exactly that
  * function rather than by setting the flag by hand.
  *
- * **Two hinges in series, and only one of them is commanded.** The pitch is the nod: rest,
+ * **One two-axis joint, and only pitch is commanded by the default head controller.** The pitch is the nod: rest,
  * `guard`, and the lunge. The yaw is held at zero on a soft ceiling and nothing ever asks it for
  * anything, which is not an oversight -- a head on a single hinge can only move in the sagittal
  * plane, and a blow from the side has to be able to turn it and let the motor bring it back. That
@@ -105,6 +105,7 @@ export interface RamTuning {
     readonly followSeconds: number;
     readonly driveTorque: number;
     readonly followTorque: number;
+    readonly recoveryTorque: number;
     /** Seconds after the drive begins during which the plate is a weapon. */
     readonly armedSeconds: number;
   };
@@ -229,31 +230,21 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
 
       // --- the neck -----------------------------------------------------------------------------
       //
-      // Yaw at the root, pitch above it, so a nod happens in whatever plane a knock left the head
-      // in. A positive rotation about the pitch hinge's +X carries the head's +Y toward +Z, which
-      // is the chin going down and the crown coming forward -- so a positive commanded pitch is a
-      // nod, with no sign constant anywhere.
-      let yawJoint: Physics6DoFConstraint | null = joint(ctx.scene, socket.mount, neck, {
-        pivotParent: socket.local,
-        pivotChild: new Vector3(0, -N.neckLength / 2, 0),
-        axisParent: AXIS_UP.clone(),
-        axisChild: AXIS_UP.clone(),
-        perpParent: AXIS_FORWARD.clone(),
-        perpChild: AXIS_FORWARD.clone(),
-        swing: { x: { min: N.yawJointMin, max: N.yawJointMax } },
-        damping: N.motorDamping,
+      // The column belongs to the trunk; pitch and yaw act directly on the head at its base.
+      // This avoids transmitting a heavy head through the tiny inertia of a serial yaw link.
+      // Masses, collision shapes and the pitch pivot remain; yaw now shares the pitch pivot.
+      let columnWeld: Physics6DoFConstraint | null = joint(ctx.scene, socket.mount, neck, {
+        pivotParent: socket.local, pivotChild: new Vector3(0, -N.neckLength / 2, 0), swing: {},
       });
-      let pitchJoint: Physics6DoFConstraint | null = joint(ctx.scene, neck, head, {
-        pivotParent: new Vector3(0, N.neckLength / 2, 0),
+      let neckJoint: Physics6DoFConstraint | null = joint(ctx.scene, socket.mount, head, {
+        pivotParent: socket.local.add(new Vector3(0, N.neckLength, 0)),
         pivotChild: new Vector3(0, -N.headHeight / 2, 0),
-        swing: { x: { min: N.pitchJointMin, max: N.pitchJointMax } },
+        swing: {
+          x: { min: N.pitchJointMin, max: N.pitchJointMax },
+          y: { min: N.yawJointMin, max: N.yawJointMax },
+        },
         damping: N.motorDamping,
       });
-      yawJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
-      // Held at zero forever. The ceiling is what makes this compliance rather than a lock: a blow
-      // turns the head against a finite motor and the motor walks it back.
-      yawJoint.setAxisMotorTarget(HINGE, 0);
-      yawJoint.setAxisMotorMaxForce(HINGE, N.yawTorque);
 
       // --- the ram plate ------------------------------------------------------------------------
       const ram = tuning.ram;
@@ -435,6 +426,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
         commandedTip: new Vector3(),
         socket: new Vector3(),
         inverse: new Quaternion(),
+        relative: new Quaternion(),
       };
       const rotate = (local: Vector3, by: Quaternion | null, into: Vector3): Vector3 => {
         local.rotateByQuaternionToRef(by ?? Quaternion.Identity(), into);
@@ -460,20 +452,20 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
         return scratch.socket.addInPlace(socket.mount.mesh.position);
       };
 
-      /** The yaw the neck achieved: its own +Z in the mount's frame is `(sin y, 0, cos y)`. */
+      /** The yaw the head achieved: its own +Z in the mount's frame is `(sin y, 0, cos y)`. */
       const achievedYaw = (): number => {
-        rotate(AXIS_FORWARD, neck.mesh.rotationQuaternion, scratch.read);
+        rotate(AXIS_FORWARD, head.mesh.rotationQuaternion, scratch.read);
         mountRotation().conjugateToRef(scratch.inverse);
         rotate(scratch.read, scratch.inverse, scratch.local);
         return Math.atan2(scratch.local.x, scratch.local.z);
       };
 
-      /** The pitch the head achieved: its own +Y in the neck's frame is `(0, cos p, sin p)`. */
+      /** The pitch the head achieved: pitch in the mount frame, independent of its yaw. */
       const achievedPitch = (): number => {
-        rotate(AXIS_UP, head.mesh.rotationQuaternion, scratch.read);
-        (neck.mesh.rotationQuaternion ?? Quaternion.Identity()).conjugateToRef(scratch.inverse);
-        rotate(scratch.read, scratch.inverse, scratch.local);
-        return Math.atan2(scratch.local.z, scratch.local.y);
+        mountRotation().conjugateToRef(scratch.inverse);
+        scratch.inverse.multiplyToRef(head.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.relative);
+        scratch.relative.toEulerAnglesToRef(scratch.read);
+        return scratch.read.x;
       };
 
       /**
@@ -529,29 +521,23 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
         get gripStray(): number | null { return null; },
       };
 
-      const writeMotor = (): void => {
-        if (!pitchJoint || severed) return;
+      const pitchServo = new JointServo(new JointActuator(neckJoint, HINGE), achievedPitch);
+      const yawServo = new JointServo(new JointActuator(neckJoint, PhysicsConstraintAxis.ANGULAR_Y), achievedYaw);
+      const writeMotor = (dt: number): void => {
+        if (severed) return;
+        yawServo.track(0, dt, N.yawTorque);
         if (phase === "idle") {
-          if (appliedPhase !== "idle") {
-            pitchJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
-            pitchJoint.setAxisMotorMaxForce(HINGE, N.pitchTorque);
-          }
-          pitchJoint.setAxisMotorTarget(HINGE, commandedPitch);
-        } else if (appliedPhase !== phase) {
-          pitchJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.VELOCITY);
-          // Positive joint velocity is the head going forward and down, because a positive pitch
-          // is a nod. A lunge is a nod driven hard.
-          pitchJoint.setAxisMotorTarget(HINGE, ram ? ram.lunge.driveRate : 0);
-          pitchJoint.setAxisMotorMaxForce(
-            HINGE,
-            phase === "drive"
-              ? (ram?.lunge.driveTorque ?? N.pitchTorque)
-              : (ram?.lunge.followTorque ?? N.pitchTorque),
-          );
+          if (appliedPhase !== "idle") pitchServo.seed(commandedPitch);
+          pitchServo.track(commandedPitch, dt,
+            ram && lungeAge < ram.lunge.armedSeconds ? ram.lunge.recoveryTorque : N.pitchTorque);
+        } else {
+          pitchServo.actuator.drive(ram ? ram.lunge.driveRate : 0,
+            phase === "drive" ? (ram?.lunge.driveTorque ?? N.pitchTorque)
+              : (ram?.lunge.followTorque ?? N.pitchTorque));
         }
         appliedPhase = phase;
       };
-      writeMotor();
+      writeMotor(0);
 
       return Object.freeze({
         parts,
@@ -589,7 +575,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
               phaseTime = 0;
             }
           }
-          writeMotor();
+          writeMotor(dt);
 
           axisViews[0].commanded = commandedPitch;
           axisViews[0].achieved = achievedPitch();
@@ -613,10 +599,12 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
             plate.shape.filterMembershipMask = LAYER.DEBRIS;
             plate.shape.filterCollideMask = COLLIDES.DEBRIS;
           }
-          yawJoint?.dispose();
-          yawJoint = null;
-          pitchJoint?.dispose();
-          pitchJoint = null;
+          pitchServo.actuator.release();
+          yawServo.actuator.release();
+          columnWeld?.dispose();
+          columnWeld = null;
+          neckJoint?.dispose();
+          neckJoint = null;
         },
 
         dispose(): void {
@@ -627,10 +615,12 @@ export function headModule(id: string, label: string, tuning: HeadTuning): HeadM
           // every time.
           plateWeld?.dispose();
           plateWeld = null;
-          yawJoint?.dispose();
-          yawJoint = null;
-          pitchJoint?.dispose();
-          pitchJoint = null;
+          pitchServo.actuator.release();
+          yawServo.actuator.release();
+          columnWeld?.dispose();
+          columnWeld = null;
+          neckJoint?.dispose();
+          neckJoint = null;
           for (const part of [plate, head, neck]) {
             if (!part) continue;
             part.body.dispose();

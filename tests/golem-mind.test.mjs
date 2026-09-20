@@ -1142,7 +1142,17 @@ function drive(fixture, mind, seconds, { closing = 0, each = null } = {}) {
       const move = Math.min(closing * FIXED, Math.max(0, length - 0.5));
       const shift = (point) => { point.x += (dx / length) * move; point.z += (dz / length) * move; };
       shift(them.ground); shift(them.shoulder); shift(them.tip);
-      for (const name of ["primary", "secondary"]) { shift(them.hands[name].shoulder); shift(them.hands[name].tip); }
+      for (const name of ["primary", "secondary"]) {
+        const hand = them.hands[name];
+        shift(hand.shoulder); shift(hand.tip);
+        // The intercept reads published velocity, not a difference of these test positions.
+        // Leaving the old velocity here made parries depend on the live fixture's startup wobble.
+        hand.tipVelocity.x = dx / length * move / FIXED;
+        hand.tipVelocity.y = 0;
+        hand.tipVelocity.z = dz / length * move / FIXED;
+        hand.tipSpeed = move / FIXED;
+      }
+      them.tipSpeed = move / FIXED;
       fixture.measure = Math.hypot(fixture.self.shoulder.x - them.shoulder.x, fixture.self.shoulder.z - them.shoulder.z);
     }
     fixture.clock += FIXED;

@@ -124,7 +124,8 @@ export interface AnchorDriveOptions {
  * Without a reference, the marker itself is the keyframed reaction body. That standalone
  * mode also supports angular motors. In either mode every constraint axis is free unless
  * motorised, and the finite force ceiling preserves lag and follow-through under load.
- * The commanded world point keeps the same vector rate limit in both modes.
+ * The command uses a vector rate limit relative to the mount when mounted, and to the world
+ * otherwise. Carrying a golem through space does not spend its arm's movement allowance.
  */
 export class AnchorDrive {
   readonly anchor: Part;
@@ -140,6 +141,7 @@ export class AnchorDrive {
   private readonly pivot: Vector3;
   /** The rate-limited command: where the anchor is actually being sent this step. */
   private readonly commanded = new Vector3();
+  private readonly relativeCommand = new Vector3();
   private readonly commandedRotation = new Quaternion();
   /**
    * What is being spent right now, which a stroke moves and `parameters` does not.
@@ -232,6 +234,7 @@ export class AnchorDrive {
     // Preserve the original anchor's motor axes (and therefore its per-axis force budget),
     // expressed in the physical reference instead of replacing them with the torso's axes.
     this.scratch.localTarget.rotateByQuaternionToRef(this.inverseReferenceFrame, this.scratch.localTarget);
+    this.relativeCommand.copyFrom(this.scratch.localTarget);
     const local = this.scratch.localTarget;
     for (const axis of this.parameters.linear) {
       this.constraint.setAxisMotorTarget(axis,
@@ -304,6 +307,15 @@ export class AnchorDrive {
   drive(dt: number, target: Vector3, rotation: Quaternion): void {
     if (this.released) return;
     const p = this.parameters;
+    // Carry the previous command with the mount before limiting relative hand travel. Walking
+    // and turning must not consume an arm's speed budget or leave its command behind the body.
+    if (this.reference) {
+      this.relativeCommand.rotateByQuaternionToRef(this.referenceFrame, this.commanded);
+      this.commanded.addInPlace(this.referencePivot);
+      this.commanded.rotateByQuaternionToRef(
+        this.reference.mesh.rotationQuaternion ?? Quaternion.Identity(), this.commanded);
+      this.commanded.addInPlace(this.reference.mesh.position);
+    }
 
     // **The linear rate limit, on the point rather than on its coordinates.** Three scalar
     // slews would bound each world axis separately, which bounds the point inside a box: the

@@ -131,7 +131,8 @@ for (const chain of ['wrist', 'reach']) {
         assertSettled();
         const torso = pair[0].limbs.find(limb => limb.key.endsWith('trunk.core')).part;
         const atRest = torso.mesh.position.clone();
-        torso.body.applyImpulse(new Vector3(0, 0, 20), torso.mesh.position);
+        // An impact above the bracing motor budget; small impulses can now be actively caught.
+        torso.body.applyImpulse(new Vector3(0, 0, 80), torso.mesh.position);
         let displaced = 0;
         const sample = scene.onAfterPhysicsObservable.add(() => {
           displaced = Math.max(displaced, Vector3.Distance(torso.mesh.position, atRest));
