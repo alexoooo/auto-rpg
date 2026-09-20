@@ -5,7 +5,12 @@ export default defineConfig({
   // 5181 when 5180 is taken -- usually by an earlier dev server nobody noticed
   // was still alive -- and you end up reading a stale build while editing a live
   // one. Failing loudly is the whole point.
-  server: { port: 5180, strictPort: true },
+  server: {
+    port: 5180, strictPort: true,
+    // Transform the browser entry graphs at server startup, before navigation
+    // has to discover and wait on each level of their imports.
+    warmup: { clientFiles: ["./src/main.ts", "./src/bench/main.ts", "./src/art-proof/main.ts"] },
+  },
   // Havok ships a .wasm beside its ESM bundle; Vite must not try to inline it.
   assetsInclude: ["**/*.wasm"],
   build: {

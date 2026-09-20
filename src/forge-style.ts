@@ -13,6 +13,12 @@ import type { GolemMaterialPalette } from "./golem/materials.ts";
 import { attachGolemProceduralSurface } from "./golem/procedural-surface.ts";
 import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineManagerSceneComponent.js";
 import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
+// These materials are always on screen. Register their shaders with the initial
+// module graph instead of discovering a second import waterfall on first render.
+import "@babylonjs/core/Shaders/pbr.vertex.js";
+import "@babylonjs/core/Shaders/pbr.fragment.js";
+import "@babylonjs/core/Shaders/default.vertex.js";
+import "@babylonjs/core/Shaders/default.fragment.js";
 
 /** Copy maps onto the game's own materials, preserving their live damage/wear plugins. */
 function surface(target: PBRMaterial, source: PBRMaterial): void {
@@ -34,6 +40,9 @@ export async function loadForgeStyle(scene: Scene) {
   // Match the proof's render budget. High-DPI displays otherwise silently quadruple the
   // shaded pixels (3840×2160 for a 1920×1080 CSS viewport), including every post-process.
   const engine = scene.getEngine();
+  // Decode image maps to bitmaps before upload. HTMLImageElement uploads forced
+  // seconds of synchronous pixel conversion on the integrated GPU at startup.
+  if (typeof createImageBitmap === "function") engine._features.forceBitmapOverHTMLImageElement = true;
   const resize = () => {
     const canvas = engine.getRenderingCanvas();
     if (!canvas) return;

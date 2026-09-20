@@ -128,6 +128,8 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   shadows.bias = 0.0015;
   shadows.normalBias = 0.012;
 
+  const forge = await loadForgeStyle(scene);
+
   // The two textured parents. Steel and leather have the same decoded image and Babylon-LH
   // tangent basis on every geometry family that uses them, so the scene owns one wrapper for each
   // image file and the weapon materials below are scalar variants of it.
@@ -148,10 +150,10 @@ export async function buildArena(engine: Engine): Promise<Arena> {
     paintedWood: sharedSurface(scene, TEXTURED_SURFACES.paintedShieldBoard),
     bowString: surfaceVariant(scene, OBJECT_SURFACE_VARIANTS.bowString, figureLeather),
     straw: plainSurface(scene, "straw", new Color3(0.68, 0.57, 0.30), 0.0, 0.9),
-    ground: sharedSurface(scene, TEXTURED_SURFACES.ground),
-    wall: sharedSurface(scene, TEXTURED_SURFACES.roomWall),
+    ground: forge.materials.basalt,
+    wall: forge.materials.basalt,
     timber: sharedSurface(scene, TEXTURED_SURFACES.roomTimber),
-    banner: sharedSurface(scene, TEXTURED_SURFACES.roomBanner),
+    banner: forge.materials.banner,
     arrowAccent: plainSurface(
       scene,
       "arrow-accent",
@@ -166,10 +168,6 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   // The invisible authoritative slab and fourteen post colliders retain their
   // session-09 dimensions. The visible floor and room dressing are a separate
   // owner with no body, so art can be removed without changing the solver.
-  const forge = await loadForgeStyle(scene);
-  materials.ground = forge.materials.basalt;
-  materials.wall = forge.materials.basalt;
-  materials.banner = forge.materials.banner;
   const world = buildArenaWorld(scene, materials, {
     add: (mesh) => shadows.addShadowCaster(mesh),
     remove: (mesh) => shadows.removeShadowCaster(mesh),
