@@ -1,7 +1,92 @@
 {
   "version": 1,
-  "fingerprint": "",
-  "evaluatedAt": "",
-  "rounds": 0,
-  "policies": {}
+  "fingerprint": "70455d35d299eca4ba0db0bdb788e4f76e4912d9e10ff91f538048d7de3acb28",
+  "evaluatedAt": "2026-09-21T04:00:20.059Z",
+  "rounds": 1,
+  "policies": {
+    "golem-duelist": {
+      "rating": 1563.661569854361,
+      "deviation": 22.551922157506976,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-duelist"
+    },
+    "golem-fencer": {
+      "rating": 1518.6087665725843,
+      "deviation": 22.55192215736824,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-fencer"
+    },
+    "golem-planner": {
+      "rating": 1519.588175339565,
+      "deviation": 22.551922157369642,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-planner"
+    },
+    "golem-champion": {
+      "rating": 1502.938226300931,
+      "deviation": 22.551922157355605,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-champion"
+    },
+    "golem-form": {
+      "rating": 1435.3590213786217,
+      "deviation": 22.55192215751168,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-form"
+    },
+    "golem-skirmisher": {
+      "rating": 1444.1737002817338,
+      "deviation": 22.551922157471928,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-skirmisher"
+    },
+    "golem-guardian": {
+      "rating": 1498.041182466046,
+      "deviation": 22.551922157355424,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-guardian"
+    },
+    "golem-brawler": {
+      "rating": 1515.6705402716448,
+      "deviation": 22.551922157364473,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-brawler"
+    },
+    "golem-tactician": {
+      "rating": 1531.3410805433662,
+      "deviation": 22.55192215739205,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-tactician"
+    },
+    "golem-driver": {
+      "rating": 1407.9355759015723,
+      "deviation": 22.55192215767252,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-driver"
+    },
+    "golem-reaper": {
+      "rating": 1509.794087669773,
+      "deviation": 22.55192215735887,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-reaper"
+    },
+    "golem-miser": {
+      "rating": 1552.8880734172487,
+      "deviation": 22.551922157459977,
+      "bouts": 528,
+      "provisional": true,
+      "policyVersion": "golem-miser"
+    }
+  }
 }

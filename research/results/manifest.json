@@ -1,0 +1,249 @@
+{
+  "version": 1,
+  "fingerprint": "70455d35d299eca4ba0db0bdb788e4f76e4912d9e10ff91f538048d7de3acb28",
+  "protocol": {
+    "version": 1,
+    "maxSeconds": 150,
+    "settleSeconds": 0,
+    "locomotionMode": "supported",
+    "drawFloor": null,
+    "targetRounds": 4,
+    "rating": "glicko2-tau0.5"
+  },
+  "rounds": 4,
+  "seed": 20260920,
+  "policies": [
+    "golem-duelist",
+    "golem-fencer",
+    "golem-planner",
+    "golem-champion",
+    "golem-form",
+    "golem-skirmisher",
+    "golem-guardian",
+    "golem-brawler",
+    "golem-tactician",
+    "golem-driver",
+    "golem-reaper",
+    "golem-miser"
+  ],
+  "policyVersions": {
+    "golem-duelist": "golem-duelist",
+    "golem-fencer": "golem-fencer",
+    "golem-planner": "golem-planner",
+    "golem-champion": "golem-champion",
+    "golem-form": "golem-form",
+    "golem-skirmisher": "golem-skirmisher",
+    "golem-guardian": "golem-guardian",
+    "golem-brawler": "golem-brawler",
+    "golem-tactician": "golem-tactician",
+    "golem-driver": "golem-driver",
+    "golem-reaper": "golem-reaper",
+    "golem-miser": "golem-miser"
+  },
+  "builds": [
+    {
+      "name": "default",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "blade"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "plate"
+        }
+      }
+    },
+    {
+      "name": "two-blades",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "blade"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "blade"
+        }
+      }
+    },
+    {
+      "name": "mace",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "mace"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "plate"
+        }
+      }
+    },
+    {
+      "name": "maul",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "maul"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "maul"
+        }
+      }
+    },
+    {
+      "name": "whip",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "whip"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "plate"
+        }
+      }
+    },
+    {
+      "name": "fists",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "fist"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "fist"
+        }
+      }
+    },
+    {
+      "name": "ram-capped",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.ram",
+        "primary": {
+          "chain": "none",
+          "terminal": "none"
+        },
+        "secondary": {
+          "chain": "none",
+          "terminal": "none"
+        }
+      }
+    },
+    {
+      "name": "ram-blade",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.ram",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "blade"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "plate"
+        }
+      }
+    },
+    {
+      "name": "wheel",
+      "setup": {
+        "locomotion": "locomotion.wheel",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "blade"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "plate"
+        }
+      }
+    },
+    {
+      "name": "multileg",
+      "setup": {
+        "locomotion": "locomotion.multileg",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "blade"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "plate"
+        }
+      }
+    },
+    {
+      "name": "plated",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plated",
+        "head": "head.plain",
+        "primary": {
+          "chain": "wrist",
+          "terminal": "blade"
+        },
+        "secondary": {
+          "chain": "wrist",
+          "terminal": "plate"
+        }
+      }
+    },
+    {
+      "name": "pitch-blade",
+      "setup": {
+        "locomotion": "locomotion.biped",
+        "torso": "torso.plain",
+        "head": "head.plain",
+        "primary": {
+          "chain": "pitch",
+          "terminal": "blade"
+        },
+        "secondary": {
+          "chain": "pitch",
+          "terminal": "plate"
+        }
+      }
+    }
+  ],
+  "candidates": [],
+  "instrumentVersion": 3,
+  "dependencies": {
+    "@babylonjs/core": "9.18.1",
+    "@babylonjs/havok": "1.3.14",
+    "@babylonjs/loaders": "9.18.1"
+  },
+  "runtime": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "arch": "x64"
+  }
+}

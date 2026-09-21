@@ -9,6 +9,9 @@ export default defineConfig({
   // one. Failing loudly is the whole point.
   server: {
     port: 5180, strictPort: true,
+    // Research logs and isolated regression archives are not browser source. Besides needless
+    // invalidations, watching a Windows archive while it is extracted can fail with EBUSY.
+    watch: { ignored: ["**/research/runs/**", "**/.review/**"] },
     // Transform the browser entry graphs at server startup, before navigation
     // has to discover and wait on each level of their imports.
     warmup: { clientFiles: ["./src/main.ts", "./src/bench/main.ts", "./src/art-proof/main.ts"] },

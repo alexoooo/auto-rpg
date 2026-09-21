@@ -155,13 +155,13 @@ test("promotion requires both confirmed improvement and review of the exact para
   const parent = "golem-form";
   const candidate = { name: "golem-researched-test", label: "Test", parent,
     parameters: Object.fromEntries(SEARCH_FIELDS.map((key) => [key, SEARCH_PARENTS[parent][key]])) };
-  const confirmation = { status: "complete", eligible: [candidate] };
+  const confirmation = { status: "complete", fingerprint: "current", eligible: [candidate] };
   const review = { fingerprint: "current", candidates: [] };
   assert.deepEqual(reviewedCandidates(confirmation, review, "current"), []);
   review.candidates.push({ name: candidate.name, candidateHash: digest(candidate), accepted: true,
     notes: "Distinct retreat and counterattack observed", reviewedAt: "2026-09-20", scenarios: ["default versus fencer"] });
   assert.deepEqual(reviewedCandidates(confirmation, review, "current"), [candidate]);
-  assert.deepEqual(reviewedCandidates({ status: "complete", eligible: [] }, review, "current"), []);
+  assert.deepEqual(reviewedCandidates({ ...confirmation, eligible: [] }, review, "current"), []);
   assert.throws(() => reviewedCandidates(confirmation, review, "changed"), /fingerprint/);
   review.candidates[0].candidateHash = "different-parameters";
   assert.deepEqual(reviewedCandidates(confirmation, review, "current"), []);

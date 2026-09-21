@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
+import { execFileSync } from "node:child_process";
 import { POLICIES } from "../src/mind.ts";
 import { NAMED_BUILDS } from "../src/golem/roster.ts";
 import { ENGAGEMENT_INSTRUMENT_VERSION } from "../src/recorder.ts";
@@ -21,6 +22,8 @@ const directory = resolve(flags.dir ?? "research/runs/current");
 const workers = Number(flags.workers ?? defaultWorkers());
 const hours = Number(flags.hours ?? (command === "run" ? 8 : 3));
 const rounds = Number(flags.rounds ?? 4);
+if (flags.seed !== undefined && (!Number.isInteger(Number(flags.seed)) || Number(flags.seed) < 0
+  || Number(flags.seed) > 0xffffffff)) throw new Error("seed must be a uint32");
 if (!Number.isFinite(hours) || hours <= 0 || hours > 8 || !Number.isInteger(rounds) || rounds < 1 || rounds > 4) throw new Error("hours must be (0,8], rounds 1..4");
 const onProgress = (progress) => console.log(JSON.stringify(progress));
 const publishedVariants = JSON.parse(readFileSync(join(ROOT, "src/golem/researched-variants.json"), "utf8"));
@@ -66,6 +69,10 @@ function publish(manifest, from = directory) {
   mkdirSync(join(ROOT, "research/results"), { recursive: true });
   atomicJson(join(ROOT, "research/results/baseline.json"), summary);
   atomicJson(join(ROOT, "research/results/manifest.json"), manifest);
+  atomicJson(join(ROOT, "research/results/provenance.json"), {
+    fingerprint: manifest.fingerprint, sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim(),
+    dependencyFiles: fingerprint().files, publishedAt: artifact.evaluatedAt,
+  });
   writeFileSync(join(ROOT, "research/results/baseline.md"), markdownReport(summary));
   console.log(`Published ${summary.completedRounds} complete rounds (${summary.ratedBouts} bouts)`);
 }

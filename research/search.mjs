@@ -165,7 +165,7 @@ export async function confirm(directory, manifest, state, options) {
     report.diversity = comparisons;
     if (comparisons.every((c) => c.distinct)) distinct.push(report);
   }
-  const result = { status: "complete", reports, eligible: distinct.map((r) => r.candidate),
+  const result = { version: 1, fingerprint: manifest.fingerprint, status: "complete", reports, eligible: distinct.map((r) => r.candidate),
     // Statistical eligibility is deliberately separate from a recorded browser review.
     browserReviewRequired: distinct.map((r) => r.candidate.name) };
   atomicJson(join(directory, "confirmation.json"), result);
