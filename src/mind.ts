@@ -811,26 +811,13 @@ export function splitMind(
       }
 
       blended.actingHand = driven;
-      // The jaws are the person's, on the same two buttons as the hand.
-      //
-      // This read `theirs.natural` when the channel landed, on the argument
-      // that "jaws are not on the cursor: there is no button for them and no
-      // pose to place, so the natural channel stays the policy's for the same
-      // reason posture does". Half of that is right and the conclusion was
-      // wrong. There is no *pose* for jaws -- a natural striker is aimed by
-      // turning the body -- but there is very much a button, and it is the same
-      // button: `applyButtonPose` writes one press onto the acting hand and the
-      // natural striker together, which is what `Intent.natural`'s own note
-      // means by one command vocabulary. Leaving this on the policy meant a
-      // person handed a centipede -- which the setup screen offers for either
-      // side, whatever the unit -- could steer it and never bite with it.
-      //
-      // The buttons follow the buttons, in other words, and not `ownership`:
-      // thrust and guard on the driven hand are the person's unconditionally,
-      // so the jaws are too. Posture and wrist orientation are the ones that
-      // change hands with `ownership`, and they still do.
-      blended.natural.thrust = mine.natural.thrust;
-      blended.natural.guard = mine.natural.guard;
+      // Hand input must not also duck or attack with the head. Natural actions
+      // stay with the policy while any usable hand exists; limb loss enables
+      // the same mouse buttons as a fallback through published capabilities.
+      const hasHand = Object.values(view.self.hands).some(hand => !hand.lost);
+      const natural = hasHand ? theirs.natural : mine.natural;
+      blended.natural.thrust = natural.thrust;
+      blended.natural.guard = natural.guard;
       // Posture and wrist orientation are policy-owned during human play. The
       // body keeps moving as part of the fight while the person's mouse remains
       // entirely available to place one hand.

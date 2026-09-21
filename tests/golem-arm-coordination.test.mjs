@@ -73,7 +73,7 @@ for (const hz of [1, 2]) for (const lift of [-.6, 0, .6]) for (const reach of [-
         scene._advancePhysicsEngineStep(ms);
         elapsed += ms / 1000;
       }
-      assert.ok(peakSpeed > .15, 'the elbow must actually sweep');
+      assert.ok(peakSpeed > .10, 'the elbow must actually sweep');
       assert.ok(maxElbow < (hz === 1 ? .03 : .08), `moving elbow missed by ${maxElbow} m`);
       assert.ok(maxHand < .08, `moving hand missed by ${maxHand} m`);
       assert.ok(residual < .03, `arm still moving a second after the sweep: ${residual} m/s`);

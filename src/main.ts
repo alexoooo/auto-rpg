@@ -11,7 +11,7 @@ import { Hud, type CommandReadout, type CommandSideReadout } from "./hud";
 import { Controls } from "./input";
 import { AimIndicator } from "./aim";
 import { Takeover, Targeting } from "./targeting";
-import { Blood } from "./blood";
+import { DamageFeedback } from "./damage-feedback";
 import { advanceFight, FightEnd } from "./fight-end";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "./recorder";
@@ -525,6 +525,7 @@ async function boot(): Promise<void> {
    * restarts. That is the honest reset: a fight resumed with one side's wounds
    * still on it is not the same fight over again.
    */
+  const damageFeedback = new DamageFeedback(arena.scene);
   const buildBout = (matchup: Matchup) => {
     const F = CONFIG.fighter;
     const leftDefinition = unitDefinition(matchup.left.unit);
@@ -576,8 +577,8 @@ async function boot(): Promise<void> {
     const recorder = new BoutRecorder();
     wireBoutRecorder(recorder, left, right);
     const sides = [
-      { fighter: left, combat: new Combat("left", leftStrikers, combatRecorder(recorder, "left")) },
-      { fighter: right, combat: new Combat("right", rightStrikers, combatRecorder(recorder, "right")) },
+      { fighter: left, combat: new Combat("left", leftStrikers, combatRecorder(recorder, "left", event => damageFeedback.report(event, right))) },
+      { fighter: right, combat: new Combat("right", rightStrikers, combatRecorder(recorder, "right", event => damageFeedback.report(event, left))) },
     ];
     // Each blade is pointed at the other body. The collision layers already say
     // the same thing in the solver; this says it again in the scoring.
@@ -653,37 +654,7 @@ async function boot(): Promise<void> {
   targeting.attach(yours(), theirs());
   const takeover = new Takeover(arena.scene);
   takeover.attach(bout.left, bout.right);
-  const blood = new Blood(arena.scene);
   refreshShadowCasters(arena.scene, arena.shadows);
-
-  /**
-   * The last blow each side had been told about, so the same one is not drawn
-   * twice and none is missed.
-   *
-   * Not `combat.lastHit`, which is a single slot: two contacts inside one
-   * rendered frame -- and at 240 Hz there are four control steps in a frame to
-   * have them in -- leave only the newer, and the one that goes missing is as
-   * likely as not the one that took an arm off. `Combat.log` keeps two dozen,
-   * newest first, so walking it back to the last timestamp this saw is both
-   * complete and bounded.
-   */
-  const drawn: Record<Side, number> = { left: -1, right: -1 };
-
-  const drawBlood = (): void => {
-    for (const side of bout.sides) {
-      const seen = drawn[side.combat.side];
-      let newest = seen;
-      for (const report of side.combat.log) {
-        if (report.at <= seen) break;
-        if (report.at > newest) newest = report.at;
-        blood.spray(report.point, report.velocity, report.damage);
-        if (!report.severed) continue;
-        const limb = side.combat.body?.limbs.find((part) => part.key === report.key);
-        if (limb) blood.stump(limb.part.mesh, report.point);
-      }
-      drawn[side.combat.side] = newest;
-    }
-  };
 
   /**
    * Handover readings waiting for the first control step after their swap.
@@ -723,9 +694,7 @@ async function boot(): Promise<void> {
     // Before the bodies go: a stump's emitter is parented to the severed part's
     // mesh, and a node whose parent has been disposed does not go with it. It
     // stays exactly where it last stood, bleeding, for the rest of the run.
-    blood.clear();
-    drawn.left = -1;
-    drawn.right = -1;
+    damageFeedback.clear();
     hintLeft = CONFIG.bout.hintSeconds;
 
     for (const side of bout.sides) side.combat.dispose();
@@ -1055,7 +1024,7 @@ async function boot(): Promise<void> {
     startControls: () => controls.start(),
     pauseControls: () => controls.pauseCombat(),
     showPaused: (paused) => {
-      blood.setPaused(paused);
+      damageFeedback.setPaused(paused);
       presentation.showPaused(paused);
     },
     rebuild,
@@ -1422,8 +1391,7 @@ async function boot(): Promise<void> {
       takeover.update(dt);
       for (const side of bout.sides) side.combat.advance(dt);
       // After `advance`, so a report filed this frame is already timestamped.
-      drawBlood();
-      blood.update(dt);
+      damageFeedback.update(dt);
       // The rules get the rendered frame's delta, which is the same clock
       // `Combat` counts on, so the cap and a report's timestamp are comparable.
       // Only while the fight is actually running: an arena paused in place
@@ -1628,18 +1596,7 @@ async function boot(): Promise<void> {
       },
       controls,
       setup,
-      /**
-       * Blood, for looking at it without having to be hit.
-       *
-       *     __sword.blood.spray(__sword.left.centre(), new BABYLON.Vector3(0,1,0), 20)
-       *     __sword.blood.count      // emitters alive; must fall back to 0
-       *
-       * The count is the leak check: every burst and every stump is collected a
-       * particle lifetime after it stops feeding, so a bout that has finished
-       * bleeding must read zero. It never rises during a rebuild either, because
-       * `clear()` runs before the bodies the stumps hang on are disposed.
-       */
-      blood,
+      damageFeedback,
       config: CONFIG,
     },
   });

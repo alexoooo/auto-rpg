@@ -1,7 +1,7 @@
+import { JointActuator, JointServo } from "../../joint-servo.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import {
   PhysicsConstraintAxis,
-  PhysicsConstraintMotorType,
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
@@ -200,12 +200,7 @@ export const wristChain = defineChain({
       },
       damping: W.motorDamping,
     });
-    rollJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
-    rollJoint.setAxisMotorTarget(HINGE, 0);
-    rollJoint.setAxisMotorMaxForce(HINGE, W.rollTorque);
-    bendJoint.setAxisMotorType(HINGE, PhysicsConstraintMotorType.POSITION);
-    bendJoint.setAxisMotorTarget(HINGE, 0);
-    bendJoint.setAxisMotorMaxForce(HINGE, W.bendTorque);
+    let rollForce = W.rollTorque, bendForce = W.bendTorque;
 
     const parts: readonly GolemPart[] = Object.freeze([
       ...core.parts,
@@ -437,6 +432,15 @@ export const wristChain = defineChain({
       );
     };
 
+    // Match the arm response after conditioning the serial bearings. Higher
+    // response on the old tiny inertia amplified stop motion (68 -> 99 mm).
+    const rollServo = new JointServo(new JointActuator(rollJoint, HINGE), achievedRoll, 0, 40);
+    const bendServo = new JointServo(new JointActuator(bendJoint, HINGE), achievedBendJoint, 0, 40);
+    const releaseWrist = (): void => {
+      rollServo.actuator.release();
+      bendServo.actuator.release();
+    };
+
     return Object.freeze({
       parts,
 
@@ -501,7 +505,7 @@ export const wristChain = defineChain({
           const had = part.body.getMassProperties();
           const own = had.inertia;
           if (!own) continue;
-          const cast = Math.max(own.x, own.y, own.z, want);
+          const cast = Math.max(own.x, own.y, own.z, want, CHAIN_REACH.jointInertiaFloor);
           if (cast <= own.x && cast <= own.y && cast <= own.z) continue;
           if (part === ring) lifted = cast / Math.max(own.x, own.y, own.z);
           part.body.setMassProperties({
@@ -539,8 +543,8 @@ export const wristChain = defineChain({
         // measured at 3 wins in 64 for the one built first. The table is beside the constant.
         const capped = Math.min(lifted, W.liftCeiling);
         if (capped <= 1) return;
-        if (rollLimit > 0) rollJoint?.setAxisMotorMaxForce(HINGE, W.rollTorque * capped);
-        if (bendLimit > 0) bendJoint?.setAxisMotorMaxForce(HINGE, W.bendTorque * capped);
+        if (rollLimit > 0) rollForce = W.rollTorque * capped;
+        if (bendLimit > 0) bendForce = W.bendTorque * capped;
       },
       step(dt: number): void {
         if (severed) return;
@@ -555,10 +559,10 @@ export const wristChain = defineChain({
         commandedBend = slewTowards(commandedBend, wantedBend, W.bendRate, dt);
         core.step(dt);
         if (rollJoint) {
-          rollJoint.setAxisMotorTarget(HINGE, commandedRoll);
+          rollServo.track(commandedRoll, dt, rollForce);
         }
         if (bendJoint) {
-          bendJoint.setAxisMotorTarget(HINGE, BEND_SIGN * commandedBend);
+          bendServo.track(BEND_SIGN * commandedBend, dt, bendForce);
         }
         wristAxes[0].commanded = commandedRoll;
         wristAxes[0].achieved = achievedRoll();
@@ -644,6 +648,7 @@ export const wristChain = defineChain({
       sever(): void {
         if (severed) return;
         severed = true;
+        releaseWrist();
         core.sever();
         rollJoint?.dispose();
         rollJoint = null;
@@ -653,6 +658,7 @@ export const wristChain = defineChain({
 
       dispose(): void {
         severed = true;
+        releaseWrist();
         rollJoint?.dispose();
         rollJoint = null;
         bendJoint?.dispose();

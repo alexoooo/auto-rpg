@@ -113,19 +113,14 @@ export interface HandButtonChannel extends ButtonPose {
  * device into a point in the body's own continuous command space, which is
  * exactly what a policy does and is no longer something the arm does for them.
  *
- * The three numbers are the golem chain's own former presets -- `reachGuard`
- * 0.36, `reachNeutral` 0.54 and `reachThrust` 0.66 against a shell of
- * 0.30..0.72 -- carried across into the normalized channel, so a person holding
- * the same buttons gets the same three poses to the millimetre and nothing a
- * human gate has already looked at moved underneath it. Stated as fractions
- * rather than as metres because the adapter must not know one body's
- * dimensions: 14 % of the envelope drawn in, a little past the middle at rest,
- * 86 % extended.
+ * Mouse buttons now select the endpoints: full safe extension and retraction.
+ * The neutral fraction is unchanged. The body still owns its continuous range,
+ * including narrower ranges required by individual carried tools.
  */
 export const BUTTON_REACH = Object.freeze({
-  guard: -5 / 7,
+  guard: -1,
   neutral: 1 / 7,
-  thrust: 5 / 7,
+  thrust: 1,
 });
 
 /**

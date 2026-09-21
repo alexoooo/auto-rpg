@@ -22,6 +22,8 @@ const intent = (base, actingHand = "primary") => ({
   },
 });
 
+const handsView = { self: { hands: { primary: { lost: false }, secondary: { lost: false } } } };
+
 const mind = (name, answer) => ({ name, decide: () => answer });
 
 /**
@@ -37,16 +39,26 @@ const mind = (name, answer) => ({ name, decide: () => answer });
 const taken = (posture, drivenWrist) =>
   ({ posture, drivenWrist, locomotion: true, attack: true });
 
+test("natural input becomes human-owned only after both usable hands are lost", () => {
+  const human = intent(0), policy = intent(100);
+  const split = splitMind(mind("human", human), mind("policy", policy), taken(false, false));
+  for (const [primary, secondary] of [[false, false], [true, false], [false, true], [true, true]]) {
+    const out = split.decide({self:{hands:{primary:{lost:primary},secondary:{lost:secondary}}}}, 1/240);
+    assert.deepEqual(out.natural, primary && secondary ? human.natural : policy.natural);
+  }
+  assert.deepEqual(split.decide({self:{hands:{}}}, 1/240).natural, human.natural);
+});
+
 test("human_play_owns_posture_and_every_channel_of_the_driven_hand_when_enabled", () => {
   const human = intent(0);
   const policy = intent(100);
   const out = splitMind(
     mind("human", human), mind("policy", policy), taken(true, true),
-  ).decide({}, 1 / 240);
+  ).decide(handsView, 1 / 240);
   assert.deepEqual(out.posture, human.posture);
   assert.deepEqual(out.primary, human.primary);
   assert.deepEqual(out.secondary, policy.secondary);
-  assert.deepEqual(out.natural, human.natural, "the jaws are on the person's buttons");
+  assert.deepEqual(out.natural, policy.natural, "head actions remain with the policy");
 });
 
 test("ai_assist_remains_the_owner_when_direct_body_control_is_disabled", () => {
@@ -54,14 +66,14 @@ test("ai_assist_remains_the_owner_when_direct_body_control_is_disabled", () => {
   const policy = intent(100);
   const out = splitMind(
     mind("human", human), mind("policy", policy), taken(false, false),
-  ).decide({}, 1 / 240);
+  ).decide(handsView, 1 / 240);
   assert.deepEqual(out.posture, policy.posture);
   // The buttons follow the buttons rather than `ownership`. Thrust and guard on
   // the driven hand are the person's whether or not they own posture and wrist,
   // and the natural striker is on the same press -- so it does not change hands
   // with a switch that is about pose. It read the *policy's* natural until this
   // was measured, which left a person on a jawed body unable to bite at all.
-  assert.deepEqual(out.natural, human.natural);
+  assert.deepEqual(out.natural, policy.natural);
   assert.notDeepEqual(policy.natural, human.natural, "the two sides really disagree here");
   assert.equal(out.primary.pointerX, human.primary.pointerX);
   assert.equal(out.primary.pointerY, human.primary.pointerY);
@@ -79,7 +91,7 @@ test("swapping_hands_changes_only_which_wrist_the_controls_address", () => {
   const policy = intent(100);
   const out = splitMind(
     mind("human", human), mind("policy", policy), taken(true, true),
-  ).decide({}, 1 / 240);
+  ).decide(handsView, 1 / 240);
   assert.deepEqual(out.primary, policy.primary);
   assert.deepEqual(out.secondary, human.secondary);
 });
@@ -97,7 +109,7 @@ test("each_channel_changes_hands_on_its_own_box", () => {
   const split = (locomotion, attack) => splitMind(
     mind("human", human), mind("policy", policy),
     { posture: false, drivenWrist: true, locomotion, attack },
-  ).decide({}, 1 / 240);
+  ).decide(handsView, 1 / 240);
 
   const feetOnly = split(true, false);
   assert.equal(feetOnly.forward, human.forward, "the feet are the person's");
@@ -112,7 +124,7 @@ test("each_channel_changes_hands_on_its_own_box", () => {
   assert.equal(handOnly.strafe, policy.strafe);
   assert.equal(handOnly.turn, policy.turn);
   assert.deepEqual(handOnly.primary, human.primary, "and fights with the person's hand");
-  assert.deepEqual(handOnly.natural, human.natural);
+  assert.deepEqual(handOnly.natural, policy.natural);
 });
 
 /**
@@ -136,7 +148,7 @@ test("posture_is_its_own_switch_in_both_halves", () => {
   const split = (posture, locomotion, attack) => splitMind(
     mind("human", human), mind("policy", policy),
     { posture, drivenWrist: true, locomotion, attack },
-  ).decide({}, 1 / 240);
+  ).decide(handsView, 1 / 240);
 
   assert.deepEqual(split(false, true, false).posture, policy.posture, "off, driving the feet");
   assert.deepEqual(split(true, true, false).posture, human.posture, "on, driving the feet");
@@ -159,11 +171,11 @@ test("a_body_with_no_hand_to_take_still_takes_the_feet", () => {
   const own = (attack) =>
     ({ posture: false, drivenWrist: false, locomotion: true, attack });
   assert.throws(
-    () => splitMind(mind("human", human), mind("policy", policy), own(true)).decide({}, 1 / 240),
+    () => splitMind(mind("human", human), mind("policy", policy), own(true)).decide(handsView, 1 / 240),
     /acting hand/i,
   );
   const out = splitMind(mind("human", human), mind("policy", policy), own(false))
-    .decide({}, 1 / 240);
+    .decide(handsView, 1 / 240);
   assert.equal(out.forward, human.forward);
   assert.deepEqual(out.primary, policy.primary);
 });

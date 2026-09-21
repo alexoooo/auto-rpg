@@ -1260,11 +1260,12 @@ export const STROKE_GRID = Object.freeze({
  */
 export const COMMITTED_SHAPE_CANDIDATES = Object.freeze({
   sword: Object.freeze({
-    // Re-swept all 64 cells after the coordinated joint controller (2026-09-20).
+    // Re-swept after the wider reach and stabilized wrist (2026-09-21),
+    // then refined chamber reach and follow lift around the best accurate stroke.
     // This is a bench candidate, not a change to the shipped policy's stroke.
-    chamberSwing: 0.80, strokeSeconds: 0.20, chamberReach: -0.70, chamberSeconds: 0.32,
-    followLift: 0.73,
-    bench: Object.freeze({ missMetres: 0.0182, speedAtMark: 14.089, peakAnchorStrayMm: 27.53 }),
+    chamberSwing: 0.05, strokeSeconds: 0.15, chamberReach: 0.10, chamberSeconds: 0.32,
+    followLift: 0.50,
+    bench: Object.freeze({ missMetres: 0.0898, speedAtMark: 13.380, peakAnchorStrayMm: 32.563 }),
   }),
   shield: Object.freeze({
     chamberSwing: 0.80, strokeSeconds: 0.11, chamberReach: -0.70, chamberSeconds: 0.22,

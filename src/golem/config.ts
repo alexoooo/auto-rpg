@@ -817,36 +817,14 @@ export const CHAIN_REACH = {
   foreVitalityWeight: 1,
 
   /**
-   * The envelope's reach shell, metres from the socket to the hand point.
-   *
-   * `reachMax` is 0.70 against a full extension of 0.78, which is 90 % -- the Warrior's own
-   * `reachMax` is 0.61 of 0.69, or 88 %. The margin is not politeness: at full extension the
-   * two-bone problem is singular and the elbow sits on its own stop, which is a motor and a limit
-   * pushing at each other, and it is the failure rung 1's `jointMin` table records arriving
-   * through a joint limit.
-   *
-   * `reachMin` is 0.30, which is an elbow bent 2.137 rad against a stop at 2.35. It is
-   * proportionally much shorter than the Warrior's `reachGuard` of 0.28/0.69 = 41 %, and that is
-   * forced rather than chosen: two bones of 0.42 and 0.36 fold to 0.06 m, so the *stop* is what
-   * decides how close the hand may come and a golem's elbow does not fold flat.
-   *
-   * **These two are now the whole of it.** `reachGuard` 0.36 and `reachThrust` 0.66 stood beside
-   * them until Session 12 and were the arm's only reachable distances, because reach was taken
-   * from two booleans; `HandIntent.reach` spans this shell continuously now and the presets went
-   * with the buttons that chose them. `src/buttons.ts` keeps all three as *fractions of this
-   * shell*, so a person holding a button still gets the same three poses to the millimetre.
-   *
-   * The prose above this block used to say 0.70, 0.38, 0.42 and 0.60 for four numbers that are
-   * 0.72, 0.30, 0.36 and 0.54, which is the third stale table this directory has turned up and
-   * the reason the arithmetic in these comments is now re-derived whenever the block is touched.
-   *
-   * `reachNeutral` survives and does exactly one job: it is the **build pose**, the distance the
-   * chain is constructed at. It is no longer a command anything can produce, and a commander
-   * asking for `reach: 0` gets 0.51, the middle of the shell, which is 30 mm short of it.
-   * 2026-09-04, amended 2026-09-05.
+   * Reach is derived from the two bone lengths and the allowed elbow bend.
+   * 0.12 radians is visibly near straight without reaching the IK singularity;
+   * 2.50 leaves 0.10 radians before the folded elbow's physical stop.
+   * The shell is 0.252..0.779 m; terminal-specific restrictions still narrow it.
+   * The build pose remains 0.54 m. Continuous commands span this whole shell.
    */
-  reachMin: 0.30,
-  reachMax: 0.72,
+  reachMin: Math.sqrt(0.42 ** 2 + 0.36 ** 2 + 2 * 0.42 * 0.36 * Math.cos(2.50)),
+  reachMax: Math.sqrt(0.42 ** 2 + 0.36 ** 2 + 2 * 0.42 * 0.36 * Math.cos(0.12)),
   reachNeutral: 0.54,
 
   /**
@@ -928,7 +906,7 @@ export const CHAIN_REACH = {
    */
   jointMargin: 0.20,
   pitchJointMin: -0.60,
-  pitchJointMax: 2.46,
+  pitchJointMax: 2.78,
   elbowJointMin: -0.05,
   elbowJointMax: 2.60,
 
@@ -1065,11 +1043,12 @@ export const CHAIN_REACH = {
   anchorRate: 5,
   /** Smooth acquisition from the hanging build pose; normal target rates are unchanged. */
   acquireSeconds: 0.2,
-  // Awake blade/plate sweeps: 180/300/180 Nm left up to 41 cm elbow error.
-  // Final inertia floor 0.15, response 40/s and 25 ms arrival easing measure
-  // at most 0.97 cm elbow error at 1 Hz and 1.82 cm at 2 Hz in the 60 Hz input grid.
-  // Shared finite effort across carried loads; these are ceilings, not applied torques.
-  jointInertiaFloor: 0.15,
+  // Headless awake button/sweep-stop trials, both hands and frame-jitter cases:
+  // tiny wrist inertia left centimetres of ring. Matching every serial bearing
+  // to a 0.30 kg m² floor and shaping target acceleration removes it without
+  // raising the 720/1200/720 Nm ceilings. The wrist uses the same floor.
+  // Target response 40/s; finite joint-relative velocity servos 40/s.
+  jointInertiaFloor: 0.3,
   jointResponse: 40,
   /** Input arrival time constant: 25 ms, on the physics clock, within the hand speed cap. */
   targetResponse: 40,

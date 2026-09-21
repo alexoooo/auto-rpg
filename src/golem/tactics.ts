@@ -1304,7 +1304,9 @@ export const STROKE_INERTIA = {
    * which name inertia. The pin in `tests/golem-arena.test.mjs` is the one that says why, and it
    * says it by comparing against the arm rather than against a number somebody derived.
    */
-  ref: 3.7728880533333333,
+  // Re-measured default arm after the 2026-09-21 reach expansion; retaining
+  // the old reference would silently lengthen every authored stroke.
+  ref: 3.987626707446063,
   /**
    * How much of the physical scaling to apply, as an exponent on the inertia ratio.
    *

@@ -648,19 +648,27 @@ export function buildArmCore(
    *
    * The joint targets are derived from this limited pose, with no second endpoint limiter.
    */
+  const commandVelocity: ArmCommand = { reach: 0, lift: 0, swing: 0 };
   const stepToward = (from: ArmCommand, to: ArmCommand, metres: number, dt: number): void => {
-    const radius = from.reach;
-    const forward = to.reach - from.reach;
-    const elevation = (to.lift - from.lift) * radius;
-    const lateral = (to.swing - from.swing) * radius * Math.cos(from.lift);
-    const travel = Math.hypot(forward, elevation, lateral);
-    // Ease arrival on a held sample so low/jittered input rates do not repeatedly kick
-    // the joint velocity feedforward. This filters the command, never the rendered body.
-    const fraction = Math.min(travel <= metres || travel < 1e-12 ? 1 : metres / travel,
-      travel < 1e-4 ? 1 : 1 - Math.exp(-R.targetResponse * dt));
-    from.reach += (to.reach - from.reach) * fraction;
-    from.lift += (to.lift - from.lift) * fraction;
-    from.swing += (to.swing - from.swing) * fraction;
+    if (dt <= 0) return;
+    // Critically damped command trajectory: a button edge starts with zero
+    // target velocity rather than kicking all three motors at once.
+    const response = R.targetResponse;
+    for (const axis of ["reach", "lift", "swing"] as const) {
+      commandVelocity[axis] += ((to[axis] - from[axis]) * response * response
+        - 2 * response * commandVelocity[axis]) * dt;
+    }
+    const speed = Math.hypot(commandVelocity.reach,
+      commandVelocity.lift * from.reach,
+      commandVelocity.swing * from.reach * Math.cos(from.lift));
+    const fraction = speed * dt > metres ? metres / (speed * dt) : 1;
+    for (const axis of ["reach", "lift", "swing"] as const) {
+      commandVelocity[axis] *= fraction;
+      from[axis] += commandVelocity[axis] * dt;
+      if (Math.abs(to[axis] - from[axis]) < 5e-4 && Math.abs(commandVelocity[axis]) < .02) {
+        from[axis] = to[axis]; commandVelocity[axis] = 0;
+      }
+    }
   };
 
   const handPoint = (): Vector3 => {
