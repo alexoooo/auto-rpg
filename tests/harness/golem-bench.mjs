@@ -1260,29 +1260,11 @@ export const STROKE_GRID = Object.freeze({
  */
 export const COMMITTED_SHAPE_CANDIDATES = Object.freeze({
   sword: Object.freeze({
-    chamberSwing: 0.80, strokeSeconds: 0.11, chamberReach: -0.20, chamberSeconds: 0.32,
-    // Pinned 2026-09-17, for the reason `committed` in `tactics-v3.ts` gives at length: the
-    // sword's shipped shape is getters onto `GOLEM_TACTICS`, so leaving this inherited made the
-    // bench row silently a measurement of whatever the table last shipped. The grid was swept
-    // at 0.73 and this names it.
+    // Re-swept all 64 cells after the coordinated joint controller (2026-09-20).
+    // This is a bench candidate, not a change to the shipped policy's stroke.
+    chamberSwing: 0.80, strokeSeconds: 0.20, chamberReach: -0.70, chamberSeconds: 0.32,
     followLift: 0.73,
-    /**
-     * miss 0.046 m, 16.83 m/s at the mark, anchor stray 11 mm, on `effector.wrist.blade`.
-     *
-     * **Re-taken 2026-09-19 at `CHAIN_WRIST.liftCeiling`**, which is the second time this row has
-     * moved for the reason the block below warns it will. Capping the lift cost the miss (0.028
-     * to 0.046) and bought back the two columns beside it (15.30 to 16.83 m/s, 16 to 11 mm), so
-     * the cell is a better stroke on two of three readings and a worse one on the reading the
-     * grid is sorted by.
-     *
-     * The cell itself did not move: all 64 were re-swept at the cap and 0.80 / 0.11 / -0.20 /
-     * 0.32 still clears every bar the test asserts. It is no longer the *best* cell, though --
-     * 0.80 / **0.15** / -0.20 / 0.32 reads 0.026 m at 16.88 m/s with the same 11 mm stray, which
-     * dominates this row on all three columns. It is written down rather than taken, because a
-     * bench that says a shape is better is not a bout that says it, and swapping the shipped arc
-     * on one instrument's word is what produced the fitted-to-a-defect grid in the first place.
-     */
-    bench: Object.freeze({ missMetres: 0.046, speedAtMark: 16.83, peakAnchorStrayMm: 11 }),
+    bench: Object.freeze({ missMetres: 0.0182, speedAtMark: 14.089, peakAnchorStrayMm: 27.53 }),
   }),
   shield: Object.freeze({
     chamberSwing: 0.80, strokeSeconds: 0.11, chamberReach: -0.70, chamberSeconds: 0.22,
@@ -1675,9 +1657,9 @@ const SWEEPS = {
   // one now, and this sweep is about all of it.
   rate: { block: CHAIN_PITCH, key: "targetRate", values: [2.5, 4, 6, 9, 12, 16, 30], mark: "guard" },
   torque: { block: CHAIN_PITCH, key: "motorTorque", values: [120, 200, 320, 500, 900], mark: "guard" },
-  force: {
-    block: CHAIN_REACH, key: "anchorForce",
-    values: [1400, 2400, 3900, 6000, 9000, 14000], mark: "guard",
+  shoulderTorque: {
+    block: CHAIN_REACH, key: "shoulderTorque",
+    values: [100, 300, 600, 900, 1200, 1600], mark: "guard",
   },
   // The same widening as `rate` above, in the units an anchor works in: the four sweeps that
   // stood here after this one were `thrust.followSeconds`, `thrust.strokeRate`, `cut.strokeRate`,

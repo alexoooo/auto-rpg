@@ -124,7 +124,8 @@ for (const chain of ['wrist', 'reach']) {
         scene.onAfterPhysicsObservable.remove(sample);
         assert.ok(movement < 0.001, `idle bodies moved ${movement * 1000} mm`);
         assert.ok(speed < 0.01, `idle body speed reached ${speed} m/s`);
-        assert.ok(stray < 0.001, `hand missed its commanded point by ${stray * 1000} mm`);
+        // Finite joint servos have a small static load error; the endpoint is no longer pinned.
+        assert.ok(stray < 0.002, `hand missed its commanded point by ${stray * 1000} mm`);
       };
       try {
         run(4);

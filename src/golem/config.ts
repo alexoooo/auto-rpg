@@ -933,86 +933,6 @@ export const CHAIN_REACH = {
   elbowJointMax: 2.60,
 
   /**
-   * The anchor's linear force ceiling, newtons. **Swept; the table is below.**
-   *
-   * `ANCHOR_DRIVE.linearForce` is 1400 N, derived in Session 02 by scaling `CONFIG.arm`'s
-   * measured 850 N by rung 1's mass ratio, and its own comment says plainly that it is a starting
-   * point rather than a measurement because nothing had ever spent it. This chain is its first
-   * reader, and 1400 N is wrong for it: the driven mass here is 28.2 kg of arm plus 1.30 kg of
-   * blade against rung 1's 10.7 kg. The same authority per kilogram would be 3860 N.
-   *
-   * Swept in the Node bench, `--sweep force`, over the scripted reach sequence, at the rate
-   * below. "lag" is the peak tip-to-command distance outside the startup window and outside every
-   * stroke; "idle stray" is the peak hand-to-anchor distance under the same exclusions, which is
-   * the reading `AGENTS.md` says to take first:
-   *
-   *     force N   peak tip on the guard step   lag mm   wander mm   idle stray mm   stuck
-   *      1400              10.63 m/s             71.1     11.323        13.00          0
-   *      2400               9.10                 60.2     11.834         6.75          0
-   *      3900               8.71                 60.0     11.605         3.73          0
-   *      6000               8.71               1704.9     10.151       563.15         43
-   *      9000               8.71                 59.9     11.605         3.28          0
-   *     14000               8.71                 59.9     11.605         3.29          0
-   *
-   * **Above 3900 N the ordinary move stops changing at all** -- 8.71 m/s, 59.9 mm and 11.605 mm
-   * are the same figures at 9000 and at 14000 -- which says the *rate limit* and not the force is
-   * what shapes a commanded move here, and 3900 is the smallest ceiling at which that is true. It
-   * is also, to two significant figures, the number the Warrior's 850 N gives carried across at
-   * the same authority per kilogram: 130.8 N/kg against 28.2 kg of arm and 1.30 kg of blade is
-   * 3860 N. The derivation and the sweep agree, which is the only reason both are quoted.
-   *
-   * **The 6000 N row is an outlier and it reproduces exactly.** Run four times it gives the same
-   * 1704.9 / 563.15 / 43 every time, and 5000 and 7000 N both give 59.9 / 3.2 / 0. Traced, it is
-   * one interval during the `chamber` phase -- a fast traverse from the inboard edge with the
-   * guard held -- where the limb hangs for about a second and then frees itself. It is not the
-   * setting and it has not been chased down; it is recorded because a measurement that surprises
-   * you and is left out of the table is a measurement nobody can follow up. 2026-09-04, the Node
-   * bench.
-   *
-   * ---
-   *
-   * **2026-09-18, corrected: a uniform mass scale did not size this, because one mass in the arm
-   * refuses to scale.** `SHIPPED_MASS_SCALE` multiplied every force here by 0.162 on the argument
-   * that every mass fell by 0.162 and the torque-to-inertia ratio therefore held. It did not:
-   * `TERMINAL_BLADE.mass` is the one mass in this file `kg()` does not wrap -- a real arming
-   * sword's 1.30 kg, which scaled would be a 0.21 kg foil -- and a blade sits at the far end of an
-   * arm, where an inertia weights a mass by the square of its distance. So each chain carrying a
-   * blade is heavier than the uniform scale assumed, by its own factor. Measured off the arm each
-   * chain publishes, with the real blade and with a scaled one:
-   *
-   * | chain | with the shipped blade | with a scaled blade | short by |
-   * |---|---:|---:|---:|
-   * | pitch | 0.8399 | 0.1852 | **4.535x** |
-   * | reach | 2.3706 | 0.9460 | **2.506x** |
-   * | wrist | 3.7729 | 1.6401 | **2.300x** |
-   *
-   * The correction is the uniform-scaled figure times the chain's own row, which is the value that
-   * puts the torque-to-inertia ratio back where it was before the scale -- the thing the scale was
-   * supposed to preserve and the only reason the pinned bench numbers reproduce.
-   *
-   * So `632` becomes **1584**: 3900 x 0.162 x 2.506. The bench claim it restores is `rung 2`'s
-   * overshoot bound -- the hand must carry past a stopped command, because a limb that never
-   * overshoots has no momentum, and must not arrive at the arm's own 0.780 m extension, because a
-   * limb slamming its own stop is a motor and a limit pushing at each other. Pre-scale it carried
-   * to 0.7505 m, 29.5 mm short. Swept through that fixture:
-   *
-   * | anchorForce | the hand carries to |
-   * |---:|---:|
-   * | 632 | 0.7792 m -- 0.8 mm off the stop |
-   * | 900 | 0.7764 |
-   * | 1200 | 0.7716 |
-   * | **1584** | **inside the 0.760 m bound** |
-   * | 2000 | inside it |
-   *
-   * At 632 the arm was arriving at its own extension on every full-span command, which is the
-   * buzz the whole anchor design exists to avoid, and it was doing it because the hand it hauls
-   * weighs two and a half times what the uniform scale costed.
-   */
-  // **632 from 2026-09-18**, which is 3900 times `SHIPPED_MASS_SCALE`. It was deliberately left
-  // at 3900 for most of that session; `anchorRate` below records what that cost and how it was
-  // found, and is the place to read before raising this again.
-  anchorForce: 1584,
-  /**
    * The ceiling on how fast the commanded hand point may move, metres per second. **Swept.**
    *
    * The same argument as `CHAIN_PITCH.targetRate` in the units an anchor works in: past the rate
@@ -1145,12 +1065,17 @@ export const CHAIN_REACH = {
   anchorRate: 5,
   /** Smooth acquisition from the hanging build pose; normal target rates are unchanged. */
   acquireSeconds: 0.2,
-  // Raised-arm sweep then hold: 3 Nm/(rad/s) left 0.34 m/s blade motion after one
-  // second; 10 settled below 0.03 m/s. Effort is capped, so impacts can still move it.
-  jointViscosity: 10,
-  jointBrakeTorque: 60,
-  /** At this commanded joint rate (rad/s), hold assistance is fully faded out. */
-  jointBrakeFadeRate: 0.5,
+  // Awake blade/plate sweeps: 180/300/180 Nm left up to 41 cm elbow error.
+  // Final inertia floor 0.15, response 40/s and 25 ms arrival easing measure
+  // at most 0.97 cm elbow error at 1 Hz and 1.82 cm at 2 Hz in the 60 Hz input grid.
+  // Shared finite effort across carried loads; these are ceilings, not applied torques.
+  jointInertiaFloor: 0.15,
+  jointResponse: 40,
+  /** Input arrival time constant: 25 ms, on the physics clock, within the hand speed cap. */
+  targetResponse: 40,
+  yawTorque: 720,
+  shoulderTorque: 1200,
+  elbowTorque: 720,
 
   /**
    * Damping on the three links, per `CONFIG.arm`'s pair and rung 1's.
@@ -3562,7 +3487,9 @@ export const HEAD_NECK = {
    * every row in it is about authority against the weight being held and both sides of that
    * moved by the same factor. See `SHIPPED_MASS_SCALE` at the head of this file.
    */
-  pitchTorque: 42,
+  // Coordinated arm reversals transmit their reaction into the trunk. A 42 Nm neck
+  // allowed 9.91 degrees of head tilt in the plated build; brace against that load.
+  pitchTorque: 100,
   yawTorque: 10,
 
   /** `CHAIN_WRIST.motorDamping`'s setting and argument, unchanged. 2026-09-04. */

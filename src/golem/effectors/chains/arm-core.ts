@@ -1,11 +1,10 @@
-import { JointActuator } from "../../joint-servo.ts";
+import { JointActuator, JointServo } from "../../joint-servo.ts";
 import { PhysicsConstraintAxis } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
 import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint, type Part } from "../../../rig.ts";
-import { AnchorDrive, DEFAULT_ANCHOR_AXES } from "../../anchor-drive.ts";
 import { CHAIN_REACH } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -23,62 +22,16 @@ import {
 import { ballShell, boneShell } from "../shell.ts";
 
 /**
- * The shoulder and elbow both rungs 2 and 3 are built on: three driven axes and one point.
+ * Continuous task-space commands mapped to a coordinated physical arm. The shoulder yaw,
+ * shoulder pitch and elbow each have one finite-effort actuator. The two-bone solution
+ * selects their targets throughout movement; no endpoint force constraint pulls the hand.
  *
- * Rung 3 is "the reach chain plus a wrist", and this file is what that sentence means in code.
- * Everything about *where the hand is* -- the geometry, the joint stops, the command mapping, the
- * envelope, the clamp and the anchor -- lives here and is shared verbatim, so the two rungs cannot
- * drift apart on the half they have in common. What `reach.ts` and `wrist.ts` own is only what
- * hangs off the end of it.
+ * Mapping, wrist-tip correction, envelope limits and target-rate limiting remain independent
+ * of the achieved pose. Feedback belongs only to the replaceable joint servos. There is no
+ * gesture/attack gate: a player and a continuous policy use the same command path.
  *
- * **This chain is a pure follower, and Session 12 is what made it one.** It used to do three
- * things to its commander on top of following them, and all three were removed together because
- * they were the same mistake three times:
- *
- * - `guard` overwrote the commanded elevation with a constant. Instrumented over eight bouts,
- *   `golem-duelist` asked its shield arm for **2001 distinct elevations and got 0.80 rad every
- *   time**, which is what held the plate above the golem's own head in the page.
- * - the reach was taken from the two buttons, three preset distances deep, so the arm's third
- *   positional degree of freedom had no continuous channel at all: **one distinct reach per hand
- *   over the same eight bouts**, against a shell 0.42 m deep.
- * - `thrust` started a scripted stroke -- a fixed sweep at a fixed rate for a fixed duration --
- *   during which `clampInto` was handed the *script's* target instead of the commander's, so the
- *   policy lost its own arm for the duration. **11 % of frames against the Warrior duelist,
- *   15.8 % against another golem.**
- *
- * What replaced them is one sentence: the chain spans three normalized channels onto its own
- * published envelope, clamps, and hands the anchor the result. Speed is what a commander gets by
- * moving its target quickly against a finite force budget and real mass, which is frozen rule 4
- * and is the only place speed should ever have come from. The scripting did not disappear -- a
- * mouse still needs it, and `src/buttons.ts` is where a person's held button becomes a reach --
- * it moved to the side of the seam that knows who is asking.
- *
- * **The published `EffectorStroke` is therefore always `idle` here.** That phase was the phase of
- * a scripted velocity event, and there is no script; a chain being driven fast by a commander is
- * not in a phase, it is being driven fast. What the module still publishes on its envelope is
- * `ARM_STROKES`, which is a different claim and survives unchanged -- see the note there.
- *
- * **The kinematics, because the envelope arithmetic depends on them.** The collar yaws about the
- * socket's own vertical; the upper arm pitches about the collar's lateral; the elbow bends about
- * that same lateral. Both shoulder pivots sit exactly on the socket, so the whole arm lies in one
- * vertical plane through the socket and the yaw chooses the plane. Writing a limb direction at
- * "pitch angle a" as `(0, -cos a, sin a)` and yawing it by `t` gives
- * `(sin a sin t, -cos a, sin a cos t)`, which against the spherical form
- * `(sin(az) cos(el), sin(el), cos(az) cos(el))` gives **`t = az` and `a = el + pi/2` exactly**.
- * A yaw-then-pitch gimbal *is* spherical coordinates about the socket, with the pole straight
- * down, and that pole is 0.62 rad outside `liftMin` so nothing here goes near it.
- *
- * **The anchor pins the forearm's far end and nothing else.** Three driven axes against three
- * linear constraints leaves no spare axis, so for any reachable target the whole chain -- elbow
- * included -- has exactly one admissible configuration, and the elbow's position is therefore a
- * single-valued function of the hand target. That is frozen rule 2, it is the claim this session
- * exists to test, and `tests/golem-bench.test.mjs` tests it by visiting a grid of the envelope
- * twice from opposite directions rather than by believing this paragraph.
- *
- * **Nothing here reads the achieved pose in order to decide the command.** A controller that
- * takes the error and steps the command toward it winds up: measured on the Warrior at 237 of
- * 420 steps pinned against the wrist stop with the hand 137 mm off its own anchor. The command is
- * a function of the cursor and the clock, and of nothing the solver did.
+ * The legacy anchor readout is the commanded hand point, not a body. Its distance from the
+ * actual hand reports tracking error. Wrist roll/bend remain owned by the wrist chain.
  */
 
 /** Where a terminal's own +X and +Y point in the frame of whatever link it welds onto. */
@@ -152,7 +105,6 @@ interface ArmCore {
   readonly collar: Part;
   readonly upper: Part;
   readonly fore: Part;
-  readonly anchor: AnchorDrive;
   /** The hand point in the forearm's own local frame: its far end. */
   readonly handPivot: Vector3;
   /** That same point in world space at construction, for a weld or a further link. */
@@ -234,7 +186,7 @@ interface ArmCore {
    */
   commandPoint(world: Vector3): void;
   step(dt: number): void;
-  /** Let go of the anchor and keep the linkage. See `BuiltChain.unmotorise`. */
+  /** Release the joint motors and keep the linkage. See `BuiltChain.unmotorise`. */
   unmotorise(): void;
   sever(): void;
   dispose(): void;
@@ -437,60 +389,45 @@ export function buildArmCore(
     swing: { x: { min: -R.elbowJointMax, max: -R.elbowJointMin } },
   });
 
-  // The hand's position drive cannot brake every internal arm motion equally. In raised
-  // poses, the heavy terminal can keep rocking the elbow/shoulder around a nearly stationary
-  // hand. Brake relative hinge motion inside the solver, with equal reaction on the parent.
-  // Track only the commanded joint velocity, with bounded resistance to its residual error.
-  // Fade that assistance out during deliberate motion so cuts retain their momentum. This
-  // depends on continuous target rates, not player/AI identity or an attack state machine.
-  const dampers = ([
-    [yaw, socket.mount, collar, new Vector3(0, 1, 0)],
-    [pitch, collar, upper, new Vector3(1, 0, 0)],
-    [elbowJoint, upper, fore, new Vector3(1, 0, 0)],
-  ] as const).map(([constraint, parent, child, axis]) => ({
-    actuator: new JointActuator(constraint, PhysicsConstraintAxis.ANGULAR_X),
-    parent, child, axis,
-  }));
-  const dampingAxis = new Vector3();
-  const lastJointTargets = [0, -upperPitch, -buildBones.beta];
-  const dampArm = (dt: number): void => {
-    const bones = twoBone(slewed.reach);
-    const targets = [outboard * slewed.swing, -(slewed.lift + Math.PI / 2 - bones.alpha), -bones.beta];
-    const rates = targets.map((target, i) => dt > 0 ? (target - lastJointTargets[i]) / dt : 0);
-    const holding = Math.max(0, 1 - Math.max(...rates.map(Math.abs)) / R.jointBrakeFadeRate);
-    for (const [i, { actuator, parent, child, axis }] of dampers.entries()) {
-      axis.rotateByQuaternionToRef(parent.mesh.rotationQuaternion ?? Quaternion.Identity(), dampingAxis);
-      const speed = Vector3.Dot(child.body.getAngularVelocity().subtract(parent.body.getAngularVelocity()), dampingAxis);
-      const wantedSpeed = rates[i];
-      lastJointTargets[i] = targets[i];
-      actuator.drive(wantedSpeed, Math.min(R.jointBrakeTorque, Math.abs(speed - wantedSpeed) * R.jointViscosity * holding));
-    }
-  };
-  const releaseDampers = (): void => { for (const { actuator } of dampers) actuator.release(); };
+  // Condition the serial linkage: tiny bearing inertia otherwise makes the solver ring
+  // under the carried terminal. Preserve mass and centre of mass; never lower an inertia.
+  for (const part of [collar, upper, fore]) {
+    const props = part.body.getMassProperties();
+    const own = props.inertia;
+    if (!own) throw new Error("Arm body has no rotational inertia");
+    part.body.setMassProperties({...props, inertia: new Vector3(Math.max(own.x, R.jointInertiaFloor), Math.max(own.y, R.jointInertiaFloor), Math.max(own.z, R.jointInertiaFloor))});
+  }
 
-  // --- the anchor -------------------------------------------------------------------------
+  // Every positional degree of freedom has one finite-effort motor. No hand pin competes
+  // with these joints. Controllers can be replaced independently of their actuators.
+  const relative = new Quaternion(), inverse = new Quaternion();
+  const angle = (parent: Part, child: Part, axis: "x" | "y"): number => {
+    (parent.mesh.rotationQuaternion ?? Quaternion.Identity()).conjugateToRef(inverse);
+    inverse.multiplyToRef(child.mesh.rotationQuaternion ?? Quaternion.Identity(), relative);
+    // Twist about the actual hinge axis, not Euler pitch (which folds beyond pi/2).
+    const value = 2 * Math.atan2(relative[axis], relative.w);
+    return Math.atan2(Math.sin(value), Math.cos(value));
+  };
+  const yawServo = new JointServo(new JointActuator(yaw, PhysicsConstraintAxis.ANGULAR_X),
+    () => angle(socket.mount, collar, "y"), 0, R.jointResponse);
+  const pitchServo = new JointServo(new JointActuator(pitch, PhysicsConstraintAxis.ANGULAR_X),
+    () => angle(collar, upper, "x"), -upperPitch, R.jointResponse);
+  const elbowServo = new JointServo(new JointActuator(elbowJoint, PhysicsConstraintAxis.ANGULAR_X),
+    () => angle(upper, fore, "x"), -buildBones.beta, R.jointResponse);
+  const releaseMotors = (): void => {
+    for (const servo of [yawServo, pitchServo, elbowServo]) servo.actuator.release();
+  };
+  const driveJoints = (dt: number): void => {
+    const { alpha, beta } = twoBone(slewed.reach);
+    yawServo.track(outboard * slewed.swing, dt, R.yawTorque);
+    pitchServo.track(-(slewed.lift + Math.PI / 2 - alpha), dt, R.shoulderTorque);
+    elbowServo.track(-beta, dt, R.elbowTorque);
+  };
+
   const handPivot = new Vector3(0, -R.foreLength / 2, 0);
   const handWorld = elbowWorld.add(foreDir.scale(R.foreLength));
-  const anchorFrame = limbFrame(forePitch);
-  const anchor = new AnchorDrive(ctx.scene, {
-    name: ctx.name,
-    target: fore,
-    reference: socket.mount,
-    referencePivot: socket.local,
-    position: handWorld.clone(),
-    rotation: anchorFrame,
-    pivot: handPivot,
-    parameters: {
-      ...DEFAULT_ANCHOR_AXES,
-      // **Position only.** The shoulder and the elbow own where the hand is; nothing here owns
-      // which way it faces, and on rung 3 the wrist's two motors own that and only that. There is
-      // no six-axis hand pin anywhere in a golem, which is why the Warrior's wrist fight cannot
-      // happen here: the two drives share no axis to fight over.
-      angular: [],
-      linearForce: R.anchorForce,
-      linearRate: R.anchorRate,
-    },
-  });
+  // Compatibility readouts call this an anchor; it is a target point, with no physics body.
+  const commandedPoint = handWorld.clone();
 
   // --- the shell --------------------------------------------------------------------------
   const parts: readonly GolemPart[] = Object.freeze([
@@ -572,7 +509,7 @@ export function buildArmCore(
    * handed. See `stepToward` for why the limiting happens here rather than at the anchor.
    */
   const sent: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
-  /** The same after the rate limit, read back out of the anchor. This is what is published. */
+  /** The commanded pose published to policies and diagnostics. */
   const slewed: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
   /** Where the hand actually got to, in the same three terms. Allocated once, read every step. */
   const achieved: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
@@ -610,37 +547,7 @@ export function buildArmCore(
   const mountRotation = (): Quaternion =>
     socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity();
 
-  /**
-   * Where this chain's socket is **now**, world, into a ref this core owns.
-   *
-   * `GolemSocket.world` is by contract the socket's position *at construction*, which is what the
-   * bodies and the joints above were built against and is all a chain bolted to the bench's
-   * kinematic block ever needs. Session 08 bolts one to a torso on a walking carrier, and a
-   * commanded point taken from the build-time world is the pose the arm should hold on a golem
-   * that stayed where it was put: the anchor would be sent to a fixed point in the arena and the
-   * limb would trail its own shoulder by however far the golem had walked.
-   *
-   * **Measured, and it is not a lag, it is the whole walk.** One default golem walking forward for
-   * ten seconds in the Node arena harness (2026-09-04, `.review/golem-measure.mjs`) covers 11.82 m,
-   * and the peak stray between the driven hand and its own anchor over that walk is:
-   *
-   * | commanded point built on | peak primary anchor stray | peak tip speed |
-   * | --- | --- | --- |
-   * | `socket.world`, the build-time frame | **10449.1 mm** | 10.16 m/s |
-   * | the live socket, below | **0.6 mm** | 3.62 m/s |
-   *
-   * The stray is the distance walked, to within the reach of the arm, because that is exactly what
-   * it was: the anchor stayed at the arena origin and the golem walked away from it, dragging the
-   * limb against its own stops the whole way. The tip speed is the same defect read from the other
-   * end -- a limb hauled along behind a body is moving fast without swinging at anything.
-   * `AGENTS.md` says a driven limb not within a few millimetres of its own anchor is stuck on
-   * something rather than posed wrongly; here it was stuck on the past.
-   *
-   * `mesh.position` and `mesh.rotationQuaternion` and nothing else: the world matrix
-   * short-circuits on the render id and reading it stamps that id. Session 07's torso and head
-   * recompute the same way and say so; this is the third statement of one rule, and the reason it
-   * is stated three times is that all three modules are driven from a mount that can move.
-   */
+  /** Live socket in world space; read raw transforms without stamping render matrices. */
   const socketWorld = (): Vector3 => {
     socket.local.rotateByQuaternionToRef(mountRotation(), scratch.socket);
     return scratch.socket.addInPlace(socket.mount.mesh.position);
@@ -739,17 +646,18 @@ export function buildArmCore(
    * `r dlift` in elevation and `r cos(lift) dswing` laterally, which is the metric on this
    * coordinate system and not an approximation of one.
    *
-   * The anchor keeps its own limiter, which is now a backstop rather than the mechanism: it
-   * still catches the first control step, where its command starts at the built hand's actual
-   * world position rather than at a mapped pose.
+   * The joint targets are derived from this limited pose, with no second endpoint limiter.
    */
-  const stepToward = (from: ArmCommand, to: ArmCommand, metres: number): void => {
+  const stepToward = (from: ArmCommand, to: ArmCommand, metres: number, dt: number): void => {
     const radius = from.reach;
     const forward = to.reach - from.reach;
     const elevation = (to.lift - from.lift) * radius;
     const lateral = (to.swing - from.swing) * radius * Math.cos(from.lift);
     const travel = Math.hypot(forward, elevation, lateral);
-    const fraction = travel <= metres || travel < 1e-12 ? 1 : metres / travel;
+    // Ease arrival on a held sample so low/jittered input rates do not repeatedly kick
+    // the joint velocity feedforward. This filters the command, never the rendered body.
+    const fraction = Math.min(travel <= metres || travel < 1e-12 ? 1 : metres / travel,
+      travel < 1e-4 ? 1 : 1 - Math.exp(-R.targetResponse * dt));
     from.reach += (to.reach - from.reach) * fraction;
     from.lift += (to.lift - from.lift) * fraction;
     from.swing += (to.swing - from.swing) * fraction;
@@ -775,7 +683,6 @@ export function buildArmCore(
     collar,
     upper,
     fore,
-    anchor,
     handPivot,
     handWorld,
     // **The forearm's frame, not the golem's.** A weld is built against the frame of the link it
@@ -791,11 +698,11 @@ export function buildArmCore(
 
     hand: handPoint,
     elbow: elbowPoint,
-    anchorPoint: () => anchor.anchor.mesh.position,
-    anchorStray: () => anchor.stray(),
+    anchorPoint: () => commandedPoint,
+    anchorStray: () => Vector3.Distance(handPoint(), commandedPoint),
 
     commandedHand: (): Vector3 =>
-      scratch.commandedHand.copyFrom(anchor.commandedPoint()),
+      scratch.commandedHand.copyFrom(commandedPoint),
 
     commandedForearm: (): Vector3 => {
       basisOf(slewed, scratch.forearm, scratch.lateral);
@@ -835,7 +742,7 @@ export function buildArmCore(
      */
     stroke: (): EffectorStroke => "idle",
 
-    // `slewed`, which is the anchor's own rate-limited point read back through `sphericalOf` --
+    // `slewed` is the rate-limited command --
     // so this is the pose the chain is *commanding*, not the pose the limb has reached. That is
     // the same choice `Arm.angles()` makes for the Warrior, and it is what makes the first
     // command after a handover identical to the last command before it rather than to whatever
@@ -896,7 +803,7 @@ export function buildArmCore(
       // press wants is a move that starts fast and eases in. A button press does want that; a
       // continuous command does not, and two limiters in series on one axis meant the reach
       // answered a policy's step more slowly than the swing and the lift beside it did. The
-      // anchor's own rate ceiling is the single limiter now, and it is the same one all three
+      // task-space rate ceiling is the single limiter, and it is the same one all three
       // axes go through.
       if (correct === null) {
         clampInto(demanded, wanted.swing, wanted.lift, wanted.reach);
@@ -919,7 +826,7 @@ export function buildArmCore(
       // Once acquired, normal continuous control keeps its existing speed and range limits.
       driveAge += dt;
       const ramp = Math.min(1, driveAge / R.acquireSeconds);
-      stepToward(sent, demanded, R.anchorRate * ramp * ramp * (3 - 2 * ramp) * dt);
+      stepToward(sent, demanded, R.anchorRate * ramp * ramp * (3 - 2 * ramp) * dt, dt);
       clampInto(scratch.pose, sent.swing, sent.lift, sent.reach);
       if (acquiring && Math.abs(scratch.pose.swing - sent.swing)
         + Math.abs(scratch.pose.lift - sent.lift) + Math.abs(scratch.pose.reach - sent.reach) < 1e-8) {
@@ -928,13 +835,9 @@ export function buildArmCore(
       if (!acquiring) Object.assign(sent, scratch.pose);
 
       pointAt(sent.swing, sent.lift, sent.reach, scratch.target);
-      // The rotation handed over never changes, because no angular axis is motorised on this
-      // anchor: the wrist owns orientation on rung 3 and nothing owns it on rung 2. Passing the
-      // build frame rather than a live one keeps that visible -- a rotation that moved here would
-      // be a second owner appearing.
-      anchor.drive(dt, scratch.target, anchorFrame);
-      sphericalOf(anchor.commandedPoint(), slewed);
-      dampArm(dt);
+      commandedPoint.copyFrom(scratch.target);
+      Object.assign(slewed, sent);
+      driveJoints(dt);
 
       // The achieved half, read back out of the hand's actual position in the mount's frame --
       // `mesh.position` and `mesh.rotationQuaternion` and nothing else, so nothing here stamps a
@@ -951,12 +854,8 @@ export function buildArmCore(
     unmotorise(): void {
       if (passive) return;
       passive = true;
-      // The anchor's constraint goes and the anchor's body stays, which is exactly
-      // `AnchorDrive.release`. Nothing else moves: the yaw, pitch and elbow joints and every
-      // one of their stops are what makes the trailing limb an *arm* rather than a rope, and
-      // they are the half of the linkage that is still doing a job.
-      releaseDampers();
-      anchor.release();
+      // The trailing limb keeps its physical joints and limits, but no active arm motors.
+      releaseMotors();
     },
 
     sever(): void {
@@ -964,8 +863,7 @@ export function buildArmCore(
       severed = true;
       // The drives go with the limb. A motor still dragging a chain that has been cut off is the
       // haunting the Warrior's anchors produce when an arm comes away from them.
-      releaseDampers();
-      anchor.release();
+      releaseMotors();
       yaw?.dispose();
       yaw = null;
       pitch?.dispose();
@@ -976,8 +874,7 @@ export function buildArmCore(
 
     dispose(): void {
       severed = true;
-      releaseDampers();
-      anchor.dispose();
+      releaseMotors();
       yaw?.dispose();
       yaw = null;
       pitch?.dispose();
