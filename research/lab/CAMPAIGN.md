@@ -128,7 +128,7 @@ Paired completed the fresh 5,040-bout, 15-policy, 12-build league without failur
 gave a 56.47% match score and Glicko-2 rating **1567**, deviation 20. This is a provisional
 one-round rating, not evidence that it is distinguishable from Champion's 1569. The normal
 picker now offers **Golem paired (dual specialist)** with the evaluation date. Original policies
-remain. The full admission record is `results/admission.json`; earlier four-round evidence is
+remain. The full admission record is `results/paired-admission.json`; earlier four-round evidence is
 still preserved under `research/results/`.
 
 Chrome review of the normal, non-preview arena confirmed the published label, score, date and
@@ -381,6 +381,12 @@ fraction 0.232 versus 0.189; these are behavioral proxies, not damaging-hit coun
 The admission league was checkpointed and resumed with eight isolated workers after verifying
 32 logical CPUs were available. Completed bout identities and the cumulative budget were retained;
 changing worker count does not alter the frozen schedule. No user processes were stopped.
+
+A warm Node inference check on a close-range, real published twin-blade view used 2,000 warmup
+calls and ten batches of 1,000 decisions per controller. Mean decision times were 0.00188 ms
+for Duelist, 0.00826 ms for Paired and 0.01019 ms for Needle, under concurrent league load.
+This fixed-view microbenchmark establishes inexpensive command computation, not browser
+end-to-end frame latency or a whole-fight performance guarantee.
 
 The archived seed-22 PPO checkpoint was also evaluated with its learned Gaussian sampling,
 after checking exact weight equality against the mean export. Sampled selection scored 53.125%

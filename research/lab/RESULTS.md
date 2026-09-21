@@ -1,5 +1,8 @@
 # Next-wave feasibility results — September 21, 2026
 
+This is the historical pilot report, not the latest roster status. The subsequent authorized
+eight-hour campaign, admissions and negative results are recorded in [CAMPAIGN.md](CAMPAIGN.md).
+
 Implemented a bounded research laboratory. **No new policy is promoted, and no production rating
 is replaced.** These runs establish executable experiments and expose limitations, not a strong
 new generation of fighters. The complete compact evidence and six browser-compatible smoke
