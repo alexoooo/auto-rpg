@@ -170,3 +170,31 @@ trace regression verifies the named zero-residual equivalence. The dataset retai
 provenance and also exports a constant-mean residual model as an imitation control. Neither that
 control nor a distilled student has yet demonstrated held-out strength. The privileged teacher
 can use information unavailable to a student, and its finite-search choices are not ground truth.
+
+## Learning decision after the first stronger-baseline seed
+
+The first source-frozen Duelist-residual PPO seed (`wave3-duelist-r3-11`) trained for 892 seconds,
+with four environments, 390,820 decisions and 3,052 updates. Export parity error was 1.41e-7.
+Its 32 held-out selection bouts scored **34.4%**, versus the matched ordinary Duelist's **57.8%**.
+The paired score difference was -23.4 percentage points (95% bootstrap interval -42.2 to -4.7).
+There were no truncated bouts. This is a negative result, not an admission candidate.
+
+The largest deficits were whip (25% versus 62.5%) and ram-blade (12.5% versus 75%), neither
+of which appears in the training pool. Default tied the control at 50%; maul scored 50% versus
+43.75%. These small subgroups diagnose where to investigate, not established specialist wins.
+The next comparisons are a second seed, NEAT, fixed-topology evolution, lower-exploration PPO,
+pilot/direct PPO, and imitation against its constant-mean control. Training wins do not substitute
+for any of these held-out outcomes.
+
+**Teacher/student holdout rule:** Champion supplied the successful reference trajectories, so it
+is training data for their students. Champion must not count toward an independent student
+confirmation claim. Reserve Tactician and Miser for that claim, with fresh seeds and matched
+controls; keep any Champion result explicitly exploratory. Broader reference searches used as
+future imitation data must likewise not consume these reserved opponents unnoticed.
+
+The second matched PPO seed completed 402,184 decisions and 3,140 updates, then scored 59.4%
+in all 32 selection bouts against the control's 57.8%. Its +1.6-point difference has a wide
+interval (-21.9 to +23.4 points), so this is **not evidence of improvement**. The per-build
+scores were default 62.5%, maul 75%, whip 37.5%, ram-blade 62.5%. The maul result is a possible
+specialist hypothesis for fresh confirmation, not a confirmed counter. Both seeds show why
+one successful training run or one favorable subgroup is insufficient.
