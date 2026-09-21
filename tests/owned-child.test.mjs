@@ -2,6 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { guardOwnedChild } from "../research/owned-child.mjs";
+
+test("a normally completed child releases its parent's exit hook", async () => {
+  const before = process.listenerCount("exit");
+  const child = guardOwnedChild(spawn(process.execPath, ["-e", "process.exit(0)"],
+    { windowsHide: true, stdio: "ignore" }));
+  assert.equal(process.listenerCount("exit"), before + 1);
+  const [code] = await once(child, "exit");
+  assert.equal(code, 0);
+  assert.equal(process.listenerCount("exit"), before);
+});
 
 test("an unexpectedly exiting research parent terminates its owned child", { timeout: 15000 }, async () => {
   const helper = new URL("../research/owned-child.mjs", import.meta.url).href;

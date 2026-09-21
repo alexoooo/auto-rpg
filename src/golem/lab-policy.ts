@@ -104,7 +104,9 @@ export function directIntent(action: number[], view: FighterView, base?: Intent)
     if (view.self.hands[hand].lost) intent[hand] = freshGolemIntent()[hand];
   }
   intent.natural.thrust = gate(intent.natural.thrust); intent.natural.guard = gate(intent.natural.guard);
-  intent.actingHand = !view.self.hands.primary.lost ? "primary" : !view.self.hands.secondary.lost ? "secondary" : null;
+  if (!base || (intent.actingHand !== null && view.self.hands[intent.actingHand].lost)) {
+    intent.actingHand = !view.self.hands.primary.lost ? "primary" : !view.self.hands.secondary.lost ? "secondary" : null;
+  }
   return intent;
 }
 

@@ -23,7 +23,8 @@ export function labFingerprint() {
 export function snapshotSources() {
   const files = [...fingerprint().files,
     ...readdirSync(join(ROOT, "research/lab")).filter((f) => /\.(mjs|py|ini|txt|html)$/.test(f)).map((f) => `research/lab/${f}`),
-    "src/golem/lab-policy.ts", "src/golem/lab-bespoke.ts", "src/golem/lab-model.ts"];
+    "src/golem/lab-policy.ts", "src/golem/lab-bespoke.ts", "src/golem/lab-model.ts",
+    "research/owned-child.mjs", "research/runner.mjs", "research/fingerprint.mjs"];
   return Object.fromEntries([...new Set(files)].sort().map((f) => [f, readFileSync(join(ROOT, f), "utf8")]));
 }
 export const SPLITS = Object.freeze({
@@ -35,9 +36,11 @@ export const SPLITS = Object.freeze({
 });
 
 export async function collect({ deadline, surface = "pilot", seconds = 10, seed = 1, build = "default", policy,
+  opponent = "golem-fencer", opponentBuild = build, controlBaseline = "golem-driver",
   onTransition = () => {} }) {
-  const env = await createEnvironment({ seed, surface, maxSeconds: seconds, trace: true, leftBuild: build, rightBuild: build,
-    controlBaseline: policy?.kind === "network" ? policy.model.baseline ?? "golem-driver" : "golem-driver",
+  const env = await createEnvironment({ seed, surface, maxSeconds: seconds, trace: true, leftBuild: build, rightBuild: opponentBuild,
+    right: { kind: "baseline", name: opponent },
+    controlBaseline: policy?.kind === "network" ? policy.model.baseline ?? "golem-driver" : controlBaseline,
     ...(policy ? { left: policy } : {}) });
   const random = mulberry32(seed);
   try {

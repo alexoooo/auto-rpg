@@ -11,6 +11,29 @@ import { digest } from "../research/schedule.mjs";
 import { policyMind } from "../src/mind.ts";
 import { exportPoses } from "../research/lab/poses.mjs";
 import { LAB_BASELINES, originalMind } from "../src/golem/lab-baselines.ts";
+import { referenceFight } from "../research/lab/reference.mjs";
+
+test("reference fights finish their configured horizon and retain a valid prefix on budget expiry", async () => {
+  const config = { surface: "residual", controlBaseline: "golem-duelist", seed: 55,
+    left: { kind: "baseline", name: "golem-duelist" }, maxSeconds: 0.25 };
+  const result = await referenceFight({ config, candidates: 2, horizon: 1 / 12,
+    commitSeconds: 1 / 12, maxDecisions: 10, deadline: Date.now() + 60000 });
+  assert.equal(result.status, "finished");
+  assert.equal(result.record.config.seed, 55);
+  assert.equal(result.record.config.controlBaseline, "golem-duelist");
+  assert.ok(result.record.steps.at(-1).truncated);
+  const copy = await replay(result.record);
+  copy.close();
+  const env = await createEnvironment({ ...config, maxSeconds: 10, trace: true });
+  let record;
+  try { env.step(); record = recording(env); } finally { env.close(); }
+  const limited = await referenceFight({ record, candidates: 64, horizon: 2, maxDecisions: 100,
+    deadline: Date.now() + 10 });
+  assert.equal(limited.status, "budget");
+  assert.equal(limited.record.id, record.id);
+  const recovered = await replay(limited.record);
+  recovered.close();
+});
 
 test("stepping preserves the whole-bout result, and disposal is idempotent", async () => {
   const env = await createEnvironment({ maxSeconds: 3 });
@@ -77,6 +100,12 @@ test("direct commands remain legal after losing both hands and bespoke policies 
     bout.step();
     // Real publication, explicitly changed to exercise the capability-loss branch.
     const view = bout.left.view;
+    const base = freshGolemIntent();
+    base.actingHand = "secondary";
+    base.secondary.roll = 0.2;
+    assert.deepEqual(directIntent(Array(22).fill(0), view, base), base);
+    base.actingHand = null;
+    assert.deepEqual(directIntent(Array(22).fill(0), view, base), base);
     const before = labObservation(view);
     assert.equal(before.length, OBSERVATION_NAMES.length);
     assert.deepEqual(labObservation(view, 1), before.slice(0, LEGACY_OBSERVATION_NAMES.length));

@@ -1,8 +1,9 @@
 # Next-wave combat laboratory
 
-This is experimental infrastructure, not a new set of promoted champions. It runs the game's
-real Havok simulation and the same `Intent` boundary as the player. No physics, motor ceilings,
-damage rules or shipped policies are changed. Dated arena ratings remain available.
+This is experimental infrastructure with a separate evidence-gated admission path. It runs the
+game's real Havok simulation and the same `Intent` boundary as the player. No physics, motor
+ceilings or damage rules are changed. Dated arena ratings remain available. Paired is the first
+admitted specialist; other candidates remain experimental unless explicitly reviewed and admitted.
 
 ## Setup and bounded runs
 
@@ -156,6 +157,12 @@ implements repeated search with 0.25-second executed prefixes and incremental re
 node research/lab/cli.mjs reference --dir research/runs/my-lab --tier privileged --decisions 8 --seconds 120
 node research/lab/cli.mjs reference --dir research/runs/my-lab --tier fair --decisions 8 --seconds 60
 ```
+
+Privileged references also accept `--surface residual --baseline golem-duelist --opponent
+golem-champion --seed 55 --build default`. Collect a matching ordinary control with the same
+settings and `--policy golem-duelist`. Fair reference currently uses the pilot action surface.
+Resume refuses changed fight settings, and search-deadline exhaustion preserves the last valid
+executed prefix rather than discarding the fight.
 
 Reissuing it continues the saved fight under the same source manifest. Default duration is the
 normal 150-second harness cap; default eight decisions is a smoke workload, not a full fight.

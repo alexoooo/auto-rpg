@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { admissionEvidence } from "../research/admit-lab.mjs";
 import { digest } from "../research/schedule.mjs";
 import { validatePublishedLabPolicy } from "../src/golem/researched-lab-policies.ts";
@@ -23,4 +25,19 @@ test("admission requires independent superiority, matching source and browser re
   assert.throws(() => admissionEvidence(proposal, { ...candidate, split: "selection" }, control, "current"), /confirmation/);
   assert.throws(() => admissionEvidence(proposal, candidate, { ...control, rows: candidate.rows }, "current"), /improvement/);
   assert.throws(() => validatePublishedLabPolicy({ ...proposal.entry, admission: {} }), /evidence/);
+});
+
+test("a nonempty published registry initializes and constructs policies without an import cycle", () => {
+  const entry = fixture().proposal.entry;
+  const script = `import {registerHooks} from 'node:module';
+    registerHooks({load(url,context,next){
+      if(url.endsWith('/src/golem/researched-lab.json')) return {format:'json',
+        source:${JSON.stringify(JSON.stringify([entry]))},shortCircuit:true};
+      return next(url,context);
+    }});
+    const {POLICIES}=await import('./src/mind.ts');
+    console.log(POLICIES.find(p=>p.name===${JSON.stringify(entry.name)}).create(11).name);`;
+  const output = execFileSync(process.execPath, ["--input-type=module", "-e", script],
+    { cwd: fileURLToPath(new URL("../", import.meta.url)), encoding: "utf8", windowsHide: true });
+  assert.equal(output.trim(), entry.name);
 });

@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "name": "golem-researched-paired-v1",
+    "label": "Golem paired (dual specialist)",
+    "spec": {
+      "kind": "bespoke",
+      "name": "paired"
+    },
+    "admission": {
+      "evaluatedAt": "2026-09-21",
+      "reviewedAt": "2026-09-21T18:06:34.514Z",
+      "evidence": "research/lab/results/campaign.json: wave3-paired-confirm",
+      "scope": "Independent improvement on two-blade and fist builds; original Duelist fallback on other bodies. Overall league rating is not a build-specific prediction."
+    }
+  }
+]

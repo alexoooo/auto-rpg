@@ -20,10 +20,17 @@ export async function referenceFight({ tier = "privileged", record = null, confi
     if (state.terminated || state.truncated) { status = "finished"; break; }
     if (Date.now() >= deadline) { status = "budget"; break; }
     // The fair function is handed only the current public vector and the frozen model.
-    const label = tier === "privileged" ? await oracle(record, record.steps.length,
-      { deadline, candidates, iterations: 1, horizon, seed: record.steps.length })
-      : fairPlan(state.observation, model, { seed: record.steps.length });
-    const env = await replay(record, record.steps.length, { deadline });
+    let label, env;
+    try {
+      label = tier === "privileged" ? await oracle(record, record.steps.length,
+        { deadline, candidates, iterations: 1, horizon, seed: record.steps.length })
+        : fairPlan(state.observation, model, { seed: record.steps.length });
+      env = await replay(record, record.steps.length, { deadline });
+    } catch (error) {
+      if (!/deadline|budget exhausted/.test(String(error))) throw error;
+      status = "budget";
+      break; // The last fully reconstructed and executed prefix remains the checkpoint.
+    }
     try {
       // 0.25 s is shorter than the planned horizon; no frozen opponent future is reused.
       for (let step = 0; step < Math.max(1, Math.round(record.config.hz * commitSeconds)); step++) {

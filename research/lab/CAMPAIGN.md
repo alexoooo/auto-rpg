@@ -121,3 +121,28 @@ training workers. Atomic checkpoint writes now retry transient EPERM/EACCES/EBUS
 most 980 ms, preserve the previous destination until replacement succeeds, and still report
 permanent errors. Retry, exhaustion and non-lock error cases are tested. Training must be rerun;
 this was an infrastructure failure, not evidence about PPO strength.
+
+## First admission and full-fight teacher result
+
+Paired completed the fresh 5,040-bout, 15-policy, 12-build league without failures. Its 672 bouts
+gave a 56.47% match score and Glicko-2 rating **1567**, deviation 20. This is a provisional
+one-round rating, not evidence that it is distinguishable from Champion's 1569. The normal
+picker now offers **Golem paired (dual specialist)** with the evaluation date. Original policies
+remain. The full admission record is `results/admission.json`; earlier four-round evidence is
+still preserved under `research/results/`.
+
+Chrome review of the normal, non-preview arena confirmed the published label, score, date and
+provisional note. A twin-blade fight against Duelist completed with Paired winning at 59% vitality
+and no browser errors. The owned review tab and Vite server were stopped again.
+
+The first full-fight privileged reference (`wave3-reference-full`) used Duelist residual control,
+Champion as the opponent, default bodies, seed 55, 16 branches, a two-second horizon and half-second
+executed prefixes. Its matched ordinary Duelist control lost at 29.633 seconds. Search won at
+3.617 seconds with 92.86% vitality, after eight replans. This is one illustrative, known-opponent
+fight, not a general strength estimate. Four predefined seed/body replications are now running.
+
+Before the next learner batch, zero residual control was corrected to preserve the baseline's
+acting-hand metadata, and the trainer now installs the tested owned-child exit guard. Reference
+runs accept explicit seed/body/opponent/baseline settings, reject changed resume configurations,
+and preserve their last valid checkpoint when a search deadline expires. New runs retain new
+source snapshots rather than modifying the earlier evidence. The complete suite passes 638 tests.

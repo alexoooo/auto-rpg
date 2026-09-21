@@ -1,12 +1,13 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join, relative } from "node:path";
-import { spawn, execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import { guardOwnedChild, terminateOwnedChild } from "../owned-child.mjs";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { atomicJson, lockRun } from "../runner.mjs";
 import { ROOT } from "../fingerprint.mjs";
 import { stable, digest } from "../schedule.mjs";
 import { collect, scenarios, labFingerprint, snapshotSources, refit, portfolio, evaluatePolicy } from "./experiments.mjs";
-import { replay } from "./environment.mjs";
+import { DEFAULT_CONFIG, replay } from "./environment.mjs";
 import { oracle, fitObservationModel, fairPlan, calibrateObservationModel } from "./planning.mjs";
 import { updateArchive } from "./archive.mjs";
 import { referenceFight } from "./reference.mjs";
@@ -41,19 +42,14 @@ const allowance = Math.min(seconds * 1000, maxComputeMs - budget.usedMs);
 const deadline = start + allowance;
 let child = null, checkpoint;
 const saveBudget = () => atomicJson(budgetPath, { ...budget, usedMs: budget.usedMs + Date.now() - start });
-const stopChild = () => {
-  if (child && child.exitCode === null && child.signalCode === null) {
-    if (process.platform === "win32") { try { execFileSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" }); } catch {} }
-    else child.kill("SIGTERM");
-  }
-};
+const stopChild = () => terminateOwnedChild(child);
 const signal = () => { stopChild(); saveBudget(); unlock(); process.exit(130); };
 process.once("SIGINT", signal); process.once("SIGTERM", signal);
 const read = (name) => JSON.parse(readFileSync(join(directory, name), "utf8"));
 async function trainChild(trainingArgs, milliseconds) {
   const python = resolve(flags.python ?? ".tools/ai-lab-venv/Scripts/python.exe");
-  child = spawn(python, trainingArgs, { cwd: ROOT, stdio: "inherit", windowsHide: true,
-    env: { ...process.env, MPLCONFIGDIR: join(ROOT, ".tools/matplotlib-cache") } });
+  child = guardOwnedChild(spawn(python, trainingArgs, { cwd: ROOT, stdio: "inherit", windowsHide: true,
+    env: { ...process.env, MPLCONFIGDIR: join(ROOT, ".tools/matplotlib-cache") } }));
   const watchdog = setTimeout(stopChild, milliseconds);
   try { await new Promise((done, reject) => { child.once("error", reject); child.once("exit", (code) => code === 0 ? done() : reject(new Error(`trainer exited ${code}`))); }); }
   finally { clearTimeout(watchdog); }
@@ -131,7 +127,10 @@ try {
       const transitions = [];
       const record = await collect({ deadline, surface: flags.surface ?? "pilot", seconds: Number(flags.duration ?? 10),
         seed: Number(flags.seed ?? 1), build: flags.build ?? "default",
-        ...(flags.policy ? { policy: { kind: "bespoke", name: flags.policy } } : {}), onTransition: (r) => transitions.push(r) });
+        opponent: flags.opponent ?? "golem-fencer", opponentBuild: flags.opponentBuild ?? flags.build ?? "default",
+        controlBaseline: flags.baseline ?? "golem-driver",
+        ...(flags.policy ? { policy: { kind: flags.policy.startsWith("golem-") ? "baseline" : "bespoke", name: flags.policy } } : {}),
+        onTransition: (r) => transitions.push(r) });
       atomicJson(join(directory, "replay.json"), record);
       atomicJson(join(directory, "transitions.json"), transitions);
       atomicJson(join(directory, "scenarios.json"), scenarios(record));
@@ -174,8 +173,17 @@ try {
       const search = { candidates: Number(flags.candidates ?? 4), horizon: Number(flags.horizon ?? 2),
         commitSeconds: Number(flags.commit ?? 0.25) };
       if (existing?.search && stable(existing.search) !== stable(search)) throw new Error("reference search changed; use a new experiment");
+      const config = { surface: flags.surface ?? "pilot", maxSeconds: Number(flags.duration ?? 150),
+        seed: Number(flags.seed ?? DEFAULT_CONFIG.seed), leftBuild: flags.build ?? "default",
+        rightBuild: flags.opponentBuild ?? flags.build ?? "default", controlBaseline: flags.baseline ?? "golem-driver",
+        left: { kind: "baseline", name: flags.baseline ?? "golem-driver" },
+        right: { kind: "baseline", name: flags.opponent ?? "golem-fencer" } };
+      if (tier === "fair" && config.surface !== "pilot") throw new Error("fair reference currently requires the pilot action surface");
+      if (existing && Object.entries(config).some(([key, value]) => stable(existing.record.config[key]) !== stable(value))) {
+        throw new Error("reference fight configuration changed; use a new experiment");
+      }
       const result = await referenceFight({ tier, record: existing?.record ?? null,
-        config: { surface: "pilot", maxSeconds: Number(flags.duration ?? 150) },
+        config,
         model: tier === "fair" ? read("observation-model.json") : null, deadline, ...search,
         maxDecisions: Number(flags.decisions ?? 8), onCheckpoint: (value) => atomicJson(join(directory, name),
           { ...value, search, labels: [...(existing?.labels ?? []), ...value.labels] }) });

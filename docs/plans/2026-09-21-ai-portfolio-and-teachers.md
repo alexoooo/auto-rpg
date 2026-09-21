@@ -58,9 +58,9 @@ The ongoing eight-hour campaign is recorded in
 | --- | --- |
 | Common arena strength | Dated cross-build Glicko-2 ratings remain visible through code changes. |
 | Laboratory correctness | Real-Havok stepping, exact-prefix replay, legal action adapters, old-network compatibility and Python/browser inference parity are tested. |
-| Bespoke specialists | Paired passed 96-bout independent cross-build confirmation against matched Duelist controls and three browser scenarios; its complete rating round is running. Other initial prototypes did not earn promotion. |
+| Bespoke specialists | Paired passed 96-bout independent cross-build confirmation, representative browser review and a 5,040-bout rating round. It is admitted at provisional 1567. Other initial prototypes did not earn promotion. |
 | Learning | Full-episode Driver-residual PPO reward ablation was weak; stronger-baseline multi-seed PPO, NEAT and fixed-topology evolution remain to be evaluated. A checkpoint-lock failure was operational, not a learning result. |
-| Expensive teachers | All 39 matched 4/16/64-branch queries completed on 13 actual replay scenarios. Full-fight receding-horizon performance remains unproved. |
+| Expensive teachers | All 39 matched 4/16/64-branch queries completed. One full-fight search beat Champion where its matched Duelist control lost; multi-seed/body replication is running. General strength remains unproved. |
 | Fair approximate planning | Independent predictive-calibration mechanism is implemented; calibrated planning performance remains unproved. |
 | Distillation / DAgger | Multi-round student-visited query pipeline is implemented; independent student strength remains unproved. |
 | Adaptive population | Observation-conditioned mixtures and prior-winner opponents are implemented; multi-generation campaign results remain pending. |

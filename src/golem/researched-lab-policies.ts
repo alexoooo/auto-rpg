@@ -31,5 +31,5 @@ export const RESEARCHED_LAB_POLICIES = (entries as PublishedLabPolicy[]).map((en
   // Validation is pure: factories must not run while the policy registry is initializing.
   validatePublishedLabPolicy(entry);
   return { name: entry.name, label: entry.label, surface: GOLEM_CONTROL_SURFACE,
-    create: (seed = (Math.random() * 0x100000000) >>> 0) => labMind(entry.spec, seed) };
+    create: (seed = (Math.random() * 0x100000000) >>> 0) => ({ ...labMind(entry.spec, seed), name: entry.name }) };
 });
