@@ -1,5 +1,9 @@
 # AI league and research
 
+The next-wave combat lab (PPO, NEAT, evolution, bespoke policies, direct control and slow
+teachers) is documented in [lab/README.md](lab/README.md). It is isolated from the production
+league and does not automatically promote experimental policies or replace arena ratings.
+
 The league measures policies across bodies, using the game's real Havok bout runner. Ratings are
 offline Glicko-2 measurements, not a difficulty promise for a particular selected body. Arena games
 never alter them. `src/policy-ratings.json` is the small shipped artifact; `results/` holds published

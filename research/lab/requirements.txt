@@ -1,0 +1,6 @@
+# Python 3.13; isolated .tools/ai-lab-venv. Freeze resolved transitive versions per experiment.
+numpy==2.2.6
+torch==2.9.1
+gymnasium==1.2.3
+stable-baselines3==2.7.1
+neat-python==2.0.0

@@ -1,5 +1,9 @@
 # AI research record
 
+The next-wave implementation and bounded feasibility results are in
+[lab/README.md](lab/README.md) and [lab/RESULTS.md](lab/RESULTS.md). The historical league results
+below remain dated measurements, not claims about the new experimental policies.
+
 ## September 2026 restart: what survives in the game
 
 This record concerns the flattened golem game, not the deleted Warrior training project.

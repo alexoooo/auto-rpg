@@ -1,0 +1,184 @@
+/** Experimental, browser-compatible policies. Not admitted to the normal picker. */
+import { policyMind, type FighterView, type Intent, type Mind } from "../mind.ts";
+import { freshGolemIntent } from "./tactics.ts";
+import { golemDriven, GOLEM_TACTICS_V4, COMMAND_FIELDS, COMMAND_RANGES, freshCommand } from "./tactics-v4.ts";
+import { golemStyled, GOLEM_TACTICS_V3, type StyleOption } from "./tactics-v3.ts";
+import { golemPlanner } from "./planner.ts";
+import type { DuelModelTables } from "./duel-model.ts";
+
+export const LAB_VERSION = 1;
+export const HANDS = ["primary", "secondary"] as const;
+const AXES = ["pointerX", "pointerY", "reach", "roll", "wristBend"] as const;
+export type LabSurface = "pilot" | "direct" | "residual";
+export const DIRECT_FIELDS = ["forward", "strafe", "turn", "lean", "twist", "crouch",
+  ...HANDS.flatMap((h) => [...AXES, "thrust", "guard"].map((a) => `${h}.${a}`)), "natural.thrust", "natural.guard"];
+export const OBSERVATION_NAMES = ["measure", "clock", "opponentX", "opponentZ", "bearingSin", "bearingCos",
+  ...["self", "opponent"].flatMap((side) => ["vitality", "reach", "crouch", "lean", "twist",
+    ...HANDS.flatMap((h) => ["lost", "reach", "tipX", "tipY", "tipZ", "velocityX", "velocityY", "velocityZ"]
+      .map((k) => `${h}.${k}`))].map((k) => `${side}.${k}`))];
+export const clamp = (x: number, lo = -1, hi = 1): number => Math.max(lo, Math.min(hi, x));
+
+/** Fixed scaling, no dataset statistics or private simulator/controller state. */
+export function labObservation(view: FighterView): number[] {
+  const s = Math.sin(view.self.facing), c = Math.cos(view.self.facing);
+  const local = (x: number, z: number): number[] => [x * c - z * s, x * s + z * c];
+  const offset = local(view.opponent.ground.x - view.self.ground.x, view.opponent.ground.z - view.self.ground.z);
+  const out = [view.measure / 4, view.clock / 150, offset[0] / 4, offset[1] / 4,
+    Math.sin(view.opponent.facing - view.self.facing), Math.cos(view.opponent.facing - view.self.facing)];
+  for (const body of [view.self, view.opponent]) {
+    out.push(body.vitality, body.reach / 3, body.crouch, body.trunkLean, body.trunkTwist);
+    for (const hand of HANDS) {
+      const h = body.hands[hand];
+      const p = local(h.tip.x - body.ground.x, h.tip.z - body.ground.z);
+      const v = local(h.tipVelocity.x, h.tipVelocity.z);
+      out.push(h.lost ? 1 : 0, h.reach / 3, ...(h.lost ? [0, 0, 0, 0, 0, 0]
+        : [p[0] / 3, (h.tip.y - body.ground.y) / 3, p[1] / 3, v[0] / 30, h.tipVelocity.y / 30, v[1] / 30]));
+    }
+  }
+  if (out.some((v) => !Number.isFinite(v))) throw new Error("non-finite lab observation");
+  return out.map((v) => clamp(v, -5, 5));
+}
+export function actionSize(surface: LabSurface): number {
+  if (surface === "pilot") return COMMAND_FIELDS.length;
+  if (surface === "direct" || surface === "residual") return DIRECT_FIELDS.length;
+  throw new Error("unknown lab action surface");
+}
+export function validateAction(surface: LabSurface, action: number[]): void {
+  if (!Array.isArray(action) || action.length !== actionSize(surface)
+    || action.some((v) => !Number.isFinite(v) || Math.abs(v) > 1)) throw new Error("invalid lab action");
+}
+export function pilotCommand(action: number[]) {
+  validateAction("pilot", action);
+  const command = freshCommand();
+  COMMAND_FIELDS.forEach((key, i) => {
+    const [lo, hi] = COMMAND_RANGES[key];
+    command[key] = lo + (action[i] + 1) * (hi - lo) / 2;
+  });
+  return command;
+}
+export function directIntent(action: number[], view: FighterView, base?: Intent): Intent {
+  validateAction(base ? "residual" : "direct", action);
+  const intent = base ? structuredClone(base) : freshGolemIntent();
+  let i = 0;
+  const value = (old: number, lo = -1, hi = 1) => base ? clamp(old + 0.25 * action[i++], lo, hi)
+    : lo + (action[i++] + 1) * (hi - lo) / 2;
+  const gate = (old: boolean) => { const a = action[i++]; return base && Math.abs(a) < 0.5 ? old : a > 0; };
+  intent.forward = value(intent.forward); intent.strafe = value(intent.strafe); intent.turn = value(intent.turn);
+  intent.posture.trunkLean = value(intent.posture.trunkLean);
+  intent.posture.trunkTwist = value(intent.posture.trunkTwist);
+  intent.posture.crouch = value(intent.posture.crouch, 0, 1);
+  for (const hand of HANDS) {
+    for (const axis of AXES) intent[hand][axis] = axis === "roll" ? value(intent[hand][axis], -Math.PI, Math.PI)
+      : axis === "wristBend" ? value(intent[hand][axis], 0, 1) : value(intent[hand][axis]);
+    intent[hand].thrust = gate(intent[hand].thrust); intent[hand].guard = gate(intent[hand].guard);
+    if (view.self.hands[hand].lost) intent[hand] = freshGolemIntent()[hand];
+  }
+  intent.natural.thrust = gate(intent.natural.thrust); intent.natural.guard = gate(intent.natural.guard);
+  intent.actingHand = !view.self.hands.primary.lost ? "primary" : !view.self.hands.secondary.lost ? "secondary" : null;
+  return intent;
+}
+
+export const BESPOKE = ["punisher", "interceptor", "feinter", "coordinator", "rush", "turtle", "circle"] as const;
+export type Bespoke = typeof BESPOKE[number];
+export function bespokeMind(kind: Bespoke, seed: number): Mind {
+  if (!(BESPOKE as readonly string[]).includes(kind)) throw new Error("unknown bespoke policy");
+  let feinted = -Infinity;
+  const executor = golemStyled(seed, GOLEM_TACTICS_V3, (available, r, view) => {
+    const choose = (...options: StyleOption[]) => options.find((o) => available.includes(o)) ?? available[0];
+    const canPunish = r.theirs === "recover" || (r.sinceTheirCommit > 0.2 && r.sinceTheirCommit < 0.65);
+    if (kind === "rush") return choose("ram", "shove", "cut", "strike", "close");
+    if (kind === "turtle") return choose("parry", "wait", "hold");
+    if (kind === "circle") return choose("circle", "cut", "close");
+    if (kind === "interceptor" && r.intercept !== null) return choose("parry", "void", "withdraw");
+    if (kind === "feinter" && view.clock - feinted > 1.5 && available.includes("feint")) {
+      feinted = view.clock; return "feint";
+    }
+    if (kind === "coordinator" && r.spareCanCover && r.theirs === "commit") return choose("parry", "thrust", "cut");
+    if (canPunish) return choose("thrust", "cut", "strike", "close");
+    if (r.theirs === "commit") return choose("void", "parry", "withdraw");
+    return kind === "punisher" ? choose("wait", "close", "hold") : choose("cut", "strike", "close");
+  });
+  return { name: `lab-${kind}`, decide: (v, dt) => executor.decide(v, dt) };
+}
+
+export interface DenseLayer { weights: number[][]; bias: number[]; activation: "tanh" | "linear" }
+export interface NetworkArtifact {
+  version: number; surface: LabSurface; hz: number; observationNames: string[];
+  layers: DenseLayer[];
+  /** Feed-forward NEAT graph, evaluated in topological order. */
+  graph?: { outputs: number[]; nodes: { id: number; bias: number; response: number; links: [number, number][] }[] };
+}
+export function validateNetwork(model: NetworkArtifact): void {
+  if (model.version !== LAB_VERSION || JSON.stringify(model.observationNames) !== JSON.stringify(OBSERVATION_NAMES)
+    || ![12, 30, 60].includes(model.hz)) throw new Error("incompatible lab network");
+  const size = actionSize(model.surface);
+  if (model.graph) {
+    const known = new Set(OBSERVATION_NAMES.map((_, i) => -i - 1));
+    for (const n of model.graph.nodes) {
+      if (!Number.isInteger(n.id) || known.has(n.id) || !Number.isFinite(n.bias) || !Number.isFinite(n.response)
+        || n.links.some(([id, w]) => !known.has(id) || !Number.isFinite(w))) throw new Error("invalid network graph");
+      known.add(n.id);
+    }
+    if (model.graph.outputs.length !== size || model.graph.outputs.some((id) => !known.has(id))) throw new Error("invalid graph outputs");
+  } else {
+    let width = OBSERVATION_NAMES.length;
+    for (const layer of model.layers) {
+      if (!["tanh", "linear"].includes(layer.activation) || !layer.bias.length || layer.bias.some((x) => !Number.isFinite(x))
+        || layer.weights.length !== layer.bias.length || layer.weights.some((r) => r.length !== width || r.some((x) => !Number.isFinite(x)))) {
+        throw new Error("invalid dense network");
+      }
+      width = layer.bias.length;
+    }
+    if (!model.layers.length || width !== size) throw new Error("invalid network outputs");
+  }
+}
+export function infer(model: NetworkArtifact, observation: number[]): number[] {
+  if (observation.length !== OBSERVATION_NAMES.length || observation.some((x) => !Number.isFinite(x))) throw new Error("invalid network input");
+  if (model.graph) {
+    const values = new Map(observation.map((x, i) => [-i - 1, x]));
+    for (const n of model.graph.nodes) {
+      const sum = n.links.reduce((s, [id, w]) => s + values.get(id)! * w, 0);
+      values.set(n.id, Math.tanh(clamp(2.5 * (n.bias + n.response * sum), -60, 60)));
+    }
+    return model.graph.outputs.map((id) => clamp(values.get(id)!));
+  }
+  let values = observation;
+  for (const layer of model.layers) values = layer.bias.map((b, i) => {
+    const x = b + layer.weights[i].reduce((sum, w, j) => sum + w * values[j], 0);
+    return layer.activation === "tanh" ? Math.tanh(x) : x;
+  });
+  return values.map((v) => clamp(v));
+}
+
+/** Training and browser execution use exactly the same action adapter and hold cadence. */
+export function controlledMind(surface: LabSurface, seed: number, source: (view: FighterView) => number[] | null,
+  baseline = "golem-driver"): Mind {
+  const fallback = policyMind(baseline, seed);
+  const driven = golemDriven(seed, GOLEM_TACTICS_V4, (_reading, view) => pilotCommand(source(view) ?? Array(12).fill(0)));
+  return { name: `lab-${surface}`, decide(view, dt) {
+    if (surface === "pilot") return driven.decide(view, dt);
+    const base = fallback.decide(view, dt);
+    const action = source(view);
+    return action === null ? base : directIntent(action, view, surface === "residual" ? base : undefined);
+  } };
+}
+export function networkMind(model: NetworkArtifact, seed: number): Mind {
+  validateNetwork(model);
+  let nextAsk = -Infinity, action: number[] = [];
+  const inner = controlledMind(model.surface, seed, () => action);
+  return { name: "lab-network", decide(view, dt) {
+    if (view.clock + 1e-9 >= nextAsk) { nextAsk = view.clock + 1 / model.hz; action = infer(model, labObservation(view)); }
+    return inner.decide(view, dt);
+  } };
+}
+export type LabPolicy = { kind: "baseline"; name: string } | { kind: "bespoke"; name: Bespoke }
+  | { kind: "network"; model: NetworkArtifact } | { kind: "refit"; tables: DuelModelTables };
+export function labMind(spec: LabPolicy, seed: number): Mind {
+  switch (spec.kind) {
+    case "baseline": return policyMind(spec.name, seed);
+    case "bespoke": return bespokeMind(spec.name, seed);
+    case "network": return networkMind(spec.model, seed);
+    case "refit": { const p = golemPlanner(seed, spec.tables); return { name: "lab-refit", decide: (v, dt) => p.decide(v, dt) }; }
+    default: throw new Error("unknown lab policy");
+  }
+}

@@ -208,7 +208,7 @@ export function sideRecord(policy) {
  * the bout's cap have to be the same clock, which they are only because both are
  * counted in frames.
  */
-export function runBout({
+export function createBout({
   left: leftPolicy, right: rightPolicy, seeds, leftLoadout, rightLoadout,
   leftUnit = "golem", rightUnit = "golem",
   leftGolem = undefined, rightGolem = undefined,
@@ -446,7 +446,12 @@ export function runBout({
   // shows up as a hang in the harness rather than as an infinite loop.
   const limit = Math.ceil((maxSeconds + 1) * 60);
   let frames = 0;
-  while (state.phase === "fight" && state.clock < maxSeconds && frames < limit) {
+  let disposed = false;
+  let finished = false;
+  const active = () => state.phase === "fight" && state.clock < maxSeconds && frames < limit;
+  const step = () => {
+    if (disposed) throw new Error("bout is disposed");
+    if (!active()) return false;
     scene._renderId += 1;
     scene._advancePhysicsEngineStep(1000 * FRAME);
     for (const side of sides) side.combat.advance(FRAME);
@@ -466,7 +471,14 @@ export function runBout({
       onVerdict?.();
     }
     frames += 1;
-  }
+    return true;
+  };
+
+  const finish = () => {
+  if (disposed) throw new Error("bout is disposed");
+  if (active()) throw new Error("cannot finish an active bout");
+  if (!finished) {
+  finished = true;
 
   // Tests may keep the decided world alive for a few render frames, just as the
   // browser does beneath its verdict banner. The default remains the measured
@@ -477,7 +489,11 @@ export function runBout({
     scene._advancePhysicsEngineStep(1000 * FRAME);
     for (const side of sides) side.combat.advance(FRAME);
   }
+  }
+  return result();
+  };
 
+  const result = () => {
   const outcome = state.outcome ?? { winner: null, ending: "time", text: "unfinished" };
   leftRecord.blocks = recorder.records.left.blocks;
   rightRecord.blocks = recorder.records.right.blocks;
@@ -514,10 +530,26 @@ export function runBout({
     engagementInstrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
   };
 
-  for (const side of sides) side.combat.dispose();
-  left.dispose();
-  right.dispose();
-  scene.dispose();
-  engine.dispose();
   return result;
+  };
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    for (const side of sides) side.combat.dispose();
+    left.dispose();
+    right.dispose();
+    scene.dispose();
+    engine.dispose();
+  };
+  return { step, finish, result, dispose, left, right,
+    get active() { return !disposed && active(); }, get clock() { return state.clock; } };
+}
+
+/** The original whole-bout API and the laboratory share one frame/authority path. */
+export function runBout(options) {
+  const bout = createBout(options);
+  try {
+    while (bout.step()) { /* exact original frame ordering */ }
+    return bout.finish();
+  } finally { bout.dispose(); }
 }
