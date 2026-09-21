@@ -50,7 +50,11 @@ pilot allowance when it would not answer a new feasibility question.
 
 ## Additional campaign: execution status
 
-The ongoing eight-hour campaign is recorded in
+The eight-hour campaign reached the user's validated-roster success condition after **5 hours
+55 minutes of research compute**. Both new specialists are admitted and production-browser-reviewed;
+664 tests, type checking and the build pass. Owned processes are stopped and the user's server
+is preserved. Remaining research hypotheses below are not claims of completed successful training.
+The campaign is recorded in
 [CAMPAIGN.md](../../research/lab/CAMPAIGN.md), with compact measured evidence in
 [campaign.json](../../research/lab/results/campaign.json). Implementation is not a strength result.
 
@@ -58,7 +62,7 @@ The ongoing eight-hour campaign is recorded in
 | --- | --- |
 | Common arena strength | Dated cross-build Glicko-2 ratings remain visible through code changes. |
 | Laboratory correctness | Real-Havok stepping, exact-prefix replay, legal action adapters, old-network compatibility and Python/browser inference parity are tested. |
-| Bespoke specialists | Paired passed 96-bout independent cross-build confirmation, browser review and a 5,040-bout rating round; initially admitted at provisional 1567. Needle passed fresh 96-bout confirmation (77.1% versus 48.4%, gain interval +19.8 to +38.5 points) and browser review; its complete admission league is running. |
+| Bespoke specialists | Both admitted after independent 96-bout confirmation and browser review. The final 5,760-bout, 16-policy league has zero failures: Needle leads at provisional 1671 (66.5% score), Paired is 1558 (55.6%), Duelist 1512 (51.1%). Needle's confirmation gain was +28.6 points, interval +19.8 to +38.5; Paired's was +21.9, interval +12.5 to +31.8. |
 | Learning | Two stronger-baseline PPO seeds scored 34.4%/59.4%, NEAT 43.8%, and neural evolution 46.9%, against a matched 57.8% control. The PPO maul hypothesis failed 96-bout confirmation. Pilot PPO mean/sample scored 37.5%/46.9%; sampled residual seed 22 scored 53.1%. No learner earned promotion. Lower-noise residual and larger direct-control trials remain new hypotheses. |
 | Expensive teachers | All 39 branch-budget queries completed. Four cases beat Champion where Duelist controls lost; four further Planner/Brawler cases also won, although two controls already won. Four actual reference recordings were browser-reviewed through their finishes. This is privileged, small-sample evidence, not universal strength. |
 | Fair approximate planning | Both the one-episode calibration (RMSE 0.08160 versus persistence 0.07809) and broader 16-episode validation (0.08975 versus 0.08557) failed. Long-horizon planning remains unvalidated; a new model/representation is needed. |
@@ -70,3 +74,34 @@ Next experimental decisions: evaluate learners before extending their budgets; t
 reference fights rather than extrapolating branch utility; compare fair-model error to persistence;
 and retain only independently confirmed, visibly distinct policies in the normal picker. Negative
 results remain in the evidence record. This checklist is not a declaration that the agenda is done.
+
+## Evidence-driven next wave
+
+These are subsequent research hypotheses, not claims that the current campaign completed them.
+
+1. **Counters and robustness first.** Use the enlarged roster's matchup/build table to choose
+   exploiters against Paired and Needle. Preserve their published versions as frozen opponents.
+   Test capability loss, longer fights and build asymmetries; require fresh confirmation after
+   selecting a counter. Keep successful narrow counters even if they do not lead the overall rating.
+2. **Transfer the teacher where evidence supports it.** The blade-only student is promising but
+   was identified from a failed aggregate confirmation. Freeze a new blade-only hypothesis,
+   reserve genuinely new opponents/seeds, and compare it with constant/clock controls again.
+   Broaden student-visited teacher queries before adding network capacity. Never count the
+   teacher's training opponents as independent student confirmation.
+3. **Repair the learner/control interface experimentally.** Compare lower-noise residual PPO
+   with its unchanged baseline, evaluate both mean and sampled exports, and separately run a
+   substantive direct-Intent trial. Record sample count and complete episodes, not just training
+   time. A larger recurrent policy or GPU run should follow a demonstrated bottleneck, not precede it.
+4. **Make slow search a stronger reference, not an oracle by name.** Extend full-fight replication
+   to new opponents/builds; compare search budgets and fixed action/clock controls. Keep exact
+   known-opponent prefix replay explicitly privileged. A fair counterpart needs an opponent model
+   and a predictive representation that first beats persistence on held-out episodes; the current
+   nearest-neighbor model failed that gate twice.
+5. **Retain unusual behavior with evidence.** Balanced pose search, specialist rush/guard/circle
+   rules and evolutionary populations remain available. Select from measured behavior regions,
+   then independently confirm each retained specialist. Novel-looking commands or training wins
+   alone do not establish useful diversity.
+
+All follow-on runs retain the existing budget ledger, immutable policy identities, dated ratings,
+full-bout outcomes and owned-process cleanup. New resources require explicit authorization;
+unused allowance is not a reason to keep training after the user's success condition is met.

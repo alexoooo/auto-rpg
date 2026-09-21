@@ -1,113 +1,120 @@
 {
   "version": 1,
-  "fingerprint": "d58e8b93f17be01804bab2276ebd443fe2592af26fdd7caae649f50bbf9fdef5",
-  "evaluatedAt": "2026-09-21T18:59:13.020Z",
+  "fingerprint": "0c75e354ac576eb365f1feabe4e86e5edaf5521a529097a2c0120e34068c42c2",
+  "evaluatedAt": "2026-09-21T23:27:29.422Z",
   "rounds": 1,
   "policies": {
     "golem-researched-form-3-5": {
-      "rating": 1494.6084593911858,
-      "deviation": 19.999032700929884,
-      "bouts": 672,
+      "rating": 1488.495544790833,
+      "deviation": 19.323002393457774,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "{\"name\":\"golem-researched-form-3-5\",\"label\":\"Golem form (tuned 1)\",\"parent\":\"golem-form\",\"parameters\":{\"standOffFraction\":1.257599436997322,\"patience\":1.8256517226934519,\"strikeBite\":0.8250000000000001,\"recoverSeconds\":0.32197603388681967,\"closeGain\":2.25,\"turnGain\":2.0194266202753792}}"
     },
     "golem-researched-guardian-3-4": {
-      "rating": 1469.1911965209868,
-      "deviation": 19.999032700953904,
-      "bouts": 672,
+      "rating": 1462.610520570092,
+      "deviation": 19.323002393487574,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "{\"name\":\"golem-researched-guardian-3-4\",\"label\":\"Golem guardian (tuned 1)\",\"parent\":\"golem-guardian\",\"parameters\":{\"standOffFraction\":0.9788198592176298,\"patience\":2.25,\"strikeBite\":0.5869047767532035,\"recoverSeconds\":0.2892259087764069,\"closeGain\":1.9168441575886606,\"turnGain\":2.3771799205512867}}"
     },
+    "golem-researched-paired-v1": {
+      "rating": 1557.5222760462805,
+      "deviation": 19.323002393532562,
+      "bouts": 720,
+      "provisional": true,
+      "policyVersion": "{\"name\":\"golem-researched-paired-v1\",\"label\":\"Golem paired (dual specialist)\",\"spec\":{\"kind\":\"bespoke\",\"name\":\"paired\"},\"admission\":{\"evaluatedAt\":\"2026-09-21\",\"reviewedAt\":\"2026-09-21T18:06:34.514Z\",\"evidence\":\"research/lab/results/campaign.json: wave3-paired-confirm\",\"scope\":\"Independent improvement on two-blade and fist builds; original Duelist fallback on other bodies. Overall league rating is not a build-specific prediction.\"}}"
+    },
     "golem-duelist": {
-      "rating": 1532.349243652972,
-      "deviation": 19.99903270095644,
-      "bouts": 672,
+      "rating": 1511.504455209167,
+      "deviation": 19.323002393457774,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-duelist"
     },
     "golem-fencer": {
-      "rating": 1500,
-      "deviation": 19.999032700929128,
-      "bouts": 672,
+      "rating": 1490.6526301425529,
+      "deviation": 19.323002393456715,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-fencer"
     },
     "golem-planner": {
-      "rating": 1539.2812244358026,
-      "deviation": 19.9990327009694,
-      "bouts": 672,
+      "rating": 1517.2566828137576,
+      "deviation": 19.323002393461667,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-planner"
     },
     "golem-champion": {
-      "rating": 1568.549587741475,
-      "deviation": 19.999032701051785,
-      "bouts": 672,
+      "rating": 1556.084219145101,
+      "deviation": 19.323002393528714,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-champion"
     },
     "golem-form": {
-      "rating": 1464.5698759991064,
-      "deviation": 19.999032700961894,
-      "bouts": 672,
+      "rating": 1445.3538377560767,
+      "deviation": 19.323002393524963,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-form"
     },
     "golem-skirmisher": {
-      "rating": 1426.0588716494965,
-      "deviation": 19.99903270107184,
-      "bouts": 672,
+      "rating": 1421.6258988864017,
+      "deviation": 19.32300239359928,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-skirmisher"
     },
     "golem-guardian": {
-      "rating": 1468.4209764340076,
-      "deviation": 19.99903270095516,
-      "bouts": 672,
+      "rating": 1456.858292965442,
+      "deviation": 19.32300239349848,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-guardian"
     },
     "golem-brawler": {
-      "rating": 1523.8768226962115,
-      "deviation": 19.999032700944007,
-      "bouts": 672,
+      "rating": 1520.1327966160557,
+      "deviation": 19.3230023934642,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-brawler"
     },
     "golem-tactician": {
-      "rating": 1558.5367266105036,
-      "deviation": 19.99903270101857,
-      "bouts": 672,
+      "rating": 1548.174906188644,
+      "deviation": 19.3230023935093,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-tactician"
     },
     "golem-driver": {
-      "rating": 1362.900824512004,
-      "deviation": 19.999032701419765,
-      "bouts": 672,
+      "rating": 1356.1943098782108,
+      "deviation": 19.32300239394156,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-driver"
     },
     "golem-reaper": {
-      "rating": 1480.7444978256458,
-      "deviation": 19.999032700938805,
-      "bouts": 672,
+      "rating": 1470.5198335264565,
+      "deviation": 19.32300239347512,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-reaper"
     },
     "golem-miser": {
-      "rating": 1543.902544957706,
-      "deviation": 19.999032700979438,
-      "bouts": 672,
+      "rating": 1525.8850242206597,
+      "deviation": 19.323002393470436,
+      "bouts": 720,
       "provisional": true,
       "policyVersion": "golem-miser"
     },
-    "golem-researched-paired-v1": {
-      "rating": 1567.0091475674728,
-      "deviation": 19.999032701046335,
-      "bouts": 672,
+    "golem-researched-needle-v1": {
+      "rating": 1671.1287712485173,
+      "deviation": 19.323002394144165,
+      "bouts": 720,
       "provisional": true,
-      "policyVersion": "{\"name\":\"golem-researched-paired-v1\",\"label\":\"Golem paired (dual specialist)\",\"spec\":{\"kind\":\"bespoke\",\"name\":\"paired\"},\"admission\":{\"evaluatedAt\":\"2026-09-21\",\"reviewedAt\":\"2026-09-21T18:06:34.514Z\",\"evidence\":\"research/lab/results/campaign.json: wave3-paired-confirm\",\"scope\":\"Independent improvement on two-blade and fist builds; original Duelist fallback on other bodies. Overall league rating is not a build-specific prediction.\"}}"
+      "policyVersion": "{\"name\":\"golem-researched-needle-v1\",\"label\":\"Golem needle (point specialist)\",\"spec\":{\"kind\":\"bespoke\",\"name\":\"needle\"},\"admission\":{\"evaluatedAt\":\"2026-09-21\",\"reviewedAt\":\"2026-09-21\",\"evidence\":\"research/lab/results/campaign.json: wave3-needle-confirmation-r8\",\"scope\":\"Independent improvement on wheel, multileg, plated and pitchblade builds against Champion, Tactician and Miser. Point-capable primary-hand specialist; exact Duelist fallback otherwise. Overall rating is not a build-specific prediction.\"}}"
     }
   }
 }

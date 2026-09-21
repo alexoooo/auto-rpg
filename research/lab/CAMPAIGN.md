@@ -1,6 +1,10 @@
 # Eight-hour continuation — September 21, 2026
 
-Ongoing goal, explicitly authorized by the user. The additional local-compute allowance is
+**Completed at the user's validated-roster success condition**, using 5 hours 55 minutes of
+the eight-hour allowance. Paired and Needle are independently confirmed, browser-reviewed and
+available with dated ratings. This does not claim that every research method succeeded.
+
+The ongoing goal was explicitly authorized by the user. The additional local-compute allowance is
 28,800 seconds, separately metered in `research/runs/wave3-budget/budget.json`. The pilot ledger
 is unchanged. No cloud spending, physics tuning or automatic promotions.
 
@@ -409,3 +413,60 @@ Fair planning needs a different predictive model or representation: both the one
 has encouraging actual-fight evidence and viewable physical recordings, but its labels remain
 finite-search judgments against known opponents, not optimal ground truth. Distillation must
 demonstrate transfer independently; spectacular teacher wins do not establish a strong student.
+
+## Watch the reviewed slow-reference fights
+
+With the existing dev server running, open these paths on its origin. The viewer plays recorded
+physical poses with speed control, scrubbing and orbiting; it does not rerun the expensive search.
+The local raw artifacts remain under `research/runs/` and are intentionally not checked into Git.
+
+- Champion, default body, seed 55: `/research/lab/viewer.html?data=/research/runs/wave3-reference-poses-55/pose-replay.json`
+- Champion, twin blades, seed 58: `/research/lab/viewer.html?data=/research/runs/wave3-reference-poses-58/pose-replay.json`
+- Brawler, default body, seed 63: `/research/lab/viewer.html?data=/research/runs/wave3-reference-poses-63/pose-replay.json`
+- Brawler, twin blades, seed 64: `/research/lab/viewer.html?data=/research/runs/wave3-reference-poses-64/pose-replay.json`
+
+## Final expanded league
+
+Needle completed admission: 5,760 bouts, 16 fighting policies, all 12 named builds, zero failures.
+Every policy has 720 appearances. One balanced round was published at 2026-09-21T23:27:29Z;
+ratings are provisional, with rating deviation approximately 19.3. Original policies remain.
+
+| Policy | Glicko-2 | Match score | Wins / draws / losses |
+| --- | ---: | ---: | --- |
+| Needle | 1671 | 66.53% | 476 / 6 / 238 |
+| Paired | 1558 | 55.56% | 394 / 12 / 314 |
+| Champion | 1556 | 55.42% | 394 / 10 / 316 |
+| Duelist | 1512 | 51.11% | 363 / 10 / 347 |
+
+Needle scored above 50% against every other policy in this round, including 58.33% against
+Paired and 68.75% against Duelist. These are finite-sample descriptive results, not a proof
+against every seed or build. Its score on twin blades was 83.33%, while Paired scored 86.67%;
+on fists they scored 36.67% and 50%. Needle is not a universal replacement for Paired.
+Per-build league comparisons use different policy seeds and opponent pools; unlike confirmation,
+they are not matched causal estimates of changing just one policy.
+
+Behavior also differs conditionally. Across 28 common opponent/body cells per subject build,
+Needle's attack-command edge rate minus Paired's was +0.478/s on default bodies (95% cell-bootstrap
+interval +0.370 to +0.592), but -0.330/s on fists (-0.429 to -0.237). Twin blades were +0.139/s
+(-0.001 to +0.264), not a clear difference. These exploratory comparisons average side-swapped
+pairs within each cell; policy seeds differ. They measure command cadence, not damaging strikes.
+The 24 direct head-to-head blocks did not show a clear aggregate cadence or retreat difference,
+so diversity should be described through supported body-dependent behavior, not invented global
+style separation.
+
+The full new admission is in `results/admission.json`; Paired's original admission is preserved
+byte-for-byte in `results/paired-admission.json`. Cumulative authorized research compute is
+21,306.536 seconds: **5 hours 55 minutes 6.5 seconds**, leaving about 2 hours 5 minutes unused.
+Code/test work and browser inspection are not training compute. No further training is needed
+to spend that remainder once the requested validated-roster success condition is met.
+
+Final production Chrome review verified both dated pickers and real completed fights: Paired
+beat Needle on twin blades (60% remaining vitality), and Needle beat Champion on default bodies
+(61%). The production bench also rendered and advanced correctly. No browser errors occurred;
+approximately 1 fps capture does not establish animation smoothness. These UI fights are
+qualitative checks, not additional strength samples. See `results/final-review.json`.
+
+Post-publication verification passed all 664 tests, `npm run check` and `npm run build`. The
+owned review tab and preview server were stopped; no owned research/training processes or budget
+lock remain. The original user server PID 66500 still listens on port 5180. The final report
+preserves rejected learners, successful teachers, unsupported hypotheses and next-wave gates.

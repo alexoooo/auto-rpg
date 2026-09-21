@@ -1,8 +1,8 @@
 {
-  "publishedAt": "2026-09-21T22:43:43.198Z",
-  "status": "ongoing research; no automatic promotion",
+  "publishedAt": "2026-09-21T23:28:10.666Z",
+  "status": "completed at validated-roster success condition; Paired and Needle independently confirmed, browser-reviewed and admitted; unused compute retained",
   "budget": {
-    "usedMs": 18690437,
+    "usedMs": 21306536,
     "runs": [
       {
         "command": "evaluate",
@@ -1379,6 +1379,19 @@
         "startedAt": "2026-09-21T22:39:53.606Z",
         "elapsedMs": 107759,
         "status": "complete"
+      },
+      {
+        "command": "admission-league",
+        "flags": {
+          "proposal": "research/lab/results/needle-proposal-r8.json",
+          "dir": "research/runs/wave3-needle-admission-r8",
+          "seconds": "3600",
+          "workers": "8",
+          "publish": "true"
+        },
+        "startedAt": "2026-09-21T22:45:32.882Z",
+        "elapsedMs": 2516548,
+        "status": "admitted"
       }
     ]
   },

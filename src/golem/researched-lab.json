@@ -12,5 +12,19 @@
       "evidence": "research/lab/results/campaign.json: wave3-paired-confirm",
       "scope": "Independent improvement on two-blade and fist builds; original Duelist fallback on other bodies. Overall league rating is not a build-specific prediction."
     }
+  },
+  {
+    "name": "golem-researched-needle-v1",
+    "label": "Golem needle (point specialist)",
+    "spec": {
+      "kind": "bespoke",
+      "name": "needle"
+    },
+    "admission": {
+      "evaluatedAt": "2026-09-21",
+      "reviewedAt": "2026-09-21",
+      "evidence": "research/lab/results/campaign.json: wave3-needle-confirmation-r8",
+      "scope": "Independent improvement on wheel, multileg, plated and pitchblade builds against Champion, Tactician and Miser. Point-capable primary-hand specialist; exact Duelist fallback otherwise. Overall rating is not a build-specific prediction."
+    }
   }
 ]

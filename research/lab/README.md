@@ -2,8 +2,9 @@
 
 This is experimental infrastructure with a separate evidence-gated admission path. It runs the
 game's real Havok simulation and the same `Intent` boundary as the player. No physics, motor
-ceilings or damage rules are changed. Dated arena ratings remain available. Paired is the first
-admitted specialist; other candidates remain experimental unless explicitly reviewed and admitted.
+ceilings or damage rules are changed. Dated arena ratings remain available. Paired and Needle
+are admitted specialists; learners and other candidates remain experimental unless explicitly
+reviewed and admitted. See [CAMPAIGN.md](CAMPAIGN.md) for current results and reference replays.
 
 ## Setup and bounded runs
 

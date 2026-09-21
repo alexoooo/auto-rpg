@@ -1,0 +1,25 @@
+{
+  "reviewedAt": "2026-09-21",
+  "surface": "Chrome, production Vite preview on isolated 127.0.0.1:5199",
+  "ratingEvaluatedAt": "2026-09-21T23:27:29.422Z",
+  "simulationFingerprint": "0c75e354ac576eb365f1feabe4e86e5edaf5521a529097a2c0120e34068c42c2",
+  "picker": {
+    "bothCornersVerified": true,
+    "needle": "Golem needle (point specialist) — 1671 · 2026-09-21 (provisional)",
+    "paired": "Golem paired (dual specialist) — 1558 · 2026-09-21 (provisional)",
+    "note": "720 bouts, rating deviation 19, overall cross-build rating and evaluation date visible; no stale-source warning under the matching production build. Idle remains unrated."
+  },
+  "fights": [
+    { "left": "golem-researched-needle-v1", "right": "golem-researched-paired-v1",
+      "builds": ["two-blades", "two-blades"], "winner": "right",
+      "remainingVitalityPercent": [0, 60], "finish": "cut to core at 7.2 m/s" },
+    { "left": "golem-researched-needle-v1", "right": "golem-champion",
+      "builds": ["default", "default"], "winner": "left",
+      "remainingVitalityPercent": [61, 0], "finish": "cut to head at 19.6 m/s" }
+  ],
+  "bench": "Production bench.html rendered the physical capped-socket module and advancing Havok readout.",
+  "browserErrors": [],
+  "limitations": "Unseeded illustrative browser bouts are not statistical evidence. Approximately 1 fps remote capture verifies visible states and completed verdicts, not animation smoothness. Thrust-shaped commands may produce contacts physically classified as cuts.",
+  "validation": { "testsPassed": 664, "testsFailed": 0, "typeCheck": "passed", "build": "passed" },
+  "cleanup": "Owned review tab closed and preview session 47853 stopped. No owned Node/Python research processes remain; no port-5199 listener or budget lock remains. Original user server PID 66500 still listens on port 5180; launcher PID 59104 and browser connection PID 48084 were preserved."
+}
