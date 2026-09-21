@@ -199,6 +199,12 @@ Only an exact named-baseline residual continuation is converted from null to a z
 student or pilot baselines are refused. Evaluate the constant model alongside a distilled student
 to test whether a fixed bias explains the result. Teacher knowledge may not be recoverable from
 the student's public observations; imitation success must be measured independently.
+It also exports one `clock-model-N.json` per source fight. These are time-only opening controls,
+encoded as sharp tanh steps in the existing network format, followed by approximately zero
+residual control. Their offsets ignore every non-clock observation; the underlying Duelist
+still reacts normally. Their sampled timing
+and floating-point approximation mean they are not exact replays; they test whether a reusable
+opening explains benefits otherwise attributed to state-dependent imitation.
 
 ## Portfolio, evaluation and publication
 
@@ -243,6 +249,13 @@ It requires at least 64 confirmation bouts, a positive paired confidence interva
 10 percentage points of improvement over Duelist. It then runs a fresh complete cross-build
 rating round under the shared campaign budget. Only `--publish true` registers the reviewed
 candidate and publishes its dated rating. Existing candidates and their historical evidence remain.
+
+Learned proposals also declare `training: {policyHash, opponents, sources}`. The hash covers the
+entire policy spec; sources identify the training records and any teacher datasets. The gate
+rejects confirmation against any declared training opponent, including opponents used by a
+privileged teacher. This declaration must be audited against the records: training history cannot
+be recovered from network weights. Champion-derived students therefore need a confirmation pool
+that excludes Champion, even though it is reserved for ordinary learners.
 
 ## Research references
 

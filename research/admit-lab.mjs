@@ -20,6 +20,20 @@ export function admissionEvidence(proposal, candidate, control, current) {
     || control.maxSeconds !== 150 || candidate.rows.length < 64 || control.policy.kind !== "baseline"
     || control.policy.name !== "golem-duelist") throw new Error("admission requires full-bout independent confirmation against Duelist");
   if (candidate.rows.some((r) => r.split !== candidate.split) || control.rows.some((r) => r.split !== control.split)) throw new Error("mixed confirmation evidence");
+  if (["network", "mixture", "refit", "terminal-model"].includes(candidate.policy.kind)) {
+    // An audited provenance declaration, not a claim to infer training history from weights.
+    // In particular a teacher's opponents are training opponents for its distilled student.
+    const training = proposal.training;
+    if (training?.policyHash !== digest(candidate.policy) || !Array.isArray(training.opponents) || !training.opponents.length
+      || training.opponents.some((name) => typeof name !== "string" || !name.trim())
+      || !Array.isArray(training.sources) || !training.sources.length
+      || training.sources.some((path) => typeof path !== "string" || !path.trim())) {
+      throw new Error("learned admission requires policy-matched training provenance and opponents");
+    }
+    if (candidate.rows.some((row) => training.opponents.includes(row.opponent))) {
+      throw new Error("confirmation opponent was used in training or teacher data");
+    }
+  }
   const comparison = compareEvidence(candidate.rows, control.rows);
   if (comparison.lower <= 0 || comparison.mean < 0.1 || comparison.candidate.truncations > candidate.rows.length * 0.1) {
     throw new Error("candidate has not demonstrated a meaningful independent improvement");

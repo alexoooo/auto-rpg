@@ -198,3 +198,28 @@ interval (-21.9 to +23.4 points), so this is **not evidence of improvement**. Th
 scores were default 62.5%, maul 75%, whip 37.5%, ram-blade 62.5%. The maul result is a possible
 specialist hypothesis for fresh confirmation, not a confirmed counter. Both seeds show why
 one successful training run or one favorable subgroup is insufficient.
+
+NEAT's ten-minute residual trial completed five generations, 79,727 decisions and 181 episode
+starts, with 1.56e-6 export parity error. Its 32 selection bouts scored 43.75%, versus Duelist's
+57.81%, with no truncations. The paired difference was -14.1 points (interval -34.4 to +10.9).
+No tested body outperformed the control. This configuration has not earned more of the same
+training or publication; it does not establish a limit on NEAT with other representations or
+larger budgets. Checkpoints remain available.
+
+The admission gate now requires an audited, policy-hash-matched training-provenance declaration
+for learned candidates and refuses overlap between declared training opponents and confirmation
+opponents. Tests cover teacher-opponent leakage. This is an audit guard, not an assertion that
+the training history can be inferred from weights.
+
+Fixed-topology neural evolution completed five generations, 85,360 decisions and 183 episode
+starts, with 3.12e-7 export parity error. Its 32 selection bouts scored 46.88% versus 57.81%,
+with no truncations (paired difference -10.9 points, interval -32.8 to +12.5). No tested body
+outperformed Duelist. Like the NEAT configuration, this is not a promotion candidate.
+
+The teacher extractor now additionally emits four time-only opening controls, one per reference
+fight, in `wave3-reference-student-clock-data`. The 209 supervised labels and constant-mean
+control retain their previous hashes. Clock controls use the existing network interpreter,
+ignore non-clock observations for their offsets, and return to approximately zero residual after
+the opening; their underlying Duelist remains reactive.
+They are an explicit open-loop imitation ablation, not exact replay, online look-ahead, or a
+strength claim. Their teacher opponent remains training data for confirmation purposes.

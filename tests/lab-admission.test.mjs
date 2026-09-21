@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { admissionEvidence } from "../research/admit-lab.mjs";
 import { digest } from "../research/schedule.mjs";
 import { validatePublishedLabPolicy } from "../src/golem/researched-lab-policies.ts";
+import { constantResidual, POSE_FIELDS } from "../research/constant-search.mjs";
 
 function fixture() {
   const spec = { kind: "bespoke", name: "paired" };
@@ -40,4 +41,17 @@ test("a nonempty published registry initializes and constructs policies without 
   const output = execFileSync(process.execPath, ["--input-type=module", "-e", script],
     { cwd: fileURLToPath(new URL("../", import.meta.url)), encoding: "utf8", windowsHide: true });
   assert.equal(output.trim(), entry.name);
+});
+
+test("learned admission rejects teacher-opponent leakage and missing training provenance", () => {
+  const { proposal, candidate, control } = fixture();
+  const spec = { kind: "network", model: constantResidual(POSE_FIELDS.map(() => 0)) };
+  proposal.entry.spec = spec; candidate.policy = spec; proposal.review.policyHash = digest(spec);
+  assert.throws(() => admissionEvidence(proposal, candidate, control, "current"), /training provenance/);
+  proposal.training = { policyHash: digest(spec), opponents: ["golem-champion"], sources: ["teacher-dataset.json"] };
+  assert.throws(() => admissionEvidence(proposal, candidate, control, "current"), /used in training/);
+  proposal.training.opponents = ["golem-fencer"];
+  assert.equal(admissionEvidence(proposal, candidate, control, "current").lower, 1);
+  proposal.training.policyHash = "another-model";
+  assert.throws(() => admissionEvidence(proposal, candidate, control, "current"), /training provenance/);
 });
