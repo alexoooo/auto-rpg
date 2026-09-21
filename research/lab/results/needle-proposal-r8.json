@@ -1,0 +1,26 @@
+{
+  "labFingerprint": "f26ea9438f92ab829bb8e9bead91fe4c896a6a37bd93d68a3a8a0cf42df51c10",
+  "entry": {
+    "name": "golem-researched-needle-v1",
+    "label": "Golem needle (point specialist)",
+    "spec": { "kind": "bespoke", "name": "needle" },
+    "admission": {
+      "evaluatedAt": "2026-09-21",
+      "reviewedAt": "2026-09-21",
+      "evidence": "research/lab/results/campaign.json: wave3-needle-confirmation-r8",
+      "scope": "Independent improvement on wheel, multileg, plated and pitchblade builds against Champion, Tactician and Miser. Point-capable primary-hand specialist; exact Duelist fallback otherwise. Overall rating is not a build-specific prediction."
+    }
+  },
+  "candidateEvaluation": "research/runs/wave3-needle-confirmation-r8/evaluation-f89acf28a9dd3a33.json",
+  "controlEvaluation": "research/runs/wave3-needle-control-confirmation-r8/evaluation-07045c6f187c7716.json",
+  "review": {
+    "accepted": true,
+    "policyHash": "654e27ab8ea49657e5bf19d1bf1e15c221d61dbe10983a1753c77daf7c7df021",
+    "reviewedAt": "2026-09-21",
+    "notes": "Chrome review of actual arena preview on isolated port 5199; default sword/shield and twin blades both reached real verdicts without runtime errors. Detailed record: research/lab/results/needle-review-r8.json. Approximately 1 fps capture validates visible states and runtime behavior, not smooth animation. UI wins are qualitative, not statistical evidence. Owned server and tab stopped; user server preserved.",
+    "scenarios": [
+      { "build": "default", "opponent": "golem-duelist", "winner": "left", "remainingVitalityPercent": 76 },
+      { "build": "two-blades", "opponent": "golem-duelist", "winner": "left", "remainingVitalityPercent": 22 }
+    ]
+  }
+}

@@ -362,3 +362,44 @@ The browser exposed a stale historical viability caption claiming blade mirrors 
 The caption now identifies that old evidence as a historical stalemate warning rather than an
 impossibility claim. Random-build filters and all physics remain unchanged. This UI-only edit
 did not change the running experiments' source identity.
+
+Needle passed its frozen 96-bout confirmation on wheel, multileg, plated and pitchblade,
+against Champion, Tactician and Miser, with four fresh seeds and both arena sides. It scored
+77.0833% versus Duelist's 48.4375%; the matched difference was +28.6458 percentage points,
+with a 95% pair-bootstrap interval of +19.7917 to +38.5417. No bouts truncated. Its point-only
+scope was frozen before this test, and both evaluation manifests match the proposal's source
+fingerprint. The complete 5,760-bout cross-build admission league is running; confirmation
+alone does not yet register it in the arena. See `results/needle-proposal-r8.json`.
+
+The confirmation breakdown is important: wheel scored 87.5% versus 47.92%, multileg 87.5%
+versus 58.33%, plated 91.67% versus 45.83%, and pitch-blade 41.67% for both policies (the
+unchanged fallback). Against Champion/Tactician/Miser, Needle scored 78.13%/71.88%/81.25%
+versus 37.5%/57.81%/50%. These exploratory subgroup comparisons are not multiplicity-corrected
+claims. Its mean attack-command edge rate was 0.851/s versus 0.459/s, and close-range time
+fraction 0.232 versus 0.189; these are behavioral proxies, not damaging-hit counts.
+
+The admission league was checkpointed and resumed with eight isolated workers after verifying
+32 logical CPUs were available. Completed bout identities and the cumulative budget were retained;
+changing worker count does not alter the frozen schedule. No user processes were stopped.
+
+The archived seed-22 PPO checkpoint was also evaluated with its learned Gaussian sampling,
+after checking exact weight equality against the mean export. Sampled selection scored 53.125%
+in 32 bouts, below both its deterministic 59.375% and Duelist's 57.8125%. This does not rescue
+the PPO candidate. A deliberately mismatched checkpoint/export pair was rejected before output
+creation. These comparisons do not imply that larger-budget or differently structured PPO cannot
+work; they identify shortcomings of these particular small CPU experiments.
+
+## Follow-on experiments, not unearned promotions
+
+The next learning experiments should change a diagnosed constraint rather than merely extend
+an unsuccessful run: lower-noise residual PPO to preserve baseline attack gates; substantive
+direct-control training; balanced constant-pose search; and broader student-visited teacher
+queries with explicitly weighted corrections. The implementations support these protocols,
+but the expanded runs are not claimed as completed here. A blade-only student is a new hypothesis
+after the failed blade/fist aggregate, and needs genuinely fresh confirmation opponents/seeds.
+
+Fair planning needs a different predictive model or representation: both the one-episode and
+16-episode calibration comparisons failed to beat persistence. Privileged fresh-prefix search
+has encouraging actual-fight evidence and viewable physical recordings, but its labels remain
+finite-search judgments against known opponents, not optimal ground truth. Distillation must
+demonstrate transfer independently; spectacular teacher wins do not establish a strong student.
