@@ -15,7 +15,7 @@ The current roster contains 12 fighting policies plus Idle: scripted fighters, d
 - Reuse `runBout`, supported locomotion, and fresh Havok per bout. Preserve current arena startup behavior, use the existing 150-second probe cap, and score wins/draws/losses as 1/½/0. Do not introduce a harness-only damage tiebreak or draw-floor adjustment. Report overtime endings separately.
 - Publish ratings alongside matchup results, per-build results, draw rates, side bias, bout counts, and uncertainty. Mark ratings provisional when fewer than four rounds are complete or rating deviation exceeds 100.
 - In both arena selectors, show labels such as `Golem fencer — 1538` or `Golem fencer — 1538 (provisional)`. Preserve policy IDs and selection behavior. A compact adjacent explanation identifies the cross-build league, evaluation date, and selected policy’s uncertainty.
-- Browser matches do not update ratings. Unevaluated policies show `unrated`; ratings whose evaluation fingerprint no longer matches show `needs evaluation`.
+- Browser matches do not update ratings. Unevaluated policies show `unrated`; measured ratings remain visible alongside their evaluation date even after game or policy changes. Fingerprint mismatches add context in the rating note, not a barrier to displaying the last measurement (revised September 21 at user request).
 
 ## Reproducible evaluation and first policy search
 

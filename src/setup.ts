@@ -526,7 +526,7 @@ export class SetupScreen {
         ? definition.driverOptions
         : [{ name: setup.policy, label: `${setup.policy} (incompatible)` }, ...definition.driverOptions];
       this.policies[side].innerHTML = policyOptions
-        .map((driver) => `<option value="${driver.name}">${policyRatingLabel(driver.name, driver.label, ratingArtifact, currentFingerprint, policyVersion(driver.name))}</option>`).join("");
+        .map((driver) => `<option value="${driver.name}">${policyRatingLabel(driver.name, driver.label, ratingArtifact)}</option>`).join("");
       const ratingNote = this.host.querySelector<HTMLElement>(`[data-side="${side}"][data-field="rating"]`);
       if (ratingNote) ratingNote.textContent = policyRatingNote(setup.policy, ratingArtifact, currentFingerprint, policyVersion(setup.policy));
       // **The caption is the build, in one line, and the seed is where it came from.** A corner

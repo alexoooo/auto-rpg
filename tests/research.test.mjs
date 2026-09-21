@@ -120,18 +120,27 @@ test("paired bootstrap detects a real improvement and rejects unmatched samples"
   assert.deepEqual(bootstrap([0, 0, 0]), { mean: 0, low: 0, high: 0, blocks: 3 });
   assert.throws(() => pairedComparison(rows.slice(1), "candidate", "parent"), /incomplete/);
 });
-test("selector labels distinguish rated, provisional, missing and stale measurements", () => {
+test("selector labels retain dated measurements after simulation and policy changes", () => {
   const data = { version: 1, fingerprint: "current", evaluatedAt: "2026-09-20T00:00:00Z", rounds: 1,
     policies: { a: { rating: 1538.3, deviation: 50, bouts: 528, provisional: true } } };
-  assert.equal(policyRatingLabel("a", "A", data, "current"), "A — 1538 (provisional)");
-  assert.equal(policyRatingLabel("a", "A", data, "changed"), "A — needs evaluation");
-  assert.equal(policyRatingLabel("missing", "New", data, "current"), "New — unrated");
-  assert.equal(policyRatingLabel("idle", "Idle", data, "current"), "Idle — unrated");
+  assert.equal(policyRatingLabel("a", "A", data), "A — 1538 · 2026-09-20 (provisional)");
+  assert.equal(policyRatingLabel("missing", "New", data), "New — unrated");
+  assert.equal(policyRatingLabel("idle", "Idle", data), "Idle — unrated");
   assert.match(policyRatingNote("a", data, "current"), /528 bouts/);
+  assert.doesNotMatch(policyRatingNote("a", data, "current"), /has changed/);
+  assert.match(policyRatingNote("a", data, "changed"), /Last evaluated 2026-09-20.*528 bouts.*last measured rating is shown/);
+  data.fingerprint = "older-simulation";
+  assert.equal(policyRatingLabel("a", "A", data), "A — 1538 · 2026-09-20 (provisional)");
   data.policies.a.provisional = false;
-  assert.equal(policyRatingLabel("a", "A", data, "current"), "A — 1538");
+  assert.equal(policyRatingLabel("a", "A", data), "A — 1538 · 2026-09-20");
+  data.fingerprint = "current";
   data.policies.a.policyVersion = "parameters-v1";
-  assert.equal(policyRatingLabel("a", "A", data, "current", "parameters-v2"), "A — needs evaluation");
+  assert.equal(policyRatingLabel("a", "A", data), "A — 1538 · 2026-09-20");
+  assert.match(policyRatingNote("a", data, "current", "parameters-v2"), /has changed.*last measured rating is shown/);
+  assert.doesNotMatch(policyRatingNote("a", data, "current", "parameters-v1"), /has changed/);
+  data.version = 2;
+  assert.equal(policyRatingLabel("a", "A", data), "A — unrated");
+  assert.match(policyRatingNote("a", data, "current"), /^Unrated:/);
 });
 
 test("paired bootstrap is invariant to worker completion order on heterogeneous blocks", () => {

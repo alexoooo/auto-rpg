@@ -69,8 +69,10 @@ test checks repeated/worker parity and separates an attacking fencer from Idle. 
 does not equate command rate with lethality or use tip-speed peaks as fighting quality.
 
 Runtime source dependencies are hashed after TypeScript removes type-only imports. The lockfile
-and measurement worker are included. Presentation-only edits do not stale ratings. Published
-candidate parameters are independently versioned; editing one invalidates that policy's rating.
+and measurement worker are included. Published candidate parameters are independently versioned.
+The arena always shows the last measured rating with its evaluation date, even after runtime or
+policy changes; the detail note identifies changed versions without hiding the score. Fingerprints
+still protect research resume, evidence and promotion from mixing incompatible experiments.
 Manifests also record the exact protocol, roster, runtime, dependencies and instrument version.
 
 ## First experiment
