@@ -37,7 +37,7 @@ test("needle alternates chambers, extensions and recovery while retaining other 
 });
 
 test("needle preserves the entire baseline command for unsupported and lost primary hands", async () => {
-  for (const build of ["maul", "whip", "ram-capped", "default"]) {
+  for (const build of ["maul", "whip", "fists", "ram-capped", "pitch-blade", "default"]) {
     const bout = await fixture(build);
     try {
       const view = bout.left.view;

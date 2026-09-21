@@ -1,0 +1,22 @@
+{
+  "reviewedAt": "2026-09-21",
+  "policyHash": "58fcdd6baac807a0e3f4150dfdcfd54cedcc9d6b4aa10ae0fcb77b960f731319",
+  "labFingerprint": "f26ea9438f92ab829bb8e9bead91fe4c896a6a37bd93d68a3a8a0cf42df51c10",
+  "artifact": "research/runs/wave3-student-scoped-r8/model.json",
+  "surface": "Chrome, isolated arena preview on port 5199",
+  "accepted": true,
+  "scenarios": [
+    { "build": "two-blades", "opponent": "golem-duelist", "opponentBuild": "two-blades",
+      "verdict": "left", "remainingVitalityPercent": 84,
+      "notes": "Close blade exchanges and progressive opponent dismemberment; finished with a cut to the pelvis. Learned specialist engaged and completed the bout." },
+    { "build": "fists", "opponent": "golem-duelist", "opponentBuild": "fists",
+      "verdict": "left", "remainingVitalityPercent": 2,
+      "notes": "Sustained punching exchanges, damage on both sides and a narrow finish from a head blow. Not an effortless win." },
+    { "build": "default", "opponent": "golem-fencer", "opponentBuild": "default",
+      "verdict": "right", "remainingVitalityPercent": 16,
+      "notes": "Unsupported sword/shield fallback ran to a loss; no runtime errors. Exact baseline identity is separately covered by physical-trace tests. The final auto-camera missed the bodies, so this final frame is not evidence about fallback motion quality." }
+  ],
+  "browserErrors": [],
+  "notes": "Representative specialist fights and fallback behavior reviewed. These unseeded UI bouts are qualitative checks, not independent strength measurements or smooth-animation evidence; remote capture is approximately one frame per second.",
+  "cleanup": "Owned review tab closed and Vite session 75011 stopped. Port 5199 has no listener; user PID 66500 remains on port 5180."
+}

@@ -27,3 +27,12 @@ test("maul confirmation tests varied opposing bodies on unique independent seeds
   assert.deepEqual([...new Set(rows.map((r) => r.opponentBuild))], ["default", "maul", "mace", "two-blades"]);
   assert.equal(new Set(rows.map((r) => r.seed)).size, rows.length);
 });
+
+test("fresh confirmation seed offsets preserve the entire matchup matrix", () => {
+  const original = evaluationFixtures("confirmation", 4, false);
+  const fresh = evaluationFixtures("confirmation", 4, false, 3000000);
+  assert.deepEqual(fresh, original.map((r) => ({ ...r, seed: r.seed + 3000000 })));
+  for (const invalid of [-1, 0.5, NaN, Infinity]) {
+    assert.throws(() => evaluationFixtures("confirmation", 4, false, invalid), /seed offset/);
+  }
+});

@@ -1,6 +1,11 @@
 import type { GolemSetup } from "../bout.ts";
 import { randomGolemSetup } from "./build.ts";
 
+// Historical screening data, not a proof about current physics or policies. The September 2026
+// AI campaign repeatedly finished blade mirrors that this table rejects. Preserve the existing
+// random-pool filter until its broader body classes are remeasured, but do not tell players that
+// a flagged hand-built matchup is impossible to finish.
+
 /**
  * Can this pair of bodies end a bout? Session 01 of the learn set.
  *
@@ -237,7 +242,7 @@ export const viableMirror = (setup: GolemSetup): boolean => VIABLE_MIRRORS.has(a
  * nothing can go red about. The screen renders this string and decides nothing.
  */
 export const unviablePairNote = (a: GolemSetup, b: GolemSetup): string | null =>
-  viablePair(a, b) ? null : "these two cannot finish each other";
+  viablePair(a, b) ? null : "Older tests flagged this weapon pairing for stalemates; results may differ now.";
 
 /**
  * How many draws the viable draws below will make before giving up.

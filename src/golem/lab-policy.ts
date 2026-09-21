@@ -1,7 +1,7 @@
 /** Experimental, browser-compatible policies. Not admitted to the normal picker. */
 import type { FighterView, Intent, Mind } from "../mind.ts";
 import { originalMind as policyMind } from "./lab-baselines.ts";
-import { freshGolemIntent } from "./tactics.ts";
+import { canAttack, freshGolemIntent } from "./tactics.ts";
 import { golemDriven, GOLEM_TACTICS_V4, COMMAND_FIELDS, COMMAND_RANGES, freshCommand } from "./tactics-v4.ts";
 import { golemStyled, GOLEM_TACTICS_V3, type StyleOption } from "./tactics-v3.ts";
 import { golemPlanner } from "./planner.ts";
@@ -144,12 +144,17 @@ export interface NetworkArtifact {
   baseline?: string;
   /** Optional PPO diagonal Gaussian; noise is applied before action clipping. */
   samplingStd?: number[];
+  /** Narrow deployment hypothesis; unsupported bodies receive the exact residual baseline. */
+  scope?: "dual-strikers";
   layers: DenseLayer[];
   /** Feed-forward NEAT graph, evaluated in topological order. */
   graph?: { outputs: number[]; nodes: { id: number; bias: number; response: number; links: [number, number][] }[] };
 }
 export function validateNetwork(model: NetworkArtifact): void {
   const names = observationNames(model.version);
+  if (model.scope !== undefined && (model.scope !== "dual-strikers" || model.surface !== "residual")) {
+    throw new Error("invalid network scope");
+  }
   if (model.baseline !== undefined && !["golem-driver", "golem-duelist"].includes(model.baseline)) throw new Error("invalid network baseline");
   if (JSON.stringify(model.observationNames) !== JSON.stringify(names)
     || ![12, 30, 60].includes(model.hz)) throw new Error("incompatible lab network");
@@ -224,7 +229,14 @@ export function networkMind(model: NetworkArtifact, seed: number): Mind {
   validateNetwork(model);
   let nextAsk = -Infinity, action: number[] = [];
   const random = mulberry32(seed ^ 0x5a17c9e3);
-  const inner = controlledMind(model.surface, seed, () => action, model.baseline ?? "golem-driver");
+  const inner = controlledMind(model.surface, seed, (view) => {
+    if (model.scope === "dual-strikers") {
+      const caps = view.self.capabilities;
+      if (!caps || caps.pairedHands || HANDS.some((hand) => view.self.hands[hand].lost
+        || !canAttack(caps.effectors[hand]) || !["sword", "empty"].includes(view.self.hands[hand].weapon))) return null;
+    }
+    return action;
+  }, model.baseline ?? "golem-driver");
   return { name: "lab-network", decide(view, dt) {
     if (view.clock + 1e-9 >= nextAsk) { nextAsk = view.clock + 1 / model.hz; action = sampleNetwork(model, labObservation(view, model.version), random); }
     return inner.decide(view, dt);

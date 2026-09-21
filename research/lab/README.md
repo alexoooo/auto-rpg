@@ -305,3 +305,18 @@ tested separately. Sampling is an experimental execution mode, not an automatic 
 Long PPO jobs checkpoint weights/optimizer and report progress roughly every minute. Resume
 continues learning from that model; it does not claim to restore partially collected rollouts or
 reproduce the uninterrupted training random stream.
+
+Archived PPO checkpoints can be exported with `sample-export --checkpoint PATH --model PATH`.
+The exporter requires exact equality with the supplied mean network's weights before extracting
+its learned deviations; provenance hashes identify both inputs. It never retrains or overwrites
+the original model. A mismatched checkpoint/mean pair is rejected before creating output.
+
+`specialize --model PATH --scope dual-strikers` freezes a residual model's deployment scope to
+two attached, independently driven blade/fist hands. Other weapon families and hand loss return
+the exact named baseline, whose history keeps advancing. The generated `model.json` is a new
+candidate, not a way to reuse an unscoped model's confirmation. Test it independently. DAgger
+requires an unscoped deterministic initial student so that retained-baseline labels remain valid.
+
+Evaluations accept `--seedOffset N` to predeclare fresh seeds after an adapted hypothesis.
+The offset is recorded in the evaluation protocol and changes no matchups; candidate and control
+must use the same offset. Do not relabel already-inspected confirmation as fresh evidence.

@@ -44,7 +44,7 @@ for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.star
       }
     }
   }
-  for (const file of ["model-calibration.json", "replay-verification.json", "archive.json"]) {
+  for (const file of ["model-calibration.json", "replay-verification.json", "archive.json", "sample-export.json", "specialization.json"]) {
     if (existsSync(join(directory, file))) entry[file] = read(join(directory, file));
   }
   if (existsSync(join(directory, "replay.json"))) entry.replay = recordSummary(read(join(directory, "replay.json")));

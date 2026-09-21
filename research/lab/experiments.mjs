@@ -19,6 +19,7 @@ export function labFingerprint() {
   files.push(join(ROOT, "src/golem/lab-model.ts"));
   files.push(join(ROOT, "research/constant-search.mjs"));
   files.push(join(ROOT, "research/model-campaign.mjs"));
+  files.push(join(ROOT, "research/export-ppo-sampling.py"));
   return digest({ simulator: fingerprint().hash,
     files: Object.fromEntries(files.map((f) => [relative(ROOT, f).replaceAll("\\", "/"), readFileSync(f, "utf8")])) });
 }
@@ -26,7 +27,8 @@ export function snapshotSources() {
   const files = [...fingerprint().files,
     ...readdirSync(join(ROOT, "research/lab")).filter((f) => /\.(mjs|py|ini|txt|html)$/.test(f)).map((f) => `research/lab/${f}`),
     "src/golem/lab-policy.ts", "src/golem/lab-bespoke.ts", "src/golem/lab-model.ts",
-    "research/owned-child.mjs", "research/runner.mjs", "research/fingerprint.mjs", "research/constant-search.mjs", "research/model-campaign.mjs"];
+    "research/owned-child.mjs", "research/runner.mjs", "research/fingerprint.mjs", "research/constant-search.mjs", "research/model-campaign.mjs",
+    "research/export-ppo-sampling.py"];
   return Object.fromEntries([...new Set(files)].sort().map((f) => [f, readFileSync(join(ROOT, f), "utf8")]));
 }
 export const SPLITS = Object.freeze({
@@ -88,14 +90,15 @@ export function scenarios(record) {
   return scenarios;
 }
 
-export function evaluationFixtures(split, repeats = 1, crossBuild = false) {
+export function evaluationFixtures(split, repeats = 1, crossBuild = false, seedOffset = 0) {
   const pool = SPLITS[split];
   if (!pool) throw new Error("invalid split");
   if (!Number.isInteger(repeats) || repeats < 1 || repeats > 100) throw new Error("invalid evaluation repeats");
+  if (!Number.isInteger(seedOffset) || seedOffset < 0 || seedOffset > 1000000000) throw new Error("invalid evaluation seed offset");
   const fixtures = [], opponentBuilds = pool.opponentBuilds ?? pool.builds;
   for (let repeat = 0; repeat < repeats; repeat++) for (const build of pool.builds)
   for (const opponentBuild of crossBuild ? opponentBuilds : [build]) for (const opponent of pool.opponents) {
-    const seed = pool.seed + repeat * 10000 + pool.builds.indexOf(build) * 100 + pool.opponents.indexOf(opponent)
+    const seed = seedOffset + pool.seed + repeat * 10000 + pool.builds.indexOf(build) * 100 + pool.opponents.indexOf(opponent)
       + (crossBuild ? opponentBuilds.indexOf(opponentBuild) * 1000 : 0);
     fixtures.push({ build, opponentBuild, opponent, seed });
   }
@@ -103,9 +106,9 @@ export function evaluationFixtures(split, repeats = 1, crossBuild = false) {
 }
 
 export async function evaluatePolicy(policy, { split = "selection", deadline, maxSeconds = 150, completed = [],
-  repeats = 1, crossBuild = false, onResult = () => {} } = {}) {
+  repeats = 1, crossBuild = false, seedOffset = 0, onResult = () => {} } = {}) {
   let count = 0;
-  for (const { build, opponentBuild, opponent, seed } of evaluationFixtures(split, repeats, crossBuild)) {
+  for (const { build, opponentBuild, opponent, seed } of evaluationFixtures(split, repeats, crossBuild, seedOffset)) {
     const existing = completed.filter((r) => r.build === build && r.opponent === opponent && r.seed === seed
       && (r.opponentBuild ?? r.build) === opponentBuild);
     if (existing.length) {

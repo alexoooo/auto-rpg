@@ -341,3 +341,24 @@ The broader fair-model campaign completed all 16 training and 16 independent val
 Equal-episode RMSE was 0.08975 versus persistence 0.08557; vitality RMSE was 0.01826. More varied
 data did not repair this nearest-neighbor model's predictive deficit. Long-horizon planning is
 not justified by these results. The entire per-episode breakdown is retained.
+
+## Frozen specialist confirmation
+
+The scoped student rechecked at 75% in dual selection, but its 128 fresh cross-build confirmation
+bouts against Tactician/Miser scored 54.6875% versus Duelist's 46.875%. The paired difference
+was +7.8125 points, interval 0 to +16.40625; no bouts truncated. It fails the predeclared
+meaningful-improvement gate. Twin blades scored 84.375% versus 68.75% (difference +15.625 points,
+interval +6.25 to +25), while fists matched the control at 25%. The subgroup finding does not
+rescue the failed aggregate hypothesis. A narrower future candidate would require genuinely
+new confirmation, not relabeling these bouts.
+
+Chrome reviews of the scoped student's twin blades and fists both ended in wins against Duelist,
+at 84% and 2% remaining vitality. Its default-body fallback lost to Fencer. Needle's default and
+twin-blade reviews won against Duelist at 76% and 22% vitality. No browser errors occurred.
+Review records retain the limitations; these unseeded UI fights are not strength measurements.
+The owned tab and port-5199 server were closed; user PID 66500 was preserved.
+
+The browser exposed a stale historical viability caption claiming blade mirrors cannot finish.
+The caption now identifies that old evidence as a historical stalemate warning rather than an
+impossibility claim. Random-build filters and all physics remain unchanged. This UI-only edit
+did not change the running experiments' source identity.

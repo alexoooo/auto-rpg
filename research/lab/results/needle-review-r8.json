@@ -1,0 +1,18 @@
+{
+  "reviewedAt": "2026-09-21",
+  "policyHash": "654e27ab8ea49657e5bf19d1bf1e15c221d61dbe10983a1753c77daf7c7df021",
+  "labFingerprint": "f26ea9438f92ab829bb8e9bead91fe4c896a6a37bd93d68a3a8a0cf42df51c10",
+  "surface": "Chrome, isolated arena preview on port 5199",
+  "accepted": true,
+  "scenarios": [
+    { "build": "default", "opponent": "golem-duelist", "opponentBuild": "default",
+      "verdict": "left", "remainingVitalityPercent": 76,
+      "notes": "Sword/shield case completed with a head hit. The physical contact was scored as a cut; a thrust-shaped command does not guarantee that physics classifies the resulting contact as a puncture." },
+    { "build": "two-blades", "opponent": "golem-duelist", "opponentBuild": "two-blades",
+      "verdict": "left", "remainingVitalityPercent": 22,
+      "notes": "Twin-blade case completed with damage on both sides and a finishing cut to the core. Both cases reached real arena verdicts without runtime errors." }
+  ],
+  "browserErrors": [],
+  "notes": "Point-focused controller and normal combat outcomes reviewed. These unseeded UI bouts are qualitative runtime checks, not independent strength measurements. Approximately one-frame-per-second capture does not establish smooth animation quality. Unsupported-hand fallback is pinned by whole-command tests.",
+  "cleanup": "Owned review tab closed and Vite session 75011 stopped. Port 5199 has no listener; user PID 66500 remains on port 5180."
+}

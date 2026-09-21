@@ -877,7 +877,7 @@ test("the showcase opens with two golems, both driven by their own mind, and nob
  * of them. The two assertions are on the predicate and not on a weapon name, so a re-measurement
  * that moves either table turns this red instead of leaving a stale claim in a comment.
  */
-test("the showcase default is a body the draw can hand back, and a mirror that cannot finish", () => {
+test("the showcase default is drawable but its mirror is flagged by the historical table", () => {
   const build = defaultGolemSetup();
   assert.ok(viableBuild(build), `the default is armed with a "${armedTerminal(build)}"`);
   assert.equal(viablePair(build, build), false,

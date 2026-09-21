@@ -12,7 +12,7 @@ export function needleMind(seed: number): Mind {
     const intent = structuredClone(base.decide(view, dt));
     const caps = view.self.capabilities, me = view.self.hands.primary;
     if (!caps || caps.pairedHands || me.lost || !canAttack(caps.effectors.primary)
-      || (!hasPoint(me.weapon) && me.weapon !== "empty")) {
+      || !caps.effectors.primary.reachable || !hasPoint(me.weapon)) {
       active = false; elapsed = 0;
       return intent;
     }

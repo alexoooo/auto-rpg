@@ -250,5 +250,6 @@ test("a_hand_built_pair_the_predicate_refuses_is_captioned_rather_than_blocked",
   // finding Session 01 measured, and it is what the caption on the screen is for.
   assert.equal(viableBuild(unarmed), true);
   assert.equal(viablePair(unarmed, unarmed), false);
-  assert.equal(unviablePairNote(unarmed, unarmed), "these two cannot finish each other");
+  assert.equal(unviablePairNote(unarmed, unarmed), "Older tests flagged this weapon pairing for stalemates; results may differ now.");
+  assert.equal(unviablePairNote(defaultGolemSetup(), defaultGolemSetup()), unviablePairNote(unarmed, unarmed));
 });

@@ -16,7 +16,7 @@ import { teacherCampaign } from "./teacher-campaign.mjs";
 import { exportPoses } from "./poses.mjs";
 import { constantSearch } from "../constant-search.mjs";
 import { modelCampaign, spacedRows } from "../model-campaign.mjs";
-import { infer } from "../../src/golem/lab-policy.ts";
+import { infer, validateNetwork } from "../../src/golem/lab-policy.ts";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 const [command, ...args] = process.argv.slice(2);
@@ -67,10 +67,28 @@ try {
   if (!existsSync(snapshotPath)) atomicJson(snapshotPath, snapshotSources());
   checkpoint = setInterval(saveBudget, 1000);
   switch (command) {
+    case "specialize": {
+      if (!flags.model || flags.scope !== "dual-strikers") throw new Error("specialize requires --model and --scope dual-strikers");
+      const original = JSON.parse(readFileSync(resolve(flags.model), "utf8"));
+      const model = { ...original, scope: flags.scope };
+      validateNetwork(model);
+      if (existsSync(join(directory, "model.json"))) throw new Error("preserve existing specialization; use a new directory");
+      atomicJson(join(directory, "model.json"), model);
+      atomicJson(join(directory, "specialization.json"), { source: flags.model, sourceModelHash: digest(original),
+        modelHash: digest(model), scope: flags.scope, fallback: model.baseline ?? "golem-driver",
+        status: "selection-derived scope; fresh independent confirmation required" });
+      break;
+    }
+    case "sample-export": {
+      if (!flags.model || !flags.checkpoint) throw new Error("sample-export requires --model and --checkpoint");
+      await trainChild([join(ROOT, "research/export-ppo-sampling.py"), "--out", directory,
+        "--model", resolve(flags.model), "--checkpoint", resolve(flags.checkpoint)], allowance);
+      break;
+    }
     case "dagger-campaign": {
       if (!flags.model) throw new Error("dagger-campaign requires an initial student --model");
       let model = JSON.parse(readFileSync(resolve(flags.model), "utf8"));
-      if (model.version !== 2 || model.hz !== 12 || model.samplingStd) throw new Error("DAgger campaign requires a deterministic version-2, 12 Hz student");
+      if (model.version !== 2 || model.hz !== 12 || model.samplingStd || model.scope) throw new Error("DAgger campaign requires a deterministic unscoped version-2, 12 Hz student");
       if (existsSync(join(directory, "dagger-campaign.json"))) throw new Error("preserve completed DAgger rounds; use a new campaign directory");
       const roundLimit = Number(flags.rounds ?? 3), seed = Number(flags.seed ?? 7001);
       const retention = Number(flags.retention ?? 100000), queryWeight = Number(flags.queryWeight ?? 8);
@@ -237,7 +255,8 @@ try {
         : flags.refit ? [{ kind: "refit", tables: read("refit.json").tables }]
         : flags.policy ? [{ kind: flags.policy.startsWith("golem-") ? "baseline" : "bespoke", name: flags.policy }] : portfolio();
       const protocol = { split: flags.split ?? "selection", maxSeconds: Number(flags.duration ?? 150), candidates,
-        repeats: Number(flags.repeats ?? 1), crossBuild: flags.crossBuild === "true" };
+        repeats: Number(flags.repeats ?? 1), crossBuild: flags.crossBuild === "true",
+        ...(flags.seedOffset ? { seedOffset: Number(flags.seedOffset) } : {}) };
       const filename = `evaluation-${digest(protocol).slice(0, 16)}.json`;
       const results = existsSync(join(directory, filename)) ? read(filename)
         : candidates.map((policy) => ({ policy, split: protocol.split, maxSeconds: protocol.maxSeconds, rows: [] }));
@@ -246,6 +265,7 @@ try {
         if (Date.now() >= deadline) break;
         await evaluatePolicy(result.policy, { deadline, split: protocol.split, maxSeconds: protocol.maxSeconds, completed: result.rows,
           repeats: protocol.repeats, crossBuild: protocol.crossBuild,
+          seedOffset: protocol.seedOffset ?? 0,
           onResult: (row) => { result.rows.push(row); if (result.rows.length % 2 === 0) persist(); } });
       }
       persist();
