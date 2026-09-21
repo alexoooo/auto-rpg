@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI research — recorded poses</title>
+<style>
+body{margin:0;background:#111923;color:#e3ebf6;font:15px system-ui}header{padding:16px 24px;background:#1c2938}
+h1{font-size:20px;margin:0 0 6px}p{margin:4px 0;color:#a6b8cb}canvas{display:block;width:100%;height:70vh}
+footer{padding:16px 24px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}input[type=range]{flex:1;min-width:220px}
+button,select{background:#2a4057;color:inherit;border:1px solid #708298;border-radius:5px;padding:8px}output{font-variant-numeric:tabular-nums}
+</style>
+<header><h1>Recorded combat poses</h1><p id="description">Loading…</p><p>Blue: left · Orange: right · Drag to orbit · Wheel to zoom. No live physics.</p></header>
+<canvas id="canvas" aria-label="Recorded fight visualization"></canvas>
+<footer><button id="play">Play</button><select id="speed" aria-label="Playback speed"><option value="0.1">0.1×</option><option value="0.25" selected>0.25×</option><option value="1">1×</option></select>
+<input id="scrub" type="range" min="0" max="0" value="0" step="1" aria-label="Replay frame"><output id="time">0.00 s</output></footer>
+<script type="module">
+const canvas=document.querySelector('#canvas'),ctx=canvas.getContext('2d'),scrub=document.querySelector('#scrub');
+let record,frame=0,playing=false,yaw=0.7,zoom=95,last=0,accumulator=0;
+const rotate=(p,q)=>{const [x,y,z]=p,[a,b,c,d]=q,tx=2*(b*z-c*y),ty=2*(c*x-a*z),tz=2*(a*y-b*x);return [x+d*tx+b*tz-c*ty,y+d*ty+c*tx-a*tz,z+d*tz+a*ty-b*tx]};
+function draw(){
+ canvas.width=canvas.clientWidth*devicePixelRatio;canvas.height=canvas.clientHeight*devicePixelRatio;
+ ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ctx.fillStyle='#111923';ctx.fillRect(0,0,canvas.clientWidth,canvas.clientHeight);
+ if(!record)return;
+ const state=record.frames[frame],centre=state.parts.reduce((s,p)=>s.map((x,i)=>x+p.position[i]/state.parts.length),[0,0,0]);
+ const project=p=>{const x=p[0]-centre[0],z=p[2]-centre[2],right=x*Math.cos(yaw)-z*Math.sin(yaw),depth=x*Math.sin(yaw)+z*Math.cos(yaw);
+ return [canvas.clientWidth/2+right*zoom,canvas.clientHeight/2-(p[1]-1)*zoom+depth*zoom*0.28,depth]};
+ ctx.strokeStyle='#2e4356';ctx.lineWidth=1;
+ for(let i=-8;i<=8;i++){for(const axis of [0,1]){const a=project(axis?[i,0,-8]:[-8,0,i]),b=project(axis?[i,0,8]:[8,0,i]);ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke()}}
+ const triangles=[];
+ record.geometry.forEach((g,index)=>{const pose=state.parts[index],points=[];
+ for(let i=0;i<g.positions.length;i+=3){const p=rotate(g.positions.slice(i,i+3).map((v,j)=>v*pose.scaling[j]),pose.rotation).map((v,j)=>v+pose.position[j]);points.push(project(p))}
+ for(let i=0;i<g.indices.length;i+=3){const p=g.indices.slice(i,i+3).map(j=>points[j]);triangles.push({p,depth:p.reduce((s,v)=>s+v[2],0)/3,side:g.side,health:pose.health})}});
+ triangles.sort((a,b)=>b.depth-a.depth);
+ for(const t of triangles){ctx.fillStyle=t.side==='left'?`hsl(205 65% ${30+Math.max(0,t.health)*25}%)`:`hsl(28 75% ${30+Math.max(0,t.health)*25}%)`;ctx.strokeStyle='#18212b';ctx.lineWidth=0.4;ctx.beginPath();ctx.moveTo(t.p[0][0],t.p[0][1]);t.p.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));ctx.closePath();ctx.fill();ctx.stroke()}
+ scrub.value=String(frame);document.querySelector('#time').textContent=`${state.clock.toFixed(2)} s / ${record.frames.at(-1).clock.toFixed(2)} s`;
+}
+document.querySelector('#play').onclick=()=>{playing=!playing;document.querySelector('#play').textContent=playing?'Pause':'Play'};
+scrub.oninput=()=>{frame=Number(scrub.value);accumulator=0;draw()};
+canvas.onpointerdown=e=>canvas.setPointerCapture(e.pointerId);
+canvas.onpointermove=e=>{if(e.buttons){yaw+=e.movementX*0.008;draw()}};
+canvas.onwheel=e=>{e.preventDefault();zoom=Math.max(25,Math.min(250,zoom*Math.exp(-e.deltaY*0.001)));draw()};
+window.onresize=draw;
+function tick(now){if(record&&playing){accumulator+=Math.min(0.1,(now-last)/1000)*Number(document.querySelector('#speed').value);
+ while(frame<record.frames.length-1&&accumulator>=record.frames[frame+1].clock-record.frames[frame].clock){accumulator-=record.frames[frame+1].clock-record.frames[frame].clock;frame++}
+ if(frame===record.frames.length-1){playing=false;document.querySelector('#play').textContent='Play'}draw()}last=now;requestAnimationFrame(tick)}
+try{const path=new URLSearchParams(location.search).get('data');if(!path)throw Error('Supply ?data=/research/runs/.../pose-replay.json');
+ const response=await fetch(path);if(!response.ok)throw Error(`Cannot load replay: ${response.status}`);record=await response.json();
+ if(record.version!==1||!record.frames.length)throw Error('Unsupported pose recording');scrub.max=String(record.frames.length-1);document.querySelector('#description').textContent=record.description;draw();requestAnimationFrame(tick)
+}catch(error){document.querySelector('#description').textContent=String(error)}
+</script></html>

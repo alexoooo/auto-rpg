@@ -66,16 +66,41 @@ export function fitObservationModel(transitions) {
   const rows = transitions.filter((r) => r.action !== null && !r.terminated && !r.truncated);
   if (!rows.length || rows.some((r) => r.split !== "train" || r.observation.length !== OBSERVATION_NAMES.length
     || r.nextObservation.length !== OBSERVATION_NAMES.length)) throw new Error("model needs training-only controlled transitions");
-  return { version: 1, tier: "fair", rows: rows.map(({ observation, action, nextObservation }) => ({ observation, action, nextObservation })) };
+  return { version: 2, tier: "fair", trainingSeeds: [...new Set(rows.map((r) => r.seed))],
+    rows: rows.map(({ observation, action, nextObservation }) => ({ observation, action, nextObservation })) };
 }
-export function fairPlan(observation, model, { seed = 1, candidates = 16, steps = 24 } = {}) {
-  if (model.version !== 1 || model.tier !== "fair" || !model.rows.length) throw new Error("invalid observation model");
-  const random = mulberry32(seed), width = model.rows[0].action.length;
-  const predict = (obs, action) => {
+export function predictObservations(obs, action, model) {
+    if (model.version !== 2 || model.tier !== "fair" || !model.rows.length) throw new Error("invalid observation model");
     const neighbors = model.rows.map((r) => ({ r, distance: r.observation.reduce((s, x, i) => s + (x - obs[i]) ** 2, 0)
       + r.action.reduce((s, x, i) => s + (x - action[i]) ** 2, 0) })).sort((a, b) => a.distance - b.distance).slice(0, 5);
     return neighbors.map(({ r }) => obs.map((x, i) => Math.max(-5, Math.min(5, x + r.nextObservation[i] - r.observation[i]))));
-  };
+}
+/** Independent episodes, not random rows from the training trajectory. */
+export function calibrateObservationModel(model, rows) {
+  if (!rows.length || rows.some((r) => r.split !== "model-validation" || model.trainingSeeds.includes(r.seed))) {
+    throw new Error("calibration requires independent model-validation seeds");
+  }
+  const errors = [], persistence = [], vitality = [], spread = [];
+  for (const r of rows.filter((r) => r.action !== null && !r.terminated && !r.truncated)) {
+    const predictions = predictObservations(r.observation, r.action, model);
+    const mean = r.observation.map((_, j) => predictions.reduce((s, p) => s + p[j], 0) / predictions.length);
+    errors.push(mean.reduce((s, x, j) => s + (x - r.nextObservation[j]) ** 2, 0) / mean.length);
+    persistence.push(r.observation.reduce((s, x, j) => s + (x - r.nextObservation[j]) ** 2, 0) / mean.length);
+    const indices = [OBSERVATION_NAMES.indexOf("self.vitality"), OBSERVATION_NAMES.indexOf("opponent.vitality")];
+    vitality.push(indices.reduce((s, j) => s + (mean[j] - r.nextObservation[j]) ** 2, 0) / 2);
+    spread.push(predictions.reduce((s, p) => s + p.reduce((t, x, j) => t + (x - mean[j]) ** 2, 0) / mean.length, 0) / predictions.length);
+  }
+  if (!errors.length) throw new Error("no nonterminal validation transitions");
+  const rmse = (xs) => Math.sqrt(xs.reduce((a, b) => a + b, 0) / xs.length);
+  return { transitions: errors.length, seeds: [...new Set(rows.map((r) => r.seed))],
+    rmse: rmse(errors), persistenceRmse: rmse(persistence), vitalityRmse: rmse(vitality),
+    ensembleSpread: rmse(spread), beatsPersistence: rmse(errors) < rmse(persistence),
+    limitation: "one-step held-out prediction error; not evidence of calibrated long-horizon value" };
+}
+export function fairPlan(observation, model, { seed = 1, candidates = 16, steps = 24 } = {}) {
+  if (model.version !== 2 || model.tier !== "fair" || !model.rows.length) throw new Error("invalid observation model");
+  const random = mulberry32(seed), width = model.rows[0].action.length;
+  const predict = (obs, action) => predictObservations(obs, action, model);
   const value = (o) => o[OBSERVATION_NAMES.indexOf("self.vitality")] - o[OBSERVATION_NAMES.indexOf("opponent.vitality")];
   const alternatives = [];
   for (let i = 0; i < candidates; i++) {

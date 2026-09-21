@@ -7,6 +7,7 @@ import { stable, digest } from "../schedule.mjs";
 import { fingerprint } from "../fingerprint.mjs";
 
 export const DEFAULT_CONFIG = Object.freeze({ seed: 20260921, hz: 12, maxSeconds: 150,
+  controlBaseline: "golem-driver",
   leftBuild: "default", rightBuild: "default", surface: "pilot",
   left: { kind: "baseline", name: "golem-driver" }, right: { kind: "baseline", name: "golem-fencer" } });
 let active = false;
@@ -46,7 +47,7 @@ export async function createEnvironment(options = {}) {
       return intent;
     } });
     const baseline = labMind(config.left, config.seed);
-    const controlled = controlledMind(config.surface, config.seed, () => held);
+    const controlled = controlledMind(config.surface, config.seed, () => held, config.controlBaseline);
     const left = { name: "lab-left", decide(view, dt) {
       // Both histories advance on every step, including replay prefixes. No hidden controller clone.
       const original = baseline.decide(view, dt);
@@ -78,7 +79,20 @@ export async function createEnvironment(options = {}) {
         vitality: [bout.left.view.self.vitality, bout.right.view.self.vitality],
         trace: trace ? transcript.copy().digest("hex") : null };
     };
+    const visualParts = () => [bout.left, bout.right].flatMap((body) => body.visualParts().map((part) => ({ body, part })));
     return { config, observation, state, tape, behaviors,
+      geometry() {
+        return visualParts().map(({ body, part }) => {
+          if (part.host.parent) throw new Error("pose export requires scene-root physical meshes");
+          return { id: part.id, side: body.side, positions: Array.from(part.host.getVerticesData("position") ?? []),
+            indices: Array.from(part.host.getIndices() ?? []) };
+        });
+      },
+      pose() {
+        return { clock: bout.clock, parts: visualParts().map(({ part }) => ({
+          position: part.host.position.asArray(), rotation: part.host.rotationQuaternion?.asArray() ?? [0, 0, 0, 1],
+          scaling: part.host.scaling.asArray(), health: part.damage.health / part.damage.maxHealth, severed: part.damage.severed })) };
+      },
       step(action = null) {
         if (closed || !bout.active) throw new Error("cannot step closed or finished environment");
         if (action !== null) validateAction(config.surface, action);

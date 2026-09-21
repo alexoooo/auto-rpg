@@ -5,11 +5,13 @@ import json
 from pathlib import Path
 import random
 import time
+from functools import partial
 
 import numpy as np
 import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.vec_env import SubprocVecEnv
 import neat
 
 from bridge import CombatEnv
@@ -26,7 +28,8 @@ def dense_export(layers, env):
     for i, layer in enumerate(layers):
         result.append(dict(weights=layer.weight.detach().cpu().tolist(), bias=layer.bias.detach().cpu().tolist(),
                            activation="linear" if i == len(layers) - 1 else "tanh"))
-    return dict(version=1, surface=env.config["surface"], hz=12, observationNames=env.names, layers=result)
+    return dict(version=env.version, surface=env.config["surface"], hz=12, observationNames=env.names,
+                baseline=env.config["controlBaseline"], layers=result)
 
 
 def parity(env, artifact, predictor, rng):
@@ -48,32 +51,66 @@ def main():
     parser.add_argument("--seconds", type=float, default=60)
     parser.add_argument("--episode-seconds", type=float, default=150)
     parser.add_argument("--labels")
+    parser.add_argument("--reward", choices=["terminal", "potential"], default="terminal")
+    parser.add_argument("--envs", type=int, choices=[1, 2, 4], default=1)
+    parser.add_argument("--fitness-episodes", type=int, choices=[1, 4, 8], default=4)
+    parser.add_argument("--baseline", choices=["golem-driver", "golem-duelist"], default="golem-driver")
+    parser.add_argument("--log-std", type=float, default=0.0)
     args = parser.parse_args()
-    if not 0 < args.seconds <= 600:
-        parser.error("smoke run must be at most 600 seconds")
+    if not 0 < args.seconds <= 3600:
+        parser.error("training jobs must be at most 3600 seconds; cumulative authorization is enforced by the lab CLI")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    protocol = dict(method=args.method, surface=args.surface, seed=args.seed,
+                    episodeSeconds=args.episode_seconds, reward=args.reward, envs=args.envs,
+                    fitnessEpisodes=args.fitness_episodes, baseline=args.baseline, logStd=args.log_std)
+    protocol_path = out / "protocol.json"
+    if protocol_path.exists() and json.loads(protocol_path.read_text()) != protocol:
+        raise ValueError("training protocol changed; use a new output directory")
+    if args.reward != "terminal" and args.method != "ppo":
+        raise ValueError("potential shaping currently supports PPO's discounted objective only")
+    if args.envs != 1 and args.method != "ppo":
+        raise ValueError("parallel environments currently support PPO only")
+    write_json(protocol_path, protocol)
     start = time.monotonic()
     deadline = start + args.seconds
     random.seed(args.seed)
     rng = np.random.default_rng(args.seed)
     torch.manual_seed(args.seed)
     torch.set_num_threads(2)
-    env = CombatEnv(args.surface, args.seed, args.episode_seconds)
+    env = CombatEnv(args.surface, args.seed, args.episode_seconds, args.reward, args.baseline)
+    training_env = env
     artifact = None
     updates = 0
     scores = []
     predictor = None
+    def fitness(predict, suite_seed):
+        values = []
+        for episode in range(args.fitness_episodes):
+            obs, _ = env.reset(seed=suite_seed + episode * 5)
+            done, total = False, 0.0
+            while not done:
+                if time.monotonic() >= deadline:
+                    return None
+                obs, reward, terminal, truncated, _ = env.step(predict(obs))
+                total += reward
+                done = terminal or truncated
+            values.append(total)
+        return sum(values) / len(values)
     try:
         inputs, outputs = len(env.names), env.action_space.shape[0]
         if args.method == "ppo":
+            if args.envs > 1:
+                training_env = SubprocVecEnv([partial(CombatEnv, args.surface, args.seed + i * 1000,
+                    args.episode_seconds, args.reward, args.baseline) for i in range(args.envs)], start_method="spawn")
             class Deadline(BaseCallback):
                 def _on_step(self):
                     return time.monotonic() < deadline
             checkpoint = out / "ppo.zip"
-            model = PPO.load(checkpoint, env=env, device="cpu") if checkpoint.exists() else PPO(
-                "MlpPolicy", env, seed=args.seed, device="cpu", n_steps=128, batch_size=64,
-                n_epochs=4, policy_kwargs=dict(net_arch=dict(pi=[32, 32], vf=[32, 32]), activation_fn=torch.nn.Tanh), verbose=0)
+            model = PPO.load(checkpoint, env=training_env, device="cpu") if checkpoint.exists() else PPO(
+                "MlpPolicy", training_env, seed=args.seed, device="cpu", n_steps=128, batch_size=64,
+                n_epochs=4, policy_kwargs=dict(net_arch=dict(pi=[32, 32], vf=[32, 32]), activation_fn=torch.nn.Tanh,
+                                              log_std_init=args.log_std), verbose=0)
             model.learn(total_timesteps=10**8, callback=Deadline(), reset_num_timesteps=False)
             model.save(checkpoint)
             updates = model._n_updates
@@ -104,27 +141,27 @@ def main():
             else:
                 mean = torch.nn.utils.parameters_to_vector(net.parameters()).detach().numpy().copy()
                 scale = np.full_like(mean, 0.15)
-                best_score, best = -float("inf"), mean.copy()
+                best = None
                 while time.monotonic() < deadline:
                     generation = []
-                    for _ in range(8):
+                    for candidate_index in range(8):
                         if time.monotonic() >= deadline:
                             break
-                        vector = mean + scale * rng.normal(size=mean.shape)
+                        vector = (best.copy() if best is not None else mean.copy()) if candidate_index == 0 else mean + scale * rng.normal(size=mean.shape)
                         torch.nn.utils.vector_to_parameters(torch.tensor(vector, dtype=torch.float32), net.parameters())
-                        obs, _ = env.reset(seed=args.seed + updates)
-                        total, done = 0, False
-                        while not done and time.monotonic() < deadline:
-                            with torch.no_grad(): action = net(torch.tensor(obs)).numpy().clip(-1, 1)
-                            obs, reward, terminated, truncated, _ = env.step(action)
-                            total += reward; done = terminated or truncated
-                        if not done: break  # Interrupted candidates are not losses or draws.
+                        total = fitness(lambda obs: net(torch.tensor(obs)).detach().numpy().clip(-1, 1), args.seed + updates * 16)
+                        if total is None: break  # Incomplete suites are not losses or draws.
                         generation.append((total, vector)); scores.append(total)
-                        if total > best_score: best_score, best = total, vector.copy()
-                    if len(generation) < 2: break
-                    elite = np.stack([v for _, v in sorted(generation, key=lambda row: row[0], reverse=True)[:2]])
+                    if not generation: break
+                    ranking = sorted(generation, key=lambda row: row[0], reverse=True)
+                    # Re-evaluate the incumbent on this generation's matched suite. Never compare
+                    # a lucky win on last generation's opponent with this generation's fitness.
+                    best = ranking[0][1].copy()
+                    if len(generation) < 8: break
+                    elite = np.stack([v for _, v in ranking[:2]])
                     mean, scale = elite.mean(axis=0), np.maximum(0.03, elite.std(axis=0))
                     updates += 1
+                if best is None: raise RuntimeError("budget ended before a complete evolutionary fitness suite")
                 torch.nn.utils.vector_to_parameters(torch.tensor(best, dtype=torch.float32), net.parameters())
             torch.save(net.state_dict(), checkpoint)
             artifact = dense_export([net[0], net[2]], env)
@@ -143,36 +180,50 @@ def main():
             class StopPilot(Exception): pass
             def evaluate(genomes, cfg):
                 nonlocal best, updates
+                generation_best = None
                 for _, genome in genomes:
                     if time.monotonic() >= deadline: raise StopPilot()
                     network = neat.nn.FeedForwardNetwork.create(genome, cfg)
-                    obs, _ = env.reset(seed=args.seed + updates)
-                    done, total = False, 0
-                    while not done:
-                        if time.monotonic() >= deadline: raise StopPilot()
-                        obs, reward, terminal, truncated, _ = env.step(network.activate(obs))
-                        total += reward; done = terminal or truncated
+                    total = fitness(network.activate, args.seed + updates * 16)
+                    if total is None: raise StopPilot()
                     genome.fitness = total; scores.append(total)
-                    if best is None or total > best.fitness:
+                    if generation_best is None or total > generation_best.fitness:
                         import copy
-                        best = copy.deepcopy(genome)
+                        generation_best = copy.deepcopy(genome)
+                best = generation_best
                 updates += 1
             try: population.run(evaluate, 1000000)
             except StopPilot: pass
             if best is None: raise RuntimeError("budget ended before a NEAT candidate completed an episode")
             network = neat.nn.FeedForwardNetwork.create(best, config)
-            artifact = dict(version=1, surface=args.surface, hz=12, observationNames=env.names, layers=[],
+            artifact = dict(version=env.version, surface=args.surface, hz=12, observationNames=env.names,
+                            baseline=args.baseline, layers=[],
                             graph=dict(outputs=network.output_nodes, nodes=[dict(id=n, bias=b, response=r, links=links)
                             for n, activation, aggregation, b, r, links in network.node_evals]))
+            evaluated = {n[0] for n in network.node_evals}
+            # neat-python leaves disconnected outputs at zero; preserve that exact behavior.
+            artifact["graph"]["nodes"].extend(dict(id=n, bias=0, response=0, links=[])
+                for n in network.output_nodes if n not in evaluated)
             predictor = network.activate
         error = parity(env, artifact, predictor, rng)
+        steps, episodes, outcomes, simulated_seconds = env.steps, env.episodes, env.outcomes, env.simulated_seconds
+        if args.envs > 1:
+            steps = sum(training_env.get_attr("steps"))
+            episodes = sum(training_env.get_attr("episodes"))
+            outcomes = [row for rows in training_env.get_attr("outcomes") for row in rows]
+            simulated_seconds = sum(training_env.get_attr("simulated_seconds"))
         write_json(out / "model.json", artifact)
         write_json(out / "training.json", dict(method=args.method, seed=args.seed, seconds=time.monotonic() - start,
-                   steps=env.steps, simulatedSeconds=env.steps / 12, episodes=env.episodes, outcomes=env.outcomes,
-                   updates=updates, scores=scores, inferenceMaxError=error, evaluation="smoke-only; not a strength claim",
+                   steps=steps, simulatedSeconds=simulated_seconds, episodes=episodes, outcomes=outcomes, envs=args.envs,
+                   updates=updates, scores=scores, inferenceMaxError=error, evaluation="training-only; independent evaluation required",
+                   observationVersion=env.version, reward=args.reward, episodeSeconds=args.episode_seconds,
+                   fitnessEpisodes=args.fitness_episodes,
+                   baseline=args.baseline, logStd=args.log_std,
                    dependencies={p: importlib.metadata.version(p) for p in ["torch", "numpy", "gymnasium", "stable-baselines3", "neat-python"]}))
-        print(json.dumps(dict(method=args.method, updates=updates, steps=env.steps, inferenceMaxError=error)))
+        print(json.dumps(dict(method=args.method, updates=updates, steps=steps, inferenceMaxError=error)))
     finally:
+        if training_env is not env:
+            training_env.close()
         env.close()
 
 

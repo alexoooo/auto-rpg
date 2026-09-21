@@ -9,23 +9,35 @@ import { freshHavok, runBout } from "../../tests/harness/bout-runner.mjs";
 import { golemPlanner, GOLEM_PLANNER } from "../../src/golem/planner.ts";
 import { fitDuelModel, observe, stateKey } from "../../src/golem/duel-model.ts";
 import { namedBuild } from "../../src/golem/roster.ts";
+import { fitTerminalModel, exchangeState } from "../../src/golem/lab-model.ts";
 
 export function labFingerprint() {
   const directory = join(ROOT, "research/lab");
   const files = readdirSync(directory).filter((f) => /\.(mjs|py|ini|txt)$/.test(f)).map((f) => join(directory, f));
   files.push(join(ROOT, "src/golem/lab-policy.ts"));
+  files.push(join(ROOT, "src/golem/lab-bespoke.ts"));
+  files.push(join(ROOT, "src/golem/lab-model.ts"));
   return digest({ simulator: fingerprint().hash,
     files: Object.fromEntries(files.map((f) => [relative(ROOT, f).replaceAll("\\", "/"), readFileSync(f, "utf8")])) });
+}
+export function snapshotSources() {
+  const files = [...fingerprint().files,
+    ...readdirSync(join(ROOT, "research/lab")).filter((f) => /\.(mjs|py|ini|txt|html)$/.test(f)).map((f) => `research/lab/${f}`),
+    "src/golem/lab-policy.ts", "src/golem/lab-bespoke.ts", "src/golem/lab-model.ts"];
+  return Object.fromEntries([...new Set(files)].sort().map((f) => [f, readFileSync(join(ROOT, f), "utf8")]));
 }
 export const SPLITS = Object.freeze({
   train: { builds: ["default", "two-blades", "mace", "fists"], opponents: ["golem-fencer", "golem-duelist", "golem-form", "golem-guardian"], seed: 1000 },
   selection: { builds: ["default", "maul", "whip", "ram-blade"], opponents: ["golem-planner", "golem-brawler"], seed: 200000 },
   confirmation: { builds: ["wheel", "multileg", "plated", "pitch-blade"], opponents: ["golem-champion", "golem-tactician", "golem-miser"], seed: 900000 },
+  "dual-selection": { builds: ["two-blades", "fists"], opponents: ["golem-planner", "golem-brawler"], seed: 1200000 },
+  "dual-confirmation": { builds: ["two-blades", "fists"], opponents: ["golem-champion", "golem-tactician", "golem-miser"], seed: 1800000 },
 });
 
 export async function collect({ deadline, surface = "pilot", seconds = 10, seed = 1, build = "default", policy,
   onTransition = () => {} }) {
   const env = await createEnvironment({ seed, surface, maxSeconds: seconds, trace: true, leftBuild: build, rightBuild: build,
+    controlBaseline: policy?.kind === "network" ? policy.model.baseline ?? "golem-driver" : "golem-driver",
     ...(policy ? { left: policy } : {}) });
   const random = mulberry32(seed);
   try {
@@ -66,12 +78,18 @@ export function scenarios(record) {
   return scenarios;
 }
 
-export async function evaluatePolicy(policy, { split = "selection", deadline, maxSeconds = 150, completed = [], onResult = () => {} } = {}) {
+export async function evaluatePolicy(policy, { split = "selection", deadline, maxSeconds = 150, completed = [],
+  repeats = 1, crossBuild = false, onResult = () => {} } = {}) {
   const pool = SPLITS[split];
   if (!pool) throw new Error("invalid split");
+  if (!Number.isInteger(repeats) || repeats < 1 || repeats > 100) throw new Error("invalid evaluation repeats");
   let count = 0;
-  for (const build of pool.builds) for (const opponent of pool.opponents) {
-    const existing = completed.filter((r) => r.build === build && r.opponent === opponent);
+  for (let repeat = 0; repeat < repeats; repeat++) for (const build of pool.builds)
+  for (const opponentBuild of crossBuild ? pool.builds : [build]) for (const opponent of pool.opponents) {
+    const seed = pool.seed + repeat * 10000 + pool.builds.indexOf(build) * 100 + pool.opponents.indexOf(opponent)
+      + (crossBuild ? pool.builds.indexOf(opponentBuild) * 1000 : 0);
+    const existing = completed.filter((r) => r.build === build && r.opponent === opponent && r.seed === seed
+      && (r.opponentBuild ?? r.build) === opponentBuild);
     if (existing.length) {
       if (existing.length !== 2 || new Set(existing.map((r) => r.side)).size !== 2 || existing.some((r) => r.split !== split)) throw new Error("invalid resumed pair");
       count += 2; continue;
@@ -80,9 +98,8 @@ export async function evaluatePolicy(policy, { split = "selection", deadline, ma
     for (const side of ["left", "right"]) {
       if (Date.now() >= deadline) return count;
       // Both assignments are explicit, with seeds following policies across the swap.
-      const seed = pool.seed + pool.builds.indexOf(build) * 100 + pool.opponents.indexOf(opponent);
       const env = await createEnvironment({ seed: side === "left" ? seed : seed ^ 0x123456,
-        leftBuild: build, rightBuild: build, maxSeconds,
+        leftBuild: side === "left" ? build : opponentBuild, rightBuild: side === "right" ? build : opponentBuild, maxSeconds,
         left: side === "left" ? policy : { kind: "baseline", name: opponent },
         right: side === "right" ? policy : { kind: "baseline", name: opponent } });
       try {
@@ -90,7 +107,7 @@ export async function evaluatePolicy(policy, { split = "selection", deadline, ma
         while (!state.terminated && !state.truncated && Date.now() < deadline) state = env.step();
         if (!state.terminated && !state.truncated) return count;
         const result = env.result(), stats = result[side];
-        pair.push({ split, build, opponent, side, seed, winner: state.winner, seconds: state.clock,
+        pair.push({ split, build, opponentBuild, opponent, side, seed, winner: state.winner, seconds: state.clock,
           terminated: state.terminated, truncated: state.truncated,
           score: state.winner === side ? 1 : state.winner === null ? 0.5 : 0,
           damage: stats.damage, range: result.behaviour[side].rangeBins,
@@ -106,27 +123,44 @@ export async function evaluatePolicy(policy, { split = "selection", deadline, ma
 }
 
 export async function refit({ deadline, bouts = 4 }) {
-  const records = [], outcomes = [];
+  const records = [], terminalRecords = [], outcomes = [];
   for (let i = 0; i < bouts && Date.now() < deadline; i++) {
-    let pending = null, totals = { dealt: 0, taken: 0 };
+    let pending = null, totals = { dealt: 0, taken: 0 }, previousExchange = null;
+    const boutExchanges = [], boutRecords = [];
     const seed = SPLITS.train.seed + i;
     const planner = golemPlanner(seed, undefined, { ...GOLEM_PLANNER, explore: 0.5 }, undefined, (_available, reading, view, option) => {
       const next = stateKey(observe(reading, view.opponent.reach));
-      if (pending) records.push({ state: pending.state, option: pending.option, next,
+      const exchange = exchangeState(reading, view), vitality = view.self.vitality - view.opponent.vitality;
+      if (previousExchange) boutExchanges.push({ state: previousExchange.state, option: previousExchange.option,
+        next: exchange, reward: vitality - previousExchange.vitality });
+      previousExchange = { state: exchange, option, vitality };
+      if (pending) boutRecords.push({ state: pending.state, option: pending.option, next,
         seconds: view.clock - pending.clock, dealt: totals.dealt - pending.dealt, taken: totals.taken - pending.taken });
       pending = { state: next, option, clock: view.clock, ...totals };
     });
-    const result = runBout({ left: "golem-planner", right: SPLITS.train.opponents[i % 4], seeds: [seed, seed ^ 0x123456],
+    let result;
+    try { result = runBout({ left: "golem-planner", right: SPLITS.train.opponents[Math.floor(i / 4) % 4], seeds: [seed, seed ^ 0x123456],
       leftMind: { name: "exploring-planner", decide: (v, dt) => planner.decide(v, dt) },
       leftGolem: namedBuild(SPLITS.train.builds[i % 4]).setup, rightGolem: namedBuild(SPLITS.train.builds[i % 4]).setup,
       locomotionMode: "supported", maxSeconds: 150, physics: await freshHavok(),
       onSample({ records }) { if (Date.now() >= deadline) throw new Error("refit deadline reached; incomplete bout excluded");
         totals = { dealt: records.left.damage, taken: records.right.damage }; } });
+    } catch (error) {
+      if (error.message === "refit deadline reached; incomplete bout excluded") break;
+      throw error;
+    }
+    records.push(...boutRecords);
+    // Last exchange is recorded exactly once; timeout is not mislabeled as an absorbing terminal.
+    if (previousExchange && result.text !== "unfinished") boutExchanges.push({ state: previousExchange.state,
+      option: previousExchange.option, next: null,
+      reward: result.winner === null ? 0 : 2 * (result.winner === "left" ? 1 : -1) });
+    terminalRecords.push(...boutExchanges);
     outcomes.push({ seed, winner: result.winner, seconds: result.seconds, terminalWindowExcluded: true });
   }
   if (!records.length) throw new Error("no completed refit records");
   return { tables: fitDuelModel(records, { seed: SPLITS.train.seed, date: new Date().toISOString(), bouts: outcomes.length, windowSeconds: 0.5 }),
-    records, outcomes, coverage: new Set(records.map((r) => `${r.state}|${r.option}`)).size,
+    records, outcomes, terminalModel: fitTerminalModel(terminalRecords), terminalRecords,
+    coverage: new Set(records.map((r) => `${r.state}|${r.option}`)).size,
     limitations: "exploratory damage/transition refit; terminal windows excluded, original model remains frozen" };
 }
 export const portfolio = () => [{ kind: "baseline", name: "golem-duelist" }, { kind: "baseline", name: "golem-driver" },

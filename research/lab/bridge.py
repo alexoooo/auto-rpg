@@ -8,6 +8,7 @@ import threading
 
 import gymnasium as gym
 import numpy as np
+from rewards import shaping
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -55,11 +56,16 @@ class Bridge:
 class CombatEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, surface="pilot", seed=1, episode_seconds=150):
+    def __init__(self, surface="pilot", seed=1, episode_seconds=150, reward_mode="terminal", baseline="golem-driver"):
+        if reward_mode not in ["terminal", "potential"]:
+            raise ValueError("unknown reward mode")
+        self.reward_mode = reward_mode
         self.bridge = Bridge()
-        self.config = dict(surface=surface, seed=seed, maxSeconds=episode_seconds, hz=12)
+        self.config = dict(surface=surface, seed=seed, maxSeconds=episode_seconds, hz=12, controlBaseline=baseline)
         self.episodes = 0
         self.steps = 0
+        self.simulated_seconds = 0.0
+        self.previous_clock = 0.0
         self.outcomes = []
         self.base_seed = seed
         try:
@@ -68,6 +74,7 @@ class CombatEnv(gym.Env):
             self.bridge.close()
             raise
         self.names = info["observationNames"]
+        self.version = info["version"]
         self.action_space = gym.spaces.Box(-1, 1, (info["actionSize"],), dtype=np.float32)
         self.observation_space = gym.spaces.Box(-5, 5, (len(self.names),), dtype=np.float32)
 
@@ -82,14 +89,22 @@ class CombatEnv(gym.Env):
                       right=dict(kind="baseline", name=opponents[(index // len(builds)) % len(opponents)]))
         result = self.bridge.request("reset", config=config)
         self.episodes += 1
+        self.previous_observation = result["observation"]
+        self.previous_clock = 0.0
         return np.asarray(result["observation"], dtype=np.float32), {}
 
     def step(self, action):
         row = self.bridge.request("step", actions=[np.asarray(action, dtype=float).clip(-1, 1).tolist()])[0]
         self.steps += 1
+        self.simulated_seconds += row["clock"] - self.previous_clock
+        self.previous_clock = row["clock"]
         if row["terminated"] or row["truncated"]:
             self.outcomes.append({k: row[k] for k in ["winner", "terminated", "truncated", "clock"]})
-        return np.asarray(row["observation"], dtype=np.float32), row["reward"], row["terminated"], row["truncated"], row
+        reward = row["reward"]
+        if self.reward_mode == "potential":
+            reward += shaping(self.previous_observation, row["observation"], row["terminated"])
+        self.previous_observation = row["observation"]
+        return np.asarray(row["observation"], dtype=np.float32), reward, row["terminated"], row["truncated"], row
 
     def close(self):
         self.bridge.close()

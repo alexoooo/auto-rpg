@@ -19,6 +19,14 @@ reference tiers, Python training, and the existing legal Intent boundary. No mot
 
 ## Resource and acceptance gates
 
+On 2026-09-21 the user authorized continuation as an ongoing goal with **eight additional hours
+of local compute**. Campaign commands use `--budget campaign-2026-09-21` and a separate cumulative
+ledger at `research/runs/wave3-budget/budget.json`; the pilot ledger remains intact. Individual
+jobs are capped at one hour for checkpointing. No cloud spend or physics changes are authorized.
+Continue across failed experiments and milestones until that budget is exhausted, a consequential
+user decision is required, or independently validated and browser-reviewed stronger, diverse
+policies have been delivered. Preserve the user's server and clean up all owned processes.
+
 - First smoke commands: at most ten minutes apiece and one hour cumulatively. Longer learning or
   cloud/GPU work requires a new measured resource decision; the old eight-hour run is not renewed.
 - First compare reproducibility, finite/legal actions, action timing, feature/export parity and

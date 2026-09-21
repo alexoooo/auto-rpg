@@ -25,6 +25,10 @@ file to obtain more compute. Longer work needs a newly approved resource budget 
 budget-policy change. A changed source fingerprint requires a new experiment directory, but does
 not reset the shared budget. Raw artifacts are ignored by Git.
 
+The September 21 continuation has a separately authorized **eight-hour** ledger at
+`research/runs/wave3-budget/`. Add `--budget campaign-2026-09-21` for campaign commands; these
+accept up to 3,600 seconds per job. The old pilot ledger and its limit are unchanged.
+
 ```powershell
 node research/lab/cli.mjs collect --dir research/runs/my-lab --duration 10 --seconds 60
 node research/lab/cli.mjs oracle --dir research/runs/my-lab --index 12 --seconds 120
@@ -39,8 +43,10 @@ node research/lab/cli.mjs train --dir research/runs/my-lab --method ppo --surfac
 
 `--duration` for training sets the episode time limit (default 150 seconds). Short episodes are
 smoke tests, not equivalent league bouts: they often truncate with no terminal reward. Results
-always distinguish termination from truncation. PPO receives terminal win/draw/loss reward only;
-there is no secretly shaped reward for attack frequency, staying close or looking active.
+always distinguish termination from truncation. Terminal win/draw/loss is the default reward.
+PPO's explicit `--reward potential` ablation adds `0.99 * Phi(next) - Phi(previous)`, where Phi
+is public self-minus-opponent vitality and terminal Phi is zero. It adds no reward for attack
+frequency or proximity. Evaluation always uses actual bout verdicts, never the shaped return.
 
 The smoke defaults deliberately use small networks and populations. A single short seed is not
 an algorithm comparison. Use equal declared budgets, several training seeds and untouched test
@@ -61,7 +67,11 @@ The version-1 observation is 48 named, fixed-scaled floats derived exclusively f
 relative placement/bearing, clock, range, vitality, body posture and both hands' reach, loss,
 tip positions and velocities. It is deliberately a pilot observation set, not a claim that all
 useful perception is represented. Additional body/weapon and natural-striker features are a
-versioned follow-up experiment, not an unrecorded change to old models.
+versioned follow-up experiment, not an unrecorded change to old models. Version 2 now appends
+body dimensions, part-health aggregates, natural-attack availability/readiness, hand socket
+positions and one-hot weapon types. Version-1 networks retain their original feature mapping.
+The `fair` command now collects an independent-seed validation episode and reports one-step
+error against a persistence predictor; this does not establish long-horizon planning accuracy.
 
 - `pilot`: 12 normalized outputs mapped to the existing nine tactical axes and three gates.
 - `direct`: 22 outputs covering movement, posture, both hands and natural striker. Roll maps to
@@ -85,6 +95,36 @@ save network weights. These are **restart/warm-start facilities, not bit-identic
 training**: environment trajectory, optimizer state for distillation, and evolution's population
 distribution are not restored. The paired evaluation command, unlike training, resumes completed
 side-swapped pairs without replaying them. Fingerprints prevent cross-source resume.
+
+PPO additionally accepts `--envs 2` or `--envs 4`: each Gym worker owns its own Node/Havok process,
+with no shared physics realm. The allowance measures job wall time, not the sum of CPU core time.
+The CLI owns the whole process tree and kills it on its outer deadline. Compare measured throughput
+before choosing a larger worker count. Evolution and NEAT now use four matched training episodes
+per fitness estimate, with the incumbent reevaluated on the current generation's fixtures.
+
+## Continuation experiments
+
+All of these remain experimental; none changes the normal arena roster.
+
+```powershell
+node research/lab/cli.mjs population --dir research/runs/population --budget campaign-2026-09-21 --seconds 1200
+node research/lab/cli.mjs teacher-campaign --dir research/runs/teachers --budget campaign-2026-09-21 --seconds 1200
+node research/lab/cli.mjs dagger-campaign --dir research/runs/dagger --budget campaign-2026-09-21 --model research/runs/STUDENT/model.json --seconds 600
+```
+
+The population evolves observation-conditioned mixtures and adds earlier winners to its training
+opponents. Its training archive is **not** the selection archive. DAgger performs three rounds,
+retains ordinary student decisions and weights each teacher query eight times; baseline selections
+retain the current student's action, not an invented zero command. Independent evaluation remains
+required. `evaluate --repeats 4 --crossBuild true` expands seed and body coverage; `--spec FILE`
+accepts a saved policy specification. `--terminalModel FILE` evaluates the experimental model from
+`refit.json`, including absorbing win/loss/draw exchange outcomes; it does not replace old tables.
+
+`poses --record FILE` reconstructs a saved replay (or reference checkpoint) and writes
+`pose-replay.json`. Open the printed `/research/lab/viewer.html?data=...` path on the existing dev
+server for slow playback and scrubbing. It renders recorded physical meshes, not decorative art,
+and never runs or restores physics. `reference --decisions 600 --commit 0.5 --candidates 4` requests
+a longer teacher fight, with checkpoints and the same compute deadline.
 
 ## Replay, teachers and datasets
 
