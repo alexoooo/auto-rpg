@@ -53,6 +53,7 @@ import {
   golemFormMind, golemGuardianMind, golemMiserMind, golemPlannerMind, golemReaperMind,
   golemSkirmisherMind, golemTacticianMind,
 } from "./golem/golem-policies.ts";
+import { RESEARCHED_POLICIES } from "./golem/researched-policies.ts";
 
 /**
  * What a fighter can ask for.
@@ -1254,6 +1255,7 @@ export interface Policy {
 }
 
 export const POLICIES: readonly Policy[] = [
+  ...RESEARCHED_POLICIES,
   { name: "idle", label: "Idle", surface: null, create: idleMind },
   { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
   { name: "golem-fencer", label: "Golem fencer", surface: GOLEM_SURFACE, create: golemFencerMind },

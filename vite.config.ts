@@ -1,6 +1,8 @@
 import { defineConfig } from "vite";
+import { ratingFingerprintPlugin } from "./research/vite-plugin.mjs";
 
 export default defineConfig({
+  plugins: [ratingFingerprintPlugin()],
   // strictPort matters more than it looks. Without it Vite silently moves to
   // 5181 when 5180 is taken -- usually by an earlier dev server nobody noticed
   // was still alive -- and you end up reading a stale build while editing a live
