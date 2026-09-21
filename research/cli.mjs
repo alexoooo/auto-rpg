@@ -28,13 +28,14 @@ if (flags.seed !== undefined && (!Number.isInteger(Number(flags.seed)) || Number
 if (!Number.isFinite(hours) || hours <= 0 || hours > 8 || !Number.isInteger(rounds) || rounds < 1 || rounds > 4) throw new Error("hours must be (0,8], rounds 1..4");
 const onProgress = (progress) => console.log(JSON.stringify(progress));
 const publishedVariants = JSON.parse(readFileSync(join(ROOT, "src/golem/researched-variants.json"), "utf8"));
+const publishedLab = JSON.parse(readFileSync(join(ROOT, "src/golem/researched-lab.json"), "utf8"));
 
 function newManifest() {
   return { version: 1, fingerprint: fingerprint().hash, protocol: PROTOCOL, rounds,
     seed: Number(flags.seed ?? 20260920), policies: POLICIES.filter((p) => p.name !== "idle").map((p) => p.name),
     policyVersions: Object.fromEntries(POLICIES.filter((p) => p.name !== "idle").map((p) =>
-      [p.name, JSON.stringify(publishedVariants.find((c) => c.name === p.name)) ?? p.name])),
-    builds: NAMED_BUILDS, candidates: publishedVariants, instrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
+      [p.name, JSON.stringify([...publishedVariants, ...publishedLab].find((c) => c.name === p.name)) ?? p.name])),
+    builds: NAMED_BUILDS, candidates: publishedVariants, labCandidates: publishedLab, instrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
     dependencies: JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).dependencies,
     runtime: { node: process.version, platform: process.platform, arch: process.arch } };
 }
@@ -45,8 +46,8 @@ function getManifest() {
   if (manifest.fingerprint !== fingerprint().hash) throw new Error("simulation fingerprint changed; use a new run directory");
   if (manifest.runtime.node !== process.version) throw new Error("Node runtime changed; use a new run directory");
   for (const name of manifest.policies) {
-    const candidate = manifest.candidates.find((c) => c.name === name);
-    const published = publishedVariants.find((c) => c.name === name);
+    const candidate = [...manifest.candidates, ...(manifest.labCandidates ?? [])].find((c) => c.name === name);
+    const published = [...publishedVariants, ...publishedLab].find((c) => c.name === name);
     if (published && JSON.stringify(candidate) !== JSON.stringify(published)) throw new Error(`policy version changed: ${name}`);
   }
   return manifest;

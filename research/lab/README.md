@@ -159,16 +159,19 @@ node research/lab/cli.mjs reference --dir research/runs/my-lab --tier fair --dec
 
 Reissuing it continues the saved fight under the same source manifest. Default duration is the
 normal 150-second harness cap; default eight decisions is a smoke workload, not a full fight.
-Every replan can reconstruct the entire preceding fight, so cost grows with fight length. Long
-reference fights and a pose-recorded slow-motion viewer still need their own budget/work package.
+Every replan can reconstruct the entire preceding fight, so cost grows with fight length.
+Use `--decisions 600 --commit 0.5` for a bounded full-fight attempt. The `poses` command exports
+verified replay geometry to `/research/lab/viewer.html?data=/research/runs/RUN/pose-replay.json`;
+that viewer supports slow playback and scrubbing without pretending to restore physics snapshots.
 
 `fair` builds a five-neighbour observation-transition ensemble from training transitions only and
 searches constant-action continuations. Its interface has no replay, actual opponent identity,
 controller state or random seed from the real world. Neighbour disagreement is reported, not
 misrepresented as calibrated statistical confidence. This is an intentionally simple approximate
 model baseline, **not** a learned hidden-state reconstruction or an exact fair Havok planner.
-The smoke command queries its training observations; held-out predictive calibration remains a
-gate before claims about model quality.
+The command also collects separate-seed validation transitions and writes `model-calibration.json`,
+including persistence-baseline error. Good one-step calibration would still not establish useful
+long-horizon planning.
 
 ```powershell
 node research/lab/cli.mjs train --dir research/runs/my-lab --method distill --labels research/runs/my-lab/teacher.json --seconds 60
@@ -186,11 +189,12 @@ the fair observation vector, even when the teacher used privileged information.
 
 Seven bespoke prototypes use the existing third executor: recovery punisher, trajectory
 interceptor, feint/counter, spare-hand cover coordinator, rush, turtle and circle. They are
-small competing hypotheses, not seven claimed upgrades. The coordinator exploits existing
-executor hand choice/cover; independently scheduled simultaneous two-hand strokes are not yet
-implemented. The refit collector uses exploratory Planner choices, records exchange duration,
+small competing hypotheses, not seven claimed upgrades. Two further candidates are `paired`,
+with an independently scheduled off-hand thrust, and `adaptive`, with within-bout strategy selection.
+The refit collector uses exploratory Planner choices, records exchange duration,
 damage and next state, and leaves the old tables untouched. It reports coverage and outcomes;
-terminal windows are excluded rather than inventing a terminal transition for the old vocabulary.
+terminal windows are excluded from the old vocabulary. A separate terminal-aware model includes
+absorbing outcomes and is evaluated with `--terminalModel PATH` without changing production tables.
 
 ```powershell
 node research/lab/cli.mjs evaluate --dir research/runs/my-lab --seconds 300
@@ -203,18 +207,27 @@ node research/lab/cli.mjs preview --dir research/runs/my-lab --seconds 10
 Training, selection and confirmation pools are explicitly separate in `experiments.mjs`.
 Both side assignments use seeds that follow the policy. Only complete pairs enter results;
 deadline-interrupted bouts are excluded, and engine errors remain errors. The first protocol
-uses mirror builds, not the larger cross-build production league. Its measurements are never
+uses mirror builds; `--crossBuild true --repeats N` adds cross-build, multi-seed measurements. Its measurements are never
 written into arena ratings. `--duration 12` shortens an evaluation for smoke testing, not promotion.
 
 `archive` retains selection winners across cadence/retreat/achieved-range cells. It is a
 selection archive, not a promotion mechanism. Inspect the full matchup matrix and confirmation
 outcomes before calling anything a broad upgrade or a repeatable counter. A population league
-with adaptive exploiter training is an additional campaign, not implied by this static pool.
+with adaptive exploiter training is available through `population`; its archive remains training
+evidence, not independent confirmation. `teacher-campaign` compares matched 4/16/64-branch searches;
+`dagger-campaign --model PATH` performs three student-visited query/distillation rounds.
 
 Preview generates an isolated arena page with experimental entries. Use an existing dev server
 or start/stop your own on a known free port. No normal policy registration or old rating artifact
 is changed. Browser review plus independent confirmation and full-league measurement remain
 mandatory before a candidate is admitted to the normal picker.
+
+`research/admit-lab.mjs` enforces that final gate. A proposal names the immutable policy spec,
+current lab fingerprint, matched full-bout confirmation files and representative browser review.
+It requires at least 64 confirmation bouts, a positive paired confidence interval and at least
+10 percentage points of improvement over Duelist. It then runs a fresh complete cross-build
+rating round under the shared campaign budget. Only `--publish true` registers the reviewed
+candidate and publishes its dated rating. Existing candidates and their historical evidence remain.
 
 ## Research references
 

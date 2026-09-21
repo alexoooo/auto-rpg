@@ -1,0 +1,26 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { admissionEvidence } from "../research/admit-lab.mjs";
+import { digest } from "../research/schedule.mjs";
+import { validatePublishedLabPolicy } from "../src/golem/researched-lab-policies.ts";
+
+function fixture() {
+  const spec = { kind: "bespoke", name: "paired" };
+  const rows = Array.from({ length: 32 }, (_, seed) => ["left", "right"].map((side) =>
+    ({ split: "dual-confirmation", seed, side, build: "two-blades", opponent: "golem-champion", score: 1, truncated: false }))).flat();
+  return { proposal: { labFingerprint: "current", entry: { name: "golem-researched-paired-v1", label: "Golem paired", spec,
+    admission: { evaluatedAt: "2026-09-21", reviewedAt: "2026-09-21", evidence: "test", scope: "dual-weapon specialist" } },
+    review: { accepted: true, policyHash: digest(spec), notes: "reviewed", scenarios: ["dual", "fallback"], reviewedAt: "2026-09-21" } },
+    candidate: { policy: spec, split: "dual-confirmation", maxSeconds: 150, rows },
+    control: { policy: { kind: "baseline", name: "golem-duelist" }, split: "dual-confirmation", maxSeconds: 150,
+      rows: rows.map((r) => ({ ...r, score: 0 })) } };
+}
+test("admission requires independent superiority, matching source and browser review", () => {
+  const { proposal, candidate, control } = fixture();
+  assert.equal(admissionEvidence(proposal, candidate, control, "current").lower, 1);
+  assert.throws(() => admissionEvidence(proposal, candidate, control, "changed"), /mismatch/);
+  assert.throws(() => admissionEvidence({ ...proposal, review: null }, candidate, control, "current"), /browser review/);
+  assert.throws(() => admissionEvidence(proposal, { ...candidate, split: "selection" }, control, "current"), /confirmation/);
+  assert.throws(() => admissionEvidence(proposal, candidate, { ...control, rows: candidate.rows }, "current"), /improvement/);
+  assert.throws(() => validatePublishedLabPolicy({ ...proposal.entry, admission: {} }), /evidence/);
+});

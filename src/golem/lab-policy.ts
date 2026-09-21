@@ -1,5 +1,6 @@
 /** Experimental, browser-compatible policies. Not admitted to the normal picker. */
-import { policyMind, type FighterView, type Intent, type Mind } from "../mind.ts";
+import type { FighterView, Intent, Mind } from "../mind.ts";
+import { originalMind as policyMind } from "./lab-baselines.ts";
 import { freshGolemIntent } from "./tactics.ts";
 import { golemDriven, GOLEM_TACTICS_V4, COMMAND_FIELDS, COMMAND_RANGES, freshCommand } from "./tactics-v4.ts";
 import { golemStyled, GOLEM_TACTICS_V3, type StyleOption } from "./tactics-v3.ts";

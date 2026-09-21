@@ -1,5 +1,6 @@
 /** Experimental legal-Intent controllers. No world/body handles enter this module. */
-import { policyMind, type Mind } from "../mind.ts";
+import type { Mind } from "../mind.ts";
+import { originalMind as policyMind } from "./lab-baselines.ts";
 import { aimAt, canAttack, distance, reachForDistance, writeAim } from "./tactics.ts";
 
 /** Independent off-hand thrust clock; the original Duelist continues driving feet and main hand.

@@ -14,7 +14,7 @@ export function fingerprint(root = ROOT) {
     const source = readFileSync(path, "utf8");
     // Published parameters have their own per-policy version. Adding a policy must not
     // invalidate measurements of unchanged policies or the simulator they all share.
-    files.set(key, key === "src/golem/researched-variants.json" ? "per-policy-versioned" : source);
+    files.set(key, ["src/golem/researched-variants.json", "src/golem/researched-lab.json"].includes(key) ? "per-policy-versioned" : source);
     if (!/\.(ts|mjs|js)$/.test(path)) return;
     const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022,
       module: ts.ModuleKind.ESNext } }).outputText;

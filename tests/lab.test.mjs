@@ -10,6 +10,7 @@ import { updateArchive } from "../research/lab/archive.mjs";
 import { digest } from "../research/schedule.mjs";
 import { policyMind } from "../src/mind.ts";
 import { exportPoses } from "../research/lab/poses.mjs";
+import { LAB_BASELINES, originalMind } from "../src/golem/lab-baselines.ts";
 
 test("stepping preserves the whole-bout result, and disposal is idempotent", async () => {
   const env = await createEnvironment({ maxSeconds: 3 });
@@ -137,6 +138,33 @@ test("paired controller has an independent off-hand cycle and preserves the main
     assert.ok(differences > 30);
     assert.ok(extensions > 10);
     assert.ok(recoveries > 10);
+  } finally { bout.dispose(); }
+});
+
+test("paired policy preserves Duelist's physical result on non-dual builds", async () => {
+  const play = async (left) => {
+    const env = await createEnvironment({ seed: 77, maxSeconds: 3, left });
+    try {
+      while (!env.state().terminated && !env.state().truncated) env.step();
+      return env.result();
+    } finally { env.close(); }
+  };
+  assert.deepEqual(await play({ kind: "bespoke", name: "paired" }),
+    await play({ kind: "baseline", name: "golem-duelist" }));
+});
+
+test("frozen lab baseline factories match the registered original minds", async () => {
+  const bout = createBout({ left: "idle", right: "idle", seeds: [1, 2], maxSeconds: 1,
+    locomotionMode: "supported", physics: await freshHavok() });
+  try {
+    bout.step();
+    for (const name of ["idle", ...Object.keys(LAB_BASELINES)]) {
+      const a = originalMind(name, 19), b = policyMind(name, 19);
+      for (let i = 0; i < 120; i++) {
+        bout.left.view.clock = i / 240;
+        assert.deepEqual(a.decide(bout.left.view, 1 / 240), b.decide(bout.left.view, 1 / 240), name);
+      }
+    }
   } finally { bout.dispose(); }
 });
 

@@ -64,3 +64,14 @@ animation smoothness. The review tab and owned server were closed; the user's se
 After the initial runs, new experiment directories also retain `source-snapshot.json`, preserving
 exact source text alongside fingerprints even while implementation continues. Earlier directories
 have fingerprints and artifacts but do not contain this new source bundle.
+
+## Paired specialist: independent confirmation
+
+Selection on two-blade and fist bodies scored 25/32 against Duelist's matched 15/32.
+The untouched dual-confirmation pool then used Champion, Tactician and Miser, cross-build
+pairings, four seeds and both sides: 96 bouts per policy, no truncated bouts. Paired scored
+61.5/96 (64.1%) versus Duelist's 40.5/96 (42.2%). The matched side-pair bootstrap improvement
+was +21.875 percentage points, with a 95% interval of +12.5 to +31.77 points (48 pairs).
+This supports a dual-weapon specialist, not a universal upgrade. Raw evidence is in
+`wave3-paired-confirm`; production admission still requires representative browser review and
+a completed fresh cross-build rating league. No learner has earned admission yet.

@@ -37,6 +37,34 @@ for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.star
     entry.refit = { bouts: r.outcomes.length, coverage: r.coverage, samples: r.terminalModel?.samples,
       terminalSamples: r.terminalRecords?.filter((s) => s.next === null).length };
   }
+  if (existsSync(join(directory, "teacher-campaign.json"))) {
+    const r = read(join(directory, "teacher-campaign.json"));
+    entry.teachers = { seed: r.seed, status: r.status,
+      corpus: r.corpus.map((c) => ({ build: c.build, replayId: c.record.id, decisions: c.record.steps.length,
+        seconds: c.record.steps.at(-1)?.clock, scenarios: c.scenarios })),
+      queries: r.queries.map(({ replayId, index, candidates, evaluations, baselineValue, value, build, scenario, wallSeconds }) =>
+        ({ replayId, index, candidates, evaluations, baselineValue, value, build, scenario, wallSeconds })) };
+  }
+  if (existsSync(join(directory, "population.json"))) {
+    const r = read(join(directory, "population.json"));
+    entry.population = { seed: r.seed, status: r.status, champion: r.champion,
+      generations: r.history.map((g) => ({ generation: g.generation,
+        scores: g.evaluated.map((e) => ({ score: e.score, behavior: e.behavior })) })),
+      archiveCells: Object.keys(r.archive) };
+  }
+  if (existsSync(join(directory, "dagger-campaign.json"))) {
+    const r = read(join(directory, "dagger-campaign.json"));
+    entry.dagger = { status: r.status, modelSha256: digest(r.model), rounds: r.rounds.map((g) =>
+      ({ round: g.round, datasetRows: g.datasetRows, student: g.student, queries: g.queries.length,
+        improvements: g.queries.filter((q) => q.source === "teacher-improvement").length })) };
+  }
+  for (const tier of ["privileged", "fair"]) {
+    const path = join(directory, `reference-${tier}.json`);
+    if (!existsSync(path)) continue;
+    const r = read(path), last = r.record.steps.at(-1);
+    entry[`reference-${tier}`] = { status: r.status, search: r.search, decisions: r.labels.length,
+      simulatedSeconds: last.clock, winner: last.winner, terminated: last.terminated, truncated: last.truncated };
+  }
   runs.push(entry);
 }
 const directory = join(ROOT, "research/lab/results");

@@ -36,9 +36,10 @@ import ratingArtifact from "./policy-ratings.json";
 import currentFingerprint from "virtual:ai-fingerprint";
 import { policyRatingLabel, policyRatingNote } from "./policy-rating";
 import researchedVariants from "./golem/researched-variants.json";
+import researchedLab from "./golem/researched-lab.json";
 
 const policyVersion = (name: string): string => {
-  const variant = (researchedVariants as { name: string }[]).find((row) => row.name === name);
+  const variant = ([...researchedVariants, ...researchedLab] as { name: string }[]).find((row) => row.name === name);
   return variant ? JSON.stringify(variant) : name;
 };
 
