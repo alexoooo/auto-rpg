@@ -15,6 +15,7 @@ import { populationSearch } from "./league.mjs";
 import { teacherCampaign } from "./teacher-campaign.mjs";
 import { exportPoses } from "./poses.mjs";
 import { constantSearch } from "../constant-search.mjs";
+import { modelCampaign, spacedRows } from "../model-campaign.mjs";
 import { infer } from "../../src/golem/lab-policy.ts";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -69,17 +70,25 @@ try {
     case "dagger-campaign": {
       if (!flags.model) throw new Error("dagger-campaign requires an initial student --model");
       let model = JSON.parse(readFileSync(resolve(flags.model), "utf8"));
-      if (model.version !== 2 || model.hz !== 12) throw new Error("DAgger campaign requires a version-2, 12 Hz student");
-      const dataset = [], rounds = [];
-      for (let round = 0; round < 3 && deadline - Date.now() > 15000; round++) {
-        const record = await collect({ deadline, surface: model.surface, seconds: 20, seed: 7001 + round,
-          build: ["default", "two-blades", "mace"][round], policy: { kind: "network", model } });
+      if (model.version !== 2 || model.hz !== 12 || model.samplingStd) throw new Error("DAgger campaign requires a deterministic version-2, 12 Hz student");
+      if (existsSync(join(directory, "dagger-campaign.json"))) throw new Error("preserve completed DAgger rounds; use a new campaign directory");
+      const roundLimit = Number(flags.rounds ?? 3), seed = Number(flags.seed ?? 7001);
+      const retention = Number(flags.retention ?? 100000), queryWeight = Number(flags.queryWeight ?? 8);
+      if (![roundLimit, seed, retention, queryWeight].every(Number.isInteger) || roundLimit < 1 || roundLimit > 32
+        || seed < 0 || retention < 1 || retention > 100000 || queryWeight < 1 || queryWeight > 128) throw new Error("invalid DAgger protocol");
+      const dataset = flags.labels ? JSON.parse(readFileSync(resolve(flags.labels), "utf8")) : [], rounds = [];
+      const protocol = { roundLimit, seed, retention, queryWeight, initialModelHash: digest(model), initialLabelsHash: digest(dataset) };
+      for (let round = 0; round < roundLimit && deadline - Date.now() > 15000; round++) {
+        const record = await collect({ deadline, surface: model.surface, seconds: 20, seed: seed + round,
+          build: ["default", "two-blades", "mace", "fists"][round % 4],
+          opponent: ["golem-fencer", "golem-duelist", "golem-form", "golem-guardian"][Math.floor(round / 4) % 4],
+          policy: { kind: "network", model } });
         atomicJson(join(directory, `dagger-replay-${round}.json`), record);
         // Retain ordinary student decisions, not just rare teacher queries, to limit forgetting.
-        for (const row of record.steps.slice(0, -1)) dataset.push({ observation: row.observation,
+        for (const row of spacedRows(record.steps.slice(0, -1), retention)) dataset.push({ observation: row.observation,
           action: infer(model, row.observation), source: "student-retention", round });
         const labels = [];
-        for (const point of scenarios(record).slice(0, 3)) {
+        for (const point of [...new Map(scenarios(record).map((p) => [p.index, p])).values()].slice(0, 3)) {
           if (deadline - Date.now() < 15000) break;
           let label;
           try { label = await oracle(record, point.index, { deadline: deadline - 12000, candidates: 16, iterations: 1 }); }
@@ -90,7 +99,7 @@ try {
           const action = label.action ?? infer(model, label.observation);
           labels.push({ ...label, action, source: label.action === null ? "teacher-retained-student" : "teacher-improvement", round });
           // Explicit query emphasis, recorded rather than an implicit loss weighting.
-          for (let weight = 0; weight < 8; weight++) dataset.push(labels.at(-1));
+          for (let weight = 0; weight < queryWeight; weight++) dataset.push(labels.at(-1));
           atomicJson(join(directory, "dagger-labels.json"), dataset);
         }
         atomicJson(join(directory, "dagger-labels.json"), dataset);
@@ -98,10 +107,11 @@ try {
         const out = join(directory, `dagger-student-${round}`), seconds = Math.min(40, (deadline - Date.now()) / 1000 - 8);
         await trainChild([join(ROOT, "research/lab/train.py"), "distill", "--out", out, "--surface", model.surface,
           "--baseline", model.baseline ?? "golem-driver",
-          "--seed", String(7001 + round), "--seconds", String(seconds), "--labels", join(directory, "dagger-labels.json")], deadline - Date.now());
+          "--seed", String(seed + round), "--seconds", String(seconds), "--labels", join(directory, "dagger-labels.json")], deadline - Date.now());
         model = JSON.parse(readFileSync(join(out, "model.json"), "utf8"));
         rounds.push({ round, queries: labels, datasetRows: dataset.length, student: relative(ROOT, out) });
-        atomicJson(join(directory, "dagger-campaign.json"), { rounds, model, status: "training only; independent evaluation required" });
+        atomicJson(join(directory, "dagger-model.json"), model);
+        atomicJson(join(directory, "dagger-campaign.json"), { protocol, rounds, model, status: "training only; independent evaluation required" });
       }
       break;
     }
@@ -131,6 +141,13 @@ try {
       };
       save(await constantSearch({ deadline, seed: Number(flags.seed ?? 1),
         generations: Number(flags.generations ?? 8), suite: flags.suite ?? "rotating", onCheckpoint: save }));
+      break;
+    }
+    case "model-campaign": {
+      const filename = "model-campaign.json";
+      const save = (value) => atomicJson(join(directory, filename), value);
+      save(await modelCampaign({ deadline, seed: Number(flags.seed ?? 12001), seconds: Number(flags.duration ?? 30),
+        previous: existsSync(join(directory, filename)) ? read(filename) : null, onCheckpoint: save }));
       break;
     }
     case "collect": {

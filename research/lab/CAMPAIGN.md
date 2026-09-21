@@ -309,3 +309,35 @@ occurs only on the policy's decision clock and held actions remain unchanged bet
 Tests cover clipping order, legacy deterministic compatibility, invalid deviations and exact
 physical replay. Evaluating both modes tests a training/execution mismatch hypothesis, not an
 assumption that adding noise improves fighting. Pilot-control training is running next.
+
+The 15-minute pilot PPO run completed 396,356 decisions and 3,096 updates, with mean-export
+parity error 1.03e-7. Its deterministic policy scored 37.5% in 32 selection bouts, and its sampled
+policy 46.875%, versus Duelist's 57.8125%. Paired differences were -20.3 points (interval -40.6
+to 0) and -10.9 points (-35.9 to +14.1), respectively; neither truncated. Sampling does not
+establish an upgrade here. Broader control-surface and lower-noise residual experiments remain.
+
+The new `needle` head-thrust hypothesis scored 67.1875% in 32 general selection bouts versus
+57.8125% for Duelist (difference +9.375 points, interval -6.25 to +28.125; zero truncations).
+Default sword/shield scored 6/8 versus 4/8; ram/blade scored 7/8 versus 6/8. Maul and whip
+matched Duelist exactly because those primary weapons use its unchanged fallback. These small
+subgroups are hypotheses, not confirmed counters. Dual selection and independent confirmation
+remain separate gates. Loader-only mutations proved the head-height assertion and PPO clipping
+assertion fail against their respective defects, without changing watched source files.
+
+Dual selection completed 32 bouts each, without truncations. Duelist scored 46.875%, needle
+56.25%, the three-round DAgger student 46.875%, clock opening 0 scored 56.25%, and the
+10,000-update student 71.875%. The long student's paired difference was +25 points (interval
++9.375 to +37.5); its twin-blade/fist scores were 62.5%/81.25% versus 43.75%/50% for Duelist.
+This is a niche selection result, not independent confirmation. Its poor general-selection
+performance rules out presenting it as a broad upgrade. The next frozen candidate limits its
+learned residual to independent blade/fist hands and otherwise keeps the baseline.
+
+Needle's twin-blade score was 75% versus 43.75%, but fists fell to 37.5% versus 50%.
+The next frozen hypothesis is therefore restricted to genuinely pointed primary weapons with
+an aiming envelope; fists are not part of its claimed scope. This adjustment precedes fresh
+confirmation, and the old selection evidence is retained as the reason for it.
+
+The broader fair-model campaign completed all 16 training and 16 independent validation episodes.
+Equal-episode RMSE was 0.08975 versus persistence 0.08557; vitality RMSE was 0.01826. More varied
+data did not repair this nearest-neighbor model's predictive deficit. Long-horizon planning is
+not justified by these results. The entire per-episode breakdown is retained.

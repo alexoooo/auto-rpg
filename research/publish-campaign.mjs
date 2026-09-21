@@ -30,7 +30,10 @@ for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.star
     if (child.isDirectory() && existsSync(join(directory, child.name, "training.json"))) {
       entry.training.push({ path: child.name, ...read(join(directory, child.name, "training.json")),
         modelSha256: digest(read(join(directory, child.name, "model.json"))),
-        modelFileSha256: hash(join(directory, child.name, "model.json")) });
+        modelFileSha256: hash(join(directory, child.name, "model.json")),
+        ...(existsSync(join(directory, child.name, "stochastic-model.json")) ? {
+          stochasticModelSha256: digest(read(join(directory, child.name, "stochastic-model.json"))),
+          stochasticModelFileSha256: hash(join(directory, child.name, "stochastic-model.json")) } : {}) });
     }
     if (child.isFile() && /^evaluation-.*\.json$/.test(child.name)) {
       for (const result of read(join(directory, child.name))) {
@@ -78,6 +81,11 @@ for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.star
     entry.dagger = { status: r.status, modelSha256: digest(r.model), rounds: r.rounds.map((g) =>
       ({ round: g.round, datasetRows: g.datasetRows, student: g.student, queries: g.queries.length,
         improvements: g.queries.filter((q) => q.source === "teacher-improvement").length })) };
+  }
+  if (existsSync(join(directory, "model-campaign.json"))) {
+    const r = read(join(directory, "model-campaign.json"));
+    entry.modelCampaign = { protocol: r.protocol, status: r.status, calibration: r.calibration,
+      episodes: r.episodes.map(({ rows, ...episode }) => ({ ...episode, transitions: rows.length })) };
   }
   for (const tier of ["privileged", "fair"]) {
     const path = join(directory, `reference-${tier}.json`);

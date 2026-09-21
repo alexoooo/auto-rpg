@@ -10,6 +10,7 @@ import { WEAPON_KINDS } from "../hands.ts";
 import { pairedMind, adaptiveMind, mixtureMind, type MixtureSpec } from "./lab-bespoke.ts";
 import { terminalModelMind, type TerminalModel } from "./lab-model.ts";
 import { mulberry32 } from "../rng.ts";
+import { needleMind } from "./lab-needle.ts";
 
 export const LAB_VERSION = 2;
 export const HANDS = ["primary", "secondary"] as const;
@@ -111,12 +112,13 @@ export function directIntent(action: number[], view: FighterView, base?: Intent)
   return intent;
 }
 
-export const BESPOKE = ["punisher", "interceptor", "feinter", "coordinator", "rush", "turtle", "circle", "paired", "adaptive"] as const;
+export const BESPOKE = ["punisher", "interceptor", "feinter", "coordinator", "rush", "turtle", "circle", "paired", "adaptive", "needle"] as const;
 export type Bespoke = typeof BESPOKE[number];
 export function bespokeMind(kind: Bespoke, seed: number): Mind {
   if (!(BESPOKE as readonly string[]).includes(kind)) throw new Error("unknown bespoke policy");
   if (kind === "paired") return pairedMind(seed);
   if (kind === "adaptive") return adaptiveMind(seed);
+  if (kind === "needle") return needleMind(seed);
   let feinted = -Infinity;
   const executor = golemStyled(seed, GOLEM_TACTICS_V3, (available, r, view) => {
     const choose = (...options: StyleOption[]) => options.find((o) => available.includes(o)) ?? available[0];

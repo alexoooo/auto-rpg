@@ -18,6 +18,7 @@ export function labFingerprint() {
   files.push(join(ROOT, "src/golem/lab-bespoke.ts"));
   files.push(join(ROOT, "src/golem/lab-model.ts"));
   files.push(join(ROOT, "research/constant-search.mjs"));
+  files.push(join(ROOT, "research/model-campaign.mjs"));
   return digest({ simulator: fingerprint().hash,
     files: Object.fromEntries(files.map((f) => [relative(ROOT, f).replaceAll("\\", "/"), readFileSync(f, "utf8")])) });
 }
@@ -25,7 +26,7 @@ export function snapshotSources() {
   const files = [...fingerprint().files,
     ...readdirSync(join(ROOT, "research/lab")).filter((f) => /\.(mjs|py|ini|txt|html)$/.test(f)).map((f) => `research/lab/${f}`),
     "src/golem/lab-policy.ts", "src/golem/lab-bespoke.ts", "src/golem/lab-model.ts",
-    "research/owned-child.mjs", "research/runner.mjs", "research/fingerprint.mjs", "research/constant-search.mjs"];
+    "research/owned-child.mjs", "research/runner.mjs", "research/fingerprint.mjs", "research/constant-search.mjs", "research/model-campaign.mjs"];
   return Object.fromEntries([...new Set(files)].sort().map((f) => [f, readFileSync(join(ROOT, f), "utf8")]));
 }
 export const SPLITS = Object.freeze({

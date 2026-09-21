@@ -212,6 +212,9 @@ Seven bespoke prototypes use the existing third executor: recovery punisher, tra
 interceptor, feint/counter, spare-hand cover coordinator, rush, turtle and circle. They are
 small competing hypotheses, not seven claimed upgrades. Two further candidates are `paired`,
 with an independently scheduled off-hand thrust, and `adaptive`, with within-bout strategy selection.
+`needle` is a further head-thrust hypothesis: timed primary-hand chambers/extensions, with
+Duelist still controlling movement, cover and natural attacks. It falls back exactly for lost,
+paired-grip or unsuitable primary hands; it is not admitted merely because its schedule works.
 The refit collector uses exploratory Planner choices, records exchange duration,
 damage and next state, and leaves the old tables untouched. It reports coverage and outcomes;
 terminal windows are excluded from the old vocabulary. A separate terminal-aware model includes
@@ -237,6 +240,17 @@ outcomes before calling anything a broad upgrade or a repeatable counter. A popu
 with adaptive exploiter training is available through `population`; its archive remains training
 evidence, not independent confirmation. `teacher-campaign` compares matched 4/16/64-branch searches;
 `dagger-campaign --model PATH` performs three student-visited query/distillation rounds.
+Use `--rounds 16 --seed 8001 --retention 64 --queryWeight 32 --labels PATH` for a broader
+training-only matrix with retained initial demonstrations, bounded ordinary-state retention and
+explicit teacher-query weighting. Query indices are deduplicated. The completed student's latest
+artifact is `dagger-model.json`; preserved rounds require a fresh campaign directory for a new
+run. These parameters and initial-data/model hashes are recorded with the result.
+
+`model-campaign --seed 12001 --duration 30 --seconds 600` collects the full 4-body by 4-opponent
+training matrix plus sixteen independent validation episodes. Up to 64 evenly spaced nonterminal
+transitions per episode enter fitting/calibration. It resumes completed episodes and reports
+equal-episode prediction error against persistence, plus every per-episode result. This tests
+predictive adequacy, not fighting strength; an interrupted trajectory is not a completed episode.
 
 `pose-search --seed 11 --generations 8` evolves 16 constant movement/posture/hand offsets over
 Duelist. Attack and guard gates stay with the baseline. Each generation remeasures its incumbent
@@ -260,6 +274,8 @@ mandatory before a candidate is admitted to the normal picker.
 
 `research/admit-lab.mjs` enforces that final gate. A proposal names the immutable policy spec,
 current lab fingerprint, matched full-bout confirmation files and representative browser review.
+Both evaluation directories' actual manifests must match the admission source identity; a
+proposal cannot relabel old measurements by simply supplying the current fingerprint.
 It requires at least 64 confirmation bouts, a positive paired confidence interval and at least
 10 percentage points of improvement over Duelist. It then runs a fresh complete cross-build
 rating round under the shared campaign budget. Only `--publish true` registers the reviewed
@@ -286,3 +302,6 @@ diagonal Gaussian). Both use `evaluate --model PATH`; compare them on identical 
 Sampled execution uses the policy seed, draws only at the model decision rate and clips after
 adding noise. The mean-export parity check remains deterministic; sampled physical replay is
 tested separately. Sampling is an experimental execution mode, not an automatic promotion.
+Long PPO jobs checkpoint weights/optimizer and report progress roughly every minute. Resume
+continues learning from that model; it does not claim to restore partially collected rollouts or
+reproduce the uninterrupted training random stream.

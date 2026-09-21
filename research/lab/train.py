@@ -108,10 +108,23 @@ def main():
             if args.envs > 1:
                 training_env = SubprocVecEnv([partial(CombatEnv, args.surface, args.seed + i * 1000,
                     args.episode_seconds, args.reward, args.baseline) for i in range(args.envs)], start_method="spawn")
-            class Deadline(BaseCallback):
-                def _on_step(self):
-                    return time.monotonic() < deadline
             checkpoint = out / "ppo.zip"
+            class Deadline(BaseCallback):
+                def _on_training_start(self):
+                    self.last_checkpoint = time.monotonic()
+
+                def _on_step(self):
+                    now = time.monotonic()
+                    if now - self.last_checkpoint >= 60:
+                        temporary = out / "ppo-next.zip"
+                        self.model.save(temporary)
+                        temporary.replace(checkpoint)
+                        progress = dict(steps=self.num_timesteps, updates=self.model._n_updates,
+                                        seconds=now - start, status="training; not evaluation")
+                        write_json(out / "progress.json", progress)
+                        print(json.dumps(progress), flush=True)
+                        self.last_checkpoint = now
+                    return now < deadline
             model = PPO.load(checkpoint, env=training_env, device="cpu") if checkpoint.exists() else PPO(
                 "MlpPolicy", training_env, seed=args.seed, device="cpu", n_steps=128, batch_size=64,
                 n_epochs=4, policy_kwargs=dict(net_arch=dict(pi=[32, 32], vf=[32, 32]), activation_fn=torch.nn.Tanh,

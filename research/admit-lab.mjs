@@ -1,6 +1,6 @@
 /** Independently gated admission and a fresh cross-build rating league. No automatic weak-model promotion. */
 import { existsSync, readFileSync, mkdirSync } from "node:fs";
-import { resolve, join, relative } from "node:path";
+import { resolve, join, relative, dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { POLICIES } from "../src/mind.ts";
 import { NAMED_BUILDS } from "../src/golem/roster.ts";
@@ -44,6 +44,16 @@ export function admissionEvidence(proposal, candidate, control, current) {
   return comparison;
 }
 
+/** The proposal's source claim must agree with the actual evaluation manifests. */
+export function validateEvaluationSources(proposal, current, read = (path) => JSON.parse(readFileSync(path, "utf8"))) {
+  for (const path of [proposal.candidateEvaluation, proposal.controlEvaluation]) {
+    const manifest = read(join(dirname(resolve(path)), "manifest.json"));
+    if (manifest.fingerprint !== current || manifest.fingerprint !== proposal.labFingerprint) {
+      throw new Error("evaluation manifest does not match admission sources");
+    }
+  }
+}
+
 async function main() {
   const flags = {};
   for (let i = 2; i < process.argv.length; i += 2) {
@@ -55,7 +65,9 @@ async function main() {
   const scope = relative(join(ROOT, "research/runs"), directory);
   if (scope.startsWith("..") || scope.includes(":")) throw new Error("admission directory must be under research/runs");
   const candidate = read(resolve(proposal.candidateEvaluation))[0], control = read(resolve(proposal.controlEvaluation))[0];
-  const evidence = admissionEvidence(proposal, candidate, control, labFingerprint());
+  const currentLab = labFingerprint();
+  validateEvaluationSources(proposal, currentLab);
+  const evidence = admissionEvidence(proposal, candidate, control, currentLab);
   const seconds = Number(flags.seconds ?? 1800), workers = Number(flags.workers ?? 4);
   if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 3600 || !Number.isInteger(workers) || workers < 1 || workers > 8) throw new Error("invalid admission resource request");
   const budgetDirectory = join(ROOT, "research/runs/wave3-budget");

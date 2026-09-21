@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { admissionEvidence } from "../research/admit-lab.mjs";
+import { admissionEvidence, validateEvaluationSources } from "../research/admit-lab.mjs";
 import { digest } from "../research/schedule.mjs";
 import { validatePublishedLabPolicy } from "../src/golem/researched-lab-policies.ts";
 import { constantResidual, POSE_FIELDS } from "../research/constant-search.mjs";
@@ -18,6 +18,20 @@ function fixture() {
     control: { policy: { kind: "baseline", name: "golem-duelist" }, split: "dual-confirmation", maxSeconds: 150,
       rows: rows.map((r) => ({ ...r, score: 0 })) } };
 }
+
+test("admission checks both evaluation manifests rather than trusting the proposal's fingerprint", () => {
+  const proposal = { labFingerprint: "current", candidateEvaluation: "research/runs/candidate/evaluation.json",
+    controlEvaluation: "research/runs/control/evaluation.json" };
+  const seen = [];
+  validateEvaluationSources(proposal, "current", (path) => { seen.push(path); return { fingerprint: "current" }; });
+  assert.equal(seen.length, 2); assert.notEqual(seen[0], seen[1]);
+  for (const stale of seen) {
+    assert.throws(() => validateEvaluationSources(proposal, "current", (path) =>
+      ({ fingerprint: path === stale ? "old" : "current" })), /evaluation manifest/);
+  }
+  assert.throws(() => validateEvaluationSources({ ...proposal, labFingerprint: "old" }, "current",
+    () => ({ fingerprint: "current" })), /evaluation manifest/);
+});
 test("admission requires independent superiority, matching source and browser review", () => {
   const { proposal, candidate, control } = fixture();
   assert.equal(admissionEvidence(proposal, candidate, control, "current").lower, 1);
