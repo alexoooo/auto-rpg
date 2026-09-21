@@ -6,13 +6,17 @@ import { join } from "node:path";
 import { initialRating, updateRating, ratePeriod } from "../research/rating.mjs";
 import { schedule, completeRounds, PROTOCOL } from "../research/schedule.mjs";
 import { runJobs, prepareRun, lockRun } from "../research/runner.mjs";
-import { pairedComparison, bootstrap, comparisonJobs } from "../research/search.mjs";
+import { pairedComparison, bootstrap, comparisonJobs, trainingBuilds } from "../research/search.mjs";
 import { policyRatingLabel, policyRatingNote } from "../src/policy-rating.ts";
 import { candidateBounds, validateCandidate, SEARCH_FIELDS, SEARCH_PARENTS } from "../src/golem/research-candidates.ts";
 import { NAMED_BUILDS } from "../src/golem/roster.ts";
 import { fingerprint } from "../research/fingerprint.mjs";
 import { reviewedCandidates } from "../research/promotion.mjs";
 import { digest } from "../research/schedule.mjs";
+import { previewHtml } from "../research/preview.mjs";
+import { POLICIES } from "../src/mind.ts";
+import { unitDefinition } from "../src/units.ts";
+import { GOLEM_CONTROL_SURFACE } from "../src/control-surfaces.ts";
 
 test("Glicko-2 reproduces Glickman's published example", () => {
   const actual = updateRating({ rating: 1500, deviation: 200, volatility: 0.06 }, [
@@ -111,6 +115,7 @@ test("paired bootstrap detects a real improvement and rejects unmatched samples"
   const jobs = comparisonJobs(["parent", "candidate"], ["foe"], NAMED_BUILDS.slice(0, 2), "holdout");
   const rows = jobs.map((job) => ({ ...job, status: "ok", winner: job.left === "candidate" ? "left" : "right" }));
   const band = pairedComparison(rows, "candidate", "parent");
+  assert.deepEqual(pairedComparison([...rows].reverse(), "candidate", "parent"), band);
   assert.ok(band.low > 0); assert.equal(band.blocks, 2);
   assert.deepEqual(bootstrap([0, 0, 0]), { mean: 0, low: 0, high: 0, blocks: 3 });
   assert.throws(() => pairedComparison(rows.slice(1), "candidate", "parent"), /incomplete/);
@@ -127,6 +132,18 @@ test("selector labels distinguish rated, provisional, missing and stale measurem
   assert.equal(policyRatingLabel("a", "A", data, "current"), "A — 1538");
   data.policies.a.policyVersion = "parameters-v1";
   assert.equal(policyRatingLabel("a", "A", data, "current", "parameters-v2"), "A — needs evaluation");
+});
+
+test("paired bootstrap is invariant to worker completion order on heterogeneous blocks", () => {
+  const values = [0, 0.1, 0.35, 0.5, 0.75, 0.9, -0.1, -0.25, 1.1, 0.15, 0.28, 0.42];
+  assert.notDeepEqual(bootstrap(values), bootstrap([...values].reverse()),
+    "the unsorted control must be capable of exposing order dependence");
+  const jobs = comparisonJobs(["parent", "candidate"], ["foe"], NAMED_BUILDS, "ordering");
+  const rows = jobs.map((job) => ({ ...job, status: "ok", winner: null }));
+  const measure = (row, name) => name === "parent" ? 0
+    : values[NAMED_BUILDS.findIndex((build) => build.name === row.leftBuild)];
+  assert.deepEqual(pairedComparison(rows, "candidate", "parent", measure),
+    pairedComparison([...rows].reverse(), "candidate", "parent", measure));
 });
 
 test("fingerprints track transitive runtime code, excluding type-only UI and separately versioned candidates", () => {
@@ -165,4 +182,42 @@ test("promotion requires both confirmed improvement and review of the exact para
   assert.throws(() => reviewedCandidates(confirmation, review, "changed"), /fingerprint/);
   review.candidates[0].candidateHash = "different-parameters";
   assert.deepEqual(reviewedCandidates(confirmation, review, "current"), []);
+});
+
+test("candidate previews preserve the real arena document and refuse a missing entry", () => {
+  const template = '<main id="curtain">Arena</main><script type="module" src="/src/main.ts"></script>';
+  const result = previewHtml(template, []);
+  assert.ok(result.startsWith('<main id="curtain">Arena</main>'));
+  assert.match(result, /await import\('\/src\/main.ts'\)/);
+  assert.throws(() => previewHtml("<main>Missing entry</main>", []), /exactly one/);
+  assert.throws(() => previewHtml(template + template, []), /exactly one/);
+});
+
+test("training and selection exclude all four reserved generalization builds", () => {
+  const builds = trainingBuilds(NAMED_BUILDS);
+  assert.equal(builds.length, 8);
+  assert.deepEqual(NAMED_BUILDS.filter((build) => !builds.includes(build)).map((build) => build.name).sort(),
+    ["multileg", "pitch-blade", "plated", "wheel"]);
+  for (const phase of ["train-0", "selection"]) {
+    const jobs = comparisonJobs(["candidate", "parent"], ["foe"], builds, phase);
+    assert.equal(jobs.length, 32);
+    assert.ok(jobs.every((job) => builds.some((build) => build.name === job.leftBuild)));
+  }
+});
+
+test("researched policies reach the actual body picker and factory, never a foreign surface", () => {
+  const mind = { decide: () => ({}) };
+  const entries = [
+    { name: "golem-researched-picker-test", label: "Picker test", surface: GOLEM_CONTROL_SURFACE, create: () => mind },
+    { name: "golem-researched-foreign-test", label: "Foreign", surface: "foreign", create: () => mind },
+  ];
+  POLICIES.push(...entries);
+  try {
+    const golem = unitDefinition("golem");
+    assert.ok(golem.compatiblePolicies.includes(entries[0].name));
+    assert.ok(golem.driverOptions.some((row) => row.name === entries[0].name));
+    assert.equal(golem.createPolicy(entries[0].name, 17), mind);
+    assert.ok(!golem.driverOptions.some((row) => row.name === entries[1].name));
+    assert.throws(() => golem.createPolicy(entries[1].name), /does not support/);
+  } finally { POLICIES.splice(POLICIES.length - entries.length, entries.length); }
 });

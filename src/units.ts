@@ -323,6 +323,13 @@ const GOLEM_POLICIES: readonly string[] = Object.freeze([
   "golem-reaper", "golem-miser",
 ]);
 
+/** Published and isolated-review candidates use the same legal golem surface. */
+const golemPolicyNames = (): readonly string[] => [
+  ...GOLEM_POLICIES,
+  ...POLICIES.filter((policy) => policy.name.startsWith("golem-researched-")
+    && policy.surface === GOLEM_CONTROL_SURFACE).map((policy) => policy.name),
+];
+
 /**
  * The rows a golem's picker offers.
  *
@@ -332,7 +339,7 @@ const GOLEM_POLICIES: readonly string[] = Object.freeze([
  * went -- there is no longer a row whose availability depends on what the page fetched.
  */
 const golemDriverOptions = (): readonly { readonly name: string; readonly label: string }[] =>
-  drivers(GOLEM_CONTROL_SURFACE, GOLEM_POLICIES);
+  drivers(GOLEM_CONTROL_SURFACE, golemPolicyNames());
 
 const golem: UnitDefinition = Object.freeze({
   kind: "golem",
@@ -341,7 +348,7 @@ const golem: UnitDefinition = Object.freeze({
   loadouts: freezeLoadouts([{ primary: "empty", secondary: "empty" }]),
   defaultLoadout: emptyLoadout,
   hands: 2,
-  compatiblePolicies: GOLEM_POLICIES,
+  get compatiblePolicies() { return golemPolicyNames(); },
   get driverOptions() { return golemDriverOptions(); },
   humanAdapter: true,
   controlSurface: GOLEM_CONTROL_SURFACE,

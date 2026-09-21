@@ -5,6 +5,9 @@ offline Glicko-2 measurements, not a difficulty promise for a particular selecte
 never alter them. `src/policy-ratings.json` is the small shipped artifact; `results/` holds published
 evidence. Large resumable logs live in ignored `runs/` directories.
 
+After confirmation, `publish` also saves the compact search history, frozen finalists,
+confirmation intervals, any browser review, and recorded compute usage to `results/experiment.json`.
+
 ## Commands
 
 From the repository root, with the lockfile's dependencies installed:
@@ -16,6 +19,7 @@ node research/cli.mjs evaluate --dir research/runs/current --hours 8
 node research/cli.mjs search --dir research/runs/current --hours 8
 node research/cli.mjs confirm --dir research/runs/current --hours 8
 node research/cli.mjs publish --dir research/runs/current
+node research/cli.mjs preview --dir research/runs/current
 node research/cli.mjs promote --dir research/runs/current --hours 8
 ```
 
@@ -82,10 +86,11 @@ distribution. Generation zero starts at each parent; one candidate always uses t
 Up to eight generations run round-robin across styles. Incomplete generations are resumable and
 produce no winner.
 
-Each generation winner enters a separate selection batch. The selected finalist per style is
+Each generation winner enters a separate selection batch on the same eight training builds.
+The other four builds remain untouched until confirmation. The selected finalist per style is
 frozen in `finalists.json` before final confirmation. Training, selection and confirmation use
 disjoint seed namespaces. Final confirmation uses two seed repetitions, all twelve builds, and
-all baseline opponents except the three parent styles; the six opponents not used during
+all baseline opponents except the three parent styles; the five opponents not used during
 training and four withheld builds receive separate reports.
 
 Promotion requires a paired 95% bootstrap lower bound above zero for improvement over the parent.
@@ -94,6 +99,11 @@ differences between eligible candidates use the same held-out jobs. Keep candida
 improvement order only if each differs from every retained candidate on at least one descriptor
 whose paired interval excludes zero. This exploratory diversity gate is not a multiple-testing
 corrected scientific claim. Record negative results rather than weakening the gates.
+
+`preview` generates an isolated copy of the arena page in the run directory and prints its local
+URL. Start the normal development server to view it. It adds eligible candidates only to that
+page's in-memory registry; the normal arena and published registry stay unchanged. Stop the
+development server after review.
 
 After watching representative fights, record `browser-review.json` in the run directory:
 
@@ -114,6 +124,22 @@ After watching representative fights, record `browser-review.json` in the run di
 `promote` accepts only eligible, reviewed parameter artifacts. It extends the original league,
 retains its baseline bouts, and evaluates new opponents/build assignments before registering new
 picker policies and publishing ratings. Existing policy implementations remain available.
+
+If an integration change invalidates a completed experiment's source fingerprint, keep its
+finalists frozen and revalidate rather than silently relabelling old bout results:
+
+```powershell
+node research/revalidate.mjs research/runs/original research/runs/revalidated
+node research/cli.mjs confirm --dir research/runs/revalidated --hours 8
+node research/cli.mjs evaluate --dir research/runs/revalidated --hours 8
+```
+
+The target must be new. This transfers candidates and training provenance, not bout results;
+confirmation and ratings run again. It also transfers the already-used compute allowance and
+locks the source budget against further computation. Use `confirm` and `evaluate`, not `search`
+or `run`, in this revalidation directory: the original search identity is intentionally retained.
+Review and promote against the new fingerprint. Published experiment evidence identifies the
+training origin separately from the final evaluation source.
 
 ## Next research agenda
 

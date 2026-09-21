@@ -48,9 +48,100 @@ retain enough information to inspect build, opponent, side and overtime separate
 4. Do the planners still outperform simple directors after their training environment changed?
 5. Can modest parameter search improve several distinct styles without changing the body?
 
-An incomplete first-round diagnostic already showed more overtime in ram-only, whip and
-pitch-arm mirrors than in sword and mace mirrors. This is a hypothesis to verify against the
-completed report, not a policy ranking or a reason to change the league rules mid-run.
+The completed four-round baseline answers the first four questions below. Parameter search and
+independent confirmation answer the fifth; training gains alone are not promoted improvements.
+
+## Completed baseline: September 21, 2026
+
+The initial twelve-policy league completed 12,672 bouts in 80.6 minutes with eight workers and
+no failed jobs. Every policy has 2,112 appearances, including both sides and every named build.
+The exact fingerprint, protocol and machine/runtime dependencies accompany `results/baseline.json`.
+
+- Duelist leads at 1535, followed by Champion 1528, Planner 1524, Miser 1520 and Tactician 1516.
+  Their rating deviations are about 11 points; the close ordering is not a decisive separation.
+  Driver is substantially behind at 1432. Newer executor generations are not automatically stronger.
+- The fitted planners remain competitive despite their old training data. This justifies a
+  controlled refit experiment, not deleting them or assuming their models are already obsolete.
+- Build-specific rankings differ. In default-versus-default mirrors, Champion scores 72.7% and
+  Planner 67.0% (88 bouts each), versus Duelist's 58.5%. The JSON's per-build aggregates also
+  include cross-build matches, so they answer a different question from those mirror-only figures.
+- Duelist scores 48.4% against Tactician over 192 bouts: its highest overall rating does not imply
+  winning every matchup. This small reversal is a counter hypothesis, not a confirmed exploit.
+- Arena-left scores 47.53% overall versus right's 52.47%. Balanced side swaps are necessary;
+  diagnosing the asymmetry is a separate experiment, with no physics changes in this delivery.
+- Styles are already measurably distinct: Tactician commands retreat 78.0% of the time and about
+  0.46 attack edges/s; Miser retreats 15.8% and commands 1.06 edges/s; Brawler 14.8% and 1.01/s.
+  These are command descriptors, not achieved movement or measures of entertainment.
+
+Mirror-build outcomes identify the largest non-engagement/finishing questions. Each row contains
+528 bouts across all policy pairs and four seed rounds. Overtime uses the game's normal drain;
+it is not an extra research tiebreak.
+
+| Mirror build | Mean seconds | Entered overtime | Draws |
+| --- | ---: | ---: | ---: |
+| Two blades | 18.1 | 3.2% | 0.0% |
+| Default | 26.3 | 8.5% | 0.2% |
+| Mace | 23.9 | 3.8% | 0.4% |
+| Fists | 62.5 | 63.6% | 0.0% |
+| Ram-capped | 114.9 | 99.4% | 41.1% |
+| Whip | 82.6 | 90.9% | 1.3% |
+| Pitch-blade | 68.8 | 65.7% | 5.1% |
+
+The first follow-up should audit legal attack opportunity, chosen action, actual contact and
+damage on these weaker build families. A high overtime fraction alone cannot separate poor
+policy timing, incapable geometry, defensive balance and a measurement problem. Preserve the
+current simulator and compare policies before proposing changes to any of those boundaries.
+
+## Initial parameter-search outcome
+
+All 24 generations completed: 384 parameter candidates and 26,112 training bouts. Separate
+selection used 1,728 bouts, then froze one finalist per style. Neither training nor selection
+used wheel, multileg, plated or pitch-blade. Confirmation used 2,592 bouts: 432 per finalist or
+parent, paired into 216 side-swap blocks for each candidate-parent comparison.
+
+| Finalist | Match-score gain over parent | Paired 95% interval | Decision |
+| --- | ---: | ---: | --- |
+| Form, generation 4 / candidate 5 | +11.34 percentage points | +5.32 to +17.36 | Passes statistical and visual gates |
+| Guardian, generation 4 / candidate 4 | +5.90 points | +0.58 to +11.46 | Passes, but marginal evidence |
+| Skirmisher, generation 2 / candidate 7 | -7.06 points | -12.73 to -1.39 | Reject; original retained |
+
+The JSON IDs use zero-based generation numbers. Form also improves against the five unseen
+opponents (+13.54 points, interval +5.83 to +21.25) and four reserved builds (+16.32, +5.90 to
++27.08). Guardian's unseen-opponent gain is only +0.21 points (-7.50 to +7.71); its reserved-build
+gain is +7.64 (-1.39 to +17.36). Do not describe Guardian as a demonstrated generalization gain.
+These are exploratory per-comparison intervals, not a familywise-corrected claim across all
+three finalists; replicate the marginal Guardian result before making stronger claims.
+
+The retained variants differ on attack frequency, retreat and range occupancy on identical
+confirmation jobs. Guardian issues about 0.47 more attack edges/s and commands retreat about
+17.2 percentage points less than Form. Browser review covered default mirrors versus Fencer
+with candidates on both sides, plated Form versus Brawler, wheeled Guardian versus Tactician,
+and the two candidates against each other. Both engaged and exchanged damaging attacks;
+neither review supports a claim of universal superiority. Remote capture was approximately
+1 fps, so animation smoothness was not assessed. Exact observations are retained with the
+parameter hashes in the published experiment's browser review.
+
+### Integration and reproducibility audit
+
+Visual review found the body registry's second allowlist excluding researched policies. The
+fix admits validated researched names on the golem surface through the actual picker and
+factory; a regression test also checks rejection of a foreign surface. Since `units.ts` is
+fingerprinted, the finalists were transferred unchanged to a new validation directory, without
+copying any bout results or rerunning selection. All 2,592 confirmation records reproduced
+exactly under the final code. These are repeated executions of the same jobs, not extra
+independent evidence, and they are not pooled. The baseline league is likewise rerun for the
+new fingerprint; the original compute usage is carried forward rather than resetting the budget.
+
+That repeat also exposed bootstrap sampling's dependence on worker completion order. Paired
+blocks are now sorted by stable identity before seeded resampling. The heterogeneous-block
+regression was observed failing with the sort removed and passing after restoration. The
+intervals above use the corrected, order-independent calculation; promotion eligibility did
+not change. Physics, motor limits and all original policy parameters remain unchanged.
+
+The next search should emphasize generalization and style coverage, not merely more generations
+on the same small training batch. Skirmisher's negative confirmation is a concrete warning:
+larger training gains can still select a worse policy. The model-refit, quality-diversity and
+learned-director experiments below remain the next research phase.
 
 ## Experiment sequence after this delivery
 
@@ -106,7 +197,7 @@ GPU/cloud work is a later resource decision, informed by measured CPU sample cos
 
 ## Validation baseline
 
-The implementation's latest full test run passed 601 of 603 tests. Two pre-existing failures in
+The implementation's latest full test run passed 605 of 607 tests. Two pre-existing failures in
 `golem-torso-head.test.mjs` concern a ram reaching its fixed post; both reproduced in an untouched
 HEAD archive. They were not weakened or used to change physics for this AI task. Additional
 research tests cover ratings, balance, resumability, worker failures, fingerprints, candidate

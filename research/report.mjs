@@ -49,6 +49,6 @@ export function markdownReport(report) {
   for (const [name, p] of Object.entries(report.policies).sort((a, b) => b[1].rating - a[1].rating)) {
     lines.push(`| ${name} | ${Math.round(p.rating)}${p.provisional ? " provisional" : ""} | ${p.deviation.toFixed(1)} | ${(100 * p.score).toFixed(1)}% | ${p.draws} | ${p.attackRate.toFixed(2)} | ${(100 * p.retreatFraction).toFixed(1)}% | ${p.blockRate.toFixed(2)} |`);
   }
-  lines.push("", "Full matchup, build, side, overtime and behavior breakdowns are in `summary.json`.", "");
+  lines.push("", "Full matchup, build, side, overtime and behavior breakdowns are in the accompanying JSON (`summary.json` in a run directory; `baseline.json` in published results).", "");
   return lines.join("\n");
 }

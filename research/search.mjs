@@ -7,6 +7,7 @@ import { atomicJson, runJobs } from "./runner.mjs";
 
 const TRAIN_FOES = ["golem-duelist", "golem-fencer", "golem-planner", "golem-miser"];
 const HELD_BUILDS = ["wheel", "multileg", "plated", "pitch-blade"];
+export const trainingBuilds = (builds) => builds.filter((build) => !HELD_BUILDS.includes(build.name));
 const mean = (values) => values.reduce((a, b) => a + b, 0) / values.length;
 const score = (row, name) => row.winner === null ? 0.5 : row[row.winner] === name ? 1 : 0;
 
@@ -54,7 +55,8 @@ function blockValues(rows, name, measure) {
 export function pairedComparison(rows, a, b, measure = score) {
   const left = blockValues(rows, a, measure), right = blockValues(rows, b, measure);
   if (left.size !== right.size || [...left.keys()].some((key) => !right.has(key))) throw new Error("unpaired comparisons");
-  return bootstrap([...left].map(([key, value]) => value - right.get(key)));
+  return bootstrap([...left].sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => value - right.get(key)));
 }
 
 function gaussian(random) {
@@ -88,7 +90,7 @@ export async function search(directory, manifest, options) {
     : { version: 1, identity, styles: Object.fromEntries(Object.keys(SEARCH_PARENTS).map((parent) =>
       [parent, { generation: 0, distribution: initialDistribution(parent), history: [] }])) };
   if (state.identity !== identity) throw new Error("search fingerprint mismatch");
-  const builds = manifest.builds.filter((build) => !HELD_BUILDS.includes(build.name));
+  const builds = trainingBuilds(manifest.builds);
   for (let generation = 0; generation < 8; generation++) for (const parent of Object.keys(SEARCH_PARENTS)) {
     const style = state.styles[parent];
     if (style.generation > generation) continue;
@@ -130,7 +132,8 @@ export async function confirm(directory, manifest, state, options) {
     for (const [parent, style] of Object.entries(state.styles)) {
       const candidates = style.history.map((row) => row.winner.candidate);
       if (!candidates.length) continue;
-      const jobs = comparisonJobs([parent, ...candidates.map((c) => c.name)], TRAIN_FOES, manifest.builds, "selection");
+      const selectionBuilds = trainingBuilds(manifest.builds);
+      const jobs = comparisonJobs([parent, ...candidates.map((c) => c.name)], TRAIN_FOES, selectionBuilds, "selection");
       const rows = await runJobs(join(directory, `selection-${parent}`), { ...manifest, candidates }, jobs, options);
       if (rows.length !== jobs.length || rows.some((r) => r.status !== "ok")) return { status: "selection-incomplete", finalists: [] };
       candidates.sort((a, b) => pairedComparison(rows, b.name, parent).mean - pairedComparison(rows, a.name, parent).mean);

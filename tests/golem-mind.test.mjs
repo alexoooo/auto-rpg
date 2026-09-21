@@ -95,6 +95,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
   const golem = unitDefinition("golem");
   const names = (unit) => unit.driverOptions.map(({ name }) => name);
   assert.deepEqual(names(golem), [
+    ...POLICIES.filter((policy) => policy.name.startsWith("golem-researched-")).map((policy) => policy.name),
     "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
     "golem-reaper", "golem-miser",

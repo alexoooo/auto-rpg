@@ -10,6 +10,7 @@ import { runJobs, atomicJson, readResults, defaultWorkers, lockRun } from "./run
 import { summarize, markdownReport } from "./report.mjs";
 import { search, confirm } from "./search.mjs";
 import { promote } from "./promotion.mjs";
+import { writePreview } from "./preview.mjs";
 
 const [command = "help", ...args] = process.argv.slice(2);
 const flags = {};
@@ -71,14 +72,29 @@ function publish(manifest, from = directory) {
   atomicJson(join(ROOT, "research/results/manifest.json"), manifest);
   atomicJson(join(ROOT, "research/results/provenance.json"), {
     fingerprint: manifest.fingerprint, sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim(),
+    sourceWorktreeDirty: Boolean(execFileSync("git", ["status", "--porcelain", "--", ...fingerprint().files],
+      { cwd: ROOT, encoding: "utf8" }).trim()),
     dependencyFiles: fingerprint().files, publishedAt: artifact.evaluatedAt,
   });
   writeFileSync(join(ROOT, "research/results/baseline.md"), markdownReport(summary));
+  const confirmationPath = join(directory, "confirmation.json");
+  if (existsSync(confirmationPath)) {
+    const confirmation = JSON.parse(readFileSync(confirmationPath, "utf8"));
+    if (confirmation.fingerprint !== manifest.fingerprint) throw new Error("cannot publish stale confirmation evidence");
+    const optional = (name) => existsSync(join(directory, name))
+      ? JSON.parse(readFileSync(join(directory, name), "utf8")) : null;
+    atomicJson(join(ROOT, "research/results/experiment.json"), {
+      version: 1, fingerprint: manifest.fingerprint, confirmation,
+      search: optional("search.json"), finalists: optional("finalists.json"),
+      browserReview: optional("browser-review.json"), budget: optional("budget.json"),
+      trainingOrigin: optional("origin.json"),
+    });
+  }
   console.log(`Published ${summary.completedRounds} complete rounds (${summary.ratedBouts} bouts)`);
 }
 
 if (command === "help") {
-  console.log("node research/cli.mjs <run|evaluate|summarize|search|confirm|promote|publish> [--dir research/runs/current] [--workers N] [--hours 8] [--rounds 4] [--seed 20260920]");
+  console.log("node research/cli.mjs <run|evaluate|summarize|search|confirm|preview|promote|publish> [--dir research/runs/current] [--workers N] [--hours 8] [--rounds 4] [--seed 20260920]");
 } else {
   mkdirSync(directory, { recursive: true });
   const manifest = getManifest();
@@ -90,6 +106,7 @@ if (command === "help") {
   const deadline = started + remaining;
   const options = { workers, deadline, onProgress };
   const computing = ["run", "evaluate", "search", "confirm", "promote"].includes(command);
+  if (computing && prior.carriedTo) throw new Error(`compute budget transferred to ${prior.carriedTo}`);
   const unlock = computing ? lockRun(directory) : () => {};
   const checkpoint = () => atomicJson(budgetPath, { usedMs: prior.usedMs + Date.now() - started });
   const budgetTimer = computing ? setInterval(checkpoint, 15000) : null;
@@ -117,12 +134,13 @@ if (command === "help") {
     }
     if (command === "summarize") console.log(markdownReport(report(manifest)));
     if (command === "publish") publish(manifest);
+    if (command === "preview") console.log(writePreview(directory, manifest));
     if (command === "promote") {
       const result = await promote(directory, manifest, options);
       if (result.status === "promoted") publish(result.manifest, result.directory);
       console.log(JSON.stringify(result));
     }
-    if (!["run", "evaluate", "summarize", "search", "confirm", "promote", "publish"].includes(command)) throw new Error(`unknown command ${command}`);
+    if (!["run", "evaluate", "summarize", "search", "confirm", "preview", "promote", "publish"].includes(command)) throw new Error(`unknown command ${command}`);
   } finally {
     if (budgetTimer) clearInterval(budgetTimer);
     process.off("SIGINT", stopAfterCurrentStage); process.off("SIGTERM", stopAfterCurrentStage);
