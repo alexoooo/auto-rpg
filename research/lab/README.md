@@ -192,6 +192,14 @@ is not a completed DAgger training campaign. Baseline-selected oracle labels hav
 and are excluded from regression, never silently relabeled as a zero action. Students only receive
 the fair observation vector, even when the teacher used privileged information.
 
+`research/teacher-dataset.mjs --out research/runs/DATA --runs research/runs/REF1,research/runs/REF2`
+extracts executed trajectories from completed residual reference fights. It aligns each command
+with its preceding observation and emits `labels.json`, provenance and `constant-model.json`.
+Only an exact named-baseline residual continuation is converted from null to a zero target;
+student or pilot baselines are refused. Evaluate the constant model alongside a distilled student
+to test whether a fixed bias explains the result. Teacher knowledge may not be recoverable from
+the student's public observations; imitation success must be measured independently.
+
 ## Portfolio, evaluation and publication
 
 Seven bespoke prototypes use the existing third executor: recovery punisher, trajectory

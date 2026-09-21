@@ -13,6 +13,23 @@ import { exportPoses } from "../research/lab/poses.mjs";
 import { LAB_BASELINES, originalMind } from "../src/golem/lab-baselines.ts";
 import { referenceFight } from "../research/lab/reference.mjs";
 
+test("zero-residual imitation exactly preserves each named baseline's full substep trace", async () => {
+  for (const baseline of ["golem-driver", "golem-duelist"]) {
+    const model = { version: 2, surface: "residual", hz: 12, baseline, observationNames: OBSERVATION_NAMES,
+      layers: [{ activation: "linear", weights: Array.from({ length: 22 }, () => Array(OBSERVATION_NAMES.length).fill(0)), bias: Array(22).fill(0) }] };
+    const run = async (left) => {
+      const env = await createEnvironment({ seed: 19, leftBuild: "two-blades", rightBuild: "two-blades", left,
+        surface: "residual", controlBaseline: baseline, maxSeconds: 3, trace: true });
+      try {
+        let state = env.state();
+        while (!state.terminated && !state.truncated) state = env.step();
+        return recording(env).steps;
+      } finally { env.close(); }
+    };
+    assert.deepEqual(await run({ kind: "network", model }), await run({ kind: "baseline", name: baseline }));
+  }
+});
+
 test("reference fights finish their configured horizon and retain a valid prefix on budget expiry", async () => {
   const config = { surface: "residual", controlBaseline: "golem-duelist", seed: 55,
     left: { kind: "baseline", name: "golem-duelist" }, maxSeconds: 0.25 };

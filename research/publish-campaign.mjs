@@ -9,10 +9,22 @@ import { summarizeEvidence } from "./lab/evidence.mjs";
 
 const read = (path) => JSON.parse(readFileSync(path, "utf8"));
 const hash = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+const recordSummary = (record) => {
+  const last = record.steps.at(-1), c = record.config;
+  return { replayId: record.id, fingerprint: record.fingerprint, seed: c.seed,
+    builds: [c.leftBuild, c.rightBuild], surface: c.surface, controlBaseline: c.controlBaseline,
+    controlledPolicy: c.left.kind === "network" ? { kind: "network", modelSha256: digest(c.left.model) } : c.left,
+    opponent: c.right.kind === "network" ? { kind: "network", modelSha256: digest(c.right.model) } : c.right,
+    controlDecisions: record.steps.length, simulatedSeconds: last?.clock,
+    winner: last?.winner, vitality: last?.vitality, terminated: last?.terminated, truncated: last?.truncated };
+};
 const runs = [];
 for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.startsWith("wave3-") && n !== "wave3-budget").sort()) {
   const directory = join(ROOT, "research/runs", name), manifest = join(directory, "manifest.json");
-  if (!existsSync(manifest)) continue;
+  if (!existsSync(manifest)) {
+    if (existsSync(join(directory, "dataset.json"))) runs.push({ directory: `research/runs/${name}`, dataset: read(join(directory, "dataset.json")) });
+    continue;
+  }
   const entry = { directory: `research/runs/${name}`, manifest: read(manifest), training: [], evaluations: [] };
   for (const child of readdirSync(directory, { withFileTypes: true })) {
     if (child.isDirectory() && existsSync(join(directory, child.name, "training.json"))) {
@@ -32,6 +44,7 @@ for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.star
   for (const file of ["model-calibration.json", "replay-verification.json", "archive.json"]) {
     if (existsSync(join(directory, file))) entry[file] = read(join(directory, file));
   }
+  if (existsSync(join(directory, "replay.json"))) entry.replay = recordSummary(read(join(directory, "replay.json")));
   if (existsSync(join(directory, "refit.json"))) {
     const r = read(join(directory, "refit.json"));
     entry.refit = { bouts: r.outcomes.length, coverage: r.coverage, samples: r.terminalModel?.samples,
@@ -63,7 +76,8 @@ for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.star
     if (!existsSync(path)) continue;
     const r = read(path), last = r.record.steps.at(-1);
     entry[`reference-${tier}`] = { status: r.status, search: r.search, decisions: r.labels.length,
-      simulatedSeconds: last.clock, winner: last.winner, terminated: last.terminated, truncated: last.truncated };
+      simulatedSeconds: last.clock, winner: last.winner, terminated: last.terminated, truncated: last.truncated,
+      record: recordSummary(r.record) };
   }
   runs.push(entry);
 }

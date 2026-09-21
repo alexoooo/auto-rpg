@@ -146,3 +146,27 @@ acting-hand metadata, and the trainer now installs the tested owned-child exit g
 runs accept explicit seed/body/opponent/baseline settings, reject changed resume configurations,
 and preserve their last valid checkpoint when a search deadline expires. New runs retain new
 source snapshots rather than modifying the earlier evidence. The complete suite passes 638 tests.
+
+## Predefined reference replications and imitation data
+
+The source-frozen `wave3-reference-r3-*` replication used seeds 55/56 on default bodies and
+57/58 on twin blades, always against Champion. All four ordinary Duelist controls lost; all four
+privileged references won. Seed 55 reproduces the initial case, so only the other three are new
+cases. This small set does not establish a broad win rate or a fair-information policy.
+
+| Seed / body | Control loss time | Search win time | Search remaining vitality | Search wall time |
+| --- | ---: | ---: | ---: | ---: |
+| 55 / default | 29.633 s | 3.617 s | 92.86% | 63.208 s |
+| 56 / default | 60.133 s | 2.733 s | 76.57% | 43.728 s |
+| 57 / twin blades | 18.183 s | 3.867 s | 96.11% | 64.867 s |
+| 58 / twin blades | 12.683 s | 7.383 s | 90.13% | 165.083 s |
+
+`research/teacher-dataset.mjs` extracts 209 executed observation/action examples, pairing each
+action with its **preceding** observation, including the held decisions between replans. It checks
+source and replay digests, rejects partial fights, and deduplicates identical replays. Null actions
+become zero residuals only when the reference's named baseline exactly equals the control baseline;
+they are not converted this way for pilot control or student continuations. A real-Havok substep
+trace regression verifies the named zero-residual equivalence. The dataset retains source/outcome
+provenance and also exports a constant-mean residual model as an imitation control. Neither that
+control nor a distilled student has yet demonstrated held-out strength. The privileged teacher
+can use information unavailable to a student, and its finite-search choices are not ground truth.

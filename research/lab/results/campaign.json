@@ -1,8 +1,8 @@
 {
-  "publishedAt": "2026-09-21T19:10:43.872Z",
+  "publishedAt": "2026-09-21T19:26:51.105Z",
   "status": "ongoing research; no automatic promotion",
   "budget": {
-    "usedMs": 7064070,
+    "usedMs": 8025471,
     "runs": [
       {
         "command": "evaluate",
@@ -340,6 +340,157 @@
         },
         "startedAt": "2026-09-21T19:09:35.990Z",
         "elapsedMs": 7165,
+        "status": "complete"
+      },
+      {
+        "command": "reference",
+        "flags": {
+          "dir": "research/runs/wave3-reference-r3-55",
+          "budget": "campaign-2026-09-21",
+          "surface": "residual",
+          "baseline": "golem-duelist",
+          "opponent": "golem-champion",
+          "build": "default",
+          "seed": "55",
+          "duration": "150",
+          "candidates": "16",
+          "horizon": "2",
+          "commit": "0.5",
+          "decisions": "600",
+          "seconds": "1200"
+        },
+        "startedAt": "2026-09-21T19:09:43.959Z",
+        "elapsedMs": 63208,
+        "status": "complete"
+      },
+      {
+        "command": "collect",
+        "flags": {
+          "dir": "research/runs/wave3-reference-r3-control-56",
+          "budget": "campaign-2026-09-21",
+          "surface": "residual",
+          "policy": "golem-duelist",
+          "baseline": "golem-duelist",
+          "opponent": "golem-champion",
+          "build": "default",
+          "seed": "56",
+          "duration": "150",
+          "seconds": "90"
+        },
+        "startedAt": "2026-09-21T19:10:47.965Z",
+        "elapsedMs": 12070,
+        "status": "complete"
+      },
+      {
+        "command": "reference",
+        "flags": {
+          "dir": "research/runs/wave3-reference-r3-56",
+          "budget": "campaign-2026-09-21",
+          "surface": "residual",
+          "baseline": "golem-duelist",
+          "opponent": "golem-champion",
+          "build": "default",
+          "seed": "56",
+          "duration": "150",
+          "candidates": "16",
+          "horizon": "2",
+          "commit": "0.5",
+          "decisions": "600",
+          "seconds": "1200"
+        },
+        "startedAt": "2026-09-21T19:11:00.848Z",
+        "elapsedMs": 43728,
+        "status": "complete"
+      },
+      {
+        "command": "collect",
+        "flags": {
+          "dir": "research/runs/wave3-reference-r3-control-57",
+          "budget": "campaign-2026-09-21",
+          "surface": "residual",
+          "policy": "golem-duelist",
+          "baseline": "golem-duelist",
+          "opponent": "golem-champion",
+          "build": "two-blades",
+          "seed": "57",
+          "duration": "150",
+          "seconds": "90"
+        },
+        "startedAt": "2026-09-21T19:11:45.428Z",
+        "elapsedMs": 5190,
+        "status": "complete"
+      },
+      {
+        "command": "reference",
+        "flags": {
+          "dir": "research/runs/wave3-reference-r3-57",
+          "budget": "campaign-2026-09-21",
+          "surface": "residual",
+          "baseline": "golem-duelist",
+          "opponent": "golem-champion",
+          "build": "two-blades",
+          "seed": "57",
+          "duration": "150",
+          "candidates": "16",
+          "horizon": "2",
+          "commit": "0.5",
+          "decisions": "600",
+          "seconds": "1200"
+        },
+        "startedAt": "2026-09-21T19:11:51.434Z",
+        "elapsedMs": 64867,
+        "status": "complete"
+      },
+      {
+        "command": "collect",
+        "flags": {
+          "dir": "research/runs/wave3-reference-r3-control-58",
+          "budget": "campaign-2026-09-21",
+          "surface": "residual",
+          "policy": "golem-duelist",
+          "baseline": "golem-duelist",
+          "opponent": "golem-champion",
+          "build": "two-blades",
+          "seed": "58",
+          "duration": "150",
+          "seconds": "90"
+        },
+        "startedAt": "2026-09-21T19:12:57.126Z",
+        "elapsedMs": 4189,
+        "status": "complete"
+      },
+      {
+        "command": "reference",
+        "flags": {
+          "dir": "research/runs/wave3-reference-r3-58",
+          "budget": "campaign-2026-09-21",
+          "surface": "residual",
+          "baseline": "golem-duelist",
+          "opponent": "golem-champion",
+          "build": "two-blades",
+          "seed": "58",
+          "duration": "150",
+          "candidates": "16",
+          "horizon": "2",
+          "commit": "0.5",
+          "decisions": "600",
+          "seconds": "1200"
+        },
+        "startedAt": "2026-09-21T19:13:02.110Z",
+        "elapsedMs": 165083,
+        "status": "complete"
+      },
+      {
+        "command": "evaluate",
+        "flags": {
+          "dir": "research/runs/wave3-learning-control-r3",
+          "budget": "campaign-2026-09-21",
+          "policy": "golem-duelist",
+          "repeats": "2",
+          "seconds": "300"
+        },
+        "startedAt": "2026-09-21T19:15:48.006Z",
+        "elapsedMs": 113812,
         "status": "complete"
       }
     ]
@@ -6500,6 +6651,17 @@
       "evaluations": []
     },
     {
+      "directory": "research/runs/wave3-duelist-r3-11",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "8d39aaa4b57df3151c3791923b27d475447c043dcdd6e3fd16dfd89ac6c2f260",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": []
+    },
+    {
       "directory": "research/runs/wave3-duelist-selection-11",
       "manifest": {
         "version": 1,
@@ -9347,6 +9509,839 @@
             "method": "95% percentile bootstrap over matched side-swapped pairs",
             "pairs": 13,
             "bouts": 26,
+            "truncations": 0,
+            "warning": "Selection evidence is not confirmation; bootstrap does not correct for candidate selection or untested matchups."
+          }
+        }
+      ]
+    },
+    {
+      "directory": "research/runs/wave3-learning-control-r3",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "8d39aaa4b57df3151c3791923b27d475447c043dcdd6e3fd16dfd89ac6c2f260",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": [
+        {
+          "file": "evaluation-c1a9fcd585269489.json",
+          "policy": {
+            "kind": "baseline",
+            "name": "golem-duelist"
+          },
+          "split": "selection",
+          "maxSeconds": 150,
+          "rows": [
+            {
+              "split": "selection",
+              "build": "default",
+              "opponentBuild": "default",
+              "opponent": "golem-planner",
+              "side": "left",
+              "seed": 200000,
+              "winner": "left",
+              "seconds": 50.01666666666511,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 11.760954298067983,
+              "range": [
+                5.037500000000034,
+                33.77083333333324,
+                11.195833333333018,
+                0.008333333333333333
+              ],
+              "behavior": {
+                "attackRate": 0.7797400866378117,
+                "retreatFraction": 0.4343552149283525,
+                "nearFraction": 0.1007248187953026
+              }
+            },
+            {
+              "split": "selection",
+              "build": "default",
+              "opponentBuild": "default",
+              "opponent": "golem-planner",
+              "side": "right",
+              "seed": 200000,
+              "winner": "right",
+              "seconds": 22.133333333333358,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 11.492741977899193,
+              "range": [
+                2.629166666666692,
+                14.166666666666183,
+                5.333333333333351,
+                0
+              ],
+              "behavior": {
+                "attackRate": 0.6777108433734932,
+                "retreatFraction": 0.47082078313251735,
+                "nearFraction": 0.11881001694596473
+              }
+            },
+            {
+              "split": "selection",
+              "build": "default",
+              "opponentBuild": "default",
+              "opponent": "golem-brawler",
+              "side": "left",
+              "seed": 200001,
+              "winner": "right",
+              "seconds": 14.616666666666973,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 7.389540030015336,
+              "range": [
+                9.674999999999772,
+                3.3416666666667276,
+                1.3249999999999966,
+                0.2708333333333336
+              ],
+              "behavior": {
+                "attackRate": 0.6157354618015835,
+                "retreatFraction": 0.8375142531356468,
+                "nearFraction": 0.6621043627031572
+              }
+            },
+            {
+              "split": "selection",
+              "build": "default",
+              "opponentBuild": "default",
+              "opponent": "golem-brawler",
+              "side": "right",
+              "seed": 200001,
+              "winner": "right",
+              "seconds": 12.483333333333533,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 11.66178496369048,
+              "range": [
+                4.945833333333373,
+                6.287499999999963,
+                1.2458333333333302,
+                0
+              ],
+              "behavior": {
+                "attackRate": 0.5607476635513929,
+                "retreatFraction": 0.673564753003982,
+                "nearFraction": 0.39632721202003657
+              }
+            },
+            {
+              "split": "selection",
+              "build": "maul",
+              "opponentBuild": "maul",
+              "opponent": "golem-planner",
+              "side": "left",
+              "seed": 200100,
+              "winner": "left",
+              "seconds": 60.28333333333119,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 8.156415817245923,
+              "range": [
+                3.5125000000000695,
+                20.96249999999913,
+                32.24166666666536,
+                3.562500000000072
+              ],
+              "behavior": {
+                "attackRate": 1.327066629803752,
+                "retreatFraction": 0.40192148189106675,
+                "nearFraction": 0.05827054676159847
+              }
+            },
+            {
+              "split": "selection",
+              "build": "maul",
+              "opponentBuild": "maul",
+              "opponent": "golem-planner",
+              "side": "right",
+              "seed": 200100,
+              "winner": "left",
+              "seconds": 44.04999999999878,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 3.918930722810738,
+              "range": [
+                3.3166666666667264,
+                18.120833333332627,
+                18.68749999999926,
+                3.920833333333423
+              ],
+              "behavior": {
+                "attackRate": 1.316685584563033,
+                "retreatFraction": 0.43492243662504193,
+                "nearFraction": 0.07530035001419333
+              }
+            },
+            {
+              "split": "selection",
+              "build": "maul",
+              "opponentBuild": "maul",
+              "opponent": "golem-brawler",
+              "side": "left",
+              "seed": 200101,
+              "winner": "left",
+              "seconds": 29.36666666666628,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 10.829286622645823,
+              "range": [
+                3.2750000000000576,
+                13.541666666666218,
+                10.51666666666639,
+                2.0291666666666623
+              ],
+              "behavior": {
+                "attackRate": 1.0896708286038737,
+                "retreatFraction": 0.7158059023836347,
+                "nearFraction": 0.11153682418050685
+              }
+            },
+            {
+              "split": "selection",
+              "build": "maul",
+              "opponentBuild": "maul",
+              "opponent": "golem-brawler",
+              "side": "right",
+              "seed": 200101,
+              "winner": "left",
+              "seconds": 17.483333333333622,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 3.2407642546729223,
+              "range": [
+                8.816666666666487,
+                7.51666666666656,
+                1.1458333333333306,
+                0
+              ],
+              "behavior": {
+                "attackRate": 1.0295519542421183,
+                "retreatFraction": 0.7981410867492449,
+                "nearFraction": 0.5044100119189491
+              }
+            },
+            {
+              "split": "selection",
+              "build": "whip",
+              "opponentBuild": "whip",
+              "opponent": "golem-planner",
+              "side": "left",
+              "seed": 200200,
+              "winner": "left",
+              "seconds": 84.76666666666314,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 5.986324457660778,
+              "range": [
+                11.070833333333026,
+                36.10416666666843,
+                31.75833333333185,
+                5.829166666666656
+              ],
+              "behavior": {
+                "attackRate": 0.6370428627605456,
+                "retreatFraction": 0.4573830121903913,
+                "nearFraction": 0.13061003785085423
+              }
+            },
+            {
+              "split": "selection",
+              "build": "whip",
+              "opponentBuild": "whip",
+              "opponent": "golem-planner",
+              "side": "right",
+              "seed": 200200,
+              "winner": "right",
+              "seconds": 104.766666666662,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 3.325057966515539,
+              "range": [
+                11.016666666666362,
+                48.58333333334503,
+                36.12500000000178,
+                9.037499999999808
+              ],
+              "behavior": {
+                "attackRate": 0.6108813235762283,
+                "retreatFraction": 0.4680241807191941,
+                "nearFraction": 0.10515849341763508
+              }
+            },
+            {
+              "split": "selection",
+              "build": "whip",
+              "opponentBuild": "whip",
+              "opponent": "golem-brawler",
+              "side": "left",
+              "seed": 200201,
+              "winner": "right",
+              "seconds": 93.01666666666267,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 2.4722325751450462,
+              "range": [
+                35.537500000001316,
+                38.68333333333715,
+                16.616666666666045,
+                2.175000000000003
+              ],
+              "behavior": {
+                "attackRate": 0.6127934061996321,
+                "retreatFraction": 0.7775040315357767,
+                "nearFraction": 0.38207230210992704
+              }
+            },
+            {
+              "split": "selection",
+              "build": "whip",
+              "opponentBuild": "whip",
+              "opponent": "golem-brawler",
+              "side": "right",
+              "seed": 200201,
+              "winner": "left",
+              "seconds": 98.46666666666236,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 3.463945292106872,
+              "range": [
+                30.270833333331936,
+                45.045833333342216,
+                19.741666666665868,
+                3.4041666666667307
+              ],
+              "behavior": {
+                "attackRate": 0.6499661475965077,
+                "retreatFraction": 0.7468686526745277,
+                "nearFraction": 0.30743514874525696
+              }
+            },
+            {
+              "split": "selection",
+              "build": "ram-blade",
+              "opponentBuild": "ram-blade",
+              "opponent": "golem-planner",
+              "side": "left",
+              "seed": 200300,
+              "winner": "left",
+              "seconds": 32.049999999999464,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 9.099590522355129,
+              "range": [
+                3.8166666666667513,
+                21.529166666665766,
+                6.58333333333328,
+                0.11666666666666665
+              ],
+              "behavior": {
+                "attackRate": 0.8112324492979854,
+                "retreatFraction": 0.34854394175766634,
+                "nearFraction": 0.11910024704200302
+              }
+            },
+            {
+              "split": "selection",
+              "build": "ram-blade",
+              "opponentBuild": "ram-blade",
+              "opponent": "golem-planner",
+              "side": "right",
+              "seed": 200300,
+              "winner": "right",
+              "seconds": 54.399999999998194,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 11.966938778547405,
+              "range": [
+                7.2208333333332435,
+                34.35833333333371,
+                12.766666666666262,
+                0.049999999999999996
+              ],
+              "behavior": {
+                "attackRate": 0.6617647058823749,
+                "retreatFraction": 0.3855698529411733,
+                "nearFraction": 0.13274607430103272
+              }
+            },
+            {
+              "split": "selection",
+              "build": "ram-blade",
+              "opponentBuild": "ram-blade",
+              "opponent": "golem-brawler",
+              "side": "left",
+              "seed": 200301,
+              "winner": "left",
+              "seconds": 44.233333333332105,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 11.845537711297117,
+              "range": [
+                17.395833333332668,
+                17.329166666666005,
+                7.5791666666665565,
+                1.9249999999999945
+              ],
+              "behavior": {
+                "attackRate": 0.6330067822155413,
+                "retreatFraction": 0.6872645064054131,
+                "nearFraction": 0.3933113518605724
+              }
+            },
+            {
+              "split": "selection",
+              "build": "ram-blade",
+              "opponentBuild": "ram-blade",
+              "opponent": "golem-brawler",
+              "side": "right",
+              "seed": 200301,
+              "winner": "right",
+              "seconds": 16.650000000000336,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 11.655940636915167,
+              "range": [
+                6.654166666666609,
+                8.083333333333195,
+                1.6749999999999954,
+                0.23333333333333364
+              ],
+              "behavior": {
+                "attackRate": 0.6006006006005885,
+                "retreatFraction": 0.735235235235198,
+                "nearFraction": 0.39974968710888736
+              }
+            },
+            {
+              "split": "selection",
+              "build": "default",
+              "opponentBuild": "default",
+              "opponent": "golem-planner",
+              "side": "left",
+              "seed": 210000,
+              "winner": "right",
+              "seconds": 29.48333333333294,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 5.098459196043843,
+              "range": [
+                1.0999999999999974,
+                25.462499999998876,
+                2.9166666666667065,
+                0
+              ],
+              "behavior": {
+                "attackRate": 0.8140192198982584,
+                "retreatFraction": 0.3955624646692984,
+                "nearFraction": 0.03731448763251012
+              }
+            },
+            {
+              "split": "selection",
+              "build": "default",
+              "opponentBuild": "default",
+              "opponent": "golem-planner",
+              "side": "right",
+              "seed": 210000,
+              "winner": "left",
+              "seconds": 42.833333333332185,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 9.586225853303624,
+              "range": [
+                1.416666666666663,
+                37.38750000000279,
+                3.9666666666667587,
+                0.05833333333333333
+              ],
+              "behavior": {
+                "attackRate": 0.8171206225681154,
+                "retreatFraction": 0.5003891050583583,
+                "nearFraction": 0.03307714758244735
+              }
+            },
+            {
+              "split": "selection",
+              "build": "default",
+              "opponentBuild": "default",
+              "opponent": "golem-brawler",
+              "side": "left",
+              "seed": 210001,
+              "winner": "left",
+              "seconds": 19.20000000000019,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 10.56370614868568,
+              "range": [
+                5.75416666666666,
+                8.029166666666532,
+                5.004166666666703,
+                0.4083333333333331
+              ],
+              "behavior": {
+                "attackRate": 0.6770833333333266,
+                "retreatFraction": 0.6328124999999745,
+                "nearFraction": 0.29976123290644807
+              }
+            },
+            {
+              "split": "selection",
+              "build": "default",
+              "opponentBuild": "default",
+              "opponent": "golem-brawler",
+              "side": "right",
+              "seed": 210001,
+              "winner": "left",
+              "seconds": 24.899999999999867,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 6.810345107925612,
+              "range": [
+                15.079166666666131,
+                7.362499999999902,
+                2.4541666666666835,
+                0
+              ],
+              "behavior": {
+                "attackRate": 0.5622489959839387,
+                "retreatFraction": 0.8050535475233985,
+                "nearFraction": 0.6056903765690311
+              }
+            },
+            {
+              "split": "selection",
+              "build": "maul",
+              "opponentBuild": "maul",
+              "opponent": "golem-planner",
+              "side": "left",
+              "seed": 210100,
+              "winner": null,
+              "seconds": 73.81666666666376,
+              "terminated": true,
+              "truncated": false,
+              "score": 0.5,
+              "damage": 10.553157468157458,
+              "range": [
+                7.258333333333241,
+                28.42083333333204,
+                33.704166666666524,
+                4.4291666666667355
+              ],
+              "behavior": {
+                "attackRate": 1.435990065477591,
+                "retreatFraction": 0.4454730187401287,
+                "nearFraction": 0.09833474456675205
+              }
+            },
+            {
+              "split": "selection",
+              "build": "maul",
+              "opponentBuild": "maul",
+              "opponent": "golem-planner",
+              "side": "right",
+              "seed": 210100,
+              "winner": "right",
+              "seconds": 55.799999999998114,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 10.24052874667574,
+              "range": [
+                4.204166666666748,
+                25.86666666666552,
+                24.183333333332282,
+                1.5416666666666625
+              ],
+              "behavior": {
+                "attackRate": 1.326164874552016,
+                "retreatFraction": 0.4570639187574624,
+                "nearFraction": 0.07534911507729505
+              }
+            },
+            {
+              "split": "selection",
+              "build": "maul",
+              "opponentBuild": "maul",
+              "opponent": "golem-brawler",
+              "side": "left",
+              "seed": 210101,
+              "winner": "right",
+              "seconds": 16.28333333333369,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 4.025549440606841,
+              "range": [
+                4.345833333333407,
+                7.745833333333214,
+                4.045833333333424,
+                0.1416666666666667
+              ],
+              "behavior": {
+                "attackRate": 1.2282497441146096,
+                "retreatFraction": 0.6668372569088721,
+                "nearFraction": 0.2669567443050972
+              }
+            },
+            {
+              "split": "selection",
+              "build": "maul",
+              "opponentBuild": "maul",
+              "opponent": "golem-brawler",
+              "side": "right",
+              "seed": 210101,
+              "winner": "left",
+              "seconds": 24.866666666666536,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 2.624084314478279,
+              "range": [
+                12.40833333333295,
+                8.841666666666486,
+                3.162500000000052,
+                0.4499999999999996
+              ],
+              "behavior": {
+                "attackRate": 1.1260053619303008,
+                "retreatFraction": 0.817861930294877,
+                "nearFraction": 0.49907826378414105
+              }
+            },
+            {
+              "split": "selection",
+              "build": "whip",
+              "opponentBuild": "whip",
+              "opponent": "golem-planner",
+              "side": "left",
+              "seed": 210200,
+              "winner": "right",
+              "seconds": 113.16666666666153,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 0.8495924076568426,
+              "range": [
+                9.533333333333113,
+                53.91666666668261,
+                44.30833333334163,
+                5.40416666666668
+              ],
+              "behavior": {
+                "attackRate": 0.6892488954344937,
+                "retreatFraction": 0.3969440353461928,
+                "nearFraction": 0.08424463345482018
+              }
+            },
+            {
+              "split": "selection",
+              "build": "whip",
+              "opponentBuild": "whip",
+              "opponent": "golem-planner",
+              "side": "right",
+              "seed": 210200,
+              "winner": "right",
+              "seconds": 104.966666666662,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 2.8990419115774886,
+              "range": [
+                12.266666666666291,
+                37.983333333336596,
+                46.62500000001014,
+                8.087499999999862
+              ],
+              "behavior": {
+                "attackRate": 0.6097173705938664,
+                "retreatFraction": 0.4507780247698901,
+                "nearFraction": 0.1168671350879103
+              }
+            },
+            {
+              "split": "selection",
+              "build": "whip",
+              "opponentBuild": "whip",
+              "opponent": "golem-brawler",
+              "side": "left",
+              "seed": 210201,
+              "winner": "left",
+              "seconds": 62.86666666666438,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 11.146857103684237,
+              "range": [
+                21.574999999999097,
+                27.81666666666541,
+                12.295833333332956,
+                1.1749999999999972
+              ],
+              "behavior": {
+                "attackRate": 0.6362672322375629,
+                "retreatFraction": 0.7708112407213153,
+                "nearFraction": 0.3432093855637299
+              }
+            },
+            {
+              "split": "selection",
+              "build": "whip",
+              "opponentBuild": "whip",
+              "opponent": "golem-brawler",
+              "side": "right",
+              "seed": 210201,
+              "winner": "right",
+              "seconds": 109.74999999999505,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 1.9333851279504586,
+              "range": [
+                8.587499999999833,
+                9.558333333333112,
+                5.4375000000000115,
+                86.1625000000038
+              ],
+              "behavior": {
+                "attackRate": 0.14578587699317286,
+                "retreatFraction": 0.14677296886864208,
+                "nearFraction": 0.07824898439575897
+              }
+            },
+            {
+              "split": "selection",
+              "build": "ram-blade",
+              "opponentBuild": "ram-blade",
+              "opponent": "golem-planner",
+              "side": "left",
+              "seed": 210300,
+              "winner": "right",
+              "seconds": 47.149999999998606,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 3.1387442635602945,
+              "range": [
+                2.5208333333333535,
+                41.72083333333957,
+                2.904166666666706,
+                0
+              ],
+              "behavior": {
+                "attackRate": 0.8483563096500781,
+                "retreatFraction": 0.4858607281724927,
+                "nearFraction": 0.05346884666371401
+              }
+            },
+            {
+              "split": "selection",
+              "build": "ram-blade",
+              "opponentBuild": "ram-blade",
+              "opponent": "golem-planner",
+              "side": "right",
+              "seed": 210300,
+              "winner": "right",
+              "seconds": 18.983333333333537,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 12.25635727252975,
+              "range": [
+                1.6124999999999956,
+                13.112499999999576,
+                4.2541666666667455,
+                0
+              ],
+              "behavior": {
+                "attackRate": 0.7374890254609228,
+                "retreatFraction": 0.36984196663739316,
+                "nearFraction": 0.08496158068057214
+              }
+            },
+            {
+              "split": "selection",
+              "build": "ram-blade",
+              "opponentBuild": "ram-blade",
+              "opponent": "golem-brawler",
+              "side": "left",
+              "seed": 210301,
+              "winner": "right",
+              "seconds": 3.733333333333325,
+              "terminated": true,
+              "truncated": false,
+              "score": 0,
+              "damage": 2.1149298988457015,
+              "range": [
+                3.3166666666667264,
+                0.13333333333333333,
+                0.2791666666666669,
+                0
+              ],
+              "behavior": {
+                "attackRate": 0.5357142857142869,
+                "retreatFraction": 0.8225446428571574,
+                "nearFraction": 0.8893854748603369
+              }
+            },
+            {
+              "split": "selection",
+              "build": "ram-blade",
+              "opponentBuild": "ram-blade",
+              "opponent": "golem-brawler",
+              "side": "right",
+              "seed": 210301,
+              "winner": "right",
+              "seconds": 5.2999999999999865,
+              "terminated": true,
+              "truncated": false,
+              "score": 1,
+              "damage": 21.353171803076386,
+              "range": [
+                2.7125000000000297,
+                1.1374999999999973,
+                0.7499999999999986,
+                0.6958333333333321
+              ],
+              "behavior": {
+                "attackRate": 0.566037735849058,
+                "retreatFraction": 0.6415094339622779,
+                "nearFraction": 0.5121951219512227
+              }
+            }
+          ],
+          "summary": {
+            "mean": 0.578125,
+            "lower": 0.40625,
+            "upper": 0.75,
+            "method": "95% percentile bootstrap over matched side-swapped pairs",
+            "pairs": 16,
+            "bouts": 32,
             "truncations": 0,
             "warning": "Selection evidence is not confirmation; bootstrap does not correct for candidate selection or untested matchups."
           }
@@ -14832,6 +15827,34 @@
         "decisions": 356,
         "simulatedSeconds": 29.63333333333293,
         "wallSeconds": 7.021
+      },
+      "replay": {
+        "replayId": "a9d28f1b49707cae861132a2ca39fed2d45e1485b2cc558cff83ccb247d58918",
+        "fingerprint": "ab1580a0d978c16bc4877a01f0445ded7df2de10962eacbb02931c012ad1639e",
+        "seed": 55,
+        "builds": [
+          "default",
+          "default"
+        ],
+        "surface": "residual",
+        "controlBaseline": "golem-duelist",
+        "controlledPolicy": {
+          "kind": "baseline",
+          "name": "golem-duelist"
+        },
+        "opponent": {
+          "kind": "baseline",
+          "name": "golem-champion"
+        },
+        "controlDecisions": 356,
+        "simulatedSeconds": 29.63333333333293,
+        "winner": "right",
+        "vitality": [
+          0,
+          0.4489452051901691
+        ],
+        "terminated": true,
+        "truncated": false
       }
     },
     {
@@ -14855,7 +15878,35 @@
         "simulatedSeconds": 3.6166666666666587,
         "winner": "left",
         "terminated": true,
-        "truncated": false
+        "truncated": false,
+        "record": {
+          "replayId": "b097f0b69a74a97d9cfe8acdcf2be5ce8e13770af5c5758fdfab8ba1dafa9481",
+          "fingerprint": "ab1580a0d978c16bc4877a01f0445ded7df2de10962eacbb02931c012ad1639e",
+          "seed": 55,
+          "builds": [
+            "default",
+            "default"
+          ],
+          "surface": "residual",
+          "controlBaseline": "golem-duelist",
+          "controlledPolicy": {
+            "kind": "baseline",
+            "name": "golem-duelist"
+          },
+          "opponent": {
+            "kind": "baseline",
+            "name": "golem-champion"
+          },
+          "controlDecisions": 44,
+          "simulatedSeconds": 3.6166666666666587,
+          "winner": "left",
+          "vitality": [
+            0.9285708558246136,
+            0.15667376222981388
+          ],
+          "terminated": true,
+          "truncated": false
+        }
       }
     },
     {
@@ -14869,17 +15920,201 @@
       "training": [],
       "evaluations": [],
       "reference-privileged": {
-        "status": "decision-limit",
+        "status": "finished",
         "search": {
           "candidates": 16,
           "horizon": 2,
           "commitSeconds": 0.5
         },
-        "decisions": 7,
-        "simulatedSeconds": 3.5833333333333255,
-        "winner": null,
-        "terminated": false,
-        "truncated": false
+        "decisions": 8,
+        "simulatedSeconds": 3.6166666666666587,
+        "winner": "left",
+        "terminated": true,
+        "truncated": false,
+        "record": {
+          "replayId": "b097f0b69a74a97d9cfe8acdcf2be5ce8e13770af5c5758fdfab8ba1dafa9481",
+          "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+          "seed": 55,
+          "builds": [
+            "default",
+            "default"
+          ],
+          "surface": "residual",
+          "controlBaseline": "golem-duelist",
+          "controlledPolicy": {
+            "kind": "baseline",
+            "name": "golem-duelist"
+          },
+          "opponent": {
+            "kind": "baseline",
+            "name": "golem-champion"
+          },
+          "controlDecisions": 44,
+          "simulatedSeconds": 3.6166666666666587,
+          "winner": "left",
+          "vitality": [
+            0.9285708558246136,
+            0.15667376222981388
+          ],
+          "terminated": true,
+          "truncated": false
+        }
+      }
+    },
+    {
+      "directory": "research/runs/wave3-reference-r3-56",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "8d39aaa4b57df3151c3791923b27d475447c043dcdd6e3fd16dfd89ac6c2f260",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": [],
+      "reference-privileged": {
+        "status": "finished",
+        "search": {
+          "candidates": 16,
+          "horizon": 2,
+          "commitSeconds": 0.5
+        },
+        "decisions": 6,
+        "simulatedSeconds": 2.7333333333333285,
+        "winner": "left",
+        "terminated": true,
+        "truncated": false,
+        "record": {
+          "replayId": "81606889b1ab051c03b04bf271c35969922d36958d675d05212650800983ce1f",
+          "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+          "seed": 56,
+          "builds": [
+            "default",
+            "default"
+          ],
+          "surface": "residual",
+          "controlBaseline": "golem-duelist",
+          "controlledPolicy": {
+            "kind": "baseline",
+            "name": "golem-duelist"
+          },
+          "opponent": {
+            "kind": "baseline",
+            "name": "golem-champion"
+          },
+          "controlDecisions": 33,
+          "simulatedSeconds": 2.7333333333333285,
+          "winner": "left",
+          "vitality": [
+            0.7656735898337411,
+            0
+          ],
+          "terminated": true,
+          "truncated": false
+        }
+      }
+    },
+    {
+      "directory": "research/runs/wave3-reference-r3-57",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "8d39aaa4b57df3151c3791923b27d475447c043dcdd6e3fd16dfd89ac6c2f260",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": [],
+      "reference-privileged": {
+        "status": "finished",
+        "search": {
+          "candidates": 16,
+          "horizon": 2,
+          "commitSeconds": 0.5
+        },
+        "decisions": 8,
+        "simulatedSeconds": 3.866666666666658,
+        "winner": "left",
+        "terminated": true,
+        "truncated": false,
+        "record": {
+          "replayId": "071d75377defa842a40a308ae7b23a0fd718775e89045cd222a054939429e026",
+          "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+          "seed": 57,
+          "builds": [
+            "two-blades",
+            "two-blades"
+          ],
+          "surface": "residual",
+          "controlBaseline": "golem-duelist",
+          "controlledPolicy": {
+            "kind": "baseline",
+            "name": "golem-duelist"
+          },
+          "opponent": {
+            "kind": "baseline",
+            "name": "golem-champion"
+          },
+          "controlDecisions": 47,
+          "simulatedSeconds": 3.866666666666658,
+          "winner": "left",
+          "vitality": [
+            0.9610991877978002,
+            0
+          ],
+          "terminated": true,
+          "truncated": false
+        }
+      }
+    },
+    {
+      "directory": "research/runs/wave3-reference-r3-58",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "8d39aaa4b57df3151c3791923b27d475447c043dcdd6e3fd16dfd89ac6c2f260",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": [],
+      "reference-privileged": {
+        "status": "finished",
+        "search": {
+          "candidates": 16,
+          "horizon": 2,
+          "commitSeconds": 0.5
+        },
+        "decisions": 15,
+        "simulatedSeconds": 7.383333333333312,
+        "winner": "left",
+        "terminated": true,
+        "truncated": false,
+        "record": {
+          "replayId": "df812b08e5f46f7ac8b1e403589bdee97ecf6f3d345b31d56a1500d07e33d1c9",
+          "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+          "seed": 58,
+          "builds": [
+            "two-blades",
+            "two-blades"
+          ],
+          "surface": "residual",
+          "controlBaseline": "golem-duelist",
+          "controlledPolicy": {
+            "kind": "baseline",
+            "name": "golem-duelist"
+          },
+          "opponent": {
+            "kind": "baseline",
+            "name": "golem-champion"
+          },
+          "controlDecisions": 89,
+          "simulatedSeconds": 7.383333333333312,
+          "winner": "left",
+          "vitality": [
+            0.9012908973971976,
+            0
+          ],
+          "terminated": true,
+          "truncated": false
+        }
       }
     },
     {
@@ -14897,6 +16132,227 @@
         "decisions": 356,
         "simulatedSeconds": 29.63333333333293,
         "wallSeconds": 7.163
+      },
+      "replay": {
+        "replayId": "a9d28f1b49707cae861132a2ca39fed2d45e1485b2cc558cff83ccb247d58918",
+        "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+        "seed": 55,
+        "builds": [
+          "default",
+          "default"
+        ],
+        "surface": "residual",
+        "controlBaseline": "golem-duelist",
+        "controlledPolicy": {
+          "kind": "baseline",
+          "name": "golem-duelist"
+        },
+        "opponent": {
+          "kind": "baseline",
+          "name": "golem-champion"
+        },
+        "controlDecisions": 356,
+        "simulatedSeconds": 29.63333333333293,
+        "winner": "right",
+        "vitality": [
+          0,
+          0.4489452051901691
+        ],
+        "terminated": true,
+        "truncated": false
+      }
+    },
+    {
+      "directory": "research/runs/wave3-reference-r3-control-56",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "8d39aaa4b57df3151c3791923b27d475447c043dcdd6e3fd16dfd89ac6c2f260",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": [],
+      "replay-verification.json": {
+        "matched": true,
+        "decisions": 722,
+        "simulatedSeconds": 60.1333333333312,
+        "wallSeconds": 12.069
+      },
+      "replay": {
+        "replayId": "2b01c55a0844429a3b61ba83ff28238398cae638151edc716422353aabfa5d8c",
+        "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+        "seed": 56,
+        "builds": [
+          "default",
+          "default"
+        ],
+        "surface": "residual",
+        "controlBaseline": "golem-duelist",
+        "controlledPolicy": {
+          "kind": "baseline",
+          "name": "golem-duelist"
+        },
+        "opponent": {
+          "kind": "baseline",
+          "name": "golem-champion"
+        },
+        "controlDecisions": 722,
+        "simulatedSeconds": 60.1333333333312,
+        "winner": "right",
+        "vitality": [
+          0,
+          0.08964483113107058
+        ],
+        "terminated": true,
+        "truncated": false
+      }
+    },
+    {
+      "directory": "research/runs/wave3-reference-r3-control-57",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "8d39aaa4b57df3151c3791923b27d475447c043dcdd6e3fd16dfd89ac6c2f260",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": [],
+      "replay-verification.json": {
+        "matched": true,
+        "decisions": 219,
+        "simulatedSeconds": 18.183333333333582,
+        "wallSeconds": 5.188
+      },
+      "replay": {
+        "replayId": "d9caa475b0916255dbf88d76ad84a5726aa20a660bcb8f74d2e49b654439c67e",
+        "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+        "seed": 57,
+        "builds": [
+          "two-blades",
+          "two-blades"
+        ],
+        "surface": "residual",
+        "controlBaseline": "golem-duelist",
+        "controlledPolicy": {
+          "kind": "baseline",
+          "name": "golem-duelist"
+        },
+        "opponent": {
+          "kind": "baseline",
+          "name": "golem-champion"
+        },
+        "controlDecisions": 219,
+        "simulatedSeconds": 18.183333333333582,
+        "winner": "right",
+        "vitality": [
+          0,
+          0.05820385443402698
+        ],
+        "terminated": true,
+        "truncated": false
+      }
+    },
+    {
+      "directory": "research/runs/wave3-reference-r3-control-58",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "8d39aaa4b57df3151c3791923b27d475447c043dcdd6e3fd16dfd89ac6c2f260",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": [],
+      "replay-verification.json": {
+        "matched": true,
+        "decisions": 153,
+        "simulatedSeconds": 12.683333333333543,
+        "wallSeconds": 4.187
+      },
+      "replay": {
+        "replayId": "9b406413e7ec5c312e0a22b5b62535c5e62988d26b41d68930d5f84a70229c6e",
+        "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+        "seed": 58,
+        "builds": [
+          "two-blades",
+          "two-blades"
+        ],
+        "surface": "residual",
+        "controlBaseline": "golem-duelist",
+        "controlledPolicy": {
+          "kind": "baseline",
+          "name": "golem-duelist"
+        },
+        "opponent": {
+          "kind": "baseline",
+          "name": "golem-champion"
+        },
+        "controlDecisions": 153,
+        "simulatedSeconds": 12.683333333333543,
+        "winner": "right",
+        "vitality": [
+          0,
+          0.2022536115381166
+        ],
+        "terminated": true,
+        "truncated": false
+      }
+    },
+    {
+      "directory": "research/runs/wave3-reference-student-data",
+      "dataset": {
+        "version": 1,
+        "baseline": "golem-duelist",
+        "surface": "residual",
+        "sources": [
+          {
+            "replayId": "b097f0b69a74a97d9cfe8acdcf2be5ce8e13770af5c5758fdfab8ba1dafa9481",
+            "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+            "seed": 55,
+            "build": "default",
+            "opponent": {
+              "kind": "baseline",
+              "name": "golem-champion"
+            },
+            "winner": "left"
+          },
+          {
+            "replayId": "81606889b1ab051c03b04bf271c35969922d36958d675d05212650800983ce1f",
+            "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+            "seed": 56,
+            "build": "default",
+            "opponent": {
+              "kind": "baseline",
+              "name": "golem-champion"
+            },
+            "winner": "left"
+          },
+          {
+            "replayId": "071d75377defa842a40a308ae7b23a0fd718775e89045cd222a054939429e026",
+            "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+            "seed": 57,
+            "build": "two-blades",
+            "opponent": {
+              "kind": "baseline",
+              "name": "golem-champion"
+            },
+            "winner": "left"
+          },
+          {
+            "replayId": "df812b08e5f46f7ac8b1e403589bdee97ecf6f3d345b31d56a1500d07e33d1c9",
+            "fingerprint": "3695edbb4b6b585482f38ac924ffb010ff7218c6efe96f62b62f5421d0e7a3eb",
+            "seed": 58,
+            "build": "two-blades",
+            "opponent": {
+              "kind": "baseline",
+              "name": "golem-champion"
+            },
+            "winner": "left"
+          }
+        ],
+        "rows": 209,
+        "labelsHash": "8d6bab0974acd4aae5b263997cf07469b2bb5d29a9a46acfe574a96768f1fbd8",
+        "constantModelHash": "bba749161a9199251a923ce3a650d86c9fe9ec3317505b3ebe065b565960aa4d",
+        "limitation": "Privileged executed trajectories, not ground truth or independent student evidence."
       }
     },
     {
@@ -16197,6 +17653,33 @@
         "decisions": 88,
         "simulatedSeconds": 7.333333333333313,
         "wallSeconds": 4.571
+      },
+      "replay": {
+        "replayId": "70d3f2821b3e39e66a3c95b827a7e4507773b41cf302a113d92eb3007c9f65e2",
+        "fingerprint": "5968db4bd1086cd6bf70315d2241975469209ef0f6a2a46a65ed5b0052ed452c",
+        "seed": 1,
+        "builds": [
+          "two-blades",
+          "two-blades"
+        ],
+        "surface": "pilot",
+        "controlledPolicy": {
+          "kind": "bespoke",
+          "name": "paired"
+        },
+        "opponent": {
+          "kind": "baseline",
+          "name": "golem-fencer"
+        },
+        "controlDecisions": 88,
+        "simulatedSeconds": 7.333333333333313,
+        "winner": "left",
+        "vitality": [
+          0.6090496280672233,
+          0
+        ],
+        "terminated": true,
+        "truncated": false
       }
     },
     {
