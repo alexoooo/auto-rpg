@@ -52,7 +52,9 @@ export class DamageFeedback {
     context.moveTo(9, 6); context.lineTo(24, 11); context.lineTo(21, 24);
     context.lineTo(7, 21); context.closePath(); context.fill();
     this.texture.update();
-    scene.onBeforeRenderObservable.add(() => this.project());
+    // Scene updates its camera transform during rendering; project afterwards,
+    // including while paused, so labels never use the previous camera frame.
+    scene.onAfterRenderObservable.add(() => this.project());
     scene.onDisposeObservable.addOnce(() => this.dispose());
   }
 
