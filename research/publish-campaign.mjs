@@ -67,7 +67,7 @@ for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.star
   }
   if (existsSync(join(directory, "constant-search.json"))) {
     const r = read(join(directory, "constant-search.json"));
-    entry.constantSearch = { seed: r.seed, status: r.status, fields: r.fields, champion: r.champion,
+    entry.constantSearch = { seed: r.seed, suite: r.suite ?? "rotating", status: r.status, fields: r.fields, champion: r.champion,
       modelSha256: digest(r.model), partialCandidates: r.partial.length,
       generations: r.history.map((g) => ({ generation: g.generation, champion: g.champion,
         candidates: g.evaluated.map((e) => ({ parameters: e.parameters, score: e.score,

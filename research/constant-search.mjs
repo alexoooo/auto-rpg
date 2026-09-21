@@ -21,14 +21,24 @@ export function constantResidual(parameters, baseline = "golem-duelist") {
   return model;
 }
 
-export async function poseFitness(parameters, { deadline, seed, generation }) {
-  const policy = { kind: "network", model: constantResidual(parameters) }, rows = [];
+export function poseFixtures(seed, generation, suite = "rotating") {
+  if (!["rotating", "balanced"].includes(suite)) throw new Error("invalid pose training suite");
   const builds = ["default", "two-blades", "mace", "fists"];
   const opponents = ["golem-fencer", "golem-duelist", "golem-form", "golem-guardian"];
-  for (let fixture = 0; fixture < 4; fixture++) for (const side of ["left", "right"]) {
+  const rows = [];
+  for (let fixture = 0; fixture < (suite === "balanced" ? 16 : 4); fixture++) for (const side of ["left", "right"]) {
+    rows.push({ side, seed: seed + generation * 100 + fixture,
+      build: builds[suite === "balanced" ? Math.floor(fixture / 4) : (fixture + generation) % 4],
+      opponent: opponents[fixture % 4] });
+  }
+  return rows;
+}
+
+export async function poseFitness(parameters, { deadline, seed, generation, suite = "rotating" }) {
+  const policy = { kind: "network", model: constantResidual(parameters) }, rows = [];
+  for (const { side, seed: subjectSeed, build, opponent: name } of poseFixtures(seed, generation, suite)) {
     if (Date.now() >= deadline) return null;
-    const subjectSeed = seed + generation * 100 + fixture;
-    const opponent = { kind: "baseline", name: opponents[fixture] }, build = builds[(fixture + generation) % 4];
+    const opponent = { kind: "baseline", name };
     const env = await createEnvironment({ seed: side === "left" ? subjectSeed : subjectSeed ^ 0x123456,
       leftBuild: build, rightBuild: build, maxSeconds: 150,
       left: side === "left" ? policy : opponent, right: side === "right" ? policy : opponent });
@@ -46,22 +56,25 @@ export async function poseFitness(parameters, { deadline, seed, generation }) {
     margin: rows.reduce((s, r) => s + r.margin, 0) / rows.length };
 }
 
-export async function constantSearch({ deadline, seed = 1, generations = 8, population = 8,
+export async function constantSearch({ deadline, seed = 1, generations = 8, population = 8, suite = "rotating",
   evaluate = poseFitness, onCheckpoint = () => {} }) {
   if (!Number.isInteger(seed) || seed < 0 || !Number.isInteger(generations) || generations < 1 || generations > 100
     || !Number.isInteger(population) || population < 4 || population > 32) throw new Error("invalid constant search configuration");
+  poseFixtures(seed, 0, suite);
   const random = mulberry32(seed), zero = POSE_FIELDS.map(() => 0), history = [];
   let champion = [...zero], mean = [...zero], deviation = zero.map(() => 0.4), partial = [];
-  const result = () => ({ version: 1, seed, fields: POSE_FIELDS.map((f) => f.name), champion,
+  const result = () => ({ version: 1, seed, suite, fields: POSE_FIELDS.map((f) => f.name), champion,
     model: constantResidual(champion), history, partial,
     status: "training-only; constant pose residuals retain baseline attack gates; independent evaluation required" });
   for (let generation = 0; generation < generations && Date.now() < deadline; generation++) {
-    const candidates = [champion, zero, ...Array.from({ length: population - 2 }, () => mean.map((m, j) =>
-      Math.max(-1, Math.min(1, m + deviation[j] * randomNormal(random)))))];
+    // The zero incumbent is already the zero control; do not spend a duplicate physical suite.
+    const candidates = [champion, ...(champion.some((x) => x !== 0) ? [zero] : [])];
+    while (candidates.length < population) candidates.push(mean.map((m, j) =>
+      Math.max(-1, Math.min(1, m + deviation[j] * randomNormal(random)))));
     partial = [];
     for (const parameters of candidates) {
       if (Date.now() >= deadline) { onCheckpoint(result()); return result(); }
-      const fitness = await evaluate(parameters, { deadline, seed, generation });
+      const fitness = await evaluate(parameters, { deadline, seed, generation, suite });
       if (fitness === null) { onCheckpoint(result()); return result(); }
       if (!Number.isFinite(fitness.score) || !Number.isFinite(fitness.margin)) throw new Error("invalid constant fitness");
       partial.push({ parameters: [...parameters], ...fitness });

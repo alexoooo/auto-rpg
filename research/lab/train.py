@@ -51,6 +51,7 @@ def main():
     parser.add_argument("--seconds", type=float, default=60)
     parser.add_argument("--episode-seconds", type=float, default=150)
     parser.add_argument("--labels")
+    parser.add_argument("--distill-updates", type=int, default=1000)
     parser.add_argument("--reward", choices=["terminal", "potential"], default="terminal")
     parser.add_argument("--envs", type=int, choices=[1, 2, 4], default=1)
     parser.add_argument("--fitness-episodes", type=int, choices=[1, 4, 8], default=4)
@@ -59,11 +60,15 @@ def main():
     args = parser.parse_args()
     if not 0 < args.seconds <= 3600:
         parser.error("training jobs must be at most 3600 seconds; cumulative authorization is enforced by the lab CLI")
+    if not 1 <= args.distill_updates <= 100000:
+        parser.error("distillation update limit must be between 1 and 100000")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     protocol = dict(method=args.method, surface=args.surface, seed=args.seed,
                     episodeSeconds=args.episode_seconds, reward=args.reward, envs=args.envs,
                     fitnessEpisodes=args.fitness_episodes, baseline=args.baseline, logStd=args.log_std)
+    if args.method == "distill":
+        protocol["distillUpdates"] = args.distill_updates
     protocol_path = out / "protocol.json"
     if protocol_path.exists() and json.loads(protocol_path.read_text()) != protocol:
         raise ValueError("training protocol changed; use a new output directory")
@@ -134,7 +139,7 @@ def main():
                 if y.shape[1] != outputs:
                     raise ValueError("teacher action surface mismatch")
                 optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
-                while time.monotonic() < deadline and updates < 1000:
+                while time.monotonic() < deadline and updates < args.distill_updates:
                     optimizer.zero_grad(); loss = torch.nn.functional.mse_loss(net(x), y)
                     loss.backward(); optimizer.step(); updates += 1
                 scores.append(float(loss.detach()))

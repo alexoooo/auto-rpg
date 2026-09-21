@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { constantResidual, constantSearch, POSE_FIELDS } from "../research/constant-search.mjs";
+import { constantResidual, constantSearch, poseFixtures, POSE_FIELDS } from "../research/constant-search.mjs";
 import { DIRECT_FIELDS, infer, OBSERVATION_NAMES } from "../src/golem/lab-policy.ts";
 
 test("constant pose search changes every numeric axis but never an attack gate", () => {
@@ -34,4 +34,19 @@ test("a partial generation cannot select a lucky early candidate", async () => {
   assert.equal(result.history.length, 0);
   assert.equal(result.partial.length, 3);
   assert.deepEqual(result.champion, POSE_FIELDS.map(() => 0));
+});
+
+test("balanced pose training crosses every training body and opponent on both sides", () => {
+  const rows = poseFixtures(11, 2, "balanced");
+  assert.equal(rows.length, 32);
+  assert.equal(new Set(rows.map((r) => `${r.build}/${r.opponent}`)).size, 16);
+  for (const row of rows) {
+    const pair = rows.filter((r) => r.build === row.build && r.opponent === row.opponent);
+    assert.deepEqual(pair.map((r) => r.side), ["left", "right"]);
+    assert.equal(pair[0].seed, pair[1].seed);
+  }
+  assert.equal(new Set(rows.map((r) => r.seed)).size, 16);
+  assert.ok(rows.every((r) => r.seed >= 211 && r.seed <= 226));
+  assert.equal(poseFixtures(11, 0).length, 8);
+  assert.throws(() => poseFixtures(11, 0, "confirmation"), /training suite/);
 });

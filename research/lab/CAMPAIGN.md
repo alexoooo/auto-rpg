@@ -246,3 +246,31 @@ physically broken apart while blue remains standing. No browser errors were repo
 `results/reference-review.json` records the replay identities and limitations. These diagnostic
 frames do not establish smooth animation quality or fair-information strength. The owned review
 tab and server were closed; the user's port-5180 server was preserved.
+
+## Further negative results and resulting protocol changes
+
+The four clock-only openings scored 56.25%, 46.88%, 50% and 31.25% in 32 selection bouts each,
+against the matched 57.81% control. None demonstrated an advantage. The final population mixture
+scored 62.5% (difference +4.7 points, interval -15.6 to +23.4), also insufficient. Its maul subgroup
+scored 68.75% versus 43.75% for Duelist, making it a second predefined specialist hypothesis
+alongside PPO seed 22. Fresh 96-bout maul confirmations are running against Champion, Tactician
+and Miser across four opposing bodies, with a matched control. Subgroup selection is not confirmation.
+
+The fair nearest-neighbor transition model trained on seed 8001 and was checked on separate seed
+50001. Its 211 nonterminal validation transitions gave RMSE 0.08160 versus 0.07809 for persistence;
+vitality RMSE was 0.02573 and ensemble spread 0.05819. It failed this first one-episode calibration
+gate. These correlated one-step measurements do not establish trustworthy long-horizon planning.
+
+The first compact pose search completed three generations within 600 seconds. Its initial
+incumbent scored 87.5% versus the zero control's 12.5% on one eight-bout training permutation,
+then 25% versus 62.5% on the next. Its final 32 selection bouts scored 40.63% versus 57.81%
+(difference -17.2 points, interval -43.75 to +7.81), with no truncations. This is not an upgrade.
+The next pose protocol crosses the complete 4-body by 4-opponent training matrix on both sides,
+instead of extending the unstable small-suite search unchanged. The simpler search remains a
+hypothesis, not a claim that constant offsets are universally useful.
+
+A longer 10,000-update imitation fit will distinguish incomplete fitting from transfer failure;
+three rounds of student-visited teacher queries are also running. Separately, reference searches
+against Planner and Brawler broaden the teacher test without consuming Tactician/Miser, which
+remain reserved for Champion-derived student confirmation. These extra searches are not silently
+added to the original student dataset.

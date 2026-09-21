@@ -242,6 +242,11 @@ evidence, not independent confirmation. `teacher-campaign` compares matched 4/16
 Duelist. Attack and guard gates stay with the baseline. Each generation remeasures its incumbent
 and zero-offset control on identical eight-bout training suites; incomplete generations cannot
 replace the incumbent. `model.json` is directly evaluable with `evaluate --model PATH`.
+Use `--suite balanced` for all four training bodies crossed with all four training opponents,
+on both sides (32 bouts per candidate). This avoids selecting on only one rotating opponent
+per body. When the incumbent is exactly zero, it also serves as the zero control without a
+duplicate physical evaluation. Teacher fitting accepts `train --method distill --updates 10000`;
+the update limit is part of its immutable training protocol and the wall-time cap still applies.
 
 `student-confirmation` and `student-dual-confirmation` reserve Tactician/Miser and exclude Champion
 for Champion-derived students. `maul-confirmation --crossBuild true --repeats 4` gives 96 bouts:

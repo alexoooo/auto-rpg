@@ -130,7 +130,7 @@ try {
         atomicJson(join(directory, "model.json"), value.model);
       };
       save(await constantSearch({ deadline, seed: Number(flags.seed ?? 1),
-        generations: Number(flags.generations ?? 8), onCheckpoint: save }));
+        generations: Number(flags.generations ?? 8), suite: flags.suite ?? "rotating", onCheckpoint: save }));
       break;
     }
     case "collect": {
@@ -258,6 +258,7 @@ try {
         "--seconds", String(Math.max(1, allowance / 1000 - 8)), "--episode-seconds", flags.duration ?? "150", "--reward", reward, "--envs", envs,
         "--baseline", flags.baseline ?? "golem-driver", "--log-std", flags.logStd ?? "0"];
       if (flags.labels) trainingArgs.push("--labels", resolve(flags.labels));
+      if (flags.updates) trainingArgs.push("--distill-updates", flags.updates);
       await trainChild(trainingArgs, allowance);
       break;
     }
