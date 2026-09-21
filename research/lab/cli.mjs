@@ -14,6 +14,7 @@ import { referenceFight } from "./reference.mjs";
 import { populationSearch } from "./league.mjs";
 import { teacherCampaign } from "./teacher-campaign.mjs";
 import { exportPoses } from "./poses.mjs";
+import { constantSearch } from "../constant-search.mjs";
 import { infer } from "../../src/golem/lab-policy.ts";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -121,6 +122,15 @@ try {
     case "population": {
       const save = (value) => atomicJson(join(directory, "population.json"), value);
       save(await populationSearch({ deadline, seed: Number(flags.seed ?? 1), generations: Number(flags.generations ?? 6), onCheckpoint: save }));
+      break;
+    }
+    case "pose-search": {
+      const save = (value) => {
+        atomicJson(join(directory, "constant-search.json"), value);
+        atomicJson(join(directory, "model.json"), value.model);
+      };
+      save(await constantSearch({ deadline, seed: Number(flags.seed ?? 1),
+        generations: Number(flags.generations ?? 8), onCheckpoint: save }));
       break;
     }
     case "collect": {

@@ -17,6 +17,7 @@ export function labFingerprint() {
   files.push(join(ROOT, "src/golem/lab-policy.ts"));
   files.push(join(ROOT, "src/golem/lab-bespoke.ts"));
   files.push(join(ROOT, "src/golem/lab-model.ts"));
+  files.push(join(ROOT, "research/constant-search.mjs"));
   return digest({ simulator: fingerprint().hash,
     files: Object.fromEntries(files.map((f) => [relative(ROOT, f).replaceAll("\\", "/"), readFileSync(f, "utf8")])) });
 }
@@ -24,7 +25,7 @@ export function snapshotSources() {
   const files = [...fingerprint().files,
     ...readdirSync(join(ROOT, "research/lab")).filter((f) => /\.(mjs|py|ini|txt|html)$/.test(f)).map((f) => `research/lab/${f}`),
     "src/golem/lab-policy.ts", "src/golem/lab-bespoke.ts", "src/golem/lab-model.ts",
-    "research/owned-child.mjs", "research/runner.mjs", "research/fingerprint.mjs"];
+    "research/owned-child.mjs", "research/runner.mjs", "research/fingerprint.mjs", "research/constant-search.mjs"];
   return Object.fromEntries([...new Set(files)].sort().map((f) => [f, readFileSync(join(ROOT, f), "utf8")]));
 }
 export const SPLITS = Object.freeze({
@@ -33,6 +34,11 @@ export const SPLITS = Object.freeze({
   confirmation: { builds: ["wheel", "multileg", "plated", "pitch-blade"], opponents: ["golem-champion", "golem-tactician", "golem-miser"], seed: 900000 },
   "dual-selection": { builds: ["two-blades", "fists"], opponents: ["golem-planner", "golem-brawler"], seed: 1200000 },
   "dual-confirmation": { builds: ["two-blades", "fists"], opponents: ["golem-champion", "golem-tactician", "golem-miser"], seed: 1800000 },
+  // Champion is training data for students of the privileged reference trajectories.
+  "student-confirmation": { builds: ["wheel", "multileg", "plated", "pitch-blade"], opponents: ["golem-tactician", "golem-miser"], seed: 2200000 },
+  "student-dual-confirmation": { builds: ["two-blades", "fists"], opponents: ["golem-tactician", "golem-miser"], seed: 2400000 },
+  "maul-confirmation": { builds: ["maul"], opponentBuilds: ["default", "maul", "mace", "two-blades"],
+    opponents: ["golem-champion", "golem-tactician", "golem-miser"], seed: 2600000 },
 });
 
 export async function collect({ deadline, surface = "pilot", seconds = 10, seed = 1, build = "default", policy,
@@ -81,16 +87,24 @@ export function scenarios(record) {
   return scenarios;
 }
 
-export async function evaluatePolicy(policy, { split = "selection", deadline, maxSeconds = 150, completed = [],
-  repeats = 1, crossBuild = false, onResult = () => {} } = {}) {
+export function evaluationFixtures(split, repeats = 1, crossBuild = false) {
   const pool = SPLITS[split];
   if (!pool) throw new Error("invalid split");
   if (!Number.isInteger(repeats) || repeats < 1 || repeats > 100) throw new Error("invalid evaluation repeats");
-  let count = 0;
+  const fixtures = [], opponentBuilds = pool.opponentBuilds ?? pool.builds;
   for (let repeat = 0; repeat < repeats; repeat++) for (const build of pool.builds)
-  for (const opponentBuild of crossBuild ? pool.builds : [build]) for (const opponent of pool.opponents) {
+  for (const opponentBuild of crossBuild ? opponentBuilds : [build]) for (const opponent of pool.opponents) {
     const seed = pool.seed + repeat * 10000 + pool.builds.indexOf(build) * 100 + pool.opponents.indexOf(opponent)
-      + (crossBuild ? pool.builds.indexOf(opponentBuild) * 1000 : 0);
+      + (crossBuild ? opponentBuilds.indexOf(opponentBuild) * 1000 : 0);
+    fixtures.push({ build, opponentBuild, opponent, seed });
+  }
+  return fixtures;
+}
+
+export async function evaluatePolicy(policy, { split = "selection", deadline, maxSeconds = 150, completed = [],
+  repeats = 1, crossBuild = false, onResult = () => {} } = {}) {
+  let count = 0;
+  for (const { build, opponentBuild, opponent, seed } of evaluationFixtures(split, repeats, crossBuild)) {
     const existing = completed.filter((r) => r.build === build && r.opponent === opponent && r.seed === seed
       && (r.opponentBuild ?? r.build) === opponentBuild);
     if (existing.length) {

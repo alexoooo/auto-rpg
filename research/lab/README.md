@@ -238,6 +238,16 @@ with adaptive exploiter training is available through `population`; its archive 
 evidence, not independent confirmation. `teacher-campaign` compares matched 4/16/64-branch searches;
 `dagger-campaign --model PATH` performs three student-visited query/distillation rounds.
 
+`pose-search --seed 11 --generations 8` evolves 16 constant movement/posture/hand offsets over
+Duelist. Attack and guard gates stay with the baseline. Each generation remeasures its incumbent
+and zero-offset control on identical eight-bout training suites; incomplete generations cannot
+replace the incumbent. `model.json` is directly evaluable with `evaluate --model PATH`.
+
+`student-confirmation` and `student-dual-confirmation` reserve Tactician/Miser and exclude Champion
+for Champion-derived students. `maul-confirmation --crossBuild true --repeats 4` gives 96 bouts:
+the candidate's maul faces four opposing bodies, three held-out opponents and four seeds, with
+both sides. These pools are confirmation, never training or candidate selection.
+
 Preview generates an isolated arena page with experimental entries. Use an existing dev server
 or start/stop your own on a known free port. No normal policy registration or old rating artifact
 is changed. Browser review plus independent confirmation and full-league measurement remain

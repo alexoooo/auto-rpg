@@ -65,6 +65,14 @@ for (const name of readdirSync(join(ROOT, "research/runs")).filter((n) => n.star
         scores: g.evaluated.map((e) => ({ score: e.score, behavior: e.behavior })) })),
       archiveCells: Object.keys(r.archive) };
   }
+  if (existsSync(join(directory, "constant-search.json"))) {
+    const r = read(join(directory, "constant-search.json"));
+    entry.constantSearch = { seed: r.seed, status: r.status, fields: r.fields, champion: r.champion,
+      modelSha256: digest(r.model), partialCandidates: r.partial.length,
+      generations: r.history.map((g) => ({ generation: g.generation, champion: g.champion,
+        candidates: g.evaluated.map((e) => ({ parameters: e.parameters, score: e.score,
+          margin: e.margin, bouts: e.rows.length, truncations: e.rows.filter((row) => row.truncated).length })) })) };
+  }
   if (existsSync(join(directory, "dagger-campaign.json"))) {
     const r = read(join(directory, "dagger-campaign.json"));
     entry.dagger = { status: r.status, modelSha256: digest(r.model), rounds: r.rounds.map((g) =>

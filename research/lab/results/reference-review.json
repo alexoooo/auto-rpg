@@ -1,0 +1,25 @@
+{
+  "reviewedAt": "2026-09-21",
+  "surface": "Chrome, isolated port 5199, recorded physical-pose viewer",
+  "cases": [
+    {
+      "run": "research/runs/wave3-reference-r3-55",
+      "replayId": "b097f0b69a74a97d9cfe8acdcf2be5ce8e13770af5c5758fdfab8ba1dafa9481",
+      "poses": "research/runs/wave3-reference-poses-55/pose-replay.json",
+      "body": "default",
+      "inspectedSeconds": [0, 1.83, 2.83, 3.62],
+      "notes": "Opening, close exchange and finish inspected. Orbiting reveals the blue blade at the orange upper body/head; the orange head is visibly damaged. Quarter-speed playback and scrubbing worked."
+    },
+    {
+      "run": "research/runs/wave3-reference-r3-58",
+      "replayId": "df812b08e5f46f7ac8b1e403589bdee97ecf6f3d345b31d56a1500d07e33d1c9",
+      "poses": "research/runs/wave3-reference-poses-58/pose-replay.json",
+      "body": "two-blades",
+      "inspectedSeconds": [3.75, 4.25, 7.38],
+      "notes": "Mid-fight blade exchange and final physical breakup of the orange opponent inspected from an orbited view. Blue remains standing. Playback reaches the final recorded frame."
+    }
+  ],
+  "browserErrors": [],
+  "cleanup": "Owned review tab closed and Vite session stopped; user PID 66500 retained on port 5180.",
+  "limitations": "Diagnostic physical meshes, not a normal arena policy admission. Captured frames do not establish smooth animation quality. Known-opponent privileged search is not a fair or universal strength claim."
+}

@@ -223,3 +223,26 @@ ignore non-clock observations for their offsets, and return to approximately zer
 the opening; their underlying Duelist remains reactive.
 They are an explicit open-loop imitation ablation, not exact replay, online look-ahead, or a
 strength claim. Their teacher opponent remains training data for confirmation purposes.
+
+The adaptive population completed all six requested generations: 288 full training bouts and
+four archived behavior cells. Its final mixture is awaiting fixed held-out evaluation; varying
+generation opponents make its training scores unsuitable as a strength trend.
+
+The first neural student (`wave3-reference-student-r4`) fitted the 209 labels for 1,000 updates
+in 2.51 seconds (training MSE 0.0762, export parity error 7.66e-7). Its 32 held-out bouts scored
+43.75% against Duelist's 57.81%, with no truncations. The paired difference was -14.1 points
+(interval -31.25 to +3.125). The four reference wins have **not** transferred into a demonstrated
+student advantage. Constant and clock-only controls, followed by student-visited teacher queries,
+are the next comparisons; lower training MSE alone would not establish strength.
+
+The constant-mean teacher control scored 37.5% in the same 32 bouts, versus 57.81% for Duelist
+(difference -20.3 points, interval -39.1 to -1.6; no truncations). Simply averaging successful
+search actions is not an improvement either.
+
+Chrome review of the actual seed-55/default and seed-58/twin-blade reference pose recordings
+covered mid-fight exchanges and both finishes, with orbiting, scrubbing and slow playback.
+The first shows a close upper-body/head strike; the second ends with the orange opponent
+physically broken apart while blue remains standing. No browser errors were reported.
+`results/reference-review.json` records the replay identities and limitations. These diagnostic
+frames do not establish smooth animation quality or fair-information strength. The owned review
+tab and server were closed; the user's port-5180 server was preserved.
