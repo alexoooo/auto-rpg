@@ -69,6 +69,10 @@ function publish(manifest, from = directory) {
   atomicJson(join(ROOT, "src/policy-ratings.json"), artifact);
   mkdirSync(join(ROOT, "research/results"), { recursive: true });
   atomicJson(join(ROOT, "research/results/baseline.json"), summary);
+  if (from !== directory && existsSync(join(directory, "summary.json"))) {
+    atomicJson(join(ROOT, "research/results/original-roster.json"),
+      JSON.parse(readFileSync(join(directory, "summary.json"), "utf8")));
+  }
   atomicJson(join(ROOT, "research/results/manifest.json"), manifest);
   atomicJson(join(ROOT, "research/results/provenance.json"), {
     fingerprint: manifest.fingerprint, sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim(),

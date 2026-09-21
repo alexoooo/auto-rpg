@@ -2,23 +2,25 @@
 
 Harness: `tests/harness/bout-runner.mjs`, fresh Havok per bout, supported locomotion.
 
-1 complete rating rounds; 3168 rated bouts; 0 failed bouts.
+4 complete rating rounds; 17472 rated bouts; 0 failed bouts.
 
 Only complete balanced rounds contribute to ratings. Scores include half a point for a draw.
 
 | Policy | Glicko-2 | RD | Score | Draws | Attack/s | Retreat | Blocks/s |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| golem-duelist | 1564 provisional | 22.6 | 56.2% | 9 | 0.64 | 38.8% | 3.50 |
-| golem-miser | 1553 provisional | 22.6 | 55.1% | 14 | 1.06 | 15.8% | 3.26 |
-| golem-tactician | 1531 provisional | 22.6 | 53.0% | 24 | 0.47 | 78.2% | 3.06 |
-| golem-planner | 1520 provisional | 22.6 | 51.9% | 12 | 0.60 | 42.5% | 3.64 |
-| golem-fencer | 1519 provisional | 22.6 | 51.8% | 3 | 0.56 | 36.9% | 3.66 |
-| golem-brawler | 1516 provisional | 22.6 | 51.5% | 10 | 1.01 | 14.9% | 3.16 |
-| golem-reaper | 1510 provisional | 22.6 | 50.9% | 16 | 0.70 | 19.6% | 3.42 |
-| golem-champion | 1503 provisional | 22.6 | 50.3% | 5 | 0.63 | 45.1% | 3.64 |
-| golem-guardian | 1498 provisional | 22.6 | 49.8% | 16 | 0.97 | 33.4% | 3.56 |
-| golem-skirmisher | 1444 provisional | 22.6 | 44.6% | 25 | 0.45 | 47.1% | 3.36 |
-| golem-form | 1435 provisional | 22.6 | 43.8% | 18 | 0.43 | 37.0% | 3.60 |
-| golem-driver | 1408 provisional | 22.6 | 41.1% | 22 | 0.36 | 33.5% | 3.60 |
+| golem-duelist | 1532 | 10.2 | 54.4% | 48 | 0.64 | 40.0% | 3.58 |
+| golem-champion | 1523 | 10.1 | 52.8% | 36 | 0.63 | 45.5% | 3.65 |
+| golem-planner | 1521 | 10.1 | 52.3% | 44 | 0.60 | 42.8% | 3.66 |
+| golem-miser | 1519 | 10.2 | 53.2% | 60 | 1.06 | 15.8% | 3.29 |
+| golem-tactician | 1511 | 10.2 | 52.4% | 118 | 0.47 | 77.6% | 3.08 |
+| golem-fencer | 1509 | 10.1 | 51.4% | 34 | 0.56 | 38.0% | 3.63 |
+| golem-guardian | 1508 | 10.0 | 51.2% | 81 | 0.96 | 33.1% | 3.52 |
+| golem-researched-guardian-3-4 | 1500 | 10.1 | 50.7% | 81 | 1.00 | 32.5% | 3.47 |
+| golem-researched-form-3-5 | 1499 | 10.1 | 49.9% | 97 | 0.49 | 47.8% | 3.33 |
+| golem-reaper | 1499 | 10.2 | 49.5% | 74 | 0.71 | 19.9% | 3.48 |
+| golem-brawler | 1494 | 10.1 | 49.6% | 66 | 1.02 | 15.0% | 3.12 |
+| golem-skirmisher | 1477 | 10.1 | 45.8% | 112 | 0.45 | 46.5% | 3.39 |
+| golem-form | 1475 | 10.2 | 46.0% | 91 | 0.42 | 37.4% | 3.56 |
+| golem-driver | 1434 | 10.2 | 40.6% | 94 | 0.36 | 33.3% | 3.59 |
 
-Full matchup, build, side, overtime and behavior breakdowns are in `summary.json`.
+Full matchup, build, side, overtime and behavior breakdowns are in the accompanying JSON (`summary.json` in a run directory; `baseline.json` in published results).

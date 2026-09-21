@@ -59,3 +59,16 @@ All methods remain available for subsequent experiments. The first delivery impl
 - Check both arena selectors in the browser, including provisional, unrated, and stale states. Visually inspect representative candidate fights before promotion; statistical diversity alone does not establish interesting fighting.
 - Run `npm test`, `npm run check`, and `npm run build`; verify both production pages and stop any development server started for checks.
 - Commit each validated increment. No changes to combat rules, physics tuning, perception privileges, or the human/AI command boundary are included.
+
+## Implementation outcome — September 21, 2026
+
+Implemented the offline league, arena rating display, resumable CPU search, independent
+confirmation and reviewed-policy publication. The expanded league covers 14 fighting policies
+over 17,472 bouts. Tuned Form and Guardian are available; Skirmisher's candidate was rejected.
+Guardian's broader league result is mixed, so it is retained as an alternative, not a replacement.
+Computation used approximately 6.7 of the allowed eight hours.
+
+See the [research record](../../research/RESEARCH.md) for measured findings, limitations and next
+experiments, and the [runner documentation](../../research/README.md) for reproducible commands.
+Type checking, build and production-page checks pass. The test suite passes 605/607, with two
+pre-existing ram/post fixture failures reproduced independently and left unchanged.

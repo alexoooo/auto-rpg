@@ -55,7 +55,9 @@ independent confirmation answer the fifth; training gains alone are not promoted
 
 The initial twelve-policy league completed 12,672 bouts in 80.6 minutes with eight workers and
 no failed jobs. Every policy has 2,112 appearances, including both sides and every named build.
-The exact fingerprint, protocol and machine/runtime dependencies accompany `results/baseline.json`.
+The exact fingerprint, protocol and machine/runtime dependencies accompany the published reports.
+After promotion, `results/original-roster.json` preserves this initial roster and
+`results/baseline.json` describes the expanded one.
 
 - Duelist leads at 1535, followed by Champion 1528, Planner 1524, Miser 1520 and Tactician 1516.
   Their rating deviations are about 11 points; the close ordering is not a decisive separation.
@@ -129,19 +131,49 @@ factory; a regression test also checks rejection of a foreign surface. Since `un
 fingerprinted, the finalists were transferred unchanged to a new validation directory, without
 copying any bout results or rerunning selection. All 2,592 confirmation records reproduced
 exactly under the final code. These are repeated executions of the same jobs, not extra
-independent evidence, and they are not pooled. The baseline league is likewise rerun for the
-new fingerprint; the original compute usage is carried forward rather than resetting the budget.
+independent evidence, and they are not pooled. All 12,672 baseline records also reproduced
+exactly under the new fingerprint. The original compute usage was carried forward rather than
+resetting the budget.
 
 That repeat also exposed bootstrap sampling's dependence on worker completion order. Paired
 blocks are now sorted by stable identity before seeded resampling. The heterogeneous-block
 regression was observed failing with the sort removed and passing after restoration. The
 intervals above use the corrected, order-independent calculation; promotion eligibility did
-not change. Physics, motor limits and all original policy parameters remain unchanged.
+not change. Training-history intervals retain the original diagnostic output; they are not
+promotion evidence. Physics, motor limits and all original policy parameters remain unchanged.
 
 The next search should emphasize generalization and style coverage, not merely more generations
 on the same small training batch. Skirmisher's negative confirmation is a concrete warning:
 larger training gains can still select a worse policy. The model-refit, quality-diversity and
 learned-director experiments below remain the next research phase.
+
+### Published expanded league
+
+The final league has 14 fighting policies, four complete rounds and 17,472 bouts with no failures.
+Each policy has 2,496 appearances. Idle remains outside the rating pool. The two new entries are
+`Golem form (tuned 1)` and `Golem guardian (tuned 1)`; all original policies remain available.
+
+| Policy | Final Glicko-2 | League match score |
+| --- | ---: | ---: |
+| Form (tuned 1) | 1499 | 49.9% |
+| Original Form | 1475 | 46.0% |
+| Guardian (tuned 1) | 1500 | 50.7% |
+| Original Guardian | 1508 | 51.2% |
+
+Form's broader league result supports improvement over its parent. Guardian's does not: its
+small confirmation gain did not translate into a higher rating in the expanded protocol, which
+also includes cross-build assignments and the parent-style opponents excluded from confirmation.
+It is retained under the stated confirmation/diversity/visual gates as an optional contender,
+not a replacement for its parent or a claim of overall superiority. A future promotion gate
+should explicitly require broader-league generalization before calling a variant an upgrade.
+
+Duelist still leads at 1532, followed by Champion 1523 and Planner 1521. Rating deviations are
+about 10 points, so close ranks should not be treated as decisive. Full results and immutable
+candidate parameters are in `results/baseline.json`, `results/manifest.json` and
+`results/experiment.json`; the last also retains the rejected Skirmisher result and browser review.
+Recorded computation totals approximately 6.7 hours, including the complete source revalidation,
+within the eight-hour allowance. Reused baseline records in the extended league were not rerun
+again or counted as extra evidence.
 
 ## Experiment sequence after this delivery
 
@@ -202,5 +234,10 @@ The implementation's latest full test run passed 605 of 607 tests. Two pre-exist
 HEAD archive. They were not weakened or used to change physics for this AI task. Additional
 research tests cover ratings, balance, resumability, worker failures, fingerprints, candidate
 bounds, paired comparison, publication states, and promotion review.
+
+Type checking and the production build pass. The built arena and module bench both initialize
+without console errors. Both arena selectors show the promoted names and their non-provisional
+ratings, and a production fight between the variants advanced and dealt damage. Development
+and preview servers started for verification were stopped.
 
 Measured league and search findings will be recorded with the published artifacts in `results/`.

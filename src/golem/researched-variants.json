@@ -1,1 +1,28 @@
-[]
+[
+  {
+    "name": "golem-researched-form-3-5",
+    "label": "Golem form (tuned 1)",
+    "parent": "golem-form",
+    "parameters": {
+      "standOffFraction": 1.257599436997322,
+      "patience": 1.8256517226934519,
+      "strikeBite": 0.8250000000000001,
+      "recoverSeconds": 0.32197603388681967,
+      "closeGain": 2.25,
+      "turnGain": 2.0194266202753792
+    }
+  },
+  {
+    "name": "golem-researched-guardian-3-4",
+    "label": "Golem guardian (tuned 1)",
+    "parent": "golem-guardian",
+    "parameters": {
+      "standOffFraction": 0.9788198592176298,
+      "patience": 2.25,
+      "strikeBite": 0.5869047767532035,
+      "recoverSeconds": 0.2892259087764069,
+      "closeGain": 1.9168441575886606,
+      "turnGain": 2.3771799205512867
+    }
+  }
+]

@@ -1,92 +1,106 @@
 {
   "version": 1,
-  "fingerprint": "70455d35d299eca4ba0db0bdb788e4f76e4912d9e10ff91f538048d7de3acb28",
-  "evaluatedAt": "2026-09-21T04:00:20.059Z",
-  "rounds": 1,
+  "fingerprint": "0adfdb98ca062014ec7f96d25fac2f621fc87635b94bf5accaa13fb55d89a7b9",
+  "evaluatedAt": "2026-09-21T10:27:03.113Z",
+  "rounds": 4,
   "policies": {
     "golem-duelist": {
-      "rating": 1563.661569854361,
-      "deviation": 22.551922157506976,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1532.002277597164,
+      "deviation": 10.172073477586924,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-duelist"
     },
     "golem-fencer": {
-      "rating": 1518.6087665725843,
-      "deviation": 22.55192215736824,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1509.3610760944846,
+      "deviation": 10.091894119263513,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-fencer"
     },
     "golem-planner": {
-      "rating": 1519.588175339565,
-      "deviation": 22.551922157369642,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1521.2617738491913,
+      "deviation": 10.124478909166294,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-planner"
     },
     "golem-champion": {
-      "rating": 1502.938226300931,
-      "deviation": 22.551922157355605,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1523.3924084503014,
+      "deviation": 10.119735243179623,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-champion"
     },
     "golem-form": {
-      "rating": 1435.3590213786217,
-      "deviation": 22.55192215751168,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1475.0408164486414,
+      "deviation": 10.163123090061138,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-form"
     },
     "golem-skirmisher": {
-      "rating": 1444.1737002817338,
-      "deviation": 22.551922157471928,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1476.8220330689276,
+      "deviation": 10.14721256446857,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-skirmisher"
     },
     "golem-guardian": {
-      "rating": 1498.041182466046,
-      "deviation": 22.551922157355424,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1507.8339515329574,
+      "deviation": 10.049244080728961,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-guardian"
     },
     "golem-brawler": {
-      "rating": 1515.6705402716448,
-      "deviation": 22.551922157364473,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1493.5158024387536,
+      "deviation": 10.062246090477233,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-brawler"
     },
     "golem-tactician": {
-      "rating": 1531.3410805433662,
-      "deviation": 22.55192215739205,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1510.5256928729593,
+      "deviation": 10.200497551488013,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-tactician"
     },
     "golem-driver": {
-      "rating": 1407.9355759015723,
-      "deviation": 22.55192215767252,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1434.1420202284146,
+      "deviation": 10.223016568393733,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-driver"
     },
     "golem-reaper": {
-      "rating": 1509.794087669773,
-      "deviation": 22.55192215735887,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1499.376747613471,
+      "deviation": 10.160064599917547,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-reaper"
     },
     "golem-miser": {
-      "rating": 1552.8880734172487,
-      "deviation": 22.551922157459977,
-      "bouts": 528,
-      "provisional": true,
+      "rating": 1518.7285181309617,
+      "deviation": 10.15645616839056,
+      "bouts": 2496,
+      "provisional": false,
       "policyVersion": "golem-miser"
+    },
+    "golem-researched-form-3-5": {
+      "rating": 1499.4832574149393,
+      "deviation": 10.058029036051888,
+      "bouts": 2496,
+      "provisional": false,
+      "policyVersion": "{\"name\":\"golem-researched-form-3-5\",\"label\":\"Golem form (tuned 1)\",\"parent\":\"golem-form\",\"parameters\":{\"standOffFraction\":1.257599436997322,\"patience\":1.8256517226934519,\"strikeBite\":0.8250000000000001,\"recoverSeconds\":0.32197603388681967,\"closeGain\":2.25,\"turnGain\":2.0194266202753792}}"
+    },
+    "golem-researched-guardian-3-4": {
+      "rating": 1500.1462591778711,
+      "deviation": 10.078859975107315,
+      "bouts": 2496,
+      "provisional": false,
+      "policyVersion": "{\"name\":\"golem-researched-guardian-3-4\",\"label\":\"Golem guardian (tuned 1)\",\"parent\":\"golem-guardian\",\"parameters\":{\"standOffFraction\":0.9788198592176298,\"patience\":2.25,\"strikeBite\":0.5869047767532035,\"recoverSeconds\":0.2892259087764069,\"closeGain\":1.9168441575886606,\"turnGain\":2.3771799205512867}}"
     }
   }
 }

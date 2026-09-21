@@ -124,6 +124,11 @@ After watching representative fights, record `browser-review.json` in the run di
 `promote` accepts only eligible, reviewed parameter artifacts. It extends the original league,
 retains its baseline bouts, and evaluates new opponents/build assignments before registering new
 picker policies and publishing ratings. Existing policy implementations remain available.
+The published `baseline.json` then describes the expanded league; `original-roster.json` retains
+the pre-promotion league for comparison. After promotion, use `summarize`/`publish` with
+`--dir research/runs/current/promoted-league` for the expanded ratings, or rerun `promote` on
+the parent directory to republish the complete evidence bundle from cached results. Publishing
+the parent directory directly intentionally publishes only its original roster.
 
 If an integration change invalidates a completed experiment's source fingerprint, keep its
 finalists frozen and revalidate rather than silently relabelling old bout results:
