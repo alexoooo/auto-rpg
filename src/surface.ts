@@ -1,3 +1,4 @@
+import { publicAssetUrl } from "./asset-url.ts";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
@@ -84,7 +85,7 @@ const browserTexture: TextureFactory = (scene, map, ready, failed) => {
   let loaded: Texture | null = null;
   const becameReady = () => loaded ? ready(loaded) : queueMicrotask(becameReady);
   loaded = new Texture(
-    map.url,
+    publicAssetUrl(map.url),
     scene,
     false,
     map.invertY,

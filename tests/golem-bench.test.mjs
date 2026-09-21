@@ -1161,7 +1161,7 @@ test("nothing a golem publishes reaches the world transform through a world matr
       if (entry.isDirectory()) { walk(full); continue; }
       if (!entry.name.endsWith(".ts")) continue;
       const source = fs.readFileSync(full, "utf8");
-      for (const [index, line] of source.split("\n").entries()) {
+      for (const [index, line] of source.split(/\r?\n/).entries()) {
         // Comments are where the rule is *explained*, so they are not offences.
         const code = line.replace(/\/\/.*$/, "").replace(/^\s*\*.*$/, "");
         if (banned.test(code)) offenders.push(`${path.relative(ROOT, full)}:${index + 1}`);

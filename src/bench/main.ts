@@ -1,3 +1,4 @@
+import { publicAssetUrl } from "../asset-url.ts";
 import { dressForgeRoom } from "../forge-room.ts";
 import { loadForgeStyle, paveForge, forgePost } from "../forge-style.ts";
 import { dressGolemPart } from "../golem/appearance.ts";
@@ -159,7 +160,7 @@ async function main(): Promise<void> {
   // the contrast the owner is being asked to look at. Wrapped, so a fresh clone that has not
   // run `npm run asset:fetch` still loads the bench -- just flatter.
   try {
-    const environment = new HDRCubeTexture("/assets/env.hdr", scene, 256, false, true, false, true);
+    const environment = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
     scene.environmentTexture = environment;
     scene.environmentIntensity = 0.9;
   } catch {

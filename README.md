@@ -12,6 +12,16 @@ as much a choice as how it fights.
 
 This repository is the whole game. See [AGENTS.md](AGENTS.md) for the working notes.
 
+## Play online
+
+[Play the game](https://alexoooo.github.io/auto-rpg/) in your browser.
+The [module bench](https://alexoooo.github.io/auto-rpg/bench.html) is also available.
+
+GitHub Actions tests and builds each push to `main`, then publishes `dist/` to GitHub Pages.
+In repository Settings > Pages, the deployment source must be **GitHub Actions**.
+The workflow builds with `npm run build -- --base=/auto-rpg/`; public asset URLs follow
+that base. Local `npm run dev` continues to serve at `/`.
+
 ## Running it
 
 Requires **Node 22.13.0 or newer** (`node --version`). `.npmrc` sets `engine-strict=true`, so an

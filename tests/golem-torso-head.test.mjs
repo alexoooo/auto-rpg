@@ -638,7 +638,7 @@ test("the plated torso takes less of the same scored blow than the plain one", a
  * and the fixture is chosen so the number the arena scores is the number the blow had.
  *
  * `top` is a parameter because the two heads reach different depths and that difference *is* the
- * option. At 1.44 m the ram's plate clears the post by 260 mm at rest and comes down onto it at
+ * option. At 1.61 m the ram's plate comes down onto the post at
  * the fast end of the stroke; at 1.72 m the post is up where a plain head's own guard puts its
  * brow, which is what lets "a plain head scores nothing" be checked against a plain head that is
  * definitely touching something.
@@ -727,9 +727,11 @@ async function lungeAtPost(headId, top, fire = true) {
   }
 }
 
+// Node lungeAtPost harness, 2026-09-21: the old 1.44 m post has zero contacts.
+// At 1.61 m it has 660 contacts and one 12.54 J blow at 2.05 m/s; no scoring floor changes.
 test("the ram's lunge scores on a post and the plain head scores nothing on the same one", async () => {
-  const ram = await lungeAtPost("head.ram", 1.44);
-  const plain = await lungeAtPost("head.plain", 1.44);
+  const ram = await lungeAtPost("head.ram", 1.61);
+  const plain = await lungeAtPost("head.plain", 1.61);
 
   // The control is the fixture: one post, one script, and the only thing that changed is which
   // head is on the neck. If the post were out of reach the ram would score nothing either and
@@ -799,7 +801,7 @@ test("a ram plate touched outside a lunge scores nothing, and a lunge scores onc
 
   // The lunge half on the post the ram comes down onto: from a guard resting on the raised post
   // the neck has nothing to drive through, and a blow under the ram's own floor is not a blow.
-  const lunge = await lungeAtPost("head.ram", 1.44, true);
+  const lunge = await lungeAtPost("head.ram", 1.61, true);
   const claimed = lunge.refusals.filter((event) => event.reason === "module-attribution").length;
   assert.ok(lunge.contacts > 1,
     `the plate met the post ${lunge.contacts} time(s): one-blow-per-lunge has nothing to refuse`);

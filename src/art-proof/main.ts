@@ -1,3 +1,4 @@
+import { publicAssetUrl } from "../asset-url.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
@@ -68,7 +69,7 @@ async function main() {
   // Sharper flat faces reveal self-shadow striping at the old bias.
   shadows.filteringQuality=ShadowGenerator.QUALITY_MEDIUM;shadows.bias=.0012;shadows.normalBias=.015;
   const environmentReady=new Promise<void>((resolve,reject)=> {
-    scene.environmentTexture=new HDRCubeTexture("/assets/env.hdr",scene,256,false,true,false,true,
+    scene.environmentTexture=new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"),scene,256,false,true,false,true,
       ()=>resolve(),(message)=>reject(new Error(`Environment: ${message}`)));
   });
   scene.environmentIntensity=.95;

@@ -1,3 +1,4 @@
+import { publicAssetUrl } from "./asset-url.ts";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
@@ -105,7 +106,7 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   // as a grey box. If the HDRI has not been fetched, the scene still lights --
   // just flatter -- so a fresh clone runs before anyone downloads anything.
   try {
-    const env = new HDRCubeTexture("/assets/env.hdr", scene, 256, false, true, false, true);
+    const env = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
     scene.environmentTexture = env;
     scene.environmentIntensity = 0.85;
   } catch {

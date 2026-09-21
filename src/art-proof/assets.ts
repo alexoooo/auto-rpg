@@ -1,3 +1,4 @@
+import { publicAssetUrl } from "../asset-url.ts";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 import "@babylonjs/loaders/glTF/glTFFileLoader.js";
@@ -8,7 +9,7 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
-export const ASSET_ROOT = "/assets/art-proof/";
+export const ASSET_ROOT = publicAssetUrl("/assets/art-proof/");
 export interface ProofManifest { version: number; parts: { key: string; asset: string; family: string; extents: number[] }[] }
 /** glTF can deduplicate identical limbs. Baking must not transform their shared buffers twice. */
 export function prepareTemplate(mesh: Mesh): void {
