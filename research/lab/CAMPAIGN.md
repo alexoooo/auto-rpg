@@ -75,3 +75,17 @@ was +21.875 percentage points, with a 95% interval of +12.5 to +31.77 points (48
 This supports a dual-weapon specialist, not a universal upgrade. Raw evidence is in
 `wave3-paired-confirm`; production admission still requires representative browser review and
 a completed fresh cross-build rating league. No learner has earned admission yet.
+
+Representative Chrome review completed on the isolated review origin: Paired versus Duelist,
+both twin blades (Paired left, win, 15% vitality); Champion versus Paired, both fists (Paired
+right, win, 21% vitality); and default sword/plate Paired versus Fencer (left win, 37% vitality).
+No browser errors were observed. These are illustrative runtime checks, not additional statistical
+confirmation. The capture was approximately 1 fps; smooth animation quality is not established.
+The exact proposal and review notes are in `results/paired-proposal.json`. Owned server and tab
+were closed. Original user server processes were retained.
+
+Research overhead finding: repeated source fingerprinting took roughly 770 ms because each branch
+reparsed all TypeScript dependencies. Caching import parsing by exact source text reduced warm
+checks to about 50 ms. Every call still rereads all dependency contents and resolves imports;
+the hash is unchanged. Tests include a same-length runtime-import change after warming the cache.
+The already-running teacher process uses its original implementation; subsequent jobs benefit.

@@ -174,6 +174,17 @@ test("fingerprints track transitive runtime code, excluding type-only UI and sep
     const next = fingerprint(root).hash;
     writeFileSync(join(root, "package-lock.json"), '{"version":2}');
     assert.notEqual(fingerprint(root).hash, next);
+    writeFileSync(join(root, "src/one.ts"), "export const value = 1;");
+    writeFileSync(join(root, "src/two.ts"), "export const value = 1;");
+    writeFileSync(join(root, "src/simulation.ts"), "import './one.ts';");
+    const firstGraph = fingerprint(root);
+    assert.ok(firstGraph.files.includes("src/one.ts"));
+    assert.deepEqual(fingerprint(root), firstGraph); // Warm parse cache.
+    writeFileSync(join(root, "src/simulation.ts"), "import './two.ts';"); // Same byte length.
+    const secondGraph = fingerprint(root);
+    assert.notEqual(secondGraph.hash, firstGraph.hash);
+    assert.ok(secondGraph.files.includes("src/two.ts"));
+    assert.ok(!secondGraph.files.includes("src/one.ts"));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

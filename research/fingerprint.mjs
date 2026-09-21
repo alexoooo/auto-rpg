@@ -5,6 +5,9 @@ import ts from "typescript";
 import { digest } from "./schedule.mjs";
 
 export const ROOT = fileURLToPath(new URL("../", import.meta.url));
+// Cache parsing, never source contents used for identity. Every call still reads every
+// dependency and resolves imports again, so same-size edits and restored timestamps count.
+const parsedImports = new Map();
 /** Follow runtime imports after stripping types: cosmetic UI changes do not stale a league. */
 export function fingerprint(root = ROOT) {
   const files = new Map();
@@ -16,9 +19,14 @@ export function fingerprint(root = ROOT) {
     // invalidate measurements of unchanged policies or the simulator they all share.
     files.set(key, ["src/golem/researched-variants.json", "src/golem/researched-lab.json"].includes(key) ? "per-policy-versioned" : source);
     if (!/\.(ts|mjs|js)$/.test(path)) return;
-    const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ESNext } }).outputText;
-    for (const { fileName } of ts.preProcessFile(code).importedFiles) {
+    let parsed = parsedImports.get(path);
+    if (parsed?.source !== source) {
+      const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ESNext } }).outputText;
+      parsed = { source, imports: ts.preProcessFile(code).importedFiles };
+      parsedImports.set(path, parsed);
+    }
+    for (const { fileName } of parsed.imports) {
       if (!fileName.startsWith(".")) continue;
       const base = resolve(dirname(path), fileName.split("?")[0]);
       const resolved = [base, `${base}.ts`, `${base}.mjs`, `${base}.json`].find(existsSync);

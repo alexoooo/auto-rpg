@@ -1,0 +1,27 @@
+{
+  "labFingerprint": "c4fe77586c09501857b8208876ac10268eb88d0d4c084afc68975f74d894866f",
+  "entry": {
+    "name": "golem-researched-paired-v1",
+    "label": "Golem paired (dual specialist)",
+    "spec": { "kind": "bespoke", "name": "paired" },
+    "admission": {
+      "evaluatedAt": "2026-09-21",
+      "reviewedAt": "2026-09-21T18:06:34.514Z",
+      "evidence": "research/lab/results/campaign.json: wave3-paired-confirm",
+      "scope": "Independent improvement on two-blade and fist builds; original Duelist fallback on other bodies. Overall league rating is not a build-specific prediction."
+    }
+  },
+  "candidateEvaluation": "research/runs/wave3-paired-confirm/evaluation-b813e3efa53bc9f3.json",
+  "controlEvaluation": "research/runs/wave3-paired-confirm/evaluation-1298328a1552a5c8.json",
+  "review": {
+    "accepted": true,
+    "policyHash": "d4481caa1cdfaa54441b8fdd5a3ea2f82405da206b612a93aed561cf1c5f4aaf",
+    "reviewedAt": "2026-09-21T18:06:34.514Z",
+    "notes": "Chrome review on isolated 127.0.0.1:5199, actual arena UI and physical bodies. Both corners AI controlled. Visible contacts, damage, independent arm poses and completed verdicts; no browser errors. Capture reported approximately 1 fps, so this validates visible states and runtime behavior, not animation smoothness. Existing x4 control used for fists and fallback. Owned tab and Vite stopped; user server processes retained. These illustrative wins are not statistical evidence; independent headless confirmation supplies that.",
+    "scenarios": [
+      { "left": "paired", "right": "golem-duelist", "builds": ["two-blades", "two-blades"], "winner": "left", "vitalityPercent": [15, 0] },
+      { "left": "golem-champion", "right": "paired", "builds": ["fists", "fists"], "winner": "right", "vitalityPercent": [0, 21] },
+      { "left": "paired", "right": "golem-fencer", "builds": ["default", "default"], "winner": "left", "vitalityPercent": [37, 14] }
+    ]
+  }
+}
