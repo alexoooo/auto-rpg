@@ -280,3 +280,9 @@ that excludes Champion, even though it is reserved for ordinary learners.
 - Iterative teacher queries / DAgger: https://arxiv.org/abs/1011.0686
 
 These motivate experiments; none establishes that its method wins in this simulator.
+
+PPO training exports `model.json` (deterministic mean) and `stochastic-model.json` (the trained
+diagonal Gaussian). Both use `evaluate --model PATH`; compare them on identical fixtures.
+Sampled execution uses the policy seed, draws only at the model decision rate and clips after
+adding noise. The mean-export parity check remains deterministic; sampled physical replay is
+tested separately. Sampling is an experimental execution mode, not an automatic promotion.

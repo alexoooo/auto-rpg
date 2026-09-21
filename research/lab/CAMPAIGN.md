@@ -274,3 +274,38 @@ three rounds of student-visited teacher queries are also running. Separately, re
 against Planner and Brawler broaden the teacher test without consuming Tactician/Miser, which
 remain reserved for Champion-derived student confirmation. These extra searches are not silently
 added to the original student dataset.
+
+## Confirmation and student-query outcomes
+
+Both maul hypotheses failed their fresh confirmation. Across 96 full bouts each, Duelist scored
+27.08%, PPO seed 22 scored 23.96% (paired difference -3.1 points, interval -13.5 to +7.3), and
+the learned mixture scored 30.21% (+3.1 points, interval -5.2 to +11.5). None truncated. Neither
+candidate earns publication; the favorable small selection subgroups did not establish a counter.
+
+Longer imitation reduced training MSE from 0.0762 to 0.01586 in 10,000 updates (7.78 seconds),
+but its 32-bout score was 37.5% versus 57.81% (difference -20.3 points, interval -43.75 to +1.56).
+Improved training fit did not improve transfer.
+
+The three-round DAgger campaign completed in 84.88 seconds, accumulated 562 weighted/retention
+rows and queried eight distinct states; seven had finite-horizon teacher improvements. Its final
+student scored 56.25% in 32 held-out bouts versus 57.81% (difference -1.6 points, interval -25 to
++21.9), with no truncations. This recovers much of the earlier student's deficit but does not
+demonstrate superiority. It is evidence to investigate further, not a promoted policy.
+
+## Broader reference replication and sampled PPO
+
+Four additional predefined reference fights all finished with wins: Planner/default (seed 61,
+5.85 seconds, 85.17% remaining vitality), Planner/twin blades (62, 5.23 seconds, 75.29%),
+Brawler/default (63, 1.60 seconds, 99.09%) and Brawler/twin blades (64, 6.82 seconds, 91.42%).
+Matched Duelist controls respectively won in 39.52 seconds, won in 5.42 seconds, lost in 27.42
+seconds and drew in 16.38 seconds. The second case is not a demonstrated improvement: the
+baseline already won quickly with slightly more vitality. These remain small-sample, known-opponent
+privileged searches. Both Brawler pose recordings were browser-reviewed through their finishes;
+the review tab/server were closed and the user's server retained.
+
+PPO now exports both its deterministic mean policy and a seeded sampled policy carrying the
+learned diagonal Gaussian deviations. Noise precedes clipping, exactly as in training; sampling
+occurs only on the policy's decision clock and held actions remain unchanged between decisions.
+Tests cover clipping order, legacy deterministic compatibility, invalid deviations and exact
+physical replay. Evaluating both modes tests a training/execution mismatch hypothesis, not an
+assumption that adding noise improves fighting. Pilot-control training is running next.

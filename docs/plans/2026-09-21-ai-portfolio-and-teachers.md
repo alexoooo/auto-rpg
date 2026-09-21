@@ -59,11 +59,11 @@ The ongoing eight-hour campaign is recorded in
 | Common arena strength | Dated cross-build Glicko-2 ratings remain visible through code changes. |
 | Laboratory correctness | Real-Havok stepping, exact-prefix replay, legal action adapters, old-network compatibility and Python/browser inference parity are tested. |
 | Bespoke specialists | Paired passed 96-bout independent cross-build confirmation, representative browser review and a 5,040-bout rating round. It is admitted at provisional 1567. Other initial prototypes did not earn promotion. |
-| Learning | Two stronger-baseline PPO seeds scored 34.4%/59.4%, NEAT 43.8%, and neural evolution 46.9%, against a matched 57.8% control. None demonstrated improvement. Simpler constant-pose search, a fresh maul-specialist confirmation and other control surfaces are next. |
-| Expensive teachers | All 39 branch-budget queries completed. Four predefined seed/body cases beat Champion where matched Duelist controls lost (one repeats the initial case). Two actual reference fights were browser-reviewed through their finishes. Broader opponent coverage remains. |
-| Fair approximate planning | Independent predictive-calibration mechanism is implemented; calibrated planning performance remains unproved. |
-| Distillation / DAgger | The 209-label neural student scored 43.8%, its constant control 37.5%; neither beats Duelist. Clock-opening ablations and multi-round DAgger remain. Champion is teacher training data and is excluded from student confirmation. |
-| Adaptive population | Six generations and 288 training bouts completed, retaining four behavior cells. Final mixture selection evaluation is queued. |
+| Learning | Two stronger-baseline PPO seeds scored 34.4%/59.4%, NEAT 43.8%, and neural evolution 46.9%, against a matched 57.8% control. The PPO maul hypothesis failed 96-bout confirmation. Pilot/direct control and sampled-versus-mean PPO execution are next. |
+| Expensive teachers | All 39 branch-budget queries completed. Four cases beat Champion where Duelist controls lost; four further Planner/Brawler cases also won, although two controls already won. Four actual reference recordings were browser-reviewed through their finishes. This is privileged, small-sample evidence, not universal strength. |
+| Fair approximate planning | First independent one-step calibration failed to beat persistence (RMSE 0.08160 versus 0.07809). Long-horizon planning remains unvalidated. |
+| Distillation / DAgger | The 209-label neural student scored 43.8%, its constant control 37.5%, and longer fitting 37.5%. Four clock ablations did not improve on Duelist. Three DAgger rounds recovered to 56.3%, not superiority. Champion remains excluded from student confirmation. |
+| Adaptive population | Six generations and 288 training bouts retained four behavior cells. Final mixture scored 62.5% in selection, with an interval overlapping no improvement; its maul hypothesis failed 96-bout confirmation. |
 | Visual review | Physical-pose slow playback and isolated arena previews reviewed. Paired's specialist and fallback behaviors reviewed; captured frames do not establish smooth animation quality. |
 
 Next experimental decisions: evaluate learners before extending their budgets; test complete

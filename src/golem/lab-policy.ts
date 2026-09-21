@@ -9,6 +9,7 @@ import type { DuelModelTables } from "./duel-model.ts";
 import { WEAPON_KINDS } from "../hands.ts";
 import { pairedMind, adaptiveMind, mixtureMind, type MixtureSpec } from "./lab-bespoke.ts";
 import { terminalModelMind, type TerminalModel } from "./lab-model.ts";
+import { mulberry32 } from "../rng.ts";
 
 export const LAB_VERSION = 2;
 export const HANDS = ["primary", "secondary"] as const;
@@ -139,6 +140,8 @@ export interface DenseLayer { weights: number[][]; bias: number[]; activation: "
 export interface NetworkArtifact {
   version: number; surface: LabSurface; hz: number; observationNames: string[];
   baseline?: string;
+  /** Optional PPO diagonal Gaussian; noise is applied before action clipping. */
+  samplingStd?: number[];
   layers: DenseLayer[];
   /** Feed-forward NEAT graph, evaluated in topological order. */
   graph?: { outputs: number[]; nodes: { id: number; bias: number; response: number; links: [number, number][] }[] };
@@ -149,6 +152,10 @@ export function validateNetwork(model: NetworkArtifact): void {
   if (JSON.stringify(model.observationNames) !== JSON.stringify(names)
     || ![12, 30, 60].includes(model.hz)) throw new Error("incompatible lab network");
   const size = actionSize(model.surface);
+  if (model.samplingStd !== undefined && (!Array.isArray(model.samplingStd)
+    || model.samplingStd.length !== size || model.samplingStd.some((x) => !Number.isFinite(x) || x < 0))) {
+    throw new Error("invalid network sampling deviation");
+  }
   if (model.graph) {
     const known = new Set(names.map((_, i) => -i - 1));
     for (const n of model.graph.nodes) {
@@ -169,7 +176,7 @@ export function validateNetwork(model: NetworkArtifact): void {
     if (!model.layers.length || width !== size) throw new Error("invalid network outputs");
   }
 }
-export function infer(model: NetworkArtifact, observation: number[]): number[] {
+function rawInference(model: NetworkArtifact, observation: number[]): number[] {
   if (observation.length !== model.observationNames.length || observation.some((x) => !Number.isFinite(x))) throw new Error("invalid network input");
   if (model.graph) {
     const values = new Map(observation.map((x, i) => [-i - 1, x]));
@@ -184,7 +191,19 @@ export function infer(model: NetworkArtifact, observation: number[]): number[] {
     const x = b + layer.weights[i].reduce((sum, w, j) => sum + w * values[j], 0);
     return layer.activation === "tanh" ? Math.tanh(x) : x;
   });
-  return values.map((v) => clamp(v));
+  return values;
+}
+export function infer(model: NetworkArtifact, observation: number[]): number[] {
+  return rawInference(model, observation).map((v) => clamp(v));
+}
+export function sampleNetwork(model: NetworkArtifact, observation: number[], random: () => number): number[] {
+  const values = rawInference(model, observation);
+  return values.map((mean, i) => {
+    const deviation = model.samplingStd?.[i] ?? 0;
+    if (deviation === 0) return clamp(mean);
+    const normal = Math.sqrt(-2 * Math.log(Math.max(Number.MIN_VALUE, random()))) * Math.cos(2 * Math.PI * random());
+    return clamp(mean + deviation * normal);
+  });
 }
 
 /** Training and browser execution use exactly the same action adapter and hold cadence. */
@@ -202,9 +221,10 @@ export function controlledMind(surface: LabSurface, seed: number, source: (view:
 export function networkMind(model: NetworkArtifact, seed: number): Mind {
   validateNetwork(model);
   let nextAsk = -Infinity, action: number[] = [];
+  const random = mulberry32(seed ^ 0x5a17c9e3);
   const inner = controlledMind(model.surface, seed, () => action, model.baseline ?? "golem-driver");
   return { name: "lab-network", decide(view, dt) {
-    if (view.clock + 1e-9 >= nextAsk) { nextAsk = view.clock + 1 / model.hz; action = infer(model, labObservation(view, model.version)); }
+    if (view.clock + 1e-9 >= nextAsk) { nextAsk = view.clock + 1 / model.hz; action = sampleNetwork(model, labObservation(view, model.version), random); }
     return inner.decide(view, dt);
   } };
 }

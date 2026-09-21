@@ -218,6 +218,11 @@ def main():
             outcomes = [row for rows in training_env.get_attr("outcomes") for row in rows]
             simulated_seconds = sum(training_env.get_attr("simulated_seconds"))
         write_json(out / "model.json", artifact)
+        if args.method == "ppo":
+            # Keep the mean policy for paired comparisons; this second artifact matches
+            # the trained Gaussian distribution, with clipping performed after sampling.
+            write_json(out / "stochastic-model.json", dict(artifact,
+                samplingStd=model.policy.log_std.detach().exp().cpu().tolist()))
         write_json(out / "training.json", dict(method=args.method, seed=args.seed, seconds=time.monotonic() - start,
                    steps=steps, simulatedSeconds=simulated_seconds, episodes=episodes, outcomes=outcomes, envs=args.envs,
                    updates=updates, scores=scores, inferenceMaxError=error, evaluation="training-only; independent evaluation required",

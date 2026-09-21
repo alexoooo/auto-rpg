@@ -17,6 +17,22 @@
       "body": "two-blades",
       "inspectedSeconds": [3.75, 4.25, 7.38],
       "notes": "Mid-fight blade exchange and final physical breakup of the orange opponent inspected from an orbited view. Blue remains standing. Playback reaches the final recorded frame."
+    },
+    {
+      "run": "research/runs/wave3-reference-r5-63",
+      "replayId": "4f03411162968a39f92f0496d69849094fc10bde2e93a411a10fcc7311ff20b5",
+      "poses": "research/runs/wave3-reference-poses-63/pose-replay.json",
+      "body": "default",
+      "inspectedSeconds": [0.83, 1.50, 1.60],
+      "notes": "Brawler matchup inspected at the close exchange and terminal frame, with orbit and playback. Fighters close immediately and blue attacks at upper-body height. The recorded verdict is a win despite remaining aggregate opponent vitality; total vitality alone is not the game's death rule."
+    },
+    {
+      "run": "research/runs/wave3-reference-r5-64",
+      "replayId": "214c2faea045cb86409188d2a55d39f7eac1537b037e7d6a6510c95e330a11b9",
+      "poses": "research/runs/wave3-reference-poses-64/pose-replay.json",
+      "body": "two-blades",
+      "inspectedSeconds": [3.42, 5.17, 6.82],
+      "notes": "Brawler matchup inspected during close blade exchanges and at the finish. Orange torso damage is visible, with blue still standing. Scrub, orbit and playback worked; no browser errors."
     }
   ],
   "browserErrors": [],
