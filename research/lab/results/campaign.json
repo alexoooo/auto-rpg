@@ -1,8 +1,8 @@
 {
-  "publishedAt": "2026-09-21T17:58:23.027Z",
+  "publishedAt": "2026-09-21T18:18:49.177Z",
   "status": "ongoing research; no automatic promotion",
   "budget": {
-    "usedMs": 3255938,
+    "usedMs": 4462869,
     "runs": [
       {
         "command": "evaluate",
@@ -229,6 +229,30 @@
         "startedAt": "2026-09-21T17:52:24.878Z",
         "elapsedMs": 298343,
         "status": "complete"
+      },
+      {
+        "command": "teacher-campaign",
+        "flags": {
+          "dir": "research/runs/wave3-teachers",
+          "budget": "campaign-2026-09-21",
+          "seconds": "600"
+        },
+        "startedAt": "2026-09-21T18:13:18.994Z",
+        "elapsedMs": 231664,
+        "status": "complete"
+      },
+      {
+        "command": "evaluate",
+        "flags": {
+          "dir": "research/runs/wave3-duelist-selection-11",
+          "budget": "campaign-2026-09-21",
+          "model": "research/runs/wave3-duelist-learning-11/ppo-residual-11-envs4/model.json",
+          "repeats": "2",
+          "seconds": "300"
+        },
+        "startedAt": "2026-09-21T18:18:44.942Z",
+        "elapsedMs": 1182,
+        "status": "failed"
       }
     ]
   },
@@ -6364,6 +6388,39 @@
           }
         }
       ]
+    },
+    {
+      "directory": "research/runs/wave3-duelist-learning-11",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "c4fe77586c09501857b8208876ac10268eb88d0d4c084afc68975f74d894866f",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": []
+    },
+    {
+      "directory": "research/runs/wave3-duelist-learning-22",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "c4fe77586c09501857b8208876ac10268eb88d0d4c084afc68975f74d894866f",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": []
+    },
+    {
+      "directory": "research/runs/wave3-duelist-selection-11",
+      "manifest": {
+        "version": 1,
+        "fingerprint": "c4fe77586c09501857b8208876ac10268eb88d0d4c084afc68975f74d894866f",
+        "kind": "local-campaign",
+        "maxComputeMs": 28800000
+      },
+      "training": [],
+      "evaluations": []
     },
     {
       "directory": "research/runs/wave3-learning-a",
@@ -15002,7 +15059,7 @@
       "evaluations": [],
       "teachers": {
         "seed": 4001,
-        "status": "running",
+        "status": "complete",
         "corpus": [
           {
             "build": "default",
@@ -15126,6 +15183,424 @@
             "build": "default",
             "scenario": "attack-opportunity",
             "wallSeconds": 5.311
+          },
+          {
+            "replayId": "270e7fde17b6974cb646b0f866172d7dda440fdaf805bf439bf37d3ba0031dd4",
+            "index": 13,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": 0,
+            "value": 0.08890082116471254,
+            "build": "default",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 18.703
+          },
+          {
+            "replayId": "270e7fde17b6974cb646b0f866172d7dda440fdaf805bf439bf37d3ba0031dd4",
+            "index": 13,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": 0,
+            "value": 0.2897168176248097,
+            "build": "default",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 69.588
+          },
+          {
+            "replayId": "270e7fde17b6974cb646b0f866172d7dda440fdaf805bf439bf37d3ba0031dd4",
+            "index": 23,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": -0.29907670651375884,
+            "value": 0.1875731174920211,
+            "build": "default",
+            "scenario": "incoming-strike",
+            "wallSeconds": 5.779
+          },
+          {
+            "replayId": "270e7fde17b6974cb646b0f866172d7dda440fdaf805bf439bf37d3ba0031dd4",
+            "index": 23,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": -0.29907670651375884,
+            "value": 0.1875731174920211,
+            "build": "default",
+            "scenario": "incoming-strike",
+            "wallSeconds": 19.754
+          },
+          {
+            "replayId": "270e7fde17b6974cb646b0f866172d7dda440fdaf805bf439bf37d3ba0031dd4",
+            "index": 23,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": -0.29907670651375884,
+            "value": 0.1875731174920211,
+            "build": "default",
+            "scenario": "incoming-strike",
+            "wallSeconds": 83.081
+          },
+          {
+            "replayId": "270e7fde17b6974cb646b0f866172d7dda440fdaf805bf439bf37d3ba0031dd4",
+            "index": 24,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": -0.13876300473791292,
+            "value": -0.023362783444564883,
+            "build": "default",
+            "scenario": "recovery-window",
+            "wallSeconds": 5.797
+          },
+          {
+            "replayId": "270e7fde17b6974cb646b0f866172d7dda440fdaf805bf439bf37d3ba0031dd4",
+            "index": 24,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": -0.13876300473791292,
+            "value": 0.20591155254799764,
+            "build": "default",
+            "scenario": "recovery-window",
+            "wallSeconds": 20.239
+          },
+          {
+            "replayId": "270e7fde17b6974cb646b0f866172d7dda440fdaf805bf439bf37d3ba0031dd4",
+            "index": 24,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": -0.13876300473791292,
+            "value": 0.30699539270058696,
+            "build": "default",
+            "scenario": "recovery-window",
+            "wallSeconds": 75.144
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 13,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": 0.018582138540694237,
+            "value": 0.058289103953411914,
+            "build": "two-blades",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 5.45
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 13,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": 0.018582138540694237,
+            "value": 0.24406363651309093,
+            "build": "two-blades",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 18.348
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 13,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": 0.018582138540694237,
+            "value": 0.24406363651309093,
+            "build": "two-blades",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 70.201
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 26,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": -0.04240066742627557,
+            "value": -0.04240066742627557,
+            "build": "two-blades",
+            "scenario": "incoming-strike",
+            "wallSeconds": 5.948
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 26,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": -0.04240066742627557,
+            "value": 0.20977697031327358,
+            "build": "two-blades",
+            "scenario": "incoming-strike",
+            "wallSeconds": 20.212
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 26,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": -0.04240066742627557,
+            "value": 0.23261289390607287,
+            "build": "two-blades",
+            "scenario": "incoming-strike",
+            "wallSeconds": 77.765
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 15,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": -0.06295894411108538,
+            "value": 0.0004739297775494533,
+            "build": "two-blades",
+            "scenario": "recovery-window",
+            "wallSeconds": 5.502
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 15,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": -0.06295894411108538,
+            "value": 0.12398052591231157,
+            "build": "two-blades",
+            "scenario": "recovery-window",
+            "wallSeconds": 18.711
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 15,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": -0.06295894411108538,
+            "value": 0.18218382580833437,
+            "build": "two-blades",
+            "scenario": "recovery-window",
+            "wallSeconds": 71.651
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 51,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": -0.142065485500959,
+            "value": -0.029912963574181606,
+            "build": "two-blades",
+            "scenario": "hand-loss",
+            "wallSeconds": 6.981
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 51,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": -0.142065485500959,
+            "value": 0.23434357306353704,
+            "build": "two-blades",
+            "scenario": "hand-loss",
+            "wallSeconds": 23.748
+          },
+          {
+            "replayId": "d1d7bb29f74288af1046722cad8670707a0ba215b6cc4956b1731a663b341108",
+            "index": 51,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": -0.142065485500959,
+            "value": 0.2827386360690698,
+            "build": "two-blades",
+            "scenario": "hand-loss",
+            "wallSeconds": 100.437
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 13,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": -0.05451287145562811,
+            "value": 0.08906939425390303,
+            "build": "mace",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 5.429
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 13,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": -0.05451287145562811,
+            "value": 0.27663275048020763,
+            "build": "mace",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 18.447
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 13,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": -0.05451287145562811,
+            "value": 0.27663275048020763,
+            "build": "mace",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 70.553
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 19,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": 0,
+            "value": 0,
+            "build": "mace",
+            "scenario": "incoming-strike",
+            "wallSeconds": 5.632
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 19,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": 0,
+            "value": 0.01175272676396133,
+            "build": "mace",
+            "scenario": "incoming-strike",
+            "wallSeconds": 19.245
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 19,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": 0,
+            "value": 0.1039823102004952,
+            "build": "mace",
+            "scenario": "incoming-strike",
+            "wallSeconds": 31.308
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 14,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": -0.051838577889509074,
+            "value": 0.061853565840385705,
+            "build": "mace",
+            "scenario": "recovery-window",
+            "wallSeconds": 2.178
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 14,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": -0.051838577889509074,
+            "value": 0.16463549752626105,
+            "build": "mace",
+            "scenario": "recovery-window",
+            "wallSeconds": 7.185
+          },
+          {
+            "replayId": "4d608233836cfc655f5c1fc46d965c8b30ad4f5d894176f21f164d6966f15cab",
+            "index": 14,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": -0.051838577889509074,
+            "value": 0.38438343135201203,
+            "build": "mace",
+            "scenario": "recovery-window",
+            "wallSeconds": 27.089
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 13,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": 0.0191133159699719,
+            "value": 0.0191133159699719,
+            "build": "fists",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 2.033
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 13,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": 0.0191133159699719,
+            "value": 0.039683244747047874,
+            "build": "fists",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 7.01
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 13,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": 0.0191133159699719,
+            "value": 0.05627153152740616,
+            "build": "fists",
+            "scenario": "attack-opportunity",
+            "wallSeconds": 26.874
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 28,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": 0,
+            "value": 0.015505695984696977,
+            "build": "fists",
+            "scenario": "incoming-strike",
+            "wallSeconds": 2.755
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 28,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": 0,
+            "value": 0.03913728645483305,
+            "build": "fists",
+            "scenario": "incoming-strike",
+            "wallSeconds": 9.208
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 28,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": 0,
+            "value": 0.09173567926068382,
+            "build": "fists",
+            "scenario": "incoming-strike",
+            "wallSeconds": 35.311
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 72,
+            "candidates": 4,
+            "evaluations": 5,
+            "baselineValue": -0.0050877667567622575,
+            "value": 0,
+            "build": "fists",
+            "scenario": "recovery-window",
+            "wallSeconds": 4.564
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 72,
+            "candidates": 16,
+            "evaluations": 17,
+            "baselineValue": -0.0050877667567622575,
+            "value": 0.02398992274463918,
+            "build": "fists",
+            "scenario": "recovery-window",
+            "wallSeconds": 15.378
+          },
+          {
+            "replayId": "75df3fff985d74d312e7d3524718c3a3ec037df4f83af0c6d557d1cbecdabc06",
+            "index": 72,
+            "candidates": 64,
+            "evaluations": 65,
+            "baselineValue": -0.0050877667567622575,
+            "value": 0.02398992274463918,
+            "build": "fists",
+            "scenario": "recovery-window",
+            "wallSeconds": 58.744
           }
         ]
       }

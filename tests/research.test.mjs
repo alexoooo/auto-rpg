@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initialRating, updateRating, ratePeriod } from "../research/rating.mjs";
 import { schedule, completeRounds, PROTOCOL } from "../research/schedule.mjs";
-import { runJobs, prepareRun, lockRun } from "../research/runner.mjs";
+import { runJobs, prepareRun, lockRun, retryFileLock } from "../research/runner.mjs";
 import { pairedComparison, bootstrap, comparisonJobs, trainingBuilds } from "../research/search.mjs";
 import { policyRatingLabel, policyRatingNote } from "../src/policy-rating.ts";
 import { candidateBounds, validateCandidate, SEARCH_FIELDS, SEARCH_PARENTS } from "../src/golem/research-candidates.ts";
@@ -17,6 +17,19 @@ import { previewHtml } from "../research/preview.mjs";
 import { POLICIES } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { GOLEM_CONTROL_SURFACE } from "../src/control-surfaces.ts";
+
+test("checkpoint writes retry transient file locks, but neither hide permanent errors nor wait forever", () => {
+  let calls = 0, waited = 0;
+  const lock = Object.assign(new Error("locked"), { code: "EPERM" });
+  assert.equal(retryFileLock(() => { if (++calls < 3) throw lock; return "saved"; }, (ms) => { waited += ms; }), "saved");
+  assert.equal(calls, 3); assert.equal(waited, 40);
+  calls = 0;
+  assert.throws(() => retryFileLock(() => { calls++; throw lock; }, () => {}), /locked/);
+  assert.equal(calls, 50);
+  calls = 0;
+  assert.throws(() => retryFileLock(() => { calls++; throw Object.assign(new Error("full"), { code: "ENOSPC" }); }, () => {}), /full/);
+  assert.equal(calls, 1);
+});
 
 test("Glicko-2 reproduces Glickman's published example", () => {
   const actual = updateRating({ rating: 1500, deviation: 200, volatility: 0.06 }, [

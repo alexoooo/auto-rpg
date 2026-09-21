@@ -19,9 +19,20 @@ export function lockRun(directory) {
   writeFileSync(fd, JSON.stringify({ pid: process.pid })); closeSync(fd);
   return () => unlinkSync(path);
 }
+/** Windows readers/antivirus can briefly deny replacing an otherwise writable file.
+ * Keep the old checkpoint intact; retry only transient lock errors, with a bounded wait. */
+export function retryFileLock(operation, pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)) {
+  for (let attempt = 0; ; attempt++) {
+    try { return operation(); }
+    catch (error) {
+      if (!["EPERM", "EACCES", "EBUSY"].includes(error.code) || attempt >= 49) throw error;
+      pause(20);
+    }
+  }
+}
 export function atomicJson(path, value) {
-  writeFileSync(`${path}.tmp`, `${JSON.stringify(value, null, 2)}\n`);
-  renameSync(`${path}.tmp`, path);
+  retryFileLock(() => writeFileSync(`${path}.tmp`, `${JSON.stringify(value, null, 2)}\n`));
+  retryFileLock(() => renameSync(`${path}.tmp`, path));
 }
 export function readResults(directory) {
   const path = join(directory, "results.jsonl");

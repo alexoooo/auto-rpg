@@ -89,3 +89,35 @@ reparsed all TypeScript dependencies. Caching import parsing by exact source tex
 checks to about 50 ms. Every call still rereads all dependency contents and resolves imports;
 the hash is unchanged. Tests include a same-length runtime-import change after warming the cache.
 The already-running teacher process uses its original implementation; subsequent jobs benefit.
+
+## Teacher branch-budget campaign
+
+`wave3-teachers` completed all 39 comparisons: 13 replay-derived scenarios across default,
+twin-blade, mace and fist bodies, each searched with 4, 16 and 64 alternatives plus baseline.
+Four branches improved 9/13 scenarios (mean utility gain 0.0842); 16 improved 13/13 (0.2007);
+64 improved 13/13 (0.2632). These are deterministic two-second, known-opponent utility comparisons,
+not independent win rates or calibrated confidence. Larger candidate sets share the smaller
+sets' proposals by seed, so their monotonic improvement is not itself a statistical discovery.
+The question for the next experiment is whether receding-horizon execution wins full fights.
+
+The teacher was interrupted after checkpointing 26 queries and resumed under the identical
+source fingerprint with faster fingerprint parsing. The cumulative ledger retained its charged
+time; no budget was reset. Query wall times therefore span both implementations and should not
+be interpreted as a controlled branch-count throughput benchmark.
+
+Paired's confirmation behavior proxy (`attackRate`, rising thrust-command edges per second)
+was 1.185 versus Duelist's 0.632 on twin blades and 1.027 versus 0.646 on fists. Retreat fractions
+remained similar (0.285 versus 0.299; 0.311 versus 0.320). These are command proxies, not counts
+of physical damaging strikes. The corresponding build-specific scores were 89.6% versus 68.8%
+on twin blades and 38.5% versus 15.6% on fists; neither implies strength against every opponent.
+
+## Operational failure retained
+
+The first larger Duelist-residual PPO attempt was interrupted by Windows `EPERM` while atomically
+replacing the shared budget checkpoint. No model was exported, so its subsequent evaluation
+correctly failed rather than inventing a result. The queued second run was stopped for repair.
+The recorded cumulative budget was retained, and process inspection found no surviving owned
+training workers. Atomic checkpoint writes now retry transient EPERM/EACCES/EBUSY locks for at
+most 980 ms, preserve the previous destination until replacement succeeds, and still report
+permanent errors. Retry, exhaustion and non-lock error cases are tested. Training must be rerun;
+this was an infrastructure failure, not evidence about PPO strength.
