@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import researchedVariants from "../src/golem/researched-variants.json" with { type: "json" };
 
 import {
   UNIT_REGISTRY,
@@ -106,6 +107,7 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
     "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
     "golem-reaper", "golem-miser",
+    ...researchedVariants.map((candidate) => candidate.name),
   ]);
   assert.ok(golem.defaultGolem, "a golem corner opens on a build");
   for (const slot of ["locomotion", "torso", "head"]) {

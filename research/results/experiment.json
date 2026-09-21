@@ -1,0 +1,980 @@
+{
+  "version": 1,
+  "fingerprint": "0adfdb98ca062014ec7f96d25fac2f621fc87635b94bf5accaa13fb55d89a7b9",
+  "confirmation": {
+    "version": 1,
+    "fingerprint": "0adfdb98ca062014ec7f96d25fac2f621fc87635b94bf5accaa13fb55d89a7b9",
+    "status": "complete",
+    "reports": [
+      {
+        "candidate": {
+          "name": "golem-researched-form-3-5",
+          "label": "Researched form 3.5",
+          "parent": "golem-form",
+          "parameters": {
+            "standOffFraction": 1.257599436997322,
+            "patience": 1.8256517226934519,
+            "strikeBite": 0.8250000000000001,
+            "recoverSeconds": 0.32197603388681967,
+            "closeGain": 2.25,
+            "turnGain": 2.0194266202753792
+          }
+        },
+        "improvement": {
+          "mean": 0.11342592592592593,
+          "low": 0.05324074074074074,
+          "high": 0.1736111111111111,
+          "blocks": 216
+        },
+        "unseenOpponents": {
+          "mean": 0.13541666666666666,
+          "low": 0.058333333333333334,
+          "high": 0.2125,
+          "blocks": 120
+        },
+        "unseenBuilds": {
+          "mean": 0.16319444444444445,
+          "low": 0.059027777777777776,
+          "high": 0.2708333333333333,
+          "blocks": 72
+        },
+        "diversity": []
+      },
+      {
+        "candidate": {
+          "name": "golem-researched-guardian-3-4",
+          "label": "Researched guardian 3.4",
+          "parent": "golem-guardian",
+          "parameters": {
+            "standOffFraction": 0.9788198592176298,
+            "patience": 2.25,
+            "strikeBite": 0.5869047767532035,
+            "recoverSeconds": 0.2892259087764069,
+            "closeGain": 1.9168441575886606,
+            "turnGain": 2.3771799205512867
+          }
+        },
+        "improvement": {
+          "mean": 0.059027777777777776,
+          "low": 0.005787037037037037,
+          "high": 0.11458333333333333,
+          "blocks": 216
+        },
+        "unseenOpponents": {
+          "mean": 0.0020833333333333333,
+          "low": -0.075,
+          "high": 0.07708333333333334,
+          "blocks": 120
+        },
+        "unseenBuilds": {
+          "mean": 0.0763888888888889,
+          "low": -0.013888888888888888,
+          "high": 0.1736111111111111,
+          "blocks": 72
+        },
+        "diversity": [
+          {
+            "against": "golem-researched-form-3-5",
+            "bands": [
+              {
+                "descriptor": "attackRate",
+                "mean": 0.46650366989925224,
+                "low": 0.40481889363067153,
+                "high": 0.5274412962870707,
+                "blocks": 216
+              },
+              {
+                "descriptor": "retreatFraction",
+                "mean": -0.17212225081672286,
+                "low": -0.19700128112240345,
+                "high": -0.14641815324610982,
+                "blocks": 216
+              },
+              {
+                "descriptor": "blockRate",
+                "mean": 0.05975031439026158,
+                "low": -0.10365756940650687,
+                "high": 0.219620628013539,
+                "blocks": 216
+              },
+              {
+                "descriptor": "range0",
+                "mean": 0.12370265889049825,
+                "low": 0.097494436352183,
+                "high": 0.151742072513421,
+                "blocks": 216
+              },
+              {
+                "descriptor": "range1",
+                "mean": 0.012331384540124765,
+                "low": -0.0061692480044486945,
+                "high": 0.030757228519760142,
+                "blocks": 216
+              },
+              {
+                "descriptor": "range2",
+                "mean": -0.07958302929168079,
+                "low": -0.09489656828835102,
+                "high": -0.06474026334519122,
+                "blocks": 216
+              },
+              {
+                "descriptor": "range3",
+                "mean": -0.05645101413896535,
+                "low": -0.07575396109717031,
+                "high": -0.036821759966909534,
+                "blocks": 216
+              }
+            ],
+            "distinct": true
+          }
+        ]
+      },
+      {
+        "candidate": {
+          "name": "golem-researched-skirmisher-1-7",
+          "label": "Researched skirmisher 1.7",
+          "parent": "golem-skirmisher",
+          "parameters": {
+            "standOffFraction": 0.9731238696643324,
+            "patience": 1.6732408686661453,
+            "strikeBite": 0.495,
+            "recoverSeconds": 0.29990364487764126,
+            "closeGain": 2.25,
+            "turnGain": 3.25
+          }
+        },
+        "improvement": {
+          "mean": -0.07060185185185185,
+          "low": -0.12731481481481483,
+          "high": -0.013888888888888888,
+          "blocks": 216
+        },
+        "unseenOpponents": {
+          "mean": -0.08333333333333333,
+          "low": -0.15833333333333333,
+          "high": -0.008333333333333333,
+          "blocks": 120
+        },
+        "unseenBuilds": {
+          "mean": -0.03125,
+          "low": -0.13194444444444445,
+          "high": 0.07291666666666667,
+          "blocks": 72
+        }
+      }
+    ],
+    "eligible": [
+      {
+        "name": "golem-researched-form-3-5",
+        "label": "Researched form 3.5",
+        "parent": "golem-form",
+        "parameters": {
+          "standOffFraction": 1.257599436997322,
+          "patience": 1.8256517226934519,
+          "strikeBite": 0.8250000000000001,
+          "recoverSeconds": 0.32197603388681967,
+          "closeGain": 2.25,
+          "turnGain": 2.0194266202753792
+        }
+      },
+      {
+        "name": "golem-researched-guardian-3-4",
+        "label": "Researched guardian 3.4",
+        "parent": "golem-guardian",
+        "parameters": {
+          "standOffFraction": 0.9788198592176298,
+          "patience": 2.25,
+          "strikeBite": 0.5869047767532035,
+          "recoverSeconds": 0.2892259087764069,
+          "closeGain": 1.9168441575886606,
+          "turnGain": 2.3771799205512867
+        }
+      }
+    ],
+    "browserReviewRequired": [
+      "golem-researched-form-3-5",
+      "golem-researched-guardian-3-4"
+    ]
+  },
+  "search": {
+    "version": 1,
+    "identity": "28082eaf0288b98b7d6bcbd7990188597139258f9d7a180e323839983fa566d0",
+    "styles": {
+      "golem-form": {
+        "generation": 8,
+        "distribution": {
+          "standOffFraction": {
+            "center": 1.1987560226369887,
+            "sigma": 0.021200000000000007
+          },
+          "patience": {
+            "center": 1.9296398159379269,
+            "sigma": 0.07175737081851657
+          },
+          "strikeBite": {
+            "center": 0.7368705187407592,
+            "sigma": 0.013200000000000003
+          },
+          "recoverSeconds": {
+            "center": 0.3224575712598268,
+            "sigma": 0.007025471436726841
+          },
+          "closeGain": {
+            "center": 1.9584341315415597,
+            "sigma": 0.17315075039125832
+          },
+          "turnGain": {
+            "center": 2.079637318451305,
+            "sigma": 0.05199999999999999
+          }
+        },
+        "history": [
+          {
+            "generation": 0,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-form-0-1",
+                "label": "Researched form 0.1",
+                "parent": "golem-form",
+                "parameters": {
+                  "standOffFraction": 1.1600440614841903,
+                  "patience": 2.5146424058197,
+                  "strikeBite": 0.764561925865785,
+                  "recoverSeconds": 0.2944687664041617,
+                  "closeGain": 1.6366530549011116,
+                  "turnGain": 2.173733511353162
+                }
+              },
+              "score": 0.5546875,
+              "improvement": {
+                "mean": 0.15625,
+                "low": 0,
+                "high": 0.3125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 1,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-form-1-10",
+                "label": "Researched form 1.10",
+                "parent": "golem-form",
+                "parameters": {
+                  "standOffFraction": 1.1128264954831952,
+                  "patience": 1.9219864280853847,
+                  "strikeBite": 0.8033671588587328,
+                  "recoverSeconds": 0.30896135260381113,
+                  "closeGain": 1.672428721754262,
+                  "turnGain": 2.028317160598827
+                }
+              },
+              "score": 0.5625,
+              "improvement": {
+                "mean": 0.046875,
+                "low": -0.09375,
+                "high": 0.1875,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 2,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-form-2-15",
+                "label": "Researched form 2.15",
+                "parent": "golem-form",
+                "parameters": {
+                  "standOffFraction": 1.240346820667756,
+                  "patience": 1.9236562683442322,
+                  "strikeBite": 0.6662104831623399,
+                  "recoverSeconds": 0.32725680246221284,
+                  "closeGain": 1.6118747604032064,
+                  "turnGain": 2.085559812979338
+                }
+              },
+              "score": 0.5546875,
+              "improvement": {
+                "mean": 0.0390625,
+                "low": -0.09375,
+                "high": 0.1796875,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 3,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-form-3-5",
+                "label": "Researched form 3.5",
+                "parent": "golem-form",
+                "parameters": {
+                  "standOffFraction": 1.257599436997322,
+                  "patience": 1.8256517226934519,
+                  "strikeBite": 0.8250000000000001,
+                  "recoverSeconds": 0.32197603388681967,
+                  "closeGain": 2.25,
+                  "turnGain": 2.0194266202753792
+                }
+              },
+              "score": 0.546875,
+              "improvement": {
+                "mean": 0.1328125,
+                "low": -0.03125,
+                "high": 0.28125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 4,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-form-4-12",
+                "label": "Researched form 4.12",
+                "parent": "golem-form",
+                "parameters": {
+                  "standOffFraction": 1.1124541797927985,
+                  "patience": 1.9308102662504465,
+                  "strikeBite": 0.7815376738565363,
+                  "recoverSeconds": 0.3258836252565942,
+                  "closeGain": 1.9909039377485205,
+                  "turnGain": 2.1471081583055383
+                }
+              },
+              "score": 0.6171875,
+              "improvement": {
+                "mean": 0.1796875,
+                "low": 0.0390625,
+                "high": 0.328125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 5,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-form-5-14",
+                "label": "Researched form 5.14",
+                "parent": "golem-form",
+                "parameters": {
+                  "standOffFraction": 1.2047803530337233,
+                  "patience": 1.8988655559000818,
+                  "strikeBite": 0.7487128840590952,
+                  "recoverSeconds": 0.3246199523492941,
+                  "closeGain": 1.9823392576140124,
+                  "turnGain": 2.094584096050759
+                }
+              },
+              "score": 0.5703125,
+              "improvement": {
+                "mean": 0.15625,
+                "low": 0,
+                "high": 0.3125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 6,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-form-6-7",
+                "label": "Researched form 6.7",
+                "parent": "golem-form",
+                "parameters": {
+                  "standOffFraction": 1.217601214369921,
+                  "patience": 1.9533000920316026,
+                  "strikeBite": 0.6815769090574633,
+                  "recoverSeconds": 0.32046799604154513,
+                  "closeGain": 1.8546715211870737,
+                  "turnGain": 2.1009676709433207
+                }
+              },
+              "score": 0.6328125,
+              "improvement": {
+                "mean": 0.2890625,
+                "low": 0.078125,
+                "high": 0.4921875,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 7,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-form-7-7",
+                "label": "Researched form 7.7",
+                "parent": "golem-form",
+                "parameters": {
+                  "standOffFraction": 1.2016518908730722,
+                  "patience": 1.8665922099734313,
+                  "strikeBite": 0.7365208675754352,
+                  "recoverSeconds": 0.31226007802576156,
+                  "closeGain": 1.7980197116132126,
+                  "turnGain": 2.1295123992312455
+                }
+              },
+              "score": 0.625,
+              "improvement": {
+                "mean": 0.125,
+                "low": -0.0390625,
+                "high": 0.2890625,
+                "blocks": 32
+              }
+            }
+          }
+        ]
+      },
+      "golem-guardian": {
+        "generation": 8,
+        "distribution": {
+          "standOffFraction": {
+            "center": 0.9867316329628808,
+            "sigma": 0.02
+          },
+          "patience": {
+            "center": 2.4286164714826315,
+            "sigma": 0.06
+          },
+          "strikeBite": {
+            "center": 0.6192911625250256,
+            "sigma": 0.013200000000000003
+          },
+          "recoverSeconds": {
+            "center": 0.3079391592189912,
+            "sigma": 0.006000000000000001
+          },
+          "closeGain": {
+            "center": 1.8966147679752348,
+            "sigma": 0.047688903028720746
+          },
+          "turnGain": {
+            "center": 2.3834725262852223,
+            "sigma": 0.05199999999999999
+          }
+        },
+        "history": [
+          {
+            "generation": 0,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-guardian-0-2",
+                "label": "Researched guardian 0.2",
+                "parent": "golem-guardian",
+                "parameters": {
+                  "standOffFraction": 0.9452886239094961,
+                  "patience": 2.25,
+                  "strikeBite": 0.78377175858832,
+                  "recoverSeconds": 0.2789460264584603,
+                  "closeGain": 1.5326038609618622,
+                  "turnGain": 2.356848852026093
+                }
+              },
+              "score": 0.5234375,
+              "improvement": {
+                "mean": 0.0546875,
+                "low": -0.109375,
+                "high": 0.21875,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 1,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-guardian-1-8",
+                "label": "Researched guardian 1.8",
+                "parent": "golem-guardian",
+                "parameters": {
+                  "standOffFraction": 0.9896831074847017,
+                  "patience": 2.9836742248287296,
+                  "strikeBite": 0.5297622821460866,
+                  "recoverSeconds": 0.29164241161727605,
+                  "closeGain": 1.7694846980993666,
+                  "turnGain": 2.4974951879795504
+                }
+              },
+              "score": 0.5859375,
+              "improvement": {
+                "mean": 0.09375,
+                "low": -0.1015625,
+                "high": 0.2734375,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 2,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-guardian-2-6",
+                "label": "Researched guardian 2.6",
+                "parent": "golem-guardian",
+                "parameters": {
+                  "standOffFraction": 0.976184522274188,
+                  "patience": 2.756718024418187,
+                  "strikeBite": 0.6310865864461656,
+                  "recoverSeconds": 0.3058595307740113,
+                  "closeGain": 1.9567957647942045,
+                  "turnGain": 2.228521608142442
+                }
+              },
+              "score": 0.515625,
+              "improvement": {
+                "mean": 0.1171875,
+                "low": 0,
+                "high": 0.234375,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 3,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-guardian-3-4",
+                "label": "Researched guardian 3.4",
+                "parent": "golem-guardian",
+                "parameters": {
+                  "standOffFraction": 0.9788198592176298,
+                  "patience": 2.25,
+                  "strikeBite": 0.5869047767532035,
+                  "recoverSeconds": 0.2892259087764069,
+                  "closeGain": 1.9168441575886606,
+                  "turnGain": 2.3771799205512867
+                }
+              },
+              "score": 0.59375,
+              "improvement": {
+                "mean": 0.1640625,
+                "low": 0.046875,
+                "high": 0.2890625,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 4,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-guardian-4-12",
+                "label": "Researched guardian 4.12",
+                "parent": "golem-guardian",
+                "parameters": {
+                  "standOffFraction": 0.9816939811153867,
+                  "patience": 2.658456725925525,
+                  "strikeBite": 0.6210476519454748,
+                  "recoverSeconds": 0.317864539039412,
+                  "closeGain": 1.9415797581142857,
+                  "turnGain": 2.2924659836626415
+                }
+              },
+              "score": 0.5390625,
+              "improvement": {
+                "mean": 0.109375,
+                "low": -0.046875,
+                "high": 0.2578125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 5,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-guardian-5-12",
+                "label": "Researched guardian 5.12",
+                "parent": "golem-guardian",
+                "parameters": {
+                  "standOffFraction": 0.995693669761391,
+                  "patience": 2.5113882718357528,
+                  "strikeBite": 0.6212293936205193,
+                  "recoverSeconds": 0.3033689077957447,
+                  "closeGain": 1.9245567614778167,
+                  "turnGain": 2.3315330594487143
+                }
+              },
+              "score": 0.6171875,
+              "improvement": {
+                "mean": 0.203125,
+                "low": 0.046875,
+                "high": 0.359375,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 6,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-guardian-6-11",
+                "label": "Researched guardian 6.11",
+                "parent": "golem-guardian",
+                "parameters": {
+                  "standOffFraction": 0.9832668052423371,
+                  "patience": 2.3627235885833673,
+                  "strikeBite": 0.6022980749834489,
+                  "recoverSeconds": 0.3114571136505875,
+                  "closeGain": 1.8825074903734036,
+                  "turnGain": 2.3879004550337393
+                }
+              },
+              "score": 0.5390625,
+              "improvement": {
+                "mean": 0.1328125,
+                "low": -0.0234375,
+                "high": 0.2890625,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 7,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-guardian-7-3",
+                "label": "Researched guardian 7.3",
+                "parent": "golem-guardian",
+                "parameters": {
+                  "standOffFraction": 0.9918261686117699,
+                  "patience": 2.400801713408117,
+                  "strikeBite": 0.6182114551977623,
+                  "recoverSeconds": 0.30422679465293306,
+                  "closeGain": 1.9750765927240697,
+                  "turnGain": 2.340081821461678
+                }
+              },
+              "score": 0.5546875,
+              "improvement": {
+                "mean": 0.0546875,
+                "low": -0.09375,
+                "high": 0.2109375,
+                "blocks": 32
+              }
+            }
+          }
+        ]
+      },
+      "golem-skirmisher": {
+        "generation": 8,
+        "distribution": {
+          "standOffFraction": {
+            "center": 0.9316694636858911,
+            "sigma": 0.022400000000000003
+          },
+          "patience": {
+            "center": 1.7027006508758564,
+            "sigma": 0.04
+          },
+          "strikeBite": {
+            "center": 0.5767978913238468,
+            "sigma": 0.014597218480957661
+          },
+          "recoverSeconds": {
+            "center": 0.34962481946055923,
+            "sigma": 0.01579472795784435
+          },
+          "closeGain": {
+            "center": 2.238350303637639,
+            "sigma": 0.036
+          },
+          "turnGain": {
+            "center": 3.0715292687731437,
+            "sigma": 0.07513622384190802
+          }
+        },
+        "history": [
+          {
+            "generation": 0,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-skirmisher-0-10",
+                "label": "Researched skirmisher 0.10",
+                "parent": "golem-skirmisher",
+                "parameters": {
+                  "standOffFraction": 0.9797602617967994,
+                  "patience": 1.9935881449043653,
+                  "strikeBite": 0.6176838740932962,
+                  "recoverSeconds": 0.24637405886122227,
+                  "closeGain": 2.25,
+                  "turnGain": 2.806573136898051
+                }
+              },
+              "score": 0.515625,
+              "improvement": {
+                "mean": 0.1015625,
+                "low": -0.046875,
+                "high": 0.25,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 1,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-skirmisher-1-7",
+                "label": "Researched skirmisher 1.7",
+                "parent": "golem-skirmisher",
+                "parameters": {
+                  "standOffFraction": 0.9731238696643324,
+                  "patience": 1.6732408686661453,
+                  "strikeBite": 0.495,
+                  "recoverSeconds": 0.29990364487764126,
+                  "closeGain": 2.25,
+                  "turnGain": 3.25
+                }
+              },
+              "score": 0.484375,
+              "improvement": {
+                "mean": 0.125,
+                "low": -0.03125,
+                "high": 0.28125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 2,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-skirmisher-2-6",
+                "label": "Researched skirmisher 2.6",
+                "parent": "golem-skirmisher",
+                "parameters": {
+                  "standOffFraction": 0.9577572022383303,
+                  "patience": 1.7963782430581952,
+                  "strikeBite": 0.6072380899714583,
+                  "recoverSeconds": 0.3384332084004971,
+                  "closeGain": 2.25,
+                  "turnGain": 3.1780005964372884
+                }
+              },
+              "score": 0.4921875,
+              "improvement": {
+                "mean": 0.1640625,
+                "low": -0.015625,
+                "high": 0.3359375,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 3,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-skirmisher-3-2",
+                "label": "Researched skirmisher 3.2",
+                "parent": "golem-skirmisher",
+                "parameters": {
+                  "standOffFraction": 0.9467264213632138,
+                  "patience": 1.722550720791164,
+                  "strikeBite": 0.6145756300968936,
+                  "recoverSeconds": 0.29424340006923205,
+                  "closeGain": 2.25,
+                  "turnGain": 2.901460029839506
+                }
+              },
+              "score": 0.5,
+              "improvement": {
+                "mean": 0.1015625,
+                "low": -0.0625,
+                "high": 0.265625,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 4,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-skirmisher-4-8",
+                "label": "Researched skirmisher 4.8",
+                "parent": "golem-skirmisher",
+                "parameters": {
+                  "standOffFraction": 0.9491236512531909,
+                  "patience": 1.7161156619500648,
+                  "strikeBite": 0.5895355970959951,
+                  "recoverSeconds": 0.3455683116763425,
+                  "closeGain": 2.25,
+                  "turnGain": 3.0277452290978633
+                }
+              },
+              "score": 0.5078125,
+              "improvement": {
+                "mean": 0.046875,
+                "low": -0.1015625,
+                "high": 0.203125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 5,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-skirmisher-5-12",
+                "label": "Researched skirmisher 5.12",
+                "parent": "golem-skirmisher",
+                "parameters": {
+                  "standOffFraction": 0.9137204367543813,
+                  "patience": 1.7338167412479502,
+                  "strikeBite": 0.5876813905328576,
+                  "recoverSeconds": 0.3197284776380464,
+                  "closeGain": 2.25,
+                  "turnGain": 2.902776289539721
+                }
+              },
+              "score": 0.5390625,
+              "improvement": {
+                "mean": 0.1953125,
+                "low": 0.078125,
+                "high": 0.328125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 6,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-skirmisher-6-4",
+                "label": "Researched skirmisher 6.4",
+                "parent": "golem-skirmisher",
+                "parameters": {
+                  "standOffFraction": 0.9471905077247587,
+                  "patience": 1.8120625189495307,
+                  "strikeBite": 0.5926130252903826,
+                  "recoverSeconds": 0.30640701189101344,
+                  "closeGain": 2.25,
+                  "turnGain": 2.9098358579545573
+                }
+              },
+              "score": 0.5546875,
+              "improvement": {
+                "mean": 0.1875,
+                "low": 0.0703125,
+                "high": 0.3125,
+                "blocks": 32
+              }
+            }
+          },
+          {
+            "generation": 7,
+            "winner": {
+              "candidate": {
+                "name": "golem-researched-skirmisher-7-8",
+                "label": "Researched skirmisher 7.8",
+                "parent": "golem-skirmisher",
+                "parameters": {
+                  "standOffFraction": 0.9589928976665342,
+                  "patience": 1.7019435692011389,
+                  "strikeBite": 0.5899723769654448,
+                  "recoverSeconds": 0.3645021012066729,
+                  "closeGain": 2.2374218624600077,
+                  "turnGain": 3.1127909626274946
+                }
+              },
+              "score": 0.5078125,
+              "improvement": {
+                "mean": 0.1328125,
+                "low": -0.03125,
+                "high": 0.296875,
+                "blocks": 32
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "finalists": {
+    "fingerprint": "0adfdb98ca062014ec7f96d25fac2f621fc87635b94bf5accaa13fb55d89a7b9",
+    "candidates": [
+      {
+        "name": "golem-researched-form-3-5",
+        "label": "Researched form 3.5",
+        "parent": "golem-form",
+        "parameters": {
+          "standOffFraction": 1.257599436997322,
+          "patience": 1.8256517226934519,
+          "strikeBite": 0.8250000000000001,
+          "recoverSeconds": 0.32197603388681967,
+          "closeGain": 2.25,
+          "turnGain": 2.0194266202753792
+        }
+      },
+      {
+        "name": "golem-researched-guardian-3-4",
+        "label": "Researched guardian 3.4",
+        "parent": "golem-guardian",
+        "parameters": {
+          "standOffFraction": 0.9788198592176298,
+          "patience": 2.25,
+          "strikeBite": 0.5869047767532035,
+          "recoverSeconds": 0.2892259087764069,
+          "closeGain": 1.9168441575886606,
+          "turnGain": 2.3771799205512867
+        }
+      },
+      {
+        "name": "golem-researched-skirmisher-1-7",
+        "label": "Researched skirmisher 1.7",
+        "parent": "golem-skirmisher",
+        "parameters": {
+          "standOffFraction": 0.9731238696643324,
+          "patience": 1.6732408686661453,
+          "strikeBite": 0.495,
+          "recoverSeconds": 0.29990364487764126,
+          "closeGain": 2.25,
+          "turnGain": 3.25
+        }
+      }
+    ]
+  },
+  "browserReview": {
+    "fingerprint": "0adfdb98ca062014ec7f96d25fac2f621fc87635b94bf5accaa13fb55d89a7b9",
+    "candidates": [
+      {
+        "name": "golem-researched-form-3-5",
+        "candidateHash": "1e9f8ecd93e7f6af08726dad9b3836f44b83c61d9c4345d87ff72a47ade79e7c",
+        "accepted": true,
+        "reviewedAt": "2026-09-21T08:30:42Z",
+        "scenarios": [
+          "default mirror versus Fencer, candidate on each arena side",
+          "plated mirror versus Brawler",
+          "default mirror versus tuned Guardian"
+        ],
+        "notes": "Observed through the isolated arena page with the final unit-registry fix. Closed to fighting range, changed sword and shield poses, exchanged damaging attacks, and produced ordinary resolved fights; not an inert survival policy. Lost the left-side Fencer and plated Brawler examples, won the right-side Fencer example: these unseeded observations are qualitative and do not replace league evidence. The Guardian comparison showed different attack/guard poses and physical knockdown. Remote capture was about 1 fps, so this review does not establish animation smoothness. Camera framing occasionally obscured the action. Accepted as a measured style variant, not as a guaranteed winner for any build."
+      },
+      {
+        "name": "golem-researched-guardian-3-4",
+        "candidateHash": "01f03d4ec3022cb5bd8e2d689128de9ec9c19cda4f8af2c9121a4c47751e76d8",
+        "accepted": true,
+        "reviewedAt": "2026-09-21T08:30:42Z",
+        "scenarios": [
+          "default mirror versus Fencer, candidate on each arena side",
+          "wheel mirror versus Tactician",
+          "default mirror versus tuned Form"
+        ],
+        "notes": "Observed through the isolated arena page with the final unit-registry fix. Stayed engaged at close range, presented the shield between exchanges, inflicted damage and continued contesting after limb damage. The wheeled Tactician example opened in a prolonged shield bind but progressed to a damaging resolution; Guardian lost that example. The Form comparison included a clear Guardian strike/follow-through and opponent knockdown. Accepted as a distinct close-range defensive contender, with marginal overall confirmation evidence and no demonstrated unseen-opponent gain. Remote capture was about 1 fps; fluidity is not established by these sampled images, and these unseeded examples are not strength measurements."
+      }
+    ]
+  },
+  "budget": {
+    "usedMs": 24238918
+  },
+  "trainingOrigin": {
+    "fingerprint": "70455d35d299eca4ba0db0bdb788e4f76e4912d9e10ff91f538048d7de3acb28",
+    "sourceDirectory": "research/runs/2026-09-20",
+    "note": "Frozen finalists transferred without new selection. No bout results reused. Training/search history retains the source fingerprint; confirmation and ratings are recomputed."
+  }
+}

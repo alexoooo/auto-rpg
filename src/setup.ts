@@ -32,6 +32,15 @@ import type { PartsBin } from "./golem/parts-bin";
 import { mulberry32, randomSeed } from "./rng";
 import { unitDefinition } from "./units";
 import type { Side } from "./physics";
+import ratingArtifact from "./policy-ratings.json";
+import currentFingerprint from "virtual:ai-fingerprint";
+import { policyRatingLabel, policyRatingNote } from "./policy-rating";
+import researchedVariants from "./golem/researched-variants.json";
+
+const policyVersion = (name: string): string => {
+  const variant = (researchedVariants as { name: string }[]).find((row) => row.name === name);
+  return variant ? JSON.stringify(variant) : name;
+};
 
 /**
  * The nine `<select>`s a golem corner keeps behind its Customize toggle, and what each edits.
@@ -290,7 +299,7 @@ export class SetupScreen {
         <div class="corner-row">
           <label class="field">
             <span class="field-name">Policy</span>
-            <select data-side="${side}" data-field="policy"></select>
+            <select data-side="${side}" data-field="policy" aria-describedby="rating-${side}"></select>
           </label>
           <div class="field">
             <span class="field-name">Control</span>
@@ -302,6 +311,7 @@ export class SetupScreen {
             </span>
           </div>
         </div>
+        <p class="seed-note" id="rating-${side}" data-side="${side}" data-field="rating" aria-live="polite"></p>
         <div class="customize" data-side="${side}" data-wrap="customize" hidden>
           ${GOLEM_FIELDS.map(({ field, label }) => `
           <label class="field" data-side="${side}" data-wrap="${field}">
@@ -516,7 +526,9 @@ export class SetupScreen {
         ? definition.driverOptions
         : [{ name: setup.policy, label: `${setup.policy} (incompatible)` }, ...definition.driverOptions];
       this.policies[side].innerHTML = policyOptions
-        .map((driver) => `<option value="${driver.name}">${driver.label}</option>`).join("");
+        .map((driver) => `<option value="${driver.name}">${policyRatingLabel(driver.name, driver.label, ratingArtifact, currentFingerprint, policyVersion(driver.name))}</option>`).join("");
+      const ratingNote = this.host.querySelector<HTMLElement>(`[data-side="${side}"][data-field="rating"]`);
+      if (ratingNote) ratingNote.textContent = policyRatingNote(setup.policy, ratingArtifact, currentFingerprint, policyVersion(setup.policy));
       // **The caption is the build, in one line, and the seed is where it came from.** A corner
       // that is not a golem -- a Warrior put there from the console, or a link -- is captioned
       // by its unit and its hands rather than left blank, and has no pickers to open.
