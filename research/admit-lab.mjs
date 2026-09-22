@@ -12,6 +12,17 @@ import { atomicJson, lockRun, runJobs } from "./runner.mjs";
 import { summarize } from "./report.mjs";
 import { labFingerprint } from "./lab/experiments.mjs";
 import { compareEvidence } from "./lab/evidence.mjs";
+import { AUTHORIZATION, remainingAllowance } from "./lab/wave4-protocol.mjs";
+
+export function admissionAllowance(campaign, budget, requestedMs) {
+  if (campaign === "wave4") {
+    if (JSON.stringify(budget.authorization) !== JSON.stringify(AUTHORIZATION)) throw new Error("wrong campaign authorization");
+    return remainingAllowance(budget.usedMs, requestedMs);
+  }
+  if (campaign !== "wave3") throw new Error("unknown admission campaign");
+  if (!Number.isFinite(budget.usedMs) || budget.usedMs < 0) throw new Error("invalid campaign usage");
+  return Math.max(0, Math.min(requestedMs, 8 * 3600000 - budget.usedMs));
+}
 
 export function admissionEvidence(proposal, candidate, control, current) {
   validatePublishedLabPolicy(proposal.entry);
@@ -70,10 +81,14 @@ async function main() {
   const evidence = admissionEvidence(proposal, candidate, control, currentLab);
   const seconds = Number(flags.seconds ?? 1800), workers = Number(flags.workers ?? 4);
   if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 3600 || !Number.isInteger(workers) || workers < 1 || workers > 8) throw new Error("invalid admission resource request");
-  const budgetDirectory = join(ROOT, "research/runs/wave3-budget");
+  const campaign = flags.campaign ?? "wave3";
+  if (!["wave3", "wave4"].includes(campaign)) throw new Error("unknown admission campaign");
+  const budgetDirectory = join(ROOT, `research/runs/${campaign}-budget`);
   const unlock = lockRun(budgetDirectory), budgetPath = join(budgetDirectory, "budget.json");
   const budget = existsSync(budgetPath) ? read(budgetPath) : { usedMs: 0, runs: [] }, started = Date.now();
-  const remaining = Math.min(seconds * 1000, 8 * 3600000 - budget.usedMs);
+  let remaining;
+  try { remaining = admissionAllowance(campaign, budget, seconds * 1000); }
+  catch (error) { unlock(); throw error; }
   const save = () => atomicJson(budgetPath, { ...budget, usedMs: budget.usedMs + Date.now() - started });
   const timer = setInterval(save, 1000);
   let status = "failed";

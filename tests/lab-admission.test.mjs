@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { admissionEvidence, validateEvaluationSources } from "../research/admit-lab.mjs";
+import { admissionEvidence, validateEvaluationSources, admissionAllowance } from "../research/admit-lab.mjs";
+import { AUTHORIZATION } from "../research/lab/wave4-protocol.mjs";
 import { digest } from "../research/schedule.mjs";
 import { validatePublishedLabPolicy } from "../src/golem/researched-lab-policies.ts";
 import { constantResidual, POSE_FIELDS } from "../research/constant-search.mjs";
@@ -18,6 +19,17 @@ function fixture() {
     control: { policy: { kind: "baseline", name: "golem-duelist" }, split: "dual-confirmation", maxSeconds: 150,
       rows: rows.map((r) => ({ ...r, score: 0 })) } };
 }
+
+test("admission uses the authorized campaign's remaining cumulative allowance", () => {
+  const budget = { authorization: AUTHORIZATION, usedMs: AUTHORIZATION.maxMs - 1250 };
+  assert.equal(admissionAllowance("wave4", budget, 3600000), 1250);
+  assert.equal(admissionAllowance("wave4", { ...budget, usedMs: AUTHORIZATION.maxMs }, 1000), 0);
+  assert.throws(() => admissionAllowance("wave4", { usedMs: 0 }, 1000), /authorization/);
+  assert.throws(() => admissionAllowance("wave4", { ...budget, usedMs: -1 }, 1000), /allowance/);
+  assert.throws(() => admissionAllowance("wave4", budget, 3600001), /allowance/);
+  assert.throws(() => admissionAllowance("elsewhere", budget, 1000), /campaign/);
+  assert.equal(admissionAllowance("wave3", { usedMs: 500 }, 1000), 1000);
+});
 
 test("admission checks both evaluation manifests rather than trusting the proposal's fingerprint", () => {
   const proposal = { labFingerprint: "current", candidateEvaluation: "research/runs/candidate/evaluation.json",
