@@ -1,3 +1,5 @@
+import type { ShellLook } from "./effectors/shell.ts";
+
 /**
  * The golem tuning surface: one exported block per module or subsystem id.
  *
@@ -1109,6 +1111,8 @@ export const CHAIN_REACH = {
    * `reachNeutral` survives above, where it is now only the build pose.
    */
 
+  /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
+  look: "carved" as ShellLook,
 };
 
 /**
@@ -1519,6 +1523,8 @@ export const CHAIN_WRIST = {
    */
   linearDamping: 0.7,
   angularDamping: 3,
+  /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
+  look: "carved" as ShellLook,
 };
 
 /**
@@ -2250,6 +2256,8 @@ export const TERMINAL_FIST = {
    */
   health: 120,
   vitalityWeight: 0.4,
+  /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
+  look: "carved" as ShellLook,
 };
 
 /**
@@ -2968,6 +2976,8 @@ export const LOCOMOTION_BIPED = {
    * 2026-09-04, the Node bench.
    */
   riseBudgetSeconds: 1.60,
+  /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
+  look: "carved" as ShellLook,
 };
 
 /**
@@ -3148,6 +3158,8 @@ export const TORSO_WAIST = {
    * angle exactly as `CHAIN_PITCH.settledBand` is. 2026-09-04.
    */
   settledBand: 0.02,
+  /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
+  look: "carved" as ShellLook,
 };
 
 /**
@@ -3235,6 +3247,8 @@ export const TORSO_PLAIN = {
    */
   leanMax: 0.42,
   twistMax: 0.55,
+  /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
+  look: "carved" as ShellLook,
 };
 
 /**
@@ -3295,6 +3309,8 @@ export const TORSO_PLATED = {
    */
   leanMax: 0.28,
   twistMax: 0.34,
+  /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
+  look: "carved" as ShellLook,
 };
 
 /**
@@ -3493,6 +3509,8 @@ export const HEAD_NECK = {
   angularDamping: 3,
   /** The first published axis of a head is the pitch, in radians. 2026-09-04. */
   settledBand: 0.02,
+  /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
+  look: "carved" as ShellLook,
 };
 
 /**

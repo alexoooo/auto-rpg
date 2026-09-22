@@ -33,7 +33,8 @@ import {
 import { slewTowards } from "../anchor-drive.ts";
 import { BENCH_STAND_LOCOMOTION, LOCOMOTION_BIPED } from "../config.ts";
 import { materialForGolemRole } from "../materials.ts";
-import { boneShell } from "../effectors/shell.ts";
+import { boneFootShell, bonePelvisShell } from "../bone-shells.ts";
+import { LIMB_SHELL, type ShellLook } from "../effectors/shell.ts";
 import {
   NO_STROKES,
   type EffectorView,
@@ -512,11 +513,23 @@ return defineLocomotion({
       band.rotationQuaternion = Quaternion.Identity();
       return Object.freeze([band]);
     };
+    // The pelvis and the foot differ in shape between the looks, so each has its own record. A
+    // carved pelvis is its own collider, drawn, as it always was.
+    const pelvisShell: Readonly<Record<ShellLook, () => readonly AbstractMesh[]>> = {
+      carved: () => Object.freeze([pelvis.mesh]),
+      bone: () => bonePelvisShell(ctx.scene, { name: pelvis.name, host: pelvis.mesh,
+        width: B.pelvisWidth, height: B.pelvisHeight, depth: B.pelvisDepth, materials: ctx.materials }),
+    };
+    const footShell: Readonly<Record<ShellLook, (leg: BipedLeg, suffix: string) => readonly AbstractMesh[]>> = {
+      carved: footPlate,
+      bone: (leg) => boneFootShell(ctx.scene, { name: leg.foot.name, host: leg.foot.mesh,
+        length: B.footLength, width: B.footWidth, height: B.footHeight, materials: ctx.materials }),
+    };
 
     const parts: GolemPart[] = [Object.freeze({
       id: pelvis.name,
       part: pelvis,
-      shell: Object.freeze([pelvis.mesh]),
+      shell: pelvisShell[B.look](),
       health: B.pelvisHealth,
       vitalityWeight: B.pelvisVitalityWeight,
       // **The one fatal part in the module.** Losing an effector costs a golem an arm; losing the
@@ -525,15 +538,15 @@ return defineLocomotion({
     })];
     for (const [index, leg] of legs.entries()) {
       const suffix = index === 0 ? "L" : "R";
-      const thighShell = boneShell(ctx.scene, {
+      const thighShell = LIMB_SHELL[B.look](ctx.scene, {
         name: leg.thigh.name, host: leg.thigh.mesh, length: B.thighLength,
         radius: B.thighRadius, taper: 0.32, materials: ctx.materials,
       });
-      const shinShell = boneShell(ctx.scene, {
+      const shinShell = LIMB_SHELL[B.look](ctx.scene, {
         name: leg.shin.name, host: leg.shin.mesh, length: B.shinLength,
         radius: B.shinRadius, taper: 0.28, materials: ctx.materials,
       });
-      const plate = footPlate(leg, suffix);
+      const plate = footShell[B.look](leg, suffix);
       shells.push(...thighShell, ...shinShell, ...plate);
       parts.push(
         Object.freeze({ id: leg.thigh.name, part: leg.thigh, shell: thighShell,

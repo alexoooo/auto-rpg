@@ -20,7 +20,7 @@ import {
   type ModuleBuild,
   type ReachEnvelope,
 } from "../../module.ts";
-import { ballShell, boneShell } from "../shell.ts";
+import { JOINT_SHELL, LIMB_SHELL } from "../shell.ts";
 
 /**
  * Continuous task-space commands mapped to a coordinated physical arm. The shoulder yaw,
@@ -435,7 +435,7 @@ export function buildArmCore(
     Object.freeze({
       id: collar.name,
       part: collar,
-      shell: ballShell(ctx.scene, {
+      shell: JOINT_SHELL[R.look](ctx.scene, {
         name: collar.name, host: collar.mesh, radius: R.collarRadius,
         band: "across", materials: ctx.materials,
       }),
@@ -447,7 +447,7 @@ export function buildArmCore(
     Object.freeze({
       id: upper.name,
       part: upper,
-      shell: boneShell(ctx.scene, {
+      shell: LIMB_SHELL[R.look](ctx.scene, {
         name: upper.name, host: upper.mesh, length: R.upperLength,
         radius: R.upperRadius, taper: 0.34, materials: ctx.materials,
       }),
@@ -459,7 +459,7 @@ export function buildArmCore(
     Object.freeze({
       id: fore.name,
       part: fore,
-      shell: boneShell(ctx.scene, {
+      shell: LIMB_SHELL[R.look](ctx.scene, {
         name: fore.name, host: fore.mesh, length: R.foreLength,
         radius: R.foreRadius, taper: 0.30, materials: ctx.materials,
       }),

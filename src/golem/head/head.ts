@@ -15,7 +15,8 @@ import { COLLIDES, LAYER } from "../../physics.ts";
 import { boxPart, capsulePart, joint, type Part } from "../../rig.ts";
 import { slewTowards } from "../anchor-drive.ts";
 import { HEAD_NECK } from "../config.ts";
-import { boneShell } from "../effectors/shell.ts";
+import { skullShell } from "../bone-shells.ts";
+import { LIMB_SHELL, type ShellLook } from "../effectors/shell.ts";
 import { RigidStrike } from "../effectors/striker.ts";
 import { materialForGolemRole, type GolemMaterialPalette } from "../materials.ts";
 import {
@@ -170,6 +171,10 @@ function headShell(scene: Scene, options: {
 
   return Object.freeze(made);
 }
+
+/** The head's own shell for each look: the carved block, or a skull. */
+const HEAD_SHELL: Readonly<Record<ShellLook, typeof headShell>> =
+  Object.freeze({ carved: headShell, bone: skullShell });
 
 /**
  * Declare a head option.
@@ -331,7 +336,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
         Object.freeze({
           id: neck.name,
           part: neck,
-          shell: boneShell(ctx.scene, {
+          shell: LIMB_SHELL[N.look](ctx.scene, {
             name: neck.name, host: neck.mesh, length: N.neckLength,
             radius: N.neckRadius, taper: 0.30, materials: ctx.materials,
           }),
@@ -342,7 +347,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
         Object.freeze({
           id: head.name,
           part: head,
-          shell: headShell(ctx.scene, {
+          shell: HEAD_SHELL[N.look](ctx.scene, {
             name: head.name, host: head.mesh, materials: ctx.materials, table: N,
           }),
           health: N.headHealth,

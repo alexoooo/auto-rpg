@@ -4,6 +4,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
+import { boneKnuckle, boneShaft } from "../bone-shells.ts";
 import { materialForGolemRole, type GolemMaterialPalette } from "../materials.ts";
 
 /**
@@ -286,3 +287,20 @@ export function swordHiltShell(scene: Scene, o: { name: string; host: Mesh; mate
     attach(guard, o.host, new Vector3(0, o.bladeBase, 0)),
     attach(pommel, o.host, new Vector3(0, o.bladeBase - 2 * o.gripToBlade, 0))];
 }
+
+/**
+ * How a module's shells are drawn: `carved` is stone, `bone` is a skeleton.
+ *
+ * A table carries its look and each call site indexes a total record by it, never a ternary, so a
+ * look added here without a builder at some site is a compile error at that site. A look is
+ * cosmetic for the reason every shell is: it changes what a part looks like and nothing it does.
+ */
+export type ShellLook = "carved" | "bone";
+
+/** A limb bone: a carved slab with a ridge and bearing, or a bone shaft with two condyles. */
+export const LIMB_SHELL: Readonly<Record<ShellLook, (scene: Scene, options: BoneShellOptions) => readonly AbstractMesh[]>> =
+  Object.freeze({ carved: boneShell, bone: boneShaft });
+
+/** A bearing: a stone ball with a bronze band, or a bone knuckle. */
+export const JOINT_SHELL: Readonly<Record<ShellLook, (scene: Scene, options: BallShellOptions) => readonly AbstractMesh[]>> =
+  Object.freeze({ carved: ballShell, bone: boneKnuckle });

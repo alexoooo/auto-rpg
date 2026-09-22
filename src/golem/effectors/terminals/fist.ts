@@ -14,7 +14,7 @@ import {
   type GolemPart,
   type ModuleBuild,
 } from "../../module.ts";
-import { ballShell } from "../shell.ts";
+import { JOINT_SHELL } from "../shell.ts";
 import { RigidStrike } from "../striker.ts";
 
 /**
@@ -105,7 +105,7 @@ export const fistDefinition = (
         // because the band is a bracelet about the limb's own axis and not a bearing across it.
         shell: Object.freeze([
           part.mesh,
-          ...ballShell(ctx.scene, {
+          ...JOINT_SHELL[F.look](ctx.scene, {
             name, host: part.mesh, radius: F.radius, band: "along", materials: ctx.materials,
           }),
         ]),

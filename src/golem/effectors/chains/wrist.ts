@@ -25,7 +25,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../../module.ts";
-import { ballShell, boneShell } from "../shell.ts";
+import { JOINT_SHELL, LIMB_SHELL } from "../shell.ts";
 import { ARM_STROKES, LIMB_MOUNT, buildArmCore } from "./arm-core.ts";
 
 const HINGE = PhysicsConstraintAxis.ANGULAR_X;
@@ -222,7 +222,7 @@ export function wristChainFrom<K extends ChainId>(
         Object.freeze({
           id: ring.name,
           part: ring,
-          shell: ballShell(ctx.scene, {
+          shell: JOINT_SHELL[W.look](ctx.scene, {
             name: ring.name, host: ring.mesh, radius: W.ringRadius,
             axleLength: W.ringLength,
             // Along the limb, because that is the axis this bearing turns about. A band drawn
@@ -237,7 +237,7 @@ export function wristChainFrom<K extends ChainId>(
         Object.freeze({
           id: link.name,
           part: link,
-          shell: boneShell(ctx.scene, {
+          shell: LIMB_SHELL[W.look](ctx.scene, {
             name: link.name, host: link.mesh, length: W.wristLength,
             radius: W.wristRadius, taper: 0.26, materials: ctx.materials,
           }),

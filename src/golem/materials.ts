@@ -24,13 +24,14 @@ import {
 export type GolemShellStyle = "plate" | "collar" | "bearing" | "piston" | "core" | "support";
 
 export type GolemFaction = "left" | "right";
-export type GolemSurfaceFamily = "carvedStone" | "functionalMetal" | "golemWood" | "rune";
+export type GolemSurfaceFamily = "carvedStone" | "functionalMetal" | "golemWood" | "rune" | "bone";
 export type GolemSurfaceRole = "shell" | "armour" | "joint" | "mount" | "trim" | "rune";
 export type GolemMaterialRecipeKey =
   | "carved-stone"
   | "functional-bronze"
   | "golem-wood"
-  | "rune-inlay";
+  | "rune-inlay"
+  | "carved-bone";
 
 export interface GolemMaterialPalette {
   readonly faction: GolemFaction;
@@ -39,6 +40,13 @@ export interface GolemMaterialPalette {
   readonly functionalMetal: PBRMaterial;
   readonly golemWood: PBRMaterial;
   readonly rune: PBRMaterial;
+  /**
+   * A skeleton's bone. **Created on first read, not with the palette**, so a stone or human
+   * scene has exactly the four materials it always had: the lifecycle audits in
+   * `tests/arena.test.mjs` and `tests/golem-arena.test.mjs` count `scene.materials`, and the
+   * body fingerprint cannot see a material. Reading it from a disposed palette throws.
+   */
+  readonly bone: PBRMaterial;
   readonly plugins: readonly GolemProceduralSurfacePlugin[];
   readonly disposed: boolean;
   dispose(): void;
@@ -139,6 +147,16 @@ export const GOLEM_MATERIAL_PROFILES = Object.freeze({
     albedoByFaction: { left: [0.72, 0.35, 0.12], right: [0.33, 0.47, 0.58] },
     metallic: 0.42,
     roughness: 0.66,
+    emissive: false,
+    grain: null,
+  },
+  "carved-bone": {
+    family: "bone",
+    // Ivory, warmer on the left and cooler on the right. A skeleton's faction colour is carried
+    // mostly by its rune eyes, so the two bones differ only enough to tell apart in a mirror.
+    albedoByFaction: { left: [0.80, 0.74, 0.62], right: [0.72, 0.73, 0.74] },
+    metallic: 0,
+    roughness: 0.62,
     emissive: false,
     grain: null,
   },
@@ -281,6 +299,19 @@ export function golemMaterials(
   ]);
 
   let disposed = false;
+  // No procedural plugin: the shader has stone, bronze, plain and rune families and no bone one,
+  // so a bone shows no wear cracks. `plugins` stays four long.
+  let bone: PBRMaterial | null = null;
+  const boneMaterial = (): PBRMaterial => {
+    if (disposed) throw new Error(`golem.${faction} palette is disposed`);
+    if (bone) return bone;
+    const profile = GOLEM_MATERIAL_PROFILES["carved-bone"];
+    bone = material(scene, `golem.${faction}.carved-bone`, profile.albedoByFaction[faction]);
+    bone.metallic = profile.metallic;
+    bone.roughness = profile.roughness;
+    bone.metadata = { golemSurfaceFamily: "bone" };
+    return bone;
+  };
   const palette: GolemMaterialPalette = {
     faction,
     surface,
@@ -288,11 +319,13 @@ export function golemMaterials(
     functionalMetal,
     golemWood,
     rune,
+    get bone() { return boneMaterial(); },
     plugins,
     get disposed() { return disposed; },
     dispose() {
       if (disposed) return;
       disposed = true;
+      bone?.dispose(false, false);
       carvedStone.dispose(false, false);
       functionalMetal.dispose(false, false);
       golemWood.dispose(false, false);

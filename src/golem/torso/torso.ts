@@ -13,7 +13,8 @@ import type { Striking } from "../../combat.ts";
 import { boxPart, capsulePart, joint } from "../../rig.ts";
 import { slewTowards } from "../anchor-drive.ts";
 import { TORSO_WAIST } from "../config.ts";
-import { ballShell } from "../effectors/shell.ts";
+import { ribcageShell } from "../bone-shells.ts";
+import { JOINT_SHELL, type ShellLook } from "../effectors/shell.ts";
 import { materialForGolemRole, type GolemMaterialPalette } from "../materials.ts";
 import {
   NO_STROKES,
@@ -99,6 +100,8 @@ export interface TorsoTuning {
   /** Radians of lean and twist at a commanded magnitude of 1. */
   readonly leanMax: number;
   readonly twistMax: number;
+  /** How the core and its sockets are drawn. See `ShellLook`. */
+  readonly look: ShellLook;
 }
 
 /**
@@ -188,6 +191,10 @@ function torsoShell(scene: Scene, options: {
   return Object.freeze(made);
 }
 
+/** The core's own shell for each look: the carved chest, or a ribcage. */
+const CORE_SHELL: Readonly<Record<ShellLook, typeof torsoShell>> =
+  Object.freeze({ carved: torsoShell, bone: ribcageShell });
+
 /**
  * Declare a torso option.
  *
@@ -276,7 +283,7 @@ export function torsoModule(
         Object.freeze({
           id: ball.name,
           part: ball,
-          shell: ballShell(ctx.scene, {
+          shell: JOINT_SHELL[W.look](ctx.scene, {
             name: ball.name, host: ball.mesh, radius: W.ballRadius,
             // Across, because this bearing's *visible* axis is the lean it carries; the twist
             // below it turns about the column and has no band of its own to draw.
@@ -289,7 +296,7 @@ export function torsoModule(
         Object.freeze({
           id: core.name,
           part: core,
-          shell: torsoShell(ctx.scene, {
+          shell: CORE_SHELL[T.look](ctx.scene, {
             name: core.name, host: core.mesh, tuning: T, materials: ctx.materials,
           }),
           health: T.coreHealth,
