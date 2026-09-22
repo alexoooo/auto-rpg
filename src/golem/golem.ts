@@ -165,6 +165,8 @@ interface MountedEffector {
 }
 
 export interface GolemOptions {
+  /** Unique actor namespace; omitted arena callers retain their historical part IDs. */
+  readonly actorId?: string;
   readonly side: Side;
   readonly origin: Vector3;
   readonly facing: number;
@@ -248,6 +250,7 @@ const blankBody = (): BodyView => ({
 });
 
 export class Golem implements Combatant {
+  readonly actorId?: string;
   readonly kind = "golem" as const;
   /** Not a humanoid, and it does not pretend to be one. See `Combatant.articulated`. */
   readonly articulated = null;
@@ -313,8 +316,9 @@ export class Golem implements Combatant {
 
   constructor(scene: Scene, options: GolemOptions) {
     this.side = options.side;
+    this.actorId = options.actorId;
     const setup = options.setup;
-    const name = `${options.side}.golem`;
+    const name = options.actorId ? `${options.actorId}.golem` : `${options.side}.golem`;
     const layers = golemLayersFor(options.side);
     // **`procedural-pbr`, so that wear is visible at all.** The salvaged damage-wear shader is what
     // draws a worn module -- cracks darkening below a health ratio of 0.75 and at their worst by
@@ -821,14 +825,14 @@ export class Golem implements Combatant {
     describe(into: BodyView): void;
     nearestPartTo(point: Vector3): number;
     publishProjectiles(into: ProjectileView[], at: number, owner: "self" | "opponent"): number;
-  }, clock: number): void {
+  } | null, clock: number): void {
     this.locomotionModule.beginSubstep();
     this.describe(this.view.self);
-    opponent.describe(this.view.opponent);
-    this.view.measure = opponent.nearestPartTo(this.view.self.shoulder);
+    if (opponent) opponent.describe(this.view.opponent);
+    this.view.measure = opponent ? opponent.nearestPartTo(this.view.self.shoulder) : Infinity;
     this.view.clock = clock;
     this.view.projectiles.length =
-      opponent.publishProjectiles(this.view.projectiles, 0, "opponent");
+      opponent ? opponent.publishProjectiles(this.view.projectiles, 0, "opponent") : 0;
   }
 
   /**

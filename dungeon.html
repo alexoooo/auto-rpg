@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Depths · Golem Dungeon</title>
+  <link rel="stylesheet" href="/src/dungeon/style.css" />
+</head>
+<body>
+  <canvas id="dungeon" aria-label="Dungeon game" tabindex="0"></canvas>
+  <header class="topbar">
+    <a href="./index.html" class="brand">THE FORGE <span>/ THE DEPTHS</span></a>
+    <div class="objective"><span class="diamond">◇</span> FIND THE EXIT <small id="seed-label"></small></div>
+    <button id="pause-button" type="button">Pause <kbd>Esc</kbd></button>
+  </header>
+  <section id="target-panel" hidden aria-label="Selected enemy"><span id="target-name"></span><progress id="target-hp" max="1" value="1"></progress></section>
+  <div id="notice" role="status">Preparing the dungeon…</div>
+  <footer class="bottom-bar">
+    <section class="hero-panel"><span class="eyebrow">YOUR GOLEM</span><strong id="hero-name">Stone wanderer</strong>
+      <div class="health"><progress id="hero-hp" max="1" value="1"></progress><span id="hp-label">100% HP</span></div>
+    </section>
+    <section class="control-panel"><span class="eyebrow">TAKE CONTROL</span>
+      <div class="switches"><label><input id="keyboard" type="checkbox" /> Keyboard movement</label><label><input id="facing" type="checkbox" /> Mouse facing</label></div>
+      <small id="control-help">Click to attack-move · click an enemy to lock on · drag to force move</small>
+    </section>
+    <button id="help-button" type="button" aria-expanded="false">Controls <kbd>?</kbd></button>
+  </footer>
+  <section id="start-panel" class="dialog" aria-labelledby="start-title">
+    <span class="eyebrow">A GOLEM DUNGEON RUN</span><h1 id="start-title">Into the depths.</h1>
+    <p>Stone corridors. Unfamiliar enemies.<br />One way out. Your golem fights — you choose the way.</p>
+    <label class="field">Your golem <select id="hero-build"></select></label>
+    <label class="field">Dungeon seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
+    <button id="start" class="primary" disabled>Preparing Havok…</button>
+    <small>Physical combat · one floor · no upgrades or saved progress</small>
+  </section>
+  <section id="pause-panel" class="dialog compact" hidden aria-labelledby="pause-title">
+    <span class="eyebrow">THE DEPTHS</span><h2 id="pause-title">Paused</h2><p id="pause-copy">Your run is frozen.</p>
+    <button id="resume" class="primary">Resume</button><button id="retry">Retry same seed</button><button id="new-run">New dungeon</button>
+    <a href="./index.html">Return to arena →</a>
+  </section>
+  <section id="help" class="dialog help" hidden>
+    <h2>Your golem fights automatically.</h2>
+    <p>With both switches off, <b>click the floor</b> to attack-move, <b>click an enemy</b> to lock on, or <b>drag a route</b> to keep moving through danger. The hero follows while you draw.</p>
+    <p><b>Keyboard movement</b> uses WASD or arrows, relative to the screen. <b>Mouse facing</b> turns toward the cursor. Each switch gives its channel to you and leaves the other to the AI. With mouse facing alone, the hero explores automatically.</p>
+    <p>Attacks and counters are always automatic. Brief dodges may adjust movement. Doors open on approach. Reach the green exit circle to escape.</p>
+    <p><b>Wheel</b> zooms · <b>Space / Esc</b> pauses · <b>?</b> closes this help.</p><button id="close-help">Got it</button>
+  </section>
+  <script type="module" src="/src/dungeon/main.ts"></script>
+</body>
+</html>

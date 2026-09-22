@@ -17,6 +17,30 @@ This repository is the whole game. See [AGENTS.md](AGENTS.md) for the working no
 [Play the game](https://alexoooo.github.io/auto-rpg/) in your browser.
 The [module bench](https://alexoooo.github.io/auto-rpg/bench.html) is also available.
 
+## Dungeon mode — The Depths
+
+Choose **Enter the Depths** from arena setup, or open `/dungeon.html`. Pick a golem and a seed,
+then explore a generated floor of seven rooms with eight enemy golems. Doors open on approach;
+reach the green exit circle to win. Wounds persist until the run ends. Retry preserves the seed
+and build; New dungeon generates another floor. This mode has no saved progression or loot.
+
+Attacks and counters are automatic. With both control switches off, click the floor to
+attack-move, click an enemy to lock on, or drag to draw a force-move route. The hero follows
+while you draw and can counterattack or briefly evade without stopping to trade blows.
+
+| Keyboard movement | Mouse facing | Controls |
+| --- | --- | --- |
+| Off | Off | Mouse orders; AI faces and fights |
+| On | Off | WASD/arrows move relative to the screen; AI faces and fights |
+| Off | On | Cursor controls facing; AI explores, moves and fights |
+| On | On | WASD/arrows move, cursor controls facing; AI fights |
+
+Either switch disables mouse movement orders. The hero picker includes builds that support
+sideways movement; wheel golems remain in the enemy roster. Wheel zooms the isometric camera.
+Space/Esc pauses and resumes; focus loss pauses without automatically resuming.
+
+The pure dungeon rules and the real-Havok dungeon tests run with `npm test`.
+
 GitHub Actions tests and builds each push to `main`, then publishes `dist/` to GitHub Pages.
 In repository Settings > Pages, the deployment source must be **GitHub Actions**.
 The workflow builds with `npm run build -- --base=/auto-rpg/`; public asset URLs follow

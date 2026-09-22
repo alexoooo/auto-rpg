@@ -501,6 +501,25 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     this.pairOccupancyClear = true;
   }
 
+  get footprint(): LocomotionFootprint { return this.carrier.footprint; }
+
+  /** Dungeon recovery must clear every neighbour, including fallen actors. */
+  updateGroupOccupancy(others: readonly PhysicalSupportedLocomotionPort[]): void {
+    const here = this.supportState.state === "fallen" ? this.options.root.sample().position : this.carrier.state;
+    const blocked = others.find(other => {
+      const there = other.supportState.state === "fallen" ? other.options.root.sample().position : other.carrier.state;
+      return Math.hypot(there.x - here.x, there.z - here.z) < this.carrier.footprint.radiusM + other.carrier.footprint.radiusM - 1e-9;
+    });
+    this.pairOccupancyClear = true;
+    if (!blocked && this.supportState.state !== "rising") this.recoveryPairTarget = null;
+    if (blocked) this.updatePairOccupancy(blocked);
+    const target = this.recoveryPairTarget;
+    if (target && others.some(other => {
+      const there = other.supportState.state === "fallen" ? other.options.root.sample().position : other.carrier.state;
+      return Math.hypot(there.x - target.x, there.z - target.z) < this.carrier.footprint.radiusM + other.carrier.footprint.radiusM - 1e-9;
+    })) { this.pairOccupancyClear = false; this.recoveryPairTarget = null; }
+  }
+
   commitPhysical(proposal: CarrierProposal, allowed: HorizontalMove, dt: number): void {
     this.carrier.commit(proposal, allowed);
     const requested = this.staged.sample().request;

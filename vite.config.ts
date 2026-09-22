@@ -25,6 +25,6 @@ export default defineConfig({
     // fine in dev -- where every request is served from source -- and is simply absent from
     // `dist`, which is the failure that looks like a routing problem and is a config one.
     // `bench.html` is the golem effector bench.
-    rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html" } },
+    rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html", dungeon: "dungeon.html" } },
   },
 });

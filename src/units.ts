@@ -37,6 +37,7 @@ export interface AnatomyDefinition {
 }
 
 export interface CombatantBuild {
+  readonly actorId?: string;
   readonly scene: Scene;
   readonly side: Side;
   readonly origin: Vector3;
@@ -125,6 +126,7 @@ export interface DrivableCombatant {
  * registry instead of making the host switch on their kind.
  */
 export interface Combatant {
+  readonly actorId?: string;
   readonly kind: UnitKind;
   readonly side: Side;
   readonly control: ControlEndpoint;
@@ -381,6 +383,7 @@ const golem: UnitDefinition = Object.freeze({
   ...defaultGolemDimensions(),
   createPolicy: (name: string, seed?: number) => policyFactory("golem", golem.driverOptions)(name, seed),
   build: (ctx: CombatantBuild) => new Golem(ctx.scene, {
+    actorId: ctx.actorId,
     side: ctx.side,
     origin: ctx.origin,
     facing: ctx.facing,

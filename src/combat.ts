@@ -153,6 +153,8 @@ export interface ProjectileImpactEvidence {
 }
 
 export interface HitReport {
+  /** Present in multi-actor hosts, including on parries that have no limb key. */
+  targetId?: string;
   /**
    * Which side landed it. A bout that ends has to be able to say who won and
    * how, and the report of the blow that ended it is the only place that knows.
@@ -336,6 +338,7 @@ export class Combat {
    */
   private readonly watching: { weapon: Striking; remove: () => void }[] = [];
   private target: Combatant | null = null;
+  private targetResolver: ((body: PhysicsBody) => Combatant | null) | null = null;
   private clock = 0;
   /**
    * Each physical effector gets one parry cadence. A blade resting on a guard still cannot fill
@@ -411,7 +414,14 @@ export class Combat {
    * body if the masks are ever loosened.
    */
   attach(target: Combatant): void {
+    this.targetResolver = null;
     this.target = target;
+  }
+
+  /** Multi-actor hosts resolve the struck body, independently of policy target selection. */
+  attachResolver(resolve: (body: PhysicsBody) => Combatant | null): void {
+    this.targetResolver = resolve;
+    this.target = null;
   }
 
   /**
@@ -472,6 +482,7 @@ export class Combat {
   private onContact(weapon: Striking, event: IPhysicsCollisionEvent): void {
     if (!this.active) return;
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
+    if (this.targetResolver) this.target = this.targetResolver(event.collidedAgainst);
     const refusal = weapon.refusalForContact?.(event.collidedAgainst) ?? null;
     if (refusal !== null) {
       this.onRefusal?.({ reason: refusal, effectorId: weapon.effectorId, at: this.clock });
@@ -579,6 +590,7 @@ export class Combat {
     const point = event.point as Vector3;
     const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
     const report: HitReport = {
+      ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
       weapon: weapon.kind,
       limb: PARRY_LABEL[stopped.kind],
@@ -711,6 +723,7 @@ export class Combat {
     }, weapon.kind);
 
     const base = {
+      ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
       limb: limb.label,
       key: limb.key,
