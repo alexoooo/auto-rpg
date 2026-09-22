@@ -1,4 +1,5 @@
 import { CONFIG } from "./config";
+import { turnHand } from "./golem/humanoid/orientation.ts";
 // The hand vocabulary lives in `mind.ts`, not here, and so does the combat
 // command itself. The direction of these imports is the point. `mind.ts` is the
 // simulation side of the directory and takes only `HumanOwnership` from this
@@ -278,6 +279,7 @@ export class Controls {
     }
     if (this.ownership.drivenWrist) {
       const hand = this.state[this.state.actingHand];
+      turnHand(hand, axis("KeyZ", "KeyX"), axis("KeyT", "KeyY"), axis("KeyU", "KeyI"), dt);
       hand.roll = slew(hand.roll, axis("KeyZ", "KeyX"), Ctl.wristSlewPerSecond);
       hand.wristBend = slew(hand.wristBend, axis("KeyT", "KeyY") > 0 ? 1 : 0, Ctl.wristSlewPerSecond);
     }

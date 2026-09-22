@@ -29,6 +29,7 @@ import {
 } from "./golem/build";
 import { randomViableGolemSetup, randomViableOpponent, unviablePairNote } from "./golem/viability";
 import type { PartsBin } from "./golem/parts-bin";
+import { humanSetup } from "./golem/humanoid/presets.ts";
 import { mulberry32, randomSeed } from "./rng";
 import { unitDefinition } from "./units";
 import { POLICIES } from "./mind";
@@ -299,6 +300,7 @@ export class SetupScreen {
         <div class="corner-actions">
           <button class="action" type="button" data-side="${side}" data-field="randomize">Randomize</button>
           <button class="action quiet" type="button" data-side="${side}" data-field="customize">Customize</button>
+          <button class="action quiet" type="button" data-side="${side}" data-field="human">Human warrior</button>
         </div>
         <div class="corner-row">
           <label class="field">
@@ -433,6 +435,13 @@ export class SetupScreen {
       case "partsBinReset":
         this.emptyBin();
         break;
+      case "human": {
+        const side = target.dataset.side as Side;
+        if (side !== "left" && side !== "right") return;
+        this.matchup = withGolemBuild(this.matchup, side, humanSetup(), randomSeed());
+        this.matchup = withPolicy(this.matchup, side, "humanoid-duelist");
+        break;
+      }
       case "randomize": {
         const side = target.dataset.side as Side | undefined;
         if (side !== "left" && side !== "right") return;

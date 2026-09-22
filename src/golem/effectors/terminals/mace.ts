@@ -42,20 +42,20 @@ import { RigidStrike } from "../striker.ts";
  * shape itself and `sever` can rewrite them. The head is drawn by the shell, wider than the
  * collider, which is stated beside `TERMINAL_MACE.headDiameter` together with what it costs.
  */
-export const maceTerminal = defineTerminal({
+export const maceDefinition = (config: typeof TERMINAL_MACE = TERMINAL_MACE) => defineTerminal({
   id: "mace",
   sockets: 1,
   bite: "mass",
   label: "mace",
-  massKg: TERMINAL_MACE.mass,
+  massKg: config.mass,
   // One socket, one body, and only the wrist's bend taken away: a mace on the end of an arm
   // reaches everywhere the arm does and swings and rolls with it. The two-socket bar this
   // replaced pinned the swing and the roll as well; getting those back is the whole of the
-  // rebuild, and why the bend stays pinned is beside `TERMINAL_MACE.limits`.
-  limits: TERMINAL_MACE.limits,
+  // rebuild, and why the bend stays pinned is beside `config.limits`.
+  limits: config.limits,
 
   build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal {
-    const M = TERMINAL_MACE;
+    const M = config;
     const name = `${ctx.name}.mace`;
     const half = M.length / 2;
     /** Where the drawn head sits along the bar's own +Y, from its centre. */
@@ -153,3 +153,5 @@ export const maceTerminal = defineTerminal({
     });
   },
 });
+
+export const maceTerminal = maceDefinition();

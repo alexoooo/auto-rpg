@@ -46,7 +46,7 @@ export const effectorSlot = (slot: GolemSlot): HandName | null =>
  * actually offered on the bench is derived from the registry's own records -- see
  * `registry.ts` -- so there is no id anywhere in the system without a builder behind it.
  */
-export type ChainId = "none" | "pitch" | "reach" | "wrist";
+export type ChainId = "none" | "pitch" | "reach" | "wrist" | "anatomical";
 
 /** The terminal shelf. `blade` is built in Session 02; `plate`, `mace` and `whip` are
  *  Session 04's; `fist` is Session 01 of the matchup set's. */
@@ -61,6 +61,9 @@ export type TerminalId = "blade" | "plate" | "mace" | "whip" | "fist" | "maul";
  * (house rule), so a shell mesh has no body and may be absent entirely.
  */
 export interface GolemPart {
+  /** Explicit anatomy/equipment classification; absent preserves legacy golem behavior. */
+  readonly combatRole?: "body" | "equipment";
+  readonly appearance?: "human";
   readonly id: string;
   readonly part: Part;
   readonly shell: readonly AbstractMesh[];
@@ -186,6 +189,7 @@ export interface ReachEnvelope {
  * branch for one.
  */
 export interface ModuleEnvelope {
+  readonly fullOrientation?: boolean;
   readonly axes: readonly ModuleAxisEnvelope[];
   /** How far the business end travels from the socket at full extension, metres. */
   readonly reach: number;
@@ -244,6 +248,8 @@ export interface EffectorAxisView {
  * 240 Hz.
  */
 export interface EffectorView {
+  /** Achieved hand orientation in the socket frame, for pose diagnostics. */
+  readonly orientation?: Quaternion;
   readonly slot: GolemSlot;
   /** Where the business end is. */
   readonly tip: Vector3;
@@ -587,6 +593,7 @@ export interface ChainLimits {
 }
 
 export interface BuiltChain {
+  orientation?(): Quaternion;
   readonly parts: readonly GolemPart[];
   /**
    * Where a terminal welds on, or null when the chain carries its own.
@@ -739,11 +746,13 @@ export function rodInertia(massKg: number, fromM: number, toM: number): number {
 }
 
 export interface EffectorChainDefinition {
+  /** Optional equipment fit; the family ID and terminal physics builder remain shared. */
+  fitTerminal?(terminal: EffectorTerminalDefinition): EffectorTerminalDefinition;
   /** Setup-visible control capabilities, shared with the built envelope. */
   readonly strokes: readonly EffectorStrokeKind[];
   readonly pointTarget: boolean;
   readonly id: ChainId;
-  readonly axes: 0 | 1 | 3 | 5;
+  readonly axes: 0 | 1 | 3 | 5 | 7;
   readonly label: string;
   readonly massKg: number;
   /**
@@ -783,6 +792,8 @@ export interface EffectorChainDefinition {
 }
 
 export interface EffectorTerminalDefinition {
+  /** Optional separation of a second grip along the held item, metres. */
+  readonly trailingGripOffsetM?: number;
   readonly id: TerminalId;
   /** How many effector sockets it occupies. A mace needs both. */
   readonly sockets: 1 | 2;
@@ -865,6 +876,7 @@ export const NO_STROKES: readonly EffectorStrokeKind[] = Object.freeze([]);
  * Session 09 was told to watch for: a new option on the shelf must need no new mind.
  */
 export interface EffectorCapability {
+  readonly fullOrientation?: boolean;
   readonly strokes: readonly EffectorStrokeKind[];
   readonly reachable: ReachEnvelope | null;
   /** The roll this chain may be commanded to, radians, symmetric. Zero when it has no roll axis. */

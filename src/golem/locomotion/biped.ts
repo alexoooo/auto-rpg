@@ -157,9 +157,8 @@ export interface BipedPose {
  * averaged, which for a pure walk is the walk's speed and for a pure pivot is the pivot's.
  */
 export function bipedFootSpeed(
-  move: { forward: number; right: number; yaw: number },
+  move: { forward: number; right: number; yaw: number }, B = LOCOMOTION_BIPED,
 ): number {
-  const B = LOCOMOTION_BIPED;
   const spin = clamp(move.yaw, -1, 1) * B.carrier.maxYawSpeedRadS;
   const differential = (spin * B.hipSide) / B.carrier.maxSpeedMps;
   const left = Math.min(1, Math.hypot(move.forward + differential, move.right));
@@ -168,9 +167,8 @@ export function bipedFootSpeed(
 }
 
 export function bipedPose(
-  phase: number, forward: number, right: number, turn: number, crouch: number,
+  phase: number, forward: number, right: number, turn: number, crouch: number, B = LOCOMOTION_BIPED,
 ): BipedPose {
-  const B = LOCOMOTION_BIPED;
   const step = Math.sin(phase);
   const opposite = Math.sin(phase + Math.PI);
 
@@ -267,21 +265,20 @@ export function bipedPose(
 }
 
 /** How far the module's socket sits above the sole it is built standing on, metres. */
-export const bipedStandHeight = (): number => {
-  const B = LOCOMOTION_BIPED;
+export const bipedStandHeight = (B = LOCOMOTION_BIPED): number => {
   return B.pelvisHeight / 2 + B.hipInset + B.thighLength + B.shinLength + B.footHeight;
 };
 
-const bipedHeightRange = (): LocomotionHeightRange => Object.freeze({
-  standM: bipedStandHeight(),
-  crouchM: bipedStandHeight() - LOCOMOTION_BIPED.crouchDepth,
+const bipedHeightRange = (B = LOCOMOTION_BIPED): LocomotionHeightRange => Object.freeze({
+  standM: bipedStandHeight(B),
+  crouchM: bipedStandHeight(B) - B.crouchDepth,
 });
 
-const bipedFootprint = (): LocomotionFootprint => deriveLocomotionFootprint({
-  radiusM: LOCOMOTION_BIPED.footprintRadius,
-  heightM: LOCOMOTION_BIPED.footprintHeight,
+const bipedFootprint = (B = LOCOMOTION_BIPED, id = "locomotion.biped"): LocomotionFootprint => deriveLocomotionFootprint({
+  radiusM: B.footprintRadius,
+  heightM: B.footprintHeight,
   provenance: {
-    profileId: "locomotion.biped",
+    profileId: id,
     source: "golem-bind-geometry",
     measuredAt: "constructor-bind-pose",
   },
@@ -308,25 +305,25 @@ interface BipedLeg {
   lastPlanted: boolean;
 }
 
-export const bipedModule = defineLocomotion({
-  id: "locomotion.biped",
+export function bipedDefinition(id: string, label: string, B = LOCOMOTION_BIPED) {
+return defineLocomotion({
+  id,
   slots: Object.freeze(["locomotion" as const]),
-  label: "biped - two legs on a carrier",
-  massKg: LOCOMOTION_BIPED.pelvisMass +
-    2 * (LOCOMOTION_BIPED.thighMass + LOCOMOTION_BIPED.shinMass + LOCOMOTION_BIPED.footMass),
-  carrier: LOCOMOTION_BIPED.carrier,
-  heightRange: bipedHeightRange(),
-  footprint: bipedFootprint(),
+  label,
+  massKg: B.pelvisMass +
+    2 * (B.thighMass + B.shinMass + B.footMass),
+  carrier: B.carrier,
+  heightRange: bipedHeightRange(B),
+  footprint: bipedFootprint(B, id),
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
-    const B = LOCOMOTION_BIPED;
-    const socket = ctx.socket;
+      const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");
     const bronze = materialForGolemRole(ctx.materials, "joint");
-    const standHeight = bipedStandHeight();
-    const footprint = bipedFootprint();
+    const standHeight = bipedStandHeight(B);
+    const footprint = bipedFootprint(B, id);
 
     /** A point in the golem's own upright frame, carried into the world through the socket. */
     const local = new Vector3();
@@ -945,10 +942,10 @@ export const bipedModule = defineLocomotion({
       // its legs frozen, which is the second half of what the owner saw. A foot on a pivot travels
       // at `yaw * hipSide` whatever the body does, and `bipedPose` has already worked out each
       // foot's own travel, so this asks it rather than re-deriving it.
-      stride += bipedFootSpeed(move) * B.strideCadence * dt;
+      stride += bipedFootSpeed(move, B) * B.strideCadence * dt;
       crouchLevel += clamp((wantedCrouch - crouchLevel) * B.crouchResponse * dt,
         -B.heightRate * dt, B.heightRate * dt);
-      const pose = bipedPose(stride, move.forward, move.right, move.yaw, crouchLevel);
+      const pose = bipedPose(stride, move.forward, move.right, move.yaw, crouchLevel, B);
       hipDrop = pose.hipDrop;
       // The *commanded* angle is rate-limited, which is the ceiling that makes a flicked key a
       // move rather than a snap -- the same argument `CHAIN_PITCH.targetRate` carries. Nothing
@@ -1003,7 +1000,7 @@ export const bipedModule = defineLocomotion({
         // `stepHeightM` of the sole, which is right for "is there standable world under this
         // foot"; it is wrong for "is this foot bearing weight", because a sole 0.18 m up is a
         // swing foot travelling forward at twice the body's speed and calling that slip reports
-        // the walk itself as a defect. See `LOCOMOTION_BIPED.plantBandM`.
+        // the walk itself as a defect. See `B.plantBandM`.
         const down = Math.abs(sole.y - groundY) <= B.plantBandM;
         if (down) {
           planted += 1;
@@ -1052,7 +1049,7 @@ export const bipedModule = defineLocomotion({
         Object.freeze({ id: "yaw", unit: "rad" as const, min: -B.carrier.maxYawSpeedRadS,
           max: B.carrier.maxYawSpeedRadS, rate: B.carrier.maxYawAccelerationRadS2 }),
         Object.freeze({ id: "height", unit: "m" as const,
-          min: bipedHeightRange().crouchM, max: bipedHeightRange().standM, rate: B.heightRate }),
+          min: bipedHeightRange(B).crouchM, max: bipedHeightRange(B).standM, rate: B.heightRate }),
       ]),
       // What the module puts between its socket and the ground, which is the locomotion slot's
       // answer to "how far does the business end travel from the socket".
@@ -1080,7 +1077,7 @@ export const bipedModule = defineLocomotion({
       port: activePort,
       world,
       footprint,
-      heightRange: bipedHeightRange(),
+      heightRange: bipedHeightRange(B),
       authority,
       postureEvidence,
       gait,
@@ -1211,3 +1208,6 @@ export const bipedModule = defineLocomotion({
     return built;
   },
 });
+
+}
+export const bipedModule = bipedDefinition("locomotion.biped", "biped - two legs on a carrier");

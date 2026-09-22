@@ -14,6 +14,8 @@ import { noneChain } from "./effectors/chains/none.ts";
 import { pitchChain } from "./effectors/chains/pitch.ts";
 import { reachChain } from "./effectors/chains/reach.ts";
 import { wristChain } from "./effectors/chains/wrist.ts";
+import { anatomicalChain } from "./humanoid/arm.ts";
+import { humanBiped, humanTorso, humanHead } from "./humanoid/body.ts";
 import { bladeTerminal } from "./effectors/terminals/blade.ts";
 import { maceTerminal } from "./effectors/terminals/mace.ts";
 import { maulTerminal } from "./effectors/terminals/maul.ts";
@@ -254,6 +256,7 @@ export const EFFECTOR_CHAINS = {
   pitch: pitchChain,
   reach: reachChain,
   wrist: wristChain,
+  anatomical: anatomicalChain,
 } as const satisfies { readonly [K in ChainId]?: EffectorChainDefinition & { readonly id: K } };
 
 /** The terminal shelf, same rule. Session 04 appended `plate`, `mace` and `whip`; the matchup
@@ -334,6 +337,12 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(torsoPlated, "torso", postureChannel),
   benchOption(headPlain, "head", naturalChannel),
   benchOption(headRam, "head", naturalChannel),
+  ...Object.values(EFFECTOR_TERMINALS).map(terminal => benchOption(effectorModule(anatomicalChain, terminal), "effector", handChannel)),
+  benchOption(humanBiped, "locomotion", locomotionCommand, built => ({
+    lines: () => formatLocomotion(built.readout(), built.evidence()), shove: () => built.shove(),
+  })),
+  benchOption(humanTorso, "torso", postureChannel),
+  benchOption(humanHead, "head", naturalChannel),
 ]);
 
 export const golemModule = (id: string): GolemBenchOption | null =>

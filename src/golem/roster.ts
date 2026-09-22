@@ -1,4 +1,5 @@
 import type { GolemSetup } from "../bout.ts";
+import { HUMAN_BUILDS } from "./humanoid/presets.ts";
 import { defaultGolemSetup, describeGolemSetup, golemSetupRefusal } from "./build.ts";
 
 /**
@@ -58,8 +59,9 @@ for (const build of NAMED_BUILDS) {
 }
 
 /** The build under a name, or null. Refuses rather than falling back to the default. */
+export const PLAYABLE_BUILDS: readonly NamedBuild[] = Object.freeze([...NAMED_BUILDS, ...HUMAN_BUILDS]);
 export const namedBuild = (name: string): NamedBuild | null =>
-  NAMED_BUILDS.find((build) => build.name === name) ?? null;
+  PLAYABLE_BUILDS.find((build) => build.name === name) ?? null;
 
 /** What a named build is made of, for a picker row or a wave caption. */
 export const describeNamedBuild = (build: NamedBuild): string => describeGolemSetup(build.setup);

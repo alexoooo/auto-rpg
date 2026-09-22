@@ -10,6 +10,8 @@ import type { Striking } from "../combat.ts";
 import { CONFIG } from "../config.ts";
 import type { HumanDriverSource } from "../control-host.ts";
 import type { Limb } from "../fighter.ts";
+import { TERMINAL_DESCRIPTION } from "./build.ts";
+import type { TerminalId } from "./module.ts";
 import type { WeaponKind } from "../hands.ts";
 import { HANDS } from "../hands.ts";
 import type {
@@ -46,6 +48,7 @@ import { GOLEM_ASSEMBLY } from "./config.ts";
 import { GolemControlEndpoint } from "./golem-control.ts";
 import { locomotionCommand, type BuiltLocomotion } from "./locomotion.ts";
 import { dressGolemPart } from "./appearance.ts";
+import { dressHumanoid } from "./humanoid/appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
 import {
   partArmour,
@@ -250,6 +253,7 @@ const blankBody = (): BodyView => ({
 });
 
 export class Golem implements Combatant {
+  private humanAppearance: ReturnType<typeof dressHumanoid> = null;
   readonly actorId?: string;
   readonly kind = "golem" as const;
   /** Not a humanoid, and it does not pretend to be one. See `Combatant.articulated`. */
@@ -287,7 +291,7 @@ export class Golem implements Combatant {
    * has to find them -- and one membership test answers both. `GolemPart.shield` says what
    * declares one and why.
    */
-  private readonly shields = new Set<PhysicsBody>();
+  private readonly shields = new Map<PhysicsBody, { readonly kind: WeaponKind }>();
   private readonly owned = new Set<AbstractMesh>();
   private readonly moduleOfLimb = new Map<Limb, AssembledModule>();
   private readonly occlusion: Vector3[] = [];
@@ -498,6 +502,8 @@ export class Golem implements Combatant {
       human: options.human,
       cursorSeed: () => this.cursorSeed(),
     });
+    this.humanAppearance = dressHumanoid(scene, this.visualBindings, this.side);
+    for (const mesh of this.humanAppearance?.meshes ?? []) { this.owned.add(mesh); this.costume.push(mesh); }
   }
 
   // ------------------------------------------------------------------------------- assembly
@@ -551,7 +557,7 @@ export class Golem implements Combatant {
         fatal: part.fatal,
         // A piece in a hand slot is something the golem is holding, and a blow on it is a parry
         // that costs the thing parried with. `Limb.guarding` says what `Combat` does with it.
-        guarding: slot === "primary" || slot === "secondary",
+        guarding: part.combatRole === "body" ? false : slot === "primary" || slot === "secondary",
       };
       this.limbs.push(limb);
       this.visualBindings.push(Object.freeze({
@@ -560,9 +566,10 @@ export class Golem implements Combatant {
       }));
       record.limbs.push(limb);
       this.byBody.set(part.part.body, limb);
-      if (part.shield) this.shields.add(part.part.body);
+      if (part.shield || part.combatRole === "equipment") this.shields.set(part.part.body,
+        part.shield ? GOLEM_SHIELD : { kind: TERMINAL_DESCRIPTION[id.split(".").pop() as TerminalId] });
       this.moduleOfLimb.set(limb, record);
-      const shells = dressGolemPart({ slot, moduleId: id, id: part.id, host: part.part.mesh, shells: part.shell }, this.materials);
+      const shells = part.appearance === "human" ? [] : dressGolemPart({ slot, moduleId: id, id: part.id, host: part.part.mesh, shells: part.shell }, this.materials);
       for (const mesh of shells) {
         mesh.isPickable = true;
         this.costume.push(mesh);
@@ -759,9 +766,10 @@ export class Golem implements Combatant {
       const envelope = this.effectors[hand]?.module.envelope() ?? null;
       return Object.freeze({
         strokes: envelope ? envelope.strokes : [],
+        ...(envelope?.fullOrientation ? { fullOrientation: true } : {}),
         reachable: envelope ? envelope.reachable : null,
-        rollMax: envelope ? Math.max(0, axisCeiling(envelope.axes, "roll")) : 0,
-        bendMax: envelope ? Math.max(0, axisCeiling(envelope.axes, "bend")) : 0,
+        rollMax: envelope?.fullOrientation ? 2.7 : envelope ? Math.max(0, axisCeiling(envelope.axes, "roll")) : 0,
+        bendMax: envelope?.fullOrientation ? 1.25 : envelope ? Math.max(0, axisCeiling(envelope.axes, "bend")) : 0,
         // A slot with no module at all answers 1, not 0: nothing is ever swung on it, and a zero
         // here would be a divisor waiting for the one caller that forgets to check `lost` first.
         swingInertia: envelope?.swingInertia ?? 1,
@@ -932,7 +940,7 @@ export class Golem implements Combatant {
    */
   parriedBy(body: PhysicsBody): { readonly kind: WeaponKind } | null {
     if (!this.shields.has(body)) return null;
-    return this.byBody.get(body)?.severed === false ? GOLEM_SHIELD : null;
+    return this.byBody.get(body)?.severed === false ? this.shields.get(body)! : null;
   }
 
   /** A golem looses nothing; hand the cursor back rather than truncating the other body's. */
@@ -1232,6 +1240,7 @@ export class Golem implements Combatant {
   }
 
   dispose(): void {
+    this.humanAppearance?.dispose(); this.humanAppearance = null;
     this.control.dispose();
     this.locomotion.dispose();
     // Effectors first, then the head, then the torso, then the legs, then the base: a module's

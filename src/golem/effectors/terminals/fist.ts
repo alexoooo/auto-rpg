@@ -39,18 +39,18 @@ import { RigidStrike } from "../striker.ts";
  * ignores them (`blade.ts` has the numbers). The collider is drawn by the shell rather than by
  * itself, because a six-segment sphere reads as a die and a stone ball does not.
  */
-export const fistTerminal = defineTerminal({
+export const fistDefinition = (config: typeof TERMINAL_FIST = TERMINAL_FIST) => defineTerminal({
   id: "fist",
   sockets: 1,
   bite: "mass",
   label: "fist",
-  massKg: TERMINAL_FIST.mass,
+  massKg: config.mass,
   // One socket, one body, nothing taken away: a fist on the end of an arm reaches everywhere
   // the arm does, and its whole length is the ball's own diameter.
   limits: null,
 
   build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal {
-    const F = TERMINAL_FIST;
+    const F = config;
     const name = `${ctx.name}.fist`;
 
     const rotation = weldRotation(onto.mount, onto.rotation);
@@ -138,3 +138,5 @@ export const fistTerminal = defineTerminal({
     });
   },
 });
+
+export const fistTerminal = fistDefinition();

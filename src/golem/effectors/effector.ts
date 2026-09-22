@@ -67,8 +67,9 @@ import {
  */
 export function effectorModule(
   chain: EffectorChainDefinition,
-  terminal: EffectorTerminalDefinition | null,
+  selectedTerminal: EffectorTerminalDefinition | null,
 ): GolemModuleDefinition<HandIntent> {
+  const terminal = selectedTerminal && chain.fitTerminal ? chain.fitTerminal(selectedTerminal) : selectedTerminal;
   const id = terminal ? `effector.${chain.id}.${terminal.id}` : `effector.${chain.id}`;
   const sockets = terminal?.sockets ?? 1;
   return Object.freeze({
@@ -147,7 +148,9 @@ export function effectorModule(
       })();
 
       const parts: readonly GolemPart[] = Object.freeze([
-        ...built.parts, ...(trailing?.parts ?? []), ...end.parts,
+        ...built.parts, ...(trailing?.parts ?? []), ...end.parts.map(part => chain.fitTerminal
+          ? terminal?.id === "fist" ? { ...part, combatRole: "body" as const, appearance: "human" as const }
+            : { ...part, combatRole: "equipment" as const, vitalityWeight: 0 } : part),
       ]);
       const strikers: readonly Striking[] = Object.freeze([...end.strikers]);
       // The business end, which is the first striker by contract: the tip and the edge are read
@@ -196,6 +199,7 @@ export function effectorModule(
       const swingInertia = chain.swingInertia * sockets
         + rodInertia(terminal?.massKg ?? 0, built.reach, tipToSocket);
       const envelope: ModuleEnvelope = Object.freeze({
+        ...(chainEnvelope.fullOrientation ? { fullOrientation: true } : {}),
         axes: chainEnvelope.axes,
         reach: tipToSocket,
         swingInertia,
@@ -231,6 +235,7 @@ export function effectorModule(
         get anchorStray(): number | null { return built.anchorStray(); },
         get edge(): Vector3 | null { return hasEdge ? business.edgeDirection() : null; },
         get gripStray(): number | null { return end.gripStray(); },
+        get orientation() { return built.orientation?.(); },
       };
 
       let severed = false;
@@ -246,7 +251,7 @@ export function effectorModule(
             // the one point both anchors can agree on; the achieved weld is wherever the mass
             // has let the first hand get to so far, and a second hand chasing that would arrive
             // late by construction and pull the first one back toward where it already was.
-            trailing.commandWeldTo?.(built.commandedEnd(built.reach));
+            trailing.commandWeldTo?.(built.commandedEnd(built.reach + (terminal?.trailingGripOffsetM ?? 0)));
             trailing.step(dt);
           }
           // After both chains, so that a grip taken this step is taken against where the hands

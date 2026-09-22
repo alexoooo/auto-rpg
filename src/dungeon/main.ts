@@ -1,3 +1,4 @@
+import { loadHumanAssets } from "../golem/humanoid/appearance.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -14,7 +15,10 @@ import HavokPhysics from "@babylonjs/havok";
 import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { attachPhysics } from "../physics.ts";
 import { CONFIG } from "../config.ts";
-import { NAMED_BUILDS } from "../golem/roster.ts";
+import { humanSetup } from "../golem/humanoid/presets.ts";
+import { EFFECTOR_TERMINALS } from "../golem/registry.ts";
+import type { GolemSetup } from "../bout.ts";
+import { PLAYABLE_BUILDS } from "../golem/roster.ts";
 import { DungeonRun } from "./run.ts";
 import { cellKey, type Point } from "./map.ts";
 import { frameDungeon, pickingCoordinates } from "./camera.ts";
@@ -28,16 +32,33 @@ const keyboard = need<HTMLInputElement>("keyboard"), facing = need<HTMLInputElem
 const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 seedInput.value = String(randomSeed());
 // Wheel locomotion cannot strafe; the hero picker offers bodies that can honor screen movement.
-for (const build of NAMED_BUILDS.filter(b => b.setup.locomotion !== "locomotion.wheel")) {
+for (const build of PLAYABLE_BUILDS.filter(b => b.setup.locomotion !== "locomotion.wheel")) {
   const option = document.createElement("option"); option.value = build.name; option.textContent = build.name.replaceAll("-", " "); heroBuild.append(option);
 }
 
+const humanPrimary = need<HTMLSelectElement>("human-primary"), humanSecondary = need<HTMLSelectElement>("human-secondary");
+for (const picker of [humanPrimary, humanSecondary]) for (const terminal of Object.values(EFFECTOR_TERMINALS)) {
+  const option = document.createElement("option"); option.value = terminal.id;
+  option.textContent = terminal.id === "fist" ? "Empty hand" : terminal.id === "maul" ? "Maul (two hands)" : terminal.label; picker.append(option);
+}
+const updateEquipment = () => {
+  const setup = PLAYABLE_BUILDS.find(b => b.name === heroBuild.value)?.setup;
+  need("human-equipment").hidden = setup?.primary.chain !== "anatomical";
+  humanPrimary.value = setup?.primary.terminal ?? "blade"; humanSecondary.value = setup?.secondary.terminal ?? "plate";
+  humanSecondary.disabled = humanPrimary.value === "maul";
+};
+heroBuild.addEventListener("change", updateEquipment);
+humanPrimary.addEventListener("change", () => { humanSecondary.disabled = humanPrimary.value === "maul"; });
+updateEquipment();
+
 async function boot(): Promise<void> {
+  await loadHumanAssets();
   const havok = await HavokPhysics({ locateFile: () => havokWasmUrl });
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
   let scene: Scene | null = null, run: DungeonRun | null = null, camera: FreeCamera | null = null;
   let light: PointLight | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default";
+  let selectedEquipment: GolemSetup | undefined;
   let route: LinesMesh | null = null, routeSignature = "", lastUi = 0;
   const held = new Set<string>();
   const abort = new AbortController(), signal = abort.signal;
@@ -68,7 +89,7 @@ async function boot(): Promise<void> {
     const ambient = new HemisphericLight("cold vault light", new Vector3(0.3, 1, -0.4), scene);
     ambient.intensity = 0.85; ambient.diffuse = Color3.FromHexString("#c4d0e7"); ambient.groundColor = Color3.FromHexString("#313039");
     light = new PointLight("wanderer lantern", new Vector3(0, 5, 0), scene); light.diffuse = Color3.FromHexString("#ffd49a"); light.intensity = 1.8; light.range = 18;
-    run = new DungeonRun(scene, seed, selectedBuild); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
+    run = new DungeonRun(scene, seed, selectedBuild, true, undefined, selectedEquipment); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     scene.onBeforePhysicsObservable.add(() => {
       if (!run || paused) return;
       run.step(1 / CONFIG.world.physicsHz);
@@ -98,7 +119,9 @@ async function boot(): Promise<void> {
   start.disabled = false; start.textContent = "Enter the dungeon →";
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) { seedInput.setCustomValidity("Enter a seed from 0 to 4294967295."); seedInput.reportValidity(); return; }
-    seedInput.setCustomValidity(""); selectedBuild = heroBuild.value; launch(Number(seedInput.value));
+    seedInput.setCustomValidity(""); selectedBuild = heroBuild.value;
+    selectedEquipment = need("human-equipment").hidden ? undefined : humanSetup(humanPrimary.value, humanSecondary.value);
+    launch(Number(seedInput.value));
   }, { signal });
   seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });
   need("pause-button").addEventListener("click", () => setPaused(!paused), { signal });

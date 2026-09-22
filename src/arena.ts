@@ -1,3 +1,4 @@
+import { loadHumanAssets } from "./golem/humanoid/appearance.ts";
 import { publicAssetUrl } from "./asset-url.ts";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -82,6 +83,7 @@ function plainSurface(
 }
 
 export async function buildArena(engine: Engine): Promise<Arena> {
+  await loadHumanAssets();
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.055, 0.062, 0.078, 1);
   scene.ambientColor = new Color3(0.14, 0.15, 0.18);

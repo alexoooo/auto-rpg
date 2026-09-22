@@ -13,6 +13,7 @@ import {
 import { effectorModule } from "./effectors/effector.ts";
 import { headPlain } from "./head/plain.ts";
 import { headRam } from "./head/ram.ts";
+import { humanBiped, humanTorso, humanHead } from "./humanoid/body.ts";
 import { bipedModule } from "./locomotion/biped.ts";
 import { multilegModule } from "./locomotion/multileg.ts";
 import { wheelModule } from "./locomotion/wheel.ts";
@@ -81,10 +82,10 @@ const optionOf = (id: string): GolemSlotOption => {
  * the registry's `locomotion` mode name the same set, and fails naming any that is missing.
  */
 export const GOLEM_LOCOMOTION: readonly LocomotionModuleDefinition[] =
-  Object.freeze([bipedModule, wheelModule, multilegModule]);
+  Object.freeze([bipedModule, wheelModule, multilegModule, humanBiped]);
 
-const TORSOS: readonly TorsoModuleDefinition[] = Object.freeze([torsoPlain, torsoPlated]);
-const HEADS: readonly HeadModuleDefinition[] = Object.freeze([headPlain, headRam]);
+const TORSOS: readonly TorsoModuleDefinition[] = Object.freeze([torsoPlain, torsoPlated, humanTorso]);
+const HEADS: readonly HeadModuleDefinition[] = Object.freeze([headPlain, headRam, humanHead]);
 
 const byId = <T extends { readonly id: string }>(list: readonly T[], id: string): T | null =>
   list.find((entry) => entry.id === id) ?? null;
@@ -118,7 +119,7 @@ export const golemHead = (id: string): HeadModuleDefinition | null => byId(HEADS
  * in it makes -- the difference is eight kilograms of stone, which the scoring row is handed and
  * the planner is not.
  */
-const TERMINAL_DESCRIPTION: Record<TerminalId, WeaponKind> = Object.freeze({
+export const TERMINAL_DESCRIPTION: Record<TerminalId, WeaponKind> = Object.freeze({
   blade: "sword",
   plate: "shield",
   mace: "club",

@@ -1,0 +1,569 @@
+[
+  {
+    "slot": "locomotion",
+    "module": "locomotion.human",
+    "id": "pelvis",
+    "position": [
+      0,
+      0.895,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.31,
+      0.16,
+      0.23
+    ]
+  },
+  {
+    "slot": "locomotion",
+    "module": "locomotion.human",
+    "id": "thighL",
+    "position": [
+      -0.09500000000000064,
+      0.6699999999999999,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.13,
+      0.4,
+      0.13
+    ]
+  },
+  {
+    "slot": "locomotion",
+    "module": "locomotion.human",
+    "id": "shinL",
+    "position": [
+      -0.09500000000000064,
+      0.275,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.094,
+      0.39,
+      0.094
+    ]
+  },
+  {
+    "slot": "locomotion",
+    "module": "locomotion.human",
+    "id": "footL",
+    "position": [
+      -0.09500000000000064,
+      0.039999999999999925,
+      0.04860000000000042
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.115,
+      0.08,
+      0.27
+    ]
+  },
+  {
+    "slot": "locomotion",
+    "module": "locomotion.human",
+    "id": "thighR",
+    "position": [
+      0.09500000000000064,
+      0.6699999999999999,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.13,
+      0.4,
+      0.13
+    ]
+  },
+  {
+    "slot": "locomotion",
+    "module": "locomotion.human",
+    "id": "shinR",
+    "position": [
+      0.09500000000000064,
+      0.275,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.094,
+      0.39,
+      0.094
+    ]
+  },
+  {
+    "slot": "locomotion",
+    "module": "locomotion.human",
+    "id": "footR",
+    "position": [
+      0.09500000000000064,
+      0.039999999999999925,
+      0.04860000000000042
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.115,
+      0.08,
+      0.27
+    ]
+  },
+  {
+    "slot": "torso",
+    "module": "torso.human",
+    "id": "waist",
+    "position": [
+      0,
+      0.975,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.28,
+      0.3,
+      0.28
+    ]
+  },
+  {
+    "slot": "torso",
+    "module": "torso.human",
+    "id": "core",
+    "position": [
+      0,
+      1.205,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.36,
+      0.46,
+      0.23
+    ]
+  },
+  {
+    "slot": "head",
+    "module": "head.human",
+    "id": "neck",
+    "position": [
+      0,
+      1.4825000000000002,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.09,
+      0.095,
+      0.09
+    ]
+  },
+  {
+    "slot": "head",
+    "module": "head.human",
+    "id": "head",
+    "position": [
+      0,
+      1.6500000000000001,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.19,
+      0.24,
+      0.23
+    ]
+  },
+  {
+    "slot": "primary",
+    "module": "effector.anatomical.blade",
+    "id": "shoulderYaw",
+    "position": [
+      0.21499999999999986,
+      1.355,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.064,
+      0.07,
+      0.064
+    ]
+  },
+  {
+    "slot": "primary",
+    "module": "effector.anatomical.blade",
+    "id": "shoulderPitch",
+    "position": [
+      0.21499999999999986,
+      1.355,
+      0
+    ],
+    "rotation": [
+      0.17410813759359597,
+      0,
+      0,
+      0.9847265389049337
+    ],
+    "size": [
+      0.064,
+      0.07,
+      0.064
+    ]
+  },
+  {
+    "slot": "primary",
+    "module": "effector.anatomical.blade",
+    "id": "upper",
+    "position": [
+      0.21499999999999986,
+      1.2047003650665282,
+      -0.05486364841461189
+    ],
+    "rotation": [
+      0.17410813759359595,
+      0,
+      0,
+      0.9847265389049334
+    ],
+    "size": [
+      0.11,
+      0.32,
+      0.11
+    ]
+  },
+  {
+    "slot": "primary",
+    "module": "effector.anatomical.blade",
+    "id": "fore",
+    "position": [
+      0.21499999999999986,
+      0.9758735117316246,
+      0.00008379936218183559
+    ],
+    "rotation": [
+      -0.45733844717895555,
+      0,
+      0,
+      0.8892927216231684
+    ],
+    "size": [
+      0.086,
+      0.27,
+      0.086
+    ]
+  },
+  {
+    "slot": "primary",
+    "module": "effector.anatomical.blade",
+    "id": "pronation",
+    "position": [
+      0.21499999999999986,
+      0.8900752545893192,
+      0.12006258964538574
+    ],
+    "rotation": [
+      -0.45733844717895544,
+      0,
+      0,
+      0.8892927216231682
+    ],
+    "size": [
+      0.064,
+      0.07,
+      0.064
+    ]
+  },
+  {
+    "slot": "primary",
+    "module": "effector.anatomical.blade",
+    "id": "wrist",
+    "position": [
+      0.21499999999999986,
+      0.8755331771075725,
+      0.14039797782897878
+    ],
+    "rotation": [
+      -0.45733844717895555,
+      0,
+      0,
+      0.8892927216231684
+    ],
+    "size": [
+      0.064,
+      0.07,
+      0.064
+    ]
+  },
+  {
+    "slot": "primary",
+    "module": "effector.anatomical.blade",
+    "id": "hand",
+    "position": [
+      0.21499999999999986,
+      0.8420863988995552,
+      0.18716937065124561
+    ],
+    "rotation": [
+      -0.45733844717895544,
+      0,
+      0,
+      0.8892927216231682
+    ],
+    "size": [
+      0.064,
+      0.09,
+      0.064
+    ]
+  },
+  {
+    "slot": "primary",
+    "module": "effector.anatomical.blade",
+    "id": "blade",
+    "position": [
+      0.21499999999999986,
+      0.5832374197244643,
+      0.5491392803192134
+    ],
+    "rotation": [
+      -0.6288249158688504,
+      0.32338712526198565,
+      0.6288249158688504,
+      -0.32338712526198565
+    ],
+    "size": [
+      0.05,
+      0.8,
+      0.01
+    ]
+  },
+  {
+    "slot": "secondary",
+    "module": "effector.anatomical.plate",
+    "id": "shoulderYaw",
+    "position": [
+      -0.21499999999999986,
+      1.355,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "size": [
+      0.064,
+      0.07,
+      0.064
+    ]
+  },
+  {
+    "slot": "secondary",
+    "module": "effector.anatomical.plate",
+    "id": "shoulderPitch",
+    "position": [
+      -0.21499999999999986,
+      1.355,
+      0
+    ],
+    "rotation": [
+      0.17410813759359597,
+      0,
+      0,
+      0.9847265389049337
+    ],
+    "size": [
+      0.064,
+      0.07,
+      0.064
+    ]
+  },
+  {
+    "slot": "secondary",
+    "module": "effector.anatomical.plate",
+    "id": "upper",
+    "position": [
+      -0.21499999999999986,
+      1.2047003650665282,
+      -0.05486364841461189
+    ],
+    "rotation": [
+      0.17410813759359595,
+      0,
+      0,
+      0.9847265389049334
+    ],
+    "size": [
+      0.11,
+      0.32,
+      0.11
+    ]
+  },
+  {
+    "slot": "secondary",
+    "module": "effector.anatomical.plate",
+    "id": "fore",
+    "position": [
+      -0.21499999999999986,
+      0.9758735117316246,
+      0.00008379936218183559
+    ],
+    "rotation": [
+      -0.45733844717895555,
+      0,
+      0,
+      0.8892927216231684
+    ],
+    "size": [
+      0.086,
+      0.27,
+      0.086
+    ]
+  },
+  {
+    "slot": "secondary",
+    "module": "effector.anatomical.plate",
+    "id": "pronation",
+    "position": [
+      -0.21499999999999986,
+      0.8900752545893192,
+      0.12006258964538574
+    ],
+    "rotation": [
+      -0.45733844717895544,
+      0,
+      0,
+      0.8892927216231682
+    ],
+    "size": [
+      0.064,
+      0.07,
+      0.064
+    ]
+  },
+  {
+    "slot": "secondary",
+    "module": "effector.anatomical.plate",
+    "id": "wrist",
+    "position": [
+      -0.21499999999999986,
+      0.8755331771075725,
+      0.14039797782897878
+    ],
+    "rotation": [
+      -0.45733844717895555,
+      0,
+      0,
+      0.8892927216231684
+    ],
+    "size": [
+      0.064,
+      0.07,
+      0.064
+    ]
+  },
+  {
+    "slot": "secondary",
+    "module": "effector.anatomical.plate",
+    "id": "hand",
+    "position": [
+      -0.21499999999999986,
+      0.8420863988995552,
+      0.18716937065124561
+    ],
+    "rotation": [
+      -0.45733844717895544,
+      0,
+      0,
+      0.8892927216231682
+    ],
+    "size": [
+      0.064,
+      0.09,
+      0.064
+    ]
+  },
+  {
+    "slot": "secondary",
+    "module": "effector.anatomical.plate",
+    "id": "plate",
+    "position": [
+      -0.3349999999999991,
+      0.7461086875200271,
+      0.3213829308383218
+    ],
+    "rotation": [
+      -0.6288249158688504,
+      0.32338712526198565,
+      0.6288249158688504,
+      -0.32338712526198565
+    ],
+    "size": [
+      0.42,
+      0.08,
+      0.24
+    ]
+  }
+]
