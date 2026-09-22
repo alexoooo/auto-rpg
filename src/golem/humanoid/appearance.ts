@@ -9,6 +9,7 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { publicAssetUrl } from "../../asset-url.ts";
+import { moduleFamily } from "../family.ts";
 
 interface Binding { key: string; slot: string; id: string; position: number[]; rotation: number[] }
 interface Accessor { bufferView: number; componentType: number; count: number; type: string }
@@ -35,7 +36,9 @@ export function loadHumanAssets(): Promise<void> {
 
 export interface HumanVisualPart { slot: string; moduleId: string; id: string; host: AbstractMesh; shells: readonly AbstractMesh[] }
 export function dressHumanoid(scene: Scene, parts: readonly HumanVisualPart[], side: string) {
-  const human = parts.filter(p => p.moduleId.includes(".human") || p.moduleId.includes(".anatomical."));
+  // By declared family, never by substring: a module of another family whose id happens to contain
+  // ".human" is not a person. Every `moduleId` here is a registered module's id.
+  const human = parts.filter(p => moduleFamily(p.moduleId) === "human");
   if (!human.length || !asset) return null; // Headless callers deliberately have no asset dependency.
   const { doc, bin } = asset;
   const hosts = new Map(human.filter(p => !p.id.includes(".trailing.")).map(p => [`${p.slot}.${p.id.split(".").pop()}`, p.host]));

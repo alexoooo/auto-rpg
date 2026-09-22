@@ -4,7 +4,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { Combat } from "../combat.ts";
 import { Golem } from "../golem/golem.ts";
-import { hasAnatomicalArm } from "../golem/humanoid/presets.ts";
+import { bodyFamily, FAMILY_POLICY } from "../golem/family.ts";
 import { NAMED_BUILDS, namedBuild } from "../golem/roster.ts";
 import { unitDefinition } from "../units.ts";
 import type { Intent, Mind } from "../mind.ts";
@@ -51,7 +51,7 @@ export class DungeonRun {
       const build = namedBuild(buildName);
       if (!build) throw new Error(`Unknown dungeon golem: ${buildName}`);
       const setup = id === "hero" && heroSetup ? heroSetup : build.setup;
-      const policy = definition.createPolicy!(hasAnatomicalArm(setup) ? "humanoid-duelist" : "golem-duelist", Math.floor(random() * 0xffffffff));
+      const policy = definition.createPolicy!(FAMILY_POLICY[bodyFamily(setup)], Math.floor(random() * 0xffffffff));
       let intent = neutralIntent();
       const source: Mind = { name: "dungeon", decide: () => intent };
       const priorMeshes = new Set(scene.meshes);

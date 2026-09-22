@@ -1,14 +1,20 @@
 // Explicit `.ts` extensions, and this file is the reason the convention exists
 // as much as it is a follower of it: `tests/bout.test.mjs` imports this module
 // directly under Node, with no DOM and no Babylon anywhere in its graph. The
-// only value import here is `config.ts`, which imports nothing at all; `Side`
-// and `HitKind` are types and erase. Nothing in this file may become a value
-// import from a module that touches Babylon without moving the test with it.
+// value imports here are `config.ts`, `hands.ts` and `golem/family.ts`, and
+// none of them reaches Babylon; `Side` and `HitKind` are types and erase.
+// `bout_loads_with_babylon_unresolvable` in `tests/bout.test.mjs` holds that by
+// loading this file with every `@babylonjs/` specifier made to throw, so a value
+// import that reaches Babylon is a red test rather than a comment gone stale.
 import { CONFIG } from "./config.ts";
 // `hands.ts` imports nothing at all, which is the only reason this file may have
 // it: `tests/bout.test.mjs` runs this module under Node with no DOM and no
 // Babylon anywhere in its graph, and that property is not negotiable.
 import { handsFor, isWeaponKind, type WeaponKind } from "./hands.ts";
+// `family.ts` imports only a type, which is the only reason this file may have
+// it, for the same reason as `hands.ts` above. It is a table of families and
+// nothing that builds a body.
+import { isBodyFamily } from "./golem/family.ts";
 import type { Side } from "./physics.ts";
 import type { HitKind } from "./scoring.ts";
 
@@ -526,8 +532,9 @@ export function withGolemBuild(
  * left where it is on purpose -- it is the reference body a dozen sweeps in `docs/measurements.md`
  * were taken on, and moving it would strip their provenance to improve one screen -- so the fact
  * is asserted in `tests/bout.test.mjs` against the predicate rather than left here in prose, where
- * a claim about a build rots quietly. This module cannot import `src/golem/` to check it itself;
- * the comment at the top of this file says why.
+ * a claim about a build rots quietly. This module may not import the golem registry or anything
+ * that builds a body, so it cannot check a build itself; the comment at the top of this file says
+ * why. It may import `src/golem/family.ts`, which is a table.
  */
 export function golemMatchup(build: GolemSetup): Matchup {
   const side = (): SideSetup => ({
@@ -608,7 +615,7 @@ const readGolem = (value: unknown): GolemSetup | null => {
   const golem: GolemSetup =
     { locomotion: value.locomotion, torso: value.torso, head: value.head, primary, secondary };
   if (value.family !== undefined) {
-    if (value.family !== "human" && value.family !== "golem") return null;
+    if (!isBodyFamily(value.family)) return null;
     golem.family = value.family;
   }
   if (value.wear !== undefined) {

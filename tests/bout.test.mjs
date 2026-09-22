@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 import { handsFor, isWeaponKind, WEAPON_KINDS } from "../src/hands.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
@@ -970,4 +972,31 @@ test("a link that is not a matchup is refused by shape rather than repaired", ()
   // A well-shaped link naming ids the registry does not have is *not* this codec's refusal.
   const strange = { ...good, left: { ...good.left, golem: { ...HAND_BUILD, head: "head.of.lettuce" } } };
   assert.deepEqual(matchupFromQuery(encode(strange)), strange);
+});
+
+/**
+ * `bout.ts` loads with Babylon made unresolvable, which is what its header promises: a child Node
+ * process whose resolve hook throws on any `@babylonjs/` specifier imports it and exits 0. It walks
+ * the real import graph rather than grepping the source, so a value import that reaches Babylon
+ * through any number of files fails here by naming the file it came from.
+ *
+ * The control is `src/golem/build.ts`, which does reach Babylon (through its effector registry),
+ * and must fail under the same hook -- a hook that bit nothing would pass the real case too.
+ */
+test("bout_loads_with_babylon_unresolvable", () => {
+  const hooks = `export async function resolve(specifier, context, next) {
+    if (specifier.startsWith("@babylonjs/")) throw new Error("reached " + specifier + " from " + context.parentURL);
+    return next(specifier, context);
+  }`;
+  const register = `import { register } from "node:module"; register(${JSON.stringify("data:text/javascript," + encodeURIComponent(hooks))});`;
+  const load = (file) => spawnSync(process.execPath, [
+    "--import", "data:text/javascript," + encodeURIComponent(register),
+    "--input-type=module", "-e", `await import(${JSON.stringify(pathToFileURL(file).href)});`,
+  ], { encoding: "utf8" });
+
+  const bout = load("src/bout.ts");
+  assert.equal(bout.status, 0, bout.stderr);
+  const control = load("src/golem/build.ts");
+  assert.notEqual(control.status, 0, "the hook let build.ts load, so it bites nothing");
+  assert.match(control.stderr, /reached @babylonjs\//);
 });

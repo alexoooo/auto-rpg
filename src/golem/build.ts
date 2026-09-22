@@ -1,5 +1,5 @@
 import type { GolemEffectorSetup, GolemSetup } from "../bout.ts";
-import { bodyFamily, moduleFamily, type BodyFamily } from "./family.ts";
+import { BODY_FAMILIES, FAMILY_LABEL, bodyFamily, moduleFamily, type BodyFamily } from "./family.ts";
 import type { WeaponKind } from "../hands.ts";
 import {
   CHAIN_PITCH,
@@ -348,6 +348,10 @@ export function describeGolemSetup(setup: GolemSetup): string {
   ].join(", ") + `; ${arms}`;
 }
 
+/** "a", "a or b", "a, b or c": a list of choices as a sentence says it. */
+const listed = (words: readonly string[]): string =>
+  words.length < 2 ? words.join("") : `${words.slice(0, -1).join(", ")} or ${words.at(-1)}`;
+
 /**
  * Why this build cannot be assembled, or null when it can.
  *
@@ -379,7 +383,10 @@ export function golemSetupRefusal(setup: GolemSetup): string | null {
   }
   const family = bodyFamily(setup);
   for (const [slot, id] of Object.entries({ locomotion: setup.locomotion, torso: setup.torso, head: setup.head, primary: primary.chain, secondary: secondary.chain })) {
-    if (moduleFamily(id) !== family) return `The ${slot} belongs to the ${moduleFamily(id)} body family, not ${family}. Choose Human warrior or Stone golem to select a complete body.`;
+    if (moduleFamily(id) !== family) {
+      return `The ${slot} belongs to the ${moduleFamily(id)} body family, not ${family}. `
+        + `Choose ${listed(BODY_FAMILIES.map((f) => FAMILY_LABEL[f]))} to select a complete body.`;
+    }
   }
   if (primary.sockets === 2 || secondary.sockets === 2) {
     if (primary.id !== secondary.id) {

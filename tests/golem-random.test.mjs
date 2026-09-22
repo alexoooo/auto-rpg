@@ -35,6 +35,7 @@ import {
   viableMirror,
   viablePair,
 } from "../src/golem/viability.ts";
+import { BODY_FAMILIES } from "../src/golem/family.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { unitDefinition } from "../src/units.ts";
 
@@ -46,7 +47,7 @@ const draws = (seed, count = DRAWS, family = "golem") => {
 };
 
 test("every_random_build_passes_the_same_refusal_the_screen_applies", () => {
-  for (const setup of [...draws(20260906), ...draws(20260906, DRAWS, "human")]) {
+  for (const setup of BODY_FAMILIES.flatMap((family) => draws(20260906, DRAWS, family))) {
     assert.equal(golemSetupRefusal(setup), null, JSON.stringify(setup));
   }
 });
@@ -59,7 +60,7 @@ test("seeded_draws_repeat_and_different_seeds_differ", () => {
 
 test("over_a_few_hundred_draws_every_option_of_every_slot_appears", () => {
   const seen = { locomotion: new Set(), torso: new Set(), head: new Set(), effector: new Set() };
-  for (const setup of [...draws(20260906), ...draws(20260906, DRAWS, "human")]) {
+  for (const setup of BODY_FAMILIES.flatMap((family) => draws(20260906, DRAWS, family))) {
     seen.locomotion.add(setup.locomotion);
     seen.torso.add(setup.torso);
     seen.head.add(setup.head);
@@ -80,7 +81,7 @@ test("over_a_few_hundred_draws_every_option_of_every_slot_appears", () => {
 
 test("a_two_socket_terminal_drawn_in_either_socket_claims_both", () => {
   let mauls = 0;
-  for (const setup of [...draws(20260906), ...draws(20260906, DRAWS, "human")]) {
+  for (const setup of BODY_FAMILIES.flatMap((family) => draws(20260906, DRAWS, family))) {
     const two = ["primary", "secondary"].filter((socket) =>
       (golemEffector(setup[socket].chain, setup[socket].terminal)?.sockets ?? 1) === 2);
     if (two.length === 0) continue;

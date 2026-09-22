@@ -10,13 +10,13 @@ import {
   withUnit,
   modeOf,
   type GolemEffectorSetup,
+  type GolemSetup,
   type Mode,
   type GolemSlotName,
   type Matchup,
 } from "./bout";
 import {
   NO_TERMINAL,
-  defaultGolemSetup,
   randomGolemSetup,
   describeGolemSetup,
   golemChainOptions,
@@ -31,8 +31,8 @@ import {
 } from "./golem/build";
 import { randomViableGolemSetup, randomViableOpponent, unviablePairNote } from "./golem/viability";
 import type { PartsBin } from "./golem/parts-bin";
-import { bodyFamily, moduleFamily } from "./golem/family.ts";
-import { humanSetup } from "./golem/humanoid/presets.ts";
+import { BODY_FAMILIES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily } from "./golem/family.ts";
+import { FAMILY_SETUP } from "./golem/family-setup.ts";
 import { mulberry32, randomSeed } from "./rng";
 import { unitDefinition } from "./units";
 import { POLICIES } from "./mind";
@@ -303,8 +303,8 @@ export class SetupScreen {
         <div class="corner-actions">
           <button class="action" type="button" data-side="${side}" data-field="randomize">Randomize</button>
           <button class="action quiet" type="button" data-side="${side}" data-field="customize">Customize</button>
-          <button class="action quiet" type="button" data-side="${side}" data-field="human">Human warrior</button>
-          <button class="action quiet" type="button" data-side="${side}" data-field="stone">Stone golem</button>
+          ${BODY_FAMILIES.map((family) => `<button class="action quiet" type="button" data-side="${side}"`
+            + ` data-field="family" data-family="${family}">${FAMILY_LABEL[family]}</button>`).join("\n          ")}
         </div>
         <div class="corner-row">
           <label class="field">
@@ -439,18 +439,14 @@ export class SetupScreen {
       case "partsBinReset":
         this.emptyBin();
         break;
-      case "stone": {
+      case "family": {
+        // One button per family, generated from `BODY_FAMILIES`: the family's own body, then its
+        // own policy, in that order and with one fresh seed, as each hand-written button did.
         const side = target.dataset.side as Side;
-        if (side !== "left" && side !== "right") return;
-        this.matchup = withGolemBuild(this.matchup, side, defaultGolemSetup(), randomSeed());
-        this.matchup = withPolicy(this.matchup, side, "golem-duelist");
-        break;
-      }
-      case "human": {
-        const side = target.dataset.side as Side;
-        if (side !== "left" && side !== "right") return;
-        this.matchup = withGolemBuild(this.matchup, side, humanSetup(), randomSeed());
-        this.matchup = withPolicy(this.matchup, side, "humanoid-duelist");
+        const family = target.dataset.family;
+        if ((side !== "left" && side !== "right") || !isBodyFamily(family)) return;
+        this.matchup = withGolemBuild(this.matchup, side, FAMILY_SETUP[family](), randomSeed());
+        this.matchup = withPolicy(this.matchup, side, FAMILY_POLICY[family]);
         break;
       }
       case "randomize": {
@@ -502,7 +498,16 @@ export class SetupScreen {
     const other = this.matchup[side === "left" ? "right" : "left"].golem;
     const rng = mulberry32(seed);
     const family = this.matchup[side].golem ? bodyFamily(this.matchup[side].golem!) : "golem";
-    const build = family === "human" ? randomGolemSetup(rng, family) : other ? randomViableOpponent(rng, other) : randomViableGolemSetup(rng);
+    // Exhaustive, so a new family is a compile error here rather than a stone draw. The stone arm
+    // keeps the viability draws, which are measured on stone bodies only (`src/golem/viability.ts`).
+    const draw = (): GolemSetup => {
+      switch (family) {
+        case "golem": return other ? randomViableOpponent(rng, other) : randomViableGolemSetup(rng);
+        case "human": return randomGolemSetup(rng, family);
+        default: { const unhandled: never = family; throw new Error(`no random draw for ${String(unhandled)}`); }
+      }
+    };
+    const build = draw();
     if (!this.matchup[side].golem) {
       this.matchup = withUnit(this.matchup, side, GOLEM_UNIT, unitDefinition(GOLEM_UNIT));
     }
