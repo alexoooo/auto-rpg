@@ -1,4 +1,5 @@
 import type { GolemEffectorSetup, GolemSetup } from "../bout.ts";
+import { bodyFamily, moduleFamily, type BodyFamily } from "./family.ts";
 import type { WeaponKind } from "../hands.ts";
 import {
   CHAIN_PITCH,
@@ -206,9 +207,10 @@ export const isGolemEffectorOption = (id: string): boolean => golemEffectorOptio
  */
 export const NO_TERMINAL = "none" as const;
 
-export const golemChainOptions = (): readonly GolemSlotOption[] => {
+export const golemChainOptions = (family?: BodyFamily): readonly GolemSlotOption[] => {
   const seen = new Map<string, string>();
   for (const option of GOLEM_EFFECTORS) {
+    if (family && moduleFamily(option.chain) !== family) continue;
     if (!seen.has(option.chain)) seen.set(option.chain, chainOf(option.chain)?.label ?? option.chain);
   }
   return Object.freeze([...seen].map(([id, label]) => Object.freeze({ id, label })));
@@ -221,16 +223,16 @@ export const golemTerminalOptions = (chain: string): readonly GolemSlotOption[] 
     .map((option) => Object.freeze({
       id: option.terminal ?? NO_TERMINAL,
       label: option.terminal
-        ? terminalOf(option.terminal)?.label ?? option.terminal
+        ? (chainOf(chain)?.fitTerminal?.(terminalOf(option.terminal)!) ?? terminalOf(option.terminal))?.label ?? option.terminal
         : "its own cap",
     })));
 
-export const golemLocomotionOptions = (): readonly GolemSlotOption[] =>
-  Object.freeze(GOLEM_LOCOMOTION.map((definition) => optionOf(definition.id)));
-export const golemTorsoOptions = (): readonly GolemSlotOption[] =>
-  Object.freeze(TORSOS.map((definition) => optionOf(definition.id)));
-export const golemHeadOptions = (): readonly GolemSlotOption[] =>
-  Object.freeze(HEADS.map((definition) => optionOf(definition.id)));
+export const golemLocomotionOptions = (family?: BodyFamily): readonly GolemSlotOption[] =>
+  Object.freeze(GOLEM_LOCOMOTION.filter(d => !family || moduleFamily(d.id) === family).map((definition) => optionOf(definition.id)));
+export const golemTorsoOptions = (family?: BodyFamily): readonly GolemSlotOption[] =>
+  Object.freeze(TORSOS.filter(d => !family || moduleFamily(d.id) === family).map((definition) => optionOf(definition.id)));
+export const golemHeadOptions = (family?: BodyFamily): readonly GolemSlotOption[] =>
+  Object.freeze(HEADS.filter(d => !family || moduleFamily(d.id) === family).map((definition) => optionOf(definition.id)));
 
 /**
  * Every registered module this file cannot resolve to a definition, by id.
@@ -266,7 +268,7 @@ export const unresolvedGolemModules = (): readonly string[] => {
 export function defaultGolemSetup(): GolemSetup {
   const topChain: ChainId = golemEffector("wrist", "blade") ? "wrist" : "pitch";
   return {
-    locomotion: GOLEM_LOCOMOTION[0].id,
+    family: "golem", locomotion: GOLEM_LOCOMOTION[0].id,
     torso: TORSOS[0].id,
     head: HEADS[0].id,
     primary: { chain: topChain, terminal: "blade" },
@@ -291,13 +293,13 @@ export function defaultGolemSetup(): GolemSetup {
  * after it. The refusal loop is a guard and not a search: every id drawn is one the registry
  * offers, so it should never turn, and it throws rather than spin if it does.
  */
-export function randomGolemSetup(rng: () => number): GolemSetup {
+export function randomGolemSetup(rng: () => number, family: BodyFamily = "golem"): GolemSetup {
   const pick = <T>(items: readonly T[]): T => {
     if (items.length === 0) throw new Error("a golem slot with nothing to draw from");
     return items[Math.min(items.length - 1, Math.floor(rng() * items.length))];
   };
   const socket = (): GolemEffectorSetup => {
-    const chain = pick(golemChainOptions()).id;
+    const chain = pick(golemChainOptions(family)).id;
     return { chain, terminal: pick(golemTerminalOptions(chain)).id };
   };
   for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -307,9 +309,9 @@ export function randomGolemSetup(rng: () => number): GolemSetup {
       : socket();
     const both = (golemEffector(secondary.chain, secondary.terminal)?.sockets ?? 1) === 2;
     const setup: GolemSetup = {
-      locomotion: pick(golemLocomotionOptions()).id,
-      torso: pick(golemTorsoOptions()).id,
-      head: pick(golemHeadOptions()).id,
+      family, locomotion: pick(golemLocomotionOptions(family)).id,
+      torso: pick(golemTorsoOptions(family)).id,
+      head: pick(golemHeadOptions(family)).id,
       primary: both ? { ...secondary } : primary,
       secondary,
     };
@@ -374,6 +376,10 @@ export function golemSetupRefusal(setup: GolemSetup): string | null {
   const secondary = golemEffector(setup.secondary.chain, setup.secondary.terminal);
   if (!secondary) {
     return `no golem effector "${setup.secondary.chain}" + "${setup.secondary.terminal}" for the secondary socket`;
+  }
+  const family = bodyFamily(setup);
+  for (const [slot, id] of Object.entries({ locomotion: setup.locomotion, torso: setup.torso, head: setup.head, primary: primary.chain, secondary: secondary.chain })) {
+    if (moduleFamily(id) !== family) return `The ${slot} belongs to the ${moduleFamily(id)} body family, not ${family}. Choose Human warrior or Stone golem to select a complete body.`;
   }
   if (primary.sockets === 2 || secondary.sockets === 2) {
     if (primary.id !== secondary.id) {

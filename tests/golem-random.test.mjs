@@ -40,13 +40,13 @@ import { unitDefinition } from "../src/units.ts";
 
 const DRAWS = 400;
 
-const draws = (seed, count = DRAWS) => {
+const draws = (seed, count = DRAWS, family = "golem") => {
   const rng = mulberry32(seed);
-  return Array.from({ length: count }, () => randomGolemSetup(rng));
+  return Array.from({ length: count }, () => randomGolemSetup(rng, family));
 };
 
 test("every_random_build_passes_the_same_refusal_the_screen_applies", () => {
-  for (const setup of draws(20260906)) {
+  for (const setup of [...draws(20260906), ...draws(20260906, DRAWS, "human")]) {
     assert.equal(golemSetupRefusal(setup), null, JSON.stringify(setup));
   }
 });
@@ -59,7 +59,7 @@ test("seeded_draws_repeat_and_different_seeds_differ", () => {
 
 test("over_a_few_hundred_draws_every_option_of_every_slot_appears", () => {
   const seen = { locomotion: new Set(), torso: new Set(), head: new Set(), effector: new Set() };
-  for (const setup of draws(20260906)) {
+  for (const setup of [...draws(20260906), ...draws(20260906, DRAWS, "human")]) {
     seen.locomotion.add(setup.locomotion);
     seen.torso.add(setup.torso);
     seen.head.add(setup.head);
@@ -80,7 +80,7 @@ test("over_a_few_hundred_draws_every_option_of_every_slot_appears", () => {
 
 test("a_two_socket_terminal_drawn_in_either_socket_claims_both", () => {
   let mauls = 0;
-  for (const setup of draws(20260906)) {
+  for (const setup of [...draws(20260906), ...draws(20260906, DRAWS, "human")]) {
     const two = ["primary", "secondary"].filter((socket) =>
       (golemEffector(setup[socket].chain, setup[socket].terminal)?.sockets ?? 1) === 2);
     if (two.length === 0) continue;
@@ -95,11 +95,11 @@ test("the_draw_reads_its_stream_and_nothing_else", () => {
   // every slot. Neither reads the clock or `Math.random`, or the two calls would disagree.
   const first = randomGolemSetup(() => 0);
   assert.deepEqual(first, randomGolemSetup(() => 0));
-  assert.equal(first.locomotion, golemLocomotionOptions()[0].id);
-  assert.equal(first.primary.chain, golemChainOptions()[0].id);
+  assert.equal(first.locomotion, golemLocomotionOptions("golem")[0].id);
+  assert.equal(first.primary.chain, golemChainOptions("golem")[0].id);
   const last = randomGolemSetup(() => 1 - 1e-9);
-  const chains = golemChainOptions();
-  assert.equal(last.locomotion, golemLocomotionOptions().at(-1).id);
+  const chains = golemChainOptions("golem");
+  assert.equal(last.locomotion, golemLocomotionOptions("golem").at(-1).id);
   assert.equal(last.primary.chain, chains.at(-1).id);
   assert.equal(last.primary.terminal, golemTerminalOptions(chains.at(-1).id).at(-1).id);
 });

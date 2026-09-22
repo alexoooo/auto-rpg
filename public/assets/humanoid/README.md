@@ -14,6 +14,7 @@ The original author does not endorse this game.
 Rebuild from the checked-in, stripped editable source with Blender 4.5:
 
 ```powershell
+python scripts/humanoid/chainmail-texture.py
 node scripts/humanoid/export-bind.mjs assets/humanoid/bind.json
 blender --background --disable-autoexec assets/humanoid/knight-source.blend --python scripts/humanoid/build-assets.py -- assets/humanoid/bind.json public/assets/humanoid/warrior.glb
 ```
@@ -26,6 +27,14 @@ The editable `assets/humanoid/knight-source.blend` retains the source body and a
 materials, weights and deform bones. `scripts/humanoid/prepare-source.py` reproduces it from
 the original download, removing unused scene objects, animation constraints and embedded scripts.
 All retargeting and grip corrections are reproducible in `build-assets.py` and `grips.json`.
+Gloves are fused into continuous meshes by voxel remeshing. Chainmail maps are generated locally
+by `chainmail-texture.py`; bind-space UVs keep their link size consistent. These textures are
+original procedural assets with no additional third-party source.
+
+The arm has three physical segments with seven virtual joint coordinates. Elbow constraint
+frames are centred on the bent resting pose to avoid the angular singularity of a straight
+reference frame. The heater shield uses a forearm attachment, wrist grip and cosmetic straps;
+it does not add a second hand-to-shield constraint.
 
 `grips.json` defines the palm centre and handle/edge axes in the physical hand's local frame.
 The mesh compiler and runtime import the same values. The handle runs across the closed fingers;

@@ -16,6 +16,8 @@ import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { attachPhysics } from "../physics.ts";
 import { CONFIG } from "../config.ts";
 import { humanSetup } from "../golem/humanoid/presets.ts";
+import { bodyFamily } from "../golem/family.ts";
+import { humanEquipment } from "../golem/humanoid/equipment.ts";
 import { EFFECTOR_TERMINALS } from "../golem/registry.ts";
 import type { GolemSetup } from "../bout.ts";
 import { PLAYABLE_BUILDS } from "../golem/roster.ts";
@@ -39,11 +41,11 @@ for (const build of PLAYABLE_BUILDS.filter(b => b.setup.locomotion !== "locomoti
 const humanPrimary = need<HTMLSelectElement>("human-primary"), humanSecondary = need<HTMLSelectElement>("human-secondary");
 for (const picker of [humanPrimary, humanSecondary]) for (const terminal of Object.values(EFFECTOR_TERMINALS)) {
   const option = document.createElement("option"); option.value = terminal.id;
-  option.textContent = terminal.id === "fist" ? "Empty hand" : terminal.id === "maul" ? "Maul (two hands)" : terminal.label; picker.append(option);
+  option.textContent = humanEquipment(terminal).label; picker.append(option);
 }
 const updateEquipment = () => {
   const setup = PLAYABLE_BUILDS.find(b => b.name === heroBuild.value)?.setup;
-  need("human-equipment").hidden = setup?.primary.chain !== "anatomical";
+  need("human-equipment").hidden = !setup || bodyFamily(setup) !== "human";
   humanPrimary.value = setup?.primary.terminal ?? "blade"; humanSecondary.value = setup?.secondary.terminal ?? "plate";
   humanSecondary.disabled = humanPrimary.value === "maul";
 };

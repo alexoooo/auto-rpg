@@ -5,13 +5,14 @@ import { Skeleton } from "@babylonjs/core/Bones/skeleton.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { publicAssetUrl } from "../../asset-url.ts";
 
 interface Binding { key: string; slot: string; id: string; position: number[]; rotation: number[] }
 interface Accessor { bufferView: number; componentType: number; count: number; type: string }
-interface Primitive { attributes: { POSITION: number; NORMAL: number; JOINTS_0: number; WEIGHTS_0: number }; indices: number; material: number }
+interface Primitive { attributes: { TEXCOORD_0?: number; POSITION: number; NORMAL: number; JOINTS_0: number; WEIGHTS_0: number }; indices: number; material: number }
 interface Asset { accessors: Accessor[]; bufferViews: { byteOffset: number; byteLength: number }[];
   meshes: { name: string; extras: { slot: string; layer: "body" | "armour"; cap: boolean; capNear: string[]; fist: boolean }; primitives: Primitive[] }[];
   materials: { name: string; pbrMetallicRoughness: { baseColorFactor: number[]; metallicFactor: number; roughnessFactor: number } }[];
@@ -49,6 +50,17 @@ export function dressHumanoid(scene: Scene, parts: readonly HumanVisualPart[], s
     const material = new PBRMaterial(`human.${side}.${row.name}`, scene), p = row.pbrMetallicRoughness;
     material.albedoColor = Color3.FromArray(p.baseColorFactor);
     if (row.name.toLowerCase().includes("cloth")) material.albedoColor = Color3.FromHexString(side === "left" ? "#23445e" : "#682e2b");
+    if (row.name === "Chainmail" && scene.getEngine().getClassName() !== "NullEngine") {
+      const texture = (file: string, linear = false) => {
+        const map = new Texture(publicAssetUrl(`/assets/humanoid/${file}`), scene);
+        map.gammaSpace = !linear; map.wrapU = map.wrapV = Texture.WRAP_ADDRESSMODE; return map;
+      };
+      material.albedoTexture = texture("chainmail-color.png");
+      material.bumpTexture = texture("chainmail-normal.png", true); material.bumpTexture.level = .6;
+      material.metallicTexture = texture("chainmail-roughness.png", true);
+      material.useRoughnessFromMetallicTextureGreen = true; material.useRoughnessFromMetallicTextureAlpha = false;
+      material.useMetallnessFromMetallicTextureBlue = false;
+    }
     material.metallic = p.metallicFactor; material.roughness = p.roughnessFactor;
     material.backFaceCulling = false; material.maxSimultaneousLights = 8; return material;
   });
@@ -65,6 +77,7 @@ export function dressHumanoid(scene: Scene, parts: readonly HumanVisualPart[], s
     for (const primitive of row.primitives) {
       const mesh = new Mesh(`human.${side}.${row.name}`, scene), vertex = new VertexData();
       vertex.positions = read(primitive.attributes.POSITION);
+      if (primitive.attributes.TEXCOORD_0 !== undefined) vertex.uvs = read(primitive.attributes.TEXCOORD_0);
       for (let i = 2; i < vertex.positions.length; i += 3) vertex.positions[i] *= -1;
       vertex.indices = read(primitive.indices);
       for (let i = 0; i < vertex.indices.length; i += 3) [vertex.indices[i + 1], vertex.indices[i + 2]] = [vertex.indices[i + 2], vertex.indices[i + 1]];
@@ -135,6 +148,6 @@ export function dressHumanoid(scene: Scene, parts: readonly HumanVisualPart[], s
     previous.dispose();
   }, dispose() {
     scene.onBeforeRenderObservable.remove(observer); meshes.forEach(m => m.dispose(false, false));
-    skeleton.dispose(); materials.forEach(m => m.dispose());
+    skeleton.dispose(); materials.forEach(m => m.dispose(false, true));
   } };
 }

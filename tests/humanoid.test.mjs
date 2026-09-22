@@ -11,6 +11,7 @@ import { neutralIntent } from "../src/dungeon/commands.ts";
 import { ARM_LIMITS, ARM_REST, armForward, rotationError, solveArm } from "../src/golem/humanoid/kinematics.ts";
 import { humanSetup } from "../src/golem/humanoid/presets.ts";
 import { loadHumanAssets } from "../src/golem/humanoid/appearance.ts";
+import { HEATER_GRIP, HEATER_CENTRE } from "../src/golem/humanoid/shield.ts";
 import { PALM_GRIP, HUMAN_MOUNT } from "../src/golem/humanoid/grip.ts";
 import { TERMINAL_BLADE, TERMINAL_MACE, TERMINAL_PLATE, TERMINAL_WHIP } from "../src/golem/config.ts";
 import { turnHand } from "../src/golem/humanoid/orientation.ts";
@@ -91,10 +92,10 @@ for (const terminal of ["blade", "plate", "mace", "whip", "fist"]) {
           const local = terminal === "blade" ? new Vector3(0, -TERMINAL_BLADE.length / 2 - .065, 0) :
             terminal === "mace" ? new Vector3(0, -TERMINAL_MACE.length / 2 + .07, 0) :
             terminal === "whip" ? new Vector3(0, -TERMINAL_WHIP.segmentLength / 2 + .06, 0) :
-            new Vector3(0, -TERMINAL_PLATE.standOff - TERMINAL_PLATE.thickness / 2, (i === 0 ? 1 : -1) * .08);
+            HEATER_GRIP.subtract(HEATER_CENTRE(i === 0 ? 1 : -1));
           const grip = local.rotateByQuaternionToRef(item.rotationQuaternion, new Vector3()).add(item.position);
           assert.ok(Vector3.Distance(palm, grip) < .006, `${terminal}: handle must stay inside the palm`);
-          const shaft = Vector3.Up().rotateByQuaternionToRef(item.rotationQuaternion, new Vector3());
+          const shaft = (terminal === "plate" ? Vector3.Forward() : Vector3.Up()).rotateByQuaternionToRef(item.rotationQuaternion, new Vector3());
           const fingers = HUMAN_MOUNT.perp.rotateByQuaternionToRef(hand.rotationQuaternion, new Vector3());
           assert.ok(Vector3.Dot(shaft, fingers) > .995, `${terminal}: handle must follow the authored grip axis`);
           if (terminal === "blade") assert.ok(item.getChildMeshes().some(mesh => mesh.name.endsWith(".hilt")));
@@ -149,8 +150,8 @@ test("human anatomy wounds while equipment parries with its real kind; severing 
   } finally { run.dispose(); arena.dispose(); }
 });
 
-test("authored human policy closes and produces damaging sword contacts", async () => {
-  const result = runBout({ left: "humanoid-duelist", right: "idle", leftGolem: humanSetup(), rightGolem: humanSetup(),
+test("authored human policy closes and wounds an exposed opponent", async () => {
+  const result = runBout({ left: "humanoid-duelist", right: "idle", leftGolem: humanSetup(), rightGolem: humanSetup("fist", "fist"),
     locomotionMode: "supported", seeds: [42, 77], maxSeconds: 15, separation: 2.6, physics: await freshHavok() });
   assert.ok(result.left.hits > 5);
   assert.ok(result.left.damage > 0.05, "motion and weapon scraping alone must not pass");
@@ -210,10 +211,20 @@ test("shipped warrior has an upright crowned helmet, body layers, normals and no
   const buffer = await readFile(new URL("../public/assets/humanoid/warrior.glb", import.meta.url));
   const length=buffer.readUInt32LE(12), doc=JSON.parse(buffer.subarray(20,20+length)), bin=buffer.subarray(28+length);
   const read=index=>{ const a=doc.accessors[index],v=doc.bufferViews[a.bufferView]; return Array.from({length:v.byteLength/4},(_,i)=>bin.readFloatLE(v.byteOffset+i*4)); };
+  assert.ok(doc.materials.some(m=>m.name==="Chainmail"), "body must use chainmail rather than blue skin");
   const helmet=[]; const bodySlots=new Set();
   for (const mesh of doc.meshes) {
     const attr=mesh.primitives[0].attributes, positions=read(attr.POSITION), normals=read(attr.NORMAL), weights=read(attr.WEIGHTS_0);
     assert.ok(positions.every(Number.isFinite)); assert.equal(normals.length,positions.length);
+    assert.equal(read(attr.TEXCOORD_0).length, positions.length / 3 * 2, "authored UVs must reach every vertex");
+    if (mesh.name.includes(".Hand.")) {
+      const a=doc.accessors[mesh.primitives[0].indices], v=doc.bufferViews[a.bufferView];
+      const indices=Array.from({length:a.count},(_,i)=>bin.readUInt32LE(v.byteOffset+i*4));
+      const parent=Array.from({length:positions.length/3},(_,i)=>i);
+      const root=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;};
+      for(let i=0;i<indices.length;i+=3) for(let j=1;j<3;j++) parent[root(indices[i+j])]=root(indices[i]);
+      assert.equal(new Set(parent.map((_,i)=>root(i))).size,1,"glove fingers, palm and cuff must be one continuous mesh");
+    }
     for(let i=0;i<weights.length;i+=4) assert.ok(Math.abs(weights.slice(i,i+4).reduce((a,b)=>a+b,0)-1)<1e-5);
     if(mesh.extras.layer==="body" && !mesh.extras.cap) bodySlots.add(mesh.extras.slot);
     if(mesh.name.includes(".Helmet.")) for(let i=0;i<positions.length;i+=3) helmet.push(positions.slice(i,i+3));
@@ -247,4 +258,47 @@ test("two-handed equipment dresses the two distinct physical hands", async () =>
       }
     }
   } finally {run.dispose();arena.dispose();}
+});
+
+// A stationary live body is necessary: sleeping isolated limbs hide persistent oscillation.
+test("full human body holds loaded wrists and shield steady after a sweep and impulse", async () => {
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const run = new DungeonRun(arena.scene, 42, "human-warrior", false);
+  const { scene } = arena;
+  const command = neutralIntent();
+  let clock = 0;
+  const observer = scene.onBeforePhysicsObservable.add(() => {
+    clock += 1 / 240; run.step(1 / 240);
+    const sweep = Math.min(1, Math.max(0, (clock - 1) / .3));
+    command.primary.pointerX = .3 * sweep;
+    command.secondary.pointerX = -.3 * sweep;
+    for (const slot of ["primary", "secondary"]) run.hero.body.effectors[slot].module.command(command[slot]);
+  });
+  const modules = ["primary", "secondary"].map(slot => run.hero.body.effectors[slot].module);
+  for (const m of modules) for (const p of m.parts) scene.getPhysicsEngine().getPhysicsPlugin().setActivationControl(p.part.body, 1);
+  const sample = () => modules.map(m => {
+    const hand=m.parts.find(p=>p.id.endsWith('.hand')).part.mesh;
+    const fore=m.parts.find(p=>p.id.endsWith('.fore')).part.mesh;
+    const palm=PALM_GRIP.rotateByQuaternionToRef(hand.rotationQuaternion,new Vector3()).add(hand.position);
+    const wrist=new Vector3(0,.045,0).rotateByQuaternionToRef(hand.rotationQuaternion,new Vector3()).add(hand.position);
+    const foreEnd=new Vector3(0,-.135,0).rotateByQuaternionToRef(fore.rotationQuaternion,new Vector3()).add(fore.position);
+    assert.ok(Vector3.Distance(wrist,foreEnd)<.005,'physical wrist must remain continuous');
+    return { error:palm.subtract(m.view().anchor), rotation:hand.rotationQuaternion.clone() };
+  });
+  try {
+    advance(scene, 360);
+    const shield=modules[1].parts.find(p=>p.id.endsWith('.plate')).part;
+    shield.body.applyImpulse(new Vector3(.15,0,.15),shield.mesh.position);
+    advance(scene,120);
+    const initial=sample();
+    let wander=0, rotation=0, error=0;
+    for(let i=0;i<120;i++) {
+      advance(scene,1); const current=sample();
+      current.forEach((s,j)=>{wander=Math.max(wander,Vector3.Distance(s.error,initial[j].error));error=Math.max(error,s.error.length());});
+      rotation=Math.max(rotation,rotationError(current[1].rotation,initial[1].rotation).length());
+    }
+    assert.ok(error<.005,`hand tracking error ${error}`);
+    assert.ok(wander<.005,`sustained wrist wander ${wander}`);
+    assert.ok(rotation<Math.PI/180,`sustained shield rotation ${rotation}`);
+  } finally { scene.onBeforePhysicsObservable.remove(observer); run.dispose(); arena.dispose(); }
 });

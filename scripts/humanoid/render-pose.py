@@ -10,6 +10,19 @@ for row in json.load(open(args[0])):
     mesh=bpy.data.meshes.new(row['name']); idx=row['indices']; mesh.from_pydata(row['vertices'],[],[(idx[i],idx[i+2],idx[i+1]) for i in range(0,len(idx),3)]); mesh.update()
     obj=bpy.data.objects.new(row['name'],mesh); bpy.context.collection.objects.link(obj)
     mat=bpy.data.materials.new(row['name']); mat.use_nodes=True; bsdf=mat.node_tree.nodes.get('Principled BSDF'); bsdf.inputs['Base Color'].default_value=(*row['colour'],1); bsdf.inputs['Metallic'].default_value=row['metallic']; bsdf.inputs['Roughness'].default_value=.55; mesh.materials.append(mat)
+    if row.get('uvs'):
+        uv=mesh.uv_layers.new(name='UVMap')
+        for loop in mesh.loops:
+            uv.data[loop.index].uv=row['uvs'][loop.vertex_index*2:loop.vertex_index*2+2]
+    if 'Chainmail' in row['name']:
+        texture_root=Path(__file__).parents[2]/'public/assets/humanoid'
+        for filename,socket in [('chainmail-color.png','Base Color'),('chainmail-roughness.png','Roughness'),('chainmail-normal.png','Normal')]:
+            tex=mat.node_tree.nodes.new('ShaderNodeTexImage'); tex.image=bpy.data.images.load(str(texture_root/filename))
+            if socket!='Base Color': tex.image.colorspace_settings.name='Non-Color'
+            if socket=='Normal':
+                normal=mat.node_tree.nodes.new('ShaderNodeNormalMap'); normal.inputs['Strength'].default_value=.6
+                mat.node_tree.links.new(tex.outputs['Color'],normal.inputs['Color']);mat.node_tree.links.new(normal.outputs['Normal'],bsdf.inputs['Normal'])
+            else: mat.node_tree.links.new(tex.outputs['Color'],bsdf.inputs[socket])
     for poly in mesh.polygons: poly.use_smooth=row['layer']=='body'
 scene=bpy.context.scene
 view=args[-1]; location={'rear':(2,-4,2.2),'side':(4,0,2.1),'top':(0,.01,5)}.get(view,(-2.5,4,2.2))

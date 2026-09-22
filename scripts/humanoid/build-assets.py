@@ -117,7 +117,7 @@ for obj in list(bpy.data.objects):
         if any(max(weights[vi],key=lambda p:p[1])[0].endswith('.hand') for vi in tri.vertices): continue
         if obj.name.startswith('eyes-'): mat='Pupil' if mat=='Eye' else 'Eye white'
         if obj.name=='Man':
-            mat='Skin' if slot=='head' else 'Padded cloth'
+            mat='Skin' if slot=='head' else 'Leather boot' if any('.foot' in k for vi in tri.vertices for k,w in weights[vi] if w>.5) else 'Chainmail'
         if obj.name != 'Man':
             # Plates are rigid. Do not shear a pauldron across unrelated source bones.
             owner=owners[root(tri.vertices[0])]
@@ -198,13 +198,46 @@ for slot in ['primary','secondary']:
     key=slot+'.hand'; sign=1 if slot=='primary' else -1
     glove_ellipsoid(key,(0,-.028,0),(.023,.018,.03),'Fist')
     glove_ellipsoid(key,(0,.036,0),(.034,.023,.024))
-    glove_ellipsoid(key,(0,.013,-.005),(.036,.030,.019))
+    glove_ellipsoid(key,(0,.005,-.017),(.036,.042,.020))
+    glove_ellipsoid(key,(0,.044,0),(.031,.020,.025))
     # Four fingers wrap across the palm around a Z-axis handle, with visible knuckles.
     for z in [-.019,-.006,.007,.020]:
         for x,y,rx,ry in [(.033,-.025,.011,.020),(.022,-.045,.019,.010),(-.001,-.041,.015,.010)]:
             glove_ellipsoid(key,(sign*x,y,z), (rx,ry,.0065))
     glove_ellipsoid(key,(-sign*.027,-.008,.026),(.013,.025,.011))
     glove_ellipsoid(key,(-sign*.013,-.026,.032),(.020,.011,.010))
+
+# Fuse overlapping glove pieces into one continuous surface, retaining the handle opening.
+# Geometry is authored in physics bind space; the resulting mesh remains rigid to its hand bone.
+for slot in ['primary','secondary']:
+    key=(slot,'Leather glove','Hand'); g=buckets[key]
+    mesh=bpy.data.meshes.new('continuous-glove')
+    mesh.from_pydata([g['positions'][i:i+3] for i in range(0,len(g['positions']),3)],[],[g['indices'][i:i+3] for i in range(0,len(g['indices']),3)])
+    obj=bpy.data.objects.new('continuous-glove',mesh); bpy.context.collection.objects.link(obj)
+    remesh=obj.modifiers.new('Union glove','REMESH'); remesh.mode='VOXEL'; remesh.voxel_size=.002; remesh.use_smooth_shade=True
+    evaluated=obj.evaluated_get(bpy.context.evaluated_depsgraph_get()); merged=evaluated.to_mesh(); merged.calc_loop_triangles()
+    # Voxel remeshing may leave microscopic enclosed islands. Reject any real disconnected
+    # finger; discard only numerical debris smaller than one per cent of the glove vertices.
+    parents=list(range(len(merged.vertices)))
+    def component(i):
+        while parents[i]!=i:
+            parents[i]=parents[parents[i]]; i=parents[i]
+        return i
+    for edge in merged.edges:
+        a,b=edge.vertices; parents[component(a)]=component(b)
+    counts={}
+    for v in merged.vertices:
+        root=component(v.index); counts[root]=counts.get(root,0)+1
+    largest=max(counts,key=counts.get)
+    if any(n>counts[largest]*.01 for root,n in counts.items() if root!=largest):
+        raise ValueError('Glove contains a detached finger or palm')
+    kept=[v for v in merged.vertices if component(v.index)==largest]
+    remap={v.index:i for i,v in enumerate(kept)}
+    g['positions']=[c for v in kept for c in v.co]
+    g['indices']=[remap[i] for tri in merged.loop_triangles if all(i in remap for i in tri.vertices) for i in tri.vertices]
+    g['joints']=[j for v in kept for j in [keys.index(slot+'.hand'),0,0,0]]
+    g['weights']=[w for v in kept for w in [1,0,0,0]]
+    evaluated.to_mesh_clear(); bpy.data.objects.remove(obj,do_unlink=True)
 
 data=bytearray(); views=[]; accessors=[]
 def accessor(values,kind,components,ctype=5126):
@@ -226,8 +259,8 @@ for key in keys:
 skin=dict(joints=list(range(len(keys))),inverseBindMatrices=accessor(inverse,'MAT4',16))
 for (slot,mat,object_name),g in buckets.items():
     if mat not in material_ids:
-        lower=mat.lower(); gold='gold' in lower; dark='black' in lower or 'cloth' in lower or 'coif' in lower; cloth=dark or 'skin' in lower or 'glove' in lower or 'eye' in lower or 'pupil' in lower
-        colour=[.018,.012,.009,1] if 'pupil' in lower else [.65,.65,.60,1] if 'eye white' in lower else [.40,.24,.15,1] if 'skin' in lower else [.10,.065,.04,1] if 'glove' in lower else [.43,.24,.07,1] if gold else [.045,.055,.065,1] if dark else [.46,.5,.54,1]
+        lower=mat.lower(); gold='gold' in lower; dark='black' in lower or 'cloth' in lower or 'coif' in lower; cloth=dark or 'skin' in lower or 'glove' in lower or 'boot' in lower or 'eye' in lower or 'pupil' in lower
+        colour=[.018,.012,.009,1] if 'pupil' in lower else [.65,.65,.60,1] if 'eye white' in lower else [.40,.24,.15,1] if 'skin' in lower else [.08,.05,.03,1] if 'glove' in lower or 'boot' in lower else [.62,.65,.68,1] if 'chainmail' in lower else [.43,.24,.07,1] if gold else [.045,.055,.065,1] if dark else [.46,.5,.54,1]
         material_ids[mat]=len(materials)
         materials.append(dict(name=mat,pbrMetallicRoughness=dict(baseColorFactor=colour,metallicFactor=0 if cloth else .85,roughnessFactor=.8 if dark else .34),doubleSided=True))
     normals=[0.0]*len(g['positions']); adjacency={}
@@ -241,7 +274,12 @@ for (slot,mat,object_name),g in buckets.items():
         n=Vector(normals[j*3:j*3+3]).normalized(); key=tuple(round(x,6) for x in g['positions'][j*3:j*3+3])
         smooth=sum((v for v in adjacency[key] if v.dot(n)>.65),Vector()).normalized()
         normals[j*3:j*3+3]=smooth
-    primitives=[dict(attributes=dict(NORMAL=accessor(normals,'VEC3',3),POSITION=accessor(g['positions'],'VEC3',3),JOINTS_0=accessor(g['joints'],'VEC4',4,5123),WEIGHTS_0=accessor(g['weights'],'VEC4',4)),indices=accessor(g['indices'],'SCALAR',1,5125),material=material_ids[mat])]
+    # Stable bind-space UVs: one tile spans 20 mm, so links retain scale across body parts.
+    uvs=[]
+    for i in range(0,len(g['positions']),3):
+        x,y,z=g['positions'][i:i+3]; nx,ny,nz=normals[i:i+3]
+        uvs.extend([(z if abs(nx)>abs(nz) else x)*50,y*50])
+    primitives=[dict(attributes=dict(TEXCOORD_0=accessor(uvs,'VEC2',2),NORMAL=accessor(normals,'VEC3',3),POSITION=accessor(g['positions'],'VEC3',3),JOINTS_0=accessor(g['joints'],'VEC4',4,5123),WEIGHTS_0=accessor(g['weights'],'VEC4',4)),indices=accessor(g['indices'],'SCALAR',1,5125),material=material_ids[mat])]
     meshes.append(dict(name=slot+'.'+object_name+'.'+mat,primitives=primitives,extras=dict(slot=slot,layer='body' if object_name in ['Man','Hand','Fist'] or object_name.startswith('eyes-') or object_name.startswith('Seam:') else 'armour',cap=object_name.startswith('Seam:'),capNear=object_name.split(':')[1].split(',') if object_name.startswith('Seam:') else [],fist=object_name=='Fist')))
     nodes.append(dict(name=slot+'.'+object_name+'.'+mat,mesh=len(meshes)-1,skin=0))
 doc=dict(asset=dict(version='2.0',generator='auto-rpg humanoid asset compiler'),buffers=[dict(byteLength=len(data))],bufferViews=views,accessors=accessors,

@@ -130,7 +130,12 @@ export function effectorModule(
           }
 
           let made: BuiltTerminal | null = null;
-          if (terminal && built.weld) made = terminal.build(ctx, built.weld, second?.weld ?? null);
+          if (terminal && built.weld) {
+            const mount = terminal.attachment ?? "socket";
+            const onto = built.attachment?.(mount) ?? built.weld;
+            if ((onto.kind ?? "socket") !== mount) throw new Error(`${id}: incompatible ${mount} equipment attachment`);
+            made = terminal.build(ctx, onto, second?.weld ?? null);
+          }
           else made = built.ownTerminal;
           if (!made) {
             throw new Error(`${id}: chain "${chain.id}" hands out a weld and has to be paired with a terminal`);
@@ -148,9 +153,9 @@ export function effectorModule(
       })();
 
       const parts: readonly GolemPart[] = Object.freeze([
-        ...built.parts, ...(trailing?.parts ?? []), ...end.parts.map(part => chain.fitTerminal
-          ? terminal?.id === "fist" ? { ...part, combatRole: "body" as const, appearance: "human" as const }
-            : { ...part, combatRole: "equipment" as const, vitalityWeight: 0 } : part),
+        ...built.parts, ...(trailing?.parts ?? []), ...end.parts.map(part => terminal?.partRole
+          ? { ...part, combatRole: terminal.partRole, ...(terminal.appearance ? { appearance: terminal.appearance } : {}),
+              ...(terminal.partRole === "equipment" ? { vitalityWeight: 0 } : {}) } : part),
       ]);
       const strikers: readonly Striking[] = Object.freeze([...end.strikers]);
       // The business end, which is the first striker by contract: the tip and the edge are read

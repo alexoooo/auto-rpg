@@ -14,3 +14,9 @@ export function aimOrientation(direction: Vector3, roll: number): Quaternion {
   const q = Quaternion.FromUnitVectorsToRef(HUMAN_MOUNT.perp, direction.normalizeToNew(), new Quaternion());
   return q.multiply(Quaternion.RotationAxis(HUMAN_MOUNT.perp, roll));
 }
+
+/** A carried weapon rises from the fist; reaching forward does not point the shaft along the forearm. */
+export function carryOrientation(direction: Vector3, roll = 0, thrust = false): Quaternion {
+  const shaft = thrust ? direction : new Vector3(direction.x * .45, .85 + Math.max(0, direction.y) * .2, direction.z * .45).normalize();
+  return aimOrientation(shaft, roll);
+}

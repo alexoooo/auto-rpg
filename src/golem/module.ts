@@ -467,7 +467,11 @@ export interface GolemMount {
 }
 
 /** Everything a terminal needs in order to be built already agreeing with its own weld. */
+export type EquipmentAttachment = "socket" | "hand" | "forearm";
+
 export interface ChainWeld {
+  /** Physical attachment capability; omitted on legacy socket modules. */
+  readonly kind?: EquipmentAttachment;
   /** The last link of the chain. */
   readonly link: Part;
   /** Where the terminal attaches, in the link's own local frame. */
@@ -604,6 +608,8 @@ export interface BuiltChain {
   readonly weld: ChainWeld | null;
   /** A chain that carries its own terminal declares it here; every other chain answers null. */
   readonly ownTerminal: BuiltTerminal | null;
+  /** Select a supported attachment and prepare its grip. Never changes combat rules. */
+  attachment?(kind: EquipmentAttachment): ChainWeld;
   /** How far the weld point (or the chain's own tip) is from the socket, metres. */
   readonly reach: number;
   command(next: HandIntent): void;
@@ -794,6 +800,9 @@ export interface EffectorChainDefinition {
 }
 
 export interface EffectorTerminalDefinition {
+  readonly attachment?: EquipmentAttachment;
+  readonly partRole?: "body" | "equipment";
+  readonly appearance?: "human";
   /** Optional separation of a second grip along the held item, metres. */
   readonly trailingGripOffsetM?: number;
   readonly id: TerminalId;

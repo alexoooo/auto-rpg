@@ -16,6 +16,8 @@ import {
 } from "./bout";
 import {
   NO_TERMINAL,
+  defaultGolemSetup,
+  randomGolemSetup,
   describeGolemSetup,
   golemChainOptions,
   golemEffector,
@@ -29,6 +31,7 @@ import {
 } from "./golem/build";
 import { randomViableGolemSetup, randomViableOpponent, unviablePairNote } from "./golem/viability";
 import type { PartsBin } from "./golem/parts-bin";
+import { bodyFamily, moduleFamily } from "./golem/family.ts";
 import { humanSetup } from "./golem/humanoid/presets.ts";
 import { mulberry32, randomSeed } from "./rng";
 import { unitDefinition } from "./units";
@@ -301,6 +304,7 @@ export class SetupScreen {
           <button class="action" type="button" data-side="${side}" data-field="randomize">Randomize</button>
           <button class="action quiet" type="button" data-side="${side}" data-field="customize">Customize</button>
           <button class="action quiet" type="button" data-side="${side}" data-field="human">Human warrior</button>
+          <button class="action quiet" type="button" data-side="${side}" data-field="stone">Stone golem</button>
         </div>
         <div class="corner-row">
           <label class="field">
@@ -435,6 +439,13 @@ export class SetupScreen {
       case "partsBinReset":
         this.emptyBin();
         break;
+      case "stone": {
+        const side = target.dataset.side as Side;
+        if (side !== "left" && side !== "right") return;
+        this.matchup = withGolemBuild(this.matchup, side, defaultGolemSetup(), randomSeed());
+        this.matchup = withPolicy(this.matchup, side, "golem-duelist");
+        break;
+      }
       case "human": {
         const side = target.dataset.side as Side;
         if (side !== "left" && side !== "right") return;
@@ -490,7 +501,8 @@ export class SetupScreen {
     const seed = randomSeed();
     const other = this.matchup[side === "left" ? "right" : "left"].golem;
     const rng = mulberry32(seed);
-    const build = other ? randomViableOpponent(rng, other) : randomViableGolemSetup(rng);
+    const family = this.matchup[side].golem ? bodyFamily(this.matchup[side].golem!) : "golem";
+    const build = family === "human" ? randomGolemSetup(rng, family) : other ? randomViableOpponent(rng, other) : randomViableGolemSetup(rng);
     if (!this.matchup[side].golem) {
       this.matchup = withUnit(this.matchup, side, GOLEM_UNIT, unitDefinition(GOLEM_UNIT));
     }
@@ -579,22 +591,23 @@ export class SetupScreen {
       this.customizeButtons[side].textContent = open ? "Done" : "Customize";
       for (const { field } of GOLEM_FIELDS) this.golemFields[field][side].hidden = build === null;
       if (build) {
+        const family = bodyFamily(build);
         const fill = (field: GolemField, items: readonly GolemSlotOption[], value: string): void => {
           const select = this.golem[field][side];
           select.innerHTML = items
             .map((item) => `<option value="${item.id}">${item.label}</option>`).join("");
           select.value = value;
         };
-        fill("golemLocomotion", golemLocomotionOptions(), build.locomotion);
-        fill("golemTorso", golemTorsoOptions(), build.torso);
-        fill("golemHead", golemHeadOptions(), build.head);
+        fill("golemLocomotion", golemLocomotionOptions(family), build.locomotion);
+        fill("golemTorso", golemTorsoOptions(family), build.torso);
+        fill("golemHead", golemHeadOptions(family), build.head);
         for (const socket of ["primary", "secondary"] as const) {
           const pick = build[socket];
           const chainField: GolemField = socket === "primary"
             ? "golemPrimaryChain" : "golemSecondaryChain";
           const terminalField: GolemField = socket === "primary"
             ? "golemPrimaryTerminal" : "golemSecondaryTerminal";
-          fill(chainField, golemChainOptions(), pick.chain);
+          fill(chainField, golemChainOptions(family), pick.chain);
           // Only the terminals this chain is actually offered with, which is the picker "hides
           // pairs the registry does not have" with the registry itself as the list.
           fill(terminalField, golemTerminalOptions(pick.chain), pick.terminal);
@@ -603,7 +616,7 @@ export class SetupScreen {
           // above -- the person sees what happened, and `refusal` blocks Fight until they choose.
           const salvageField: GolemField = socket === "primary"
             ? "golemPrimarySalvage" : "golemSecondarySalvage";
-          const held = this.bin?.entries ?? [];
+          const held = (this.bin?.entries ?? []).filter(entry => moduleFamily(entry.id) === family);
           const stale = pick.salvage !== undefined
             && !held.some((entry) => entry.key === pick.salvage);
           fill(salvageField, [

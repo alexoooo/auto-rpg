@@ -40,7 +40,7 @@ try {
       vertices.push([p.x,p.z,p.y]);
     }
     const colour=m.material?.albedoColor ?? m.material?.diffuseColor;
-    meshes.push({name:m.name,layer:m.metadata?.humanLayer ?? 'equipment',vertices,indices:Array.from(indices),colour:colour?.asArray() ?? [.3,.3,.3],metallic:m.material?.metallic ?? .4});
+    meshes.push({uvs:Array.from(m.getVerticesData("uv") ?? []),name:m.name,layer:m.metadata?.humanLayer ?? 'equipment',vertices,indices:Array.from(indices),colour:colour?.asArray() ?? [.3,.3,.3],metallic:m.material?.metallic ?? .4});
   }
   await writeFile(output,JSON.stringify(meshes));
   arena.scene.onBeforePhysicsObservable.remove(observer);

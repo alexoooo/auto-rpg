@@ -179,6 +179,7 @@ export interface GolemEffectorSetup {
  * is choosing equipment.
  */
 export interface GolemSetup {
+  family?: import("./golem/family.ts").BodyFamily;
   locomotion: string;
   torso: string;
   head: string;
@@ -258,6 +259,7 @@ export interface SideSetup {
 }
 
 const copyGolem = (setup: GolemSetup): GolemSetup => ({
+  ...(setup.family ? { family: setup.family } : {}),
   locomotion: setup.locomotion,
   torso: setup.torso,
   head: setup.head,
@@ -605,6 +607,10 @@ const readGolem = (value: unknown): GolemSetup | null => {
   if (!primary || !secondary) return null;
   const golem: GolemSetup =
     { locomotion: value.locomotion, torso: value.torso, head: value.head, primary, secondary };
+  if (value.family !== undefined) {
+    if (value.family !== "human" && value.family !== "golem") return null;
+    golem.family = value.family;
+  }
   if (value.wear !== undefined) {
     const wear = readWear(value.wear);
     if (!wear) return null;

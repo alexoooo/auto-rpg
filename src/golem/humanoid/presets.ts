@@ -2,7 +2,7 @@ import type { GolemSetup } from "../../bout.ts";
 export const humanSetup = (primary = "blade", secondary = "plate"): GolemSetup => {
   if (primary === "maul" || secondary === "maul") primary = secondary = "maul";
   return {
-    locomotion: "locomotion.human", torso: "torso.human", head: "head.human",
+    family: "human", locomotion: "locomotion.human", torso: "torso.human", head: "head.human",
     primary: { chain: "anatomical", terminal: primary }, secondary: { chain: "anatomical", terminal: secondary },
   };
 };
