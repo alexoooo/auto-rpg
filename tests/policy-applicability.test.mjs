@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { assessPolicy, assessRequirement, policyBodyForSetup, policyBodyForView, policyPickerRows } from "../src/policy-applicability.ts";
 import { POLICIES } from "../src/mind.ts";
-import { humanSetup } from "../src/golem/humanoid/presets.ts";
+import { HUMAN_BUILDS, humanSetup } from "../src/golem/humanoid/presets.ts";
 import { moduleFamily } from "../src/golem/family.ts";
 import { GOLEM_EFFECTORS, defaultGolemSetup } from "../src/golem/build.ts";
-import { namedBuild } from "../src/golem/roster.ts";
+import { NAMED_BUILDS, namedBuild } from "../src/golem/roster.ts";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { startRun, waveEnemy } from "../src/waves.ts";
 
@@ -40,9 +40,34 @@ test("every registered effector's setup declaration agrees with a real assembled
       bout.step();
       assert.deepEqual(policyBodyForSetup(build), policyBodyForView(bout.left.view.self), option.id);
       for (const policy of [needle, paired]) {
-        assert.deepEqual(assessPolicy(policy, true, build), assessRequirement(policy.requirement, policyBodyForView(bout.left.view.self)));
+        assert.deepEqual(assessRequirement(policy.requirement, policyBodyForSetup(build)),
+          assessRequirement(policy.requirement, policyBodyForView(bout.left.view.self)));
       }
     } finally { bout.dispose(); }
+  }
+});
+
+test("policies are offered only on the body family they were built and measured on", () => {
+  const idle = POLICIES.find((p) => p.name === "idle");
+  const human = POLICIES.find((p) => p.name === "humanoid-duelist");
+  const golemPolicies = POLICIES.filter((p) => p.surface !== null && p !== human);
+  // The control: each is offered on some golem body, so a refusal below is the family gate and
+  // not a policy that could not be picked anywhere.
+  for (const policy of golemPolicies) {
+    assert.ok(NAMED_BUILDS.some((b) => assessPolicy(policy, true, b.setup).status === "applicable"), policy.name);
+  }
+  for (const build of HUMAN_BUILDS) {
+    for (const policy of golemPolicies) {
+      const assessment = assessPolicy(policy, true, build.setup);
+      assert.equal(assessment.status, "incompatible", `${policy.name} on ${build.name}`);
+      assert.match(assessment.reason, /golem bodies/);
+    }
+    assert.equal(assessPolicy(human, true, build.setup).status, "applicable", build.name);
+    assert.equal(assessPolicy(idle, true, build.setup).status, "applicable", build.name);
+  }
+  for (const build of NAMED_BUILDS) {
+    assert.equal(assessPolicy(human, true, build.setup).status, "incompatible", build.name);
+    assert.equal(assessPolicy(idle, true, build.setup).status, "applicable", build.name);
   }
 });
 

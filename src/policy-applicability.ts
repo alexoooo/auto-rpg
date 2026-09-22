@@ -3,6 +3,7 @@ import type { BodyView, Policy } from "./mind.ts";
 import { hasPoint, type WeaponKind } from "./hands.ts";
 import { golemEffector, golemSetupRefusal } from "./golem/build.ts";
 import { EFFECTOR_CHAINS } from "./golem/registry.ts";
+import { bodyFamily } from "./golem/family.ts";
 
 export type PolicyRequirement = "independent-hands" | "point-primary" | "twin-blades" | "dual-strikers";
 export type Applicability = { status: "applicable" | "fallback-only" | "incompatible"; reason: string };
@@ -67,11 +68,16 @@ export function assessRequirement(requirement: PolicyRequirement | undefined, bo
 }
 
 /** Unit admission is supplied by the existing registry, never approximated here. */
-export function assessPolicy(policy: Pick<Policy, "requirement"> | undefined, admitted: boolean,
+export function assessPolicy(policy: Pick<Policy, "requirement" | "surface" | "bodyFamily"> | undefined, admitted: boolean,
   build: GolemSetup | undefined): Applicability {
   if (!policy || !admitted) return { status: "incompatible", reason: "This body's control interface does not support the policy." };
   const refusal = build ? golemSetupRefusal(build) : null;
   if (refusal) return { status: "incompatible", reason: refusal };
+  // Evidence, not capability: a golem policy can drive a human body, but nothing measured it there.
+  if (build && policy.surface !== null) {
+    const built = policy.bodyFamily ?? "golem", family = bodyFamily(build);
+    if (built !== family) return { status: "incompatible", reason: `Built and measured on ${built} bodies; not evaluated on ${family} bodies.` };
+  }
   return assessRequirement(policy.requirement, build ? policyBodyForSetup(build) : null);
 }
 

@@ -39,6 +39,7 @@ import {
 } from "./policies.ts";
 import { CONFIG } from "./config.ts";
 import { humanoidDuelist } from "./golem/humanoid/policy.ts";
+import type { BodyFamily } from "./golem/family.ts";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 // The two surface tags, from the leaf that owns them. Taking either from its own endpoint would
 // close a run-time cycle -- both endpoints import this file for values, and `POLICIES` below reads
@@ -1242,6 +1243,13 @@ export interface Policy {
    */
   readonly surface: string | null;
   /**
+   * The body family this policy was written, trained and rated on. Absent means golem: every
+   * policy that predates the human family was built and measured on golem bodies only. The picker
+   * refuses a policy on another family (`assessPolicy`); a bout does not, so a measurement can
+   * still put one there on purpose.
+   */
+  readonly bodyFamily?: BodyFamily;
+  /**
    * Build one.
    *
    * The seed is optional and the picker never passes one, so a policy chosen
@@ -1260,7 +1268,7 @@ export const POLICIES: readonly Policy[] = [
   ...RESEARCHED_POLICIES,
   { name: "idle", label: "Idle", surface: null, create: idleMind },
   { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
-  { name: "humanoid-duelist", label: "Human duelist", surface: GOLEM_SURFACE, create: humanoidDuelist },
+  { name: "humanoid-duelist", label: "Human duelist", surface: GOLEM_SURFACE, bodyFamily: "human", create: humanoidDuelist },
   { name: "golem-fencer", label: "Golem fencer", surface: GOLEM_SURFACE, create: golemFencerMind },
   { name: "golem-planner", label: "Golem planner", surface: GOLEM_SURFACE, create: golemPlannerMind },
   { name: "golem-champion", label: "Golem champion", surface: GOLEM_SURFACE, create: golemChampionMind },
