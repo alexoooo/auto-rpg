@@ -1,15 +1,15 @@
 # Operational notes
 
-This repository **is the game**: a physically-simulated sword fight between two golems, in the
-browser, on Babylon.js and Havok. There is nothing else in the tree and nothing outside it to
-import from. *(Rewritten 2026-09-18. The repository used to hold a Rust client, a warrior
-prototype and a machine-learning research agenda under `sword-prototype/`; all of it was deleted
-and the prototype was flattened to the root. Anything below that names a tournament, a snapshot,
-a training script or the Warrior is a **finding kept for its lesson**, not a description of this
-tree. So are the file names in them that no longer resolve: `arm.ts`, `weapon.ts`,
-`src/rigview.ts`, the `.review/` probes, and the `handover`, `policy-perception`, `shield`, `view`
-and `weapons` test files. The lesson is about Babylon or Havok; the file is only where it was
-learned.)*
+This repository **is the game**: physically-simulated melee between bodies assembled from
+modules -- stone golems and armoured human warriors -- in the browser, on Babylon.js and Havok,
+with an arena and a dungeon mode. Beside the game's source in `src/` are its tests and headless
+harness (`tests/`), a policy league and machine-learning lab that run the real bout runner
+(`research/`), asset-export scripts (`scripts/`), design notes (`docs/`) and the GitHub Pages
+deploy (`.github/workflows/pages.yml`). On 2026-09-18 the Warrior -- the humanoid fighter the
+golems replaced, with its `src/arm.ts`, `src/weapon.ts` and `src/arrow.ts` -- was cut,
+everything that was not the game (the Rust client and crates, a separate warrior prototype, their
+tools and docs) was deleted, and the game under `sword-prototype/` was flattened to the root.
+`research/`, the dungeon and the human body family in `src/golem/humanoid/` came after that.
 
 What applies here is browser correctness, a clean `tsc --noEmit`, and a build that runs. Run
 `npm test`, `npm run check` and `npm run build` before landing a change. Do not leave a
@@ -26,23 +26,27 @@ npm run build # check, then vite build
 npm run preview
 ```
 
-Those six are the whole of `package.json`. **Two pages come up on that one server**, and both are
-named in `vite.config.ts` because Vite's default input is `index.html` alone -- a second page that
-works in dev and is absent from `dist` is a config failure wearing a routing failure's clothes.
-`/` is the arena; `/bench.html` is the golem module bench, one module at a time on a fixed block.
+The five scripts after `npm ci` are the whole of `package.json`'s `scripts`. **Four pages come up
+on that one server**, and all four are named in `vite.config.ts`'s `rollupOptions.input` because
+Vite's default input is `index.html` alone -- a second page that works in dev and is absent from
+`dist` is a config failure wearing a routing failure's clothes. `/` is the arena;
+`/bench.html` is the module bench, one module on a stand or an effector in each socket;
+`/dungeon.html` is the dungeon mode; `/art-proof.html` is the golem art proof.
 
-**The headless bout harness is `tests/harness/`**, imported by the game tests rather than run by
-hand: `bout-runner.mjs` exports `freshHavok` and `runBout`, `golem-headless-arena.mjs` builds a
-pair without a browser, and `golem-bench.mjs` / `golem-torso-bench.mjs` stand one module on a
-block. It is how a body gets measured without a person watching, and it is the only harness left.
+**The headless harness is `tests/harness/`.** `bout-runner.mjs` exports `freshHavok`,
+`createBout` and `runBout`, and the tests and `research/` both run bouts through it;
+`golem-headless-arena.mjs` exports `createHeadlessArena`, the physics arena without a browser and
+without fighters; `golem-bench.mjs` stands one module on the stand and `golem-torso-bench.mjs` a
+trunk with a head on it. Both benches, `reading-variation.mjs` and `stroke-phase.mjs` also run
+directly under `node`. It is how a body gets measured without a person watching.
 
 ## Traps that have already cost time
 
 - **Physics must be enabled before any body is created.** `buildArena` brings up Havok
   immediately after constructing the `Scene` and before the first `PhysicsAggregate`, and
   it must stay that way. Creating a body first fails with `No Physics Engine available`,
-  which names neither the cause nor the file. `startPhysics` now throws its own message if
-  the engine is somehow absent afterwards.
+  which names neither the cause nor the file. `attachPhysics` in `src/physics.ts` throws its
+  own message if the engine is somehow absent afterwards.
 - **Babylon's tree-shaken build does not attach `Scene.prototype.enablePhysics`.**
   `src/physics.ts` imports `@babylonjs/core/Physics/joinedPhysicsEngineComponent.js` purely
   for that side effect. Deleting the "unused" import compiles, passes `tsc`, and breaks the
@@ -74,37 +78,40 @@ block. It is how a body gets measured without a person watching, and it is the o
   which is what introduced the shake in the first place.
 - **Control runs on the physics clock, via `scene.onBeforePhysicsObservable`.** The
   accumulator takes several solver steps per rendered frame and notifies that observable
-  before each. Driving the arm from the render loop refreshes the keyframed anchor's target
-  on only the first of them, so it coasts through the rest -- the arm wandered close to four
-  metres from where it was pointed.
+  before each. When the Warrior's arm was driven from the render loop, its keyframed anchor's
+  target was refreshed on only the first of them and coasted through the rest -- the arm
+  wandered close to four metres from where it was pointed. `BuiltModule.step` in
+  `src/golem/module.ts` is called from that observable for this reason, by the arena, bench and
+  dungeon pages alike.
 - **A sleeping body hides every steady-state defect.** Havok deactivates the arm at rest, so
   a measurement taken after it settles reads a perfect zero no matter how badly it shakes
   when awake. Force `pl.setActivationControl(body, 1)` before trusting any rest measurement.
 - **A weld whose two frames disagree at construction is a violation the solver clears by
-  flinging the thing.** Every weapon here was built in the fighter's frame and welded into
+  flinging the thing.** Every Warrior weapon was built in the fighter's frame and welded into
   the hand's, which for the sword was a half turn out; peak tip speed in the first fifth of a
   second of a fighter standing perfectly still was 48.3 m/s for the sword and 80.4 for the
-  club. `weapon.ts`'s `mountRotation` builds each kind in the frame its own weld demands and
-  those become 23.9 and 19.1, which is the arm lifting out of its build pose and nothing
-  else. If you add a kind, build it through `mountRotation` -- and note that a bout's *peak*
-  readings carry a frame-one flick forever, because a peak is a maximum.
+  club. Building each kind in the frame its own weld demanded (`mountRotation` in the Warrior's
+  `weapon.ts`) brought those to 23.9 and 19.1, which was the arm lifting out of its build pose
+  and nothing else. If you add a welded body, build it in the frame its weld demands -- and note
+  that a bout's *peak* readings carry a frame-one flick forever, because a peak is a maximum.
 - **A ternary chain with a default branch is not a dispatch table, it is a silent
-  substitution.** `Weapon`'s constructor read `kind === "shield" ? buildShield : buildClub`,
-  so any kind added to the union and to the picker compiled clean, passed `tsc`, passed the
-  build, and shipped **as a club** -- which for a shield means a shield-shaped thing that
-  scores crushing blows and severs limbs. It is a `never` default now
-  (`weapon.ts`'s `unbuildable`), so a kind without a builder is a compile error. The same
-  shape of hole is worth looking for wherever a union is switched on: `handsFor`, `mountFor`
-  and `PARRY_LABEL` are the ones that existed, and only the last was already total.
+  substitution.** The Warrior's `Weapon` constructor read
+  `kind === "shield" ? buildShield : buildClub`, so any kind added to the union and to the picker
+  compiled clean, passed `tsc`, passed the build, and shipped **as a club** -- which for a shield
+  means a shield-shaped thing that scores crushing blows and severs limbs. The repair was a
+  `never` default, which made a kind without a builder a compile error. The same shape of hole is
+  worth looking for wherever a union is switched on: `handsFor`, `mountFor` and `PARRY_LABEL` are
+  the ones that existed, and only the last was already total.
 - **A test helper that reconstructs geometry from `CONFIG` is pinned to one kind's geometry.**
   `tests/shield.test.mjs` sampled the plate by rebuilding the heater shield's rectangle from
   `CONFIG.shield` inline. Handed a buckler it would have gone on passing while sampling a
   440x600 mm patch of empty air where a 340 mm disc is -- a green test asserting nothing,
-  which is the defect this file calls the worst one available. It takes the kind now.
+  which is the defect this file calls the worst one available. The repair was to make the helper
+  take the kind.
 - **A body built overlapping another on a layer that forbids the overlap deadlocks the chain
-  driving it, and the symptom is a pose.** A shield stands 110 mm off the fist along the
-  hand's +X, a hand is built in the torso's frame, so an off-hand shield was built inside its
-  owner's pelvis. The contact pinned the arm at full extension before the anchor had lifted
+  driving it, and the symptom is a pose.** The Warrior's shield stood 110 mm off the fist along
+  the hand's +X and a hand was built in the torso's frame, so an off-hand shield was built inside
+  its owner's pelvis. The contact pinned the arm at full extension before the anchor had lifted
   it once; the hand therefore never re-orientated; the overlap therefore never cleared. The
   arm sat 315 mm from where it was commanded, looking exactly like a badly-chosen rest pose,
   and no amount of looking at the pose was going to find it. **Measure the hand against its
@@ -144,18 +151,21 @@ block. It is how a body gets measured without a person watching, and it is the o
   cage, and in the tree-shaken build that method does not exist. The failure is worse than
   the others in this family because what it throws is a bare **string**, not an `Error`: it
   carries no stack, and a `catch (e)` that reads `e.message` reports `undefined`. `tsc` and
-  `vite build` are both perfectly happy. The symptom is that pressing `G` does nothing at
-  all. Fourth member of the same family as the physics, shadow, outline and `Culling/ray`
+  `vite build` are both perfectly happy. When the Warrior's rig view drew through it, the
+  symptom was that pressing `G` did nothing at all; nothing in the tree uses `PhysicsViewer`
+  now. Fourth member of the same family as the physics, shadow, outline and `Culling/ray`
   imports -- when a Babylon feature works in the playground and not here, suspect a missing
   side-effect import before suspecting the feature.
 - **A carried mesh does not own its arena material.** Babylon's
   `root.dispose(false, true)` recursively disposes child materials and textures. That was
   harmless while every weapon died only with its scene, then failed as soon as one sword
   shared a real map with another: disposing the first removed the second's texture and left
-  the shared-surface cache pointing at a corpse. `disposeCarriedRoot` always passes false for
-  material/texture disposal; Weapon and Arrow own bodies and nodes, while the scene alone
-  owns the palette. `shared_weapon_textures_survive_one_weapon_being_disposed` was watched
-  fail against the one-boolean mutation.
+  the shared-surface cache pointing at a corpse. A body part owns its body, shape and meshes,
+  and the scene alone owns the palette: every golem and human part disposes its mesh with
+  `dispose(false, false)`, which takes a parented shell with it and leaves materials standing.
+  The header of `src/golem/effectors/shell.ts` states that contract. The one owner of materials
+  below the scene is the human skin in `src/golem/humanoid/appearance.ts`: it creates its own
+  per-side `PBRMaterial`s and chainmail textures, and its `dispose` takes down exactly those.
 - **Three ways to ask the wrong question about why something is not on screen**, all of
   which cost time here in one sitting:
   - `Material.isReady(mesh)` returns **false for every material** when called outside a
@@ -173,8 +183,9 @@ block. It is how a body gets measured without a person watching, and it is the o
   side effect.** Sixth member of the family, and it fails the most convincingly of all of
   them: a `ParticleSystem` constructs cleanly, accepts every setting you give it, takes
   `start()` without complaint, reports a sensible `getCapacity()`, and emits nothing
-  whatsoever. There is no error, no warning and no null. `src/blood.ts` carries the import
-  and is the only thing in the tree that needs it so far.
+  whatsoever. There is no error, no warning and no null. `src/damage-feedback.ts` carries the
+  import for the arena's particles; `src/blood.ts`, which only its own test loads, carries it
+  too.
 - **A hidden tab never renders, so picking silently finds nothing.** `requestAnimationFrame`
   does not fire, no view matrix is ever computed, and every `scene.pick` misses. Call
   `scene.render()` once by hand before believing a picking result taken from the console.
@@ -194,17 +205,18 @@ block. It is how a body gets measured without a person watching, and it is the o
   node first in a frame gets a fresh matrix and **silently converts every later reader that
   frame -- including a person measuring from the console -- into a reader of that first
   sample.** With the control loop at 240 Hz against a 60 Hz display, a per-substep reader is
-  always first by up to three substeps. The symptom is a clean nine per cent regression in
-  the weapon, in a build where the physics is provably bit-identical: peak anchor-to-hand
-  error read 273.84 mm against a true 242.88, with tip speed and elbow drift shifted to
-  match. The tell was a rest-pose error that neither decayed nor responded to what the arm
-  had been doing, which is not a physical offset. `Fighter.observe` therefore reads
-  `mesh.position` and `mesh.rotationQuaternion` and nothing else: every bone, anchor and the
-  sword's root is a scene-root node, so those two fields *are* the world transform, Havok's
-  `syncTransform` writes them at the end of every solver step, and reading them stamps
-  nothing. `tests/view.test.mjs` pins it. Anything added to `observe` later that goes through
-  `getWorldMatrix()`, `absolutePosition` or `absoluteRotationQuaternion` is wrong and that
-  test will say so.
+  always first by up to three substeps. On the Warrior the symptom was a clean nine per cent
+  regression in the weapon, in a build where the physics was provably bit-identical: peak
+  anchor-to-hand error read 273.84 mm against a true 242.88, with tip speed and elbow drift
+  shifted to match. The tell was a rest-pose error that neither decayed nor responded to what the
+  arm had been doing, which is not a physical offset. `Golem.observe` and `Golem.describe` in
+  `src/golem/golem.ts` therefore read `mesh.position` and `mesh.rotationQuaternion` and nothing
+  else: every golem body is a scene-root node, so those two fields *are* the world transform,
+  Havok's `syncTransform` writes them at the end of every solver step, and reading them stamps
+  nothing. `nothing a golem publishes reaches the world transform through a world matrix` in
+  `tests/golem-bench.test.mjs` pins it by reading the source under `src/golem/` and
+  `src/bench/`. Anything added there that goes through `getWorldMatrix()`, `absolutePosition`
+  or `absoluteRotationQuaternion` is wrong and that test will say so.
 - **The whole simulation graph runs headless under Node, and the recipe is not obvious.**
   `NullEngine`, then a `Scene`, then `attachPhysics(scene, havok)` exactly as `arena.ts`
   does. **Havok's wasm must be handed over as bytes** -- its emscripten glue calls `fetch()`
@@ -221,9 +233,10 @@ block. It is how a body gets measured without a person watching, and it is the o
   every hittable thing imports took the whole graph out of Node's reach.
 - **A blade that is *struck* goes far faster than one that is driven, and a peak that does
   not say which it is means nothing.** Two exclusions are mandatory for any tip-speed
-  reading. The first 0.6 s, because an arm is built hanging straight down and the anchor
-  keyframes onto the commanded pose on the very first control step -- a snap worth **77 m/s**
-  in a fighter that never swings, and the page does it too the moment you press Fight. And a
+  reading. The first 0.6 s (`BENCH_READOUT.startupExclusionSeconds`), because an arm is built
+  hanging straight down and has to be driven onto its commanded pose: the Warrior's anchor
+  keyframed there on the very first control step, a snap worth **77 m/s** in a fighter that
+  never swung, and a golem arm ramps there over `CHAIN_REACH.acquireSeconds`. And a
   quarter second after any contact: blade on blade, a glance off a body, or a dropped sword
   hitting the floor all spin the blade past anything a motor could do, measured over
   **100 m/s**. Related: **a swing measured from rest is a floor on a swing measured in
@@ -247,8 +260,8 @@ block. It is how a body gets measured without a person watching, and it is the o
   that passed against a deliberately broken cursor inverse -- the aiming envelope is
   asymmetric (azimuth runs -1.15 to +1.30), so the correct inverse and the plausible one that
   divides by a single half-range **agree exactly for a positive azimuth**. Sample both sides
-  of centre. Every jump assertion in `tests/handover.test.mjs` now comes in a pair with its
-  unseeded control beside it.
+  of centre. The repair put every jump assertion in that suite in a pair with its unseeded
+  control beside it.
 
   **Two further shapes, both found by review and never by the suite**, in one session:
 
@@ -261,28 +274,32 @@ block. It is how a body gets measured without a person watching, and it is the o
     steps per cell on real published bodies -- careful, expensive, and structurally blind to its
     own subject, because the two sides diverge only when a hand comes off. An intact body cannot
     show a capability-loss bug however real it is. **Choose the fixture by what the defect needs,
-    not by how faithful the fixture is**; `publishedFixture` in `tests/fixtures/view.mjs` exists
-    so a test can take a real publication and then sever a hand on it, which is one stated edit
-    to a real record rather than a whole invented one. (It also carries why `structuredClone` of
-    a live view is not that: Babylon's `Vector3` keeps `_x/_y/_z` behind prototype accessors, so
-    a cloned point reads `undefined` from every `.x`.)
+    not by how faithful the fixture is**: take a real publication and make one stated edit to it,
+    such as severing a hand, rather than inventing a whole record. `fixtureOf` in
+    `tests/golem-mind.test.mjs` and in `tests/tactics-v4.test.mjs` does that. `publishedFixture`
+    in `tests/fixtures/view.mjs` was written for it and has no caller: it throws on every current
+    golem publication, because that file's `BODY_FIELDS` lacks the `effectors` and
+    `capabilities` fields a golem's view now carries. Do not clone a live view with
+    `structuredClone`: Babylon's `Vector3` keeps `_x/_y/_z` behind prototype accessors, so a
+    cloned point reads `undefined` from every `.x`.
 - **`PhysicsViewer` leaks constraints across a toggle, and `hideConstraint` corrupts its own
   list.** `dispose()` hides impostors, bodies and inertia meshes and never touches
   `_constraints`, so a shown constraint left in place at toggle-off leaks its meshes *and*
   its before-render sync, once per toggle, forever. And `hideConstraint` splices the entry
   out and then *also* swaps what it thinks is the last entry into the hole it just closed,
   overwriting a live neighbour with `undefined` unless the entry removed was the last one.
-  `src/rigview.ts` therefore takes constraints down from the end, by hand, before disposing,
-  and rebuilds the whole set rather than differencing it. Also: the constructor's third
+  The Warrior's `src/rigview.ts` therefore took constraints down from the end, by hand, before
+  disposing, and rebuilt the whole set rather than differencing it. Also: the constructor's third
   parameter defaults to the **shared** `UtilityLayerRenderer.DefaultUtilityLayer`, and a
   default parameter only fires for `undefined` -- pass an explicit `null` to make the viewer
   build and own the layer its `dispose()` will take down.
-- **Stopping input is not pausing a physics game.** `Controls.pause()` alone leaves the
-  keyframed torso carrying the velocity `steer` last gave it. `pauseHost` therefore disables
-  scene physics before it stops controls, and `resumeHost` enables physics immediately
-  before controls. The render loop still paints the frozen frame; blood particle update
-  speed and every game-time notice are frozen separately because both otherwise advance
-  from presentation work outside the solver.
+- **Stopping input is not pausing a physics game.** Stopping controls alone leaves a keyframed
+  body -- a golem's pelvis, chassis or yoke -- carrying the velocity its last target gave it.
+  `pauseHost` in `src/host-run.ts` therefore disables scene physics before it pauses controls,
+  and `resumeHost` enables physics immediately before controls. The render loop still paints the
+  frozen frame; damage-feedback particle update speed (`DamageFeedback.setPaused`) and every
+  game-time notice (`advanceActiveHostTimers`) are frozen separately because both otherwise
+  advance from presentation work outside the solver.
 - **A screen inferred from a state machine changes when the state machine does, and nobody
   wrote that transition.** `showCurtain(show: boolean)` derived which curtain you were
   looking at from `state.phase === "select"`, so a *pause* was the setup screen with two
@@ -310,29 +327,40 @@ block. It is how a body gets measured without a person watching, and it is the o
   `bout.capSeconds` was 60 and every word of the argument beside it was about running a
   hundred bouts headlessly at 250x real time. Nothing in it was about somebody at a
   keyboard, and against a policy that does not close, sixty seconds is a fight interrupted
-  rather than a fight finished. The headless harness under `tests/harness/` sets its own. When a
-  number's justification names a harness, check which harness is about to read it.
-- **`src/scoring.ts`, `src/config.ts` and `src/buttons.ts` are imported directly by Node**
-  in the test run, so their intra-directory imports carry explicit `.ts` extensions. Vite
-  does not care; Node's ESM resolver does. `buttons.ts` imports nothing today, which is
+  rather than a fight finished. It is the page's 600 now, and a harness cap is its caller's:
+  `runBout` in `tests/harness/bout-runner.mjs` sets none of its own and falls back to
+  `capSeconds` when no `maxSeconds` is passed. When a number's justification names a harness,
+  check which harness is about to read it.
+- **Most of `src/` is imported directly by Node** in the test run -- `scoring.ts`, `config.ts`
+  and `buttons.ts`, and everything a body, a mind, a bout or a harness pulls in -- so relative
+  imports there carry explicit `.ts` extensions. Vite does not care; Node's ESM resolver does.
+  The page entries and presentation modules no test loads (`main.ts`, `input.ts`, `hud.ts` and
+  the like) are the ones that omit them. `buttons.ts` imports nothing today, which is
   the only reason it does not show one -- give it an import and it needs the extension. The
   same graph carries a second constraint: **Node runs a `.ts` file by stripping its types,
   and strip-only mode rejects TypeScript parameter properties** --
   `constructor(private readonly scene: Scene)` fails to parse with "TypeScript parameter
   property is not supported in strip-only mode". One of them anywhere in what a harness
   imports blocks the whole harness, so those files use fields and assignments instead.
-- **A hand-written `FighterView` has to carry every field the real one does.** There are
-  exactly two in the tree -- `tests/minds.test.mjs`'s `facing()` and the one in
-  `tests/options.test.mjs` -- and both are plain JS, so neither is a compile error when the
-  view grows a field. Both threw on the first substep the day it grew `hands`, twelve tests and
-  the whole bench at once, with a `TypeError` that names the policy rather than the fixture.
-  Grep for `self: {` before adding a field to the view.
+- **A hand-written `FighterView` has to carry every field the real one does.** There are three
+  whole ones in the tree -- `facing()` in `tests/minds.test.mjs` and the `view()` helpers in
+  `tests/options.test.mjs` and `tests/recorder.test.mjs` -- plus the partial `handsView` in
+  `tests/human-ownership.test.mjs`, and all are plain JS, so none is a compile error when the
+  view grows a field. The two that existed the day it grew `hands` both threw on the first
+  substep, twelve tests and the whole bench at once, with a `TypeError` that names the policy
+  rather than the fixture. The three whole ones are built through `assertCompleteView` in
+  `tests/fixtures/view.mjs`, which checks them against that file's hand-kept field lists, so add
+  a field to the view and to those lists together. `self: {` does not find the recorder's; grep
+  for `assertCompleteView`, `FighterView` and `handsView` instead. Those lists are checked only
+  against the hand-written views, never against a real publication, and they already lack two
+  fields a golem publishes (see `publishedFixture` above).
 - **A fixture may simplify the world; it may not describe one that cannot exist.**
-  `Fighter.describe` fills `BodyView.shoulder` from the primary hand's socket, so a fixture
-  where those two disagree is arguing with a body the arena would never hand a policy. The
-  test fixture hangs *both* hands off one shoulder -- a stated simplification, and the reason
-  it cannot see the "aim from your own socket" rule at all, which is why that rule has a test
-  of its own that moves the socket the way the arena does.
+  `Golem.describe` fills `BodyView.shoulder` from the primary hand's socket, so a fixture
+  where those two disagree is arguing with a body the arena would never hand a policy.
+  `facing()` in `tests/minds.test.mjs` hangs *both* hands off one shoulder -- a stated
+  simplification, and the reason it cannot see the "aim from your own socket" rule at all. That
+  rule can only be checked on a view where each hand's `shoulder` is its own socket, as it is in
+  a real publication.
 - **A feedback loop against the arm winds up.** The arm follows a commanded pose with real
   lag, so a controller that reads the achieved pose, takes the error and steps the command
   toward it will run the command past what the arm can reach and sit on the limit: measured,
@@ -364,26 +392,39 @@ block. It is how a body gets measured without a person watching, and it is the o
   transform per file and invalidates it on the watcher's event. A script that edits a source
   file, runs a test and restores it in a few milliseconds can leave the *mutated* text in
   that cache -- and the owner's server on 5180 goes on serving it, through a reload, with no
-  error anywhere. It cost a session's visual check: `Arm.strikeReach` returned the right
-  number while `Fighter.describe` published `reachNeutral`, because `fighter.ts` was the
-  mutated module and `arm.ts` was not. **After running mutations, before believing anything
-  in the page, fetch the modules you changed and grep the served text** --
-  `await fetch("/src/fighter.ts").then(r => r.text())` -- and re-touch any that come back
+  error anywhere. It cost a session's visual check: the Warrior's `Arm.strikeReach` returned the
+  right number while its `Fighter.describe` published `reachNeutral`, because `fighter.ts` was
+  the mutated module and the Warrior's `src/arm.ts` was not. **After running mutations, before
+  believing anything in the page, fetch the modules you changed and grep the served text** --
+  `await fetch("/src/golem/golem.ts").then(r => r.text())` -- and re-touch any that come back
   stale. Do not restart the server to fix it; it is not yours. Note the served text is
   esbuild's output, so match on a distinctive identifier rather than on your own formatting.
-- **`grep -c $'\r'` is not a line-ending check.** It reported every line of a pure-LF file as
-  containing a carriage return, which sent a whole file through a needless CRLF conversion
-  and produced a 292-line diff on a four-line change. This repository has `core.autocrlf =
-  false` and a `.gitattributes` that pins only a handful of asset extracts, so **each file's real
-  endings are whatever is committed** and they are not uniform: ~~`src/scoring.ts` and
-  `src/combat.ts` are CRLF, `src/config.ts` and every test file are LF, and `src/style.css`
-  is genuinely mixed.~~ *(Struck 2026-09-05. This sentence is a second, uncorrected copy of the
-  table above and it is wrong the same way: `src/combat.ts` carries **no CR at all** and
-  `src/scoring.ts` is mixed rather than CRLF. The entry above carries the measured
-  classification; two statements of one fact in one file is how the wrong one survives a
-  correction, so read that one and not this.)* Count bytes in Python (`data.count(b"\r\n")` against
-  `data.count(b"\n")`), and gate the commit on `git diff --numstat` being identical to
-  `git diff --ignore-cr-at-eol --numstat`.
+- **Line endings: measure what is committed, not what is on disk.** This clone gets
+  `core.autocrlf = true` from Git for Windows' system gitconfig
+  (`git config --show-origin core.autocrlf` says so); the repository sets nothing itself and has
+  no `.gitattributes`. Under that setting the working copy is not the committed file: a file
+  committed with LF may sit on disk as CRLF, LF or a mix, depending on what last wrote it, and git
+  turns it back into LF on commit. So `grep -c $'\r'`, or anything else that reads the working
+  copy, is not a line-ending check -- one such reading sent a file through a needless CRLF
+  conversion and a 292-line diff on a four-line change. The exception is a file whose committed
+  blob already contains a CR: git converts it in neither direction and stores exactly the bytes
+  written, so an edit there must match the endings of the region it touches, and a tool that
+  rewrites the whole file with one ending converts all of it. On a machine with
+  `core.autocrlf = false`, every file behaves like that exception. List the committed text files
+  that contain a CR:
+
+  ```bash
+  git grep -Il '' HEAD -- . | sed 's/^HEAD://' | while read -r f; do
+    c=$(git show HEAD:"$f" | tr -dc '\r' | wc -c)
+    if [ "$c" -gt 0 ]; then
+      printf "%-40s cr=%s lf=%s\n" "$f" "$c" "$(git show HEAD:"$f" | tr -dc '\n' | wc -c)"
+    fi
+  done
+  ```
+
+  and gate the commit on `git diff --numstat` being identical to
+  `git diff --ignore-cr-at-eol --numstat`: any file where the two disagree has had its endings
+  rewritten.
 - **A caller holding its own copy of a rule is the same defect as a missing table row, and
   is much harder to see.** `combat.ts` skipped the damage model for a contact below
   `minCutSpeed` -- a real optimisation, worth having -- and that is the *blade's* number.
@@ -399,30 +440,32 @@ block. It is how a body gets measured without a person watching, and it is the o
   `cutsBothWays` of what the hand is actually holding.
 - **A view field with no reader and a view field with no reader *yet* look identical.**
   `HandView.reach` was removed one session for having none and put back the next, because
-  the weapon that needed it did not exist yet. The rule about unread fields is still right
-  -- `SelfView.reach` went three sessions unread and is gone for good -- but before deleting
-  one, try to name the reader that is coming. If you can, leave it and write the name down.
+  the weapon that needed it did not exist yet. The rule about unread fields is still right, but
+  before deleting one, try to name the reader that is coming. If you can, leave it and write the
+  name down.
 
 - **A `PhysicsShapeContainer`'s collision filter does nothing at all.** Havok filters on
   the **leaf** shapes; setting `filterMembershipMask` on the container writes to the
   container's own shape, which nothing consults, and *reading it back hands you garbage*
-  -- a shape set to 8 returned 383476. Every weapon in this directory had its layers set
-  that way since the file was written, so **for its whole life a weapon collided with
+  -- a shape set to 8 returned 383476. Every Warrior weapon had its layers set that way from
+  the day its file was written, so **for its whole life a weapon collided with
   everything**: measured on one fighter swept through its envelope for twelve seconds, the
   sword logged 1687 contacts against its own upper arm, 1572 against its own forearm, 853
   against its own torso and 795 against its own shield, and the shield logged 985 against
-  its owner's head and 725/669 against its owner's two arms. That last one is the
-  expensive one -- a shield's own forearm sits inside its stand-off by construction, so
-  that is permanent contact between a 4 kg lever and the chain driving it, which is the
+  its owner's head and 725/669 against its owner's two arms. That last one was the
+  expensive one -- a shield's own forearm sat inside its stand-off by construction, so
+  that was permanent contact between a 4 kg lever and the chain driving it, which is the
   exact failure the four-layers-per-side table was invented to prevent.
 
   It hid because the symptom is **friction, not a hole**: an arm that tracks its anchor a
   little worse than it should, in a prototype whose whole subject is how well an arm tracks
-  its anchor. `Weapon` keeps its leaves in `parts` and sets the masks on each
-  (`relayer`); `Arrow` uses a bare `PhysicsShapeBox` and no container at all.
-  `.review/mask-probe.mjs` is the six-case drop that settles it, and
-  `tests/weapons.test.mjs` asserts the read-back per kind. **If you add a compound body,
-  set the filter on its children.**
+  its anchor. Every golem and human part is a single leaf shape and never a container, so its
+  mask goes on the shape Havok consults. The filter is read back through
+  `collisionFilterIsExact` in `src/physics.ts` on every part of an assembled default golem
+  (`every_golem_part_is_filtered_on_its_own_leaf_onto_one_of_the_two_golem_rows` in
+  `tests/golem-arena.test.mjs`) and on every registered effector's parts
+  (`tests/golem-bench.test.mjs`); `writeCollisionFilter` beside it writes a compound's leaves.
+  **If you add a compound body, set the filter on its children.**
 - **`setTargetTransform` is not a teleport for a DYNAMIC body.** It is the *target* of a
   keyframed one and against a dynamic body it does nothing: six shots nominally from one
   origin ended at -6.63, -12.19, -4.35, -9.94, -1.93 and -7.66, because the body carried on
@@ -431,13 +474,13 @@ block. It is how a body gets measured without a person watching, and it is the o
   `PhysicsPrestepType.TELEPORT` under a boolean's name; a hundred launches then land at the
   same place with spread **0**. Put the flag back up one step later -- and note that "one
   step later" has to mean *after* a solver step has run, so the code that lowers it must
-  run **before** the code that raises it in the same control step. `Quiver.step` is called
-  as the first line of `Arm.update` for that reason.
+  run **before** the code that raises it in the same control step. The Warrior's quiver was
+  stepped as the first line of its arm's update for that reason.
 - **Two watchers on one body, and the order they were added in decides the outcome.**
-  `Arrow` watches its own collisions to know it has struck, and `Combat` watches the same
-  body to score the blow. `Arrow`'s observer is added first -- in its constructor, before a
-  fighter exists to be handed to a `Combat` -- so setting "spent" inside that callback
-  marks the arrow spent *before* the watcher that scores it runs, and **every arrow in the
+  The Warrior's `Arrow` watched its own collisions to know it had struck, and `Combat` watched
+  the same body to score the blow. `Arrow`'s observer was added first -- in its constructor,
+  before a fighter existed to be handed to a `Combat` -- so setting "spent" inside that callback
+  marked the arrow spent *before* the watcher that scored it ran, and **every arrow in the
   game scored nothing**: 0 of 288 over twelve bouts, with no error anywhere and a flight
   that looked perfectly healthy. Set a flag in the callback and promote it on the next
   control step; then neither watcher needs to know the other exists.
@@ -449,7 +492,8 @@ block. It is how a body gets measured without a person watching, and it is the o
   body's linear velocity **38.4**, last control step **48.0**, `linear + w x r` **5.6**.
   The last is what the damage model was being handed, and it did it *consistently* -- a
   tight band around 27 m/s, which is the shape of a systematic error rather than of noise.
-  An arrow caches its free-flight velocity each control step and is scored from that.
+  The repair cached the arrow's free-flight velocity each control step and scored from that,
+  and a projectile added to `Combat` has to do the same.
 - **`getLinearVelocityToRef` is not allocation-free, and the name is why this has now cost
   two sessions.** The obvious reading of `ToRef` in Babylon is "the version that does not
   allocate", and for `getObjectCenterWorldToRef` it is true -- that one copies
@@ -458,70 +502,68 @@ block. It is how a body gets measured without a person watching, and it is the o
   `this._hknp.HP_Body_GetLinearVelocity(pluginRef.hpBodyId)[1]`
   (`node_modules/@babylonjs/core/Physics/v2/Plugins/havokPlugin.js:1210`), and the
   emscripten glue builds a fresh JS array per call. **The `ToRef` saves the destination
-  `Vector3` and nothing else.** Measured on 9.18.1 with `.review/boundary-count.mjs`:
-  **216 B/call** linear, **184 B/call** angular, against 0.1 for the object centre.
+  `Vector3` and nothing else.** Measured on 9.18.1: **216 B/call** linear, **184 B/call**
+  angular, against 0.1 for the object centre.
   Session 16 planned a per-frame publication on the premise that the `ToRef` pair was free,
   and shipped an `observe` that read velocities eight times where four had been read
   before -- a bare-handed fighter went from allocating nothing per view to about 1.6 KB a
   step at 240 Hz. So: **the budget is the number of boundary reads, not the number of
   `Vector3`s**, the cheap direction is to ask once and derive every consumer from that
   reading, and a point that coincides with the body's own centre needs no angular read at
-  all because `w x 0` is zero. `describeFighter` costs two reads for a held weapon and one
-  for a bare fist; `tests/policy-perception.test.mjs` counts the plugin calls per `observe`
-  and fails when a reader is added, which is exact where a heap sample is not.
+  all because `w x 0` is zero. `refreshRoot` in `src/golem/locomotion/biped.ts` is the pattern:
+  one velocity read per substep, which every sample then reads back. No test counts the plugin
+  calls a publication makes, so a reader added to `Golem.describe` goes unnoticed unless someone
+  measures it. `describe` already makes one `velocityAt` call per live hand, on that hand's first
+  striker, and each call is one linear and one angular read.
 - **Do not infer an event from a side effect that has a second cause.** Three probes in one
-  session disagreed about the archer's rate of fire, because each watched something that
-  goes up when an arrow is loosed: the count of live arrows (also moves when one is
-  culled), `live` going true (misses a *recycled* arrow, which goes live->live), and the
-  age resetting (`Arrow.step` also resets `age` when a shot **strikes**, so every hit reads
+  session disagreed about the Warrior archer's rate of fire, because each watched something
+  that goes up when an arrow is loosed: the count of live arrows (also moved when one was
+  culled), `live` going true (missed a *recycled* arrow, which went live->live), and the
+  age resetting (`Arrow.step` also reset `age` when a shot **struck**, so every hit read
   as a new shot). The age watcher was the worst: it reported 16 shots in 20 s of which 12
   left the string at under 4 m/s, which looked exactly like a broken draw and was a broken
   probe. Wrapping `Quiver.loose` itself settled it in one run: 96 calls, **every one at
   48.0 m/s**, one every 1.25 s. When a measurement is surprising, instrument the *call*.
-- **A weapon that cannot sever cannot win a bout, and that is a rule rather than a
-  balance number.** `beaten()` ends a bout on a severed head or torso, or on all twelve
-  parts at zero. An arrow deliberately never severs, so an archer cannot win: against
-  `idle` -- a fighter that stands still and does nothing -- it landed 80 arrows for 274.7
-  damage a bout over sixteen 30-second bouts and killed **0**. Against `swinger` it hit
-  98.9 % of what it loosed for 366.2 damage and died 16/16. The rule's own docstring
-  already flags the alternative and reserves it for a person; the point for anybody adding
-  a weapon is that **damage and lethality are separate systems here**, and a new kind has
-  to say which one it participates in.
+- **A bout ends on a fatal part or an empty bar; severing is not required.** `beaten()` in
+  `src/bout.ts` is true when any part flagged `fatal` is severed or at zero health, or when
+  `vitality()` -- one weighted reading of every part's wound -- reaches zero. So any weapon that
+  does damage can win by wearing the bar down. Which parts are fatal is data each module
+  declares (`GolemPart.fatal`), not a rule in `beaten()`: today the head module's head (not its
+  neck) and the carrier part of each locomotion module (the biped's pelvis, the multileg's
+  chassis, the wheel module's yoke).
+  Two consequences of the bar's arithmetic are easy to miss. A part's wound stops counting once
+  that part is at zero, so more damage to an emptied limb that is still attached is wasted. And
+  `Golem.scaleVitality` rescales every part's weight so the weights sum to
+  `GOLEM_ASSEMBLY.vitalityTotal`, so any part carrying at least `1 / vitalityTotal` of that sum
+  ends the bout through the bar alone when emptied, whether or not it is `fatal`.
 - **Babylon removes observers asynchronously.** `Observable.remove` and `removeCallback`
   mark an observer `_willBeUnregistered` immediately, then splice it on a zero-delay timer.
   A lifecycle census taken synchronously after disposal must count active observers rather
   than the raw backing-array length, or every correct removal looks like a leak.
   The rebuild-lifecycle audit learned this while auditing 25 rebuilds; it still catches a
   genuinely live callback because marked observers no longer participate in notification.
-
-**The next two entries are about code that no longer exists** -- the imported humanoid figure and
-the construct trees. They are kept because the lessons are about Babylon and Havok, not about the
-units that taught them. Read them as findings, not as descriptions of the current tree.
-
 - **Havok's private constraint-to-body map is a debug history, not a live-resource census.**
   Version 9.18.1 adds entries in `initConstraint` but does not remove them in
   `disposeConstraint`, even though the native constraint is disabled and released there.
-  The integration lifecycle audit wraps those two plugin calls and balances the actual
+  `twenty_five_golem_rebuilds_return_every_counted_resource_to_baseline` in
+  `tests/golem-arena.test.mjs` therefore wraps those two plugin calls and balances the actual
   `_pluginData` IDs; reading `_constraintToBodyIdPair.size` would report a leak forever.
-
 - **General self-collision is not a physicality fix for a driven articulated body.** Adjacent
   capsules overlap at their joint seams by construction, so turning every owner pair on makes the
   motors buzz against their own anatomy. The opposite failure is just as misleading:
-  `selfCollisionCount === 0` proves nothing about pairs the filters never admitted. Physicality
-  uses three narrow boundaries instead: anatomical controller limits (an impossible
-  strapped-shield command is reflected to a same-side carry and its wrist turn is reversed),
-  pair-atomic planning plus command-volume clearance for an owner's sword and shield, and authored
-  mount clearance validated through the live articulation envelope. A generic
-  mount-versus-own-trunk layer changed the Warden's established dorsal-yaw contact into a
-  dorsal-pitch hit, so it was rejected rather than relayering every launcher. A hidden shield leaf
-  was also rejected because it changed mass, inertia and debris; the retained resolver tests the
-  visible plate against the blade, hand, forearm and achieved-to-command sweep without adding
-  physics geometry. For mounted hardware, prove bind clearance and live clearance in both mirrors
-  while preserving the established aiming chain. Reparenting the Arbalest bearings onto a new
-  brace made a clean-looking mount that could no longer aim; the accepted socket offset changes
-  mounting, not the controller's joint response.
+  `selfCollisionCount === 0` proves nothing about pairs the filters never admitted. Two earlier
+  bodies -- the Warrior and the construct trees, both since deleted -- used three narrow
+  boundaries instead: anatomical controller limits (an impossible strapped-shield command
+  was reflected to a same-side carry and its wrist turn reversed), pair-atomic planning plus
+  command-volume clearance for an owner's sword and shield, and authored mount clearance
+  validated through the live articulation envelope. Two broader fixes were tried there and
+  rejected: a generic mount-versus-own-trunk layer changed the Warden's established dorsal-yaw
+  contact into a dorsal-pitch hit, and a hidden shield leaf changed mass, inertia and debris.
+  Reparenting the Arbalest bearings onto a new brace made a clean-looking mount that could no
+  longer aim. For mounted hardware, prove bind clearance and live clearance in both mirrors while
+  preserving the established aiming chain.
 
-**The entries from here down are what the golem work paid for**, 2026-09-04 to 2026-09-05.
+**The next three entries are what the golem work paid for**, 2026-09-04 to 2026-09-05.
 
 - **On a low-axis chain the anchor's *rate limit* shapes a commanded move and its force ceiling
   does not, and a hand rate is not a tip rate.** Both halves were got wrong at once by scaling a
@@ -560,65 +602,44 @@ units that taught them. Read them as findings, not as descriptions of the curren
   code path is asserted by executing the path, and until somebody does, it is a hypothesis with
   good formatting.**
 
-**The next five entries are what the learn set paid for**, 2026-09-09 to 2026-09-11. They are
-about overnight training runs, the flags that configure them and the files they leave behind,
-rather than about any mind that came out of one -- which is just as well, because nothing did.
 - **A material with a texture that will not come ready is a mesh that is not drawn.** Four CC0
   tiling normal maps were once wired into the palette and every material carrying one
-  disappeared. The pipeline in `src/materials.ts` builds the fallback colour first and attaches
+  disappeared. `surface()` in `src/surface.ts` builds the fallback colour first and attaches
   each map only from its decode-success callback, so failure leaves a drawable mesh. A diffuse
-  map **multiplies** `albedoColor` rather than replacing it, which is why a body's tint and its
-  texture are separate on purpose.
-- **A reading is only comparable with another taken in the same harness.** There are two: the
-  page, and the headless harness under `tests/harness/`. They agree on converged behaviour and
-  **disagree by about 9 % on the arm's peak transient with identical code** -- 264.97 mm against
-  242.88 -- and why is not established. Solver ordering, solver islanding, the render id and the
-  `Mind` seam have each been tested and eliminated; the remaining suspects are what else the page
-  has in the scene. Neither harness is wrong. Putting both in one column is, and it has already
-  produced a regression report about a build where nothing had changed. Name the harness in every
-  figure you record.
+  map **multiplies** `albedoColor` rather than replacing it, which is why `surface()` sets the
+  colour to white when the albedo map decodes: the descriptor's colour is the fallback, and left
+  in place it would darken the image.
+- **A reading is only comparable with another taken in the same harness.** The page -- the arena
+  or `/bench.html` -- and the Node harnesses under `tests/harness/` agree on converged behaviour,
+  but **disagreed by about 9 % on the Warrior arm's peak transient with identical code** --
+  264.97 mm against 242.88 -- and why was never established. Solver ordering, solver islanding,
+  the render id and the `Mind` seam were each tested and eliminated; the remaining suspects are
+  what else the page has in the scene. Neither harness is wrong. Putting a page reading and a
+  Node reading in one column is, and it has already produced a regression report about a build
+  where nothing had changed. Name the harness in every figure you record.
 - **A golem bout in the headless harness must pass `locomotionMode: "supported"`, and the pair
-  step throws if you forget.** `runBout` defaults it to legacy, while a golem's locomotion *is*
-  the physical V1 port. `stepControlledPair` refuses a pair where only one side has one and
-  throws "supported locomotion pair construction produced only one physical V1 port" before the
-  first frame, which is the good failure: a forgotten line cannot produce a quietly wrong number.
-- **Line endings are mixed, on Windows, with `core.autocrlf` false.** Git stores exactly the
-  bytes written, so a tool that rewrites a file with the platform's ending silently converts the
-  whole thing: nothing breaks, every check passes, and `git diff` then reports a 90-line change
-  as 308 added and 222 removed, which makes it unreviewable at the moment somebody wants to
-  review it. **Measured 2026-09-18 over every tracked file: exactly two carry a CR byte** --
-  `src/rig.ts` is pure CRLF (220/220) and `src/physics.ts` is mixed (159 CRLF against 341 LF).
-  Everything else in the tree is pure LF. So: **match the region you are editing, not the file**,
-  because the one mixed file is the one most likely to be edited by a script. A Python edit that
-  reports zero replacements in `physics.ts` needs `\r\n` in its pattern, not a rewrite of the
-  file; `open(p, "w")` in text mode is what has already done the damage here, so use `"wb"` and
-  bytes, or pass `newline=""`. The check, and the only spelling of it that is a measurement:
-
-  ```bash
-  for f in $(git ls-files 'src/**'); do
-    printf "%-24s cr=%s lf=%s\n" "$f" \
-      $(git show HEAD:"$f" | tr -dc '\r' | wc -c) $(git show HEAD:"$f" | tr -dc '\n' | wc -c)
-  done
-  ```
-
-  and `git diff --ignore-cr-at-eol --numstat` against plain `--numstat` is the after-the-fact
-  check: any file where the two disagree has had its endings rewritten.
-
+  step throws if you forget.** `createBout` in `tests/harness/bout-runner.mjs` leaves it
+  undefined, and only `"supported"` makes it build the one flat world registry both corners must
+  share. Without it each golem's locomotion module builds a registry of its own, and
+  `resolvePhysicalSupportedPair` in `src/supported-locomotion-production.ts` throws "supported
+  pair must share one world-query registry" on the first step, which is the good failure: a
+  forgotten line cannot produce a quietly wrong number.
 - **A uniform mass scale does not size a force, because one mass in the arm refuses to
   scale.** `SHIPPED_MASS_SCALE` at the head of `src/golem/config.ts` is 0.162 and `kg()` wraps
   every mass derived as volume times 2600 kg/m3. **`TERMINAL_BLADE.mass` is 1.30 kg and is
   deliberately not wrapped** -- an arming sword already weighs what an arming sword weighs -- and
   it is about a third of what the hand holds. So "the arm lost five sixths of its mass, scale its
   forces by 0.162" is false, and on 2026-09-18 it was applied to five constants before anybody
-  noticed: `STROKE_INERTIA.ref`, `CHAIN_PITCH.motorTorque`, `CHAIN_REACH.anchorForce`,
-  `ANCHOR_DRIVE.linearForce` and `CHAIN_WRIST.rollTorque`/`bendTorque`. The blade is the *only*
-  such exception -- the legs, neck and waist hold nothing that refuses to scale, and their tables
-  were left alone correctly -- so the rule is narrow and it is entirely about the arm.
+  noticed: `STROKE_INERTIA.ref` (in `src/golem/tactics.ts`), `CHAIN_PITCH.motorTorque`,
+  `CHAIN_REACH.anchorForce`, `ANCHOR_DRIVE.linearForce` and `CHAIN_WRIST.rollTorque`/`bendTorque`.
+  The blade is the *only* such exception -- the legs, neck and waist hold nothing that refuses to
+  scale, and their tables were left alone correctly -- so the rule is narrow and it is entirely
+  about the arm.
 
-  **Size a force off the arm rather than off the scale.** Every one of those constants has its own
-  derivation in its own doc comment and every one of them still works: `linearForce` is "850 N per
-  the Warrior's 6.50 kg of arm and sword, times whatever the Node bench prints for this chain",
-  and running that rule unchanged gives 854 N. The bench prints the driven mass
+  **Size a force off the arm rather than off the scale.** `CHAIN_REACH` has since lost its
+  `anchorForce`; each of the other four carries its own derivation in its own doc comment, and
+  `linearForce`'s is "850 N per the Warrior's 6.50 kg of arm and sword, times whatever the Node
+  bench prints for this chain", which run unchanged gives 854 N. The bench prints the driven mass
   (`runGolemBench(...).massKg`) for exactly this purpose.
 
 - **A conclusion is void if the thing it was measured against has since been corrected, even
@@ -693,41 +714,58 @@ Each one was paid for.
   and overhead beams are the explicit body-free cases. Do not bypass `validateRoomPlacements`
   with builder-local scenery.
 - **No feel complaint is fixed by raising a motor ceiling without a measured before/after table
-  beside the number in `src/config.ts`.** Every number in the `arm` block was set that way and
-  each one carries its table.
+  beside the number.** The live ceilings are in `src/golem/config.ts` for the golem chains and in
+  `TORQUES` in `src/golem/humanoid/arm.ts` for the human arm. Two golem ceilings break the rule
+  today. `CHAIN_REACH`'s `yawTorque`, `shoulderTorque` and `elbowTorque` (720, 1200 and 720) have
+  only a line comment. `HEAD_NECK.pitchTorque` is 100, while its doc comment's table picks 260
+  and scales it to 42; the only argument for 100 is the line comment "A 42 Nm neck allowed 9.91
+  degrees of head tilt". Measure either one before moving it, and write the table in when you
+  do. `CONFIG.arm` in `src/config.ts` still carries the Warrior's arm numbers with their
+  measurements, but nothing reads its motor fields (`linearMotorForce`, `wristMotorForce` and the
+  like).
 - **Every measurement names its harness**, for the reason in the traps above.
 - **Commit each landable change as it lands.** The one question this tree could not settle --
   where the 9 % transient disagreement comes from -- needed two builds bisected, and neither had
   been committed. It is the cheapest rule here and the one that has already cost the most.
 - **A change to shared execution-layer code gets a bout either side of it, and the null control
-  is not optional because it is a null.** The four functions the tactic and option layers share
-  -- `applyActionPosture`, `actionCoverAt`, `actionAimAt`, `actionArcherAim` -- are the leak
-  path. A change shipped green at 474 tests once and moved a matchup by about 2.5 standard
-  deviations, and nobody knew until the next session went looking.
-
-**The two entries below are about the construct trees, deleted before this tree was flattened.**
-They are kept as findings.
-
-- **Recovery cannot require the support state it exists to restore.** The first construct
-  controller required three planted contacts in its constructor, so a fallen mind selected
-  `recover` forever and the scheduler refused it forever. Move, turn and brace may retain that
-  admission rule; recovery may not.
+  is not optional because it is a null.** What `src/policies.ts` and `src/options.ts` both import
+  from `src/action-primitives.ts` -- today `actionStrokeRoll`, `applyActionPosture`,
+  `blankThreat`, `freshIntent` and `selectThreat` -- is the leak path. A change shipped green at
+  474 tests once and moved a matchup by about 2.5 standard deviations, and nobody knew until the
+  next session went looking.
+- **Recovery cannot require the support state it exists to restore.** The controller of the
+  construct trees (deleted, like the Warrior) required three planted contacts in its
+  constructor, so a fallen mind selected `recover` forever and the scheduler refused it forever.
+  The same holds for a golem: whatever lets a knocked-down carrier rise may not require the
+  support that the knockdown took away. Other actions may keep that admission rule; recovery may
+  not.
 - **One worker realm runs one Havok arena at a time.** Havok's wasm state is realm-global:
   `Promise.all` over two bouts in one Node realm changes physical outcomes even when both scenes
   are separately constructed and disposed. Parallel work therefore needs isolated worker threads
-  with a sequential loop inside each one. Do not replace a worker loop with async concurrency.
+  with a sequential loop inside each one: `runJobs` in `research/runner.mjs` gives each lane its
+  own `Worker` and hands it one job at a time, and `research/worker.mjs` answers each job only
+  when its bout is done. Do not replace a worker loop with async concurrency.
 
 ## Where the design lives
 
-Beside the code it decides. There is no `docs/` directory: the research record that used to live
-there -- `measurements.md`, `design.md`, the sweeps and the deleted-path register -- went with the
-research on 2026-09-18, along with the gate that checked its file references.
+Beside the code it decides, first: the argument for a constant is its doc comment in `config.ts`,
+with the table that chose it. `docs/` holds what does not belong to one file -- working plans in
+`docs/plans/`, dated design analyses in `docs/analysis/`, and the standing notes
+`docs/humanoids.md` and `docs/movement-stability.md`.
 
-`src/config.ts` is the tuning surface a person reaches, and it is deliberately mutable: the page
-exposes `window.__sword`, so `__sword.config.arm.stiffness = 1600` takes effect on the next frame.
-Motor ceilings and damping are set on native solver objects at construction, so those need
-`__sword.left.applyTuning()` to push them across. Tune from the console first, then write the
-number back into the file with its table.
+`src/config.ts` is the tuning surface a person reaches, and it is deliberately mutable: the arena
+page exposes it as `window.__sword.config`, so `__sword.config.combat.hitCooldown = 0.2` takes
+effect on the next contact. Nothing exposes `src/golem/config.ts`, where a golem's tables live --
+not `__sword.config`, and not the bench's `__golem` -- so a golem number is changed in the file,
+and the page is then navigated rather than trusted to HMR (see "Three ways to ask the wrong
+question" above). Two kinds of motor ceiling live there. Most are handed over every substep: the
+arm chain, the wrist, the torso's twist and lean and the neck pass their table's value to
+`JointServo.track`, the human arm passes `TORQUES` to `JointActuator.drive`, and the actuator (both
+in `src/golem/joint-servo.ts`) writes it to the joint whenever it changes. The rest are written at
+construction: `CHAIN_PITCH.motorTorque`, the locomotion waist, and the legs and the wheel's
+spin, which are rewritten on the edges into and out of a knockdown and never per substep. For
+`src/config.ts`, tune from the console first, then write the number back into the file with its
+table.
 
 **There is one deliberate exception.** The option layer keeps its own frozen block --
 `ACTION_TUNING` in `src/action-primitives.ts`, and `TARGET_SPAN_FRACTION` in `src/options.ts` --
