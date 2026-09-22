@@ -2,7 +2,7 @@
  * Do golem-built policies fight well in a human body? Declared before any outcome; no reselection.
  *
  * `node research/human-transfer.mjs declare` freezes fixtures, policies, source and the decision
- * rule; `evaluate` runs them on the declaration's own 45-minute ledger; `summarize` recomputes the
+ * rule; `evaluate` runs them on the declaration's own ledger (45 minutes, amended to 90); `summarize` recomputes the
  * comparisons from saved pairs without new bouts. The picker refuses these policies on human bodies
  * (commit c24ba5f); bouts are not gated, so this measures what that refusal is withholding.
  */
@@ -20,7 +20,9 @@ import { createEnvironment } from "./lab/environment.mjs";
 const read = (path) => JSON.parse(readFileSync(path, "utf8"));
 const directory = join(ROOT, "research/runs/human-transfer-2026-09-22");
 const budgetDirectory = join(ROOT, "research/runs/human-transfer-budget");
-export const AUTHORIZATION = Object.freeze({ id: "human-transfer-2026-09-22", maxMs: 45 * 60000, maxJobMs: 3600000 });
+// Amended from 45 to 90 minutes with the owner's approval after the first 448 bouts, on measured
+// throughput alone (~21 bouts/minute, not the ~45 estimated) and before any comparison was computed.
+export const AUTHORIZATION = Object.freeze({ id: "human-transfer-2026-09-22", maxMs: 90 * 60000, maxJobMs: 3600000 });
 const HUMAN = ["human-warrior", "human-dual-swords", "human-unarmed", "human-maul"];
 const OPPONENT = { kind: "baseline", name: "humanoid-duelist" };
 // Each candidate on the human builds its requirement accepted before the family gate, 192 bouts
