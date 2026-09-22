@@ -83,6 +83,13 @@ export interface TorsoTuning {
   readonly coreVitalityWeight: number;
   /** The fraction of a scored blow the core's own stone absorbs. See `GolemPart.armour`. */
   readonly coreArmour: number;
+  /**
+   * Whether losing the core ends the body. False for stone and human, where the head is the fatal
+   * part and the core carries vitality. True for a skeleton, whose ribcage is what holds it
+   * together. `beaten` in `src/bout.ts` ends a bout on a fatal part severed or at zero health,
+   * and `Golem.sever` calls `die()` when a severed module carries one.
+   */
+  readonly coreFatal: boolean;
   /** Effector socket offset from the core's centreline, its centre and its front face, metres. */
   readonly socketSide: number;
   readonly socketHeight: number;
@@ -194,8 +201,8 @@ export function torsoModule(
   id: string,
   label: string,
   tuning: TorsoTuning,
+  W: typeof TORSO_WAIST = TORSO_WAIST,
 ): TorsoModuleDefinition {
-  const W = TORSO_WAIST;
   return Object.freeze({
     id,
     slots: Object.freeze<GolemSlot[]>(["torso"]),
@@ -287,10 +294,7 @@ export function torsoModule(
           }),
           health: T.coreHealth,
           vitalityWeight: T.coreVitalityWeight,
-          // **Not fatal, and that is the body plan rather than an oversight.** The head is the
-          // fatal part; a torso carries the vitality core, so losing it is losing most of what
-          // keeps a golem going without being the single blow that ends it.
-          fatal: false,
+          fatal: T.coreFatal,
           armour: T.coreArmour,
         }),
       ]) as readonly GolemPart[];

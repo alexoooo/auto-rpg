@@ -35,7 +35,8 @@ import {
 } from "../module.ts";
 
 /**
- * The head: the fatal part, on a soft neck, and in the ram the one attack a golem makes with it.
+ * The head: on a soft neck, fatal when its table says so (`HEAD_NECK.headFatal`, true for stone and
+ * human), and in the ram the one attack a golem makes with it.
  *
  * **The risk is the design.** A ram golem's whole attack is a velocity event that puts its own
  * fatal part into the contact. That is deliberate: it is the trade the option exists to offer,
@@ -132,8 +133,9 @@ function headShell(scene: Scene, options: {
   readonly name: string;
   readonly host: Mesh;
   readonly materials: GolemMaterialPalette;
+  readonly table: typeof HEAD_NECK;
 }): readonly AbstractMesh[] {
-  const N = HEAD_NECK;
+  const N = options.table;
   const made: AbstractMesh[] = [];
   const attach = (mesh: Mesh, at: Vector3, rotation?: Quaternion): Mesh => {
     mesh.isPickable = false;
@@ -341,12 +343,11 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
           id: head.name,
           part: head,
           shell: headShell(ctx.scene, {
-            name: head.name, host: head.mesh, materials: ctx.materials,
+            name: head.name, host: head.mesh, materials: ctx.materials, table: N,
           }),
           health: N.headHealth,
           vitalityWeight: N.headVitalityWeight,
-          /** The fatal part. Losing it ends the golem, whichever option is on the neck. */
-          fatal: true,
+          fatal: N.headFatal,
           armour: N.headArmour,
         }),
         ...(ram && plate ? [Object.freeze({

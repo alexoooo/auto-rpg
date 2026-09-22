@@ -3,6 +3,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 
 import { COLLIDES, LAYER } from "../../../physics.ts";
 import { joint, spherePart } from "../../../rig.ts";
+import type { Armour } from "../../../scoring.ts";
 import { TERMINAL_FIST } from "../../config.ts";
 import {
   defineTerminal,
@@ -39,7 +40,9 @@ import { RigidStrike } from "../striker.ts";
  * ignores them (`blade.ts` has the numbers). The collider is drawn by the shell rather than by
  * itself, because a six-segment sphere reads as a die and a stone ball does not.
  */
-export const fistDefinition = (config: typeof TERMINAL_FIST = TERMINAL_FIST) => defineTerminal({
+export const fistDefinition = (
+  config: typeof TERMINAL_FIST & { readonly armour?: Armour } = TERMINAL_FIST,
+) => defineTerminal({
   id: "fist",
   sockets: 1,
   bite: "mass",
@@ -109,6 +112,7 @@ export const fistDefinition = (config: typeof TERMINAL_FIST = TERMINAL_FIST) => 
         health: F.health,
         vitalityWeight: F.vitalityWeight,
         fatal: false,
+        ...(F.armour === undefined ? {} : { armour: F.armour }),
       }),
     ]);
 

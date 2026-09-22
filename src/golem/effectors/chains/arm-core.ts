@@ -5,6 +5,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 
 import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint, type Part } from "../../../rig.ts";
+import type { Armour } from "../../../scoring.ts";
 import { CHAIN_REACH } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -78,9 +79,9 @@ const unspanned = (value: number, min: number, max: number): number =>
  *
  * At module scope because the build pose needs it before anything is built.
  */
-const twoBone = (reach: number): { alpha: number; beta: number } => {
-  const L1 = CHAIN_REACH.upperLength;
-  const L2 = CHAIN_REACH.foreLength;
+const twoBone = (R: typeof CHAIN_REACH, reach: number): { alpha: number; beta: number } => {
+  const L1 = R.upperLength;
+  const L2 = R.foreLength;
   const cosBeta = clamp((reach * reach - L1 * L1 - L2 * L2) / (2 * L1 * L2), -1, 1);
   const beta = Math.acos(cosBeta);
   return { alpha: Math.atan2(L2 * Math.sin(beta), L1 + L2 * cosBeta), beta };
@@ -232,8 +233,8 @@ export const ARM_STROKES: readonly EffectorStrokeKind[] =
 
 export function buildArmCore(
   ctx: ModuleBuild, narrowed: ChainLimits | null, crossing: ChainCrossing | null,
+  R: typeof CHAIN_REACH = CHAIN_REACH, armour?: Armour,
 ): ArmCore {
-  const R = CHAIN_REACH;
   // **The terminal narrows and the chain clamps**, and a narrowing can only ever *tighten*: a
   // floor takes the larger of the two and a ceiling the smaller, so a terminal that stated a
   // wider number than the chain's own would grant nothing, which is the direction a terminal is
@@ -285,7 +286,7 @@ export function buildArmCore(
   // violation the solver clears on step one by throwing the limb at 9.95 m/s.
   const buildLift = clamp(R.liftMin, L.liftMin, L.liftMax);
   const buildReach = clamp(R.reachNeutral, L.reachMin, L.reachMax);
-  const buildBones = twoBone(buildReach);
+  const buildBones = twoBone(R, buildReach);
   const upperPitch = buildLift + Math.PI / 2 - buildBones.alpha;
   const forePitch = upperPitch + buildBones.beta;
 
@@ -418,7 +419,7 @@ export function buildArmCore(
     for (const servo of [yawServo, pitchServo, elbowServo]) servo.actuator.release();
   };
   const driveJoints = (dt: number): void => {
-    const { alpha, beta } = twoBone(slewed.reach);
+    const { alpha, beta } = twoBone(R, slewed.reach);
     yawServo.track(outboard * slewed.swing, dt, R.yawTorque);
     pitchServo.track(-(slewed.lift + Math.PI / 2 - alpha), dt, R.shoulderTorque);
     elbowServo.track(-beta, dt, R.elbowTorque);
@@ -441,6 +442,7 @@ export function buildArmCore(
       health: R.collarHealth,
       vitalityWeight: R.collarVitalityWeight,
       fatal: false,
+      ...(armour === undefined ? {} : { armour }),
     }),
     Object.freeze({
       id: upper.name,
@@ -452,6 +454,7 @@ export function buildArmCore(
       health: R.upperHealth,
       vitalityWeight: R.upperVitalityWeight,
       fatal: false,
+      ...(armour === undefined ? {} : { armour }),
     }),
     Object.freeze({
       id: fore.name,
@@ -463,6 +466,7 @@ export function buildArmCore(
       health: R.foreHealth,
       vitalityWeight: R.foreVitalityWeight,
       fatal: false,
+      ...(armour === undefined ? {} : { armour }),
     }),
   ]);
 
@@ -602,7 +606,7 @@ export function buildArmCore(
    * hand in the same place with different elbow bends point the forearm differently.
    */
   const basisOf = (pose: ArmCommand, forearm: Vector3, lateral: Vector3): void => {
-    const { alpha, beta } = twoBone(clamp(pose.reach, L.reachMin, L.reachMax));
+    const { alpha, beta } = twoBone(R, clamp(pose.reach, L.reachMin, L.reachMax));
     const forearmPitch = pose.lift + Math.PI / 2 - alpha + beta;
     const az = outboard * pose.swing;
     const across = Math.sin(forearmPitch);

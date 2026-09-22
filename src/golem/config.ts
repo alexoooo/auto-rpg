@@ -3201,6 +3201,13 @@ export const TORSO_PLAIN = {
    * 2026-09-04.
    */
   coreArmour: 0.10,
+  /**
+   * Whether losing the core ends the body. **Not fatal, and that is the body plan rather than an
+   * oversight.** The head is the stone golem's fatal part (`HEAD_NECK.headFatal`); the torso
+   * carries the vitality core, so losing it is losing most of what keeps a golem going without
+   * being the single blow that ends it. `HUMAN_TORSO` spreads this block and inherits the answer.
+   */
+  coreFatal: false,
 
   /**
    * Where the two effector sockets sit, in the core's own frame, metres.
@@ -3269,6 +3276,8 @@ export const TORSO_PLATED = {
    * 2026-09-04.
    */
   coreArmour: 0.34,
+  /** Not fatal, for the reason `TORSO_PLAIN.coreFatal` gives: plating a core does not make it the head. */
+  coreFatal: false,
 
   /** Wider and higher than the plain torso's, because the chest is. 2026-09-04. */
   socketSide: 0.38,
@@ -3330,6 +3339,12 @@ export const HEAD_NECK = {
   headMass: kg(81),
   headHealth: 140,
   headVitalityWeight: 2,
+  /**
+   * **The fatal part.** Losing the stone head ends the golem, whichever option is on the neck,
+   * and it is why `headArmour` below is kept low. `HUMAN_HEAD` spreads this block and inherits
+   * the answer; a family whose head is not what holds it together states `false` in its own table.
+   */
+  headFatal: true,
 
   /**
    * Armour on the head, as a fraction absorbed. See `TORSO_PLAIN.coreArmour` for the rule.

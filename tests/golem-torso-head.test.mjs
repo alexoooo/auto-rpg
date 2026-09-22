@@ -29,6 +29,10 @@ import {
   HEAD_NECK, HEAD_PLAIN, HEAD_RAM, TORSO_PLAIN, TORSO_PLATED, TORSO_WAIST,
 } from "../src/golem/config.ts";
 import { partArmour } from "../src/golem/module.ts";
+import { headModule } from "../src/golem/head/head.ts";
+import { headPlain } from "../src/golem/head/plain.ts";
+import { HUMAN_HEAD, humanHead } from "../src/golem/humanoid/body.ts";
+import { torsoModule } from "../src/golem/torso/torso.ts";
 import { RigidStrike } from "../src/golem/effectors/striker.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
@@ -1031,4 +1035,90 @@ test("a plain head runs no stroke at all through the whole scripted sequence", a
   // It still holds its head up and still bobs when hit, which is the half both options share.
   assert.ok(run.bob.peakMm > 5);
   assert.ok(run.bob.settleSeconds < run.bob.windowSeconds);
+});
+
+// ---------------------------------------------------------------------------------------
+// Builders read the table they are handed, so a family can be built from its own tables. None of
+// the definitions below is registered; each is built through its own `build`.
+// ---------------------------------------------------------------------------------------
+
+const buildOnStand = (arena, stand, definition, slot, name) => definition.build({
+  scene: arena.scene, side: "left", name, socket: stand.socket(slot),
+  layers: golemLayers("left"), materials: stand.materials,
+});
+
+test("a_head_shell_is_sized_by_the_table_the_head_was_built_from", async () => {
+  // The human table differs from the stone one on every axis, or a shell drawn from the stone
+  // table would pass the human half as well.
+  for (const axis of ["headWidth", "headHeight", "headDepth"]) {
+    assert.notEqual(HUMAN_HEAD[axis], HEAD_NECK[axis], axis);
+  }
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  try {
+    for (const [definition, table] of [[humanHead, HUMAN_HEAD], [headPlain, HEAD_NECK]]) {
+      const head = buildOnStand(arena, stand, definition, "head", `shell.${definition.id}`);
+      try {
+        const block = head.parts.flatMap((part) => part.shell)
+          .find((mesh) => mesh.name.endsWith(".block"));
+        assert.ok(block, `${definition.id} drew no block`);
+        // Local extents, before any parent scaling: the block is parented to the head's collider.
+        const size = block.getBoundingInfo().boundingBox.extendSize.scale(2);
+        for (const [axis, want] of [["x", table.headWidth], ["y", table.headHeight], ["z", table.headDepth]]) {
+          assert.ok(Math.abs(size[axis] - want) < 1e-9,
+            `${definition.id}'s block is ${size[axis]} m on ${axis} and its table says ${want}`);
+        }
+      } finally {
+        head.dispose();
+      }
+    }
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
+});
+
+test("a_torso_reads_the_waist_it_is_given", async () => {
+  assert.notEqual(TORSO_WAIST.ballMass, 3, "the stock waist would pass this test");
+  const definition = torsoModule("torso.test", "test", TORSO_PLAIN, { ...TORSO_WAIST, ballMass: 3 });
+  assert.equal(definition.massKg, 3 + TORSO_PLAIN.coreMass);
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  const torso = buildOnStand(arena, stand, definition, "torso", "waist");
+  try {
+    const waist = torso.parts.find((part) => part.id === "waist.waist");
+    assert.ok(waist, torso.parts.map((part) => part.id).join(", "));
+    // 3 is exact in float32, so Havok hands it back exactly.
+    assert.equal(waist.part.body.getMassProperties().mass, 3);
+  } finally {
+    torso.dispose();
+    stand.dispose();
+    arena.dispose();
+  }
+});
+
+test("fatality_is_read_from_the_table", async () => {
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  try {
+    for (const [label, definition, slot, suffix, fatal] of [
+      ["a fatal core", torsoModule("torso.test", "test", { ...TORSO_PLAIN, coreFatal: true }), "torso", ".core", true],
+      ["the stock plain core", golemModule("torso.plain"), "torso", ".core", false],
+      ["a non-fatal head", headModule("head.test", "test", { guardPitch: HEAD_PLAIN.guardPitch, ram: null },
+        { ...HEAD_NECK, headFatal: false }), "head", ".head", false],
+      ["the stock plain head", headPlain, "head", ".head", true],
+    ]) {
+      const built = buildOnStand(arena, stand, definition, slot, "fatal");
+      try {
+        const part = built.parts.find((candidate) => candidate.id === `fatal${suffix}`);
+        assert.ok(part, `${label}: no part fatal${suffix}`);
+        assert.equal(part.fatal, fatal, label);
+      } finally {
+        built.dispose();
+      }
+    }
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
 });

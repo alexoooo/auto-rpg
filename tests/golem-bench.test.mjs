@@ -27,7 +27,7 @@ import { capsulePart } from "../src/rig.ts";
 import { AnchorDrive, slewTowards } from "../src/golem/anchor-drive.ts";
 import {
   ANCHOR_DRIVE, BENCH_READOUT, BENCH_STAND, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
-  TERMINAL_BLADE, TERMINAL_MACE, TERMINAL_MAUL, TERMINAL_PLATE, TERMINAL_WHIP,
+  TERMINAL_BLADE, TERMINAL_FIST, TERMINAL_MACE, TERMINAL_MAUL, TERMINAL_PLATE, TERMINAL_WHIP,
   TORSO_PLAIN, TORSO_PLATED,
 } from "../src/golem/config.ts";
 import { BenchReadout, blankSample } from "../src/golem/readout.ts";
@@ -1817,4 +1817,98 @@ test("covers arrive promptly and settle without ripple", async () => {
     + " arrival tolerance, so the arrival could be read against the command again");
   assert.ok(blade.standingOffsetMetres < PARRY_ARRIVED_METRES,
     "a blade no longer reaches its own cover command either, which is a chain fault and not a shape");
+});
+
+// ---------------------------------------------------------------------------------------
+// A wrist chain and a fist built from tables other than stone's. Neither is registered; the
+// `"wrist"` id is reused only because `wristChainFrom` needs a `ChainId`.
+//
+// This changes the forearm's radius and mass and keeps both link lengths, so a `twoBone` still
+// reading `CHAIN_REACH` would pass it. That is accepted while every family's arm keeps the stone
+// arm's `upperLength` and `foreLength`; a table that changes a link length has to be varied
+// here too, with the built hand measured against its anchor.
+// ---------------------------------------------------------------------------------------
+
+const TEST_ARMOUR = Object.freeze({ cut: 0.5, thrust: 0.5, slap: 0, crush: 0 });
+const CHAIN_PARTS = ["collar", "upperArm", "forearm", "rollRing", "wrist"];
+
+test("a_wrist_chain_from_other_tables_builds_those_tables", async () => {
+  const { effectorModule } = await import("../src/golem/effectors/effector.ts");
+  const { wristChainFrom } = await import("../src/golem/effectors/chains/wrist.ts");
+  const R = { ...CHAIN_REACH, foreRadius: 0.02, foreMass: 0.4 };
+  assert.notEqual(CHAIN_REACH.foreRadius, R.foreRadius);
+  assert.notEqual(CHAIN_REACH.foreMass, R.foreMass);
+  const chain = wristChainFrom("wrist", "test", R, CHAIN_WRIST, { armour: TEST_ARMOUR });
+  assert.equal(chain.massKg,
+    R.collarMass + R.upperMass + R.foreMass + CHAIN_WRIST.ringMass + CHAIN_WRIST.wristMass);
+
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  const ctx = (name) => ({
+    scene: arena.scene, side: "left", name, socket: stand.socket("primary"),
+    companion: stand.socket("secondary"), layers: golemLayers("left"), materials: stand.materials,
+  });
+  try {
+    const built = effectorModule(chain, EFFECTOR_TERMINALS.blade).build(ctx("thin"));
+    try {
+      const fore = built.parts.find((part) => part.id === "thin.forearm");
+      // Havok stores mass and shape as float32, so both are compared to a part in a million.
+      const mass = fore.part.body.getMassProperties().mass;
+      assert.ok(Math.abs(mass - 0.4) < 1e-6, `the forearm weighs ${mass}`);
+      const extent = fore.part.shape.getBoundingBox().extendSize;
+      assert.ok(Math.abs(extent.x - 0.02) < 1e-6 && Math.abs(extent.z - 0.02) < 1e-6,
+        `the forearm's collider is ${extent.x} by ${extent.z} across`);
+
+      const own = built.parts.filter((part) => !part.id.endsWith(".blade"));
+      assert.deepEqual(own.map((part) => part.id.slice("thin.".length)), CHAIN_PARTS);
+      for (const part of own) assert.equal(part.armour, TEST_ARMOUR, `${part.id} carries no armour`);
+      const blade = built.parts.find((part) => part.id.endsWith(".blade"));
+      assert.equal(Object.hasOwn(blade, "armour"), false, "the blade took the chain's armour");
+    } finally {
+      built.dispose();
+    }
+
+    // And stone's own chain gains no armour key at all, so its parts are the objects they were.
+    const stone = golemModule("effector.wrist.blade").build(ctx("stone"));
+    try {
+      for (const part of stone.parts) {
+        assert.equal(Object.hasOwn(part, "armour"), false, `${part.id} grew an armour key`);
+      }
+    } finally {
+      stone.dispose();
+    }
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
+});
+
+test("a_fist_carries_the_armour_its_table_gives_it", async () => {
+  const { effectorModule } = await import("../src/golem/effectors/effector.ts");
+  const { fistDefinition } = await import("../src/golem/effectors/terminals/fist.ts");
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  const ctx = (name) => ({
+    scene: arena.scene, side: "left", name, socket: stand.socket("primary"),
+    companion: stand.socket("secondary"), layers: golemLayers("left"), materials: stand.materials,
+  });
+  try {
+    for (const [name, terminal, armoured] of [
+      ["boned", fistDefinition({ ...TERMINAL_FIST, armour: TEST_ARMOUR }), true],
+      ["bare", EFFECTOR_TERMINALS.fist, false],
+    ]) {
+      const built = effectorModule(EFFECTOR_CHAINS.wrist, terminal).build(ctx(name));
+      try {
+        const fist = built.parts.find((part) => part.id === `${name}.fist`);
+        assert.ok(fist, built.parts.map((part) => part.id).join(", "));
+        if (armoured) assert.equal(fist.armour, TEST_ARMOUR);
+        else assert.equal(Object.hasOwn(fist, "armour"), false, "a stone fist grew an armour key");
+      } finally {
+        built.dispose();
+      }
+    }
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
 });
