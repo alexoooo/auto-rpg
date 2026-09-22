@@ -33,7 +33,7 @@ export const RESEARCHED_LAB_POLICIES = (entries as PublishedLabPolicy[]).map((en
   const requirement = entry.spec.kind === "bespoke"
     ? entry.spec.name === "paired" ? "independent-hands" as const
       : entry.spec.name === "needle" ? "point-primary" as const : undefined
-    : undefined;
+    : entry.spec.kind === "network" ? entry.spec.model.scope : undefined;
   return { name: entry.name, label: entry.label, surface: GOLEM_CONTROL_SURFACE,
     requirement, evidenceScope: entry.admission.scope,
     create: (seed = (Math.random() * 0x100000000) >>> 0) => ({ ...labMind(entry.spec, seed), name: entry.name }) };

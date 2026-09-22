@@ -1,15 +1,15 @@
 import type { GolemSetup } from "./bout.ts";
 import type { BodyView, Policy } from "./mind.ts";
-import { hasPoint } from "./hands.ts";
+import { hasPoint, type WeaponKind } from "./hands.ts";
 import { golemEffector, golemSetupRefusal } from "./golem/build.ts";
 import { EFFECTOR_CHAINS } from "./golem/registry.ts";
 
-export type PolicyRequirement = "independent-hands" | "point-primary";
+export type PolicyRequirement = "independent-hands" | "point-primary" | "twin-blades" | "dual-strikers";
 export type Applicability = { status: "applicable" | "fallback-only" | "incompatible"; reason: string };
 export interface PolicyBody {
   pairedHands: boolean;
-  primary: { thrust: boolean; aiming: boolean; pointed: boolean; lost: boolean };
-  secondary: { thrust: boolean; aiming: boolean; pointed: boolean; lost: boolean };
+  primary: { thrust: boolean; aiming: boolean; pointed: boolean; lost: boolean; weapon: WeaponKind };
+  secondary: { thrust: boolean; aiming: boolean; pointed: boolean; lost: boolean; weapon: WeaponKind };
 }
 
 /** Read declarations owned by the chains; no physics world is needed by setup. */
@@ -20,7 +20,7 @@ export function policyBodyForSetup(build: GolemSetup): PolicyBody {
     const pick = build[slot], option = golemEffector(pick.chain, pick.terminal)!;
     const chain = EFFECTOR_CHAINS[option.chain];
     return { thrust: chain.strokes.includes("thrust"), aiming: chain.pointTarget,
-      pointed: hasPoint(option.weapon), lost: false };
+      pointed: hasPoint(option.weapon), lost: false, weapon: option.weapon };
   };
   return { pairedHands: golemEffector(build.primary.chain, build.primary.terminal)!.sockets === 2,
     primary: hand("primary"), secondary: hand("secondary") };
@@ -32,7 +32,7 @@ export function policyBodyForView(self: BodyView): PolicyBody | null {
   const hand = (slot: "primary" | "secondary") => ({
     thrust: caps.effectors[slot].strokes.includes("thrust"),
     aiming: caps.effectors[slot].reachable !== null,
-    pointed: hasPoint(self.hands[slot].weapon), lost: self.hands[slot].lost,
+    pointed: hasPoint(self.hands[slot].weapon), lost: self.hands[slot].lost, weapon: self.hands[slot].weapon,
   });
   return { pairedHands: caps.pairedHands, primary: hand("primary"), secondary: hand("secondary") };
 }
@@ -42,6 +42,16 @@ export function assessRequirement(requirement: PolicyRequirement | undefined, bo
   if (!body) return { status: "incompatible", reason: "This policy requires golem body capabilities." };
   let reason: string;
   switch (requirement) {
+    case "twin-blades":
+    case "dual-strikers": {
+      const allowed = requirement === "twin-blades" ? ["sword"] : ["sword", "empty"];
+      if (!body.pairedHands && [body.primary, body.secondary].every((hand) =>
+        !hand.lost && hand.thrust && allowed.includes(hand.weapon))) return { status: "applicable", reason: "" };
+      reason = requirement === "twin-blades"
+        ? "Requires two independent, present blade hands with thrust control."
+        : "Requires two independent, present blade or fist hands with thrust control.";
+      return { status: "fallback-only", reason: `${reason} Otherwise uses the model's baseline policy.` };
+    }
     case "independent-hands":
       if (!body.pairedHands && !body.primary.lost && !body.secondary.lost
         && body.primary.thrust && body.secondary.thrust) return { status: "applicable", reason: "" };

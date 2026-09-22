@@ -5,6 +5,7 @@ import { originalMind } from "../src/golem/lab-baselines.ts";
 import { createEnvironment, recording } from "../research/lab/environment.mjs";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { namedBuild } from "../src/golem/roster.ts";
+import { assessRequirement, policyBodyForSetup, policyBodyForView } from "../src/policy-applicability.ts";
 
 const model = () => ({ version: 2, surface: "residual", baseline: "golem-duelist", hz: 12,
   scope: "dual-strikers", observationNames: OBSERVATION_NAMES,
@@ -52,4 +53,31 @@ test("only the explicit residual scope is accepted", () => {
   assert.throws(() => validateNetwork({ ...model(), scope: "whatever" }), /scope/);
   assert.throws(() => validateNetwork({ ...model(), surface: "direct" }), /scope/);
   validateNetwork(model());
+});
+
+test("network scope filtering agrees with deployed commands, including hand loss", async () => {
+  for (const build of ["two-blades", "fists", "default", "pitch-blade", "maul"]) {
+    const setup = namedBuild(build).setup;
+    const bout = createBout({ left: "idle", right: "idle", seeds: [7, 8], maxSeconds: 1,
+      leftGolem: setup, rightGolem: setup, locomotionMode: "supported", physics: await freshHavok() });
+    try {
+      bout.step();
+      const view = bout.left.view;
+      for (const scope of ["twin-blades", "dual-strikers"]) {
+        const scoped = { ...model(), scope }, unscoped = { ...scoped }; delete unscoped.scope;
+        assert.deepEqual(assessRequirement(scope, policyBodyForSetup(setup)),
+          assessRequirement(scope, policyBodyForView(view.self)), `${scope}/${build}`);
+        for (const lost of [null, "primary", "secondary"]) {
+          if (lost) view.self.hands[lost].lost = true;
+          const active = assessRequirement(scope, policyBodyForView(view.self)).status === "applicable";
+          const baseline = originalMind("golem-duelist", 7).decide(view, 1 / 240);
+          const learned = networkMind(unscoped, 7).decide(view, 1 / 240);
+          const actual = networkMind(scoped, 7).decide(view, 1 / 240);
+          assert.deepEqual(actual, active ? learned : baseline, `${scope}/${build}/${lost}`);
+          if (active) assert.notDeepEqual(learned, baseline, "fixture must exercise the residual");
+          if (lost) view.self.hands[lost].lost = false;
+        }
+      }
+    } finally { bout.dispose(); }
+  }
 });

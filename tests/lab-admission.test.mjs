@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { admissionEvidence, validateEvaluationSources, admissionAllowance } from "../research/admit-lab.mjs";
+import { admissionEvidence, validateEvaluationSources, admissionAllowance, admissionBatch } from "../research/admit-lab.mjs";
 import { AUTHORIZATION } from "../research/lab/wave4-protocol.mjs";
 import { digest } from "../research/schedule.mjs";
 import { validatePublishedLabPolicy } from "../src/golem/researched-lab-policies.ts";
@@ -54,6 +54,26 @@ test("admission requires independent superiority, matching source and browser re
   assert.throws(() => validatePublishedLabPolicy({ ...proposal.entry, admission: {} }), /evidence/);
 });
 
+test("a shared rating league cannot admit a batch member using another member's evidence", () => {
+  const first = fixture(), second = fixture();
+  second.proposal.entry.name = "golem-researched-other-v1";
+  const records = new Map();
+  for (const [i, f] of [first, second].entries()) {
+    f.proposal.candidateEvaluation = `candidate-${i}.json`;
+    f.proposal.controlEvaluation = `control-${i}.json`;
+    records.set(f.proposal.candidateEvaluation, [f.candidate]);
+    records.set(f.proposal.controlEvaluation, [f.control]);
+  }
+  const read = (path) => path.endsWith("manifest.json") ? { fingerprint: "current" }
+    : records.get(path.split(/[\\/]/).at(-1));
+  const proposals = [first.proposal, second.proposal];
+  assert.equal(admissionBatch(proposals, "current", read).length, 2);
+  second.candidate.rows = second.control.rows;
+  assert.throws(() => admissionBatch(proposals, "current", read), /improvement/);
+  assert.throws(() => admissionBatch([first.proposal, first.proposal], "current", read), /batch/);
+  assert.throws(() => admissionBatch([], "current", read), /batch/);
+});
+
 test("a nonempty published registry initializes and constructs policies without an import cycle", () => {
   const entry = fixture().proposal.entry;
   const script = `import {registerHooks} from 'node:module';
@@ -67,6 +87,23 @@ test("a nonempty published registry initializes and constructs policies without 
   const output = execFileSync(process.execPath, ["--input-type=module", "-e", script],
     { cwd: fileURLToPath(new URL("../", import.meta.url)), encoding: "utf8", windowsHide: true });
   assert.equal(output.trim(), entry.name);
+});
+
+test("published network requirements retain the model's deployment scope", () => {
+  const entries = ["twin-blades", "dual-strikers"].map((scope) => ({ ...fixture().proposal.entry,
+    name: `golem-researched-${scope}`, spec: { kind: "network",
+      model: { ...constantResidual(POSE_FIELDS.map(() => 0)), scope } } }));
+  const script = `import {registerHooks} from 'node:module';
+    registerHooks({load(url,context,next){
+      if(url.endsWith('/src/golem/researched-lab.json')) return {format:'json',
+        source:${JSON.stringify(JSON.stringify(entries))},shortCircuit:true};
+      return next(url,context);
+    }});
+    const {POLICIES}=await import('./src/mind.ts');
+    console.log(JSON.stringify(${JSON.stringify(entries.map((e) => e.name))}.map(name=>POLICIES.find(p=>p.name===name).requirement)));`;
+  const output = execFileSync(process.execPath, ["--input-type=module", "-e", script],
+    { cwd: fileURLToPath(new URL("../", import.meta.url)), encoding: "utf8", windowsHide: true });
+  assert.deepEqual(JSON.parse(output), ["twin-blades", "dual-strikers"]);
 });
 
 test("learned admission rejects teacher-opponent leakage and missing training provenance", () => {

@@ -65,6 +65,16 @@ export function validateEvaluationSources(proposal, current, read = (path) => JS
   }
 }
 
+export function admissionBatch(proposals, current, read = (path) => JSON.parse(readFileSync(path, "utf8"))) {
+  if (!Array.isArray(proposals) || !proposals.length || proposals.length > 4
+    || new Set(proposals.map((p) => p.entry.name)).size !== proposals.length) throw new Error("invalid admission batch");
+  return proposals.map((proposal) => {
+    validateEvaluationSources(proposal, current, read);
+    return admissionEvidence(proposal, read(resolve(proposal.candidateEvaluation))[0],
+      read(resolve(proposal.controlEvaluation))[0], current);
+  });
+}
+
 async function main() {
   const flags = {};
   for (let i = 2; i < process.argv.length; i += 2) {
@@ -72,13 +82,13 @@ async function main() {
     flags[process.argv[i].slice(2)] = process.argv[i + 1];
   }
   const read = (path) => JSON.parse(readFileSync(path, "utf8"));
-  const proposal = read(resolve(flags.proposal)), directory = resolve(flags.dir);
+  if (flags.proposal && flags.proposals) throw new Error("supply one proposal or a proposal batch");
+  const proposals = flags.proposals ? read(resolve(flags.proposals)) : [read(resolve(flags.proposal))];
+  const directory = resolve(flags.dir);
   const scope = relative(join(ROOT, "research/runs"), directory);
   if (scope.startsWith("..") || scope.includes(":")) throw new Error("admission directory must be under research/runs");
-  const candidate = read(resolve(proposal.candidateEvaluation))[0], control = read(resolve(proposal.controlEvaluation))[0];
   const currentLab = labFingerprint();
-  validateEvaluationSources(proposal, currentLab);
-  const evidence = admissionEvidence(proposal, candidate, control, currentLab);
+  const evidence = admissionBatch(proposals, currentLab);
   const seconds = Number(flags.seconds ?? 1800), workers = Number(flags.workers ?? 4);
   if (!Number.isFinite(seconds) || seconds <= 0 || seconds > 3600 || !Number.isInteger(workers) || workers < 1 || workers > 8) throw new Error("invalid admission resource request");
   const campaign = flags.campaign ?? "wave3";
@@ -96,17 +106,20 @@ async function main() {
     if (remaining <= 0) throw new Error("authorized campaign compute exhausted");
     const original = read(join(ROOT, "src/golem/researched-variants.json"));
     const publishedPath = join(ROOT, "src/golem/researched-lab.json"), published = read(publishedPath);
-    const previous = published.find((p) => p.name === proposal.entry.name);
-    if (previous && digest(previous) !== digest(proposal.entry)) throw new Error("immutable published policy identity reused");
-    const labCandidates = previous ? published : [...published, proposal.entry];
-    const policies = [...new Set([...POLICIES.filter((p) => p.name !== "idle").map((p) => p.name), proposal.entry.name])];
+    const labCandidates = [...published];
+    for (const proposal of proposals) {
+      const previous = published.find((p) => p.name === proposal.entry.name);
+      if (previous && digest(previous) !== digest(proposal.entry)) throw new Error("immutable published policy identity reused");
+      if (!previous) labCandidates.push(proposal.entry);
+    }
+    const policies = [...new Set([...POLICIES.filter((p) => p.name !== "idle").map((p) => p.name), ...proposals.map((p) => p.entry.name)])];
     const current = fingerprint().hash;
     const manifest = { version: 1, fingerprint: current, protocol: PROTOCOL, rounds: 1, seed: 20260922,
       policies, candidates: original, labCandidates, builds: NAMED_BUILDS, instrumentVersion: ENGAGEMENT_INSTRUMENT_VERSION,
       policyVersions: Object.fromEntries(policies.map((name) => [name, JSON.stringify([...original, ...labCandidates].find((p) => p.name === name)) ?? name])),
       runtime: { node: process.version, platform: process.platform, arch: process.arch } };
     mkdirSync(directory, { recursive: true });
-    atomicJson(join(directory, "admission-evidence.json"), { proposal, comparison: evidence });
+    atomicJson(join(directory, "admission-evidence.json"), { proposals, comparisons: evidence });
     const jobs = schedule(policies, NAMED_BUILDS, 1, manifest.seed);
     const rows = await runJobs(directory, manifest, jobs, { deadline: started + remaining, workers,
       onProgress: (value) => console.log(JSON.stringify(value)) });
@@ -121,7 +134,7 @@ async function main() {
       // Write the completed ratings first, so registration never intentionally exposes an unrated entrant.
       atomicJson(join(ROOT, "src/policy-ratings.json"), artifact);
       atomicJson(publishedPath, labCandidates);
-      atomicJson(join(ROOT, "research/lab/results/admission.json"), { proposal, evidence, manifest, summary });
+      atomicJson(join(ROOT, "research/lab/results/admission.json"), { proposals, evidence, manifest, summary });
       status = "admitted";
     } else status = "rated-not-published";
     console.log(status);
