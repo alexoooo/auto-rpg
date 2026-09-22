@@ -1201,6 +1201,8 @@ export function handoverFromCursors(
  * is an option that names something the code no longer has.
  */
 export interface Policy {
+  readonly requirement?: import("./policy-applicability.ts").PolicyRequirement;
+  readonly evidenceScope?: string;
   /** What a `Matchup` stores, and what appears in a URL or a console command. */
   readonly name: string;
   /** What the picker shows. */

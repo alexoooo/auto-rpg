@@ -56,12 +56,14 @@ class Bridge:
 class CombatEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, surface="pilot", seed=1, episode_seconds=150, reward_mode="terminal", baseline="golem-driver"):
+    def __init__(self, surface="pilot", seed=1, episode_seconds=150, reward_mode="terminal", baseline="golem-driver", residual_mode=None):
         if reward_mode not in ["terminal", "potential"]:
             raise ValueError("unknown reward mode")
         self.reward_mode = reward_mode
         self.bridge = Bridge()
         self.config = dict(surface=surface, seed=seed, maxSeconds=episode_seconds, hz=12, controlBaseline=baseline)
+        if residual_mode is not None:
+            self.config["residualMode"] = residual_mode
         self.episodes = 0
         self.steps = 0
         self.simulated_seconds = 0.0

@@ -82,6 +82,8 @@ const clamp = (value: number, low: number, high: number): number =>
  * chains weld through the same `LIMB_MOUNT`.
  */
 export const wristChain = defineChain({
+  strokes: ARM_STROKES,
+  pointTarget: true,
   id: "wrist",
   axes: 5,
   label: "wrist - reach plus roll and bend",

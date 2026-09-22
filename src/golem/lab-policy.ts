@@ -145,14 +145,16 @@ export interface NetworkArtifact {
   /** Optional PPO diagonal Gaussian; noise is applied before action clipping. */
   samplingStd?: number[];
   /** Narrow deployment hypothesis; unsupported bodies receive the exact residual baseline. */
-  scope?: "dual-strikers";
+  scope?: "dual-strikers" | "twin-blades";
+  residualMode?: "aim-reach";
   layers: DenseLayer[];
   /** Feed-forward NEAT graph, evaluated in topological order. */
   graph?: { outputs: number[]; nodes: { id: number; bias: number; response: number; links: [number, number][] }[] };
 }
 export function validateNetwork(model: NetworkArtifact): void {
   const names = observationNames(model.version);
-  if (model.scope !== undefined && (model.scope !== "dual-strikers" || model.surface !== "residual")) {
+  if (model.residualMode !== undefined && (model.residualMode !== "aim-reach" || model.surface !== "residual")) throw new Error("invalid residual mode");
+  if (model.scope !== undefined && (!["dual-strikers", "twin-blades"].includes(model.scope) || model.surface !== "residual")) {
     throw new Error("invalid network scope");
   }
   if (model.baseline !== undefined && !["golem-driver", "golem-duelist"].includes(model.baseline)) throw new Error("invalid network baseline");
@@ -214,14 +216,20 @@ export function sampleNetwork(model: NetworkArtifact, observation: number[], ran
 }
 
 /** Training and browser execution use exactly the same action adapter and hold cadence. */
+export function aimReachResidual(action: number[]): number[] {
+  validateAction("residual", action);
+  return action.map((value, i) => /^(primary|secondary)\.(pointerX|pointerY|reach)$/.test(DIRECT_FIELDS[i]) ? value : 0);
+}
+
 export function controlledMind(surface: LabSurface, seed: number, source: (view: FighterView) => number[] | null,
-  baseline = "golem-driver"): Mind {
+  baseline = "golem-driver", residualMode?: "aim-reach"): Mind {
   const fallback = policyMind(baseline, seed);
   const driven = golemDriven(seed, GOLEM_TACTICS_V4, (_reading, view) => pilotCommand(source(view) ?? Array(12).fill(0)));
   return { name: `lab-${surface}`, decide(view, dt) {
     if (surface === "pilot") return driven.decide(view, dt);
     const base = fallback.decide(view, dt);
-    const action = source(view);
+    const raw = source(view);
+    const action = raw === null ? null : residualMode === "aim-reach" ? aimReachResidual(raw) : raw;
     return action === null ? base : directIntent(action, view, surface === "residual" ? base : undefined);
   } };
 }
@@ -230,13 +238,13 @@ export function networkMind(model: NetworkArtifact, seed: number): Mind {
   let nextAsk = -Infinity, action: number[] = [];
   const random = mulberry32(seed ^ 0x5a17c9e3);
   const inner = controlledMind(model.surface, seed, (view) => {
-    if (model.scope === "dual-strikers") {
+    if (model.scope) {
       const caps = view.self.capabilities;
       if (!caps || caps.pairedHands || HANDS.some((hand) => view.self.hands[hand].lost
-        || !canAttack(caps.effectors[hand]) || !["sword", "empty"].includes(view.self.hands[hand].weapon))) return null;
+        || !canAttack(caps.effectors[hand]) || !(model.scope === "twin-blades" ? ["sword"] : ["sword", "empty"]).includes(view.self.hands[hand].weapon))) return null;
     }
     return action;
-  }, model.baseline ?? "golem-driver");
+  }, model.baseline ?? "golem-driver", model.residualMode);
   return { name: "lab-network", decide(view, dt) {
     if (view.clock + 1e-9 >= nextAsk) { nextAsk = view.clock + 1 / model.hz; action = sampleNetwork(model, labObservation(view, model.version), random); }
     return inner.decide(view, dt);
