@@ -1,0 +1,1183 @@
+{
+  "date": "2026-09-22",
+  "fingerprint": "7892932dc05bc09ec560bdf2960b2df7447d74b6d240b58aca41e68d6bbfcdef",
+  "source": "research/runs/wave4-2026-09-22-r2",
+  "authorization": {
+    "id": "campaign-2026-09-22",
+    "maxMs": 28800000,
+    "maxJobMs": 3600000
+  },
+  "computeSeconds": 15686.379,
+  "teacher": {
+    "uniqueQueries": 54,
+    "trajectories": 9,
+    "improvedHorizonUtility": 47,
+    "weightedAndRetentionRows": 872,
+    "rounds": [
+      {
+        "round": 0,
+        "datasetRows": 428,
+        "uniqueQueries": 18,
+        "modelHash": "d5ae2e7d0f39fdd0940174f474ad5fd408d91904ce4b7ea0a42740ea8dcd5698"
+      },
+      {
+        "round": 1,
+        "datasetRows": 649,
+        "uniqueQueries": 36,
+        "modelHash": "9eecec873796322a0bce39993b02d216523371925c03eeeef9d84683beda1281"
+      },
+      {
+        "round": 2,
+        "datasetRows": 872,
+        "uniqueQueries": 54,
+        "modelHash": "74d20aea676afc53979fae886b26c439c699e58cdef6c72f8b993ba1d7f81ad7"
+      }
+    ]
+  },
+  "studentSelection": {
+    "finalist": "student-original",
+    "results": [
+      {
+        "id": "student-original",
+        "comparison": {
+          "candidateScore": 0.75,
+          "controlScore": 0.5416666666666666,
+          "boutsPerPolicy": 24,
+          "interval": {
+            "mean": 0.20833333333333334,
+            "low": 0,
+            "high": 0.375,
+            "blocks": 12
+          },
+          "eligible": false
+        }
+      },
+      {
+        "id": "student-corrected",
+        "comparison": {
+          "candidateScore": 0.6666666666666666,
+          "controlScore": 0.5416666666666666,
+          "boutsPerPolicy": 24,
+          "interval": {
+            "mean": 0.125,
+            "low": -0.125,
+            "high": 0.375,
+            "blocks": 12
+          },
+          "eligible": false
+        }
+      },
+      {
+        "id": "student-constant",
+        "comparison": {
+          "candidateScore": 0.4583333333333333,
+          "controlScore": 0.5416666666666666,
+          "boutsPerPolicy": 24,
+          "interval": {
+            "mean": -0.08333333333333333,
+            "low": -0.375,
+            "high": 0.20833333333333334,
+            "blocks": 12
+          },
+          "eligible": false
+        }
+      },
+      {
+        "id": "student-clock-0",
+        "comparison": {
+          "candidateScore": 0.5416666666666666,
+          "controlScore": 0.5416666666666666,
+          "boutsPerPolicy": 24,
+          "interval": {
+            "mean": 0,
+            "low": -0.25,
+            "high": 0.20833333333333334,
+            "blocks": 12
+          },
+          "eligible": false
+        }
+      },
+      {
+        "id": "student-clock-1",
+        "comparison": {
+          "candidateScore": 0.5833333333333334,
+          "controlScore": 0.5416666666666666,
+          "boutsPerPolicy": 24,
+          "interval": {
+            "mean": 0.041666666666666664,
+            "low": -0.25,
+            "high": 0.2916666666666667,
+            "blocks": 12
+          },
+          "eligible": false
+        }
+      },
+      {
+        "id": "student-clock-2",
+        "comparison": {
+          "candidateScore": 0.375,
+          "controlScore": 0.5416666666666666,
+          "boutsPerPolicy": 24,
+          "interval": {
+            "mean": -0.16666666666666666,
+            "low": -0.4166666666666667,
+            "high": 0.08333333333333333,
+            "blocks": 12
+          },
+          "eligible": false
+        }
+      },
+      {
+        "id": "student-clock-3",
+        "comparison": {
+          "candidateScore": 0.5416666666666666,
+          "controlScore": 0.5416666666666666,
+          "boutsPerPolicy": 24,
+          "interval": {
+            "mean": 0,
+            "low": -0.25,
+            "high": 0.25,
+            "blocks": 12
+          },
+          "eligible": false
+        }
+      }
+    ],
+    "matchedControls": {
+      "summaries": [
+        {
+          "name": "constant",
+          "parityMaxError": 0,
+          "comparison": {
+            "candidateScore": 0.75,
+            "controlScore": 0.4583333333333333,
+            "boutsPerPolicy": 24,
+            "interval": {
+              "mean": 0.2916666666666667,
+              "low": 0.08333333333333333,
+              "high": 0.5,
+              "blocks": 12
+            },
+            "eligible": false
+          }
+        },
+        {
+          "name": "clock",
+          "parityMaxError": 7.105427357601002e-15,
+          "comparison": {
+            "candidateScore": 0.75,
+            "controlScore": 0.2916666666666667,
+            "boutsPerPolicy": 24,
+            "interval": {
+              "mean": 0.4583333333333333,
+              "low": 0.16666666666666666,
+              "high": 0.7083333333333334,
+              "blocks": 12
+            },
+            "eligible": false
+          }
+        }
+      ],
+      "complete": true,
+      "studentBeatsMatchedControls": true
+    }
+  },
+  "counterSelection": {
+    "needle": {
+      "finalist": "counter-needle-mixture-13",
+      "results": [
+        {
+          "id": "counter-needle-mixture-13",
+          "comparison": {
+            "candidateScore": 0.21875,
+            "controlScore": 0.03125,
+            "boutsPerPolicy": 32,
+            "interval": {
+              "mean": 0.1875,
+              "low": 0.03125,
+              "high": 0.375,
+              "blocks": 16
+            },
+            "eligible": false
+          }
+        },
+        {
+          "id": "counter-needle-mixture-7",
+          "comparison": {
+            "candidateScore": 0.125,
+            "controlScore": 0.03125,
+            "boutsPerPolicy": 32,
+            "interval": {
+              "mean": 0.09375,
+              "low": 0,
+              "high": 0.25,
+              "blocks": 16
+            },
+            "eligible": false
+          }
+        },
+        {
+          "id": "counter-needle-mixture-11",
+          "comparison": {
+            "candidateScore": 0.09375,
+            "controlScore": 0.03125,
+            "boutsPerPolicy": 32,
+            "interval": {
+              "mean": 0.0625,
+              "low": -0.0625,
+              "high": 0.1875,
+              "blocks": 16
+            },
+            "eligible": false
+          }
+        }
+      ]
+    },
+    "paired": {
+      "finalist": "counter-paired-golem-form",
+      "results": [
+        {
+          "id": "counter-paired-golem-form",
+          "comparison": {
+            "candidateScore": 0.09375,
+            "controlScore": 0.09375,
+            "boutsPerPolicy": 32,
+            "interval": {
+              "mean": 0,
+              "low": -0.125,
+              "high": 0.125,
+              "blocks": 16
+            },
+            "eligible": false
+          }
+        },
+        {
+          "id": "counter-paired-mixture-8",
+          "comparison": {
+            "candidateScore": 0.09375,
+            "controlScore": 0.09375,
+            "boutsPerPolicy": 32,
+            "interval": {
+              "mean": 0,
+              "low": 0,
+              "high": 0,
+              "blocks": 16
+            },
+            "eligible": false
+          }
+        },
+        {
+          "id": "counter-paired-mixture-12",
+          "comparison": {
+            "candidateScore": 0.09375,
+            "controlScore": 0.09375,
+            "boutsPerPolicy": 32,
+            "interval": {
+              "mean": 0,
+              "low": 0,
+              "high": 0,
+              "blocks": 16
+            },
+            "eligible": false
+          }
+        }
+      ]
+    }
+  },
+  "ppoSelection": {
+    "standard": [
+      {
+        "seed": 11,
+        "mean": {
+          "bouts": 32,
+          "score": 0.5625
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.46875
+        },
+        "training": {
+          "seconds": 180.0352088001091,
+          "decisions": 76780,
+          "completedEpisodes": 170,
+          "truncatedEpisodes": 0,
+          "updates": 596,
+          "inferenceMaxError": 6.431788712735198e-8
+        }
+      },
+      {
+        "seed": 22,
+        "mean": {
+          "bouts": 32,
+          "score": 0.71875
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.59375
+        },
+        "training": {
+          "seconds": 180.04038539994508,
+          "decisions": 77692,
+          "completedEpisodes": 188,
+          "truncatedEpisodes": 0,
+          "updates": 604,
+          "inferenceMaxError": 8.569424497784084e-8
+        }
+      },
+      {
+        "seed": 33,
+        "mean": {
+          "bouts": 32,
+          "score": 0.6875
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.53125
+        },
+        "training": {
+          "seconds": 180.04186120000668,
+          "decisions": 77588,
+          "completedEpisodes": 177,
+          "truncatedEpisodes": 0,
+          "updates": 604,
+          "inferenceMaxError": 6.55214613676236e-8
+        }
+      }
+    ],
+    "low-noise": [
+      {
+        "seed": 11,
+        "mean": {
+          "bouts": 32,
+          "score": 0.59375
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.671875
+        },
+        "training": {
+          "seconds": 180.03823700011708,
+          "decisions": 76284,
+          "completedEpisodes": 162,
+          "truncatedEpisodes": 0,
+          "updates": 592,
+          "inferenceMaxError": 5.816260964519593e-8
+        }
+      },
+      {
+        "seed": 22,
+        "mean": {
+          "bouts": 32,
+          "score": 0.5625
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.59375
+        },
+        "training": {
+          "seconds": 180.04408349981532,
+          "decisions": 77824,
+          "completedEpisodes": 157,
+          "truncatedEpisodes": 0,
+          "updates": 604,
+          "inferenceMaxError": 3.908977916355916e-8
+        }
+      },
+      {
+        "seed": 33,
+        "mean": {
+          "bouts": 32,
+          "score": 0.53125
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.4375
+        },
+        "training": {
+          "seconds": 180.03531259996817,
+          "decisions": 78804,
+          "completedEpisodes": 158,
+          "truncatedEpisodes": 0,
+          "updates": 612,
+          "inferenceMaxError": 3.768420880900791e-8
+        }
+      }
+    ],
+    "restricted": [
+      {
+        "seed": 11,
+        "mean": {
+          "bouts": 32,
+          "score": 0.46875
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.5
+        },
+        "training": {
+          "seconds": 180.04573850007728,
+          "decisions": 77220,
+          "completedEpisodes": 155,
+          "truncatedEpisodes": 0,
+          "updates": 600,
+          "inferenceMaxError": 4.2783080106412186e-8
+        }
+      },
+      {
+        "seed": 22,
+        "mean": {
+          "bouts": 32,
+          "score": 0.625
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.625
+        },
+        "training": {
+          "seconds": 180.0367199999746,
+          "decisions": 76484,
+          "completedEpisodes": 156,
+          "truncatedEpisodes": 0,
+          "updates": 596,
+          "inferenceMaxError": 4.138502343598027e-8
+        }
+      },
+      {
+        "seed": 33,
+        "mean": {
+          "bouts": 32,
+          "score": 0.625
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.5625
+        },
+        "training": {
+          "seconds": 180.04055600007996,
+          "decisions": 78140,
+          "completedEpisodes": 171,
+          "truncatedEpisodes": 0,
+          "updates": 608,
+          "inferenceMaxError": 4.367507372426971e-8
+        }
+      }
+    ],
+    "direct": [
+      {
+        "seed": 11,
+        "mean": {
+          "bouts": 32,
+          "score": 0.1875
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.28125
+        },
+        "training": {
+          "seconds": 180.04232769994996,
+          "decisions": 80180,
+          "completedEpisodes": 161,
+          "truncatedEpisodes": 0,
+          "updates": 624,
+          "inferenceMaxError": 8.290446859571254e-8
+        }
+      },
+      {
+        "seed": 22,
+        "mean": {
+          "bouts": 32,
+          "score": 0.25
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.34375
+        },
+        "training": {
+          "seconds": 180.06331919995137,
+          "decisions": 81028,
+          "completedEpisodes": 167,
+          "truncatedEpisodes": 0,
+          "updates": 632,
+          "inferenceMaxError": 8.769507975348034e-8
+        }
+      },
+      {
+        "seed": 33,
+        "mean": {
+          "bouts": 32,
+          "score": 0
+        },
+        "sampled": {
+          "bouts": 32,
+          "score": 0.359375
+        },
+        "training": {
+          "seconds": 180.03708899999037,
+          "decisions": 81492,
+          "completedEpisodes": 162,
+          "truncatedEpisodes": 0,
+          "updates": 636,
+          "inferenceMaxError": 7.330979570618901e-8
+        }
+      }
+    ]
+  },
+  "confirmation": [
+    {
+      "category": "student",
+      "id": "student-original",
+      "comparison": {
+        "candidateScore": 0.8046875,
+        "controlScore": 0.6796875,
+        "boutsPerPolicy": 128,
+        "interval": {
+          "mean": 0.125,
+          "low": 0.03125,
+          "high": 0.21875,
+          "blocks": 64
+        },
+        "eligible": true
+      },
+      "imitationControls": [
+        {
+          "id": "student-constant",
+          "comparison": {
+            "candidateScore": 0.8046875,
+            "controlScore": 0.6953125,
+            "boutsPerPolicy": 128,
+            "interval": {
+              "mean": 0.109375,
+              "low": 0.0234375,
+              "high": 0.203125,
+              "blocks": 64
+            },
+            "eligible": true
+          }
+        },
+        {
+          "id": "student-clock-0",
+          "comparison": {
+            "candidateScore": 0.8046875,
+            "controlScore": 0.6953125,
+            "boutsPerPolicy": 128,
+            "interval": {
+              "mean": 0.109375,
+              "low": 0.0078125,
+              "high": 0.21875,
+              "blocks": 64
+            },
+            "eligible": true
+          }
+        },
+        {
+          "id": "student-clock-1",
+          "comparison": {
+            "candidateScore": 0.8046875,
+            "controlScore": 0.6796875,
+            "boutsPerPolicy": 128,
+            "interval": {
+              "mean": 0.125,
+              "low": 0.03125,
+              "high": 0.2265625,
+              "blocks": 64
+            },
+            "eligible": true
+          }
+        },
+        {
+          "id": "student-clock-2",
+          "comparison": {
+            "candidateScore": 0.8046875,
+            "controlScore": 0.6171875,
+            "boutsPerPolicy": 128,
+            "interval": {
+              "mean": 0.1875,
+              "low": 0.09375,
+              "high": 0.28125,
+              "blocks": 64
+            },
+            "eligible": true
+          }
+        },
+        {
+          "id": "student-clock-3",
+          "comparison": {
+            "candidateScore": 0.8046875,
+            "controlScore": 0.6640625,
+            "boutsPerPolicy": 128,
+            "interval": {
+              "mean": 0.140625,
+              "low": 0.0546875,
+              "high": 0.2421875,
+              "blocks": 64
+            },
+            "eligible": true
+          }
+        }
+      ],
+      "policyHash": "926c8457f03495c25563e0267bb9009d458c6c1755ef52ddc9dca3a30054869d",
+      "statisticalGatePassed": true,
+      "byBuild": {
+        "candidate": {
+          "two-blades": {
+            "bouts": 128,
+            "score": 0.8046875
+          }
+        },
+        "control": {
+          "two-blades": {
+            "bouts": 128,
+            "score": 0.6796875
+          }
+        }
+      },
+      "byOpponentBuild": {
+        "candidate": {
+          "default": {
+            "bouts": 32,
+            "score": 0.84375
+          },
+          "fists": {
+            "bouts": 32,
+            "score": 1
+          },
+          "mace": {
+            "bouts": 32,
+            "score": 0.71875
+          },
+          "two-blades": {
+            "bouts": 32,
+            "score": 0.65625
+          }
+        },
+        "control": {
+          "default": {
+            "bouts": 32,
+            "score": 0.53125
+          },
+          "fists": {
+            "bouts": 32,
+            "score": 1
+          },
+          "mace": {
+            "bouts": 32,
+            "score": 0.59375
+          },
+          "two-blades": {
+            "bouts": 32,
+            "score": 0.59375
+          }
+        }
+      },
+      "byOpponent": {
+        "candidate": {
+          "golem-miser": {
+            "bouts": 64,
+            "score": 0.890625
+          },
+          "golem-tactician": {
+            "bouts": 64,
+            "score": 0.71875
+          }
+        },
+        "control": {
+          "golem-miser": {
+            "bouts": 64,
+            "score": 0.796875
+          },
+          "golem-tactician": {
+            "bouts": 64,
+            "score": 0.5625
+          }
+        }
+      }
+    },
+    {
+      "category": "counter-needle",
+      "id": "counter-needle-mixture-13",
+      "comparison": {
+        "candidateScore": 0.09375,
+        "controlScore": 0.109375,
+        "boutsPerPolicy": 128,
+        "interval": {
+          "mean": -0.015625,
+          "low": -0.1015625,
+          "high": 0.0703125,
+          "blocks": 64
+        },
+        "eligible": false
+      },
+      "robustness": {
+        "score": 0.328125,
+        "bouts": 128
+      },
+      "policyHash": "43705c448c22c4dfd1cde61ff5eb844eac84b2f0d98f48d0b046086b82c1579b",
+      "statisticalGatePassed": false,
+      "byBuild": {
+        "candidate": {
+          "fists": {
+            "bouts": 64,
+            "score": 0.109375
+          },
+          "two-blades": {
+            "bouts": 64,
+            "score": 0.078125
+          }
+        },
+        "control": {
+          "fists": {
+            "bouts": 64,
+            "score": 0
+          },
+          "two-blades": {
+            "bouts": 64,
+            "score": 0.21875
+          }
+        }
+      },
+      "byOpponentBuild": {
+        "candidate": {
+          "two-blades": {
+            "bouts": 128,
+            "score": 0.09375
+          }
+        },
+        "control": {
+          "two-blades": {
+            "bouts": 128,
+            "score": 0.109375
+          }
+        }
+      },
+      "byOpponent": {
+        "candidate": {
+          "needle": {
+            "bouts": 128,
+            "score": 0.09375
+          }
+        },
+        "control": {
+          "needle": {
+            "bouts": 128,
+            "score": 0.109375
+          }
+        }
+      }
+    },
+    {
+      "category": "counter-paired",
+      "id": "counter-paired-golem-form",
+      "comparison": {
+        "candidateScore": 0.0390625,
+        "controlScore": 0.0390625,
+        "boutsPerPolicy": 128,
+        "interval": {
+          "mean": 0,
+          "low": -0.0390625,
+          "high": 0.0390625,
+          "blocks": 64
+        },
+        "eligible": false
+      },
+      "robustness": {
+        "score": 0.375,
+        "bouts": 128
+      },
+      "policyHash": "9ccbe441cfb1a972ed093e1ccb98d2a7596a1c01a33b7957c76ced80d4598cd4",
+      "statisticalGatePassed": false,
+      "byBuild": {
+        "candidate": {
+          "fists": {
+            "bouts": 64,
+            "score": 0.015625
+          },
+          "two-blades": {
+            "bouts": 64,
+            "score": 0.0625
+          }
+        },
+        "control": {
+          "fists": {
+            "bouts": 64,
+            "score": 0
+          },
+          "two-blades": {
+            "bouts": 64,
+            "score": 0.078125
+          }
+        }
+      },
+      "byOpponentBuild": {
+        "candidate": {
+          "two-blades": {
+            "bouts": 128,
+            "score": 0.0390625
+          }
+        },
+        "control": {
+          "two-blades": {
+            "bouts": 128,
+            "score": 0.0390625
+          }
+        }
+      },
+      "byOpponent": {
+        "candidate": {
+          "paired": {
+            "bouts": 128,
+            "score": 0.0390625
+          }
+        },
+        "control": {
+          "paired": {
+            "bouts": 128,
+            "score": 0.0390625
+          }
+        }
+      }
+    },
+    {
+      "category": "ppo",
+      "id": "ppo-standard-22-mean",
+      "comparison": {
+        "candidateScore": 0.7048611111111112,
+        "controlScore": 0.53125,
+        "boutsPerPolicy": 144,
+        "interval": {
+          "mean": 0.1736111111111111,
+          "low": 0.0625,
+          "high": 0.2777777777777778,
+          "blocks": 72
+        },
+        "eligible": true
+      },
+      "policyHash": "b7cdf87d9811e033e3f5876160ca746c58496d3dd6bf8cc22fe9ff104e763efa",
+      "statisticalGatePassed": true,
+      "byBuild": {
+        "candidate": {
+          "default": {
+            "bouts": 36,
+            "score": 0.8611111111111112
+          },
+          "fists": {
+            "bouts": 36,
+            "score": 0.625
+          },
+          "mace": {
+            "bouts": 36,
+            "score": 0.7222222222222222
+          },
+          "two-blades": {
+            "bouts": 36,
+            "score": 0.6111111111111112
+          }
+        },
+        "control": {
+          "default": {
+            "bouts": 36,
+            "score": 0.6111111111111112
+          },
+          "fists": {
+            "bouts": 36,
+            "score": 0.4305555555555556
+          },
+          "mace": {
+            "bouts": 36,
+            "score": 0.6388888888888888
+          },
+          "two-blades": {
+            "bouts": 36,
+            "score": 0.4444444444444444
+          }
+        }
+      },
+      "byOpponentBuild": {
+        "candidate": {
+          "default": {
+            "bouts": 36,
+            "score": 0.8611111111111112
+          },
+          "fists": {
+            "bouts": 36,
+            "score": 0.625
+          },
+          "mace": {
+            "bouts": 36,
+            "score": 0.7222222222222222
+          },
+          "two-blades": {
+            "bouts": 36,
+            "score": 0.6111111111111112
+          }
+        },
+        "control": {
+          "default": {
+            "bouts": 36,
+            "score": 0.6111111111111112
+          },
+          "fists": {
+            "bouts": 36,
+            "score": 0.4305555555555556
+          },
+          "mace": {
+            "bouts": 36,
+            "score": 0.6388888888888888
+          },
+          "two-blades": {
+            "bouts": 36,
+            "score": 0.4444444444444444
+          }
+        }
+      },
+      "byOpponent": {
+        "candidate": {
+          "golem-champion": {
+            "bouts": 48,
+            "score": 0.7083333333333334
+          },
+          "golem-miser": {
+            "bouts": 48,
+            "score": 0.625
+          },
+          "golem-tactician": {
+            "bouts": 48,
+            "score": 0.78125
+          }
+        },
+        "control": {
+          "golem-champion": {
+            "bouts": 48,
+            "score": 0.4375
+          },
+          "golem-miser": {
+            "bouts": 48,
+            "score": 0.5416666666666666
+          },
+          "golem-tactician": {
+            "bouts": 48,
+            "score": 0.6145833333333334
+          }
+        }
+      }
+    }
+  ],
+  "matchedStudentConfirmation": {
+    "summaries": [
+      {
+        "name": "constant",
+        "parityMaxError": 0,
+        "comparison": {
+          "candidateScore": 0.8046875,
+          "controlScore": 0.62109375,
+          "boutsPerPolicy": 128,
+          "interval": {
+            "mean": 0.18359375,
+            "low": 0.08203125,
+            "high": 0.28515625,
+            "blocks": 64
+          },
+          "eligible": true
+        }
+      },
+      {
+        "name": "clock",
+        "parityMaxError": 7.105427357601002e-15,
+        "comparison": {
+          "candidateScore": 0.8046875,
+          "controlScore": 0.625,
+          "boutsPerPolicy": 128,
+          "interval": {
+            "mean": 0.1796875,
+            "low": 0.0859375,
+            "high": 0.28125,
+            "blocks": 64
+          },
+          "eligible": true
+        }
+      }
+    ],
+    "complete": true,
+    "studentBeatsMatchedControls": true
+  },
+  "counterGeneralization": {
+    "results": [
+      {
+        "target": "needle",
+        "id": "counter-needle-mixture-13",
+        "policyHash": "43705c448c22c4dfd1cde61ff5eb844eac84b2f0d98f48d0b046086b82c1579b",
+        "comparison": {
+          "candidateScore": 0.328125,
+          "controlScore": 0.3671875,
+          "boutsPerPolicy": 128,
+          "interval": {
+            "mean": -0.0390625,
+            "low": -0.140625,
+            "high": 0.0625,
+            "blocks": 64
+          },
+          "eligible": false
+        }
+      },
+      {
+        "target": "paired",
+        "id": "counter-paired-golem-form",
+        "policyHash": "9ccbe441cfb1a972ed093e1ccb98d2a7596a1c01a33b7957c76ced80d4598cd4",
+        "comparison": {
+          "candidateScore": 0.375,
+          "controlScore": 0.3671875,
+          "boutsPerPolicy": 128,
+          "interval": {
+            "mean": 0.0078125,
+            "low": -0.09375,
+            "high": 0.109375,
+            "blocks": 64
+          },
+          "eligible": false
+        }
+      }
+    ],
+    "complete": true,
+    "note": "Separate whole-pool generalization evidence. A target-specific gain is not automatically independent-opponent superiority."
+  },
+  "completedMainEvaluationBouts": 3456,
+  "mainEvaluationTruncations": 0,
+  "status": "Complete. Original twin-blade student and standard residual PPO admitted after independent confirmation, browser review, shipping-source replay and a completed shared rating league. Neither counter admitted.",
+  "computeRuns": [
+    {
+      "stage": "prepare",
+      "status": "complete",
+      "seconds": 1.339
+    },
+    {
+      "stage": "ppo-standard",
+      "status": "complete",
+      "seconds": 1077.838
+    },
+    {
+      "stage": "student",
+      "status": "interrupted",
+      "seconds": 583.332
+    },
+    {
+      "stage": "verify-main-790a231",
+      "status": "complete",
+      "seconds": 13.089
+    },
+    {
+      "stage": "prepare",
+      "status": "complete",
+      "seconds": 1.279
+    },
+    {
+      "stage": "student",
+      "status": "complete",
+      "seconds": 496.308
+    },
+    {
+      "stage": "matched-controls-selection",
+      "status": "complete",
+      "seconds": 80.864
+    },
+    {
+      "stage": "counter-needle",
+      "status": "complete",
+      "seconds": 271.923
+    },
+    {
+      "stage": "counter-paired",
+      "status": "complete",
+      "seconds": 274.466
+    },
+    {
+      "stage": "ppo-standard",
+      "status": "complete",
+      "seconds": 532.315
+    },
+    {
+      "stage": "ppo-low-noise",
+      "status": "complete",
+      "seconds": 1057.108
+    },
+    {
+      "stage": "ppo-restricted",
+      "status": "complete",
+      "seconds": 1092.475
+    },
+    {
+      "stage": "ppo-direct",
+      "status": "complete",
+      "seconds": 1192.24
+    },
+    {
+      "stage": "confirm",
+      "status": "failed",
+      "seconds": 3600.002
+    },
+    {
+      "stage": "confirm",
+      "status": "complete",
+      "seconds": 728.59
+    },
+    {
+      "stage": "matched-controls-confirmation",
+      "status": "complete",
+      "seconds": 631.006
+    },
+    {
+      "stage": "counter-generalization-control",
+      "status": "complete",
+      "seconds": 360.689
+    },
+    {
+      "stage": "publication-replay",
+      "status": "complete",
+      "seconds": 515.888
+    },
+    {
+      "stage": "admission-league",
+      "status": "admitted",
+      "seconds": 3175.628
+    }
+  ],
+  "shippingSourceVerification": {
+    "fingerprint": "d185660ab06e6c2b92af2cb4423894fe8dbf2a884d0032397680a6099f7064ca",
+    "originalFingerprint": "7892932dc05bc09ec560bdf2960b2df7447d74b6d240b58aca41e68d6bbfcdef",
+    "declarationHash": "7dd592e6308ae207e4e57be02da0053fc93dd42957e4c16401af3118f8e4ea5d",
+    "complete": true,
+    "bouts": 1440,
+    "allRecordedFieldsIdentical": true
+  },
+  "perBoutEvidence": "research/lab/results/wave4-confirmation.json",
+  "browserReview": "research/lab/results/wave4-browser-review.json",
+  "admission": {
+    "leagueSeed": 20260922,
+    "seedNote": "Fixed league seed reused from the prior admission; full expanded-roster rerun, not all new independent samples.",
+    "completedRounds": 1,
+    "evaluatedAt": "2026-09-22T14:34:56.630Z",
+    "leagueBouts": 7344,
+    "policyCount": 18,
+    "buildCount": 12,
+    "policies": [
+      {
+        "name": "golem-researched-student-v1",
+        "label": "Golem student (twin blades)",
+        "policyHash": "926c8457f03495c25563e0267bb9009d458c6c1755ef52ddc9dca3a30054869d",
+        "scope": "Twin-blade student; confirmed against Tactician and Miser on four opposing bodies. Duelist fallback outside scope.",
+        "rating": 1543.1571689111406,
+        "deviation": 18.15405252188118,
+        "bouts": 816,
+        "provisional": true
+      },
+      {
+        "name": "golem-researched-ppo-v1",
+        "label": "Golem residual",
+        "policyHash": "b7cdf87d9811e033e3f5876160ca746c58496d3dd6bf8cc22fe9ff104e763efa",
+        "scope": "Residual PPO; confirmed on blade/shield, twin blades, mace/shield and fists against Champion, Tactician and Miser.",
+        "rating": 1585.0450093258773,
+        "deviation": 18.154052521986028,
+        "bouts": 816,
+        "provisional": true
+      }
+    ]
+  }
+}

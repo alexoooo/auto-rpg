@@ -120,3 +120,44 @@ planning; change the predictive representation/model and validate again before e
 The reference's labels remain finite-search judgments, not optimal ground truth. The campaign
 supports better-targeted learning experiments, not abandoning learning or declaring any method
 solved. This document records lessons and proposed tests; it authorizes no additional computation.
+
+## September 22 follow-up: local corrections and selected counters
+
+[Wave four](WAVE4.md) expanded corrective coverage to 54 unique queries over nine
+trajectories. Forty-seven queries improved the teacher's two-second utility, but the
+corrected student's full-bout selection score was 66.7%, below the original student's
+75.0%. The 872 weighted/retention rows remain correlated training material. This is a
+measured local-objective/full-bout mismatch, not proof of its cause: before increasing
+network size, compare correction targets against longer outcome windows and retain a
+frozen original-student control. Do not call another 872 rows 872 independent decisions.
+
+Counter selection also failed to transfer. A mixture selected against Needle at 21.9%
+versus Duelist's 3.1% scored 9.4% versus 10.9% in fresh confirmation. The selected existing
+Form policy tied Duelist against Paired at 3.9%. Both tests used 128 bouts per policy,
+with no positive paired lower bound. Keep these failures in the record; do not publish
+selection winners as confirmed counters. Any later search needs a new selection and
+confirmation split and an explicit hypothesis about the missed matchups.
+
+The frozen twin-blade version of the original student passed genuinely new confirmation:
+80.47% versus Duelist's 67.97%, gain +12.5 points with interval [+3.125, +21.875], over
+128 bouts each. It also beat the archived controls and newly fitted constant/clock controls
+with positive lower bounds. This supports the predeclared twin-blade deployment hypothesis;
+it does not rehabilitate the earlier failed blade/fist aggregate or make the corrective
+student the winner. Its initial teacher still had only four Champion trajectories.
+
+Standard residual PPO seed 22 passed 144-bout confirmation at 70.49% versus 53.125%, gain
++17.36 points with interval [+6.25, +27.78]. All three standard residual mean exports beat
+Duelist in selection, but only the frozen winner received confirmation. The selected run
+used 77,692 decisions and 188 recorded completed episodes over 180 trainer seconds. Twelve
+short trials across four variants tested seeds and export mode; they did not test convergence.
+Lower initial noise and restricted command effects did not improve the best selected model.
+The latter retained 22 output dimensions, so it says nothing conclusive about optimizing
+only six action dimensions. Direct Intent was weak under this training budget.
+
+Next experiments should preserve these two frozen learners as controls. For the teacher,
+compare short-horizon corrections with longer outcome-based targets on broader trajectories
+before increasing capacity. For PPO, separate seed reliability and learning curves from the
+control-interface question: a true six-output adapter is a different experiment from masking
+16 outputs' physical effects. Any counter search needs a new hypothesis and fresh confirmation;
+the mixture screen supplied no confirmed exploiter. Further compute is a new campaign, not a
+reason to spend the remaining allowance on post-hoc rescue trials.

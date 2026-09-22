@@ -1,0 +1,124 @@
+{
+  "date": "2026-09-22",
+  "purpose": "Qualitative browser review of frozen finalists. These illustrative bouts are separate from statistical evidence.",
+  "reviews": {
+    "student": {
+      "reviewedAt": "2026-09-22T06:36:14.483Z",
+      "policyHash": "926c8457f03495c25563e0267bb9009d458c6c1755ef52ddc9dca3a30054869d",
+      "labFingerprint": "7892932dc05bc09ec560bdf2960b2df7447d74b6d240b58aca41e68d6bbfcdef",
+      "accepted": true,
+      "surface": "Chrome isolated arena preview on port 5182",
+      "scenarios": [
+        {
+          "build": "two-blades",
+          "side": "left",
+          "opponent": "golem-tactician",
+          "opponentBuild": "default",
+          "verdict": "right",
+          "remainingVitalityPercent": 0,
+          "notes": "Student lost after a cut to the thigh. Both bodies dealt damage; Tactician retained 30% vitality. Rendered contacts, collapse and verdict inspected."
+        },
+        {
+          "build": "two-blades",
+          "side": "right",
+          "opponent": "golem-miser",
+          "opponentBuild": "fists",
+          "verdict": "right",
+          "remainingVitalityPercent": 85,
+          "notes": "Student won after a cut to the primary upper arm. Fist contact and detached parts rendered; normal bout verdict."
+        }
+      ],
+      "browserErrors": [],
+      "cleanup": "Owned browser tab closed and Vite session 1880 stopped.",
+      "notes": "Qualitative renderer/runtime checks only, outside the matched statistical fixtures. Approximately one-frame-per-second capture does not establish smooth animation quality. Outcome frames and contact readouts are not a causal diagnosis of learned behavior. This review does not waive confirmation or rating requirements."
+    },
+    "counter": {
+      "reviewedAt": "2026-09-22T06:33:32.443Z",
+      "policyHash": "43705c448c22c4dfd1cde61ff5eb844eac84b2f0d98f48d0b046086b82c1579b",
+      "labFingerprint": "7892932dc05bc09ec560bdf2960b2df7447d74b6d240b58aca41e68d6bbfcdef",
+      "accepted": true,
+      "surface": "Chrome isolated arena preview on port 5182",
+      "scenarios": [
+        {
+          "build": "two-blades",
+          "side": "left",
+          "opponent": "golem-researched-needle-v1",
+          "opponentBuild": "two-blades",
+          "verdict": "left",
+          "remainingVitalityPercent": 37,
+          "notes": "Both bodies engaged and exchanged damage. Challenger finished with a cut to the secondary forearm; rendered final collapse inspected."
+        },
+        {
+          "build": "fists",
+          "side": "right",
+          "opponent": "golem-researched-needle-v1",
+          "opponentBuild": "two-blades",
+          "verdict": "left",
+          "remainingVitalityPercent": 42,
+          "notes": "Challenger lost after a thigh-severing cut; normal verdict and detached parts rendered. Needle retained 99% vitality."
+        }
+      ],
+      "browserErrors": [],
+      "notes": "Qualitative renderer/runtime checks only, outside the matched statistical fixtures. Approximately one-frame-per-second capture does not establish smooth animation quality. This review does not waive confirmation or rating requirements.",
+      "cleanup": "Owned browser tab closed and Vite session 1880 stopped."
+    },
+    "ppo": {
+      "reviewedAt": "2026-09-22T12:59:37.453Z",
+      "policyHash": "b7cdf87d9811e033e3f5876160ca746c58496d3dd6bf8cc22fe9ff104e763efa",
+      "labFingerprint": "7892932dc05bc09ec560bdf2960b2df7447d74b6d240b58aca41e68d6bbfcdef",
+      "accepted": true,
+      "surface": "Chrome isolated arena preview on port 5182",
+      "scenarios": [
+        {
+          "build": "default",
+          "side": "left",
+          "opponent": "golem-champion",
+          "opponentBuild": "default",
+          "verdict": "right",
+          "remainingVitalityPercent": 0,
+          "notes": "Active blade/shield exchanges, blocks and arm severing were rendered. PPO lost to a pelvis cut; Champion retained 5% vitality."
+        },
+        {
+          "build": "mace",
+          "side": "right",
+          "opponent": "golem-tactician",
+          "opponentBuild": "mace",
+          "verdict": "right",
+          "remainingVitalityPercent": 24,
+          "notes": "Maces and shields exchanged contacts. PPO won with a crushing blow to the secondary roll ring. Normal terminal verdict and rendered physical bodies."
+        }
+      ],
+      "browserErrors": [],
+      "cleanup": "Review tab no longer present when checked; owned Vite session 91597 stopped.",
+      "notes": "Qualitative renderer/runtime checks only, outside matched statistical fixtures. Approximately one-frame-per-second capture does not establish smooth animation quality. Review does not waive independent confirmation or rating requirements.",
+      "consoleCoverage": "No console errors in the check after the blade/shield case. The tab was gone before a final console check following the mace case."
+    }
+  },
+  "scopePickerReview": {
+    "reviewedAt": "2026-09-22T13:51:03.105Z",
+    "source": "d185660ab06e6c2b92af2cb4423894fe8dbf2a884d0032397680a6099f7064ca",
+    "surface": "Isolated admission preview; candidate descriptors injected before normal main entry, published roster unchanged during league.",
+    "checks": [
+      "Twin-blade student hidden by default for blade/shield body.",
+      "Show all exposes a disabled student with its requirements.",
+      "Changing secondary plate to blade enables student selection.",
+      "Changing selected student back to plate preserves disabled selection and explains the requirement; Fight disabled.",
+      "Selecting the applicable residual PPO policy restores Fight.",
+      "Rendered refusal screen inspected; no error-level browser logs."
+    ],
+    "cleanup": "Owned tab closed; Vite session 88246 stopped; port 5182 verified without a listener."
+  },
+  "publishedArenaReview": {
+    "reviewedAt": "2026-09-22T14:39:32.304689+00:00",
+    "surface": "Normal arena at /, using the published registry and current ratings.",
+    "checks": [
+      "Residual policy visible on default blade/shield body with rating 1585, dated 2026-09-22.",
+      "Student hidden on default body and available after fitting a secondary blade, with rating 1543.",
+      "Both selected together; current 816-bout rating descriptions and evidence scopes displayed without stale-source warnings.",
+      "Fight started; rendered blade/shield contacts, blocks and damage inspected at 93% left and 64% right vitality.",
+      "No error-level browser logs. This was a qualitative integration check, not a scored research bout."
+    ],
+    "limitation": "Approximately one-frame-per-second capture does not establish smooth animation quality.",
+    "cleanup": "Owned browser tab closed; browser tab list empty. Owned Vite session 69025 stopped; port 5182 verified without a listener."
+  }
+}

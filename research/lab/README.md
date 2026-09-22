@@ -3,9 +3,11 @@
 This is experimental infrastructure with a separate evidence-gated admission path. It runs the
 game's real Havok simulation and the same `Intent` boundary as the player. No physics, motor
 ceilings or damage rules are changed. Dated arena ratings remain available. Paired and Needle
-are admitted specialists; learners and other candidates remain experimental unless explicitly
-reviewed and admitted. See [CAMPAIGN.md](CAMPAIGN.md) for current results and reference replays.
-See [LEARNING-LESSONS.md](LEARNING-LESSONS.md) for the rejected learners' measured outcomes,
+are admitted specialists. Golem student is an admitted twin-blade learner; Golem residual is an
+admitted residual PPO policy. Other candidates remain experimental unless explicitly reviewed
+and admitted. See [WAVE4.md](WAVE4.md) for the current morphology-aware campaign and
+[CAMPAIGN.md](CAMPAIGN.md) for the preceding results and reference replays.
+See [LEARNING-LESSONS.md](LEARNING-LESSONS.md) for the learned policies' measured outcomes,
 limits of the diagnoses, and the experimental rules those failures imply.
 
 ## Setup and bounded runs

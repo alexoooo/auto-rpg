@@ -77,7 +77,7 @@ results remain in the evidence record. This checklist is not a declaration that 
 
 ## Evidence-driven next wave
 
-These are subsequent research hypotheses, not claims that the current campaign completed them.
+These hypotheses motivated the September 22 follow-up; its execution status is recorded below.
 The [consolidated learned-policy lessons](../../research/lab/LEARNING-LESSONS.md) distinguish
 degradation from inconclusive results, explain the small training/data budgets, and separate
 observed transfer failures from untested causal hypotheses. Use those constraints when designing
@@ -109,3 +109,22 @@ the next experiments; do not treat rejected candidates as verdicts on entire alg
 All follow-on runs retain the existing budget ledger, immutable policy identities, dated ratings,
 full-bout outcomes and owned-process cleanup. New resources require explicit authorization;
 unused allowance is not a reason to keep training after the user's success condition is met.
+
+## September 22 execution of the next wave
+
+[Wave four](../../research/lab/WAVE4.md) implemented morphology-aware selection and executed
+items 1-3 as a bounded local campaign: two counter searches, 54 teacher corrections across
+nine trajectories, and twelve PPO trials covering four variants and three seeds. The original
+twin-blade student and standard residual PPO seed 22 passed fresh whole-fixture confirmation;
+the corrected student did not beat the original in selection, and neither counter confirmed.
+The matched constant/clock checks also support the original student's gain. The source replay
+and admission status live in the wave-four record, not in the older campaign's result tables.
+
+The next research questions are longer-horizon teacher targets, PPO learning curves and seed
+reliability, and a genuinely smaller action interface. Slow-reference extension, fair-model
+validation and behavior-diversity work remain open under items 4-5; this campaign did not claim to solve them. Keep the newly
+confirmed learners frozen as controls and predeclare fresh tests before further training.
+
+Wave four is complete: both learners were admitted after exact shipping-source replay and the
+7,344-bout rating round. All 690 tests, type checking and build pass. Metered local compute was
+4 h 21 m 26 s of the newly authorized eight-hour cap; no cloud resources were used.
