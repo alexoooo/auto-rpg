@@ -9,6 +9,8 @@ and admitted. See [WAVE4.md](WAVE4.md) for the current morphology-aware campaign
 [CAMPAIGN.md](CAMPAIGN.md) for the preceding results and reference replays.
 See [LEARNING-LESSONS.md](LEARNING-LESSONS.md) for the learned policies' measured outcomes,
 limits of the diagnoses, and the experimental rules those failures imply.
+See [HUMAN-TRANSFER.md](HUMAN-TRANSFER.md) for why every golem policy is golem-only in the picker:
+none of the researched ones transferred to human bodies.
 
 ## Setup and bounded runs
 
