@@ -57,6 +57,7 @@ def main():
     parser.add_argument("--fitness-episodes", type=int, choices=[1, 4, 8], default=4)
     parser.add_argument("--baseline", choices=["golem-driver", "golem-duelist"], default="golem-driver")
     parser.add_argument("--log-std", type=float, default=0.0)
+    parser.add_argument("--residual-mode", choices=["aim-reach"])
     args = parser.parse_args()
     if not 0 < args.seconds <= 3600:
         parser.error("training jobs must be at most 3600 seconds; cumulative authorization is enforced by the lab CLI")
@@ -67,6 +68,8 @@ def main():
     protocol = dict(method=args.method, surface=args.surface, seed=args.seed,
                     episodeSeconds=args.episode_seconds, reward=args.reward, envs=args.envs,
                     fitnessEpisodes=args.fitness_episodes, baseline=args.baseline, logStd=args.log_std)
+    if args.residual_mode:
+        protocol["residualMode"] = args.residual_mode
     if args.method == "distill":
         protocol["distillUpdates"] = args.distill_updates
     protocol_path = out / "protocol.json"
@@ -83,7 +86,7 @@ def main():
     rng = np.random.default_rng(args.seed)
     torch.manual_seed(args.seed)
     torch.set_num_threads(2)
-    env = CombatEnv(args.surface, args.seed, args.episode_seconds, args.reward, args.baseline)
+    env = CombatEnv(args.surface, args.seed, args.episode_seconds, args.reward, args.baseline, args.residual_mode)
     training_env = env
     artifact = None
     updates = 0
@@ -107,7 +110,7 @@ def main():
         if args.method == "ppo":
             if args.envs > 1:
                 training_env = SubprocVecEnv([partial(CombatEnv, args.surface, args.seed + i * 1000,
-                    args.episode_seconds, args.reward, args.baseline) for i in range(args.envs)], start_method="spawn")
+                    args.episode_seconds, args.reward, args.baseline, args.residual_mode) for i in range(args.envs)], start_method="spawn")
             checkpoint = out / "ppo.zip"
             class Deadline(BaseCallback):
                 def _on_training_start(self):
@@ -223,6 +226,8 @@ def main():
             artifact["graph"]["nodes"].extend(dict(id=n, bias=0, response=0, links=[])
                 for n in network.output_nodes if n not in evaluated)
             predictor = network.activate
+        if args.residual_mode:
+            artifact["residualMode"] = args.residual_mode
         error = parity(env, artifact, predictor, rng)
         steps, episodes, outcomes, simulated_seconds = env.steps, env.episodes, env.outcomes, env.simulated_seconds
         if args.envs > 1:

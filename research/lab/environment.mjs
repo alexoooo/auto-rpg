@@ -16,6 +16,7 @@ export function validateConfig(config) {
     || !Number.isFinite(config.maxSeconds) || config.maxSeconds <= 0 || config.maxSeconds > 150
     || !namedBuild(config.leftBuild) || !namedBuild(config.rightBuild)) throw new Error("invalid lab configuration");
   actionSize(config.surface);
+  if (config.residualMode !== undefined && (config.residualMode !== "aim-reach" || config.surface !== "residual")) throw new Error("invalid residual mode");
 }
 /** One world per realm, fresh wasm per reset. Worker processes provide parallelism. */
 export async function createEnvironment(options = {}) {
@@ -47,7 +48,7 @@ export async function createEnvironment(options = {}) {
       return intent;
     } });
     const baseline = labMind(config.left, config.seed);
-    const controlled = controlledMind(config.surface, config.seed, () => held, config.controlBaseline);
+    const controlled = controlledMind(config.surface, config.seed, () => held, config.controlBaseline, config.residualMode);
     const left = { name: "lab-left", decide(view, dt) {
       // Both histories advance on every step, including replay prefixes. No hidden controller clone.
       const original = baseline.decide(view, dt);
