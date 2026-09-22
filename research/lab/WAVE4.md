@@ -62,3 +62,24 @@ physics and damage rules are unchanged.
 
 Preparation completed; the seed audit and exact source snapshot are retained alongside the
 protocol. Results will be recorded here after the staged experiments and independent gates.
+
+Before student selection completed, an additional matched-data control check was declared:
+`research/wave4-controls.py` fits a constant mean and a 32-tanh-basis clock-only regression to
+the expanded dataset, including its explicit retention/query weights. The associated metered
+runner evaluates both on the same selection and confirmation fixtures. These controls can
+reject an apparent state-dependent student gain; they cannot select another student after
+confirmation. Both require NumPy/TypeScript inference parity. Their source snapshots and
+data hashes live separately, preserving the already-frozen main campaign source.
+
+
+## Source update during collection
+
+Main advanced to `790a231` at the user's request. All 686 tests, checking and build
+passed. The interrupted student stage retained 41 teacher queries and two trained rounds.
+All seven saved trajectories reproduced every recorded state field exactly against the new
+source (1,424 decisions); the verification is in `research/runs/merge-790a231-replay.json`.
+The old campaign directory remains immutable evidence. Continuation uses
+`research/runs/wave4-2026-09-22-r2/`, the same cumulative budget and unchanged hypotheses
+and fixtures. Frozen weights and teacher training data transfer with a migration manifest;
+verified trajectories retain their original IDs with explicit source lineage. Selection
+bouts are rerun on the updated source. No confirmation outcomes had been observed.

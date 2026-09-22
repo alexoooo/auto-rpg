@@ -17,7 +17,7 @@ import { namedBuild } from "../../src/golem/roster.ts";
 import { mulberry32 } from "../../src/rng.ts";
 import { AUTHORIZATION, remainingAllowance, fixtures, compare, TEACHER_OPPONENTS, TARGETS, BASE } from "./wave4-protocol.mjs";
 
-const directory = join(ROOT, "research/runs/wave4-2026-09-22");
+const directory = join(ROOT, "research/runs/wave4-2026-09-22-r2");
 const budgetDir = join(ROOT, "research/runs/wave4-budget");
 const read = (path) => JSON.parse(readFileSync(path, "utf8"));
 const save = (name, value) => atomicJson(join(directory, name), value);
@@ -114,7 +114,7 @@ function prepare() {
   } else {
     // Audit archived evaluation/league seeds before any new outcome is observed.
     const historical = new Set();
-    for (const dir of readdirSync(join(ROOT, "research/runs"), { withFileTypes: true }).filter((x) => x.isDirectory() && x.name !== "wave4-2026-09-22")) {
+    for (const dir of readdirSync(join(ROOT, "research/runs"), { withFileTypes: true }).filter((x) => x.isDirectory() && x.name !== "wave4-2026-09-22-r2")) {
       for (const file of ["evaluation.json", "results.jsonl"]) {
         const path = join(ROOT, "research/runs", dir.name, file);
         if (!existsSync(path)) continue;
