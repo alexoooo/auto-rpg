@@ -9,6 +9,7 @@ import { Golem } from "./golem/golem.ts";
 import { GOLEM_CONTROL_SURFACE } from "./golem/golem-control.ts";
 import type { FighterMaterials, Limb } from "./fighter.ts";
 import type { Striking } from "./combat.ts";
+import type { HitKind } from "./scoring.ts";
 import type { ControlEndpoint, HumanDriverSource } from "./control-host.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
@@ -209,7 +210,7 @@ export interface Combatant {
   /** Compound bodies may resolve a blueprint-owned damage leaf from the contact point. */
   damageTargetFor?(body: PhysicsBody, point: Vector3): Limb | undefined;
   /** Body-owned armour may transform raw scoring damage into authoritative applied damage. */
-  applyDamage?(target: Limb, rawDamage: number): number;
+  applyDamage?(target: Limb, rawDamage: number, kind: HitKind): number;
   /** Authored hit transfer only; collision callbacks queue it for the next safe control edge. */
   queueStabilityEvent?(event: StabilityEvent): void;
   parriedBy(body: PhysicsBody, point?: Vector3): { readonly kind: WeaponKind } | null;

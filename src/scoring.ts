@@ -705,7 +705,8 @@ export function severs(
  * experiment always reaches for first: a branch inside the body that says "if this is the plated
  * one, halve it". That is a special case, and this directory has a name for what happens next --
  * a caller holding its own copy of a rule is the same defect as a missing table row and is much
- * harder to see. So armour is a *number* on a part, this is the rule, and `Combatant.applyDamage`
+ * harder to see. So armour is a *field* on a part -- a fraction, or a fraction per kind of blow
+ * that `armourAgainst` below answers -- this is the rule, and `Combatant.applyDamage`
  * is the seam that already existed for a body to turn raw scoring damage into applied damage.
  *
  * **It runs after `scoreHit` and never inside it, and that ordering is a design decision rather
@@ -729,4 +730,41 @@ export function armouredDamage(raw: number, armour: number): number {
     throw new Error(`armour must be a fraction absorbed in [0, 1), got ${armour}`);
   }
   return raw <= 0 ? 0 : raw * (1 - armour);
+}
+
+/**
+ * The kinds of blow a piece can be armoured against differently.
+ *
+ * Every `HitKind` but `weak`, derived rather than listed, so a new kind of blow is a compile error
+ * in every armour table until somebody says what bone and plate do about it. `weak` is left out
+ * because it never carries damage: every path that returns it returns `damage: 0` (`scoreHit`'s
+ * floors and the projectile model's `damage > 0 ? "thrust" : "weak"`), so a fraction of it
+ * would be a number with no reader.
+ */
+export type ArmouredHit = Exclude<HitKind, "weak">;
+
+/** A fraction absorbed for each kind of blow. */
+export type ArmourByHit = Readonly<Record<ArmouredHit, number>>;
+
+/**
+ * A piece's armour: one fraction for every blow, or a fraction per kind.
+ *
+ * The plain number is what every stone and human part carries and it means what it always has.
+ * The table is for a material that answers different blows differently -- bone turns an edge and
+ * shatters under a club.
+ */
+export type Armour = number | ArmourByHit;
+
+/**
+ * The fraction `armour` absorbs from a blow of `kind`.
+ *
+ * It does not validate: the fraction goes straight into `armouredDamage`, which refuses a bad one
+ * on the blow that spends it, so the rule lives in one place.
+ */
+export function armourAgainst(armour: Armour, kind: HitKind): number {
+  if (typeof armour === "number") return armour;
+  if (kind === "weak") return 0;
+  const fraction = armour[kind];
+  if (fraction === undefined) throw new Error(`armour table has no entry for a ${kind} blow`);
+  return fraction;
 }

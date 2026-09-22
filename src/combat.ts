@@ -814,7 +814,7 @@ export class Combat {
       );
     const { kind, quality } = score;
     const rawDamage = weapon.projectileImpact ? score.damage : score.damage * (weapon.damageScale ?? 1);
-    const damage = this.target?.applyDamage?.(limb, rawDamage) ?? rawDamage;
+    const damage = this.target?.applyDamage?.(limb, rawDamage, kind) ?? rawDamage;
     if (projectile) projectile = Object.freeze({ ...projectile, postArmourDamage: damage });
     if (!this.target?.applyDamage) limb.health -= damage;
 

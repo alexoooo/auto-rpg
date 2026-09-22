@@ -6,6 +6,7 @@ import type { Striking } from "../combat.ts";
 import type { BodyView, HandCursor, HandIntent, HandName } from "../mind.ts";
 import type { Side } from "../physics.ts";
 import type { Part } from "../rig.ts";
+import { armourAgainst, type Armour, type HitKind } from "../scoring.ts";
 import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
 import type { GolemMaterialPalette } from "./materials.ts";
 
@@ -88,8 +89,12 @@ export interface GolemPart {
    * Read through `partArmour` below and nowhere else, so the default lives in one place rather
    * than as a `?? 0` at every caller -- which is the "a caller holding its own copy of a rule"
    * defect `AGENTS.md` records, in its cheapest possible form.
+   *
+   * A number is the same fraction against every kind of blow, which is every part built before
+   * the skeleton. A table (`ArmourByHit`) is answered per kind by `armourAgainst`, for a material
+   * that turns an edge and not a club.
    */
-  readonly armour?: number;
+  readonly armour?: Armour;
   /**
    * Whether this piece is a shield: it stops blows, it is never wounded, and it never wears.
    *
@@ -108,8 +113,9 @@ export interface GolemPart {
   readonly shield?: boolean;
 }
 
-/** How much of a blow this piece takes off, with the absent case answered once. */
-export const partArmour = (part: GolemPart): number => part.armour ?? 0;
+/** How much of a blow of this kind this piece takes off, with the absent case answered once. */
+export const partArmour = (part: GolemPart, kind: HitKind): number =>
+  armourAgainst(part.armour ?? 0, kind);
 
 /** One driven axis, in the module's own terms. */
 export interface ModuleAxisEnvelope {

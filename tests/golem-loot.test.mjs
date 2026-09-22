@@ -160,7 +160,7 @@ const moduleLimbs = (golem, suffix) =>
  */
 const hack = (golem, limb, blows = 40) => {
   for (let blow = 0; blow < blows && limb.health > 0; blow += 1) {
-    golem.applyDamage(limb, limb.maxHealth * 0.25);
+    golem.applyDamage(limb, limb.maxHealth * 0.25, "cut");
   }
 };
 

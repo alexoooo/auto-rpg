@@ -143,7 +143,7 @@ test("human anatomy wounds while equipment parries with its real kind; severing 
     assert.deepEqual(body.parriedBy(blade.part.body), { kind: "sword" });
     assert.deepEqual(body.parriedBy(plate.part.body), { kind: "shield" });
     assert.equal(blade.vitalityWeight, 0);
-    assert.ok(body.applyDamage(arm, 10) > 0);
+    assert.ok(body.applyDamage(arm, 10, "cut") > 0);
     body.sever(arm, Vector3.Right()); assert.equal(body.parriedBy(blade.part.body), null);
     body.describe(body.view.self);
     assert.equal(body.view.self.hands.primary.lost, true);

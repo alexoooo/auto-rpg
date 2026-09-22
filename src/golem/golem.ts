@@ -31,7 +31,7 @@ import type {
 import { NEUTRAL } from "../mind.ts";
 import { COLLIDES, LAYER, golemLayersFor, type Side } from "../physics.ts";
 import { boxPart, type Part } from "../rig.ts";
-import { armouredDamage } from "../scoring.ts";
+import { armouredDamage, type HitKind } from "../scoring.ts";
 import type { PhysicalSupportedLocomotionPort } from "../supported-locomotion-production.ts";
 import type { StabilityEvent } from "../supported-locomotion-state.ts";
 import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
@@ -1086,19 +1086,20 @@ export class Golem implements Combatant {
    * `Combat` leaves the subtraction to a body that implements this -- `if (!this.target.applyDamage)
    * limb.health -= damage` -- so a body that takes the seam takes the whole of it. The rule itself
    * is `armouredDamage` in `src/scoring.ts`, pure and beside the rest of the damage model, and the
-   * armour fraction is a number on the part. There is no branch here for which torso is fitted.
+   * armour is a field on the part -- one fraction, or one per kind of blow, answered for the kind
+   * `Combat` scored. There is no branch here for which torso is fitted.
    */
-  applyDamage(target: Limb, rawDamage: number): number {
-    const armour = this.armourOf(target);
+  applyDamage(target: Limb, rawDamage: number, kind: HitKind): number {
+    const armour = this.armourOf(target, kind);
     const applied = armouredDamage(rawDamage, armour);
     target.health -= applied;
     return applied;
   }
 
-  private armourOf(limb: Limb): number {
+  private armourOf(limb: Limb, kind: HitKind): number {
     for (const module of this.modules) {
       for (const part of module.built.parts) {
-        if (part.id === limb.key) return partArmour(part);
+        if (part.id === limb.key) return partArmour(part, kind);
       }
     }
     return 0;

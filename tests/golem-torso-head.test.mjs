@@ -24,7 +24,7 @@ import { Combat } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
 import { COLLIDES, LAYER } from "../src/physics.ts";
 import { boxPart } from "../src/rig.ts";
-import { armouredDamage, scoreHit } from "../src/scoring.ts";
+import { armourAgainst, armouredDamage, scoreHit } from "../src/scoring.ts";
 import {
   HEAD_NECK, HEAD_PLAIN, HEAD_RAM, TORSO_PLAIN, TORSO_PLATED, TORSO_WAIST,
 } from "../src/golem/config.ts";
@@ -32,6 +32,7 @@ import { partArmour } from "../src/golem/module.ts";
 import { RigidStrike } from "../src/golem/effectors/striker.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
+import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { runTorsoBench } from "./harness/golem-torso-bench.mjs";
@@ -437,8 +438,85 @@ test("the armour rule is a fraction absorbed, and refuses anything that is not o
 });
 
 test("the module contract answers armour once, so no caller keeps its own default", () => {
-  assert.equal(partArmour({ armour: 0.4 }), 0.4);
-  assert.equal(partArmour({}), 0, "absent means bare stone, and it means it in exactly one place");
+  for (const kind of ["cut", "thrust", "slap", "crush", "weak"]) {
+    assert.equal(partArmour({ armour: 0.4 }, kind), 0.4, kind);
+    assert.equal(partArmour({}, kind), 0,
+      `absent means bare stone, and it means it in exactly one place (${kind})`);
+  }
+});
+
+const ARMOURED_KINDS = ["cut", "thrust", "slap", "crush"];
+
+test("armour_against_a_number_is_the_number_for_every_kind", () => {
+  for (const kind of [...ARMOURED_KINDS, "weak"]) {
+    assert.equal(armourAgainst(0.35, kind), 0.35, kind);
+    assert.equal(armourAgainst(0, kind), 0, kind);
+  }
+});
+
+// Four different rows, so a lookup that read the wrong row cannot pass by reading an equal one.
+test("armour_by_hit_answers_each_kind_from_its_own_row", () => {
+  const table = { cut: 0.1, thrust: 0.2, slap: 0.3, crush: 0.4 };
+  assert.equal(armourAgainst(table, "cut"), 0.1);
+  assert.equal(armourAgainst(table, "thrust"), 0.2);
+  assert.equal(armourAgainst(table, "slap"), 0.3);
+  assert.equal(armourAgainst(table, "crush"), 0.4);
+  assert.equal(armourAgainst(table, "weak"), 0, "a weak blow carries no damage to absorb");
+});
+
+test("a_table_missing_a_row_throws_by_name", () => {
+  const short = /** @type {any} */ ({ cut: 0.1, thrust: 0.2, slap: 0.3 });
+  assert.equal(armourAgainst(short, "slap"), 0.3);
+  assert.throws(() => armourAgainst(short, "crush"), /no entry for a crush blow/);
+});
+
+test("a_bad_fraction_in_a_table_is_refused_when_it_is_spent", () => {
+  const table = { cut: 0.1, thrust: 0.2, slap: 0.3, crush: 0.4 };
+  assert.throws(() => armouredDamage(10, armourAgainst({ ...table, cut: 1 }, "cut")), /fraction absorbed/);
+  assert.equal(armouredDamage(10, armourAgainst({ ...table, cut: 1 }, "crush")), 6,
+    "a bad row is refused on the blow that spends it and no other");
+});
+
+/**
+ * Every part of every registered module, built, answers every kind of blow with a fraction the
+ * armour rule accepts. A bad table is then a red test rather than a throw in the middle of a fight.
+ * Each module goes on a stand of its own first slot, and a locomotion module carries the stand at
+ * its own height on a flat world, as the locomotion bench builds one.
+ */
+test("every_registered_part_answers_every_kind", async () => {
+  let parts = 0;
+  for (const option of GOLEM_MODULES) {
+    const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+    const slot = option.slots[0];
+    const stand = buildGolemStand(arena.scene, {
+      side: "left", slot,
+      ...(option.standHeightM === null ? {} : { socketHeight: option.standHeightM }),
+    });
+    try {
+      const built = option.build({
+        scene: arena.scene, side: "left", name: `armour.${option.id}`, socket: stand.socket(slot),
+        ...(option.mode === "effector" ? { companion: stand.socket("secondary") } : {}),
+        layers: golemLayers("left"), materials: stand.materials,
+        ...(slot === "locomotion" ? { world: flatSupportedWorldRegistry() } : {}),
+      });
+      try {
+        for (const part of built.parts) {
+          for (const kind of [...ARMOURED_KINDS, "weak"]) {
+            const fraction = partArmour(part, kind);
+            assert.ok(Number.isFinite(fraction) && fraction >= 0 && fraction < 1,
+              `${part.id} absorbs ${fraction} of a ${kind} blow`);
+          }
+          parts += 1;
+        }
+      } finally {
+        built.dispose();
+      }
+    } finally {
+      stand.dispose();
+      arena.dispose();
+    }
+  }
+  assert.ok(parts > GOLEM_MODULES.length, `only ${parts} parts were read, so the sweep is empty`);
 });
 
 /**
@@ -458,7 +536,7 @@ test("the module contract answers armour once, so no caller keeps its own defaul
  * Watched red under two mutations on 2026-09-04: `armouredDamage` returning `raw` regardless of
  * its armour argument, and `TORSO_PLAIN.coreArmour` and `TORSO_PLATED.coreArmour` exchanged.
  */
-async function hammerBlow(torsoId) {
+async function hammerBlow(torsoId, aim = "edge") {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const scene = arena.scene;
   const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
@@ -470,14 +548,22 @@ async function hammerBlow(torsoId) {
   const core = torso.parts.find((part) => part.id.endsWith(".core"));
 
   // The hammer, on the far side's striker layer so the layer table lets it find this golem's
-  // anatomy and nothing else. Its own +X is the edge, turned to point along the way it travels,
-  // so the blow arrives square: `scoreHit` then reports a cut of quality 1 and the only thing
-  // left that can differ between the two runs is the armour.
+  // anatomy and nothing else. Aimed `"edge"`, its own +X is the edge, turned to point along the
+  // way it travels, so the blow arrives square: `scoreHit` then reports a cut of quality 1 and the
+  // only thing left that can differ between the two runs is the armour. Aimed `"point"`, its +Y
+  // -- the axis `RigidStrike.bladeDirection` reads, which `tipPosition` extends by `tipAlong` to
+  // the leading end of the box -- is turned along the travel instead, and with the edge square to
+  // it the contact scores a thrust.
   const travel = new Vector3(0, 0, -1);
+  const rotation = aim === "edge"
+    ? Quaternion.RotationAxis(new Vector3(0, 1, 0), Math.PI / 2)
+    : aim === "point"
+      ? Quaternion.RotationAxis(new Vector3(1, 0, 0), -Math.PI / 2)
+      : (() => { throw new Error(`no hammer aim "${aim}"`); })();
   const hammer = boxPart(scene, {
     name: "armour.hammer",
     position: core.part.mesh.position.add(new Vector3(0, 0, 1.2)),
-    rotation: Quaternion.RotationAxis(new Vector3(0, 1, 0), Math.PI / 2),
+    rotation,
     size: new Vector3(0.06, 0.50, 0.06),
     // **`ANIMATED`, and that is what makes "the same scored contact" true rather than nearly
     // true.** A dynamic hammer is stopped by what it hits, and `Striking.velocityAt` reads the
@@ -514,10 +600,10 @@ async function hammerBlow(torsoId) {
     limbFor: (body) => (body === core.part.body ? limb : undefined),
     parriedBy: () => null,
     sever: () => { limb.severed = true; },
-    applyDamage: (hit, rawDamage) => {
-      const damage = armouredDamage(rawDamage, partArmour(core));
+    applyDamage: (hit, rawDamage, kind) => {
+      const damage = armouredDamage(rawDamage, partArmour(core, kind));
       hit.health -= damage;
-      applied.push({ raw: rawDamage, damage });
+      applied.push({ raw: rawDamage, damage, kind });
       return damage;
     },
   };
@@ -542,7 +628,7 @@ async function hammerBlow(torsoId) {
       combat.advance(FRAME);
       torso.step(SUBSTEP);
     }
-    return { reports, applied, armour: partArmour(core), health: limb.health };
+    return { reports, applied, armour: partArmour(core, "cut"), health: limb.health };
   } finally {
     combat.dispose();
     hammer.body.dispose();
@@ -613,6 +699,23 @@ test("the plated torso takes less of the same scored blow than the plain one", a
   assert.ok(Math.abs(raw - a.preArmourDamage) < 1e-6,
     `the pure scorer says ${raw} and the arena says ${a.preArmourDamage}`);
   assert.ok(armouredDamage(raw, TORSO_PLATED.coreArmour) < armouredDamage(raw, TORSO_PLAIN.coreArmour));
+});
+
+/**
+ * `Combat` hands the body the kind of blow it scored, so armour that answers per kind is asked
+ * about the blow that actually landed. Two separate runs, because `hammerBlow` builds a fresh arena
+ * and `Combat` each time, and a second blow on the same limb in one run would be eaten by
+ * `hitCooldown`. Each run first asserts its own kind, so a fixture that silently scores a slap
+ * fails on that line rather than looking like a seam that lost the argument.
+ */
+test("combat_passes_the_kind_to_the_body", async () => {
+  for (const [aim, expected] of [["edge", "cut"], ["point", "thrust"]]) {
+    const { reports, applied } = await hammerBlow("torso.plain", aim);
+    assert.ok(reports.length > 0, `the ${aim} blow never reached the core`);
+    assert.equal(reports[0].kind, expected, `the ${aim} blow scored a ${reports[0].kind}`);
+    assert.deepEqual(applied.map((entry) => entry.kind), reports.map((report) => report.kind),
+      `the ${aim} blow reached the body as another kind`);
+  }
 });
 
 // ---------------------------------------------------------------------------------------
