@@ -42,26 +42,27 @@ import { RigidStrike } from "../striker.ts";
  * shape itself and `sever` can rewrite them. The head is drawn by the shell, wider than the
  * collider, which is stated beside `TERMINAL_MACE.headDiameter` together with what it costs.
  */
-export const maceTerminal = defineTerminal({
+export const maceDefinition = (config: typeof TERMINAL_MACE & { gripFromButt?: number } = TERMINAL_MACE) => defineTerminal({
   id: "mace",
   sockets: 1,
   bite: "mass",
   label: "mace",
-  massKg: TERMINAL_MACE.mass,
+  massKg: config.mass,
   // One socket, one body, and only the wrist's bend taken away: a mace on the end of an arm
   // reaches everywhere the arm does and swings and rolls with it. The two-socket bar this
   // replaced pinned the swing and the roll as well; getting those back is the whole of the
-  // rebuild, and why the bend stays pinned is beside `TERMINAL_MACE.limits`.
-  limits: TERMINAL_MACE.limits,
+  // rebuild, and why the bend stays pinned is beside `config.limits`.
+  limits: config.limits,
 
   build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal {
-    const M = TERMINAL_MACE;
+    const M = config;
     const name = `${ctx.name}.mace`;
     const half = M.length / 2;
+    const gripFromButt = M.gripFromButt ?? 0;
     /** Where the drawn head sits along the bar's own +Y, from its centre. */
     const headAt = half - M.headDiameter / 2;
     /** Where the drawn grip collar sits: just past the weld, at the butt. */
-    const gripAt = -half + M.haftRadius * 1.5;
+    const gripAt = -half + gripFromButt + M.haftRadius * 1.5;
 
     // The rotation the weld is about to demand, rather than the golem's own; the bar's origin
     // is its centre, so it is built half a length beyond the weld point along its own +Y, which
@@ -69,7 +70,7 @@ export const maceTerminal = defineTerminal({
     const rotation = weldRotation(onto.mount, onto.rotation);
     const along = new Vector3();
     new Vector3(0, 1, 0).rotateByQuaternionToRef(rotation, along);
-    const position = onto.world.add(along.scale(half));
+    const position = onto.world.add(along.scale(half - gripFromButt));
 
     const part = capsulePart(ctx.scene, {
       name,
@@ -90,7 +91,7 @@ export const maceTerminal = defineTerminal({
 
     let weld: Physics6DoFConstraint | null = joint(ctx.scene, onto.link, part, {
       pivotParent: onto.pivot,
-      pivotChild: new Vector3(0, -half, 0),
+      pivotChild: new Vector3(0, -half + gripFromButt, 0),
       axisParent: onto.mount.axis,
       axisChild: new Vector3(1, 0, 0),
       perpParent: onto.mount.perp,
@@ -131,7 +132,7 @@ export const maceTerminal = defineTerminal({
       strikers: Object.freeze([striker]),
       // Weld to the far side of the head: the whole bar, and an honest number for the first time
       // on a mace -- the two-socket bar's `tipOffset` was an upper bound with a paragraph.
-      tipOffset: M.length,
+      tipOffset: M.length - gripFromButt,
       // One socket, so there is no trailing grip to be away from anything.
       gripStray: () => null,
       sever: () => {
@@ -153,3 +154,5 @@ export const maceTerminal = defineTerminal({
     });
   },
 });
+
+export const maceTerminal = maceDefinition();

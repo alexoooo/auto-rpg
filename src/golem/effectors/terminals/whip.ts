@@ -61,20 +61,20 @@ import { RigidStrike } from "../striker.ts";
  *   flicked it, which is the whole point of the terminal and the reason the exclusion windows
  *   matter more here than anywhere else on the shelf.
  */
-export const whipTerminal = defineTerminal({
+export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: number } = TERMINAL_WHIP) => defineTerminal({
   id: "whip",
   sockets: 1,
   bite: "mass",
   label: "whip",
-  massKg: TERMINAL_WHIP.segments * TERMINAL_WHIP.segmentMass,
+  massKg: config.segments * config.segmentMass,
   // **Elevation, and nothing else.** A lash has no pose it cannot reach -- it hangs -- so this is
   // not about the whip's kinematics at all, it is about the room under the shoulder, and the
-  // table beside `TERMINAL_WHIP.limits` is the arithmetic. The beads themselves pass through
+  // table beside `config.limits` is the arithmetic. The beads themselves pass through
   // their owner exactly as a blade does, which is the layer table's decision and not this file's.
-  limits: TERMINAL_WHIP.limits,
+  limits: config.limits,
 
   build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal {
-    const W = TERMINAL_WHIP;
+    const W = config;
     const name = `${ctx.name}.whip`;
     const stone = materialForGolemRole(ctx.materials, "shell");
 
@@ -89,7 +89,7 @@ export const whipTerminal = defineTerminal({
 
     const beads: Part[] = [];
     for (let index = 0; index < W.segments; index += 1) {
-      const centre = onto.world.add(along.scale(W.segmentLength * (index + 0.5)));
+      const centre = onto.world.add(along.scale(W.segmentLength * (index + 0.5) - (W.gripFromButt ?? 0)));
       const bead = capsulePart(ctx.scene, {
         name: `${name}.${index}`,
         position: centre,
@@ -117,7 +117,7 @@ export const whipTerminal = defineTerminal({
       // points it. See the header for why that is the whole of what `roll` means here.
       joint(ctx.scene, onto.link, beads[0], {
         pivotParent: onto.pivot,
-        pivotChild: nearEnd,
+        pivotChild: nearEnd.add(new Vector3(0, W.gripFromButt ?? 0, 0)),
         axisParent: onto.mount.axis,
         axisChild: new Vector3(1, 0, 0),
         perpParent: onto.mount.perp,
@@ -178,8 +178,8 @@ export const whipTerminal = defineTerminal({
       parts,
       strikers: Object.freeze(strikers),
       // Where the lash *lands* rather than the segment sum: a rope's reach is measured, and the
-      // number and its measurement are beside `TERMINAL_WHIP.lashReach`.
-      tipOffset: W.lashReach,
+      // number and its measurement are beside `config.lashReach`.
+      tipOffset: W.lashReach - (W.gripFromButt ?? 0),
       gripStray: () => null,
       sever: () => {
         for (const striker of strikers) striker.sever();
@@ -215,3 +215,5 @@ export const whipTerminal = defineTerminal({
     });
   },
 });
+
+export const whipTerminal = whipDefinition();

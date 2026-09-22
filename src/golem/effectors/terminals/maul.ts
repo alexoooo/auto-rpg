@@ -62,17 +62,18 @@ import { RigidStrike } from "../striker.ts";
  * the smash `STROKE_SHAPES.club` describes, and which of the two clubs a golem holds it learns
  * from `GolemCapabilities.pairedHands` rather than from this file's name.
  */
-export const maulTerminal = defineTerminal({
+export const maulDefinition = (config: typeof TERMINAL_MAUL & { trailingGripOffsetM?: number } = TERMINAL_MAUL) => defineTerminal({
   id: "maul",
+  trailingGripOffsetM: config.trailingGripOffsetM ?? 0,
   sockets: 2,
   bite: "mass",
   label: "maul",
-  massKg: TERMINAL_MAUL.mass,
-  limits: TERMINAL_MAUL.limits,
-  crossing: TERMINAL_MAUL.crossing,
+  massKg: config.mass,
+  limits: config.limits,
+  crossing: config.crossing,
 
   build(ctx: ModuleBuild, onto: ChainWeld, trailing: ChainWeld | null): BuiltTerminal {
-    const M = TERMINAL_MAUL;
+    const M = config;
     const name = `${ctx.name}.maul`;
     if (!trailing) {
       // `effector.ts` refuses this before it gets here; the second refusal is because a terminal
@@ -131,9 +132,10 @@ export const maulTerminal = defineTerminal({
       barX: new Vector3(), barY: new Vector3(), intoLink: new Quaternion(),
       gripAxis: new Vector3(), gripPerp: new Vector3(),
     };
+    const secondGripLocal = new Vector3(0, gripAt + (M.trailingGripOffsetM ?? 0), 0);
     const identity = Quaternion.Identity();
     const gripWorld = (): Vector3 => {
-      gripLocal.rotateByQuaternionToRef(part.mesh.rotationQuaternion ?? identity, scratch.onBar);
+      secondGripLocal.rotateByQuaternionToRef(part.mesh.rotationQuaternion ?? identity, scratch.onBar);
       return scratch.onBar.addInPlace(part.mesh.position);
     };
     const trailingWorld = (): Vector3 => {
@@ -159,7 +161,7 @@ export const maulTerminal = defineTerminal({
       const cone = { min: -M.gripCone, max: M.gripCone };
       grip = joint(ctx.scene, trailing.link, part, {
         pivotParent: trailing.pivot,
-        pivotChild: gripLocal,
+        pivotChild: secondGripLocal,
         axisParent: scratch.gripAxis.clone(),
         axisChild: new Vector3(1, 0, 0),
         perpParent: scratch.gripPerp.clone(),
@@ -232,3 +234,5 @@ export const maulTerminal = defineTerminal({
     });
   },
 });
+
+export const maulTerminal = maulDefinition();

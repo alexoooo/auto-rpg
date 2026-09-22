@@ -125,7 +125,7 @@ test("the pair builder refuses a chain that carries its own terminal", async () 
 // ---------------------------------------------------------------------------------------
 
 /** Which chains drive an anchor, which is what decides whether the view publishes one. */
-const anchored = (id) => id.startsWith("effector.reach.") || id.startsWith("effector.wrist.");
+const anchored = (id) => id.startsWith("effector.reach.") || id.startsWith("effector.wrist.") || id.startsWith("effector.anatomical.");
 
 /**
  * Every effector the registry offers, taken from the registry.

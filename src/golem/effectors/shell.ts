@@ -273,3 +273,16 @@ export function socketShell(scene: Scene, options: {
   mesh.material=materialForGolemRole(options.materials,"joint");
   return Object.freeze([attach(mesh,options.host,options.from.add(options.to).scale(.5),rotation)]);
 }
+
+/** Human hilt: the palm encloses the leather grip behind the guard, not the blade. */
+export function swordHiltShell(scene: Scene, o: { name: string; host: Mesh; materials: GolemMaterialPalette; bladeBase: number; gripToBlade: number }): readonly AbstractMesh[] {
+  const grip = MeshBuilder.CreateCylinder(`${o.name}.hilt`, { height: o.gripToBlade * 2, diameter: .024, tessellation: 12 }, scene);
+  grip.material = materialForGolemRole(o.materials, "shell");
+  const guard = MeshBuilder.CreateBox(`${o.name}.guard`, { width: .18, height: .018, depth: .03 }, scene);
+  guard.material = materialForGolemRole(o.materials, "joint");
+  const pommel = MeshBuilder.CreateSphere(`${o.name}.pommel`, { diameter: .042, segments: 12 }, scene);
+  pommel.material = guard.material;
+  return [attach(grip, o.host, new Vector3(0, o.bladeBase - o.gripToBlade, 0)),
+    attach(guard, o.host, new Vector3(0, o.bladeBase, 0)),
+    attach(pommel, o.host, new Vector3(0, o.bladeBase - 2 * o.gripToBlade, 0))];
+}

@@ -498,7 +498,10 @@ async function boot(): Promise<void> {
       controls.state.posture.crouch = view.self.crouch;
       controls.state.posture.trunkLean = view.self.trunkLean;
       controls.state.posture.trunkTwist = view.self.trunkTwist;
-      for (const name of HANDS) Object.assign(controls.state[name], cursors[name]);
+      for (const name of HANDS) {
+        delete controls.state[name].orientation;
+        Object.assign(controls.state[name], cursors[name]);
+      }
     },
   };
 
@@ -626,6 +629,8 @@ async function boot(): Promise<void> {
     for (const name of HANDS) {
       controls.state[name].roll = found[name].roll;
       controls.state[name].wristBend = found[name].wristBend;
+      if (found[name].orientation) controls.state[name].orientation = { ...found[name].orientation! };
+      else delete controls.state[name].orientation;
     }
   };
   const updateOwnership = (): void => {
@@ -767,7 +772,10 @@ async function boot(): Promise<void> {
         controls.state.posture.trunkTwist = body.view.self.trunkTwist;
         // Both hands, because whichever one the cursor is not on is still being commanded
         // from a pose it knows nothing about.
-        for (const name of HANDS) Object.assign(controls.state[name], found.cursors[name]);
+        for (const name of HANDS) {
+          delete controls.state[name].orientation;
+          Object.assign(controls.state[name], found.cursors[name]);
+        }
       }
       body.mind = handoverFromCursors(incoming, found.cursors);
       reading.seeded = true;

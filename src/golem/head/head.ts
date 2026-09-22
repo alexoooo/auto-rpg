@@ -177,8 +177,7 @@ function headShell(scene: Scene, options: {
  * a presence rather than a kind -- a head either carries a plate and a lunge or it does not, and
  * there is no third answer for a default branch to pick wrongly.
  */
-export function headModule(id: string, label: string, tuning: HeadTuning): HeadModuleDefinition {
-  const N = HEAD_NECK;
+export function headModule(id: string, label: string, tuning: HeadTuning, N = HEAD_NECK): HeadModuleDefinition {
   return Object.freeze({
     id,
     slots: Object.freeze<GolemSlot[]>(["head"]),

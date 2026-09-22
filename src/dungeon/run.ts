@@ -1,8 +1,10 @@
+import type { GolemSetup } from "../bout.ts";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { Combat } from "../combat.ts";
 import { Golem } from "../golem/golem.ts";
+import { hasAnatomicalArm } from "../golem/humanoid/presets.ts";
 import { NAMED_BUILDS, namedBuild } from "../golem/roster.ts";
 import { unitDefinition } from "../units.ts";
 import type { Intent, Mind } from "../mind.ts";
@@ -41,19 +43,20 @@ export class DungeonRun {
   private dodgeStart: Point = { x: 0, z: 0 };
   private dodgeVector: Point = { x: 0, z: 0 };
 
-  constructor(scene: Scene, seed: number, heroBuild = "default", visuals = true, layout?: DungeonMap) {
+  constructor(scene: Scene, seed: number, heroBuild = "default", visuals = true, layout?: DungeonMap, heroSetup?: GolemSetup) {
     this.map = layout ?? generateDungeon(seed);
     this.world = buildDungeonWorld(scene, this.map, visuals);
     const definition = unitDefinition("golem"), random = mulberry32(seed ^ 0x9e3779b9);
     const create = (id: string, buildName: string, at: Point, side: "left" | "right") => {
       const build = namedBuild(buildName);
       if (!build) throw new Error(`Unknown dungeon golem: ${buildName}`);
-      const policy = definition.createPolicy!("golem-duelist", Math.floor(random() * 0xffffffff));
+      const setup = id === "hero" && heroSetup ? heroSetup : build.setup;
+      const policy = definition.createPolicy!(hasAnatomicalArm(setup) ? "humanoid-duelist" : "golem-duelist", Math.floor(random() * 0xffffffff));
       let intent = neutralIntent();
       const source: Mind = { name: "dungeon", decide: () => intent };
       const priorMeshes = new Set(scene.meshes);
       const body = new Golem(scene, { actorId: id, side, origin: new Vector3(at.x, 0, at.z), facing: side === "left" ? 0 : Math.PI,
-        setup: build.setup, mind: source, controlPolicies: definition.driverOptions, locomotionWorld: this.world.registry });
+        setup, mind: source, controlPolicies: definition.driverOptions, locomotionWorld: this.world.registry });
       const combat = new Combat(side, body.strikers);
       const actor: DungeonActor = { id, name: buildName, body, combat, policy,
         get intent() { return intent; }, set intent(value) { intent = value; }, target: null,

@@ -38,6 +38,8 @@ import {
   postureFor,
 } from "./policies.ts";
 import { CONFIG } from "./config.ts";
+import { humanoidDuelist } from "./golem/humanoid/policy.ts";
+import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 // The two surface tags, from the leaf that owns them. Taking either from its own endpoint would
 // close a run-time cycle -- both endpoints import this file for values, and `POLICIES` below reads
 // the tag while this module is still evaluating. `control-surfaces.ts` imports nothing at all.
@@ -191,6 +193,8 @@ export interface PostureIntent {
  * the afterthought, and `Arm` takes one of these without caring which it is.
  */
 export interface HandIntent {
+  /** Optional hand orientation in the socket frame, for pose-capable chains. */
+  orientation?: { x: number; y: number; z: number; w: number };
   /** Cursor position across the window, -1 (left) to +1 (right). */
   pointerX: number;
   /** Cursor position up the window, -1 (bottom) to +1 (top). */
@@ -875,6 +879,8 @@ function composeHand(into: HandIntent, position: HandIntent, orientation: HandIn
     wristBend: orientation.wristBend,
   };
   Object.assign(into, composed);
+  if (orientation.orientation) into.orientation = { ...orientation.orientation };
+  else delete into.orientation;
 }
 
 
@@ -973,6 +979,7 @@ export function cursorForPose(pose: ArmPose, hand: HandName = "primary"): HandCu
  * produce this, which is what lets one handover serve both bodies.
  */
 export interface HandCursor {
+  orientation?: { x: number; y: number; z: number; w: number };
   pointerX: number;
   pointerY: number;
   /** Normalized into the chain's own reach shell. Zero on a chain with no reach axis. */
@@ -1186,6 +1193,12 @@ export function handoverFromCursors(
         to.reach = from.reach + (want.reach - from.reach) * t;
         to.roll = from.roll + (want.roll - from.roll) * t;
         to.wristBend = from.wristBend + (want.wristBend - from.wristBend) * t;
+        if (from.orientation && want.orientation) {
+          const a = from.orientation, b = want.orientation;
+          const q = Quaternion.Slerp(new Quaternion(a.x, a.y, a.z, a.w), new Quaternion(b.x, b.y, b.z, b.w), t);
+          to.orientation = { x: q.x, y: q.y, z: q.z, w: q.w };
+        } else if (want.orientation) to.orientation = { ...want.orientation };
+        else delete to.orientation;
       }
       return blended;
     },
@@ -1247,6 +1260,7 @@ export const POLICIES: readonly Policy[] = [
   ...RESEARCHED_POLICIES,
   { name: "idle", label: "Idle", surface: null, create: idleMind },
   { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
+  { name: "humanoid-duelist", label: "Human duelist", surface: GOLEM_SURFACE, create: humanoidDuelist },
   { name: "golem-fencer", label: "Golem fencer", surface: GOLEM_SURFACE, create: golemFencerMind },
   { name: "golem-planner", label: "Golem planner", surface: GOLEM_SURFACE, create: golemPlannerMind },
   { name: "golem-champion", label: "Golem champion", surface: GOLEM_SURFACE, create: golemChampionMind },

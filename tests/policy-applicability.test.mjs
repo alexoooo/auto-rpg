@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { assessPolicy, assessRequirement, policyBodyForSetup, policyBodyForView, policyPickerRows } from "../src/policy-applicability.ts";
 import { POLICIES } from "../src/mind.ts";
+import { humanSetup } from "../src/golem/humanoid/presets.ts";
+import { moduleFamily } from "../src/golem/family.ts";
 import { GOLEM_EFFECTORS, defaultGolemSetup } from "../src/golem/build.ts";
 import { namedBuild } from "../src/golem/roster.ts";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
@@ -31,7 +33,7 @@ test("specialists require actual controls, while evidence scope does not restric
 test("every registered effector's setup declaration agrees with a real assembled body", async () => {
   for (const option of GOLEM_EFFECTORS) {
     const pick = { chain: option.chain, terminal: option.terminal ?? "none" };
-    const build = { ...defaultGolemSetup(), primary: pick, secondary: pick };
+    const build = { ...(moduleFamily(option.chain) === "human" ? humanSetup() : defaultGolemSetup()), primary: pick, secondary: pick };
     const bout = createBout({ left: "idle", right: "idle", seeds: [7, 8], maxSeconds: 1,
       leftGolem: build, rightGolem: defaultGolemSetup(), locomotionMode: "supported", physics: await freshHavok() });
     try {

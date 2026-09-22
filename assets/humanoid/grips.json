@@ -1,0 +1,6 @@
+{
+  "palmCentre": [0, -0.028, 0],
+  "handleAxis": [0, 0, 1],
+  "edgeAxis": [1, 0, 0],
+  "handleRadius": 0.012
+}

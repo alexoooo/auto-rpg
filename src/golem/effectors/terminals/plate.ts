@@ -84,7 +84,7 @@ import { RigidStrike } from "../striker.ts";
  * guard's work while it does it: 19 % of everything that lands on a golem lands here.
  * `docs/measurements.md` session 12b has the tables.
  */
-export const plateTerminal = defineTerminal({
+export const plateDefinition = (config: typeof TERMINAL_PLATE & { gripRadius?: number } = TERMINAL_PLATE) => defineTerminal({
   id: "plate",
   sockets: 1,
   // Not "none". The overview's terminal table reads "none; mass on a `thrust` bash", and the
@@ -93,11 +93,11 @@ export const plateTerminal = defineTerminal({
   // has no edge to report, so the readout says "n/a" -- which is the whole job this field does.
   bite: "mass",
   label: "plate",
-  massKg: TERMINAL_PLATE.mass,
-  limits: TERMINAL_PLATE.limits,
+  massKg: config.mass,
+  limits: config.limits,
 
   build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal {
-    const P = TERMINAL_PLATE;
+    const P = config;
     const name = `${ctx.name}.plate`;
 
     // The rotation the weld is about to demand, rather than the golem's own. A weld whose two
@@ -181,7 +181,7 @@ export const plateTerminal = defineTerminal({
         // a plate that blocks 30 mm wider than it looks.
         shell: Object.freeze([
           part.mesh,
-          ...socketShell(ctx.scene, {name:`${name}.grip`,host:part.mesh,materials:ctx.materials,radius:.027,
+          ...socketShell(ctx.scene, {name:`${name}.grip`,host:part.mesh,materials:ctx.materials,radius:P.gripRadius ?? .027,
             from:new Vector3(0,-alongLimb-.016,-lateralSign*P.outboardOffset),
             to:new Vector3(0,-P.thickness/2+.012,-lateralSign*P.outboardOffset)}),
           ...socketShell(ctx.scene, {name:`${name}.bracket`,host:part.mesh,materials:ctx.materials,radius:.025,
@@ -196,7 +196,7 @@ export const plateTerminal = defineTerminal({
         vitalityWeight: P.vitalityWeight,
         fatal: false,
         // The one shield in the game. See `GolemPart.shield` for what that buys and costs, and
-        // `TERMINAL_PLATE.vitalityWeight` for why the row below it reads zero.
+        // `config.vitalityWeight` for why the row below it reads zero.
         shield: true,
       }),
     ]);
@@ -233,3 +233,5 @@ export const plateTerminal = defineTerminal({
     });
   },
 });
+
+export const plateTerminal = plateDefinition();

@@ -1,3 +1,4 @@
+import { loadHumanAssets, dressHumanoid, type HumanVisualPart } from "../golem/humanoid/appearance.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { dressForgeRoom } from "../forge-room.ts";
 import { loadForgeStyle, paveForge, forgePost } from "../forge-style.ts";
@@ -129,6 +130,7 @@ function roomMaterials(scene: Scene): RoomMaterials {
 }
 
 async function main(): Promise<void> {
+  await loadHumanAssets();
   const canvas = need<HTMLCanvasElement>("stage");
   const pickerPanel = need("picker");
   const readoutPanel = need("readout");
@@ -273,6 +275,7 @@ async function main(): Promise<void> {
    * order says nothing about what is jointed to what.
    */
   let carried: BenchModule | null = null;
+  let humanArt: ReturnType<typeof dressHumanoid> = null;
   /**
    * **The stand is rebuilt with the module, because which slot is filled decides what it is.**
    * For four of the five slots it is the fixed `ANIMATED` anchor Session 02 built; for locomotion
@@ -331,6 +334,7 @@ async function main(): Promise<void> {
 
   const teardown = (): void => {
     releaseWatchers();
+    humanArt?.dispose(); humanArt = null;
     for (const overlay of overlays.values()) overlay.dispose();
     overlays.clear();
     // **Down the way it was built up**, and that ordering is the whole of this function. Every
@@ -387,6 +391,7 @@ async function main(): Promise<void> {
     shadows.getShadowMap()!.renderList = [];
     shadows.addShadowCaster(rebuilt.block.mesh, false);
 
+    const visualParts: HumanVisualPart[] = [];
     for (const filling of filled) {
       const socket = rebuilt.socket(filling);
       const module = chosen[filling].build({
@@ -405,8 +410,9 @@ async function main(): Promise<void> {
       overlays.set(filling, overlay);
       for (const part of module.parts) {
         watch(part.part.body);
-        const shells = dressGolemPart({ slot: filling, moduleId: chosen[filling].id, id: part.id,
-          host: part.part.mesh, shells: part.shell }, rebuilt.materials);
+        const visual = { slot: filling, moduleId: chosen[filling].id, id: part.id, host: part.part.mesh, shells: part.shell };
+        visualParts.push(visual);
+        const shells = part.appearance === "human" ? part.shell : dressGolemPart(visual, rebuilt.materials);
         for (const mesh of shells) shadows.addShadowCaster(mesh, false);
       }
     }
@@ -430,10 +436,13 @@ async function main(): Promise<void> {
       });
       for (const part of carried.parts) {
         watch(part.part.body);
-        for (const mesh of dressGolemPart({ slot: "head", moduleId: chosen.head.id, id: part.id,
-          host: part.part.mesh, shells: part.shell }, rebuilt.materials)) shadows.addShadowCaster(mesh, false);
+        const visual = { slot: "head", moduleId: chosen.head.id, id: part.id, host: part.part.mesh, shells: part.shell };
+        visualParts.push(visual);
+        for (const mesh of part.appearance === "human" ? part.shell : dressGolemPart(visual, rebuilt.materials)) shadows.addShadowCaster(mesh, false);
       }
     }
+    humanArt = dressHumanoid(scene, visualParts, "left");
+    for (const mesh of humanArt?.meshes ?? []) shadows.addShadowCaster(mesh, false);
     renderPicker();
   };
 
@@ -456,7 +465,7 @@ async function main(): Promise<void> {
     for (const mode of golemBenchModes()) {
       lines.push(`  ${benchModeLabel(mode)}`);
       for (const entry of golemModulesForMode(mode)) {
-        index += 1;
+        index = GOLEM_MODULES.findIndex(option => option.id === entry.id) + 1;
         const mine = entry.id === chosen[slot].id;
         const theirs = paired && entry.id === chosen[other(slot)].id;
         const both = entry.sockets === 2 ? "  [both sockets]" : "";
@@ -474,11 +483,15 @@ async function main(): Promise<void> {
       : `  pair: off${refusal === null ? "" : ` -- ${refusal}`}   (P)`);
     if (carried) lines.push(`  carrying: ${chosen.head.label}`);
     lines.push("  keys 1-9, 0, then shift+1-9");
-    pickerPanel.innerHTML = lines.join("\n");
+    const ordered = GOLEM_MODULES;
+    pickerPanel.innerHTML = `<b>GOLEM BENCH</b><select aria-label="Bench module">${ordered.map((entry, i) =>
+      `<option value="${i + 1}" ${entry.id === chosen[slot].id ? "selected" : ""}>${entry.label}</option>`).join("")}</select>
+      <details><summary>Modules and keyboard shortcuts</summary>${lines.join("\n")}</details>`;
+    pickerPanel.querySelector("select")!.addEventListener("change", event => pick(Number((event.target as HTMLSelectElement).value)));
   };
 
   const pick = (wanted: number): void => {
-    const ordered = golemBenchModes().flatMap((mode) => golemModulesForMode(mode));
+    const ordered = GOLEM_MODULES;
     const picked = ordered[wanted - 1];
     if (!picked) return;
     // **The option is remembered under a slot it can actually fill.** Session 04 wrote
@@ -580,6 +593,7 @@ async function main(): Promise<void> {
   // with no writer is a button a person cannot press and it looks exactly like a body that does
   // not work -- which is on record for `Intent.natural`, one channel over, and cost a session.
   controls.ownership.posture = true;
+  controls.ownership.drivenWrist = true;
   controls.start();
   // **The default view is from the side, because that is where the swing is.** Rung 1 turns in
   // the sagittal plane, and a camera on the arena's own default bearing looks straight down it:
@@ -719,6 +733,13 @@ async function main(): Promise<void> {
       // here switching on what any of them is. The person drives one hand at a time and the
       // other limb holds whatever that hand's channel last said, exactly as an arena fighter's
       // does.
+      for (const hand of ["primary", "secondary"] as const) {
+        const orientation = built.get(hand)?.view()?.orientation;
+        if (!orientation) delete controls.state[hand].orientation;
+        else if (!controls.state[hand].orientation) controls.state[hand].orientation = {
+          x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w,
+        };
+      }
       const intent = controls.sample(dt);
       for (const each of built.values()) each.command(intent);
       carried?.command(intent);

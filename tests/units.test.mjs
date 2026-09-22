@@ -105,7 +105,7 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
   // arming sword in disguise. The fencer and the planner follow the duelist, which stays the
   // baseline.
   assert.deepEqual([...(golem.compatiblePolicies ?? [])], [
-    "idle", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
+    "idle", "humanoid-duelist", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
     "golem-reaper", "golem-miser",
     ...researchedVariants.map((candidate) => candidate.name),

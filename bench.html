@@ -16,7 +16,10 @@
       .panel { position: fixed; padding: 10px 14px; border-radius: 6px;
         background: rgba(10, 12, 16, 0.82); border: 1px solid rgba(150, 170, 200, 0.22);
         pointer-events: none; white-space: pre; }
-      #picker { top: 12px; left: 12px; max-width: 46ch; }
+      #picker { top: 12px; left: 12px; width: min(46ch, 42vw); max-height: 72vh; overflow: auto; pointer-events: auto; }
+      #picker select { display: block; width: 100%; margin: 8px 0; padding: 6px; color: inherit; background: #18212b; }
+      #picker details { white-space: pre; font-size: 11px; }
+      #picker summary { white-space: normal; cursor: pointer; }
       #readout { top: 12px; right: 12px; }
       #keys { bottom: 12px; left: 12px; opacity: 0.72; }
       #picker b { color: #7fd4ff; font-weight: 600; }
@@ -34,6 +37,7 @@
     <div id="picker" class="panel"></div>
     <div id="readout" class="panel"></div>
     <div id="keys" class="panel">1-9, 0, shift+1-9 module &middot; P pair &middot; F socket &middot; Tab readout &middot; G rig &middot; R rebuild &middot; Space pause &middot; middle-drag orbit, wheel zoom
+Z/X roll &middot; T/Y bend &middot; U/I hand turn (anatomical arms)
 WASD walk &middot; QE turn &middot; Shift crouch &middot; B shove &mdash; locomotion modules only</div>
     <script type="module" src="/src/bench/main.ts"></script>
   </body>

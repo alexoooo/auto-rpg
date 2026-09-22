@@ -6,6 +6,7 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh.js';
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader.js';
 import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
 import { Golem } from '../src/golem/golem.ts';
+import { moduleFamily } from '../src/golem/family.ts';
 import { defaultGolemSetup, GOLEM_EFFECTORS, golemLocomotionOptions, golemHeadOptions, golemTorsoOptions } from '../src/golem/build.ts';
 import { stepProofGolem } from '../src/art-proof/motion.ts';
 import { blankIntent } from '../src/policies.ts';
@@ -15,11 +16,11 @@ import { installGolemAppearance } from '../src/golem/appearance.ts';
 const manifest = JSON.parse(await readFile(new URL('../public/assets/art-proof/manifest.json', import.meta.url), 'utf8'));
 const glb = await readFile(new URL('../public/assets/art-proof/golem.glb', import.meta.url));
 
-test('forge art preserves every offered module, live wear, physical samples, and rebuild ownership', async () => {
+test('forge art preserves every offered stone module, live wear, physical samples, and rebuild ownership', async () => {
   const setups = [defaultGolemSetup()];
-  for (const [slot, options] of [['locomotion', golemLocomotionOptions()], ['head', golemHeadOptions()], ['torso', golemTorsoOptions()]])
+  for (const [slot, options] of [['locomotion', golemLocomotionOptions("golem")], ['head', golemHeadOptions("golem")], ['torso', golemTorsoOptions("golem")]])
     for (const option of options) setups.push({ ...defaultGolemSetup(), [slot]: option.id });
-  for (const option of GOLEM_EFFECTORS) {
+  for (const option of GOLEM_EFFECTORS.filter(o => moduleFamily(o.chain) === "golem")) {
     const hand = { chain: option.chain, terminal: option.terminal ?? "none" };
     setups.push({ ...defaultGolemSetup(), primary: hand, secondary: option.sockets === 2 ? hand : defaultGolemSetup().secondary });
   }
