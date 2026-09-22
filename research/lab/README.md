@@ -5,6 +5,8 @@ game's real Havok simulation and the same `Intent` boundary as the player. No ph
 ceilings or damage rules are changed. Dated arena ratings remain available. Paired and Needle
 are admitted specialists; learners and other candidates remain experimental unless explicitly
 reviewed and admitted. See [CAMPAIGN.md](CAMPAIGN.md) for current results and reference replays.
+See [LEARNING-LESSONS.md](LEARNING-LESSONS.md) for the rejected learners' measured outcomes,
+limits of the diagnoses, and the experimental rules those failures imply.
 
 ## Setup and bounded runs
 

@@ -78,6 +78,10 @@ results remain in the evidence record. This checklist is not a declaration that 
 ## Evidence-driven next wave
 
 These are subsequent research hypotheses, not claims that the current campaign completed them.
+The [consolidated learned-policy lessons](../../research/lab/LEARNING-LESSONS.md) distinguish
+degradation from inconclusive results, explain the small training/data budgets, and separate
+observed transfer failures from untested causal hypotheses. Use those constraints when designing
+the next experiments; do not treat rejected candidates as verdicts on entire algorithms.
 
 1. **Counters and robustness first.** Use the enlarged roster's matchup/build table to choose
    exploiters against Paired and Needle. Preserve their published versions as frozen opponents.

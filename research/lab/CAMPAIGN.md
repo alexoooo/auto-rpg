@@ -3,6 +3,8 @@
 **Completed at the user's validated-roster success condition**, using 5 hours 55 minutes of
 the eight-hour allowance. Paired and Needle are independently confirmed, browser-reviewed and
 available with dated ratings. This does not claim that every research method succeeded.
+For the consolidated interpretation of the learned-policy failures and next-experiment rules,
+see [LEARNING-LESSONS.md](LEARNING-LESSONS.md). The sections below retain the chronological record.
 
 The ongoing goal was explicitly authorized by the user. The additional local-compute allowance is
 28,800 seconds, separately metered in `research/runs/wave3-budget/budget.json`. The pilot ledger
