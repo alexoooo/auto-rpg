@@ -182,8 +182,10 @@ geometry and is not exported.
 - **Every skeleton part gets the same armour table.** Bone is bone. Per-part tables (a ribcage
   that thrusts slip through, say) are a later tuning option, not a mechanism change.
 - **Thin colliders are the limbs and the neck, not the trunk.** The ribcage collider is one solid
-  0.30 x 0.38 x 0.20 box, so a blade drawn passing between two ribs still strikes it. Open ribs
-  would be a compound collider of several bars, which is a new body shape and not in this plan.
+  0.30 x 0.38 x 0.20 box, so a blade drawn passing between two ribs still strikes it. That is the
+  simplest version, and the owner wants to try it first and see whether it is a problem in play
+  (session 07 watches for it). Open ribs would be a compound collider of several bars, a new body
+  shape, and a follow-up only if the box looks wrong.
 - **The skeleton's default policy is `golem-duelist`**, the stone one. Its arms are stone-shaped
   wrist chains, so every golem policy applies. A skeleton-specific policy is out of scope.
 - **Skeletons are playable, not enemies.** The arena setup screen offers them through the

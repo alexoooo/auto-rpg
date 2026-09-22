@@ -244,10 +244,12 @@ it. Give the owner the report, not a summary of it.
 ### Decisions only the owner can make
 
 1. **Tunnelling**, if question 1 finds it: a thicker collider, or accept it.
-2. **Falls and the shove**, from question 7: a skeleton-only brace (`braceCapacityMultiplier`
-   in `SKELETON_BIPED`), heavier bones, a shared mass-scaled shove (moves stone), or accept it.
-   This is the decision most likely to be needed, because the arithmetic predicts a skeleton
-   falls to a single blow.
+2. **How many clean hits should knock a skeleton down?** As built, one, where a stone golem takes
+   about three. Against a clean 10 m/s cut, `braceCapacityMultiplier` in `SKELETON_BIPED` sets it:
+   1.5 (as built) is one hit, about 3 is about two, and about 5.7 is about three, like stone. Put
+   question 7's fall counts and time spent down beside each value, and say whether a skeleton
+   was kept on the ground by blows landing while it rose. The flinging of light parts is a
+   separate, smaller question with its own options in question 7.
 3. **The spine**, if question 6 finds it dominating.
 4. **Skeletons as enemies**: add them to `NAMED_BUILDS` (dungeon floors and waves), which also
    changes the research pools and `tests/research.test.mjs`'s pinned training-pool size.

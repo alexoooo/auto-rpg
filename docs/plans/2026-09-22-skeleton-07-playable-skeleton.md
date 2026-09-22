@@ -185,6 +185,11 @@ with `run_in_background` and do the following:
     question);
   - how often a skeleton is knocked down, and by what. Session 06 predicts nearly every landed
     blow at the stone `braceCapacityMultiplier`, and measured the line;
+  - whether a skeleton can be kept on the ground. A blow that lands while a body is rising sends
+    it back to fallen (`recoveryHitInterrupted` in `src/supported-locomotion-production.ts`), and
+    for a skeleton that takes about 0.21 N.s, which nearly any blow exceeds;
+  - whether blows that look as if they pass between the ribs, but strike the solid ribcage box,
+    look wrong;
   - whether a shove or a blocked blow flings a skeleton;
   - whether a decapitated skeleton fights on and is aimed at sensibly;
   - whether the skull shows up as a room-occlusion target;
