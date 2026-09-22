@@ -456,7 +456,7 @@ The 24 direct head-to-head blocks did not show a clear aggregate cadence or retr
 so diversity should be described through supported body-dependent behavior, not invented global
 style separation.
 
-The full new admission is in `results/admission.json`; Paired's original admission is preserved
+The full Needle admission is in `results/needle-admission.json`; Paired's original admission is preserved
 byte-for-byte in `results/paired-admission.json`. Cumulative authorized research compute is
 21,306.536 seconds: **5 hours 55 minutes 6.5 seconds**, leaving about 2 hours 5 minutes unused.
 Code/test work and browser inspection are not training compute. No further training is needed
