@@ -70,6 +70,8 @@ const CAP_MOUNT: GolemMount = Object.freeze({
  * So `weld` is null and no chain-terminal pair can name this rung.
  */
 export const noneChain = defineChain({
+  strokes: NO_STROKES,
+  pointTarget: false,
   id: "none",
   axes: 0,
   label: "none - a capped socket",

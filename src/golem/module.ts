@@ -739,6 +739,9 @@ export function rodInertia(massKg: number, fromM: number, toM: number): number {
 }
 
 export interface EffectorChainDefinition {
+  /** Setup-visible control capabilities, shared with the built envelope. */
+  readonly strokes: readonly EffectorStrokeKind[];
+  readonly pointTarget: boolean;
   readonly id: ChainId;
   readonly axes: 0 | 1 | 3 | 5;
   readonly label: string;

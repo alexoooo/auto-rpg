@@ -30,6 +30,11 @@ export function validatePublishedLabPolicy(entry: PublishedLabPolicy): void {
 export const RESEARCHED_LAB_POLICIES = (entries as PublishedLabPolicy[]).map((entry) => {
   // Validation is pure: factories must not run while the policy registry is initializing.
   validatePublishedLabPolicy(entry);
+  const requirement = entry.spec.kind === "bespoke"
+    ? entry.spec.name === "paired" ? "independent-hands" as const
+      : entry.spec.name === "needle" ? "point-primary" as const : undefined
+    : undefined;
   return { name: entry.name, label: entry.label, surface: GOLEM_CONTROL_SURFACE,
+    requirement, evidenceScope: entry.admission.scope,
     create: (seed = (Math.random() * 0x100000000) >>> 0) => ({ ...labMind(entry.spec, seed), name: entry.name }) };
 });

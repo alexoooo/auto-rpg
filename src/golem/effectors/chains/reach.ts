@@ -37,6 +37,8 @@ import { ARM_STROKES, LIMB_MOUNT, buildArmCore } from "./arm-core.ts";
  * chain rather than a thing a person did.
  */
 export const reachChain = defineChain({
+  strokes: ARM_STROKES,
+  pointTarget: true,
   id: "reach",
   axes: 3,
   label: "reach - yaw, pitch, elbow",

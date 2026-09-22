@@ -120,6 +120,8 @@ const pointerForPitch = (pitch: number): number => {
  * and none of them is a claim that the result looks right. That is the owner's to say.
  */
 export const pitchChain = defineChain({
+  strokes: PITCH_STROKES,
+  pointTarget: false,
   id: "pitch",
   axes: 1,
   label: "pitch - one hinge",

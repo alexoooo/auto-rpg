@@ -31,6 +31,8 @@ import { randomViableGolemSetup, randomViableOpponent, unviablePairNote } from "
 import type { PartsBin } from "./golem/parts-bin";
 import { mulberry32, randomSeed } from "./rng";
 import { unitDefinition } from "./units";
+import { POLICIES } from "./mind";
+import { assessPolicy, policyPickerRows } from "./policy-applicability";
 import type { Side } from "./physics";
 import ratingArtifact from "./policy-ratings.json";
 import currentFingerprint from "virtual:ai-fingerprint";
@@ -129,6 +131,7 @@ export class SetupScreen {
   private readonly captions: Record<Side, HTMLElement>;
   private readonly seeds: Record<Side, HTMLElement>;
   private readonly policies: Record<Side, HTMLSelectElement>;
+  private readonly showAllPolicies: Record<Side, boolean> = { left: false, right: false };
   private readonly golem: Record<GolemField, Record<Side, HTMLSelectElement>>;
   private readonly golemFields: Record<GolemField, Record<Side, HTMLElement>>;
   private readonly customizePanels: Record<Side, HTMLElement>;
@@ -300,7 +303,7 @@ export class SetupScreen {
         <div class="corner-row">
           <label class="field">
             <span class="field-name">Policy</span>
-            <select data-side="${side}" data-field="policy" aria-describedby="rating-${side}"></select>
+            <select data-side="${side}" data-field="policy" aria-describedby="applicability-${side} rating-${side}"></select>
           </label>
           <div class="field">
             <span class="field-name">Control</span>
@@ -312,6 +315,8 @@ export class SetupScreen {
             </span>
           </div>
         </div>
+        <label class="seed-note"><input type="checkbox" data-side="${side}" data-field="showAllPolicies" /> Show all policies</label>
+        <p class="seed-note" id="applicability-${side}" data-side="${side}" data-field="applicability" aria-live="polite"></p>
         <p class="seed-note" id="rating-${side}" data-side="${side}" data-field="rating" aria-live="polite"></p>
         <div class="customize" data-side="${side}" data-wrap="customize" hidden>
           ${GOLEM_FIELDS.map(({ field, label }) => `
@@ -339,6 +344,10 @@ export class SetupScreen {
     if (side !== "left" && side !== "right") return;
 
     switch (target.dataset.field) {
+      case "showAllPolicies":
+        this.showAllPolicies[side] = (target as HTMLInputElement).checked;
+        this.render();
+        return;
       case "policy":
         this.matchup = withPolicy(this.matchup, side, target.value);
         break;
@@ -523,13 +532,29 @@ export class SetupScreen {
     for (const side of ["left", "right"] as const) {
       const setup = this.matchup[side];
       const definition = unitDefinition(setup.unit);
-      const policyOptions = definition.driverOptions.some((driver) => driver.name === setup.policy)
-        ? definition.driverOptions
-        : [{ name: setup.policy, label: `${setup.policy} (incompatible)` }, ...definition.driverOptions];
-      this.policies[side].innerHTML = policyOptions
-        .map((driver) => `<option value="${driver.name}">${policyRatingLabel(driver.name, driver.label, ratingArtifact)}</option>`).join("");
+      const rows = POLICIES.map((policy) => ({ ...policy,
+        assessment: assessPolicy(policy, definition.driverOptions.some((d) => d.name === policy.name), setup.golem),
+      }));
+      if (!rows.some((row) => row.name === setup.policy)) rows.push({ name: setup.policy,
+        label: setup.policy, surface: null, create: () => { throw new Error("unknown policy"); },
+        assessment: assessPolicy(undefined, false, setup.golem) });
+      const policyOptions = policyPickerRows(rows, setup.policy, this.showAllPolicies[side]);
+      const select = this.policies[side];
+      select.replaceChildren(...policyOptions.map((driver) => {
+        const option = document.createElement("option");
+        option.value = driver.name;
+        option.disabled = driver.assessment.status !== "applicable";
+        option.textContent = policyRatingLabel(driver.name, driver.label, ratingArtifact)
+          + (option.disabled ? ` (${driver.assessment.status}: ${driver.assessment.reason})` : "");
+        return option;
+      }));
+      const selected = rows.find((row) => row.name === setup.policy)!;
+      this.host.querySelector<HTMLElement>(`[data-side="${side}"][data-field="applicability"]`)!.textContent =
+        selected.assessment.reason;
+      this.host.querySelector<HTMLInputElement>(`[data-side="${side}"][data-field="showAllPolicies"]`)!.checked = this.showAllPolicies[side];
       const ratingNote = this.host.querySelector<HTMLElement>(`[data-side="${side}"][data-field="rating"]`);
-      if (ratingNote) ratingNote.textContent = policyRatingNote(setup.policy, ratingArtifact, currentFingerprint, policyVersion(setup.policy));
+      if (ratingNote) ratingNote.textContent = [policyRatingNote(setup.policy, ratingArtifact, currentFingerprint, policyVersion(setup.policy)),
+        selected.evidenceScope].filter(Boolean).join(" ");
       // **The caption is the build, in one line, and the seed is where it came from.** A corner
       // that is not a golem -- a Warrior put there from the console, or a link -- is captioned
       // by its unit and its hands rather than left blank, and has no pickers to open.
@@ -583,9 +608,6 @@ export class SetupScreen {
             }
           }
         }
-      }
-      for (const option of this.policies[side].options) {
-        option.disabled = !definition.driverOptions.some((driver) => driver.name === option.value);
       }
       this.policies[side].value = setup.policy;
       for (const box of this.controls[side]) {
@@ -651,6 +673,10 @@ export class SetupScreen {
       const definition = unitDefinition(setup.unit);
       if (!definition.driverOptions.some((driver) => driver.name === setup.policy)) {
         return `unit "${definition.kind}" does not support policy "${setup.policy}"`;
+      }
+      if (side !== "right" || modeOf(this.matchup) !== "waves") {
+        const assessment = assessPolicy(POLICIES.find((p) => p.name === setup.policy), true, setup.golem);
+        if (assessment.status !== "applicable") return `${side}: ${assessment.reason}`;
       }
       if (setup.control === "you" && !definition.humanAdapter) {
         return `control surface ${definition.kind} has no human adapter`;

@@ -7,6 +7,8 @@ import {
 import { NAMED_BUILDS, namedBuild, type NamedBuild } from "./golem/roster.ts";
 import type { GolemModuleReport } from "./golem/parts-bin.ts";
 import { mulberry32 } from "./rng.ts";
+import { POLICIES } from "./mind.ts";
+import { assessPolicy } from "./policy-applicability.ts";
 
 /**
  * Waves: one body of yours against a queue of other people's, until one of them finishes you.
@@ -73,7 +75,11 @@ export function waveEnemy(run: WaveRun): WaveEnemy {
   // fire from a `WaveRun` that came from somewhere else, and a wave with no body in it is worth
   // more as an error than as a default golem nobody asked for.
   if (!build) throw new Error(`wave ${run.wave} names no build "${name}"`);
-  return { build, policy: wavePolicy(run) };
+  const wanted = wavePolicy(run);
+  const allowed = [wanted, ...WAVE_CLUSTER].find((name) =>
+    assessPolicy(POLICIES.find((p) => p.name === name), true, build.setup).status === "applicable");
+  if (!allowed) throw new Error(`wave ${run.wave} has no applicable policy`);
+  return { build, policy: allowed };
 }
 
 /**
