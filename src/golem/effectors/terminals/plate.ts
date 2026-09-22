@@ -84,7 +84,7 @@ import { RigidStrike } from "../striker.ts";
  * guard's work while it does it: 19 % of everything that lands on a golem lands here.
  * `docs/measurements.md` session 12b has the tables.
  */
-export const plateDefinition = (config: typeof TERMINAL_PLATE = TERMINAL_PLATE) => defineTerminal({
+export const plateDefinition = (config: typeof TERMINAL_PLATE & { gripRadius?: number } = TERMINAL_PLATE) => defineTerminal({
   id: "plate",
   sockets: 1,
   // Not "none". The overview's terminal table reads "none; mass on a `thrust` bash", and the
@@ -181,7 +181,7 @@ export const plateDefinition = (config: typeof TERMINAL_PLATE = TERMINAL_PLATE) 
         // a plate that blocks 30 mm wider than it looks.
         shell: Object.freeze([
           part.mesh,
-          ...socketShell(ctx.scene, {name:`${name}.grip`,host:part.mesh,materials:ctx.materials,radius:.027,
+          ...socketShell(ctx.scene, {name:`${name}.grip`,host:part.mesh,materials:ctx.materials,radius:P.gripRadius ?? .027,
             from:new Vector3(0,-alongLimb-.016,-lateralSign*P.outboardOffset),
             to:new Vector3(0,-P.thickness/2+.012,-lateralSign*P.outboardOffset)}),
           ...socketShell(ctx.scene, {name:`${name}.bracket`,host:part.mesh,materials:ctx.materials,radius:.025,

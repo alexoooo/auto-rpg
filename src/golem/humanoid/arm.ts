@@ -4,8 +4,10 @@ import { capsulePart, joint, type Part } from "../../rig.ts";
 import { materialForGolemRole } from "../materials.ts";
 import { JointActuator, JointServo } from "../joint-servo.ts";
 import { defineChain, type BuiltChain, type GolemPart } from "../module.ts";
-import { LIMB_MOUNT, ARM_STROKES } from "../effectors/chains/arm-core.ts";
+import { ARM_STROKES } from "../effectors/chains/arm-core.ts";
 import { ARM_AXES, ARM_IDS, ARM_LENGTHS, ARM_LIMITS, ARM_REST, armForward, clamp, solveArm, validOrientation } from "./kinematics.ts";
+import { PALM_GRIP, HUMAN_MOUNT } from "./grip.ts";
+import { aimOrientation } from "./orientation.ts";
 import { humanEquipment } from "./equipment.ts";
 import type { HandCursor, HandIntent } from "../../mind.ts";
 
@@ -66,10 +68,10 @@ export const anatomicalChain = defineChain({
     const parts: GolemPart[] = bodies.map((part, i) => ({ id: part.name, part, shell: [],
       health: i === 2 || i === 3 ? 100 : 70, vitalityWeight: i === 2 || i === 3 ? 0.02 : 0.005,
       fatal: false, armour: 0.35, combatRole: "body", appearance: "human" }));
-    const hand = bodies[6], handPivot = new Vector3(0, -ARM_LENGTHS[6] / 2, 0);
+    const hand = bodies[6], handPivot = PALM_GRIP.clone();
     let command: HandIntent = { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0, thrust: false, guard: false };
     let desired = [...initial], angles = [...initial], stopped = false, passive = false;
-    let forced: Vector3 | null = null, solveTime = 0;
+    let forced: Vector3 | null = null, forcedOrientation: Quaternion | null = null, solveTime = 0;
     let commanded = armForward(angles);
     const axes = ARM_IDS.map(id => ({ id, commanded: 0, achieved: 0 }));
     const socketRotation = () => ctx.socket.mount.mesh.rotationQuaternion!;
@@ -93,20 +95,21 @@ export const anatomicalChain = defineChain({
       let orientation = validOrientation(command.orientation);
       if (!orientation) {
         const direction = p.normalizeToNew();
-        // The hand's -Y aims along the weapon; roll sets the cutting edge.
-        orientation = Quaternion.FromUnitVectorsToRef(new Vector3(0, -1, 0), direction, new Quaternion());
-        orientation = orientation.multiply(Quaternion.RotationAxis(Vector3.Up(), command.roll * side))
+        // Aim the palm's handle axis; roll sets the cutting edge.
+        orientation = aimOrientation(direction, 0);
+        orientation = orientation.multiply(Quaternion.RotationAxis(HUMAN_MOUNT.perp, command.roll * side))
           .multiply(Quaternion.RotationAxis(Vector3.Right(), -command.wristBend * 0.7));
       }
-      desired = solveArm(p, forced ? null : orientation, desired, 12);
+      desired = solveArm(p, forced ? (forcedOrientation ? socketRotation().conjugate().multiply(forcedOrientation) : null) : orientation, desired, 12);
     };
     return {
       parts, weld: { link: hand, pivot: handPivot, world: toWorld(bind.point),
-        rotation: hand.mesh.rotationQuaternion!.clone(), mount: LIMB_MOUNT }, ownTerminal: null, reach: reachable.reachMax,
+        rotation: hand.mesh.rotationQuaternion!.clone(), mount: HUMAN_MOUNT }, ownTerminal: null, reach: reachable.reachMax,
       command(next) {
         command = { ...next, ...(next.orientation ? { orientation: { ...next.orientation } } : {}) }; forced = null;
       },
-      commandWeldTo(world) { forced = world.clone(); },
+      commandWeldTo(world, orientation) { forced = world.clone(); forcedOrientation = orientation?.clone() ?? null; },
+      commandedOrientation: () => socketRotation().multiply(commanded.rotation),
       step(dt) {
         if (stopped || passive) return;
         solveTime += dt;
@@ -120,7 +123,7 @@ export const anatomicalChain = defineChain({
       axes: () => axes, stroke: () => "idle", anchor: worldCommand,
       anchorStray: () => Vector3.Distance(worldCommand(), handPoint()), cursor,
       orientation: () => socketRotation().conjugate().multiply(hand.mesh.rotationQuaternion!),
-      commandedEnd(distance) { return worldCommand().addInPlace(rotate(new Vector3(0, -(distance - reachable.reachMax), 0), socketRotation().multiply(commanded.rotation))); },
+      commandedEnd(distance) { return worldCommand().addInPlace(rotate(HUMAN_MOUNT.perp.scale(distance - reachable.reachMax), socketRotation().multiply(commanded.rotation))); },
       unmotorise() { passive = true; servos.forEach(s => s.actuator.release()); },
       sever() { if (stopped) return; stopped = true; servos.forEach(s => s.actuator.release()); constraints.forEach(c => c.dispose()); },
       dispose() { if (!stopped) { servos.forEach(s => s.actuator.release()); constraints.forEach(c => c.dispose()); } stopped = true;

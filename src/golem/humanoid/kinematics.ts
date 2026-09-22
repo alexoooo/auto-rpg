@@ -1,5 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
+import { PALM_GRIP } from "./grip.ts";
+
 /** Seven anatomical hinges, in proximal-to-distal order. SI units. */
 export const ARM_AXES = [Vector3.Up(), Vector3.Right(), Vector3.Up(), Vector3.Right(),
   Vector3.Up(), Vector3.Right(), Vector3.Forward()];
@@ -19,6 +21,7 @@ export function armForward(angles: readonly number[]) {
     const end = new Vector3(0, -ARM_LENGTHS[i], 0).rotateByQuaternionToRef(rotation, new Vector3()).addInPlace(point);
     frames.push({ pivot: point, rotation, end, axis }); point = end;
   }
+  point = frames[6].pivot.add(new Vector3(0, -ARM_LENGTHS[6] / 2, 0).add(PALM_GRIP).rotateByQuaternionToRef(rotation, new Vector3()));
   return { point, rotation, frames };
 }
 

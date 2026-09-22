@@ -11,6 +11,8 @@ import { neutralIntent } from "../src/dungeon/commands.ts";
 import { ARM_LIMITS, ARM_REST, armForward, rotationError, solveArm } from "../src/golem/humanoid/kinematics.ts";
 import { humanSetup } from "../src/golem/humanoid/presets.ts";
 import { loadHumanAssets } from "../src/golem/humanoid/appearance.ts";
+import { PALM_GRIP, HUMAN_MOUNT } from "../src/golem/humanoid/grip.ts";
+import { TERMINAL_BLADE, TERMINAL_MACE, TERMINAL_PLATE, TERMINAL_WHIP } from "../src/golem/config.ts";
 import { turnHand } from "../src/golem/humanoid/orientation.ts";
 import { freshHavok, runBout } from "./harness/bout-runner.mjs";
 
@@ -48,6 +50,8 @@ test("direct hand control rotates each orientation axis independently", () => {
     rotations.push(q);
   }
   for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) assert.ok(rotationError(rotations[i], rotations[j]).length() > 0.5);
+  const rolledShaft = HUMAN_MOUNT.perp.rotateByQuaternionToRef(rotations[0], new Vector3());
+  assert.ok(Vector3.Distance(rolledShaft, HUMAN_MOUNT.perp) < 1e-8, "roll must turn around the held shaft");
   const legacy = neutralIntent().primary, before = { ...legacy };
   turnHand(legacy, 1, 1, 1, 0.25); assert.deepEqual(legacy, before);
 });
@@ -80,6 +84,22 @@ for (const terminal of ["blade", "plate", "mace", "whip", "fist"]) {
         assert.ok(v.anchorStray < 0.03, `${terminal} hand stray ${v.anchorStray}`);
         assert.ok(v.orientation && Math.abs(v.orientation.length() - 1) < 1e-5);
         for (const axis of v.axes) assert.ok(Math.abs(axis.commanded - axis.achieved) < 0.08, axis.id);
+        if (terminal !== "fist") {
+          const hand = m.parts.find(p => p.id.endsWith(".hand")).part.mesh;
+          const item = m.parts.find(p => p.id.endsWith(terminal === "whip" ? ".whip.0" : `.${terminal}`)).part.mesh;
+          const palm = PALM_GRIP.rotateByQuaternionToRef(hand.rotationQuaternion, new Vector3()).add(hand.position);
+          const local = terminal === "blade" ? new Vector3(0, -TERMINAL_BLADE.length / 2 - .065, 0) :
+            terminal === "mace" ? new Vector3(0, -TERMINAL_MACE.length / 2 + .07, 0) :
+            terminal === "whip" ? new Vector3(0, -TERMINAL_WHIP.segmentLength / 2 + .06, 0) :
+            new Vector3(0, -TERMINAL_PLATE.standOff - TERMINAL_PLATE.thickness / 2, (i === 0 ? 1 : -1) * .08);
+          const grip = local.rotateByQuaternionToRef(item.rotationQuaternion, new Vector3()).add(item.position);
+          assert.ok(Vector3.Distance(palm, grip) < .006, `${terminal}: handle must stay inside the palm`);
+          const shaft = Vector3.Up().rotateByQuaternionToRef(item.rotationQuaternion, new Vector3());
+          const fingers = HUMAN_MOUNT.perp.rotateByQuaternionToRef(hand.rotationQuaternion, new Vector3());
+          assert.ok(Vector3.Dot(shaft, fingers) > .995, `${terminal}: handle must follow the authored grip axis`);
+          if (terminal === "blade") assert.ok(item.getChildMeshes().some(mesh => mesh.name.endsWith(".hilt")));
+        }
+
       });
       modules.forEach(m => m.sever()); advance(scene, 30);
       assert.ok(modules.every(m => m.parts.every(p => p.part.mesh.position.asArray().every(Number.isFinite))));
@@ -153,11 +173,78 @@ test("warrior skin follows achieved bodies, is pickable away from origin and dis
     const x = p.host.position.x, z = p.host.position.z;
     const hit = arena.scene.pickWithRay(new Ray(new Vector3(x, 1.2, z - 3), Vector3.Forward(), 6), m => meshes.includes(m));
     assert.ok(hit.hit, "picking must hit the deformed torso, not its bind pose at world origin");
+    const skin = arena.scene.meshes.filter(m => m.metadata?.humanLayer === "body" && !m.metadata.humanCap);
+    const seams = new Map();
+    for (const mesh of skin) {
+      const bind = mesh.setPositionsForCPUSkinning();
+      for (let i=0;i<bind.length;i+=3) {
+        const key = Array.from(bind.slice(i,i+3)).map(n=>n.toFixed(5)).join(",");
+        if (!seams.has(key)) seams.set(key,[]);
+        seams.get(key).push({mesh,i});
+      }
+    }
+    const shared = [...seams.values()].filter(rows=>new Set(rows.map(r=>r.mesh.metadata.humanSlot)).size>1);
+    assert.ok(shared.length > 30, "the actual body must have connected module seams");
     const before = meshes[0].getBoundingInfo().boundingBox.centerWorld.clone();
     p.host.position.x += 0.4; // Achieved-transform fixture, no command or animation involved.
     arena.scene._frameId++; arena.scene._renderId++; arena.scene.onBeforeRenderObservable.notifyObservers(arena.scene);
     assert.ok(meshes[0].getBoundingInfo().boundingBox.centerWorld.x - before.x > 0.2);
+    for (const rows of shared) {
+      const first = rows[0], position = Vector3.FromArray(first.mesh.getVerticesData("position"),first.i);
+      for (const row of rows) assert.ok(Vector3.Distance(position,Vector3.FromArray(row.mesh.getVerticesData("position"),row.i))<.0001,"intact skin seam must not tear");
+    }
+    const upper = run.hero.body.limbs.find(p=>p.key.endsWith("primary.upper"));
+    run.hero.body.sever(upper,Vector3.Zero());
+    for (const part of run.hero.body.visualParts().filter(p=>p.slot==="primary")) part.host.position.x+=2;
+    arena.scene._frameId++; arena.scene._renderId++; arena.scene.onBeforeRenderObservable.notifyObservers(arena.scene);
+    const detached = skin.filter(m=>m.metadata.humanSlot==="primary");
+    assert.ok(detached.every(m=>m.getBoundingInfo().boundingBox.extendSizeWorld.x<.8),"severed skin must not stretch back to the torso");
+    assert.ok(arena.scene.meshes.some(m=>m.metadata?.humanCap && m.isVisible));
     run.dispose(); disposed = true;
     assert.ok(meshes.every(m => m.isDisposed()));
   } finally { if (!disposed) run.dispose(); arena.dispose(); }
+});
+
+
+test("shipped warrior has an upright crowned helmet, body layers, normals and normalized skin weights", async () => {
+  const buffer = await readFile(new URL("../public/assets/humanoid/warrior.glb", import.meta.url));
+  const length=buffer.readUInt32LE(12), doc=JSON.parse(buffer.subarray(20,20+length)), bin=buffer.subarray(28+length);
+  const read=index=>{ const a=doc.accessors[index],v=doc.bufferViews[a.bufferView]; return Array.from({length:v.byteLength/4},(_,i)=>bin.readFloatLE(v.byteOffset+i*4)); };
+  const helmet=[]; const bodySlots=new Set();
+  for (const mesh of doc.meshes) {
+    const attr=mesh.primitives[0].attributes, positions=read(attr.POSITION), normals=read(attr.NORMAL), weights=read(attr.WEIGHTS_0);
+    assert.ok(positions.every(Number.isFinite)); assert.equal(normals.length,positions.length);
+    for(let i=0;i<weights.length;i+=4) assert.ok(Math.abs(weights.slice(i,i+4).reduce((a,b)=>a+b,0)-1)<1e-5);
+    if(mesh.extras.layer==="body" && !mesh.extras.cap) bodySlots.add(mesh.extras.slot);
+    if(mesh.name.includes(".Helmet.")) for(let i=0;i<positions.length;i+=3) helmet.push(positions.slice(i,i+3));
+  }
+  assert.deepEqual([...bodySlots].sort(),["head","locomotion","primary","secondary","torso"]);
+  const lo=Math.min(...helmet.map(p=>p[1])),hi=Math.max(...helmet.map(p=>p[1]));
+  const width=(low,high)=>{const xs=helmet.filter(p=>p[1]>=lo+(hi-lo)*low && p[1]<=lo+(hi-lo)*high).map(p=>p[0]);return Math.max(...xs)-Math.min(...xs);};
+  assert.ok(hi>1.7 && lo>1.3);
+  assert.ok(width(.88,1)<width(0,.12)*.85,"the closed crown must be above the wider neck opening");
+});
+
+
+test("two-handed equipment dresses the two distinct physical hands", async () => {
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response(await readFile(new URL("../public/assets/humanoid/warrior.glb",import.meta.url)));
+  try { await loadHumanAssets(); } finally { globalThis.fetch=originalFetch; }
+  const arena=await createHeadlessArena({populateDefaultGeometry:false});
+  const run=new DungeonRun(arena.scene,42,"human-maul",false);
+  try {
+    const parts=run.hero.body.visualParts();
+    const lead=parts.find(p=>p.id.endsWith(".hand") && !p.id.includes(".trailing."));
+    const trailing=parts.find(p=>p.id.endsWith(".trailing.hand"));
+    assert.ok(lead && trailing);
+    for (let i=0;i<3;i++) {
+      lead.host.position.x-=.2; trailing.host.position.x+=.2;
+      arena.scene._frameId++;arena.scene._renderId++;arena.scene.onBeforeRenderObservable.notifyObservers(arena.scene);
+      for (const [slot,host] of [["primary",lead.host],["secondary",trailing.host]]) {
+        const glove=arena.scene.meshes.find(m=>m.name.includes(`.${slot}.Hand.`));
+        assert.ok(glove);
+        assert.ok(Vector3.Distance(glove.getBoundingInfo().boundingBox.centerWorld,host.position)<.1,`${slot} glove must follow its own hand`);
+      }
+    }
+  } finally {run.dispose();arena.dispose();}
 });

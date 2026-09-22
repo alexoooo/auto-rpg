@@ -1166,6 +1166,7 @@ export class Golem implements Combatant {
     // The module's own `sever` is what breaks the joints and stops the strikers; this file decides
     // *that* it happens and the module decides *how*, because which joint holds a wrist on is the
     // wrist's business.
+    this.humanAppearance?.detach(module.slot === "primary" && this.effectors.secondary?.module === module.built ? ["primary", "secondary"] : [module.slot]);
     module.built.sever();
 
     const kick = this.scratch.kick.copyFrom(direction);

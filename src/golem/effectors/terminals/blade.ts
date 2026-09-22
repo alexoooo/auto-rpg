@@ -15,7 +15,7 @@ import {
   type ModuleBuild,
 } from "../../module.ts";
 import { RigidStrike } from "../striker.ts";
-import { socketShell } from "../shell.ts";
+import { swordHiltShell, socketShell } from "../shell.ts";
 
 /**
  * The blade: one slender steel body on the end of whatever chain hands it a weld.
@@ -43,7 +43,7 @@ import { socketShell } from "../shell.ts";
  * its whole life because of it. A terminal that ever grows a second leaf sets the masks on
  * each leaf.
  */
-export const bladeTerminal = defineTerminal({
+export const bladeDefinition = (gripToBlade = 0) => defineTerminal({
   id: "blade",
   sockets: 1,
   bite: "edge",
@@ -64,7 +64,7 @@ export const bladeTerminal = defineTerminal({
     // into the world.
     const along = new Vector3();
     new Vector3(0, 1, 0).rotateByQuaternionToRef(rotation, along);
-    const position = onto.world.add(along.scale(B.length / 2));
+    const position = onto.world.add(along.scale(B.length / 2 + gripToBlade));
 
     const part = boxPart(ctx.scene, {
       name,
@@ -83,7 +83,7 @@ export const bladeTerminal = defineTerminal({
 
     let weld: Physics6DoFConstraint | null = joint(ctx.scene, onto.link, part, {
       pivotParent: onto.pivot,
-      pivotChild: new Vector3(0, -B.length / 2, 0),
+      pivotChild: new Vector3(0, -B.length / 2 - gripToBlade, 0),
       axisParent: onto.mount.axis,
       axisChild: new Vector3(1, 0, 0),
       perpParent: onto.mount.perp,
@@ -112,7 +112,7 @@ export const bladeTerminal = defineTerminal({
         // blade is a flat slab. Its bronze ferrule overlaps the hand-side end; the field
         // stays separate because a shell carries no authority, so a later blade that grows a
         // fuller adds meshes here without the collider moving.
-        shell: Object.freeze([part.mesh, ...socketShell(ctx.scene, {
+        shell: Object.freeze([part.mesh, ...(gripToBlade ? swordHiltShell(ctx.scene, { name, host: part.mesh, materials: ctx.materials, bladeBase: -B.length / 2, gripToBlade }) : []), ...socketShell(ctx.scene, {
           name: `${name}.socket`, host: part.mesh, materials: ctx.materials, radius: .026,
           from: new Vector3(0,-B.length/2-.024,0), to: new Vector3(0,-B.length/2+.040,0),
         })]),
@@ -125,7 +125,7 @@ export const bladeTerminal = defineTerminal({
     return Object.freeze({
       parts,
       strikers: Object.freeze([striker]),
-      tipOffset: B.tipOffset,
+      tipOffset: B.tipOffset + gripToBlade,
       // One socket, so there is no trailing grip to be away from anything. Null rather than
       // zero, which would read as a grip held perfectly.
       gripStray: () => null,
@@ -150,3 +150,5 @@ export const bladeTerminal = defineTerminal({
     });
   },
 });
+
+export const bladeTerminal = bladeDefinition();

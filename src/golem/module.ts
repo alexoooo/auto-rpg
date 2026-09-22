@@ -680,7 +680,9 @@ export interface BuiltChain {
    * Optional, because only a chain with a link light enough to be thrown owes the cast.
    */
   castToCarried?(inertiaKgM2: number): void;
-  commandWeldTo?(world: Vector3): void;
+  commandWeldTo?(world: Vector3, orientation?: Quaternion): void;
+  /** World-space commanded hand orientation for a following anatomical grip. */
+  commandedOrientation?(): Quaternion;
   /**
    * Let go of the drive and keep the linkage: what a **carried** limb is.
    *

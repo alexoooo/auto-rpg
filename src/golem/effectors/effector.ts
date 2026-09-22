@@ -251,7 +251,7 @@ export function effectorModule(
             // the one point both anchors can agree on; the achieved weld is wherever the mass
             // has let the first hand get to so far, and a second hand chasing that would arrive
             // late by construction and pull the first one back toward where it already was.
-            trailing.commandWeldTo?.(built.commandedEnd(built.reach + (terminal?.trailingGripOffsetM ?? 0)));
+            trailing.commandWeldTo?.(built.commandedEnd(built.reach + (terminal?.trailingGripOffsetM ?? 0)), built.commandedOrientation?.());
             trailing.step(dt);
           }
           // After both chains, so that a grip taken this step is taken against where the hands

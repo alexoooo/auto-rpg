@@ -44,3 +44,14 @@ The unloaded inertia-conditioning sweep is recorded beside `HUMAN_ARM_DRIVE`.
 The loaded arm checks allow 30 mm hand-to-command stray after a moving sweep and settle,
 and 0.08 rad joint error. These are tracking checks, not a claim that every requested pose
 is reachable. The maul test requires an engaged second grip within 15 mm; null fails.
+
+The clothed body retains shared skin weights across intact module seams. At a sever event,
+the achieved skin is rebound and cross-cut influences are removed; matching seam caps become
+visible. Rigid armour components retain their shape. Normals include authored crease boundaries.
+The palm's local +Z is the handle axis, so direct wrist roll turns about +Z. Physical welds,
+hand geometry and automatic aim use that same convention. Legacy golem mounts are unchanged.
+
+The regression checks also measure palm-to-handle position/orientation on both sides, verify
+that a wrist roll preserves the shaft direction, check intact seams during achieved movement,
+and move a severed arm away to detect skin stretched back to the torso. The shipped helmet's
+crown and opening are checked from actual GLB vertices rather than exporter metadata.

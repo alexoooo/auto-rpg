@@ -61,7 +61,7 @@ import { RigidStrike } from "../striker.ts";
  *   flicked it, which is the whole point of the terminal and the reason the exclusion windows
  *   matter more here than anywhere else on the shelf.
  */
-export const whipDefinition = (config: typeof TERMINAL_WHIP = TERMINAL_WHIP) => defineTerminal({
+export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: number } = TERMINAL_WHIP) => defineTerminal({
   id: "whip",
   sockets: 1,
   bite: "mass",
@@ -89,7 +89,7 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP = TERMINAL_WHIP) => 
 
     const beads: Part[] = [];
     for (let index = 0; index < W.segments; index += 1) {
-      const centre = onto.world.add(along.scale(W.segmentLength * (index + 0.5)));
+      const centre = onto.world.add(along.scale(W.segmentLength * (index + 0.5) - (W.gripFromButt ?? 0)));
       const bead = capsulePart(ctx.scene, {
         name: `${name}.${index}`,
         position: centre,
@@ -117,7 +117,7 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP = TERMINAL_WHIP) => 
       // points it. See the header for why that is the whole of what `roll` means here.
       joint(ctx.scene, onto.link, beads[0], {
         pivotParent: onto.pivot,
-        pivotChild: nearEnd,
+        pivotChild: nearEnd.add(new Vector3(0, W.gripFromButt ?? 0, 0)),
         axisParent: onto.mount.axis,
         axisChild: new Vector3(1, 0, 0),
         perpParent: onto.mount.perp,
@@ -179,7 +179,7 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP = TERMINAL_WHIP) => 
       strikers: Object.freeze(strikers),
       // Where the lash *lands* rather than the segment sum: a rope's reach is measured, and the
       // number and its measurement are beside `config.lashReach`.
-      tipOffset: W.lashReach,
+      tipOffset: W.lashReach - (W.gripFromButt ?? 0),
       gripStray: () => null,
       sever: () => {
         for (const striker of strikers) striker.sever();
