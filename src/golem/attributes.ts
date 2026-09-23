@@ -82,7 +82,37 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * that argument are `docs/analysis/2026-09-23-attribute-measurements.md`, "Movement".
    */
   movement: Object.freeze({ label: "Movement", min: 0.75, max: 1.5, step: 0.05, live: true }),
-  turning: pending("Turning"),
+  /**
+   * How fast the body turns: the carrier's yaw rate and yaw acceleration, together (`withTurning`),
+   * through the same per-build table movement uses, so the biped's feet step the pivot they are
+   * asked for. Not the trunk's twist, which is the torso's. Session 05, 2026-09-23.
+   *
+   * **Nothing the bench can see breaks anywhere from x0.5 to x2.** Node harness,
+   * `runGolemLocomotion`, 1 s standing, 2 s at full turn command, 1 s stopped: the carrier's yaw
+   * rate reaches the multiplier exactly on all four bodies, and no body leaves the supported state or
+   * leans. A sole has no yaw joint, so it twists on the floor in proportion to the spin -- mean
+   * planted slip, mm/s, against the pivot budget `0.99 x yaw rate x hipSide` the spin test already
+   * held it to:
+   *
+   *     turning              0.50   0.75   1.00   1.25   1.50   2.00
+   *     biped   slip          122    183    231    300    344    440
+   *             budget        282    423    564    705    846   1129
+   *     skeleton slip          64     90    114    142    174    243
+   *     time to 90 deg, s    1.32   0.97   0.78   0.68   0.62   0.52   (biped and skeleton)
+   *
+   * The same share of the budget at every level, so the feet set no range. One thing does grow:
+   * both limits scale together, so the angle a body coasts after the command lets go scales with the
+   * stat too -- 0.72 rad on the biped at x1, 1.07 at x1.5.
+   *
+   * **In the duel, turning slowly costs and turning fast barely pays.** Swept against an unmodified
+   * body over 384 bouts a level (`research/stat-sweep.mjs`, the four probe minds): win rate 36.2 %
+   * at x0.5 and 38.4 % at x0.75, paired d -0.36 and -0.24; x0.9 to x1.1 inside the null; 53.0 % and
+   * 54.0 % at x1.25 and x1.5, d 0.09 and 0.10 with intervals that touch zero. The minds command a
+   * full turn 3 % to 48 % of a bout and sit at the cap 2 % to 26 %, so a slower cap binds and a faster
+   * one mostly does not. The range is the swept one. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Turning".
+   */
+  turning: Object.freeze({ label: "Turning", min: 0.5, max: 1.5, step: 0.05, live: true }),
   stability: pending("Stability"),
   recovery: pending("Recovery"),
   armour: pending("Armour"),
@@ -198,6 +228,37 @@ export function withMovement<T extends { readonly carrier: CarrierSpeeds }>(tabl
       maxAccelerationMps2: carrier.maxAccelerationMps2 * movement,
       ...(carrier.backSpeedMps === undefined ? {} : { backSpeedMps: carrier.backSpeedMps * movement }),
       ...(carrier.strafeSpeedMps === undefined ? {} : { strafeSpeedMps: carrier.strafeSpeedMps * movement }),
+    },
+  };
+}
+
+/** The carrier fields turning scales. */
+interface CarrierYaw {
+  readonly maxYawSpeedRadS: number;
+  readonly maxYawAccelerationRadS2: number;
+}
+
+/**
+ * A locomotion table with its carrier's yaw scaled by the turning stat: the fastest it may turn and
+ * how hard it may start or stop a turn, together.
+ *
+ * The same path as `withMovement` and for the same reason -- the builder hands this one table to the
+ * port, the gait and the envelope -- and the two compose, each touching only its own fields. At x1
+ * the table it was handed comes back.
+ *
+ * **The trunk's twist is not this stat's.** `TORSO_WAIST.twistRate` turns the upper body on the
+ * torso's own hinge and belongs to the torso module; a body that turns its feet faster keeps the
+ * waist it had.
+ */
+export function withTurning<T extends { readonly carrier: CarrierYaw }>(table: T, turning: number): T {
+  if (turning === 1) return table;
+  const carrier = table.carrier;
+  return {
+    ...table,
+    carrier: {
+      ...carrier,
+      maxYawSpeedRadS: carrier.maxYawSpeedRadS * turning,
+      maxYawAccelerationRadS2: carrier.maxYawAccelerationRadS2 * turning,
     },
   };
 }

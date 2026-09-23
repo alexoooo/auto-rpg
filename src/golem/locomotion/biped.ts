@@ -43,7 +43,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
-import { attributeOf, withMovement } from "../attributes.ts";
+import { attributeOf, withMovement, withTurning } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -366,10 +366,10 @@ return defineLocomotion({
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
-    // This body's own table: the carrier's travel scaled by its movement stat, read by the port,
-    // the stride and the envelope alike (`withMovement` says why all of them), and the gait
-    // re-timed to carry it (`bipedAtMovement`).
-    const B = bipedAtMovement(table, attributeOf(ctx, "movement"));
+    // This body's own table: the carrier's travel scaled by its movement stat and its yaw by its
+    // turning stat, read by the port, the stride and the envelope alike (`withMovement` says why
+    // all of them), and the gait re-timed to carry the travel (`bipedAtMovement`).
+    const B = bipedAtMovement(withTurning(table, attributeOf(ctx, "turning")), attributeOf(ctx, "movement"));
       const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");

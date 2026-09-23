@@ -69,7 +69,7 @@ test("a build context without attributes reads every stat at 1, and one with the
 });
 
 /** The rows a session has measured and turned live. Each stat's session adds its own. */
-const MEASURED = Object.freeze(["movement"]);
+const MEASURED = Object.freeze(["movement", "turning"]);
 
 test("only a measured row is live, and every other row accepts only 1", () => {
   // Each stat's own session turns its row live. Until then a value other than 1 is a stat nothing
@@ -103,17 +103,17 @@ test("a setting is refused by shape, by name and by range, and accepted inside i
   assert.match(attributesRefusal({ movement: Infinity }, LIVE) ?? "", /not a number/);
   assert.match(attributesRefusal({ movement: 1.51 }, LIVE) ?? "", /outside x0.75 to x1.5/);
   assert.match(attributesRefusal({ movement: 0.74 }, LIVE) ?? "", /outside/);
-  assert.match(attributesRefusal({ turning: 1.1 }, LIVE) ?? "", /not measured yet/,
+  assert.match(attributesRefusal({ stability: 1.1 }, LIVE) ?? "", /not measured yet/,
     "a row that is not live in this table still refuses");
 });
 
 test("a golem setup carrying a stat nothing reads is refused where every build is checked", () => {
   const setup = defaultGolemSetup();
   assert.equal(golemSetupRefusal(setup), null);
-  assert.equal(golemSetupRefusal({ ...setup, attributes: { turning: 1 } }), null);
+  assert.equal(golemSetupRefusal({ ...setup, attributes: { stability: 1 } }), null);
   assert.equal(golemSetupRefusal({ ...setup, attributes: { movement: 1.2 } }), null, "a measured stat inside its range");
   assert.match(golemSetupRefusal({ ...setup, attributes: { movement: 1.6 } }) ?? "", /Movement x1.6 is outside/);
-  assert.match(golemSetupRefusal({ ...setup, attributes: { turning: 1.2 } }) ?? "", /Turning is not measured yet/);
+  assert.match(golemSetupRefusal({ ...setup, attributes: { stability: 1.2 } }) ?? "", /Stability is not measured yet/);
   assert.match(golemSetupRefusal({ ...setup, attributes: { reach: 1 } }) ?? "", /no attribute "reach"/);
 });
 
@@ -214,8 +214,8 @@ test("a golem resolves its stats once, and every module it builds is handed them
     assert.deepEqual(plain.attributes, DEFAULT_ATTRIBUTES);
     const explicit = build({ ...defaultGolemSetup(), attributes: { movement: 1, size: 1 } }, 1);
     assert.deepEqual(explicit.attributes, DEFAULT_ATTRIBUTES);
-    assert.throws(() => build({ ...defaultGolemSetup(), attributes: { turning: 1.2 } }, 0),
-      /Turning is not measured yet/, "a stat nothing reads never reaches a body");
+    assert.throws(() => build({ ...defaultGolemSetup(), attributes: { stability: 1.2 } }, 0),
+      /Stability is not measured yet/, "a stat nothing reads never reaches a body");
 
     // Every registered definition is frozen, so there is no builder to spy on: the proof that the
     // context reaches a module is a module doing something with it. The locomotion envelope is the
@@ -224,6 +224,13 @@ test("a golem resolves its stats once, and every module it builds is handed them
     const speedOf = (golem) => golem.locomotionModule.envelope().axes.find((axis) => axis.id === "speed");
     assert.equal(speedOf(fast).max, speedOf(plain).max * 1.5, "the top speed");
     assert.equal(speedOf(fast).rate, speedOf(plain).rate * 1.5, "and the acceleration");
+    const yawOf = (golem) => golem.locomotionModule.envelope().axes.find((axis) => axis.id === "yaw");
+    assert.deepEqual(yawOf(fast), yawOf(plain), "movement leaves the turn alone");
+    const turning = ATTRIBUTES.turning.max;
+    const quick = build({ ...defaultGolemSetup(), attributes: { turning, movement: 1.5 } }, 0);
+    assert.equal(yawOf(quick).max, yawOf(plain).max * turning, "the turn rate");
+    assert.equal(yawOf(quick).rate, yawOf(plain).rate * turning, "and how hard it starts one");
+    assert.deepEqual(speedOf(quick), speedOf(fast), "and turning leaves the travel alone, with both set");
   } finally {
     arena.dispose?.();
   }

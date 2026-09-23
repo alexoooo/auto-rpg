@@ -41,7 +41,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
-import { attributeOf, withMovement } from "../attributes.ts";
+import { attributeOf, withMovement, withTurning } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -250,7 +250,7 @@ return defineLocomotion({
 
   build(ctx: ModuleBuild): BuiltLocomotion {
     // This body's own table, its carrier's travel scaled by its movement stat.
-    const M = withMovement(table, attributeOf(ctx, "movement"));
+    const M = withTurning(withMovement(table, attributeOf(ctx, "movement")), attributeOf(ctx, "turning"));
     const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");

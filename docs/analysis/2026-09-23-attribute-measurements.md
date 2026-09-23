@@ -174,3 +174,90 @@ disengaging.
 
 A spacing mind is where this sweep should be repeated.
 
+## Turning (session 05)
+
+Scales the carrier's yaw rate and yaw acceleration together (`withTurning` in
+`src/golem/attributes.ts`), through the per-build table movement already hands to the port, the gait
+and the envelope; the two stats compose, each touching only its own fields. The trunk's twist
+(`TORSO_WAIST.twistRate`) is the torso's and is not scaled. **Live at x0.5 to x1.5.** At x1.00 the
+body fingerprint reads 55 of 55 `same`.
+
+### Who reads yaw
+
+`maxYawSpeedRadS` and `maxYawAccelerationRadS2` are read by the supported carrier, by each module's
+envelope and world sweep, and on the biped by the stepping itself: `bipedFootSpeed` and `bipedPose`
+turn a yaw into a fore-aft differential between the feet. All of those read the per-build table, so
+the legs step the pivot the carrier is asked for. `DEFAULT_SUPPORTED_CARRIER` in
+`src/supported-locomotion-production.ts` is only a fallback that every module overrides.
+
+### Bench
+
+Node harness, `runGolemLocomotion`. In place: 1 s standing, 2 s at full turn command, 1 s stopped.
+Peak yaw rate is the carrier's own, and tracks the multiplier exactly on all four bodies (biped
+1.50 to 6.00 rad/s from x0.5 to x2). No body left the supported state or leaned at any level.
+
+| turning | 0.50 | 0.75 | 1.00 | 1.25 | 1.50 | 1.75 | 2.00 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| time to 90 deg, biped and skeleton (s) | 1.32 | 0.97 | 0.78 | 0.68 | 0.62 | 0.55 | 0.52 |
+| time to 90 deg, multileg (s) | -- | 1.98 | 1.55 | 1.28 | 1.12 | 0.98 | 0.88 |
+| time to 90 deg, wheel (s) | 0.90 | 0.68 | 0.58 | 0.52 | 0.47 | 0.43 | 0.40 |
+| biped slip (mm/s) | 122 | 183 | 231 | 300 | 344 | 381 | 440 |
+| skeleton slip (mm/s) | 64 | 90 | 114 | 142 | 174 | 210 | 243 |
+| multileg slip (mm/s) | 120 | 181 | 241 | 301 | 362 | 422 | 482 |
+| angle coasted after release, biped (rad) | 0.36 | 0.54 | 0.72 | 0.89 | 1.07 | 1.25 | 1.43 |
+
+**The slip is proportional to the spin, and that is why it sets no range.** About 77 mm/s per rad/s
+on the biped and 38 on the skeleton at every level, with joint lag under 0.02 rad throughout, so the
+slew is not binding. A sole has no yaw joint and twists on the floor as the body turns over it.
+Measured against the walk's absolute 300 mm/s the biped would stop at x1.25; measured against the
+pivot budget `a_sole_holds_its_ground_sideways_and_in_a_spin_too_and_not_only_in_a_walk` already
+holds a spin to -- 0.99 of the travel the pivot asks of each foot -- it is the same share at every
+level. The test for this stat holds both ends to that budget.
+
+**Walking while turning is the existing gap, and the stat does not widen it.** At full forward and
+full turn together, the biped's slip is 1057 mm/s at x1 and *falls* as turning rises (780 at
+x1.25, 670 at x1.5); the skeleton reads 1481 at x1 and 773 at x1.5. That is the same sideways-gait
+gap as movement's mixed course.
+
+**The coast grows with the stat.** Both limits scale by one factor, so the stopping angle
+`v^2 / 2a` scales by that factor too. Scaling the acceleration by the square would hold it; it was
+not done, because nothing in the bench or the sweep asks for it.
+
+### How much minds turn
+
+Node harness, `createBout`, the left corner's own mind against the others on three seeds each, read
+from the carrier's yaw velocity and its request:
+
+| Mind | Mean yaw command | Full-turn command | At >= 0.9 of the cap | Facing > 0.5 rad off the opponent |
+| --- | ---: | ---: | ---: | ---: |
+| golem-champion | 0.52 | 32.8 % | 11.9 % | 22.6 % |
+| golem-miser | 0.23 | 3.5 % | 2.0 % | 7.2 % |
+| golem-brawler | 0.63 | 47.8 % | 26.4 % | 37.8 % |
+| golem-duelist | 0.57 | 29.6 % | 12.1 % | 14.8 % |
+
+The command reverses often enough that the acceleration limit keeps the carrier below its cap.
+
+### Sweep
+
+`research/runs/stat-turning`, 192 blocks per level.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 36.2 [31.3, 41.1] | 40.1 / 32.3 | -0.140 [-0.190, -0.088] | -0.39 | -0.132 [-0.184, -0.079] | -0.36 | 0 | 33.6 | 6.58 | 8.21 |
+| x0.75 | 384 | 38.4 [33.1, 43.8] | 43.2 / 33.6 | -0.096 [-0.144, -0.045] | -0.27 | -0.088 [-0.140, -0.035] | -0.24 | 1 | 27.1 | 7.18 | 8.28 |
+| x0.90 | 384 | 50.4 [45.1, 55.7] | 49.0 / 51.8 | -0.004 [-0.056, 0.048] | -0.01 | 0.004 [-0.052, 0.062] | 0.01 | 1 | 26.7 | 7.68 | 7.59 |
+| x1.00 (control) | 384 | 48.8 [43.6, 54.3] | 51.0 / 46.6 | -0.008 [-0.057, 0.043] | -0.02 | -- | -- | 1 | 28.1 | 7.60 | 7.68 |
+| x1.10 | 384 | 55.1 [49.5, 60.5] | 62.2 / 47.9 | 0.002 [-0.049, 0.055] | 0.01 | 0.011 [-0.046, 0.069] | 0.03 | 1 | 25.7 | 7.83 | 7.70 |
+| x1.25 | 384 | 53.0 [47.9, 58.6] | 52.3 / 53.6 | 0.029 [-0.019, 0.080] | 0.08 | 0.037 [-0.019, 0.096] | 0.09 | 1 | 25.3 | 7.87 | 7.50 |
+| x1.50 | 384 | 54.0 [48.6, 59.4] | 51.8 / 56.3 | 0.030 [-0.018, 0.080] | 0.09 | 0.038 [-0.016, 0.091] | 0.10 | 1 | 25.9 | 7.82 | 7.41 |
+
+**Turning is live in the duel, and lopsided.** A slow turn loses clearly: x0.5 and x0.75 win 36 % and
+38 %, with paired d -0.36 and -0.24 and intervals well clear of zero. A fast turn gains a little and
+not reliably: x1.25 and x1.5 win 53 % and 54 %, d 0.09 and 0.10, with intervals that touch zero.
+x0.9 to x1.1 sit inside the null. The x1.00 row reproduces movement's control exactly.
+
+That is the shape the probe above predicts: halving the cap binds on every full-turn command, while
+raising it helps only the fraction of a bout a mind spends at the cap. In the per-pair split, at 24
+bouts a cell, the miser's rows fall furthest at the slow end (against the duelist 37.5 % at x1,
+8.3 % at x0.5; against the champion 25.0 % to 0.0 %), which is worth a look before anyone reads a
+mind's style off it.

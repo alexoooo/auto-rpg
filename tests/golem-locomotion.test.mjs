@@ -33,6 +33,7 @@ import { SUPPORTED_LOCOMOTION_V1, constructPostureIsSupported } from
 import {
   LOCOMOTION_MODULES, LOCOMOTION_SEQUENCE, WALK_SEQUENCE, runGolemLocomotion, walkSequenceFor,
 } from "./harness/golem-bench.mjs";
+import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { ATTRIBUTES, resolveAttributes } from "../src/golem/attributes.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
@@ -547,6 +548,47 @@ test("the_movement_stat_carries_every_body_at_its_multiple_and_the_legs_keep_up_
         assert.ok(run.state.meanFootSlipMps <= budgets[moduleId],
           `${where}: mean planted slip ${(run.state.meanFootSlipMps * 1000).toFixed(1)} mm/s against `
           + `${(budgets[moduleId] * 1000).toFixed(0)}`);
+      }
+    }
+  }
+});
+
+/** A spin long enough to reach the cap at the slow end and short enough to run eight times. */
+const SHORT_SPIN = Object.freeze([
+  { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  { name: "turn", until: 3.00, forward: 0, strafe: 0, turn: 1, crouch: 0 },
+  { name: "stop", until: 4.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+]);
+
+test("the_turning_stat_spins_every_body_at_its_multiple_and_a_sole_keeps_its_share_of_the_pivot", async () => {
+  // Session 05's claims at the ends of the range the row ships (the table is its doc comment in
+  // `src/golem/attributes.ts`). The carrier's yaw rate is the stat doing anything at all. The slip
+  // is held to the pivot budget the test below uses -- a fraction of the travel the pivot asks of
+  // each foot, which grows with the stat -- because a sole with no yaw joint twists on the floor in
+  // proportion to the spin, and an absolute budget would only be a test that a body turns slowly.
+  const row = ATTRIBUTES.turning;
+  for (const moduleId of ["biped", "skeleton", "multileg", "wheel"]) {
+    const table = LOCOMOTION_MODULES[moduleId];
+    for (const level of [row.min, row.max]) {
+      let reached = 0;
+      let unsupported = 0;
+      const run = await runGolemLocomotion({ moduleId, sequence: SHORT_SPIN, attributes: { turning: level },
+        watch: ({ module, phase }) => {
+          if (phase !== "turn") return;
+          reached = Math.max(reached, Math.abs(module.port.carrier.current.yawVelocity));
+          if (module.evidence().state !== "supported") unsupported++;
+        } });
+      const where = `${moduleId} at x${level}`;
+      const cap = table.carrier.maxYawSpeedRadS * level;
+      assert.ok(Math.abs(reached - cap) < 0.01 * table.carrier.maxYawSpeedRadS,
+        `${where} turned at ${reached.toFixed(3)} rad/s, not ${cap.toFixed(3)}`);
+      assert.equal(unsupported, 0, `${where} left the supported state turning`);
+      const hipSide = { biped: B.hipSide, skeleton: SKELETON_BIPED.hipSide }[moduleId];
+      if (hipSide !== undefined) {
+        const budget = 0.99 * cap * hipSide;
+        assert.ok(run.state.meanFootSlipMps <= budget,
+          `${where}: mean planted slip ${(run.state.meanFootSlipMps * 1000).toFixed(1)} mm/s against a `
+          + `pivot budget of ${(budget * 1000).toFixed(0)}`);
       }
     }
   }
