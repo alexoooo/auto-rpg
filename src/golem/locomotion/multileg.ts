@@ -251,6 +251,9 @@ return defineLocomotion({
   build(ctx: ModuleBuild): BuiltLocomotion {
     // This body's own table, its carrier's travel scaled by its movement stat.
     const M = withTurning(withMovement(table, attributeOf(ctx, "movement")), attributeOf(ctx, "turning"));
+    // The stability stat, published on every authority this body hands its port as a plain factor
+    // on its thresholds (`stabilityCapacity` in `src/supported-locomotion-state.ts`).
+    const stability = attributeOf(ctx, "stability");
     const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");
@@ -631,6 +634,7 @@ return defineLocomotion({
         supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => Object.freeze({ role }))),
         braceCapacityMultiplier: M.braceCapacityMultiplier,
         gaitStabilityScale: scale,
+        stabilityScale: stability,
       });
     };
 

@@ -119,6 +119,28 @@ test("a block's margin cancels side, its win rate counts draws as half, and it p
   assert.deepEqual(Object.keys(raised.byMinds).sort(), ["a vs a", "a vs b"]);
 });
 
+test("knockdowns and time down are each corner's own, and a corpus without them reports none", () => {
+  const levels = sweepLevels({ kind: "stat", stat: "stability" }, BASE, [1]);
+  const jobs = sweepJobs({ levels, blocks: 1, minds: ["a"], runSeed: 5 });
+  const sides = (left, right) => ({
+    left: { damage: 1, knockdowns: left[0], downSeconds: left[1] },
+    right: { damage: 2, knockdowns: right[0], downSeconds: right[1] },
+  });
+  // The modified corner goes down 3 times for 8 s on the left and once for 4 s on the right; the
+  // other corner 0 and 2 times. Each bout is 40 s.
+  const rows = [
+    row(jobs.find((j) => j.modified === "left"), "right", [0.2, 0.6], { sides: sides([3, 8], [0, 0]) }),
+    row(jobs.find((j) => j.modified === "right"), "left", [0.7, 0.1], { sides: sides([2, 6], [1, 4]) }),
+  ];
+  const [level] = summarizeSweep(rows, levels);
+  assert.deepEqual(level.down, {
+    knockdowns: (3 + 1) / 2, otherKnockdowns: (0 + 2) / 2,
+    share: (8 / 40 + 4 / 40) / 2, otherShare: (0 / 40 + 6 / 40) / 2,
+  });
+  const old = rows.map((r, i) => i === 0 ? { ...r, sides: { left: { damage: 1 }, right: { damage: 2 } } } : r);
+  assert.equal(summarizeSweep(old, levels)[0].down, undefined, "one row without the count and the level has none");
+});
+
 test("swapping which corner is marked modified mirrors the win rate and the margin", () => {
   const levels = sweepLevels({ kind: "stat", stat: "movement" }, BASE, [1]);
   const jobs = sweepJobs({ levels, blocks: 3, minds: ["a", "b"], runSeed: 3 });

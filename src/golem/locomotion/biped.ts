@@ -370,6 +370,9 @@ return defineLocomotion({
     // turning stat, read by the port, the stride and the envelope alike (`withMovement` says why
     // all of them), and the gait re-timed to carry the travel (`bipedAtMovement`).
     const B = bipedAtMovement(withTurning(table, attributeOf(ctx, "turning")), attributeOf(ctx, "movement"));
+    // The stability stat, published on every authority this body hands its port as a plain factor
+    // on its thresholds (`stabilityCapacity` in `src/supported-locomotion-state.ts`).
+    const stability = attributeOf(ctx, "stability");
       const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");
@@ -827,6 +830,7 @@ return defineLocomotion({
         supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => Object.freeze({ role }))),
         braceCapacityMultiplier: B.braceCapacityMultiplier,
         gaitStabilityScale: scale,
+        stabilityScale: stability,
       });
     };
 

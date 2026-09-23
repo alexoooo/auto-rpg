@@ -113,7 +113,37 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * `docs/analysis/2026-09-23-attribute-measurements.md`, "Turning".
    */
   turning: Object.freeze({ label: "Turning", min: 0.5, max: 1.5, step: 0.05, live: true }),
-  stability: pending("Stability"),
+  /**
+   * How hard the body is to knock over: a plain factor on both the stagger and the fall threshold of
+   * its stability ledger (`stabilityScale`, formed only in `stabilityCapacity` in
+   * `src/supported-locomotion-state.ts`), and on the rule that interrupts a rise. Not through the
+   * brace multiplier, which is refused below 1 and is the wheel's 1 today. It moves the impulse
+   * ledger and nothing else: a body that tips over its own feet is not steadier for it. Session 06,
+   * 2026-09-23.
+   *
+   * **The thresholds move by exactly the multiple on every body.** Node harness,
+   * `runGolemLocomotion`, a standing body shoved once, the bench's `shoveImpulseNs` bisected; the
+   * fall threshold, N.s, is the ledger's prediction to the hundredth at every level (stagger reads
+   * 0.02-0.03 N.s over it, the ledger's decay across the shove):
+   *
+   *     stability            0.50   1.00   2.00
+   *     biped   (90.7 kg)    0.95   1.91   3.81
+   *     skeleton (65.8 kg)   0.92   1.84   3.69
+   *     multileg (102.4 kg)  1.86   3.73   7.46
+   *     wheel   (117.5 kg)   0.58   1.15   2.30
+   *
+   * No body's own gait leaves the supported state at any level, x0.5 included, on its walk or on a
+   * course that backs off, strafes and spins.
+   *
+   * **In the duel, being easy to fell costs and being hard to fell barely pays**, as with turning.
+   * Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): on stone
+   * with the four probe minds, x0.5 falls 13.7 times a bout against the control's 4.9 and spends 38 %
+   * of it down, and wins 33.5 % (paired d -0.45); x2 falls 1.6 times, spends 4.8 % down, and wins
+   * 51.8 % (d 0.15, an interval that just clears zero). The skeleton duelist's mirror is a gentler
+   * slope, 42.4 % at x0.5 to 55 % at x1.5 and x2. The range is the swept one. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Stability".
+   */
+  stability: Object.freeze({ label: "Stability", min: 0.5, max: 2, step: 0.05, live: true }),
   recovery: pending("Recovery"),
   armour: pending("Armour"),
   toughness: pending("Toughness"),

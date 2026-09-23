@@ -10,8 +10,10 @@ import {
   initialSupportedLocomotionState,
   isFreshStandableSupport,
   risingEligibility,
+  stabilityCapacity,
   stepSupportedLocomotionState,
 } from "../src/supported-locomotion.ts";
+import { recoveryHitInterrupted } from "../src/supported-locomotion-production.ts";
 
 const authority = Object.freeze({ carrierPartId: "carrier", supportBindings: Object.freeze([{ role: "left" }, { role: "right" }]),
   braceCapacityMultiplier: 1, gaitStabilityScale: 1 });
@@ -33,6 +35,36 @@ test("the_v1_stability_and_recovery_constants_are_frozen_as_measured_literals", 
     SUPPORT_GRACE_S: 0.35,
     RISING_DURATION_S: 0.45,
   });
+});
+
+test("the_stability_stat_is_a_factor_on_both_thresholds_and_on_the_recovery_interrupt_and_may_go_below_one", () => {
+  const shove = (specific, extra = {}) => stepSupportedLocomotionState(state(), boundary({
+    authoredShoves: [{ horizontalShoveNs: [specific, 0] }], ...extra,
+  }));
+  // Brace 1 is a wheel's, and the whole reason the stat is its own field: brace is refused below 1.
+  const shaky = { ...authority, stabilityScale: 0.5 };
+  assert.equal(shove(0.003 - 1e-6, { authority: shaky }).state, "supported");
+  assert.equal(shove(0.003, { authority: shaky }).state, "staggered");
+  assert.equal(shove(0.007, { authority: shaky }).state, "fallen");
+  const steady = { ...authority, stabilityScale: 2 };
+  assert.equal(shove(0.012 - 1e-6, { authority: steady }).state, "supported");
+  assert.equal(shove(0.014, { authority: steady }).state, "staggered", "x1's fall is x2's stagger");
+  assert.equal(shove(0.028, { authority: steady }).state, "fallen");
+  assert.equal(shove(0.014).state, "fallen", "the control: the same shove fells a body at x1");
+
+  const all = { ...authority, braceCapacityMultiplier: 1.5, gaitStabilityScale: 0.8, stabilityScale: 1.25 };
+  assert.equal(stabilityCapacity(all), 1.5 * 0.8 * 1.25);
+  assert.equal(stabilityCapacity(authority), 1, "absent reads as 1");
+  assert.equal(stabilityCapacity(null), 1);
+
+  const hit = (specific) => [{ kind: "specific-impulse", specificImpulseMps: specific }];
+  assert.equal(recoveryHitInterrupted(hit(0.006), 1, authority), true);
+  assert.equal(recoveryHitInterrupted(hit(0.006), 1, steady), false, "the rise is interrupted on the same rule");
+  assert.equal(recoveryHitInterrupted(hit(0.003), 1, shaky), true);
+
+  for (const bad of [0, -1, Number.NaN, Infinity]) {
+    assert.throws(() => shove(0, { authority: { ...authority, stabilityScale: bad } }), /invalid stability scaling/, String(bad));
+  }
 });
 
 test("wall_opponent_weapon_debris_and_stale_contacts_are_not_standable_ground", () => {

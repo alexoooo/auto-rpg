@@ -1,6 +1,6 @@
 import { parentPort } from "node:worker_threads";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { createBout, freshHavok } from "../tests/harness/bout-runner.mjs";
+import { createBout, freshHavok, FRAME } from "../tests/harness/bout-runner.mjs";
 import { CONFIG } from "../src/config.ts";
 import { candidateMind } from "../src/golem/research-candidates.ts";
 import { policyMind } from "../src/mind.ts";
@@ -41,8 +41,20 @@ export async function execute(job, manifest) {
     seeds: job.seeds, leftGolem: builds.get(job.leftBuild), rightGolem: builds.get(job.rightBuild),
     ...manifest.protocol, physics: await freshHavok() });
   let result, vitality;
+  // Knockdowns and time down, per side, read off each body's support state once a frame: a
+  // knockdown is an edge into `fallen`, and time down is every frame spent fallen or rising. A
+  // body with no supported port (none today) reads zero rather than throwing.
+  const down = { left: { knockdowns: 0, seconds: 0, was: "supported" }, right: { knockdowns: 0, seconds: 0, was: "supported" } };
+  const watchDown = () => {
+    for (const side of ["left", "right"]) {
+      const state = bout[side].locomotionModule?.port?.state ?? "supported";
+      if (state === "fallen" && down[side].was !== "fallen") down[side].knockdowns++;
+      if (state === "fallen" || state === "rising") down[side].seconds += FRAME;
+      down[side].was = state;
+    }
+  };
   try {
-    while (bout.step()) { /* runBout's frame ordering */ }
+    while (bout.step()) watchDown();
     result = bout.finish();
     vitality = [bout.left.vitality, bout.right.vitality];
   } finally { bout.dispose(); }
@@ -50,6 +62,7 @@ export async function execute(job, manifest) {
     damage: result[side].damage, hits: result[side].hits, blocks: result[side].blocks,
     descriptors: descriptors(result.behaviour[side], retreat[side], attacks[side]),
     engagement: result.behaviour[side].engagement,
+    knockdowns: down[side].knockdowns, downSeconds: down[side].seconds,
   }]));
   return { ...job, status: "ok", winner: result.winner, ending: result.ending, seconds: result.seconds,
     overtime: result.seconds >= CONFIG.bout.overtimeSeconds, sides, vitality,

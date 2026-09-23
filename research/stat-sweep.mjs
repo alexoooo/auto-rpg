@@ -174,6 +174,18 @@ function figures(blocks, controlMargins) {
     taken: mean(bouts.map((row) => row.sides[other(row.modified)].damage)),
     endings,
   };
+  // Knockdowns and the share of a bout spent down, for each corner. Rows written before the worker
+  // counted them carry neither field, and a level with any such row reports none rather than a
+  // mean over the ones that happen to have it.
+  if (bouts.every((row) => row.sides.left.knockdowns !== undefined && row.sides.right.knockdowns !== undefined)) {
+    const share = (row, side) => row.sides[side].downSeconds / Math.max(row.seconds, 1e-9);
+    out.down = {
+      knockdowns: mean(bouts.map((row) => row.sides[row.modified].knockdowns)),
+      otherKnockdowns: mean(bouts.map((row) => row.sides[other(row.modified)].knockdowns)),
+      share: mean(bouts.map((row) => share(row, row.modified))),
+      otherShare: mean(bouts.map((row) => share(row, other(row.modified)))),
+    };
+  }
   if (controlMargins) {
     const delta = list.map((b, i) => {
       const control = controlMargins.get(b.pair);
@@ -238,6 +250,11 @@ export function markdownSweep(summary, header) {
     lines.push("", "Win % of the modified corner by mind pair, modified mind first:", "",
       `| Minds | ${ran.map((level) => level.key).join(" | ")} |`, `| --- |${ran.map(() => " ---: |").join("")}`);
     for (const name of names) lines.push(`| ${name} | ${ran.map((level) => level.byMinds[name] ? pct(level.byMinds[name].winRate.mean) : "--").join(" | ")} |`);
+    if (ran.every((level) => level.down)) {
+      lines.push("", "Knockdowns per bout and the share of a bout spent fallen or rising, modified corner first:", "",
+        "| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |", "| --- | ---: | ---: | ---: | ---: |");
+      for (const level of ran) lines.push(`| ${level.key} | ${level.down.knockdowns.toFixed(2)} | ${level.down.otherKnockdowns.toFixed(2)} | ${pct(level.down.share)} | ${pct(level.down.otherShare)} |`);
+    }
     const endings = [...new Set(ran.flatMap((level) => Object.keys(level.endings)))].sort();
     lines.push("", "Endings:", "", `| Level | ${endings.join(" | ")} |`, `| --- |${endings.map(() => " ---: |").join("")}`);
     for (const level of ran) lines.push(`| ${level.key} | ${endings.map((e) => level.endings[e] ?? 0).join(" | ")} |`);
@@ -254,13 +271,14 @@ async function main() {
     seed: { type: "string", default: "20260923" }, dir: { type: "string" },
   } });
   if (!values.stat === !values.edge) throw new Error("name exactly one of --stat <id> or --edge <named build>");
-  const [{ NAMED_BUILDS }, { golemSetupRefusal }, { runJobs }, { fingerprint }] = await Promise.all([
+  const [{ PLAYABLE_BUILDS }, { golemSetupRefusal }, { runJobs }, { fingerprint }] = await Promise.all([
     import("../src/golem/roster.ts"), import("../src/golem/build.ts"),
     import("./runner.mjs"), import("./fingerprint.mjs"),
   ]);
+  // Every playable build, not only the stone roster, so a stat can be swept on a skeleton or a human.
   const namedBuild = (name) => {
-    const found = NAMED_BUILDS.find((build) => build.name === name);
-    if (!found) throw new Error(`there is no named build "${name}"; they are ${NAMED_BUILDS.map((b) => b.name).join(", ")}`);
+    const found = PLAYABLE_BUILDS.find((build) => build.name === name);
+    if (!found) throw new Error(`there is no named build "${name}"; they are ${PLAYABLE_BUILDS.map((b) => b.name).join(", ")}`);
     return found.setup;
   };
   const subject = values.stat ? { kind: "stat", stat: values.stat } : { kind: "edge", build: values.edge };

@@ -23,7 +23,7 @@ import {
   type WorldPoint,
 } from "./supported-locomotion-runtime.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
-import { initialSupportedLocomotionState, stepSupportedLocomotionState,
+import { initialSupportedLocomotionState, stabilityCapacity, stepSupportedLocomotionState,
   SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState,
   type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 /**
@@ -113,7 +113,7 @@ export function recoveryHitInterrupted(events: readonly StabilityEvent[], suppor
   const freshSpecificImpulseMps = events.reduce((sum, event) => sum +
     (event.kind === "specific-impulse" ? event.specificImpulseMps :
       Math.hypot(...event.horizontalShoveNs) / supportedMassKg), 0);
-  const capacity = (authority?.braceCapacityMultiplier ?? 1) * (authority?.gaitStabilityScale ?? 1);
+  const capacity = stabilityCapacity(authority);
   return freshSpecificImpulseMps >= SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity;
 }
 
@@ -393,8 +393,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const request = this.staged.sample().request;
     const allowed = this.priorAllowed();
     const authority = this.activeAuthority ?? this.options.authority();
-    const capacity = (authority?.braceCapacityMultiplier ?? 1) *
-      (authority?.gaitStabilityScale ?? 1);
+    const capacity = stabilityCapacity(authority);
     const staged = this.staged.snapshot();
     const constrained = request !== null && allowed !== null &&
       (Math.abs(request.localForward - allowed.localForward) > 1e-9 ||

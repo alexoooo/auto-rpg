@@ -594,6 +594,53 @@ test("the_turning_stat_spins_every_body_at_its_multiple_and_a_sole_keeps_its_sha
   }
 });
 
+test("the_stability_stat_moves_both_thresholds_on_every_body_and_nothing_staggers_on_its_own_gait_at_the_floor", async () => {
+  // Session 06's claims at the ends of the range the row ships (the table is its doc comment in
+  // `src/golem/attributes.ts`): both thresholds are the multiple of x1's on every body, a shove
+  // either side of the moved fall threshold lands on the right side of it -- on the biped, and on
+  // the wheel, whose brace of 1 is why the stat is not routed through brace -- and a body at the
+  // floor still walks without its own gait putting it over.
+  const row = ATTRIBUTES.stability;
+  const blocks = { biped: B, skeleton: SKELETON_BIPED, multileg: LOCOMOTION_MULTILEG, wheel: LOCOMOTION_WHEEL };
+  const STAND = [{ name: "stand", until: 0.5, forward: 0, strafe: 0, turn: 0, crouch: 0 }];
+  const read = async (moduleId, level) => {
+    let stability = null;
+    await runGolemLocomotion({ moduleId, sequence: STAND, attributes: level === 1 ? null : { stability: level },
+      watch: ({ module }) => { stability = module.port.diagnostic().stability; } });
+    return stability;
+  };
+  const SHOVE = [
+    { name: "stand", until: 1.0, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+    { name: "shove", until: 1.0 + 1 / 60, forward: 0, strafe: 0, turn: 0, crouch: 0, shove: true },
+    { name: "after", until: 2.5, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  ];
+  const fell = async (moduleId, level, impulse) => {
+    let down = false;
+    await runGolemLocomotion({ moduleId, sequence: SHOVE, overrides: [[blocks[moduleId], { shoveImpulseNs: impulse }]],
+      attributes: { stability: level },
+      watch: ({ module, phase }) => { if (phase !== "stand" && module.evidence().state === "fallen") down = true; } });
+    return down;
+  };
+  for (const moduleId of ["biped", "skeleton", "multileg", "wheel"]) {
+    const base = await read(moduleId, 1);
+    for (const level of [row.min, row.max]) {
+      const where = `${moduleId} at x${level}`;
+      const moved = await read(moduleId, level);
+      assert.ok(Math.abs(moved.staggerAtMps - base.staggerAtMps * level) < 1e-12, `${where} staggers at ${moved.staggerAtMps}`);
+      assert.ok(Math.abs(moved.fallAtMps - base.fallAtMps * level) < 1e-12, `${where} falls at ${moved.fallAtMps}`);
+      if (moduleId === "biped" || moduleId === "wheel") {
+        const fallNs = moved.fallAtMps * moved.supportedMassKg;
+        assert.equal(await fell(moduleId, level, fallNs * 0.95), false, `${where} fell under its own threshold`);
+        assert.equal(await fell(moduleId, level, fallNs * 1.05), true, `${where} stood over its own threshold`);
+      }
+    }
+    let off = 0;
+    await runGolemLocomotion({ moduleId, sequence: walkSequenceFor(moduleId), attributes: { stability: row.min },
+      watch: ({ module }) => { if (module.evidence().state !== "supported") off++; } });
+    assert.equal(off, 0, `${moduleId} at x${row.min} left the supported state on its own walk`);
+  }
+});
+
 test("a_sole_holds_its_ground_sideways_and_in_a_spin_too_and_not_only_in_a_walk", async () => {
   // **The walk above was the only command this bench ever read a slip number over**, and the
   // owner's first playtest is what found that: "strafing and rotating doesn't look right, the
@@ -1013,7 +1060,7 @@ async function moduleFixture(definition, { prepare = null, populateDefaultGeomet
 const fallThresholdNs = (module, supportedMassKg) =>
   SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS *
   module.authority().braceCapacityMultiplier * module.authority().gaitStabilityScale *
-  supportedMassKg;
+  (module.authority().stabilityScale ?? 1) * supportedMassKg;
 
 // The biped's own braced fall boundary, standing, in newton-seconds: the frozen specific impulse
 // times its declared brace capacity times the mass the bench actually holds up. The two comparison

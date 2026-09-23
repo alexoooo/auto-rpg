@@ -70,6 +70,27 @@ export interface StabilityAuthority {
   readonly supportBindings: readonly { readonly role: string }[];
   readonly braceCapacityMultiplier: number;
   readonly gaitStabilityScale: number;
+  /**
+   * The body's stability stat (`src/golem/attributes.ts`), a plain factor on every threshold.
+   *
+   * **Its own field, not folded into brace**, because brace is refused below 1 and the stat is not:
+   * a wheel braces at 1.0, and a less stable wheel is a legal body. Absent reads as 1, which is what
+   * a hand-built authority in a test means.
+   */
+  readonly stabilityScale?: number;
+}
+
+/**
+ * How many times the base thresholds a body takes before it staggers or falls: its brace, its gait
+ * and its stability stat, multiplied.
+ *
+ * **The one place the product is formed.** The state machine, the recovery interrupt and the port's
+ * diagnostic all read it here; a copy of it anywhere else is a body that staggers on one rule and
+ * recovers on another.
+ */
+export function stabilityCapacity(authority: StabilityAuthority | null | undefined): number {
+  return (authority?.braceCapacityMultiplier ?? 1) * (authority?.gaitStabilityScale ?? 1)
+    * (authority?.stabilityScale ?? 1);
 }
 
 /**
@@ -203,7 +224,9 @@ const checkedBoundary = (input: SupportedLocomotionBoundary): void => {
   }
   if (input.authority && (!Number.isFinite(input.authority.braceCapacityMultiplier) ||
       input.authority.braceCapacityMultiplier < 1 || !Number.isFinite(input.authority.gaitStabilityScale) ||
-      input.authority.gaitStabilityScale <= 0 || input.authority.gaitStabilityScale > 1)) {
+      input.authority.gaitStabilityScale <= 0 || input.authority.gaitStabilityScale > 1 ||
+      (input.authority.stabilityScale !== undefined &&
+        (!Number.isFinite(input.authority.stabilityScale) || input.authority.stabilityScale <= 0)))) {
     throw new Error("supported locomotion authority has invalid stability scaling");
   }
   for (const event of input.authoredShoves) {
@@ -235,8 +258,7 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
     prior.specificImpulseMps - SUPPORTED_LOCOMOTION_V1.STABILITY_DECAY_MPS_PER_S * input.dt) + added;
   const hasSupport = supportAvailable(input);
   const supportMissingS = hasSupport ? 0 : prior.supportMissingS + input.dt;
-  const capacity = (input.authority?.braceCapacityMultiplier ?? 1) *
-    (input.authority?.gaitStabilityScale ?? 1);
+  const capacity = stabilityCapacity(input.authority);
   const staggerAt = SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity;
   const fallAt = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity;
 

@@ -261,3 +261,114 @@ raising it helps only the fraction of a bout a mind spends at the cap. In the pe
 bouts a cell, the miser's rows fall furthest at the slow end (against the duelist 37.5 % at x1,
 8.3 % at x0.5; against the champion 25.0 % to 0.0 %), which is worth a look before anyone reads a
 mind's style off it.
+
+## Stability (session 06)
+
+The stat is a factor on the stagger and fall thresholds of a body's stability ledger, and on the rule
+that interrupts a rise (`stabilityCapacity` in `src/supported-locomotion-state.ts`). It does not go
+through the brace multiplier: brace is refused below 1 and is exactly 1 on the wheel, so a stat
+below x1 has to be its own factor. It moves the impulse ledger only. A body that tips over its own
+feet, rather than being shoved past a threshold, is not steadier for it.
+
+### Bench
+
+Node harness, `runGolemLocomotion` (`.review/shove-bench.mjs`): stand 1 s, one shove, watch 2 s,
+with the bench's `shoveImpulseNs` bisected to the first impulse that staggers and the first that
+fells. The prediction is the diagnostic's `staggerAtMps` or `fallAtMps` times its
+`supportedMassKg`.
+
+| Body | Supported mass | Level | Stagger, predicted / measured N.s | Fall, predicted / measured N.s |
+| --- | ---: | ---: | ---: | ---: |
+| biped | 90.7 kg | x0.50 | 0.41 / 0.43 | 0.95 / 0.95 |
+| | | x1.00 | 0.82 / 0.84 | 1.91 / 1.91 |
+| | | x2.00 | 1.63 / 1.66 | 3.81 / 3.81 |
+| skeleton | 65.8 kg | x0.50 | 0.39 / 0.41 | 0.92 / 0.92 |
+| | | x1.00 | 0.79 / 0.81 | 1.84 / 1.84 |
+| | | x2.00 | 1.58 / 1.60 | 3.69 / 3.69 |
+| multileg | 102.4 kg | x0.50 | 0.80 / 0.83 | 1.86 / 1.86 |
+| | | x1.00 | 1.60 / 1.63 | 3.73 / 3.73 |
+| | | x2.00 | 3.20 / 3.23 | 7.46 / 7.46 |
+| wheel | 117.5 kg | x0.50 | 0.25 / 0.28 | 0.58 / 0.58 |
+| | | x1.00 | 0.49 / 0.52 | 1.15 / 1.15 |
+| | | x2.00 | 0.99 / 1.02 | 2.30 / 2.30 |
+
+The measured fall is the prediction to the hundredth. The measured stagger is 0.02-0.03 N.s over,
+the same at every level, which is the ledger's frozen decay acting during the frame of the shove.
+An earlier run at x0.75, x1.25 and x1.5 on the biped read 1.43, 2.38 and 2.86 N.s, on the same
+line. The wheel and the multileg divide by their own mass alone, since they carry no upper body
+on the bench. That was already true before this stat.
+
+Walking was checked at every level from x0.5 to x2: each body's own walk, plus a course that backs
+off, strafes, spins and walks diagonally. No frame leaves the supported state on any body. So the
+floor is not set by a body felling itself.
+
+### Sweep
+
+`research/runs/stat-stability`, 192 blocks per level, stone default, the four probe minds.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 33.5 [29.2, 38.3] | 26.8 / 40.1 | -0.173 [-0.217, -0.125] | -0.53 | -0.164 [-0.216, -0.112] | -0.45 | 1 | 27.7 | 6.59 | 8.72 |
+| x0.75 | 384 | 40.9 [35.8, 46.0] | 43.8 / 38.0 | -0.081 [-0.129, -0.031] | -0.24 | -0.073 [-0.117, -0.029] | -0.24 | 2 | 28.5 | 7.08 | 8.18 |
+| x0.90 | 384 | 48.4 [42.8, 54.2] | 47.7 / 49.2 | -0.022 [-0.076, 0.031] | -0.06 | -0.014 [-0.053, 0.025] | -0.05 | 2 | 29.1 | 7.68 | 7.80 |
+| x1.00 (control) | 384 | 48.8 [43.6, 54.3] | 51.0 / 46.6 | -0.008 [-0.057, 0.043] | -0.02 | -- | -- | 1 | 28.1 | 7.60 | 7.68 |
+| x1.10 | 384 | 51.4 [45.8, 57.2] | 55.7 / 47.1 | 0.012 [-0.039, 0.063] | 0.03 | 0.020 [-0.015, 0.057] | 0.08 | 1 | 27.8 | 7.82 | 7.62 |
+| x1.25 | 384 | 44.5 [39.3, 49.9] | 47.4 / 41.7 | -0.017 [-0.066, 0.032] | -0.05 | -0.008 [-0.045, 0.029] | -0.03 | 2 | 27.0 | 7.49 | 7.78 |
+| x1.50 | 384 | 50.0 [44.7, 55.5] | 51.6 / 48.4 | 0.008 [-0.044, 0.063] | 0.02 | 0.017 [-0.025, 0.058] | 0.06 | 2 | 27.4 | 7.61 | 7.61 |
+| x2.00 | 384 | 51.8 [46.4, 57.3] | 54.7 / 49.0 | 0.038 [-0.013, 0.090] | 0.10 | 0.046 [0.003, 0.090] | 0.15 | 0 | 28.4 | 7.82 | 7.46 |
+
+`research/worker.mjs` now counts each corner's knockdowns (edges into `fallen`) and the time it
+spends fallen or rising, read from the locomotion port every frame. `research/stat-sweep.mjs`
+reports them when every row carries them:
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 13.66 | 4.40 | 38.1 | 13.8 |
+| x0.75 | 7.67 | 4.68 | 23.5 | 15.1 |
+| x0.90 | 5.77 | 5.14 | 17.6 | 15.5 |
+| x1.00 | 4.89 | 4.96 | 15.1 | 14.5 |
+| x1.10 | 4.40 | 4.96 | 13.3 | 14.6 |
+| x1.25 | 3.44 | 4.97 | 10.6 | 15.1 |
+| x1.50 | 2.58 | 4.98 | 8.5 | 14.8 |
+| x2.00 | 1.63 | 5.26 | 4.8 | 15.2 |
+
+`research/runs/stat-stability-skeleton`, 192 blocks per level, `skeleton-warrior` with the
+skeleton duelist on both sides:
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 42.4 [37.8, 47.1] | 44.8 / 40.1 | -0.067 [-0.117, -0.016] | -0.19 | -0.084 [-0.148, -0.021] | -0.19 | 0 | 57.7 | 1.79 | 2.01 |
+| x0.75 | 384 | 47.4 [42.7, 52.6] | 52.6 / 42.2 | -0.026 [-0.078, 0.028] | -0.07 | -0.043 [-0.101, 0.017] | -0.10 | 0 | 59.6 | 1.84 | 1.95 |
+| x1.00 (control) | 384 | 50.3 [45.1, 55.2] | 54.7 / 45.8 | 0.017 [-0.039, 0.071] | 0.04 | -- | -- | 0 | 59.5 | 1.89 | 1.89 |
+| x1.25 | 384 | 51.8 [46.9, 57.0] | 53.1 / 50.5 | 0.034 [-0.023, 0.090] | 0.08 | 0.018 [-0.036, 0.071] | 0.05 | 0 | 57.6 | 1.95 | 1.79 |
+| x1.50 | 384 | 55.2 [50.3, 60.2] | 58.3 / 52.1 | 0.060 [0.001, 0.118] | 0.14 | 0.043 [-0.012, 0.098] | 0.11 | 0 | 57.7 | 1.93 | 1.78 |
+| x2.00 | 384 | 54.6 [49.7, 59.2] | 53.4 / 55.7 | 0.067 [0.006, 0.126] | 0.16 | 0.050 [-0.012, 0.112] | 0.11 | 1 | 56.3 | 2.00 | 1.75 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 7.25 | 4.84 | 36.7 | 23.8 |
+| x0.75 | 6.26 | 5.01 | 31.2 | 24.8 |
+| x1.00 | 4.90 | 4.79 | 23.9 | 23.5 |
+| x1.25 | 3.57 | 4.50 | 17.8 | 23.2 |
+| x1.50 | 3.08 | 4.47 | 15.5 | 22.9 |
+| x2.00 | 2.24 | 4.41 | 12.1 | 22.9 |
+
+**Stability is live in the duel, and lopsided the same way turning is.** On stone, x0.5 loses
+clearly: it falls 13.7 times a bout to the control's 4.9, spends 38 % of the bout down, and wins
+33.5 %, with paired d -0.45. x0.75 wins 40.9 % (d -0.24). Above x1, the knockdown count keeps
+falling steadily: 4.4, 3.4, 2.6 and 1.6 at x1.1, x1.25, x1.5 and x2. The win rate does not follow
+it. x2 wins 51.8 %, d 0.15, with an interval that just clears zero, and x1.25 is inside the null.
+The skeleton mirror is a gentler slope: 42.4 % at x0.5 (d -0.19), and about 55 % at x1.5 and x2
+(d 0.11, intervals touching zero). Its time down halves, from 23.9 % to 12.1 %.
+
+Two consequences:
+
+- **Staying on your feet a third as often is worth only a couple of points.** A reading of what a
+  knockdown costs has to start there, and it is session 07's business, since recovery is the stat
+  that prices a knockdown.
+- **The stone default goes down about five times a bout at x1**, although stone's locomotion has
+  no knockdown table of its own. So recovery has something to act on in the stone duel, which is
+  the check the recovery plan asks for first.
+
+The x1.00 rows reproduce the earlier controls: 48.8 % on stone, identical to movement's and
+turning's, and 50.3 % on the skeleton.
