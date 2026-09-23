@@ -4160,6 +4160,38 @@ export const GOLEM_ASSEMBLY = {
 };
 
 /**
+ * What a piece beaten to nothing costs while it is still attached. **2026-09-22.**
+ *
+ * Until then it cost the bar and nothing else: an emptied forearm went on swinging its blade at
+ * full authority and an emptied shin walked as well as a whole one, and further blows on either
+ * did nothing at all, because a wound stops counting at zero. The owner: "i do want limp ruined
+ * limbs, breaking point". The breaking point is `CONFIG.combat.severMargin`; this is the limp.
+ *
+ * An arm needs no number. A ruined link releases every motor in the arm -- both arms of a
+ * two-handed weight -- and it hangs from its joints (`BuiltChain.limp`), which is what "limp"
+ * means for a limb that is only ever moved by its motors.
+ *
+ * **A leg does need one, because nothing about a leg moves the golem.** The supported carrier
+ * does the moving and the legs sell it (see `src/golem/locomotion.ts`), so slack joints alone
+ * would leave the golem walking exactly as fast on a leg dragging behind it. What a ruined leg
+ * takes is therefore the carrier's share of the command: see `hobble` in that file.
+ */
+export const GOLEM_RUIN = {
+  /**
+   * The fraction of its forward, strafe and turn command a carrier still answers with **every**
+   * leg ruined; each ruined leg takes an equal share of the rest, so one leg of a biped leaves
+   * 0.65, one of four leaves 0.825, and a ruined wheel leaves this. Recovery is exempt, by the
+   * house rule that recovery cannot require what it restores.
+   *
+   * A judgement and not a measurement: what it ought to feel like is the owner's to look at. It
+   * is a floor above zero on purpose, because a golem that could not move at all on two broken
+   * legs would have nothing to do but be finished off -- and the bout already has a rule for a
+   * body that is finished, which is the bar.
+   */
+  strippedMobility: 0.3,
+};
+
+/**
  * The wheel: one rolling body under a fork under the torso. **Session 06.**
  *
  * **Read the frozen choice before any number here.** The carrier moves the golem exactly as it

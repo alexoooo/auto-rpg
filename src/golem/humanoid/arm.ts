@@ -171,6 +171,7 @@ export const anatomicalChain = defineChain({
       orientation: () => socketRotation().conjugate().multiply(hand.mesh.rotationQuaternion!),
       commandedEnd(distance) { return worldCommand().addInPlace(rotate(HUMAN_MOUNT.perp.scale(distance - reachable.reachMax), socketRotation().multiply(commanded.rotation))); },
       unmotorise() { passive = true; release(); },
+      limp() { passive = true; release(); },
       sever() { if (stopped) return; stopped = true; release(); constraints.forEach(c => c.dispose()); },
       dispose() { if (!stopped) { release(); constraints.forEach(c => c.dispose()); } stopped = true;
         bodies.forEach(p => { p.body.dispose(); p.shape.dispose(); p.mesh.dispose(false, false); }); },

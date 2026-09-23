@@ -52,6 +52,7 @@ import {
   type LocomotionHeightRange,
   type LocomotionReadoutState,
   type LocomotionSupportBinding,
+  legRuin,
 } from "../locomotion.ts";
 
 /**
@@ -454,6 +455,7 @@ export const multilegModule = defineLocomotion({
       );
     }
     const frozenParts: readonly GolemPart[] = Object.freeze(parts);
+    const ruin = legRuin(legs.map((leg) => [leg.femur.name, leg.shin.name, leg.foot.name]));
 
     // --- state ---------------------------------------------------------------------------------
     const groundY = socket.world.y - standHeight;
@@ -884,6 +886,8 @@ export const multilegModule = defineLocomotion({
 
     const built: BuiltLocomotion = Object.freeze({
       parts: frozenParts,
+      ruin: ruin.ruin,
+      mobility: ruin.mobility,
       strikers: Object.freeze([]) as readonly Striking[],
       root: chassis,
       adapter,

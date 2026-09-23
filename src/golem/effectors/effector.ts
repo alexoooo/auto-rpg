@@ -244,6 +244,10 @@ export function effectorModule(
       };
 
       let severed = false;
+      // The pieces whose ruin takes the arm: the chains', and never the terminal's. A blade beaten
+      // to nothing is still a blade on a working arm; a forearm beaten to nothing is not an arm.
+      const limbIds = new Set([...built.parts, ...(trailing?.parts ?? [])].map((part) => part.id));
+      let limp = false;
       return Object.freeze({
         parts,
         strikers,
@@ -269,6 +273,15 @@ export function effectorModule(
         // first's commanded point rather than a cursor of its own, so it has no pose of its own
         // to seed and asking it would hand a takeover the cursor for an arm nobody drives.
         cursor: () => built.cursor(),
+        // **Both chains, whichever was struck.** A maul's second hand holds the same haft, so a
+        // ruined link on either arm is the end of wielding it; and a trailing arm left driven
+        // after the first went slack would haul the weapon on its own.
+        ruin: (partId: string) => {
+          if (severed || limp || !limbIds.has(partId)) return;
+          limp = true;
+          built.limp();
+          trailing?.limp();
+        },
         sever: () => {
           if (severed) return;
           severed = true;

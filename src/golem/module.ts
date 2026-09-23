@@ -421,6 +421,18 @@ export interface BuiltModule<Command> {
    * new driver to command whatever lag the old one had left.
    */
   cursor?(): HandCursor;
+  /**
+   * One of this module's pieces has been beaten to nothing and is still attached.
+   *
+   * `Golem` calls it once per piece, at the first control step that finds the piece at zero
+   * (`Golem.settleRuin`, which reads the level, so it does not matter what emptied it), and never
+   * for a `fatal` piece -- losing one of those ends the bout. **What a ruined piece costs is
+   * the module's to say**, because only the module knows what the piece was doing: an arm goes limp
+   * and stops answering its command, and a leg leaves its carrier hobbled. The owner, 2026-09-22:
+   * "i do want limp ruined limbs". Optional, and absent means the ruin costs nothing but the bar,
+   * which is what a trunk and a head still do.
+   */
+  ruin?(partId: string): void;
   sever(): void;
   dispose(): void;
 }
@@ -711,6 +723,15 @@ export interface BuiltChain {
    * add two unconstrained axes to a loop that is exactly determined without them.
    */
   unmotorise(): void;
+  /**
+   * Let go of **every** motor, keep every joint, and ignore every command from here on: the
+   * chain is a ruined limb, hanging from its socket. See `BuiltModule.ruin`.
+   *
+   * Not `unmotorise`, which is for a limb carried by the thing it grips and so keeps rung 3's
+   * wrist pair holding the link's shape; a ruined wrist holds nothing. Not `sever` either, which
+   * takes the joints down so the limb falls off. Permanent, like both of them.
+   */
+  limp(): void;
   sever(): void;
   dispose(): void;
 }

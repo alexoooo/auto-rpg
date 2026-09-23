@@ -124,6 +124,8 @@ export const reachChain = defineChain({
       },
 
       unmotorise: () => core.unmotorise(),
+      // The core's release is already every motor this chain has.
+      limp: () => core.unmotorise(),
       sever: () => core.sever(),
       dispose: () => core.dispose(),
     });

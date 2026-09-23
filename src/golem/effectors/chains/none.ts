@@ -237,6 +237,8 @@ export const noneChain = defineChain({
       // it. A no-op that is stated rather than absent, because a chain that could not answer
       // this at all would be a chain a two-socket terminal silently failed to make passive.
       unmotorise: () => { /* rung 0 has no drive to release */ },
+      // Nor anything to hang: the cap is welded to the socket, so a ruined one stays where it is.
+      limp: () => { /* rung 0 has no drive to release */ },
       sever: () => {
         severCap();
         weld?.dispose();

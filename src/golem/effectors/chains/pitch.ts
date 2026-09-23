@@ -243,6 +243,14 @@ export const pitchChain = defineChain({
       return Math.atan2(scratch.local.z, -scratch.local.y);
     };
 
+    /** Drop the torque to nothing and keep the hinge and its stops. See `unmotorise` below. */
+    const letGo = (): void => {
+      if (!hinge || severed || passive) return;
+      passive = true;
+      hinge.setAxisMotorType(HINGE, PhysicsConstraintMotorType.NONE);
+      hinge.setAxisMotorMaxForce(HINGE, 0);
+    };
+
     const writeMotor = (): void => {
       if (!hinge || severed || passive) return;
       // **One motor mode, written once at build, and a target every step.** The chop used to
@@ -350,12 +358,10 @@ export const pitchChain = defineChain({
        * letting go means a ceiling of zero rather than a constraint disposed. The stops stay,
        * which is the point: a trailing limb is still an arm with a range, not a rope.
        */
-      unmotorise(): void {
-        if (!hinge || severed || passive) return;
-        passive = true;
-        hinge.setAxisMotorType(HINGE, PhysicsConstraintMotorType.NONE);
-        hinge.setAxisMotorMaxForce(HINGE, 0);
-      },
+      unmotorise: letGo,
+      // The hinge motor is the only drive on this rung, so hanging and being carried let go of
+      // the same thing.
+      limp: letGo,
 
       sever(): void {
         if (severed) return;

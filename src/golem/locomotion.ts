@@ -16,6 +16,7 @@ import type {
   SupportState,
 } from "../supported-locomotion-state.ts";
 import type { BuiltModule, GolemModuleDefinition, ModuleBuild } from "./module.ts";
+import { GOLEM_RUIN } from "./config.ts";
 
 /**
  * The locomotion module contract, and the instrument that reads one.
@@ -74,6 +75,52 @@ export const locomotionCommand = (intent: Intent): LocomotionCommand => ({
   },
   crouch: intent.posture.crouch,
 });
+
+/**
+ * A command scaled to what the legs have left: forward, strafe and turn by `mobility`, and
+ * `recover` untouched.
+ *
+ * **At the narrowing, not in a module**, because a golem hands its command to two places -- the
+ * module's own `command` and the port's `request` -- and a hobble applied in only one of them is a
+ * golem that limps on the bench and runs in a bout. A separate function rather than a second
+ * parameter on `locomotionCommand`, because the bench calls that one as an adapter with the build
+ * context in second place. `recover` stays as the intent derived it, by the house rule that
+ * recovery cannot require the support it restores: a person pushing the stick on a fallen golem
+ * is asking to get up however little the legs have left.
+ */
+export const hobble = (command: LocomotionCommand, mobility: number): LocomotionCommand => mobility >= 1
+  ? command
+  : Object.freeze({
+    request: Object.freeze({
+      localForward: command.request.localForward * mobility,
+      localRight: command.request.localRight * mobility,
+      yaw: command.request.yaw * mobility,
+      recover: command.request.recover,
+    }),
+    crouch: command.crouch,
+  });
+
+/**
+ * The ruin bookkeeping every locomotion module shares: which pieces make up which leg, and what
+ * the ruined legs leave the carrier. A leg is ruined when any of its pieces is; a piece named in
+ * no leg -- the carrier itself, which is fatal and never ruined -- costs nothing here.
+ */
+export function legRuin(legs: readonly (readonly string[])[]): {
+  readonly ruin: (partId: string) => void;
+  readonly mobility: () => number;
+} {
+  const ruined = new Set<number>();
+  let mobility = 1;
+  return Object.freeze({
+    ruin: (partId: string): void => {
+      const leg = legs.findIndex((pieces) => pieces.includes(partId));
+      if (leg < 0 || ruined.has(leg)) return;
+      ruined.add(leg);
+      mobility = 1 - (1 - GOLEM_RUIN.strippedMobility) * ruined.size / legs.length;
+    },
+    mobility: (): number => mobility,
+  });
+}
 
 /**
  * The height a carrier stands and crouches at, metres above the ground it is standing on.
@@ -174,6 +221,11 @@ export interface BuiltLocomotion extends BuiltModule<LocomotionCommand> {
    * is two motors on one joint, which this tree has already paid for.
    */
   carry?(load: LocomotionLoad): void;
+  /**
+   * The fraction of the command the carrier still answers, 1 while every leg is whole. What
+   * `BuiltModule.ruin` has taken from it; `hobble` above is where it is spent. See `GOLEM_RUIN`.
+   */
+  mobility(): number;
   /** One substep of the legs. Called from `step`; exposed so a harness can drive it alone. */
   gait(dt: number): void;
   /**

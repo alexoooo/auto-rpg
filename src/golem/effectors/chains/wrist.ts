@@ -247,6 +247,8 @@ export const wristChain = defineChain({
     let commandedRoll = 0;
     let commandedBend = 0;
     let severed = false;
+    /** Set once by `limp`: the wrist hangs, and nothing drives its roll or its bend again. */
+    let limp = false;
 
     const wristAxes = [
       { id: "roll", commanded: 0, achieved: 0 },
@@ -560,10 +562,10 @@ export const wristChain = defineChain({
         commandedRoll = slewTowards(commandedRoll, wantedRoll, W.rollRate, dt);
         commandedBend = slewTowards(commandedBend, wantedBend, W.bendRate, dt);
         core.step(dt);
-        if (rollJoint) {
+        if (rollJoint && !limp) {
           rollServo.track(commandedRoll, dt, rollForce);
         }
-        if (bendJoint) {
+        if (bendJoint && !limp) {
           bendServo.track(BEND_SIGN * commandedBend, dt, bendForce);
         }
         wristAxes[0].commanded = commandedRoll;
@@ -645,6 +647,14 @@ export const wristChain = defineChain({
        */
       unmotorise(): void {
         core.unmotorise();
+      },
+
+      /** And a ruined wrist lets go of the pair as well: the whole limb hangs. */
+      limp(): void {
+        if (limp || severed) return;
+        limp = true;
+        core.unmotorise();
+        releaseWrist();
       },
 
       sever(): void {

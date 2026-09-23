@@ -51,6 +51,7 @@ import {
   type LocomotionHeightRange,
   type LocomotionReadoutState,
   type LocomotionSupportBinding,
+  legRuin,
 } from "../locomotion.ts";
 
 /**
@@ -386,6 +387,9 @@ export const wheelModule = defineLocomotion({
         fatal: false,
       }),
     ]);
+
+    // The wheel is the module's one leg: ruined, it rolls on at what `GOLEM_RUIN` leaves.
+    const ruin = legRuin([[wheel.name]]);
 
     // --- state ---------------------------------------------------------------------------------
     const groundY = socket.world.y - standHeight;
@@ -809,6 +813,8 @@ export const wheelModule = defineLocomotion({
 
     const built: BuiltLocomotion = Object.freeze({
       parts: frozenParts,
+      ruin: ruin.ruin,
+      mobility: ruin.mobility,
       strikers: Object.freeze([]) as readonly Striking[],
       root: yoke,
       adapter,
