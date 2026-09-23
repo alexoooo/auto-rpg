@@ -281,6 +281,15 @@ test("a_lengthened_rise_takes_its_own_duration_at_the_peak_speed_that_duration_i
     assert.throws(() => new RisingActuator(point(0, 0.2, 0), point(0, 1.2, 0), 0,
       footprint(), registry, new Set(), bad), /never shorter than RISING_DURATION_S/, String(bad));
   }
+  // A body at recovery x2 has a floor of half the frozen rise, and the floor is the actuator's to
+  // hold: the same rise under that floor is refused.
+  const floor = SUPPORTED_CARRIER_V1.RISING_DURATION_S / 2;
+  assert.equal(new RisingActuator(point(0, 0.2, 0), point(0, 0.4, 0), 0,
+    footprint(), registry, new Set(), floor, floor).durationS, floor);
+  assert.throws(() => new RisingActuator(point(0, 0.2, 0), point(0, 0.4, 0), 0,
+    footprint(), registry, new Set(), floor), /never shorter than RISING_DURATION_S/, "the control: x1's floor");
+  assert.throws(() => new RisingActuator(point(0, 0.2, 0), point(0, 0.4, 0), 0,
+    footprint(), registry, new Set(), floor * 0.99, floor), /never shorter than RISING_DURATION_S/);
 });
 
 test("fist_trigger_follows_real_hand_kinematics_and_twenty_cycles_balance_explicit_resources", () => {

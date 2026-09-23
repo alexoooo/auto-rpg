@@ -18,6 +18,7 @@ import { NEUTRAL, idleMind } from "../src/mind.ts";
 import { blankIntent } from "../src/policies.ts";
 import { SUPPORTED_LOCOMOTION_V1 as V1 } from "../src/supported-locomotion-state.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
+import { ATTRIBUTES, withAttributeSetting } from "../src/golem/attributes.ts";
 import { runGolemLocomotion } from "./harness/golem-bench.mjs";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
@@ -347,4 +348,51 @@ test("the_skeletons_scripted_knockdown_runs_its_course_inside_its_own_rise_budge
     `the knockdown took ${state.riseSeconds} s against a budget of ${SKELETON_BIPED.riseBudgetSeconds}`);
   assert.ok(state.riseSeconds > LOCOMOTION_BIPED.riseBudgetSeconds,
     `the knockdown took ${state.riseSeconds} s, inside stone's ${LOCOMOTION_BIPED.riseBudgetSeconds}: it did not run its course`);
+});
+
+test("the_recovery_stat_divides_every_lie_and_rise_and_the_cap_still_ends_a_lie_at_both_ends_of_its_range", async () => {
+  // Session 07's claims, on whole golems at the ends of the range the row ships. Stone, which sets no
+  // knockdown, lies the frozen dwell and rises in the frozen rise, each over the stat. The skeleton
+  // is held to its cap by a rest it cannot reach -- the house rule on recovery is that a body struck
+  // while it lies still gets up, and the cap is what guarantees it -- so each lie is the cap over the
+  // stat, and the body still stands at the end of it.
+  const row = ATTRIBUTES.recovery;
+  const at = (setupOf, recovery) => () => withAttributeSetting(setupOf(), { recovery });
+  for (const recovery of [row.min, row.max]) {
+    const stone = await knockdown(at(defaultGolemSetup, recovery), { seconds: 4 });
+    const lay = lasted(firstStretch(stone.samples, "fallen"));
+    assert.ok(Math.abs(lay - V1.FALLEN_DWELL_S / recovery) <= 2 * FIXED,
+      `stone at x${recovery} lay ${lay.toFixed(3)} s against ${(V1.FALLEN_DWELL_S / recovery).toFixed(3)}`);
+    const took = lasted(firstStretch(stone.samples, "rising"));
+    assert.ok(Math.abs(took - V1.RISING_DURATION_S / recovery) <= 2 * FIXED,
+      `stone at x${recovery} rose in ${took.toFixed(3)} s against ${(V1.RISING_DURATION_S / recovery).toFixed(3)}`);
+  }
+
+  const rule = SKELETON_BIPED.knockdown;
+  SKELETON_BIPED.knockdown = { ...rule, restSeconds: rule.maxLyingSeconds * 4 };
+  try {
+    for (const recovery of [row.min, row.max]) {
+      const cap = rule.maxLyingSeconds / recovery;
+      const { standing, samples } = await knockdown(at(skeletonSetup, recovery), { seconds: cap + 4 });
+      const lies = stretches(samples, "fallen");
+      assert.equal(lies.length, 1, `x${recovery}: ${lies.length} lies`);
+      const lay = lasted(lies[0]);
+      // Three substeps: the rule starts counting the step after the release, sums its clock a step
+      // at a time, and the state leaves fallen on the boundary after the rule says so.
+      assert.ok(Math.abs(lay - cap) <= 3 * FIXED, `the skeleton at x${recovery} lay ${lay.toFixed(3)} s against a cap of ${cap.toFixed(3)}`);
+      const rising = firstStretch(samples, "rising");
+      assert.ok(rising.length > 0, `the skeleton at x${recovery} never began to rise`);
+      // The lift is divided too: no faster than the table's peak times the stat, and no shorter than
+      // that peak needs over the distance it lifted.
+      const peak = Math.max(...rising.map((r) => r.vy));
+      assert.ok(peak <= rule.risePeakMps * recovery * 1.02, `x${recovery}: the pelvis rose at ${peak.toFixed(3)} m/s`);
+      const floor = Math.max(V1.RISING_DURATION_S / recovery, 1.5 * (standing.y - rising[0].y) / (rule.risePeakMps * recovery));
+      assert.ok(Math.abs(lasted(rising) - floor) <= 0.05 * floor + 2 * FIXED,
+        `x${recovery}: the rise took ${lasted(rising).toFixed(3)} s against ${floor.toFixed(3)}`);
+      const up = samples.find((r) => r.at > rising.at(-1).at);
+      assert.ok(up && up.state !== "fallen" && up.state !== "rising", `after the rise at x${recovery} the skeleton was ${up?.state}`);
+    }
+  } finally {
+    SKELETON_BIPED.knockdown = rule;
+  }
 });

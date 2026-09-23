@@ -5,11 +5,14 @@ import {
   SUPPORTED_LOCOMOTION_V1 as V1,
   constructPostureIsSupported,
   constructRequestsRising,
+  fallenDwellS,
   fighterPostureIsSupported,
   fighterRequestsRising,
   initialSupportedLocomotionState,
   isFreshStandableSupport,
+  recoveredRiseS,
   risingEligibility,
+  risingFloorS,
   stabilityCapacity,
   stepSupportedLocomotionState,
 } from "../src/supported-locomotion.ts";
@@ -35,6 +38,71 @@ test("the_v1_stability_and_recovery_constants_are_frozen_as_measured_literals", 
     SUPPORT_GRACE_S: 0.35,
     RISING_DURATION_S: 0.45,
   });
+});
+
+test("the_recovery_stat_divides_the_dwell_and_the_rise_floor_on_every_reader_and_refuses_a_rise_under_its_own_floor", () => {
+  const fast = { ...authority, recoveryScale: 2 };
+  const slow = { ...authority, recoveryScale: 0.5 };
+  assert.equal(fallenDwellS(authority), V1.FALLEN_DWELL_S, "absent reads as 1");
+  assert.equal(fallenDwellS(null), V1.FALLEN_DWELL_S);
+  assert.equal(fallenDwellS(fast), V1.FALLEN_DWELL_S / 2);
+  assert.equal(risingFloorS(slow), V1.RISING_DURATION_S * 2);
+
+  // The dwell, read by eligibility, by both request helpers and by a rise that has begun.
+  const lying = (elapsed) => state({ state: "fallen", fallenElapsedS: elapsed });
+  const ask = (auth, extra = {}) => boundary({ authority: auth, recoverRequested: true,
+    risingDurationS: risingFloorS(auth), ...extra });
+  const justUnder = V1.FALLEN_DWELL_S / 2 - 1e-6;
+  assert.equal(risingEligibility(lying(justUnder), ask(fast)).eligible, false);
+  assert.equal(risingEligibility(lying(V1.FALLEN_DWELL_S / 2), ask(fast)).eligible, true);
+  assert.equal(risingEligibility(lying(V1.FALLEN_DWELL_S / 2), ask(authority)).eligible, false,
+    "the control: the same lie is short of the dwell at x1");
+  assert.equal(risingEligibility(lying(V1.FALLEN_DWELL_S), ask(slow)).eligible, false, "x0.5 lies twice as long");
+  assert.equal(fighterRequestsRising(lying(V1.FALLEN_DWELL_S / 2), { localForward: 1, localRight: 0, yaw: 0 }, fast), true);
+  assert.equal(fighterRequestsRising(lying(V1.FALLEN_DWELL_S / 2), { localForward: 1, localRight: 0, yaw: 0 }), false);
+  assert.equal(constructRequestsRising(lying(V1.FALLEN_DWELL_S / 2), true, fast), true);
+  assert.equal(constructRequestsRising(lying(V1.FALLEN_DWELL_S / 2), true), false);
+
+  // A fast body rises to supported at its own floor, and a slow one is still rising there.
+  const risen = (auth) => {
+    let next = stepSupportedLocomotionState(lying(fallenDwellS(auth)), ask(auth, { dt: 1e-6 }));
+    assert.equal(next.state, "rising");
+    next = stepSupportedLocomotionState({ ...next, risingElapsedS: risingFloorS(auth) - 1e-3 }, ask(auth, { dt: 2e-3 }));
+    return next.state;
+  };
+  assert.equal(risen(fast), "supported");
+  assert.equal(risen(slow), "supported");
+  assert.equal(stepSupportedLocomotionState({ ...lying(V1.FALLEN_DWELL_S), state: "rising", risingElapsedS: V1.RISING_DURATION_S },
+    ask(slow, { dt: 1e-3 })).state, "rising", "x0.5 is still rising where x1 would be up");
+
+  // The floor the boundary holds a rise to is the body's own.
+  assert.doesNotThrow(() => stepSupportedLocomotionState(state(), boundary({ authority: fast, risingDurationS: V1.RISING_DURATION_S / 2 })));
+  assert.throws(() => stepSupportedLocomotionState(state(), boundary({ risingDurationS: V1.RISING_DURATION_S / 2 })),
+    /never shorter than RISING_DURATION_S/, "the control: x1's floor refuses the same rise");
+  assert.throws(() => stepSupportedLocomotionState(state(), boundary({ authority: slow, risingDurationS: V1.RISING_DURATION_S })),
+    /never shorter than RISING_DURATION_S/, "and x0.5 may not rise as fast as x1");
+  for (const bad of [0, -1, Number.NaN, Infinity]) {
+    assert.throws(() => stepSupportedLocomotionState(state(), boundary({ authority: { ...authority, recoveryScale: bad } })),
+      /invalid recovery scale/, String(bad));
+  }
+});
+
+test("a_faster_rise_is_divided_by_the_stat_but_never_shortened_past_what_the_rising_actuator_can_accelerate", () => {
+  const A = 48;
+  const at = (recovery) => ({ ...authority, recoveryScale: recovery });
+  // x1 is the body's own length, untouched, even where it is already past the limit.
+  assert.equal(recoveredRiseS(1.1, 0.8, A, authority), 1.1);
+  assert.equal(recoveredRiseS(0.45, 5, A, authority), 0.45);
+  // A short lift: the division alone.
+  assert.equal(recoveredRiseS(0.45, 0.05, A, at(1.5)), 0.3);
+  assert.equal(recoveredRiseS(1.1, 0.8, A, at(0.5)), 2.2, "slower only lengthens");
+  // A long lift at x2: stops at the limit, where 6 d / T^2 is the limit, and is admitted by it.
+  const long = recoveredRiseS(0.45, 0.8, A, at(2));
+  assert.ok(long > 0.225 && Math.abs(long - Math.sqrt(6 * 0.8 / A)) < 1e-6, `${long}`);
+  assert.ok(6 * 0.8 / (long * long) <= A, "the port's own check admits the rise it was handed");
+  // And never longer than x1's.
+  assert.equal(recoveredRiseS(0.45, 2, A, at(2)), 0.45,
+    "a lift x1 cannot make either stays at x1's length, and is refused as it always was");
 });
 
 test("the_stability_stat_is_a_factor_on_both_thresholds_and_on_the_recovery_interrupt_and_may_go_below_one", () => {

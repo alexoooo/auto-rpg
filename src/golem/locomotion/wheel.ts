@@ -172,6 +172,10 @@ return defineLocomotion({
     // The stability stat, published on every authority this body hands its port as a plain factor
     // on its thresholds (`stabilityCapacity` in `src/supported-locomotion-state.ts`).
     const stability = attributeOf(ctx, "stability");
+    // The recovery stat, on the same authority: the port divides the frozen dwell and rise by it
+    // (`fallenDwellS` and `recoveredRiseS` in `src/supported-locomotion-state.ts`). This body sets
+    // no knockdown of its own, so there is nothing else of it to scale.
+    const recovery = attributeOf(ctx, "recovery");
     const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");
@@ -583,6 +587,7 @@ return defineLocomotion({
         braceCapacityMultiplier: W.braceCapacityMultiplier,
         gaitStabilityScale: scale,
         stabilityScale: stability,
+        recoveryScale: recovery,
       });
     };
 

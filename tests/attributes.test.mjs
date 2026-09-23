@@ -12,6 +12,7 @@ import {
   resolveAttributes,
   withAttribute,
   withAttributeSetting,
+  withRecovery,
 } from "../src/golem/attributes.ts";
 import {
   golemMatchup,
@@ -29,6 +30,8 @@ import { mulberry32 } from "../src/rng.ts";
 import { defaultGolemSetup, golemSetupRefusal } from "../src/golem/build.ts";
 import { Golem } from "../src/golem/golem.ts";
 import { idleMind } from "../src/mind.ts";
+import { LOCOMOTION_BIPED } from "../src/golem/config.ts";
+import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
@@ -69,7 +72,7 @@ test("a build context without attributes reads every stat at 1, and one with the
 });
 
 /** The rows a session has measured and turned live. Each stat's session adds its own. */
-const MEASURED = Object.freeze(["movement", "turning", "stability"]);
+const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery"]);
 
 test("only a measured row is live, and every other row accepts only 1", () => {
   // Each stat's own session turns its row live. Until then a value other than 1 is a stat nothing
@@ -103,17 +106,17 @@ test("a setting is refused by shape, by name and by range, and accepted inside i
   assert.match(attributesRefusal({ movement: Infinity }, LIVE) ?? "", /not a number/);
   assert.match(attributesRefusal({ movement: 1.51 }, LIVE) ?? "", /outside x0.75 to x1.5/);
   assert.match(attributesRefusal({ movement: 0.74 }, LIVE) ?? "", /outside/);
-  assert.match(attributesRefusal({ recovery: 1.1 }, LIVE) ?? "", /not measured yet/,
+  assert.match(attributesRefusal({ size: 1.1 }, LIVE) ?? "", /not measured yet/,
     "a row that is not live in this table still refuses");
 });
 
 test("a golem setup carrying a stat nothing reads is refused where every build is checked", () => {
   const setup = defaultGolemSetup();
   assert.equal(golemSetupRefusal(setup), null);
-  assert.equal(golemSetupRefusal({ ...setup, attributes: { recovery: 1 } }), null);
+  assert.equal(golemSetupRefusal({ ...setup, attributes: { size: 1 } }), null);
   assert.equal(golemSetupRefusal({ ...setup, attributes: { movement: 1.2 } }), null, "a measured stat inside its range");
   assert.match(golemSetupRefusal({ ...setup, attributes: { movement: 1.6 } }) ?? "", /Movement x1.6 is outside/);
-  assert.match(golemSetupRefusal({ ...setup, attributes: { recovery: 1.2 } }) ?? "", /Recovery is not measured yet/);
+  assert.match(golemSetupRefusal({ ...setup, attributes: { size: 1.2 } }) ?? "", /Size is not measured yet/);
   assert.match(golemSetupRefusal({ ...setup, attributes: { reach: 1 } }) ?? "", /no attribute "reach"/);
 });
 
@@ -202,6 +205,18 @@ test("a link whose stats are not a record of numbers is refused by shape", () =>
   assert.equal(matchupFromQuery(encode({ movement: "1.2" })), null, "a value that is not a number");
 });
 
+test("recovery shortens a knockdown's lie and leaves its rise to the port and its table alone", () => {
+  const rule = SKELETON_BIPED.knockdown;
+  const fast = withRecovery(SKELETON_BIPED, 2);
+  assert.deepEqual(fast.knockdown, { ...rule, restSeconds: rule.restSeconds / 2, maxLyingSeconds: rule.maxLyingSeconds / 2 },
+    "the rest window and the cap, divided; the rest speed, the rise peak and the hold rule untouched");
+  assert.deepEqual(withRecovery(SKELETON_BIPED, 0.5).knockdown.maxLyingSeconds, rule.maxLyingSeconds * 2);
+  assert.equal(SKELETON_BIPED.knockdown, rule, "the shared table is not written");
+  assert.equal(withRecovery(SKELETON_BIPED, 1), SKELETON_BIPED, "x1 is the table it was handed");
+  assert.equal(LOCOMOTION_BIPED.knockdown, null);
+  assert.equal(withRecovery(LOCOMOTION_BIPED, 2), LOCOMOTION_BIPED, "a body with no knockdown has no lie of its own to shorten");
+});
+
 test("a golem resolves its stats once, and every module it builds is handed them", async () => {
   const arena = await createHeadlessArena();
   try {
@@ -214,8 +229,8 @@ test("a golem resolves its stats once, and every module it builds is handed them
     assert.deepEqual(plain.attributes, DEFAULT_ATTRIBUTES);
     const explicit = build({ ...defaultGolemSetup(), attributes: { movement: 1, size: 1 } }, 1);
     assert.deepEqual(explicit.attributes, DEFAULT_ATTRIBUTES);
-    assert.throws(() => build({ ...defaultGolemSetup(), attributes: { recovery: 1.2 } }, 0),
-      /Recovery is not measured yet/, "a stat nothing reads never reaches a body");
+    assert.throws(() => build({ ...defaultGolemSetup(), attributes: { size: 1.2 } }, 0),
+      /Size is not measured yet/, "a stat nothing reads never reaches a body");
 
     // Every registered definition is frozen, so there is no builder to spy on: the proof that the
     // context reaches a module is a module doing something with it. The locomotion envelope is the

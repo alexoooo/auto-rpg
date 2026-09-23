@@ -78,6 +78,13 @@ export interface StabilityAuthority {
    * a hand-built authority in a test means.
    */
   readonly stabilityScale?: number;
+  /**
+   * The body's recovery stat (`src/golem/attributes.ts`): a divisor on the two frozen floors of a
+   * knockdown, `FALLEN_DWELL_S` and `RISING_DURATION_S`, read through `fallenDwellS` and
+   * `risingFloorS`. On the authority for the reason `stabilityScale` is: one path for every
+   * per-body number the state machine reads. Absent reads as 1.
+   */
+  readonly recoveryScale?: number;
 }
 
 /**
@@ -91,6 +98,43 @@ export interface StabilityAuthority {
 export function stabilityCapacity(authority: StabilityAuthority | null | undefined): number {
   return (authority?.braceCapacityMultiplier ?? 1) * (authority?.gaitStabilityScale ?? 1)
     * (authority?.stabilityScale ?? 1);
+}
+
+/**
+ * The shortest a body lies before it may rise: the frozen dwell over its recovery stat. The one place
+ * the dwell is divided; the state machine and both request helpers read it here.
+ */
+export function fallenDwellS(authority: StabilityAuthority | null | undefined): number {
+  return SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S / (authority?.recoveryScale ?? 1);
+}
+
+/**
+ * The shortest a rise may last: the frozen rise over the body's recovery stat. A body may lengthen a
+ * rise past this and never shorten one under it.
+ */
+export function risingFloorS(authority: StabilityAuthority | null | undefined): number {
+  return SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S / (authority?.recoveryScale ?? 1);
+}
+
+/**
+ * How long a rise lasts on a body with this recovery stat, given how long the body itself would take
+ * over it at x1 (`bodyS`) and how far the rise lifts it.
+ *
+ * Divided by the stat, **but never shortened past what the rising actuator can accelerate**: a lift
+ * over `d` metres in `T` seconds peaks at `6 d / T^2` (a smoothstep), and the port refuses a rise
+ * over `RISING_MAX_ACCELERATION_MPS2` as obstructed. Divided blindly, a fast body's rise from the
+ * floor would be refused every boundary, and a body that can never begin a rise is exactly what the
+ * recovery house rule forbids. So above x1 the rise stops shortening at that limit -- or stays at
+ * x1's length, if x1's was already past it, which is the port's refusal as it always was. Below x1
+ * it only lengthens, which no limit refuses. At x1 it is `bodyS` exactly: `bodyS / 1` is `bodyS`, and
+ * the clamp can only return it.
+ */
+export function recoveredRiseS(bodyS: number, distanceM: number, maxAccelerationMps2: number,
+  authority: StabilityAuthority | null | undefined): number {
+  const recovery = authority?.recoveryScale ?? 1;
+  // The margin keeps a rise sized exactly at the limit from failing the port's `<=` by rounding.
+  const reachable = Math.sqrt(6 * distanceM / maxAccelerationMps2) * (1 + 1e-9);
+  return Math.max(bodyS / recovery, Math.min(bodyS, reachable));
 }
 
 /**
@@ -127,16 +171,17 @@ export interface FighterRecoveryInput {
 }
 
 /** A Fighter asks to rise only by supplying deliberate movement after the fallen dwell. */
-export function fighterRequestsRising(state: SupportedLocomotionState, input: FighterRecoveryInput): boolean {
-  return state.state === "fallen" && state.fallenElapsedS >= SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S &&
+export function fighterRequestsRising(state: SupportedLocomotionState, input: FighterRecoveryInput,
+  authority: StabilityAuthority | null = null): boolean {
+  return state.state === "fallen" && state.fallenElapsedS >= fallenDwellS(authority) &&
     [input.localForward, input.localRight, input.yaw].every(Number.isFinite) &&
     Math.max(Math.abs(input.localForward), Math.abs(input.localRight), Math.abs(input.yaw)) > 0;
 }
 
 /** The caller supplies scheduler admission of the locomotion recover Action, never a hand tactic. */
 export function constructRequestsRising(state: SupportedLocomotionState,
-  locomotionRecoverActionActive: boolean): boolean {
-  return state.state === "fallen" && state.fallenElapsedS >= SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S &&
+  locomotionRecoverActionActive: boolean, authority: StabilityAuthority | null = null): boolean {
+  return state.state === "fallen" && state.fallenElapsedS >= fallenDwellS(authority) &&
     locomotionRecoverActionActive;
 }
 
@@ -167,7 +212,8 @@ export interface SupportedLocomotionBoundary {
   readonly fallSettled: boolean;
   /**
    * How long the rise under way -- or the one about to begin -- lasts, seconds. Never less than
-   * `RISING_DURATION_S`; a body that sets nothing longer hands over exactly that. A biped with a
+   * `risingFloorS` of the authority, which is `RISING_DURATION_S` at recovery x1; a body that sets
+   * nothing longer hands over exactly that. A biped with a
    * `knockdown` lengthens it so the scripted lift never moves its pelvis faster than its table says,
    * which from the floor is about 1.1 s where the frozen 0.45 s lifted it at up to 2.4 m/s.
    */
@@ -181,7 +227,7 @@ export function risingEligibility(state: SupportedLocomotionState,
   if (state.state !== "fallen" && state.state !== "rising") {
     return Object.freeze({ eligible: false, reason: "recovery requires a fallen or rising body" });
   }
-  if (state.fallenElapsedS < SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S) {
+  if (state.fallenElapsedS < fallenDwellS(input.authority)) {
     return Object.freeze({ eligible: false, reason: "fallen dwell has not elapsed" });
   }
   // Fallen only: a rise already under way is keyframed and never at rest, and asking it to be
@@ -219,7 +265,11 @@ const checkedBoundary = (input: SupportedLocomotionBoundary): void => {
   if (typeof input.fallSettled !== "boolean") {
     throw new Error("supported locomotion boundary must say whether the fall has come to rest");
   }
-  if (!Number.isFinite(input.risingDurationS) || input.risingDurationS < SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S) {
+  if (input.authority?.recoveryScale !== undefined &&
+      (!Number.isFinite(input.authority.recoveryScale) || input.authority.recoveryScale <= 0)) {
+    throw new Error("supported locomotion authority has an invalid recovery scale");
+  }
+  if (!Number.isFinite(input.risingDurationS) || input.risingDurationS < risingFloorS(input.authority)) {
     throw new Error("supported locomotion rise may be lengthened but never shorter than RISING_DURATION_S");
   }
   if (input.authority && (!Number.isFinite(input.authority.braceCapacityMultiplier) ||
@@ -272,7 +322,7 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
       supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     }
     const eligible = risingEligibility({ ...prior,
-      fallenElapsedS: Math.max(prior.fallenElapsedS, SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S) }, input);
+      fallenElapsedS: Math.max(prior.fallenElapsedS, fallenDwellS(input.authority)) }, input);
     if (!eligible.eligible) return Object.freeze({ state: "fallen", specificImpulseMps,
       supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     const risingElapsedS = prior.risingElapsedS + input.dt;

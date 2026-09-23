@@ -372,3 +372,133 @@ Two consequences:
 
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone, identical to movement's and
 turning's, and 50.3 % on the skeleton.
+
+## Recovery (session 07)
+
+**First, is there anything to recover from?** Yes, in both builds. Session 06's columns show the
+stone default going down 4.9 times a bout at x1 and spending 15.1 % of it down, and the skeleton
+4.9 times and 23.9 %. Stone's biped has `knockdown: null`, so it goes down through the shared path
+alone: the frozen 0.35 s dwell, then the frozen 0.45 s rise.
+
+**The knob.** Two halves, one per owner.
+
+- **The port's half, for every body.** `recoveryScale` rides on the stability authority beside
+  session 06's `stabilityScale`. The state machine reads the dwell through `fallenDwellS` and the
+  rise floor through `risingFloorS`, each the frozen value over the stat. The port hands the body's
+  own x1 rise length to `recoveredRiseS`, which divides it. The skeleton's `risePeakMps` is
+  therefore scaled here, as a shorter rise over the same lift.
+- **The body's half, which only the body can see.** `withRecovery` divides a knockdown's
+  `restSeconds` and `maxLyingSeconds`.
+
+**The rise is never divided past what the rising actuator can accelerate.** A smoothstep lift over
+`d` metres in `T` seconds peaks at `6 d / T^2`, and the port refuses a rise over 48 m/s^2 as
+obstructed. At x2 the frozen 0.45 s becomes 0.225 s, which lifts at most 0.41 m. Divided blindly,
+a body lying lower than that would be refused a rise on every boundary, for ever, and the house
+rule on recovery forbids exactly that. So above x1 a rise stops shortening at the limit. Nothing in
+the measurements below reached it: every rise lasted its x1 length over the stat, stone's 0.45 s
+and the skeleton's table lift alike, down to the 0.225 s floor at x2.
+
+**The lying cap is divided and never removed.** `attributesRefusal` keeps the stat inside its row,
+so the cap stays finite.
+
+### Bench
+
+Node harness, whole golems in a supported pair (`.review/recovery-bench.mjs`, which copies
+`knockdown` in `tests/golem-knockdown.test.mjs`). The body asks to rise and fight the whole time,
+and is shoved to twice its fall line three times a level, 7 s apart for the skeleton and 3 s for
+stone. Each figure is the mean over the three. Peak limb speed is the fastest any non-leg part
+moves relative to the pelvis during a rise, so the lift itself is not counted.
+
+| Body | Level | Lie, s | Pelvis at rise start, m | Rise, s | Fall to standing, s | Peak limb speed, m/s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| stone | x0.50 | 0.704 | 0.88 | 0.904 | 1.608 | 1.67 |
+| | x0.75 | 0.471 | 0.89 | 0.604 | 1.075 | 1.17 |
+| | x1.00 | 0.350 | 0.90 | 0.454 | 0.804 | 0.82 |
+| | x1.25 | 0.283 | 0.90 | 0.362 | 0.646 | 0.84 |
+| | x1.50 | 0.233 | 0.90 | 0.300 | 0.533 | 1.00 |
+| | x2.00 | 0.175 | 0.90 | 0.225 | 0.400 | 1.09 |
+| skeleton | x0.50 | 2.61 | 0.20 | 2.21 | 4.81 | 5.52 |
+| | x0.75 | 2.50 | 0.19 | 1.50 | 4.00 | 5.64 |
+| | x1.00 | 2.38 | 0.20 | 1.11 | 3.49 | 5.80 |
+| | x1.25 | 2.01 | 0.27 | 0.80 | 2.81 | 5.71 |
+| | x1.50 | 1.68 | 0.34 | 0.58 | 2.25 | 9.31 |
+| | x2.00 | 1.26 | 0.68 | 0.23 | 1.48 | 16.27 |
+
+Every shove at every level ended standing: no rise was refused and none was interrupted.
+
+Stone is the frozen dwell and rise over the stat, to the substep, all the way to x2.
+
+The skeleton's lie ends on rest below x1.25 and on the cap from x1.25 up (2.5 s over the stat). A
+cap that short ends a fall that has not finished. At x1.5 the rise starts with the pelvis at
+0.34 m, and at x2 at 0.68 m, against 0.19-0.20 at x1. The knockdown table's note records every rise
+it watched starting at or under 0.26 m. The skeleton's tone climbs back across the rise, so a
+shorter rise is a faster climb against a commanded pose. From x1.5 up the limbs whip: a wrist at
+9.3 m/s, a plate at 16.3. **The bench's ceiling is x1.25**: the rise starts from a finished fall
+(0.26-0.28 m) and no limb is faster than at x1.
+
+Held off its rest rule (`restSeconds` four times the cap), the skeleton lies 5.004 s at x0.5,
+2.504 at x1 and 2.008 at x1.25, which is the cap over the stat. The same probe's x0.5 run had a
+7 s window, shorter than a 5.0 s lie plus a 2.0 s rise, so its standing is not in that run.
+`the_recovery_stat_divides_every_lie_and_rise_and_the_cap_still_ends_a_lie_at_both_ends_of_its_range`
+in `tests/golem-knockdown.test.mjs` asserts it at both ends of the row: the lie is the cap over the
+stat, and the body stands afterwards.
+
+### Sweep
+
+`research/runs/stat-recovery`, 192 blocks per level, stone default, the four probe minds.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 38.8 [33.9, 43.8] | 43.2 / 34.4 | -0.131 [-0.179, -0.083] | -0.39 | -0.123 [-0.169, -0.078] | -0.38 | 0 | 29.5 | 6.94 | 8.55 |
+| x0.75 | 384 | 47.1 [41.7, 52.6] | 51.0 / 43.2 | -0.027 [-0.077, 0.024] | -0.08 | -0.019 [-0.064, 0.028] | -0.06 | 0 | 28.8 | 7.58 | 7.72 |
+| x0.90 | 384 | 44.9 [39.6, 50.3] | 49.2 / 40.6 | -0.050 [-0.103, 0.005] | -0.13 | -0.041 [-0.088, 0.002] | -0.13 | 1 | 27.3 | 7.45 | 8.26 |
+| x1.00 (control) | 384 | 48.8 [43.6, 54.3] | 51.0 / 46.6 | -0.008 [-0.057, 0.043] | -0.02 | -- | -- | 1 | 28.1 | 7.60 | 7.68 |
+| x1.10 | 384 | 51.2 [45.8, 56.5] | 53.4 / 49.0 | -0.003 [-0.051, 0.048] | -0.01 | 0.006 [-0.042, 0.055] | 0.02 | 1 | 27.2 | 7.68 | 7.79 |
+| x1.25 | 384 | 50.1 [44.4, 55.9] | 51.6 / 48.7 | 0.013 [-0.037, 0.065] | 0.04 | 0.021 [-0.021, 0.064] | 0.07 | 1 | 27.7 | 7.75 | 7.66 |
+| x1.50 | 384 | 52.9 [47.4, 58.3] | 55.2 / 50.5 | 0.037 [-0.013, 0.092] | 0.10 | 0.046 [0.006, 0.087] | 0.16 | 0 | 27.2 | 8.05 | 7.69 |
+| x2.00 | 384 | 54.0 [48.6, 59.4] | 53.6 / 54.4 | 0.039 [-0.016, 0.092] | 0.11 | 0.048 [0.001, 0.092] | 0.15 | 1 | 28.2 | 7.91 | 7.43 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 5.33 | 4.26 | 27.8 | 14.3 |
+| x0.75 | 5.01 | 4.81 | 20.0 | 14.9 |
+| x0.90 | 5.01 | 4.90 | 17.0 | 14.9 |
+| x1.00 | 4.89 | 4.96 | 15.1 | 14.5 |
+| x1.10 | 4.99 | 4.99 | 14.1 | 14.9 |
+| x1.25 | 5.07 | 5.26 | 12.8 | 14.7 |
+| x1.50 | 4.96 | 5.18 | 10.6 | 15.8 |
+| x2.00 | 4.99 | 5.17 | 8.6 | 15.7 |
+
+`research/runs/stat-recovery-skeleton`, 192 blocks per level, `skeleton-warrior` with the skeleton
+duelist on both sides:
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 46.9 [42.4, 51.6] | 45.3 / 48.4 | -0.021 [-0.071, 0.030] | -0.06 | -0.037 [-0.096, 0.023] | -0.09 | 0 | 59.4 | 1.83 | 1.93 |
+| x0.75 | 384 | 45.1 [40.1, 50.3] | 45.8 / 44.3 | -0.024 [-0.084, 0.033] | -0.06 | -0.041 [-0.107, 0.024] | -0.09 | 0 | 58.9 | 1.81 | 1.93 |
+| x1.00 (control) | 384 | 50.3 [45.1, 55.2] | 54.7 / 45.8 | 0.017 [-0.039, 0.071] | 0.04 | -- | -- | 0 | 59.5 | 1.89 | 1.89 |
+| x1.25 | 384 | 50.8 [45.8, 55.7] | 51.0 / 50.5 | 0.042 [-0.013, 0.096] | 0.11 | 0.026 [-0.035, 0.083] | 0.06 | 0 | 59.1 | 1.96 | 1.82 |
+| x1.50 | 384 | 60.2 [55.2, 65.1] | 60.9 / 59.4 | 0.134 [0.081, 0.187] | 0.36 | 0.118 [0.056, 0.178] | 0.27 | 0 | 57.9 | 2.11 | 1.72 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 4.03 | 4.30 | 31.4 | 21.1 |
+| x0.75 | 4.54 | 4.40 | 26.7 | 21.7 |
+| x1.00 | 4.90 | 4.79 | 23.9 | 23.5 |
+| x1.25 | 4.73 | 4.75 | 19.7 | 23.7 |
+| x1.50 | 5.04 | 4.93 | 18.7 | 24.8 |
+
+**On stone, recovery has the shape of turning and stability.** A slow body loses clearly: x0.5
+spends 27.8 % of a bout down against 15.1 %, and wins 38.8 % (paired d -0.38). x0.75 to x1.25 are
+inside the null. x1.5 and x2 win 52.9 % and 54.0 %, with d 0.16 and 0.15 against the control, and
+intervals that just clear zero. The knockdown count does not move (4.9 to 5.3 a bout), as it should
+not: this stat prices a knockdown and does not prevent one.
+
+**On the skeleton, it is flat up to x1.25, and x1.5 wins 60.2 % (d 0.27).** x1.5 is exactly where
+the bench shows the rise starting mid-fall with the limbs whipping. Damage dealt rises there, 2.11
+against 1.89, with the time down only a point under x1.25's. The whip and the gain coincide.
+Nothing here shows that one causes the other. It is left unshipped: the row's top is x1.25, the
+bench's ceiling. If the skeleton ever wants a faster recovery than that, the cap has to stop ending
+a fall that is still moving, and that is a change to the knockdown rule, not a number.
+
+The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.

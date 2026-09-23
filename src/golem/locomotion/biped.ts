@@ -43,7 +43,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
-import { attributeOf, withMovement, withTurning } from "../attributes.ts";
+import { attributeOf, withMovement, withRecovery, withTurning } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -368,8 +368,11 @@ return defineLocomotion({
   build(ctx: ModuleBuild): BuiltLocomotion {
     // This body's own table: the carrier's travel scaled by its movement stat and its yaw by its
     // turning stat, read by the port, the stride and the envelope alike (`withMovement` says why
-    // all of them), and the gait re-timed to carry the travel (`bipedAtMovement`).
-    const B = bipedAtMovement(withTurning(table, attributeOf(ctx, "turning")), attributeOf(ctx, "movement"));
+    // all of them), the gait re-timed to carry the travel (`bipedAtMovement`), and the knockdown's
+    // lie shortened by its recovery stat (`withRecovery`).
+    const recovery = attributeOf(ctx, "recovery");
+    const B = withRecovery(bipedAtMovement(withTurning(table, attributeOf(ctx, "turning")),
+      attributeOf(ctx, "movement")), recovery);
     // The stability stat, published on every authority this body hands its port as a plain factor
     // on its thresholds (`stabilityCapacity` in `src/supported-locomotion-state.ts`).
     const stability = attributeOf(ctx, "stability");
@@ -831,6 +834,7 @@ return defineLocomotion({
         braceCapacityMultiplier: B.braceCapacityMultiplier,
         gaitStabilityScale: scale,
         stabilityScale: stability,
+        recoveryScale: recovery,
       });
     };
 

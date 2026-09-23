@@ -144,7 +144,41 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * `docs/analysis/2026-09-23-attribute-measurements.md`, "Stability".
    */
   stability: Object.freeze({ label: "Stability", min: 0.5, max: 2, step: 0.05, live: true }),
-  recovery: pending("Recovery"),
+  /**
+   * How fast a knocked-down body is back on its feet: the frozen dwell and the frozen rise divided by
+   * the stat for every body (`fallenDwellS`, `risingFloorS` and `recoveredRiseS` in
+   * `src/supported-locomotion-state.ts`, from `recoveryScale` on the authority), and a knockdown's
+   * rest window and lying cap divided on a body that has one (`withRecovery`). It does not change how
+   * often a body goes down; that is stability. Session 07, 2026-09-23.
+   *
+   * **Stone scales exactly and to x2.** Node harness, whole golems (the knockdown test's pair),
+   * shoved twice past the fall line three times a level: stone lies 0.350 s and rises in 0.454 at
+   * x1, and the same over the stat at every level from x0.5 to x2. Its limbs never move faster than
+   * 1.67 m/s against the pelvis during a rise.
+   *
+   * **The skeleton sets the ceiling.** Its lie ends on the cap at x1.25 and above, and the cap cuts
+   * a fall that is still going on:
+   *
+   *     recovery                   0.50   0.75   1.00   1.25   1.50   2.00
+   *     lie, s                     2.61   2.50   2.38   2.01   1.68   1.26
+   *     pelvis at rise start, m    0.20   0.19   0.20   0.27   0.34   0.68
+   *     rise, s                    2.21   1.50   1.11   0.80   0.58   0.23
+   *     peak limb speed, m/s       5.52   5.64   5.80   5.71   9.31  16.27   (vs the pelvis, in the rise)
+   *
+   * At x1.25 the rise still begins from a finished fall -- 0.26 to 0.28 m, against the 0.26 m the
+   * knockdown table's note records for the rises it watched -- and nothing moves faster. At x1.5 it begins mid-fall and a wrist
+   * whips at 9.3 m/s, and at x2 the body is lifted off a fall barely begun. So the top is x1.25.
+   * Held off its rest rule, the skeleton lies exactly the cap over the stat at both ends and stands.
+   *
+   * **In the duel, lying longer costs and getting up sooner barely pays** -- the shape of every stat
+   * so far. Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): on
+   * stone, x0.5 spends 28 % of a bout down against 15 % and wins 38.8 % (paired d -0.38), x1.25 is
+   * inside the null, and x1.5 and x2 win 52.9 % and 54.0 % (d 0.16 and 0.15). The skeleton mirror
+   * is flat from x0.5 to x1.25 -- and wins 60.2 % at x1.5 (d 0.27), the level where the rise stops
+   * being one; that gain is not shipped, and what makes it is not established. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Recovery".
+   */
+  recovery: Object.freeze({ label: "Recovery", min: 0.5, max: 1.25, step: 0.05, live: true }),
   armour: pending("Armour"),
   toughness: pending("Toughness"),
   armSpeed: pending("Arm speed"),
@@ -289,6 +323,40 @@ export function withTurning<T extends { readonly carrier: CarrierYaw }>(table: T
       ...carrier,
       maxYawSpeedRadS: carrier.maxYawSpeedRadS * turning,
       maxYawAccelerationRadS2: carrier.maxYawAccelerationRadS2 * turning,
+    },
+  };
+}
+
+/** The fields of a biped's `Knockdown` (`src/golem/config.ts`) the recovery stat reads. */
+interface LyingRule {
+  readonly restSeconds: number;
+  readonly maxLyingSeconds: number;
+}
+
+/**
+ * A locomotion table with its knockdown's lie shortened by the recovery stat: the stillness a fall
+ * must hold before it counts as finished (`restSeconds`) and the cap that ends a lie whatever the
+ * body is doing (`maxLyingSeconds`), both divided. At x1, or on a table with no knockdown, the table
+ * it was handed comes back.
+ *
+ * **Half of the stat, and the half only the body can see.** The other half -- the frozen dwell, the
+ * frozen rise and every body's own rise length, the knockdown's `risePeakMps` included -- is divided
+ * by the port from `recoveryScale` on the body's authority (`fallenDwellS` and `recoveredRiseS` in
+ * `src/supported-locomotion-state.ts`), so it is not scaled again here. The cap is divided and
+ * never removed: the range keeps it finite, and a cap is what lets a body that is struck while it
+ * lies get up at all (the house rule on recovery).
+ */
+export function withRecovery<K extends LyingRule, T extends { readonly knockdown: K | null }>(
+  table: T, recovery: number,
+): T {
+  if (recovery === 1 || table.knockdown === null) return table;
+  const knockdown = table.knockdown;
+  return {
+    ...table,
+    knockdown: {
+      ...knockdown,
+      restSeconds: knockdown.restSeconds / recovery,
+      maxLyingSeconds: knockdown.maxLyingSeconds / recovery,
     },
   };
 }

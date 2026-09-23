@@ -23,7 +23,7 @@ import {
   type WorldPoint,
 } from "./supported-locomotion-runtime.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
-import { initialSupportedLocomotionState, stabilityCapacity, stepSupportedLocomotionState,
+import { initialSupportedLocomotionState, recoveredRiseS, risingFloorS, stabilityCapacity, stepSupportedLocomotionState,
   SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState,
   type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 /**
@@ -309,9 +309,12 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       this.carrier.ownerPartIds, evidenceBindings[0], this.sequence).length > 0;
     const recoveryDistanceM = Math.hypot(recoveryTarget.x - root.position.x,
       recoveryTarget.y - root.position.y, recoveryTarget.z - root.position.z);
-    // The rise under way keeps the length it began with; a prospective one is asked for afresh.
-    const risingDurationS = this.rising?.durationS ??
-      this.options.risingDuration?.(recoveryDistanceM) ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S;
+    // The rise under way keeps the length it began with; a prospective one is asked for afresh, of
+    // the body at x1, and then divided by its recovery stat here, so every body's rise answers to
+    // the stat on one rule (`recoveredRiseS`).
+    const risingDurationS = this.rising?.durationS ?? recoveredRiseS(
+      this.options.risingDuration?.(recoveryDistanceM) ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S,
+      recoveryDistanceM, SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2, authority);
     const recoveryWithinAccelerationLimit = 6 * recoveryDistanceM /
       (risingDurationS * risingDurationS) <= SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2;
     const occupancyClear = recoveryWithinAccelerationLimit && this.pairOccupancyClear &&
@@ -359,7 +362,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         y: this.carrier.state.y, z: this.recoveryPairTarget?.z ?? live.position.z };
       this.carrier.reset(target, this.carrier.state.yaw);
       this.rising = new RisingActuator(live.position, target, this.carrier.state.yaw,
-        this.carrier.footprint, this.registry, this.carrier.ownerPartIds, risingDurationS);
+        this.carrier.footprint, this.registry, this.carrier.ownerPartIds, risingDurationS,
+        risingFloorS(authority));
       this.risingFrameComplete = false;
     } else if (this.supportState.state === "supported" && priorState === "rising") {
       this.rising = null;
@@ -422,7 +426,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       releaseReason: this.releaseReason,
       recoveryProgress: this.supportState.state === "rising"
         ? Math.min(1, this.supportState.risingElapsedS /
-          (this.rising?.durationS ?? SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S))
+          (this.rising?.durationS ?? risingFloorS(authority)))
         : this.supportState.state === "fallen" ? 0 : null });
   }
 

@@ -465,10 +465,16 @@ export class RisingActuator {
    * default, because the caller holds the state machine's copy and a default would be a second.
    */
   readonly durationS: number;
+  /**
+   * `floorS` is the shortest rise this body may take, `risingFloorS` of its authority: the frozen
+   * `RISING_DURATION_S` over its recovery stat. It defaults to the frozen value, which is every body
+   * at recovery x1.
+   */
   constructor(start: WorldPoint, target: WorldPoint, yaw: number,
     footprint: LocomotionFootprint, registry: StandableWorldRegistry,
-    ownerPartIds: ReadonlySet<string>, durationS: number) {
-    if (!Number.isFinite(durationS) || durationS < SUPPORTED_CARRIER_V1.RISING_DURATION_S) {
+    ownerPartIds: ReadonlySet<string>, durationS: number,
+    floorS: number = SUPPORTED_CARRIER_V1.RISING_DURATION_S) {
+    if (!Number.isFinite(durationS) || durationS < floorS) {
       throw new Error("a rise may be lengthened but never shorter than RISING_DURATION_S");
     }
     this.start = Object.freeze({ ...start });
