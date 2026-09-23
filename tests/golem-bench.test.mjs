@@ -154,7 +154,8 @@ for (const id of EFFECTOR_IDS) {
       // terminal and wrong for a chain of bodies: a whip that scored only with its final bead
       // would mostly miss, and one that scored with all eight would bruise with its own handle.
       assert.ok(module.strikers.length >= 1, "a terminal that offers no striker scores nothing");
-      assert.equal(module.strikers.length, id.endsWith(".whip") ? TERMINAL_WHIP.strikingSegments : 1);
+      // A whip's lash bites with its weight and its last few beads.
+      assert.equal(module.strikers.length, id.endsWith(".whip") ? TERMINAL_WHIP.strikingSegments + 1 : 1);
       const view = module.view();
       assert.ok(view, "an effector publishes a view");
       assert.equal(view.slot, "primary");
@@ -1487,8 +1488,8 @@ test("the multi-body whip disposes without leaving a body, a constraint or a liv
         layers: golemLayers("left"), materials: stand.materials,
       });
       assert.equal(
-        module.parts.filter((part) => part.id.includes('.whip.')).length, TERMINAL_WHIP.segments,
-        "a whip's beads are parts like any other, and each is severable");
+        module.parts.filter((part) => part.id.includes('.whip.')).length, TERMINAL_WHIP.segments + 1,
+        "a whip's beads and its weight are parts like any other");
       const control = scene.onBeforePhysicsObservable.add(() => module.step(SUBSTEP));
       scene._renderId += 1;
       scene._advancePhysicsEngineStep(1000 * FRAME);

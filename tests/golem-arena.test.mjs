@@ -567,7 +567,8 @@ test("a_whips_beads_are_equipment_that_parries_and_its_arm_is_still_flesh", asyn
   });
   const arm = moduleLimbs(stand.golem, "primary");
   const beads = arm.filter((limb) => limb.key.includes(".whip."));
-  assert.equal(beads.length, 8, `the whip has ${beads.length} beads: ${arm.map((l) => l.key).join(", ")}`);
+  assert.equal(beads.length, 9, `the whip has ${beads.length} beads and weight: ${arm.map((l) => l.key).join(", ")}`);
+  assert.ok(beads.some((limb) => limb.key.endsWith(".whip.weight")), "the whip has no weight on its end");
   for (const bead of beads) {
     assert.deepEqual(stand.golem.parriedBy(bead.part.body), { kind: "whip" }, `${bead.key} does not parry`);
     assert.equal(stand.golem.limbFor(bead.part.body), undefined, `${bead.key} can be wounded`);

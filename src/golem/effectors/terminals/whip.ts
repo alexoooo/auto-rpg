@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
 import { COLLIDES, LAYER } from "../../../physics.ts";
-import { capsulePart, joint, type Part } from "../../../rig.ts";
+import { capsulePart, joint, spherePart, type Part } from "../../../rig.ts";
 import { TERMINAL_WHIP } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -18,7 +18,8 @@ import { beadShell } from "../shell.ts";
 import { RigidStrike } from "../striker.ts";
 
 /**
- * The whip: eight stone beads on seven spherical joints, welded to the end of a wrist.
+ * The whip: eight stone beads on seven spherical joints, welded to the end of a wrist, with a
+ * stone ball jointed to the far end like a flail's head (since 2026-09-22).
  *
  * **It is physics rather than control**, which is the session plan's frozen choice and is worth
  * stating as what it rules out: no lash controller, no per-segment target, no stroke of its own,
@@ -71,7 +72,7 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
   // should not count as body parts, these are segments of a weapon. it shouldn't take damage".
   // `effectorModule` turns this into each bead's `combatRole` and a zero share of the bar.
   partRole: "equipment",
-  massKg: config.segments * config.segmentMass,
+  massKg: config.segments * config.segmentMass + config.weightMass,
   // **Elevation, and nothing else.** A lash has no pose it cannot reach -- it hangs -- so this is
   // not about the whip's kinematics at all, it is about the room under the shoulder, and the
   // table beside `config.limits` is the arithmetic. The beads themselves pass through
@@ -111,6 +112,21 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
       beads.push(bead);
     }
 
+    // **The weight**, a ball hung off the last bead's far end and built in the same frame at joint
+    // angle zero, for the same reason every bead is. See `TERMINAL_WHIP.weightMass`.
+    const weight = spherePart(ctx.scene, {
+      name: `${name}.weight`,
+      position: onto.world.add(along.scale(W.segmentLength * W.segments + W.weightRadius - (W.gripFromButt ?? 0))),
+      rotation,
+      diameter: W.weightRadius * 2,
+      mass: W.weightMass,
+      layer: ctx.layers.strike,
+      collidesWith: ctx.layers.strikeCollidesWith,
+      material: stone,
+    });
+    weight.body.setLinearDamping(W.linearDamping);
+    weight.body.setAngularDamping(W.angularDamping);
+
     // The near end of each bead in its own local frame, and the far end of the one before it.
     const nearEnd = new Vector3(0, -W.segmentLength / 2, 0);
     const farEnd = new Vector3(0, W.segmentLength / 2, 0);
@@ -141,13 +157,27 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
         swing: { x: cone, y: twist, z: cone },
       }));
     }
+    // The weight swings on the last bead as a bead swings on the one before it: same cone, same
+    // twist, pivoted at the ball's own surface.
+    joints.push(joint(ctx.scene, beads[beads.length - 1], weight, {
+      pivotParent: farEnd,
+      pivotChild: new Vector3(0, -W.weightRadius, 0),
+      swing: { x: cone, y: twist, z: cone },
+    }));
 
     // **The last few beads bite, the far one first.** `BuiltTerminal.strikers` is ordered with
     // the business end at the head, because that is where the tip and the edge are read from --
     // and `edgeDirection` is never asked of this one, because a whip's `bite` is mass.
     const hand = effectorSlot(ctx.socket.slot);
     const striking = Math.min(W.strikingSegments, beads.length);
-    const strikers: RigidStrike[] = [];
+    // The weight first: it is the business end, so the tip is read from it.
+    const strikers: RigidStrike[] = [new RigidStrike(weight, {
+      kind: "whip",
+      impactMassKg: W.weightMass,
+      effectorId: `${name}.weight.lash`,
+      hand,
+      tipAlong: W.weightRadius,
+    })];
     for (let back = 0; back < striking; back += 1) {
       const index = beads.length - 1 - back;
       strikers.push(new RigidStrike(beads[index], {
@@ -164,7 +194,7 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
       }));
     }
 
-    const parts: readonly GolemPart[] = Object.freeze(beads.map((bead) => Object.freeze({
+    const parts: readonly GolemPart[] = Object.freeze([...beads.map((bead) => Object.freeze({
       id: bead.name,
       part: bead,
       shell: Object.freeze([
@@ -177,7 +207,15 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
       health: W.health,
       vitalityWeight: W.vitalityWeight,
       fatal: false,
-    })));
+    })), Object.freeze({
+      id: weight.name,
+      part: weight,
+      // The ball is its own shell: it is already the shape it is drawn as.
+      shell: Object.freeze([weight.mesh]),
+      health: W.health,
+      vitalityWeight: W.vitalityWeight,
+      fatal: false,
+    })]);
 
     return Object.freeze({
       parts,
@@ -191,7 +229,7 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
         // Every bead relayers, and each on **its own leaf**: a whip is the one terminal here with
         // more than one body, and a session that relayered only the first would leave seven
         // capsules on the golem's own strike layer with nothing holding them.
-        for (const bead of beads) {
+        for (const bead of [...beads, weight]) {
           bead.shape.filterMembershipMask = LAYER.DEBRIS;
           bead.shape.filterCollideMask = COLLIDES.DEBRIS;
         }
@@ -208,6 +246,9 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
           joints[index] = null;
         }
         joints = [];
+        weight.body.dispose();
+        weight.shape.dispose();
+        weight.mesh.dispose(false, false);
         for (let index = beads.length - 1; index >= 0; index -= 1) {
           const bead = beads[index];
           bead.body.dispose();

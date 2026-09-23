@@ -2113,6 +2113,18 @@ export const TERMINAL_WHIP = {
    */
   segmentMass: kg(0.57),
   /**
+   * **The weight on the end**, a stone ball jointed to the last bead like a flail's head. The
+   * owner, 2026-09-22: "it would be cool if it had a weight at the end, like a flail".
+   *
+   * Arithmetic, as for a bead: a ball of radius 0.06 m is 0.000905 m3, and stone at 2600 kg/m3
+   * makes that 2.35 kg -- four beads' worth, at the one point of the lash that travels fastest,
+   * which is what a flail is for. It is the business end: the first striker, the one a tip is
+   * read from, and a blow from it is priced at its own mass rather than a bead's. The radius is
+   * chosen by eye against the beads' 0.022 and is the owner's to look at.
+   */
+  weightRadius: 0.06,
+  weightMass: kg(2.35),
+  /**
    * How far each joint may bend and twist, radians.
    *
    * Not free: a bead pair with no limit folds back through itself, which is a self-intersecting
@@ -2156,8 +2168,16 @@ export const TERMINAL_WHIP = {
    * lash and carry, which is where the lash is longest while it is doing anything: 1.088 m, at
    * the start of the carry, against 0.49 m hanging settled and the 1.28 m it is built straight.
    * The row is in `docs/measurements.md` under Session 02 of the matchup set. 2026-09-06.
+   *
+   * **1.09 -> 1.25 on 2026-09-22, for the weight on the end, and by the weight's share only.** The
+   * procedure behind 1.088 is not in the tree, so the flail was measured on one probe either side
+   * of it rather than against that figure: Node bench, `effector.wrist.whip`, peak weld-to-far-end
+   * distance after the 0.6 s startup window, **1.173 m without the weight and 1.352 m with it**.
+   * The same probe reads the unweighted lash 8 % longer than the recorded 1.088, so the recorded
+   * figure is scaled by the ratio (x 1.153) rather than replaced by the probe's own -- which moves
+   * the published reach by what the weight changed and by nothing else.
    */
-  lashReach: 1.09,
+  lashReach: 1.25,
   /**
    * Per bead, and **never subtracted from**: the whip is equipment since 2026-09-22 (see
    * `whipDefinition`), so a blow on a bead is a parry. The row is what the part's shape requires
