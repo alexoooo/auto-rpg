@@ -47,6 +47,13 @@ export interface GolemMaterialPalette {
    * body fingerprint cannot see a material. Reading it from a disposed palette throws.
    */
   readonly bone: PBRMaterial;
+  /**
+   * The modelled skeleton's bone (`src/golem/skeleton/appearance.ts`), lazy on the same terms as
+   * `bone`. A material of its own because the model's ivory and occlusion are baked into vertex
+   * colours, which multiply the albedo: on `bone`'s ivory they would darken twice, and retinting
+   * `bone` itself would recolour any primitive bone still drawn from this palette.
+   */
+  readonly boneModel: PBRMaterial;
   readonly plugins: readonly GolemProceduralSurfacePlugin[];
   readonly disposed: boolean;
   dispose(): void;
@@ -301,16 +308,14 @@ export function golemMaterials(
   let disposed = false;
   // No procedural plugin: the shader has stone, bronze, plain and rune families and no bone one,
   // so a bone shows no wear cracks. `plugins` stays four long.
-  let bone: PBRMaterial | null = null;
-  const boneMaterial = (): PBRMaterial => {
-    if (disposed) throw new Error(`golem.${faction} palette is disposed`);
-    if (bone) return bone;
-    const profile = GOLEM_MATERIAL_PROFILES["carved-bone"];
-    bone = material(scene, `golem.${faction}.carved-bone`, profile.albedoByFaction[faction]);
-    bone.metallic = profile.metallic;
-    bone.roughness = profile.roughness;
-    bone.metadata = { golemSurfaceFamily: "bone" };
-    return bone;
+  let bone: PBRMaterial | null = null, boneModel: PBRMaterial | null = null;
+  const live = (): void => { if (disposed) throw new Error(`golem.${faction} palette is disposed`); };
+  const boneMaterial = (name: string, albedo: readonly [number, number, number], roughness: number): PBRMaterial => {
+    const made = material(scene, `golem.${faction}.${name}`, albedo);
+    made.metallic = GOLEM_MATERIAL_PROFILES["carved-bone"].metallic;
+    made.roughness = roughness;
+    made.metadata = { golemSurfaceFamily: "bone" };
+    return made;
   };
   const palette: GolemMaterialPalette = {
     faction,
@@ -319,13 +324,23 @@ export function golemMaterials(
     functionalMetal,
     golemWood,
     rune,
-    get bone() { return boneMaterial(); },
+    get bone() {
+      live();
+      const profile = GOLEM_MATERIAL_PROFILES["carved-bone"];
+      return bone ??= boneMaterial("carved-bone", profile.albedoByFaction[faction], profile.roughness);
+    },
+    // A near-white tint over the baked ivory, keeping the faction's warm or cool cast.
+    get boneModel() {
+      live();
+      return boneModel ??= boneMaterial("modelled-bone", faction === "right" ? [.93, .96, 1] : [1, .97, .9], .7);
+    },
     plugins,
     get disposed() { return disposed; },
     dispose() {
       if (disposed) return;
       disposed = true;
       bone?.dispose(false, false);
+      boneModel?.dispose(false, false);
       carvedStone.dispose(false, false);
       functionalMetal.dispose(false, false);
       golemWood.dispose(false, false);

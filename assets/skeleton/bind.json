@@ -1,0 +1,3096 @@
+[
+ {
+  "build": "fist/fist",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.pelvis",
+  "position": [
+   0,
+   0.8600000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.14,
+   -0.06,
+   -0.08
+  ],
+  "max": [
+   0.14,
+   0.06,
+   0.08
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.pelvis.ring",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.pelvis.sacrum",
+    "position": [
+     0,
+     0,
+     -0.055999999999999994
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.thighL",
+  "position": [
+   -0.09,
+   0.6400000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.028,
+   -0.2,
+   -0.028
+  ],
+  "max": [
+   0.028,
+   0.2,
+   0.028
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.thighL.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.thighL.condyleNear",
+    "position": [
+     0,
+     -0.186,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.thighL.condyleFar",
+    "position": [
+     0,
+     0.186,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.shinL",
+  "position": [
+   -0.09,
+   0.2450000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.024,
+   -0.195,
+   -0.024
+  ],
+  "max": [
+   0.024,
+   0.195,
+   0.024
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.shinL.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.shinL.condyleNear",
+    "position": [
+     0,
+     -0.183,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.shinL.condyleFar",
+    "position": [
+     0,
+     0.183,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.footL",
+  "position": [
+   -0.09,
+   0.025000000000000022,
+   0.043199999999999995
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.045,
+   -0.025,
+   -0.12
+  ],
+  "max": [
+   0.045,
+   0.025,
+   0.12
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.footL.metatarsal0",
+    "position": [
+     -0.027,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footL.metatarsal1",
+    "position": [
+     0,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footL.metatarsal2",
+    "position": [
+     0.027,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footL.heel",
+    "position": [
+     0,
+     0,
+     -0.0912
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.thighR",
+  "position": [
+   0.09,
+   0.6400000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.028,
+   -0.2,
+   -0.028
+  ],
+  "max": [
+   0.028,
+   0.2,
+   0.028
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.thighR.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.thighR.condyleNear",
+    "position": [
+     0,
+     -0.186,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.thighR.condyleFar",
+    "position": [
+     0,
+     0.186,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.shinR",
+  "position": [
+   0.09,
+   0.2450000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.024,
+   -0.195,
+   -0.024
+  ],
+  "max": [
+   0.024,
+   0.195,
+   0.024
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.shinR.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.shinR.condyleNear",
+    "position": [
+     0,
+     -0.183,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.shinR.condyleFar",
+    "position": [
+     0,
+     0.183,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.footR",
+  "position": [
+   0.09,
+   0.025000000000000022,
+   0.043199999999999995
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.045,
+   -0.025,
+   -0.12
+  ],
+  "max": [
+   0.045,
+   0.025,
+   0.12
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.footR.metatarsal0",
+    "position": [
+     -0.027,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footR.metatarsal1",
+    "position": [
+     0,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footR.metatarsal2",
+    "position": [
+     0.027,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footR.heel",
+    "position": [
+     0,
+     0,
+     -0.0912
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "torso.ribcage",
+  "id": "left.golem.trunk.waist",
+  "position": [
+   0,
+   0.9200000000000002,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.035,
+   -0.11,
+   -0.035
+  ],
+  "max": [
+   0.035,
+   0.11,
+   0.035
+  ],
+  "shells": [
+   {
+    "name": "left.golem.trunk.waist.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "torso.ribcage",
+  "id": "left.golem.trunk.core",
+  "position": [
+   0,
+   1.11,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.15,
+   -0.19,
+   -0.1
+  ],
+  "max": [
+   0.15,
+   0.19,
+   0.1
+  ],
+  "shells": [
+   {
+    "name": "left.golem.trunk.core.spine",
+    "position": [
+     0,
+     0,
+     -0.07600000000000001
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.sternum",
+    "position": [
+     0,
+     0,
+     0.08800000000000001
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib0",
+    "position": [
+     0,
+     -0.11399999999999999,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib1",
+    "position": [
+     0,
+     -0.051300000000000005,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib2",
+    "position": [
+     0,
+     0.01139999999999999,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib3",
+    "position": [
+     0,
+     0.07409999999999999,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib4",
+    "position": [
+     0,
+     0.13679999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.clavicle",
+    "position": [
+     0,
+     0.1748,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0.7071067811865475,
+     0.7071067811865476
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "head.skull",
+  "id": "left.golem.head.neck",
+  "position": [
+   0,
+   1.37,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.02,
+   -0.05,
+   -0.02
+  ],
+  "max": [
+   0.02,
+   0.05,
+   0.02
+  ],
+  "shells": [
+   {
+    "name": "left.golem.head.neck.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.neck.condyleNear",
+    "position": [
+     0,
+     -0.04,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.neck.condyleFar",
+    "position": [
+     0,
+     0.04,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "head.skull",
+  "id": "left.golem.head.head",
+  "position": [
+   0,
+   1.52,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.08,
+   -0.1,
+   -0.1
+  ],
+  "max": [
+   0.08,
+   0.1,
+   0.1
+  ],
+  "shells": [
+   {
+    "name": "left.golem.head.head.cranium",
+    "position": [
+     0,
+     0.016,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.head.jaw",
+    "position": [
+     0,
+     -0.072,
+     0.036
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.head.eyeL",
+    "position": [
+     -0.0352,
+     0.004,
+     0.0765
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.head.eyeR",
+    "position": [
+     0.0352,
+     0.004,
+     0.0765
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.primary.collar",
+  "position": [
+   0.19,
+   1.2400000000000002,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.035,
+   -0.05,
+   -0.035
+  ],
+  "max": [
+   0.035,
+   0.05,
+   0.035
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.collar.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.primary.upperArm",
+  "position": [
+   0.19,
+   1.090667397856541,
+   -0.014134140832161309
+  ],
+  "rotation": [
+   0.04716629646053596,
+   0,
+   0,
+   0.9988870509112614
+  ],
+  "min": [
+   -0.022,
+   -0.15,
+   -0.022
+  ],
+  "max": [
+   0.022,
+   0.15,
+   0.022
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.upperArm.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.upperArm.condyleNear",
+    "position": [
+     0,
+     -0.13899999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.upperArm.condyleFar",
+    "position": [
+     0,
+     0.13899999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.primary.forearm",
+  "position": [
+   0.19,
+   0.9358055998293335,
+   0.09660937043115497
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.018,
+   -0.125,
+   -0.018
+  ],
+  "max": [
+   0.018,
+   0.125,
+   0.018
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.forearm.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.forearm.condyleNear",
+    "position": [
+     0,
+     -0.116,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.forearm.condyleFar",
+    "position": [
+     0,
+     0.116,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.primary.rollRing",
+  "position": [
+   0.19,
+   0.9291705647688351,
+   0.24646255294572805
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.02,
+   -0.025,
+   -0.02
+  ],
+  "max": [
+   0.02,
+   0.025,
+   0.02
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.rollRing.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.rollRing.axle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.primary.wrist",
+  "position": [
+   0.19,
+   0.9262953829092858,
+   0.3113989320353764
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.016,
+   -0.04,
+   -0.016
+  ],
+  "max": [
+   0.016,
+   0.04,
+   0.016
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.wrist.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.wrist.condyleNear",
+    "position": [
+     0,
+     -0.032,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.wrist.condyleFar",
+    "position": [
+     0,
+     0.032,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.primary.fist",
+  "position": [
+   0.19,
+   0.9223143618258505,
+   0.4013108423123364
+  ],
+  "rotation": [
+   -0.5109387360566613,
+   0.48881654571662553,
+   0.5109387360566613,
+   -0.48881654571662553
+  ],
+  "min": [
+   -0.05,
+   -0.05,
+   -0.05
+  ],
+  "max": [
+   0.05,
+   0.05,
+   0.05
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.fist",
+    "position": [
+     0.19,
+     0.9223143618258505,
+     0.4013108423123364
+    ],
+    "rotation": [
+     -0.5109387360566613,
+     0.48881654571662553,
+     0.5109387360566613,
+     -0.48881654571662553
+    ]
+   },
+   {
+    "name": "left.golem.primary.fist.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.secondary.collar",
+  "position": [
+   -0.19,
+   1.2400000000000002,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.035,
+   -0.05,
+   -0.035
+  ],
+  "max": [
+   0.035,
+   0.05,
+   0.035
+  ],
+  "shells": [
+   {
+    "name": "left.golem.secondary.collar.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.secondary.upperArm",
+  "position": [
+   -0.19,
+   1.090667397856541,
+   -0.014134140832161309
+  ],
+  "rotation": [
+   0.04716629646053596,
+   0,
+   0,
+   0.9988870509112614
+  ],
+  "min": [
+   -0.022,
+   -0.15,
+   -0.022
+  ],
+  "max": [
+   0.022,
+   0.15,
+   0.022
+  ],
+  "shells": [
+   {
+    "name": "left.golem.secondary.upperArm.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.secondary.upperArm.condyleNear",
+    "position": [
+     0,
+     -0.13899999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.secondary.upperArm.condyleFar",
+    "position": [
+     0,
+     0.13899999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.secondary.forearm",
+  "position": [
+   -0.19,
+   0.9358055998293335,
+   0.09660937043115497
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.018,
+   -0.125,
+   -0.018
+  ],
+  "max": [
+   0.018,
+   0.125,
+   0.018
+  ],
+  "shells": [
+   {
+    "name": "left.golem.secondary.forearm.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.secondary.forearm.condyleNear",
+    "position": [
+     0,
+     -0.116,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.secondary.forearm.condyleFar",
+    "position": [
+     0,
+     0.116,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.secondary.rollRing",
+  "position": [
+   -0.19,
+   0.9291705647688351,
+   0.24646255294572805
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.02,
+   -0.025,
+   -0.02
+  ],
+  "max": [
+   0.02,
+   0.025,
+   0.02
+  ],
+  "shells": [
+   {
+    "name": "left.golem.secondary.rollRing.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.secondary.rollRing.axle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.secondary.wrist",
+  "position": [
+   -0.19,
+   0.9262953829092858,
+   0.3113989320353764
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.016,
+   -0.04,
+   -0.016
+  ],
+  "max": [
+   0.016,
+   0.04,
+   0.016
+  ],
+  "shells": [
+   {
+    "name": "left.golem.secondary.wrist.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.secondary.wrist.condyleNear",
+    "position": [
+     0,
+     -0.032,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.secondary.wrist.condyleFar",
+    "position": [
+     0,
+     0.032,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "fist/fist",
+  "module": "effector.skeletal.fist",
+  "id": "left.golem.secondary.fist",
+  "position": [
+   -0.19,
+   0.9223143618258505,
+   0.4013108423123364
+  ],
+  "rotation": [
+   -0.5109387360566613,
+   0.48881654571662553,
+   0.5109387360566613,
+   -0.48881654571662553
+  ],
+  "min": [
+   -0.05,
+   -0.05,
+   -0.05
+  ],
+  "max": [
+   0.05,
+   0.05,
+   0.05
+  ],
+  "shells": [
+   {
+    "name": "left.golem.secondary.fist",
+    "position": [
+     -0.19,
+     0.9223143618258505,
+     0.4013108423123364
+    ],
+    "rotation": [
+     -0.5109387360566613,
+     0.48881654571662553,
+     0.5109387360566613,
+     -0.48881654571662553
+    ]
+   },
+   {
+    "name": "left.golem.secondary.fist.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.pelvis",
+  "position": [
+   0,
+   0.8600000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.14,
+   -0.06,
+   -0.08
+  ],
+  "max": [
+   0.14,
+   0.06,
+   0.08
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.pelvis.ring",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.pelvis.sacrum",
+    "position": [
+     0,
+     0,
+     -0.055999999999999994
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.thighL",
+  "position": [
+   -0.09,
+   0.6400000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.028,
+   -0.2,
+   -0.028
+  ],
+  "max": [
+   0.028,
+   0.2,
+   0.028
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.thighL.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.thighL.condyleNear",
+    "position": [
+     0,
+     -0.186,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.thighL.condyleFar",
+    "position": [
+     0,
+     0.186,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.shinL",
+  "position": [
+   -0.09,
+   0.2450000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.024,
+   -0.195,
+   -0.024
+  ],
+  "max": [
+   0.024,
+   0.195,
+   0.024
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.shinL.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.shinL.condyleNear",
+    "position": [
+     0,
+     -0.183,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.shinL.condyleFar",
+    "position": [
+     0,
+     0.183,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.footL",
+  "position": [
+   -0.09,
+   0.025000000000000022,
+   0.043199999999999995
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.045,
+   -0.025,
+   -0.12
+  ],
+  "max": [
+   0.045,
+   0.025,
+   0.12
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.footL.metatarsal0",
+    "position": [
+     -0.027,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footL.metatarsal1",
+    "position": [
+     0,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footL.metatarsal2",
+    "position": [
+     0.027,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footL.heel",
+    "position": [
+     0,
+     0,
+     -0.0912
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.thighR",
+  "position": [
+   0.09,
+   0.6400000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.028,
+   -0.2,
+   -0.028
+  ],
+  "max": [
+   0.028,
+   0.2,
+   0.028
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.thighR.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.thighR.condyleNear",
+    "position": [
+     0,
+     -0.186,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.thighR.condyleFar",
+    "position": [
+     0,
+     0.186,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.shinR",
+  "position": [
+   0.09,
+   0.2450000000000001,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.024,
+   -0.195,
+   -0.024
+  ],
+  "max": [
+   0.024,
+   0.195,
+   0.024
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.shinR.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.shinR.condyleNear",
+    "position": [
+     0,
+     -0.183,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.legs.shinR.condyleFar",
+    "position": [
+     0,
+     0.183,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "locomotion.skeleton",
+  "id": "left.golem.legs.footR",
+  "position": [
+   0.09,
+   0.025000000000000022,
+   0.043199999999999995
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.045,
+   -0.025,
+   -0.12
+  ],
+  "max": [
+   0.045,
+   0.025,
+   0.12
+  ],
+  "shells": [
+   {
+    "name": "left.golem.legs.footR.metatarsal0",
+    "position": [
+     -0.027,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footR.metatarsal1",
+    "position": [
+     0,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footR.metatarsal2",
+    "position": [
+     0.027,
+     0,
+     0.024
+    ],
+    "rotation": [
+     0.7071067811865475,
+     0,
+     0,
+     0.7071067811865476
+    ]
+   },
+   {
+    "name": "left.golem.legs.footR.heel",
+    "position": [
+     0,
+     0,
+     -0.0912
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "torso.ribcage",
+  "id": "left.golem.trunk.waist",
+  "position": [
+   0,
+   0.9200000000000002,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.035,
+   -0.11,
+   -0.035
+  ],
+  "max": [
+   0.035,
+   0.11,
+   0.035
+  ],
+  "shells": [
+   {
+    "name": "left.golem.trunk.waist.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "torso.ribcage",
+  "id": "left.golem.trunk.core",
+  "position": [
+   0,
+   1.11,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.15,
+   -0.19,
+   -0.1
+  ],
+  "max": [
+   0.15,
+   0.19,
+   0.1
+  ],
+  "shells": [
+   {
+    "name": "left.golem.trunk.core.spine",
+    "position": [
+     0,
+     0,
+     -0.07600000000000001
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.sternum",
+    "position": [
+     0,
+     0,
+     0.08800000000000001
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib0",
+    "position": [
+     0,
+     -0.11399999999999999,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib1",
+    "position": [
+     0,
+     -0.051300000000000005,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib2",
+    "position": [
+     0,
+     0.01139999999999999,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib3",
+    "position": [
+     0,
+     0.07409999999999999,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.rib4",
+    "position": [
+     0,
+     0.13679999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.trunk.core.clavicle",
+    "position": [
+     0,
+     0.1748,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0.7071067811865475,
+     0.7071067811865476
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "head.skull",
+  "id": "left.golem.head.neck",
+  "position": [
+   0,
+   1.37,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.02,
+   -0.05,
+   -0.02
+  ],
+  "max": [
+   0.02,
+   0.05,
+   0.02
+  ],
+  "shells": [
+   {
+    "name": "left.golem.head.neck.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.neck.condyleNear",
+    "position": [
+     0,
+     -0.04,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.neck.condyleFar",
+    "position": [
+     0,
+     0.04,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "head.skull",
+  "id": "left.golem.head.head",
+  "position": [
+   0,
+   1.52,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.08,
+   -0.1,
+   -0.1
+  ],
+  "max": [
+   0.08,
+   0.1,
+   0.1
+  ],
+  "shells": [
+   {
+    "name": "left.golem.head.head.cranium",
+    "position": [
+     0,
+     0.016,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.head.jaw",
+    "position": [
+     0,
+     -0.072,
+     0.036
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.head.eyeL",
+    "position": [
+     -0.0352,
+     0.004,
+     0.0765
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.head.head.eyeR",
+    "position": [
+     0.0352,
+     0.004,
+     0.0765
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.collar",
+  "position": [
+   0.19,
+   1.2400000000000002,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.035,
+   -0.05,
+   -0.035
+  ],
+  "max": [
+   0.035,
+   0.05,
+   0.035
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.collar.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.upperArm",
+  "position": [
+   0.19,
+   1.1087697487450807,
+   0.07265412001786761
+  ],
+  "rotation": [
+   -0.250131623650966,
+   0,
+   0,
+   0.9682118419280625
+  ],
+  "min": [
+   -0.022,
+   -0.15,
+   -0.022
+  ],
+  "max": [
+   0.022,
+   0.15,
+   0.022
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.upperArm.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.upperArm.condyleNear",
+    "position": [
+     0,
+     -0.13899999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.upperArm.condyleFar",
+    "position": [
+     0,
+     0.13899999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.forearm",
+  "position": [
+   0.19,
+   1.0434872815564467,
+   0.2514962326561186
+  ],
+  "rotation": [
+   -0.8739514496041193,
+   0,
+   0,
+   0.48601323411493486
+  ],
+  "min": [
+   -0.018,
+   -0.125,
+   -0.018
+  ],
+  "max": [
+   0.018,
+   0.125,
+   0.018
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.forearm.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.forearm.condyleNear",
+    "position": [
+     0,
+     -0.116,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.forearm.condyleFar",
+    "position": [
+     0,
+     0.116,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.rollRing",
+  "position": [
+   0.19,
+   1.1226246224359893,
+   0.3789218238005787
+  ],
+  "rotation": [
+   -0.8739514496041193,
+   0,
+   0,
+   0.48601323411493486
+  ],
+  "min": [
+   -0.02,
+   -0.025,
+   -0.02
+  ],
+  "max": [
+   0.02,
+   0.025,
+   0.02
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.rollRing.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.rollRing.axle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.wrist",
+  "position": [
+   0.19,
+   1.1569174701504576,
+   0.43413957996317804
+  ],
+  "rotation": [
+   -0.8739514496041193,
+   0,
+   0,
+   0.48601323411493486
+  ],
+  "min": [
+   -0.016,
+   -0.04,
+   -0.016
+  ],
+  "max": [
+   0.016,
+   0.04,
+   0.016
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.wrist.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.wrist.condyleNear",
+    "position": [
+     0,
+     -0.032,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.wrist.condyleFar",
+    "position": [
+     0,
+     0.032,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.trailing.collar",
+  "position": [
+   -0.19,
+   1.2400000000000002,
+   0
+  ],
+  "rotation": [
+   0,
+   0,
+   0,
+   1
+  ],
+  "min": [
+   -0.035,
+   -0.05,
+   -0.035
+  ],
+  "max": [
+   0.035,
+   0.05,
+   0.035
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.trailing.collar.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.trailing.upperArm",
+  "position": [
+   -0.19,
+   1.090667397856541,
+   -0.014134140832161309
+  ],
+  "rotation": [
+   0.04716629646053596,
+   0,
+   0,
+   0.9988870509112614
+  ],
+  "min": [
+   -0.022,
+   -0.15,
+   -0.022
+  ],
+  "max": [
+   0.022,
+   0.15,
+   0.022
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.trailing.upperArm.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.trailing.upperArm.condyleNear",
+    "position": [
+     0,
+     -0.13899999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.trailing.upperArm.condyleFar",
+    "position": [
+     0,
+     0.13899999999999998,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.trailing.forearm",
+  "position": [
+   -0.19,
+   0.9358055998293335,
+   0.09660937043115497
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.018,
+   -0.125,
+   -0.018
+  ],
+  "max": [
+   0.018,
+   0.125,
+   0.018
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.trailing.forearm.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.trailing.forearm.condyleNear",
+    "position": [
+     0,
+     -0.116,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.trailing.forearm.condyleFar",
+    "position": [
+     0,
+     0.116,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.trailing.rollRing",
+  "position": [
+   -0.19,
+   0.9291705647688351,
+   0.24646255294572805
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.02,
+   -0.025,
+   -0.02
+  ],
+  "max": [
+   0.02,
+   0.025,
+   0.02
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.trailing.rollRing.knuckle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.trailing.rollRing.axle",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.trailing.wrist",
+  "position": [
+   -0.19,
+   0.9262953829092858,
+   0.3113989320353764
+  ],
+  "rotation": [
+   -0.691290978145242,
+   0,
+   0,
+   0.7225764897469296
+  ],
+  "min": [
+   -0.016,
+   -0.04,
+   -0.016
+  ],
+  "max": [
+   0.016,
+   0.04,
+   0.016
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.trailing.wrist.shaft",
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.trailing.wrist.condyleNear",
+    "position": [
+     0,
+     -0.032,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.trailing.wrist.condyleFar",
+    "position": [
+     0,
+     0.032,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ },
+ {
+  "build": "blade/maul",
+  "module": "effector.skeletal.maul",
+  "id": "left.golem.primary.maul",
+  "position": [
+   0.19000000000000003,
+   1.3362954473881863,
+   0.7229709179167185
+  ],
+  "rotation": [
+   0.34366324921097213,
+   -0.6179769995291877,
+   -0.34366324921097213,
+   0.6179769995291878
+  ],
+  "min": [
+   -0.04,
+   -0.65,
+   -0.04
+  ],
+  "max": [
+   0.04,
+   0.65,
+   0.04
+  ],
+  "shells": [
+   {
+    "name": "left.golem.primary.maul",
+    "position": [
+     0.19000000000000003,
+     1.3362954473881863,
+     0.7229709179167185
+    ],
+    "rotation": [
+     0.34366324921097213,
+     -0.6179769995291877,
+     -0.34366324921097213,
+     0.6179769995291878
+    ]
+   },
+   {
+    "name": "left.golem.primary.maul.head",
+    "position": [
+     0,
+     0.555,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   },
+   {
+    "name": "left.golem.primary.maul.grip0",
+    "position": [
+     0,
+     -0.30000000000000004,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ]
+   }
+  ]
+ }
+]

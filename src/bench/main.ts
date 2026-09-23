@@ -1,4 +1,5 @@
 import { loadHumanAssets, dressHumanoid, type HumanVisualPart } from "../golem/humanoid/appearance.ts";
+import { loadSkeletonAssets } from "../golem/skeleton/appearance.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { dressForgeRoom } from "../forge-room.ts";
 import { loadForgeStyle, paveForge, forgePost } from "../forge-style.ts";
@@ -130,7 +131,7 @@ function roomMaterials(scene: Scene): RoomMaterials {
 }
 
 async function main(): Promise<void> {
-  await loadHumanAssets();
+  await Promise.all([loadHumanAssets(), loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error))]);
   const canvas = need<HTMLCanvasElement>("stage");
   const pickerPanel = need("picker");
   const readoutPanel = need("readout");

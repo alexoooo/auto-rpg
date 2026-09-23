@@ -201,10 +201,18 @@ test("the_bone_material_exists_only_once_asked_for_and_dies_with_its_palette", a
     assert.equal(scene.materials.length, before + 5);
     assert.equal(bone.metadata.golemSurfaceFamily, "bone");
 
+    // The modelled skeleton's material, on the same terms.
+    const boneModel = palette.boneModel;
+    assert.notEqual(boneModel, bone);
+    assert.equal(palette.boneModel, boneModel, "a second read made a second modelled bone");
+    assert.equal(scene.materials.length, before + 6);
+
     palette.dispose();
     assert.equal(scene.materials.length, before, "disposing the palette left a material behind");
     assert.equal(scene.materials.includes(bone), false);
+    assert.equal(scene.materials.includes(boneModel), false);
     assert.throws(() => palette.bone, /disposed/);
+    assert.throws(() => palette.boneModel, /disposed/);
   } finally {
     arena.dispose();
   }
