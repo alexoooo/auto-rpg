@@ -1,5 +1,6 @@
 import type { GolemSetup } from "../bout.ts";
 import { HUMAN_BUILDS } from "./humanoid/presets.ts";
+import { SKELETON_BUILDS } from "./skeleton/presets.ts";
 import { defaultGolemSetup, describeGolemSetup, golemSetupRefusal } from "./build.ts";
 
 /**
@@ -48,18 +49,27 @@ export const NAMED_BUILDS: readonly NamedBuild[] = Object.freeze([
 ].map((build) => Object.freeze({ ...build, setup: Object.freeze(build.setup) })));
 
 /**
+ * Every build a person can pick: the enemy pool above and the builds of the other families.
+ *
+ * Only `NAMED_BUILDS` is the enemy pool of the dungeon and the waves, and the research tests
+ * schedule over it; a human or skeleton build is a hero, not an enemy, until somebody decides
+ * otherwise.
+ */
+export const PLAYABLE_BUILDS: readonly NamedBuild[] = Object.freeze([...NAMED_BUILDS, ...HUMAN_BUILDS,
+  ...SKELETON_BUILDS]);
+
+/**
  * Refuses at load rather than in a fight.
  *
  * A build the registry has stopped offering is a broken roster entry, and the place to find that
  * out is the first import, not the frame that tries to stand it up.
  */
-for (const build of NAMED_BUILDS) {
+for (const build of PLAYABLE_BUILDS) {
   const refusal = golemSetupRefusal(build.setup);
   if (refusal !== null) throw new Error(`named build "${build.name}" is refused: ${refusal}`);
 }
 
 /** The build under a name, or null. Refuses rather than falling back to the default. */
-export const PLAYABLE_BUILDS: readonly NamedBuild[] = Object.freeze([...NAMED_BUILDS, ...HUMAN_BUILDS]);
 export const namedBuild = (name: string): NamedBuild | null =>
   PLAYABLE_BUILDS.find((build) => build.name === name) ?? null;
 

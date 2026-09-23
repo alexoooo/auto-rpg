@@ -755,6 +755,40 @@ test("severing_the_spine_ends_a_skeleton", async (t) => {
   assert.equal(beaten(stand.golem.limbs), true);
 });
 
+/**
+ * A headless skeleton is aimed at from its neck socket; a headless stone golem is a corpse whose
+ * published crown stays where it was built.
+ *
+ * `crownHeight` is fixed at build, and tactics v2 to v4 aim halfway between it and the shoulder,
+ * so on a skeleton fighting on without its head the build-time number is the air where the skull
+ * was. The stone half is the `alive` guard. `describe` is called into the golem's own view record
+ * rather than read off a perception step, because a dead body's step may never publish again and
+ * an unchanged number would then be an unrefreshed one.
+ */
+test("a_headless_skeleton_publishes_its_neck_as_its_crown", async (t) => {
+  for (const [family, setup] of [["skeleton", skeletonSetup()], ["stone", defaultGolemSetup()]]) {
+    const stand = await standAGolem(t, { setup });
+    stand.run(0.5);
+    const view = stand.golem.view.self;
+    stand.golem.describe(view);
+    const crown = view.crownHeight;
+    const head = moduleLimbs(stand.golem, "head");
+    const headReach = stand.golem.headModule.envelope().reach;
+    assert.ok(headReach > 0.05, `${family}: the head reaches ${headReach} m`);
+    stand.golem.sever(head[0], new Vector3(0, 1, 0));
+    assert.ok(head.every((limb) => limb.severed), `${family}: the head module stayed on`);
+    stand.golem.describe(view);
+    if (family === "skeleton") {
+      assert.equal(stand.golem.alive, true);
+      assert.ok(Math.abs(crown - view.crownHeight - headReach) <= 1e-9,
+        `the crown went from ${crown} to ${view.crownHeight} for a head reaching ${headReach}`);
+    } else {
+      assert.equal(stand.golem.alive, false);
+      assert.equal(view.crownHeight, crown, "a dead stone golem's crown moved");
+    }
+  }
+});
+
 // ---------------------------------------------------------------------------------------
 // The bout, and the lifecycle.
 // ---------------------------------------------------------------------------------------
@@ -788,6 +822,28 @@ test("a_golem_reaches_a_verdict_against_a_live_opponent_from_either_corner", asy
     const duelist = golemLeft ? result.right : result.left;
     assert.ok(duelist.hits > 0,
       `the duelist never reached the golem from the ${golemLeft ? "right" : "left"} corner`);
+  }
+});
+
+// Who wins is session 08's business; this asserts that the fight happens from either corner.
+test("a_skeleton_reaches_a_verdict_from_either_corner", async () => {
+  for (const skeletonLeft of [true, false]) {
+    const corner = skeletonLeft ? "left" : "right";
+    const result = runBout({
+      left: skeletonLeft ? "skeleton-duelist" : "golem-duelist",
+      right: skeletonLeft ? "golem-duelist" : "skeleton-duelist",
+      leftUnit: "golem", rightUnit: "golem",
+      leftGolem: skeletonLeft ? skeletonSetup() : defaultGolemSetup(),
+      rightGolem: skeletonLeft ? defaultGolemSetup() : skeletonSetup(),
+      locomotionMode: "supported",
+      seeds: [0x60130003, 0x60130004],
+      maxSeconds: 12,
+      physics: await freshHavok(),
+    });
+    assert.ok(["exhausted", "time"].includes(result.ending), `skeleton on the ${corner}: ${result.text}`);
+    assert.ok(result.seconds > 0);
+    assert.ok(result.left.hits > 0 && result.right.hits > 0,
+      `skeleton on the ${corner}: hits ${result.left.hits} to ${result.right.hits}, ${result.text}`);
   }
 });
 

@@ -16,3 +16,10 @@ export const FAMILY_SETUP: Readonly<Record<BodyFamily, () => GolemSetup>> = Obje
   golem: () => defaultGolemSetup(),
   skeleton: () => skeletonSetup(),
 });
+
+/**
+ * The families whose hands hold chosen weapons, and how to arm one. A stone golem is absent on
+ * purpose: its weapons are its build, and the hero picker already chooses between builds.
+ */
+export const ARMED_SETUP: Readonly<Partial<Record<BodyFamily, (primary: string, secondary: string) => GolemSetup>>> =
+  Object.freeze({ human: humanSetup, skeleton: skeletonSetup });

@@ -15,10 +15,9 @@ import HavokPhysics from "@babylonjs/havok";
 import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { attachPhysics } from "../physics.ts";
 import { CONFIG } from "../config.ts";
-import { humanSetup } from "../golem/humanoid/presets.ts";
 import { bodyFamily } from "../golem/family.ts";
-import { humanEquipment } from "../golem/humanoid/equipment.ts";
-import { EFFECTOR_TERMINALS } from "../golem/registry.ts";
+import { ARMED_SETUP } from "../golem/family-setup.ts";
+import { golemTerminalOptions } from "../golem/build.ts";
 import type { GolemSetup } from "../bout.ts";
 import { PLAYABLE_BUILDS } from "../golem/roster.ts";
 import { DungeonRun } from "./run.ts";
@@ -38,19 +37,27 @@ for (const build of PLAYABLE_BUILDS.filter(b => b.setup.locomotion !== "locomoti
   const option = document.createElement("option"); option.value = build.name; option.textContent = build.name.replaceAll("-", " "); heroBuild.append(option);
 }
 
-const humanPrimary = need<HTMLSelectElement>("human-primary"), humanSecondary = need<HTMLSelectElement>("human-secondary");
-for (const picker of [humanPrimary, humanSecondary]) for (const terminal of Object.values(EFFECTOR_TERMINALS)) {
-  const option = document.createElement("option"); option.value = terminal.id;
-  option.textContent = humanEquipment(terminal).label; picker.append(option);
-}
+const heroEquipment = need("hero-equipment");
+const heroPrimary = need<HTMLSelectElement>("hero-primary"), heroSecondary = need<HTMLSelectElement>("hero-secondary");
+const heroSetup = () => PLAYABLE_BUILDS.find(b => b.name === heroBuild.value)?.setup;
+/** How the chosen hero's hands are armed, or null for a family whose weapons are its build. */
+const heroArming = () => { const setup = heroSetup(); return setup ? ARMED_SETUP[bodyFamily(setup)] ?? null : null; };
+// Refilled on each change of hero from what the hero's own chains offer, which is what the arena
+// setup screen offers for those chains.
 const updateEquipment = () => {
-  const setup = PLAYABLE_BUILDS.find(b => b.name === heroBuild.value)?.setup;
-  need("human-equipment").hidden = !setup || bodyFamily(setup) !== "human";
-  humanPrimary.value = setup?.primary.terminal ?? "blade"; humanSecondary.value = setup?.secondary.terminal ?? "plate";
-  humanSecondary.disabled = humanPrimary.value === "maul";
+  const setup = heroSetup();
+  heroEquipment.hidden = !heroArming();
+  if (!setup || heroEquipment.hidden) return;
+  for (const [picker, hand] of [[heroPrimary, setup.primary], [heroSecondary, setup.secondary]] as const) {
+    picker.replaceChildren(...golemTerminalOptions(hand.chain).map(({ id, label }) => {
+      const option = document.createElement("option"); option.value = id; option.textContent = label; return option;
+    }));
+    picker.value = hand.terminal;
+  }
+  heroSecondary.disabled = heroPrimary.value === "maul";
 };
 heroBuild.addEventListener("change", updateEquipment);
-humanPrimary.addEventListener("change", () => { humanSecondary.disabled = humanPrimary.value === "maul"; });
+heroPrimary.addEventListener("change", () => { heroSecondary.disabled = heroPrimary.value === "maul"; });
 updateEquipment();
 
 async function boot(): Promise<void> {
@@ -122,7 +129,8 @@ async function boot(): Promise<void> {
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) { seedInput.setCustomValidity("Enter a seed from 0 to 4294967295."); seedInput.reportValidity(); return; }
     seedInput.setCustomValidity(""); selectedBuild = heroBuild.value;
-    selectedEquipment = need("human-equipment").hidden ? undefined : humanSetup(humanPrimary.value, humanSecondary.value);
+    const arm = heroArming();
+    selectedEquipment = arm ? arm(heroPrimary.value, heroSecondary.value) : undefined;
     launch(Number(seedInput.value));
   }, { signal });
   seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });

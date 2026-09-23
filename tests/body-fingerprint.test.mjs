@@ -8,7 +8,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { NO_TERMINAL } from "../src/golem/build.ts";
 import { CHAIN_REACH } from "../src/golem/config.ts";
+import { GOLEM_MODULES } from "../src/golem/registry.ts";
 import {
   BOUTS,
   compareFingerprints,
@@ -16,6 +18,23 @@ import {
   fingerprintBench,
   fingerprintBout,
 } from "./harness/body-fingerprint.mjs";
+
+// A module no bout builds is a module whose motion in a fight no comparison can see; its bench is
+// not a fight.
+test("every_registered_module_fights_in_a_bout", () => {
+  const moduleOf = ({ chain, terminal }) => terminal === NO_TERMINAL ? `effector.${chain}` : `effector.${chain}.${terminal}`;
+  const fought = new Set();
+  for (const bout of BOUTS) {
+    for (const { setup } of [bout.left, bout.right]) {
+      for (const id of [setup.locomotion, setup.torso, setup.head, moduleOf(setup.primary), moduleOf(setup.secondary)]) {
+        fought.add(id);
+      }
+    }
+  }
+  const registered = GOLEM_MODULES.map(({ id }) => id);
+  assert.deepEqual(registered.filter((id) => !fought.has(id)), [], "registered and in no bout");
+  assert.deepEqual([...fought].filter((id) => !registered.includes(id)), [], "in a bout and not registered");
+});
 
 test("a_fingerprint_is_the_same_twice_in_one_process", async () => {
   const bout = await fingerprintBout(BOUTS[0]);

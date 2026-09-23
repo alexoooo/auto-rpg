@@ -283,6 +283,8 @@ export class Golem implements Combatant {
   private readonly locomotionModule: BuiltLocomotion;
   private readonly torsoModule: BuiltTorso;
   private readonly headModule: BuiltModule<NaturalIntent>;
+  /** The head's record, kept so `describe` asks whether the head is on without a search. */
+  private readonly headRecord: AssembledModule;
   /** Both sockets. For a two-socket terminal both entries are the same module. */
   private readonly effectors: Record<HandName, MountedEffector | null>;
   /** Each distinct effector module once, for commanding, stepping and disposal. */
@@ -306,6 +308,8 @@ export class Golem implements Combatant {
   private readonly geometry: {
     readonly reach: number;
     readonly crownHeight: number;
+    /** The neck socket: the crown of a body that has lost its head and lives on. */
+    readonly headlessCrown: number;
     readonly vitalHeight: number;
     readonly collisionRadius: number;
   };
@@ -413,7 +417,7 @@ export class Golem implements Combatant {
 
     this.headModule = headDefinition.build(
       build(this.torsoModule.socket("head"), "head"));
-    this.register("head", headDefinition.id, this.headModule, setup.wear?.head);
+    this.headRecord = this.register("head", headDefinition.id, this.headModule, setup.wear?.head);
 
     const primarySocket = this.torsoModule.socket("primary");
     const secondarySocket = this.torsoModule.socket("secondary");
@@ -465,6 +469,7 @@ export class Golem implements Combatant {
     this.geometry = Object.freeze({
       reach: primaryModule.envelope().reach,
       crownHeight: standHeight + this.torsoModule.envelope().reach + this.headModule.envelope().reach,
+      headlessCrown: standHeight + this.torsoModule.envelope().reach,
       // Measured off the body rather than composed from constants: the core is where it is.
       vitalHeight: core.mesh.position.y - options.origin.y,
       collisionRadius: this.locomotionModule.footprint.radiusM,
@@ -542,7 +547,7 @@ export class Golem implements Combatant {
    * salvaged surface and material files were cut free of.
    */
   private register(slot: GolemSlot, id: string, built: MountedModule,
-    durability: number | undefined = 1): void {
+    durability: number | undefined = 1): AssembledModule {
     const record: AssembledModule = { slot, id, built, limbs: [], severed: false, loot: null };
     const worn = Number.isFinite(durability) ? Math.max(0, Math.min(1, durability)) : 1;
     for (const part of built.parts) {
@@ -587,6 +592,7 @@ export class Golem implements Combatant {
     }
     for (const striker of built.strikers) this.strikers.push(striker);
     this.modules.push(record);
+    return record;
   }
 
   /**
@@ -1018,7 +1024,11 @@ export class Golem implements Combatant {
   describe(into: BodyView): void {
     into.unit = this.kind;
     into.reach = this.geometry.reach;
-    into.crownHeight = this.geometry.crownHeight;
+    // A body that lost its head and lives on (a skeleton, today) is aimed at from its neck socket.
+    // A stone body never reads this branch: losing its head ends it.
+    into.crownHeight = this.alive && this.headRecord.severed
+      ? this.geometry.headlessCrown
+      : this.geometry.crownHeight;
     into.vitalHeight = this.geometry.vitalHeight;
     into.collisionRadius = this.geometry.collisionRadius;
     into.naturalAttacks = this.natural;

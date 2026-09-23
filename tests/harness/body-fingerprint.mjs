@@ -1,6 +1,6 @@
 /**
- * The body fingerprint: a digest of what every stone and human body *does*, compared across two
- * commits.
+ * The body fingerprint: a digest of what every stone, human and skeleton body *does*, compared
+ * across two commits.
  *
  * **Why it exists.** The skeleton plan (`docs/plans/2026-09-22-skeleton-00-overview.md`) refactors
  * code every stone and human body runs through -- the armour seam, the arm chains, the torso and
@@ -17,14 +17,15 @@
  *     node tests/harness/body-fingerprint.mjs --out .review/fp-after.json --against .review/fp-before.json --may-move "skeleton|skull"
  *     node tests/harness/body-fingerprint.mjs --only bout: --out .review/fp-bouts.json --against .review/fp-before.json
  *
- * **What runs.** Twelve six-second bouts through `runBout` (`BOUTS` below), each on a fresh Havok
+ * **What runs.** Fifteen six-second bouts through `runBout` (`BOUTS` below), each on a fresh Havok
  * instance with `locomotionMode: "supported"`, chosen so every named stone build, every human
- * build and every one of the 32 registered modules is in a fight -- the four inline rows exist
- * because no named build uses the reach chain, the pitch chain's mace and fist, or the human mace
- * and whip. Then one bench per registered module, read from `GOLEM_MODULES` rather than listed:
- * `runGolemBench` for every effector, `runTorsoBench` for every trunk (headless) and every head
- * (trunkless), and `runGolemLocomotion` for every key of `LOCOMOTION_MODULES`. The human legs are
- * not in that last table and are covered by the bouts.
+ * build and every registered module is in a fight (`every_registered_module_fights_in_a_bout` in
+ * `tests/body-fingerprint.test.mjs` holds the last) -- the six bodies built inline by `stone` and
+ * `inline` exist because no named build uses the reach chain, the pitch chain's mace and fist, the
+ * human mace and whip, or the skeleton's whip and fist. Then one bench per registered module, read
+ * from `GOLEM_MODULES` rather than listed: `runGolemBench` for every effector, `runTorsoBench`
+ * for every trunk (headless) and every head (trunkless), and `runGolemLocomotion` for every key of
+ * `LOCOMOTION_MODULES`. The human legs are not in that last table and are covered by the bouts.
  *
  * **What a bout hashes.** Every solver substep (240 Hz, from `onSample`), each side left then
  * right, each of `unit.limbs` in order: `limb.part.mesh.position` x/y/z, its
@@ -79,6 +80,7 @@ import { pathToFileURL } from "node:url";
 
 import { defaultGolemSetup, golemSetupRefusal } from "../../src/golem/build.ts";
 import { humanSetup } from "../../src/golem/humanoid/presets.ts";
+import { skeletonSetup } from "../../src/golem/skeleton/presets.ts";
 import { GOLEM_MODULES } from "../../src/golem/registry.ts";
 import { namedBuild } from "../../src/golem/roster.ts";
 import { freshHavok, runBout } from "./bout-runner.mjs";
@@ -120,6 +122,9 @@ const stone = (label, [primaryChain, primaryTerminal], [secondaryChain, secondar
 const STONE = ["golem-duelist", "golem-fencer"];
 const HUMANS = ["humanoid-duelist", "humanoid-duelist"];
 const HUMAN_STONE = ["humanoid-duelist", "golem-duelist"];
+const SKELETON_STONE = ["skeleton-duelist", "golem-duelist"];
+const SKELETON_HUMAN = ["skeleton-duelist", "humanoid-duelist"];
+const SKELETONS = ["skeleton-duelist", "skeleton-duelist"];
 
 const ROWS = [
   [named("default"), named("two-blades"), STONE],
@@ -136,10 +141,13 @@ const ROWS = [
   [named("human-unarmed"), named("mace"), HUMAN_STONE],
   [named("human-dual-swords"), named("default"), HUMAN_STONE],
   [inline("human-mace-whip", humanSetup("mace", "whip")), named("default"), HUMAN_STONE],
+  [named("skeleton-warrior"), named("default"), SKELETON_STONE],
+  [named("skeleton-mace"), named("human-warrior"), SKELETON_HUMAN],
+  [named("skeleton-maul"), inline("skeleton-whip-fist", skeletonSetup("whip", "fist")), SKELETONS],
 ];
 
 /**
- * The twelve bouts, in the plan's order. Seeds for bout `i` are
+ * The fifteen bouts, in the order they were added. Seeds for bout `i` are
  * `[0x5ce1e700 + 2 * i, 0x5ce1e701 + 2 * i]`, so a row appended later leaves every earlier row's
  * seeds -- and so its digest -- where they were.
  */
