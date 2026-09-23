@@ -1665,31 +1665,41 @@ export const CONFIG = {
     },
 
     /**
-     * The showcase: both golems in one frame, from a camera that walks round them.
+     * The showcase: both golems in one frame, side-on, from a camera that sways a little.
      *
      * Not a third mode. The two modes above are readings of a *fight*, and each follows one
      * fighter; this is the framing the matchup screen stands behind, where there is no fight yet
      * and nobody to follow, so `placeCamera` reads it by phase rather than by `mode`, and the
      * mode a person chose is untouched when the fight starts. The look point is the midpoint of
-     * the two fighters' feet, raised by `lookHeight`; the camera stands `distance` back along a
-     * bearing that turns once every `orbitSeconds`, `height` up. The wheel and an orbit drag
-     * still apply, through the same `orbitFraming`, because a person looking at a body they are
-     * about to fight with may want to look closer.
+     * the two fighters' feet, raised by `lookHeight`; the camera stands `distance` back and
+     * `height` up, on a bearing that swings 0.18 rad either side of side-on once every
+     * `orbitSeconds`. The wheel and an orbit drag still apply, through the same `orbitFraming`,
+     * because a person looking at a body they are about to fight with may want to look closer.
      *
-     * The numbers frame two golems 2.6 m apart in the top three fifths of the window, which is
-     * the part the sheet leaves clear: the look point is nearly at the feet, so the bodies stand
-     * above the centre of the frame rather than on it, and a wheel golem's head (1.16 m of
-     * stand plus the trunk) and a maul chambered overhead both stay under the top edge. A range
-     * of about 5.7 m to the look point, dropping 24 degrees, a little flatter than Overhead
-     * because the thing being read here is a silhouette rather than a blade's place in the arena.
-     * Slow, because a turn a person notices is a turn that makes the pickers harder to read.
-     * Checked in Chrome on 2026-09-06 with a look height of 0.95 first, which put the sheet
-     * across both pairs of knees.
+     * The numbers stand the pair in the open centre between the two contender panels, below the
+     * title and above FIGHT. Measured in Chrome on 2026-09-23 at 1366x768, the page's own layout,
+     * as the screen bounds of every body's meshes at both ends of the sway and side-on, worst
+     * case over 25 random pairs of all three families. The room the layout leaves is x 358 to
+     * 1008 (the panels' inner edges) and y 71 to 680 (title to FIGHT):
+     *
+     * | distance, height, lookHeight      | x          | y          | reads as              |
+     * |-----------------------------------|------------|------------|-----------------------|
+     * | 5.2, 2.4, 0.15, was: default pair | 447 to 919 | 110 to 434 | high, 250 px of floor |
+     * | 5.2, 3.0, 0.8: default pair       | 459 to 907 | 203 to 513 | centred, small        |
+     * | 4.8, 2.9, 0.9: default pair       | 438 to 928 | 202 to 537 | centred               |
+     * | 4.8, 2.9, 0.9: worst of 25        | 425 to 941 | 172 to 555 | wheel head, a maul    |
+     *
+     * The old numbers kept the pair in the top three fifths of the window, above a setup sheet
+     * that covered the rest; the sheet is gone. These keep about the old 23 degree drop at a
+     * range 8 % shorter. Not measured, but scaled from the table: the panels are a fixed width,
+     * so a squarer window narrows the centre faster than the pair, and at 1280x1024 a broadside
+     * pair would reach about 60 px under each panel -- as the old numbers did too.
+     * Slow, because a sway a person notices is a sway that makes the panels harder to read.
      */
     showcase: {
-      distance: 5.2,
-      height: 2.4,
-      lookHeight: 0.15,
+      distance: 4.8,
+      height: 2.9,
+      lookHeight: 0.9,
       orbitSeconds: 48,
     },
   },

@@ -1164,7 +1164,7 @@ async function boot(): Promise<void> {
   /**
    * Phase of the showcase camera's shallow sway, radians; see `placeCamera`.
    * It starts side-on with the left fighter on the left of the frame, which is the one bearing
-   * at which the two corners of the sheet and the two bodies above them read as the same pair.
+   * at which the two contender panels and the two bodies between them read as the same pair.
    */
   let showcaseOrbit = 0;
   const showcaseMid = new Vector3();
@@ -1173,7 +1173,7 @@ async function boot(): Promise<void> {
     const C = CONFIG.camera;
     const P = C[C.mode];
 
-    // **The showcase framing, by phase and not by mode.** Behind the sheet there is no fight to
+    // **The showcase framing, by phase and not by mode.** On the setup screen there is no fight to
     // follow, so the camera looks at the midpoint of the two fighters' feet and sways around
     // them, and `C.mode` -- a person's choice of how to watch a fight -- is not read and not
     // touched. The gesture state still applies: the wheel and an orbit drag work on the pair
