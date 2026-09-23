@@ -19,7 +19,9 @@ parents each mesh at the identity transform to the hidden collider of that part.
 
 - **Coordinates.** Vertices are in the host's local frame, in the game's own **left-handed**
   coordinates: +Y up, +Z forward, +X the body's right. The runtime therefore converts nothing, but a
-  standard glTF viewer shows the model mirrored. `extras.frame` records this.
+  standard glTF viewer shows the model mirrored. `extras.frame` records this. Triangles wind the
+  way Babylon's own `MeshBuilder` winds them. Where a source bone's object is itself a reflection,
+  which is true of the right side's, the compiler reverses its triangles.
 - **Wrist and fist pieces.**
   - `*.wrist` is the whole closed hand, for an arm that holds a weapon.
   - `*.wrist.bare` and `*.fist` split that same hand for the fist terminal. The palm rides the wrist

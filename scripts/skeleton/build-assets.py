@@ -57,6 +57,9 @@ def load(name):
     uv = me.uv_layers.active.data
     T = np.array([t.vertices[:] for t in me.loop_triangles])
     UV = np.array([[uv[l].uv[:] for l in t.loops] for t in me.loop_triangles])
+    # The right side's bones are the left's meshes under a negative object scale, and a reflection
+    # reverses every triangle. Undo it here, or each right-side piece draws inside out.
+    if mw.to_3x3().determinant() < 0: T, UV = T[:, ::-1], UV[:, ::-1]
     return Geo(P, N, T, UV)
 
 def group(names): return [load(n) for n in names]

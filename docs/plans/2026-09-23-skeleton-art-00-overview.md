@@ -35,7 +35,7 @@ or failed asset.
 
 | File | Lands |
 |---|---|
-| `-01-compiler.md` | bind dump, stripped source, Blender compiler, `skeleton.glb`, preview renders. No runtime change. |
+| `-01-compiler.md` | bind dump, stripped source, Blender compiler, `skeleton.glb`, preview renders. No runtime change. Landed as 9bc528f. |
 | `-02-runtime-skin.md` | `src/golem/skeleton/appearance.ts`, the hook in `dressGolemPart`, loading on three pages, `tests/skeleton-art.test.mjs`. |
 | `-03-look-in-play.md` | the owner looks; fit and curl tables tuned; AGENTS.md paragraph. |
 | `-04-costume.md` | only if the owner wants it after 03: rigid cloth, belt, bracers, pauldron. |
@@ -43,12 +43,17 @@ or failed asset.
 ## The part map
 
 Verified against a headless build of every `SKELETON_BUILDS` entry plus
-`skeletonSetup("fist", "whip")`.
+`skeletonSetup("fist", "fist")` and `skeletonSetup("fist", "whip")`. The last column is what
+`each modelled piece sits on its collider` in `tests/skeleton-art.test.mjs` enforces: the distance
+from the collider's centre to the centre of the piece's bounding box, in the collider's frame,
+measured in that Node harness.
 
 **Keys.** A part id is `<prefix>.<slot>.<segment>`; the prefix varies (`left.golem.`,
 `right.golem.`, `hero.golem.`, `golem.bench.`) and so does an arm's module id
-(`effector.skeletal.<terminal>`). A template key is therefore `skeleton:<slot>:<segment>` with the
-prefix stripped, `slot` one of `legs`, `trunk`, `head`, `primary`, `secondary`, `trailing`.
+(`effector.skeletal.<terminal>`). A piece's key is the id's last two segments -- `legs.thighL`,
+`primary.upperArm` -- except that a maul's `trailing` arm is drawn by the `secondary` pieces and a
+fist build's wrist link by `*.wrist.bare`. `skeletonArtKey` in `src/golem/skeleton/appearance.ts`
+is the rule.
 
 **Sides.** `primary` is +X, the body's right; `secondary` and `trailing` (the maul's second arm)
 are the left. Legs: L is -X.
@@ -56,23 +61,23 @@ are the left. Legs: L is -X.
 **Axes.** Capsules run along Y. The foot box's length runs along **Z**. Pelvis, core and head boxes
 are Y-up, +Z forward.
 
-| Key segment(s) | Collider | Source bones | Fit tolerance |
+| Key segment(s) | Collider | Source bones | Centre within |
 |---|---|---|---|
-| `head.head` | box 0.16x0.20x0.20 | `skull`, decimated; rune eye spheres kept in the orbits | centre inside, extent 0.7-1.3 |
-| `head.neck` | capsule 0.10 | `spine_cervical_c1..c7` | Y 0.7-1.3 |
-| `trunk.core` | box 0.30x0.38x0.20 | `ripcage`, `spine_thoracic_*` | centre inside, extent 0.7-1.3 |
-| `trunk.waist` | capsule 0.22 | `spine_lumbar_*` | Y 0.7-1.3 |
-| `legs.pelvis` | box 0.28x0.12x0.16 | `hip`, `sacral`, `coccygeal` | centre inside; Y up to 2.0 |
-| `legs.thighL/R` | capsule 0.40 | `leg_femur` | Y 0.8-1.2 |
-| `legs.shinL/R` | capsule 0.39 | `leg_tibula`, `leg_fibula`, `leg_patella` | Y 0.8-1.2 |
-| `legs.footL/R` | box 0.09x0.05x0.24 | tarsals, metatarsals, toe phalanges | Z 0.8-1.2; toes +Z |
-| `*.collar` | capsule 0.10 | `shoulder_scapula`, `clavicle` | centre within 120 mm |
-| `*.upperArm` | capsule 0.30 | `arm_humerus` | Y 0.8-1.2 |
-| `*.forearm` | capsule 0.25 | `arm_radius`, `arm_ulna` | Y 0.8-1.2 |
+| `head.head` | box 0.16x0.20x0.20 | `skull`, not decimated (13.9k vertices); the rune eye spheres are moved into the orbits | 45 mm |
+| `head.neck` | capsule 0.10 | `spine_cervical_c1..c7` | 50 mm |
+| `trunk.core` | box 0.30x0.38x0.20 | `ripcage`, `spine_thoracic_*` | 50 mm |
+| `trunk.waist` | capsule 0.22 | `spine_lumbar_*`, spanning 0.43 of a capsule that overlaps the pelvis and core | 90 mm |
+| `legs.pelvis` | box 0.28x0.12x0.16 | `hip`, `sacral`, `coccygeal` | 45 mm |
+| `legs.thighL/R` | capsule 0.40 | `leg_femur`, `leg_patella` | 30 mm; Y 0.85-1.35 of the joint spacing |
+| `legs.shinL/R` | capsule 0.39 | `leg_tibula`, `leg_fibula` | 30 mm; Y 0.85-1.35 |
+| `legs.footL/R` | box 0.09x0.05x0.24 | tarsals, metatarsals, toe phalanges | 45 mm; toes +Z |
+| `*.collar` | capsule 0.10 | `shoulder_scapula`, `clavicle` | 110 mm; reaches toward the sternum |
+| `*.upperArm` | capsule 0.30 | `arm_humerus` | 30 mm; Y 0.85-1.35 |
+| `*.forearm` | capsule 0.25 | `arm_radius`, `arm_ulna` | 30 mm; Y 0.85-1.35 |
 | `*.rollRing` | capsule 0.05 | none -- the radius and ulna are stretched across forearm and ring together | declared empty |
-| `*.wrist` (weapon builds) | capsule 0.08 | the whole closed hand: carpals, metacarpals, phalanges | centre within 60 mm |
-| `*.wrist.bare` (fist builds) | capsule 0.08 | carpals and metacarpals of the same closed hand | centre within 60 mm |
-| `*.fist` | sphere r 0.05 | the phalanges of the same closed hand | centre within 60 mm |
+| `*.wrist` (weapon builds) | capsule 0.08 | the whole closed hand: carpals, metacarpals, phalanges | 40 mm |
+| `*.wrist.bare` (fist builds) | capsule 0.08 | carpals and metacarpals of the same closed hand | 40 mm |
+| `*.fist` | sphere r 0.05 | the phalanges of the same closed hand | 70 mm (measured 58) |
 
 A weapon is welded to the wrist link and held along the forearm's line, so a weapon build's hand is
 drawn as a closed fist with the handle leaving it forward -- a punch-dagger grip. A fist build draws

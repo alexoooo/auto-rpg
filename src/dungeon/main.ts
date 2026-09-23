@@ -1,4 +1,5 @@
 import { loadHumanAssets } from "../golem/humanoid/appearance.ts";
+import { loadSkeletonAssets } from "../golem/skeleton/appearance.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -61,7 +62,7 @@ heroPrimary.addEventListener("change", () => { heroSecondary.disabled = heroPrim
 updateEquipment();
 
 async function boot(): Promise<void> {
-  await loadHumanAssets();
+  await Promise.all([loadHumanAssets(), loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error))]);
   const havok = await HavokPhysics({ locateFile: () => havokWasmUrl });
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
