@@ -2366,12 +2366,21 @@ export const BENCH_STAND_LOCOMOTION = {
  *   0x57010001 to 0x57010008) all 30 rises began with the pelvis at or under 0.26 m.
  * - **The rise lasts as long as its distance needs**: the scripted lift never moves the pelvis
  *   faster than `risePeakMps`, and never takes less than `SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S`.
+ * - **`riseHoldsThroughHits`: whether a hit can end a rise.** False is the shared rule,
+ *   `recoveryHitInterrupted`: a shove at the stagger threshold while the body is rising sends it
+ *   back to fallen. True ignores hits while it is rising; the rise's other conditions still hold, so
+ *   a lost leg, a blocked footprint or a dropped recover request still send it back. A hit still
+ *   keeps a lying body from starting to rise on that boundary. Shoves taken during the rise are
+ *   forgotten when it completes, because the stability ledger restarts at zero, and the body can be
+ *   struck down again as usual once it stands. The rise is keyframed, so what a hit does to it is
+ *   this rule and nothing physical.
  */
 export interface Knockdown {
   readonly restSpeedMps: number;
   readonly restSeconds: number;
   readonly maxLyingSeconds: number;
   readonly risePeakMps: number;
+  readonly riseHoldsThroughHits: boolean;
 }
 
 /**

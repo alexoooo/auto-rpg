@@ -813,6 +813,7 @@ return defineLocomotion({
       risingDuration: (distanceM: number): number => B.knockdown === null
         ? SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S
         : Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S, 1.5 * distanceM / B.knockdown.risePeakMps),
+      riseHoldsThroughHits: B.knockdown?.riseHoldsThroughHits === true,
 
       /**
        * The supported drive, and the two halves of it are not interchangeable.

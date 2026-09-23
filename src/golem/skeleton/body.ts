@@ -47,16 +47,43 @@ export const SKELETON_ARMOUR: ArmourByHit = Object.freeze({ cut: 0.5, thrust: 0.
  * Thin legs on a light pelvis. The pelvis is fatal (the biped says so), so losing a leg ends a
  * skeleton the way it ends a stone golem.
  *
- * **A light body is knocked down by almost any blow, and this table keeps stone's brace.** The fall
- * ledger divides each blow's shove by the supported mass. Straddled on a standing idle pair by a
+ * **At stone's brace of 1.5, a light body is knocked down by almost any blow.** The fall ledger
+ * divides each blow's shove by the supported mass. Straddled on a standing idle pair by a
  * queued shove, the skeleton (28.30 kg supported, blade and plate) staggers at 0.565 N s and falls
  * at 0.624, around its own threshold of 0.594; stone (89.09 kg) staggers at 1.777 and falls at
  * 1.964, around 1.871. In two 20 s skeleton-duelist mirrors (Node bout runner, seed pairs
  * 0x57010001/2 and 0x57010003/4) the median landed blow added 0.018 m/s of specific impulse against
  * a fall threshold of 0.021, 37 of 88 shoves were a knockdown on their own, there were 27 falls, and
  * neither bout ended before the cap; the same two golem-duelist mirrors of stone read a median of
- * 0.0048, no single-blow knockdown in 41 shoves, and 3 falls in 18.3 s. `braceCapacityMultiplier`
- * is the lever; it stays at stone's 1.5 until session 08 puts this table to the owner.
+ * 0.0048, no single-blow knockdown in 41 shoves, and 3 falls in 18.3 s.
+ *
+ * **So its brace is 2.0, a little over stone's 1.5, together with a rise that hits do not
+ * interrupt** (`riseHoldsThroughHits`, below). The owner asked for slightly stronger footing, and
+ * found a brace of 5.7 -- the blade's time down from 71.7 % to 10.1 % -- too much. Node bout runner
+ * (`createBout`, driven by a working script that is not committed), supported, fresh Havok and a child process per bout, cap 60 s,
+ * the stone attacker on `golem-duelist` against this skeleton on `skeleton-duelist`, 8 seed pairs a
+ * cell (0x5ce1e800 + 2i / 0x5ce1e801 + 2i), first 0.6 s excluded, 2026-09-22. Time the skeleton
+ * spent fallen or rising, then its falls a bout and the 90th-percentile knockdown, fall to standing:
+ *
+ * | brace, rise | blade | mace | maul | whip | fists | knockdown p90, blade / whip |
+ * | --- | --- | --- | --- | --- | --- | --- |
+ * | 1.5, struck back down | 71.7 %, 3.4 | 96.0 %, 2.1 | 44.0 %, 5.5 | 89.5 %, 5.9 | 95.5 %, 3.4 | 9.93 / 16.90 s |
+ * | 2.6, struck back down | 59.2 %, 3.6 | 96.1 %, 2.6 | 28.1 %, 4.4 | 84.2 %, 5.8 | 87.0 %, 5.9 | 9.15 / 18.37 s |
+ * | 4, struck back down | 35.5 %, 1.8 | 79.0 %, 4.5 | 7.9 %, 1.3 | 86.1 %, 5.6 | 69.9 %, 7.1 | 7.00 / 18.78 s |
+ * | 5.7, struck back down | 10.1 %, 1.0 | 69.0 %, 3.5 | 5.6 %, 0.8 | 71.6 %, 8.1 | 62.6 %, 7.9 | 3.65 / 10.00 s |
+ * | 1.5, holds | 61.9 %, 6.3 | 83.9 %, 5.0 | 36.6 %, 6.9 | 70.7 %, 14.0 | 73.9 %, 10.3 | 3.72 / 3.62 s |
+ * | **2.0, holds** | **56.9 %, 4.8** | **79.5 %, 4.1** | **37.8 %, 6.9** | **73.8 %, 14.6** | **73.0 %, 11.0** | **3.75 / 3.63 s** |
+ * | 2.6, holds | 45.3 %, 3.6 | 80.0 %, 3.6 | 23.9 %, 3.4 | 73.7 %, 12.6 | 67.5 %, 11.1 | 3.67 / 3.60 s |
+ * | 3.3, holds | 32.1 %, 2.9 | 69.6 %, 4.3 | 28.7 %, 3.8 | 73.4 %, 15.6 | 64.7 %, 8.8 | 3.70 / 3.60 s |
+ *
+ * Holding the rise ends the long knockdowns, which were rises struck back down, but a skeleton
+ * that stands is soon floored again: at 2.0 it falls from 1.25 times as often as built against the
+ * maul to 3.2 times against the fists. With the rise held, brace hardly moves the whip's time down
+ * (70.7 to 73.8 %) and moves the fists' from 73.9 only to 64.7 %, because what floors it there is
+ * mostly the slap -- a blunt contact under its energy floor, which scores nothing and still shoves
+ * (`Combat`). At 2.0 the skeleton lost all 8 to the blade and to the mace; as built it lost 7 of 8
+ * to the blade with a tie, and all 8 to the mace. Against the fists it won 5 of 8, where as built
+ * it won none.
  *
  * **Leg ceilings are half of stone's, because lighter legs buzz at stone's.** Node locomotion bench
  * (`runGolemLocomotion`, stone's 57.8 kg ride block on each), over the walk, the side-step, the spin
@@ -91,12 +118,13 @@ export const SKELETON_ARMOUR: ArmourByHit = Object.freeze({ cut: 0.5, thrust: 0.
  * | 0.2, 0.2, 2.5 | 45.6 / 21.3 | 24 | 1.86 / 2.50 | 5 | 0.18 m | 0.90 m/s |
  * | **0.3, 0.2, 2.5** | **53.7 / 27.0** | **30** | **1.57 / 2.50** | **3** | **0.19 m** | **0.90 m/s** |
  *
- * 0.3 m/s is far under the collapse and over a limp body's settling. A skeleton now spends about
- * half of a mirror bout down, against a fifth before, which is the brace question session 08 puts
- * to the owner. Part of that is the rise: a blow that lands during one sends the body back to
- * fallen, and a 1.1 s rise is a longer window for it than a 0.45 s one. In the same four mirrors
+ * 0.3 m/s is far under the collapse and over a limp body's settling. That table was taken under the
+ * shared rise rule and stone's brace, and a skeleton then spent about half of a mirror bout down,
+ * against a fifth before. Part of that was the rise: a blow that lands during one sent the body back
+ * to fallen, and a 1.1 s rise is a longer window for it than a 0.45 s one. In the same four mirrors
  * 11 of 30 rises were struck back down and 3 were refused for room, against 13 of 49 struck under
- * stone's knockdown.
+ * stone's knockdown. That is why a skeleton's rise now holds through hits (`riseHoldsThroughHits`)
+ * and its brace is 2.0, the table above.
  *
  * **So its `riseBudgetSeconds` is its own.** The rise is keyframed and the leg ceilings above do
  * not move it: under stone's knockdown every row rose in 1.158 s on the bench's scripted shove, and
@@ -113,8 +141,10 @@ export const SKELETON_BIPED = {
   shinLength: 0.39, shinRadius: 0.024, shinMass: 0.8, shinHealth: 30,
   footLength: 0.24, footWidth: 0.09, footHeight: 0.05, footMass: 0.5, footHealth: 25,
   footprintRadius: 0.28,
+  braceCapacityMultiplier: 2.0,
   hipTorque: 450, kneeTorque: 250, ankleTorque: 110,
-  knockdown: { restSpeedMps: 0.3, restSeconds: 0.2, maxLyingSeconds: 2.5, risePeakMps: 0.9 },
+  knockdown: { restSpeedMps: 0.3, restSeconds: 0.2, maxLyingSeconds: 2.5, risePeakMps: 0.9,
+    riseHoldsThroughHits: true },
   riseBudgetSeconds: 2.50,
 };
 

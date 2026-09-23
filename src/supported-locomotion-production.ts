@@ -194,6 +194,9 @@ export interface PhysicalSupportedLocomotionOptions {
   /** How long a rise over this distance (metres, live root to recovery target) lasts; absent is
    *  `RISING_DURATION_S`. Asked before the state steps, so the rise it admits is the one it runs. */
   readonly risingDuration?: (distanceM: number) => number;
+  /** True: a rise under way is not interrupted by a hit (`recoveryHitInterrupted` is not asked while
+   *  rising). Absent or false is the shared rule. A hit still keeps a fallen body from starting a rise. */
+  readonly riseHoldsThroughHits?: boolean;
   readonly supportBindings: readonly string[];
   /** Read-only live topology projected by the body owner; never a runtime/body handle. */
   readonly supportGroups?: () => readonly PhysicalSupportGroupDiagnostic[];
@@ -326,7 +329,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         priorRequest !== null && Math.max(Math.abs(priorRequest.localForward),
           Math.abs(priorRequest.localRight), Math.abs(priorRequest.yaw)) > 0),
       recoveryGroundAvailable, occupancyClear,
-      hitInterrupted: recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
+      hitInterrupted: !(this.options.riseHoldsThroughHits === true && this.supportState.state === "rising") &&
+        recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
       fallSettled: this.options.fallSettled?.() ?? true,
       risingDurationS,
     });

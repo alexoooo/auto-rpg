@@ -1,7 +1,7 @@
 // A knockdown that runs its course (`Knockdown` in src/golem/config.ts), on a whole golem in a
 // supported pair: the skeleton goes limp, lies until it comes to rest, and rises no faster than its
-// table allows while its strength comes back; stone, whose biped sets no `knockdown`, fights on from
-// the floor and is up at the dwell.
+// table allows while its strength comes back, and a blow during that rise does not stop it; stone,
+// whose biped sets no `knockdown`, fights on from the floor and is up at the dwell.
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -124,7 +124,7 @@ async function knockdown(setupOf, { seconds = 6, reshoveIntoRise = null } = {}) 
     for (const actuator of asked.keys()) {
       census[actuator.tone === golem.tone ? "own" : actuator.tone === pair[1].tone ? "mirror" : "stray"] += 1;
     }
-    return { golem, mind, standing, samples, census };
+    return { golem, mind, standing, samples, census, reshoved };
   } finally {
     scene.onBeforePhysicsObservable.remove(control);
     scene.onAfterPhysicsObservable.remove(sample);
@@ -267,12 +267,35 @@ test("a_skeleton_rises_once_it_has_been_still_for_its_rest_window", async () => 
   }
 });
 
-test("a_skeleton_struck_while_it_rises_goes_limp_again_and_lies_its_whole_course_again", async () => {
-  // Held to the cap by a rest it cannot reach, so each lie's length is the rule's alone; a lie that
-  // carried the first one's clock into the second would be short.
+test("a_skeleton_struck_while_it_rises_gets_up_anyway", async () => {
+  // The table's own rule: a rise, once begun, finishes whatever lands on it.
+  const rule = SKELETON_BIPED.knockdown;
+  assert.equal(rule.riseHoldsThroughHits, true);
+  const tone = SKELETON_BIPED.fallenTorqueScale;
+  const { mind, samples, census, reshoved } = await knockdown(skeletonSetup, { seconds: 9, reshoveIntoRise: 0.3 });
+  assertCensus(census);
+  assert.ok(reshoved, "the rise was never struck");
+  const lies = stretches(samples, "fallen");
+  const rises = stretches(samples, "rising");
+  assert.equal(lies.length, 1, `${lies.length} lies: the blow during the rise put the skeleton back down`);
+  assert.equal(rises.length, 1, `${rises.length} rises`);
+  const [rise] = rises;
+  // The reshove landed: a rise that ended before 0.3 s would have taken no blow at all.
+  assert.ok(lasted(rise) > 0.3 + 0.25, `the rise lasted ${lasted(rise).toFixed(3)} s, too short to have been struck`);
+  for (const row of rise) assertCeilings(row, tone + (1 - tone) * row.progress, "rising through the blow");
+  const up = samples.find((row) => row.at > rise.at(-1).at);
+  assert.ok(up && up.state !== "fallen" && up.state !== "rising", `after the struck rise the skeleton was ${up?.state}`);
+  assertCeilings(up, 1, "up");
+  assertCommands(up, mind.decide(), "up");
+});
+
+test("under_the_shared_rise_rule_a_skeleton_struck_while_it_rises_lies_its_whole_course_again", async () => {
+  // `riseHoldsThroughHits: false` is every other biped's rule, run on this body. Held to the cap by a
+  // rest it cannot reach, so each lie's length is the rule's alone; a lie that carried the first
+  // one's clock into the second would be short.
   const rule = SKELETON_BIPED.knockdown;
   const tone = SKELETON_BIPED.fallenTorqueScale;
-  SKELETON_BIPED.knockdown = { ...rule, restSeconds: rule.maxLyingSeconds * 4 };
+  SKELETON_BIPED.knockdown = { ...rule, restSeconds: rule.maxLyingSeconds * 4, riseHoldsThroughHits: false };
   try {
     const { samples, census } = await knockdown(skeletonSetup, { seconds: 9, reshoveIntoRise: 0.3 });
     assertCensus(census);
