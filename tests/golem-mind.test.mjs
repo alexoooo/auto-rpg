@@ -1479,7 +1479,19 @@ test("the_fencer_aims_at_the_slot_with_the_least_health_when_it_can_reach_it", a
   const bySlot = {};
   slotHealth({ ...whole, "x.golem.primary.forearm": 0.4, "x.golem.primary.upperArm": 0.7 }, bySlot);
   assert.equal(bySlot.primary, 0.4, "a slot's health is its least part");
+  // The locomotion module is built as `legs`, and this assertion once read -1 off a fixture that
+  // publishes a thigh -- a green test pinning the very misfiling it should have caught.
+  assert.equal(bySlot.locomotion, 1, "a leg is the locomotion slot's part");
+  slotHealth({ ...whole, "x.golem.legs.shinR": 0.2 }, bySlot);
+  assert.equal(bySlot.locomotion, 0.2, "a worn leg did not reach the locomotion slot");
+  const { "x.golem.legs.thighL": _thigh, ...legless } = whole;
+  slotHealth(legless, bySlot);
   assert.equal(bySlot.locomotion, -1, "a slot with no part published is absent, not whole");
+  // A piece with segments of its own: a whip's bead is its arm's, never a slot called `whip`.
+  slotHealth({ ...whole, "x.golem.primary.whip.3": 0.1 }, bySlot);
+  assert.equal(bySlot.primary, 0.1, "a whip bead was not read as its own arm");
+  slotHealth({ ...whole, "hero.golem.secondary.upperArm": 0.3 }, bySlot);
+  assert.equal(bySlot.secondary, 0.3, "an actor id in place of a side lost the slot");
 });
 
 /**

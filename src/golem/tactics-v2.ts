@@ -574,22 +574,36 @@ const TARGET_SLOTS: readonly TargetSlot[] = Object.freeze(
 );
 
 /**
+ * Which slot a module's build name is. `Golem`'s constructor names the locomotion module `legs`
+ * and the torso `trunk` whatever they are -- a wheel's yoke is `side.golem.legs.yoke` -- and the
+ * other three by their slot.
+ */
+const SLOT_OF_MODULE: Readonly<Record<string, TargetSlot>> = Object.freeze({
+  legs: "locomotion", trunk: "trunk", head: "head", primary: "primary", secondary: "secondary",
+});
+
+/**
  * The least health of any part in each slot, read out of the published record.
  *
- * `BodyView.health` is keyed by part, `side.golem.slot.part`, and the slot is the segment
- * before the last. A key with fewer segments is a body that is not a golem and is left to the
- * trunk. The least part rather than the mean, because a blow that finishes any part of a
- * module takes the module.
+ * `BodyView.health` is keyed by part, `side.golem.module.piece`, and a piece may carry segments
+ * of its own -- a whip's beads are `side.golem.primary.whip.3` -- so the module is the segment
+ * after `golem` and never one counted from the end. **Counting from the end was the bug**, and it
+ * read two things wrong at once: every leg was filed under `legs`, which is no slot, so a
+ * locomotion module's health was never seen by anything, and every bead was filed under `whip`.
+ * A key with no `golem` segment is a body that is not a golem and is left to the trunk. The
+ * least part rather than the mean, because a blow that finishes any part of a module takes the
+ * module.
  */
 export function slotHealth(health: Readonly<Record<string, number>>, into: Record<TargetSlot, number>): void {
   for (const slot of TARGET_SLOTS) into[slot] = Number.POSITIVE_INFINITY;
   for (const key of Object.keys(health)) {
     const parts = key.split(".");
-    if (parts.length < 2) continue;
-    const slot = parts[parts.length - 2];
-    if (!(slot in into)) continue;
+    const at = parts.lastIndexOf("golem");
+    if (at < 0 || at + 2 >= parts.length) continue;
+    const slot = SLOT_OF_MODULE[parts[at + 1]];
+    if (slot === undefined) continue;
     const fraction = health[key];
-    if (fraction < into[slot as TargetSlot]) into[slot as TargetSlot] = fraction;
+    if (fraction < into[slot]) into[slot] = fraction;
   }
   for (const slot of TARGET_SLOTS) {
     if (!Number.isFinite(into[slot])) into[slot] = -1;
