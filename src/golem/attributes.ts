@@ -133,6 +133,34 @@ export function resolveAttributes(setup: { readonly attributes?: AttributeSettin
 export const attributeOf = (ctx: { readonly attributes?: Attributes }, id: AttributeId): number =>
   ctx.attributes?.[id] ?? 1;
 
+/**
+ * A setting with one stat changed: stored when it is off 1, deleted when it is back on 1.
+ *
+ * **A stat at its default is not written down**, so a body somebody tuned and then reset is the body
+ * that was never touched -- the same record, the same link, the same fingerprint. Both editors use
+ * this one rule: `withGolemAttribute` in `src/bout.ts` for an arena corner, and the dungeon's hero
+ * dialog for a setting it holds before there is a setup to put it on.
+ */
+export function withAttribute(
+  setting: AttributeSetting | undefined, id: AttributeId, value: number,
+): AttributeSetting {
+  const next: Partial<Record<AttributeId, number>> = { ...setting };
+  if (value === 1) delete next[id];
+  else next[id] = value;
+  return next;
+}
+
+/**
+ * A copy of a setup carrying exactly this setting, and no `attributes` field at all when the setting
+ * is empty -- so a body with every stat at its default is the record of one nobody tuned.
+ */
+export function withAttributeSetting<T extends { readonly attributes?: AttributeSetting }>(
+  setup: T, setting: AttributeSetting | undefined,
+): T {
+  const { attributes: _dropped, ...rest } = setup;
+  return setting && Object.keys(setting).length > 0 ? { ...rest, attributes: { ...setting } } as T : rest as T;
+}
+
 /** The carrier fields movement scales: every speed it may travel at, and how hard it may change one. */
 interface CarrierSpeeds {
   readonly maxSpeedMps: number;

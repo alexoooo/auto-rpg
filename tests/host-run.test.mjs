@@ -187,3 +187,26 @@ test("paused_presentation_timers_keep_the_exact_instant_the_player_stopped", () 
     hand: 3.1,
   });
 });
+
+test("the_diagnostics_name_each_body_s_attributes_and_nothing_opens_the_disclosure_for_them", async () => {
+  const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
+  const [hud, main, host, panel] = await Promise.all([
+    read("../src/hud.ts"), read("../src/main.ts"), read("../src/host-run.ts"), read("../src/attributes-ui.ts"),
+  ]);
+  // Inside the command readout, one line a side: the disclosure somebody opens to read diagnostics.
+  const from = hud.indexOf("<details class=\"injuries\" data-commands>");
+  const to = hud.indexOf("</details>", from);
+  assert.ok(from >= 0 && to > from, "the command readout disclosure is where it was");
+  for (const side of ["left", "right"]) {
+    const at = hud.indexOf(`data-attributes-${side}`);
+    assert.ok(at > from && at < to, `the ${side} attribute line sits inside the command readout`);
+  }
+  assert.match(hud, /describeAttributes\(built\)/, "and is written from the body that was built");
+  // Pause does not grant UI permission (AGENTS.md): no host code opens or closes a disclosure.
+  const writesOpen = /\.open\s*=(?!=)|(?:set|toggle|remove)Attribute\(\s*["']open["']/;
+  for (const [name, text] of [["hud.ts", hud], ["main.ts", main], ["host-run.ts", host], ["attributes-ui.ts", panel]]) {
+    assert.doesNotMatch(text, writesOpen, `${name} writes a disclosure's open state`);
+  }
+  assert.match("details.open = true", writesOpen, "the control: the pattern finds a write when there is one");
+  assert.doesNotMatch("if (details.open === true)", writesOpen, "and does not mistake a read for one");
+});

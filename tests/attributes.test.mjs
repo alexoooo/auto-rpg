@@ -10,6 +10,8 @@ import {
   attributesRefusal,
   describeAttributes,
   resolveAttributes,
+  withAttribute,
+  withAttributeSetting,
 } from "../src/golem/attributes.ts";
 import {
   golemMatchup,
@@ -20,6 +22,10 @@ import {
   withGolemSlot,
   withPolicy,
 } from "../src/bout.ts";
+import { FAMILY_POLICY } from "../src/golem/family.ts";
+import { FAMILY_SETUP } from "../src/golem/family-setup.ts";
+import { randomViableOpponent } from "../src/golem/viability.ts";
+import { mulberry32 } from "../src/rng.ts";
 import { defaultGolemSetup, golemSetupRefusal } from "../src/golem/build.ts";
 import { Golem } from "../src/golem/golem.ts";
 import { idleMind } from "../src/mind.ts";
@@ -142,6 +148,46 @@ test("a stat survives every other reducer, the copy they share and the link", ()
   matchup = withGolemSlot(matchup, "right", "head", "head.ram");
   assert.deepEqual(matchup.right.golem.attributes, { turning: 1.1 }, "the copy every reducer makes kept it");
   assert.deepEqual(matchupFromQuery(matchupQuery(matchup)), matchup, "and the codec carried it");
+});
+
+test("a stat is one editor's rule: kept off 1, deleted on 1, and a setup carries the setting whole or not at all", () => {
+  assert.deepEqual(withAttribute(undefined, "movement", 1.2), { movement: 1.2 });
+  const two = withAttribute({ movement: 1.2 }, "armour", 0.9);
+  assert.deepEqual(two, { movement: 1.2, armour: 0.9 });
+  assert.deepEqual(withAttribute(two, "movement", 1), { armour: 0.9 });
+  assert.deepEqual(withAttribute({ armour: 0.9 }, "armour", 1), {});
+
+  const setup = { ...BUILD, attributes: { turning: 1.1 } };
+  const tuned = withAttributeSetting(setup, two);
+  assert.deepEqual(tuned, { ...BUILD, attributes: { movement: 1.2, armour: 0.9 } }, "the setting replaces, not merges");
+  assert.notEqual(tuned.attributes, two, "and is copied, so a later edit to the dialog's record cannot reach it");
+  assert.deepEqual(withAttributeSetting(setup, {}), BUILD, "an empty setting leaves no field");
+  assert.ok(!("attributes" in withAttributeSetting(setup, undefined)), "and nor does none");
+  assert.deepEqual(setup, { ...BUILD, attributes: { turning: 1.1 } }, "the input was not written");
+});
+
+test("randomize and the family buttons pick a body, not a tuning, so the corner keeps its stats", () => {
+  const tuned = withGolemAttribute(withGolemBuild(golemMatchup(BUILD), "left", BUILD, 7), "left", "movement", 1.2);
+  const expect = (matchup, build, seed) => ({ ...matchup.left, golem: { ...build, attributes: { movement: 1.2 } }, seed });
+
+  // Randomize: `SetupScreen.randomize` draws an opponent for the other corner and installs it.
+  const drawn = randomViableOpponent(mulberry32(11), tuned.right.golem);
+  const randomized = withGolemBuild(tuned, "left", drawn, 11);
+  assert.deepEqual(randomized.left, expect(tuned, drawn, 11));
+  assert.deepEqual(randomized.right, tuned.right, "the other corner is untouched");
+
+  // A family button: the family's own body, then its own policy, as `SetupScreen.onClick` does.
+  for (const family of Object.keys(FAMILY_SETUP)) {
+    const body = FAMILY_SETUP[family]();
+    const picked = withPolicy(withGolemBuild(tuned, "left", body, 12), "left", FAMILY_POLICY[family]);
+    assert.deepEqual(picked.left, { ...expect(tuned, body, 12), policy: FAMILY_POLICY[family] }, family);
+  }
+
+  // A build that brings stats of its own lays them over the corner's rather than losing either.
+  const brought = withGolemBuild(tuned, "left", { ...BUILD, attributes: { armour: 0.9 } }, 13);
+  assert.deepEqual(brought.left.golem.attributes, { movement: 1.2, armour: 0.9 });
+  // The control: an untuned corner takes a drawn body with no attributes field at all.
+  assert.ok(!("attributes" in withGolemBuild(golemMatchup(BUILD), "left", drawn, 11).left.golem));
 });
 
 test("a link whose stats are not a record of numbers is refused by shape", () => {

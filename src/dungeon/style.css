@@ -18,6 +18,10 @@ progress::-webkit-progress-bar { background: #292c30; } progress::-webkit-progre
 .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100vw - 32px)); padding: 34px; background: #10171ff5; border: 1px solid #625844; border-radius: 8px; box-shadow: 0 18px 80px #0009; }
 h1, h2 { font-family: Georgia, serif; font-weight: 400; margin: 12px 0 18px; } h1 { font-size: 39px; } h2 { font-size: 27px; } p { font-size: 13px; line-height: 1.7; color: #aab1ba; }
 .field { display: block; color: #c7bda7; font-size: 12px; margin-top: 18px; } .field select, .field input { display: block; width: 100%; margin-top: 7px; }
+#start-panel { max-height: calc(100vh - 32px); overflow-y: auto; } .hero-panel small { display: block; font-size: 11px; color: #bcb6ae; margin-top: 4px; }
+.attributes { margin-top: 18px; color: #c7bda7; font-size: 12px; } .attributes summary { cursor: pointer; } .attribute-row { display: grid; grid-template-columns: minmax(70px, auto) minmax(0, 1fr) 3.4em auto; gap: 8px; align-items: center; margin-top: 6px; }
+.attribute-row input[type=range] { min-width: 0; width: 100%; margin: 0; accent-color: #d9bb80; } .attribute-value { text-align: right; font-variant-numeric: tabular-nums; color: #e9e3d5; }
+.attribute-row.pending { opacity: .5; } .attribute-pending { grid-column: 2 / -1; font-size: 11px; } .attribute-reset { padding: 2px 8px; font-size: 11px; } .attribute-reset:disabled { cursor: default; } .attribute-reset.all { margin-top: 10px; }
 .primary { background: #bba276; border-color: #d5bd92; color: #171b1e; font-weight: 650; } .primary:hover { background: #d0ba91; color: #171b1e; }
 .dialog > button { display: block; width: 100%; margin-top: 12px; } .dialog > small { display: block; text-align: center; color: #77838e; font-size: 10px; margin-top: 18px; line-height: 1.5; }
 .compact { top: auto; bottom: 160px; left: 28px; transform: none; width: 290px; padding: 25px; } .compact a { display: block; font-size: 12px; margin-top: 20px; } .help { width: min(500px, calc(100vw - 32px)); max-height: 80vh; overflow: auto; }

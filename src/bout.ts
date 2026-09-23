@@ -18,7 +18,9 @@ import { handsFor, isWeaponKind, type WeaponKind } from "./hands.ts";
 import { isBodyFamily } from "./golem/family.ts";
 // `attributes.ts` imports nothing at all, for the same reason again: the link codec needs its list
 // of stat ids, and the list lives beside the table that says what each stat is.
-import { isAttributeId, type AttributeId, type AttributeSetting } from "./golem/attributes.ts";
+import {
+  isAttributeId, withAttribute, withAttributeSetting, type AttributeId, type AttributeSetting,
+} from "./golem/attributes.ts";
 import type { Side } from "./physics.ts";
 import type { HitKind } from "./scoring.ts";
 
@@ -520,11 +522,7 @@ export function withGolemAttribute(
   const next = copy(matchup);
   const build = next[side].golem;
   if (!build) return matchup;
-  const attributes: Partial<Record<AttributeId, number>> = { ...build.attributes };
-  if (value === 1) delete attributes[id];
-  else attributes[id] = value;
-  if (Object.keys(attributes).length > 0) build.attributes = attributes;
-  else delete build.attributes;
+  next[side].golem = withAttributeSetting(build, withAttribute(build.attributes, id, value));
   return next;
 }
 
@@ -537,6 +535,11 @@ export function withGolemAttribute(
  * the corner cannot reach back into whatever the caller drew from. Refused, by returning exactly
  * the matchup it was handed, for a corner that is not an assembled unit: `withUnit` is how a
  * corner becomes one, and a build installed on a Warrior would be five slots nothing reads.
+ *
+ * **The corner keeps its attributes.** Randomize and the family buttons pick a body, not a tuning,
+ * so a corner somebody set to x1.25 movement is still x1.25 after it draws a new body. A build that
+ * arrives carrying stats of its own overlays them, stat by stat, rather than being stripped: the
+ * caller said so.
  */
 export function withGolemBuild(
   matchup: Matchup,
@@ -544,9 +547,10 @@ export function withGolemBuild(
   build: GolemSetup,
   seed: number,
 ): Matchup {
-  if (!matchup[side].golem) return matchup;
+  const corner = matchup[side].golem;
+  if (!corner) return matchup;
   const next = copy(matchup);
-  next[side].golem = copyGolem(build);
+  next[side].golem = withAttributeSetting(copyGolem(build), { ...corner.attributes, ...build.attributes });
   next[side].seed = seed;
   return next;
 }

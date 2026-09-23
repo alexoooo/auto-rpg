@@ -1,6 +1,7 @@
 import type { Combatant } from "./units";
 import type { HitReport } from "./combat";
 import type { Side } from "./physics";
+import { describeAttributes } from "./golem/attributes.ts";
 
 export interface Telemetry {
   fps: number;
@@ -175,6 +176,12 @@ export class Hud {
    */
   private readonly commandLists: Record<"left" | "right", HTMLElement>;
   private readonly skimPicker: HTMLSelectElement;
+  /**
+   * What each body was built at, one read-only line a side, inside the command readout. Read from
+   * the body rather than from the setup, because in waves the queue builds the right corner and the
+   * setup does not know what it chose. Like everything in that disclosure, it never touches `open`.
+   */
+  private readonly attributeLines: Record<"left" | "right", HTMLElement>;
   private visible = true;
 
   /**
@@ -221,6 +228,8 @@ export class Hud {
                 <option value="4">x4</option>
               </select>
             </span></div>
+            <div class="limb"><span class="limb-name" data-attributes-left></span></div>
+            <div class="limb"><span class="limb-name" data-attributes-right></span></div>
             <div data-command-left></div>
             <div data-command-right></div>
           </details>
@@ -260,6 +269,10 @@ export class Hud {
     this.commandLists = {
       left: pick("[data-command-left]"),
       right: pick("[data-command-right]"),
+    };
+    this.attributeLines = {
+      left: pick("[data-attributes-left]"),
+      right: pick("[data-attributes-right]"),
     };
     this.skimPicker = pick("[data-skim]") as HTMLSelectElement;
     this.skimPicker.addEventListener("change", () => {
@@ -350,6 +363,10 @@ export class Hud {
     for (const side of ["left", "right"] as const) {
       const found = telemetry.command.sides.find((entry) => entry.side === side) ?? null;
       this.commandLists[side].innerHTML = found === null ? "" : commandRows(found);
+      const built = fighters[side].attributes;
+      const line = `${side === "left" ? "Left" : "Right"} attributes: `
+        + ((built && describeAttributes(built)) || "default");
+      if (this.attributeLines[side].textContent !== line) this.attributeLines[side].textContent = line;
     }
 
     this.perf.textContent = `${telemetry.fps.toFixed(0)} fps · physics ${telemetry.physicsMs.toFixed(

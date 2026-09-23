@@ -21,6 +21,8 @@ import { ARMED_SETUP } from "../golem/family-setup.ts";
 import { golemTerminalOptions } from "../golem/build.ts";
 import type { GolemSetup } from "../bout.ts";
 import { PLAYABLE_BUILDS } from "../golem/roster.ts";
+import { describeAttributes, withAttribute, withAttributeSetting, type AttributeSetting } from "../golem/attributes.ts";
+import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "../attributes-ui.ts";
 import { DungeonRun } from "./run.ts";
 import { cellKey, type Point } from "./map.ts";
 import { frameDungeon, pickingCoordinates } from "./camera.ts";
@@ -58,6 +60,22 @@ const updateEquipment = () => {
   heroSecondary.disabled = heroPrimary.value === "maul";
 };
 heroBuild.addEventListener("change", updateEquipment);
+// The hero's attributes, held here until Start puts them on the hero's setup. Only the hero: every
+// enemy is built at x1. Nothing is remembered between visits, because the dungeon remembers nothing.
+const heroAttributesPanel = need("hero-attributes");
+let heroAttributes: AttributeSetting = {};
+heroAttributesPanel.innerHTML = attributesPanel("hero");
+const renderHeroAttributes = () => renderAttributes(heroAttributesPanel, "hero", heroAttributes, false);
+const editHeroAttributes = (event: Event) => {
+  const action = attributeAction(event.target);
+  if (!action) return;
+  heroAttributes = action.kind === "set" ? withAttribute(heroAttributes, action.id, action.value) : {};
+  renderHeroAttributes();
+};
+heroAttributesPanel.addEventListener("input", followAttributeSlider);
+heroAttributesPanel.addEventListener("change", editHeroAttributes);
+heroAttributesPanel.addEventListener("click", event => { if (event.target instanceof HTMLButtonElement) editHeroAttributes(event); });
+renderHeroAttributes();
 heroPrimary.addEventListener("change", () => { heroSecondary.disabled = heroPrimary.value === "maul"; });
 updateEquipment();
 
@@ -107,6 +125,8 @@ async function boot(): Promise<void> {
     });
     need("start-panel").hidden = true; need("seed-label").textContent = `SEED ${seed}`;
     need("hero-name").textContent = selectedBuild.replaceAll("-", " ");
+    // From the body that was built, not from the dialog, so the line is what is walking about.
+    need("hero-attributes-line").textContent = describeAttributes(run.hero.body.attributes);
     setPaused(false); framing(); run.present(); scene.render(); canvas.focus();
     Object.assign(window, { __dungeon: { get run() { return run; }, get scene() { return scene; }, get camera() { return camera; }, engine } });
   };
@@ -132,6 +152,10 @@ async function boot(): Promise<void> {
     seedInput.setCustomValidity(""); selectedBuild = heroBuild.value;
     const arm = heroArming();
     selectedEquipment = arm ? arm(heroPrimary.value, heroSecondary.value) : undefined;
+    // A hero somebody tuned is handed over as a whole setup; one nobody tuned goes the way it always
+    // did, so a default run is the run it was.
+    const base = selectedEquipment ?? heroSetup();
+    if (base && Object.keys(heroAttributes).length > 0) selectedEquipment = withAttributeSetting(base, heroAttributes);
     launch(Number(seedInput.value));
   }, { signal });
   seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });

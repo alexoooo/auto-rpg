@@ -2,6 +2,7 @@ import {
   drivesAttack,
   drivesMove,
   withChannels,
+  withGolemAttribute,
   withGolemBuild,
   withGolemEffector,
   withGolemSlot,
@@ -33,6 +34,8 @@ import { randomViableGolemSetup, randomViableOpponent, unviablePairNote } from "
 import type { PartsBin } from "./golem/parts-bin";
 import { BODY_FAMILIES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily } from "./golem/family.ts";
 import { FAMILY_SETUP } from "./golem/family-setup.ts";
+import { ATTRIBUTE_IDS, describeAttributes, resolveAttributes } from "./golem/attributes.ts";
+import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "./attributes-ui";
 import { mulberry32, randomSeed } from "./rng";
 import { unitDefinition } from "./units";
 import { POLICIES } from "./mind";
@@ -140,6 +143,7 @@ export class SetupScreen {
   private readonly golemFields: Record<GolemField, Record<Side, HTMLElement>>;
   private readonly customizePanels: Record<Side, HTMLElement>;
   private readonly customizeButtons: Record<Side, HTMLButtonElement>;
+  private readonly attributePanels: Record<Side, HTMLElement>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
   private readonly modes: HTMLInputElement[];
   private readonly modeNote: HTMLElement;
@@ -191,6 +195,7 @@ export class SetupScreen {
       [field, wrapper<HTMLElement>(field)])) as Record<GolemField, Record<Side, HTMLElement>>;
     this.customizePanels = wrapper<HTMLElement>("customize");
     this.customizeButtons = pick<HTMLButtonElement>("customize");
+    this.attributePanels = wrapper<HTMLElement>("attributes");
     this.controls = {
       left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
       right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
@@ -204,9 +209,11 @@ export class SetupScreen {
 
     // One delegated listener rather than one per control. The controls are built here and
     // never replaced -- `render` writes values into them -- so there is nothing to rebind and
-    // nothing to leak. A button is not a `change`, so the clicks have their own.
+    // nothing to leak. A button is not a `change`, so the clicks have their own; a slider's drag
+    // is neither, and moves only its readout until the `change` that commits it.
     host.addEventListener("change", this.onChange);
     host.addEventListener("click", this.onClick);
+    host.addEventListener("input", followAttributeSlider);
     this.render();
   }
 
@@ -233,6 +240,7 @@ export class SetupScreen {
   dispose(): void {
     this.host.removeEventListener("change", this.onChange);
     this.host.removeEventListener("click", this.onClick);
+    this.host.removeEventListener("input", followAttributeSlider);
   }
 
   /**
@@ -324,6 +332,7 @@ export class SetupScreen {
         <label class="seed-note"><input type="checkbox" data-side="${side}" data-field="showAllPolicies" /> Show all policies</label>
         <p class="seed-note" id="applicability-${side}" data-side="${side}" data-field="applicability" aria-live="polite"></p>
         <p class="seed-note" id="rating-${side}" data-side="${side}" data-field="rating" aria-live="polite"></p>
+        ${attributesPanel(side)}
         <div class="customize" data-side="${side}" data-wrap="customize" hidden>
           ${GOLEM_FIELDS.map(({ field, label }) => `
           <label class="field" data-side="${side}" data-wrap="${field}">
@@ -357,6 +366,12 @@ export class SetupScreen {
       case "policy":
         this.matchup = withPolicy(this.matchup, side, target.value);
         break;
+      case "attribute": {
+        const action = attributeAction(target);
+        if (action?.kind !== "set") return;
+        this.matchup = withGolemAttribute(this.matchup, side, action.id, action.value);
+        break;
+      }
       case "control": {
         // Both boxes, read off the screen rather than toggled in the matchup, because the two
         // are one choice: `withChannels` needs to know that clearing `move` left `attack` still
@@ -453,6 +468,17 @@ export class SetupScreen {
         const side = target.dataset.side as Side | undefined;
         if (side !== "left" && side !== "right") return;
         this.randomize(side);
+        break;
+      }
+      case "attributeReset":
+      case "attributesReset": {
+        const side = target.dataset.side as Side | undefined;
+        const action = attributeAction(target);
+        if ((side !== "left" && side !== "right") || !action) return;
+        // Reset all is every stat back to 1 through the one reducer, which deletes each key and
+        // then the field -- so the corner is the record of a body nobody tuned, link and all.
+        const reset = action.kind === "set" ? [action] : ATTRIBUTE_IDS.map((id) => ({ id, value: 1 }));
+        for (const { id, value } of reset) this.matchup = withGolemAttribute(this.matchup, side, id, value);
         break;
       }
       case "customize": {
@@ -586,8 +612,11 @@ export class SetupScreen {
       // that is not a golem -- a Warrior put there from the console, or a link -- is captioned
       // by its unit and its hands rather than left blank, and has no pickers to open.
       const build = setup.golem ?? null;
+      // A tuned body says so in the same line, so two corners that read alike are not two bodies
+      // that are alike.
+      const tuned = build ? describeAttributes(resolveAttributes(build)) : "";
       this.captions[side].textContent = build
-        ? describeGolemSetup(build)
+        ? describeGolemSetup(build) + (tuned ? `; ${tuned}` : "")
         : `${definition.label} with ${setup.handA} and ${setup.handB}`;
       this.seeds[side].textContent = !build ? ""
         : setup.seed !== undefined ? `seed ${setup.seed}` : "picked by hand";
@@ -596,6 +625,10 @@ export class SetupScreen {
       this.customizeButtons[side].disabled = build === null;
       this.customizeButtons[side].textContent = open ? "Done" : "Customize";
       for (const { field } of GOLEM_FIELDS) this.golemFields[field][side].hidden = build === null;
+      // Attributes are a golem's, so a corner holding anything else has none to show; the wave
+      // queue's corner shows its own disabled, like every other control the queue owns.
+      this.attributePanels[side].hidden = build === null;
+      if (build) renderAttributes(this.attributePanels[side], side, build.attributes, waves && side === "right");
       if (build) {
         const family = bodyFamily(build);
         const fill = (field: GolemField, items: readonly GolemSlotOption[], value: string): void => {

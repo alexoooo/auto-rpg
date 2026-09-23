@@ -16,7 +16,7 @@
   <section id="target-panel" hidden aria-label="Selected enemy"><span id="target-name"></span><progress id="target-hp" max="1" value="1"></progress></section>
   <div id="notice" role="status">Preparing the dungeon…</div>
   <footer class="bottom-bar">
-    <section class="hero-panel"><span class="eyebrow">YOUR GOLEM</span><strong id="hero-name">Stone wanderer</strong>
+    <section class="hero-panel"><span class="eyebrow">YOUR GOLEM</span><strong id="hero-name">Stone wanderer</strong><small id="hero-attributes-line"></small>
       <div class="health"><progress id="hero-hp" max="1" value="1"></progress><span id="hp-label">100% HP</span></div>
     </section>
     <section class="control-panel"><span class="eyebrow">TAKE CONTROL</span>
@@ -33,6 +33,7 @@
       <label class="field">Main hand <select id="hero-primary"></select></label>
       <label class="field">Other hand <select id="hero-secondary"></select></label>
     </div>
+    <div id="hero-attributes"></div>
     <label class="field">Dungeon seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
     <button id="start" class="primary" disabled>Preparing Havok…</button>
     <small>Physical combat · one floor · no upgrades or saved progress</small>

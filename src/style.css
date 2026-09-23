@@ -626,6 +626,75 @@ body:has(#curtain:not(.gone)) #direct-controls {
   display: none;
 }
 
+/* The attribute rows (`src/attributes-ui.ts`): name, slider, x-value and reset on one line, and a
+   stat nobody has measured yet as one dim line naming itself. Four columns with the slider the only
+   one that gives, so a corner at phone width narrows the slider rather than scrolling. */
+.attributes {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--edge);
+}
+
+.attributes[hidden] {
+  display: none;
+}
+
+.attributes summary {
+  cursor: pointer;
+}
+
+.attribute-row {
+  display: grid;
+  grid-template-columns: minmax(58px, auto) minmax(0, 1fr) 3.4em auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 3px;
+  font-size: 11px;
+}
+
+.attribute-row input[type="range"] {
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  accent-color: var(--hot);
+}
+
+.attribute-value {
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.attribute-row.pending {
+  color: var(--dim);
+  opacity: 0.55;
+}
+
+.attribute-pending {
+  grid-column: 2 / -1;
+  font-size: 10px;
+}
+
+.attribute-reset {
+  font: inherit;
+  font-size: 10px;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.attribute-reset:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.attribute-reset.all {
+  margin-top: 6px;
+}
+
 #policies b {
   color: var(--ink);
   font-weight: 600;

@@ -171,6 +171,14 @@ export interface Combatant {
    * rather than a module somebody could fit onto something else.
    */
   moduleReport?(): readonly import("./golem/parts-bin.ts").GolemModuleReport[];
+  /**
+   * The stats this body was built at, or absent for a body that has none.
+   *
+   * Read from the body rather than from the matchup because the two are not always the same body:
+   * in waves the queue builds the right corner, and a readout taken from the setup screen would
+   * describe a body nobody is fighting. The HUD's diagnostics line is the reader.
+   */
+  readonly attributes?: import("./golem/attributes.ts").Attributes;
   readonly limbs: Limb[];
   readonly strikers: Striking[];
   readonly costume: readonly AbstractMesh[];
