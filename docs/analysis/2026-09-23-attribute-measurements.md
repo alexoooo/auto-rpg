@@ -1640,5 +1640,173 @@ Node harness, `.review/move-bench.mjs`, `ATTR=size`, the `walk` sequence, output
 
 ### Sweep
 
-Pending: `research/stat-sweep.mjs --stat size` at x0.8, 0.9, 1, 1.1 and 1.25, stone with the four
-probe minds and the skeleton duelist's mirror.
+`research/runs/stat-size`, 192 blocks per level, stone default, the four probe minds, run from a
+snapshot of the tree at 1309588.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 384 | 48.7 [43.5, 54.2] | 51.6 / 45.8 | -0.081 [-0.140, -0.021] | -0.19 | -0.073 [-0.139, -0.005] | -0.15 | 0 | 33.1 | 7.24 | 7.86 |
+| x0.90 | 384 | 50.7 [45.3, 56.0] | 50.5 / 50.8 | -0.023 [-0.079, 0.034] | -0.06 | -0.014 [-0.077, 0.047] | -0.03 | 1 | 30.3 | 7.56 | 7.82 |
+| x1.00 (control) | 384 | 48.8 [43.6, 54.3] | 51.0 / 46.6 | -0.008 [-0.057, 0.043] | -0.02 | -- | -- | 1 | 28.1 | 7.60 | 7.68 |
+| x1.10 | 384 | 41.9 [37.0, 47.1] | 43.8 / 40.1 | -0.061 [-0.112, -0.010] | -0.17 | -0.053 [-0.119, 0.014] | -0.11 | 0 | 27.5 | 7.11 | 8.15 |
+| x1.25 | 384 | 33.1 [28.1, 38.0] | 30.7 / 35.4 | -0.227 [-0.284, -0.171] | -0.56 | -0.219 [-0.284, -0.156] | -0.48 | 0 | 27.6 | 5.68 | 8.39 |
+
+Win % of the modified corner by mind pair, modified mind first:
+
+| Minds | x0.80 | x0.90 | x1.00 | x1.10 | x1.25 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| golem-brawler vs golem-brawler | 66.7 | 54.2 | 45.8 | 58.3 | 41.7 |
+| golem-brawler vs golem-champion | 50.0 | 45.8 | 25.0 | 33.3 | 41.7 |
+| golem-brawler vs golem-duelist | 70.8 | 56.3 | 41.7 | 37.5 | 50.0 |
+| golem-brawler vs golem-miser | 66.7 | 62.5 | 79.2 | 45.8 | 29.2 |
+| golem-champion vs golem-brawler | 58.3 | 45.8 | 62.5 | 41.7 | 16.7 |
+| golem-champion vs golem-champion | 8.3 | 37.5 | 52.1 | 54.2 | 58.3 |
+| golem-champion vs golem-duelist | 25.0 | 41.7 | 41.7 | 41.7 | 66.7 |
+| golem-champion vs golem-miser | 79.2 | 100.0 | 79.2 | 75.0 | 62.5 |
+| golem-duelist vs golem-brawler | 58.3 | 58.3 | 41.7 | 29.2 | 20.8 |
+| golem-duelist vs golem-champion | 4.2 | 45.8 | 41.7 | 45.8 | 37.5 |
+| golem-duelist vs golem-duelist | 37.5 | 50.0 | 45.8 | 58.3 | 54.2 |
+| golem-duelist vs golem-miser | 62.5 | 75.0 | 83.3 | 58.3 | 45.8 |
+| golem-miser vs golem-brawler | 83.3 | 58.3 | 41.7 | 20.8 | 0.0 |
+| golem-miser vs golem-champion | 16.7 | 8.3 | 25.0 | 12.5 | 0.0 |
+| golem-miser vs golem-duelist | 25.0 | 45.8 | 37.5 | 20.8 | 0.0 |
+| golem-miser vs golem-miser | 66.7 | 25.0 | 37.5 | 37.5 | 4.2 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.80 | 13.08 | 6.06 | 29.5 | 21.2 |
+| x0.90 | 9.24 | 5.66 | 25.7 | 19.7 |
+| x1.00 | 4.89 | 4.96 | 15.1 | 14.5 |
+| x1.10 | 2.26 | 4.41 | 12.1 | 15.8 |
+| x1.25 | 0.59 | 2.49 | 3.6 | 9.4 |
+
+| Level | Severed | Other's severed |
+| --- | ---: | ---: |
+| x0.80 | 0.55 | 0.44 |
+| x0.90 | 0.56 | 0.50 |
+| x1.00 | 0.51 | 0.53 |
+| x1.10 | 0.60 | 0.47 |
+| x1.25 | 0.66 | 0.38 |
+
+| Level | Contacts | Other's contacts | Real blows % | Other's real blows % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.80 | 188.3 | 174.9 | 41.5 | 29.5 |
+| x0.90 | 181.0 | 173.1 | 43.6 | 38.3 |
+| x1.00 | 179.3 | 181.8 | 45.8 | 45.9 |
+| x1.10 | 153.8 | 149.0 | 40.9 | 46.5 |
+| x1.25 | 139.7 | 170.8 | 38.3 | 51.1 |
+
+**On stone, a big body loses.** x1.25 takes 33.1 % (d -0.48 against the control), and x1.1 takes
+41.9 %, an interval that touches the control's. Below x1 the win rate is flat, 48.7 % at x0.8 and
+50.7 % at x0.9, but x0.8's paired margin is a little worse than the control's (d -0.15).
+
+**The floor moves the way the stagger impulse says it should, and on stone it does not decide the
+fight.** A x0.8 body goes down 13.08 times a bout and spends 29.5 % of it down, and still wins
+48.7 %. A x1.25 body goes down 0.59 times, knocks the other down half as often as it is knocked
+down at x1 -- 2.49 a bout against 4.96 -- and loses two bouts in three. Weight (session 11) found
+the same on stone: staying up is not winning.
+
+**A big stone body lands less and is hit more.** At x1.25 it deals 5.68 a bout against 7.60 at x1,
+and its share of contacts that are real blows falls from 45.8 % to 38.3 %. The other body's share
+rises from 45.9 % to 51.1 %, and it deals 8.39. Part health does not scale with size, so a larger
+body is a larger target with the same bar. The miser, the mind that trades least, reads 0.0, 0.0,
+0.0 and 4.2 % as the x1.25 corner, which is the row's most lopsided signal. Each cell is 24 bouts,
+though, so read that row as a whole rather than cell by cell.
+
+#### What the minds do with a big arm
+
+The minds stretch a stroke's chamber and arc by `strokeInertiaScale` (`src/golem/tactics.ts`),
+read from the swing inertia each hand publishes. Size multiplies the chain's share of that by s^5
+(`SIZE_LAW_POWER.inertia`) and moves the item out along a longer arm, so the published figure
+grows much faster than the arm's own time scale does. `.review/size-inertia.mjs`, Node, the
+published `swingInertia` in kg m^2 and the stretch it buys, against the √s that similarity at
+constant density says a sized arm's times should grow by:
+
+| Size | Stone primary | Stone secondary | Skeleton primary | Skeleton secondary | √s |
+|---|---|---|---|---|---|
+| 0.8 | 2.44, x1.000 | 2.32, x1.000 | 1.30, x1.000 | 0.98, x1.000 | 0.894 |
+| 0.9 | 3.11, x1.000 | 3.10, x1.000 | 1.54, x1.000 | 1.25, x1.000 | 0.949 |
+| 1 | 3.99, x1.000 | 4.11, x1.015 | 1.82, x1.000 | 1.57, x1.000 | 1.000 |
+| 1.1 | 5.14, x1.135 | 5.42, x1.166 | 2.17, x1.000 | 1.97, x1.000 | 1.049 |
+| 1.25 | 7.57, x1.377 | 8.12, x1.427 | 2.83, x1.000 | 2.72, x1.000 | 1.118 |
+
+The default stone arm sits on the stretch's reference at x1. At x1.25 the minds time its strokes
+38 to 43 % slower, against about 12 % for the arm itself. Nothing on the bench asks for more: at
+x1.25 every arm's stroke stray is better than at x1 or within 1.4 mm of it, and the wrist blade's
+tip-to-command lag falls from 315 mm to 197 (the table under "Arms"). Below x1 the stretch is at
+its floor of 1, so a small arm's strokes are timed as if it were x1 sized, which is about 10 %
+slower than its own time scale at x0.8. The skeleton's arms are light enough that the stretch never
+engages at any size.
+
+**The stretch is not why a big stone body loses.** `research/runs/stat-size-nostretch` reruns x1,
+x1.1 and x1.25 from the same snapshot with `STROKE_INERTIA.gain` set to 0, so no mind stretches any
+stroke on either side. 192 blocks per level, the same minds and seeds:
+
+| Level | Win % [95 %] | vs control d | Dealt | Taken | Real blows % | Other's real blows % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| x1.00 (control) | 48.0 [43.0, 53.5] | -- | 7.52 | 7.69 | 45.8 | 45.4 |
+| x1.10 | 46.1 [40.6, 51.3] | -0.03 | 7.38 | 7.90 | 41.1 | 47.1 |
+| x1.25 | 35.4 [30.2, 40.4] | -0.37 | 5.96 | 8.42 | 35.6 | 50.0 |
+
+Without the stretch, x1.25 takes 35.4 % against 33.1 % with it, and x1.1 46.1 % against 41.9 %.
+Both differences are inside either run's interval. The stretch may cost x1.1 a few points, but a
+big stone body loses most of what it loses with every stroke timed as at x1. The same pattern is
+still there: it lands a smaller share of real blows, the other lands a larger one, and the miser
+as the big corner still reads 0.0 % in three pairings. What does cause it is not isolated. The
+standing candidates are a larger target with an unscaled bar, and the minds' fixed circling band
+against a longer reach (see "What a mind sees").
+
+#### Skeleton
+
+`research/runs/stat-size-skeleton`, 192 blocks per level, `skeleton-warrior` with the skeleton
+duelist on both sides.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 384 | 42.4 [37.5, 47.7] | 41.7 / 43.2 | -0.113 [-0.164, -0.062] | -0.31 | -0.130 [-0.206, -0.052] | -0.24 | 0 | 66.3 | 1.60 | 2.00 |
+| x0.90 | 384 | 29.7 [24.9, 34.6] | 32.6 / 26.8 | -0.258 [-0.308, -0.207] | -0.72 | -0.275 [-0.351, -0.199] | -0.51 | 2 | 67.2 | 1.30 | 2.15 |
+| x1.00 (control) | 384 | 50.3 [45.1, 55.2] | 54.7 / 45.8 | 0.017 [-0.039, 0.071] | 0.04 | -- | -- | 0 | 59.5 | 1.89 | 1.89 |
+| x1.10 | 384 | 72.9 [68.8, 77.1] | 75.5 / 70.3 | 0.302 [0.251, 0.352] | 0.83 | 0.285 [0.214, 0.355] | 0.57 | 0 | 50.0 | 2.54 | 1.47 |
+| x1.25 | 384 | 60.9 [56.0, 65.6] | 64.1 / 57.8 | 0.207 [0.149, 0.263] | 0.51 | 0.190 [0.111, 0.268] | 0.34 | 0 | 42.4 | 2.51 | 1.69 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.80 | 7.80 | 5.88 | 31.1 | 24.5 |
+| x0.90 | 6.53 | 4.84 | 28.1 | 20.7 |
+| x1.00 | 4.90 | 4.79 | 23.9 | 23.5 |
+| x1.10 | 3.70 | 4.38 | 22.7 | 26.2 |
+| x1.25 | 2.83 | 4.74 | 20.8 | 33.0 |
+
+| Level | Severed | Other's severed |
+| --- | ---: | ---: |
+| x0.80 | 0.67 | 0.29 |
+| x0.90 | 0.72 | 0.24 |
+| x1.00 | 0.59 | 0.57 |
+| x1.10 | 0.31 | 0.97 |
+| x1.25 | 0.44 | 0.95 |
+
+| Level | Contacts | Other's contacts | Real blows % | Other's real blows % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.80 | 193.6 | 241.9 | 15.0 | 9.0 |
+| x0.90 | 186.8 | 218.1 | 12.8 | 10.3 |
+| x1.00 | 191.8 | 189.9 | 12.9 | 13.0 |
+| x1.10 | 184.8 | 149.4 | 12.3 | 17.6 |
+| x1.25 | 161.2 | 126.1 | 12.2 | 24.9 |
+
+**On the skeleton, a big body wins and a small one loses.** x1.1 takes 72.9 % (d 0.57 against the
+control) and x1.25 60.9 % (d 0.34). x0.9 takes 29.7 % (d -0.51) and x0.8 42.4 % (d -0.24). The
+curve is not monotone at either end. x0.9 is worse than x0.8 and x1.1 is better than x1.25, and in
+both pairs the intervals do not overlap. Nothing here explains that, and it is not explained.
+
+**A big skeleton wins in the exchange and keeps its limbs.** At x1.1 it deals 2.54 a bout and takes
+1.47, against 1.89 each way at x1. It loses 0.31 of its own modules a bout and severs 0.97 of the
+other's, against 0.59 and 0.57. Bouts get shorter as it grows, 59.5 s at x1 and 42.4 at x1.25. Why
+the two bodies part ways is not established. The stroke stretch never touches the skeleton, but the
+ablation above shows it is not what sinks the big stone body either.
+
+**Size is the first stat that points opposite ways on the two bodies.** Inside the row's x0.8 to
+x1.25, it costs stone up to 16 points at the top, and it is worth up to 23 points to the skeleton at
+x1.1 while costing it 21 at x0.9. The row stays at x0.8 to x1.25, because that range is set by the
+bench and the bouts show no body breaking. But the direction of the effect depends on the body, and
+the minds were tuned at x1 on both. So a player choosing size is choosing a bout the minds were not
+tuned for, and on stone they lose it.

@@ -321,7 +321,15 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    *
    * **A plate on the pitch chain is refused below x1** (`golemSetupRefusal`). The board keeps its
    * size and the chest under it does not, so the board sits 23 mm inside a plated chest at x0.8.
-   * The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Size".
+   *
+   * Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`), **the
+   * two bodies point opposite ways.** Stone with the four probe minds is flat below x1 (48.7 % at
+   * x0.8) and loses above it, 41.9 % at x1.1 and 33.1 % at x1.25 (d -0.48 against the control),
+   * dealing 5.68 a bout against 7.60 while it goes down 0.59 times against 4.89. Turning the minds'
+   * stroke stretch off (`strokeInertiaScale`, which times a x1.25 stone arm 38 % slower) leaves
+   * x1.25 at 35.4 %, so that is not the cause, and the cause is not isolated. The skeleton duelist's
+   * mirror wins big and loses small: 42.4 % at x0.8, 29.7 % at x0.9, 72.9 % at x1.1 (d 0.57) and
+   * 60.9 % at x1.25. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Size".
    */
   size: Object.freeze({ label: "Size", min: 0.8, max: 1.25, step: 0.05, live: true }),
 });
