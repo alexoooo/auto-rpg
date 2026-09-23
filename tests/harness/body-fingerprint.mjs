@@ -2,7 +2,8 @@
  * The body fingerprint: a digest of what every stone, human and skeleton body *does*, compared
  * across two commits.
  *
- * **Why it exists.** The skeleton plan (`docs/plans/2026-09-22-skeleton-00-overview.md`) refactors
+ * **Why it exists.** The skeleton plan (deleted once it landed; read it at
+ * `git show f40c5f7:docs/plans/2026-09-22-skeleton-00-overview.md`) refactors
  * code every stone and human body runs through -- the armour seam, the arm chains, the torso and
  * head builders, every shell builder -- and promises that neither family moves by a single bit.
  * Nothing in `tests/` could check that promise on 2026-09-22. Every determinism test compares two

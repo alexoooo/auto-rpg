@@ -20,8 +20,9 @@ import { torsoModule, type TorsoTuning } from "../torso/torso.ts";
  *
  * Every table spreads the stone one and changes only what a skeleton changes, so every field not
  * written here -- joint limits, rates, damping, the gait, `footFriction`, the carrier -- is stone's.
- * Each value has its reason or its measured table beside it; `docs/plans/2026-09-22-skeleton-06-
- * skeleton-modules.md` carries the draft arithmetic and session 08 the owner's tuning pass.
+ * Each value has its reason or its measured table beside it. The skeleton plan's session 06 carried
+ * the draft arithmetic and session 08 the owner's tuning pass; both were deleted once they landed
+ * and read at `git show f40c5f7:docs/plans/2026-09-22-skeleton-06-skeleton-modules.md`.
  *
  * **Masses are kilograms.** `kg()` in `config.ts` scales a stone volume and is not exported; a
  * skeleton is 21.3 kg of trunk, head and legs against stone's 75 (the arms are left out of that

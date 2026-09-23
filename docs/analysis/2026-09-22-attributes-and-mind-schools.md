@@ -327,7 +327,8 @@ research teachers must remain distinguishable from playable budgeted minds.
 
 Related research context:
 
-- [AI strength and research plan](../plans/2026-09-20-ai-strength-and-research.md)
+- [Research record](../../research/RESEARCH.md), where the AI strength plan's outcome now lives
+  (the plan itself was deleted once implemented: `git show f40c5f7:docs/plans/2026-09-20-ai-strength-and-research.md`)
 - [AI portfolio and teachers plan](../plans/2026-09-21-ai-portfolio-and-teachers.md)
 
 ## Open decisions before implementation
@@ -346,7 +347,9 @@ Related research context:
    connection's strength should differ from the health of the part it holds, and
    what a severed part is worth afterwards.
 8. Which stats from the first slice to wire, over what ranges, and whether a size
-   factor is worth the re-derivation it demands.
+   factor is worth the re-derivation it demands. Decided 2026-09-23: all nine, as
+   multipliers at 1.00, each measured before its range is set, with weight and size
+   as two stats. The plan set is `docs/plans/2026-09-23-attributes-00-overview.md`.
 
 The design goal is genuine, visible capability growth with multiple viable ways to
 think and fight, without requiring fully physical locomotion or forcing every mind
