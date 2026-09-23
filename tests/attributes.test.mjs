@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import {
+  ARMOUR_CAP,
   ATTRIBUTES,
   ATTRIBUTE_IDS,
+  armourAt,
   DEFAULT_ATTRIBUTES,
   attributeOf,
   attributesRefusal,
@@ -31,7 +33,8 @@ import { defaultGolemSetup, golemSetupRefusal } from "../src/golem/build.ts";
 import { Golem } from "../src/golem/golem.ts";
 import { idleMind } from "../src/mind.ts";
 import { LOCOMOTION_BIPED } from "../src/golem/config.ts";
-import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
+import { SKELETON_ARMOUR, SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
+import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
@@ -72,7 +75,7 @@ test("a build context without attributes reads every stat at 1, and one with the
 });
 
 /** The rows a session has measured and turned live. Each stat's session adds its own. */
-const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery"]);
+const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour"]);
 
 test("only a measured row is live, and every other row accepts only 1", () => {
   // Each stat's own session turns its row live. Until then a value other than 1 is a stat nothing
@@ -246,6 +249,51 @@ test("a golem resolves its stats once, and every module it builds is handed them
     assert.equal(yawOf(quick).max, yawOf(plain).max * turning, "the turn rate");
     assert.equal(yawOf(quick).rate, yawOf(plain).rate * turning, "and how hard it starts one");
     assert.deepEqual(speedOf(quick), speedOf(fast), "and turning leaves the travel alone, with both set");
+  } finally {
+    arena.dispose?.();
+  }
+});
+
+test("armour multiplies the fraction a part was built with, stops at the cap, and gives none to a part that has none", () => {
+  assert.equal(armourAt(0.1, 1.5), 0.1 * 1.5);
+  assert.equal(armourAt(0.34, 0.5), 0.34 * 0.5);
+  assert.equal(armourAt(0.6, 2), ARMOUR_CAP, "a skeleton's thrust at x2 is capped");
+  assert.equal(armourAt(0, 2), 0, "no armour stays none");
+  assert.equal(armourAt(0.95, 1), 0.95, "x1 is the fraction as built, not a capped one");
+  assert.ok(ARMOUR_CAP < 1, "armouredDamage refuses 1");
+  assert.ok(Math.abs(10 * (1 - armourAt(0.6, 2)) - 1) < 1e-12, "and a capped blow still lands a tenth of itself");
+});
+
+test("a golem's armour stat reaches every blow through the part's own fraction, per kind", async () => {
+  const arena = await createHeadlessArena();
+  try {
+    const world = flatSupportedWorldRegistry();
+    const build = (setup, i) => new Golem(arena.scene, {
+      side: i === 0 ? "left" : "right", origin: new Vector3(0, 0, i * 8), facing: i * Math.PI,
+      setup, mind: idleMind(), controlPolicies: [], locomotionWorld: world,
+    });
+    const top = ATTRIBUTES.armour.max;
+    const low = ATTRIBUTES.armour.min;
+    const limb = (golem, suffix) => golem.limbs.find((l) => l.key.endsWith(suffix));
+    const blow = (golem, suffix, kind) => golem.applyDamage(limb(golem, suffix), 10, kind);
+    // Stone: its core's single fraction, and a pelvis with none, which no setting moves.
+    const stone = build(withAttributeSetting(defaultGolemSetup(), { armour: top }), 0);
+    const plainStone = build(defaultGolemSetup(), 1);
+    const core = 10 - blow(plainStone, "trunk.core", "cut");
+    assert.ok(core > 0, "the control: a stone core has armour to scale");
+    assert.ok(Math.abs(blow(stone, "trunk.core", "cut") - 10 * (1 - armourAt(core / 10, top))) < 1e-12);
+    assert.equal(blow(stone, "legs.pelvis", "cut"), blow(plainStone, "legs.pelvis", "cut"));
+    assert.equal(blow(plainStone, "legs.pelvis", "cut"), 10, "the pelvis has none to scale");
+    stone.dispose(); plainStone.dispose();
+    // The skeleton's per-kind table, at both ends: a cut and a thrust move, a club's crush does not.
+    for (const level of [low, top]) {
+      const bone = build(withAttributeSetting(skeletonSetup(), { armour: level }), 0);
+      for (const kind of ["cut", "thrust", "crush", "slap"]) {
+        const expected = 10 * (1 - Math.min(ARMOUR_CAP, SKELETON_ARMOUR[kind] * level));
+        assert.ok(Math.abs(blow(bone, "trunk.core", kind) - expected) < 1e-12, `x${level} ${kind}`);
+      }
+      bone.dispose();
+    }
   } finally {
     arena.dispose?.();
   }

@@ -502,3 +502,139 @@ bench's ceiling. If the skeleton ever wants a faster recovery than that, the cap
 a fall that is still moving, and that is a change to the knockdown rule, not a number.
 
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.
+
+## Armour (session 08)
+
+**The knob.** `armourAt` in `src/golem/attributes.ts`: a part's own armour fraction times the stat,
+capped at `ARMOUR_CAP`, 0.9. Its one reader is `Golem.armourOf`, which answers a per-kind table
+(`ArmourByHit`) for the blow's kind first, so a number and a table scale alike. At x1 it returns
+the fraction untouched. A part with no armour gets none at any setting, which is the owner's rule:
+armour scales the armour fraction. The cap exists because `armouredDamage` in `src/scoring.ts`
+refuses a fraction of 1 or more; at 0.9 a blow still lands a tenth of itself.
+
+The stat changes no physics. A bout at another armour level is the same fight, blow for blow, until
+a part's health decides something: a ruined limb, a severing, a mind reading the bar, or the end of
+the bout. That is why the control-paired columns below have such small spreads. On stone, x2 moves
+the bar margin by only 0.012, yet its d is 0.43.
+
+### Bench
+
+Node harness, `.review/armour-bench.mjs`: one 10-point blow through `Golem.applyDamage` on a
+standing golem of each playable build, one per level. The figure is the damage the part takes.
+
+| Part (fraction at x1) | x0.50 | x0.75 | x1.00 | x1.25 | x1.50 | x2.00 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| stone core (0.10) | 9.50 | 9.25 | 9.00 | 8.75 | 8.50 | 8.00 |
+| stone head (0.05) | 9.75 | 9.63 | 9.50 | 9.38 | 9.25 | 9.00 |
+| stone pelvis, upper arm (0) | 10.00 | 10.00 | 10.00 | 10.00 | 10.00 | 10.00 |
+| plated core (0.34) | 8.30 | 7.45 | 6.60 | 5.75 | 4.90 | 3.20 |
+| plated head (0.05) | 9.75 | 9.63 | 9.50 | 9.38 | 9.25 | 9.00 |
+| skeleton, any part, cut (0.50) | 7.50 | 6.25 | 5.00 | 3.75 | 2.50 | 1.00 |
+| skeleton, any part, thrust (0.60) | 7.00 | 5.50 | 4.00 | 2.50 | 1.00 | 1.00 |
+| skeleton, any part, crush or slap (0) | 10.00 | 10.00 | 10.00 | 10.00 | 10.00 | 10.00 |
+| human core, head (0.50) | 7.50 | 6.25 | 5.00 | 3.75 | 2.50 | 1.00 |
+| human pelvis, upper arm (0.35) | 8.25 | 7.38 | 6.50 | 5.63 | 4.75 | 3.00 |
+
+The cap binds on a skeleton's cut at x2, its thrust from x1.5, and a human core or head at x2. It
+binds nowhere at x1.
+
+### Sweep
+
+`research/runs/stat-armour`, 192 blocks per level, stone default, the four probe minds.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 47.8 [42.6, 53.3] | 51.0 / 44.5 | -0.019 [-0.068, 0.033] | -0.05 | -0.010 [-0.016, -0.006] | -0.31 | 1 | 28.0 | 7.49 | 7.70 |
+| x0.75 | 384 | 48.0 [42.8, 53.5] | 51.0 / 45.1 | -0.014 [-0.064, 0.037] | -0.04 | -0.006 [-0.010, -0.003] | -0.23 | 1 | 28.0 | 7.52 | 7.69 |
+| x0.90 | 384 | 48.6 [43.4, 54.2] | 51.0 / 46.1 | -0.010 [-0.060, 0.041] | -0.03 | -0.002 [-0.005, -0.001] | -0.14 | 1 | 28.0 | 7.57 | 7.68 |
+| x1.00 (control) | 384 | 48.8 [43.6, 54.3] | 51.0 / 46.6 | -0.008 [-0.057, 0.043] | -0.02 | -- | -- | 1 | 28.1 | 7.60 | 7.68 |
+| x1.10 | 384 | 49.1 [43.9, 54.4] | 51.0 / 47.1 | -0.008 [-0.057, 0.044] | -0.02 | 0.001 [0.000, 0.001] | 0.46 | 1 | 28.1 | 7.60 | 7.67 |
+| x1.25 | 384 | 49.3 [44.3, 54.7] | 51.6 / 47.1 | -0.006 [-0.055, 0.046] | -0.02 | 0.003 [0.002, 0.004] | 0.29 | 1 | 28.3 | 7.62 | 7.67 |
+| x1.50 | 384 | 49.3 [44.3, 54.7] | 51.6 / 47.1 | -0.003 [-0.052, 0.048] | -0.01 | 0.005 [0.003, 0.007] | 0.43 | 1 | 28.3 | 7.62 | 7.68 |
+| x2.00 | 384 | 50.0 [44.9, 55.3] | 52.9 / 47.1 | 0.003 [-0.046, 0.054] | 0.01 | 0.012 [0.008, 0.016] | 0.43 | 2 | 28.7 | 7.66 | 7.64 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 4.87 | 4.90 | 15.2 | 14.5 |
+| x0.75 | 4.89 | 4.94 | 15.1 | 14.5 |
+| x0.90 | 4.87 | 4.94 | 15.0 | 14.5 |
+| x1.00 | 4.89 | 4.96 | 15.1 | 14.5 |
+| x1.10 | 4.89 | 4.96 | 15.1 | 14.5 |
+| x1.25 | 4.89 | 4.98 | 15.1 | 14.7 |
+| x1.50 | 4.91 | 4.99 | 15.1 | 14.7 |
+| x2.00 | 4.93 | 5.02 | 15.2 | 14.7 |
+
+`research/runs/stat-armour-plated`, 192 blocks per level, `plated`, the four probe minds.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 47.8 [42.4, 53.3] | 47.1 / 48.4 | -0.021 [-0.067, 0.029] | -0.06 | -0.015 [-0.019, -0.011] | -0.49 | 1 | 26.1 | 7.25 | 7.49 |
+| x0.75 | 384 | 48.6 [43.5, 54.0] | 48.2 / 49.0 | -0.012 [-0.058, 0.037] | -0.03 | -0.006 [-0.008, -0.003] | -0.32 | 1 | 26.1 | 7.29 | 7.41 |
+| x1.00 (control) | 384 | 48.6 [43.4, 53.9] | 48.2 / 49.0 | -0.006 [-0.052, 0.043] | -0.02 | -- | -- | 1 | 26.2 | 7.30 | 7.36 |
+| x1.25 | 384 | 48.8 [43.6, 54.3] | 48.7 / 49.0 | 0.001 [-0.046, 0.050] | 0.00 | 0.007 [0.005, 0.009] | 0.41 | 1 | 26.2 | 7.32 | 7.28 |
+| x1.50 | 384 | 50.7 [45.4, 56.1] | 50.3 / 51.0 | 0.012 [-0.035, 0.061] | 0.03 | 0.018 [0.013, 0.024] | 0.48 | 1 | 26.3 | 7.36 | 7.13 |
+| x2.00 | 384 | 52.0 [46.7, 57.4] | 51.8 / 52.1 | 0.027 [-0.019, 0.076] | 0.08 | 0.033 [0.027, 0.041] | 0.65 | 1 | 26.7 | 7.42 | 6.99 |
+
+`research/runs/stat-armour-skeleton`, 192 blocks per level, `skeleton-warrior` with the skeleton duelist on both sides.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 32.3 [27.9, 37.2] | 33.9 / 30.7 | -0.195 [-0.251, -0.141] | -0.49 | -0.212 [-0.246, -0.181] | -0.94 | 0 | 50.1 | 1.49 | 2.23 |
+| x0.75 | 384 | 39.1 [34.4, 44.0] | 41.1 / 37.0 | -0.110 [-0.167, -0.055] | -0.28 | -0.126 [-0.149, -0.104] | -0.79 | 0 | 54.1 | 1.65 | 2.08 |
+| x1.00 (control) | 384 | 50.3 [45.1, 55.2] | 54.7 / 45.8 | 0.017 [-0.039, 0.071] | 0.04 | -- | -- | 0 | 59.5 | 1.89 | 1.89 |
+| x1.25 | 384 | 64.8 [59.9, 69.5] | 66.1 / 63.5 | 0.191 [0.141, 0.239] | 0.56 | 0.174 [0.150, 0.199] | 0.99 | 0 | 63.8 | 2.12 | 1.52 |
+| x1.50 | 384 | 84.9 [81.3, 88.3] | 83.9 / 85.9 | 0.378 [0.339, 0.415] | 1.41 | 0.361 [0.327, 0.396] | 1.48 | 0 | 65.6 | 2.32 | 1.10 |
+| x2.00 | 384 | 97.1 [95.3, 98.7] | 95.3 / 99.0 | 0.581 [0.554, 0.608] | 3.12 | 0.564 [0.521, 0.607] | 1.90 | 0 | 66.3 | 2.44 | 0.62 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 3.95 | 3.86 | 22.6 | 22.0 |
+| x0.75 | 4.34 | 4.28 | 23.2 | 22.8 |
+| x1.00 | 4.90 | 4.79 | 23.9 | 23.5 |
+| x1.25 | 5.17 | 5.39 | 23.6 | 24.6 |
+| x1.50 | 5.34 | 5.72 | 23.8 | 25.6 |
+| x2.00 | 5.42 | 5.91 | 23.9 | 25.9 |
+
+**On stone the stat is flat**, from 47.8 % at x0.5 to 50.0 % at x2, inside the null at every
+level. The damage it takes falls by only 0.5 % at x2 (7.68 to 7.64), although a blow on its core
+falls by 11 %. So almost none of what stone takes lands on its core or head. The pelvis, legs and
+arms carry no armour, and no setting gives them any.
+
+**On `plated` it moves, but only a little**: 47.8 % to 52.0 %, with damage taken falling by 5 % at
+x2 (7.36 to 6.99). A blow on its core falls by half at that level. `plated` differs from stone
+only in its torso.
+
+**On the skeleton it decides the fight.** 32.3 % at x0.5, 39.1 % at x0.75, 64.8 % at x1.25,
+84.9 % at x1.5 and 97.1 % at x2, with a paired d of 1.90 against the control at x2. This is the
+largest effect of any stat so far, and it is a body whose every part carries 0.5 against a cut and
+0.6 against a thrust (`SKELETON_ARMOUR`, stamped on every part), facing a blade. The fights also
+run longer as the modified side gets harder to hurt (59.5 s to 66.3 s), and both sides are knocked
+down more often, from 4.9 and 4.8 a bout at x1 to 5.4 and 5.9 at x2. That is more fight, not a different one: the share of the bout spent down does not move.
+
+**The range is the swept one, x0.5 to x2.** No level is unsafe: nothing physical moves, and the
+cap keeps every blow landing. How much of the skeleton's slope a fair fight wants is a balance call
+and is left to the owner.
+
+**Would scaling the share that passes through do better?** Plan 08 names one alternative: armour
+at stat r is 1 - (1 - a)^r. It does not rescue stone. Its core's 0.10 becomes 0.19 at x2 rather
+than 0.20, and its bare parts stay bare, because 1 - 1^r is 0. What it would change is thick
+armour above x1. It grows more slowly there and never reaches 1, so it needs no cap:
+
+| Fraction at x1 | Rule | x0.50 | x0.75 | x1.25 | x1.50 | x2.00 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 0.10 (stone core) | times r, capped | 0.050 | 0.075 | 0.125 | 0.150 | 0.200 |
+| | pass-through | 0.051 | 0.076 | 0.123 | 0.146 | 0.190 |
+| 0.50 (skeleton cut) | times r, capped | 0.250 | 0.375 | 0.625 | 0.750 | 0.900 |
+| | pass-through | 0.293 | 0.405 | 0.580 | 0.646 | 0.750 |
+| 0.60 (skeleton thrust) | times r, capped | 0.300 | 0.450 | 0.750 | 0.900 | 0.900 |
+| | pass-through | 0.368 | 0.497 | 0.682 | 0.747 | 0.840 |
+
+At x2 a skeleton's cut would land a quarter of each blow rather than a tenth. The skeleton's slope
+should be gentler under that rule, and stone's the same, but neither has been swept.
+
+What makes stone flat is the owner's rule that a part with no armour gets none. Making armour
+count on stone means giving bare parts some, for example a floor the stat adds to every part. That
+changes the rule, so it is the owner's decision.
+
+The x1.00 rows reproduce the earlier controls: 48.8 % on stone, 48.6 % on `plated` and 50.3 % on
+the skeleton.

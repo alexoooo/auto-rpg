@@ -45,7 +45,7 @@ import {
   type GolemEffectorOption,
 } from "./build.ts";
 import { GOLEM_ASSEMBLY } from "./config.ts";
-import { resolveAttributes, type Attributes } from "./attributes.ts";
+import { armourAt, resolveAttributes, type Attributes } from "./attributes.ts";
 import { GolemControlEndpoint } from "./golem-control.ts";
 import { hobble, locomotionCommand, type BuiltLocomotion } from "./locomotion.ts";
 import { dressGolemPart } from "./appearance.ts";
@@ -1198,7 +1198,8 @@ export class Golem implements Combatant {
   private armourOf(limb: Limb, kind: HitKind): number {
     for (const module of this.modules) {
       for (const part of module.built.parts) {
-        if (part.id === limb.key) return partArmour(part, kind);
+        // The body's armour stat, applied at the one read of a part's armour (`armourAt`).
+        if (part.id === limb.key) return armourAt(partArmour(part, kind), this.attributes.armour);
       }
     }
     return 0;

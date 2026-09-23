@@ -179,7 +179,35 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * `docs/analysis/2026-09-23-attribute-measurements.md`, "Recovery".
    */
   recovery: Object.freeze({ label: "Recovery", min: 0.5, max: 1.25, step: 0.05, live: true }),
-  armour: pending("Armour"),
+  /**
+   * How much of a blow a part turns aside: the part's own armour fraction times the stat, capped at
+   * `ARMOUR_CAP` (`armourAt`, read in `Golem.armourOf`). A part with no armour gets none, and a
+   * per-kind table is scaled kind by kind. It changes no physics: a bout at another armour setting
+   * is the same fight until damage decides something. Session 08, 2026-09-23.
+   *
+   * **The stat is only as large as the armour it has to scale.** Node harness, one 10-point blow
+   * through `Golem.applyDamage` on a standing golem, damage the part takes:
+   *
+   *     armour                          0.50   0.75   1.00   1.25   1.50   2.00
+   *     stone core (0.10)               9.50   9.25   9.00   8.75   8.50   8.00
+   *     stone head (0.05)               9.75   9.63   9.50   9.38   9.25   9.00
+   *     stone pelvis, legs, arms (0)   10.00  10.00  10.00  10.00  10.00  10.00
+   *     plated core (0.34)              8.30   7.45   6.60   5.75   4.90   3.20
+   *     skeleton cut (0.50)             7.50   6.25   5.00   3.75   2.50   1.00   (capped at x2)
+   *     skeleton thrust (0.60)          7.00   5.50   4.00   2.50   1.00   1.00   (capped from x1.5)
+   *     skeleton crush, slap (0)       10.00  10.00  10.00  10.00  10.00  10.00
+   *     human core, head (0.50)         7.50   6.25   5.00   3.75   2.50   1.00   (capped at x2)
+   *     human pelvis, upper arm (0.35)  8.25   7.38   6.50   5.63   4.75   3.00
+   *
+   * **So it is flat on stone and decisive on the skeleton.** Swept against an unmodified body over
+   * 384 bouts a level (`research/stat-sweep.mjs`): the stone default wins 47.8 % at x0.5 and 50.0 %
+   * at x2, inside the null at every level; the plated build, 47.8 % to 52.0 %; the skeleton duelist's
+   * mirror, 32.3 % at x0.5, 64.8 % at x1.25, 84.9 % at x1.5 and 97.1 % at x2 (paired d 1.90). No
+   * level is unsafe -- nothing physical moves and the cap keeps every blow landing a tenth -- so the
+   * range is the swept one; how much of it a fair fight wants is a balance call, not a bench one.
+   * The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Armour".
+   */
+  armour: Object.freeze({ label: "Armour", min: 0.5, max: 2, step: 0.05, live: true }),
   toughness: pending("Toughness"),
   armSpeed: pending("Arm speed"),
   weight: pending("Weight"),
@@ -325,6 +353,33 @@ export function withTurning<T extends { readonly carrier: CarrierYaw }>(table: T
       maxYawAccelerationRadS2: carrier.maxYawAccelerationRadS2 * turning,
     },
   };
+}
+
+/**
+ * The most armour the stat can give a part: nine tenths of a blow absorbed.
+ *
+ * `armouredDamage` in `src/scoring.ts` refuses a fraction of 1 or more -- a part that takes nothing
+ * is a part no weapon can ruin, and a bout that cannot end -- so a multiplier on a fraction needs a
+ * ceiling under 1, and 0.9 is where "hard to hurt" has already become "ignores nine blows in ten".
+ * It binds only where the multiplied fraction passes it: a skeleton's thrust (0.6) at x1.5, a human
+ * core or head (0.5) at x1.8. Never applied at x1, so a body at the default reads its own fractions.
+ */
+export const ARMOUR_CAP = 0.9;
+
+/**
+ * A part's armour fraction against one kind of blow, at an armour stat: the fraction the part was
+ * built with times the stat, capped at `ARMOUR_CAP`.
+ *
+ * Read once per blow, in `Golem.armourOf`, which is the only reader of a part's armour -- so a
+ * number and a per-kind table (`ArmourByHit`) are scaled alike, since the table is answered for the
+ * kind before it reaches here. A fraction of 0 stays 0 at any setting: the stat scales armour a part
+ * has and gives none to a part that has none. That is the owner's rule (armour scales the armour
+ * fraction), and it is why a skeleton's slap and crush and a stone core's thin 0.10 move little.
+ * Equipment never reaches it: a blow on a held piece is a parry, not a wound (`Limb.guarding`).
+ */
+export function armourAt(fraction: number, armour: number): number {
+  if (armour === 1) return fraction;
+  return Math.min(ARMOUR_CAP, fraction * armour);
 }
 
 /** The fields of a biped's `Knockdown` (`src/golem/config.ts`) the recovery stat reads. */
