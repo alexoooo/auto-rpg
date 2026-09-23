@@ -1,6 +1,7 @@
 # Attributes, progression, and mind schools
 
-Date: 2026-09-22
+Date: 2026-09-22. Updated 2026-09-23 with a first slice of numeric attributes, the
+state of per-part health, and what a size stat would take.
 
 Status: design analysis from the attribute-system discussion, not an implementation
 specification or a claim that these progression mechanics already exist. School
@@ -209,6 +210,104 @@ Precision, endurance, and integrity are not assumed to be emergent attributes.
 Any such mechanic needs an actual controller or physical mechanism and evidence,
 not just a plausible name.
 
+### A first slice of numeric attributes
+
+Added 2026-09-23. Each stat below scales a number the simulation already reads,
+so a point spent on one changes something a fight can show. None of them is wired
+as a stat yet, and none is a damage multiplier.
+
+| Stat | The number it scales | What it buys | Bound or caution |
+| --- | --- | --- | --- |
+| Movement | the locomotion module's `carrier`: `maxSpeedMps` 3.2, `backSpeedMps` 1.9, `strafeSpeedMps` 2.4, `maxAccelerationMps2` 9.0 | closing, escaping, holding a range | Keep the back and strafe ratios, 0.59 and 0.76 of a walk. They exist because a golem that backed off as fast as it advanced could never be cornered. |
+| Turning | `carrier.maxYawSpeedRadS` 3.0 and `maxYawAccelerationRadS2` 11.0 | facing a flanker, bringing the weapon side round | none yet |
+| Stability | the stagger and fall thresholds, `staggerAtMps` and `fallAtMps` in `src/supported-locomotion-production.ts` | fewer staggers and knockdowns from a blow of a given size | Both thresholds are specific impulse (impulse over supported mass), so a heavier body is already steadier. The stat scales the thresholds, not the mass. |
+| Arm speed | `CHAIN_REACH.anchorRate`, 5 | faster strokes and recoveries | Bounded, and the bound is the whole design problem. At rate 18 the driven anchor sat 217 mm from where it was sent and a tip peaked at 75.5 m/s: a flung blade. Every bout-level number rewards that. Gate on the bench's stroke stray, which `tests/golem-bench.test.mjs` already refuses above 50 mm. |
+| Armour | each part's `armour` fraction, spent through `armouredDamage` in `src/scoring.ts` | less damage from each blow on that part | Already live, per part, and since skeleton 02 per kind of blow. A stat multiplies the table and stays below 1. |
+| Toughness | each part's `health` row (24 to 260 on the golem tables) | more blows before a part is ruined | A multiplier on part rows, not a pool: see the next section. |
+| Weight | module masses, through `kg()` and `SHIPPED_MASS_SCALE` | more energy per blow, since `E = 0.5 * mu * v^2` with `mu` the pair's reduced mass (`src/scoring.ts`); more resistance to shoves | It costs speed: a heavier arm moves slower at the same force. The held blade's 1.30 kg does not scale, so weight changes the arm-to-blade ratio as well. |
+| Recovery | the biped's `Knockdown` table: `risePeakMps`, `maxLyingSeconds`, `riseHoldsThroughHits` | less time on the floor, and a rise that hits do not interrupt | `maxLyingSeconds` is what keeps a body that is still being struck from lying there for ever. A stat may shorten it and must never remove it. |
+
+**Strength is missing on purpose.** An arm's force ceiling is not a stat on these
+chains. A force sweep from 1,400 N to 14,000 N on a 29.5 kg chain stopped changing
+above about 3,900 N (AGENTS.md, "On a low-axis chain the anchor's rate limit
+shapes a commanded move"). The rate limit shapes a move; the force ceiling does
+not. So "Strength" as an arm ceiling would scale a number that changes nothing
+above that point. It becomes a stat only where a sweep shows its ceiling actually
+binds, which might be the legs, the neck or the waist, and nobody has measured
+those yet.
+
+**A first slice** would be Movement, Turning, Arm speed, Toughness and Armour. The
+five are independent, each is one table, and all but Arm speed are safe across a
+wide range. Stability, Weight and Recovery come next: each of them interacts with
+knockdowns and shoves, which are still being tuned.
+
+### Health is already per part; the bar is a readout
+
+What exists on 2026-09-23:
+
+- **Every part has its own health and armour.** A blow wounds the part it lands on.
+- **The bar is an aggregate, not a pool.** `vitality()` is a weighted reading of
+  every part's wound. A bout ends when a `fatal` part is severed or at zero, or when
+  the bar reaches zero (`beaten()` in `src/bout.ts`).
+- **A ruined part goes limp**, through `BuiltChain.limp`. A ruined leg hobbles, and
+  with every leg ruined the carrier answers `GOLEM_RUIN.strippedMobility`, which is
+  0.3, of its command.
+- **A part driven past its breaking point comes off.** That point is
+  `CONFIG.combat.severMargin`, 0.5 of the part's health beyond zero. So a ruined limb
+  does not soak blows for ever.
+- **Equipment is never wounded.** This covers the shield plate, the whip's lash and
+  weight, and since 2026-09-23 the blade, mace and maul. A blow on any of them is a
+  parry.
+
+So condition is already local, which is what this section asked for. A health stat
+should therefore be the Toughness multiplier on part rows. A whole-body pool would
+make it irrelevant where a blow lands, and making that matter is the reason the
+per-part model exists.
+
+One piece of arithmetic to keep in mind: `Golem.scaleVitality` normalises the
+weights to `GOLEM_ASSEMBLY.vitalityTotal`. Raising every part's health by the same
+factor lengthens a fight and leaves its shape alone. Raising one part's health
+makes that part a better place to take a blow.
+
+### Size
+
+A size factor `s` scales every length of the body by `s`. Under geometric
+similarity at constant density the rest follow:
+
+| Quantity | Scales as | At s = 1.25 |
+| --- | --- | --- |
+| length, reach, collision radius | s | 1.25 |
+| mass | s^3 | 1.95 |
+| rotational inertia | s^5 | 3.05 |
+| torque to hold a pose against gravity (m g L) | s^4 | 2.44 |
+| force for the same acceleration | s^3 | 1.95 |
+| natural linear speed of walking or swinging | sqrt(s) | 1.12 |
+| natural durations (a stride, a swing) | sqrt(s) | 1.12 |
+| angular rates | 1 / sqrt(s) | 0.89 |
+| blow energy at natural speed (m v^2) | s^4 | 2.44 |
+
+That gives a real trade rather than a free tier. A big body has more reach and
+much harder blows. It turns and swings more slowly in angular terms. It is also
+more stable, because the stagger thresholds divide the incoming impulse by the
+body's own mass. Toughness has no physical law here: health could scale with a
+part's cross-section (s^2) or its volume (s^3), and that is a design choice.
+
+**Size cannot be a render-time scale.** Every table is read when a module is built,
+and many of its numbers were measured on today's size rather than derived from it.
+Examples: `lashReach`, the carrier limits, the stability thresholds, the anchor
+rate, `ANCHOR_DRIVE.linearForce` (derived from the driven mass the bench prints),
+and the bench's stroke exclusion windows. Masses would follow the law through
+`kg()`, but those measured numbers would not. Equipment has its own size as well:
+`TERMINAL_BLADE.mass` does not scale with the body, so a large golem holding the
+same sword has a different arm-to-blade balance. That balance is exactly the
+wrist-weld mass ratio that once produced the jiggle.
+
+The recommendation is a build-time `size` factor passed to every module builder.
+Each table is scaled by the laws above, and each measured constant is re-derived
+at the new size rather than scaled. Start with 0.8 to 1.25 and gate both ends on
+the Node bench (stroke stray, anchor lag, stability at rest) and on a bout sweep
+before the range widens. Equipment keeps its own size.
+
 ## Evaluation and research implications
 
 Measure proficiency instead of adding a decorative "Sword 73" modifier. Examples
@@ -242,6 +341,12 @@ Related research context:
    interface is worth adding without violating physical authority.
 6. Unlock-versus-loadout rules and the scope of cross-school transfer.
 7. Local damage, material failure, and connection failure before defining health.
+   Partly settled on 2026-09-23 (see "Health is already per part"). Damage is local,
+   a ruined part goes limp, and a breaking point takes it off. Still open: whether a
+   connection's strength should differ from the health of the part it holds, and
+   what a severed part is worth afterwards.
+8. Which stats from the first slice to wire, over what ranges, and whether a size
+   factor is worth the re-derivation it demands.
 
 The design goal is genuine, visible capability growth with multiple viable ways to
 think and fight, without requiring fully physical locomotion or forcing every mind
