@@ -128,8 +128,11 @@ export function wristChainFrom<K extends ChainId>(
       // `carryRatio` of the terminal, whichever is more: the mass ratio across a locked hinge is
       // what the solver can or cannot hold, and the argument is beside `CHAIN_WRIST.carryRatio`.
       // A blade is under the floor and gets the config's figures unchanged.
-      const ringMass = Math.max(W.ringMass, W.carryRatio * carriedKg);
-      const wristMass = Math.max(W.wristMass, W.carryRatio * carriedKg);
+      // The body's weight stat moves the floors and not the cast, which follows the load
+      // (`withWeight`).
+      const weight = attributeOf(ctx, "weight");
+      const ringMass = Math.max(W.ringMass * weight, W.carryRatio * carriedKg);
+      const wristMass = Math.max(W.wristMass * weight, W.carryRatio * carriedKg);
       const core = buildArmCore(ctx, limits, crossing, R, options.armour);
       // The body's arm-speed stat, on the wrist's two command rates (`withArmSpeed`); the core has
       // already taken it for the anchor.

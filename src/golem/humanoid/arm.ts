@@ -31,6 +31,8 @@ export const anatomicalChain = defineChain({
     // not the torque). The +-8 clamp on a drive target below is a bound on the command, not a rate.
     const armSpeed = attributeOf(ctx, "armSpeed");
     const rates = armSpeed === 1 ? RATES : RATES.map((rate) => rate * armSpeed);
+    // And its weight stat, on each segment's mass (`withWeight`); the inertia floor below stays.
+    const weight = attributeOf(ctx, "weight");
     const reachable = { reachMin: Math.max(0.24, limits?.reachMin ?? 0.24), reachMax: Math.min(0.65, limits?.reachMax ?? 0.65),
       swingMin: crossing?.swingMin ?? Math.max(-0.65, limits?.swingMin ?? -0.65),
       swingMax: Math.min(1.6, limits?.swingMax ?? 1.6),
@@ -48,7 +50,7 @@ export const anatomicalChain = defineChain({
       const body = capsulePart(ctx.scene, { name: `${ctx.name}.${ids[i]}`,
         position: toWorld(Vector3.Center(proximal, distal)), rotation: ctx.socket.rotation.multiply(frame.rotation),
         height: lengths[i], radius: i === 0 ? .055 : i === 1 ? .043 : .032,
-        mass: MASSES[i], layer: ctx.layers.body, collidesWith: ctx.layers.bodyCollidesWith,
+        mass: MASSES[i] * weight, layer: ctx.layers.body, collidesWith: ctx.layers.bodyCollidesWith,
         material: materialForGolemRole(ctx.materials, "armour") });
       body.body.setLinearDamping(.1); body.body.setAngularDamping(.2);
       const properties = body.body.getMassProperties(), inertia = properties.inertia!;

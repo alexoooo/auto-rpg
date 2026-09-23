@@ -30,14 +30,15 @@ import { FAMILY_POLICY } from "../src/golem/family.ts";
 import { FAMILY_SETUP } from "../src/golem/family-setup.ts";
 import { randomViableOpponent } from "../src/golem/viability.ts";
 import { mulberry32 } from "../src/rng.ts";
-import { defaultGolemSetup, golemSetupRefusal } from "../src/golem/build.ts";
+import { defaultGolemSetup, golemEffector, golemHead, golemSetupRefusal, golemUpperMassKg } from "../src/golem/build.ts";
 import { Golem } from "../src/golem/golem.ts";
 import { idleMind } from "../src/mind.ts";
-import { CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED } from "../src/golem/config.ts";
-import { golemModule } from "../src/golem/registry.ts";
+import { CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, HEAD_RAM, LOCOMOTION_BIPED } from "../src/golem/config.ts";
+import { EFFECTOR_TERMINALS, golemModule } from "../src/golem/registry.ts";
+import { PLAYABLE_BUILDS } from "../src/golem/roster.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { freshIntent } from "../src/action-primitives.ts";
-import { SKELETON_ARMOUR, SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
+import { SKELETAL_WRIST, SKELETON_ARMOUR, SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
@@ -79,7 +80,7 @@ test("a build context without attributes reads every stat at 1, and one with the
 });
 
 /** The rows a session has measured and turned live. Each stat's session adds its own. */
-const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour", "toughness", "armSpeed"]);
+const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour", "toughness", "armSpeed", "weight"]);
 
 test("only a measured row is live, and every other row accepts only 1", () => {
   // Each stat's own session turns its row live. Until then a value other than 1 is a stat nothing
@@ -419,4 +420,120 @@ test("arm speed multiplies every arm chain's published rates and the rate its co
     stand.dispose();
     arena.dispose();
   }
+});
+
+/**
+ * **Every part of every playable build, against the solver.** A body part's solver mass is its x1
+ * mass times the stat; an item's -- any part of a terminal, or a ram's plate -- is its own; and the
+ * wrist's two cast parts, which weigh their floor or `carryRatio` of the load, whichever is more,
+ * land between the two, since only the floor is the body's. The fixture includes a load on each
+ * side of that choice, and the test counts both. Havok keeps a mass in single precision, so
+ * "equal" is to a part in a million.
+ *
+ * And what the carrier holds up agrees with the solver: its supported mass is the legs' solver
+ * masses plus `golemUpperMassKg` at the same stat, at x1 and at the row's top. A wheel and a
+ * multileg are handed no upper mass at all today -- only the biped implements `carry` -- which the
+ * test states rather than hides.
+ */
+test("weight multiplies every body part's solver mass and no item's, and the carrier's load agrees", async () => {
+  const arena = await createHeadlessArena();
+  try {
+    const world = flatSupportedWorldRegistry();
+    const build = (setup, i) => new Golem(arena.scene, {
+      side: i === 0 ? "left" : "right", origin: new Vector3(0, 0, i * 8), facing: i * Math.PI,
+      setup, mind: idleMind(), controlPolicies: [], locomotionWorld: world,
+    });
+    const level = ATTRIBUTES.weight.max;
+    const near = (a, b) => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(b));
+    const mass = (limb) => limb.part.body.getMassProperties().mass;
+    const items = new Set([...Object.keys(EFFECTOR_TERMINALS), "ram"]);
+    const cast = new Set(["rollRing", "wrist"]);
+    const seen = { item: 0, castFloor: 0, castLoad: 0, bodyBlow: 0 };
+    const carried = (golem, setup) => {
+      const legs = golem.limbs.filter((limb) => limb.key.includes(".legs.")).reduce((sum, limb) => sum + mass(limb), 0);
+      const upper = golem.locomotionModule.carry ? golemUpperMassKg(setup) : 0;
+      return { supported: golem.locomotion.diagnostic().stability.supportedMassKg, expected: legs + upper };
+    };
+    for (const { name, setup } of PLAYABLE_BUILDS) {
+      const heavySetup = withAttributeSetting(setup, { weight: level });
+      const plain = build(setup, 0);
+      const heavy = build(heavySetup, 1);
+      assert.equal(heavy.limbs.length, plain.limbs.length, name);
+      for (const [i, limb] of heavy.limbs.entries()) {
+        const key = limb.key.replace(/^right\./, "");
+        assert.equal(key, plain.limbs[i].key.replace(/^left\./, ""), name);
+        const was = mass(plain.limbs[i]);
+        const now = mass(limb);
+        const segments = key.split(".");
+        if (segments.some((segment) => items.has(segment))) {
+          seen.item += 1;
+          assert.ok(near(now, was), `${name} ${key}: an item keeps its ${was} kg, not ${now}`);
+        } else if (cast.has(segments.at(-1))) {
+          // A cast link is max(floor, carryRatio x load). Only the floor is the body's, so at xL it is
+          // max(floor x L, load) -- which is max(floor x L, what it was) whichever side bound at x1.
+          const hand = segments.find((segment) => segment === "primary" || segment === "secondary");
+          const table = setup[hand].chain === "skeletal" ? SKELETAL_WRIST : CHAIN_WRIST;
+          const floor = segments.at(-1) === "rollRing" ? table.ringMass : table.wristMass;
+          assert.ok(near(now, Math.max(floor * level, was)), `${name} ${key}: ${was} -> ${now}, floor ${floor}`);
+          if (near(now, was)) seen.castLoad += 1;
+          else seen.castFloor += 1;
+        } else {
+          assert.ok(near(now, was * level), `${name} ${key}: ${was} kg went x${(now / was).toFixed(4)}`);
+        }
+      }
+      // What a blow arrives with. An item's striker is the item's mass; a capped socket's is the cap,
+      // which is body; a ram's is its plate plus the body behind it, and only the body share moves.
+      assert.equal(heavy.strikers.length, plain.strikers.length, name);
+      for (const [i, striker] of heavy.strikers.entries()) {
+        const was = plain.strikers[i].impactMassKg;
+        const want = striker.kind === "ram" ? (was - HEAD_RAM.plateMass) * level + HEAD_RAM.plateMass
+          : striker.effectorId.endsWith(".shove") ? was * level : was;
+        if (want !== was) seen.bodyBlow += 1;
+        assert.ok(near(striker.impactMassKg, want), `${name} ${striker.effectorId}: ${was} -> ${striker.impactMassKg}, not ${want}`);
+      }
+      // What a stroke is timed against: the arm's share of the swing inertia grows with the body and
+      // the item's share does not, so an armed effector lands strictly between x1 and xL.
+      for (const hand of ["primary", "secondary"]) {
+        const was = plain.view.self.capabilities.effectors[hand].swingInertia;
+        const now = heavy.view.self.capabilities.effectors[hand].swingInertia;
+        assert.ok(now > was * (1 + 1e-6) && now <= was * level * (1 + 1e-6),
+          `${name} ${hand}: swing inertia ${was} -> ${now}`);
+      }
+      for (const [golem, s] of [[plain, setup], [heavy, heavySetup]]) {
+        const { supported, expected } = carried(golem, s);
+        assert.ok(near(supported, expected), `${name}: the carrier holds up ${supported} kg against ${expected}`);
+      }
+      plain.dispose();
+      heavy.dispose();
+    }
+    assert.ok(seen.item > 0 && seen.castFloor > 0 && seen.castLoad > 0 && seen.bodyBlow >= 3,
+      `the control: items, a cast on its floor, a cast on its load and body blows were all seen (${JSON.stringify(seen)})`);
+  } finally {
+    arena.dispose?.();
+  }
+});
+
+test("an effector's item share is its terminal's mass and a head's is its ram plate, and weight moves only the rest", () => {
+  const blade = golemEffector("wrist", "blade").definition;
+  assert.equal(blade.itemMassKg, EFFECTOR_TERMINALS.blade.massKg);
+  assert.ok(blade.massKg > blade.itemMassKg, "the control: the arm weighs something of its own");
+  const base = defaultGolemSetup();
+  const ram = { ...base, head: "head.ram" };
+  for (const setup of [base, ram, skeletonSetup()]) {
+    const plain = golemUpperMassKg(setup);
+    const heavy = golemUpperMassKg(withAttributeSetting(setup, { weight: 2 }));
+    assert.ok(heavy > plain && heavy < 2 * plain, `the body share doubles and the items do not (${plain} -> ${heavy})`);
+  }
+  assert.ok(golemHead("head.ram").itemMassKg > 0, "a ram's plate is an item");
+  assert.equal(golemHead("head.plain").itemMassKg, 0);
+  // An effector's items are the one share a stat leaves alone: at x2 the default's upper mass grows
+  // by exactly its body share, which is everything but the blade and the plate.
+  const items = EFFECTOR_TERMINALS.blade.massKg + EFFECTOR_TERMINALS.plate.massKg;
+  const upper = golemUpperMassKg(base);
+  assert.ok(Math.abs(golemUpperMassKg(withAttributeSetting(base, { weight: 2 })) - (2 * upper - items)) < 1e-9,
+    "the blade and the plate are not doubled");
+  // Between the plain head and the ram head the body is the same, so at x2 the upper mass grows by
+  // the same amount on both: the plate is not doubled.
+  const growth = (setup) => golemUpperMassKg(withAttributeSetting(setup, { weight: 2 })) - golemUpperMassKg(setup);
+  assert.ok(Math.abs(growth(ram) - growth(base)) < 1e-9, `the ram's plate doubled: ${growth(ram)} against ${growth(base)}`);
 });

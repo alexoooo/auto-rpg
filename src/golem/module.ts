@@ -475,7 +475,13 @@ export interface GolemModuleDefinition<Command> {
    */
   readonly slots: readonly GolemSlot[];
   readonly label: string;
+  /** What the module weighs at weight x1, kilograms, items included. */
   readonly massKg: number;
+  /**
+   * The share of `massKg` that is items rather than body -- an effector's terminal, a ram's plate --
+   * and which the weight stat therefore leaves alone (`withWeight`). Absent is none.
+   */
+  readonly itemMassKg?: number;
   /**
    * How many of its slot's sockets this module occupies. Absent means one.
    *

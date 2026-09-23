@@ -40,7 +40,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
-import { attributeOf, withMovement, withTurning } from "../attributes.ts";
+import { attributeOf, withMovement, withTurning, withWeight } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -168,7 +168,9 @@ return defineLocomotion({
 
   build(ctx: ModuleBuild): BuiltLocomotion {
     // This body's own table, its carrier's travel scaled by its movement stat.
-    const W = withTurning(withMovement(table, attributeOf(ctx, "movement")), attributeOf(ctx, "turning"));
+    // The parts' masses times the weight stat (`withWeight`); the supported mass below reads them too.
+    const W = withWeight(withTurning(withMovement(table, attributeOf(ctx, "movement")), attributeOf(ctx, "turning")),
+      ["yokeMass", "wheelMass"], attributeOf(ctx, "weight"));
     // The stability stat, published on every authority this body hands its port as a plain factor
     // on its thresholds (`stabilityCapacity` in `src/supported-locomotion-state.ts`).
     const stability = attributeOf(ctx, "stability");

@@ -6,7 +6,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint, type Part } from "../../../rig.ts";
 import type { Armour } from "../../../scoring.ts";
-import { attributeOf, withArmSpeed } from "../../attributes.ts";
+import { attributeOf, withArmSpeed, withWeight } from "../../attributes.ts";
 import { CHAIN_REACH } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -237,8 +237,10 @@ export function buildArmCore(
   reachTable: typeof CHAIN_REACH = CHAIN_REACH, armour?: Armour,
 ): ArmCore {
   // The body's arm-speed stat, on the anchor's rate: read every step below, and published as the
-  // reach axis's rate, so this per-build copy is the only table the core may see.
-  const R = withArmSpeed(reachTable, ["anchorRate"], attributeOf(ctx, "armSpeed"));
+  // reach axis's rate, so this per-build copy is the only table the core may see. And its weight
+  // stat, on the three links' masses (`withWeight`).
+  const R = withWeight(withArmSpeed(reachTable, ["anchorRate"], attributeOf(ctx, "armSpeed")),
+    ["collarMass", "upperMass", "foreMass"], attributeOf(ctx, "weight"));
   // **The terminal narrows and the chain clamps**, and a narrowing can only ever *tighten*: a
   // floor takes the larger of the two and a ceiling the smaller, so a terminal that stated a
   // wider number than the chain's own would grant nothing, which is the direction a terminal is

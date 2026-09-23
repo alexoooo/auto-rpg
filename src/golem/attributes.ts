@@ -269,7 +269,34 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * 41.9 % there. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Arm speed".
    */
   armSpeed: Object.freeze({ label: "Arm speed", min: 0.5, max: 1.5, step: 0.05, live: true }),
-  weight: pending("Weight"),
+  /**
+   * How dense the body is: every body part's mass times the stat, at the same geometry, through
+   * `withWeight`. Items -- every terminal, the ram's plate, the human shield -- keep their own mass,
+   * and forces are not rescaled. Session 11, 2026-09-23.
+   *
+   * **The bench sets the floor, and it is x0.8.** Node harness, `.review/weight-ring.mjs`: a 1 N.s
+   * nudge on the terminal in the hold, settle time in seconds (2.40 is the window, so the tip never
+   * settled) and direction changes, then whether the sweep-then-hold rings.
+   *
+   *     weight                 0.50         0.70         0.75         0.80         1.00         2.00
+   *     pitch blade        2.40/53      2.40/31      0.65/25      0.52/25      0.40/18      0.10/8
+   *     skeletal blade     0.40/9 grows     --       0.25/7 grows 0.20/7       0.18/6       0.08/4
+   *     wrist blade        0.20/6           --           --           --       0.09/4       0.05/2
+   *
+   * Every chain rings less as it gets heavier and none grows at the heavy end, so the ceiling is the
+   * swept x2. What rises with it is the anatomical arm's rest wander, 1.8 mm at x1 to 4.5 at x1.5,
+   * and its stroke stray, 77 to 104 mm at x2. A stroke's tip speed moves by under 10 % across the
+   * whole range, because every arm link's rotational inertia sits on the solver's floor at every
+   * level and the rate limits shape a commanded move.
+   *
+   * The impulse that staggers a body is linear in the stat: 0.42 N.s at x0.5, 0.80 at x1 and 1.57 at
+   * x2 on stone. Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`),
+   * stone with the four probe minds does not win by it: 47.7 % at x0.5, 44.7 % at x1.5 and 43.0 % at
+   * x2 (d -0.15 against the control), while its knockdowns go from 14.61 a bout to 0.65. The minds
+   * stretch a heavy arm's strokes (`strokeInertiaScale`, 14.4 % at x2) that the arm itself does not
+   * need. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
+   */
+  weight: Object.freeze({ label: "Weight", min: 0.8, max: 2, step: 0.05, live: true }),
   size: pending("Size"),
 });
 
@@ -458,9 +485,38 @@ type NumberKey<T> = { [K in keyof T]: T[K] extends number ? K : never }[keyof T]
  * is still timed by `GOLEM_TACTICS` at the arm the tactics were tuned on.
  */
 export function withArmSpeed<T extends object>(table: T, rates: readonly NumberKey<T>[], armSpeed: number): T {
-  if (armSpeed === 1) return table;
+  return scaledFields(table, rates, armSpeed);
+}
+
+/**
+ * A body table with the named masses multiplied by the weight stat, and nothing else moved. At x1
+ * the very table it was handed comes back.
+ *
+ * **Density at fixed geometry**, so it goes where each builder reads its own table -- the part it
+ * builds, and every figure the builder derives from the same fields (the biped's `ownMassKg`, the
+ * multileg's and the wheel's supported mass, the none chain's `impactMassKg`), then agree with the
+ * solver by construction. The ram's `impactMassKg` is its plate with a neck and a hinge-mass of
+ * trunk behind it, so the head scales everything in it but the plate. Weight cannot go through `kg()` in `config.ts`, which runs once when the
+ * config loads.
+ *
+ * **What is not scaled, and why.** A terminal -- blade, fist, mace, maul, plate, whip, the ram's
+ * plate, the human shield -- is an item, and items will carry their own stats. The wrist's cast
+ * masses follow the load they carry, so only their floors are the body's. And the solver's inertia
+ * floors (`CHAIN_REACH.jointInertiaFloor`, `HUMAN_ARM_DRIVE.inertiaFloor`) are conditioning
+ * for the solver rather than anatomy, so an arm link whose inertia sits on its floor gains mass and
+ * no inertia. A module definition's `massKg` stays its mass at x1; its readers that feed a fight --
+ * `golemUpperMassKg` and a chain's `swingInertia` in `effectorModule` -- scale the body's share
+ * themselves.
+ */
+export function withWeight<T extends object>(table: T, masses: readonly NumberKey<T>[], weight: number): T {
+  return scaledFields(table, masses, weight);
+}
+
+/** `table` with the named numeric fields multiplied by `factor`, or `table` itself at 1. */
+function scaledFields<T extends object>(table: T, keys: readonly NumberKey<T>[], factor: number): T {
+  if (factor === 1) return table;
   const next = { ...table };
-  for (const key of rates) (next[key] as number) = (table[key] as number) * armSpeed;
+  for (const key of keys) (next[key] as number) = (table[key] as number) * factor;
   return next;
 }
 

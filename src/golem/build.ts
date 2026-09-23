@@ -1,6 +1,6 @@
 import type { GolemEffectorSetup, GolemSetup } from "../bout.ts";
 import { BODY_FAMILIES, FAMILY_LABEL, bodyFamily, moduleFamily, type BodyFamily } from "./family.ts";
-import { attributesRefusal } from "./attributes.ts";
+import { attributesRefusal, resolveAttributes } from "./attributes.ts";
 import type { WeaponKind } from "../hands.ts";
 import {
   CHAIN_PITCH,
@@ -478,11 +478,24 @@ export function defaultGolemDimensions(): {
   });
 }
 
-/** Everything above the waist, kilograms: what the carrier is asked to hold up. */
+/**
+ * Everything above the waist, kilograms: what the carrier is asked to hold up. The body's share of
+ * each module is times its weight stat, as the builders make it, and each item's share is its own.
+ */
 export function golemUpperMassKg(setup: GolemSetup): number {
   const torso = golemTorso(setup.torso);
   const head = golemHead(setup.head);
   if (!torso || !head) throw new Error(golemSetupRefusal(setup) ?? "incomplete golem build");
   const plan = golemEffectorPlan(setup);
-  return torso.massKg + head.massKg + plan.primary.massKg + (plan.secondary?.massKg ?? 0);
+  const weight = resolveAttributes(setup).weight;
+  // At x1 the definition's own figure, untouched: (m - i) + i is not always m in floating point.
+  const massOf = (module: { readonly massKg: number; readonly itemMassKg?: number }): number => {
+    if (weight === 1) return module.massKg;
+    const item = module.itemMassKg ?? 0;
+    return (module.massKg - item) * weight + item;
+  };
+  // An effector option copies its definition's `massKg` and not its item share, so ask the
+  // definition.
+  return massOf(torso) + massOf(head) + massOf(plan.primary.definition)
+    + (plan.secondary ? massOf(plan.secondary.definition) : 0);
 }

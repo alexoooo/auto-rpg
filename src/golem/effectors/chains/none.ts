@@ -4,6 +4,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 import type { HandCursor } from "../../../mind.ts";
 import { COLLIDES, LAYER } from "../../../physics.ts";
 import { capsulePart, joint } from "../../../rig.ts";
+import { attributeOf, withWeight } from "../../attributes.ts";
 import { CHAIN_NONE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -81,7 +82,8 @@ export const noneChain = defineChain({
   swingInertia: rodInertia(CHAIN_NONE.capMass, 0, CHAIN_NONE.capLength),
 
   build(ctx: ModuleBuild): BuiltChain {
-    const C = CHAIN_NONE;
+    // The body's weight stat, on the cap's mass and so on the blow it lands with (`withWeight`).
+    const C = withWeight(CHAIN_NONE, ["capMass"], attributeOf(ctx, "weight"));
     const name = `${ctx.name}.cap`;
     const socket = ctx.socket;
 
