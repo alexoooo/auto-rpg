@@ -1,6 +1,6 @@
 # Humanoids in the golem framework
 
-Choose **Human warrior** on either arena corner (also available in waves), then **Customize**
+Choose **Human warrior** on either arena corner, then **Customize**
 to select equipment and human modules; a body is built from one family, so golem modules are not
 offered and a mixed build is refused. The dungeon offers human presets and
 main/off-hand equipment selectors before starting a run. A maul occupies both hands.

@@ -30,7 +30,7 @@ h1, .panel h1, #curtain > .panel h1 {
 }
 #curtain > .panel h1 { font-size: clamp(22px, 2vw, 32px); margin-bottom: 8px; }
 #curtain > .panel .lede { max-width: none; font-size: 12px; }
-.corner, .mode-row, .bin-row {
+.corner, .bin-row {
   border-color: #ad864442;
   background: linear-gradient(140deg, #24282c70, #0c0e10a0);
   border-radius: 2px;

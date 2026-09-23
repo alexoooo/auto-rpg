@@ -1201,7 +1201,7 @@ export const CONFIG = {
      * distance to this number.** So the ramp is left exactly where it is and neither of the two
      * repairs the phase planned -- a margin under it, or deleting it -- is taken: a constant
      * nothing reaches is not a constant to re-tune, and the reason it was written still stands
-     * for the cases that can still stall, two cautious minds and whatever a wave mode puts in
+     * for the cases that can still stall, two cautious minds and whatever a random draw puts in
      * front of the player. It is a safety net again instead of the referee.
      */
     overtimeSeconds: 60,

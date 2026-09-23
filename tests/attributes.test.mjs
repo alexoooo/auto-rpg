@@ -308,11 +308,13 @@ test("toughness multiplies every body part's health, keeps wear's share and the 
       setup, mind: idleMind(), controlPolicies: [], locomotionWorld: world,
     });
     const near = (a, b) => Math.abs(a - b) < 1e-9 * Math.max(1, Math.abs(b));
-    const core = (golem) => golem.limbs.find((limb) => limb.key.endsWith("trunk.core"));
+    // The primary arm's own first part, which the body wounds: a socket fitted from the parts bin is
+    // how a body arrives worn, now that nothing else carries wear into a bout.
+    const arm = (golem) => golem.limbs.find((limb) => limb.key.includes("primary") && golem.parriedBy(limb.part.body) === null);
     for (const base of [defaultGolemSetup(), skeletonSetup()]) {
-      const worn = { ...base, wear: { torso: 0.62 } };
+      const worn = { ...base, primary: { ...base.primary, durability: 0.62 } };
       const plain = build(worn, 1);
-      assert.ok(near(core(plain).health / core(plain).maxHealth, 0.62), "the control: the torso arrives worn");
+      assert.ok(near(arm(plain).health / arm(plain).maxHealth, 0.62), "the control: the arm arrives worn");
       for (const level of [ATTRIBUTES.toughness.min, ATTRIBUTES.toughness.max]) {
         const tough = build(withAttributeSetting(worn, { toughness: level }), 0);
         // A piece that parries -- the blade and the plate in both builds -- is never wounded, and is

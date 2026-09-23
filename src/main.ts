@@ -53,25 +53,19 @@ import {
 } from "./units";
 import type { HumanDriverSource } from "./control-host";
 import { randomSeed } from "./rng";
-import {
-  afterWave,
-  carriedGolem,
-  mendedGolem,
-  startRun,
-  waveMatchup,
-  type WaveRun,
-} from "./waves";
+import { fittedPolicy, randomCorner } from "./random-corner.ts";
 import {
   begin,
   drivesAttack,
   drivesMove,
   golemMatchup,
   humanSide,
-  modeOf,
   matchupFromQuery,
   matchupQuery,
   MATCHUP_PARAM,
   pauseAction,
+  driveAction,
+  releaseBody,
   selectScreen,
   takeBody,
   toSelect,
@@ -181,6 +175,11 @@ async function boot(): Promise<void> {
   const beginButton = need<HTMLButtonElement>("begin");
   const resumeButton = need<HTMLButtonElement>("resume");
   const restartButton = need<HTMLButtonElement>("restart");
+  const randomReplayButton = need<HTMLButtonElement>("random-replay");
+  const boutEnd = need("bout-end");
+  const boutEndReplay = need<HTMLButtonElement>("bout-end-replay");
+  const boutEndRandom = need<HTMLButtonElement>("bout-end-random");
+  const boutEndLeave = need<HTMLButtonElement>("bout-end-leave");
   const leaveButton = need<HTMLButtonElement>("leave");
   const helpPanel = need("help");
   const helpClose = need<HTMLButtonElement>("help-close");
@@ -653,6 +652,11 @@ async function boot(): Promise<void> {
   let skimSpeed = 1;
   const hud = new Hud(need("hud"), (speed) => {
     skimSpeed = SKIM_SPEEDS.includes(speed) ? speed : 1;
+  }, (side) => {
+    // Who drives is a choice made in the game, at any point of a bout -- a pause included, where
+    // it only swaps minds and nothing steps until resume. The button is "Let go" on your own side.
+    if (driveAction(humanSide(state.matchup), side) === "release") releaseBodyNow();
+    else takeBodyNow(side);
   });
   const aim = new AimIndicator(arena.scene);
   const targeting = new Targeting(arena.scene, yours());
@@ -790,6 +794,34 @@ async function boot(): Promise<void> {
     return reading;
   };
 
+  /**
+   * The mind a body you leave picks up: a whole policy, not a split one, because nobody is driving
+   * that body any more, so both of its hands go back to the mind the corner names.
+   */
+  const releasedPolicy = (side: Side): Mind => {
+    const factory = unitDefinition(state.matchup[side].unit).createPolicy;
+    if (!factory) throw new Error(`unit "${state.matchup[side].unit}" has no humanoid policy handover`);
+    return factory(state.matchup[side].policy);
+  };
+
+  /**
+   * Letting go of the body you drive, from the HUD. The same handover a takeover makes for the body
+   * it leaves, and nothing else: both fighters are then their own minds', and the camera, the aim
+   * and `Targeting` follow the left, which is what `observedSide` answers with nobody human.
+   */
+  const releaseBodyNow = (): HandReading | null => {
+    if (state.phase === "select") return null;
+    const before = humanSide(state.matchup);
+    if (before === null) return null;
+    const leaving = (before === "left" ? bout.left : bout.right).humanDriver;
+    if (!leaving) return null;
+    const reading = handOver(leaving, before, releasedPolicy(before));
+    state = releaseBody(state);
+    syncChannels();
+    targeting.attach(yours(), theirs());
+    return reading;
+  };
+
   const takeBodyNow = (side: Side): TakeoverReading | null => {
     if (state.phase === "select") return null;
 
@@ -808,14 +840,7 @@ async function boot(): Promise<void> {
     if (before && before !== side) {
       const leaving = (before === "left" ? bout.left : bout.right).humanDriver;
       if (!leaving) return null;
-      // A whole policy, not a split one: nobody is driving that body any more, so
-    // both of its hands go back to the mind the corner names.
-    released = handOver(leaving, before,
-      (() => {
-        const factory = unitDefinition(state.matchup[before].unit).createPolicy;
-        if (!factory) throw new Error(`unit "${state.matchup[before].unit}" has no humanoid policy handover`);
-        return factory(state.matchup[before].policy);
-      })());
+      released = handOver(leaving, before, releasedPolicy(before));
     }
 
     state = takeBody(state, side);
@@ -857,58 +882,6 @@ async function boot(): Promise<void> {
 
   /** What the last verdict handed over, for the banner. Empty when nothing was taken. */
   let salvageNotice = "";
-
-  /**
-   * The wave run, or null in the arena.
-   *
-   * Session state and deliberately not part of `BoutState`: `src/bout.ts` cannot import
-   * `src/waves.ts` because that module imports it, and the split is the honest one anyway --
-   * a link carries which game you chose and not how far you got through it. See `Mode`.
-   */
-  let run: WaveRun | null = null;
-  /** The wave line on the banner, so the verdict says which fight it decided. */
-  let waveNotice = "";
-
-  /** Deal a fresh run, in a body with no previous run's wounds on it. */
-  const openRun = (): void => {
-    const fresh = startRun(randomSeed());
-    run = fresh;
-    const mine = state.matchup.left;
-    const whole: SideSetup =
-      mine.golem ? { ...mine, golem: mendedGolem(mine.golem) } : mine;
-    state = { ...state, matchup: waveMatchup(fresh, whole) };
-  };
-
-  /**
-   * The verdict edge, in wave mode: forward one, or the run is finished.
-   *
-   * It writes the *next* wave into the matchup and stops there rather than rebuilding, because
-   * the verdict is still on screen and a wave that swapped bodies out from under it would throw
-   * away the moment the fight was for. `R` is what starts the next one, through the restart path
-   * that already existed -- in this mode "the same bout again" is a fight you cannot have, so
-   * the key that meant it now means the only thing left to do.
-   *
-   * Runs after `collectSalvage`, never before: the bin settles against the body that fought, and
-   * this replaces the corner it fought in.
-   */
-  const advanceWave = (): void => {
-    if (!run) return;
-    const mine = humanSide(state.matchup);
-    const won = mine !== null && state.outcome?.winner === mine;
-    run = afterWave(run, won);
-    if (run.over) {
-      waveNotice = `RUN OVER &mdash; wave ${run.wave} &mdash; R deals a new run`;
-      return;
-    }
-    // `mine` is non-null here: `afterWave` only advances on a win, and a win needs a side.
-    const side = state.matchup[mine as Side];
-    const body = (mine === "left" ? bout.left : bout.right).moduleReport?.() ?? [];
-    const carried: SideSetup = side.golem
-      ? { ...side, golem: carriedGolem(side.golem, body) }
-      : side;
-    state = { ...state, matchup: waveMatchup(run, carried) };
-    waveNotice = `WAVE ${run.wave} &mdash; R to face it`;
-  };
 
   /**
    * The One Must Fall loop, closed at the verdict.
@@ -1048,11 +1021,23 @@ async function boot(): Promise<void> {
   };
 
   const restartBout = ({ resume: shouldResume }: { resume: boolean }): void => {
-    // A finished run has nothing to restart into, so `R` deals another one. The arena is
-    // untouched by this: `run` is null there and the key means what it always meant.
-    if (run?.over) openRun();
-    waveNotice = run ? `WAVE ${run.wave}` : "";
     state = restartHost(state, runningHost, shouldResume);
+  };
+
+  /**
+   * Replay against somebody new: the corner you drive stays exactly as it stands -- salvage and
+   * all -- and the other one is redrawn, by the same `randomCorner` the setup screen's Randomize
+   * uses. With nobody driving, the right corner is the one redrawn, because the left is the one
+   * the camera follows. What waves mode used to be, as a click at the end of a bout rather than
+   * a mode chosen before one; the queue, the run and the carried wear went with the mode.
+   */
+  const randomReplay = (): void => {
+    if (state.phase === "select") return;
+    const theirs: Side = humanSide(state.matchup) === "right" ? "left" : "right";
+    const drawn = randomCorner(state.matchup, theirs, randomSeed());
+    state = { ...state, matchup: fittedPolicy(drawn, theirs) };
+    window.history.replaceState(null, "", linkFor(state.matchup));
+    restartBout({ resume: true });
   };
 
   /**
@@ -1091,13 +1076,6 @@ async function boot(): Promise<void> {
       }
       const chosen = setup.selection;
       state = begin(state, chosen);
-      if (modeOf(chosen) === "waves") {
-        openRun();
-        waveNotice = `WAVE 1`;
-      } else {
-        run = null;
-        waveNotice = "";
-      }
       window.history.replaceState(null, "", linkFor(state.matchup));
       rebuild();
     }
@@ -1110,6 +1088,23 @@ async function boot(): Promise<void> {
     restartBout({ resume: true });
   });
   leaveButton.addEventListener("click", leave);
+  randomReplayButton.addEventListener("click", randomReplay);
+  // Each verdict-bar button gives its focus straight back, or the next Enter or held Space presses
+  // it again in the bout it just started.
+  const once = (button: HTMLButtonElement, act: () => void): void => {
+    button.addEventListener("click", () => {
+      button.blur();
+      act();
+    });
+  };
+  once(boutEndReplay, () => restartBout({ resume: true }));
+  once(boutEndRandom, randomReplay);
+  once(boutEndLeave, leave);
+  // Kept from `Controls`, which listens on the window: a press on the verdict bar is not a thrust.
+  // The release is let through, so a press begun on the canvas still ends its thrust over the bar.
+  for (const kind of ["pointerdown", "pointermove"]) {
+    boutEnd.addEventListener(kind, (event) => event.stopPropagation());
+  }
 
   /**
    * The controls sheet.
@@ -1411,7 +1406,6 @@ async function boot(): Promise<void> {
       // and collecting once per frame from then on would fill the bin with the same arm forever.
       if (wasFighting && state.phase === "over") {
         collectSalvage();
-        advanceWave();
       }
       // Observers remain installed after the verdict: blood, corpse integration,
       // rendering and camera all continue after attack authority has ended.
@@ -1439,13 +1433,13 @@ async function boot(): Promise<void> {
     if (handLeft === 0) handNotice = "";
 
     const decided = state.outcome;
+    // The verdict bar owns its own element and nothing else: it never touches the curtain, the
+    // pause menu or a disclosure, and it is up for exactly as long as the bout is decided.
+    boutEnd.classList.toggle("gone", state.phase !== "over");
     const banner = [
       decided
-        ? `BOUT OVER &mdash; ${decided.text}${run ? "" : " &mdash; R to restart"}`
+        ? `BOUT OVER &mdash; ${decided.text}`
         : "",
-      // The wave line, which in this mode is what "R" is for and so replaces the arena's
-      // instruction rather than sitting beside it. Silent outside a run.
-      run ? waveNotice : "",
       // What the winner kept, beside the verdict that earned it and never without one.
       decided ? salvageNotice : "",
       // Ahead of the lock's own line, because it is the mode you just entered and
@@ -1593,6 +1587,8 @@ async function boot(): Promise<void> {
         },
         cancel: () => takeover.cancel(),
         take: (side: Side) => takeBodyNow(side),
+        /** Hand the body you drive back to its policy, as the HUD's "Let go" does. */
+        release: () => releaseBodyNow(),
         /** The last handover, or null if nothing has changed hands yet. */
         get last(): TakeoverReading | null {
           return takeovers.length > 0 ? takeovers[takeovers.length - 1] : null;

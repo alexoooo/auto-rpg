@@ -128,6 +128,13 @@ directly under `node`. It is how a body gets measured without a person watching.
   is one. `src/input.ts` uses pointer events throughout, and `main.ts` turns the flag off as
   well. Do not "fix" a frozen-input report by adding `preventDefault` to a mouse handler --
   that handler is not being called at all.
+- **A button over the arena is also a press on the arena.** `Controls` listens on the window, so a
+  click on a DOM control is a thrust as well, and `#hud` is `pointer-events: none` besides. The
+  HUD's Take / Let go buttons and the verdict bar therefore take the pointer back themselves, stop
+  `pointerdown` and `pointermove` from reaching the window, and let `pointerup` through, so that a
+  press begun on the canvas still ends over them. Each also blurs itself on click, because a
+  focused button takes Enter, and a held Space, whose repeats `Controls` does not cancel, as a
+  second press.
 - **A level maintained from edges is permanently wrong after one lost edge.** `thrust`
   and `guard` were once set on `pointerdown` and cleared on `pointerup`, which is correct
   only for as long as the browser delivers every release -- and it does not. A
@@ -311,7 +318,9 @@ directly under `node`. It is how a body gets measured without a person watching.
   game is gone"), and one cause. The first repair made the curtain screen an explicit
   argument, but it still covered the evidence when a screenshot tool took focus. The
   current boundary is `ArenaPresentation`: setup owns `#curtain`, pause owns the compact
-  sibling `#pause-menu`, and neither method can toggle the other's target. The rule remains
+  sibling `#pause-menu`, and neither method can toggle the other's target. A decided bout adds a
+  third sibling, the verdict bar `#bout-end` (Replay, Random replay, Setup), which `main.ts` shows
+  from `state.phase === "over"` and which touches nothing but itself. The rule remains
   `pauseAction` in `bout.ts`, and **a key that pauses must never also be the key that leaves
   for setup.**
 - **Pause does not grant UI permission.** The Arena diagnostics disclosure is player-owned state.

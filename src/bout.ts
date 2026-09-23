@@ -198,27 +198,6 @@ export interface GolemSetup {
   primary: GolemEffectorSetup;
   secondary: GolemEffectorSetup;
   /**
-   * How much of each module's own health this body starts the fight with, 0..1. Absent, or a slot
-   * absent from it, is a whole one.
-   *
-   * **This is the wave loop's channel and nothing else writes it.** You walk out of one wave and
-   * into the next in the body you walked out in, and when a run ends the field goes with it.
-   *
-   * It overlaps `GolemEffectorSetup.durability` on the two hands and does not share it, which is
-   * the whole reason it names all five slots instead of the three that had nowhere else to go.
-   * The two are different *lifetimes* of the same quantity: a bin part's `durability` is how worn
-   * that part permanently is and survives every run, while `wear` is what this run has done to
-   * you and is cleared by the next. One field would have to be both, and the first new run would
-   * either mend a salvaged blade or go on punishing you for a fight you had already left.
-   *
-   * Where both speak, `wear` wins -- not by preference but by arithmetic: a module reports the
-   * fraction of its *max* health it has left, and max health never included the bin's wear, so
-   * the number `carriedGolem` reads back already contains it. Multiplying would charge it twice.
-   *
-   * Arena mode never sets it, so a bout off the setup screen is the bout it always was.
-   */
-  wear?: Readonly<Partial<Record<GolemWearSlot, number>>>;
-  /**
    * The stats this body is built at, as multipliers on its own tuned values. Absent, or a stat
    * absent from it, is x1 -- the body exactly as it was before attributes existed.
    *
@@ -236,12 +215,6 @@ export type GolemSlotName = "locomotion" | "torso" | "head";
 /** The same three, as a list, for the readers that have to walk them. */
 export const GOLEM_SLOT_NAMES: readonly GolemSlotName[] =
   Object.freeze(["locomotion", "torso", "head"] as const);
-
-/** All five of a golem's modules -- the three above, and the two that hold things. */
-export type GolemWearSlot = GolemSlotName | "primary" | "secondary";
-
-export const GOLEM_WEAR_SLOTS: readonly GolemWearSlot[] =
-  Object.freeze([...GOLEM_SLOT_NAMES, "primary", "secondary"] as const);
 
 export interface SideSetup {
   /** Which body. One kind for now; see `UNITS`. */
@@ -287,34 +260,13 @@ const copyGolem = (setup: GolemSetup): GolemSetup => ({
   head: setup.head,
   primary: { ...setup.primary },
   secondary: { ...setup.secondary },
-  ...(setup.wear ? { wear: { ...setup.wear } } : {}),
   ...(setup.attributes ? { attributes: { ...setup.attributes } } : {}),
 });
-
-/**
- * Which of the two games the Fight button starts.
- *
- * `arena` is the pairing on the screen, fought once -- the mode this repository has always had.
- * `waves` keeps your corner and replaces theirs after every win, from the roster in
- * `src/golem/roster.ts`; the queue and what you carry down it are `src/waves.ts`, which this
- * module cannot import because that module imports this one. So the mode is a *string* here and
- * the run itself is the host's, which is also the honest split: a link should carry the game you
- * chose, and a link that carried somebody's progress through it would be a save file wearing a
- * URL.
- *
- * Optional, and absent is `arena`. A link written before there were two games named the only one
- * there was, and reading it as anything else would start a different game than was shared.
- */
-export type Mode = "arena" | "waves";
 
 export interface Matchup {
   left: SideSetup;
   right: SideSetup;
-  mode?: Mode;
 }
-
-/** Which game this matchup is, with the absent case spelled once. */
-export const modeOf = (matchup: Matchup): Mode => matchup.mode ?? "arena";
 
 /**
  * The pure part of a unit definition needed when its picker row is selected.
@@ -393,20 +345,7 @@ const copySide = (side: SideSetup): SideSetup => ({
 const copy = (matchup: Matchup): Matchup => ({
   left: copySide(matchup.left),
   right: copySide(matchup.right),
-  ...(matchup.mode ? { mode: matchup.mode } : {}),
 });
-
-/**
- * Choosing the game.
- *
- * A reducer like every other on this screen, so the mode survives a restart and a `?matchup=`
- * link the same way the bodies do. It touches neither corner: wave mode overrides the right one
- * when it builds each wave, and it does that in `waveMatchup` rather than by editing the screen,
- * so switching back to Arena finds the pairing you left.
- */
-export function withMode(matchup: Matchup, mode: Mode): Matchup {
-  return { ...copy(matchup), mode };
-}
 
 export function withUnit(
   matchup: Matchup,
@@ -634,25 +573,6 @@ const readEffector = (value: unknown): GolemEffectorSetup | null => {
 };
 
 /**
- * A fraction of a bar, refused rather than clamped.
- *
- * A link is data somebody else wrote, and a `wear` of 2 or of `-1` is not a body that was mended
- * or a body that owes health -- it is a link that does not describe a golem. The codec's own rule
- * from the top of this section applies unchanged: refuse by shape, and let the screen say so.
- */
-const readWear = (value: unknown): GolemSetup["wear"] | null => {
-  if (!isRecord(value)) return null;
-  const wear: Partial<Record<GolemWearSlot, number>> = {};
-  for (const slot of GOLEM_WEAR_SLOTS) {
-    const found = value[slot];
-    if (found === undefined) continue;
-    if (typeof found !== "number" || !Number.isFinite(found) || found < 0 || found > 1) return null;
-    wear[slot] = found;
-  }
-  return wear;
-};
-
-/**
  * A body's stats, refused by shape.
  *
  * A stat this game does not have, or a value that is not a finite number, is a link that does not
@@ -682,11 +602,6 @@ const readGolem = (value: unknown): GolemSetup | null => {
   if (value.family !== undefined) {
     if (!isBodyFamily(value.family)) return null;
     golem.family = value.family;
-  }
-  if (value.wear !== undefined) {
-    const wear = readWear(value.wear);
-    if (!wear) return null;
-    golem.wear = wear;
   }
   if (value.attributes !== undefined) {
     const attributes = readAttributes(value.attributes);
@@ -738,11 +653,12 @@ export function matchupFromQuery(search: string): Matchup | null {
   const left = readSide(parsed.left);
   const right = readSide(parsed.right);
   if (!left || !right) return null;
-  if (parsed.mode !== undefined && parsed.mode !== "arena" && parsed.mode !== "waves") return null;
-  const mode = parsed.mode as Mode | undefined;
+  // A link from before 2026-09-23 may carry `mode` ("arena" or "waves"). It is dropped like any
+  // other unknown field: waves stopped being a mode and became Random replay, a click at a verdict,
+  // so the link starts the pairing it names.
   // There is one of you: the invariant every reducer keeps and a hand-written link could break.
   if (left.control === "you" && right.control === "you") return null;
-  return mode === undefined ? { left, right } : { left, right, mode };
+  return { left, right };
 }
 
 export function withPolicy(matchup: Matchup, side: Side, policy: string): Matchup {
@@ -856,6 +772,28 @@ export function withChannels(
 export function takeBody(state: BoutState, side: Side): BoutState {
   if (state.phase === "select") return state;
   return { ...state, matchup: withControl(state.matchup, side, "you") };
+}
+
+/**
+ * Letting go of the body you drive, so that both fighters are their own minds'.
+ *
+ * `takeBody`'s other half, and on the same terms: refused from the screen, allowed in a fight, a
+ * pause or a verdict, and a matter of the matchup alone -- the camera, the aim indicator and
+ * `Targeting` follow `humanSide`, which with nobody human answers null. With nobody human already
+ * it hands back exactly the state it was given.
+ */
+/**
+ * What a side's drive button in the HUD does: let go of the body you drive, or take any other.
+ * One rule for the button's label and for its act, so the two cannot disagree.
+ */
+export const driveAction = (driving: Side | null, side: Side): "take" | "release" =>
+  driving === side ? "release" : "take";
+
+export function releaseBody(state: BoutState): BoutState {
+  if (state.phase === "select") return state;
+  const side = humanSide(state.matchup);
+  if (side === null) return state;
+  return { ...state, matchup: withControl(state.matchup, side, "mind") };
 }
 
 /**

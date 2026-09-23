@@ -51,7 +51,7 @@ export const NAMED_BUILDS: readonly NamedBuild[] = Object.freeze([
 /**
  * Every build a person can pick: the enemy pool above and the builds of the other families.
  *
- * Only `NAMED_BUILDS` is the enemy pool of the dungeon and the waves, and the research tests
+ * Only `NAMED_BUILDS` is the dungeon's enemy pool, and the research tests
  * schedule over it; a human or skeleton build is a hero, not an enemy, until somebody decides
  * otherwise.
  */
@@ -73,5 +73,5 @@ for (const build of PLAYABLE_BUILDS) {
 export const namedBuild = (name: string): NamedBuild | null =>
   PLAYABLE_BUILDS.find((build) => build.name === name) ?? null;
 
-/** What a named build is made of, for a picker row or a wave caption. */
+/** What a named build is made of, for a picker row or a caption. */
 export const describeNamedBuild = (build: NamedBuild): string => describeGolemSetup(build.setup);

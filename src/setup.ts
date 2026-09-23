@@ -7,18 +7,13 @@ import {
   withGolemEffector,
   withGolemSlot,
   withPolicy,
-  withMode,
   withUnit,
-  modeOf,
   type GolemEffectorSetup,
-  type GolemSetup,
-  type Mode,
   type GolemSlotName,
   type Matchup,
 } from "./bout";
 import {
   NO_TERMINAL,
-  randomGolemSetup,
   describeGolemSetup,
   golemChainOptions,
   golemEffector,
@@ -30,13 +25,14 @@ import {
   golemTorsoOptions,
   type GolemSlotOption,
 } from "./golem/build";
-import { randomViableGolemSetup, randomViableOpponent, unviablePairNote } from "./golem/viability";
+import { unviablePairNote } from "./golem/viability";
 import type { PartsBin } from "./golem/parts-bin";
 import { BODY_FAMILIES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily } from "./golem/family.ts";
 import { FAMILY_SETUP } from "./golem/family-setup.ts";
 import { ATTRIBUTE_IDS, describeAttributes, resolveAttributes } from "./golem/attributes.ts";
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "./attributes-ui";
-import { mulberry32, randomSeed } from "./rng";
+import { randomSeed } from "./rng";
+import { randomCorner } from "./random-corner.ts";
 import { unitDefinition } from "./units";
 import { POLICIES } from "./mind";
 import { assessPolicy, policyPickerRows } from "./policy-applicability";
@@ -145,9 +141,6 @@ export class SetupScreen {
   private readonly customizeButtons: Record<Side, HTMLButtonElement>;
   private readonly attributePanels: Record<Side, HTMLElement>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
-  private readonly modes: HTMLInputElement[];
-  private readonly modeNote: HTMLElement;
-  private readonly rightCorner: HTMLElement;
   private readonly beginButton: HTMLButtonElement | null;
   private readonly binRow: HTMLElement;
   private readonly binNote: HTMLElement;
@@ -168,8 +161,7 @@ export class SetupScreen {
     this.bin = bin;
     this.onSelection = onSelection;
 
-    host.innerHTML = `${this.modePanel()}`
-      + `${this.corner("left", "Left")}${this.corner("right", "Right")}`
+    host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}`
       + `${this.pairPanel()}${this.binPanel()}`;
 
     const one = <T extends HTMLElement>(selector: string): T => {
@@ -200,9 +192,6 @@ export class SetupScreen {
       left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
       right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
     };
-    this.modes = [...host.querySelectorAll<HTMLInputElement>('[data-field="mode"]')];
-    this.modeNote = one<HTMLElement>('[data-field="modeNote"]');
-    this.rightCorner = one<HTMLElement>('.corner[data-side="right"]');
     this.binRow = one<HTMLElement>('[data-field="partsBin"]');
     this.binNote = one<HTMLElement>('[data-field="partsBinNote"]');
     this.pairNote = one<HTMLElement>('[data-field="pairNote"]');
@@ -251,27 +240,6 @@ export class SetupScreen {
    * -- "a prototype without one is a prototype somebody has to clear from the console", which is
    * the session plan's own sentence and the whole of why the button exists.
    */
-  /**
-   * Arena or Waves, above both corners because it is the one choice that is about neither.
-   *
-   * Wave mode keeps your corner and takes the other one over -- the queue picks the body and the
-   * mind, one per wave -- so the right-hand pickers go inert while it is selected rather than
-   * disappearing. Inert and still legible: what is in them is the pairing Arena will go back to,
-   * and a control that vanishes is a control the player has to rediscover.
-   */
-  private modePanel(): string {
-    return `
-      <div class="corner mode-row">
-        <div class="corner-title">Mode</div>
-        <span class="choice">
-          <label><input type="radio" name="mode" value="arena" data-field="mode" /> arena</label>
-          <label><input type="radio" name="mode" value="waves" data-field="mode" /> waves</label>
-        </span>
-        <p class="note" data-field="modeNote"></p>
-      </div>
-    `;
-  }
-
   private binPanel(): string {
     return `
       <div class="corner bin-row" data-field="partsBin">
@@ -347,14 +315,6 @@ export class SetupScreen {
   private readonly onChange = (event: Event): void => {
     const target = event.target;
     if (!(target instanceof HTMLSelectElement) && !(target instanceof HTMLInputElement)) return;
-    // The mode is the one control on this screen that belongs to neither corner, so it is read
-    // before the side is demanded rather than given a fake `data-side`.
-    if (target.dataset.field === "mode") {
-      this.matchup = withMode(this.matchup, target.value as Mode);
-      this.render();
-      this.onSelection?.(this.matchup);
-      return;
-    }
     const side = target.dataset.side as Side | undefined;
     if (side !== "left" && side !== "right") return;
 
@@ -520,25 +480,11 @@ export class SetupScreen {
    * second one was asked for.
    */
   private randomize(side: Side): void {
-    const seed = randomSeed();
-    const other = this.matchup[side === "left" ? "right" : "left"].golem;
-    const rng = mulberry32(seed);
-    const family = this.matchup[side].golem ? bodyFamily(this.matchup[side].golem!) : "golem";
-    // Exhaustive, so a new family is a compile error here rather than a stone draw. The stone arm
-    // keeps the viability draws, which are measured on stone bodies only (`src/golem/viability.ts`).
-    const draw = (): GolemSetup => {
-      switch (family) {
-        case "golem": return other ? randomViableOpponent(rng, other) : randomViableGolemSetup(rng);
-        case "human": return randomGolemSetup(rng, family);
-        case "skeleton": return randomGolemSetup(rng, family);
-        default: { const unhandled: never = family; throw new Error(`no random draw for ${String(unhandled)}`); }
-      }
-    };
-    const build = draw();
     if (!this.matchup[side].golem) {
       this.matchup = withUnit(this.matchup, side, GOLEM_UNIT, unitDefinition(GOLEM_UNIT));
     }
-    this.matchup = withGolemBuild(this.matchup, side, build, seed);
+    // The draw itself is `randomCorner`'s, which the arena's Random replay shares.
+    this.matchup = randomCorner(this.matchup, side, randomSeed());
   }
 
   /**
@@ -567,21 +513,6 @@ export class SetupScreen {
   }
 
   private render(): void {
-    // The mode first, because the right corner's state depends on it and one of the loops below
-    // is what puts that corner's controls in it.
-    const mode = modeOf(this.matchup);
-    for (const box of this.modes) box.checked = box.value === mode;
-    const waves = mode === "waves";
-    this.modeNote.textContent = waves
-      ? "The queue picks the other body and the mind it fights on, one per wave. Yours is the left."
-      : "";
-    this.rightCorner.classList.toggle("inert", waves);
-    for (const control of this.rightCorner
-      .querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>(
-        "input, select, button")) {
-      control.disabled = waves;
-    }
-
     for (const side of ["left", "right"] as const) {
       const setup = this.matchup[side];
       const definition = unitDefinition(setup.unit);
@@ -625,10 +556,9 @@ export class SetupScreen {
       this.customizeButtons[side].disabled = build === null;
       this.customizeButtons[side].textContent = open ? "Done" : "Customize";
       for (const { field } of GOLEM_FIELDS) this.golemFields[field][side].hidden = build === null;
-      // Attributes are a golem's, so a corner holding anything else has none to show; the wave
-      // queue's corner shows its own disabled, like every other control the queue owns.
+      // Attributes are a golem's, so a corner holding anything else has none to show.
       this.attributePanels[side].hidden = build === null;
-      if (build) renderAttributes(this.attributePanels[side], side, build.attributes, waves && side === "right");
+      if (build) renderAttributes(this.attributePanels[side], side, build.attributes, false);
       if (build) {
         const family = bodyFamily(build);
         const fill = (field: GolemField, items: readonly GolemSlotOption[], value: string): void => {
@@ -673,13 +603,8 @@ export class SetupScreen {
       this.policies[side].value = setup.policy;
       for (const box of this.controls[side]) {
         box.checked = box.value === "move" ? drivesMove(setup) : drivesAttack(setup);
-        // Two reasons a box is inert and they are different sentences, so the title says which.
-        // The wave lock wins where both apply: a corner the queue owns is not a corner to argue
-        // with about human adapters.
-        const locked = waves && side === "right";
-        box.disabled = locked || !definition.humanAdapter;
-        box.title = locked ? "the wave picks this corner"
-          : box.disabled ? `control surface ${definition.kind} has no human adapter` : "";
+        box.disabled = !definition.humanAdapter;
+        box.title = box.disabled ? `control surface ${definition.kind} has no human adapter` : "";
       }
     }
     this.renderBin();
@@ -735,10 +660,8 @@ export class SetupScreen {
       if (!definition.driverOptions.some((driver) => driver.name === setup.policy)) {
         return `unit "${definition.kind}" does not support policy "${setup.policy}"`;
       }
-      if (side !== "right" || modeOf(this.matchup) !== "waves") {
-        const assessment = assessPolicy(POLICIES.find((p) => p.name === setup.policy), true, setup.golem);
-        if (assessment.status !== "applicable") return `${side}: ${assessment.reason}`;
-      }
+      const assessment = assessPolicy(POLICIES.find((p) => p.name === setup.policy), true, setup.golem);
+      if (assessment.status !== "applicable") return `${side}: ${assessment.reason}`;
       if (setup.control === "you" && !definition.humanAdapter) {
         return `control surface ${definition.kind} has no human adapter`;
       }

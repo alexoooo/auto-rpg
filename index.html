@@ -58,10 +58,18 @@
       </div>
       <div class="pause-actions">
         <button id="resume" class="action" type="button">Resume</button>
-        <button id="restart" class="action quiet" type="button">Restart bout</button>
+        <button id="restart" class="action quiet" type="button">Replay</button>
+        <button id="random-replay" class="action quiet" type="button">Random replay</button>
         <button id="leave" class="action quiet" type="button">Setup</button>
       </div>
       <span class="pause-help"><b>?</b> controls</span>
+    </aside>
+    <!-- The end of a bout: the same fight again, or the corner you do not drive redrawn. Its own
+         element, shown only while a bout is decided, and never the curtain or the pause menu. -->
+    <aside id="bout-end" class="gone" aria-label="Bout over">
+      <button id="bout-end-replay" class="action" type="button">Replay</button>
+      <button id="bout-end-random" class="action" type="button">Random replay</button>
+      <button id="bout-end-leave" class="action quiet" type="button">Setup</button>
     </aside>
     <!-- The controls, on their own overlay rather than on the curtain.
          Seventeen rows above the Fight button pushed it off the bottom of a
@@ -88,11 +96,13 @@
           <dt>Z / X, T / Y, U / I</dt><dd>roll, bend, and (anatomical arms) turn the driven hand when direct wrist is checked</dd>
           <dt>F</dt><dd>the mouse changes hands &mdash; the one it leaves goes back to its policy</dd>
           <dt>C</dt><dd>take a body, then click either fighter &mdash; the one you leave picks its policy back up</dd>
+          <dt>Take / Let go</dt><dd>beside each fighter&rsquo;s name in the readout &mdash; drive that body, or hand yours back to its policy, in a fight or a pause</dd>
           <dt>Wheel</dt><dd>zoom &mdash; the camera only; no fighter is asked for anything</dd>
           <dt>V</dt><dd>camera &mdash; Overhead behind the fighter, or Fixed on a world bearing</dd>
           <dt>[ / ]</dt><dd>swing the Fixed camera round the arena</dd>
           <dt>Space / Esc</dt><dd>pause, and resume &mdash; the same key both ways</dd>
-          <dt>R</dt><dd>this bout again &mdash; and the setup screen once one has been decided</dd>
+          <dt>R</dt><dd>this bout again</dd>
+          <dt>Random replay</dt><dd>at a verdict or in the pause menu &mdash; the body you are not driving is redrawn</dd>
           <dt>Tab</dt><dd>toggle the physics readout</dd>
           <dt>G</dt><dd>the rig &mdash; collision shapes, anchors, joints and contacts</dd>
           <dt>?</dt><dd>this list</dd>

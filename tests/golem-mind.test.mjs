@@ -2918,8 +2918,8 @@ test("golem_skirmisher_stays_inside_the_envelope_and_is_deterministic_under_a_se
  * So the style is dominated in both directions, and it is no longer distinguishable by the
  * footwork this test was watching. A test can be re-derived when its claim is true at a new
  * operating point and merely stated wrongly. This claim is false at the new operating point, so
- * there is nothing to re-derive and nothing to keep: `golem-skirmisher` is out of `WAVE_CLUSTER`,
- * the full table is on `wavePolicy` in `src/waves.ts`, and the style's remaining tests below still
+ * there is nothing to re-derive and nothing to keep: `golem-skirmisher` was taken out of the wave
+ * queue's policy cluster (the queue went with waves mode on 2026-09-23), and the style's remaining tests below still
  * assert what is still true of it -- its patience, its stand-off, and that it does not retreat
  * from outside their reach.
  *

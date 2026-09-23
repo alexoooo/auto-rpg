@@ -406,8 +406,7 @@ export class Golem implements Combatant {
       outboard: 1,
     }), "legs"));
     this.locomotion = this.locomotionModule.port;
-    this.register("locomotion", locomotionDefinition.id, this.locomotionModule,
-      setup.wear?.locomotion);
+    this.register("locomotion", locomotionDefinition.id, this.locomotionModule);
 
     // The torso's socket, derived from where the root actually is rather than from a constant.
     // `local` is the waist point expressed in the root's own frame, which is the arithmetic every
@@ -426,11 +425,11 @@ export class Golem implements Combatant {
       rotation: (root.mesh.rotationQuaternion ?? Quaternion.Identity()).clone(),
       outboard: 1,
     }), "trunk"));
-    this.register("torso", torsoDefinition.id, this.torsoModule, setup.wear?.torso);
+    this.register("torso", torsoDefinition.id, this.torsoModule);
 
     this.headModule = headDefinition.build(
       build(this.torsoModule.socket("head"), "head"));
-    this.headRecord = this.register("head", headDefinition.id, this.headModule, setup.wear?.head);
+    this.headRecord = this.register("head", headDefinition.id, this.headModule);
 
     const primarySocket = this.torsoModule.socket("primary");
     const secondarySocket = this.torsoModule.socket("secondary");
@@ -447,7 +446,7 @@ export class Golem implements Combatant {
     // new one is and then started at the durability the bin remembers, which is what makes the
     // shelf and the bin the same shelf. See `register`.
     this.register("primary", plan.primary.id, primaryModule,
-      setup.wear?.primary ?? setup.primary.durability);
+      setup.primary.durability);
     const primary: MountedEffector = Object.freeze({
       option: plan.primary, module: primaryModule, socket: primarySocket, driven: "primary",
     });
@@ -459,7 +458,7 @@ export class Golem implements Combatant {
         companion: primarySocket,
       }));
       this.register("secondary", plan.secondary.id, secondaryModule,
-        setup.wear?.secondary ?? setup.secondary.durability);
+        setup.secondary.durability);
       secondary = Object.freeze({
         option: plan.secondary, module: secondaryModule, socket: secondarySocket,
         driven: "secondary" as HandName,

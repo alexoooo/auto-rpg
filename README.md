@@ -113,6 +113,7 @@ drifted, centre was unrecoverable, and you could not get your mouse back.
 | Z / X, T / Y | roll and bend the driven wrist when direct wrist is enabled |
 | F | the mouse changes hands -- the one it leaves goes back to its policy |
 | C | arm a takeover, then click either fighter -- you drive that one and the one you leave picks its policy back up |
+| Take / Let go | the button beside each fighter's name in the readout -- drive that body, or hand yours back to its policy, in a fight or a pause |
 | Wheel | zoom -- the camera only; no fighter is asked for anything |
 | V | camera -- Overhead behind the fighter, or Fixed on a world bearing |
 | `[` / `]` | swing the Fixed camera round the arena, 45 degrees at a time |
@@ -337,7 +338,9 @@ disappear.
 **Working**: the arena and its fight picker; golem bodies across five slots and eleven arms;
 supported locomotion with limp and ragdoll; contact scoring, severing, one derived vitality
 state, clean verdict shutdown and blood; eleven policies that fight with the controller you use;
-live takeover of either body mid-bout; two cameras; the parts bin; and the module bench.
+taking or letting go of either body at any point in a bout; Replay and Random replay at the
+verdict, the second redrawing the body you are not driving; two cameras; the parts bin; and the
+module bench.
 
 **Being worked on**, in this order:
 
@@ -351,6 +354,3 @@ live takeover of either body mid-bout; two cameras; the parts bin; and the modul
    ratings could not detect that both minds were bad, because every number was relative.
 2. **Four control modes.** Today you take a whole body or none of it. The intent is that
    movement and attack are separately yours: fully automated, WASD only, mouse only, or both.
-3. **Wave mode.** A second game mode where one fighter meets waves of increasingly difficult
-   enemies, which are different golem morphologies. `src/golem/roster.ts` holds the twelve named
-   builds it will draw from.

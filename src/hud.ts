@@ -2,6 +2,7 @@ import type { Combatant } from "./units";
 import type { HitReport } from "./combat";
 import type { Side } from "./physics";
 import { describeAttributes } from "./golem/attributes.ts";
+import { driveAction } from "./bout.ts";
 
 export interface Telemetry {
   fps: number;
@@ -176,10 +177,12 @@ export class Hud {
    */
   private readonly commandLists: Record<"left" | "right", HTMLElement>;
   private readonly skimPicker: HTMLSelectElement;
+  /** Take or Let go, one a side, written from `telemetry.driving` like the title beside it. */
+  private readonly driveButtons: Record<"left" | "right", HTMLButtonElement>;
   /**
    * What each body was built at, one read-only line a side, inside the command readout. Read from
-   * the body rather than from the setup, because in waves the queue builds the right corner and the
-   * setup does not know what it chose. Like everything in that disclosure, it never touches `open`.
+   * the body rather than from the setup, because the readout describes the fight on screen and the
+   * body is what is in it. Like everything in that disclosure, it never touches `open`.
    */
   private readonly attributeLines: Record<"left" | "right", HTMLElement>;
   private visible = true;
@@ -189,8 +192,15 @@ export class Hud {
    * @param onSkim what to do when somebody picks a skim speed, or nothing at all for a host that
    *   has no simulation to skim. The control is inert rather than absent in that case, because a
    *   panel whose contents depend on who constructed it is a panel two people describe differently.
+   * @param onDrive what to do when somebody presses a side's Take or Let go. It is one question
+   *   either way -- "that side's button" -- and the host decides which act it is from who is
+   *   driving. Inert when absent, for the same reason as `onSkim`.
    */
-  constructor(host: HTMLElement, onSkim: ((speed: number) => void) | null = null) {
+  constructor(
+    host: HTMLElement,
+    onSkim: ((speed: number) => void) | null = null,
+    onDrive: ((side: "left" | "right") => void) | null = null,
+  ) {
     this.root = host;
     host.innerHTML = `
       <div class="hud-col hud-left">
@@ -208,10 +218,10 @@ export class Hud {
       </div>
       <div class="hud-col hud-right">
         <div class="limbs">
-          <div class="limbs-title" data-title-left>Left</div>
+          <div class="limbs-title"><span data-title-left>Left</span><button class="drive" type="button" data-drive-left>Take</button></div>
           <div class="vitality-track"><span class="vitality-fill" data-vitality-left></span></div>
           <div class="vitality-value" data-vitality-value-left>100% vitality</div>
-          <div class="limbs-title" data-title-right>Right</div>
+          <div class="limbs-title"><span data-title-right>Right</span><button class="drive" type="button" data-drive-right>Take</button></div>
           <div class="vitality-track"><span class="vitality-fill" data-vitality-right></span></div>
           <div class="vitality-value" data-vitality-value-right>100% vitality</div>
           <details class="injuries">
@@ -274,6 +284,26 @@ export class Hud {
       left: pick("[data-attributes-left]"),
       right: pick("[data-attributes-right]"),
     };
+    this.driveButtons = {
+      left: pick("[data-drive-left]") as HTMLButtonElement,
+      right: pick("[data-drive-right]") as HTMLButtonElement,
+    };
+    for (const side of ["left", "right"] as const) {
+      const button = this.driveButtons[side];
+      // Kept from `Controls`, which listens on the window: a press on this button is not a thrust,
+      // and a move while it is held is not the thrust level either (`src/buttons.ts` reads the held
+      // buttons off every pointer event). The release is let through, so a press that began on the
+      // canvas and was let go over the button still ends its thrust.
+      for (const kind of ["pointerdown", "pointermove"]) {
+        button.addEventListener(kind, (event) => event.stopPropagation());
+      }
+      button.addEventListener("click", () => {
+        // Focus handed straight back, or the next Enter -- or a held Space, whose repeats
+        // `Controls` does not cancel -- presses the button again.
+        button.blur();
+        onDrive?.(side);
+      });
+    }
     this.skimPicker = pick("[data-skim]") as HTMLSelectElement;
     this.skimPicker.addEventListener("change", () => {
       onSkim?.(Number(this.skimPicker.value));
@@ -338,6 +368,8 @@ export class Hud {
       const title = side === "left" ? "Left" : "Right";
       this.limbTitles[side].textContent =
         telemetry.driving === side ? `${title} · you` : title;
+      const drive = driveAction(telemetry.driving, side) === "release" ? "Let go" : "Take";
+      if (this.driveButtons[side].textContent !== drive) this.driveButtons[side].textContent = drive;
       const life = fighters[side].vitality;
       this.vitalityFills[side].style.width = `${(life * 100).toFixed(1)}%`;
       this.vitalityFills[side].classList.toggle("critical", life < 0.34);

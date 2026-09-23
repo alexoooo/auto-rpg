@@ -9,7 +9,6 @@ import { GOLEM_EFFECTORS, defaultGolemSetup } from "../src/golem/build.ts";
 import { NAMED_BUILDS, namedBuild } from "../src/golem/roster.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
-import { startRun, waveEnemy } from "../src/waves.ts";
 
 const needle = POLICIES.find((p) => p.name === "golem-researched-needle-v1");
 const paired = POLICIES.find((p) => p.name === "golem-researched-paired-v1");
@@ -108,12 +107,4 @@ test("limb loss changes applicability without mutating the selected policy", () 
   assert.equal(assessRequirement(needle.requirement, body).status, "applicable");
   body.primary.lost = true;
   assert.equal(assessRequirement(needle.requirement, body).status, "fallback-only");
-});
-
-test("automatically selected wave policies are applicable to their bodies", () => {
-  const run = startRun(73);
-  for (let wave = 1; wave <= 144; wave++) {
-    const enemy = waveEnemy({ ...run, wave });
-    assert.equal(assessPolicy(POLICIES.find((p) => p.name === enemy.policy), true, enemy.build.setup).status, "applicable");
-  }
 });

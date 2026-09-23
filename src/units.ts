@@ -174,9 +174,9 @@ export interface Combatant {
   /**
    * The stats this body was built at, or absent for a body that has none.
    *
-   * Read from the body rather than from the matchup because the two are not always the same body:
-   * in waves the queue builds the right corner, and a readout taken from the setup screen would
-   * describe a body nobody is fighting. The HUD's diagnostics line is the reader.
+   * Read from the body rather than from the matchup, because a readout of a fight describes the
+   * body in it and not a record that could describe a body nobody built. The HUD's diagnostics line
+   * is the reader.
    */
   readonly attributes?: import("./golem/attributes.ts").Attributes;
   readonly limbs: Limb[];

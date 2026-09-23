@@ -210,3 +210,29 @@ test("the_diagnostics_name_each_body_s_attributes_and_nothing_opens_the_disclosu
   assert.match("details.open = true", writesOpen, "the control: the pattern finds a write when there is one");
   assert.doesNotMatch("if (details.open === true)", writesOpen, "and does not mistake a read for one");
 });
+
+test("the_verdict_bar_is_a_compact_sibling_shown_only_for_a_decided_bout", async () => {
+  const [html, css, main] = await Promise.all([
+    readFile(new URL("../index.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/style.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/main.ts", import.meta.url), "utf8"),
+  ]);
+  const curtainAt = html.indexOf('<div id="curtain">');
+  const barAt = html.indexOf('<aside id="bout-end"');
+  assert.ok(curtainAt >= 0 && barAt > curtainAt, "the verdict bar follows the curtain");
+  const between = html.slice(curtainAt, barAt);
+  assert.equal(between.match(/<div\b/g)?.length ?? 0, between.match(/<\/div>/g)?.length ?? 0,
+    "the verdict bar is outside the setup curtain");
+  const pauseAt = html.indexOf('<aside id="pause-menu"');
+  assert.ok(html.indexOf("</aside>", pauseAt) < barAt, "and outside the pause menu");
+  for (const id of ["bout-end-replay", "bout-end-random", "bout-end-leave", "random-replay"]) {
+    assert.match(html, new RegExp(`id="${id}"`), `${id} is on the page`);
+  }
+
+  const barRule = css.match(/#bout-end\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(barRule, /position:\s*fixed/);
+  assert.doesNotMatch(barRule, /inset:\s*0/, "the verdict bar is not a viewport-sized screen");
+  // Up for exactly as long as the bout is decided, and written by nothing else in the host.
+  assert.match(main, /boutEnd\.classList\.toggle\("gone", state\.phase !== "over"\)/);
+  assert.equal(main.match(/boutEnd\.classList/g)?.length, 1, "one writer of the verdict bar's visibility");
+});

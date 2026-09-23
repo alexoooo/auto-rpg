@@ -21,6 +21,8 @@ import {
   restart,
   selectScreen,
   settle,
+  driveAction,
+  releaseBody,
   takeBody,
   toSelect,
   vitality,
@@ -368,6 +370,33 @@ test("five takeovers in one bout leave one driver, not five", () => {
     assert.deepEqual(human, [side]);
   }
   assert.equal(humanSide(state.matchup), "left");
+});
+
+test("letting go leaves two minds and both policies where they were", () => {
+  const chosen = withPolicy(withPolicy(defaultMatchup(), "left", "duelist"), "right", "swinger");
+  const fighting = begin(selectScreen(defaultMatchup()), chosen);
+  assert.equal(humanSide(fighting.matchup), "left");
+  const released = releaseBody(fighting);
+  assert.equal(humanSide(released.matchup), null);
+  assert.equal(released.matchup.left.control, "mind");
+  assert.equal(released.matchup.right.control, "mind");
+  assert.equal(released.matchup.left.policy, "duelist");
+  assert.equal(released.matchup.right.policy, "swinger");
+  assert.equal(released.phase, "fight", "it is a change of driver, not of phase");
+  assert.equal(released.clock, fighting.clock);
+});
+
+test("letting go and taking again leaves exactly one driver", () => {
+  let state = releaseBody(begin(selectScreen(defaultMatchup()), defaultMatchup()));
+  state = takeBody(state, "right");
+  assert.deepEqual(["left", "right"].filter((s) => state.matchup[s].control === "you"), ["right"]);
+});
+
+test("letting go is refused from the screen and is nothing with nobody to let go of", () => {
+  const screen = selectScreen(defaultMatchup());
+  assert.equal(releaseBody(screen), screen);
+  const nobody = releaseBody(begin(selectScreen(defaultMatchup()), defaultMatchup()));
+  assert.equal(releaseBody(nobody), nobody);
 });
 
 // ---------- the endings ----------
@@ -999,4 +1028,15 @@ test("bout_loads_with_babylon_unresolvable", () => {
   const control = load("src/golem/build.ts");
   assert.notEqual(control.status, 0, "the hook let build.ts load, so it bites nothing");
   assert.match(control.stderr, /reached @babylonjs\//);
+});
+
+test("a side's drive button lets go of your own body and takes any other", () => {
+  // Both sides of the one-driver rule and the nobody case, so a button that always took, or always
+  // let go, or read the side it was not on, fails here.
+  assert.equal(driveAction("left", "left"), "release");
+  assert.equal(driveAction("left", "right"), "take");
+  assert.equal(driveAction("right", "right"), "release");
+  assert.equal(driveAction("right", "left"), "take");
+  assert.equal(driveAction(null, "left"), "take");
+  assert.equal(driveAction(null, "right"), "take");
 });
