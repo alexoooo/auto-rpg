@@ -28,7 +28,7 @@ import {
   withGolemSlot,
   withPolicy,
 } from "../src/bout.ts";
-import { bodyFamily, FAMILY_POLICY } from "../src/golem/family.ts";
+import { bodyFamily, FAMILY_FIXED_ATTRIBUTES, FAMILY_POLICY } from "../src/golem/family.ts";
 import { FAMILY_SETUP } from "../src/golem/family-setup.ts";
 import { randomViableOpponent } from "../src/golem/viability.ts";
 import { mulberry32 } from "../src/rng.ts";
@@ -91,7 +91,7 @@ test("a build context without attributes reads every stat at 1, and one with the
 });
 
 /** The rows a session has measured and turned live. Each stat's session adds its own. */
-const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour", "toughness", "armSpeed", "weight"]);
+const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour", "toughness", "armSpeed", "weight", "size"]);
 
 test("only a measured row is live, and every other row accepts only 1", () => {
   // Each stat's own session turns its row live. Until then a value other than 1 is a stat nothing
@@ -125,17 +125,20 @@ test("a setting is refused by shape, by name and by range, and accepted inside i
   assert.match(attributesRefusal({ movement: Infinity }, LIVE) ?? "", /not a number/);
   assert.match(attributesRefusal({ movement: 1.51 }, LIVE) ?? "", /outside x0.75 to x1.5/);
   assert.match(attributesRefusal({ movement: 0.74 }, LIVE) ?? "", /outside/);
-  assert.match(attributesRefusal({ size: 1.1 }, LIVE) ?? "", /not measured yet/,
+  const pending = Object.freeze({ ...LIVE, size: Object.freeze({ ...ATTRIBUTES.size, min: 1, max: 1, live: false }) });
+  assert.match(attributesRefusal({ size: 1.1 }, pending) ?? "", /not measured yet/,
     "a row that is not live in this table still refuses");
+  assert.equal(attributesRefusal({ size: 1 }, pending), null, "the control: at 1 it does not");
 });
 
-test("a golem setup carrying a stat nothing reads is refused where every build is checked", () => {
+test("a golem setup carrying a stat outside its row is refused where every build is checked", () => {
   const setup = defaultGolemSetup();
   assert.equal(golemSetupRefusal(setup), null);
   assert.equal(golemSetupRefusal({ ...setup, attributes: { size: 1 } }), null);
   assert.equal(golemSetupRefusal({ ...setup, attributes: { movement: 1.2 } }), null, "a measured stat inside its range");
   assert.match(golemSetupRefusal({ ...setup, attributes: { movement: 1.6 } }) ?? "", /Movement x1.6 is outside/);
-  assert.match(golemSetupRefusal({ ...setup, attributes: { size: 1.2 } }) ?? "", /Size is not measured yet/);
+  assert.equal(golemSetupRefusal({ ...setup, attributes: { size: 1.2 } }), null, "every row is measured now");
+  assert.match(golemSetupRefusal({ ...setup, attributes: { size: 1.3 } }) ?? "", /Size x1.3 is outside/);
   assert.match(golemSetupRefusal({ ...setup, attributes: { reach: 1 } }) ?? "", /no attribute "reach"/);
 });
 
@@ -248,8 +251,8 @@ test("a golem resolves its stats once, and every module it builds is handed them
     assert.deepEqual(plain.attributes, DEFAULT_ATTRIBUTES);
     const explicit = build({ ...defaultGolemSetup(), attributes: { movement: 1, size: 1 } }, 1);
     assert.deepEqual(explicit.attributes, DEFAULT_ATTRIBUTES);
-    assert.throws(() => build({ ...defaultGolemSetup(), attributes: { size: 1.2 } }, 0),
-      /Size is not measured yet/, "a stat nothing reads never reaches a body");
+    assert.throws(() => build({ ...defaultGolemSetup(), attributes: { size: 1.3 } }, 0),
+      /Size x1.3 is outside/, "a stat outside its row never reaches a body");
 
     // Every registered definition is frozen, so there is no builder to spy on: the proof that the
     // context reaches a module is a module doing something with it. The locomotion envelope is the
@@ -782,8 +785,8 @@ test("a human's size is fixed at x1: refused on its setup, not set on its corner
   assert.equal(bodyFamily(human), "human");
   assert.match(golemSetupRefusal({ ...human, attributes: { size: 1.25 } }), /Size is fixed at x1 on a human/);
   assert.equal(golemSetupRefusal({ ...human, attributes: { size: 1 } }), null, "the control: x1 is a human's size");
-  assert.match(golemSetupRefusal({ ...defaultGolemSetup(), attributes: { size: 1.25 } }), /not measured yet/,
-    "and a stone golem's is refused only because the row is not live");
+  assert.equal(golemSetupRefusal({ ...defaultGolemSetup(), attributes: { size: 1.25 } }), null,
+    "and a stone golem's is not");
 
   const corner = withGolemBuild(golemMatchup(BUILD), "left", human, 3);
   assert.equal(withGolemAttribute(corner, "left", "size", 1.25), corner, "a human corner refuses the stat");
@@ -838,4 +841,112 @@ test("a larger ram's lunge is armed for the root of its size longer", async () =
   } finally {
     arena.dispose?.();
   }
+});
+
+/**
+ * **A whole golem at size is the golem at x1 grown about its own feet**, which the module test above
+ * cannot say: it stands each module on a stand whose sockets are x1. Every playable build a size
+ * may be set on, at both ends of the row, against the solver: each body part sits at s times where
+ * it sat from the origin and weighs s^3 of what it weighed; an item keeps its mass; a wrist's cast
+ * link weighs its floor at the new size or its load, whichever is more; and the carrier's supported
+ * mass is the legs' solver mass plus `golemUpperMassKg` at the same size.
+ *
+ * That last is the carrier agreeing with its own arithmetic, not with the solver: `golemUpperMassKg`
+ * reads each chain's *unloaded* `massKg`, so it misses the cast links' load share -- 2.8 % of the
+ * default golem's upper body at x1, 7.2 % at x0.8 and 0.5 % at x1.25, and 47.6 % of a skeleton
+ * maul's at x1 (`.review/upper-gap.mjs`, Node, 2026-09-23). Not repaired here: the carrier's load
+ * at x1 is what every measurement so far was taken on.
+ *
+ * One build is refused at the floor and the test says which: a plate on the pitch chain, which is
+ * fixed-size and has only its own geometry to keep it off a chest that is not (`golemSetupRefusal`).
+ */
+test("size grows a whole golem about its feet: body parts by s in place and s^3 in mass, items not at all", async () => {
+  const arena = await createHeadlessArena();
+  try {
+    const world = flatSupportedWorldRegistry();
+    const origin = (i) => new Vector3(0, 0, i * 8);
+    const build = (setup, i) => new Golem(arena.scene, {
+      side: i === 0 ? "left" : "right", origin: origin(i), facing: 0,
+      setup, mind: idleMind(), controlPolicies: [], locomotionWorld: world,
+    });
+    const near = (a, b) => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(b));
+    const mass = (limb) => limb.part.body.getMassProperties().mass;
+    const items = new Set([...Object.keys(EFFECTOR_TERMINALS), "ram"]);
+    const cast = new Set(["rollRing", "wrist"]);
+    const seen = { body: 0, item: 0, cast: 0, builds: 0, refused: [] };
+    const carried = (golem, setup) => {
+      const legs = golem.limbs.filter((limb) => limb.key.includes(".legs.")).reduce((sum, limb) => sum + mass(limb), 0);
+      const upper = golem.locomotionModule.carry ? golemUpperMassKg(setup) : 0;
+      return { supported: golem.locomotion.diagnostic().stability.supportedMassKg, expected: legs + upper };
+    };
+    for (const s of [ATTRIBUTES.size.min, ATTRIBUTES.size.max]) {
+      const k = s ** 3;
+      for (const { name, setup } of PLAYABLE_BUILDS) {
+        if ("size" in FAMILY_FIXED_ATTRIBUTES[bodyFamily(setup)]) continue;
+        const sized = withAttributeSetting(setup, { size: s });
+        if (golemSetupRefusal(sized) !== null) {
+          seen.refused.push(`${name} x${s}`);
+          continue;
+        }
+        seen.builds += 1;
+        const plain = build(setup, 0);
+        const big = build(sized, 1);
+        assert.equal(big.limbs.length, plain.limbs.length, name);
+        for (const [i, limb] of big.limbs.entries()) {
+          const key = limb.key.replace(/^right\./, "");
+          const at = `${name} x${s} ${key}`;
+          assert.equal(key, plain.limbs[i].key.replace(/^left\./, ""), at);
+          const was = mass(plain.limbs[i]);
+          const now = mass(limb);
+          const segments = key.split(".");
+          if (segments.some((segment) => items.has(segment))) {
+            seen.item += 1;
+            assert.ok(near(now, was), `${at}: an item keeps its ${was} kg, not ${now}`);
+            continue;
+          }
+          if (cast.has(segments.at(-1))) {
+            // max(floor, carryRatio x load): only the floor is the body's, and the load is an item's.
+            const hand = segments.find((segment) => segment === "primary" || segment === "secondary");
+            const table = setup[hand].chain === "skeletal" ? SKELETAL_WRIST : CHAIN_WRIST;
+            const floor = segments.at(-1) === "rollRing" ? table.ringMass : table.wristMass;
+            const load = was > floor * (1 + 1e-6) ? was : null;
+            assert.ok(near(now, Math.max(floor * k, load ?? 0)) || (load === null && now <= was * (1 + 1e-6) && now >= floor * k * (1 - 1e-6)),
+              `${at}: ${was} -> ${now}, floor ${floor}`);
+            seen.cast += 1;
+          } else {
+            seen.body += 1;
+            assert.ok(near(now, was * k), `${at}: ${was} kg went x${(now / was).toFixed(4)}`);
+          }
+          const drift = limb.part.mesh.position.subtract(origin(1))
+            .subtract(plain.limbs[i].part.mesh.position.subtract(origin(0)).scale(s)).length();
+          assert.ok(drift < 1e-6, `${at}: sits ${drift} m from s times where it sat`);
+        }
+        for (const [golem, g] of [[plain, setup], [big, sized]]) {
+          const { supported, expected } = carried(golem, g);
+          assert.ok(near(supported, expected), `${name} x${s}: the carrier holds up ${supported} kg against ${expected}`);
+        }
+        plain.dispose();
+        big.dispose();
+      }
+    }
+    assert.deepEqual(seen.refused, [`pitch-blade x${ATTRIBUTES.size.min}`], "the one build a size refuses");
+    assert.ok(seen.body > 0 && seen.item > 0 && seen.cast > 0 && seen.builds > 10,
+      `the control: body parts, items and cast links were all seen (${JSON.stringify(seen)})`);
+  } finally {
+    arena.dispose?.();
+  }
+});
+
+test("a plate on the pitch chain is refused below x1, and only there", () => {
+  const pitch = { primary: { chain: "pitch", terminal: "blade" }, secondary: { chain: "pitch", terminal: "plate" } };
+  const setup = { ...defaultGolemSetup(), ...pitch };
+  assert.equal(golemSetupRefusal(setup), null);
+  assert.match(golemSetupRefusal(withAttributeSetting(setup, { size: 0.95 })) ?? "", /plate on the pitch chain/);
+  assert.match(golemSetupRefusal(withAttributeSetting({ ...setup, primary: pitch.secondary, secondary: pitch.primary }, { size: 0.8 })) ?? "",
+    /plate on the pitch chain/, "in either socket");
+  assert.equal(golemSetupRefusal(withAttributeSetting(setup, { size: 1.25 })), null, "the control: above x1 it is clear");
+  assert.equal(golemSetupRefusal(withAttributeSetting({ ...setup, secondary: { chain: "wrist", terminal: "plate" },
+    primary: { chain: "wrist", terminal: "blade" } }, { size: 0.8 })), null, "the control: a wrist plate is clear");
+  assert.equal(golemSetupRefusal(withAttributeSetting({ ...setup, secondary: pitch.primary }, { size: 0.8 })), null,
+    "the control: a pitch blade is not a plate");
 });

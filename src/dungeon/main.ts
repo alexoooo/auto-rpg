@@ -18,7 +18,7 @@ import { attachPhysics } from "../physics.ts";
 import { CONFIG } from "../config.ts";
 import { bodyFamily, FAMILY_FIXED_ATTRIBUTES, withoutFixedAttributes } from "../golem/family.ts";
 import { ARMED_SETUP } from "../golem/family-setup.ts";
-import { golemTerminalOptions } from "../golem/build.ts";
+import { golemSetupRefusal, golemTerminalOptions } from "../golem/build.ts";
 import type { GolemSetup } from "../bout.ts";
 import { PLAYABLE_BUILDS } from "../golem/roster.ts";
 import { describeAttributes, withAttribute, withAttributeSetting, type AttributeSetting } from "../golem/attributes.ts";
@@ -160,6 +160,9 @@ async function boot(): Promise<void> {
     const base = selectedEquipment ?? heroSetup();
     const kept = base ? withoutFixedAttributes(heroAttributes, bodyFamily(base)) ?? {} : {};
     if (base && Object.keys(kept).length > 0) selectedEquipment = withAttributeSetting(base, kept);
+    // Named here rather than thrown by the body's constructor from inside the run.
+    const refused = selectedEquipment ? golemSetupRefusal(selectedEquipment) : null;
+    if (refused) { need("notice").textContent = `This hero cannot be built: ${refused}.`; return; }
     launch(Number(seedInput.value));
   }, { signal });
   seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });

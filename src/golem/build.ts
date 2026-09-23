@@ -436,6 +436,18 @@ export function golemSetupRefusal(setup: GolemSetup): string | null {
     if (!isAttributeId(id) || (setup.attributes?.[id] ?? 1) === 1) continue;
     return `${ATTRIBUTES[id].label} is fixed at x1 on a ${FAMILY_LABEL[family].toLowerCase()}: ${reason}`;
   }
+  // **A plate on rung 1 keeps its size and the body under it does not.** The pitch chain has one
+  // hinge and no swing, so the board's own geometry is the only thing holding it off the chest --
+  // 7 mm at x1 -- and a board that does not shrink with the body it hangs from runs into that body
+  // below x1: 23 mm inside a plated chest at x0.8 and 5 mm at x0.9, measured over the plate
+  // clearance envelope in the Node bench, 2026-09-23. The filters forbid the pair, so nothing in
+  // the solver would ever say so. Refused rather than shipped as a clip.
+  const pitchPlate = [setup.primary, setup.secondary]
+    .some((pick) => pick.chain === "pitch" && pick.terminal === "plate");
+  const size = setup.attributes?.size ?? 1;
+  if (pitchPlate && typeof size === "number" && size < 1) {
+    return `a plate on the pitch chain is fixed-size and clips the chest of a body below x1 (x${size})`;
+  }
   return attributesRefusal(setup.attributes);
 }
 

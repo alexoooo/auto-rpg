@@ -47,9 +47,6 @@ export interface AttributeRow {
 
 export type AttributeTable = Readonly<Record<AttributeId, AttributeRow>>;
 
-/** A row nothing reads yet: its range is 1 and nothing else. */
-const pending = (label: string): AttributeRow => Object.freeze({ label, min: 1, max: 1, step: 0.05, live: false });
-
 export const ATTRIBUTES: AttributeTable = Object.freeze({
   /**
    * How fast the body travels: the carrier's walk, back-off, strafe and acceleration, together
@@ -299,7 +296,31 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
    */
   weight: Object.freeze({ label: "Weight", min: 0.8, max: 2, step: 0.05, live: true }),
-  size: pending("Size"),
+  /**
+   * How big the body is: every body table at the stat by its fields' laws (`withSize` below),
+   * similarity at constant density with time as the root of length. Items keep their size, so a
+   * larger body is also a relatively smaller weapon. A human is fixed at x1
+   * (`FAMILY_FIXED_ATTRIBUTES`). Sessions 12a and 12b, 2026-09-23.
+   *
+   * **The floor is the arm, and it is x0.8.** Arm torque goes as s^4 and the item in the hand does
+   * not shrink. Node bench, `.review/size-bench.mjs arm`, stroke stray in mm:
+   *
+   *     size            0.75    0.80    1.00    1.25    1.50
+   *     wrist blade      109    48.8    37.9    22.1    36.3
+   *     skeletal blade  67.0    66.0    46.5    23.5    15.1
+   *     wrist whip      19.2    10.4     8.1     9.5     115
+   *     wrist maul       228     224     210    88.5     280
+   *
+   * At x0.75 the pitch hinge also takes 3.45 s to arrive, against 0.283 at x1. **The ceiling is
+   * x1.25**, because at x1.5 the whip and the maul stray and the biped's foot slip (414 mm/s)
+   * passes its 367 budget. Top speed goes as the root of size, and the impulse that staggers a body
+   * as about s^3.5: 0.38 N.s at x0.8, 0.80 at x1 and 1.72 at x1.25 on stone.
+   *
+   * **A plate on the pitch chain is refused below x1** (`golemSetupRefusal`). The board keeps its
+   * size and the chest under it does not, so the board sits 23 mm inside a plated chest at x0.8.
+   * The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Size".
+   */
+  size: Object.freeze({ label: "Size", min: 0.8, max: 1.25, step: 0.05, live: true }),
 });
 
 export const isAttributeId = (id: unknown): id is AttributeId =>

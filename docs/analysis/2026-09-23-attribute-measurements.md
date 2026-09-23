@@ -1369,3 +1369,207 @@ hypotheses.
 skeleton it is a monotone cost from x0.5 up. The row keeps x0.8 to x2, because the bench floor is
 where the arm stops ringing and nothing here says a heavy body breaks. But a player choosing weight
 is choosing to stay on their feet at the price of the fight, and on the skeleton they lose it.
+
+## Size (session 12)
+
+**The knob.** Each body table a builder reads carries a size law per field, and `withSize` in
+`src/golem/attributes.ts` hands the builder a per-build copy at the stat (session 12a). The laws are
+similarity at constant density, with time going as the root of length, so a larger body is the same
+body filmed slower:
+
+| Law | Power of s | Law | Power of s |
+|---|---|---|---|
+| length | 1 | speed | 0.5 |
+| perLength | -1 | frequency | -0.5 |
+| mass | 3 | angularAcceleration | -1 |
+| impulse | 3.5 | duration | 0.5 |
+| force | 3 | torque | 4 |
+| inertia | 5 | one (angles, ratios, counts) | 0 |
+
+Weight multiplies the masses on top, so a body part weighs weight x s^3 of its x1 figure. Stability
+thresholds and rise floors go as the root of size (`StabilityAuthority.sizeScale`). A human is fixed
+at x1 (`FAMILY_FIXED_ATTRIBUTES`), because its skin is a fixed-size model.
+
+**Items keep their size**: every terminal's metres and mass, and the ram's plate. A terminal's
+`limits` and a maul's `crossing` describe the arm and not the item, so they scale with it. That
+choice makes size two things at once. It is a bigger body, and it is a relatively smaller weapon.
+Most of what follows comes from the second.
+
+**What is not scaled**, deliberately or not yet. Each item has a reason:
+
+- The servo responses that sit outside a table: `POSITION_RESPONSE`, and the wrist's
+  `JointServo(..., 40)`.
+- The arm core's thresholds: `5e-4` and `.02`.
+- The torso's and shell's trim literals.
+- The world constants: `STEP_HEIGHT_M`, the `ROOT_*` family and `SUPPORT_GRACE_S`. The floor does
+  not get bigger.
+- The tactics' `circleMin` and `circleMax`. A mind circles at the same distance whatever it is
+  driving, and the sweep carries that.
+- `defaultGolemDimensions` in `src/golem/build.ts`, which is x1 arithmetic.
+- The arm torques. They stay on pure similarity (torque as s^4). The bench below shows what that
+  costs a small arm holding a full-size item.
+
+### Whole bodies
+
+Node harness, `.review/size-bench.mjs body`, with `ATTR=size`, output in `.review/size-body.out`.
+The table gives the summed solver mass, the carrier's `supportedMassKg`, the impulse its stability
+diagnostic says staggers and fells it, and the primary hand's swing inertia.
+
+| Build | Size | Body kg | Supported kg | Stagger N.s | Fall N.s | Swing kg m2 |
+|---|---|---|---|---|---|---|
+| default | 0.8 | 49.6 | 47.4 | 0.38 | 0.89 | 2.441 |
+| default | 1 | 90.6 | 89.1 | 0.80 | 1.87 | 3.988 |
+| default | 1.25 | 171.1 | 170.6 | 1.72 | 4.00 | 7.566 |
+| skeleton-warrior | 0.8 | 18.7 | 16.2 | 0.17 | 0.41 | 1.305 |
+| skeleton-warrior | 1 | 30.4 | 28.3 | 0.34 | 0.79 | 1.823 |
+| skeleton-warrior | 1.25 | 53.2 | 51.8 | 0.70 | 1.62 | 2.831 |
+| wheel | 0.8 | 63.3 | 30.5 | 0.11 | 0.27 | 2.441 |
+| wheel | 1 | 117.4 | 59.7 | 0.25 | 0.58 | 3.988 |
+| wheel | 1.25 | 223.3 | 116.5 | 0.55 | 1.28 | 7.566 |
+| multileg | 0.8 | 55.6 | 22.8 | 0.32 | 0.74 | 2.441 |
+| multileg | 1 | 102.3 | 44.6 | 0.70 | 1.62 | 3.988 |
+| multileg | 1.25 | 194.0 | 87.1 | 1.52 | 3.55 | 7.566 |
+
+- **Mass goes almost exactly as s^3.** At x0.8 the default golem weighs 0.547 of its x1 mass, where
+  pure body would be 0.512. The difference is the blade and the plate, which do not shrink.
+- **The stagger impulse goes as about s^3.5**, which is the impulse law: 0.475 of x1 at x0.8,
+  against a predicted 0.458.
+
+`size grows a whole golem about its feet` in `tests/attributes.test.mjs` builds every playable build
+the stat may be set on, at both ends of the row, and reads the solver back:
+
+- every body part sits at s times its x1 offset from the origin, to a micrometre, and weighs s^3 of
+  its x1 mass;
+- every item part weighs exactly what it did;
+- a wrist's cast link weighs its floor at the new size or its load, whichever is more;
+- the carrier's supported mass is the legs' solver mass plus `golemUpperMassKg`.
+
+**That last check, and the same one in the weight test, is circular.** The biped's `carry` is handed
+`golemUpperMassKg`, so both sides of the comparison are the same arithmetic. Against the solver,
+`golemUpperMassKg` understates the upper body, and it did so before size existed. Every chain's
+`massKg` is its *unloaded* figure (the wrist chain says so beside it), so a cast link's load share is
+never counted. `.review/upper-gap.mjs` compares the solver's mass above the legs, in kg, with the
+carrier's figure:
+
+| Build | x0.8 | x1 | x1.25 |
+|---|---|---|---|
+| default | 32.72 / 30.52 (7.2 %) | 57.72 / 56.17 (2.8 %) | 106.82 / 106.27 (0.5 %) |
+| mace | 35.62 / 32.13 (10.9 %) | 60.63 / 57.79 (4.9 %) | 109.47 / 107.89 (1.5 %) |
+| maul | 46.45 / 34.69 (33.9 %) | 71.46 / 60.34 (18.4 %) | 120.30 / 110.45 (8.9 %) |
+| ram-capped | 26.12 / 25.54 (2.3 %) | 47.77 / 46.64 (2.4 %) | 90.07 / 87.85 (2.5 %) |
+| skeleton-warrior | 14.62 / 12.15 (20.3 %) | 22.38 / 20.30 (10.2 %) | 37.54 / 36.22 (3.6 %) |
+| skeleton-maul | 28.36 / 16.33 (73.7 %) | 36.12 / 24.48 (47.6 %) | 51.27 / 40.39 (26.9 %) |
+
+The x1 column is the carrier every earlier section measured on, so the gap is **not repaired here**.
+A small body makes it worse, because the floors shrink as s^3 and the load does not, so more of the
+cast binds. The wheel and the multileg carry no upper mass at all (see "Weight").
+
+### Arms
+
+Node bench, `.review/size-bench.mjs arm`, `ATTR=size`, output in `.review/size-arm.out`. Each
+module is on the stand, which stands its socket at the sized height. The readings are the stroke's
+stray from its own anchor and the tip-to-command lag, in mm.
+
+| Arm | x0.75 | x0.8 | x1 | x1.25 | x1.5 |
+|---|---|---|---|---|---|
+| wrist blade | 109 / 671 | 48.8 / 491 | 37.9 / 315 | 22.1 / 197 | 36.3 / 302 |
+| skeletal blade | 67.0 / 739 | 66.0 / 416 | 46.5 / 201 | 23.5 / 113 | 15.1 / 113 |
+| reach blade | 53.0 / 400 | 30.7 / 280 | 13.7 / 256 | 10.1 / 277 | 12.4 / 405 |
+| wrist mace | 472 / 2273 | 392 / 1897 | 298 / 1345 | 78.5 / 1008 | 56.3 / 1203 |
+| wrist maul | 228 / 1456 | 224 / 1466 | 210 / 1295 | 88.5 / 720 | 280 / 753 |
+| wrist whip | 19.2 / 2180 | 10.4 / 1831 | 8.1 / 1712 | 9.5 / 1819 | 115 / 2080 |
+| wrist fist | 24.5 / 128 | 15.2 / 135 | 6.6 / 64 | 7.4 / 77 | 8.7 / 125 |
+| wrist plate | 36.8 / 197 | 22.1 / 196 | 7.7 / 208 | 5.6 / 248 | 6.3 / 339 |
+
+The pitch hinge's arrival and overshoot on the same bench:
+
+| Size | Arrival s | Overshoot rad | Stroke lag mm |
+|---|---|---|---|
+| 0.75 | 3.45 | 1.04 | 737 |
+| 0.8 | 0.625 | 0.233 | 578 |
+| 1 | 0.283 | 0.104 | 288 |
+| 1.25 | 0.192 | 0.079 | 147 |
+| 1.5 | 0.163 | 0.042 | 107 |
+
+**A small arm is an underpowered arm, and pure similarity is why.** Its torque goes as s^4 and the
+item it holds does not shrink. At x0.8 the wrist blade strays 49 mm, against 38 at x1 and the 50 mm
+the bench test refuses. At x0.75 it strays 109 mm, and the pitch hinge takes 3.45 s to arrive with a
+radian of overshoot.
+
+At the top end, the whip's stray is 115 mm at x1.5, and the wrist maul's is 280 mm.
+
+**So the row is x0.8 to x1.25.** The floor is where the wrist blade is still inside the bench's
+50 mm. The ceiling is x1.25: every arm's stray there is better than at x1 or within 1.4 mm of it,
+while at x1.5 the whip strays 115 mm and the wrist maul 280.
+
+**Load-sized torques** would be the alternative for the small end. That means sizing each arm
+torque off its load, as `AGENTS.md` says a force is sized: tau(s) = tau(1) x I(s)/I(1) x s^-1, with
+I the swing inertia including the item. It is a balance decision rather than a physical one, so it
+is left to the owner.
+
+### Locomotion
+
+Node harness, `.review/move-bench.mjs`, `ATTR=size`, the `walk` sequence, output in
+`.review/size-move.out`:
+
+| Carrier | Size | Top m/s | Slip mm/s | Joint lag |
+|---|---|---|---|---|
+| biped | 0.8 | 2.862 | 90.6 | 0.430 |
+| biped | 1 | 3.200 | 99.1 | 0.399 |
+| biped | 1.25 | 3.578 | 136.1 | 1.012 |
+| skeleton | 0.8 | 2.862 | 88.7 | 0.483 |
+| skeleton | 1 | 3.200 | 95.6 | 0.413 |
+| skeleton | 1.25 | 3.578 | 123.8 | 0.874 |
+| wheel | 0.8 | 2.862 | 0.0 | 0.001 |
+| wheel | 1 | 3.200 | 20.5 | 0.002 |
+| wheel | 1.25 | 3.578 | 450.8 | 1.482 |
+| multileg | 0.8 | 1.252 | 591.8 | 0.133 |
+| multileg | 1 | 1.400 | 524.3 | 0.103 |
+| multileg | 1.25 | 1.565 | 584.9 | 0.079 |
+
+- Top speed goes as the root of size, as the speed law says it must: 3.200 x 1.25^0.5 = 3.578.
+- The biped's slip stays inside its `meanFootSlipBudgetMps` at x1.25, at 136 against 335. At x1.5 it
+  is not: 414 against 367. That is a second reason for the ceiling.
+- The multileg's slip is 592 at x0.8, against its budget of 626.
+- **The wheel's x1.25 row and the bipeds' x1.25 joint-lag peaks are the arena, not the body.** The
+  headless arena stands a ring of posts at 9.5 m, and a faster body reaches it inside the walk. The
+  wheel covers 10.30 m at x1.25 against 9.25 at x1. `.review/wheel-trace.mjs` and
+  `.review/biped-trace.mjs` trace a short straight walk that stays clear of the posts, and it is
+  clean.
+
+### Grip, clearance and the dungeon
+
+- **A maul's grip holds at every size.** `.review/maul-latch.mjs` ran whole golems in 6 s bouts.
+  The grip latches at 0.2 to 0.4 s and holds for 93 to 97 % of the bout at x0.75 to x1.5, with a
+  peak stray of at most 11 mm. The crossing scales with the arm, so the second hand meets the shaft
+  where it did.
+- **Plate clearance against the sized chest.** `.review/size-clearance.mjs` runs the envelope
+  sweep of the plate clearance test in `tests/golem-bench.test.mjs`, with each trunk box built from
+  `withSize(torso, TORSO_SIZE, s)` around the socket the module hangs from. The figures are mm clear
+  at the deepest approach; negative is inside.
+
+  | Chain | Chest | x0.8 | x0.9 | x1 | x1.25 |
+  |---|---|---|---|---|---|
+  | wrist | plain | 82 | 107 | 134 | 229 |
+  | wrist | plated | 68 | 90 | 122 | 204 |
+  | reach | plain | 95 | 110 | 117 | 159 |
+  | reach | plated | 85 | 95 | 104 | 144 |
+  | pitch | plain | 4 | 2 | 7 | 26 |
+  | pitch | plated | **-23** | **-5** | 7 | 26 |
+  | skeletal | ribcage | 8 | 27 | 34 | 83 |
+
+  Rung 1 has one hinge and no swing, and the board's own geometry is the only lever it has. A board
+  that keeps its size on a smaller chest runs into it, and the collision filters forbid that pair,
+  so the solver would never report it. The deepest pitch approach at x0.8 is lateral, at a raised
+  pitch of 0.85 rad. `golemSetupRefusal` refuses a plate on the pitch chain below x1 by name. The
+  dungeon's Start names the refusal instead of letting the body's constructor throw it from inside
+  the run. The one named build this touches is `pitch-blade`, at x0.8.
+- **The dungeon.** `.review/dungeon-size.mjs` force-walks the default hero to a room 16 cells away
+  on seed 42. It arrives at 5.96 s at x0.8, 5.43 at x1 and 4.81 at x1.25, with no frame off the floor
+  and no frame inside a wall at 0.9 of its sized radius. The path planner reads the radius from the
+  built body's footprint, so it follows the body.
+
+### Sweep
+
+Pending: `research/stat-sweep.mjs --stat size` at x0.8, 0.9, 1, 1.1 and 1.25, stone with the four
+probe minds and the skeleton duelist's mirror.
