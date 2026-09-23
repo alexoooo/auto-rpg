@@ -9,6 +9,7 @@ import type { Part } from "../rig.ts";
 import { armourAgainst, type Armour, type HitKind } from "../scoring.ts";
 import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
 import type { GolemMaterialPalette } from "./materials.ts";
+import type { Attributes } from "./attributes.ts";
 import type { MotorTone } from "./joint-servo.ts";
 
 /**
@@ -380,6 +381,14 @@ export interface ModuleBuild {
    * locomotion module relaxes its own legs and does not read it.
    */
   readonly tone?: MotorTone;
+  /**
+   * The body's stats, resolved once by the golem (`resolveAttributes`) and handed to every module
+   * it builds, the chain and the terminal of an effector included.
+   *
+   * Optional for the reason `tone` is: a module stood on a bench alone is handed none and builds
+   * at x1. Read it through `attributeOf`, which spells that default once.
+   */
+  readonly attributes?: Attributes;
 }
 
 export interface BuiltModule<Command> {

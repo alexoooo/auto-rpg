@@ -1,5 +1,6 @@
 import type { GolemEffectorSetup, GolemSetup } from "../bout.ts";
 import { BODY_FAMILIES, FAMILY_LABEL, bodyFamily, moduleFamily, type BodyFamily } from "./family.ts";
+import { attributesRefusal } from "./attributes.ts";
 import type { WeaponKind } from "../hands.ts";
 import {
   CHAIN_PITCH,
@@ -407,7 +408,9 @@ export function golemSetupRefusal(setup: GolemSetup): string | null {
       return `the ${socket} socket is fitted at durability ${JSON.stringify(durability)}, which is not a fraction above zero`;
     }
   }
-  return null;
+  // The stats, checked here for the reason durability is: this is where every build is checked,
+  // whether it came off the screen, out of a link, or out of a harness.
+  return attributesRefusal(setup.attributes);
 }
 
 /** The two effectors a build asks for, and which sockets they take. */

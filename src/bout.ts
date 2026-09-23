@@ -1,7 +1,8 @@
 // Explicit `.ts` extensions, and this file is the reason the convention exists
 // as much as it is a follower of it: `tests/bout.test.mjs` imports this module
 // directly under Node, with no DOM and no Babylon anywhere in its graph. The
-// value imports here are `config.ts`, `hands.ts` and `golem/family.ts`, and
+// value imports here are `config.ts`, `hands.ts`, `golem/family.ts` and
+// `golem/attributes.ts`, and
 // none of them reaches Babylon; `Side` and `HitKind` are types and erase.
 // `bout_loads_with_babylon_unresolvable` in `tests/bout.test.mjs` holds that by
 // loading this file with every `@babylonjs/` specifier made to throw, so a value
@@ -15,6 +16,9 @@ import { handsFor, isWeaponKind, type WeaponKind } from "./hands.ts";
 // it, for the same reason as `hands.ts` above. It is a table of families and
 // nothing that builds a body.
 import { isBodyFamily } from "./golem/family.ts";
+// `attributes.ts` imports nothing at all, for the same reason again: the link codec needs its list
+// of stat ids, and the list lives beside the table that says what each stat is.
+import { isAttributeId, type AttributeId, type AttributeSetting } from "./golem/attributes.ts";
 import type { Side } from "./physics.ts";
 import type { HitKind } from "./scoring.ts";
 
@@ -212,6 +216,16 @@ export interface GolemSetup {
    * Arena mode never sets it, so a bout off the setup screen is the bout it always was.
    */
   wear?: Readonly<Partial<Record<GolemWearSlot, number>>>;
+  /**
+   * The stats this body is built at, as multipliers on its own tuned values. Absent, or a stat
+   * absent from it, is x1 -- the body exactly as it was before attributes existed.
+   *
+   * Only stats somebody moved off 1 are written: `withGolemAttribute` deletes a key set back to 1
+   * and the field with its last key, so a default body writes no `attributes` into its link. What
+   * each stat scales, and which are live, is `src/golem/attributes.ts`; the range is checked by
+   * `golemSetupRefusal`, not here, because this module may not import the golem registry.
+   */
+  attributes?: AttributeSetting;
 }
 
 /** Which of a golem's slots a reducer is being pointed at. */
@@ -272,6 +286,7 @@ const copyGolem = (setup: GolemSetup): GolemSetup => ({
   primary: { ...setup.primary },
   secondary: { ...setup.secondary },
   ...(setup.wear ? { wear: { ...setup.wear } } : {}),
+  ...(setup.attributes ? { attributes: { ...setup.attributes } } : {}),
 });
 
 /**
@@ -486,6 +501,34 @@ export function withGolemEffector(
 }
 
 /**
+ * Set one of a golem's stats, as a multiplier on its own tuned value.
+ *
+ * A stat set back to 1 is deleted rather than stored, and the field goes with its last key, so a
+ * body at its defaults is the same object -- and the same link -- as one that was never touched.
+ * The seed survives: a stat is a tuning of the body that was drawn, not a different draw, which is
+ * the opposite of `withGolemSlot`. The range is not checked here; `golemSetupRefusal` checks it, and
+ * a screen asks that before it lets a bout start. Refused, by returning exactly the matchup it was
+ * handed, for a corner that is not an assembled unit.
+ */
+export function withGolemAttribute(
+  matchup: Matchup,
+  side: Side,
+  id: AttributeId,
+  value: number,
+): Matchup {
+  if (!matchup[side].golem) return matchup;
+  const next = copy(matchup);
+  const build = next[side].golem;
+  if (!build) return matchup;
+  const attributes: Partial<Record<AttributeId, number>> = { ...build.attributes };
+  if (value === 1) delete attributes[id];
+  else attributes[id] = value;
+  if (Object.keys(attributes).length > 0) build.attributes = attributes;
+  else delete build.attributes;
+  return next;
+}
+
+/**
  * Put a whole build in a golem corner, and record where it came from.
  *
  * The Randomize button, and the one reducer that *sets* `SideSetup.seed` rather than dropping
@@ -605,6 +648,24 @@ const readWear = (value: unknown): GolemSetup["wear"] | null => {
   return wear;
 };
 
+/**
+ * A body's stats, refused by shape.
+ *
+ * A stat this game does not have, or a value that is not a finite number, is a link that does not
+ * describe a golem. Whether a *number* is in range is `golemSetupRefusal`'s question, asked of every
+ * build wherever it came from, so it is not asked twice here.
+ */
+const readAttributes = (value: unknown): AttributeSetting | null => {
+  if (!isRecord(value)) return null;
+  const attributes: Partial<Record<AttributeId, number>> = {};
+  for (const [id, found] of Object.entries(value)) {
+    if (!isAttributeId(id)) return null;
+    if (typeof found !== "number" || !Number.isFinite(found)) return null;
+    attributes[id] = found;
+  }
+  return attributes;
+};
+
 const readGolem = (value: unknown): GolemSetup | null => {
   if (!isRecord(value)) return null;
   if (typeof value.locomotion !== "string" || typeof value.torso !== "string"
@@ -622,6 +683,11 @@ const readGolem = (value: unknown): GolemSetup | null => {
     const wear = readWear(value.wear);
     if (!wear) return null;
     golem.wear = wear;
+  }
+  if (value.attributes !== undefined) {
+    const attributes = readAttributes(value.attributes);
+    if (!attributes) return null;
+    golem.attributes = attributes;
   }
   return golem;
 };

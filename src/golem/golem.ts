@@ -45,6 +45,7 @@ import {
   type GolemEffectorOption,
 } from "./build.ts";
 import { GOLEM_ASSEMBLY } from "./config.ts";
+import { resolveAttributes, type Attributes } from "./attributes.ts";
 import { GolemControlEndpoint } from "./golem-control.ts";
 import { hobble, locomotionCommand, type BuiltLocomotion } from "./locomotion.ts";
 import { dressGolemPart } from "./appearance.ts";
@@ -275,6 +276,13 @@ export class Golem implements Combatant {
 
   private readonly materials: GolemMaterialPalette;
   /**
+   * The stats this body was built at, resolved once from its setup and handed to every module
+   * through `ModuleBuild.attributes`. Public for the readout: the HUD shows what a body was built
+   * at. **Not** published in `FighterView` -- no mind reads a stat yet, and a view field with no
+   * reader drifts.
+   */
+  readonly attributes: Attributes;
+  /**
    * This body's motor tone, handed to every module through `ModuleBuild.tone` and set once a
    * substep by `motorTone`.
    */
@@ -334,6 +342,7 @@ export class Golem implements Combatant {
     this.side = options.side;
     this.actorId = options.actorId;
     const setup = options.setup;
+    this.attributes = resolveAttributes(setup);
     const name = options.actorId ? `${options.actorId}.golem` : `${options.side}.golem`;
     const layers = golemLayersFor(options.side);
     // **`procedural-pbr`, so that wear is visible at all.** The salvaged damage-wear shader is what
@@ -384,6 +393,7 @@ export class Golem implements Combatant {
       materials: this.materials,
       world: options.locomotionWorld,
       tone: this.tone,
+      attributes: this.attributes,
     });
 
     // --- locomotion, then the torso on its root, then the head and both effectors -------------
