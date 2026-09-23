@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { biteFloorJ, biteMechanism, cutEnergyJ, impactEnergyJ, scoreHit,
-  severs } from "../src/scoring.ts";
+import { armourAgainst, armouredDamage, biteFloorJ, biteMechanism, cutEnergyJ, impactEnergyJ,
+  scoreHit, severs } from "../src/scoring.ts";
 import { CONFIG } from "../src/config.ts";
 import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
+import { TERMINAL_BLADE, TERMINAL_MACE } from "../src/golem/config.ts";
+import { RIBCAGE, SKELETAL_REACH, SKELETON_ARMOUR } from "../src/golem/skeleton/body.ts";
 
 const T = CONFIG.combat;
 
@@ -876,4 +878,45 @@ test("a_club_is_never_paid_for_a_slide_whatever_the_dial_says", () => {
         `${kind} is charged for its press alone`);
     }
   });
+});
+
+// ---- bone ------------------------------------------------------------------
+
+/**
+ * A club does relatively better against bone than against a person, and better again on the
+ * ribcage.
+ *
+ * The overview's table as arithmetic, so a later change to the skeleton's masses or to
+ * `SKELETON_ARMOUR` has to face it. Two things move the ratio and both are in here. Bone turns
+ * half an edge and none of a club. And a part light enough to run away from a blow takes little
+ * more from a heavy head than from a light edge, because the reduced mass saturates at the part's
+ * own: so the ratio climbs with the part's mass, and the 10 kg ribcage is where a mace pulls
+ * furthest ahead of a blade. A person's armour is one fraction for every blow, so on the human
+ * forearm the ratio is the energies' alone. On 2026-09-22 the three ratios were 0.695 on a skeleton
+ * forearm, 0.455 on a human's and 1.186 on the ribcage: the overview's 0.69, 0.45 and above 1.
+ *
+ * The human forearm is written out, as `LINK` and `CORE` are above: `MASSES` in
+ * `src/golem/humanoid/arm.ts` is not exported, and the person is the control here rather than the
+ * thing being tuned. The skeleton's masses and armour are imported, because they are.
+ */
+test("blunt_is_relatively_better_against_bone", () => {
+  const HUMAN_FOREARM_KG = 2.0;
+  const HUMAN_ARMOUR = 0.35;
+  const hit = (strikerMassKg, partMassKg, by) => scoreHit({ closingSpeed: 10, strikerMassKg,
+    partMassKg, edgeAlignment: 1, bladeAlignment: 0, nearTip: false }, by);
+  const maceOverBlade = (partMassKg, armour) => {
+    const blade = hit(TERMINAL_BLADE.mass, partMassKg, "sword");
+    const mace = hit(TERMINAL_MACE.mass, partMassKg, "club");
+    assert.deepEqual([blade.kind, mace.kind], ["cut", "crush"], `on ${partMassKg} kg`);
+    return armouredDamage(mace.damage, armour(mace.kind))
+      / armouredDamage(blade.damage, armour(blade.kind));
+  };
+  const bone = (kind) => armourAgainst(SKELETON_ARMOUR, kind);
+  const skeletonForearm = maceOverBlade(SKELETAL_REACH.foreMass, bone);
+  const humanForearm = maceOverBlade(HUMAN_FOREARM_KG, () => HUMAN_ARMOUR);
+  const ribcage = maceOverBlade(RIBCAGE.coreMass, bone);
+  assert.ok(skeletonForearm > humanForearm,
+    `mace / blade is ${skeletonForearm.toFixed(3)} on a skeleton forearm and ${humanForearm.toFixed(3)} on a human's`);
+  assert.ok(ribcage > skeletonForearm,
+    `mace / blade is ${ribcage.toFixed(3)} on the ribcage and ${skeletonForearm.toFixed(3)} on a skeleton forearm`);
 });

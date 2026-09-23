@@ -237,8 +237,11 @@ Pin what the owner asked for, as rates over several seeds, not as counts from on
    than against the human forearm, and higher again on the ribcage. This is the overview's table
    as a test, so a later change to either table has to face it. Mutation: set `crush` equal to
    `cut` and watch it go red.
-2. In `tests/golem-arena.test.mjs`: `a_skeleton_limb_costs_less_of_the_bar_than_its_stone_twin`.
-   Sever a skeleton's primary arm, head and one leg (the leg kills), each on a fresh stand. Sever
+2. In `tests/golem-arena.test.mjs`:
+   `a_skeleton_arm_costs_under_a_third_its_skull_less_than_a_stone_head_and_a_leg_ends_it`. It does
+   not claim the arm is cheaper than stone's, because it is not: `Golem.scaleVitality` spreads the
+   lighter head's share over every other piece, and the upper arm is 0.288 of a skeleton's bar
+   against 0.266 of stone's. Sever a skeleton's primary arm, head and one leg (the leg kills), each on a fresh stand. Sever
    the head through the skull, not the neck: `Golem.sever` zeroes only the piece struck, and the
    skull is the dearer of the two. Assert that the arm costs under a third of the bar, which is
    the rule the stone arm test states. Assert that the head costs less than a stone head's sever
@@ -276,7 +279,7 @@ it. Give the owner the report, not a summary of it.
 8. **A hit effect for bone** (dust or chips). `src/damage-feedback.ts` is one stone burst for
    every body. Nothing bleeds: `src/blood.ts` defines `Blood` and nothing imports it.
 9. **The framework's name**. "Golem" is now the name of one of three families. A rename is its own
-   change, about 4,900 occurrences in 171 files.
+   change: 5,226 occurrences in 179 files under `src/` and `tests/` on 2026-09-22.
 
 ## Verification
 

@@ -756,6 +756,51 @@ test("severing_the_spine_ends_a_skeleton", async (t) => {
 });
 
 /**
+ * A skeleton's arm costs under a third of the bar, its skull less than a stone head, and a leg
+ * ends it.
+ *
+ * `Golem.sever` zeroes only the piece the blow found, so what a sever costs is that piece's share
+ * of the bar. The arm is severed through its dearest piece, which is the most one arm sever can
+ * cost, and it must cost under a third: the rule
+ * `a_severed_arm_costs_capability_rather_than_most_of_the_vitality_bar` states for stone. It is not
+ * asserted to cost less than stone's arm, because it does not: the skull and neck carry less of
+ * the bar than stone's head, `Golem.scaleVitality` spreads the difference over every other piece,
+ * and on 2026-09-22 the upper arm was the dearest in both bodies at 0.288 of a skeleton's bar
+ * against 0.266 of stone's. The head is severed through the skull, the dearer of its two pieces,
+ * and must cost less than a stone head's sever (0.144 against 0.443 that day), measured here on a
+ * stone stand rather than written as a bound, because the weights are what gets tuned. A leg
+ * belongs to the locomotion module, which carries the fatal pelvis, so it ends the fight: the
+ * owner's rule, which they may revisit. Each on a fresh stand.
+ */
+test("a_skeleton_arm_costs_under_a_third_its_skull_less_than_a_stone_head_and_a_leg_ends_it", async (t) => {
+  const sever = async (setup, module, pick) => {
+    const stand = await standAGolem(t, { setup });
+    stand.run(1.0);
+    const struck = pick(moduleLimbs(stand.golem, module));
+    assert.ok(struck, `no piece to sever in ${module}`);
+    const before = vitality(stand.golem.limbs);
+    stand.golem.sever(struck, new Vector3(1, 0.2, 0));
+    return { golem: stand.golem, struck, cost: before - vitality(stand.golem.limbs) };
+  };
+  const dearest = (limbs) => limbs.reduce((a, b) => (b.vitalityWeight > a.vitalityWeight ? b : a));
+
+  const arm = await sever(skeletonSetup(), "primary", dearest);
+  assert.ok(arm.cost < 1 / 3, `severing the skeleton's arm at ${arm.struck.key} cost ${arm.cost.toFixed(3)}`);
+  assert.equal(arm.golem.alive, true);
+
+  const skull = await sever(skeletonSetup(), "head", (limbs) => limbs.find((limb) => limb.key.endsWith(".head")));
+  const stone = await sever(defaultGolemSetup(), "head", (limbs) => limbs.find((limb) => limb.fatal === true));
+  assert.ok(skull.cost < stone.cost,
+    `a skull costs ${skull.cost.toFixed(3)} of the bar and a stone head ${stone.cost.toFixed(3)}`);
+  assert.equal(skull.golem.alive, true);
+  assert.equal(beaten(skull.golem.limbs), false);
+
+  const leg = await sever(skeletonSetup(), "legs", (limbs) => limbs.find((limb) => limb.key.endsWith(".thighL")));
+  assert.equal(leg.golem.alive, false, "a skeleton stood on after losing a leg");
+  assert.equal(beaten(leg.golem.limbs), true);
+});
+
+/**
  * A headless skeleton is aimed at from its neck socket; a headless stone golem is a corpse whose
  * published crown stays where it was built.
  *
