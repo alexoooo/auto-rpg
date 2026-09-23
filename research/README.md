@@ -40,6 +40,11 @@ Completed jobs are appended immediately. Interrupted jobs remain pending. A fail
 with its error, never counted as a draw and never silently dropped. Fix the cause and start a new
 experiment if a failure prevents a complete round. Do not run two commands against one directory.
 
+**Golem stats have their own sweep.** `research/stat-sweep.mjs --stat <id>` plays one golem
+attribute at several multipliers against an unmodified body, on the same worker lanes, and
+`--edge <named build>` plays a whole build instead as a known-answer check. How to read its
+tables, and every table taken so far, is `docs/analysis/2026-09-23-attribute-measurements.md`.
+
 ## What is measured
 
 Harness: `tests/harness/bout-runner.mjs`, supported locomotion, a fresh wasm instance per bout,
