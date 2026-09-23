@@ -324,14 +324,34 @@ export function randomGolemSetup(rng: () => number, family: BodyFamily = "golem"
 }
 
 /**
- * One line a person can read a build off, for the screen's caption and the tournament's log.
+ * One line a person can read a build off: `golemBuildRows`, joined. What reads it today is a failing
+ * test's message and `describeNamedBuild` in `roster.ts`.
  *
  * Short words rather than the registry's labels, because a label like "wrist - reach plus roll
- * and bend" is written for a picker with one row to read and a caption has five. The chain's
+ * and bend" is written for a picker with one row to read and a build line has five. The chain's
  * name is the word before its dash; a terminal is its own label; a capped chain says so; a maul
  * says it is in both hands, because that is the one build whose two sockets are one thing.
  */
 export function describeGolemSetup(setup: GolemSetup): string {
+  const rows = golemBuildRows(setup);
+  const text = (slot: GolemBuildRow["slot"]): string => rows.find((row) => row.slot === slot)?.text ?? "";
+  const secondary = rows.find((row) => row.slot === "secondary");
+  const arms = secondary ? `${text("primary")}, ${secondary.text}` : `${text("primary")} in both hands`;
+  return [text("locomotion"), text("torso"), text("head")].join(", ") + `; ${arms}`;
+}
+
+/** One row of a build as the setup screen lists it: which part, and its short name. */
+export interface GolemBuildRow {
+  readonly slot: GolemBuildSlot;
+  readonly text: string;
+}
+
+/**
+ * A build one row per part, for the setup screen's panel, and the words `describeGolemSetup` joins
+ * into its line. A two-handed primary is one row and there is no secondary row, because its two
+ * sockets are one thing; the row does not say "both hands" itself, so each reader phrases it.
+ */
+export function golemBuildRows(setup: GolemSetup): readonly GolemBuildRow[] {
   const short = (label: string): string => label.split(" - ")[0];
   const slot = (id: string, options: readonly GolemSlotOption[]): string =>
     short(options.find((option) => option.id === id)?.label ?? id);
@@ -340,15 +360,14 @@ export function describeGolemSetup(setup: GolemSetup): string {
     if (pick.terminal === NO_TERMINAL) return `${chain}, capped`;
     return `${chain} + ${slot(pick.terminal, golemTerminalOptions(pick.chain))}`;
   };
-  const primary = golemEffector(setup.primary.chain, setup.primary.terminal);
-  const arms = primary?.sockets === 2
-    ? `${hand(setup.primary)} in both hands`
-    : `${hand(setup.primary)}, ${hand(setup.secondary)}`;
+  const both = golemEffector(setup.primary.chain, setup.primary.terminal)?.sockets === 2;
   return [
-    slot(setup.locomotion, golemLocomotionOptions()),
-    slot(setup.torso, golemTorsoOptions()),
-    slot(setup.head, golemHeadOptions()),
-  ].join(", ") + `; ${arms}`;
+    { slot: "locomotion", text: slot(setup.locomotion, golemLocomotionOptions()) },
+    { slot: "torso", text: slot(setup.torso, golemTorsoOptions()) },
+    { slot: "head", text: slot(setup.head, golemHeadOptions()) },
+    { slot: "primary", text: hand(setup.primary) },
+    ...(both ? [] : [{ slot: "secondary", text: hand(setup.secondary) } as const]),
+  ];
 }
 
 /** "a", "a or b", "a, b or c": a list of choices as a sentence says it. */

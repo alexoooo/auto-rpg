@@ -386,10 +386,8 @@ directly under `node`. It is how a body gets measured without a person watching.
   have. The body side moved onto it, a mind wrote it, every test drove it -- and the *host* side
   was left behind: `Controls.state.natural` was initialised in the field list and never assigned
   again, and `splitMind` took `natural` from the policy, so even a written one would have been
-  discarded. The setup screen offers the "you" radio for either side whatever the body, so
-  somebody could take a head-butting golem, walk it around, and find the attack button dead. This
-  is the
-  same shape as the unread-field rule above, pointed the other way: a field nothing *writes* is
+  discarded. A person can take either side whatever the body, so somebody could take a
+  head-butting golem, walk it around, and find the attack button dead. This is the same shape as the unread-field rule above, pointed the other way: a field nothing *writes* is
   as broken as one nothing reads, and it is harder to see because the type checks and the tests
   that drive it by hand all pass. `applyButtonPose` in `src/buttons.ts` owns the mapping now --
   one press onto the acting hand and the natural striker together -- because `input.ts` cannot

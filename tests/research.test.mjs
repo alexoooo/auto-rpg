@@ -7,7 +7,7 @@ import { initialRating, updateRating, ratePeriod } from "../research/rating.mjs"
 import { schedule, completeRounds, PROTOCOL } from "../research/schedule.mjs";
 import { runJobs, prepareRun, lockRun, retryFileLock } from "../research/runner.mjs";
 import { pairedComparison, bootstrap, comparisonJobs, trainingBuilds } from "../research/search.mjs";
-import { policyRatingLabel, policyRatingNote } from "../src/policy-rating.ts";
+import { policyRatingBadge, policyRatingLabel, policyRatingNote } from "../src/policy-rating.ts";
 import { candidateBounds, validateCandidate, SEARCH_FIELDS, SEARCH_PARENTS } from "../src/golem/research-candidates.ts";
 import { NAMED_BUILDS } from "../src/golem/roster.ts";
 import { fingerprint } from "../research/fingerprint.mjs";
@@ -139,6 +139,9 @@ test("selector labels retain dated measurements after simulation and policy chan
   assert.equal(policyRatingLabel("a", "A", data), "A — 1538 · 2026-09-20 (provisional)");
   assert.equal(policyRatingLabel("missing", "New", data), "New — unrated");
   assert.equal(policyRatingLabel("idle", "Idle", data), "Idle — unrated");
+  assert.equal(policyRatingBadge("a", data), "1538 provisional");
+  assert.equal(policyRatingBadge("missing", data), "unrated");
+  assert.equal(policyRatingBadge("idle", data), "unrated");
   assert.match(policyRatingNote("a", data, "current"), /528 bouts/);
   assert.doesNotMatch(policyRatingNote("a", data, "current"), /has changed/);
   assert.match(policyRatingNote("a", data, "changed"), /Last evaluated 2026-09-20.*528 bouts.*last measured rating is shown/);
@@ -146,6 +149,7 @@ test("selector labels retain dated measurements after simulation and policy chan
   assert.equal(policyRatingLabel("a", "A", data), "A — 1538 · 2026-09-20 (provisional)");
   data.policies.a.provisional = false;
   assert.equal(policyRatingLabel("a", "A", data), "A — 1538 · 2026-09-20");
+  assert.equal(policyRatingBadge("a", data), "1538");
   data.fingerprint = "current";
   data.policies.a.policyVersion = "parameters-v1";
   assert.equal(policyRatingLabel("a", "A", data), "A — 1538 · 2026-09-20");
@@ -153,6 +157,7 @@ test("selector labels retain dated measurements after simulation and policy chan
   assert.doesNotMatch(policyRatingNote("a", data, "current", "parameters-v1"), /has changed/);
   data.version = 2;
   assert.equal(policyRatingLabel("a", "A", data), "A — unrated");
+  assert.equal(policyRatingBadge("a", data), "unrated");
   assert.match(policyRatingNote("a", data, "current"), /^Unrated:/);
 });
 

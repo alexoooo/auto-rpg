@@ -332,6 +332,17 @@ test("taking a body does not touch either side's policy", () => {
   assert.equal(swapped.matchup.right.policy, "swinger");
 });
 
+test("taking a body takes all of it, whatever split a link gave the corner", () => {
+  // Nothing on the page edits the split any more, so a Take that kept a link's "move" would
+  // leave half a body with no control anywhere that gives back the rest.
+  const half = withChannels(defaultMatchup(), "right", true, false);
+  const fighting = withControl(half, "left", "you");
+  assert.equal(fighting.right.channels, "move", "the fixture carries the split into the fight");
+  const taken = takeBody(begin(selectScreen(fighting), fighting), "right");
+  assert.equal(taken.matchup.right.control, "you");
+  assert.equal(taken.matchup.right.channels, "both");
+});
+
 test("taking a body is refused from the screen, where there is no body to take", () => {
   const screen = selectScreen(defaultMatchup());
   assert.equal(takeBody(screen, "right"), screen);

@@ -336,39 +336,8 @@ body {
   opacity: 0.75;
 }
 
-/* ---------- curtain ---------- */
+/* ---------- panels and actions, shared by setup, pause and help ---------- */
 
-/* A sheet along the bottom of a live arena rather than a wall in front of an empty one:
-   the two golems the sheet describes are standing behind it, and the point of the screen
-   since the matchup set's Session 03 is that you can see them. The gradient darkens the
-   floor of the frame under the sheet and leaves the middle, where the bodies are, alone. */
-#curtain {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  align-items: end;
-  justify-items: center;
-  background: linear-gradient(to bottom, rgba(6, 7, 9, 0.55) 0, rgba(6, 7, 9, 0) 18%,
-    rgba(6, 7, 9, 0) 48%, rgba(6, 7, 9, 0.78) 100%);
-  z-index: 10;
-  transition: opacity 260ms ease, visibility 260ms;
-}
-
-#curtain.gone {
-  opacity: 0;
-  visibility: hidden;
-}
-
-/* The fight's readouts -- tip speed, edge alignment, the vitality bars, the mode line and the
-   direct-control checkboxes -- are about a fight, and behind the sheet there is none yet. They
-   showed through the moment the curtain stopped being a wall, reading 0.0 over two golems
-   nobody had started. Hidden while the sheet is up, by the sheet's own state, so nothing in
-   `src/main.ts` has to know the HUD exists. */
-body:has(#curtain:not(.gone)) #hud,
-body:has(#curtain:not(.gone)) #mode,
-body:has(#curtain:not(.gone)) #direct-controls {
-  visibility: hidden;
-}
 
 .panel {
   max-width: 470px;
@@ -498,298 +467,633 @@ body:has(#curtain:not(.gone)) #direct-controls {
 
 /* ---------- the setup screen ---------- */
 
-/* The sheet: as wide as the window, sitting on its bottom edge, with a lede in one column
-   and two corners beside a Fight button. Help keeps its own width. */
-#curtain > .panel {
-  box-sizing: border-box;
-  max-width: none;
-  width: 100vw;
-  max-height: calc(100vh - 24px);
-  padding: 14px 26px 14px;
-  border-width: 1px 0 0;
-  border-radius: 0;
-  background: rgba(10, 11, 14, 0.74);
-  backdrop-filter: blur(6px);
+/* One grid over the live arena: the title across the top, a contender panel at each edge, and
+   the middle column left open -- the two bodies the panels describe are standing there -- with
+   Fight, the refusal line and a small footer at its foot. `#matchup` is `display: contents`, so
+   the panels and rows `src/setup.ts` builds are placed in this grid directly. Georgia throughout,
+   stone and gold; everything here is scoped to `#curtain`, because `#help` shares `.panel`,
+   `.keys` and `.action`. It has to fit a 1366x768 window without scrolling. */
+#curtain {
+  --gold: #d8b26a;
+  --gold-line: #b08a4e99;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(290px, 340px) minmax(0, 1fr) minmax(290px, 340px);
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  column-gap: 24px;
+  padding: 12px 18px 6px;
+  font-family: Georgia, "Times New Roman", serif;
+  /* Dark behind the panels and the title, clear in the middle where the bodies stand. */
+  background:
+    linear-gradient(to right, rgba(6, 7, 9, 0.72) 0, rgba(6, 7, 9, 0.3) 27%, rgba(6, 7, 9, 0) 36%,
+      rgba(6, 7, 9, 0) 64%, rgba(6, 7, 9, 0.3) 73%, rgba(6, 7, 9, 0.72) 100%),
+    linear-gradient(to bottom, rgba(6, 7, 9, 0.62) 0, rgba(6, 7, 9, 0) 15%,
+      rgba(6, 7, 9, 0) 72%, rgba(6, 7, 9, 0.72) 100%);
+  transition: opacity 260ms ease, visibility 260ms;
 }
 
-#curtain > .panel h1 {
-  margin: 0 0 4px;
-  font-size: 15px;
+#curtain.gone {
+  opacity: 0;
+  visibility: hidden;
 }
 
-#curtain > .panel .lede {
-  margin: 0 0 12px;
-  max-width: 960px;
-  font-size: 11.5px;
-  line-height: 1.5;
+/* The fight's readouts -- tip speed, edge alignment, the vitality bars, the mode line and the
+   direct-control checkboxes -- are about a fight, and behind the sheet there is none yet. They
+   showed through the moment the curtain stopped being a wall, reading 0.0 over two golems
+   nobody had started. Hidden while the sheet is up, by the sheet's own state, so nothing in
+   `src/main.ts` has to know the HUD exists. */
+body:has(#curtain:not(.gone)) #hud,
+body:has(#curtain:not(.gone)) #mode,
+body:has(#curtain:not(.gone)) #direct-controls {
+  visibility: hidden;
 }
 
 #matchup {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 0 0 12px;
+  display: contents;
 }
 
-#matchup > .corner {
-  min-width: 0;
-}
-
-/* The one line about the pair rather than about either corner: "these two cannot finish each
-   other". Full width for the same reason the bin row is -- it is under both corners because it is
-   about both of them -- and left alone otherwise, because a warning that shouts is a warning
-   somebody turns off. */
-.pair-note {
+#curtain .duel-title {
   grid-column: 1 / -1;
-  margin: 4px 0 0;
+  grid-row: 1;
+  margin-bottom: 8px;
+  text-align: center;
+  pointer-events: none;
 }
 
-/* The parts bin is one thing under two corners, because there is one of it: it is the browser's,
-   not a fighter's. Full width in the same grid rather than a sibling of it, so it stays inside
-   the element `src/setup.ts` owns and `index.html` goes on knowing nothing about salvage. */
-.bin-row {
-  grid-column: 1 / -1;
+#curtain .duel-title h1 {
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  margin: 0;
+  font-size: clamp(26px, 2.8vw, 38px);
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  color: #f1dfbc;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
 }
 
-.bin-row .note {
-  margin: 6px 0 9px;
-  text-align: left;
+#curtain .duel-title h1::before,
+#curtain .duel-title h1::after {
+  content: "";
+  width: clamp(40px, 7vw, 110px);
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold));
 }
 
-@media (max-width: 700px) {
-  #matchup {
-    grid-template-columns: 1fr;
-  }
-
-  #curtain > .panel {
-    padding: 12px 14px;
-  }
+#curtain .duel-title h1::after {
+  background: linear-gradient(to left, transparent, var(--gold));
 }
 
-/* Tucked up under the two corners it describes, and set ragged rather than
-   centred: it is two sentences about two things, and centring it makes the
-   eye hunt for where each one starts. */
-#policies {
-  margin: -4px 0 10px;
-  text-align: left;
-  line-height: 1.55;
-}
-
-/* The build, in one line, and where it came from. The caption is the whole answer to "what
-   is that" -- it is what the owner's gate for the screen asks -- so it is the ink's colour and
-   the corner's largest text; the seed under it is a number for a bug report, and dim. */
-.caption {
-  margin: 6px 0 0;
-  color: var(--ink);
-  font-size: 12.5px;
-  line-height: 1.45;
-  min-height: 18px;
-}
-
-.seed-note {
-  margin: 1px 0 0;
+#curtain .duel-title p {
+  margin: 2px 0 0;
   color: var(--dim);
-  font-size: 10.5px;
-  min-height: 14px;
+  font-size: 13px;
+  font-style: italic;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 
-.corner-actions {
+/* A contender: a stone panel with a gold hairline, a darker inner line, and four gold corner
+   brackets drawn by the pseudo-element. As tall as the grid allows, with its two buttons pushed to
+   the foot, and scrolling inside itself -- never the page -- when Customize makes it taller. */
+#curtain .contender {
+  position: relative;
   display: flex;
-  gap: 7px;
-  margin-top: 8px;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--gold-line);
+  background:
+    radial-gradient(120% 50% at 50% 0%, rgba(52, 56, 61, 0.55), transparent 70%),
+    linear-gradient(165deg, rgba(31, 35, 39, 0.95), rgba(17, 20, 23, 0.95) 55%, rgba(26, 25, 22, 0.95));
+  box-shadow: inset 0 0 0 3px #0d0f12, inset 0 0 0 4px rgba(181, 139, 70, 0.2),
+    0 18px 60px rgba(0, 0, 0, 0.6);
+  scrollbar-width: thin;
+  scrollbar-color: #6b5a3c transparent;
 }
 
-.corner-actions .action {
-  width: auto;
-  padding: 7px 12px;
+#curtain .contender[data-side="left"] {
+  grid-column: 1;
+  grid-row: 2 / -1;
+}
+
+#curtain .contender[data-side="right"] {
+  grid-column: 3;
+  grid-row: 2 / -1;
+}
+
+#curtain .contender::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--gold), var(--gold)) top left / 16px 1px,
+    linear-gradient(var(--gold), var(--gold)) top left / 1px 16px,
+    linear-gradient(var(--gold), var(--gold)) top right / 16px 1px,
+    linear-gradient(var(--gold), var(--gold)) top right / 1px 16px,
+    linear-gradient(var(--gold), var(--gold)) bottom left / 16px 1px,
+    linear-gradient(var(--gold), var(--gold)) bottom left / 1px 16px,
+    linear-gradient(var(--gold), var(--gold)) bottom right / 16px 1px,
+    linear-gradient(var(--gold), var(--gold)) bottom right / 1px 16px;
+  background-repeat: no-repeat;
+}
+
+#curtain .contender-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#curtain .contender-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f1dfbc;
+}
+
+#curtain .seed-note {
+  margin: 0;
+  min-height: 0;
+  color: var(--dim);
+  font-family: var(--font);
+  font-size: 10px;
+}
+
+/* Gold small caps with a rule running out to the panel's edge. The attributes' summary wears the
+   same head, with a disclosure mark, because it is the same kind of heading that happens to fold. */
+#curtain .section-head,
+#curtain .attributes > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 5px;
+  color: var(--gold);
   font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
-.corner-actions .action + .action {
-  margin-top: 0;
+#curtain .section-head::after,
+#curtain .attributes > summary::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, rgba(176, 138, 78, 0.6), transparent);
 }
 
-/* Policy and control side by side under the buttons: two short fields, and stacking them
-   would push the Fight button down for nothing. */
-.corner-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: end;
-}
-
-/* The nine slot pickers, behind the Customize toggle, in a grid of their own so a corner
-   with them open is wide rather than tall. */
-.customize {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0 10px;
-  margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid var(--edge);
-}
-
-.customize[hidden] {
-  display: none;
-}
-
-/* The attribute rows (`src/attributes-ui.ts`): name, slider, x-value and reset on one line, and a
-   stat nobody has measured yet as one dim line naming itself. Four columns with the slider the only
-   one that gives, so a corner at phone width narrows the slider rather than scrolling. */
-.attributes {
-  margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px solid var(--edge);
-}
-
-.attributes[hidden] {
-  display: none;
-}
-
-.attributes summary {
+#curtain .attributes > summary {
+  list-style: none;
   cursor: pointer;
 }
 
-.attribute-row {
-  display: grid;
-  grid-template-columns: minmax(58px, auto) minmax(0, 1fr) 3.4em auto;
-  gap: 8px;
-  align-items: center;
-  margin-top: 3px;
-  font-size: 11px;
+#curtain .attributes > summary::-webkit-details-marker {
+  display: none;
 }
 
-.attribute-row input[type="range"] {
+#curtain .attributes > summary::before {
+  content: "\25B8";
+  font-size: 10px;
+}
+
+#curtain .attributes[open] > summary::before {
+  content: "\25BE";
+}
+
+/* The body family, as one control of three segments. */
+#curtain .segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid rgba(142, 113, 63, 0.7);
+}
+
+#curtain .segment {
+  padding: 6px 4px;
+  font: inherit;
+  font-size: 12px;
+  color: #cfc6b4;
+  background: #13171b;
+  border: 0;
+  border-left: 1px solid rgba(142, 113, 63, 0.45);
+  cursor: pointer;
+}
+
+#curtain .segment:first-child {
+  border-left: 0;
+}
+
+#curtain .segment:hover {
+  color: #fff1cc;
+  background: #1d2227;
+}
+
+#curtain .segment.active {
+  color: #1d150b;
+  background: linear-gradient(#e2bb72, #a87b3b);
+}
+
+#curtain .build-rows {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#curtain .build-rows li {
+  display: grid;
+  grid-template-columns: 16px 82px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+}
+
+#curtain .build-rows li > .build-text:only-child {
+  grid-column: 1 / -1;
+}
+
+#curtain .glyph {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#curtain .build-slot {
+  white-space: nowrap;
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#curtain .build-text {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The nine slot pickers, one per row with the label beside it, in place of the build rows. */
+#curtain .customize {
+  display: grid;
+  gap: 2px;
+}
+
+#curtain .field {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+#curtain .field[hidden] {
+  display: none;
+}
+
+#curtain .field-name {
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#curtain select {
+  box-sizing: border-box;
   min-width: 0;
   width: 100%;
-  margin: 0;
-  accent-color: var(--hot);
+  padding: 2px 5px;
+  font: inherit;
+  font-size: 12px;
+  color: #e7dfd0;
+  background: #13171b;
+  border: 1px solid rgba(142, 113, 63, 0.45);
+  border-radius: 2px;
+  cursor: pointer;
 }
 
-.attribute-value {
+/* The attribute rows (`src/attributes-ui.ts`): name, slider, x-value and reset on one line, and a
+   stat nobody has measured yet as one dim line naming itself. */
+#curtain .attributes[hidden] {
+  display: none;
+}
+
+#curtain .attribute-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 3.3em auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
+  font-size: 12px;
+}
+
+#curtain .attribute-row input[type="range"] {
+  min-width: 0;
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--gold);
+}
+
+#curtain .attribute-value {
   color: var(--ink);
+  font-family: var(--font);
+  font-size: 11px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.attribute-row.pending {
+#curtain .attribute-row.pending {
   color: var(--dim);
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
-.attribute-pending {
+#curtain .attribute-pending {
   grid-column: 2 / -1;
-  font-size: 10px;
+  font-size: 11px;
+  font-style: italic;
 }
 
-.attribute-reset {
+#curtain .attribute-reset {
+  padding: 0 5px;
   font: inherit;
   font-size: 10px;
   color: var(--dim);
   background: transparent;
-  border: 1px solid var(--edge);
-  border-radius: 4px;
-  padding: 1px 6px;
+  border: 1px solid rgba(142, 113, 63, 0.4);
+  border-radius: 2px;
   cursor: pointer;
 }
 
-.attribute-reset:disabled {
-  opacity: 0.35;
+#curtain .attribute-reset:disabled {
+  opacity: 0.3;
   cursor: default;
 }
 
-.attribute-reset.all {
-  margin-top: 6px;
+#curtain .attribute-reset.all {
+  margin-top: 4px;
 }
 
-#policies b {
-  color: var(--ink);
-  font-weight: 600;
+#curtain .policy-select {
+  padding: 5px 6px;
+  font-size: 13px;
 }
 
-.corner {
-  border: 1px solid var(--edge);
-  border-radius: 6px;
-  padding: 9px 11px 12px;
-  background: rgba(255, 255, 255, 0.022);
+#curtain .policy-line {
+  min-height: 2.7em;
+  margin: 5px 0 0;
+  color: #cfc6b4;
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.35;
 }
 
-.corner-title {
-  color: var(--hot);
-  text-transform: uppercase;
-  letter-spacing: 0.11em;
-  font-size: 9.5px;
-  opacity: 0.75;
-}
-
-/* Label above control rather than beside it. Two of these sit side by side
-   inside a panel that is already as wide as it should be, and a label column
-   wide enough for "Control" leaves the select too narrow to read a unit name
-   out of. */
-.field {
+#curtain .policy-meta {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
 }
 
-/* A corner shows either two hand pickers or five slot pickers, never both: a Warrior carries
-   equipment and a golem is assembled, and the two vocabularies describe different bodies. The
-   `hidden` attribute alone would not do it -- its user-agent `display: none` loses to the rule
-   above -- so the two live together and this is what makes `hidden` mean hidden. */
-.field[hidden] {
-  display: none;
+/* The rating, with everything else the league knows about it in the tooltip; red when the policy
+   cannot drive this body, with the reason in the same place. */
+#curtain .rating-badge {
+  padding: 1px 8px;
+  color: #f1dfbc;
+  font-family: var(--font);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  background: #2a2217;
+  border: 1px solid var(--gold-line);
+  cursor: help;
 }
 
-.field-name {
-  color: var(--dim);
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  font-size: 9.5px;
+#curtain .rating-badge::before {
+  content: "\25C6  ";
+  color: var(--gold);
 }
 
-.field select {
-  box-sizing: border-box;
-  min-width: 0;
-  width: 100%;
-  font: inherit;
-  font-size: 11.5px;
-  color: var(--ink);
-  background: rgba(0, 0, 0, 0.42);
-  border: 1px solid var(--edge);
-  border-radius: 4px;
-  padding: 3px 5px;
-  cursor: pointer;
+#curtain .rating-badge.warn {
+  color: #ffd9cf;
+  background: #3a1a14;
+  border-color: var(--bad);
 }
 
-.choice {
-  display: flex;
-  gap: 12px;
-  color: var(--dim);
-  font-size: 11.5px;
+#curtain .rating-badge.warn::before {
+  color: var(--bad);
 }
 
-.choice label {
+#curtain .show-all {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  color: var(--dim);
+  font-size: 11px;
   cursor: pointer;
 }
 
-.choice input {
-  accent-color: var(--hot);
+#curtain .show-all input {
   margin: 0;
+  accent-color: var(--gold);
 }
 
-/* The panel gained a matchup and is now tall enough to reach the bottom of a
-   laptop window, and a Fight button below the fold is a Fight button that does
-   not exist. The panel scrolls rather than the curtain, because a grid with
-   `place-items: center` clips its child at the *top* once the child is taller
-   than the cell, so scrolling the curtain would hide the title instead.
+#curtain .contender-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+}
 
-   The key list moving to `#help` is most of what made the panel tall, so this
-   rule now rarely fires. It is kept because a small window still exists and
-   because the failure it prevents is silent. */
+#curtain .contender-actions .action {
+  margin: 0;
+  padding: 8px 6px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* The parts bin, over the foot of the open centre and only while a panel is customizing. */
+#curtain .bin-row {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  justify-self: center;
+  width: min(520px, 100%);
+  margin-bottom: 10px;
+  padding: 8px 14px 10px;
+  text-align: center;
+  background: rgba(14, 17, 20, 0.9);
+  border: 1px solid var(--gold-line);
+}
+
+#curtain .bin-row .section-head {
+  margin-top: 0;
+}
+
+#curtain .bin-row .note {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+#curtain .bin-row .action {
+  width: auto;
+  padding: 6px 14px;
+  font-size: 11px;
+}
+
+#begin {
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: center;
+  width: auto;
+  min-width: 260px;
+  margin: 0;
+  padding: 11px 48px;
+  font: 30px Georgia, "Times New Roman", serif;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #2a1a08;
+  background: linear-gradient(#f0cf86, #c4913f 55%, #8f6427);
+  border: 1px solid #f3d99a;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 2px #5a3d17, inset 0 0 0 3px rgba(245, 220, 159, 0.5),
+    0 10px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(216, 165, 74, 0.28);
+  text-shadow: 0 1px 0 rgba(247, 226, 176, 0.4);
+}
+
+#begin:hover {
+  color: #2a1a08;
+  background: linear-gradient(#f7dc9c, #d29f4c 55%, #9c6f2e);
+}
+
+#begin:disabled {
+  color: #6b604f;
+  background: linear-gradient(#4a4336, #2d2922);
+  border-color: #6b5a3c;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+/* Why Fight is disabled, in one line under it, rather than only in the greyed button's title. */
+#curtain .refusal {
+  grid-column: 2;
+  grid-row: 4;
+  justify-self: center;
+  max-width: 560px;
+  margin: 6px 0 0;
+  color: #f0a896;
+  font-size: 12px;
+  text-align: center;
+}
+
+#curtain .duel-footer {
+  grid-column: 2;
+  grid-row: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-width: 0;
+  padding: 8px 0 2px;
+  font-size: 12.5px;
+}
+
+#curtain .duel-footer .note {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--dim);
+  font-family: var(--font);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#curtain .duel-footer .note.notice {
+  white-space: normal;
+}
+
+#curtain .duel-footer .note.error {
+  color: var(--bad);
+  white-space: normal;
+}
+
+#curtain .duel-footer a,
+#curtain .link {
+  padding: 0;
+  font: inherit;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  text-decoration: none;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+#curtain .duel-footer a:hover,
+#curtain .link:hover {
+  color: #fff1cc;
+  text-decoration: underline;
+}
+
+@media (max-height: 740px) {
+  #curtain .section-head,
+  #curtain .attributes > summary {
+    margin: 7px 0 4px;
+  }
+
+  #curtain .contender {
+    padding: 11px 14px;
+  }
+
+  #begin {
+    padding: 8px 40px;
+    font-size: 26px;
+  }
+}
+
+/* A window too narrow for two columns and a gap: one scrolling column, in reading order. */
+@media (max-width: 820px) {
+  #curtain {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+    row-gap: 10px;
+    overflow-y: auto;
+  }
+
+  #curtain .duel-title,
+  #curtain .contender[data-side],
+  #curtain .bin-row,
+  #begin,
+  #curtain .refusal,
+  #curtain .duel-footer {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  #curtain .contender {
+    overflow: visible;
+  }
+}
+
+/* The help sheet is taller than a laptop window now that it lists the policies
+   too. The panel scrolls rather than its overlay, because a grid with
+   `place-items: center` clips its child at the *top* once the child is taller
+   than the cell, so scrolling the overlay would hide the title instead. */
 .panel {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
@@ -933,18 +1237,25 @@ body:has(#pause-menu:not(.gone)) #bout-end {
   max-width: 560px;
 }
 
-/* Ragged and quiet, under the button rather than over it: it is a pointer to a
-   list, not a control, and the one thing it must not do is compete with the
-   button it sits beneath. */
-.keys-hint {
-  margin-top: 14px;
-  opacity: 0.75;
+#help .panel h2 {
+  margin: 4px 0 10px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f1dfbc;
 }
 
-.keys-hint b {
-  color: var(--hot);
-  font-weight: 600;
+/* A policy's name is longer than a key's, so its column is wider; both wrap rather than overrun. */
+#help .policy-list {
+  grid-template-columns: 150px 1fr;
 }
+
+#help .keys dt {
+  white-space: normal;
+}
+
 #direct-controls {
   position: fixed;
   right: 1rem;

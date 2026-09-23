@@ -13,29 +13,13 @@
   background: linear-gradient(125deg, #1e2227f5, #101317f5 55%, #181a1cf5);
   box-shadow: inset 0 1px #e4be7320, 0 12px 40px #0006;
 }
-h1, .panel h1, #curtain > .panel h1 {
+h1, .panel h1 {
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: .16em;
   color: #f1dfbc;
 }
-#curtain > .panel {
-  width: min(1120px, calc(100vw - 40px));
-  margin-bottom: 20px;
-  padding: 22px 28px 18px;
-  border: 1px solid #aa834b80;
-  background: linear-gradient(115deg, #171c21f5, #101215f2 65%, #1c1b18f5);
-  box-shadow: inset 0 0 0 4px #111418, inset 0 0 0 5px #b58b4630, 0 16px 80px #0008;
-}
-#curtain > .panel h1 { font-size: clamp(22px, 2vw, 32px); margin-bottom: 8px; }
-#curtain > .panel .lede { max-width: none; font-size: 12px; }
-.corner, .bin-row {
-  border-color: #ad864442;
-  background: linear-gradient(140deg, #24282c70, #0c0e10a0);
-  border-radius: 2px;
-}
-.corner > label, .corner > legend { color: var(--hot); letter-spacing: .14em; }
 .action {
   border: 1px solid #ac824b;
   border-radius: 2px;
@@ -47,17 +31,10 @@ h1, .panel h1, #curtain > .panel h1 {
 .action.quiet { color: #d3d2ce; border-color: #777e83; background: linear-gradient(#30373d, #1a2025); }
 .action.quiet:hover { background: #3b4248; }
 .action:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #f0c97c; outline-offset: 3px; }
-#begin { font: 24px Georgia, serif; letter-spacing: .2em; text-transform: uppercase; padding: 13px; }
 select { border: 1px solid #8e713f70; border-radius: 2px; background-color: #13171b; color: #e7dfd0; }
 #picker b { color: #e8bc70; letter-spacing: .1em; text-transform: uppercase; }
 #picker, #readout { padding: 16px 18px; }
 #keys { color: #c4b9a5; }
-@media (max-height: 760px) {
-  #curtain > .panel { padding: 14px 20px; margin-bottom: 8px; }
-  #curtain > .panel .lede { font-size: 11px; }
-  #curtain > .panel h1 { font-size: 23px; }
-}
 @media (max-width: 700px) {
-  #curtain > .panel { width: calc(100vw - 16px); padding: 16px; margin-bottom: 8px; }
   #picker, #readout { font-size: 10px; padding: 8px; }
 }

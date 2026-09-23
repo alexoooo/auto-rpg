@@ -11,6 +11,7 @@ import {
   GOLEM_EFFECTORS,
   defaultGolemSetup,
   describeGolemSetup,
+  golemBuildRows,
   golemChainOptions,
   golemEffector,
   golemHeadOptions,
@@ -30,7 +31,6 @@ import {
   randomViableGolemSetup,
   randomViableOpponent,
   randomViablePair,
-  unviablePairNote,
   viableBuild,
   viableMirror,
   viablePair,
@@ -131,6 +131,22 @@ test("the_caption_names_every_slot_in_short_words_and_says_when_two_hands_hold_o
   }
 });
 
+test("the_setup_panel_lists_a_build_one_row_per_part_and_one_hand_row_for_a_two_handed_weapon", () => {
+  const rows = (setup) => golemBuildRows(setup).map(({ slot, text }) => `${slot}: ${text}`);
+  assert.deepEqual(rows(defaultGolemSetup()), [
+    "locomotion: biped", "torso: plain trunk", "head: plain head",
+    "primary: wrist + blade", "secondary: wrist + plate",
+  ]);
+  assert.deepEqual(rows({
+    ...defaultGolemSetup(),
+    primary: { chain: "reach", terminal: "maul" },
+    secondary: { chain: "reach", terminal: "maul" },
+  }), ["locomotion: biped", "torso: plain trunk", "head: plain head", "primary: reach + maul"],
+  "a maul's two sockets are one row");
+  assert.deepEqual(rows({ ...defaultGolemSetup(), secondary: { chain: "none", terminal: "none" } }).at(-1),
+    "secondary: none, capped");
+});
+
 test("the_showcase_matchup_names_a_unit_and_a_policy_the_registry_has", () => {
   const matchup = golemMatchup(defaultGolemSetup());
   for (const side of ["left", "right"]) {
@@ -138,7 +154,7 @@ test("the_showcase_matchup_names_a_unit_and_a_policy_the_registry_has", () => {
     assert.equal(definition.kind, "golem");
     assert.ok(definition.driverOptions.some((driver) => driver.name === matchup[side].policy),
       `the golem offers "${matchup[side].policy}"`);
-    assert.equal(definition.humanAdapter, true, "the control boxes are offered on a golem");
+    assert.equal(definition.humanAdapter, true, "a person can take a golem");
   }
 });
 
@@ -205,7 +221,6 @@ test("a_viable_pair_is_two_viable_bodies_that_the_pair_table_also_accepts", () =
     const [a, b] = randomViablePair(rng);
     assert.ok(viableBuild(a) && viableBuild(b));
     assert.ok(viablePair(a, b), `${armedTerminal(a)} vs ${armedTerminal(b)}`);
-    assert.equal(unviablePairNote(a, b), null);
   }
   assert.deepEqual(randomViablePair(mulberry32(7)), randomViablePair(mulberry32(7)));
 });
@@ -237,20 +252,3 @@ test("a_viable_mirror_is_a_body_that_can_finish_a_copy_of_itself", () => {
   assert.ok(mirrors > 0 && mirrors < drawn.length / 2, `${mirrors} of ${drawn.length} bodies mirror`);
 });
 
-test("a_hand_built_pair_the_predicate_refuses_is_captioned_rather_than_blocked", () => {
-  // The screen renders this string and decides nothing, so the sentence is asserted here -- there
-  // is no test of `src/setup.ts`, because the Node runner has no DOM.
-  const unarmed = {
-    ...defaultGolemSetup(),
-    primary: { chain: "none", terminal: "none" },
-    secondary: { chain: "none", terminal: "none" },
-  };
-  assert.equal(golemSetupRefusal(unarmed), null, "it is a build the arena will happily assemble");
-  // The body is one the class table admits -- a maul finishes it, which is the whole of why every
-  // class is in `VIABLE_TERMINALS` -- and the pair is one nothing can finish. That gap is the
-  // finding Session 01 measured, and it is what the caption on the screen is for.
-  assert.equal(viableBuild(unarmed), true);
-  assert.equal(viablePair(unarmed, unarmed), false);
-  assert.equal(unviablePairNote(unarmed, unarmed), "Older tests flagged this weapon pairing for stalemates; results may differ now.");
-  assert.equal(unviablePairNote(defaultGolemSetup(), defaultGolemSetup()), unviablePairNote(unarmed, unarmed));
-});

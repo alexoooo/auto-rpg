@@ -99,7 +99,7 @@ export type Control = "mind" | "you";
  * three cases to learn one bit.
  *
  * There is no fourth value for *neither*: a body you drive nothing of is a body the mind has,
- * which is `control: "mind"` and already spelled. The screen offers it as both boxes unchecked.
+ * which is `control: "mind"` and already spelled.
  */
 export type Channels = "move" | "attack" | "both";
 
@@ -668,20 +668,6 @@ export function withPolicy(matchup: Matchup, side: Side, policy: string): Matchu
 }
 
 /**
- * Choosing who you are, which is also choosing who you are not.
- *
- * There is one of you, so taking a side gives the other one back to its policy.
- * Four checkboxes cannot say that on their own -- none of them knows the other
- * three exist -- so the rule lives here where it can be tested, and the screen
- * re-reads all four from the answer. Letting the DOM own it instead is how you
- * get a setup screen that offers two humans and an arena that has one.
- *
- * The screen reaches this through `withChannels` rather than directly, because
- * on the page "whose body is it" and "how much of it" are one gesture. This
- * stays exported for the two doors that mean the whole body and nothing less:
- * `takeBody`, and a test that wants the invariant on its own.
- */
-/**
  * Put something in a hand.
  *
  * The club is one weapon and takes two hands, so choosing it in either hand
@@ -712,6 +698,18 @@ export function withEquipment(
   return next;
 }
 
+/**
+ * Choosing who you are, which is also choosing who you are not.
+ *
+ * There is one of you, so taking a side gives the other one back to its policy.
+ * The HUD's two drive buttons cannot say that on their own -- neither knows the
+ * other exists -- so the rule lives here where it can be tested, and the HUD
+ * re-reads both labels from the answer. Letting the DOM own it instead is how
+ * you get a page that offers two humans and an arena that has one.
+ *
+ * `withChannels`, and through it `takeBody`, and `releaseBody` all reach the
+ * field through here, so none of them can break the invariant.
+ */
 export function withControl(matchup: Matchup, side: Side, control: Control): Matchup {
   const next = copy(matchup);
   next[side].control = control;
@@ -720,12 +718,13 @@ export function withControl(matchup: Matchup, side: Side, control: Control): Mat
 }
 
 /**
- * Tick or clear one of a corner's two boxes.
+ * Drive a body's movement, its attacks, both, or neither.
  *
- * The screen draws **Move** and **Attack** and this is the reducer under both, so the rule that
- * clearing the last box hands the body back to its mind lives here rather than in the DOM --
- * same reason "there is one of you" does. Ticking either box takes the body, which takes it off
- * the other corner, because `withControl` still enforces the one person this game has.
+ * Since 2026-09-23 who drives is an in-game choice, and the only page caller is `takeBody`, which
+ * asks for both. The split itself is still live -- `splitMind` reads `channels`, and a matchup
+ * link can carry "move" or "attack" -- and this is the reducer that keeps the split and the
+ * one-person rule together: asking for neither hands the body back to its mind, and asking for
+ * either takes it off the other corner through `withControl`.
  */
 export function withChannels(
   matchup: Matchup,
@@ -742,9 +741,9 @@ export function withChannels(
 /**
  * Taking a body in the middle of a bout.
  *
- * It is `withControl` and nothing else, which is the point rather than a
- * shortcut. Who is driving which fighter is already a property of the matchup --
- * it is what the setup screen edits, what `humanSide` answers, and what
+ * It is a change to the matchup and nothing else, which is the point rather than
+ * a shortcut. Who is driving which fighter is already a property of the matchup
+ * -- it is what `humanSide` answers, what a link carries, and what
  * `main.ts` reads to decide whom the camera follows, which body the aim
  * indicator draws for and which pair `Targeting` is pointed at. Stepping into a
  * body mid-fight is the same fact arriving through a different door, so it is
@@ -755,24 +754,34 @@ export function withChannels(
  * to `mind` in the same breath -- the arena never has to work out who was
  * displaced, because the matchup has already said. And the change persists past
  * the bout: `restart` keeps the matchup and `toSelect` carries it back to the
- * screen, so a bout you fought out from the right-hand body opens the screen
- * again with the right-hand body yours. That is the same argument `toSelect`
- * already makes for keeping the matchup at all -- the thing you want after a
- * bout is the same bout again -- applied to a choice you made with a click
- * instead of with a checkbox.
+ * screen, so a bout you fought out from the right-hand body is fought from it
+ * again by Fight or Replay. That is the same argument `toSelect` already makes
+ * for keeping the matchup at all -- the thing you want after a bout is the same
+ * bout again.
+ *
+ * **The whole body**, whatever split the corner carried. A link can still say
+ * "move" or "attack", and since nothing on the page edits the split any more, a
+ * Take that kept it would hand over half a body with no control that could
+ * give back the rest.
  *
  * Refused from the screen, by returning exactly the state it was handed. There
- * is no body to take there, the checkboxes already own the same field, and a
- * takeover armed behind the curtain would be a click on a fighter nobody can
- * see. `over` is allowed: a decided bout deliberately does not stop the world --
+ * is no body to take there, and a takeover armed behind the curtain would be a
+ * click on a fighter nobody can see. `over` is allowed: a decided bout deliberately does not stop the world --
  * see `Phase` -- so there are still two bodies being driven, and refusing to let
  * somebody pick one up while the verdict is on screen would be a rule invented
  * to protect a banner.
  */
 export function takeBody(state: BoutState, side: Side): BoutState {
   if (state.phase === "select") return state;
-  return { ...state, matchup: withControl(state.matchup, side, "you") };
+  return { ...state, matchup: withChannels(state.matchup, side, true, true) };
 }
+
+/**
+ * What a side's drive button in the HUD does: let go of the body you drive, or take any other.
+ * One rule for the button's label and for its act, so the two cannot disagree.
+ */
+export const driveAction = (driving: Side | null, side: Side): "take" | "release" =>
+  driving === side ? "release" : "take";
 
 /**
  * Letting go of the body you drive, so that both fighters are their own minds'.
@@ -782,13 +791,6 @@ export function takeBody(state: BoutState, side: Side): BoutState {
  * `Targeting` follow `humanSide`, which with nobody human answers null. With nobody human already
  * it hands back exactly the state it was given.
  */
-/**
- * What a side's drive button in the HUD does: let go of the body you drive, or take any other.
- * One rule for the button's label and for its act, so the two cannot disagree.
- */
-export const driveAction = (driving: Side | null, side: Side): "take" | "release" =>
-  driving === side ? "release" : "take";
-
 export function releaseBody(state: BoutState): BoutState {
   if (state.phase === "select") return state;
   const side = humanSide(state.matchup);

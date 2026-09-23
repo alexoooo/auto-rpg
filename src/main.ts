@@ -40,14 +40,18 @@ import { flatSupportedWorldRegistry } from "./supported-locomotion-production";
 import type { Side } from "./physics";
 import {
   HANDS,
+  POLICIES,
   handoverFromCursors,
   humanMind,
   type Mind,
 } from "./mind";
+import { policyLine } from "./policy-lines.ts";
 import {
   loadoutForUnit,
   locomotionModeForPair,
+  supportsLoadoutForUnit,
   unitDefinition,
+  UNIT_REGISTRY,
   type Combatant,
   type DrivableCombatant,
 } from "./units";
@@ -183,6 +187,8 @@ async function boot(): Promise<void> {
   const leaveButton = need<HTMLButtonElement>("leave");
   const helpPanel = need("help");
   const helpClose = need<HTMLButtonElement>("help-close");
+  const helpOpen = need<HTMLButtonElement>("help-open");
+  const helpPolicies = need("help-policies");
   const bootNote = need("boot-note");
   const modeLine = need("mode");
 
@@ -236,8 +242,17 @@ async function boot(): Promise<void> {
     // those on its own used to report the *matchup* as malformed, which is a refusal of
     // something nobody wrote.
     ? (query.has(MATCHUP_PARAM) ? "the link's matchup was not the right shape" : null)
-    : [linked.left.golem, linked.right.golem]
-      .map((build) => (build ? golemSetupRefusal(build) : null))
+    : [linked.left, linked.right]
+      // A unit the registry no longer has -- every link from before the Warrior was cut names
+      // one -- or a policy it no longer offers is refused by name like a stale part id, because
+      // `unitDefinition` and the unit's policy factory both throw on one.
+      .map(({ unit, policy, handA, handB, golem }) => !Object.hasOwn(UNIT_REGISTRY, unit)
+        ? `there is no "${unit}" unit any more`
+        : !unitDefinition(unit).driverOptions.some((driver) => driver.name === policy)
+          ? `a ${unit} has no "${policy}" policy`
+        // `buildBout` asks the unit for this pair of hands, and throws on one it does not carry.
+        : !supportsLoadoutForUnit(unit, handA, handB) ? `a ${unit} cannot hold ${handA} and ${handB}`
+        : golem ? golemSetupRefusal(golem) : null)
       .find((refusal) => refusal !== null) ?? null;
 
   /**
@@ -333,10 +348,10 @@ async function boot(): Promise<void> {
   /**
    * The screen's answer to "what should the arena show now".
    *
-   * Every change a person makes on the sheet lands here with the whole matchup. The state takes
+   * Every change a person makes on the screen lands here with the whole matchup. The state takes
    * it -- the screen is the phase's editor and `begin` reads the screen's selection anyway --
-   * and the bodies behind the sheet are rebuilt **only when a body changed**: a policy or a
-   * control is a fact about who drives, and rebuilding two golems for it would be a flicker for
+   * and the bodies standing between the panels are rebuilt **only when a body changed**: a
+   * policy is a fact about who drives, and rebuilding two golems for it would be a flicker for
    * nothing. The link is rewritten on every change, so the address bar is always the pair on
    * screen and copying it is copying the matchup. Refused builds are not rebuilt, because
    * `buildBout` would throw on them; the Fight button is already disabled with the reason.
@@ -457,12 +472,13 @@ async function boot(): Promise<void> {
   });
 
   /**
-   * The corner's two boxes, pushed onto the ownership a split mind reads.
+   * The driven corner's channels, pushed onto the ownership a split mind reads.
    *
    * A push and not a pull, because `splitMind` is handed the ownership *object* once and reads
    * its fields every step (`src/mind.ts`), so a body already fighting changes hands the moment
-   * this runs -- no rebuild, no re-install. It is called from the three places the matchup can
-   * move: the setup screen, taking a body mid-fight, and the opening.
+   * this runs -- no rebuild, no re-install. It is called wherever the matchup can move: the
+   * opening, taking a body, letting one go, and the setup screen, whose changes no longer touch
+   * who drives but cost nothing to cover.
    *
    * With nobody human the two fields are left at what a person taking this body *would* get,
    * rather than false. Nothing reads them in that state -- there is no split mind to read them --
@@ -844,9 +860,8 @@ async function boot(): Promise<void> {
     }
 
     state = takeBody(state, side);
-    // `C` takes the whole body: the corner it lands on carries whatever channels the screen last
-    // gave it, and a corner the screen never gave any carries none, which `drivesMove` reads as
-    // both. Taking a body with a key is not the place to discover you have only half of it.
+    // The whole body, whatever split a link gave the corner: `takeBody` asks for both channels.
+    // Taking a body with a key or a button is not the place to discover you have only half of it.
     syncChannels();
     // Only when the side actually moved. `attach` drops the lock, and dropping
     // somebody's lock because they clicked the body they were already in would
@@ -1118,6 +1133,21 @@ async function boot(): Promise<void> {
     helpPanel.classList.toggle("gone");
   };
   helpClose.addEventListener("click", toggleHelp);
+  // The setup screen's How to play is the same sheet. Blurred on the way, for the reason the
+  // arena's buttons are: a focused button is pressed again by Enter or a held Space.
+  helpOpen.addEventListener("click", () => {
+    helpOpen.blur();
+    toggleHelp();
+  });
+  // What each policy fights like, one line apiece -- the glossary that used to sit on the setup
+  // screen, now every policy the pickers can offer rather than two of them.
+  helpPolicies.replaceChildren(...POLICIES.flatMap((policy) => {
+    const name = document.createElement("dt");
+    name.textContent = policy.label;
+    const line = document.createElement("dd");
+    line.textContent = policyLine(policy.name) ?? "";
+    return [name, line];
+  }));
 
   // Camera: a simple trailing chase, in two readings of the same arena. It lags
   // on purpose -- a rigid camera makes a swing look like the world is turning
@@ -1612,7 +1642,13 @@ async function boot(): Promise<void> {
     drawNote,
     tacticNote,
   ].filter((part) => part !== "").join(" ");
-  beginButton.disabled = false;
+  // Anything past "Havok ready." is a refused link or an overridden constant, and is read whole:
+  // the footer's one quiet line becomes as many as it takes.
+  bootNote.classList.toggle("notice", bootNote.textContent !== "Havok ready.");
+  // Fight is the screen's to enable from here on, and a link can arrive refused.
+  const refusal = setup.refusal;
+  beginButton.disabled = refusal !== null;
+  beginButton.title = refusal ?? "";
   presentation.showSetup(true);
   presentation.showPaused(false);
 }

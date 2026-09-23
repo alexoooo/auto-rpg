@@ -12,10 +12,21 @@ export interface RatingArtifact {
   rounds: number;
   policies: Record<string, PolicyRating>;
 }
-export function policyRatingLabel(name: string, label: string, artifact: RatingArtifact): string {
+/** The league's row for a policy, or null for one it does not rate. */
+const ratedRow = (name: string, artifact: RatingArtifact): PolicyRating | null => {
   const row = artifact.policies[name];
-  if (name === "idle" || !row || artifact.version !== 1) return `${label} — unrated`;
+  return name === "idle" || !row || artifact.version !== 1 ? null : row;
+};
+export function policyRatingLabel(name: string, label: string, artifact: RatingArtifact): string {
+  const row = ratedRow(name, artifact);
+  if (!row) return `${label} — unrated`;
   return `${label} — ${Math.round(row.rating)} · ${artifact.evaluatedAt.slice(0, 10)}${row.provisional ? " (provisional)" : ""}`;
+}
+/** The rating alone, for a badge beside the picker; the date and the rest are `policyRatingNote`'s. */
+export function policyRatingBadge(name: string, artifact: RatingArtifact): string {
+  const row = ratedRow(name, artifact);
+  if (!row) return "unrated";
+  return `${Math.round(row.rating)}${row.provisional ? " provisional" : ""}`;
 }
 export function policyRatingNote(name: string, artifact: RatingArtifact, current: string, policyVersion = name): string {
   if (name === "idle") return "Idle is a diagnostic control, outside the rated league.";

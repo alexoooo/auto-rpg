@@ -165,8 +165,8 @@ import { randomGolemSetup } from "./build.ts";
  * ## What the predicate is not
  *
  * It is not a menu. The owner can still build anything by hand on the setup screen, and a
- * hand-built pair this module refuses is fought with a line of caption saying so and Begin still
- * enabled. Only the *draw* changes -- and because the class filter turned out vacuous, the draw is
+ * hand-built pair this module refuses is fought without comment and with Fight still enabled.
+ * Only the *draw* changes -- and because the class filter turned out vacuous, the draw is
  * where the whole of this module's effect on the screen now lives: `randomViableOpponent` redraws
  * against *what is standing on the other side*, which is the only form of the rule that can keep
  * the owner's dozen presses of Random on fights that end.
@@ -233,16 +233,6 @@ export const viablePair = (a: GolemSetup, b: GolemSetup): boolean =>
  * above -- and it refuses 37 of the 52 builds in the default pool where `viableBuild` refuses none.
  */
 export const viableMirror = (setup: GolemSetup): boolean => VIABLE_MIRRORS.has(armedTerminal(setup));
-
-/**
- * The one line the setup screen puts under a hand-built pair the predicate refuses, or null.
- *
- * Here rather than in `src/setup.ts` for the reason that file states about its own reducers: the
- * screen has no test, because the Node runner has no DOM, so a rule written there is a rule
- * nothing can go red about. The screen renders this string and decides nothing.
- */
-export const unviablePairNote = (a: GolemSetup, b: GolemSetup): string | null =>
-  viablePair(a, b) ? null : "Older tests flagged this weapon pairing for stalemates; results may differ now.";
 
 /**
  * How many draws the viable draws below will make before giving up.

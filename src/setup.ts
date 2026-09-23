@@ -1,7 +1,4 @@
 import {
-  drivesAttack,
-  drivesMove,
-  withChannels,
   withGolemAttribute,
   withGolemBuild,
   withGolemEffector,
@@ -14,7 +11,7 @@ import {
 } from "./bout";
 import {
   NO_TERMINAL,
-  describeGolemSetup,
+  golemBuildRows,
   golemChainOptions,
   golemEffector,
   golemEffectorOption,
@@ -23,13 +20,13 @@ import {
   golemSetupRefusal,
   golemTerminalOptions,
   golemTorsoOptions,
+  type GolemBuildSlot,
   type GolemSlotOption,
 } from "./golem/build";
-import { unviablePairNote } from "./golem/viability";
 import type { PartsBin } from "./golem/parts-bin";
 import { BODY_FAMILIES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily } from "./golem/family.ts";
 import { FAMILY_SETUP } from "./golem/family-setup.ts";
-import { ATTRIBUTE_IDS, describeAttributes, resolveAttributes } from "./golem/attributes.ts";
+import { ATTRIBUTE_IDS } from "./golem/attributes.ts";
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "./attributes-ui";
 import { randomSeed } from "./rng";
 import { randomCorner } from "./random-corner.ts";
@@ -39,7 +36,8 @@ import { assessPolicy, policyPickerRows } from "./policy-applicability";
 import type { Side } from "./physics";
 import ratingArtifact from "./policy-ratings.json";
 import currentFingerprint from "virtual:ai-fingerprint";
-import { policyRatingLabel, policyRatingNote } from "./policy-rating";
+import { policyRatingBadge, policyRatingNote } from "./policy-rating";
+import { policyLine } from "./policy-lines.ts";
 import researchedVariants from "./golem/researched-variants.json";
 import researchedLab from "./golem/researched-lab.json";
 
@@ -84,6 +82,41 @@ const OFF_THE_SHELF = "";
 /** The unit a Randomize on a corner that is not yet a golem turns it into. */
 const GOLEM_UNIT = "golem";
 
+/** What each row of a contender's build summary is called. */
+const BUILD_ROW_LABEL: Readonly<Record<GolemBuildSlot, string>> =
+  Object.freeze({ locomotion: "Legs", torso: "Torso", head: "Head", primary: "Main hand", secondary: "Off hand" });
+
+/**
+ * A small line drawing beside each build row, in the panel's gold. Inline, so the screen owns no
+ * asset and each glyph takes `currentColor`; one per slot rather than per module, because the row's
+ * words already say which module it is.
+ */
+const BUILD_ROW_GLYPH: Readonly<Record<GolemBuildSlot, string>> = Object.freeze({
+  locomotion: '<path d="M6 1.5v6L4.5 14.5M10 1.5v6l1.5 7M2.5 14.5h3M10.5 14.5h3"/>',
+  torso: '<path d="M2.5 2.5h11L12 13.5H4z"/><path d="M5.5 6h5"/>',
+  head: '<circle cx="8" cy="7" r="4.5"/><path d="M6 14h4"/>',
+  primary: '<path d="M2.5 13.5 11 5M9.5 2.5l4 4M3.5 9.5l3 3"/>',
+  secondary: '<path d="M8 1.8 13.2 4v4c0 3.1-2.3 5.2-5.2 6.3C5.1 13.2 2.8 11.1 2.8 8V4z"/>',
+});
+
+const glyph = (slot: GolemBuildSlot): string =>
+  `<svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">${BUILD_ROW_GLYPH[slot]}</svg>`;
+
+/** One build row: a glyph and a slot name when it has a slot, and the words, always as text. */
+const buildRow = (slot: GolemBuildSlot | null, label: string | null, text: string): HTMLLIElement => {
+  const row = document.createElement("li");
+  if (slot !== null) row.innerHTML = glyph(slot);
+  const span = (className: string, words: string): void => {
+    const element = document.createElement("span");
+    element.className = className;
+    element.textContent = words;
+    row.append(element);
+  };
+  if (label !== null) span("build-slot", label);
+  span("build-text", text);
+  return row;
+};
+
 /** How worn a bin entry is, as a person reads it. */
 const wearLabel = (id: string, durability: number): string => {
   const label = golemEffectorOption(id)?.label ?? id;
@@ -91,27 +124,26 @@ const wearLabel = (id: string, durability: number): string => {
 };
 
 /**
- * The screen before the fight, and since the matchup set's Session 03 a screen you can see
- * *through*: the two golems it describes are standing in the arena behind it.
+ * The screen before the fight, and a screen you can see *through*: the two bodies it describes are
+ * standing in the arena behind it, in the open centre between its two contender panels.
  *
- * It is the only thing inside `#curtain`, and the curtain is a bottom sheet over a live arena now
- * rather than a wall in front of an empty one. Pause is a compact sibling in the game view and
- * never routes through this class, so focusing a screenshot tool cannot turn a standing fight into
- * character selection.
+ * It is the only thing inside `#matchup`, and `#matchup` lays its children straight into the
+ * curtain's grid, so this class owns both panels, the parts bin row and the line under Fight that
+ * says why Fight is refused -- and nothing else on the curtain. Pause is a compact sibling in the
+ * game view and never routes through this class, so focusing a screenshot tool cannot turn a
+ * standing fight into character selection.
  *
- * Two corners and nothing else in the way of a picker. Each corner is a one-line caption of the
- * build, a Randomize button, a policy picker, the two control boxes, and a Customize toggle that
- * reveals the nine slot pickers for anyone who wants a hand-picked body or a salvaged arm. The
- * unit picker left the screen with this session: golem-only is the owner's decision, and the
- * Warrior, the Broot and the Centipede stay in code, in `withUnit`, and in the headless measure as
- * regression cells. The pickers are generated from the registries rather than written out in
- * `index.html`, so an option that exists is selectable and an option that is selectable exists.
+ * Each contender is a build and a mind and nothing about who drives it: since the duel-setup plan
+ * set's Session 01, taking a body is a click in the fight (`Take` beside its name in the readout),
+ * not a choice made here. In order: the body family, the build one row per part, the attributes,
+ * the policy with its one line and its rating, and Randomize and Customize -- the last swapping the
+ * build rows for the nine slot pickers, for anyone who wants a hand-picked body or a salvaged arm.
+ * The pickers are generated from the registries rather than written out in `index.html`, so an
+ * option that exists is selectable and an option that is selectable exists.
  *
- * This holds the live selection and `src/bout.ts` holds the rules that constrain it -- notably
- * that there is one of you, so taking a side gives the other back to its policy. Four checkboxes
- * cannot express that between them, because none of them knows the other three exist;
- * `withChannels` does, and `render` puts its answer back into all four. That is why every change
- * re-reads the whole screen from the matchup instead of trusting the box that was just clicked.
+ * This holds the live selection and `src/bout.ts` holds the rules that constrain it, which is why
+ * every change re-reads the whole screen from the matchup instead of trusting the control that was
+ * just touched.
  *
  * **The host is told, not asked.** `onSelection` fires after every change a person makes here,
  * with the matchup as it now stands, and `src/main.ts` is what decides whether the bodies behind
@@ -131,20 +163,22 @@ export class SetupScreen {
   private readonly bin: PartsBin | null;
   private readonly onSelection: ((matchup: Matchup) => void) | null;
 
-  private readonly captions: Record<Side, HTMLElement>;
+  private readonly builds: Record<Side, HTMLElement>;
   private readonly seeds: Record<Side, HTMLElement>;
   private readonly policies: Record<Side, HTMLSelectElement>;
+  private readonly policyLines: Record<Side, HTMLElement>;
+  private readonly ratings: Record<Side, HTMLElement>;
+  private readonly showAllRows: Record<Side, HTMLElement>;
   private readonly showAllPolicies: Record<Side, boolean> = { left: false, right: false };
   private readonly golem: Record<GolemField, Record<Side, HTMLSelectElement>>;
   private readonly golemFields: Record<GolemField, Record<Side, HTMLElement>>;
   private readonly customizePanels: Record<Side, HTMLElement>;
   private readonly customizeButtons: Record<Side, HTMLButtonElement>;
   private readonly attributePanels: Record<Side, HTMLElement>;
-  private readonly controls: Record<Side, HTMLInputElement[]>;
   private readonly beginButton: HTMLButtonElement | null;
   private readonly binRow: HTMLElement;
   private readonly binNote: HTMLElement;
-  private readonly pairNote: HTMLElement;
+  private readonly refusalNote: HTMLElement;
   /** Which corners have their slot pickers open. Screen state, not matchup state. */
   private readonly customizing: Record<Side, boolean> = { left: false, right: false };
 
@@ -161,8 +195,10 @@ export class SetupScreen {
     this.bin = bin;
     this.onSelection = onSelection;
 
-    host.innerHTML = `${this.corner("left", "Left")}${this.corner("right", "Right")}`
-      + `${this.pairPanel()}${this.binPanel()}`;
+    // The refusal is the screen's, and sits in the curtain's grid under Fight: one line saying why
+    // Fight is disabled, rather than a reason that only a hover over a greyed button could find.
+    host.innerHTML = `${this.corner("left")}${this.corner("right")}${this.binPanel()}`
+      + `<p class="refusal" data-field="refusal" role="status" hidden></p>`;
 
     const one = <T extends HTMLElement>(selector: string): T => {
       const found = host.querySelector<T>(selector);
@@ -178,9 +214,12 @@ export class SetupScreen {
       right: one<T>(`[data-side="right"][data-wrap="${field}"]`),
     });
 
-    this.captions = pick<HTMLElement>("caption");
+    this.builds = pick<HTMLElement>("build");
     this.seeds = pick<HTMLElement>("seed");
     this.policies = pick<HTMLSelectElement>("policy");
+    this.policyLines = pick<HTMLElement>("policyLine");
+    this.ratings = pick<HTMLElement>("rating");
+    this.showAllRows = wrapper<HTMLElement>("showAllPolicies");
     this.golem = Object.fromEntries(GOLEM_FIELDS.map(({ field }) =>
       [field, pick<HTMLSelectElement>(field)])) as Record<GolemField, Record<Side, HTMLSelectElement>>;
     this.golemFields = Object.fromEntries(GOLEM_FIELDS.map(({ field }) =>
@@ -188,13 +227,9 @@ export class SetupScreen {
     this.customizePanels = wrapper<HTMLElement>("customize");
     this.customizeButtons = pick<HTMLButtonElement>("customize");
     this.attributePanels = wrapper<HTMLElement>("attributes");
-    this.controls = {
-      left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
-      right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
-    };
     this.binRow = one<HTMLElement>('[data-field="partsBin"]');
     this.binNote = one<HTMLElement>('[data-field="partsBinNote"]');
-    this.pairNote = one<HTMLElement>('[data-field="pairNote"]');
+    this.refusalNote = one<HTMLElement>('[data-field="refusal"]');
 
     // One delegated listener rather than one per control. The controls are built here and
     // never replaced -- `render` writes values into them -- so there is nothing to rebind and
@@ -233,7 +268,7 @@ export class SetupScreen {
   }
 
   /**
-   * The parts bin's own row, under both corners.
+   * The parts bin's own row, at the foot of the open centre between the two panels.
    *
    * One row rather than one per corner, because there is one bin: it is per browser and it is the
    * person's, not a fighter's. What it says is what is in it, and the one control on it empties it
@@ -242,65 +277,34 @@ export class SetupScreen {
    */
   private binPanel(): string {
     return `
-      <div class="corner bin-row" data-field="partsBin">
-        <div class="corner-title">Parts bin</div>
+      <div class="bin-row" data-field="partsBin">
+        <div class="section-head">Parts bin</div>
         <p class="note" data-field="partsBinNote"></p>
         <button class="action quiet" type="button" data-field="partsBinReset">Empty the bin</button>
       </div>
     `;
   }
 
-  /**
-   * One line about the *pair*, which is the one thing neither corner's caption can say.
-   *
-   * A hand-built matchup that `viablePair` refuses is fought anyway and Begin stays enabled: the
-   * owner can build anything, and a screen that disabled its own start button over a judgement
-   * about how a fight is likely to go would be the menu-restricting this session deliberately did
-   * not do. What it gets instead is the sentence, so that a minute of two things circling each
-   * other is a thing the screen warned about rather than a thing the prototype appeared not to
-   * know. The refusals in `refusal` are a different kind and still block Begin: those are builds
-   * the arena cannot assemble at all.
-   */
-  private pairPanel(): string {
-    return `<p class="note pair-note" data-field="pairNote" hidden></p>`;
-  }
-
-  private corner(side: Side, title: string): string {
-    // The policy picker stays enabled on the side a person is driving, and that
-    // is not an oversight. Session 07 lets you leave a body mid-fight, and the
-    // one you leave picks its policy back up -- so what is chosen here is what
-    // that fighter becomes the moment you step out of it, which is worth being
-    // able to set before you step in.
+  private corner(side: Side): string {
+    const title = side === "left" ? "Left contender" : "Right contender";
+    // The policy picker stays enabled on the side a person is driving, and that is not an
+    // oversight: the body you let go of picks this policy back up, so what is chosen here is what
+    // that fighter becomes the moment you step out of it.
     return `
-      <div class="corner" data-side="${side}">
-        <div class="corner-title">${title}</div>
-        <p class="caption" data-side="${side}" data-field="caption"></p>
-        <p class="seed-note" data-side="${side}" data-field="seed"></p>
-        <div class="corner-actions">
-          <button class="action" type="button" data-side="${side}" data-field="randomize">Randomize</button>
-          <button class="action quiet" type="button" data-side="${side}" data-field="customize">Customize</button>
-          ${BODY_FAMILIES.map((family) => `<button class="action quiet" type="button" data-side="${side}"`
-            + ` data-field="family" data-family="${family}">${FAMILY_LABEL[family]}</button>`).join("\n          ")}
+      <section class="contender" data-side="${side}" aria-label="${title}">
+        <header class="contender-head">
+          <h2>${title}</h2>
+          <span class="seed-note" data-side="${side}" data-field="seed"></span>
+        </header>
+        <div class="section-head">Body</div>
+        <div class="segmented" role="group" aria-label="${title} body">
+          ${BODY_FAMILIES.map((family) => `<button class="segment" type="button" data-side="${side}"`
+            + ` data-field="family" data-family="${family}"`
+            + ` title="A fresh ${FAMILY_LABEL[family].toLowerCase()}, with its own duelist">`
+            + `${FAMILY_LABEL[family]}</button>`).join("")}
         </div>
-        <div class="corner-row">
-          <label class="field">
-            <span class="field-name">Policy</span>
-            <select data-side="${side}" data-field="policy" aria-describedby="applicability-${side} rating-${side}"></select>
-          </label>
-          <div class="field">
-            <span class="field-name">Control</span>
-            <span class="choice">
-              <label><input type="checkbox" value="move"
-                data-side="${side}" data-field="control" /> move</label>
-              <label><input type="checkbox" value="attack"
-                data-side="${side}" data-field="control" /> attack</label>
-            </span>
-          </div>
-        </div>
-        <label class="seed-note"><input type="checkbox" data-side="${side}" data-field="showAllPolicies" /> Show all policies</label>
-        <p class="seed-note" id="applicability-${side}" data-side="${side}" data-field="applicability" aria-live="polite"></p>
-        <p class="seed-note" id="rating-${side}" data-side="${side}" data-field="rating" aria-live="polite"></p>
-        ${attributesPanel(side)}
+        <div class="section-head">Build</div>
+        <ul class="build-rows" data-side="${side}" data-field="build"></ul>
         <div class="customize" data-side="${side}" data-wrap="customize" hidden>
           ${GOLEM_FIELDS.map(({ field, label }) => `
           <label class="field" data-side="${side}" data-wrap="${field}">
@@ -308,7 +312,21 @@ export class SetupScreen {
             <select data-side="${side}" data-field="${field}"></select>
           </label>`).join("")}
         </div>
-      </div>
+        ${attributesPanel(side)}
+        <div class="section-head">Policy</div>
+        <select class="policy-select" data-side="${side}" data-field="policy"
+          aria-label="${title} policy" aria-describedby="policy-line-${side} rating-${side}"></select>
+        <p class="policy-line" id="policy-line-${side}" data-side="${side}" data-field="policyLine"></p>
+        <div class="policy-meta">
+          <span class="rating-badge" id="rating-${side}" tabindex="0" data-side="${side}" data-field="rating"></span>
+          <label class="show-all" data-side="${side}" data-wrap="showAllPolicies"><input type="checkbox"
+            data-side="${side}" data-field="showAllPolicies" /> show every policy</label>
+        </div>
+        <div class="contender-actions">
+          <button class="action" type="button" data-side="${side}" data-field="randomize">Randomize</button>
+          <button class="action quiet" type="button" data-side="${side}" data-field="customize">Customize</button>
+        </div>
+      </section>
     `;
   }
 
@@ -330,15 +348,6 @@ export class SetupScreen {
         const action = attributeAction(target);
         if (action?.kind !== "set") return;
         this.matchup = withGolemAttribute(this.matchup, side, action.id, action.value);
-        break;
-      }
-      case "control": {
-        // Both boxes, read off the screen rather than toggled in the matchup, because the two
-        // are one choice: `withChannels` needs to know that clearing `move` left `attack` still
-        // ticked, which is the difference between narrowing what you drive and letting go.
-        const ticked = (value: string) =>
-          this.controls[side].some((box) => box.value === value && box.checked);
-        this.matchup = withChannels(this.matchup, side, ticked("move"), ticked("attack"));
         break;
       }
       case "golemLocomotion":
@@ -420,6 +429,11 @@ export class SetupScreen {
         const side = target.dataset.side as Side;
         const family = target.dataset.family;
         if ((side !== "left" && side !== "right") || !isBodyFamily(family)) return;
+        // A segmented control's lit segment is the current state, and pressing it again changes
+        // nothing -- here it would silently throw away a build and its policy. Randomize is the
+        // button for a fresh body of the same family.
+        const golem = this.matchup[side].golem;
+        if (golem && bodyFamily(golem) === family) return;
         this.matchup = withGolemBuild(this.matchup, side, FAMILY_SETUP[family](), randomSeed());
         this.matchup = withPolicy(this.matchup, side, FAMILY_POLICY[family]);
         break;
@@ -528,31 +542,54 @@ export class SetupScreen {
         const option = document.createElement("option");
         option.value = driver.name;
         option.disabled = driver.assessment.status !== "applicable";
-        option.textContent = policyRatingLabel(driver.name, driver.label, ratingArtifact)
+        // The name and the rating, so the open list still compares policies; the date and the rest
+        // are the badge's tooltip.
+        option.textContent = `${driver.label} · ${policyRatingBadge(driver.name, ratingArtifact)}`
           + (option.disabled ? ` (${driver.assessment.status}: ${driver.assessment.reason})` : "");
         return option;
       }));
       const selected = rows.find((row) => row.name === setup.policy)!;
-      this.host.querySelector<HTMLElement>(`[data-side="${side}"][data-field="applicability"]`)!.textContent =
-        selected.assessment.reason;
       this.host.querySelector<HTMLInputElement>(`[data-side="${side}"][data-field="showAllPolicies"]`)!.checked = this.showAllPolicies[side];
-      const ratingNote = this.host.querySelector<HTMLElement>(`[data-side="${side}"][data-field="rating"]`);
-      if (ratingNote) ratingNote.textContent = [policyRatingNote(setup.policy, ratingArtifact, currentFingerprint, policyVersion(setup.policy)),
-        selected.evidenceScope].filter(Boolean).join(" ");
-      // **The caption is the build, in one line, and the seed is where it came from.** A corner
-      // that is not a golem -- a Warrior put there from the console, or a link -- is captioned
-      // by its unit and its hands rather than left blank, and has no pickers to open.
+      // **One sentence, and a badge whose tooltip carries the rest.** The rating's long note and
+      // the applicability reason were two paragraphs under every picker; they are the badge's
+      // `title` now, and the badge turns to a warning when the policy cannot drive this body.
+      this.policyLines[side].textContent = policyLine(setup.policy) ?? "";
+      const usable = selected.assessment.status === "applicable";
+      const rating = this.ratings[side];
+      rating.textContent = usable ? policyRatingBadge(setup.policy, ratingArtifact) : selected.assessment.status;
+      rating.classList.toggle("warn", !usable);
+      rating.title = [
+        usable ? "" : selected.assessment.reason,
+        policyRatingNote(setup.policy, ratingArtifact, currentFingerprint, policyVersion(setup.policy)),
+        selected.evidenceScope,
+        usable ? selected.assessment.reason : "",
+      ].filter(Boolean).join("\n");
+      // **The build, one row per part, and the seed is where it came from.** A corner that is not
+      // a golem -- a Warrior put there from the console, or a link -- is one row naming its unit
+      // and its hands, and has no pickers to open.
       const build = setup.golem ?? null;
-      // A tuned body says so in the same line, so two corners that read alike are not two bodies
-      // that are alike.
-      const tuned = build ? describeAttributes(resolveAttributes(build)) : "";
-      this.captions[side].textContent = build
-        ? describeGolemSetup(build) + (tuned ? `; ${tuned}` : "")
-        : `${definition.label} with ${setup.handA} and ${setup.handB}`;
+      const parts = build ? golemBuildRows(build) : [];
+      // No off-hand row is a two-handed primary, and its row says so.
+      const bothHands = build !== null && !parts.some((row) => row.slot === "secondary");
+      // The glyph is this file's own markup; every word goes in as text, because a hand kind off a
+      // link is whatever string the link carried.
+      this.builds[side].replaceChildren(...(build
+        ? parts.map((row) => buildRow(row.slot,
+          bothHands && row.slot === "primary" ? "Both hands" : BUILD_ROW_LABEL[row.slot], row.text))
+        : [buildRow(null, null, `${definition.label} with ${setup.handA} and ${setup.handB}`)]));
       this.seeds[side].textContent = !build ? ""
         : setup.seed !== undefined ? `seed ${setup.seed}` : "picked by hand";
+      for (const button of this.host.querySelectorAll<HTMLButtonElement>(`[data-side="${side}"][data-field="family"]`)) {
+        const current = build !== null && bodyFamily(build) === button.dataset.family;
+        button.classList.toggle("active", current);
+        button.setAttribute("aria-pressed", String(current));
+      }
       const open = build !== null && this.customizing[side];
       this.customizePanels[side].hidden = !open;
+      // Customize swaps the summary for the pickers rather than stacking them under it: the rows
+      // say what the pickers say, and a panel with both is taller than a laptop window.
+      this.builds[side].hidden = open;
+      this.showAllRows[side].hidden = !open;
       this.customizeButtons[side].disabled = build === null;
       this.customizeButtons[side].textContent = open ? "Done" : "Customize";
       for (const { field } of GOLEM_FIELDS) this.golemFields[field][side].hidden = build === null;
@@ -563,8 +600,8 @@ export class SetupScreen {
         const family = bodyFamily(build);
         const fill = (field: GolemField, items: readonly GolemSlotOption[], value: string): void => {
           const select = this.golem[field][side];
-          select.innerHTML = items
-            .map((item) => `<option value="${item.id}">${item.label}</option>`).join("");
+          // As elements, not markup: a stale salvage key comes back here off a link as its bare id.
+          select.replaceChildren(...items.map((item) => new Option(item.label, item.id)));
           select.value = value;
         };
         fill("golemLocomotion", golemLocomotionOptions(family), build.locomotion);
@@ -601,22 +638,12 @@ export class SetupScreen {
         }
       }
       this.policies[side].value = setup.policy;
-      for (const box of this.controls[side]) {
-        box.checked = box.value === "move" ? drivesMove(setup) : drivesAttack(setup);
-        box.disabled = !definition.humanAdapter;
-        box.title = box.disabled ? `control surface ${definition.kind} has no human adapter` : "";
-      }
     }
     this.renderBin();
-    // The note is DOM-free logic in `src/golem/viability.ts` and a string here, for the reason
-    // that module's doc comment gives: this file has no test, because the Node runner has no DOM.
-    const left = this.matchup.left.golem;
-    const right = this.matchup.right.golem;
-    const note = left && right ? unviablePairNote(left, right) : null;
-    this.pairNote.textContent = note ?? "";
-    this.pairNote.hidden = note === null;
+    const reason = this.refusal;
+    this.refusalNote.textContent = reason ?? "";
+    this.refusalNote.hidden = reason === null;
     if (this.beginButton) {
-      const reason = this.refusal;
       this.beginButton.disabled = reason !== null;
       this.beginButton.title = reason ?? "";
     }
@@ -631,7 +658,7 @@ export class SetupScreen {
    * by name rather than quietly reading as empty -- that sentence is the reader the codec's
    * refusals exist for. **Empty** is the first run, and is not a failure. Anything else is the
    * list. The row is shown only while a corner has its pickers open, because the bin is something
-   * you fit from, and the showcase's two lines and two buttons are what the screen is for.
+   * you fit from, and the open centre between the panels is where the two bodies stand.
    */
   private renderBin(): void {
     const anyGolem = this.matchup.left.golem !== undefined || this.matchup.right.golem !== undefined;

@@ -149,9 +149,9 @@ export class Controls {
     // Written by `applyButtonPose` from the same press as the acting hand, and
     // cleared by `releaseButtons` beside both hands. It was initialised here and
     // never written again for the whole of the session that introduced it, which
-    // is a command channel a person cannot press: the setup screen offers the
-    // control boxes for either side whatever the unit, so a person could take a
-    // centipede, steer it, and never close its jaws.
+    // is a command channel a person cannot press: a person can take either side
+    // whatever the unit, so they could take a centipede, steer it, and never
+    // close its jaws.
     natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
     primary: {
