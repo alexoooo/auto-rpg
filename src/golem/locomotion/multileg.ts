@@ -31,7 +31,9 @@ import {
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
 import { slewTowards } from "../anchor-drive.ts";
-import { BENCH_STAND_LOCOMOTION, LOCOMOTION_MULTILEG } from "../config.ts";
+import {
+  BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, LOCOMOTION_MULTILEG, LOCOMOTION_MULTILEG_SIZE,
+} from "../config.ts";
 import { materialForGolemRole } from "../materials.ts";
 import { boneShell } from "../effectors/shell.ts";
 import {
@@ -41,7 +43,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
-import { attributeOf, withMovement, withTurning, withWeight } from "../attributes.ts";
+import { attributeOf, withMovement, withSize, withTurning, withWeight } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -251,8 +253,11 @@ return defineLocomotion({
   build(ctx: ModuleBuild): BuiltLocomotion {
     // This body's own table, its carrier's travel scaled by its movement stat.
     // The parts' masses times the weight stat (`withWeight`); the supported mass below reads them too.
-    const M = withWeight(withTurning(withMovement(table, attributeOf(ctx, "movement")), attributeOf(ctx, "turning")),
-      ["chassisMass", "femurMass", "shinMass", "footMass"], attributeOf(ctx, "weight"));
+    // Then every field at its size stat by its law (`withSize`).
+    const size = attributeOf(ctx, "size");
+    const M = withSize(withWeight(withTurning(withMovement(table, attributeOf(ctx, "movement")),
+      attributeOf(ctx, "turning")), ["chassisMass", "femurMass", "shinMass", "footMass"],
+    attributeOf(ctx, "weight")), LOCOMOTION_MULTILEG_SIZE, size);
     // The stability stat, published on every authority this body hands its port as a plain factor
     // on its thresholds (`stabilityCapacity` in `src/supported-locomotion-state.ts`).
     const stability = attributeOf(ctx, "stability");
@@ -396,7 +401,7 @@ return defineLocomotion({
      * soft motorised waist, an `ANIMATED` one is a fixed anchor and is left alone.
      */
     const carried = ctx.socket.mount.body.getMotionType() === PhysicsMotionType.DYNAMIC;
-    const L = BENCH_STAND_LOCOMOTION;
+    const L = withSize(BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, size);
     let waist: Physics6DoFConstraint | null = carried
       ? joint(ctx.scene, chassis, ctx.socket.mount, {
         pivotParent: new Vector3(0, M.chassisHeight / 2, 0),
@@ -642,6 +647,7 @@ return defineLocomotion({
         gaitStabilityScale: scale,
         stabilityScale: stability,
         recoveryScale: recovery,
+        sizeScale: size,
       });
     };
 
@@ -885,7 +891,8 @@ return defineLocomotion({
       reach: standHeight,
       strokes: NO_STROKES,
       reachable: null,
-      settledBand: 0.02,
+      // Metres of height, so at the body's size.
+      settledBand: 0.02 * size,
     });
 
     const disposeJoints = (): void => {

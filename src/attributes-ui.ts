@@ -61,10 +61,12 @@ export function attributesPanel(scope: string): string {
  * anything can be touched.
  *
  * A reset button is disabled when there is nothing to reset, so the row says at a glance which stats
- * are off their default.
+ * are off their default. `fixed` is what the body's family builds at x1 whatever is asked, with the
+ * reason (`FAMILY_FIXED_ATTRIBUTES` in `src/golem/family.ts`): its row is disabled and says why.
  */
 export function renderAttributes(
   host: ParentNode, scope: string, setting: AttributeSetting | undefined, disabled: boolean,
+  fixed: Readonly<Partial<Record<AttributeId, string>>> = {},
 ): void {
   for (const id of ATTRIBUTE_IDS) {
     if (!ATTRIBUTES[id].live) continue;
@@ -75,9 +77,12 @@ export function renderAttributes(
       `[data-side="${scope}"][data-field="attributeReset"][data-attribute="${id}"]`);
     if (!slider || !readout || !reset) throw new Error(`the ${scope} attribute panel is missing ${id}`);
     if (slider.value !== String(value)) slider.value = String(value);
-    readout.textContent = attributeLabel(value);
-    slider.disabled = disabled;
-    reset.disabled = disabled || value === 1;
+    const reason = fixed[id];
+    readout.textContent = reason ? `${attributeLabel(value)}, fixed` : attributeLabel(value);
+    const row = slider.closest<HTMLElement>(".attribute-row");
+    if (row) row.title = reason ? `Fixed at x1 on this body: ${reason}` : "";
+    slider.disabled = disabled || reason !== undefined;
+    reset.disabled = disabled || reason !== undefined || value === 1;
   }
   const all = host.querySelector<HTMLButtonElement>(`[data-side="${scope}"][data-field="attributesReset"]`);
   if (!all) throw new Error(`the ${scope} attribute panel is missing its reset`);

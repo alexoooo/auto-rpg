@@ -9,8 +9,8 @@ import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import type { Armour } from "../../../scoring.ts";
 import { slewTowards } from "../../anchor-drive.ts";
-import { attributeOf, withArmSpeed } from "../../attributes.ts";
-import { CHAIN_REACH, CHAIN_WRIST } from "../../config.ts";
+import { attributeOf, withArmSpeed, withSize } from "../../attributes.ts";
+import { CHAIN_REACH, CHAIN_REACH_SIZE, CHAIN_WRIST, CHAIN_WRIST_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
   defineChain,
@@ -94,7 +94,7 @@ export interface WristChainOptions {
  * chains weld through the same `LIMB_MOUNT`.
  */
 export function wristChainFrom<K extends ChainId>(
-  id: K, label: string, R: typeof CHAIN_REACH, W: typeof CHAIN_WRIST, options: WristChainOptions = {},
+  id: K, label: string, reachTable: typeof CHAIN_REACH, wristTable: typeof CHAIN_WRIST, options: WristChainOptions = {},
 ) {
   return defineChain({
     strokes: ARM_STROKES,
@@ -104,21 +104,21 @@ export function wristChainFrom<K extends ChainId>(
     label,
     // Unloaded: what a wrist under a blade weighs. Under a heavier terminal the ring and the link
     // are cast up to `W.carryRatio` of it, and this figure does not follow them.
-    massKg: R.collarMass + R.upperMass + R.foreMass
-      + W.ringMass + W.wristMass,
+    massKg: reachTable.collarMass + reachTable.upperMass + reachTable.foreMass
+      + wristTable.ringMass + wristTable.wristMass,
     // The reach chain's two links, then the roll ring and the wrist link beyond the forearm. Like
     // `massKg` this is the **unloaded** figure and does not follow the casting-up that
     // `W.carryRatio` does to the ring under a heavy terminal, which understates a mace's
     // cost on this rung by about a tenth. Stated rather than hidden; the bench prints the truth.
-    swingInertia: rodInertia(R.upperMass, 0, R.upperLength)
-      + rodInertia(R.foreMass, R.upperLength,
-        R.upperLength + R.foreLength)
-      + rodInertia(W.ringMass, R.upperLength + R.foreLength,
-        R.upperLength + R.foreLength + W.ringLength)
-      + rodInertia(W.wristMass,
-        R.upperLength + R.foreLength + W.ringLength,
-        R.upperLength + R.foreLength + W.ringLength
-          + W.wristLength),
+    swingInertia: rodInertia(reachTable.upperMass, 0, reachTable.upperLength)
+      + rodInertia(reachTable.foreMass, reachTable.upperLength,
+        reachTable.upperLength + reachTable.foreLength)
+      + rodInertia(wristTable.ringMass, reachTable.upperLength + reachTable.foreLength,
+        reachTable.upperLength + reachTable.foreLength + wristTable.ringLength)
+      + rodInertia(wristTable.wristMass,
+        reachTable.upperLength + reachTable.foreLength + wristTable.ringLength,
+        reachTable.upperLength + reachTable.foreLength + wristTable.ringLength
+          + wristTable.wristLength),
     ...(options.fitTerminal ? { fitTerminal: options.fitTerminal } : {}),
 
     build(
@@ -131,9 +131,14 @@ export function wristChainFrom<K extends ChainId>(
       // The body's weight stat moves the floors and not the cast, which follows the load
       // (`withWeight`).
       const weight = attributeOf(ctx, "weight");
+      // This body's own tables at its size stat (`withSize`). The core sizes the reach table itself,
+      // so it is handed the table as declared.
+      const size = attributeOf(ctx, "size");
+      const R = withSize(reachTable, CHAIN_REACH_SIZE, size);
+      const W = withSize(wristTable, CHAIN_WRIST_SIZE, size);
       const ringMass = Math.max(W.ringMass * weight, W.carryRatio * carriedKg);
       const wristMass = Math.max(W.wristMass * weight, W.carryRatio * carriedKg);
-      const core = buildArmCore(ctx, limits, crossing, R, options.armour);
+      const core = buildArmCore(ctx, limits, crossing, reachTable, options.armour);
       // The body's arm-speed stat, on the wrist's two command rates (`withArmSpeed`); the core has
       // already taken it for the anchor.
       const rates = withArmSpeed(W, ["rollRate", "bendRate"], attributeOf(ctx, "armSpeed"));

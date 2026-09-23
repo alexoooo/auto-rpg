@@ -1,6 +1,8 @@
 import type { GolemEffectorSetup, GolemSetup } from "../bout.ts";
-import { BODY_FAMILIES, FAMILY_LABEL, bodyFamily, moduleFamily, type BodyFamily } from "./family.ts";
-import { attributesRefusal, resolveAttributes } from "./attributes.ts";
+import {
+  BODY_FAMILIES, FAMILY_FIXED_ATTRIBUTES, FAMILY_LABEL, bodyFamily, moduleFamily, type BodyFamily,
+} from "./family.ts";
+import { ATTRIBUTES, attributesRefusal, isAttributeId, resolveAttributes } from "./attributes.ts";
 import type { WeaponKind } from "../hands.ts";
 import {
   CHAIN_PITCH,
@@ -409,7 +411,12 @@ export function golemSetupRefusal(setup: GolemSetup): string | null {
     }
   }
   // The stats, checked here for the reason durability is: this is where every build is checked,
-  // whether it came off the screen, out of a link, or out of a harness.
+  // whether it came off the screen, out of a link, or out of a harness. A stat the family fixes is
+  // refused off x1 by name rather than quietly built at x1.
+  for (const [id, reason] of Object.entries(FAMILY_FIXED_ATTRIBUTES[family])) {
+    if (!isAttributeId(id) || (setup.attributes?.[id] ?? 1) === 1) continue;
+    return `${ATTRIBUTES[id].label} is fixed at x1 on a ${FAMILY_LABEL[family].toLowerCase()}: ${reason}`;
+  }
   return attributesRefusal(setup.attributes);
 }
 
@@ -480,19 +487,21 @@ export function defaultGolemDimensions(): {
 
 /**
  * Everything above the waist, kilograms: what the carrier is asked to hold up. The body's share of
- * each module is times its weight stat, as the builders make it, and each item's share is its own.
+ * each module is times its weight stat and the cube of its size stat, as the builders make it, and
+ * each item's share is its own.
  */
 export function golemUpperMassKg(setup: GolemSetup): number {
   const torso = golemTorso(setup.torso);
   const head = golemHead(setup.head);
   if (!torso || !head) throw new Error(golemSetupRefusal(setup) ?? "incomplete golem build");
   const plan = golemEffectorPlan(setup);
-  const weight = resolveAttributes(setup).weight;
+  const { weight, size } = resolveAttributes(setup);
+  const body = weight * size ** 3;
   // At x1 the definition's own figure, untouched: (m - i) + i is not always m in floating point.
   const massOf = (module: { readonly massKg: number; readonly itemMassKg?: number }): number => {
-    if (weight === 1) return module.massKg;
+    if (body === 1) return module.massKg;
     const item = module.itemMassKg ?? 0;
-    return (module.massKg - item) * weight + item;
+    return (module.massKg - item) * body + item;
   };
   // An effector option copies its definition's `massKg` and not its item share, so ask the
   // definition.

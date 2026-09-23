@@ -14,8 +14,8 @@ import type { NaturalIntent } from "../../mind.ts";
 import { COLLIDES, LAYER } from "../../physics.ts";
 import { boxPart, capsulePart, joint, type Part } from "../../rig.ts";
 import { slewTowards } from "../anchor-drive.ts";
-import { attributeOf } from "../attributes.ts";
-import { HEAD_NECK } from "../config.ts";
+import { attributeOf, withSize, type SizeLaws } from "../attributes.ts";
+import { HEAD_NECK, HEAD_NECK_SIZE } from "../config.ts";
 import { skullShell } from "../bone-shells.ts";
 import { LIMB_SHELL, type ShellLook } from "../effectors/shell.ts";
 import { RigidStrike } from "../effectors/striker.ts";
@@ -114,6 +114,21 @@ export interface RamTuning {
   };
 }
 
+/**
+ * How a ram follows the size stat (`SizeLaw` in `../attributes.ts`). **The plate is an item** and
+ * keeps its own size and mass, as a terminal does, and so does its `impactMassKg`: the builder
+ * scales that figure's body share itself, with the weight stat's. The lunge is the neck's, so its
+ * rates, times and ceilings follow the body.
+ */
+export const RAM_SIZE: SizeLaws<RamTuning> = {
+  plateWidth: "one", plateLength: "one", plateThickness: "one", plateMass: "one", plateHealth: "one",
+  plateVitalityWeight: "one", plateTipOffset: "one", impactMassKg: "one",
+  lunge: {
+    driveRate: "frequency", driveSeconds: "duration", followSeconds: "duration",
+    driveTorque: "torque", followTorque: "torque", recoveryTorque: "torque", armedSeconds: "duration",
+  },
+};
+
 /** Everything one head option may differ in. `HEAD_NECK` holds everything they share. */
 export interface HeadTuning {
   /** Radians of nod that `guard` holds. A level, not a stroke. */
@@ -185,18 +200,21 @@ const HEAD_SHELL: Readonly<Record<ShellLook, typeof headShell>> =
  * a presence rather than a kind -- a head either carries a plate and a lunge or it does not, and
  * there is no third answer for a default branch to pick wrongly.
  */
-export function headModule(id: string, label: string, tuning: HeadTuning, N = HEAD_NECK): HeadModuleDefinition {
+export function headModule(id: string, label: string, tuning: HeadTuning, neckTable = HEAD_NECK): HeadModuleDefinition {
   return Object.freeze({
     id,
     slots: Object.freeze<GolemSlot[]>(["head"]),
     label,
-    massKg: N.neckMass + N.headMass + (tuning.ram?.plateMass ?? 0),
+    massKg: neckTable.neckMass + neckTable.headMass + (tuning.ram?.plateMass ?? 0),
     itemMassKg: tuning.ram?.plateMass ?? 0,
 
     build(ctx: ModuleBuild): BuiltModule<NaturalIntent> {
       // The body's weight stat, on the neck's and the head's masses (`withWeight`). A ram's plate is
       // an item and keeps its own, and so does the `impactMassKg` it strikes with.
       const weight = attributeOf(ctx, "weight");
+      // This body's own tables at its size stat (`withSize`): the neck and head, and the ram's lunge.
+      const size = attributeOf(ctx, "size");
+      const N = withSize(neckTable, HEAD_NECK_SIZE, size);
       const socket = ctx.socket;
       const facing = socket.rotation;
       const stone = materialForGolemRole(ctx.materials, "shell");
@@ -258,7 +276,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
       });
 
       // --- the ram plate ------------------------------------------------------------------------
-      const ram = tuning.ram;
+      const ram = tuning.ram && withSize(tuning.ram, RAM_SIZE, size);
       let plate: Part | null = null;
       let plateWeld: Physics6DoFConstraint | null = null;
       let striker: RigidStrike | null = null;
@@ -309,9 +327,10 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
           kind: "ram",
           effectorId: `${ctx.name}.ram`,
           // Mostly body -- the neck and a hinge-mass of trunk behind the plate -- so the weight stat
-          // moves everything but the plate's own share, as `golemUpperMassKg` counts a module.
-          impactMassKg: weight === 1 ? ram.impactMassKg
-            : (ram.impactMassKg - ram.plateMass) * weight + ram.plateMass,
+          // and the size stat's cube move everything but the plate's own share, as
+          // `golemUpperMassKg` counts a module.
+          impactMassKg: weight === 1 && size === 1 ? ram.impactMassKg
+            : (ram.impactMassKg - ram.plateMass) * weight * size ** 3 + ram.plateMass,
           // **Null, because a head is not a hand.** `Combat` routes a null hand to the
           // body-neutral channel already; this is the centipede's rule with the alias it still
           // carries taken out, because a golem head has no `HandView` to pretend to be.

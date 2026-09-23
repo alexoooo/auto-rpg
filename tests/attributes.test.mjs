@@ -16,6 +16,8 @@ import {
   withArmSpeed,
   withAttributeSetting,
   withRecovery,
+  withSize,
+  SIZE_LAW_POWER,
 } from "../src/golem/attributes.ts";
 import {
   golemMatchup,
@@ -26,19 +28,28 @@ import {
   withGolemSlot,
   withPolicy,
 } from "../src/bout.ts";
-import { FAMILY_POLICY } from "../src/golem/family.ts";
+import { bodyFamily, FAMILY_POLICY } from "../src/golem/family.ts";
 import { FAMILY_SETUP } from "../src/golem/family-setup.ts";
 import { randomViableOpponent } from "../src/golem/viability.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { defaultGolemSetup, golemEffector, golemHead, golemSetupRefusal, golemUpperMassKg } from "../src/golem/build.ts";
 import { Golem } from "../src/golem/golem.ts";
 import { idleMind } from "../src/mind.ts";
-import { CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, HEAD_RAM, LOCOMOTION_BIPED } from "../src/golem/config.ts";
-import { EFFECTOR_TERMINALS, golemModule } from "../src/golem/registry.ts";
+import {
+  BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, CHAIN_NONE, CHAIN_NONE_SIZE, CHAIN_PITCH, CHAIN_PITCH_SIZE,
+  CHAIN_REACH, CHAIN_REACH_SIZE, CHAIN_WRIST, CHAIN_WRIST_SIZE, HEAD_NECK, HEAD_NECK_SIZE, HEAD_RAM, LOCOMOTION_BIPED,
+  LOCOMOTION_BIPED_SIZE, LOCOMOTION_MULTILEG, LOCOMOTION_MULTILEG_SIZE, LOCOMOTION_WHEEL, LOCOMOTION_WHEEL_SIZE,
+  TORSO_PLAIN, TORSO_PLATED, TORSO_WAIST, TORSO_WAIST_SIZE,
+} from "../src/golem/config.ts";
+import { TORSO_SIZE } from "../src/golem/torso/torso.ts";
+import { RAM_SIZE } from "../src/golem/head/head.ts";
+import { CHAIN_CROSSING_SIZE, CHAIN_LIMITS_SIZE } from "../src/golem/effectors/effector.ts";
+import { HUMAN_BIPED, HUMAN_HEAD, HUMAN_TORSO } from "../src/golem/humanoid/body.ts";
+import { EFFECTOR_TERMINALS, GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { PLAYABLE_BUILDS } from "../src/golem/roster.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { freshIntent } from "../src/action-primitives.ts";
-import { SKELETAL_WRIST, SKELETON_ARMOUR, SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
+import { RIBCAGE, SKELETAL_REACH, SKELETAL_WRIST, SKELETON_ARMOUR, SKELETON_BIPED, SKULL, SPINE } from "../src/golem/skeleton/body.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
@@ -536,4 +547,293 @@ test("an effector's item share is its terminal's mass and a head's is its ram pl
   // the same amount on both: the plate is not doubled.
   const growth = (setup) => golemUpperMassKg(withAttributeSetting(setup, { weight: 2 })) - golemUpperMassKg(setup);
   assert.ok(Math.abs(growth(ram) - growth(base)) < 1e-9, `the ram's plate doubled: ${growth(ram)} against ${growth(base)}`);
+});
+
+test("size multiplies each field of a copy by its law's power, recurses where a law says to, and x1 is the table", () => {
+  const table = Object.freeze({
+    length: 2, mass: 3, rate: 4, band: [1, 2], names: ["a"], label: "stone", on: true, none: null,
+    nested: Object.freeze({ torque: 5, ratio: 0.5 }), kept: Object.freeze({ anything: 7 }),
+  });
+  const laws = {
+    length: "length", mass: "mass", rate: "frequency", band: "length", names: "one", none: "one",
+    nested: { torque: "torque", ratio: "one" }, kept: "one",
+  };
+  assert.equal(withSize(table, laws, 1), table, "x1 is the very table");
+  const s = 1.5;
+  const sized = withSize(table, laws, s);
+  assert.deepEqual(sized, {
+    length: 2 * s, mass: 3 * s ** 3, rate: 4 * s ** -0.5, band: [s, 2 * s], names: ["a"], label: "stone",
+    on: true, none: null, nested: { torque: 5 * s ** 4, ratio: 0.5 }, kept: { anything: 7 },
+  });
+  assert.equal(sized.kept, table.kept, "a record carried by `one` is carried whole");
+  assert.deepEqual(table.nested, { torque: 5, ratio: 0.5 }, "and the table handed in was not written");
+  assert.throws(() => withSize(table, { ...laws, mass: undefined }, s), /no size law for mass/);
+  assert.throws(() => withSize(table, { ...laws, nested: { torque: "torque" } }, s), /no size law for nested\.ratio/);
+  assert.throws(() => withSize(table, { ...laws, stale: "length" }, s), /names stale, which the table does not have/);
+  // The powers are similarity at constant density, with time going as the root of length.
+  assert.deepEqual(SIZE_LAW_POWER, {
+    one: 0, length: 1, perLength: -1, mass: 3, inertia: 5, torque: 4, force: 3, impulse: 3.5,
+    speed: 0.5, frequency: -0.5, angularAcceleration: -1, duration: 0.5,
+  });
+});
+
+/**
+ * Every table a size law serves, walked leaf by leaf. A spread table -- the skeleton's, the human's
+ * -- carries fields the type of its laws never saw, and a law that names a field the table lost is
+ * one that has drifted; both are refused at build rather than scaled by a default. This is where
+ * that refusal is exercised on the shipped tables, and where each leaf is checked to have moved by
+ * exactly its law's power.
+ */
+test("every shipped body table has a size law for every field, and each leaf moves by its law's power", () => {
+  const served = [
+    [LOCOMOTION_BIPED_SIZE, { LOCOMOTION_BIPED, SKELETON_BIPED, HUMAN_BIPED }],
+    [BENCH_STAND_LOCOMOTION_SIZE, { BENCH_STAND_LOCOMOTION }],
+    [LOCOMOTION_WHEEL_SIZE, { LOCOMOTION_WHEEL }],
+    [LOCOMOTION_MULTILEG_SIZE, { LOCOMOTION_MULTILEG }],
+    [TORSO_SIZE, { TORSO_PLAIN, TORSO_PLATED, RIBCAGE, HUMAN_TORSO }],
+    [TORSO_WAIST_SIZE, { TORSO_WAIST, SPINE }],
+    [HEAD_NECK_SIZE, { HEAD_NECK, SKULL, HUMAN_HEAD }],
+    [RAM_SIZE, { ram: (({ guardPitch, ...ram }) => ram)(HEAD_RAM) }],
+    [CHAIN_REACH_SIZE, { CHAIN_REACH, SKELETAL_REACH }],
+    [CHAIN_WRIST_SIZE, { CHAIN_WRIST, SKELETAL_WRIST }],
+    [CHAIN_PITCH_SIZE, { CHAIN_PITCH }],
+    [CHAIN_NONE_SIZE, { CHAIN_NONE }],
+    [CHAIN_LIMITS_SIZE, Object.fromEntries(Object.entries(EFFECTOR_TERMINALS).filter(([, t]) => t.limits).map(([id, t]) => [id, t.limits]))],
+    [CHAIN_CROSSING_SIZE, Object.fromEntries(Object.entries(EFFECTOR_TERMINALS).filter(([, t]) => t.crossing).map(([id, t]) => [id, t.crossing]))],
+  ];
+  const s = 1.1;
+  let leaves = 0;
+  const walk = (was, now, laws, path) => {
+    for (const [key, value] of Object.entries(was)) {
+      const law = laws[key];
+      const at = `${path}.${key}`;
+      if (typeof value === "number") {
+        leaves += 1;
+        const want = value * s ** SIZE_LAW_POWER[law];
+        assert.ok(Math.abs(now[key] - want) <= 1e-12 * Math.max(1, Math.abs(want)), `${at} (${law}): ${value} -> ${now[key]}`);
+      } else if (Array.isArray(value)) {
+        assert.deepEqual(now[key], law === "one" ? value : value.map((item) => item * s ** SIZE_LAW_POWER[law]), at);
+      } else if (value !== null && typeof value === "object") {
+        if (law === "one") assert.equal(now[key], value, at);
+        else walk(value, now[key], law, at);
+      } else {
+        assert.equal(now[key], value, at);
+      }
+    }
+  };
+  for (const [laws, tables] of served) {
+    for (const [name, table] of Object.entries(tables)) {
+      const before = JSON.stringify(table);
+      walk(table, withSize(table, laws, s), laws, name);
+      assert.equal(JSON.stringify(table), before, `${name} was not written`);
+    }
+  }
+  assert.ok(leaves > 500, `the control: the walk reached the tables' leaves (${leaves})`);
+});
+
+/**
+ * **Every module a golem or a skeleton can be built from, on the stand at x1 and at x1.25.** Size is
+ * not live yet (session 12a): no setup may carry it, so this stands each module on the bench, as
+ * the arm-speed test does, and hands it the stat directly.
+ *
+ * A body part's solver mass is its x1 mass times s^3, and where it sits relative to its socket is
+ * its x1 offset times s. An item -- a terminal's parts and a ram's plate -- keeps its mass. A
+ * wrist's two cast parts weigh their floor or `carryRatio` of the load, whichever is more, and only
+ * the floor is the body's, so they land on max(floor x s^3, what they were). What the module
+ * publishes follows the laws: a metre axis's limits go as s and its rate as a speed, a radian
+ * axis's limits stay and its rate goes as a frequency. The human's modules are absent: its family
+ * fixes size at x1, which the next test holds it to.
+ */
+/**
+ * A carrier's published axes are a command's, not a limb's: their ranges are a speed, a turn rate
+ * and a height, and their rates the acceleration toward each -- which the unit field, `m` or `rad`,
+ * does not say. The laws are the carrier table's own (`CARRIER_SIZE` in `config.ts`).
+ */
+const CARRIER_AXIS_LAWS = Object.freeze({
+  speed: ["speed", "one"], strafe: ["speed", "one"], yaw: ["frequency", "angularAcceleration"], height: ["length", "speed"],
+});
+
+test("size scales every golem and skeleton module's body parts by s^3 in mass and s in place, and leaves items alone", async () => {
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const s = 1.25;
+  const near = (a, b) => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(b));
+  const items = new Set([...Object.keys(EFFECTOR_TERMINALS), "ram"]);
+  const cast = new Set(["rollRing", "wrist"]);
+  const seen = { body: 0, item: 0, castFloor: 0, castLoad: 0, metreAxis: 0, radianAxis: 0, ramBlow: 0, shoveBlow: 0 };
+  const tables = () => [CHAIN_REACH, CHAIN_WRIST, CHAIN_PITCH, CHAIN_NONE, LOCOMOTION_BIPED, TORSO_WAIST, HEAD_NECK,
+    HEAD_RAM, SKELETON_BIPED, SKELETAL_WRIST, LOCOMOTION_WHEEL, LOCOMOTION_MULTILEG].map((table) => JSON.stringify(table));
+  const shared = tables();
+  const modules = GOLEM_MODULES.filter((option) => !option.id.includes("human") && !option.id.includes("anatomical"));
+  try {
+    for (const option of modules) {
+      const slot = option.mode === "effector" ? "primary" : option.mode;
+      const measure = (size) => {
+        const stand = buildGolemStand(arena.scene, {
+          side: "left", slot, ...(option.standHeightM ? { socketHeight: option.standHeightM * size } : {}),
+        });
+        const socket = stand.socket(slot);
+        const companion = stand.socket("secondary");
+        const prefix = `${option.id}.x${size}.`;
+        const built = option.build({
+          scene: arena.scene, side: "left", name: `${option.id}.x${size}`, socket, companion,
+          layers: golemLayers("left"), materials: stand.materials, world: flatSupportedWorldRegistry(),
+          attributes: Object.freeze({ ...DEFAULT_ATTRIBUTES, size }),
+        });
+        try {
+          return {
+            parts: built.parts.map((p) => ({
+              id: p.id.slice(prefix.length), mass: p.part.body.getMassProperties().mass,
+              // A second hand hangs from the companion socket, and the stand is not what was sized.
+              offset: p.part.mesh.position.subtract((p.id.startsWith(`${prefix}trailing.`) ? companion : socket).world),
+            })),
+            strikers: built.strikers.map((striker) => ({ kind: striker.kind, id: striker.effectorId, mass: striker.impactMassKg })),
+            envelope: built.envelope(),
+          };
+        } finally {
+          built.dispose();
+          stand.dispose();
+        }
+      };
+      const plain = measure(1);
+      const big = measure(s);
+      assert.deepEqual(big.parts.map((p) => p.id), plain.parts.map((p) => p.id), option.id);
+      for (const [i, part] of big.parts.entries()) {
+        const was = plain.parts[i];
+        const at = `${option.id} ${part.id}`;
+        const segments = part.id.split(".");
+        if (segments.some((segment) => items.has(segment))) {
+          seen.item += 1;
+          assert.ok(near(part.mass, was.mass), `${at}: an item keeps its ${was.mass} kg, not ${part.mass}`);
+          continue;
+        }
+        if (cast.has(segments.at(-1))) {
+          const table = option.id.includes("skeletal") ? SKELETAL_WRIST : CHAIN_WRIST;
+          const floor = segments.at(-1) === "rollRing" ? table.ringMass : table.wristMass;
+          assert.ok(near(part.mass, Math.max(floor * s ** 3, was.mass)), `${at}: ${was.mass} -> ${part.mass}, floor ${floor}`);
+          if (near(part.mass, was.mass)) seen.castLoad += 1;
+          else seen.castFloor += 1;
+        } else {
+          seen.body += 1;
+          assert.ok(near(part.mass, was.mass * s ** 3), `${at}: ${was.mass} kg went x${(part.mass / was.mass).toFixed(4)}`);
+        }
+        const drift = part.offset.subtract(was.offset.scale(s)).length();
+        assert.ok(drift < 1e-6, `${at}: sits ${drift} m from s times where it sat`);
+      }
+      assert.equal(big.strikers.length, plain.strikers.length, option.id);
+      for (const [i, striker] of big.strikers.entries()) {
+        const was = plain.strikers[i].mass;
+        let want = was;
+        if (striker.kind === "ram") {
+          want = (was - HEAD_RAM.plateMass) * s ** 3 + HEAD_RAM.plateMass;
+          seen.ramBlow += 1;
+        } else if (striker.id.endsWith(".shove")) {
+          want = was * s ** 3;
+          seen.shoveBlow += 1;
+        }
+        assert.ok(near(striker.mass, want), `${option.id} ${striker.id}: ${was} -> ${striker.mass}, not ${want}`);
+      }
+      for (const [i, axis] of big.envelope.axes.entries()) {
+        const was = plain.envelope.axes[i];
+        const at = `${option.id} ${axis.id}`;
+        assert.equal(axis.id, was.id, at);
+        const [range, rate] = option.mode === "locomotion" ? CARRIER_AXIS_LAWS[axis.id]
+          : axis.unit === "m" ? ["length", "speed"] : ["one", "frequency"];
+        if (range === "length") seen.metreAxis += 1;
+        if (range === "one") seen.radianAxis += 1;
+        const k = s ** SIZE_LAW_POWER[range];
+        assert.ok(near(axis.min, was.min * k) && near(axis.max, was.max * k), `${at}: [${was.min}, ${was.max}] -> [${axis.min}, ${axis.max}]`);
+        assert.ok(near(axis.rate, was.rate * s ** SIZE_LAW_POWER[rate]), `${at}: rate ${was.rate} -> ${axis.rate}`);
+      }
+      // What a stroke is timed against. A chain's own share is a mass times a length squared; an
+      // item's is its fixed mass on the sized arm's lever, so an armed effector grows by less, and
+      // an empty socket -- all chain -- by exactly s^5.
+      if (option.mode === "effector") {
+        const [was, now] = [plain.envelope.swingInertia, big.envelope.swingInertia];
+        if (option.id === "effector.none") assert.ok(near(now, was * s ** 5), `${option.id}: swing inertia ${was} -> ${now}`);
+        else assert.ok(now > was && now < was * s ** 5, `${option.id}: swing inertia ${was} -> ${now}`);
+      }
+      // How near its command a module must be to count as there: metres for a module whose command
+      // is a place -- a carrier, a reaching arm, an empty socket's cap -- and radians for one whose
+      // command is an angle.
+      const band = option.mode === "locomotion" || option.id === "effector.none" || big.envelope.axes.some((axis) => axis.unit === "m")
+        ? s : 1;
+      assert.ok(near(big.envelope.settledBand, plain.envelope.settledBand * band),
+        `${option.id}: settled band ${plain.envelope.settledBand} -> ${big.envelope.settledBand}`);
+      const reachable = plain.envelope.reachable;
+      if (reachable) {
+        for (const [key, value] of Object.entries(reachable)) {
+          const law = key.startsWith("reach") || key === "carryMin" ? s : 1;
+          assert.ok(near(big.envelope.reachable[key], value * law), `${option.id} reachable.${key}`);
+        }
+      }
+    }
+    assert.deepEqual(tables(), shared, "and no shared table was written");
+    assert.ok(Object.values(seen).every((count) => count > 0),
+      `the control: every kind of part, blow and axis was seen (${JSON.stringify(seen)})`);
+  } finally {
+    arena.dispose?.();
+  }
+});
+
+test("a human's size is fixed at x1: refused on its setup, not set on its corner, and dropped when a corner draws one", () => {
+  const human = FAMILY_SETUP.human();
+  assert.equal(bodyFamily(human), "human");
+  assert.match(golemSetupRefusal({ ...human, attributes: { size: 1.25 } }), /Size is fixed at x1 on a human/);
+  assert.equal(golemSetupRefusal({ ...human, attributes: { size: 1 } }), null, "the control: x1 is a human's size");
+  assert.match(golemSetupRefusal({ ...defaultGolemSetup(), attributes: { size: 1.25 } }), /not measured yet/,
+    "and a stone golem's is refused only because the row is not live");
+
+  const corner = withGolemBuild(golemMatchup(BUILD), "left", human, 3);
+  assert.equal(withGolemAttribute(corner, "left", "size", 1.25), corner, "a human corner refuses the stat");
+  assert.notEqual(withGolemAttribute(corner, "left", "movement", 1.2), corner, "the control: it takes another");
+
+  const tuned = golemMatchup(BUILD);
+  tuned.left.golem = { ...BUILD, attributes: { size: 1.25, movement: 1.2 } };
+  assert.deepEqual(withGolemBuild(tuned, "left", human, 4).left.golem.attributes, { movement: 1.2 },
+    "a corner that draws a human keeps its other stats and loses size");
+  assert.deepEqual(withGolemBuild(tuned, "left", skeletonSetup(), 4).left.golem.attributes, { size: 1.25, movement: 1.2 },
+    "the control: a skeleton keeps both");
+});
+
+/**
+ * A ram's lunge is the neck's, so it follows the body: a larger head drives, follows and stays armed
+ * for longer, each as a duration (the root of s), while its plate keeps its own size. Read from the
+ * striker's own gate -- armed is what decides whether a touch is a blow -- counted in control steps
+ * from the thrust edge.
+ */
+test("a larger ram's lunge is armed for the root of its size longer", async () => {
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const s = 1.25;
+  const dt = 1 / 240;
+  try {
+    const armedSteps = (size) => {
+      const stand = buildGolemStand(arena.scene, { side: "left", slot: "head" });
+      const built = golemModule("head.ram").build({
+        scene: arena.scene, side: "left", name: `ram.x${size}`, socket: stand.socket("head"),
+        layers: golemLayers("left"), materials: stand.materials, attributes: Object.freeze({ ...DEFAULT_ATTRIBUTES, size }),
+      });
+      try {
+        const [striker] = built.strikers;
+        assert.notEqual(striker.gate.refusal(), null, "the control: a ram at rest is not armed");
+        const intent = freshIntent();
+        intent.natural.thrust = true;
+        built.command(intent);
+        let steps = 0;
+        do {
+          built.step(dt);
+          steps += 1;
+        } while (striker.gate.refusal() === null && steps < 2400);
+        return steps;
+      } finally {
+        built.dispose();
+        stand.dispose();
+      }
+    };
+    const plain = armedSteps(1);
+    const big = armedSteps(s);
+    assert.ok(plain > 10 && plain < 2400, `the control: a lunge arms and disarms (${plain} steps)`);
+    assert.ok(Math.abs(big - plain * Math.sqrt(s)) <= 2, `armed ${plain} steps at x1 and ${big} at x${s}`);
+  } finally {
+    arena.dispose?.();
+  }
 });

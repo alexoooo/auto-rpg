@@ -8,8 +8,8 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import { slewTowards } from "../../anchor-drive.ts";
-import { attributeOf, withArmSpeed, withWeight } from "../../attributes.ts";
-import { CHAIN_PITCH } from "../../config.ts";
+import { attributeOf, withArmSpeed, withSize, withWeight } from "../../attributes.ts";
+import { CHAIN_PITCH, CHAIN_PITCH_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
   defineChain,
@@ -132,9 +132,9 @@ export const pitchChain = defineChain({
 
   build(ctx: ModuleBuild): BuiltChain {
     // The body's arm-speed stat, on the hinge's command rate (`withArmSpeed`), and its weight stat,
-    // on the link's mass (`withWeight`).
-    const P = withWeight(withArmSpeed(CHAIN_PITCH, ["targetRate"], attributeOf(ctx, "armSpeed")),
-      ["linkMass"], attributeOf(ctx, "weight"));
+    // on the link's mass (`withWeight`); then every field at its size stat by its law (`withSize`).
+    const P = withSize(withWeight(withArmSpeed(CHAIN_PITCH, ["targetRate"], attributeOf(ctx, "armSpeed")),
+      ["linkMass"], attributeOf(ctx, "weight")), CHAIN_PITCH_SIZE, attributeOf(ctx, "size"));
     const name = `${ctx.name}.link`;
     const socket = ctx.socket;
     const facing = socket.rotation;

@@ -31,7 +31,9 @@ import {
   type ConstructPostureEvidence,
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
-import { BENCH_STAND_LOCOMOTION, LOCOMOTION_WHEEL } from "../config.ts";
+import {
+  BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, LOCOMOTION_WHEEL, LOCOMOTION_WHEEL_SIZE,
+} from "../config.ts";
 import { materialForGolemRole } from "../materials.ts";
 import {
   NO_STROKES,
@@ -40,7 +42,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
-import { attributeOf, withMovement, withTurning, withWeight } from "../attributes.ts";
+import { attributeOf, withMovement, withSize, withTurning, withWeight } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -169,8 +171,11 @@ return defineLocomotion({
   build(ctx: ModuleBuild): BuiltLocomotion {
     // This body's own table, its carrier's travel scaled by its movement stat.
     // The parts' masses times the weight stat (`withWeight`); the supported mass below reads them too.
-    const W = withWeight(withTurning(withMovement(table, attributeOf(ctx, "movement")), attributeOf(ctx, "turning")),
-      ["yokeMass", "wheelMass"], attributeOf(ctx, "weight"));
+    // Then every field at its size stat by its law (`withSize`).
+    const size = attributeOf(ctx, "size");
+    const W = withSize(withWeight(withTurning(withMovement(table, attributeOf(ctx, "movement")),
+      attributeOf(ctx, "turning")), ["yokeMass", "wheelMass"], attributeOf(ctx, "weight")),
+    LOCOMOTION_WHEEL_SIZE, size);
     // The stability stat, published on every authority this body hands its port as a plain factor
     // on its thresholds (`stabilityCapacity` in `src/supported-locomotion-state.ts`).
     const stability = attributeOf(ctx, "stability");
@@ -288,20 +293,21 @@ return defineLocomotion({
       return mesh;
     };
 
+    // The trim below is stated in metres of a body at x1, so each figure is at the body's size.
     const prongDrop = W.forkClearance + W.wheelRadius;
     for (const side of [-1, 1]) {
       const prong = MeshBuilder.CreateBox(`${ctx.name}.fork${side < 0 ? "L" : "R"}`, {
-        width: 0.07, height: prongDrop + W.yokeHeight * 0.4, depth: 0.16,
+        width: 0.07 * size, height: prongDrop + W.yokeHeight * 0.4, depth: 0.16 * size,
       }, ctx.scene);
       prong.material = stone;
       dress(prong, yoke.mesh,
-        new Vector3(side * (W.wheelWidth / 2 + 0.06), -(prongDrop / 2 + W.yokeHeight * 0.3), 0));
+        new Vector3(side * (W.wheelWidth / 2 + 0.06 * size), -(prongDrop / 2 + W.yokeHeight * 0.3), 0));
       const cap = MeshBuilder.CreateCylinder(`${ctx.name}.axle${side < 0 ? "L" : "R"}`, {
-        diameter: 0.14, height: 0.06, tessellation: 12,
+        diameter: 0.14 * size, height: 0.06 * size, tessellation: 12,
       }, ctx.scene);
       cap.material = bronze;
       dress(cap, yoke.mesh,
-        new Vector3(side * (W.wheelWidth / 2 + 0.06), -(yokeDown + prongDrop), 0),
+        new Vector3(side * (W.wheelWidth / 2 + 0.06 * size), -(yokeDown + prongDrop), 0),
         Quaternion.RotationAxis(new Vector3(0, 0, 1), Math.PI / 2));
     }
 
@@ -329,7 +335,7 @@ return defineLocomotion({
     for (let index = 0; index < 6; index += 1) {
       const angle = index * Math.PI / 3;
       const spoke = MeshBuilder.CreateBox(`${ctx.name}.wheel.spoke${index}`, {
-        width: 0.06, height: W.wheelWidth + 0.06, depth: W.wheelRadius * 0.82,
+        width: 0.06 * size, height: W.wheelWidth + 0.06 * size, depth: W.wheelRadius * 0.82,
       }, ctx.scene);
       spoke.material = bronze;
       dress(spoke, wheel.mesh,
@@ -342,7 +348,7 @@ return defineLocomotion({
       // rim, standing proud of it, eight of them going past the eye once a turn.
       const angle = index * Math.PI / 4;
       const cleat = MeshBuilder.CreateBox(`${ctx.name}.wheel.cleat${index}`, {
-        width: 0.11, height: W.wheelWidth * 1.04, depth: 0.06,
+        width: 0.11 * size, height: W.wheelWidth * 1.04, depth: 0.06 * size,
       }, ctx.scene);
       cleat.material = bronze;
       dress(cleat, wheel.mesh,
@@ -360,7 +366,7 @@ return defineLocomotion({
      * waist, an `ANIMATED` one is a fixed anchor and is left alone.
      */
     const carried = ctx.socket.mount.body.getMotionType() === PhysicsMotionType.DYNAMIC;
-    const L = BENCH_STAND_LOCOMOTION;
+    const L = withSize(BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, size);
     let waist: Physics6DoFConstraint | null = carried
       ? joint(ctx.scene, yoke, ctx.socket.mount, {
         pivotParent: new Vector3(0, W.yokeHeight / 2, 0),
@@ -590,6 +596,7 @@ return defineLocomotion({
         gaitStabilityScale: scale,
         stabilityScale: stability,
         recoveryScale: recovery,
+        sizeScale: size,
       });
     };
 
@@ -819,7 +826,8 @@ return defineLocomotion({
       reach: standHeight,
       strokes: NO_STROKES,
       reachable: null,
-      settledBand: 0.02,
+      // Metres of height, so at the body's size.
+      settledBand: 0.02 * size,
     });
 
     const disposeJoints = (): void => {

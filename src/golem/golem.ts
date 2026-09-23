@@ -369,7 +369,9 @@ export class Golem implements Combatant {
     // The one body here that is not part of the golem. See `GOLEM_ASSEMBLY.baseSize` for why a
     // module with nothing above it still needs a mount, and why this one is `ANIMATED` on a
     // collision mask of zero.
-    const standHeight = locomotionDefinition.heightRange.standM;
+    // The definition states its stand at x1, and every length of a body goes with its size stat,
+    // which its locomotion builds to (`withSize`): the waist is where the sized legs put it.
+    const standHeight = locomotionDefinition.heightRange.standM * this.attributes.size;
     const waist = new Vector3(options.origin.x, options.origin.y + standHeight, options.origin.z);
     const size = GOLEM_ASSEMBLY.baseSize;
     this.base = boxPart(scene, {

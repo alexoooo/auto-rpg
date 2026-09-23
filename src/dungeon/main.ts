@@ -16,7 +16,7 @@ import HavokPhysics from "@babylonjs/havok";
 import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { attachPhysics } from "../physics.ts";
 import { CONFIG } from "../config.ts";
-import { bodyFamily } from "../golem/family.ts";
+import { bodyFamily, FAMILY_FIXED_ATTRIBUTES, withoutFixedAttributes } from "../golem/family.ts";
 import { ARMED_SETUP } from "../golem/family-setup.ts";
 import { golemTerminalOptions } from "../golem/build.ts";
 import type { GolemSetup } from "../bout.ts";
@@ -60,12 +60,15 @@ const updateEquipment = () => {
   heroSecondary.disabled = heroPrimary.value === "maul";
 };
 heroBuild.addEventListener("change", updateEquipment);
+heroBuild.addEventListener("change", () => renderHeroAttributes());
 // The hero's attributes, held here until Start puts them on the hero's setup. Only the hero: every
 // enemy is built at x1. Nothing is remembered between visits, because the dungeon remembers nothing.
 const heroAttributesPanel = need("hero-attributes");
 let heroAttributes: AttributeSetting = {};
 heroAttributesPanel.innerHTML = attributesPanel("hero");
-const renderHeroAttributes = () => renderAttributes(heroAttributesPanel, "hero", heroAttributes, false);
+// A stat the hero's family fixes is shown fixed, and left off the hero at Start (`FAMILY_FIXED_ATTRIBUTES`).
+const heroFixed = () => { const setup = heroSetup(); return setup ? FAMILY_FIXED_ATTRIBUTES[bodyFamily(setup)] : {}; };
+const renderHeroAttributes = () => renderAttributes(heroAttributesPanel, "hero", heroAttributes, false, heroFixed());
 const editHeroAttributes = (event: Event) => {
   const action = attributeAction(event.target);
   if (!action) return;
@@ -155,7 +158,8 @@ async function boot(): Promise<void> {
     // A hero somebody tuned is handed over as a whole setup; one nobody tuned goes the way it always
     // did, so a default run is the run it was.
     const base = selectedEquipment ?? heroSetup();
-    if (base && Object.keys(heroAttributes).length > 0) selectedEquipment = withAttributeSetting(base, heroAttributes);
+    const kept = base ? withoutFixedAttributes(heroAttributes, bodyFamily(base)) ?? {} : {};
+    if (base && Object.keys(kept).length > 0) selectedEquipment = withAttributeSetting(base, kept);
     launch(Number(seedInput.value));
   }, { signal });
   seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });

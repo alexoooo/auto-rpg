@@ -32,7 +32,9 @@ import {
 } from "./golem/build";
 import { randomViableGolemSetup, randomViableOpponent, unviablePairNote } from "./golem/viability";
 import type { PartsBin } from "./golem/parts-bin";
-import { BODY_FAMILIES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily } from "./golem/family.ts";
+import {
+  BODY_FAMILIES, FAMILY_FIXED_ATTRIBUTES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily,
+} from "./golem/family.ts";
 import { FAMILY_SETUP } from "./golem/family-setup.ts";
 import { ATTRIBUTE_IDS, describeAttributes, resolveAttributes } from "./golem/attributes.ts";
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "./attributes-ui";
@@ -628,7 +630,10 @@ export class SetupScreen {
       // Attributes are a golem's, so a corner holding anything else has none to show; the wave
       // queue's corner shows its own disabled, like every other control the queue owns.
       this.attributePanels[side].hidden = build === null;
-      if (build) renderAttributes(this.attributePanels[side], side, build.attributes, waves && side === "right");
+      if (build) {
+        renderAttributes(this.attributePanels[side], side, build.attributes, waves && side === "right",
+          FAMILY_FIXED_ATTRIBUTES[bodyFamily(build)]);
+      }
       if (build) {
         const family = bodyFamily(build);
         const fill = (field: GolemField, items: readonly GolemSlotOption[], value: string): void => {
