@@ -294,7 +294,9 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * stone with the four probe minds does not win by it: 47.7 % at x0.5, 44.7 % at x1.5 and 43.0 % at
    * x2 (d -0.15 against the control), while its knockdowns go from 14.61 a bout to 0.65. The minds
    * stretch a heavy arm's strokes (`strokeInertiaScale`, 14.4 % at x2) that the arm itself does not
-   * need. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
+   * need. The skeleton duelist's mirror loses by it outright: 74.5 % at x0.5, 58.3 % at x0.9, 38.8 %
+   * at x1.5 (d -0.27) and 45.3 % at x2, with its knockdowns going from 7.05 a bout to 1.75. The
+   * tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
    */
   weight: Object.freeze({ label: "Weight", min: 0.8, max: 2, step: 0.05, live: true }),
   size: pending("Size"),
