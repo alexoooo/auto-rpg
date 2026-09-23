@@ -8,6 +8,9 @@ import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
 
 const T = CONFIG.combat;
 
+/** A struck part as `severs` reads it, after the blow: what is left of it, out of ten. */
+const struck = (health, maxHealth = 10) => ({ health, maxHealth });
+
 /**
  * **This file was rewritten on 2026-09-06 and it is worth saying why in one place.**
  *
@@ -241,20 +244,31 @@ test("a contact with no closing speed is nothing, whatever the tip was doing", (
 
 test("a limb comes off only when a real cut empties it", () => {
   const cut = scoreHit(cleanCut());
-  assert.equal(severs(cut, 0), true);
-  assert.equal(severs(cut, 12), false, "a limb with health left stays on");
+  assert.equal(severs(cut, struck(0)), true);
+  assert.equal(severs(cut, struck(12)), false, "a limb with health left stays on");
 });
 
-test("beating a limb to nothing with the flat leaves it ruined but attached", () => {
+test("beating a limb to nothing with the flat leaves it ruined but attached, until it breaks", () => {
   const flat = scoreHit({ ...cleanCut(30), edgeAlignment: 0.3 });
   assert.equal(flat.kind, "slap");
-  assert.equal(severs(flat, -50), false);
+  assert.ok(flat.damage > 0, "a flat blow that wounds nothing can say nothing about breaking");
+  assert.equal(severs(flat, struck(0)), false, "the flat blow that empties a limb took it off");
+  // The breaking point, 2026-09-22: a ruined limb that goes on being hit comes off, whatever hits
+  // it. Bracketed on both sides, and scaled by the part, because a rule read at one point is a
+  // rule that could be any rule through that point.
+  const breaking = -T.severMargin * 10;
+  assert.ok(breaking < 0, "a breaking point at empty would make the flat blow's bar mean nothing");
+  assert.equal(severs(flat, struck(breaking)), true, "a limb beaten past its breaking point stayed on");
+  assert.equal(severs(flat, struck(breaking + 1e-6)), false, "a limb broke short of its breaking point");
+  assert.equal(severs(flat, struck(breaking, 20)), false, "a bigger part breaks no deeper than a small one");
+  assert.equal(severs({ ...flat, damage: 0 }, struck(breaking * 10)), false,
+    "a touch that wounded nothing broke a limb");
 });
 
 test("a thrust that empties a limb takes it off", () => {
   const thrust = scoreHit({ ...cleanCut(14), edgeAlignment: 0, bladeAlignment: 1, nearTip: true });
   assert.equal(thrust.kind, "thrust");
-  assert.equal(severs(thrust, 0), true);
+  assert.equal(severs(thrust, struck(0)), true);
 });
 
 // ---- what a weapon that is not a sword is worth ---------------------------
@@ -287,7 +301,7 @@ test("a shield scores nothing however hard it is swung", () => {
   // that pushes without biting. `inert`'s `joulesPerDamage` is `Infinity`, which is the same
   // statement said in the row's own units.
   assert.equal(score.kind, "slap");
-  assert.equal(severs(score, -500, "shield"), false, "a shield cannot take a limb off");
+  assert.equal(severs(score, struck(-500), "shield"), false, "a shield cannot take a limb off");
   assert.equal(biteMechanism("shield"), "none");
 });
 
@@ -301,7 +315,7 @@ test("a buckler is a shield: it shoves and it scores nothing", () => {
   assert.equal(score.damage, 0, "a buckler does no damage however hard it arrives");
   assert.equal(score.quality, 0);
   assert.equal(score.kind, "slap");
-  assert.equal(severs(score, -500, "buckler"), false, "a buckler cannot take a limb off");
+  assert.equal(severs(score, struck(-500), "buckler"), false, "a buckler cannot take a limb off");
   assert.deepEqual(score, scoreHit(hard, "shield"), "and it is scored exactly as a shield is");
 });
 
@@ -357,8 +371,8 @@ test("a club takes a limb off by crushing through it", () => {
   // The edge-quality clause has nothing to say about a weapon with no edge, so it is dropped
   // rather than failed. A club that could never sever could only win by flattening all thirteen
   // parts.
-  assert.equal(severs(blow, 0, "club"), true);
-  assert.equal(severs(blow, 5, "club"), false, "a limb with health left stays on");
+  assert.equal(severs(blow, struck(0), "club"), true);
+  assert.equal(severs(blow, struck(5), "club"), false, "a limb with health left stays on");
 });
 
 /**
@@ -454,7 +468,7 @@ test("an axe cannot be thrust, however well it is driven", () => {
   const axe = scoreHit(contact, "axe");
   assert.equal(axe.kind, "slap", "driving an axe forward is a shove");
   assert.equal(axe.damage, 0);
-  assert.equal(severs(axe, -50, "axe"), false, "and a shove takes nothing off");
+  assert.equal(severs(axe, struck(-50), "axe"), false, "and a shove takes nothing off");
 });
 
 /**
@@ -490,8 +504,8 @@ test("an axe shares the blade's floor and the blade's bar, and only its constant
 
   const emptied = chop(15);
   assert.equal(
-    severs(scoreHit(emptied, "axe"), 0, "axe"),
-    severs(scoreHit({ ...emptied, strikerMassKg: CONFIG.sword.mass }, "sword"), 0, "sword"),
+    severs(scoreHit(emptied, "axe"), struck(0), "axe"),
+    severs(scoreHit({ ...emptied, strikerMassKg: CONFIG.sword.mass }, "sword"), struck(0), "sword"),
   );
 });
 
@@ -532,7 +546,7 @@ test("every kind names a mechanism and a floor, and they are the ones the caller
   assert.ok(biteFloorJ("sword") < biteFloorJ("club"));
 });
 
-test("a_fast_fist_crushes_but_never_cuts_or_severs", () => {
+test("a_fast_fist_crushes_never_cuts_and_severs_only_past_the_breaking_point", () => {
   const fist = scoreHit(
     { closingSpeed: 9, strikerMassKg: CONFIG.arm.handMass, partMassKg: TORSO,
       edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
@@ -543,7 +557,9 @@ test("a_fast_fist_crushes_but_never_cuts_or_severs", () => {
   // and it is 0.23 now, which is the largest single fall in this session and is the model
   // saying that a bare hand on a chest is not a quarter of a sword cut. The entry reports it.
   assert.ok(Math.abs(fist.damage - 0.2263) < 5e-4, `a punch is worth ${fist.damage}`);
-  assert.equal(severs(fist, -500, "empty"), false, "a punch never takes a limb off");
+  assert.equal(severs(fist, struck(0), "empty"), false, "a punch never takes off a limb it empties");
+  assert.equal(severs(fist, struck(-T.severMargin * 10), "empty"), true,
+    "a limb already beaten past its breaking point stayed on under a punch");
 });
 
 test("a_slow_fist_is_a_shove_worth_nothing", () => {
@@ -559,7 +575,7 @@ test("a_slow_fist_is_a_shove_worth_nothing", () => {
   );
   assert.equal(fist.kind, "slap");
   assert.equal(fist.damage, 0);
-  assert.equal(severs(fist, -500, "empty"), false);
+  assert.equal(severs(fist, struck(-500), "empty"), false);
 });
 
 test("no kind that scores nothing can ever take a limb off", () => {
@@ -568,7 +584,7 @@ test("no kind that scores nothing can ever take a limb off", () => {
   for (const kind of WEAPON_KINDS) {
     const score = scoreHit(hard, kind);
     if (score.damage > 0) continue;
-    assert.equal(severs(score, -500, kind), false, `${kind} scores nothing and must sever nothing`);
+    assert.equal(severs(score, struck(-500), kind), false, `${kind} scores nothing and must sever nothing`);
   }
 });
 
@@ -628,10 +644,12 @@ test("a bow at half draw is worth about 40 % of a full one, and that needs no re
   assert.ok(half > full * 0.15, "but not nothing");
 });
 
-test("an arrow never takes a limb off, however hard it lands", () => {
+test("an arrow never takes off a limb it empties, however hard it lands", () => {
   const best = scoreHit({ ...shot(200), edgeAlignment: 1, nearTip: true }, "arrow");
   assert.equal(best.quality, 1, "as well delivered as a blow can be");
-  assert.equal(severs(best, -1000, "arrow"), false, "and it still leaves the arm on");
+  assert.equal(severs(best, struck(0), "arrow"), false, "and it still leaves the arm on");
+  // Past the breaking point nothing is being taken off by the arrow: the joint has gone.
+  assert.equal(severs(best, struck(-T.severMargin * 10), "arrow"), true);
 });
 
 test("a bow is worth nothing swung, like the shields", () => {
@@ -641,7 +659,7 @@ test("a bow is worth nothing swung, like the shields", () => {
     "bow",
   );
   assert.equal(swung.damage, 0);
-  assert.equal(severs(swung, -100, "bow"), false);
+  assert.equal(severs(swung, struck(-100), "bow"), false);
 });
 
 test("an arrow needs far more speed than a blade before it is worth anything", () => {

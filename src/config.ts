@@ -1005,8 +1005,31 @@ export const CONFIG = {
      */
     impossibleSpeed: 40.0,
 
-    /** Damage past a part's remaining health this far over severs it. */
-    severMargin: 0.05,
+    /**
+     * **The breaking point**: how far below empty, as a fraction of the part's full health, a part
+     * may be beaten before any wounding blow takes it off. See `severs` in `src/scoring.ts`.
+     *
+     * Before 2026-09-22 this was 0.05 with nothing reading it. It sets how long a ruined limb
+     * hangs before it comes away, so it was chosen from how far past zero blows actually reach.
+     * Node harness, research probe, 768 paired mirrors at bdcc28f: 412 blows emptied a non-fatal
+     * part, 311 of them took it off by the weapon's own bar, and these are the other 101, with the
+     * 21 later blows that landed on a part already empty and left it on:
+     *
+     * | margin | emptying blows that would break at once | blows on an empty part that would |
+     * | ---: | ---: | ---: |
+     * | 0.05 | 85 / 101 | 19 / 21 |
+     * | 0.25 | 35 / 101 | 5 / 21 |
+     * | **0.5** | **21 / 101** | **2 / 21** |
+     * | 1.0 | 8 / 101 | 1 / 21 |
+     *
+     * Depth reached, as a fraction of full health, unsevered: median 0.205 and 90th centile 0.784
+     * for the emptying blow. At 0.05 nearly every flat emptying blow is also a dismemberment, and a
+     * fist becomes a severing weapon in all but name, with no limp stage between; at 0.5 a heavy
+     * overkill (the ram's median is 0.93) breaks a limb outright, and an ordinary one leaves it
+     * hanging for half its health again. The second column is thin -- an empty part is rarely hit
+     * again -- so it is the first that chose the number.
+     */
+    severMargin: 0.5,
     /**
      * How well a blade has to be placed before it may take a limb off.
      *

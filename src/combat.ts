@@ -839,7 +839,7 @@ export class Combat {
       this.target?.queueStabilityEvent?.({ horizontalShoveNs: [shove.x, shove.z] });
     }
 
-    const severed = severs({ ...score, damage }, limb.health, weapon.kind);
+    const severed = severs({ ...score, damage }, limb, weapon.kind);
     if (severed) this.target?.sever(limb, direction);
 
     return { ...base, kind, edgeAlignment, damage, preArmourDamage: rawDamage,
