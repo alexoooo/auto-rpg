@@ -1405,7 +1405,7 @@ Most of what follows comes from the second.
   not get bigger.
 - The tactics' `circleMin` and `circleMax`. A mind circles at the same distance whatever it is
   driving, and the sweep carries that.
-- `defaultGolemDimensions` in `src/golem/build.ts`, which is x1 arithmetic.
+- `defaultGolemDimensions` in `src/golem/build.ts`, which describes the default build at x1 (see below).
 - The arm torques. They stay on pure similarity (torque as s^4). The bench below shows what that
   costs a small arm holding a full-size item.
 
@@ -1463,6 +1463,37 @@ carrier's figure:
 The x1 column is the carrier every earlier section measured on, so the gap is **not repaired here**.
 A small body makes it worse, because the floors shrink as s^3 and the load does not, so more of the
 cast binds. The wheel and the multileg carry no upper mass at all (see "Weight").
+
+**The diagnostic's impulse is the measured one at size.** `.review/size-shove.mjs` bisects the
+shove that staggers and fells the locomotion bench's carrier, sizing its `shoveImpulseNs` override
+back by s^3.5 so the impulse delivered is the one reported. Node harness, N.s, measured against the
+stability diagnostic's prediction:
+
+| Carrier | Size | Stagger (predicted) | Fall (predicted) |
+|---|---|---|---|
+| biped | 0.8 | 0.62 (0.60) | 1.40 (1.40) |
+| biped | 1 | 0.84 (0.82) | 1.91 (1.91) |
+| biped | 1.25 | 1.26 (1.23) | 2.87 (2.87) |
+| skeleton | 0.8 | 0.68 (0.66) | 1.55 (1.55) |
+| skeleton | 1 | 0.81 (0.79) | 1.84 (1.84) |
+| skeleton | 1.25 | 1.00 (0.99) | 2.30 (2.30) |
+
+These figures come from the bench carrier. Its block's mass does not follow s^3, so the whole-body
+table above is the one to read for a golem's stagger impulse. What this table shows is that the
+diagnostic behind it still agrees with the solver at both ends.
+
+**What a mind sees.** The published `BodyView` scales with the body, per `.review/size-view.mjs`:
+
+- crown height, vital height and collision radius are exactly s times their x1 value;
+- reach is the arm times s plus the blade's fixed 0.80 m. For the default golem that is 1.63 m at
+  x0.8, 1.84 at x1 and 2.10 at x1.25.
+
+The minds' circling band (`circleMin` 1.3 m and `circleMax` 2.6 m) does not move. So a large golem
+stands inside its own reach further out, and a small one has to close further in.
+
+`defaultGolemDimensions` describes the registry's default build, which is at x1 by definition. Its
+gate in `tests/golem-arena.test.mjs` is against that build, and a sized body publishes its own
+dimensions, so nothing reads the registry row for a sized body.
 
 ### Arms
 
