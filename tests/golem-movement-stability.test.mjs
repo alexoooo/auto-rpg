@@ -9,7 +9,7 @@ import { boxPart, joint } from '../src/rig.ts';
 import { Golem } from '../src/golem/golem.ts';
 import { defaultGolemSetup } from '../src/golem/build.ts';
 import { TORSO_PLAIN, TORSO_PLATED } from '../src/golem/config.ts';
-import { JointActuator, JointServo } from '../src/golem/joint-servo.ts';
+import { FULL_TONE, JointActuator, JointServo } from '../src/golem/joint-servo.ts';
 import { flatSupportedWorldRegistry } from '../src/supported-locomotion-production.ts';
 import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
 
@@ -31,7 +31,8 @@ test('a physical joint tracks continuous targets, permits direct velocity contro
     pivotChild: Vector3.Zero(), swing: { x: { min: -1.4, max: 1.4 } } });
   const angle = () => parent.mesh.rotationQuaternion.conjugate()
     .multiply(child.mesh.rotationQuaternion).toEulerAngles().x;
-  const actuator = new JointActuator(hinge, PhysicsConstraintAxis.ANGULAR_X);
+  assert.throws(() => new JointActuator(hinge, PhysicsConstraintAxis.ANGULAR_X), /MotorTone/);
+  const actuator = new JointActuator(hinge, PhysicsConstraintAxis.ANGULAR_X, FULL_TONE);
   const servo = new JointServo(actuator, angle);
   for (const part of [parent, child]) scene.getPhysicsEngine().getPhysicsPlugin().setActivationControl(part.body, 1);
   try {

@@ -62,20 +62,48 @@ export const SKELETON_ARMOUR: ArmourByHit = Object.freeze({ cut: 0.5, thrust: 0.
  * (`runGolemLocomotion`, stone's 57.8 kg ride block on each), over the walk, the side-step, the spin
  * and the scripted shove-and-rise:
  *
- * | legs, hip / knee / ankle Nm | walk slip | walk flight | strafe slip | turn slip | support gap | rise |
- * | --- | --- | --- | --- | --- | --- | --- |
- * | stone biped, 900 / 500 / 220 | 99.1 mm/s | 8 / 1919 | 1163.9 | 369.8 | 0.071 s | 1.158 s |
- * | skeleton, 900 / 500 / 220 | 270.2 mm/s | 12 / 1919 | 1275.0 | 207.7 | 0.229 s | 1.158 s |
- * | skeleton, 675 / 375 / 165 | 118.9 mm/s | 8 / 1919 | - | - | 0.142 s | 1.158 s |
- * | skeleton, 540 / 300 / 132 | 95.5 mm/s | 8 / 1919 | - | - | 0 s | 1.158 s |
- * | **skeleton, 450 / 250 / 110** | **95.6 mm/s** | **8 / 1919** | **1275.0** | **207.7** | **0 s** | **1.158 s** |
- * | skeleton, 360 / 200 / 88 | 97.1 mm/s | 8 / 1919 | - | - | 0.117 s | 1.158 s |
- * | skeleton, 225 / 125 / 55 | 150.3 mm/s | 34 / 1919 | 1275.3 | 207.7 | 0 s | 1.158 s |
- * | skeleton, 90 / 50 / 22 | 379.2 mm/s | 174 / 1919 | 1247.9 | 207.7 | 0 s | 1.158 s |
+ * | legs, hip / knee / ankle Nm | walk slip | walk flight | strafe slip | turn slip | support gap |
+ * | --- | --- | --- | --- | --- | --- |
+ * | stone biped, 900 / 500 / 220 | 99.1 mm/s | 8 / 1919 | 1163.9 | 369.8 | 0.071 s |
+ * | skeleton, 900 / 500 / 220 | 270.2 mm/s | 12 / 1919 | 1275.0 | 207.7 | 0.229 s |
+ * | skeleton, 675 / 375 / 165 | 118.9 mm/s | 8 / 1919 | - | - | 0.142 s |
+ * | skeleton, 540 / 300 / 132 | 95.5 mm/s | 8 / 1919 | - | - | 0 s |
+ * | **skeleton, 450 / 250 / 110** | **95.6 mm/s** | **8 / 1919** | **1275.0** | **207.7** | **0 s** |
+ * | skeleton, 360 / 200 / 88 | 97.1 mm/s | 8 / 1919 | - | - | 0.117 s |
+ * | skeleton, 225 / 125 / 55 | 150.3 mm/s | 34 / 1919 | 1275.3 | 207.7 | 0 s |
+ * | skeleton, 90 / 50 / 22 | 379.2 mm/s | 174 / 1919 | 1247.9 | 207.7 | 0 s |
  *
  * Every row but the last is inside the biped's own budgets (slip 300, strafe 1399, turn 267 for a
  * 0.09 m hip). The walk does not read the ride mass, because the root is keyframed while it is
  * supported; carrying the skeleton's own 22.4 kg upper body instead changes only the knockdown.
+ *
+ * **A knockdown runs its course** (`Knockdown` in `../config.ts`): the whole body goes limp, the
+ * rise waits for the fall to come to rest, and the lift is slowed to `risePeakMps`. Traced every
+ * 0.1 s, a released skeleton's pelvis and ribcage fall at 1 to 2.5 m/s for the first 1 to 1.2 s and
+ * most are still between 1.2 and 2.5 s, which is where the cap sits. Node bout runner, supported,
+ * 20 s cap, skeleton-duelist mirrors, four seed pairs 0x57010001 to 0x57010008, 159.8
+ * corner-seconds; a lie is one stretch spent fallen, and "at cap" counts the lies the cap ended:
+ *
+ * | knockdown: rest m/s, rest s, cap s | fallen / rising s | lies | lie median / p90 s | at cap | pelvis at rise | rise lift, max |
+ * | --- | --- | --- | --- | --- | --- | --- |
+ * | none (stone's) | 17.4 / 18.4 | 49 | 0.35 / 0.35 | - | 0.81 m | 2.41 m/s |
+ * | 0.2, 0.2, 3 | 61.2 / 22.7 | 27 | 2.23 / 3.00 | 5 | 0.19 m | 0.90 m/s |
+ * | 0.2, 0.2, 2.5 | 45.6 / 21.3 | 24 | 1.86 / 2.50 | 5 | 0.18 m | 0.90 m/s |
+ * | **0.3, 0.2, 2.5** | **53.7 / 27.0** | **30** | **1.57 / 2.50** | **3** | **0.19 m** | **0.90 m/s** |
+ *
+ * 0.3 m/s is far under the collapse and over a limp body's settling. A skeleton now spends about
+ * half of a mirror bout down, against a fifth before, which is the brace question session 08 puts
+ * to the owner. Part of that is the rise: a blow that lands during one sends the body back to
+ * fallen, and a 1.1 s rise is a longer window for it than a 0.45 s one. In the same four mirrors
+ * 11 of 30 rises were struck back down and 3 were refused for room, against 13 of 49 struck under
+ * stone's knockdown.
+ *
+ * **So its `riseBudgetSeconds` is its own.** The rise is keyframed and the leg ceilings above do
+ * not move it: under stone's knockdown every row rose in 1.158 s on the bench's scripted shove, and
+ * under this one the chosen row takes 1.996 s from the fall to supported. The budget is that and
+ * about the half second stone's leaves over its own. It cannot be the worst case, a lie to the cap
+ * and then a lift of the whole stand height, 2.5 + 1.43 s: the bench's sequence ends 3.0 s after
+ * its shove (`LOCOMOTION_SEQUENCE`), so a rise that long reads as none at all.
  */
 export const SKELETON_BIPED = {
   ...LOCOMOTION_BIPED, look: "bone" as ShellLook,
@@ -86,6 +114,8 @@ export const SKELETON_BIPED = {
   footLength: 0.24, footWidth: 0.09, footHeight: 0.05, footMass: 0.5, footHealth: 25,
   footprintRadius: 0.28,
   hipTorque: 450, kneeTorque: 250, ankleTorque: 110,
+  knockdown: { restSpeedMps: 0.3, restSeconds: 0.2, maxLyingSeconds: 2.5, risePeakMps: 0.9 },
+  riseBudgetSeconds: 2.50,
 };
 
 /**

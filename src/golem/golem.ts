@@ -273,6 +273,11 @@ export class Golem implements Combatant {
   lockTarget: Vector3 | null = null;
 
   private readonly materials: GolemMaterialPalette;
+  /**
+   * This body's motor tone, handed to every module through `ModuleBuild.tone` and set once a
+   * substep by `motorTone`.
+   */
+  private readonly tone: { scale: number } = { scale: 1 };
   private readonly base: Part;
   private readonly modules: AssembledModule[] = [];
   private readonly locomotionModule: BuiltLocomotion;
@@ -371,6 +376,7 @@ export class Golem implements Combatant {
       layers,
       materials: this.materials,
       world: options.locomotionWorld,
+      tone: this.tone,
     });
 
     // --- locomotion, then the torso on its root, then the head and both effectors -------------
@@ -609,7 +615,49 @@ export class Golem implements Combatant {
   get mind(): Mind { return this.control.mind; }
   set mind(value: Mind) { this.control.installMind(value); }
 
-  /** The whole `Intent`, narrowed onto five modules. Nothing here widens the command. */
+  /**
+   * Whether this body is down and limp: fallen, on a locomotion whose table says a knockdown takes
+   * the whole body (`BuiltLocomotion.fallenTone`). Stone's does not, and fights on from the floor
+   * for as long as it lies there, which is never less than the 0.35 s dwell.
+   */
+  private knockedLimp(): boolean {
+    return this.locomotionModule.fallenTone !== null && this.locomotion.state === "fallen";
+  }
+
+  /**
+   * The fraction of every upper-body motor ceiling this substep: the locomotion's `fallenTone`
+   * while `knockedLimp`, climbing back to full along the rise's own progress, and full otherwise.
+   *
+   * **The climb is what keeps the arm from snapping.** Restored in one step on the rise's first
+   * substep, a limp arm's commanded pose was suddenly driven at full strength from wherever the
+   * fall had left it. Peak blade speed in the first 0.3 s of a rise, Node bout runner, supported,
+   * 20 s cap, `skeleton-duelist` skeleton mirrors, four seed pairs (0x57010001 to 0x57010008):
+   *
+   * | tone on the rise | rises | blade m/s, min / median / max |
+   * | ---------------- | ----- | ----------------------------- |
+   * | full at once     |    11 | 5.1 / 14.3 / 21.4             |
+   * | this climb       |    16 | 2.6 / 6.2 / 10.0              |
+   *
+   * It is paid for in native writes: while the tone climbs, every upper actuator rewrites its
+   * ceiling on every substep of the rise, where a steady tone writes none. That cost was not timed.
+   */
+  private motorTone(): number {
+    const fallen = this.locomotionModule.fallenTone;
+    if (fallen === null) return 1;
+    const state = this.locomotion.state;
+    if (state === "fallen") return fallen;
+    if (state !== "rising") return 1;
+    return fallen + (1 - fallen) * (this.locomotion.diagnostic().recoveryProgress ?? 1);
+  }
+
+  /**
+   * The whole `Intent`, narrowed onto five modules. Nothing here widens the command.
+   *
+   * **A limp body takes no command above the legs**, from a person or a policy alike: the torso,
+   * the head and both hands are handed `NEUTRAL` until it rises, which is the carrier's own rule
+   * ("carrier is released while fallen") carried up the body. The legs still get the whole
+   * command, because moving is how a fallen body asks to get up.
+   */
   private applyIntent(dt: number, intent: Intent): void {
     const locomotion = locomotionCommand(intent);
     this.locomotionModule.command(locomotion);
@@ -620,11 +668,12 @@ export class Golem implements Combatant {
     // a bench and stand perfectly still in a bout, which is the least visible way this could have
     // gone wrong.
     this.locomotion.request(locomotion.request);
-    const posture: TorsoCommand = intent.posture;
+    const upper = this.knockedLimp() ? NEUTRAL : intent;
+    const posture: TorsoCommand = upper.posture;
     this.torsoModule.command(posture);
-    this.headModule.command(intent.natural);
+    this.headModule.command(upper.natural);
     for (const effector of this.effectorModules) {
-      effector.module.command(intent[effector.driven]);
+      effector.module.command(upper[effector.driven]);
     }
     void dt;
   }
@@ -856,6 +905,9 @@ export class Golem implements Combatant {
   afterLocomotion(dt: number): void {
     this.locomotionModule.gait(dt);
     this.locomotionModule.endSubstep(dt);
+    // Before any upper module steps, so every ceiling written this substep is at the tone the
+    // state machine settled on at this substep's boundary.
+    this.tone.scale = this.motorTone();
     this.torsoModule.step(dt);
     this.headModule.step(dt);
     for (const effector of this.effectorModules) effector.module.step(dt);

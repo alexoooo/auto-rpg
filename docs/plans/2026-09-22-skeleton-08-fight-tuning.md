@@ -165,7 +165,9 @@ Two different things happen to a struck body, and they have different levers.
   the stone `braceCapacityMultiplier`, where a stone golem takes about three, and session 06
   measured the line on the bench. Count, per bout, falls and time spent down. For each landed
   blow, record the ledger's `stability.specificImpulseMps` just before and just after it. Compare
-  skeleton against stone.
+  skeleton against stone. Time down includes the skeleton's lie and its slower rise (`Knockdown`
+  in `config.ts`); with those, four skeleton mirrors spent about half their corner-seconds
+  fallen or rising, which is the figure the brace sweep below should be read against.
 - **The fling is not.** The physical impulse `Combat` applies to the struck part,
   `speed * 0.11 * (1.35 - quality * 0.7)` N.s for weapons without `authoredSpecificImpulseMps`,
   does not depend on that part's mass, so a light bone is thrown further. Measure, per landed
@@ -182,6 +184,15 @@ If a skeleton falls or is flung much more than stone, the options are:
   blow, because the reduced mass grows with it, so it works against the damage table.
 - **A mass-scaled physical shove.** Shared: it moves stone and needs its own session. It changes
   the fling and not the fall.
+- **A shorter lie or a quicker rise**: the cap and `risePeakMps` in `SKELETON_BIPED.knockdown`.
+  Skeleton-only. It changes the time down, and through the rise it changes how often a skeleton is
+  put back down: a blow that lands during a rise sends the body back to fallen, and in four
+  skeleton mirrors 11 of 30 of the 1.1 s rises were struck back down, against 13 of 49 of the
+  0.45 s rises the same skeletons made under stone's knockdown (`SKELETON_BIPED` has the numbers). It gives back some of what the owner asked for
+  when a knockdown was made physical.
+- **A rise that a blow does not interrupt**, for a skeleton alone. It is a rule rather than a
+  number, in `recoveryHitInterrupted` in `src/supported-locomotion-production.ts`, and it means a
+  skeleton that has begun to rise always gets up. Ask before building it.
 - **Accepting it as part of the skeleton's feel.** The owner asked for less sturdy.
 
 Say which, and do not choose.
@@ -189,7 +200,10 @@ Say which, and do not choose.
 ### 8. Does it walk and stand?
 
 Session 06 benched the legs alone. In fights, report falls, the time spent down, and whether a
-skeleton ever fails to rise within `riseBudgetSeconds`. Compare with stone.
+skeleton ever fails to rise within its `riseBudgetSeconds`, which is its own (2.50 s against
+stone's 1.60, because its knockdown runs its course; see `SKELETON_BIPED`). That budget is read
+on the locomotion bench, which cannot see a lie that runs to the cap; a bout can. Compare with
+stone.
 
 ## Setting the numbers
 

@@ -2348,6 +2348,33 @@ export const BENCH_STAND_LOCOMOTION = {
 };
 
 /**
+ * A knockdown that runs its course, for a biped whose table sets one.
+ *
+ * - **The whole body goes limp.** While it lies, every motor above the legs falls to
+ *   `fallenTorqueScale`, as the legs already do, and the upper body is commanded neutral
+ *   (`BuiltLocomotion.fallenTone`). From the rise's first substep the upper body takes its
+ *   commands again, and the tone climbs back to full across the rise (the table that chose the
+ *   climb is on the golem's `motorTone`).
+ * - **The rise waits for the fall to finish**: the pelvis and the load have both moved slower than
+ *   `restSpeedMps` for `restSeconds` together, or the body has lain `maxLyingSeconds` whatever it
+ *   was doing. The cap is what keeps this from being a rule a body can fail for ever -- a ragdoll an
+ *   opponent keeps striking never comes to rest, and recovery may not require a state the body
+ *   cannot reach. `SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S` remains the floor under both. Rest is
+ *   stillness and not lowness: nothing here asks how far the body has fallen, so one released
+ *   without the momentum to topple, and still through `restSeconds` after the dwell, is lifted from
+ *   where it stands. In four skeleton mirrors (Node bout runner, supported, 20 s cap, seed pairs
+ *   0x57010001 to 0x57010008) all 30 rises began with the pelvis at or under 0.26 m.
+ * - **The rise lasts as long as its distance needs**: the scripted lift never moves the pelvis
+ *   faster than `risePeakMps`, and never takes less than `SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S`.
+ */
+export interface Knockdown {
+  readonly restSpeedMps: number;
+  readonly restSeconds: number;
+  readonly maxLyingSeconds: number;
+  readonly risePeakMps: number;
+}
+
+/**
  * The biped: a pelvis carrier on two legs of thigh, shin and foot.
  *
  * **Read the frozen choice before any number here.** Continuous dynamic-root balance was tried at
@@ -2780,6 +2807,17 @@ export const LOCOMOTION_BIPED = {
    * 2026-09-04, the Node bench.
    */
   fallenTorqueScale: 0.08,
+
+  /**
+   * How a knockdown runs its course, or `null` for the frozen one.
+   *
+   * `null` for stone: its legs go limp, its upper body fights on, and it rises
+   * `SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S` after it was released, over
+   * `RISING_DURATION_S`, as it always has. A stone golem is rarely put over (3 falls in 18.3 s of two
+   * golem-duelist mirrors, Node bout runner, 2026-09-22) and its sessions do not move it. See
+   * `Knockdown` and `SKELETON_BIPED`.
+   */
+  knockdown: null as Knockdown | null,
 
   /** Solver damping on the leg joints' driven axes. A position motor is a spring, and a spring
    *  with no damper rings -- the finding `CHAIN_WRIST.motorDamping` records, and the same

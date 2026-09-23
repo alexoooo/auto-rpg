@@ -190,7 +190,15 @@ with `run_in_background` and do the following:
   - whether a skeleton can be kept on the ground. A blow that lands while a body is rising sends
     it back to fallen (`recoveryHitInterrupted` in `src/supported-locomotion-production.ts`), and
     for a skeleton that takes about 0.25 N.s on its 28.3 kg of supported mass, which nearly any
-    blow exceeds;
+    blow exceeds. A knocked-down skeleton is limp and takes no command above the legs while it
+    lies, lies until it comes to rest or for 2.5 s, and takes about 1.1 s to rise from the floor,
+    fighting again from the rise's first moment at a strength that climbs back to full across it
+    (`Knockdown` in `src/golem/config.ts`). A longer rise is a longer window for that blow: in
+    four skeleton mirrors 11 of 30 rises were struck back down, against 13 of 49 of the 0.45 s
+    rises the same skeletons made under stone's knockdown. So a skeleton kept down is a long and
+    visible thing;
+  - whether a knockdown reads as a physical reaction: the fall, the lie, and a rise with the arms
+    still slack. The owner asked for it because knocked bodies looked like marionettes;
   - whether blows that look as if they pass between the ribs, but strike the solid ribcage box,
     look wrong;
   - whether a shove or a blocked blow flings a skeleton;

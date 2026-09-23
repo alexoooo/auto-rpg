@@ -1,4 +1,4 @@
-import { JointActuator, JointServo } from "../../joint-servo.ts";
+import { FULL_TONE, JointActuator, JointServo } from "../../joint-servo.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import {
   PhysicsConstraintAxis,
@@ -451,8 +451,9 @@ export function wristChainFrom<K extends ChainId>(
 
       // Match the arm response after conditioning the serial bearings. Higher
       // response on the old tiny inertia amplified stop motion (68 -> 99 mm).
-      const rollServo = new JointServo(new JointActuator(rollJoint, HINGE), achievedRoll, 0, 40);
-      const bendServo = new JointServo(new JointActuator(bendJoint, HINGE), achievedBendJoint, 0, 40);
+      const tone = ctx.tone ?? FULL_TONE;
+      const rollServo = new JointServo(new JointActuator(rollJoint, HINGE, tone), achievedRoll, 0, 40);
+      const bendServo = new JointServo(new JointActuator(bendJoint, HINGE, tone), achievedBendJoint, 0, 40);
       const releaseWrist = (): void => {
         rollServo.actuator.release();
         bendServo.actuator.release();

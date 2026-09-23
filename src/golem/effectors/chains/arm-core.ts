@@ -1,4 +1,4 @@
-import { JointActuator, JointServo } from "../../joint-servo.ts";
+import { FULL_TONE, JointActuator, JointServo } from "../../joint-servo.ts";
 import { PhysicsConstraintAxis } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
@@ -409,11 +409,12 @@ export function buildArmCore(
     const value = 2 * Math.atan2(relative[axis], relative.w);
     return Math.atan2(Math.sin(value), Math.cos(value));
   };
-  const yawServo = new JointServo(new JointActuator(yaw, PhysicsConstraintAxis.ANGULAR_X),
+  const tone = ctx.tone ?? FULL_TONE;
+  const yawServo = new JointServo(new JointActuator(yaw, PhysicsConstraintAxis.ANGULAR_X, tone),
     () => angle(socket.mount, collar, "y"), 0, R.jointResponse);
-  const pitchServo = new JointServo(new JointActuator(pitch, PhysicsConstraintAxis.ANGULAR_X),
+  const pitchServo = new JointServo(new JointActuator(pitch, PhysicsConstraintAxis.ANGULAR_X, tone),
     () => angle(collar, upper, "x"), -upperPitch, R.jointResponse);
-  const elbowServo = new JointServo(new JointActuator(elbowJoint, PhysicsConstraintAxis.ANGULAR_X),
+  const elbowServo = new JointServo(new JointActuator(elbowJoint, PhysicsConstraintAxis.ANGULAR_X, tone),
     () => angle(upper, fore, "x"), -buildBones.beta, R.jointResponse);
   const releaseMotors = (): void => {
     for (const servo of [yawServo, pitchServo, elbowServo]) servo.actuator.release();

@@ -133,6 +133,24 @@ export interface SupportedLocomotionBoundary {
   readonly recoveryGroundAvailable: boolean;
   readonly occupancyClear: boolean;
   readonly hitInterrupted: boolean;
+  /**
+   * The body's own verdict that its fall has finished, read only while it is fallen.
+   *
+   * `FALLEN_DWELL_S` is a floor on the ragdoll and nothing more: a body whose mind asks to rise at
+   * once is keyframed off the floor 0.35 s after it was released, which on a light body is before
+   * it has finished tipping over. What "finished" means is the body's -- a biped reads its own
+   * table's `knockdown` -- and a body with no rule of its own answers true, which is the dwell
+   * alone. It is not a support requirement: a rule that answers it has to carry a cap, because a
+   * body that is struck while it lies never comes to rest. Read only while fallen, never by a rise.
+   */
+  readonly fallSettled: boolean;
+  /**
+   * How long the rise under way -- or the one about to begin -- lasts, seconds. Never less than
+   * `RISING_DURATION_S`; a body that sets nothing longer hands over exactly that. A biped with a
+   * `knockdown` lengthens it so the scripted lift never moves its pelvis faster than its table says,
+   * which from the floor is about 1.1 s where the frozen 0.45 s lifted it at up to 2.4 m/s.
+   */
+  readonly risingDurationS: number;
 }
 
 export interface RisingEligibility { readonly eligible: boolean; readonly reason: string | null }
@@ -144,6 +162,11 @@ export function risingEligibility(state: SupportedLocomotionState,
   }
   if (state.fallenElapsedS < SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S) {
     return Object.freeze({ eligible: false, reason: "fallen dwell has not elapsed" });
+  }
+  // Fallen only: a rise already under way is keyframed and never at rest, and asking it to be
+  // would cancel it one boundary after it began.
+  if (state.state === "fallen" && !input.fallSettled) {
+    return Object.freeze({ eligible: false, reason: "the fall has not come to rest" });
   }
   if (!input.recoverRequested) return Object.freeze({ eligible: false, reason: "recovery was not requested" });
   if (!input.authority) return Object.freeze({ eligible: false, reason: "locomotion authority is unavailable" });
@@ -171,6 +194,12 @@ const checkedBoundary = (input: SupportedLocomotionBoundary): void => {
   }
   if (!Number.isFinite(input.supportedMassKg) || input.supportedMassKg <= 0) {
     throw new Error("supported locomotion mass must be finite and positive");
+  }
+  if (typeof input.fallSettled !== "boolean") {
+    throw new Error("supported locomotion boundary must say whether the fall has come to rest");
+  }
+  if (!Number.isFinite(input.risingDurationS) || input.risingDurationS < SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S) {
+    throw new Error("supported locomotion rise may be lengthened but never shorter than RISING_DURATION_S");
   }
   if (input.authority && (!Number.isFinite(input.authority.braceCapacityMultiplier) ||
       input.authority.braceCapacityMultiplier < 1 || !Number.isFinite(input.authority.gaitStabilityScale) ||
@@ -225,7 +254,7 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
     if (!eligible.eligible) return Object.freeze({ state: "fallen", specificImpulseMps,
       supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     const risingElapsedS = prior.risingElapsedS + input.dt;
-    if (risingElapsedS >= SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S && input.postureSupported) {
+    if (risingElapsedS >= input.risingDurationS && input.postureSupported) {
       return Object.freeze({ state: "supported", specificImpulseMps: 0, supportMissingS: 0,
         fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     }

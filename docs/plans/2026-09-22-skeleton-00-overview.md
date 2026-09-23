@@ -31,6 +31,12 @@ this can be checked rather than asserted.
 - **Winning by wearing the health bar down must keep working** for every weapon.
 - No major change without understanding the current state and its implications first. Each
   session below says what it touches, and why stone and human cannot move.
+- **A knockdown is a physical event.** After watching knocked-down skeletons float back upright
+  like marionettes, the owner chose that a knocked-down skeleton goes limp and stops fighting,
+  falls until it comes to rest, and is lifted back up no faster than 0.9 m/s, so the lower it
+  lies the longer the rise. Skeleton
+  only: stone and human are unchanged. It landed after session 06; `Knockdown` in
+  `src/golem/config.ts` is the rule and `SKELETON_BIPED` carries the table that chose its values.
 
 ## What exists today and is reused as it is
 
@@ -213,7 +219,9 @@ geometry and is not exported.
   10 m/s shoves 0.72. Session 06 measured it: in two skeleton mirrors 37 of 88 landed blows were a
   knockdown on their own, against none of 41 in the stone mirrors (the table is on
   `SKELETON_BIPED`). The skeleton-only lever is its own `braceCapacityMultiplier` in
-  `SKELETON_BIPED`, and session 08 takes the choice to the owner.
+  `SKELETON_BIPED`, and session 08 takes the choice to the owner. A fall now costs more than it
+  did, because the knockdown runs its course: in four skeleton mirrors a skeleton spent about half
+  of its time fallen or rising, against a fifth before (the table is on `SKELETON_BIPED`).
 - **Light parts are flung.** The physical impulse in `Combat` (`speed * 0.11 * (1.35 - quality *
   0.7)` N.s) is not scaled by the struck part's mass, so a 0.4 kg bone takes about 3.6 times the
   velocity change of a 1.43 kg stone forearm. That is shared code and stays untouched; session 08

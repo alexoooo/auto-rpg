@@ -891,6 +891,7 @@ export const multilegModule = defineLocomotion({
       world,
       footprint,
       heightRange: multilegHeightRange(),
+      fallenTone: null,
       authority,
       postureEvidence,
       gait,

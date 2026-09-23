@@ -761,7 +761,10 @@ and the page is then navigated rather than trusted to HMR (see "Three ways to as
 question" above). Two kinds of motor ceiling live there. Most are handed over every substep: the
 arm chain, the wrist, the torso's twist and lean and the neck pass their table's value to
 `JointServo.track`, the human arm passes `TORQUES` to `JointActuator.drive`, and the actuator (both
-in `src/golem/joint-servo.ts`) writes it to the joint whenever it changes. The rest are written at
+in `src/golem/joint-servo.ts`) writes it to the joint, times the body's `MotorTone`, whenever that
+product changes. The tone is full except on a body whose locomotion names a `fallenTone` -- today
+the skeleton's -- while it is knocked down and rising; see `motorTone` in `src/golem/golem.ts`.
+A number in a table is therefore the ceiling of a body on its feet. The rest are written at
 construction: `CHAIN_PITCH.motorTorque`, the locomotion waist, and the legs and the wheel's
 spin, which are rewritten on the edges into and out of a knockdown and never per substep. For
 `src/config.ts`, tune from the console first, then write the number back into the file with its

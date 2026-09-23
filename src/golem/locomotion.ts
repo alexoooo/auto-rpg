@@ -152,6 +152,18 @@ export interface BuiltLocomotion extends BuiltModule<LocomotionCommand> {
   readonly world: StandableWorldRegistry;
   readonly footprint: LocomotionFootprint;
   readonly heightRange: LocomotionHeightRange;
+  /**
+   * The fraction of its ceilings every motor above the legs falls to while this body is fallen,
+   * or null for a body whose knockdown leaves its upper body alone.
+   *
+   * The golem reads it: it lowers `ModuleBuild.tone` to this and commands the upper body neutral
+   * for as long as the port says `fallen`. A body that waits for its fall to finish needs it,
+   * because a body still fighting on the floor is slow to come to rest: in four skeleton mirrors
+   * (Node bout runner, supported, 20 s cap, seed pairs 0x57010001 to 0x57010008), 11 of 22 lies ran
+   * to the 2.5 s cap with the upper body at full strength, against 3 of 30 limp
+   * (`LOCOMOTION_BIPED.knockdown`).
+   */
+  readonly fallenTone: number | null;
   /** The live stability authority. Recomputed per boundary, because gait scale moves with speed. */
   authority(): StabilityAuthority;
   /**

@@ -20,7 +20,7 @@ const contact = (overrides = {}) => ({ safeBoundarySequence: 7, supportBinding: 
 const boundary = (overrides = {}) => ({ dt: 0.001, safeBoundarySequence: 7, authority, liveSupport: true,
   postureSupported: true, supportEvidence: [contact()], supportedMassKg: 1, authoredShoves: [],
   recoverRequested: false, recoveryGroundAvailable: true, occupancyClear: true,
-  hitInterrupted: false, ...overrides });
+  hitInterrupted: false, fallSettled: true, risingDurationS: V1.RISING_DURATION_S, ...overrides });
 const state = (overrides = {}) => ({ ...initialSupportedLocomotionState(), ...overrides });
 
 test("the_v1_stability_and_recovery_constants_are_frozen_as_measured_literals", () => {
@@ -167,6 +167,40 @@ test("rising_duration_is_bracketed_on_both_sides_of_the_frozen_boundary", () => 
   const notRestored = stepSupportedLocomotionState(before,
     boundary({ dt: 0.001, recoverRequested: true, postureSupported: false }));
   assert.equal(notRestored.state, "rising", "duration alone cannot relabel a folded body supported");
+});
+
+test("a_fall_that_has_not_come_to_rest_holds_the_body_down_past_the_dwell_and_cannot_cancel_a_rise", () => {
+  const fallen = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S * 4 });
+  const moving = boundary({ recoverRequested: true, fallSettled: false });
+  assert.deepEqual(risingEligibility(fallen, moving), { eligible: false, reason: "the fall has not come to rest" });
+  const held = stepSupportedLocomotionState(fallen, moving);
+  assert.equal(held.state, "fallen");
+  assert.equal(held.driveStaged, false);
+  assert.equal(held.fallenElapsedS, fallen.fallenElapsedS + moving.dt, "the lie goes on counting while it waits");
+  assert.equal(stepSupportedLocomotionState(fallen, boundary({ recoverRequested: true })).state, "rising");
+  // A body's settle tracker starts again once it is up, so a rise under way must not read it.
+  const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S, risingElapsedS: 0.1, driveStaged: true });
+  assert.equal(stepSupportedLocomotionState(rising, moving).state, "rising");
+  assert.throws(() => stepSupportedLocomotionState(fallen, boundary({ fallSettled: undefined })), /come to rest/);
+});
+
+test("a_rise_lasts_its_own_duration_and_never_less_than_the_frozen_one", () => {
+  // Binary fractions, so the two steps land exactly on the duration.
+  const durationS = 1.25;
+  const dt = 2 ** -7;
+  const along = boundary({ dt, recoverRequested: true, risingDurationS: durationS });
+  const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
+    risingElapsedS: durationS - 2 * dt, driveStaged: true });
+  const before = stepSupportedLocomotionState(rising, along);
+  assert.equal(before.state, "rising");
+  assert.equal(stepSupportedLocomotionState(before, along).state, "supported");
+  const pastFrozen = state({ ...rising, risingElapsedS: V1.RISING_DURATION_S });
+  assert.equal(stepSupportedLocomotionState(pastFrozen, along).state, "rising",
+    "the frozen duration is not the end of a lengthened rise");
+  for (const bad of [V1.RISING_DURATION_S - 0.001, Number.NaN, Infinity, undefined]) {
+    assert.throws(() => stepSupportedLocomotionState(rising, boundary({ recoverRequested: true, risingDurationS: bad })),
+      /never shorter than RISING_DURATION_S/, String(bad));
+  }
 });
 
 test("a_required_support_lost_mid_stride_cancels_on_the_next_safe_boundary", () => {

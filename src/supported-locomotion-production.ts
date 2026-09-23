@@ -188,6 +188,12 @@ export interface PhysicalSupportedLocomotionOptions {
   readonly authority: () => StabilityAuthority | null;
   readonly liveSupport: () => boolean;
   readonly postureSupported: () => boolean;
+  /** Whether a fallen body's fall has finished; absent is the frozen dwell alone. Read once per
+   *  boundary, before the state steps. See `SupportedLocomotionBoundary.fallSettled`. */
+  readonly fallSettled?: () => boolean;
+  /** How long a rise over this distance (metres, live root to recovery target) lasts; absent is
+   *  `RISING_DURATION_S`. Asked before the state steps, so the rise it admits is the one it runs. */
+  readonly risingDuration?: (distanceM: number) => number;
   readonly supportBindings: readonly string[];
   /** Read-only live topology projected by the body owner; never a runtime/body handle. */
   readonly supportGroups?: () => readonly PhysicalSupportGroupDiagnostic[];
@@ -300,9 +306,11 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       this.carrier.ownerPartIds, evidenceBindings[0], this.sequence).length > 0;
     const recoveryDistanceM = Math.hypot(recoveryTarget.x - root.position.x,
       recoveryTarget.y - root.position.y, recoveryTarget.z - root.position.z);
+    // The rise under way keeps the length it began with; a prospective one is asked for afresh.
+    const risingDurationS = this.rising?.durationS ??
+      this.options.risingDuration?.(recoveryDistanceM) ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S;
     const recoveryWithinAccelerationLimit = 6 * recoveryDistanceM /
-      (SUPPORTED_CARRIER_V1.RISING_DURATION_S * SUPPORTED_CARRIER_V1.RISING_DURATION_S) <=
-      SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2;
+      (risingDurationS * risingDurationS) <= SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2;
     const occupancyClear = recoveryWithinAccelerationLimit && this.pairOccupancyClear &&
       this.registry.allowedFraction(root.position, recoveryTarget,
         this.carrier.footprint, this.carrier.ownerPartIds) >= 1;
@@ -319,6 +327,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
           Math.abs(priorRequest.localRight), Math.abs(priorRequest.yaw)) > 0),
       recoveryGroundAvailable, occupancyClear,
       hitInterrupted: recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
+      fallSettled: this.options.fallSettled?.() ?? true,
+      risingDurationS,
     });
     if (this.supportState.state === "fallen") {
       if (priorState !== "fallen") {
@@ -345,7 +355,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         y: this.carrier.state.y, z: this.recoveryPairTarget?.z ?? live.position.z };
       this.carrier.reset(target, this.carrier.state.yaw);
       this.rising = new RisingActuator(live.position, target, this.carrier.state.yaw,
-        this.carrier.footprint, this.registry, this.carrier.ownerPartIds);
+        this.carrier.footprint, this.registry, this.carrier.ownerPartIds, risingDurationS);
       this.risingFrameComplete = false;
     } else if (this.supportState.state === "supported" && priorState === "rising") {
       this.rising = null;
@@ -408,7 +418,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       allowed: allowed === null ? null : Object.freeze({ ...allowed }), blockedReason,
       releaseReason: this.releaseReason,
       recoveryProgress: this.supportState.state === "rising"
-        ? Math.min(1, this.supportState.risingElapsedS / SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S)
+        ? Math.min(1, this.supportState.risingElapsedS /
+          (this.rising?.durationS ?? SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S))
         : this.supportState.state === "fallen" ? 0 : null });
   }
 

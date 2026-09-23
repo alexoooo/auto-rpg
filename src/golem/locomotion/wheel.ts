@@ -816,6 +816,7 @@ export const wheelModule = defineLocomotion({
       world,
       footprint,
       heightRange: wheelHeightRange(),
+      fallenTone: null,
       authority,
       postureEvidence,
       gait,

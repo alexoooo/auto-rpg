@@ -2,7 +2,7 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.j
 import { PhysicsConstraintAxis, PhysicsConstraintAxisLimitMode } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { capsulePart, joint, type Part } from "../../rig.ts";
 import { materialForGolemRole } from "../materials.ts";
-import { JointActuator } from "../joint-servo.ts";
+import { FULL_TONE, JointActuator } from "../joint-servo.ts";
 import { defineChain, type BuiltChain, type GolemPart } from "../module.ts";
 import { ARM_STROKES } from "../effectors/chains/arm-core.ts";
 import { ARM_IDS, ARM_LIMITS, ARM_REST, armForward, clamp, solveArm, validOrientation, rotationError, measureArm } from "./kinematics.ts";
@@ -61,7 +61,7 @@ export const anatomicalChain = defineChain({
       });
       bodies.push(body); constraints.push(constraint);
       actuators.push([PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Y, PhysicsConstraintAxis.ANGULAR_Z]
-        .map(axis => new JointActuator(constraint, axis)));
+        .map(axis => new JointActuator(constraint, axis, ctx.tone ?? FULL_TONE)));
     }
     const parts: GolemPart[] = bodies.map((part, i) => ({ id: part.name, part, shell: [],
       health: i < 2 ? 100 : 70, vitalityWeight: i < 2 ? .025 : .015,

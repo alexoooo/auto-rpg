@@ -460,19 +460,27 @@ export class RisingActuator {
   readonly target: WorldPoint;
   readonly yaw: number;
   readonly footprint: LocomotionFootprint;
+  /**
+   * How long this rise lasts: the frozen `RISING_DURATION_S` unless the body lengthened it. No
+   * default, because the caller holds the state machine's copy and a default would be a second.
+   */
+  readonly durationS: number;
   constructor(start: WorldPoint, target: WorldPoint, yaw: number,
     footprint: LocomotionFootprint, registry: StandableWorldRegistry,
-    ownerPartIds: ReadonlySet<string>) {
+    ownerPartIds: ReadonlySet<string>, durationS: number) {
+    if (!Number.isFinite(durationS) || durationS < SUPPORTED_CARRIER_V1.RISING_DURATION_S) {
+      throw new Error("a rise may be lengthened but never shorter than RISING_DURATION_S");
+    }
     this.start = Object.freeze({ ...start });
     this.target = Object.freeze({ ...target });
     this.yaw = yaw;
     this.footprint = footprint;
+    this.durationS = durationS;
     if (registry.allowedFraction(start, target, footprint, ownerPartIds) < 1) {
       throw new Error("rising footprint sweep is obstructed");
     }
     const distance = Math.hypot(target.x - start.x, target.y - start.y, target.z - start.z);
-    const peakAcceleration = 6 * distance /
-      (SUPPORTED_CARRIER_V1.RISING_DURATION_S * SUPPORTED_CARRIER_V1.RISING_DURATION_S);
+    const peakAcceleration = 6 * distance / (durationS * durationS);
     if (peakAcceleration > SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2) {
       throw new Error(`rising target from (${this.start.x.toFixed(6)}, ${this.start.y.toFixed(6)}, ` +
         `${this.start.z.toFixed(6)}) to (${this.target.x.toFixed(6)}, ${this.target.y.toFixed(6)}, ` +
@@ -485,10 +493,10 @@ export class RisingActuator {
   step(dt: number): RisingFrame {
     if (!this.active) throw new Error("rising actuator is not active");
     positive(dt, "rising dt");
-    this.elapsedS = Math.min(SUPPORTED_CARRIER_V1.RISING_DURATION_S, this.elapsedS + dt);
-    const t = this.elapsedS / SUPPORTED_CARRIER_V1.RISING_DURATION_S;
+    this.elapsedS = Math.min(this.durationS, this.elapsedS + dt);
+    const t = this.elapsedS / this.durationS;
     const h = t * t * (3 - 2 * t);
-    const dh = 6 * t * (1 - t) / SUPPORTED_CARRIER_V1.RISING_DURATION_S;
+    const dh = 6 * t * (1 - t) / this.durationS;
     const delta = { x: this.target.x - this.start.x, y: this.target.y - this.start.y,
       z: this.target.z - this.start.z };
     const complete = t === 1;

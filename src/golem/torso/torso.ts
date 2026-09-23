@@ -1,4 +1,4 @@
-import { JointActuator, JointServo } from "../joint-servo.ts";
+import { FULL_TONE, JointActuator, JointServo } from "../joint-servo.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
@@ -469,8 +469,10 @@ export function torsoModule(
         });
       };
 
-      const twistServo = new JointServo(new JointActuator(waistJoint, PhysicsConstraintAxis.ANGULAR_Y), achievedTwist);
-      const leanServo = new JointServo(new JointActuator(waistJoint, HINGE), achievedLean);
+      const tone = ctx.tone ?? FULL_TONE;
+      const twistServo = new JointServo(new JointActuator(waistJoint, PhysicsConstraintAxis.ANGULAR_Y, tone),
+        achievedTwist);
+      const leanServo = new JointServo(new JointActuator(waistJoint, HINGE, tone), achievedLean);
       const writeMotors = (dt: number): void => {
         twistServo.track(commandedTwist, dt, W.twistTorque);
         leanServo.track(commandedLean, dt, W.leanTorque);

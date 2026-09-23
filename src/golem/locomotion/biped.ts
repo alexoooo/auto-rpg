@@ -27,6 +27,7 @@ import {
 } from "../../supported-locomotion-runtime.ts";
 import {
   constructPostureIsSupported,
+  SUPPORTED_LOCOMOTION_V1,
   type ConstructPostureEvidence,
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
@@ -596,6 +597,16 @@ return defineLocomotion({
      * they are in.
      */
     let hipDrop = 0;
+    /**
+     * How long a fallen body has lain, and how long it has lain still, seconds. Counted by
+     * `trackFall` only while fallen and only for a table with a `knockdown`; zero otherwise.
+     * `fallStart` says whether `lastPelvis` and `lastTop` hold a reading yet.
+     */
+    let lyingS = 0;
+    let stillS = 0;
+    let fallStart = true;
+    const lastPelvis = new Vector3();
+    const lastTop = new Vector3();
 
     const watchers: [PhysicsBody, Observer<unknown>][] = [];
     const commanded = {
@@ -795,6 +806,13 @@ return defineLocomotion({
       },
       liveSupport: () => !severed && legs.every((leg) => !leg.severed),
       postureSupported: () => constructPostureIsSupported(postureEvidence()),
+      fallSettled: (): boolean => B.knockdown === null || stillS >= B.knockdown.restSeconds ||
+        lyingS >= B.knockdown.maxLyingSeconds,
+      // The lift is a smoothstep, whose peak speed is 1.5 times its mean: so a rise over `d` metres
+      // that may not exceed `risePeakMps` lasts at least 1.5 d / risePeakMps.
+      risingDuration: (distanceM: number): number => B.knockdown === null
+        ? SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S
+        : Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S, 1.5 * distanceM / B.knockdown.risePeakMps),
 
       /**
        * The supported drive, and the two halves of it are not interchangeable.
@@ -979,6 +997,34 @@ return defineLocomotion({
         commanded.abductRight);
     };
 
+    /**
+     * Whether the fall is still going, measured from positions alone.
+     *
+     * The pelvis and the load (the trunk, when one is carried), because a body tipping over moves
+     * its top furthest and last: a pelvis that has stopped under a trunk still coming down is not a
+     * finished fall. Speeds are finite differences of `mesh.position` between two end-of-substep
+     * readings, one solver step apart -- no boundary read, so no allocation, and no world matrix.
+     */
+    const trackFall = (dt: number): void => {
+      const settle = B.knockdown;
+      if (settle === null || activePort.state !== "fallen") {
+        lyingS = 0;
+        stillS = 0;
+        fallStart = true;
+        return;
+      }
+      const top = load ?? pelvis;
+      if (!fallStart) {
+        const speed = Math.max(Vector3.Distance(pelvis.mesh.position, lastPelvis),
+          Vector3.Distance(top.mesh.position, lastTop)) / dt;
+        stillS = speed <= settle.restSpeedMps ? stillS + dt : 0;
+        lyingS += dt;
+      }
+      lastPelvis.copyFrom(pelvis.mesh.position);
+      lastTop.copyFrom(top.mesh.position);
+      fallStart = false;
+    };
+
     const readEvidence = (dt: number): void => {
       const live = port?.diagnostic() ?? null;
       const posture = postureEvidence();
@@ -1091,6 +1137,7 @@ return defineLocomotion({
       world,
       footprint,
       heightRange: bipedHeightRange(B),
+      fallenTone: B.knockdown === null ? null : B.fallenTorqueScale,
       authority,
       postureEvidence,
       gait,
@@ -1134,6 +1181,7 @@ return defineLocomotion({
       endSubstep(dt: number): void {
         if (severed) return;
         elapsed += dt;
+        trackFall(dt);
         readEvidence(dt);
         readout.sample(evidence);
       },

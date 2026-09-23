@@ -9,6 +9,7 @@ import type { Part } from "../rig.ts";
 import { armourAgainst, type Armour, type HitKind } from "../scoring.ts";
 import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
 import type { GolemMaterialPalette } from "./materials.ts";
+import type { MotorTone } from "./joint-servo.ts";
 
 /**
  * The golem module contract: what every slot's option has to be, in one file.
@@ -370,6 +371,15 @@ export interface ModuleBuild {
    * module given none builds `flatSupportedWorldRegistry()` and owns it.
    */
   readonly world?: StandableWorldRegistry;
+  /**
+   * The golem's motor tone, which every actuator the module builds reads at each `drive`.
+   *
+   * Optional for the reason `world` is: an assembled golem hands over its own, and a module stood
+   * on a bench alone is handed none and builds at `FULL_TONE`. The golem lowers it while its body
+   * is knocked down, if its locomotion's table says so (`BuiltLocomotion.fallenTone`). A
+   * locomotion module relaxes its own legs and does not read it.
+   */
+  readonly tone?: MotorTone;
 }
 
 export interface BuiltModule<Command> {

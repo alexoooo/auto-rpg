@@ -239,7 +239,7 @@ test("a_root_motor_is_mass_scaled_bounded_and_refuses_an_ANIMATED_physical_root"
 test("rising_is_swept_acceleration_limited_and_continuous_at_finish_and_abort", () => {
   const registry = registryWithFloor();
   const actuator = new RisingActuator(point(0, 0.2, 0), point(0, 1.2, 0), 0.7,
-    footprint(), registry, new Set(["root", "torso"]));
+    footprint(), registry, new Set(["root", "torso"]), SUPPORTED_CARRIER_V1.RISING_DURATION_S);
   const first = actuator.step(1e-6);
   assert.ok(Math.abs(first.position.y - 0.2) < 1e-9);
   let last = first;
@@ -249,16 +249,38 @@ test("rising_is_swept_acceleration_limited_and_continuous_at_finish_and_abort", 
   assert.equal(last.yaw, 0.7);
 
   const aborted = new RisingActuator(point(0, 0.2, 0), point(0, 1.2, 0), 0,
-    footprint(), registry, new Set()).abort(point(0.1, 0.4, -0.2), point(1, 2, 3));
+    footprint(), registry, new Set(), SUPPORTED_CARRIER_V1.RISING_DURATION_S).abort(point(0.1, 0.4, -0.2), point(1, 2, 3));
   assert.deepEqual(aborted.position, point(0.1, 0.4, -0.2));
   assert.deepEqual(aborted.velocity, point(1, 2, 3));
 
   const blocked = registryWithFloor();
   blocked.register(collider("wall", "wall", { sweep: () => hit("wall", 0.5) }));
   assert.throws(() => new RisingActuator(point(0, 0.2, 0), point(0, 1.2, 0), 0,
-    footprint(), blocked, new Set()), /obstructed/);
+    footprint(), blocked, new Set(), SUPPORTED_CARRIER_V1.RISING_DURATION_S), /obstructed/);
   assert.throws(() => new RisingActuator(point(0, 0, 0), point(0, 3, 0), 0,
-    footprint(), registry, new Set()), /acceleration-limited/);
+    footprint(), registry, new Set(), SUPPORTED_CARRIER_V1.RISING_DURATION_S), /acceleration-limited/);
+});
+
+test("a_lengthened_rise_takes_its_own_duration_at_the_peak_speed_that_duration_implies", () => {
+  const registry = registryWithFloor();
+  // Three metres is past the acceleration limit at the frozen duration and inside it at one second.
+  assert.throws(() => new RisingActuator(point(0, 0, 0), point(0, 3, 0), 0,
+    footprint(), registry, new Set(), SUPPORTED_CARRIER_V1.RISING_DURATION_S), /acceleration-limited/);
+  const actuator = new RisingActuator(point(0, 0, 0), point(0, 3, 0), 0,
+    footprint(), registry, new Set(), 1);
+  assert.equal(actuator.durationS, 1);
+  const dt = 2 ** -8;
+  let elapsed = 0;
+  let peak = 0;
+  let last = actuator.step(dt);
+  while (!last.complete) { elapsed += dt; peak = Math.max(peak, last.velocity.y); last = actuator.step(dt); }
+  assert.equal(elapsed + dt, 1, "complete on the step that reaches the duration");
+  assert.deepEqual(last.position, point(0, 3, 0));
+  assert.ok(Math.abs(peak - 1.5 * 3 / 1) < 1e-3, `peak ${peak}`);
+  for (const bad of [0.449, Number.NaN, Infinity, undefined]) {
+    assert.throws(() => new RisingActuator(point(0, 0.2, 0), point(0, 1.2, 0), 0,
+      footprint(), registry, new Set(), bad), /never shorter than RISING_DURATION_S/, String(bad));
+  }
 });
 
 test("fist_trigger_follows_real_hand_kinematics_and_twenty_cycles_balance_explicit_resources", () => {
