@@ -2,6 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { Striking } from "../../combat.ts";
 import type { HandIntent } from "../../mind.ts";
+import { attributeOf } from "../attributes.ts";
 import {
   EFFECTOR_SLOTS,
   rodInertia,
@@ -80,6 +81,7 @@ export function effectorModule(
     // Both chains, for a terminal that claims both sockets. A mass that counted one arm would
     // be a picker line saying a two-armed weapon weighs what a one-armed one does.
     massKg: chain.massKg * sockets + (terminal?.massKg ?? 0),
+    itemMassKg: terminal?.massKg ?? 0,
 
     build(ctx: ModuleBuild): BuiltModule<HandIntent> {
       const built = chain.build(ctx, terminal?.limits ?? null, null, terminal?.massKg ?? 0);
@@ -201,7 +203,10 @@ export function effectorModule(
       //
       // `sockets` multiplies the chain and not the terminal, for the same reason `massKg` above
       // does: a two-handed bar is carried by two arms and there is still one bar.
-      const swingInertia = chain.swingInertia * sockets
+      //
+      // The body's weight stat multiplies the chain's share and not the terminal's, which is an
+      // item (`withWeight`); every link is a rod whose inertia is linear in its mass.
+      const swingInertia = chain.swingInertia * sockets * attributeOf(ctx, "weight")
         + rodInertia(terminal?.massKg ?? 0, built.reach, tipToSocket);
       const envelope: ModuleEnvelope = Object.freeze({
         ...(chainEnvelope.fullOrientation ? { fullOrientation: true } : {}),

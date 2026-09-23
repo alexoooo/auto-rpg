@@ -144,6 +144,30 @@ test("knockdowns, time down and severs are each corner's own, and a corpus witho
   assert.equal(summarizeSweep(old, levels)[0].severs, undefined, "and the same for severs");
 });
 
+test("contacts are each corner's own, and the real-blow share is pooled over the level's contacts", () => {
+  const levels = sweepLevels({ kind: "stat", stat: "armSpeed" }, BASE, [1]);
+  const jobs = sweepJobs({ levels, blocks: 1, minds: ["a"], runSeed: 5 });
+  const sides = (left, right) => ({
+    left: { damage: 1, hits: left[0], realBlows: left[1] },
+    right: { damage: 2, hits: right[0], realBlows: right[1] },
+  });
+  // The modified corner lands 10 contacts with 2 real on the left and 30 with 18 real on the right;
+  // the other corner 0 contacts, then 4 with 1 real. Pooled, the modified corner's share is 20 of
+  // 40 -- not the 0.4 a mean of the two bouts' shares would give.
+  const rows = [
+    row(jobs.find((j) => j.modified === "left"), "right", [0.2, 0.6], { sides: sides([10, 2], [0, 0]) }),
+    row(jobs.find((j) => j.modified === "right"), "left", [0.7, 0.1], { sides: sides([4, 1], [30, 18]) }),
+  ];
+  const [level] = summarizeSweep(rows, levels);
+  assert.deepEqual(level.blows, { contacts: (10 + 30) / 2, otherContacts: (0 + 4) / 2, share: 20 / 40, otherShare: 1 / 4 });
+  const none = rows.map((r) => ({ ...r, sides: sides([0, 0], [0, 0]) }));
+  assert.deepEqual(summarizeSweep(none, levels)[0].blows, { contacts: 0, otherContacts: 0, share: null, otherShare: null },
+    "a level with no contact has no share rather than a zero");
+  // One corner of one row without the count, the other corner with it.
+  const old = rows.map((r, i) => i === 0 ? { ...r, sides: { left: { damage: 1, hits: 3 }, right: { damage: 2, hits: 1, realBlows: 0 } } } : r);
+  assert.equal(summarizeSweep(old, levels)[0].blows, undefined, "one corner without the count and the level has none");
+});
+
 test("swapping which corner is marked modified mirrors the win rate and the margin", () => {
   const levels = sweepLevels({ kind: "stat", stat: "movement" }, BASE, [1]);
   const jobs = sweepJobs({ levels, blocks: 3, minds: ["a", "b"], runSeed: 3 });

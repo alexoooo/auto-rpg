@@ -12,6 +12,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { Striking } from "../../combat.ts";
 import { boxPart, capsulePart, joint } from "../../rig.ts";
 import { slewTowards } from "../anchor-drive.ts";
+import { attributeOf } from "../attributes.ts";
 import { TORSO_WAIST } from "../config.ts";
 import { ribcageShell } from "../bone-shells.ts";
 import { JOINT_SHELL, type ShellLook } from "../effectors/shell.ts";
@@ -218,6 +219,8 @@ export function torsoModule(
 
     build(ctx: ModuleBuild): BuiltTorso {
       const T = tuning;
+      // The body's weight stat, on both parts' masses (`withWeight`); nothing here derives from them.
+      const weight = attributeOf(ctx, "weight");
       const socket = ctx.socket;
       const facing = socket.rotation;
       const stone = materialForGolemRole(ctx.materials, "shell");
@@ -239,7 +242,7 @@ export function torsoModule(
         rotation: facing,
         height: W.ballLength,
         radius: W.ballRadius,
-        mass: W.ballMass,
+        mass: W.ballMass * weight,
         layer: ctx.layers.body,
         collidesWith: ctx.layers.bodyCollidesWith,
         material: stone,
@@ -250,7 +253,7 @@ export function torsoModule(
         position: socket.world.add(up.scale(T.coreHeight / 2)),
         rotation: facing,
         size: new Vector3(T.coreWidth, T.coreHeight, T.coreDepth),
-        mass: T.coreMass,
+        mass: T.coreMass * weight,
         layer: ctx.layers.body,
         collidesWith: ctx.layers.bodyCollidesWith,
         material: stone,

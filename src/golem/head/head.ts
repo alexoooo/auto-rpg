@@ -14,6 +14,7 @@ import type { NaturalIntent } from "../../mind.ts";
 import { COLLIDES, LAYER } from "../../physics.ts";
 import { boxPart, capsulePart, joint, type Part } from "../../rig.ts";
 import { slewTowards } from "../anchor-drive.ts";
+import { attributeOf } from "../attributes.ts";
 import { HEAD_NECK } from "../config.ts";
 import { skullShell } from "../bone-shells.ts";
 import { LIMB_SHELL, type ShellLook } from "../effectors/shell.ts";
@@ -190,8 +191,12 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
     slots: Object.freeze<GolemSlot[]>(["head"]),
     label,
     massKg: N.neckMass + N.headMass + (tuning.ram?.plateMass ?? 0),
+    itemMassKg: tuning.ram?.plateMass ?? 0,
 
     build(ctx: ModuleBuild): BuiltModule<NaturalIntent> {
+      // The body's weight stat, on the neck's and the head's masses (`withWeight`). A ram's plate is
+      // an item and keeps its own, and so does the `impactMassKg` it strikes with.
+      const weight = attributeOf(ctx, "weight");
       const socket = ctx.socket;
       const facing = socket.rotation;
       const stone = materialForGolemRole(ctx.materials, "shell");
@@ -212,7 +217,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
         rotation: facing,
         height: N.neckLength,
         radius: N.neckRadius,
-        mass: N.neckMass,
+        mass: N.neckMass * weight,
         layer: ctx.layers.body,
         collidesWith: ctx.layers.bodyCollidesWith,
         material: stone,
@@ -223,7 +228,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
         position: socket.world.add(up.scale(N.neckLength + N.headHeight / 2)),
         rotation: facing,
         size: new Vector3(N.headWidth, N.headHeight, N.headDepth),
-        mass: N.headMass,
+        mass: N.headMass * weight,
         layer: ctx.layers.body,
         collidesWith: ctx.layers.bodyCollidesWith,
         material: stone,
@@ -303,7 +308,10 @@ export function headModule(id: string, label: string, tuning: HeadTuning, N = HE
           // session has no evidence that one is wanted.
           kind: "ram",
           effectorId: `${ctx.name}.ram`,
-          impactMassKg: ram.impactMassKg,
+          // Mostly body -- the neck and a hinge-mass of trunk behind the plate -- so the weight stat
+          // moves everything but the plate's own share, as `golemUpperMassKg` counts a module.
+          impactMassKg: weight === 1 ? ram.impactMassKg
+            : (ram.impactMassKg - ram.plateMass) * weight + ram.plateMass,
           // **Null, because a head is not a hand.** `Combat` routes a null hand to the
           // body-neutral channel already; this is the centipede's rule with the alias it still
           // carries taken out, because a golem head has no `HandView` to pretend to be.

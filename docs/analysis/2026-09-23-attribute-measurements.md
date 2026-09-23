@@ -765,8 +765,9 @@ x2, against 28.1 s. More of a longer fight is spent exchanging, so both corners 
 **Modules lost move in opposite directions for the two corners.** At x0.5 the modified corner
 loses 0.98 modules a bout and its opponent 0.19; at x2, 0.13 and 0.85. The breaking point scales
 with full health, so a tough limb comes off late or not at all. The worker counts this from each
-body's own `moduleReport`, and `the worker counts the modules each corner lost from that corner's
-own body` in `tests/research-physical.test.mjs` pins it against a control bout.
+body's own `moduleReport`, and `the worker counts the modules each corner lost and the real blows
+it landed, each from that corner's own record` in `tests/research-physical.test.mjs` pins it
+against a control bout.
 
 **No level reaches the cap.** Every bout at every level in both builds ended `exhausted`, with no
 draws. The longest were 114.8 s (stone) and 111.7 s (skeleton), under the 150 s harness cap and the
@@ -777,3 +778,523 @@ each body's full health, so overtime ends a tough body as surely as any other.
 **The range is the swept one, x0.5 to x2.** Nothing physical moves, and every fight still ends.
 
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.
+
+## Arm speed (session 10)
+
+**The knob.** `withArmSpeed` in `src/golem/attributes.ts` hands each arm chain a per-build copy of
+its table with the named rate limits multiplied by the stat. At x1 it returns the table it was
+handed. The rates are:
+
+- the reach anchor's `anchorRate`, in `buildArmCore`, which every point chain -- reach, wrist and
+  skeletal -- is built on;
+- the wrist's `rollRate` and `bendRate`, in `wristChainFrom`, both where the envelope publishes them
+  and where `slewTowards` spends them;
+- the pitch hinge's `targetRate`. The plan had `pitchChain` refactored to take its table as an
+  argument first, but `build` already binds `P` inside itself, so the per-build copy went there and
+  no refactor was needed;
+- each coordinate of the anatomical arm's `RATES`, in `src/golem/humanoid/arm.ts`. Its +-8 clamp on
+  a drive target is a bound on the command, not a rate, and is left alone.
+
+Force ceilings are not scaled. On these chains the rate shapes a commanded move and the force
+ceiling does not (AGENTS.md, "On a low-axis chain the anchor's *rate limit* shapes a commanded
+move"). The torso's twist and lean and the neck are the torso's and the head's, not the arm's.
+
+**What does not follow.** No mind reads a published rate. Every stroke is still timed by
+`GOLEM_TACTICS` at the arm the tactics were tuned on, so a faster arm runs the same stroke clock,
+and the gain saturates once the command moves slower than the arm could.
+
+`arm speed multiplies every arm chain's published rates and the rate its command travels at` in
+`tests/attributes.test.mjs` builds each of the five arm chains at x1 and x2, and checks that every
+published rate doubles. It also checks that the commanded travel over six substeps doubles on every
+axis: exactly on an angle, and to within a few per cent on a point chain's swing, lift and reach,
+which are read off an anchor moving in a straight line. The wrist and the anatomical arm each hold
+the rate in two places, and the test mutates red on either one alone.
+
+### Bench
+
+Node harness, `runStrokeBench` in `tests/harness/golem-bench.mjs` with the shipped cut, one run a
+cell (`.review/armspeed-bench.mjs`). The columns are:
+
+- the peak driven tip speed, m/s;
+- the speed at the mark, m/s;
+- the peak anchor stray in the stroke window, mm -- the reading the 50 mm bar in
+  `tests/golem-bench.test.mjs` uses;
+- the lag, the stroke readout's peak tip error, mm.
+
+| Chain | Level | Tip peak | At mark | Stray | Lag |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| wrist blade | x0.75 | 14.7 | 12.7 | 32.1 | 416.6 |
+| | x1.00 | 18.1 | 15.5 | 37.9 | 314.9 |
+| | x1.25 | 21.1 | 14.2 | 38.5 | 396.5 |
+| | x1.50 | 23.6 | 14.3 | 38.1 | 371.7 |
+| | x2.00 | 23.9 | 14.3 | 38.0 | 417.1 |
+| | x2.50 | 23.9 | 14.4 | 37.9 | 435.6 |
+| wrist mace | x0.75 | 28.8 | 27.8 | 284.4 | 1433.2 |
+| | x1.00 | 31.9 | 29.5 | 297.5 | 1345.3 |
+| | x1.50 | 32.8 | 30.0 | 289.2 | 1313.3 |
+| | x2.50 | 32.8 | 29.8 | 301.6 | 1359.3 |
+| wrist maul | x0.75 | 17.5 | 10.7 | 190.6 | 1305.4 |
+| | x1.00 | 17.3 | 12.1 | 209.9 | 1294.6 |
+| | x1.50 | 18.1 | 10.8 | 179.3 | 1300.1 |
+| | x2.50 | 17.8 | 12.2 | 198.1 | 1357.1 |
+| wrist plate | any | 6.1 | 2.5 | 7.7 | 192 to 217 |
+| skeletal blade | x0.75 | 17.0 | 12.2 | 45.7 | 225.6 |
+| | x1.00 | 17.6 | 11.8 | 46.5 | 200.7 |
+| | x1.50 | 17.5 | 11.9 | 46.4 | 222.9 |
+| | x2.50 | 17.5 | 11.9 | 46.6 | 268.9 |
+| anatomical blade | x0.75 | 9.2 | 6.4 | 61.9 | 665.0 |
+| | x1.00 | 11.1 | 8.8 | 77.3 | 1169.0 |
+| | x1.25 | 12.1 | 12.1 | 107.8 | 1415.6 |
+| | x1.50 | 13.6 | 13.4 | 149.3 | 1719.8 |
+| | x2.00 | 13.4 | 13.3 | 170.8 | 1595.9 |
+| | x2.50 | 12.0 | 12.0 | 227.7 | 1416.7 |
+| pitch blade | x0.75 | 12.4 | 9.4 | -- | 161.5 |
+| | x1.00 | 15.5 | 11.7 | -- | 287.8 |
+| | x1.25 | 18.4 | 18.4 | -- | 437.2 |
+| | x1.50 | 19.7 | 19.7 | -- | 643.5 |
+| | x2.00 | 15.5 | 8.7 | -- | 742.6 |
+| | x2.50 | 12.4 | 3.7 | -- | 860.3 |
+| reach blade | x0.75 | 11.4 | 10.4 | 10.6 | 233.6 |
+| | x1.00 and up | 14.7 | 12.8 | 13.7 | 255.9 to 507.7 |
+
+The committed sword shape (`COMMITTED_SHAPE_CANDIDATES.sword`) is the one the test actually holds
+under 50 mm. Its stray is flat at every level from x1 to x2.5: 32.6 to 31.7 mm on the wrist and
+16.2 to 16.7 on the skeletal arm. Its wrist tip peak goes from 16.7 to 17.9 m/s and stops there.
+
+**Why x1.5.** The plan's rule was the highest level at which every combination stays under 50 mm of
+stray, and it cannot be applied as written. The mace, the maul and the anatomical arm are over it
+already at x1, and flat, while the shape the bar actually guards stays under it everywhere. What the
+bar was written to catch is an arm that stops following its command, and two readings show that:
+
+- **The pitch hinge.** It arrives at its mark at 19.7 m/s at x1.5, then at 8.7 at x2 and 3.7 at
+  x2.5, while its lag keeps growing.
+- **The wrist blade.** Its peak is spent by x1.5: 23.6, then 23.9 at every level above.
+
+So x1.5 is the last level at which every chain still gains. The anatomical arm is the known cost
+inside that range. Its stray grows at every step above x1 (77 to 108 to 149 mm), although its tip
+speed still rises (11.1 to 13.6 m/s).
+
+### Sweep
+
+`research/runs/stat-armSpeed`, 192 blocks per level, stone default, the four probe minds.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 15.5 [11.5, 19.9] | 13.5 / 17.4 | -0.466 [-0.512, -0.416] | -1.39 | -0.458 [-0.519, -0.396] | -1.03 | 1 | 36.7 | 3.95 | 9.17 |
+| x0.75 | 384 | 29.2 [24.2, 34.4] | 32.8 / 25.5 | -0.221 [-0.267, -0.172] | -0.65 | -0.213 [-0.270, -0.158] | -0.53 | 0 | 33.8 | 5.92 | 8.78 |
+| x0.90 | 384 | 37.8 [32.8, 43.0] | 38.5 / 37.0 | -0.095 [-0.142, -0.045] | -0.28 | -0.086 [-0.141, -0.030] | -0.22 | 0 | 29.4 | 7.09 | 8.27 |
+| x1.00 (control) | 384 | 48.8 [43.6, 54.3] | 51.0 / 46.6 | -0.008 [-0.057, 0.043] | -0.02 | -- | -- | 1 | 28.1 | 7.60 | 7.68 |
+| x1.10 | 384 | 51.8 [46.9, 56.9] | 52.3 / 51.3 | 0.059 [0.011, 0.110] | 0.17 | 0.068 [0.005, 0.129] | 0.16 | 2 | 25.3 | 7.79 | 7.19 |
+| x1.25 | 384 | 62.4 [57.0, 67.4] | 65.1 / 59.6 | 0.126 [0.076, 0.176] | 0.36 | 0.134 [0.072, 0.195] | 0.31 | 1 | 25.6 | 8.26 | 6.61 |
+| x1.50 | 384 | 65.0 [60.0, 70.4] | 60.9 / 69.0 | 0.150 [0.098, 0.206] | 0.39 | 0.158 [0.094, 0.222] | 0.35 | 1 | 25.8 | 8.35 | 6.40 |
+| x2.00 | 384 | 66.4 [61.5, 71.4] | 67.7 / 65.1 | 0.187 [0.136, 0.238] | 0.52 | 0.195 [0.130, 0.259] | 0.42 | 0 | 28.8 | 8.90 | 6.01 |
+| x2.50 | 384 | 70.3 [65.1, 75.5] | 68.8 / 71.9 | 0.260 [0.201, 0.319] | 0.61 | 0.268 [0.197, 0.338] | 0.53 | 0 | 27.6 | 8.94 | 5.53 |
+
+Win % of the modified corner by mind pair, modified mind first:
+
+| Minds | x0.50 | x0.75 | x0.90 | x1.00 | x1.10 | x1.25 | x1.50 | x2.00 | x2.50 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| golem-brawler vs golem-brawler | 54.2 | 41.7 | 41.7 | 45.8 | 54.2 | 66.7 | 62.5 | 58.3 | 29.2 |
+| golem-brawler vs golem-champion | 29.2 | 29.2 | 25.0 | 25.0 | 41.7 | 41.7 | 50.0 | 50.0 | 50.0 |
+| golem-brawler vs golem-duelist | 29.2 | 33.3 | 50.0 | 41.7 | 45.8 | 75.0 | 33.3 | 70.8 | 79.2 |
+| golem-brawler vs golem-miser | 14.6 | 58.3 | 54.2 | 79.2 | 52.1 | 29.2 | 70.8 | 54.2 | 62.5 |
+| golem-champion vs golem-brawler | 29.2 | 45.8 | 50.0 | 62.5 | 62.5 | 75.0 | 54.2 | 79.2 | 95.8 |
+| golem-champion vs golem-champion | 0.0 | 12.5 | 29.2 | 52.1 | 45.8 | 70.8 | 58.3 | 70.8 | 54.2 |
+| golem-champion vs golem-duelist | 0.0 | 20.8 | 20.8 | 41.7 | 66.7 | 58.3 | 45.8 | 45.8 | 41.7 |
+| golem-champion vs golem-miser | 12.5 | 58.3 | 75.0 | 79.2 | 75.0 | 91.7 | 95.8 | 87.5 | 95.8 |
+| golem-duelist vs golem-brawler | 33.3 | 16.7 | 33.3 | 41.7 | 56.3 | 58.3 | 81.3 | 66.7 | 75.0 |
+| golem-duelist vs golem-champion | 0.0 | 16.7 | 12.5 | 41.7 | 66.7 | 58.3 | 58.3 | 83.3 | 70.8 |
+| golem-duelist vs golem-duelist | 0.0 | 20.8 | 41.7 | 45.8 | 45.8 | 54.2 | 54.2 | 41.7 | 58.3 |
+| golem-duelist vs golem-miser | 4.2 | 58.3 | 66.7 | 83.3 | 66.7 | 83.3 | 100.0 | 75.0 | 83.3 |
+| golem-miser vs golem-brawler | 37.5 | 16.7 | 29.2 | 41.7 | 45.8 | 43.8 | 66.7 | 54.2 | 79.2 |
+| golem-miser vs golem-champion | 0.0 | 0.0 | 20.8 | 25.0 | 33.3 | 54.2 | 58.3 | 58.3 | 75.0 |
+| golem-miser vs golem-duelist | 0.0 | 0.0 | 8.3 | 37.5 | 29.2 | 70.8 | 54.2 | 83.3 | 75.0 |
+| golem-miser vs golem-miser | 4.2 | 37.5 | 45.8 | 37.5 | 41.7 | 66.7 | 95.8 | 83.3 | 100.0 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 5.68 | 3.09 | 13.9 | 9.2 |
+| x0.75 | 5.39 | 4.53 | 15.0 | 13.7 |
+| x0.90 | 5.24 | 4.77 | 16.1 | 14.7 |
+| x1.00 | 4.89 | 4.96 | 15.1 | 14.5 |
+| x1.10 | 4.54 | 4.72 | 15.2 | 15.7 |
+| x1.25 | 4.49 | 4.75 | 15.5 | 16.2 |
+| x1.50 | 4.22 | 4.93 | 15.6 | 18.3 |
+| x2.00 | 4.18 | 4.96 | 14.4 | 18.0 |
+| x2.50 | 3.72 | 4.76 | 13.5 | 17.3 |
+
+| Level | Severed | Other's severed |
+| --- | ---: | ---: |
+| x0.50 | 0.86 | 0.16 |
+| x0.75 | 0.74 | 0.25 |
+| x0.90 | 0.64 | 0.38 |
+| x1.00 | 0.51 | 0.53 |
+| x1.10 | 0.54 | 0.52 |
+| x1.25 | 0.41 | 0.62 |
+| x1.50 | 0.39 | 0.70 |
+| x2.00 | 0.35 | 0.87 |
+| x2.50 | 0.38 | 0.84 |
+
+Contacts a bout, and the share of them above the weapon's energy floor (the runner's `weak` rule):
+
+| Level | Contacts | Other's contacts | Real blows % | Other's real blows % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 197.1 | 221.5 | 45.5 | 42.4 |
+| x0.75 | 199.2 | 199.9 | 46.0 | 43.2 |
+| x0.90 | 184.5 | 184.2 | 45.8 | 42.4 |
+| x1.00 | 179.3 | 181.8 | 45.8 | 45.9 |
+| x1.10 | 156.1 | 164.0 | 46.4 | 46.1 |
+| x1.25 | 153.1 | 157.1 | 43.3 | 45.8 |
+| x1.50 | 151.1 | 150.3 | 41.9 | 44.5 |
+| x2.00 | 148.7 | 151.9 | 41.4 | 43.2 |
+| x2.50 | 154.3 | 141.4 | 41.8 | 43.1 |
+
+`research/runs/stat-armSpeed-skeleton`, 192 blocks per level, `skeleton-warrior` with the skeleton
+duelist on both sides.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 3.4 [1.6, 5.2] | 3.1 / 3.6 | -0.617 [-0.648, -0.583] | -2.73 | -0.633 [-0.697, -0.568] | -1.39 | 0 | 62.7 | 0.61 | 2.51 |
+| x0.75 | 384 | 17.4 [14.1, 21.1] | 19.8 / 15.1 | -0.369 [-0.409, -0.329] | -1.28 | -0.386 [-0.452, -0.320] | -0.81 | 0 | 63.5 | 1.20 | 2.33 |
+| x1.00 (control) | 384 | 50.3 [45.1, 55.2] | 54.7 / 45.8 | 0.017 [-0.039, 0.071] | 0.04 | -- | -- | 0 | 59.5 | 1.89 | 1.89 |
+| x1.25 | 384 | 71.4 [66.7, 76.0] | 74.0 / 68.8 | 0.244 [0.191, 0.295] | 0.66 | 0.227 [0.150, 0.304] | 0.42 | 0 | 56.2 | 2.21 | 1.44 |
+| x1.50 | 384 | 77.9 [73.7, 82.0] | 78.6 / 77.1 | 0.379 [0.327, 0.430] | 1.04 | 0.362 [0.286, 0.438] | 0.67 | 0 | 52.9 | 2.43 | 1.20 |
+| x2.00 | 384 | 78.4 [74.0, 82.6] | 81.8 / 75.0 | 0.377 [0.319, 0.431] | 0.95 | 0.360 [0.286, 0.434] | 0.69 | 0 | 54.5 | 2.39 | 1.17 |
+| x2.50 | 384 | 80.2 [76.0, 84.1] | 79.2 / 81.3 | 0.418 [0.366, 0.466] | 1.15 | 0.401 [0.325, 0.475] | 0.76 | 0 | 53.3 | 2.45 | 1.09 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 5.32 | 3.57 | 24.6 | 16.3 |
+| x0.75 | 5.28 | 4.51 | 24.0 | 20.6 |
+| x1.00 | 4.90 | 4.79 | 23.9 | 23.5 |
+| x1.25 | 4.46 | 5.32 | 22.7 | 27.1 |
+| x1.50 | 3.84 | 4.92 | 20.8 | 27.3 |
+| x2.00 | 3.80 | 4.66 | 20.3 | 25.3 |
+| x2.50 | 3.66 | 4.72 | 19.8 | 25.8 |
+
+| Level | Severed | Other's severed |
+| --- | ---: | ---: |
+| x0.50 | 0.97 | 0.04 |
+| x0.75 | 0.79 | 0.15 |
+| x1.00 | 0.59 | 0.57 |
+| x1.25 | 0.35 | 0.84 |
+| x1.50 | 0.29 | 1.03 |
+| x2.00 | 0.27 | 1.05 |
+| x2.50 | 0.25 | 1.08 |
+
+| Level | Contacts | Other's contacts | Real blows % | Other's real blows % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 192.7 | 231.2 | 9.6 | 11.5 |
+| x0.75 | 208.6 | 228.2 | 11.0 | 11.6 |
+| x1.00 | 191.8 | 189.9 | 12.9 | 13.0 |
+| x1.25 | 180.7 | 159.6 | 14.2 | 14.5 |
+| x1.50 | 170.4 | 135.9 | 14.4 | 15.3 |
+| x2.00 | 170.5 | 133.3 | 14.3 | 15.7 |
+| x2.50 | 169.5 | 132.6 | 14.5 | 15.8 |
+
+**Steep below x1 and flat above x1.5 in both builds.** The x0.5 stone body wins 15.5 % and deals
+3.95 a bout against 9.17 taken. The x0.5 skeleton wins 3.4 %. Upward, stone reaches 62.4 % at x1.25,
+then 65.0 %, 66.4 % and 70.3 %; the skeleton reaches 71.4 % at x1.25, then 77.9 %, 78.4 % and
+80.2 %. The fixed stroke clock is the likely reason for the flattening: once a stroke's command
+moves slower than the arm could, a faster arm has nothing left to buy.
+
+**The contact columns do not flatter a faster arm here.** A faster arm lands fewer contacts on stone
+(179.3 a bout at x1, 151.1 at x1.5), and fewer of them are real blows (45.8 % to 41.9 %). On the
+skeleton the share rises a little (12.9 % to 14.4 %) and stops at x1.5. Neither body shows the flung
+blade's signature of more, faster, weaker contacts.
+
+**The per-mind split is uneven.** On stone the duelist's own mirror gains least, 45.8 % at x1 to
+54.2 % at x1.5, and the miser's the most, 37.5 % to 95.8 %. Whether that follows how each mind
+times its strokes has not been measured.
+
+The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.
+
+## Weight (session 11)
+
+**The knob.** `withWeight` in `src/golem/attributes.ts` hands a builder a per-build copy of its table
+with the named masses multiplied by the stat: density at fixed geometry. At x1 it returns the table
+it was handed. It goes where each builder reads its own masses:
+
+- the biped's and the skeleton's pelvis, thighs, shins and feet; the multileg's chassis, femurs,
+  shins and feet; the wheel's yoke and wheel;
+- the torso's waist ball and core, and the head's neck and head;
+- the reach core's collar, upper arm and forearm; the pitch hinge's link; the capped socket's cap;
+- the anatomical arm's `MASSES`;
+- the wrist's roll ring and wrist link, on their floors only. A cast link weighs
+  `max(floor, carryRatio x load)`, and the load is an item's.
+
+Every figure a builder derives from those fields follows by construction: the biped's `ownMassKg`,
+the supported mass of the multileg and the wheel, and the capped socket's `impactMassKg`.
+
+**What is not scaled.** Every terminal -- blade, fist, mace, maul, plate, whip -- the ram's plate
+and the human shield are items, and items will carry their own stats. The solver's inertia floors
+are not scaled either (`CHAIN_REACH.jointInertiaFloor`, `HUMAN_ARM_DRIVE.inertiaFloor`), and every
+arm link of all three families sits on its floor at x1 and at x2 (`.review/weight-inertia.mjs`):
+the stone upper arm goes from 2.41 kg to 4.83 at 0.300 kg m2 on each axis at both levels, and the
+human upper arm from 2.80 to 5.60 at 0.015. **So weight moves an arm's linear mass and never its
+rotational inertia**, which is most of why a stroke hardly notices it (below).
+
+**Four readers of a module's mass that feed a fight** had to tell a body's mass from an item's:
+
+- `ModuleDefinition.itemMassKg` (new, in `src/golem/module.ts`) is the item share of `massKg`: the
+  terminal's mass on an effector, the ram's plate on a head, and zero elsewhere. `massKg` stays the
+  x1 figure.
+- `golemUpperMassKg` in `src/golem/build.ts` -- what the biped's `carry` holds up -- counts each
+  module as `(massKg - itemMassKg) x weight + itemMassKg`. Its first draft read `itemMassKg` off
+  the plan's bench option, which does not carry it, and so scaled the blade and the plate with the
+  body. The test below caught it.
+- `swingInertia` in `effectorModule`, the figure `GOLEM_TACTICS_V4` times a stroke against,
+  multiplies the chain's share and not the terminal's.
+- The ram's `impactMassKg` is 74 kg: its 21 kg plate with the neck and a hinge-mass of trunk behind
+  it (`HEAD_RAM.impactMassKg`). The head scales everything but the plate.
+
+`weight multiplies every body part's solver mass and no item's, and the carrier's load agrees` in
+`tests/attributes.test.mjs` builds all twenty playable builds at x1 and at the row's ceiling, and
+reads every part's solver mass back from Havok. An item keeps its mass exactly; a cast link reads
+`max(floor x L, what it was)`; everything else is exactly x L. It also checks every striker's impact
+mass, both hands' swing inertia, and that the carrier's `supportedMassKg` is its legs' solver mass
+plus `golemUpperMassKg` wherever the module carries. A control asserts that items, a cast on its
+floor, a cast on its load and three body blows were all seen. Every mutation in
+`.review/mutate11.py` and `.review/mutate11b.py` turns it red except one: dropping the x1 early
+return in `golemUpperMassKg`, which is arithmetic-equivalent and exists only to keep x1
+bit-identical, which is the fingerprint's job.
+
+**What the wheel and the multileg do not carry.** Neither has `carry`, so the upper body's mass has
+never reached their stability divisor. That predates this session, and weight inherits it: the
+multileg's supported mass is its legs and chassis alone, 44.6 kg against 102.3 kg of body.
+
+### Bench
+
+Whole bodies, Node harness, `.review/weight-bench.mjs body`: the golem's summed solver mass, the
+carrier's `supportedMassKg`, the impulse its stability diagnostic says staggers and fells it
+(`staggerAtMps` and `fallAtMps` times the supported mass, which session 06 checked against measured
+shoves), and the primary hand's swing inertia.
+
+| Build | Level | Body kg | Supported kg | Stagger N.s | Fall N.s | Swing kg m2 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| default | x0.50 | 48.6 | 46.3 | 0.42 | 0.97 | 3.374 |
+| | x1.00 | 90.6 | 89.1 | 0.80 | 1.87 | 3.988 |
+| | x1.50 | 132.8 | 131.8 | 1.19 | 2.77 | 4.602 |
+| | x2.00 | 175.1 | 174.6 | 1.57 | 3.67 | 5.215 |
+| skeleton-warrior | x0.50 | 18.4 | 16.0 | 0.19 | 0.45 | 1.703 |
+| | x1.00 | 30.4 | 28.3 | 0.34 | 0.79 | 1.823 |
+| | x2.00 | 54.3 | 53.0 | 0.64 | 1.48 | 2.064 |
+| human-warrior | x0.50 | 58.1 | 58.1 | 0.52 | 1.22 | 2.004 |
+| | x1.00 | 111.4 | 111.4 | 1.00 | 2.34 | 2.404 |
+| | x2.00 | 218.1 | 218.1 | 1.96 | 4.58 | 3.204 |
+| wheel | x0.50 | 61.9 | 29.8 | 0.13 | 0.29 | 3.374 |
+| | x1.00 | 117.4 | 59.7 | 0.25 | 0.58 | 3.988 |
+| | x2.00 | 228.6 | 119.3 | 0.50 | 1.17 | 5.215 |
+| multileg | x0.50 | 54.4 | 22.3 | 0.35 | 0.81 | 3.374 |
+| | x1.00 | 102.3 | 44.6 | 0.70 | 1.62 | 3.988 |
+| | x2.00 | 198.5 | 89.2 | 1.39 | 3.25 | 5.215 |
+
+The ram-capped build's ram lands with 11.99 kg at x1, 7.69 at x0.5 and 20.57 at x2, and each cap
+with 0.57, 0.28 and 1.13.
+
+**Weight is stability bought with mass rather than with a threshold.** The stagger and fall speeds
+do not move; the mass under them does, so the impulse that staggers a body is linear in the stat.
+The stability stat (session 06) moves the same reading by raising the speed at fixed mass. Weight
+also moves what the body's own blows arrive with, but only where the striker is body: the ram and
+the cap. A sword blow arrives with the sword's 1.30 kg at every level.
+
+Arms, Node harness, `.review/weight-bench.mjs arm`, one run a cell. The rest columns are
+`runGolemBench`'s default sequence, worst mark: arrival, s; overshoot; tip wander at rest, mm;
+anchor stray, mm; peak driven tip speed, m/s. The stroke columns are `runStrokeBench` with the
+shipped cut, as in the arm-speed table: tip peak and speed at the mark, m/s; stray and lag, mm.
+
+| Chain | Level | Arrival | Overshoot | Wander | Rest stray | Rest tip | Stroke tip | At mark | Stroke stray | Lag |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| wrist blade | x0.50 | 2.892 | 0.0009 | 0.963 | 107.4 | 29.19 | 19.0 | 14.3 | 48.7 | 223.5 |
+| | x1.00 | 2.892 | 0.0004 | 0.856 | 110.8 | 27.91 | 18.1 | 15.5 | 37.9 | 314.9 |
+| | x1.50 | 2.896 | 0.0003 | 0.794 | 124.1 | 24.29 | 18.4 | 14.9 | 38.8 | 336.0 |
+| | x2.00 | 2.896 | 0.0003 | 0.559 | 138.7 | 22.53 | 17.4 | 14.2 | 46.3 | 365.6 |
+| wrist mace | x0.50 | 2.896 | 0.0045 | 1.387 | 201.7 | 20.50 | 32.0 | 29.5 | 285.5 | 1298.1 |
+| | x1.00 | 2.896 | 0.0035 | 1.386 | 208.0 | 20.74 | 31.9 | 29.5 | 297.5 | 1345.3 |
+| | x2.00 | 2.896 | 0.0021 | 1.170 | 209.2 | 15.80 | 31.8 | 29.1 | 311.7 | 1399.3 |
+| wrist maul | x0.50 | -- | 0.0085 | -- | 122.1 | 6.79 | 18.6 | 14.8 | 228.8 | 1495.6 |
+| | x1.00 | -- | 0.0108 | -- | 106.3 | 8.52 | 17.3 | 12.1 | 209.9 | 1294.6 |
+| | x2.00 | -- | 0.0152 | -- | 100.1 | 5.88 | 16.9 | 16.3 | 252.9 | 1287.4 |
+| wrist plate | x0.50 | 2.367 | 0.0006 | 1.098 | 106.5 | 9.85 | 5.8 | 2.6 | 15.6 | 179.6 |
+| | x1.00 | 2.367 | 0.0002 | 1.099 | 127.1 | 9.34 | 6.1 | 2.5 | 7.7 | 208.0 |
+| | x2.00 | 2.371 | 0.0001 | 0.838 | 169.1 | 8.67 | 5.9 | 2.7 | 5.5 | 223.7 |
+| skeletal blade | x0.50 | 2.883 | 0.0057 | 0.934 | 114.3 | 31.63 | 17.9 | 10.6 | 59.4 | 308.9 |
+| | x0.75 | 2.879 | 0.0014 | 1.134 | 103.3 | 30.56 | 19.0 | 11.8 | 59.9 | 190.3 |
+| | x1.00 | 2.879 | 0.0010 | 1.050 | 96.0 | 30.29 | 17.6 | 11.8 | 46.5 | 200.7 |
+| | x2.00 | 2.883 | 0.0004 | 0.833 | 98.8 | 28.95 | 17.0 | 10.9 | 44.6 | 151.9 |
+| anatomical blade | x0.50 | 0.313 | 0.0098 | 1.431 | 120.1 | 11.61 | 12.2 | 9.8 | 77.3 | 1025.6 |
+| | x1.00 | 0.362 | 0.0177 | 1.797 | 131.7 | 11.01 | 11.1 | 8.8 | 77.3 | 1169.0 |
+| | x1.25 | 0.392 | 0.0499 | 3.627 | 138.5 | 10.56 | 11.0 | 8.9 | 83.0 | 1249.7 |
+| | x1.50 | 0.387 | 0.0386 | 4.454 | 144.9 | 10.12 | 10.9 | 8.9 | 91.8 | 1298.0 |
+| | x2.00 | 0.508 | 0.0269 | 4.739 | 158.1 | 9.27 | 11.0 | 9.8 | 104.5 | 1290.5 |
+| pitch blade | x0.50 | 0.812 | 0.2853 | -- | -- | 16.55 | 16.5 | 15.7 | -- | 282.0 |
+| | x0.75 | 0.350 | 0.1806 | 0.509 | -- | 15.82 | 15.7 | 12.8 | -- | 231.8 |
+| | x1.00 | 0.283 | 0.1038 | 0.760 | -- | 15.42 | 15.5 | 11.7 | -- | 287.8 |
+| | x2.00 | 0.250 | 0.1416 | 0.591 | -- | 14.59 | 14.6 | 11.4 | -- | 311.2 |
+
+A wander of `--` is the bench's 0: `tipWanderMm` is gated on the tip being slower than 0.05 m/s,
+so it means the tip never came to rest. On the maul the trailing grip keeps it moving at every
+level; on the pitch hinge it is new at x0.5, and it is the hinge ringing. The maul's arrival is not
+read, and the pitch hinge has no anchor to stray from.
+
+**A stroke hardly notices.** From x0.5 to x2, no chain's stroke tip peak is more than 10 % from its
+x1 figure (the largest is the anatomical arm's 12.2 m/s at x0.5 against 11.1), and the speed at the
+mark wanders without a trend. The rate limits shape a commanded move, and an arm's rotational inertia is its floor at every
+level. What moves is the arm between strokes: a heavier wrist arm strays further from its anchor
+while it holds (110.8 mm at x1, 138.7 at x2) and moves more slowly between marks (27.9 m/s peak at
+x1, 22.5 at x2).
+
+**The two ends, and what each costs:**
+
+- **The anatomical arm at the heavy end.** Rest wander goes from 1.8 mm at x1 to 3.6 at x1.25 and
+  4.5 at x1.5, and stroke stray from 77 to 83 and 92 mm.
+- **The pitch hinge at the light end.** Overshoot is 0.10 at x1, 0.18 at x0.75 and 0.29 at x0.5,
+  arrival slows from 0.28 s to 0.81 s, and at x0.5 the tip never comes to rest: the same motor rings
+  on a lighter link.
+- **The skeletal arm at the light end.** Its stroke misses by 94 mm at x0.5 against 50 at x1, and
+  lags 309 mm against 201.
+
+**The gait does not notice.** `.review/move-bench.mjs` with `ATTR=weight` runs the full locomotion
+course on the legs-only bench, x0.5 to x2. Top speed, mean speed and distance are identical on all
+four locomotion modules at every level, because each carrier is keyframed. The multileg's peak
+joint lag rises from 0.30 rad at x1 to 0.64 at x1.5 and 0.70 at x2. Foot slip over the whole course,
+which includes its shove, moves without a trend (604 to 791 mm/s on the biped).
+
+**The jiggle is at the light end, and it sets the floor.** Weight changes the arm-to-blade mass
+ratio, the one that once produced the jiggle (memory `jiggle-is-a-mass-ratio-bug`). Node harness,
+`.review/weight-ring.mjs`, the module's own bench sequence with its final hold stretched:
+
+- the **nudge**: `ringProbe`'s 1 N.s push on the terminal one second into the hold, with the peak
+  excursion, mm; the settle time, s, where 2.40 is the window, so the tip did not settle; and the
+  direction changes;
+- the **sweep-then-hold**: a zero-impulse meter armed as the "extend" sweep lands in the hold, with
+  its direction changes and whether they grow. Its peak is mostly the arm still travelling to its
+  hold, and is not a ring.
+
+| Chain | Level | Nudge peak | Settle | Reversals | Sweep-hold reversals |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| wrist blade | x0.50 | 8.4 | 0.20 | 6 | 0 |
+| | x1.00 | 6.4 | 0.09 | 4 | 0 |
+| | x2.00 | 5.0 | 0.05 | 2 | 0 |
+| wrist mace | x0.50 | 7.9 | 0.53 | 9 | 3 |
+| | x1.00 | 4.5 | 0.14 | 5 | 0 |
+| | x2.00 | 3.3 | 0.07 | 3 | 0 |
+| wrist plate | x0.50 | 3.0 | 0.07 | 3 | 1 |
+| | x1.00 | 2.1 | 0.02 | 2 | 1 |
+| | x2.00 | 1.4 | 0.00 | 0 | 1 |
+| skeletal blade | x0.50 | 12.7 | 0.40 | 9 | 5, growing |
+| | x0.75 | 10.4 | 0.25 | 7 | 3, growing |
+| | x0.80 | 10.2 | 0.20 | 7 | 0 |
+| | x1.00 | 9.2 | 0.18 | 6 | 0 |
+| | x2.00 | 7.0 | 0.08 | 4 | 0 |
+| anatomical blade | x0.50 | 23.5 | 0.52 | 10 | 0 |
+| | x1.00 | 17.0 | 0.18 | 6 | 0 |
+| | x2.00 | 13.0 | 0.15 | 3 | 1 |
+| pitch blade | x0.50 | 25.4 | 2.40 | 53 | 1 |
+| | x0.60 | 25.5 | 2.40 | 41, growing | 0 |
+| | x0.70 | 17.5 | 2.40 | 31 | 1 |
+| | x0.75 | 11.5 | 0.65 | 25 | 1 |
+| | x0.80 | 11.7 | 0.52 | 25 | 0 |
+| | x1.00 | 10.6 | 0.40 | 18 | 1 |
+| | x2.00 | 6.5 | 0.10 | 8 | 1 |
+
+Every chain rings less as it gets heavier, and none grows at the heavy end. At the light end two
+fail: the pitch hinge stops settling below x0.75 and is a limit cycle at x0.5, and the skeletal arm's
+sweep-then-hold grows at x0.75 and below. From x0.8 up both are clean. The maul does not appear
+because it fails at every level, x1 included -- its trailing grip never settles in the hold (peak
+454 mm at x1, 9 to 12 reversals at every level) -- which is the maul's own and not weight's.
+
+### Sweep
+
+`research/runs/stat-weight`, 192 blocks per level, stone default, the four probe minds. Levels below
+the row's x0.8 floor were run before the ripple table set it, and are kept as measurements.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 47.7 [42.4, 52.9] | 51.0 / 44.3 | -0.022 [-0.071, 0.028] | -0.06 | -0.014 [-0.077, 0.049] | -0.03 | 0 | 27.5 | 7.85 | 7.94 |
+| x0.75 | 384 | 50.8 [45.3, 56.3] | 50.5 / 51.0 | -0.019 [-0.070, 0.030] | -0.06 | -0.011 [-0.065, 0.040] | -0.03 | 0 | 26.9 | 7.64 | 7.77 |
+| x0.90 | 384 | 51.3 [46.4, 56.3] | 50.5 / 52.1 | 0.002 [-0.042, 0.047] | 0.01 | 0.010 [-0.047, 0.066] | 0.03 | 4 | 27.6 | 8.00 | 7.79 |
+| x1.00 (control) | 384 | 48.8 [43.6, 54.3] | 51.0 / 46.6 | -0.008 [-0.057, 0.043] | -0.02 | -- | -- | 1 | 28.1 | 7.60 | 7.68 |
+| x1.10 | 384 | 45.2 [39.8, 50.5] | 50.0 / 40.4 | -0.009 [-0.057, 0.039] | -0.03 | -0.001 [-0.058, 0.054] | -0.00 | 1 | 26.7 | 7.63 | 7.72 |
+| x1.25 | 384 | 43.8 [38.5, 49.0] | 49.0 / 38.5 | -0.018 [-0.071, 0.033] | -0.05 | -0.010 [-0.067, 0.048] | -0.02 | 0 | 27.2 | 7.54 | 7.80 |
+| x1.50 | 384 | 44.7 [39.6, 50.0] | 46.4 / 43.0 | -0.029 [-0.080, 0.023] | -0.08 | -0.020 [-0.079, 0.039] | -0.05 | 3 | 28.5 | 7.56 | 7.96 |
+| x2.00 | 384 | 43.0 [38.0, 48.2] | 46.4 / 39.6 | -0.070 [-0.121, -0.017] | -0.19 | -0.062 [-0.121, -0.002] | -0.15 | 0 | 28.2 | 6.81 | 7.83 |
+
+Win % of the modified corner by mind pair, modified mind first:
+
+| Minds | x0.50 | x0.75 | x0.90 | x1.00 | x1.10 | x1.25 | x1.50 | x2.00 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| golem-brawler vs golem-brawler | 45.8 | 50.0 | 62.5 | 45.8 | 43.8 | 41.7 | 45.8 | 50.0 |
+| golem-brawler vs golem-champion | 25.0 | 25.0 | 45.8 | 25.0 | 33.3 | 29.2 | 45.8 | 58.3 |
+| golem-brawler vs golem-duelist | 29.2 | 62.5 | 33.3 | 41.7 | 37.5 | 29.2 | 43.8 | 37.5 |
+| golem-brawler vs golem-miser | 54.2 | 54.2 | 56.3 | 79.2 | 87.5 | 83.3 | 79.2 | 87.5 |
+| golem-champion vs golem-brawler | 79.2 | 75.0 | 72.9 | 62.5 | 62.5 | 54.2 | 64.6 | 66.7 |
+| golem-champion vs golem-champion | 58.3 | 37.5 | 20.8 | 52.1 | 41.7 | 50.0 | 45.8 | 41.7 |
+| golem-champion vs golem-duelist | 54.2 | 66.7 | 58.3 | 41.7 | 45.8 | 70.8 | 16.7 | 41.7 |
+| golem-champion vs golem-miser | 79.2 | 95.8 | 95.8 | 79.2 | 62.5 | 62.5 | 75.0 | 54.2 |
+| golem-duelist vs golem-brawler | 58.3 | 62.5 | 52.1 | 41.7 | 66.7 | 45.8 | 37.5 | 50.0 |
+| golem-duelist vs golem-champion | 41.7 | 33.3 | 62.5 | 41.7 | 54.2 | 37.5 | 16.7 | 33.3 |
+| golem-duelist vs golem-duelist | 50.0 | 50.0 | 54.2 | 45.8 | 54.2 | 62.5 | 50.0 | 33.3 |
+| golem-duelist vs golem-miser | 66.7 | 91.7 | 62.5 | 83.3 | 70.8 | 62.5 | 66.7 | 58.3 |
+| golem-miser vs golem-brawler | 33.3 | 12.5 | 60.4 | 41.7 | 29.2 | 20.8 | 56.3 | 16.7 |
+| golem-miser vs golem-champion | 16.7 | 16.7 | 16.7 | 25.0 | 12.5 | 20.8 | 12.5 | 20.8 |
+| golem-miser vs golem-duelist | 12.5 | 25.0 | 41.7 | 37.5 | 12.5 | 12.5 | 16.7 | 12.5 |
+| golem-miser vs golem-miser | 58.3 | 54.2 | 25.0 | 37.5 | 8.3 | 16.7 | 41.7 | 25.0 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 14.61 | 5.72 | 40.6 | 17.5 |
+| x0.75 | 8.85 | 4.96 | 25.3 | 14.7 |
+| x0.90 | 6.01 | 5.12 | 17.9 | 16.4 |
+| x1.00 | 4.89 | 4.96 | 15.1 | 14.5 |
+| x1.10 | 4.17 | 4.89 | 13.1 | 15.0 |
+| x1.25 | 3.09 | 4.73 | 11.1 | 14.0 |
+| x1.50 | 1.62 | 4.70 | 6.1 | 14.1 |
+| x2.00 | 0.65 | 3.96 | 2.8 | 12.2 |
+
+| Level | Severed | Other's severed |
+| --- | ---: | ---: |
+| x0.50 | 0.52 | 0.49 |
+| x0.75 | 0.52 | 0.52 |
+| x0.90 | 0.53 | 0.56 |
+| x1.00 | 0.51 | 0.53 |
+| x1.10 | 0.54 | 0.48 |
+| x1.25 | 0.60 | 0.49 |
+| x1.50 | 0.58 | 0.46 |
+| x2.00 | 0.65 | 0.45 |
+
+Contacts a bout, and the share of them above the weapon's energy floor:
+
+| Level | Contacts | Other's contacts | Real blows % | Other's real blows % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 154.0 | 174.5 | 43.4 | 41.0 |
+| x0.75 | 163.6 | 174.1 | 43.6 | 41.9 |
+| x0.90 | 164.9 | 182.0 | 42.7 | 46.7 |
+| x1.00 | 179.3 | 181.8 | 45.8 | 45.9 |
+| x1.10 | 175.9 | 172.2 | 45.2 | 43.9 |
+| x1.25 | 181.4 | 174.4 | 45.8 | 46.1 |
+| x1.50 | 190.1 | 182.2 | 45.2 | 45.9 |
+| x2.00 | 175.5 | 180.3 | 47.1 | 48.0 |
+
+**Weight does not win stone bouts.** Every level from x0.5 to x1.5 is inside the control's noise:
+47.7 % at x0.5, 44.7 % at x1.5, every paired d within 0.08 of zero. x2 reads 43.0 %, d -0.15 against
+the control, with a confidence interval that only just excludes zero, and it deals 6.81 a bout
+against the control's 7.60.
+
+**What it does move is the floor, and on stone the floor does not decide much.** Knockdowns go from
+4.89 a bout at x1 to 14.61 at x0.5 and 0.65 at x2, and the share of a bout spent down from 15.1 %
+to 40.6 % and 2.8 %. A stone body that spends two fifths of its bout down still wins 47.7 %. That
+matches what stability (session 06) and recovery (session 07) found on stone.
+
+**A heavy body strokes more slowly than its arm needs to.** `strokeInertiaScale` in
+`src/golem/tactics.ts` stretches a stroke's chamber and arc by `(swingInertia / ref)^0.5` above its
+reference, so the minds time the default's primary arm 7.4 % slower at x1.5 and 14.4 % slower at
+x2, while the bench above says the arm itself is not slower, because its rotational inertia is the
+floor at every level. That is a likely part of the x2 cost and has not been isolated. The plan
+called the retiming the intended physical consequence; on these arms its premise does not hold.
+
+**The per-mind split is too thin to read one cell at a time.** Each cell is 24 bouts, a band of
+about +-20 points. Taken as a row, the miser as the heavy corner reads under the control at x2 in all
+four pairings (16.7, 20.8, 12.5 and 25.0 % against 41.7, 25.0, 37.5 and 37.5), which fits a mind
+that trades least having least use for a body that shrugs off being knocked down. That is a
+hypothesis, not a finding.

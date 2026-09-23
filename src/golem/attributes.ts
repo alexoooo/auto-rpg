@@ -237,8 +237,66 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * `docs/analysis/2026-09-23-attribute-measurements.md`, "Toughness".
    */
   toughness: Object.freeze({ label: "Toughness", min: 0.5, max: 2, step: 0.05, live: true }),
-  armSpeed: pending("Arm speed"),
-  weight: pending("Weight"),
+  /**
+   * How fast an arm may be driven: every arm chain's rate limits times the stat, through
+   * `withArmSpeed` -- the reach anchor's `anchorRate` (every point chain), the wrist's roll and bend
+   * rates, the pitch hinge's `targetRate` and each coordinate of the anatomical arm's `RATES`. Force
+   * ceilings are not touched, and neither is the stroke clock: `GOLEM_TACTICS` still times every
+   * stroke at the arm it was tuned on. Session 10, 2026-09-23.
+   *
+   * **The bench sets the ceiling, and it is x1.5.** Node harness, `runStrokeBench` with the shipped
+   * cut: peak driven tip speed, m/s, then peak anchor stray in the stroke window, mm.
+   *
+   *     arm speed             0.75       1.00       1.25       1.50       2.00       2.50
+   *     wrist blade        14.7/32    18.1/38    21.1/39    23.6/38    23.9/38    23.9/38
+   *     wrist mace         28.8/284   31.9/298   32.8/290   32.8/289   32.8/301   32.8/302
+   *     skeletal blade     17.0/46    17.6/47    17.6/46    17.5/46    17.6/47    17.5/47
+   *     anatomical blade    9.2/62    11.1/77    12.1/108   13.6/149   13.4/171   12.0/228
+   *     pitch blade        12.4/--    15.5/--    18.4/--    19.7/--    15.5/--    12.4/--
+   *
+   * The committed sword shape -- the one `tests/golem-bench.test.mjs` holds under 50 mm of stray --
+   * stays at 32 mm on the wrist and 16 mm on the skeletal arm at every level to x2.5, so the plan's
+   * bar on its own sets no ceiling; the mace and maul are over it already at x1 and flat. What does
+   * set one is a chain that stops following its command. The pitch hinge arrives at its mark at
+   * 19.7 m/s at x1.5 and at 8.7 at x2, its lag 644 mm growing to 743, and the wrist blade's peak is
+   * spent by x1.5. The anatomical arm is the known cost inside the range: its stray grows at every
+   * level above x1, to 149 mm at x1.5, though its tip speed still rises.
+   *
+   * Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): stone with
+   * the four probe minds, 15.5 % at x0.5, 29.2 % at x0.75, 62.4 % at x1.25, 65.0 % at x1.5 and
+   * 70.3 % at x2.5; the skeleton duelist's mirror, 3.4 %, 17.4 %, 71.4 %, 77.9 % and 80.2 %. Both
+   * flatten past x1.5, and on stone the share of contacts that are real blows falls from 45.8 % to
+   * 41.9 % there. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Arm speed".
+   */
+  armSpeed: Object.freeze({ label: "Arm speed", min: 0.5, max: 1.5, step: 0.05, live: true }),
+  /**
+   * How dense the body is: every body part's mass times the stat, at the same geometry, through
+   * `withWeight`. Items -- every terminal, the ram's plate, the human shield -- keep their own mass,
+   * and forces are not rescaled. Session 11, 2026-09-23.
+   *
+   * **The bench sets the floor, and it is x0.8.** Node harness, `.review/weight-ring.mjs`: a 1 N.s
+   * nudge on the terminal in the hold, settle time in seconds (2.40 is the window, so the tip never
+   * settled) and direction changes, then whether the sweep-then-hold rings.
+   *
+   *     weight                 0.50         0.70         0.75         0.80         1.00         2.00
+   *     pitch blade        2.40/53      2.40/31      0.65/25      0.52/25      0.40/18      0.10/8
+   *     skeletal blade     0.40/9 grows     --       0.25/7 grows 0.20/7       0.18/6       0.08/4
+   *     wrist blade        0.20/6           --           --           --       0.09/4       0.05/2
+   *
+   * Every chain rings less as it gets heavier and none grows at the heavy end, so the ceiling is the
+   * swept x2. What rises with it is the anatomical arm's rest wander, 1.8 mm at x1 to 4.5 at x1.5,
+   * and its stroke stray, 77 to 104 mm at x2. A stroke's tip speed moves by under 10 % across the
+   * whole range, because every arm link's rotational inertia sits on the solver's floor at every
+   * level and the rate limits shape a commanded move.
+   *
+   * The impulse that staggers a body is linear in the stat: 0.42 N.s at x0.5, 0.80 at x1 and 1.57 at
+   * x2 on stone. Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`),
+   * stone with the four probe minds does not win by it: 47.7 % at x0.5, 44.7 % at x1.5 and 43.0 % at
+   * x2 (d -0.15 against the control), while its knockdowns go from 14.61 a bout to 0.65. The minds
+   * stretch a heavy arm's strokes (`strokeInertiaScale`, 14.4 % at x2) that the arm itself does not
+   * need. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
+   */
+  weight: Object.freeze({ label: "Weight", min: 0.8, max: 2, step: 0.05, live: true }),
   size: pending("Size"),
 });
 
@@ -408,6 +466,58 @@ export const ARMOUR_CAP = 0.9;
 export function armourAt(fraction: number, armour: number): number {
   if (armour === 1) return fraction;
   return Math.min(ARMOUR_CAP, fraction * armour);
+}
+
+/** The keys of a table whose values are numbers: the only fields a rate can be. */
+type NumberKey<T> = { [K in keyof T]: T[K] extends number ? K : never }[keyof T];
+
+/**
+ * A chain's table with the named rate limits multiplied by the arm-speed stat, and nothing else
+ * moved. At x1 the very table it was handed comes back.
+ *
+ * **The rate and not the force.** On an arm chain a commanded move is shaped by how fast its target
+ * may travel, and not by the ceiling on the motor chasing it: above about 3900 N every figure of an
+ * ordinary move stops changing (AGENTS.md, "On a low-axis chain the anchor's *rate limit* shapes a
+ * commanded move"). So the stat is a factor on the rates alone -- the reach anchor's `anchorRate`
+ * in `buildArmCore`, which every point chain is built on; the wrist's `rollRate` and `bendRate`;
+ * the pitch hinge's `targetRate`; and each of the anatomical arm's `RATES`. Each chain publishes an
+ * axis's `rate` off the same table, so the envelope follows. No mind reads that rate yet: a stroke
+ * is still timed by `GOLEM_TACTICS` at the arm the tactics were tuned on.
+ */
+export function withArmSpeed<T extends object>(table: T, rates: readonly NumberKey<T>[], armSpeed: number): T {
+  return scaledFields(table, rates, armSpeed);
+}
+
+/**
+ * A body table with the named masses multiplied by the weight stat, and nothing else moved. At x1
+ * the very table it was handed comes back.
+ *
+ * **Density at fixed geometry**, so it goes where each builder reads its own table -- the part it
+ * builds, and every figure the builder derives from the same fields (the biped's `ownMassKg`, the
+ * multileg's and the wheel's supported mass, the none chain's `impactMassKg`), then agree with the
+ * solver by construction. The ram's `impactMassKg` is its plate with a neck and a hinge-mass of
+ * trunk behind it, so the head scales everything in it but the plate. Weight cannot go through `kg()` in `config.ts`, which runs once when the
+ * config loads.
+ *
+ * **What is not scaled, and why.** A terminal -- blade, fist, mace, maul, plate, whip, the ram's
+ * plate, the human shield -- is an item, and items will carry their own stats. The wrist's cast
+ * masses follow the load they carry, so only their floors are the body's. And the solver's inertia
+ * floors (`CHAIN_REACH.jointInertiaFloor`, `HUMAN_ARM_DRIVE.inertiaFloor`) are conditioning
+ * for the solver rather than anatomy, so an arm link whose inertia sits on its floor gains mass and
+ * no inertia. A module definition's `massKg` stays its mass at x1; its readers that feed a fight --
+ * `golemUpperMassKg` and a chain's `swingInertia` in `effectorModule` -- scale the body's share
+ * themselves.
+ */
+export function withWeight<T extends object>(table: T, masses: readonly NumberKey<T>[], weight: number): T {
+  return scaledFields(table, masses, weight);
+}
+
+/** `table` with the named numeric fields multiplied by `factor`, or `table` itself at 1. */
+function scaledFields<T extends object>(table: T, keys: readonly NumberKey<T>[], factor: number): T {
+  if (factor === 1) return table;
+  const next = { ...table };
+  for (const key of keys) (next[key] as number) = (table[key] as number) * factor;
+  return next;
 }
 
 /** The fields of a biped's `Knockdown` (`src/golem/config.ts`) the recovery stat reads. */

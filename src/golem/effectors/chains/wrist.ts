@@ -9,6 +9,7 @@ import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import type { Armour } from "../../../scoring.ts";
 import { slewTowards } from "../../anchor-drive.ts";
+import { attributeOf, withArmSpeed } from "../../attributes.ts";
 import { CHAIN_REACH, CHAIN_WRIST } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -127,9 +128,15 @@ export function wristChainFrom<K extends ChainId>(
       // `carryRatio` of the terminal, whichever is more: the mass ratio across a locked hinge is
       // what the solver can or cannot hold, and the argument is beside `CHAIN_WRIST.carryRatio`.
       // A blade is under the floor and gets the config's figures unchanged.
-      const ringMass = Math.max(W.ringMass, W.carryRatio * carriedKg);
-      const wristMass = Math.max(W.wristMass, W.carryRatio * carriedKg);
+      // The body's weight stat moves the floors and not the cast, which follows the load
+      // (`withWeight`).
+      const weight = attributeOf(ctx, "weight");
+      const ringMass = Math.max(W.ringMass * weight, W.carryRatio * carriedKg);
+      const wristMass = Math.max(W.wristMass * weight, W.carryRatio * carriedKg);
       const core = buildArmCore(ctx, limits, crossing, R, options.armour);
+      // The body's arm-speed stat, on the wrist's two command rates (`withArmSpeed`); the core has
+      // already taken it for the anchor.
+      const rates = withArmSpeed(W, ["rollRate", "bendRate"], attributeOf(ctx, "armSpeed"));
       // **A terminal may take the wrist away and may not give it more.** A mace is a rigid bar
       // between two arms, and a roll of the driven wrist swings the *other* arm's grip through an
       // arc the length of the bar -- so a two-socket terminal pins both of these at zero and the
@@ -274,10 +281,10 @@ export function wristChainFrom<K extends ChainId>(
       const wristEnvelopeAxes: readonly ModuleAxisEnvelope[] = Object.freeze([
         ...core.envelopeAxes,
         Object.freeze({
-          id: "roll", unit: "rad" as const, min: -rollLimit, max: rollLimit, rate: W.rollRate,
+          id: "roll", unit: "rad" as const, min: -rollLimit, max: rollLimit, rate: rates.rollRate,
         }),
         Object.freeze({
-          id: "bend", unit: "rad" as const, min: W.bendMin, max: bendLimit, rate: W.bendRate,
+          id: "bend", unit: "rad" as const, min: W.bendMin, max: bendLimit, rate: rates.bendRate,
         }),
       ]);
 
@@ -575,8 +582,8 @@ export function wristChainFrom<K extends ChainId>(
           // **Before the core steps, not after**, which is the whole of why this moved: the aim
           // correction below is a function of the roll and the bend, so a core stepped first would
           // spend the frame aiming through last frame's wrist.
-          commandedRoll = slewTowards(commandedRoll, wantedRoll, W.rollRate, dt);
-          commandedBend = slewTowards(commandedBend, wantedBend, W.bendRate, dt);
+          commandedRoll = slewTowards(commandedRoll, wantedRoll, rates.rollRate, dt);
+          commandedBend = slewTowards(commandedBend, wantedBend, rates.bendRate, dt);
           core.step(dt);
           if (rollJoint && !limp) {
             rollServo.track(commandedRoll, dt, rollForce);
