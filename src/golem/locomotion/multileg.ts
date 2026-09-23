@@ -146,8 +146,7 @@ export interface MultilegPose {
  * neutral), and the ankle holds the pad level at `-(hip + knee)` because relative rotations about
  * one lateral axis add along the chain.
  */
-export function multilegPose(phase: number, speedMps: number): MultilegPose {
-  const M = LOCOMOTION_MULTILEG;
+export function multilegPose(phase: number, speedMps: number, M = LOCOMOTION_MULTILEG): MultilegPose {
   const amount = clamp(speedMps / M.carrier.maxSpeedMps, 0, 1);
   const swing = M.strideSwing * amount;
   const femur = M.femurLength;
@@ -180,8 +179,7 @@ export function multilegPose(phase: number, speedMps: number): MultilegPose {
 }
 
 /** How far the module's socket sits above the pads it is built standing on, metres. */
-export const multilegStandHeight = (): number => {
-  const M = LOCOMOTION_MULTILEG;
+export const multilegStandHeight = (M = LOCOMOTION_MULTILEG): number => {
   return M.chassisHeight / 2 + M.hipInset + M.femurLength + M.shinLength + M.footHeight;
 };
 
@@ -192,14 +190,14 @@ export const multilegStandHeight = (): number => {
  * A crouch that moved this socket 0.16 m would put the chassis 0.48 m off the floor with the knees
  * folded past their own lift, which is a body sitting down rather than crouching.
  */
-const multilegHeightRange = (): LocomotionHeightRange => Object.freeze({
-  standM: multilegStandHeight(),
-  crouchM: multilegStandHeight(),
+const multilegHeightRange = (M = LOCOMOTION_MULTILEG): LocomotionHeightRange => Object.freeze({
+  standM: multilegStandHeight(M),
+  crouchM: multilegStandHeight(M),
 });
 
-const multilegFootprint = (): LocomotionFootprint => deriveLocomotionFootprint({
-  radiusM: LOCOMOTION_MULTILEG.footprintRadius,
-  heightM: LOCOMOTION_MULTILEG.footprintHeight,
+const multilegFootprint = (M = LOCOMOTION_MULTILEG): LocomotionFootprint => deriveLocomotionFootprint({
+  radiusM: M.footprintRadius,
+  heightM: M.footprintHeight,
   provenance: {
     profileId: "locomotion.multileg",
     source: "golem-bind-geometry",
@@ -234,26 +232,28 @@ interface MultilegLeg {
   lastPlanted: boolean;
 }
 
-export const multilegModule = defineLocomotion({
+/**
+ * The multileg module, built from one table, for the reason `wheelDefinition` gives: a build can
+ * hand the builder a table of its own without writing into the shared one.
+ */
+export function multilegDefinition(M = LOCOMOTION_MULTILEG) {
+return defineLocomotion({
   id: "locomotion.multileg",
   slots: Object.freeze(["locomotion" as const]),
   label: "multileg - six short legs on a wide base",
-  massKg: LOCOMOTION_MULTILEG.chassisMass +
-    6 * (LOCOMOTION_MULTILEG.femurMass + LOCOMOTION_MULTILEG.shinMass +
-      LOCOMOTION_MULTILEG.footMass),
-  carrier: LOCOMOTION_MULTILEG.carrier,
-  heightRange: multilegHeightRange(),
-  footprint: multilegFootprint(),
+  massKg: M.chassisMass + 6 * (M.femurMass + M.shinMass + M.footMass),
+  carrier: M.carrier,
+  heightRange: multilegHeightRange(M),
+  footprint: multilegFootprint(M),
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
-    const M = LOCOMOTION_MULTILEG;
     const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");
     const bronze = materialForGolemRole(ctx.materials, "joint");
-    const standHeight = multilegStandHeight();
-    const footprint = multilegFootprint();
+    const standHeight = multilegStandHeight(M);
+    const footprint = multilegFootprint(M);
 
     /** A point in the golem's own upright frame, carried into the world through the socket. */
     const local = new Vector3();
@@ -771,7 +771,7 @@ export const multilegModule = defineLocomotion({
       }
       const speed = carrierSpeed();
       stride += speed * M.strideCadence * dt;
-      const pose = multilegPose(stride, speed);
+      const pose = multilegPose(stride, speed, M);
       hipDrop = pose.hipDrop;
       // The *commanded* angle is rate-limited, which is the ceiling that makes a flicked key a
       // move rather than a snap. Nothing here reads the achieved pose in order to decide the
@@ -866,7 +866,7 @@ export const multilegModule = defineLocomotion({
         // Both ends the same number: this is what "no crouch, because it is already low" is,
         // published rather than asserted in a comment.
         Object.freeze({ id: "height", unit: "m" as const,
-          min: multilegHeightRange().crouchM, max: multilegHeightRange().standM, rate: 0 }),
+          min: multilegHeightRange(M).crouchM, max: multilegHeightRange(M).standM, rate: 0 }),
       ]),
       reach: standHeight,
       strokes: NO_STROKES,
@@ -894,7 +894,7 @@ export const multilegModule = defineLocomotion({
       port: activePort,
       world,
       footprint,
-      heightRange: multilegHeightRange(),
+      heightRange: multilegHeightRange(M),
       fallenTone: null,
       authority,
       postureEvidence,
@@ -998,3 +998,6 @@ export const multilegModule = defineLocomotion({
     return built;
   },
 });
+}
+
+export const multilegModule = multilegDefinition();

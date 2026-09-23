@@ -109,8 +109,7 @@ const clamp = (value: number, low: number, high: number): number =>
 const wrapAngle = (value: number): number => Math.atan2(Math.sin(value), Math.cos(value));
 
 /** How far the module's socket sits above the ground the tread stands on, metres. */
-export const wheelStandHeight = (): number => {
-  const W = LOCOMOTION_WHEEL;
+export const wheelStandHeight = (W = LOCOMOTION_WHEEL): number => {
   return W.wheelRadius * 2 + W.forkClearance + W.yokeHeight;
 };
 
@@ -122,14 +121,14 @@ export const wheelStandHeight = (): number => {
  * existed -- "equal to `standM` for a carrier that does not crouch" -- so nothing here is a
  * special case, and `defineLocomotion` admits it because its guard is `crouchM <= standM`.
  */
-const wheelHeightRange = (): LocomotionHeightRange => Object.freeze({
-  standM: wheelStandHeight(),
-  crouchM: wheelStandHeight(),
+const wheelHeightRange = (W = LOCOMOTION_WHEEL): LocomotionHeightRange => Object.freeze({
+  standM: wheelStandHeight(W),
+  crouchM: wheelStandHeight(W),
 });
 
-const wheelFootprint = (): LocomotionFootprint => deriveLocomotionFootprint({
-  radiusM: LOCOMOTION_WHEEL.footprintRadius,
-  heightM: LOCOMOTION_WHEEL.footprintHeight,
+const wheelFootprint = (W = LOCOMOTION_WHEEL): LocomotionFootprint => deriveLocomotionFootprint({
+  radiusM: W.footprintRadius,
+  heightM: W.footprintHeight,
   provenance: {
     profileId: "locomotion.wheel",
     source: "golem-bind-geometry",
@@ -150,24 +149,29 @@ const SUPPORT_BINDINGS: readonly LocomotionSupportBinding[] = Object.freeze([
   Object.freeze({ role: "wheel", label: "tread contact" }),
 ]);
 
-export const wheelModule = defineLocomotion({
+/**
+ * The wheel module, built from one table. Taken as an argument the way `bipedDefinition` takes its
+ * own, so that a build can hand the builder a table of its own -- `src/golem/attributes.ts` scales
+ * one per body -- without writing into the shared one every other golem in the scene reads.
+ */
+export function wheelDefinition(W = LOCOMOTION_WHEEL) {
+return defineLocomotion({
   id: "locomotion.wheel",
   slots: Object.freeze(["locomotion" as const]),
   label: "wheel - one rolling body on a fork",
-  massKg: LOCOMOTION_WHEEL.yokeMass + LOCOMOTION_WHEEL.wheelMass,
-  carrier: LOCOMOTION_WHEEL.carrier,
-  heightRange: wheelHeightRange(),
-  footprint: wheelFootprint(),
+  massKg: W.yokeMass + W.wheelMass,
+  carrier: W.carrier,
+  heightRange: wheelHeightRange(W),
+  footprint: wheelFootprint(W),
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
-    const W = LOCOMOTION_WHEEL;
     const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");
     const bronze = materialForGolemRole(ctx.materials, "joint");
-    const standHeight = wheelStandHeight();
-    const footprint = wheelFootprint();
+    const standHeight = wheelStandHeight(W);
+    const footprint = wheelFootprint(W);
 
     /** A point in the golem's own upright frame, carried into the world through the socket. */
     const local = new Vector3();
@@ -796,7 +800,7 @@ export const wheelModule = defineLocomotion({
         // Both ends the same number: this is what "no height range" is, published rather than
         // asserted in a comment.
         Object.freeze({ id: "height", unit: "m" as const,
-          min: wheelHeightRange().crouchM, max: wheelHeightRange().standM, rate: 0 }),
+          min: wheelHeightRange(W).crouchM, max: wheelHeightRange(W).standM, rate: 0 }),
       ]),
       reach: standHeight,
       strokes: NO_STROKES,
@@ -821,7 +825,7 @@ export const wheelModule = defineLocomotion({
       port: activePort,
       world,
       footprint,
-      heightRange: wheelHeightRange(),
+      heightRange: wheelHeightRange(W),
       fallenTone: null,
       authority,
       postureEvidence,
@@ -933,3 +937,6 @@ export const wheelModule = defineLocomotion({
     return built;
   },
 });
+}
+
+export const wheelModule = wheelDefinition();
