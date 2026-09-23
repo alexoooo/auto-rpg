@@ -263,7 +263,10 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * the four probe minds, 15.5 % at x0.5, 29.2 % at x0.75, 62.4 % at x1.25, 65.0 % at x1.5 and
    * 70.3 % at x2.5; the skeleton duelist's mirror, 3.4 %, 17.4 %, 71.4 %, 77.9 % and 80.2 %. Both
    * flatten past x1.5, and on stone the share of contacts that are real blows falls from 45.8 % to
-   * 41.9 % there. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Arm speed".
+   * 41.9 % there. The pitch-blade build is flat from x1 to x1.5 (49.3 %, 52.6 %) and collapses
+   * at x2 (20.3 %), where the hinge stops following. The human mirror gains nothing above x1 (48.7 %
+   * at x1.5), though it barely lands a blow. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Arm speed".
    */
   armSpeed: Object.freeze({ label: "Arm speed", min: 0.5, max: 1.5, step: 0.05, live: true }),
   /**

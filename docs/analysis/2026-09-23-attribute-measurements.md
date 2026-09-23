@@ -1009,6 +1009,44 @@ times its strokes has not been measured.
 
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.
 
+#### The pitch hinge and the human arm
+
+Two arms the bench flagged, swept the same way from a snapshot of the tree at session 10, 192 blocks
+a level. The `pitch-blade` build is played by the four probe minds, and the `human-warrior` mirror by
+`humanoid-duelist`. Raw reports are in `research/runs/stat-armSpeed-pitch.log` and
+`research/runs/stat-armSpeed-human.log`.
+
+| Level | Pitch win % [95 %] | Pitch d vs control | Pitch dealt / taken | Human win % [95 %] | Human draws | Human dealt / taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 25.7 [20.8, 30.6] | -0.66 | 3.48 / 5.41 | 24.9 [22.5, 27.2] | 191 | 0.00 / 0.07 |
+| x0.75 | 36.2 [31.0, 41.4] | -0.31 | 4.04 / 5.09 | 36.5 [34.1, 38.8] | 256 | 0.02 / 0.08 |
+| x1.00 (control) | 49.3 [44.0, 54.8] | -- | 4.95 / 4.98 | 49.7 [45.8, 53.8] | 122 | 0.10 / 0.10 |
+| x1.25 | 51.2 [46.2, 56.1] | 0.06 | 5.02 / 4.85 | 51.0 [46.4, 55.5] | 66 | 0.20 / 0.13 |
+| x1.50 | 52.6 [46.7, 58.1] | 0.05 | 5.23 / 4.99 | 48.7 [44.1, 53.4] | 74 | 0.21 / 0.18 |
+| x2.00 | 20.3 [16.4, 24.5] | -0.86 | 2.85 / 5.44 | 43.6 [39.3, 48.3] | 63 | 0.17 / 0.19 |
+| x2.50 | 15.4 [11.6, 19.0] | -0.90 | 2.28 / 5.44 | 39.7 [35.3, 44.3] | 67 | 0.09 / 0.15 |
+
+**The pitch hinge is flat from x1 to x1.5 and falls off a cliff at x2**, which is where the bench
+found it stops following its command (19.7 m/s at its mark at x1.5, 8.7 at x2). A faster pitch arm
+buys nothing inside the row. At x2 it deals 2.85 a bout against 4.95 at x1, and severs 0.19 of the
+other body's modules against 0.46. So the x1.5 ceiling is the right one for this arm, and nothing
+above it is safe.
+
+**The human mirror barely fights, so it is a weak instrument.** Each of its 2688 bouts ends at
+about 120 s, and blows decide none of them. The overtime drain (`drain` in `src/bout.ts`) empties
+both bars until one reaches zero, and a tenth of a point of damage a bout is all that separates
+them at x1. Its win rate therefore comes from the bar's last few thousandths, and its control is
+lopsided by side, 60.7 % on the left against 38.8 % on the right. What it can show is the
+direction:
+
+- Below x1 the slow arm loses, 24.9 % at x0.5, in line with stone and the skeleton.
+- Above x1 it gains nothing: 51.0 % at x1.25 and 48.7 % at x1.5.
+- Its paired margin is a little worse at x1.5, d -0.32, but on margins under 0.002 of the bar.
+
+The human's stroke stray from the bench (149 mm at x1.5) does not show up as a lost fight, because
+this pairing hardly lands one. Neither sweep argues for a lower ceiling than x1.5. Both say nothing
+above x1.25 pays.
+
 ## Weight (session 11)
 
 **The knob.** `withWeight` in `src/golem/attributes.ts` hands a builder a per-build copy of its table
