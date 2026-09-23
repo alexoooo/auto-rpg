@@ -9,9 +9,10 @@ import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js
 
 import { CONFIG } from "../src/config.ts";
 import {
-  BENCH_STAND, BENCH_STAND_LOCOMOTION, LOCOMOTION_BIPED, LOCOMOTION_MULTILEG, LOCOMOTION_WHEEL,
+  BENCH_STAND, BENCH_STAND_LOCOMOTION, GOLEM_RUIN, LOCOMOTION_BIPED, LOCOMOTION_MULTILEG,
+  LOCOMOTION_WHEEL,
 } from "../src/golem/config.ts";
-import { locomotionCommand } from "../src/golem/locomotion.ts";
+import { hobble, legRuin, locomotionCommand } from "../src/golem/locomotion.ts";
 import {
   bipedFootSpeed, bipedModule, bipedPose, bipedStandHeight,
 } from "../src/golem/locomotion/biped.ts";
@@ -61,6 +62,34 @@ const SUBSTEP = 1 / CONFIG.world.physicsHz;
 const B = LOCOMOTION_BIPED;
 
 // --------------------------------------------------------------------------- pure geometry
+
+/**
+ * The hobble's arithmetic, asked of the rule rather than of a walk: the walk is asked in
+ * `tests/golem-arena.test.mjs`, on a biped, and cannot tell a leg's share of four from one of two.
+ */
+test("a_ruined_leg_takes_its_equal_share_of_the_command_and_never_the_recovery", () => {
+  const floor = GOLEM_RUIN.strippedMobility;
+  const quad = legRuin([["a1", "a2"], ["b1"], ["c1"], ["d1"]]);
+  assert.equal(quad.mobility(), 1);
+  quad.ruin("chassis");
+  assert.equal(quad.mobility(), 1, "a piece in no leg -- the carrier -- costs no mobility");
+  quad.ruin("a2");
+  assert.equal(quad.mobility(), 1 - (1 - floor) / 4);
+  quad.ruin("a1");
+  assert.equal(quad.mobility(), 1 - (1 - floor) / 4, "a second piece of a ruined leg is not a second leg");
+  for (const piece of ["b1", "c1", "d1"]) quad.ruin(piece);
+  assert.ok(Math.abs(quad.mobility() - floor) < 1e-12, `every leg ruined left ${quad.mobility()}`);
+
+  // Both directions of every channel, so a hobble that clamped rather than scaled reads red.
+  const intent = { forward: -1, strafe: 0.5, turn: -0.8, posture: { crouch: 0.3 } };
+  const command = locomotionCommand(intent);
+  const slowed = hobble(command, 0.5);
+  assert.deepEqual(slowed, { request: { localForward: -0.5, localRight: 0.25, yaw: -0.4, recover: true }, crouch: 0.3 });
+  assert.equal(hobble(command, 1), command, "a whole carrier's command passes untouched");
+  // Recovery reads what was asked, never what the legs will give: at a mobility of zero the
+  // stick still asks to get up.
+  assert.equal(hobble(command, 0).request.recover, true);
+});
 
 test("the_biped_is_built_standing_and_every_joint_stop_admits_that_build_pose", () => {
   // Session 03 found a chain built in its own singularity and a joint stop that did not admit its

@@ -179,13 +179,13 @@ const hack = (golem, limb, blows = 40) => {
  */
 test("the_severing_rule_never_fires_while_the_struck_piece_still_has_health", () => {
   const perfect = { kind: "cut", quality: 0.95, damage: 40 };
-  assert.equal(severs(perfect, 0.001, "sword"), false,
+  assert.equal(severs(perfect, { health: 0.001, maxHealth: 1 }, "sword"), false,
     "a piece with health left was severed, so the loot rule's premise is wrong");
-  assert.equal(severs(perfect, 0, "sword"), true,
+  assert.equal(severs(perfect, { health: 0, maxHealth: 1 }, "sword"), true,
     "a piece at zero was not severed, so this fixture cannot exhibit the defect");
   // And the control that makes the pair say something: it is the health that decides, not the
   // blow. A feeble blow on a piece at zero does not take the socket either.
-  assert.equal(severs({ kind: "slap", quality: 0.95, damage: 40 }, 0, "sword"), false);
+  assert.equal(severs({ kind: "slap", quality: 0.95, damage: 40 }, { health: 0, maxHealth: 1 }, "sword"), false);
 });
 
 // ---------------------------------------------------------------------------------------

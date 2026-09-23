@@ -46,7 +46,7 @@ import {
 } from "./build.ts";
 import { GOLEM_ASSEMBLY } from "./config.ts";
 import { GolemControlEndpoint } from "./golem-control.ts";
-import { locomotionCommand, type BuiltLocomotion } from "./locomotion.ts";
+import { hobble, locomotionCommand, type BuiltLocomotion } from "./locomotion.ts";
 import { dressGolemPart } from "./appearance.ts";
 import { dressHumanoid } from "./humanoid/appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
@@ -135,6 +135,7 @@ interface MountedModule {
   readonly parts: readonly GolemPart[];
   readonly strikers: readonly Striking[];
   step(dt: number): void;
+  ruin?(partId: string): void;
   sever(): void;
   dispose(): void;
 }
@@ -301,6 +302,8 @@ export class Golem implements Combatant {
   private readonly shields = new Map<PhysicsBody, { readonly kind: WeaponKind }>();
   private readonly owned = new Set<AbstractMesh>();
   private readonly moduleOfLimb = new Map<Limb, AssembledModule>();
+  /** Every piece already handed to its module's `ruin`, so each is handed over once. */
+  private readonly ruined = new Set<Limb>();
   private readonly occlusion: Vector3[] = [];
   /** Every shell's wear binding, tied to the limb whose health drives it. See `src/golem/wear.ts`. */
   private readonly wear: GolemWearTie[] = [];
@@ -665,7 +668,8 @@ export class Golem implements Combatant {
    * command, because moving is how a fallen body asks to get up.
    */
   private applyIntent(dt: number, intent: Intent): void {
-    const locomotion = locomotionCommand(intent);
+    this.settleRuin();
+    const locomotion = hobble(locomotionCommand(intent), this.locomotionModule.mobility());
     this.locomotionModule.command(locomotion);
     // **And the port, separately, because the pair path is what stages a request.** A module's
     // `command` is what the module keeps -- the crouch it drives and the request it hands its own
@@ -682,6 +686,29 @@ export class Golem implements Combatant {
       effector.module.command(upper[effector.driven]);
     }
     void dt;
+  }
+
+  /**
+   * Hand every piece that has reached zero since the last control step to its module's `ruin`.
+   *
+   * **A scan of the level rather than an edge caught in `applyDamage`**, because a blow is not the
+   * only thing that empties a piece: the overtime drain in `src/bout.ts` writes `health` directly,
+   * and so would a hazard or a trap. Whatever emptied it, a piece at zero is ruined -- the rule in
+   * `AGENTS.md` about levels and edges, pointed at health. At the head of the control step so
+   * that the command the step goes on to narrow is already the hobbled one.
+   *
+   * Never a `fatal` piece, whose ruin is the end of the golem, and never a piece of a severed
+   * module, which has nothing left to go limp. Equipment is never below full.
+   */
+  private settleRuin(): void {
+    if (this.ruined.size === this.limbs.length) return;
+    for (const limb of this.limbs) {
+      if (limb.health > 0 || limb.fatal || this.ruined.has(limb)) continue;
+      const module = this.moduleOfLimb.get(limb);
+      if (!module || module.severed) continue;
+      this.ruined.add(limb);
+      module.built.ruin?.(limb.key);
+    }
   }
 
   /**

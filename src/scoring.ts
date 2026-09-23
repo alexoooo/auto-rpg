@@ -672,29 +672,42 @@ export function scoreHit(
     damage: quality * pricedDamage(energyJ, contact, bite.joulesPerDamage(tuning), tuning) };
 }
 
+/** What `severs` needs to know about the struck part, after the blow has been subtracted. */
+export interface StruckPart {
+  readonly health: number;
+  readonly maxHealth: number;
+}
+
 /**
- * Whether a blow that emptied a limb should also take it off.
+ * Whether a blow that left a part empty should also take it off. Two routes, and the part must
+ * be empty for either.
  *
- * Beating a limb to nothing with the flat leaves it ruined but attached, which
- * is both more interesting and more honest than letting a clumsy player
- * dismember by accumulation.
- *
- * One rule for every kind now, where there used to be a club-shaped branch in
- * front of it. The branch said "a club severs when it crushes", which for a
- * weapon whose only two outcomes are a quality-1 crush and a quality-0 nudge is
- * the same sentence as "a club has no placement bar" -- so the bar moved into
- * the table beside the kind it belongs to, and the axe's is lower than the
+ * **A clean blow takes an emptied part off at once.** That is the weapon's bar: a cut or thrust
+ * placed above `severQuality` for an edge, any crush for a club, never for a fist, a ram or an
+ * arrow. One rule for every kind, where there used to be a club-shaped branch in front of it --
+ * the bar lives in the table beside the kind it belongs to, and the axe's is lower than the
  * sword's because taking limbs off is what an axe is for.
+ *
+ * **Anything that wounds takes it off past its breaking point**, which is `severMargin` of the
+ * part's full health beyond empty. Before 2026-09-22 this route did not exist, and a part beaten
+ * to nothing by a weapon that could not clear the bar stayed on for good: health went on falling,
+ * the bar clamps each part at zero, and further blows did nothing at all. Measured over 768
+ * mirrored bouts (Node harness, research protocol) that was every part a plate, a fist or a ram ever
+ * emptied -- 96 of 96 -- and the owner's reading of it was the right one: "wouldn't the body part
+ * fall off?" The old rule's argument, that a flat blow should not dismember, still holds for the
+ * blow that empties a part; it does not hold for a part that is already ruined and keeps being
+ * hit. Only a blow that did damage counts, so a touch below the floor breaks nothing.
  */
 export function severs(
   score: Score,
-  remainingHealth: number,
+  part: StruckPart,
   by: Striker = "sword",
   tuning: Tuning = CONFIG.combat,
 ): boolean {
-  if (remainingHealth > 0) return false;
+  if (part.health > 0) return false;
   const bite = BITE[by];
   if (bite.how === "none") return false;
+  if (score.damage > 0 && part.health <= -tuning.severMargin * part.maxHealth) return true;
   return score.quality > bite.severQuality(tuning) && score.kind !== "slap";
 }
 

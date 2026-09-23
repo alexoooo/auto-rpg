@@ -31,7 +31,7 @@ import { CONFIG } from "../src/config.ts";
 import { attachPhysics, COLLIDES, LAYER, collisionFilterIsExact, golemLayersFor } from "../src/physics.ts";
 import { unitDefinition } from "../src/units.ts";
 import { beaten, vitality } from "../src/bout.ts";
-import { GOLEM_ASSEMBLY, TERMINAL_MAUL } from "../src/golem/config.ts";
+import { GOLEM_ASSEMBLY, GOLEM_RUIN, TERMINAL_MAUL } from "../src/golem/config.ts";
 
 /** The maul's one azimuth, as the terminal declares it; the test reads it back off the body. */
 const GOLEM_MAUL_SWING = TERMINAL_MAUL.limits.swingMin;
@@ -555,6 +555,36 @@ test("a_severed_plate_is_debris_and_stops_answering_for_the_golem", async (t) =>
 });
 
 /**
+ * A whip is a weapon the golem holds, not a body it is made of: every bead parries as the lash and
+ * none can be wounded or carry any of the bar. The owner, 2026-09-22: "its parts should not count
+ * as body parts, these are segments of a weapon."
+ *
+ * Every bead rather than the business end, because a lash is eight bodies and a blow finds
+ * whichever one is in the way; and the arm that holds it is asserted to stay flesh, because the
+ * rule is about the weapon and a whip that made its arm a parry would be an arm nothing can hurt.
+ */
+test("a_whips_beads_are_equipment_that_parries_and_its_arm_is_still_flesh", async (t) => {
+  const stand = await standAGolem(t, {
+    setup: { ...defaultGolemSetup(), primary: { chain: "wrist", terminal: "whip" } },
+  });
+  const arm = moduleLimbs(stand.golem, "primary");
+  const beads = arm.filter((limb) => limb.key.includes(".whip."));
+  assert.equal(beads.length, 9, `the whip has ${beads.length} beads and weight: ${arm.map((l) => l.key).join(", ")}`);
+  assert.ok(beads.some((limb) => limb.key.endsWith(".whip.weight")), "the whip has no weight on its end");
+  for (const bead of beads) {
+    assert.deepEqual(stand.golem.parriedBy(bead.part.body), { kind: "whip" }, `${bead.key} does not parry`);
+    assert.equal(stand.golem.limbFor(bead.part.body), undefined, `${bead.key} can be wounded`);
+    assert.equal(bead.vitalityWeight, 0, `${bead.key} carries a share of the bar`);
+  }
+  const flesh = arm.filter((limb) => !beads.includes(limb));
+  assert.ok(flesh.length > 0, "the whip arm has no links of its own");
+  for (const link of flesh) {
+    assert.equal(stand.golem.limbFor(link.part.body), link, `${link.key} cannot be wounded`);
+    assert.ok(link.vitalityWeight > 0, `${link.key} weighs nothing`);
+  }
+});
+
+/**
  * What an arm costs is the arm, not the fight.
  *
  * `Golem.sever` used to zero every part of the module, so a blade cut off at the wrist booked the
@@ -579,6 +609,71 @@ test("a_severed_arm_costs_capability_rather_than_most_of_the_vitality_bar", asyn
   assert.ok(after > 2 / 3,
     `a severed arm should cost under a third of the bar, and cost ${(before - after).toFixed(3)}`);
   assert.equal(stand.golem.alive, true, "and the golem is still in the fight");
+});
+
+/**
+ * **A ruined arm hangs.** A piece of an arm at zero health is still attached, and until 2026-09-22
+ * it went on swinging at full authority. Now the whole arm lets go of its motors and stops
+ * answering its command -- and it stays on the golem, which is the difference from a sever.
+ *
+ * The secondary arm is the control, commanded identically throughout: the test is that the
+ * ruined arm falls **and the whole one does not**, so a golem that sagged for some other reason,
+ * or a raise that never arrived, reads red rather than green. Health is written directly rather
+ * than through a blow, because the rule reads a level and must not care what emptied it -- the
+ * overtime drain writes it just the same way.
+ */
+test("a_ruined_arm_hangs_limp_and_stays_on_while_the_whole_one_holds_its_raise", async (t) => {
+  const stand = await standAGolem(t);
+  for (const hand of ["primary", "secondary"]) stand.intent[hand].pointerY = 0.9;
+  stand.run(2.0);
+  const tipY = (hand) => stand.golem.effectorView(hand).tip.y;
+  const raised = { primary: tipY("primary"), secondary: tipY("secondary") };
+
+  const forearm = moduleLimbs(stand.golem, "primary").find((limb) => limb.key.endsWith(".forearm"));
+  assert.ok(forearm, "the default primary arm has a forearm");
+  forearm.health = 0;
+  // And it is still commanded: a limp arm is one that does not answer, not one nobody asked.
+  stand.intent.primary.pointerX = 0.8;
+  stand.run(2.0);
+
+  const drop = { primary: raised.primary - tipY("primary"), secondary: raised.secondary - tipY("secondary") };
+  assert.ok(drop.primary > 0.4,
+    `the ruined arm's tip fell only ${(drop.primary * 1000).toFixed(0)} mm from ${raised.primary.toFixed(2)} m`);
+  assert.ok(Math.abs(drop.secondary) < 0.1,
+    `the whole arm's tip moved ${(drop.secondary * 1000).toFixed(0)} mm, so the drop is not the ruin's`);
+  assert.equal(forearm.severed, false, "a ruined arm is not a severed one");
+  assert.equal(stand.golem.alive, true);
+});
+
+/**
+ * **A ruined leg hobbles.** The carrier moves a golem and the legs only sell it, so slack joints
+ * alone would change nothing about how fast it walks; what a ruined leg takes is the carrier's
+ * share of the command (`hobble` in `src/golem/locomotion.ts`). Measured as walking speed over
+ * the same stretch of the same walk either side of the ruin, so the golem is its own control.
+ * Short windows, because the stand's floor authority stops a walker 12.66 m out.
+ */
+test("a_ruined_leg_slows_the_walk_by_its_share_and_a_whole_one_does_not", async (t) => {
+  const stand = await standAGolem(t);
+  stand.intent.forward = 1;
+  stand.run(1.0);
+  const ground = () => ({ x: stand.golem.view.self.ground.x, z: stand.golem.view.self.ground.z });
+  const pace = (seconds) => {
+    const from = ground();
+    stand.run(seconds);
+    const to = ground();
+    return Math.hypot(to.x - from.x, to.z - from.z) / seconds;
+  };
+  const whole = pace(1.0);
+  const shin = moduleLimbs(stand.golem, "legs").find((limb) => limb.key.endsWith(".shinL"));
+  assert.ok(shin, "the default golem has a left shin");
+  shin.health = 0;
+  stand.run(0.5);
+  const hobbled = pace(1.0);
+  const expected = 1 - (1 - GOLEM_RUIN.strippedMobility) / 2;
+  assert.ok(whole > 0.5, `the whole golem walked at ${whole.toFixed(2)} m/s`);
+  assert.ok(Math.abs(hobbled / whole - expected) < 0.1,
+    `one ruined leg left ${(hobbled / whole).toFixed(3)} of the pace, against ${expected}`);
+  assert.equal(stand.golem.alive, true);
 });
 
 /**
