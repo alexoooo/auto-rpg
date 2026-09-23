@@ -3229,27 +3229,24 @@ test("golem_guardian_stays_inside_the_envelope_and_is_deterministic_under_a_seed
 /**
  * The whole thing on a real body: `golem-guardian` against `golem-fencer` for fourteen seconds.
  *
- * What is asserted is the one thing this style claims that no other does -- that the spare hand
- * is *sent somewhere* on purpose, often, and before their point is closing. The count is of asks
- * answered `parry` while their arm reads as a chamber, which is the rule the whole style is built
- * around and which the form cannot produce at all: with `wallOnChamber` off there is no intercept
- * to solve against an arm drawing back, so the option is never even on offer.
+ * **What this asserts is that the style runs, and no longer that it meets a chamber.** It used to
+ * count asks answered `parry` while their arm read as a chamber, the rule the whole style is built
+ * around. Since 2026-09-23 a real fencer's arm is never read as a chamber at all, so that count
+ * cannot be taken here. The rule itself is proven on a scripted draw by
+ * `the_guardian_meets_a_chamber_and_the_form_is_not_offered_the_chance`, with the form as its
+ * control; the history and the measurement are in the comments below.
  *
  * Whether that is worth anything is not a question a fourteen-second bout can answer, and this
  * test does not try. Session 04 measured a solved parry buying five blocks a bout on top of the
  * 226 a body books by standing still; the Session 06 entry in `docs/measurements.md` is where the
  * wall is put to the same question.
  */
-test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_chance", async () => {
+test("golem_guardian_is_asked_often_and_lands_blows_against_a_real_fencer", async () => {
   const setup = defaultGolemSetup();
   const physics = await freshHavok();
   const count = (make, name) => {
-    const walls = { asks: 0, onChamber: 0, chamberOffered: 0 };
-    const mind = make((available, reading, view, option) => {
-      walls.asks += 1;
-      if (reading.theirs === "chamber" && available.includes("parry")) walls.chamberOffered += 1;
-      if (option === "parry" && reading.theirs === "chamber") walls.onChamber += 1;
-    });
+    const walls = { asks: 0 };
+    const mind = make(() => { walls.asks += 1; });
     return {
       walls,
       mind: { name, styled: mind, decide: (view, dt) => mind.decide(view, dt) },
@@ -3353,33 +3350,29 @@ test("golem_guardian_meets_a_real_fencers_chamber_and_the_form_never_gets_the_ch
   // answers them. Count the offers themselves: require real opportunities across the corpus,
   // and require the guardian to take EVERY offered chamber parry, including abort decisions.
   // Disabling wallOnChamber or declining an available chamber parry must fail this assertion.
+  //
+  // **2026-09-23: the real bout stopped offering a chamber at all, and the eight-seed loop was
+  // removed rather than widened.** The loop had been down to a single chamber, offered once, on
+  // one seed of the eight (20261023) since before the skeleton work. The count was bit-identical
+  // at 47ffdb0, cfe31d8, d21114e and 4d194d8, so nothing in that stretch moved it. Then the blade,
+  // mace and maul became equipment: a blow on a held weapon is a parry and wounds nothing. That
+  // took the last one away. Widening the corpus did not bring it back (Node harness,
+  // guardian vs fencer, 14 s cap):
+  //
+  //     seeds                        bouts   asks    chambers read   chamber parries offered
+  //     the eight below, at HEAD        8     500          1                   1
+  //     20260904 + 7i, i < 40          40    2430          0                   0
+  //
+  // So the loop was asserting on a corpus that can no longer contain its subject. That is not a
+  // floor to lower. `strokeReader` keys on the watched arm's extension, and on these bodies that
+  // sits near 0.95 of reach all bout: the reader was already known to be almost blind. The blind
+  // reader is the defect, and it is the AI work's to take up. The rule this test was guarding is
+  // still asserted where a chamber can be made to happen, on a scripted draw with the form as the
+  // control: `the_guardian_meets_a_chamber_and_the_form_is_not_offered_the_chance` above.
   assert.ok(guarding.asks > 20,
     `the guardian was asked ${guarding.asks} times in ${guarding.seconds.toFixed(1)} s, `
-    + "too few for the counts below to mean anything");
+    + "too few for a fourteen-second bout of this style");
   assert.ok(guarding.blows.left > 0, "golem-guardian landed nothing at all in fourteen seconds");
-
-  const met = [];
-  for (const seed of [20260904, 20260911, 20260918, 20260925,
-    20261002, 20261009, 20261016, 20261023]) {
-    const side = count((hook) => golemGuardian(seed, GUARDIAN, hook), "golem-guardian");
-    runBout({
-      left: "golem-guardian", right: "golem-fencer", leftUnit: "golem", rightUnit: "golem",
-      leftGolem: setup, rightGolem: setup, locomotionMode: "supported",
-      seeds: [seed, seed + 17], maxSeconds: 14, physics,
-      leftMind: side.mind, rightMind: golemFencer(seed + 17),
-    });
-    met.push({ seed, ...side.walls });
-  }
-  assert.ok(met.some(row => row.chamberOffered > 0),
-    "eight real bouts offered no chamber parry; the response assertion would be vacuous");
-  for (const row of met) {
-    assert.equal(row.onChamber, row.chamberOffered,
-      `seed ${row.seed}: guardian answered ${row.onChamber} of ${row.chamberOffered} chamber parries`);
-  }
-
-  const forming = run((hook) => golemForm(SEED, FORM, hook), "golem-form");
-  assert.equal(forming.onChamber, 0,
-    `the form parried ${forming.onChamber} chambers, and \`wallOnChamber\` is off for it`);
 });
 
 // ---------------------------------------------------------------------------------------

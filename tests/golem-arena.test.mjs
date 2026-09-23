@@ -304,19 +304,21 @@ test("an_assembled_golems_weights_are_its_own_and_a_wholly_ruined_body_reaches_z
   const limbs = stand.golem.limbs;
   assert.ok(limbs.length > 0);
   let sum = 0;
-  let shields = 0;
+  const parriers = [];
   for (const limb of limbs) {
     assert.equal(typeof limb.vitalityWeight, "number", `${limb.key} declares no vitality weight`);
-    if (stand.golem.parriedBy(limb.part.body) !== null) {
-      shields += 1;
+    const parry = stand.golem.parriedBy(limb.part.body);
+    if (parry !== null) {
+      parriers.push(parry.kind);
       assert.equal(limb.vitalityWeight, 0, `${limb.key} stops blows and still carries bar`);
       continue;
     }
     assert.ok(limb.vitalityWeight > 0, `${limb.key} weighs nothing`);
     sum += limb.vitalityWeight;
   }
-  assert.equal(shields, 1,
-    `the default golem's plate is its one shield, and ${shields} parts answered to \`parriedBy\``);
+  // The plate and, since 2026-09-23, the blade: a held weapon is equipment and wounds nothing.
+  assert.deepEqual(parriers.sort(), ["shield", "sword"],
+    `the default golem's plate and blade are its parriers, and these answered: ${parriers.join(", ")}`);
   assert.ok(Math.abs(sum - GOLEM_ASSEMBLY.vitalityTotal) < 1e-9,
     `weights sum to ${sum} rather than ${GOLEM_ASSEMBLY.vitalityTotal}`);
   assert.equal(vitality(limbs), 1);
@@ -1010,11 +1012,13 @@ test("a_skeleton_reaches_a_verdict_from_either_corner", async () => {
  * Its vitality weight is zero for the other half of the same sentence: a part no blow can reach
  * that still carried a share of the bar would be a share of the bar nothing could ever move.
  *
- * **A held weapon is the other kind of block: it is booked as one and it is still wounded.** A
- * blade that meets a blade is a parry that costs the blade, which is what a weapon's health row is
- * for, and the accounting is asserted as an identity rather than a threshold -- every block either
- * body books is either a plate stopping a blow or a blow that found something the other body was
- * holding, with no third source and nothing counted twice.
+ * **A held blade parries exactly as the plate does, since 2026-09-23.** It used to be a parry
+ * that cost the blade, and a blade beaten to nothing took its arm off; the owner asked that a held
+ * weapon take no damage, so it is equipment and a blow on it is a `block:sword` report worth
+ * nothing. An arm link is still the other kind of block: booked as one and wounded all the same.
+ * The accounting is asserted as an identity rather than a threshold -- every block either body
+ * books is either a parry by the plate or the blade or a blow that found an arm, with no fourth
+ * source and nothing counted twice.
  */
 test("a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks", async () => {
   const setup = defaultGolemSetup();
@@ -1034,7 +1038,8 @@ test("a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks", async 
   // the bout is that nothing ever wounds it, and a claim about "ever" wants every sample, not the
   // final one. So the plate is found once, and then watched.
   const read = (side, golem) => {
-    const shields = golem.limbs.filter((limb) => golem.shields.has(limb.part.body))
+    // The plate alone: a held blade answers `parriedBy` too since 2026-09-23, as a sword.
+    const shields = golem.limbs.filter((limb) => golem.shields.get(limb.part.body)?.kind === "shield")
       .map((limb) => ({
         key: limb.key, health: limb.health, maxHealth: limb.maxHealth,
         weight: limb.vitalityWeight, addressable: golem.limbFor(limb.part.body) !== undefined,
@@ -1138,7 +1143,9 @@ test("a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks", async 
     `only ${contacts.length} contacts in ${totalSeconds.toFixed(1)} s, which is `
     + `${rate(contacts.length).toFixed(1)} a second`);
   const wounds = contacts.filter((event) => !event.blocked);
-  const shieldBlocks = contacts.filter((event) => event.blocked);
+  const blocked = contacts.filter((event) => event.blocked);
+  const shieldBlocks = blocked.filter((event) => event.report.key === "block:shield");
+  const bladeParries = blocked.filter((event) => event.report.key === "block:sword");
   const guardedHits = contacts.filter((event) => event.guarded === true);
 
   // --- one claim per part per stroke ---------------------------------------------------------
@@ -1186,27 +1193,34 @@ test("a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks", async 
   assert.ok(rate(shieldBlocks.length) > 1,
     `only ${shieldBlocks.length} blows were stopped by a plate in `
     + `${totalSeconds.toFixed(1)} s, which is ${rate(shieldBlocks.length).toFixed(1)} a second`);
-  for (const event of shieldBlocks) {
-    assert.equal(event.report.key, "block:shield",
-      `a blocked contact reported ${event.report.key} rather than the shield`);
-    assert.equal(event.report.damage, 0, "a plate charged the striker for stopping a blow");
+  assert.equal(blocked.length, shieldBlocks.length + bladeParries.length,
+    `a blocked contact reported something other than the plate or the blade: `
+    + [...new Set(blocked.map((event) => event.report.key))].join(", "));
+  for (const event of blocked) {
+    assert.equal(event.report.damage, 0, `${event.report.key} charged the striker for stopping a blow`);
   }
   for (const key of plateKeys) {
     assert.ok(!wounds.some((event) => event.report.key === key),
       `a wound was filed against ${key}`);
   }
 
-  // --- a held weapon is booked as a block and wounded all the same ------------------------------
-  assert.equal(blocksBooked, shieldBlocks.length + guardedHits.length,
-    "a block was booked that was neither a plate stopping a blow nor a blow on a held part");
-  assert.ok(rate(guardedHits.length) > 3,
-    `only ${guardedHits.length} blows found a held part in ${totalSeconds.toFixed(1)} s, which `
-    + `is ${rate(guardedHits.length).toFixed(1)} a second`);
+  // --- a held blade parries like the plate, and an arm is booked as a block and wounded ---------
+  assert.equal(blocksBooked, blocked.length + guardedHits.length,
+    "a block was booked that was neither a parry nor a blow on an arm");
+  // The same quantity the floor was set on: every blow that found something held other than the
+  // plate. Blows on the blade were half of it and are parries now, so it is counted across both.
+  const heldBlows = guardedHits.length + bladeParries.length;
+  assert.ok(rate(heldBlows) > 3,
+    `only ${heldBlows} blows found an arm or a blade in ${totalSeconds.toFixed(1)} s, which `
+    + `is ${rate(heldBlows).toFixed(1)} a second`);
+  // The blade half, and it has a control: blades do meet blows, and none of them marks the blade.
+  assert.ok(bladeParries.length > 0,
+    `no blow met a blade in ${SEED_PAIRS.length} bouts, so "never wounded" below asserts nothing`);
   for (const side of ["left", "right"]) {
     const held = [...woundedHeld[side]];
-    assert.ok(held.some((key) => key.endsWith(".blade")),
-      `${side}'s blade parried across ${SEED_PAIRS.length} bouts and is unmarked in all of them:`
-      + ` ${held.join(", ") || "nothing it holds is marked"}`);
+    assert.ok(!held.some((key) => key.endsWith(".blade")),
+      `${side}'s blade was wounded, and a held weapon is equipment: ${held.join(", ")}`);
+    assert.ok(held.length > 0, `nothing ${side} holds was ever wounded, so the arm half is empty`);
   }
 });
 

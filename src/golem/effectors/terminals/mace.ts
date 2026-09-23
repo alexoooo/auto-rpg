@@ -47,6 +47,10 @@ export const maceDefinition = (config: typeof TERMINAL_MACE & { gripFromButt?: n
   sockets: 1,
   bite: "mass",
   label: "mace",
+  // **A weapon, not a body**, like the whip's beads: a blow that finds the mace is a parry and
+  // wounds nothing, so it can neither be beaten to nothing nor take the arm off with it. The owner,
+  // 2026-09-23, asked whether a held blade, mace and maul should stop taking damage: "yes".
+  partRole: "equipment",
   massKg: config.mass,
   // One socket, one body, and only the wrist's bend taken away: a mace on the end of an arm
   // reaches everywhere the arm does and swings and rolls with it. The two-socket bar this

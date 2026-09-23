@@ -68,6 +68,10 @@ export const maulDefinition = (config: typeof TERMINAL_MAUL & { trailingGripOffs
   sockets: 2,
   bite: "mass",
   label: "maul",
+  // **A weapon, not a body**, like the whip's beads: a blow that finds the maul is a parry and
+  // wounds nothing, so it can neither be beaten to nothing nor take the arm off with it. The owner,
+  // 2026-09-23, asked whether a held blade, mace and maul should stop taking damage: "yes".
+  partRole: "equipment",
   massKg: config.mass,
   limits: config.limits,
   crossing: config.crossing,

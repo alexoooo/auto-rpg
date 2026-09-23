@@ -48,6 +48,10 @@ export const bladeDefinition = (gripToBlade = 0) => defineTerminal({
   sockets: 1,
   bite: "edge",
   label: "blade",
+  // **A weapon, not a body**, like the whip's beads: a blow that finds the blade is a parry and
+  // wounds nothing, so it can neither be beaten to nothing nor take the arm off with it. The owner,
+  // 2026-09-23, asked whether a held blade, mace and maul should stop taking damage: "yes".
+  partRole: "equipment",
   massKg: TERMINAL_BLADE.mass,
   // One socket, one body, nothing taken away: a blade on the end of an arm reaches everywhere
   // the arm does. Session 04's mace is the only terminal in the shelf that narrows anything.

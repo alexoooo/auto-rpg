@@ -621,8 +621,13 @@ export const TERMINAL_BLADE = {
    * the file. 2026-09-04.
    */
   tipOffset: 0.80,
+  /**
+   * Never subtracted from: held equipment since 2026-09-23, so a blow on it is a parry. The row is
+   * what the part's shape requires and what `moduleDurability` sums, and no longer a wound budget.
+   */
   health: 60,
-  vitalityWeight: 0.4,
+  /** Zero, because equipment is no part of the bar. It was 0.4 while a held blade was flesh. */
+  vitalityWeight: 0,
   /** `CONFIG.sword`'s own damping pair, unchanged. Follow-through should read as weight, not
    *  as a loose pendulum. 2026-09-04. */
   linearDamping: 0.5,
@@ -1898,8 +1903,13 @@ export const TERMINAL_MACE = {
    * real time to start and cannot be stopped once it is going. 2026-09-06.
    */
   balanceFraction: 0.63,
+  /**
+   * Never subtracted from: held equipment since 2026-09-23, so a blow on it is a parry. The row is
+   * what the part's shape requires and what `moduleDurability` sums, and no longer a wound budget.
+   */
   health: 200,
-  vitalityWeight: 1.0,
+  /** Zero, because equipment is no part of the bar. It was 1.0 while a held mace was flesh. */
+  vitalityWeight: 0,
   /** `CHAIN_REACH`'s pair, unchanged. 2026-09-04. */
   linearDamping: 0.7,
   angularDamping: 3,
@@ -2024,8 +2034,13 @@ export const TERMINAL_MAUL = {
    * grip is a point and nothing more: the trailing arm's own stops are what limit it. 2026-09-04.
    */
   gripCone: 3.0,
+  /**
+   * Never subtracted from: held equipment since 2026-09-23, so a blow on it is a parry. The row is
+   * what the part's shape requires and what `moduleDurability` sums, and no longer a wound budget.
+   */
   health: 260,
-  vitalityWeight: 1.6,
+  /** Zero, because equipment is no part of the bar. It was 1.6 while a held maul was flesh. */
+  vitalityWeight: 0,
   /** `CHAIN_REACH`'s pair, unchanged. */
   linearDamping: 0.7,
   angularDamping: 3,
@@ -2277,7 +2292,8 @@ export const TERMINAL_FIST = {
    *
    * 120 against the blade's 60: a ball of stone is the hardest thing to take off a golem short
    * of its core, and the blade is a slab of steel ten millimetres thick. The vitality weight is
-   * the blade's, because losing a hand is losing a hand whatever was on it. 2026-09-05.
+   * the blade's 0.4 as it was, because losing a hand is losing a hand whatever was on it; the blade
+   * itself is equipment since 2026-09-23 and carries none. 2026-09-05.
    */
   health: 120,
   vitalityWeight: 0.4,
