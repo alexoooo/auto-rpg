@@ -40,7 +40,7 @@ export async function execute(job, manifest) {
     leftMind: mind(job.left, job.seeds[0], "left"), rightMind: mind(job.right, job.seeds[1], "right"),
     seeds: job.seeds, leftGolem: builds.get(job.leftBuild), rightGolem: builds.get(job.rightBuild),
     ...manifest.protocol, physics: await freshHavok() });
-  let result, vitality;
+  let result, vitality, severs;
   // Knockdowns and time down, per side, read off each body's support state once a frame: a
   // knockdown is an edge into `fallen`, and time down is every frame spent fallen or rising. A
   // body with no supported port (none today) reads zero rather than throwing.
@@ -57,12 +57,16 @@ export async function execute(job, manifest) {
     while (bout.step()) watchDown();
     result = bout.finish();
     vitality = [bout.left.vitality, bout.right.vitality];
+    // Modules each corner lost, read off the body's own report before it is disposed. A body without
+    // one (none today) reads zero.
+    severs = Object.fromEntries(["left", "right"].map((side) =>
+      [side, (bout[side].moduleReport?.() ?? []).filter((module) => module.severed).length]));
   } finally { bout.dispose(); }
   const sides = Object.fromEntries(["left", "right"].map((side) => [side, {
     damage: result[side].damage, hits: result[side].hits, blocks: result[side].blocks,
     descriptors: descriptors(result.behaviour[side], retreat[side], attacks[side]),
     engagement: result.behaviour[side].engagement,
-    knockdowns: down[side].knockdowns, downSeconds: down[side].seconds,
+    knockdowns: down[side].knockdowns, downSeconds: down[side].seconds, severs: severs[side],
   }]));
   return { ...job, status: "ok", winner: result.winner, ending: result.ending, seconds: result.seconds,
     overtime: result.seconds >= CONFIG.bout.overtimeSeconds, sides, vitality,

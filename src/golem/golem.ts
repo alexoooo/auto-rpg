@@ -563,6 +563,10 @@ export class Golem implements Combatant {
     durability: number | undefined = 1): AssembledModule {
     const record: AssembledModule = { slot, id, built, limbs: [], severed: false, loot: null };
     const worn = Number.isFinite(durability) ? Math.max(0, Math.min(1, durability)) : 1;
+    // A piece that parries -- the same test that files it in `shields` below -- is never wounded,
+    // because `limbFor` does not answer for it, and is the item's to scale rather than the body's.
+    const toughnessOf = (part: GolemPart): number =>
+      part.shield || part.combatRole === "equipment" ? 1 : this.attributes.toughness;
     for (const part of built.parts) {
       const limb: Limb = {
         key: part.id,
@@ -573,8 +577,9 @@ export class Golem implements Combatant {
         // whichever bone was struck. So no individual part owns an attachment constraint, and
         // `Golem.sever` breaks the module's own joints instead.
         attachment: null,
-        health: part.health * GOLEM_ASSEMBLY.healthScale * worn,
-        maxHealth: part.health * GOLEM_ASSEMBLY.healthScale,
+        // The body's toughness stat, on the body's own parts.
+        health: part.health * GOLEM_ASSEMBLY.healthScale * toughnessOf(part) * worn,
+        maxHealth: part.health * GOLEM_ASSEMBLY.healthScale * toughnessOf(part),
         severed: false,
         lastHitAt: -999,
         vitalityWeight: part.vitalityWeight,

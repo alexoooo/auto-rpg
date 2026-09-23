@@ -638,3 +638,142 @@ changes the rule, so it is the owner's decision.
 
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone, 48.6 % on `plated` and 50.3 % on
 the skeleton.
+
+## Toughness (session 09)
+
+**The knob.** `Golem.register` in `src/golem/golem.ts` multiplies every body part's `health` and
+`maxHealth` by the stat. That is the one place a golem's parts get their health. A piece that
+parries is left alone: the test is the one that files it in `shields`, `part.shield` or
+`combatRole === "equipment"`, which covers the blade, mace, maul, whip and plate. `limbFor` never
+answers for such a piece, so it is never wounded, and its health belongs to the item rather than
+the body.
+
+**What follows by itself.** Everything measured against full health scales with it:
+
+- the breaking point, `severMargin` of full health beyond zero, in `severs` in `src/scoring.ts`;
+- ruin, at zero;
+- wear's share, since `worn` multiplies the scaled health;
+- the overtime drain, since `drain` in `src/bout.ts` takes a fraction of `maxHealth`.
+
+The bar's weights are not touched. Where a blow lands matters exactly as much as it did.
+
+### Bench
+
+Node harness, `.review/toughness-bench.mjs`. Standard 0.5-point cuts go through
+`Golem.applyDamage` on a standing golem. Each cell gives two counts: blows to ruin (zero health),
+then blows to break off on the margin (`-severMargin x maxHealth`). A 10-point blow is larger than
+every part's health here, which is why the blow is 0.5.
+
+| Part | x0.50 | x0.75 | x1.00 | x1.25 | x1.50 | x2.00 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| stone core | 7 / 11 | 11 / 16 | 14 / 21 | 18 / 26 | 21 / 32 | 28 / 42 |
+| stone head | 4 / 6 | 6 / 8 | 8 / 11 | 9 / 14 | 11 / 16 | 15 / 22 |
+| stone pelvis | 7 / 10 | 10 / 15 | 13 / 19 | 16 / 24 | 19 / 29 | 25 / 38 |
+| stone upper arm | 3 / 5 | 5 / 7 | 6 / 9 | 8 / 11 | 9 / 13 | 12 / 18 |
+| skeleton core | 6 / 8 | 8 / 12 | 11 / 16 | 14 / 20 | 16 / 24 | 22 / 32 |
+| skeleton head | 2 / 3 | 3 / 5 | 4 / 6 | 5 / 8 | 6 / 9 | 8 / 12 |
+| skeleton pelvis | 5 / 7 | 7 / 10 | 9 / 13 | 11 / 17 | 13 / 20 | 18 / 26 |
+| human core | 13 / 19 | 19 / 29 | 25 / 38 | 32 / 47 | 38 / 57 | 50 / 75 |
+| human head | 7 / 11 | 11 / 16 | 14 / 21 | 17 / 26 | 21 / 31 | 27 / 41 |
+| held blade, any build | 3 / 5 | 3 / 5 | 3 / 5 | 3 / 5 | 3 / 5 | 3 / 5 |
+
+Both counts scale with the stat to within one blow. The blade is shown only to confirm it is left
+alone: in a bout it is never wounded.
+
+`toughness multiplies every body part's health, keeps wear's share and the bar's shape, and leaves
+a held piece alone` in `tests/attributes.test.mjs` asserts this on stone and on the skeleton, each
+with a worn torso. It checks every part's full health and worn share at both ends of the row, and
+that the two parrying pieces are unchanged. It also runs the whole-body case. Each part loses the
+share of its own x1 health that makes the weights sum to one. Those wounds empty the bar exactly at
+x1, leave it at 1 - 1/level at x1.5 and x2, and empty it at x0.5.
+
+### Sweep
+
+`research/runs/stat-toughness`, 192 blocks per level, stone default, the four probe minds.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 16.8 [13.3, 20.8] | 19.8 / 13.8 | -0.368 [-0.412, -0.323] | -1.18 | -0.360 [-0.393, -0.329] | -1.59 | 1 | 17.5 | 4.47 | 4.78 |
+| x0.75 | 384 | 32.2 [27.3, 37.2] | 34.9 / 29.4 | -0.186 [-0.234, -0.134] | -0.52 | -0.177 [-0.203, -0.154] | -1.01 | 3 | 24.3 | 6.29 | 6.52 |
+| x0.90 | 384 | 42.6 [37.5, 47.8] | 44.8 / 40.4 | -0.074 [-0.123, -0.021] | -0.21 | -0.066 [-0.080, -0.051] | -0.64 | 1 | 26.9 | 7.20 | 7.32 |
+| x1.00 (control) | 384 | 48.8 [43.6, 54.3] | 51.0 / 46.6 | -0.008 [-0.057, 0.043] | -0.02 | -- | -- | 1 | 28.1 | 7.60 | 7.68 |
+| x1.10 | 384 | 54.0 [49.0, 59.4] | 56.3 / 51.8 | 0.043 [-0.005, 0.093] | 0.13 | 0.052 [0.043, 0.062] | 0.77 | 1 | 29.4 | 7.94 | 8.13 |
+| x1.25 | 384 | 60.4 [55.5, 65.6] | 63.5 / 57.3 | 0.123 [0.077, 0.171] | 0.37 | 0.132 [0.112, 0.153] | 0.91 | 0 | 30.7 | 8.38 | 8.50 |
+| x1.50 | 384 | 72.4 [68.0, 77.1] | 76.6 / 68.2 | 0.231 [0.188, 0.275] | 0.74 | 0.239 [0.214, 0.266] | 1.35 | 0 | 32.5 | 9.02 | 9.11 |
+| x2.00 | 384 | 84.6 [80.7, 88.5] | 89.1 / 80.2 | 0.391 [0.355, 0.427] | 1.49 | 0.399 [0.367, 0.433] | 1.78 | 0 | 34.4 | 9.63 | 9.73 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 2.99 | 3.13 | 14.2 | 14.1 |
+| x0.75 | 4.19 | 4.24 | 14.9 | 14.4 |
+| x0.90 | 4.66 | 4.68 | 14.9 | 14.5 |
+| x1.00 | 4.89 | 4.96 | 15.1 | 14.5 |
+| x1.10 | 5.15 | 5.13 | 15.6 | 14.4 |
+| x1.25 | 5.45 | 5.36 | 15.7 | 14.4 |
+| x1.50 | 5.81 | 5.72 | 15.9 | 14.7 |
+| x2.00 | 6.23 | 6.09 | 16.3 | 14.7 |
+
+| Level | Severed | Other's severed |
+| --- | ---: | ---: |
+| x0.50 | 0.98 | 0.19 |
+| x0.75 | 0.77 | 0.35 |
+| x0.90 | 0.65 | 0.46 |
+| x1.00 | 0.51 | 0.53 |
+| x1.10 | 0.45 | 0.58 |
+| x1.25 | 0.39 | 0.65 |
+| x1.50 | 0.26 | 0.74 |
+| x2.00 | 0.13 | 0.85 |
+
+`research/runs/stat-toughness-skeleton`, 192 blocks per level, `skeleton-warrior` with the skeleton duelist on both sides.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 22.1 [18.2, 26.0] | 25.5 / 18.8 | -0.362 [-0.416, -0.309] | -0.94 | -0.379 [-0.425, -0.337] | -1.25 | 0 | 41.0 | 1.19 | 1.29 |
+| x0.75 | 384 | 35.9 [31.5, 40.6] | 38.5 / 33.3 | -0.151 [-0.206, -0.097] | -0.38 | -0.167 [-0.194, -0.141] | -0.90 | 0 | 52.9 | 1.59 | 1.62 |
+| x1.00 (control) | 384 | 50.3 [45.1, 55.2] | 54.7 / 45.8 | 0.017 [-0.039, 0.071] | 0.04 | -- | -- | 0 | 59.5 | 1.89 | 1.89 |
+| x1.25 | 384 | 63.5 [58.6, 68.5] | 65.6 / 61.5 | 0.172 [0.121, 0.219] | 0.49 | 0.155 [0.135, 0.177] | 1.02 | 0 | 63.3 | 2.10 | 1.95 |
+| x1.50 | 384 | 75.0 [70.8, 79.2] | 72.9 / 77.1 | 0.291 [0.246, 0.334] | 0.93 | 0.274 [0.245, 0.304] | 1.32 | 0 | 65.0 | 2.23 | 1.97 |
+| x2.00 | 384 | 87.8 [84.4, 90.9] | 87.0 / 88.5 | 0.430 [0.393, 0.467] | 1.66 | 0.414 [0.378, 0.448] | 1.70 | 0 | 65.9 | 2.35 | 1.95 |
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 3.19 | 3.09 | 21.7 | 20.8 |
+| x0.75 | 4.17 | 4.13 | 23.0 | 22.6 |
+| x1.00 | 4.90 | 4.79 | 23.9 | 23.5 |
+| x1.25 | 5.17 | 5.29 | 23.8 | 24.5 |
+| x1.50 | 5.28 | 5.55 | 23.8 | 25.1 |
+| x2.00 | 5.35 | 5.77 | 23.9 | 25.7 |
+
+| Level | Severed | Other's severed |
+| --- | ---: | ---: |
+| x0.50 | 1.10 | 0.33 |
+| x0.75 | 0.80 | 0.46 |
+| x1.00 | 0.59 | 0.57 |
+| x1.25 | 0.37 | 0.70 |
+| x1.50 | 0.24 | 0.77 |
+| x2.00 | 0.11 | 0.85 |
+
+**The largest effect of any stat on stone, and the first whose gain there matches its cost.**
+Stone runs from 16.8 % at x0.5 to 84.6 % at x2, roughly 32 points down and 36 up; the skeleton
+from 22.1 % to 87.8 %. The slope is monotone at every level in both builds, and it holds in every
+mind pair: every row of stone's mind table is higher at x2 than at x0.5.
+
+**Bouts get longer at both ends, as the plan expected.** On stone, 17.5 s at x0.5 and 34.4 s at
+x2, against 28.1 s. More of a longer fight is spent exchanging, so both corners go down more often
+(4.9 to 6.2 a bout). The share of the bout spent down barely moves (15.1 % to 16.3 %).
+
+**Modules lost move in opposite directions for the two corners.** At x0.5 the modified corner
+loses 0.98 modules a bout and its opponent 0.19; at x2, 0.13 and 0.85. The breaking point scales
+with full health, so a tough limb comes off late or not at all. The worker counts this from each
+body's own `moduleReport`, and `the worker counts the modules each corner lost from that corner's
+own body` in `tests/research-physical.test.mjs` pins it against a control bout.
+
+**No level reaches the cap.** Every bout at every level in both builds ended `exhausted`, with no
+draws. The longest were 114.8 s (stone) and 111.7 s (skeleton), under the 150 s harness cap and the
+ramp's 120 s. Toughness keeps more fights running into overtime: 9 of 384 stone bouts at x0.5 and
+56 at x2 passed 60 s, and 75 and 274 of the skeleton's. There the drain takes the same share of
+each body's full health, so overtime ends a tough body as surely as any other.
+
+**The range is the swept one, x0.5 to x2.** Nothing physical moves, and every fight still ends.
+
+The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.

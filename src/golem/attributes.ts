@@ -208,7 +208,35 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Armour".
    */
   armour: Object.freeze({ label: "Armour", min: 0.5, max: 2, step: 0.05, live: true }),
-  toughness: pending("Toughness"),
+  /**
+   * How much a part can take: every body part's health and full health times the stat, in
+   * `Golem.register`, the one place a golem's parts get their health. A piece that parries -- a
+   * blade, a mace, a plate -- is never wounded and keeps its own. Everything measured against full
+   * health follows by itself: the breaking point (`severMargin` of it), ruin at zero, wear's share,
+   * and the overtime drain, which takes a fraction of it. The bar's weights are not touched, so
+   * where a blow lands matters exactly as much as it did. Session 09, 2026-09-23.
+   *
+   * **Blows to ruin and to break off scale with the stat, to within one.** Node harness, standard
+   * 0.5-point cuts through `Golem.applyDamage`, counted to zero health and to the breaking point:
+   *
+   *     toughness               0.50    0.75    1.00    1.25    1.50    2.00
+   *     stone core              7/11   11/16   14/21   18/26   21/32   28/42
+   *     stone pelvis            7/10   10/15   13/19   16/24   19/29   25/38
+   *     stone upper arm          3/5     5/7     6/9    8/11    9/13   12/18
+   *     skeleton core            6/8    8/12   11/16   14/20   16/24   22/32
+   *     human core             13/19   19/29   25/38   32/47   38/57   50/75
+   *     any held blade           3/5     3/5     3/5     3/5     3/5     3/5
+   *
+   * **The strongest stat on stone so far, and the first there whose gain matches its cost.** Swept
+   * against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): on stone with the
+   * four probe minds, 16.8 % at x0.5, 32.2 % at x0.75, 60.4 % at x1.25, 72.4 % at x1.5 and 84.6 % at
+   * x2 (paired d 1.78); on the skeleton duelist's mirror, 22.1 % to 87.8 %. Modules lost fall from
+   * 0.98 a bout to 0.13 on stone. Every bout at every level ended on an empty bar inside 115 s, the
+   * overtime drain taking the same share of a tough body as of any other, so no level reaches the
+   * cap. Nothing physical moves, so the range is the swept one. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Toughness".
+   */
+  toughness: Object.freeze({ label: "Toughness", min: 0.5, max: 2, step: 0.05, live: true }),
   armSpeed: pending("Arm speed"),
   weight: pending("Weight"),
   size: pending("Size"),

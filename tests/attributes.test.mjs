@@ -75,7 +75,7 @@ test("a build context without attributes reads every stat at 1, and one with the
 });
 
 /** The rows a session has measured and turned live. Each stat's session adds its own. */
-const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour"]);
+const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour", "toughness"]);
 
 test("only a measured row is live, and every other row accepts only 1", () => {
   // Each stat's own session turns its row live. Until then a value other than 1 is a stat nothing
@@ -293,6 +293,58 @@ test("a golem's armour stat reaches every blow through the part's own fraction, 
         assert.ok(Math.abs(blow(bone, "trunk.core", kind) - expected) < 1e-12, `x${level} ${kind}`);
       }
       bone.dispose();
+    }
+  } finally {
+    arena.dispose?.();
+  }
+});
+
+test("toughness multiplies every body part's health, keeps wear's share and the bar's shape, and leaves a held piece alone", async () => {
+  const arena = await createHeadlessArena();
+  try {
+    const world = flatSupportedWorldRegistry();
+    const build = (setup, i) => new Golem(arena.scene, {
+      side: i === 0 ? "left" : "right", origin: new Vector3(0, 0, i * 8), facing: i * Math.PI,
+      setup, mind: idleMind(), controlPolicies: [], locomotionWorld: world,
+    });
+    const near = (a, b) => Math.abs(a - b) < 1e-9 * Math.max(1, Math.abs(b));
+    const core = (golem) => golem.limbs.find((limb) => limb.key.endsWith("trunk.core"));
+    for (const base of [defaultGolemSetup(), skeletonSetup()]) {
+      const worn = { ...base, wear: { torso: 0.62 } };
+      const plain = build(worn, 1);
+      assert.ok(near(core(plain).health / core(plain).maxHealth, 0.62), "the control: the torso arrives worn");
+      for (const level of [ATTRIBUTES.toughness.min, ATTRIBUTES.toughness.max]) {
+        const tough = build(withAttributeSetting(worn, { toughness: level }), 0);
+        // A piece that parries -- the blade and the plate in both builds -- is never wounded, and is
+        // the item's to scale rather than the body's. `parriedBy` is the question `Combat` asks.
+        const held = tough.limbs.filter((limb) => tough.parriedBy(limb.part.body) !== null).map((limb) => limb.key);
+        assert.deepEqual(held.map((key) => key.split(".").pop()).sort(), ["blade", "plate"], "the control");
+        for (const [i, limb] of tough.limbs.entries()) {
+          const was = plain.limbs[i];
+          assert.equal(limb.key.replace(/^left\./, ""), was.key.replace(/^right\./, ""));
+          assert.equal(limb.vitalityWeight, was.vitalityWeight, `${limb.key}: the bar's weights stay`);
+          const scale = held.includes(limb.key) ? 1 : level;
+          assert.ok(near(limb.maxHealth, was.maxHealth * scale), `${limb.key} x${level} max`);
+          assert.ok(near(limb.health / limb.maxHealth, was.health / was.maxHealth), `${limb.key} x${level} worn share`);
+        }
+        tough.dispose();
+      }
+      plain.dispose();
+      // The bar: wounds that empty it exactly at x1 -- each part losing the same share of its own
+      // health, a share the weights sum to one of -- leave it at 1 - 1/level above x1 and empty below.
+      const fresh = build(base, 1);
+      const share = 1 / fresh.limbs.reduce((sum, limb) => sum + limb.vitalityWeight, 0);
+      const wounds = fresh.limbs.map((limb) => limb.maxHealth * share);
+      const wound = (golem) => golem.limbs.forEach((limb, i) => { limb.health -= wounds[i]; });
+      wound(fresh);
+      assert.ok(Math.abs(fresh.vitality) < 1e-9, `the control: the wounds empty the bar at x1 (${fresh.vitality})`);
+      fresh.dispose();
+      for (const level of [ATTRIBUTES.toughness.min, 1.5, ATTRIBUTES.toughness.max]) {
+        const tough = build(withAttributeSetting(base, { toughness: level }), 0);
+        wound(tough);
+        assert.ok(Math.abs(tough.vitality - Math.max(0, 1 - 1 / level)) < 1e-9, `x${level} bar ${tough.vitality}`);
+        tough.dispose();
+      }
     }
   } finally {
     arena.dispose?.();

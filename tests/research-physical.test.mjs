@@ -61,3 +61,19 @@ test("the worker counts a corner's knockdowns and its time down from that corner
   assert.equal(steady.sides.right.knockdowns, 0, "the control: the same bout at x1 stays up");
   assert.equal(steady.sides.right.downSeconds, 0);
 });
+
+test("the worker counts the modules each corner lost from that corner's own body", async () => {
+  // Measured, 2026-09-23: on these seeds the champion ends a brawler at toughness x0.5 in 7.73 s and
+  // takes two of its modules off on the way; the same brawler at x1 loses the same bout at the same
+  // moment with every module on. The x1 bout is the control that the count is read off the body.
+  const base = NAMED_BUILDS.find((build) => build.name === "default");
+  const builds = [...NAMED_BUILDS, { name: "soft", setup: withAttributeSetting(base.setup, { toughness: 0.5 }) }];
+  const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 10 } };
+  const job = { id: "sever", round: 0, block: "sever", left: "golem-champion", right: "golem-brawler",
+    leftBuild: "default", rightBuild: "soft", seeds: [46, 47] };
+  const soft = await execute(job, manifest);
+  assert.equal(soft.sides.right.severs, 2, "the soft corner lost two modules");
+  assert.equal(soft.sides.left.severs, 0, "and the count is the corner's own, not the bout's");
+  const plain = await execute({ ...job, rightBuild: "default" }, manifest);
+  assert.equal(plain.sides.right.severs, 0, "the control: the same bout at x1 keeps them all");
+});

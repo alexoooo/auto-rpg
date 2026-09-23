@@ -186,6 +186,14 @@ function figures(blocks, controlMargins) {
       otherShare: mean(bouts.map((row) => share(row, other(row.modified)))),
     };
   }
+  // Modules severed, per corner, on the same rule: a level with any row written before the worker
+  // counted them reports none.
+  if (bouts.every((row) => row.sides.left.severs !== undefined && row.sides.right.severs !== undefined)) {
+    out.severs = {
+      mine: mean(bouts.map((row) => row.sides[row.modified].severs)),
+      other: mean(bouts.map((row) => row.sides[other(row.modified)].severs)),
+    };
+  }
   if (controlMargins) {
     const delta = list.map((b, i) => {
       const control = controlMargins.get(b.pair);
@@ -254,6 +262,11 @@ export function markdownSweep(summary, header) {
       lines.push("", "Knockdowns per bout and the share of a bout spent fallen or rising, modified corner first:", "",
         "| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |", "| --- | ---: | ---: | ---: | ---: |");
       for (const level of ran) lines.push(`| ${level.key} | ${level.down.knockdowns.toFixed(2)} | ${level.down.otherKnockdowns.toFixed(2)} | ${pct(level.down.share)} | ${pct(level.down.otherShare)} |`);
+    }
+    if (ran.every((level) => level.severs)) {
+      lines.push("", "Modules severed per bout, modified corner first:", "",
+        "| Level | Severed | Other's severed |", "| --- | ---: | ---: |");
+      for (const level of ran) lines.push(`| ${level.key} | ${level.severs.mine.toFixed(2)} | ${level.severs.other.toFixed(2)} |`);
     }
     const endings = [...new Set(ran.flatMap((level) => Object.keys(level.endings)))].sort();
     lines.push("", "Endings:", "", `| Level | ${endings.join(" | ")} |`, `| --- |${endings.map(() => " ---: |").join("")}`);
