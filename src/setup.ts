@@ -504,6 +504,7 @@ export class SetupScreen {
       switch (family) {
         case "golem": return other ? randomViableOpponent(rng, other) : randomViableGolemSetup(rng);
         case "human": return randomGolemSetup(rng, family);
+        case "skeleton": return randomGolemSetup(rng, family);
         default: { const unhandled: never = family; throw new Error(`no random draw for ${String(unhandled)}`); }
       }
     };

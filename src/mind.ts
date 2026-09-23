@@ -39,6 +39,7 @@ import {
 } from "./policies.ts";
 import { CONFIG } from "./config.ts";
 import { humanoidDuelist } from "./golem/humanoid/policy.ts";
+import { skeletonDuelist } from "./golem/skeleton/policy.ts";
 import type { BodyFamily } from "./golem/family.ts";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 // The two surface tags, from the leaf that owns them. Taking either from its own endpoint would
@@ -1269,6 +1270,7 @@ export const POLICIES: readonly Policy[] = [
   { name: "idle", label: "Idle", surface: null, create: idleMind },
   { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
   { name: "humanoid-duelist", label: "Human duelist", surface: GOLEM_SURFACE, bodyFamily: "human", create: humanoidDuelist },
+  { name: "skeleton-duelist", label: "Skeleton duelist", surface: GOLEM_SURFACE, bodyFamily: "skeleton", create: skeletonDuelist },
   { name: "golem-fencer", label: "Golem fencer", surface: GOLEM_SURFACE, create: golemFencerMind },
   { name: "golem-planner", label: "Golem planner", surface: GOLEM_SURFACE, create: golemPlannerMind },
   { name: "golem-champion", label: "Golem champion", surface: GOLEM_SURFACE, create: golemChampionMind },

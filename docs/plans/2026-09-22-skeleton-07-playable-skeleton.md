@@ -77,7 +77,7 @@ Generalise it by family, not by adding a second branch:
   functions already make both hands a maul.
 
 The dungeon's policy comes from `FAMILY_POLICY[bodyFamily(setup)]` since session 03, so a
-skeleton hero gets `golem-duelist` with no change here.
+skeleton hero gets `skeleton-duelist` (session 06) with no change here.
 
 ## 3. A crown that knows the head is gone
 
@@ -134,8 +134,8 @@ registry. Its bouts are not in it yet. Append two rows to `BOUTS` in
 
 | Section | Left | Right | Policies |
 | --- | --- | --- | --- |
-| `bout:skeleton-warrior~default` | `skeleton-warrior` | `default` | golem-duelist / golem-duelist |
-| `bout:skeleton-mace~human-warrior` | `skeleton-mace` | `human-warrior` | golem-duelist / humanoid-duelist |
+| `bout:skeleton-warrior~default` | `skeleton-warrior` | `default` | skeleton-duelist / golem-duelist |
+| `bout:skeleton-mace~human-warrior` | `skeleton-mace` | `human-warrior` | skeleton-duelist / humanoid-duelist |
 
 Seeds follow the table's rule by row index, so appending moves no existing row's seeds. Both
 sections read `new` in this session's comparison. From then on they are what shows a later change
@@ -150,9 +150,10 @@ to shared code moving a skeleton, and what session 08 is allowed to move with `-
    Mutation: drop the `this.alive` guard and watch the stone half go red.
 2. In `tests/golem-arena.test.mjs`: `a_skeleton_reaches_a_verdict_from_either_corner`. Use the
    existing `a_golem_reaches_a_verdict_against_a_live_opponent_from_either_corner` as the template:
-   `leftGolem`/`rightGolem` set to `skeletonSetup()` and the stone default, `golem-duelist` on
-   both sides, `locomotionMode: "supported"`, and 12 s. Assert a verdict, no thrown error, and that
-   both sides landed at least one blow. Do not assert who won.
+   `leftGolem`/`rightGolem` set to `skeletonSetup()` and the stone default, `skeleton-duelist` on
+   the skeleton and `golem-duelist` on the stone, `locomotionMode: "supported"`, and 12 s.
+   Assert a verdict, no thrown error, and that both sides landed at least one blow. Do not assert
+   who won.
 3. In `tests/humanoid.test.mjs`, or a new `tests/skeleton-dungeon.test.mjs` if that file is the
    wrong home: `a_skeleton_hero_walks_the_dungeon`. Model it on the human maul test:
    `new DungeonRun(arena.scene, 42, "skeleton-warrior", false)`, advance 300 steps, strafe
@@ -178,16 +179,18 @@ first suspect.
 Then look at it, because this is the first session in which a skeleton fights. Start `npm run dev`
 with `run_in_background` and do the following:
 
-- **Arena (`/`)**: choose Skeleton for one corner and Stone golem for the other, both on
-  `golem-duelist`, and watch three bouts. Then do the same against Human warrior. Note, by eye and
-  from the fight log:
+- **Arena (`/`)**: choose Skeleton for one corner and Stone golem for the other, each on its
+  family's duelist (`skeleton-duelist` and `golem-duelist`), and watch three bouts. Then do
+  the same against Human warrior. Note, by eye and from the fight log:
   - whether blades visibly pass through the thin bones (tunnelling, session 08's first
     question);
-  - how often a skeleton is knocked down, and by what. Session 06 predicts nearly every landed
-    blow at the stone `braceCapacityMultiplier`, and measured the line;
+  - how often a skeleton is knocked down, and by what. At the stone `braceCapacityMultiplier`,
+    session 06 measured 37 of 88 landed blows knocking a skeleton down on their own, in two
+    skeleton mirrors (the table is on `SKELETON_BIPED`);
   - whether a skeleton can be kept on the ground. A blow that lands while a body is rising sends
     it back to fallen (`recoveryHitInterrupted` in `src/supported-locomotion-production.ts`), and
-    for a skeleton that takes about 0.21 N.s, which nearly any blow exceeds;
+    for a skeleton that takes about 0.25 N.s on its 28.3 kg of supported mass, which nearly any
+    blow exceeds;
   - whether blows that look as if they pass between the ribs, but strike the solid ribcage box,
     look wrong;
   - whether a shove or a blocked blow flings a skeleton;

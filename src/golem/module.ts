@@ -47,7 +47,7 @@ export const effectorSlot = (slot: GolemSlot): HandName | null =>
  * actually offered on the bench is derived from the registry's own records -- see
  * `registry.ts` -- so there is no id anywhere in the system without a builder behind it.
  */
-export type ChainId = "none" | "pitch" | "reach" | "wrist" | "anatomical";
+export type ChainId = "none" | "pitch" | "reach" | "wrist" | "anatomical" | "skeletal";
 
 /** The terminal shelf. `blade` is built in Session 02; `plate`, `mace` and `whip` are
  *  Session 04's; `fist` is Session 01 of the matchup set's. */

@@ -5,6 +5,7 @@ import { CONFIG } from '../src/config.ts';
 import { stepPair } from '../src/fighter.ts';
 import { Golem } from '../src/golem/golem.ts';
 import { defaultGolemSetup } from '../src/golem/build.ts';
+import { skeletonSetup } from '../src/golem/skeleton/presets.ts';
 import { idleMind } from '../src/mind.ts';
 import { flatSupportedWorldRegistry } from '../src/supported-locomotion-production.ts';
 import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
@@ -70,15 +71,26 @@ test('a mounted arm drive starts in place, exchanges momentum, and releases its 
   }
 });
 
-for (const chain of ['wrist', 'reach']) {
+/**
+ * Named setups rather than chain ids. The two stone rows overwrite the default body's chains, as
+ * this test always has; a skeleton's arm cannot be put on a stone body (that is a mixed family and
+ * is refused), so its row is the skeleton's own body.
+ */
+const withChain = (chain) => () => {
+  const setup = defaultGolemSetup();
+  setup.primary = { ...setup.primary, chain };
+  setup.secondary = { ...setup.secondary, chain };
+  return setup;
+};
+const IDLE_SETUPS = { wrist: withChain('wrist'), reach: withChain('reach'), skeleton: () => skeletonSetup() };
+
+for (const [name, build] of Object.entries(IDLE_SETUPS)) {
   for (const frames of [[1000 / 60], [8, 27, 11, 42, 16]]) {
-    test(`idle ${chain} arms settle with ${frames.length === 1 ? 'steady' : 'jittered'} frames and recover from a shove`, async () => {
+    test(`idle ${name} arms settle with ${frames.length === 1 ? 'steady' : 'jittered'} frames and recover from a shove`, async () => {
       const arena = await createHeadlessArena();
       const { scene } = arena;
       const world = flatSupportedWorldRegistry();
-      const setup = defaultGolemSetup();
-      setup.primary = { ...setup.primary, chain };
-      setup.secondary = { ...setup.secondary, chain };
+      const setup = build();
       // Opposite headings, well outside contact range: no collision can explain the shaking.
       const pair = ['left', 'right'].map((side, i) => new Golem(scene, {
         side, origin: new Vector3(0, 0, i * 6), facing: i * Math.PI,

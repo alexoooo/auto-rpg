@@ -32,6 +32,7 @@ import { partArmour } from "../src/golem/module.ts";
 import { headModule } from "../src/golem/head/head.ts";
 import { headPlain } from "../src/golem/head/plain.ts";
 import { HUMAN_HEAD, humanHead } from "../src/golem/humanoid/body.ts";
+import { RIBCAGE, SPINE } from "../src/golem/skeleton/body.ts";
 import { torsoModule } from "../src/golem/torso/torso.ts";
 import { RigidStrike } from "../src/golem/effectors/striker.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
@@ -43,8 +44,8 @@ import { runTorsoBench } from "./harness/golem-torso-bench.mjs";
 
 const FRAME = 1 / 60;
 const SUBSTEP = 1 / CONFIG.world.physicsHz;
-const TORSOS = ["torso.plain", "torso.plated"];
-const HEADS = ["head.plain", "head.ram"];
+const TORSOS = ["torso.plain", "torso.plated", "torso.ribcage"];
+const HEADS = ["head.plain", "head.ram", "head.skull"];
 
 const benchIntent = () => ({
   forward: 0, strafe: 0, turn: 0, actingHand: "primary",
@@ -137,6 +138,11 @@ test("the two head options differ by a plate and a lunge and share the neck", ()
 // Build, publish and dispose.
 // ---------------------------------------------------------------------------------------
 
+const FATAL_PARTS = {
+  "torso.plain": 0, "torso.plated": 0, "torso.ribcage": 1,
+  "head.plain": 1, "head.ram": 1, "head.skull": 0,
+};
+
 for (const id of [...TORSOS, ...HEADS]) {
   test(`${id} builds, publishes a view and disposes without leaving a body behind`, async () => {
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
@@ -163,10 +169,11 @@ for (const id of [...TORSOS, ...HEADS]) {
       assert.equal(view.axes.length, 2, "both modules publish exactly two axes");
       assert.ok(module.envelope().reach > 0);
 
-      // The fatal flag is the body plan: a head ends the golem and a trunk does not.
+      // Fatality is each table's own declaration, not the slot's: a stone head ends the golem and
+      // a stone trunk does not, and a skeleton is the other way round -- its ribcage ends it and
+      // its skull does not.
       const fatal = module.parts.filter((part) => part.fatal);
-      assert.equal(fatal.length, slot === "head" ? 1 : 0,
-        `${id} declares ${fatal.length} fatal parts`);
+      assert.equal(fatal.length, FATAL_PARTS[id], `${id} declares ${fatal.length} fatal parts`);
 
       // The filter on the **leaf**, read back. Setting a mask on a `PhysicsShapeContainer` writes
       // to a shape nothing consults and reads back garbage -- a shape set to 8 returned 383476 --
@@ -344,7 +351,9 @@ test("every waist and neck stop admits the pose its module is built in", () => {
   assert.ok(HEAD_NECK.pitchJointMax > HEAD_RAM.guardPitch);
 });
 
-for (const [torsoId, headId] of [["torso.plain", "head.ram"], ["torso.plated", "head.plain"]]) {
+for (const [torsoId, headId] of [
+  ["torso.plain", "head.ram"], ["torso.plated", "head.plain"], ["torso.ribcage", "head.skull"],
+]) {
   test(`${torsoId} carrying ${headId} is not flung on the first solver step`, async () => {
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
     const scene = arena.scene;
@@ -386,12 +395,20 @@ for (const [torsoId, headId] of [["torso.plain", "head.ram"], ["torso.plated", "
 // The waist under a shove.
 // ---------------------------------------------------------------------------------------
 
+// Each trunk with its own tables and the head its family carries. A table rather than a ternary,
+// so a torso added to `TORSOS` without a row fails here instead of being read as another's.
+const WAIST_CASES = {
+  "torso.plain": { option: TORSO_PLAIN, waist: TORSO_WAIST, headId: "head.ram" },
+  "torso.plated": { option: TORSO_PLATED, waist: TORSO_WAIST, headId: "head.ram" },
+  "torso.ribcage": { option: RIBCAGE, waist: SPINE, headId: "head.skull" },
+};
+
 for (const torsoId of TORSOS) {
   test(`${torsoId} holds its waist through the scripted lean, twist and shove`, async () => {
-    const run = await runTorsoBench({ torsoId, headId: "head.ram" });
+    const { option, waist, headId } = WAIST_CASES[torsoId];
+    const run = await runTorsoBench({ torsoId, headId });
     const lean = run.marks.find((mark) => mark.phase === "lean");
     const twist = run.marks.find((mark) => mark.phase === "twist");
-    const option = torsoId === "torso.plain" ? TORSO_PLAIN : TORSO_PLATED;
 
     assert.equal(run.torso.stuckSteps, 0,
       "a waist that cannot reach its own commanded lean sits against the error and does not move");
@@ -403,10 +420,10 @@ for (const torsoId of TORSOS) {
     // and a limit pushing at each other, which is the buzz `arm.ts`'s wrist was rewritten to get
     // rid of -- and at `leanTorque` 900 the plain trunk's overshoot of 0.2025 rad landed it
     // exactly on its own 0.62 stop, which is what took the setting to 1500.
-    assert.ok(lean.torso.overshoot < TORSO_WAIST.jointMargin,
+    assert.ok(lean.torso.overshoot < waist.jointMargin,
       `the lean carried ${lean.torso.overshoot.toFixed(4)} rad past its target,`
-      + ` which reaches the stop ${TORSO_WAIST.jointMargin} rad outside the range`);
-    assert.ok(twist.torsoTwist.overshoot < TORSO_WAIST.jointMargin);
+      + ` which reaches the stop ${waist.jointMargin} rad outside the range`);
+    assert.ok(twist.torsoTwist.overshoot < waist.jointMargin);
     // And it must arrive: a trunk that never gets to where it was sent is not heavy, it is stuck.
     assert.ok(lean.torso.arrivalSeconds !== null && lean.torso.arrivalSeconds < 1.2,
       `the lean took ${lean.torso.arrivalSeconds} s to arrive`);

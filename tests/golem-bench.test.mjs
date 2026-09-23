@@ -30,6 +30,7 @@ import {
   TERMINAL_BLADE, TERMINAL_FIST, TERMINAL_MACE, TERMINAL_MAUL, TERMINAL_PLATE, TERMINAL_WHIP,
   TORSO_PLAIN, TORSO_PLATED,
 } from "../src/golem/config.ts";
+import { ARM_SCALE, RIBCAGE, SKELETAL_REACH } from "../src/golem/skeleton/body.ts";
 import { BenchReadout, blankSample } from "../src/golem/readout.ts";
 import {
   EFFECTOR_CHAINS,
@@ -125,7 +126,8 @@ test("the pair builder refuses a chain that carries its own terminal", async () 
 // ---------------------------------------------------------------------------------------
 
 /** Which chains drive an anchor, which is what decides whether the view publishes one. */
-const anchored = (id) => id.startsWith("effector.reach.") || id.startsWith("effector.wrist.") || id.startsWith("effector.anatomical.");
+const anchored = (id) => id.startsWith("effector.reach.") || id.startsWith("effector.wrist.")
+  || id.startsWith("effector.anatomical.") || id.startsWith("effector.skeletal.");
 
 /**
  * Every effector the registry offers, taken from the registry.
@@ -1255,7 +1257,7 @@ test("the maul's second hand arrives, takes the grip, and holds it as a constrai
   // falling. Two claims are added rather than removed: that the violation is inside the bound
   // `joinWithin` sets, and that it clears, which is what the 48.3 m/s incident in that config
   // block was. Measured: join 0.2 and 38.9 mm, settling in 0.004 and 0.029 s.
-  for (const id of ["effector.reach.maul", "effector.wrist.maul"]) {
+  for (const id of ["effector.reach.maul", "effector.wrist.maul", "effector.skeletal.maul"]) {
     const run = await runGolemBench({ moduleId: id });
     assert.ok(run.gripTakenAt !== null && run.gripTakenAt < 2,
       `${id}: the second hand took ${run.gripTakenAt} s to reach the grip`);
@@ -1547,14 +1549,14 @@ test("a plate keeps clear of its own stand and of a real torso in its own envelo
   // socket the stand built*, which is the honest way round: a golem's shoulder is wherever its
   // trunk's `socketSide`/`socketHeight`/`socketFront` put it, so inverting those from the socket
   // this module is actually hanging from lands the chest exactly where it would be in a game.
-  const boxesFor = (socketWorld) => {
+  const boxesFor = (socketWorld, torsos) => {
     const sign = Math.sign(socketWorld.x) || 1;
     const boxes = [{
       name: "bench stand",
       centre: new Vector3(0, S.centreHeight, 0),
       half: new Vector3(S.width / 2, S.height / 2, S.depth / 2),
     }];
-    for (const [name, T] of [["plain torso", TORSO_PLAIN], ["plated torso", TORSO_PLATED]]) {
+    for (const [name, T] of torsos) {
       boxes.push({
         name,
         centre: new Vector3(
@@ -1572,11 +1574,17 @@ test("a plate keeps clear of its own stand and of a real torso in its own envelo
   // no swing and no reach, so `TERMINAL_PLATE.outboardOffset` is the only thing standing between
   // its board and the block, and it is therefore the chain that decides how far that offset can
   // come down. It is also the only one of the three no narrowing can help.
-  for (const id of ["effector.pitch.plate", "effector.reach.plate", "effector.wrist.plate"]) {
+  // Each chain against the trunks it is hung from: a stone chain against both stone chests, and
+  // the skeletal arm against the ribcage.
+  const stone = [["plain torso", TORSO_PLAIN], ["plated torso", TORSO_PLATED]];
+  for (const [id, torsos] of [
+    ["effector.pitch.plate", stone], ["effector.reach.plate", stone], ["effector.wrist.plate", stone],
+    ["effector.skeletal.plate", [["ribcage", RIBCAGE]]],
+  ]) {
     const rig = await onStand(id);
     try {
       const board = rig.module.parts.find((part) => part.id.endsWith(".plate")).part;
-      const boxes = boxesFor(rig.socket.world);
+      const boxes = boxesFor(rig.socket.world, torsos);
       const deepest = boxes.map(() => -Infinity);
       const worst = boxes.map(() => null);
       const corner = new Vector3();
@@ -1768,6 +1776,16 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   assert.ok(best.peakAnchorStrayMm < 50,
     `the chosen cut strayed ${best.peakAnchorStrayMm.toFixed(0)} mm from its own anchor`);
 
+  // The same shape on the skeleton's bone arm, against the stray bar alone. A cut that leaves its
+  // anchor by more than 50 mm is a limb losing its weapon on any arm. The miss and the speed are not
+  // asserted here, because `chosen` is stone's optimum and its own entry says an arm with other
+  // conditioning invalidates it: on the bone arm it misses by 0.228 m at 2.52 m/s, measured
+  // 2026-09-22, while the shipped sword stroke misses by 0.050 at 11.85. Both are recorded beside
+  // `SKELETAL_REACH` rather than bounded by a number measured on stone.
+  const bone = await runStrokeBench({ moduleId: "effector.skeletal.blade", shape: chosen });
+  assert.ok(bone.peakAnchorStrayMm < 50,
+    `the chosen cut strayed ${bone.peakAnchorStrayMm.toFixed(0)} mm from its own anchor on the skeletal arm`);
+
   // A maul publishes one azimuth, so `canSwing` is false and the *commanded* arc is not swept at
   // all: what runs is the reach half of the stroke and nothing else. Its crossings are the
   // achieved point wandering across a bearing the command never moved -- one, on this run -- so
@@ -1824,9 +1842,11 @@ test("covers arrive promptly and settle without ripple", async () => {
 // `"wrist"` id is reused only because `wristChainFrom` needs a `ChainId`.
 //
 // This changes the forearm's radius and mass and keeps both link lengths, so a `twoBone` still
-// reading `CHAIN_REACH` would pass it. That is accepted while every family's arm keeps the stone
-// arm's `upperLength` and `foreLength`; a table that changes a link length has to be varied
-// here too, with the built hand measured against its anchor.
+// reading `CHAIN_REACH` would pass it. The lengths are covered by the registered skeletal arm,
+// whose `SKELETAL_REACH` is shorter than stone's in both links: made to read stone's lengths,
+// `twoBone` turned six tests red on 2026-09-22 -- the scripted sequences, the plate clearance, the
+// maul grip and the stroke probe in this file, and both idle skeleton tests in
+// `tests/golem-idle-stability.test.mjs`.
 // ---------------------------------------------------------------------------------------
 
 const TEST_ARMOUR = Object.freeze({ cut: 0.5, thrust: 0.5, slap: 0, crush: 0 });
@@ -1903,6 +1923,43 @@ test("a_fist_carries_the_armour_its_table_gives_it", async () => {
         assert.ok(fist, built.parts.map((part) => part.id).join(", "));
         if (armoured) assert.equal(fist.armour, TEST_ARMOUR);
         else assert.equal(Object.hasOwn(fist, "armour"), false, "a stone fist grew an armour key");
+      } finally {
+        built.dispose();
+      }
+    }
+  } finally {
+    stand.dispose();
+    arena.dispose();
+  }
+});
+
+/**
+ * The bone arm publishes each terminal's reach scaled to its own length.
+ *
+ * Every metre a terminal's `limits` states was derived against stone's 0.42 + 0.36 m arm, so the
+ * skeleton's fit scales each one by `ARM_SCALE` before the chain narrows its envelope with it.
+ * What is asserted is the envelope the built arm publishes, which is what a policy and a stroke
+ * read. Unscaled, a maul would be held between 0.50 m and the bone arm's full 0.55 m: an arm
+ * locked straight.
+ */
+test("a_skeletal_arm_publishes_each_terminals_reach_scaled_to_its_length", async () => {
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  const ctx = (name) => ({
+    scene: arena.scene, side: "left", name, socket: stand.socket("primary"),
+    companion: stand.socket("secondary"), layers: golemLayers("left"), materials: stand.materials,
+  });
+  try {
+    for (const [id, terminal] of Object.entries(EFFECTOR_TERMINALS)) {
+      const built = golemModule(`effector.skeletal.${id}`).build(ctx(`scaled.${id}`));
+      try {
+        const reach = built.envelope().axes.find((axis) => axis.id === "reach");
+        assert.ok(reach, `effector.skeletal.${id} publishes no reach axis`);
+        const min = Math.max(SKELETAL_REACH.reachMin, (terminal.limits?.reachMin ?? -Infinity) * ARM_SCALE);
+        const max = Math.min(SKELETAL_REACH.reachMax, (terminal.limits?.reachMax ?? Infinity) * ARM_SCALE);
+        assert.ok(Math.abs(reach.min - min) < 1e-12 && Math.abs(reach.max - max) < 1e-12,
+          `effector.skeletal.${id} publishes reach ${reach.min} to ${reach.max}, not ${min} to ${max}`);
+        assert.ok(reach.min < reach.max, `effector.skeletal.${id} has no reach left to move in`);
       } finally {
         built.dispose();
       }

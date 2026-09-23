@@ -257,8 +257,8 @@ it. Give the owner the report, not a summary of it.
    may revisit it.
 6. **The maul**, if session 06 left the skeletal maul off the shelf.
 7. **Skeleton weapons**: a lighter bone-and-rust set through `fitTerminal`, as the human family
-   has, or the stone set as now. Shorter arms would come with it, because every terminal's limits
-   were derived against the stone arm's lengths.
+   has, or the stone set as now. The arm already has a person's lengths (session 06), and each
+   stone terminal's reach limits are scaled onto it by `ARM_SCALE`.
 8. **A hit effect for bone** (dust or chips). `src/damage-feedback.ts` is one stone burst for
    every body. Nothing bleeds: `src/blood.ts` defines `Blood` and nothing imports it.
 9. **The framework's name**. "Golem" is now the name of one of three families. A rename is its own

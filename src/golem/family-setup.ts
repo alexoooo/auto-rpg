@@ -2,6 +2,7 @@ import type { GolemSetup } from "../bout.ts";
 import { defaultGolemSetup } from "./build.ts";
 import type { BodyFamily } from "./family.ts";
 import { humanSetup } from "./humanoid/presets.ts";
+import { skeletonSetup } from "./skeleton/presets.ts";
 
 /**
  * The body a family's button builds. Total, so a new family is a compile error here.
@@ -13,4 +14,5 @@ import { humanSetup } from "./humanoid/presets.ts";
 export const FAMILY_SETUP: Readonly<Record<BodyFamily, () => GolemSetup>> = Object.freeze({
   human: () => humanSetup(),
   golem: () => defaultGolemSetup(),
+  skeleton: () => skeletonSetup(),
 });

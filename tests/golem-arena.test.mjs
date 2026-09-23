@@ -30,7 +30,7 @@ import HavokPhysics from "@babylonjs/havok";
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics, COLLIDES, LAYER, collisionFilterIsExact, golemLayersFor } from "../src/physics.ts";
 import { unitDefinition } from "../src/units.ts";
-import { vitality } from "../src/bout.ts";
+import { beaten, vitality } from "../src/bout.ts";
 import { GOLEM_ASSEMBLY, TERMINAL_MAUL } from "../src/golem/config.ts";
 
 /** The maul's one azimuth, as the terminal declares it; the test reads it back off the body. */
@@ -46,6 +46,8 @@ import {
   unresolvedGolemModules,
 } from "../src/golem/build.ts";
 import { GOLEM_MODULES } from "../src/golem/registry.ts";
+import { SKELETAL_REACH } from "../src/golem/skeleton/body.ts";
+import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
 import { STROKE_INERTIA, strokeInertiaScale } from "../src/golem/tactics.ts";
 
@@ -580,11 +582,12 @@ test("a_severed_arm_costs_capability_rather_than_most_of_the_vitality_bar", asyn
 });
 
 /**
- * A decapitated golem is dead, and the bout's own rule is what says so.
+ * A decapitated stone golem is dead, and the bout's own rule is what says so.
  *
- * The head module declares its head part fatal and the locomotion module declares its pelvis
+ * The stone head module declares its head part fatal and the locomotion module declares its pelvis
  * fatal, so `beaten()` reads the same two flags a `Fighter`'s head and torso set. This asserts
- * both halves: the body stops being driven, and the pure rule agrees.
+ * both halves: the body stops being driven, and the pure rule agrees. The skeleton, whose skull is
+ * not fatal, is `a_decapitated_skeleton_is_not_beaten` below.
  */
 test("a_decapitated_golem_is_dead_and_the_bouts_own_rule_agrees", async (t) => {
   const stand = await standAGolem(t);
@@ -595,7 +598,6 @@ test("a_decapitated_golem_is_dead_and_the_bouts_own_rule_agrees", async (t) => {
   assert.equal(stand.golem.alive, true);
   stand.golem.sever(fatal, new Vector3(0, 1, 0));
   assert.equal(stand.golem.alive, false);
-  const { beaten } = await import("../src/bout.ts");
   assert.equal(beaten(stand.golem.limbs), true);
   // The carrier is gone with it: a stone body does not crumple, it comes apart, so the root is an
   // ordinary dynamic body from here and the legs' drives have let go.
@@ -609,6 +611,148 @@ test("a_decapitated_golem_is_dead_and_the_bouts_own_rule_agrees", async (t) => {
   const after = stand.golem.view.self.ground;
   assert.ok(Math.hypot(after.x - before.x, after.z - before.z) < 0.5,
     `a dead golem walked ${Math.hypot(after.x - before.x, after.z - before.z).toFixed(2)} m`);
+});
+
+// ---------------------------------------------------------------------------------------
+// The skeleton: the same assembly in bone.
+// ---------------------------------------------------------------------------------------
+
+/** The summed mass of the named modules' bodies, read back from Havok. */
+const massOf = (golem, slots) => slots.flatMap((slot) => moduleLimbs(golem, slot))
+  .reduce((sum, limb) => sum + limb.part.body.getMassProperties().mass, 0);
+
+/** What \`Golem.applyDamage\` lets through of a blow of 10 of each armoured kind, health restored. */
+function damageByKind(golem, limb) {
+  const health = limb.health;
+  const applied = {};
+  for (const kind of ["cut", "thrust", "slap", "crush"]) {
+    applied[kind] = Math.round(golem.applyDamage(limb, 10, kind) * 1e6) / 1e6;
+    limb.health = health;
+  }
+  return applied;
+}
+
+/**
+ * A skeleton is light, and the lightness is in the collider and not only in the shell.
+ *
+ * The arms are left out whole: each holds the same terminal in both bodies, which would blur the
+ * comparison. Legs, trunk and head weigh 21.3 kg against stone's 75.0, or 0.28, so the bound is not
+ * tight. The forearm's collider is read back from Havok, which stores float32 -- hence a part in a
+ * million -- because a table radius that never reached the collider is a thin bone drawn around a
+ * stone one.
+ */
+test("a_skeleton_trunk_and_legs_weigh_under_a_third_of_stone", async (t) => {
+  const bone = await standAGolem(t, { setup: skeletonSetup() });
+  const stone = await standAGolem(t);
+  const body = ["legs", "trunk", "head"];
+  const ratio = massOf(bone.golem, body) / massOf(stone.golem, body);
+  assert.ok(ratio < 1 / 3, `a skeleton's legs, trunk and head weigh ${ratio.toFixed(3)} of stone's`);
+
+  const fore = moduleLimbs(bone.golem, "primary").find((limb) => limb.key.endsWith(".forearm"));
+  assert.ok(fore, "the skeletal arm has no forearm");
+  const extent = fore.part.shape.getBoundingBox().extendSize;
+  assert.ok(Math.abs(extent.x - SKELETAL_REACH.foreRadius) < 1e-6
+    && Math.abs(extent.z - SKELETAL_REACH.foreRadius) < 1e-6,
+    `the forearm's collider is ${extent.x} by ${extent.z} across`);
+});
+
+/**
+ * Fatality is each module's own declaration: a skeleton's ribcage ends it and its skull does not.
+ * Stone is asserted beside it, so the two bodies cannot drift to the same answer unnoticed.
+ */
+test("the_ribcage_is_fatal_and_the_skull_is_not", async (t) => {
+  for (const [label, setup, expected] of [
+    ["skeleton", skeletonSetup(), ["legs.pelvis", "trunk.core"]],
+    ["stone", defaultGolemSetup(), ["legs.pelvis", "head.head"]],
+  ]) {
+    const { golem } = await standAGolem(t, { setup });
+    const fatal = golem.limbs.filter((limb) => limb.fatal === true).map((limb) => limb.key);
+    assert.deepEqual(fatal, expected.map((id) => `${golem.side}.golem.${id}`), label);
+  }
+});
+
+/**
+ * Every piece of a skeleton is bone, and bone turns an edge and not a club.
+ *
+ * The whole table is compared per part rather than two of its kinds. The plate is left out
+ * because `limbFor` refuses a shield, so no blow reaches it as a wound; the blade is the same steel
+ * stone carries and takes every kind in full.
+ */
+test("every_skeleton_part_is_bone_armoured", async (t) => {
+  const { golem } = await standAGolem(t, { setup: skeletonSetup() });
+  const blade = `${golem.side}.golem.primary.blade`;
+  const plate = `${golem.side}.golem.secondary.plate`;
+  const body = golem.limbs.filter((limb) => limb.key !== blade && limb.key !== plate);
+  assert.equal(body.length, golem.limbs.length - 2, "the skeleton carries no blade and plate");
+  for (const limb of body) {
+    assert.deepEqual(damageByKind(golem, limb), { cut: 5, thrust: 4, slap: 10, crush: 10 }, limb.key);
+  }
+  assert.deepEqual(damageByKind(golem, golem.limbs.find((limb) => limb.key === blade)),
+    { cut: 10, thrust: 10, slap: 10, crush: 10 }, "the blade is steel, not bone");
+});
+
+/**
+ * Bone takes a club better than a blade, at the body's own seam.
+ *
+ * This is the test that catches `Golem.applyDamage` passing a constant kind -- the mutation
+ * session 02 could not reach, because until a part answered two kinds differently a constant kind
+ * read exactly like the right one. Stone's forearm is the control: one fraction for every blow.
+ */
+test("bone_takes_a_club_better_than_a_blade", async (t) => {
+  for (const [label, setup, ratio] of [["skeleton", skeletonSetup(), 2], ["stone", defaultGolemSetup(), 1]]) {
+    const { golem } = await standAGolem(t, { setup });
+    const fore = moduleLimbs(golem, "primary").find((limb) => limb.key.endsWith(".forearm"));
+    const { cut, crush } = damageByKind(golem, fore);
+    assert.ok(cut > 0, `a ${label} forearm takes nothing from a cut`);
+    assert.equal(crush / cut, ratio, `a ${label} forearm takes ${crush} from a club and ${cut} from a blade`);
+  }
+});
+
+/**
+ * A decapitated skeleton is not beaten, and walks on.
+ *
+ * The stone half is `a_decapitated_golem_is_dead_and_the_bouts_own_rule_agrees` above, so each
+ * direction fails on its own name. Severing the neck takes the whole head module off, and neither
+ * of its parts is fatal on a skeleton; what it costs is the neck's share of the bar.
+ */
+test("a_decapitated_skeleton_is_not_beaten", async (t) => {
+  const stand = await standAGolem(t, { setup: skeletonSetup() });
+  stand.run(1.0);
+  const head = moduleLimbs(stand.golem, "head");
+  assert.ok(head.length > 0, "the skeleton has no head module");
+  assert.ok(head.every((limb) => limb.fatal !== true), "a skull or neck is declared fatal");
+  stand.golem.sever(head[0], new Vector3(0, 1, 0));
+  assert.ok(head.every((limb) => limb.severed), "the head module stayed on");
+  assert.equal(stand.golem.alive, true);
+  assert.equal(beaten(stand.golem.limbs), false);
+  const left = vitality(stand.golem.limbs);
+  assert.ok(left > 0.8, `a skeleton without its head reads ${left.toFixed(3)} of its bar`);
+
+  stand.intent.forward = 1;
+  // `.clone()`, never a spread: see the stone test above.
+  const before = stand.golem.view.self.ground.clone();
+  stand.run(1.5);
+  const after = stand.golem.view.self.ground;
+  const walked = Math.hypot(after.x - before.x, after.z - before.z);
+  assert.ok(walked > 0.2, `a headless skeleton walked ${walked.toFixed(2)} m`);
+});
+
+/**
+ * Cutting a skeleton's spine ends it, although the spine is not itself fatal.
+ *
+ * Severing is module-level: a cut through the waist takes the whole trunk module off at its
+ * socket, ribcage included, and the ribcage is fatal. This pins that consequence, so a change that
+ * severs only the piece struck has to change this test and decide what a skeleton cut in half is.
+ */
+test("severing_the_spine_ends_a_skeleton", async (t) => {
+  const stand = await standAGolem(t, { setup: skeletonSetup() });
+  stand.run(1.0);
+  const waist = moduleLimbs(stand.golem, "trunk").find((limb) => limb.key.endsWith(".waist"));
+  assert.ok(waist, "the skeleton's trunk has no waist");
+  assert.notEqual(waist.fatal, true, "the spine is declared fatal on its own");
+  stand.golem.sever(waist, new Vector3(1, 0.2, 0));
+  assert.equal(stand.golem.alive, false);
+  assert.equal(beaten(stand.golem.limbs), true);
 });
 
 // ---------------------------------------------------------------------------------------

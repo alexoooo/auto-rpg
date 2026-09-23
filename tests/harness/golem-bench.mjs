@@ -35,6 +35,7 @@ import { formatLocomotion, locomotionCommand } from "../../src/golem/locomotion.
 import { bipedModule } from "../../src/golem/locomotion/biped.ts";
 import { multilegModule } from "../../src/golem/locomotion/multileg.ts";
 import { wheelModule } from "../../src/golem/locomotion/wheel.ts";
+import { skeletonBiped } from "../../src/golem/skeleton/body.ts";
 import { buildLocomotionCourse, registerLocomotionCourse } from "../../src/golem/locomotion/course.ts";
 import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readout.ts";
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
@@ -298,6 +299,7 @@ export const sequenceFor = (moduleId) => {
   if (moduleId.endsWith(".whip")) return WHIP_SEQUENCE;
   if (moduleId.endsWith(".plate")) return PLATE_SEQUENCE;
   return moduleId.startsWith("effector.reach.") || moduleId.startsWith("effector.wrist.")
+    || moduleId.startsWith("effector.skeletal.")
     ? REACH_SEQUENCE
     : BENCH_SEQUENCE;
 };
@@ -1404,6 +1406,7 @@ export const LOCOMOTION_MODULES = {
   biped: bipedModule,
   wheel: wheelModule,
   multileg: multilegModule,
+  skeleton: skeletonBiped,
 };
 
 /** A whole `Intent` again, with the movement axes this time. */

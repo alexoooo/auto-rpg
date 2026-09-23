@@ -1130,8 +1130,8 @@ export class Golem implements Combatant {
    * takes instead is the weapon on the end of it, the reach it had, and the
    * guard it could hold -- all of which this same loop takes by detaching it.
    * Death by dismemberment is still reachable: `beaten` ends a bout the moment a
-   * `fatal` part is severed, so the head and the pelvis remain exactly as lethal
-   * to lose as they read.
+   * `fatal` part is severed, and which parts are fatal is each module's table --
+   * a stone head, a skeleton's ribcage, every carrier's pelvis, chassis or yoke.
    *
    * **A golem does not bleed.** Nothing here calls the blood system: `src/blood.ts` reads the
    * combat log and decides for itself, and what a stone body should throw off -- dust, chips,
@@ -1176,10 +1176,10 @@ export class Golem implements Combatant {
       limb.part.body.applyImpulse(kick, limb.part.body.getObjectCenterWorld());
     }
 
-    // The two fatal slots. A head is fatal because the module says so and a pelvis because the
-    // locomotion module does; `beaten()` reads the same two flags off the parts, so this is the
-    // *body's* half of the rule and not a second copy of it -- what happens here is that the golem
-    // stops being driven, and what happens there is that the bout ends.
+    // A module carrying a fatal part. Which parts are fatal is each module's own table -- a stone
+    // head, a skeleton's ribcage, every carrier -- and `beaten()` reads the same flags off the
+    // parts, so this is the *body's* half of the rule and not a second copy of it: what happens
+    // here is that the golem stops being driven, and what happens there is that the bout ends.
     if (module.limbs.some((part) => part.fatal === true)) this.die();
   }
 

@@ -49,8 +49,9 @@ this can be checked rather than asserted.
 - **Severing**: `Golem.sever` detaches the whole module the struck piece belongs to, and calls
   `die()` only if that module has a `fatal` part. A non-fatal head that comes off is already
   handled by the head module's own `severed` guards.
-- **Weapons**: every stone terminal (blade, plate, mace, maul, whip, fist) can hang off a skeletal
-  arm unchanged, because session 06 keeps the stone arm's link lengths (see "Decisions" below).
+- **Weapons**: every stone terminal (blade, plate, mace, maul, whip, fist) hangs off a skeletal
+  arm. The arm has a person's lengths, and each terminal's reach limits are scaled onto it through
+  the chain's `fitTerminal` (see "Decisions" below).
 
 ## What is missing, and why each gap matters
 
@@ -87,7 +88,7 @@ Per-hit damage at 10 m/s, before `healthScale`, for a perfectly aligned blade (1
 | human trunk core | 37.00 | 0.50 / 0.50 | 0.902 | 0.586 | 0.65 |
 | skeleton forearm, flat armour 0 | 0.40 | 0 / 0 | 0.440 | 0.153 | **0.35** |
 | skeleton forearm, by kind | 0.40 | 0.50 / 0 | 0.220 | 0.153 | **0.69** |
-| skeleton ribcage, by kind | 5.00 | 0.50 / 0 | 0.741 | 0.799 | **1.08** |
+| skeleton ribcage, by kind | 10.00 | 0.50 / 0 | 0.826 | 0.981 | **1.19** |
 
 Two things fall out of it:
 
@@ -171,12 +172,14 @@ geometry and is not exported.
 
 ## Decisions made here that the owner may want to reverse
 
-- **The skeletal arm keeps the stone arm's link lengths** (0.42 m upper, 0.36 m fore) and is thin
-  and light instead. Every terminal's reach and joint limits (`TERMINAL_MAUL.limits`,
-  `TERMINAL_PLATE.limits`, `TERMINAL_WHIP.limits` ...) were derived from those lengths, and
-  `buildArmCore` narrows without checking that a floor stays under its ceiling, so a shorter arm
-  would need every terminal's limits re-derived through the chain's `fitTerminal`. Kept out of
-  this plan; a skeleton with longish arms reads as a skeleton.
+- **The skeletal arm has a person's lengths** (0.30 m upper, 0.25 m fore, against stone's 0.42
+  and 0.36), at the owner's request after seeing stone's lengths on a 1.62 m body: with a sword
+  on the end, the long arm read as a spear. `ARM_SCALE` (0.705, the two bones over stone's two
+  links) scales every limit stated in metres of arm: the chain's `reachNeutral` and `carryMin`,
+  and each terminal's `reachMin`, `reachMax` and `carryMin` through the chain's `fitTerminal`.
+  `reachMin` and `reachMax` are solved at stone's two elbow bends. Radians and weapon dimensions
+  are not scaled. The maul's `crossing` is left in stone's metres, because it widens the
+  trailing chain's floors rather than narrowing them.
 - **The skeleton holds the stone weapons.** Only the fist is refitted (a bone fist). A lighter
   weapon set, as the human family has, is one `fitTerminal` table away if wanted.
 - **Every skeleton part gets the same armour table.** Bone is bone. Per-part tables (a ribcage
@@ -186,8 +189,11 @@ geometry and is not exported.
   simplest version, and the owner wants to try it first and see whether it is a problem in play
   (session 07 watches for it). Open ribs would be a compound collider of several bars, a new body
   shape, and a follow-up only if the box looks wrong.
-- **The skeleton's default policy is `golem-duelist`**, the stone one. Its arms are stone-shaped
-  wrist chains, so every golem policy applies. A skeleton-specific policy is out of scope.
+- **The skeleton's policy is `skeleton-duelist`**: the golem duelist's tactics under the
+  skeleton's own name (`src/golem/skeleton/policy.ts`), with `bodyFamily: "skeleton"` on its
+  `POLICIES` row. `assessPolicy` refuses a policy on a family it was not built and measured on,
+  so the stone policies are refused on a skeleton, and a family button whose policy is refused
+  cannot start a bout. Nothing has been tuned for a skeleton yet.
 - **Skeletons are playable, not enemies.** The arena setup screen offers them through the
   Skeleton family button (session 06). `PLAYABLE_BUILDS` adds them to the dungeon hero picker
   (session 07). They stay out of `NAMED_BUILDS`, which feeds waves, dungeon enemies and the
@@ -202,11 +208,12 @@ geometry and is not exported.
   target, but not one that cannot be hit.
 - **A light body falls to one blow.** This is the risk most likely to need an owner decision. The
   fall ledger in `src/supported-locomotion-state.ts` divides each blow's shove by the supported
-  mass, and the biped falls at 0.021 m/s of specific impulse. For the stone default (about 89 kg)
-  that is 1.87 N.s. For the skeleton (about 23 kg) it is 0.49 N.s, and one clean cut at 10 m/s
-  shoves 0.72. So a stone golem goes down to about three quick blows and a skeleton to one. The
-  skeleton-only lever is its own `braceCapacityMultiplier` in `SKELETON_BIPED`. Session 06
-  measures the line and session 08 takes the choice to the owner.
+  mass, and the biped falls at 0.021 m/s of specific impulse. For the stone default (89.09 kg
+  supported) that is 1.87 N.s. For the skeleton (28.30 kg) it is 0.594 N.s, and one clean cut at
+  10 m/s shoves 0.72. Session 06 measured it: in two skeleton mirrors 37 of 88 landed blows were a
+  knockdown on their own, against none of 41 in the stone mirrors (the table is on
+  `SKELETON_BIPED`). The skeleton-only lever is its own `braceCapacityMultiplier` in
+  `SKELETON_BIPED`, and session 08 takes the choice to the owner.
 - **Light parts are flung.** The physical impulse in `Combat` (`speed * 0.11 * (1.35 - quality *
   0.7)` N.s) is not scaled by the struck part's mass, so a 0.4 kg bone takes about 3.6 times the
   velocity change of a 1.43 kg stone forearm. That is shared code and stays untouched; session 08

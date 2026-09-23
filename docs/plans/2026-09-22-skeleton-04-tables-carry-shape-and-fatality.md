@@ -219,10 +219,10 @@ is registered.
    Reusing the `"wrist"` id is only for the test: it is never registered.
 
    This test changes radius and mass and keeps both link lengths, so a `twoBone` still reading
-   `CHAIN_REACH` would pass it. That gap is accepted, because every table session 06 writes keeps
-   the stone arm's `upperLength` and `foreLength`. The grep under change 4 is what catches a
-   leftover `CHAIN_REACH` read inside `twoBone`. If a later table changes a link length, this test
-   has to vary it too, and assert where the built hand stands relative to its anchor.
+   `CHAIN_REACH` would pass it. The grep under change 4 is what catches a leftover `CHAIN_REACH`
+   read inside `twoBone` in this session. Session 06 then shortened both links for the skeleton's
+   arm, and from there the registered skeletal pairs cover it: a `twoBone` made to read
+   `CHAIN_REACH` turns six bench and idle-stability tests red (measured 2026-09-22).
 5. The existing pins must stay green untouched: the wrist cast masses in
    `tests/golem-bench.test.mjs`, the swing inertia equal to `STROKE_INERTIA.ref` in
    `tests/golem-arena.test.mjs`, and the two-fatal-parts and 5.4-weight test.

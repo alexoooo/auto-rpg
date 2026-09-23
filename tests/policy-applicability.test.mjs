@@ -7,6 +7,7 @@ import { moduleFamily } from "../src/golem/family.ts";
 import { FAMILY_SETUP } from "../src/golem/family-setup.ts";
 import { GOLEM_EFFECTORS, defaultGolemSetup } from "../src/golem/build.ts";
 import { NAMED_BUILDS, namedBuild } from "../src/golem/roster.ts";
+import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { startRun, waveEnemy } from "../src/waves.ts";
 
@@ -51,7 +52,8 @@ test("every registered effector's setup declaration agrees with a real assembled
 test("policies are offered only on the body family they were built and measured on", () => {
   const idle = POLICIES.find((p) => p.name === "idle");
   const human = POLICIES.find((p) => p.name === "humanoid-duelist");
-  const golemPolicies = POLICIES.filter((p) => p.surface !== null && p !== human);
+  const skeleton = POLICIES.find((p) => p.name === "skeleton-duelist");
+  const golemPolicies = POLICIES.filter((p) => p.surface !== null && (p.bodyFamily ?? "golem") === "golem");
   // The control: each is offered on some golem body, so a refusal below is the family gate and
   // not a policy that could not be picked anywhere.
   for (const policy of golemPolicies) {
@@ -68,7 +70,24 @@ test("policies are offered only on the body family they were built and measured 
   }
   for (const build of NAMED_BUILDS) {
     assert.equal(assessPolicy(human, true, build.setup).status, "incompatible", build.name);
+    assert.equal(assessPolicy(skeleton, true, build.setup).status, "incompatible", build.name);
     assert.equal(assessPolicy(idle, true, build.setup).status, "applicable", build.name);
+  }
+  // The skeleton's own mind drives a skeleton and nothing else, and no stone or human mind is
+  // offered on one: the golem duelist's code runs there, but nothing measured it there.
+  for (const setup of [skeletonSetup(), skeletonSetup("maul"), skeletonSetup("fist", "fist")]) {
+    const name = `skeleton ${setup.primary.terminal}`;
+    assert.equal(assessPolicy(skeleton, true, setup).status, "applicable", name);
+    assert.equal(assessPolicy(idle, true, setup).status, "applicable", name);
+    assert.equal(assessPolicy(human, true, setup).status, "incompatible", name);
+    for (const policy of golemPolicies) {
+      const assessment = assessPolicy(policy, true, setup);
+      assert.equal(assessment.status, "incompatible", `${policy.name} on ${name}`);
+      assert.match(assessment.reason, /not evaluated on skeleton bodies/);
+    }
+  }
+  for (const build of HUMAN_BUILDS) {
+    assert.equal(assessPolicy(skeleton, true, build.setup).status, "incompatible", build.name);
   }
 });
 

@@ -45,7 +45,9 @@ test('randomization and all body shelves stay inside the selected family',()=>{
 
 // The test's own expectation, not `moduleFamily(chain)`: the effector lookup *is* the chain lookup,
 // so comparing the two could never fail.
-const EXPECTED_CHAIN_FAMILY = { none: 'golem', pitch: 'golem', reach: 'golem', wrist: 'golem', anatomical: 'human' };
+const EXPECTED_CHAIN_FAMILY = {
+  none: 'golem', pitch: 'golem', reach: 'golem', wrist: 'golem', anatomical: 'human', skeletal: 'skeleton',
+};
 
 test('every_registered_module_has_exactly_one_family', () => {
   for (const chain of Object.keys(EFFECTOR_CHAINS)) {
@@ -102,7 +104,7 @@ test('the_refusal_names_every_family_by_its_label', () => {
   const human = FAMILY_SETUP.human();
   const mixed = { ...human, torso: FAMILY_SETUP.golem().torso };
   const refusal = golemSetupRefusal(mixed);
-  assert.ok(refusal.endsWith('Choose Human warrior or Stone golem to select a complete body.'), refusal);
+  assert.ok(refusal.endsWith('Choose Human warrior, Stone golem or Skeleton to select a complete body.'), refusal);
 });
 
 // The button's policy has to be one the setup screen will let fight on the button's body: an
