@@ -51,7 +51,37 @@ export type AttributeTable = Readonly<Record<AttributeId, AttributeRow>>;
 const pending = (label: string): AttributeRow => Object.freeze({ label, min: 1, max: 1, step: 0.05, live: false });
 
 export const ATTRIBUTES: AttributeTable = Object.freeze({
-  movement: pending("Movement"),
+  /**
+   * How fast the body travels: the carrier's walk, back-off, strafe and acceleration, together
+   * (`withMovement`), and on a biped the gait re-timed to carry them (`bipedAtMovement` in
+   * `src/golem/locomotion/biped.ts`, with its table). Session 03, 2026-09-23.
+   *
+   * **The range is where the legs still hold the ground.** Node harness, `runGolemLocomotion`,
+   * 1 s standing, 1.75 s at full forward command, 1 s stopped. Top speed reached tracks the
+   * multiplier to the millimetre per second on all four bodies at every level below; the carrier is
+   * keyframed, so nothing else binds. Mean planted-sole slip, mm/s, against each module's own
+   * `meanFootSlipBudgetMps`:
+   *
+   *     movement            0.50   0.60   0.75   0.90   1.00   1.10   1.25   1.50
+   *     biped (300)          208    243    199    162    186    193    204    219
+   *     skeleton (300)       453    440    275    181    180    200    203    286
+   *     multileg (700)        --     --    237     --    334     --    496    627
+   *     wheel                  0      0      0      0      0      0      0      0
+   *
+   * The skeleton's slow end sets the floor at x0.75, and the multileg's rise sets the ceiling at
+   * x1.5. No body left the supported state or leaned at any level, on this course or on one that
+   * backs off, strafes, spins and walks diagonally -- where the biped's slip is already 764 mm/s at
+   * x1 and scales with the speed (567 at x0.75, 1072 at x1.5), which is the sideways gait's known
+   * gap (`meanFootSlipBudgetMps`) and not this stat's.
+   *
+   * **In the duel it does nothing measurable.** Swept against an unmodified body over 384 bouts a
+   * level (`research/stat-sweep.mjs`, the four probe minds), every level from x0.75 to x1.5 sits
+   * inside the null row: win rate 46.7 % to 51.3 %, no margin d above 0.07, same bout length. The
+   * minds fight in contact, where two footprints block each other and top speed binds only on the
+   * approach -- the brawler asks for full speed 76.5 % of a bout and has it 24.8 %. The tables and
+   * that argument are `docs/analysis/2026-09-23-attribute-measurements.md`, "Movement".
+   */
+  movement: Object.freeze({ label: "Movement", min: 0.75, max: 1.5, step: 0.05, live: true }),
   turning: pending("Turning"),
   stability: pending("Stability"),
   recovery: pending("Recovery"),
@@ -102,6 +132,47 @@ export function resolveAttributes(setup: { readonly attributes?: AttributeSettin
  */
 export const attributeOf = (ctx: { readonly attributes?: Attributes }, id: AttributeId): number =>
   ctx.attributes?.[id] ?? 1;
+
+/** The carrier fields movement scales: every speed it may travel at, and how hard it may change one. */
+interface CarrierSpeeds {
+  readonly maxSpeedMps: number;
+  readonly maxAccelerationMps2: number;
+  readonly backSpeedMps?: number;
+  readonly strafeSpeedMps?: number;
+}
+
+/**
+ * A locomotion table with its carrier's travel scaled by the movement stat.
+ *
+ * **All four together.** The walk, the back-off, the strafe and the acceleration move by one
+ * factor, so the back and strafe ratios -- 0.59 and 0.76 of a walk on the biped -- hold by
+ * construction; they exist because a golem that backs off as fast as it advances can never be
+ * cornered. Yaw is the turning stat's and is left alone.
+ *
+ * **The whole table, not only the carrier's config.** A builder reads `carrier` in more places than
+ * the port -- the stride cadence, the gait's authority, the published envelope -- and a carrier
+ * scaled alone would outrun its own legs. So the builder takes this table and hands it to all of
+ * them. At x1 the very table it was handed comes back, so a body at its default is the body it was
+ * to the bit rather than to the rounding.
+ *
+ * **Scaling the speed is not enough for legs.** A biped also re-times its gait on top of this
+ * (`bipedAtMovement` in `src/golem/locomotion/biped.ts`, which says why); the multileg measured
+ * better without that, and the wheel has no gait.
+ */
+export function withMovement<T extends { readonly carrier: CarrierSpeeds }>(table: T, movement: number): T {
+  if (movement === 1) return table;
+  const carrier = table.carrier;
+  return {
+    ...table,
+    carrier: {
+      ...carrier,
+      maxSpeedMps: carrier.maxSpeedMps * movement,
+      maxAccelerationMps2: carrier.maxAccelerationMps2 * movement,
+      ...(carrier.backSpeedMps === undefined ? {} : { backSpeedMps: carrier.backSpeedMps * movement }),
+      ...(carrier.strafeSpeedMps === undefined ? {} : { strafeSpeedMps: carrier.strafeSpeedMps * movement }),
+    },
+  };
+}
 
 /**
  * Why a setting cannot be built, or null.

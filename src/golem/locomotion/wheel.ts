@@ -40,6 +40,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
+import { attributeOf, withMovement } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -154,18 +155,20 @@ const SUPPORT_BINDINGS: readonly LocomotionSupportBinding[] = Object.freeze([
  * own, so that a build can hand the builder a table of its own -- `src/golem/attributes.ts` scales
  * one per body -- without writing into the shared one every other golem in the scene reads.
  */
-export function wheelDefinition(W = LOCOMOTION_WHEEL) {
+export function wheelDefinition(table = LOCOMOTION_WHEEL) {
 return defineLocomotion({
   id: "locomotion.wheel",
   slots: Object.freeze(["locomotion" as const]),
   label: "wheel - one rolling body on a fork",
-  massKg: W.yokeMass + W.wheelMass,
-  carrier: W.carrier,
-  heightRange: wheelHeightRange(W),
-  footprint: wheelFootprint(W),
+  massKg: table.yokeMass + table.wheelMass,
+  carrier: table.carrier,
+  heightRange: wheelHeightRange(table),
+  footprint: wheelFootprint(table),
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
+    // This body's own table, its carrier's travel scaled by its movement stat.
+    const W = withMovement(table, attributeOf(ctx, "movement"));
     const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");

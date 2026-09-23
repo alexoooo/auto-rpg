@@ -31,8 +31,9 @@ import { BUTTON_REACH } from "../src/buttons.ts";
 import { SUPPORTED_LOCOMOTION_V1, constructPostureIsSupported } from
   "../src/supported-locomotion-state.ts";
 import {
-  LOCOMOTION_SEQUENCE, WALK_SEQUENCE, runGolemLocomotion, walkSequenceFor,
+  LOCOMOTION_MODULES, LOCOMOTION_SEQUENCE, WALK_SEQUENCE, runGolemLocomotion, walkSequenceFor,
 } from "./harness/golem-bench.mjs";
+import { ATTRIBUTES, resolveAttributes } from "../src/golem/attributes.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
 /**
@@ -246,7 +247,7 @@ test("the_biped_is_registered_and_declares_exactly_the_locomotion_slot", () => {
 // --------------------------------------------------------- the built body, in a real solver
 
 /** One built biped on a locomotion stand, with whatever fixture the cell asked for. */
-async function fixture({ prepare = null } = {}) {
+async function fixture({ prepare = null, attributes = null } = {}) {
   const arena = await createHeadlessArena();
   const scene = arena.scene;
   const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
@@ -258,6 +259,7 @@ async function fixture({ prepare = null } = {}) {
   const module = bipedModule.build({
     scene, side: "left", name: "golem.test.locomotion", socket: stand.socket("locomotion"),
     layers: golemLayers("left"), materials: stand.materials, world,
+    ...(attributes ? { attributes: resolveAttributes({ attributes }) } : {}),
   });
   plugin.setActivationControl(stand.block.body, 1);
   for (const part of module.parts) plugin.setActivationControl(part.part.body, 1);
@@ -506,6 +508,50 @@ const TURN_SEQUENCE = Object.freeze([
   { name: "stop", until: 8.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
 ]);
 
+/**
+ * A straight walk short enough for a body at x1.5 to finish inside the stand's floor: the stock
+ * walk takes a 3.2 m/s biped 12.66 m, to the wall, and at 4.8 m/s it would read the wall.
+ */
+const SHORT_WALK = Object.freeze([
+  { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  { name: "walk", until: 2.75, forward: 1, strafe: 0, turn: 0, crouch: 0 },
+  { name: "stop", until: 3.75, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+]);
+
+test("the_movement_stat_carries_every_body_at_its_multiple_and_the_legs_keep_up_at_both_ends", async () => {
+  // Session 03's two claims, at the ends of the range the row ships (the table is its doc comment
+  // in `src/golem/attributes.ts`). Top speed is the stat doing anything at all; the slip is the
+  // stat's range being honest. The biped's slow end is the one with a history: scaled by the
+  // carrier alone, x0.75 read 1010 mm/s -- the stepping fell under the legs' own frequency and the
+  // sole was dragged -- and `bipedAtMovement` is what holds it at 199.
+  const row = ATTRIBUTES.movement;
+  const budgets = { biped: B.meanFootSlipBudgetMps, skeleton: B.meanFootSlipBudgetMps,
+    multileg: LOCOMOTION_MULTILEG.meanFootSlipBudgetMps };
+  for (const moduleId of ["biped", "skeleton", "multileg", "wheel"]) {
+    const top = LOCOMOTION_MODULES[moduleId].carrier.maxSpeedMps;
+    for (const level of [row.min, row.max]) {
+      let reached = 0;
+      let unsupported = 0;
+      const run = await runGolemLocomotion({ moduleId, sequence: SHORT_WALK, attributes: { movement: level },
+        watch: ({ module, phase }) => {
+          if (phase !== "walk") return;
+          const evidence = module.evidence();
+          reached = Math.max(reached, evidence.rootSpeedMps);
+          if (evidence.state !== "supported") unsupported++;
+        } });
+      const where = `${moduleId} at x${level}`;
+      assert.ok(Math.abs(reached - top * level) < 0.01 * top,
+        `${where} reached ${reached.toFixed(3)} m/s, not ${(top * level).toFixed(3)}`);
+      assert.equal(unsupported, 0, `${where} left the supported state walking`);
+      if (budgets[moduleId] !== undefined) {
+        assert.ok(run.state.meanFootSlipMps <= budgets[moduleId],
+          `${where}: mean planted slip ${(run.state.meanFootSlipMps * 1000).toFixed(1)} mm/s against `
+          + `${(budgets[moduleId] * 1000).toFixed(0)}`);
+      }
+    }
+  }
+});
+
 test("a_sole_holds_its_ground_sideways_and_in_a_spin_too_and_not_only_in_a_walk", async () => {
   // **The walk above was the only command this bench ever read a slip number over**, and the
   // owner's first playtest is what found that: "strafing and rotating doesn't look right, the
@@ -584,48 +630,57 @@ test("physical_corpus_a_wall_stops_the_carrier_at_its_own_footprint_and_the_legs
     // The cell the deleted obstacle corpus opened with, rebuilt with a real body under it: the
     // carrier's declared footprint is what stops it, the golem stays supported while it pushes,
     // and the real Havok geometry never penetrates the wall by more than the solver's own slop.
-    const CURB = { x: 0, y: 0.4 / 2, z: 3.0, width: 4.0, height: 0.4, depth: 0.5 };
-    const f = await fixture({
-      prepare: ({ scene, world }) => {
-        const built = worldBox(scene, "corpus.curb", CURB);
-        world.register({
-          id: "corpus.curb", category: "wall", ownerPartId: null, upwardNormal: [0, 1, 0],
-          support: () => null,
-          sweep: (from, to, footprint) => {
-            const fraction = boxSweep(from, to, CURB, footprint.radiusM);
-            return fraction === null ? null : Object.freeze({ colliderId: "corpus.curb", fraction,
-              point: Object.freeze({ x: from.x + (to.x - from.x) * fraction, y: from.y,
-                z: from.z + (to.z - from.z) * fraction }),
-              upwardNormal: Object.freeze([0, 1, 0]) });
-          },
-        });
-        return built;
-      },
-    });
-    try {
-      drive(f.module, { forward: 1 });
-      step(f.scene, 6);
-      const ground = f.module.port.carrierGround();
-      const limit = CURB.z - CURB.depth / 2 - bipedModule.footprint.radiusM;
-      assert.ok(Math.abs(ground.z - limit) < 1e-6,
-        `the carrier stopped at z=${ground.z.toFixed(4)} against a declared limit of ${limit.toFixed(4)}`);
-      // The command is still pressed and the carrier still wants to move, which is what makes this
-      // a clamp rather than a body that happened to stop.
-      const diagnostic = f.module.port.diagnostic();
-      assert.equal(diagnostic.requested.localForward, 1);
-      assert.equal(diagnostic.blockedReason,
-        "carrier motion is constrained by world or opponent footprint");
-      // Real Havok, real legs: nothing is inside the wall, and the body is still standing.
-      const front = CURB.z - CURB.depth / 2;
-      for (const { part } of f.module.parts) {
-        const penetration = part.mesh.position.z - front;
-        assert.ok(penetration < 0.02,
-          `${part.name} is ${penetration.toFixed(4)} m inside the wall`);
-      }
-      assert.equal(f.module.port.state, "supported");
-      assert.ok(constructPostureIsSupported(f.module.postureEvidence()));
-      assert.equal(f.module.readout().selfContacts, 0);
-    } finally { f.dispose(); }
+    //
+    // **And at the movement stat's ceiling too**, which is the dungeon's hazard: a hero walls stop
+    // is a hero whose carrier sweeps into them, and a faster carrier covers more of the sweep per
+    // substep and brings the legs in with more momentum behind them.
+    for (const movement of [1, ATTRIBUTES.movement.max]) {
+      const CURB = { x: 0, y: 0.4 / 2, z: 3.0, width: 4.0, height: 0.4, depth: 0.5 };
+      const f = await fixture({
+        attributes: movement === 1 ? null : { movement },
+        prepare: ({ scene, world }) => {
+          const built = worldBox(scene, "corpus.curb", CURB);
+          world.register({
+            id: "corpus.curb", category: "wall", ownerPartId: null, upwardNormal: [0, 1, 0],
+            support: () => null,
+            sweep: (from, to, footprint) => {
+              const fraction = boxSweep(from, to, CURB, footprint.radiusM);
+              return fraction === null ? null : Object.freeze({ colliderId: "corpus.curb", fraction,
+                point: Object.freeze({ x: from.x + (to.x - from.x) * fraction, y: from.y,
+                  z: from.z + (to.z - from.z) * fraction }),
+                upwardNormal: Object.freeze([0, 1, 0]) });
+            },
+          });
+          return built;
+        },
+      });
+      try {
+        assert.equal(f.module.envelope().axes.find((axis) => axis.id === "speed").max,
+          B.carrier.maxSpeedMps * movement, "the body really is the fast one");
+        drive(f.module, { forward: 1 });
+        step(f.scene, 6);
+        const ground = f.module.port.carrierGround();
+        const limit = CURB.z - CURB.depth / 2 - bipedModule.footprint.radiusM;
+        assert.ok(Math.abs(ground.z - limit) < 1e-6,
+          `the carrier stopped at z=${ground.z.toFixed(4)} against a declared limit of ${limit.toFixed(4)}`);
+        // The command is still pressed and the carrier still wants to move, which is what makes this
+        // a clamp rather than a body that happened to stop.
+        const diagnostic = f.module.port.diagnostic();
+        assert.equal(diagnostic.requested.localForward, 1);
+        assert.equal(diagnostic.blockedReason,
+          "carrier motion is constrained by world or opponent footprint");
+        // Real Havok, real legs: nothing is inside the wall, and the body is still standing.
+        const front = CURB.z - CURB.depth / 2;
+        for (const { part } of f.module.parts) {
+          const penetration = part.mesh.position.z - front;
+          assert.ok(penetration < 0.02,
+            `${part.name} is ${penetration.toFixed(4)} m inside the wall`);
+        }
+        assert.equal(f.module.port.state, "supported");
+        assert.ok(constructPostureIsSupported(f.module.postureEvidence()));
+        assert.equal(f.module.readout().selfContacts, 0);
+      } finally { f.dispose(); }
+    }
   });
 
 test("physical_corpus_a_low_step_keeps_its_support_and_a_ring_post_turns_the_carrier",

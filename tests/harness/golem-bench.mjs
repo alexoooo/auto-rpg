@@ -27,6 +27,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { BUTTON_REACH, reachFromButtons } from "../../src/buttons.ts";
 import { CONFIG } from "../../src/config.ts";
 import { GOLEM_EFFECTORS } from "../../src/golem/build.ts";
+import { resolveAttributes } from "../../src/golem/attributes.ts";
 import {
   BENCH_READOUT, BENCH_STAND_LOCOMOTION, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED,
   LOCOMOTION_MULTILEG, LOCOMOTION_WHEEL,
@@ -1433,6 +1434,11 @@ export async function runGolemLocomotion({
   prepare = null,
   /** Called once per rendered frame with the live module, for a cell that measures its own thing. */
   watch = null,
+  /**
+   * The stats the module is built at, as a setup carries them (`{ movement: 1.25 }`), or null for a
+   * module built exactly as the bench always built it -- with no `attributes` in its context at all.
+   */
+  attributes = null,
 } = {}) {
   const definition = LOCOMOTION_MODULES[moduleId];
   if (!definition) {
@@ -1471,6 +1477,7 @@ export async function runGolemLocomotion({
   const module = definition.build({
     scene, side, name: `golem.${side}.locomotion`, socket: stand.socket("locomotion"),
     layers: golemLayers(side), materials: stand.materials, world,
+    ...(attributes ? { attributes: resolveAttributes({ attributes }) } : {}),
   });
 
   // Forced activation on every body before a single reading is believed: Havok deactivates a body

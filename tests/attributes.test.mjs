@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import {
@@ -63,13 +62,24 @@ test("a build context without attributes reads every stat at 1, and one with the
   assert.equal(attributeOf({ attributes }, "movement"), 1);
 });
 
-test("no shipped row is live yet, so the shipped table accepts only 1", () => {
+/** The rows a session has measured and turned live. Each stat's session adds its own. */
+const MEASURED = Object.freeze(["movement"]);
+
+test("only a measured row is live, and every other row accepts only 1", () => {
   // Each stat's own session turns its row live. Until then a value other than 1 is a stat nothing
   // reads, and a build carrying one is refused rather than built as if it had been honoured.
   for (const id of ATTRIBUTE_IDS) {
-    assert.equal(ATTRIBUTES[id].live, false, id);
+    const row = ATTRIBUTES[id];
+    assert.equal(row.live, MEASURED.includes(id), id);
     assert.equal(attributesRefusal({ [id]: 1 }), null, `${id} at 1`);
-    assert.match(attributesRefusal({ [id]: 1.1 }) ?? "", /not measured yet/, `${id} at 1.1`);
+    if (row.live) {
+      assert.ok(row.min < 1 && row.max > 1, `${id}'s range goes both ways from its default`);
+      assert.equal(attributesRefusal({ [id]: row.min }), null, `${id} at its floor`);
+      assert.equal(attributesRefusal({ [id]: row.max }), null, `${id} at its ceiling`);
+      assert.match(attributesRefusal({ [id]: row.max + row.step }) ?? "", /outside/, `${id} past its ceiling`);
+    } else {
+      assert.match(attributesRefusal({ [id]: 1.1 }) ?? "", /not measured yet/, `${id} at 1.1`);
+    }
   }
 });
 
@@ -94,8 +104,10 @@ test("a setting is refused by shape, by name and by range, and accepted inside i
 test("a golem setup carrying a stat nothing reads is refused where every build is checked", () => {
   const setup = defaultGolemSetup();
   assert.equal(golemSetupRefusal(setup), null);
-  assert.equal(golemSetupRefusal({ ...setup, attributes: { movement: 1 } }), null);
-  assert.match(golemSetupRefusal({ ...setup, attributes: { movement: 1.2 } }) ?? "", /Movement is not measured yet/);
+  assert.equal(golemSetupRefusal({ ...setup, attributes: { turning: 1 } }), null);
+  assert.equal(golemSetupRefusal({ ...setup, attributes: { movement: 1.2 } }), null, "a measured stat inside its range");
+  assert.match(golemSetupRefusal({ ...setup, attributes: { movement: 1.6 } }) ?? "", /Movement x1.6 is outside/);
+  assert.match(golemSetupRefusal({ ...setup, attributes: { turning: 1.2 } }) ?? "", /Turning is not measured yet/);
   assert.match(golemSetupRefusal({ ...setup, attributes: { reach: 1 } }) ?? "", /no attribute "reach"/);
 });
 
@@ -156,18 +168,17 @@ test("a golem resolves its stats once, and every module it builds is handed them
     assert.deepEqual(plain.attributes, DEFAULT_ATTRIBUTES);
     const explicit = build({ ...defaultGolemSetup(), attributes: { movement: 1, size: 1 } }, 1);
     assert.deepEqual(explicit.attributes, DEFAULT_ATTRIBUTES);
-    assert.throws(() => build({ ...defaultGolemSetup(), attributes: { movement: 1.2 } }, 0),
-      /Movement is not measured yet/, "a stat nothing reads never reaches a body");
+    assert.throws(() => build({ ...defaultGolemSetup(), attributes: { turning: 1.2 } }, 0),
+      /Turning is not measured yet/, "a stat nothing reads never reaches a body");
+
+    // Every registered definition is frozen, so there is no builder to spy on: the proof that the
+    // context reaches a module is a module doing something with it. The locomotion envelope is the
+    // built body's own speed axis, read from the table its builder scaled.
+    const fast = build({ ...defaultGolemSetup(), attributes: { movement: 1.5 } }, 1);
+    const speedOf = (golem) => golem.locomotionModule.envelope().axes.find((axis) => axis.id === "speed");
+    assert.equal(speedOf(fast).max, speedOf(plain).max * 1.5, "the top speed");
+    assert.equal(speedOf(fast).rate, speedOf(plain).rate * 1.5, "and the acceleration");
   } finally {
     arena.dispose?.();
   }
-  // No module reads a stat until movement's session, and every registered definition is frozen,
-  // so there is no builder to spy on and no behaviour to observe. The context literal is therefore
-  // read from the source: movement's session replaces this with the bench proving the stat live.
-  const source = await readFile(new URL("../src/golem/golem.ts", import.meta.url), "utf8");
-  const head = "const build = (socket: GolemSocket, suffix: string) => Object.freeze({";
-  const start = source.indexOf(head);
-  assert.ok(start >= 0 && source.indexOf(head, start + 1) < 0, "the golem's one build-context literal was found");
-  const context = source.slice(start, source.indexOf("});", start));
-  assert.match(context, /\battributes: this\.attributes,/);
 });

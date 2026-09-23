@@ -41,6 +41,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
+import { attributeOf, withMovement } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -236,18 +237,20 @@ interface MultilegLeg {
  * The multileg module, built from one table, for the reason `wheelDefinition` gives: a build can
  * hand the builder a table of its own without writing into the shared one.
  */
-export function multilegDefinition(M = LOCOMOTION_MULTILEG) {
+export function multilegDefinition(table = LOCOMOTION_MULTILEG) {
 return defineLocomotion({
   id: "locomotion.multileg",
   slots: Object.freeze(["locomotion" as const]),
   label: "multileg - six short legs on a wide base",
-  massKg: M.chassisMass + 6 * (M.femurMass + M.shinMass + M.footMass),
-  carrier: M.carrier,
-  heightRange: multilegHeightRange(M),
-  footprint: multilegFootprint(M),
+  massKg: table.chassisMass + 6 * (table.femurMass + table.shinMass + table.footMass),
+  carrier: table.carrier,
+  heightRange: multilegHeightRange(table),
+  footprint: multilegFootprint(table),
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
+    // This body's own table, its carrier's travel scaled by its movement stat.
+    const M = withMovement(table, attributeOf(ctx, "movement"));
     const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");

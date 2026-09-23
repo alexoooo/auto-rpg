@@ -43,6 +43,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
+import { attributeOf, withMovement } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -292,6 +293,50 @@ const SUPPORT_BINDINGS: readonly LocomotionSupportBinding[] = Object.freeze([
   Object.freeze({ role: "right-foot", label: "right sole" }),
 ]);
 
+/**
+ * A biped's table at a movement stat: the carrier's travel scaled (`withMovement`), and the gait
+ * re-timed so that the legs can still sell it.
+ *
+ * **The legs have a step frequency, and a stride run below it skates.** `strideCadence` is per
+ * metre, so a carrier scaled alone slows the stepping by the same factor -- and below about 2
+ * cycles a second (x1's own 3.95 x 3.2 / 2 pi = 2.01) the planted sole stops holding: at x0.75
+ * the stance foot moved at 1958 mm/s against the pelvis's 2400, dragged along rather than walked
+ * on. Raising the cadence per metre by 1/movement holds the cycle at x1's frequency and takes
+ * shorter steps instead, and that is the whole cure. Shrinking the swing to match the shorter
+ * step is exactly wrong: at x0.75 a swing of 0.437 rad, the one whose excursion equals the step,
+ * read 849 mm/s against 198 at the full 0.60.
+ *
+ * **Above x1 the cadence per metre is kept and the joints are let go faster.** A longer step
+ * would need more hip than the 0.50 rad stop gives, so a faster body steps faster; what binds
+ * then is `targetRate`, the slew on every joint command, and joint lag jumped from 0.40 rad to
+ * 1.0 at x1.1 with it left alone. It is scaled by the movement.
+ *
+ * Node harness, `runGolemLocomotion` on the stone biped, 1 s standing, 1.75 s at full forward
+ * command, 1 s stopped; mean planted-sole slip in mm/s against `meanFootSlipBudgetMps` 300:
+ *
+ *     movement          0.50   0.60   0.75   0.90   1.00   1.10   1.25   1.50
+ *     carrier only       612    730   1010    231    186    762    693    659
+ *     re-timed           208    243    199    162    186    193    204    219
+ *     skeleton, re-timed 453    440    275    181    180    200    203    286
+ *
+ * The skeleton builds from this definition with `HUMAN_BIPED`, and its slow end is why the stat's
+ * range stops at x0.75. 2026-09-23.
+ *
+ * **Not the multileg's rule.** Its six legs read worse under both halves of it -- 400 mm/s at
+ * x0.75 against 237 with the carrier alone, 786 at x1.5 against 627 -- so it takes the carrier
+ * scale and nothing else.
+ *
+ * At x1 the very table it was handed comes back, as `withMovement` promises.
+ */
+export function bipedAtMovement<T extends typeof LOCOMOTION_BIPED>(table: T, movement: number): T {
+  if (movement === 1) return table;
+  return {
+    ...withMovement(table, movement),
+    strideCadence: table.strideCadence / Math.min(1, movement),
+    targetRate: table.targetRate * Math.max(1, movement),
+  };
+}
+
 /** One leg's three bodies and three joints, kept together so severing one is one edit. */
 interface BipedLeg {
   readonly role: string;
@@ -308,19 +353,23 @@ interface BipedLeg {
   lastPlanted: boolean;
 }
 
-export function bipedDefinition(id: string, label: string, B = LOCOMOTION_BIPED) {
+export function bipedDefinition(id: string, label: string, table = LOCOMOTION_BIPED) {
 return defineLocomotion({
   id,
   slots: Object.freeze(["locomotion" as const]),
   label,
-  massKg: B.pelvisMass +
-    2 * (B.thighMass + B.shinMass + B.footMass),
-  carrier: B.carrier,
-  heightRange: bipedHeightRange(B),
-  footprint: bipedFootprint(B, id),
+  massKg: table.pelvisMass +
+    2 * (table.thighMass + table.shinMass + table.footMass),
+  carrier: table.carrier,
+  heightRange: bipedHeightRange(table),
+  footprint: bipedFootprint(table, id),
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
+    // This body's own table: the carrier's travel scaled by its movement stat, read by the port,
+    // the stride and the envelope alike (`withMovement` says why all of them), and the gait
+    // re-timed to carry it (`bipedAtMovement`).
+    const B = bipedAtMovement(table, attributeOf(ctx, "movement"));
       const socket = ctx.socket;
     const facing = socket.rotation;
     const stone = materialForGolemRole(ctx.materials, "shell");
