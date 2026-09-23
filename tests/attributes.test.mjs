@@ -13,6 +13,7 @@ import {
   describeAttributes,
   resolveAttributes,
   withAttribute,
+  withArmSpeed,
   withAttributeSetting,
   withRecovery,
 } from "../src/golem/attributes.ts";
@@ -32,7 +33,10 @@ import { mulberry32 } from "../src/rng.ts";
 import { defaultGolemSetup, golemSetupRefusal } from "../src/golem/build.ts";
 import { Golem } from "../src/golem/golem.ts";
 import { idleMind } from "../src/mind.ts";
-import { LOCOMOTION_BIPED } from "../src/golem/config.ts";
+import { CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED } from "../src/golem/config.ts";
+import { golemModule } from "../src/golem/registry.ts";
+import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
+import { freshIntent } from "../src/action-primitives.ts";
 import { SKELETON_ARMOUR, SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
@@ -75,7 +79,7 @@ test("a build context without attributes reads every stat at 1, and one with the
 });
 
 /** The rows a session has measured and turned live. Each stat's session adds its own. */
-const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour", "toughness"]);
+const MEASURED = Object.freeze(["movement", "turning", "stability", "recovery", "armour", "toughness", "armSpeed"]);
 
 test("only a measured row is live, and every other row accepts only 1", () => {
   // Each stat's own session turns its row live. Until then a value other than 1 is a stat nothing
@@ -348,5 +352,71 @@ test("toughness multiplies every body part's health, keeps wear's share and the 
     }
   } finally {
     arena.dispose?.();
+  }
+});
+
+test("arm speed multiplies the named rates of a copy, and x1 is the table it was handed", () => {
+  const fast = withArmSpeed(CHAIN_WRIST, ["rollRate", "bendRate"], 1.5);
+  assert.deepEqual(fast, { ...CHAIN_WRIST, rollRate: CHAIN_WRIST.rollRate * 1.5, bendRate: CHAIN_WRIST.bendRate * 1.5 },
+    "the two rates, multiplied; every other field, the wrist's own");
+  assert.equal(withArmSpeed(CHAIN_REACH, ["anchorRate"], 0.5).anchorRate, CHAIN_REACH.anchorRate / 2);
+  assert.equal(withArmSpeed(CHAIN_WRIST, ["rollRate", "bendRate"], 1), CHAIN_WRIST, "x1 is the table it was handed");
+  assert.equal(CHAIN_WRIST.rollRate, fast.rollRate / 1.5, "the shared table is not written");
+});
+
+/**
+ * **Every arm chain, both halves of the rate**: what it publishes on its envelope, and how far its
+ * command actually travels. The second is the one that matters -- the wrist and the anatomical arm
+ * each hold the rate in two places, the envelope and the slew, and an envelope that doubled over a
+ * slew that did not would publish an arm the body cannot be. The travel is taken after one substep,
+ * because the anatomical arm's first steps its command off the build pose, and over six more, far
+ * short of any target. A point chain's swing, lift and reach are read off an anchor that moves in a
+ * straight line, so they double to within a few per cent rather than exactly.
+ *
+ * The stat is handed straight to the builder at x2 rather than through a validated setup, because
+ * what is being asserted is the builder's arithmetic and not the row's range.
+ */
+test("arm speed multiplies every arm chain's published rates and the rate its command travels at", async () => {
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const stand = buildGolemStand(arena.scene, { side: "left" });
+  const factor = 2;
+  const ctx = (name, armSpeed) => ({
+    scene: arena.scene, side: "left", name, socket: stand.socket("primary"),
+    companion: stand.socket("secondary"), layers: golemLayers("left"), materials: stand.materials,
+    attributes: Object.freeze({ ...DEFAULT_ATTRIBUTES, armSpeed }),
+  });
+  const intent = freshIntent();
+  Object.assign(intent.primary, { pointerX: 1, pointerY: 1, reach: 1, roll: 1, wristBend: 1 });
+  const shared = [CHAIN_REACH.anchorRate, CHAIN_WRIST.rollRate, CHAIN_WRIST.bendRate, CHAIN_PITCH.targetRate];
+  try {
+    for (const chain of ["wrist", "skeletal", "anatomical", "pitch", "reach"]) {
+      const measure = (armSpeed) => {
+        const built = golemModule(`effector.${chain}.blade`).build(ctx(`${chain}.x${armSpeed}`, armSpeed));
+        try {
+          const rates = built.envelope().axes.map((axis) => [axis.id, axis.rate]);
+          built.command(intent);
+          built.step(1 / 240);
+          const start = built.view().axes.map((axis) => axis.commanded);
+          for (let i = 0; i < 6; i += 1) built.step(1 / 240);
+          return { rates, travel: built.view().axes.map((axis, i) => [axis.id, axis.commanded - start[i]]) };
+        } finally {
+          built.dispose();
+        }
+      };
+      const plain = measure(1);
+      const fast = measure(factor);
+      assert.ok(plain.rates.length > 0, `${chain} publishes an axis`);
+      assert.deepEqual(fast.rates, plain.rates.map(([id, rate]) => [id, rate * factor]), `${chain}: every published rate`);
+      for (const [i, [id, moved]] of plain.travel.entries()) {
+        assert.ok(Math.abs(moved) > 1e-4, `${chain}.${id} moved at x1 (${moved}), so its ratio means something`);
+        const ratio = fast.travel[i][1] / moved;
+        assert.ok(Math.abs(ratio - factor) < 0.1, `${chain}.${id}'s command travels x${ratio.toFixed(3)} as far`);
+      }
+    }
+    assert.deepEqual([CHAIN_REACH.anchorRate, CHAIN_WRIST.rollRate, CHAIN_WRIST.bendRate, CHAIN_PITCH.targetRate], shared,
+      "and no shared table was written");
+  } finally {
+    stand.dispose();
+    arena.dispose();
   }
 });

@@ -62,7 +62,7 @@ test("the worker counts a corner's knockdowns and its time down from that corner
   assert.equal(steady.sides.right.downSeconds, 0);
 });
 
-test("the worker counts the modules each corner lost from that corner's own body", async () => {
+test("the worker counts the modules each corner lost and the real blows it landed, each from that corner's own record", async () => {
   // Measured, 2026-09-23: on these seeds the champion ends a brawler at toughness x0.5 in 7.73 s and
   // takes two of its modules off on the way; the same brawler at x1 loses the same bout at the same
   // moment with every module on. The x1 bout is the control that the count is read off the body.
@@ -74,6 +74,10 @@ test("the worker counts the modules each corner lost from that corner's own body
   const soft = await execute(job, manifest);
   assert.equal(soft.sides.right.severs, 2, "the soft corner lost two modules");
   assert.equal(soft.sides.left.severs, 0, "and the count is the corner's own, not the bout's");
+  // The same bout's contacts, and of them the real blows: the ones above the weapon's energy floor,
+  // one for each alignment the runner filed. Measured the same day: 58 contacts and 20 real blows on
+  // the left, 59 and 35 on the right, so neither count is the other and neither corner's is the other's.
+  assert.deepEqual(["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]), [[58, 20], [59, 35]]);
   const plain = await execute({ ...job, rightBuild: "default" }, manifest);
   assert.equal(plain.sides.right.severs, 0, "the control: the same bout at x1 keeps them all");
 });

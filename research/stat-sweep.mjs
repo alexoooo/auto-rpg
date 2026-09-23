@@ -194,6 +194,21 @@ function figures(blocks, controlMargins) {
       other: mean(bouts.map((row) => row.sides[other(row.modified)].severs)),
     };
   }
+  // Contacts a bout and the share of them that were real blows, per corner, on the same rule. The
+  // share is pooled -- real blows over contacts across the level -- because a bout with no contact
+  // has no share of its own.
+  if (bouts.every((row) => row.sides.left.realBlows !== undefined && row.sides.right.realBlows !== undefined)) {
+    const pooled = (side) => {
+      const contacts = bouts.reduce((sum, row) => sum + row.sides[side(row)].hits, 0);
+      return contacts ? bouts.reduce((sum, row) => sum + row.sides[side(row)].realBlows, 0) / contacts : null;
+    };
+    out.blows = {
+      contacts: mean(bouts.map((row) => row.sides[row.modified].hits)),
+      otherContacts: mean(bouts.map((row) => row.sides[other(row.modified)].hits)),
+      share: pooled((row) => row.modified),
+      otherShare: pooled((row) => other(row.modified)),
+    };
+  }
   if (controlMargins) {
     const delta = list.map((b, i) => {
       const control = controlMargins.get(b.pair);
@@ -267,6 +282,12 @@ export function markdownSweep(summary, header) {
       lines.push("", "Modules severed per bout, modified corner first:", "",
         "| Level | Severed | Other's severed |", "| --- | ---: | ---: |");
       for (const level of ran) lines.push(`| ${level.key} | ${level.severs.mine.toFixed(2)} | ${level.severs.other.toFixed(2)} |`);
+    }
+    if (ran.every((level) => level.blows)) {
+      lines.push("", "Contacts per bout and the share of them above the weapon's energy floor, modified corner first:", "",
+        "| Level | Contacts | Other's contacts | Real blows % | Other's real blows % |", "| --- | ---: | ---: | ---: | ---: |");
+      const share = (x) => (x === null ? "--" : pct(x));
+      for (const level of ran) lines.push(`| ${level.key} | ${level.blows.contacts.toFixed(1)} | ${level.blows.otherContacts.toFixed(1)} | ${share(level.blows.share)} | ${share(level.blows.otherShare)} |`);
     }
     const endings = [...new Set(ran.flatMap((level) => Object.keys(level.endings)))].sort();
     lines.push("", "Endings:", "", `| Level | ${endings.join(" | ")} |`, `| --- |${endings.map(() => " ---: |").join("")}`);

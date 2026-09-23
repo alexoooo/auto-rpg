@@ -237,7 +237,38 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * `docs/analysis/2026-09-23-attribute-measurements.md`, "Toughness".
    */
   toughness: Object.freeze({ label: "Toughness", min: 0.5, max: 2, step: 0.05, live: true }),
-  armSpeed: pending("Arm speed"),
+  /**
+   * How fast an arm may be driven: every arm chain's rate limits times the stat, through
+   * `withArmSpeed` -- the reach anchor's `anchorRate` (every point chain), the wrist's roll and bend
+   * rates, the pitch hinge's `targetRate` and each coordinate of the anatomical arm's `RATES`. Force
+   * ceilings are not touched, and neither is the stroke clock: `GOLEM_TACTICS` still times every
+   * stroke at the arm it was tuned on. Session 10, 2026-09-23.
+   *
+   * **The bench sets the ceiling, and it is x1.5.** Node harness, `runStrokeBench` with the shipped
+   * cut: peak driven tip speed, m/s, then peak anchor stray in the stroke window, mm.
+   *
+   *     arm speed             0.75       1.00       1.25       1.50       2.00       2.50
+   *     wrist blade        14.7/32    18.1/38    21.1/39    23.6/38    23.9/38    23.9/38
+   *     wrist mace         28.8/284   31.9/298   32.8/290   32.8/289   32.8/301   32.8/302
+   *     skeletal blade     17.0/46    17.6/47    17.6/46    17.5/46    17.6/47    17.5/47
+   *     anatomical blade    9.2/62    11.1/77    12.1/108   13.6/149   13.4/171   12.0/228
+   *     pitch blade        12.4/--    15.5/--    18.4/--    19.7/--    15.5/--    12.4/--
+   *
+   * The committed sword shape -- the one `tests/golem-bench.test.mjs` holds under 50 mm of stray --
+   * stays at 32 mm on the wrist and 16 mm on the skeletal arm at every level to x2.5, so the plan's
+   * bar on its own sets no ceiling; the mace and maul are over it already at x1 and flat. What does
+   * set one is a chain that stops following its command. The pitch hinge arrives at its mark at
+   * 19.7 m/s at x1.5 and at 8.7 at x2, its lag 644 mm growing to 743, and the wrist blade's peak is
+   * spent by x1.5. The anatomical arm is the known cost inside the range: its stray grows at every
+   * level above x1, to 149 mm at x1.5, though its tip speed still rises.
+   *
+   * Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): stone with
+   * the four probe minds, 15.5 % at x0.5, 29.2 % at x0.75, 62.4 % at x1.25, 65.0 % at x1.5 and
+   * 70.3 % at x2.5; the skeleton duelist's mirror, 3.4 %, 17.4 %, 71.4 %, 77.9 % and 80.2 %. Both
+   * flatten past x1.5, and on stone the share of contacts that are real blows falls from 45.8 % to
+   * 41.9 % there. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Arm speed".
+   */
+  armSpeed: Object.freeze({ label: "Arm speed", min: 0.5, max: 1.5, step: 0.05, live: true }),
   weight: pending("Weight"),
   size: pending("Size"),
 });
@@ -408,6 +439,29 @@ export const ARMOUR_CAP = 0.9;
 export function armourAt(fraction: number, armour: number): number {
   if (armour === 1) return fraction;
   return Math.min(ARMOUR_CAP, fraction * armour);
+}
+
+/** The keys of a table whose values are numbers: the only fields a rate can be. */
+type NumberKey<T> = { [K in keyof T]: T[K] extends number ? K : never }[keyof T];
+
+/**
+ * A chain's table with the named rate limits multiplied by the arm-speed stat, and nothing else
+ * moved. At x1 the very table it was handed comes back.
+ *
+ * **The rate and not the force.** On an arm chain a commanded move is shaped by how fast its target
+ * may travel, and not by the ceiling on the motor chasing it: above about 3900 N every figure of an
+ * ordinary move stops changing (AGENTS.md, "On a low-axis chain the anchor's *rate limit* shapes a
+ * commanded move"). So the stat is a factor on the rates alone -- the reach anchor's `anchorRate`
+ * in `buildArmCore`, which every point chain is built on; the wrist's `rollRate` and `bendRate`;
+ * the pitch hinge's `targetRate`; and each of the anatomical arm's `RATES`. Each chain publishes an
+ * axis's `rate` off the same table, so the envelope follows. No mind reads that rate yet: a stroke
+ * is still timed by `GOLEM_TACTICS` at the arm the tactics were tuned on.
+ */
+export function withArmSpeed<T extends object>(table: T, rates: readonly NumberKey<T>[], armSpeed: number): T {
+  if (armSpeed === 1) return table;
+  const next = { ...table };
+  for (const key of rates) (next[key] as number) = (table[key] as number) * armSpeed;
+  return next;
 }
 
 /** The fields of a biped's `Knockdown` (`src/golem/config.ts`) the recovery stat reads. */

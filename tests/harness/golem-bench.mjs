@@ -386,6 +386,11 @@ export async function runGolemBench({
    * this way -- rather than a column every other option would carry as null.
    */
   probe = null,
+  /**
+   * The stats the module is built at, as a setup carries them (`{ armSpeed: 1.5 }`), or null for a
+   * module built exactly as the bench always built it -- with no `attributes` in its context at all.
+   */
+  attributes = null,
 } = {}) {
   const option = golemModule(moduleId);
   if (!option) {
@@ -440,6 +445,7 @@ export async function runGolemBench({
     companion: stand.socket(companionSlot),
     layers: golemLayers(side),
     materials: stand.materials,
+    ...(attributes ? { attributes: resolveAttributes({ attributes }) } : {}),
   });
 
   watch(stand.block.body);
@@ -1130,6 +1136,8 @@ export async function runStrokeBench({
   mark: markOptions = null,
   overrides = null,
   guardSeconds = STROKE_GUARD_SECONDS,
+  /** The stats the arm is built at, as `runGolemBench` takes them. */
+  attributes = null,
 }) {
   const kind = weaponOf(moduleId);
   let reader = null;
@@ -1138,6 +1146,7 @@ export async function runStrokeBench({
     moduleId,
     slot,
     overrides,
+    attributes,
     probe: (payload) => reader?.probe(payload),
     sequence: ({ module, socket }) => {
       const cap = capabilityOf(module);
@@ -1184,6 +1193,8 @@ export async function runStrokeBench({
      */
     sweeps: plan.sweeps,
     ...reader.read(),
+    /** A two-socket terminal's held grip, as `runGolemBench` reads it; null for every other. */
+    peakGripStrayMm: run.peakGripStrayMm,
     state: run.state,
   });
 }

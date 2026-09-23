@@ -3,6 +3,7 @@ import { PhysicsConstraintAxis, PhysicsConstraintAxisLimitMode } from "@babylonj
 import { capsulePart, joint, type Part } from "../../rig.ts";
 import { materialForGolemRole } from "../materials.ts";
 import { FULL_TONE, JointActuator } from "../joint-servo.ts";
+import { attributeOf } from "../attributes.ts";
 import { defineChain, type BuiltChain, type GolemPart } from "../module.ts";
 import { ARM_STROKES } from "../effectors/chains/arm-core.ts";
 import { ARM_IDS, ARM_LIMITS, ARM_REST, armForward, clamp, solveArm, validOrientation, rotationError, measureArm } from "./kinematics.ts";
@@ -26,6 +27,10 @@ export const anatomicalChain = defineChain({
   strokes: ARM_STROKES, pointTarget: true, massKg: MASSES.reduce((a, b) => a + b), swingInertia: 0.8,
   build(ctx, limits, crossing): BuiltChain {
     const side = ctx.socket.outboard;
+    // The body's arm-speed stat, on every coordinate's rate (`withArmSpeed` says why the rate and
+    // not the torque). The +-8 clamp on a drive target below is a bound on the command, not a rate.
+    const armSpeed = attributeOf(ctx, "armSpeed");
+    const rates = armSpeed === 1 ? RATES : RATES.map((rate) => rate * armSpeed);
     const reachable = { reachMin: Math.max(0.24, limits?.reachMin ?? 0.24), reachMax: Math.min(0.65, limits?.reachMax ?? 0.65),
       swingMin: crossing?.swingMin ?? Math.max(-0.65, limits?.swingMin ?? -0.65),
       swingMax: Math.min(1.6, limits?.swingMax ?? 1.6),
@@ -142,7 +147,7 @@ export const anatomicalChain = defineChain({
         if (stopped || passive) return;
         solveTime += dt;
         if (solveTime >= 1 / 60) { solve(); solveTime = 0; }
-        angles = angles.map((a, i) => a + clamp(desired[i] - a, -RATES[i] * dt, RATES[i] * dt));
+        angles = angles.map((a, i) => a + clamp(desired[i] - a, -rates[i] * dt, rates[i] * dt));
         commanded = armForward(angles);
         const rotations = groups.map(i => commanded.frames[i].rotation);
         const achieved = measureArm(bodies.map(b => socketRotation().conjugate().multiply(b.mesh.rotationQuaternion!)), angles);
@@ -164,7 +169,7 @@ export const anatomicalChain = defineChain({
         previousRotations = rotations.map(q => q.clone()); previousAngles = [...angles];
         for (let i = 0; i < 7; i++) { axes[i].commanded = angles[i]; axes[i].achieved = achieved[i]; }
       },
-      envelope: () => ({ fullOrientation: true, axes: ARM_IDS.map((id, i) => ({ id, unit: "rad", min: supported && i >= 5 ? 0 : ARM_LIMITS[i][0], max: supported && i >= 5 ? 0 : ARM_LIMITS[i][1], rate: RATES[i] })),
+      envelope: () => ({ fullOrientation: true, axes: ARM_IDS.map((id, i) => ({ id, unit: "rad", min: supported && i >= 5 ? 0 : ARM_LIMITS[i][0], max: supported && i >= 5 ? 0 : ARM_LIMITS[i][1], rate: rates[i] })),
         reach: reachable.reachMax, reachable, strokes: ARM_STROKES, settledBand: 0.025 }),
       axes: () => axes, stroke: () => "idle", anchor: worldCommand,
       anchorStray: () => Vector3.Distance(worldCommand(), handPoint()), cursor,

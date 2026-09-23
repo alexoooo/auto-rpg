@@ -8,6 +8,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import { slewTowards } from "../../anchor-drive.ts";
+import { attributeOf, withArmSpeed } from "../../attributes.ts";
 import { CHAIN_PITCH } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -130,7 +131,8 @@ export const pitchChain = defineChain({
   swingInertia: rodInertia(CHAIN_PITCH.linkMass, 0, CHAIN_PITCH.linkLength),
 
   build(ctx: ModuleBuild): BuiltChain {
-    const P = CHAIN_PITCH;
+    // The body's arm-speed stat, on the hinge's command rate (`withArmSpeed`).
+    const P = withArmSpeed(CHAIN_PITCH, ["targetRate"], attributeOf(ctx, "armSpeed"));
     const name = `${ctx.name}.link`;
     const socket = ctx.socket;
     const facing = socket.rotation;

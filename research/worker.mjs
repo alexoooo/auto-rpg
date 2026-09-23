@@ -64,6 +64,8 @@ export async function execute(job, manifest) {
   } finally { bout.dispose(); }
   const sides = Object.fromEntries(["left", "right"].map((side) => [side, {
     damage: result[side].damage, hits: result[side].hits, blocks: result[side].blocks,
+    // Contacts above the weapon's energy floor: the runner files one alignment for each.
+    realBlows: result[side].alignments.length,
     descriptors: descriptors(result.behaviour[side], retreat[side], attacks[side]),
     engagement: result.behaviour[side].engagement,
     knockdowns: down[side].knockdowns, downSeconds: down[side].seconds, severs: severs[side],
