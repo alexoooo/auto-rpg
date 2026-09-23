@@ -2158,9 +2158,14 @@ export const TERMINAL_WHIP = {
    * The row is in `docs/measurements.md` under Session 02 of the matchup set. 2026-09-06.
    */
   lashReach: 1.09,
-  /** Per bead. Small: a bead is the cheapest thing on a golem to lose. 2026-09-04. */
+  /**
+   * Per bead, and **never subtracted from**: the whip is equipment since 2026-09-22 (see
+   * `whipDefinition`), so a blow on a bead is a parry. The row is what the part's shape requires
+   * and what `moduleDurability` sums, and it is no longer a wound budget.
+   */
   health: 24,
-  vitalityWeight: 0.15,
+  /** Zero, because equipment is no part of the bar. It was 0.15 a bead while the lash was flesh. */
+  vitalityWeight: 0,
   /**
    * What the lash takes from the chain: elevation, and nothing else.
    *

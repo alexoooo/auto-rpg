@@ -66,6 +66,11 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
   sockets: 1,
   bite: "mass",
   label: "whip",
+  // **A weapon, not a body.** The beads are segments of something the golem holds, so a blow
+  // that finds one is a parry by the lash and wounds nothing -- the owner, 2026-09-22: "its parts
+  // should not count as body parts, these are segments of a weapon. it shouldn't take damage".
+  // `effectorModule` turns this into each bead's `combatRole` and a zero share of the bar.
+  partRole: "equipment",
   massKg: config.segments * config.segmentMass,
   // **Elevation, and nothing else.** A lash has no pose it cannot reach -- it hangs -- so this is
   // not about the whip's kinematics at all, it is about the room under the shoulder, and the

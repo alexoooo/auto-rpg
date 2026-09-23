@@ -553,6 +553,35 @@ test("a_severed_plate_is_debris_and_stops_answering_for_the_golem", async (t) =>
 });
 
 /**
+ * A whip is a weapon the golem holds, not a body it is made of: every bead parries as the lash and
+ * none can be wounded or carry any of the bar. The owner, 2026-09-22: "its parts should not count
+ * as body parts, these are segments of a weapon."
+ *
+ * Every bead rather than the business end, because a lash is eight bodies and a blow finds
+ * whichever one is in the way; and the arm that holds it is asserted to stay flesh, because the
+ * rule is about the weapon and a whip that made its arm a parry would be an arm nothing can hurt.
+ */
+test("a_whips_beads_are_equipment_that_parries_and_its_arm_is_still_flesh", async (t) => {
+  const stand = await standAGolem(t, {
+    setup: { ...defaultGolemSetup(), primary: { chain: "wrist", terminal: "whip" } },
+  });
+  const arm = moduleLimbs(stand.golem, "primary");
+  const beads = arm.filter((limb) => limb.key.includes(".whip."));
+  assert.equal(beads.length, 8, `the whip has ${beads.length} beads: ${arm.map((l) => l.key).join(", ")}`);
+  for (const bead of beads) {
+    assert.deepEqual(stand.golem.parriedBy(bead.part.body), { kind: "whip" }, `${bead.key} does not parry`);
+    assert.equal(stand.golem.limbFor(bead.part.body), undefined, `${bead.key} can be wounded`);
+    assert.equal(bead.vitalityWeight, 0, `${bead.key} carries a share of the bar`);
+  }
+  const flesh = arm.filter((limb) => !beads.includes(limb));
+  assert.ok(flesh.length > 0, "the whip arm has no links of its own");
+  for (const link of flesh) {
+    assert.equal(stand.golem.limbFor(link.part.body), link, `${link.key} cannot be wounded`);
+    assert.ok(link.vitalityWeight > 0, `${link.key} weighs nothing`);
+  }
+});
+
+/**
  * What an arm costs is the arm, not the fight.
  *
  * `Golem.sever` used to zero every part of the module, so a blade cut off at the wrist booked the
