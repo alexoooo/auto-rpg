@@ -1298,3 +1298,74 @@ about +-20 points. Taken as a row, the miser as the heavy corner reads under the
 four pairings (16.7, 20.8, 12.5 and 25.0 % against 41.7, 25.0, 37.5 and 37.5), which fits a mind
 that trades least having least use for a body that shrugs off being knocked down. That is a
 hypothesis, not a finding.
+
+#### Skeleton
+
+`research/runs/stat-weight-skeleton`, 192 blocks per level, `skeleton-warrior` with the skeleton duelist on
+both sides.
+
+| Level | Bouts | Win % [95 %] | Left / right % | Margin [95 %] | d | vs control [95 %] | d | Draws | Seconds | Dealt | Taken |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 384 | 74.5 [70.1, 78.6] | 74.0 / 75.0 | 0.269 [0.218, 0.318] | 0.76 | 0.252 [0.183, 0.322] | 0.51 | 0 | 61.8 | 2.20 | 1.42 |
+| x0.75 | 384 | 58.7 [53.4, 63.8] | 60.7 / 56.8 | 0.113 [0.053, 0.169] | 0.28 | 0.096 [0.014, 0.176] | 0.17 | 1 | 59.3 | 2.08 | 1.73 |
+| x0.90 | 384 | 58.3 [53.6, 63.0] | 54.7 / 62.0 | 0.084 [0.031, 0.138] | 0.22 | 0.067 [-0.005, 0.142] | 0.13 | 0 | 59.1 | 2.09 | 1.77 |
+| x1.00 (control) | 384 | 50.3 [45.1, 55.2] | 54.7 / 45.8 | 0.017 [-0.039, 0.071] | 0.04 | -- | -- | 0 | 59.5 | 1.89 | 1.89 |
+| x1.10 | 384 | 47.1 [41.7, 52.6] | 45.3 / 49.0 | -0.052 [-0.112, 0.008] | -0.12 | -0.069 [-0.152, 0.016] | -0.12 | 0 | 57.8 | 1.76 | 1.95 |
+| x1.25 | 384 | 46.1 [40.6, 51.3] | 45.8 / 46.4 | -0.029 [-0.093, 0.034] | -0.06 | -0.046 [-0.136, 0.044] | -0.07 | 0 | 56.9 | 1.81 | 1.93 |
+| x1.50 | 384 | 38.8 [33.9, 44.0] | 37.5 / 40.1 | -0.131 [-0.188, -0.074] | -0.32 | -0.147 [-0.222, -0.069] | -0.27 | 0 | 57.2 | 1.67 | 2.08 |
+| x2.00 | 384 | 45.3 [40.6, 50.3] | 49.5 / 41.1 | -0.057 [-0.114, -0.000] | -0.14 | -0.074 [-0.151, 0.006] | -0.13 | 0 | 52.9 | 1.73 | 1.89 |
+
+
+
+
+| Level | Knockdowns | Other's knockdowns | Time down % | Other's time down % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 7.05 | 6.20 | 33.1 | 28.6 |
+| x0.75 | 5.95 | 5.35 | 28.1 | 26.1 |
+| x0.90 | 5.31 | 5.01 | 26.5 | 25.0 |
+| x1.00 | 4.90 | 4.79 | 23.9 | 23.5 |
+| x1.10 | 4.12 | 4.45 | 21.0 | 22.0 |
+| x1.25 | 3.58 | 4.34 | 18.8 | 22.5 |
+| x1.50 | 2.94 | 3.96 | 14.6 | 19.9 |
+| x2.00 | 1.75 | 3.43 | 9.2 | 18.9 |
+
+| Level | Severed | Other's severed |
+| --- | ---: | ---: |
+| x0.50 | 0.30 | 0.80 |
+| x0.75 | 0.46 | 0.66 |
+| x0.90 | 0.52 | 0.68 |
+| x1.00 | 0.59 | 0.57 |
+| x1.10 | 0.61 | 0.54 |
+| x1.25 | 0.67 | 0.57 |
+| x1.50 | 0.75 | 0.48 |
+| x2.00 | 0.70 | 0.54 |
+
+| Level | Contacts | Other's contacts | Real blows % | Other's real blows % |
+| --- | ---: | ---: | ---: | ---: |
+| x0.50 | 193.3 | 190.5 | 15.5 | 13.1 |
+| x0.75 | 183.8 | 188.3 | 14.6 | 12.7 |
+| x0.90 | 187.5 | 191.2 | 13.7 | 13.4 |
+| x1.00 | 191.8 | 189.9 | 12.9 | 13.0 |
+| x1.10 | 188.8 | 184.9 | 11.9 | 12.7 |
+| x1.25 | 182.2 | 176.4 | 12.0 | 13.0 |
+| x1.50 | 185.3 | 179.7 | 11.2 | 12.7 |
+| x2.00 | 181.2 | 165.4 | 10.4 | 13.2 |
+
+**On the skeleton, lighter wins.** x0.5 takes 74.5 % (d 0.51 against the control), x0.75 58.7 % and
+x0.9 58.3 %; x1.5 takes 38.8 % (d -0.27), and x2 reads 45.3 % with an interval that touches the
+control's. Inside the row's range that is about +8 points at x0.9 and -11 at x1.5. Knockdowns fall
+with weight exactly as they do on stone, 7.05 a bout at x0.5 and 1.75 at x2, so the heavy skeleton
+stays up and loses anyway.
+
+**What a light skeleton gains is in the exchange, not the floor.** It deals 2.20 a bout and takes
+1.42 at x0.5, against 1.89 each way at x1. It loses 0.30 of its own modules a bout rather than 0.59,
+and severs 0.80 of the other's rather than 0.57. Its share of contacts that are real blows is 15.5 %
+against 12.9 %, and at x2 it is 10.4 %. Neither half is isolated: part health does not move with
+weight, so a light body taking less damage has to come from how blows reach it, and the stroke
+timing stretch above (`strokeInertiaScale`) applies to the skeleton's arm as well. Both are
+hypotheses.
+
+**So weight has no winning end on either body.** On stone it is flat to x1.5 and costs at x2; on the
+skeleton it is a monotone cost from x0.5 up. The row keeps x0.8 to x2, because the bench floor is
+where the arm stops ringing and nothing here says a heavy body breaks. But a player choosing weight
+is choosing to stay on their feet at the price of the fight, and on the skeleton they lose it.

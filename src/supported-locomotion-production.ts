@@ -23,7 +23,7 @@ import {
   type WorldPoint,
 } from "./supported-locomotion-runtime.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
-import { initialSupportedLocomotionState, recoveredRiseS, risingFloorS, stabilityCapacity, stepSupportedLocomotionState,
+import { initialSupportedLocomotionState, recoveredRiseS, risingFloorS, sizeTime, stabilityCapacity, stepSupportedLocomotionState,
   SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState,
   type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 /**
@@ -311,9 +311,11 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       recoveryTarget.y - root.position.y, recoveryTarget.z - root.position.z);
     // The rise under way keeps the length it began with; a prospective one is asked for afresh, of
     // the body at x1, and then divided by its recovery stat here, so every body's rise answers to
-    // the stat on one rule (`recoveredRiseS`).
+    // the stat on one rule (`recoveredRiseS`). A body that states no rise of its own takes the frozen
+    // one at its size, which is a time (`sizeTime`).
     const risingDurationS = this.rising?.durationS ?? recoveredRiseS(
-      this.options.risingDuration?.(recoveryDistanceM) ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S,
+      this.options.risingDuration?.(recoveryDistanceM)
+        ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeTime(authority),
       recoveryDistanceM, SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2, authority);
     const recoveryWithinAccelerationLimit = 6 * recoveryDistanceM /
       (risingDurationS * risingDurationS) <= SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2;

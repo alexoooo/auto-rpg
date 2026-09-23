@@ -1,7 +1,8 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { HandIntent } from "../../../mind.ts";
-import { CHAIN_REACH } from "../../config.ts";
+import { attributeOf, withSize } from "../../attributes.ts";
+import { CHAIN_REACH, CHAIN_REACH_SIZE } from "../../config.ts";
 import {
   defineChain,
   rodInertia,
@@ -53,7 +54,8 @@ export const reachChain = defineChain({
   // `carriedKg` is not read: the forearm is 8.8 kg and held a 27 kg bar to 1.3 mm of tip error
   // on the bench; the rule is the wrist's until a heavier terminal says otherwise.
   build(ctx: ModuleBuild, limits: ChainLimits | null, crossing: ChainCrossing | null): BuiltChain {
-    const R = CHAIN_REACH;
+    // At the body's size (`withSize`), for the settled band below; the core sizes its own copy.
+    const R = withSize(CHAIN_REACH, CHAIN_REACH_SIZE, attributeOf(ctx, "size"));
     const core = buildArmCore(ctx, limits, crossing);
     // **The narrowed number, read back out of the core rather than out of `CHAIN_REACH`.** A
     // two-socket terminal takes reach away from this chain, and the weld point's own distance

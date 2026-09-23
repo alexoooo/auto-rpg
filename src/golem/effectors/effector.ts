@@ -2,13 +2,15 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { Striking } from "../../combat.ts";
 import type { HandIntent } from "../../mind.ts";
-import { attributeOf } from "../attributes.ts";
+import { attributeOf, SIZE_LAW_POWER, withSize, type SizeLaws } from "../attributes.ts";
 import {
   EFFECTOR_SLOTS,
   rodInertia,
   type BuiltChain,
   type BuiltModule,
   type BuiltTerminal,
+  type ChainCrossing,
+  type ChainLimits,
   type EffectorAxisView,
   type EffectorChainDefinition,
   type EffectorStroke,
@@ -19,6 +21,19 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
+
+/**
+ * How a terminal's narrowing of the chain, and a two-socket terminal's crossing, follow the body's
+ * size stat (`SizeLaw` in `../attributes.ts`). **The terminal is an item and keeps its size; what
+ * it narrows is the arm.** Its metres are metres of arm -- the plate's floor on reach, the maul's
+ * window, the inboard carry -- so they go with the arm the way `onBoneArm` in
+ * `../skeleton/body.ts` fits them onto a shorter one, and its radians are radians on any arm.
+ */
+export const CHAIN_LIMITS_SIZE: SizeLaws<ChainLimits> = {
+  reachMin: "length", reachMax: "length", swingMin: "one", swingMax: "one", liftMin: "one",
+  liftMax: "one", carryMin: "length", rollMax: "one", bendMax: "one",
+};
+export const CHAIN_CROSSING_SIZE: SizeLaws<ChainCrossing> = { swingMin: "one", carryMin: "length" };
 
 /**
  * An effector module is a chain and a terminal, chosen independently.
@@ -84,7 +99,9 @@ export function effectorModule(
     itemMassKg: terminal?.massKg ?? 0,
 
     build(ctx: ModuleBuild): BuiltModule<HandIntent> {
-      const built = chain.build(ctx, terminal?.limits ?? null, null, terminal?.massKg ?? 0);
+      const size = attributeOf(ctx, "size");
+      const limits = terminal?.limits ? withSize(terminal.limits, CHAIN_LIMITS_SIZE, size) : null;
+      const built = chain.build(ctx, limits, null, terminal?.massKg ?? 0);
 
       // The trailing chain is built before the terminal, because the terminal needs its weld --
       // and everything built here is taken down again if any of the four refusals fires, which
@@ -119,7 +136,7 @@ export function effectorModule(
             // and a ring cast for half a maul is a ring that sags whenever it is the one holding it.
             second = chain.build(
               { ...ctx, name: `${ctx.name}.trailing`, socket: companion },
-              null, terminal.crossing, terminal.massKg,
+              null, withSize(terminal.crossing, CHAIN_CROSSING_SIZE, size), terminal.massKg,
             );
             if (!second.weld) {
               throw new Error(`${id}: chain "${chain.id}" hands out no weld for a trailing grip`);
@@ -205,8 +222,11 @@ export function effectorModule(
       // does: a two-handed bar is carried by two arms and there is still one bar.
       //
       // The body's weight stat multiplies the chain's share and not the terminal's, which is an
-      // item (`withWeight`); every link is a rod whose inertia is linear in its mass.
+      // item (`withWeight`); every link is a rod whose inertia is linear in its mass. Its size stat
+      // multiplies the chain's share by its law, a mass times a length squared (`SizeLaw`), and
+      // reaches the terminal's through `built.reach`, the sized arm it hangs from.
       const swingInertia = chain.swingInertia * sockets * attributeOf(ctx, "weight")
+        * size ** SIZE_LAW_POWER.inertia
         + rodInertia(terminal?.massKg ?? 0, built.reach, tipToSocket);
       const envelope: ModuleEnvelope = Object.freeze({
         ...(chainEnvelope.fullOrientation ? { fullOrientation: true } : {}),

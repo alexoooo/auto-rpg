@@ -32,7 +32,9 @@ import {
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
 import { slewTowards } from "../anchor-drive.ts";
-import { BENCH_STAND_LOCOMOTION, LOCOMOTION_BIPED } from "../config.ts";
+import {
+  BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, LOCOMOTION_BIPED, LOCOMOTION_BIPED_SIZE,
+} from "../config.ts";
 import { materialForGolemRole } from "../materials.ts";
 import { boneFootShell, bonePelvisShell } from "../bone-shells.ts";
 import { LIMB_SHELL, type ShellLook } from "../effectors/shell.ts";
@@ -43,7 +45,7 @@ import {
   type ModuleBuild,
   type ModuleEnvelope,
 } from "../module.ts";
-import { attributeOf, withMovement, withRecovery, withTurning, withWeight } from "../attributes.ts";
+import { attributeOf, withMovement, withRecovery, withSize, withTurning, withWeight } from "../attributes.ts";
 import {
   LocomotionReadout,
   blankLocomotionEvidence,
@@ -372,9 +374,13 @@ return defineLocomotion({
     // lie shortened by its recovery stat (`withRecovery`).
     const recovery = attributeOf(ctx, "recovery");
     // And its parts' masses times its weight stat (`withWeight`), which `ownMassKg` below reads too.
-    const B = withWeight(withRecovery(bipedAtMovement(withTurning(table, attributeOf(ctx, "turning")),
+    // Then every field at its size stat by its law (`withSize`), the stats above included: a larger
+    // body walks as a larger body does, with each of them on top.
+    const size = attributeOf(ctx, "size");
+    const B = withSize(withWeight(withRecovery(bipedAtMovement(withTurning(table, attributeOf(ctx, "turning")),
       attributeOf(ctx, "movement")), recovery),
-    ["pelvisMass", "thighMass", "shinMass", "footMass"], attributeOf(ctx, "weight"));
+    ["pelvisMass", "thighMass", "shinMass", "footMass"], attributeOf(ctx, "weight")),
+    LOCOMOTION_BIPED_SIZE, size);
     // The stability stat, published on every authority this body hands its port as a plain factor
     // on its thresholds (`stabilityCapacity` in `src/supported-locomotion-state.ts`).
     const stability = attributeOf(ctx, "stability");
@@ -535,7 +541,7 @@ return defineLocomotion({
     /** The load, from the mount at build or from `carry` afterwards. Never both. */
     let load: Part | null = carriedAtBuild ? ctx.socket.mount : null;
     let carriedMassKg = carriedAtBuild ? ctx.socket.mount.body.getMassProperties().mass ?? 0 : 0;
-    const L = BENCH_STAND_LOCOMOTION;
+    const L = withSize(BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, size);
     let waist: Physics6DoFConstraint | null = carriedAtBuild
       ? joint(ctx.scene, pelvis, ctx.socket.mount, {
         pivotParent: new Vector3(0, B.pelvisHeight / 2, 0),
@@ -837,6 +843,7 @@ return defineLocomotion({
         gaitStabilityScale: scale,
         stabilityScale: stability,
         recoveryScale: recovery,
+        sizeScale: size,
       });
     };
 
@@ -871,9 +878,11 @@ return defineLocomotion({
         lyingS >= B.knockdown.maxLyingSeconds,
       // The lift is a smoothstep, whose peak speed is 1.5 times its mean: so a rise over `d` metres
       // that may not exceed `risePeakMps` lasts at least 1.5 d / risePeakMps.
+      // The frozen floor is a time, so it goes as the square root of the size (`SizeLaw`).
       risingDuration: (distanceM: number): number => B.knockdown === null
-        ? SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S
-        : Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S, 1.5 * distanceM / B.knockdown.risePeakMps),
+        ? SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * Math.sqrt(size)
+        : Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * Math.sqrt(size),
+          1.5 * distanceM / B.knockdown.risePeakMps),
       riseHoldsThroughHits: B.knockdown?.riseHoldsThroughHits === true,
 
       /**
@@ -1036,8 +1045,10 @@ return defineLocomotion({
       // at `yaw * hipSide` whatever the body does, and `bipedPose` has already worked out each
       // foot's own travel, so this asks it rather than re-deriving it.
       stride += bipedFootSpeed(move, B) * B.strideCadence * dt;
+      // `heightRate` is metres a second and the crouch is a fraction of the crouch, so over the
+      // size it is the fraction a second at every size (`LOCOMOTION_BIPED_SIZE`).
       crouchLevel += clamp((wantedCrouch - crouchLevel) * B.crouchResponse * dt,
-        -B.heightRate * dt, B.heightRate * dt);
+        -B.heightRate / size * dt, B.heightRate / size * dt);
       const pose = bipedPose(stride, move.forward, move.right, move.yaw, crouchLevel, B);
       hipDrop = pose.hipDrop;
       // The *commanded* angle is rate-limited, which is the ceiling that makes a flicked key a
@@ -1177,7 +1188,8 @@ return defineLocomotion({
       reach: standHeight,
       strokes: NO_STROKES,
       reachable: null,
-      settledBand: 0.02,
+      // Metres of height, so at the body's size.
+      settledBand: 0.02 * size,
     });
 
     const disposeJoints = (): void => {

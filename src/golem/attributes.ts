@@ -294,7 +294,9 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * stone with the four probe minds does not win by it: 47.7 % at x0.5, 44.7 % at x1.5 and 43.0 % at
    * x2 (d -0.15 against the control), while its knockdowns go from 14.61 a bout to 0.65. The minds
    * stretch a heavy arm's strokes (`strokeInertiaScale`, 14.4 % at x2) that the arm itself does not
-   * need. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
+   * need. The skeleton duelist's mirror loses by it outright: 74.5 % at x0.5, 58.3 % at x0.9, 38.8 %
+   * at x1.5 (d -0.27) and 45.3 % at x2, with its knockdowns going from 7.05 a bout to 1.75. The
+   * tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
    */
   weight: Object.freeze({ label: "Weight", min: 0.8, max: 2, step: 0.05, live: true }),
   size: pending("Size"),
@@ -517,6 +519,92 @@ function scaledFields<T extends object>(table: T, keys: readonly NumberKey<T>[],
   if (factor === 1) return table;
   const next = { ...table };
   for (const key of keys) (next[key] as number) = (table[key] as number) * factor;
+  return next;
+}
+
+/**
+ * How one field of a body table changes when every length of the body is multiplied by `s`:
+ * geometric similarity at constant density, with the time scale `sqrt(s)` that keeps a body's
+ * motion under the same gravity looking the same (a pendulum's period goes as `sqrt(length)`).
+ *
+ * - `one`: angles, ratios, fractions, health, armour, and anything whose value only matters by
+ *   being set (a joint motor's `motorDamping`, measured to be saturated).
+ * - `length`: `s`. Every metre, including a band and an offset.
+ * - `perLength`: `1 / s`. A stride's radians per metre of foot travel.
+ * - `mass`: `s^3`. The weight stat multiplies on top.
+ * - `inertia`: `s^5`, mass times length squared: a floor stated in kg m2.
+ * - `torque`: `s^4`, what holds a pose against gravity.
+ * - `force`: `s^3`.
+ * - `impulse`: `s^3.5`, a mass times a speed.
+ * - `speed`: `sqrt(s)`, a linear rate in m/s.
+ * - `frequency`: `1 / sqrt(s)`, an angular rate or any per-second rate: a joint's target rate, a
+ *   first-order response, a body's damping.
+ * - `angularAcceleration`: `1 / s`.
+ * - `duration`: `sqrt(s)`.
+ *
+ * A linear acceleration is `one`, since `sqrt(s) / sqrt(s)` is 1.
+ */
+export type SizeLaw =
+  | "one" | "length" | "perLength" | "mass" | "inertia" | "torque" | "force" | "impulse"
+  | "speed" | "frequency" | "angularAcceleration" | "duration";
+
+/** The power of `s` each law multiplies by. */
+export const SIZE_LAW_POWER: Readonly<Record<SizeLaw, number>> = Object.freeze({
+  one: 0, length: 1, perLength: -1, mass: 3, inertia: 5, torque: 4, force: 3, impulse: 3.5,
+  speed: 0.5, frequency: -0.5, angularAcceleration: -1, duration: 0.5,
+});
+
+/** The fields of `T` a size law must be declared for: every number, and every nested record. */
+type SizedKey<T> = { [K in keyof T]-?: NonNullable<T[K]> extends number | object ? K : never }[keyof T];
+type SizeLawFor<V> = [V] extends [number] ? SizeLaw
+  : [V] extends [readonly unknown[]] ? SizeLaw
+  : SizeLaws<V> | "one";
+
+/**
+ * A law for every numeric field of a table, and for every nested record either the laws of its own
+ * fields or `one` to carry it unchanged. **Total by type**: a table that gains a number gains a
+ * compile error here until its law is written, which is the rule that a default branch is a silent
+ * substitution (AGENTS.md). Strings and booleans carry across as they are.
+ */
+export type SizeLaws<T> = { readonly [K in SizedKey<T>]-?: SizeLawFor<NonNullable<T[K]>> };
+
+/**
+ * A body table with every length multiplied by the size stat and every other field by its law, or
+ * the very table it was handed at x1. Session 12, 2026-09-23.
+ *
+ * The type makes a missing law a compile error; this makes it a refusal at build as well, for a
+ * table reached through a cast or a spread the type did not follow, and it refuses a law that names
+ * a field the table does not have, which is a law that has drifted from its table.
+ */
+export function withSize<T extends object>(table: T, laws: SizeLaws<T>, size: number): T {
+  if (size === 1) return table;
+  return scaleByLaws(table, laws as unknown as Record<string, unknown>, size, "") as T;
+}
+
+function scaleByLaws(table: object, laws: Record<string, unknown>, size: number, path: string): object {
+  const next: Record<string, unknown> = { ...(table as Record<string, unknown>) };
+  for (const key of Object.keys(laws)) {
+    if (!(key in table)) throw new Error(`a size law names ${path}${key}, which the table does not have`);
+  }
+  for (const [key, value] of Object.entries(table)) {
+    const law = laws[key];
+    if (typeof value === "number") {
+      if (typeof law !== "string") throw new Error(`no size law for ${path}${key}`);
+      next[key] = value * Math.pow(size, SIZE_LAW_POWER[law as SizeLaw]);
+    } else if (Array.isArray(value)) {
+      if (typeof law !== "string") throw new Error(`no size law for ${path}${key}`);
+      if (law !== "one") {
+        next[key] = value.map((item) => {
+          if (typeof item !== "number") throw new Error(`${path}${key} scales by ${law} and holds a non-number`);
+          return item * Math.pow(size, SIZE_LAW_POWER[law as SizeLaw]);
+        });
+      }
+    } else if (value !== null && typeof value === "object") {
+      if (law === "one") continue;
+      if (law === null || typeof law !== "object") throw new Error(`no size law for ${path}${key}`);
+      next[key] = scaleByLaws(value, law as Record<string, unknown>, size, `${path}${key}.`);
+    }
+  }
   return next;
 }
 

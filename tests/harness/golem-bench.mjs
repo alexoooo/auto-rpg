@@ -1481,8 +1481,9 @@ export async function runGolemLocomotion({
     // locomotion option and could take the fixture's frozen 1.02; three of them stand at 1.02,
     // 1.16 and 0.64, and a module built to somebody else's height would either bury its feet in
     // the block or hang them above the floor. Taken from the definition rather than from a table
-    // here, so the two cannot disagree.
-    socketHeight: definition.heightRange.standM,
+    // here, so the two cannot disagree. A body at a size stat stands that much taller, which is the
+    // arithmetic `Golem` does with the same field.
+    socketHeight: definition.heightRange.standM * (attributes?.size ?? 1),
   });
   const prepared = prepare ? prepare({ scene, world, stand }) : null;
   const module = definition.build({

@@ -85,6 +85,13 @@ export interface StabilityAuthority {
    * per-body number the state machine reads. Absent reads as 1.
    */
   readonly recoveryScale?: number;
+  /**
+   * The body's size stat (`src/golem/attributes.ts`). Every threshold above is a speed -- a blow's
+   * impulse over the supported mass -- and so goes as the square root of the size, and both floors
+   * of a knockdown are times and go the same way (`SizeLaw`). The mass the thresholds divide by is
+   * the body's own and already follows it. Absent reads as 1.
+   */
+  readonly sizeScale?: number;
 }
 
 /**
@@ -97,7 +104,15 @@ export interface StabilityAuthority {
  */
 export function stabilityCapacity(authority: StabilityAuthority | null | undefined): number {
   return (authority?.braceCapacityMultiplier ?? 1) * (authority?.gaitStabilityScale ?? 1)
-    * (authority?.stabilityScale ?? 1);
+    * (authority?.stabilityScale ?? 1) * sizeTime(authority);
+}
+
+/**
+ * The square root of the body's size: the factor on a speed and on a time alike (`SizeLaw`), and
+ * exactly 1 for a body at x1 or an authority that names none.
+ */
+export function sizeTime(authority: StabilityAuthority | null | undefined): number {
+  return Math.sqrt(authority?.sizeScale ?? 1);
 }
 
 /**
@@ -105,7 +120,7 @@ export function stabilityCapacity(authority: StabilityAuthority | null | undefin
  * the dwell is divided; the state machine and both request helpers read it here.
  */
 export function fallenDwellS(authority: StabilityAuthority | null | undefined): number {
-  return SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S / (authority?.recoveryScale ?? 1);
+  return SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S * sizeTime(authority) / (authority?.recoveryScale ?? 1);
 }
 
 /**
@@ -113,7 +128,7 @@ export function fallenDwellS(authority: StabilityAuthority | null | undefined): 
  * rise past this and never shorten one under it.
  */
 export function risingFloorS(authority: StabilityAuthority | null | undefined): number {
-  return SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S / (authority?.recoveryScale ?? 1);
+  return SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * sizeTime(authority) / (authority?.recoveryScale ?? 1);
 }
 
 /**

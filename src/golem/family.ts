@@ -1,3 +1,4 @@
+import type { AttributeId } from "./attributes.ts";
 import type { ChainId } from "./module.ts";
 
 /**
@@ -18,6 +19,36 @@ export const isBodyFamily = (value: unknown): value is BodyFamily =>
 /** What the setup screen's button for each family says. */
 export const FAMILY_LABEL: Readonly<Record<BodyFamily, string>> =
   Object.freeze({ human: "Human warrior", golem: "Stone golem", skeleton: "Skeleton" });
+
+/**
+ * The stats a family's bodies are built at x1 whatever is asked, and why. Total, so a new family
+ * says what it cannot follow.
+ *
+ * **A human is the size it is.** Its skin is one fitted model (`warrior.glb`) and its arm's lengths
+ * are literals in `humanoid/kinematics.ts`, so neither follows a size law (session 12 of the
+ * attribute plan set, 2026-09-23). `golemSetupRefusal` refuses a human build at any other size,
+ * the corner and hero reducers drop the stat when a body becomes human, and the panels show it
+ * fixed with this reason.
+ */
+export const FAMILY_FIXED_ATTRIBUTES: Readonly<Record<BodyFamily, Readonly<Partial<Record<AttributeId, string>>>>> =
+  Object.freeze({
+    human: Object.freeze({
+      size: "a human's skin is a fixed-size model and its arm's lengths are fixed",
+    }),
+    golem: Object.freeze({}),
+    skeleton: Object.freeze({}),
+  });
+
+/** A setting without the stats this family fixes, or the very setting when it fixes none of them. */
+export function withoutFixedAttributes<T extends Partial<Record<AttributeId, number>>>(
+  setting: T | undefined, family: BodyFamily,
+): T | undefined {
+  const fixed = Object.keys(FAMILY_FIXED_ATTRIBUTES[family]);
+  if (!setting || !fixed.some((id) => id in setting)) return setting;
+  const next: Partial<Record<string, number>> = { ...setting };
+  for (const id of fixed) delete next[id];
+  return next as T;
+}
 
 /** The policy a corner is given when a person picks the family's button. */
 export const FAMILY_POLICY: Readonly<Record<BodyFamily, string>> =

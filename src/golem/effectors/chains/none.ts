@@ -4,8 +4,8 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 import type { HandCursor } from "../../../mind.ts";
 import { COLLIDES, LAYER } from "../../../physics.ts";
 import { capsulePart, joint } from "../../../rig.ts";
-import { attributeOf, withWeight } from "../../attributes.ts";
-import { CHAIN_NONE } from "../../config.ts";
+import { attributeOf, withSize, withWeight } from "../../attributes.ts";
+import { CHAIN_NONE, CHAIN_NONE_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
   NO_ENVELOPE_AXES,
@@ -83,7 +83,9 @@ export const noneChain = defineChain({
 
   build(ctx: ModuleBuild): BuiltChain {
     // The body's weight stat, on the cap's mass and so on the blow it lands with (`withWeight`).
-    const C = withWeight(CHAIN_NONE, ["capMass"], attributeOf(ctx, "weight"));
+    // Then every field at its size stat by its law (`withSize`).
+    const C = withSize(withWeight(CHAIN_NONE, ["capMass"], attributeOf(ctx, "weight")),
+      CHAIN_NONE_SIZE, attributeOf(ctx, "size"));
     const name = `${ctx.name}.cap`;
     const socket = ctx.socket;
 

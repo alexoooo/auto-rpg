@@ -12,8 +12,8 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { Striking } from "../../combat.ts";
 import { boxPart, capsulePart, joint } from "../../rig.ts";
 import { slewTowards } from "../anchor-drive.ts";
-import { attributeOf } from "../attributes.ts";
-import { TORSO_WAIST } from "../config.ts";
+import { attributeOf, withSize, type SizeLaws } from "../attributes.ts";
+import { TORSO_WAIST, TORSO_WAIST_SIZE } from "../config.ts";
 import { ribcageShell } from "../bone-shells.ts";
 import { JOINT_SHELL, type ShellLook } from "../effectors/shell.ts";
 import { materialForGolemRole, type GolemMaterialPalette } from "../materials.ts";
@@ -104,6 +104,14 @@ export interface TorsoTuning {
   /** How the core and its sockets are drawn. See `ShellLook`. */
   readonly look: ShellLook;
 }
+
+/** How a `TorsoTuning` follows the size stat (`SizeLaw` in `../attributes.ts`). */
+export const TORSO_SIZE: SizeLaws<TorsoTuning> = {
+  coreWidth: "length", coreHeight: "length", coreDepth: "length", coreMass: "mass", coreHealth: "one",
+  coreVitalityWeight: "one", coreArmour: "one",
+  socketSide: "length", socketHeight: "length", socketFront: "length", neckHeight: "length",
+  leanMax: "one", twistMax: "one",
+};
 
 /**
  * A built torso: a module that also hands out the three sockets it carries.
@@ -209,16 +217,20 @@ export function torsoModule(
   id: string,
   label: string,
   tuning: TorsoTuning,
-  W: typeof TORSO_WAIST = TORSO_WAIST,
+  waist: typeof TORSO_WAIST = TORSO_WAIST,
 ): TorsoModuleDefinition {
   return Object.freeze({
     id,
     slots: Object.freeze<GolemSlot[]>(["torso"]),
     label,
-    massKg: W.ballMass + tuning.coreMass,
+    massKg: waist.ballMass + tuning.coreMass,
 
     build(ctx: ModuleBuild): BuiltTorso {
-      const T = tuning;
+      // This body's own tables at its size stat (`withSize`): every length, mass and ceiling below,
+      // the shells and the three sockets it hands out included, follows from these two.
+      const size = attributeOf(ctx, "size");
+      const T = withSize(tuning, TORSO_SIZE, size);
+      const W = withSize(waist, TORSO_WAIST_SIZE, size);
       // The body's weight stat, on both parts' masses (`withWeight`); nothing here derives from them.
       const weight = attributeOf(ctx, "weight");
       const socket = ctx.socket;

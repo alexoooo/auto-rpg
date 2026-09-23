@@ -1,3 +1,4 @@
+import type { SizeLaws } from "./attributes.ts";
 import type { ShellLook } from "./effectors/shell.ts";
 
 /**
@@ -290,6 +291,13 @@ export const CHAIN_NONE = {
   settledBand: 0.02,
 };
 
+/** How `CHAIN_NONE` follows the size stat (`SizeLaw` in `./attributes.ts`). */
+export const CHAIN_NONE_SIZE: SizeLaws<typeof CHAIN_NONE> = {
+  capLength: "length", capRadius: "length", capMass: "mass", capHealth: "one", capVitalityWeight: "one",
+  // Metres of tip against the cap's commanded point.
+  settledBand: "length",
+};
+
 /**
  * Rung 1, `pitch`: one hinge at the socket about the side axis, and a short link.
  *
@@ -565,6 +573,16 @@ export const CHAIN_PITCH = {
    * against. 2026-09-04.
    */
   settledBand: 0.02,
+};
+
+/** How `CHAIN_PITCH` follows the size stat (`SizeLaw` in `./attributes.ts`). */
+export const CHAIN_PITCH_SIZE: SizeLaws<typeof CHAIN_PITCH> = {
+  linkLength: "length", linkRadius: "length", linkMass: "mass", linkHealth: "one", linkVitalityWeight: "one",
+  pitchMin: "one", pitchMax: "one", jointMin: "one", jointMax: "one", restPitch: "one",
+  targetRate: "frequency", motorTorque: "torque",
+  linearDamping: "frequency", angularDamping: "frequency",
+  // Radians, against the pitch axis.
+  settledBand: "one",
 };
 
 /**
@@ -1121,6 +1139,28 @@ export const CHAIN_REACH = {
 };
 
 /**
+ * How `CHAIN_REACH` follows the size stat (`SizeLaw` in `./attributes.ts`). `carryMin` is metres
+ * of arm, as `onBoneArm` in `./skeleton/body.ts` already treats it, and `settledBand` is metres
+ * against the reach axis.
+ */
+export const CHAIN_REACH_SIZE: SizeLaws<typeof CHAIN_REACH> = {
+  collarLength: "length", collarRadius: "length", collarMass: "mass", collarHealth: "one",
+  collarVitalityWeight: "one",
+  upperLength: "length", upperRadius: "length", upperMass: "mass", upperHealth: "one",
+  upperVitalityWeight: "one",
+  foreLength: "length", foreRadius: "length", foreMass: "mass", foreHealth: "one",
+  foreVitalityWeight: "one",
+  reachMin: "length", reachMax: "length", reachNeutral: "length",
+  swingMin: "one", swingMax: "one", liftMin: "one", liftMax: "one", carryMin: "length",
+  jointMargin: "one", pitchJointMin: "one", pitchJointMax: "one", elbowJointMin: "one", elbowJointMax: "one",
+  anchorRate: "speed", acquireSeconds: "duration",
+  jointInertiaFloor: "inertia", jointResponse: "frequency", targetResponse: "frequency",
+  yawTorque: "torque", shoulderTorque: "torque", elbowTorque: "torque",
+  linearDamping: "frequency", angularDamping: "frequency",
+  settledBand: "length",
+};
+
+/**
  * Rung 3, `wrist`: the reach chain plus a roll ring and a bend link, and nothing else.
  *
  * **Ownership is split by axis, not doubled.** The shoulder and elbow stay on the position-only
@@ -1530,6 +1570,22 @@ export const CHAIN_WRIST = {
   angularDamping: 3,
   /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
   look: "carved" as ShellLook,
+};
+
+/**
+ * How `CHAIN_WRIST` follows the size stat (`SizeLaw` in `./attributes.ts`). The two casts,
+ * `carryRatio` and `gripInertiaRatio`, are ratios to what the hand holds, which is an item and
+ * keeps its own size.
+ */
+export const CHAIN_WRIST_SIZE: SizeLaws<typeof CHAIN_WRIST> = {
+  ringLength: "length", ringRadius: "length", ringMass: "mass", ringHealth: "one", ringVitalityWeight: "one",
+  wristLength: "length", wristRadius: "length", wristMass: "mass", wristHealth: "one",
+  wristVitalityWeight: "one",
+  carryRatio: "one", gripInertiaRatio: "one",
+  rollMin: "one", rollMax: "one", bendMin: "one", bendMax: "one", jointMargin: "one",
+  rollRate: "frequency", bendRate: "frequency", rollTorque: "torque", bendTorque: "torque",
+  liftCeiling: "one", motorDamping: "one",
+  linearDamping: "frequency", angularDamping: "frequency",
 };
 
 /**
@@ -2389,6 +2445,16 @@ export const BENCH_STAND_LOCOMOTION = {
 };
 
 /**
+ * How `BENCH_STAND_LOCOMOTION` follows the size stat (`SizeLaw` in `./attributes.ts`). A golem's
+ * locomotion builds its waist joint from the waist fields; the stand's own height and block are the
+ * bench's and are read unscaled there.
+ */
+export const BENCH_STAND_LOCOMOTION_SIZE: SizeLaws<typeof BENCH_STAND_LOCOMOTION> = {
+  socketHeight: "length", mass: "mass",
+  waistTorque: "torque", waistDamping: "one", waistLean: "one", waistTwist: "one",
+};
+
+/**
  * A knockdown that runs its course, for a biped whose table sets one.
  *
  * - **The whole body goes limp.** While it lies, every motor above the legs falls to
@@ -2423,6 +2489,17 @@ export interface Knockdown {
   readonly risePeakMps: number;
   readonly riseHoldsThroughHits: boolean;
 }
+
+/** How a carrier's travel follows the size stat (`SizeLaw` in `./attributes.ts`). */
+const CARRIER_SIZE = {
+  maxSpeedMps: "speed", backSpeedMps: "speed", strafeSpeedMps: "speed", maxAccelerationMps2: "one",
+  maxYawSpeedRadS: "frequency", maxYawAccelerationRadS2: "angularAcceleration",
+} as const;
+
+/** How a `Knockdown` follows the size stat: its two speeds and its two times. */
+const KNOCKDOWN_SIZE: SizeLaws<Knockdown> = {
+  restSpeedMps: "speed", restSeconds: "duration", maxLyingSeconds: "duration", risePeakMps: "speed",
+};
 
 /**
  * The biped: a pelvis carrier on two legs of thigh, shin and foot.
@@ -3069,6 +3146,38 @@ export const LOCOMOTION_BIPED = {
 };
 
 /**
+ * How the biped's table follows the size stat (`SizeLaw` in `./attributes.ts`), and so the
+ * skeleton's and the human's, which spread it.
+ *
+ * `heightRate` is metres a second where it bounds the pelvis's lift and the envelope's height
+ * axis, so it is a speed; the crouch divides it by the size where it reads it as a fraction of the
+ * crouch a second. `shoveImpulseNs` is the bench's knockdown, a mass times a speed.
+ */
+export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
+  pelvisWidth: "length", pelvisHeight: "length", pelvisDepth: "length", pelvisMass: "mass",
+  pelvisHealth: "one", pelvisVitalityWeight: "one",
+  hipHeight: "length", hipSide: "length", hipInset: "length",
+  thighLength: "length", thighRadius: "length", thighMass: "mass", thighHealth: "one",
+  thighVitalityWeight: "one",
+  shinLength: "length", shinRadius: "length", shinMass: "mass", shinHealth: "one", shinVitalityWeight: "one",
+  footLength: "length", footWidth: "length", footHeight: "length", footMass: "mass", footHealth: "one",
+  footVitalityWeight: "one", footFriction: "one",
+  hipSwingMin: "one", hipSwingMax: "one", hipAbduct: "one", hipTwist: "one", hipJointMin: "one",
+  hipJointMax: "one", kneeTargetMin: "one", kneeTargetMax: "one", kneeJointMin: "one", kneeJointMax: "one",
+  ankleTargetMin: "one", ankleTargetMax: "one", ankleJointMin: "one", ankleJointMax: "one", ankleRoll: "one",
+  strideCadence: "perLength", strideSwing: "one", kneeLiftScale: "one", kneeLiftPhase: "one",
+  strideAbduct: "one", plantBandM: "length", targetRate: "frequency",
+  hipTorque: "torque", kneeTorque: "torque", ankleTorque: "torque", fallenTorqueScale: "one",
+  knockdown: KNOCKDOWN_SIZE,
+  motorDamping: "one", linearDamping: "frequency", angularDamping: "frequency",
+  crouchDepth: "length", crouchResponse: "frequency", heightRate: "speed",
+  carrier: CARRIER_SIZE,
+  footprintRadius: "length", footprintHeight: "length",
+  braceCapacityMultiplier: "one", gaitStabilityScaleMin: "one",
+  shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
+};
+
+/**
  * The waist: the joint every torso option hangs on, and the motors that hold it.
  *
  * A subsystem block rather than a copy in each option, because what differs between a plain
@@ -3248,6 +3357,16 @@ export const TORSO_WAIST = {
   settledBand: 0.02,
   /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
   look: "carved" as ShellLook,
+};
+
+/** How `TORSO_WAIST` follows the size stat (`SizeLaw` in `./attributes.ts`). */
+export const TORSO_WAIST_SIZE: SizeLaws<typeof TORSO_WAIST> = {
+  ballLength: "length", ballRadius: "length", ballMass: "mass", ballHealth: "one", ballVitalityWeight: "one",
+  jointMargin: "one", leanTorque: "torque", twistTorque: "torque",
+  leanRate: "frequency", twistRate: "frequency", motorDamping: "one",
+  linearDamping: "frequency", angularDamping: "frequency",
+  // Radians, against the lean axis.
+  settledBand: "one",
 };
 
 /**
@@ -3599,6 +3718,19 @@ export const HEAD_NECK = {
   settledBand: 0.02,
   /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
   look: "carved" as ShellLook,
+};
+
+/** How `HEAD_NECK` follows the size stat (`SizeLaw` in `./attributes.ts`). */
+export const HEAD_NECK_SIZE: SizeLaws<typeof HEAD_NECK> = {
+  neckLength: "length", neckRadius: "length", neckMass: "mass", neckHealth: "one", neckVitalityWeight: "one",
+  headWidth: "length", headHeight: "length", headDepth: "length", headMass: "mass", headHealth: "one",
+  headVitalityWeight: "one", headArmour: "one", browOffset: "length",
+  pitchMin: "one", pitchMax: "one", restPitch: "one", pitchJointMin: "one", pitchJointMax: "one",
+  yawJointMin: "one", yawJointMax: "one",
+  pitchRate: "frequency", pitchTorque: "torque", yawTorque: "torque", motorDamping: "one",
+  linearDamping: "frequency", angularDamping: "frequency",
+  // Radians, against the pitch axis.
+  settledBand: "one",
 };
 
 /**
@@ -4637,6 +4769,21 @@ export const LOCOMOTION_WHEEL = {
   riseBudgetSeconds: 1.60,
 };
 
+/** How the wheel's table follows the size stat (`SizeLaw` in `./attributes.ts`). */
+export const LOCOMOTION_WHEEL_SIZE: SizeLaws<typeof LOCOMOTION_WHEEL> = {
+  wheelRadius: "length", wheelWidth: "length", wheelMass: "mass", wheelHealth: "one",
+  wheelVitalityWeight: "one",
+  yokeWidth: "length", yokeHeight: "length", yokeDepth: "length", yokeMass: "mass", yokeHealth: "one",
+  yokeVitalityWeight: "one",
+  forkClearance: "length", wheelFriction: "one", wheelSpinTorque: "torque", motorDamping: "one",
+  linearDamping: "frequency", angularDamping: "frequency", fallenTorqueScale: "one",
+  plantBandM: "length", heightRate: "speed",
+  carrier: CARRIER_SIZE,
+  footprintRadius: "length", footprintHeight: "length",
+  braceCapacityMultiplier: "one", gaitStabilityScaleStand: "one", gaitStabilityScaleMin: "one",
+  shoveImpulseNs: "impulse", meanContactSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
+};
+
 /**
  * The multileg: a low, wide chassis on six short legs in a tripod gait. **Session 06.**
  *
@@ -5101,4 +5248,27 @@ export const LOCOMOTION_MULTILEG = {
    *  dwell plus the frozen 0.45 s rise is the floor; 1.60 s is `LOCOMOTION_BIPED`'s own budget and
    *  this is the same number for the same reason. **Provisional.** 2026-09-04. */
   riseBudgetSeconds: 1.60,
+};
+
+/** How the multileg's table follows the size stat (`SizeLaw` in `./attributes.ts`). */
+export const LOCOMOTION_MULTILEG_SIZE: SizeLaws<typeof LOCOMOTION_MULTILEG> = {
+  chassisWidth: "length", chassisHeight: "length", chassisDepth: "length", chassisMass: "mass",
+  chassisHealth: "one", chassisVitalityWeight: "one",
+  hipSide: "length", hipStation: "length", hipInset: "length",
+  femurLength: "length", femurRadius: "length", femurMass: "mass", femurHealth: "one",
+  femurVitalityWeight: "one",
+  shinLength: "length", shinRadius: "length", shinMass: "mass", shinHealth: "one", shinVitalityWeight: "one",
+  footLength: "length", footWidth: "length", footHeight: "length", footMass: "mass", footHealth: "one",
+  footVitalityWeight: "one", footFriction: "one",
+  hipSwingMin: "one", hipSwingMax: "one", hipAbduct: "one", hipTwist: "one", hipJointMin: "one",
+  hipJointMax: "one", kneeTargetMin: "one", kneeTargetMax: "one", kneeJointMin: "one", kneeJointMax: "one",
+  ankleTargetMin: "one", ankleTargetMax: "one", ankleJointMin: "one", ankleJointMax: "one", ankleRoll: "one",
+  strideCadence: "perLength", strideSwing: "one", kneeLiftScale: "one", kneeLiftPhase: "one",
+  plantBandM: "length", targetRate: "frequency", heightRate: "speed",
+  hipTorque: "torque", kneeTorque: "torque", ankleTorque: "torque", fallenTorqueScale: "one",
+  motorDamping: "one", linearDamping: "frequency", angularDamping: "frequency",
+  carrier: CARRIER_SIZE,
+  footprintRadius: "length", footprintHeight: "length",
+  braceCapacityMultiplier: "one", gaitStabilityScaleMin: "one",
+  shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
