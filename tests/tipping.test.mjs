@@ -21,16 +21,21 @@ test("the hull is the convex outline, counter-clockwise, whatever order its poin
   assert.deepEqual(hull, [[-1, -1], [1, -1], [1, 1], [-1, 1]]);
 });
 
-test("the base reaches the hull's edge along a ray, and nowhere from outside it", () => {
+test("the base reaches the edge its ray leaves by, and from outside only back across it", () => {
   const hull = convexHull([[-0.2, -0.1], [0.3, -0.1], [0.3, 0.1], [-0.2, 0.1]]);
   close(baseReachM(hull, 1, 0), 0.3, 1e-12, "+x");
   close(baseReachM(hull, -1, 0), 0.2, 1e-12, "-x");
   close(baseReachM(hull, 0, 1), 0.1, 1e-12, "+z");
   // A diagonal meets the nearer edge: z reaches 0.1 at 0.1 * sqrt(2).
   close(baseReachM(hull, 1, 1), 0.1 * Math.SQRT2, 1e-12, "diagonal");
+  // A centre of mass outside its base is past the edges on its own side: pushed further away it
+  // goes over at any touch, and pushed back it is carried across and over the far edge.
   const outside = convexHull([[0.1, -0.1], [0.3, -0.1], [0.3, 0.1], [0.1, 0.1]]);
-  assert.equal(baseReachM(outside, 1, 0), 0);
   assert.equal(baseReachM(outside, -1, 0), 0);
+  close(baseReachM(outside, 1, 0), 0.3, 1e-12, "back across");
+  // A ray that passes the base by meets nothing.
+  assert.equal(baseReachM(outside, 0, 1), 0);
+  assert.equal(baseReachM(convexHull([[0.1, 0.2], [0.3, 0.2], [0.3, 0.4], [0.1, 0.4]]), 1, 0), 0);
 });
 
 test("the fall line is the energy to lift the centre of mass over the edge, in ledger units", () => {

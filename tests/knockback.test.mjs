@@ -57,13 +57,16 @@ test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into
     assert.ok(limb, "the control: a core to strike");
     // A cut at 9 m/s, level with the ground and toward the struck body.
     const velocity = new Vector3(0, 0, 9);
-    await strike(striker, limb.part.body, velocity);
+    const { point } = await strike(striker, limb.part.body, velocity);
     const report = combat.lastHit;
     assert.ok(report && report.damage > 0, "the control: the cut wounded");
     assert.equal(queued.length, 2, "one contact files one shove per Combat watching it");
     const expected = contactImpulseNs(report.strikerMassKg, report.partMassKg, report.closingSpeed);
     near(report.transferNs, expected, 1e-9, "reported");
     for (const event of queued) near(filed(event), expected * GAIN, 1e-9, "filed");
+    // At the height it landed, which the ledger reads as a lever about the base (session 08).
+    for (const event of queued) near(event.atY, point.y, 1e-9, "landed at");
+    assert.ok(point.y > 0.5, `the control: a height worth reading, ${point.y}`);
     // Along the blow, whichever way round Havok handed the normal (it is reversed above).
     assert.ok(queued[0].horizontalShoveNs[1] > 0.99 * expected * GAIN, `pushed the way the blade went: ${queued[0].horizontalShoveNs}`);
     assert.ok(expected > report.strikerMassKg * 9 * 0.3,

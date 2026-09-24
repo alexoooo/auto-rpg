@@ -158,15 +158,21 @@ test("the_lines_are_the_body_s_own_geometry_wider_is_harder_higher_is_easier_and
   assert.equal(stepSupportedLocomotionState(state(), boundary({ tipping: narrow,
     contactShoves: [{ horizontalShoveNs: [0, across] }] })).state, "fallen");
   assert.notEqual(shove(across, { tipping: narrow }).state, "fallen", "the same blow along the long way");
+  // With no direction -- the diagnostic's reading -- the lines are the weakest way's, not the strongest.
+  assert.ok(Math.abs(stabilityLines(authority, narrow).fallAtMps - across) < 1e-12);
+  assert.ok(stabilityLines(authority, narrow, 1, 0).fallAtMps > across, "the control: the long way is higher");
   // A body with no tipping reading cannot be tipped: support grace is what puts it down.
   assert.equal(shove(F * 100, { tipping: null }).state, "supported");
   assert.equal(stabilityLines(authority, null).fallAtMps, Infinity);
   // And a centre of mass outside its base with nothing on the ledger is not a fall: its locomotion
-  // is holding it up.
+  // is holding it up. Pushed further out, any lean at all tips it; pushed back onto its base, it
+  // has the whole base to cross.
   const outside = geometry({ hull: Object.freeze([[0.1, -0.1], [0.3, -0.1], [0.3, 0.1], [0.1, 0.1]]) });
   assert.equal(stepSupportedLocomotionState(state(), boundary({ tipping: outside })).state, "supported");
   assert.equal(ledgerFalls({ specificImpulseMps: 0, leanX: 0, leanZ: 0 }, authority, outside), false);
-  assert.equal(shove(1e-9, { tipping: outside }).state, "fallen", "the control: any lean at all tips it");
+  assert.equal(shove(-1e-9, { tipping: outside }).state, "fallen", "any lean further out tips it");
+  assert.equal(shove(F, { tipping: outside }).state, "staggered", "pushed back across a 0.3 m reach");
+  assert.ok(stabilityLines(authority, outside, 1, 0).fallAtMps > F);
 });
 
 test("the_ledger_is_a_vector_opposite_blows_cancel_and_gravity_rights_a_lean_along_its_own_way", () => {

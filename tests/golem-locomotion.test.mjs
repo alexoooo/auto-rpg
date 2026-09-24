@@ -35,6 +35,7 @@ import {
 } from "./harness/golem-bench.mjs";
 import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { ATTRIBUTES, resolveAttributes } from "../src/golem/attributes.ts";
+import { baseReachM } from "../src/tipping.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
 /**
@@ -650,6 +651,28 @@ test("the_stability_stat_moves_both_thresholds_on_every_body_and_nothing_stagger
     await runGolemLocomotion({ moduleId, sequence: walkSequenceFor(moduleId), attributes: { stability: row.min },
       watch: ({ module }) => { if (module.evidence().state !== "supported") off++; } });
     assert.equal(off, 0, `${moduleId} at x${row.min} left the supported state on its own walk`);
+  }
+});
+
+test("a_foot_in_the_air_is_still_part_of_the_base_a_walking_body_stands_on", async () => {
+  // **A body's base is its stance, lifted feet included** (physical contact session 08): a foot in
+  // the air is on its way down, so a walking body is not a one-legged body half the time. Read off
+  // each body's own walk (Node locomotion bench): the biped's weakest fall line is zero -- its centre
+  // of mass past its whole stance, the carrier ahead of the legs -- in 3 of 360 walking samples and
+  // the skeleton's in 19, and with only planted soles in the base those were 139 and 151. The
+  // control is that a sole really is off the floor in about half the samples.
+  for (const moduleId of ["biped", "skeleton"]) {
+    let samples = 0, zero = 0, lifted = 0;
+    await runGolemLocomotion({ moduleId, sequence: walkSequenceFor(moduleId), watch: ({ module, phase }) => {
+      const evidence = module.evidence();
+      if (phase !== "walk" || evidence.state !== "supported") return;
+      samples++;
+      if (module.port.diagnostic().stability.fallAtMps === 0) zero++;
+      if (evidence.plantedFeet < 2) lifted++;
+    } });
+    assert.ok(samples > 300, `${moduleId} walked ${samples} samples`);
+    assert.ok(lifted > samples / 4, `${moduleId} lifted a sole in ${lifted} of ${samples}`);
+    assert.ok(zero < samples / 10, `${moduleId} read a zero fall line in ${zero} of ${samples} walking samples`);
   }
 });
 
@@ -1436,6 +1459,24 @@ test("a_multileg_tripod_always_has_three_pads_down_and_they_hold_their_ground", 
 });
 
 // ------------------------------------------------------- the knockdown, per module and across
+
+test("a_standing_wheel_stands_on_a_square_as_wide_as_its_tread", async () => {
+  // The wheel's patch is a recorded choice (physical contact session 08): a line contact has no
+  // fore-aft base at all, so it is given a square as wide as the wheel, centred on the contact and
+  // turned with the axle. Its base therefore spans the tread's width across and along, whatever
+  // the centre of mass's small offset inside it.
+  const f = await moduleFixture(wheelModule);
+  try {
+    drive(f.module, {});
+    step(f.scene, 1);
+    const { tipping } = f.module.port.diagnostic().stability;
+    assert.ok(tipping, "the control: a standing wheel has a tipping reading");
+    for (const [x, z] of [[1, 0], [0, 1]]) {
+      const span = baseReachM(tipping.hull, x, z) + baseReachM(tipping.hull, -x, -z);
+      assert.ok(Math.abs(span - W.wheelWidth) < 1e-3, `the base spans ${span.toFixed(4)} m along (${x}, ${z})`);
+    }
+  } finally { f.dispose(); }
+});
 
 test("each_module_falls_at_the_line_its_own_geometry_gives", async () => {
   // The bracket, taken the cheap way: an authored transfer queued straight into the port, which is

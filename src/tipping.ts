@@ -142,26 +142,36 @@ export function convexHull(points: readonly (readonly [number, number])[]): [num
 
 /**
  * How far the base reaches from the centre of mass's ground point along a horizontal direction, m:
- * the distance to the hull's edge along that ray. Zero when the ground point is outside the hull,
- * which is a body already past its base.
+ * the distance along that ray to where it leaves the hull, the edge the body would pivot over.
+ *
+ * **A centre of mass outside its base** -- a walking body whose carrier has run ahead of its legs,
+ * a wheel leaning off its patch -- is already past the edges on its own side, and its locomotion is
+ * what holds it up. Pushed further that way the ray never meets the base and the reach is zero: it
+ * goes over at any touch. Pushed back toward its base it is carried across it and over the far
+ * edge, and the reach is that far edge's. Measured on the Node locomotion bench
+ * (`.review/stride-outside2.mjs`), a walking skeleton's centre of mass runs up to 0.54 m past its
+ * whole stance, lifted feet included, and a stopped wheel's sits 20 to 35 mm off its patch; reading
+ * zero in every direction there felled a body pushed back onto its own feet.
  */
 export function baseReachM(hull: readonly (readonly [number, number])[], dirX: number, dirZ: number): number {
   const length = Math.hypot(dirX, dirZ);
   if (hull.length < 3 || !(length > 0)) return 0;
   const ux = dirX / length, uz = dirZ / length;
-  let reach = Infinity;
+  // The ray is clipped to every edge's inner half-plane: it enters at `enter` and leaves at `leave`.
+  let enter = 0, leave = Infinity;
   for (let i = 0; i < hull.length; i += 1) {
     const [ax, az] = hull[i];
     const [bx, bz] = hull[(i + 1) % hull.length];
-    // The edge's outward normal (the hull is counter-clockwise in x, z).
+    // The edge's outward normal (the hull is counter-clockwise in x, z), and how far inside the
+    // edge the origin is, in its units.
     const nx = bz - az, nz = -(bx - ax);
     const offset = nx * ax + nz * az;
-    // The origin must be inside every edge's half-plane.
-    if (offset < 0) return 0;
     const along = nx * ux + nz * uz;
-    if (along > 0) reach = Math.min(reach, offset / along);
+    if (along > 0) leave = Math.min(leave, offset / along);
+    else if (along < 0) enter = Math.max(enter, offset / along);
+    else if (offset < 0) return 0;
   }
-  return Number.isFinite(reach) ? reach : 0;
+  return Number.isFinite(leave) && leave > enter ? leave : 0;
 }
 
 /** Whether the centre of mass's ground point, the origin, is on or inside the hull. */
