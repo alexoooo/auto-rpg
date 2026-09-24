@@ -394,7 +394,16 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const rise = riseTo(recoveryTarget);
     const risingDurationS = rise.durationS;
     const recoveryWithinAccelerationLimit = rise.withinAcceleration;
-    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget, 0);
+    // **A rise is not cancelled by a touch.** The pair resolver holds two footprints exactly in
+    // contact, so a body pressed against a rising one sits at zero clearance and rounding alone
+    // takes it under. Judged at zero, that cancelled the rise into a whole new knockdown: on
+    // 2026-09-24, 389 of stone's 427 refused rises and 202 of the skeleton's 206 were an overlap under
+    // a centimetre (Node harness, `research/downed-census.mjs`, 96 blocks, session 02's tree). A rise
+    // is therefore admitted at zero or at `RECOVERY_SEPARATION_MARGIN_M` and kept until another
+    // footprint is that far *inside* its target, which is hysteresis rather than a softer rule: a
+    // body that walks into the spot is still an obstruction.
+    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget,
+      this.supportState.state === "rising" ? -RECOVERY_SEPARATION_MARGIN_M : 0);
     const occupancyClear = recoveryWithinAccelerationLimit && this.pairOccupancyClear &&
       sweepClear(recoveryTarget);
     this.lastBoundary = Object.freeze({ authority: authority !== null, liveSupport, postureSupported,

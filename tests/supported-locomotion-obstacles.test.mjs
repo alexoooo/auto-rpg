@@ -212,6 +212,38 @@ test("an_occupied_recovery_relocates_to_the_nearest_spot_clear_of_the_intersecti
   } finally { free.port.dispose(); }
 });
 
+// **A rise is not cancelled by a touch** (2026-09-24). The pair resolver holds two footprints
+// exactly in contact, so a body pressed against a rising one reads a hair inside it; a rise is kept
+// until another footprint is `RECOVERY_SEPARATION_MARGIN_M` inside its target, and one that far in
+// still puts it down. Three blockers, one per phase, because the gate reads the other's footprint
+// where it stands: clear at the start, then touching by 5 mm, then 3 cm inside.
+test("a_rise_survives_a_touching_footprint_and_is_put_down_by_one_inside_its_margin", () => {
+  const registry = floorRegistry();
+  const required = 1;
+  const rise = (intrusionM) => {
+    const fallen = physical("rising", 0, registry);
+    const clear = physical("clear", required + 0.001, registry);
+    const pressing = physical("pressing", required - intrusionM, registry);
+    try {
+      fallen.port.beginControlStep();
+      fallen.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+      fallen.port.beginControlStep();
+      for (let step = 0; step < 5 && fallen.port.state === "fallen"; step += 1) {
+        fallen.port.updatePairOccupancy(clear.port);
+        advance(fallen.port, 0.1, STOP);
+      }
+      assert.equal(fallen.port.state, "rising", "the clear body never rose");
+      assert.equal(fallen.port.riseGate().relocated, false, "the fixture's rise must be where it lies");
+      fallen.port.updatePairOccupancy(pressing.port);
+      advance(fallen.port, 0.05, STOP);
+      return { state: fallen.port.state, abort: fallen.port.riseGate()?.riseAbort ?? null };
+    } finally { fallen.port.dispose(); clear.port.dispose(); pressing.port.dispose(); }
+  };
+  assert.ok(RECOVERY_SEPARATION_MARGIN_M > 0.005 && RECOVERY_SEPARATION_MARGIN_M < 0.03);
+  assert.deepEqual(rise(0.005), { state: "rising", abort: null }, "a touch put the rise down");
+  assert.deepEqual(rise(0.03), { state: "fallen", abort: "refused" }, "a body inside the margin did not");
+});
+
 test("an_occupied_recovery_with_no_clear_ground_in_reach_is_refused", () => {
   // Ground only on a patch too small to hold both footprints apart: every spot in reach is either
   // inside the blocker's footprint or off the floor.
