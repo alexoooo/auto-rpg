@@ -476,6 +476,37 @@ export interface BodyView {
   crownHeight: number;
   vitalHeight: number;
   collisionRadius: number;
+  /**
+   * What the body's stats do, as the physical quantities they produce (physical contact session 09),
+   * read off the built body and never off its attribute record -- so an armour or an arm speed that
+   * one day comes from an item reaches a mind with no change here. Published on both bodies.
+   *
+   * `massKg` is the whole body's mass, the one a shove is divided by (`supportedMassKg` on the
+   * locomotion port). Read by `presses` in `src/downed.ts`: a body that heavily outweighs the one
+   * in front closes on it, because nothing that body can push it with will move it.
+   */
+  massKg: number;
+  /**
+   * The horizontal impulse that would put the body down along its weakest direction now, N.s: the
+   * fall line of its own geometry (physical contact session 08) times `massKg`. Live, because a
+   * stance moves it, and read by the lab observation. Zero before the body's first control step,
+   * when its base has not yet been read.
+   */
+  stabilityImpulseNs: number;
+  /**
+   * How fast the primary arm can carry its tip, m/s: the command rate of its first angular axis,
+   * which on every chain is the socket's own turn, times its reach. The socket's own turn and nothing else, so it is a floor under a real stroke's
+   * speed, which the elbow and the wrist add to. It moves with the arm speed stat and the root of
+   * size. Read by the lab observation.
+   */
+  armRate: number;
+  /**
+   * What one joule of a cut takes from the body's core, as a fraction of the core's full health:
+   * the core's own armour against a cut, at the armour stat, over the edge's price in joules and the
+   * core's full health at the toughness stat. Zero for a body that has lost its core. Read by the
+   * lab observation.
+   */
+  soak: number;
   naturalAttacks: Readonly<Record<string, NaturalAttackView>>;
   /** Optional for legacy bodies; constructs publish every installed mounted striker here. */
   effectors?: readonly EffectorView[];

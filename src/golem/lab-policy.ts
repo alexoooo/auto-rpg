@@ -12,7 +12,7 @@ import { terminalModelMind, type TerminalModel } from "./lab-model.ts";
 import { mulberry32 } from "../rng.ts";
 import { needleMind } from "./lab-needle.ts";
 
-export const LAB_VERSION = 2;
+export const LAB_VERSION = 3;
 export const HANDS = ["primary", "secondary"] as const;
 const AXES = ["pointerX", "pointerY", "reach", "roll", "wristBend"] as const;
 export type LabSurface = "pilot" | "direct" | "residual";
@@ -23,13 +23,23 @@ export const LEGACY_OBSERVATION_NAMES = ["measure", "clock", "opponentX", "oppon
     ...HANDS.flatMap((h) => ["lost", "reach", "tipX", "tipY", "tipZ", "velocityX", "velocityY", "velocityZ"]
       .map((k) => `${h}.${k}`))].map((k) => `${side}.${k}`))];
 // Append rather than reorder: archived v1 students retain their exact 48-feature contract.
-export const OBSERVATION_NAMES = [...LEGACY_OBSERVATION_NAMES,
+export const OBSERVATION_NAMES_V2 = [...LEGACY_OBSERVATION_NAMES,
   ...["self", "opponent"].flatMap((side) => ["crownHeight", "vitalHeight", "collisionRadius",
     "healthMin", "healthMean", "partsLostFraction", "naturalCount", "naturalReach", "naturalReady", "naturalActive",
     ...HANDS.flatMap((h) => ["shoulderX", "shoulderY", "shoulderZ", "outboard",
       ...WEAPON_KINDS.map((w) => `weapon.${w}`)].map((k) => `${h}.${k}`))].map((k) => `${side}.${k}`))];
+/**
+ * Version 3 (physical contact session 09) appends what each body's stats do, as the physical
+ * quantities `BodyView` publishes: mass, the impulse that puts it down, its arm's rate and what a
+ * joule of a cut takes from its core. Appended, so a version 2 student reads exactly the columns it
+ * was trained on.
+ */
+export const BODY_FACT_NAMES = ["self", "opponent"].flatMap((side) =>
+  ["massKg", "stabilityImpulseNs", "armRate", "soak"].map((k) => `${side}.${k}`));
+export const OBSERVATION_NAMES = [...OBSERVATION_NAMES_V2, ...BODY_FACT_NAMES];
 export const observationNames = (version: number): string[] => {
   if (version === 1) return LEGACY_OBSERVATION_NAMES;
+  if (version === 2) return OBSERVATION_NAMES_V2;
   if (version === LAB_VERSION) return OBSERVATION_NAMES;
   throw new Error("unsupported observation version");
 };
@@ -66,6 +76,10 @@ export function labObservation(view: FighterView, version = LAB_VERSION): number
       out.push(p[0] / 3, (h.shoulder.y - body.ground.y) / 3, p[1] / 3, h.outboard,
         ...WEAPON_KINDS.map((w) => h.weapon === w ? 1 : 0));
     }
+  }
+  // Scaled so a stone body reads near its column's middle: 250 kg, 120 N.s, 12 m/s, 2.3e-3 per J.
+  if (version >= 3) for (const body of [view.self, view.opponent]) {
+    out.push(body.massKg / 500, body.stabilityImpulseNs / 250, body.armRate / 20, body.soak * 400);
   }
   if (out.some((v) => !Number.isFinite(v))) throw new Error("non-finite lab observation");
   return out.map((v) => clamp(v, -5, 5));

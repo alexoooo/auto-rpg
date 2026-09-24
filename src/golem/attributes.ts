@@ -297,7 +297,8 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * stone with the four probe minds does not win by it: 47.7 % at x0.5, 44.7 % at x1.5 and 43.0 % at
    * x2 (d -0.15 against the control), while its knockdowns go from 14.61 a bout to 0.65. The minds
    * stretch a heavy arm's strokes (`strokeInertiaScale`, 14.4 % at x2) that the arm itself does not
-   * need. The skeleton duelist's mirror loses by it outright: 74.5 % at x0.5, 58.3 % at x0.9, 38.8 %
+   * need -- which since physical contact session 09 they do not: `strokeTimeScale` times an arm by
+   * its own rate and torque, and a x2-weight arm by 1. The skeleton duelist's mirror loses by it outright: 74.5 % at x0.5, 58.3 % at x0.9, 38.8 %
    * at x1.5 (d -0.27) and 45.3 % at x2, with its knockdowns going from 7.05 a bout to 1.75. The
    * tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
    */
@@ -329,7 +330,8 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * two bodies point opposite ways.** Stone with the four probe minds is flat below x1 (48.7 % at
    * x0.8) and loses above it, 41.9 % at x1.1 and 33.1 % at x1.25 (d -0.48 against the control),
    * dealing 5.68 a bout against 7.60 while it goes down 0.59 times against 4.89. Turning the minds'
-   * stroke stretch off (`strokeInertiaScale`, which times a x1.25 stone arm 38 % slower) leaves
+   * stroke stretch off (`strokeInertiaScale` then, which timed a x1.25 stone arm 38 % slower, where
+   * `strokeTimeScale` times it by its rate, 12 %) leaves
    * x1.25 at 35.4 %, so that is not the cause, and the cause is not isolated. The skeleton duelist's
    * mirror wins big and loses small: 42.4 % at x0.8, 29.7 % at x0.9, 72.9 % at x1.1 (d 0.57) and
    * 60.9 % at x1.25. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Size".

@@ -42,7 +42,7 @@ import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readou
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
 import {
-  GOLEM_TACTICS, STROKE_SHAPES, aimAt, canCover, canSwing, distance, reachForDistance,
+  GOLEM_TACTICS, STROKE_SHAPES, strokeTimeScale, aimAt, canCover, canSwing, distance, reachForDistance,
   tacticalRanges, writeAim,
 } from "../../src/golem/tactics.ts";
 import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-production.ts";
@@ -621,7 +621,7 @@ export async function runGolemBench({
 /**
  * The mind's own capability record, built from a bench module's published envelope.
  *
- * `Golem.golemCapabilities` writes these same four fields off the same envelope, and this is a
+ * `Golem.golemCapabilities` writes these same fields off the same envelope, and this is a
  * second copy of three lines rather than an import because that method is private to an assembled
  * golem and there is no golem on the stand. What keeps the copy honest is that every field is a
  * read of something the module publishes: nothing here is a bench-only number, so a module whose
@@ -635,6 +635,9 @@ export const capabilityOf = (module) => {
     reachable: envelope.reachable,
     rollMax: ceiling("roll"),
     bendMax: ceiling("bend"),
+    swingInertia: envelope.swingInertia ?? 1,
+    rateScale: envelope.drive?.rateScale ?? 1,
+    torqueScale: envelope.drive?.torqueScale ?? 1,
   });
 };
 
@@ -1147,6 +1150,12 @@ export async function runStrokeBench({
   attributes = null,
   /** The motor tone the arm is built on, as `runGolemBench` takes it. */
   tone = null,
+  /**
+   * Whether to time the shape as a mind times it for this arm: its chamber and arc times
+   * `strokeTimeScale` of the arm's own capability (physical contact session 09). Off, the shape
+   * runs at the durations it was benched at, whatever the arm.
+   */
+  timed = false,
 }) {
   const kind = weaponOf(moduleId);
   let reader = null;
@@ -1161,7 +1170,10 @@ export async function runStrokeBench({
     sequence: ({ module, socket }) => {
       const cap = capabilityOf(module);
       const envelope = module.envelope();
-      const shape = Object.freeze({ ...STROKE_SHAPES[kind], ...(shapeOverride ?? {}) });
+      const authored = { ...STROKE_SHAPES[kind], ...(shapeOverride ?? {}) };
+      const scale = timed ? strokeTimeScale(cap) : 1;
+      const shape = Object.freeze({ ...authored, chamberSeconds: authored.chamberSeconds * scale,
+        strokeSeconds: authored.strokeSeconds * scale });
       const mark = markFor(socket, envelope, cap, markOptions ?? {});
       const script = strokeSequence({
         shape, cap, socket: socket.world, mark, reach: envelope.reach,
@@ -1178,7 +1190,7 @@ export async function runStrokeBench({
       });
       plan = {
         shape, mark, reach: envelope.reach, markMetres: distance(socket.world, mark),
-        sweeps: canSwing(cap),
+        sweeps: canSwing(cap), cap,
       };
       return script;
     },
@@ -1192,6 +1204,8 @@ export async function runStrokeBench({
     massKg: run.massKg,
     reach: plan.reach,
     shape: plan.shape,
+    /** The capability the mind would read off this arm, as `capabilityOf` builds it. */
+    capability: plan.cap,
     markMetres: plan.markMetres,
     /**
      * Whether the arc swept at all: false for a chain whose azimuth has one value.

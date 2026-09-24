@@ -15,6 +15,7 @@ import { stepPair } from "../src/fighter.ts";
 import { Golem } from "../src/golem/golem.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { NEUTRAL, idleMind, policyMind } from "../src/mind.ts";
+import { PRESS_MASS_RATIO, presses, standOffReach } from "../src/downed.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { assertCompleteView, publishedFixture } from "./fixtures/view.mjs";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
@@ -196,4 +197,28 @@ test("a_downed_mind_in_reach_strikes_and_guards_from_its_live_socket", () => {
     assert.ok(lying.lift > up.lift + 0.6,
       `${name} aimed at ${lying.lift.toFixed(2)} from the floor against ${up.lift.toFixed(2)} standing`);
   }
+});
+
+test("a_body_stands_off_at_the_shorter_arm_and_closes_on_one_it_outweighs_or_that_is_down", () => {
+  // Physical contact session 09, as pure rules over the published fields. The masses and reaches
+  // are the published ones of a stone body, a human warrior and a skeleton at x1 (Node arena
+  // harness, 2026-09-24).
+  const body = (massKg, reach, support = "supported") => ({ massKg, reach, support });
+  const stone = body(247.2, 2.0), human = body(111.4, 1.1), skeleton = body(30.4, 1.2);
+  // Outreached, a body holds at its own arm, where it can strike from; with the longer arm it keeps
+  // out of the other's. Both sides of each pair, so the rule is not the one that returns a constant.
+  assert.equal(standOffReach(human, stone), human.reach, "a human stands off outside its own arm");
+  assert.equal(standOffReach(stone, body(247.2, 2.4)), stone.reach, "a stone body outreached by stone");
+  assert.equal(standOffReach(body(247.2, 2.4), stone), stone.reach, "a longer stone arm keeps out of the shorter");
+  // Heavily outweighing the other body, it closes; a lighter or like body never does.
+  assert.equal(presses(stone, human), true, "stone does not press a human it outweighs 2.2 times");
+  assert.equal(presses(human, stone), false, "a human presses stone");
+  assert.equal(presses(human, skeleton), true, "a human does not press a skeleton 3.7 times lighter");
+  assert.equal(presses(stone, body(329.7 / 1.33, 2.0)), false, "stone presses its own kind");
+  assert.equal(presses(body(PRESS_MASS_RATIO * 100, 1), body(100, 1)), true, "the ratio itself does not press");
+  assert.equal(standOffReach(stone, human), 0, "a pressing body still stands off");
+  // Never pressing a downed body, which is finished; and nothing to stand off from.
+  const down = body(111.4, 1.1, "fallen");
+  assert.equal(presses(stone, down), false, "stone presses a fallen human rather than finishing it");
+  assert.equal(standOffReach(human, down), 0, "a body stands off from one that is down");
 });

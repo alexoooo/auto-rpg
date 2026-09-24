@@ -669,6 +669,28 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     return stabilityLines(this.activeAuthority ?? this.options.authority(), this.tipping, dirX, dirZ);
   }
 
+  /**
+   * The horizontal impulse that would put this body down along its weakest direction, N.s: the fall
+   * line there times the mass a shove is divided by. Physical contact session 09, for
+   * `BodyView.stabilityImpulseNs`, which a mind reads on both bodies every control step -- so it is
+   * formed once per boundary's geometry rather than once per read, which would be 32 hull clips and
+   * an allocation a read. Zero until the body's base has first been read, at its first control
+   * step: no geometry is no line, and a view field is finite.
+   */
+  fallImpulseNs(): number {
+    const authority = this.activeAuthority ?? this.options.authority();
+    if (this.fallImpulseOf !== this.tipping || this.fallImpulseAuthority !== authority) {
+      this.fallImpulseOf = this.tipping;
+      this.fallImpulseAuthority = authority;
+      const line = stabilityLines(authority, this.tipping).fallAtMps;
+      this.fallImpulse = Number.isFinite(line) ? line * this.options.supportedMassKg : 0;
+    }
+    return this.fallImpulse;
+  }
+  private fallImpulseOf: TippingGeometry | null | undefined = undefined;
+  private fallImpulseAuthority: unknown = undefined;
+  private fallImpulse = 0;
+
   carrierGround(): WorldPoint {
     const state = this.carrier.state;
     return Object.freeze({ x: state.x, y: 0, z: state.z });

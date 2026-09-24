@@ -42,13 +42,26 @@ export const PROJECTILE_FIELDS = Object.freeze(
   ["kind", "owner", "position", "velocity", "age"].sort(),
 );
 
-/** `BodyView`, which `SelfView` is an alias of. `support` and `vitalPoint` are physical contact 03's. */
+/**
+ * `BodyView`, which `SelfView` is an alias of. `support` and `vitalPoint` are physical contact 03's;
+ * `massKg`, `stabilityImpulseNs`, `armRate` and `soak` are physical contact 09's.
+ */
 export const BODY_FIELDS = Object.freeze([
-  "unit", "reach", "crownHeight", "vitalHeight", "collisionRadius", "naturalAttacks",
+  "unit", "reach", "crownHeight", "vitalHeight", "collisionRadius",
+  "massKg", "stabilityImpulseNs", "armRate", "soak", "naturalAttacks",
   "support", "vitalPoint",
   "ground", "facing", "shoulder", "tip", "tipSpeed", "hands",
   "crouch", "trunkLean", "trunkTwist", "vitality", "health",
 ].sort());
+
+/**
+ * The four body facts physical contact session 09 published, at a human warrior's values: its mass,
+ * the impulse that puts it down, its arm's rate and what a joule of a cut takes from its core (Node
+ * arena harness, x1, standing, 2026-09-24). Equal on both sides of a hand-rolled view, so nothing
+ * that compares two bodies by them -- `presses` in `src/downed.ts` -- sees a difference the
+ * fixture did not state.
+ */
+export const BODY_FACTS = Object.freeze({ massKg: 111.4, stabilityImpulseNs: 43.6, armRate: 4.54, soak: 1.291e-3 });
 
 /**
  * `BodyView`'s optional fields, which an assembled golem publishes and a hand-rolled body may leave
@@ -131,7 +144,8 @@ export function assertCompleteBody(body, label) {
   for (const [index, effector] of (body.effectors ?? []).entries()) {
     for (const key of ["anchor", "tip", "tipVelocity"]) point(effector[key], `${label}.effectors[${index}].${key}`);
   }
-  for (const key of ["reach", "crownHeight", "vitalHeight", "collisionRadius", "facing",
+  for (const key of ["reach", "crownHeight", "vitalHeight", "collisionRadius",
+    "massKg", "stabilityImpulseNs", "armRate", "soak", "facing",
     "tipSpeed", "crouch", "trunkLean", "trunkTwist", "vitality"]) {
     finite(body[key], `${label}.${key}`);
   }

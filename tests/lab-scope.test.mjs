@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { OBSERVATION_NAMES, networkMind, validateNetwork } from "../src/golem/lab-policy.ts";
+import { OBSERVATION_NAMES, networkMind, validateNetwork, LAB_VERSION } from "../src/golem/lab-policy.ts";
 import { originalMind } from "../src/golem/lab-baselines.ts";
 import { createEnvironment, recording } from "../research/lab/environment.mjs";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { namedBuild } from "../src/golem/roster.ts";
 import { assessRequirement, policyBodyForSetup, policyBodyForView } from "../src/policy-applicability.ts";
 
-const model = () => ({ version: 2, surface: "residual", baseline: "golem-duelist", hz: 12,
+const model = () => ({ version: LAB_VERSION, surface: "residual", baseline: "golem-duelist", hz: 12,
   scope: "dual-strikers", observationNames: OBSERVATION_NAMES,
   layers: [{ activation: "linear", weights: Array.from({ length: 22 }, () => OBSERVATION_NAMES.map(() => 0)),
     bias: Array(22).fill(0.75) }] });

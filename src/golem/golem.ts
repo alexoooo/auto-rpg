@@ -275,6 +275,10 @@ const blankBody = (): BodyView => ({
   crownHeight: 0,
   vitalHeight: 0,
   collisionRadius: 0,
+  massKg: 0,
+  stabilityImpulseNs: 0,
+  armRate: 0,
+  soak: 0,
   naturalAttacks: Object.freeze({}),
   support: "supported",
   vitalPoint: new Vector3(),
@@ -362,7 +366,11 @@ export class Golem implements Combatant {
     readonly headlessCrown: number;
     readonly vitalHeight: number;
     readonly collisionRadius: number;
+    /** `BodyView.armRate`: fixed at build, like the reach it is a speed along. */
+    readonly armRate: number;
   };
+  /** The core's own record, for `BodyView.soak`. */
+  private readonly coreLimb: Limb | null;
 
   private readonly natural: Record<string, NaturalAttackView> = {};
   private readonly ram: NaturalAttackView & { ready: boolean; active: boolean } | null;
@@ -536,7 +544,13 @@ export class Golem implements Combatant {
       // Measured off the body rather than composed from constants: the core is where it is.
       vitalHeight: core.mesh.position.y - options.origin.y,
       collisionRadius: this.locomotionModule.footprint.radiusM,
+      // The socket's own turn at its rate limit, carried out to the tip: the first angular axis
+      // the arm publishes, which is the swing on a point chain, the hinge on a pitch chain and the
+      // shoulder on a human arm. A socket with no angular axis carries nothing.
+      armRate: (primaryModule.envelope().axes.find((axis) => axis.unit === "rad")?.rate ?? 0)
+        * primaryModule.envelope().reach,
     });
+    this.coreLimb = this.byBody.get(core.body) ?? null;
     this.occlusion.push(root.mesh.position, core.mesh.position);
     const headPart = this.modules.find((module) => module.slot === "head")?.built.parts;
     if (headPart && headPart.length > 1) this.occlusion.push(headPart[1].part.mesh.position);
@@ -936,6 +950,9 @@ export class Golem implements Combatant {
         // A slot with no module at all answers 1, not 0: nothing is ever swung on it, and a zero
         // here would be a divisor waiting for the one caller that forgets to check `lost` first.
         swingInertia: envelope?.swingInertia ?? 1,
+        // A module that publishes no drive is one nobody swings, and its stroke is not retimed.
+        rateScale: envelope?.drive?.rateScale ?? 1,
+        torqueScale: envelope?.drive?.torqueScale ?? 1,
       });
     };
     const range = this.locomotionModule.heightRange;
@@ -1147,6 +1164,13 @@ export class Golem implements Combatant {
       : this.geometry.crownHeight;
     into.vitalHeight = this.geometry.vitalHeight;
     into.collisionRadius = this.geometry.collisionRadius;
+    // What the stats do, as the body has them (physical contact session 09): its mass and the
+    // impulse that would put it down, from the locomotion port, its arm's rate, and what a joule of
+    // a cut takes from its core.
+    into.massKg = this.locomotion.supportedMassKg;
+    into.stabilityImpulseNs = this.locomotion.fallImpulseNs();
+    into.armRate = this.geometry.armRate;
+    into.soak = this.soak();
     into.naturalAttacks = this.natural;
 
     // Read off `mesh.position`, never a world matrix: every golem body is a scene-root node, so the
@@ -1213,6 +1237,17 @@ export class Golem implements Combatant {
     for (const limb of this.limbs) {
       into.health[limb.key] = limb.severed ? 0 : Math.max(0, limb.health / limb.maxHealth);
     }
+  }
+
+  /**
+   * What one joule of a cut takes from the core, as a fraction of its full health (`BodyView.soak`):
+   * the core's armour against a cut at this body's armour stat (`armourOf`, the one read of a
+   * part's armour), over the edge's price and the core's full health at its toughness stat.
+   */
+  private soak(): number {
+    const core = this.coreLimb;
+    if (!core || core.severed || !(core.maxHealth > 0)) return 0;
+    return (1 - this.armourOf(core, "cut")) / (CONFIG.combat.cutJoulesPerDamage * core.maxHealth);
   }
 
   /**

@@ -7,7 +7,7 @@ import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBout
 import { EngagementTracker, opportunityForAction } from "../src/engagement.ts";
 import { behaviourRecord, recordBehaviourSample } from "../src/options.ts";
 import { blankIntent } from "../src/policies.ts";
-import { assertCompleteView } from "./fixtures/view.mjs";
+import { BODY_FACTS, assertCompleteView } from "./fixtures/view.mjs";
 
 const hand = (weapon = "sword", reach = 1.2, outboard = 1) => ({
   weapon, reach, lost: false, outboard,
@@ -16,7 +16,7 @@ const hand = (weapon = "sword", reach = 1.2, outboard = 1) => ({
 });
 const body = (z, hands) => ({
   unit: "warrior", reach: 0.7, crownHeight: 1.8, vitalHeight: 1.1,
-  collisionRadius: 0.25, naturalAttacks: {}, support: "supported", vitalPoint: { x: 0, y: 1.1, z },
+  collisionRadius: 0.25, ...BODY_FACTS, naturalAttacks: {}, support: "supported", vitalPoint: { x: 0, y: 1.1, z },
   ground: { x: 0, y: 0, z },
   facing: z === 0 ? 0 : Math.PI, shoulder: { x: 0, y: 1.4, z },
   tip: { x: 0, y: 1.4, z }, tipSpeed: 0, hands,

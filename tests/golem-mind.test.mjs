@@ -46,7 +46,7 @@ import { POLICIES } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
 import {
-  GOLEM_TACTICS, STROKE_SHAPES, aimAt, canAttack, golemTactics, innerReach, strokeInertiaScale,
+  GOLEM_TACTICS, STROKE_SHAPES, aimAt, canAttack, golemTactics, innerReach, strokeTimeScale,
   tacticalRanges, unspan,
 } from "../src/golem/tactics.ts";
 import { GOLEM_TACTICS_V2, golemFencer, slotHealth, strokeReader } from "../src/golem/tactics-v2.ts";
@@ -1391,11 +1391,15 @@ test("the_longer_arm_stop_hits_a_point_that_closes_on_it", async (t) => {
 });
 
 /**
- * Reach asymmetry, feature 3, from the short side: a fist against a blade holds outside the
- * blade and does not commit from there -- the duelist would, on patience, and walk the stroke
- * in -- and goes in on the walk axis when their arm is read recovering.
+ * Reach asymmetry, feature 3, from the short side: a fist against a blade does not commit from
+ * outside its own reach, and goes in on the walk axis when their arm is read recovering.
+ *
+ * **Until physical contact session 09 it held outside the blade**, which against a body that never
+ * recovers -- an idle one -- is a distance it can never strike from: a human stood 1.6 m off an idle
+ * stone body and dealt it nothing in 40 s. The stand-off is now the shorter of the two arms
+ * (`standOffReach` in `src/downed.ts`), so from the blade's reach it walks in to its own.
  */
-test("the_shorter_arm_holds_outside_and_goes_in_on_their_recover", async (t) => {
+test("the_shorter_arm_walks_to_its_own_reach_and_goes_in_on_their_recover", async (t) => {
   const golem = await standAGolem(t, setupWith({
     primary: { chain: "wrist", terminal: "fist" }, secondary: { chain: "wrist", terminal: "fist" },
   }));
@@ -1430,11 +1434,15 @@ test("the_shorter_arm_holds_outside_and_goes_in_on_their_recover", async (t) => 
   };
   const fencer = run(GOLEM_TACTICS_V2);
   assert.equal(fencer.held.strokes, 0, "the shorter arm struck from outside its own reach");
-  assert.ok(fencer.held.forwardMax < 0.5, `the shorter arm walked in on nothing, forward ${fencer.held.forwardMax.toFixed(2)}`);
+  assert.ok(fencer.held.forwardMax >= 1 - 1e-9,
+    `from their reach the shorter arm was asked forward ${fencer.held.forwardMax.toFixed(2)}, not in to its own`);
   assert.equal(fencer.held.inside, false);
   assert.ok(fencer.forwardIn >= 1 - 1e-9, `on their recover the shorter arm's feet were asked for ${fencer.forwardIn.toFixed(2)}`);
+  // The control: the recover rule is what asks for the full walk in, and without it the same read
+  // asks for 0.22 (Node, stubbed view).
   const duelistLike = run(fencerWith({ closeOnRecover: false }));
-  assert.ok(duelistLike.held.strokes > 0, "with the rule off the fencer still never committed on patience from their reach");
+  assert.ok(duelistLike.forwardIn < 0.5,
+    `with the rule off the shorter arm was still asked ${duelistLike.forwardIn.toFixed(2)} on their recover`);
 });
 
 /**
@@ -1871,7 +1879,7 @@ test("the_stroke_benchs_sequence_is_the_fencers_own_commit_to_the_digit", async 
     // The arc the fencer actually runs, which since `STROKE_INERTIA` is the shape's stretched by
     // what this arm is carrying. Read off the published capability rather than recomputed, so this
     // stays a comparison of the bench against the fencer and not of two copies of one formula.
-    const arcSeconds = shape.strokeSeconds * strokeInertiaScale(cap.swingInertia);
+    const arcSeconds = shape.strokeSeconds * strokeTimeScale(cap);
     const script = strokeSequence({
       shape, cap, socket: hand.shoulder, mark, reach: hand.reach,
       outboard: hand.outboard, heading, guardSeconds: 0,

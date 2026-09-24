@@ -32,7 +32,7 @@ import { CONFIG } from "../src/config.ts";
 import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionAzimuthOf, actionCoverAt, actionCursorForAzimuth, actionShotPhase, actionStrokeReading, bareCrowdDistance, blankThreat, freshIntent, selectThreat } from "../src/action-primitives.ts";
 import { WEAPON_KINDS } from "../src/hands.ts";
 import { COMBAT_FIELDS, INTENT_FIELDS, intentFieldDeltas } from "./fixtures/intent.mjs";
-import { assertCompleteView } from "./fixtures/view.mjs";
+import { BODY_FACTS, assertCompleteView } from "./fixtures/view.mjs";
 
 const parts = () => Object.fromEntries([
   "torso", "head", "pelvis", "upperArm", "forearm", "hand", "offUpperArm", "offForearm",
@@ -62,7 +62,7 @@ const closing = (record, speed) => {
  * as `undefined`, and `NaN` loses every comparison in that ordering without
  * throwing.
  */
-const SHAPE = { unit: "warrior", reach: 0.7, crownHeight: 1.8, vitalHeight: 1.1, collisionRadius: 0.3 };
+const SHAPE = { unit: "warrior", reach: 0.7, crownHeight: 1.8, vitalHeight: 1.1, collisionRadius: 0.3, ...BODY_FACTS };
 const view = (mine = { primary: "sword", secondary: "empty" }, theirs = mine) => {
   const selfHands = { primary: hand(mine.primary, 1, 0.2), secondary: hand(mine.secondary, -1, -0.2) };
   const opponentHands = { primary: hand(theirs.primary, 1, -0.2), secondary: hand(theirs.secondary, -1, 0.2) };

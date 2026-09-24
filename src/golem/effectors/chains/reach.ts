@@ -70,6 +70,7 @@ export const reachChain = defineChain({
       strokes: ARM_STROKES,
       reachable: core.reachable,
       settledBand: R.settledBand,
+      drive: core.drive,
     });
 
     const commandedEnd = new Vector3();

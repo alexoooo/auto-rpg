@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { referenceDataset } from "../research/teacher-dataset.mjs";
-import { OBSERVATION_NAMES, infer } from "../src/golem/lab-policy.ts";
+import { LAB_VERSION, OBSERVATION_NAMES, infer } from "../src/golem/lab-policy.ts";
 import { digest } from "../research/schedule.mjs";
 
 function reference() {
-  const result = { tier: "privileged", status: "finished", record: { version: 2, fingerprint: "current",
+  const result = { tier: "privileged", status: "finished", record: { version: LAB_VERSION, fingerprint: "current",
     observationNames: OBSERVATION_NAMES, config: { hz: 12, surface: "residual", controlBaseline: "golem-duelist",
       left: { kind: "baseline", name: "golem-duelist" }, right: { kind: "baseline", name: "golem-champion" }, seed: 55, leftBuild: "default" },
     steps: [0, 1, 2].map((i) => ({ clock: (i + 1) / 12, observation: Array(OBSERVATION_NAMES.length).fill(i / 10),

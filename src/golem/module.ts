@@ -230,6 +230,32 @@ export interface ModuleEnvelope {
    * harnesses build their `BenchReadout` from this.
    */
   readonly settledBand: number;
+  /**
+   * How this arm's drive compares with its own chain's shipped table: absent for a module nobody
+   * swings, and then read as 1 and 1.
+   *
+   * Physical contact session 09. The two things a body's stats do to how quickly an arm can carry
+   * a stroke, stated as the built arm has them rather than read off the attribute record, so that
+   * an arm speed that one day comes from an item reaches a mind with no change here.
+   */
+  readonly drive?: ArmDrive;
+}
+
+/**
+ * What an arm's build did to how fast it can be driven, as two ratios to its own chain's shipped
+ * table (physical contact session 09).
+ *
+ * - `rateScale` is the angular rate its command may move at, over the shipped chain's. The arm
+ *   speed stat multiplies it, and size divides it by the root of the size: a point chain's rate is
+ *   a speed at the hand, which grows as the root of length, over a reach that grows as length.
+ * - `torqueScale` is the torque that swings it about the socket, over the shipped chain's: weight
+ *   times the fourth power of size on a stone arm, weight alone on a human one.
+ *
+ * Both are 1 on every arm at x1, which is what keeps every stroke there timed as it was.
+ */
+export interface ArmDrive {
+  readonly rateScale: number;
+  readonly torqueScale: number;
 }
 
 /** Which phase of a stroke a chain is in. A chain with no stroke is always `idle`. */
@@ -972,6 +998,14 @@ export interface EffectorCapability {
    * a real effector; a mind dividing by it does not need a guard.
    */
   readonly swingInertia: number;
+  /**
+   * This arm's command rate over its chain's shipped one (`ArmDrive.rateScale`), and 1 for a
+   * slot nobody swings. Physical contact session 09: with `torqueScale` and `swingInertia`,
+   * what `strokeTimeScale` in `src/golem/tactics.ts` times a stroke from.
+   */
+  readonly rateScale: number;
+  /** This arm's socket torque over its chain's shipped one (`ArmDrive.torqueScale`), and 1 likewise. */
+  readonly torqueScale: number;
 }
 
 /**

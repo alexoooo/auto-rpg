@@ -1970,3 +1970,19 @@ test("a_skeletal_arm_publishes_each_terminals_reach_scaled_to_its_length", async
     arena.dispose();
   }
 });
+
+test("a_heavier_arm_timed_as_the_mind_times_it_swings_no_slower_than_the_shipped_one", async () => {
+  // Physical contact session 09. The weight stat gives the arm the torque its extra mass needs,
+  // so a stroke timed by the arm's own time scale keeps its speed; timed by the load alone it was
+  // stretched by 47 % and swung a x2-weight mace at 14.8 m/s against the shipped arm's 18.3
+  // (`.review/stroke-timing.mjs`, Node stroke bench, 2026-09-24). Timed as the mind times it,
+  // it peaks at 19.8.
+  const shipped = await runStrokeBench({ moduleId: "effector.wrist.mace", timed: true });
+  const heavy = await runStrokeBench({ moduleId: "effector.wrist.mace", attributes: { weight: 2 }, timed: true });
+  assert.ok(heavy.peakTipSpeedDriven >= 0.9 * shipped.peakTipSpeedDriven,
+    `a x2-weight mace timed x${(heavy.shape.strokeSeconds / shipped.shape.strokeSeconds).toFixed(3)} `
+    + `peaks at ${heavy.peakTipSpeedDriven.toFixed(1)} m/s against the shipped arm's `
+    + `${shipped.peakTipSpeedDriven.toFixed(1)}`);
+  assert.ok(heavy.peakAnchorStrayMm < 50,
+    `the x2-weight mace strays ${heavy.peakAnchorStrayMm.toFixed(1)} mm from its own anchor`);
+});
