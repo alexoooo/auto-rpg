@@ -58,6 +58,13 @@ A new bench, `tests/harness/impact-bench.mjs`, which also runs directly under `n
 - Read the test mass's velocity change `dv` and the striker's closing speed `v` at contact. The
   implied effective mass for a perfectly plastic contact is `m_eff = M * dv / (v - dv)`. Report the
   restitution the pair shows as well.
+- **Read `dv` at separation, not after it.** The arm's anchor keeps driving through the contact, so a
+  late reading adds the motor's push to the collision. Report the contact's duration in solver steps
+  beside each figure. A contact that lasts long enough for the drive to matter is marked as such,
+  because session 05's model leaves the motors out by design.
+- Report the contact normal against the chain's direction as well. An arm fully extended along the
+  normal is where a chain ending in a keyframed trunk reads as unbounded, so the bench samples that
+  case deliberately.
 - Tabulate the implied m_eff against the declared `impactMassKg`.
 - This is the ground truth session 05's computed m_eff is validated against. Keep the bench as a
   harness so 05 can run it again.
@@ -86,9 +93,23 @@ A table per family (stone default, skeleton warrior, human warrior, wheel, multi
 
 Read the masses from `getMassProperties` on every body a golem owns.
 
+## 7. Idle-dummy matrix
+
+The owner's floor: lopsided cross-family fights are fine, but **every body must be able to defeat an
+idle dummy of every family**.
+
+- Attackers: stone default, skeleton warrior and human warrior at x1, and the `max` preset; each with
+  the probe minds.
+- Dummies: the same families at x1 under the `idle` policy, and the `max` preset idle.
+- Report per cell: the win rate, the median time to win, and the share of bouts that reach the cap.
+- 24 blocks a cell is enough, because the question is whether a win is reachable, not how often.
+- Keep it one command (`research/idle-dummy.mjs` or a `stat-sweep` mode), so 04, 05, 06, 08 and 10
+  can rerun it as a gate. A cell that falls to 0 wins where 01 had some is a red gate.
+- A cell that is already 0 in 01 is recorded as a finding, not fixed here.
+
 ## Done when
 
 - The preset and its test are committed.
-- The four instruments are committed under `research/` or `tests/harness/`.
+- The five instruments are committed under `research/` or `tests/harness/`.
 - The baselines section is written.
 - The fingerprint is `same`.

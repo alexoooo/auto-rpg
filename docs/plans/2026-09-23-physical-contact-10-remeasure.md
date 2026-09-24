@@ -11,7 +11,9 @@
 4. **x1 balance against session 01:**
    - stone, skeleton and human mirrors;
    - knockdowns, damage, bout length, and time spent down;
-   - the stuck-down and downed-target censuses.
+   - the stuck-down and downed-target censuses;
+   - the stun-lock figures, for the owner's call;
+   - the idle-dummy matrix, which must have no cell at zero wins.
 
 ## Write-up
 
@@ -48,8 +50,12 @@ the build and what to look for.
   - a body rising beside an opponent standing over it;
   - a body rising off a wall;
   - a skeleton knocked down mid-rise;
-  - a grounded body swinging, worse than standing but not limp.
-- **03:** a standing golem finishing a fallen one with a blade, a mace and a fist.
+  - a grounded body swinging, worse than standing but not limp;
+  - the worst stun-lock chain found, by build and seed. The owner decides whether physics alone is
+    acceptable here.
+- **03:**
+  - a standing golem finishing a fallen one with a blade, a mace and a fist;
+  - the fallen one swinging and guarding back from the ground, weakly.
 - **07:**
   - the all-max giant lifting and launching a x1 from below;
   - pushing one back;

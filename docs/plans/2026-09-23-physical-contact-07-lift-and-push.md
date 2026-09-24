@@ -38,7 +38,17 @@ carrier stays keyframed while the body is standing. The physics decides when it 
      excess feeds the stability accumulator as a stagger.
    - Both carriers take their share, so a heavier body pushing a lighter one moves it and is barely
      moved.
-4. **Blows do not double-count.** A scored blow's momentum transfer (session 06) and the contact
+4. **Body against body goes through the pair resolver, not the solver.** Two keyframed carriers
+   produce no contact impulse between them, so the accumulator in change 1 sees only arms, items and
+   ragdolls pressing. Walking into the other body is resolved by `resolvePhysicalSupportedPair`, which
+   splits the overlap equally today.
+   - Split it by mass instead: each disc gives way in proportion to the *other* body's supported
+     mass, so a heavy body walking into a light one moves it and is barely moved.
+   - The light body's displacement feeds its stability accumulator the same way a push does in
+     change 3. It is one push rule with two sources.
+   - Confirm with a probe, before relying on it, that keyframed trunk-on-trunk really reports no
+     impulse. If it does report one, it goes into change 1 and the pair split stays equal.
+5. **Blows do not double-count.** A scored blow's momentum transfer (session 06) and the contact
    force from the same contact must not both reach the accumulator. Pick one source per contact and
    test that.
 

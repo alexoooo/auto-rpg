@@ -26,6 +26,14 @@ instant. That is also where a giant's size and weight belong.
      cannot respond inside a contact.
    - The chain runs from the struck point back through the terminal, the links (`BuiltChain.parts`,
      ordered from the socket outward) and the mount, to the trunk.
+   - **The trunk is a free-floating base carrying the body's whole supported mass and inertia, never
+     the keyframed carrier.** Walking to a keyframed trunk makes it infinitely heavy, and a
+     thrust along a fully extended arm then reads as unbounded. With a floating base, m_eff is at
+     most the whole body, which is the physical ceiling. Pin that ceiling with a test at full
+     extension.
+   - **The struck side goes through the same function.** Its m_eff at the contact point, walked
+     from the struck part to its own floating base, replaces the struck part's bare mass in the
+     reduced mass. Session 06 then reads the same pair of figures. One contact, one model.
 2. **It replaces every declared `impactMassKg`.**
    - Blade, fist, mace, maul, whip weight and beads, plate, the `none` chain's cap, the ram and the
      human fist.
@@ -52,5 +60,8 @@ instant. That is also where a giant's size and weight belong.
 ## Measure
 
 - The impact bench, and x1 against x1 either side with the fingerprint diff.
+- The idle-dummy matrix from 01.
+- The damage-per-blow distribution, not only its mean. The price per joule holds the mean. A tail of
+  huge blows from near-extended thrusts means the base or the chain walk is wrong.
 - The giant preset against x1 (192 blocks). The giant's damage per wounding blow should now exceed
   the default's.

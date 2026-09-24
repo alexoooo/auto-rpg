@@ -51,6 +51,30 @@ None of the reasons is physics:
 - **Weapons stay items.** They keep their own mass and size, and take no damage. Both are earlier
   decisions and they stand.
 
+## The owner's answers to review, 2026-09-23
+
+- **Heavy enough, not stone density.** A family's body is made heavy enough that an x1 arm cannot
+  lift an x1 body of its own family, and the weight attribute does the rest. What decides a lift is
+  the arm's spare torque against the other body's weight. So the body (trunk, pelvis, legs and head)
+  takes the extra mass, and the arm links stay light **by design**. A uniform density change would
+  raise the arm torques with the arm mass (under the rule "size a force off the arm") and leave the
+  lift ratio where it is.
+- **Knockdown is physical.** It comes from momentum transfer and tipping capacity. It falls back to
+  a special rule only where the physical way is shown to fail, and each fallback is recorded under
+  "Chosen on the owner's behalf" with the failure that forced it. The x1 knockdown rate is
+  **reported, not held**, from session 08 on.
+- **Stun-lock is left to physics.** There is no authored immunity window and no authored escape. A
+  rising body is as hard to knock down as its rising posture physically is. Every session that moves
+  knockdowns reports repeat knockdowns within 2 s of a rise, and the owner decides after looking at
+  it at the end.
+- **A downed body swings weakly and parries.** It keeps choosing strokes and guards, and the grounded
+  tone makes them weak. "Parry" here means what it means everywhere in this tree: the hand's `guard`
+  button, which pulls the arm to guard reach and puts the item on the covering line
+  (`actionCoverAt` in `src/action-primitives.ts`). It is not an active deflection.
+- **Lopsided cross-family fights are fine for now.** But **every body must be able to defeat an idle
+  dummy of every family**. That is a gate, measured in 01 and after every session that changes mass,
+  energy or knockdown (04, 05, 06, 08) and again in 10.
+
 ## How the set runs
 
 **It runs overnight without the owner.** Nobody can look at a screen until the end, so:
@@ -82,8 +106,10 @@ either side of the change. That is the `research/stat-sweep.mjs` control row, 38
 house rule on shared execution code. Its targets:
 
 - about 50 % with d about 0;
-- knockdowns and damage a bout within the band session 01 records, unless the session exists to move
-  them.
+- damage a bout within the band session 01 records, unless the session exists to move it;
+- knockdowns a bout within that band up to session 06. From 08 on they are whatever the physics
+  gives, reported beside 01's figure and never a reason to stop;
+- the idle-dummy matrix from 01: every attacker still defeats every idle dummy.
 
 **The attribute tables become void as this lands.** Every table in
 `docs/analysis/2026-09-23-attribute-measurements.md` was measured against the old contact model.
@@ -93,10 +119,10 @@ Session 10 reruns them; nothing in between cites them as current.
 
 | File | What |
 |---|---|
-| `-01-measure.md` | Baselines: stuck-down and downed-target censuses, effective-mass ground truth, lift and push bench, mass census, giant preset. No behaviour change. |
+| `-01-measure.md` | Baselines: stuck-down and downed-target censuses, effective-mass ground truth, lift and push bench, mass census, idle-dummy matrix, giant preset. No behaviour change. |
 | `-02-getting-up.md` | Nobody stays down: automatic rise, a rise that relocates, a rise that retries, no rise immunity, one grounded tone. |
 | `-03-finishing.md` | Support state and a live vital point in the view; minds close on and strike a downed body. |
-| `-04-family-masses.md` | Stone at stone density, the human at human scale, the skeleton lighter; forces and thresholds re-derived. |
+| `-04-family-masses.md` | Bodies heavy enough that an x1 arm cannot lift an x1 body, arms light by design; the human at human scale, the skeleton lighter. |
 | `-05-effective-mass.md` | m_eff at the contact point, computed from the chain, replaces every declared `impactMassKg`. |
 | `-06-knockback.md` | Momentum transfer replaces the authored shove, in 3D, parries included. |
 | `-07-lift-and-push.md` | Contact force on a standing body: lifted and launched past its weight, pushed past its grip. |

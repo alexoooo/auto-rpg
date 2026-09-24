@@ -46,6 +46,10 @@ The lying cap (`maxLyingSeconds`) bounds only `fallSettled`. It covers none of t
      production wiring.
    - A rising body falls on the same `fallAt` threshold a standing body does, from the same
      accumulator, instead of on the stagger-level `hitInterrupted`.
+   - Add no authored immunity window and no authored escape in its place. The owner's rule is that
+     stun-lock is left to physics: a rising body is exactly as hard to put down as its posture is.
+     Until session 08 that is the standing threshold; from 08 it is the rising posture's own tipping
+     capacity.
    - Rewrite `a_skeleton_struck_while_it_rises_gets_up_anyway` and its sibling in
      `tests/golem-knockdown.test.mjs` to pin the new rule. Pin both halves:
      - a fall-level hit during a rise puts the body down;
@@ -69,8 +73,12 @@ The lying cap (`maxLyingSeconds`) bounds only `fallSettled`. It covers none of t
 - **The census again**, against 01:
   - the count of episodes longer than 5 s by cause;
   - episode p50, p90 and max;
-  - repeat knockdowns within 2 s of a rise, as a stun-lock check.
+  - repeat knockdowns within 2 s of a rise, as a stun-lock check;
+  - the share of bouts in which the first knockdown's victim loses, and the longest chain of
+    knockdowns without the victim standing for 2 s.
 - **Target:** no episode longer than 5 s unless the body is being struck through it.
+- **The stun-lock figures are reported, not gated.** The owner makes that call at the end, from the
+  figures and the eye list.
 - **Before and after:** x1 against x1 either side (stone mirror and skeleton mirror, 384 bouts each)
   and the fingerprint diff.
 
@@ -80,3 +88,4 @@ The lying cap (`maxLyingSeconds`) bounds only `fallSettled`. It covers none of t
 - A body rising off a wall.
 - A skeleton knocked down mid-rise.
 - A grounded body swinging.
+- The worst stun-lock chain the census found, by build and seed: is it acceptable?

@@ -46,8 +46,16 @@ When one fighter is down, the other usually cannot hurt it. Exploration found wh
    - Lower `liftMin` per chain as far as the bench allows without the blade grinding the floor at
      rest.
    - If a chain cannot reach a lying core even crouched, record it rather than bending the envelope.
-4. **A downed mind stops planning strokes it cannot make.** While self is `fallen` or `rising`, a mind
-   parries and holds rather than chambering. The grounded tone from 02 still lets it swing.
+4. **A downed mind fights weakly, and does not go limp.** The owner's rule: a body on the ground
+   swings and parries, and the grounded tone from 02 is what makes it weak. The mind is not what
+   makes it weak.
+   - While self is `fallen` or `rising`, a mind keeps choosing both strokes and guards.
+   - It aims from its live socket, not a standing one. It drops only the strokes whose mark is out
+     of reach from where it lies.
+   - "Parry" means the hand's `guard` button: guard reach, with the item on the covering line from
+     `actionCoverAt`. It is not an active deflection.
+   - Pin it with a test built from a real downed publication: a downed mind in reach issues a
+     stroke, and one facing a threat issues a guard.
 
 ## Measure
 
@@ -61,3 +69,4 @@ When one fighter is down, the other usually cannot hurt it. Exploration found wh
 ## Owner's eye list (session 10)
 
 - A standing golem finishing a fallen one with a blade, a mace and a fist.
+- The fallen one swinging and guarding back from the ground, weakly.

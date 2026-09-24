@@ -22,17 +22,36 @@ The owner wants general unit physics.
    - The capacity multiplies by the stability attribute, as today.
    - Derive the base from each locomotion module's footprint, and the height from the live mass
      distribution.
+   - **It applies while rising too.** A rising body's capacity is its rising posture's: a low centre
+     of mass on a base that is still forming. This is the owner's physical answer to stun-lock, and it
+     replaces 02's interim rule, where a rising body used the standing threshold. Add no immunity
+     and no escape on top of it.
+   - **Stagger is physical as well.** Take it as the impulse whose centre-of-mass excursion the base
+     can still absorb without tipping, where a stated physical reading allows that. If none does,
+     keep a stated fraction of the fall capacity as a recorded fallback.
 2. **One knockdown table for every body.** Settle, rest, lying cap and rise peak, with the rise peak
    and times scaled by size and recovery as today.
    - Stone, human, wheel and multileg get the settle rule they lack. Today they rise after the dwell
      whether or not the fall has stopped.
 3. **One posture predicate** for every body.
 4. **Delete the per-family brace and gait numbers**, and the `Knockdown` table's per-body rows.
+5. **The knockdown rate is not held.** The owner's rule is that knockdown is physical unless the
+   physical way fails. So the x1 rate is whatever tipping capacity and momentum transfer give, and it
+   is reported beside 01's and 06's. The physical way **fails** only in these cases:
+   - the solver and the formula disagree past the stated tolerance, and no fix to the model closes it;
+   - an x1 mirror never falls;
+   - an x1 mirror falls on most scored blows;
+   - a cell of the idle-dummy matrix falls to zero wins.
+
+   Only then may a special rule come back. It is the narrowest that fixes the failure, it is recorded
+   under "Chosen on the owner's behalf" with the failure beside it, and it can be reversed.
 
 ## Measure
 
 - **The shove bench:** the stagger and fall impulses per family against the tipping prediction. The
   solver and the formula agree within a stated tolerance.
-- **Knockdowns a bout** per family against session 06's.
+- **Knockdowns a bout** per family against 01's and 06's. Reported, not gated.
+- **The stun-lock figures from 02**, reported.
+- **The idle-dummy matrix from 01.**
 - **x1 against x1 either side**, with the fingerprint diff.
 - **The stability sweep** (`--stat stability`, 192 blocks). The row still moves the fall impulse.
