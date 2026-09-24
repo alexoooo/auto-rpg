@@ -5,8 +5,9 @@ button, select, input { font: inherit; } button, select, .field input { color: i
 button { cursor: pointer; } button:hover { border-color: #c4b088; background: #262c31; } button:disabled { opacity: .5; cursor: wait; }
 button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid #dfc99c; outline-offset: 3px; }
 a { color: #d7c5a2; text-decoration: none; } kbd { color: #8b949b; font: 11px system-ui; margin-left: 12px; }
-.topbar { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 28px; background: linear-gradient(#0a0e16ed, #0a0e1680, transparent); pointer-events: none; }
-.topbar > * { pointer-events: auto; } .brand { font-weight: 700; font-size: 12px; letter-spacing: .15em; } .brand span { color: #8d959f; font-weight: 400; margin-left: 8px; }
+.topbar { position: fixed; top: 0; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; padding: 20px 28px; background: linear-gradient(#0a0e16ed, #0a0e1680, transparent); pointer-events: none; }
+.topbar > * { pointer-events: auto; } .brand { justify-self: start; font-weight: 700; font-size: 12px; letter-spacing: .15em; } .brand span { color: #8d959f; font-weight: 400; margin-left: 8px; }
+.topbar-end { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 16px; } #frame-meter { font: 11px ui-monospace, Consolas, monospace; color: #858e98; white-space: nowrap; }
 .objective { letter-spacing: .17em; font-size: 11px; } .diamond { color: #7fddbd; font-size: 21px; vertical-align: middle; margin-right: 12px; } .objective small { display: block; color: #858e98; letter-spacing: .06em; text-align: center; margin-top: 2px; }
 .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; display: flex; gap: 32px; align-items: center; padding: 28px; background: linear-gradient(transparent, #0a0e16ee 40%); pointer-events: none; }
 .bottom-bar > * { pointer-events: auto; } .hero-panel { min-width: 205px; } .eyebrow { display: block; font-size: 10px; letter-spacing: .2em; color: #b5a37f; margin-bottom: 9px; } .hero-panel strong { font-family: Georgia, serif; font-size: 22px; font-weight: 400; text-transform: capitalize; }

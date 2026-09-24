@@ -27,6 +27,7 @@ import { CAMERA_PITCH, frameDungeon, pickingCoordinates } from "./camera.ts";
 import { torchPlacements } from "./dressing.ts";
 import { lightDungeon, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
+import { frameMeter } from "./frame-meter.ts";
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id); if (!element) throw new Error(`Missing dungeon element ${id}`); return element as T;
@@ -97,6 +98,7 @@ async function boot(): Promise<void> {
   let route: LinesMesh | null = null, routeSignature = "", lastUi = 0;
   const held = new Set<string>();
   const probe = lookProbe(engine, () => scene && lighting ? { scene, lighting } : null);
+  const meter = frameMeter(engine, need("frame-meter"));
   const abort = new AbortController(), signal = abort.signal;
   const setPaused = (value: boolean) => {
     if (!run || !scene) return;
@@ -134,6 +136,7 @@ async function boot(): Promise<void> {
       run.step(1 / CONFIG.world.physicsHz);
       if (run.status !== "playing") setPaused(true);
     });
+    meter.watch(scene);
     need("start-panel").hidden = true; need("seed-label").textContent = `SEED ${seed}`;
     need("hero-name").textContent = selectedBuild.replaceAll("-", " ");
     // From the body that was built, not from the dialog, so the line is what is walking about.
@@ -230,7 +233,7 @@ async function boot(): Promise<void> {
   canvas.addEventListener("lostpointercapture", () => run?.commands.cancelPointer(), { signal });
   canvas.addEventListener("wheel", event => { event.preventDefault(); zoom = Math.max(6, Math.min(18, zoom * Math.exp(event.deltaY * 0.001))); }, { passive: false, signal });
   window.addEventListener("resize", () => engine.resize(), { signal });
-  engine.runRenderLoop(() => {
+  engine.runRenderLoop(() => meter.frame(() => {
     if (!scene || !run) return;
     framing();
     if (performance.now() - lastUi > 100) {
@@ -253,7 +256,7 @@ async function boot(): Promise<void> {
       }
     }
     scene.render();
-  });
+  }));
   const dispose = () => {
     abort.abort(); engine.stopRenderLoop(); lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
   };
