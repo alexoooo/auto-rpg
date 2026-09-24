@@ -203,9 +203,10 @@ interface Bite {
    * What this mechanism charges for a point of wound, joules.
    *
    * The one balance number a row has. An edge concentrates what arrives into a line and costs
-   * 34.82 J; an axe's shorter edge costs 25.93; anything blunt spreads it and costs 115.24.
-   * Each is anchored on the Warrior blow the retired scale was set for, so a Warrior with a
-   * sword, an axe or a club scores at 11 m/s on a torso exactly what it scored before.
+   * 62.08 J; an axe's shorter edge costs 46.24; anything blunt spreads it and costs 436.29.
+   * Each is anchored on the Warrior blow the retired scale was set for, with a stone arm's chain
+   * behind the weapon, so that Warrior with a sword, an axe or a club scores at 11 m/s on a torso
+   * exactly what it scored before. `CONFIG.combat`'s header has the factors.
    */
   joulesPerDamage: (tuning: Tuning) => number;
   /**

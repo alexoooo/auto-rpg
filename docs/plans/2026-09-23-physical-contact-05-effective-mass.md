@@ -80,3 +80,60 @@ instant. That is also where a giant's size and weight belong.
   straight chain. The model's floating base is the thing that bounds it. Compare the model against
   the tap's edge column, and against the stroke. Compare it against the tap's axis column only where
   that column is finite.
+
+## What landed, 2026-09-24
+
+Every figure is in `docs/analysis/2026-09-23-attribute-measurements.md` "Physical contact 05:
+effective mass", with its harness. What differs from the plan above:
+
+- **A bug came first (0e2dee5).** `RigidStrike.velocityAt` read the angular term from the
+  geometric centre, while Havok's linear velocity belongs to the centre of mass. A tap on a mace's
+  edge read 0.875 kg where the rigid-body formula gives 1.07. The mace and the maul moved; nothing
+  else did.
+- **The model is two files, not one (4acc9e3).**
+  - `src/golem/effective-mass.ts` is the pure mechanics.
+  - `src/body-inertia.ts` walks a live body, from the joints `src/rig.ts` now records, back to a
+    free-floating base that carries the rest of the body.
+  - The walk is general, so the human and the ram need no rule of their own.
+- **It reads the solver's inertia, floors and all, and not each part's solid.** The plan said
+  otherwise. The stroke overruled it: through the parts' own solids, a max wrist blade reads no
+  heavier than an x1 one, where the stroke gives up 3.41 kg against 1.47. Havok reports that
+  inertia per kilogram of the body's mass, which is now a trap in `AGENTS.md`.
+- **Validation.**
+  - The walk is within 5 % of the edge tap.
+  - It is within about a quarter of every stroke.
+  - The one coupling it leaves out is a joint resting on its stop.
+- **`Combat` reads both masses at the contact along the contact normal (16108d3).**
+  - Every `impactMassKg` is gone.
+  - The size and weight tests now pin the effective mass: never lower, and higher behind a ram or
+    a capped socket.
+- **The prices hold x1 pace, not damage per bout**, since the vitality bar binds the latter.
+  - Edge rises x1.783, anchored on the default build.
+  - Blunt rises x3.786, pooled over default, mace and maul.
+  - Floors move with their prices, chop takes the edge's factor, and the point floor stays.
+  - The Warrior fixtures in `tests/scoring.test.mjs` now strike with a stone arm behind them, so
+    every anchor holds to its digit.
+- **One price across bodies moves what couples differently**, and it was accepted:
+  - the maul x1.40, fists x1.37, the skeleton's blade x1.53;
+  - the mace x0.69, the whip x0.50, the human's blade x0.51;
+  - the ram x0.20: its lunge on a free post is now a shove;
+  - the capped socket's shove x40.
+
+  Each is on session 10's lists.
+- **Four fixtures moved and no assertion did.**
+  - The ram's lunge test now pins the shove.
+  - The human wound test and the two worker-count tests take the seeds their documented searches now
+    pick.
+- **Stone's x1 control is back in session 01's band**, knockdowns included. Session 04 had left
+  those red.
+- **The giant's blows now carry the giant.** Per wounding blow it deals 3.0 times the default's, and
+  it wins 97.4 %. Size and weight alone went from 14.8 % to 77.6 %.
+- **The skeleton loses its arms more often and falls less.** It severs 1.64 times a bout against
+  1.11, and it is knocked down 3.77 times against 5.30. The skeleton is not in the band's definition,
+  so this is reported.
+- **The idle-dummy matrix.**
+  - The giant ends an idle body outright in 79 to 100 % of bouts, against 54 to 88 %.
+  - The skeleton's two outright cells went to zero, over stone (from 17 %) and the human (from 13 %).
+    With the drain it still wins all of them.
+  - The human is still at zero outright, and with the drain it wins less against stone (42 % from
+    58 %) and against itself (21 % from 67 %). That goes to session 09 with the stand-off.

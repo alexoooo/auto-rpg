@@ -1795,8 +1795,9 @@ export const CONFIG = {
      * of it is 4.4 m/s. That is brisk -- a walk-in is 2.9 m/s -- and it is well
      * under the 10 to 40 m/s a committed cut puts through the tip, so a rebase
      * can never be mistaken for an attack, and it cannot land one either:
-     * `combat.cutFloorJ` is 5.96 J, which a 1.35 kg blade meeting a torso clears
-     * at 3.0 m/s at the *tip* and a hand crossing at 4.4 would therefore pass, so
+     * `combat.cutFloorJ` is 10.62 J, which a bare 1.35 kg blade meeting a torso
+     * clears at 4.01 m/s at the *tip* (3.0 with a stone arm's chain behind it), and
+     * a hand crossing at 4.4 would therefore pass, so
      * this is the one number in the block that somebody should watch in the page.
      * If a takeover is ever seen to cut, halve it.
      *

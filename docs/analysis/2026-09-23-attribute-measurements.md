@@ -2592,3 +2592,209 @@ rate, then the win rate with the drain in brackets, then the median time of a wi
   - Stone on giant: 17 % to 63 %.
   - Giant on human: 8 % to 63 %.
   - Giant on giant: 13 % to 54 %.
+
+## Physical contact 05: effective mass
+
+Session 05 (`docs/plans/2026-09-23-physical-contact-05-effective-mass.md`) landed in three commits:
+
+- **0e2dee5**: a striker's point velocity turns about its centre of mass.
+- **4acc9e3**: the effective-mass model (`src/golem/effective-mass.ts`) and the walk that feeds it
+  (`src/body-inertia.ts`).
+- **16108d3**: `Combat` reads both effective masses at the contact, every declared `impactMassKg`
+  is gone, and the prices rise by what the chain adds.
+
+The "before" is 562f8b2 / d47753c (same physics; research fingerprint 2a589fb9fd98). The "after" is
+16108d3 (e69f3f7ac344). Raw outputs are in `research/runs/pc05`, which is not committed.
+
+### The model against the impact bench
+
+`tests/harness/impact-bench.mjs`: Node harness, bench stand, NullEngine, real Havok.
+
+**Against the edge tap, the walk agrees within 5 %** on the wrist blade, the mace and the pitch
+blade (`the_walk_reads_what_the_solver_does_at_an_edge_tap`). Both hold the joints free and the base
+keyframed.
+
+**Against a stroke** into a 90 kg sphere, with the motors let go at contact and the joint stops
+opened, the momentum the stroke gave up, in kg:
+
+| Chain, item | Stroke | Walk, solver properties | Walk, parts' own solids |
+| --- | ---: | ---: | ---: |
+| wrist blade x1 | 1.47 | 1.11 | 0.77 |
+| wrist blade max | 3.41 | 2.93 | 0.82 |
+| mace x1 | 3.17 | 2.97 | 2.35 |
+| mace max | 4.95 | 4.50 | 2.41 |
+| maul x1 | 9.20 | 10.32 | 8.37 |
+| maul max | 11.76 | 14.77 | 8.39 |
+| pitch blade x1 | 0.96 | 0.89 | 0.89 |
+| pitch blade max | 1.29 | 1.16 | 1.16 |
+
+- The walk through the solver's properties is within about a quarter of the stroke either way.
+  Through the parts' own solids, a max blade reads no heavier than an x1 one. So the walk reads the
+  solver, floors and all, which reverses the plan (see session 10's "Chosen on the owner's
+  behalf").
+- **A joint resting on its stop is what the model leaves out.** With the stops left in place, the
+  max mace gave up 7.51 kg against the walk's 4.50.
+- Session 01's mace and maul ground truth was taken through the old lever, which read the angular
+  term from the geometric centre (0e2dee5 fixes it). A tap on the mace's edge read 0.875 kg, against
+  the 1.07 kg that the rigid-body formula and a reading from the centre of mass agree on. The stroke
+  column above is re-measured through the new lever.
+
+### Prices
+
+Every contact of x1 bouts was recorded on the declared-mass tree, 4acc9e3's walk beside `Combat`'s
+own masses, then re-scored offline through the real `scoreHit` (`.review/contacts.mjs` and
+`solve.mjs` in a probe worktree, Node harness, `runBout`, supported locomotion). The re-score of
+the declared masses reproduces `Combat`'s damage exactly (worst difference 0).
+
+The factor that holds the summed contact damage at x1, per build and mechanism:
+
+| Build | Edge | Blunt |
+| --- | ---: | ---: |
+| default | **1.783** | 3.660 |
+| mace | -- | 3.085 |
+| maul | -- | 4.974 |
+| pooled default, mace, maul | -- | **3.786** |
+| skeleton-warrior | 2.475 | 6.118 |
+| human-warrior | 1.373 | -- |
+
+- The edge factor is anchored on the default build (13879 contacts), and the blunt factor is pooled
+  over the three stone blunt builds (41189 contacts).
+- Each floor moves by its price's factor. Chop takes the edge's factor. The point floor stays: the
+  only point is an arrow, and it still carries its own mass.
+- The results are `cutJoulesPerDamage` 62.08, `chopJoulesPerDamage` 46.24, `crushJoulesPerDamage`
+  436.29, `cutFloorJ` 10.62 and `crushFloorJ` 29.67.
+
+**One price across bodies moves whatever couples differently.** Summed damage on the same contacts,
+at the chosen factors:
+
+| Build | Striker | Summed damage | Note |
+| --- | --- | ---: | --- |
+| default | sword | x1.000 | the anchor |
+| default | fist | x0.950 | |
+| mace | club | x0.688 | |
+| maul | club | x1.399 | |
+| ram-capped | ram | x0.199 | wounding contacts 89 to 24 |
+| ram-capped | cap shove | x40.1 | a median 79 kg behind the 0.567 kg it declared |
+| ram-blade | ram / sword | x0.49 / x0.922 | |
+| whip | whip / fist | x0.496 / x1.296 | |
+| fists | fists | x1.365 | |
+| skeleton-warrior | sword / fist | x1.531 / x2.129 | |
+| human-warrior | sword | x0.507 | effective 0.74 of the declared, median contact |
+
+- **The ram fell because it was the only striker that had always declared its chain.** Its
+  `kg(74)` already counted the neck and trunk, and every arm gained its chain for the first time.
+- **The capped shove rose because its cap is bolted to a 250 kg body.**
+- **The human fell because its light arm couples less than its blade declared.**
+
+### What a blow carries
+
+`.review/blows.mjs`: 64 stone default mirrors over the four probe minds, seeds 1000+i and 2000+i,
+cap 150 s, Node harness, `runBout`, supported locomotion:
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| Bout length | 18.6 s | 23.3 s |
+| Contacts per second | 17.16 | 16.53 |
+| Wounding blows per second | 1.49 | 1.71 |
+| Median energy of a wounding blow | 14.9 J | 34.3 J |
+| Damage per wounding blow | 0.439 | 0.366 |
+| Its p10 / median / p90 | 0.064 / 0.206 / 0.949 | 0.047 / 0.196 / 0.853 |
+| Its p99 / max | 4.186 / 8.43 | 2.279 / 6.48 |
+| Damage per second | 0.656 | 0.628 |
+| Wounding blows by striker | sword 1322, fist 460 | sword 2037, fist 518 |
+
+**The tail shrank, and no extended thrust makes it.** The plan's warning sign was a tail of huge
+blows from near-extended thrusts. What moved is where the tail sits on the blade:
+
+- **Before:** 15 of the 17 blows above the 99th percentile landed within 0.3 m of the tip, at a
+  median 21.6 m/s.
+- **After:** 8 of the 25 did. The largest two were slow near-hilt draws:
+  - 6.48, closing at 1.31 m/s and sliding at 27.8 m/s, 0.79 m from the tip, with 14.9 kg behind it;
+  - 5.09, closing at 0.78 m/s, 0.77 m from the tip, with 15.1 kg.
+- Near the hilt, the chain couples most. The draw term pays for the slide. It is on the eye list.
+
+### Fingerprint
+
+`tests/harness/body-fingerprint.mjs --against` session 04's, Node harness: 40 sections the same and
+15 moved.
+
+- Every bench, head, torso and walk section is the same.
+- Every bout moved. The model reads the solver, and only scoring moved.
+
+### x1 controls
+
+Measured the way session 04's were: Node harness, research runner, supported locomotion, cap 150 s,
+seed 20260923. Per body per bout, 95 % bootstrap over the 192 blocks:
+
+| Tree | Stone damage | Stone knockdowns | Stone seconds | Skeleton damage | Skeleton knockdowns | Human damage / knockdowns |
+| --- | --- | --- | --- | --- | --- | --- |
+| session 01 | 7.64 [7.43, 7.85] | 4.93 [4.54, 5.32] | 28.1 | 1.89 | 4.85 | -- |
+| 562f8b2 | 7.26 [7.02, 7.48] | 3.99 [3.67, 4.32] | 17.7 | 1.95 [1.90, 2.00] | 5.30 [5.04, 5.55] | 0.10 / 0.00 |
+| **16108d3** | **7.81 [7.59, 8.03]** | **4.59 [4.33, 4.85]** | 21.1 | 1.76 [1.70, 1.81] | 3.77 [3.58, 3.97] | 0.06 [0.05, 0.06] / 0.00 |
+
+- **Stone is back in session 01's band on both counts.** Session 04 left its knockdowns red,
+  because its bouts had got shorter. Now a stone bout is longer (median 13.4 to 17.9 s) and a body
+  falls about as often per second as before (0.226 to 0.217 per body). The win rate is 53.6 %
+  [48.7, 58.9], d 0.10.
+- **Per stone contact, damage held.** Real blows are 0.0782 damage before and 0.0774 after. Contacts
+  per second fell from 18.8 to 17.5, and severs per bout rose from 1.01 to 1.28.
+- **The skeleton lost its arms more often and fell less.**
+  - Its bone arms now come off 1.64 times a bout, against 1.11.
+  - Its contacts per second fell from 7.38 to 5.32, and its knockdowns per second from 0.185 to
+    0.146 (both bodies).
+  - Its sword's summed pace rose 1.53 times, so a light bone limb empties sooner. A body with an arm
+    gone makes fewer contacts and shoves less.
+  - Knockdowns are physical, and nothing that falls reads a blow's mass. Only its outcome moved.
+  - The skeleton is not in the band's definition (stone's control row), so this is reported and
+    does not stop the set.
+- **The human deals less and still never falls.** Its damage fell from 0.10 to 0.06 a body a bout.
+  Its contacts held (303.5 a bout, against 302.5), and the share of them that wound fell from 0.9 %
+  to 0.8 %. Every one of its 384 bouts still runs out to the drain. This is the lighter arm behind
+  its blade, as the offline re-score predicted, and it goes to session 09.
+
+### The giant
+
+`research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max --pairs 192`, on
+16108d3. Node harness, research runner, supported locomotion, cap 150 s, seed 20260923:
+
+| Level | Win % [95 %], before | Win % [95 %], after | Dealt / taken, after | Damage per real blow, own / other's, before | After |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| control | 46.6 [41.7, 51.8] | 53.6 [48.7, 58.9] | 7.98 / 7.65 | 0.078 / 0.079 | 0.079 / 0.076 |
+| max | 57.0 [51.6, 62.2] | **97.4 [95.8, 99.0]** | 11.16 / 4.61 | 0.100 / 0.109 | **0.273 / 0.091** |
+| max-normal-body | 93.8 [91.1, 96.1] | 92.8 [89.8, 95.6] | 10.29 / 6.14 | 0.095 / 0.059 | 0.107 / 0.068 |
+| size-weight-max | 14.8 [11.2, 18.5] | **77.6 [72.9, 82.0]** | 10.52 / 4.61 | 0.076 / 0.088 | **0.253 / 0.076** |
+
+- **The giant's damage per wounding blow now exceeds the default's, 3.0 times over.** That was the
+  plan's check. Before, its blows were worth less than the x1 body's, because its size and weight
+  reached a blow only through a declared item mass that neither attribute scaled.
+- **Size and weight alone went from 14.8 % to 77.6 %.** It is the same body with ordinary arms, and
+  its blows now carry it.
+- max-normal-body, the giant's stats on an x1-sized body, did not move. Its body is the default's,
+  so no more mass stands behind its blows than before.
+- The max giant is knocked down 0.00 times a bout, and fells the x1 body 1.66 times.
+
+### Idle-dummy matrix
+
+`research/idle-dummy.mjs --blocks 12` on 16108d3: Node harness, research runner, supported
+locomotion, cap 150 s, 12 blocks a cell played from both sides, seed 20260923, fingerprint
+e69f3f7ac344. Each cell is the attacker's outright win rate, then with the 60 s overtime drain,
+then the median time of a win. Session 04's reading is in brackets.
+
+| Attacker \ idle dummy | stone | skeleton | human | giant |
+| --- | ---: | ---: | ---: | ---: |
+| stone | 75 % (100) / 38.9 s [75 / 29.2] | 100 % (100) / 15.8 s [83 / 17.6] | 71 % (100) / 38.2 s [75 / 32.0] | 58 % (100) / 53.0 s [63 / 46.5] |
+| skeleton | **0 %** (100) / 91.7 s [17 / 86.4] | 83 % (100) / 48.6 s [75 / 46.7] | **0 %** (100) / 89.4 s [13 / 76.4] | 0 % (100) / 111.5 s [0 / 105.1] |
+| human | 0 % (42) / 119.7 s [0 (58)] | 0 % (100) / 117.5 s [0 (100)] | 0 % (21) / 119.9 s [0 (67)] | 0 % (17) / 119.7 s [0 (8)] |
+| giant | **100 %** (100) / 13.6 s [88 / 32.6] | 88 % (100) / 9.0 s [75 / 29.4] | 92 % (100) / 19.7 s [63 / 56.3] | 79 % (100) / 30.9 s [54 / 55.7] |
+
+- **The giant ends an idle body outright in 79 to 100 % of bouts, in a third to a half of the time.**
+  Before, it managed 54 to 88 %. Its mass now reaches its blows.
+- **The skeleton lost its only outright wins over stone and the human** (17 % and 13 % to 0 %). With
+  the drain it still wins every bout against every dummy, as before. Its light bone arm puts less
+  behind its blade than the blade used to declare, and it now loses that arm sooner (above).
+- **The human wins nothing outright, as before, and less with the drain.** Against stone it falls
+  from 58 % to 42 %, against itself from 67 % to 21 %, and against the giant it rises from 8 % to 17 %.
+  That is its lighter arm again, and it goes to session 09 with the stand-off.
+- Seven cells are at zero outright wins, against five. The owner's floor is that every body can
+  defeat an idle dummy. With the drain, stone, skeleton and giant still do everywhere. The human
+  does not, which was already true and is still session 09's.

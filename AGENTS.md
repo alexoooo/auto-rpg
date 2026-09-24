@@ -501,6 +501,25 @@ directly under `node`. It is how a body gets measured without a person watching.
   tight band around 27 m/s, which is the shape of a systematic error rather than of noise.
   The repair cached the arrow's free-flight velocity each control step and scored from that,
   and a projectile added to `Combat` has to do the same.
+- **Havok's inertia is per kilogram, and its linear velocity belongs to the centre of mass.** Both
+  read like the textbook quantity, and neither is.
+  - `getMassProperties().inertia` and `setMassProperties({ inertia })` carry the tensor **divided by
+    the body's mass**: the solver turns a body as if its inertia were `inertia * mass`. So every
+    floor written against it is per kilogram, whatever its comment says. That covers
+    `CHAIN_REACH.jointInertiaFloor` (commented "0.30 kg m²"), `HUMAN_ARM_DRIVE.inertiaFloor`, and
+    `castToCarried`: its argument is named `inertiaKgM2`, is the terminal's per-kilogram figure, and
+    is applied to a ring of a different mass. Each value was tuned against the solver, so the numbers
+    are right and the units in their names are wrong.
+  - A model that takes that field as kg m² reads a turning part as lighter than it is.
+    `src/body-inertia.ts` multiplies by the mass. With that factor, it agrees with the Node impact
+    bench's edge tap within 5 %.
+  - `getLinearVelocityToRef` is the velocity of the **centre of mass**, but `getObjectCenterWorld`
+    is the transform node's position, the geometric centre. `linear + w x r` with `r` taken from
+    the latter was off by `w x 0.104 m` on a turning mace. A tap on its edge read 0.875 kg, against
+    the 1.07 kg that the rigid-body formula gives (Node impact bench).
+  - `RigidStrike.centreOfMass()` reads the local balance point once, at construction, and places it
+    from `mesh.position` and `mesh.rotationQuaternion`. Only a part whose centre of mass is off its
+    middle shows the error: today the mace and the maul.
 - **`getLinearVelocityToRef` is not allocation-free, and the name is why this has now cost
   two sessions.** The obvious reading of `ToRef` in Babylon is "the version that does not
   allocate", and for `getObjectCenterWorldToRef` it is true -- that one copies
