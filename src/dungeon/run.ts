@@ -9,8 +9,9 @@ import { NAMED_BUILDS, namedBuild } from "../golem/roster.ts";
 import { unitDefinition } from "../units.ts";
 import type { Intent, Mind } from "../mind.ts";
 import { mulberry32 } from "../rng.ts";
-import { canSee, cellKey, distance, explorationGoal, findPath, generateDungeon, reveal, walkable,
+import { canSee, cellKey, distance, explorationGoal, findPath, reveal, walkable,
   type DungeonMap, type Point } from "./map.ts";
+import { generateLevel } from "./level.ts";
 import { composeIntent, DungeonCommands, neutralIntent, screenMovement } from "./commands.ts";
 import { resolveDungeonLocomotion } from "./locomotion.ts";
 import { buildDungeonWorld } from "./world.ts";
@@ -30,7 +31,8 @@ export interface DungeonActor {
  * movement stat (x0.75, which scales both; size leaves acceleration alone), so a body that has not
  * is usually stuck -- typically on a corner its leg cleared from where it was planned. Anything
  * else that holds a body still, a knockdown or another actor in the way, replans it too, which is
- * harmless: a replan that finds no route keeps the one it had. Node headless harness: seed 2's
+ * harmless: a replan that finds no route keeps the one it had, and the step to the cell's middle in
+ * `follow` is taken only by a body standing on rock's clearance. Node headless harness: seed 2's
  * explorer sat on a room corner for 93 s without this, and needed exactly one replan with it.
  */
 const STALL = { seconds: 0.5, metres: 0.05 } as const;
@@ -57,7 +59,7 @@ export class DungeonRun {
   private dodgeVector: Point = { x: 0, z: 0 };
 
   constructor(scene: Scene, seed: number, heroBuild = "default", visuals = true, layout?: DungeonMap, heroSetup?: GolemSetup) {
-    this.map = layout ?? generateDungeon(seed);
+    this.map = layout ?? generateLevel(seed).map;
     this.world = buildDungeonWorld(scene, this.map, visuals);
     const definition = unitDefinition("golem"), random = mulberry32(seed ^ 0x9e3779b9);
     const create = (id: string, buildName: string, at: Point, side: "left" | "right") => {
@@ -94,7 +96,14 @@ export class DungeonRun {
     const at = actor.body.feetPosition();
     if (!actor.route.length || distance(at, actor.progress.at) > STALL.metres) actor.progress = { at: { x: at.x, z: at.z }, since: this.clock };
     else if (this.clock - actor.progress.since > STALL.seconds) {
-      const route = findPath(this.map, at, goal, actor.radius);
+      let route = findPath(this.map, at, goal, actor.radius);
+      // A body wedged on the clearance arc of a rock corner is handed the same leg again: clear at
+      // `clearSegment`'s 0.2 m samples, blocked within a millimetre. The middle of its own cell is
+      // away from that corner, so it goes there first and plans on from it. Only a body standing on
+      // rock's clearance does: one held up by another body, a mid-fight stall, keeps its leg.
+      const middle = { x: Math.round(at.x), z: Math.round(at.z) };
+      if (route.length && distance(route[0], actor.route[0]) < 0.01 && !walkable(this.map, at, actor.radius + 0.02) &&
+        distance(at, middle) > 0.3 && walkable(this.map, middle, actor.radius)) route = [middle, ...findPath(this.map, middle, goal, actor.radius)];
       if (route.length) { actor.goal = { x: goal.x, z: goal.z }; actor.route = route; actor.nextPlan = this.clock + 0.5; }
       actor.progress = { at: { x: at.x, z: at.z }, since: this.clock };
     }

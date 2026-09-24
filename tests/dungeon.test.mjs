@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateDungeon, findPath, walkable, clearSegment, canSee, reveal, explorationGoal, distance } from "../src/dungeon/map.ts";
+import { findPath, walkable, clearSegment, canSee, reveal, explorationGoal, distance } from "../src/dungeon/map.ts";
+import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { DungeonCommands, composeIntent, neutralIntent, mouseOrdersEnabled, screenMovement } from "../src/dungeon/commands.ts";
 import { resolveGroupMoves } from "../src/dungeon/locomotion.ts";
 import { Vector3, Matrix } from "@babylonjs/core/Maths/math.vector.js";
@@ -10,36 +11,8 @@ import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { frameDungeon, pickingCoordinates } from "../src/dungeon/camera.ts";
 
-test("dungeon seeds produce connected, clear rooms, doors and eight nonoverlapping spawns", () => {
-  const layouts = new Set();
-  for (let seed = 0; seed < 24; seed++) {
-    const map = generateDungeon(seed);
-    assert.deepEqual(map, generateDungeon(seed));
-    assert.equal(map.rooms.length, 7); assert.equal(map.spawns.length, 8);
-    layouts.add(JSON.stringify(map.rooms) + JSON.stringify(map.doors));
-    for (const to of [...map.rooms.map(r => r.centre), ...map.spawns, map.exit]) {
-      assert.ok(walkable(map, to, 0.5), `clear spawn ${seed}`);
-      const path = findPath(map, map.start, to, 0.5);
-      assert.ok(path.length, `connected seed ${seed}`);
-      let previous = map.start;
-      for (const p of path) { assert.ok(clearSegment(map, previous, p, 0.5)); previous = p; }
-    }
-    const exitPath = findPath(map, map.start, map.exit, 0.5);
-    assert.ok(exitPath.reduce((length, p, i) => length + distance(i ? exitPath[i - 1] : map.start, p), 0) > 16);
-    for (let i = 0; i < map.spawns.length; i++) {
-      assert.ok(distance(map.start, map.spawns[i]) > 10);
-      for (let j = i + 1; j < map.spawns.length; j++) assert.ok(distance(map.spawns[i], map.spawns[j]) >= 2);
-    }
-    for (const door of map.doors) {
-      assert.ok(walkable(map, door.point, 0.5)); assert.equal(walkable(map, door.point, 0.5, true), false);
-      door.open = true; assert.ok(walkable(map, door.point, 0.5, true));
-    }
-  }
-  assert.ok(layouts.size > 20);
-});
-
 test("fog blocks enemy sight through closed doors and exploration uses known frontiers", () => {
-  const map = generateDungeon(42), door = map.doors[0];
+  const map = classicDungeon(42), door = map.doors[0];
   const a = { x: door.point.x - (door.axis === "x" ? 2 : 0), z: door.point.z - (door.axis === "z" ? 2 : 0) };
   const b = { x: door.point.x + (door.axis === "x" ? 2 : 0), z: door.point.z + (door.axis === "z" ? 2 : 0) };
   assert.equal(canSee(map, a, b), false); door.open = true; assert.equal(canSee(map, a, b), true);
@@ -139,7 +112,7 @@ test("a_move_obliquely_into_a_wall_slides_along_it", () => {
 test("a_body_beside_a_wall_plans_from_where_it_stands", () => {
   // At a 0.5 m radius the middle of a cell beside rock is not walkable, but a body can stand in the
   // cell away from the rock. Such a body has a route, and not only when the goal is in sight.
-  const map = generateDungeon(42), radius = 0.5;
+  const map = classicDungeon(42), radius = 0.5;
   let tried = 0;
   for (let z = 0; z < map.size && tried < 12; z++) for (let x = 0; x < map.size && tried < 12; x++) {
     if (walkable(map, { x, z }, radius) || !walkable(map, { x, z }, 0)) continue;

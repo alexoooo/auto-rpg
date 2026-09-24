@@ -5,7 +5,9 @@ import { DungeonRun } from "../src/dungeon/run.ts";
 import { buildDungeonWorld } from "../src/dungeon/world.ts";
 import { walkable } from "../src/dungeon/map.ts";
 import { deriveLocomotionFootprint } from "../src/supported-locomotion-runtime.ts";
-import { distance, findPath, generateDungeon } from "../src/dungeon/map.ts";
+import { distance, findPath } from "../src/dungeon/map.ts";
+import { generateLevel } from "../src/dungeon/level.ts";
+import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { CONFIG } from "../src/config.ts";
 import { Combat } from "../src/combat.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -15,7 +17,7 @@ test("real dungeon bodies have unique IDs, traverse a doorway and survive teardo
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   let run;
   try {
-    run = new DungeonRun(arena.scene, 42, "default", true);
+    run = new DungeonRun(arena.scene, 42, "default", true, classicDungeon(42));
     assert.equal(run.actors.length, 9);
     run.present();
     assert.ok(run.hero.meshes.some(({ mesh }) => mesh.isVisible));
@@ -47,13 +49,13 @@ test("real dungeon bodies have unique IDs, traverse a doorway and survive teardo
     // Rebuild in a fresh scene, exactly like the page: shared scene palettes belong to the scene.
   } finally { run?.dispose(); arena.dispose(); }
   const second = await createHeadlessArena({ populateDefaultGeometry: false });
-  try { const next = new DungeonRun(second.scene, 42, "default", false); assert.equal(next.hero.body.vitality, 1); next.dispose(); }
+  try { const next = new DungeonRun(second.scene, 42, "default", false, classicDungeon(42)); assert.equal(next.hero.body.vitality, 1); next.dispose(); }
   finally { second.dispose(); }
 });
 
 test("several real enemies acquire and physically fight the hero, with faction-correct hit attribution", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const map = generateDungeon(42);
+  const map = classicDungeon(42);
   map.spawns[0] = { x: map.start.x - 2, z: map.start.z + 3 };
   map.spawns[1] = { x: map.start.x + 2, z: map.start.z + 3 };
   const run = new DungeonRun(arena.scene, 42, "default", false, map);
@@ -82,7 +84,7 @@ test("several real enemies acquire and physically fight the hero, with faction-c
 
 test("a run ends at the exit without clearing enemies, and death freezes authority", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const map = generateDungeon(7); map.exit = { ...map.start };
+  const map = classicDungeon(7); map.exit = { ...map.start };
   const run = new DungeonRun(arena.scene, 7, "default", false, map);
   try {
     run.step(1 / CONFIG.world.physicsHz); assert.equal(run.status, "won");
@@ -102,7 +104,7 @@ test("mouse-facing-only exploration reaches the exit using revealed frontiers", 
   // The cursor (9, 60) was chosen for 42; the others were measured with that same cursor.
   for (const seed of [42, 1, 2, 0]) {
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-    const map = generateDungeon(seed); map.spawns = [];
+    const map = classicDungeon(seed); map.spawns = [];
     const run = new DungeonRun(arena.scene, seed, "default", false, map);
     try {
       run.commands.setMode({ keyboard: false, facing: true });
@@ -117,9 +119,44 @@ test("mouse-facing-only exploration reaches the exit using revealed frontiers", 
   }
 });
 
+test("the_hero_explores_generated_levels_to_their_exits", async () => {
+  // The default biped on two levels, and the widest hero on one. Node headless harness: the biped
+  // wins seed 1 at 37.3 simulated seconds, and seed 7 at 63.1 -- a level where it once stood on the
+  // clearance arc of a rock corner for good, handed the same blocked leg by every replan (see the
+  // stall branch of `DungeonRun.follow`). Seeds 1-20 win at 30.6 to 86.2. The multileg wins seed 1
+  // at 147.6, touring most of the level at about 1 m/s with the exit in the far corner, hence its
+  // cap (seeds 2-5: 49.5 to 155.8). Two biped seeds and not three: this file runs beside
+  // `the_planner_drives_a_real_bout...` in `tests/golem-mind.test.mjs`, whose wall-clock budget
+  // reads the suite's load, and a third tipped it over.
+  for (const [seed, build, cap] of [[1, "default", 120], [7, "default", 120], [1, "multileg", 240]]) {
+    const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+    const map = generateLevel(seed).map; map.spawns = [];
+    const run = new DungeonRun(arena.scene, seed, build, false, map);
+    try {
+      run.commands.setMode({ keyboard: false, facing: true });
+      run.commands.cursor = { x: map.exit.x, z: map.exit.z + 30 };
+      arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / CONFIG.world.physicsHz));
+      for (let i = 0; i < 60 * cap && run.status === "playing"; i++) {
+        arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60);
+      }
+      assert.equal(run.status, "won", JSON.stringify({ seed, build, at: run.hero.body.feetPosition().asArray(),
+        exit: map.exit, explored: run.explored.size, doors: map.doors.map((d) => d.open) }));
+    } finally { run.dispose(); arena.dispose(); }
+  }
+});
+
+test("a_run_with_no_layout_plays_the_generated_level_for_its_seed", async () => {
+  for (const seed of [5, 9]) {
+    const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+    const run = new DungeonRun(arena.scene, seed, "default", false);
+    try { assert.deepEqual(run.map, generateLevel(seed).map); }
+    finally { run.dispose(); arena.dispose(); }
+  }
+});
+
 test("contact resolution wounds an unselected actor and attributes its parry", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const run = new DungeonRun(arena.scene, 42, "default", false);
+  const run = new DungeonRun(arena.scene, 42, "default", false, classicDungeon(42));
   let combat;
   try {
     const selected = run.actors[1], struck = run.actors[2]; run.hero.target = selected;
@@ -152,7 +189,7 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
 
 test("force movement goes around an occupied floor point instead of stopping to duel", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const map = generateDungeon(42); map.spawns = [{ x: 12, z: 9 }];
+  const map = classicDungeon(42); map.spawns = [{ x: 12, z: 9 }];
   const run = new DungeonRun(arena.scene, 42, "default", false, map);
   try {
     run.actors[1].body.stopFighting(); // A real, stationary opponent blocking the direct route.
@@ -173,7 +210,7 @@ test("a_footprint_that_starts_inside_the_dungeon_solid_may_leave_it_and_nothing_
   // clear, and a path from open floor is judged exactly as before.
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   try {
-    const map = generateDungeon(42);
+    const map = classicDungeon(42);
     const { registry } = buildDungeonWorld(arena.scene, map, false);
     const foot = deriveLocomotionFootprint({ radiusM: 0.4, heightM: 1.8, provenance: { profileId: "dungeon-wall",
       source: "golem-bind-geometry", measuredAt: "physical contact session 02 fixture" } });
