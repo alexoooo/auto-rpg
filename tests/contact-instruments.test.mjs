@@ -13,7 +13,7 @@ import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlug
 import { CONFIG } from "../src/config.ts";
 import { COLLIDES, LAYER } from "../src/physics.ts";
 import { boxPart } from "../src/rig.ts";
-import { gateCause } from "../research/census-worker.mjs";
+import { closeReachWindow, freshWindows, gateCause, stepReachWindow } from "../research/census-worker.mjs";
 import { chains, dominantCause, summarizeCensus } from "../research/downed-census.mjs";
 import { idleJobs, summarizeIdle } from "../research/idle-dummy.mjs";
 import { bootstrapInterval, controlBand } from "../research/control-band.mjs";
@@ -85,6 +85,24 @@ test("the census counts knockdowns per body and asks whether the first body down
   assert.equal(s.longEpisodes, 1);
   assert.deepEqual(s.longByCause, { dwell: 1 });
   assert.deepEqual(s.longEndings, { died: 1 });
+});
+
+// Physical contact session 03's target is "struck in most of its downed seconds when the standing side
+// is in reach", so a window counts only if the socket was in reach at some frame of it -- and a window
+// that scored out of reach, or reached without scoring, must each land where it belongs.
+test("a finishing window counts toward the in-reach share only if the socket reached in it", () => {
+  const w = freshWindows();
+  const frames = (n, scored, reached, touched = scored) => {
+    for (let i = 0; i < n; i += 1) stepReachWindow(w, scored(i), reached(i), touched(i));
+  };
+  frames(60, (i) => i === 5, (i) => i === 59); // reached on its last frame, scored early: counts, scored
+  frames(60, (i) => i === 30, () => false); // scored but never in reach: not counted
+  frames(60, () => false, () => true, (i) => i === 7); // in reach throughout, touched under the floor
+  frames(20, () => false, (i) => i === 3); // a partial window, closed early by the other body rising
+  closeReachWindow(w);
+  closeReachWindow(w); // closing an empty window counts nothing
+  assert.deepEqual({ inReach: w.inReach, inReachScored: w.inReachScored, inReachTouched: w.inReachTouched },
+    { inReach: 3, inReachScored: 1, inReachTouched: 2 });
 });
 
 test("an idle-dummy cell counts outright wins apart from the ones the overtime drain decided", () => {

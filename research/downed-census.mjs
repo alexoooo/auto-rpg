@@ -19,7 +19,10 @@
  *
  * **Finishing.** The one-second windows of one body being down, and the share of them in which the
  * standing side landed any damage; that side's damage per downed second against per standing second
- * (both bodies up); and the distance from its primary socket to the downed body's core.
+ * (both bodies up); and the distance from its primary socket to the downed body's core. The plan's
+ * target is conditioned on reach, so the scored share is also read over the windows in which the
+ * standing side's socket came within its own published reach of the downed core, beside the same
+ * reading over windows of both bodies up as the control.
  */
 import { join, resolve } from "node:path";
 import { writeFileSync } from "node:fs";
@@ -124,6 +127,13 @@ export function summarizeCensus(rows) {
       damagePerStandingSecond: sum("dealtStanding") / Math.max(1e-9, sum("standingSeconds")),
       downedShareOfDamage: sum("dealtDowned") / Math.max(1e-9, sum("dealtDowned") + sum("dealtStanding")),
       socketToCoreP50: reachP50.length ? quantile(reachP50, 0.5) : null,
+      // Censuses that predate the split have no such fields and read as null.
+      downInReach: sum("downInReach") || 0,
+      downInReachScoredShare: sum("downInReach") ? sum("downInReachScored") / sum("downInReach") : null,
+      downInReachTouchedShare: sum("downInReach") ? sum("downInReachTouched") / sum("downInReach") : null,
+      upInReach: sum("upInReach") || 0,
+      upInReachScoredShare: sum("upInReach") ? sum("upInReachScored") / sum("upInReach") : null,
+      upInReachTouchedShare: sum("upInReach") ? sum("upInReachTouched") / sum("upInReach") : null,
     },
   };
 }
@@ -153,6 +163,12 @@ export function censusMarkdown(summaries, header) {
   for (const [name, s] of summaries) {
     const g = s.finishing;
     lines.push(`| ${name} | ${g.downWindows} | ${pct(g.scoredShare)} | ${f(g.damagePerDownedSecond, 4)} | ${f(g.damagePerStandingSecond, 4)} | ${pct(g.downedShareOfDamage)} | ${f(g.socketToCoreP50)} |`);
+  }
+  lines.push("", "The same windows, only those in which the standing side's socket came within its own reach of the other body's core; the control is windows of both bodies up. Touched counts any contact, under the weapon's energy floor or not:", "",
+    "| Group | Down windows in reach | Scored % | Touched % | Both-up windows in reach | Scored % | Touched % |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
+  for (const [name, s] of summaries) {
+    const g = s.finishing;
+    lines.push(`| ${name} | ${g.downInReach} | ${pct(g.downInReachScoredShare)} | ${pct(g.downInReachTouchedShare)} | ${g.upInReach} | ${pct(g.upInReachScoredShare)} | ${pct(g.upInReachTouchedShare)} |`);
   }
   lines.push("");
   return lines.join("\n");
