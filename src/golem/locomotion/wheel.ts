@@ -12,7 +12,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 import type { Observer } from "@babylonjs/core/Misc/observable.js";
 
 import type { Striking } from "../../combat.ts";
-import { boxPart, cylinderPart, joint } from "../../rig.ts";
+import { boxPart, cylinderPart, joint, type Part } from "../../rig.ts";
 import { supportedRootTargetToRef } from "../../supported-root-drive.ts";
 import type { LocomotionRequest } from "../../supported-locomotion.ts";
 import {
@@ -50,6 +50,7 @@ import {
   stepSoloCarrier,
   type BuiltLocomotion,
   type LocomotionCommand,
+  type LocomotionLoad,
   type LocomotionEvidence,
   type LocomotionHeightRange,
   type LocomotionReadoutState,
@@ -387,7 +388,9 @@ return defineLocomotion({
         waist.setAxisMotorMaxForce(axis, L.waistTorque);
       }
     }
-    const carriedMassKg = carried ? ctx.socket.mount.body.getMassProperties().mass ?? 0 : 0;
+    /** The load, from the mount at build or from `carry` afterwards. Never both. */
+    let load: Part | null = carried ? ctx.socket.mount : null;
+    let carriedMassKg = carried ? ctx.socket.mount.body.getMassProperties().mass ?? 0 : 0;
 
     const frozenParts: readonly GolemPart[] = Object.freeze([
       Object.freeze({
@@ -416,7 +419,8 @@ return defineLocomotion({
     // --- state ---------------------------------------------------------------------------------
     const groundY = socket.world.y - standHeight;
     const standingYokeY = socket.world.y - yokeDown;
-    const supportedMassKg = W.yokeMass + W.wheelMass + carriedMassKg;
+    /** The mass the carrier holds up, read live because `carry` arrives one module later. */
+    const supportedMass = (): number => W.yokeMass + W.wheelMass + carriedMassKg;
     const yaw = facing.toEulerAngles().y;
 
     let request: LocomotionRequest = Object.freeze({
@@ -464,7 +468,7 @@ return defineLocomotion({
       motionType: "animated",
       position: { x: 0, y: 0, z: 0 },
       velocity: { x: 0, y: 0, z: 0 },
-      massKg: supportedMassKg,
+      massKg: supportedMass(),
       released: false,
     };
 
@@ -501,7 +505,7 @@ return defineLocomotion({
       // never does; kept correct rather than kept as a throw, because the bounded motor is the
       // fallback the port takes when `driveAnimatedRoot` is absent.
       applyForce: (force: WorldPoint): void => {
-        scratch.drive.set(force.x, force.y + supportedMassKg * 9.81, force.z);
+        scratch.drive.set(force.x, force.y + supportedMass() * 9.81, force.z);
         yoke.body.applyForce(scratch.drive, yoke.mesh.position);
       },
       clearDrive: (): void => {
@@ -567,8 +571,8 @@ return defineLocomotion({
       chainContinuous: !severed,
       carrierUpDot: rootUp().y,
       rootHeightAboveCarrierM: yoke.mesh.position.y - contactPoint(scratch.contact).y,
-      terminalHeightAboveRootM: carried
-        ? ctx.socket.mount.mesh.position.y - yoke.mesh.position.y
+      terminalHeightAboveRootM: load
+        ? load.mesh.position.y - yoke.mesh.position.y
         : yoke.mesh.position.y - contactPoint(scratch.contact).y,
     });
 
@@ -611,7 +615,8 @@ return defineLocomotion({
       root: adapter,
       registry: world,
       config: W.carrier,
-      supportedMassKg,
+      // A getter, as the biped's: the load is declared one module after the root is built.
+      get supportedMassKg(): number { return supportedMass(); },
       authority,
       supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => role)),
       supportPoint: (binding: string): WorldPoint | null => {
@@ -796,9 +801,9 @@ return defineLocomotion({
       evidence.jointErrorRad = Math.acos(
         clamp(Math.abs(Vector3.Dot(scratch.other, rootAxle())), -1, 1));
 
-      if (carried) {
+      if (load) {
         UP.rotateByQuaternionToRef(
-          ctx.socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.other);
+          load.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.other);
         evidence.carriedLeanRad = Math.acos(clamp(Vector3.Dot(scratch.other, rootUp()), -1, 1));
       }
       evidence.contacts = contacts;
@@ -868,6 +873,29 @@ return defineLocomotion({
         // nothing to slew between. See `heightRange` above.
       },
 
+      /**
+       * What this carrier is holding up, declared by an assembly once the load exists: the mass a
+       * shove is divided by, the body the posture predicate's third signal is measured against, and
+       * the body a bench shove is applied to. The biped's `carry`, for the reason given there, and
+       * refused a second time for the same one.
+       *
+       * **Until 2026-09-24 only the biped had it**, so an assembled wheel golem took its carried mass
+       * from a mount that reads 0 and divided every shove by its locomotion alone (the mass census,
+       * `tests/harness/mass-census.mjs`: supported 59.66 kg of a 117.39 kg wheel golem, 44.61 of a
+       * 102.34 kg multileg).
+       */
+      carry(next: LocomotionLoad): void {
+        if (carried) {
+          throw new Error(`${ctx.name}: this locomotion module already carries its own mount`);
+        }
+        if (!(Number.isFinite(next.massKg) && next.massKg >= 0)) {
+          throw new Error(`${ctx.name}: a carried load needs a finite non-negative mass`);
+        }
+        load = next.part;
+        carriedMassKg = next.massKg;
+        rootSample.massKg = supportedMass();
+      },
+
       beginSubstep(): void {
         if (severed) return;
         refreshRoot();
@@ -900,8 +928,8 @@ return defineLocomotion({
         scratch.drive.set(W.shoveImpulseNs, 0, 0);
         scratch.drive.rotateByQuaternionToRef(
           yoke.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.drive);
-        const target = carried && ctx.socket.mount.body.getMotionType() === PhysicsMotionType.DYNAMIC
-          ? ctx.socket.mount : yoke;
+        const target = load && load.body.getMotionType() === PhysicsMotionType.DYNAMIC
+          ? load : yoke;
         target.body.applyImpulse(scratch.drive, target.mesh.position);
         port?.queueStabilityEvent({ horizontalShoveNs: [scratch.drive.x, scratch.drive.z] });
       },

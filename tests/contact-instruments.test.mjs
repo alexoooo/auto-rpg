@@ -20,7 +20,7 @@ import { bootstrapInterval, controlBand } from "../research/control-band.mjs";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { tapProbe } from "./harness/impact-bench.mjs";
 import { DIRECTIONS, contactForceReadout, freeTip, slabFor, sliderTrial } from "./harness/lift-bench.mjs";
-import { censusOf, partClass } from "./harness/mass-census.mjs";
+import { censusOf, partClass, runMassCensus } from "./harness/mass-census.mjs";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { namedBuild } from "../src/golem/roster.ts";
 
@@ -181,6 +181,24 @@ test("the mass census reads every body the golem owns off the solver", async () 
     assert.ok(census.wholeKg > 60 && census.wholeKg < 120, `a stone default weighs ${census.wholeKg} kg`);
     for (const c of ["carrier", "legs", "trunk", "head", "arm links", "items"]) assert.ok(census.byClass[c] > 0, c);
   } finally { bout.dispose(); }
+});
+
+/**
+ * Physical contact 04's first repair. The wheel and the multileg took their carried mass from a mount
+ * that reads 0 in an assembly, so each divided a shove by its locomotion alone (59.66 kg of a
+ * 117.39 kg wheel golem); and a wrist cast to its load weighed more than its effector declared, so
+ * `golemUpperMassKg` was 1.55 kg short on stone and 2.08 on the skeleton. Both are read here against
+ * the solver, on every family the census knows.
+ */
+test("every carrier holds up its whole body, and the build's upper mass is the solver's", async () => {
+  const rows = await runMassCensus();
+  assert.ok(rows.length >= 6, "the control: every census family was built");
+  for (const row of rows) {
+    const near = (a, b) => Math.abs(a - b) <= 1e-4 * b;
+    assert.ok(near(row.supportedMassKg, row.wholeKg), `${row.family}: supports ${row.supportedMassKg} kg of ${row.wholeKg}`);
+    assert.ok(near(row.upperMassKg.build, row.upperMassKg.solver),
+      `${row.family}: the build says ${row.upperMassKg.build} kg above the waist, the solver ${row.upperMassKg.solver}`);
+  }
 });
 
 test("a slab stands short of the free tip along its own normal, whichever way the arm went", () => {

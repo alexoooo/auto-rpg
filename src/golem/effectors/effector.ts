@@ -81,6 +81,14 @@ export const CHAIN_CROSSING_SIZE: SizeLaws<ChainCrossing> = { swingMin: "one", c
  * and a two-socket terminal on one is refused at build by name rather than built with a second
  * hand waving somewhere near the haft.
  */
+/**
+ * One chain's built links at a body factor, under the terminal it carries. Every chain carries the
+ * whole terminal's mass, as `build` hands it to both chains of a paired grip.
+ */
+function chainMassAt(chain: EffectorChainDefinition, terminal: EffectorTerminalDefinition | null, body: number): number {
+  return chain.massAtKg ? chain.massAtKg(terminal?.massKg ?? 0, body) : chain.massKg * body;
+}
+
 export function effectorModule(
   chain: EffectorChainDefinition,
   selectedTerminal: EffectorTerminalDefinition | null,
@@ -95,8 +103,9 @@ export function effectorModule(
     sockets,
     // Both chains, for a terminal that claims both sockets. A mass that counted one arm would
     // be a picker line saying a two-armed weapon weighs what a one-armed one does.
-    massKg: chain.massKg * sockets + (terminal?.massKg ?? 0),
+    massKg: chainMassAt(chain, terminal, 1) * sockets + (terminal?.massKg ?? 0),
     itemMassKg: terminal?.massKg ?? 0,
+    massAtKg: (body: number): number => chainMassAt(chain, terminal, body) * sockets + (terminal?.massKg ?? 0),
 
     build(ctx: ModuleBuild): BuiltModule<HandIntent> {
       const size = attributeOf(ctx, "size");

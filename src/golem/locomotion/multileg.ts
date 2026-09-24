@@ -51,6 +51,7 @@ import {
   stepSoloCarrier,
   type BuiltLocomotion,
   type LocomotionCommand,
+  type LocomotionLoad,
   type LocomotionEvidence,
   type LocomotionHeightRange,
   type LocomotionReadoutState,
@@ -422,7 +423,9 @@ return defineLocomotion({
         waist.setAxisMotorMaxForce(axis, L.waistTorque);
       }
     }
-    const carriedMassKg = carried ? ctx.socket.mount.body.getMassProperties().mass ?? 0 : 0;
+    /** The load, from the mount at build or from `carry` afterwards. Never both. */
+    let load: Part | null = carried ? ctx.socket.mount : null;
+    let carriedMassKg = carried ? ctx.socket.mount.body.getMassProperties().mass ?? 0 : 0;
 
     // --- the shell -----------------------------------------------------------------------------
     const shells: AbstractMesh[] = [];
@@ -477,7 +480,8 @@ return defineLocomotion({
     // --- state ---------------------------------------------------------------------------------
     const groundY = socket.world.y - standHeight;
     const standingChassisY = socket.world.y - chassisDown;
-    const supportedMassKg = M.chassisMass +
+    /** The mass the carrier holds up, read live because `carry` arrives one module later. */
+    const supportedMass = (): number => M.chassisMass +
       6 * (M.femurMass + M.shinMass + M.footMass) + carriedMassKg;
     const yaw = facing.toEulerAngles().y;
 
@@ -530,7 +534,7 @@ return defineLocomotion({
       motionType: "animated",
       position: { x: 0, y: 0, z: 0 },
       velocity: { x: 0, y: 0, z: 0 },
-      massKg: supportedMassKg,
+      massKg: supportedMass(),
       released: false,
     };
 
@@ -563,7 +567,7 @@ return defineLocomotion({
         return rootSample as DynamicRootSample;
       },
       applyForce: (force: WorldPoint): void => {
-        scratch.drive.set(force.x, force.y + supportedMassKg * 9.81, force.z);
+        scratch.drive.set(force.x, force.y + supportedMass() * 9.81, force.z);
         chassis.body.applyForce(scratch.drive, chassis.mesh.position);
       },
       clearDrive: (): void => {
@@ -621,8 +625,8 @@ return defineLocomotion({
       chainContinuous: !severed && legs.filter((leg) => !leg.severed).length >= 3,
       carrierUpDot: rootUp().y,
       rootHeightAboveCarrierM: chassis.mesh.position.y - meanPadY(),
-      terminalHeightAboveRootM: carried
-        ? ctx.socket.mount.mesh.position.y - chassis.mesh.position.y
+      terminalHeightAboveRootM: load
+        ? load.mesh.position.y - chassis.mesh.position.y
         : chassis.mesh.position.y - meanPadY(),
     });
 
@@ -662,7 +666,8 @@ return defineLocomotion({
       root: adapter,
       registry: world,
       config: M.carrier,
-      supportedMassKg,
+      // A getter, as the biped's: the load is declared one module after the root is built.
+      get supportedMassKg(): number { return supportedMass(); },
       authority,
       supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => role)),
       supportPoint: (binding: string): WorldPoint | null => {
@@ -866,9 +871,9 @@ return defineLocomotion({
       }
       evidence.jointErrorRad = jointError;
       evidence.soleLiftM = padLift;
-      if (carried) {
+      if (load) {
         UP.rotateByQuaternionToRef(
-          ctx.socket.mount.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.other);
+          load.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.other);
         evidence.carriedLeanRad = Math.acos(clamp(Vector3.Dot(scratch.other, rootUp()), -1, 1));
       }
       evidence.contacts = contacts;
@@ -929,6 +934,29 @@ return defineLocomotion({
         // nothing to slew between. See `heightRange` above.
       },
 
+      /**
+       * What this carrier is holding up, declared by an assembly once the load exists: the mass a
+       * shove is divided by, the body the posture predicate's third signal is measured against, and
+       * the body a bench shove is applied to. The biped's `carry`, for the reason given there, and
+       * refused a second time for the same one.
+       *
+       * **Until 2026-09-24 only the biped had it**, so an assembled multileg took its carried mass
+       * from a mount that reads 0 and divided every shove by its locomotion alone (the mass census,
+       * `tests/harness/mass-census.mjs`: supported 59.66 kg of a 117.39 kg wheel golem, 44.61 of a
+       * 102.34 kg multileg).
+       */
+      carry(next: LocomotionLoad): void {
+        if (carried) {
+          throw new Error(`${ctx.name}: this locomotion module already carries its own mount`);
+        }
+        if (!(Number.isFinite(next.massKg) && next.massKg >= 0)) {
+          throw new Error(`${ctx.name}: a carried load needs a finite non-negative mass`);
+        }
+        load = next.part;
+        carriedMassKg = next.massKg;
+        rootSample.massKg = supportedMass();
+      },
+
       beginSubstep(): void {
         if (severed) return;
         refreshRoot();
@@ -958,8 +986,8 @@ return defineLocomotion({
         scratch.drive.set(M.shoveImpulseNs, 0, 0);
         scratch.drive.rotateByQuaternionToRef(
           chassis.mesh.rotationQuaternion ?? Quaternion.Identity(), scratch.drive);
-        const target = carried && ctx.socket.mount.body.getMotionType() === PhysicsMotionType.DYNAMIC
-          ? ctx.socket.mount : chassis;
+        const target = load && load.body.getMotionType() === PhysicsMotionType.DYNAMIC
+          ? load : chassis;
         target.body.applyImpulse(scratch.drive, target.mesh.position);
         port?.queueStabilityEvent({ horizontalShoveNs: [scratch.drive.x, scratch.drive.z] });
       },

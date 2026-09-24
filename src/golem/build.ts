@@ -529,8 +529,11 @@ export function golemUpperMassKg(setup: GolemSetup): number {
   const { weight, size } = resolveAttributes(setup);
   const body = weight * size ** 3;
   // At x1 the definition's own figure, untouched: (m - i) + i is not always m in floating point.
-  const massOf = (module: { readonly massKg: number; readonly itemMassKg?: number }): number => {
+  const massOf = (module: {
+    readonly massKg: number; readonly itemMassKg?: number; readonly massAtKg?: (body: number) => number;
+  }): number => {
     if (body === 1) return module.massKg;
+    if (module.massAtKg) return module.massAtKg(body);
     const item = module.itemMassKg ?? 0;
     return (module.massKg - item) * body + item;
   };

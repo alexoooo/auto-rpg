@@ -1245,6 +1245,7 @@ return defineLocomotion({
         }
         load = next.part;
         carriedMassKg = next.massKg;
+        rootSample.massKg = supportedMass();
       },
 
       beginSubstep(): void {

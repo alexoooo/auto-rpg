@@ -102,10 +102,16 @@ export function wristChainFrom<K extends ChainId>(
     id,
     axes: 5,
     label,
-    // Unloaded: what a wrist under a blade weighs. Under a heavier terminal the ring and the link
-    // are cast up to `W.carryRatio` of it, and this figure does not follow them.
+    // Unloaded: the links as the table declares them. Under a load the ring and the link are cast up
+    // to `W.carryRatio` of it, which `massAtKg` follows and this figure does not.
     massKg: reachTable.collarMass + reachTable.upperMass + reachTable.foreMass
       + wristTable.ringMass + wristTable.wristMass,
+    // What `build` makes, below: the reach links take the body factor, and the ring and the link
+    // take the body factor on their floor or `carryRatio` of the load, whichever is more.
+    massAtKg: (carriedKg: number, body: number): number =>
+      (reachTable.collarMass + reachTable.upperMass + reachTable.foreMass) * body
+      + Math.max(wristTable.ringMass * body, wristTable.carryRatio * carriedKg)
+      + Math.max(wristTable.wristMass * body, wristTable.carryRatio * carriedKg),
     // The reach chain's two links, then the roll ring and the wrist link beyond the forearm. Like
     // `massKg` this is the **unloaded** figure and does not follow the casting-up that
     // `W.carryRatio` does to the ring under a heavy terminal, which understates a mace's

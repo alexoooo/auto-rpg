@@ -483,6 +483,13 @@ export interface GolemModuleDefinition<Command> {
    */
   readonly itemMassKg?: number;
   /**
+   * What the module weighs at a body factor (weight times the cube of size), kilograms, items
+   * included, where that is not `(massKg - itemMassKg) * body + itemMassKg`. A wrist cast to its
+   * load is the case: its ring and link weigh their floor or their share of the load, whichever is
+   * more, and only the floor is body. Absent is that formula.
+   */
+  readonly massAtKg?: (body: number) => number;
+  /**
    * How many of its slot's sockets this module occupies. Absent means one.
    *
    * Optional, and only an effector carrying a two-socket terminal ever sets it: locomotion, the
@@ -815,6 +822,11 @@ export interface EffectorChainDefinition {
   readonly axes: 0 | 1 | 3 | 5 | 7;
   readonly label: string;
   readonly massKg: number;
+  /**
+   * What the chain's built links weigh at a body factor under `carriedKg`, where that is not
+   * `massKg * body`: a chain cast to its load (`build`, below) weighs more than its declared links.
+   */
+  massAtKg?(carriedKg: number, body: number): number;
   /**
    * The chain's own links about the socket at full extension, kg m2. Excludes the terminal.
    *

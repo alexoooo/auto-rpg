@@ -447,9 +447,7 @@ test("arm speed multiplies every arm chain's published rates and the rate its co
  * "equal" is to a part in a million.
  *
  * And what the carrier holds up agrees with the solver: its supported mass is the legs' solver
- * masses plus `golemUpperMassKg` at the same stat, at x1 and at the row's top. A wheel and a
- * multileg are handed no upper mass at all today -- only the biped implements `carry` -- which the
- * test states rather than hides.
+ * masses plus `golemUpperMassKg` at the same stat, at x1 and at the row's top, on every carrier.
  */
 test("weight multiplies every body part's solver mass and no item's, and the carrier's load agrees", async () => {
   const arena = await createHeadlessArena();
@@ -467,8 +465,7 @@ test("weight multiplies every body part's solver mass and no item's, and the car
     const seen = { item: 0, castFloor: 0, castLoad: 0, bodyBlow: 0 };
     const carried = (golem, setup) => {
       const legs = golem.limbs.filter((limb) => limb.key.includes(".legs.")).reduce((sum, limb) => sum + mass(limb), 0);
-      const upper = golem.locomotionModule.carry ? golemUpperMassKg(setup) : 0;
-      return { supported: golem.locomotion.diagnostic().stability.supportedMassKg, expected: legs + upper };
+      return { supported: golem.locomotion.diagnostic().stability.supportedMassKg, expected: legs + golemUpperMassKg(setup) };
     };
     for (const { name, setup } of PLAYABLE_BUILDS) {
       const heavySetup = withAttributeSetting(setup, { weight: level });
@@ -542,12 +539,19 @@ test("an effector's item share is its terminal's mass and a head's is its ram pl
   }
   assert.ok(golemHead("head.ram").itemMassKg > 0, "a ram's plate is an item");
   assert.equal(golemHead("head.plain").itemMassKg, 0);
-  // An effector's items are the one share a stat leaves alone: at x2 the default's upper mass grows
-  // by exactly its body share, which is everything but the blade and the plate.
+  // An effector's items are the one share a stat leaves alone: at x2 an upper mass grows by exactly
+  // its body share, which is everything but the blade and the plate. On the reach chain, because a
+  // wrist's ring and link are cast to their load and are neither share (the solver test above).
   const items = EFFECTOR_TERMINALS.blade.massKg + EFFECTOR_TERMINALS.plate.massKg;
-  const upper = golemUpperMassKg(base);
-  assert.ok(Math.abs(golemUpperMassKg(withAttributeSetting(base, { weight: 2 })) - (2 * upper - items)) < 1e-9,
+  const reach = { ...base, primary: { ...base.primary, chain: "reach" }, secondary: { ...base.secondary, chain: "reach" } };
+  assert.equal(golemSetupRefusal(reach), null, "the control: a reach-armed default is a legal build");
+  const upper = golemUpperMassKg(reach);
+  assert.ok(Math.abs(golemUpperMassKg(withAttributeSetting(reach, { weight: 2 })) - (2 * upper - items)) < 1e-9,
     "the blade and the plate are not doubled");
+  // The wrist's cast links grow by less than a body part and by no more: between the two.
+  const wrist = golemUpperMassKg(base);
+  const heavyWrist = golemUpperMassKg(withAttributeSetting(base, { weight: 2 }));
+  assert.ok(heavyWrist <= 2 * wrist - items + 1e-9 && heavyWrist > wrist, `the wrist default: ${wrist} -> ${heavyWrist}`);
   // Between the plain head and the ram head the body is the same, so at x2 the upper mass grows by
   // the same amount on both: the plate is not doubled.
   const growth = (setup) => golemUpperMassKg(withAttributeSetting(setup, { weight: 2 })) - golemUpperMassKg(setup);
@@ -851,11 +855,10 @@ test("a larger ram's lunge is armed for the root of its size longer", async () =
  * link weighs its floor at the new size or its load, whichever is more; and the carrier's supported
  * mass is the legs' solver mass plus `golemUpperMassKg` at the same size.
  *
- * That last is the carrier agreeing with its own arithmetic, not with the solver: `golemUpperMassKg`
- * reads each chain's *unloaded* `massKg`, so it misses the cast links' load share -- 2.8 % of the
- * default golem's upper body at x1, 7.2 % at x0.8 and 0.5 % at x1.25, and 47.6 % of a skeleton
- * maul's at x1 (`.review/upper-gap.mjs`, Node, 2026-09-23). Not repaired here: the carrier's load
- * at x1 is what every measurement so far was taken on.
+ * That last is the carrier agreeing with its own arithmetic. It agrees with the solver as well since
+ * 2026-09-24, when `golemUpperMassKg` began asking a cast wrist what it weighs under its load
+ * (`massAtKg`); `every carrier holds up its whole body` in `tests/contact-instruments.test.mjs`
+ * reads that against the solver.
  *
  * One build is refused at the floor and the test says which: a plate on the pitch chain, which is
  * fixed-size and has only its own geometry to keep it off a chest that is not (`golemSetupRefusal`).
@@ -876,8 +879,7 @@ test("size grows a whole golem about its feet: body parts by s in place and s^3 
     const seen = { body: 0, item: 0, cast: 0, builds: 0, refused: [] };
     const carried = (golem, setup) => {
       const legs = golem.limbs.filter((limb) => limb.key.includes(".legs.")).reduce((sum, limb) => sum + mass(limb), 0);
-      const upper = golem.locomotionModule.carry ? golemUpperMassKg(setup) : 0;
-      return { supported: golem.locomotion.diagnostic().stability.supportedMassKg, expected: legs + upper };
+      return { supported: golem.locomotion.diagnostic().stability.supportedMassKg, expected: legs + golemUpperMassKg(setup) };
     };
     for (const s of [ATTRIBUTES.size.min, ATTRIBUTES.size.max]) {
       const k = s ** 3;
