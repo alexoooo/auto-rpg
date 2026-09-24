@@ -2233,3 +2233,172 @@ with the drain, and median time of a win:
 The same five cells are at zero as in session 01, and none newly. The skeleton dummy is easier to
 beat now: skeleton on skeleton went from 29 % to 75 %, and giant on skeleton from 17 % to 54 %. It
 falls, and it no longer rises through blows.
+
+## Physical contact 03: finishing
+
+Session 03 (`docs/plans/2026-09-23-physical-contact-03-finishing.md`) published support state and a
+live vital point in the view, and gave every golem executor one finishing rule from `src/downed.ts`.
+The census below also found a defect in session 02's rise, and its repair landed during this
+session. So there are three trees after session 02's f47debdd7ce3, and each is named by its body
+fingerprint:
+
+- **c2684e7e4fa3**: 9a15d41, the finishing minds.
+- **3fe903bf0f8d**: 7429947, the first repair of the rise, a hysteresis on the occupancy gate. It
+  treated a symptom and was reverted.
+- **1cf586933d58**: 1ae905f, the repair that stands: a rising carrier stands still. The census ran
+  before a comment in that commit was reworded, so the idle matrix, run after the rewording, reads
+  4fdcad54e456 for the same behaviour.
+
+Raw outputs are in `research/runs/pc03`, `pc03b` and `pc03c`, which are not committed.
+
+### Downed census
+
+`research/downed-census.mjs`: Node harness, research runner, supported locomotion, cap 150 s,
+96 side-swap blocks a group, seed 20260923.
+
+| Group | Tree | Knockdowns / body / bout | p50 / p90 / max s | > 5 s | Down time % | Rises refused | Rises put down by a blow |
+| --- | --- | ---: | --- | ---: | ---: | ---: | ---: |
+| stone | f47debdd7ce3 (session 02) | 3.96 | 0.80 / 1.53 / 81.58 | 12 | 15.2 | 427 | 147 |
+| stone | c2684e7e4fa3 | 4.35 | 0.80 / 1.57 / 62.03 | 11 | 16.0 | 535 | 155 |
+| stone | 3fe903bf0f8d | 4.17 | 0.80 / 1.55 / 70.60 | 3 | 15.1 | 419 | 160 |
+| stone | **1cf586933d58** | 4.26 | 0.80 / 0.82 / 52.62 | **1** | 11.3 | **19** | 97 |
+| skeleton | f47debdd7ce3 (session 02) | 3.79 | 3.63 / 6.78 / 19.75 | 347 | 27.8 | 206 | 345 |
+| skeleton | c2684e7e4fa3 | 4.58 | 3.65 / 7.22 / 71.52 | 503 | 35.0 | 448 | 411 |
+| skeleton | 3fe903bf0f8d | 4.49 | 3.65 / 7.10 / 71.52 | 459 | 34.5 | 378 | 394 |
+| skeleton | **1cf586933d58** | 4.47 | 3.63 / 6.73 / 16.58 | **363** | 32.2 | **99** | 399 |
+| giant group | f47debdd7ce3 (session 02) | 1.57 | 0.80 / 1.38 / 104.22 | 5 | 5.8 | 101 | 30 |
+| giant group | c2684e7e4fa3 | 1.60 | 0.80 / 2.20 / 104.03 | 9 | 6.1 | 442 | 47 |
+| giant group | 3fe903bf0f8d | 1.59 | 0.80 / 1.90 / 104.03 | 4 | 5.7 | 269 | 46 |
+| giant group | **1cf586933d58** | 1.65 | 0.80 / 0.82 / 104.03 | **2** | 4.1 | **2** | 39 |
+
+"Rises refused" counts every rise the port put back down for occupancy or the support chain. On
+session 02's tree it is the sum of those two columns of its table.
+
+**The finishing minds put more rises down, and nearly all of them were refusals.** On c2684e7e4fa3
+a standing mind walks in on a downed body, and refused rises went from 427 to 535 on stone and from
+101 to 442 on the giant group.
+
+**Why a rise was refused.** Diagnostic-only builds of 7429947 named the body inside a refused rise's
+target; they are the `census-refusal*`, `census-stop*` and `census-held` logs in
+`research/runs/pc03b`. The body was the **other** one, standing, and the rising body had led it
+there. `PhysicalSupportedLocomotionPort.proposal` stopped the carrier only while `fallen`, so a
+rising carrier walked on its mind's request. The pair resolver takes each carrier's closing move
+away by its resistance share, so the follower kept pace, and the riser's own target, fixed where its
+rise began, filled with the body walking after it. The hysteresis on 3fe903bf0f8d let a touch
+through and left the walk alone. Holding the carrier while `rising` (1ae905f) took refused rises
+from 419 to 19 on stone, from 378 to 99 on the skeleton and from 269 to 2 on the giant group. Two of
+the 120 left were against a body on its feet.
+`a_rising_body_that_is_asked_to_walk_keeps_its_carrier_on_its_rise_and_gets_up` in
+`tests/supported-locomotion-obstacles.test.mjs` pins it.
+
+**Session 02's target is now met on stone and the giant group, and still missed on the skeleton.**
+One long stone episode is left, a body with no ground under it until the bout ended, and two giant
+ones, at a wall. 304 of the skeleton's 363 long episodes were struck through. Each of the other 59
+spent longest waiting for its fall to settle, which is session 08's.
+
+**Stun-lock** (reported, not gated), on 1cf586933d58:
+
+| Group | Repeat knockdowns | Share of episodes % | Longest chain | First down loses % (decided) |
+| --- | ---: | ---: | ---: | --- |
+| stone | 564 | 34.5 | 8 | 53.2 (173) |
+| skeleton | 429 | 25.0 | 6 | 60.7 (191) |
+| giant group | 109 | 17.2 | 4 | 48.8 (172) |
+
+### Finishing
+
+The same census, one-second windows of the other body down:
+
+| Group | Tree | Down windows | Scored % | Damage / downed s | Damage / standing s | Share of damage on a downed body % | Socket to core p50 m |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| stone | f47debdd7ce3 (session 02) | 2174 | 56.6 | 0.544 | 0.218 | 34.6 | 1.55 |
+| stone | c2684e7e4fa3 | 2269 | 60.7 | 0.544 | 0.230 | 34.9 | 1.33 |
+| stone | 1cf586933d58 | 1787 | 67.0 | 0.590 | 0.193 | 30.3 | 1.32 |
+| skeleton | f47debdd7ce3 (session 02) | 6771 | 32.4 | 0.071 | 0.022 | 63.2 | 1.48 |
+| skeleton | c2684e7e4fa3 | 8915 | 27.8 | 0.058 | 0.022 | 68.1 | 1.32 |
+| skeleton | 1cf586933d58 | 7833 | 30.4 | 0.064 | 0.023 | 65.0 | 1.31 |
+| giant group | f47debdd7ce3 (session 02) | 1069 | 45.2 | 0.480 | 0.283 | 10.1 | 1.78 |
+| giant group | c2684e7e4fa3 | 1040 | 57.9 | 0.656 | 0.308 | 12.9 | 1.58 |
+| giant group | 1cf586933d58 | 804 | 61.1 | 0.665 | 0.266 | 10.0 | 1.49 |
+
+The finishing minds moved the standing side's socket 0.16 to 0.22 m closer to a downed core (the
+first two rows of each group).
+
+**The plan's target reads "when the standing side is in reach", so the census now splits the
+windows by it** (756e166). A window counts as in reach if, at any frame of it, the standing side's
+socket came within its own published reach of the other body's core. "Touched" counts any contact,
+under the weapon's energy floor or not. The control is windows with both bodies up. On
+1cf586933d58:
+
+| Group | Down windows in reach | Scored % | Touched % | Both-up windows in reach | Scored % | Touched % |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| stone | 1733 | 69.0 | 99.3 | 11292 | 33.7 | 93.4 |
+| skeleton | 7056 | 33.4 | 87.3 | 11445 | 11.7 | 80.9 |
+| giant group | 666 | 73.6 | 98.8 | 14899 | 42.0 | 94.1 |
+
+- **A downed body in reach is struck in most of its windows on stone and the giant group.** That
+  meets the target.
+- **The skeleton misses the target, and not for want of reach.** It touches the downed body in 87 %
+  of the windows and scores in a third of them, because its blows land under its weapon's energy
+  floor. On a standing skeleton it scores at a third of that rate, so a downed skeleton is already
+  the easier mark. The fix belongs to sessions 04 and 05: mass and the energy floor.
+
+The hold each mind takes on a downed body is in the plan's "What landed". It came from a Node probe
+in the headless arena, not from this census.
+
+### x1 controls
+
+The stone column is `research/control-band.mjs` on the control row of each giant sweep. The skeleton
+column is `--level x1.00` of `research/stat-sweep.mjs --build skeleton-warrior --minds
+skeleton-duelist --stat stability --levels 1 --pairs 192`. Both are Node harness, research runner,
+supported locomotion, cap 150 s, seed 20260923. All four figures are per body a bout.
+
+| Tree | Stone damage | Stone knockdowns | Skeleton damage | Skeleton knockdowns |
+| --- | --- | --- | --- | --- |
+| session 01 | 7.64 [7.43, 7.85] | 4.93 [4.54, 5.32] | 1.89 [1.84, 1.94] | 4.85 [4.64, 5.07] |
+| f47debdd7ce3 (session 02) | 7.58 [7.38, 7.79] | 5.36 [4.90, 5.82] | 1.91 [1.87, 1.96] | 5.36 [5.11, 5.61] |
+| c2684e7e4fa3 | 7.76 [7.57, 7.96] | 6.00 [5.52, 6.49] | 1.93 [1.88, 1.98] | 6.79 [6.49, 7.07] |
+| 3fe903bf0f8d | 7.73 [7.52, 7.94] | 5.47 [5.05, 5.91] | 1.96 [1.90, 2.02] | 6.66 [6.39, 6.93] |
+| 1cf586933d58 | 7.61 [7.39, 7.82] | 4.68 [4.31, 5.08] | 1.96 [1.91, 2.01] | 5.89 [5.66, 6.13] |
+
+- **Damage never left the band.**
+- **Stone's knockdowns rose out of the band with the finishing minds, and came back when the
+  carrier was held.** `research/worker.mjs` counts every edge into `fallen`, and a refused rise is
+  such an edge. So the 6.00 counted the refusals the finishing minds provoked, and the 4.68 is
+  below session 02's figure.
+- **The skeleton's knockdowns are still above session 01's**, for session 02's reason: a rising
+  skeleton can fall.
+
+The fingerprint diff from f47debdd7ce3 to 1cf586933d58 is `src/downed.ts`, `src/golem/golem.ts`,
+`src/golem/tactics.ts`, `tactics-v2.ts` to `-v4.ts`, `src/mind.ts`, `src/options.ts` and
+`src/supported-locomotion-production.ts`. Every one is this session's or the rise repair's.
+
+### The giant
+
+`research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max --pairs 192`, on
+1cf586933d58:
+
+| Level | Win % [95 %] | Dealt / taken | Knockdowns | Other's knockdowns | Time down % | Other's % | Seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| control | 51.3 [46.1, 56.5] | 7.75 / 7.46 | 4.58 | 4.78 | 11.8 | 12.4 | 32.9 |
+| max | 48.3 [42.7, 53.6] | 7.82 / 15.67 | 0.00 | 3.51 | 0.0 | 7.7 | 41.1 |
+| max-normal-body | 95.3 [93.0, 97.4] | 9.96 / 7.01 | 1.99 | 5.47 | 4.9 | 15.7 | 30.1 |
+| size-weight-max | 13.5 [9.9, 17.4] | 3.63 / 9.28 | 0.02 | 1.46 | 0.1 | 4.9 | 30.4 |
+
+Every win rate is within its session 02 interval.
+
+### Idle-dummy matrix
+
+`research/idle-dummy.mjs --blocks 12`, on 4fdcad54e456, which behaves the same as 1cf586933d58.
+Each cell is the outright win rate, the win rate with the drain in brackets, and the median time of
+a win:
+
+| Attacker \ idle dummy | stone | skeleton | human | giant |
+| --- | --- | --- | --- | --- |
+| stone | 58 % (100) / 54.8 s | 75 % (96) / 36.2 s | 21 % (100) / 74.4 s | 17 % (92) / 78.6 s |
+| skeleton | 13 % (100) / 82.5 s | 83 % (100) / 45.8 s | 13 % (100) / 76.4 s | **0 %** (100) / 109.0 s |
+| human | **0 %** (50) / 119.3 s | **0 %** (100) / 117.6 s | **0 %** (67) / 119.4 s | **0 %** (13) / 116.7 s |
+| giant | 58 % (100) / 54.9 s | 71 % (100) / 39.1 s | 8 % (96) / 85.1 s | 13 % (100) / 78.0 s |
+
+The same five cells are at zero, and none newly. Stone and skeleton attackers beat a stone or
+skeleton dummy more often than on session 02's tree: stone on stone went from 50 % to 58 %, and
+skeleton on skeleton from 75 % to 83 %.

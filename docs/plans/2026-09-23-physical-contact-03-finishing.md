@@ -85,3 +85,44 @@ The socket is 1.56 m from the downed core (stone, p50), inside the blade's reach
 the skeleton. The mechanisms in "Why" are still real, and change 4 (a downed body fights) is the
 owner's rule whatever the census says. So the session stands. Read its before and after per family,
 and do not claim stone's figure as its work.
+
+## What landed, 2026-09-24
+
+Every figure is in `docs/analysis/2026-09-23-attribute-measurements.md` "Physical contact 03:
+finishing", with its harness. What differs from the plan above:
+
+- **The helpers live in `src/downed.ts`**, not `action-primitives.ts` or `tactics.ts`. The golem
+  executors import no value outside `hands.ts` and `rng.ts`, and `downed.ts` imports only a type,
+  so all five executors take the rule from one copy: `isDowned`, `standOffReach` and `finishPoint`.
+- **The low aim was already there.** Every golem executor aims at the published shoulder, and a
+  lying body's shoulder is live and low, so the aim and the derived crouch dropped with no help.
+  With the helper made to ignore `support`, every aim and crouch figure in
+  `tests/golem-finishing.test.mjs` still holds. What the helper changes is the **hold**, with the
+  same lying publication as the control and `support` edited back to `supported`:
+
+  | Mind | Downed | Said to be standing | Standing |
+  | --- | ---: | ---: | ---: |
+  | golem-duelist | 0.55 | 0.80 | 1.45 |
+  | golem-champion | 0.70 | 0.80 | 1.45 |
+  | golem-miser | 0.20 | 0.85 | 1.45 |
+
+  These are the nearest gaps at which each mind still walks in, in metres (Node harness, headless
+  arena, a skeleton pair). It also aims at the core itself, 0.21 m on from the column over the feet
+  for this fall. The brawler closes on anything, so it is not asked.
+- **Change 3 was not taken: strokes already reach the floor.** In the one-second windows when the
+  standing side's socket was within its own reach of a downed core, it touched the body in 99.3 %
+  (stone), 87.3 % (skeleton) and 98.8 % (giant group). A lower `liftMin` would buy a contact
+  that already happens. The skeleton's shortfall is scoring, not reach: it scores in 33.4 % of those
+  windows, against 11.7 % of the same windows with both bodies up. Its blows land under its
+  weapon's energy floor, which is sessions 04 and 05's. `CHAIN_REACH.liftMin` stays at -0.95, and
+  the bench's floor clearance with it.
+- **Change 4 needed no code.** A downed golem mind in reach already thrusts, guards and aims up
+  from its live socket. `a_downed_mind_in_reach_strikes_and_guards_from_its_live_socket` pins it,
+  and it went red under a mutant that went limp on the floor.
+- **Stone does not fall physically.** Its biped sets no `Knockdown` table, so a stone body that is
+  `fallen` stays on its feet: its core read 1.286 m fallen against 1.289 standing. That is why the
+  finishing fixture is a skeleton. Session 08 owns the knockdown table.
+- **The target is met on stone and the giant group and missed on the skeleton.** In-reach windows
+  scored: 69.0 % and 73.6 % against 33.4 %.
+- **The census found a defect in session 02's rise.** A rising carrier walked on its mind's request
+  and led the other body into its own rise target. See session 02's "What landed".
