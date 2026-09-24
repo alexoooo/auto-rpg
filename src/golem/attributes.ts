@@ -112,12 +112,12 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    */
   turning: Object.freeze({ label: "Turning", min: 0.5, max: 1.5, step: 0.05, live: true }),
   /**
-   * How hard the body is to knock over: a plain factor on both the stagger and the fall threshold of
-   * its stability ledger (`stabilityScale`, formed only in `stabilityCapacity` in
-   * `src/supported-locomotion-state.ts`), and on the rule that interrupts a rise. Not through the
-   * brace multiplier, which is refused below 1 and is the wheel's 1 today. It moves the impulse
-   * ledger and nothing else: a body that tips over its own feet is not steadier for it. Session 06,
-   * 2026-09-23.
+   * How hard the body is to knock over: a plain factor on both the stagger and the fall line of its
+   * stability ledger (`stabilityScale`, formed only in `stabilityLines` in
+   * `src/supported-locomotion-state.ts`), and on the rule that interrupts a rise. It moves the
+   * impulse ledger and nothing else: a body that tips over its own feet is not steadier for it.
+   * Session 06, 2026-09-23. Since physical contact session 08 the lines it multiplies are the
+   * body's own geometry, and the table below is the frozen lines' record.
    *
    * **The thresholds move by exactly the multiple on every body.** Node harness,
    * `runGolemLocomotion`, a standing body shoved once, the bench's `shoveImpulseNs` bisected; the
@@ -145,8 +145,9 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
   /**
    * How fast a knocked-down body is back on its feet: the frozen dwell and the frozen rise divided by
    * the stat for every body (`fallenDwellS`, `risingFloorS` and `recoveredRiseS` in
-   * `src/supported-locomotion-state.ts`, from `recoveryScale` on the authority), and a knockdown's
-   * rest window and lying cap divided on a body that has one (`withRecovery`). It does not change how
+   * `src/supported-locomotion-state.ts`, from `recoveryScale` on the authority), and the
+   * knockdown's rest window and lying cap divided on every body (`withRecovery`; one table,
+   * `KNOCKDOWN`, since physical contact session 08). It does not change how
    * often a body goes down; that is stability. Session 07, 2026-09-23.
    *
    * **Stone scales exactly and to x2.** Node harness, whole golems (the knockdown test's pair),
@@ -661,8 +662,7 @@ interface LyingRule {
 /**
  * A locomotion table with its knockdown's lie shortened by the recovery stat: the stillness a fall
  * must hold before it counts as finished (`restSeconds`) and the cap that ends a lie whatever the
- * body is doing (`maxLyingSeconds`), both divided. At x1, or on a table with no knockdown, the table
- * it was handed comes back.
+ * body is doing (`maxLyingSeconds`), both divided. At x1 the table it was handed comes back.
  *
  * **Half of the stat, and the half only the body can see.** The other half -- the frozen dwell, the
  * frozen rise and every body's own rise length, the knockdown's `risePeakMps` included -- is divided
@@ -671,10 +671,10 @@ interface LyingRule {
  * never removed: the range keeps it finite, and a cap is what lets a body that is struck while it
  * lies get up at all (the house rule on recovery).
  */
-export function withRecovery<K extends LyingRule, T extends { readonly knockdown: K | null }>(
+export function withRecovery<K extends LyingRule, T extends { readonly knockdown: K }>(
   table: T, recovery: number,
 ): T {
-  if (recovery === 1 || table.knockdown === null) return table;
+  if (recovery === 1) return table;
   const knockdown = table.knockdown;
   return {
     ...table,

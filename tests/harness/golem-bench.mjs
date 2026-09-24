@@ -1611,8 +1611,10 @@ const LOCOMOTION_SWEEPS = {
     // These three are about a knockdown, so they are the only ones read over the whole sequence.
     waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
       values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
+    // Straddling its own fall line along the push, 264.8 N.s at x1 (physical contact session 08,
+    // Node locomotion bench), and on to the bench's own shove.
     shove: { block: LOCOMOTION_BIPED, key: "shoveImpulseNs",
-      values: [10, 12, 200, 600, 1600], sequence: LOCOMOTION_SEQUENCE },
+      values: [200, 250, 280, 600, 1600], sequence: LOCOMOTION_SEQUENCE },
     fallenTorque: { block: LOCOMOTION_BIPED, key: "fallenTorqueScale",
       values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
   },
@@ -1626,17 +1628,10 @@ const LOCOMOTION_SWEEPS = {
       values: [120, 352, 700, 1200, 2400] },
     waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
       values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
-    // The bracket that matters, and its values straddle the biped's own 10/12 on purpose: the
-    // comparison the session exists for is that the shove the biped survives puts this over.
+    // The bracket that matters: its line is 110.1 N.s against the biped's 264.8 (physical contact
+    // session 08, Node locomotion bench), and 225 is the shove the biped survives and this does not.
     shove: { block: LOCOMOTION_WHEEL, key: "shoveImpulseNs",
-      values: [4, 6, 8, 10, 12, 700], sequence: LOCOMOTION_SEQUENCE },
-    // **Read at the biped's own "leaves it standing" impulse, which is what `with` is for.** At
-    // this module's own 1600 N.s bench shove every row of this sweep is identical to the digit --
-    // 225 times the threshold swamps any capacity multiplier -- so a sweep taken there would be a
-    // column of one number and a reader would conclude the field does nothing.
-    stand: { block: LOCOMOTION_WHEEL, key: "gaitStabilityScaleStand",
-      values: [0.35, 0.50, 0.70, 0.85, 1.00], sequence: LOCOMOTION_SEQUENCE,
-      with: [[LOCOMOTION_WHEEL, { shoveImpulseNs: 10 }]] },
+      values: [80, 100, 120, 225, 800], sequence: LOCOMOTION_SEQUENCE },
     fallenTorque: { block: LOCOMOTION_WHEEL, key: "fallenTorqueScale",
       values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
   },
@@ -1658,16 +1653,10 @@ const LOCOMOTION_SWEEPS = {
     targetRate: { block: LOCOMOTION_MULTILEG, key: "targetRate", values: [2, 4, 6, 10, 20] },
     waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
       values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
-    // Straddling the biped's 12, from above: the other comparison the session exists for is that
-    // the shove that fells the biped leaves this one standing.
+    // Straddling its own line, 623.7 N.s, from the biped's 270 that fells a biped and leaves this
+    // one standing (physical contact session 08, Node locomotion bench).
     shove: { block: LOCOMOTION_MULTILEG, key: "shoveImpulseNs",
-      values: [12, 20, 24, 30, 40, 900], sequence: LOCOMOTION_SEQUENCE },
-    // Read at the biped's own fall impulse for the reason the wheel's `stand` sweep states: at
-    // this module's own 2400 N.s bench shove every row is identical, because 104 times the
-    // threshold does not care what the threshold is.
-    brace: { block: LOCOMOTION_MULTILEG, key: "braceCapacityMultiplier",
-      values: [1.0, 1.5, 2.0, 2.6, 3.4], sequence: LOCOMOTION_SEQUENCE,
-      with: [[LOCOMOTION_MULTILEG, { shoveImpulseNs: 12 }]] },
+      values: [270, 550, 600, 650, 700, 1200], sequence: LOCOMOTION_SEQUENCE },
     fallenTorque: { block: LOCOMOTION_MULTILEG, key: "fallenTorqueScale",
       values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
   },

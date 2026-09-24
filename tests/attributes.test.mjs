@@ -248,8 +248,8 @@ test("recovery shortens a knockdown's lie and leaves its rise to the port and it
   assert.deepEqual(withRecovery(SKELETON_BIPED, 0.5).knockdown.maxLyingSeconds, rule.maxLyingSeconds * 2);
   assert.equal(SKELETON_BIPED.knockdown, rule, "the shared table is not written");
   assert.equal(withRecovery(SKELETON_BIPED, 1), SKELETON_BIPED, "x1 is the table it was handed");
-  assert.equal(LOCOMOTION_BIPED.knockdown, null);
-  assert.equal(withRecovery(LOCOMOTION_BIPED, 2), LOCOMOTION_BIPED, "a body with no knockdown has no lie of its own to shorten");
+  // Stone runs the same knockdown since physical contact session 08, so its lie shortens alike.
+  assert.deepEqual(withRecovery(LOCOMOTION_BIPED, 2).knockdown, fast.knockdown, "stone's lie, divided the same way");
 });
 
 test("a golem resolves its stats once, and every module it builds is handed them", async () => {

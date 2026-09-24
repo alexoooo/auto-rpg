@@ -1,29 +1,20 @@
+import {
+  baseReachM, leverAt, rockingDecayMps2, TIPPING, tippingLineMps, type TippingGeometry,
+} from "./tipping.ts";
+
 export type SupportState = "supported" | "staggered" | "fallen" | "rising";
 
 /**
- * Frozen v1 physical values.
+ * Frozen v1 values.
  *
- * **The stagger line, the fall line and the decay are a holding repair, and temporary** (physical
- * contact session 06). They were 0.006, 0.014 and 0.020, tuned against an authored shove of
- * `speed * 0.11 * (1.35 - 0.7 * quality)` N.s that carried no mass. Session 06 replaced it with the
- * momentum a contact moves between two effective masses, about ten times larger per wounding blow
- * (median 11.9 N.s against 1.14), and filed it on every contact and parry rather than on the ones that
- * passed the edge's floor. All three were scaled by one factor, so the ledger's shape did not move and
- * only its scale did. The factor was read off stone x1 mirrors, knockdowns per body per bout
- * (`research/control-band.mjs`, Node harness, research runner, cap 150 s, 96 blocks, seed 20260923):
- *
- * | Scale | 1 | 6 | 10 | 16 | **20** | 22 | 25 |
- * | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
- * | Knockdowns | 40.57 | 19.48 | 14.01 | 7.39 | **4.89 [4.39, 5.39]** | 3.87 | 3.16 |
- *
- * Session 01's band is 4.93 [4.54, 5.32]. Session 08 deletes the stagger and fall lines for a tipping
- * capacity, because the owner's rule is that a knockdown ends up physical, and this table is not that.
+ * **There is no stagger line, fall line or decay here** (physical contact session 08). A standing
+ * body tips when a blow carries its centre of mass over the edge of its base, and gravity rights it
+ * at a rate its own geometry sets; both are read off the live body each boundary (`src/tipping.ts`,
+ * the boundary's `tipping`). The three constants they replace were a holding repair tuned to one
+ * family's knockdown rate, and the brace, gait and mass-ratio fields that scaled them per family went
+ * with them.
  */
 export const SUPPORTED_LOCOMOTION_V1 = Object.freeze({
-  STABILITY_DECAY_MPS_PER_S: 0.40,
-  STAGGER_SPECIFIC_IMPULSE_MPS: 0.12,
-  FALL_SPECIFIC_IMPULSE_MPS: 0.28,
-  BRACE_CAPACITY_MULTIPLIER: 1.50,
   FALLEN_DWELL_S: 0.35,
   // The supported carrier may bridge one bounded clinch compression while its feet replant.
   // 0.10 s treated ordinary shield/torso contact as a fall before either body could finish an
@@ -71,18 +62,6 @@ export function isFreshStandableSupport(evidence: StandableSupportEvidence,
     Math.abs(Math.hypot(...evidence.upwardNormal) - 1) <= 1e-6;
 }
 
-export interface FighterPostureEvidence {
-  readonly pelvisUpDot: number;
-  readonly torsoHeightAbovePelvisM: number;
-  readonly headHeightAboveTorsoM: number;
-}
-
-export function fighterPostureIsSupported(evidence: FighterPostureEvidence): boolean {
-  return Number.isFinite(evidence.pelvisUpDot) && evidence.pelvisUpDot >= 0.72 &&
-    Number.isFinite(evidence.torsoHeightAbovePelvisM) && evidence.torsoHeightAbovePelvisM > 0.20 &&
-    Number.isFinite(evidence.headHeightAboveTorsoM) && evidence.headHeightAboveTorsoM > 0.08;
-}
-
 export interface ConstructPostureEvidence {
   readonly chainContinuous: boolean;
   readonly carrierUpDot: number;
@@ -100,14 +79,10 @@ export function constructPostureIsSupported(evidence: ConstructPostureEvidence):
 export interface StabilityAuthority {
   readonly carrierPartId: string;
   readonly supportBindings: readonly { readonly role: string }[];
-  readonly braceCapacityMultiplier: number;
-  readonly gaitStabilityScale: number;
   /**
-   * The body's stability stat (`src/golem/attributes.ts`), a plain factor on every threshold.
-   *
-   * **Its own field, not folded into brace**, because brace is refused below 1 and the stat is not:
-   * a wheel braces at 1.0, and a less stable wheel is a legal body. Absent reads as 1, which is what
-   * a hand-built authority in a test means.
+   * The body's stability stat (`src/golem/attributes.ts`), a plain factor on the tipping line and
+   * so on the stagger line with it. Absent reads as 1, which is what a hand-built authority in a
+   * test means.
    */
   readonly stabilityScale?: number;
   /**
@@ -118,51 +93,82 @@ export interface StabilityAuthority {
    */
   readonly recoveryScale?: number;
   /**
-   * The body's size stat (`src/golem/attributes.ts`). Every threshold above is a speed -- a blow's
-   * impulse over the supported mass -- and so goes as the square root of the size, and both floors
-   * of a knockdown are times and go the same way (`SizeLaw`). The mass the thresholds divide by is
-   * the body's own and already follows it. Absent reads as 1.
+   * The body's size stat (`src/golem/attributes.ts`). Both floors of a knockdown are times and go as
+   * the square root of the size (`SizeLaw`). The tipping line reads it from the body itself -- a
+   * larger body's centre of mass is higher and its base wider -- so it is not applied there again.
+   * Absent reads as 1.
    */
   readonly sizeScale?: number;
-  /**
-   * **A holding repair, stated as one** (physical contact session 04, 2026-09-24): how many times
-   * heavier this body is than the body its thresholds were measured on. A shove's N.s are divided
-   * by the supported mass over this ratio, so a body that took a denser build without its blows
-   * changing falls at the N.s it fell at, and its ledger decays at the rate it did, with every
-   * constant above untouched. Each stone locomotion states its own from the mass census; a body
-   * whose mass did not move reads 1, and so does an absent field. Sessions 06 and 08 replace the
-   * thresholds, and this with them.
-   */
-  readonly stabilityMassRatio?: number;
-}
-
-/** The mass a shove's N.s are divided by: the supported mass over the authority's holding ratio. */
-export function stabilityMassKg(supportedMassKg: number, authority: StabilityAuthority | null): number {
-  return supportedMassKg / (authority?.stabilityMassRatio ?? 1);
 }
 
 /**
- * The velocity change a batch of shoves hands a standing body, m/s: the horizontal part of each
- * impulse over the mass the body stands with. The one reading of a shove, for the ledger and for
- * the recovery interrupt alike.
+ * The ledger's reading of a batch of shoves, as a horizontal vector in m/s: each impulse's horizontal
+ * part, times its lever over the centre of mass's height (`leverAt`), over the body's mass. Blows
+ * from opposite sides cancel, as they do on a rocking body. A body with no tipping reading takes each
+ * blow at the centre of mass.
  */
-export function shoveSpecificImpulseMps(events: readonly StabilityEvent[], supportedMassKg: number,
-  authority: StabilityAuthority | null): number {
-  const massKg = stabilityMassKg(supportedMassKg, authority);
-  return events.reduce((sum, event) => sum + Math.hypot(...event.horizontalShoveNs) / massKg, 0);
+export function shoveSpecificImpulse(events: readonly StabilityEvent[], supportedMassKg: number,
+  tipping: TippingGeometry | null): [number, number] {
+  let x = 0, z = 0;
+  for (const event of events) {
+    const lever = tipping ? leverAt(tipping, event.atY) : 1;
+    x += event.horizontalShoveNs[0] * lever / supportedMassKg;
+    z += event.horizontalShoveNs[1] * lever / supportedMassKg;
+  }
+  return [x, z];
 }
 
+/** Where a body staggers and falls along one horizontal direction, and how fast it rights itself. */
+export interface StabilityLines {
+  /** m/s of the ledger. */
+  readonly staggerAtMps: number;
+  readonly fallAtMps: number;
+  /** m/s per second. */
+  readonly decayMps2: number;
+}
+
+const NO_LINES: StabilityLines = Object.freeze({ staggerAtMps: Infinity, fallAtMps: Infinity, decayMps2: 0 });
+
 /**
- * How many times the base thresholds a body takes before it staggers or falls: its brace, its gait
- * and its stability stat, multiplied.
+ * Whether a body's ledger has reached its fall line along the way it is rocking. A body with nothing
+ * on its ledger is not falling whatever its base: a centre of mass outside the base with nothing
+ * pushing it is a body its own locomotion is holding up.
+ */
+export function ledgerFalls(state: Pick<SupportedLocomotionState, "specificImpulseMps" | "leanX" | "leanZ">,
+  authority: StabilityAuthority | null | undefined, tipping: TippingGeometry | null | undefined): boolean {
+  return state.specificImpulseMps > 0 &&
+    state.specificImpulseMps >= stabilityLines(authority, tipping, state.leanX, state.leanZ).fallAtMps;
+}
+
+/** Directions the weakest line is looked for along; 32 is finer than any base here has corners. */
+const PROBE_DIRECTIONS = 32;
+
+/**
+ * **The one place the lines are formed** (physical contact session 08): the tipping line of the
+ * body's geometry along a direction, times its stability stat, and the stagger line at
+ * `TIPPING.STAGGER_FRACTION` of it. With no direction -- a ledger at zero -- the weakest direction
+ * the base has. A body with no tipping reading (no support corners, a hand-built boundary) cannot be
+ * tipped and is not righted: the support-grace rule is what puts a body with no base down.
  *
- * **The one place the product is formed.** The state machine, the recovery interrupt and the port's
- * diagnostic all read it here; a copy of it anywhere else is a body that staggers on one rule and
- * recovers on another.
+ * The state machine, the recovery interrupt, the rise's abort and the port's diagnostic all read
+ * it here; a copy of it anywhere else is a body that staggers on one rule and recovers on another.
  */
-export function stabilityCapacity(authority: StabilityAuthority | null | undefined): number {
-  return (authority?.braceCapacityMultiplier ?? 1) * (authority?.gaitStabilityScale ?? 1)
-    * (authority?.stabilityScale ?? 1) * sizeTime(authority);
+export function stabilityLines(authority: StabilityAuthority | null | undefined,
+  tipping: TippingGeometry | null | undefined, dirX = 0, dirZ = 0): StabilityLines {
+  if (!tipping) return NO_LINES;
+  let reach: number;
+  if (Math.hypot(dirX, dirZ) > 0) {
+    reach = baseReachM(tipping.hull, dirX, dirZ);
+  } else {
+    reach = Infinity;
+    for (let i = 0; i < PROBE_DIRECTIONS; i += 1) {
+      const angle = 2 * Math.PI * i / PROBE_DIRECTIONS;
+      reach = Math.min(reach, baseReachM(tipping.hull, Math.cos(angle), Math.sin(angle)));
+    }
+  }
+  const fallAtMps = tippingLineMps(tipping.comHeightM, tipping.gyrationM, reach) * (authority?.stabilityScale ?? 1);
+  return Object.freeze({ staggerAtMps: fallAtMps * TIPPING.STAGGER_FRACTION, fallAtMps,
+    decayMps2: rockingDecayMps2(tipping.comHeightM, reach) });
 }
 
 /**
@@ -216,21 +222,30 @@ export function recoveredRiseS(bodyS: number, distanceM: number, maxAcceleration
  *
  * `Combat` files the impulse of an inelastic contact between the striker's effective mass and the
  * struck point's, along the contact normal (`contactImpulseNs` in `src/scoring.ts`, physical
- * contact session 06), for every blow and every parry alike. The ledger divides the horizontal part
- * by the body's stability mass, so a heavier body takes a smaller velocity change from the same blow.
+ * contact session 06), for every blow and every parry alike, and the contact point's world height
+ * with it: the ledger reads a blow by its lever about the base (`leverAt`). The ledger divides the
+ * horizontal part by the body's supported mass, so a heavier body takes a smaller velocity change
+ * from the same blow.
  *
- * **`verticalShoveNs` is carried and read by nothing yet.** It is the upward share of the same
- * impulse, positive up, and session 07 is its reader: a sustained lift out of it. A locomotion
- * bench's own shove is horizontal and leaves it out.
+ * **`verticalShoveNs` is carried and read by nothing.** It is the upward share of the same
+ * impulse, positive up; session 07's lift is read from the sustained contact force instead
+ * (`ContactPress`). A locomotion bench's own shove is horizontal and leaves it out, and names no
+ * height, so it lands at the centre of mass.
  */
 export type StabilityEvent = Readonly<{
   readonly horizontalShoveNs: readonly [number, number];
   readonly verticalShoveNs?: number;
+  /** The world height it landed at, m; absent is the centre of mass. */
+  readonly atY?: number;
 }>;
 
 export interface SupportedLocomotionState {
   readonly state: SupportState;
+  /** The ledger's size, m/s: the length of the lean below. */
   readonly specificImpulseMps: number;
+  /** The ledger as a horizontal vector, m/s: which way the body is rocking, and how hard. */
+  readonly leanX: number;
+  readonly leanZ: number;
   readonly supportMissingS: number;
   readonly fallenElapsedS: number;
   readonly risingElapsedS: number;
@@ -238,7 +253,7 @@ export interface SupportedLocomotionState {
 }
 
 export const initialSupportedLocomotionState = (): SupportedLocomotionState => Object.freeze({
-  state: "supported", specificImpulseMps: 0, supportMissingS: 0,
+  state: "supported", specificImpulseMps: 0, leanX: 0, leanZ: 0, supportMissingS: 0,
   fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false,
 });
 
@@ -251,6 +266,12 @@ export interface SupportedLocomotionBoundary {
   readonly supportEvidence: readonly StandableSupportEvidence[];
   readonly supportedMassKg: number;
   readonly contactShoves: readonly StabilityEvent[];
+  /**
+   * The body's tipping geometry this boundary (`src/tipping.ts`): its centre of mass, its spread
+   * and its base, read off the live parts. Null for a body with no base at all, which the ledger
+   * cannot tip; the support-grace rule puts it down instead.
+   */
+  readonly tipping: TippingGeometry | null;
   /** Standable world under the recovery footprint; this is not a claim that a folded foot is planted. */
   readonly recoveryGroundAvailable: boolean;
   readonly occupancyClear: boolean;
@@ -348,14 +369,15 @@ const checkedBoundary = (input: SupportedLocomotionBoundary): void => {
   if (!Number.isFinite(input.risingDurationS) || input.risingDurationS < risingFloorS(input.authority)) {
     throw new Error("supported locomotion rise may be lengthened but never shorter than RISING_DURATION_S");
   }
-  if (input.authority && (!Number.isFinite(input.authority.braceCapacityMultiplier) ||
-      input.authority.braceCapacityMultiplier < 1 || !Number.isFinite(input.authority.gaitStabilityScale) ||
-      input.authority.gaitStabilityScale <= 0 || input.authority.gaitStabilityScale > 1 ||
-      (input.authority.stabilityScale !== undefined &&
-        (!Number.isFinite(input.authority.stabilityScale) || input.authority.stabilityScale <= 0)) ||
-      (input.authority.stabilityMassRatio !== undefined &&
-        (!Number.isFinite(input.authority.stabilityMassRatio) || input.authority.stabilityMassRatio <= 0)))) {
+  if (input.authority?.stabilityScale !== undefined &&
+      (!Number.isFinite(input.authority.stabilityScale) || input.authority.stabilityScale <= 0)) {
     throw new Error("supported locomotion authority has invalid stability scaling");
+  }
+  const tipping = input.tipping;
+  if (tipping !== null && (!(tipping.comHeightM > 0) || !Number.isFinite(tipping.comHeightM) ||
+      !(tipping.gyrationM >= 0) || !Number.isFinite(tipping.gyrationM) || !Number.isFinite(tipping.groundY) ||
+      tipping.hull.some((point) => point.length !== 2 || !point.every(Number.isFinite)))) {
+    throw new Error("supported locomotion tipping geometry must be finite, with the centre of mass above the ground");
   }
   for (const event of input.contactShoves) {
     if (event.horizontalShoveNs.length !== 2 ||
@@ -364,6 +386,9 @@ const checkedBoundary = (input: SupportedLocomotionBoundary): void => {
     }
     if (event.verticalShoveNs !== undefined && !Number.isFinite(event.verticalShoveNs)) {
       throw new Error("supported locomotion shove must have a finite vertical component");
+    }
+    if (event.atY !== undefined && !Number.isFinite(event.atY)) {
+      throw new Error("supported locomotion shove must land at a finite height");
     }
   }
 };
@@ -374,63 +399,81 @@ const supportAvailable = (input: SupportedLocomotionBoundary): boolean => {
   return input.supportEvidence.some((row) => isFreshStandableSupport(row, input.safeBoundarySequence, allowed));
 };
 
+interface Lean { readonly specificImpulseMps: number; readonly leanX: number; readonly leanZ: number }
+
+const ZERO_LEAN: Lean = Object.freeze({ specificImpulseMps: 0, leanX: 0, leanZ: 0 });
+
+/**
+ * The ledger after one boundary: the prior lean righted by gravity at its own direction's rate, and
+ * this boundary's shoves added as a vector. A body rocking one way that is struck from the other is
+ * righted by the blow, as a rocking body is.
+ */
+function nextLean(prior: SupportedLocomotionState, input: SupportedLocomotionBoundary): Lean {
+  const [addX, addZ] = shoveSpecificImpulse(input.contactShoves, input.supportedMassKg, input.tipping);
+  const priorMps = Math.hypot(prior.leanX, prior.leanZ);
+  const kept = priorMps > 0
+    ? Math.max(0, priorMps - stabilityLines(input.authority, input.tipping, prior.leanX, prior.leanZ).decayMps2
+      * input.dt) / priorMps
+    : 0;
+  const leanX = prior.leanX * kept + addX;
+  const leanZ = prior.leanZ * kept + addZ;
+  return { specificImpulseMps: Math.hypot(leanX, leanZ), leanX, leanZ };
+}
+
 /** One immutable transition at the pre-physics safe edge. */
 export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
   input: SupportedLocomotionBoundary): SupportedLocomotionState {
   checkedBoundary(input);
-  const added = shoveSpecificImpulseMps(input.contactShoves, input.supportedMassKg, input.authority);
-  const specificImpulseMps = Math.max(0,
-    prior.specificImpulseMps - SUPPORTED_LOCOMOTION_V1.STABILITY_DECAY_MPS_PER_S * input.dt) + added;
+  const lean = nextLean(prior, input);
   const hasSupport = supportAvailable(input);
   const supportMissingS = hasSupport ? 0 : prior.supportMissingS + input.dt;
-  const capacity = stabilityCapacity(input.authority);
-  const staggerAt = SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity;
-  const fallAt = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity;
+  // Along the direction the body is rocking (`ledgerFalls`).
+  const lines = stabilityLines(input.authority, input.tipping, lean.leanX, lean.leanZ);
+  const falls = ledgerFalls(lean, input.authority, input.tipping);
+  const staggers = lean.specificImpulseMps > 0 && lean.specificImpulseMps >= lines.staggerAtMps;
 
   if (prior.state === "rising") {
-    // **A rising body is put down exactly as a standing one is**: by the ledger reaching `fallAt`
-    // (physical contact session 02, 2026-09-23). The ledger restarts at zero when the rise begins,
-    // so what it holds here is what has landed since, and the fall that put the body down is not
-    // counted twice. It used to be put down by any staggering blow (`hitInterrupted`), and one body
-    // opted out of that altogether; both were authored rules about a rise, and a rise is now as hard
-    // to put down as a standing body until session 08 gives its posture a capacity of its own.
-    if (specificImpulseMps >= fallAt) {
-      return Object.freeze({ state: "fallen", specificImpulseMps,
-      supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
+    // **A rising body is put down exactly as a standing one is**: by its lean reaching the tipping
+    // line of the body it is at that boundary (physical contact session 08) -- a low centre of mass
+    // on a base still forming, read off the live parts as a standing body's is, with no immunity and
+    // no escape on top. The ledger restarts at zero when the rise begins, so what it holds here is
+    // what has landed since, and the fall that put the body down is not counted twice.
+    if (falls) {
+      return Object.freeze({ state: "fallen", ...lean,
+        supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     }
     const eligible = risingEligibility({ ...prior,
       fallenElapsedS: Math.max(prior.fallenElapsedS, fallenDwellS(input.authority)) }, input);
-    if (!eligible.eligible) return Object.freeze({ state: "fallen", specificImpulseMps,
+    if (!eligible.eligible) return Object.freeze({ state: "fallen", ...lean,
       supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     const risingElapsedS = prior.risingElapsedS + input.dt;
     if (risingElapsedS >= input.risingDurationS && input.postureSupported) {
-      return Object.freeze({ state: "supported", specificImpulseMps: 0, supportMissingS: 0,
+      return Object.freeze({ state: "supported", ...ZERO_LEAN, supportMissingS: 0,
         fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     }
     if (risingElapsedS >= input.risingDurationS * RISE_POSTURE_DEADLINE) {
-      return Object.freeze({ state: "fallen", specificImpulseMps,
+      return Object.freeze({ state: "fallen", ...lean,
         supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     }
-    return Object.freeze({ state: "rising", specificImpulseMps, supportMissingS: 0,
+    return Object.freeze({ state: "rising", ...lean, supportMissingS: 0,
       fallenElapsedS: prior.fallenElapsedS, risingElapsedS, driveStaged: true });
   }
 
   if (prior.state === "fallen") {
     const fallenElapsedS = prior.fallenElapsedS + input.dt;
-    const fallen = Object.freeze({ state: "fallen" as const, specificImpulseMps,
+    const fallen = Object.freeze({ state: "fallen" as const, ...lean,
       supportMissingS, fallenElapsedS, risingElapsedS: 0, driveStaged: false });
     // The rise starts its ledger at zero: see the rising branch above.
     return risingEligibility(fallen, input).eligible
-      ? Object.freeze({ ...fallen, state: "rising" as const, specificImpulseMps: 0, risingElapsedS: 0,
+      ? Object.freeze({ ...fallen, state: "rising" as const, ...ZERO_LEAN, risingElapsedS: 0,
         driveStaged: true })
       : fallen;
   }
 
-  if (specificImpulseMps >= fallAt || supportMissingS > SUPPORTED_LOCOMOTION_V1.SUPPORT_GRACE_S ||
-      input.lifted === true) {
-    return Object.freeze({ state: "fallen", specificImpulseMps, supportMissingS,
+  if (falls || supportMissingS > SUPPORTED_LOCOMOTION_V1.SUPPORT_GRACE_S || input.lifted === true) {
+    return Object.freeze({ state: "fallen", ...lean, supportMissingS,
       fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
   }
-  return Object.freeze({ state: specificImpulseMps >= staggerAt ? "staggered" : "supported",
-    specificImpulseMps, supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
+  return Object.freeze({ state: staggers ? "staggered" : "supported",
+    ...lean, supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
 }

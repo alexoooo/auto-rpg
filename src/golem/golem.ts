@@ -515,9 +515,14 @@ export class Golem implements Combatant {
     // What the carrier is holding up. The torso's own head socket names the body the upper stack
     // hangs from, which is the honest answer to "what does the root carry" without this file
     // knowing that a torso's core is called a core.
+    // And where all of it is, for the tipping geometry: every part still on the body.
+    const limbs = this.limbs;
     this.locomotionModule.carry?.({
       part: this.torsoModule.socket("head").mount,
       massKg: golemUpperMassKg(setup),
+      parts: function* () {
+        for (const limb of limbs) if (!limb.severed) yield limb.part;
+      },
     });
 
     // --- limbs, vitality and what a pick may choose --------------------------------------------

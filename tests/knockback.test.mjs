@@ -43,6 +43,10 @@ async function strike(striker, body, velocity) {
 }
 
 const filed = (event) => Math.hypot(event.horizontalShoveNs[0], event.verticalShoveNs ?? 0, event.horizontalShoveNs[1]);
+// What the ledger is handed is the physical impulse times the recorded blow gain (physical contact
+// session 08); what is reported is the physical impulse.
+const { TIPPING } = await import("../src/tipping.ts");
+const GAIN = TIPPING.BLOW_GAIN;
 
 test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into_the_struck_body", async () => {
   const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
@@ -59,9 +63,9 @@ test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into
     assert.equal(queued.length, 2, "one contact files one shove per Combat watching it");
     const expected = contactImpulseNs(report.strikerMassKg, report.partMassKg, report.closingSpeed);
     near(report.transferNs, expected, 1e-9, "reported");
-    for (const event of queued) near(filed(event), expected, 1e-9, "filed");
+    for (const event of queued) near(filed(event), expected * GAIN, 1e-9, "filed");
     // Along the blow, whichever way round Havok handed the normal (it is reversed above).
-    assert.ok(queued[0].horizontalShoveNs[1] > 0.99 * expected, `pushed the way the blade went: ${queued[0].horizontalShoveNs}`);
+    assert.ok(queued[0].horizontalShoveNs[1] > 0.99 * expected * GAIN, `pushed the way the blade went: ${queued[0].horizontalShoveNs}`);
     assert.ok(expected > report.strikerMassKg * 9 * 0.3,
       `a blade arrives with its arm behind it: ${expected.toFixed(2)} N.s at 9 m/s`);
 
@@ -74,7 +78,7 @@ test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into
     const leaned = combat.lastHit;
     assert.equal(leaned.damage, 0, "the control: a lean does not wound");
     assert.equal(queued.length, 4, "and is still filed");
-    near(filed(queued[3]), contactImpulseNs(leaned.strikerMassKg, leaned.partMassKg, leaned.closingSpeed), 1e-9, "leaned");
+    near(filed(queued[3]), GAIN * contactImpulseNs(leaned.strikerMassKg, leaned.partMassKg, leaned.closingSpeed), 1e-9, "leaned");
     assert.ok(queued[3].verticalShoveNs < -0.5 * filed(queued[3]), `and downward: ${queued[3].verticalShoveNs}`);
   } finally { bout.dispose(); }
 });
@@ -95,6 +99,6 @@ test("a_parry_pushes_the_body_behind_the_guard_by_the_same_rule", async () => {
       effectiveMassAt(guard.body, point, normal), 9);
     assert.equal(queued.length, 2, "the block files a shove on the guard's owner");
     near(report.transferNs, expected, 1e-9, "reported");
-    for (const event of queued) near(filed(event), expected, 1e-9, "filed");
+    for (const event of queued) near(filed(event), expected * GAIN, 1e-9, "filed");
   } finally { bout.dispose(); }
 });

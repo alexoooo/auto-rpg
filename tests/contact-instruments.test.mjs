@@ -23,7 +23,6 @@ import { DIRECTIONS, contactForceReadout, freeTip, slabFor, sliderTrial } from "
 import { CENSUS_FAMILIES, censusOf, partClass, runMassCensus } from "./harness/mass-census.mjs";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { namedBuild } from "../src/golem/roster.ts";
-import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -192,29 +191,6 @@ test("the mass census reads every body the golem owns off the solver", async () 
  * `golemUpperMassKg` was 1.55 kg short on stone and 2.08 on the skeleton. Both are read here against
  * the solver, on every family the census knows.
  */
-/**
- * Physical contact 04's holding repair. Stone took a body density and its blows did not change, so
- * each stone family divides the mass its ledger reads by its own census ratio and falls at the N.s it
- * fell at; the skeleton's and the human's masses did not move and hold nothing. The before column is
- * FALL_SPECIFIC_IMPULSE_MPS x brace x the supported mass each family had on 66ee353 (Node mass
- * census), standing still: gait 1, except the wheel, which stands at `gaitStabilityScaleStand` 0.70.
- * Session 06 scaled the fall line and every family with it, so the column reads the live line.
- */
-test("every family falls at the newton-seconds it fell at before stone took its body density", async () => {
-  const fall = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS;
-  const before = { stone: fall * 1.5 * 90.64, skeleton: fall * 2.0 * 30.38, human: fall * 1.5 * 111.45,
-    wheel: fall * 1.0 * 0.70 * 117.39, multileg: fall * 2.6 * 102.34 };
-  const rows = await runMassCensus(CENSUS_FAMILIES.filter((row) => row.family in before));
-  assert.equal(rows.length, 5, "the control: every family was built");
-  for (const row of rows) {
-    // The census rounds each mass to 0.01 kg, so the before column is good to about 1e-4.
-    assert.ok(Math.abs(row.fallAtNs - before[row.family]) <= 2e-4 * before[row.family],
-      `${row.family} falls at ${row.fallAtNs} N.s against ${before[row.family]}`);
-  }
-  // And the stone body really is heavier: the ratio is doing the holding, not an unmoved mass.
-  assert.ok(rows.find((row) => row.family === "stone").supportedMassKg > 2.5 * 90.64);
-});
-
 test("every carrier holds up its whole body, and the build's upper mass is the solver's", async () => {
   const rows = await runMassCensus();
   assert.ok(rows.length >= 6, "the control: every census family was built");

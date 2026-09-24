@@ -2538,7 +2538,11 @@ export const BENCH_STAND_LOCOMOTION_SIZE: SizeLaws<typeof BENCH_STAND_LOCOMOTION
 };
 
 /**
- * A knockdown that runs its course, for a biped whose table sets one.
+ * A knockdown that runs its course, one table for every body (physical contact session 08; it was
+ * the skeleton's alone, and every other body rose `FALLEN_DWELL_S` after it was released whether or
+ * not its fall had finished). The numbers are the skeleton's, chosen by the table on
+ * `SKELETON_BIPED` in `./skeleton/body.ts`; each locomotion table carries `KNOCKDOWN` and follows
+ * the size stat through `KNOCKDOWN_SIZE`.
  *
  * - **The legs go limp and the upper body goes weak.** While it lies, the legs fall to
  *   `fallenTorqueScale`, and every motor above them to `GROUNDED_TONE` in `src/golem/golem.ts`,
@@ -2546,15 +2550,21 @@ export const BENCH_STAND_LOCOMOTION_SIZE: SizeLaws<typeof BENCH_STAND_LOCOMOTION
  *   `fallenTorqueScale` with the upper body commanded neutral before that). The upper body keeps
  *   its commands throughout, and the tone climbs back to full across the rise (the table that
  *   chose the climb is on the golem's `motorTone`).
- * - **The rise waits for the fall to finish**: the pelvis and the load have both moved slower than
+ * - **The rise waits for the fall to finish** (`KnockdownSettle` in `./locomotion.ts`): the whole
+ *   body's centre of mass has come down at least half its height and then gone down no faster than
  *   `restSpeedMps` for `restSeconds` together, or the body has lain `maxLyingSeconds` whatever it
- *   was doing. The cap is what keeps this from being a rule a body can fail for ever -- a ragdoll an
- *   opponent keeps striking never comes to rest, and recovery may not require a state the body
- *   cannot reach. `SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S` remains the floor under both. Rest is
- *   stillness and not lowness: nothing here asks how far the body has fallen, so one released
- *   without the momentum to topple, and still through `restSeconds` after the dwell, is lifted from
- *   where it stands. In four skeleton mirrors (Node bout runner, supported, 20 s cap, seed pairs
- *   0x57010001 to 0x57010008) all 30 rises began with the pelvis at or under 0.26 m.
+ *   was doing. The cap is what keeps this from being a rule a body can fail for ever, and recovery
+ *   may not require a state the body cannot reach. `SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S` remains
+ *   the floor under both.
+ *
+ *   **It reads descent, not stillness** (physical contact session 08). The skeleton's rule was that
+ *   the pelvis and the load were both still, and a body fighting from the ground is never still: on
+ *   stone mirrors (`.review/lie-com.mjs`, Node bout runner, blow gain 10, 4 bouts, 37 falls) the
+ *   whole centre of mass moved at a median 0.5 to 1 m/s through the whole lie, and 25 of 37 falls
+ *   never held still for 0.2 s, so the cap decided nearly every one. Descent alone fires before a
+ *   topple has got going (p10 0.22 s), and stone's old 0.35 s dwell lifted it mid-fall -- its
+ *   centre of mass was half-way down at a median 1.12 s. Together, stone's fall finishes at a median
+ *   1.75 s and the skeleton's at 1.38 s (112 falls); 6 of 37 and 24 of 112 reach the cap.
  * - **The rise lasts as long as its distance needs**: the scripted lift never moves the pelvis
  *   faster than `risePeakMps`, and never takes less than `SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S`.
  * - **What a hit does to a rise is the shared rule, not the table's.** A rising body is put down
@@ -2582,6 +2592,11 @@ const CARRIER_SIZE = {
 const KNOCKDOWN_SIZE: SizeLaws<Knockdown> = {
   restSpeedMps: "speed", restSeconds: "duration", maxLyingSeconds: "duration", risePeakMps: "speed",
 };
+
+/** The one knockdown every body runs (`Knockdown`). */
+export const KNOCKDOWN: Knockdown = Object.freeze({
+  restSpeedMps: 0.3, restSeconds: 0.2, maxLyingSeconds: 2.5, risePeakMps: 0.9,
+});
 
 /**
  * The biped: a pelvis carrier on two legs of thigh, shin and foot.
@@ -3017,16 +3032,8 @@ export const LOCOMOTION_BIPED = {
    */
   fallenTorqueScale: 0.08,
 
-  /**
-   * How a knockdown runs its course, or `null` for the frozen one.
-   *
-   * `null` for stone: its legs go limp, its upper body fights on, and it rises
-   * `SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S` after it was released, over
-   * `RISING_DURATION_S`, as it always has. A stone golem is rarely put over (3 falls in 18.3 s of two
-   * golem-duelist mirrors, Node bout runner, 2026-09-22) and its sessions do not move it. See
-   * `Knockdown` and `SKELETON_BIPED`.
-   */
-  knockdown: null as Knockdown | null,
+  /** How a knockdown runs its course: the one table every body runs (`KNOCKDOWN`). */
+  knockdown: KNOCKDOWN,
 
   /** Solver damping on the leg joints' driven axes. A position motor is a spring, and a spring
    *  with no damper rings -- the finding `CHAIN_WRIST.motorDamping` records, and the same
@@ -3111,35 +3118,6 @@ export const LOCOMOTION_BIPED = {
   footprintHeight: 1.80,
 
   /**
-   * The stability authority this module publishes, per boundary.
-   *
-   * `braceCapacityMultiplier` 1.5 is `SUPPORTED_LOCOMOTION_V1.BRACE_CAPACITY_MULTIPLIER` exactly:
-   * a golem is braced by construction -- it is a stone slab on two stone legs -- so it stands
-   * where a Warrior would need to be bracing deliberately. It multiplies both frozen thresholds,
-   * so a golem staggers and falls at 1.5 times the lines an unbraced body would: 0.18 and 0.42 m/s
-   * of specific impulse since physical contact session 06 scaled every line by 20, and 0.009 and
-   * 0.021 before that.
-   *
-   * `gaitStabilityScaleMin` is what that capacity falls to at full carrier speed, and it is the
-   * one live field in the authority: a body in mid-stride has one foot down and is easier to put
-   * over than one standing still, so the scale runs linearly from 1 at rest to 0.75 at 1.2 m/s.
-   * At full speed the fall threshold is therefore 0.75 of the standing one (0.315 m/s, 0.0158
-   * before session 06), which is a golem
-   * caught mid-step. The state machine multiplies the two and refuses a scale outside (0, 1], so
-   * it is clamped. 2026-09-04.
-   */
-  braceCapacityMultiplier: 1.5,
-  gaitStabilityScaleMin: 0.75,
-  /**
-   * The holding repair's ratio (`StabilityAuthority.stabilityMassRatio`, physical contact session
-   * 04, 2026-09-24): the default stone biped golem's supported mass at `STONE_BODY_DENSITY` over what it was at
-   * `SHIPPED_MASS_SCALE`, 247.17 kg against 90.64 (Node mass census,
-   * `tests/harness/mass-census.mjs`). Its blows did not change with its mass, so its thresholds hold
-   * by dividing the mass the ledger reads by this.
-   */
-  stabilityMassRatio: 247.17 / 90.64,
-
-  /**
    * The bench's knockdown: **an impulse, in newton-seconds, applied to the carried block.**
    *
    * A shove is an impulse and not a force, and no force may be applied from outside the solver.
@@ -3197,6 +3175,11 @@ export const LOCOMOTION_BIPED = {
    * momentum it moved (`SUPPORTED_LOCOMOTION_V1`'s doc has the table). The straddles above are a
    * record of the lines they were measured against. The key is still a knockdown: 617 N.s is 14.3
    * times this body's fall line on the shove bench, against 286 before (Node harness, x1).
+   *
+   * **Since physical contact session 08 there is no frozen threshold to straddle**: the lines are
+   * the standing body's own geometry along the push, and every row above is a record of the lines it
+   * was measured against. This body's fall line on the shove bench is 0.945 m/s at 280.0 kg, 264.8 N.s, and the key is 2.33
+   * times it (`.review/shove-bench.mjs`, Node locomotion bench, x1, 2026-09-24).
    */
   shoveImpulseNs: 200 * BODY_OVER_SHIPPED,
 
@@ -3227,18 +3210,19 @@ export const LOCOMOTION_BIPED = {
   meanFootSlipBudgetMps: 0.30,
 
   /**
-   * How long a knockdown and the rise after it are allowed to take, seconds.
+   * How long a knockdown and the rise after it are allowed to take on the bench's scripted shove,
+   * seconds: **one number for every locomotion table**, because every body runs the one knockdown
+   * (`KNOCKDOWN`, physical contact session 08).
    *
-   * Not free parameters: `SUPPORTED_LOCOMOTION_V1` fixes the fallen dwell at 0.35 s and the rise
-   * at 0.45 s, so the floor is 0.80 s from the fall to standing again and this budget is that
-   * plus the time the request takes to be believed. Measured over the scripted sequence, the
-   * whole knockdown-to-supported interval is **1.158 s** and it is the same figure at every shove
-   * from 12 N.s to 1600: the sequence holds the command still for 0.70 s after the shove so the
-   * fallen dwell can elapse, and the rise then takes the actuator's own 0.45 s. 1.60 s leaves
-   * room for a rise that is interrupted once and still completes. **Provisional**, same sense.
-   * 2026-09-04, the Node bench.
+   * It was 1.60 here, on the wheel and on the multileg while stone ran a frozen 0.35 s dwell and
+   * 0.45 s rise (1.158 s on this sequence), and the skeleton's own 2.50 while it alone ran a
+   * knockdown to rest. Under the one table, fall to supported (`.review/rise-budget.mjs`, Node
+   * locomotion bench, 2026-09-24): biped 1.954 s, skeleton 1.817, wheel 1.933, multileg 1.192. 2.50
+   * is the skeleton's argument kept: the slowest and about half a second. It cannot be the worst
+   * case, a lie to the cap and then a lift of the whole stand height, because the bench's sequence
+   * ends 3.0 s after its shove (`LOCOMOTION_SEQUENCE`), so a rise that long reads as none at all.
    */
-  riseBudgetSeconds: 1.60,
+  riseBudgetSeconds: 2.50,
   /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
   look: "carved" as ShellLook,
 };
@@ -3271,7 +3255,6 @@ export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   crouchDepth: "length", crouchResponse: "frequency", heightRate: "speed",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
-  braceCapacityMultiplier: "one", gaitStabilityScaleMin: "one", stabilityMassRatio: "one",
   shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
 
@@ -4751,52 +4734,8 @@ export const LOCOMOTION_WHEEL = {
   footprintRadius: 0.42,
   footprintHeight: 1.94,
 
-  /**
-   * The stability authority, and **this is the frozen choice's own number**.
-   *
-   * `braceCapacityMultiplier` is 1.0, which is the floor the state machine admits at all, against
-   * the biped's 1.5. The biped's is `SUPPORTED_LOCOMOTION_V1.BRACE_CAPACITY_MULTIPLIER` because a
-   * stone slab on two stone legs is braced by construction; a slab balanced on one wheel is the
-   * opposite of braced, and there is no honest way to give it more than a body with no brace at
-   * all.
-   *
-   * `gaitStabilityScaleStand` and `gaitStabilityScaleMin` are the live half, and unlike the biped's
-   * the standing end is **below 1**: a wheel standing still is balanced on a single contact line
-   * and has no fore-aft base whatsoever, which a pair of 0.34 m feet does. It runs from 0.70 at
-   * rest to 0.35 at 2.0 m/s. The fall threshold is therefore 0.70 of the fall line standing and
-   * 0.35 at speed, against the biped's 1.5 and 1.125 -- less than half at both ends. (On the lines
-   * before physical contact session 06, which scaled them by 20, that was `0.014 x 1.0 x 0.70 =
-   * 0.0098 m/s` standing and 0.0049 at speed; the sweep below was taken on them.)
-   *
-   * **Swept against the comparison it exists for**, which is the 10 N.s that leaves a biped
-   * standing. In newton-seconds the boundary is `0.014 x scale x 725.2 = 10.15 x scale`:
-   *
-   *     gaitStabilityScaleStand   own threshold N.s   what 10 N.s did
-   *              0.35                   3.55            fell, rose in 1.158 s
-   *              0.50                   5.08            fell, rose in 1.158 s
-   *              0.70                   7.11            fell, rose in 1.158 s
-   *              0.85                   8.63            fell, rose in 1.158 s
-   *              1.00                  10.15            stayed supported
-   *
-   * **1.00 is the wrong side of the comparison by one and a half per cent**, which is the reason
-   * 0.70 is taken rather than something nearer the biped's: a difference the option exists to
-   * carry should not rest on a margin that thin. At 0.70 the biped's own "leaves it standing"
-   * impulse is 1.4 times this body's threshold. Note that the *same sweep read at this module's
-   * own 1600 N.s bench shove is a column of one number*, because 225 times a threshold does not
-   * care what the threshold is -- which is why `--sweep stand` fixes the impulse and says so.
-   * 2026-09-04, the Node bench.
-   */
-  braceCapacityMultiplier: 1.0,
-  /**
-   * The holding repair's ratio (`StabilityAuthority.stabilityMassRatio`, physical contact session
-   * 04, 2026-09-24): the wheel golem's supported mass at `STONE_BODY_DENSITY` over what it was at
-   * `SHIPPED_MASS_SCALE`, 329.72 kg against 117.39 (Node mass census,
-   * `tests/harness/mass-census.mjs`). Its blows did not change with its mass, so its thresholds hold
-   * by dividing the mass the ledger reads by this.
-   */
-  stabilityMassRatio: 329.72 / 117.39,
-  gaitStabilityScaleStand: 0.70,
-  gaitStabilityScaleMin: 0.35,
+  /** How a knockdown runs its course: the one table every body runs (`KNOCKDOWN`). */
+  knockdown: KNOCKDOWN,
 
   /**
    * The bench's knockdown: an impulse, in newton-seconds, applied to the carried block.
@@ -4838,6 +4777,11 @@ export const LOCOMOTION_WHEEL = {
    * momentum it moved (`SUPPORTED_LOCOMOTION_V1`'s doc has the table). The straddles above are a
    * record of the lines they were measured against. The key is still a knockdown: 800 N.s is 31.6
    * times this body's fall line on the shove bench, against 630 before (Node harness, x1).
+   *
+   * **Since physical contact session 08 there is no frozen threshold to straddle**: the lines are
+   * the standing body's own geometry along the push, and every row above is a record of the lines it
+   * was measured against. This body's fall line on the shove bench is 0.304 m/s at 362.6 kg, 110.1 N.s -- its single narrow patch --, and the key is 7.26
+   * times it (`.review/shove-bench.mjs`, Node locomotion bench, x1, 2026-09-24).
    */
   shoveImpulseNs: bodyNs(1600),
 
@@ -4862,15 +4806,8 @@ export const LOCOMOTION_WHEEL = {
    */
   meanContactSlipBudgetMps: 0.05,
 
-  /**
-   * How long a knockdown and the rise after it are allowed to take, seconds.
-   *
-   * Not a free parameter: `SUPPORTED_LOCOMOTION_V1` fixes the fallen dwell at 0.35 s and the rise
-   * at 0.45 s, so 0.80 s is the floor and this is that plus the time the request takes to be
-   * believed. `LOCOMOTION_BIPED.riseBudgetSeconds` is 1.60 and this is the same number for the
-   * same reason. **Provisional.** 2026-09-04.
-   */
-  riseBudgetSeconds: 1.60,
+  /** How long a knockdown and the rise after it may take: `LOCOMOTION_BIPED.riseBudgetSeconds`'s argument. */
+  riseBudgetSeconds: 2.50,
 };
 
 /** How the wheel's table follows the size stat (`SizeLaw` in `./attributes.ts`). */
@@ -4884,7 +4821,7 @@ export const LOCOMOTION_WHEEL_SIZE: SizeLaws<typeof LOCOMOTION_WHEEL> = {
   plantBandM: "length", heightRate: "speed",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
-  braceCapacityMultiplier: "one", gaitStabilityScaleStand: "one", gaitStabilityScaleMin: "one", stabilityMassRatio: "one",
+  knockdown: KNOCKDOWN_SIZE,
   shoveImpulseNs: "impulse", meanContactSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
 
@@ -4892,8 +4829,9 @@ export const LOCOMOTION_WHEEL_SIZE: SizeLaws<typeof LOCOMOTION_WHEEL> = {
  * The multileg: a low, wide chassis on six short legs in a tripod gait. **Session 06.**
  *
  * **The opposite trade from the wheel, through the same contract.** Slow, slow to turn, no crouch
- * because it is already low, and a base so wide that the fall threshold is hard to reach -- which
- * is what `braceCapacityMultiplier` is for and is the only place that difference is stated.
+ * because it is already low, and a base so wide that the fall line is hard to reach. Since physical
+ * contact session 08 that difference is the body's own geometry -- a fall line of 1.97 m/s against
+ * the biped's 0.95 -- where it was a declared `braceCapacityMultiplier` of 2.6 against 1.5.
  *
  * **What it costs is published as a number rather than hidden.** The torso socket sits at 0.640 m
  * against the biped's 1.020, so everything bolted above it is 380 mm lower: an effector socket the
@@ -4923,7 +4861,7 @@ export const LOCOMOTION_MULTILEG = {
    * Where the six hips are: out from the centreline, and at three stations fore and aft. Metres.
    *
    * 0.40 out is a stance 0.80 m wide at the hips against the biped's 0.38 -- the "wide" of the
-   * frozen choice, stated as the number the brace capacity is argued from. The stations are
+   * frozen choice, and since physical contact session 08 the base the fall line is read off. The stations are
    * -0.22, 0 and +0.22, so the support polygon is 0.44 m long as well as 0.80 m wide, which the
    * biped's two feet in one lateral line do not have at all.
    *
@@ -5263,48 +5201,8 @@ export const LOCOMOTION_MULTILEG = {
   footprintRadius: 0.50,
   footprintHeight: 1.42,
 
-  /**
-   * The stability authority. **This is the option, in two numbers.**
-   *
-   * `braceCapacityMultiplier` 2.6 against the biped's 1.5 and the wheel's 1.0. The argument is the
-   * support polygon and it is arithmetic rather than taste: a body tips about the edge of what it
-   * stands on, this one's half-width at the pads is `0.40 + 0.065 = 0.465 m` against the biped's
-   * `0.19 + 0.10 = 0.29`, and the ratio of those is 1.60 -- so `1.5 x 1.60 = 2.40` is the
-   * arithmetic. It also has a 0.44 m fore-aft base that the biped's single lateral line of two
-   * feet does not have at all, and 2.6 is that arithmetic with the fore-aft base worth the rest.
-   *
-   * **Swept against the comparison it exists for**, which is the 12 N.s that fells a biped. In
-   * newton-seconds the boundary is `0.014 x brace x 632.3 = 8.85 x brace`:
-   *
-   *     braceCapacityMultiplier   own threshold N.s   what 12 N.s did
-   *               1.0                   8.85            fell, rose in 1.158 s
-   *               1.5                  13.28            stayed supported
-   *               2.0                  17.70            stayed supported
-   *               2.6                  23.02            stayed supported
-   *               3.4                  30.10            stayed supported
-   *
-   * **1.5 clears it by ten per cent and 2.6 by ninety**, which is the reason the arithmetic's 2.4
-   * is rounded up rather than down: a difference the option exists to carry should not rest on a
-   * margin a solver change could eat. As with the wheel's `gaitStabilityScaleStand`, the same
-   * sweep read at this module's own 2400 N.s bench shove is a column of one number, so
-   * `--sweep brace` fixes the impulse at 12 and says so.
-   *
-   * `gaitStabilityScaleMin` 0.90 is the live half and it is much nearer 1 than the biped's 0.75:
-   * an alternating tripod always has three pads down, so being mid-stride costs this body almost
-   * nothing where a biped mid-stride is standing on one foot. The fall threshold is therefore
-   * `0.014 x 2.6 = 0.0364 m/s` standing and 0.0328 at full speed, against the biped's 0.021 and
-   * 0.0158. 2026-09-04.
-   */
-  braceCapacityMultiplier: 2.6,
-  /**
-   * The holding repair's ratio (`StabilityAuthority.stabilityMassRatio`, physical contact session
-   * 04, 2026-09-24): the multileg golem's supported mass at `STONE_BODY_DENSITY` over what it was at
-   * `SHIPPED_MASS_SCALE`, 283.27 kg against 102.34 (Node mass census,
-   * `tests/harness/mass-census.mjs`). Its blows did not change with its mass, so its thresholds hold
-   * by dividing the mass the ledger reads by this.
-   */
-  stabilityMassRatio: 283.27 / 102.34,
-  gaitStabilityScaleMin: 0.90,
+  /** How a knockdown runs its course: the one table every body runs (`KNOCKDOWN`). */
+  knockdown: KNOCKDOWN,
 
   /**
    * The bench's knockdown: an impulse, in newton-seconds, applied to the carried block. The same
@@ -5339,6 +5237,11 @@ export const LOCOMOTION_MULTILEG = {
    * momentum it moved (`SUPPORTED_LOCOMOTION_V1`'s doc has the table). The straddles above are a
    * record of the lines they were measured against. The key is still a knockdown: 1200 N.s is 14.4
    * times this body's fall line on the shove bench, against 288 before (Node harness, x1).
+   *
+   * **Since physical contact session 08 there is no frozen threshold to straddle**: the lines are
+   * the standing body's own geometry along the push, and every row above is a record of the lines it
+   * was measured against. This body's fall line on the shove bench is 1.973 m/s at 316.1 kg, 623.7 N.s, and the key is 1.92
+   * times it (`.review/shove-bench.mjs`, Node locomotion bench, x1, 2026-09-24).
    */
   shoveImpulseNs: bodyNs(2400),
 
@@ -5362,10 +5265,8 @@ export const LOCOMOTION_MULTILEG = {
    *  **The multileg's gait is the weakest thing the re-scale left behind.** 2026-09-18. */
   meanFootSlipBudgetMps: 0.70,
 
-  /** How long a knockdown and the rise after it are allowed to take, seconds. The frozen 0.35 s
-   *  dwell plus the frozen 0.45 s rise is the floor; 1.60 s is `LOCOMOTION_BIPED`'s own budget and
-   *  this is the same number for the same reason. **Provisional.** 2026-09-04. */
-  riseBudgetSeconds: 1.60,
+  /** How long a knockdown and the rise after it may take: `LOCOMOTION_BIPED.riseBudgetSeconds`'s argument. */
+  riseBudgetSeconds: 2.50,
 };
 
 /** How the multileg's table follows the size stat (`SizeLaw` in `./attributes.ts`). */
@@ -5387,6 +5288,6 @@ export const LOCOMOTION_MULTILEG_SIZE: SizeLaws<typeof LOCOMOTION_MULTILEG> = {
   motorDamping: "one", linearDamping: "frequency", angularDamping: "frequency",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
-  braceCapacityMultiplier: "one", gaitStabilityScaleMin: "one", stabilityMassRatio: "one",
+  knockdown: KNOCKDOWN_SIZE,
   shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };

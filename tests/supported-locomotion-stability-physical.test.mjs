@@ -16,7 +16,6 @@ import { stepPair } from "../src/fighter.ts";
 import { idleMind } from "../src/mind.ts";
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
-import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
 import { unitDefinition } from "../src/units.ts";
 
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
@@ -29,7 +28,12 @@ const materialsFor = (scene) => {
     leather: owner, brass: owner, hide: owner, wood: owner, arrowAccent: owner }) });
 };
 
-const physicalCell = async (specificImpulseMps) => {
+/**
+ * One standing golem shoved along +x at `fraction` of one of its own lines (`line` is "stagger" or
+ * "fall") along that direction, read off the standing body the step before the shove, then watched
+ * for `seconds`.
+ */
+const physicalCell = async (line, fraction, seconds) => {
   const engine = new NullEngine({ renderWidth: 64, renderHeight: 64 });
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
@@ -71,12 +75,13 @@ const physicalCell = async (specificImpulseMps) => {
     // up, which was a real claim while the Warrior was the subject: one table fed both the rig
     // and the shove. A golem is assembled, and what its carrier holds up is not the sum of its
     // limbs -- the feet stand on the ground rather than being carried -- so the only honest
-    // source for the number a shove is divided by is the port that divides by it. That number is
-    // the mass held up over the body's holding ratio (physical contact session 04), and it is the
-    // port's `stabilityMassKg` rather than its `supportedMassKg` for that reason.
-    const stabilityMassKg = left.locomotion.diagnostic().stability.stabilityMassKg;
-    assert.ok(stabilityMassKg > 1,
-      `a standing body with no mass cannot be shoved: read ${stabilityMassKg} kg`);
+    // source for the number a shove is divided by is the port that divides by it.
+    const supportedMassKg = left.locomotion.diagnostic().stability.supportedMassKg;
+    assert.ok(supportedMassKg > 1,
+      `a standing body with no mass cannot be shoved: read ${supportedMassKg} kg`);
+    // The lines along the push, from the body's own geometry (physical contact session 08).
+    const lines = left.locomotion.stabilityLinesAlong(1, 0);
+    const specificImpulseMps = fraction * (line === "fall" ? lines.fallAtMps : lines.staggerAtMps);
     // The trunk and the piece the ragdoll hangs from, by limb key rather than by accessor. The
     // Warrior published `torso` and `pelvis` directly; a golem is assembled, so the same two
     // pieces are found in the limb list every body publishes.
@@ -87,23 +92,23 @@ const physicalCell = async (specificImpulseMps) => {
     };
     const trunk = limbNamed(left, "trunk.core");
     const standingTorsoY = trunk.mesh.position.y;
-    left.queueStabilityEvent({ horizontalShoveNs: [specificImpulseMps * stabilityMassKg, 0] });
+    left.queueStabilityEvent({ horizontalShoveNs: [specificImpulseMps * supportedMassKg, 0] });
     step(8 * FIXED);
 
     const diagnostic = left.locomotion.diagnostic();
+    const after = left.locomotion.stabilityLinesAlong(1, 0);
     const state = left.locomotion.state;
-    // Every cell runs the same two seconds after the shove, so the cells that stay up are the
-    // control for the one that is released: the drop is read as the deepest the trunk went, since
-    // a released body now gets up again on its own inside the window (physical contact session 02).
+    // Every cell runs the same window after the shove, so the cells that stay up are the control
+    // for the one that is released: the drop is read as the deepest the trunk went, since a released
+    // body gets up again on its own inside the window (physical contact session 02).
     let ragdollDropM = 0;
-    for (let index = 9; index < 489; index += 1) {
+    for (let index = 9; index < 9 + Math.round(seconds / FIXED); index += 1) {
       step(index * FIXED);
       ragdollDropM = Math.max(ragdollDropM, standingTorsoY - trunk.mesh.position.y);
     }
     return Object.freeze({ state, ragdollDropM, endState: left.locomotion.state,
-      specificImpulseMps: diagnostic.stability.specificImpulseMps,
-      staggerAtMps: diagnostic.stability.staggerAtMps,
-      fallAtMps: diagnostic.stability.fallAtMps,
+      shovedMps: specificImpulseMps, specificImpulseMps: diagnostic.stability.specificImpulseMps,
+      lines, after,
       freshSupportBindings: diagnostic.freshSupportBindings,
       liveSupport: diagnostic.liveSupport,
       postureSupported: diagnostic.postureSupported,
@@ -115,36 +120,28 @@ const physicalCell = async (specificImpulseMps) => {
   }
 };
 
-test("real_Havok_brackets_the_frozen_stagger_and_fall_thresholds_on_a_supported_body", async () => {
-  const epsilon = 1e-6;
-  // The braced pair, and the reason they are not the bare `SUPPORTED_LOCOMOTION_V1` numbers. This
-  // cell used to run a Warrior and read 0.006 / 0.014 straight off the port. The body is a golem
-  // now, and a golem stands braced -- `BRACE_CAPACITY_MULTIPLIER` is 1.50 -- so the thresholds it
-  // publishes are the frozen ones times that multiplier. Derived here rather than typed as two
-  // more literals, so that moving either the base value or the brace shows up as one failure
-  // naming which of the two moved.
-  const V1 = SUPPORTED_LOCOMOTION_V1;
-  const stagger = V1.STAGGER_SPECIFIC_IMPULSE_MPS * V1.BRACE_CAPACITY_MULTIPLIER;
-  const fall = V1.FALL_SPECIFIC_IMPULSE_MPS * V1.BRACE_CAPACITY_MULTIPLIER;
+test("real_Havok_brackets_the_body_s_own_stagger_and_fall_lines_on_a_supported_body", async () => {
+  // The lines are the standing body's own geometry along the push (physical contact session 08),
+  // read off the port the step before the shove; each cell sits a hundredth either side of one.
+  // A hundredth rather than the millionth the frozen lines allowed, because an idle body sways, and
+  // its lines with it, between the reading and the boundary that files the shove.
   const cells = [
-    { id: "below-stagger", specificImpulseMps: stagger - epsilon,
-      expectedState: "supported", },
-    { id: "at-stagger", specificImpulseMps: stagger,
-      expectedState: "staggered", },
-    { id: "below-fall", specificImpulseMps: fall - epsilon,
-      expectedState: "staggered", },
-    { id: "at-fall", specificImpulseMps: fall,
-      expectedState: "fallen", },
+    { id: "below-stagger", line: "stagger", fraction: 0.99, expectedState: "supported" },
+    { id: "over-stagger", line: "stagger", fraction: 1.01, expectedState: "staggered" },
+    { id: "below-fall", line: "fall", fraction: 0.99, expectedState: "staggered" },
+    { id: "over-fall", line: "fall", fraction: 1.01, expectedState: "fallen" },
   ];
 
   for (const cell of cells) {
-    const row = await physicalCell(cell.specificImpulseMps);
+    const row = await physicalCell(cell.line, cell.fraction, 4.5);
     assert.equal(row.physicsHz, 240, `${cell.id} must run the production fixed-step rate`);
-    assert.equal(row.staggerAtMps, stagger, `${cell.id} moved the braced stagger threshold`);
-    assert.equal(row.fallAtMps, fall, `${cell.id} moved the braced fall threshold`);
-    assert.ok(Math.abs(row.specificImpulseMps - cell.specificImpulseMps) < 1e-10,
+    assert.ok(row.lines.staggerAtMps > 0 && row.lines.fallAtMps > row.lines.staggerAtMps,
+      `${cell.id}: lines ${row.lines.staggerAtMps} / ${row.lines.fallAtMps}`);
+    assert.ok(Math.abs(row.after.fallAtMps / row.lines.fallAtMps - 1) < 0.005 || cell.expectedState !== "supported",
+      `${cell.id}: a standing body's line moved from ${row.lines.fallAtMps} to ${row.after.fallAtMps}`);
+    assert.ok(Math.abs(row.specificImpulseMps - row.shovedMps) < 1e-10,
       `${cell.id} did not cross the public N s / live-mass boundary exactly: ` +
-      `${row.specificImpulseMps} versus ${cell.specificImpulseMps}`);
+      `${row.specificImpulseMps} versus ${row.shovedMps}`);
     assert.deepEqual(row.freshSupportBindings, ["left-foot", "right-foot"],
       `${cell.id} did not retain both live physical support terminals`);
     assert.equal(row.liveSupport, true, `${cell.id} lost its live support chain`);
@@ -156,11 +153,8 @@ test("real_Havok_brackets_the_frozen_stagger_and_fall_thresholds_on_a_supported_
     // standing or not, so the same question is answered by `state` and by the drop below -- an
     // assertion on the motion type would pin the golem's rig rather than the support state.
     //
-    // The drop is paired with its control. A shove at exactly the fall threshold is the smallest
-    // shove that fells, and a stone body released by it sags slowly: measured (Node, this harness),
-    // 2.49 mm at deepest before its 0.35 s dwell is up and it is lifted again, against 0.02 mm in
-    // every cell that stays standing or staggered. This read 20 mm after two seconds while nothing
-    // got up without a mind asking, which an idle mind never did.
+    // The drop is paired with its control: a released body falls, and every cell that stays standing
+    // or staggered does not move.
     if (cell.expectedState === "fallen") {
       assert.ok(row.ragdollDropM > 0.001,
         `${cell.id} released motion type but the fixed-step solver did not drop the torso: ${row.ragdollDropM} m`);

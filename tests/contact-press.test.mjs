@@ -202,8 +202,14 @@ test("a body walking into one of its own weight never pushes it, and one twice a
     try {
       pushed.press.sample = () => NO_PRESS;
       const start = pushed.locomotion.carrierGround().z;
-      run(3);
-      const slideMps = pushed.locomotion.contactPress().slideMps;
+      // The fastest it slid while it was walked into, not the slide at the end: the walker's arms file
+      // blows as well, and since physical contact session 08 those knock the pushed body down, which
+      // ends its slide -- at 0.75 s in this fixture (`.review/walk-push.mjs`, Node, 2026-09-24).
+      let slideMps = 0;
+      for (let t = 0; t < 3; t += 0.05) {
+        run(0.05);
+        slideMps = Math.max(slideMps, pushed.locomotion.contactPress().slideMps);
+      }
       walking = false;
       run(1.5);
       results[name] = { moved: pushed.locomotion.carrierGround().z - start,

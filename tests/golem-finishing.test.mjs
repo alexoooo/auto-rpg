@@ -49,8 +49,9 @@ async function publications() {
     run(2);
     assert.equal(pair[0].locomotion.state, "supported", "the pair did not stand");
     const standing = { them: publishedFixture(pair[1].view, "standing"), self: publishedFixture(pair[0].view, "self standing") };
-    const s = pair[0].locomotion.diagnostic().stability;
-    pair[0].queueStabilityEvent({ horizontalShoveNs: [s.fallAtMps * s.stabilityMassKg * 2, 0] });
+    const massKg = pair[0].locomotion.diagnostic().stability.supportedMassKg;
+    const fallAtMps = pair[0].locomotion.stabilityLinesAlong(1, 0).fallAtMps;
+    pair[0].queueStabilityEvent({ horizontalShoveNs: [fallAtMps * massKg * 2, 0] });
     let low = Infinity;
     let downed = null;
     while (clock < 8) {
