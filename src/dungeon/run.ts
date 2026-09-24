@@ -15,6 +15,7 @@ import { generateLevel } from "./level.ts";
 import { composeIntent, DungeonCommands, neutralIntent, screenMovement } from "./commands.ts";
 import { resolveDungeonLocomotion } from "./locomotion.ts";
 import { buildDungeonWorld } from "./world.ts";
+import { CAMERA_PITCH } from "./camera.ts";
 
 export interface DungeonActor {
   id: string; name: string; body: Golem; combat: Combat; policy: Mind; intent: Intent;
@@ -51,6 +52,8 @@ export class DungeonRun {
   clock = 0;
   status: "playing" | "won" | "dead" = "playing";
   notice = "Find the exit. Click to move; drag to keep moving through danger.";
+  /** The camera's elevation, which decides how much ground a wall hides in front of the hero. The page sets it. */
+  pitch = CAMERA_PITCH;
   private nextPerception = 0;
   private commandRevision = -1;
   private dodgeUntil = 0;
@@ -280,7 +283,7 @@ export class DungeonRun {
   }
 
   present(): void {
-    this.world.present(this.visible, this.explored, this.hero.body.feetPosition());
+    this.world.present(this.visible, this.explored, this.hero.body.feetPosition(), this.pitch);
     for (const actor of this.actors) {
       const shown = actor === this.hero || this.visible.has(cellKey(this.map, actor.body.feetPosition()));
       for (const { mesh, visible } of actor.meshes) mesh.isVisible = shown && visible;

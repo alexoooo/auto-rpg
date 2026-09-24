@@ -1,6 +1,6 @@
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import "@babylonjs/core/Meshes/instancedMesh.js";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
@@ -9,6 +9,12 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
 import { LAYER, COLLIDES } from "../physics.ts";
 import { cellKey, isFloor, walkable, type DungeonMap, type Point } from "./map.ts";
+
+/** How deep in front of the hero, along the view, a wall is faded: a 2.8 m wall covers `2.8 / tan(pitch)` of
+ * ground behind it, plus a margin for the body. 8.98 at the default pitch, where it was 9. */
+export function fadeDepth(pitch: number): number {
+  return Math.SQRT2 * (2.8 / Math.tan(pitch) + 1.5);
+}
 
 export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals = true) {
   const registry = new StandableWorldRegistry();
@@ -45,12 +51,13 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals = true)
       }
       return null;
     } });
-  const material = (name: string, color: string) => {
-    const m = new StandardMaterial(name, scene); m.diffuseColor = Color3.FromHexString(color);
-    m.specularColor.setAll(0.08); return m;
+  // PBR, so that the torches and the lantern fall off here as they do on the golems. Colours are authored in sRGB.
+  const material = (name: string, color: string, roughness = 0.92) => {
+    const m = new PBRMaterial(name, scene); m.albedoColor = Color3.FromHexString(color).toLinearSpace();
+    m.metallic = 0; m.roughness = roughness; m.maxSimultaneousLights = 4; return m;
   };
   const stone = material("dungeon basalt", "#494b55"), floorMaterial = material("worn flagstones", "#77747a");
-  const wood = material("ironbound doors", "#806044");
+  const wood = material("ironbound doors", "#806044", 0.8);
   const bodies: PhysicsAggregate[] = [];
   const box = (name: string, x: number, y: number, z: number, width: number, height: number, depth: number) => {
     const mesh = MeshBuilder.CreateBox(name, { width, height, depth }, scene); mesh.position.set(x, y, z);
@@ -91,7 +98,10 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals = true)
   }
   const exit = MeshBuilder.CreateTorus("exit sigil", { diameter: 2, thickness: 0.12, tessellation: 40 }, scene);
   exit.position.set(map.exit.x, 0.06, map.exit.z); exit.isPickable = false;
-  const exitMaterial = material("exit light", "#93edcf"); exitMaterial.emissiveColor = Color3.FromHexString("#42b998"); exit.material = exitMaterial;
+  // #42b998 in linear light has a luminance of 0.381; bloom extracts what exceeds its 1.1 threshold after the 1.15
+  // exposure, so x3 (0.381 x 3 x 1.15 = 1.32) glows and the x2.2 first written (0.965) did not.
+  const exitMaterial = material("exit light", "#93edcf");
+  exitMaterial.emissiveColor = Color3.FromHexString("#42b998").toLinearSpace().scale(3); exit.material = exitMaterial;
   return {
     registry,
     openNearby(actors: readonly Point[]) {
@@ -102,14 +112,15 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals = true)
         doors[door.id].mesh.isVisible = false;
       }
     },
-    present(visible: ReadonlySet<number>, explored: ReadonlySet<number>, hero: Point) {
+    present(visible: ReadonlySet<number>, explored: ReadonlySet<number>, hero: Point, pitch: number) {
+      const depth = fadeDepth(pitch);
       for (const tile of tiles) { tile.mesh.isVisible = visible.has(tile.key); tile.memory.isVisible = explored.has(tile.key) && !visible.has(tile.key); }
       for (const wall of walls) {
         wall.mesh.isVisible = wall.cells.some(k => explored.has(k));
         // Camera looks from +X,+Z. Foreground walls within the hero's projected column fade.
         const dx = wall.mesh.position.x - hero.x, dz = wall.mesh.position.z - hero.z;
         const width = wall.mesh.getBoundingInfo().boundingBox.extendSize.x;
-        const obstructs = dx + dz > 0 && dx + dz < 9 && Math.abs(dx - dz) < width + 2.5;
+        const obstructs = dx + dz > 0 && dx + dz < depth && Math.abs(dx - dz) < width + 2.5;
         wall.mesh.visibility = obstructs ? 0.16 : wall.cells.some(k => visible.has(k)) ? 1 : 0.25;
       }
       for (const door of map.doors) doors[door.id].mesh.isVisible = !door.open &&

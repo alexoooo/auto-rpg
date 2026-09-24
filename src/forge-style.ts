@@ -3,16 +3,11 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
-import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
-import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration.js";
-import type { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { ASSET_ROOT, loadTemplates, proofMaterials, type ProofManifest } from "./art-proof/assets.ts";
 import { forgeAppearance } from "./forge-models.ts";
 import { installGolemAppearance } from "./golem/appearance.ts";
 import type { GolemMaterialPalette } from "./golem/materials.ts";
 import { attachGolemProceduralSurface } from "./golem/procedural-surface.ts";
-import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineManagerSceneComponent.js";
-import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
 // These materials are always on screen. Register their shaders with the initial
 // module graph instead of discovering a second import waterfall on first render.
 import "@babylonjs/core/Shaders/pbr.vertex.js";
@@ -101,18 +96,5 @@ export function paveForge(scene: Scene, kit: Map<string, Mesh>, material: PBRMat
   if (floor) floor.position.y = -.015;
 }
 
-export function forgePost(scene: Scene, camera: Camera): DefaultRenderingPipeline {
-  const post = new DefaultRenderingPipeline("forge.post", true, scene, [camera]);
-  post.samples = 1;
-  post.fxaaEnabled = true;
-  post.imageProcessing.toneMappingEnabled = true;
-  post.imageProcessing.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
-  post.imageProcessing.contrast = 1.12;
-  post.imageProcessing.exposure = 1.15;
-  post.imageProcessing.vignetteEnabled = true;
-  post.imageProcessing.vignetteWeight = 1.35;
-  post.bloomEnabled = true;
-  post.bloomThreshold = 1.1;
-  post.bloomWeight = .16;
-  return post;
-}
+export { forgePost } from "./forge-post.ts";
+

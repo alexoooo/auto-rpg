@@ -5,9 +5,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Vector3, Matrix } from "@babylonjs/core/Maths/math.vector.js";
-import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
-import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
-import { PointLight } from "@babylonjs/core/Lights/pointLight.js";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { LinesMesh } from "@babylonjs/core/Meshes/linesMesh.js";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
@@ -25,7 +23,10 @@ import { describeAttributes, withAttribute, withAttributeSetting, type Attribute
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "../attributes-ui.ts";
 import { DungeonRun } from "./run.ts";
 import { cellKey, type Point } from "./map.ts";
-import { frameDungeon, pickingCoordinates } from "./camera.ts";
+import { CAMERA_PITCH, frameDungeon, pickingCoordinates } from "./camera.ts";
+import { torchPlacements } from "./dressing.ts";
+import { lightDungeon, type DungeonLighting } from "./lighting.ts";
+import { lookProbe } from "./look-probe.ts";
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id); if (!element) throw new Error(`Missing dungeon element ${id}`); return element as T;
@@ -34,6 +35,9 @@ const canvas = need<HTMLCanvasElement>("dungeon"), start = need<HTMLButtonElemen
 const heroBuild = need<HTMLSelectElement>("hero-build"), seedInput = need<HTMLInputElement>("seed");
 const keyboard = need<HTMLInputElement>("keyboard"), facing = need<HTMLInputElement>("facing");
 const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
+// `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
+const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
+const pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
 seedInput.value = String(randomSeed());
 // Wheel locomotion cannot strafe; the hero picker offers bodies that can honor screen movement.
 for (const build of PLAYABLE_BUILDS.filter(b => b.setup.locomotion !== "locomotion.wheel")) {
@@ -88,10 +92,11 @@ async function boot(): Promise<void> {
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
   let scene: Scene | null = null, run: DungeonRun | null = null, camera: FreeCamera | null = null;
-  let light: PointLight | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default";
+  let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default";
   let selectedEquipment: GolemSetup | undefined;
   let route: LinesMesh | null = null, routeSignature = "", lastUi = 0;
   const held = new Set<string>();
+  const probe = lookProbe(engine, () => scene && lighting ? { scene, lighting } : null);
   const abort = new AbortController(), signal = abort.signal;
   const setPaused = (value: boolean) => {
     if (!run || !scene) return;
@@ -105,22 +110,25 @@ async function boot(): Promise<void> {
     need("pause-button").textContent = value ? "Resume · Esc" : "Pause · Esc";
   };
   const framing = () => {
-    if (!run || !camera || !light) return;
+    if (!run || !camera || !lighting) return;
     const hero = run.hero.body.feetPosition();
-    frameDungeon(camera, hero, zoom, engine.getRenderWidth() / engine.getRenderHeight());
-    light.position.set(hero.x - 1, 5, hero.z - 1);
+    frameDungeon(camera, hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch);
+    lighting.update(hero, zoom, pitch);
   };
   const rebuild = (nextSeed: number) => {
-    run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
-    seed = nextSeed >>> 0; scene = new Scene(engine); scene.clearColor = new Color4(0.018, 0.026, 0.041, 1);
+    lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
+    seed = nextSeed >>> 0; scene = new Scene(engine);
     attachPhysics(scene, havok); scene.getPhysicsEngine()!.setSubTimeStep(1000 / CONFIG.world.physicsHz);
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
-    const ambient = new HemisphericLight("cold vault light", new Vector3(0.3, 1, -0.4), scene);
-    ambient.intensity = 0.85; ambient.diffuse = Color3.FromHexString("#c4d0e7"); ambient.groundColor = Color3.FromHexString("#313039");
-    light = new PointLight("wanderer lantern", new Vector3(0, 5, 0), scene); light.diffuse = Color3.FromHexString("#ffd49a"); light.intensity = 1.8; light.range = 18;
     run = new DungeonRun(scene, seed, selectedBuild, true, undefined, selectedEquipment); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
+    run.pitch = pitch;
+    // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
+    // code no Node test loads, so the rule that it adds no body is held here, where it runs.
+    const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
+    lighting = lightDungeon(scene, camera, run.map, torchPlacements(run.map, seed));
+    if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);
     scene.onBeforePhysicsObservable.add(() => {
       if (!run || paused) return;
       run.step(1 / CONFIG.world.physicsHz);
@@ -130,13 +138,14 @@ async function boot(): Promise<void> {
     need("hero-name").textContent = selectedBuild.replaceAll("-", " ");
     // From the body that was built, not from the dialog, so the line is what is walking about.
     need("hero-attributes-line").textContent = describeAttributes(run.hero.body.attributes);
-    setPaused(false); framing(); run.present(); scene.render(); canvas.focus();
-    Object.assign(window, { __dungeon: { get run() { return run; }, get scene() { return scene; }, get camera() { return camera; }, engine } });
+    setPaused(false); framing(); run.present(); lighting.refreshFog(run.explored); scene.render(); canvas.focus();
+    Object.assign(window, { __dungeon: { get run() { return run; }, get scene() { return scene; }, get camera() { return camera; },
+      get lighting() { return lighting; }, look: probe, engine } });
   };
   const launch = (nextSeed: number) => {
     try { rebuild(nextSeed); }
     catch (error) {
-      run?.dispose(); run = null; scene?.dispose(); scene = null;
+      lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null;
       need("start-panel").hidden = false; need("pause-panel").hidden = true;
       need("notice").textContent = `Could not build this dungeon: ${String(error)}`; console.error(error);
     }
@@ -225,7 +234,7 @@ async function boot(): Promise<void> {
     if (!scene || !run) return;
     framing();
     if (performance.now() - lastUi > 100) {
-      lastUi = performance.now(); run.present();
+      lastUi = performance.now(); run.present(); lighting?.refreshFog(run.explored);
       need<HTMLProgressElement>("hero-hp").value = run.hero.body.vitality;
       need("hp-label").textContent = `${Math.ceil(run.hero.body.vitality * 100)}% HP`;
       const target = run.hero.target; need("target-panel").hidden = !target || !target.body.alive;
@@ -246,7 +255,7 @@ async function boot(): Promise<void> {
     scene.render();
   });
   const dispose = () => {
-    abort.abort(); engine.stopRenderLoop(); run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
+    abort.abort(); engine.stopRenderLoop(); lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
   };
   window.addEventListener("pagehide", dispose, { once: true, signal });
   import.meta.hot?.dispose(dispose);
