@@ -31,7 +31,8 @@ export const anatomicalChain = defineChain({
     // not the torque). The +-8 clamp on a drive target below is a bound on the command, not a rate.
     const armSpeed = attributeOf(ctx, "armSpeed");
     const rates = armSpeed === 1 ? RATES : RATES.map((rate) => rate * armSpeed);
-    // And its weight stat, on each segment's mass (`withWeight`); the inertia floor below stays.
+    // And its weight stat, on each segment's mass and on the torques that move them (`withWeight`);
+    // the inertia floor below stays.
     const weight = attributeOf(ctx, "weight");
     const reachable = { reachMin: Math.max(0.24, limits?.reachMin ?? 0.24), reachMax: Math.min(0.65, limits?.reachMax ?? 0.65),
       swingMin: crossing?.swingMin ?? Math.max(-0.65, limits?.swingMin ?? -0.65),
@@ -165,7 +166,7 @@ export const anatomicalChain = defineChain({
             const coordinate = i === 1 ? (axis === 0 ? 4 : 3) : (axis === 0 ? 6 : 5);
             const target = i === 0 ? velocity.asArray()[axis] : (angles[coordinate] - previousAngles[coordinate]) / dt +
               HUMAN_ARM_DRIVE.response * (angles[coordinate] - achieved[coordinate]);
-            actuators[i][axis].drive(clamp(target, -8, 8), TORQUES[i][axis]);
+            actuators[i][axis].drive(clamp(target, -8, 8), TORQUES[i][axis] * weight);
           }
         }
         previousRotations = rotations.map(q => q.clone()); previousAngles = [...angles];

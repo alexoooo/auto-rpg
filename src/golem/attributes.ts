@@ -272,8 +272,9 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
   armSpeed: Object.freeze({ label: "Arm speed", min: 0.5, max: 1.5, step: 0.05, live: true }),
   /**
    * How dense the body is: every body part's mass times the stat, at the same geometry, through
-   * `withWeight`. Items -- every terminal, the ram's plate, the human shield -- keep their own mass,
-   * and forces are not rescaled. Session 11, 2026-09-23.
+   * `withWeight`. Items -- every terminal, the ram's plate, the human shield -- keep their own mass.
+   * The arm's joint torques follow the stat too (physical contact session 07, 2026-09-24); no other
+   * force does. Session 11, 2026-09-23.
    *
    * **The bench sets the floor, and it is x0.8.** Node harness, `.review/weight-ring.mjs`: a 1 N.s
    * nudge on the terminal in the hold, settle time in seconds (2.40 is the window, so the tip never
@@ -533,6 +534,16 @@ export function withArmSpeed<T extends object>(table: T, rates: readonly NumberK
  * blow arrives with is read off the solver at the contact (`effectiveMassAt`), so weight reaches it
  * with no rule of its own. Weight cannot go through `kg()` in `config.ts`, which runs once when
  * the config loads.
+ *
+ * **The arm's torques follow its mass.** The yaw, shoulder and elbow torques of the reach chain,
+ * the pitch hinge's torque and the human arm's `TORQUES` go in the same list as the links' masses,
+ * because an arm twice as dense with the same motors lifts less than the arm it replaced (the house
+ * rule: size a force off the arm). Node lift bench, a blade under a free target 0.4 m off, most
+ * upward force the reach chain held, 2026-09-24: 1938 N at x1; at size x1.25 alone 2656 N, and with
+ * weight x2 besides, 1844 N with the torques fixed. Scaled, the max giant's reach blade holds 4250 N
+ * where it held 781. The wrist's roll and bend torques are left alone, because what they turn is the
+ * item, and the item's mass does not follow the stat. Session 11 left every force fixed; session 07
+ * changed that for the arm only.
  *
  * **What is not scaled, and why.** A terminal -- blade, fist, mace, maul, plate, whip, the ram's
  * plate, the human shield -- is an item, and items will carry their own stats. The wrist's cast

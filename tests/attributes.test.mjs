@@ -54,6 +54,9 @@ import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { effectiveMassAt } from "../src/body-inertia.ts";
+import { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
+import { JointActuator } from "../src/golem/joint-servo.ts";
+import { stepPair } from "../src/fighter.ts";
 
 /**
  * What a striker arrives with at its own tip, across its own edge: the effective mass of its chain
@@ -534,6 +537,74 @@ test("weight multiplies every body part's solver mass and no item's, and the car
       `the control: items, a cast on its floor, a cast on its load and body blows were all seen (${JSON.stringify(seen)})`);
   } finally {
     arena.dispose?.();
+  }
+});
+
+/**
+ * **The arm's torques follow its weight, and nothing else's do** (physical contact session 07). Every
+ * motor ceiling a body writes -- once at construction, or asked of a `JointActuator` on the first
+ * substeps -- read off a body at x1 and the same body at x2, in the order each was written. Each goes
+ * x1 or x2 and nothing between. The ones that go x2 are the arm's: the reach core's yaw, shoulder and
+ * elbow on a wrist or skeletal arm, the pitch hinge, and a human arm's drives. The wrist's own roll and
+ * bend, the torso, the neck and the legs stay put, and those are the control: most ceilings do not move.
+ */
+test("weight doubles the arm's joint torques at x2 and leaves every other motor ceiling alone", async () => {
+  const perArm = { wrist: 3, skeletal: 3, pitch: 1, none: 0 };
+  let built = null;
+  const write = Physics6DoFConstraint.prototype.setAxisMotorMaxForce;
+  Physics6DoFConstraint.prototype.setAxisMotorMaxForce = function (axis, force) {
+    built?.push(force);
+    return write.call(this, axis, force);
+  };
+  const asked = new Map();
+  const drive = JointActuator.prototype.drive;
+  JointActuator.prototype.drive = function (velocity, maxForce) {
+    if (!asked.has(this)) asked.set(this, maxForce);
+    return drive.call(this, velocity, maxForce);
+  };
+  try {
+    for (const { name, setup } of PLAYABLE_BUILDS) {
+      const arena = await createHeadlessArena();
+      try {
+        const world = flatSupportedWorldRegistry();
+        const make = (s, i) => {
+          built = [];
+          const golem = new Golem(arena.scene, { side: i === 0 ? "left" : "right", origin: new Vector3(0, 0, i * 8),
+            facing: i * Math.PI, setup: s, mind: idleMind(), controlPolicies: [], locomotionWorld: world });
+          const ceilings = built;
+          built = null;
+          return { golem, ceilings };
+        };
+        const plain = make(setup, 0);
+        const heavy = make(withAttributeSetting(setup, { weight: 2 }), 1);
+        asked.clear();
+        for (let i = 0; i < 4; i += 1) stepPair(plain.golem, heavy.golem, 1 / 240, i / 240);
+        const driven = (golem) => [...asked].filter(([actuator]) => actuator.tone === golem.tone).map(([, force]) => force);
+        const was = [...plain.ceilings, ...driven(plain.golem)];
+        const now = [...heavy.ceilings, ...driven(heavy.golem)];
+        assert.equal(now.length, was.length, `${name}: the same motors`);
+        const ratios = was.map((force, i) => now[i] / force);
+        assert.ok(ratios.every((r) => Math.abs(r - 1) < 1e-9 || Math.abs(r - 2) < 1e-9),
+          `${name}: every ceiling goes x1 or x2 (${ratios.map((r) => r.toFixed(3)).join(", ")})`);
+        const doubled = ratios.filter((r) => Math.abs(r - 2) < 1e-9).length;
+        assert.ok(ratios.length - doubled >= 4, `${name}: the control, the body's own motors stay put`);
+        const chains = [setup.primary?.chain, setup.secondary?.chain];
+        if (chains.every((chain) => chain === "anatomical")) {
+          // A human arm drives every joint through `TORQUES`, five or seven of them with its item.
+          assert.ok(doubled >= 10, `${name}: ${doubled} human arm ceilings doubled`);
+        } else {
+          assert.equal(doubled, chains.reduce((sum, chain) => sum + perArm[chain ?? "none"], 0),
+            `${name}: ${doubled} arm ceilings doubled`);
+        }
+        plain.golem.dispose();
+        heavy.golem.dispose();
+      } finally {
+        arena.dispose?.();
+      }
+    }
+  } finally {
+    Physics6DoFConstraint.prototype.setAxisMotorMaxForce = write;
+    JointActuator.prototype.drive = drive;
   }
 });
 
