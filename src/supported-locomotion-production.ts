@@ -128,11 +128,28 @@ export const DEFAULT_SUPPORTED_CARRIER: VirtualCarrierConfig = Object.freeze({
 
 export const MAX_STANDABLE_SLOPE_DEGREES = 35;
 export const MIN_STANDABLE_UPWARD_NORMAL_Y = Math.cos(MAX_STANDABLE_SLOPE_DEGREES * Math.PI / 180);
-// Separation is part of the bounded rise, not a fallen-body teleport. The close-opponent fixture
-// below needs 0.27 m; 0.35 m admits that measured overlap while still refusing coincident carriers
-// and remaining far below the 1.62 m displacement admitted by the actuator acceleration limit.
-export const MAX_RECOVERY_SEPARATION_M = 0.35;
+/**
+ * **A rise relocates** (physical contact session 02, 2026-09-23). A body rises where it lies if it
+ * can; if that spot is refused -- another footprint over it, a wall it is lying against, no ground
+ * under it, or a path the rise cannot make -- it rises to the nearest spot that is not. Candidates
+ * are rings `RECOVERY_RING_STEP_M` apart with `RECOVERY_RING_ANGLES` points on each, the nearer ring
+ * first and, on one ring, the direction away from the nearest occupant first. They go out to the
+ * rise's own reach: the farthest the keyframed rise can carry the root in its shortest duration
+ * without passing `RISING_MAX_ACCELERATION_MPS2`, a*T^2/6 (1.62 m at x1). Each candidate must be
+ * clear of every other footprint by `RECOVERY_SEPARATION_MARGIN_M`, stand on ground, be reachable
+ * within the acceleration bound, and be reached by a sweep the world allows.
+ *
+ * It replaced a retreat straight away from one opponent capped at 0.35 m, which was never asked for
+ * a body lying by a wall; session 01's census charged 5.4 % of stone's downed time and 11.7 % of the
+ * giant group's to walls (Node bout runner, `research/downed-census.mjs`). The step and angle count
+ * are resolution, not tuning: the rings are walked only when the body's own spot is refused.
+ */
+export const RECOVERY_RING_STEP_M = 0.1;
+export const RECOVERY_RING_ANGLES = 16;
 export const RECOVERY_SEPARATION_MARGIN_M = 0.02;
+
+/** Another carrier's footprint, as the rise gate reads it: where it stands (or lies) and how wide. */
+interface RecoveryOccupant { readonly x: number; readonly z: number; readonly radiusM: number }
 
 /** Downward/ceiling normals and any surface steeper than the frozen 35 degree limit are not feet. */
 export function isStandableUpwardNormalY(y: number): boolean {
@@ -160,7 +177,10 @@ export function flatSupportedWorldRegistry(): StandableWorldRegistry {
       to: import("./supported-locomotion-runtime.ts").WorldPoint, footprint: LocomotionFootprint) => {
       const limit = sign * (13 - footprint.radiusM);
       const start = from[axis]; const end = to[axis]; const delta = end - start;
+      // A footprint already inside the wall's band -- a body that fell against it -- may leave it
+      // straight inward and nothing else: the sweep is clear once it is clear, and ends clear.
       if ((sign > 0 && start > limit) || (sign < 0 && start < limit)) {
+        if ((sign > 0 && end <= limit) || (sign < 0 && end >= limit)) return null;
         return Object.freeze({ colliderId: id, fraction: 0,
           point: Object.freeze({ x: from.x, y: from.y, z: from.z }),
           upwardNormal: Object.freeze([0, 1, 0] as const) });
@@ -267,8 +287,10 @@ export interface RiseGateDiagnostic {
   readonly liveSupport: boolean;
   readonly recoveryGroundAvailable: boolean;
   readonly occupancyClear: boolean;
-  /** The opponent's footprint half of `occupancyClear`. */
+  /** The other footprints' half of `occupancyClear`: the recovery target is clear of all of them. */
   readonly pairOccupancyClear: boolean;
+  /** Whether the recovery target is somewhere other than where the body lies (`RECOVERY_RING_STEP_M`). */
+  readonly relocated: boolean;
   /** The rise's acceleration bound half of `occupancyClear`. */
   readonly withinAcceleration: boolean;
   /** The world sweep half of `occupancyClear` -- a wall or obstacle between root and target. Null
@@ -292,13 +314,17 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   private activeAuthorityOwner: string | null = null;
   private rising: RisingActuator | null = null;
   private risingFrameComplete = false;
+  private occupants: readonly RecoveryOccupant[] = [];
   private pairOccupancyClear = true;
-  private recoveryPairTarget: WorldPoint | null = null;
+  private recoveryTarget: WorldPoint | null = null;
+  /** Whether the rise under way went somewhere other than where the body lay; set as it begins. */
+  private riseRelocated = false;
   private anatomyReleased = false;
   private releaseReason: string | null = null;
   private lastRiseGate: { readonly prior: SupportedLocomotionState;
     readonly boundary: SupportedLocomotionBoundary; readonly pairOccupancyClear: boolean;
-    readonly withinAcceleration: boolean; readonly recoverySweepClear: boolean | null } | null = null;
+    readonly withinAcceleration: boolean; readonly recoverySweepClear: boolean | null;
+    readonly relocated: boolean } | null = null;
   private lastBoundary: Pick<PhysicalSupportedLocomotionDiagnostic, "authority" | "liveSupport" |
     "postureSupported" | "freshSupportBindings"> =
     Object.freeze({ authority: false, liveSupport: false, postureSupported: false,
@@ -327,26 +353,38 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const liveSupport = this.options.liveSupport();
     const postureSupported = this.options.postureSupported();
     const root = this.options.root.sample();
-    const recoveryTarget = { x: this.recoveryPairTarget?.x ?? root.position.x,
-      y: this.carrier.state.y, z: this.recoveryPairTarget?.z ?? root.position.z };
-    const recoveryGroundAvailable = evidenceBindings.length > 0 && this.registry.supportEvidence(
-      { x: recoveryTarget.x, y: 0, z: recoveryTarget.z }, this.carrier.footprint,
-      this.carrier.ownerPartIds, evidenceBindings[0], this.sequence).length > 0;
-    const recoveryDistanceM = Math.hypot(recoveryTarget.x - root.position.x,
-      recoveryTarget.y - root.position.y, recoveryTarget.z - root.position.z);
+    const own = Object.freeze({ x: root.position.x, y: this.carrier.state.y, z: root.position.z });
+    const groundAt = (target: WorldPoint): boolean => evidenceBindings.length > 0 &&
+      this.registry.supportEvidence({ x: target.x, y: 0, z: target.z }, this.carrier.footprint,
+        this.carrier.ownerPartIds, evidenceBindings[0], this.sequence).length > 0;
     // The rise under way keeps the length it began with; a prospective one is asked for afresh, of
     // the body at x1, and then divided by its recovery stat here, so every body's rise answers to
     // the stat on one rule (`recoveredRiseS`). A body that states no rise of its own takes the frozen
     // one at its size, which is a time (`sizeTime`).
-    const risingDurationS = this.rising?.durationS ?? recoveredRiseS(
-      this.options.risingDuration?.(recoveryDistanceM)
-        ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeTime(authority),
-      recoveryDistanceM, SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2, authority);
-    const recoveryWithinAccelerationLimit = 6 * recoveryDistanceM /
-      (risingDurationS * risingDurationS) <= SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2;
+    const riseTo = (target: WorldPoint) => {
+      const distanceM = Math.hypot(target.x - root.position.x, target.y - root.position.y,
+        target.z - root.position.z);
+      const durationS = this.rising?.durationS ?? recoveredRiseS(
+        this.options.risingDuration?.(distanceM) ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeTime(authority),
+        distanceM, SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2, authority);
+      return { durationS, withinAcceleration:
+        6 * distanceM / (durationS * durationS) <= SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2 };
+    };
+    const sweepClear = (target: WorldPoint): boolean => this.registry.allowedFraction(root.position, target,
+      this.carrier.footprint, this.carrier.ownerPartIds) >= 1;
+    if (this.supportState.state === "fallen") {
+      this.recoveryTarget = this.findRecoveryTarget(own, authority, groundAt, riseTo, sweepClear);
+    } else if (this.supportState.state !== "rising") {
+      this.recoveryTarget = null;
+    }
+    const recoveryTarget = this.recoveryTarget ?? own;
+    const recoveryGroundAvailable = groundAt(recoveryTarget);
+    const rise = riseTo(recoveryTarget);
+    const risingDurationS = rise.durationS;
+    const recoveryWithinAccelerationLimit = rise.withinAcceleration;
+    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget, 0);
     const occupancyClear = recoveryWithinAccelerationLimit && this.pairOccupancyClear &&
-      this.registry.allowedFraction(root.position, recoveryTarget,
-        this.carrier.footprint, this.carrier.ownerPartIds) >= 1;
+      sweepClear(recoveryTarget);
     this.lastBoundary = Object.freeze({ authority: authority !== null, liveSupport, postureSupported,
       freshSupportBindings: Object.freeze([...new Set(evidence.map(({ supportBinding }) => supportBinding))].sort()) });
     const priorState = this.supportState.state;
@@ -367,7 +405,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     this.lastRiseGate = priorState === "fallen" || priorState === "rising"
       ? { prior, boundary, pairOccupancyClear: this.pairOccupancyClear, withinAcceleration:
         recoveryWithinAccelerationLimit, recoverySweepClear: occupancyClear ? true
-          : this.pairOccupancyClear && recoveryWithinAccelerationLimit ? false : null }
+          : this.pairOccupancyClear && recoveryWithinAccelerationLimit ? false : null,
+        relocated: priorState === "rising" ? this.riseRelocated : recoveryTarget !== own }
       : null;
     if (this.supportState.state === "fallen") {
       if (priorState !== "fallen") {
@@ -389,11 +428,11 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       }
       this.motor.drive(this.carrier.state, { x: 0, y: 0, z: 0 }, "fallen");
     } else if (this.supportState.state === "rising" && priorState !== "rising") {
-      const live = this.options.root.sample();
-      const target = { x: this.recoveryPairTarget?.x ?? live.position.x,
-        y: this.carrier.state.y, z: this.recoveryPairTarget?.z ?? live.position.z };
+      const target = recoveryTarget;
+      this.recoveryTarget = target;
+      this.riseRelocated = target !== own;
       this.carrier.reset(target, this.carrier.state.yaw);
-      this.rising = new RisingActuator(live.position, target, this.carrier.state.yaw,
+      this.rising = new RisingActuator(root.position, target, this.carrier.state.yaw,
         this.carrier.footprint, this.registry, this.carrier.ownerPartIds, risingDurationS,
         risingFloorS(authority));
       this.risingFrameComplete = false;
@@ -401,7 +440,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       this.rising = null;
       this.risingFrameComplete = false;
       this.releaseReason = null;
-      this.recoveryPairTarget = null;
+      this.recoveryTarget = null;
       this.options.restoreRoot?.();
       if (this.anatomyReleased) {
         this.options.restoreSupportedAnatomyCollision?.();
@@ -440,7 +479,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       liveSupport: boundary.liveSupport, recoveryGroundAvailable: boundary.recoveryGroundAvailable,
       occupancyClear: boundary.occupancyClear, pairOccupancyClear: gate.pairOccupancyClear,
       withinAcceleration: gate.withinAcceleration, recoverySweepClear: gate.recoverySweepClear,
-      hitInterrupted: boundary.hitInterrupted });
+      relocated: gate.relocated, hitInterrupted: boundary.hitInterrupted });
   }
   carrierGround(): WorldPoint {
     const state = this.carrier.state;
@@ -538,57 +577,68 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     return !this.options.root.sample().released;
   }
 
+  /** Where this carrier's footprint is, for another body's rise gate: its ragdoll root while fallen. */
+  private occupantFootprint(): RecoveryOccupant {
+    const at = this.supportState.state === "fallen" ? this.options.root.sample().position : this.carrier.state;
+    return Object.freeze({ x: at.x, z: at.z, radiusM: this.carrier.footprint.radiusM });
+  }
+
+  /**
+   * The other footprints this body's rise must clear, sampled each substep for the next boundary.
+   * **Fallen is lower, not absent**: a living fallen carrier still reserves its footprint, and
+   * treating it as non-blocking is what let one carrier stand through the other's ragdoll.
+   */
   updatePairOccupancy(other: PhysicalSupportedLocomotionPort): void {
-    const here = this.supportState.state === "fallen" ? this.options.root.sample().position : this.carrier.state;
-    const there = other.supportState.state === "fallen" ? other.options.root.sample().position : other.carrier.state;
-    const required = this.carrier.footprint.radiusM + other.carrier.footprint.radiusM;
-    const distance = Math.hypot(there.x - here.x, there.z - here.z);
-    if (distance >= required - 1e-9) {
-      this.pairOccupancyClear = true;
-      if (this.supportState.state !== "rising") this.recoveryPairTarget = null;
-      return;
-    }
-    if (this.supportState.state === "rising" && this.recoveryPairTarget) {
-      this.pairOccupancyClear = Math.hypot(there.x - this.recoveryPairTarget.x,
-        there.z - this.recoveryPairTarget.z) >= required - 1e-9;
-      return;
-    }
-    this.pairOccupancyClear = false;
-    this.recoveryPairTarget = null;
-    if (this.supportState.state !== "fallen") return;
-    const separationM = required - distance + RECOVERY_SEPARATION_MARGIN_M;
-    if (separationM > MAX_RECOVERY_SEPARATION_M) return;
-    const sign = this.options.id.localeCompare(other.options.id) <= 0 ? -1 : 1;
-    const awayX = distance > 1e-9 ? (here.x - there.x) / distance : sign;
-    const awayZ = distance > 1e-9 ? (here.z - there.z) / distance : 0;
-    const target = Object.freeze({ x: here.x + awayX * separationM,
-      y: this.carrier.state.y, z: here.z + awayZ * separationM });
-    // The other carrier is accounted for by the exact endpoint separation above. This sweep is
-    // the independent world/debris half: a wall or obstacle still vetoes the retreat before any
-    // RisingActuator exists.
-    if (this.registry.allowedFraction(here, target,
-        this.carrier.footprint, this.carrier.ownerPartIds) < 1) return;
-    this.recoveryPairTarget = target;
-    this.pairOccupancyClear = true;
+    this.occupants = Object.freeze([other.occupantFootprint()]);
   }
 
   get footprint(): LocomotionFootprint { return this.carrier.footprint; }
 
   /** Dungeon recovery must clear every neighbour, including fallen actors. */
   updateGroupOccupancy(others: readonly PhysicalSupportedLocomotionPort[]): void {
-    const here = this.supportState.state === "fallen" ? this.options.root.sample().position : this.carrier.state;
-    const blocked = others.find(other => {
-      const there = other.supportState.state === "fallen" ? other.options.root.sample().position : other.carrier.state;
-      return Math.hypot(there.x - here.x, there.z - here.z) < this.carrier.footprint.radiusM + other.carrier.footprint.radiusM - 1e-9;
-    });
-    this.pairOccupancyClear = true;
-    if (!blocked && this.supportState.state !== "rising") this.recoveryPairTarget = null;
-    if (blocked) this.updatePairOccupancy(blocked);
-    const target = this.recoveryPairTarget;
-    if (target && others.some(other => {
-      const there = other.supportState.state === "fallen" ? other.options.root.sample().position : other.carrier.state;
-      return Math.hypot(there.x - target.x, there.z - target.z) < this.carrier.footprint.radiusM + other.carrier.footprint.radiusM - 1e-9;
-    })) { this.pairOccupancyClear = false; this.recoveryPairTarget = null; }
+    this.occupants = Object.freeze(others.map((other) => other.occupantFootprint()));
+  }
+
+  private clearOfOccupants(target: { readonly x: number; readonly z: number }, marginM: number): boolean {
+    return this.occupants.every((other) => Math.hypot(other.x - target.x, other.z - target.z) >=
+      this.carrier.footprint.radiusM + other.radiusM + marginM - 1e-9);
+  }
+
+  /**
+   * The spot a fallen body would rise to on this boundary, or null where none is admitted: its own,
+   * or failing that the nearest on the recovery rings (`RECOVERY_RING_STEP_M`). The body's own spot
+   * is judged exactly as the gate judges it; a relocated one must also clear every other footprint
+   * by `RECOVERY_SEPARATION_MARGIN_M`, so that it is not refused a substep later by rounding.
+   */
+  private findRecoveryTarget(own: WorldPoint, authority: StabilityAuthority | null,
+    groundAt: (target: WorldPoint) => boolean,
+    riseTo: (target: WorldPoint) => { readonly withinAcceleration: boolean },
+    sweepClear: (target: WorldPoint) => boolean): WorldPoint | null {
+    const admits = (target: WorldPoint, marginM: number): boolean => this.clearOfOccupants(target, marginM) &&
+      groundAt(target) && riseTo(target).withinAcceleration && sweepClear(target);
+    if (admits(own, 0)) return own;
+    const floorS = risingFloorS(authority);
+    const reachM = SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2 * floorS * floorS / 6;
+    let nearest: RecoveryOccupant | null = null;
+    let nearestM = Infinity;
+    for (const other of this.occupants) {
+      const distanceM = Math.hypot(other.x - own.x, other.z - own.z);
+      if (distanceM < nearestM) { nearest = other; nearestM = distanceM; }
+    }
+    const away = nearest && nearestM > 1e-9 ? Math.atan2(own.z - nearest.z, own.x - nearest.x) : 0;
+    const turn = 2 * Math.PI / RECOVERY_RING_ANGLES;
+    for (let ring = 1; ring * RECOVERY_RING_STEP_M <= reachM + 1e-9; ring += 1) {
+      const radiusM = ring * RECOVERY_RING_STEP_M;
+      for (let k = 0; k < RECOVERY_RING_ANGLES; k += 1) {
+        // 0, +1, -1, +2, -2, ...: away from the nearest occupant first.
+        const step = k === 0 ? 0 : (k % 2 === 1 ? 1 : -1) * Math.ceil(k / 2);
+        const angle = away + step * turn;
+        const target = Object.freeze({ x: own.x + radiusM * Math.cos(angle), y: own.y,
+          z: own.z + radiusM * Math.sin(angle) });
+        if (admits(target, RECOVERY_SEPARATION_MARGIN_M)) return target;
+      }
+    }
+    return null;
   }
 
   commitPhysical(proposal: CarrierProposal, allowed: HorizontalMove, dt: number): void {

@@ -75,9 +75,15 @@ export async function execute(job, manifest) {
       const state = port?.state ?? "supported";
       const down = state === "fallen" || state === "rising";
       if (state === "fallen" && t.was !== "fallen" && t.was !== "rising") t.knockdowns += 1;
-      if (down && !t.open) t.open = { start: clock, causes: {}, rehits: 0 };
+      if (down && !t.open) t.open = { start: clock, causes: {}, rehits: 0, rises: 0, relocatedRises: 0 };
       if (t.open) {
         if (state === "fallen" && t.was === "rising") t.open.rehits += 1;
+        // Physical contact session 02: how many rises began, and how many went somewhere other
+        // than where the body lay (`RECOVERY_RING_STEP_M` in src/supported-locomotion-production.ts).
+        if (state === "rising" && t.was !== "rising") {
+          t.open.rises += 1;
+          if (port?.riseGate?.()?.relocated) t.open.relocatedRises += 1;
+        }
         if (down) {
           const cause = gateCause(port?.riseGate?.() ?? null) ?? state;
           t.open.causes[cause] = (t.open.causes[cause] ?? 0) + FRAME;
@@ -86,7 +92,8 @@ export async function execute(job, manifest) {
           // session 01 census charged it to "supported", one frame an episode (1.2 % of stone's
           // downed time); this is the repair.
           t.episodes.push({ start: t.open.start, seconds: clock - t.open.start, end: "rose",
-            causes: t.open.causes, rehits: t.open.rehits });
+            causes: t.open.causes, rehits: t.open.rehits, rises: t.open.rises,
+            relocatedRises: t.open.relocatedRises });
           t.open = null;
         }
       }
@@ -123,7 +130,8 @@ export async function execute(job, manifest) {
     if (t.open) {
       const lost = result.winner !== null && result.winner !== side;
       t.episodes.push({ start: t.open.start, seconds: clock - t.open.start, end: lost ? "died" : "bout-ended",
-        causes: t.open.causes, rehits: t.open.rehits });
+        causes: t.open.causes, rehits: t.open.rehits, rises: t.open.rises,
+        relocatedRises: t.open.relocatedRises });
     }
     const reach = t.reachSamples.sort((a, b) => a - b);
     sides[side] = {

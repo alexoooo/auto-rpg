@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isStandableUpwardNormalY, PhysicalSupportedLocomotionPort } from
-  "../src/supported-locomotion-production.ts";
+import { flatSupportedWorldRegistry, isStandableUpwardNormalY, PhysicalSupportedLocomotionPort,
+  RECOVERY_RING_STEP_M, RECOVERY_SEPARATION_MARGIN_M } from "../src/supported-locomotion-production.ts";
 import { deriveLocomotionFootprint, StandableWorldRegistry, SUPPORTED_CARRIER_V1,
   VirtualLocomotionCarrier } from "../src/supported-locomotion-runtime.ts";
 import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
@@ -163,8 +163,59 @@ test("a_registered_snag_stalls_the_carrier_before_the_bounded_root_drive_can_lau
   } finally { fixture.port.dispose(); }
 });
 
-test("occupied_recovery_is_refused_by_the_intersecting_pair_footprint", () => {
+// **A rise relocates** (physical contact session 02). A fallen body whose own spot is inside another
+// footprint rises to the nearest clear spot in reach, and one with no such spot is still refused;
+// the two are a pair, because a fixture that relocated anything would pass the first alone.
+test("an_occupied_recovery_relocates_to_the_nearest_spot_clear_of_the_intersecting_pair_footprint", () => {
   const registry = floorRegistry();
+  const fallen = physical("occupied-fallen", 0, registry);
+  const blocker = physical("occupied-blocker", 0.2, registry);
+  try {
+    const required = 1;
+    fallen.port.beginControlStep(); blocker.port.beginControlStep();
+    fallen.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    fallen.port.beginControlStep();
+    assert.equal(fallen.port.state, "fallen");
+    for (let step = 0; step < 5 && fallen.port.state === "fallen"; step += 1) {
+      fallen.port.updatePairOccupancy(blocker.port);
+      advance(fallen.port, 0.1, STOP);
+    }
+    assert.equal(fallen.port.state, "rising", "the occupied body never rose");
+    assert.equal(fallen.port.riseGate().relocated, true);
+    // The carrier is set to the recovery target as the rise begins.
+    const target = fallen.port.carrierGround();
+    const clearance = Math.hypot(target.x - 0.2, target.z);
+    assert.ok(clearance >= required + RECOVERY_SEPARATION_MARGIN_M - 1e-9,
+      `the rise went to ${target.x.toFixed(3)}, ${clearance.toFixed(3)} m from the blocker`);
+    // The nearest ring that clears it, 0.82 m needed and rings 0.1 m apart, straight away from it.
+    const ring = Math.ceil((required + RECOVERY_SEPARATION_MARGIN_M - 0.2) / RECOVERY_RING_STEP_M) * RECOVERY_RING_STEP_M;
+    assert.ok(Math.abs(target.x + ring) < 1e-9 && Math.abs(target.z) < 1e-9,
+      `the rise went to (${target.x.toFixed(3)}, ${target.z.toFixed(3)}), not ${ring.toFixed(1)} m straight away`);
+    // The census reads `relocated` on whichever boundary it samples, so it holds for the whole rise.
+    fallen.port.updatePairOccupancy(blocker.port);
+    advance(fallen.port, 0.05, STOP);
+    assert.equal(fallen.port.state, "rising");
+    assert.equal(fallen.port.riseGate().relocated, true, "the rise forgot it had relocated");
+  } finally { fallen.port.dispose(); blocker.port.dispose(); }
+  // The control: a body nobody stands over rises where it lies, and says so on every boundary.
+  const free = physical("unoccupied-fallen", 0, floorRegistry());
+  try {
+    free.port.beginControlStep();
+    free.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    free.port.beginControlStep();
+    for (let step = 0; step < 5 && free.port.state === "fallen"; step += 1) advance(free.port, 0.1, STOP);
+    assert.equal(free.port.state, "rising");
+    assert.equal(free.port.riseGate().relocated, false, "an unoccupied rise read as relocated as it began");
+    advance(free.port, 0.05, STOP);
+    assert.equal(free.port.state, "rising");
+    assert.equal(free.port.riseGate().relocated, false, "an unoccupied rise read as relocated under way");
+  } finally { free.port.dispose(); }
+});
+
+test("an_occupied_recovery_with_no_clear_ground_in_reach_is_refused", () => {
+  // Ground only on a patch too small to hold both footprints apart: every spot in reach is either
+  // inside the blocker's footprint or off the floor.
+  const registry = floorRegistry((at) => Math.abs(at.x) <= 0.5 && Math.abs(at.z) <= 0.5);
   const restored = [];
   const fallen = physical("occupied-fallen", 0, registry, {
     restoreRoot: () => restored.push("root"), restoreSupportedAnatomyCollision: () => restored.push("collision") });
@@ -185,4 +236,33 @@ test("occupied_recovery_is_refused_by_the_intersecting_pair_footprint", () => {
     assert.equal(fallen.port.diagnostic().recoveryProgress, 0);
     assert.deepEqual(restored, []);
   } finally { fallen.port.dispose(); blocker.port.dispose(); }
+});
+
+test("a_body_fallen_against_the_arena_wall_rises_inward_off_it", () => {
+  // Physical contact session 02. The flat arena's wall refused every sweep that started inside its
+  // band, including the rise's own, so a body lying against it could never get up.
+  const registry = flatSupportedWorldRegistry();
+  const radius = footprint("against-wall").radiusM;
+  const limit = 13 - radius;
+  const band = point(limit + 0.4, 0.3, 0);
+  const inward = registry.allowedFraction(band, point(limit - 0.1, 0.3, 0), footprint("against-wall"), new Set());
+  assert.equal(inward, 1, "a footprint inside the band could not leave it inward");
+  for (const [label, to] of [["stays in the band", point(limit + 0.1, 0.3, 0)],
+    ["runs along the wall", point(limit + 0.4, 0.3, 1)], ["stays put", band]]) {
+    assert.equal(registry.allowedFraction(band, to, footprint("against-wall"), new Set()), 0, label);
+  }
+  const rootState = { motionType: "dynamic", position: band, velocity: point(0, 0, 0), massKg: 10, released: false };
+  const fixture = physical("against-wall", band.x, registry, { rootState });
+  try {
+    fixture.port.beginControlStep();
+    fixture.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    fixture.port.beginControlStep();
+    assert.equal(fixture.port.state, "fallen");
+    for (let step = 0; step < 5 && fixture.port.state === "fallen"; step += 1) advance(fixture.port, 0.1, STOP);
+    assert.equal(fixture.port.state, "rising", "a body against the wall never rose");
+    const target = fixture.port.carrierGround();
+    assert.ok(target.x <= limit + 1e-9, `the rise went to x ${target.x.toFixed(3)}, inside the wall's band`);
+    assert.ok(band.x - target.x <= 0.4 + RECOVERY_RING_STEP_M + 1e-9,
+      `the rise went ${(band.x - target.x).toFixed(3)} m, past the nearest ring that leaves the band`);
+  } finally { fixture.port.dispose(); }
 });

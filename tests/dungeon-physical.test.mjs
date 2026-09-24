@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { DungeonRun } from "../src/dungeon/run.ts";
+import { buildDungeonWorld } from "../src/dungeon/world.ts";
+import { walkable } from "../src/dungeon/map.ts";
+import { deriveLocomotionFootprint } from "../src/supported-locomotion-runtime.ts";
 import { distance, findPath, generateDungeon } from "../src/dungeon/map.ts";
 import { CONFIG } from "../src/config.ts";
 import { Combat } from "../src/combat.ts";
@@ -156,4 +159,31 @@ test("force movement goes around an occupied floor point instead of stopping to 
     }
     assert.ok(run.hero.body.feetPosition().x > 16, `blocked at ${run.hero.body.feetPosition().asArray()}`);
   } finally { run.dispose(); arena.dispose(); }
+});
+
+test("a_footprint_that_starts_inside_the_dungeon_solid_may_leave_it_and_nothing_else", async () => {
+  // Physical contact session 02: a body fallen against a dungeon wall rises off it. The solid's sweep
+  // used to refuse any path that began inside it; now a path is clear once it is clear and must end
+  // clear, and a path from open floor is judged exactly as before.
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  try {
+    const map = generateDungeon(42);
+    const { registry } = buildDungeonWorld(arena.scene, map, false);
+    const foot = deriveLocomotionFootprint({ radiusM: 0.4, heightM: 1.8, provenance: { profileId: "dungeon-wall",
+      source: "golem-bind-geometry", measuredAt: "physical contact session 02 fixture" } });
+    const open = { x: map.start.x, y: 0.5, z: map.start.z };
+    assert.ok(walkable(map, open, foot.radiusM, true), "the fixture's start is not open floor");
+    // Walk east from the start until the footprint first stops being walkable, and go two of the
+    // sweep's 0.15 m samples further in: the sweep never sampled its start, so a footprint less than
+    // one sample deep could already leave, and only a deeper one tells the two rules apart.
+    let inside = null;
+    for (let x = open.x; x < map.size; x += 0.05) {
+      if (!walkable(map, { x, z: open.z }, foot.radiusM, true)) { inside = { x: x + 0.3, y: 0.5, z: open.z }; break; }
+    }
+    assert.ok(inside && !walkable(map, inside, foot.radiusM, true), "found no wall band east of the start");
+    const none = new Set();
+    assert.equal(registry.allowedFraction(inside, open, foot, none), 1, "the footprint could not leave the solid");
+    assert.equal(registry.allowedFraction(inside, inside, foot, none), 0, "a point inside the solid read clear");
+    assert.ok(registry.allowedFraction(open, inside, foot, none) < 1, "open floor walked into the solid");
+  } finally { arena.dispose(); }
 });

@@ -23,9 +23,17 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals = true)
       // Substeps are short, but sample the entire sweep for callers proposing a longer move.
       const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.z - from.z) / 0.15));
       let safe = 0;
+      // A footprint that starts inside the solid -- a body that fell against a wall -- may leave it:
+      // the path is clear once it is clear, and must end clear (physical contact session 02).
+      let cleared = walkable(map, from, footprint.radiusM, true);
       for (let i = 1; i <= steps; i++) {
         const at = i / steps;
-        if (walkable(map, { x: from.x + (to.x - from.x) * at, z: from.z + (to.z - from.z) * at }, footprint.radiusM, true)) { safe = at; continue; }
+        if (walkable(map, { x: from.x + (to.x - from.x) * at, z: from.z + (to.z - from.z) * at }, footprint.radiusM, true)) { safe = at; cleared = true; continue; }
+        if (!cleared) {
+          if (i < steps) continue;
+          return { colliderId: "dungeon-solid", fraction: 0,
+            point: { x: from.x, y: from.y, z: from.z }, upwardNormal: up };
+        }
         let low = safe, high = at;
         for (let j = 0; j < 10; j++) {
           const middle = (low + high) / 2;

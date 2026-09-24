@@ -65,21 +65,22 @@ test("the worker counts a corner's knockdowns and its time down from that corner
 });
 
 test("the worker counts the modules each corner lost and the real blows it landed, each from that corner's own record", async () => {
-  // Measured, 2026-09-23: on these seeds the champion ends a brawler at toughness x0.5 in 7.73 s and
-  // takes two of its modules off on the way; the same brawler at x1 loses the same bout at the same
-  // moment with every module on. The x1 bout is the control that the count is read off the body.
+  // Measured, 2026-09-23, after physical contact session 02 let a rise relocate: on these seeds the
+  // champion ends a brawler at toughness x0.5 in 3.87 s and takes one of its modules off on the way;
+  // the same brawler at x1 keeps every module through the ten-second cap. The x1 bout is the control
+  // that the count is read off the body. (Before the relocation it was two modules in 7.73 s.)
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "soft", setup: withAttributeSetting(base.setup, { toughness: 0.5 }) }];
   const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 10 } };
   const job = { id: "sever", round: 0, block: "sever", left: "golem-champion", right: "golem-brawler",
     leftBuild: "default", rightBuild: "soft", seeds: [46, 47] };
   const soft = await execute(job, manifest);
-  assert.equal(soft.sides.right.severs, 2, "the soft corner lost two modules");
+  assert.equal(soft.sides.right.severs, 1, "the soft corner lost one module");
   assert.equal(soft.sides.left.severs, 0, "and the count is the corner's own, not the bout's");
   // The same bout's contacts, and of them the real blows: the ones above the weapon's energy floor,
-  // one for each alignment the runner filed. Measured the same day: 58 contacts and 20 real blows on
-  // the left, 59 and 35 on the right, so neither count is the other and neither corner's is the other's.
-  assert.deepEqual(["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]), [[58, 20], [59, 35]]);
+  // one for each alignment the runner filed. Measured the same day: 48 contacts and 17 real blows on
+  // the left, 41 and 19 on the right, so neither count is the other and neither corner's is the other's.
+  assert.deepEqual(["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]), [[48, 17], [41, 19]]);
   const plain = await execute({ ...job, rightBuild: "default" }, manifest);
   assert.equal(plain.sides.right.severs, 0, "the control: the same bout at x1 keeps them all");
 });
