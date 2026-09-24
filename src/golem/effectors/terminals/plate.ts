@@ -160,11 +160,6 @@ export const plateDefinition = (config: typeof TERMINAL_PLATE & { gripRadius?: n
 
     const striker = new RigidStrike(part, {
       kind: "empty",
-      // The slab, kilograms, and this is the whole of what a bash is worth. It published nothing
-      // until 2026-09-06 and was therefore scored at a Warrior's 0.65 kg hand -- a stone board
-      // that hit like a knuckle. Against a golem's trunk core the same board is now 14.8 kg of
-      // reduced mass, which is two and a half points of wound at the speed a chain gets it to.
-      impactMassKg: P.mass,
       effectorId: `${name}.bash`,
       hand: effectorSlot(ctx.socket.slot),
       // The centre of the board's **outer face**, which is where a bash lands. See the header

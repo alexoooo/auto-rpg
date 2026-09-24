@@ -210,6 +210,8 @@ export interface CarrierProposal {
   readonly footprint: LocomotionFootprint;
   readonly resistance: number;
   readonly ownerPartIds: ReadonlySet<string>;
+  /** The part of `displacement` that is the carrier's slide rather than its gait, metres. */
+  readonly slide: Readonly<{ x: number; z: number }>;
 }
 
 /** This record intentionally has no PhysicsBody, shape, trigger, mesh, membership or collide mask. */
@@ -218,6 +220,14 @@ export class VirtualLocomotionCarrier {
   readonly config: VirtualCarrierConfig;
   readonly ownerPartIds: ReadonlySet<string>;
   private current: VirtualCarrierState;
+  /**
+   * How fast a push is sliding this carrier, m/s, apart from its gait (physical contact session 07).
+   * Not a field of `state`: the gait's velocity is what a mind commands and a request is ramped
+   * from, and a slide is what contact did to the body regardless of either. `propose` adds it to the
+   * move, `commit` scales it by how much of the move the world allowed, and `reset` stops it.
+   */
+  private slideX = 0;
+  private slideZ = 0;
 
   constructor(initial: Readonly<{ position: WorldPoint; yaw: number }>, footprint: LocomotionFootprint,
     config: VirtualCarrierConfig, ownerPartIds: ReadonlySet<string>) {
@@ -233,6 +243,22 @@ export class VirtualLocomotionCarrier {
   }
 
   get state(): VirtualCarrierState { return this.current; }
+  get slide(): Readonly<{ x: number; z: number }> { return { x: this.slideX, z: this.slideZ }; }
+
+  /** Add to the slide, m/s: a push past the feet's grip, as `dv = excess / M * dt`. */
+  slideBy(dx: number, dz: number): void {
+    if (!Number.isFinite(dx) || !Number.isFinite(dz)) throw new Error("virtual carrier slide must be finite");
+    this.slideX += dx;
+    this.slideZ += dz;
+  }
+
+  /** Take `dv` m/s off the slide's speed, and no more than it has: the feet braking it. */
+  brakeSlide(dv: number): void {
+    const speed = Math.hypot(this.slideX, this.slideZ);
+    const kept = speed > dv ? (speed - dv) / speed : 0;
+    this.slideX *= kept;
+    this.slideZ *= kept;
+  }
 
   /** Recovery re-anchors the bodyless carrier over the live fallen root; no solver transform is written. */
   reset(position: WorldPoint, yaw = this.current.yaw): void {
@@ -241,6 +267,8 @@ export class VirtualLocomotionCarrier {
     }
     this.current = Object.freeze({ ...position, yaw: wrapYaw(yaw),
       velocityX: 0, velocityZ: 0, yawVelocity: 0 });
+    this.slideX = 0;
+    this.slideZ = 0;
   }
 
   propose(request: LocomotionRequest, dt: number, resistance = 1): CarrierProposal {
@@ -270,9 +298,11 @@ export class VirtualLocomotionCarrier {
     const yawDelta = Math.max(-this.config.maxYawAccelerationRadS2 * dt,
       Math.min(this.config.maxYawAccelerationRadS2 * dt, wantedYawVelocity - this.current.yawVelocity));
     const yawVelocity = this.current.yawVelocity + yawDelta;
-    const displacement = Object.freeze({ x: velocityX * dt, z: velocityZ * dt, yaw: yawVelocity * dt });
+    const slide = Object.freeze({ x: this.slideX * dt, z: this.slideZ * dt });
+    const displacement = Object.freeze({ x: velocityX * dt + slide.x, z: velocityZ * dt + slide.z,
+      yaw: yawVelocity * dt });
     return Object.freeze({ prior: this.current, footprint: this.footprint, resistance,
-      ownerPartIds: this.ownerPartIds,
+      ownerPartIds: this.ownerPartIds, slide,
       displacement, next: Object.freeze({ x: this.current.x + displacement.x, y: this.current.y,
         z: this.current.z + displacement.z, yaw: wrapYaw(this.current.yaw + displacement.yaw),
         velocityX, velocityZ, yawVelocity }) });
@@ -280,10 +310,22 @@ export class VirtualLocomotionCarrier {
 
   commit(proposal: CarrierProposal, allowed: HorizontalMove): void {
     if (proposal.prior !== this.current) throw new Error("virtual carrier proposal is stale");
-    const xFraction = proposal.displacement.x === 0 ? 0 :
+    let xFraction = proposal.displacement.x === 0 ? 0 :
       Math.max(0, Math.min(1, allowed.x / proposal.displacement.x));
-    const zFraction = proposal.displacement.z === 0 ? 0 :
+    let zFraction = proposal.displacement.z === 0 ? 0 :
       Math.max(0, Math.min(1, allowed.z / proposal.displacement.z));
+    if (proposal.slide.x !== 0 || proposal.slide.z !== 0) {
+      // A slide and a gait can cancel along an axis, which would read as "blocked" there and stop
+      // the gait. So a sliding carrier keeps the share of its whole move that was allowed, one
+      // number for both axes and for the slide as well: a wall stops the slide it stops the body at.
+      const { x, z } = proposal.displacement;
+      const length2 = x * x + z * z;
+      const kept = length2 > 1e-18 ? Math.max(0, Math.min(1, (allowed.x * x + allowed.z * z) / length2)) : 1;
+      xFraction = kept;
+      zFraction = kept;
+      this.slideX *= kept;
+      this.slideZ *= kept;
+    }
     this.current = Object.freeze({ x: this.current.x + allowed.x, y: this.current.y,
       z: this.current.z + allowed.z, yaw: wrapYaw(this.current.yaw + allowed.yaw),
       velocityX: proposal.next.velocityX * xFraction, velocityZ: proposal.next.velocityZ * zFraction,
@@ -291,7 +333,23 @@ export class VirtualLocomotionCarrier {
   }
 }
 
-export interface PairAllowedMoves { readonly left: HorizontalMove; readonly right: HorizontalMove }
+/**
+ * Where two footprints met on this step, if they did: the unit normal from the left disc's centre
+ * toward the right's, and how far each was still moving into the other along it. What a push reads
+ * (physical contact session 07); nothing here pushes.
+ */
+export interface PairContact {
+  readonly nx: number;
+  readonly nz: number;
+  readonly leftClosing: number;
+  readonly rightClosing: number;
+}
+
+export interface PairAllowedMoves {
+  readonly left: HorizontalMove;
+  readonly right: HorizontalMove;
+  readonly contact?: PairContact | null;
+}
 
 const moveScaled = (move: HorizontalMove, scale: number): HorizontalMove =>
   Object.freeze({ x: move.x * scale, z: move.z * scale, yaw: move.yaw });
@@ -324,6 +382,7 @@ export function resolveCarrierPair(
     right.ownerPartIds);
   let leftMove = moveScaled(left.displacement, worldLeft);
   let rightMove = moveScaled(right.displacement, worldRight);
+  let contact: PairContact | null = null;
   const dx = right.prior.x - left.prior.x;
   const dz = right.prior.z - left.prior.z;
   const required = left.footprint.radiusM + right.footprint.radiusM;
@@ -342,6 +401,7 @@ export function resolveCarrierPair(
     const rightRemainder = moveScaled(rightMove, 1 - contactAt);
     const leftClosing = Math.max(0, leftRemainder.x * nx + leftRemainder.z * nz);
     const rightClosing = Math.max(0, -(rightRemainder.x * nx + rightRemainder.z * nz));
+    contact = Object.freeze({ nx, nz, leftClosing, rightClosing });
     const excess = leftClosing + rightClosing;
     const totalResistance = left.resistance + right.resistance;
     let leftReduction = Math.min(leftClosing, excess * right.resistance / totalResistance);
@@ -353,7 +413,7 @@ export function resolveCarrierPair(
     rightMove = Object.freeze({ x: rightPrefix.x + rightRemainder.x + nx * rightReduction,
       z: rightPrefix.z + rightRemainder.z + nz * rightReduction, yaw: rightMove.yaw });
   }
-  return Object.freeze({ left: leftMove, right: rightMove });
+  return Object.freeze({ left: leftMove, right: rightMove, contact });
 }
 
 export interface DynamicRootSample {

@@ -4,7 +4,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import { joint } from "../../rig.ts";
+import { joint, registerPartBody } from "../../rig.ts";
 import { COLLIDES, LAYER } from "../../physics.ts";
 import { defineTerminal, effectorSlot } from "../module.ts";
 import { materialForGolemRole } from "../materials.ts";
@@ -36,6 +36,8 @@ export const humanShield = defineTerminal({
     aggregate.shape.filterMembershipMask=ctx.layers.strike;
     aggregate.shape.filterCollideMask=ctx.layers.strikeCollidesWith;
     const part={name,mesh,body:aggregate.body,shape:aggregate.shape};
+    // Its nearest box, for the effective mass a contact walks through: the board's thickness, width and height.
+    registerPartBody({part,shape:{kind:"box",size:[.03,.46,.64]},massKg:3.5,centerOfMass:null});
     const weld=joint(ctx.scene,onto.link,part,{pivotParent:onto.pivot,pivotChild:centre.negate(),swing:{}});
     const grip=HEATER_GRIP.subtract(centre);
     const shell=[mesh,...socketShell(ctx.scene,{name:`${name}.handle`,host:mesh,materials:ctx.materials,
@@ -48,7 +50,7 @@ export const humanShield = defineTerminal({
       strap.parent=mesh; strap.position.copyFrom(new Vector3(0,y,0).subtract(centre));
       strap.material=materialForGolemRole(ctx.materials,"shell"); shell.push(strap);
     }
-    const striker=new RigidStrike(part,{kind:"empty",effectorId:`${name}.bash`,hand:effectorSlot(ctx.socket.slot),tipAlong:0,impactMassKg:3.5});
+    const striker=new RigidStrike(part,{kind:"empty",effectorId:`${name}.bash`,hand:effectorSlot(ctx.socket.slot),tipAlong:0});
     return { parts:[{id:name,part,shell,health:100,vitalityWeight:0,fatal:false,shield:true,combatRole:"equipment"}],
       strikers:[striker],tipOffset:0,gripStray:()=>null,
       sever(){striker.sever();part.shape.filterMembershipMask=LAYER.DEBRIS;part.shape.filterCollideMask=COLLIDES.DEBRIS;},

@@ -132,9 +132,10 @@ export const pitchChain = defineChain({
 
   build(ctx: ModuleBuild): BuiltChain {
     // The body's arm-speed stat, on the hinge's command rate (`withArmSpeed`), and its weight stat,
-    // on the link's mass (`withWeight`); then every field at its size stat by its law (`withSize`).
+    // on the link's mass and the hinge's torque (`withWeight`); then every field at its size stat by
+    // its law (`withSize`).
     const P = withSize(withWeight(withArmSpeed(CHAIN_PITCH, ["targetRate"], attributeOf(ctx, "armSpeed")),
-      ["linkMass"], attributeOf(ctx, "weight")), CHAIN_PITCH_SIZE, attributeOf(ctx, "size"));
+      ["linkMass", "motorTorque"], attributeOf(ctx, "weight")), CHAIN_PITCH_SIZE, attributeOf(ctx, "size"));
     const name = `${ctx.name}.link`;
     const socket = ctx.socket;
     const facing = socket.rotation;

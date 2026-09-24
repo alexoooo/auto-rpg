@@ -70,10 +70,40 @@ the build and what to look for.
   - stone fights are shorter: a median x1 mirror ends in 13.4 s against 28.8 (mean 17.7 against
     32.9). A heavier trunk recoils less, so more blows land and each lands harder. Check that it reads
     as heavier bodies and not as a harder game.
+- **05:**
+  - **the capped socket barging** (`ram-capped`). Its bare cap is bolted to a 250 kg body, so what
+    arrives behind it is a median 79 kg against the 0.567 kg it declared, and on the same contacts
+    its summed shove damage is 40 times what it was. Check that it reads as a barge that ought to
+    hurt, and not as a cap that one-shots;
+  - **the ram at a fifth of its pace.** A lunge on a free post now arrives under the blunt floor
+    and is filed as a shove. The ram had always declared the neck and trunk behind its plate, and
+    every arm gained its chain for the first time, so one price across bodies moved it down. The
+    lever is `HEAD_RAM.lunge.driveTorque`;
+  - **the rest of the shelf, at one price across bodies.** Summed damage on the same contacts is
+    x0.69 for the mace, x1.40 for the maul, x0.50 for the whip, x1.37 for bare fists and x1.53 for
+    the skeleton's blade (Node harness, offline re-score). Check that the maul reads as heavy and
+    the whip as light, rather than as broken;
+  - **the heaviest blows are slow and near the hilt now.** The largest wound in 64 stone mirrors was
+    6.48, a sword that was closing at 1.31 m/s and sliding at 27.8 m/s, 0.79 m from its tip, with
+    14.9 kg behind it. The draw pays for it. Before, every blow above the 99th percentile was a tip
+    moving at about 21 m/s. Check whether a drawn cut near the hilt reads as a blow;
+  - **the human at half its pace.** Its light arm couples less than its blade declared (0.74 of it
+    at the median contact), so its sword summed x0.51. Session 09 owns its stand-off.
+- **06:**
+  - no authored push is left: a blow moves a body by what the solver does with it, and a fall comes
+    from the ledger. Check that a blade still reads as pushing;
+  - a parry pushing the parrying body back;
+  - stone mirrors spend about 21 % of a bout down, both bodies;
+  - the x1 body against the max giant, down for half the bout;
+  - the giant's stun-lock chains, up to 18 knockdowns each within 2 s of the rise before.
 - **07:**
-  - the all-max giant lifting and launching a x1 from below;
+  - the all-max giant lifting and launching a x1 from below. Measured, it tips the x1 rather than
+    launching it: 0.14 to 0.63 m/s upward and 9 to 37 mm of rise;
   - pushing one back;
-  - two x1 bodies pressing together with neither lifting.
+  - two x1 bodies pressing together with neither lifting;
+  - the x1 body against the max giant, down 75.5 % of a bout, with 84.1 % of its knockdowns within
+    2 s of a rise and chains of up to 20;
+  - a body walked into in the dungeon stops rather than being shoved.
 - **10:** the all-max giant against a x1, which should look and win like a giant.
 - **Carried from the attributes set**, still unchecked:
   - the attribute sliders in the arena setup corners and the dungeon hero dialog, with Reset and a
@@ -168,3 +198,82 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   is not a holding repair. The knockdown gate lapses at session 08, and session 05 recalibrates the
   energy a blow carries, so neither is served by moving a threshold here. To reverse it, rescale the
   ratios down by the bout length.
+- **05, the effective mass reads the solver's inertia, not each part's solid.** The plan said the
+  chains' floors (`jointInertiaFloor`, `castToCarried`, the human arm's `inertiaFloor`) were
+  conditioning to leave out. The stroke overruled that. Into a 90 kg sphere, the solver's properties
+  read 0.89 to 14.77 kg against a stroke's 0.96 to 11.76 (Node impact bench). The parts' own solids
+  read a max wrist blade no heavier than an x1 one, 0.82 against 0.77, where the stroke reads 3.41
+  against 1.47. `src/body-inertia.ts`. To reverse,
+  pass `inertia: "geometric"` at `Combat`'s two `effectiveMassAt` calls.
+- **05, the tolerances.**
+  - Against the bench's edge tap, the walk must agree within 5 %. This is what the joints-free model
+    and the tap both measure, and `the_walk_reads_what_the_solver_does_at_an_edge_tap` pins it.
+  - Against a stroke, the model is within about a quarter either way. The worst cases are the x1
+    wrist blade (1.11 against 1.47) and the max maul (14.77 against 11.76). This is reported, not
+    pinned, because a stroke also carries what the next choice leaves out.
+- **05, a joint on its stop is not modelled.** The joints are free at the instant of contact. With
+  the stops left in place, the max mace gave up 7.51 kg against the walk's 4.50. Modelling a stop
+  means knowing which joints are on one at the contact. `src/body-inertia.ts`.
+- **05, the price anchor holds pace, not damage per bout.** The vitality bar binds damage per bout,
+  so the anchor is the summed contact damage of x1 bouts. Those were recorded on the declared-mass
+  tree and re-scored offline through `scoreHit`.
+  - The edge factor is x1.783, anchored on the default build (13879 contacts).
+  - The blunt factor is x3.786, pooled over default, mace and maul (41189 contacts). The default
+    alone read 3.660, the mace 3.085 and the maul 4.974.
+  - Each floor moves by the same factor as its price.
+  - `chopJoulesPerDamage` takes the edge's factor, because no live striker chops.
+  - The point floor stays, because the only point is an arrow, and an arrow's mass is still its
+    own.
+  - Where: `CONFIG.combat` in `src/config.ts`, whose header has the table. Per-build anchors,
+    rather than one price for every body, would be a rule about bodies in a table about blows.
+- **05, no ceiling on a big body's strike mass.** In `tests/attributes.test.mjs`, size must never
+  lower what a blow arrives with, and must raise it behind a ram and a capped socket. No test caps
+  it. An item keeps its length while the joints behind it move out, so the lever changes shape as
+  well as size: a skeletal fist reads 3.46 times heavier at x1.25. Weight does keep its ceiling (at
+  most xL), because it scales masses and no lengths.
+- **05, the ram is left weak.** A lunge on a free post arrives under the blunt floor, and the ram's
+  summed pace is x0.20. It had always declared the mass behind its plate, and every arm gained its
+  chain for the first time. The lever is `HEAD_RAM.lunge.driveTorque`, which is left for a session
+  that sets the ram's pace on purpose. The ram's test now pins the lunge as a shove.
+- **06, nothing is applied to a struck body.** The solver pushes it already, and what `J` would
+  add on top was measured at 0.23 of `J` against a quiet frame's 5.92 N.s of motion. The transfer
+  goes to the ledger only. `Combat.transfer` in `src/combat.ts`. To reverse, apply `J` at the
+  struck point there.
+- **06, restitution 0.** Session 01's impact bench read every impulsive stroke off a free sphere at
+  -0.17 to +0.09, median -0.02, which brackets zero; the whip's 0.27 is a rope's rebound and is left
+  out. `CONTACT_RESTITUTION` in `src/scoring.ts`, one constant for every pair.
+- **06, one factor for all three ledger lines**, 20, read off stone x1 knockdowns. The decay is
+  scaled with the two thresholds because it is in the same units. `SUPPORTED_LOCOMOTION_V1` in
+  `src/supported-locomotion-state.ts`, with the sweep. Session 08 replaces the ledger.
+- **06, fixtures moved with the push.** The searches in `tests/research-physical.test.mjs` take the
+  seeds and the mind they now stop on, and every count is re-pinned rather than loosened.
+- **07, an arm's torques follow the weight stat.** The reach core's yaw, shoulder and elbow torques,
+  the pitch hinge's torque and the human arm's `TORQUES` scale with it, alongside the links' masses;
+  the wrist's roll and bend turn the item and do not. The plan's "torque follows length" was read
+  off a split that blamed length, and the bench says weight: at size x1.25 the reach blade held
+  2656 N, and with weight x2 as well, 1844 N. `withWeight` in `src/golem/attributes.ts`. To
+  reverse, take the torques out of its list.
+- **07, arm speed cuts lift, and nothing was done about it.** Size x1.25 with arm speed x1.5 holds
+  1969 N against 2656 without it (Node lift bench). `JointServo.track` is a velocity motor, and a
+  rate should not cut force. It is open.
+- **07, a contact is a blow for its first 50 ms** (`CONTACT_PRESS.BLOW_S`, `src/contact-press.ts`),
+  past the longest impulsive stroke session 01 measured (38 ms). Within it, `Combat`'s transfer
+  files the contact; after it, the press does. One source per contact.
+- **07, a body that is not standing presses nothing.** A leg set down on a heap read 3.64 times the
+  standing body's weight upward, because the standing carrier holds its height by keyframe.
+  `PressSource.standing`. To reverse, count fallen and rising sources, and expect lifts from every
+  body that steps on a downed one.
+- **07, a source pushes no harder than its grip and lifts no more than its weight.** The solver's
+  reading failed both ways: a keyframed carrier pushed at up to 9.3 times an x1 body's grip, and
+  limbs squeezed between two carriers "lifted" x1 bodies at up to 2.09 W, where a whole x1 arm holds
+  0.80 W. `GRIP` is 0.55, the sole's friction. With both caps, two bodies of one weight can never
+  push or lift each other, which replaces the plan's reading that two x1 arms lifting is the rule
+  working. `ContactPress` in `src/contact-press.ts`.
+- **07, walking into a body is a grip rule, not a mass split.** A closing body pushes the other with
+  its own grip, and each carrier resists with its mass, so an equal walker never shoves.
+  `resolvePhysicalSupportedPair` in `src/supported-locomotion-production.ts`. Keyframed trunks report
+  no contact to each other (0 events in 16 bouts), so the solver cannot decide this.
+- **07, the dungeon has no pair push.** Its group resolver stops a body that is walked into; an arm's
+  press still reaches it. `src/dungeon/run.ts`.
+- **05, the capped socket's shove is accepted as physics.** Its summed damage on the same contacts
+  is x40: a bare cap bolted to a 250 kg body arrives with a median 79 kg behind it. On the eye list.

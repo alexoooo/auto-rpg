@@ -123,10 +123,8 @@ export const noneChain = defineChain({
     // socket is worth.
     const striker = new RigidStrike(part, {
       kind: "empty",
-      // The cap's own mass. It is bolted to a socket that cannot move, so the only speed it ever
-      // has is the carrier's -- which is what makes a capped socket a shove rather than a punch,
-      // now that the shove is priced by what arrives instead of by a row's reference hand.
-      impactMassKg: C.capMass,
+      // Bolted to a socket that cannot move, so the only speed it ever has is the carrier's --
+      // which is what makes a capped socket a shove rather than a punch.
       effectorId: `${name}.shove`,
       hand: effectorSlot(socket.slot),
       tipAlong: C.capLength / 2,

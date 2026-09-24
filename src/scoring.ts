@@ -130,6 +130,40 @@ export type Tuning = typeof CONFIG.combat;
  */
 export function impactEnergyJ(strikerMassKg: number, partMassKg: number,
   closingSpeed: number): number {
+  return 0.5 * reducedMassKg(strikerMassKg, partMassKg, closingSpeed) * closingSpeed * closingSpeed;
+}
+
+/**
+ * How much of a contact's closing speed comes back out of it, one constant for every pair.
+ *
+ * Measured by physical contact session 01 on the Node impact bench: every stroke that was an impact
+ * rather than a push -- in contact for two to nine substeps -- came off a free 90 kg sphere with a
+ * restitution between -0.17 and +0.09, median -0.02, from the blade, the mace, the maul and the pitch
+ * and anatomical blades at x1 and at max. A negative reading is a striker still closing at
+ * separation, which is not a bounce at all, so the physical value those readings bracket is zero: a
+ * blow in this solver is perfectly inelastic. The whip's lash, 0.27, is the one outlier, and it is
+ * a rope's rebound rather than the stone's.
+ */
+export const CONTACT_RESTITUTION = 0;
+
+/**
+ * The impulse one body hands another in a collision, newton-seconds (physical contact session 06).
+ *
+ * `J = (1 + e) * mu * v`, with `mu` the reduced mass of the pair and `v` the closing speed along
+ * the contact normal -- the momentum a contact of restitution `e` moves across it, with the same
+ * masses, the same `Infinity` convention and the same refusals as `impactEnergyJ`, so the energy a
+ * blow is priced on and the push it gives are one reading of one contact. A struck body that cannot
+ * move takes the striker's whole momentum.
+ */
+export function contactImpulseNs(strikerMassKg: number, partMassKg: number, closingSpeed: number,
+  restitution: number = CONTACT_RESTITUTION): number {
+  if (!Number.isFinite(restitution) || restitution < 0 || restitution > 1) {
+    throw new Error(`a restitution lies in [0, 1], got ${restitution}`);
+  }
+  return (1 + restitution) * reducedMassKg(strikerMassKg, partMassKg, closingSpeed) * closingSpeed;
+}
+
+function reducedMassKg(strikerMassKg: number, partMassKg: number, closingSpeed: number): number {
   if (!Number.isFinite(strikerMassKg) || strikerMassKg <= 0) {
     throw new Error(`a striker has to publish a positive mass, got ${strikerMassKg}`);
   }
@@ -140,10 +174,9 @@ export function impactEnergyJ(strikerMassKg: number, partMassKg: number,
     throw new Error(`a contact has to have a finite closing speed, got ${closingSpeed}`);
   }
   // Written out rather than left to the arithmetic: `m * Infinity / (m + Infinity)` is NaN.
-  const reduced = Number.isFinite(partMassKg)
+  return Number.isFinite(partMassKg)
     ? (strikerMassKg * partMassKg) / (strikerMassKg + partMassKg)
     : strikerMassKg;
-  return 0.5 * reduced * closingSpeed * closingSpeed;
 }
 
 /**
@@ -203,9 +236,10 @@ interface Bite {
    * What this mechanism charges for a point of wound, joules.
    *
    * The one balance number a row has. An edge concentrates what arrives into a line and costs
-   * 34.82 J; an axe's shorter edge costs 25.93; anything blunt spreads it and costs 115.24.
-   * Each is anchored on the Warrior blow the retired scale was set for, so a Warrior with a
-   * sword, an axe or a club scores at 11 m/s on a torso exactly what it scored before.
+   * 62.08 J; an axe's shorter edge costs 46.24; anything blunt spreads it and costs 436.29.
+   * Each is anchored on the Warrior blow the retired scale was set for, with a stone arm's chain
+   * behind the weapon, so that Warrior with a sword, an axe or a club scores at 11 m/s on a torso
+   * exactly what it scored before. `CONFIG.combat`'s header has the factors.
    */
   joulesPerDamage: (tuning: Tuning) => number;
   /**

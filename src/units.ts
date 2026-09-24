@@ -219,8 +219,8 @@ export interface Combatant {
   damageTargetFor?(body: PhysicsBody, point: Vector3): Limb | undefined;
   /** Body-owned armour may transform raw scoring damage into authoritative applied damage. */
   applyDamage?(target: Limb, rawDamage: number, kind: HitKind): number;
-  /** Authored hit transfer only; collision callbacks queue it for the next safe control edge. */
-  queueStabilityEvent?(event: StabilityEvent): void;
+  /** A contact's transfer only; collision callbacks queue it for the next safe control edge. */
+  queueStabilityEvent?(event: StabilityEvent, struck?: PhysicsBody, striker?: PhysicsBody): void;
   parriedBy(body: PhysicsBody, point?: Vector3): { readonly kind: WeaponKind } | null;
   sever(limb: Limb, direction: Vector3): void;
   stopFighting(): void;

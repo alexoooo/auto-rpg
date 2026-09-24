@@ -12,8 +12,9 @@
  * off and every motor the module built -- the chain's joint motors and the anchor drive's -- has its
  * ceiling set to zero, so the joints are free, which is the honest reading of an instant of impact:
  * a motor cannot respond inside a contact. A known impulse `J` is applied at the striker's contact
- * point along a normal `n`, one solver substep runs, and the point's velocity change along `n` gives
- * `m_eff = J / (dv . n)`. That is exactly the operational-space mass `1 / (n^T J M^-1 J^T n)` the
+ * point along a normal `n`, solver substeps run until the reading settles (a Havok weld takes a
+ * few to carry the tap through -- `firstSubstepKg` is the one-substep reading session 01 took), and
+ * the point's velocity change along `n` gives `m_eff = J / (dv . n)`. That is exactly the operational-space mass `1 / (n^T J M^-1 J^T n)` the
  * model computes, measured through Havok's own articulation -- **with the stand as the base, and the
  * stand is keyframed, so the base is infinitely heavy.** A chain in a body stands on a trunk of
  * finite mass; the model computes both and this bench can only check the first.
@@ -34,7 +35,8 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
-import { PhysicsConstraintAxis, PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { PhysicsConstraintAxis, PhysicsConstraintAxisLimitMode, PhysicsMotionType, PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
 import { pathToFileURL } from "node:url";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 
@@ -44,6 +46,8 @@ import { resolveAttributes } from "../../src/golem/attributes.ts";
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
 import { COLLIDES, LAYER } from "../../src/physics.ts";
+import { effectiveMassAt } from "../../src/body-inertia.ts";
+import { jointsOf } from "../../src/rig.ts";
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
 import { weaponOf } from "./golem-bench.mjs";
 
@@ -105,10 +109,26 @@ export async function standUp(moduleId, attributes) {
     scene.onBeforePhysicsObservable.remove(control);
     module.dispose(); stand.dispose(); arena.dispose();
   };
-  return { option, scene, plugin, module, intent, frames, release, dispose, constraints, socket: stand.socket("primary").world.clone() };
+  return { option, scene, plugin, module, intent, frames, release, dispose, constraints, socket: stand.socket("primary").world.clone(),
+    standBody: stand.socket("primary").mount.body };
 }
 
+const AXES = [PhysicsConstraintAxis.LINEAR_X, PhysicsConstraintAxis.LINEAR_Y, PhysicsConstraintAxis.LINEAR_Z,
+  PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Y, PhysicsConstraintAxis.ANGULAR_Z];
 const unit = (v) => v.scale(1 / Math.max(1e-12, v.length()));
+
+/**
+ * Session 05's model at a contact, three ways: with the stand pinned, which is what the tap measures
+ * and so checks the chain walk; floating, the reading a bout uses; and floating through the parts' own
+ * solids rather than the solver's conditioned properties, which is what the stroke ruled out.
+ */
+export function modelReadings(pinned, body, point, n) {
+  return {
+    modelPinnedKg: effectiveMassAt(body, point, n, { pinned }),
+    modelFloatingKg: effectiveMassAt(body, point, n),
+    modelSolidFloatingKg: effectiveMassAt(body, point, n, { inertia: "geometric" }),
+  };
+}
 
 /**
  * One tap: the module held at `pose` (a hand's command fields), then released and struck.
@@ -129,18 +149,32 @@ export async function tapProbe({ moduleId, pose = {}, normal = "edge", attribute
     // rest rather than from one still carrying the drive's last correction.
     bench.scene._renderId += 1;
     bench.scene._advancePhysicsEngineStep(1000 * SUBSTEP);
+    const model = modelReadings(new Set([bench.standBody]), striker.body, point, n);
     const before = Vector3.Dot(striker.velocityAt(point), n);
     const bodyMass = striker.body.getMassProperties().mass;
     const impulse = targetDv * Math.max(0.2, bench.option.massKg ?? bodyMass);
     striker.body.applyImpulse(n.scale(impulse), point);
     const free = Vector3.Dot(striker.velocityAt(point), n) - before;
-    bench.scene._renderId += 1;
-    bench.scene._advancePhysicsEngineStep(1000 * SUBSTEP);
-    const after = Vector3.Dot(striker.velocityAt(point), n) - before;
+    // **The chain's reading is taken once it stops ringing, not after one substep.** A weld is soft
+    // in Havok and takes a few substeps to carry the tap through: on the pitch blade the reading
+    // after one substep was 0.795 kg and then 0.621, 0.659, 0.650, against a rigid pair's 0.645
+    // (physical contact session 05, this bench). Step until two readings agree to 2 %, at most eight
+    // substeps -- 33 ms, in which a chain coasting at a few tenths of a metre a second barely moves.
+    const reading = () => { const dv = Vector3.Dot(striker.velocityAt(point), n) - before; return dv > 1e-9 ? impulse / dv : Infinity; };
+    let firstSubstepKg = null, chainKg = Infinity, substeps = 0;
+    for (let previous = null; substeps < 8; previous = chainKg) {
+      bench.scene._renderId += 1;
+      bench.scene._advancePhysicsEngineStep(1000 * SUBSTEP);
+      substeps += 1;
+      chainKg = reading();
+      firstSubstepKg ??= chainKg;
+      if (previous !== null && Math.abs(chainKg - previous) <= 0.02 * Math.abs(chainKg)) break;
+    }
     return {
       moduleId, pose, normal, impulseNs: impulse, strikerBodyKg: bodyMass, tipFromSocketM: Vector3.Distance(point, bench.socket),
       freeKg: free > 1e-9 ? impulse / free : Infinity,
-      chainKg: after > 1e-9 ? impulse / after : Infinity,
+      chainKg, firstSubstepKg, settleSubsteps: substeps,
+      ...model,
       point: point.asArray(), normalVector: n.asArray(),
     };
   } finally { bench.dispose(); }
@@ -158,7 +192,8 @@ export async function tapProbe({ moduleId, pose = {}, normal = "edge", attribute
  * long the guard lasted. A sphere that is touched within two substeps of appearing was hung inside
  * the arm, and its row says `overlapped` rather than reporting a collision nothing swung.
  */
-export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attributes = null, guardSeconds = 1.5 }) {
+export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attributes = null, guardSeconds = 1.5,
+  releaseOnContact = false, freeStopsOnContact = false }) {
   const { runGolemBench, strokeSequence, capabilityOf, markFor } = await import("./golem-bench.mjs");
   const { GOLEM_TACTICS, STROKE_SHAPES } = await import("../../src/golem/tactics.ts");
   const kind = weaponOf(moduleId);
@@ -187,16 +222,29 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
   if (!peak) return { moduleId, massKg, touched: false };
   const centre = peak.tip.subtract(peak.blade.scale(radiusM));
   // Pass two: the same stroke into the sphere.
-  let sphere = null, strikerBody = null;
+  let sphere = null, strikerBody = null, strikeOf = null;
+  let model = null, struck = null;
+  const built = [];
+  const init = HavokPlugin.prototype.initConstraint;
+  if (releaseOnContact || freeStopsOnContact) HavokPlugin.prototype.initConstraint = function (constraint, ...rest) { built.push(constraint); return init.call(this, constraint, ...rest); };
   let state = "waiting", contacts = 0, contactSubsteps = 0, normal = null, point = null, result = null, touchedAt = null, now = 0;
   const pre = { lin: new Vector3(), ang: new Vector3(), com: new Vector3() };
   const velocityAt = (lin, ang, com, at) => lin.add(Vector3.Cross(ang, at.subtract(com)));
-  await runGolemBench({ moduleId, attributes, sequence, probe: ({ t, module }) => {
+  try { await runGolemBench({ moduleId, attributes, sequence, probe: ({ t, module }) => {
     now = t;
     if (!sphere) {
       if (t < window.hang) return;
       const scene = module.parts[0].part.mesh.getScene();
-      strikerBody = module.strikers[0].body;
+      if (releaseOnContact) {
+        // From the first contact every motor ceiling is zero and stays zero whatever the control loop
+        // writes: the stroke then arrives with the chain's momentum and no drive behind it, which is
+        // what the model computes. The constraints themselves were captured as they were built.
+        const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
+        const write = plugin.setAxisMotorMaxForce.bind(plugin);
+        plugin.setAxisMotorMaxForce = (constraint, axis, force) => write(constraint, axis, state === "waiting" ? force : 0);
+      }
+      strikeOf = module.strikers[0];
+      strikerBody = strikeOf.body;
       const mesh = MeshBuilder.CreateSphere("impact.target", { diameter: 2 * radiusM, segments: 8 }, scene);
       mesh.position.copyFrom(centre);
       sphere = new PhysicsAggregate(mesh, PhysicsShapeType.SPHERE, { mass: massKg, friction: 0.5, restitution: 0 }, scene);
@@ -209,17 +257,41 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
         contacts += 1;
         if (state === "waiting") {
           state = "touching"; touchedAt = now;
+          if (releaseOnContact) for (const constraint of built) for (const axis of AXES) {
+            try { scene.getPhysicsEngine().getPhysicsPlugin().setAxisMotorMaxForce(constraint, axis, 0); } catch { /* no motor */ }
+          }
+          // A diagnostic: every joint stop opened, so a joint that was resting on one is free too.
+          if (freeStopsOnContact) for (const constraint of built) for (const axis of AXES.slice(3)) {
+            const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
+            if (plugin.getAxisMode(constraint, axis) === PhysicsConstraintAxisLimitMode.LIMITED) plugin.setAxisMode(constraint, axis, PhysicsConstraintAxisLimitMode.FREE);
+          }
           normal = event.normal?.clone() ?? null; point = event.point?.clone() ?? null;
+          struck = event.collidedAgainst === sphere.body ? event.collider : event.collidedAgainst;
         }
       });
     }
     if (state === "waiting") {
       strikerBody.getLinearVelocityToRef(pre.lin);
       strikerBody.getAngularVelocityToRef(pre.ang);
-      pre.com.copyFrom(strikerBody.getObjectCenterWorld());
+      // From the centre of mass, which is where Havok's linear velocity belongs (`RigidStrike.centreOfMass`).
+      pre.com.copyFrom(strikeOf.centreOfMass());
       return;
     }
     if (state !== "touching") return;
+    // The model at the first contact, along the line to the sphere's centre, which is the contact
+    // normal of a sphere; the stand is whatever in the striker's joint graph the solver does not move.
+    if (!model && point) {
+      const pinned = new Set();
+      const seen = new Set([strikerBody]);
+      for (const queue = [strikerBody]; queue.length > 0;) {
+        const next = queue.pop();
+        if (next.getMotionType() !== PhysicsMotionType.DYNAMIC) pinned.add(next);
+        for (const j of jointsOf(next)) for (const other of [j.parent.body, j.child.body]) {
+          if (!seen.has(other)) { seen.add(other); queue.push(other); }
+        }
+      }
+      model = modelReadings(pinned, strikerBody, point, unit(sphere.body.transformNode.position.subtract(point)));
+    }
     // The last substep either still had the sphere in contact or it did not.
     if (contacts > 0) { contactSubsteps += 1; contacts = 0; return; }
     const sphereCentre = sphere.body.transformNode.position;
@@ -235,16 +307,22 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
     const lin = new Vector3(), ang = new Vector3();
     strikerBody.getLinearVelocityToRef(lin);
     strikerBody.getAngularVelocityToRef(ang);
-    const after = Vector3.Dot(velocityAt(lin, ang, strikerBody.getObjectCenterWorld(), at), n);
+    const after = Vector3.Dot(velocityAt(lin, ang, strikeOf.centreOfMass(), at), n);
     if (touchedAt - window.hang < 2.5 * SUBSTEP) { result = { overlapped: true, peakTipMps: peak.speed }; state = "done"; return; }
     result = { touchedAt: touchedAt - window.from, peakTipMps: peak.speed, closingMps: v, sphereDvMps: u,
       strikerAfterMps: after, contactSubsteps,
       plasticKg: v - u > 1e-6 ? massKg * u / (v - u) : Infinity,
-      restitution: v > 1e-6 ? (u - after) / v : null };
+      // The momentum the striker gave up for what the sphere took, which is the effective mass
+      // whether or not the pair stuck together.
+      momentumKg: v - after > 1e-6 ? massKg * u / (v - after) : Infinity,
+      struckPart: struck?.transformNode?.name ?? null,
+      restitution: v > 1e-6 ? (u - after) / v : null, ...(model ?? {}) };
     state = "done";
-  } });
-  return { moduleId, massKg, ...(result ?? { touched: false }) };
+  } }); } finally { HavokPlugin.prototype.initConstraint = init; }
+  return { moduleId, massKg, releaseOnContact, ...(result ?? { touched: false }) };
 }
+
+const kgText = (kg) => kg === undefined ? "--" : Number.isFinite(kg) ? kg.toFixed(2) : "inf";
 
 async function main() {
   Logger.LogLevels = Logger.ErrorLogLevel;
@@ -274,12 +352,12 @@ async function main() {
     console.log(`| ${r.moduleId} | ${r.level} | ${r.pose} | ${r.tipFromSocketM.toFixed(2)} | ${r.normal} | ${r.strikerBodyKg.toFixed(2)} | ${r.freeKg.toFixed(2)} | ${Number.isFinite(r.chainKg) ? r.chainKg.toFixed(2) : "inf"} |`);
   }
   console.log("\nStroke into a free sphere, read at separation.\n");
-  console.log("| Module | Level | Sphere kg | Peak tip m/s | Touch s | Closing m/s | Sphere dv m/s | Implied plastic kg | Restitution | Contact substeps |");
-  console.log("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
+  console.log("| Module | Level | Sphere kg | Peak tip m/s | Touch s | Closing m/s | Sphere dv m/s | Implied plastic kg | Restitution | Contact substeps | Model, stand kg | Model, floating kg | Model, own solids, floating kg |");
+  console.log("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
   for (const r of rows.filter((row) => row.kind === "stroke")) {
     if (r.overlapped) { console.log(`| ${r.moduleId} | ${r.level} | ${r.massKg} | ${r.peakTipMps.toFixed(1)} | overlapped the arm when hung | | | | | |`); continue; }
     if (r.touched === false) { console.log(`| ${r.moduleId} | ${r.level} | ${r.massKg} | no contact | | | | | | |`); continue; }
-    console.log(`| ${r.moduleId} | ${r.level} | ${r.massKg} | ${r.peakTipMps.toFixed(1)} | ${r.touchedAt.toFixed(3)} | ${r.closingMps.toFixed(2)} | ${r.sphereDvMps.toFixed(3)} | ${Number.isFinite(r.plasticKg) ? r.plasticKg.toFixed(2) : "inf"} | ${r.restitution === null ? "--" : r.restitution.toFixed(2)} | ${r.contactSubsteps} |`);
+    console.log(`| ${r.moduleId} | ${r.level} | ${r.massKg} | ${r.peakTipMps.toFixed(1)} | ${r.touchedAt.toFixed(3)} | ${r.closingMps.toFixed(2)} | ${r.sphereDvMps.toFixed(3)} | ${Number.isFinite(r.plasticKg) ? r.plasticKg.toFixed(2) : "inf"} | ${r.restitution === null ? "--" : r.restitution.toFixed(2)} | ${r.contactSubsteps} | ${kgText(r.modelPinnedKg)} | ${kgText(r.modelFloatingKg)} | ${kgText(r.modelSolidFloatingKg)} |`);
   }
 }
 

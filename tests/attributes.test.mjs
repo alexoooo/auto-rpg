@@ -53,6 +53,19 @@ import { RIBCAGE, SKELETAL_REACH, SKELETAL_WRIST, SKELETON_ARMOUR, SKELETON_BIPE
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
+import { effectiveMassAt } from "../src/body-inertia.ts";
+import { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
+import { JointActuator } from "../src/golem/joint-servo.ts";
+import { stepPair } from "../src/fighter.ts";
+
+/**
+ * What a striker arrives with at its own tip, across its own edge: the effective mass of its chain
+ * (physical contact session 05). Read on two builds in the same pose, it is the stat's reach into
+ * a blow, which no striker declares any more. On the stand, the stand's block is the base it hangs
+ * from and is pinned, since a lone arm has no trunk to float with.
+ */
+const strikeMassKg = (striker, options) =>
+  effectiveMassAt(striker.body, striker.tipPosition(), striker.edgeDirection().clone().normalize(), options);
 
 /**
  * A table where two rows are live, so the range rules can be checked before any shipped row is.
@@ -494,15 +507,16 @@ test("weight multiplies every body part's solver mass and no item's, and the car
           assert.ok(near(now, was * level), `${name} ${key}: ${was} kg went x${(now / was).toFixed(4)}`);
         }
       }
-      // What a blow arrives with. An item's striker is the item's mass; a capped socket's is the cap,
-      // which is body; a ram's is its plate plus the body behind it, and only the body share moves.
+      // What a blow arrives with: the chain behind the striker, where the body parts weigh L times
+      // what they did and the items what they did. So it never falls, never grows by more than L,
+      // and grows wherever body is coupled behind the contact.
       assert.equal(heavy.strikers.length, plain.strikers.length, name);
       for (const [i, striker] of heavy.strikers.entries()) {
-        const was = plain.strikers[i].impactMassKg;
-        const want = striker.kind === "ram" ? (was - HEAD_RAM.plateMass) * level + HEAD_RAM.plateMass
-          : striker.effectorId.endsWith(".shove") ? was * level : was;
-        if (want !== was) seen.bodyBlow += 1;
-        assert.ok(near(striker.impactMassKg, want), `${name} ${striker.effectorId}: ${was} -> ${striker.impactMassKg}, not ${want}`);
+        const was = strikeMassKg(plain.strikers[i]);
+        const now = strikeMassKg(striker);
+        assert.ok(now >= was * (1 - 1e-4) && now <= was * level * (1 + 1e-4),
+          `${name} ${striker.effectorId}: ${was} -> ${now} kg at x${level}`);
+        if (now > was * 1.01) seen.bodyBlow += 1;
       }
       // What a stroke is timed against: the arm's share of the swing inertia grows with the body and
       // the item's share does not, so an armed effector lands strictly between x1 and xL.
@@ -523,6 +537,74 @@ test("weight multiplies every body part's solver mass and no item's, and the car
       `the control: items, a cast on its floor, a cast on its load and body blows were all seen (${JSON.stringify(seen)})`);
   } finally {
     arena.dispose?.();
+  }
+});
+
+/**
+ * **The arm's torques follow its weight, and nothing else's do** (physical contact session 07). Every
+ * motor ceiling a body writes -- once at construction, or asked of a `JointActuator` on the first
+ * substeps -- read off a body at x1 and the same body at x2, in the order each was written. Each goes
+ * x1 or x2 and nothing between. The ones that go x2 are the arm's: the reach core's yaw, shoulder and
+ * elbow on a wrist or skeletal arm, the pitch hinge, and a human arm's drives. The wrist's own roll and
+ * bend, the torso, the neck and the legs stay put, and those are the control: most ceilings do not move.
+ */
+test("weight doubles the arm's joint torques at x2 and leaves every other motor ceiling alone", async () => {
+  const perArm = { wrist: 3, skeletal: 3, pitch: 1, none: 0 };
+  let built = null;
+  const write = Physics6DoFConstraint.prototype.setAxisMotorMaxForce;
+  Physics6DoFConstraint.prototype.setAxisMotorMaxForce = function (axis, force) {
+    built?.push(force);
+    return write.call(this, axis, force);
+  };
+  const asked = new Map();
+  const drive = JointActuator.prototype.drive;
+  JointActuator.prototype.drive = function (velocity, maxForce) {
+    if (!asked.has(this)) asked.set(this, maxForce);
+    return drive.call(this, velocity, maxForce);
+  };
+  try {
+    for (const { name, setup } of PLAYABLE_BUILDS) {
+      const arena = await createHeadlessArena();
+      try {
+        const world = flatSupportedWorldRegistry();
+        const make = (s, i) => {
+          built = [];
+          const golem = new Golem(arena.scene, { side: i === 0 ? "left" : "right", origin: new Vector3(0, 0, i * 8),
+            facing: i * Math.PI, setup: s, mind: idleMind(), controlPolicies: [], locomotionWorld: world });
+          const ceilings = built;
+          built = null;
+          return { golem, ceilings };
+        };
+        const plain = make(setup, 0);
+        const heavy = make(withAttributeSetting(setup, { weight: 2 }), 1);
+        asked.clear();
+        for (let i = 0; i < 4; i += 1) stepPair(plain.golem, heavy.golem, 1 / 240, i / 240);
+        const driven = (golem) => [...asked].filter(([actuator]) => actuator.tone === golem.tone).map(([, force]) => force);
+        const was = [...plain.ceilings, ...driven(plain.golem)];
+        const now = [...heavy.ceilings, ...driven(heavy.golem)];
+        assert.equal(now.length, was.length, `${name}: the same motors`);
+        const ratios = was.map((force, i) => now[i] / force);
+        assert.ok(ratios.every((r) => Math.abs(r - 1) < 1e-9 || Math.abs(r - 2) < 1e-9),
+          `${name}: every ceiling goes x1 or x2 (${ratios.map((r) => r.toFixed(3)).join(", ")})`);
+        const doubled = ratios.filter((r) => Math.abs(r - 2) < 1e-9).length;
+        assert.ok(ratios.length - doubled >= 4, `${name}: the control, the body's own motors stay put`);
+        const chains = [setup.primary?.chain, setup.secondary?.chain];
+        if (chains.every((chain) => chain === "anatomical")) {
+          // A human arm drives every joint through `TORQUES`, five or seven of them with its item.
+          assert.ok(doubled >= 10, `${name}: ${doubled} human arm ceilings doubled`);
+        } else {
+          assert.equal(doubled, chains.reduce((sum, chain) => sum + perArm[chain ?? "none"], 0),
+            `${name}: ${doubled} arm ceilings doubled`);
+        }
+        plain.golem.dispose();
+        heavy.golem.dispose();
+      } finally {
+        arena.dispose?.();
+      }
+    }
+  } finally {
+    Physics6DoFConstraint.prototype.setAxisMotorMaxForce = write;
+    JointActuator.prototype.drive = drive;
   }
 });
 
@@ -695,7 +777,10 @@ test("size scales every golem and skeleton module's body parts by s^3 in mass an
               // A second hand hangs from the companion socket, and the stand is not what was sized.
               offset: p.part.mesh.position.subtract((p.id.startsWith(`${prefix}trailing.`) ? companion : socket).world),
             })),
-            strikers: built.strikers.map((striker) => ({ kind: striker.kind, id: striker.effectorId, mass: striker.impactMassKg })),
+            strikers: built.strikers.map((striker) => ({ kind: striker.kind, id: striker.effectorId, mass: strikeMassKg(striker,
+              // A capped socket is welded to the block, so pinned it reads infinite at every size; left
+              // floating, it reads its own cap.
+              striker.effectorId.endsWith(".shove") ? {} : { pinned: new Set([stand.block.body]) }) })),
             envelope: built.envelope(),
           };
         } finally {
@@ -729,17 +814,19 @@ test("size scales every golem and skeleton module's body parts by s^3 in mass an
         assert.ok(drift < 1e-6, `${at}: sits ${drift} m from s times where it sat`);
       }
       assert.equal(big.strikers.length, plain.strikers.length, option.id);
+      // What a blow arrives with, the chain's effective mass at the tip: never lighter for being
+      // bigger, and a ram's plate and a capped socket, which have body behind them, must grow. There
+      // is no ceiling to state: an item keeps its mass and its length while the joints behind it move
+      // out, so the lever changes shape as well as size, and along a nearly straight arm the reading
+      // is as steep as it likes (a skeletal fist reads 3.46 times heavier at x1.25).
       for (const [i, striker] of big.strikers.entries()) {
         const was = plain.strikers[i].mass;
-        let want = was;
-        if (striker.kind === "ram") {
-          want = (was - HEAD_RAM.plateMass) * s ** 3 + HEAD_RAM.plateMass;
-          seen.ramBlow += 1;
-        } else if (striker.id.endsWith(".shove")) {
-          want = was * s ** 3;
-          seen.shoveBlow += 1;
+        assert.ok(striker.mass >= was * (1 - 1e-4),
+          `${option.id} ${striker.id}: ${was} -> ${striker.mass} kg at x${s}`);
+        if (striker.mass > was * 1.01) {
+          if (striker.kind === "ram") seen.ramBlow += 1;
+          if (striker.id.endsWith(".shove")) seen.shoveBlow += 1;
         }
-        assert.ok(near(striker.mass, want), `${option.id} ${striker.id}: ${was} -> ${striker.mass}, not ${want}`);
       }
       for (const [i, axis] of big.envelope.axes.entries()) {
         const was = plain.envelope.axes[i];

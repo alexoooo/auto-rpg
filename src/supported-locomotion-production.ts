@@ -17,13 +17,15 @@ import {
   type CarrierProposal,
   type HorizontalMove,
   type LocomotionFootprint,
+  type PairAllowedMoves,
   type SupportedRootAdapter,
   type VirtualCarrierConfig,
   type WorldQueryCollider,
   type WorldPoint,
 } from "./supported-locomotion-runtime.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
-import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEligibility, risingFloorS, sizeTime, stabilityCapacity, stabilityMassKg, stepSupportedLocomotionState,
+import { CONTACT_PRESS, type PressReading } from "./contact-press.ts";
+import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEligibility, risingFloorS, shoveSpecificImpulseMps, sizeTime, stabilityCapacity, stabilityMassKg, stepSupportedLocomotionState,
   SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState, type SupportedLocomotionBoundary,
   type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 /**
@@ -101,7 +103,7 @@ const STOP: LocomotionRequest = Object.freeze({
 });
 
 /**
- * A lying body is kept from starting its rise by a new *staggering* authored transfer, not a
+ * A lying body is kept from starting its rise by a new *staggering* contact transfer, not a
  * brush; a rise already under way is put down by the ledger instead (`stepSupportedLocomotionState`).
  * The ledger still
  * records every physical contact for normal supported/fallen thresholds, but treating any
@@ -112,9 +114,7 @@ const STOP: LocomotionRequest = Object.freeze({
  */
 export function recoveryHitInterrupted(events: readonly StabilityEvent[], supportedMassKg: number,
   authority: StabilityAuthority | null): boolean {
-  const freshSpecificImpulseMps = events.reduce((sum, event) => sum +
-    (event.kind === "specific-impulse" ? event.specificImpulseMps :
-      Math.hypot(...event.horizontalShoveNs) / stabilityMassKg(supportedMassKg, authority)), 0);
+  const freshSpecificImpulseMps = shoveSpecificImpulseMps(events, supportedMassKg, authority);
   const capacity = stabilityCapacity(authority);
   return freshSpecificImpulseMps >= SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity;
 }
@@ -277,6 +277,19 @@ export interface PhysicalSupportedLocomotionDiagnostic {
   readonly recoveryProgress: number | null;
 }
 
+/** What contact has done to a standing body so far, for a census (physical contact session 07). */
+export interface ContactPressDiagnostic {
+  /** Times the body was lifted off its feet: the edge into fallen with `lifted` set. */
+  readonly lifts: number;
+  /** Seconds it spent pushed past its grip. */
+  readonly pushedS: number;
+  /** The last window's upward force, newtons, and the body's weight to compare it with. */
+  readonly liftN: number;
+  readonly weightN: number;
+  /** The slide's speed now, m/s. */
+  readonly slideMps: number;
+}
+
 /** One boundary's rise gate, read by `PhysicalSupportedLocomotionPort.riseGate`. */
 export type RiseAbort = "blow" | "refused" | "deadline";
 
@@ -337,6 +350,11 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   private riseAbort: RiseAbort | null = null;
   private anatomyReleased = false;
   private releaseReason: string | null = null;
+  /** The press read before this boundary, and the pair's push from the last resolution. */
+  private press: PressReading | null = null;
+  private pairPush: Readonly<{ x: number; z: number }> | null = null;
+  private lifted = false;
+  private readonly contactTally = { lifts: 0, pushedS: 0, liftN: 0 };
   private lastRiseGate: { readonly prior: SupportedLocomotionState;
     readonly boundary: SupportedLocomotionBoundary; readonly pairOccupancyClear: boolean;
     readonly withinAcceleration: boolean; readonly recoverySweepClear: boolean | null;
@@ -355,7 +373,70 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     this.motor = new SupportedRootMotor(`${options.id}.root`, options.root, this.census);
   }
 
+  /** Its whole weight's mass, as the carrier holds it up, kg. */
+  get supportedMassKg(): number { return this.options.supportedMassKg; }
+
+  /** What the other bodies pressed on this one with over the press's window; read by the next boundary. */
+  applyContactPress(reading: PressReading): void { this.press = reading; }
+
+  /** What the other body's trunk pushes with, newtons, from the last pair resolution; null for none. */
+  notePairPush(push: Readonly<{ x: number; z: number }> | null): void { this.pairPush = push; }
+
+  contactPress(): ContactPressDiagnostic {
+    const slide = this.carrier.slide;
+    return Object.freeze({ lifts: this.contactTally.lifts, pushedS: this.contactTally.pushedS,
+      liftN: this.contactTally.liftN, weightN: this.options.supportedMassKg * CONTACT_PRESS.GRAVITY_MPS2,
+      slideMps: Math.hypot(slide.x, slide.z) });
+  }
+
+  /**
+   * **Contact lifts and pushes a standing body** (physical contact session 07). Before the boundary,
+   * so what it files is read by the ledger this step.
+   *
+   * - **Lifted**: the other bodies held this one up with more than its weight over the press's window
+   *   (`ContactPress`). The boundary sets it down as fallen, and the release keeps the velocity the
+   *   carrier last drove the root at.
+   * - **Pushed**: a horizontal force past the feet's grip, `GRIP * W`. The force is the other body's
+   *   trunk if the two footprints met on the last resolution -- what its feet can push with,
+   *   `GRIP * W_other` along the contact -- and otherwise what its parts pressed with, each capped at
+   *   the same grip by `ContactPress`. Whatever is past this body's grip is the excess: it slides the
+   *   carrier at `excess / M` and files `excess * dt` to the ledger, which is the stagger the plan
+   *   asked for. With no excess the feet brake the slide at `GRIP * g`. So two bodies of one weight
+   *   never push each other: each pushes with exactly the grip the other holds with.
+   */
+  private readContact(): void {
+    const reading = this.press;
+    const pair = this.pairPush;
+    this.press = null;
+    this.pairPush = null;
+    this.lifted = false;
+    const state = this.supportState.state;
+    if ((state !== "supported" && state !== "staggered") || this.options.root.sample().released) return;
+    const dt = this.staged.snapshot().committed?.dt ?? 1 / 240;
+    const massKg = this.options.supportedMassKg;
+    const weightN = massKg * CONTACT_PRESS.GRAVITY_MPS2;
+    if (reading) {
+      this.contactTally.liftN = reading.liftN;
+      // Past the weight by more than rounding: an equal body's press is capped at exactly this.
+      this.lifted = reading.liftN > weightN * (1 + CONTACT_PRESS.MARGIN);
+    }
+    const fx = pair ? pair.x : reading?.pushX ?? 0;
+    const fz = pair ? pair.z : reading?.pushZ ?? 0;
+    const force = Math.hypot(fx, fz);
+    const grip = CONTACT_PRESS.GRIP * weightN;
+    if (force > grip * (1 + CONTACT_PRESS.MARGIN)) {
+      const share = 1 - grip / force;
+      const ex = fx * share, ez = fz * share;
+      this.staged.queueStabilityEvent({ horizontalShoveNs: [ex * dt, ez * dt] });
+      this.carrier.slideBy(ex / massKg * dt, ez / massKg * dt);
+      this.contactTally.pushedS += dt;
+    } else {
+      this.carrier.brakeSlide(CONTACT_PRESS.GRIP * CONTACT_PRESS.GRAVITY_MPS2 * dt);
+    }
+  }
+
   beginControlStep(): void {
+    this.readContact();
     this.staged.beginControlStep();
     this.sequence += 1;
     const authority = this.activeAuthority ?? this.options.authority();
@@ -409,11 +490,12 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       dt: this.staged.snapshot().committed?.dt ?? 1 / 240,
       safeBoundarySequence: this.sequence,
       authority, liveSupport, postureSupported, supportEvidence: evidence,
-      supportedMassKg: this.options.supportedMassKg, authoredShoves: shoves,
+      supportedMassKg: this.options.supportedMassKg, contactShoves: shoves,
       recoveryGroundAvailable, occupancyClear,
       hitInterrupted: recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
       fallSettled: this.options.fallSettled?.() ?? true,
       risingDurationS,
+      lifted: this.lifted,
     };
     this.supportState = stepSupportedLocomotionState(prior, boundary);
     // Kept only while a body is down, and read by nothing but `riseGate`: what the rise gate was
@@ -437,7 +519,9 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         // this boundary, so the body-less carrier must discard its prior velocity too; otherwise
         // diagnostics report several frames of phantom allowed motion while the body is fallen.
         this.carrier.reset(this.carrier.state, this.carrier.state.yaw);
-        this.releaseReason = !liveSupport ? "support chain is not live"
+        if (this.lifted) this.contactTally.lifts += 1;
+        this.releaseReason = this.lifted ? "lifted by contact"
+          : !liveSupport ? "support chain is not live"
           : !postureSupported ? "supported posture was lost"
             : evidence.length === 0 ? "fresh standable support is unavailable"
               : "stability threshold was exceeded";
@@ -592,7 +676,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       // carrier missing any member of its exact authored support set stops on this same pair
       // boundary, while retaining the state-machine grace that lets a physical replant recover.
       this.carrier.reset(this.carrier.state, this.carrier.state.yaw);
-      return this.carrier.propose(STOP, dt);
+      return this.carrier.propose(STOP, dt, this.options.supportedMassKg);
     }
     // **A rising carrier stands still.** The rise owns the root and drives it to its fixed target, so
     // a carrier that walked on the mind's request would leave the body it describes: the other body
@@ -606,7 +690,10 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const held = this.supportState.state === "fallen" || this.supportState.state === "rising";
     const request = held || this.options.root.sample().released
       ? STOP : this.staged.sample().request ?? STOP;
-    return this.carrier.propose(request, dt);
+    // Its mass is what it resists another carrier with: where two footprints meet, each gives way in
+    // proportion to the other's mass (`resolveCarrierPair`), so a light body walking into a heavy
+    // one is the one stopped.
+    return this.carrier.propose(request, dt, this.options.supportedMassKg);
   }
 
   blocksOpponentFootprint(): boolean {
@@ -715,7 +802,10 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       // STOP proposal, particularly after a collision has tilted an ANIMATED
       // body. `resolution.allowed` remains null when no request existed; this
       // branch maintains the body without inventing a locomotion command.
-      const velocity = { x: state.velocityX, y: 0, z: state.velocityZ };
+      // The slide with the gait, so the root is driven at what the carrier actually moved at, and a
+      // body that falls while pushed keeps going the way it was pushed.
+      const slide = this.carrier.slide;
+      const velocity = { x: state.velocityX + slide.x, y: 0, z: state.velocityZ + slide.z };
       if (this.options.root.sample().motionType === "animated" && this.options.driveAnimatedRoot) {
         this.options.driveAnimatedRoot({ x: state.x, y: state.y, z: state.z }, velocity, state.yaw, dt);
       } else {
@@ -758,9 +848,21 @@ export function resolvePhysicalSupportedPair(
     return Object.freeze({ x: proposal.displacement.x * fraction,
       z: proposal.displacement.z * fraction, yaw: proposal.displacement.yaw });
   };
-  const allowed = left.blocksOpponentFootprint() && right.blocksOpponentFootprint()
+  const allowed: PairAllowedMoves = left.blocksOpponentFootprint() && right.blocksOpponentFootprint()
     ? resolveCarrierPair(leftProposal, rightProposal, left.registry)
     : Object.freeze({ left: independentlyAllowed(leftProposal), right: independentlyAllowed(rightProposal) });
+  // Where the footprints met, a body still walking in pushes the other with what its feet hold,
+  // `GRIP * W`, along the contact (physical contact session 07). The other reads it at its next
+  // boundary. Keyframed trunks report no contact to the solver, so this is the only way one body
+  // walks into another.
+  const contact = allowed.contact ?? null;
+  const pushOf = (pusher: PhysicalSupportedLocomotionPort, closing: number, sign: number) => {
+    if (!contact || !(closing > 0)) return null;
+    const push = CONTACT_PRESS.GRIP * pusher.supportedMassKg * CONTACT_PRESS.GRAVITY_MPS2 * sign;
+    return Object.freeze({ x: contact.nx * push, z: contact.nz * push });
+  };
+  left.notePairPush(pushOf(right, contact?.rightClosing ?? 0, -1));
+  right.notePairPush(pushOf(left, contact?.leftClosing ?? 0, 1));
   left.commitPhysical(leftProposal, allowed.left, dt);
   right.commitPhysical(rightProposal, allowed.right, dt);
   return true;

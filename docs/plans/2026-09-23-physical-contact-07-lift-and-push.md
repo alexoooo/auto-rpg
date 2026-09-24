@@ -86,3 +86,37 @@ On the Node lift bench, against the x1 stone body's 2425 N at `STONE_BODY_DENSIT
 - The giant lifting and launching a x1 from below.
 - A giant pushing a x1 back.
 - Two x1 bodies pressing into each other and neither lifting.
+
+## What landed, 2026-09-24
+
+Every figure is in `docs/analysis/2026-09-23-attribute-measurements.md` "Physical contact 07:
+contact force lifts and pushes", with its harness. Two commits, 733bf12 and 4df55cc. What differs
+from the plan above:
+
+- **Torque follows weight, not length.** The lift split showed that weight and arm speed, not
+  length, were what cut a max arm's lift. The reach core's yaw, shoulder and elbow torques, the pitch
+  hinge and the human arm's drives now follow the weight stat, and the max giant's reach blade holds
+  4250 N where it held 781. Arm speed also cuts lift, which is not explained and not chased.
+- **Change 1 is `ContactPress`** (`src/contact-press.ts`). Every part's collision events from
+  another body's parts are averaged over 0.1 s per source body.
+  - A contact's first 50 ms is a blow, not a press, and a contact the press reads is not filed again
+    by `Combat` (change 5).
+  - A source that is fallen or rising presses nothing: a leg set down on a heap read 3.64 W upward.
+- **The solver's reading failed, so each source is capped.**
+  - Sideways at its own grip (0.55 W), because a keyframed carrier pushed at up to 9.3 times an x1
+    body's grip.
+  - Upward at its own weight, because four x1 bodies in eight bouts read as lifted by limbs squeezed
+    between two keyframes, at up to 2.09 W, where a whole x1 arm holds 0.80 W at most.
+  - Two bodies of one weight can therefore never push or lift each other. That replaces the plan's
+    "two x1 arms lifting is the rule working".
+- **Change 4 is a grip rule, not a mass split.** Keyframed trunk against keyframed trunk reports no
+  contact (0 events in 16 bouts), so the pair resolver decides the push. A closing body pushes the
+  other with its own grip, each carrier resists with its mass, and an equal walker never shoves. The
+  dungeon's group resolver has no pair push: a body walked into there is stopped, not shoved.
+- **A lift tips rather than launches**: 7 lifts from the max giant ended with a peak upward speed of
+  0.14 to 0.63 m/s and a rise of 9 to 37 mm. x1 against x1 lifted and pushed nothing in 16 bouts.
+- **Stone falls less, 4.14 [3.86, 4.42] a bout against 4.95**, out of session 01's band, because a
+  sustained blade no longer re-files its momentum every step. Session 08 replaces the ledger's lines.
+- **Against the giant, 84.1 % of knockdowns are repeats**, in chains of up to 20, and the x1 is down
+  three quarters of a bout. It is on session 10's eye list, with no authored cure.
+- The sever fixture in `tests/research-physical.test.mjs` moved back to seeds 50 and 51.

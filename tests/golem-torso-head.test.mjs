@@ -594,17 +594,18 @@ async function hammerBlow(torsoId, aim = "edge") {
     // records for an arrow (linear velocity 38.4 against a true 48.0). An animated body is
     // infinitely heavy to the solver, so it arrives at exactly the speed it was given and the
     // plated core's extra 97 kg cannot slow it down.
-    mass: 0,
+    //
+    // It still carries the Warrior blade's own mass, because what this fixture is about is armour
+    // and not the weapon, and 1.35 kg is the mass every anchoring constant in `CONFIG.combat` was
+    // derived at. `Combat` reads what a blow arrives with off the striker's body (physical contact
+    // session 05), and Havok keeps an animated body's mass for exactly that question.
+    mass: CONFIG.sword.mass,
     motionType: PhysicsMotionType.ANIMATED,
     layer: LAYER.RIGHT_SWORD,
     collidesWith: COLLIDES.RIGHT_SWORD,
   });
   const striker = new RigidStrike(hammer, {
-    // The Warrior blade's own mass, because what this fixture is about is armour and not the
-    // weapon: a striker has had to publish one since a blow became worth the energy it carries,
-    // and 1.35 kg is the mass every anchoring constant in `CONFIG.combat` was derived at.
     kind: "sword", effectorId: "armour.hammer", hand: null, tipAlong: 0.25,
-    impactMassKg: CONFIG.sword.mass,
   });
 
   const limb = {
@@ -710,7 +711,7 @@ test("the plated torso takes less of the same scored blow than the plain one", a
 
   // And the same blow through `src/scoring.ts` on its own, with no physics anywhere, agrees --
   // so what the arena does and what the pure rule says are one thing.
-  const contact = { closingSpeed: a.closingSpeed, strikerMassKg: CONFIG.sword.mass,
+  const contact = { closingSpeed: a.closingSpeed, strikerMassKg: a.strikerMassKg,
     partMassKg: a.partMassKg, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
   const raw = scoreHit(contact, "sword").damage;
   // A part in ten million, which is the width of the arena's own answer rather than a slack
@@ -853,7 +854,9 @@ async function lungeAtPost(headId, top, fire = true) {
 
 // Node lungeAtPost harness, 2026-09-21: the old 1.44 m post has zero contacts.
 // At 1.61 m it has 660 contacts and one 12.54 J blow at 2.05 m/s; no scoring floor changes.
-test("the ram's lunge scores on a post and the plain head scores nothing on the same one", async () => {
+// 2026-09-24, physical contact session 05: 664 contacts and one 11.16 J contact at 1.84 m/s, under
+// the 29.67 J blunt floor. See the ram's energy assertion below.
+test("the ram's lunge is filed on a post and the plain head files nothing on the same one", async () => {
   const ram = await lungeAtPost("head.ram", 1.61);
   const plain = await lungeAtPost("head.plain", 1.61);
 
@@ -862,43 +865,44 @@ test("the ram's lunge scores on a post and the plain head scores nothing on the 
   // this test would fail rather than pass quietly, which is what makes the comparison worth
   // making.
   assert.ok(ram.contacts > 0, "the ram never reached the post; the fixture is out of range");
-  const wounds = ram.reports.filter((report) => report.damage > 0);
-  // The message carries the blow it did land, because "scored nothing" has two causes that want
-  // opposite fixes: a plate that never arrived, and a plate that arrived under `crushFloorJ` and
-  // took the shove path. The energy and the speed tell them apart at a glance.
-  const arrived = ram.reports.reduce(
-    (a, b) => (a === null || b.energyJ > a.energyJ ? b : a), null);
-  assert.ok(wounds.length > 0,
-    `the ram lunged and scored nothing: ${ram.contacts} contacts, ${ram.reports.length} reports, `
-    + `the best of them ${arrived ? `${arrived.energyJ.toFixed(2)} J at `
-      + `${arrived.closingSpeed.toFixed(2)} m/s on ${arrived.partMassKg} kg` : "none"}, `
-    + `against a blunt floor of ${CONFIG.combat.crushFloorJ} J`);
-  const best = wounds.reduce((a, b) => (b.damage > a.damage ? b : a));
+  // The message carries what did arrive, because "filed nothing" has two causes that want opposite
+  // fixes: a plate that never arrived, and a plate that arrived and was never offered to `Combat`.
+  assert.ok(ram.reports.length > 0,
+    `the ram lunged and filed nothing: ${ram.contacts} contacts, no reports`);
+  const best = ram.reports.reduce((a, b) => (b.energyJ > a.energyJ ? b : a));
   // The blunt row, which is now the club's row and every other blunt row as well. It had two
   // speeds of its own until 2026-09-06, because a floor in metres per second is a statement
   // about the mass a hand can accelerate and a head on a hinge arrives slower and far heavier;
-  // in joules there is one floor and 74 kg says the rest.
+  // in joules there is one floor and the mass behind the plate says the rest.
   assert.equal(best.weapon, "ram", "a ram plate bites with the mass behind it");
-  assert.equal(best.kind, "crush");
   assert.equal(best.key, "post");
   assert.equal(best.severed, false, "a head-butt does not take a limb off");
   // **The post's own mass is half of what the blow is worth, and that is the point of the row.**
-  // The post is a free 12 kg body, so the reduced mass is 74 x 12 / 86 = 10.33 kg and not the
-  // plate's 74: a 74 kg head into something a sixth of its weight spends most of the lunge
-  // pushing the post away rather than into it. That is what `impactEnergyJ` is for, and it is
-  // why this assertion reads the post's mass out of the report rather than trusting the fixture
-  // -- if the post were ever built static, Havok would report 0 for it, `Combat` would read that
-  // as immovable and the reduced mass would jump to the whole 74, which is a different test.
-  assert.equal(best.partMassKg, 12, "the post is a free body and its mass is half the arithmetic");
-  const reduced = (HEAD_RAM.impactMassKg * 12) / (HEAD_RAM.impactMassKg + 12);
+  // The post is a free 12 kg body struck off its centre, so it answers with at most its 12 kg (it
+  // turns as well as moving), and the reduced mass is m x p / (m + p) and never more than that,
+  // whatever the head, neck and trunk put behind the plate: a heavy head into something far
+  // lighter spends most of the lunge pushing the post away rather than into it. That is what
+  // `impactEnergyJ` is for, and it is why this assertion reads the post's mass out of the report
+  // rather than trusting the fixture -- if the post were ever built static, Havok would report 0
+  // for it, `Combat` would read that as immovable and the reduced mass would jump to the whole
+  // of the striker's, which is a different test.
+  assert.ok(best.partMassKg <= 12 * (1 + 1e-6) && best.partMassKg > 6,
+    `the post is a free body and its mass is half the arithmetic: ${best.partMassKg} kg`);
+  assert.ok(best.strikerMassKg > HEAD_RAM.plateMass,
+    `the plate arrives with the neck behind it: ${best.strikerMassKg} kg against its own ${HEAD_RAM.plateMass}`);
+  const reduced = (best.strikerMassKg * best.partMassKg) / (best.strikerMassKg + best.partMassKg);
   assert.ok(Math.abs(best.energyJ - 0.5 * reduced * best.closingSpeed ** 2) < 1e-6,
     `the report's energy is not the reduced-mass one: ${best.energyJ}`);
-  // At the 1.3 to 1.8 m/s a lunge reaches, 10.33 kg is 8.7 to 16.7 J against `crushFloorJ`'s
-  // 7.84 -- over the floor, and still under a fifth of a point of wound, because
-  // `crushJoulesPerDamage` charges 115 J for one. The lever that would make a lunge hurt is
-  // `HEAD_RAM.lunge.driveTorque` and not a scoring row; Session 03 of the style set reports it.
-  assert.ok(best.energyJ >= CONFIG.combat.crushFloorJ,
-    `the scoring blow arrived with ${best.energyJ.toFixed(1)} J, under the blunt floor`);
+  // **At the 1.3 to 1.8 m/s a lunge reaches, that is under `crushFloorJ` on a post this light, so
+  // the lunge is a shove.** It was over the floor until physical contact session 05: the ram had
+  // always declared the neck and trunk behind its plate, and the effective mass reads about what it
+  // declared, while every arm put its chain behind its blow for the first time and the blunt price
+  // and floor rose 3.786 times to hold a stone arm's pace. The ram still wounds in a bout, where
+  // the carrier walks it in and what it meets is a body rather than a free post. The lever that
+  // would make a lunge hurt on its own is `HEAD_RAM.lunge.driveTorque`, not a scoring row.
+  assert.equal(best.kind, "slap", `the lunge arrived with ${best.energyJ.toFixed(1)} J`);
+  assert.ok(best.energyJ < CONFIG.combat.crushFloorJ && best.energyJ > CONFIG.combat.crushFloorJ / 4,
+    `the lunge arrived with ${best.energyJ.toFixed(1)} J against a floor of ${CONFIG.combat.crushFloorJ}`);
 
   assert.deepEqual(plain.reports, [],
     "a plain head has no striker, so `Combat` watches nothing and files nothing");
@@ -915,7 +919,7 @@ test("the ram's lunge scores on a post and the plain head scores nothing on the 
  * per body. The fixture is the same post, raised to where the ram's guard rests on it, and the
  * one thing that changes is whether the lunge is ever fired.
  */
-test("a ram plate touched outside a lunge scores nothing, and a lunge scores once", async () => {
+test("a ram plate touched outside a lunge files nothing, and a lunge files once", async () => {
   const guard = await lungeAtPost("head.ram", 1.72, false);
   assert.ok(guard.contacts > 0,
     "the raised post is meant to be inside the ram head's own guard and was not touched");
@@ -931,7 +935,7 @@ test("a ram plate touched outside a lunge scores nothing, and a lunge scores onc
     `the plate met the post ${lunge.contacts} time(s): one-blow-per-lunge has nothing to refuse`);
   assert.equal(lunge.reports.length, 1,
     `one lunge, ${lunge.reports.length} report(s) over ${lunge.contacts} contact(s), ${claimed} refused`);
-  assert.ok(lunge.reports[0].damage > 0, "the one report was not a blow");
+  assert.equal(lunge.reports[0].weapon, "ram", "the one report was not the lunge's");
   assert.ok(claimed > 0, "every contact after the first is refused as the module's own");
 });
 

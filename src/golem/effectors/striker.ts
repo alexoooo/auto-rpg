@@ -35,7 +35,6 @@ export class RigidStrike implements Striking {
   readonly effectorId: string;
   readonly hand: HandName | null;
   readonly body: Part["body"];
-  readonly impactMassKg: number;
   /**
    * Every golem striker bills a part once a stroke. Not an option, on purpose.
    *
@@ -56,9 +55,16 @@ export class RigidStrike implements Striking {
   private readonly part: Part;
   /** How far the business end is from the body's own centre, along local +Y. */
   private readonly tipAlong: number;
+  /**
+   * Where the body balances in its own frame -- the point Havok's linear velocity belongs to. Read
+   * once here: a mace and a maul carry theirs toward the head, and a part's balance point does not
+   * move when a weight scales its mass.
+   */
+  private readonly localCentre: Vector3;
   private severed = false;
   private readonly scratch = {
     rel: new Vector3(),
+    centre: new Vector3(),
     velocity: new Vector3(),
     tip: new Vector3(),
     edge: new Vector3(),
@@ -71,17 +77,6 @@ export class RigidStrike implements Striking {
     readonly effectorId: string;
     readonly hand: HandName | null;
     readonly tipAlong: number;
-    /**
-     * What arrives behind the contact, kilograms. Required, for every kind.
-     *
-     * The terminal's number and not the body's: a body handle knows its own mass and nothing
-     * about what is welded, hinged or leaning behind it, and a striker that guessed would score
-     * a ram plate as 21 kg of bronze with nothing pushing it. It was optional until 2026-09-06,
-     * when a blow became worth the energy that arrives and there stopped being a reference mass
-     * to omit it in favour of -- a blade publishes 1.30 and a bead 0.57 now, where before only
-     * the three heavy terminals bothered.
-     */
-    readonly impactMassKg: number;
     /**
      * Which contacts are blows, for a striker that is only sometimes striking.
      *
@@ -103,10 +98,10 @@ export class RigidStrike implements Striking {
     this.kind = options.kind;
     this.effectorId = options.effectorId;
     this.hand = options.hand;
-    this.impactMassKg = options.impactMassKg;
     this.gate = options.gate ?? null;
     this.tipAlong = options.tipAlong;
     this.body = part.body;
+    this.localCentre = part.body.getMassProperties().centerOfMass?.clone() ?? Vector3.Zero();
     // Havok emits no per-body contacts until this is enabled. `Combat` scores from them and
     // the bench's contact census -- which owns both tip-speed exclusion windows -- counts them.
     this.body.setCollisionCallbackEnabled(true);
@@ -129,10 +124,27 @@ export class RigidStrike implements Striking {
     this.severed = true;
   }
 
+  /**
+   * The body's centre of mass in world terms, from `mesh.position` and `mesh.rotationQuaternion`.
+   *
+   * **Not `getObjectCenterWorld()`**, which is the transform node's position and so the body's
+   * geometric centre. Havok's linear velocity is the velocity of the centre of mass, so `linear +
+   * w x r` has to take `r` from there: measured from the geometric centre, a mace's head read
+   * `w x 0.104 m` wrong, and a tap on its edge read 0.875 kg where the rigid-body formula and the
+   * reading from the centre of mass agree on 1.07 (physical contact session 05, the Node impact
+   * bench).
+   */
+  centreOfMass(): Vector3 {
+    const mesh = this.part.mesh;
+    return this.localCentre
+      .applyRotationQuaternionToRef(mesh.rotationQuaternion ?? Quaternion.Identity(), this.scratch.centre)
+      .addInPlace(mesh.position);
+  }
+
   velocityAt(world: Vector3): Vector3 {
     const linear = this.body.getLinearVelocity();
     const angular = this.body.getAngularVelocity();
-    this.scratch.rel.copyFrom(world).subtractInPlace(this.body.getObjectCenterWorld());
+    this.scratch.rel.copyFrom(world).subtractInPlace(this.centreOfMass());
     Vector3.CrossToRef(angular, this.scratch.rel, this.scratch.velocity);
     return this.scratch.velocity.addInPlace(linear);
   }

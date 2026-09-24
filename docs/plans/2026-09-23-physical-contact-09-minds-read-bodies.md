@@ -55,3 +55,16 @@ item-sourced armour or arm speed later reach a mind with no change.
   moves 0.99 kg plastically on the impact bench. Stand-off from the body's own reach is this
   session's subject, so this cell is its to close.
 - **The skeleton cannot defeat an idle giant outright** (0 % before the drain, 100 % with it).
+
+## Input from session 05
+
+- **The human's pace roughly halved.** Its arm is light, so at the median contact what arrives
+  behind its blade is 0.74 of what the blade used to declare. At one price across bodies, its
+  sword's summed damage on the same contacts is x0.51 (Node harness, offline re-score).
+  - Against an idle human over 15 s it wounds nothing on three of four seed pairs.
+  - The wound test moved from seeds 42/77 to 44/79.
+  - It still wounds on 76 % of the edge contacts that wounded before, so its stroke is intact.
+    The cell is still a stand-off problem and still this session's.
+- **In a bout it deals 0.06 damage a body, against 0.10** (the x1 mirror, Node harness, research
+  runner, cap 150 s, 192 blocks). Its contacts held at 303.5 a bout, and every bout still runs to
+  the drain.

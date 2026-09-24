@@ -238,10 +238,12 @@ export function buildArmCore(
 ): ArmCore {
   // The body's arm-speed stat, on the anchor's rate: read every step below, and published as the
   // reach axis's rate, so this per-build copy is the only table the core may see. And its weight
-  // stat, on the three links' masses (`withWeight`). Then every field at its size stat by its law
-  // (`withSize`); a terminal's narrowing arrives already at the body's size (`effectorModule`).
+  // stat, on the three links' masses and on the three torques that move them (`withWeight` says
+  // why the torques follow). Then every field at its size stat by its law (`withSize`); a
+  // terminal's narrowing arrives already at the body's size (`effectorModule`).
   const R = withSize(withWeight(withArmSpeed(reachTable, ["anchorRate"], attributeOf(ctx, "armSpeed")),
-    ["collarMass", "upperMass", "foreMass"], attributeOf(ctx, "weight")),
+    ["collarMass", "upperMass", "foreMass", "yawTorque", "shoulderTorque", "elbowTorque"],
+    attributeOf(ctx, "weight")),
   CHAIN_REACH_SIZE, attributeOf(ctx, "size"));
   // **The terminal narrows and the chain clamps**, and a narrowing can only ever *tighten*: a
   // floor takes the larger of the two and a ceiling the smaller, so a terminal that stated a

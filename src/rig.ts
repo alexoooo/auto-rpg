@@ -14,6 +14,7 @@ import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import type { PhysicsShape } from "@babylonjs/core/Physics/v2/physicsShape.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
 import type { Scene } from "@babylonjs/core/scene.js";
+import type { PrimitiveShape } from "./golem/effective-mass.ts";
 
 /** A visible mesh and the rigid body that drives it, kept together. */
 export interface Part {
@@ -40,11 +41,72 @@ export interface PartOptions {
   centerOfMass?: Vector3;
 }
 
+/**
+ * What a part is made of, for a reader that needs the body rather than the solver: its shape in its
+ * own frame, the mass it was built with and where it balances (physical contact session 05).
+ *
+ * **Recorded here because this is where the geometry is known**, and nowhere downstream is: a
+ * `PhysicsShape` hands back no dimensions, and the inertia Havok carries is the one the chains floor
+ * for the solver's sake (`jointInertiaFloor`, `castToCarried`, the human arm's `inertiaFloor`),
+ * which is conditioning and not body. `effectiveMassAt` in `src/body-inertia.ts` reads it.
+ */
+export interface PartBody {
+  readonly part: Part;
+  readonly shape: PrimitiveShape;
+  readonly massKg: number;
+  /** Where the part balances in its own frame, or null for its geometric centre. */
+  readonly centerOfMass: Vector3 | null;
+}
+
+const PART_BODIES = new WeakMap<PhysicsBody, PartBody>();
+
+/**
+ * Record a part built outside the builders below, such as the human shield's hull, which is its
+ * nearest box. Every builder here records its own.
+ */
+export function registerPartBody(entry: PartBody): void {
+  PART_BODIES.set(entry.part.body, entry);
+}
+
+/** The recorded body of a part, or null for a body no builder here made (the ground, a post). */
+export const partBodyOf = (body: PhysicsBody): PartBody | null => PART_BODIES.get(body) ?? null;
+
+/**
+ * A joint as `joint` built it: which part it hangs from which, where, and which angular axes it
+ * leaves free, in the child's constraint frame (`axisChild` is its X, `perpChild` its Y and their
+ * cross product its Z, which is Havok's convention for a 6DoF frame).
+ */
+export interface PartJoint {
+  readonly constraint: Physics6DoFConstraint;
+  readonly parent: Part;
+  readonly child: Part;
+  readonly pivotChild: Vector3;
+  readonly axisChild: Vector3;
+  readonly perpChild: Vector3;
+  readonly free: Readonly<Record<"x" | "y" | "z", boolean>>;
+}
+
+const PART_JOINTS = new WeakMap<PhysicsBody, PartJoint[]>();
+
+/**
+ * The live joints a body is in, from either end. A joint whose constraint has been disposed -- a
+ * severed limb, a dropped weapon -- has no plugin data left and is not live; it is dropped here the
+ * first time it is asked about.
+ */
+export function jointsOf(body: PhysicsBody): readonly PartJoint[] {
+  const all = PART_JOINTS.get(body);
+  if (!all) return [];
+  const live = all.filter((entry) => (entry.constraint as unknown as { _pluginData?: unknown[] })._pluginData?.length);
+  if (live.length !== all.length) PART_JOINTS.set(body, live);
+  return live;
+}
+
 function finish(
   scene: Scene,
   mesh: Mesh,
   shapeType: PhysicsShapeType,
   opts: PartOptions,
+  shape: PrimitiveShape,
 ): Part {
   mesh.position.copyFrom(opts.position);
   if (opts.visible === false) mesh.isVisible = false;
@@ -71,7 +133,10 @@ function finish(
     aggregate.body.setMassProperties({ ...props, centerOfMass: opts.centerOfMass });
   }
 
-  return { name: opts.name, mesh, body: aggregate.body, shape: aggregate.shape };
+  const part = { name: opts.name, mesh, body: aggregate.body, shape: aggregate.shape };
+  PART_BODIES.set(aggregate.body, { part, shape, massKg: opts.mass,
+    centerOfMass: opts.centerOfMass ? opts.centerOfMass.clone() : null });
+  return part;
 }
 
 /** A limb segment. `height` is the full tip-to-tip length, along local Y. */
@@ -84,7 +149,8 @@ export function capsulePart(
     { height: opts.height, radius: opts.radius, tessellation: 12, subdivisions: 1 },
     scene,
   );
-  return finish(scene, mesh, PhysicsShapeType.CAPSULE, opts);
+  return finish(scene, mesh, PhysicsShapeType.CAPSULE, opts,
+    { kind: "capsule", height: opts.height, radius: opts.radius });
 }
 
 /** A control frame or a small round thing. */
@@ -97,7 +163,7 @@ export function spherePart(
     { diameter: opts.diameter, segments: 6 },
     scene,
   );
-  return finish(scene, mesh, PhysicsShapeType.SPHERE, opts);
+  return finish(scene, mesh, PhysicsShapeType.SPHERE, opts, { kind: "sphere", radius: opts.diameter / 2 });
 }
 
 export function boxPart(
@@ -109,7 +175,8 @@ export function boxPart(
     { width: opts.size.x, height: opts.size.y, depth: opts.size.z },
     scene,
   );
-  return finish(scene, mesh, PhysicsShapeType.BOX, opts);
+  return finish(scene, mesh, PhysicsShapeType.BOX, opts,
+    { kind: "box", size: [opts.size.x, opts.size.y, opts.size.z] });
 }
 
 /**
@@ -132,7 +199,8 @@ export function cylinderPart(
     { height: opts.height, diameter: opts.diameter, tessellation: opts.tessellation ?? 24 },
     scene,
   );
-  return finish(scene, mesh, PhysicsShapeType.CYLINDER, opts);
+  return finish(scene, mesh, PhysicsShapeType.CYLINDER, opts,
+    { kind: "cylinder", height: opts.height, radius: opts.diameter / 2 });
 }
 
 const LINEAR = [
@@ -151,6 +219,9 @@ const locked = (axis: PhysicsConstraintAxis): Physics6DoFLimit => ({
   minLimit: 0,
   maxLimit: 0,
 });
+
+/** Whether a swing range leaves its axis free: a zero-width one is locked, exactly as `joint` sets it. */
+const swings = (range?: { min: number; max: number }): boolean => !!range && !(range.min === 0 && range.max === 0);
 
 /**
  * A joint with every axis locked except the angular ones named in `swing`.
@@ -210,6 +281,16 @@ export function joint(
   );
 
   parent.body.addConstraint(child.body, constraint);
+  const entry: PartJoint = { constraint, parent, child, pivotChild: opts.pivotChild.clone(),
+    axisChild: (opts.axisChild ?? new Vector3(1, 0, 0)).clone(),
+    perpChild: (opts.perpChild ?? new Vector3(0, 1, 0)).clone(),
+    // A zero-width swing is locked below, so it is not free either.
+    free: { x: swings(opts.swing.x), y: swings(opts.swing.y), z: swings(opts.swing.z) } };
+  for (const body of [parent.body, child.body]) {
+    const list = PART_JOINTS.get(body);
+    if (list) list.push(entry);
+    else PART_JOINTS.set(body, [entry]);
+  }
   for (const axis of [...LINEAR, ...ANGULAR]) {
     const range = limits.find((limit) => limit.axis === axis);
     if (range && range.minLimit === 0 && range.maxLimit === 0) {

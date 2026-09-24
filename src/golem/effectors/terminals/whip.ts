@@ -173,7 +173,6 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
     // The weight first: it is the business end, so the tip is read from it.
     const strikers: RigidStrike[] = [new RigidStrike(weight, {
       kind: "whip",
-      impactMassKg: W.weightMass,
       effectorId: `${name}.weight.lash`,
       hand,
       tipAlong: W.weightRadius,
@@ -187,7 +186,6 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
         // weighs 0.57 kg and reaches three times a club's speed, and `0.5 * mu * v^2` is where
         // that trade is now settled rather than in a row that refused to weigh it.
         kind: "whip",
-        impactMassKg: W.segmentMass,
         effectorId: `${name}.${index}.lash`,
         hand,
         tipAlong: W.segmentLength / 2,

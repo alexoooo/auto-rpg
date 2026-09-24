@@ -20,6 +20,9 @@ const authority = Object.freeze({ carrierPartId: "pelvis",
   supportBindings: Object.freeze([{ role: "left-foot" }, { role: "right-foot" }]),
   braceCapacityMultiplier: 1.5, gaitStabilityScale: 1 });
 const STOP = Object.freeze({ localForward: 0, localRight: 0, yaw: 0 });
+// A knockdown for the 10 kg fixture: ten times its fall line, whatever that line is. It was a literal
+// 1 N.s until physical contact session 06 scaled the ledger's lines by 20 and left it a stagger.
+const KNOCKDOWN = Object.freeze({ horizontalShoveNs: Object.freeze([10 * 10 * SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS, 0]) });
 
 const floorRegistry = (support = () => true) => {
   const registry = new StandableWorldRegistry();
@@ -173,7 +176,7 @@ test("an_occupied_recovery_relocates_to_the_nearest_spot_clear_of_the_intersecti
   try {
     const required = 1;
     fallen.port.beginControlStep(); blocker.port.beginControlStep();
-    fallen.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    fallen.port.queueStabilityEvent(KNOCKDOWN);
     fallen.port.beginControlStep();
     assert.equal(fallen.port.state, "fallen");
     for (let step = 0; step < 5 && fallen.port.state === "fallen"; step += 1) {
@@ -201,7 +204,7 @@ test("an_occupied_recovery_relocates_to_the_nearest_spot_clear_of_the_intersecti
   const free = physical("unoccupied-fallen", 0, floorRegistry());
   try {
     free.port.beginControlStep();
-    free.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    free.port.queueStabilityEvent(KNOCKDOWN);
     free.port.beginControlStep();
     for (let step = 0; step < 5 && free.port.state === "fallen"; step += 1) advance(free.port, 0.1, STOP);
     assert.equal(free.port.state, "rising");
@@ -225,7 +228,7 @@ test("a_rising_body_that_is_asked_to_walk_keeps_its_carrier_on_its_rise_and_gets
   try {
     riser.port.beginControlStep();
     follower.port.beginControlStep();
-    riser.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    riser.port.queueStabilityEvent(KNOCKDOWN);
     riser.port.beginControlStep();
     assert.equal(riser.port.state, "fallen", "the fixture did not knock the body down");
     const back = { ...STOP, localRight: -1 };
@@ -264,7 +267,7 @@ test("an_occupied_recovery_with_no_clear_ground_in_reach_is_refused", () => {
     assert.ok(Math.abs(blocker.port.carrierGround().x - fallen.port.carrierGround().x) < required,
       "the recovery fixture must intersect the sum of both declared radii");
     fallen.port.beginControlStep(); blocker.port.beginControlStep();
-    fallen.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    fallen.port.queueStabilityEvent(KNOCKDOWN);
     fallen.port.beginControlStep();
     assert.equal(fallen.port.state, "fallen");
     for (let step = 0; step < 5; step += 1) {
@@ -294,7 +297,7 @@ test("a_body_fallen_against_the_arena_wall_rises_inward_off_it", () => {
   const fixture = physical("against-wall", band.x, registry, { rootState });
   try {
     fixture.port.beginControlStep();
-    fixture.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    fixture.port.queueStabilityEvent(KNOCKDOWN);
     fixture.port.beginControlStep();
     assert.equal(fixture.port.state, "fallen");
     for (let step = 0; step < 5 && fixture.port.state === "fallen"; step += 1) advance(fixture.port, 0.1, STOP);

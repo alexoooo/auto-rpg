@@ -7,13 +7,14 @@ import type { Observable } from "@babylonjs/core/Misc/observable.js";
 import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 
 import { CONFIG } from "./config.ts";
+import { effectiveMassAt } from "./body-inertia.ts";
 import type { Side } from "./physics.ts";
 import type { WeaponKind } from "./hands.ts";
 import type { Limb } from "./fighter.ts";
 import type { Combatant } from "./units.ts";
 import type { HandName } from "./hands.ts";
-import { biteFloorJ, biteMechanism, cutEnergyJ, evaluateProjectileImpact, scoreHit, severs,
-  type HitKind, type Striker } from "./scoring.ts";
+import { biteFloorJ, biteMechanism, contactImpulseNs, cutEnergyJ, evaluateProjectileImpact, scoreHit,
+  severs, type HitKind, type Striker } from "./scoring.ts";
 
 export type { HitKind };
 
@@ -59,24 +60,6 @@ export interface Striking {
   readonly hand: HandName | null;
   /** Blueprint-owned multiplier; legacy effectors omit it and therefore remain exactly 1. */
   readonly damageScale?: number;
-  /** Authored zero-wound contact transfer, expressed as target velocity change. */
-  readonly authoredSpecificImpulseMps?: number;
-  /**
-   * The mass this striker arrives with, kilograms. **Required**, and that is the point.
-   *
-   * Published by the effector that knows it -- a ram plate's is the plate plus what the neck and
-   * the trunk put behind it; a stone fist's is the knuckle; a Warrior's weapon is the mass its
-   * own body was built with -- and read by nothing but the scorer, which hands it to `scoreHit`
-   * as `Contact.strikerMassKg` and turns it into joules with the struck part's own mass.
-   *
-   * It was optional for a day and optional meant "the bite row's reference mass", which is how a
-   * golem's stone fist came to be scored against a human hand. Since 2026-09-06 a blow is worth
-   * the energy that arrives, there is no reference mass left to fall back on, and a striker with
-   * nothing to declare here is a striker whose blows cannot be priced -- so the field is required
-   * and the compiler is what finds the one that was not taught it. Never estimated here from the
-   * body: `Combat` has a handle and no idea what fraction of a golem is behind the contact.
-   */
-  readonly impactMassKg: number;
   /** Immutable physical facts shared with the live projectile body. */
   readonly projectileImpact?: Readonly<{
     readonly massKg: number;
@@ -87,6 +70,15 @@ export interface Striking {
   /** Stable pool slot; `shotSerial` changes at every launch of that slot. */
   readonly projectilePoolIndex?: number;
   readonly shotSerial?: number | null;
+  /**
+   * The body that strikes, and **the only source of the mass a blow arrives with**: `Combat` reads
+   * the effective mass of this body's chain at the contact (`effectiveMassAt`), so the arm behind
+   * the item counts, and so do its size and weight.
+   *
+   * Until physical contact session 05 each striker declared that mass instead (`impactMassKg`:
+   * 1.30 kg for a blade, a ram's hand-authored "plate plus a hinge-mass of trunk"). A declared
+   * number could say what the item weighed, never what was coupled behind it at that instant.
+   */
   readonly body: PhysicsBody;
   /** Supported bodies may replace a solving striker contact with this sensor-only path. */
   readonly nonSolvingTrigger?: NonSolvingStrikeTrigger;
@@ -190,7 +182,12 @@ export interface HitReport {
    * readout keeps both so the difference is visible in the log rather than only in the damage.
    */
   closingSpeed: number;
-  /** The struck part's own rigid-body mass, kilograms, as the scorer read it. */
+  /**
+   * The striker's effective mass at the contact along its normal, kilograms: the item and the share
+   * of the chain behind it that the contact moves (`effectiveMassAt`). A projectile's is its own.
+   */
+  strikerMassKg: number;
+  /** The struck part's effective mass at the same point along the same normal, kilograms. */
   partMassKg: number;
   /**
    * What arrived, joules: `impactEnergyJ` of the striker's mass, the part's, and the closing
@@ -227,7 +224,12 @@ export interface HitReport {
   postArmourDamage: number;
   /** Present only for a physical projectile contact. */
   projectile?: ProjectileImpactEvidence;
-  stabilityShove?: Readonly<{ readonly kind: "specific-impulse"; readonly specificImpulseMps: number }>;
+  /**
+   * The impulse this contact pushed the struck body with, N.s: `contactImpulseNs` of the two
+   * effective masses at the closing speed, for a block as for a blow, and 0 for a contact with no
+   * direction. It is what the struck body's stability ledger was handed.
+   */
+  transferNs: number;
   severed: boolean;
   at: number;
   /**
@@ -268,6 +270,12 @@ export interface CombatRefusalEvent {
   readonly effectorId: string;
   readonly at: number;
 }
+
+/** A body's whole carried mass, kilograms, and `Infinity` for one nothing integrates. */
+const bodyMassKg = (body: PhysicsBody): number => {
+  const mass = body.getMassProperties().mass ?? 0;
+  return mass > 0 ? mass : Infinity;
+};
 
 /**
  * What a blow stopped by each kind is called in the readout.
@@ -376,6 +384,7 @@ export class Combat {
     direction: new Vector3(),
     push: new Vector3(),
     normal: new Vector3(),
+    contactNormal: new Vector3(),
   };
 
   constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void,
@@ -463,8 +472,8 @@ export class Combat {
       : event.collidedAgainst === trigger.body ? event.collider : null;
     if (!collidedAgainst) return;
     const point = trigger.contactPoint(collidedAgainst);
-    // A trigger has no solver manifold by construction. `resolve` still applies the ordinary
-    // authored shove from the real fist's material-point velocity; the diagnostic impulse is
+    // A trigger has no solver manifold by construction. `resolve` still files the ordinary
+    // transfer along the real fist's material-point velocity; the diagnostic impulse is
     // truthfully zero rather than borrowed from an unrelated anatomy contact.
     this.onContact(weapon, {
       collider: trigger.body,
@@ -589,6 +598,13 @@ export class Combat {
 
     const point = event.point as Vector3;
     const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    // **A parry pushes the body behind the guard** (physical contact session 06): the same transfer
+    // a blow makes, between the striker and whatever stopped it, each walked back to its own body.
+    // A blade caught on a plate drives the plate's owner back by what the blade carried.
+    const normal = this.contactNormal(velocity, event);
+    const transferNs = normal ? this.transfer(this.strikerMassAt(weapon, point, normal),
+      effectiveMassAt(event.collidedAgainst, point, normal), this.closingSpeedAt(velocity, event), normal,
+      velocity, event.collidedAgainst, weapon.body) : 0;
     const report: HitReport = {
       ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
@@ -603,12 +619,14 @@ export class Combat {
       // the geometry, true whether or not anything was scored, and it is what says whether a
       // shield caught the point or the forte.
       closingSpeed: 0,
+      strikerMassKg: 0,
       partMassKg: 0,
       energyJ: 0,
       edgeAlignment: 0,
       bladeAlignment: 0,
       tipDistanceM: Vector3.Distance(point, weapon.tipPosition()),
       solverImpulse: event.impulse,
+      transferNs,
       damage: 0,
       preArmourDamage: 0,
       postArmourDamage: 0,
@@ -664,23 +682,71 @@ export class Combat {
     return Math.abs(Vector3.Dot(strikerVelocity, unit)) / length;
   }
 
+  /**
+   * The unit direction both effective masses are read along: the manifold's normal, which is the
+   * line `closingSpeedAt` squares the speed on, or the striker's own direction where the manifold
+   * has none. Null for a contact with neither, which arrives with no energy to price.
+   */
+  private contactNormal(strikerVelocity: Vector3, event: IPhysicsCollisionEvent): Vector3 | null {
+    const unit = this.scratch.contactNormal;
+    const length = event.normal ? unit.copyFrom(event.normal).length() : 0;
+    if (length > 1e-6) return unit.scaleInPlace(1 / length);
+    const speed = strikerVelocity.length();
+    return speed > 1e-6 ? unit.copyFrom(strikerVelocity).scaleInPlace(1 / speed) : null;
+  }
+
+  /** What arrives behind the striker at the contact: a projectile's own mass, or its chain's. */
+  private strikerMassAt(weapon: Striking, point: Vector3, normal: Vector3): number {
+    return weapon.projectileImpact ? weapon.projectileImpact.massKg : effectiveMassAt(weapon.body, point, normal);
+  }
+
+  /**
+   * File what a contact pushed the struck body with, and say how much, N.s (physical contact
+   * session 06).
+   *
+   * The impulse of an inelastic contact between the two effective masses along the contact normal,
+   * turned to point the way the striker was travelling, since Havok hands either side of the
+   * manifold its own sign. Its horizontal part is the stability ledger's input and its vertical part
+   * rides along for session 07.
+   *
+   * **Nothing is applied to a body here.** The solver has already resolved this contact by the time
+   * a collision callback runs, and its own impulse is the physical push; the authored impulse this
+   * replaced was added on top of it. What the ledger needs is the reading, not a second push.
+   *
+   * The struck part and the striker go with it, so the target can refuse a contact its contact press
+   * is already reading (`Golem.queueStabilityEvent`, physical contact session 07).
+   */
+  private transfer(strikerMassKg: number, struckMassKg: number, closingSpeed: number, normal: Vector3,
+    velocity: Vector3, struck: PhysicsBody, striker: PhysicsBody): number {
+    if (!(closingSpeed > 0)) return 0;
+    const impulseNs = contactImpulseNs(strikerMassKg, struckMassKg, closingSpeed);
+    const along = this.scratch.push.copyFrom(normal);
+    if (Vector3.Dot(along, velocity) < 0) along.scaleInPlace(-1);
+    along.scaleInPlace(impulseNs);
+    this.target?.queueStabilityEvent?.({ horizontalShoveNs: [along.x, along.z], verticalShoveNs: along.y },
+      struck, striker);
+    return impulseNs;
+  }
+
   private resolve(weapon: Striking, limb: Limb, event: IPhysicsCollisionEvent): HitReport {
     const C = CONFIG.combat;
     const point = event.point as Vector3;
 
     const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
     const speed = velocity.length();
-    // The mass the solver is actually carrying, read the same way the shove below reads it. A
-    // jointed part is effectively heavier than its own body -- an elbow drags an upper arm --
-    // so this errs in the striker's favour, which `Contact.partMassKg` says out loud.
+    // Both masses are effective masses at the contact, along one normal (physical contact session
+    // 05): each side's chain, walked back to a trunk that floats with the rest of its body, so a
+    // blow carries the arm behind the item and lands on the limb behind the part. One contact,
+    // one model, and session 06's knockback reads the same pair.
     //
-    // Havok reports 0 for a body it does not integrate -- a static post, a wall, a bench stand --
-    // and 0 there means immovable rather than weightless. `impactEnergyJ` takes that as
-    // `Infinity` and hands back the striker's whole kinetic energy, which is the right answer
-    // for hitting something that cannot move and the ceiling on every other answer.
-    const solverMassKg = limb.part.body.getMassProperties().mass ?? 0;
-    const partMassKg = solverMassKg > 0 ? solverMassKg : Infinity;
+    // A body nothing integrates -- a static post, a wall, a bench stand -- reads `Infinity`, which
+    // `impactEnergyJ` takes as immovable and answers with the striker's whole kinetic energy: the
+    // right answer for hitting something that cannot move, and the ceiling on every other answer.
     const closingSpeed = this.closingSpeedAt(velocity, event);
+    const normal = this.contactNormal(velocity, event);
+    const partMassKg = normal ? effectiveMassAt(limb.part.body, point, normal) : bodyMassKg(limb.part.body);
+    const strikerMassKg = normal ? this.strikerMassAt(weapon, point, normal)
+      : weapon.projectileImpact ? weapon.projectileImpact.massKg : bodyMassKg(weapon.body);
     // A stationary contact has no direction and therefore a zero shove. This
     // branch matters for the fist: its sub-floor contacts deliberately continue
     // into `scoreHit` and the impulse path as zero-damage slaps.
@@ -715,7 +781,7 @@ export class Combat {
     const energyJ = cutEnergyJ({
       closingSpeed,
       speed,
-      strikerMassKg: weapon.impactMassKg,
+      strikerMassKg,
       partMassKg,
       edgeAlignment: alongEdge,
       bladeAlignment,
@@ -731,6 +797,7 @@ export class Combat {
       solverImpulse: event.impulse,
       speed,
       closingSpeed,
+      strikerMassKg,
       partMassKg,
       energyJ,
       bladeAlignment,
@@ -749,10 +816,17 @@ export class Combat {
     // that worked only in its unit test.
     //
     // Blunt is exempt, where it used to be the bare fist alone. A sub-floor blunt contact is a
-    // **slap**: it scores nothing and still shoves, so it has to reach the shove path below,
-    // and the mechanism is what says which contacts those are rather than a list of kinds. A
+    // **slap**: it scores nothing, and `scoreHit` is what files it as one, so it has to reach it;
+    // the mechanism is what says which contacts those are rather than a list of kinds. (It used
+    // to have to reach the shove as well; every contact is shoved just below, before it.) A
     // point's floor is against its *axial* energy, which is never more than this, so a contact
     // that fails here would have failed there too.
+    // Every contact shoves what it strikes, whether or not it bites, and before the early-out below
+    // for that reason: the momentum the contact moved, from the same pair of masses its energy is
+    // priced on (physical contact session 06). A blade leaned on pushes by what it carries, as a
+    // slap does, because the solver does not know which side of a blade arrived.
+    const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed, normal, velocity,
+      event.collidedAgainst, weapon.body) : 0;
     if (!weapon.projectileImpact && energyJ < biteFloorJ(weapon.kind)
       && biteMechanism(weapon.kind) !== "blunt") {
       // The alignment is reported rather than zeroed. It used to be a hard zero because it had
@@ -762,7 +836,7 @@ export class Combat {
       // the old zero -- `scripts/bout-runner.mjs` drops weak contacts by `kind`, which is what
       // its `alignments` column is about -- so this is strictly more of what happened.
       return { ...base, kind: "weak", edgeAlignment, damage: 0,
-        preArmourDamage: 0, postArmourDamage: 0, severed: false };
+        preArmourDamage: 0, postArmourDamage: 0, severed: false, transferNs };
     }
 
     let projectile: ProjectileImpactEvidence | undefined;
@@ -803,7 +877,7 @@ export class Combat {
       : scoreHit(
         {
           closingSpeed,
-          strikerMassKg: weapon.impactMassKg,
+          strikerMassKg,
           partMassKg,
           edgeAlignment: alongEdge,
           bladeAlignment,
@@ -812,39 +886,17 @@ export class Combat {
         },
         weapon.kind,
       );
-    const { kind, quality } = score;
+    const { kind } = score;
     const rawDamage = weapon.projectileImpact ? score.damage : score.damage * (weapon.damageScale ?? 1);
     const damage = this.target?.applyDamage?.(limb, rawDamage, kind) ?? rawDamage;
     if (projectile) projectile = Object.freeze({ ...projectile, postArmourDamage: damage });
     if (!this.target?.applyDamage) limb.health -= damage;
 
-    // The blade shoves what it strikes whether or not it bites. A flat slap
-    // transfers the most push and the least damage, which is the trade the
-    // player is being taught.
-    let stabilityShove: HitReport["stabilityShove"];
-    if (weapon.authoredSpecificImpulseMps !== undefined) {
-      const specificImpulseMps = weapon.authoredSpecificImpulseMps;
-      const massKg = limb.part.body.getMassProperties().mass ?? 1;
-      const shove = this.scratch.push.copyFrom(direction).scaleInPlace(specificImpulseMps * massKg);
-      limb.part.body.applyImpulse(shove, point);
-      this.target?.queueStabilityEvent?.({ kind: "specific-impulse", specificImpulseMps });
-      stabilityShove = Object.freeze({ kind: "specific-impulse", specificImpulseMps });
-    } else {
-      const shove = this.scratch.push
-        .copyFrom(direction)
-        .scaleInPlace(speed * 0.11 * (1.35 - quality * 0.7));
-      limb.part.body.applyImpulse(shove, point);
-      // This authored transfer, not Havok's solver reaction impulse, is the stability input.
-      // Collision callbacks may queue it but cannot change support state or motion type here.
-      this.target?.queueStabilityEvent?.({ horizontalShoveNs: [shove.x, shove.z] });
-    }
-
     const severed = severs({ ...score, damage }, limb, weapon.kind);
     if (severed) this.target?.sever(limb, direction);
 
     return { ...base, kind, edgeAlignment, damage, preArmourDamage: rawDamage,
-      postArmourDamage: damage, severed, ...(projectile ? { projectile } : {}),
-      ...(stabilityShove ? { stabilityShove } : {}) };
+      postArmourDamage: damage, severed, transferNs, ...(projectile ? { projectile } : {}) };
   }
 }
 

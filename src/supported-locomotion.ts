@@ -96,18 +96,16 @@ export class StagedSupportedLocomotionPort implements SupportedLocomotionPort {
 
 const copyStabilityEvent = (event: import("./supported-locomotion-state.ts").StabilityEvent):
   import("./supported-locomotion-state.ts").StabilityEvent => {
-  if (event.kind === "specific-impulse") {
-    if (!Number.isFinite(event.specificImpulseMps) || event.specificImpulseMps < 0) {
-      throw new Error("supported locomotion stability specific impulse must be finite and non-negative");
-    }
-    return Object.freeze({ kind: "specific-impulse", specificImpulseMps: event.specificImpulseMps });
-  }
   if (event.horizontalShoveNs.length !== 2 ||
       event.horizontalShoveNs.some((value) => !Number.isFinite(value))) {
     throw new Error("supported locomotion stability event must have two finite horizontal components");
   }
+  if (event.verticalShoveNs !== undefined && !Number.isFinite(event.verticalShoveNs)) {
+    throw new Error("supported locomotion stability event must have a finite vertical component");
+  }
   return Object.freeze({
-    horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as readonly [number, number] });
+    horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as readonly [number, number],
+    ...(event.verticalShoveNs === undefined ? {} : { verticalShoveNs: event.verticalShoveNs }) });
 };
 
 export interface SupportedPairResolution {
