@@ -8,7 +8,6 @@ import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 
 import { CONFIG } from "./config.ts";
 import { effectiveMassAt } from "./body-inertia.ts";
-import { TIPPING } from "./tipping.ts";
 import type { Side } from "./physics.ts";
 import type { WeaponKind } from "./hands.ts";
 import type { Limb } from "./fighter.ts";
@@ -719,8 +718,11 @@ export class Combat {
    * height it landed at, which the ledger reads as a lever about the base (physical contact session
    * 08).
    *
-   * **What is filed is `TIPPING.BLOW_GAIN` times the impulse, and that is a rule, not physics**: see
-   * its own comment. The impulse returned, and reported, is the physical one.
+   * **What is filed is the physical impulse, for every contact.** Physical contact session 08 first
+   * filed seven times it (`BLOW_GAIN`), because with every blow read at the centre of mass's height
+   * an x1 stone mirror all but never fell. Once a blow's height reached the ledger as its lever, the
+   * stone mirror fell 0.49 [0.34, 0.66] times a body a bout with no gain at all (96 pairs, Node
+   * research runner), and the gain went.
    */
   private transfer(strikerMassKg: number, struckMassKg: number, closingSpeed: number, normal: Vector3,
     velocity: Vector3, struck: PhysicsBody, striker: PhysicsBody, atY: number): number {
@@ -728,7 +730,7 @@ export class Combat {
     const impulseNs = contactImpulseNs(strikerMassKg, struckMassKg, closingSpeed);
     const along = this.scratch.push.copyFrom(normal);
     if (Vector3.Dot(along, velocity) < 0) along.scaleInPlace(-1);
-    along.scaleInPlace(impulseNs * TIPPING.BLOW_GAIN);
+    along.scaleInPlace(impulseNs);
     this.target?.queueStabilityEvent?.({ horizontalShoveNs: [along.x, along.z], verticalShoveNs: along.y, atY },
       struck, striker);
     return impulseNs;

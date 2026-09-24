@@ -103,9 +103,15 @@ const copyStabilityEvent = (event: import("./supported-locomotion-state.ts").Sta
   if (event.verticalShoveNs !== undefined && !Number.isFinite(event.verticalShoveNs)) {
     throw new Error("supported locomotion stability event must have a finite vertical component");
   }
+  if (event.atY !== undefined && !Number.isFinite(event.atY)) {
+    throw new Error("supported locomotion stability event must land at a finite height");
+  }
+  // Every field goes across: a copy that drops one is a ledger that never reads it, and the height a
+  // blow landed at -- its lever about the base -- was dropped here for a whole session.
   return Object.freeze({
     horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as readonly [number, number],
-    ...(event.verticalShoveNs === undefined ? {} : { verticalShoveNs: event.verticalShoveNs }) });
+    ...(event.verticalShoveNs === undefined ? {} : { verticalShoveNs: event.verticalShoveNs }),
+    ...(event.atY === undefined ? {} : { atY: event.atY }) });
 };
 
 export interface SupportedPairResolution {

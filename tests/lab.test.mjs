@@ -198,8 +198,14 @@ test("paired controller has an independent off-hand cycle and preserves the main
 });
 
 test("paired policy preserves Duelist's physical result on non-dual builds", async () => {
+  // A paired grip is the non-dual build: its two hands are one mechanism, and `pairedMind` hands it
+  // back to the Duelist whole. This ran on `default` until physical contact session 08, but the
+  // default build's off hand publishes a thrust, so `independent-hands` applies to it and the paired
+  // mind drives it whenever that hand is in range -- the test passed only because on seed 77 it never
+  // came within range in three seconds, and once a blow's height reached the tipping ledger it did.
+  // On the maul the same bout is equal with the `pairedHands` guard and differs without it.
   const play = async (left) => {
-    const env = await createEnvironment({ seed: 77, maxSeconds: 3, left });
+    const env = await createEnvironment({ seed: 77, maxSeconds: 3, left, leftBuild: "maul", rightBuild: "maul" });
     try {
       while (!env.state().terminated && !env.state().truncated) env.step();
       return env.result();

@@ -104,6 +104,20 @@ the build and what to look for.
   - the x1 body against the max giant, down 75.5 % of a bout, with 84.1 % of its knockdowns within
     2 s of a rise and chains of up to 20;
   - a body walked into in the dungeon stops rather than being shoved.
+- **08:**
+  - **stone knockdowns are rare now**: an x1 stone mirror falls 0.49 [0.34, 0.66] times a body a
+    bout, against session 01's 4.93, because every contact is filed at its physical impulse and the
+    blow gain is gone. Check that it reads as heavy bodies rather than as a missing mechanic; a gain
+    on a scored blow's filing is the lever if not;
+  - **the skeleton on its feet, and a choice**: it falls 16.4 times a body in an x1 mirror, a third
+    of them from a parry, because its centre of mass stands outside its feet in 36.3 % of its
+    standing time. A leg-rotation stance (not in the tree; see "Chosen on the owner's behalf")
+    takes that to 11.4 at the price of walk-start foot slip over budget. Watch a skeleton mirror and
+    say whether its falls read as a top-heavy body or as a broken one;
+  - stone, the wheel and the multileg lying until their fall has stopped, then rising in about
+    2 s, where they used to rise after a frozen 0.35 s whether or not the fall had finished;
+  - a blow to the head rocking a body more than one to the belt, and a blow at the shins barely
+    at all.
 - **10:** the all-max giant against a x1, which should look and win like a giant.
 - **Carried from the attributes set**, still unchecked:
   - the attribute sliders in the arena setup corners and the dungeon hero dialog, with Reset and a
@@ -277,3 +291,94 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   press still reaches it. `src/dungeon/run.ts`.
 - **05, the capped socket's shove is accepted as physics.** Its summed damage on the same contacts
   is x40: a bare cap bolted to a 250 kg body arrives with a median 79 kg behind it. On the eye list.
+- **08, a blow files its physical impulse, and the blow gain is gone.** The first commit filed
+  seven times every contact's impulse (`TIPPING.BLOW_GAIN`), because an x1 stone mirror all but
+  never fell without it, and it was calibrated to session 01's band. Two things were wrong under
+  that reading: a blow's height never reached the ledger, and the gain reached every contact rather
+  than the scored blows its record named. With the height repaired and no gain, the x1 stone mirror
+  falls 0.49 [0.34, 0.66] times a body a bout (96 pairs), and a standing skeleton falls on 11 of the
+  37 scored blows it takes standing, and on 17 of the 69 parries it takes standing (Node research
+  runner and `.review/fall-cause.mjs` on the bout runner; the measurements doc has the tables). So
+  neither of the plan's failure conditions holds and no rule comes back. Holding session 01's band
+  was itself against the plan ("the knockdown rate is not held"). Knockdowns are now rare for stone,
+  which is on the eye list; a gain on a scored blow's filing, applied after `scoreHit`, is the rule
+  to reach for if the owner wants them back.
+- **08, a biped does not stand its feet under its centre of mass; left for the owner.** A standing
+  skeleton's centre of mass is outside its base in 36.3 % of its standing samples (stone's in none),
+  which is why it falls 16.4 [15.4, 17.4] times a body in an x1 mirror (48 pairs, Node research
+  runner). Turning each whole leg about the hip toward the low-passed centre of mass, clamped to the
+  hip's room and held per leg through the swing, took that share to 4.0 % and the knockdowns to
+  11.4 [10.6, 12.2] -- and made the legs unequal in length while they stood apart, which handed the
+  support to the swing foot at the start of a walk: short-walk sole slip rose from 186-214 to 229-355
+  mm/s on the biped and from 180-285 to 217-360 on the skeleton (Node locomotion bench, means over
+  eleven stand durations), over the 300 mm/s budget at x1.5. A slip regression for a knockdown rate
+  the owner has not asked to move is not a trade to take on their behalf, so the term is not in the
+  tree; it is kept at `.review/biped.balance-variants.ts` in the session's worktree record, and the
+  choice is on the eye list above.
+- **08, the stagger line is a stated fraction of the fall line.** A rigid body on a rigid floor
+  rocks from any blow at all, so no physical reading gives a stagger a threshold of its own. The
+  fraction keeps the ratio the two frozen lines had, 0.12 to 0.28 (0.43). `TIPPING.STAGGER_FRACTION`.
+- **08, a body rocks and is righted as a rigid body, in the small-angle approximation.** Gravity
+  takes a lean off the ledger at g r / h along the lean's own direction, and a body that has rocked
+  back is taken as upright, forgetting the lean a second blow would find at the peak. The radius of
+  gyration is the parts' point masses about the centre of mass, each part's own inertia left out.
+  `src/tipping.ts`.
+- **08, a body's base is its stance, lifted feet included,** together with anything else of it
+  within `TIPPING.CONTACT_BAND_M` (0.03 m) of its lowest point. A foot in the air is on its way down,
+  so a biped's line does not flicker with its stride. A lying body's base is what of it is within the
+  band. `readTipping` in `src/supported-locomotion-production.ts`.
+- **08, the wheel's patch is a square as wide as the wheel,** centred on the contact and turned with
+  the axle. A line contact has no fore-aft base at all. Its fall line is 0.30 m/s against the
+  biped's 0.95 (shove bench). `supportPatch` in `src/golem/locomotion/wheel.ts`.
+- **08, a rising body is judged on the stance it rises onto.** It uses the last standing base that
+  held its centre of mass, around where that centre of mass is now, at its live height and gyration.
+  The rise is keyframed, and what is on the floor during it spans nothing under the centre of mass:
+  measured on stone x1 mirrors (`.review/rise-base.mjs`, Node bout runner), the fall line read 0
+  from 0.2 s into every rise, so any touch put the body down. No blow is exempt from the standing
+  hull. `readTipping`; to reverse, drop the `standingHull` branch.
+- **08, every body runs the skeleton's knockdown table, settled on descent.** It is settled once
+  the centre of mass has come down half its starting height and its descent has stayed at or under
+  0.3 m/s for 0.2 s, or once it has lain 2.5 s. The rise peaks at 0.9 m/s. `KNOCKDOWN` and
+  `KnockdownSettle` in `src/golem/locomotion.ts`. Stone, the wheel and the multileg now lie until
+  their fall has stopped, which is on the eye list.
+- **08, one bench rise budget, 2.50 s, for every table.** The slowest scripted rise is 1.954 s (the
+  biped), and 2.50 keeps the skeleton's half-second argument. `riseBudgetSeconds` in
+  `src/golem/config.ts`.
+- **08, the pair corpus's fallen body lies 0.1 s.** Under the full lie the pair resolver has already
+  separated the two carriers (0.897 m apart at the rise), so the corpus no longer exercised a
+  relocated rise. The fixture's stated edit caps the lie, in
+  `physical_corpus_two_bipeds_share_one_registry_and_a_fallen_one_rises_clear_of_the_other`.
+- **08, at stability x2 the stat test brackets the fall from 0.85 of the line, not 0.95.** A real
+  impulse moves the carried mass toward the edge as well as rocking it, and at x2 the bodies fall
+  at 0.87 to 0.98 of the line their standing geometry gives (shove bench). The test is
+  `the_stability_stat_moves_both_thresholds_on_every_body_and_nothing_staggers_on_its_own_gait_at_the_floor`.
+- **08 retires 04's holding ratio and 06's factor of 20.** `stabilityMassRatio` and the frozen
+  `STAGGER_SPECIFIC_IMPULSE_MPS`, `FALL_SPECIFIC_IMPULSE_MPS` and decay are deleted, along with every
+  brace multiplier and gait curve. A heavier body is now harder to fell because it has more mass over
+  the same geometry.
+- **09, `PRESS_MASS_RATIO` = 1.5.** A body at least 1.5 times the other's published mass closes to
+  push range instead of standing off; nothing sweeps it. At 1.5 no two stone builds press each other
+  (the widest pair is 1.33), while stone presses a human (2.2) and a skeleton (8), and the all-max
+  giant presses every x1 body. `presses` in `src/downed.ts`; `Infinity` turns pressing off.
+- **09, the stand-off is the shorter arm.** An outreached body holds at its own reach, not outside
+  the longer one, so it can strike a body that never recovers. This retires the v2 fencer's "hold
+  outside and go in on their recover" for the stand-off; the recover rule still decides the walk
+  inside it. `standOffReach` in `src/downed.ts`; returning `them.reach` restores the old stand-off.
+- **09, a stroke is timed by the slower of the arm's rate and its load against its torque.** The
+  arm's rate is its reach chain's anchor rate over reach against the chain's shipped table, which
+  works out to arm speed over the square root of size. Its torque is the shoulder's against the
+  table, which works out to weight times size to the fourth. The plan's floor survives as the rate
+  term: a light load never times a stroke quicker than the arm's rate does, but a faster arm strokes
+  faster than the benched shape. The all-max giant times its strokes at 0.76 to 1.30, depending on
+  the terminal (Node stroke bench). `strokeTimeScale` in `src/golem/tactics.ts`.
+- **09, `armRate` is the first angular axis's rate times reach**: a tip speed the arm's rate limit
+  carries, not a measured one. `geometry` in `src/golem/golem.ts`.
+- **09, `soak` is priced as a cut into the core**: one minus the core's armour against a cut, over
+  `cutJoulesPerDamage` times its health. A body whose armour differs by damage kind reads its cut
+  figure. `soak` in `src/golem/golem.ts`.
+- **09, `stabilityImpulseNs` is the weakest of 32 directions** of the fall line times the supported
+  mass, and 0 until the body's base has been read at its first control step.
+- **09, v4 keeps its own stand-off.** The miser's hold is a searched multiple of the other body's
+  reach, and the executor floors it at nothing by design, so neither the shorter-arm rule nor
+  pressing reaches it. Routing `holdFor` in `src/golem/tactics-v4.ts` through `standOffReach` and
+  `presses` would apply them, and would move a searched table.

@@ -2696,6 +2696,20 @@ test("golem_form_stays_inside_the_envelope_and_is_deterministic_under_a_seed", a
  * fresh Havok, supported, 20 s cap), the thrust on 20261113. The claim still stands on one event;
  * the owner's list in session 10 carries it, because a point that arrives point-first once in 1671
  * contacts is a finding about the thrust, and the next session to move the dynamics may flip it.
+ *
+ * **2026-09-24, physical contact session 08: the thinness was the fixture's, not the thrust's.** It
+ * did flip: once every contact was filed at its physical impulse, the twenty seeds (the list has
+ * always held twenty, whatever the message said) booked no thrust at all in 1304 sword contacts.
+ * The fixture's director answered every moment it could not thrust with `close`, and that walked the
+ * body in until the ground gap was 0.94 m against an 1.84 m reach, so every thrust began with its
+ * point already inside the other body and rested there: point-first contacts near the tip closed
+ * at a median 0.65 m/s, and 355 of 364 were under the point's floor. The mark's own bite is not it --
+ * a bite of 0.33 or 0.66 on the thrust's mark still rests the point on an idle body. Answered with
+ * `hold`, the body keeps its range between strokes (1.6 m of gap) and the point arrives: 66 thrusts
+ * in six 20 s bouts against an idle body and 6 on these twenty seeds against the fencer, at 5 to 11
+ * m/s of closing speed (`.review/thrust-probe2.mjs` and `.review/thrust-stance.mjs`, Node bout
+ * runner, fresh Havok, supported, 20 s cap). A mind that thrusts and then walks its hilt into the
+ * other body is a finding about that director, not about the thrust.
  */
 test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
   const setup = defaultGolemSetup();
@@ -2705,7 +2719,7 @@ test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
   const kinds = new Map();
   for (const seed of seeds) {
     const thrusting = golemStyled(seed, GOLEM_TACTICS_V3, (available) =>
-      available.includes("thrust") ? "thrust" : "close");
+      available.includes("thrust") ? "thrust" : "hold");
     runBout({
       left: "golem-form", right: "golem-fencer",
       leftUnit: "golem", rightUnit: "golem",
@@ -2723,7 +2737,7 @@ test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
     });
   }
   assert.ok((kinds.get("thrust") ?? 0) > 0,
-    "twenty-four seeds of nothing but thrusts booked "
+    "twenty seeds of nothing but thrusts booked "
     + ([...kinds].map(([k, n]) => `${n} ${k}`).join(", ") || "nothing"));
 });
 

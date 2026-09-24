@@ -37,28 +37,6 @@ export const TIPPING = Object.freeze({
    */
   STAGGER_FRACTION: 0.12 / 0.28,
   /**
-   * **A recorded fallback, not physics**: what a scored contact's impulse is multiplied by before the
-   * ledger reads it (`Combat.transfer`). With the lines read off the body and a blow filed at its
-   * own momentum, an x1 stone mirror all but never fell -- 0.25 knockdowns a body a bout at a gain
-   * of 4 (`.review/tip-bouts.mjs`, Node bout runner, 8 bouts) -- which is the plan's second
-   * failure condition, so the rule came back as a single factor on every blow, calibrated to put
-   * the x1 stone mirror back in session 01's band of 4.93 [4.54, 5.32] knockdowns a body a bout.
-   * `research/stat-sweep.mjs --stat stability --levels 1 --pairs 96`, Node harness, research
-   * runner, supported locomotion, cap 150 s, seed 20260923, 96 blocks, 95 % bootstrap
-   * (`research/control-band.mjs`), 2026-09-24:
-   *
-   * | Gain | Knockdowns / body / bout | Damage / body / bout | Seconds / bout |
-   * | ---: | --- | --- | ---: |
-   * | 6 | 3.70 [3.24, 4.16] | 8.16 | 24.6 |
-   * | **7** | **4.83 [4.24, 5.43]** | **8.12** | **26.3** |
-   * | 8 | 5.38 [4.84, 5.92] | 8.02 | 27.2 |
-   * | 10 | 6.29 [5.77, 6.79] | 8.17 | 29.1 |
-   * | 12 | 7.81 [7.25, 8.38] | 8.06 | 32.3 |
-   *
-   * Damage does not follow the gain: what it moves is how often a body is on the floor.
-   */
-  BLOW_GAIN: 7,
-  /**
    * How far above a body's lowest point another of its points may be and still be on the floor, m:
    * what a lying or rising body's base is made of (`PhysicalSupportedLocomotionPort`). A recorded
    * choice, at the scale of the biped's own plant band (0.02 m) with a centimetre for a part at rest

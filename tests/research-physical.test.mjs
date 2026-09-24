@@ -42,33 +42,35 @@ test("the candidate adapter preserves each unchanged parent's physical bout", as
 });
 
 test("the worker counts a corner's knockdowns and its time down from that corner's own body", async () => {
-  // Measured, 2026-09-24, after physical contact session 08 read the lines off the body and filed
-  // blows at seven times their impulse: on these seeds the duelist fells an idle stone body at
-  // stability x0.5 twice, and it is fallen or rising for 4.12 of the ten seconds; the same body at
-  // x1 stays up. The x1 bout is the control that the count is read off the body. Session 08 moved
-  // the search from the champion on 44 and 45, which now fells x1 as often as x0.5; 54 and 55 is
-  // the first pair on which any probe mind qualifies (`.review/seed-search.mjs`). Session 06 had
-  // moved it from the duelist on 50 and 51 (four times, 2.60 s, after session 05 moved it from three
-  // and 2.43 s). (Until then it was the brawler on 44 and 45: once, and 7.9 s
-  // down, while an idle mind never asked to get up; then three times and 2.40 s once the body rose
-  // on its own; four times once a stone body lay at 0.55 of its strength. Against the heavier body the
-  // brawler lands fewer fast blows and fells it once on every pair from 44 to 73, so the fixture
-  // moved: the first pair from 44 up on which some probe mind fells x0.5 at least twice and x1 never.)
+  // Measured, 2026-09-24, after physical contact session 08 took a blow's height into the ledger and
+  // filed every contact's physical impulse with no gain: on these seeds the brawler fells an idle
+  // stone body at stability x0.5 five times, and it is fallen or rising for 7.98 of the ten seconds;
+  // the same body at x1 goes down twice, for 3.77. The x1 bout is the control that the count is read
+  // off the body. At no gain no probe mind fells x0.5 at least twice and x1 never on any pair from 44
+  // to 123, which was the rule until now (`.review/seed-search.mjs`), so the rule became the first
+  // pair from 44 up on which x0.5 falls at least twice and more often than x1; the brawler felled
+  // both alike on every pair before 50. Before that repair session 08 had moved it to the champion
+  // on 44 and 45 and to the duelist on 54 and 55; session 06 had moved it from the duelist on 50 and
+  // 51 (four times, 2.60 s, after session 05 moved it from three and 2.43 s). (Until then it was the
+  // brawler on 44 and 45: once, and 7.9 s down, while an idle mind never asked to get up; then three
+  // times and 2.40 s once the body rose on its own; four times once a stone body lay at 0.55 of its
+  // strength.)
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "shaky", setup: withAttributeSetting(base.setup, { stability: 0.5 }) }];
   const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 10 } };
-  const job = { id: "down", round: 0, block: "down", left: "golem-duelist", right: "idle",
-    leftBuild: "default", rightBuild: "shaky", seeds: [54, 55] };
+  const job = { id: "down", round: 0, block: "down", left: "golem-brawler", right: "idle",
+    leftBuild: "default", rightBuild: "shaky", seeds: [50, 51] };
   const shaky = await execute(job, manifest);
-  // Exactly two, because a count that fired on every fallen frame rather than on the edge into
+  // Exactly five, because a count that fired on every fallen frame rather than on the edge into
   // one would read hundreds.
-  assert.equal(shaky.sides.right.knockdowns, 2, "the shaky corner went down twice");
+  assert.equal(shaky.sides.right.knockdowns, 5, "the shaky corner went down five times");
   assert.ok(shaky.sides.right.downSeconds > 0 && shaky.sides.right.downSeconds <= shaky.seconds);
   assert.equal(shaky.sides.left.knockdowns, 0, "and the count is the fallen corner's, not the bout's");
   assert.equal(shaky.sides.left.downSeconds, 0);
   const steady = await execute({ ...job, rightBuild: "default" }, manifest);
-  assert.equal(steady.sides.right.knockdowns, 0, "the control: the same bout at x1 stays up");
-  assert.equal(steady.sides.right.downSeconds, 0);
+  assert.equal(steady.sides.right.knockdowns, 2, "the control: the same bout at x1 goes down twice");
+  assert.ok(steady.sides.right.downSeconds > 0 && steady.sides.right.downSeconds < shaky.sides.right.downSeconds,
+    `the steadier body is down ${steady.sides.right.downSeconds} s, against ${shaky.sides.right.downSeconds}`);
 });
 
 test("the worker counts the modules each corner lost and the real blows it landed, each from that corner's own record", async () => {
@@ -80,7 +82,8 @@ test("the worker counts the modules each corner lost and the real blows it lande
   // assertion: they were 46 and 47, then 50 and 51 from the rise gate's repair, then 52 and 53 from
   // session 04's density, then 54 and 55 from session 05's effective mass, then 64 and 65 from
   // session 06's push, then back to 50 and 51 from session 07's contact press, where session 08's
-  // lines left them. The search is this job
+  // lines left them. Session 08's repair -- a blow's height reaching the ledger and no blow gain --
+  // keeps them there. The search is this job
   // run over consecutive pairs from 50 up, keeping the first on which the soft corner alone loses
   // exactly one module and the x1 control loses none.
   const base = NAMED_BUILDS.find((build) => build.name === "default");

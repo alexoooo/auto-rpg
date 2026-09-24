@@ -31,9 +31,10 @@ const materialsFor = (scene) => {
 /**
  * One standing golem shoved along +x at `fraction` of one of its own lines (`line` is "stagger" or
  * "fall") along that direction, read off the standing body the step before the shove, then watched
- * for `seconds`.
+ * for `seconds`. `landsAt`, given the tipping geometry read the step before, names the world height
+ * the shove lands at; without it the shove names none, and lands at the centre of mass.
  */
-const physicalCell = async (line, fraction, seconds) => {
+const physicalCell = async (line, fraction, seconds, landsAt = null) => {
   const engine = new NullEngine({ renderWidth: 64, renderHeight: 64 });
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
@@ -92,7 +93,10 @@ const physicalCell = async (line, fraction, seconds) => {
     };
     const trunk = limbNamed(left, "trunk.core");
     const standingTorsoY = trunk.mesh.position.y;
-    left.queueStabilityEvent({ horizontalShoveNs: [specificImpulseMps * supportedMassKg, 0] });
+    const tipping = left.locomotion.diagnostic().stability.tipping;
+    const atY = landsAt ? landsAt(tipping) : undefined;
+    left.queueStabilityEvent({ horizontalShoveNs: [specificImpulseMps * supportedMassKg, 0],
+      ...(atY === undefined ? {} : { atY }) });
     step(8 * FIXED);
 
     const diagnostic = left.locomotion.diagnostic();
@@ -106,7 +110,7 @@ const physicalCell = async (line, fraction, seconds) => {
       step(index * FIXED);
       ragdollDropM = Math.max(ragdollDropM, standingTorsoY - trunk.mesh.position.y);
     }
-    return Object.freeze({ state, ragdollDropM, endState: left.locomotion.state,
+    return Object.freeze({ state, ragdollDropM, endState: left.locomotion.state, tipping,
       shovedMps: specificImpulseMps, specificImpulseMps: diagnostic.stability.specificImpulseMps,
       lines, after,
       freshSupportBindings: diagnostic.freshSupportBindings,
@@ -166,4 +170,24 @@ test("real_Havok_brackets_the_body_s_own_stagger_and_fall_lines_on_a_supported_b
     assert.equal(row.releaseReason,
       cell.expectedState === "fallen" ? "stability threshold was exceeded" : null, cell.id);
   }
+});
+
+test("a_blow_s_height_reaches_the_ledger_as_its_lever_about_the_base", async () => {
+  // Physical contact session 08 reads a blow by the height it landed at (`leverAt`). `Combat` names
+  // that height and the state machine reads it, and both halves were tested -- while the port's
+  // staging between them dropped it, so every blow in every bout landed at the centre of mass. This
+  // is the whole path on a real standing body: one shove, a third of its stagger line, landed at
+  // the centre of mass, at the ground and half again above the centre of mass.
+  const atCentre = await physicalCell("stagger", 0.3, 0.1);
+  const atGround = await physicalCell("stagger", 0.3, 0.1, (t) => t.groundY);
+  const high = await physicalCell("stagger", 0.3, 0.1, (t) => t.groundY + 1.5 * t.comHeightM);
+  assert.ok(Math.abs(atCentre.specificImpulseMps / atCentre.shovedMps - 1) < 1e-9,
+    `a shove naming no height is read at the centre of mass: ${atCentre.specificImpulseMps} for ${atCentre.shovedMps}`);
+  // Not exactly zero: an idle body sways, and its lowest point with it, between the reading and the
+  // boundary that files the shove.
+  assert.ok(atGround.specificImpulseMps < 1e-3 * atGround.shovedMps,
+    `a shove at the ground tips nothing: ${atGround.specificImpulseMps} for ${atGround.shovedMps}`);
+  assert.ok(Math.abs(high.specificImpulseMps / high.shovedMps - 1.5) < 0.02,
+    `a shove half again above the centre of mass counts half again: ${high.specificImpulseMps / high.shovedMps}`);
+  assert.equal(high.state, "supported", "a third of the stagger line, even at 1.5 times, stays up");
 });
