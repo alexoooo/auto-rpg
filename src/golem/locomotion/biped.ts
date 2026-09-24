@@ -1212,7 +1212,6 @@ return defineLocomotion({
       world,
       footprint,
       heightRange: bipedHeightRange(B),
-      fallenTone: B.knockdown === null ? null : B.fallenTorqueScale,
       authority,
       postureEvidence,
       gait,

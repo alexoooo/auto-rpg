@@ -376,9 +376,9 @@ export interface ModuleBuild {
    * The golem's motor tone, which every actuator the module builds reads at each `drive`.
    *
    * Optional for the reason `world` is: an assembled golem hands over its own, and a module stood
-   * on a bench alone is handed none and builds at `FULL_TONE`. The golem lowers it while its body
-   * is knocked down, if its locomotion's table says so (`BuiltLocomotion.fallenTone`). A
-   * locomotion module relaxes its own legs and does not read it.
+   * on a bench alone is handed none and builds at `FULL_TONE`. The golem lowers it to
+   * `GROUNDED_TONE` while its body is knocked down, whatever the body. A locomotion module relaxes
+   * its own legs and does not read it.
    */
   readonly tone?: MotorTone;
   /**

@@ -118,6 +118,40 @@ import type { BuiltTorso, TorsoCommand } from "./torso/torso.ts";
 const UP = Object.freeze(new Vector3(0, 1, 0));
 
 /**
+ * The share of every upper-body motor ceiling a body keeps while it lies fallen, whatever the body
+ * (`motorTone`). Physical contact session 02 replaced a per-locomotion `fallenTone` -- the skeleton's
+ * 0.08 with its upper body commanded neutral, and full strength for every other body -- with this
+ * one number, on the owner's call that a grounded body may swing and parry weakly.
+ *
+ * **The lowest share at which every arm still completes its stroke with its peak anchor stray at no
+ * more than twice its standing figure.** Node golem bench, one module on the stand
+ * (`research/grounded-tone.mjs`); stray as a multiple of the same arm's at full tone:
+ *
+ * | arm                       |  0.60 |  0.55 |  0.50 |  0.45 |  0.40 |  0.25 |
+ * | ------------------------- | ----- | ----- | ----- | ----- | ----- | ----- |
+ * | wrist blade               |  1.64 |  1.54 |  1.27 |  1.86 |  2.12 |  3.63 |
+ * | wrist mace                |  1.52 |  1.66 |  1.88 |  1.95 |  2.03 |  1.89 |
+ * | wrist fist                |  1.01 |  1.03 |  1.06 |  1.21 |  1.61 |  5.52 |
+ * | wrist maul                |  1.60 |  1.66 |  1.67 |  1.68 |  1.71 |  1.35 |
+ * | skeletal blade            |  1.29 |  1.32 |  1.37 |  1.48 |  1.65 |  2.18 |
+ * | skeletal mace             |  1.67 |  1.81 |  2.03 |  2.24 |  2.64 |  3.43 |
+ * | anatomical blade          |  1.65 |  1.77 |  1.84 |  2.25 |  2.52 |  3.22 |
+ *
+ * The skeletal mace is the arm that sets it. What 0.55 costs a parry, arrival seconds at full and
+ * at 0.55 on the same bench: wrist plate 0.075 and 0.183, skeletal plate 0.062 and 0.121,
+ * anatomical plate 0.058 and 0.071. And a maul barely swings from the floor: its speed at the mark
+ * falls from 12.06 m/s to 3.83 and its miss from 0.75 m to 1.47 by 0.6, and holds there -- which is
+ * the weak swing the owner asked for, not a stroke that fails to finish.
+ *
+ * **What it may cost a knockdown.** The skeleton's upper body went limp because a body still
+ * fighting on the floor is slow to come to rest: 11 of 22 lies ran to the 2.5 s cap at full strength
+ * against 3 of 30 limp (Node bout runner, supported, 20 s cap, skeleton mirrors, seed pairs
+ * 0x57010001 to 0x57010008). This tone sits between the two; physical contact session 02's census
+ * reads what it did.
+ */
+export const GROUNDED_TONE = 0.55;
+
+/**
  * What a golem's plate is, in `Combat`'s vocabulary for things that stop a blow.
  *
  * `shield` rather than a kind of its own: `PARRY_LABEL` in `src/combat.ts` is a total record
@@ -641,17 +675,9 @@ export class Golem implements Combatant {
   set mind(value: Mind) { this.control.installMind(value); }
 
   /**
-   * Whether this body is down and limp: fallen, on a locomotion whose table says a knockdown takes
-   * the whole body (`BuiltLocomotion.fallenTone`). Stone's does not, and fights on from the floor
-   * for as long as it lies there, which is never less than the 0.35 s dwell.
-   */
-  private knockedLimp(): boolean {
-    return this.locomotionModule.fallenTone !== null && this.locomotion.state === "fallen";
-  }
-
-  /**
-   * The fraction of every upper-body motor ceiling this substep: the locomotion's `fallenTone`
-   * while `knockedLimp`, climbing back to full along the rise's own progress, and full otherwise.
+   * The fraction of every upper-body motor ceiling this substep: `GROUNDED_TONE` while the body
+   * is fallen, climbing back to full along the rise's own progress, and full otherwise. The same for
+   * every body, and a grounded body keeps taking its commands: it fights from the floor, weakly.
    *
    * **The climb is what keeps the arm from snapping.** Restored in one step on the rise's first
    * substep, a limp arm's commanded pose was suddenly driven at full strength from wherever the
@@ -667,21 +693,19 @@ export class Golem implements Combatant {
    * ceiling on every substep of the rise, where a steady tone writes none. That cost was not timed.
    */
   private motorTone(): number {
-    const fallen = this.locomotionModule.fallenTone;
-    if (fallen === null) return 1;
     const state = this.locomotion.state;
-    if (state === "fallen") return fallen;
+    if (state === "fallen") return GROUNDED_TONE;
     if (state !== "rising") return 1;
-    return fallen + (1 - fallen) * (this.locomotion.diagnostic().recoveryProgress ?? 1);
+    return GROUNDED_TONE + (1 - GROUNDED_TONE) * (this.locomotion.diagnostic().recoveryProgress ?? 1);
   }
 
   /**
    * The whole `Intent`, narrowed onto five modules. Nothing here widens the command.
    *
-   * **A limp body takes no command above the legs**, from a person or a policy alike: the torso,
-   * the head and both hands are handed `NEUTRAL` until it rises, which is the carrier's own rule
-   * ("carrier is released while fallen") carried up the body. The legs still get the whole
-   * command.
+   * **A fallen body still takes its whole command**, from a person or a policy alike, at
+   * `GROUNDED_TONE` (`motorTone`). Until physical contact session 02 a skeleton's torso, head and
+   * hands were handed `NEUTRAL` while it lay; the owner's call was that a grounded body may swing
+   * and parry weakly, so the tone is what weakens it and nothing takes the command away.
    */
   private applyIntent(dt: number, intent: Intent): void {
     this.settleRuin();
@@ -694,12 +718,11 @@ export class Golem implements Combatant {
     // a bench and stand perfectly still in a bout, which is the least visible way this could have
     // gone wrong.
     this.locomotion.request(locomotion.request);
-    const upper = this.knockedLimp() ? NEUTRAL : intent;
-    const posture: TorsoCommand = upper.posture;
+    const posture: TorsoCommand = intent.posture;
     this.torsoModule.command(posture);
-    this.headModule.command(upper.natural);
+    this.headModule.command(intent.natural);
     for (const effector of this.effectorModules) {
-      effector.module.command(upper[effector.driven]);
+      effector.module.command(intent[effector.driven]);
     }
     void dt;
   }

@@ -11,7 +11,7 @@ import { CONFIG } from "../src/config.ts";
 import { stepPair } from "../src/fighter.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
 import { LOCOMOTION_BIPED } from "../src/golem/config.ts";
-import { Golem } from "../src/golem/golem.ts";
+import { GROUNDED_TONE, Golem } from "../src/golem/golem.ts";
 import { JointActuator } from "../src/golem/joint-servo.ts";
 import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
@@ -174,10 +174,13 @@ function assertCommands(row, intent, label) {
     primary: intent.primary, secondary: intent.secondary }, `${label} at ${row.at.toFixed(3)} s`);
 }
 
-test("a_knocked_down_skeleton_goes_limp_lies_down_and_rises_as_slowly_as_its_table_says", async () => {
+// **A downed body fights on, weakly** (physical contact session 02): every motor above the legs at
+// `GROUNDED_TONE` and the whole command still handed through, where a skeleton once went limp and
+// neutral. The command half is a pair with `standing`, so a fallen body commanded neutral fails it.
+test("a_knocked_down_skeleton_goes_weak_lies_down_and_rises_as_slowly_as_its_table_says", async () => {
   const rule = SKELETON_BIPED.knockdown;
-  const tone = SKELETON_BIPED.fallenTorqueScale;
-  assert.ok(rule !== null && tone < 1);
+  const tone = GROUNDED_TONE;
+  assert.ok(rule !== null && tone > 0 && tone < 1);
   const { mind, standing, samples, census } = await knockdown(skeletonSetup);
   assertCensus(census);
   assertCeilings(standing, 1, "standing");
@@ -188,7 +191,7 @@ test("a_knocked_down_skeleton_goes_limp_lies_down_and_rises_as_slowly_as_its_tab
   assert.ok(fallen.length > 0, "the shove did not knock the skeleton down");
   for (const row of fallen) {
     assertCeilings(row, tone, "fallen");
-    assertCommands(row, NEUTRAL, "fallen");
+    assertCommands(row, intent, "fallen");
   }
   const lay = lasted(fallen);
   assert.ok(lay > V1.FALLEN_DWELL_S + 0.25,
@@ -226,14 +229,14 @@ test("a_knocked_down_skeleton_goes_limp_lies_down_and_rises_as_slowly_as_its_tab
   assertCommands(up, intent, "up");
 });
 
-test("stone_sets_no_knockdown_and_fights_from_the_floor_until_the_dwell", async () => {
+test("stone_sets_no_knockdown_and_fights_weakly_from_the_floor_until_the_dwell", async () => {
   assert.equal(LOCOMOTION_BIPED.knockdown, null);
   const { mind, samples } = await knockdown(defaultGolemSetup);
   const intent = mind.decide();
   const fallen = firstStretch(samples, "fallen");
   assert.ok(fallen.length > 0, "the shove did not knock stone down");
   for (const row of fallen) {
-    assertCeilings(row, 1, "fallen");
+    assertCeilings(row, GROUNDED_TONE, "fallen");
     assertCommands(row, intent, "fallen");
   }
   const lay = fallen.at(-1).at - fallen[0].at + FIXED;
@@ -241,7 +244,9 @@ test("stone_sets_no_knockdown_and_fights_from_the_floor_until_the_dwell", async 
   const rising = firstStretch(samples, "rising");
   const took = rising.at(-1).at - rising[0].at + FIXED;
   assert.ok(Math.abs(took - V1.RISING_DURATION_S) <= 2 * FIXED, `stone rose in ${took.toFixed(3)} s`);
-  for (const row of rising) assertCeilings(row, 1, "rising");
+  for (const row of rising) assertCeilings(row, GROUNDED_TONE + (1 - GROUNDED_TONE) * row.progress, "rising");
+  const up = samples.find((row) => row.at > rising.at(-1).at);
+  assertCeilings(up, 1, "up");
 });
 
 test("a_skeleton_rises_once_it_has_been_still_for_its_rest_window", async () => {
@@ -282,10 +287,10 @@ test("a_fall_level_blow_while_a_skeleton_rises_puts_it_down_and_it_lies_its_whol
   // Held to the cap by a rest it cannot reach, so each lie's length is the rule's alone; a lie that
   // carried the first one's clock into the second would be short.
   const rule = SKELETON_BIPED.knockdown;
-  const tone = SKELETON_BIPED.fallenTorqueScale;
+  const tone = GROUNDED_TONE;
   SKELETON_BIPED.knockdown = { ...rule, restSeconds: rule.maxLyingSeconds * 4 };
   try {
-    const { samples, census, reshoved } = await knockdown(skeletonSetup, { seconds: 9, reshoveIntoRise: 0.3 });
+    const { mind, samples, census, reshoved } = await knockdown(skeletonSetup, { seconds: 9, reshoveIntoRise: 0.3 });
     assertCensus(census);
     assert.ok(reshoved, "the rise was never struck");
     const lies = stretches(samples, "fallen");
@@ -301,7 +306,7 @@ test("a_fall_level_blow_while_a_skeleton_rises_puts_it_down_and_it_lies_its_whol
     }
     for (const row of second) {
       assertCeilings(row, tone, "fallen again");
-      assertCommands(row, NEUTRAL, "fallen again");
+      assertCommands(row, mind.decide(), "fallen again");
     }
     assert.ok(samples.some((row) => row.at > second.at(-1).at && row.state === "rising"), "never rose again");
   } finally {
@@ -312,7 +317,7 @@ test("a_fall_level_blow_while_a_skeleton_rises_puts_it_down_and_it_lies_its_whol
 test("a_staggering_blow_while_a_skeleton_rises_does_not_stop_the_rise", async () => {
   assert.ok(BETWEEN_STAGGER_AND_FALL * V1.FALL_SPECIFIC_IMPULSE_MPS > V1.STAGGER_SPECIFIC_IMPULSE_MPS &&
     BETWEEN_STAGGER_AND_FALL < 1, "the blow is not between the two lines");
-  const tone = SKELETON_BIPED.fallenTorqueScale;
+  const tone = GROUNDED_TONE;
   const { mind, samples, census, reshoved } = await knockdown(skeletonSetup,
     { seconds: 9, reshoveIntoRise: 0.3, reshoveAt: BETWEEN_STAGGER_AND_FALL });
   assertCensus(census);

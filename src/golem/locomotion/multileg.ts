@@ -916,7 +916,6 @@ return defineLocomotion({
       world,
       footprint,
       heightRange: multilegHeightRange(M),
-      fallenTone: null,
       authority,
       postureEvidence,
       gait,

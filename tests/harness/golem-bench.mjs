@@ -391,6 +391,12 @@ export async function runGolemBench({
    * module built exactly as the bench always built it -- with no `attributes` in its context at all.
    */
   attributes = null,
+  /**
+   * The motor tone the module is built on, as a fraction of every ceiling (`ModuleBuild.tone`), or
+   * null for the full tone a module on the bench has always had. Physical contact session 02 reads
+   * a grounded arm this way: the same arm on the same stand with its ceilings at a share.
+   */
+  tone = null,
 } = {}) {
   const option = golemModule(moduleId);
   if (!option) {
@@ -446,6 +452,7 @@ export async function runGolemBench({
     layers: golemLayers(side),
     materials: stand.materials,
     ...(attributes ? { attributes: resolveAttributes({ attributes }) } : {}),
+    ...(tone === null ? {} : { tone: { scale: tone } }),
   });
 
   watch(stand.block.body);
@@ -1138,6 +1145,8 @@ export async function runStrokeBench({
   guardSeconds = STROKE_GUARD_SECONDS,
   /** The stats the arm is built at, as `runGolemBench` takes them. */
   attributes = null,
+  /** The motor tone the arm is built on, as `runGolemBench` takes it. */
+  tone = null,
 }) {
   const kind = weaponOf(moduleId);
   let reader = null;
@@ -1147,6 +1156,7 @@ export async function runStrokeBench({
     slot,
     overrides,
     attributes,
+    tone,
     probe: (payload) => reader?.probe(payload),
     sequence: ({ module, socket }) => {
       const cap = capabilityOf(module);
@@ -1209,6 +1219,8 @@ export async function runParryBench({
   up = PARRY_UP_METRES,
   coverSeconds = 0.6,
   holdSeconds = PARRY_HOLD_SECONDS,
+  /** The motor tone the arm is built on, as `runGolemBench` takes it. */
+  tone = null,
 }) {
   let reader = null;
   let travel = null;
@@ -1216,6 +1228,7 @@ export async function runParryBench({
     moduleId,
     slot,
     overrides,
+    tone,
     probe: (payload) => reader?.probe(payload),
     sequence: ({ module, socket }) => {
       const cap = capabilityOf(module);

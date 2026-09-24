@@ -2457,11 +2457,12 @@ export const BENCH_STAND_LOCOMOTION_SIZE: SizeLaws<typeof BENCH_STAND_LOCOMOTION
 /**
  * A knockdown that runs its course, for a biped whose table sets one.
  *
- * - **The whole body goes limp.** While it lies, every motor above the legs falls to
- *   `fallenTorqueScale`, as the legs already do, and the upper body is commanded neutral
- *   (`BuiltLocomotion.fallenTone`). From the rise's first substep the upper body takes its
- *   commands again, and the tone climbs back to full across the rise (the table that chose the
- *   climb is on the golem's `motorTone`).
+ * - **The legs go limp and the upper body goes weak.** While it lies, the legs fall to
+ *   `fallenTorqueScale`, and every motor above them to `GROUNDED_TONE` in `src/golem/golem.ts`,
+ *   the one tone every downed body takes (physical contact session 02; it was this table's
+ *   `fallenTorqueScale` with the upper body commanded neutral before that). The upper body keeps
+ *   its commands throughout, and the tone climbs back to full across the rise (the table that
+ *   chose the climb is on the golem's `motorTone`).
  * - **The rise waits for the fall to finish**: the pelvis and the load have both moved slower than
  *   `restSpeedMps` for `restSeconds` together, or the body has lain `maxLyingSeconds` whatever it
  *   was doing. The cap is what keeps this from being a rule a body can fail for ever -- a ragdoll an

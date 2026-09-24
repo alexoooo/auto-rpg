@@ -848,7 +848,6 @@ return defineLocomotion({
       world,
       footprint,
       heightRange: wheelHeightRange(W),
-      fallenTone: null,
       authority,
       postureEvidence,
       gait,
