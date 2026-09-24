@@ -109,15 +109,25 @@ the build and what to look for.
     bout, against session 01's 4.93, because every contact is filed at its physical impulse and the
     blow gain is gone. Check that it reads as heavy bodies rather than as a missing mechanic; a gain
     on a scored blow's filing is the lever if not;
-  - **the skeleton on its feet, and a choice**: it falls 16.4 times a body in an x1 mirror, a third
-    of them from a parry, because its centre of mass stands outside its feet in 36.3 % of its
-    standing time. A leg-rotation stance (not in the tree; see "Chosen on the owner's behalf")
-    takes that to 11.4 at the price of walk-start foot slip over budget. Watch a skeleton mirror and
-    say whether its falls read as a top-heavy body or as a broken one;
+  - **the skeleton on its feet, and a choice**: it falls 16.5 times a body in an x1 mirror and is
+    down 64 % of the bout, a parry felling it as readily as a blow, because its centre of mass stands
+    outside its feet in 36.3 % of its standing time. The mace skeleton's fall impulse is 0 at rest.
+    A leg-rotation stance (not in the tree; see "Chosen on the owner's behalf") takes the knockdowns
+    to 11.4 at the price of walk-start foot slip over budget. Watch a skeleton mirror and a mace
+    skeleton standing still, and say whether its falls read as a top-heavy body or as a broken one;
   - stone, the wheel and the multileg lying until their fall has stopped, then rising in about
     2 s, where they used to rise after a frozen 0.35 s whether or not the fall had finished;
   - a blow to the head rocking a body more than one to the belt, and a blow at the shins barely
     at all.
+- **09:**
+  - **the human's flat blade**: its arm's roll is a quarter turn from the stroke table's, so its cuts
+    lead with the flat (edge lead 0.28), and it holds at the very end of its reach. It still wins no
+    idle cell outright. Turning the roll leads with the edge but misses by 0.40 m, so the fix is the
+    arm's own orientation solve and not a constant;
+  - a heavier body pressing a lighter one to push range: stone on a human or a skeleton, the giant on
+    anything;
+  - the heavy mauls swinging at the arm's pace and straying 125 to 173 mm off their anchor;
+  - an outreached body holding at its own reach rather than outside the other's.
 - **10:** the all-max giant against a x1, which should look and win like a giant.
 - **Carried from the attributes set**, still unchecked:
   - the attribute sliders in the arena setup corners and the dungeon hero dialog, with Reset and a
@@ -296,9 +306,9 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   never fell without it, and it was calibrated to session 01's band. Two things were wrong under
   that reading: a blow's height never reached the ledger, and the gain reached every contact rather
   than the scored blows its record named. With the height repaired and no gain, the x1 stone mirror
-  falls 0.49 [0.34, 0.66] times a body a bout (96 pairs), and a standing skeleton falls on 11 of the
-  37 scored blows it takes standing, and on 17 of the 69 parries it takes standing (Node research
-  runner and `.review/fall-cause.mjs` on the bout runner; the measurements doc has the tables). So
+  falls 0.56 [0.45, 0.68] times a body a bout (192 blocks), and a standing skeleton falls on 40 of
+  the 124 scored blows it takes standing, and on 85 of the 234 parries (Node research runner and
+  `.review/fall-cause.mjs` on the bout runner; the measurements doc has the tables). So
   neither of the plan's failure conditions holds and no rule comes back. Holding session 01's band
   was itself against the plan ("the knockdown rate is not held"). Knockdowns are now rare for stone,
   which is on the eye list; a gain on a scored blow's filing, applied after `scoreHit`, is the rule
