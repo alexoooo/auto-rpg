@@ -63,6 +63,13 @@ the build and what to look for.
   - the fallen one swinging and guarding back from the ground, weakly;
   - a skeleton finishing a skeleton: it touches the downed body in 87 % of the windows in reach and
     scores in a third of them, because its blows land under the energy floor.
+- **04:**
+  - the stone body walking, turning and falling at 247 kg, which is 2.7 times what it was. Its leg,
+    waist, neck and wheel torques went up by the same factor, and the Node locomotion bench reads the
+    walk as before; the owner has not seen it;
+  - stone fights are shorter: a median x1 mirror ends in 13.4 s against 28.8 (mean 17.7 against
+    32.9). A heavier trunk recoils less, so more blows land and each lands harder. Check that it reads
+    as heavier bodies and not as a harder game.
 - **07:**
   - the all-max giant lifting and launching a x1 from below;
   - pushing one back;
@@ -125,3 +132,39 @@ Each entry names the session, the choice, where it lives and how to reverse it.
 - **03, `CHAIN_REACH.liftMin` stays at -0.95.** Strokes already touched a downed body in 87 to 99 %
   of the in-reach windows, so lowering the envelope would buy contact that already happens.
   `src/golem/config.ts`.
+- **04, stone's body density is 1300 kg/m3, and "an arm cannot lift a body" is read per arm.** Half
+  of solid stone, the lightest round density at which the strongest x1 stone arm falls short of an
+  x1 stone body's weight by 1.25. Two x1 arms together still lift an x1 body (3876 N against
+  2425 N); holding that as well needs about 5.5 times the shipped body, which is past solid stone.
+  `STONE_BODY_DENSITY` in `src/golem/config.ts`, with the table. A different density is one number;
+  every body torque follows it through `onBody`.
+- **04, the ram's plate is at the body's density.** `HEAD_RAM.plateMass` is `bodyKg` rather than
+  `kg()`, and `impactMassKg` follows it, because under `kg()` no torque factor restored the lunge:
+  the hinge's inertia grew by less than its torques. It is still an item to the weight and size stats
+  (`RAM_SIZE` in `src/golem/head/head.ts`), which is a separate rule. `src/golem/config.ts`.
+- **04, the holding repair is a per-family ratio, not a global rescale.** The plan said to rescale
+  `STAGGER_SPECIFIC_IMPULSE_MPS` and `FALL_SPECIFIC_IMPULSE_MPS`. Those two literals are shared by
+  every family, and the skeleton and the human did not get heavier, so a global rescale would have
+  made them easier to fell. So each family names the factor its own supported mass grew by
+  (`StabilityAuthority.stabilityMassRatio`, 2.727 for the stone biped, 2.809 for the wheel, 2.768
+  for the multileg, and 1 pinned on the skeleton and the human). A shove is read against
+  `supportedMassKg / stabilityMassRatio`, so every family falls at the newton-seconds it fell at
+  before; the decay stays put, since it is in the same units as the ledger. Sessions 06 and 08
+  replace the ledger, and the ratio goes with it. `stabilityMassKg` in
+  `src/supported-locomotion-state.ts`.
+- **04, the human and the skeleton pin what they inherited from stone.** Leg, waist and neck torques,
+  the bench shove and a ratio of 1, at the shipped values, because their masses did not move.
+  `HUMAN_BIPED`, `HUMAN_WAIST` and `HUMAN_HEAD` in `src/golem/humanoid/body.ts`, `SKELETON_BIPED` in
+  `src/golem/skeleton/body.ts`. The human's anthropometry check found nothing to correct; the
+  skeleton was not re-tuned (see session 04's "What landed").
+- **04, the skeleton keeps its mass, 25 % of the human's without items.** A reference man's skeleton
+  is about a seventh of his body (ICRP 89), which would make it about 15 kg against 26.78. Lightening
+  it would double the lift ratio session 04 was told to report rather than fix, and would move every
+  skeleton baseline sessions 05 to 08 measure against. `SKELETON_*` masses in
+  `src/golem/skeleton/body.ts`; to reverse, scale them by 0.56.
+- **04, the knockdown gate is red and the set went on.** Stone's x1 knockdowns a bout fell out of
+  session 01's band because stone bouts got shorter, not because a body got harder to fell: per
+  second they rose. Restoring the count would need a per-second rate 60 % above session 01's, which
+  is not a holding repair. The knockdown gate lapses at session 08, and session 05 recalibrates the
+  energy a blow carries, so neither is served by moving a threshold here. To reverse it, rescale the
+  ratios down by the bout length.

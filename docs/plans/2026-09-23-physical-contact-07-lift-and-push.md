@@ -64,6 +64,23 @@ carrier stays keyframed while the body is standing. The physics decides when it 
   - the opening blade clash, which lifts nothing.
 - **x1 against x1 either side**, with the fingerprint diff.
 
+## Inputs from session 04
+
+On the Node lift bench, against the x1 stone body's 2425 N at `STONE_BODY_DENSITY` 1300:
+
+- **One x1 arm cannot lift an x1 body, and two together can.** The strongest single arm, the reach
+  blade, lifts 1938 N (0.80). Two of them lift 3876 N. So "x1 against x1 never lifts" holds for one
+  arm and not for a two-armed press. The owner's rule was read per arm (session 10's "Chosen"), so
+  read the bench both ways: a lift by one arm is a defect, and a lift by two is the rule working.
+- **The max giant lifts an x1 body with its fists and not with its blades.**
+  - Fists: reach 2 x 2500 N, wrist 2 x 2031 N.
+  - Blades: reach 2 x 1125 N, wrist 2 x 719 N.
+  - `max` lengthens a blade chain more than it strengthens it, so a max blade arm lifts less than an
+    x1.25 one (reach blade 2875 N).
+  - "The giant lifts a x1" will therefore hold for a fist giant and fail for the default blade giant,
+    unless the arm's torque is made to follow its length. Settle that first.
+  - The body's density is not the lever: it was chosen once and is not moved again.
+
 ## Owner's eye list (session 10)
 
 - The giant lifting and launching a x1 from below.

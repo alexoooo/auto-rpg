@@ -94,3 +94,41 @@ design**, not as an exception.
   declared against 6.91 in the solver, wrist plate 7.53 against 8.71. `golemUpperMassKg` is short by
   1.55 kg on stone and 2.08 on the skeleton for the same reason. That is the "unloaded-mass gap" the
   last bullet of Measure names.
+
+## What landed, 2026-09-24
+
+Every figure is in `docs/analysis/2026-09-23-attribute-measurements.md` "Physical contact 04:
+bodies heavy enough", with its harness. What differs from the plan above:
+
+- **The two inputs from session 01 were fixed first** (66ee353). The wheel and the multileg now take
+  the biped's `carry()`, and a chain can say what it weighs under a load (`massAtKg`), so supported
+  mass equals whole mass and the build's upper mass equals the solver's on every family.
+- **Stone's density is 1300 kg/m3, half of solid stone** (562f8b2), chosen by change 1's rule against
+  the strongest single arm. The default body goes from 90.64 to 247.17 kg. **"An arm cannot lift a
+  body" is read per arm**: two x1 reach blades together still lift an x1 body, 3876 N against
+  2425 N, and holding that too needs about 5.5 times the shipped body, past solid stone.
+- **The wheel, the multileg, the bench's ride block and the ram's plate take the density too.** Every
+  torque that moves a body part goes through `onBody()` by the same 3.086, and the Node locomotion
+  and torso benches read the walk, the waist and the lunge as before. The plate needed body density
+  because under `kg()` no torque factor restored the lunge.
+- **The holding repair is a per-family ratio, not a rescale of the two shared literals**
+  (`StabilityAuthority.stabilityMassRatio`). A global rescale would have made the unchanged skeleton
+  and human easier to fell. Stone biped 2.727, wheel 2.809, multileg 2.768, and 1 on the skeleton and
+  the human.
+- **The human needed nothing.** Its parts are within a few points of Winter's segment fractions for a
+  105 kg man. Its waist and its leg, waist and neck torques were stone's, and are pinned at the
+  values they had, as are the skeleton's.
+- **The skeleton was not made lighter.** It is lighter than the human in every part, 25 % of the
+  human's mass without items, against the seventh a reference man's skeleton weighs (ICRP 89). Taking
+  it to 15 kg would double the lift ratio change 3 said to report rather than fix (4.4 to 8.7 times
+  its own weight today). It would also move every skeleton baseline that sessions 05 to 08 measure
+  against, in a session whose subject was stone. It is under "Chosen on the owner's behalf" in session 10.
+- **The knockdown gate is red, and the set went on.** Stone's x1 knockdowns fell from 4.68 to 3.99 a
+  bout, below session 01's band, because the median bout fell from 28.8 to 13.4 s. Per second, a
+  stone body falls 58 % more often than before. A heavier trunk behind the same arm lands more blows,
+  harder. Session 05 recalibrates what a blow carries and session 08 replaces the ledger, so no
+  threshold was moved here.
+- **The max giant lifts an x1 body with its fists and not with its blades**, because `max` lengthens
+  the blade chains more than it strengthens them. That goes to session 07.
+- **The heavier stone dummy is still beaten** by every attacker that beat it before, and faster. The
+  same five cells are at zero.

@@ -2402,3 +2402,193 @@ a win:
 The same five cells are at zero, and none newly. Stone and skeleton attackers beat a stone or
 skeleton dummy more often than on session 02's tree: stone on stone went from 50 % to 58 %, and
 skeleton on skeleton from 75 % to 83 %.
+
+## Physical contact 04: bodies heavy enough
+
+Session 04 (`docs/plans/2026-09-23-physical-contact-04-family-masses.md`) landed in two commits:
+
+- **66ee353**: every carrier holds up its whole body.
+- **562f8b2**: stone's body takes its own density, `STONE_BODY_DENSITY` 1300 kg/m3 in
+  `src/golem/config.ts`, with the per-family `stabilityMassRatio` as the holding repair.
+
+The "before" of the benches and of the skeleton and human controls is 66ee353. The "before" of the
+stone control is session 03's 1cf586933d58, so it includes both commits. "After" is 562f8b2, whose
+body fingerprint is 2a589fb9fd98. Raw outputs are in `research/runs/pc04`, which is not committed.
+
+### Mass census
+
+`tests/harness/mass-census.mjs`: Node harness, `createBout`, supported locomotion, NullEngine, real
+Havok. Whole kg:
+
+| Family | Before | After | Carrier | Legs | Trunk | Head | Arm links | Items | Supported, after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| stone | 90.64 | 247.17 | 46.70 | 54.90 | 86.00 | 43.95 | 12.02 | 3.60 | 247.17 |
+| giant (stone at max) | 337.54 | 948.97 | 182.42 | 214.45 | 335.94 | 171.68 | 40.88 | 3.60 | 948.97 |
+| wheel | 117.39 | 329.72 | 54.45 | 129.70 | 86.00 | 43.95 | 12.02 | 3.60 | 329.72 |
+| multileg | 102.34 | 283.27 | 99.00 | 38.70 | 86.00 | 43.95 | 12.02 | 3.60 | 283.27 |
+| skeleton | 30.38 | 30.38 | 3.00 | 5.00 | 11.50 | 1.80 | 5.48 | 3.60 | 30.38 |
+| human | 111.45 | 111.45 | 14.00 | 31.00 | 42.35 | 7.50 | 11.80 | 4.80 | 111.45 |
+
+- **Every family's supported mass now equals its whole mass, and the build's upper mass equals the
+  solver's** (stone 145.57 kg). Before 66ee353 the wheel supported 59.66 kg and the multileg 44.61,
+  and the build's upper mass was 1.55 kg short on stone and 2.08 kg short on the skeleton.
+- **The stone body is 2.727 times what it was; the arm links and items did not move.**
+- **The human is at human scale.** The reference is Winter's segment fractions: head and neck 8.1 %,
+  trunk with pelvis 49.7 %, thigh 10.0 %, shank 4.65 %, foot 1.45 %, upper arm 2.8 %, forearm 1.6 %,
+  hand 0.6 %. Without items the human weighs 106.65 kg, and reads head 7.0 %, trunk with pelvis
+  52.8 %, thigh 9.4 %, shin 3.8 %, foot 1.4 %, upper arm 2.6 %, forearm 1.9 % and hand 1.0 %. Every
+  part is within a few points of a 105 kg man, so nothing was corrected. The one change: the human's
+  waist was stone's, and it is now pinned at the 5.346 kg it weighed then (`HUMAN_WAIST`).
+- **The skeleton is lighter than the human in every part, and heavier than bone.** Without items it
+  weighs 26.78 kg, 25 % of the human. A reference man's skeleton is about a seventh of his body
+  (ICRP 89: 10.5 kg of 73 kg, marrow and cartilage included), which would make it about 15 kg. It was
+  not moved; see the plan's "What landed".
+
+### Lift
+
+`tests/harness/lift-bench.mjs`: Node harness, bench stand, NullEngine, real Havok.
+
+- Capacity is the largest force against a slider plate that the arm still moves half the gap
+  toward its free tip within 1.5 s, bisected to 50 N.
+- The x1 stone body weighs 2425 N.
+- No arm changed, so the capacities are session 01's; only the weight they are read against moved.
+
+| Chain, item | x1 N, gap 0.2 / 0.4 m | x1, share of an x1 body | x1.25, share | max, share |
+| --- | --- | --- | --- | --- |
+| reach, blade | 1688 / 1938 | 0.70 / 0.80 | 1.19 / 1.06 | 0.46 / 0.32 |
+| reach, fist | 1406 / 1563 | 0.58 / 0.64 | 1.17 / 1.13 | 1.02 / 1.03 |
+| wrist, blade | 1406 / 1281 | 0.58 / 0.53 | 0.84 / 0.52 | 0.28 / 0.30 |
+| wrist, fist | 1813 / 1344 | 0.75 / 0.55 | 0.93 / 0.93 | 0.84 / 0.77 |
+| pitch, blade | 156 / 125 | 0.06 / 0.05 | 0.14 / 0.14 | 0.15 / 0.14 |
+| pitch, fist | 438 / 0 | 0.18 / 0.00 | 0.39 / 0.00 | 0.39 / 0.00 |
+
+- **No single x1 stone arm lifts an x1 stone body.** The strongest arm reaches 0.80 of its weight,
+  which is the 1.25 margin the density was chosen for.
+- **Two x1 arms together still lift one**: two reach blades give 3876 N against 2425 N. The plan's
+  target is read per arm, on the owner's behalf. Holding it for two arms as well needs about 5.5 times
+  the shipped body, which is past solid stone.
+- **The max giant lifts an x1 body with both fists, but not with both blades.**
+  - Fists: reach 2 x 2500 N, wrist 2 x 2031 N.
+  - Blades: reach 2 x 1125 N, wrist 2 x 719 N.
+  - `max` lengthens the arm as well as strengthening it, so on a blade chain it lifts less than
+    x1.25 does. That is a finding about the arm's torque against its length, and it goes to session
+    07; the density was not moved for it.
+- **The skeleton lifts 4.4 to 8.7 times its own 298 N** (x1 blade 4.40 / 5.35, x1 fist 6.92 / 7.34).
+  **The human lifts under a tenth of its own 1093 N.** Both are unchanged from session 01. Change 3
+  said to report the skeleton and not fix it.
+
+### Torques that move the body
+
+Every leg, waist, neck, wheel and ram-lunge torque on a stone part goes through `onBody()`, which
+multiplies it by `BODY_OVER_SHIPPED`, 3.086. The arm chains do not.
+
+The table is in `onBody`'s doc comment in `src/golem/config.ts`. It comes from the Node golem bench
+`--locomotion` and the Node torso bench, each read three ways: on the shipped body, with the density
+alone, and with the density and the torque factor.
+
+- **With the density alone**, the biped's walk lag went from 0.40 to 1.03 rad, and the ram's lunge
+  went from 0.76 to 0.35 rad.
+- **With the torque factor as well**, every row is within 0.01 of the shipped reading, except the
+  wheel's lean: 0.64 against 0.70 rad.
+- **The ram's plate needed body density too** (`HEAD_RAM.plateMass`). Under `kg()`, no torque factor
+  restored the lunge.
+
+The arm bench (`.review/size-bench.mjs arm`, Node harness) reads identically before and after.
+
+### Knockdown bench
+
+`.review/shove-bench.mjs`: Node harness, bench stand. Stagger / fall at scale 1.00, in N.s:
+
+| Family | 66ee353 | Density alone | 562f8b2 |
+| --- | --- | --- | --- |
+| biped | 0.82 / 1.91 | 2.52 / 5.88 | 0.92 / 2.16 |
+| multileg | 1.60 / 3.73 | 4.93 / 11.51 | 1.78 / 4.16 |
+| wheel | 0.49 / 1.15 | 1.52 / 3.55 | 0.54 / 1.27 |
+| skeleton | 0.79 / 1.84 | 2.24 / 5.22 | 2.24 / 5.22 |
+
+**The bench's body is not the game's, so the holding repair reads 12 % high here.**
+
+- Each family's `stabilityMassRatio` is what its assembled game body grew by (stone biped:
+  247.17 / 90.64 = 2.727).
+- The bench carries a ride block in place of a trunk, and that block is at body density too, so the
+  bench body grew by 3.087.
+- In a bout, the ratio returns each family's earlier supported mass exactly.
+- The skeleton row is the skeleton's legs under stone's stand, so its ratio of 1 does nothing here.
+
+### x1 controls
+
+- **Stone:** `research/control-band.mjs` on the giant sweep's control row.
+- **Skeleton and human:** `--level x1.00` of `research/stat-sweep.mjs --stat stability --levels 1
+  --pairs 192`, with `skeleton-duelist` and `humanoid-duelist`.
+- All three: Node harness, research runner, supported locomotion, cap 150 s, seed 20260923.
+
+Figures are per body per bout:
+
+| Tree | Stone damage | Stone knockdowns | Stone bout, median / mean s | Skeleton damage / knockdowns | Human damage / knockdowns |
+| --- | --- | --- | --- | --- | --- |
+| session 01 | 7.64 [7.43, 7.85] | 4.93 [4.54, 5.32] | -- | 1.89 / 4.85 | -- |
+| 1cf586933d58 (session 03) | 7.61 [7.39, 7.82] | 4.68 [4.31, 5.08] | 28.8 / 32.9 | 1.96 / 5.89 | -- |
+| 66ee353 | -- | -- | -- | 1.95 / 5.30 | 0.10 / 0.00 |
+| **562f8b2** | 7.26 [7.02, 7.48] | **3.99 [3.67, 4.32]** | 13.4 / 17.7 | 1.95 / 5.30 | 0.10 / 0.00 |
+
+- **66ee353 moved the skeleton's knockdowns from 5.89 to 5.30**, below session 03's band
+  [5.66, 6.13] and toward session 01's 4.85. Its supported mass had left out 2.08 kg of wrist and
+  roll ring, 7 % of the body, so every shove was read against too little mass. It was a correction,
+  not a holding repair, and it was left.
+- **562f8b2 leaves the skeleton and the human identical bout for bout.** Neither mass moved, and both
+  pin the stone torques they inherited.
+- **Stone's damage held, but its knockdowns per bout fell out of session 01's band. The gate is
+  red.**
+- **Diagnosis: stone bouts got shorter, and per second a stone body falls more often.**
+  - The median bout went from 28.8 to 13.4 s.
+  - Knockdowns per body per second went from 0.142 to 0.225.
+  - A heavier trunk recoils less from its own swing and from the other's, so more blows land and each
+    lands harder. `blows.mjs` (Node harness, the same seeds) reads a p90 wounding speed of 15.05 m/s
+    against 13.28.
+- **What was done about it: nothing.**
+  - Restoring the count per bout would need a per-second rate 60 % above session 01's, which is not a
+    holding repair.
+  - So the ratios stay where the rule put them, and the set went on.
+  - The gate lapses at session 08, and session 05 recalibrates the energy a blow carries.
+  - The entry is under "Chosen on the owner's behalf" in session 10's plan.
+
+The fingerprint diff (`research/fingerprint.mjs`, Node harness) from 66ee353 to 562f8b2: 31 sections
+the same and 24 moved, and every section that moved has a stone body in it.
+
+### The giant
+
+`research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max --pairs 192`, on 562f8b2.
+Node harness, research runner, supported locomotion, cap 150 s, seed 20260923:
+
+| Level | Win % [95 %] | Dealt / taken | Knockdowns | Other's knockdowns | Time down % | Other's % | Seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| control | 46.6 [41.7, 51.8] | 7.18 / 7.33 | 4.01 | 3.97 | 19.3 | 19.3 | 17.7 |
+| max | 57.0 [51.6, 62.2] | 8.02 / 14.36 | 0.00 | 3.18 | 0.0 | 9.9 | 26.6 |
+| max-normal-body | 93.8 [91.1, 96.1] | 9.83 / 6.06 | 1.47 | 5.18 | -- | -- | 19.5 |
+| size-weight-max | 14.8 [11.2, 18.5] | 3.97 / 9.26 | 0.07 | 1.21 | -- | -- | 20.5 |
+
+- **The max giant went from 48.3 % to 57.0 %.** Its body grew with the family's density and the x1
+  body's arms did not, so an x1 body now moves a giant less.
+- The time-down columns of the last two rows were not kept.
+
+### Idle-dummy matrix
+
+`research/idle-dummy.mjs --blocks 12`, on 562f8b2 (2a589fb9fd98). Each cell gives the outright win
+rate, then the win rate with the drain in brackets, then the median time of a win:
+
+| Attacker \ idle dummy | stone | skeleton | human | giant |
+| --- | --- | --- | --- | --- |
+| stone | 75 % (100) / 29.2 s | 83 % (96) / 17.6 s | 75 % (100) / 32.0 s | 63 % (100) / 46.5 s |
+| skeleton | 17 % (100) / 86.4 s | 75 % (100) / 46.7 s | 13 % (100) / 76.4 s | **0 %** (100) / 105.1 s |
+| human | **0 %** (58) / 119.1 s | **0 %** (100) / 117.7 s | **0 %** (67) / 119.4 s | **0 %** (8) / 118.3 s |
+| giant | 88 % (100) / 32.6 s | 75 % (92) / 29.4 s | 63 % (100) / 56.3 s | 54 % (100) / 55.7 s |
+
+- **The heavier stone dummy is still beaten outright by stone, the skeleton and the giant.** The
+  human beats no dummy outright. The same five cells are at zero as on session 03's tree, and none of
+  them is new.
+- **Stone and the giant became much better attackers.** It is the same effect as the shorter bouts:
+  a heavier trunk behind the same arm.
+  - Stone on human: 21 % to 75 %.
+  - Stone on giant: 17 % to 63 %.
+  - Giant on human: 8 % to 63 %.
+  - Giant on giant: 13 % to 54 %.
