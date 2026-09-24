@@ -1,6 +1,7 @@
 // A knockdown that runs its course (`Knockdown` in src/golem/config.ts), on a whole golem in a
 // supported pair: the skeleton goes limp, lies until it comes to rest, and rises no faster than its
-// table allows while its strength comes back, and a blow during that rise does not stop it; stone,
+// table allows while its strength comes back, and a blow during that rise puts it down only if it
+// would have put a standing body down; stone,
 // whose biped sets no `knockdown`, fights on from the floor and is up at the dwell.
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -69,10 +70,11 @@ function recordUpperCommands(golem) {
 
 /**
  * A standing idle pair six metres apart, the left one knocked down by a queued shove twice its fall
- * line and watched for `seconds`; `reshoveIntoRise` shoves it again that far into its first rise.
+ * line and watched for `seconds`; `reshoveIntoRise` shoves it again that far into its first rise,
+ * at `reshoveAt` times the fall line.
  * `census` sorts every actuator driven by the tone it was built on.
  */
-async function knockdown(setupOf, { seconds = 6, reshoveIntoRise = null } = {}) {
+async function knockdown(setupOf, { seconds = 6, reshoveIntoRise = null, reshoveAt = 2 } = {}) {
   asked.clear();
   const arena = await createHeadlessArena();
   const { scene } = arena;
@@ -89,9 +91,9 @@ async function knockdown(setupOf, { seconds = 6, reshoveIntoRise = null } = {}) 
   let clock = 0;
   const control = scene.onBeforePhysicsObservable.add(() => { stepPair(...pair, FIXED, clock); clock += FIXED; });
   const samples = [];
-  const shove = () => {
+  const shove = (atFall = 2) => {
     const s = golem.locomotion.diagnostic().stability;
-    golem.queueStabilityEvent({ horizontalShoveNs: [s.fallAtMps * s.supportedMassKg * 2, 0] });
+    golem.queueStabilityEvent({ horizontalShoveNs: [s.fallAtMps * s.supportedMassKg * atFall, 0] });
   };
   let riseStart = null;
   let reshoved = false;
@@ -107,7 +109,7 @@ async function knockdown(setupOf, { seconds = 6, reshoveIntoRise = null } = {}) 
     riseStart = state !== "rising" ? null : riseStart ?? clock;
     if (reshoveIntoRise !== null && !reshoved && riseStart !== null && clock - riseStart >= reshoveIntoRise) {
       reshoved = true;
-      shove();
+      shove(reshoveAt);
     }
   });
   const run = (seconds) => {
@@ -268,38 +270,24 @@ test("a_skeleton_rises_once_it_has_been_still_for_its_rest_window", async () => 
   }
 });
 
-test("a_skeleton_struck_while_it_rises_gets_up_anyway", async () => {
-  // The table's own rule: a rise, once begun, finishes whatever lands on it.
-  const rule = SKELETON_BIPED.knockdown;
-  assert.equal(rule.riseHoldsThroughHits, true);
-  const tone = SKELETON_BIPED.fallenTorqueScale;
-  const { mind, samples, census, reshoved } = await knockdown(skeletonSetup, { seconds: 9, reshoveIntoRise: 0.3 });
-  assertCensus(census);
-  assert.ok(reshoved, "the rise was never struck");
-  const lies = stretches(samples, "fallen");
-  const rises = stretches(samples, "rising");
-  assert.equal(lies.length, 1, `${lies.length} lies: the blow during the rise put the skeleton back down`);
-  assert.equal(rises.length, 1, `${rises.length} rises`);
-  const [rise] = rises;
-  // The reshove landed: a rise that ended before 0.3 s would have taken no blow at all.
-  assert.ok(lasted(rise) > 0.3 + 0.25, `the rise lasted ${lasted(rise).toFixed(3)} s, too short to have been struck`);
-  for (const row of rise) assertCeilings(row, tone + (1 - tone) * row.progress, "rising through the blow");
-  const up = samples.find((row) => row.at > rise.at(-1).at);
-  assert.ok(up && up.state !== "fallen" && up.state !== "rising", `after the struck rise the skeleton was ${up?.state}`);
-  assertCeilings(up, 1, "up");
-  assertCommands(up, mind.decide(), "up");
-});
+// **A rise is put down by what would put a standing body down, and by nothing less** (physical
+// contact session 02). The two halves are a pair: a blow at twice the fall line during the rise
+// fells the body, and one halfway between the stagger and fall lines does not. The second half is
+// also the ledger's test, because a rise that carried its own fall's ledger would already hold more
+// than the fall line and go down at the first touch.
+const BETWEEN_STAGGER_AND_FALL = (V1.STAGGER_SPECIFIC_IMPULSE_MPS + V1.FALL_SPECIFIC_IMPULSE_MPS) /
+  (2 * V1.FALL_SPECIFIC_IMPULSE_MPS);
 
-test("under_the_shared_rise_rule_a_skeleton_struck_while_it_rises_lies_its_whole_course_again", async () => {
-  // `riseHoldsThroughHits: false` is every other biped's rule, run on this body. Held to the cap by a
-  // rest it cannot reach, so each lie's length is the rule's alone; a lie that carried the first
-  // one's clock into the second would be short.
+test("a_fall_level_blow_while_a_skeleton_rises_puts_it_down_and_it_lies_its_whole_course_again", async () => {
+  // Held to the cap by a rest it cannot reach, so each lie's length is the rule's alone; a lie that
+  // carried the first one's clock into the second would be short.
   const rule = SKELETON_BIPED.knockdown;
   const tone = SKELETON_BIPED.fallenTorqueScale;
-  SKELETON_BIPED.knockdown = { ...rule, restSeconds: rule.maxLyingSeconds * 4, riseHoldsThroughHits: false };
+  SKELETON_BIPED.knockdown = { ...rule, restSeconds: rule.maxLyingSeconds * 4 };
   try {
-    const { samples, census } = await knockdown(skeletonSetup, { seconds: 9, reshoveIntoRise: 0.3 });
+    const { samples, census, reshoved } = await knockdown(skeletonSetup, { seconds: 9, reshoveIntoRise: 0.3 });
     assertCensus(census);
+    assert.ok(reshoved, "the rise was never struck");
     const lies = stretches(samples, "fallen");
     assert.ok(lies.length >= 2, `${lies.length} lies: the blow during the rise did not put the skeleton back down`);
     const [first, second] = lies;
@@ -319,6 +307,28 @@ test("under_the_shared_rise_rule_a_skeleton_struck_while_it_rises_lies_its_whole
   } finally {
     SKELETON_BIPED.knockdown = rule;
   }
+});
+
+test("a_staggering_blow_while_a_skeleton_rises_does_not_stop_the_rise", async () => {
+  assert.ok(BETWEEN_STAGGER_AND_FALL * V1.FALL_SPECIFIC_IMPULSE_MPS > V1.STAGGER_SPECIFIC_IMPULSE_MPS &&
+    BETWEEN_STAGGER_AND_FALL < 1, "the blow is not between the two lines");
+  const tone = SKELETON_BIPED.fallenTorqueScale;
+  const { mind, samples, census, reshoved } = await knockdown(skeletonSetup,
+    { seconds: 9, reshoveIntoRise: 0.3, reshoveAt: BETWEEN_STAGGER_AND_FALL });
+  assertCensus(census);
+  assert.ok(reshoved, "the rise was never struck");
+  const lies = stretches(samples, "fallen");
+  const rises = stretches(samples, "rising");
+  assert.equal(lies.length, 1, `${lies.length} lies: a blow under the fall line put the rising skeleton back down`);
+  assert.equal(rises.length, 1, `${rises.length} rises`);
+  const [rise] = rises;
+  // The reshove landed: a rise that ended before 0.3 s would have taken no blow at all.
+  assert.ok(lasted(rise) > 0.3 + 0.25, `the rise lasted ${lasted(rise).toFixed(3)} s, too short to have been struck`);
+  for (const row of rise) assertCeilings(row, tone + (1 - tone) * row.progress, "rising through the blow");
+  const up = samples.find((row) => row.at > rise.at(-1).at);
+  assert.ok(up && up.state !== "fallen" && up.state !== "rising", `after the struck rise the skeleton was ${up?.state}`);
+  assertCeilings(up, 1, "up");
+  assertCommands(up, mind.decide(), "up");
 });
 
 test("a_skeleton_that_never_comes_to_rest_still_rises_at_the_cap", async () => {

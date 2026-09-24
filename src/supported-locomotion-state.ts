@@ -245,7 +245,11 @@ export function risingEligibility(state: SupportedLocomotionState,
     return Object.freeze({ eligible: false, reason: "standable recovery ground is unavailable" });
   }
   if (!input.occupancyClear) return Object.freeze({ eligible: false, reason: "recovery occupancy is obstructed" });
-  if (input.hitInterrupted) return Object.freeze({ eligible: false, reason: "recovery was interrupted by a hit" });
+  // Fallen only: a staggering blow keeps a lying body down for that boundary. A rise under way is
+  // put down by the ledger, as a standing body is (`stepSupportedLocomotionState`).
+  if (state.state === "fallen" && input.hitInterrupted) {
+    return Object.freeze({ eligible: false, reason: "recovery was interrupted by a hit" });
+  }
   // Falling is allowed to leave every foot above the floor or folded under the carrier. Requiring
   // one of those terminals to publish a fresh planted contact before the bounded righting path may
   // begin makes an upside-down but otherwise intact body unrecoverable by construction. The rise
@@ -316,11 +320,13 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
   const fallAt = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity;
 
   if (prior.state === "rising") {
-    // The decaying ledger records why the body fell; it is not a second hit. Fallen is allowed
-    // to enter rising while that history remains above fallAt, so reapplying the upright threshold
-    // here would cancel the rise one boundary later. Production marks a new nonzero shove through
-    // hitInterrupted, which remains the fresh-event abort.
-    if (input.hitInterrupted) {
+    // **A rising body is put down exactly as a standing one is**: by the ledger reaching `fallAt`
+    // (physical contact session 02, 2026-09-23). The ledger restarts at zero when the rise begins,
+    // so what it holds here is what has landed since, and the fall that put the body down is not
+    // counted twice. It used to be put down by any staggering blow (`hitInterrupted`), and one body
+    // opted out of that altogether; both were authored rules about a rise, and a rise is now as hard
+    // to put down as a standing body until session 08 gives its posture a capacity of its own.
+    if (specificImpulseMps >= fallAt) {
       return Object.freeze({ state: "fallen", specificImpulseMps,
       supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     }
@@ -341,8 +347,10 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
     const fallenElapsedS = prior.fallenElapsedS + input.dt;
     const fallen = Object.freeze({ state: "fallen" as const, specificImpulseMps,
       supportMissingS, fallenElapsedS, risingElapsedS: 0, driveStaged: false });
+    // The rise starts its ledger at zero: see the rising branch above.
     return risingEligibility(fallen, input).eligible
-      ? Object.freeze({ ...fallen, state: "rising" as const, risingElapsedS: 0, driveStaged: true })
+      ? Object.freeze({ ...fallen, state: "rising" as const, specificImpulseMps: 0, risingElapsedS: 0,
+        driveStaged: true })
       : fallen;
   }
 

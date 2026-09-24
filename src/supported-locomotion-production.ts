@@ -101,7 +101,9 @@ const STOP: LocomotionRequest = Object.freeze({
 });
 
 /**
- * A rise is interrupted by a new *staggering* authored transfer, not a brush.  The ledger still
+ * A lying body is kept from starting its rise by a new *staggering* authored transfer, not a
+ * brush; a rise already under way is put down by the ledger instead (`stepSupportedLocomotionState`).
+ * The ledger still
  * records every physical contact for normal supported/fallen thresholds, but treating any
  * positive floating-point contact as an interrupt made a weapon scrape reset a bounded rise at
  * 240 Hz forever.  Express the boundary in the same mass-independent specific impulse units as
@@ -194,9 +196,6 @@ export interface PhysicalSupportedLocomotionOptions {
   /** How long a rise over this distance (metres, live root to recovery target) lasts; absent is
    *  `RISING_DURATION_S`. Asked before the state steps, so the rise it admits is the one it runs. */
   readonly risingDuration?: (distanceM: number) => number;
-  /** True: a rise under way is not interrupted by a hit (`recoveryHitInterrupted` is not asked while
-   *  rising). Absent or false is the shared rule. A hit still keeps a fallen body from starting a rise. */
-  readonly riseHoldsThroughHits?: boolean;
   readonly supportBindings: readonly string[];
   /** Read-only live topology projected by the body owner; never a runtime/body handle. */
   readonly supportGroups?: () => readonly PhysicalSupportGroupDiagnostic[];
@@ -358,8 +357,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       authority, liveSupport, postureSupported, supportEvidence: evidence,
       supportedMassKg: this.options.supportedMassKg, authoredShoves: shoves,
       recoveryGroundAvailable, occupancyClear,
-      hitInterrupted: !(this.options.riseHoldsThroughHits === true && this.supportState.state === "rising") &&
-        recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
+      hitInterrupted: recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
       fallSettled: this.options.fallSettled?.() ?? true,
       risingDurationS,
     };

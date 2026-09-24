@@ -43,19 +43,19 @@ test("the candidate adapter preserves each unchanged parent's physical bout", as
 
 test("the worker counts a corner's knockdowns and its time down from that corner's own body", async () => {
   // Measured, 2026-09-23: on these seeds the brawler fells an idle stone body at stability x0.5
-  // four times, and it is fallen or rising for 3.17 of the ten seconds; the same body at x1 stays
+  // three times, and it is fallen or rising for 2.40 of the ten seconds; the same body at x1 stays
   // up. The x1 bout is the control that the count is read off the body. (It was once, and 7.9 s
   // down, while an idle mind never asked to get up; since physical contact session 02 the body
-  // rises on its own and is felled again.)
+  // rises on its own and is felled again, and a rise is put down only by what fells a standing body.)
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "shaky", setup: withAttributeSetting(base.setup, { stability: 0.5 }) }];
   const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 10 } };
   const job = { id: "down", round: 0, block: "down", left: "golem-brawler", right: "idle",
     leftBuild: "default", rightBuild: "shaky", seeds: [44, 45] };
   const shaky = await execute(job, manifest);
-  // Exactly four, because a count that fired on every fallen frame rather than on the edge into
+  // Exactly three, because a count that fired on every fallen frame rather than on the edge into
   // one would read hundreds.
-  assert.equal(shaky.sides.right.knockdowns, 4, "the shaky corner went down four times");
+  assert.equal(shaky.sides.right.knockdowns, 3, "the shaky corner went down three times");
   assert.ok(shaky.sides.right.downSeconds > 0 && shaky.sides.right.downSeconds <= shaky.seconds);
   assert.equal(shaky.sides.left.knockdowns, 0, "and the count is the fallen corner's, not the bout's");
   assert.equal(shaky.sides.left.downSeconds, 0);

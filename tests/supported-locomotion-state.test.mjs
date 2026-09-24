@@ -218,11 +218,12 @@ test("rising_eligibility_requires_live_authority_topology_dwell_and_clearance_no
     "recovery exists to restore posture; fallen posture cannot be an entry prerequisite");
 });
 
-test("a_hit_obstruction_or_lost_support_aborts_rising_state_and_leaves_no_staged_drive", () => {
+test("a_fall_level_blow_obstruction_or_lost_support_aborts_rising_state_and_leaves_no_staged_drive", () => {
   const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
     risingElapsedS: 0.1, driveStaged: true });
+  // The mass is 1 kg and the capacity 1, so a shove of N s is its specific impulse.
   for (const rejected of [
-    boundary({ hitInterrupted: true }),
+    boundary({ authoredShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS, 0] }], hitInterrupted: true }),
     boundary({ occupancyClear: false }),
     boundary({ liveSupport: false }),
   ]) {
@@ -231,19 +232,40 @@ test("a_hit_obstruction_or_lost_support_aborts_rising_state_and_leaves_no_staged
     assert.equal(result.driveStaged, false);
     assert.equal(result.risingElapsedS, 0);
   }
-  const shoved = stepSupportedLocomotionState(rising, boundary({
-    authoredShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS, 0] }], hitInterrupted: true }));
-  assert.equal(shoved.state, "fallen");
-  assert.equal(shoved.driveStaged, false);
 });
 
-test("the_decaying_fall_ledger_does_not_impersonate_a_fresh_hit_during_rising", () => {
+test("a_rise_is_put_down_by_the_standing_fall_line_and_a_staggering_blow_under_it_does_not_stop_it", () => {
+  // Physical contact session 02: no immunity and no stagger-level interrupt, just the fall line.
   const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
-    risingElapsedS: 0.1, driveStaged: true, specificImpulseMps: V1.FALL_SPECIFIC_IMPULSE_MPS * 2 });
-  const result = stepSupportedLocomotionState(rising,
-    boundary({ hitInterrupted: false }));
-  assert.equal(result.state, "rising");
-  assert.equal(result.driveStaged, true);
+    risingElapsedS: 0.1, driveStaged: true });
+  const under = stepSupportedLocomotionState(rising, boundary({
+    authoredShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS - 1e-6, 0] }], hitInterrupted: true }));
+  assert.equal(under.state, "rising", "a staggering blow under the fall line put the rise down");
+  assert.equal(under.driveStaged, true);
+  const at = stepSupportedLocomotionState(rising, boundary({
+    authoredShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS, 0] }] }));
+  assert.equal(at.state, "fallen", "a blow at the fall line did not put the rise down");
+  // Blows accumulate across the rise as they do standing: two under the line that sum over it fell it.
+  const half = boundary({ authoredShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS * 0.6, 0] }] });
+  const once = stepSupportedLocomotionState(rising, half);
+  assert.equal(once.state, "rising");
+  assert.equal(stepSupportedLocomotionState(once, half).state, "fallen");
+  // And a staggering blow still keeps a lying body from starting to rise on that boundary.
+  const lying = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S });
+  assert.match(risingEligibility(lying, boundary({ hitInterrupted: true })).reason, /hit/);
+});
+
+test("the_fall_ledger_is_zeroed_as_the_rise_begins_and_does_not_follow_the_body_up", () => {
+  // The ledger that put the body down stays on it while it lies, and a rise that inherited it would
+  // be felled by the first touch -- or at once, before anything touched it.
+  const lying = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S,
+    specificImpulseMps: V1.FALL_SPECIFIC_IMPULSE_MPS * 2 });
+  const rising = stepSupportedLocomotionState(lying, boundary());
+  assert.equal(rising.state, "rising");
+  assert.equal(rising.specificImpulseMps, 0);
+  const next = stepSupportedLocomotionState(rising, boundary());
+  assert.equal(next.state, "rising");
+  assert.equal(next.driveStaged, true);
 });
 
 test("zero_authored_shove_is_not_a_hit_and_cannot_interrupt_rising", () => {

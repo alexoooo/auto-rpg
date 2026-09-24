@@ -58,8 +58,9 @@ export const SKELETON_ARMOUR: ArmourByHit = Object.freeze({ cut: 0.5, thrust: 0.
  * neither bout ended before the cap; the same two golem-duelist mirrors of stone read a median of
  * 0.0048, no single-blow knockdown in 41 shoves, and 3 falls in 18.3 s.
  *
- * **So its brace is 2.0, a little over stone's 1.5, together with a rise that hits do not
- * interrupt** (`riseHoldsThroughHits`, below). The owner asked for slightly stronger footing, and
+ * **So its brace is 2.0, a little over stone's 1.5**, chosen together with a rise that hits did not
+ * interrupt (`riseHoldsThroughHits`, removed by physical contact session 02 on 2026-09-23, when every
+ * rise became as hard to put down as a standing body; the table below predates that). The owner asked for slightly stronger footing, and
  * found a brace of 5.7 -- the blade's time down from 71.7 % to 10.1 % -- too much. Node bout runner
  * (`createBout`, driven by a working script that is not committed), supported, fresh Havok and a child process per bout, cap 60 s,
  * the stone attacker on `golem-duelist` against this skeleton on `skeleton-duelist`, 8 seed pairs a
@@ -124,8 +125,8 @@ export const SKELETON_ARMOUR: ArmourByHit = Object.freeze({ cut: 0.5, thrust: 0.
  * against a fifth before. Part of that was the rise: a blow that lands during one sent the body back
  * to fallen, and a 1.1 s rise is a longer window for it than a 0.45 s one. In the same four mirrors
  * 11 of 30 rises were struck back down and 3 were refused for room, against 13 of 49 struck under
- * stone's knockdown. That is why a skeleton's rise now holds through hits (`riseHoldsThroughHits`)
- * and its brace is 2.0, the table above.
+ * stone's knockdown. That is why a skeleton's rise was made to hold through hits
+ * (`riseHoldsThroughHits`, since removed: see the brace above) and its brace is 2.0, the table above.
  *
  * **So its `riseBudgetSeconds` is its own.** The rise is keyframed and the leg ceilings above do
  * not move it: under stone's knockdown every row rose in 1.158 s on the bench's scripted shove, and
@@ -144,8 +145,7 @@ export const SKELETON_BIPED = {
   footprintRadius: 0.28,
   braceCapacityMultiplier: 2.0,
   hipTorque: 450, kneeTorque: 250, ankleTorque: 110,
-  knockdown: { restSpeedMps: 0.3, restSeconds: 0.2, maxLyingSeconds: 2.5, risePeakMps: 0.9,
-    riseHoldsThroughHits: true },
+  knockdown: { restSpeedMps: 0.3, restSeconds: 0.2, maxLyingSeconds: 2.5, risePeakMps: 0.9 },
   riseBudgetSeconds: 2.50,
 };
 

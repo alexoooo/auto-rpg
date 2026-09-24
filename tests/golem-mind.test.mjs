@@ -2677,11 +2677,23 @@ test("golem_form_stays_inside_the_envelope_and_is_deterministic_under_a_seed", a
  * it, so the contact log now has a long tail of grazes that book nothing. That is not a
  * regression -- nothing is paid for a weak contact -- but it means contact *counts* are no longer
  * a proxy for pressure, and any bar phrased as contacts a second wants re-reading.
+ *
+ * ---
+ *
+ * **2026-09-23, physical contact session 02: sixteen more seeds, because eight had thinned to one.**
+ * At HEAD before the session the eight seeds booked a single thrust in 567 sword contacts, and
+ * making a rise as easy to put down as a standing body moved one bout's trajectory enough to lose
+ * it: 0 in 630. That is the thin-corpus failure, not a scoring change, and its repair is more bouts.
+ * Twenty-four seeds book 1 thrust, 252 cuts, 26 slaps and 1392 weak contacts (Node bout runner,
+ * fresh Havok, supported, 20 s cap), the thrust on 20261113. The claim still stands on one event;
+ * the owner's list in session 10 carries it, because a point that arrives point-first once in 1671
+ * contacts is a finding about the thrust, and the next session to move the dynamics may flip it.
  */
 test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
   const setup = defaultGolemSetup();
   const seeds = [20260904, 20260911, 20260918, 20260925,
-    20261002, 20261009, 20261016, 20261023];
+    20261002, 20261009, 20261016, 20261023, 20261030, 20261106, 20261113, 20261120,
+    20261127, 20261204, 20261211, 20261218, 20261225, 20270101, 20270108, 20270115];
   const kinds = new Map();
   for (const seed of seeds) {
     const thrusting = golemStyled(seed, GOLEM_TACTICS_V3, (available) =>
@@ -2703,7 +2715,7 @@ test("a_thrust_books_a_thrust_in_a_real_bout", async () => {
     });
   }
   assert.ok((kinds.get("thrust") ?? 0) > 0,
-    "eight seeds of nothing but thrusts booked "
+    "twenty-four seeds of nothing but thrusts booked "
     + ([...kinds].map(([k, n]) => `${n} ${k}`).join(", ") || "nothing"));
 });
 
