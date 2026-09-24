@@ -817,6 +817,27 @@ export const CONFIG = {
    * a 0.035 kg arrow, whose reduced mass against a torso is 0.03498, and `0.5 * 0.03498 * 8^2`
    * is 1.12 J.
    *
+   * **Then the chain arrived behind the weapon** (physical contact session 05). Until then each
+   * striker declared its mass -- a blade its own 1.30 kg -- and `Combat` now reads the effective
+   * mass of the whole chain at the contact (`effectiveMassAt`), which is what a blow physically
+   * arrives with. The same x1 contacts therefore carry more joules, and the price per joule was
+   * raised by exactly what the chain adds, so that a stone golem's x1 fight keeps its pace. Each
+   * factor is the one that holds the summed contact damage of the same recorded contacts,
+   * re-scored offline through `scoreHit` with the declared masses at the old prices and the
+   * effective masses at the new (Node harness, contacts recorded on the declared-mass build):
+   *
+   *     mechanism  anchored on                              contacts  summed dmg x1  factor
+   *     edge       default, 4 probe minds, 96 bouts          13879     x1.900        1.783
+   *     blunt      default + mace + maul, 160 bouts          41189     x4.935        3.786
+   *
+   * Per build the blunt factor runs 3.09 (mace) to 4.97 (maul) and the skeleton's edge 2.48; a
+   * price is one number across bodies, so a body whose chain couples more than a stone arm's
+   * now hits harder for the same swing, which is the physics and not a rounding. Each price and
+   * its floor take the same factor, so a blade arriving with a stone arm behind it still needs
+   * the 3.0 m/s it did and a club the 2.2. The axe's `chopJoulesPerDamage` takes the edge's
+   * factor without a measurement of its own, and the point floor is untouched: no live golem or
+   * human striker bites either way, so there was nothing to hold.
+   *
    * **What retired, and why none of it is missed.** `damageScale`, `chopScale`, `crushScale`,
    * `fistScale` and `ramScale` were five ceilings each argued on its own day against a Warrior;
    * `minCrushSpeed`, `fistMinSpeed`, `fistReferenceSpeed`, `biteMinSpeed`, `biteReferenceSpeed`,
@@ -920,51 +941,53 @@ export const CONFIG = {
     /**
      * An edge, joules per point of wound. A sword's whole blade behind a placed cut.
      *
-     * `0.5 * 1.32372 * 11^2 / 2.3`: the Warrior's 1.35 kg sword into a 68 kg torso at the
-     * reference speed, over the 2.3 that `damageScale` paid for exactly that blow. Quality
-     * multiplies it, so a badly placed cut still pays almost nothing.
+     * `0.5 * 1.32372 * 11^2 / 2.3 * 1.783`: the Warrior's 1.35 kg sword into a 68 kg torso at the
+     * reference speed, over the 2.3 that `damageScale` paid for exactly that blow, times what a
+     * stone arm's chain adds behind a blade (the header's second table). Quality multiplies it,
+     * so a badly placed cut still pays almost nothing.
      */
-    cutJoulesPerDamage: 34.82,
+    cutJoulesPerDamage: 62.08,
     /**
      * An axe's edge, joules per point of wound. The same arm speed arriving through a hand's
      * width of edge instead of through 840 mm of it.
      *
-     * `0.5 * 1.37176 * 11^2 / 3.2`, from `chopScale`, which was the one number of the axe's
-     * three that the bench did not refuse. It is 75 % of the sword's, which is the 1.4 the
-     * physical argument asked for, arrived at from the other end.
+     * `0.5 * 1.37176 * 11^2 / 3.2 * 1.783`, from `chopScale`, which was the one number of the
+     * axe's three that the bench did not refuse, times the edge's chain factor. It is 75 % of the
+     * sword's, which is the 1.4 the physical argument asked for, arrived at from the other end.
+     * No live striker chops, so nothing measured the axe's own factor; it takes the edge's
+     * because it is an edge on an arm and already shares the edge's floor.
      */
-    chopJoulesPerDamage: 25.93,
+    chopJoulesPerDamage: 46.24,
     /**
      * Blunt, joules per point of wound: a club, a fist, a lash, a bash, a ram.
      *
-     * `0.5 * 3.23810 * 11^2 / 1.7`, from `crushScale`. It costs three and a third times a
-     * sword's edge, which is the whole of the difference between placing a blow and arriving
-     * with one, and it is why a golem's 48 kg maul is worth two blade strokes on a trunk rather
-     * than the twenty-four the retired mass ratio paid it.
+     * `0.5 * 3.23810 * 11^2 / 1.7 * 3.786`, from `crushScale`, times what a stone golem's
+     * chain adds behind a blunt striker (the header's second table). Before that factor it cost
+     * three and a third times a sword's edge, which is the whole of the difference between
+     * placing a blow and arriving with one; a chain couples more behind a heavy head than behind
+     * a blade, so the ratio is seven now, paid on joules a heavy head delivers far more of.
      */
-    crushJoulesPerDamage: 115.24,
+    crushJoulesPerDamage: 436.29,
     /**
      * Below this much arriving energy an edge is weak: it shoves and does not bite.
      *
-     * `0.5 * 1.32372 * 3^2`, the retired `minCutSpeed` of 3.0 m/s restated for the Warrior's own
-     * sword on a torso, so a blade being leaned on is exactly as harmless as it was.
+     * `0.5 * 1.32372 * 3^2 * 1.783`, the retired `minCutSpeed` of 3.0 m/s restated for the
+     * Warrior's own sword on a torso with a stone arm's chain behind it, so a blade being leaned
+     * on is exactly as harmless as it was. A bare 1.35 kg blade needs 4.01 m/s.
      */
-    cutFloorJ: 5.96,
+    cutFloorJ: 10.62,
     /**
      * Below this much arriving energy a blunt blow is a slap: it takes the shove path and scores
      * nothing.
      *
-     * `0.5 * 3.23810 * 2.2^2`, the retired `minCrushSpeed` of 2.2 m/s for the Warrior's 3.4 kg
-     * club on a torso. It is below the edge's floor in joules as well as in speed, which is the
-     * same statement the two speeds made: a blade that arrives slowly is a blade being leaned
-     * on, and a club that arrives slowly is still several kilograms of wood.
-     *
-     * What it costs elsewhere is worth saying plainly. A Warrior's 0.65 kg fist has to reach
-     * `sqrt(2 * 7.84 / 0.64385)` = 4.94 m/s on a torso to score at all, where `fistMinSpeed`
-     * asked 3.5; a punch is a slap over a wider band than it was, which is what a bare hand
-     * against a person is.
+     * `0.5 * 3.23810 * 2.2^2 * 3.786`, the retired `minCrushSpeed` of 2.2 m/s for the Warrior's
+     * 3.4 kg club on a torso, with a stone golem's chain behind it. At the masses that arrive it
+     * is below the edge's floor in speed, which is the statement the two retired speeds made: a
+     * blade that arrives slowly is a blade being leaned on, and a club that arrives slowly is
+     * still several kilograms of wood. Stated for the bare weapons it is not, because a chain
+     * couples more behind a heavy head than behind a blade; a bare 3.4 kg club needs 4.28 m/s.
      */
-    crushFloorJ: 7.84,
+    crushFloorJ: 29.67,
     /**
      * Below this much arriving axial energy a point does not bury itself.
      *

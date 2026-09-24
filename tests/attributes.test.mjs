@@ -53,6 +53,16 @@ import { RIBCAGE, SKELETAL_REACH, SKELETAL_WRIST, SKELETON_ARMOUR, SKELETON_BIPE
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
+import { effectiveMassAt } from "../src/body-inertia.ts";
+
+/**
+ * What a striker arrives with at its own tip, across its own edge: the effective mass of its chain
+ * (physical contact session 05). Read on two builds in the same pose, it is the stat's reach into
+ * a blow, which no striker declares any more. On the stand, the stand's block is the base it hangs
+ * from and is pinned, since a lone arm has no trunk to float with.
+ */
+const strikeMassKg = (striker, options) =>
+  effectiveMassAt(striker.body, striker.tipPosition(), striker.edgeDirection().clone().normalize(), options);
 
 /**
  * A table where two rows are live, so the range rules can be checked before any shipped row is.
@@ -494,15 +504,16 @@ test("weight multiplies every body part's solver mass and no item's, and the car
           assert.ok(near(now, was * level), `${name} ${key}: ${was} kg went x${(now / was).toFixed(4)}`);
         }
       }
-      // What a blow arrives with. An item's striker is the item's mass; a capped socket's is the cap,
-      // which is body; a ram's is its plate plus the body behind it, and only the body share moves.
+      // What a blow arrives with: the chain behind the striker, where the body parts weigh L times
+      // what they did and the items what they did. So it never falls, never grows by more than L,
+      // and grows wherever body is coupled behind the contact.
       assert.equal(heavy.strikers.length, plain.strikers.length, name);
       for (const [i, striker] of heavy.strikers.entries()) {
-        const was = plain.strikers[i].impactMassKg;
-        const want = striker.kind === "ram" ? (was - HEAD_RAM.plateMass) * level + HEAD_RAM.plateMass
-          : striker.effectorId.endsWith(".shove") ? was * level : was;
-        if (want !== was) seen.bodyBlow += 1;
-        assert.ok(near(striker.impactMassKg, want), `${name} ${striker.effectorId}: ${was} -> ${striker.impactMassKg}, not ${want}`);
+        const was = strikeMassKg(plain.strikers[i]);
+        const now = strikeMassKg(striker);
+        assert.ok(now >= was * (1 - 1e-4) && now <= was * level * (1 + 1e-4),
+          `${name} ${striker.effectorId}: ${was} -> ${now} kg at x${level}`);
+        if (now > was * 1.01) seen.bodyBlow += 1;
       }
       // What a stroke is timed against: the arm's share of the swing inertia grows with the body and
       // the item's share does not, so an armed effector lands strictly between x1 and xL.
@@ -695,7 +706,10 @@ test("size scales every golem and skeleton module's body parts by s^3 in mass an
               // A second hand hangs from the companion socket, and the stand is not what was sized.
               offset: p.part.mesh.position.subtract((p.id.startsWith(`${prefix}trailing.`) ? companion : socket).world),
             })),
-            strikers: built.strikers.map((striker) => ({ kind: striker.kind, id: striker.effectorId, mass: striker.impactMassKg })),
+            strikers: built.strikers.map((striker) => ({ kind: striker.kind, id: striker.effectorId, mass: strikeMassKg(striker,
+              // A capped socket is welded to the block, so pinned it reads infinite at every size; left
+              // floating, it reads its own cap.
+              striker.effectorId.endsWith(".shove") ? {} : { pinned: new Set([stand.block.body]) }) })),
             envelope: built.envelope(),
           };
         } finally {
@@ -729,17 +743,19 @@ test("size scales every golem and skeleton module's body parts by s^3 in mass an
         assert.ok(drift < 1e-6, `${at}: sits ${drift} m from s times where it sat`);
       }
       assert.equal(big.strikers.length, plain.strikers.length, option.id);
+      // What a blow arrives with, the chain's effective mass at the tip: never lighter for being
+      // bigger, and a ram's plate and a capped socket, which have body behind them, must grow. There
+      // is no ceiling to state: an item keeps its mass and its length while the joints behind it move
+      // out, so the lever changes shape as well as size, and along a nearly straight arm the reading
+      // is as steep as it likes (a skeletal fist reads 3.46 times heavier at x1.25).
       for (const [i, striker] of big.strikers.entries()) {
         const was = plain.strikers[i].mass;
-        let want = was;
-        if (striker.kind === "ram") {
-          want = (was - HEAD_RAM.plateMass) * s ** 3 + HEAD_RAM.plateMass;
-          seen.ramBlow += 1;
-        } else if (striker.id.endsWith(".shove")) {
-          want = was * s ** 3;
-          seen.shoveBlow += 1;
+        assert.ok(striker.mass >= was * (1 - 1e-4),
+          `${option.id} ${striker.id}: ${was} -> ${striker.mass} kg at x${s}`);
+        if (striker.mass > was * 1.01) {
+          if (striker.kind === "ram") seen.ramBlow += 1;
+          if (striker.id.endsWith(".shove")) seen.shoveBlow += 1;
         }
-        assert.ok(near(striker.mass, want), `${option.id} ${striker.id}: ${was} -> ${striker.mass}, not ${want}`);
       }
       for (const [i, axis] of big.envelope.axes.entries()) {
         const was = plain.envelope.axes[i];

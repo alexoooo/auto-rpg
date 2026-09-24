@@ -42,10 +42,11 @@ test("the candidate adapter preserves each unchanged parent's physical bout", as
 });
 
 test("the worker counts a corner's knockdowns and its time down from that corner's own body", async () => {
-  // Measured, 2026-09-24, after physical contact session 04 gave stone its body density: on these
-  // seeds the duelist fells an idle stone body at stability x0.5 three times, and it is fallen or
-  // rising for 2.43 of the ten seconds; the same body at x1 stays up. The x1 bout is the control that
-  // the count is read off the body. (Until then it was the brawler on 44 and 45: once, and 7.9 s
+  // Measured, 2026-09-24, after physical contact session 05 priced the effective mass: on these
+  // seeds the duelist fells an idle stone body at stability x0.5 four times, and it is fallen or
+  // rising for 2.60 of the ten seconds; the same body at x1 stays up. The x1 bout is the control that
+  // the count is read off the body. Session 05 moved the count from three and 2.43 s, and the search
+  // below still stops on this pair and this mind. (Until then it was the brawler on 44 and 45: once, and 7.9 s
   // down, while an idle mind never asked to get up; then three times and 2.40 s once the body rose
   // on its own; four times once a stone body lay at 0.55 of its strength. Against the heavier body the
   // brawler lands fewer fast blows and fells it once on every pair from 44 to 73, so the fixture
@@ -56,9 +57,9 @@ test("the worker counts a corner's knockdowns and its time down from that corner
   const job = { id: "down", round: 0, block: "down", left: "golem-duelist", right: "idle",
     leftBuild: "default", rightBuild: "shaky", seeds: [50, 51] };
   const shaky = await execute(job, manifest);
-  // Exactly three, because a count that fired on every fallen frame rather than on the edge into
+  // Exactly four, because a count that fired on every fallen frame rather than on the edge into
   // one would read hundreds.
-  assert.equal(shaky.sides.right.knockdowns, 3, "the shaky corner went down three times");
+  assert.equal(shaky.sides.right.knockdowns, 4, "the shaky corner went down four times");
   assert.ok(shaky.sides.right.downSeconds > 0 && shaky.sides.right.downSeconds <= shaky.seconds);
   assert.equal(shaky.sides.left.knockdowns, 0, "and the count is the fallen corner's, not the bout's");
   assert.equal(shaky.sides.left.downSeconds, 0);
@@ -68,26 +69,27 @@ test("the worker counts a corner's knockdowns and its time down from that corner
 });
 
 test("the worker counts the modules each corner lost and the real blows it landed, each from that corner's own record", async () => {
-  // Measured, 2026-09-24, after stone's body took its own density (physical contact session 04): on
-  // these seeds the champion ends a brawler at toughness x0.5 in 9.55 s and takes one of its modules
-  // off on the way; the same brawler at x1 keeps every module through the
-  // ten-second cap. The x1 bout is the control that the count is read off the body. A fixture has to
-  // exhibit a sever for a sever counter to be tested, so when a change to a body moves which seeds
-  // do, the seeds move rather than the assertion: they were 46 and 47, then 50 and 51 from the rise
-  // gate's repair. The search is this job run over consecutive pairs from 50 up, keeping the first
-  // on which the soft corner alone loses exactly one module and the x1 control loses none.
+  // Measured, 2026-09-24, after physical contact session 05 priced the effective mass: on these
+  // seeds the champion ends a brawler at toughness x0.5 in 8.85 s and takes one of its modules off
+  // on the way; the same brawler at x1 keeps every module through the ten-second cap. The x1 bout
+  // is the control that the count is read off the body. A fixture has to exhibit a sever for a
+  // sever counter to be tested, so when a change to a body moves which seeds do, the seeds move
+  // rather than the assertion: they were 46 and 47, then 50 and 51 from the rise gate's repair,
+  // then 52 and 53 from session 04's density. The search is this job run over consecutive pairs
+  // from 50 up, keeping the first on which the soft corner alone loses exactly one module and the
+  // x1 control loses none.
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "soft", setup: withAttributeSetting(base.setup, { toughness: 0.5 }) }];
   const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 10 } };
   const job = { id: "sever", round: 0, block: "sever", left: "golem-champion", right: "golem-brawler",
-    leftBuild: "default", rightBuild: "soft", seeds: [52, 53] };
+    leftBuild: "default", rightBuild: "soft", seeds: [54, 55] };
   const soft = await execute(job, manifest);
   assert.equal(soft.sides.right.severs, 1, "the soft corner lost one module");
   assert.equal(soft.sides.left.severs, 0, "and the count is the corner's own, not the bout's");
   // The same bout's contacts, and of them the real blows: the ones above the weapon's energy floor,
-  // one for each alignment the runner filed. Measured the same day: 115 contacts and 50 real blows on
-  // the left, 116 and 41 on the right, so neither count is the other and neither corner's is the other's.
-  assert.deepEqual(["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]), [[115, 50], [116, 41]]);
+  // one for each alignment the runner filed. Measured the same day: 115 contacts and 51 real blows on
+  // the left, 104 and 65 on the right, so neither count is the other and neither corner's is the other's.
+  assert.deepEqual(["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]), [[115, 51], [104, 65]]);
   const plain = await execute({ ...job, rightBuild: "default" }, manifest);
   assert.equal(plain.sides.right.severs, 0, "the control: the same bout at x1 keeps them all");
 });

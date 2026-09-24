@@ -91,10 +91,6 @@ export const fistDefinition = (
       hand: effectorSlot(ctx.socket.slot),
       // The far face of the ball, along the limb: where a punch lands.
       tipAlong: F.radius,
-      // The mass behind the blow is the ball's own. The arm behind the ball is not counted,
-      // because a chain's links are the chain's and the scoring model is handed what the
-      // terminal knows; the plate on the ram head does the same with its own number.
-      impactMassKg: F.mass,
     });
 
     const parts: readonly GolemPart[] = Object.freeze([

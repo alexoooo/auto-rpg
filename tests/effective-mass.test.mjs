@@ -141,3 +141,44 @@ test("a_floating_golem_is_never_heavier_at_a_contact_than_the_whole_of_itself", 
     assert.ok(pinned > wholeKg, `pinned by its heaviest part it reads ${pinned} kg of its ${wholeKg.toFixed(2)}`);
   } finally { bout.dispose(); }
 });
+
+/**
+ * **`Combat` prices a blow with the walk's two masses, and they are not the item's.** A synthetic
+ * contact from the left golem's blade onto the right golem's core, at a stated normal, with nothing
+ * stepped in between: the report's striker and part masses are `effectiveMassAt` of each body at
+ * that point along that normal. The point is the blade's own centre of mass, where a blade on its
+ * own would answer with exactly its 1.30 kg, so whatever it reads above that is the arm behind it.
+ */
+test("combat_reads_both_effective_masses_at_the_contact", async () => {
+  const { Logger } = await import("@babylonjs/core/Misc/logger.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const { PhysicsEventType } = await import("@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js");
+  const { createBout, freshHavok } = await import("./harness/bout-runner.mjs");
+  const { namedBuild } = await import("../src/golem/roster.ts");
+  const { effectiveMassAt } = await import("../src/body-inertia.ts");
+  const { Combat } = await import("../src/combat.ts");
+  const { TERMINAL_BLADE } = await import("../src/golem/config.ts");
+  Logger.LogLevels = Logger.ErrorLogLevel;
+  const setup = namedBuild("default").setup;
+  const bout = createBout({ left: "idle", right: "idle", leftGolem: setup, rightGolem: setup,
+    locomotionMode: "supported", physics: await freshHavok(), seeds: [1, 2] });
+  try {
+    for (let i = 0; i < 30; i++) bout.step();
+    const striker = bout.left.strikers.find((s) => s.kind === "sword");
+    const limb = bout.right.limbs.find((l) => l.key.endsWith("core"));
+    assert.ok(striker && limb, "the control: a blade and a core to put it on");
+    const combat = new Combat("left", [striker]);
+    combat.advance(1);
+    combat.attach(bout.right);
+    const point = striker.centreOfMass().clone();
+    const normal = striker.edgeDirection().clone().normalize();
+    striker.body.getCollisionObservable().notifyObservers({ collider: striker.body, collidedAgainst: limb.part.body,
+      type: PhysicsEventType.COLLISION_STARTED, point, normal: normal.scale(2), distance: 0, impulse: 0 });
+    const report = combat.lastHit;
+    assert.ok(report, "the contact reached the scorer");
+    near(report.strikerMassKg, effectiveMassAt(striker.body, point, normal), 1e-9, "striker");
+    near(report.partMassKg, effectiveMassAt(limb.part.body, point, normal), 1e-9, "part");
+    assert.ok(report.strikerMassKg > TERMINAL_BLADE.mass * 1.1,
+      `the arm behind the blade counts: ${report.strikerMassKg} kg against its own ${TERMINAL_BLADE.mass}`);
+  } finally { bout.dispose(); }
+});

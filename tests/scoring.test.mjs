@@ -27,6 +27,13 @@ const struck = (health, maxHealth = 10) => ({ health, maxHealth });
  * The three constants are anchored on the Warrior: a perfect 11 m/s cut with the 1.35 kg sword
  * on a 68 kg torso is 2.3 damage and a square club blow at the same speed is 1.7, both to the
  * digit they were before. That is what makes this a rewrite of the tests and not of the game.
+ *
+ * **Since physical contact session 05 each of those weapons arrives with a stone arm behind it.**
+ * `Combat` prices the effective mass of the whole chain at the contact rather than a mass the
+ * striker declared, and the prices were raised by what the chain adds (`CONFIG.combat`'s
+ * header). So the Warrior fixtures below strike with `behindChain` of their own mass: the mass
+ * whose reduced mass against a torso is the chain factor times the bare weapon's. Every anchor
+ * then holds to the digit it did, and the bare weapon's figures are the anchor over the factor.
  */
 
 /** The mass every anchor in `CONFIG.combat` was read against: a Warrior's torso. */
@@ -45,10 +52,38 @@ const CORE = 139;
 const reduced = (m, M) => (m * M) / (m + M);
 const joules = (m, M, v) => 0.5 * reduced(m, M) * v * v;
 
+/**
+ * What a stone golem's chain adds behind each mechanism: the factors `CONFIG.combat`'s prices and
+ * floors were raised by when `Combat` began reading the effective mass (physical contact 05).
+ * Written out, like `LINK` and `CORE`, so a price that moves without its table goes red here.
+ */
+const EDGE_CHAIN = 1.783;
+const BLUNT_CHAIN = 3.786;
+/**
+ * The striker mass that arrives on a torso with `chain` times the bare weapon's reduced mass --
+ * the Warrior's weapon with a stone arm behind it. `mu' = chain mu`, and `m' = mu' M / (M - mu')`.
+ */
+const behindChain = (massKg, chain) => {
+  const mu = chain * reduced(massKg, TORSO);
+  return (mu * TORSO) / (TORSO - mu);
+};
+const SWORD = behindChain(CONFIG.sword.mass, EDGE_CHAIN);
+const AXE = behindChain(CONFIG.axe.mass, EDGE_CHAIN);
+const CLUB = behindChain(CONFIG.club.mass, BLUNT_CHAIN);
+const FIST = behindChain(CONFIG.arm.handMass, BLUNT_CHAIN);
+/**
+ * The tuning before the chain factors, for the two prediction tables that were printed at it for
+ * bare masses. Only the price and the floor moved, so a table scored here is still a prediction.
+ */
+const PRE_CHAIN = { ...T,
+  cutJoulesPerDamage: T.cutJoulesPerDamage / EDGE_CHAIN, cutFloorJ: T.cutFloorJ / EDGE_CHAIN,
+  crushJoulesPerDamage: T.crushJoulesPerDamage / BLUNT_CHAIN,
+  crushFloorJ: T.crushFloorJ / BLUNT_CHAIN };
+
 /** A square, committed edge-on swing with the Warrior's own sword on a Warrior's torso. */
 const cleanCut = (closingSpeed = T.referenceSpeed) => ({
   closingSpeed,
-  strikerMassKg: CONFIG.sword.mass,
+  strikerMassKg: SWORD,
   partMassKg: TORSO,
   edgeAlignment: 1,
   bladeAlignment: 0,
@@ -68,13 +103,17 @@ test("Warrior_torso_and_head_use_ten_and_five_durability", () => {
  *
  * This is the test that would catch somebody moving `cutJoulesPerDamage` to make a sweep come
  * out and leaving the comment that derives it in place. Three figures is the width the table is
- * printed to; the constants themselves are pinned to the digit in the tests below.
+ * printed to; the constants themselves are pinned to the digit in the tests below. Each price is
+ * the energy over what it scored, times the chain factor, to the hundredth it is written to.
  */
 test("the reduced mass and the arriving energy are the table in the config header", () => {
   const rows = [
-    { kind: "sword", massKg: CONFIG.sword.mass, mu: 1.32372, joulesAt11: 80.09, scored: 2.3 },
-    { kind: "axe", massKg: CONFIG.axe.mass, mu: 1.37176, joulesAt11: 82.99, scored: 3.2 },
-    { kind: "club", massKg: CONFIG.club.mass, mu: 3.23810, joulesAt11: 195.90, scored: 1.7 },
+    { kind: "sword", massKg: CONFIG.sword.mass, mu: 1.32372, joulesAt11: 80.09, scored: 2.3,
+      chain: EDGE_CHAIN, price: T.cutJoulesPerDamage },
+    { kind: "axe", massKg: CONFIG.axe.mass, mu: 1.37176, joulesAt11: 82.99, scored: 3.2,
+      chain: EDGE_CHAIN, price: T.chopJoulesPerDamage },
+    { kind: "club", massKg: CONFIG.club.mass, mu: 3.23810, joulesAt11: 195.90, scored: 1.7,
+      chain: BLUNT_CHAIN, price: T.crushJoulesPerDamage },
   ];
   for (const row of rows) {
     assert.ok(Math.abs(reduced(row.massKg, TORSO) - row.mu) < 5e-5,
@@ -82,12 +121,18 @@ test("the reduced mass and the arriving energy are the table in the config heade
     const arriving = impactEnergyJ(row.massKg, TORSO, T.referenceSpeed);
     assert.ok(Math.abs(arriving - row.joulesAt11) < 5e-3,
       `${row.kind} arrives with ${arriving} J at ${T.referenceSpeed} m/s`);
+    assert.ok(Math.abs(row.price - (row.joulesAt11 / row.scored) * row.chain) < 0.01,
+      `${row.kind}'s price is ${row.price}, not ${row.joulesAt11} / ${row.scored} x ${row.chain}`);
     // And the third column is the second over the row's own constant, which is the whole of the
-    // scoring rule for a square blow. Two figures, because that is what the table prints.
-    const contact = { closingSpeed: T.referenceSpeed, strikerMassKg: row.massKg,
-      partMassKg: TORSO, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
+    // scoring rule for a square blow -- for the weapon with a stone arm's chain behind it, and the
+    // bare weapon scores that over the factor. Two figures, because that is what the table prints.
+    const contact = { closingSpeed: T.referenceSpeed,
+      strikerMassKg: behindChain(row.massKg, row.chain), partMassKg: TORSO, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
     assert.ok(Math.abs(scoreHit(contact, row.kind).damage - row.scored) < 5e-3,
       `${row.kind} scored ${scoreHit(contact, row.kind).damage}`);
+    const bare = { ...contact, strikerMassKg: row.massKg };
+    assert.ok(Math.abs(scoreHit(bare, row.kind).damage - row.scored / row.chain) < 5e-3,
+      `the bare ${row.kind} scored ${scoreHit(bare, row.kind).damage}`);
   }
 });
 
@@ -135,9 +180,10 @@ test("an immovable part takes the striker's own energy, and nothing about it is 
 /**
  * A striker with no mass is a bug, and it is refused rather than scored.
  *
- * Every `Striking` in the program publishes `impactMassKg` and the field is required, so the
- * only way to arrive here is a fake in a test or a striker built from a config row that has not
- * been filled in. Both are worth a name and neither is worth a zero.
+ * `Combat` reads every striker's mass off its body at the contact (`effectiveMassAt`), so the
+ * only way to arrive here is a fake in a test or a striker whose body carries no mass -- a static
+ * or keyframed body built without one, which the walk reads as `Infinity`. Both are worth a name
+ * and neither is worth a zero.
  */
 test("a contact with no mass behind it, or no mass in front, is refused by name", () => {
   assert.throws(() => impactEnergyJ(0, TORSO, 11), /positive mass/);
@@ -151,11 +197,14 @@ test("a contact with no mass behind it, or no mass in front, is refused by name"
 // ---- the blade ------------------------------------------------------------
 
 test("a blade that arrives with too little behind it does not cut, however well it is aimed", () => {
-  // `cutFloorJ` is 5.96 J, which is the Warrior's own sword on a torso at 3.0 m/s -- the speed
-  // floor this replaced, restated. Stated in energy it is also a statement about a golem's
-  // wrist blade on an arm link, and that is the point of the change.
-  const floorSpeed = Math.sqrt(2 * T.cutFloorJ / reduced(CONFIG.sword.mass, TORSO));
+  // `cutFloorJ` is 10.62 J, which is the Warrior's own sword with a stone arm behind it on a
+  // torso at 3.0 m/s -- the speed floor this replaced, restated. Stated in energy it is also a
+  // statement about a golem's wrist blade on an arm link, and that is the point of the change.
+  // The bare 1.35 kg blade needs 3.0 x sqrt(1.783) = 4.01 m/s.
+  const floorSpeed = Math.sqrt(2 * T.cutFloorJ / reduced(SWORD, TORSO));
   assert.ok(Math.abs(floorSpeed - 3.0) < 0.01, `the blade's floor is ${floorSpeed} m/s on a torso`);
+  const bareFloor = Math.sqrt(2 * T.cutFloorJ / reduced(CONFIG.sword.mass, TORSO));
+  assert.ok(Math.abs(bareFloor - 4.01) < 0.01, `the bare blade's floor is ${bareFloor} m/s`);
   const score = scoreHit(cleanCut(floorSpeed - 0.01));
   assert.equal(score.kind, "weak");
   assert.equal(score.damage, 0);
@@ -166,11 +215,11 @@ test("a square edge-on swing at reference speed is a cut at full quality, and it
   const score = scoreHit(cleanCut());
   assert.equal(score.kind, "cut");
   assert.equal(score.quality, 1);
-  // 0.5 x 1.32372 x 11^2 = 80.09 J over `cutJoulesPerDamage`. The number this whole scoring
-  // model was anchored to, so that the game the prototype was tuned against is still the game.
+  // 0.5 x 1.32372 x 1.783 x 11^2 = 142.80 J over `cutJoulesPerDamage`'s 62.08. The number this
+  // whole scoring model was anchored to, so that the game the prototype was tuned against is
+  // still the game.
   assert.ok(Math.abs(score.damage - 2.3) < 5e-3, `a perfect cut is worth ${score.damage}`);
-  assert.ok(Math.abs(score.damage - joules(CONFIG.sword.mass, TORSO, 11) / T.cutJoulesPerDamage)
-    < 1e-9);
+  assert.ok(Math.abs(score.damage - joules(SWORD, TORSO, 11) / T.cutJoulesPerDamage) < 1e-9);
 });
 
 test("the flat of the blade does not cut, no matter how fast it arrives", () => {
@@ -326,7 +375,7 @@ test("a buckler is a shield: it shoves and it scores nothing", () => {
 /** A square blow with the Warrior's own club on a Warrior's torso. */
 const clubBlow = (closingSpeed = T.referenceSpeed) => ({
   closingSpeed,
-  strikerMassKg: CONFIG.club.mass,
+  strikerMassKg: CLUB,
   partMassKg: TORSO,
   edgeAlignment: 0,
   bladeAlignment: 0,
@@ -341,9 +390,10 @@ test("a club does not care how it is held, and a square blow is 1.7", () => {
   assert.equal(along.kind, "crush");
   assert.deepEqual(along, across);
 
-  // 0.5 x 3.2381 x 11^2 = 195.90 J over `crushJoulesPerDamage`'s 115.24. The second of the two
-  // anchors, and the reason `crushJoulesPerDamage` is three times the blade's: the same joules
-  // spread over a club's face bruise where an edge parts.
+  // 0.5 x 3.2381 x 3.786 x 11^2 = 741.68 J over `crushJoulesPerDamage`'s 436.29. The second of
+  // the two anchors. Before the chain factors `crushJoulesPerDamage` was three and a third times
+  // the blade's because the same joules spread over a club's face bruise where an edge parts; it
+  // is seven now because a chain puts twice as much behind a heavy head as behind a blade.
   const square = scoreHit(clubBlow(), "club");
   assert.ok(Math.abs(square.damage - 1.7) < 5e-3, `a square club blow is worth ${square.damage}`);
   assert.equal(square.quality, 1, "there is nothing to place, so nothing to place badly");
@@ -361,8 +411,9 @@ test("a club is worth less than a perfect cut and more than a bad one", () => {
 
 test("a club still rises with speed, and still has a floor", () => {
   const at = (speed) => scoreHit(clubBlow(speed), "club").damage;
-  // `crushFloorJ` 7.84 J is the club's old 2.2 m/s floor on a torso, restated.
-  const floorSpeed = Math.sqrt(2 * T.crushFloorJ / reduced(CONFIG.club.mass, TORSO));
+  // `crushFloorJ` 29.67 J is the club's old 2.2 m/s floor on a torso, restated for the club
+  // with a stone arm behind it. The bare 3.4 kg club needs 2.2 x sqrt(3.786) = 4.28 m/s.
+  const floorSpeed = Math.sqrt(2 * T.crushFloorJ / reduced(CLUB, TORSO));
   assert.ok(Math.abs(floorSpeed - 2.2) < 0.01, `the club's floor is ${floorSpeed} m/s on a torso`);
   assert.equal(at(floorSpeed - 0.01), 0, "below its floor it is a nudge");
   assert.ok(Math.abs(at(8) - 4 * at(4)) < 1e-9, "and above it, the square of the speed");
@@ -390,7 +441,8 @@ test("a club takes a limb off by crushing through it", () => {
  *
  * The numbers are the prediction table in `docs/plans/style-03-energy-scoring.md`, printed to
  * one decimal there and asserted to that width here -- they were computed from these masses
- * before a line of this was written, which is what makes them a prediction.
+ * before a line of this was written, which is what makes them a prediction. They are scored at
+ * `PRE_CHAIN`, the tuning they were printed at: the chain moved the price, not the arithmetic.
  */
 test("every blunt striker is the same row, and the prediction table is what it says", () => {
   const table = [
@@ -402,7 +454,7 @@ test("every blunt striker is the same row, and the prediction table is what it s
   ];
   for (const row of table) {
     const at = (partMassKg) => scoreHit({ closingSpeed: row.speed, strikerMassKg: row.massKg,
-      partMassKg, edgeAlignment: 0, bladeAlignment: 0, nearTip: false }, "club").damage;
+      partMassKg, edgeAlignment: 0, bladeAlignment: 0, nearTip: false }, "club", PRE_CHAIN).damage;
     assert.ok(Math.abs(at(LINK) - row.onLink) < 0.05,
       `${row.what} on a link scored ${at(LINK).toFixed(2)}, not ${row.onLink}`);
     assert.ok(Math.abs(at(CORE) - row.onCore) < 0.05,
@@ -423,13 +475,14 @@ test("every blunt striker is the same row, and the prediction table is what it s
 test("a club's floor is lower than a blade's, in joules and in metres per second", () => {
   // A blade arriving slowly is a blade being leaned on. A club arriving slowly is still several
   // kilograms of wood -- and stated in joules that is now true *twice*, because the club's own
-  // mass is in the energy as well as in the derivation of the floor. On a torso the blade needs
-  // 3.0 m/s and the club 2.2.
+  // mass is in the energy as well as in the derivation of the floor. On a torso, each with a stone
+  // arm behind it, the blade needs 3.0 m/s and the club 2.2. Bare, the order flips (4.01 against
+  // 4.28), because a chain couples more behind a heavy head than behind a blade.
   assert.ok(T.crushFloorJ > T.cutFloorJ,
     "the blunt floor is the higher number in joules, which is the surprising half");
   const speedFloor = (kind, massKg) =>
     Math.sqrt(2 * biteFloorJ(kind) / reduced(massKg, TORSO));
-  assert.ok(speedFloor("club", CONFIG.club.mass) < speedFloor("sword", CONFIG.sword.mass),
+  assert.ok(speedFloor("club", CLUB) < speedFloor("sword", SWORD),
     "and the lower one in metres per second, which is what a fighter feels");
 
   const slow = 2.6;
@@ -442,7 +495,7 @@ test("a club's floor is lower than a blade's, in joules and in metres per second
 /** A square, committed chop with the Warrior's axe on a Warrior's torso. */
 const chop = (closingSpeed = T.referenceSpeed) => ({
   closingSpeed,
-  strikerMassKg: CONFIG.axe.mass,
+  strikerMassKg: AXE,
   partMassKg: TORSO,
   edgeAlignment: 1,
   bladeAlignment: 0,
@@ -488,6 +541,7 @@ test("an axe placed well hurts more than a sword placed well, on both counts", (
   assert.ok(T.chopJoulesPerDamage < T.cutJoulesPerDamage,
     "a hand's width of edge carries the same joules further in than 840 mm of it");
   assert.ok(CONFIG.axe.mass > CONFIG.sword.mass, "and it is the heavier of the two");
+  assert.ok(AXE > SWORD, "with the same arm behind each");
   // Same mass on both, so only the constant is left: the ratio the row is worth on its own.
   const sameMass = { ...cleanCut(speed) };
   assert.ok(Math.abs(scoreHit(sameMass, "axe").damage / scoreHit(sameMass, "sword").damage
@@ -550,14 +604,14 @@ test("every kind names a mechanism and a floor, and they are the ones the caller
 
 test("a_fast_fist_crushes_never_cuts_and_severs_only_past_the_breaking_point", () => {
   const fist = scoreHit(
-    { closingSpeed: 9, strikerMassKg: CONFIG.arm.handMass, partMassKg: TORSO,
+    { closingSpeed: 9, strikerMassKg: FIST, partMassKg: TORSO,
       edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
     "empty",
   );
   assert.equal(fist.kind, "crush", "a fist hurts by mass, never by an imaginary edge");
-  // 0.5 x (0.65 x 68 / 68.65) x 81 = 26.08 J over 115.24. It was 0.9 under the old `fistScale`
-  // and it is 0.23 now, which is the largest single fall in this session and is the model
-  // saying that a bare hand on a chest is not a quarter of a sword cut. The entry reports it.
+  // 0.5 x (0.65 x 68 / 68.65) x 3.786 x 81 = 98.73 J over 436.29. It was 0.9 under the old
+  // `fistScale` and it is 0.23 now, which is the largest single fall in this session and is the
+  // model saying that a bare hand on a chest is not a quarter of a sword cut.
   assert.ok(Math.abs(fist.damage - 0.2263) < 5e-4, `a punch is worth ${fist.damage}`);
   assert.equal(severs(fist, struck(0), "empty"), false, "a punch never takes off a limb it empties");
   assert.equal(severs(fist, struck(-T.severMargin * 10), "empty"), true,
@@ -568,10 +622,10 @@ test("a_slow_fist_is_a_shove_worth_nothing", () => {
   // The floor a fist actually feels moved from 3.5 m/s to 4.94, because a 0.65 kg hand carries
   // far less energy at a given speed than the 3.4 kg club the blunt floor is derived from. That
   // is a real change to the Warrior's punch and it is stated here rather than left to be found.
-  const floorSpeed = Math.sqrt(2 * biteFloorJ("empty") / reduced(CONFIG.arm.handMass, TORSO));
+  const floorSpeed = Math.sqrt(2 * biteFloorJ("empty") / reduced(FIST, TORSO));
   assert.ok(Math.abs(floorSpeed - 4.94) < 0.01, `a fist's floor is ${floorSpeed} m/s on a torso`);
   const fist = scoreHit(
-    { closingSpeed: floorSpeed - 0.01, strikerMassKg: CONFIG.arm.handMass, partMassKg: TORSO,
+    { closingSpeed: floorSpeed - 0.01, strikerMassKg: FIST, partMassKg: TORSO,
       edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
     "empty",
   );
@@ -667,7 +721,7 @@ test("a bow is worth nothing swung, like the shields", () => {
 test("an arrow needs far more speed than a blade before it is worth anything", () => {
   // **The floor runs the other way from the club's, and in joules it looks like the opposite of
   // what it is.** `pointFloorJ` is 1.12 J, the lowest of the three; but an arrow weighs 35
-  // grams, so 1.12 J is 8.0 m/s for it while `cutFloorJ`'s 5.96 J is 3.0 m/s for a sword. A
+  // grams, so 1.12 J is 8.0 m/s for it while `cutFloorJ`'s 10.62 J is 4.01 m/s for a sword. A
   // floor in joules is a statement about a wound and a floor in metres per second is a statement
   // about a weapon, and the two orders disagree exactly because the masses do.
   assert.ok(biteFloorJ("arrow") < biteFloorJ("sword"), "in joules the point's floor is lowest");
@@ -693,8 +747,9 @@ test("an arrow needs far more speed than a blade before it is worth anything", (
  * digit by construction; the punch is the one that moved, and it moved a long way.
  */
 test("the Warrior's cut, thrust, chop and punch, with the arithmetic beside them", () => {
-  const swordE = joules(CONFIG.sword.mass, TORSO, 11);
-  assert.ok(Math.abs(swordE - 80.09) < 5e-3);
+  // 80.09 J for the bare sword, times the 1.783 a stone arm adds behind it.
+  const swordE = joules(SWORD, TORSO, 11);
+  assert.ok(Math.abs(swordE / EDGE_CHAIN - 80.09) < 5e-3);
 
   const cut = scoreHit(cleanCut());
   assert.ok(Math.abs(cut.damage - swordE / T.cutJoulesPerDamage) < 1e-9);
@@ -709,16 +764,15 @@ test("the Warrior's cut, thrust, chop and punch, with the arithmetic beside them
   assert.ok(Math.abs(thrust.damage - cut.damage) < 1e-9);
 
   const chopped = scoreHit(chop(), "axe");
-  assert.ok(Math.abs(chopped.damage - joules(CONFIG.axe.mass, TORSO, 11) / T.chopJoulesPerDamage)
-    < 1e-9);
+  assert.ok(Math.abs(chopped.damage - joules(AXE, TORSO, 11) / T.chopJoulesPerDamage) < 1e-9);
   assert.ok(Math.abs(chopped.damage - 3.2) < 5e-3, `the perfect chop is ${chopped.damage}`);
 
-  // The punch, at 9 m/s, which is what a Warrior's hand reaches. 0.6438 kg of reduced mass is
-  // 26.08 J, and a chest costs 115.24 J a point. It was 0.9 under `fistScale` and it is 0.23.
-  const punch = scoreHit({ closingSpeed: 9, strikerMassKg: CONFIG.arm.handMass, partMassKg: TORSO,
+  // The punch, at 9 m/s, which is what a Warrior's hand reaches. 0.6438 kg of reduced mass times
+  // the 3.786 behind it is 98.73 J, and a chest costs 436.29 J a point. It was 0.9 under
+  // `fistScale` and it is 0.23.
+  const punch = scoreHit({ closingSpeed: 9, strikerMassKg: FIST, partMassKg: TORSO,
     edgeAlignment: 0, bladeAlignment: 0, nearTip: false }, "empty");
-  assert.ok(Math.abs(punch.damage - joules(CONFIG.arm.handMass, TORSO, 9) / T.crushJoulesPerDamage)
-    < 1e-9);
+  assert.ok(Math.abs(punch.damage - joules(FIST, TORSO, 9) / T.crushJoulesPerDamage) < 1e-9);
   assert.ok(Math.abs(punch.damage - 0.226) < 5e-4, `the punch is ${punch.damage}`);
 });
 
@@ -729,11 +783,11 @@ test("the Warrior's cut, thrust, chop and punch, with the arithmetic beside them
  * trunk core. The plan printed 1.3 and 1.5 at 9 m/s and 2.0 and 2.2 at 11, computed from these
  * masses before any of this existed. What it says is that a blade is nearly the same weapon
  * whatever it lands on -- a 1.30 kg edge is light against both -- which is exactly the contrast
- * with the maul two tests above.
+ * with the maul two tests above. Scored at `PRE_CHAIN`, the tuning the table was printed at.
  */
 test("a golem's blade is worth the same on a limb as on a trunk, to within a sixth", () => {
   const at = (partMassKg, speed) => scoreHit({ closingSpeed: speed, strikerMassKg: 1.30,
-    partMassKg, edgeAlignment: 1, bladeAlignment: 0, nearTip: false }, "sword").damage;
+    partMassKg, edgeAlignment: 1, bladeAlignment: 0, nearTip: false }, "sword", PRE_CHAIN).damage;
   const rows = [
     { speed: 9, onLink: 1.3, onCore: 1.5 },
     { speed: 11, onLink: 2.0, onCore: 2.2 },
@@ -759,13 +813,13 @@ test("the_shipped_damage_exponent_is_kinetic_energy_to_the_bit", () => {
   assert.equal(T.damageSpeedExponent, 2);
   for (const v of [3.1, 5, 7.25, 11, 19.87]) {
     const contact = cleanCut(v);
-    const expected = joules(CONFIG.sword.mass, TORSO, v) / T.cutJoulesPerDamage;
+    const expected = joules(SWORD, TORSO, v) / T.cutJoulesPerDamage;
     assert.equal(scoreHit(contact, "sword").damage, expected,
       `a clean cut at ${v} m/s must price exactly as energy over joules-per-damage`);
   }
 });
 
-// Every speed below is above `cutFloorJ`, which for this fixture is 3.06 m/s. Under the floor a
+// Every speed below is above `cutFloorJ`, which for this fixture is 3.00 m/s. Under the floor a
 // clean cut scores exactly zero and every ratio these tests take is degenerate -- which is itself
 // the point AT measured, and is why the numbers here are not the ones a bout actually sees.
 test("the_damage_pivot_is_the_speed_the_exponent_leaves_alone", () => {
@@ -792,10 +846,10 @@ test("a_lower_damage_exponent_compresses_the_spread_between_a_slow_and_a_fast_bl
 
 test("the_damage_dial_leaves_mass_scaling_exactly_where_physics_puts_it", () => {
   const tuned = { ...T, damageSpeedExponent: 1, damagePivotSpeed: 5.0 };
-  const heavy = { ...cleanCut(5.0), strikerMassKg: CONFIG.sword.mass * 8 };
+  const heavy = { ...cleanCut(5.0), strikerMassKg: SWORD * 8 };
   const light = cleanCut(5.0);
   const ratio = scoreHit(heavy, "sword", tuned).damage / scoreHit(light, "sword", tuned).damage;
-  const massRatio = reduced(CONFIG.sword.mass * 8, TORSO) / reduced(CONFIG.sword.mass, TORSO);
+  const massRatio = reduced(SWORD * 8, TORSO) / reduced(SWORD, TORSO);
   assert.ok(Math.abs(ratio - massRatio) < 1e-9,
     `only the speed term bends: ${ratio} must be the reduced-mass ratio ${massRatio}`);
 });
@@ -816,7 +870,7 @@ test("the_damage_dial_leaves_mass_scaling_exactly_where_physics_puts_it", () => 
  */
 const drawnCut = (closingSpeed, speed, edgeAlignment = 1) => ({
   closingSpeed, speed, edgeAlignment,
-  strikerMassKg: CONFIG.sword.mass,
+  strikerMassKg: SWORD,
   partMassKg: TORSO,
   bladeAlignment: 0,
   nearTip: false,
@@ -845,7 +899,7 @@ test("draw_is_not_paid_for_at_zero", () => {
     const pressing = scoreHit(cleanCut(T.referenceSpeed));
     assert.equal(sliding.damage, pressing.damage);
     assert.equal(cutEnergyJ(drawnCut(T.referenceSpeed, T.referenceSpeed * 4)),
-      impactEnergyJ(CONFIG.sword.mass, TORSO, T.referenceSpeed));
+      impactEnergyJ(SWORD, TORSO, T.referenceSpeed));
   });
 });
 
@@ -856,8 +910,8 @@ test("the_shipped_draw_pays_a_sliding_cut_more_than_the_same_press", () => {
   const press = T.referenceSpeed;
   const slide = press * 4;
   const drawn = cutEnergyJ(drawnCut(press, Math.hypot(press, slide)));
-  assert.ok(drawn > impactEnergyJ(CONFIG.sword.mass, TORSO, press));
-  assert.ok(Math.abs(drawn - impactEnergyJ(CONFIG.sword.mass, TORSO,
+  assert.ok(drawn > impactEnergyJ(SWORD, TORSO, press));
+  assert.ok(Math.abs(drawn - impactEnergyJ(SWORD, TORSO,
     Math.hypot(press, CONFIG.combat.drawFraction * slide))) < 1e-9);
 });
 
@@ -876,7 +930,7 @@ test("the_draw_is_paid_only_to_an_edge_that_is_aligned", () => {
     const press = T.referenceSpeed;
     const slide = T.referenceSpeed * 3;
     // Held edge-on, the slide counts and the blow is worth more than its press alone.
-    const pressAlone = impactEnergyJ(CONFIG.sword.mass, TORSO, press);
+    const pressAlone = impactEnergyJ(SWORD, TORSO, press);
     assert.ok(cutEnergyJ(drawnCut(press, slide, 1)) > pressAlone,
       "an aligned edge is paid for the slide");
     // Dragged flat, it is the side of a blade going past and it is paid nothing for the drag.
@@ -920,8 +974,11 @@ test("a_club_is_never_paid_for_a_slide_whatever_the_dial_says", () => {
 test("blunt_is_relatively_better_against_bone", () => {
   const HUMAN_FOREARM_KG = 2.0;
   const HUMAN_ARMOUR = 0.35;
+  // Scored at `PRE_CHAIN`, the tuning the three ratios below were recorded at; the chain factors
+  // divide the mace by 3.786 and the blade by 1.783 on every part alike, so they would move each
+  // ratio by the same 0.471 and neither comparison.
   const hit = (strikerMassKg, partMassKg, by) => scoreHit({ closingSpeed: 10, strikerMassKg,
-    partMassKg, edgeAlignment: 1, bladeAlignment: 0, nearTip: false }, by);
+    partMassKg, edgeAlignment: 1, bladeAlignment: 0, nearTip: false }, by, PRE_CHAIN);
   const maceOverBlade = (partMassKg, armour) => {
     const blade = hit(TERMINAL_BLADE.mass, partMassKg, "sword");
     const mace = hit(TERMINAL_MACE.mass, partMassKg, "club");

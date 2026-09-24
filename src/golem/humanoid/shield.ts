@@ -50,7 +50,7 @@ export const humanShield = defineTerminal({
       strap.parent=mesh; strap.position.copyFrom(new Vector3(0,y,0).subtract(centre));
       strap.material=materialForGolemRole(ctx.materials,"shell"); shell.push(strap);
     }
-    const striker=new RigidStrike(part,{kind:"empty",effectorId:`${name}.bash`,hand:effectorSlot(ctx.socket.slot),tipAlong:0,impactMassKg:3.5});
+    const striker=new RigidStrike(part,{kind:"empty",effectorId:`${name}.bash`,hand:effectorSlot(ctx.socket.slot),tipAlong:0});
     return { parts:[{id:name,part,shell,health:100,vitalityWeight:0,fatal:false,shield:true,combatRole:"equipment"}],
       strikers:[striker],tipOffset:0,gripStray:()=>null,
       sever(){striker.sever();part.shape.filterMembershipMask=LAYER.DEBRIS;part.shape.filterCollideMask=COLLIDES.DEBRIS;},

@@ -119,7 +119,7 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
     const selected = run.actors[1], struck = run.actors[2]; run.hero.target = selected;
     const source = run.hero.body.strikers[0];
     // Real body, target anatomy, mass and damage path; a stated synthetic arrival isolates routing.
-    const weapon = { kind: "club", effectorId: "routing-probe", hand: "primary", impactMassKg: 4,
+    const weapon = { kind: "club", effectorId: "routing-probe", hand: "primary",
       body: source.body, spent: false, velocityAt: () => new Vector3(0, 0, 12),
       edgeDirection: () => new Vector3(0, 0, 1), bladeDirection: () => new Vector3(0, 1, 0),
       tipPosition: () => new Vector3(0, 0, 0) };

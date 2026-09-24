@@ -24,7 +24,7 @@ test("a_striker_reads_a_point_velocity_about_its_centre_of_mass", async () => {
     for (const offset of [0.25, 0]) {
       const part = capsulePart(scene, { name: `haft${offset}`, position: new Vector3(0, 2, 0), rotation: Quaternion.Identity(),
         height: 0.8, radius: 0.03, mass: 3, layer: 1, collidesWith: 0, centerOfMass: new Vector3(0, offset, 0) });
-      const striker = new RigidStrike(part, { kind: "club", effectorId: "haft", hand: null, tipAlong: 0.4, impactMassKg: 3 });
+      const striker = new RigidStrike(part, { kind: "club", effectorId: "haft", hand: null, tipAlong: 0.4 });
       part.body.setAngularVelocity(new Vector3(0, 0, 4));
       part.body.setLinearVelocity(Vector3.Zero());
       const local = new Vector3(0, 0.4, 0);

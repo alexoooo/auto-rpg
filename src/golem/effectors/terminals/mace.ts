@@ -109,9 +109,6 @@ export const maceDefinition = (config: typeof TERMINAL_MACE & { gripFromButt?: n
       effectorId: `${name}.head`,
       hand: effectorSlot(ctx.socket.slot),
       tipAlong: half,
-      // The mass behind the blow is the bar's own, the way the fist publishes its ball's. The
-      // arm behind it is the chain's and is not counted.
-      impactMassKg: M.mass,
     });
 
     const parts: readonly GolemPart[] = Object.freeze([

@@ -100,8 +100,6 @@ export interface RamTuning {
   readonly plateHealth: number;
   readonly plateVitalityWeight: number;
   readonly plateTipOffset: number;
-  /** What the plate arrives with behind it, kilograms; `Striking.impactMassKg`. */
-  readonly impactMassKg: number;
   readonly lunge: {
     readonly driveRate: number;
     readonly driveSeconds: number;
@@ -116,13 +114,12 @@ export interface RamTuning {
 
 /**
  * How a ram follows the size stat (`SizeLaw` in `../attributes.ts`). **The plate is an item** and
- * keeps its own size and mass, as a terminal does, and so does its `impactMassKg`: the builder
- * scales that figure's body share itself, with the weight stat's. The lunge is the neck's, so its
+ * keeps its own size and mass, as a terminal does. The lunge is the neck's, so its
  * rates, times and ceilings follow the body.
  */
 export const RAM_SIZE: SizeLaws<RamTuning> = {
   plateWidth: "one", plateLength: "one", plateThickness: "one", plateMass: "one", plateHealth: "one",
-  plateVitalityWeight: "one", plateTipOffset: "one", impactMassKg: "one",
+  plateVitalityWeight: "one", plateTipOffset: "one",
   lunge: {
     driveRate: "frequency", driveSeconds: "duration", followSeconds: "duration",
     driveTorque: "torque", followTorque: "torque", recoveryTorque: "torque", armedSeconds: "duration",
@@ -210,7 +207,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
 
     build(ctx: ModuleBuild): BuiltModule<NaturalIntent> {
       // The body's weight stat, on the neck's and the head's masses (`withWeight`). A ram's plate is
-      // an item and keeps its own, and so does the `impactMassKg` it strikes with.
+      // an item and keeps its own.
       const weight = attributeOf(ctx, "weight");
       // This body's own tables at its size stat (`withSize`): the neck and head, and the ram's lunge.
       const size = attributeOf(ctx, "size");
@@ -326,11 +323,6 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
           // session has no evidence that one is wanted.
           kind: "ram",
           effectorId: `${ctx.name}.ram`,
-          // Mostly body -- the neck and a hinge-mass of trunk behind the plate -- so the weight stat
-          // and the size stat's cube move everything but the plate's own share, as
-          // `golemUpperMassKg` counts a module.
-          impactMassKg: weight === 1 && size === 1 ? ram.impactMassKg
-            : (ram.impactMassKg - ram.plateMass) * weight * size ** 3 + ram.plateMass,
           // **Null, because a head is not a hand.** `Combat` routes a null hand to the
           // body-neutral channel already; this is the centipede's rule with the alias it still
           // carries taken out, because a golem head has no `HandView` to pretend to be.

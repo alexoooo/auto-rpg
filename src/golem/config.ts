@@ -41,7 +41,7 @@ import type { ShellLook } from "./effectors/shell.ts";
  * scale at the rig looks like the single chokepoint -- every part in the game gets its mass
  * there -- but it makes this file lie to every reader that is not the rig. `ownMassKg` in
  * `locomotion/biped.ts` sums these literals to get the denominator a shove is divided by, and
- * `impactMassKg` on every terminal declares what a blow arrives with; both would have gone on
+ * `impactMassKg` on every terminal declared what a blow arrived with; both would have gone on
  * reading the unshipped number while the body in the world weighed a sixth of it, so a golem
  * would have been six times too hard to knock over with no test able to say why. Scaling the
  * literals means there is one number and everything agrees with it.
@@ -2411,10 +2411,9 @@ export const TERMINAL_FIST = {
    * Mass, kilograms.
    *
    * A 0.09 m sphere is 0.003054 m3, and stone at 2600 kg/m3 makes that 7.9 kg, rounded to 8.
-   * Arithmetic rather than a sweep, like the cap's; what it decides is the fist's whole worth,
-   * because the striker publishes it as `impactMassKg` and the `empty` bite row scores the
-   * energy that arrives -- and both the ball's weight in the solver and the weight behind the
-   * blow are this one number.
+   * Arithmetic rather than a sweep, like the cap's. It is the ball's weight in the solver, and
+   * through it the item's share of what a punch arrives with: `Combat` prices the effective mass
+   * at the contact (`effectiveMassAt`), the ball and the arm coupled behind it.
    *
    * **It was 18.0 for a day and the comment above never said so.** Commit `e1ff978` raised it
    * with the derivation left standing, so the file argued 8 kg of stone and shipped a ball
@@ -3908,31 +3907,6 @@ export const HEAD_RAM = {
    */
   plateTipOffset: 0.14,
   /**
-   * What the plate arrives with behind it, kilograms, published as `Striking.impactMassKg`.
-   *
-   * The neck alone is 37 kg: the plate's effective mass `I / d^2` about the pitch hinge, which
-   * is what the ram's two retired speeds were derived from. A lunge is not the neck alone. The mind that fires it leans the trunk in on the same step, and a trunk leaning is
-   * the golem's core -- 139 kg plain, 236 plated -- translating toward the contact behind the
-   * head; a lunge with the trunk already leaning is the one the head module's own comment calls
-   * "longer", and the measurements record it landing faster. What is published here is the
-   * plate's 37 with one hinge-mass of trunk behind it, 74 kg, which scores a leaned lunge at
-   * twice the neck-alone number at the same speed. Not derived from the core's mass, because a
-   * core that had wheels under it would publish a different number for the same blow, and a
-   * striker's mass is a fact about the blow. 2026-09-05.
-   *
-   * **What it is worth changed entirely on 2026-09-06 and this number did not.** It was scored
-   * against a 37 kg reference with a scale of 9 on top, which paid a landed lunge two blade
-   * strokes; it is now `0.5 * mu * v^2` over `crushJoulesPerDamage`, and 74 kg into a golem's
-   * 139 kg core at 1.5 m/s is 54 J and about half a point of wound. The mass was never the
-   * problem -- 1.5 m/s is -- and the lever that would fix it is `lunge.driveTorque` below
-   * rather than a scoring row. The entry under Session 03 of the style set reports the fall.
-   *
-   * The kilograms above are the geometric ones. Since physical contact session 04 the head, the
-   * plate and the trunk behind them are all at the body's density, so the published mass is too.
-   */
-  impactMassKg: bodyKg(74),
-
-  /**
    * What `guard` holds, radians of nod, against `HEAD_PLAIN.guardPitch`'s 0.70.
    *
    * 0.40 rad is 23 degrees: the plate levelled at whatever is in front, which is a ram's guard
@@ -4069,8 +4043,8 @@ export const HEAD_RAM = {
    * bounced off its target -- the fixture's post at 12, 40 and 120 kg reports 1.24, 1.20 and
    * 1.19 m/s, so the plate really is arriving at about 1.2 m/s.
    *
-   * **And mass cannot rescue it either.** `impactMassKg` scaled with everything else, 74 kg to
-   * 11.99. Even declaring that a ram commits the golem's *entire* 89.9 kg would put the reduced
+   * **And mass cannot rescue it either.** The declared `impactMassKg` scaled with everything
+   * else, 74 kg to 11.99. Even declaring that a ram commits the golem's *entire* 89.9 kg would put the reduced
    * mass against a 12 kg target at 10.6 kg and the blow at 8.1 J -- barely over a floor it has to
    * clear by enough to be worth throwing. The floor itself is not the thing to move: `crushFloorJ`
    * is `0.5 * 3.23810 * 2.2^2`, a person's 3.4 kg club into a person's torso, and the whole point

@@ -179,7 +179,6 @@ export const maulDefinition = (config: typeof TERMINAL_MAUL & { trailingGripOffs
       effectorId: `${name}.head`,
       hand: effectorSlot(ctx.socket.slot),
       tipAlong: half,
-      impactMassKg: M.mass,
     });
 
     const parts: readonly GolemPart[] = Object.freeze([

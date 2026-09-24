@@ -529,10 +529,10 @@ export function withArmSpeed<T extends object>(table: T, rates: readonly NumberK
  *
  * **Density at fixed geometry**, so it goes where each builder reads its own table -- the part it
  * builds, and every figure the builder derives from the same fields (the biped's `ownMassKg`, the
- * multileg's and the wheel's supported mass, the none chain's `impactMassKg`), then agree with the
- * solver by construction. The ram's `impactMassKg` is its plate with a neck and a hinge-mass of
- * trunk behind it, so the head scales everything in it but the plate. Weight cannot go through `kg()` in `config.ts`, which runs once when the
- * config loads.
+ * multileg's and the wheel's supported mass), then agree with the solver by construction. What a
+ * blow arrives with is read off the solver at the contact (`effectiveMassAt`), so weight reaches it
+ * with no rule of its own. Weight cannot go through `kg()` in `config.ts`, which runs once when
+ * the config loads.
  *
  * **What is not scaled, and why.** A terminal -- blade, fist, mace, maul, plate, whip, the ram's
  * plate, the human shield -- is an item, and items will carry their own stats. The wrist's cast
