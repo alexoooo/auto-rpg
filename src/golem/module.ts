@@ -1008,6 +1008,34 @@ export interface EffectorCapability {
   readonly torqueScale: number;
 }
 
+/** The ceiling a published axis declares, or zero when the module has no such axis. */
+export const axisCeiling = (axes: readonly ModuleAxisEnvelope[], id: string): number =>
+  axes.find((axis) => axis.id === id)?.max ?? 0;
+
+/**
+ * What a mind reads off one effector's envelope, or off an empty slot's `null`.
+ *
+ * **One copy.** The assembled golem and the Node stroke bench both build a capability from an
+ * envelope, and until physical contact session 09 the bench kept its own three lines. They drifted:
+ * the bench's lacked the full-orientation branch, so it drove the human arm at a roll of zero
+ * that no mind in a bout would ever ask for, and its stroke read as the arm's.
+ */
+export function effectorCapability(envelope: ModuleEnvelope | null): EffectorCapability {
+  return Object.freeze({
+    strokes: envelope ? envelope.strokes : [],
+    ...(envelope?.fullOrientation ? { fullOrientation: true } : {}),
+    reachable: envelope ? envelope.reachable : null,
+    rollMax: envelope?.fullOrientation ? 2.7 : envelope ? Math.max(0, axisCeiling(envelope.axes, "roll")) : 0,
+    bendMax: envelope?.fullOrientation ? 1.25 : envelope ? Math.max(0, axisCeiling(envelope.axes, "bend")) : 0,
+    // A slot with no module at all answers 1, not 0: nothing is ever swung on it, and a zero
+    // here would be a divisor waiting for the one caller that forgets to check `lost` first.
+    swingInertia: envelope?.swingInertia ?? 1,
+    // A module that publishes no drive is one nobody swings, and its stroke is not retimed.
+    rateScale: envelope?.drive?.rateScale ?? 1,
+    torqueScale: envelope?.drive?.torqueScale ?? 1,
+  });
+}
+
 /**
  * What an assembled golem's own modules can be asked for.
  *

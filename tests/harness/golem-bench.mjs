@@ -39,6 +39,7 @@ import { wheelModule } from "../../src/golem/locomotion/wheel.ts";
 import { skeletonBiped } from "../../src/golem/skeleton/body.ts";
 import { buildLocomotionCourse, registerLocomotionCourse } from "../../src/golem/locomotion/course.ts";
 import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readout.ts";
+import { effectorCapability } from "../../src/golem/module.ts";
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
 import {
@@ -619,27 +620,11 @@ export async function runGolemBench({
 // ------------------------------------------------------------------------ the stroke bench
 
 /**
- * The mind's own capability record, built from a bench module's published envelope.
- *
- * `Golem.golemCapabilities` writes these same fields off the same envelope, and this is a
- * second copy of three lines rather than an import because that method is private to an assembled
- * golem and there is no golem on the stand. What keeps the copy honest is that every field is a
- * read of something the module publishes: nothing here is a bench-only number, so a module whose
- * envelope changes changes both readers together.
+ * The mind's own capability record, built from a bench module's published envelope by
+ * `effectorCapability`, the one builder `Golem.golemCapabilities` uses too. It was a second copy
+ * until physical contact session 09, and the copy lacked the full-orientation branch.
  */
-export const capabilityOf = (module) => {
-  const envelope = module.envelope();
-  const ceiling = (id) => Math.max(0, envelope.axes.find((axis) => axis.id === id)?.max ?? 0);
-  return Object.freeze({
-    strokes: envelope.strokes,
-    reachable: envelope.reachable,
-    rollMax: ceiling("roll"),
-    bendMax: ceiling("bend"),
-    swingInertia: envelope.swingInertia ?? 1,
-    rateScale: envelope.drive?.rateScale ?? 1,
-    torqueScale: envelope.drive?.torqueScale ?? 1,
-  });
-};
+export const capabilityOf = (module) => effectorCapability(module.envelope());
 
 /** What a mind reads off the hand for a bench module, from the registry rather than a second table. */
 export const weaponOf = (moduleId) =>
@@ -801,6 +786,10 @@ export function strokeProbe({
     const anchor = view.anchor ?? tip;
     const tipSpeed = have ? Vector3.Distance(tip, tipWas) / SUBSTEP : 0;
     const anchorSpeed = have ? Vector3.Distance(anchor, anchorWas) / SUBSTEP : 0;
+    // How much of the tip's motion the edge leads with: 1 is edge first, 0 is the flat.
+    const edgeLead = have && view.edge && tipSpeed > 0
+      ? Math.abs(Vector3.Dot(view.edge, tip.subtract(tipWas))) / (view.edge.length() * tipSpeed * SUBSTEP)
+      : null;
     tipWas.copyFrom(tip);
     anchorWas.copyFrom(anchor);
     have = true;
@@ -829,6 +818,7 @@ export function strokeProbe({
         at: t,
         speed: anchorSpeed + (tipSpeed - anchorSpeed) * u,
         tipSpeed,
+        edgeLead,
         alongMetres: span * (1 - u),
       };
     }
@@ -850,6 +840,12 @@ export function strokeProbe({
     speedAtMark: nearest ? nearest.speed : 0,
     /** Metres a second of the business end at the same step, which is always the larger. */
     tipSpeedAtMark: nearest ? nearest.tipSpeed : 0,
+    /**
+     * How much of the tip's motion the edge led with at that step, 0 to 1: the cosine between the
+     * published edge direction and the tip's velocity. Null for a terminal that publishes no edge.
+     * A cut scores on it (`edgeAlignment` in `src/scoring.ts`), and speed alone does not say it.
+     */
+    edgeLeadAtMark: nearest ? nearest.edgeLead : null,
     /** How close the weapon actually came to the mark there, metres. */
     missMetres: nearest ? nearest.miss : null,
     /** How far back from the business end the mark fell, metres: where on the blade it landed. */

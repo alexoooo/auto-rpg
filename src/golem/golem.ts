@@ -53,6 +53,8 @@ import { dressGolemPart } from "./appearance.ts";
 import { dressHumanoid } from "./humanoid/appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
 import {
+  axisCeiling,
+  effectorCapability,
   partArmour,
   type BuiltModule,
   type EffectorCapability,
@@ -61,7 +63,6 @@ import {
   type GolemSlot,
   type GolemSocket,
   type GolemView,
-  type ModuleAxisEnvelope,
 } from "./module.ts";
 import { moduleDurability, type GolemModuleReport } from "./parts-bin.ts";
 import { refreshGolemWear, seedGolemWear, type GolemWearTie } from "./wear.ts";
@@ -162,9 +163,6 @@ export const GROUNDED_TONE = 0.55;
 const GOLEM_SHIELD: { readonly kind: WeaponKind } = Object.freeze({ kind: "shield" });
 const clamp01 = (value: number): number => (value < 0 ? 0 : value > 1 ? 1 : value);
 
-/** The ceiling a published axis declares, or zero when the module has no such axis. */
-const axisCeiling = (axes: readonly ModuleAxisEnvelope[], id: string): number =>
-  axes.find((axis) => axis.id === id)?.max ?? 0;
 
 /** The narrowest thing this file needs from a module, so one list can hold all five. */
 interface MountedModule {
@@ -939,22 +937,8 @@ export class Golem implements Combatant {
    * case for a module id.
    */
   private golemCapabilities(): GolemCapabilities {
-    const effector = (hand: HandName): EffectorCapability => {
-      const envelope = this.effectors[hand]?.module.envelope() ?? null;
-      return Object.freeze({
-        strokes: envelope ? envelope.strokes : [],
-        ...(envelope?.fullOrientation ? { fullOrientation: true } : {}),
-        reachable: envelope ? envelope.reachable : null,
-        rollMax: envelope?.fullOrientation ? 2.7 : envelope ? Math.max(0, axisCeiling(envelope.axes, "roll")) : 0,
-        bendMax: envelope?.fullOrientation ? 1.25 : envelope ? Math.max(0, axisCeiling(envelope.axes, "bend")) : 0,
-        // A slot with no module at all answers 1, not 0: nothing is ever swung on it, and a zero
-        // here would be a divisor waiting for the one caller that forgets to check `lost` first.
-        swingInertia: envelope?.swingInertia ?? 1,
-        // A module that publishes no drive is one nobody swings, and its stroke is not retimed.
-        rateScale: envelope?.drive?.rateScale ?? 1,
-        torqueScale: envelope?.drive?.torqueScale ?? 1,
-      });
-    };
+    const effector = (hand: HandName): EffectorCapability =>
+      effectorCapability(this.effectors[hand]?.module.envelope() ?? null);
     const range = this.locomotionModule.heightRange;
     return Object.freeze({
       effectors: Object.freeze({ primary: effector("primary"), secondary: effector("secondary") }),

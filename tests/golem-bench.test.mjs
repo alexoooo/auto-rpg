@@ -44,8 +44,10 @@ import { BUTTON_REACH } from "../src/buttons.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import {
   COMMITTED_SHAPE_CANDIDATES, PARRY_ACROSS_METRES, PARRY_ARRIVED_METRES, STROKE_GUARD_SECONDS,
-  runGolemBench, runParryBench, runStrokeBench,
+  capabilityOf, runGolemBench, runParryBench, runStrokeBench,
 } from "./harness/golem-bench.mjs";
+import { createBout, freshHavok } from "./harness/bout-runner.mjs";
+import { PLAYABLE_BUILDS } from "../src/golem/roster.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SUBSTEP = 1 / CONFIG.world.physicsHz;
@@ -1985,4 +1987,39 @@ test("a_heavier_arm_timed_as_the_mind_times_it_swings_no_slower_than_the_shipped
     + `${shipped.peakTipSpeedDriven.toFixed(1)}`);
   assert.ok(heavy.peakAnchorStrayMm < 50,
     `the x2-weight mace strays ${heavy.peakAnchorStrayMm.toFixed(1)} mm from its own anchor`);
+});
+
+test("the_stroke_bench_hands_an_arm_the_capability_a_bout_publishes_for_it", async () => {
+  // Physical contact session 09. The bench kept its own copy of the capability builder and it had
+  // drifted: it lacked the full-orientation branch, so it drove the human arm at a roll ceiling of
+  // zero that no mind in a bout ever reads, and the human's stroke on the bench was not its stroke
+  // in a fight. Every module a playable build carries is compared, on both hands.
+  const bout = createBout({ left: "idle", right: "idle", seeds: [1, 2], locomotionMode: "supported",
+    leftGolem: PLAYABLE_BUILDS.find((b) => b.name === "human-warrior").setup,
+    rightGolem: PLAYABLE_BUILDS.find((b) => b.name === "default").setup,
+    maxSeconds: 1, physics: await freshHavok() });
+  try {
+    bout.step();
+    for (const golem of [bout.left, bout.right]) {
+      for (const hand of ["primary", "secondary"]) {
+        const effector = golem.effectors[hand];
+        if (!effector) continue;
+        assert.deepEqual(capabilityOf(effector.module), golem.view.self.capabilities.effectors[hand],
+          `the bench's capability for ${golem.view.self.hands[hand].weapon} is not the bout's`);
+      }
+    }
+    assert.equal(bout.left.view.self.capabilities.effectors.primary.fullOrientation, true,
+      "the human arm no longer publishes full orientation, so this compares nothing it was written for");
+  } finally { bout.dispose(); }
+});
+
+test("the_stroke_bench_reads_how_much_of_the_tip_s_motion_the_edge_leads", async () => {
+  // A cut scores on the edge leading (`edgeAlignment`), and speed at the mark does not say whether
+  // it did. The wrist blade leads with its edge at the mark and the human blade, today, with its
+  // flat (0.944 and 0.284, Node stroke bench, physical contact session 09): a quarter turn between
+  // its roll and the stroke table's, which is open.
+  const wrist = await runStrokeBench({ moduleId: "effector.wrist.blade", timed: true });
+  assert.ok(wrist.edgeLeadAtMark > 0.9, `the wrist blade's edge leads ${wrist.edgeLeadAtMark} at the mark`);
+  const flat = await runStrokeBench({ moduleId: "effector.wrist.blade", timed: true, shape: { roll: -0.8, windRoll: -0.8 } });
+  assert.ok(flat.edgeLeadAtMark < 0.4, `turned 1.1 rad off, the wrist blade's edge still leads ${flat.edgeLeadAtMark}`);
 });
