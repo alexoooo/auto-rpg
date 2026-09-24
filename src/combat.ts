@@ -13,8 +13,8 @@ import type { WeaponKind } from "./hands.ts";
 import type { Limb } from "./fighter.ts";
 import type { Combatant } from "./units.ts";
 import type { HandName } from "./hands.ts";
-import { biteFloorJ, biteMechanism, cutEnergyJ, evaluateProjectileImpact, scoreHit, severs,
-  type HitKind, type Striker } from "./scoring.ts";
+import { biteFloorJ, biteMechanism, contactImpulseNs, cutEnergyJ, evaluateProjectileImpact, scoreHit,
+  severs, type HitKind, type Striker } from "./scoring.ts";
 
 export type { HitKind };
 
@@ -60,8 +60,6 @@ export interface Striking {
   readonly hand: HandName | null;
   /** Blueprint-owned multiplier; legacy effectors omit it and therefore remain exactly 1. */
   readonly damageScale?: number;
-  /** Authored zero-wound contact transfer, expressed as target velocity change. */
-  readonly authoredSpecificImpulseMps?: number;
   /** Immutable physical facts shared with the live projectile body. */
   readonly projectileImpact?: Readonly<{
     readonly massKg: number;
@@ -226,7 +224,12 @@ export interface HitReport {
   postArmourDamage: number;
   /** Present only for a physical projectile contact. */
   projectile?: ProjectileImpactEvidence;
-  stabilityShove?: Readonly<{ readonly kind: "specific-impulse"; readonly specificImpulseMps: number }>;
+  /**
+   * The impulse this contact pushed the struck body with, N.s: `contactImpulseNs` of the two
+   * effective masses at the closing speed, for a block as for a blow, and 0 for a contact with no
+   * direction. It is what the struck body's stability ledger was handed.
+   */
+  transferNs: number;
   severed: boolean;
   at: number;
   /**
@@ -469,8 +472,8 @@ export class Combat {
       : event.collidedAgainst === trigger.body ? event.collider : null;
     if (!collidedAgainst) return;
     const point = trigger.contactPoint(collidedAgainst);
-    // A trigger has no solver manifold by construction. `resolve` still applies the ordinary
-    // authored shove from the real fist's material-point velocity; the diagnostic impulse is
+    // A trigger has no solver manifold by construction. `resolve` still files the ordinary
+    // transfer along the real fist's material-point velocity; the diagnostic impulse is
     // truthfully zero rather than borrowed from an unrelated anatomy contact.
     this.onContact(weapon, {
       collider: trigger.body,
@@ -595,6 +598,13 @@ export class Combat {
 
     const point = event.point as Vector3;
     const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    // **A parry pushes the body behind the guard** (physical contact session 06): the same transfer
+    // a blow makes, between the striker and whatever stopped it, each walked back to its own body.
+    // A blade caught on a plate drives the plate's owner back by what the blade carried.
+    const normal = this.contactNormal(velocity, event);
+    const transferNs = normal ? this.transfer(this.strikerMassAt(weapon, point, normal),
+      effectiveMassAt(event.collidedAgainst, point, normal), this.closingSpeedAt(velocity, event), normal,
+      velocity) : 0;
     const report: HitReport = {
       ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
@@ -616,6 +626,7 @@ export class Combat {
       bladeAlignment: 0,
       tipDistanceM: Vector3.Distance(point, weapon.tipPosition()),
       solverImpulse: event.impulse,
+      transferNs,
       damage: 0,
       preArmourDamage: 0,
       postArmourDamage: 0,
@@ -684,6 +695,35 @@ export class Combat {
     return speed > 1e-6 ? unit.copyFrom(strikerVelocity).scaleInPlace(1 / speed) : null;
   }
 
+  /** What arrives behind the striker at the contact: a projectile's own mass, or its chain's. */
+  private strikerMassAt(weapon: Striking, point: Vector3, normal: Vector3): number {
+    return weapon.projectileImpact ? weapon.projectileImpact.massKg : effectiveMassAt(weapon.body, point, normal);
+  }
+
+  /**
+   * File what a contact pushed the struck body with, and say how much, N.s (physical contact
+   * session 06).
+   *
+   * The impulse of an inelastic contact between the two effective masses along the contact normal,
+   * turned to point the way the striker was travelling, since Havok hands either side of the
+   * manifold its own sign. Its horizontal part is the stability ledger's input and its vertical part
+   * rides along for session 07.
+   *
+   * **Nothing is applied to a body here.** The solver has already resolved this contact by the time
+   * a collision callback runs, and its own impulse is the physical push; the authored impulse this
+   * replaced was added on top of it. What the ledger needs is the reading, not a second push.
+   */
+  private transfer(strikerMassKg: number, struckMassKg: number, closingSpeed: number, normal: Vector3,
+    velocity: Vector3): number {
+    if (!(closingSpeed > 0)) return 0;
+    const impulseNs = contactImpulseNs(strikerMassKg, struckMassKg, closingSpeed);
+    const along = this.scratch.push.copyFrom(normal);
+    if (Vector3.Dot(along, velocity) < 0) along.scaleInPlace(-1);
+    along.scaleInPlace(impulseNs);
+    this.target?.queueStabilityEvent?.({ horizontalShoveNs: [along.x, along.z], verticalShoveNs: along.y });
+    return impulseNs;
+  }
+
   private resolve(weapon: Striking, limb: Limb, event: IPhysicsCollisionEvent): HitReport {
     const C = CONFIG.combat;
     const point = event.point as Vector3;
@@ -701,8 +741,8 @@ export class Combat {
     const closingSpeed = this.closingSpeedAt(velocity, event);
     const normal = this.contactNormal(velocity, event);
     const partMassKg = normal ? effectiveMassAt(limb.part.body, point, normal) : bodyMassKg(limb.part.body);
-    const strikerMassKg = weapon.projectileImpact ? weapon.projectileImpact.massKg
-      : normal ? effectiveMassAt(weapon.body, point, normal) : bodyMassKg(weapon.body);
+    const strikerMassKg = normal ? this.strikerMassAt(weapon, point, normal)
+      : weapon.projectileImpact ? weapon.projectileImpact.massKg : bodyMassKg(weapon.body);
     // A stationary contact has no direction and therefore a zero shove. This
     // branch matters for the fist: its sub-floor contacts deliberately continue
     // into `scoreHit` and the impulse path as zero-damage slaps.
@@ -772,10 +812,16 @@ export class Combat {
     // that worked only in its unit test.
     //
     // Blunt is exempt, where it used to be the bare fist alone. A sub-floor blunt contact is a
-    // **slap**: it scores nothing and still shoves, so it has to reach the shove path below,
-    // and the mechanism is what says which contacts those are rather than a list of kinds. A
+    // **slap**: it scores nothing, and `scoreHit` is what files it as one, so it has to reach it;
+    // the mechanism is what says which contacts those are rather than a list of kinds. (It used
+    // to have to reach the shove as well; every contact is shoved just below, before it.) A
     // point's floor is against its *axial* energy, which is never more than this, so a contact
     // that fails here would have failed there too.
+    // Every contact shoves what it strikes, whether or not it bites, and before the early-out below
+    // for that reason: the momentum the contact moved, from the same pair of masses its energy is
+    // priced on (physical contact session 06). A blade leaned on pushes by what it carries, as a
+    // slap does, because the solver does not know which side of a blade arrived.
+    const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed, normal, velocity) : 0;
     if (!weapon.projectileImpact && energyJ < biteFloorJ(weapon.kind)
       && biteMechanism(weapon.kind) !== "blunt") {
       // The alignment is reported rather than zeroed. It used to be a hard zero because it had
@@ -785,7 +831,7 @@ export class Combat {
       // the old zero -- `scripts/bout-runner.mjs` drops weak contacts by `kind`, which is what
       // its `alignments` column is about -- so this is strictly more of what happened.
       return { ...base, kind: "weak", edgeAlignment, damage: 0,
-        preArmourDamage: 0, postArmourDamage: 0, severed: false };
+        preArmourDamage: 0, postArmourDamage: 0, severed: false, transferNs };
     }
 
     let projectile: ProjectileImpactEvidence | undefined;
@@ -835,39 +881,17 @@ export class Combat {
         },
         weapon.kind,
       );
-    const { kind, quality } = score;
+    const { kind } = score;
     const rawDamage = weapon.projectileImpact ? score.damage : score.damage * (weapon.damageScale ?? 1);
     const damage = this.target?.applyDamage?.(limb, rawDamage, kind) ?? rawDamage;
     if (projectile) projectile = Object.freeze({ ...projectile, postArmourDamage: damage });
     if (!this.target?.applyDamage) limb.health -= damage;
 
-    // The blade shoves what it strikes whether or not it bites. A flat slap
-    // transfers the most push and the least damage, which is the trade the
-    // player is being taught.
-    let stabilityShove: HitReport["stabilityShove"];
-    if (weapon.authoredSpecificImpulseMps !== undefined) {
-      const specificImpulseMps = weapon.authoredSpecificImpulseMps;
-      const massKg = limb.part.body.getMassProperties().mass ?? 1;
-      const shove = this.scratch.push.copyFrom(direction).scaleInPlace(specificImpulseMps * massKg);
-      limb.part.body.applyImpulse(shove, point);
-      this.target?.queueStabilityEvent?.({ kind: "specific-impulse", specificImpulseMps });
-      stabilityShove = Object.freeze({ kind: "specific-impulse", specificImpulseMps });
-    } else {
-      const shove = this.scratch.push
-        .copyFrom(direction)
-        .scaleInPlace(speed * 0.11 * (1.35 - quality * 0.7));
-      limb.part.body.applyImpulse(shove, point);
-      // This authored transfer, not Havok's solver reaction impulse, is the stability input.
-      // Collision callbacks may queue it but cannot change support state or motion type here.
-      this.target?.queueStabilityEvent?.({ horizontalShoveNs: [shove.x, shove.z] });
-    }
-
     const severed = severs({ ...score, damage }, limb, weapon.kind);
     if (severed) this.target?.sever(limb, direction);
 
     return { ...base, kind, edgeAlignment, damage, preArmourDamage: rawDamage,
-      postArmourDamage: damage, severed, ...(projectile ? { projectile } : {}),
-      ...(stabilityShove ? { stabilityShove } : {}) };
+      postArmourDamage: damage, severed, transferNs, ...(projectile ? { projectile } : {}) };
   }
 }
 

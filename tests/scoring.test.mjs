@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { armourAgainst, armouredDamage, biteFloorJ, biteMechanism, cutEnergyJ, impactEnergyJ,
+import { armourAgainst, armouredDamage, biteFloorJ, biteMechanism, contactImpulseNs, CONTACT_RESTITUTION,
+  cutEnergyJ, impactEnergyJ,
   scoreHit, severs } from "../src/scoring.ts";
 import { CONFIG } from "../src/config.ts";
 import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
@@ -192,6 +193,28 @@ test("a contact with no mass behind it, or no mass in front, is refused by name"
     "a striker of infinite mass is a mistake, not a very good blow");
   assert.throws(() => impactEnergyJ(1.35, 0, 11), /positive mass/);
   assert.throws(() => impactEnergyJ(1.35, TORSO, NaN), /finite closing speed/);
+});
+
+/**
+ * Physical contact session 06: the push a blow gives is the momentum its contact moved, read off the
+ * same two masses the energy was priced on. So `J^2 / 2mu` is the energy, a wall takes the striker's
+ * whole momentum, and a bounce doubles it at most.
+ */
+test("the_push_and_the_price_are_one_reading_of_one_contact", () => {
+  assert.equal(CONTACT_RESTITUTION, 0, "a blow in this solver is inelastic, as session 01 measured it");
+  for (const [striker, part, speed] of [[1.35, TORSO, 11], [9.4, LINK, 4], [40, CORE, 2.5]]) {
+    const mu = (striker * part) / (striker + part);
+    const impulse = contactImpulseNs(striker, part, speed);
+    assert.ok(Math.abs(impulse - mu * speed) < 1e-12, `${impulse} against ${mu * speed}`);
+    assert.ok(Math.abs(impulse * impulse / (2 * mu) - impactEnergyJ(striker, part, speed)) < 1e-9);
+    assert.ok(Math.abs(contactImpulseNs(striker, part, speed, 1) - 2 * impulse) < 1e-12, "a perfect bounce");
+  }
+  assert.equal(contactImpulseNs(3.4, Infinity, 11), 3.4 * 11, "a wall takes the striker's whole momentum");
+  assert.ok(contactImpulseNs(3.4, CORE, 11) < contactImpulseNs(3.4, Infinity, 11));
+  assert.throws(() => contactImpulseNs(1.35, TORSO, 11, 1.2), /restitution/);
+  assert.throws(() => contactImpulseNs(1.35, TORSO, 11, -0.1), /restitution/);
+  assert.throws(() => contactImpulseNs(0, TORSO, 11), /positive mass/);
+  assert.throws(() => contactImpulseNs(1.35, TORSO, NaN), /finite closing speed/);
 });
 
 // ---- the blade ------------------------------------------------------------

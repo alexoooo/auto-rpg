@@ -1,10 +1,28 @@
 export type SupportState = "supported" | "staggered" | "fallen" | "rising";
 
-/** Frozen v1 physical values. */
+/**
+ * Frozen v1 physical values.
+ *
+ * **The stagger line, the fall line and the decay are a holding repair, and temporary** (physical
+ * contact session 06). They were 0.006, 0.014 and 0.020, tuned against an authored shove of
+ * `speed * 0.11 * (1.35 - 0.7 * quality)` N.s that carried no mass. Session 06 replaced it with the
+ * momentum a contact moves between two effective masses, about ten times larger per wounding blow
+ * (median 11.9 N.s against 1.14), and filed it on every contact and parry rather than on the ones that
+ * passed the edge's floor. All three were scaled by one factor, so the ledger's shape did not move and
+ * only its scale did. The factor was read off stone x1 mirrors, knockdowns per body per bout
+ * (`research/control-band.mjs`, Node harness, research runner, cap 150 s, 96 blocks, seed 20260923):
+ *
+ * | Scale | 1 | 6 | 10 | 16 | **20** | 22 | 25 |
+ * | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+ * | Knockdowns | 40.57 | 19.48 | 14.01 | 7.39 | **4.89 [4.39, 5.39]** | 3.87 | 3.16 |
+ *
+ * Session 01's band is 4.93 [4.54, 5.32]. Session 08 deletes the stagger and fall lines for a tipping
+ * capacity, because the owner's rule is that a knockdown ends up physical, and this table is not that.
+ */
 export const SUPPORTED_LOCOMOTION_V1 = Object.freeze({
-  STABILITY_DECAY_MPS_PER_S: 0.020,
-  STAGGER_SPECIFIC_IMPULSE_MPS: 0.006,
-  FALL_SPECIFIC_IMPULSE_MPS: 0.014,
+  STABILITY_DECAY_MPS_PER_S: 0.40,
+  STAGGER_SPECIFIC_IMPULSE_MPS: 0.12,
+  FALL_SPECIFIC_IMPULSE_MPS: 0.28,
   BRACE_CAPACITY_MULTIPLIER: 1.50,
   FALLEN_DWELL_S: 0.35,
   // The supported carrier may bridge one bounded clinch compression while its feet replant.
@@ -124,6 +142,17 @@ export function stabilityMassKg(supportedMassKg: number, authority: StabilityAut
 }
 
 /**
+ * The velocity change a batch of shoves hands a standing body, m/s: the horizontal part of each
+ * impulse over the mass the body stands with. The one reading of a shove, for the ledger and for
+ * the recovery interrupt alike.
+ */
+export function shoveSpecificImpulseMps(events: readonly StabilityEvent[], supportedMassKg: number,
+  authority: StabilityAuthority | null): number {
+  const massKg = stabilityMassKg(supportedMassKg, authority);
+  return events.reduce((sum, event) => sum + Math.hypot(...event.horizontalShoveNs) / massKg, 0);
+}
+
+/**
  * How many times the base thresholds a body takes before it staggers or falls: its brace, its gait
  * and its stability stat, multiplied.
  *
@@ -182,17 +211,22 @@ export function recoveredRiseS(bodyS: number, distanceM: number, maxAcceleration
 }
 
 /**
- * Combat queues an authored transfer; solver reaction impulse has no field here.
+ * What a contact pushed a body with, newton-seconds in world axes; solver reaction impulse has no
+ * field here.
  *
- * Ordinary contacts retain force impulse because their transfer is computed from
- * a material-point velocity. An authored bash already declares a mass-independent
- * velocity change, so converting it back through target mass would make the
- * controller stronger or weaker merely because its opponent is heavier.
+ * `Combat` files the impulse of an inelastic contact between the striker's effective mass and the
+ * struck point's, along the contact normal (`contactImpulseNs` in `src/scoring.ts`, physical
+ * contact session 06), for every blow and every parry alike. The ledger divides the horizontal part
+ * by the body's stability mass, so a heavier body takes a smaller velocity change from the same blow.
+ *
+ * **`verticalShoveNs` is carried and read by nothing yet.** It is the upward share of the same
+ * impulse, positive up, and session 07 is its reader: a sustained lift out of it. A locomotion
+ * bench's own shove is horizontal and leaves it out.
  */
-export type StabilityEvent =
-  | Readonly<{ readonly kind?: "horizontal-shove";
-    readonly horizontalShoveNs: readonly [number, number] }>
-  | Readonly<{ readonly kind: "specific-impulse"; readonly specificImpulseMps: number }>;
+export type StabilityEvent = Readonly<{
+  readonly horizontalShoveNs: readonly [number, number];
+  readonly verticalShoveNs?: number;
+}>;
 
 export interface SupportedLocomotionState {
   readonly state: SupportState;
@@ -216,7 +250,7 @@ export interface SupportedLocomotionBoundary {
   readonly postureSupported: boolean;
   readonly supportEvidence: readonly StandableSupportEvidence[];
   readonly supportedMassKg: number;
-  readonly authoredShoves: readonly StabilityEvent[];
+  readonly contactShoves: readonly StabilityEvent[];
   /** Standable world under the recovery footprint; this is not a claim that a folded foot is planted. */
   readonly recoveryGroundAvailable: boolean;
   readonly occupancyClear: boolean;
@@ -317,14 +351,13 @@ const checkedBoundary = (input: SupportedLocomotionBoundary): void => {
         (!Number.isFinite(input.authority.stabilityMassRatio) || input.authority.stabilityMassRatio <= 0)))) {
     throw new Error("supported locomotion authority has invalid stability scaling");
   }
-  for (const event of input.authoredShoves) {
-    if (event.kind === "specific-impulse") {
-      if (!Number.isFinite(event.specificImpulseMps) || event.specificImpulseMps < 0) {
-        throw new Error("supported locomotion authored specific impulse must be finite and non-negative");
-      }
-    } else if (event.horizontalShoveNs.length !== 2 ||
+  for (const event of input.contactShoves) {
+    if (event.horizontalShoveNs.length !== 2 ||
         event.horizontalShoveNs.some((value) => !Number.isFinite(value))) {
-      throw new Error("supported locomotion authored shove must contain two finite horizontal components");
+      throw new Error("supported locomotion shove must contain two finite horizontal components");
+    }
+    if (event.verticalShoveNs !== undefined && !Number.isFinite(event.verticalShoveNs)) {
+      throw new Error("supported locomotion shove must have a finite vertical component");
     }
   }
 };
@@ -339,9 +372,7 @@ const supportAvailable = (input: SupportedLocomotionBoundary): boolean => {
 export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
   input: SupportedLocomotionBoundary): SupportedLocomotionState {
   checkedBoundary(input);
-  const added = input.authoredShoves.reduce((sum, event) => sum +
-    (event.kind === "specific-impulse" ? event.specificImpulseMps :
-      Math.hypot(...event.horizontalShoveNs) / stabilityMassKg(input.supportedMassKg, input.authority)), 0);
+  const added = shoveSpecificImpulseMps(input.contactShoves, input.supportedMassKg, input.authority);
   const specificImpulseMps = Math.max(0,
     prior.specificImpulseMps - SUPPORTED_LOCOMOTION_V1.STABILITY_DECAY_MPS_PER_S * input.dt) + added;
   const hasSupport = supportAvailable(input);

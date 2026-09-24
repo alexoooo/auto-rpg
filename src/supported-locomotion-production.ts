@@ -23,7 +23,7 @@ import {
   type WorldPoint,
 } from "./supported-locomotion-runtime.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
-import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEligibility, risingFloorS, sizeTime, stabilityCapacity, stabilityMassKg, stepSupportedLocomotionState,
+import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEligibility, risingFloorS, shoveSpecificImpulseMps, sizeTime, stabilityCapacity, stabilityMassKg, stepSupportedLocomotionState,
   SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState, type SupportedLocomotionBoundary,
   type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 /**
@@ -101,7 +101,7 @@ const STOP: LocomotionRequest = Object.freeze({
 });
 
 /**
- * A lying body is kept from starting its rise by a new *staggering* authored transfer, not a
+ * A lying body is kept from starting its rise by a new *staggering* contact transfer, not a
  * brush; a rise already under way is put down by the ledger instead (`stepSupportedLocomotionState`).
  * The ledger still
  * records every physical contact for normal supported/fallen thresholds, but treating any
@@ -112,9 +112,7 @@ const STOP: LocomotionRequest = Object.freeze({
  */
 export function recoveryHitInterrupted(events: readonly StabilityEvent[], supportedMassKg: number,
   authority: StabilityAuthority | null): boolean {
-  const freshSpecificImpulseMps = events.reduce((sum, event) => sum +
-    (event.kind === "specific-impulse" ? event.specificImpulseMps :
-      Math.hypot(...event.horizontalShoveNs) / stabilityMassKg(supportedMassKg, authority)), 0);
+  const freshSpecificImpulseMps = shoveSpecificImpulseMps(events, supportedMassKg, authority);
   const capacity = stabilityCapacity(authority);
   return freshSpecificImpulseMps >= SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity;
 }
@@ -409,7 +407,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       dt: this.staged.snapshot().committed?.dt ?? 1 / 240,
       safeBoundarySequence: this.sequence,
       authority, liveSupport, postureSupported, supportEvidence: evidence,
-      supportedMassKg: this.options.supportedMassKg, authoredShoves: shoves,
+      supportedMassKg: this.options.supportedMassKg, contactShoves: shoves,
       recoveryGroundAvailable, occupancyClear,
       hitInterrupted: recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
       fallSettled: this.options.fallSettled?.() ?? true,

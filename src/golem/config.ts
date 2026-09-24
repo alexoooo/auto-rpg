@@ -3116,13 +3116,15 @@ export const LOCOMOTION_BIPED = {
    * `braceCapacityMultiplier` 1.5 is `SUPPORTED_LOCOMOTION_V1.BRACE_CAPACITY_MULTIPLIER` exactly:
    * a golem is braced by construction -- it is a stone slab on two stone legs -- so it stands
    * where a Warrior would need to be bracing deliberately. It multiplies both frozen thresholds,
-   * so a golem staggers at 0.009 m/s of specific impulse and falls at 0.021 rather than at 0.006
-   * and 0.014.
+   * so a golem staggers and falls at 1.5 times the lines an unbraced body would: 0.18 and 0.42 m/s
+   * of specific impulse since physical contact session 06 scaled every line by 20, and 0.009 and
+   * 0.021 before that.
    *
    * `gaitStabilityScaleMin` is what that capacity falls to at full carrier speed, and it is the
    * one live field in the authority: a body in mid-stride has one foot down and is easier to put
    * over than one standing still, so the scale runs linearly from 1 at rest to 0.75 at 1.2 m/s.
-   * At full speed the fall threshold is therefore 0.0158 m/s rather than 0.021, which is a golem
+   * At full speed the fall threshold is therefore 0.75 of the standing one (0.315 m/s, 0.0158
+   * before session 06), which is a golem
    * caught mid-step. The state machine multiplies the two and refuses a scale outside (0, 1], so
    * it is clamped. 2026-09-04.
    */
@@ -3189,6 +3191,12 @@ export const LOCOMOTION_BIPED = {
    * 250, so it is a setting rather than an edge. It lands the socket at 0.366 m, which is the 0.367
    * the stone body reached at 600 -- the same knockdown, bought at a third of the impulse because
    * there is a sixth of the body. 2026-09-18, the Node bench.
+   *
+   * **Since physical contact session 06 every threshold row above is twenty times higher**, because
+   * that session scaled the ledger's three lines by one factor when a contact began filing the
+   * momentum it moved (`SUPPORTED_LOCOMOTION_V1`'s doc has the table). The straddles above are a
+   * record of the lines they were measured against. The key is still a knockdown: 617 N.s is 14.3
+   * times this body's fall line on the shove bench, against 286 before (Node harness, x1).
    */
   shoveImpulseNs: 200 * BODY_OVER_SHIPPED,
 
@@ -4755,9 +4763,10 @@ export const LOCOMOTION_WHEEL = {
    * `gaitStabilityScaleStand` and `gaitStabilityScaleMin` are the live half, and unlike the biped's
    * the standing end is **below 1**: a wheel standing still is balanced on a single contact line
    * and has no fore-aft base whatsoever, which a pair of 0.34 m feet does. It runs from 0.70 at
-   * rest to 0.35 at 2.0 m/s. The fall threshold is therefore `0.014 x 1.0 x 0.70 = 0.0098 m/s`
-   * standing and 0.0049 at speed, against the biped's 0.021 and 0.0158 -- less than half at both
-   * ends.
+   * rest to 0.35 at 2.0 m/s. The fall threshold is therefore 0.70 of the fall line standing and
+   * 0.35 at speed, against the biped's 1.5 and 1.125 -- less than half at both ends. (On the lines
+   * before physical contact session 06, which scaled them by 20, that was `0.014 x 1.0 x 0.70 =
+   * 0.0098 m/s` standing and 0.0049 at speed; the sweep below was taken on them.)
    *
    * **Swept against the comparison it exists for**, which is the 10 N.s that leaves a biped
    * standing. In newton-seconds the boundary is `0.014 x scale x 725.2 = 10.15 x scale`:
@@ -4823,6 +4832,12 @@ export const LOCOMOTION_WHEEL = {
    * the floor are two different questions**: the first is a decaying ledger in mass-independent
    * units and the second is 725 kg against a base geometry. 3200 buys a further tilt and *less*
    * drop, because the assembly bounces. 2026-09-04, the Node bench.
+   *
+   * **Since physical contact session 06 every threshold row above is twenty times higher**, because
+   * that session scaled the ledger's three lines by one factor when a contact began filing the
+   * momentum it moved (`SUPPORTED_LOCOMOTION_V1`'s doc has the table). The straddles above are a
+   * record of the lines they were measured against. The key is still a knockdown: 800 N.s is 31.6
+   * times this body's fall line on the shove bench, against 630 before (Node harness, x1).
    */
   shoveImpulseNs: bodyNs(1600),
 
@@ -5318,6 +5333,12 @@ export const LOCOMOTION_MULTILEG = {
    * 0.64 m tall is *shunted* rather than tipped. 2400 is where it goes over. That ratio, 104x
    * against the biped's 51x and the wheel's 225x, is the same statement all three blocks make: a
    * threshold crossed and a body on the floor are different questions. 2026-09-04, the Node bench.
+   *
+   * **Since physical contact session 06 every threshold row above is twenty times higher**, because
+   * that session scaled the ledger's three lines by one factor when a contact began filing the
+   * momentum it moved (`SUPPORTED_LOCOMOTION_V1`'s doc has the table). The straddles above are a
+   * record of the lines they were measured against. The key is still a knockdown: 1200 N.s is 14.4
+   * times this body's fall line on the shove bench, against 288 before (Node harness, x1).
    */
   shoveImpulseNs: bodyNs(2400),
 

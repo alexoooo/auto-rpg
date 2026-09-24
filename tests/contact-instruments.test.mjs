@@ -23,6 +23,7 @@ import { DIRECTIONS, contactForceReadout, freeTip, slabFor, sliderTrial } from "
 import { CENSUS_FAMILIES, censusOf, partClass, runMassCensus } from "./harness/mass-census.mjs";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { namedBuild } from "../src/golem/roster.ts";
+import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -197,10 +198,12 @@ test("the mass census reads every body the golem owns off the solver", async () 
  * fell at; the skeleton's and the human's masses did not move and hold nothing. The before column is
  * FALL_SPECIFIC_IMPULSE_MPS x brace x the supported mass each family had on 66ee353 (Node mass
  * census), standing still: gait 1, except the wheel, which stands at `gaitStabilityScaleStand` 0.70.
+ * Session 06 scaled the fall line and every family with it, so the column reads the live line.
  */
 test("every family falls at the newton-seconds it fell at before stone took its body density", async () => {
-  const before = { stone: 0.014 * 1.5 * 90.64, skeleton: 0.014 * 2.0 * 30.38, human: 0.014 * 1.5 * 111.45,
-    wheel: 0.014 * 1.0 * 0.70 * 117.39, multileg: 0.014 * 2.6 * 102.34 };
+  const fall = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS;
+  const before = { stone: fall * 1.5 * 90.64, skeleton: fall * 2.0 * 30.38, human: fall * 1.5 * 111.45,
+    wheel: fall * 1.0 * 0.70 * 117.39, multileg: fall * 2.6 * 102.34 };
   const rows = await runMassCensus(CENSUS_FAMILIES.filter((row) => row.family in before));
   assert.equal(rows.length, 5, "the control: every family was built");
   for (const row of rows) {
