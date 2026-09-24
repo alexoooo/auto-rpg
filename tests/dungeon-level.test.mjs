@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateLevel, LEVEL, levelRows, standingComponents, standingMask, walkField } from "../src/dungeon/level.ts";
+import { deadEnds, generateLevel, LEVEL, levelCandidates, levelRows, levelScore, standingComponents, standingMask, standingNear,
+  walkField } from "../src/dungeon/level.ts";
 import { clearSegment, findPath, isFloor, walkable, distance } from "../src/dungeon/map.ts";
 
 const SEEDS = Array.from({ length: 24 }, (_, i) => i);
@@ -166,4 +167,93 @@ test("a_level_prints_square_with_one_start_and_one_exit", () => {
   for (const row of rows) assert.equal(row.length, map.size * 2);
   const text = rows.join("\n");
   assert.equal(text.split("S ").length - 1, 1); assert.equal(text.split("E ").length - 1, 1);
+});
+
+test("every_level_loops_and_each_loop_saves_a_real_walk", () => {
+  const k = LEVEL.block;
+  // Every candidate, not only the chosen levels: the score passes over most of the loops that only
+  // just clear the floor, so the chosen 24 cannot show a loop under it (with the floor lowered by
+  // four blocks, 13 of the 719 loops in 288 candidates fall under the measure below, and none of
+  // the 68 in the chosen levels).
+  const levels = SEEDS.flatMap((seed) => levelCandidates(seed));
+  let chosenLoops = 0, fewest = Infinity, loopDoors = 0;
+  for (const { map, links, metrics } of levels) {
+    assert.ok(metrics.loops >= LEVEL.minLoops, `seed ${map.seed}`);
+    assert.equal(metrics.loops, links.length - map.rooms.length + 1);
+    const loopLinks = links.filter((l) => l.loop);
+    assert.ok(loopLinks.length <= LEVEL.loops, `seed ${map.seed}: ${loopLinks.length} loops`);
+    fewest = Math.min(fewest, loopLinks.length);
+    for (const l of loopLinks) {
+      const c = l.corridor;
+      assert.ok(Math.min(c.w, c.d) === 1 && Math.max(c.w, c.d) <= LEVEL.corridorMax, `seed ${map.seed}: loop corridor ${JSON.stringify(c)}`);
+      if (l.door !== null) loopDoors++;
+    }
+    // Every loop shut at once, so no loop is measured against another's shortcut. `addLoops`
+    // added them greedily, each against the ones before it; with all of them shut, each one's
+    // saving is at least what it was when it was chosen.
+    const shut = { ...map, floor: map.floor.slice() };
+    for (const { corridor: c } of loopLinks)
+      for (let z = c.z * k; z < (c.z + c.d) * k; z++) for (let x = c.x * k; x < (c.x + c.w) * k; x++) shut.floor[z * map.size + x] = 0;
+    assert.equal(standingComponents(shut), 1, `seed ${map.seed}: the level without its loops is still one region`);
+    for (const l of loopLinks) {
+      const c = l.corridor, alongX = l.heading === 0;
+      const ends = [
+        [map.rooms[l.a], alongX ? { x: c.x - 1, z: c.z } : { x: c.x, z: c.z - 1 }],
+        [map.rooms[l.b], alongX ? { x: c.x + c.w, z: c.z } : { x: c.x, z: c.z + c.d }],
+      ].map(([room, block]) => standingNear(map, room, { x: block.x * k + 1, z: block.z * k + 1 }));
+      const key = ends[1].z * map.size + ends[1].x;
+      const through = walkField(map, ends[0])[key], around = walkField(shut, ends[0])[key];
+      // 18 m, the rule's own floor, is the least measured; one block of slack for an end moved off
+      // its block's middle by a wall.
+      assert.ok(around - through >= (LEVEL.loopMinDetour - 1) * k, `seed ${map.seed}: the loop saves ${around - through} m`);
+    }
+  }
+  assert.equal(fewest, LEVEL.minLoops, "a level with no more loops than it must have is kept");
+  assert.ok(loopDoors > 0, "loop corridors take doors as grown ones do");
+  for (const { links } of LEVELS) chosenLoops += links.filter((l) => l.loop).length;
+  assert.ok(chosenLoops >= 60, `${chosenLoops} loops over ${SEEDS.length} levels`); // 69
+});
+
+test("no_two_links_join_the_same_two_rooms", () => {
+  for (const { map, links } of LEVELS) {
+    const pairs = links.map((l) => `${Math.min(l.a, l.b)}-${Math.max(l.a, l.b)}`);
+    assert.equal(new Set(pairs).size, pairs.length, `seed ${map.seed}: ${pairs}`);
+  }
+});
+
+test("dead_ends_are_rooms_with_one_way_out_other_than_the_start_and_exit", () => {
+  // 0 - 1 - 2, and 1 - 3: rooms 0, 2 and 3 have one link each.
+  const link = (a, b) => ({ a, b, corridor: { x: 0, z: 0, w: 1, d: 1 }, heading: 0, door: null, loop: false });
+  const links = [link(0, 1), link(1, 2), link(1, 3)];
+  assert.equal(deadEnds(links, 4, 0, 2), 1, "room 3");
+  assert.equal(deadEnds(links, 4, 0, 3), 1, "room 2");
+  assert.equal(deadEnds([...links, { ...link(2, 3), loop: true }], 4, 0, 2), 0, "a loop through 2 and 3 leaves none");
+  // And on the levels: the start and exit are the rooms their points are the middles of.
+  for (const { map, links, metrics } of LEVELS) {
+    const room = (p) => map.rooms.find((r) => r.centre.x === p.x && r.centre.z === p.z).id;
+    const start = room(map.start), exit = room(map.exit);
+    const one = map.rooms.filter((r) => r.id !== start && r.id !== exit && links.filter((l) => l.a === r.id || l.b === r.id).length === 1);
+    assert.equal(metrics.deadEnds, one.length, `seed ${map.seed}`);
+  }
+});
+
+test("a_seed_keeps_the_best_scoring_of_its_candidates", () => {
+  // Seed 55's best score is shared by two candidates; the first of them is kept.
+  for (const seed of [3, 11, 19, 55]) {
+    const candidates = levelCandidates(seed);
+    assert.equal(candidates.length, LEVEL.candidates);
+    const best = Math.max(...candidates.map((c) => c.metrics.score));
+    assert.deepEqual(generateLevel(seed), candidates.find((c) => c.metrics.score === best));
+    for (const c of candidates) assert.equal(c.metrics.score, levelScore(c.metrics));
+  }
+});
+
+test("the_score_rewards_loops_and_punishes_dead_ends", () => {
+  const base = { loops: 1, deadEnds: 2, exitPath: 40, rooms: 8 };
+  assert.ok(levelScore({ ...base, loops: 2 }) > levelScore(base));
+  assert.ok(levelScore({ ...base, deadEnds: 3 }) < levelScore(base));
+  assert.ok(levelScore({ ...base, exitPath: 60 }) > levelScore(base), "a longer way to the exit");
+  assert.ok(levelScore({ ...base, rooms: 9 }) > levelScore(base), "more rooms");
+  assert.ok(levelScore({ ...base, loops: LEVEL.loops }) > levelScore({ ...base, loops: LEVEL.loops - 1 }), "every loop up to the cap counts");
+  assert.equal(levelScore({ ...base, loops: LEVEL.loops + 5 }), levelScore({ ...base, loops: LEVEL.loops }), "loops beyond the cap are not rewarded");
 });

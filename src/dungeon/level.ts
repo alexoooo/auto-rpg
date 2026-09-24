@@ -43,8 +43,23 @@ export const LEVEL = Object.freeze({
   spawnSpacing: 2,
   /** Metres walked cell to cell (`walkField`). The shortest measured over seeds 0-23 is 50. */
   minExitPath: 24,
-  /** Layouts drawn for one seed before the seed is refused. */
+  /**
+   * Layouts drawn per candidate: `levelCandidates` stops after `tries` x `candidates` of them, and
+   * a seed none of whose layouts pass is refused.
+   */
   tries: 40,
+  /** Brogue's loops: at most this many per level, each cutting at least `loopMinDetour` blocks of walking. */
+  loops: 3,
+  loopMinDetour: 6,
+  /** A level needs at least one loop, or it is drawn again. */
+  minLoops: 1,
+  /** Levels drawn per seed; the best by `levelScore` is kept. */
+  candidates: 12,
+  /**
+   * `levelScore`'s weights. Starting values, to be judged by eye with the print script: a loop is
+   * worth three dead ends, and 20 m more between start and exit is worth one loop.
+   */
+  score: Object.freeze({ loop: 3, deadEnd: 1, exitMetre: 0.15, room: 0.5 }),
 });
 
 /** A rectangle of blocks: `x`, `z` its lowest block, `w`, `d` its size along x and z. */
@@ -53,9 +68,18 @@ export interface BlockRect { x: number; z: number; w: number; d: number }
 export type Heading = 0 | 1 | 2 | 3;
 const STEP: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
-/** Room `a` grew room `b` through `corridor`. `door` indexes `map.doors`, or null. */
-export interface RoomLink { a: number; b: number; corridor: BlockRect; heading: Heading; door: number | null }
-export interface LevelMetrics { rooms: number; floorCells: number; exitPath: number; dividers: number; doors: number }
+/**
+ * Room `a` grew room `b` through `corridor`, or, for a `loop`, `addLoops` opened `corridor` from `a`
+ * at its low end to `b` at its high end. `door` indexes `map.doors`, or null.
+ */
+export interface RoomLink { a: number; b: number; corridor: BlockRect; heading: Heading; door: number | null; loop: boolean }
+export interface LevelMetrics {
+  rooms: number; floorCells: number; exitPath: number; dividers: number; doors: number;
+  /** The cycle rank, `links - rooms + 1`: every link holds and no two join the same rooms, so each counts. */
+  loops: number;
+  deadEnds: number;
+  score: number;
+}
 export interface Level {
   map: DungeonMap;
   /** `map.rooms[i]` as blocks. */
@@ -126,7 +150,7 @@ export function layRooms(random: () => number): Layout {
       if (!within(room) || !within(corridor) || !clear(room, 1) || !clear(corridor, 0)
         || alongside(corridor, dx !== 0)) continue;
       mark(room, 1); mark(corridor, 2); rooms.push(room);
-      links.push({ a: parent, b: rooms.length - 1, corridor, heading, door: null });
+      links.push({ a: parent, b: rooms.length - 1, corridor, heading, door: null, loop: false });
       return rooms.length - 1;
     }
     return null;
@@ -151,6 +175,85 @@ export function layRooms(random: () => number): Layout {
     }
   }
   return { rooms, links, open };
+}
+
+/**
+ * Brogue's loop rule, on blocks. For each room block, look along +x and +z: if a run of one to
+ * `corridorMax` rock blocks, with rock either side of it, ends in a block of a different room that
+ * this room has no link to yet, that run is a candidate. Its worth is how many open blocks the
+ * walk between its two ends takes now. The candidate saving the most walking is opened, the walks
+ * are measured again (the new corridor shortens them), and this repeats up to `LEVEL.loops` times
+ * while the best saves at least `LEVEL.loopMinDetour` blocks. No randomness: which loops a layout
+ * gets follows from the layout.
+ */
+function addLoops(layout: Layout): void {
+  const B = LEVEL.blocks, owner = new Int16Array(B * B).fill(-1);
+  layout.rooms.forEach((r, i) => {
+    for (let z = r.z; z < r.z + r.d; z++) for (let x = r.x; x < r.x + r.w; x++) owner[z * B + x] = i;
+  });
+  const solid = (x: number, z: number) => x >= 0 && z >= 0 && x < B && z < B && layout.open[z * B + x] === 0;
+  const linked = (a: number, b: number) => layout.links.some((l) => l.a === a && l.b === b || l.a === b && l.b === a);
+  const walk = (from: number, to: number): number => {
+    const steps = new Int16Array(B * B).fill(-1), queue = [from];
+    steps[from] = 0;
+    for (let head = 0; head < queue.length; head++) {
+      const at = queue[head];
+      if (at === to) return steps[at];
+      for (const [dx, dz] of STEP) {
+        const x = at % B + dx, z = Math.floor(at / B) + dz, next = z * B + x;
+        if (solid(x, z) || steps[next] >= 0) continue;
+        steps[next] = steps[at] + 1; queue.push(next);
+      }
+    }
+    return Infinity;
+  };
+  for (let added = 0; added < LEVEL.loops; added++) {
+    let best: { from: number; to: number; gap: BlockRect; heading: Heading; saves: number } | null = null;
+    for (let from = 0; from < B * B; from++) {
+      if (owner[from] < 0) continue;
+      const x0 = from % B, z0 = Math.floor(from / B);
+      for (const heading of [0, 2] as const) {
+        const [dx, dz] = STEP[heading];
+        let length = 0;
+        while (length < LEVEL.corridorMax && solid(x0 + dx * (length + 1), z0 + dz * (length + 1))) length++;
+        if (length === 0) continue;
+        const ex = x0 + dx * (length + 1), ez = z0 + dz * (length + 1);
+        if (ex >= B || ez >= B) continue;
+        const to = ez * B + ex;
+        if (owner[to] < 0 || owner[to] === owner[from] || linked(owner[from], owner[to])) continue;
+        const gap: BlockRect = dx ? { x: x0 + 1, z: z0, w: length, d: 1 } : { x: x0, z: z0 + 1, w: 1, d: length };
+        let flanked = true;
+        for (let t = 1; t <= length && flanked; t++) {
+          const gx = x0 + dx * t, gz = z0 + dz * t;
+          flanked = dx ? solid(gx, gz - 1) && solid(gx, gz + 1) : solid(gx - 1, gz) && solid(gx + 1, gz);
+        }
+        if (!flanked) continue;
+        const saves = walk(from, to) - (length + 1);
+        if (saves >= LEVEL.loopMinDetour && (!best || saves > best.saves)) best = { from, to, gap, heading, saves };
+      }
+    }
+    if (!best) return;
+    for (let z = best.gap.z; z < best.gap.z + best.gap.d; z++)
+      for (let x = best.gap.x; x < best.gap.x + best.gap.w; x++) layout.open[z * B + x] = 2;
+    layout.links.push({ a: owner[best.from], b: owner[best.to], corridor: best.gap, heading: best.heading,
+      door: null, loop: true });
+  }
+}
+
+/** Rooms a body can only leave the way it came in, other than the start and the exit. */
+export function deadEnds(links: readonly RoomLink[], rooms: number, start: number, exit: number): number {
+  let count = 0;
+  for (let room = 0; room < rooms; room++) {
+    if (room === start || room === exit) continue;
+    if (links.filter((l) => l.a === room || l.b === room).length === 1) count++;
+  }
+  return count;
+}
+
+/** More loops, fewer dead ends, a longer way to the exit and more rooms score higher. */
+export function levelScore(m: Pick<LevelMetrics, "loops" | "deadEnds" | "exitPath" | "rooms">): number {
+  const w = LEVEL.score;
+  return w.loop * Math.min(m.loops, LEVEL.loops) - w.deadEnd * m.deadEnds + w.exitMetre * m.exitPath + w.room * m.rooms;
 }
 
 /** Every open block as `LEVEL.block` x `LEVEL.block` fine floor cells. */
@@ -341,6 +444,9 @@ function spawnsFor(map: DungeonMap, startRoom: number, random: () => number): Po
 function drawLevel(seed: number, random: () => number): Level | null {
   const layout = layRooms(random);
   if (layout.rooms.length < LEVEL.minRooms) return null;
+  addLoops(layout);
+  const loops = layout.links.length - layout.rooms.length + 1;
+  if (loops < LEVEL.minLoops) return null;
   const size = LEVEL.blocks * LEVEL.block;
   const map: DungeonMap = { seed: seed >>> 0, size, floor: carve(layout.open), rooms: [], doors: [],
     start: { x: 0, z: 0 }, exit: { x: 0, z: 0 }, spawns: [] };
@@ -363,21 +469,30 @@ function drawLevel(seed: number, random: () => number): Level | null {
   map.exit = { ...map.rooms[exitRoom].centre };
   map.spawns = spawnsFor(map, startRoom.id, random);
   if (map.spawns.length < LEVEL.spawnCount) return null;
+  const rooms = map.rooms.length, dead = deadEnds(layout.links, rooms, startRoom.id, exitRoom);
   return {
     map, roomBlocks: layout.rooms, links: layout.links,
-    metrics: { rooms: map.rooms.length, floorCells: map.floor.reduce((sum, cell) => sum + cell, 0),
-      exitPath, dividers, doors: map.doors.length },
+    metrics: { rooms, floorCells: map.floor.reduce((sum, cell) => sum + cell, 0),
+      exitPath, dividers, doors: map.doors.length, loops, deadEnds: dead,
+      score: levelScore({ loops, deadEnds: dead, exitPath, rooms }) },
   };
 }
 
-/** The level for a seed: always the same one. */
-export function generateLevel(seed: number): Level {
-  const random = mulberry32(seed);
-  for (let attempt = 0; attempt < LEVEL.tries; attempt++) {
+/** Every candidate a seed draws, in the order drawn. `generateLevel` keeps the best of these. */
+export function levelCandidates(seed: number): Level[] {
+  const random = mulberry32(seed), out: Level[] = [];
+  for (let attempt = 0; attempt < LEVEL.tries * LEVEL.candidates && out.length < LEVEL.candidates; attempt++) {
     const level = drawLevel(seed, random);
-    if (level) return level;
+    if (level) out.push(level);
   }
-  throw new Error(`no level for seed ${seed >>> 0} in ${LEVEL.tries} tries`);
+  return out;
+}
+
+/** The level for a seed: the best-scoring of its candidates, the first of them on a tie. */
+export function generateLevel(seed: number): Level {
+  const candidates = levelCandidates(seed);
+  if (candidates.length === 0) throw new Error(`no level for seed ${seed >>> 0}`);
+  return candidates.reduce((best, level) => level.metrics.score > best.metrics.score ? level : best);
 }
 
 /**
