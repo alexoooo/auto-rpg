@@ -703,6 +703,16 @@ directly under `node`. It is how a body gets measured without a person watching.
   that times itself** (wait for the error to stop falling) over one that counts steps, and when a
   reading depends on how long you watched, watch longer until it stops.
 
+- **The carrier's gait is an ellipse, and a planner that checks a direction is checking one the
+  body will not take.** `VirtualLocomotionCarrier.propose` scales each local axis by its own
+  ceiling (ahead, back and to the side differ), so with the facing held away from the direction
+  of travel, `composeIntent`'s forward/strafe split comes out a few degrees off the planned
+  direction. On a corridor wall that is a move into the wall, and when a sweep refused the whole
+  move, the hero stood there for the rest of the run: 19 of 21 classic seeds, while the one seed
+  the test ran passed. `resolveGroupMoves` in `src/dungeon/locomotion.ts` slides the refused part
+  along the wall, and `STALL` in `src/dungeon/run.ts` replans a leg the body has stopped on. Test
+  navigation on more than one seed.
+
 ## House rules
 
 Each one was paid for.

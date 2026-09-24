@@ -88,7 +88,15 @@ export function canSee(map: DungeonMap, a: Point, b: Point, range = 12): boolean
   return distance(a, b) <= range && clearSegment(map, a, b, 0, true);
 }
 
-/** A* plans through openable doors. The world sweep still stops at a door until it opens. */
+/**
+ * A* plans through openable doors. The world sweep still stops at a door until it opens. The search
+ * steps from the middle of each cell, and out of the first cell from `from` itself as well: at a
+ * 0.5 m radius the middle of a cell beside rock is not walkable, so a body standing in one had no
+ * route at all. Only as well: every step the search took before is still taken. Leaving from
+ * `from` alone changed the routes enough that the default biped's exploration lost seeds 0, 8 and 9
+ * of the classic twelve (Node headless harness), though over 25,000 sampled starts it returned no
+ * route nowhere the middle found one.
+ */
 export function findPath(map: DungeonMap, from: Point, to: Point, radius: number): Point[] {
   if (!walkable(map, to, radius)) return [];
   if (clearSegment(map, from, to, radius)) return [{ x: to.x, z: to.z }];
@@ -112,7 +120,8 @@ export function findPath(map: DungeonMap, from: Point, to: Point, radius: number
     open.delete(current); const p = point(current);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const next = { x: p.x + dx, z: p.z + dz }, key = cellKey(map, next);
-      if (!walkable(map, next, radius) || !clearSegment(map, p, next, radius)) continue;
+      if (!walkable(map, next, radius)) continue;
+      if (!clearSegment(map, p, next, radius) && !(current === start && clearSegment(map, from, next, radius))) continue;
       const candidate = cost.get(current)! + 1;
       if (candidate >= (cost.get(key) ?? Infinity)) continue;
       cost.set(key, candidate); previous.set(key, current); open.add(key);

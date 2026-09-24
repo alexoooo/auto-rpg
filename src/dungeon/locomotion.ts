@@ -6,7 +6,19 @@ export function resolveGroupMoves(proposals: readonly CarrierProposal[], blocks:
   registry: StandableWorldRegistry): HorizontalMove[] {
   const moves = proposals.map(p => {
     const f = registry.allowedFraction(p.prior, p.next, p.footprint, p.ownerPartIds);
-    return { x: p.displacement.x * f, z: p.displacement.z * f, yaw: p.displacement.yaw };
+    let x = p.displacement.x * f, z = p.displacement.z * f;
+    // Rock is axis-aligned cells, so the stopped remainder of an oblique move is offered back one
+    // axis at a time: the component along a wall slides, the component into it stays refused.
+    // Without this a move a few degrees into a wall is refused whole, the carrier's velocity is
+    // zeroed, and it asks again from rest forever. A single-axis move has nothing to slide along.
+    if (f < 1 && p.displacement.x !== 0 && p.displacement.z !== 0) for (const axis of ["x", "z"] as const) {
+      const rest = p.displacement[axis] * (1 - f);
+      const from = { x: p.prior.x + x, y: p.prior.y, z: p.prior.z + z };
+      const to = axis === "x" ? { ...from, x: from.x + rest } : { ...from, z: from.z + rest };
+      const g = registry.allowedFraction(from, to, p.footprint, p.ownerPartIds);
+      if (axis === "x") x += rest * g; else z += rest * g;
+    }
+    return { x, z, yaw: p.displacement.yaw };
   });
   // Each constraint only shortens a displacement. Recheck because shortening one actor can
   // make the actor behind it collide. At the bounded limit, stop the still-conflicting group.

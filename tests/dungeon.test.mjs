@@ -120,3 +120,36 @@ test("group locomotion constrains swept encounters and queued actors without pai
   const alone = resolveGroupMoves([proposal(0, 0, 1, 0)], [true], { allowedFraction: () => 0.25 });
   assert.equal(alone[0].x, 0.25);
 });
+
+test("a_move_obliquely_into_a_wall_slides_along_it", () => {
+  // A wall across +x: any sweep that gains x is refused whole, any other is allowed.
+  const wall = { allowedFraction: (from, to) => to.x > from.x + 1e-9 ? 0 : 1 };
+  const [slid] = resolveGroupMoves([proposal(0, 0, 0.1, 1)], [true], wall);
+  assert.equal(slid.x, 0, "into the wall: refused");
+  assert.equal(slid.z, 1, "along the wall: kept");
+  const [straight] = resolveGroupMoves([proposal(0, 0, 0.1, 0)], [true], wall);
+  assert.deepEqual([straight.x, straight.z], [0, 0], "straight into the wall: nothing to slide along");
+  // A corner: rock only where x and z are both gained. Either axis alone is clear, both together
+  // are not, so the second axis must be swept from where the first one ended.
+  const corner = { allowedFraction: (from, to) => to.x > 0.05 && to.z > 0.05 ? 0 : 1 };
+  const [cornered] = resolveGroupMoves([proposal(0, 0, 0.1, 0.1)], [true], corner);
+  assert.deepEqual([cornered.x, cornered.z], [0.1, 0], "one axis taken, and not both into the corner");
+});
+
+test("a_body_beside_a_wall_plans_from_where_it_stands", () => {
+  // At a 0.5 m radius the middle of a cell beside rock is not walkable, but a body can stand in the
+  // cell away from the rock. Such a body has a route, and not only when the goal is in sight.
+  const map = generateDungeon(42), radius = 0.5;
+  let tried = 0;
+  for (let z = 0; z < map.size && tried < 12; z++) for (let x = 0; x < map.size && tried < 12; x++) {
+    if (walkable(map, { x, z }, radius) || !walkable(map, { x, z }, 0)) continue;
+    for (const [ox, oz] of [[0.3, 0], [-0.3, 0], [0, 0.3], [0, -0.3]]) {
+      const from = { x: x + ox, z: z + oz };
+      if (!walkable(map, from, radius) || clearSegment(map, from, map.exit, radius)) continue;
+      tried++;
+      assert.ok(findPath(map, from, map.exit, radius).length > 0, JSON.stringify(from));
+      break;
+    }
+  }
+  assert.equal(tried, 12, "twelve such places, each out of sight of the exit");
+});

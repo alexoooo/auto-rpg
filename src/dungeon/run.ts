@@ -19,8 +19,21 @@ export interface DungeonActor {
   id: string; name: string; body: Golem; combat: Combat; policy: Mind; intent: Intent;
   target: DungeonActor | null; home: Point; lastSeen: Point | null; alertedUntil: number;
   route: Point[]; goal: Point | null; nextPlan: number; radius: number;
+  /** Where the body last made progress along its route, and when. */
+  progress: { at: Point; since: number };
   meshes: { mesh: AbstractMesh; visible: boolean }[]; stopped: boolean;
 }
+/**
+ * A body with a route that has not moved 50 mm, in any direction, in half a second has the route
+ * replanned from where it is. The slowest carrier in `src/golem/config.ts` (the multileg: 0.8 m/s
+ * backing, 6.5 m/s2) covers 50 mm from rest in about 0.13 s, and in about 0.15 s at the lowest
+ * movement stat (x0.75, which scales both; size leaves acceleration alone), so a body that has not
+ * is usually stuck -- typically on a corner its leg cleared from where it was planned. Anything
+ * else that holds a body still, a knockdown or another actor in the way, replans it too, which is
+ * harmless: a replan that finds no route keeps the one it had. Node headless harness: seed 2's
+ * explorer sat on a room corner for 93 s without this, and needed exactly one replan with it.
+ */
+const STALL = { seconds: 0.5, metres: 0.05 } as const;
 const direction = (from: Point, to: Point): Point => {
   const d = Math.max(0.001, distance(from, to)); return { x: (to.x - from.x) / d, z: (to.z - from.z) / d };
 };
@@ -61,6 +74,7 @@ export class DungeonRun {
       const actor: DungeonActor = { id, name: buildName, body, combat, policy,
         get intent() { return intent; }, set intent(value) { intent = value; }, target: null,
         home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
+        progress: { at: { ...at }, since: 0 },
         radius: body.locomotion.footprint.radiusM,
         meshes: scene.meshes.filter(mesh => !priorMeshes.has(mesh)).map(mesh => ({ mesh, visible: mesh.isVisible })), stopped: false };
       this.actors.push(actor); return actor;
@@ -78,6 +92,12 @@ export class DungeonRun {
 
   private follow(actor: DungeonActor, goal: Point): Point {
     const at = actor.body.feetPosition();
+    if (!actor.route.length || distance(at, actor.progress.at) > STALL.metres) actor.progress = { at: { x: at.x, z: at.z }, since: this.clock };
+    else if (this.clock - actor.progress.since > STALL.seconds) {
+      const route = findPath(this.map, at, goal, actor.radius);
+      if (route.length) { actor.goal = { x: goal.x, z: goal.z }; actor.route = route; actor.nextPlan = this.clock + 0.5; }
+      actor.progress = { at: { x: at.x, z: at.z }, since: this.clock };
+    }
     if (!actor.goal || distance(goal, actor.goal) > 0.65 || this.clock >= actor.nextPlan && !actor.route.length) {
       actor.goal = { x: goal.x, z: goal.z }; actor.route = findPath(this.map, at, goal, actor.radius);
       actor.nextPlan = this.clock + 0.5;

@@ -96,19 +96,25 @@ test("a run ends at the exit without clearing enemies, and death freezes authori
 });
 
 test("mouse-facing-only exploration reaches the exit using revealed frontiers", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const map = generateDungeon(42); map.spawns = [];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map);
-  try {
-    run.commands.setMode({ keyboard: false, facing: true });
-    run.commands.cursor = { x: 9, z: 60 };
-    arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / CONFIG.world.physicsHz));
-    for (let i = 0; i < 60 * 120 && run.status === "playing"; i++) {
-      arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60);
-    }
-    assert.equal(run.status, "won", JSON.stringify({ at: run.hero.body.feetPosition().asArray(), goal: run.hero.goal,
-      route: run.hero.route, exit: map.exit, doors: map.doors.map(d => d.open), explored: run.explored.size }));
-  } finally { run.dispose(); arena.dispose(); }
+  // 42 is the seed this test has always run. Seed 1 stalls against a corridor wall without the slide
+  // in `resolveGroupMoves`, seed 2 on a room corner without the `STALL` replan in `follow`, and seed 0
+  // when `findPath` leaves only from the body's own point rather than also from its cell's middle.
+  // The cursor (9, 60) was chosen for 42; the others were measured with that same cursor.
+  for (const seed of [42, 1, 2, 0]) {
+    const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+    const map = generateDungeon(seed); map.spawns = [];
+    const run = new DungeonRun(arena.scene, seed, "default", false, map);
+    try {
+      run.commands.setMode({ keyboard: false, facing: true });
+      run.commands.cursor = { x: 9, z: 60 };
+      arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / CONFIG.world.physicsHz));
+      for (let i = 0; i < 60 * 120 && run.status === "playing"; i++) {
+        arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60);
+      }
+      assert.equal(run.status, "won", JSON.stringify({ seed, at: run.hero.body.feetPosition().asArray(), goal: run.hero.goal,
+        route: run.hero.route, exit: map.exit, doors: map.doors.map(d => d.open), explored: run.explored.size }));
+    } finally { run.dispose(); arena.dispose(); }
+  }
 });
 
 test("contact resolution wounds an unselected actor and attributes its parry", async () => {
