@@ -23,8 +23,8 @@ import {
   type WorldPoint,
 } from "./supported-locomotion-runtime.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
-import { initialSupportedLocomotionState, recoveredRiseS, risingFloorS, sizeTime, stabilityCapacity, stepSupportedLocomotionState,
-  SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState,
+import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEligibility, risingFloorS, sizeTime, stabilityCapacity, stepSupportedLocomotionState,
+  SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState, type SupportedLocomotionBoundary,
   type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 /**
  * The scheduler seam, moved here on 2026-09-04 when `src/construct/` and `src/forge/` were
@@ -254,6 +254,31 @@ export interface PhysicalSupportedLocomotionDiagnostic {
   readonly recoveryProgress: number | null;
 }
 
+/** One boundary's rise gate, read by `PhysicalSupportedLocomotionPort.riseGate`. */
+export interface RiseGateDiagnostic {
+  readonly prior: SupportState;
+  readonly now: SupportState;
+  /** `risingEligibility`'s refusal for the state stepped from, or null where it was eligible. */
+  readonly reason: string | null;
+  readonly fallenElapsedS: number;
+  readonly risingElapsedS: number;
+  readonly risingDurationS: number;
+  readonly recoverRequested: boolean;
+  readonly fallSettled: boolean;
+  readonly postureSupported: boolean;
+  readonly liveSupport: boolean;
+  readonly recoveryGroundAvailable: boolean;
+  readonly occupancyClear: boolean;
+  /** The opponent's footprint half of `occupancyClear`. */
+  readonly pairOccupancyClear: boolean;
+  /** The rise's acceleration bound half of `occupancyClear`. */
+  readonly withinAcceleration: boolean;
+  /** The world sweep half of `occupancyClear` -- a wall or obstacle between root and target. Null
+   *  where an earlier half already refused and the sweep was never asked. */
+  readonly recoverySweepClear: boolean | null;
+  readonly hitInterrupted: boolean;
+}
+
 /** Production command buffer plus the non-body carrier and bounded dynamic-root motor. */
 export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort, LocomotionSchedulerPort {
   readonly physicalSupportedLocomotionV1 = true;
@@ -273,6 +298,9 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   private recoveryPairTarget: WorldPoint | null = null;
   private anatomyReleased = false;
   private releaseReason: string | null = null;
+  private lastRiseGate: { readonly prior: SupportedLocomotionState;
+    readonly boundary: SupportedLocomotionBoundary; readonly pairOccupancyClear: boolean;
+    readonly withinAcceleration: boolean; readonly recoverySweepClear: boolean | null } | null = null;
   private lastBoundary: Pick<PhysicalSupportedLocomotionDiagnostic, "authority" | "liveSupport" |
     "postureSupported" | "freshSupportBindings"> =
     Object.freeze({ authority: false, liveSupport: false, postureSupported: false,
@@ -325,7 +353,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     this.lastBoundary = Object.freeze({ authority: authority !== null, liveSupport, postureSupported,
       freshSupportBindings: Object.freeze([...new Set(evidence.map(({ supportBinding }) => supportBinding))].sort()) });
     const priorState = this.supportState.state;
-    this.supportState = stepSupportedLocomotionState(this.supportState, {
+    const prior = this.supportState;
+    const boundary: SupportedLocomotionBoundary = {
       dt: this.staged.snapshot().committed?.dt ?? 1 / 240,
       safeBoundarySequence: this.sequence,
       authority, liveSupport, postureSupported, supportEvidence: evidence,
@@ -338,7 +367,15 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
       fallSettled: this.options.fallSettled?.() ?? true,
       risingDurationS,
-    });
+    };
+    this.supportState = stepSupportedLocomotionState(prior, boundary);
+    // Kept only while a body is down, and read by nothing but `riseGate`: what the rise gate was
+    // handed on this boundary, for a census of bodies that never get up.
+    this.lastRiseGate = priorState === "fallen" || priorState === "rising"
+      ? { prior, boundary, pairOccupancyClear: this.pairOccupancyClear, withinAcceleration:
+        recoveryWithinAccelerationLimit, recoverySweepClear: occupancyClear ? true
+          : this.pairOccupancyClear && recoveryWithinAccelerationLimit ? false : null }
+      : null;
     if (this.supportState.state === "fallen") {
       if (priorState !== "fallen") {
         // Release is an edge, not a deceleration request. The physical root becomes a ragdoll on
@@ -391,6 +428,27 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   snapshot(): SupportedLocomotionPortSnapshot { return this.staged.snapshot(); }
   priorAllowed(): LocomotionRequest | null { return this.staged.snapshot().committed?.allowed ?? null; }
   get state(): SupportState { return this.supportState.state; }
+  /**
+   * Why the last boundary did or did not let a downed body rise: the reason `risingEligibility`
+   * gave for the state it stepped from, and each input that could refuse it. Null unless that
+   * state was fallen or rising. Instrumentation only -- nothing in the game reads it
+   * (`research/downed-census.mjs` does).
+   */
+  riseGate(): RiseGateDiagnostic | null {
+    const gate = this.lastRiseGate;
+    if (!gate) return null;
+    const { prior, boundary } = gate;
+    const eligibility = risingEligibility(prior.state === "rising" ? { ...prior,
+      fallenElapsedS: Math.max(prior.fallenElapsedS, fallenDwellS(boundary.authority)) } : prior, boundary);
+    return Object.freeze({ prior: prior.state, now: this.supportState.state, reason: eligibility.reason,
+      fallenElapsedS: prior.fallenElapsedS, risingElapsedS: prior.risingElapsedS,
+      risingDurationS: boundary.risingDurationS, recoverRequested: boundary.recoverRequested,
+      fallSettled: boundary.fallSettled, postureSupported: boundary.postureSupported,
+      liveSupport: boundary.liveSupport, recoveryGroundAvailable: boundary.recoveryGroundAvailable,
+      occupancyClear: boundary.occupancyClear, pairOccupancyClear: gate.pairOccupancyClear,
+      withinAcceleration: gate.withinAcceleration, recoverySweepClear: gate.recoverySweepClear,
+      hitInterrupted: boundary.hitInterrupted });
+  }
   carrierGround(): WorldPoint {
     const state = this.carrier.state;
     return Object.freeze({ x: state.x, y: 0, z: state.z });
