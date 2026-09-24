@@ -60,7 +60,9 @@ the build and what to look for.
     standing, Node golem bench). Weak is the brief; check that it reads as weak and not as broken.
 - **03:**
   - a standing golem finishing a fallen one with a blade, a mace and a fist;
-  - the fallen one swinging and guarding back from the ground, weakly.
+  - the fallen one swinging and guarding back from the ground, weakly;
+  - a skeleton finishing a skeleton: it touches the downed body in 87 % of the windows in reach and
+    scores in a third of them, because its blows land under the energy floor.
 - **07:**
   - the all-max giant lifting and launching a x1 from below;
   - pushing one back;
@@ -112,3 +114,14 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   led the other body into it and had the rise refused. `PhysicalSupportedLocomotionPort.proposal`
   in `src/supported-locomotion-production.ts`. Reversing it would need the rise target to move
   with the carrier instead.
+- **03, "in reach" for the finishing target.** A one-second window counts toward the target if, at
+  any frame of it, the standing side's socket came within its own published `reach` of the downed
+  body's core. `inReach` in `research/census-worker.mjs`. A stricter reading (the whole window in
+  reach) would shrink the denominator and raise every share.
+- **03, a downed body publishes no reach to stand off from.** While the other body is `fallen` or
+  `rising`, the stand-off floor that its reach sets is zero, so each mind holds at its own strike
+  range, and every stroke aims at the live core. `standOffReach` and `finishPoint` in
+  `src/downed.ts`, called by every golem executor. Reversing it is one line in each helper.
+- **03, `CHAIN_REACH.liftMin` stays at -0.95.** Strokes already touched a downed body in 87 to 99 %
+  of the in-reach windows, so lowering the envelope would buy contact that already happens.
+  `src/golem/config.ts`.
