@@ -2940,3 +2940,165 @@ then the median time of a win. Session 05's reading is in brackets.
   27.5 s rather than 38.9.
 - With the drain, stone no longer ends every human and giant dummy (92 % each, from 100). The human
   is still session 09's.
+
+## Physical contact 07: contact force lifts and pushes
+
+Session 07 (`docs/plans/2026-09-23-physical-contact-07-lift-and-push.md`) landed in two commits:
+
+- **733bf12**: an arm's torques follow its weight.
+- **4df55cc**: contact lifts and pushes a standing body. `ContactPress` in `src/contact-press.ts`
+  reads back what the solver did to a keyframed carrier's parts. The boundary reads that before the
+  ledger does.
+
+The "before" is 134b867 (research fingerprint 3d94193c01b9) and the "after" is 4df55cc
+(62dd8e8ad7b4). Raw outputs are in `research/runs/pc07`, which is not committed.
+
+### An arm's torques follow its weight
+
+The weight stat doubled an arm's links and left the motors that lift them alone, so a heavier arm
+lifted less. The first reading blamed length (the plan's input from session 04); the split says
+weight and arm speed. `.review/lift-split.mjs`, Node lift bench, blade or fist under a free target
+0.4 m off, the most upward force held, newtons:
+
+| Chain | x1 | max | size 1.25 | size 1.25, weight 2 | size 1.25, arm speed 1.5 | max, weight 1 | max, arm speed 1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| reach blade | 1938 | 781 | 2656 | 1844 | 1969 | 1969 | 1844 |
+| wrist blade | 1281 | 719 | 1969 | 906 | 969 | 969 | 906 |
+| reach fist | 1563 | 2500 | 3000 | 2719 | 2656 | 2656 | 2719 |
+
+The reach core's yaw, shoulder and elbow torques, the pitch hinge's torque and the human arm's
+drives now scale with the stat, alongside the links' masses. The wrist's roll and bend turn the
+item, which does not follow the stat, and they stay put. After, same bench:
+
+| Chain | x1 | max, before | max, after |
+| --- | ---: | ---: | ---: |
+| reach blade | 1688 / 1938 | 781 | **5125 / 4250** (2.11 / 1.75 of an x1 stone body's 2425 N) |
+| reach fist | 1406 / 1563 | 2500 | 5656 / 5438 |
+| wrist blade | 1406 / 1281 | 719 | 2469 / 1281 |
+| wrist fist | 1813 / 1344 | -- | 4406 / 4438 |
+
+Pairs are the two sockets. The x1 rows did not move. **Arm speed also cuts lift, and that is not
+explained**: `JointServo.track` is a velocity motor, feed-forward plus proportional, and a rate
+should not cut force. It is reported and not chased.
+
+### What the solver reports between bodies
+
+`.review/press-probe.mjs` and `.review/lift-who.mjs`, Node bout runner, stone x1 mirrors and the max
+giant against x1:
+
+- **Keyframed trunk against keyframed trunk reports no contact at all**: 0 events in 16 bouts. So
+  change 4's premise holds, and walking into a body goes through the pair resolver.
+- **A standing carrier's authority is unbounded, both ways.**
+  - Sideways: up to 2.94 times a body's grip at x1, and 9.3 times an x1 body's grip from a max giant.
+  - Upward: four bodies in eight x1 bouts read as lifted, by 2.09 W from a wrist blade under the
+    pelvis, 1.34 W from a roll ring under the plate and 1.07 W from a wrist. The lift bench says a
+    whole x1 arm holds 0.53 W (wrist blade) to 0.80 W (reach blade). A limb caught between two
+    carriers is squeezed by both keyframes, and the solver reports whatever that takes.
+- **A lying body is not a source.** A leg set down on a heap read 3.64 W upward from its plate and
+  feet.
+
+So each source is capped at its own grip sideways (`GRIP` 0.55, the sole's friction) and at its own
+weight upward. Two bodies of one weight can therefore never push or lift each other. The upward
+cap departs from the plan's "two x1 arms lifting is the rule working", and is recorded as Chosen.
+
+### Lifts and pushes a bout
+
+`.review/contact-bouts.mjs`, Node bout runner, supported locomotion, 16 bouts a cell, duelist
+against champion, cap 60 s. Per body per bout:
+
+| Cell | Lifts | Pushed, s | Bouts with a push | Falls |
+| --- | ---: | ---: | ---: | ---: |
+| x1 against x1 | 0 / 0 | 0 / 0 | 0 / 0 of 16 | 2.94 / 2.25 |
+| max giant against x1 (the x1) | 0.44 | 0.22 | 10 of 16 | 6.69 |
+| x1 against max giant (the x1) | 0.19 | 0.24 | 14 of 16 | -- |
+| size-weight-max against x1 (the x1) | 0.19 | 0.46 | 15 of 16 | 9.94 |
+
+- **x1 against x1 never lifts or pushes**, which the caps make a construction rather than a count.
+- The earliest lift in any cell was at 2.13 s, so the opening blade clash lifts nothing.
+- **It tips rather than launches.** `.review/launch-probe.mjs`, the max giant against x1, 7 lifts:
+  the lifting force was 2461 to 3166 N against the x1's 2425. Peak upward speed was 0.14 to
+  0.63 m/s, peak rise 9 to 37 mm, peak speed 0.87 to 2.29 m/s. A body lifted past its weight is set
+  down fallen with the velocity the contact gave it, and that velocity is small.
+
+### Fingerprint
+
+`tests/harness/body-fingerprint.mjs --against` session 06's, Node harness: 46 sections the same and
+9 moved. Every bench, head, torso and walk section is the same; nine bouts moved.
+
+### x1 controls
+
+Node harness, research runner, supported locomotion, cap 150 s, seed 20260923, 192 blocks. Per body
+per bout, 95 % bootstrap over the blocks:
+
+| Tree | Stone damage | Stone knockdowns | Stone seconds | Skeleton damage | Skeleton knockdowns | Human damage / knockdowns |
+| --- | --- | --- | --- | --- | --- | --- |
+| session 01 | 7.64 [7.43, 7.85] | 4.93 [4.54, 5.32] | 28.1 | 1.89 | 4.85 | -- |
+| 134b867 | 7.94 [7.69, 8.18] | 4.95 [4.60, 5.29] | 21.3 | 1.76 [1.71, 1.81] | 4.51 [4.30, 4.72] | 0.06 / 0.00 |
+| **4df55cc** | 8.00 [7.61, 8.47] | **4.14 [3.86, 4.42]** | 20.6 | 1.70 [1.66, 1.74] | **4.05 [3.86, 4.26]** | 0.06 / 0.00 |
+
+- **Both bodies fall less, and stone drops out of session 01's band.** The cause is the
+  one-source rule: a contact the press is already reading is not filed a second time by `Combat`'s
+  transfer, so a sustained blade no longer re-files its momentum every step. Session 08 replaces
+  the ledger's lines, and the band is its gate, not this session's.
+- The skeleton spends 28.4 % of a bout down, both bodies.
+- **The human mirror did not move**: 0.06 damage a body, no knockdowns, 305.6 contacts a bout of
+  which 0.7 % are real blows. 245 of its 384 bouts were draws.
+
+### The giant
+
+`research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max --pairs 192`, Node harness,
+research runner, supported locomotion, cap 150 s, seed 20260923:
+
+| Level | Win % [95 %], 134b867 | Win % [95 %], 4df55cc | Its knockdowns | The x1's knockdowns, before / after | The x1's time down, before / after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| control | 48.4 [43.1, 53.6] | 50.0 [44.5, 55.2] | 4.12 | 5.06 / 4.15 | 22.0 / 18.5 % |
+| max | 98.4 [97.1, 99.5] | **99.5 [98.7, 100.0]** | 0.01 | **7.06 / 11.09** | **50.2 / 75.5 %** |
+| max-normal-body | 95.3 [93.0, 97.4] | 94.8 [92.4, 96.9] | 1.42 | 5.41 / 4.89 | 24.9 / 22.9 % |
+| size-weight-max | 92.2 [89.3, 94.8] | **97.1 [95.3, 98.7]** | 0.01 | 7.71 / 15.25 | 42.4 / 77.4 % |
+
+- **The giant's arms now lift what its weight says**, and its pushes are real. The x1 body facing a
+  max giant is down three quarters of every bout. A max bout lasts 9.6 s, and the giant takes 1.98
+  damage for the 12.53 it deals.
+- Normal-sized bodies at max did not move: size and weight are what reach the contact.
+
+### Stun-lock
+
+`research/downed-census.mjs --groups stone,skeleton,giant --blocks 96`, on 4df55cc. Node harness,
+research runner, supported locomotion, cap 150 s, seed 20260923. "Giant" is the max giant against
+x1 stone, both corners counted:
+
+| Group | Knockdowns / body / bout | Down time % | Repeat knockdowns, share of episodes | Longest chain | Rises put back down by a blow |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| stone, 134b867 | 4.44 | 18.1 | 54.4 % | 13 | 147 |
+| stone, 4df55cc | 3.77 | 15.1 | 46.7 % | 13 | 124 |
+| skeleton, 134b867 | 3.73 | 28.0 | 27.0 % | 7 | 235 |
+| skeleton, 4df55cc | 3.38 | 26.4 | 24.8 % | 7 | 196 |
+| giant, 134b867 | 2.46 | 23.3 | 71.6 % | 18 | 374 |
+| giant, 4df55cc | **3.15** | **40.0** | **84.1 %** | **20** | **640** |
+
+- **Against the giant, 84.1 % of knockdowns are repeats**, in chains of up to 20, and the first
+  body down lost all 188 decided bouts. The giant pushes and lifts now, and it still has no authored
+  cure (the overview's rule).
+- Every skeleton episode longer than 5 s is still "unsettled": 192 of them, 186 of which ended in a
+  rise.
+- A downed body takes 37.5 % of stone's damage, 54.8 % of the skeleton's and 88.7 % of the giant
+  cell's.
+
+### Idle-dummy matrix
+
+`research/idle-dummy.mjs --blocks 12` on 4df55cc: Node harness, research runner, supported
+locomotion, cap 150 s, 12 blocks a cell played from both sides, seed 20260923, fingerprint
+62dd8e8ad7b4. Each cell is the attacker's outright win rate, then the rate with the 60 s overtime
+drain, then the median time of a win. Session 06's reading is in brackets.
+
+| Attacker \ idle dummy | stone | skeleton | human | giant |
+| --- | ---: | ---: | ---: | ---: |
+| stone | 75 % (100) / 27.5 s [75 / 27.5] | 100 % (100) / 15.2 s [100 / 14.8] | 79 % (83) / 34.9 s [67 / 44.6] | 63 % (100) / 46.8 s [58 / 42.8] |
+| skeleton | 0 % (100) / 106.3 s [0 / 92.5] | 88 % (100) / 44.4 s [88 / 46.6] | 0 % (100) / 93.8 s [0 / 90.4] | 0 % (100) / 115.1 s [0 / 108.0] |
+| human | 0 % (42) / 119.4 s [0 (42)] | 0 % (88) / 118.2 s [0 (96)] | 0 % (25) / 119.9 s [0 (25)] | 0 % (13) / 119.7 s [0 (25)] |
+| giant | 100 % (100) / 12.4 s [100 / 12.0] | 100 % (100) / 7.8 s [88 / 8.7] | 100 % (100) / 15.8 s [88 / 12.9] | 63 % (100) / 42.0 s [79 / 28.3] |
+
+- **The same seven cells are at zero.** The giant now ends every idle skeleton and every idle human
+  outright.
+- The giant against an idle giant fell from 79 % to 63 %. Two giants of one weight cannot push each
+  other, and one of them is standing still.

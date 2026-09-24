@@ -97,9 +97,13 @@ the build and what to look for.
   - the x1 body against the max giant, down for half the bout;
   - the giant's stun-lock chains, up to 18 knockdowns each within 2 s of the rise before.
 - **07:**
-  - the all-max giant lifting and launching a x1 from below;
+  - the all-max giant lifting and launching a x1 from below. Measured, it tips the x1 rather than
+    launching it: 0.14 to 0.63 m/s upward and 9 to 37 mm of rise;
   - pushing one back;
-  - two x1 bodies pressing together with neither lifting.
+  - two x1 bodies pressing together with neither lifting;
+  - the x1 body against the max giant, down 75.5 % of a bout, with 84.1 % of its knockdowns within
+    2 s of a rise and chains of up to 20;
+  - a body walked into in the dungeon stops rather than being shoved.
 - **10:** the all-max giant against a x1, which should look and win like a giant.
 - **Carried from the attributes set**, still unchecked:
   - the attribute sliders in the arena setup corners and the dungeon hero dialog, with Reset and a
@@ -243,5 +247,33 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   `src/supported-locomotion-state.ts`, with the sweep. Session 08 replaces the ledger.
 - **06, fixtures moved with the push.** The searches in `tests/research-physical.test.mjs` take the
   seeds and the mind they now stop on, and every count is re-pinned rather than loosened.
+- **07, an arm's torques follow the weight stat.** The reach core's yaw, shoulder and elbow torques,
+  the pitch hinge's torque and the human arm's `TORQUES` scale with it, alongside the links' masses;
+  the wrist's roll and bend turn the item and do not. The plan's "torque follows length" was read
+  off a split that blamed length, and the bench says weight: at size x1.25 the reach blade held
+  2656 N, and with weight x2 as well, 1844 N. `withWeight` in `src/golem/attributes.ts`. To
+  reverse, take the torques out of its list.
+- **07, arm speed cuts lift, and nothing was done about it.** Size x1.25 with arm speed x1.5 holds
+  1969 N against 2656 without it (Node lift bench). `JointServo.track` is a velocity motor, and a
+  rate should not cut force. It is open.
+- **07, a contact is a blow for its first 50 ms** (`CONTACT_PRESS.BLOW_S`, `src/contact-press.ts`),
+  past the longest impulsive stroke session 01 measured (38 ms). Within it, `Combat`'s transfer
+  files the contact; after it, the press does. One source per contact.
+- **07, a body that is not standing presses nothing.** A leg set down on a heap read 3.64 times the
+  standing body's weight upward, because the standing carrier holds its height by keyframe.
+  `PressSource.standing`. To reverse, count fallen and rising sources, and expect lifts from every
+  body that steps on a downed one.
+- **07, a source pushes no harder than its grip and lifts no more than its weight.** The solver's
+  reading failed both ways: a keyframed carrier pushed at up to 9.3 times an x1 body's grip, and
+  limbs squeezed between two carriers "lifted" x1 bodies at up to 2.09 W, where a whole x1 arm holds
+  0.80 W. `GRIP` is 0.55, the sole's friction. With both caps, two bodies of one weight can never
+  push or lift each other, which replaces the plan's reading that two x1 arms lifting is the rule
+  working. `ContactPress` in `src/contact-press.ts`.
+- **07, walking into a body is a grip rule, not a mass split.** A closing body pushes the other with
+  its own grip, and each carrier resists with its mass, so an equal walker never shoves.
+  `resolvePhysicalSupportedPair` in `src/supported-locomotion-production.ts`. Keyframed trunks report
+  no contact to each other (0 events in 16 bouts), so the solver cannot decide this.
+- **07, the dungeon has no pair push.** Its group resolver stops a body that is walked into; an arm's
+  press still reaches it. `src/dungeon/run.ts`.
 - **05, the capped socket's shove is accepted as physics.** Its summed damage on the same contacts
   is x40: a bare cap bolted to a 250 kg body arrives with a median 79 kg behind it. On the eye list.
