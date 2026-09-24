@@ -274,6 +274,8 @@ export interface PhysicalSupportedLocomotionDiagnostic {
 }
 
 /** One boundary's rise gate, read by `PhysicalSupportedLocomotionPort.riseGate`. */
+export type RiseAbort = "blow" | "refused" | "deadline";
+
 export interface RiseGateDiagnostic {
   readonly prior: SupportState;
   readonly now: SupportState;
@@ -291,6 +293,14 @@ export interface RiseGateDiagnostic {
   readonly pairOccupancyClear: boolean;
   /** Whether the recovery target is somewhere other than where the body lies (`RECOVERY_RING_STEP_M`). */
   readonly relocated: boolean;
+  /**
+   * What ended the last rise that ended back on the floor, latched from that edge until the next rise
+   * begins: `blow` when the fall ledger reached the fall line, `refused` when the rise gate stopped
+   * holding (obstruction, lost ground, lost support), `deadline` when posture did not come within
+   * `RISE_POSTURE_DEADLINE` of the rise duration. Null before any rise has ended so. A census reads it
+   * to tell a body struck through its rise from one that failed to stand (physical contact session 02).
+   */
+  readonly riseAbort: RiseAbort | null;
   /** The rise's acceleration bound half of `occupancyClear`. */
   readonly withinAcceleration: boolean;
   /** The world sweep half of `occupancyClear` -- a wall or obstacle between root and target. Null
@@ -319,6 +329,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   private recoveryTarget: WorldPoint | null = null;
   /** Whether the rise under way went somewhere other than where the body lay; set as it begins. */
   private riseRelocated = false;
+  /** `RiseGateDiagnostic.riseAbort`: set on the rising-to-fallen edge, cleared as a rise begins. */
+  private riseAbort: RiseAbort | null = null;
   private anatomyReleased = false;
   private releaseReason: string | null = null;
   private lastRiseGate: { readonly prior: SupportedLocomotionState;
@@ -408,6 +420,13 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
           : this.pairOccupancyClear && recoveryWithinAccelerationLimit ? false : null,
         relocated: priorState === "rising" ? this.riseRelocated : recoveryTarget !== own }
       : null;
+    if (this.supportState.state === "fallen" && priorState === "rising") {
+      // The state machine's own order: the ledger first, then the gate, then the deadline.
+      this.riseAbort = this.supportState.specificImpulseMps >=
+        SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * stabilityCapacity(authority) ? "blow"
+        : !risingEligibility({ ...prior, fallenElapsedS: Math.max(prior.fallenElapsedS, fallenDwellS(authority)) },
+          boundary).eligible ? "refused" : "deadline";
+    }
     if (this.supportState.state === "fallen") {
       if (priorState !== "fallen") {
         // Release is an edge, not a deceleration request. The physical root becomes a ragdoll on
@@ -431,6 +450,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       const target = recoveryTarget;
       this.recoveryTarget = target;
       this.riseRelocated = target !== own;
+      this.riseAbort = null;
       this.carrier.reset(target, this.carrier.state.yaw);
       this.rising = new RisingActuator(root.position, target, this.carrier.state.yaw,
         this.carrier.footprint, this.registry, this.carrier.ownerPartIds, risingDurationS,
@@ -479,7 +499,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       liveSupport: boundary.liveSupport, recoveryGroundAvailable: boundary.recoveryGroundAvailable,
       occupancyClear: boundary.occupancyClear, pairOccupancyClear: gate.pairOccupancyClear,
       withinAcceleration: gate.withinAcceleration, recoverySweepClear: gate.recoverySweepClear,
-      relocated: gate.relocated, hitInterrupted: boundary.hitInterrupted });
+      relocated: gate.relocated, riseAbort: this.riseAbort, hitInterrupted: boundary.hitInterrupted });
   }
   carrierGround(): WorldPoint {
     const state = this.carrier.state;

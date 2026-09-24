@@ -100,6 +100,15 @@ export function summarizeCensus(rows) {
       p90: quantile(episodes.map((e) => e.seconds), 0.9), max: quantile(episodes.map((e) => e.seconds), 1) },
     longEpisodes: long.length, longByCause: byCause,
     longEndings: long.reduce((acc, e) => ({ ...acc, [e.end]: (acc[e.end] ?? 0) + 1 }), {}),
+    // The target's exception (physical contact session 02): a long episode in which a blow put a
+    // rise back down is a body struck through it. Episodes from a census that predates the field
+    // have no `aborts` and read as not struck.
+    longStruck: long.filter((e) => (e.aborts?.blow ?? 0) > 0).length,
+    // Every rise that ended back on the floor, by what ended it (`RiseGateDiagnostic.riseAbort`).
+    aborts: episodes.reduce((acc, e) => {
+      for (const [cause, n] of Object.entries(e.aborts ?? {})) acc[cause] = (acc[cause] ?? 0) + n;
+      return acc;
+    }, {}),
     // Per body: seconds a body spent inside episodes longer than 5 s, over the seconds bodies existed.
     longShareOfBodyTime: long.reduce((a, e) => a + e.seconds, 0) / Math.max(1e-9, 2 * boutSeconds),
     downShareOfBodyTime: episodes.reduce((a, e) => a + e.seconds, 0) / Math.max(1e-9, 2 * boutSeconds),
@@ -131,7 +140,7 @@ export function censusMarkdown(summaries, header) {
   }
   lines.push("", "Episodes longer than 5 s by the cause they spent longest under, and how they ended:", "");
   for (const [name, s] of summaries) {
-    lines.push(`- **${name}**: ${Object.entries(s.longByCause).map(([c, n]) => `${c} ${n}`).join(", ") || "none"}; ended ${Object.entries(s.longEndings).map(([c, n]) => `${c} ${n}`).join(", ") || "--"}`);
+    lines.push(`- **${name}**: ${Object.entries(s.longByCause).map(([c, n]) => `${c} ${n}`).join(", ") || "none"}; ended ${Object.entries(s.longEndings).map(([c, n]) => `${c} ${n}`).join(", ") || "--"}; struck through ${s.longStruck}; rises put back down: ${Object.entries(s.aborts).map(([c, n]) => `${c} ${n}`).join(", ") || "none"}`);
   }
   lines.push("", "Stun-lock (reported, not gated): knockdowns within 2 s of the same body's rise, the longest chain, and how often the first body down loses a decided bout:", "",
     "| Group | Repeat knockdowns | Share of episodes | Longest chain | First down loses % |", "| --- | ---: | ---: | ---: | ---: |");

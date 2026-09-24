@@ -75,9 +75,15 @@ export async function execute(job, manifest) {
       const state = port?.state ?? "supported";
       const down = state === "fallen" || state === "rising";
       if (state === "fallen" && t.was !== "fallen" && t.was !== "rising") t.knockdowns += 1;
-      if (down && !t.open) t.open = { start: clock, causes: {}, rehits: 0, rises: 0, relocatedRises: 0 };
+      if (down && !t.open) t.open = { start: clock, causes: {}, rehits: 0, rises: 0, relocatedRises: 0, aborts: {} };
       if (t.open) {
-        if (state === "fallen" && t.was === "rising") t.open.rehits += 1;
+        if (state === "fallen" && t.was === "rising") {
+          t.open.rehits += 1;
+          // What put the rise down: a blow, the gate refusing, or the posture deadline
+          // (`RiseGateDiagnostic.riseAbort`, latched on the port at the edge).
+          const abort = port?.riseGate?.()?.riseAbort ?? "unknown";
+          t.open.aborts[abort] = (t.open.aborts[abort] ?? 0) + 1;
+        }
         // Physical contact session 02: how many rises began, and how many went somewhere other
         // than where the body lay (`RECOVERY_RING_STEP_M` in src/supported-locomotion-production.ts).
         if (state === "rising" && t.was !== "rising") {
@@ -93,7 +99,7 @@ export async function execute(job, manifest) {
           // downed time); this is the repair.
           t.episodes.push({ start: t.open.start, seconds: clock - t.open.start, end: "rose",
             causes: t.open.causes, rehits: t.open.rehits, rises: t.open.rises,
-            relocatedRises: t.open.relocatedRises });
+            relocatedRises: t.open.relocatedRises, aborts: t.open.aborts });
           t.open = null;
         }
       }
@@ -131,7 +137,7 @@ export async function execute(job, manifest) {
       const lost = result.winner !== null && result.winner !== side;
       t.episodes.push({ start: t.open.start, seconds: clock - t.open.start, end: lost ? "died" : "bout-ended",
         causes: t.open.causes, rehits: t.open.rehits, rises: t.open.rises,
-        relocatedRises: t.open.relocatedRises });
+        relocatedRises: t.open.relocatedRises, aborts: t.open.aborts });
     }
     const reach = t.reachSamples.sort((a, b) => a - b);
     sides[side] = {
