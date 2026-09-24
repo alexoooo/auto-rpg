@@ -1,7 +1,8 @@
 import { mulberry32 } from "../rng.ts";
 
 export interface Point { x: number; z: number }
-export interface Room { id: number; centre: Point; half: number }
+/** A room's floor, as inclusive fine-cell bounds; `centre` is a cell a body can stand on. */
+export interface Room { id: number; centre: Point; min: Point; max: Point }
 export interface Door { id: number; point: Point; axis: "x" | "z"; open: boolean }
 export interface DungeonMap {
   seed: number; size: number; floor: Uint8Array; rooms: Room[]; doors: Door[];
@@ -21,11 +22,14 @@ export function generateDungeon(seed: number): DungeonMap {
     const j = Math.floor(random() * (i + 1)); [corners[i], corners[j]] = [corners[j], corners[i]];
   }
   const slots = Array.from({ length: 9 }, (_, i) => i).filter(i => !corners.slice(0, 2).includes(i));
-  const rooms = slots.map((slot, id) => ({ id, centre: { x: 9 + slot % 3 * 16, z: 9 + Math.floor(slot / 3) * 16 },
-    half: random() < 0.5 ? 4 : 5 }));
+  const rooms = slots.map((slot, id) => {
+    const centre = { x: 9 + slot % 3 * 16, z: 9 + Math.floor(slot / 3) * 16 };
+    const half = random() < 0.5 ? 4 : 5;
+    return { id, centre, min: { x: centre.x - half, z: centre.z - half }, max: { x: centre.x + half, z: centre.z + half } };
+  });
   const carve = (x: number, z: number) => { floor[z * size + x] = 1; };
-  for (const r of rooms) for (let z = r.centre.z - r.half; z <= r.centre.z + r.half; z++)
-    for (let x = r.centre.x - r.half; x <= r.centre.x + r.half; x++) carve(x, z);
+  for (const r of rooms) for (let z = r.min.z; z <= r.max.z; z++)
+    for (let x = r.min.x; x <= r.max.x; x++) carve(x, z);
   const edges: { a: number; b: number; weight: number }[] = [];
   for (let a = 0; a < rooms.length; a++) for (let b = a + 1; b < rooms.length; b++)
     if (distance(rooms[a].centre, rooms[b].centre) === 16) edges.push({ a, b, weight: random() });
@@ -41,9 +45,10 @@ export function generateDungeon(seed: number): DungeonMap {
     for (let t = 0; t <= 16; t++) for (let w = -1; w <= 1; w++)
       carve(a.centre.x + dx * t + dz * w, a.centre.z + dz * t + dx * w);
     for (const [room, direction] of [[a, 1], [b, -1]] as const) {
+      const half = room.max.x - room.centre.x;
       doors.push({ id: doors.length, axis: dx ? "x" : "z", open: false,
-        point: { x: room.centre.x + dx * direction * (room.half + 1),
-          z: room.centre.z + dz * direction * (room.half + 1) } });
+        point: { x: room.centre.x + dx * direction * (half + 1),
+          z: room.centre.z + dz * direction * (half + 1) } });
     }
   }
   const map: DungeonMap = { seed: seed >>> 0, size, floor, rooms, doors,
