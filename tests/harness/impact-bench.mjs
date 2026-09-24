@@ -187,7 +187,7 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
   if (!peak) return { moduleId, massKg, touched: false };
   const centre = peak.tip.subtract(peak.blade.scale(radiusM));
   // Pass two: the same stroke into the sphere.
-  let sphere = null, strikerBody = null;
+  let sphere = null, strikerBody = null, strikeOf = null;
   let state = "waiting", contacts = 0, contactSubsteps = 0, normal = null, point = null, result = null, touchedAt = null, now = 0;
   const pre = { lin: new Vector3(), ang: new Vector3(), com: new Vector3() };
   const velocityAt = (lin, ang, com, at) => lin.add(Vector3.Cross(ang, at.subtract(com)));
@@ -196,7 +196,8 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
     if (!sphere) {
       if (t < window.hang) return;
       const scene = module.parts[0].part.mesh.getScene();
-      strikerBody = module.strikers[0].body;
+      strikeOf = module.strikers[0];
+      strikerBody = strikeOf.body;
       const mesh = MeshBuilder.CreateSphere("impact.target", { diameter: 2 * radiusM, segments: 8 }, scene);
       mesh.position.copyFrom(centre);
       sphere = new PhysicsAggregate(mesh, PhysicsShapeType.SPHERE, { mass: massKg, friction: 0.5, restitution: 0 }, scene);
@@ -216,7 +217,8 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
     if (state === "waiting") {
       strikerBody.getLinearVelocityToRef(pre.lin);
       strikerBody.getAngularVelocityToRef(pre.ang);
-      pre.com.copyFrom(strikerBody.getObjectCenterWorld());
+      // From the centre of mass, which is where Havok's linear velocity belongs (`RigidStrike.centreOfMass`).
+      pre.com.copyFrom(strikeOf.centreOfMass());
       return;
     }
     if (state !== "touching") return;
@@ -235,7 +237,7 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
     const lin = new Vector3(), ang = new Vector3();
     strikerBody.getLinearVelocityToRef(lin);
     strikerBody.getAngularVelocityToRef(ang);
-    const after = Vector3.Dot(velocityAt(lin, ang, strikerBody.getObjectCenterWorld(), at), n);
+    const after = Vector3.Dot(velocityAt(lin, ang, strikeOf.centreOfMass(), at), n);
     if (touchedAt - window.hang < 2.5 * SUBSTEP) { result = { overlapped: true, peakTipMps: peak.speed }; state = "done"; return; }
     result = { touchedAt: touchedAt - window.from, peakTipMps: peak.speed, closingMps: v, sphereDvMps: u,
       strikerAfterMps: after, contactSubsteps,
