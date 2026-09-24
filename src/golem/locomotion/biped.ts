@@ -840,6 +840,7 @@ return defineLocomotion({
         carrierPartId: pelvis.name,
         supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => Object.freeze({ role }))),
         braceCapacityMultiplier: B.braceCapacityMultiplier,
+        stabilityMassRatio: B.stabilityMassRatio,
         gaitStabilityScale: scale,
         stabilityScale: stability,
         recoveryScale: recovery,

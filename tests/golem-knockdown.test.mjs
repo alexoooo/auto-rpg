@@ -93,7 +93,7 @@ async function knockdown(setupOf, { seconds = 6, reshoveIntoRise = null, reshove
   const samples = [];
   const shove = (atFall = 2) => {
     const s = golem.locomotion.diagnostic().stability;
-    golem.queueStabilityEvent({ horizontalShoveNs: [s.fallAtMps * s.supportedMassKg * atFall, 0] });
+    golem.queueStabilityEvent({ horizontalShoveNs: [s.fallAtMps * s.stabilityMassKg * atFall, 0] });
   };
   let riseStart = null;
   let reshoved = false;

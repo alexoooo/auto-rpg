@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { CONFIG } from '../src/config.ts';
+import { BODY_OVER_SHIPPED } from '../src/golem/config.ts';
 import { stepPair } from '../src/fighter.ts';
 import { Golem } from '../src/golem/golem.ts';
 import { defaultGolemSetup } from '../src/golem/build.ts';
@@ -83,6 +84,12 @@ const withChain = (chain) => () => {
   return setup;
 };
 const IDLE_SETUPS = { wrist: withChain('wrist'), reach: withChain('reach'), skeleton: () => skeletonSetup() };
+/**
+ * The shove each row's trunk takes, N.s: 80 on the body it was written for. Stone's trunk and its
+ * waist torques both took `BODY_OVER_SHIPPED` in physical contact session 04, so its shove does too;
+ * the skeleton's mass did not move.
+ */
+const SHOVE_NS = { wrist: 80 * BODY_OVER_SHIPPED, reach: 80 * BODY_OVER_SHIPPED, skeleton: 80 };
 
 for (const [name, build] of Object.entries(IDLE_SETUPS)) {
   for (const frames of [[1000 / 60], [8, 27, 11, 42, 16]]) {
@@ -145,7 +152,7 @@ for (const [name, build] of Object.entries(IDLE_SETUPS)) {
         const torso = pair[0].limbs.find(limb => limb.key.endsWith('trunk.core')).part;
         const atRest = torso.mesh.position.clone();
         // An impact above the bracing motor budget; small impulses can now be actively caught.
-        torso.body.applyImpulse(new Vector3(0, 0, 80), torso.mesh.position);
+        torso.body.applyImpulse(new Vector3(0, 0, SHOVE_NS[name]), torso.mesh.position);
         let displaced = 0;
         const sample = scene.onAfterPhysicsObservable.add(() => {
           displaced = Math.max(displaced, Vector3.Distance(torso.mesh.position, atRest));

@@ -23,7 +23,7 @@ import {
   type WorldPoint,
 } from "./supported-locomotion-runtime.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
-import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEligibility, risingFloorS, sizeTime, stabilityCapacity, stepSupportedLocomotionState,
+import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEligibility, risingFloorS, sizeTime, stabilityCapacity, stabilityMassKg, stepSupportedLocomotionState,
   SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState, type SupportedLocomotionBoundary,
   type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 /**
@@ -114,7 +114,7 @@ export function recoveryHitInterrupted(events: readonly StabilityEvent[], suppor
   authority: StabilityAuthority | null): boolean {
   const freshSpecificImpulseMps = events.reduce((sum, event) => sum +
     (event.kind === "specific-impulse" ? event.specificImpulseMps :
-      Math.hypot(...event.horizontalShoveNs) / supportedMassKg), 0);
+      Math.hypot(...event.horizontalShoveNs) / stabilityMassKg(supportedMassKg, authority)), 0);
   const capacity = stabilityCapacity(authority);
   return freshSpecificImpulseMps >= SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity;
 }
@@ -257,9 +257,13 @@ export interface PhysicalSupportedLocomotionDiagnostic {
    * one division, and the divisor is a getter on the carrier that changes as modules are bolted
    * on or cut off. A reading that reports the quotient and hides the denominator is one nobody
    * can compute the next shove from.
+   *
+   * `stabilityMassKg` is that divisor: `supportedMassKg` over the authority's holding ratio
+   * (`StabilityAuthority.stabilityMassRatio`, physical contact session 04). A threshold in
+   * newton-seconds is a threshold here times it, not times the supported mass.
    */
   readonly stability: Readonly<{ specificImpulseMps: number; supportedMassKg: number;
-    staggerAtMps: number; fallAtMps: number }>;
+    stabilityMassKg: number; staggerAtMps: number; fallAtMps: number }>;
   readonly authority: boolean;
   readonly activeGroup: string | null;
   readonly liveSupport: boolean;
@@ -531,6 +535,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     return Object.freeze({ state: Object.freeze({ ...this.supportState }), ...this.lastBoundary,
       stability: Object.freeze({ specificImpulseMps: this.supportState.specificImpulseMps,
         supportedMassKg: this.options.supportedMassKg,
+        stabilityMassKg: stabilityMassKg(this.options.supportedMassKg, authority),
         staggerAtMps: SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity,
         fallAtMps: SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity }),
       activeGroup: this.activeAuthorityOwner?.split("/", 1)[0] ?? null,

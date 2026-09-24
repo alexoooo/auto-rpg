@@ -455,11 +455,16 @@ test("a_shove_under_the_braced_fall_threshold_does_not_knock_the_golem_down", as
     step(f.scene, 1);
     const mass = f.module.port.diagnostic();
     const capacity = B.braceCapacityMultiplier * f.module.authority().gaitStabilityScale;
-    const supportedMassKg = B.pelvisMass + 2 * (B.thighMass + B.shinMass + B.footMass) +
-      BENCH_STAND_LOCOMOTION.mass;
-    const fallAtNs = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity * supportedMassKg;
+    // The mass a shove is read against: what the bench holds up, over the holding ratio the stone
+    // body took with its density (physical contact session 04).
+    const stabilityMassKg = (B.pelvisMass + 2 * (B.thighMass + B.shinMass + B.footMass) +
+      BENCH_STAND_LOCOMOTION.mass) / B.stabilityMassRatio;
+    const fallAtNs = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity * stabilityMassKg;
     assert.ok(Math.abs(mass.stability.fallAtMps -
       SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity) < 1e-9);
+    // To Havok's single-precision mass: the port reads 280.04999 kg where the tables sum to 280.05.
+    assert.ok(Math.abs(mass.stability.stabilityMassKg - stabilityMassKg) < 1e-4,
+      `the port reads a shove against ${mass.stability.stabilityMassKg} kg, not ${stabilityMassKg}`);
     f.module.port.queueStabilityEvent({ horizontalShoveNs: [fallAtNs * 0.9, 0] });
     step(f.scene, 0.2);
     assert.notEqual(f.module.port.state, "fallen");
@@ -631,7 +636,7 @@ test("the_stability_stat_moves_both_thresholds_on_every_body_and_nothing_stagger
       assert.ok(Math.abs(moved.staggerAtMps - base.staggerAtMps * level) < 1e-12, `${where} staggers at ${moved.staggerAtMps}`);
       assert.ok(Math.abs(moved.fallAtMps - base.fallAtMps * level) < 1e-12, `${where} falls at ${moved.fallAtMps}`);
       if (moduleId === "biped" || moduleId === "wheel") {
-        const fallNs = moved.fallAtMps * moved.supportedMassKg;
+        const fallNs = moved.fallAtMps * moved.stabilityMassKg;
         assert.equal(await fell(moduleId, level, fallNs * 0.95), false, `${where} fell under its own threshold`);
         assert.equal(await fell(moduleId, level, fallNs * 1.05), true, `${where} stood over its own threshold`);
       }
@@ -1067,20 +1072,24 @@ async function moduleFixture(definition, { prepare = null, populateDefaultGeomet
   };
 }
 
-/** What a module's own declared fall threshold is worth in newton-seconds, standing still. */
+/**
+ * What a module's own declared fall threshold is worth in newton-seconds, standing still: over the
+ * mass it holds up divided by its holding ratio (physical contact session 04).
+ */
 const fallThresholdNs = (module, supportedMassKg) =>
   SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS *
   module.authority().braceCapacityMultiplier * module.authority().gaitStabilityScale *
-  (module.authority().stabilityScale ?? 1) * supportedMassKg;
+  (module.authority().stabilityScale ?? 1) * supportedMassKg / (module.authority().stabilityMassRatio ?? 1);
 
 // The biped's own braced fall boundary, standing, in newton-seconds: the frozen specific impulse
-// times its declared brace capacity times the mass the bench actually holds up. The two comparison
+// times its declared brace capacity times the mass the bench actually holds up, over the holding
+// ratio stone took with its body density on 2026-09-24. The two comparison
 // cells at the foot of this file straddle it, and they take it from here rather than from a
 // literal, because the body was re-scaled on 2026-09-18 and a pinned newton-second would have
 // gone quietly stale while still reading like a measurement.
 const BIPED_FALL_NS = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS *
   B.braceCapacityMultiplier * (B.pelvisMass + 2 * (B.thighMass + B.shinMass + B.footMass) +
-  BENCH_STAND_LOCOMOTION.mass);
+  BENCH_STAND_LOCOMOTION.mass) / B.stabilityMassRatio;
 
 // --------------------------------------------------------------------------- pure geometry
 
@@ -1433,8 +1442,9 @@ test("each_module_falls_at_its_own_declared_threshold_and_not_at_the_biped_s", a
       drive(f.module, {});
       step(f.scene, 1);
       const threshold = fallThresholdNs(f.module, supportedMassKg);
-      assert.ok(Math.abs(f.module.port.diagnostic().stability.fallAtMps * supportedMassKg
-        - threshold) < 1e-9);
+      // To Havok's single-precision mass, as in the biped's cell above.
+      assert.ok(Math.abs(f.module.port.diagnostic().stability.fallAtMps
+        * f.module.port.diagnostic().stability.stabilityMassKg - threshold) < 1e-5);
       f.module.port.queueStabilityEvent({ horizontalShoveNs: [threshold * 0.9, 0] });
       step(f.scene, 0.2);
       assert.notEqual(f.module.port.state, "fallen",

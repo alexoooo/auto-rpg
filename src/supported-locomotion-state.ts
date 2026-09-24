@@ -106,6 +106,21 @@ export interface StabilityAuthority {
    * the body's own and already follows it. Absent reads as 1.
    */
   readonly sizeScale?: number;
+  /**
+   * **A holding repair, stated as one** (physical contact session 04, 2026-09-24): how many times
+   * heavier this body is than the body its thresholds were measured on. A shove's N.s are divided
+   * by the supported mass over this ratio, so a body that took a denser build without its blows
+   * changing falls at the N.s it fell at, and its ledger decays at the rate it did, with every
+   * constant above untouched. Each stone locomotion states its own from the mass census; a body
+   * whose mass did not move reads 1, and so does an absent field. Sessions 06 and 08 replace the
+   * thresholds, and this with them.
+   */
+  readonly stabilityMassRatio?: number;
+}
+
+/** The mass a shove's N.s are divided by: the supported mass over the authority's holding ratio. */
+export function stabilityMassKg(supportedMassKg: number, authority: StabilityAuthority | null): number {
+  return supportedMassKg / (authority?.stabilityMassRatio ?? 1);
 }
 
 /**
@@ -297,7 +312,9 @@ const checkedBoundary = (input: SupportedLocomotionBoundary): void => {
       input.authority.braceCapacityMultiplier < 1 || !Number.isFinite(input.authority.gaitStabilityScale) ||
       input.authority.gaitStabilityScale <= 0 || input.authority.gaitStabilityScale > 1 ||
       (input.authority.stabilityScale !== undefined &&
-        (!Number.isFinite(input.authority.stabilityScale) || input.authority.stabilityScale <= 0)))) {
+        (!Number.isFinite(input.authority.stabilityScale) || input.authority.stabilityScale <= 0)) ||
+      (input.authority.stabilityMassRatio !== undefined &&
+        (!Number.isFinite(input.authority.stabilityMassRatio) || input.authority.stabilityMassRatio <= 0)))) {
     throw new Error("supported locomotion authority has invalid stability scaling");
   }
   for (const event of input.authoredShoves) {
@@ -324,7 +341,7 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
   checkedBoundary(input);
   const added = input.authoredShoves.reduce((sum, event) => sum +
     (event.kind === "specific-impulse" ? event.specificImpulseMps :
-      Math.hypot(...event.horizontalShoveNs) / input.supportedMassKg), 0);
+      Math.hypot(...event.horizontalShoveNs) / stabilityMassKg(input.supportedMassKg, input.authority)), 0);
   const specificImpulseMps = Math.max(0,
     prior.specificImpulseMps - SUPPORTED_LOCOMOTION_V1.STABILITY_DECAY_MPS_PER_S * input.dt) + added;
   const hasSupport = supportAvailable(input);

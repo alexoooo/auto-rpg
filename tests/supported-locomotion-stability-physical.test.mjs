@@ -71,10 +71,12 @@ const physicalCell = async (specificImpulseMps) => {
     // up, which was a real claim while the Warrior was the subject: one table fed both the rig
     // and the shove. A golem is assembled, and what its carrier holds up is not the sum of its
     // limbs -- the feet stand on the ground rather than being carried -- so the only honest
-    // source for the number a shove is divided by is the port that divides by it.
-    const supportedMassKg = left.locomotion.diagnostic().stability.supportedMassKg;
-    assert.ok(supportedMassKg > 1,
-      `a standing body with no mass cannot be shoved: read ${supportedMassKg} kg`);
+    // source for the number a shove is divided by is the port that divides by it. That number is
+    // the mass held up over the body's holding ratio (physical contact session 04), and it is the
+    // port's `stabilityMassKg` rather than its `supportedMassKg` for that reason.
+    const stabilityMassKg = left.locomotion.diagnostic().stability.stabilityMassKg;
+    assert.ok(stabilityMassKg > 1,
+      `a standing body with no mass cannot be shoved: read ${stabilityMassKg} kg`);
     // The trunk and the piece the ragdoll hangs from, by limb key rather than by accessor. The
     // Warrior published `torso` and `pelvis` directly; a golem is assembled, so the same two
     // pieces are found in the limb list every body publishes.
@@ -85,7 +87,7 @@ const physicalCell = async (specificImpulseMps) => {
     };
     const trunk = limbNamed(left, "trunk.core");
     const standingTorsoY = trunk.mesh.position.y;
-    left.queueStabilityEvent({ horizontalShoveNs: [specificImpulseMps * supportedMassKg, 0] });
+    left.queueStabilityEvent({ horizontalShoveNs: [specificImpulseMps * stabilityMassKg, 0] });
     step(8 * FIXED);
 
     const diagnostic = left.locomotion.diagnostic();

@@ -144,9 +144,13 @@ export const SKELETON_BIPED = {
   footLength: 0.24, footWidth: 0.09, footHeight: 0.05, footMass: 0.5, footHealth: 25,
   footprintRadius: 0.28,
   braceCapacityMultiplier: 2.0,
+  // The skeleton's mass did not move when stone's took its body density, so it holds nothing.
+  stabilityMassRatio: 1,
   hipTorque: 450, kneeTorque: 250, ankleTorque: 110,
   knockdown: { restSpeedMps: 0.3, restSeconds: 0.2, maxLyingSeconds: 2.5, risePeakMps: 0.9 },
   riseBudgetSeconds: 2.50,
+  // The bench's knockdown, stone's from before stone took its own body density (2026-09-24).
+  shoveImpulseNs: 200,
 };
 
 /**

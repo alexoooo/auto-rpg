@@ -13,6 +13,7 @@ import {
   risingEligibility,
   risingFloorS,
   stabilityCapacity,
+  stabilityMassKg,
   stepSupportedLocomotionState,
 } from "../src/supported-locomotion.ts";
 import { recoveryHitInterrupted } from "../src/supported-locomotion-production.ts";
@@ -127,6 +128,36 @@ test("the_stability_stat_is_a_factor_on_both_thresholds_and_on_the_recovery_inte
 
   for (const bad of [0, -1, Number.NaN, Infinity]) {
     assert.throws(() => shove(0, { authority: { ...authority, stabilityScale: bad } }), /invalid stability scaling/, String(bad));
+  }
+});
+
+test("the_holding_ratio_divides_the_mass_a_shove_is_read_against_and_leaves_every_threshold_and_the_decay_alone", () => {
+  // Physical contact session 04: a body twice as heavy, holding a ratio of 2, reads a shove as the
+  // body it was would have. Every threshold and the decay stay the frozen literals.
+  const held = { ...authority, stabilityMassRatio: 2 };
+  const shove = (ns, extra = {}) => stepSupportedLocomotionState(state(), boundary({
+    authoredShoves: [{ horizontalShoveNs: [ns, 0] }], supportedMassKg: 2, ...extra,
+  }));
+  // At capacity 1 the stagger is 0.006 m/s and the fall 0.014; held, a 2 kg body reads as 1 kg.
+  assert.equal(shove(0.005, { authority: held }).state, "supported");
+  assert.equal(shove(0.007, { authority: held }).state, "staggered");
+  assert.equal(shove(0.015, { authority: held }).state, "fallen");
+  assert.equal(shove(0.007).state, "supported", "the control: without the ratio the same shove is half of a stagger");
+  assert.equal(shove(0.015).state, "staggered", "and half of a fall");
+  assert.equal(stabilityMassKg(2, held), 1);
+  assert.equal(stabilityMassKg(2, authority), 2, "absent reads as 1");
+  assert.equal(stabilityMassKg(2, null), 2);
+
+  const decayed = stepSupportedLocomotionState(state({ state: "staggered", specificImpulseMps: 0.0065 }),
+    boundary({ dt: 0.05, authority: held, supportedMassKg: 2 }));
+  assert.ok(Math.abs(decayed.specificImpulseMps - 0.0055) < 1e-12, "the ledger decays at the literal rate");
+
+  const hit = [{ kind: "horizontal-shove", horizontalShoveNs: [0.007, 0] }];
+  assert.equal(recoveryHitInterrupted(hit, 2, held), true, "a rise is interrupted on the same reading");
+  assert.equal(recoveryHitInterrupted(hit, 2, authority), false);
+
+  for (const bad of [0, -1, Number.NaN, Infinity]) {
+    assert.throws(() => shove(0, { authority: { ...authority, stabilityMassRatio: bad } }), /invalid stability scaling/, String(bad));
   }
 });
 

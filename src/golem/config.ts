@@ -66,14 +66,98 @@ const SHIPPED_MASS_SCALE = 0.162;
 const kg = (geometric: number): number => geometric * SHIPPED_MASS_SCALE;
 
 /**
- * An impulse in newton-seconds, as shipped: what solid stone needed, times `SHIPPED_MASS_SCALE`.
+ * **The stone family's body density, kg/m3: what a golem's trunk, pelvis, legs and head are made
+ * of** (physical contact session 04, 2026-09-24). Its arm links and items keep `kg()`.
  *
- * A shove is a momentum transfer, so the impulse that produces a given change of velocity falls
+ * The owner's rule is that an x1 arm cannot lift an x1 body: "heavy enough", and the weight stat
+ * does the rest, but not solid stone. What decides a lift is a ratio, not a density. An arm lifts
+ * what its torque has left after holding up its own links, and "size a force off the arm" makes
+ * that torque go with the arm's own mass (`AGENTS.md`), so an arm heavier by a factor lifts more
+ * by the same factor and gives the lift back. **So the body takes the mass and the arm stays
+ * light by design.** Those are the parts this density makes: the biped's pelvis, thighs, shins and
+ * feet, the waist and the core, the neck and the head, the wheel and its yoke, the multileg's
+ * chassis and legs, and the bench's ride block that stands in for a trunk.
+ *
+ * Chosen as the lightest round density at which the strongest x1 stone arm, on its own, falls
+ * short of an x1 stone body's weight by 1.25. The Node lift bench (`tests/harness/lift-bench.mjs`,
+ * bench stand, NullEngine, real Havok; session 01's table, and no arm has changed since) reads
+ * x1 straight up, in N:
+ *
+ *     chain, item        gap 0.2 m   gap 0.4 m
+ *     reach, blade          1688        1938
+ *     reach, fist           1406        1563
+ *     wrist, blade          1406        1281
+ *     wrist, fist           1813        1344
+ *     pitch, blade           156         125
+ *     pitch, fist            438           0
+ *
+ * 1938 x 1.25 is 2423 N, so 247.0 kg. The default body's arm links and items stay at 15.62 kg (the
+ * mass census, `tests/harness/mass-census.mjs`), which leaves 231.3 kg for 75.02 kg of body at
+ * `SHIPPED_MASS_SCALE`, a factor of 3.084 and a density of 1298.7. **1300** gives 247.2 kg, 2425 N.
+ * It is half of solid stone. The margin is per arm: two x1 arms together (3876 N) would still
+ * lift an x1 body, which is the reading of the plan's target taken on the owner's behalf, because
+ * the two-arm reading needs about 5.5 times today's body, which is past stone density.
+ *
+ * Read back on the same bench at 1300, every x1 stone chain lifts under 0.80 of an x1 body. The
+ * `max` giant's two arms together (its body grows with it and is not what is being lifted here)
+ * lift an x1 body only on the fists -- reach 2 x 2500, wrist 2 x 2031 N -- and not on the blades,
+ * reach 2 x 1125 and wrist 2 x 719 N, because `max` lengthens the arm as well as strengthening
+ * it. That is a finding about the arm, for session 07, and the density is not moved for it.
+ */
+const STONE_BODY_DENSITY = 1300;
+
+/** What every geometric mass in this file is derived at: solid stone, kg/m3. */
+const GEOMETRIC_DENSITY = 2600;
+
+/** A body part's mass, kilograms: what the geometry says, at `STONE_BODY_DENSITY`. */
+const bodyKg = (geometric: number): number => geometric * STONE_BODY_DENSITY / GEOMETRIC_DENSITY;
+
+/**
+ * How many times heavier a stone body is at `STONE_BODY_DENSITY` than at `SHIPPED_MASS_SCALE`,
+ * where every table below was taken: 3.086. An impulse or a force chosen for what it did to the
+ * shipped body does the same to this one when multiplied by it, because both sides of it moved by
+ * this factor.
+ */
+export const BODY_OVER_SHIPPED = STONE_BODY_DENSITY / GEOMETRIC_DENSITY / SHIPPED_MASS_SCALE;
+
+/**
+ * An impulse in newton-seconds that acts on a stone body: what solid stone needed, at
+ * `STONE_BODY_DENSITY`.
+ *
+ * A shove is a momentum transfer, so the impulse that produces a given change of velocity goes
  * with the mass it acts on and by exactly the same factor. Every bench shove below was chosen on
  * the 554.8 kg body for the *drop* it produced; scaling it here keeps that drop rather than the
- * newton-seconds, which is what the number was ever for. 2026-09-18.
+ * newton-seconds, which is what the number was ever for. It was `ns()`, at `SHIPPED_MASS_SCALE`,
+ * from 2026-09-18 until the body density replaced it on 2026-09-24.
  */
-const ns = (stone: number): number => stone * SHIPPED_MASS_SCALE;
+const bodyNs = (stone: number): number => stone * STONE_BODY_DENSITY / GEOMETRIC_DENSITY;
+
+/**
+ * A torque or force that moves a stone body, as taken on the shipped body: times
+ * `BODY_OVER_SHIPPED`. Every motor ceiling on a part `bodyKg` makes goes through it -- the legs,
+ * the waist, the neck, the wheel's spin, the ram's lunge and the bench block's waist -- and the arm
+ * chains do not, because their links kept `kg()`. The human and the skeleton pin the stone
+ * torques they inherit at the shipped values, since their masses did not move.
+ *
+ * Measured on the Node golem bench (`tests/harness/golem-bench.mjs --locomotion`) and the Node
+ * torso bench, plain torso and ram head, each reading taken on the shipped body, then with the
+ * density alone, then with the density and this factor:
+ *
+ *     reading                              shipped   density   both
+ *     biped, walk joint lag peak rad        0.3989    1.0268    0.3896
+ *     biped, foot slip peak mm/s            8288      11498     8274
+ *     biped, carrier lean rad               0.0000    0.1209    0.0000
+ *     biped, posture min up                 0.7460    0.6800    0.7470
+ *     wheel, lean rad                       0.6356    0.7079    0.6956
+ *     multileg, joint lag peak rad          0.1032    0.2049    0.1036
+ *     multileg, sole lift peak mm           832.1     1085.6    831.9
+ *     multileg, posture min up              0.3951    0.1750    0.3954
+ *     ram lunge, deepest rad                0.7604    0.3451    0.7602
+ *     ram lunge, carried past drive rad     0.5427    0.2531    0.5423
+ *
+ * The lunge's last row needs `HEAD_RAM.plateMass` at the body's density as well.
+ */
+const onBody = (shipped: number): number => shipped * BODY_OVER_SHIPPED;
 
 /**
  * The reusable anchor drive: a massless keyframed frame that drags a body about.
@@ -2407,7 +2491,7 @@ export const BENCH_STAND_LOCOMOTION = {
    * nothing at all about how fast the golem walks, because the carrier is a bodyless record and
    * the admitted root is `ANIMATED` while it is upright. 2026-09-04.
    */
-  mass: kg(356.9),
+  mass: bodyKg(356.9),
   /**
    * The waist's motor ceiling, newton-metres, and its solver damping.
    *
@@ -2437,7 +2521,7 @@ export const BENCH_STAND_LOCOMOTION = {
    * every row in it is about authority against the weight being held and both sides of that
    * moved by the same factor. See `SHIPPED_MASS_SCALE` at the head of this file.
    */
-  waistTorque: 810,
+  waistTorque: onBody(810),
   waistDamping: 6,
   /** How far the block may lean and twist on the waist, radians. A slab, not a hinge. */
   waistLean: 0.35,
@@ -2531,7 +2615,7 @@ export const LOCOMOTION_BIPED = {
   pelvisWidth: 0.44,
   pelvisHeight: 0.24,
   pelvisDepth: 0.34,
-  pelvisMass: kg(93.4),
+  pelvisMass: bodyKg(93.4),
   pelvisHealth: 260,
   pelvisVitalityWeight: 3,
 
@@ -2581,20 +2665,20 @@ export const LOCOMOTION_BIPED = {
    */
   thighLength: 0.40,
   thighRadius: 0.088,
-  thighMass: kg(21.6),
+  thighMass: bodyKg(21.6),
   thighHealth: 150,
   thighVitalityWeight: 1.4,
 
   shinLength: 0.32,
   shinRadius: 0.074,
-  shinMass: kg(12.1),
+  shinMass: bodyKg(12.1),
   shinHealth: 120,
   shinVitalityWeight: 1.1,
 
   footLength: 0.34,
   footWidth: 0.20,
   footHeight: 0.12,
-  footMass: kg(21.2),
+  footMass: bodyKg(21.2),
   footHealth: 110,
   footVitalityWeight: 0.9,
 
@@ -2904,9 +2988,9 @@ export const LOCOMOTION_BIPED = {
    * the table above. So the three numbers stand, and the table above still reads correctly
    * against them.
    */
-  hipTorque: 900,
-  kneeTorque: 500,
-  ankleTorque: 220,
+  hipTorque: onBody(900),
+  kneeTorque: onBody(500),
+  ankleTorque: onBody(220),
 
   /**
    * What those three ceilings fall to while the body is fallen, as a fraction.
@@ -3045,6 +3129,14 @@ export const LOCOMOTION_BIPED = {
    */
   braceCapacityMultiplier: 1.5,
   gaitStabilityScaleMin: 0.75,
+  /**
+   * The holding repair's ratio (`StabilityAuthority.stabilityMassRatio`, physical contact session
+   * 04, 2026-09-24): the default stone biped golem's supported mass at `STONE_BODY_DENSITY` over what it was at
+   * `SHIPPED_MASS_SCALE`, 247.17 kg against 90.64 (Node mass census,
+   * `tests/harness/mass-census.mjs`). Its blows did not change with its mass, so its thresholds hold
+   * by dividing the mass the ledger reads by this.
+   */
+  stabilityMassRatio: 247.17 / 90.64,
 
   /**
    * The bench's knockdown: **an impulse, in newton-seconds, applied to the carried block.**
@@ -3099,7 +3191,7 @@ export const LOCOMOTION_BIPED = {
    * the stone body reached at 600 -- the same knockdown, bought at a third of the impulse because
    * there is a sixth of the body. 2026-09-18, the Node bench.
    */
-  shoveImpulseNs: 200,
+  shoveImpulseNs: 200 * BODY_OVER_SHIPPED,
 
   /**
    * What a planted sole is allowed to slide, metres per second. **A budget, not a target.**
@@ -3172,7 +3264,7 @@ export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   crouchDepth: "length", crouchResponse: "frequency", heightRate: "speed",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
-  braceCapacityMultiplier: "one", gaitStabilityScaleMin: "one",
+  braceCapacityMultiplier: "one", gaitStabilityScaleMin: "one", stabilityMassRatio: "one",
   shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
 
@@ -3202,7 +3294,7 @@ export const TORSO_WAIST = {
    */
   ballLength: 0.30,
   ballRadius: 0.14,
-  ballMass: kg(33),
+  ballMass: bodyKg(33),
   ballHealth: 120,
   ballVitalityWeight: 1,
 
@@ -3273,8 +3365,8 @@ export const TORSO_WAIST = {
   // lean/twist 250/150: combined walk/aim head tilt 9.63 deg; 400/240: 1.59 deg;
   // 600/360: 0.42 deg; 1500/900 absorbs a 20 Ns shove almost completely.
   // 600/360 provides movement headroom while retaining finite impact response.
-  leanTorque: 600,
-  twistTorque: 360,
+  leanTorque: onBody(600),
+  twistTorque: onBody(360),
 
   /**
    * How fast the *commanded* lean and twist may move, radians per second.
@@ -3401,7 +3493,7 @@ export const TORSO_PLAIN = {
    * rather than hidden in a density -- the same distinction `TERMINAL_BLADE.mass` draws when it
    * refuses to derive a sword's mass from its collider's volume. 2026-09-04.
    */
-  coreMass: kg(139),
+  coreMass: bodyKg(139),
   coreHealth: 260,
   coreVitalityWeight: 3,
   /**
@@ -3483,7 +3575,7 @@ export const TORSO_PLATED = {
    * against the plain torso's 0.50 -- the same hollow core with thicker walls and armour slabs
    * over them -- so 0.09072 m3 = 236 kg. 2026-09-04.
    */
-  coreMass: kg(236),
+  coreMass: bodyKg(236),
   coreHealth: 320,
   coreVitalityWeight: 3,
   /**
@@ -3543,7 +3635,7 @@ export const HEAD_NECK = {
    */
   neckLength: 0.20,
   neckRadius: 0.075,
-  neckMass: kg(6.9),
+  neckMass: bodyKg(6.9),
   neckHealth: 80,
   neckVitalityWeight: 0.8,
 
@@ -3558,7 +3650,7 @@ export const HEAD_NECK = {
   headWidth: 0.34,
   headHeight: 0.32,
   headDepth: 0.36,
-  headMass: kg(81),
+  headMass: bodyKg(81),
   headHealth: 140,
   headVitalityWeight: 2,
   /**
@@ -3705,8 +3797,8 @@ export const HEAD_NECK = {
    */
   // Coordinated arm reversals transmit their reaction into the trunk. A 42 Nm neck
   // allowed 9.91 degrees of head tilt in the plated build; brace against that load.
-  pitchTorque: 100,
-  yawTorque: 10,
+  pitchTorque: onBody(100),
+  yawTorque: onBody(10),
 
   /** `CHAIN_WRIST.motorDamping`'s setting and argument, unchanged. 2026-09-04. */
   motorDamping: 6,
@@ -3789,8 +3881,21 @@ export const HEAD_RAM = {
    * 0.30 x 0.14 x 0.16 is 0.00672 m3 of bronze at 8800 kg/m3, which would be 59 kg for a solid
    * billet. A ram plate is a shell over the stone brow rather than a block of bronze: at a fill
    * of 0.35 that is 0.002352 m3 and 21 kg. 2026-09-04.
+   *
+   * **At the body's scale, not the arm's** (physical contact session 04, 2026-09-24). The plate is
+   * a striker, but it rides the head, and the lunge's torques moved to the body with everything
+   * else they swing. Left at `kg()` it made the hinge's inertia grow by less than its torques, and
+   * no single factor on the three lunge torques gave the lunge back (Node torso bench, plain torso):
+   *
+   *     lunge torques x   drive end rad   deepest rad   carried past rad
+   *     before density         0.2177        0.7604          0.5427
+   *     1.9                    0.1695        0.6044          0.4348
+   *     2.2                    0.1955        0.6874          0.4918
+   *     2.5                    0.2210        0.7107          0.4897
+   *     3.086                  0.2588        0.6791          0.4203
+   *     3.086, plate here      0.2179        0.7602          0.5423
    */
-  plateMass: kg(21),
+  plateMass: bodyKg(21),
   plateHealth: 90,
   plateVitalityWeight: 0.6,
   /**
@@ -3821,8 +3926,11 @@ export const HEAD_RAM = {
    * 139 kg core at 1.5 m/s is 54 J and about half a point of wound. The mass was never the
    * problem -- 1.5 m/s is -- and the lever that would fix it is `lunge.driveTorque` below
    * rather than a scoring row. The entry under Session 03 of the style set reports the fall.
+   *
+   * The kilograms above are the geometric ones. Since physical contact session 04 the head, the
+   * plate and the trunk behind them are all at the body's density, so the published mass is too.
    */
-  impactMassKg: kg(74),
+  impactMassKg: bodyKg(74),
 
   /**
    * What `guard` holds, radians of nod, against `HEAD_PLAIN.guardPitch`'s 0.70.
@@ -4017,12 +4125,12 @@ export const HEAD_RAM = {
      * keep the relationship the block comment above is about. See `SHIPPED_MASS_SCALE`, at
      * the head of this file.
      */
-    driveTorque: 146,
-    followTorque: 13,
+    driveTorque: onBody(146),
+    followTorque: onBody(13),
     // Braking after the free follow, not extra drive power. The direct head joint carries to
     // 1.555 rad (its stop) with the 42 Nm holding motor; 100 Nm recovers at 0.760 rad while
     // retaining 0.543 rad of follow-through and a 3.06 m/s driven tip (Node torso bench).
-    recoveryTorque: 100,
+    recoveryTorque: onBody(100),
   },
 };
 
@@ -4471,7 +4579,7 @@ export const LOCOMOTION_WHEEL = {
    */
   wheelRadius: 0.42,
   wheelWidth: 0.18,
-  wheelMass: kg(259.4),
+  wheelMass: bodyKg(259.4),
   wheelHealth: 240,
   wheelVitalityWeight: 2.6,
 
@@ -4490,7 +4598,7 @@ export const LOCOMOTION_WHEEL = {
   yokeWidth: 0.44,
   yokeHeight: 0.28,
   yokeDepth: 0.34,
-  yokeMass: kg(108.9),
+  yokeMass: bodyKg(108.9),
   yokeHealth: 300,
   yokeVitalityWeight: 3.4,
   forkClearance: 0.04,
@@ -4557,7 +4665,7 @@ export const LOCOMOTION_WHEEL = {
    * rather than from the tread would say 0.0 at every row.
    * 2026-09-04, the Node bench.
    */
-  wheelSpinTorque: 1200,
+  wheelSpinTorque: onBody(1200),
 
   /**
    * Solver damping on the hinge, and the pair every other block here copies from `CONFIG.arm`.
@@ -4696,6 +4804,14 @@ export const LOCOMOTION_WHEEL = {
    * 2026-09-04, the Node bench.
    */
   braceCapacityMultiplier: 1.0,
+  /**
+   * The holding repair's ratio (`StabilityAuthority.stabilityMassRatio`, physical contact session
+   * 04, 2026-09-24): the wheel golem's supported mass at `STONE_BODY_DENSITY` over what it was at
+   * `SHIPPED_MASS_SCALE`, 329.72 kg against 117.39 (Node mass census,
+   * `tests/harness/mass-census.mjs`). Its blows did not change with its mass, so its thresholds hold
+   * by dividing the mass the ledger reads by this.
+   */
+  stabilityMassRatio: 329.72 / 117.39,
   gaitStabilityScaleStand: 0.70,
   gaitStabilityScaleMin: 0.35,
 
@@ -4734,7 +4850,7 @@ export const LOCOMOTION_WHEEL = {
    * units and the second is 725 kg against a base geometry. 3200 buys a further tilt and *less*
    * drop, because the assembly bounces. 2026-09-04, the Node bench.
    */
-  shoveImpulseNs: ns(1600),
+  shoveImpulseNs: bodyNs(1600),
 
   /**
    * What a rolling contact patch is allowed to slide, metres per second. **A budget, not a
@@ -4779,7 +4895,7 @@ export const LOCOMOTION_WHEEL_SIZE: SizeLaws<typeof LOCOMOTION_WHEEL> = {
   plantBandM: "length", heightRate: "speed",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
-  braceCapacityMultiplier: "one", gaitStabilityScaleStand: "one", gaitStabilityScaleMin: "one",
+  braceCapacityMultiplier: "one", gaitStabilityScaleStand: "one", gaitStabilityScaleMin: "one", stabilityMassRatio: "one",
   shoveImpulseNs: "impulse", meanContactSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
 
@@ -4810,7 +4926,7 @@ export const LOCOMOTION_MULTILEG = {
   chassisWidth: 0.68,
   chassisHeight: 0.20,
   chassisDepth: 0.56,
-  chassisMass: kg(198.0),
+  chassisMass: bodyKg(198.0),
   chassisHealth: 300,
   chassisVitalityWeight: 3.4,
 
@@ -4850,20 +4966,20 @@ export const LOCOMOTION_MULTILEG = {
    */
   femurLength: 0.22,
   femurRadius: 0.058,
-  femurMass: kg(5.0),
+  femurMass: bodyKg(5.0),
   femurHealth: 90,
   femurVitalityWeight: 0.6,
 
   shinLength: 0.20,
   shinRadius: 0.048,
-  shinMass: kg(3.2),
+  shinMass: bodyKg(3.2),
   shinHealth: 75,
   shinVitalityWeight: 0.5,
 
   footLength: 0.20,
   footWidth: 0.13,
   footHeight: 0.07,
-  footMass: kg(4.7),
+  footMass: bodyKg(4.7),
   footHealth: 70,
   footVitalityWeight: 0.4,
 
@@ -5077,9 +5193,9 @@ export const LOCOMOTION_MULTILEG = {
    * 0.162 and the stride rate rose by 2.667, and `0.162 * 2.667^2` is 1.152. Within 15 % of
    * unchanged, and well inside the plateaux above.
    */
-  hipTorque: 180,
-  kneeTorque: 60,
-  ankleTorque: 30,
+  hipTorque: onBody(180),
+  kneeTorque: onBody(60),
+  ankleTorque: onBody(30),
 
   /**
    * What those eighteen ceilings fall to while the body is fallen, as a fraction.
@@ -5191,6 +5307,14 @@ export const LOCOMOTION_MULTILEG = {
    * 0.0158. 2026-09-04.
    */
   braceCapacityMultiplier: 2.6,
+  /**
+   * The holding repair's ratio (`StabilityAuthority.stabilityMassRatio`, physical contact session
+   * 04, 2026-09-24): the multileg golem's supported mass at `STONE_BODY_DENSITY` over what it was at
+   * `SHIPPED_MASS_SCALE`, 283.27 kg against 102.34 (Node mass census,
+   * `tests/harness/mass-census.mjs`). Its blows did not change with its mass, so its thresholds hold
+   * by dividing the mass the ledger reads by this.
+   */
+  stabilityMassRatio: 283.27 / 102.34,
   gaitStabilityScaleMin: 0.90,
 
   /**
@@ -5221,7 +5345,7 @@ export const LOCOMOTION_MULTILEG = {
    * against the biped's 51x and the wheel's 225x, is the same statement all three blocks make: a
    * threshold crossed and a body on the floor are different questions. 2026-09-04, the Node bench.
    */
-  shoveImpulseNs: ns(2400),
+  shoveImpulseNs: bodyNs(2400),
 
   /** What a planted pad is allowed to slide, metres per second. **A budget, not a target**, on the
    *  mean and not the peak, for every reason `LOCOMOTION_BIPED.meanFootSlipBudgetMps` gives.
@@ -5268,6 +5392,6 @@ export const LOCOMOTION_MULTILEG_SIZE: SizeLaws<typeof LOCOMOTION_MULTILEG> = {
   motorDamping: "one", linearDamping: "frequency", angularDamping: "frequency",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
-  braceCapacityMultiplier: "one", gaitStabilityScaleMin: "one",
+  braceCapacityMultiplier: "one", gaitStabilityScaleMin: "one", stabilityMassRatio: "one",
   shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };

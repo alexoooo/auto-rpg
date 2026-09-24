@@ -648,6 +648,7 @@ return defineLocomotion({
         carrierPartId: chassis.name,
         supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => Object.freeze({ role }))),
         braceCapacityMultiplier: M.braceCapacityMultiplier,
+        stabilityMassRatio: M.stabilityMassRatio,
         gaitStabilityScale: scale,
         stabilityScale: stability,
         recoveryScale: recovery,

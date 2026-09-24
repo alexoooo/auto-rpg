@@ -24,7 +24,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import { CONFIG } from "../../src/config.ts";
 import { slewTowards } from "../../src/golem/anchor-drive.ts";
-import { BENCH_READOUT, HEAD_NECK, HEAD_RAM, TORSO_WAIST } from "../../src/golem/config.ts";
+import { BENCH_READOUT, BODY_OVER_SHIPPED, HEAD_NECK, HEAD_RAM, TORSO_WAIST } from "../../src/golem/config.ts";
 import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readout.ts";
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
@@ -50,9 +50,14 @@ const SUBSTEP = 1 / CONFIG.world.physicsHz;
  * across and a little back, because a purely sagittal shove would exercise the pitch motor that
  * is already being measured and leave the neck's second axis untested; this one turns the head as
  * well as rocking it.
+ *
+ * **Times `BODY_OVER_SHIPPED` since physical contact session 04** (2026-09-24), which gave the trunk,
+ * the head and its plate the body's density and their torques the same factor. 84 N.s against the
+ * heavier body bobbed the head 4.72 mm where it had bobbed 44.47; the factor gives it back the push
+ * it was sized to be.
  */
 export const BENCH_SHOVE = Object.freeze({
-  newtonSeconds: 84,
+  newtonSeconds: 84 * BODY_OVER_SHIPPED,
   direction: Object.freeze([1, 0, -0.4]),
 });
 
@@ -493,7 +498,7 @@ async function main() {
       + ` carried ${fixed(run.lunge.carriedPastDrive, 4)} rad past the drive`
       + ` (the stop is at ${HEAD_NECK.pitchJointMax})\n`);
   }
-  process.stdout.write(`shove: ${BENCH_SHOVE.newtonSeconds} N.s as an impulse,`
+  process.stdout.write(`shove: ${BENCH_SHOVE.newtonSeconds.toFixed(1)} N.s as an impulse,`
     + ` bob peak ${run.bob.peakMm.toFixed(2)} mm,`
     + ` decayed to ${run.bob.barMm.toFixed(1)} mm (a tenth of the peak)`
     + ` after ${fixed(run.bob.settleSeconds, 3)} s`

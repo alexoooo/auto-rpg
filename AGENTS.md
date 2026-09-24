@@ -649,6 +649,14 @@ directly under `node`. It is how a body gets measured without a person watching.
   bench prints for this chain", which run unchanged gives 854 N. The bench prints the driven mass
   (`runGolemBench(...).massKg`) for exactly this purpose.
 
+  **Since 2026-09-24 the stone body is not on `kg()` either.** Its trunk, pelvis, legs, head, wheel,
+  multileg and the bench's ride block are on `bodyKg()`, at `STONE_BODY_DENSITY` (1300 kg/m3), which
+  is 3.086 times `kg()` (`BODY_OVER_SHIPPED`). Every torque that moves those parts goes through
+  `onBody()` by the same factor, and the arm links and items stay on `kg()`, so that an arm
+  cannot lift a body its own size. So the body's legs, neck and waist tables *were* rescaled, by
+  the factor their own parts grew, which is this rule applied rather than broken. The human and the
+  skeleton pin the shipped values they inherit from stone, because their masses did not move.
+
 - **A conclusion is void if the thing it was measured against has since been corrected, even
   when the number it picked was right.** Three tables in `config.ts` were swept twice on
   2026-09-18 and `CHAIN_REACH.anchorRate` three times. Its second take reasoned "a force scaled

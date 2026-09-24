@@ -61,9 +61,13 @@ export function censusOf(golem, setup) {
       if (module.slot !== "locomotion") upper += kg;
     }
   }
+  const stability = golem.locomotion.diagnostic().stability;
   return {
     wholeKg: whole, byClass,
-    supportedMassKg: golem.locomotion.diagnostic().stability.supportedMassKg,
+    supportedMassKg: stability.supportedMassKg,
+    // What a standing body falls to, in newton-seconds: the fall threshold times the mass the
+    // ledger reads a shove against (physical contact session 04's holding repair).
+    fallAtNs: stability.fallAtMps * stability.stabilityMassKg,
     upperMassKg: { build: golemUpperMassKg(setup), solver: upper },
   };
 }
