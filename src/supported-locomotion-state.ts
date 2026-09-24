@@ -16,6 +16,20 @@ export const SUPPORTED_LOCOMOTION_V1 = Object.freeze({
   RISING_DURATION_S: 0.45,
 });
 
+/**
+ * How long a rise may run without reaching a standing posture before the body lies down and tries
+ * again, as a multiple of that rise's own duration (physical contact session 02, 2026-09-23).
+ *
+ * After its duration a rise becomes supported only once `postureSupported` holds, and before this
+ * a rise whose posture never held stayed `rising` for ever: session 01's census charged 9.0 % of
+ * the giant group's downed time to it (Node bout runner, `research/downed-census.mjs`). A retry is
+ * the ordinary fallen state -- its dwell, its settle, its gates -- so nothing new is authored about
+ * the second attempt. Two is a stated choice rather than a measured one, taken on the owner's behalf:
+ * it leaves a slow posture a whole second rise's worth of time to arrive, and caps a stuck one at
+ * twice the rise it was given.
+ */
+export const RISE_POSTURE_DEADLINE = 2;
+
 export type SupportContactCategory = "standable-world" | "wall" | "opponent" | "weapon" |
   "proxy" | "detached-part" | "debris";
 
@@ -117,7 +131,7 @@ export function sizeTime(authority: StabilityAuthority | null | undefined): numb
 
 /**
  * The shortest a body lies before it may rise: the frozen dwell over its recovery stat. The one place
- * the dwell is divided; the state machine and both request helpers read it here.
+ * the dwell is divided; the state machine and the port's rise gate read it here.
  */
 export function fallenDwellS(authority: StabilityAuthority | null | undefined): number {
   return SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S * sizeTime(authority) / (authority?.recoveryScale ?? 1);
@@ -338,6 +352,10 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
     if (risingElapsedS >= input.risingDurationS && input.postureSupported) {
       return Object.freeze({ state: "supported", specificImpulseMps: 0, supportMissingS: 0,
         fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
+    }
+    if (risingElapsedS >= input.risingDurationS * RISE_POSTURE_DEADLINE) {
+      return Object.freeze({ state: "fallen", specificImpulseMps,
+        supportMissingS, fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
     }
     return Object.freeze({ state: "rising", specificImpulseMps, supportMissingS: 0,
       fallenElapsedS: prior.fallenElapsedS, risingElapsedS, driveStaged: true });

@@ -9,6 +9,7 @@ import {
   initialSupportedLocomotionState,
   isFreshStandableSupport,
   recoveredRiseS,
+  RISE_POSTURE_DEADLINE,
   risingEligibility,
   risingFloorS,
   stabilityCapacity,
@@ -287,6 +288,29 @@ test("rising_duration_is_bracketed_on_both_sides_of_the_frozen_boundary", () => 
   const notRestored = stepSupportedLocomotionState(before,
     boundary({ dt: 0.001, postureSupported: false }));
   assert.equal(notRestored.state, "rising", "duration alone cannot relabel a folded body supported");
+});
+
+test("a_rise_that_never_reaches_posture_lies_down_at_its_deadline_and_rises_again", () => {
+  // Physical contact session 02: a rise stuck without posture used to stay `rising` for ever.
+  assert.equal(RISE_POSTURE_DEADLINE, 2);
+  const deadline = V1.RISING_DURATION_S * RISE_POSTURE_DEADLINE;
+  const folded = boundary({ dt: 0.001, postureSupported: false });
+  const stuck = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
+    risingElapsedS: deadline - 0.0015, driveStaged: true, specificImpulseMps: 0 });
+  const before = stepSupportedLocomotionState(stuck, folded);
+  assert.equal(before.state, "rising", "a rise gave up before its deadline");
+  const at = stepSupportedLocomotionState(before, folded);
+  assert.equal(at.state, "fallen", "a rise stuck without posture outlived its deadline");
+  assert.equal(at.driveStaged, false);
+  assert.equal(at.fallenElapsedS, 0, "the retry lies its whole dwell again");
+  // The control: posture arriving on the same boundary is a rise that finished, not one that failed.
+  assert.equal(stepSupportedLocomotionState(before, boundary({ dt: 0.001 })).state, "supported");
+  // And the retry is the ordinary fallen state: past its dwell it rises again.
+  let body = at;
+  for (let t = 0; t < V1.FALLEN_DWELL_S + 0.002 && body.state === "fallen"; t += 0.001) {
+    body = stepSupportedLocomotionState(body, folded);
+  }
+  assert.equal(body.state, "rising", "the body never tried again");
 });
 
 test("a_fall_that_has_not_come_to_rest_holds_the_body_down_past_the_dwell_and_cannot_cancel_a_rise", () => {
