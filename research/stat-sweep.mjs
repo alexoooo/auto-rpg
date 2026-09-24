@@ -5,8 +5,8 @@
  *       --pairs 192 --workers 24 --dir research/runs/stat-movement
  *     node research/stat-sweep.mjs --edge wheel --pairs 192 --dir research/runs/edge-wheel
  *
- * The plan is `docs/plans/2026-09-23-attributes-02-sweep-instrument.md`; the tables it produces go
- * into `docs/analysis/2026-09-23-attribute-measurements.md`.
+ * The plan was `docs/plans/2026-09-23-attributes-02-sweep-instrument.md` (in git at fd4285a); the
+ * tables it produces go into `docs/analysis/2026-09-23-attribute-measurements.md`.
  *
  * **A job is one half of a block.** A block is a mind pair and a seed pair, played twice with the
  * same seeds: once with the modified body on the left and once on the right, so arena side cancels

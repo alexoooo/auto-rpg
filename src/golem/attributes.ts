@@ -1,8 +1,9 @@
 /**
  * A golem's numeric attributes: nine multipliers on the body's own tuned values.
  *
- * The plan set is `docs/plans/2026-09-23-attributes-00-overview.md`, and the argument for each
- * stat -- which number it scales and what bounds it -- is "A first slice of numeric attributes" in
+ * The plan set was `docs/plans/2026-09-23-attributes-00-overview.md` (in git at fd4285a), and the
+ * argument for each stat -- which number it scales and what bounds it -- is "A first slice of
+ * numeric attributes" in
  * `docs/analysis/2026-09-22-attributes-and-mind-schools.md`. The owner's decisions, 2026-09-23:
  * every stat is a factor with a default of 1.00, at which a body is exactly the body it was; armour
  * scales the armour fraction and toughness scales health; weight and size are two stats; and

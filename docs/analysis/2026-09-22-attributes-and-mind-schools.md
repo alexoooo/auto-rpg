@@ -349,7 +349,8 @@ Related research context:
 8. Which stats from the first slice to wire, over what ranges, and whether a size
    factor is worth the re-derivation it demands. Decided 2026-09-23: all nine, as
    multipliers at 1.00, each measured before its range is set, with weight and size
-   as two stats. The plan set is `docs/plans/2026-09-23-attributes-00-overview.md`.
+   as two stats. The plan set was `docs/plans/2026-09-23-attributes-00-overview.md`,
+   deleted once it landed (in git at fd4285a).
 
 The design goal is genuine, visible capability growth with multiple viable ways to
 think and fight, without requiring fully physical locomotion or forcing every mind

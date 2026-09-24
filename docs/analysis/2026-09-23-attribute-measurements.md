@@ -1,8 +1,9 @@
 # Attribute measurements
 
 What each golem stat does, measured. One section per stat, in the order the plan set
-(`docs/plans/2026-09-23-attributes-00-overview.md`) lands them, each with its bench table and its
-bout sweep. The same tables sit in the stat's row doc comment in `src/golem/attributes.ts`.
+(`docs/plans/2026-09-23-attributes-00-overview.md`, deleted once it landed; in git at fd4285a) lands
+them, each with its bench table and its bout sweep. The same tables sit in the stat's row doc
+comment in `src/golem/attributes.ts`.
 
 **Every figure names its harness.** Unless a table says otherwise, a sweep is
 `research/stat-sweep.mjs` on the Node harness, research runner, supported locomotion, with the
