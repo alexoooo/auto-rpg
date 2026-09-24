@@ -45,3 +45,13 @@ item-sourced armour or arm speed later reach a mind with no change.
 - x1 against x1 either side, with the fingerprint diff.
 - Mutation-check the stroke timing: go back to the inertia-only stretch and the stroke-bench test
   goes red.
+
+## Inputs from session 01
+
+- **The human cannot defeat an idle dummy outright.** In the idle matrix it wins 0 % before the
+  overtime drain against every family, and 13 % to 100 % with the drain. The cause is its stand-off,
+  not its stroke. Against an idle stone it holds about 1.6 m off the core, its tip comes no nearer
+  than 0.47 m, and it deals 0 damage in 40 s. The anatomical blade itself peaks at 11.2 m/s and
+  moves 0.99 kg plastically on the impact bench. Stand-off from the body's own reach is this
+  session's subject, so this cell is its to close.
+- **The skeleton cannot defeat an idle giant outright** (0 % before the drain, 100 % with it).

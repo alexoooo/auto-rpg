@@ -67,3 +67,14 @@ the build and what to look for.
   - the read-only line in the HUD diagnostics;
   - foot slip at movement x1.5 and turning x1.5;
   - the whole body at size x0.8 and x1.25.
+
+## Chosen on the owner's behalf
+
+Each entry names the session, the choice, where it lives and how to reverse it.
+
+- **01, "within band".** An x1 control is within session 01's band when its 95 % bootstrap interval
+  over blocks overlaps 01's, for per-body damage and knockdowns a bout. `research/control-band.mjs`
+  reads both. To reverse it, name a different criterion in the overview's gate list.
+- **01, the idle floor is an outright win.** A win through the 60 s overtime drain is shown beside
+  it and does not count. `summarizeIdle` in `research/idle-dummy.mjs`.
+- **01, the idle matrix runs 12 side-swap blocks a cell** (24 bouts, `--blocks 12`), not 24 blocks.

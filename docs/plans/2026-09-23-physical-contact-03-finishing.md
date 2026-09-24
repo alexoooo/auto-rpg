@@ -70,3 +70,18 @@ When one fighter is down, the other usually cannot hurt it. Exploration found wh
 
 - A standing golem finishing a fallen one with a blade, a mace and a fist.
 - The fallen one swinging and guarding back from the ground, weakly.
+
+## Inputs from session 01
+
+The downed-target census is not what "the other usually cannot hurt it" predicts, on stone:
+
+- stone's standing side lands damage in 58.8 % of the other's downed seconds, at 0.586 damage a
+  downed second against 0.214 a standing one;
+- the skeleton lands in 30.4 %, at 0.072 against 0.022;
+- the giant group in 46.2 %.
+
+The socket is 1.56 m from the downed core (stone, p50), inside the blade's reach. The target
+("struck in most of its downed seconds when in reach") is therefore already met on stone and not on
+the skeleton. The mechanisms in "Why" are still real, and change 4 (a downed body fights) is the
+owner's rule whatever the census says. So the session stands. Read its before and after per family,
+and do not claim stone's figure as its work.

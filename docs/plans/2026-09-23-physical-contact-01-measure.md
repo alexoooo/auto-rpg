@@ -113,3 +113,23 @@ idle dummy of every family**.
 - The five instruments are committed under `research/` or `tests/harness/`.
 - The baselines section is written.
 - The fingerprint is `same`.
+
+## What landed, 2026-09-23
+
+Every figure is in `docs/analysis/2026-09-23-attribute-measurements.md` "Physical contact
+baselines", with its harness. What differs from the plan above:
+
+- **The lift bench does not push into a keyframed body.** Summing contact impulses against a
+  keyframed slab read several kN, the readings were not monotonic, and the same arm dropped a 50 kg
+  dynamic plate. The reaction includes whatever the arm's column carries structurally. The bench
+  now presses a dynamic 20 kg plate back along a slider with a known force, and reports the largest
+  force the arm still moves it against (`liftCapacity` in `tests/harness/lift-bench.mjs`).
+- **The idle matrix ran 12 side-swap blocks a cell (24 bouts), not 24 blocks.** The human rows run
+  at about 0.29 bouts a second. 24 bouts answers whether a win is reachable.
+- **Five idle cells are already at zero outright wins:** skeleton against an idle giant, and the
+  human against every dummy. The human stand-off is the humanoid mind's, not its stroke (session 09).
+- **The impact bench's stroke hangs its sphere at the stroke's own peak-speed point**, found in a
+  first pass. Where the sphere overlaps the arm at hanging, the bench reports that instead of a
+  contact (the x1 plate, the bare cap and the x1 human fist).
+- **The x1 band** is read by `research/control-band.mjs`, added for the purpose: per-body damage
+  7.64 [7.43, 7.85] and knockdowns 4.93 [4.54, 5.32] a bout.

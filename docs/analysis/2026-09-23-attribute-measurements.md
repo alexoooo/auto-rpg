@@ -1811,3 +1811,308 @@ x1.1 while costing it 21 at x0.9. The row stays at x0.8 to x1.25, because that r
 bench and the bouts show no body breaking. But the direction of the effect depends on the body, and
 the minds were tuned at x1 on both. So a player choosing size is choosing a bout the minds were not
 tuned for, and on stone they lose it.
+
+## Physical contact baselines
+
+The baseline the physical-contact set (`docs/plans/2026-09-23-physical-contact-00-overview.md`) is
+judged against, written by session 01. Session 01 changes no behaviour; every figure is on the tree
+whose body fingerprint is 54f8c58e92e5. Raw outputs are in `research/runs/pc01/`, which is not
+committed.
+
+### The x1 control band
+
+`research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max`, control row: Node
+harness, research runner, supported locomotion, cap 150 s, 192 blocks (384 bouts), stone `default`
+mirror, the four probe minds, seed 20260923.
+
+| Win % [95 %] | d | Dealt / taken | Knockdowns | Time down % | Contacts | Real blows % | Severed | Seconds |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 48.8 [43.6, 54.3] | -0.02 | 7.60 / 7.68 | 4.89 / 4.96 | 15.1 / 14.5 | 179.3 / 181.8 | 45.8 / 45.9 | 0.51 / 0.53 | 28.1 |
+
+**The band.** `research/control-band.mjs research/runs/pc01/giant` reads the control row per body
+a bout, with a 95 % bootstrap interval over the 192 blocks:
+
+| Damage / body / bout | Knockdowns / body / bout | Seconds / bout |
+| ---: | ---: | ---: |
+| 7.64 [7.43, 7.85] | 4.93 [4.54, 5.32] | 28.1 [25.9, 30.4] |
+
+From session 02 on, a session's x1-vs-x1 control is within band when its own interval, read by the
+same script on the same seed, overlaps this one. That reading of the overview's "within the band"
+was chosen on the owner's behalf (session 10's list).
+
+### The giant
+
+The same sweep. The modified corner carries each preset against an x1 stone default.
+
+| Level | Win % [95 %] | Margin d | vs control d | Dealt / taken | Knockdowns | Other's knockdowns | Time down % | Other's % | Seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| control | 48.8 [43.6, 54.3] | -0.02 | -- | 7.60 / 7.68 | 4.89 | 4.96 | 15.1 | 14.5 | 28.1 |
+| max | 48.6 [43.2, 53.9] | -0.09 | -0.06 | 7.80 / 16.53 | 0.10 | 3.74 | 1.6 | 9.9 | 36.0 |
+| max-normal-body | 94.7 [92.3, 96.6] | 2.42 | 1.55 | 10.15 / 6.52 | 1.77 | 5.77 | 6.3 | 19.6 | 25.7 |
+| size-weight-max | 12.4 [9.0, 15.9] | -1.50 | -1.04 | 3.99 / 9.85 | 0.05 | 1.59 | 0.5 | 6.0 | 25.4 |
+
+**The giant is almost never knocked down (0.10 a bout) and takes more than twice the damage it
+deals, and it still breaks even.** Its bar is scaled to the same total as everybody's
+(`GOLEM_ASSEMBLY.vitalityTotal`), so its size and mass buy stability, not a bigger bar. Every other stat at
+max with a normal body wins 94.7 %. Size and weight alone lose 87.6 %.
+
+### Downed census
+
+`research/downed-census.mjs`: Node harness, research runner, supported locomotion, cap 150 s,
+seed 20260923. 96 side-swap blocks (192 bouts) for each of three groups:
+
+- stone: the `default` mirror with the four probe minds;
+- skeleton: the `skeleton-warrior` mirror with the skeleton duelist;
+- giant: the `max` preset against an x1 stone default, with the probe minds.
+
+An episode runs from the frame a body enters `fallen` or `rising` to the frame it is supported
+again. It is read off the locomotion port's support state and the new read-only
+`riseGate()` diagnostic in `src/supported-locomotion-production.ts`.
+
+| Group | Knockdowns / body / bout | Re-hits / body / bout | Episodes | p50 / p90 / max s | Episodes > 5 s | > 5 s time % | Down time % |
+| --- | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| stone | 3.99 | 0.99 | 1534 | 0.80 / 1.45 / 81.82 | 1 | 0.8 | 13.9 |
+| skeleton | 4.56 | 0.16 | 1751 | 2.95 / 3.65 / 103.57 | 29 | 2.3 | 24.3 |
+| giant group | 1.71 | 0.24 | 658 | 0.80 / 1.40 / 96.60 | 5 | 2.4 | 6.6 |
+
+- **The census and the sweep count a knockdown differently.** The census counts an edge from
+  supported into `fallen`, and counts a rise knocked back into `fallen` as a re-hit inside the same
+  episode. The sweep's worker (`research/worker.mjs`) counts every edge into `fallen`. Stone's
+  3.99 + 0.99 = 4.98 is the sweep's 4.9.
+- **Giant group.** The giant itself goes down 0.11 times a bout and the x1 stone 3.32.
+- **Episodes longer than 5 s**, by the gate cause they spent longest under, and how they ended:
+  - stone: 1, wall; bout ended;
+  - skeleton: 29. Unsettled 21, wall 6, occupancy 2. Ended rose 21, died 5, bout ended 3;
+  - giant group: 5. No ground 2, wall 2, stuck rising 1. Ended bout ended 4, died 1.
+
+  None of them is "no recover input", "re-hit" or a lying cap.
+- **Where downed time goes.** Stone and the giant group spend most of it in the dwell and the rise
+  itself. The skeleton spends almost half of it waiting for the fall to come to rest. Share of
+  downed time by gate cause:
+
+  | Group | Rising | Dwell | Unsettled | Wall | Occupancy | Acceleration | No ground | Stuck rising |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+  | stone | 49.9 | 43.5 | -- | 5.4 | 0.0 | 0.8 | -- | 0.0 |
+  | skeleton | 34.1 | 11.2 | 47.4 | 3.3 | 3.7 | -- | -- | -- |
+  | giant group | 33.6 | 27.9 | -- | 11.7 | -- | 2.2 | 15.4 | 9.0 |
+
+  The rest, under 0.5 % in every group, is re-hits, `fallen` frames with no gate reading, and
+  `staggered`. The session 01 run also charged each episode's closing frame to "supported":
+  1.19 % of stone's downed time, 0.37 % of the skeleton's and 0.86 % of the giant group's. That is
+  left out of the table above, and the census worker no longer does it.
+- **The human mirror never falls.** 32 blocks (64 bouts) of `human-warrior` with the humanoid
+  duelist gave 0 knockdowns and 0.0009 damage a standing second, and every bout ran to about
+  120 s. It is the attribute sessions' "the human mirror barely fights", measured again.
+
+#### Stun-lock
+
+Reported, not gated (the owner's answer, 2026-09-23). A repeat knockdown is one within 2 s of the
+same body's last rise.
+
+| Group | Repeat knockdowns | Share of episodes % | Longest chain | First down loses % (decided bouts) |
+| --- | ---: | ---: | ---: | --- |
+| stone | 564 | 36.8 | 10 | 54.3 (173) |
+| skeleton | 354 | 20.2 | 5 | 59.7 (191) |
+| giant group | 169 | 25.7 | 5 | 47.1 (172) |
+
+**Going down first is barely a verdict.** The first body down loses 54 % of stone bouts and 60 %
+of skeleton bouts. A third of stone's knockdowns come within two seconds of the last rise.
+
+#### Finishing
+
+The other body down, counted in one-second windows:
+
+| Group | Down windows | Scored % | Damage / downed s | Damage / standing s | Share of damage on a downed body % | Socket to core p50 m |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| stone | 1962 | 58.8 | 0.586 | 0.214 | 33.8 | 1.56 |
+| skeleton | 6336 | 30.4 | 0.072 | 0.022 | 57.8 | 1.48 |
+| giant group | 1092 | 46.2 | 0.577 | 0.320 | 11.9 | 1.83 |
+
+**A downed stone body is already struck at 2.7 times the standing rate, in 59 % of its downed
+seconds.** Session 03 opens with "when one fighter is down, the other usually cannot hurt it". On
+stone that is not so. The standing side is 1.56 m from the downed core (p50), which is inside a
+wrist blade's 1.84 m extended tip, and it lands blows without any mind knowing the other is down.
+The skeleton lands in only 30 % of windows. It deals 58 % of its damage to a downed body anyway,
+because it is down for a quarter of every bout. Session 03's mechanisms are still real (the view
+does not say a body is down, and aim reads standing heights). Its target is already met on stone
+and not on the skeleton. See session 03's inputs.
+
+### Idle-dummy matrix
+
+`research/idle-dummy.mjs --blocks 12`: Node harness, research runner, supported locomotion,
+cap 150 s, seed 20260923. Attackers run their family's probe minds; the dummy runs `idle`. The
+giant is stone `default` at the `max` preset. The plan asked for 24 blocks a cell. This ran 12
+side-swap blocks, which is 24 bouts a cell, because the human rows run at about 0.29 bouts a
+second. The question is whether a win is reachable, and 24 bouts answers it.
+
+Each cell gives:
+
+- the outright win rate, meaning a win before the 60 s overtime drain (`CONFIG.bout.overtimeSeconds`);
+- in brackets, the win rate with the drain;
+- the median time of a win;
+- the share of bouts that reached the cap.
+
+| Attacker \ idle dummy | stone | skeleton | human | giant |
+| --- | --- | --- | --- | --- |
+| stone | 58 % (100) / 54.8 s / 0 % | 54 % (88) / 50.6 s / 0 % | 21 % (100) / 74.4 s / 0 % | 17 % (92) / 78.6 s / 0 % |
+| skeleton | 13 % (100) / 80.9 s / 0 % | 29 % (100) / 68.1 s / 0 % | 13 % (100) / 76.4 s / 0 % | **0 %** (100) / 109.0 s / 0 % |
+| human | **0 %** (50) / 119.3 s / 0 % | **0 %** (100) / 118.7 s / 0 % | **0 %** (67) / 119.4 s / 0 % | **0 %** (13) / 116.7 s / 0 % |
+| giant | 29 % (96) / 65.3 s / 0 % | 17 % (96) / 86.7 s / 0 % | 8 % (96) / 97.1 s / 0 % | 13 % (100) / 78.0 s / 0 % |
+
+**Five cells are at zero outright wins in session 01.** They are recorded as findings, not fixed
+here:
+
+- **The skeleton cannot kill an idle giant outright.** It wins every bout, but only through the
+  drain.
+- **The human cannot kill an idle anything outright.** With the drain it wins from 13 % (against
+  the giant) to 100 % (against the skeleton). It is not the stroke. On the impact bench below, the anatomical blade peaks at
+  11.2 m/s, closes at 7.8 and moves 0.99 kg plastically. The cause is the humanoid mind. Against an
+  idle stone it holds about 1.6 m off the dummy's core; its tip comes no nearer than 0.47 m; and it
+  deals 0 damage in 40 s. That is session 09 material (minds read bodies).
+
+A later cell that falls to 0 outright wins from above 0 here is a red gate. Human rows are compared
+on their drain column as well, since their outright column is 0 throughout.
+
+### Effective mass
+
+`tests/harness/impact-bench.mjs`: the Node impact bench, bench stand, NullEngine, real Havok.
+
+**The tap.** Joints are free, the stand base is keyframed, and a unit impulse is applied at the tip.
+The edge is across the blade and the axis is along the arm. "Free" is the terminal body alone;
+"chain" is the whole arm. A chain that is straight along the normal reads `inf`, because it ends in
+a keyframed base.
+
+| Module | x1 edge | x1 axis | max edge | max axis | Terminal body kg (`impactMassKg`) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| wrist blade | 0.68 | 9.4-9.6 | 2.85-2.91 | inf | 1.30 |
+| wrist fist | 2.44-2.49 | 9.5-9.7 | inf | inf | 1.30 |
+| wrist mace | 1.74 | 12.6-13.1 | 2.91-2.95 | 37-38 | 2.92 |
+| wrist maul | 4.45-4.53 | 34.8-43.7 | 5.41-5.49 | inf | 7.78 |
+| wrist whip | 0.11-0.12 | 0.54-0.67 | 0.14 | 0.60-0.76 | 0.38 |
+| wrist plate | 4.62-4.72 | 8.1-8.2 | 12.8-13.5 | 16.9-17.1 | 2.30 |
+| skeletal blade | 0.68 | 4.4-4.6 | 1.53-1.55 | 24.6-25.1 | 1.30 |
+| pitch blade | 0.79 | inf | 1.07 | inf | 1.30 |
+| anatomical blade | 0.55 | 8.2-10.6 | 0.62-0.63 | 17.4-22.6 | 1.30 |
+| anatomical fist | inf | 3.1-3.4 | inf | 5.7-6.1 | 0.35 |
+| none (bare cap) | inf | inf | inf | inf | 0.57 / 2.21 |
+
+**The stroke.** Each striker swings its own stroke into a free, gravity-free sphere hung at its
+peak-speed point. The reading is taken at separation: the implied plastic mass
+`M * dv / (v - dv)`. The table gives the 90 kg sphere (the 5, 20 and 500 kg readings are in the
+raw output).
+
+| Module | Level | Peak tip m/s | Closing m/s | Implied plastic kg | Restitution | Contact substeps |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| wrist blade | x1 | 18.2 | 12.7 | 1.45 | -0.17 | 2 |
+| wrist blade | max | 21.1 | 17.4 | 4.17 | -0.09 | 5 |
+| wrist mace | x1 | 34.4 | 29.0 | 3.67 | -0.03 | 9 |
+| wrist mace | max | 36.2 | 31.7 | 7.55 | 0.04 | 6 |
+| wrist maul | x1 | 22.6 | 19.5 | 7.18 | 0.09 | 2 |
+| wrist maul | max | 18.6 | 16.0 | 9.29 | -0.02 | 2 |
+| wrist whip | max | 21.0 | 17.7 | 0.29 | 0.27 | 2 |
+| pitch blade | x1 | 15.3 | 9.2 | 1.14 | -0.02 | 2 |
+| pitch blade | max | 20.2 | 12.0 | 1.61 | -0.02 | 2 |
+| skeletal blade | x1 | 17.5 | 11.8 | 3.62 | -0.82 | 15 |
+| skeletal blade | max | 18.0 | 14.3 | 4.29 | -0.72 | 15 |
+| anatomical blade | x1 | 11.2 | 7.8 | 0.99 | -0.01 | 2 |
+| anatomical blade | max | 12.7 | 9.5 | 1.15 | 0.02 | 2 |
+
+- **An impulsive stroke moves about the terminal's own mass.** The x1 blade moves 1.45 kg against
+  a declared 1.30, the mace 3.67 against 2.92, the maul 7.18 against 7.78. At max the chain comes
+  in: the blade moves 4.17 kg and the mace 7.55.
+- **Several strokes are pushes, not impacts.** Their readings are not effective masses, because
+  the drive is in them (session 05's model leaves the motors out):
+  - the wrist fist at x1 and max: 11 to 64 substeps, closing below 7.3 m/s;
+  - the wrist plate at max: 12 to 71 substeps;
+  - the anatomical fist at max: 17 to 29 substeps;
+  - the skeletal blade: 15 substeps, restitution -0.8.
+
+  The x1 whip reads a negative closing speed, because its lash met the sphere going backwards.
+- **Some strikers overlapped the sphere where it was hung**, so the bench records no contact for
+  them: the x1 plate, the bare cap at both levels, and the x1 anatomical fist. Their tap readings
+  stand.
+
+### Lift capacity
+
+`tests/harness/lift-bench.mjs`: the Node lift bench, bench stand, NullEngine, real Havok.
+
+A 20 kg plate rides a `Physics6DoFConstraint` slider to an ANIMATED anchor, with gravity off, at a
+gap of 0.2 or 0.4 m from the arm's free tip. The arm is commanded into it, either up (pointer up,
+thrust) or sideways (pointer out, thrust). Every substep from the command onward, an impulse
+presses the plate back against the arm at `F * substep`. The capacity is the largest F under which
+the plate still moves at least half the gap toward the tip. F doubles from 250 N until a failure
+and then bisects to 50 N. Each figure is in N, with its ratio to the x1 family's body weight in
+brackets.
+
+**The plan's method was abandoned.** It pushed into a keyframed slab and summed the contact
+impulses. That read several kN, and the readings were not monotonic, while the same arm dropped
+a 50 kg dynamic plate. Against a keyframed body the contact reaction includes whatever the arm's
+column carries structurally, so it does not measure what the motors can lift. The slider holds
+the load dynamic and reads what the arm can move.
+
+| Module | Level | Up 0.2 m | Up 0.4 m | Sideways 0.2 m | Sideways 0.4 m | x1 body weight N |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| reach blade | x1 | 1688 (1.90) | 1938 (2.18) | 188 | 31 | 889 |
+| reach blade | x1.25 | 2875 (3.23) | 2563 (2.88) | 125 | 0 | 889 |
+| reach blade | max | 1125 (1.27) | 781 (0.88) | 0 | 0 | 889 |
+| reach fist | x1 | 1406 (1.58) | 1563 (1.76) | 1500 (1.69) | 438 | 889 |
+| reach fist | x1.25 | 2844 (3.20) | 2750 (3.09) | 688 | 0 | 889 |
+| reach fist | max | 2469 (2.78) | 2500 (2.81) | 250 | 0 | 889 |
+| wrist blade | x1 | 1406 (1.58) | 1281 (1.44) | 31 | 94 | 889 |
+| wrist blade | x1.25 | 2031 (2.28) | 1250 (1.41) | 0 | 0 | 889 |
+| wrist blade | max | 688 (0.77) | 719 (0.81) | 0 | 0 | 889 |
+| wrist fist | x1 | 1813 (2.04) | 1344 (1.51) | 625 (0.70) | 31 | 889 |
+| wrist fist | x1.25 | 2250 (2.53) | 2250 (2.53) | 281 | 63 | 889 |
+| wrist fist | max | 2031 (2.28) | 1875 (2.11) | 94 | 0 | 889 |
+| pitch blade | x1 | 156 (0.18) | 125 (0.14) | 0 | 0 | 889 |
+| pitch blade | max | 375 (0.42) | 344 (0.39) | 0 | 0 | 889 |
+| pitch fist | x1 | 438 (0.49) | 0 | 0 | 0 | 889 |
+| pitch fist | max | 938 (1.05) | 0 | 0 | 0 | 889 |
+| skeletal blade | x1 | 1313 (4.40) | 1594 (5.35) | 94 | 125 | 298 |
+| skeletal blade | max | 2125 (7.13) | 2594 (8.70) | 63 | 0 | 298 |
+| skeletal fist | x1 | 2063 (6.92) | 2188 (7.34) | 2531 (8.49) | 1688 (5.66) | 298 |
+| skeletal fist | x1.25 | 3625 (12.16) | 4219 (14.16) | 2875 (9.65) | 563 (1.89) | 298 |
+| skeletal fist | max | 3906 (13.11) | 3906 (13.11) | 1844 (6.19) | 500 (1.68) | 298 |
+| anatomical blade | every level | 0 | 0 | 0 | 0 | 1093 |
+| anatomical fist | x1 | 94 (0.09) | 94 (0.09) | 188 (0.17) | 125 (0.11) | 1093 |
+| anatomical fist | max | 63 (0.06) | 94 (0.09) | 125 (0.11) | 94 (0.09) | 1093 |
+
+- **An x1 stone arm lifts 1.4 to 2.2 times its own body's weight straight up.** Sideways it moves
+  next to nothing with a blade, which slides off the plate edge-on.
+- **An x1 skeleton arm lifts 4.4 to 7.3 times the skeleton's weight.** An x1.25 skeletal fist
+  lifts 14 times it.
+- **The human arm cannot lift a tenth of a human.**
+- **`max` is often below x1.25.** The wrist blade lifts 688 N at max and 2031 at x1.25. Max
+  lengthens the arm as well as strengthening it, and the extra lever costs more than the torque
+  buys.
+
+Session 04 sizes a family's density at the lightest level where its x1 arms fall short of its x1
+weight by a factor of 1.25. On these figures that takes stone to about 2.2 × 1.25 ≈ 2.7 times its
+present body weight. It would take the skeleton to about nine times its own. Session 04 already
+says to report the skeleton's case and not to make the skeleton heavier to hide it. The human
+needs nothing.
+
+### Mass census
+
+`tests/harness/mass-census.mjs`: the Node mass census, `createBout`, supported locomotion,
+NullEngine, real Havok. Every body a golem owns is asked `getMassProperties()`.
+
+| Family | Whole kg | Carrier | Legs | Trunk | Head | Arm links | Items | Supported kg | Upper kg, build / solver |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| stone | 90.64 | 15.13 | 17.79 | 27.86 | 14.24 | 12.02 | 3.60 | 89.09 | 56.17 / 57.72 |
+| giant (stone at max) | 337.54 | 59.10 | 69.48 | 108.84 | 55.62 | 40.88 | 3.60 | 337.54 | 208.95 / 208.95 |
+| skeleton | 30.38 | 3.00 | 5.00 | 11.50 | 1.80 | 5.48 | 3.60 | 28.30 | 20.30 / 22.38 |
+| human | 111.45 | 14.00 | 31.00 | 42.35 | 7.50 | 11.80 | 4.80 | 111.45 | 66.45 / 66.45 |
+| wheel | 117.39 | 17.64 | 42.02 | 27.86 | 14.24 | 12.02 | 3.60 | **59.66** | 56.17 / 57.72 |
+| multileg | 102.34 | 32.08 | 12.54 | 27.86 | 14.24 | 12.02 | 3.60 | **44.61** | 56.17 / 57.72 |
+
+- **The wheel and the multileg carry their upper body for nothing.** Their locomotion computes the
+  carried mass once at build from the mount, which reads 0 there, and only the biped has a
+  `carry()` that updates it. So their stability divisor and their gravity-compensation drive leave
+  out the 56 to 58 kg on top. That feeds sessions 04 and 05.
+- **The effector definitions understate what the solver moves**, because their declared mass
+  leaves out the wrist and roll-ring parts:
+  - wrist blade arm: 6.53 kg declared, 6.91 in the solver;
+  - wrist plate arm: 7.53 declared, 8.71 in the solver.
+
+  The build's upper mass is 1.55 kg short on stone and 2.08 on the skeleton for the same reason.

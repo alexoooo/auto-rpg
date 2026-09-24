@@ -65,3 +65,18 @@ instant. That is also where a giant's size and weight belong.
   huge blows from near-extended thrusts means the base or the chain walk is wrong.
 - The giant preset against x1 (192 blocks). The giant's damage per wounding blow should now exceed
   the default's.
+
+## Inputs from session 01
+
+- **The ground truth is the stroke's implied plastic mass for strokes that contact for 2 to 9
+  substeps.** At x1, the wrist blade reads 1.45 kg, the mace 3.67, the maul 7.18 and the pitch
+  blade 1.14. At max: blade 4.17, mace 7.55, maul 9.29. Those are 90 kg sphere figures from the
+  Node impact bench.
+- **Strokes that contact for 11 or more substeps are pushes**, and their implied mass includes the
+  drive. The model leaves the drive out by design, so they are not a target. They are the wrist fist,
+  the max plate, the max human fist and the skeletal blade, which contacts for 15 substeps with a
+  restitution of -0.8.
+- **The bench's tap uses a keyframed stand base**, so its along-the-arm reading goes to `inf` on a
+  straight chain. The model's floating base is the thing that bounds it. Compare the model against
+  the tap's edge column, and against the stroke. Compare it against the tap's axis column only where
+  that column is finite.

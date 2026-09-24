@@ -73,3 +73,24 @@ design**, not as an exception.
   attacker.
 - Update `golemUpperMassKg` and `carry` so that they agree with the new masses, and close the
   unloaded-mass gap documented in the size section if the new derivation allows.
+
+## Inputs from session 01
+
+- **Lift capacity, x1 straight up** (the Node lift bench): stone's arms lift 1.4 to 2.2 times the
+  body's weight, the skeleton's 4.4 to 7.3 times, and the human's under a tenth. The rule in change 1
+  therefore takes stone to about 2.2 × 1.25 ≈ 2.7 times its present body weight. It would take the
+  skeleton to about nine times its own, which change 3 already says to report and not to fix. The
+  human needs nothing on lift.
+- **`max` lifts less than x1.25 on most stone chains** (wrist blade 688 N against 2031), because it
+  lengthens the arm too. "The max giant lifts a x1 stone body with both arms" needs two arms'
+  2 × 688 to 2 × 2469 N against 889 N, which holds today and will not hold if the x1 body is made
+  2.7 times heavier. The giant's body weight grows with it, since its density is the family's. Read
+  the target at the new masses before choosing between the two targets.
+- **The wheel and the multileg carry their upper body for nothing.** `supportedMassKg` is 59.66 and
+  44.61 kg against whole bodies of 117.39 and 102.34. Their carried mass is fixed at build from a
+  mount that reads 0, and only the biped has `carry()`. Change 5's rescale divides by supported mass,
+  so fix this first, or those two families' thresholds move for the wrong reason.
+- **The declared effector masses leave out the wrist and roll-ring parts:** wrist blade arm 6.53 kg
+  declared against 6.91 in the solver, wrist plate 7.53 against 8.71. `golemUpperMassKg` is short by
+  1.55 kg on stone and 2.08 on the skeleton for the same reason. That is the "unloaded-mass gap" the
+  last bullet of Measure names.
