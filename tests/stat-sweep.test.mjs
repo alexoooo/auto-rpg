@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { ATTRIBUTES, ATTRIBUTE_IDS } from "../src/golem/attributes.ts";
 import {
+  ATTRIBUTE_PRESETS,
   PROBE_MINDS,
   blocksOf,
   cohensD,
@@ -33,6 +35,23 @@ test("a stat sweep's levels carry the stat explicitly, x1 included, and x1 is th
   const edge = sweepLevels({ kind: "edge", build: "wheel" }, BASE, [], () => ({ ...BASE, locomotion: "locomotion.wheel" }));
   assert.deepEqual(edge.map((l) => [l.key, l.control]), [["control", true], ["edge:wheel", false]]);
   assert.equal(edge[0].setup, BASE);
+});
+
+test("an attribute-preset sweep carries whole sets, beside a control with every stat at an explicit 1", () => {
+  const levels = sweepLevels({ kind: "attributes", presets: ["max", "max-normal-body", "size-weight-max"] }, BASE, []);
+  assert.deepEqual(levels.map((l) => [l.key, l.control]),
+    [["control", true], ["max", false], ["max-normal-body", false], ["size-weight-max", false]]);
+  const ones = Object.fromEntries(ATTRIBUTE_IDS.map((id) => [id, 1]));
+  assert.deepEqual(levels[0].setup.attributes, ones, "the control runs the same setup path, every stat at 1");
+  const max = Object.fromEntries(ATTRIBUTE_IDS.map((id) => [id, ATTRIBUTES[id].max]));
+  assert.deepEqual(levels[1].setup.attributes, max);
+  assert.deepEqual(levels[2].setup.attributes, { ...max, size: 1, weight: 1 });
+  assert.deepEqual(levels[3].setup.attributes, { ...ones, size: ATTRIBUTES.size.max, weight: ATTRIBUTES.weight.max });
+  assert.equal(BASE.attributes, undefined, "the base build was not written into");
+  assert.throws(() => sweepLevels({ kind: "attributes", presets: ["huge"] }, BASE, []), /no attribute preset "huge"/);
+  assert.throws(() => sweepLevels({ kind: "attributes", presets: ["max", "max"] }, BASE, []), /twice/);
+  assert.throws(() => sweepLevels({ kind: "attributes", presets: [] }, BASE, []), /at least one/);
+  assert.deepEqual(Object.keys(ATTRIBUTE_PRESETS), ["max", "max-normal-body", "size-weight-max"]);
 });
 
 test("each block is one mind pair on one seed pair, played with the modified corner on each side", () => {

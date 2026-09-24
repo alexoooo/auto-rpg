@@ -4,6 +4,7 @@
  *     node research/stat-sweep.mjs --stat movement --levels 0.75,0.9,1,1.1,1.25,1.5 \
  *       --pairs 192 --workers 24 --dir research/runs/stat-movement
  *     node research/stat-sweep.mjs --edge wheel --pairs 192 --dir research/runs/edge-wheel
+ *     node research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max  *       --pairs 192 --dir research/runs/giant
  *
  * The plan was `docs/plans/2026-09-23-attributes-02-sweep-instrument.md` (in git at fd4285a); the
  * tables it produces go into `docs/analysis/2026-09-23-attribute-measurements.md`.
@@ -27,6 +28,11 @@
  * `NAMED_BUILDS` against the base build, beside a control level where both are the base. A large
  * known edge that does not read as an edge is a sweep wired to the wrong side.
  *
+ * **`--attributes <preset>,...` sweeps whole attribute sets** (`ATTRIBUTE_PRESETS`) rather than
+ * one stat: each preset is a level whose modified corner carries that set, beside a control whose
+ * corner carries every stat at an explicit 1. It is how an all-max giant is measured against a x1
+ * body (`docs/plans/2026-09-23-physical-contact-01-measure.md`).
+ *
  * Execution is `runJobs` in `research/runner.mjs`: isolated worker lanes, one bout per worker at a
  * time, a fresh Havok per bout, resumable from `results.jsonl` -- never `Promise.all` over bouts,
  * because one realm runs one Havok arena at a time (`AGENTS.md`). The research `PROTOCOL` sets
@@ -36,7 +42,7 @@ import { join, resolve } from "node:path";
 import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { ATTRIBUTE_IDS, isAttributeId } from "../src/golem/attributes.ts";
+import { ATTRIBUTES, ATTRIBUTE_IDS, isAttributeId } from "../src/golem/attributes.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { PROTOCOL, seed } from "./schedule.mjs";
 
@@ -46,6 +52,21 @@ export const HARNESS = "Node harness, research runner, supported locomotion";
 export const PROBE_MINDS = Object.freeze(["golem-champion", "golem-miser", "golem-brawler", "golem-duelist"]);
 
 export const DEFAULT_LEVELS = Object.freeze([0.75, 0.9, 1, 1.1, 1.25, 1.5]);
+
+/** Every stat at an explicit value, from a function of its row; a row that is not live stays at 1. */
+const everyStat = (valueOf) => Object.freeze(Object.fromEntries(ATTRIBUTE_IDS.map((id) =>
+  [id, ATTRIBUTES[id].live ? valueOf(ATTRIBUTES[id], id) : 1])));
+
+/**
+ * Whole attribute sets, by name. `max` is every live row at its ceiling; `max-normal-body` the same
+ * with the body's size and weight left at 1; `size-weight-max` only those two at their ceilings.
+ * The three split the giant into what its body does and what everything else does.
+ */
+export const ATTRIBUTE_PRESETS = Object.freeze({
+  max: () => everyStat((row) => row.max),
+  "max-normal-body": () => everyStat((row, id) => (id === "size" || id === "weight" ? 1 : row.max)),
+  "size-weight-max": () => everyStat((row, id) => (id === "size" || id === "weight" ? row.max : 1)),
+});
 
 const levelKey = (value) => `x${value.toFixed(2)}`;
 const other = (side) => (side === "left" ? "right" : "left");
@@ -66,6 +87,18 @@ export function sweepLevels(subject, base, levels, namedBuild) {
       return { key: levelKey(value), value, control: value === 1,
         setup: { ...base, attributes: { [subject.stat]: value } } };
     });
+  }
+  if (subject.kind === "attributes") {
+    if (!subject.presets.length) throw new Error("name at least one attribute preset");
+    if (new Set(subject.presets).size !== subject.presets.length) throw new Error("a preset is listed twice");
+    return [
+      { key: "control", value: null, control: true, setup: { ...base, attributes: everyStat(() => 1) } },
+      ...subject.presets.map((name) => {
+        const preset = ATTRIBUTE_PRESETS[name];
+        if (!preset) throw new Error(`there is no attribute preset "${name}"; they are ${Object.keys(ATTRIBUTE_PRESETS).join(", ")}`);
+        return { key: name, value: null, control: false, setup: { ...base, attributes: preset() } };
+      }),
+    ];
   }
   return [
     { key: "control", value: null, control: true, setup: base },
@@ -299,12 +332,14 @@ export function markdownSweep(summary, header) {
 
 async function main() {
   const { values } = parseArgs({ options: {
-    stat: { type: "string" }, edge: { type: "string" }, levels: { type: "string" },
+    stat: { type: "string" }, edge: { type: "string" }, attributes: { type: "string" }, levels: { type: "string" },
     pairs: { type: "string", default: "192" }, workers: { type: "string", default: "24" },
     build: { type: "string", default: "default" }, minds: { type: "string" },
     seed: { type: "string", default: "20260923" }, dir: { type: "string" },
   } });
-  if (!values.stat === !values.edge) throw new Error("name exactly one of --stat <id> or --edge <named build>");
+  if ([values.stat, values.edge, values.attributes].filter(Boolean).length !== 1) {
+    throw new Error("name exactly one of --stat <id>, --edge <named build> or --attributes <preset,...>");
+  }
   const [{ PLAYABLE_BUILDS }, { golemSetupRefusal }, { runJobs }, { fingerprint }] = await Promise.all([
     import("../src/golem/roster.ts"), import("../src/golem/build.ts"),
     import("./runner.mjs"), import("./fingerprint.mjs"),
@@ -315,7 +350,9 @@ async function main() {
     if (!found) throw new Error(`there is no named build "${name}"; they are ${PLAYABLE_BUILDS.map((b) => b.name).join(", ")}`);
     return found.setup;
   };
-  const subject = values.stat ? { kind: "stat", stat: values.stat } : { kind: "edge", build: values.edge };
+  const subject = values.stat ? { kind: "stat", stat: values.stat }
+    : values.attributes ? { kind: "attributes", presets: values.attributes.split(",") }
+      : { kind: "edge", build: values.edge };
   const base = namedBuild(values.build);
   const levels = sweepLevels(subject, base,
     values.levels ? values.levels.split(",").map(Number) : [...DEFAULT_LEVELS], namedBuild);
@@ -326,7 +363,8 @@ async function main() {
   const minds = values.minds ? values.minds.split(",") : [...PROBE_MINDS];
   const blocks = Number(values.pairs), runSeed = Number(values.seed);
   const jobs = sweepJobs({ levels, blocks, minds, runSeed });
-  const directory = resolve(values.dir ?? `research/runs/${values.stat ? `stat-${values.stat}` : `edge-${values.edge}`}`);
+  const directory = resolve(values.dir ?? `research/runs/${values.stat ? `stat-${values.stat}`
+    : values.attributes ? `attributes-${subject.presets.join("+")}` : `edge-${values.edge}`}`);
   const manifest = {
     version: 1, kind: "stat-sweep", fingerprint: fingerprint().hash, protocol: PROTOCOL,
     subject, build: values.build, minds, blocks, seed: runSeed, runtime: { node: process.version },
@@ -341,7 +379,9 @@ async function main() {
   const failed = rows.filter((row) => row.status !== "ok");
   if (failed.length) throw new Error(`${failed.length} bouts failed; first: ${failed[0].error}`);
   const summary = summarizeSweep(rows, levels);
-  const title = subject.kind === "stat" ? `Stat sweep: ${subject.stat}` : `Known edge: ${subject.build} against ${values.build}`;
+  const title = subject.kind === "stat" ? `Stat sweep: ${subject.stat}`
+    : subject.kind === "attributes" ? `Attribute presets against ${values.build}: ${subject.presets.join(", ")}`
+      : `Known edge: ${subject.build} against ${values.build}`;
   const markdown = markdownSweep(summary, { title, protocol: PROTOCOL, build: values.build, minds, seed: runSeed });
   writeFileSync(join(directory, "sweep.json"), `${JSON.stringify({ manifest: { ...manifest, builds: undefined }, summary }, null, 2)}\n`);
   writeFileSync(join(directory, "sweep.md"), markdown);
