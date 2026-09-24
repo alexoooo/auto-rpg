@@ -170,6 +170,8 @@ function facing({
     self: {
       ...SHAPE,
       naturalAttacks: {},
+      support: "supported",
+      vitalPoint: { x: 0, y: SHAPE.vitalHeight, z: 0 },
       ground: { x: 0, y: 0, z: 0 },
       facing: 0,
       // The primary's, and *the same object* the primary hand carries, because
@@ -188,6 +190,8 @@ function facing({
     opponent: {
       ...SHAPE,
       naturalAttacks: {},
+      support: "supported",
+      vitalPoint: { x: 0, y: SHAPE.vitalHeight, z: gap },
       ground: { x: 0, y: 0, z: gap },
       facing: Math.PI,
       shoulder: theirHands.primary.shoulder,

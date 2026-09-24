@@ -42,12 +42,22 @@ export const PROJECTILE_FIELDS = Object.freeze(
   ["kind", "owner", "position", "velocity", "age"].sort(),
 );
 
-/** `BodyView`, which `SelfView` is an alias of. */
+/** `BodyView`, which `SelfView` is an alias of. `support` and `vitalPoint` are physical contact 03's. */
 export const BODY_FIELDS = Object.freeze([
   "unit", "reach", "crownHeight", "vitalHeight", "collisionRadius", "naturalAttacks",
+  "support", "vitalPoint",
   "ground", "facing", "shoulder", "tip", "tipSpeed", "hands",
   "crouch", "trunkLean", "trunkTwist", "vitality", "health",
 ].sort());
+
+/**
+ * `BodyView`'s optional fields, which an assembled golem publishes and a hand-rolled body may leave
+ * out: every mounted striker, and (on `self` only) what its modules can be asked for.
+ */
+export const OPTIONAL_BODY_FIELDS = Object.freeze(["capabilities", "effectors"].sort());
+
+/** `BodyView.support`, the locomotion port's own states. */
+export const SUPPORT_STATES = Object.freeze(["supported", "staggered", "fallen", "rising"]);
 
 /** `FighterView`. */
 export const VIEW_FIELDS = Object.freeze(
@@ -74,11 +84,11 @@ const flag = (value, label) => {
  * commands. A fixture that carries a field the view does not have is a fixture
  * arguing with the policy over a fact the arena would never hand it.
  */
-const exactly = (object, fields, label) => {
+const exactly = (object, fields, label, optional = []) => {
   if (!object || typeof object !== "object") throw new Error(`${label} is ${object}, not a record`);
   const present = new Set(Object.keys(object));
   const missing = fields.filter((name) => !present.has(name));
-  const extra = [...present].filter((name) => !fields.includes(name));
+  const extra = [...present].filter((name) => !fields.includes(name) && !optional.includes(name));
   if (missing.length > 0 || extra.length > 0) {
     throw new Error(`${label} is not a complete view record: missing ${JSON.stringify(missing)}, ` +
       `unexpected ${JSON.stringify(extra)}`);
@@ -114,8 +124,13 @@ export function assertCompleteProjectile(shot, label) {
  * it. What is refused is a *half* hand: a record with some of the eight fields.
  */
 export function assertCompleteBody(body, label) {
-  exactly(body, BODY_FIELDS, label);
+  exactly(body, BODY_FIELDS, label, OPTIONAL_BODY_FIELDS);
   if (typeof body.unit !== "string") throw new Error(`${label}.unit is ${body.unit}`);
+  if (!SUPPORT_STATES.includes(body.support)) throw new Error(`${label}.support is ${body.support}`);
+  point(body.vitalPoint, `${label}.vitalPoint`);
+  for (const [index, effector] of (body.effectors ?? []).entries()) {
+    for (const key of ["anchor", "tip", "tipVelocity"]) point(effector[key], `${label}.effectors[${index}].${key}`);
+  }
   for (const key of ["reach", "crownHeight", "vitalHeight", "collisionRadius", "facing",
     "tipSpeed", "crouch", "trunkLean", "trunkTwist", "vitality"]) {
     finite(body[key], `${label}.${key}`);
@@ -158,8 +173,12 @@ export function publishedFixture(view, label = "published view") {
   const point = (value) => ({ x: value.x, y: value.y, z: value.z });
   const hand = (value) => ({ ...value, shoulder: point(value.shoulder), tip: point(value.tip),
     tipVelocity: point(value.tipVelocity) });
+  const effector = (value) => ({ ...value, anchor: point(value.anchor), tip: point(value.tip),
+    tipVelocity: point(value.tipVelocity) });
+  // `capabilities` is a frozen record the body built once, and is kept by reference.
   const body = (value) => ({ ...value, ground: point(value.ground), shoulder: point(value.shoulder),
-    tip: point(value.tip), health: { ...value.health },
+    tip: point(value.tip), vitalPoint: point(value.vitalPoint), health: { ...value.health },
+    ...(value.effectors ? { effectors: value.effectors.map(effector) } : {}),
     naturalAttacks: Object.fromEntries(Object.entries(value.naturalAttacks ?? {}).map(([name, attack]) => [name, { ...attack }])),
     hands: Object.fromEntries(Object.entries(value.hands).map(([name, slot]) => [name, hand(slot)])) });
   return assertCompleteView({ ...view, self: body(view.self), opponent: body(view.opponent),

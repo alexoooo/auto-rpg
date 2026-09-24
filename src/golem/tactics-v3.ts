@@ -1,7 +1,8 @@
 // Explicit `.ts` extensions, for the reason `tactics.ts` gives. **This file imports no value that
-// is not `tactics.ts`, `tactics-v2.ts`, `hands.ts` or `rng.ts`**, and none of those has a scene in
+// is not `tactics.ts`, `tactics-v2.ts`, `hands.ts`, `rng.ts` or `downed.ts`**, and none of those has a scene in
 // it, so a whole bout of this mind's cadence can be stepped in front of a hand-written view.
 import { hasPoint, isShield, type Striker, type WeaponKind } from "../hands.ts";
+import { finishPoint, standOffReach } from "../downed.ts";
 import { mulberry32 } from "../rng.ts";
 import type { DuelReading, MyPhase } from "./duel-model.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
@@ -516,6 +517,8 @@ function styleRanges(
 
 /** Where a slot is on the other body, from what it publishes. v2's `slotMark`, written out again. */
 function slotMark(them: BodyView, slot: TargetSlot, into: Point): Point {
+  // A downed body's trunk, head and legs are all its live core; its arms are still where they are.
+  if (slot !== "primary" && slot !== "secondary" && finishPoint(them, into)) return into;
   into.x = them.ground.x;
   into.z = them.ground.z;
   switch (slot) {
@@ -571,6 +574,8 @@ export function golemStyled(
     tip: { x: 0, y: 0, z: 0 }, shoulder: { x: 0, y: 0, z: 0 }, tipSpeed: 0, weapon: "empty", reach: 0,
   };
   const mark: Point = { x: 0, y: 0, z: 0 };
+  /** Their live core while they are down, which the range is taken to (`finishPoint`). */
+  const finish: Point = { x: 0, y: 0, z: 0 };
   const guardMark: Point = { x: 0, y: 0, z: 0 };
   const probe: Point = { x: 0, y: 0, z: 0 };
   /** Where the parry is being sent: the intercept, or the closest approach. */
@@ -837,9 +842,12 @@ export function golemStyled(
         strike: natural.reach + T.ramLunge,
         slack: natural.reach * T.slackFraction,
       })
-      : styleRanges(reach, cap, them.reach, T.closeOnRecover && shorter && inside, longer, T);
+    // **A downed body is finished, not stood off from** (physical contact session 03): the stand-off
+    // drops its floor at their reach and the range is taken to their live core (`finishPoint` in
+    // `src/downed.ts`). Standing, both are what they always were.
+      : styleRanges(reach, cap, standOffReach(them), T.closeOnRecover && shorter && inside, longer, T);
     const { near, hold, strike, slack } = ranges;
-    const gap = headfirst ? bodyGap : distance(socket, them.shoulder);
+    const gap = headfirst ? bodyGap : distance(socket, finishPoint(them, finish) ? finish : them.shoulder);
 
     // The shorter arm's latch, on its own strike range. v2's rule and v2's one-step lag; what has
     // changed is that nothing here acts on it, and a director is told about it instead.
@@ -887,7 +895,7 @@ export function golemStyled(
     // here was `thrusting` alone, which quietly threw the chosen slot away and is why the row
     // above could be turned on and off over 512 bouts without moving a single byte of the log.
     if (exchanging && thrusting && target === "trunk") {
-      mark.x = them.ground.x; mark.y = them.vitalHeight; mark.z = them.ground.z;
+      if (!finishPoint(them, mark)) { mark.x = them.ground.x; mark.y = them.vitalHeight; mark.z = them.ground.z; }
     } else {
       slotMark(them, exchanging ? target : "trunk", mark);
     }

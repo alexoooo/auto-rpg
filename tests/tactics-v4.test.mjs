@@ -154,7 +154,7 @@ function fixtureOf(view) {
   const hand = (value) => ({ ...value, shoulder: point(value.shoulder), tip: point(value.tip),
     tipVelocity: point(value.tipVelocity) });
   const body = (value) => ({ ...value, ground: point(value.ground), shoulder: point(value.shoulder),
-    tip: point(value.tip), health: { ...value.health },
+    tip: point(value.tip), vitalPoint: point(value.vitalPoint), health: { ...value.health },
     naturalAttacks: Object.fromEntries(Object.entries(value.naturalAttacks ?? {})
       .map(([name, attack]) => [name, { ...attack }])),
     hands: Object.fromEntries(Object.entries(value.hands)

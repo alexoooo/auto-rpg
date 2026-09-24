@@ -2,6 +2,7 @@ import { cutsBothWays, HANDS, handsFor, hasHeldWeapon, hasPoint, isHeldStriker, 
 import { ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionArcherAim, actionAzimuthOf, actionCoverAt, actionCursorForAzimuth, actionDistance, actionShotPhase,
   actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, bareCrowdDistance, bareHoldDistance, blankThreat, boundIntent, clampAction,
   freshIntent, selectThreat, type ActionPoint, type ThreatView } from "./action-primitives.ts";
+import { isDowned } from "./downed.ts";
 import type { FighterView, Intent, Mind } from "./mind.ts";
 import { attackOpportunity, engagementRecord, EngagementTracker, type EngagementRecord } from "./engagement.ts";
 
@@ -601,6 +602,8 @@ const aimPointerY = (view: FighterView, hand: HandName, y: number): number => {
 
 /** Where a named region is on the body in front, from published facts alone. */
 export function targetHeight(view: FighterView, target: Exclude<TargetName, "threat">): number {
+  // A downed body is struck at its live core whatever the region (physical contact session 03).
+  if (isDowned(view.opponent)) return view.opponent.vitalPoint.y;
   const vital = view.opponent.vitalHeight;
   const span = Math.max(0, view.opponent.crownHeight - vital);
   if (target === "high") return vital + span * TARGET_SPAN_FRACTION;

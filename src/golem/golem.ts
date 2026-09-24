@@ -275,6 +275,8 @@ const blankBody = (): BodyView => ({
   vitalHeight: 0,
   collisionRadius: 0,
   naturalAttacks: Object.freeze({}),
+  support: "supported",
+  vitalPoint: new Vector3(),
   ground: new Vector3(),
   facing: 0,
   shoulder: new Vector3(),
@@ -322,6 +324,8 @@ export class Golem implements Combatant {
    */
   private readonly tone: { scale: number } = { scale: 1 };
   private readonly base: Part;
+  /** The torso's core, whose position `describe` publishes as the live `vitalPoint`. */
+  private readonly core: Part;
   private readonly modules: AssembledModule[] = [];
   private readonly locomotionModule: BuiltLocomotion;
   private readonly torsoModule: BuiltTorso;
@@ -514,6 +518,7 @@ export class Golem implements Combatant {
     // --- limbs, vitality and what a pick may choose --------------------------------------------
     this.scaleVitality();
     const core = this.torsoModule.socket("head").mount;
+    this.core = core;
     this.geometry = Object.freeze({
       reach: primaryModule.envelope().reach,
       crownHeight: standHeight + this.torsoModule.envelope().reach + this.headModule.envelope().reach,
@@ -1099,6 +1104,10 @@ export class Golem implements Combatant {
     into.collisionRadius = this.geometry.collisionRadius;
     into.naturalAttacks = this.natural;
 
+    // Read off `mesh.position`, never a world matrix: every golem body is a scene-root node, so the
+    // field is the world transform and reading it stamps nothing (`AGENTS.md`).
+    into.support = this.locomotion.state;
+    into.vitalPoint.copyFrom(this.core.mesh.position);
     const root = this.locomotionModule.root.mesh;
     const here = root.position;
     into.ground.set(here.x, 0, here.z);

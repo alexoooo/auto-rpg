@@ -16,7 +16,8 @@ const hand = (weapon = "sword", reach = 1.2, outboard = 1) => ({
 });
 const body = (z, hands) => ({
   unit: "warrior", reach: 0.7, crownHeight: 1.8, vitalHeight: 1.1,
-  collisionRadius: 0.25, naturalAttacks: {}, ground: { x: 0, y: 0, z },
+  collisionRadius: 0.25, naturalAttacks: {}, support: "supported", vitalPoint: { x: 0, y: 1.1, z },
+  ground: { x: 0, y: 0, z },
   facing: z === 0 ? 0 : Math.PI, shoulder: { x: 0, y: 1.4, z },
   tip: { x: 0, y: 1.4, z }, tipSpeed: 0, hands,
   crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {},

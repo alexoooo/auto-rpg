@@ -68,10 +68,12 @@ const view = (mine = { primary: "sword", secondary: "empty" }, theirs = mine) =>
   const opponentHands = { primary: hand(theirs.primary, 1, -0.2), secondary: hand(theirs.secondary, -1, 0.2) };
   for (const h of Object.values(opponentHands)) { h.shoulder.z = 1.5; h.tip.z = 0.5; }
   return assertCompleteView({
-    self: { ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 0 }, facing: 0, shoulder: selfHands.primary.shoulder,
+    self: { ...SHAPE, naturalAttacks: {}, support: "supported", vitalPoint: { x: 0, y: SHAPE.vitalHeight, z: 0 },
+      ground: { x: 0, y: 0, z: 0 }, facing: 0, shoulder: selfHands.primary.shoulder,
       tip: selfHands.primary.tip, tipSpeed: 0, hands: selfHands, crouch: 0.2, trunkLean: -0.1,
       trunkTwist: 0.3, vitality: 0.8, health: parts() },
-    opponent: { ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 1.5 }, facing: Math.PI,
+    opponent: { ...SHAPE, naturalAttacks: {}, support: "supported", vitalPoint: { x: 0, y: SHAPE.vitalHeight, z: 1.5 },
+      ground: { x: 0, y: 0, z: 1.5 }, facing: Math.PI,
       shoulder: opponentHands.primary.shoulder, tip: opponentHands.primary.tip, tipSpeed: 3,
       hands: opponentHands, crouch: 0, trunkLean: 0.1, trunkTwist: -0.2,
       vitality: 0.6, health: parts() },
@@ -840,6 +842,23 @@ test("a_named_target_is_a_body_region_derived_from_published_facts", () => {
   assert.ok(targetHeight(crawler, "low") > 0);
   assert.ok(targetHeight(crawler, "high") > targetHeight(crawler, "vital"));
   assert.ok(targetHeight(crawler, "vital") > targetHeight(crawler, "low"));
+});
+
+// Physical contact session 03: every region of a downed body is its live core, because the published
+// heights are standing ones and a body on the floor has no "high". Paired with the same view on its
+// feet, and with `rising` as well as `fallen`, since a rising body is down too.
+test("every_named_target_on_a_downed_body_is_its_live_core", () => {
+  const v = view();
+  v.opponent.vitalHeight = 1.28; v.opponent.crownHeight = 1.765;
+  v.opponent.vitalPoint = { x: 0.1, y: 0.31, z: 1.4 };
+  const standing = ["high", "vital", "low"].map((target) => targetHeight(v, target));
+  assert.deepEqual(new Set(standing).size, 3, "on its feet the three regions are three heights");
+  for (const support of ["fallen", "rising"]) {
+    v.opponent.support = support;
+    for (const target of ["high", "vital", "low"]) assert.equal(targetHeight(v, target), 0.31, `${support} ${target}`);
+  }
+  v.opponent.support = "staggered";
+  assert.deepEqual(["high", "vital", "low"].map((target) => targetHeight(v, target)), standing, "a staggered body is standing");
 });
 
 // Two spellings of one claim, bound together. `COMBAT_FIELDS` names a command's eight top-level

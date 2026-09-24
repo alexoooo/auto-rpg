@@ -1,8 +1,9 @@
 // Explicit `.ts` extensions, for the reason `tactics.ts` gives. **This file imports no value that
-// is not `tactics.ts`, `tactics-v2.ts`, `tactics-v3.ts`, `pilot.ts`, `hands.ts` or `rng.ts`**, and
+// is not `tactics.ts`, `tactics-v2.ts`, `tactics-v3.ts`, `pilot.ts`, `hands.ts`, `rng.ts` or `downed.ts`**, and
 // none of those has a scene in it, so a whole bout of this executor's cadence can be stepped in
 // front of a hand-written view.
 import { isShield, type Striker, type WeaponKind } from "../hands.ts";
+import { finishPoint, isDowned } from "../downed.ts";
 import { mulberry32 } from "../rng.ts";
 import type { MyPhase } from "./duel-model.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
@@ -750,6 +751,8 @@ export function golemDriven(
     tip: { x: 0, y: 0, z: 0 }, shoulder: { x: 0, y: 0, z: 0 }, tipSpeed: 0, weapon: "empty", reach: 0,
   };
   const mark: Point = { x: 0, y: 0, z: 0 };
+  /** Their live core while they are down, which the range is taken to (`finishPoint`). */
+  const finish: Point = { x: 0, y: 0, z: 0 };
   const guardMark: Point = { x: 0, y: 0, z: 0 };
   /** Where the guard is actually pointed: `guardMark`, or a mix of it and `mark`. */
   const held: Point = { x: 0, y: 0, z: 0 };
@@ -880,6 +883,8 @@ export function golemDriven(
 
   /** Where a slot is in the world, so that reachability can be asked about it. v3's `slotMark`. */
   const slotMark = (them: BodyView, slot: TargetSlot, into: Point): Point => {
+    // A downed body's trunk, head and legs are all its live core; its arms are still where they are.
+    if (slot !== "primary" && slot !== "secondary" && finishPoint(them, into)) return into;
     into.x = them.ground.x;
     into.z = them.ground.z;
     switch (slot) {
@@ -1058,7 +1063,11 @@ export function golemDriven(
     const slack = headfirst ? natural.reach * T.slackFraction : reach * T.slackFraction;
     const near = headfirst ? 0 : innerReach(reach, cap);
     const strike = headfirst ? natural.reach + T.ramLunge : Math.max(reach * T.strikeFraction, near + slack);
-    const gap = headfirst ? bodyGap : distance(socket, them.shoulder);
+    // **A downed body is finished, not stood off from** (physical contact session 03): the stand-off
+    // drops its floor at their reach and the range is taken to their live core (`finishPoint` in
+    // `src/downed.ts`). Standing, both are what they always were.
+    const downed = isDowned(them);
+    const gap = headfirst ? bodyGap : distance(socket, finishPoint(them, finish) ? finish : them.shoulder);
     // **The stand-off is the mind's and the executor floors it at nothing.** v2 and v3 floor a
     // hold at `max(reach * holdFraction, near + slack, theirReach * standOffFraction)`, and two of
     // those three are tactics: standing inside my own inner radius is a place a body may stand and
@@ -1073,8 +1082,11 @@ export function golemDriven(
     // the two readings of the stand-off are the reading the ask was taken at and the reading the ask
     // just wrote and they must be the same arithmetic or the mind is told about a hold it is not
     // being driven to.
+    // Except over a downed body, whose reach is lying on the floor: the hold is then this arm's own
+    // floor, `near + slack`, the one term of v2's maximum that is a fact about the arm.
     const holdFor = (standOff: number): number => (
-      T.holdMetres ? standOff : (T.holdMyReach ? reach : them.reach) * standOff
+      downed && !headfirst ? near + slack
+        : T.holdMetres ? standOff : (T.holdMyReach ? reach : them.reach) * standOff
     );
     touched |= COMMAND_BITS.standOff;
     let hold = holdFor(command.standOff);
@@ -1240,6 +1252,8 @@ export function golemDriven(
     mark.x = them.ground.x + rightX * across;
     mark.z = them.ground.z + rightZ * across;
     mark.y = them.ground.y + command.targetHeight * (rise > 1e-6 ? rise : them.shoulder.y - them.ground.y);
+    // A commanded height is a fraction of a standing body; a downed one is struck at its live core.
+    finishPoint(them, mark);
 
     aimAt(socket, mark, trunkHeading, me.outboard, aim);
     const strikeReach = reachForDistance(distance(socket, mark), reach, cap, command.bite);

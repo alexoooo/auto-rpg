@@ -496,6 +496,21 @@ export interface BodyView {
    * two hand-written `FighterView` fixtures in `tests/` still carry every field a real view does.
    */
   capabilities?: import("./golem/module.ts").GolemCapabilities;
+  /**
+   * Whether this body is on its feet: the locomotion port's own support state, published as it is.
+   *
+   * Physical contact session 03. Before it the only trace of a body on the floor was `crouch` pinned
+   * at 1, which is also what a deliberate full crouch reads, so no mind could tell a downed body
+   * from a low one and every aim went on reading standing heights. `fallen` and `rising` are the
+   * two a mind finishes; `staggered` is still on its feet.
+   */
+  support: "supported" | "staggered" | "fallen" | "rising";
+  /**
+   * Where the body's core is now, in world space: live, where `vitalHeight` is its standing height
+   * above the ground. The point a stroke at a downed body goes to (`downedMark` in
+   * `src/action-primitives.ts`).
+   */
+  vitalPoint: Vector3;
   /** Position on the floor. */
   ground: Vector3;
   /** Heading in radians, zero down +Z turning toward +X, as everywhere here. */

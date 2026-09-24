@@ -2,7 +2,7 @@
 // TypeScript file by stripping its types, and its ESM resolver insists on the extension where Vite
 // does not care.
 //
-// **This file imports no value at all.** `hands.ts` and `rng.ts` are the two exceptions and each
+// **This file imports no value at all.** `hands.ts`, `rng.ts` and `downed.ts` are the three exceptions and each
 // imports nothing itself, which is the property that lets a whole bout of this mind's cadence be stepped in front
 // of a hand-written view with no Babylon, no scene and no solver anywhere in the graph -- the same
 // property `policies.ts` keeps and for the same reason. In particular it does **not** import
@@ -13,6 +13,7 @@ import { isShield, type Striker, type WeaponKind } from "../hands.ts";
 // The same seeded stream `policies.ts` draws from, for the same argument, from the one file both
 // may import. This file carried its own copy until 2026-09-05; `rng.ts` says why it moved.
 import { mulberry32 } from "../rng.ts";
+import { finishPoint, standOffReach } from "../downed.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 
@@ -1516,6 +1517,8 @@ export function golemTactics(seed: number): GolemTactics {
   };
   const mark: Point = { x: 0, y: 0, z: 0 };
   const guardMark: Point = { x: 0, y: 0, z: 0 };
+  /** Their live core while they are down, which the range is taken to (`finishPoint`). */
+  const finish: Point = { x: 0, y: 0, z: 0 };
 
   /** Which effector is taking this exchange, and which one would like the next. */
   let attacker: HandName = "primary";
@@ -1649,9 +1652,12 @@ export function golemTactics(seed: number): GolemTactics {
         strike: natural.reach + GOLEM_TACTICS.ramLunge,
         slack: natural.reach * GOLEM_TACTICS.slackFraction,
       })
-      : tacticalRanges(reach, cap, them.reach);
+    // **A downed body is finished, not stood off from** (physical contact session 03): the stand-off
+    // drops its floor at their reach and the range is taken to their live core (`finishPoint` in
+    // `src/downed.ts`). Standing, both are what they always were.
+      : tacticalRanges(reach, cap, standOffReach(them));
     const { near, hold, strike, slack } = ranges;
-    const gap = headfirst ? bodyGap : distance(socket, them.shoulder);
+    const gap = headfirst ? bodyGap : distance(socket, finishPoint(them, finish) ? finish : them.shoulder);
 
     // ---- what their business end is doing ----------------------------------------------------
     watch(them, threat);
@@ -1686,9 +1692,11 @@ export function golemTactics(seed: number): GolemTactics {
     // covers their point when it is actually extended toward me -- nearer to my socket than their
     // own shoulder is -- and their chest when it is not, so a blade that has been chambered or cut
     // off does not drag the plate round to point at the floor.
-    mark.x = them.ground.x;
-    mark.y = them.shoulder.y;
-    mark.z = them.ground.z;
+    if (!finishPoint(them, mark)) {
+      mark.x = them.ground.x;
+      mark.y = them.shoulder.y;
+      mark.z = them.ground.z;
+    }
     if (tipGap < towardLength) {
       guardMark.x = threat.tip.x; guardMark.y = threat.tip.y; guardMark.z = threat.tip.z;
     } else {
