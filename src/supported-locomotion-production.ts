@@ -394,16 +394,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const rise = riseTo(recoveryTarget);
     const risingDurationS = rise.durationS;
     const recoveryWithinAccelerationLimit = rise.withinAcceleration;
-    // **A rise is not cancelled by a touch.** The pair resolver holds two footprints exactly in
-    // contact, so a body pressed against a rising one sits at zero clearance and rounding alone
-    // takes it under. Judged at zero, that cancelled the rise into a whole new knockdown: on
-    // 2026-09-24, 389 of stone's 427 refused rises and 202 of the skeleton's 206 were an overlap under
-    // a centimetre (Node harness, `research/downed-census.mjs`, 96 blocks, session 02's tree). A rise
-    // is therefore admitted at zero or at `RECOVERY_SEPARATION_MARGIN_M` and kept until another
-    // footprint is that far *inside* its target, which is hysteresis rather than a softer rule: a
-    // body that walks into the spot is still an obstruction.
-    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget,
-      this.supportState.state === "rising" ? -RECOVERY_SEPARATION_MARGIN_M : 0);
+    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget, 0);
     const occupancyClear = recoveryWithinAccelerationLimit && this.pairOccupancyClear &&
       sweepClear(recoveryTarget);
     this.lastBoundary = Object.freeze({ authority: authority !== null, liveSupport, postureSupported,
@@ -526,6 +517,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
        Math.abs(request.yaw - allowed.yaw) > 1e-9);
     const blockedReason = staged.lastClearReason ??
       (request !== null && this.supportState.state === "fallen" ? "carrier is released while fallen"
+        : request !== null && this.supportState.state === "rising" ? "carrier is held while it rises"
         : request !== null && !this.lastBoundary.authority ? "locomotion authority is unavailable"
           : request !== null && !this.lastBoundary.liveSupport ? "support chain is not live"
             : request !== null && !this.lastBoundary.postureSupported ? "supported posture is unavailable"
@@ -597,7 +589,17 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       this.carrier.reset(this.carrier.state, this.carrier.state.yaw);
       return this.carrier.propose(STOP, dt);
     }
-    const request = this.supportState.state === "fallen" || this.options.root.sample().released
+    // **A rising carrier stands still.** The rise owns the root and drives it to its fixed target, so
+    // a carrier that walked on the mind's request would leave the body it describes: the other body
+    // follows the carrier, at exact contact, into the spot the rise is bound for, and the gate refuses
+    // the rise. The refusals physical contact session 02's census charged to a touch were this: with
+    // the carrier held, refused rises fell from 419 to 19 on stone, 378 to 99 on the skeleton and 269
+    // to 2 on the giant group, and two of the 120 left were against a body on its feet -- the rest
+    // are a lying body in the way, or a dead support chain (Node harness, `research/downed-census.mjs`,
+    // 96 blocks, 2026-09-24). A carrier walked off its target would also have dragged the root after
+    // it the moment the rise completed.
+    const held = this.supportState.state === "fallen" || this.supportState.state === "rising";
+    const request = held || this.options.root.sample().released
       ? STOP : this.staged.sample().request ?? STOP;
     return this.carrier.propose(request, dt);
   }

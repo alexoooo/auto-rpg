@@ -107,8 +107,8 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   limp 0.08 with a neutral command, and full strength on every other body. A different value is one
   number; going back to limp means re-adding a per-body tone and the `NEUTRAL` override in
   `Golem.applyIntent`.
-- **02, a rise under way is refused only past `RECOVERY_SEPARATION_MARGIN_M`.** A rise must clear
-  the other footprint by 2 cm to begin, and is cancelled only by one more than 2 cm inside its
-  target. Without the hysteresis, the pair resolver's exact contact cancelled rises at a touch
-  (389 of stone's 427 refusals were under a centimetre). `beginControlStep` in
-  `src/supported-locomotion-production.ts`; a slack of 0 restores the touch refusal.
+- **02, a rising carrier stands still.** While a body rises, its carrier ignores the mind's walk
+  request, as a fallen one does. The rise owns the root, and a carrier walked off the rise target
+  led the other body into it and had the rise refused. `PhysicalSupportedLocomotionPort.proposal`
+  in `src/supported-locomotion-production.ts`. Reversing it would need the rise target to move
+  with the carrier instead.

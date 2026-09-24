@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { flatSupportedWorldRegistry, isStandableUpwardNormalY, PhysicalSupportedLocomotionPort,
-  RECOVERY_RING_STEP_M, RECOVERY_SEPARATION_MARGIN_M } from "../src/supported-locomotion-production.ts";
+  RECOVERY_RING_STEP_M, RECOVERY_SEPARATION_MARGIN_M, resolvePhysicalSupportedPair } from "../src/supported-locomotion-production.ts";
 import { deriveLocomotionFootprint, StandableWorldRegistry, SUPPORTED_CARRIER_V1,
   VirtualLocomotionCarrier } from "../src/supported-locomotion-runtime.ts";
 import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
@@ -212,36 +212,43 @@ test("an_occupied_recovery_relocates_to_the_nearest_spot_clear_of_the_intersecti
   } finally { free.port.dispose(); }
 });
 
-// **A rise is not cancelled by a touch** (2026-09-24). The pair resolver holds two footprints
-// exactly in contact, so a body pressed against a rising one reads a hair inside it; a rise is kept
-// until another footprint is `RECOVERY_SEPARATION_MARGIN_M` inside its target, and one that far in
-// still puts it down. Three blockers, one per phase, because the gate reads the other's footprint
-// where it stands: clear at the start, then touching by 5 mm, then 3 cm inside.
-test("a_rise_survives_a_touching_footprint_and_is_put_down_by_one_inside_its_margin", () => {
+// **A rising carrier stands still** (2026-09-24). The rise owns the root and drives it to a fixed
+// target; a carrier that walked on its mind's request during the rise left that target, the other
+// body followed it through the pair resolver at exact contact, and so stood inside the spot the rise
+// was bound for and had it refused. Here the rising body is asked to back away across the whole
+// rise and the other to follow it, through `resolvePhysicalSupportedPair` as a bout steps them.
+test("a_rising_body_that_is_asked_to_walk_keeps_its_carrier_on_its_rise_and_gets_up", () => {
   const registry = floorRegistry();
-  const required = 1;
-  const rise = (intrusionM) => {
-    const fallen = physical("rising", 0, registry);
-    const clear = physical("clear", required + 0.001, registry);
-    const pressing = physical("pressing", required - intrusionM, registry);
-    try {
-      fallen.port.beginControlStep();
-      fallen.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
-      fallen.port.beginControlStep();
-      for (let step = 0; step < 5 && fallen.port.state === "fallen"; step += 1) {
-        fallen.port.updatePairOccupancy(clear.port);
-        advance(fallen.port, 0.1, STOP);
+  const riser = physical("riser", 0, registry);
+  const follower = physical("follower", 1.2, registry);
+  const dt = 1 / 60;
+  try {
+    riser.port.beginControlStep();
+    follower.port.beginControlStep();
+    riser.port.queueStabilityEvent({ horizontalShoveNs: [1, 0] });
+    riser.port.beginControlStep();
+    assert.equal(riser.port.state, "fallen", "the fixture did not knock the body down");
+    const back = { ...STOP, localRight: -1 };
+    const seen = new Set();
+    let heldAt = null;
+    for (let step = 0; step < 6 / dt && riser.port.state !== "supported"; step += 1) {
+      riser.port.request(back);
+      follower.port.request(back);
+      assert.equal(resolvePhysicalSupportedPair(riser.port, follower.port, dt), true);
+      riser.port.beginControlStep();
+      follower.port.beginControlStep();
+      seen.add(riser.port.state);
+      if (riser.port.state === "rising") {
+        const at = riser.port.proposal(dt).prior;
+        heldAt ??= { x: at.x, z: at.z };
+        assert.ok(Math.hypot(at.x - heldAt.x, at.z - heldAt.z) < 1e-9,
+          `the rising carrier walked ${Math.hypot(at.x - heldAt.x, at.z - heldAt.z).toFixed(4)} m off its rise`);
       }
-      assert.equal(fallen.port.state, "rising", "the clear body never rose");
-      assert.equal(fallen.port.riseGate().relocated, false, "the fixture's rise must be where it lies");
-      fallen.port.updatePairOccupancy(pressing.port);
-      advance(fallen.port, 0.05, STOP);
-      return { state: fallen.port.state, abort: fallen.port.riseGate()?.riseAbort ?? null };
-    } finally { fallen.port.dispose(); clear.port.dispose(); pressing.port.dispose(); }
-  };
-  assert.ok(RECOVERY_SEPARATION_MARGIN_M > 0.005 && RECOVERY_SEPARATION_MARGIN_M < 0.03);
-  assert.deepEqual(rise(0.005), { state: "rising", abort: null }, "a touch put the rise down");
-  assert.deepEqual(rise(0.03), { state: "fallen", abort: "refused" }, "a body inside the margin did not");
+    }
+    assert.ok(seen.has("rising"), "the body never began to rise");
+    assert.equal(riser.port.riseGate()?.riseAbort ?? null, null, "a rise was put back down");
+    assert.equal(riser.port.state, "supported", "the body never got up");
+  } finally { riser.port.dispose(); follower.port.dispose(); }
 });
 
 test("an_occupied_recovery_with_no_clear_ground_in_reach_is_refused", () => {

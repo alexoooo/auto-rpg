@@ -106,12 +106,20 @@ getting up", with its harness. What differs from the plan above:
   0.08: a grounded body keeps its whole command.
 - **The target was missed: 347 skeleton episodes ran over 5 s, and 87 of them were not struck
   through.** The census learnt to name what put each rise back down (`RiseAbort` on the port's rise
-  diagnostic). It showed that most refusals were a touch. The other footprint sat inside the rise's
-  target by under a centimetre, because the pair resolver holds two footprints exactly in contact
-  and the gate judged a rise under way against zero clearance. **The repair is hysteresis:** a rise
-  under way is refused only by a footprint more than `RECOVERY_SEPARATION_MARGIN_M` (2 cm) inside
-  its target, while a rise still has to clear the footprint by that margin to begin
-  (`a_rise_survives_a_touching_footprint_and_is_put_down_by_one_inside_its_margin`). It landed
-  after session 03's view change, so its census is session 03's.
+  diagnostic). Most were refused because the other footprint sat just inside the rise's target.
+  - **The first repair treated a symptom.** 7429947 read the overlap as rounding at the pair
+    resolver's exact contact, and let a rise under way keep going until a footprint was 2 cm inside.
+    The refusals came back at 2 to 5 cm once session 03's finishers stood closer.
+  - **The cause was the rising body's own carrier.** The port gave a rising carrier the mind's walk
+    request. Since this session, a grounded body keeps its whole command, so the carrier walked off
+    the fixed rise target, and the other body followed it at exact contact into the spot the rise was
+    bound for. A diagnostic build found the carrier off its target at nearly every refusal. The
+    repair holds a rising carrier still, as a fallen one already was, and reverts the hysteresis
+    (`a_rising_body_that_is_asked_to_walk_keeps_its_carrier_on_its_rise_and_gets_up`).
+  - Both landed after session 03's view change, so their census is session 03's. After them, stone
+    has one episode over 5 s and the giant group two, none struck through (no ground, and a wall).
+    The skeleton has 363, of which 304 were struck through. The other 59 waited out the settle again
+    after a *lying* skeleton's ragdoll moved into the rise target. That wait comes from the
+    skeleton's `Knockdown` table, which session 08 re-derives.
 - **The skeleton's knockdowns per bout rose past its band (4.85 to 5.36).** That is intended: a rise
   can now be put down. Damage and stone's band did not move.
