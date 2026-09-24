@@ -2,6 +2,9 @@ import type { GolemSetup } from "../bout.ts";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
+import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
+import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
+import { PhysicsActivationControl } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { Combat } from "../combat.ts";
 import { Golem } from "../golem/golem.ts";
 import { bodyFamily, FAMILY_POLICY } from "../golem/family.ts";
@@ -24,6 +27,8 @@ export interface DungeonActor {
   /** Where the body last made progress along its route, and when. */
   progress: { at: Point; since: number };
   meshes: { mesh: AbstractMesh; visible: boolean }[]; stopped: boolean;
+  /** Every physics body the golem was built with, and whether they are held asleep (`DORMANCY`). */
+  bodies: PhysicsBody[]; dormant: boolean;
 }
 /**
  * A body with a route that has not moved 50 mm, in any direction, in half a second has the route
@@ -37,6 +42,25 @@ export interface DungeonActor {
  * explorer sat on a room corner for 93 s without this, and needed exactly one replan with it.
  */
 const STALL = { seconds: 0.5, metres: 0.05 } as const;
+/** How far an enemy sees the hero along a clear line (`canSee`). */
+const SIGHT_METRES = 14;
+/**
+ * An enemy standing at home, unalerted and far from everybody awake, is taken out of the simulation:
+ * its bodies are held asleep in Havok, and the run neither observes, decides for nor drives it, which
+ * pauses that one body where it stands. It wakes before it could see the hero -- `wakeMetres` is
+ * beyond `SIGHT_METRES` -- and before a body walking up to it could reach it (`companyMetres`, about
+ * two arm reaches). The gap up to `sleepMetres` keeps a body on the boundary from toggling, and
+ * nothing sleeps in the first second, while bodies built in their bind pose settle onto their feet.
+ *
+ * What it buys, per 4.17 ms physics substep (Node headless harness, whole runs on generated levels
+ * 1-13 with 8 enemies and the hero exploring alone, each against the same run with this switched
+ * off): 0.58-2.98 ms against 1.30-3.90, a median of 0.57 of the cost. The owner's Firefox took
+ * 2.3-3.3 ms a substep before this, over half of real time, and a page that far behind falls further
+ * behind. Four of those runs end identically; the rest part in a fight, by a tenth of a micrometre at
+ * first, once a woken enemy joins it -- as they do when far enemies are merely nudged by 1e-4 N s.
+ */
+const DORMANCY = { sleepMetres: SIGHT_METRES + 4, wakeMetres: SIGHT_METRES + 2, companyMetres: 4,
+  homeMetres: 0.5, settleSeconds: 1 } as const;
 const direction = (from: Point, to: Point): Point => {
   const d = Math.max(0.001, distance(from, to)); return { x: (to.x - from.x) / d, z: (to.z - from.z) / d };
 };
@@ -55,6 +79,7 @@ export class DungeonRun {
   /** The camera's elevation, which decides how much ground a wall hides in front of the hero. The page sets it. */
   pitch = CAMERA_PITCH;
   private nextPerception = 0;
+  private readonly plugin: HavokPlugin;
   private commandRevision = -1;
   private dodgeUntil = 0;
   private dodgeCooldown = 0;
@@ -64,6 +89,7 @@ export class DungeonRun {
   constructor(scene: Scene, seed: number, heroBuild = "default", visuals = true, layout?: DungeonMap, heroSetup?: GolemSetup) {
     this.map = layout ?? generateLevel(seed).map;
     this.world = buildDungeonWorld(scene, this.map, visuals);
+    this.plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
     const definition = unitDefinition("golem"), random = mulberry32(seed ^ 0x9e3779b9);
     const create = (id: string, buildName: string, at: Point, side: "left" | "right") => {
       const build = namedBuild(buildName);
@@ -76,12 +102,14 @@ export class DungeonRun {
       const body = new Golem(scene, { actorId: id, side, origin: new Vector3(at.x, 0, at.z), facing: side === "left" ? 0 : Math.PI,
         setup, mind: source, controlPolicies: definition.driverOptions, locomotionWorld: this.world.registry });
       const combat = new Combat(side, body.strikers);
+      const made = scene.meshes.filter(mesh => !priorMeshes.has(mesh));
       const actor: DungeonActor = { id, name: buildName, body, combat, policy,
         get intent() { return intent; }, set intent(value) { intent = value; }, target: null,
         home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
         progress: { at: { ...at }, since: 0 },
         radius: body.locomotion.footprint.radiusM,
-        meshes: scene.meshes.filter(mesh => !priorMeshes.has(mesh)).map(mesh => ({ mesh, visible: mesh.isVisible })), stopped: false };
+        meshes: made.map(mesh => ({ mesh, visible: mesh.isVisible })), stopped: false,
+        bodies: made.flatMap(mesh => mesh.physicsBody ? [mesh.physicsBody] : []), dormant: false };
       this.actors.push(actor); return actor;
     };
     this.hero = create("hero", heroBuild, this.map.start, "left");
@@ -124,7 +152,7 @@ export class DungeonRun {
     this.visible = reveal(this.map, heroAt, this.explored);
     for (const actor of this.actors.slice(1)) {
       if (!actor.body.alive) { actor.target = null; continue; }
-      if (canSee(this.map, actor.body.feetPosition(), heroAt, 14)) {
+      if (canSee(this.map, actor.body.feetPosition(), heroAt, SIGHT_METRES)) {
         actor.lastSeen = { x: heroAt.x, z: heroAt.z }; actor.alertedUntil = this.clock + 7;
         actor.target = this.hero;
       } else actor.target = null;
@@ -231,6 +259,37 @@ export class DungeonRun {
     return move;
   }
 
+  /**
+   * Puts to sleep, and wakes, the enemies nobody is near (`DORMANCY`). Company is a body going
+   * somewhere: the hero, or an enemy that is not resting at home. Two resting neighbours are none to
+   * each other, so a pair sleeps together rather than holding each other awake, and one that arrives
+   * home beside a sleeper does not wake it and fall asleep in the same step, over and over.
+   */
+  private rest(): void {
+    if (this.clock < DORMANCY.settleSeconds) return;
+    const resting = (actor: DungeonActor) => {
+      const state = actor.body.locomotion.state;
+      return actor !== this.hero && !actor.target && actor.alertedUntil <= this.clock && state !== "fallen" &&
+        state !== "rising" && distance(actor.body.feetPosition(), actor.home) < DORMANCY.homeMetres;
+    };
+    const company = this.actors.filter(a => a.body.alive && !a.dormant && !resting(a)).map(a => a.body.feetPosition());
+    const near = (at: Point, metres: number) => company.some(other => distance(other, at) < metres);
+    const heroAt = this.hero.body.feetPosition();
+    for (const actor of this.actors) {
+      if (actor === this.hero || !actor.body.alive) continue;
+      const at = actor.body.feetPosition(), fromHero = distance(at, heroAt);
+      if (actor.dormant) {
+        if (fromHero < DORMANCY.wakeMetres || near(at, DORMANCY.companyMetres)) this.setDormant(actor, false);
+      } else if (fromHero > DORMANCY.sleepMetres && resting(actor) && !near(at, DORMANCY.companyMetres + 1)) this.setDormant(actor, true);
+    }
+  }
+
+  private setDormant(actor: DungeonActor, dormant: boolean): void {
+    actor.dormant = dormant;
+    const mode = dormant ? PhysicsActivationControl.ALWAYS_INACTIVE : PhysicsActivationControl.SIMULATION_CONTROLLED;
+    for (const body of actor.bodies) this.plugin.setActivationControl(body, mode);
+  }
+
   step(dt: number): void {
     if (this.status !== "playing") return;
     this.clock += dt;
@@ -240,16 +299,18 @@ export class DungeonRun {
       this.notice = this.commands.order.kind === "force" ? "Force move — following your drawn route" : "Find the illuminated exit.";
     }
     this.world.openNearby(this.actors.filter(a => a.body.alive).map(a => a.body.feetPosition()));
+    this.rest();
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + 0.2; }
+    const live = this.actors.filter(actor => !actor.dormant);
     // Observe everybody before deciding or driving anybody. No fake opponent for exploration.
-    for (const actor of this.actors) actor.body.observe(actor.target?.body ?? null, this.clock);
+    for (const actor of live) actor.body.observe(actor.target?.body ?? null, this.clock);
     // What each body's neighbours press on it with, before any boundary reads it. The dungeon's group
     // resolver has no pair push (`resolvePhysicalSupportedPair` has), so a body walked into here
     // is stopped rather than shoved; an arm's press reaches it all the same.
-    const sources = this.actors.map((actor) => actor.body.pressSource());
-    this.actors.forEach((actor, i) => actor.body.sampleContactPress(sources.filter((_, j) => j !== i)));
-    for (const actor of this.actors) actor.body.locomotion.beginControlStep();
-    for (const actor of this.actors) {
+    const sources = live.map((actor) => actor.body.pressSource());
+    live.forEach((actor, i) => actor.body.sampleContactPress(sources.filter((_, j) => j !== i)));
+    for (const actor of live) actor.body.locomotion.beginControlStep();
+    for (const actor of live) {
       if (!actor.body.alive) {
         if (!actor.stopped) { actor.combat.stop(); actor.body.stopFighting(); actor.stopped = true; }
         continue;
@@ -276,8 +337,11 @@ export class DungeonRun {
       actor.body.control.driver.step(dt);
       actor.combat.advance(dt);
     }
-    resolveDungeonLocomotion(this.actors.map(a => a.body.locomotion), dt);
-    for (const actor of this.actors) actor.body.afterLocomotion(dt);
+    // A sleeper's combat clock keeps time: a limb's hit cooldown is stamped with its attacker's clock
+    // and read against the next attacker's, so every clock must read the same.
+    for (const actor of this.actors) if (actor.dormant) actor.combat.advance(dt);
+    resolveDungeonLocomotion(live.map(a => a.body.locomotion), dt);
+    for (const actor of live) actor.body.afterLocomotion(dt);
     if (!this.hero.body.alive) this.status = "dead";
     else if (distance(this.hero.body.feetPosition(), this.map.exit) < 1.1) this.status = "won";
   }

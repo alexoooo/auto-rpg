@@ -204,6 +204,75 @@ test("force movement goes around an occupied floor point instead of stopping to 
   } finally { run.dispose(); arena.dispose(); }
 });
 
+test("an_enemy_nobody_is_near_sleeps_and_wakes_before_it_could_see_the_hero", async () => {
+  // One enemy, at the centre of the room 22.6 m from the start: beyond `DORMANCY.sleepMetres` (18),
+  // so it sleeps once the first second is out. The hero then walks to it through the room at (25, 9).
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const map = classicDungeon(42); map.spawns = [{ x: 25, z: 25 }];
+  const run = new DungeonRun(arena.scene, 42, "default", false, map);
+  try {
+    const enemy = run.actors[1], apart = () => distance(run.hero.body.feetPosition(), enemy.body.feetPosition());
+    const frame = () => { arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60); };
+    arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / CONFIG.world.physicsHz));
+    for (let i = 0; i < 60 * 1.5; i++) frame();
+    assert.ok(enemy.dormant, `an unalerted enemy ${apart().toFixed(1)} m away, at home, is awake`);
+    assert.ok(enemy.body.limbs.every(limb => enemy.bodies.includes(limb.part.body)), "the sleeping enemy's bodies were not all collected");
+    // Every body of it, to the bit: a sleeping enemy that still drifted would be simulated after all.
+    const pose = () => enemy.bodies.map(body => [...body.transformNode.position.asArray(), ...body.transformNode.rotationQuaternion.asArray()]);
+    const held = pose();
+    for (let i = 0; i < 60; i++) frame();
+    assert.deepEqual(pose(), held, "a sleeping enemy's bodies moved");
+    assert.ok(enemy.body.view.clock < run.clock - 0.5, "a sleeping enemy is still observed and driven every step");
+    run.commands.order = { kind: "force", points: [{ x: 25, z: 9 }, { x: 25, z: 25 }], drawing: false }; run.commands.revision++;
+    // Read after every substep rather than every frame: a body that woke and slept again inside one
+    // frame is invisible to a frame-rate reading.
+    let wokeAt = null, wakes = 0, sleptInSight = null, was = enemy.dormant;
+    arena.scene.onAfterPhysicsObservable.add(() => {
+      if (was && !enemy.dormant) { wakes++; wokeAt ??= apart(); }
+      if (enemy.dormant && apart() <= 14) sleptInSight ??= apart();
+      was = enemy.dormant;
+    });
+    for (let i = 0; i < 60 * 30 && !enemy.target; i++) frame();
+    assert.equal(sleptInSight, null, `the enemy slept ${sleptInSight?.toFixed(1)} m from the hero, within its sight`);
+    assert.ok(wokeAt !== null && wokeAt > 14, `the enemy woke at ${wokeAt?.toFixed(1)} m`);
+    assert.equal(wakes, 1, "the enemy went back to sleep as the hero came on");
+    assert.equal(enemy.target, run.hero, "the woken enemy never saw the hero");
+    // Woken, it is a working body: it leaves home for the hero.
+    for (let i = 0; i < 60 * 6 && distance(enemy.body.feetPosition(), enemy.home) < 1; i++) frame();
+    assert.ok(distance(enemy.body.feetPosition(), enemy.home) >= 1, "the woken enemy never left home");
+    assert.ok(enemy.body.alive && Number.isFinite(enemy.body.feetPosition().x));
+    assert.equal(enemy.combat.now, run.hero.combat.now, "the enemy's combat clock lost the time it slept");
+  } finally { run.dispose(); arena.dispose(); }
+});
+
+test("a_sleeper_wakes_for_a_neighbour_walking_up_and_the_pair_sleeps_once_both_are_home", async () => {
+  // Two enemies far from the hero: one at home in the room at (25, 25), 22.6 m from the start, and
+  // one sent from the room at (41, 25) to a home 3 m from the first, so that it walks up to a sleeper.
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const map = classicDungeon(42); map.spawns = [{ x: 25, z: 25 }, { x: 41, z: 25 }];
+  const run = new DungeonRun(arena.scene, 42, "default", false, map);
+  try {
+    const [, sleeper, walker] = run.actors, home = { x: 28, z: 25 };
+    assert.ok(walkable(map, home, walker.radius), "the walker's new home is not open floor");
+    walker.home = home;
+    let wakes = 0, wokeBeside = null, was = sleeper.dormant;
+    arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / CONFIG.world.physicsHz));
+    arena.scene.onAfterPhysicsObservable.add(() => {
+      if (was && !sleeper.dormant) { wakes++; wokeBeside ??= distance(sleeper.body.feetPosition(), walker.body.feetPosition()); }
+      was = sleeper.dormant;
+    });
+    const frame = () => { arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60); };
+    for (let i = 0; i < 60 * 1.5; i++) frame();
+    assert.ok(sleeper.dormant && !walker.dormant, "the sleeper is awake, or the walker asleep before it set out");
+    for (let i = 0; i < 60 * 40 && !(walker.dormant && sleeper.dormant && wakes); i++) frame();
+    assert.equal(wakes, 1, "the sleeper did not wake exactly once for the body walking up to it");
+    assert.ok(wokeBeside < 4, `the sleeper woke with the walker ${wokeBeside?.toFixed(1)} m away`);
+    assert.ok(walker.dormant && sleeper.dormant, "two neighbours resting at home kept each other awake");
+    assert.equal(sleeper.combat.now, run.hero.combat.now);
+    assert.equal(walker.combat.now, run.hero.combat.now);
+  } finally { run.dispose(); arena.dispose(); }
+});
+
 test("a_footprint_that_starts_inside_the_dungeon_solid_may_leave_it_and_nothing_else", async () => {
   // Physical contact session 02: a body fallen against a dungeon wall rises off it. The solid's sweep
   // used to refuse any path that began inside it; now a path is clear once it is clear and must end
