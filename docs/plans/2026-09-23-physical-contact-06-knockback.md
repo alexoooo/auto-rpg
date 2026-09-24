@@ -49,3 +49,33 @@ part. A parry, blade on blade, shoves nothing through that path.
 - **The stun-lock figures from 02**, reported: parries now push, and a rising body can be driven
   back down.
 - **The idle-dummy matrix from 01.**
+
+## What landed, 2026-09-24
+
+Every figure is in `docs/analysis/2026-09-23-attribute-measurements.md` "Physical contact 06:
+knockback from momentum transfer", with its harness. One commit, 134b867. What differs from the plan
+above:
+
+- **Nothing is applied to the body.** The solver has already pushed it by the time a collision
+  callback runs: over 94 wounding contacts, the struck body's momentum along the blow moved by a
+  median 0.23 of `J`, and that is buried in the 5.92 N.s a quiet frame moves it by. An applied
+  `J / M` would have been a second, authored push. The ledger reads `J` and applies nothing.
+- **Restitution is 0**, an inelastic contact, and `J = mu v_n` is `contactImpulseNs` in
+  `src/scoring.ts`.
+- **The ledger's three lines were scaled by one factor, 20**, read off stone x1 mirrors: `J` is
+  about ten times the authored shove per wounding blow and is filed on every contact and parry.
+  Stone's x1 knockdowns are back in session 01's band (4.95 [4.60, 5.29] against 4.93 [4.54, 5.32]).
+  The constants say this is the holding repair that session 08 replaces.
+- **Change 5 was already done.** The wheel and the multileg have carried their load since
+  66ee353.
+- **Parries push**, through the same transfer into the plate's owner.
+- **Three fixtures moved and no assertion did**: the stability search in
+  `tests/research-physical.test.mjs` now stops on the champion (twice, 1.62 s down), the soft-body
+  search moved to seeds 64 and 65, and the contact counts are re-pinned.
+- **The giant now fells the x1 body 7.06 times a bout, against 0.01 the other way**, and wins
+  98.4 %. Size and weight alone went from 77.6 % to 92.2 %. The x1 body spends half of a bout
+  against the max giant down.
+- **Stun-lock**: against the giant, 71.6 % of knockdowns come within 2 s of a rise, in chains of up
+  to 18. On stone the share went from 47.0 % to 54.4 %. Both are on session 10's eye list, with no
+  authored cure.
+- **The idle-dummy matrix did not move**: every outright rate is within a block of session 05's.

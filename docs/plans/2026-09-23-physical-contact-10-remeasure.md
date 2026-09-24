@@ -89,6 +89,13 @@ the build and what to look for.
     moving at about 21 m/s. Check whether a drawn cut near the hilt reads as a blow;
   - **the human at half its pace.** Its light arm couples less than its blade declared (0.74 of it
     at the median contact), so its sword summed x0.51. Session 09 owns its stand-off.
+- **06:**
+  - no authored push is left: a blow moves a body by what the solver does with it, and a fall comes
+    from the ledger. Check that a blade still reads as pushing;
+  - a parry pushing the parrying body back;
+  - stone mirrors spend about 21 % of a bout down, both bodies;
+  - the x1 body against the max giant, down for half the bout;
+  - the giant's stun-lock chains, up to 18 knockdowns each within 2 s of the rise before.
 - **07:**
   - the all-max giant lifting and launching a x1 from below;
   - pushing one back;
@@ -224,5 +231,17 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   summed pace is x0.20. It had always declared the mass behind its plate, and every arm gained its
   chain for the first time. The lever is `HEAD_RAM.lunge.driveTorque`, which is left for a session
   that sets the ram's pace on purpose. The ram's test now pins the lunge as a shove.
+- **06, nothing is applied to a struck body.** The solver pushes it already, and what `J` would
+  add on top was measured at 0.23 of `J` against a quiet frame's 5.92 N.s of motion. The transfer
+  goes to the ledger only. `Combat.transfer` in `src/combat.ts`. To reverse, apply `J` at the
+  struck point there.
+- **06, restitution 0.** Session 01's impact bench read every impulsive stroke off a free sphere at
+  -0.17 to +0.09, median -0.02, which brackets zero; the whip's 0.27 is a rope's rebound and is left
+  out. `CONTACT_RESTITUTION` in `src/scoring.ts`, one constant for every pair.
+- **06, one factor for all three ledger lines**, 20, read off stone x1 knockdowns. The decay is
+  scaled with the two thresholds because it is in the same units. `SUPPORTED_LOCOMOTION_V1` in
+  `src/supported-locomotion-state.ts`, with the sweep. Session 08 replaces the ledger.
+- **06, fixtures moved with the push.** The searches in `tests/research-physical.test.mjs` take the
+  seeds and the mind they now stop on, and every count is re-pinned rather than loosened.
 - **05, the capped socket's shove is accepted as physics.** Its summed damage on the same contacts
   is x40: a bare cap bolted to a 250 kg body arrives with a median 79 kg behind it. On the eye list.
