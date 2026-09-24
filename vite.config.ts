@@ -14,7 +14,7 @@ export default defineConfig({
     watch: { ignored: ["**/research/runs/**", "**/.review/**"] },
     // Transform the browser entry graphs at server startup, before navigation
     // has to discover and wait on each level of their imports.
-    warmup: { clientFiles: ["./src/main.ts", "./src/bench/main.ts", "./src/art-proof/main.ts"] },
+    warmup: { clientFiles: ["./src/app.ts", "./src/main.ts", "./src/dungeon/main.ts", "./src/bench/main.ts", "./src/art-proof/main.ts"] },
   },
   // Havok ships a .wasm beside its ESM bundle; Vite must not try to inline it.
   assetsInclude: ["**/*.wasm"],
@@ -25,6 +25,7 @@ export default defineConfig({
     // fine in dev -- where every request is served from source -- and is simply absent from
     // `dist`, which is the failure that looks like a routing problem and is a config one.
     // `bench.html` is the golem effector bench.
+    // `dungeon.html` only forwards to `./?play=dungeon`; it is kept so old links do not 404.
     rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html", dungeon: "dungeon.html" } },
   },
 });

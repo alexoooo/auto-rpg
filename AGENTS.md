@@ -29,9 +29,12 @@ npm run preview
 The five scripts after `npm ci` are the whole of `package.json`'s `scripts`. **Four pages come up
 on that one server**, and all four are named in `vite.config.ts`'s `rollupOptions.input` because
 Vite's default input is `index.html` alone -- a second page that works in dev and is absent from
-`dist` is a config failure wearing a routing failure's clothes. `/` is the arena;
+`dist` is a config failure wearing a routing failure's clothes. `/` is the game: one document,
+`index.html` with the entry `src/app.ts`, holding the main menu, the arena at `?play=arena` (an
+arena link, `?matchup=`, opens it directly) and the dungeon at `?play=dungeon`, each screen a
+`<template>` mounted once per page load. `/dungeon.html` only forwards to `./?play=dungeon`;
 `/bench.html` is the module bench, one module on a stand or an effector in each socket;
-`/dungeon.html` is the dungeon mode; `/art-proof.html` is the golem art proof.
+`/art-proof.html` is the golem art proof.
 
 **The headless harness is `tests/harness/`.** `bout-runner.mjs` exports `freshHavok`,
 `createBout` and `runBout`, and the tests and `research/` both run bouts through it;

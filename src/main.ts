@@ -57,6 +57,7 @@ import {
 } from "./units";
 import type { HumanDriverSource } from "./control-host";
 import { randomSeed } from "./rng";
+import { MENU_HREF } from "./app-route";
 import { fittedPolicy, randomCorner } from "./random-corner.ts";
 import {
   begin,
@@ -185,6 +186,7 @@ async function boot(): Promise<void> {
   const boutEndRandom = need<HTMLButtonElement>("bout-end-random");
   const boutEndLeave = need<HTMLButtonElement>("bout-end-leave");
   const leaveButton = need<HTMLButtonElement>("leave");
+  need<HTMLButtonElement>("to-menu").addEventListener("click", () => window.location.assign(MENU_HREF));
   const helpPanel = need("help");
   const helpClose = need<HTMLButtonElement>("help-close");
   const helpOpen = need<HTMLButtonElement>("help-open");
@@ -1653,12 +1655,15 @@ async function boot(): Promise<void> {
   presentation.showPaused(false);
 }
 
-boot().catch((error: unknown) => {
-  const note = document.getElementById("boot-note");
-  if (note) {
-    note.classList.add("error");
-    note.textContent = error instanceof Error ? error.message : String(error);
-  }
-  // eslint-disable-next-line no-console
-  console.error(error);
-});
+/** Called by `src/app.ts` once the arena's screen is mounted. Importing this module boots nothing. */
+export function bootArena(): Promise<void> {
+  return boot().catch((error: unknown) => {
+    const note = document.getElementById("boot-note");
+    if (note) {
+      note.classList.add("error");
+      note.textContent = error instanceof Error ? error.message : String(error);
+    }
+    // eslint-disable-next-line no-console
+    console.error(error);
+  });
+}

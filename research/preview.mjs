@@ -3,9 +3,14 @@ import { join, relative } from "node:path";
 import { validateCandidate } from "../src/golem/research-candidates.ts";
 import { ROOT } from "./fingerprint.mjs";
 
+/**
+ * The real game document with its entry replaced by one that registers the candidates and then
+ * imports the entry. Leaving the arena leaves the preview; its Main menu opens the real game,
+ * whatever the address bar says.
+ */
 export function previewHtml(template, candidates) {
   for (const candidate of candidates) validateCandidate(candidate);
-  const entry = '<script type="module" src="/src/main.ts"></script>';
+  const entry = '<script type="module" src="/src/app.ts"></script>';
   if (template.split(entry).length !== 2) throw new Error("arena template must have exactly one known module entry");
   const data = JSON.stringify(candidates).replaceAll("<", "\\u003c");
   return template.replace(entry, `<script type="module">
@@ -19,7 +24,7 @@ export function previewHtml(template, candidates) {
         create: (seed = (Math.random() * 0x100000000) >>> 0) => candidateMind(candidate, seed),
       });
     }
-    await import('/src/main.ts');
+    await import('/src/app.ts');
     document.title = 'AI candidate review — Golem Duel';
   </script>`);
 }
@@ -33,5 +38,5 @@ export function writePreview(directory, manifest) {
   }
   if (!confirmation.eligible.length) throw new Error("no statistically eligible candidates to review");
   writeFileSync(join(directory, "preview.html"), previewHtml(readFileSync(join(ROOT, "index.html"), "utf8"), confirmation.eligible));
-  return `http://localhost:5180/${relativeDirectory.split("/").map(encodeURIComponent).join("/")}/preview.html`;
+  return `http://localhost:5180/${relativeDirectory.split("/").map(encodeURIComponent).join("/")}/preview.html?play=arena`;
 }

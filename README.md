@@ -14,12 +14,12 @@ This repository is the whole game. See [AGENTS.md](AGENTS.md) for the working no
 
 ## Play online
 
-[Play the game](https://alexoooo.github.io/auto-rpg/) in your browser.
+[Play the game](https://alexoooo.github.io/auto-rpg/) in your browser: the link opens the main menu.
 The [module bench](https://alexoooo.github.io/auto-rpg/bench.html) is also available.
 
 ## Dungeon mode — The Depths
 
-Choose **Enter the Depths** from arena setup, or open `/dungeon.html`. Pick a golem and a seed,
+Choose **New Game** from the main menu. Pick a golem and a seed,
 then explore a generated floor of seven rooms with eight enemy golems. Doors open on approach;
 reach the green exit circle to win. Wounds persist until the run ends. Retry preserves the seed
 and build; New dungeon generates another floor. This mode has no saved progression or loot.
@@ -56,7 +56,7 @@ npm ci        # not `npm install` -- exact lockfile, identical on every machine
 npm run dev   # http://localhost:5180, strictPort
 ```
 
-Then open <http://localhost:5180/>, pick a matchup, and press **Fight**. Everything the page
+Then open <http://localhost:5180/>, choose **Arena**, pick a matchup, and press **Fight**. Everything the page
 needs is committed, so a fresh clone runs with no download step.
 
 To confirm the tree is sound without opening a browser:

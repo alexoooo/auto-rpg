@@ -1,0 +1,25 @@
+/* The main menu, in the arena setup screen's Georgia and gold on dark stone. src/app.ts loads this
+   sheet on every screen, so every rule is scoped under #title-screen -- except .app-error, which is
+   app.ts's own failure panel and has to show over any screen. */
+#title-screen {
+  position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 48px;
+  margin: 0; color: #e8dcc0; font-family: Georgia, serif;
+  background: radial-gradient(ellipse at 50% 38%, #221e18 0%, #0c0b0a 72%);
+}
+#title-screen h1 {
+  margin: 0; font-size: 76px; font-weight: 400; letter-spacing: .14em; font-variant: small-caps;
+  color: #d9bb80; text-shadow: 0 2px 28px #000;
+}
+#title-screen nav { display: grid; gap: 14px; width: 270px; }
+#title-screen button {
+  font: 22px Georgia, serif; letter-spacing: .08em; padding: 14px 0; cursor: pointer;
+  color: #e8dcc0; background: #1a1714; border: 1px solid #6b5a3a; border-radius: 2px;
+}
+#title-screen button:hover, #title-screen button:focus-visible {
+  color: #fff3d6; background: #27211a; border-color: #d9bb80; outline: none;
+}
+.app-error {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; padding: 18px 24px; text-align: center;
+  color: #f0d6c8; background: #2a1210ee; font: 14px Georgia, serif;
+}
+.app-error a { color: #d9bb80; }

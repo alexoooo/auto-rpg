@@ -1151,6 +1151,8 @@ body:has(#curtain:not(.gone)) #direct-controls {
 
 .pause-actions {
   display: flex;
+  /* Five buttons need about 400 px of the bar: a narrow window wraps whole buttons. */
+  flex-wrap: wrap;
   gap: 7px;
 }
 

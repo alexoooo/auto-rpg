@@ -252,4 +252,7 @@ async function boot(): Promise<void> {
   import.meta.hot?.dispose(dispose);
   need("notice").textContent = "Choose your golem and enter the depths.";
 }
-boot().catch(error => { need("notice").textContent = `Dungeon could not start: ${String(error)}`; start.textContent = "Unable to start"; console.error(error); });
+/** Called by `src/app.ts` after the dungeon's screen is mounted: this module's top level reads it. */
+export function bootDungeon(): Promise<void> {
+  return boot().catch(error => { need("notice").textContent = `Dungeon could not start: ${String(error)}`; start.textContent = "Unable to start"; console.error(error); });
+}

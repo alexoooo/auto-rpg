@@ -223,10 +223,10 @@ test("promotion requires both confirmed improvement and review of the exact para
 });
 
 test("candidate previews preserve the real arena document and refuse a missing entry", () => {
-  const template = '<main id="curtain">Arena</main><script type="module" src="/src/main.ts"></script>';
+  const template = '<main id="curtain">Arena</main><script type="module" src="/src/app.ts"></script>';
   const result = previewHtml(template, []);
   assert.ok(result.startsWith('<main id="curtain">Arena</main>'));
-  assert.match(result, /await import\('\/src\/main.ts'\)/);
+  assert.match(result, /await import\('\/src\/app.ts'\)/);
   assert.throws(() => previewHtml("<main>Missing entry</main>", []), /exactly one/);
   assert.throws(() => previewHtml(template + template, []), /exactly one/);
 });

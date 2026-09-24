@@ -3,103 +3,165 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Golem Duel · The Forge</title>
-    <link rel="stylesheet" href="/src/style.css" />
-    <link rel="stylesheet" href="/src/forge-ui.css" />
+    <title>Auto-RPG</title>
+    <!-- Before any stylesheet arrives: every screen change is a page load, and this keeps it dark. -->
+    <style>
+      html, body { margin: 0; background: #0a0b0e; color-scheme: dark; }
+    </style>
   </head>
   <body>
-    <canvas id="stage"></canvas>
-    <div id="hud"></div>
-    <div id="mode"></div>
-    <div id="direct-controls" aria-label="Direct body controls">
-      <label><input id="own-posture" type="checkbox" /> direct posture</label>
-      <label><input id="own-wrist" type="checkbox" /> direct wrist</label>
-    </div>
-    <!-- Setup replaces the arena because no bout exists yet. Pause does not:
-         its compact sibling below leaves the frozen arena visible. -->
-    <!-- One grid over the live arena: a title across the top, a contender panel at each edge, an
-         open centre where the two bodies stand, Fight under them and a footer. -->
-    <div id="curtain">
-      <header class="duel-title">
-        <h1>Golem Duel</h1>
-        <p>Two bodies built from parts, and a fight that is only physics.</p>
+    <!-- One document, three screens. src/app.ts mounts exactly one of these per page load, so
+         the arena and the dungeon may share ids (#help, #resume) and never meet. -->
+    <template id="menu-screen">
+      <main id="title-screen">
+        <h1>Auto-RPG</h1>
+        <nav aria-label="Main menu">
+          <button id="menu-new-game" type="button">New Game</button>
+          <button id="menu-arena" type="button">Arena</button>
+        </nav>
+      </main>
+    </template>
+    <template id="arena-screen">
+      <canvas id="stage"></canvas>
+      <div id="hud"></div>
+      <div id="mode"></div>
+      <div id="direct-controls" aria-label="Direct body controls">
+        <label><input id="own-posture" type="checkbox" /> direct posture</label>
+        <label><input id="own-wrist" type="checkbox" /> direct wrist</label>
+      </div>
+      <!-- Setup replaces the arena because no bout exists yet. Pause does not:
+           its compact sibling below leaves the frozen arena visible. -->
+      <!-- One grid over the live arena: a title across the top, a contender panel at each edge, an
+           open centre where the two bodies stand, Fight under them and a footer. -->
+      <div id="curtain">
+        <header class="duel-title">
+          <h1>Golem Duel</h1>
+          <p>Two bodies built from parts, and a fight that is only physics.</p>
+        </header>
+        <!-- Filled by src/setup.ts from the unit and policy registries, so an option that is
+             offered is one the code actually has. Its children are laid straight into this grid. -->
+        <div id="matchup"></div>
+        <button id="begin" class="action" type="button">Fight</button>
+        <footer class="duel-footer">
+          <button id="help-open" class="link" type="button">How to play</button>
+          <p class="note" id="boot-note">Loading Havok&hellip;</p>
+          <a href="./">&larr; Main menu</a>
+        </footer>
+      </div>
+      <!-- Real-time-with-pause mode: a control surface in the game view, not a
+           second screen. Focus loss (including a screenshot tool taking focus)
+           freezes the world and reveals this without covering the composition. -->
+      <aside id="pause-menu" class="gone" aria-label="Game paused">
+        <div class="pause-copy">
+          <strong>PAUSED</strong>
+          <span>Arena frozen &middot; Space or Esc resumes</span>
+        </div>
+        <div class="pause-actions">
+          <button id="resume" class="action" type="button">Resume</button>
+          <button id="restart" class="action quiet" type="button">Replay</button>
+          <button id="random-replay" class="action quiet" type="button">Random replay</button>
+          <button id="leave" class="action quiet" type="button">Setup</button>
+          <button id="to-menu" class="action quiet" type="button">Main menu</button>
+        </div>
+        <span class="pause-help"><b>?</b> controls</span>
+      </aside>
+      <!-- The end of a bout: the same fight again, or the corner you do not drive redrawn. Its own
+           element, shown only while a bout is decided, and never the curtain or the pause menu. -->
+      <aside id="bout-end" class="gone" aria-label="Bout over">
+        <button id="bout-end-replay" class="action" type="button">Replay</button>
+        <button id="bout-end-random" class="action" type="button">Random replay</button>
+        <button id="bout-end-leave" class="action quiet" type="button">Setup</button>
+      </aside>
+      <!-- The controls, on their own overlay rather than on the curtain.
+           Seventeen rows above the Fight button pushed it off the bottom of a
+           laptop window and had to be scrolled past every time a bout was
+           chosen; `?` is where a key list belongs and it works mid-fight too. -->
+      <div id="help" class="gone">
+        <div class="panel">
+          <h1>Controls</h1>
+          <p class="lede">
+            The mouse belongs to the <b>arm</b>, not to the camera. Where the cursor sits in
+            the window is where that hand is asked to be, so the middle of the window is
+            always centre guard and the arm has a home you can find again.
+          </p>
+          <dl class="keys">
+            <dt>Mouse</dt><dd>moves one arm &mdash; the cursor is where that hand goes</dd>
+            <dt>W / S</dt><dd>walk forward and back</dd>
+            <dt>A / D</dt><dd>strafe</dd>
+            <dt>Q / E</dt><dd>turn</dd>
+            <dt>Left button</dt><dd>thrust &mdash; drive the point out</dd>
+            <dt>Right button</dt><dd>guard &mdash; pull the blade in close</dd>
+            <dt>L</dt><dd>lock on, then click an enemy &mdash; strafe to circle it</dd>
+            <dt>Middle drag</dt><dd>orbit the camera; hold Shift to pan</dd>
+            <dt>Shift / arrows</dt><dd>crouch, lean and twist when direct posture is checked</dd>
+            <dt>Z / X, T / Y, U / I</dt><dd>roll, bend, and (anatomical arms) turn the driven hand when direct wrist is checked</dd>
+            <dt>F</dt><dd>the mouse changes hands &mdash; the one it leaves goes back to its policy</dd>
+            <dt>C</dt><dd>take a body, then click either fighter &mdash; the one you leave picks its policy back up</dd>
+            <dt>Take / Let go</dt><dd>beside each fighter&rsquo;s name in the readout &mdash; drive that body, or hand yours back to its policy, in a fight or a pause</dd>
+            <dt>Wheel</dt><dd>zoom &mdash; the camera only; no fighter is asked for anything</dd>
+            <dt>V</dt><dd>camera &mdash; Overhead behind the fighter, or Fixed on a world bearing</dd>
+            <dt>[ / ]</dt><dd>swing the Fixed camera round the arena</dd>
+            <dt>Space / Esc</dt><dd>pause, and resume &mdash; the same key both ways</dd>
+            <dt>R</dt><dd>this bout again</dd>
+            <dt>Random replay</dt><dd>at a verdict or in the pause menu &mdash; the body you are not driving is redrawn</dd>
+            <dt>Tab</dt><dd>toggle the physics readout</dd>
+            <dt>G</dt><dd>the rig &mdash; collision shapes, anchors, joints and contacts</dd>
+            <dt>?</dt><dd>this list</dd>
+          </dl>
+          <h2>Policies</h2>
+          <!-- Filled by src/main.ts from `POLICIES` and `policyLine`, so the list is every policy
+               the pickers offer, in their order. -->
+          <dl class="keys policy-list" id="help-policies"></dl>
+          <button id="help-close" class="action" type="button">Close</button>
+        </div>
+      </div>
+    </template>
+    <template id="dungeon-screen">
+      <canvas id="dungeon" aria-label="Dungeon game" tabindex="0"></canvas>
+      <header class="topbar">
+        <a href="./" class="brand">AUTO-RPG <span>/ THE DEPTHS</span></a>
+        <div class="objective"><span class="diamond">◇</span> FIND THE EXIT <small id="seed-label"></small></div>
+        <button id="pause-button" type="button">Pause <kbd>Esc</kbd></button>
       </header>
-      <!-- Filled by src/setup.ts from the unit and policy registries, so an option that is
-           offered is one the code actually has. Its children are laid straight into this grid. -->
-      <div id="matchup"></div>
-      <button id="begin" class="action" type="button">Fight</button>
-      <footer class="duel-footer">
-        <button id="help-open" class="link" type="button">How to play</button>
-        <p class="note" id="boot-note">Loading Havok&hellip;</p>
-        <a href="./dungeon.html">Enter the Depths &rarr;</a>
+      <section id="target-panel" hidden aria-label="Selected enemy"><span id="target-name"></span><progress id="target-hp" max="1" value="1"></progress></section>
+      <div id="notice" role="status">Preparing the dungeon…</div>
+      <footer class="bottom-bar">
+        <section class="hero-panel"><span class="eyebrow">YOUR GOLEM</span><strong id="hero-name">Stone wanderer</strong><small id="hero-attributes-line"></small>
+          <div class="health"><progress id="hero-hp" max="1" value="1"></progress><span id="hp-label">100% HP</span></div>
+        </section>
+        <section class="control-panel"><span class="eyebrow">TAKE CONTROL</span>
+          <div class="switches"><label><input id="keyboard" type="checkbox" /> Keyboard movement</label><label><input id="facing" type="checkbox" /> Mouse facing</label></div>
+          <small id="control-help">Click to attack-move · click an enemy to lock on · drag to force move</small>
+        </section>
+        <button id="help-button" type="button" aria-expanded="false">Controls <kbd>?</kbd></button>
       </footer>
-    </div>
-    <!-- Real-time-with-pause mode: a control surface in the game view, not a
-         second screen. Focus loss (including a screenshot tool taking focus)
-         freezes the world and reveals this without covering the composition. -->
-    <aside id="pause-menu" class="gone" aria-label="Game paused">
-      <div class="pause-copy">
-        <strong>PAUSED</strong>
-        <span>Arena frozen &middot; Space or Esc resumes</span>
-      </div>
-      <div class="pause-actions">
-        <button id="resume" class="action" type="button">Resume</button>
-        <button id="restart" class="action quiet" type="button">Replay</button>
-        <button id="random-replay" class="action quiet" type="button">Random replay</button>
-        <button id="leave" class="action quiet" type="button">Setup</button>
-      </div>
-      <span class="pause-help"><b>?</b> controls</span>
-    </aside>
-    <!-- The end of a bout: the same fight again, or the corner you do not drive redrawn. Its own
-         element, shown only while a bout is decided, and never the curtain or the pause menu. -->
-    <aside id="bout-end" class="gone" aria-label="Bout over">
-      <button id="bout-end-replay" class="action" type="button">Replay</button>
-      <button id="bout-end-random" class="action" type="button">Random replay</button>
-      <button id="bout-end-leave" class="action quiet" type="button">Setup</button>
-    </aside>
-    <!-- The controls, on their own overlay rather than on the curtain.
-         Seventeen rows above the Fight button pushed it off the bottom of a
-         laptop window and had to be scrolled past every time a bout was
-         chosen; `?` is where a key list belongs and it works mid-fight too. -->
-    <div id="help" class="gone">
-      <div class="panel">
-        <h1>Controls</h1>
-        <p class="lede">
-          The mouse belongs to the <b>arm</b>, not to the camera. Where the cursor sits in
-          the window is where that hand is asked to be, so the middle of the window is
-          always centre guard and the arm has a home you can find again.
-        </p>
-        <dl class="keys">
-          <dt>Mouse</dt><dd>moves one arm &mdash; the cursor is where that hand goes</dd>
-          <dt>W / S</dt><dd>walk forward and back</dd>
-          <dt>A / D</dt><dd>strafe</dd>
-          <dt>Q / E</dt><dd>turn</dd>
-          <dt>Left button</dt><dd>thrust &mdash; drive the point out</dd>
-          <dt>Right button</dt><dd>guard &mdash; pull the blade in close</dd>
-          <dt>L</dt><dd>lock on, then click an enemy &mdash; strafe to circle it</dd>
-          <dt>Middle drag</dt><dd>orbit the camera; hold Shift to pan</dd>
-          <dt>Shift / arrows</dt><dd>crouch, lean and twist when direct posture is checked</dd>
-          <dt>Z / X, T / Y, U / I</dt><dd>roll, bend, and (anatomical arms) turn the driven hand when direct wrist is checked</dd>
-          <dt>F</dt><dd>the mouse changes hands &mdash; the one it leaves goes back to its policy</dd>
-          <dt>C</dt><dd>take a body, then click either fighter &mdash; the one you leave picks its policy back up</dd>
-          <dt>Take / Let go</dt><dd>beside each fighter&rsquo;s name in the readout &mdash; drive that body, or hand yours back to its policy, in a fight or a pause</dd>
-          <dt>Wheel</dt><dd>zoom &mdash; the camera only; no fighter is asked for anything</dd>
-          <dt>V</dt><dd>camera &mdash; Overhead behind the fighter, or Fixed on a world bearing</dd>
-          <dt>[ / ]</dt><dd>swing the Fixed camera round the arena</dd>
-          <dt>Space / Esc</dt><dd>pause, and resume &mdash; the same key both ways</dd>
-          <dt>R</dt><dd>this bout again</dd>
-          <dt>Random replay</dt><dd>at a verdict or in the pause menu &mdash; the body you are not driving is redrawn</dd>
-          <dt>Tab</dt><dd>toggle the physics readout</dd>
-          <dt>G</dt><dd>the rig &mdash; collision shapes, anchors, joints and contacts</dd>
-          <dt>?</dt><dd>this list</dd>
-        </dl>
-        <h2>Policies</h2>
-        <!-- Filled by src/main.ts from `POLICIES` and `policyLine`, so the list is every policy
-             the pickers offer, in their order. -->
-        <dl class="keys policy-list" id="help-policies"></dl>
-        <button id="help-close" class="action" type="button">Close</button>
-      </div>
-    </div>
-    <script type="module" src="/src/main.ts"></script>
+      <section id="start-panel" class="dialog" aria-labelledby="start-title">
+        <span class="eyebrow">A GOLEM DUNGEON RUN</span><h1 id="start-title">Into the depths.</h1>
+        <p>Stone corridors. Unfamiliar enemies.<br />One way out. Your golem fights — you choose the way.</p>
+        <label class="field">Your golem <select id="hero-build"></select></label>
+        <div id="hero-equipment" hidden>
+          <label class="field">Main hand <select id="hero-primary"></select></label>
+          <label class="field">Other hand <select id="hero-secondary"></select></label>
+        </div>
+        <div id="hero-attributes"></div>
+        <label class="field">Dungeon seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
+        <button id="start" class="primary" disabled>Preparing Havok…</button>
+        <small>Physical combat · one floor · no upgrades or saved progress</small>
+        <a class="back" href="./">← Main menu</a>
+      </section>
+      <section id="pause-panel" class="dialog compact" hidden aria-labelledby="pause-title">
+        <span class="eyebrow">THE DEPTHS</span><h2 id="pause-title">Paused</h2><p id="pause-copy">Your run is frozen.</p>
+        <button id="resume" class="primary">Resume</button><button id="retry">Retry same seed</button><button id="new-run">New dungeon</button>
+        <a href="./">Main menu</a>
+      </section>
+      <section id="help" class="dialog help" hidden>
+        <h2>Your golem fights automatically.</h2>
+        <p>With both switches off, <b>click the floor</b> to attack-move, <b>click an enemy</b> to lock on, or <b>drag a route</b> to keep moving through danger. The hero follows while you draw.</p>
+        <p><b>Keyboard movement</b> uses WASD or arrows, relative to the screen. <b>Mouse facing</b> turns toward the cursor. Each switch gives its channel to you and leaves the other to the AI. With mouse facing alone, the hero explores automatically.</p>
+        <p>Attacks and counters are always automatic. Brief dodges may adjust movement. Doors open on approach. Reach the green exit circle to escape.</p>
+        <p><b>Wheel</b> zooms · <b>Space / Esc</b> pauses · <b>?</b> closes this help.</p><button id="close-help">Got it</button>
+      </section>
+    </template>
+    <script type="module" src="/src/app.ts"></script>
   </body>
 </html>

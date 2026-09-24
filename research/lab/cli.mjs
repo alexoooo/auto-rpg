@@ -312,13 +312,13 @@ try {
         const specs=${JSON.stringify(specs).replaceAll("<", "\\u003c")};
         specs.forEach((spec,i)=>POLICIES.push({name:'golem-researched-lab-'+i,label:'LAB '+(spec.name??spec.kind),
           surface:GOLEM_CONTROL_SURFACE,create:(seed=1)=>labMind(spec,seed)}));
-        await import('/src/main.ts');
+        await import('/src/app.ts');
         document.title='Experimental policy lab — not promoted';
       </script>`;
-      const entry = '<script type="module" src="/src/main.ts"></script>';
+      const entry = '<script type="module" src="/src/app.ts"></script>';
       if (template.split(entry).length !== 2) throw new Error("unknown arena entrypoint");
       writeFileSync(join(directory, "preview.html"), template.replace(entry, script));
-      console.log(`/${relative(ROOT, directory).replaceAll("\\", "/")}/preview.html`);
+      console.log(`/${relative(ROOT, directory).replaceAll("\\", "/")}/preview.html?play=arena`);
       break;
     }
     default: throw new Error("commands: collect, oracle, reference, dagger, fair, refit, evaluate, archive, train, preview");
