@@ -2116,3 +2116,120 @@ NullEngine, real Havok. Every body a golem owns is asked `getMassProperties()`.
   - wrist plate arm: 7.53 declared, 8.71 in the solver.
 
   The build's upper mass is 1.55 kg short on stone and 2.08 on the skeleton for the same reason.
+
+## Physical contact 02: getting up
+
+Session 02 (`docs/plans/2026-09-23-physical-contact-02-getting-up.md`) made rising the body's own,
+let a refused rise relocate, retried a rise that never reached posture, took away the skeleton's
+rise immunity, and gave every downed body one `GROUNDED_TONE` of 0.55. The census and the sweeps
+below are on body fingerprint f47debdd7ce3, which is 7e2b4d3 with view fields and census
+instrumentation that change no behaviour. Raw outputs are in `research/runs/pc02/`, which is not
+committed. The bench that chose the tone is in the constant's doc comment.
+
+### Downed census
+
+`research/downed-census.mjs`: Node harness, research runner, supported locomotion, cap 150 s,
+96 side-swap blocks a group, seed 20260923, the same three groups as session 01.
+
+| Group | Knockdowns / body / bout | Episodes | p50 / p90 / max s | > 5 s | > 5 s time % | Down time % |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| stone | 3.96 | 1520 | 0.80 / 1.53 / 81.58 | 12 | 2.3 | 15.2 |
+| skeleton | 3.79 | 1455 | 3.63 / 6.78 / 19.75 | 347 | 11.6 | 27.8 |
+| giant group | 1.57 | 603 | 0.80 / 1.38 / 104.22 | 5 | 2.4 | 5.8 |
+
+Against session 01, the skeleton's longest episode fell from 103.57 s to 19.75 and its episodes
+over 5 s rose from 29 to 347. Nothing waits for ever now. The skeleton's episodes are longer at
+the middle because its rises can be put down again.
+
+**What put a rise back down.** Each rise that went back to `fallen` was named at the edge by a
+latch on the port (`RiseGateDiagnostic.riseAbort`), because the census samples at 60 Hz and the
+port steps at 240. The latch was added after this census. The rerun on d02007a reproduced every
+figure above exactly.
+
+| Group | Blow | Refused: occupancy | Refused: support chain | Posture deadline |
+| --- | ---: | ---: | ---: | ---: |
+| stone | 147 | 419 | 8 | 5 |
+| skeleton | 345 | 204 | 2 | 0, and one the latch did not name |
+| giant group | 30 | 101, not split by reason | | 0 |
+
+The occupancy refusals are nearly all a touch. Another footprint sat inside the rise's target by
+under a centimetre in 399 of stone's 419 and 203 of the skeleton's 204 (bucketed with a
+diagnostic-only build of the same tree). The pair resolver holds two footprints exactly in contact,
+and the gate judged a rise under way against zero clearance, so rounding at contact cancelled the
+rise. The repair is under session 03 below.
+
+**The target, "no episode longer than 5 s unless the body is struck through it", was missed.** A
+long episode counts as struck through when a blow put at least one of its rises down.
+
+- stone: 6 of its 12 long episodes were struck through;
+- skeleton: 260 of its 347;
+- giant group: none of its 5. Their causes are no ground (3) and a wall (2).
+
+The skeleton's other 87 long episodes are the touch refusals. Every one of its long episodes spent
+longest waiting for the fall to settle. That is a skeleton whose rise was put down lying out a
+second settle, up to its 2.5 s cap.
+
+**Stun-lock** (reported, not gated):
+
+| Group | Repeat knockdowns | Share of episodes % | Longest chain | First down loses % (decided) |
+| --- | ---: | ---: | ---: | --- |
+| stone | 575 | 37.8 | 13 | 53.8 (173) |
+| skeleton | 279 | 19.2 | 6 | 61.8 (191) |
+| giant group | 109 | 18.1 | 5 | 47.1 (172) |
+
+**Finishing:**
+
+| Group | Down windows | Scored % | Damage / downed s | Damage / standing s | Share of damage on a downed body % | Socket to core p50 m |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| stone | 2174 | 56.6 | 0.544 | 0.218 | 34.6 | 1.55 |
+| skeleton | 6771 | 32.4 | 0.071 | 0.022 | 63.2 | 1.48 |
+| giant group | 1069 | 45.2 | 0.480 | 0.283 | 10.1 | 1.78 |
+
+### x1 controls
+
+- **Stone**, the control row of the giant sweep below: damage 7.58 [7.38, 7.79] and knockdowns
+  5.36 [4.90, 5.82] per body a bout, 29.7 s. Both intervals overlap session 01's, so it is within
+  band.
+- **Skeleton**, `research/stat-sweep.mjs --build skeleton-warrior --minds skeleton-duelist --stat
+  stability --levels 1 --pairs 192`, x1 level, the same seed. Session 01 wrote no skeleton band,
+  so the before side was run on 2a8ff8d (session 01's tree):
+
+  | Tree | Damage / body / bout | Knockdowns / body / bout | Seconds |
+  | --- | ---: | ---: | ---: |
+  | 2a8ff8d, before | 1.89 [1.84, 1.94] | 4.85 [4.64, 5.07] | 59.5 |
+  | 7e2b4d3, after | 1.91 [1.87, 1.96] | 5.36 [5.11, 5.61] | 57.2 |
+
+  Damage is unchanged. Knockdowns rose past the band. That is intended: a rising skeleton now falls
+  at the standing fall line instead of being immune, so a rise is a knockdown that can happen.
+- **Fingerprint diff**, 54f8c58e92e5 to f47debdd7ce3: `src/supported-locomotion-state.ts`,
+  `src/supported-locomotion-production.ts`, `src/supported-locomotion.ts`, `src/golem/golem.ts`,
+  `src/golem/locomotion.ts` and its three modules, `src/golem/module.ts`, `src/golem/config.ts`,
+  `src/golem/skeleton/body.ts` and `src/dungeon/world.ts`. Every one is the session's own.
+
+### The giant
+
+`research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max --pairs 192`, as in
+session 01:
+
+| Level | Win % [95 %] | Dealt / taken | Knockdowns | Other's knockdowns | Time down % | Other's % | Seconds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| control | 48.8 [43.6, 54.4] | 7.57 / 7.59 | 5.12 | 5.60 | 14.2 | 16.1 | 29.7 |
+| max | 48.3 [42.8, 53.9] | 7.94 / 15.73 | 0.08 | 4.05 | 1.1 | 9.5 | 39.0 |
+| max-normal-body | 96.6 [94.8, 98.2] | 10.00 / 6.26 | 1.77 | 5.92 | 6.0 | 22.4 | 23.1 |
+| size-weight-max | 11.7 [8.6, 15.1] | 3.71 / 9.66 | 0.11 | 1.61 | 1.6 | 5.8 | 28.2 |
+
+### Idle-dummy matrix
+
+`research/idle-dummy.mjs --blocks 12`, as in session 01. The cells are outright win rate, win rate
+with the drain, and median time of a win:
+
+| Attacker \ idle dummy | stone | skeleton | human | giant |
+| --- | --- | --- | --- | --- |
+| stone | 50 % (100) / 61.5 s | 63 % (92) / 37.6 s | 21 % (100) / 74.4 s | 17 % (92) / 78.6 s |
+| skeleton | 8 % (100) / 88.0 s | 75 % (100) / 50.6 s | 13 % (100) / 76.4 s | **0 %** (100) / 109.0 s |
+| human | **0 %** (50) / 119.3 s | **0 %** (100) / 117.4 s | **0 %** (67) / 119.4 s | **0 %** (13) / 116.7 s |
+| giant | 54 % (100) / 57.6 s | 54 % (92) / 48.5 s | 13 % (96) / 85.1 s | 13 % (100) / 78.0 s |
+
+The same five cells are at zero as in session 01, and none newly. The skeleton dummy is easier to
+beat now: skeleton on skeleton went from 29 % to 75 %, and giant on skeleton from 17 % to 54 %. It
+falls, and it no longer rises through blows.

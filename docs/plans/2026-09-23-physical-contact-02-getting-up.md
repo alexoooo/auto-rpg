@@ -89,3 +89,29 @@ The lying cap (`maxLyingSeconds`) bounds only `fallSettled`. It covers none of t
 - A skeleton knocked down mid-rise.
 - A grounded body swinging.
 - The worst stun-lock chain the census found, by build and seed: is it acceptable?
+
+## What landed, 2026-09-23
+
+Every figure is in `docs/analysis/2026-09-23-attribute-measurements.md` "Physical contact 02:
+getting up", with its harness. What differs from the plan above:
+
+- **A retried rise waits out a whole dwell again, not a short one.** Going back to `fallen` zeroes
+  `fallenElapsedS`, so a rise put down by a blow, refused by the world, or past
+  `RISE_POSTURE_DEADLINE` (2) goes through the same dwell and settle as the fall itself. A shorter
+  retry dwell would be a second authored number for the same wait.
+- **The fall ledger is zeroed as a rise begins.** Otherwise the fall a body is rising from is
+  counted again, and a rise falls at the first touch.
+- **`GROUNDED_TONE` is 0.55**, chosen from 0.25 to 0.60 on the Node golem bench. The table is on the
+  constant. The skeletal mace sets it. The skeleton's neutral command while fallen went with its
+  0.08: a grounded body keeps its whole command.
+- **The target was missed: 347 skeleton episodes ran over 5 s, and 87 of them were not struck
+  through.** The census learnt to name what put each rise back down (`RiseAbort` on the port's rise
+  diagnostic). It showed that most refusals were a touch. The other footprint sat inside the rise's
+  target by under a centimetre, because the pair resolver holds two footprints exactly in contact
+  and the gate judged a rise under way against zero clearance. **The repair is hysteresis:** a rise
+  under way is refused only by a footprint more than `RECOVERY_SEPARATION_MARGIN_M` (2 cm) inside
+  its target, while a rise still has to clear the footprint by that margin to begin
+  (`a_rise_survives_a_touching_footprint_and_is_put_down_by_one_inside_its_margin`). It landed
+  after session 03's view change, so its census is session 03's.
+- **The skeleton's knockdowns per bout rose past its band (4.85 to 5.36).** That is intended: a rise
+  can now be put down. Damage and stone's band did not move.

@@ -52,7 +52,12 @@ the build and what to look for.
   - a skeleton knocked down mid-rise;
   - a grounded body swinging, worse than standing but not limp;
   - the worst stun-lock chain found, by build and seed. The owner decides whether physics alone is
-    acceptable here.
+    acceptable here;
+  - stone, the wheel and the multileg lifted by the rise at the end of the 0.35 s dwell, before
+    their fall has finished. Only the skeleton's table waits for rest; a general settle rule would
+    be the follow-up if it reads as a puppet being picked up;
+  - a maul from the floor: at `GROUNDED_TONE` it barely swings (3.8 m/s at the mark against 12.1
+    standing, Node golem bench). Weak is the brief; check that it reads as weak and not as broken.
 - **03:**
   - a standing golem finishing a fallen one with a blade, a mace and a fist;
   - the fallen one swinging and guarding back from the ground, weakly.
@@ -78,3 +83,32 @@ Each entry names the session, the choice, where it lives and how to reverse it.
 - **01, the idle floor is an outright win.** A win through the 60 s overtime drain is shown beside
   it and does not count. `summarizeIdle` in `research/idle-dummy.mjs`.
 - **01, the idle matrix runs 12 side-swap blocks a cell** (24 bouts, `--blocks 12`), not 24 blocks.
+- **02, rising belongs to the body.** `recover` left the command: once the fall has settled and the
+  dwell has run, a body rises whatever its mind asks. `risingEligibility` in
+  `src/supported-locomotion-state.ts`. Reversing it would put the house rule "recovery cannot
+  require the support state it exists to restore" back at the mercy of a mind that holds still.
+- **02, `RISE_POSTURE_DEADLINE` = 2.** A rise that has not reached posture by twice
+  `RISING_DURATION_S` goes back to `fallen` and retries. `src/supported-locomotion-state.ts`;
+  `Infinity` restores the old wait-for-ever.
+- **02, the relocation ring.** A refused recovery searches rings `RECOVERY_RING_STEP_M` (0.1 m) apart
+  with `RECOVERY_RING_ANGLES` (16) candidates each, out to the reach the rise's acceleration bound
+  allows in its floor duration (48 m/s² x T² / 6), trying angles away from the nearest occupant
+  first. `findRecoveryTarget` in `src/supported-locomotion-production.ts`.
+- **02, a wall may be left.** A sweep that starts inside a wall's band may leave it inward and is
+  refused only if it ends in the band or never clears it: the flat arena's wall in
+  `flatSupportedWorldRegistry` and the dungeon's solid in `buildDungeonWorld`. Without it a body
+  that fell against a wall could not rise.
+- **02, the fall ledger is zeroed as the rise begins.** A rise is then felled by a fresh fall-level
+  blow and not by the ledger of the fall it is rising from. The fallen-to-rising edge in
+  `src/supported-locomotion-state.ts`. Carrying it would make every rise fall at the first touch.
+- **02, `GROUNDED_TONE` = 0.55, and a grounded body keeps its whole command.** The lowest tone at
+  which every arm's stroke stray stays within twice its standing figure; the table is on the
+  constant in `src/golem/golem.ts`, from `research/grounded-tone.mjs`. It replaced the skeleton's
+  limp 0.08 with a neutral command, and full strength on every other body. A different value is one
+  number; going back to limp means re-adding a per-body tone and the `NEUTRAL` override in
+  `Golem.applyIntent`.
+- **02, a rise under way is refused only past `RECOVERY_SEPARATION_MARGIN_M`.** A rise must clear
+  the other footprint by 2 cm to begin, and is cancelled only by one more than 2 cm inside its
+  target. Without the hysteresis, the pair resolver's exact contact cancelled rises at a touch
+  (389 of stone's 427 refusals were under a centimetre). `beginControlStep` in
+  `src/supported-locomotion-production.ts`; a slack of 0 restores the touch refusal.
