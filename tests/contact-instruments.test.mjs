@@ -34,7 +34,6 @@ test("the census names every rise-gate refusal, and splits an obstructed rise by
   assert.equal(gateCause(gate(null)), "rose");
   assert.equal(gateCause(gate("fallen dwell has not elapsed")), "dwell");
   assert.equal(gateCause(gate("the fall has not come to rest")), "unsettled");
-  assert.equal(gateCause(gate("recovery was not requested")), "no-recover-input");
   assert.equal(gateCause(gate("recovery was interrupted by a hit")), "re-hit");
   assert.equal(gateCause(gate("locomotion authority is unavailable")), "no-authority");
   assert.equal(gateCause(gate("support chain is not live")), "support-dead");

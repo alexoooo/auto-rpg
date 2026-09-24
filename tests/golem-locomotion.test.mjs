@@ -86,11 +86,8 @@ test("a_ruined_leg_takes_its_equal_share_of_the_command_and_never_the_recovery",
   const intent = { forward: -1, strafe: 0.5, turn: -0.8, posture: { crouch: 0.3 } };
   const command = locomotionCommand(intent);
   const slowed = hobble(command, 0.5);
-  assert.deepEqual(slowed, { request: { localForward: -0.5, localRight: 0.25, yaw: -0.4, recover: true }, crouch: 0.3 });
+  assert.deepEqual(slowed, { request: { localForward: -0.5, localRight: 0.25, yaw: -0.4 }, crouch: 0.3 });
   assert.equal(hobble(command, 1), command, "a whole carrier's command passes untouched");
-  // Recovery reads what was asked, never what the legs will give: at a mobility of zero the
-  // stick still asks to get up.
-  assert.equal(hobble(command, 0).request.recover, true);
 });
 
 test("the_biped_is_built_standing_and_every_joint_stop_admits_that_build_pose", () => {
@@ -401,9 +398,15 @@ test("the_scripted_locomotion_run_walks_crouches_falls_and_rises", async () => {
     `standing height ${settled.state.maxHeightM} m against a declared `
     + `${bipedModule.heightRange.standM}`);
 
-  // 4. The knockdown: the root goes DYNAMIC, the body goes past horizontal, and the rise completes
-  //    inside the budget written in the module file.
-  assert.ok(state.minUpDot < 0.3, `the shove only tilted the root to an up-dot of ${state.minUpDot}`);
+  // 4. The knockdown: the root goes DYNAMIC, the body tips, and the rise completes inside the
+  //    budget written in the module file.
+  //
+  //    **It tips, and is lifted before it lands.** A stone biped has no settle rule of its own, so
+  //    it rises the moment its 0.35 s dwell is up, and since 2026-09-23 nothing waits for a mind to
+  //    ask (physical contact session 02). The bench's `down` phase used to hold still for 0.68 s
+  //    and let it reach an up-dot of 0.1; it now reaches 0.746 (Node bench), which is what a bout
+  //    always gave it, because every mind was moving.
+  assert.ok(state.minUpDot < 0.9, `the shove only tilted the root to an up-dot of ${state.minUpDot}`);
   assert.ok(state.recoveredSeconds !== null, "the golem never came back to supported");
   assert.ok(state.riseSeconds > 0 && state.riseSeconds <= B.riseBudgetSeconds,
     `the rise took ${state.riseSeconds} s against a budget of ${B.riseBudgetSeconds}`);
@@ -432,9 +435,8 @@ test("the_shove_releases_the_root_to_DYNAMIC_and_the_rise_restores_it", async ()
 
     // Recovery cannot require the support state it exists to restore: the first construct
     // controller demanded three planted contacts in its constructor, so a fallen Mind selected
-    // recover for ever and the scheduler refused it for ever. Here the request is simply movement
-    // input after the fallen dwell, and it is derived from the *command* rather than from the
-    // committed motion -- a fallen carrier zeroes its own translation.
+    // recover for ever and the scheduler refused it for ever. Here nothing is required of the
+    // command at all: the body rises once its dwell is up.
     drive(f.module, { forward: 1 });
     step(f.scene, 1.6);
     assert.equal(f.module.port.state, "supported", f.module.port.diagnostic().releaseReason ?? "");
@@ -907,7 +909,7 @@ test("physical_corpus_a_slope_past_the_frozen_limit_is_not_support_and_the_carri
     } finally { f.dispose(); }
   });
 
-test("physical_corpus_two_bipeds_share_one_registry_and_an_occupied_recovery_is_refused",
+test("physical_corpus_two_bipeds_share_one_registry_and_a_fallen_one_rises_clear_of_the_other",
   async () => {
     // The occupied-recovery cell, and the first time a *pair* of golems has been resolved. It is
     // also the cell that proves `beginSubstep`/`endSubstep` are enough of a seam for Session 08:
@@ -934,13 +936,16 @@ test("physical_corpus_two_bipeds_share_one_registry_and_an_occupied_recovery_is_
       return { stand, module };
     });
     const [a, b] = built;
-    const stop = Object.freeze({ localForward: 0, localRight: 0, yaw: 0, recover: false });
-    const recover = Object.freeze({ localForward: 1, localRight: 0, yaw: 0, recover: true });
+    const stop = Object.freeze({ localForward: 0, localRight: 0, yaw: 0 });
+    const apart = () => Math.hypot(a.module.port.carrierGround().x - b.module.port.carrierGround().x,
+      a.module.port.carrierGround().z - b.module.port.carrierGround().z);
+    let lastFallenApart = null;
     const control = scene.onBeforePhysicsObservable.add(() => {
+      if (a.module.port.state === "fallen") lastFallenApart = apart();
       for (const { module } of built) module.beginSubstep();
       a.module.port.beginControlStep();
       b.module.port.beginControlStep();
-      a.module.port.request(a.module.port.state === "fallen" ? recover : stop);
+      a.module.port.request(stop);
       b.module.port.request(stop);
       const resolved = resolvePhysicalSupportedPair(a.module.port, b.module.port, SUBSTEP);
       assert.equal(resolved, true, "the pair did not resolve as two physical ports");
@@ -961,15 +966,21 @@ test("physical_corpus_two_bipeds_share_one_registry_and_an_occupied_recovery_is_
 
       a.module.shove();
       step(scene, 2.5);
-      // It asked to rise on every boundary after the dwell and could not, because the other
-      // carrier's footprint is over it and the separation it would need is available.
-      const diagnostic = a.module.port.diagnostic();
-      assert.ok(["fallen", "rising", "supported"].includes(a.module.port.state));
+      // It rises on its own, clear of the carrier standing over it: the rise retreats by the
+      // separation the pair needs rather than lifting it into the other's footprint.
+      assert.equal(a.module.port.state, "supported", "the fallen golem never rose clear of its neighbour");
       assert.equal(b.module.port.state, "supported",
         "the standing golem lost its own support because its neighbour fell");
       assert.equal(b.module.readout().selfContacts, 0);
-      assert.ok(diagnostic.recoveryProgress !== null,
-        "a fallen golem published no recovery progress at all");
+      assert.ok(apart() >= 2 * bipedModule.footprint.radiusM - 1e-6,
+        `the risen golem stands ${apart().toFixed(3)} m from its neighbour, inside both footprints`);
+      // **And the retreat is what cleared it, not the fall.** The shove carries the ragdoll away
+      // from its neighbour, and left alone it drifts clear and rises from there: measured (Node, this
+      // fixture), with no retreat allowed the last fallen substep is 0.686 m apart, and with it
+      // 0.625 m -- the body left the floor from inside the other's footprint and was carried clear.
+      assert.ok(lastFallenApart !== null && lastFallenApart < 2 * bipedModule.footprint.radiusM,
+        `the golem only rose once the fall had carried it ${lastFallenApart?.toFixed(3)} m clear, ` +
+        "so this fixture never tested a retreat");
     } finally {
       scene.onBeforePhysicsObservable.remove(control);
       for (const { module, stand } of built) { module.dispose(); stand.dispose(); }
@@ -1494,7 +1505,11 @@ test("the_shove_that_fells_the_biped_does_not_fell_the_multileg", async () => {
 
 test("the_bench_shove_each_module_ships_with_actually_puts_that_module_over", async () => {
   // **A threshold crossed is not a body on the floor, and the two are further apart on some bodies
-  // than on others.** The state machine's boundary is a decaying ledger in mass-independent units;
+  // than on others.** Since 2026-09-23 (physical contact session 02) a body with no settle rule
+  // rises as soon as its dwell is up, so the bench's drop is cut short where a bout's always was:
+  // the wheel now tips to an up-dot of 0.555 and the multileg to 0.395 (Node bench), and what is
+  // left to pin is that each module's own shove fells it and tips it. The calibration below is
+  // what chose the shoves, and is kept for that. The state machine's boundary is a decaying ledger in mass-independent units;
   // whether a person sees a knockdown is mass and base geometry. Each module's `shoveImpulseNs` is
   // therefore chosen for the *drop* rather than for the threshold, exactly as the biped's 600 was,
   // and the ratios are wildly different: 51x the threshold for the biped, 225x for the wheel and
@@ -1506,11 +1521,12 @@ test("the_bench_shove_each_module_ships_with_actually_puts_that_module_over", as
   // less height to lose. Quoting one fraction for both would be a threshold that is slack on one
   // body and impossible on the other.
   for (const [id, module, floor] of [
-    ["wheel", wheelModule, 0.60],
-    ["multileg", multilegModule, 0.85],
+    ["wheel", wheelModule, 0.75],
+    ["multileg", multilegModule, 0.98],
   ]) {
     const run = await runGolemLocomotion({ moduleId: id, sequence: LOCOMOTION_SEQUENCE });
-    assert.ok(run.state.minUpDot < 0.2,
+    assert.ok(run.state.firstFallenSeconds !== null, `${id}: its own bench shove did not fell it`);
+    assert.ok(run.state.minUpDot < 0.7,
       `${id}: its own bench shove only tilted the root to an up-dot of ${run.state.minUpDot}`);
     assert.ok(run.state.minHeightM < module.heightRange.standM * floor,
       `${id}: the socket only came down to ${run.state.minHeightM.toFixed(3)} m`);

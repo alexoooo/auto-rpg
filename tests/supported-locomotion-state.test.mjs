@@ -4,10 +4,8 @@ import test from "node:test";
 import {
   SUPPORTED_LOCOMOTION_V1 as V1,
   constructPostureIsSupported,
-  constructRequestsRising,
   fallenDwellS,
   fighterPostureIsSupported,
-  fighterRequestsRising,
   initialSupportedLocomotionState,
   isFreshStandableSupport,
   recoveredRiseS,
@@ -24,7 +22,7 @@ const contact = (overrides = {}) => ({ safeBoundarySequence: 7, supportBinding: 
   category: "standable-world", point: [0, 0, 0], upwardNormal: [0, 1, 0], freshness: "current", ...overrides });
 const boundary = (overrides = {}) => ({ dt: 0.001, safeBoundarySequence: 7, authority, liveSupport: true,
   postureSupported: true, supportEvidence: [contact()], supportedMassKg: 1, authoredShoves: [],
-  recoverRequested: false, recoveryGroundAvailable: true, occupancyClear: true,
+  recoveryGroundAvailable: true, occupancyClear: true,
   hitInterrupted: false, fallSettled: true, risingDurationS: V1.RISING_DURATION_S, ...overrides });
 const state = (overrides = {}) => ({ ...initialSupportedLocomotionState(), ...overrides });
 
@@ -50,7 +48,7 @@ test("the_recovery_stat_divides_the_dwell_and_the_rise_floor_on_every_reader_and
 
   // The dwell, read by eligibility, by both request helpers and by a rise that has begun.
   const lying = (elapsed) => state({ state: "fallen", fallenElapsedS: elapsed });
-  const ask = (auth, extra = {}) => boundary({ authority: auth, recoverRequested: true,
+  const ask = (auth, extra = {}) => boundary({ authority: auth,
     risingDurationS: risingFloorS(auth), ...extra });
   const justUnder = V1.FALLEN_DWELL_S / 2 - 1e-6;
   assert.equal(risingEligibility(lying(justUnder), ask(fast)).eligible, false);
@@ -58,10 +56,6 @@ test("the_recovery_stat_divides_the_dwell_and_the_rise_floor_on_every_reader_and
   assert.equal(risingEligibility(lying(V1.FALLEN_DWELL_S / 2), ask(authority)).eligible, false,
     "the control: the same lie is short of the dwell at x1");
   assert.equal(risingEligibility(lying(V1.FALLEN_DWELL_S), ask(slow)).eligible, false, "x0.5 lies twice as long");
-  assert.equal(fighterRequestsRising(lying(V1.FALLEN_DWELL_S / 2), { localForward: 1, localRight: 0, yaw: 0 }, fast), true);
-  assert.equal(fighterRequestsRising(lying(V1.FALLEN_DWELL_S / 2), { localForward: 1, localRight: 0, yaw: 0 }), false);
-  assert.equal(constructRequestsRising(lying(V1.FALLEN_DWELL_S / 2), true, fast), true);
-  assert.equal(constructRequestsRising(lying(V1.FALLEN_DWELL_S / 2), true), false);
 
   // A fast body rises to supported at its own floor, and a slow one is still rising there.
   const risen = (auth) => {
@@ -187,35 +181,40 @@ test("an_upright_carrier_with_folded_torso_or_inverted_head_is_not_supported", (
     rootHeightAboveCarrierM: 0.3, terminalHeightAboveRootM: 0.2 }), false);
 });
 
-test("Fighter_movement_input_and_Construct_recover_Action_share_recovery_gates_without_aliasing_hand_recover", () => {
+test("rising_belongs_to_the_body_and_a_settled_body_past_its_dwell_rises_with_nobody_asking", () => {
+  // The boundary carries no request at all; a stray one handed in is ignored, so a mind that holds
+  // still on the floor is lifted anyway, and a rise under way keeps going through a boundary where
+  // nobody is moving.
   const fallen = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S });
-  assert.equal(fighterRequestsRising(fallen, { localForward: 0, localRight: 0, yaw: 0 }), false);
-  assert.equal(fighterRequestsRising(fallen, { localForward: 0.1, localRight: 0, yaw: 0 }), true);
-  assert.equal(constructRequestsRising(fallen, false), false, "a humanoid hand recover tactic is irrelevant");
-  assert.equal(constructRequestsRising(fallen, true), true, "the locomotion recover Action is authoritative");
+  const still = boundary({ recoverRequested: false });
+  assert.deepEqual(risingEligibility(fallen, still), { eligible: true, reason: null });
+  const rising = stepSupportedLocomotionState(fallen, still);
+  assert.equal(rising.state, "rising");
+  assert.equal(stepSupportedLocomotionState(rising, still).state, "rising");
+  // The control: the dwell and the settle still gate it.
   const early = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S - 0.001 });
-  assert.equal(fighterRequestsRising(early, { localForward: 1, localRight: 0, yaw: 0 }), false);
-  assert.equal(constructRequestsRising(early, true), false);
+  assert.equal(stepSupportedLocomotionState(early, boundary({ dt: 1e-6 })).state, "fallen");
+  assert.equal(stepSupportedLocomotionState(fallen, boundary({ fallSettled: false })).state, "fallen");
 });
 
 test("rising_eligibility_requires_live_authority_topology_dwell_and_clearance_not_an_already_planted_foot", () => {
   const fallen = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S });
-  const ready = boundary({ recoverRequested: true });
+  const ready = boundary();
   assert.deepEqual(risingEligibility(fallen, ready), { eligible: true, reason: null });
   for (const [field, value, reason] of [
     ["authority", null, /authority/], ["liveSupport", false, /support chain/],
     ["recoveryGroundAvailable", false, /recovery ground/],
     ["occupancyClear", false, /obstructed/],
-    ["recoverRequested", false, /not requested/], ["hitInterrupted", true, /hit/],
-  ]) assert.match(risingEligibility(fallen, boundary({ recoverRequested: true, [field]: value })).reason, reason);
-  assert.deepEqual(risingEligibility(fallen, boundary({ recoverRequested: true,
+    ["hitInterrupted", true, /hit/],
+  ]) assert.match(risingEligibility(fallen, boundary({ [field]: value })).reason, reason);
+  assert.deepEqual(risingEligibility(fallen, boundary({
     supportEvidence: [contact({ category: "wall" })] })), { eligible: true, reason: null },
   "a folded body must be able to begin its bounded righting path before a foot is planted");
   assert.match(risingEligibility(state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S - 0.001 }), ready).reason,
     /dwell/);
   assert.match(risingEligibility(state({ state: "supported", fallenElapsedS: V1.FALLEN_DWELL_S }), ready).reason,
     /fallen or rising/);
-  assert.equal(risingEligibility(fallen, boundary({ recoverRequested: true, postureSupported: false })).eligible, true,
+  assert.equal(risingEligibility(fallen, boundary({ postureSupported: false })).eligible, true,
     "recovery exists to restore posture; fallen posture cannot be an entry prerequisite");
 });
 
@@ -223,17 +222,16 @@ test("a_hit_obstruction_or_lost_support_aborts_rising_state_and_leaves_no_staged
   const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
     risingElapsedS: 0.1, driveStaged: true });
   for (const rejected of [
-    boundary({ recoverRequested: true, hitInterrupted: true }),
-    boundary({ recoverRequested: true, occupancyClear: false }),
-    boundary({ recoverRequested: true, liveSupport: false }),
-    boundary({ recoverRequested: false }),
+    boundary({ hitInterrupted: true }),
+    boundary({ occupancyClear: false }),
+    boundary({ liveSupport: false }),
   ]) {
     const result = stepSupportedLocomotionState(rising, rejected);
     assert.equal(result.state, "fallen");
     assert.equal(result.driveStaged, false);
     assert.equal(result.risingElapsedS, 0);
   }
-  const shoved = stepSupportedLocomotionState(rising, boundary({ recoverRequested: true,
+  const shoved = stepSupportedLocomotionState(rising, boundary({
     authoredShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS, 0] }], hitInterrupted: true }));
   assert.equal(shoved.state, "fallen");
   assert.equal(shoved.driveStaged, false);
@@ -243,7 +241,7 @@ test("the_decaying_fall_ledger_does_not_impersonate_a_fresh_hit_during_rising", 
   const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
     risingElapsedS: 0.1, driveStaged: true, specificImpulseMps: V1.FALL_SPECIFIC_IMPULSE_MPS * 2 });
   const result = stepSupportedLocomotionState(rising,
-    boundary({ recoverRequested: true, hitInterrupted: false }));
+    boundary({ hitInterrupted: false }));
   assert.equal(result.state, "rising");
   assert.equal(result.driveStaged, true);
 });
@@ -251,7 +249,7 @@ test("the_decaying_fall_ledger_does_not_impersonate_a_fresh_hit_during_rising", 
 test("zero_authored_shove_is_not_a_hit_and_cannot_interrupt_rising", () => {
   const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
     risingElapsedS: 0.1, driveStaged: true });
-  const result = stepSupportedLocomotionState(rising, boundary({ recoverRequested: true,
+  const result = stepSupportedLocomotionState(rising, boundary({
     authoredShoves: [{ horizontalShoveNs: [0, 0] }], hitInterrupted: false }));
   assert.equal(result.state, "rising");
   assert.equal(result.driveStaged, true);
@@ -260,24 +258,24 @@ test("zero_authored_shove_is_not_a_hit_and_cannot_interrupt_rising", () => {
 test("rising_duration_is_bracketed_on_both_sides_of_the_frozen_boundary", () => {
   const rising = state({ state: "rising", fallenElapsedS: 0.35,
     risingElapsedS: 0.448, driveStaged: true });
-  const before = stepSupportedLocomotionState(rising, boundary({ dt: 0.001, recoverRequested: true }));
+  const before = stepSupportedLocomotionState(rising, boundary({ dt: 0.001 }));
   assert.equal(before.state, "rising");
-  const at = stepSupportedLocomotionState(before, boundary({ dt: 0.001, recoverRequested: true }));
+  const at = stepSupportedLocomotionState(before, boundary({ dt: 0.001 }));
   assert.equal(at.state, "supported");
   const notRestored = stepSupportedLocomotionState(before,
-    boundary({ dt: 0.001, recoverRequested: true, postureSupported: false }));
+    boundary({ dt: 0.001, postureSupported: false }));
   assert.equal(notRestored.state, "rising", "duration alone cannot relabel a folded body supported");
 });
 
 test("a_fall_that_has_not_come_to_rest_holds_the_body_down_past_the_dwell_and_cannot_cancel_a_rise", () => {
   const fallen = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S * 4 });
-  const moving = boundary({ recoverRequested: true, fallSettled: false });
+  const moving = boundary({ fallSettled: false });
   assert.deepEqual(risingEligibility(fallen, moving), { eligible: false, reason: "the fall has not come to rest" });
   const held = stepSupportedLocomotionState(fallen, moving);
   assert.equal(held.state, "fallen");
   assert.equal(held.driveStaged, false);
   assert.equal(held.fallenElapsedS, fallen.fallenElapsedS + moving.dt, "the lie goes on counting while it waits");
-  assert.equal(stepSupportedLocomotionState(fallen, boundary({ recoverRequested: true })).state, "rising");
+  assert.equal(stepSupportedLocomotionState(fallen, boundary()).state, "rising");
   // A body's settle tracker starts again once it is up, so a rise under way must not read it.
   const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S, risingElapsedS: 0.1, driveStaged: true });
   assert.equal(stepSupportedLocomotionState(rising, moving).state, "rising");
@@ -288,7 +286,7 @@ test("a_rise_lasts_its_own_duration_and_never_less_than_the_frozen_one", () => {
   // Binary fractions, so the two steps land exactly on the duration.
   const durationS = 1.25;
   const dt = 2 ** -7;
-  const along = boundary({ dt, recoverRequested: true, risingDurationS: durationS });
+  const along = boundary({ dt, risingDurationS: durationS });
   const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
     risingElapsedS: durationS - 2 * dt, driveStaged: true });
   const before = stepSupportedLocomotionState(rising, along);
@@ -298,7 +296,7 @@ test("a_rise_lasts_its_own_duration_and_never_less_than_the_frozen_one", () => {
   assert.equal(stepSupportedLocomotionState(pastFrozen, along).state, "rising",
     "the frozen duration is not the end of a lengthened rise");
   for (const bad of [V1.RISING_DURATION_S - 0.001, Number.NaN, Infinity, undefined]) {
-    assert.throws(() => stepSupportedLocomotionState(rising, boundary({ recoverRequested: true, risingDurationS: bad })),
+    assert.throws(() => stepSupportedLocomotionState(rising, boundary({ risingDurationS: bad })),
       /never shorter than RISING_DURATION_S/, String(bad));
   }
 });

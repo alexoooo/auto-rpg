@@ -47,7 +47,7 @@ const carrier = (x, yaw = 0, id = "body") => new VirtualLocomotionCarrier(
   { maxSpeedMps: 1, maxAccelerationMps2: 10, maxYawSpeedRadS: 2, maxYawAccelerationRadS2: 20 },
   new Set([`${id}.root`, `${id}.torso`, `${id}.head`]),
 );
-const request = (overrides = {}) => ({ localForward: 0, localRight: 0, yaw: 0, recover: false, ...overrides });
+const request = (overrides = {}) => ({ localForward: 0, localRight: 0, yaw: 0, ...overrides });
 
 test("a_test_enabled_carrier_moves_at_zero_and_pi_without_roll_or_vertical_drift", () => {
   const registry = registryWithFloor();

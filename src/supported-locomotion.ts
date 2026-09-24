@@ -6,7 +6,6 @@ export interface LocomotionRequest {
   readonly localForward: number;
   readonly localRight: number;
   readonly yaw: number;
-  readonly recover: boolean;
 }
 
 /** One port's value after its installed driver has decided for this control boundary. */
@@ -125,12 +124,10 @@ const finiteUnit = (value: number, field: string): number => {
 
 const copyRequest = (value: LocomotionRequest | null): LocomotionRequest | null => {
   if (value === null) return null;
-  if (typeof value.recover !== "boolean") throw new Error("supported locomotion recover must be boolean");
   return {
     localForward: finiteUnit(value.localForward, "localForward"),
     localRight: finiteUnit(value.localRight, "localRight"),
     yaw: finiteUnit(value.yaw, "yaw"),
-    recover: value.recover,
   };
 };
 

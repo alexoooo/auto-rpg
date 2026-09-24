@@ -90,14 +90,15 @@ const physicalCell = async (specificImpulseMps) => {
 
     const diagnostic = left.locomotion.diagnostic();
     const state = left.locomotion.state;
-    if (state === "fallen") {
-      // Two seconds, not the half-second this ran for while the body was a Warrior. A golem
-      // that has just been released is a stack of heavy modules on stiff joints: measured, its
-      // trunk has dropped 3 mm after 0.5 s and clears the 20 mm bar somewhere after that.
-      for (let index = 9; index < 489; index += 1) step(index * FIXED);
+    // Every cell runs the same two seconds after the shove, so the cells that stay up are the
+    // control for the one that is released: the drop is read as the deepest the trunk went, since
+    // a released body now gets up again on its own inside the window (physical contact session 02).
+    let ragdollDropM = 0;
+    for (let index = 9; index < 489; index += 1) {
+      step(index * FIXED);
+      ragdollDropM = Math.max(ragdollDropM, standingTorsoY - trunk.mesh.position.y);
     }
-    return Object.freeze({ state,
-      ragdollDropM: standingTorsoY - trunk.mesh.position.y,
+    return Object.freeze({ state, ragdollDropM, endState: left.locomotion.state,
       specificImpulseMps: diagnostic.stability.specificImpulseMps,
       staggerAtMps: diagnostic.stability.staggerAtMps,
       fallAtMps: diagnostic.stability.fallAtMps,
@@ -152,8 +153,20 @@ test("real_Havok_brackets_the_frozen_stagger_and_fall_thresholds_on_a_supported_
     // the same question. A golem's trunk hangs off a bodyless carrier and is dynamic whether it is
     // standing or not, so the same question is answered by `state` and by the drop below -- an
     // assertion on the motion type would pin the golem's rig rather than the support state.
-    if (cell.expectedState === "fallen") assert.ok(row.ragdollDropM > 0.02,
-      `${cell.id} released motion type but the fixed-step solver did not drop the torso: ${row.ragdollDropM} m`);
+    //
+    // The drop is paired with its control. A shove at exactly the fall threshold is the smallest
+    // shove that fells, and a stone body released by it sags slowly: measured (Node, this harness),
+    // 2.49 mm at deepest before its 0.35 s dwell is up and it is lifted again, against 0.02 mm in
+    // every cell that stays standing or staggered. This read 20 mm after two seconds while nothing
+    // got up without a mind asking, which an idle mind never did.
+    if (cell.expectedState === "fallen") {
+      assert.ok(row.ragdollDropM > 0.001,
+        `${cell.id} released motion type but the fixed-step solver did not drop the torso: ${row.ragdollDropM} m`);
+      assert.equal(row.endState, "supported", `${cell.id}: the released body never got up on its own`);
+    } else {
+      assert.ok(row.ragdollDropM < 0.0002,
+        `${cell.id} was never released and its torso still dropped ${row.ragdollDropM} m`);
+    }
     assert.equal(row.releaseReason,
       cell.expectedState === "fallen" ? "stability threshold was exceeded" : null, cell.id);
   }

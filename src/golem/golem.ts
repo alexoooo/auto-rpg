@@ -681,7 +681,7 @@ export class Golem implements Combatant {
    * **A limp body takes no command above the legs**, from a person or a policy alike: the torso,
    * the head and both hands are handed `NEUTRAL` until it rises, which is the carrier's own rule
    * ("carrier is released while fallen") carried up the body. The legs still get the whole
-   * command, because moving is how a fallen body asks to get up.
+   * command.
    */
   private applyIntent(dt: number, intent: Intent): void {
     this.settleRuin();

@@ -420,7 +420,7 @@ return defineLocomotion({
     const yaw = facing.toEulerAngles().y;
 
     let request: LocomotionRequest = Object.freeze({
-      localForward: 0, localRight: 0, yaw: 0, recover: false,
+      localForward: 0, localRight: 0, yaw: 0,
     });
     let severed = false;
     let risingStart: Quaternion | null = null;
@@ -860,13 +860,10 @@ return defineLocomotion({
         // **The clamp, and it is the whole of the "a wheel cannot strafe" rule.** Frozen rule 3:
         // the command is clamped into the published envelope before the carrier ever sees it, so
         // there is no refusal branch anywhere and a mind picking inside the envelope never asks.
-        // `recover` is left exactly as `locomotionCommand` derived it -- a person shoving the
-        // strafe key on a fallen wheel is still asking to get up.
         request = next.request.localRight === 0 ? next.request : Object.freeze({
           localForward: next.request.localForward,
           localRight: 0,
           yaw: next.request.yaw,
-          recover: next.request.recover,
         });
         // `next.crouch` is read and dropped on purpose: the height range has one end, so there is
         // nothing to slew between. See `heightRange` above.

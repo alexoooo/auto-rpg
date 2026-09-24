@@ -2476,7 +2476,7 @@ export const BENCH_STAND_LOCOMOTION_SIZE: SizeLaws<typeof BENCH_STAND_LOCOMOTION
  * - **`riseHoldsThroughHits`: whether a hit can end a rise.** False is the shared rule,
  *   `recoveryHitInterrupted`: a shove at the stagger threshold while the body is rising sends it
  *   back to fallen. True ignores hits while it is rising; the rise's other conditions still hold, so
- *   a lost leg, a blocked footprint or a dropped recover request still send it back. A hit still
+ *   a lost leg or a blocked footprint still sends it back. A hit still
  *   keeps a lying body from starting to rise on that boundary. Shoves taken during the rise are
  *   forgotten when it completes, because the stability ledger restarts at zero, and the body can be
  *   struck down again as usual once it stands. The rise is keyframed, so what a hit does to it is

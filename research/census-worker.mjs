@@ -36,7 +36,6 @@ export function gateCause(gate) {
     case null: return "rose";
     case "fallen dwell has not elapsed": return "dwell";
     case "the fall has not come to rest": return "unsettled";
-    case "recovery was not requested": return "no-recover-input";
     case "recovery occupancy is obstructed":
       return !gate.pairOccupancyClear ? "occupancy" : !gate.withinAcceleration ? "acceleration" : "wall";
     case "recovery was interrupted by a hit": return "re-hit";

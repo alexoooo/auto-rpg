@@ -97,7 +97,7 @@ export interface LocomotionSchedulerPort {
 }
 
 const STOP: LocomotionRequest = Object.freeze({
-  localForward: 0, localRight: 0, yaw: 0, recover: false,
+  localForward: 0, localRight: 0, yaw: 0,
 });
 
 /**
@@ -263,7 +263,6 @@ export interface RiseGateDiagnostic {
   readonly fallenElapsedS: number;
   readonly risingElapsedS: number;
   readonly risingDurationS: number;
-  readonly recoverRequested: boolean;
   readonly fallSettled: boolean;
   readonly postureSupported: boolean;
   readonly liveSupport: boolean;
@@ -318,7 +317,6 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   beginControlStep(): void {
     this.staged.beginControlStep();
     this.sequence += 1;
-    const priorRequest = this.staged.snapshot().committed?.allowed ?? null;
     const authority = this.activeAuthority ?? this.options.authority();
     const evidenceBindings = authority?.supportBindings.map(({ role }) => role) ?? this.options.supportBindings;
     const evidence = evidenceBindings.flatMap((binding) => {
@@ -359,9 +357,6 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       safeBoundarySequence: this.sequence,
       authority, liveSupport, postureSupported, supportEvidence: evidence,
       supportedMassKg: this.options.supportedMassKg, authoredShoves: shoves,
-      recoverRequested: priorRequest?.recover === true || (this.supportState.state === "fallen" &&
-        priorRequest !== null && Math.max(Math.abs(priorRequest.localForward),
-          Math.abs(priorRequest.localRight), Math.abs(priorRequest.yaw)) > 0),
       recoveryGroundAvailable, occupancyClear,
       hitInterrupted: !(this.options.riseHoldsThroughHits === true && this.supportState.state === "rising") &&
         recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
@@ -442,7 +437,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       fallenElapsedS: Math.max(prior.fallenElapsedS, fallenDwellS(boundary.authority)) } : prior, boundary);
     return Object.freeze({ prior: prior.state, now: this.supportState.state, reason: eligibility.reason,
       fallenElapsedS: prior.fallenElapsedS, risingElapsedS: prior.risingElapsedS,
-      risingDurationS: boundary.risingDurationS, recoverRequested: boundary.recoverRequested,
+      risingDurationS: boundary.risingDurationS,
       fallSettled: boundary.fallSettled, postureSupported: boundary.postureSupported,
       liveSupport: boundary.liveSupport, recoveryGroundAvailable: boundary.recoveryGroundAvailable,
       occupancyClear: boundary.occupancyClear, pairOccupancyClear: gate.pairOccupancyClear,
@@ -609,7 +604,6 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       localForward: maxDistance > 0 ? Math.max(-1, Math.min(1, achievedForward / maxDistance)) : 0,
       localRight: maxDistance > 0 ? Math.max(-1, Math.min(1, achievedRight / maxDistance)) : 0,
       yaw: Math.max(-1, Math.min(1, allowed.yaw / (this.carrier.config.maxYawSpeedRadS * dt))),
-      recover: requested.recover,
     }) });
     this.staged.commit(resolution);
     const state = this.carrier.state;

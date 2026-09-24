@@ -179,27 +179,6 @@ export const initialSupportedLocomotionState = (): SupportedLocomotionState => O
   fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false,
 });
 
-export interface FighterRecoveryInput {
-  readonly localForward: number;
-  readonly localRight: number;
-  readonly yaw: number;
-}
-
-/** A Fighter asks to rise only by supplying deliberate movement after the fallen dwell. */
-export function fighterRequestsRising(state: SupportedLocomotionState, input: FighterRecoveryInput,
-  authority: StabilityAuthority | null = null): boolean {
-  return state.state === "fallen" && state.fallenElapsedS >= fallenDwellS(authority) &&
-    [input.localForward, input.localRight, input.yaw].every(Number.isFinite) &&
-    Math.max(Math.abs(input.localForward), Math.abs(input.localRight), Math.abs(input.yaw)) > 0;
-}
-
-/** The caller supplies scheduler admission of the locomotion recover Action, never a hand tactic. */
-export function constructRequestsRising(state: SupportedLocomotionState,
-  locomotionRecoverActionActive: boolean, authority: StabilityAuthority | null = null): boolean {
-  return state.state === "fallen" && state.fallenElapsedS >= fallenDwellS(authority) &&
-    locomotionRecoverActionActive;
-}
-
 export interface SupportedLocomotionBoundary {
   readonly dt: number;
   readonly safeBoundarySequence: number;
@@ -209,7 +188,6 @@ export interface SupportedLocomotionBoundary {
   readonly supportEvidence: readonly StandableSupportEvidence[];
   readonly supportedMassKg: number;
   readonly authoredShoves: readonly StabilityEvent[];
-  readonly recoverRequested: boolean;
   /** Standable world under the recovery footprint; this is not a claim that a folded foot is planted. */
   readonly recoveryGroundAvailable: boolean;
   readonly occupancyClear: boolean;
@@ -237,6 +215,17 @@ export interface SupportedLocomotionBoundary {
 
 export interface RisingEligibility { readonly eligible: boolean; readonly reason: string | null }
 
+/**
+ * Whether a downed body may rise on this boundary, and if not, why.
+ *
+ * **Rising belongs to the body, not the mind** (physical contact session 02, 2026-09-23). Nothing
+ * here asks whether anybody wants the body up: once its fall has settled and its dwell has
+ * elapsed, it rises as soon as the world lets it. It used to wait for a `recover` request derived
+ * from movement input, so a mind that held still never rose, and a rise lost the request -- and
+ * fell back with its dwell reset -- at any boundary where the mind stopped moving. The house rule
+ * is that recovery cannot require the support state it exists to restore; the mind's input is
+ * one more thing it may not require.
+ */
 export function risingEligibility(state: SupportedLocomotionState,
   input: SupportedLocomotionBoundary): RisingEligibility {
   if (state.state !== "fallen" && state.state !== "rising") {
@@ -250,7 +239,6 @@ export function risingEligibility(state: SupportedLocomotionState,
   if (state.state === "fallen" && !input.fallSettled) {
     return Object.freeze({ eligible: false, reason: "the fall has not come to rest" });
   }
-  if (!input.recoverRequested) return Object.freeze({ eligible: false, reason: "recovery was not requested" });
   if (!input.authority) return Object.freeze({ eligible: false, reason: "locomotion authority is unavailable" });
   if (!input.liveSupport) return Object.freeze({ eligible: false, reason: "support chain is not live" });
   if (!input.recoveryGroundAvailable) {
@@ -261,8 +249,8 @@ export function risingEligibility(state: SupportedLocomotionState,
   // Falling is allowed to leave every foot above the floor or folded under the carrier. Requiring
   // one of those terminals to publish a fresh planted contact before the bounded righting path may
   // begin makes an upside-down but otherwise intact body unrecoverable by construction. The rise
-  // instead earns reattachment through live support topology, an explicit recover request, the
-  // fallen dwell, pair occupancy and uninterrupted clearance. Fresh terminal contact is still
+  // instead earns reattachment through live support topology, the settled fall, the fallen dwell,
+  // pair occupancy and uninterrupted clearance. Fresh terminal contact is still
   // mandatory when the completed posture asks to become supported again.
   return Object.freeze({ eligible: true, reason: null });
 }

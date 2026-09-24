@@ -43,7 +43,7 @@ import { GOLEM_RUIN } from "./config.ts";
 /**
  * What a locomotion module is commanded with, once per control boundary.
  *
- * The existing `LocomotionRequest` -- `localForward`, `localRight`, `yaw`, `recover` -- plus
+ * The existing `LocomotionRequest` -- `localForward`, `localRight`, `yaw` -- plus
  * `crouch` from `Intent.posture`, which is the field `mind.ts` has carried marked "reserved for
  * session 05" since the posture record was split out. Nothing is added to `Intent` for any of
  * it: `locomotionCommand` below is a narrowing, which is the direction the one-seam rule allows.
@@ -57,36 +57,28 @@ export interface LocomotionCommand {
 /**
  * The whole `Intent` narrowed onto one locomotion module. This is the registry's adapter.
  *
- * **`recover` is derived from what the person is *asking* for, never from what the carrier
- * achieved**, and that distinction is a recorded trap rather than a nicety: a fallen carrier
- * zeroes its own translation, so a `recover` read back off the committed movement is false for
- * exactly as long as the body is fallen, and the body is therefore trapped for ever. `Intent`
- * has no `recover` field and must not grow one, so the rule is the one the game already uses --
- * `fighterRequestsRising` in `supported-locomotion-state.ts`: deliberate movement input after
- * the fallen dwell is the request to get up. Setting it while upright costs nothing, because
- * `risingEligibility` reads it only in the fallen and rising states.
+ * **Nothing here asks the body to get up.** A downed body rises on its own once its fall has
+ * settled (`risingEligibility` in `supported-locomotion-state.ts`). The request once carried a
+ * `recover` flag derived from movement input, which left a mind that held still on the floor for
+ * ever and dropped a rise whenever the mind paused.
  */
 export const locomotionCommand = (intent: Intent): LocomotionCommand => ({
   request: {
     localForward: intent.forward,
     localRight: intent.strafe,
     yaw: intent.turn,
-    recover: intent.forward !== 0 || intent.strafe !== 0 || intent.turn !== 0,
   },
   crouch: intent.posture.crouch,
 });
 
 /**
- * A command scaled to what the legs have left: forward, strafe and turn by `mobility`, and
- * `recover` untouched.
+ * A command scaled to what the legs have left: forward, strafe and turn by `mobility`.
  *
  * **At the narrowing, not in a module**, because a golem hands its command to two places -- the
  * module's own `command` and the port's `request` -- and a hobble applied in only one of them is a
  * golem that limps on the bench and runs in a bout. A separate function rather than a second
  * parameter on `locomotionCommand`, because the bench calls that one as an adapter with the build
- * context in second place. `recover` stays as the intent derived it, by the house rule that
- * recovery cannot require the support it restores: a person pushing the stick on a fallen golem
- * is asking to get up however little the legs have left.
+ * context in second place.
  */
 export const hobble = (command: LocomotionCommand, mobility: number): LocomotionCommand => mobility >= 1
   ? command
@@ -95,7 +87,6 @@ export const hobble = (command: LocomotionCommand, mobility: number): Locomotion
       localForward: command.request.localForward * mobility,
       localRight: command.request.localRight * mobility,
       yaw: command.request.yaw * mobility,
-      recover: command.request.recover,
     }),
     crouch: command.crouch,
   });

@@ -19,7 +19,7 @@ const footprint = (id = "obstacle-fixture", heightM = 1.8, radiusM = 0.5) =>
 const authority = Object.freeze({ carrierPartId: "pelvis",
   supportBindings: Object.freeze([{ role: "left-foot" }, { role: "right-foot" }]),
   braceCapacityMultiplier: 1.5, gaitStabilityScale: 1 });
-const STOP = Object.freeze({ localForward: 0, localRight: 0, yaw: 0, recover: false });
+const STOP = Object.freeze({ localForward: 0, localRight: 0, yaw: 0 });
 
 const floorRegistry = (support = () => true) => {
   const registry = new StandableWorldRegistry();
@@ -179,7 +179,7 @@ test("occupied_recovery_is_refused_by_the_intersecting_pair_footprint", () => {
     assert.equal(fallen.port.state, "fallen");
     for (let step = 0; step < 5; step += 1) {
       fallen.port.updatePairOccupancy(blocker.port);
-      advance(fallen.port, 0.1, { ...STOP, recover: true });
+      advance(fallen.port, 0.1, STOP);
     }
     assert.equal(fallen.port.state, "fallen");
     assert.equal(fallen.port.diagnostic().recoveryProgress, 0);

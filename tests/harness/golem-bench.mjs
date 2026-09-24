@@ -1346,10 +1346,8 @@ export const STROKE_BENCH_MODULES = Object.freeze([
  * keyboard produces -- `forward`, `strafe`, `turn` and `posture.crouch` -- because a locomotion
  * module reads exactly those and nothing else.
  *
- * **`recover` is not a phase field.** It is derived in `locomotionCommand` from whether the
- * person is asking to move at all, which is `fighterRequestsRising`'s existing rule; the `down`
- * phase therefore commands nothing so the fallen dwell can elapse, and `recover` walks forward,
- * which is both the request to get up and the thing to do once up.
+ * **Nothing here asks the body to get up**: it rises on its own once its fall has settled
+ * (`risingEligibility`). The `down` phase commands nothing, and `recover` walks forward once up.
  */
 export const LOCOMOTION_SEQUENCE = Object.freeze([
   { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },

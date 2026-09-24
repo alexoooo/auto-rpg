@@ -644,7 +644,7 @@ return defineLocomotion({
     let crouchLevel = 0;
     let wantedCrouch = 0;
     let request: LocomotionRequest = Object.freeze({
-      localForward: 0, localRight: 0, yaw: 0, recover: false,
+      localForward: 0, localRight: 0, yaw: 0,
     });
     let severed = false;
     let risingStart: Quaternion | null = null;
