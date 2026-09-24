@@ -2,6 +2,7 @@ import type { HumanOwnership } from "./input.ts";
 import type { FighterView, HandCursors, Mind } from "./mind.ts";
 import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
+import type { PressSource } from "./contact-press.ts";
 import { resolveSupportedPair } from "./supported-locomotion.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 import { isPhysicalSupportedLocomotionPort, resolvePhysicalSupportedPair } from "./supported-locomotion-production.ts";
@@ -80,11 +81,22 @@ export interface ControlledBody {
    * steps. A `Fighter` drives its legs from its own `update` and leaves the field off.
    */
   afterLocomotion?(dt: number): void;
+  /** This body as another body's contact press reads it, or absent for a body that presses nothing. */
+  pressSource?(): PressSource;
+  /**
+   * Read what the other bodies pressed on this one with, once a substep, after `observe` and
+   * before the boundary that reads it (physical contact session 07).
+   */
+  sampleContactPress?(others: readonly PressSource[]): void;
 }
 
 export function stepControlledPair(left: ControlledBody, right: ControlledBody, dt: number, clock: number): void {
   left.observe(right, clock);
   right.observe(left, clock);
+  const leftSource = left.pressSource?.();
+  const rightSource = right.pressSource?.();
+  left.sampleContactPress?.(rightSource ? [rightSource] : []);
+  right.sampleContactPress?.(leftSource ? [leftSource] : []);
   left.locomotion?.beginControlStep();
   right.locomotion?.beginControlStep();
   left.control.driver.step(dt);

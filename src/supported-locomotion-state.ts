@@ -274,6 +274,12 @@ export interface SupportedLocomotionBoundary {
    * which from the floor is about 1.1 s where the frozen 0.45 s lifted it at up to 2.4 m/s.
    */
   readonly risingDurationS: number;
+  /**
+   * Whether the other body's contact held this one up with more than its weight over the press's
+   * window (`ContactPress`, physical contact session 07). A standing body so lifted is not standing
+   * on anything and falls; read only while supported or staggered. Absent is false.
+   */
+  readonly lifted?: boolean;
 }
 
 export interface RisingEligibility { readonly eligible: boolean; readonly reason: string | null }
@@ -420,7 +426,8 @@ export function stepSupportedLocomotionState(prior: SupportedLocomotionState,
       : fallen;
   }
 
-  if (specificImpulseMps >= fallAt || supportMissingS > SUPPORTED_LOCOMOTION_V1.SUPPORT_GRACE_S) {
+  if (specificImpulseMps >= fallAt || supportMissingS > SUPPORTED_LOCOMOTION_V1.SUPPORT_GRACE_S ||
+      input.lifted === true) {
     return Object.freeze({ state: "fallen", specificImpulseMps, supportMissingS,
       fallenElapsedS: 0, risingElapsedS: 0, driveStaged: false });
   }

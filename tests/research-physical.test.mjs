@@ -70,28 +70,28 @@ test("the worker counts a corner's knockdowns and its time down from that corner
 });
 
 test("the worker counts the modules each corner lost and the real blows it landed, each from that corner's own record", async () => {
-  // Measured, 2026-09-24, after physical contact session 06 made every contact push by the momentum
-  // it moved: on these seeds the champion ends a brawler at toughness x0.5 in 8.65 s and takes one
-  // of its modules off on the way; the same brawler at x1 keeps every module through the ten-second
-  // cap. The x1 bout is the control that the count is read off the body. A fixture has to exhibit a
-  // sever for a sever counter to be tested, so when a change to a body moves which seeds do, the
-  // seeds move rather than the assertion: they were 46 and 47, then 50 and 51 from the rise gate's
-  // repair, then 52 and 53 from session 04's density, then 54 and 55 from session 05's effective
-  // mass, then 64 and 65 from session 06's push. The search is this job run over consecutive pairs
-  // from 50 up, keeping the first on which the soft corner alone loses exactly one module and the
-  // x1 control loses none.
+  // Measured, 2026-09-24, after physical contact session 07 let contact lift and push a standing
+  // body: on these seeds the champion takes one module off a brawler at toughness x0.5 inside the
+  // ten-second cap, and the same brawler at x1 keeps every module through it. The x1 bout is the
+  // control that the count is read off the body. A fixture has to exhibit a sever for a sever counter
+  // to be tested, so when a change to a body moves which seeds do, the seeds move rather than the
+  // assertion: they were 46 and 47, then 50 and 51 from the rise gate's repair, then 52 and 53 from
+  // session 04's density, then 54 and 55 from session 05's effective mass, then 64 and 65 from
+  // session 06's push, then back to 50 and 51 from session 07's contact press. The search is this job
+  // run over consecutive pairs from 50 up, keeping the first on which the soft corner alone loses
+  // exactly one module and the x1 control loses none.
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "soft", setup: withAttributeSetting(base.setup, { toughness: 0.5 }) }];
   const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 10 } };
   const job = { id: "sever", round: 0, block: "sever", left: "golem-champion", right: "golem-brawler",
-    leftBuild: "default", rightBuild: "soft", seeds: [64, 65] };
+    leftBuild: "default", rightBuild: "soft", seeds: [50, 51] };
   const soft = await execute(job, manifest);
   assert.equal(soft.sides.right.severs, 1, "the soft corner lost one module");
   assert.equal(soft.sides.left.severs, 0, "and the count is the corner's own, not the bout's");
   // The same bout's contacts, and of them the real blows: the ones above the weapon's energy floor,
-  // one for each alignment the runner filed. Measured the same day: 95 contacts and 41 real blows on
-  // the left, 88 and 52 on the right, so neither count is the other and neither corner's is the other's.
-  assert.deepEqual(["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]), [[95, 41], [88, 52]]);
+  // one for each alignment the runner filed. Measured the same day: 104 contacts and 47 real blows on
+  // the left, 69 and 49 on the right, so neither count is the other and neither corner's is the other's.
+  assert.deepEqual(["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]), [[104, 47], [69, 49]]);
   const plain = await execute({ ...job, rightBuild: "default" }, manifest);
   assert.equal(plain.sides.right.severs, 0, "the control: the same bout at x1 keeps them all");
 });

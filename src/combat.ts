@@ -604,7 +604,7 @@ export class Combat {
     const normal = this.contactNormal(velocity, event);
     const transferNs = normal ? this.transfer(this.strikerMassAt(weapon, point, normal),
       effectiveMassAt(event.collidedAgainst, point, normal), this.closingSpeedAt(velocity, event), normal,
-      velocity) : 0;
+      velocity, event.collidedAgainst, weapon.body) : 0;
     const report: HitReport = {
       ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
@@ -712,15 +712,19 @@ export class Combat {
    * **Nothing is applied to a body here.** The solver has already resolved this contact by the time
    * a collision callback runs, and its own impulse is the physical push; the authored impulse this
    * replaced was added on top of it. What the ledger needs is the reading, not a second push.
+   *
+   * The struck part and the striker go with it, so the target can refuse a contact its contact press
+   * is already reading (`Golem.queueStabilityEvent`, physical contact session 07).
    */
   private transfer(strikerMassKg: number, struckMassKg: number, closingSpeed: number, normal: Vector3,
-    velocity: Vector3): number {
+    velocity: Vector3, struck: PhysicsBody, striker: PhysicsBody): number {
     if (!(closingSpeed > 0)) return 0;
     const impulseNs = contactImpulseNs(strikerMassKg, struckMassKg, closingSpeed);
     const along = this.scratch.push.copyFrom(normal);
     if (Vector3.Dot(along, velocity) < 0) along.scaleInPlace(-1);
     along.scaleInPlace(impulseNs);
-    this.target?.queueStabilityEvent?.({ horizontalShoveNs: [along.x, along.z], verticalShoveNs: along.y });
+    this.target?.queueStabilityEvent?.({ horizontalShoveNs: [along.x, along.z], verticalShoveNs: along.y },
+      struck, striker);
     return impulseNs;
   }
 
@@ -821,7 +825,8 @@ export class Combat {
     // for that reason: the momentum the contact moved, from the same pair of masses its energy is
     // priced on (physical contact session 06). A blade leaned on pushes by what it carries, as a
     // slap does, because the solver does not know which side of a blade arrived.
-    const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed, normal, velocity) : 0;
+    const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed, normal, velocity,
+      event.collidedAgainst, weapon.body) : 0;
     if (!weapon.projectileImpact && energyJ < biteFloorJ(weapon.kind)
       && biteMechanism(weapon.kind) !== "blunt") {
       // The alignment is reported rather than zeroed. It used to be a hard zero because it had

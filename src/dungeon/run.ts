@@ -211,6 +211,11 @@ export class DungeonRun {
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + 0.2; }
     // Observe everybody before deciding or driving anybody. No fake opponent for exploration.
     for (const actor of this.actors) actor.body.observe(actor.target?.body ?? null, this.clock);
+    // What each body's neighbours press on it with, before any boundary reads it. The dungeon's group
+    // resolver has no pair push (`resolvePhysicalSupportedPair` has), so a body walked into here
+    // is stopped rather than shoved; an arm's press reaches it all the same.
+    const sources = this.actors.map((actor) => actor.body.pressSource());
+    this.actors.forEach((actor, i) => actor.body.sampleContactPress(sources.filter((_, j) => j !== i)));
     for (const actor of this.actors) actor.body.locomotion.beginControlStep();
     for (const actor of this.actors) {
       if (!actor.body.alive) {

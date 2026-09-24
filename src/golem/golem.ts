@@ -8,6 +8,7 @@ import type { GolemSetup } from "../bout.ts";
 import { vitality as vitalityOf } from "../bout.ts";
 import type { Striking } from "../combat.ts";
 import { CONFIG } from "../config.ts";
+import { CONTACT_PRESS, ContactPress, type PressSource } from "../contact-press.ts";
 import type { HumanDriverSource } from "../control-host.ts";
 import type { Limb } from "../fighter.ts";
 import { TERMINAL_DESCRIPTION } from "./build.ts";
@@ -375,6 +376,10 @@ export class Golem implements Combatant {
 
   private dead = false;
   private fighting = true;
+  /** What the other bodies' parts press on this one with (physical contact session 07). */
+  private readonly press: ContactPress;
+  /** This body as another body's press reads it. */
+  private readonly asPressSource: PressSource;
 
   constructor(scene: Scene, options: GolemOptions) {
     this.side = options.side;
@@ -568,6 +573,33 @@ export class Golem implements Combatant {
     });
     this.humanAppearance = dressHumanoid(scene, this.visualBindings, this.side);
     for (const mesh of this.humanAppearance?.meshes ?? []) { this.owned.add(mesh); this.costume.push(mesh); }
+
+    // Every part is watched, because a lift or a push can arrive on any of them: a blade under the
+    // plate, a fist on the collar. A part that comes off stops counting, on either side.
+    const attached = (body: PhysicsBody): boolean => this.byBody.get(body)?.severed === false;
+    this.press = new ContactPress(1 / CONFIG.world.physicsHz, attached);
+    for (const body of this.byBody.keys()) this.press.watch(body);
+    const golem = this;
+    this.asPressSource = Object.freeze({
+      owns: attached,
+      get standing(): boolean {
+        const state = golem.locomotion.state;
+        return !golem.dead && (state === "supported" || state === "staggered");
+      },
+      get weightN(): number { return golem.locomotion.supportedMassKg * CONTACT_PRESS.GRAVITY_MPS2; },
+    });
+  }
+
+  /** This body as another body's contact press reads it. See `ContactPress`. */
+  pressSource(): PressSource { return this.asPressSource; }
+
+  /**
+   * Read what the other bodies pressed on this one with and hand it to the carrier, once a substep,
+   * after `observe` and before the boundary (physical contact session 07). `stepControlledPair` and
+   * the dungeon's step call it.
+   */
+  sampleContactPress(others: readonly PressSource[]): void {
+    this.locomotion.applyContactPress(this.press.sample(others));
   }
 
   // ------------------------------------------------------------------------------- assembly
@@ -1076,7 +1108,15 @@ export class Golem implements Combatant {
   publishProjectiles(_into: ProjectileView[], at: number): number { return at; }
   stepProjectiles(): void { /* nothing of a golem's is ever in the air */ }
 
-  queueStabilityEvent(event: StabilityEvent): void {
+  /**
+   * File a contact's transfer. **One source per contact** (physical contact session 07): a contact
+   * between one of this body's parts and a striker that has lasted past `CONTACT_PRESS.BLOW_S` is
+   * a press, and the press already reads it through the solver's impulse. So `Combat`, which files
+   * every contact it scores, is refused here for those, and a blow's momentum and a lean's force are
+   * never both in the ledger.
+   */
+  queueStabilityEvent(event: StabilityEvent, struck?: PhysicsBody, striker?: PhysicsBody): void {
+    if (struck && striker && this.press.pressing(struck, striker)) return;
     this.locomotion.queueStabilityEvent(event);
   }
 
@@ -1383,6 +1423,7 @@ export class Golem implements Combatant {
     this.humanAppearance?.dispose(); this.humanAppearance = null;
     this.control.dispose();
     this.locomotion.dispose();
+    this.press.dispose();
     // Effectors first, then the head, then the torso, then the legs, then the base: a module's
     // welds are anchored into the module below it, and disposing the lower body first would leave
     // a constraint pointing at a freed Havok body. `PhysicsBody.dispose` walks straight past
