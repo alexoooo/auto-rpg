@@ -2,7 +2,7 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.j
 import { PhysicsConstraintAxis, PhysicsConstraintAxisLimitMode } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { capsulePart, joint, type Part } from "../../rig.ts";
 import { materialForGolemRole } from "../materials.ts";
-import { FULL_TONE, JointActuator } from "../joint-servo.ts";
+import { FULL_TONE, JointActuator, servoGain, servoLead } from "../joint-servo.ts";
 import { attributeOf } from "../attributes.ts";
 import { defineChain, type BuiltChain, type GolemPart } from "../module.ts";
 import { ARM_STROKES } from "../effectors/chains/arm-core.ts";
@@ -21,6 +21,11 @@ const RATES = [3, 3, 4, 4, 5, 5, 4];
 // straight elbow constraint reference: 4â€“15 mm hand error, pronation oscillates >1 rad;
 // resting-bend reference + 10/s response: .783 mm error, <.001 mm final-window wander.
 // Motor ceilings were not raised. Small segment inertia floor is kg mÂ².
+// `response` is per second at the tuning rate (`CONFIG.world.solverTuningHz`) and is held to it at
+// a longer step by `servoLead` and `servoGain`, as the golem servo is. Node golem bench, one trial,
+// the anatomical arm with its blade / mace (240 Hz; 120 on the shipped law; 120 as here):
+// stroke stray 76.0 / 136.1, 91.9 / 144.4, 78.7 / 130.0 mm; parry overshoot 113 / 180, 119 / 228,
+// 97 / 196 mm; peak stroke tip 11.24 / 9.26, 11.41 / 9.26, 11.11 / 9.21 m/s.
 export const HUMAN_ARM_DRIVE = { inertiaFloor: 0.015, response: 10 };
 export const anatomicalChain = defineChain({
   id: "anatomical", fitTerminal: humanEquipment, label: "anatomical arm - full hand pose", axes: 7,
@@ -85,6 +90,15 @@ export const anatomicalChain = defineChain({
     const socketRotation = () => ctx.socket.mount.mesh.rotationQuaternion!;
     const socketPoint = () => rotate(ctx.socket.local, socketRotation()).addInPlace(ctx.socket.mount.mesh.position);
     const worldCommand = () => rotate(commanded.point, socketRotation()).addInPlace(socketPoint());
+    // The stray is read against the point the drive is steering to, as the golem arm's is (see
+    // `steeredTo` in `src/golem/effectors/chains/arm-core.ts`): the command itself at 240 Hz.
+    const previousPoint = commanded.point.clone();
+    let lastStep = 0;
+    const steeredTo = () => {
+      const lead = servoLead(lastStep);
+      return lead === 1 ? worldCommand()
+        : rotate(Vector3.Lerp(previousPoint, commanded.point, lead), socketRotation()).addInPlace(socketPoint());
+    };
     const handPoint = () => rotate(handPivot, hand.mesh.rotationQuaternion!).addInPlace(hand.mesh.position);
     const cursor = (): HandCursor => ({ pointerX: command.pointerX, pointerY: command.pointerY, reach: command.reach,
       roll: command.roll, wristBend: command.wristBend,
@@ -151,21 +165,27 @@ export const anatomicalChain = defineChain({
         solveTime += dt;
         if (solveTime >= 1 / 60) { solve(); solveTime = 0; }
         angles = angles.map((a, i) => a + clamp(desired[i] - a, -rates[i] * dt, rates[i] * dt));
+        previousPoint.copyFrom(commanded.point); lastStep = dt;
         commanded = armForward(angles);
         const rotations = groups.map(i => commanded.frames[i].rotation);
         const achieved = measureArm(bodies.map(b => socketRotation().conjugate().multiply(b.mesh.rotationQuaternion!)), angles);
+        // The golem servo's law, held to the tuning rate the same way (`servoLead` and `servoGain`
+        // in `src/golem/joint-servo.ts`): at 240 Hz this is `wanted` and `response` exactly.
+        const lead = servoLead(dt), gain = servoGain(HUMAN_ARM_DRIVE.response, dt);
         for (let i = 0; i < 3; i++) {
           const parent = i ? bodies[i - 1].mesh.rotationQuaternion! : socketRotation();
           const wanted = i ? rotations[i - 1].conjugate().multiply(rotations[i]) : rotations[i];
           const old = i ? previousRotations[i - 1].conjugate().multiply(previousRotations[i]) : previousRotations[i];
           const actual = parent.conjugate().multiply(bodies[i].mesh.rotationQuaternion!);
+          const aim = lead === 1 ? wanted : Quaternion.Slerp(old, wanted, lead);
           const velocity = rotationError(wanted, old).scale(1 / dt)
-            .add(rotationError(wanted, actual).scale(HUMAN_ARM_DRIVE.response));
+            .add(rotationError(aim, actual).scale(gain));
           for (let axis = 0; axis < 3; axis++) {
             if ((i > 0 && axis === 2) || (i === 2 && supported)) continue;
             const coordinate = i === 1 ? (axis === 0 ? 4 : 3) : (axis === 0 ? 6 : 5);
-            const target = i === 0 ? velocity.asArray()[axis] : (angles[coordinate] - previousAngles[coordinate]) / dt +
-              HUMAN_ARM_DRIVE.response * (angles[coordinate] - achieved[coordinate]);
+            const from = previousAngles[coordinate], to = angles[coordinate];
+            const target = i === 0 ? velocity.asArray()[axis] : (to - from) / dt +
+              gain * ((lead === 1 ? to : from + (to - from) * lead) - achieved[coordinate]);
             actuators[i][axis].drive(clamp(target, -8, 8), TORQUES[i][axis] * weight);
           }
         }
@@ -177,7 +197,7 @@ export const anatomicalChain = defineChain({
         // The shoulder's rate and torque against the shipped arm's (`ArmDrive`); a human is x1 in size.
         drive: { rateScale: rates[0] / RATES[0], torqueScale: weight } }),
       axes: () => axes, stroke: () => "idle", anchor: worldCommand,
-      anchorStray: () => Vector3.Distance(worldCommand(), handPoint()), cursor,
+      anchorStray: () => Vector3.Distance(steeredTo(), handPoint()), cursor,
       orientation: () => socketRotation().conjugate().multiply(hand.mesh.rotationQuaternion!),
       commandedEnd(distance) { return worldCommand().addInPlace(rotate(HUMAN_MOUNT.perp.scale(distance - reachable.reachMax), socketRotation().multiply(commanded.rotation))); },
       unmotorise() { passive = true; release(); },

@@ -1,4 +1,4 @@
-import { FULL_TONE, JointActuator, JointServo } from "../../joint-servo.ts";
+import { FULL_TONE, JointActuator, JointServo, servoLead } from "../../joint-servo.ts";
 import { PhysicsConstraintAxis } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
@@ -7,6 +7,7 @@ import type { HandCursor, HandIntent } from "../../../mind.ts";
 import { capsulePart, joint, type Part } from "../../../rig.ts";
 import type { Armour } from "../../../scoring.ts";
 import { attributeOf, withArmSpeed, withSize, withWeight } from "../../attributes.ts";
+import { CONFIG } from "../../../config.ts";
 import { CHAIN_REACH, CHAIN_REACH_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -443,6 +444,22 @@ export function buildArmCore(
   const handWorld = elbowWorld.add(foreDir.scale(R.foreLength));
   // Compatibility readouts call this an anchor; it is a target point, with no physics body.
   const commandedPoint = handWorld.clone();
+  /**
+   * **The stray is read against the point the servo is steering to now, not the one it is sent
+   * to next.** It is sampled before the solver step, when `commandedPoint` is already where the
+   * hand is meant to be at the step's *end*; the servo aims `servoLead` of the way there. At the
+   * tuning rate those are one point and this is bit-identical to reading `commandedPoint`. At a
+   * longer step the difference is the command's motion over the rest of the step, v x (dt -
+   * 1/240), which is not an error of the arm's: read against the end of a 120 Hz step, a fist
+   * punch "strayed" 18.1 mm against 7.4 at 240 with the arm behaving the same.
+   */
+  const previousPoint = handWorld.clone();
+  const steeredPoint = handWorld.clone();
+  let lastStep = 0;
+  const steeredTo = (): Vector3 => {
+    const lead = servoLead(lastStep);
+    return lead === 1 ? commandedPoint : Vector3.LerpToRef(previousPoint, commandedPoint, lead, steeredPoint);
+  };
 
   // --- the shell --------------------------------------------------------------------------
   const parts: readonly GolemPart[] = Object.freeze([
@@ -732,7 +749,7 @@ export function buildArmCore(
     hand: handPoint,
     elbow: elbowPoint,
     anchorPoint: () => commandedPoint,
-    anchorStray: () => Vector3.Distance(handPoint(), commandedPoint),
+    anchorStray: () => Vector3.Distance(handPoint(), steeredTo()),
 
     commandedHand: (): Vector3 =>
       scratch.commandedHand.copyFrom(commandedPoint),
@@ -859,7 +876,18 @@ export function buildArmCore(
       // Once acquired, normal continuous control keeps its existing speed and range limits.
       driveAge += dt;
       const ramp = Math.min(1, driveAge / R.acquireSeconds);
-      stepToward(sent, demanded, R.anchorRate * ramp * ramp * (3 - 2 * ramp) * dt, dt);
+      // **At the tuning rate, whatever the step.** The filter is semi-implicit Euler, and one step
+      // of 1/120 s is not two of 1/240: the command it hands the joints would arrive later and
+      // settle differently at every rate. So a longer step runs it as the steps of
+      // `CONFIG.world.solverTuningHz` it spans (two at 120, one at 240 -- bit-identical there),
+      // with the ceiling shared between them. Node golem bench, 200 perturbed trials, paired
+      // against 240: with the lead and gain of `servoLead`, the punch strays +3.1 / +4.5 mm
+      // (fist / plate) on one filter step and +1.0 / +1.2 on two.
+      const substeps = Math.max(1, Math.round(dt * CONFIG.world.solverTuningHz));
+      const sub = dt / substeps;
+      for (let i = 0; i < substeps; i += 1) {
+        stepToward(sent, demanded, R.anchorRate * ramp * ramp * (3 - 2 * ramp) * sub, sub);
+      }
       clampInto(scratch.pose, sent.swing, sent.lift, sent.reach);
       if (acquiring && Math.abs(scratch.pose.swing - sent.swing)
         + Math.abs(scratch.pose.lift - sent.lift) + Math.abs(scratch.pose.reach - sent.reach) < 1e-8) {
@@ -868,6 +896,8 @@ export function buildArmCore(
       if (!acquiring) Object.assign(sent, scratch.pose);
 
       pointAt(sent.swing, sent.lift, sent.reach, scratch.target);
+      previousPoint.copyFrom(commandedPoint);
+      lastStep = dt;
       commandedPoint.copyFrom(scratch.target);
       Object.assign(slewed, sent);
       driveJoints(dt);
