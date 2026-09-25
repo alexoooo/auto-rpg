@@ -4,7 +4,7 @@
  *
  *     node research/control-band.mjs research/runs/pc01/giant [--level control]
  *
- * The physical-contact set (`docs/plans/2026-09-23-physical-contact-00-overview.md`) gates every
+ * The physical-contact set (`docs/plans/2026-09-23-physical-contact-00-overview.md` (in git at 30dcb8c)) gates every
  * behaviour-changing session on an x1-vs-x1 control whose damage and knockdowns sit "within the
  * band session 01 records". This prints that band from any `research/stat-sweep.mjs` run directory,
  * so the session that is being judged and the baseline are read by one instrument. In an x1 mirror

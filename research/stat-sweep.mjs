@@ -31,7 +31,7 @@
  * **`--attributes <preset>,...` sweeps whole attribute sets** (`ATTRIBUTE_PRESETS`) rather than
  * one stat: each preset is a level whose modified corner carries that set, beside a control whose
  * corner carries every stat at an explicit 1. It is how an all-max giant is measured against a x1
- * body (`docs/plans/2026-09-23-physical-contact-01-measure.md`).
+ * body (`docs/plans/2026-09-23-physical-contact-01-measure.md` (in git at 30dcb8c)).
  *
  * Execution is `runJobs` in `research/runner.mjs`: isolated worker lanes, one bout per worker at a
  * time, a fresh Havok per bout, resumable from `results.jsonl` -- never `Promise.all` over bouts,

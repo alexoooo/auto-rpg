@@ -4,7 +4,7 @@
  *     node research/downed-census.mjs --blocks 96 --dir research/runs/pc01/census
  *     node research/downed-census.mjs --groups stone,skeleton --blocks 96 --dir ...
  *
- * `docs/plans/2026-09-23-physical-contact-01-measure.md` sections 2 and 3. Each group is a matchup
+ * `docs/plans/2026-09-23-physical-contact-01-measure.md` (in git at 30dcb8c) sections 2 and 3. Each group is a matchup
  * played in side-swap blocks (`sweepJobs` in `research/stat-sweep.mjs`: a mind pair and a seed pair,
  * played once each way round), through `runJobs` and `research/census-worker.mjs`.
  *

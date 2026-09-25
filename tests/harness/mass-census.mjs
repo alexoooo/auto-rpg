@@ -4,7 +4,7 @@
  *     node tests/harness/mass-census.mjs
  *     node tests/harness/mass-census.mjs --json
  *
- * `docs/plans/2026-09-23-physical-contact-01-measure.md` section 6. Each family is stood up in a real
+ * `docs/plans/2026-09-23-physical-contact-01-measure.md` (in git at 30dcb8c) section 6. Each family is stood up in a real
  * bout (`createBout`, supported locomotion, NullEngine, real Havok) and every body its golem owns is
  * asked `getMassProperties()`, so the table is what the solver moves and not what a config table
  * says it should. Beside it: the supported mass the stability model divides a shove by (off the

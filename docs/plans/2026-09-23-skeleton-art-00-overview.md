@@ -93,3 +93,8 @@ through to their forge or primitive art.
   tiling grain map was left out as the simpler version; add it in session 03 if the look needs it.
 - The drawn bones are not the colliders. Thin colliders stay thin by the owner's choice; a blow
   that passes between drawn ribs still hits the solid core box.
+
+## Landed session files
+
+The session files that landed were deleted on 2026-09-25. Read them with
+`git show 30dcb8c:docs/plans/<file>`.

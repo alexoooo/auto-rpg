@@ -7,7 +7,7 @@
  * but every attacker must be able to beat every idle dummy. A cell is an attacker -- a named build,
  * optionally with an attribute preset, and the minds that play it -- against a dummy under the
  * `idle` policy. A block is one attacker mind and a seed pair, played once from each side, so arena
- * side cancels inside it. `docs/plans/2026-09-23-physical-contact-01-measure.md` section 7.
+ * side cancels inside it. `docs/plans/2026-09-23-physical-contact-01-measure.md` (in git at 30dcb8c) section 7.
  *
  * The question is whether a win is reachable, not how often, so a cell is small. A cell that falls to
  * zero wins where session 01 had some is a red gate for the session that did it.

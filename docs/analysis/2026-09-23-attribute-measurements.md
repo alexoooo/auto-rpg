@@ -1841,7 +1841,7 @@ tuned for, and on stone they lose it.
 
 ## Physical contact baselines
 
-The baseline the physical-contact set (`docs/plans/2026-09-23-physical-contact-00-overview.md`) is
+The baseline the physical-contact set (`docs/plans/2026-09-23-physical-contact-00-overview.md` (in git at 30dcb8c)) is
 judged against, written by session 01. Session 01 changes no behaviour; every figure is on the tree
 whose body fingerprint is 54f8c58e92e5. Raw outputs are in `research/runs/pc01/`, which is not
 committed.
@@ -2146,7 +2146,7 @@ NullEngine, real Havok. Every body a golem owns is asked `getMassProperties()`.
 
 ## Physical contact 02: getting up
 
-Session 02 (`docs/plans/2026-09-23-physical-contact-02-getting-up.md`) made rising the body's own,
+Session 02 (`docs/plans/2026-09-23-physical-contact-02-getting-up.md` (in git at 30dcb8c)) made rising the body's own,
 let a refused rise relocate, retried a rise that never reached posture, took away the skeleton's
 rise immunity, and gave every downed body one `GROUNDED_TONE` of 0.55. The census and the sweeps
 below are on body fingerprint f47debdd7ce3, which is 7e2b4d3 with view fields and census
@@ -2263,7 +2263,7 @@ falls, and it no longer rises through blows.
 
 ## Physical contact 03: finishing
 
-Session 03 (`docs/plans/2026-09-23-physical-contact-03-finishing.md`) published support state and a
+Session 03 (`docs/plans/2026-09-23-physical-contact-03-finishing.md` (in git at 30dcb8c)) published support state and a
 live vital point in the view, and gave every golem executor one finishing rule from `src/downed.ts`.
 The census below also found a defect in session 02's rise, and its repair landed during this
 session. So there are three trees after session 02's f47debdd7ce3, and each is named by its body
@@ -2432,7 +2432,7 @@ skeleton on skeleton from 75 % to 83 %.
 
 ## Physical contact 04: bodies heavy enough
 
-Session 04 (`docs/plans/2026-09-23-physical-contact-04-family-masses.md`) landed in two commits:
+Session 04 (`docs/plans/2026-09-23-physical-contact-04-family-masses.md` (in git at 30dcb8c)) landed in two commits:
 
 - **66ee353**: every carrier holds up its whole body.
 - **562f8b2**: stone's body takes its own density, `STONE_BODY_DENSITY` 1300 kg/m3 in
@@ -2622,7 +2622,7 @@ rate, then the win rate with the drain in brackets, then the median time of a wi
 
 ## Physical contact 05: effective mass
 
-Session 05 (`docs/plans/2026-09-23-physical-contact-05-effective-mass.md`) landed in three commits:
+Session 05 (`docs/plans/2026-09-23-physical-contact-05-effective-mass.md` (in git at 30dcb8c)) landed in three commits:
 
 - **0e2dee5**: a striker's point velocity turns about its centre of mass.
 - **4acc9e3**: the effective-mass model (`src/golem/effective-mass.ts`) and the walk that feeds it
@@ -2828,7 +2828,7 @@ then the median time of a win. Session 04's reading is in brackets.
 
 ## Physical contact 06: knockback from momentum transfer
 
-Session 06 (`docs/plans/2026-09-23-physical-contact-06-knockback.md`) landed in one commit,
+Session 06 (`docs/plans/2026-09-23-physical-contact-06-knockback.md` (in git at 30dcb8c)) landed in one commit,
 **134b867**: every contact, blow or parry, files into the struck body's stability ledger the
 impulse of an inelastic contact between the striker's and the struck point's effective masses,
 `contactImpulseNs` in `src/scoring.ts` (`J = mu v_n`, restitution 0). The horizontal part is read;
@@ -2970,7 +2970,7 @@ then the median time of a win. Session 05's reading is in brackets.
 
 ## Physical contact 07: contact force lifts and pushes
 
-Session 07 (`docs/plans/2026-09-23-physical-contact-07-lift-and-push.md`) landed in two commits:
+Session 07 (`docs/plans/2026-09-23-physical-contact-07-lift-and-push.md` (in git at 30dcb8c)) landed in two commits:
 
 - **733bf12**: an arm's torques follow its weight.
 - **4df55cc**: contact lifts and pushes a standing body. `ContactPress` in `src/contact-press.ts`
@@ -3132,7 +3132,7 @@ drain, then the median time of a win. Session 06's reading is in brackets.
 
 ## Physical contact 08: stability from the body
 
-Session 08 (`docs/plans/2026-09-23-physical-contact-08-general-stability.md`) landed in three
+Session 08 (`docs/plans/2026-09-23-physical-contact-08-general-stability.md` (in git at 30dcb8c)) landed in three
 commits: **84e8251** (the body's own lines, with a blow gain), **57bff3c** (a body past its base)
 and **567350a** (a blow's height reaches the ledger, and the gain goes). How hard a body is to knock
 over is now read off the live body. A standing body is treated as a rigid body rocking about the
@@ -3414,7 +3414,7 @@ session 09's "Re-measured at 567350a" below.
 
 ## Physical contact 09: minds read what the attributes do
 
-Session 09 (`docs/plans/2026-09-23-physical-contact-09-minds-read-bodies.md`) landed in two
+Session 09 (`docs/plans/2026-09-23-physical-contact-09-minds-read-bodies.md` (in git at 30dcb8c)) landed in two
 commits, **ec9b8b2** and **adfa2b4** (the stroke bench's capability builder). It made three changes:
 
 - A body publishes what its stats do, as the physical quantities they produce.

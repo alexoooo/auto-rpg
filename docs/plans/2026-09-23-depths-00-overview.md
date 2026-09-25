@@ -149,3 +149,8 @@ git diff --cached --ignore-cr-at-eol --numstat
 - Browser checks run on the owner's server at `http://localhost:5180/`. Navigate, do not reload.
   Do not start or restart a server.
 - An adversarial review before each commit.
+
+## Landed session files
+
+The session files that landed were deleted on 2026-09-25. Read them with
+`git show 30dcb8c:docs/plans/<file>`.

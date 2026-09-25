@@ -4,7 +4,7 @@
  *     node tests/harness/impact-bench.mjs
  *     node tests/harness/impact-bench.mjs --modules effector.wrist.blade,effector.wrist.fist --json
  *
- * `docs/plans/2026-09-23-physical-contact-01-measure.md` section 4, and the ground truth session 05's
+ * `docs/plans/2026-09-23-physical-contact-01-measure.md` (in git at 30dcb8c) section 4, and the ground truth session 05's
  * computed effective mass is validated against. Two instruments, both on the effector bench stand
  * (`buildGolemStand`, NullEngine, real Havok, no rendering):
  *

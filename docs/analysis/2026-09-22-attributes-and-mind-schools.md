@@ -329,7 +329,9 @@ Related research context:
 
 - [Research record](../../research/RESEARCH.md), where the AI strength plan's outcome now lives
   (the plan itself was deleted once implemented: `git show f40c5f7:docs/plans/2026-09-20-ai-strength-and-research.md`)
-- [AI portfolio and teachers plan](../plans/2026-09-21-ai-portfolio-and-teachers.md)
+- AI portfolio and teachers plan, deleted once its campaign closed:
+  `git show 30dcb8c:docs/plans/2026-09-21-ai-portfolio-and-teachers.md`
+- [Skill ceiling plan set](../plans/2026-09-25-skill-ceiling-00-overview.md), which supersedes both
 
 ## Open decisions before implementation
 

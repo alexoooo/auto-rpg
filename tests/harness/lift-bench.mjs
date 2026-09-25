@@ -4,7 +4,7 @@
  *     node tests/harness/lift-bench.mjs
  *     node tests/harness/lift-bench.mjs --modules=effector.wrist.blade --json
  *
- * `docs/plans/2026-09-23-physical-contact-01-measure.md` section 5, and the number session 07's
+ * `docs/plans/2026-09-23-physical-contact-01-measure.md` (in git at 30dcb8c) section 5, and the number session 07's
  * lift and session 04's body density rest on: the owner's answer of 2026-09-23 made the comparison
  * the design -- "arms stay light by design; lift is spare arm torque against body weight".
  *
