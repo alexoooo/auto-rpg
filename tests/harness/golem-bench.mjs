@@ -744,10 +744,33 @@ export function strokeSequence({
  * actually came. The frozen bearing crossing is still counted, so the correction is visible on
  * the row rather than assumed.
  *
- * Speeds are the published points differenced across one physics step. `EffectorView` publishes
- * no velocity, and the terminal's own body velocity is not a point's on it -- a point on the end
- * of a swinging limb carries the angular part too -- so the difference is the honest reading, and
- * it is taken at `CONFIG.world.physicsHz` rather than at the frame rate.
+ * Speeds are the published points differenced. `EffectorView` publishes no velocity, and the
+ * terminal's own body velocity is not a point's on it -- a point on the end of a swinging limb
+ * carries the angular part too -- so the difference is the honest reading, and it is taken at
+ * `CONFIG.world.physicsHz` rather than at the frame rate.
+ *
+ * **The speed at the mark is read at the instant of closest approach, not at the nearest step**
+ * (2026-09-25). It was the two points differenced back across one step, which is the mean speed of
+ * the step *before* the sample, dt/2 behind it, on a blade gaining about 400 m/s every second, and
+ * it was read at whichever step fell nearest the mark, anywhere up to dt/2 either side of the
+ * blade's real passage. Both errors scale with the step, so the reading moved with the physics
+ * rate while the swing did not. On the shipped cut, trial 0, Node golem bench (m/s):
+ *
+ *     physics, instrument                 one step back   sub-step (as now)
+ *     240, every step                          15.45            15.63
+ *     240, every other step, phase 0           14.70            15.52
+ *     240, every other step, phase 1           13.11            15.19
+ *     120, every step                          13.44            15.16
+ *
+ * The same 240 physics read at 120's spacing reads what 120 physics reads, so the 2.0 m/s the old
+ * reading lost at 120 was the instrument. The chosen sword cut, same four rows: 13.37, 12.67,
+ * 11.22 and 12.66 the old way; 13.47, 13.33, 13.14 and 13.12 now. The sub-step reading places the
+ * approach at the minimum of a parabola through the squared miss of the three steps around the
+ * nearest one (exact for a point passing at constant velocity), takes the fourth-order central
+ * difference of the point at each of the three, and interpolates quadratically between them.
+ * What is left, up to 0.4 m/s between sampling phases at 120, is a speed peak about 20 ms wide
+ * sampled every 8.3 ms, which no stencil of positions recovers -- so a comparison across rates is
+ * made on one instrument, with the table named.
  */
 export function strokeProbe({
   socket, mark, outboard = 1, heading = 0, from = 0, to = Infinity, sweptUntil = Infinity,
@@ -777,6 +800,8 @@ export function strokeProbe({
   const crossingTimes = [];
   let crossedAt = null;
   let nearest = null;
+  /** Every sample in the window and two either side of it, for the sub-step reading at the mark. */
+  const trail = [];
   let peakTipSpeed = 0;
   let peakStrayMm = null;
 
@@ -793,6 +818,9 @@ export function strokeProbe({
     tipWas.copyFrom(tip);
     anchorWas.copyFrom(anchor);
     have = true;
+    if (t >= from - 2.5 * SUBSTEP && t <= to + 2.5 * SUBSTEP) {
+      trail.push({ tip: tip.clone(), anchor: anchor.clone() });
+    }
     if (t < from || t > to) return;
     if (tipSpeed > peakTipSpeed) peakTipSpeed = tipSpeed;
     if (view.anchorStray !== null) {
@@ -820,6 +848,8 @@ export function strokeProbe({
         tipSpeed,
         edgeLead,
         alongMetres: span * (1 - u),
+        u,
+        index: trail.length - 1,
       };
     }
     aimAt(socket, tip, heading, outboard, aim);
@@ -835,32 +865,68 @@ export function strokeProbe({
     }
   };
 
-  const read = () => Object.freeze({
-    /** Metres a second of the point of the weapon that is at the mark. */
-    speedAtMark: nearest ? nearest.speed : 0,
-    /** Metres a second of the business end at the same step, which is always the larger. */
-    tipSpeedAtMark: nearest ? nearest.tipSpeed : 0,
-    /**
-     * How much of the tip's motion the edge led with at that step, 0 to 1: the cosine between the
-     * published edge direction and the tip's velocity. Null for a terminal that publishes no edge.
-     * A cut scores on it (`edgeAlignment` in `src/scoring.ts`), and speed alone does not say it.
-     */
-    edgeLeadAtMark: nearest ? nearest.edgeLead : null,
-    /** How close the weapon actually came to the mark there, metres. */
-    missMetres: nearest ? nearest.miss : null,
-    /** How far back from the business end the mark fell, metres: where on the blade it landed. */
-    alongMetres: nearest ? nearest.alongMetres : null,
-    /** Seconds into the run at which that step fell. */
-    markAt: nearest ? nearest.at : null,
-    /** Bearing crossings over the whole window, arc and follow-through together. */
-    crossings,
-    /** Bearing crossings inside the swept phase: zero for a chain that cannot swing. */
-    sweptCrossings,
-    crossingTimes: Object.freeze([...crossingTimes]),
-    crossedAt,
-    peakTipSpeedDriven: peakTipSpeed,
-    peakAnchorStrayMm: peakStrayMm,
-  });
+  // The sub-step reading the header describes; null where the window's edge leaves no stencil.
+  const atApproach = () => {
+    const k = nearest?.index;
+    if (k === undefined || k < 3 || k + 3 >= trail.length) return null;
+    const blend = (j, u) => trail[j].anchor.add(trail[j].tip.subtract(trail[j].anchor).scale(u));
+    const missSq = (j) => {
+      const { tip, anchor } = trail[j];
+      const along = tip.subtract(anchor);
+      const span = along.length();
+      const u = span > 1e-9
+        ? Math.max(0, Math.min(1, Vector3.Dot(mark.subtract(anchor), along) / (span * span)))
+        : 0;
+      return Vector3.DistanceSquared(blend(j, u), mark);
+    };
+    const q0 = missSq(k - 1), q1 = missSq(k), q2 = missSq(k + 1);
+    const curve = q0 - 2 * q1 + q2;
+    const offset = curve > 1e-12 ? Math.max(-1, Math.min(1, 0.5 * (q0 - q2) / curve)) : 0;
+    const speedAt = (point) => {
+      const v = (j) => point(j + 1).subtract(point(j - 1)).scale(8)
+        .subtract(point(j + 2)).addInPlace(point(j - 2)).scaleInPlace(1 / (12 * SUBSTEP)).length();
+      const a = v(k - 1), b = v(k), c = v(k + 1);
+      return b + 0.5 * (c - a) * offset + 0.5 * (c - 2 * b + a) * offset * offset;
+    };
+    return {
+      speed: speedAt((j) => blend(j, nearest.u)),
+      tipSpeed: speedAt((j) => trail[j].tip),
+    };
+  };
+
+  const read = () => {
+    const approach = atApproach();
+    return Object.freeze({
+      /**
+       * Metres a second of the point of the weapon that is at the mark, at the instant of closest
+       * approach (see the header); the nearest step's one-step-back difference only where the
+       * window's edge leaves no stencil.
+       */
+      speedAtMark: nearest ? (approach?.speed ?? nearest.speed) : 0,
+      /** Metres a second of the business end at the same instant, which is always the larger. */
+      tipSpeedAtMark: nearest ? (approach?.tipSpeed ?? nearest.tipSpeed) : 0,
+      /**
+       * How much of the tip's motion the edge led with at that step, 0 to 1: the cosine between the
+       * published edge direction and the tip's velocity. Null for a terminal that publishes no edge.
+       * A cut scores on it (`edgeAlignment` in `src/scoring.ts`), and speed alone does not say it.
+       */
+      edgeLeadAtMark: nearest ? nearest.edgeLead : null,
+      /** How close the weapon actually came to the mark there, metres. */
+      missMetres: nearest ? nearest.miss : null,
+      /** How far back from the business end the mark fell, metres: where on the blade it landed. */
+      alongMetres: nearest ? nearest.alongMetres : null,
+      /** Seconds into the run at which that step fell. */
+      markAt: nearest ? nearest.at : null,
+      /** Bearing crossings over the whole window, arc and follow-through together. */
+      crossings,
+      /** Bearing crossings inside the swept phase: zero for a chain that cannot swing. */
+      sweptCrossings,
+      crossingTimes: Object.freeze([...crossingTimes]),
+      crossedAt,
+      peakTipSpeedDriven: peakTipSpeed,
+      peakAnchorStrayMm: peakStrayMm,
+    });
+  };
 
   return { probe, read };
 }
@@ -1302,7 +1368,9 @@ export const COMMITTED_SHAPE_CANDIDATES = Object.freeze({
     // This is a bench candidate, not a change to the shipped policy's stroke.
     chamberSwing: 0.05, strokeSeconds: 0.15, chamberReach: 0.10, chamberSeconds: 0.32,
     followLift: 0.50,
-    bench: Object.freeze({ missMetres: 0.0898, speedAtMark: 13.380, peakAnchorStrayMm: 32.563 }),
+    // Re-read 2026-09-25 at 120 Hz physics on the sub-step speed reading (`strokeProbe`'s header);
+    // the 240 Hz row on the old reading was 0.0898 m, 13.380 m/s, 32.563 mm.
+    bench: Object.freeze({ missMetres: 0.090, speedAtMark: 13.115, peakAnchorStrayMm: 31.9 }),
   }),
   shield: Object.freeze({
     chamberSwing: 0.80, strokeSeconds: 0.11, chamberReach: -0.70, chamberSeconds: 0.22,

@@ -1723,7 +1723,11 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   const strokeEnds = STROKE_GUARD_SECONDS + shipped.shape.chamberSeconds + shipped.shape.strokeSeconds;
   assert.ok(shipped.crossedAt < strokeEnds,
     `the bearing was crossed at ${shipped.crossedAt.toFixed(3)} s, after the arc ended at ${strokeEnds.toFixed(3)}`);
-  assert.ok(shipped.markAt > shipped.crossedAt,
+  // Both are stamped on steps, and a crossing is stamped on the first step past the bearing, so
+  // the two falling on one step says the nearest step is the first one past it -- which is after,
+  // and is what 120 Hz physics reads on the shipped cut (both 0.775 s; at 240, 0.7833 against
+  // 0.775; Node golem bench). Strictly before is the defect this was written for.
+  assert.ok(shipped.markAt >= shipped.crossedAt,
     "the weapon was nearest the mark before it crossed its bearing, which is not a swing");
   // Re-taken 2026-09-17, when `chamberReach` 0 and `followLift` 0.95 shipped. The old entry was
   // pinned from the 2026-09-06 bench, where the cut missed by 0.63 m and arrived 17 ms *after* its
@@ -1763,9 +1767,15 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   // the 22.1 that stood between. The bar is placed under the reading and above the old floor, so
   // it still catches the regression it was written for -- a cut that arrives at walking pace --
   // without asserting a speed only an unfair wrist could reach.
+  //
+  // **Re-taken 2026-09-25 at 120 Hz physics, on a corrected instrument, and the bar held.** The
+  // old reading went to 13.44 at 120 and this went red, and none of that was the blade: read at
+  // 120's spacing, the same 240 physics reads 13.11 to 14.70 depending on which steps are kept.
+  // `strokeProbe` now reads the speed at the instant of closest approach, and its header has the
+  // table. On it, Node golem bench: 15.63 at 240, 15.16 at 120.
   assert.ok(shipped.speedAtMark > 14.5,
-    `the shipped cut reaches the mark at ${shipped.speedAtMark.toFixed(1)}, under the 15.5 `
-    + "measured at the shipped lift cap on 2026-09-19; re-take the entry");
+    `the shipped cut reaches the mark at ${shipped.speedAtMark.toFixed(2)}, under the 15.16 `
+    + "measured at 120 Hz on 2026-09-25; re-take the entry");
 
   // What the grid chose, which is the row `COMMITTED_SHAPE_CANDIDATES` carries.
   const chosen = COMMITTED_SHAPE_CANDIDATES.sword;
@@ -1773,7 +1783,9 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   assert.ok(best.missMetres < 0.10,
     `the chosen cut misses by ${best.missMetres.toFixed(3)} m, and the candidate row claims`
     + ` ${chosen.bench.missMetres}`);
-  // The re-swept candidate trades some speed for coordinated, eased motion: 14.09 m/s.
+  // The re-swept candidate trades some speed for coordinated, eased motion: 14.09 m/s. On the
+  // sub-step reading (2026-09-25, Node golem bench) it is 13.47 at 240 and 13.12 at 120, the
+  // latter 0.02 under the 13.14 to 13.33 that 240 physics reads at 120's spacing.
   assert.ok(best.speedAtMark > 13,
     `the chosen cut arrives at ${best.speedAtMark.toFixed(2)} m/s against a claimed ${chosen.bench.speedAtMark}`);
   assert.ok(best.peakAnchorStrayMm < 50,
