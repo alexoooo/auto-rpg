@@ -20,7 +20,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
 import { PRIMARY, SECONDARY, applyButtonPose, poseFromButtons } from "../src/buttons.ts";
-import { Combat } from "../src/combat.ts";
+import { Combat, arrivalReadFraction } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
 import { COLLIDES, LAYER } from "../src/physics.ts";
 import { boxPart } from "../src/rig.ts";
@@ -642,7 +642,7 @@ async function hammerBlow(torsoId, aim = "edge") {
     // hammer had as the step began (`CONFIG.combat.contactReading`), so under it the hammer is
     // driven at 8 over that fraction; the blow `scoreHit` is handed is the same 8 m/s cut either
     // way, which is what the armour comparison and the pure-scorer check below are about.
-    const speed = CONFIG.combat.contactReading === "arrival" ? 8 / CONFIG.combat.arrivalReadFraction : 8;
+    const speed = CONFIG.combat.contactReading === "arrival" ? 8 / arrivalReadFraction(striker.kind) : 8;
     const upright = benchIntent();
     for (let frame = 0; frame < 40 && reports.length === 0; frame += 1) {
       // A whole `Intent`, because a registered option adapts the command rather than being handed
@@ -926,7 +926,7 @@ test("the ram's lunge is filed on a post and the plain head files nothing on the
   // Read against the billed energy the bound failed under the arrival reading at both rates.
   // Watched red on this line at 120 arrival with `HEAD_RAM.lunge.driveTorque` at half (1.7 J
   // billed, 5.5 J arrived); at 100 of its 146 it still passes, and at a tenth nothing is filed.
-  const billedShare = CONFIG.combat.contactReading === "arrival" ? CONFIG.combat.arrivalReadFraction ** 2 : 1;
+  const billedShare = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction("ram") ** 2 : 1;
   const arrivedJ = best.energyJ / billedShare;
   assert.equal(best.kind, "slap", `the lunge arrived with ${best.energyJ.toFixed(1)} J`);
   assert.ok(best.energyJ < CONFIG.combat.crushFloorJ && arrivedJ > CONFIG.combat.crushFloorJ / 4,

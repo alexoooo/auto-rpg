@@ -10,6 +10,8 @@
  * Units are SI throughout -- metres, kilograms, seconds, radians.
  */
 
+import type { Striker } from "./hands.ts";
+
 /**
  * Which reading of the arena the camera is giving. The two names are also the
  * keys of the two presets in the `camera` block below, which is what lets the
@@ -1056,7 +1058,7 @@ export const CONFIG = {
      * against the *unprojected* tip speed rather than the closing speed, because what is being
      * refused is a striker travelling impossibly fast whatever the manifold says about it. Under
      * `contactReading: "arrival"` it is checked against the speed that reading bills, the whole
-     * speed as the step began, before `arrivalReadFraction` (see `arrivalReadFraction`).
+     * speed as the step began, before its kind's row of `arrivalReadFractions`.
      *
      * Projectiles are exempt: `CONFIG.arrow.speedMax` is 48 m/s and a loosed arrow's speed is
      * authored by the bow rather than found by the solver.
@@ -1091,7 +1093,8 @@ export const CONFIG = {
      *   agree with. The event point lies on the striker's collider in that pose to p90 0.7-1.3 mm,
      *   against 12-71 mm after the step. The whip's weight, a sphere, prices at 0.415 kg at 240 and
      *   at 120 against a rigid-body 0.42; read against the post-step pose it was 0.353 and 0.244.
-     *   The velocity is billed times `arrivalReadFraction`, and `impossibleSpeed` reads it whole.
+     *   The velocity is billed times its kind's row of `arrivalReadFractions`, and
+     *   `impossibleSpeed` reads it whole.
      *
      * **What it fixes.** Node research runner, supported locomotion, PROBE_MINDS, stone golems,
      * each named build's mirror, 192 bouts per set, 150 s cap, seed 20260923; paired t120 (physics
@@ -1166,8 +1169,43 @@ export const CONFIG = {
      * ends on less damage in all (a mean 13.9 a bout against 15.3). The settled set's two shortest bouts,
      * 0.90 s each, end on a blade that arrived at 220 m/s and was read at 37 m/s after the step,
      * just under the guard; under this reading the guard refuses that blow.
+     *
+     * **One row per striker kind, since the release of 2026-09-25.** The table above chose the
+     * blade's fraction on the default mirror, and the step keeps a different share of each kind's
+     * arrival: at 240 one fraction left the blunt and fist mirrors 6-15 % longer than settled. At
+     * the release (physics and control at 120, the arm servos held to 240,
+     * `docs/analysis/2026-09-25-release-120.md`) each weapon mirror was held to its own settled 240
+     * length. Node research runner, the protocol above, paired against 240 settled, naive 95 % with
+     * the interval clustered by mind pairing in brackets; each variant moves one row:
+     *
+     * | mirror (kind moved)  | Delta ln s at 0.56      | Delta ln s at 0.62      | crossing |
+     * |----------------------|------------------------:|------------------------:|---------:|
+     * | default (empty)      | -0.029 +- 0.146 (0.407) | -0.031 +- 0.149 (0.394) |        - |
+     * | mace (club)          | +0.122 +- 0.055 (0.086) | -0.024 +- 0.061 (0.120) |    0.610 |
+     * | maul (club)          | +0.173 +- 0.064 (0.129) | +0.074 +- 0.066 (0.158) |    0.665 |
+     * | fists (empty)        | +0.097 +- 0.031 (0.060) | +0.007 +- 0.033 (0.056) |    0.625 |
+     * | whip (whip)          | +0.085 +- 0.035 (0.094) | +0.063 +- 0.034 (0.094) |   (0.79) |
+     *
+     * - **`empty` is 0.62.** The fists keep their length at it; the default mirror's plate is the
+     *   same kind and its length does not move (its blade decides it).
+     * - **`club` is 0.62**, the one value measured on both club mirrors. The mace crosses at 0.61 and
+     *   the maul at 0.665; 0.62 leaves the mace 0.024 short and the maul 0.074 long, each inside its
+     *   clustered interval. The maul's remainder travels with its falls (+3.49 a bout at 0.62), which
+     *   are locomotion's to answer rather than the reading's.
+     * - **`whip` stays at 0.56.** Its length hardly answers the fraction (-0.022 over 0.06, against
+     *   -0.09 to -0.15 for the others), so its crossing is an extrapolation to 0.79, and its excess
+     *   travels with its falls (+2.9 a bout). A fraction that bought that length back would be a
+     *   rule standing in for a cause somewhere else.
+     * - **The rest keep the blade's 0.56**: no research mirror fields an axe, bow, shield, buckler,
+     *   arrow, bite or ram, so none has a length to hold. A kind is set here when one is measured.
+     *
+     * `arrivalReadFraction` in `src/combat.ts` reads it, and is total over `Striker`.
      */
-    arrivalReadFraction: 0.56,
+    arrivalReadFractions: {
+      sword: 0.56, axe: 0.56, bow: 0.56, shield: 0.56, buckler: 0.56,
+      club: 0.62, empty: 0.62, whip: 0.56,
+      arrow: 0.56, bite: 0.56, ram: 0.56,
+    } satisfies Record<Striker, number>,
 
     /**
      * **The breaking point**: how far below empty, as a fraction of the part's full health, a part

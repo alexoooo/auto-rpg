@@ -9,7 +9,7 @@ import { distance, findPath } from "../src/dungeon/map.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { CONFIG } from "../src/config.ts";
-import { Combat } from "../src/combat.ts";
+import { Combat, arrivalReadFraction } from "../src/combat.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
@@ -172,7 +172,7 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
     // fraction and sampled the way a solver step samples it. The hero's own `Combat` watches the
     // same body and samples it too, so it is stopped: only the probe may score.
     run.hero.combat.stop();
-    const share = CONFIG.combat.contactReading === "arrival" ? CONFIG.combat.arrivalReadFraction : 1;
+    const share = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction(weapon.kind) : 1;
     source.body.setLinearVelocity(new Vector3(0, 0, 12 / share));
     source.body.setAngularVelocity(new Vector3(0, 0, 0));
     arena.scene.onBeforePhysicsObservable.notifyObservers(arena.scene);

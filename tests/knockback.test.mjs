@@ -43,7 +43,8 @@ async function arena() {
 async function strike(striker, body, velocity) {
   const { PhysicsEventType } = await import("@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js");
   const { CONFIG } = await import("../src/config.ts");
-  const share = CONFIG.combat.contactReading === "arrival" ? CONFIG.combat.arrivalReadFraction : 1;
+  const { arrivalReadFraction } = await import("../src/combat.ts");
+  const share = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction(striker.kind) : 1;
   striker.body.setLinearVelocity(velocity.scale(1 / share));
   striker.body.setAngularVelocity(velocity.scale(0));
   const scene = striker.body.transformNode.getScene();
