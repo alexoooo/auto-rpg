@@ -2,6 +2,9 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { Constants } from "@babylonjs/core/Engines/constants.js";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
+import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture.js";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
@@ -12,14 +15,15 @@ import { boundary, WALL_HEIGHT, wallSurface, type WallFace } from "./fog.ts";
 import { dungeonFog } from "./fog-plugin.ts";
 import { dungeonStone, flatStone, type DungeonSurfaces } from "./stone.ts";
 import { masonryQuads, type Quad } from "./masonry.ts";
-import type { TorchPlacement } from "./dressing.ts";
+import { DRESSING, FLOOR_TOP, decalCorners, decalHeight, hungCentre, type Dressing, type TorchPlacement } from "./dressing.ts";
+import { ATLAS, atlasRect, decalAtlas } from "./decals.ts";
 
 /** Visible surfaces are merged into one mesh per square of this many cells a side, so that a level is a few dozen
  * draws rather than one per wall run and a batch of two thousand tile instances. */
 export const VISUAL_CHUNK = 16;
 /** A floor tile's half-width and height. A flat floor's tiles leave 2 cm gaps, the only grid it has; a textured
  * floor's meet edge to edge, and the texture draws its own joints. */
-const TILE = Object.freeze({ flatHalf: 0.49, half: 0.5, y: 0.015 });
+const TILE = Object.freeze({ flatHalf: 0.49, half: 0.5, y: FLOOR_TOP });
 
 /** A wall quad's four corners, in order around it, and the way it faces. */
 function faceCorners(x: number, z: number, face: WallFace): Omit<Quad, "cell"> {
@@ -222,6 +226,57 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
         fittings.push({ mesh, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) });
         return mesh;
       });
+    },
+    /**
+     * The level's clutter (`dressingPlacements`), in one atlas painted in code (`decals.ts`), alpha-tested and fogged,
+     * and owning no body. Markings and roots are merged a chunk at a time; puddles apart, in a glossy material, to
+     * catch the torchlight. A web is a mesh of its own, hidden until the floor it hangs over is explored, as a sconce
+     * is: it faces into the room on a diagonal, so the fog reads half of it from the rock and half from the floor.
+     */
+    dress(dressing: readonly Dressing[]): Mesh[] {
+      if (!fog || !dressing.length) return [];
+      const atlas = RawTexture.CreateRGBATexture(decalAtlas(), ATLAS.tile * ATLAS.columns, ATLAS.tile * ATLAS.rows, scene,
+        true, false, Constants.TEXTURE_TRILINEAR_SAMPLINGMODE);
+      atlas.name = "dungeon dressing atlas"; atlas.hasAlpha = true; atlas.wrapU = atlas.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
+      const material = (name: string, roughness: number) => {
+        const m = flatStone(scene, name, "#ffffff", roughness);
+        m.albedoTexture = atlas; m.transparencyMode = PBRMaterial.PBRMATERIAL_ALPHATEST; m.alphaCutOff = 0.5;
+        fog.attach(m, null); return m;
+      };
+      const matte = material("dungeon dressing", 0.95), glossy = material("dungeon puddles", 0.12);
+      const flat: Quad[] = [], wet: Quad[] = [], hung: Quad[] = [], webs: { quad: Quad; floor: Point }[] = [];
+      const top = WALL_HEIGHT - 0.01, proud = DRESSING.hungProud;
+      for (const d of dressing) {
+        if (d.kind === "decal") {
+          const [u0, v0, u1, v1] = atlasRect(d.decal), y = decalHeight(d.layer);
+          const quad: Quad = { cell: { x: Math.round(d.at.x), z: Math.round(d.at.z) }, normal: [0, 1, 0],
+            corners: decalCorners(d).map(p => [p.x, y, p.z]) as Quad["corners"], uvs: [[u0, v0], [u0, v1], [u1, v1], [u1, v0]] };
+          (d.decal === "puddle" ? wet : flat).push(quad);
+        } else if (d.kind === "roots") {
+          const [u0, v0, u1, v1] = atlasRect("roots"), c = hungCentre(d), along = { x: Math.abs(d.facing.z), z: Math.abs(d.facing.x) };
+          const at = (s: number, y: number): [number, number, number] =>
+            [c.x + d.facing.x * proud + along.x * s * d.width / 2, y, c.z + d.facing.z * proud + along.z * s * d.width / 2];
+          hung.push({ cell: d.cell, normal: [d.facing.x, 0, d.facing.z], corners: [at(-1, top), at(1, top), at(1, top - d.drop), at(-1, top - d.drop)],
+            uvs: [[u0, v0], [u1, v0], [u1, v1], [u0, v1]] });
+        } else {
+          const [u0, v0, u1, v1] = atlasRect("cobweb"), { corner: c, into } = d, n = Math.SQRT1_2;
+          const onX = (y: number): [number, number, number] => [c.x + into.x * d.span, y, c.z + into.z * proud];
+          const onZ = (y: number): [number, number, number] => [c.x + into.x * proud, y, c.z + into.z * d.span];
+          const floor = { x: c.x + into.x / 2, z: c.z + into.z / 2 };
+          webs.push({ floor, quad: { cell: floor, normal: [into.x * n, 0, into.z * n],
+            corners: [onX(top), onZ(top), onZ(top - d.drop), onX(top - d.drop)], uvs: [[u0, v0], [u1, v0], [u1, v1], [u0, v1]] } });
+        }
+      }
+      const meshes: Mesh[] = [];
+      const add = (list: Mesh[], m: PBRMaterial) => { for (const mesh of list) { mesh.material = m; surfaces.push(mesh); meshes.push(mesh); } };
+      add(mergedQuads(scene, "dressing.floor", flat, 1), matte);
+      add(mergedQuads(scene, "dressing.puddles", wet, 1), glossy);
+      add(mergedQuads(scene, "dressing.hung", hung, 1), matte);
+      for (const [i, { quad, floor }] of webs.entries()) {
+        const [mesh] = mergedQuads(scene, `dressing.web.${i}`, [quad], 1);
+        mesh.isVisible = false; fittings.push({ mesh, floor: cellKey(map, floor) }); add([mesh], matte);
+      }
+      return meshes;
     },
     /** Writes the fog mask from what the hero sees and has seen. A closed door is drawn wherever the mask shows it. */
     present(visible: ReadonlySet<number>, explored: ReadonlySet<number>, hero: Point, pitch: number) {

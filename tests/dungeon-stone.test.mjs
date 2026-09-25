@@ -31,12 +31,14 @@ test("dungeon_textures_are_registered_with_provenance", () => {
 });
 
 test("stone_is_the_default_and_flat_is_the_control", () => {
-  assert.deepEqual(stoneQuery(""), { floor: "stone", wall: "stone", masonry: true });
-  assert.deepEqual(stoneQuery("?play=dungeon&floor=flat"), { floor: "flat", wall: "stone", masonry: true });
-  assert.deepEqual(stoneQuery("?wall=flat"), { floor: "stone", wall: "flat", masonry: true });
-  assert.deepEqual(stoneQuery("?masonry=0"), { floor: "stone", wall: "stone", masonry: false });
-  // A link from before the choice still draws the stone, and anything but 0 draws the blocks.
-  assert.deepEqual(stoneQuery("?floor=b&wall=a&masonry=1"), { floor: "stone", wall: "stone", masonry: true });
+  const dressed = { floor: "stone", wall: "stone", masonry: true, dressing: true };
+  assert.deepEqual(stoneQuery(""), dressed);
+  assert.deepEqual(stoneQuery("?play=dungeon&floor=flat"), { ...dressed, floor: "flat" });
+  assert.deepEqual(stoneQuery("?wall=flat"), { ...dressed, wall: "flat" });
+  assert.deepEqual(stoneQuery("?masonry=0"), { ...dressed, masonry: false });
+  assert.deepEqual(stoneQuery("?dressing=0"), { ...dressed, dressing: false });
+  // A link from before the choice still draws the stone, and anything but 0 draws the blocks and the clutter.
+  assert.deepEqual(stoneQuery("?floor=b&wall=a&masonry=1&dressing=1"), dressed);
 });
 
 test("a_textured_world_spans_its_maps_meets_edge_to_edge_and_varies_only_stone", async () => {
