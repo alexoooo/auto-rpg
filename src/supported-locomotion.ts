@@ -111,7 +111,8 @@ const copyStabilityEvent = (event: import("./supported-locomotion-state.ts").Sta
   return Object.freeze({
     horizontalShoveNs: Object.freeze([...event.horizontalShoveNs]) as readonly [number, number],
     ...(event.verticalShoveNs === undefined ? {} : { verticalShoveNs: event.verticalShoveNs }),
-    ...(event.atY === undefined ? {} : { atY: event.atY }) });
+    ...(event.atY === undefined ? {} : { atY: event.atY }),
+    ...(event.sustained === undefined ? {} : { sustained: event.sustained }) });
 };
 
 export interface SupportedPairResolution {

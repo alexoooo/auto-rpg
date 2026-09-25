@@ -211,10 +211,12 @@ test("a standing body held up past its weight is lifted off its feet, and one he
  * can follow tips it. So of one weight the push holds; a tenth heavier and twice as heavy, the walker
  * walks the idle body back, further the heavier it is; and a giant, twice the weight and a quarter the
  * size again, outruns its legs and puts it down. Nothing is special at one weight. The walker starts a
- * metre and a half away (the giant 1.8), so the footprints meet within the first half second, reads
- * the push's reaction on its own ledger, and never tips on it. The pushed body's own press reads
- * nothing here, so what moves it is the trunk alone, through the pair resolver: an arm's press is the
- * first test's subject.
+ * metre and a half away (the giant 1.8), so the footprints meet within the first half second, files
+ * the push's reaction to its own ledger as a held force, and never tips on it. The filing is counted
+ * at the call, because a push the walker holds leaves its ledger at zero. Reading the ledger for it
+ * once passed on the residue one step left there (2026-09-25 rate falls). The pushed body's own press
+ * reads nothing here, so what moves it is the trunk alone, through the pair resolver: an arm's press
+ * is the first test's subject.
  */
 test("a body walked into stands against one weight, is walked back by a heavier one and felled by a giant", async () => {
   let walking = true;
@@ -228,7 +230,14 @@ test("a body walked into stands against one weight, is walked back by a heavier 
     try {
       pushed.press.sample = () => NO_PRESS;
       const start = pushed.locomotion.carrierGround().z;
-      let fell = false, walkerLedger = 0, walkerFell = false, movedStanding = 0;
+      let fell = false, walkerFell = false, movedStanding = 0;
+      const filed = { held: 0, struck: 0 };
+      const staged = pusher.locomotion.staged;
+      const queue = staged.queueStabilityEvent;
+      staged.queueStabilityEvent = function (event) {
+        filed[event.sustained ? "held" : "struck"] += 1;
+        return queue.call(this, event);
+      };
       for (let t = 0; t < 3; t += 1 / 60) {
         run(1 / 60);
         if (!fell && pushed.locomotion.state === "fallen") {
@@ -237,12 +246,11 @@ test("a body walked into stands against one weight, is walked back by a heavier 
             `${name}: it was tipped over, not lifted`);
         }
         if (!fell) movedStanding = pushed.locomotion.carrierGround().z - start;
-        walkerLedger = Math.max(walkerLedger, pusher.locomotion.diagnostic().stability.specificImpulseMps);
         walkerFell ||= pusher.locomotion.state === "fallen";
       }
       walking = false;
       run(1.5);
-      results[name] = { fell, movedStanding, walkerLedger, walkerFell,
+      results[name] = { fell, movedStanding, walkerFell, filed,
         stoppedMps: pushed.locomotion.contactPress().slideMps,
         resistance: [pusher, pushed].map((body) => body.locomotion.proposal(FIXED).resistance),
         massKg: [pusher, pushed].map((body) => body.locomotion.supportedMassKg) };
@@ -261,7 +269,8 @@ test("a body walked into stands against one weight, is walked back by a heavier 
   assert.equal(heavy.stoppedMps, 0, "and the pushed body's feet stop the slide once it stops");
   assert.equal(giant.fell, true, "a giant drives it faster than its legs can follow, and tips it");
   for (const [name, result] of Object.entries(results)) {
-    assert.ok(result.walkerLedger > 0, `${name}: the walker reads the push's reaction`);
+    assert.ok(result.filed.held > 0, `${name}: the walker files the push's reaction`);
+    assert.equal(result.filed.struck, 0, `${name}: as a held force, not as blows`);
     assert.equal(result.walkerFell, false, `${name}: and never pushes past its own balance`);
   }
   // Each carrier resists the other with its own mass, so a light body walking into a heavy one is the
