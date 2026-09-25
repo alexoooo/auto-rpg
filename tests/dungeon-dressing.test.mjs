@@ -2,14 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
-import { DRESSING, FLOOR_DECALS, FLOOR_TOP, WALL_ALLOWANCE, dressingPlacements, hungCentre, torchPlacements, validateDressing } from "../src/dungeon/dressing.ts";
+import { DRESSING, FACING_MIN, FLOOR_DECALS, FLOOR_TOP, WALL_ALLOWANCE, dressingPlacements, hungCentre, torchPlacements, validateDressing } from "../src/dungeon/dressing.ts";
 import { ATLAS, DECAL_KINDS, atlasRect, decalAtlas } from "../src/dungeon/decals.ts";
 import { WALL_HEIGHT } from "../src/dungeon/fog.ts";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { buildDungeonWorld } from "../src/dungeon/world.ts";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { frameDungeon } from "../src/dungeon/camera.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon } from "../src/dungeon/camera.ts";
 import { dungeonStone } from "../src/dungeon/stone.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { isFloor } from "../src/dungeon/map.ts";
@@ -105,47 +105,80 @@ test("the_orthographic_light_proxy_patch_finds_its_anchor", () => {
 
 const dressings = new Map(SEEDS.map(seed => [seed, dressingPlacements(levels.get(seed), seed)]));
 const ofKind = (list, kind) => list.filter(d => d.kind === kind);
+/** The page's azimuth, square to the walls, and the old diagonal: hung dressing is placed for the view it is seen from. */
+const AZIMUTHS = [CAMERA_AZIMUTH, Math.PI / 4];
+const dressedFor = new Map(AZIMUTHS.map(azimuth => [azimuth, azimuth === CAMERA_AZIMUTH ? dressings
+  : new Map(SEEDS.map(seed => [seed, dressingPlacements(levels.get(seed), seed, DRESSING, cameraToward(azimuth))]))]));
 
 test("dressing_is_flat_on_the_floor_or_hung_on_a_wall", () => {
-  const seen = new Set();
-  for (const [seed, map] of levels) {
-    const dressing = dressings.get(seed);
-    assert.deepEqual(validateDressing(map, dressing, torchPlacements(map, seed)), [], `seed ${seed}`);
-    for (const [i, { min, max }] of map.rooms.entries()) {
-      const inside = ofKind(dressing, "decal").filter(({ at }) => at.x >= min.x - 0.5 && at.x <= max.x + 0.5 && at.z >= min.z - 0.5 && at.z <= max.z + 0.5);
-      assert.ok(inside.length >= 3, `seed ${seed}: room ${i} has ${inside.length} markings`);
+  for (const azimuth of AZIMUTHS) {
+    const toward = cameraToward(azimuth), seen = new Set();
+    for (const [seed, map] of levels) {
+      const dressing = dressedFor.get(azimuth).get(seed), where = `azimuth ${azimuth}, seed ${seed}`;
+      assert.deepEqual(validateDressing(map, dressing, torchPlacements(map, seed), toward), [], where);
+      for (const [i, { min, max }] of map.rooms.entries()) {
+        const inside = ofKind(dressing, "decal").filter(({ at }) => at.x >= min.x - 0.5 && at.x <= max.x + 0.5 && at.z >= min.z - 0.5 && at.z <= max.z + 0.5);
+        assert.ok(inside.length >= 3, `${where}: room ${i} has ${inside.length} markings`);
+      }
+      for (const d of dressing) seen.add(d.kind === "decal" ? d.decal : d.kind);
     }
-    for (const d of dressing) seen.add(d.kind === "decal" ? d.decal : d.kind);
+    assert.deepEqual([...seen].sort(), [...FLOOR_DECALS, "roots", "cobweb"].sort(), `azimuth ${azimuth}: every kind is drawn somewhere`);
   }
-  assert.deepEqual([...seen].sort(), [...FLOOR_DECALS, "roots", "cobweb"].sort(), "every kind is drawn somewhere");
+  // The validator reads the view it is handed: what is placed for one camera faces away from the other.
+  const map = levels.get(1), square = dressedFor.get(CAMERA_AZIMUTH).get(1);
+  assert.match(validateDressing(map, square, torchPlacements(map, 1), cameraToward(Math.PI / 4)).join("\n"), /face away from the camera/);
+  // Ten degrees off the axis a side face shows a sliver, 0.17 of the view: too near edge-on to hang anything on.
+  const yawed = cameraToward(170 * Math.PI / 180), [first] = ofKind(square, "roots");
+  for (const seed of SEEDS) for (const { facing } of ofKind(dressingPlacements(levels.get(seed), seed, DRESSING, yawed), "roots"))
+    assert.deepEqual(facing, { x: 0, z: -1 }, `seed ${seed}: roots on a side face at 170 degrees`);
+  const sideways = square.map(d => d === first ? { ...first, facing: { x: 1, z: 0 } } : d);
+  assert.match(validateDressing(map, sideways, torchPlacements(map, 1), yawed).join("\n"), /face away from the camera/);
 });
 
 test("the_dressing_validator_refuses_each_thing_it_is_for", () => {
   // One stated edit to a real placement each, so that a validator which passed everything would fail here.
-  const map = levels.get(1), torches = torchPlacements(map, 1), dressing = dressings.get(1);
-  const [decal] = ofKind(dressing, "decal"), [roots] = ofKind(dressing, "roots"), [web] = ofKind(dressing, "cobweb");
-  const rock = { x: 0, z: 0 }, overlapping = ofKind(dressing, "decal").find(o => o !== decal && Math.hypot(o.at.x - decal.at.x, o.at.z - decal.at.z) < 0.1);
-  assert.equal(overlapping, undefined, "the fixture's first marking stands alone");
-  const refused = (edit, pattern) => {
-    const problems = validateDressing(map, dressing.map(d => d === edit.from ? edit.to : d).concat(edit.extra ?? []), torches);
-    assert.match(problems.join("\n"), pattern);
-  };
-  refused({ from: decal, to: { ...decal, at: rock } }, /leaves the floor/);
-  refused({ from: decal, to: { ...decal, layer: 7 } }, /on layer 7/);
-  refused({ from: decal, to: decal, extra: [{ ...decal }] }, /shares a depth/);
-  refused({ from: decal, to: { ...decal, at: { ...map.start } } }, /at the start or the exit/);
-  refused({ from: roots, to: { ...roots, cell: { x: roots.cell.x + roots.facing.x, z: roots.cell.z + roots.facing.z } } }, /hang on no collider/);
-  refused({ from: roots, to: { ...roots, along: 0.4 } }, /leave their cell's face/);
-  refused({ from: roots, to: { ...roots, cell: torches[0].cell, facing: torches[0].facing, along: 0 } }, /hang at a torch/);
-  refused({ from: web, to: { ...web, drop: 1.2 } }, /hangs down to 1.60 m/);
-  refused({ from: web, to: { ...web, into: { x: -web.into.x, z: -web.into.z } } }, /not in an inner corner/);
-  refused({ from: roots, to: { ...roots, facing: { x: -roots.facing.x, z: -roots.facing.z } } }, /face away from the camera/);
-  // A wall facing +x whose floor has rock on its +z side: the camera looks at it across that rock.
-  let behind;
-  for (let z = 0; z < map.size && !behind; z++) for (let x = 0; x < map.size && !behind; x++)
-    if (!isFloor(map, x, z) && isFloor(map, x + 1, z) && !isFloor(map, x + 1, z + 1)) behind = { x, z };
-  refused({ from: roots, to: { ...roots, cell: behind, facing: { x: 1, z: 0 }, along: 0, width: 0.5, drop: 1.7 } }, /nearer wall hides them/);
-  refused({ from: web, to: { ...web, into: { x: web.into.x, z: -web.into.z } } }, /faces away from the camera/);
+  for (const azimuth of AZIMUTHS) {
+    const toward = cameraToward(azimuth), where = `azimuth ${azimuth}`;
+    const map = levels.get(1), torches = torchPlacements(map, 1), dressing = dressedFor.get(azimuth).get(1);
+    const [decal] = ofKind(dressing, "decal"), [roots] = ofKind(dressing, "roots"), [web] = ofKind(dressing, "cobweb");
+    const rock = { x: 0, z: 0 }, overlapping = ofKind(dressing, "decal").find(o => o !== decal && Math.hypot(o.at.x - decal.at.x, o.at.z - decal.at.z) < 0.1);
+    assert.equal(overlapping, undefined, `${where}: the fixture's first marking stands alone`);
+    const problemsOf = (edit, on = map) => validateDressing(on, dressing.map(d => d === edit.from ? edit.to : d).concat(edit.extra ?? []), torches, toward);
+    const refused = (edit, pattern, on = map) => assert.match(problemsOf(edit, on).join("\n"), pattern, where);
+    refused({ from: decal, to: { ...decal, at: rock } }, /leaves the floor/);
+    refused({ from: decal, to: { ...decal, layer: 7 } }, /on layer 7/);
+    refused({ from: decal, to: decal, extra: [{ ...decal }] }, /shares a depth/);
+    refused({ from: decal, to: { ...decal, at: { ...map.start } } }, /at the start or the exit/);
+    refused({ from: roots, to: { ...roots, cell: { x: roots.cell.x + roots.facing.x, z: roots.cell.z + roots.facing.z } } }, /hang on no collider/);
+    refused({ from: roots, to: { ...roots, along: 0.4 } }, /leave their cell's face/);
+    refused({ from: roots, to: { ...roots, cell: torches[0].cell, facing: torches[0].facing, along: 0 } }, /hang at a torch/);
+    refused({ from: web, to: { ...web, drop: 1.2 } }, /hangs down to 1.60 m/);
+    refused({ from: web, to: { ...web, into: { x: -web.into.x, z: -web.into.z } } }, /not in an inner corner/);
+    refused({ from: roots, to: { ...roots, facing: { x: -roots.facing.x, z: -roots.facing.z } } }, /face away from the camera/);
+    // A quarter turn: behind the camera's shoulder on the diagonal, and edge-on to it when it is square to the walls.
+    const dot = f => f.x * toward.x + f.z * toward.z;
+    const turned = [{ x: roots.facing.z, z: -roots.facing.x }, { x: -roots.facing.z, z: roots.facing.x }].sort((a, b) => dot(a) - dot(b))[0];
+    assert.ok(dot(turned) < FACING_MIN, where);
+    refused({ from: roots, to: { ...roots, facing: turned } }, /face away from the camera/);
+    // A wall the camera looks at across rock: on the diagonal, a wall facing +x whose floor has rock on its +z side is
+    // in the level; square to the walls no generated -z face has rock within three cells of it (seeds 1-50), so the
+    // level is given some, by one stated edit: the floor two cells in front of a real one turned to rock.
+    let behind, facing, on = map;
+    if (azimuth === Math.PI / 4) {
+      facing = { x: 1, z: 0 };
+      for (let z = 0; z < map.size && !behind; z++) for (let x = 0; x < map.size && !behind; x++)
+        if (!isFloor(map, x, z) && isFloor(map, x + 1, z) && !isFloor(map, x + 1, z + 1)) behind = { x, z };
+    } else {
+      facing = { x: 0, z: -1 };
+      for (let z = 0; z < map.size && !behind; z++) for (let x = 0; x < map.size && !behind; x++)
+        if (!isFloor(map, x, z) && [1, 2, 3].every(k => isFloor(map, x, z - k) && isFloor(map, x - 1, z - k) && isFloor(map, x + 1, z - k))) behind = { x, z };
+      on = { ...map, floor: map.floor.slice() }; on.floor[(behind.z - 2) * map.size + behind.x] = 0;
+    }
+    const hidden = { from: roots, to: { ...roots, cell: behind, facing, along: 0, width: 0.5, drop: 1.7 } };
+    if (on !== map) assert.doesNotMatch(problemsOf(hidden).join("\n"), /nearer wall hides them/, `${where}: seen before the edit`);
+    refused(hidden, /nearer wall hides them/, on);
+    refused({ from: web, to: { ...web, into: { x: web.into.x, z: -web.into.z } } }, /faces away from the camera/);
+  }
 });
 
 test("dressing_keeps_the_start_and_exit_clean", () => {
@@ -229,8 +262,8 @@ function worldVertices(mesh) {
 test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   try {
-    for (const seed of [1, 4]) {
-      const map = levels.get(seed), dressing = dressings.get(seed), world = buildDungeonWorld(arena.scene, map, true);
+    for (const azimuth of AZIMUTHS) for (const seed of [1, 4]) {
+      const map = levels.get(seed), dressing = dressedFor.get(azimuth).get(seed), world = buildDungeonWorld(arena.scene, map, true);
       const bodies = arena.scene.meshes.filter(m => m.physicsBody).length, meshes = world.dress(dressing);
       assert.equal(arena.scene.meshes.filter(m => m.physicsBody).length, bodies, `seed ${seed}: dressing added a body`);
       const named = prefix => meshes.filter(m => m.name.startsWith(prefix));
@@ -275,8 +308,9 @@ test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body
       // Hung pieces: each quad samples its own kind's whole tile with the tile's top (v0) at its top edge, and faces the
       // camera, which culls a back face and draws nothing of one seen edge-on.
       const camera = new FreeCamera("dressing view", Vector3.Zero(), arena.scene);
-      frameDungeon(camera, { x: map.size / 2, z: map.size / 2 }, 10, 1.5);
-      const toCamera = camera.position.subtract(camera.getTarget()).normalize();
+      frameDungeon(camera, { x: map.size / 2, z: map.size / 2 }, 10, 1.5, CAMERA_PITCH, azimuth);
+      // From the framed point: a camera's target is computed with its view matrix, and none has been asked for yet.
+      const toCamera = camera.position.subtract(new Vector3(map.size / 2, 1, map.size / 2)).normalize();
       for (const [prefix, kind] of [["dressing.hung", "roots"], ["dressing.web.", "cobweb"]]) for (const mesh of named(prefix)) {
         const [u0, v0, u1, v1] = atlasRect(kind), uv = mesh.getVerticesData(VertexBuffer.UVKind), normal = mesh.getVerticesData(VertexBuffer.NormalKind);
         const ys = worldVertices(mesh).map(v => v[1]);
@@ -285,7 +319,7 @@ test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body
           assert.ok(Math.min(...us) === u0 && Math.max(...us) === u1, `seed ${seed}: ${mesh.name} leaves its tile`);
           for (let k = q; k < q + 4; k++) assert.equal(uv[2 * k + 1], ys[k] === top ? v0 : v1, `seed ${seed}: ${mesh.name} hangs upside down`);
           const facing = normal[3 * q] * toCamera.x + normal[3 * q + 1] * toCamera.y + normal[3 * q + 2] * toCamera.z;
-          assert.ok(facing > 0.3, `seed ${seed}: ${mesh.name} faces the camera at ${facing.toFixed(2)}`);
+          assert.ok(facing > 0.3, `azimuth ${azimuth}, seed ${seed}: ${mesh.name} faces the camera at ${facing.toFixed(2)}`);
         }
       }
       camera.dispose();
@@ -298,7 +332,7 @@ test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body
       }
       const floorOf = w => (w.corner.z + w.into.z / 2) * map.size + w.corner.x + w.into.x / 2;
       assert.ok(webMeshes.every(m => !m.isVisible), `seed ${seed}: a web shows before its floor is explored`);
-      world.present(new Set(), new Set([floorOf(webs[0])]), { x: 0, z: 0 }, Math.PI / 6);
+      world.present(new Set(), new Set([floorOf(webs[0])]), { x: 0, z: 0 }, Math.PI / 6, cameraToward(azimuth));
       assert.deepEqual(webMeshes.map(m => m.isVisible), webs.map(w => floorOf(w) === floorOf(webs[0])), `seed ${seed}: webs do not follow their floors`);
       world.dispose();
     }

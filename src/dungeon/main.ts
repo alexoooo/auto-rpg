@@ -23,8 +23,8 @@ import { describeAttributes, withAttribute, withAttributeSetting, type Attribute
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "../attributes-ui.ts";
 import { DungeonRun } from "./run.ts";
 import { cellKey, type Point } from "./map.ts";
-import { CAMERA_PITCH, frameDungeon, pickingCoordinates } from "./camera.ts";
-import { dressingPlacements, torchPlacements } from "./dressing.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
+import { DRESSING, dressingPlacements, torchPlacements } from "./dressing.ts";
 import { lightDungeon, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
@@ -40,6 +40,12 @@ const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
 const pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
+// `?azimuth=` in degrees, any finite value, to compare the camera's bearing: 45 is the old diagonal. An absent or
+// empty parameter is the default, not 0, which `Number` would make of it.
+const azimuthText = new URLSearchParams(location.search).get("azimuth")?.trim();
+const azimuthQuery = azimuthText ? Number(azimuthText) : NaN;
+const azimuth = Number.isFinite(azimuthQuery) ? (azimuthQuery % 360 + 360) % 360 * Math.PI / 180 : CAMERA_AZIMUTH;
+const toward = cameraToward(azimuth);
 // `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost, and
 // `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
 const stone = stoneQuery(location.search);
@@ -118,8 +124,8 @@ async function boot(): Promise<void> {
   const framing = () => {
     if (!run || !camera || !lighting) return;
     const hero = run.hero.body.feetPosition();
-    frameDungeon(camera, hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch);
-    lighting.update(hero, zoom, pitch); run.world.setHero(hero);
+    frameDungeon(camera, hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
+    lighting.update(hero, zoom, pitch, toward); run.world.setHero(hero);
   };
   const rebuild = (nextSeed: number) => {
     lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
@@ -129,13 +135,13 @@ async function boot(): Promise<void> {
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
     run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: stone.masonry }, undefined, selectedEquipment); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
-    run.pitch = pitch;
+    run.pitch = pitch; run.toward = toward;
     // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
     // code no Node test loads, so the rule that it adds no body is held here, where it runs.
     const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
     const torches = torchPlacements(run.map, seed);
-    lighting = lightDungeon(scene, camera, run.map, torches); run.world.sconces(torches);
-    if (stone.dressing) run.world.dress(dressingPlacements(run.map, seed));
+    lighting = lightDungeon(scene, camera, run.map, torches, azimuth); run.world.sconces(torches);
+    if (stone.dressing) run.world.dress(dressingPlacements(run.map, seed, DRESSING, toward));
     if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);
     scene.onBeforePhysicsObservable.add(() => {
       if (!run || paused) return;

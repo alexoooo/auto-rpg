@@ -19,7 +19,7 @@ import { composeIntent, DungeonCommands, neutralIntent, screenMovement } from ".
 import { resolveDungeonLocomotion } from "./locomotion.ts";
 import { buildDungeonWorld } from "./world.ts";
 import type { DungeonSurfaces } from "./stone.ts";
-import { CAMERA_PITCH } from "./camera.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
 
 export interface DungeonActor {
   id: string; name: string; body: Golem; combat: Combat; policy: Mind; intent: Intent;
@@ -79,6 +79,9 @@ export class DungeonRun {
   notice = "Find the exit. Click to move; drag to keep moving through danger.";
   /** The camera's elevation, which decides where on a wall in front of the hero the cut-away falls. The page sets it. */
   pitch = CAMERA_PITCH;
+  /** The unit step on the ground toward the camera, which decides what the keys walk along and which walls the
+   * cut-away opens. The page sets it from its azimuth. */
+  toward: Point = cameraToward(CAMERA_AZIMUTH);
   private nextPerception = 0;
   private readonly plugin: HavokPlugin;
   /** The bodies of each sleeper whose transform Babylon was copying back from Havok every step. */
@@ -184,7 +187,7 @@ export class DungeonRun {
 
   private heroMovement(): Point | null {
     const { mode, order } = this.commands, actor = this.hero, at = actor.body.feetPosition();
-    if (mode.keyboard) return screenMovement(this.commands.right, this.commands.up);
+    if (mode.keyboard) return screenMovement(this.commands.right, this.commands.up, this.toward);
     if (order.kind === "force") {
       while (order.points.length && distance(at, order.points[0]) < 0.4) { order.points.shift(); actor.goal = null; }
       if (!order.points.length) { if (!order.drawing) this.commands.order = { kind: "idle" }; return { x: 0, z: 0 }; }
@@ -366,7 +369,7 @@ export class DungeonRun {
   }
 
   present(): void {
-    this.world.present(this.visible, this.explored, this.hero.body.feetPosition(), this.pitch);
+    this.world.present(this.visible, this.explored, this.hero.body.feetPosition(), this.pitch, this.toward);
     for (const actor of this.actors) {
       const shown = actor === this.hero || this.visible.has(cellKey(this.map, actor.body.feetPosition()));
       for (const { mesh, visible } of actor.meshes) mesh.isVisible = shown && visible;

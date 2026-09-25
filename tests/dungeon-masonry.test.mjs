@@ -7,6 +7,7 @@ import { WALL_HEIGHT, boundary, wallSurface } from "../src/dungeon/fog.ts";
 import { STONE_LOOK } from "../src/dungeon/fog-plugin.ts";
 import { buildDungeonWorld, SCONCE } from "../src/dungeon/world.ts";
 import { torchPlacements } from "../src/dungeon/dressing.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "../src/dungeon/camera.ts";
 import { dungeonStone } from "../src/dungeon/stone.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { isFloor } from "../src/dungeon/map.ts";
@@ -287,10 +288,10 @@ test("a_sconce_is_set_into_the_wall_under_its_flame_and_is_fogged", async () => 
       // Hidden until the floor it faces is explored, and shown then: the fog alone drew half of one at the frontier.
       const floorOf = t => t.cell.z * map.size + t.cell.x + t.facing.z * map.size + t.facing.x;
       assert.ok(meshes.every(m => !m.isVisible), `seed ${seed}: a sconce shows before anything is explored`);
-      world.present(new Set(), new Set([floorOf(torches[0])]), { x: 0, z: 0 }, Math.PI / 6);
+      world.present(new Set(), new Set([floorOf(torches[0])]), { x: 0, z: 0 }, Math.PI / 6, cameraToward(CAMERA_AZIMUTH));
       assert.deepEqual(meshes.map(m => m.isVisible), torches.map(t => floorOf(t) === floorOf(torches[0])),
         `seed ${seed}: sconces do not follow their floors into the explored set`);
-      world.present(new Set(), new Set(torches.map(floorOf)), { x: 0, z: 0 }, Math.PI / 6);
+      world.present(new Set(), new Set(torches.map(floorOf)), { x: 0, z: 0 }, Math.PI / 6, cameraToward(CAMERA_AZIMUTH));
       assert.ok(meshes.every(m => m.isVisible), `seed ${seed}: an explored sconce stays hidden`);
       const held = new Set();
       for (const [i, mesh] of meshes.entries()) for (const v of vertices(mesh)) {
@@ -383,17 +384,18 @@ function hit(origin, dir, [a, b, c, d]) {
 }
 
 test("the_camera_never_sees_into_the_rock", () => {
-  // Rays along the camera's view, at session 01's default pitch and the concepts' steeper one, aimed at the colliders'
-  // skin wherever the camera can see it -- densely at cell edges, where corners and joints meet. The first quad a ray
+  // Rays along the camera's view, at session 01's default pitch and the concepts' steeper one, from the page's bearing
+  // square to the walls and from the old diagonal, aimed at the colliders' skin wherever the camera can see it -- densely at cell edges, where corners and joints meet. The first quad a ray
   // meets faces it, and before it meets one the ray is never deeper into the rock than the cap: a slit in the masonry
   // would show the void inside. Back faces are culled, as the renderer culls them. The cap is the deepest thing meant to be seen: at pitch 30 the view runs edge-on down
   // an inner corner's notch at the coping and meets it about 0.09 m in.
   const offsets = [0.01, 0.04, 0.5, 0.96, 0.99];
-  let rays = 0;
+  const rays = new Map();
   for (const seed of [1, 3]) {
     const map = levels.get(seed), rock = rockOf(map), quads = masonryQuads(map, 2), near = new Map();
-    for (const pitch of [Math.PI / 6, Math.PI / 4]) {
-      const dir = [-Math.cos(pitch) * Math.SQRT1_2, -Math.sin(pitch), -Math.cos(pitch) * Math.SQRT1_2];
+    for (const azimuth of [CAMERA_AZIMUTH, Math.PI / 4]) for (const pitch of [Math.PI / 6, Math.PI / 4]) {
+      const toward = cameraToward(azimuth), where = `seed ${seed}, azimuth ${azimuth}, pitch ${pitch}`;
+      const dir = [-Math.cos(pitch) * toward.x, -Math.sin(pitch), -Math.cos(pitch) * toward.z];
       const at = (p, s) => p.map((v, i) => v + dir[i] * s);
       // Each quad the camera sees the front of, filed under every cell its footprint touches.
       near.clear();
@@ -407,16 +409,18 @@ test("the_camera_never_sees_into_the_rock", () => {
           }
       }
       for (const { cell, face } of wallSurface(map)) {
-        if (face === "x-" || face === "z-") continue;
+        // A face the camera sees edge-on or from behind: square to the walls, the side faces score sin(pi), not 0.
+        if (face !== "top" && OUT[face][0] * toward.x + OUT[face][1] * toward.z < 1e-9) continue;
         const aims = [];
         for (const i of offsets) for (const j of offsets) aims.push(face === "top" ? [cell.x - 0.5 + i, WALL_HEIGHT, cell.z - 0.5 + j]
-          : face === "x+" ? [cell.x + 0.5, j * WALL_HEIGHT, cell.z - 0.5 + i] : [cell.x - 0.5 + i, j * WALL_HEIGHT, cell.z + 0.5]);
+          : face[0] === "x" ? [cell.x + OUT[face][0] / 2, j * WALL_HEIGHT, cell.z - 0.5 + i]
+          : [cell.x - 0.5 + i, j * WALL_HEIGHT, cell.z + OUT[face][1] / 2]);
         for (const aim of aims) {
           // Only a point the camera sees past the colliders.
           let seen = true;
           for (let s = -0.005; at(aim, s)[1] <= WALL_HEIGHT; s -= 0.02) if (rockDepth(rock, at(aim, s)) > 0) { seen = false; break; }
           if (!seen) continue;
-          rays++;
+          rays.set(azimuth, (rays.get(azimuth) ?? 0) + 1);
           const origin = at(aim, -0.05);
           let first = Infinity;
           const candidates = new Set();
@@ -434,13 +438,15 @@ test("the_camera_never_sees_into_the_rock", () => {
             // is in the dark the camera already sees there. Under a wall it has found a way under the level.
             const [x, y, z] = at(origin, s), cx = Math.round(x), cz = Math.round(z);
             if (y < 0.015 && isFloor(map, cx, cz) || y < 0 && !rock(cx, cz)) break;
-            if (y < 0) assert.fail(`seed ${seed}, pitch ${pitch}: a ray at (${aim.map(v => v.toFixed(2))}) sees under the floor`);
+            if (y < 0) assert.fail(`${where}: a ray at (${aim.map(v => v.toFixed(2))}) sees under the floor`);
             const depth = rockDepth(rock, at(origin, s));
-            if (depth > MASONRY.cap + 0.01) assert.fail(`seed ${seed}, pitch ${pitch}: a ray at (${aim.map(v => v.toFixed(2))}) sees ${depth.toFixed(3)} m into the rock`);
+            if (depth > MASONRY.cap + 0.01) assert.fail(`${where}: a ray at (${aim.map(v => v.toFixed(2))}) sees ${depth.toFixed(3)} m into the rock`);
           }
         }
       }
     }
   }
-  assert.ok(rays > 65_000, `${rays} rays`); // 69,558 measured
+  // Square to the walls the camera sees one of a cell's four side faces, where the diagonal sees two.
+  assert.ok(rays.get(CAMERA_AZIMUTH) > 52_000, `${rays.get(CAMERA_AZIMUTH)} rays square to the walls`); // 56,050 measured
+  assert.ok(rays.get(Math.PI / 4) > 65_000, `${rays.get(Math.PI / 4)} rays on the diagonal`); // 69,558 measured
 });

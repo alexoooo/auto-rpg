@@ -1,4 +1,5 @@
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
 /** What the fog mask holds for a cell: never seen, seen before, in sight now. */
 export const FOG = Object.freeze({ unexplored: 0, remembered: 128, visible: 255 });
@@ -81,10 +82,12 @@ export const CUT_AWAY = Object.freeze({
   soft: 0.2,
   /** The share dropped at the oval's heart, so the wall ghosts rather than vanishes: 13 of 16 pixels. */
   most: 0.8,
-  /** A wall behind the hero hides nothing: the drop rises from none to full over this far toward the camera. Short
-   * enough that a wall the hero is pressed against, whose face is 0.28 m off a human's centre and so 0.4 m toward the
-   * camera in the hero's own column, is at the full drop; long enough that no 2 cm is a step. */
-  ahead: 0.35,
+  /** A wall behind the hero hides nothing: the drop rises from none to full over this far toward the camera. A wall
+   * the hero is pressed against has its face 0.28 m off a human's centre: 0.28 m toward a camera square to it, 0.4 m
+   * toward one on the diagonal. At 0.32 the square case is 0.957 of the full drop, which the 4x4 dither draws as the
+   * full 13 of 16 pixels (0.35 drew 12; past about 0.328 it is 12). A 2 cm step changes the share by at most
+   * 0.03 / `ahead` of `most`, which reaches a tenth at 0.30. */
+  ahead: 0.32,
   /** A wall's foot stays whole below the first height and is fully in the cut above the second: the footprint reads. */
   foot: Object.freeze([0.1, 0.5] as const),
 });
@@ -93,11 +96,13 @@ const smoothstep = (a: number, b: number, v: number) => { const t = Math.min(1, 
 
 /**
  * The share of a wall's pixels at `at` that the cut-away drops, 0 to `CUT_AWAY.most`, with the camera at `pitch`
- * and toward +x+z of the hero, as `frameDungeon` puts it. The shader in `fog-plugin.ts` is the same rule: change both.
+ * and standing `toward` of the hero (`cameraToward` of its azimuth), as `frameDungeon` puts it. The shader in
+ * `fog-plugin.ts` is the same rule: change both.
  */
-export function cutAway(hero: Point, at: { x: number; y: number; z: number }, pitch: number): number {
+export function cutAway(hero: Point, at: { x: number; y: number; z: number }, pitch: number,
+  toward: Point = cameraToward(CAMERA_AZIMUTH)): number {
   const dx = at.x - hero.x, dz = at.z - hero.z;
-  const along = (dx + dz) * Math.SQRT1_2, across = (dx - dz) * Math.SQRT1_2;
+  const along = dx * toward.x + dz * toward.z, across = dx * toward.z - dz * toward.x;
   const up = (at.y - CUT_AWAY.centre) * Math.cos(pitch) - along * Math.sin(pitch);
   const r = Math.hypot(across / CUT_AWAY.across, up / CUT_AWAY.up);
   return CUT_AWAY.most * (1 - smoothstep(CUT_AWAY.soft, 1, r)) * smoothstep(0, CUT_AWAY.ahead, along)

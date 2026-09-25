@@ -87,9 +87,10 @@ export function validateDressing(map: DungeonMap, dressing: readonly Dressing[],
   by separating axes. It first sampled 5x5 points, which let 12 of 2,505 markings on seeds 1 to 50
   overhang rock by up to 0.118 m.
 
-**Hung pieces face the camera.** `frameDungeon` stands the camera at +x +z of the hero and never
-turns it, and a hung piece is a single face, culled from behind as the walls are.
-`TOWARD_CAMERA` states the direction.
+**Hung pieces face the camera.** A hung piece is a single face, culled from behind as the walls are.
+When this session landed, `frameDungeon` stood the camera at +x +z of the hero and `TOWARD_CAMERA`
+stated that direction; dungeon feedback 02 put the camera square to the walls, and the placement now
+takes the page's `toward` and keeps to faces scoring `FACING_MIN` against it.
 - Before the rule, only about one web in four could be seen: of 9.26 webs a level, 24 % faced the
   camera, 48 % were edge-on to it and the rest were culled. Only 54 % of roots faced it (Node,
   seeds 1 to 50).

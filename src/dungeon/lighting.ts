@@ -1,7 +1,7 @@
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
 import { PointLight } from "@babylonjs/core/Lights/pointLight.js";
 import { ClusteredLightContainer } from "@babylonjs/core/Lights/Clustered/clusteredLightContainer.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
@@ -16,7 +16,7 @@ import "@babylonjs/core/Rendering/prePassRendererSceneComponent.js";
 import "@babylonjs/core/Lights/Clustered/clusteredLightingSceneComponent.js";
 import { forgePost } from "../forge-post.ts";
 import { publicAssetUrl } from "../asset-url.ts";
-import { cameraDistance } from "./camera.ts";
+import { CAMERA_AZIMUTH, cameraDistance } from "./camera.ts";
 import { flameFade, flameMaterial } from "./fire.ts";
 import { orthographicLightProxy } from "./light-proxy.ts";
 import { cellKey, type DungeonMap, type Point } from "./map.ts";
@@ -61,17 +61,21 @@ export interface DungeonLighting {
   readonly clustered: boolean;
   readonly torchCount: number;
   readonly look: Readonly<LookSwitches>;
-  update(hero: Point, zoom: number, pitch: number): void;
+  update(hero: Point, zoom: number, pitch: number, toward: Point): void;
   /** A flame whose floor is unexplored would show where a room is before the fog does. */
   refreshFog(explored: ReadonlySet<number>): void;
   setLook(change: Partial<LookSwitches>): void;
   dispose(): void;
 }
 
-export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torches: readonly TorchPlacement[]): DungeonLighting {
+export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torches: readonly TorchPlacement[],
+  azimuth = CAMERA_AZIMUTH): DungeonLighting {
   const look: LookSwitches = { torches: true, ssao: true, post: true };
   scene.clearColor = new Color4(...DUNGEON_LOOK.clearColor, 1);
-  const ambient = new HemisphericLight("dungeon ambient", new Vector3(0.3, 1, -0.4), scene);
+  // The sky's direction was chosen with the camera on the diagonal (azimuth pi/4), and turns with the camera so that
+  // it keeps its relation to the view: Babylon's `RotationY` takes `cameraToward(PI / 4)` to `cameraToward(azimuth)`.
+  const sky = Vector3.TransformNormal(new Vector3(0.3, 1, -0.4), Matrix.RotationY(azimuth - Math.PI / 4));
+  const ambient = new HemisphericLight("dungeon ambient", sky, scene);
   ambient.intensity = DUNGEON_LOOK.ambient.intensity;
   ambient.diffuse = Color3.FromHexString(DUNGEON_LOOK.ambient.diffuse);
   ambient.groundColor = Color3.FromHexString(DUNGEON_LOOK.ambient.ground);
@@ -143,11 +147,11 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   return {
     lantern, clustered, torchCount: torches.length,
     get look() { return { ...look }; },
-    update(hero, nextZoom, nextPitch) {
-      const step = DUNGEON_LOOK.lantern.behind / Math.SQRT2;
-      lantern.position.set(hero.x + step, DUNGEON_LOOK.lantern.height, hero.z + step);
+    update(hero, nextZoom, nextPitch, toward) {
+      const behind = DUNGEON_LOOK.lantern.behind;
+      lantern.position.set(hero.x + toward.x * behind, DUNGEON_LOOK.lantern.height, hero.z + toward.z * behind);
       zoom = nextZoom; pitch = nextPitch; setMaxZ();
-      for (const { flame } of flames) flameLook.setFade(flame, flameFade(hero, flame.position, pitch));
+      for (const { flame } of flames) flameLook.setFade(flame, flameFade(hero, flame.position, pitch, toward));
       if (Math.hypot(hero.x - lastHero.x, hero.z - lastHero.z) > 0.5) { lastHero = { x: hero.x, z: hero.z }; nearest(hero); }
     },
     refreshFog(next) { explored = next; showFlames(); },

@@ -4,6 +4,7 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import "../forge-fire.ts";
 import { cutAway } from "./fog.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 import type { Point } from "./map.ts";
 
 /**
@@ -46,5 +47,5 @@ export function flameMaterial(scene: Scene) {
 }
 
 /** How much of a flame at `at` is drawn: what the cut-away leaves of a wall there. */
-export const flameFade = (hero: Point, at: { x: number; y: number; z: number }, pitch: number): number =>
-  1 - cutAway(hero, at, pitch);
+export const flameFade = (hero: Point, at: { x: number; y: number; z: number }, pitch: number,
+  toward: Point = cameraToward(CAMERA_AZIMUTH)): number => 1 - cutAway(hero, at, pitch, toward);

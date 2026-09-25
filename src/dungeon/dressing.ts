@@ -1,7 +1,7 @@
 import { mulberry32 } from "../rng.ts";
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
 import { boundary, doorCells, WALL_HEIGHT } from "./fog.ts";
-import { CAMERA_PITCH } from "./camera.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
 
 /** Where the dungeon's body-free decoration goes. Every number here is a starting value set by eye; the owner
  * judges density in play (docs/plans/2026-09-24-dungeon-look-01-light-and-air.md, and -05-dressing.md). */
@@ -31,36 +31,43 @@ export const DRESSING = Object.freeze({
   /** How far off the wall's face a hung piece stands. */
   hungProud: 0.01,
   /** The chance of a web in each inner corner of a room that faces the camera, how far along each wall it reaches, and
-   * how far down it hangs. */
-  cobwebsPerRoomCorner: 0.5, cobwebSpan: Object.freeze([0.35, 0.55] as const), cobwebDrop: Object.freeze([0.45, 0.7] as const),
+   * how far down it hangs. With the camera square to the walls two corners of a room face it, where one did on the
+   * diagonal, so the chance is about half what it was: 0.5 on the diagonal and 0.28 square to the walls give 2.84 and
+   * 2.86 webs a level (seeds 1-50). */
+  cobwebsPerRoomCorner: 0.28, cobwebSpan: Object.freeze([0.35, 0.55] as const), cobwebDrop: Object.freeze([0.45, 0.7] as const),
 });
 
 /**
- * The way the camera looks from: `frameDungeon` in `camera.ts` stands it at +x +z of the hero, and it never turns. A
- * hung piece is one face, culled from behind as the walls are, so it hangs only where that face looks toward the camera:
- * roots on a face looking along +x or +z, and webs in a corner whose floor lies toward +x +z. Any other web is seen
- * edge-on or from behind.
+ * How squarely a hung piece's face must look toward the camera, as the ground dot product of its normal with the unit
+ * step toward the camera (`cameraToward`). A hung piece is one face, culled from behind as the walls are, so it hangs
+ * only where the camera sees that face. The facing tests ask 0.3 of the face's normal against the camera's view,
+ * which is `cos(pitch)` of the ground dot: 0.3 / cos 30 = 0.346. A bare `> 0` would hang roots on a face nearly
+ * edge-on at `?azimuth=170`, where the side walls score 0.17. On the diagonal every face toward the camera scores
+ * 0.707; square to the walls, the face looking at the camera scores 1 and the side faces 0.
  */
-export const TOWARD_CAMERA: Point = Object.freeze({ x: 1, z: 1 });
-const facesCamera = (p: Point) => p.x * TOWARD_CAMERA.x + p.z * TOWARD_CAMERA.z > 0;
+export const FACING_MIN = 0.35;
+const facesCamera = (p: Point, toward: Point) => p.x * toward.x + p.z * toward.z >= FACING_MIN;
+/** A web hangs across its corner's diagonal, so its face looks along `into`, a diagonal of unit steps. */
+const webFacesCamera = (into: Point, toward: Point) => (into.x * toward.x + into.z * toward.z) * Math.SQRT1_2 >= FACING_MIN;
 
 /**
  * Whether the camera sees a point in front of a wall. Its sight line back toward the camera rises tan(pitch) a metre
  * across the ground, and has to clear the walls' top before it passes over rock. Taken at `CAMERA_PITCH`, the
- * shallowest view the page uses, so a steeper `?pitch=` sees at least as much.
+ * page's default, so a steeper `?pitch=` sees at least as much; the comparison goes down to 25 degrees, where a piece
+ * judged seen here may be partly hidden.
  */
-function seen(map: DungeonMap, p: { x: number; y: number; z: number }): boolean {
-  const rise = Math.tan(CAMERA_PITCH), dx = TOWARD_CAMERA.x * Math.SQRT1_2, dz = TOWARD_CAMERA.z * Math.SQRT1_2;
+function seen(map: DungeonMap, p: { x: number; y: number; z: number }, toward: Point): boolean {
+  const rise = Math.tan(CAMERA_PITCH);
   for (let s = 0.05; p.y + s * rise < WALL_HEIGHT; s += 0.05)
-    if (!isFloor(map, Math.round(p.x + dx * s), Math.round(p.z + dz * s))) return false;
+    if (!isFloor(map, Math.round(p.x + toward.x * s), Math.round(p.z + toward.z * s))) return false;
   return true;
 }
 
 /** Whether roots can be seen at all: each end of their width and their middle, halfway down them, in front of the wall. */
-const rootsSeen = (map: DungeonMap, r: { cell: Point; facing: Point; along: number; width: number; drop: number }) => {
+const rootsSeen = (map: DungeonMap, r: { cell: Point; facing: Point; along: number; width: number; drop: number }, toward: Point) => {
   const c = hungCentre(r), y = WALL_HEIGHT - r.drop / 2;
   return [-0.5, 0, 0.5].every(k => seen(map, {
-    x: c.x + r.facing.x * 0.01 + Math.abs(r.facing.z) * k * r.width, y, z: c.z + r.facing.z * 0.01 + Math.abs(r.facing.x) * k * r.width }));
+    x: c.x + r.facing.x * 0.01 + Math.abs(r.facing.z) * k * r.width, y, z: c.z + r.facing.z * 0.01 + Math.abs(r.facing.x) * k * r.width }, toward));
 };
 
 /** The table `dressingPlacements` reads: `DRESSING`, or a caller's variation of it. */
@@ -211,11 +218,12 @@ function innerCorners(map: DungeonMap): { corner: Point; into: Point }[] {
  * `torchPlacements` reads nothing of this. Markings are drawn in each room and along the corridors, and each is kept
  * only where its whole square lies on floor, clear of the start and the exit, with a layer free of every marking it
  * overlaps. Roots hang on walls that face floor, clear of torches and doorways; webs hang in rooms' inner corners.
- * Both hang only where the camera sees their face (`TOWARD_CAMERA`), and roots only where no nearer wall hides the
- * top half of them.
+ * Both hang only where the camera, standing `toward` of the hero, sees their face (`FACING_MIN`), and roots only where
+ * no nearer wall hides the top half of them. The dressing is baked once a level, so the page hands its own view.
  * Every placement passes `validateDressing`.
  */
-export function dressingPlacements(map: DungeonMap, seed: number, densities: DressingTable = DRESSING): Dressing[] {
+export function dressingPlacements(map: DungeonMap, seed: number, densities: DressingTable = DRESSING,
+  toward: Point = cameraToward(CAMERA_AZIMUTH)): Dressing[] {
   const random = mulberry32((seed ^ 0xd2e55) >>> 0), torches = torchPlacements(map, seed);
   const between = ([lo, hi]: readonly [number, number]) => lo + (hi - lo) * random();
   const total = FLOOR_DECALS.reduce((s, k) => s + densities.decals[k].weight, 0);
@@ -247,7 +255,7 @@ export function dressingPlacements(map: DungeonMap, seed: number, densities: Dre
   const doorways = new Set(map.doors.flatMap(doorCells).map(c => `${c.x},${c.z}`));
   const faces: { cell: Point; facing: Point }[] = [];
   for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) if (boundary(map, x, z))
-    for (const facing of AXES) if (facesCamera(facing) && isFloor(map, x + facing.x, z + facing.z) && !doorways.has(`${x + facing.x},${z + facing.z}`))
+    for (const facing of AXES) if (facesCamera(facing, toward) && isFloor(map, x + facing.x, z + facing.z) && !doorways.has(`${x + facing.x},${z + facing.z}`))
       faces.push({ cell: { x, z }, facing });
   for (let i = faces.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [faces[i], faces[j]] = [faces[j], faces[i]]; }
   const roots: Extract<Dressing, { kind: "roots" }>[] = [];
@@ -257,13 +265,13 @@ export function dressingPlacements(map: DungeonMap, seed: number, densities: Dre
     const r = { kind: "roots" as const, cell, facing, along, width, drop: between(densities.rootDrop) }, centre = hungCentre(r);
     if (torches.some(t => Math.hypot(t.flame.x - centre.x, t.flame.z - centre.z) < ROOT_TORCH_CLEARANCE)) continue;
     if (roots.some(o => { const c = hungCentre(o); return Math.hypot(c.x - centre.x, c.z - centre.z) < densities.rootSpacing; })) continue;
-    if (!rootsSeen(map, r)) continue;
+    if (!rootsSeen(map, r, toward)) continue;
     roots.push(r);
   }
 
   const webs: Extract<Dressing, { kind: "cobweb" }>[] = [];
   for (const { corner, into } of innerCorners(map)) {
-    if (into.x !== TOWARD_CAMERA.x || into.z !== TOWARD_CAMERA.z || random() >= densities.cobwebsPerRoomCorner) continue;
+    if (!webFacesCamera(into, toward) || random() >= densities.cobwebsPerRoomCorner) continue;
     const span = between(densities.cobwebSpan), drop = between(densities.cobwebDrop);
     if (!torches.some(t => Math.hypot(t.flame.x - corner.x, t.flame.z - corner.z) < WEB_TORCH_CLEARANCE))
       webs.push({ kind: "cobweb", corner, into, span, drop });
@@ -271,8 +279,10 @@ export function dressingPlacements(map: DungeonMap, seed: number, densities: Dre
   return [...decals, ...roots, ...webs];
 }
 
-/** Every reason a dressing is not body-free clutter that the colliders allow; empty when it is. */
-export function validateDressing(map: DungeonMap, dressing: readonly Dressing[], torches: readonly TorchPlacement[]): string[] {
+/** Every reason a dressing is not body-free clutter that the colliders allow, or that a camera standing `toward` of
+ * the hero would not see; empty when it is. */
+export function validateDressing(map: DungeonMap, dressing: readonly Dressing[], torches: readonly TorchPlacement[],
+  toward: Point = cameraToward(CAMERA_AZIMUTH)): string[] {
   const problems: string[] = [], doorways = map.doors.flatMap(doorCells);
   const decals = dressing.filter(d => d.kind === "decal");
   for (const d of dressing) {
@@ -293,14 +303,14 @@ export function validateDressing(map: DungeonMap, dressing: readonly Dressing[],
       if (!(DRESSING.hungProud > 0 && DRESSING.hungProud <= WALL_ALLOWANCE)) problems.push(`${name} stand ${DRESSING.hungProud} m off the wall`);
       if (torches.some(t => Math.hypot(t.flame.x - centre.x, t.flame.z - centre.z) < ROOT_TORCH_CLEARANCE)) problems.push(`${name} hang at a torch`);
       if (doorways.some(c => c.x === cell.x + facing.x && c.z === cell.z + facing.z)) problems.push(`${name} hang in a doorway`);
-      if (!facesCamera(facing)) problems.push(`${name} face away from the camera`);
-      else if (!rootsSeen(map, d)) problems.push(`${name} hang where a nearer wall hides them`);
+      if (!facesCamera(facing, toward)) problems.push(`${name} face away from the camera`);
+      else if (!rootsSeen(map, d, toward)) problems.push(`${name} hang where a nearer wall hides them`);
     } else {
       const { corner, into } = d, name = `a web at (${corner.x}, ${corner.z})`, floor = { x: corner.x + into.x / 2, z: corner.z + into.z / 2 };
       if (Math.abs(into.x) !== 1 || Math.abs(into.z) !== 1 || !Number.isInteger(floor.x) || !Number.isInteger(floor.z)) problems.push(`${name} is not in a corner`);
       else if (!isFloor(map, floor.x, floor.z) || isFloor(map, floor.x - into.x, floor.z) || isFloor(map, floor.x, floor.z - into.z)
         || isFloor(map, floor.x - into.x, floor.z - into.z)) problems.push(`${name} is not in an inner corner`);
-      if (into.x !== TOWARD_CAMERA.x || into.z !== TOWARD_CAMERA.z) problems.push(`${name} faces away from the camera`);
+      if (!webFacesCamera(into, toward)) problems.push(`${name} faces away from the camera`);
       // Silk: alpha-tested, so each strand is opaque, but too thin to look solid, and a blade that passes through a web
       // is what a web allows. Kept within its corner's cell and at least 2 m up, clear of a golem's head. A raised
       // weapon still reaches it (the arena's reach ceiling is 3.6 m), which a web allows too.

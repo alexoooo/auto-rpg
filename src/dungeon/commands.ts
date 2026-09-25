@@ -1,5 +1,6 @@
 import { NEUTRAL, type Intent } from "../mind.ts";
 import { distance, type Point } from "./map.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
 export interface ControlMode { keyboard: boolean; facing: boolean }
 export type Order = { kind: "idle" } | { kind: "attack-move"; destination: Point }
@@ -9,10 +10,11 @@ export const wrapAngle = (a: number): number => Math.atan2(Math.sin(a), Math.cos
 export const neutralIntent = (): Intent => ({ ...NEUTRAL, primary: { ...NEUTRAL.primary }, secondary: { ...NEUTRAL.secondary },
   natural: { ...NEUTRAL.natural }, posture: { ...NEUTRAL.posture } });
 
-/** The camera's ground right/up vectors: eye is in the positive X/Z diagonal. */
-export function screenMovement(right: number, up: number): Point {
+/** Keys on the screen's axes as a step on the ground, for a camera standing `toward` of the hero: screen up is
+ * `-toward`, away from the camera, and screen right is `(-toward.z, toward.x)`. At `CAMERA_AZIMUTH` they are +z and +x. */
+export function screenMovement(right: number, up: number, toward: Point = cameraToward(CAMERA_AZIMUTH)): Point {
   const norm = Math.max(1, Math.hypot(right, up));
-  return { x: (-right - up) / Math.SQRT2 / norm, z: (right - up) / Math.SQRT2 / norm };
+  return { x: (-right * toward.z - up * toward.x) / norm, z: (right * toward.x - up * toward.z) / norm };
 }
 
 export function composeIntent(base: Intent, facing: number, move: Point | null, look: Point | null): Intent {
