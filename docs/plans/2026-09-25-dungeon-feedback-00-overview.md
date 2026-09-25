@@ -17,7 +17,7 @@ After dungeon look 05 (dressing) the owner played `?play=dungeon`, sent three sc
 ## What each complaint is, measured
 
 - **The bubble.** It is `CUT_AWAY` and `cutAway` in `src/dungeon/fog.ts`, and the same rule in the
-  shader in `src/dungeon/fog-plugin.ts`. Today it is 2.4 m by 2.2 m on screen. The ghost is
+  shader in `src/dungeon/fog-plugin.ts`. Before session 01 it was 2.4 m by 2.2 m on screen. The ghost is
   13 of 16 pixels dropped at the heart (`most` 0.8), falling to none over the outer 70 % of the
   radius.
 - **The flames.** A flame is a `ShaderMaterial` (`"dungeon.fire"`, the arena's `proofFire` shader)

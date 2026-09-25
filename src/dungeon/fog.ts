@@ -66,16 +66,19 @@ export const WALL_HEIGHT = 2.8;
 /**
  * How a wall between the hero and the camera ghosts away, set by eye and judged on the owner's machine. The shader
  * drops a share of a wall's pixels by a 4x4 ordered dither; the share is greatest where the wall covers the hero's
- * body on screen and falls smoothly to none at the rim of an oval around it, so the opening has no edge. It replaced
- * a world-space box that dropped 13 of 16 pixels inside and none outside, which read as a square hole.
+ * body on screen and falls smoothly to none at the rim of an oval around it, so the opening has no edge. The owner
+ * asked for a bubble that shows the hero and a bit of the room around them, and that reads plainly as a see-through
+ * bubble: so it is wide, most of its radius is the fade, and its heart keeps enough of the wall to be a ghost.
  */
 export const CUT_AWAY = Object.freeze({
   /** The oval's centre above the hero's feet: the middle of the body. */
   centre: 0.9,
-  /** The oval's half-width and half-height on screen, in metres at the hero. */
-  across: 2.4, up: 2.2,
-  /** Out to this share of the oval's radius the drop is full; beyond it, it falls to none at the rim. */
-  soft: 0.3,
+  /** The oval's half-width and half-height on screen, in metres at the hero: the body and about a body-length either
+   * side, and the whole of a wall in front of the hero at pitch 30. */
+  across: 3.6, up: 3.2,
+  /** Out to this share of the oval's radius the drop is full; beyond it, it falls to none at the rim, so four fifths
+   * of the radius are a visible fade. */
+  soft: 0.2,
   /** The share dropped at the oval's heart, so the wall ghosts rather than vanishes: 13 of 16 pixels. */
   most: 0.8,
   /** A wall behind the hero hides nothing: the drop rises from none to full over this far toward the camera. Short

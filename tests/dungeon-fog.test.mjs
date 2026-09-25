@@ -11,6 +11,12 @@ import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { isFloor, reveal } from "../src/dungeon/map.ts";
+import { Effect } from "@babylonjs/core/Materials/effect.js";
+import { DUNGEON_FIRE, flameFade, flameMaterial } from "../src/dungeon/fire.ts";
+import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import { DRESSING } from "../src/dungeon/dressing.ts";
 
 const levels = new Map(Array.from({ length: 50 }, (_, i) => [i + 1, generateLevel(i + 1).map]));
 
@@ -149,25 +155,91 @@ test("a_wall_in_front_ghosts_around_the_hero_and_the_opening_has_no_edge", () =>
       assert.ok(Math.max(...line) > 0.5 * CUT_AWAY.most, `pitch ${pitch}, line ${i} crosses the opening`);
     }
     // Partial, and only where it helps: never a whole wall, nothing beside or behind the hero, the foot whole, the oval closed.
-    for (const along of steps(-3, 8)) for (const across of [-3, -2.4, -1, 0, 1, 2.4, 3]) for (const y of [0, 0.1, 0.8, 1.6, WALL_HEIGHT]) {
+    // Across in the oval's own half-widths, so that some samples are always past its rim, whatever its size.
+    for (const along of steps(-3, 8)) for (const k of [-1.25, -1, -0.4, 0, 0.4, 1, 1.25]) for (const y of [0, 0.1, 0.8, 1.6, WALL_HEIGHT]) {
+      const across = k * CUT_AWAY.across;
       const share = cut(along, across, y);
       assert.ok(share >= 0 && share <= CUT_AWAY.most + 1e-9, `share ${share}`);
       if (along <= 0 || y <= CUT_AWAY.foot[0] || Math.abs(across) >= CUT_AWAY.across) assert.equal(share, 0, `${along}, ${across}, ${y}`);
     }
-    // It is cut on the screen: every point on one line of sight, off the body in the soft ring, drops the same share.
+    // It is cut on the screen: every point on one line of sight, off the body in the soft ring and above the wall's
+    // foot, drops the same share.
     const sight = t => {
       const along = 0.5 * CUT_AWAY.up * Math.sin(pitch) + t * Math.cos(pitch);
       return cut(along, 0.5 * CUT_AWAY.across, CUT_AWAY.centre - 0.5 * CUT_AWAY.up * Math.cos(pitch) + t * Math.sin(pitch));
     };
     const top = (WALL_HEIGHT - CUT_AWAY.centre + 0.5 * CUT_AWAY.up * Math.cos(pitch)) / Math.sin(pitch);
-    const shares = steps(1.5, Math.min(5.5, top)).map(sight).filter((_, i, all) => i % 25 === 0 || i === all.length - 1);
+    const above = (CUT_AWAY.foot[1] - CUT_AWAY.centre + 0.5 * CUT_AWAY.up * Math.cos(pitch)) / Math.sin(pitch);
+    const shares = steps(Math.max(1.5, above), Math.min(5.5, top)).map(sight).filter((_, i, all) => i % 25 === 0 || i === all.length - 1);
     for (const share of shares) assert.ok(Math.abs(share - shares[0]) < 1e-9, `pitch ${pitch}: ${shares.map(v => v.toFixed(4))}`);
     assert.ok(shares[0] > 0.1 * CUT_AWAY.most && shares[0] < 0.9 * CUT_AWAY.most, `pitch ${pitch}: ${shares[0]} is in the soft ring`);
     // Far enough toward the camera, a wall sits below the hero on screen and hides nothing: it is whole.
     assert.equal(cut(8, 0, 0.6), 0, `pitch ${pitch}: a low wall far in front`);
   }
-  // The camera's pitch moves the opening: a steeper camera sees the top of a wall 1 m in front nearer the body.
-  assert.ok(cutAway(hero, wall(1, 0, WALL_HEIGHT), Math.PI / 4) > cutAway(hero, wall(1, 0, WALL_HEIGHT), CAMERA_PITCH) + 0.1);
+  // The camera's pitch moves the opening: a steeper camera sees the top of a wall half a metre in front nearer the
+  // body. At pitch 30 that top is in the soft ring, 0.63 dropped; at 45 it is 0.76.
+  const top = pitch => cutAway(hero, wall(0.5, 0, WALL_HEIGHT), pitch);
+  assert.ok(top(Math.PI / 4) > top(CAMERA_PITCH) + 0.1, `${top(Math.PI / 4)} against ${top(CAMERA_PITCH)}`);
+});
+
+test("a_dungeon_flame_is_the_forge_flame_times_its_fade", () => {
+  const forge = Effect.ShadersStore.proofFireFragmentShader, own = Effect.ShadersStore.dungeonFireFragmentShader;
+  const expected = forge.replace("varying vec2 vUV; uniform float time;", "varying vec2 vUV; uniform float time; uniform float fade;")
+    .replace("gl_FragColor=vec4(c,a*.82);}", "gl_FragColor=vec4(c*fade,a*.82*fade);}");
+  assert.notEqual(expected, forge);
+  assert.equal(own, expected);
+  assert.ok(own.includes("uniform float fade;") && own.includes("vec4(c*fade,a*.82*fade)"));
+  assert.deepEqual({ ...DUNGEON_FIRE }, { vertex: "proofFire", fragment: "dungeonFire" });
+  assert.ok(Effect.ShadersStore.proofFireVertexShader, "the flame draws with the forge's vertex shader");
+});
+
+test("each_flame_is_drawn_with_its_own_fade", async () => {
+  // One material draws every flame, so a fade set on the material would be one fade for all of them.
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false }), scene = arena.scene;
+  try {
+    const camera = new FreeCamera("probe", new Vector3(0, 0, -10), scene); camera.setTarget(Vector3.Zero());
+    const look = flameMaterial(scene), fades = { a: 0.2, b: 0.9, whole: undefined };
+    for (const [i, [name, fade]] of Object.entries(fades).entries()) {
+      const flame = MeshBuilder.CreatePlane(name, { size: 1 }, scene);
+      flame.position.x = i * 1.5; flame.material = look.material;
+      if (fade !== undefined) look.setFade(flame, fade);
+    }
+    const drawn = new Map();
+    let last;
+    // Added after the material's own observer, so it runs after it: it sees what that observer wrote for this mesh.
+    look.material.onBindObservable.add(mesh => drawn.set(mesh.name, last));
+    for (let frame = 0; frame < 3; frame++) {
+      scene.render();
+      const effect = look.material.getEffect();
+      if (effect && !effect.probed) {
+        const setFloat = effect.setFloat.bind(effect);
+        effect.setFloat = (name, value) => { if (name === "fade") last = value; return setFloat(name, value); };
+        effect.probed = true;
+      }
+      last = undefined;
+    }
+    assert.deepEqual(Object.fromEntries(drawn), { a: 0.2, b: 0.9, whole: 1 });
+    // NullEngine accepts a write to any name, so the write above proves nothing about the GPU. A uniform the effect
+    // was not built with has no location in WebGL, and the flame would draw at the shader's default of 0: invisible.
+    assert.ok(look.material.getEffect().getUniformNames().includes("fade"), "the effect declares no fade uniform");
+    look.dispose();
+  } finally { arena.dispose(); }
+});
+
+test("a_flame_in_the_bubble_ghosts_as_the_wall_does", () => {
+  const hero = { x: 10, z: 10 }, y = DRESSING.torchHeight;
+  const at = (along, across) => ({ x: hero.x + (along + across) * Math.SQRT1_2, y, z: hero.z + (along - across) * Math.SQRT1_2 });
+  for (const pitch of [CAMERA_PITCH, Math.PI / 4]) {
+    // Over the body toward the camera: where a wall's pixels are dropped most, a flame is drawn least.
+    const over = (y - CUT_AWAY.centre) / Math.tan(pitch);
+    assert.ok(Math.abs(flameFade(hero, at(over, 0), pitch) - (1 - CUT_AWAY.most)) < 1e-9, `pitch ${pitch}: over the body`);
+    assert.equal(flameFade(hero, at(-1, 0), pitch), 1, `pitch ${pitch}: behind the hero`);
+    assert.equal(flameFade(hero, at(over, CUT_AWAY.across), pitch), 1, `pitch ${pitch}: beside the oval`);
+    // Just inside the rim it is part-drawn: the fade is a fade, not a hole with an edge.
+    const rim = flameFade(hero, at(over, 0.9 * CUT_AWAY.across), pitch);
+    assert.ok(rim > 1 - CUT_AWAY.most + 0.05 && rim < 0.99, `pitch ${pitch}: ${rim} just inside the rim`);
+    assert.equal(flameFade(hero, at(12, 0), pitch), 1, `pitch ${pitch}: far toward the camera`);
+  }
 });
 
 test("the_cut_away_shader_is_cutAway_and_is_handed_the_pitch", async () => {

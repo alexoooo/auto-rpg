@@ -15,9 +15,10 @@ rim.
   - A wall point's height on screen relative to the middle of the body is
     `(y - centre) cos(pitch) - along sin(pitch)`.
   - `along` and `across` are its offsets from the hero toward the camera and sideways, in metres.
-  - The oval is 2.4 m wide and 2.2 m tall, each measured from its centre.
+  - The oval's half-width and half-height are `CUT_AWAY.across` and `CUT_AWAY.up`, each measured from its centre:
+    3.6 m and 3.2 m since dungeon feedback 01.
 - **The drop** is at most `most` (0.8, 13 of 16 pixels), so the wall ghosts rather than vanishes:
-  - it stays at `most` out to 0.3 of the oval's radius;
+  - it stays at `most` out to `CUT_AWAY.soft` of the oval's radius (0.2 since dungeon feedback 01);
   - it falls to none at the rim by a smoothstep, so the opening has no edge.
 - **Nothing behind the hero is cut.** The drop rises from none to full over the first 0.35 m toward
   the camera. That is short enough that a wall the hero is pressed against gets the full drop: its

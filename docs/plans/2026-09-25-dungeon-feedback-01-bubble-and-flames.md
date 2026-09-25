@@ -65,7 +65,7 @@ const HEAD = "varying vec2 vUV; uniform float time;", TAIL = "gl_FragColor=vec4(
 const forge = Effect.ShadersStore.proofFireFragmentShader;
 if (!forge.includes(HEAD) || !forge.endsWith(TAIL)) throw new Error("dungeon fire: proofFire has changed; derive the fade again");
 Effect.ShadersStore.dungeonFireFragmentShader = forge.replace(HEAD, `${HEAD} uniform float fade;`)
-  .slice(0, -TAIL.length) + "gl_FragColor=vec4(c,a*.82*fade);}";
+  .slice(0, -TAIL.length) + "gl_FragColor=vec4(c*fade,a*.82*fade);}";
 
 /** Which shaders a dungeon flame draws with: the forge's vertex, the fading fragment. */
 export const DUNGEON_FIRE = Object.freeze({ vertex: "proofFire", fragment: "dungeonFire" });
@@ -75,28 +75,33 @@ export const flameFade = (hero: Point, at: { x: number; y: number; z: number }, 
   1 - cutAway(hero, at, pitch);
 ```
 
-**`src/dungeon/lighting.ts`, `lightDungeon`:**
-- Import `DUNGEON_FIRE` and `flameFade` from `./fire.ts`, in place of the side-effect import `../forge-fire.ts`
-  (`fire.ts` carries it).
-- Build the material from `DUNGEON_FIRE`, with `uniforms: ["worldViewProjection", "time", "fade"]`.
+The fade scales the colour as well as the alpha. The flame's core is HDR, about (5, 2, 0.28), and blending adds
+colour times alpha, so a fifth of the alpha alone still tone-maps to a red core at about 80 % of its whole brightness:
+dimmer, not see-through.
+
+`fire.ts` also owns the material, as `flameMaterial(scene)`, which returns `{ material, setFade, dispose }`. That keeps
+the per-mesh rule where a Node test can load it.
+
+**`flameMaterial` in `src/dungeon/fire.ts`:**
+- Builds the material from `DUNGEON_FIRE`, with `uniforms: ["worldViewProjection", "time", "fade"]`.
 - One material serves every flame, so the fade is set per mesh as it binds. `ShaderMaterial.bind` always ends in
   `_afterBind`, which notifies `onBindObservable` with the mesh, even when it skipped re-uploading the material's own
   uniforms:
 
 ```ts
 const fades = new Map<AbstractMesh, number>();
-fire.onBindObservable.add(mesh => fire.getEffect()?.setFloat("fade", fades.get(mesh) ?? 1));
+material.onBindObservable.add(mesh => material.getEffect()?.setFloat("fade", fades.get(mesh) ?? 1));
 ```
 
-- In `update(hero, nextZoom, nextPitch)`:
-
-```ts
-for (const { flame } of flames) fades.set(flame, flameFade(hero, flame.position, nextPitch));
-```
-
-- Never write `fade` through `fire.setFloat`: a material-level value would be re-bound over the per-mesh one
+- Never write `fade` through `material.setFloat`: a material-level value would be re-bound over the per-mesh one
   whenever the material rebinds.
 - `dispose` clears the observer.
+
+**`src/dungeon/lighting.ts`, `lightDungeon`:**
+- Import `flameFade` and `flameMaterial` from `./fire.ts`, in place of the side-effect import `../forge-fire.ts`
+  (`fire.ts` carries it).
+- In `update`: `for (const { flame } of flames) flameLook.setFade(flame, flameFade(hero, flame.position, pitch));`
+- `dispose` calls `flameLook.dispose()`.
 - Torch **lights** do not fade. A torch still lights the room behind a ghosted wall, as it does now.
 
 ## 3. Tests (`tests/dungeon-fog.test.mjs`)
@@ -105,22 +110,29 @@ for (const { flame } of flames) fades.set(flame, flameFade(hero, flame.position,
   - import `../src/dungeon/fire.ts`;
   - assert that `Effect.ShadersStore.dungeonFireFragmentShader` equals the forge's fragment with exactly the two
     replacements above: rebuild the expected text in the test from `proofFireFragmentShader`, and compare strings;
-  - assert that it contains `uniform float fade;` and `a*.82*fade`.
+  - assert that it contains `uniform float fade;` and `vec4(c*fade,a*.82*fade)`.
+- `each_flame_is_drawn_with_its_own_fade`, under `NullEngine`:
+  - three flames on one `flameMaterial`, two with fades 0.2 and 0.9 and one never set;
+  - the effect's `setFloat` is spied, and an observer added after the material's own records what each mesh was
+    bound with: `{ a: 0.2, b: 0.9, whole: 1 }`;
+  - `getEffect().getUniformNames()` includes `fade`, because NullEngine accepts a write to any name, and in WebGL a
+    uniform the effect was not built with has no location and reads 0: an invisible flame.
 - `a_flame_in_the_bubble_ghosts_as_the_wall_does`, with the hero at (10, 10) and the flame at `DRESSING.torchHeight`:
   - 1 m toward the camera, over the body: `flameFade` is `1 - CUT_AWAY.most`, to 1e-9;
   - 1 m behind the hero: exactly 1;
   - as far to the side as `CUT_AWAY.across`: exactly 1;
+  - 12 m toward the camera: exactly 1 (8 m lies inside the bigger oval);
+  - just inside the rim, at 0.9 `across`: strictly between the heart's value and whole, so the fade is a ramp;
   - at both `CAMERA_PITCH` and pi/4.
 
 ## 4. Verify
 
 - `npm test`, `npm run check`, `npm run build`.
 - `node scripts/dungeon/sweep.mjs` and `--visuals`: identical to the baseline taken before the session.
-- **Mutations**, each going red:
-  - the fragment without `*fade`;
-  - `flameFade` returning 1;
-  - `across` back to 2.4 in the shader only: hand-edit the shader string, and the shader test must catch it;
-  - the moved pitch probe put back.
+- **Mutations**, each going red: the fragment without `fade`, or with the colour unfaded; `fade` missing from the
+  uniforms or never declared; `flameFade` returning 1 or inverted; the per-mesh fade ignored, defaulted to 0 or set on
+  the material; the forge's own fragment used; `across` or `up` back to the old size in the shader only, or in
+  `cutAway`; the cut reaching behind the hero.
 - **Review:** an adversarial reviewer reads the diff, with the question "what draws wrongly, or the same as before?".
 
 ## 5. Owner's checklist (`http://localhost:5180/?play=dungeon`)
@@ -135,4 +147,16 @@ for (const { flame } of flames) fades.set(flame, flameFade(hero, flame.position,
 
 ## What landed
 
-(filled in when it lands)
+- `CUT_AWAY` is as the table in section 1 says: `across` 3.6, `up` 3.2, `soft` 0.2, `most` 0.8. Set by eye; the
+  owner judges it in play.
+- `src/dungeon/fire.ts` is new: the fading fragment, `DUNGEON_FIRE`, `flameMaterial` and `flameFade`. The fade scales
+  colour and alpha (section 2). `lightDungeon` hands each flame its fade every frame. That wiring is page-only; no
+  test loads `lighting.ts`, so the owner's look is its check.
+- `tests/dungeon-fog.test.mjs`: the three assertions that read the old size are repaired as section 1 says, and three
+  tests are new (section 3). All 12 in the file pass.
+- **Mutations:** 14 of 14 go red (list in section 4), each on the test named for it.
+- **Gate:** `npm test` 981 pass, 0 fail; `npm run check` and `npm run build` clean.
+- **Sweep** (Node headless harness, `scripts/dungeon/sweep.mjs`, 25 rows each): plain and `--visuals` are identical
+  to the baseline taken before the session in every outcome and simulated time; only wall-clock time differs.
+- Docs that stated the old size are corrected: `CUT_AWAY` in `docs/plans/2026-09-24-dungeon-look-03b-ghosted-walls.md`,
+  and the overview's "Today it is" sentence.
