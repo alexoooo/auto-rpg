@@ -133,6 +133,23 @@ export const SKELETON_BIPED = {
    * The two fall-loop rows are within each other's noise. 0.12 puts the centre of mass of a slow
    * walk behind the soles, and in the rise bench its soles never settled before the lift. 0.09 keeps the
    * hips at the front face of the pelvis box.
+   *
+   * The same choice was measured again on the finished tree: every rise change, the lying-body rule and
+   * `targetRate` 11.5 (Node research runner, skeleton mirror, 192 bouts, seed 20260925).
+   *
+   * | hipAhead m | falls/min | down % | re-fall <=2 s |
+   * | --- | --- | --- | --- |
+   * | 0 | 12.26 | 60.4 | 65.3 % |
+   * | 0.06 | 10.19 | 50.1 | 53.2 % |
+   * | **0.09** | **9.30** | **45.6** | **48.0 %** |
+   *
+   * **What it costs is a body pressed into something in front of it.** On the Node locomotion bench's
+   * walk, which ends pressed against a post of the headless arena, the feet stop at the post and the
+   * weight stays back. The rear edge of the stance is then this far behind the centre of mass: 103 mm
+   * at 0, 74 at 0.03, 46 at 0.06, 31 at 0.075 and 26 at 0.09. At 0.09 the fall line reads zero in 104
+   * of the 125 pressed samples. In the first 8 m of the walk, in open ground, it reads zero in 1 of 150
+   * samples at 0.09 and in none at 0. The fight says the trade is worth it. Chest to chest, a push from
+   * the front has little base behind it.
    */
   hipAhead: 0.09,
   hipTorque: 450, kneeTorque: 250, ankleTorque: 110,

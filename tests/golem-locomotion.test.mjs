@@ -735,16 +735,32 @@ test("a_foot_in_the_air_is_still_part_of_the_base_a_walking_body_stands_on", asy
   // of mass past its whole stance, the carrier ahead of the legs -- in 3 of 360 walking samples and
   // the skeleton's in 19, and with only planted soles in the base those were 139 and 151. The
   // control is that a sole really is off the floor in about half the samples.
+  //
+  // **Read in open ground.** `walkSequenceFor` walks 6 s at 3.2 m/s, which is 12.7 m, into the
+  // headless arena's ring of posts at 9.5 m. The last 125 of its 360 samples are a body pressed
+  // against a post. On 2026-09-25 the skeleton's legs moved 0.09 m forward, under its weight
+  // (`SKELETON_BIPED.hipAhead`). Pressed against a post, its centre of mass then sat on its heels,
+  // 26 mm from the rear edge against 103 mm before, and read a zero line in 104 of those 125 samples.
+  // Its first 8 m read none, both before and after. That is the close-contact cost of the change,
+  // recorded in `docs/analysis/2026-09-25-falls-and-rise.md`, and not what this test is about. So
+  // this walk stops 2.5 s in, at 8 m. Over it the biped reads a zero line in 0 of 150 samples and
+  // the skeleton in 1. With only planted soles in the base those are 81 and 85, the mutation that
+  // turns this red. Soles are lifted in 104 and 113 samples.
+  const OPEN_WALK = [
+    { name: "stand", until: 1.0, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+    { name: "walk", until: 3.5, forward: 1, strafe: 0, turn: 0, crouch: 0 },
+    { name: "stop", until: 4.5, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  ];
   for (const moduleId of ["biped", "skeleton"]) {
     let samples = 0, zero = 0, lifted = 0;
-    await runGolemLocomotion({ moduleId, sequence: walkSequenceFor(moduleId), watch: ({ module, phase }) => {
+    await runGolemLocomotion({ moduleId, sequence: OPEN_WALK, watch: ({ module, phase }) => {
       const evidence = module.evidence();
       if (phase !== "walk" || evidence.state !== "supported") return;
       samples++;
       if (module.port.diagnostic().stability.fallAtMps === 0) zero++;
       if (evidence.plantedFeet < 2) lifted++;
     } });
-    assert.ok(samples > 300, `${moduleId} walked ${samples} samples`);
+    assert.ok(samples > 120, `${moduleId} walked ${samples} samples`);
     assert.ok(lifted > samples / 4, `${moduleId} lifted a sole in ${lifted} of ${samples}`);
     assert.ok(zero < samples / 10, `${moduleId} read a zero fall line in ${zero} of ${samples} walking samples`);
   }
