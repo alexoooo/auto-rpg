@@ -14,6 +14,7 @@ import { KNOCKDOWN, LOCOMOTION_BIPED, LOCOMOTION_MULTILEG, LOCOMOTION_WHEEL } fr
 import { GROUNDED_TONE, Golem } from "../src/golem/golem.ts";
 import { JointActuator } from "../src/golem/joint-servo.ts";
 import { bodyReaders } from "../src/golem/locomotion.ts";
+import { bipedRiseDurationS, bipedRiseTurnRad } from "../src/golem/locomotion/biped.ts";
 import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { NEUTRAL, idleMind } from "../src/mind.ts";
@@ -109,7 +110,8 @@ async function knockdown(setupOf, { seconds = 6, reshoveIntoRise = null, reshove
     const diagnostic = golem.locomotion.diagnostic();
     const state = golem.locomotion.state;
     samples.push({ at: clock, state, progress: diagnostic.recoveryProgress,
-      pelvis: pelvis.mesh.position.clone(), y: pelvis.mesh.position.y, vy: pelvis.body.getLinearVelocity().y,
+      pelvis: pelvis.mesh.position.clone(), rotation: pelvis.mesh.rotationQuaternion.clone(),
+      yaw: golem.locomotion.carrier.state.yaw, y: pelvis.mesh.position.y, vy: pelvis.body.getLinearVelocity().y,
       com: readers.mass().y, floor: Math.min(...readers.ground().map((point) => point.y)),
       ceilings: ceilings(), commands: { ...commands } });
     riseStart = state !== "rising" ? null : riseStart ?? clock;
@@ -385,11 +387,16 @@ test("the_recovery_stat_divides_every_lie_and_rise_and_the_cap_still_ends_a_lie_
       assert.ok(Math.abs(lay - cap) <= CAP_LATENCY, `${setupOf.name} at x${recovery} lay ${lay.toFixed(3)} s against a cap of ${cap.toFixed(3)}`);
       const rising = firstStretch(samples, "rising");
       assert.ok(rising.length > 0, `${setupOf.name} at x${recovery} never began to rise`);
-      // The lift is divided too: no faster than the table's peak times the stat, and no shorter than
-      // that peak needs over the distance it lifted.
+      // The lift is divided too: no faster than the table's peak times the stat, and exactly as long
+      // as the staged rise over the distance it lifted and the turn it made from how it lay
+      // (`bipedRiseDurationS`), divided by the stat.
       const peak = Math.max(...rising.map((r) => r.vy));
       assert.ok(peak <= rule.risePeakMps * recovery * 1.02, `x${recovery}: the pelvis rose at ${peak.toFixed(3)} m/s`);
-      const floor = Math.max(V1.RISING_DURATION_S / recovery, 1.5 * (standing.y - rising[0].y) / (rule.risePeakMps * recovery));
+      const lifted = standing.y - rising[0].y;
+      const table = setupOf === skeletonSetup ? SKELETON_BIPED : LOCOMOTION_BIPED;
+      const lying = samples[samples.indexOf(rising[0]) - 1];
+      const staged = bipedRiseDurationS(lifted, table, bipedRiseTurnRad(lying.rotation, lying.yaw, table));
+      const floor = Math.max(V1.RISING_DURATION_S, 1.5 * lifted / rule.risePeakMps, staged) / recovery;
       assert.ok(Math.abs(lasted(rising) - floor) <= 0.05 * floor + 2 * FIXED,
         `x${recovery}: the rise took ${lasted(rising).toFixed(3)} s against ${floor.toFixed(3)}`);
       const up = samples.find((r) => r.at > rising.at(-1).at);

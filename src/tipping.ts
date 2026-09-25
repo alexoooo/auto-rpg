@@ -152,6 +152,22 @@ export function baseReachM(hull: readonly (readonly [number, number])[], dirX: n
   return Number.isFinite(leave) && leave > enter ? leave : 0;
 }
 
+/**
+ * How far inside the hull the centre of mass's ground point, the origin, is, m: its distance to the
+ * nearest edge, negative outside. -Infinity for a hull with no area.
+ */
+export function hullCentreMarginM(hull: readonly (readonly [number, number])[]): number {
+  if (hull.length < 3) return -Infinity;
+  let margin = Infinity;
+  for (let i = 0; i < hull.length; i += 1) {
+    const [ax, az] = hull[i];
+    const [bx, bz] = hull[(i + 1) % hull.length];
+    const length = Math.hypot(bx - ax, bz - az);
+    if (length > 0) margin = Math.min(margin, ((bz - az) * ax - (bx - ax) * az) / length);
+  }
+  return Number.isFinite(margin) ? margin : -Infinity;
+}
+
 /** Whether the centre of mass's ground point, the origin, is on or inside the hull. */
 export function hullHoldsCentre(hull: readonly (readonly [number, number])[]): boolean {
   if (hull.length < 3) return false;

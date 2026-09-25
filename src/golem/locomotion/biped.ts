@@ -169,8 +169,9 @@ export function bipedFootSpeed(
 ): number {
   const spin = clamp(move.yaw, -1, 1) * B.carrier.maxYawSpeedRadS;
   const differential = (spin * B.hipSide) / B.carrier.maxSpeedMps;
-  const left = Math.min(1, Math.hypot(move.forward + differential, move.right));
-  const right = Math.min(1, Math.hypot(move.forward - differential, move.right));
+  const sideways = move.right + (spin * B.hipAhead) / B.carrier.maxSpeedMps;
+  const left = Math.min(1, Math.hypot(move.forward + differential, sideways));
+  const right = Math.min(1, Math.hypot(move.forward - differential, sideways));
   return ((left + right) / 2) * B.carrier.maxSpeedMps;
 }
 
@@ -191,6 +192,9 @@ export function bipedPose(
     forward - (spin * B.hipSide * legSign) / B.carrier.maxSpeedMps;
   const forwardLeft = legForward(-1);
   const forwardRight = legForward(1);
+  // Hips `hipAhead` in front of the pivot travel sideways on a turn, both the same way: a point at
+  // `(x, 0, z)` goes at `w (z, 0, -x)`.
+  const sideways = right + (spin * B.hipAhead) / B.carrier.maxSpeedMps;
 
   const thigh = B.thighLength;
   const shin = B.shinLength;
@@ -207,14 +211,14 @@ export function bipedPose(
   // side-step is the same walk cycle turned a quarter turn rather than a forward walk played
   // underneath a body that is sliding. Taken per leg, because the yaw differential above makes
   // the two legs' travel genuinely different.
-  const travelLeft = Math.min(1, Math.hypot(forwardLeft, right));
-  const travelRight = Math.min(1, Math.hypot(forwardRight, right));
+  const travelLeft = Math.min(1, Math.hypot(forwardLeft, sideways));
+  const travelRight = Math.min(1, Math.hypot(forwardRight, sideways));
   const alongOf = (f: number, r: number): { fore: number; side: number } => {
     const size = Math.hypot(f, r);
     return size > 1e-9 ? { fore: f / size, side: r / size } : { fore: 0, side: 0 };
   };
-  const alongLeft = alongOf(forwardLeft, right);
-  const alongRight = alongOf(forwardRight, right);
+  const alongLeft = alongOf(forwardLeft, sideways);
+  const alongRight = alongOf(forwardRight, sideways);
   const swingLeft = B.strideSwing * travelLeft;
   const swingRight = B.strideSwing * travelRight;
 
@@ -276,6 +280,144 @@ export function bipedPose(
 export const bipedStandHeight = (B = LOCOMOTION_BIPED): number => {
   return B.pelvisHeight / 2 + B.hipInset + B.thighLength + B.shinLength + B.footHeight;
 };
+
+/**
+ * The staged rise's pelvis heights, the pelvis's centre above the floor, m: standing, and in the squat
+ * with the feet `hipsBack` of a thigh in front of the hips and the knee at `kneeFold`.
+ */
+export function bipedRiseHeights(B = LOCOMOTION_BIPED): { readonly standY: number; readonly squatY: number } {
+  const { thighLength: t, shinLength: s } = B;
+  const reach = Math.sqrt(t * t + s * s + 2 * t * s * Math.cos(B.rise.kneeFold));
+  const hip = riseHip(B.rise.trunkPitch, B);
+  const ahead = B.rise.hipsBack * t + hip.behind;
+  const below = Math.sqrt(Math.max(0, reach * reach - ahead * ahead));
+  return Object.freeze({
+    standY: B.hipInset + t + s + B.footHeight,
+    squatY: B.footHeight + below + hip.below,
+  });
+}
+
+/**
+ * Where the hips are on a pelvis pitched forward by `pitch`: how far below its centre, and how far
+ * behind where they stand upright, which is `hipAhead` in front of it. Both m.
+ */
+function riseHip(pitch: number, B = LOCOMOTION_BIPED): { readonly below: number; readonly behind: number } {
+  return {
+    below: B.hipInset * Math.cos(pitch) + B.hipAhead * Math.sin(pitch),
+    behind: B.hipInset * Math.sin(pitch) + B.hipAhead * (1 - Math.cos(pitch)),
+  };
+}
+
+/** The three stages of one rise, seconds, and the heights it runs between (`BipedRise`). */
+export interface BipedRisePlan {
+  /** The pelvis's centre above the floor where the rise began, m. */
+  readonly startY: number;
+  readonly squatY: number;
+  readonly standY: number;
+  readonly gatherS: number;
+  readonly holdS: number;
+  readonly extendS: number;
+}
+
+/**
+ * The stages of a rise from a pelvis `startY` above the floor that turns `turnRad` from how it lies
+ * to upright, stretched to last `durationS` when that is given: each lift and the turn a smoothstep,
+ * whose peak is 1.5 times its mean, held to `risePeakMps` and `turnPeakRadS`.
+ */
+export function bipedRisePlan(startY: number, B = LOCOMOTION_BIPED, durationS?: number,
+  turnRad = 0): BipedRisePlan {
+  const { standY, squatY } = bipedRiseHeights(B);
+  const peak = B.knockdown.risePeakMps;
+  const gatherS = Math.max(B.rise.gatherS, 1.5 * Math.abs(squatY - startY) / peak,
+    1.5 * Math.abs(turnRad) / B.rise.turnPeakRadS);
+  const holdS = B.rise.holdS;
+  const extendS = 1.5 * Math.max(0, standY - squatY) / peak;
+  const stretch = durationS !== undefined && durationS > 0 ? durationS / (gatherS + holdS + extendS) : 1;
+  return Object.freeze({ startY, squatY, standY, gatherS: gatherS * stretch, holdS: holdS * stretch,
+    extendS: extendS * stretch });
+}
+
+/**
+ * How long a biped's rise lasts, s, over `distanceM` from where its pelvis lies to where it will
+ * stand, turning `turnRad` on the way: the port asks this before the rise, with the distance, so the
+ * pelvis is taken to lie that far below standing (a rise that also relocates is taken as a lower
+ * start, which only lengthens the gather).
+ */
+export function bipedRiseDurationS(distanceM: number, B = LOCOMOTION_BIPED, turnRad = 0): number {
+  const plan = bipedRisePlan(bipedRiseHeights(B).standY - distanceM, B, undefined, turnRad);
+  return plan.gatherS + plan.holdS + plan.extendS;
+}
+
+/**
+ * How far a pelvis at `rotation` must turn to stand facing `yaw` pitched for the squat, rad: the
+ * angle of the rise's own slerp (`driveRisingRoot`).
+ */
+export function bipedRiseTurnRad(rotation: Quaternion, yaw: number, B = LOCOMOTION_BIPED,
+  scratch = new Quaternion()): number {
+  Quaternion.RotationYawPitchRollToRef(yaw, B.rise.trunkPitch, 0, scratch);
+  return 2 * Math.acos(Math.min(1, Math.abs(Quaternion.Dot(rotation, scratch))));
+}
+
+const smoothstep = (x: number): number => {
+  const u = clamp(x, 0, 1);
+  return u * u * (3 - 2 * u);
+};
+
+/** Where one rise has the pelvis at `elapsedS`: its height, its trunk pitch and how far back. */
+export interface BipedRiseFrame {
+  /** The pelvis's centre above the floor, m. */
+  readonly y: number;
+  /** The trunk's forward pitch, rad. */
+  readonly pitch: number;
+  /** How far behind the feet the pelvis is, m, along the body's heading. */
+  readonly back: number;
+  /** How far the pelvis has turned from how it lay to upright, 0 to 1. */
+  readonly turned: number;
+}
+
+export function bipedRiseFrame(elapsedS: number, plan: BipedRisePlan, B = LOCOMOTION_BIPED): BipedRiseFrame {
+  const back = B.rise.hipsBack * B.thighLength;
+  const gathered = smoothstep(plan.gatherS > 0 ? elapsedS / plan.gatherS : 1);
+  if (elapsedS < plan.gatherS + plan.holdS) {
+    return Object.freeze({ y: plan.startY + (plan.squatY - plan.startY) * gathered,
+      pitch: B.rise.trunkPitch, back: back * gathered, turned: gathered });
+  }
+  const u = plan.extendS > 0 ? (elapsedS - plan.gatherS - plan.holdS) / plan.extendS : 1;
+  const lift = smoothstep(u);
+  const lag = B.rise.trunkLag;
+  return Object.freeze({ y: plan.squatY + (plan.standY - plan.squatY) * lift,
+    pitch: B.rise.trunkPitch * (1 - smoothstep(lag < 1 ? (u - lag) / (1 - lag) : 1)),
+    back: back * (1 - lift), turned: 1 });
+}
+
+/**
+ * The legs' joint targets for a pelvis `y` above the floor, pitched forward by `pitch` and `back` behind
+ * the feet: the two-link solve that puts the ankle over the floor under where the body will stand,
+ * with the sole level. A pelvis too low for the folded leg to reach the floor puts the feet out in
+ * front instead, knees up, as a body sitting on the floor has them.
+ */
+export function bipedRiseLegs(y: number, pitch: number, back: number, B = LOCOMOTION_BIPED):
+  { readonly hip: number; readonly knee: number; readonly ankle: number } {
+  const { thighLength: t, shinLength: s } = B;
+  const shortest = Math.sqrt(t * t + s * s + 2 * t * s * Math.cos(B.kneeTargetMax));
+  const longest = t + s - 1e-4;
+  const hipAt = riseHip(pitch, B);
+  const below = Math.max(0, y - hipAt.below - B.footHeight);
+  let ahead = back + hipAt.behind;
+  let reach = Math.hypot(ahead, below);
+  if (reach < shortest) {
+    ahead = Math.sqrt(shortest * shortest - below * below);
+    reach = shortest;
+  }
+  reach = Math.min(reach, longest);
+  const knee = Math.acos(clamp((reach * reach - t * t - s * s) / (2 * t * s), -1, 1));
+  const hip = clamp(-Math.atan2(ahead, below) - Math.atan2(s * Math.sin(knee), t + s * Math.cos(knee)) - pitch,
+    B.hipJointMin + 0.05, B.hipJointMax - 0.05);
+  const bend = clamp(knee, B.kneeTargetMin, B.kneeTargetMax);
+  // The sole is levelled from the hip the joint can reach: a hip at its stop moves the foot a few
+  // centimetres, and a tilted sole would stand it on an edge.
+  return Object.freeze({ hip, knee: bend, ankle: clamp(-(pitch + hip + bend), B.ankleTargetMin, B.ankleTargetMax) });
+}
 
 const bipedHeightRange = (B = LOCOMOTION_BIPED): LocomotionHeightRange => Object.freeze({
   standM: bipedStandHeight(B),
@@ -438,7 +580,7 @@ return defineLocomotion({
       const suffix = index === 0 ? "L" : "R";
       const thigh = capsulePart(ctx.scene, {
         name: `${ctx.name}.thigh${suffix}`,
-        position: place(x, hipDown + B.thighLength / 2, 0),
+        position: place(x, hipDown + B.thighLength / 2, B.hipAhead),
         rotation: facing,
         height: B.thighLength,
         radius: B.thighRadius,
@@ -450,7 +592,7 @@ return defineLocomotion({
       });
       const shin = capsulePart(ctx.scene, {
         name: `${ctx.name}.shin${suffix}`,
-        position: place(x, kneeDown + B.shinLength / 2, 0),
+        position: place(x, kneeDown + B.shinLength / 2, B.hipAhead),
         rotation: facing,
         height: B.shinLength,
         radius: B.shinRadius,
@@ -466,7 +608,7 @@ return defineLocomotion({
       // where an ankle is.
       const foot = boxPart(ctx.scene, {
         name: `${ctx.name}.foot${suffix}`,
-        position: place(x, ankleDown + B.footHeight / 2, B.footLength * 0.18),
+        position: place(x, ankleDown + B.footHeight / 2, B.hipAhead + B.footLength * 0.18),
         rotation: facing,
         size: new Vector3(B.footWidth, B.footHeight, B.footLength),
         mass: B.footMass,
@@ -495,7 +637,7 @@ return defineLocomotion({
     for (const leg of legs) {
       const x = B.hipSide * leg.sign;
       leg.hip = joint(ctx.scene, pelvis, leg.thigh, {
-        pivotParent: new Vector3(x, -B.hipInset, 0),
+        pivotParent: new Vector3(x, -B.hipInset, B.hipAhead),
         pivotChild: new Vector3(0, B.thighLength / 2, 0),
         swing: {
           x: { min: B.hipJointMin, max: B.hipJointMax },
@@ -662,6 +804,9 @@ return defineLocomotion({
     });
     let severed = false;
     let risingStart: Quaternion | null = null;
+    /** The rise under way (`bipedRisePlan`), fixed on its first frame, and where its last frame put the pelvis. */
+    let risePlan: BipedRisePlan | null = null;
+    let riseFrame: BipedRiseFrame | null = null;
     let port: PhysicalSupportedLocomotionPort | null = null;
     let elapsed = 0;
     let contacts = 0;
@@ -702,6 +847,11 @@ return defineLocomotion({
       desired: new Quaternion(),
       rotation: new Quaternion(),
       rising: new Quaternion(),
+      upright: new Quaternion(),
+    };
+    const riseTurnRad = (yaw: number): number => {
+      const live = pelvis.mesh.rotationQuaternion;
+      return live ? bipedRiseTurnRad(live, yaw, B, scratch.upright) : 0;
     };
     const rootSample: {
       motionType: DynamicRootSample["motionType"];
@@ -890,7 +1040,8 @@ return defineLocomotion({
       liveSupport: () => !severed && legs.every((leg) => !leg.severed),
       postureSupported: () => constructPostureIsSupported(postureEvidence()),
       fallSettled: (): boolean => settle.settled,
-      risingDuration: (distanceM: number): number => settle.risingDurationS(distanceM, size),
+      risingDuration: (distanceM: number, yaw: number): number =>
+        Math.max(settle.risingDurationS(distanceM, size), bipedRiseDurationS(distanceM, B, riseTurnRad(yaw))),
 
       /**
        * The supported drive, and the two halves of it are not interchangeable.
@@ -942,34 +1093,52 @@ return defineLocomotion({
       },
 
       /**
-       * The rise: the bounded actuator's frame, and the yaw slerped across the whole of it.
+       * The rise, staged (`BipedRise`): the pelvis keyframed through the gather, the squat and the
+       * extension of `bipedRiseFrame`, and the legs, in `gait`, driven to the pose that puts the
+       * feet under it. The actuator's frame still says where on the floor the body rises -- its
+       * horizontal move, for a rise that relocates -- and its clock says how far in the rise is.
        *
        * Not ordinary supported movement and not an unbounded ragdoll force. Omitting this on the
        * Fighter left it on the fallback dynamic-root motor, where the state reached `rising` but a
        * prone pelvis never satisfied the upright predicate and could stay there for ever.
+       *
+       * **It used to hoist the pelvis where it lay.** The frame's own smoothstep took the pelvis
+       * straight up off the floor while it slerped upright, and the legs, commanded to stand, hung
+       * straight and were dragged under: the owner's marionette pulled up by the shoulders
+       * (2026-09-25). A body that fell on its face stood with its feet 0.31 m behind its hips and its
+       * centre of mass 163 mm outside its stance, and stayed that way (stone, Node headless arena,
+       * `research/rise-bench.mjs`).
        */
-      driveRisingRoot: (targetPosition, _targetVelocity, targetYaw): void => {
+      driveRisingRoot: (targetPosition, _targetVelocity, targetYaw, elapsedS, durationS): void => {
         if (pelvis.body.getMotionType() !== PhysicsMotionType.ANIMATED) {
           pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
         }
         const live = pelvis.mesh.rotationQuaternion ?? Quaternion.Identity();
-        if (risingStart === null) risingStart = live.clone();
-        Quaternion.RotationAxisToRef(UP, targetYaw, scratch.desired);
-        const progress = port?.diagnostic().recoveryProgress ?? 0;
-        const smooth = progress * progress * (3 - 2 * progress);
-        Quaternion.SlerpToRef(risingStart, scratch.desired, smooth, scratch.rising);
-        scratch.target.set(targetPosition.x, targetPosition.y, targetPosition.z);
+        if (risingStart === null || risePlan === null) {
+          risingStart = live.clone();
+          risePlan = bipedRisePlan(pelvis.mesh.position.y - groundY, B, durationS, riseTurnRad(targetYaw));
+        }
+        const frame = bipedRiseFrame(elapsedS, risePlan, B);
+        riseFrame = frame;
+        Quaternion.RotationYawPitchRollToRef(targetYaw, frame.pitch, 0, scratch.desired);
+        Quaternion.SlerpToRef(risingStart, scratch.desired, frame.turned, scratch.rising);
+        scratch.target.set(targetPosition.x - Math.sin(targetYaw) * frame.back, groundY + frame.y,
+          targetPosition.z - Math.cos(targetYaw) * frame.back);
         pelvis.body.setTargetTransform(scratch.target, scratch.rising);
       },
 
       releaseRoot: (): void => {
         risingStart = null;
+        risePlan = null;
+        riseFrame = null;
         if (pelvis.body.getMotionType() === PhysicsMotionType.ANIMATED) {
           pelvis.body.setMotionType(PhysicsMotionType.DYNAMIC);
         }
       },
       restoreRoot: (): void => {
         risingStart = null;
+        risePlan = null;
+        riseFrame = null;
         if (pelvis.body.getMotionType() === PhysicsMotionType.DYNAMIC) {
           pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
         }
@@ -1043,6 +1212,25 @@ return defineLocomotion({
       if (wantedLimp !== limp) {
         limp = wantedLimp;
         armMotors(limp ? B.fallenTorqueScale : 1);
+      }
+      if (activePort.state === "rising") {
+        // The staged rise's legs (`bipedRiseLegs`), for where `driveRisingRoot` put the pelvis
+        // earlier in this substep; before its first frame the legs hold what they were given.
+        if (riseFrame) {
+          const pose = bipedRiseLegs(riseFrame.y, riseFrame.pitch, riseFrame.back, B);
+          commanded.hipLeft = slewTowards(commanded.hipLeft, pose.hip, B.targetRate, dt);
+          commanded.hipRight = slewTowards(commanded.hipRight, pose.hip, B.targetRate, dt);
+          commanded.kneeLeft = slewTowards(commanded.kneeLeft, pose.knee, B.targetRate, dt);
+          commanded.kneeRight = slewTowards(commanded.kneeRight, pose.knee, B.targetRate, dt);
+          commanded.ankleLeft = slewTowards(commanded.ankleLeft, pose.ankle, B.targetRate, dt);
+          commanded.ankleRight = slewTowards(commanded.ankleRight, pose.ankle, B.targetRate, dt);
+          commanded.abductLeft = slewTowards(commanded.abductLeft, 0, B.targetRate, dt);
+          commanded.abductRight = slewTowards(commanded.abductRight, 0, B.targetRate, dt);
+        }
+        writeLeg(legs[0], commanded.hipLeft, commanded.kneeLeft, commanded.ankleLeft, commanded.abductLeft);
+        writeLeg(legs[1], commanded.hipRight, commanded.kneeRight, commanded.ankleRight,
+          commanded.abductRight);
+        return;
       }
       const move = carrierMove();
       // **The stride advances with the feet and not with the body**, which is what makes a turn in

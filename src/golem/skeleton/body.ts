@@ -1,6 +1,7 @@
 import type { ArmourByHit } from "../../scoring.ts";
 import {
-  CHAIN_REACH, CHAIN_WRIST, HEAD_NECK, LOCOMOTION_BIPED, TERMINAL_FIST, TORSO_PLAIN, TORSO_WAIST,
+  BIPED_RISE, CHAIN_REACH, CHAIN_WRIST, HEAD_NECK, LOCOMOTION_BIPED, TERMINAL_FIST, TORSO_PLAIN,
+  TORSO_WAIST,
 } from "../config.ts";
 import { wristChainFrom } from "../effectors/chains/wrist.ts";
 import type { ShellLook } from "../effectors/shell.ts";
@@ -105,9 +106,69 @@ export const SKELETON_BIPED = {
   shinLength: 0.39, shinRadius: 0.024, shinMass: 0.8, shinHealth: 30,
   footLength: 0.24, footWidth: 0.09, footHeight: 0.05, footMass: 0.5, footHealth: 25,
   footprintRadius: 0.28,
+  /**
+   * The legs hang 0.09 m ahead of the pelvis's centre, because the skeleton's weight is there: its
+   * ribcage, skull and arms put its centre of mass 107 to 130 mm ahead of its pelvis. Hung from the
+   * middle of the pelvis, its feet stood behind its weight, and a skeleton walking at speed had its
+   * centre of mass outside its stance a third of the time. At the moment a standing skeleton fell,
+   * its median margin was -16 mm and its median fall line 0 m/s, so any blow at all felled it
+   * (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`).
+   *
+   * The table has three sources:
+   * - the stance probe (Node bout runner, four skeleton-duelist mirrors): the share of standing time
+   *   at over 0.7 m/s with the centre of mass outside the stance, and the median distance it sits ahead
+   *   of the soles when walking at 0.05 to 0.3 m/s;
+   * - the Node research runner (`research/fall-loop.mjs`, skeleton mirror, 192 bouts, before the
+   *   rise gate's lying-body rule);
+   * - the Node rise bench (`research/rise-bench.mjs`, one fall each way (back / front / side)): the
+   *   least margin over 3 s standing, and how long both soles were planted before the last lift.
+   *
+   * | hipAhead m | outside at speed | ahead of soles, slow walk | falls/min | down % | re-fall <=2 s | margin after rise mm | planted before lift s |
+   * | --- | --- | --- | --- | --- | --- | --- | --- |
+   * | 0 | 33 % | 73 mm | 13.85 | 58.2 | 66.7 % | -6 / 39 / 33 | 0.37 / 0.22 / 0.32 |
+   * | 0.06 | 15 % | 21 mm | - | - | - | - | - |
+   * | **0.09** | **10 %** | **1 mm** | **11.06** | **45.7** | **52.1 %** | **57 / 102 / 102** | **0.09 / 0.09 / 0.09** |
+   * | 0.12 | 5 % | -28 mm | 10.88 | 44.6 | 49.9 % | 100 / 99 / 93 | 0 / 0 / 0 |
+   *
+   * The two fall-loop rows are within each other's noise. 0.12 puts the centre of mass of a slow
+   * walk behind the soles, and in the rise bench its soles never settled before the lift. 0.09 keeps the
+   * hips at the front face of the pelvis box.
+   *
+   * The same choice was measured again on the finished tree: every rise change, the lying-body rule and
+   * `targetRate` 11.5 (Node research runner, skeleton mirror, 192 bouts, seed 20260925).
+   *
+   * | hipAhead m | falls/min | down % | re-fall <=2 s |
+   * | --- | --- | --- | --- |
+   * | 0 | 12.26 | 60.4 | 65.3 % |
+   * | 0.06 | 10.19 | 50.1 | 53.2 % |
+   * | **0.09** | **9.30** | **45.6** | **48.0 %** |
+   *
+   * **What it costs is a body pressed into something in front of it.** On the Node locomotion bench's
+   * walk, which ends pressed against a post of the headless arena, the feet stop at the post and the
+   * weight stays back. The rear edge of the stance is then this far behind the centre of mass: 103 mm
+   * at 0, 74 at 0.03, 46 at 0.06, 31 at 0.075 and 26 at 0.09. At 0.09 the fall line reads zero in 104
+   * of the 125 pressed samples. In the first 8 m of the walk, in open ground, it reads zero in 1 of 150
+   * samples at 0.09 and in none at 0. The fight says the trade is worth it. Chest to chest, a push from
+   * the front has little base behind it.
+   */
+  hipAhead: 0.09,
   hipTorque: 450, kneeTorque: 250, ankleTorque: 110,
   // The bench's knockdown, stone's from before stone took its own body density (2026-09-24).
   shoveImpulseNs: 200,
+  /**
+   * The staged rise with the trunk upright in the squat and the hips a third of a thigh back.
+   * A 100 Nm waist at `fallenTone` cannot hold a forward-pitched ribcage while the pelvis turns
+   * under it: at stone's 0.35 rad the core overshoots to about +0.46 rad and the body stands with
+   * its centre of mass off its feet. Node rise bench (`research/rise-bench.mjs`), one fall each way,
+   * the share of the rise's second half with the centre of mass over the feet, and the least
+   * centre-of-mass margin in the stance over the 3 s after standing:
+   *
+   * | trunkPitch, hipsBack | back | front | side |
+   * | --- | --- | --- | --- |
+   * | 0.35, 0.2 (every biped's) | 0.06, -23 mm | 0.23, 19 mm | 0.00, -20 mm |
+   * | **0, 0.3** | **0.72, -6 mm** | **1.00, 39 mm** | **1.00, 33 mm** |
+   */
+  rise: Object.freeze({ ...BIPED_RISE, trunkPitch: 0, hipsBack: 0.3 }),
 };
 
 /**
