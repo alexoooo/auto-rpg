@@ -20,6 +20,9 @@ repetition. The owner asked for downloads.
 
 ## The textures
 
+**The owner chose `b` for both** after playing it, and saw no repetition. `b` is the default; `a` stays
+reachable by query until its files leave.
+
 | Surface | Choice | Poly Haven asset | Repeats every | Bytes added |
 |---|---|---|---|---|
 | Floor | `a` | `cobblestone_floor_06` | 2.0 m | 2,429,090 |
@@ -103,7 +106,7 @@ of an asset before it writes any. It is idempotent.
     - every row has a `CC0-1.0` source;
     - each dungeon consumer has exactly one albedo, normal and ORM map;
     - each dungeon surface repeats at 1.5 m or more.
-  - **`stone_is_chosen_from_the_query_and_defaults_to_the_first_candidate`.**
+  - **`stone_is_chosen_from_the_query_and_defaults_to_the_owners_choice`.**
   - **`a_textured_world_spans_its_maps_meets_edge_to_edge_and_varies_only_stone`**, under
     `NullEngine` with a texture factory that loads nothing, for three floor/wall pairs:
     - every vertex's UV is its world metres over its surface's span, on all three face
@@ -142,7 +145,7 @@ The shader's stone code runs in no test. Only the page check below shows that it
   floor's and wall's.
 - **Open, from review:** whether `tangentBasis: "babylon-lh"` in `surface()` lights an OpenGL map
   inverted on a Babylon-built mesh, which would shade every bump as a pit, here and in the arena.
-  It is settled by a rendered raking-light test in its own commit, before the owner chooses.
+  It is settled by a rendered raking-light test in its own commit.
 
 ## Verification
 

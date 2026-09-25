@@ -40,12 +40,12 @@ export function dungeonStone(scene: Scene, floor: StoneChoice = "flat", wall: St
   return { floor: stoneSurface(scene, "floor", floor, textures), wall: stoneSurface(scene, "wall", wall, textures) };
 }
 
-/** `?floor=` and `?wall=`, each `a`, `b` or `flat`; `a` when absent or unreadable. */
+/** `?floor=` and `?wall=`, each `a`, `b` or `flat`; `b`, the owner's choice, when absent or unreadable. */
 export function stoneQuery(search: string): { floor: StoneChoice; wall: StoneChoice } {
   const params = new URLSearchParams(search);
   const read = (key: string): StoneChoice => {
     const value = params.get(key);
-    return STONE_CHOICES.includes(value as StoneChoice) ? value as StoneChoice : "a";
+    return STONE_CHOICES.includes(value as StoneChoice) ? value as StoneChoice : "b";
   };
   return { floor: read("floor"), wall: read("wall") };
 }
