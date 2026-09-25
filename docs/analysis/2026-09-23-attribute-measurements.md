@@ -3806,3 +3806,41 @@ Size:
 
 Both are where they were. The skeleton still falls 16.7 times a body a bout at x1 and is down 64 % of
 it, which the balance response neither causes nor cures: its falls are the stance's (session 08).
+
+### Giants, censuses and the idle matrix under the balance response
+
+`research/runs/pc10b/batch.sh` at 231403a, against `pc08b` at 567350a. Node harness, research runner,
+supported locomotion, cap 150 s, seed 20260923.
+
+**The giant** (`--attributes max,max-normal-body,size-weight-max --pairs 192`, the four probe minds):
+
+| Level | Win % [95 %], 567350a | Win % [95 %], 231403a | The x1's knockdowns | The x1's time down |
+| --- | ---: | ---: | ---: | ---: |
+| control | 47.7 [42.2, 53.4] | 47.1 [41.7, 52.6] | 0.46 | 3.1 % |
+| max | 98.7 [97.4, 99.7] | 99.2 [98.2, 100.0] | 2.82 | 58.4 % |
+| max-normal-body | 91.4 [88.5, 94.0] | 93.0 [90.4, 95.6] | 0.91 | 6.0 % |
+| size-weight-max | 94.0 [91.7, 96.4] | 94.5 [92.2, 96.6] | 4.13 | 66.0 % |
+
+The giant still wins like a giant: 99.2 % at max, in 8.5 s.
+
+**Stun-lock** (`research/downed-census.mjs --groups stone,skeleton,giant --blocks 96`; the human at
+`--blocks 32`):
+
+| Group | Knockdowns / body / bout | Down time % | Repeat knockdowns, share of episodes | Longest chain | Rises put back down by a blow |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| stone, 567350a | 0.34 | 3.7 | 11.5 % | 3 | 51 |
+| stone, 231403a | 0.33 | 3.0 | 7.1 % | 3 | 38 |
+| skeleton, 567350a | 9.41 | 63.6 | 60.2 % | 14 | 2655 |
+| skeleton, 231403a | 9.64 | 64.8 | 61.4 % | 14 | 2608 |
+| giant, 567350a | 1.26 | 37.2 | 42.7 % | 7 | 19 |
+| giant, 231403a | 1.28 | 37.8 | 43.3 % | 7 | 32 |
+| human, 231403a | 0.00 | 0.0 | -- | 0 | 0 |
+
+**Idle-dummy matrix** (`research/idle-dummy.mjs --blocks 12`, 24 bouts a cell): the same seven cells
+are at zero outright wins -- the skeleton against stone, the human and the giant, and the human
+against every body -- and no new one. Every other cell is within a few bouts of 567350a's (stone on
+stone 88 % against 83, stone on the human 83 against 92, the skeleton on itself 50 against 58).
+
+So the balance response, whatever it did to a brawler mirror, moves none of the set's standing
+figures: not the weight or size stat on either body, not the giant, not the censuses, not the idle
+matrix.
