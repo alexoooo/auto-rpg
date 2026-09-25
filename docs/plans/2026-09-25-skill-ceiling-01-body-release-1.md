@@ -14,24 +14,48 @@ The fingerprint at the end is **body release 1**. Every later session measures a
 
 ## 1. Physics rate
 
-The analysis doc measures 240, 180 and 120 Hz on the Node harness: arm tracking, stroke stray, jiggle,
-contact detection against part widths, stability and locomotion, a bout-level comparison, and cost.
-It also lists every place that assumed 240 Hz. This session:
+`docs/analysis/2026-09-25-physics-rate.md` measured 240, 180 and 120 Hz on the Node harness. What it
+found:
 
-- Sets `CONFIG.world.physicsHz` to the recommended rate.
-- Makes every literal the audit found read the rate or seconds, so that a later change is one
-  number.
-- Re-tunes whatever the analysis names as moved. Each re-tuned constant gets its table in its doc
-  comment, per the house rule on motor ceilings.
-- If 120 Hz misses contacts on fast tips, takes the design-around the analysis recommends, in the
-  owner's order of preference:
-  - a minimum width for any part that can be struck, set from the tip travel per substep at peak
-    speed;
-  - bodies and strokes that do not produce such speeds;
-  - a speed cap, as a last resort. A cap is a rule where physics was, so it gets written up under
-    "Chosen on the owner's behalf" with the failure that forced it.
-- Reads the physics share of a frame on the dungeon's frame meter (`src/dungeon/frame-meter.ts`) at
-  the old and new rates, on this host. The owner reads the laptop at the eye gate.
+- **Tunnelling is not the problem.** Havok caught a 10 mm blade and a 22 mm whip segment at every
+  speed up to 90 m/s at 120 Hz, so no minimum part width is needed.
+- **The drives are the problem.** Every servo gain and motor ceiling was tuned per substep at 240.
+  At 120 the arms overshoot, the biped's and skeleton's feet slip 6x and 15x, bouts are 38 %
+  shorter, and 44 of 970 tests are red. At 180, bout-level results are within the noise of a 250 Hz
+  control and 23 tests are red. About 13 of those are pinned to 240 or to one exact trajectory; the
+  real misses are the head-ram's lunge and foot slip.
+- **Control costs twice what Havok does.** At 240 Hz it is 92 against 46 ms per simulated second
+  (Node bout runner), so the control loop is the larger cost.
+
+This session therefore takes the cost in this order, measuring after each step and stopping when
+the owner's laptop holds the fights wanted:
+
+1. **Run control on a slower clock than the solver.** Motor targets would be refreshed every
+   second or third substep and held between refreshes, with the solver kept at 240. That leaves
+   contacts and feet as they are. Watch for the trap in `AGENTS.md` where a keyframed anchor
+   coasted between refreshes. Measure it with the arm and locomotion benches and a bout row, as
+   the analysis did for the rate.
+2. **180 Hz**, if more is needed. Fix the tests that assume 240 so they read the rate. Retune the
+   head-ram's lunge and the biped and skeleton feet. Make every per-step literal the analysis lists
+   read the rate or seconds.
+3. **120 Hz** only as a retuning project of its own:
+   - the arm filter (`CHAIN_REACH.targetResponse` 40 to 20 gives back most of the arm);
+   - the legs, not yet diagnosed;
+   - the human arm;
+   - a re-measure of the mind rankings.
+
+Separately, `targetResponse` 20 is better than what ships even at 240. Cover overshoot falls from
+188 to 1 mm and cut stray from 38 to 17 mm, for 25 % less peak blade speed. Give it its own bout
+sweep here, whatever rate is chosen. Each re-tuned constant gets its table in its doc comment, per
+the house rule on motor ceilings.
+
+A cap on spin (about 100 rad/s) is optional insurance: past about 40 m/s at the tip, a spinning part
+hands over less momentum on a hit. Normal swings peak at 18 to 24 m/s, so only a blade that has been
+struck gets there.
+
+Read the physics share of a frame on the dungeon's frame meter (`src/dungeon/frame-meter.ts`) at
+each step, on this host. The owner reads the laptop at the eye gate. The Node figures leave out
+rendering, so they do not settle what the laptop will do.
 
 ## 2. The biological size law
 

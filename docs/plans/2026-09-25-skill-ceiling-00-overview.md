@@ -62,8 +62,10 @@ the notes of the style and matchup sets. The attribute figures are in
   policy, no knowledge of its dice. The second instrument uses a model of the opponent. Both are
   kept. Their gap measures how much of a win came from reading one particular opponent.
 - **Physics at 120 Hz if it holds.** On the owner's laptop 240 Hz was the bottleneck. Where 120 Hz
-  breaks, design around it: a minimum part width, lower speeds, or a speed cap. The measurement is
-  `docs/analysis/2026-09-25-physics-rate.md`.
+  breaks, design around it: a minimum part width, lower speeds, or a speed cap. The measurement
+  (`docs/analysis/2026-09-25-physics-rate.md`) found that 120 does not tunnel and does detune every
+  drive, and that control costs twice what Havok does. Session 01 therefore slows the control
+  clock first, then tries 180, and treats 120 as a retune.
 - **Every attribute must pay.** Attributes may be changed, added or removed.
 - **A clean break.** The old executors and minds leave the tree once the new stack beats them.
   Git holds them.
