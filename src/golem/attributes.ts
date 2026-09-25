@@ -150,24 +150,30 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * `KNOCKDOWN`, since physical contact session 08). It does not change how
    * often a body goes down; that is stability. Session 07, 2026-09-23.
    *
-   * **Stone scales exactly and to x2.** Node harness, whole golems (the knockdown test's pair),
-   * shoved twice past the fall line three times a level: stone lies 0.350 s and rises in 0.454 at
-   * x1, and the same over the stat at every level from x0.5 to x2. Its limbs never move faster than
-   * 1.67 m/s against the pelvis during a rise.
+   * **The ceiling is x1.25, and since physical contact session 08 stone sets it.** Node harness,
+   * whole golems (the knockdown test's pair), shoved along +x to twice the fall line along that push
+   * (`stabilityLinesAlong`), three times a level; lie and rise in seconds, the pelvis's height when
+   * the rise starts, and the peak limb speed against the pelvis during the rise. Re-measured at
+   * 567350a, 2026-09-24:
    *
-   * **The skeleton sets the ceiling.** Its lie ends on the cap at x1.25 and above, and the cap cuts
-   * a fall that is still going on:
+   *     recovery                   0.50   0.75   1.00   1.25   1.50        2.00
+   *     stone    lie, s            2.19   2.11   2.03   1.93   1.68 (cap)  1.26 (cap)
+   *              pelvis, m         0.20   0.20   0.20   0.20   0.30-0.66   0.78-0.86
+   *              rise, s           2.33   1.55   1.16   0.94   0.30-0.67   0.23
+   *              peak limb, m/s    1.81   2.83   3.45   4.09  14.73       10.71
+   *     skeleton lie, s            1.96   1.83   1.76   1.72   1.67        1.26
+   *              pelvis, m         0.10   0.10   0.10   0.10   0.10        0.45-0.54
+   *              rise, s           2.53   1.68   1.27   1.01   0.85        0.32
+   *              peak limb, m/s    2.36   3.54   4.66   5.71   6.90       11.61
    *
-   *     recovery                   0.50   0.75   1.00   1.25   1.50   2.00
-   *     lie, s                     2.61   2.50   2.38   2.01   1.68   1.26
-   *     pelvis at rise start, m    0.20   0.19   0.20   0.27   0.34   0.68
-   *     rise, s                    2.21   1.50   1.11   0.80   0.58   0.23
-   *     peak limb speed, m/s       5.52   5.64   5.80   5.71   9.31  16.27   (vs the pelvis, in the rise)
-   *
-   * At x1.25 the rise still begins from a finished fall -- 0.26 to 0.28 m, against the 0.26 m the
-   * knockdown table's note records for the rises it watched -- and nothing moves faster. At x1.5 it begins mid-fall and a wrist
-   * whips at 9.3 m/s, and at x2 the body is lifted off a fall barely begun. So the top is x1.25.
-   * Held off its rest rule, the skeleton lies exactly the cap over the stat at both ends and stands.
+   * Stone now lies about two seconds, because since session 08 it runs the one `KNOCKDOWN` table,
+   * whose rise waits for the fall to finish; it used to rise a fixed 0.35 s after it was released,
+   * mid-fall. At x1.25 one lie in three
+   * reaches the cap, from a finished fall; at x1.5 every lie ends on the cap, the rise begins
+   * mid-fall and a limb whips at 14.7 m/s. The skeleton, which set the ceiling before, now rises
+   * from a finished fall through x1.6 and would allow x1.5 on its own. So the top is still x1.25.
+   * Stone above x1.25 was read with a 3 s window per shove against the 7 s used below it; every one
+   * of those shoves finished inside it.
    *
    * **In the duel, lying longer costs and getting up sooner barely pays** -- the shape of every stat
    * so far. Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): on
@@ -250,8 +256,13 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    *     wrist blade        14.7/32    18.1/38    21.1/39    23.6/38    23.9/38    23.9/38
    *     wrist mace         28.8/284   31.9/298   32.8/290   32.8/289   32.8/301   32.8/302
    *     skeletal blade     17.0/46    17.6/47    17.6/46    17.5/46    17.6/47    17.5/47
-   *     anatomical blade    9.2/62    11.1/77    12.1/108   13.6/149   13.4/171   12.0/228
+   *     anatomical blade    8.4/67    11.2/76    11.8/119   13.0/155   13.2/181   12.3/219
    *     pitch blade        12.4/--    15.5/--    18.4/--    19.7/--    15.5/--    12.4/--
+   *
+   * Re-measured at 567350a, 2026-09-24: every row is the same to the digit but the anatomical arm's,
+   * which physical contact session 09's capability builder now drives at the orientation it holds.
+   * Timed as a mind times it (`timed`), the skeletal blade rises to 21.5 m/s at x1.5 and is flat
+   * after, and the other rows keep their shape.
    *
    * The committed sword shape -- the one `tests/golem-bench.test.mjs` holds under 50 mm of stray --
    * stays at 32 mm on the wrist and 16 mm on the skeletal arm at every level to x2.5, so the plan's
@@ -282,9 +293,13 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * settled) and direction changes, then whether the sweep-then-hold rings.
    *
    *     weight                 0.50         0.70         0.75         0.80         1.00         2.00
-   *     pitch blade        2.40/53      2.40/31      0.65/25      0.52/25      0.40/18      0.10/8
-   *     skeletal blade     0.40/9 grows     --       0.25/7 grows 0.20/7       0.18/6       0.08/4
-   *     wrist blade        0.20/6           --           --           --       0.09/4       0.05/2
+   *     pitch blade        2.40/48      2.40/15      1.07/31      0.77/21      0.40/18      0.10/8
+   *     skeletal blade     0.40/9 grows 0.26/7 grows 0.25/7 grows 0.20/7       0.18/6       0.08/4
+   *     wrist blade        0.20/6       0.14/5       0.10/4       0.10/4       0.09/4       0.05/2
+   *
+   * Re-measured at 567350a, 2026-09-24. Physical contact session 07's rule that the arm's torques
+   * follow the stat makes the pitch hinge settle more slowly below x1 (0.52 s at x0.8 before it,
+   * 0.77 after), and it still settles; the skeletal hold still grows at x0.75 and not at x0.8.
    *
    * Every chain rings less as it gets heavier and none grows at the heavy end, so the ceiling is the
    * swept x2. What rises with it is the anatomical arm's rest wander, 1.8 mm at x1 to 4.5 at x1.5,

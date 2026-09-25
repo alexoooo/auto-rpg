@@ -73,6 +73,9 @@ cells, not a head-to-head edge, and the two are not the same question.
 
 ## Movement (session 03)
 
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Movement".*
+
 Scales the carrier's walk, back-off, strafe and acceleration together (`withMovement` in
 `src/golem/attributes.ts`). On a biped, `bipedAtMovement` in `src/golem/locomotion/biped.ts` also
 re-times the gait. **Live at x0.75 to x1.5.** At x1.00 the body fingerprint reads 55 of 55 `same`.
@@ -177,6 +180,9 @@ A spacing mind is where this sweep should be repeated.
 
 ## Turning (session 05)
 
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Turning".*
+
 Scales the carrier's yaw rate and yaw acceleration together (`withTurning` in
 `src/golem/attributes.ts`), through the per-build table movement already hands to the port, the gait
 and the envelope; the two stats compose, each touching only its own fields. The trunk's twist
@@ -264,6 +270,9 @@ bouts a cell, the miser's rows fall furthest at the slow end (against the duelis
 mind's style off it.
 
 ## Stability (session 06)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Stability".*
 
 The stat is a factor on the stagger and fall thresholds of a body's stability ledger, and on the rule
 that interrupts a rise (`stabilityCapacity` in `src/supported-locomotion-state.ts`). It does not go
@@ -375,6 +384,9 @@ The x1.00 rows reproduce the earlier controls: 48.8 % on stone, identical to mov
 turning's, and 50.3 % on the skeleton.
 
 ## Recovery (session 07)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Recovery".*
 
 **First, is there anything to recover from?** Yes, in both builds. Session 06's columns show the
 stone default going down 4.9 times a bout at x1 and spending 15.1 % of it down, and the skeleton
@@ -505,6 +517,9 @@ a fall that is still moving, and that is a change to the knockdown rule, not a n
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.
 
 ## Armour (session 08)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Armour".*
 
 **The knob.** `armourAt` in `src/golem/attributes.ts`: a part's own armour fraction times the stat,
 capped at `ARMOUR_CAP`, 0.9. Its one reader is `Golem.armourOf`, which answers a per-kind table
@@ -641,6 +656,9 @@ The x1.00 rows reproduce the earlier controls: 48.8 % on stone, 48.6 % on `plate
 the skeleton.
 
 ## Toughness (session 09)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Toughness".*
 
 **The knob.** `Golem.register` in `src/golem/golem.ts` multiplies every body part's `health` and
 `maxHealth` by the stat. That is the one place a golem's parts get their health. A piece that
@@ -781,6 +799,9 @@ each body's full health, so overtime ends a tough body as surely as any other.
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.
 
 ## Arm speed (session 10)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Arm speed".*
 
 **The knob.** `withArmSpeed` in `src/golem/attributes.ts` hands each arm chain a per-build copy of
 its table with the named rate limits multiplied by the stat. At x1 it returns the table it was
@@ -1049,6 +1070,9 @@ this pairing hardly lands one. Neither sweep argues for a lower ceiling than x1.
 above x1.25 pays.
 
 ## Weight (session 11)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Weight".*
 
 **The knob.** `withWeight` in `src/golem/attributes.ts` hands a builder a per-build copy of its table
 with the named masses multiplied by the stat: density at fixed geometry. At x1 it returns the table
@@ -1410,6 +1434,9 @@ where the arm stops ringing and nothing here says a heavy body breaks. But a pla
 is choosing to stay on their feet at the price of the fight, and on the skeleton they lose it.
 
 ## Size (session 12)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Size".*
 
 **The knob.** Each body table a builder reads carries a size law per field, and `withSize` in
 `src/golem/attributes.ts` hands the builder a per-build copy at the stat (session 12a). The laws are
@@ -3658,3 +3685,67 @@ drain, then the median time of a win. Session 07's reading is in brackets.
   blade is the other half (above).
 - The skeleton against an idle skeleton fell from 88 % to 58 %: the attacker is on the floor as
   often as the dummy.
+
+## Physical contact 10: the balance response, and every stat re-measured
+
+### A body walked into leans, steps back, and is tipped only when outrun
+
+Session 07's rule capped a walker's push at its grip and filed whatever was past the other body's grip
+to the ledger, so two bodies of one weight could never move each other and one a tenth heavier
+tipped the other by walking into it. The owner called the equal-weight case arbitrary and chose the
+balance response (`readContact` in `src/supported-locomotion-production.ts`):
+
+- **The walker** pushes with no more than its grip and what it holds leaning into the reaction,
+  `W * depth / y`, with `y` the height the bodies meet at and `depth` its base's reach both ways
+  along the push (`pushCapN`). The reaction goes to its own ledger past its lean, so it never pushes
+  itself over.
+- **The body walked into** stands with the same lean and no more than its grip. What is past that
+  drives its carrier back, its legs following at the carrier's `maxAccelerationMps2`, and only a
+  step's drive past that goes to the ledger.
+- **The resolver follows a body that gives way** (`resolveCarrierPair`). Without that, a walker
+  stopped where the two touched and a sustained push broke into one step on and one off; twice as
+  heavy moved the other 0.11 m.
+
+**A lean is read, not rendered.** `.review/pc10/lean-room.mjs`, Node headless arena:
+
+| Body | Centre of mass height, m | Base depth along the walk, m | What a full waist lean moves the centre of mass, m |
+| --- | ---: | ---: | ---: |
+| stone biped | 1.10 | 0.34 (0.199 ahead, 0.141 behind) | 0.10 |
+| human | 0.99 | 0.27 | 0.05 |
+| skeleton | -- | 0.24 (mace and maul: centre of mass outside the base) | -- |
+| wheel | -- | 0.18 | -- |
+| multileg | -- | 0.64 | -- |
+
+So a rigid stone golem holds at most `W * 0.34 / 1.10`, about 0.31 W, against the grip's 0.55 W.
+
+**Walked into** (`.review/pc10/walk-into.mjs` and `walk-giant.mjs`, Node headless arena, a stone
+walker 1.5 m off an idle x1 stone, 3 s of walking):
+
+| Walker | Moved, m | Peak slide, m/s | Tipped |
+| --- | ---: | ---: | --- |
+| x0.8 weight | 0.001 | 0.013 | no |
+| x1 | 0.009 | 0.074 | no |
+| x1.1 weight | 0.99 | 0.82 | no |
+| x2 weight | 8.98 | 3.20 | no |
+| x1.25 size | 10.01 | 3.59 | no |
+| giant (x1.25 size, x2 weight) | -- | -- | at 0.38 s |
+
+No walker's own ledger passes 0.021 m/s. `a body walked into stands against one weight, is walked
+back by a heavier one and felled by a giant` in `tests/contact-press.test.mjs` pins the equal,
+x1.1, x2 and giant rows; ten mutants of the rule and the resolver turn it or its two unit tests red.
+
+**In bouts** (`.review/pc10/contact-bouts2.mjs`, Node bout runner, cap 60 s, 16 bouts a cell; falls
+a body a bout, left / right):
+
+| Cell | 567350a | Lean alone | Lean and step |
+| --- | ---: | ---: | ---: |
+| brawler mirror | 1.19 / 0.75 | 4.44 / 4.25 | 2.75 / 1.13 |
+| brawler, weight x1.1 against x1 | 3.88 / 6.56 | 2.75 / 3.56 | 3.94 / 6.38 |
+| duelist x1 mirror | 0.19 / 0.00 | the same | the same |
+| duelist, max against x1 | 0.06 / 3.38 | 0.13 / 3.25 | 0.13 / 3.13 |
+| duelist, x1 against max | 1.88 / 0.25 | the same | the same |
+| duelist, size-weight-max against x1 | 0.00 / 2.88 | 0.00 / 3.06 | 0.00 / 3.00 |
+
+Lean alone felled a brawler mirror four times as often, 72 of 139 falls led by the pair push in
+the second before them (`.review/pc10/fall-source.mjs`); with the step, 20 of 62. The duelists
+seldom meet trunk to trunk, so their cells hardly move.
