@@ -98,7 +98,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
     ...POLICIES.filter((policy) => policy.name.startsWith("golem-researched-")).map((policy) => policy.name),
     "idle", "golem-duelist", "humanoid-duelist", "skeleton-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-    "golem-reaper", "golem-miser",
+    "golem-reaper", "golem-miser", "golem-walker",
   ]);
   // The other surface has no body in the tree any more -- the Warrior went with the research --
   // so what is asserted is the half of the rule that can still be run: a name that is not one of

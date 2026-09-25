@@ -331,7 +331,7 @@ const initialMind = (ctx: CombatantBuild, definition: UnitDefinition): Mind => {
 const GOLEM_POLICIES: readonly string[] = Object.freeze([
   "idle", "humanoid-duelist", "skeleton-duelist", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
   "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-  "golem-reaper", "golem-miser",
+  "golem-reaper", "golem-miser", "golem-walker",
 ]);
 
 /** Published and isolated-review candidates use the same legal golem surface. */

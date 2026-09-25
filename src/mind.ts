@@ -55,7 +55,7 @@ import {
 import {
   golemBrawlerMind, golemChampionMind, golemDriverMind, golemDuelistMind, golemFencerMind,
   golemFormMind, golemGuardianMind, golemMiserMind, golemPlannerMind, golemReaperMind,
-  golemSkirmisherMind, golemTacticianMind,
+  golemSkirmisherMind, golemTacticianMind, golemWalkerMind,
 } from "./golem/golem-policies.ts";
 import { RESEARCHED_POLICIES } from "./golem/researched-policies.ts";
 
@@ -1338,6 +1338,8 @@ export const POLICIES: readonly Policy[] = [
   { name: "golem-driver", label: "Golem driver", surface: GOLEM_SURFACE, create: golemDriverMind },
   { name: "golem-reaper", label: "Golem reaper", surface: GOLEM_SURFACE, create: golemReaperMind },
   { name: "golem-miser", label: "Golem miser", surface: GOLEM_SURFACE, create: golemMiserMind },
+  // The naive ladder's middle rung (skill ceiling session 03): idle, this, then the duelist.
+  { name: "golem-walker", label: "Golem walker", surface: GOLEM_SURFACE, create: golemWalkerMind },
 ];
 
 /**

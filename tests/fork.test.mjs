@@ -173,11 +173,12 @@ test("every_registered_module_hands_its_stepping_state_to_the_fork", () => {
 });
 
 /** Every mind the expert plays against (the plan's list), and the idle one. */
-const MINDS = ["idle", "golem-duelist", "golem-miser", "golem-researched-needle-v1", "golem-champion", "golem-brawler"];
+const MINDS = ["idle", "golem-duelist", "golem-miser", "golem-researched-needle-v1", "golem-champion", "golem-brawler",
+  "golem-walker"];
 
 test("every_named_golem_mind_hands_its_stepping_state_to_the_fork", () => {
   const findings = [];
-  for (const [left, right] of [[MINDS[1], MINDS[2]], [MINDS[3], MINDS[4]], [MINDS[5], MINDS[0]]]) {
+  for (const [left, right] of [[MINDS[1], MINDS[2]], [MINDS[3], MINDS[4]], [MINDS[5], MINDS[0]], [MINDS[6], MINDS[1]]]) {
     findings.push(...audit({ left, right }).report.findings);
   }
   assert.deepEqual(findings, [], describeFindings(findings));
@@ -232,9 +233,10 @@ test("a_restored_mind_decides_bit_identically_and_a_reseeded_one_draws_new_dice"
     // The controls: a mind with nothing restored does not replay the tail, and a reseeded one keeps
     // its moment and draws different dice. Measured over this tail (Node bout runner), the duelist,
     // miser, needle and champion part from their own replay 189 to 353 decisions after a reseed;
-    // the brawler draws nothing in these four seconds, so a reseed cannot show on it.
+    // the brawler draws nothing in these four seconds, so a reseed cannot show on it. Nor does the
+    // walker, which draws once, for its clock's phase, when it is built.
     assert.notEqual(firstDifference(policyMind(name, SEEDS[0]), tail), -1, `${name}: the control replays too`);
-    if (name !== "golem-brawler") {
+    if (name !== "golem-brawler" && name !== "golem-walker") {
       const reseeded = policyMind(name, SEEDS[0]);
       restoreMind(reseeded, snapshot, { reseed: 7 });
       assert.notEqual(firstDifference(reseeded, tail), -1, `${name}: a reseeded mind draws the same dice`);

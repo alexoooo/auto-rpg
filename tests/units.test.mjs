@@ -107,7 +107,7 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
   assert.deepEqual([...(golem.compatiblePolicies ?? [])], [
     "idle", "humanoid-duelist", "skeleton-duelist", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-    "golem-reaper", "golem-miser",
+    "golem-reaper", "golem-miser", "golem-walker",
     ...researchedVariants.map((candidate) => candidate.name),
     ...researchedLab.map((candidate) => candidate.name),
   ]);
