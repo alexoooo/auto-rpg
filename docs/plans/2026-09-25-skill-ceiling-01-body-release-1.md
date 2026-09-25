@@ -47,7 +47,9 @@ a limit. **It is a retune**, and most of it is one setting:
   control at 120, 80 and 60 Hz leaves bouts statistically unchanged and costs 0.89x, 0.81x and
   0.80x. At 120 physics with 120 control it costs 0.55x (Node bout runner). Publishing the view is
   3.5x the mind's decision, and the locomotion setup costs as much as the servos. Those two are
-  the next cost targets. 60 Hz control on 120 Hz physics showed unexplained severs at 0.35 s.
+  the next cost targets. The 0.35 s severs once seen with 60 Hz control on 120 Hz physics were one seed-independent
+  opening under the unlanded exact servo filter. On main none occur
+  (`docs/analysis/2026-09-25-rate-control-clock.md`).
 
 The follow-up studies are:
 

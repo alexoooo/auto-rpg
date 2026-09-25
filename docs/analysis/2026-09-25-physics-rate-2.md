@@ -381,9 +381,16 @@ brawler's opening cut reaches the miser's right leg at 0.33 s in all three setti
 | s240/c60 | thigh at 8.9 m/s, no sever |
 | **r120/c60** | **shin at 19.5 m/s**, 310 J, **severed**, and the bout ends |
 
-The cause is not established. It needs both the halved physics rate and a held command, because
-neither alone shows it. Until it is diagnosed, **60 Hz control on 120 Hz physics is not
-recommended.**
+**Diagnosed in `2026-09-25-rate-control-clock.md`, and this recommendation is withdrawn.** It was
+one opening counted 24 times: every bout of a mind pairing plays the same first 0.7 s whatever its
+seeds, and all 24 were brawler~miser. It needs the exact servo discretisation and not the host's
+hold, which is an exact zero-order hold. On main, t120/c60 ends no bout inside 0.5 s. The paragraph
+above read the trace as needing both the halved rate and a held command. The follow-up found that
+r240/c60 cuts the same shin, and that a mind repeating itself at full rate reproduces the sever bit
+for bit.
+
+The earlier text read: "The cause is not established. ... Until it is diagnosed, 60 Hz control on
+120 Hz physics is not recommended."
 
 ## 6. The whip
 
@@ -553,7 +560,9 @@ To move the page to 120 Hz:
 
    None was fixed here. Each is a measured threshold, and moving a threshold without the table
    beside it is what `AGENTS.md` forbids. That is not cheap, so it is left open.
-3. **Diagnose `r120/c60`'s 0.35 s severs** before shipping any control rate below physics at 120.
+3. ~~**Diagnose `r120/c60`'s 0.35 s severs**~~ Done in `2026-09-25-rate-control-clock.md`. It
+   was a seed-independent opening in one mind pairing, under the exact servo filter, and not a
+   control-clock defect.
 4. **Settle the whip** with a multi-trial study (section 6).
 5. **Re-measure one thing in the browser:** the page's per-frame cost at 120/120 on the owner's
    laptop. The Node figures here say 0.55x, but the page carries rendering too, and
