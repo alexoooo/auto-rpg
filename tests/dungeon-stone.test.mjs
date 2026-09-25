@@ -31,11 +31,12 @@ test("dungeon_textures_are_registered_with_provenance", () => {
 });
 
 test("stone_is_the_default_and_flat_is_the_control", () => {
-  assert.deepEqual(stoneQuery(""), { floor: "stone", wall: "stone" });
-  assert.deepEqual(stoneQuery("?play=dungeon&floor=flat"), { floor: "flat", wall: "stone" });
-  assert.deepEqual(stoneQuery("?wall=flat"), { floor: "stone", wall: "flat" });
-  // A link from before the choice still draws the stone.
-  assert.deepEqual(stoneQuery("?floor=b&wall=a"), { floor: "stone", wall: "stone" });
+  assert.deepEqual(stoneQuery(""), { floor: "stone", wall: "stone", masonry: true });
+  assert.deepEqual(stoneQuery("?play=dungeon&floor=flat"), { floor: "flat", wall: "stone", masonry: true });
+  assert.deepEqual(stoneQuery("?wall=flat"), { floor: "stone", wall: "flat", masonry: true });
+  assert.deepEqual(stoneQuery("?masonry=0"), { floor: "stone", wall: "stone", masonry: false });
+  // A link from before the choice still draws the stone, and anything but 0 draws the blocks.
+  assert.deepEqual(stoneQuery("?floor=b&wall=a&masonry=1"), { floor: "stone", wall: "stone", masonry: true });
 });
 
 test("a_textured_world_spans_its_maps_meets_edge_to_edge_and_varies_only_stone", async () => {
@@ -43,7 +44,8 @@ test("a_textured_world_spans_its_maps_meets_edge_to_edge_and_varies_only_stone",
   try {
     const map = generateLevel(1).map;
     for (const [floor, wall] of [["stone", "stone"], ["stone", "flat"], ["flat", "stone"]]) {
-      const look = dungeonStone(arena.scene, floor, wall, noImages), world = buildDungeonWorld(arena.scene, map, look);
+      // The flat skin, whose UVs are the axis rule; the masonry's own are `tests/dungeon-masonry.test.mjs`'s.
+      const look = { ...dungeonStone(arena.scene, floor, wall, noImages), masonry: false }, world = buildDungeonWorld(arena.scene, map, look);
       const drawn = kind => world.surfaces.filter(m => m.name.startsWith(`${kind}.visual`));
       for (const [kind, choice] of [["floor", floor], ["wall", wall]]) {
         const { material, metresPerRepeat, textured } = look[kind];

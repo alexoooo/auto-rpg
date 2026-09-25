@@ -40,7 +40,8 @@ const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
 const pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
-// `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost.
+// `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost, and
+// `?masonry=0` the flat wall skin, the control for what the blocks cost.
 const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
 // Wheel locomotion cannot strafe; the hero picker offers bodies that can honor screen movement.
@@ -127,12 +128,13 @@ async function boot(): Promise<void> {
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
-    run = new DungeonRun(scene, seed, selectedBuild, dungeonStone(scene, stone.floor, stone.wall), undefined, selectedEquipment); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
+    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: stone.masonry }, undefined, selectedEquipment); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     run.pitch = pitch;
     // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
     // code no Node test loads, so the rule that it adds no body is held here, where it runs.
     const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
-    lighting = lightDungeon(scene, camera, run.map, torchPlacements(run.map, seed));
+    const torches = torchPlacements(run.map, seed);
+    lighting = lightDungeon(scene, camera, run.map, torches); run.world.sconces(torches);
     if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);
     scene.onBeforePhysicsObservable.add(() => {
       if (!run || paused) return;

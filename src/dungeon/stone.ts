@@ -9,7 +9,8 @@ export type StoneChoice = "stone" | "flat";
 
 /** A floor or wall material, and the metres its maps span, which its UVs are divided by. */
 export interface StoneSurface { material: PBRMaterial; metresPerRepeat: number; textured: boolean }
-export interface DungeonSurfaces { floor: StoneSurface; wall: StoneSurface }
+/** `masonry` is false for session 02's flat wall skin, the control for what the blocks cost; it is on otherwise. */
+export interface DungeonSurfaces { floor: StoneSurface; wall: StoneSurface; masonry?: boolean }
 
 const STONE: Record<"floor" | "wall", SurfaceDescriptor> = { floor: TEXTURED_SURFACES.dungeonFloor, wall: TEXTURED_SURFACES.dungeonWall };
 /** Session 01's colours, authored in sRGB. */
@@ -36,9 +37,10 @@ export function dungeonStone(scene: Scene, floor: StoneChoice = "flat", wall: St
   return { floor: stoneSurface(scene, "floor", floor, textures), wall: stoneSurface(scene, "wall", wall, textures) };
 }
 
-/** `?floor=flat` and `?wall=flat` draw session 01's colours; anything else, or nothing, draws the stone. */
-export function stoneQuery(search: string): { floor: StoneChoice; wall: StoneChoice } {
+/** `?floor=flat` and `?wall=flat` draw session 01's colours, and `?masonry=0` the flat wall skin; anything else, or
+ * nothing, draws the stone in blocks. */
+export function stoneQuery(search: string): { floor: StoneChoice; wall: StoneChoice; masonry: boolean } {
   const params = new URLSearchParams(search);
   const read = (key: string): StoneChoice => params.get(key) === "flat" ? "flat" : "stone";
-  return { floor: read("floor"), wall: read("wall") };
+  return { floor: read("floor"), wall: read("wall"), masonry: params.get("masonry") !== "0" };
 }

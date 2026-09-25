@@ -11,6 +11,8 @@ import { cellKey, isFloor, walkable, type DungeonMap, type Point } from "./map.t
 import { boundary, WALL_HEIGHT, wallSurface, type WallFace } from "./fog.ts";
 import { dungeonFog } from "./fog-plugin.ts";
 import { dungeonStone, flatStone, type DungeonSurfaces } from "./stone.ts";
+import { masonryQuads, type Quad } from "./masonry.ts";
+import type { TorchPlacement } from "./dressing.ts";
 
 /** Visible surfaces are merged into one mesh per square of this many cells a side, so that a level is a few dozen
  * draws rather than one per wall run and a batch of two thousand tile instances. */
@@ -18,9 +20,6 @@ export const VISUAL_CHUNK = 16;
 /** A floor tile's half-width and height. A flat floor's tiles leave 2 cm gaps, the only grid it has; a textured
  * floor's meet edge to edge, and the texture draws its own joints. */
 const TILE = Object.freeze({ flatHalf: 0.49, half: 0.5, y: 0.015 });
-
-type Corner = readonly [number, number, number];
-interface Quad { cell: Point; corners: Corner[]; normal: Corner }
 
 /** A wall quad's four corners, in order around it, and the way it faces. */
 function faceCorners(x: number, z: number, face: WallFace): Omit<Quad, "cell"> {
@@ -36,11 +35,12 @@ function faceCorners(x: number, z: number, face: WallFace): Omit<Quad, "cell"> {
 }
 
 /**
- * Quads merged into one mesh per chunk of `VISUAL_CHUNK` cells, named `${prefix}.${cx}.${cz}`. UVs are world
- * metres over the span one image repeat covers, by the rule `mapUvsInMetres` in `src/arena-room.ts` applies: x and
- * z on a face looking up, the horizontal along the face and the height on a side. Babylon's front face winds so
- * that the right-handed cross product of its first two edges points away from the normal, and each quad is
- * ordered to match.
+ * Quads merged into one mesh per chunk of `VISUAL_CHUNK` cells, named `${prefix}.${cx}.${cz}`. A quad's own UVs are
+ * used where it has them; otherwise UVs are world metres over the span one image repeat covers, by the rule
+ * `mapUvsInMetres` in `src/arena-room.ts` applies: x and z on a face looking up, the horizontal along the face and
+ * the height on a side. If any quad has a `shade`, every quad gets a grey vertex colour, which multiplies the
+ * albedo. Babylon's front face winds so that the right-handed cross product of its first two edges points away
+ * from the normal, and each quad is ordered to match.
  */
 function mergedQuads(scene: Scene, prefix: string, quads: readonly Quad[], metresPerRepeat: number): Mesh[] {
   const chunks = new Map<string, Quad[]>();
@@ -50,14 +50,17 @@ function mergedQuads(scene: Scene, prefix: string, quads: readonly Quad[], metre
     if (chunk) chunk.push(quad); else chunks.set(key, [quad]);
   }
   return [...chunks].map(([key, chunk]) => {
-    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
-    for (const { corners, normal } of chunk) {
+    const positions: number[] = [], normals: number[] = [], uvs: number[] = [], colors: number[] = [], indices: number[] = [];
+    const shaded = chunk.some(q => q.shade !== undefined);
+    for (const { corners, normal, uvs: own, shade = 1 } of chunk) {
       const base = positions.length / 3;
-      for (const [x, y, z] of corners) {
+      corners.forEach(([x, y, z], i) => {
         positions.push(x, y, z); normals.push(...normal);
+        if (shaded) colors.push(shade, shade, shade, 1);
         const m = metresPerRepeat;
-        if (normal[1] !== 0) uvs.push(x / m, z / m); else if (normal[0] !== 0) uvs.push(z / m, y / m); else uvs.push(x / m, y / m);
-      }
+        if (own) uvs.push(...own[i]);
+        else if (normal[1] !== 0) uvs.push(x / m, z / m); else if (normal[0] !== 0) uvs.push(z / m, y / m); else uvs.push(x / m, y / m);
+      });
       const [a, b, c] = corners, u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
       const facing = (u[1] * v[2] - u[2] * v[1]) * normal[0] + (u[2] * v[0] - u[0] * v[2]) * normal[1]
         + (u[0] * v[1] - u[1] * v[0]) * normal[2];
@@ -66,14 +69,33 @@ function mergedQuads(scene: Scene, prefix: string, quads: readonly Quad[], metre
     }
     const mesh = new Mesh(`${prefix}.${key}`, scene), data = new VertexData();
     data.positions = positions; data.normals = normals; data.uvs = uvs; data.indices = indices;
+    if (shaded) data.colors = colors;
     data.applyToMesh(mesh, false);
     mesh.isPickable = false; mesh.freezeWorldMatrix();
     return mesh;
   });
 }
 
+/** A closed door's leaf, built for a door across x -- 3 m wide in x, 0.35 m deep in z -- and turned for one across
+ * z. Every piece sits inside the door's collider box, and goes when it does. */
+const DOOR_LEAF = Object.freeze({
+  planks: 6, gap: 0.02, height: 2.42, depths: Object.freeze([0.2, 0.24] as const),
+  bands: Object.freeze([0.55, 1.85] as const), bandHeight: 0.12, bandDepth: 0.28, bandWidth: 2.9,
+  ring: Object.freeze({ x: 0.55, y: 1.2, diameter: 0.18, thickness: 0.03 }),
+});
+/** An iron sconce under each torch's flame, set into the wall face: no piece stands more than `proud` off it. */
+export const SCONCE = Object.freeze({ proud: 0.08, plate: Object.freeze([0.12, 0.3, 0.02] as const), plateY: 1.82, cupY: 1.9 });
+
+/** Pieces built about the origin, merged into one mesh and placed: a fitting's parts share one draw. */
+function fitting(name: string, pieces: Mesh[], x: number, z: number, turn: number): Mesh {
+  const mesh = Mesh.MergeMeshes(pieces, true, true)!;
+  mesh.name = name; mesh.isPickable = false;
+  mesh.position.set(x, 0, z); mesh.rotation.y = turn; mesh.freezeWorldMatrix();
+  return mesh;
+}
+
 /** `visuals` is false for a world with no drawn floor or walls, true for the flat colours, and otherwise the page's
- * chosen stone (`dungeonStone` in `stone.ts`). The colliders are the same in every case. */
+ * chosen stone (`dungeonStone` in `stone.ts`). The colliders are the same in every case, and none is drawn. */
 export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolean | DungeonSurfaces = true) {
   const registry = new StandableWorldRegistry();
   const up = [0, 1, 0] as const;
@@ -126,23 +148,42 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     const wall = box(`wall.${z}.${start}`, (start + x - 1) / 2, WALL_HEIGHT / 2, z, x - start, WALL_HEIGHT, 1);
     wall.mesh.isVisible = false; wall.mesh.isPickable = false;
   }
+  const iron = flatStone(scene, "door and sconce iron", "#3b3734", 0.5); iron.metallic = 0.7;
   const doors = map.doors.map(d => {
     const object = box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3);
-    object.mesh.material = wood; object.mesh.isPickable = false; object.mesh.isVisible = visuals !== false; return object;
+    object.mesh.material = wood; object.mesh.isPickable = false; object.mesh.isVisible = false;
+    if (visuals === false) return { ...object, leaf: [] as Mesh[] };
+    const L = DOOR_LEAF, width = (3 - L.gap * (L.planks + 1)) / L.planks, turn = d.axis === "x" ? Math.PI / 2 : 0;
+    const planks = Array.from({ length: L.planks }, (_, i) => {
+      const plank = MeshBuilder.CreateBox("plank", { width, height: L.height, depth: L.depths[i % 2] }, scene);
+      plank.position.set(-1.5 + L.gap + width / 2 + i * (width + L.gap), 0.02 + L.height / 2, 0); return plank;
+    });
+    const bands = L.bands.map(y => {
+      const band = MeshBuilder.CreateBox("band", { width: L.bandWidth, height: L.bandHeight, depth: L.bandDepth }, scene);
+      band.position.y = y; return band;
+    });
+    const rings = [1, -1].map(side => {
+      const ring = MeshBuilder.CreateTorus("ring", { diameter: L.ring.diameter, thickness: L.ring.thickness, tessellation: 16 }, scene);
+      ring.rotation.x = Math.PI / 2; ring.position.set(L.ring.x, L.ring.y, side * (L.bandDepth / 2 + L.ring.thickness / 2)); return ring;
+    });
+    const leaf = [fitting(`door.${d.id}.leaf`, planks, d.point.x, d.point.z, turn), fitting(`door.${d.id}.iron`, [...bands, ...rings], d.point.x, d.point.z, turn)];
+    leaf[0].material = wood; leaf[1].material = iron;
+    return { ...object, leaf };
   });
   // Fog is a mask the surfaces read (`fog-plugin.ts`), so nothing here is shown or hidden cell by cell.
   const look = visuals === true ? dungeonStone(scene) : visuals || null;
   const fog = look ? dungeonFog(scene, map) : null;
-  const surfaces: Mesh[] = [];
+  const surfaces: Mesh[] = [], fittings: { mesh: Mesh; floor: number }[] = [];
   if (look && fog) {
     fog.attach(look.floor.material, look.floor.textured ? "floor" : null);
     fog.attach(look.wall.material, look.wall.textured ? "wall" : null);
-    fog.attach(wood, null);
+    fog.attach(wood, null); fog.attach(iron, null);
     const tiles: Quad[] = [], h = look.floor.textured ? TILE.half : TILE.flatHalf, { y } = TILE;
     for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) if (isFloor(map, x, z))
       tiles.push({ cell: { x, z }, normal: [0, 1, 0], corners: [[x - h, y, z - h], [x - h, y, z + h], [x + h, y, z + h], [x + h, y, z - h]] });
     for (const mesh of mergedQuads(scene, "floor.visual", tiles, look.floor.metresPerRepeat)) { mesh.material = look.floor.material; surfaces.push(mesh); }
-    const walls = wallSurface(map).map(({ cell, face }) => ({ cell, ...faceCorners(cell.x, cell.z, face) }));
+    const walls = look.masonry === false ? wallSurface(map).map(({ cell, face }) => ({ cell, ...faceCorners(cell.x, cell.z, face) }))
+      : masonryQuads(map, look.wall.metresPerRepeat);
     for (const mesh of mergedQuads(scene, "wall.visual", walls, look.wall.metresPerRepeat)) { mesh.material = look.wall.material; surfaces.push(mesh); }
   }
   const exit = MeshBuilder.CreateTorus("exit sigil", { diameter: 2, thickness: 0.12, tessellation: 40 }, scene);
@@ -158,14 +199,36 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
         door.open = true;
         doors[door.id].body.shape.filterCollideMask = 0;
         doors[door.id].body.shape.filterMembershipMask = 0;
-        doors[door.id].mesh.isVisible = false;
+        for (const mesh of doors[door.id].leaf) mesh.isVisible = false;
       }
+    },
+    /** An iron sconce under each torch's flame, hidden until the floor it faces is explored, as its flame is. The fog
+     * reads a fitting's top and underside from that floor cell and its front from the wall, which shows as soon as a
+     * diagonal neighbour is explored: without the gate, the front of a sconce was drawn without its top. */
+    sconces(torches: readonly TorchPlacement[]): Mesh[] {
+      if (!fog) return [];
+      const S = SCONCE;
+      return torches.map((torch, i) => {
+        const [w, h, d] = S.plate, plate = MeshBuilder.CreateBox("plate", { width: w, height: h, depth: d }, scene);
+        plate.position.set(0, S.plateY, d / 2);
+        const arm = MeshBuilder.CreateBox("arm", { width: 0.03, height: 0.03, depth: S.proud - d }, scene);
+        arm.position.set(0, S.cupY - 0.06, d + (S.proud - d) / 2);
+        const cup = MeshBuilder.CreateCylinder("cup", { diameterTop: S.proud - 0.01, diameterBottom: 0.035, height: 0.08, tessellation: 10 }, scene);
+        cup.position.set(0, S.cupY, (S.proud + 0.01) / 2);
+        // Built facing +z from a face at z = 0, and turned to face the floor the torch lights.
+        const mesh = fitting(`torch.sconce.${i}`, [plate, arm, cup], torch.cell.x + torch.facing.x * 0.5,
+          torch.cell.z + torch.facing.z * 0.5, Math.atan2(torch.facing.x, torch.facing.z));
+        mesh.material = iron; mesh.isVisible = false; surfaces.push(mesh);
+        fittings.push({ mesh, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) });
+        return mesh;
+      });
     },
     /** Writes the fog mask from what the hero sees and has seen. A closed door is drawn wherever the mask shows it. */
     present(visible: ReadonlySet<number>, explored: ReadonlySet<number>, hero: Point, pitch: number) {
       if (!fog) return;
       fog.update(visible, explored, pitch); fog.setHero(hero);
       exit.isVisible = explored.has(cellKey(map, map.exit));
+      for (const { mesh, floor } of fittings) mesh.isVisible = explored.has(floor);
     },
     /** Where the walls in front of the hero open. The page calls it every frame; `present` runs every 100 ms. */
     setHero(hero: Point) { fog?.setHero(hero); },

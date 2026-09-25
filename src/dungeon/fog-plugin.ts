@@ -10,6 +10,7 @@ import type { UniformBuffer } from "@babylonjs/core/Materials/uniformBuffer.js";
 import type { SubMesh } from "@babylonjs/core/Meshes/subMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { CUT_AWAY, FOG_SAMPLE, WALL_HEIGHT, fogMask } from "./fog.ts";
+import { MASONRY } from "./masonry.ts";
 import type { DungeonMap, Point } from "./map.ts";
 
 /** Set by eye, and judged on the owner's machine. */
@@ -33,8 +34,12 @@ export const STONE_LOOK = Object.freeze({
   foot: 0.55, footRise: 0.9,
   /** Damp grime, a near-black green, in patches up to this height at most. */
   grime: Object.freeze([0.018, 0.024, 0.012] as const), grimeHeight: 0.6, grimeStrength: 0.7,
-  /** A wall's top is darker than its face, and the face's top edge is lit: the concepts' coping, without geometry. */
-  top: 0.6, copingDepth: 0.06, coping: 1.6,
+  /** A wall's top -- a fragment facing more nearly up than `topFacing` -- is darker than its face, and the top edge
+   * is lit: with the masonry, that is the coping's up-facing bevel (`MASONRY.copingBevel`); on the flat skin
+   * (`?masonry=0`), a band across the top `copingDepth` of each side. The band takes only a face square to an axis,
+   * so that it lights no joint's bevel; the masonry's only such faces up there are its coping fronts, which stop
+   * short of the band. */
+  top: 0.6, topFacing: 0.9, copingDepth: 0.06, coping: 1.6,
 });
 
 /** Which stone rules a material's fragments follow: a floor's, a wall's, or none (flat colour, and doors). */
@@ -78,8 +83,10 @@ float dungeonGrime = (1.0 - smoothstep(0.0, ${f(STONE_LOOK.grimeHeight)} * (0.4 
   * smoothstep(0.35, 0.75, dungeonNoise(vPositionW.xz / 1.3 + 5.0));
 surfaceAlbedo = mix(surfaceAlbedo, vec3(${STONE_LOOK.grime.map(f).join(", ")}), ${f(STONE_LOOK.grimeStrength)} * dungeonGrime);
 #ifdef NORMAL
-if (vNormalW.y > 0.5) surfaceAlbedo *= ${f(STONE_LOOK.top)};
-else if (vPositionW.y > ${f(WALL_HEIGHT - STONE_LOOK.copingDepth)}) surfaceAlbedo = min(surfaceAlbedo * ${f(STONE_LOOK.coping)}, vec3(1.0));
+if (vNormalW.y > ${f(STONE_LOOK.topFacing)}) surfaceAlbedo *= ${f(STONE_LOOK.top)};
+else if (vNormalW.y > 0.3 ? vPositionW.y > ${f(WALL_HEIGHT - MASONRY.copingBevel - 0.005)}
+  : max(abs(vNormalW.x), abs(vNormalW.z)) > 0.99 && vPositionW.y > ${f(WALL_HEIGHT - STONE_LOOK.copingDepth)})
+  surfaceAlbedo = min(surfaceAlbedo * ${f(STONE_LOOK.coping)}, vec3(1.0));
 #endif
 #endif
 #endif
