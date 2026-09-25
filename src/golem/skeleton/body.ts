@@ -106,6 +106,35 @@ export const SKELETON_BIPED = {
   shinLength: 0.39, shinRadius: 0.024, shinMass: 0.8, shinHealth: 30,
   footLength: 0.24, footWidth: 0.09, footHeight: 0.05, footMass: 0.5, footHealth: 25,
   footprintRadius: 0.28,
+  /**
+   * The legs hang 0.09 m ahead of the pelvis's centre, because the skeleton's weight is there: its
+   * ribcage, skull and arms put its centre of mass 107 to 130 mm ahead of its pelvis. Hung from the
+   * middle of the pelvis, its feet stood behind its weight, and a skeleton walking at speed had its
+   * centre of mass outside its stance a third of the time. At the moment a standing skeleton fell,
+   * its median margin was -16 mm and its median fall line 0 m/s, so any blow at all felled it
+   * (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`).
+   *
+   * The table has three sources:
+   * - the stance probe (Node bout runner, four skeleton-duelist mirrors): the share of standing time
+   *   at over 0.7 m/s with the centre of mass outside the stance, and the median distance it sits ahead
+   *   of the soles when walking at 0.05 to 0.3 m/s;
+   * - the Node research runner (`research/fall-loop.mjs`, skeleton mirror, 192 bouts, before the
+   *   rise gate's lying-body rule);
+   * - the Node rise bench (`research/rise-bench.mjs`, one fall each way (back / front / side)): the
+   *   least margin over 3 s standing, and how long both soles were planted before the last lift.
+   *
+   * | hipAhead m | outside at speed | ahead of soles, slow walk | falls/min | down % | re-fall <=2 s | margin after rise mm | planted before lift s |
+   * | --- | --- | --- | --- | --- | --- | --- | --- |
+   * | 0 | 33 % | 73 mm | 13.85 | 58.2 | 66.7 % | -6 / 39 / 33 | 0.37 / 0.22 / 0.32 |
+   * | 0.06 | 15 % | 21 mm | - | - | - | - | - |
+   * | **0.09** | **10 %** | **1 mm** | **11.06** | **45.7** | **52.1 %** | **57 / 102 / 102** | **0.09 / 0.09 / 0.09** |
+   * | 0.12 | 5 % | -28 mm | 10.88 | 44.6 | 49.9 % | 100 / 99 / 93 | 0 / 0 / 0 |
+   *
+   * The two fall-loop rows are within each other's noise. 0.12 puts the centre of mass of a slow
+   * walk behind the soles, and in the rise bench its soles never settled before the lift. 0.09 keeps the
+   * hips at the front face of the pelvis box.
+   */
+  hipAhead: 0.09,
   hipTorque: 450, kneeTorque: 250, ankleTorque: 110,
   // The bench's knockdown, stone's from before stone took its own body density (2026-09-24).
   shoveImpulseNs: 200,
