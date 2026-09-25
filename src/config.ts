@@ -1196,6 +1196,10 @@ export const CONFIG = {
      *   -0.09 to -0.15 for the others), so its crossing is an extrapolation to 0.79, and its excess
      *   travels with its falls (+2.9 a bout). A fraction that bought that length back would be a
      *   rule standing in for a cause somewhere else.
+     * - **With both rows in**, the mace and the whip carry a plate, which is `empty`, and move again:
+     *   the mace to -0.063 +- 0.062 (0.109) and the whip to +0.047 +- 0.033 (0.067). The maul
+     *   stays at +0.074, the fists at +0.007 and the default mirror at -0.031. So every mirror is
+     *   inside its clustered interval of settled 240.
      * - **The rest keep the blade's 0.56**: no research mirror fields an axe, bow, shield, buckler,
      *   arrow, bite or ram, so none has a length to hold. A kind is set here when one is measured.
      *
