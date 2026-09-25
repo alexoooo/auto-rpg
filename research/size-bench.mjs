@@ -4,7 +4,7 @@
  * lived in the git-ignored `.review/` through the attributes set).
  *
  *     node research/size-bench.mjs arm  [--modules a,b] [--levels 0.75,1,1.5] [--attr size]
- *     node research/size-bench.mjs move [--modules biped,skeleton] [--levels ...] [--sequence walk|full]
+ *     node research/size-bench.mjs move [--modules biped,skeleton] [--levels ...] [--sequence clear|walk|full]
  *     node research/size-bench.mjs body [--builds default,skeleton-warrior] [--levels ...]
  *
  * - `arm`: each effector on the stand (`runGolemBench`), its sequence's worst mark -- arrival
@@ -14,7 +14,14 @@
  *   from its own anchor and its tip-to-command lag (mm).
  * - `move`: each carrier through a walk (`runGolemLocomotion`): top root speed, mean planted-sole
  *   slip (mm/s) against the module's own `meanFootSlipBudgetMps` at the level, carrier lag, joint
- *   lag, the longest support gap, the peak upright lean and whether it fell.
+ *   lag, the longest support gap, the peak upright lean, whether it fell, and how far the carried
+ *   block got from where it stood (m). The default walk is `clear`: two seconds, because the
+ *   harness's own walks (`--sequence walk`, which is `walkSequenceFor`) were cut for carriers of
+ *   1.2 and 2.0 m/s, and every carrier but the multileg has done 3.2 since 2026-09-18. The wheel's
+ *   three seconds end at 9.2 m, against the headless arena's ring of posts at 9.5, and the biped's
+ *   six reach 12.6. A body wrapped round a post reads as slip and joint lag that belong to the
+ *   arena and not the body, which is what made the small wheel look broken under the biological
+ *   size law. The distance column is there so that a reading taken near the posts says so.
  * - `body`: whole golems of named builds, stood idle for a second: solver mass, the carrier's
  *   supported mass, the impulse its stability diagnostic says staggers and fells it along its weakest
  *   way (the lines are the body's live geometry, so a stance leaning over its base reads low), and
@@ -36,7 +43,7 @@ const { positionals, values } = parseArgs({
     levels: { type: "string", default: "0.75,0.8,0.9,1,1.1,1.25,1.5" },
     modules: { type: "string" },
     builds: { type: "string" },
-    sequence: { type: "string", default: "walk" },
+    sequence: { type: "string", default: "clear" },
   },
 });
 const mode = positionals[0];
@@ -87,14 +94,28 @@ if (mode === "arm") {
     multileg: config.LOCOMOTION_MULTILEG_SIZE, wheel: config.LOCOMOTION_WHEEL_SIZE,
   };
   const modules = values.modules ? values.modules.split(",") : ["biped", "skeleton", "multileg", "wheel"];
-  console.log(`${attr} | top m/s | slip mm/s (budget) | carrier lag m/s | joint lag rad | gap s | lean rad | unsupported | fell s`);
+  // Two seconds of walking is 6.4 m at 3.2 m/s, which stops about 3 m inside the posts.
+  const CLEAR_WALK = Object.freeze([
+    { name: "stand", until: 1.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+    { name: "walk", until: 3.00, forward: 1, strafe: 0, turn: 0, crouch: 0 },
+    { name: "stop", until: 4.00, forward: 0, strafe: 0, turn: 0, crouch: 0 },
+  ]);
+  const sequenceFor = (moduleId) => {
+    const sequence = { clear: CLEAR_WALK, full: LOCOMOTION_SEQUENCE, walk: walkSequenceFor(moduleId) }[values.sequence];
+    if (!sequence) throw new Error(`no sequence "${values.sequence}"; known: clear, walk, full`);
+    return sequence;
+  };
+  console.log(`${attr} | top m/s | slip mm/s (budget) | carrier lag m/s | joint lag rad | gap s | lean rad | unsupported | fell s | reach m`);
   for (const moduleId of modules) {
     for (const level of levels) {
-      const sequence = values.sequence === "full" ? LOCOMOTION_SEQUENCE : walkSequenceFor(moduleId);
-      let top = 0, notSupported = 0, frames = 0;
+      const sequence = sequenceFor(moduleId);
+      let top = 0, notSupported = 0, frames = 0, start = null, reach = 0;
       const run = await runGolemLocomotion({
         moduleId, sequence, attributes: attributesAt(level),
-        watch: ({ module, phase }) => {
+        watch: ({ module, phase, stand }) => {
+          const at = stand.block.mesh.position;
+          start ??= { x: at.x, z: at.z };
+          reach = Math.max(reach, Math.hypot(at.x - start.x, at.z - start.z));
           if (phase !== "walk") return;
           const live = module.evidence();
           frames += 1;
@@ -111,7 +132,7 @@ if (mode === "arm") {
         moduleId.padEnd(9), String(level).padEnd(5), "|", cell(top, 3, 6), "|",
         cell(s.meanFootSlipMps * 1000, 1, 6), `(${f(budget * 1000, 0)})`, "|", cell(s.peakCarrierLagMps, 3, 6), "|",
         cell(s.peakJointErrorRad, 3, 6), "|", cell(s.longestSupportGapSeconds, 3, 6), "|",
-        cell(s.peakUprightLeanRad, 3, 6), "|", `${notSupported}/${frames}`.padStart(8), "|", String(s.firstFallenSeconds),
+        cell(s.peakUprightLeanRad, 3, 6), "|", `${notSupported}/${frames}`.padStart(8), "|", String(s.firstFallenSeconds).padEnd(4), "|", cell(reach, 2, 5),
       ].join(" "));
     }
   }

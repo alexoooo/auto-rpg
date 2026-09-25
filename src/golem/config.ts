@@ -2582,15 +2582,32 @@ export interface Knockdown {
   readonly risePeakMps: number;
 }
 
-/** How a carrier's travel follows the size stat (`SizeLaw` in `./attributes.ts`). */
+/**
+ * How a carrier's travel follows the size stat (`SizeLaw` in `./attributes.ts`): on the drive
+ * clock, because the legs are what move it. Its speeds are `s^0` (a larger body walks no faster,
+ * where it walked `sqrt(s)` faster under dynamic similarity), its acceleration is force over mass,
+ * `s^-1` (it was `one`), and its turn is a rate and an angular acceleration, `s^-1` and `s^-2`.
+ *
+ * The wheel's top speed was chosen at the edge of its rolling (`LOCOMOTION_WHEEL.carrier`), and it
+ * rolls at 3.2 m/s at every size from x0.6 to x2: mean contact slip 0.0 mm/s over a two-second walk
+ * (`research/size-bench.mjs move`, Node bench, 2026-09-25). A reading over the harness's own
+ * three-second walk says otherwise below x1, and that is the arena's ring of posts, which the walk
+ * reaches at 9.2 m.
+ */
 const CARRIER_SIZE = {
-  maxSpeedMps: "speed", backSpeedMps: "speed", strafeSpeedMps: "speed", maxAccelerationMps2: "one",
+  maxSpeedMps: "speed", backSpeedMps: "speed", strafeSpeedMps: "speed", maxAccelerationMps2: "acceleration",
   maxYawSpeedRadS: "frequency", maxYawAccelerationRadS2: "angularAcceleration",
 } as const;
 
-/** How a `Knockdown` follows the size stat: its two speeds and its two times. */
+/**
+ * How a `Knockdown` follows the size stat: its two speeds and its two times. **Three are the fall
+ * clock and one is the drive's.** How fast a lying body is still coming down, how long it must hold
+ * that, and the cap on the whole lie are gravity's doing -- a body tipping over and settling, with
+ * its legs limp -- so they go as `sqrt(s)` (`fallSpeed`, `fallDuration`), as they did. The rise's
+ * peak speed is the lift, which a drive does, so it is a `speed`: `s^0`, where it was `sqrt(s)`.
+ */
 const KNOCKDOWN_SIZE: SizeLaws<Knockdown> = {
-  restSpeedMps: "speed", restSeconds: "duration", maxLyingSeconds: "duration", risePeakMps: "speed",
+  restSpeedMps: "fallSpeed", restSeconds: "fallDuration", maxLyingSeconds: "fallDuration", risePeakMps: "speed",
 };
 
 /** The one knockdown every body runs (`Knockdown`). */
@@ -3233,7 +3250,35 @@ export const LOCOMOTION_BIPED = {
  *
  * `heightRate` is metres a second where it bounds the pelvis's lift and the envelope's height
  * axis, so it is a speed; the crouch divides it by the size where it reads it as a fraction of the
- * crouch a second. `shoveImpulseNs` is the bench's knockdown, a mass times a speed.
+ * crouch a second.
+ *
+ * `shoveImpulseNs` is the bench's knockdown, and what it has to beat is the body's fall line: its
+ * mass times the speed that tips it over its base, which is gravity's, `sqrt(g L)`. So it is a
+ * `fallImpulse`, `s^3.5`, which is the number `impulse` had under dynamic similarity for the same
+ * reason. The slip budget is a speed on the drive clock, `s^0`, and so is a larger body's gait;
+ * `riseBudgetSeconds` is a `duration`, `s`, because above x1 the rise (a drive) is the slower of
+ * the two clocks a knockdown runs on.
+ *
+ * **`targetRate` is on the drive clock and it is what bounds the size row's ceiling**
+ * (`ATTRIBUTES.size`). The commanded hip's rate goes as `1/s` and so does the limit, but the stone
+ * biped's walk at 120 Hz sits five to ten per cent above the limit's cliff at x1, and the cliff does
+ * not follow the drive clock exactly. Mean planted-sole slip over a two-second walk against the
+ * 300 mm/s budget, the sized `targetRate` times a factor (`research/size-bench.mjs move`, Node
+ * bench, release-120 at 5ac61ce, 2026-09-25):
+ *
+ *     factor    x0.75   x0.8     x1    x1.1   x1.15    x1.2   x1.25    x1.5
+ *      0.90        --     --   684.7     --      --      --      --      --
+ *      0.95        --     --   279.1     --      --   725.5      --      --
+ *      1.00     185.9  163.1   222.8  252.7   413.0   444.2   608.7   465.8
+ *      1.05        --     --   227.1     --      --   220.5   326.1   251.3
+ *      1.10     180.5  162.1   175.6  192.7   178.8   209.7   199.9   246.6
+ *      1.20        --     --   181.1     --      --      --   199.7      --
+ *      1.30        --     --   177.7     --      --      --   199.9      --
+ *
+ * So 10 % more rate at x1 holds the budget from x0.75 to x1.5 and reads better at x1 itself. That is
+ * a tuning of the x1 walk at 120 Hz, and it is left to that tuning rather than done here; the size
+ * row is set on the shipped rate. Neither the leg torques' law nor gravity is the cause: at x1.2 the
+ * torques at the old `s^4` read 411.4 and gravity scaled by `1/s` reads 587.8.
  */
 export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   pelvisWidth: "length", pelvisHeight: "length", pelvisDepth: "length", pelvisMass: "mass",
@@ -3255,7 +3300,7 @@ export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   crouchDepth: "length", crouchResponse: "frequency", heightRate: "speed",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
-  shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
+  shoveImpulseNs: "fallImpulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
 
 /**
@@ -4822,7 +4867,7 @@ export const LOCOMOTION_WHEEL_SIZE: SizeLaws<typeof LOCOMOTION_WHEEL> = {
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
   knockdown: KNOCKDOWN_SIZE,
-  shoveImpulseNs: "impulse", meanContactSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
+  shoveImpulseNs: "fallImpulse", meanContactSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
 
 /**
@@ -5289,5 +5334,5 @@ export const LOCOMOTION_MULTILEG_SIZE: SizeLaws<typeof LOCOMOTION_MULTILEG> = {
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
   knockdown: KNOCKDOWN_SIZE,
-  shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
+  shoveImpulseNs: "fallImpulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };

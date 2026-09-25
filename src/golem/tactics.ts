@@ -1339,22 +1339,24 @@ export const STROKE_INERTIA = {
  *   they are the fastest stroke those rates make: a 1.3 kg blade peaked at 19.87 m/s at the tip and
  *   an 18 kg mace at 18.71, so at the light end the arm is limited by its rates and not by its
  *   load. An arm whose rates are `rateScale` times its chain's carries the same arc in
- *   `1 / rateScale` of the time -- the arm speed stat, and the root of size, which a point
- *   chain's rate divides by (`ArmDrive`).
+ *   `1 / rateScale` of the time -- the arm speed stat, and the size, which a point chain's rate
+ *   divides by (`ArmDrive`).
  * - **The load.** The time a torque needs to carry an inertia through an angle goes as
  *   `sqrt(I / torque)`, and `STROKE_INERTIA.ref` is where on the default arm it starts to bind.
  *   An arm whose socket torque is `torqueScale` times its chain's divides its inertia by that
  *   before the ratio is taken, so the weight stat, which grows the links and their torques
  *   together, retimes nothing, and size, which grows the links as the fifth power of size and the
- *   torques as the fourth, retimes little.
+ *   torques as the cube, retimes by about the size -- the same factor the rate term gives, since
+ *   both are the drive clock of `SizeLaw` (skill ceiling session 01).
  *
  * **The slower one governs**, which is how a stroke is timed by whichever limit it meets first.
  * At x1 the rate term is 1, so this is `max(1, sqrt(I / ref))` there -- the inertia stretch it
  * replaces, to the bit, which is what keeps every x1 stroke timed as it was and the floor it kept:
  * no load makes a stroke quicker than the benched shape. What changes is every body the stats
  * moved. Before, a x1.25 stone arm was timed 38 % slower, its x2-weight arm 14 % slower and the
- * all-max giant about 70 % slower, and the giant's x1.5 arm speed bought nothing; the arm itself is
- * about 12 % slower at x1.25 and no slower at x2 weight.
+ * all-max giant about 70 % slower, and the giant's x1.5 arm speed bought nothing; the arm itself was
+ * about 12 % slower at x1.25 under the size law of the day, and no slower at x2 weight. Under the
+ * biological law it is as much slower as it is larger: 10 % at x1.1, the size row's ceiling.
  *
  * `gain` is an exponent on both terms: at 0 every stroke keeps the shape's own duration. A slot
  * that publishes no drive or no inertia answers 1 on that term, so a caller needs no branch.
