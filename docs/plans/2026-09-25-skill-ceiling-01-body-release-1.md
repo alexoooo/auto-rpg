@@ -51,14 +51,40 @@ a limit. **It is a retune**, and most of it is one setting:
   opening under the unlanded exact servo filter. On main none occur
   (`docs/analysis/2026-09-25-rate-control-clock.md`).
 
-The follow-up studies are:
+The follow-up studies, all Node, each with its own analysis dated 2026-09-25:
 
-- the tempo gap: per-contact speed at 240 against 120, then a servo-gain pass at 120;
-- the early severs;
-- the whip;
-- the tests pinned to 240.
+- **Tempo** (`rate-tempo.md`, `rate-contact-reading.md`). Blades arrive just as fast at 120. The
+  gap was the contact reading: `Combat` scored from the state after the solver step that found the
+  contact, which depends on the step length. `CONFIG.combat.contactReading: "arrival"` (landed,
+  off) reads speed, point, edge and both effective masses before the step, and guards the billed
+  speed. At `arrivalReadFraction` 0.56 it keeps the settled 240 fight's length and is
+  rate-invariant on the mace, maul, whip and fist mirrors. It closes about two thirds of the
+  default mirror's gap. It is a balance change at 240: miser +37.5, duelist -22.9 points. The
+  servo-gain alternative was rejected, because it closes the gap by flinging the blade (cover
+  overshoot 188 to 345 mm).
+- **Early severs** (`rate-control-clock.md`). They came from the unlanded exact-servo experiment, and
+  were one opening counted 24 times. Main shows none. 60 Hz control is not ruled out at 120.
+  **Every bout of a mind pairing plays the same opening whatever its seeds**, so every
+  comparison clusters by pairing.
+- **Whip** (`rate-whip.md`). Not peak-limited at 120 (n = 400 a rate). Its lower score was the
+  mispricing the arrival reading fixes. Only the fast attribute extremes lose 8-12 % of lash peak.
+  The whip build loses about 99 % of its bouts at both rates, so it is a dead-end candidate for
+  session 05 whatever the rate.
+- **Tests** (`rate-tests.md`). 23 of the 30 reds were the tests and are rate-honest now. 7 are
+  real at 120:
+  - arm stray and arrival (4, one of them the whip's single-trial peak);
+  - stroke cut speed (1);
+  - no foot down while walking and strafing (2).
+- **Falls** (`rate-falls.md`). The brawler falls 1.5x as often at 120. In close contact its centre of
+  mass rides to the rear edge of its soles (-34 mm against -3). It is Havok's contact under the
+  held ideal step, not our code, and the excess is not significant once clustered. A real ledger
+  error was fixed on the way: a held push was added after the righting, not against it.
 
-What they find decides part 3 below.
+What is left for part 3:
+
+- the switch to the arrival reading, the owner's balance call;
+- the close-contact posture at 120;
+- the 7 residual tests.
 
 **Three parts:**
 
