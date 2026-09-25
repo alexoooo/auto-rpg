@@ -230,6 +230,32 @@ export interface ModuleEnvelope {
    * harnesses build their `BenchReadout` from this.
    */
   readonly settledBand: number;
+  /**
+   * How this arm's drive compares with its own chain's shipped table: absent for a module nobody
+   * swings, and then read as 1 and 1.
+   *
+   * Physical contact session 09. The two things a body's stats do to how quickly an arm can carry
+   * a stroke, stated as the built arm has them rather than read off the attribute record, so that
+   * an arm speed that one day comes from an item reaches a mind with no change here.
+   */
+  readonly drive?: ArmDrive;
+}
+
+/**
+ * What an arm's build did to how fast it can be driven, as two ratios to its own chain's shipped
+ * table (physical contact session 09).
+ *
+ * - `rateScale` is the angular rate its command may move at, over the shipped chain's. The arm
+ *   speed stat multiplies it, and size divides it by the root of the size: a point chain's rate is
+ *   a speed at the hand, which grows as the root of length, over a reach that grows as length.
+ * - `torqueScale` is the torque that swings it about the socket, over the shipped chain's: weight
+ *   times the fourth power of size on a stone arm, weight alone on a human one.
+ *
+ * Both are 1 on every arm at x1, which is what keeps every stroke there timed as it was.
+ */
+export interface ArmDrive {
+  readonly rateScale: number;
+  readonly torqueScale: number;
 }
 
 /** Which phase of a stroke a chain is in. A chain with no stroke is always `idle`. */
@@ -972,6 +998,42 @@ export interface EffectorCapability {
    * a real effector; a mind dividing by it does not need a guard.
    */
   readonly swingInertia: number;
+  /**
+   * This arm's command rate over its chain's shipped one (`ArmDrive.rateScale`), and 1 for a
+   * slot nobody swings. Physical contact session 09: with `torqueScale` and `swingInertia`,
+   * what `strokeTimeScale` in `src/golem/tactics.ts` times a stroke from.
+   */
+  readonly rateScale: number;
+  /** This arm's socket torque over its chain's shipped one (`ArmDrive.torqueScale`), and 1 likewise. */
+  readonly torqueScale: number;
+}
+
+/** The ceiling a published axis declares, or zero when the module has no such axis. */
+export const axisCeiling = (axes: readonly ModuleAxisEnvelope[], id: string): number =>
+  axes.find((axis) => axis.id === id)?.max ?? 0;
+
+/**
+ * What a mind reads off one effector's envelope, or off an empty slot's `null`.
+ *
+ * **One copy.** The assembled golem and the Node stroke bench both build a capability from an
+ * envelope, and until physical contact session 09 the bench kept its own three lines. They drifted:
+ * the bench's lacked the full-orientation branch, so it drove the human arm at a roll of zero
+ * that no mind in a bout would ever ask for, and its stroke read as the arm's.
+ */
+export function effectorCapability(envelope: ModuleEnvelope | null): EffectorCapability {
+  return Object.freeze({
+    strokes: envelope ? envelope.strokes : [],
+    ...(envelope?.fullOrientation ? { fullOrientation: true } : {}),
+    reachable: envelope ? envelope.reachable : null,
+    rollMax: envelope?.fullOrientation ? 2.7 : envelope ? Math.max(0, axisCeiling(envelope.axes, "roll")) : 0,
+    bendMax: envelope?.fullOrientation ? 1.25 : envelope ? Math.max(0, axisCeiling(envelope.axes, "bend")) : 0,
+    // A slot with no module at all answers 1, not 0: nothing is ever swung on it, and a zero
+    // here would be a divisor waiting for the one caller that forgets to check `lost` first.
+    swingInertia: envelope?.swingInertia ?? 1,
+    // A module that publishes no drive is one nobody swings, and its stroke is not retimed.
+    rateScale: envelope?.drive?.rateScale ?? 1,
+    torqueScale: envelope?.drive?.torqueScale ?? 1,
+  });
 }
 
 /**

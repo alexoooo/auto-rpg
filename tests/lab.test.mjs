@@ -4,7 +4,7 @@ import { createEnvironment, recording, replay } from "../research/lab/environmen
 import { createBout, runBout, freshHavok } from "./harness/bout-runner.mjs";
 import { freshGolemIntent } from "../src/golem/tactics.ts";
 import { namedBuild } from "../src/golem/roster.ts";
-import { labMind, labObservation, validateAction, validateNetwork, infer, OBSERVATION_NAMES, LEGACY_OBSERVATION_NAMES, directIntent, BESPOKE } from "../src/golem/lab-policy.ts";
+import { labMind, labObservation, validateAction, validateNetwork, infer, LAB_VERSION, OBSERVATION_NAMES, OBSERVATION_NAMES_V2, LEGACY_OBSERVATION_NAMES, directIntent, BESPOKE } from "../src/golem/lab-policy.ts";
 import { fitObservationModel, fairPlan, oracle, calibrateObservationModel } from "../research/lab/planning.mjs";
 import { updateArchive } from "../research/lab/archive.mjs";
 import { digest } from "../research/schedule.mjs";
@@ -15,7 +15,7 @@ import { referenceFight } from "../research/lab/reference.mjs";
 
 test("zero-residual imitation exactly preserves each named baseline's full substep trace", async () => {
   for (const baseline of ["golem-driver", "golem-duelist"]) {
-    const model = { version: 2, surface: "residual", hz: 12, baseline, observationNames: OBSERVATION_NAMES,
+    const model = { version: LAB_VERSION, surface: "residual", hz: 12, baseline, observationNames: OBSERVATION_NAMES,
       layers: [{ activation: "linear", weights: Array.from({ length: 22 }, () => Array(OBSERVATION_NAMES.length).fill(0)), bias: Array(22).fill(0) }] };
     const run = async (left) => {
       const env = await createEnvironment({ seed: 19, leftBuild: "two-blades", rightBuild: "two-blades", left,
@@ -101,7 +101,7 @@ test("fresh replay reproduces observed commands, contacts and continuation; bran
 test("action and network contracts reject incompatible or non-finite data", () => {
   assert.throws(() => validateAction("pilot", [NaN]), /invalid/);
   assert.throws(() => validateAction("direct", Array(22).fill(2)), /invalid/);
-  const model = { version: 2, surface: "pilot", hz: 12, observationNames: OBSERVATION_NAMES,
+  const model = { version: LAB_VERSION, surface: "pilot", hz: 12, observationNames: OBSERVATION_NAMES,
     layers: [{ weights: Array.from({ length: 12 }, () => Array(OBSERVATION_NAMES.length).fill(0)), bias: Array(12).fill(0.4), activation: "linear" }] };
   validateNetwork(model);
   assert.deepEqual(infer(model, Array(OBSERVATION_NAMES.length).fill(0)), Array(12).fill(0.4));
@@ -126,6 +126,16 @@ test("direct commands remain legal after losing both hands and bespoke policies 
     const before = labObservation(view);
     assert.equal(before.length, OBSERVATION_NAMES.length);
     assert.deepEqual(labObservation(view, 1), before.slice(0, LEGACY_OBSERVATION_NAMES.length));
+    // Version 3 appends each body's physical facts after every version 2 column, so a version 2
+    // student reads what it was trained on, and each new column reads its own published field.
+    assert.deepEqual(labObservation(view, 2), before.slice(0, OBSERVATION_NAMES_V2.length));
+    for (const side of ["self", "opponent"]) {
+      for (const [field, scale] of [["massKg", 1 / 500], ["stabilityImpulseNs", 1 / 250], ["armRate", 1 / 20], ["soak", 400]]) {
+        const column = before[OBSERVATION_NAMES.indexOf(`${side}.${field}`)];
+        assert.ok(view[side][field] > 0 && Math.abs(column - view[side][field] * scale) < 1e-12,
+          `${side}.${field} reads ${column} from a published ${view[side][field]}`);
+      }
+    }
     const weapon = view.self.hands.primary.weapon;
     view.self.hands.primary.weapon = weapon === "axe" ? "sword" : "axe";
     const after = labObservation(view);
@@ -188,8 +198,14 @@ test("paired controller has an independent off-hand cycle and preserves the main
 });
 
 test("paired policy preserves Duelist's physical result on non-dual builds", async () => {
+  // A paired grip is the non-dual build: its two hands are one mechanism, and `pairedMind` hands it
+  // back to the Duelist whole. This ran on `default` until physical contact session 08, but the
+  // default build's off hand publishes a thrust, so `independent-hands` applies to it and the paired
+  // mind drives it whenever that hand is in range -- the test passed only because on seed 77 it never
+  // came within range in three seconds, and once a blow's height reached the tipping ledger it did.
+  // On the maul the same bout is equal with the `pairedHands` guard and differs without it.
   const play = async (left) => {
-    const env = await createEnvironment({ seed: 77, maxSeconds: 3, left });
+    const env = await createEnvironment({ seed: 77, maxSeconds: 3, left, leftBuild: "maul", rightBuild: "maul" });
     try {
       while (!env.state().terminated && !env.state().truncated) env.step();
       return env.result();
@@ -218,7 +234,7 @@ test("training and exported network policies produce the same physical rollout o
   for (const [surface, baseline] of [["pilot", "golem-driver"], ["direct", "golem-driver"],
     ["residual", "golem-driver"], ["residual", "golem-duelist"]]) {
   const size = surface === "pilot" ? 12 : 22;
-  const model = { version: 2, surface, baseline, hz: 12, observationNames: OBSERVATION_NAMES,
+  const model = { version: LAB_VERSION, surface, baseline, hz: 12, observationNames: OBSERVATION_NAMES,
     layers: [{ weights: Array.from({ length: size }, (_, i) => OBSERVATION_NAMES.map((_, j) => (i + j) % 7 === 0 ? 0.1 : 0)),
       bias: Array(size).fill(-0.2), activation: "linear" }] };
   const env = await createEnvironment({ surface, controlBaseline: baseline, maxSeconds: 2 });

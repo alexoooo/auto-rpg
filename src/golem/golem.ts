@@ -53,6 +53,8 @@ import { dressGolemPart } from "./appearance.ts";
 import { dressHumanoid } from "./humanoid/appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
 import {
+  axisCeiling,
+  effectorCapability,
   partArmour,
   type BuiltModule,
   type EffectorCapability,
@@ -61,7 +63,6 @@ import {
   type GolemSlot,
   type GolemSocket,
   type GolemView,
-  type ModuleAxisEnvelope,
 } from "./module.ts";
 import { moduleDurability, type GolemModuleReport } from "./parts-bin.ts";
 import { refreshGolemWear, seedGolemWear, type GolemWearTie } from "./wear.ts";
@@ -162,9 +163,6 @@ export const GROUNDED_TONE = 0.55;
 const GOLEM_SHIELD: { readonly kind: WeaponKind } = Object.freeze({ kind: "shield" });
 const clamp01 = (value: number): number => (value < 0 ? 0 : value > 1 ? 1 : value);
 
-/** The ceiling a published axis declares, or zero when the module has no such axis. */
-const axisCeiling = (axes: readonly ModuleAxisEnvelope[], id: string): number =>
-  axes.find((axis) => axis.id === id)?.max ?? 0;
 
 /** The narrowest thing this file needs from a module, so one list can hold all five. */
 interface MountedModule {
@@ -275,6 +273,10 @@ const blankBody = (): BodyView => ({
   crownHeight: 0,
   vitalHeight: 0,
   collisionRadius: 0,
+  massKg: 0,
+  stabilityImpulseNs: 0,
+  armRate: 0,
+  soak: 0,
   naturalAttacks: Object.freeze({}),
   support: "supported",
   vitalPoint: new Vector3(),
@@ -362,7 +364,11 @@ export class Golem implements Combatant {
     readonly headlessCrown: number;
     readonly vitalHeight: number;
     readonly collisionRadius: number;
+    /** `BodyView.armRate`: fixed at build, like the reach it is a speed along. */
+    readonly armRate: number;
   };
+  /** The core's own record, for `BodyView.soak`. */
+  private readonly coreLimb: Limb | null;
 
   private readonly natural: Record<string, NaturalAttackView> = {};
   private readonly ram: NaturalAttackView & { ready: boolean; active: boolean } | null;
@@ -515,9 +521,14 @@ export class Golem implements Combatant {
     // What the carrier is holding up. The torso's own head socket names the body the upper stack
     // hangs from, which is the honest answer to "what does the root carry" without this file
     // knowing that a torso's core is called a core.
+    // And where all of it is, for the tipping geometry: every part still on the body.
+    const limbs = this.limbs;
     this.locomotionModule.carry?.({
       part: this.torsoModule.socket("head").mount,
       massKg: golemUpperMassKg(setup),
+      parts: function* () {
+        for (const limb of limbs) if (!limb.severed) yield limb.part;
+      },
     });
 
     // --- limbs, vitality and what a pick may choose --------------------------------------------
@@ -531,7 +542,13 @@ export class Golem implements Combatant {
       // Measured off the body rather than composed from constants: the core is where it is.
       vitalHeight: core.mesh.position.y - options.origin.y,
       collisionRadius: this.locomotionModule.footprint.radiusM,
+      // The socket's own turn at its rate limit, carried out to the tip: the first angular axis
+      // the arm publishes, which is the swing on a point chain, the hinge on a pitch chain and the
+      // shoulder on a human arm. A socket with no angular axis carries nothing.
+      armRate: (primaryModule.envelope().axes.find((axis) => axis.unit === "rad")?.rate ?? 0)
+        * primaryModule.envelope().reach,
     });
+    this.coreLimb = this.byBody.get(core.body) ?? null;
     this.occlusion.push(root.mesh.position, core.mesh.position);
     const headPart = this.modules.find((module) => module.slot === "head")?.built.parts;
     if (headPart && headPart.length > 1) this.occlusion.push(headPart[1].part.mesh.position);
@@ -920,19 +937,8 @@ export class Golem implements Combatant {
    * case for a module id.
    */
   private golemCapabilities(): GolemCapabilities {
-    const effector = (hand: HandName): EffectorCapability => {
-      const envelope = this.effectors[hand]?.module.envelope() ?? null;
-      return Object.freeze({
-        strokes: envelope ? envelope.strokes : [],
-        ...(envelope?.fullOrientation ? { fullOrientation: true } : {}),
-        reachable: envelope ? envelope.reachable : null,
-        rollMax: envelope?.fullOrientation ? 2.7 : envelope ? Math.max(0, axisCeiling(envelope.axes, "roll")) : 0,
-        bendMax: envelope?.fullOrientation ? 1.25 : envelope ? Math.max(0, axisCeiling(envelope.axes, "bend")) : 0,
-        // A slot with no module at all answers 1, not 0: nothing is ever swung on it, and a zero
-        // here would be a divisor waiting for the one caller that forgets to check `lost` first.
-        swingInertia: envelope?.swingInertia ?? 1,
-      });
-    };
+    const effector = (hand: HandName): EffectorCapability =>
+      effectorCapability(this.effectors[hand]?.module.envelope() ?? null);
     const range = this.locomotionModule.heightRange;
     return Object.freeze({
       effectors: Object.freeze({ primary: effector("primary"), secondary: effector("secondary") }),
@@ -1142,6 +1148,13 @@ export class Golem implements Combatant {
       : this.geometry.crownHeight;
     into.vitalHeight = this.geometry.vitalHeight;
     into.collisionRadius = this.geometry.collisionRadius;
+    // What the stats do, as the body has them (physical contact session 09): its mass and the
+    // impulse that would put it down, from the locomotion port, its arm's rate, and what a joule of
+    // a cut takes from its core.
+    into.massKg = this.locomotion.supportedMassKg;
+    into.stabilityImpulseNs = this.locomotion.fallImpulseNs();
+    into.armRate = this.geometry.armRate;
+    into.soak = this.soak();
     into.naturalAttacks = this.natural;
 
     // Read off `mesh.position`, never a world matrix: every golem body is a scene-root node, so the
@@ -1208,6 +1221,17 @@ export class Golem implements Combatant {
     for (const limb of this.limbs) {
       into.health[limb.key] = limb.severed ? 0 : Math.max(0, limb.health / limb.maxHealth);
     }
+  }
+
+  /**
+   * What one joule of a cut takes from the core, as a fraction of its full health (`BodyView.soak`):
+   * the core's armour against a cut at this body's armour stat (`armourOf`, the one read of a
+   * part's armour), over the edge's price and the core's full health at its toughness stat.
+   */
+  private soak(): number {
+    const core = this.coreLimb;
+    if (!core || core.severed || !(core.maxHealth > 0)) return 0;
+    return (1 - this.armourOf(core, "cut")) / (CONFIG.combat.cutJoulesPerDamage * core.maxHealth);
   }
 
   /**

@@ -2,14 +2,14 @@
 // is not `tactics.ts`, `tactics-v2.ts`, `hands.ts`, `rng.ts` or `downed.ts`**, and none of those has a scene in
 // it, so a whole bout of this mind's cadence can be stepped in front of a hand-written view.
 import { hasPoint, isShield, type Striker, type WeaponKind } from "../hands.ts";
-import { finishPoint, standOffReach } from "../downed.ts";
+import { finishPoint, presses, standOffReach } from "../downed.ts";
 import { mulberry32 } from "../rng.ts";
 import type { DuelReading, MyPhase } from "./duel-model.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 import {
   STROKE_SHAPES, aimAt, angleTo, canAttack, canCover, canSwing, clamp, distance,
-  freshGolemIntent, innerReach, mirror, reachForDistance, readyNatural, strokeInertiaScale, watch,
+  freshGolemIntent, innerReach, mirror, reachForDistance, readyNatural, strokeTimeScale, watch,
   writeAim,
   type Aim, type Point, type StrokeShape, type TacticalRanges, type Threat,
 } from "./tactics.ts";
@@ -506,12 +506,15 @@ const freshArc = (): Arc => ({
  */
 function styleRanges(
   reach: number, cap: EffectorCapability, theirReach: number, inside: boolean, longer: boolean,
-  T: StyleTactics,
+  T: StyleTactics, press = false,
 ): TacticalRanges {
   const slack = reach * T.slackFraction;
   const near = innerReach(reach, cap);
   const standOff = inside ? 0 : theirReach * (longer ? T.longStandOff : T.standOffFraction);
-  const hold = Math.max(reach * T.holdFraction, near + slack, standOff);
+  // **Pressing closes to the arm's own inner edge** (physical contact session 09): a body that
+  // heavily outweighs the other (`presses` in `src/downed.ts`) holds as close as it can still
+  // strike from, which is body to body, rather than at any fraction of its reach.
+  const hold = press ? near + slack : Math.max(reach * T.holdFraction, near + slack, standOff);
   return Object.freeze({ near, hold, slack, strike: Math.max(reach * T.strikeFraction, hold + slack) });
 }
 
@@ -845,7 +848,8 @@ export function golemStyled(
     // **A downed body is finished, not stood off from** (physical contact session 03): the stand-off
     // drops its floor at their reach and the range is taken to their live core (`finishPoint` in
     // `src/downed.ts`). Standing, both are what they always were.
-      : styleRanges(reach, cap, standOffReach(them), T.closeOnRecover && shorter && inside, longer, T);
+      : styleRanges(reach, cap, standOffReach(self, them), T.closeOnRecover && shorter && inside, longer, T,
+        presses(self, them));
     const { near, hold, strike, slack } = ranges;
     const gap = headfirst ? bodyGap : distance(socket, finishPoint(them, finish) ? finish : them.shoulder);
 
@@ -1042,7 +1046,7 @@ export function golemStyled(
       // What the arm is carrying, applied last so it stretches the swept rows above as well as the
       // bench's. Both phases, because chambering lifts the same mass; `stepIn` is not scaled, being
       // a distance the feet cover rather than anything the hand is holding. See `STROKE_INERTIA`.
-      const scale = strokeInertiaScale(cap.swingInertia);
+      const scale = strokeTimeScale(cap);
       arc.strokeSeconds *= scale;
       arc.chamberSeconds *= scale;
       chamberSeconds = arc.chamberSeconds;
@@ -1253,7 +1257,7 @@ export function golemStyled(
         !self.hands[spare].lost && canAttack(spareCap) && !isShield(self.hands[spare].weapon) &&
         random() < T.comboFraction) {
         const spareShape = STROKE_SHAPES[self.hands[spare].weapon];
-        const spareScale = strokeInertiaScale(spareCap.swingInertia);
+        const spareScale = strokeTimeScale(spareCap);
         combo = {
           hand: spare, shape: spareShape, elapsed: 0,
           chamberSeconds: T.comboChamberSeconds * spareScale,

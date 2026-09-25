@@ -57,6 +57,9 @@ import {
   type LocomotionReadoutState,
   type LocomotionSupportBinding,
   legRuin,
+  KnockdownSettle,
+  bodyReaders,
+  PATCH_CORNERS,
 } from "../locomotion.ts";
 
 /**
@@ -69,18 +72,17 @@ import {
  *
  * **What is different is the base, and the base is the whole option.** Six pads on a polygon
  * 0.80 m wide and 0.44 m long against a biped's two soles in one lateral line, and the difference
- * arrives entirely through `StabilityAuthority.braceCapacityMultiplier` -- 2.6 against 1.5 --
- * rather than through any special case in the state machine. The same frozen
- * `FALL_SPECIFIC_IMPULSE_MPS` lands nearly twice as high on this body, which is what makes the
- * cross-module comparison in `tests/golem-locomotion.test.mjs` mean something: the shove that
- * fells the biped leaves this standing.
+ * arrives entirely through the body's own geometry (physical contact session 08): one formula, read
+ * off a lower centre of mass over a wider base, puts this body's fall line at 1.97 m/s against the
+ * biped's 0.95, with no special case in the state machine. That is what makes the cross-module
+ * comparison in `tests/golem-locomotion.test.mjs` mean something: the shove that fells the biped
+ * leaves this standing.
  *
  * **The tripod is both the gait and the support proof, and that is why it is a tripod.** Legs
  * alternate in two groups of three -- left-front, left-rear and right-middle against the other
- * three -- so three pads are always down. A biped in mid-stride is standing on one foot and its
- * gait stability scale falls to 0.75 for it; this body's falls only to 0.90, because being
- * mid-stride costs a hexapod almost nothing. That is the same field saying two different true
- * things about two bodies.
+ * three -- so three pads are always down. A biped's base is its stance, lifted feet included,
+ * because a foot in the air is on its way down (physical contact session 08), so neither body's line
+ * moves with its stride.
  *
  * **Six legs is six times the opportunity to build a joint outside its own stop**, which Session
  * 03 paid for once: a stop that did not admit its build pose was cleared by Havok throwing a blade
@@ -483,6 +485,20 @@ return defineLocomotion({
     /** The mass the carrier holds up, read live because `carry` arrives one module later. */
     const supportedMass = (): number => M.chassisMass +
       6 * (M.femurMass + M.shinMass + M.footMass) + carriedMassKg;
+    /**
+     * The whole body the port's tipping geometry is read from (physical contact session 08): every
+     * part the assembly says is on it once a load declares them (`LocomotionLoad.parts`), and
+     * otherwise this module's own live parts and its load's body.
+     */
+    let carriedParts: (() => Iterable<Part>) | null = null;
+    const ownParts = function* (): Iterable<Part> {
+      yield chassis;
+      for (const leg of legs) if (!leg.severed) { yield leg.femur; yield leg.shin; yield leg.foot; }
+      if (load) yield load;
+    };
+    const readers = bodyReaders(() => (carriedParts ?? ownParts)());
+    /** Whether a fallen body's fall has come to rest (`KnockdownSettle`). */
+    const settle = new KnockdownSettle(M.knockdown);
     const yaw = facing.toEulerAngles().y;
 
     let stride = 0;
@@ -516,6 +532,7 @@ return defineLocomotion({
       relative: new Quaternion(),
       euler: new Vector3(),
       pad: new Vector3(),
+      corner: new Vector3(),
       velocity: new Vector3(),
       drive: new Vector3(),
       angular: new Vector3(),
@@ -637,19 +654,12 @@ return defineLocomotion({
         M.carrier.maxSpeedMps;
     };
 
+    // The six pads' spread is this body's footing (`supportPatch`), so the authority carries no
+    // live field.
     const authority = (): StabilityAuthority => {
-      // The one live field, and on this body it barely moves: an alternating tripod always has
-      // three pads down, so being mid-stride costs a hexapod almost nothing where it costs a biped
-      // a foot. Clamped into (0, 1], which the state machine's own boundary check refuses to be
-      // handed anything outside of.
-      const fraction = clamp(carrierSpeed() / M.carrier.maxSpeedMps, 0, 1);
-      const scale = clamp(1 - (1 - M.gaitStabilityScaleMin) * fraction, 1e-6, 1);
       return Object.freeze({
         carrierPartId: chassis.name,
         supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => Object.freeze({ role }))),
-        braceCapacityMultiplier: M.braceCapacityMultiplier,
-        stabilityMassRatio: M.stabilityMassRatio,
-        gaitStabilityScale: scale,
         stabilityScale: stability,
         recoveryScale: recovery,
         sizeScale: size,
@@ -677,8 +687,23 @@ return defineLocomotion({
         const point = padPoint(leg, scratch.pad);
         return { x: point.x, y: point.y, z: point.z };
       },
+      // The pad's four bottom corners, planted or not, as the biped's soles.
+      supportPatch: (binding: string): WorldPoint[] | null => {
+        const leg = legs.find((candidate) => candidate.role === binding);
+        if (!leg || leg.severed) return null;
+        const rotation = leg.foot.mesh.rotationQuaternion ?? Quaternion.Identity();
+        return PATCH_CORNERS.map(([across, along]) => {
+          scratch.corner.set(across * M.footWidth / 2, -M.footHeight / 2, along * M.footLength / 2);
+          scratch.corner.rotateByQuaternionToRef(rotation, scratch.corner).addInPlace(leg.foot.mesh.position);
+          return { x: scratch.corner.x, y: scratch.corner.y, z: scratch.corner.z };
+        });
+      },
+      massDistribution: readers.mass,
+      groundContacts: readers.ground,
       liveSupport: () => !severed && legs.filter((leg) => !leg.severed).length >= 3,
       postureSupported: () => constructPostureIsSupported(postureEvidence()),
+      fallSettled: (): boolean => settle.settled,
+      risingDuration: (distanceM: number): number => settle.risingDurationS(distanceM, size),
 
       /** The supported drive, and both halves are the biped's for the biped's reasons. */
       driveAnimatedRoot: (targetPosition, targetVelocity, targetYaw, dt): void => {
@@ -955,6 +980,7 @@ return defineLocomotion({
         }
         load = next.part;
         carriedMassKg = next.massKg;
+        carriedParts = next.parts ?? null;
         rootSample.massKg = supportedMass();
       },
 
@@ -966,6 +992,7 @@ return defineLocomotion({
       endSubstep(dt: number): void {
         if (severed) return;
         elapsed += dt;
+        settle.track(activePort.state === "fallen", dt, readers);
         readEvidence(dt);
         readout.sample(evidence);
       },

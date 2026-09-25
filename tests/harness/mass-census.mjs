@@ -65,9 +65,9 @@ export function censusOf(golem, setup) {
   return {
     wholeKg: whole, byClass,
     supportedMassKg: stability.supportedMassKg,
-    // What a standing body falls to, in newton-seconds: the fall threshold times the mass the
-    // ledger reads a shove against (physical contact session 04's holding repair).
-    fallAtNs: stability.fallAtMps * stability.stabilityMassKg,
+    // What a standing body falls to, in newton-seconds, along its weakest direction: its own
+    // geometry's fall line (physical contact session 08) times the mass it holds up.
+    fallAtNs: stability.fallAtMps * stability.supportedMassKg,
     upperMassKg: { build: golemUpperMassKg(setup), solver: upper },
   };
 }

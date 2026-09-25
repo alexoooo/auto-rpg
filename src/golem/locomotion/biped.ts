@@ -27,7 +27,6 @@ import {
 } from "../../supported-locomotion-runtime.ts";
 import {
   constructPostureIsSupported,
-  SUPPORTED_LOCOMOTION_V1,
   type ConstructPostureEvidence,
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
@@ -59,6 +58,9 @@ import {
   type LocomotionReadoutState,
   type LocomotionSupportBinding,
   legRuin,
+  bodyReaders,
+  KnockdownSettle,
+  PATCH_CORNERS,
 } from "../locomotion.ts";
 
 /**
@@ -638,6 +640,18 @@ return defineLocomotion({
      * a bench module whose load was its mount reads exactly the number it always did.
      */
     const supportedMass = (): number => ownMassKg + carriedMassKg;
+    /**
+     * The whole body the port's tipping geometry is read from (physical contact session 08): every
+     * part the assembly says is on it once a load declares them (`LocomotionLoad.parts`), and
+     * otherwise this module's own live parts and its load's body.
+     */
+    let carriedParts: (() => Iterable<Part>) | null = null;
+    const ownParts = function* (): Iterable<Part> {
+      yield pelvis;
+      for (const leg of legs) if (!leg.severed) { yield leg.thigh; yield leg.shin; yield leg.foot; }
+      if (load) yield load;
+    };
+    const readers = bodyReaders(() => (carriedParts ?? ownParts)());
     const yaw = facing.toEulerAngles().y;
 
     let stride = 0;
@@ -662,16 +676,8 @@ return defineLocomotion({
      * they are in.
      */
     let hipDrop = 0;
-    /**
-     * How long a fallen body has lain, and how long it has lain still, seconds. Counted by
-     * `trackFall` only while fallen and only for a table with a `knockdown`; zero otherwise.
-     * `fallStart` says whether `lastPelvis` and `lastTop` hold a reading yet.
-     */
-    let lyingS = 0;
-    let stillS = 0;
-    let fallStart = true;
-    const lastPelvis = new Vector3();
-    const lastTop = new Vector3();
+    /** Whether a fallen body's fall has come to rest (`KnockdownSettle`). */
+    const settle = new KnockdownSettle(B.knockdown);
 
     const watchers: [PhysicsBody, Observer<unknown>][] = [];
     const commanded = {
@@ -688,6 +694,7 @@ return defineLocomotion({
       relative: new Quaternion(),
       euler: new Vector3(),
       sole: new Vector3(),
+      corner: new Vector3(),
       velocity: new Vector3(),
       drive: new Vector3(),
       angular: new Vector3(),
@@ -830,18 +837,12 @@ return defineLocomotion({
       return Math.min(1, Math.hypot(move.forward, move.right)) * B.carrier.maxSpeedMps;
     };
 
+    // What a body in mid-stride is worth against a blow is its geometry's (`supportPatch`), so the
+    // authority carries no live field.
     const authority = (): StabilityAuthority => {
-      // The one live field: a body in mid-stride is easier to put over than one standing still,
-      // so the gait scale falls with the carrier's committed speed. Clamped into (0, 1], which the
-      // state machine's own boundary check refuses to be handed anything outside of.
-      const fraction = clamp(carrierSpeed() / B.carrier.maxSpeedMps, 0, 1);
-      const scale = clamp(1 - (1 - B.gaitStabilityScaleMin) * fraction, 1e-6, 1);
       return Object.freeze({
         carrierPartId: pelvis.name,
         supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => Object.freeze({ role }))),
-        braceCapacityMultiplier: B.braceCapacityMultiplier,
-        stabilityMassRatio: B.stabilityMassRatio,
-        gaitStabilityScale: scale,
         stabilityScale: stability,
         recoveryScale: recovery,
         sizeScale: size,
@@ -873,17 +874,23 @@ return defineLocomotion({
         const point = solePoint(leg, scratch.sole);
         return { x: point.x, y: point.y, z: point.z };
       },
+      // The sole's four bottom corners, planted or not: a biped's base is its stance.
+      supportPatch: (binding: string): WorldPoint[] | null => {
+        const leg = legs.find((candidate) => candidate.role === binding);
+        if (!leg || leg.severed) return null;
+        const rotation = leg.foot.mesh.rotationQuaternion ?? Quaternion.Identity();
+        return PATCH_CORNERS.map(([across, along]) => {
+          scratch.corner.set(across * B.footWidth / 2, -B.footHeight / 2, along * B.footLength / 2);
+          scratch.corner.rotateByQuaternionToRef(rotation, scratch.corner).addInPlace(leg.foot.mesh.position);
+          return { x: scratch.corner.x, y: scratch.corner.y, z: scratch.corner.z };
+        });
+      },
+      massDistribution: readers.mass,
+      groundContacts: readers.ground,
       liveSupport: () => !severed && legs.every((leg) => !leg.severed),
       postureSupported: () => constructPostureIsSupported(postureEvidence()),
-      fallSettled: (): boolean => B.knockdown === null || stillS >= B.knockdown.restSeconds ||
-        lyingS >= B.knockdown.maxLyingSeconds,
-      // The lift is a smoothstep, whose peak speed is 1.5 times its mean: so a rise over `d` metres
-      // that may not exceed `risePeakMps` lasts at least 1.5 d / risePeakMps.
-      // The frozen floor is a time, so it goes as the square root of the size (`SizeLaw`).
-      risingDuration: (distanceM: number): number => B.knockdown === null
-        ? SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * Math.sqrt(size)
-        : Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * Math.sqrt(size),
-          1.5 * distanceM / B.knockdown.risePeakMps),
+      fallSettled: (): boolean => settle.settled,
+      risingDuration: (distanceM: number): number => settle.risingDurationS(distanceM, size),
 
       /**
        * The supported drive, and the two halves of it are not interchangeable.
@@ -1078,25 +1085,8 @@ return defineLocomotion({
      * finished fall. Speeds are finite differences of `mesh.position` between two end-of-substep
      * readings, one solver step apart -- no boundary read, so no allocation, and no world matrix.
      */
-    const trackFall = (dt: number): void => {
-      const settle = B.knockdown;
-      if (settle === null || activePort.state !== "fallen") {
-        lyingS = 0;
-        stillS = 0;
-        fallStart = true;
-        return;
-      }
-      const top = load ?? pelvis;
-      if (!fallStart) {
-        const speed = Math.max(Vector3.Distance(pelvis.mesh.position, lastPelvis),
-          Vector3.Distance(top.mesh.position, lastTop)) / dt;
-        stillS = speed <= settle.restSpeedMps ? stillS + dt : 0;
-        lyingS += dt;
-      }
-      lastPelvis.copyFrom(pelvis.mesh.position);
-      lastTop.copyFrom(top.mesh.position);
-      fallStart = false;
-    };
+    const trackFall = (dt: number): void =>
+      settle.track(activePort.state === "fallen", dt, readers);
 
     const readEvidence = (dt: number): void => {
       const live = port?.diagnostic() ?? null;
@@ -1246,6 +1236,7 @@ return defineLocomotion({
         }
         load = next.part;
         carriedMassKg = next.massKg;
+        carriedParts = next.parts ?? null;
         rootSample.massKg = supportedMass();
       },
 

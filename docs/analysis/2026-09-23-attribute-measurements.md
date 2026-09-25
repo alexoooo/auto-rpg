@@ -73,6 +73,9 @@ cells, not a head-to-head edge, and the two are not the same question.
 
 ## Movement (session 03)
 
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Movement".*
+
 Scales the carrier's walk, back-off, strafe and acceleration together (`withMovement` in
 `src/golem/attributes.ts`). On a biped, `bipedAtMovement` in `src/golem/locomotion/biped.ts` also
 re-times the gait. **Live at x0.75 to x1.5.** At x1.00 the body fingerprint reads 55 of 55 `same`.
@@ -177,6 +180,9 @@ A spacing mind is where this sweep should be repeated.
 
 ## Turning (session 05)
 
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Turning".*
+
 Scales the carrier's yaw rate and yaw acceleration together (`withTurning` in
 `src/golem/attributes.ts`), through the per-build table movement already hands to the port, the gait
 and the envelope; the two stats compose, each touching only its own fields. The trunk's twist
@@ -264,6 +270,9 @@ bouts a cell, the miser's rows fall furthest at the slow end (against the duelis
 mind's style off it.
 
 ## Stability (session 06)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Stability".*
 
 The stat is a factor on the stagger and fall thresholds of a body's stability ledger, and on the rule
 that interrupts a rise (`stabilityCapacity` in `src/supported-locomotion-state.ts`). It does not go
@@ -375,6 +384,9 @@ The x1.00 rows reproduce the earlier controls: 48.8 % on stone, identical to mov
 turning's, and 50.3 % on the skeleton.
 
 ## Recovery (session 07)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Recovery".*
 
 **First, is there anything to recover from?** Yes, in both builds. Session 06's columns show the
 stone default going down 4.9 times a bout at x1 and spending 15.1 % of it down, and the skeleton
@@ -505,6 +517,9 @@ a fall that is still moving, and that is a change to the knockdown rule, not a n
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.
 
 ## Armour (session 08)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Armour".*
 
 **The knob.** `armourAt` in `src/golem/attributes.ts`: a part's own armour fraction times the stat,
 capped at `ARMOUR_CAP`, 0.9. Its one reader is `Golem.armourOf`, which answers a per-kind table
@@ -641,6 +656,9 @@ The x1.00 rows reproduce the earlier controls: 48.8 % on stone, 48.6 % on `plate
 the skeleton.
 
 ## Toughness (session 09)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Toughness".*
 
 **The knob.** `Golem.register` in `src/golem/golem.ts` multiplies every body part's `health` and
 `maxHealth` by the stat. That is the one place a golem's parts get their health. A piece that
@@ -781,6 +799,9 @@ each body's full health, so overtime ends a tough body as surely as any other.
 The x1.00 rows reproduce the earlier controls: 48.8 % on stone and 50.3 % on the skeleton.
 
 ## Arm speed (session 10)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Arm speed".*
 
 **The knob.** `withArmSpeed` in `src/golem/attributes.ts` hands each arm chain a per-build copy of
 its table with the named rate limits multiplied by the stat. At x1 it returns the table it was
@@ -1049,6 +1070,9 @@ this pairing hardly lands one. Neither sweep argues for a lower ceiling than x1.
 above x1.25 pays.
 
 ## Weight (session 11)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Weight".*
 
 **The knob.** `withWeight` in `src/golem/attributes.ts` hands a builder a per-build copy of its table
 with the named masses multiplied by the stat: density at fixed geometry. At x1 it returns the table
@@ -1410,6 +1434,9 @@ where the arm stops ringing and nothing here says a heavy body breaks. But a pla
 is choosing to stay on their feet at the price of the fight, and on the skeleton they lose it.
 
 ## Size (session 12)
+
+*Measured against the contact model before the physical contact set; the sweep is re-run
+under "Physical contact 10: every stat re-measured", "Size".*
 
 **The knob.** Each body table a builder reads carries a size law per field, and `withSize` in
 `src/golem/attributes.ts` hands the builder a per-build copy at the stat (session 12a). The laws are
@@ -3102,3 +3129,871 @@ drain, then the median time of a win. Session 06's reading is in brackets.
   outright.
 - The giant against an idle giant fell from 79 % to 63 %. Two giants of one weight cannot push each
   other, and one of them is standing still.
+
+## Physical contact 08: stability from the body
+
+Session 08 (`docs/plans/2026-09-23-physical-contact-08-general-stability.md`) landed in three
+commits: **84e8251** (the body's own lines, with a blow gain), **57bff3c** (a body past its base)
+and **567350a** (a blow's height reaches the ledger, and the gain goes). How hard a body is to knock
+over is now read off the live body. A standing body is treated as a rigid body rocking about the
+edge of its base, and a blow tips it when it hands the body enough energy to lift its centre of mass
+over that edge. The geometry is in `src/tipping.ts` and the lines are formed in `stabilityLines` in
+`src/supported-locomotion-state.ts`. Every body runs one knockdown table. The brace multipliers, the
+gait curves, the holding ratio and the frozen lines are gone.
+
+The "before" is 3dd47ee (research fingerprint 62dd8e8ad7b4). Raw outputs are in
+`research/runs/pc08` (the gain's calibration and the stance trial) and `research/runs/pc08b` (the
+re-measure at 567350a, with session 09 in it), neither committed.
+
+### The rocking body
+
+A body's centre of mass stands `h` above the ground, its base reaches `r` from under it along the
+push, and `k` is its radius of gyration. With `R = sqrt(h^2 + r^2)`, the ledger (a horizontal impulse
+at the centre of mass's height over the body's mass, m/s) falls at `sqrt(2 g (R - h)(k^2 + R^2)) / h`.
+Gravity rights a lean at `g r / h`. A blow at height `y` counts `y / h` of itself.
+
+- **The base.** A standing body's base is its stance, lifted feet included, plus anything else of it
+  within 0.03 m (`TIPPING.CONTACT_BAND_M`) of its lowest point. A lying body's base is what of it is
+  in that band. A rising body is judged on the stance it rises onto.
+- **The wheel's patch** is a square as wide as the wheel, since a line contact has no fore-aft base.
+- **The stagger line** is 0.43 of the fall line, the ratio the two frozen lines had. A rigid body
+  rocks from any blow, so no physical reading gives the stagger its own threshold.
+- **The ledger is a vector.** Two opposite blows cancel, and a lean is righted along its own
+  direction.
+
+**The formula against the solver.** `tests/tipping.test.mjs`, headless arena, real Havok: a rigid
+block standing on the floor and struck at a known height. The impulse that tips it, bisected, is
+0.941, 1.009 and 0.940 of the prediction for three blocks (0.3 x 1.2 x 0.3 m, 100 kg, struck at
+0.9 m; 0.4 x 1.0 x 0.4 m, 60 kg at 0.5 m; 0.3 x 1.6 x 0.5 m, 200 kg at 1.4 m). The test pins 15 %
+either way.
+
+### The shove bench
+
+`.review/shove-bench.mjs`, Node locomotion bench, 2026-09-24. Each body stands on the bench and is
+shoved at its supported mass along +x, and the impulses that stagger it and fell it are bisected.
+"Predicted" is the body's own lines along the push, times its supported mass. The bench reads
+the whole port: the ledger, the posture predicate and the solver's reaction together.
+
+| Body | Supported mass | h / k, m | Lines at x1, stagger / fall | Predicted, N.s | Measured, N.s | Bench shove |
+| --- | ---: | --- | --- | --- | --- | --- |
+| stone biped | 280.0 kg | 1.115 / 0.446 | 0.405 / 0.945 m/s | 113.5 / 264.8 | 121.4 / 264.8 | 617 = 2.33 x fall |
+| multileg | 316.1 kg | 0.775 / 0.330 | 0.846 / 1.973 | 267.3 / 623.7 | 286.1 / 622.1 | 1200 = 1.92 x |
+| skeleton | 186.4 kg | 1.278 / 0.163 | 0.162 / 0.379 | 30.3 / 70.6 | 32.7 / 70.6 | 200 = 2.83 x |
+| wheel | 362.6 kg | 1.066 / 0.515 | 0.130 / 0.304 | 47.2 / 110.1 | 50.8 / 110.2 | 800 = 7.26 x |
+
+- **The fall agrees with the prediction to 0.3 % at x0.5 and x1.** The measured stagger is 1 to 17 %
+  late, most at x0.5. That is consistent with gravity righting the lean before the next boundary:
+  the righting rate does not scale with the stat, so it takes more of a low line.
+- **At x2 every body falls early**: at 0.917 of its line (biped), 0.872 (multileg), 0.982 (skeleton)
+  and 0.961 (wheel). A real impulse also carries the mass toward the edge, and the posture predicate
+  catches that before the ledger reaches the line.
+- **The multileg is harder to fell for geometry, not for a declared brace**: a lower centre of mass
+  over a wider base gives 1.97 m/s against the biped's 0.95.
+- **No walk leaves the supported state at any level**: 0 of 480 samples (0 of 300 for the wheel) at
+  x0.5, x1 and x2.
+
+### The physical way seemed to fail, and a rule came back for a while
+
+With the lines read off the body and every blow filed at its own momentum, an x1 stone mirror all
+but never fell. `.review/tip-bouts.mjs`, Node bout runner, supported locomotion, the duelist against
+the champion, 8 bouts, cap 60 s: 0.38 and 0.13 knockdowns a body a bout at a gain of 4, and every one
+of them was a leg cut off. That is the overview's second failure condition ("an x1 mirror never
+falls").
+
+A body is heavy (280 kg for stone), and a blade at 20 m/s moves a few newton-seconds of it. The
+narrowest rule that fixes it was one factor on a blow's filing: `TIPPING.BLOW_GAIN`.
+`Combat` still reports the physical impulse, and a press is not multiplied. It was calibrated on the
+x1 stone mirror against session 01's band: `research/stat-sweep.mjs --stat stability --levels 1
+--pairs 96`, Node harness, research runner, supported locomotion, cap 150 s, seed 20260923, 96
+blocks, `research/control-band.mjs`:
+
+| Gain | Knockdowns / body / bout | Damage / body / bout | Seconds / bout |
+| ---: | --- | ---: | ---: |
+| 6 | 3.70 [3.24, 4.16] | 8.16 | 24.6 |
+| **7** | **4.83 [4.24, 5.43]** | **8.12** | **26.3** |
+| 8 | 5.38 [4.84, 5.92] | 8.02 | 27.2 |
+| 10 | 6.29 [5.77, 6.79] | 8.17 | 29.1 |
+| 12 | 7.81 [7.25, 8.38] | 8.06 | 32.3 |
+
+Damage does not follow the gain. What the gain moves is how often a body is on the floor. The gain
+was removed in 567350a: see "The skeleton fell on everything" below.
+
+### A rising body on the stance it rises onto
+
+The first port judged a rising body by what of it was on the floor, as it judges a lying one.
+`.review/rise-base.mjs` and `.review/tip-bouts.mjs`, Node bout runner, stone x1 mirrors: the rise is
+keyframed, and the carrier hoists the pelvis while the legs still lie where they fell. So the points
+on the floor stayed about a metre from the centre of mass for the whole rise, and the centre of mass
+was outside that base in 135 of 142 rising samples in one bout. The fall line read 0 from 0.2 s into
+every rise, so any touch put the body down. At a gain of 8 a body was down 62.8 % of every bout.
+
+A rising body is therefore read against the last standing base that held its centre of mass, at its
+live height and gyration. A low body on its feet is hard to tip and gets easier as it straightens,
+and no blow is exempt. Down time at a gain of 8 fell to 34.3 %, and the centre of mass sits outside
+the base in 0 to 2 of each bout's 57 to 149 rising samples.
+
+### One knockdown for every body
+
+Every locomotion table runs `KNOCKDOWN`, which was the skeleton's table:
+
+- **Settle.** The fall is settled once the centre of mass has come down at least half its starting
+  height above the floor, and its descent has stayed at or under 0.3 m/s for 0.2 s.
+- **Cap.** It is also settled once the body has lain 2.5 s.
+- **Rise.** The rise peaks at 0.9 m/s.
+
+Stone, the wheel and the multileg used to rise after a frozen 0.35 s dwell, whether their fall had
+stopped or not. On the bench's scripted shove (`.review/rise-budget.mjs`, Node locomotion bench),
+fall to supported now takes 1.954 s on the biped, 1.817 on the skeleton, 1.933 on the wheel and
+1.192 on the multileg. The biped used to take 1.158 s. Every table's `riseBudgetSeconds` is 2.50.
+
+A gentle topple lies longer than a hard one. The wheel under 225 N.s rises 2.837 s after the shove,
+and under 800 N.s after 1.933 s (`.review/wheel-gentle.mjs`, Node locomotion bench).
+
+The one posture predicate was already true: every golem body, the human included, reads
+`constructPostureIsSupported`, and the Warrior's `fighterPostureIsSupported` went with the Warrior.
+
+### Fixtures that moved
+
+- **The contact press's walking test** (`tests/contact-press.test.mjs`) drives a heavy walker into
+  an idle x1 body. Under the gain its arm contacts filed at seven times their impulse and knocked
+  the idle body down at 0.75 s, before the walk had pressed it far (`.review/walk-push.mjs`,
+  headless arena), so the test reads the peak slide over 3 s rather than the slide at the end.
+- **The pair corpus** (`physical_corpus_two_bipeds_share_one_registry_and_a_fallen_one_rises_clear_of_the_other`).
+  While one body lies, the pair resolver separates the two overlapping carriers at about 0.5 m/s.
+  Under the full lie they are already 0.897 m apart when the rise begins, so the corpus no longer
+  exercised a relocated rise (`.review/pair-rise.mjs`, headless arena). The fixture's stated edit
+  caps the lie at 0.1 s.
+- **The research fixtures** (`tests/research-physical.test.mjs`). Under the gain the first pair on
+  which a probe mind felled x0.5 and left x1 standing was the duelist on 54 and 55. With no gain no
+  probe mind fells x0.5 at least twice and x1 never on any pair from 44 to 123
+  (`.review/seed-search.mjs`, research runner), so the knockdown fixture's rule became the first pair
+  on which x0.5 falls at least twice and more often than x1: the brawler on 50 and 51, 5 knockdowns
+  and 7.98 s down at x0.5 against 2 and 3.77 s at x1. A count taken on every fallen frame reads 282.
+  The sever fixture keeps 50 and 51, and its counts are re-pinned at [[48, 24], [37, 14]].
+- **The thrust-booking fixture** (`a_thrust_books_a_thrust_in_a_real_bout`) went from one or a few
+  thrusts on its twenty seeds to none. Its director answered every moment it could not thrust with
+  `close`, which walked the body in to 0.94 m of ground gap against a 1.84 m reach, so every thrust
+  began with its point already inside the other body and rested there: 355 of 364 point-first
+  contacts near the tip were under the point's floor, at a median 0.65 m/s of closing speed. A
+  bite past the mark (0.33, 0.66) did not change it. Answered with `hold`, the body keeps 1.6 m of
+  gap between strokes and books 66 thrusts in six 20 s bouts against an idle body, and 6 on the
+  fixture's seeds against the fencer (`.review/thrust-probe2.mjs`, `.review/thrust-stance.mjs`, Node
+  bout runner). Disabling thrust booking turns it red.
+- **The stability stat at x2** brackets the fall from 0.85 of the line, because every body falls
+  early there (the shove bench above).
+- `the_scripted_locomotion_run_walks_crouches_falls_and_rises` no longer pins the old 1.60 s
+  scripted rise, and each module's cross-comparison reads the lines off the body.
+
+### A centre of mass outside its base
+
+After the first commit, a probe of each body's own walk found this (`.review/stride-zero.mjs` and
+`.review/stride-outside2.mjs`, Node locomotion bench, the bench's walk):
+
+- **Walking.** A walking body's centre of mass can run past its whole stance, lifted feet included.
+  The biped's goes up to 0.27 m past, and the skeleton's up to 0.54 m, because the keyframed carrier
+  runs ahead of the legs.
+- **The stopped wheel** sits 20 to 35 mm off its patch in every sample after it stops.
+
+`baseReachM` read zero in every direction there, so a body pushed back onto its own feet fell as
+readily as one pushed further out. The reach is now the distance along the push to where the ray
+leaves the base. A body already past its edge along a push still goes over at any touch. One pushed
+back toward its base has to be carried across it and over the far edge.
+
+That is 3 of 360 walking samples on the biped, 19 on the skeleton and 0 on the multileg. Counting
+only planted soles as the base, those were 139 and 151 of 360, with a sole off the floor in about
+half the samples. So the lifted-feet rule is what keeps a walking body from reading as one-legged.
+`a_foot_in_the_air_is_still_part_of_the_base_a_walking_body_stands_on` pins it.
+
+The carrier running ahead of the legs is a locomotion matter, not a stability one, and it is left
+open.
+
+### The skeleton fell on everything, and three causes were found
+
+Session 08's batch put the x1 skeleton mirror at 22.0 knockdowns a body a bout, down 75.7 % of each
+bout, against stone's 4.8. Lowering the gain did not cure it: 16.3 knockdowns at a gain of 1 and 18.6
+at 2 (48 blocks each). So the gain was not the cause. Three things were.
+
+**1. A blow's height never reached the ledger.** `copyStabilityEvent` in
+`src/supported-locomotion.ts` copied the shove and dropped `atY`, so every blow was read as landing at
+the centre of mass's height. A blow to the head counted no more than one to the belt, and a blow at
+the ankle no less. The copy now keeps every field.
+`a_blow_s_height_reaches_the_ledger_as_its_lever_about_the_base` (Node locomotion bench) shoves a
+standing stone biped at 0.3 of its stagger line at three heights. The ledger reads the shove at the
+centre of mass, under a thousandth of it at the ground, and 1.5 of it at 1.5 times the height. With
+the copy reverted, it reads the shove at the ground.
+
+**2. The skeleton stood with its centre of mass off its feet.** Its shield plate (2.30 kg at 0.56 m)
+and blade (1.30 kg at 0.65 m) put the centre of mass of a 30.4 kg body 0.124 m ahead of the pelvis.
+Stone's sits 0.033 m ahead and the human's 0.029 m. On 0.20 x 0.13 m feet that is outside the base in
+36.3 % of its standing time, against stone's 0.2 % (`.review/outside-share.mjs`, Node bout runner, 2
+bouts, 40 s). A body whose centre of mass is past its edge falls at any touch.
+
+**A stance under the centre of mass was tried, and is not in the tree.** `bipedPose` took a balance
+offset, fore and side: the centre of mass's ground point relative to the pelvis, in the pelvis's
+frame, less the sole's lead over the ankle, low-passed over 0.5 s and read only while the body
+stood or staggered. It turned each whole leg about the hip by `asin(offset / leg length)`. Three
+variants were measured; the best clamps the offset to the hip's room and holds it per leg through
+the swing (`.review/biped.balance-variants.ts` in the session's worktree, not committed).
+
+| Stance | Skeleton's centre of mass outside its base, standing | x1 skeleton mirror knockdowns / body / bout |
+| --- | ---: | --- |
+| none (the tree) | 36.3 % | 16.40 [15.38, 17.41] |
+| full offset | 6.2 % | -- |
+| faded with the stride | 16.7 % | 13.74 [12.68, 14.80] |
+| hip room, held per leg | 4.0 % | 11.41 [10.59, 12.23] |
+
+Knockdowns are `research/stat-sweep.mjs --build skeleton-warrior --minds skeleton-duelist --stat
+stability --levels 1 --pairs 48`, Node harness, research runner, supported locomotion, cap 150 s, no
+gain; the shares are `.review/outside-share.mjs`, Node bout runner. Stone's is 0.0 % either way.
+
+It costs the walk. Rotating a leg about the hip changes its height (`cos(b + x)` against
+`cos(b - x)`), so two planted feet under an offset are unequal legs: the support passes to the swing
+foot at the start of a walk and the stance foot lifts and slides. A rear offset also reaches the
+hip's stop. Planted sole slip, Node locomotion bench (`runGolemLocomotion`), mm/s; the short walks
+are means over eleven stand durations, about +-5, and the budget is 300 mm/s at x0.75 and x1.5:
+
+| Stance | Biped: long walk / x0.75 / x1 / x1.5 | Skeleton: long walk / x0.75 / x1 / x1.5 |
+| --- | --- | --- |
+| none (the tree) | 99 / 200 / 186 / 214 | 96 / 274 / 180 / 285 |
+| hip room, held per leg | 118 / 238 / 229 / **355** | 118 / **322** / 217 / **360** |
+| the same, heights kept by the knee | 252 / **374** / **517** / **372** | 161 / **363** / **328** / 292 |
+
+A slip regression over budget, to buy a knockdown rate nobody has asked to move, is not a trade to
+take on the owner's behalf. The stance is out of the tree, and the choice is on session 10's list.
+
+**3. The gain reached every contact, not only a scored blow.** The gain's own comment and this
+section's first record both said it multiplied a scored blow. `Combat.transfer` multiplied every
+contact: a parry, a slap and a blade leaned on each filed seven times their momentum. On the
+skeleton a parry moves 2.2 N.s on average, which at seven times is nearly four times its 4.0 N.s
+fall impulse.
+
+`.review/fall-cause.mjs` (Node bout runner, the x1 skeleton mirror, 2 bouts of 60 s, after 1 and 2)
+reads the contact that pushed hardest in the quarter second before each fall:
+
+| Fell from | Parry | Unscored contact | Scored blow | None |
+| --- | ---: | ---: | ---: | ---: |
+| standing | 20 | 4 | 6 | 0 |
+| rising | 3 | 7 | 8 | 1 |
+
+Two of three standing falls followed a parry. Filing the gain on a scored blow alone was tried
+next; with the height in the ledger no gain was needed at all, and it went. **567350a files every
+contact at its physical impulse.**
+
+### Without the gain
+
+`research/stat-sweep.mjs --stat stability --levels 1 --pairs 96` on the stone mirror, Node harness,
+research runner, supported locomotion, cap 150 s, seed 20260923, `research/control-band.mjs`, with
+the lever in place and no gain: **0.49 [0.34, 0.66] knockdowns a body a bout**, 7.86 [7.49, 8.22]
+damage, 19.9 s. The x1 mirror falls, and on far fewer than most scored blows, so neither of the
+overview's failure conditions holds and no rule comes back. Session 01's band (4.93) was never the
+plan's target ("the knockdown rate is not held"). Rare stone knockdowns are on the eye list; a gain
+on a scored blow's filing, after `scoreHit`, is the rule to reach for if the owner wants them back.
+
+The skeleton without the gain, at 567350a: `.review/fall-cause.mjs skeleton-warrior
+skeleton-duelist 8 60` (Node bout runner, the x1 skeleton mirror, 8 bouts of 60 s). The hardest
+contact in the quarter second before each fall, against every contact of that class received in that
+state:
+
+| Fell from | Scored blow | Parry | Unscored contact | None |
+| --- | ---: | ---: | ---: | ---: |
+| standing | 40 of 124 | 85 of 234 | 15 of 124 | 0 |
+| rising | 34 of 109 | 36 of 91 | 51 of 278 | 9 |
+
+- **It falls on a third of the scored blows it takes standing, not most**, so the overview's third
+  failure condition does not hold either. But a parry fells it as readily as a blow does.
+- The stone mirror on the same probe (`default golem-duelist`) took 508 scored blows standing and
+  fell once, from a parry.
+- **The skeleton's fall line is its stance's, and some skeletons stand outside their own feet.**
+  Its published fall impulse is 4.0 N.s with the sword and shield, 6.7 with two blades, 2.1 with the
+  maul, and **0.0 with the mace**: the mace skeleton's centre of mass is past the edge of its feet
+  at rest, and the first touch that way fells it (`.review/body-facts.mjs`, Node arena harness,
+  t = 1 s). That is the stance the trial above would have moved, and it is on the owner's list.
+
+The bout-level readings for sessions 08 and 09 were taken together at 567350a, and they are under
+session 09's "Re-measured at 567350a" below.
+
+## Physical contact 09: minds read what the attributes do
+
+Session 09 (`docs/plans/2026-09-23-physical-contact-09-minds-read-bodies.md`) landed in two
+commits, **ec9b8b2** and **adfa2b4** (the stroke bench's capability builder). It made three changes:
+
+- A body publishes what its stats do, as the physical quantities they produce.
+- A stroke is timed by the arm that swings it.
+- The stand-off is the shorter of the two arms, and a much heavier body closes.
+
+The "before" is 57bff3c. Raw outputs are in `research/runs/pc09`, and the re-measure with session
+08's last commit in `research/runs/pc08b`; neither is committed.
+
+### What a body publishes
+
+`BodyView` carries four new fields, on self and opponent alike. Each is read off the built body,
+never off the attribute record, so a stat that later comes from an item reaches a mind unchanged.
+
+- **`massKg`** is the mass the locomotion port divides a shove by (`supportedMassKg`).
+- **`stabilityImpulseNs`** is the weakest of 32 directions of session 08's fall line, times that
+  mass. It is 0 before the body's first control step, when its base has not been read.
+- **`armRate`** is the primary arm's first angular rate times its reach: the tip speed its rate
+  limit carries.
+- **`soak`** is what a joule of a cut takes from the core's health: one minus its armour against a
+  cut, over `cutJoulesPerDamage` times its health.
+
+The x1 values, Node arena harness, t = 1 s (`.review/body-facts.mjs`):
+
+| Build | massKg | stabilityImpulseNs, N.s | armRate, m/s | soak, 1/J |
+| --- | ---: | ---: | ---: | ---: |
+| default (stone) | 247.2 | 117.1 | 11.81 | 2.323e-3 |
+| wheel | 329.7 | 81.1 | | |
+| multileg | 283.3 | 374.8 | | |
+| human-warrior | 111.4 | 43.6 | 4.54 | 1.291e-3 |
+| skeleton-warrior | 30.4 | 4.0 | 13.47 | 3.051e-3 |
+| default, all-max | 949.0 | 913.7 | 18.08 | |
+
+`a_golem_publishes_what_its_stats_do_as_physical_quantities_a_mind_can_read` pins the stone row and
+checks that weight, arm speed and toughness each move their own field.
+
+The lab observation takes the four fields per side as **version 3**: 8 columns after every version 2
+column, so a version 2 student reads what it was trained on. `neuralFeatures` did not take them, so
+its version did not move.
+
+### Stroke timing from the arm
+
+`strokeInertiaScale` stretched a stroke by the square root of the arm's swing inertia over the
+default arm's. That read the load and not the arm carrying it. The weight stat raises the arm's
+torques with its mass (session 07), and size raises them by its fourth power, but the stretch still
+timed a x2-weight arm 14 % slower and the all-max giant up to 2.9 times slower.
+
+`strokeTimeScale` takes the slower of two times:
+
+- **The arm's rate** against its chain's shipped table: `(1 / rateScale)^gain`. For the reach and
+  wrist chains `rateScale` is the anchor rate over reach, which works out to arm speed over the
+  square root of size.
+- **Its load against its torque**: `(I / (ref x torqueScale))^(gain / 2)`. `torqueScale` is the
+  shoulder torque against the table's, which works out to weight times size to the fourth.
+
+At x1 both scales are 1 and the rule is the old one to the bit. A light load still never times a
+stroke quicker than the arm's rate does. But the arm-speed stat now shortens a stroke, where the old
+rule threw it away.
+
+The stroke bench, timed as a mind times it (`.review/stroke-timing.mjs`, Node stroke bench,
+2026-09-24). Each cell gives the time scale, then peak driven tip speed (m/s) / peak anchor stray (mm):
+
+| Arm | Level | Before | After |
+| --- | --- | --- | --- |
+| wrist blade | x1.25 size | 1.377, 13.1 / 15 | 1.118, 14.3 / 20 |
+| wrist blade | x2 weight | 1.144, 16.1 / 24 | 1.000, 16.3 / 25 |
+| wrist blade | all-max | 1.684, 12.2 / 11 | 0.762, 22.4 / 37 |
+| wrist mace | x1 | 1.364, 18.3 / 153 | the same |
+| wrist mace | x2 weight | 1.472, 14.8 / 26 | 1.041, 19.8 / 33 |
+| wrist mace | all-max | 2.007, 12.7 / 8 | 0.908, 25.2 / 21 |
+| wrist maul | x2 weight | 2.156, 6.2 / 41 | 1.525, 15.7 / 125 |
+| wrist maul | all-max | 2.880, 8.0 / 35 | 1.303, 17.0 / 173 |
+| skeletal blade | x1.5 arm speed | 1.000, 17.5 / 46 | 0.676, 21.5 / 43 |
+| anatomical blade | x1.5 arm speed | 1.000, 13.6 / 149 | 0.777, 13.7 / 173 |
+
+- **A heavier arm now swings as fast as the shipped one.** Before, the x2-weight mace peaked at 14.8
+  m/s against the shipped arm's 18.3. After, it peaks at 19.8.
+  `a_heavier_arm_timed_as_the_mind_times_it_swings_no_slower_than_the_shipped_one` pins that at 0.9
+  of the shipped peak, and the inertia-only mutation turns it red.
+- **The maul strays.** At x1 it already strays 106 mm on its own timing. Timed faster, the heavy
+  mauls stray 125 and 173 mm. The maul is a load the chain carries badly on any timing.
+- **The anatomical blade at x1.5 arm speed misses its mark by 0.41 m**, against 0.20. No mind in play
+  reads this: the human's mind, like the duelist's, is v1 `golemTactics`, which does not time strokes
+  by the arm.
+
+Of the probe minds, the champion (v2), the brawler (v3) and the miser (v4) time strokes this way.
+The duelist (v1) does not.
+
+### The stand-off
+
+`standOffReach(self, them)` in `src/downed.ts` is the reach a mind floors its stand-off at. v1 (the
+duelist and the human), v2 (the champion, through the planner) and v3 read it. v4 (the miser) does
+not: its stand-off is a searched multiple of the other body's reach, which is the command itself, and
+a floor would override the search.
+
+- **Outreached, a body holds at its own reach.** Before, it held outside the longer arm, which against
+  a body that never recovers is a distance it can never strike from. Session 01 found a human standing
+  1.6 m off an idle stone body for 40 s, and dealing it nothing.
+- **With the longer arm, it keeps outside the shorter one**, as before.
+- **Against a downed body there is no stand-off.** Before this session that was already true.
+
+**Pressing.** `presses(self, them)` is true when this body's published mass is at least
+`PRESS_MASS_RATIO` (1.5) times the other's, and the other is standing. A pressing body holds at its
+near range plus slack, which is push range. No two stone builds press each other: the widest pair,
+the wheel against the plain biped, is 1.33. Stone presses a human (2.2) and a skeleton (8), a human
+presses a skeleton (3.7), and the all-max giant presses every x1 body (3.8 against stone).
+
+One test moved. `the_shorter_arm_holds_outside_and_goes_in_on_their_recover` pinned the v2 fencer
+holding outside a blade's reach. It is now
+`the_shorter_arm_walks_to_its_own_reach_and_goes_in_on_their_recover`: from the blade's reach the
+fist is asked full forward, and it does not stroke from outside its own reach. The fencer's recover
+rule still decides the walk inside it: with the rule on, their recover asks for 1.00; with it off,
+0.22.
+
+### The human against an idle dummy: the stand-off was half of it
+
+Session 01 put the human's failure against an idle dummy down to its stand-off, and handed the cell
+to this session. The stand-off is fixed, and the cell is still at zero outright wins. What remains is
+the human's stroke.
+
+**The idle probe.** `research/idle-dummy.mjs --attackers human --blocks 4`, Node harness, research
+runner, supported locomotion, cap 150 s, seed 20260923, at ec9b8b2. Each cell is outright wins
+(wins with the drain):
+
+| | stone | skeleton | human | giant |
+| --- | ---: | ---: | ---: | ---: |
+| session 01 | 0 % (50) | 0 % (100) | 0 % (67) | 0 % (13) |
+| session 09 | 0 % (100) | 0 % (100) | 0 % (25) | 0 % (100) |
+
+The drained wins against stone and the giant went from 50 % and 13 % to 100 %, so the human now
+deals something to both. It still deals too little to win before the drain.
+
+**Where it stands and what lands.** `.review/human-idle.mjs`, Node bout runner, the human duelist
+against an idle stone, seeds 1 and 2, 40 s:
+
+- It holds 1.3 to 1.5 m off, ground to ground. Its nearest part is 0.3 to 1.0 m from its shoulder
+  and its reach is 1.52.
+- It makes 31 contacts. Every one is a slap or under the energy floor. It deals 0.119 damage, and
+  the dummy's vitality falls to 0.987.
+- **The blade arrives flat.** Edge alignment averages 0.24 to 0.36 on every kind of contact. Stone's
+  duelist, against the same dummy, lands its cuts at 0.85 to 0.97.
+- The same holds under the golem duelist, the champion and the fencer on the human body, so the
+  cause is the body's and not the humanoid mind's.
+
+**The stroke bench agrees, once it reads the arm as a bout does.** Its capability builder was a copy
+of the golem's that had lost the full-orientation branch, so it drove the human arm at roll 0. It is
+one builder now (adfa2b4). The bench also now reads the edge lead at the mark: the share of the tip's
+motion the edge leads with. Node stroke bench, x1, timed:
+
+| Arm | Edge lead | Speed at the mark, m/s | Miss, m |
+| --- | ---: | ---: | ---: |
+| wrist blade | 0.944 | 15.5 | 0.10 |
+| skeletal blade | 0.692 | 11.8 | 0.05 |
+| anatomical blade | 0.284 | 9.3 | 0.18 |
+| pitch blade | 1.000 | 11.7 | 0.14 |
+
+**A quarter turn.** Swept over the stroke's roll (`.review/roll-sweep.mjs`), the human blade leads
+with its edge at a roll of -1.57 (0.898), against 0.284 at the shipped 0.30. But it then misses by
+0.40 m, against 0.18. In a bout, with `cutRoll` at -1.57 (human only), the human deals 0.752 to an
+idle stone in 40 s against 0.119, and its first real cuts appear: 2 on the core at 0.75 edge.
+
+**And the tip.** Against an idle human it holds out of equal reach and lands 26 contacts in 30 s,
+all with the last 0.05 m of the blade. Their blade speed is 7 to 9 m/s, but their closing speed is 0.8
+to 1.8 m/s, so the blade slides across instead of striking in.
+
+Neither is a stand-off matter, and neither is fixed here:
+
+- The human arm's roll is a quarter turn from the stroke table's, and turning it costs aim. It needs
+  the arm's own orientation solve looked at, not a constant.
+- The human's hold is at the very end of its reach.
+
+Both are on the session 10 list.
+
+### Re-measured at 567350a
+
+Sessions 08 and 09 together, against session 07's readings at 4df55cc. The tree carries the body's
+own lines, a blow's height in the ledger, no blow gain, the published body facts, the arm's stroke
+timing and the shared stand-off. `research/runs/pc08b/batch.sh`.
+
+#### Fingerprint
+
+`tests/harness/body-fingerprint.mjs --against` session 07's, Node harness: 10 sections the same and
+45 moved. Every head and torso section is the same, and so are the empty effector bench and one
+bout (the human warrior against the human maul, which falls in neither tree). Every other effector
+bench moved (session 09's stroke timing and the bench's capability builder), every walk moved (the
+walk sections read the body's lines), and 14 of 15 bouts moved.
+
+#### x1 controls
+
+Node harness, research runner, supported locomotion, cap 150 s, seed 20260923, 192 blocks. Per body
+per bout, 95 % bootstrap over the blocks (`research/control-band.mjs`):
+
+| Tree | Stone damage | Stone knockdowns | Stone seconds | Skeleton damage | Skeleton knockdowns | Human damage / knockdowns |
+| --- | --- | --- | --- | --- | --- | --- |
+| session 01 | 7.64 [7.43, 7.85] | 4.93 [4.54, 5.32] | 28.1 | 1.89 | 4.85 | -- |
+| 4df55cc | 8.00 [7.61, 8.47] | 4.14 [3.86, 4.42] | 20.6 | 1.70 [1.66, 1.74] | 4.05 [3.86, 4.26] | 0.06 / 0.00 |
+| **567350a** | 7.96 [7.71, 8.21] | **0.56 [0.45, 0.68]** | 20.5 | 1.84 [1.80, 1.89] | **16.49 [15.92, 17.05]** | 0.06 / 0.00 |
+
+- **Stone all but stopped falling, and the skeleton falls four times as often.** Both are the
+  lines read off the body. Stone's published fall impulse is 117.1 N.s at its weakest, which a blow
+  moving 10 N.s on average seldom reaches; the skeleton's is 4.0, and the skeleton stands with its centre of mass outside its feet
+  in a third of its standing time. Stone is down 4.4 % of a bout, the skeleton 64.0 %.
+- Damage did not move for either: the bar is worn down at the same rate whoever is on the floor.
+- **The human mirror did not move**: 0.06 damage a body, no knockdowns, 305.6 contacts a bout of
+  which 0.7 % are real blows, 245 of 384 bouts drawn.
+- **The stability stat now moves almost nothing.** Across x0.75 to x1.5 on the stone mirror,
+  knockdowns go from 0.65 to 0.51 a bout and the win rate from 48.2 % to 49.7 %; the control-paired
+  margin at x1.5 is 0.016 [0.004, 0.031], d = 0.17 (`research/stat-sweep.mjs --stat stability
+  --pairs 192`). A stat that scales a line nothing reaches has little left to scale.
+
+#### The giant
+
+`research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max --pairs 192`, Node harness,
+research runner, supported locomotion, cap 150 s, seed 20260923:
+
+| Level | Win % [95 %], 4df55cc | Win % [95 %], 567350a | Its knockdowns, before / after | The x1's knockdowns, before / after | The x1's time down, before / after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| control | 50.0 [44.5, 55.2] | 47.7 [42.2, 53.4] | 4.12 / 0.62 | 4.15 / 0.51 | 18.5 / 4.1 % |
+| max | 99.5 [98.7, 100.0] | 98.7 [97.4, 99.7] | 0.01 / 0.39 | 11.09 / **2.77** | 75.5 / **59.0 %** |
+| max-normal-body | 94.8 [92.4, 96.9] | 91.4 [88.5, 94.0] | 1.42 / 0.43 | 4.89 / 0.92 | 22.9 / 6.0 % |
+| size-weight-max | 97.1 [95.3, 98.7] | 94.0 [91.7, 96.4] | 0.01 / 0.60 | 15.25 / **4.34** | 77.4 / **67.6 %** |
+
+- **The giant still wins like a giant**: 98.7 % at max, in 8.3 s, dealing 12.52 for 2.54.
+- **The x1 body falls a quarter as often against it and is still down most of the bout**, because
+  it now lies until its fall has stopped: fewer, longer episodes.
+
+#### Stun-lock
+
+`research/downed-census.mjs --groups stone,skeleton,giant --blocks 96`, Node harness, research
+runner, supported locomotion, cap 150 s, seed 20260923, fingerprint c4472ec9fb7d. "Giant" is the max
+giant against x1 stone, both corners counted:
+
+| Group | Knockdowns / body / bout | Down time % | Repeat knockdowns, share of episodes | Longest chain | Rises put back down by a blow |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| stone, 4df55cc | 3.77 | 15.1 | 46.7 % | 13 | 124 |
+| stone, 567350a | **0.34** | **3.7** | **11.5 %** | **3** | **51** |
+| skeleton, 4df55cc | 3.38 | 26.4 | 24.8 % | 7 | 196 |
+| skeleton, 567350a | **9.41** | **63.6** | **60.2 %** | **14** | **2655** |
+| giant, 4df55cc | 3.15 | 40.0 | 84.1 % | 20 | 640 |
+| giant, 567350a | 1.26 | 37.2 | 42.7 % | 7 | 19 |
+
+- **Stun-lock moved from the giant to the skeleton.** A skeleton mirror is down 63.6 % of a bout,
+  60.2 % of its knockdowns come within 2 s of a rise, and 89.7 % of its damage lands on a downed
+  body. The giant's chains are down from 20 to 7.
+- The first body down loses 86.7 % of decided stone bouts, 54.2 % of skeleton ones and 98.9 % of the
+  giant's.
+- Every episode longer than 5 s is "unsettled": 14 for stone, 777 for the skeleton, 29 (and one
+  stuck rising) for the giant.
+
+#### Idle-dummy matrix
+
+`research/idle-dummy.mjs --blocks 12` at 567350a: Node harness, research runner, supported
+locomotion, cap 150 s, 12 blocks a cell played from both sides, seed 20260923, fingerprint
+c4472ec9fb7d. Each cell is the attacker's outright win rate, then the rate with the 60 s overtime
+drain, then the median time of a win. Session 07's reading is in brackets.
+
+| Attacker \ idle dummy | stone | skeleton | human | giant |
+| --- | ---: | ---: | ---: | ---: |
+| stone | 83 % (100) / 30.8 s [75 / 27.5] | 100 % (100) / 11.9 s [100 / 15.2] | 92 % (100) / 29.5 s [79 / 34.9] | 75 % (100) / 45.8 s [63 / 46.8] |
+| skeleton | 0 % (100) / 87.2 s [0 / 106.3] | 58 % (100) / 56.9 s [88 / 44.4] | 0 % (100) / 98.2 s [0 / 93.8] | 0 % (100) / 96.4 s [0 / 115.1] |
+| human | 0 % (100) / 119.2 s [0 (42)] | 0 % (100) / 116.3 s [0 (88)] | 0 % (25) / 119.9 s [0 (25)] | 0 % (92) / 119.3 s [0 (13)] |
+| giant | 100 % (100) / 8.1 s [100 / 12.4] | 100 % (100) / 2.8 s [100 / 7.8] | 88 % (96) / 11.2 s [100 / 15.8] | 83 % (100) / 42.0 s [63 / 42.0] |
+
+- **The same seven cells are at zero, and no new one**, so the overview's fourth failure condition
+  does not hold.
+- The human now wears down every idle body but its own kind before the drain ends it (100 %, 100 %,
+  25 %, 92 % with the drain, from 42 %, 88 %, 25 %, 13 %). The stand-off was half of it; the flat
+  blade is the other half (above).
+- The skeleton against an idle skeleton fell from 88 % to 58 %: the attacker is on the floor as
+  often as the dummy.
+
+## Physical contact 10: the balance response, and every stat re-measured
+
+### A body walked into leans, steps back, and is tipped only when outrun
+
+Session 07's rule capped a walker's push at its grip and filed whatever was past the other body's grip
+to the ledger, so two bodies of one weight could never move each other and one a tenth heavier
+tipped the other by walking into it. The owner called the equal-weight case arbitrary and chose the
+balance response (`readContact` in `src/supported-locomotion-production.ts`):
+
+- **The walker** pushes with no more than its grip and what it holds leaning into the reaction,
+  `W * depth / y`, with `y` the height the bodies meet at and `depth` its base's reach both ways
+  along the push (`pushCapN`). The reaction goes to its own ledger past its lean, so it never pushes
+  itself over.
+- **The body walked into** stands with the same lean and no more than its grip. What is past that
+  drives its carrier back, its legs following at the carrier's `maxAccelerationMps2`, and only a
+  step's drive past that goes to the ledger.
+- **The resolver follows a body that gives way** (`resolveCarrierPair`). Without that, a walker
+  stopped where the two touched and a sustained push broke into one step on and one off; twice as
+  heavy moved the other 0.11 m.
+
+**A lean is read, not rendered.** `.review/pc10/lean-room.mjs`, Node headless arena:
+
+| Body | Centre of mass height, m | Base depth along the walk, m | What a full waist lean moves the centre of mass, m |
+| --- | ---: | ---: | ---: |
+| stone biped | 1.10 | 0.34 (0.199 ahead, 0.141 behind) | 0.10 |
+| human | 0.99 | 0.27 | 0.05 |
+| skeleton | -- | 0.24 (mace and maul: centre of mass outside the base) | -- |
+| wheel | -- | 0.18 | -- |
+| multileg | -- | 0.64 | -- |
+
+So a rigid stone golem holds at most `W * 0.34 / 1.10`, about 0.31 W, against the grip's 0.55 W.
+
+**Walked into** (`.review/pc10/walk-into.mjs` and `walk-giant.mjs`, Node headless arena, a stone
+walker 1.5 m off an idle x1 stone, 3 s of walking):
+
+| Walker | Moved, m | Peak slide, m/s | Tipped |
+| --- | ---: | ---: | --- |
+| x0.8 weight | 0.001 | 0.013 | no |
+| x1 | 0.009 | 0.074 | no |
+| x1.1 weight | 0.99 | 0.82 | no |
+| x2 weight | 8.98 | 3.20 | no |
+| x1.25 size | 10.01 | 3.59 | no |
+| giant (x1.25 size, x2 weight) | -- | -- | at 0.38 s |
+
+No walker's own ledger passes 0.021 m/s. `a body walked into stands against one weight, is walked
+back by a heavier one and felled by a giant` in `tests/contact-press.test.mjs` pins the equal,
+x1.1, x2 and giant rows; ten mutants of the rule and the resolver turn it or its two unit tests red.
+
+**In bouts** (`.review/pc10/contact-bouts2.mjs`, Node bout runner, cap 60 s, 16 bouts a cell; falls
+a body a bout, left / right):
+
+| Cell | 567350a | Lean alone | Lean and step |
+| --- | ---: | ---: | ---: |
+| brawler mirror | 1.19 / 0.75 | 4.44 / 4.25 | 2.75 / 1.13 |
+| brawler, weight x1.1 against x1 | 3.88 / 6.56 | 2.75 / 3.56 | 3.94 / 6.38 |
+| duelist x1 mirror | 0.19 / 0.00 | the same | the same |
+| duelist, max against x1 | 0.06 / 3.38 | 0.13 / 3.25 | 0.13 / 3.13 |
+| duelist, x1 against max | 1.88 / 0.25 | the same | the same |
+| duelist, size-weight-max against x1 | 0.00 / 2.88 | 0.00 / 3.06 | 0.00 / 3.00 |
+
+Lean alone felled a brawler mirror four times as often, 72 of 139 falls led by the pair push in
+the second before them (`.review/pc10/fall-source.mjs`); with the step, 20 of 62. The duelists
+seldom meet trunk to trunk, so their cells hardly move.
+
+### Stone weight under the balance response
+
+`research/stat-sweep.mjs --stat weight --pairs 192` at 231403a, Node harness, research runner,
+supported locomotion, cap 150 s, seed 20260923, the four probe minds, 384 bouts a level; "Before" is
+the same sweep at 567350a, under session 07's push (`research/runs/pc10b` against `pc10`):
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 35.2 [30.2, 40.4] | 33.2 | -0.38 | -0.45 | 2.06 | 2.32 | 20.1 | 20.8 | 19.3 | 20.1 |
+| x0.90 | 38.8 [33.1, 44.5] | 40.4 | -0.20 | -0.17 | 1.97 | 2.10 | 18.1 | 17.9 | 20.2 | 21.4 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 58.5 [53.3, 64.2] | 60.8 | 0.32 | 0.35 | 1.07 | 0.95 | 7.3 | 6.4 | 20.1 | 20.1 |
+| x1.25 | 66.9 [61.7, 71.9] | 66.3 | 0.51 | 0.51 | 1.05 | 0.91 | 7.7 | 7.2 | 20.7 | 20.2 |
+| x1.50 | 66.0 [60.7, 71.1] | 69.3 | 0.55 | 0.64 | 0.87 | 1.02 | 6.7 | 7.7 | 19.2 | 20.9 |
+| x2.00 | 79.7 [75.3, 84.1] | 77.1 | 0.81 | 0.77 | 1.14 | 1.17 | 10.0 | 9.7 | 22.5 | 22.6 |
+
+Nothing moved outside its interval. The weight stat is what it was: x2 wins 79.7 %, d = 0.81, and x0.8
+loses at d = -0.38. The brawler mirror moved (the bout table above); pooled with the three other
+probe minds, the new rule does not show at this n.
+
+### Stone size under the balance response
+
+The same protocol, `--stat size`:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 10.2 [6.8, 13.8] | 8.3 | -1.08 | -1.20 | 4.77 | 5.48 | 33.3 | 38.4 | 24.8 | 24.9 |
+| x0.90 | 27.1 [22.4, 32.0] | 26.8 | -0.53 | -0.59 | 2.95 | 3.14 | 24.8 | 24.2 | 22.1 | 23.0 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 69.3 [64.1, 74.5] | 68.5 | 0.47 | 0.49 | 0.75 | 0.72 | 7.1 | 6.5 | 18.2 | 17.4 |
+| x1.25 | 84.9 [81.0, 88.5] | 87.5 | 0.98 | 1.08 | 0.49 | 0.50 | 5.6 | 6.3 | 14.9 | 14.0 |
+
+Nothing moved outside its interval here either: x1.25 wins 84.9 % (87.5 before), d = 0.98, and x0.8
+10.2 %. Size stays the strongest stat on stone.
+
+### Skeleton weight and size under the balance response
+
+The skeleton duelist mirror, `--build skeleton-warrior --minds skeleton-duelist`, otherwise the same
+protocol. Weight:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 43.0 [37.8, 48.2] | 41.7 | -0.19 | -0.19 | 18.11 | 18.01 | 70.2 | 70.2 | 56.3 | 56.1 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x2.00 | 68.2 [63.3, 72.9] | 68.2 | 0.49 | 0.48 | 11.59 | 10.96 | 49.3 | 47.5 | 50.1 | 49.9 |
+
+Size:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 16.7 [13.0, 20.6] | 19.8 | -0.88 | -0.80 | 24.01 | 23.85 | 72.9 | 72.5 | 63.0 | 62.7 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x1.25 | 74.7 [70.1, 78.9] | 76.6 | 0.76 | 0.74 | 8.26 | 8.10 | 51.4 | 49.9 | 38.0 | 38.2 |
+
+Both are where they were. The skeleton still falls 16.7 times a body a bout at x1 and is down 64 % of
+it, which the balance response neither causes nor cures: its falls are the stance's (session 08).
+
+### Giants, censuses and the idle matrix under the balance response
+
+`research/runs/pc10b/batch.sh` at 231403a, against `pc08b` at 567350a. Node harness, research runner,
+supported locomotion, cap 150 s, seed 20260923.
+
+**The giant** (`--attributes max,max-normal-body,size-weight-max --pairs 192`, the four probe minds):
+
+| Level | Win % [95 %], 567350a | Win % [95 %], 231403a | The x1's knockdowns | The x1's time down |
+| --- | ---: | ---: | ---: | ---: |
+| control | 47.7 [42.2, 53.4] | 47.1 [41.7, 52.6] | 0.46 | 3.1 % |
+| max | 98.7 [97.4, 99.7] | 99.2 [98.2, 100.0] | 2.82 | 58.4 % |
+| max-normal-body | 91.4 [88.5, 94.0] | 93.0 [90.4, 95.6] | 0.91 | 6.0 % |
+| size-weight-max | 94.0 [91.7, 96.4] | 94.5 [92.2, 96.6] | 4.13 | 66.0 % |
+
+The giant still wins like a giant: 99.2 % at max, in 8.5 s.
+
+**Stun-lock** (`research/downed-census.mjs --groups stone,skeleton,giant --blocks 96`; the human at
+`--blocks 32`):
+
+| Group | Knockdowns / body / bout | Down time % | Repeat knockdowns, share of episodes | Longest chain | Rises put back down by a blow |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| stone, 567350a | 0.34 | 3.7 | 11.5 % | 3 | 51 |
+| stone, 231403a | 0.33 | 3.0 | 7.1 % | 3 | 38 |
+| skeleton, 567350a | 9.41 | 63.6 | 60.2 % | 14 | 2655 |
+| skeleton, 231403a | 9.64 | 64.8 | 61.4 % | 14 | 2608 |
+| giant, 567350a | 1.26 | 37.2 | 42.7 % | 7 | 19 |
+| giant, 231403a | 1.28 | 37.8 | 43.3 % | 7 | 32 |
+| human, 231403a | 0.00 | 0.0 | -- | 0 | 0 |
+
+**Idle-dummy matrix** (`research/idle-dummy.mjs --blocks 12`, 24 bouts a cell): the same seven cells
+are at zero outright wins -- the skeleton against stone, the human and the giant, and the human
+against every body -- and no new one. Every other cell is within a few bouts of 567350a's (stone on
+stone 88 % against 83, stone on the human 83 against 92, the skeleton on itself 50 against 58).
+
+So the balance response, whatever it did to a brawler mirror, moves none of the set's standing
+figures: not the weight or size stat on either body, not the giant, not the censuses, not the idle
+matrix.
+
+### Every other stat under the balance response
+
+`research/runs/pc10b/batch.sh` at 231403a against `pc10` at 567350a, the same protocol as the weight
+and size tables above: stone with the four probe minds, the skeleton duelist mirror. No level of any
+row moved outside its interval, so the 567350a tables stand as the physical contact model's reading
+and these are their replication.
+
+- **Stone armour moves no win rate at any level** (46.9 to 47.4 % from x0.5 to x2, in both trees). Its
+  paired d swings from -0.05 to 0.76 because the margin barely varies between paired bouts, so a
+  d over it is noise on a near-zero spread; read the win rate.
+- **Stone arm speed peaks early**: x1.10 wins 55.5 % and x1.50 49.6 %, as at 567350a (53.1 and 53.3).
+
+Stone movement:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.75 | 51.4 [45.7, 57.4] | 50.3 | 0.09 | -0.00 | 0.46 | 0.63 | 1.7 | 3.1 | 22.5 | 22.4 |
+| x0.90 | 52.2 [46.7, 57.8] | 48.8 | 0.05 | -0.04 | 0.59 | 0.75 | 3.9 | 4.7 | 22.9 | 21.9 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 47.1 [41.7, 52.3] | 47.9 | 0.08 | 0.02 | 0.50 | 0.56 | 2.8 | 3.3 | 22.2 | 21.9 |
+| x1.25 | 47.5 [41.9, 53.1] | 48.7 | 0.05 | 0.04 | 0.60 | 0.61 | 3.4 | 4.2 | 21.2 | 22.7 |
+| x1.50 | 50.5 [45.1, 56.3] | 48.3 | 0.03 | -0.00 | 0.53 | 0.54 | 2.8 | 3.5 | 23.7 | 21.2 |
+
+Stone turning:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 40.6 [34.9, 45.8] | 41.9 | -0.25 | -0.26 | 0.68 | 0.45 | 3.8 | 2.7 | 22.1 | 22.8 |
+| x0.75 | 48.2 [42.4, 54.2] | 48.6 | -0.05 | -0.05 | 0.53 | 0.81 | 3.4 | 5.8 | 20.0 | 19.8 |
+| x0.90 | 51.3 [45.8, 57.0] | 50.0 | 0.07 | 0.03 | 0.57 | 0.66 | 2.9 | 4.0 | 19.6 | 21.6 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 47.8 [42.4, 53.5] | 47.5 | -0.03 | -0.04 | 0.72 | 0.62 | 4.3 | 4.7 | 21.4 | 20.6 |
+| x1.25 | 51.0 [45.6, 56.8] | 50.5 | 0.07 | 0.01 | 0.45 | 0.71 | 2.6 | 5.0 | 19.8 | 21.9 |
+| x1.50 | 49.7 [44.3, 55.2] | 50.3 | 0.11 | 0.03 | 0.47 | 0.66 | 2.6 | 4.4 | 18.6 | 20.3 |
+
+Stone stability:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 46.1 [40.6, 51.6] | 47.7 | -0.12 | -0.05 | 0.63 | 0.75 | 4.4 | 5.4 | 18.5 | 20.7 |
+| x0.75 | 46.6 [41.1, 52.1] | 48.2 | -0.04 | 0.01 | 0.53 | 0.65 | 3.2 | 4.7 | 18.5 | 20.8 |
+| x0.90 | 47.4 [41.9, 52.9] | 47.7 | -0.01 | -0.04 | 0.51 | 0.65 | 3.1 | 4.3 | 18.6 | 21.0 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 47.7 [42.2, 53.1] | 48.2 | 0.10 | 0.03 | 0.51 | 0.58 | 2.8 | 4.2 | 18.7 | 20.7 |
+| x1.25 | 47.1 [41.7, 52.9] | 49.0 | 0.05 | 0.14 | 0.51 | 0.53 | 2.8 | 3.6 | 18.7 | 20.8 |
+| x1.50 | 47.7 [42.2, 53.1] | 49.7 | 0.09 | 0.17 | 0.46 | 0.51 | 2.6 | 3.4 | 18.5 | 20.6 |
+| x2.00 | 48.2 [42.7, 53.6] | 48.4 | 0.10 | 0.08 | 0.47 | 0.58 | 2.6 | 3.7 | 18.9 | 21.4 |
+
+Stone recovery:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 44.8 [39.3, 50.5] | 46.1 | -0.14 | -0.15 | 0.59 | 0.64 | 4.7 | 6.1 | 18.7 | 21.3 |
+| x0.75 | 46.9 [41.4, 52.3] | 48.7 | 0.02 | 0.03 | 0.49 | 0.59 | 3.6 | 4.6 | 18.5 | 20.9 |
+| x0.90 | 47.1 [41.7, 52.6] | 47.4 | -0.02 | -0.06 | 0.49 | 0.65 | 3.1 | 4.4 | 18.6 | 20.7 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 48.7 [43.0, 54.2] | 47.7 | 0.09 | 0.02 | 0.43 | 0.60 | 2.1 | 3.9 | 18.8 | 21.1 |
+| x1.25 | 46.2 [40.8, 51.7] | 49.2 | -0.07 | 0.12 | 0.55 | 0.53 | 2.9 | 3.4 | 18.4 | 20.8 |
+
+Stone armour:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 47.1 [41.7, 52.6] | 47.4 | -0.05 | -0.14 | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x0.75 | 47.4 [41.9, 53.1] | 47.7 | -0.02 | -0.10 | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x0.90 | 47.4 [41.9, 53.1] | 47.7 | -0.01 | -0.08 | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 47.1 [41.7, 52.6] | 47.7 | 0.76 | 0.77 | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.25 | 46.9 [41.4, 52.6] | 47.7 | -0.05 | 0.63 | 0.54 | 0.62 | 3.0 | 4.4 | 18.9 | 20.6 |
+| x1.50 | 47.1 [41.9, 52.6] | 47.9 | -0.02 | 0.23 | 0.55 | 0.63 | 3.0 | 4.4 | 18.9 | 20.6 |
+| x2.00 | 47.4 [41.9, 52.9] | 48.2 | 0.04 | 0.18 | 0.58 | 0.64 | 3.1 | 4.3 | 19.0 | 20.7 |
+
+Stone toughness:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 18.0 [14.1, 22.1] | 16.4 | -1.35 | -1.40 | 0.51 | 0.56 | 2.4 | 3.7 | 12.6 | 13.3 |
+| x0.75 | 36.1 [30.9, 41.4] | 35.0 | -0.97 | -1.03 | 0.50 | 0.58 | 2.5 | 3.6 | 16.7 | 17.6 |
+| x0.90 | 44.0 [38.5, 49.7] | 44.3 | -0.56 | -0.59 | 0.49 | 0.60 | 3.0 | 4.2 | 18.0 | 19.7 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 52.2 [46.9, 57.7] | 53.5 | 0.52 | 0.55 | 0.56 | 0.61 | 3.2 | 4.2 | 19.7 | 21.6 |
+| x1.25 | 59.1 [53.6, 64.3] | 60.2 | 0.97 | 1.00 | 0.56 | 0.59 | 3.2 | 4.1 | 21.2 | 22.5 |
+| x1.50 | 69.3 [64.3, 74.5] | 71.2 | 1.29 | 1.30 | 0.58 | 0.57 | 3.3 | 4.0 | 23.1 | 24.3 |
+| x2.00 | 83.1 [78.9, 87.2] | 84.1 | 1.65 | 1.73 | 0.66 | 0.62 | 3.6 | 4.3 | 25.4 | 26.4 |
+
+Stone armSpeed:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 14.8 [10.9, 19.0] | 11.5 | -0.96 | -1.16 | 0.73 | 0.84 | 4.5 | 5.7 | 28.8 | 29.9 |
+| x0.75 | 31.0 [25.8, 35.9] | 35.7 | -0.48 | -0.44 | 0.82 | 0.71 | 5.6 | 4.2 | 23.9 | 24.8 |
+| x0.90 | 45.3 [39.8, 51.0] | 45.6 | -0.01 | -0.11 | 0.63 | 0.66 | 3.6 | 4.6 | 22.6 | 21.7 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 55.5 [50.0, 60.9] | 53.1 | 0.28 | 0.14 | 0.49 | 0.57 | 3.2 | 3.5 | 20.1 | 19.7 |
+| x1.25 | 54.7 [49.5, 59.9] | 57.4 | 0.14 | 0.21 | 0.59 | 0.56 | 3.9 | 4.2 | 19.2 | 19.2 |
+| x1.50 | 49.6 [43.8, 55.6] | 53.3 | 0.14 | 0.14 | 0.46 | 0.51 | 2.8 | 3.7 | 20.2 | 20.7 |
+
+Skeleton movement:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.75 | 45.3 [40.1, 50.5] | 46.1 | -0.07 | -0.06 | 17.56 | 17.54 | 65.6 | 65.2 | 59.5 | 59.8 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x1.50 | 43.0 [38.0, 47.9] | 44.3 | -0.14 | -0.12 | 18.39 | 17.99 | 68.3 | 67.4 | 58.7 | 58.1 |
+
+Skeleton turning:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 40.6 [35.2, 45.8] | 39.3 | -0.26 | -0.27 | 17.16 | 16.92 | 62.8 | 61.6 | 60.0 | 60.2 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x1.50 | 53.1 [48.2, 58.3] | 54.9 | 0.12 | 0.13 | 16.10 | 15.47 | 63.7 | 62.3 | 55.2 | 54.4 |
+
+Skeleton stability:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 45.3 [40.6, 50.5] | 43.5 | -0.15 | -0.16 | 18.26 | 17.93 | 68.8 | 68.9 | 57.5 | 56.6 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x2.00 | 51.3 [46.6, 56.0] | 53.1 | 0.01 | 0.04 | 16.03 | 15.69 | 61.9 | 61.0 | 57.0 | 56.9 |
+
+Skeleton recovery:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 29.7 [25.0, 34.4] | 29.2 | -0.46 | -0.50 | 13.13 | 12.83 | 83.0 | 82.7 | 62.7 | 61.5 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x1.25 | 52.1 [47.1, 57.3] | 51.6 | -0.01 | 0.01 | 17.80 | 17.07 | 60.5 | 59.4 | 55.9 | 55.0 |
+
+Skeleton armour:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 35.2 [30.5, 39.8] | 36.5 | -0.97 | -0.97 | 14.95 | 14.73 | 64.2 | 64.4 | 50.5 | 49.7 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x2.00 | 94.0 [91.7, 96.1] | 94.3 | 1.94 | 1.90 | 18.23 | 17.98 | 64.5 | 63.9 | 62.3 | 62.0 |
+
+Skeleton toughness:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 21.1 [16.9, 25.5] | 22.4 | -1.33 | -1.29 | 12.75 | 12.44 | 63.7 | 62.9 | 43.6 | 43.1 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x2.00 | 83.9 [79.9, 87.5] | 84.1 | 1.63 | 1.68 | 18.21 | 18.06 | 64.6 | 64.1 | 61.8 | 61.8 |
+
+Skeleton armSpeed:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.50 | 14.8 [11.5, 18.5] | 16.1 | -1.03 | -1.02 | 19.89 | 19.83 | 70.7 | 70.8 | 62.5 | 62.3 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x1.50 | 66.4 [61.5, 71.4] | 66.1 | 0.40 | 0.40 | 15.95 | 15.41 | 59.6 | 59.5 | 58.9 | 56.7 |

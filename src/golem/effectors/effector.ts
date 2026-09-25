@@ -251,6 +251,9 @@ export function effectorModule(
         strokes: chainEnvelope.strokes,
         reachable: chainEnvelope.reachable,
         settledBand: chainEnvelope.settledBand,
+        // The chain's, like the axes: what the arm's build did to its drive (`ArmDrive`). The
+        // terminal's share of the load is in `swingInertia` above.
+        ...(chainEnvelope.drive ? { drive: chainEnvelope.drive } : {}),
       });
 
       // The view is one object with getters, allocated once and never replaced. Each getter

@@ -73,11 +73,14 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * gap (`meanFootSlipBudgetMps`) and not this stat's.
    *
    * **In the duel it does nothing measurable.** Swept against an unmodified body over 384 bouts a
-   * level (`research/stat-sweep.mjs`, the four probe minds), every level from x0.75 to x1.5 sits
-   * inside the null row: win rate 46.7 % to 51.3 %, no margin d above 0.07, same bout length. The
-   * minds fight in contact, where two footprints block each other and top speed binds only on the
-   * approach -- the brawler asks for full speed 76.5 % of a bout and has it 24.8 %. The tables and
-   * that argument are `docs/analysis/2026-09-23-attribute-measurements.md`, "Movement".
+   * level under the physical contact model (`research/stat-sweep.mjs` at 231403a, physical contact
+   * session 10, Node harness, research runner; stone with the four probe minds, the skeleton
+   * duelist's mirror): every level from x0.75 to x1.5 sits inside the null, stone at 47.1 % to 52.2
+   * % with no paired d above 0.09, the skeleton at 45.3 % at x0.75 and 43.0 % at x1.5. The minds
+   * fight in contact, where two footprints block each other and top speed binds only on the
+   * approach -- the brawler asked for full speed 76.5 % of a bout and had it 24.8 % (the attributes
+   * set's reading). The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical
+   * contact 10".
    */
   movement: Object.freeze({ label: "Movement", min: 0.75, max: 1.5, step: 0.05, live: true }),
   /**
@@ -102,22 +105,24 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * both limits scale together, so the angle a body coasts after the command lets go scales with the
    * stat too -- 0.72 rad on the biped at x1, 1.07 at x1.5.
    *
-   * **In the duel, turning slowly costs and turning fast barely pays.** Swept against an unmodified
-   * body over 384 bouts a level (`research/stat-sweep.mjs`, the four probe minds): win rate 36.2 %
-   * at x0.5 and 38.4 % at x0.75, paired d -0.36 and -0.24; x0.9 to x1.1 inside the null; 53.0 % and
-   * 54.0 % at x1.25 and x1.5, d 0.09 and 0.10 with intervals that touch zero. The minds command a
-   * full turn 3 % to 48 % of a bout and sit at the cap 2 % to 26 %, so a slower cap binds and a faster
+   * **In the duel, turning slowly costs a little and turning fast pays nothing.** Swept against an
+   * unmodified body over 384 bouts a level under the physical contact model
+   * (`research/stat-sweep.mjs` at 231403a, physical contact session 10, Node harness, research
+   * runner; stone with the four probe minds, the skeleton duelist's mirror): stone wins 40.6 % at
+   * x0.5 (paired d -0.25) and 47.8 % to 51.3 % from x0.75 to x1.5; the skeleton 40.6 % at x0.5 (d
+   * -0.26) and 53.1 % at x1.5 (d 0.12). The minds commanded a full turn 3 % to 48 % of a bout and
+   * sat at the cap 2 % to 26 % (the attributes set's reading), so a slower cap binds and a faster
    * one mostly does not. The range is the swept one. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Turning".
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
    */
   turning: Object.freeze({ label: "Turning", min: 0.5, max: 1.5, step: 0.05, live: true }),
   /**
-   * How hard the body is to knock over: a plain factor on both the stagger and the fall threshold of
-   * its stability ledger (`stabilityScale`, formed only in `stabilityCapacity` in
-   * `src/supported-locomotion-state.ts`), and on the rule that interrupts a rise. Not through the
-   * brace multiplier, which is refused below 1 and is the wheel's 1 today. It moves the impulse
-   * ledger and nothing else: a body that tips over its own feet is not steadier for it. Session 06,
-   * 2026-09-23.
+   * How hard the body is to knock over: a plain factor on both the stagger and the fall line of its
+   * stability ledger (`stabilityScale`, formed only in `stabilityLines` in
+   * `src/supported-locomotion-state.ts`), and on the rule that interrupts a rise. It moves the
+   * impulse ledger and nothing else: a body that tips over its own feet is not steadier for it.
+   * Session 06, 2026-09-23. Since physical contact session 08 the lines it multiplies are the
+   * body's own geometry, and the table below is the frozen lines' record.
    *
    * **The thresholds move by exactly the multiple on every body.** Node harness,
    * `runGolemLocomotion`, a standing body shoved once, the bench's `shoveImpulseNs` bisected; the
@@ -133,48 +138,59 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * No body's own gait leaves the supported state at any level, x0.5 included, on its walk or on a
    * course that backs off, strafes and spins.
    *
-   * **In the duel, being easy to fell costs and being hard to fell barely pays**, as with turning.
-   * Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): on stone
-   * with the four probe minds, x0.5 falls 13.7 times a bout against the control's 4.9 and spends 38 %
-   * of it down, and wins 33.5 % (paired d -0.45); x2 falls 1.6 times, spends 4.8 % down, and wins
-   * 51.8 % (d 0.15, an interval that just clears zero). The skeleton duelist's mirror is a gentler
-   * slope, 42.4 % at x0.5 to 55 % at x1.5 and x2. The range is the swept one. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Stability".
+   * **In the duel it barely matters any more.** The lines it multiplies are the body's own since
+   * physical contact session 08, and a blow seldom reaches stone's. Swept against an unmodified
+   * body over 384 bouts a level under the physical contact model (`research/stat-sweep.mjs` at
+   * 231403a, physical contact session 10, Node harness, research runner; stone with the four probe
+   * minds, the skeleton duelist's mirror): stone wins 46.1 % at x0.5 (paired d -0.12) and 48.2 % at
+   * x2, its knockdowns going from 0.63 a bout to 0.47; the skeleton 45.3 % at x0.5 and 51.3 % at x2
+   * (d 0.01), falling 18.3 to 16.0 times a bout, because its falls are its stance's. The range is
+   * the attributes set's. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`,
+   * "Physical contact 10".
    */
   stability: Object.freeze({ label: "Stability", min: 0.5, max: 2, step: 0.05, live: true }),
   /**
    * How fast a knocked-down body is back on its feet: the frozen dwell and the frozen rise divided by
    * the stat for every body (`fallenDwellS`, `risingFloorS` and `recoveredRiseS` in
-   * `src/supported-locomotion-state.ts`, from `recoveryScale` on the authority), and a knockdown's
-   * rest window and lying cap divided on a body that has one (`withRecovery`). It does not change how
+   * `src/supported-locomotion-state.ts`, from `recoveryScale` on the authority), and the
+   * knockdown's rest window and lying cap divided on every body (`withRecovery`; one table,
+   * `KNOCKDOWN`, since physical contact session 08). It does not change how
    * often a body goes down; that is stability. Session 07, 2026-09-23.
    *
-   * **Stone scales exactly and to x2.** Node harness, whole golems (the knockdown test's pair),
-   * shoved twice past the fall line three times a level: stone lies 0.350 s and rises in 0.454 at
-   * x1, and the same over the stat at every level from x0.5 to x2. Its limbs never move faster than
-   * 1.67 m/s against the pelvis during a rise.
+   * **The ceiling is x1.25, and since physical contact session 08 stone sets it.** Node harness,
+   * whole golems (the knockdown test's pair), shoved along +x to twice the fall line along that push
+   * (`stabilityLinesAlong`), three times a level; lie and rise in seconds, the pelvis's height when
+   * the rise starts, and the peak limb speed against the pelvis during the rise. Re-measured at
+   * 567350a, 2026-09-24:
    *
-   * **The skeleton sets the ceiling.** Its lie ends on the cap at x1.25 and above, and the cap cuts
-   * a fall that is still going on:
+   *     recovery                   0.50   0.75   1.00   1.25   1.50        2.00
+   *     stone    lie, s            2.19   2.11   2.03   1.93   1.68 (cap)  1.26 (cap)
+   *              pelvis, m         0.20   0.20   0.20   0.20   0.30-0.66   0.78-0.86
+   *              rise, s           2.33   1.55   1.16   0.94   0.30-0.67   0.23
+   *              peak limb, m/s    1.81   2.83   3.45   4.09  14.73       10.71
+   *     skeleton lie, s            1.96   1.83   1.76   1.72   1.67        1.26
+   *              pelvis, m         0.10   0.10   0.10   0.10   0.10        0.45-0.54
+   *              rise, s           2.53   1.68   1.27   1.01   0.85        0.32
+   *              peak limb, m/s    2.36   3.54   4.66   5.71   6.90       11.61
    *
-   *     recovery                   0.50   0.75   1.00   1.25   1.50   2.00
-   *     lie, s                     2.61   2.50   2.38   2.01   1.68   1.26
-   *     pelvis at rise start, m    0.20   0.19   0.20   0.27   0.34   0.68
-   *     rise, s                    2.21   1.50   1.11   0.80   0.58   0.23
-   *     peak limb speed, m/s       5.52   5.64   5.80   5.71   9.31  16.27   (vs the pelvis, in the rise)
+   * Stone now lies about two seconds, because since session 08 it runs the one `KNOCKDOWN` table,
+   * whose rise waits for the fall to finish; it used to rise a fixed 0.35 s after it was released,
+   * mid-fall. At x1.25 one lie in three
+   * reaches the cap, from a finished fall; at x1.5 every lie ends on the cap, the rise begins
+   * mid-fall and a limb whips at 14.7 m/s. The skeleton, which set the ceiling before, now rises
+   * from a finished fall through x1.6 and would allow x1.5 on its own. So the top is still x1.25.
+   * Stone above x1.25 was read with a 3 s window per shove against the 7 s used below it; every one
+   * of those shoves finished inside it.
    *
-   * At x1.25 the rise still begins from a finished fall -- 0.26 to 0.28 m, against the 0.26 m the
-   * knockdown table's note records for the rises it watched -- and nothing moves faster. At x1.5 it begins mid-fall and a wrist
-   * whips at 9.3 m/s, and at x2 the body is lifted off a fall barely begun. So the top is x1.25.
-   * Held off its rest rule, the skeleton lies exactly the cap over the stat at both ends and stands.
-   *
-   * **In the duel, lying longer costs and getting up sooner barely pays** -- the shape of every stat
-   * so far. Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): on
-   * stone, x0.5 spends 28 % of a bout down against 15 % and wins 38.8 % (paired d -0.38), x1.25 is
-   * inside the null, and x1.5 and x2 win 52.9 % and 54.0 % (d 0.16 and 0.15). The skeleton mirror
-   * is flat from x0.5 to x1.25 -- and wins 60.2 % at x1.5 (d 0.27), the level where the rise stops
-   * being one; that gain is not shipped, and what makes it is not established. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Recovery".
+   * **In the duel, lying longer costs and getting up sooner pays nothing.** Swept against an
+   * unmodified body over 384 bouts a level under the physical contact model
+   * (`research/stat-sweep.mjs` at 231403a, physical contact session 10, Node harness, research
+   * runner; stone with the four probe minds, the skeleton duelist's mirror): stone wins 44.8 % at
+   * x0.5 (paired d -0.14; down 5 % of a bout against 3 %) and 46.2 % at x1.25; the skeleton, down
+   * 64 % of a bout at x1, wins 29.7 % at x0.5 (d -0.46, down 83 %) and 52.1 % at x1.25 (d -0.01).
+   * The attributes set read the skeleton at 60.2 % at x1.5, outside the range, under the old
+   * contact model; that level was not re-measured. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
    */
   recovery: Object.freeze({ label: "Recovery", min: 0.5, max: 1.25, step: 0.05, live: true }),
   /**
@@ -198,12 +214,15 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    *     human pelvis, upper arm (0.35)  8.25   7.38   6.50   5.63   4.75   3.00
    *
    * **So it is flat on stone and decisive on the skeleton.** Swept against an unmodified body over
-   * 384 bouts a level (`research/stat-sweep.mjs`): the stone default wins 47.8 % at x0.5 and 50.0 %
-   * at x2, inside the null at every level; the plated build, 47.8 % to 52.0 %; the skeleton duelist's
-   * mirror, 32.3 % at x0.5, 64.8 % at x1.25, 84.9 % at x1.5 and 97.1 % at x2 (paired d 1.90). No
-   * level is unsafe -- nothing physical moves and the cap keeps every blow landing a tenth -- so the
-   * range is the swept one; how much of it a fair fight wants is a balance call, not a bench one.
-   * The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Armour".
+   * 384 bouts a level under the physical contact model (`research/stat-sweep.mjs` at 231403a,
+   * physical contact session 10, Node harness, research runner; stone with the four probe minds,
+   * the skeleton duelist's mirror): the stone default wins 46.9 % to 47.4 % at every level from
+   * x0.5 to x2 (its paired d is noise over a margin that barely varies); the skeleton 35.2 % at
+   * x0.5 and 94.0 % at x2 (d 1.94). The plated build read 47.8 % to 52.0 % under the old contact
+   * model and was not re-measured. No level is unsafe -- nothing physical moves and the cap keeps
+   * every blow landing a tenth -- so the range is the swept one; how much of it a fair fight wants
+   * is a balance call, not a bench one. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
    */
   armour: Object.freeze({ label: "Armour", min: 0.5, max: 2, step: 0.05, live: true }),
   /**
@@ -225,14 +244,13 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    *     human core             13/19   19/29   25/38   32/47   38/57   50/75
    *     any held blade           3/5     3/5     3/5     3/5     3/5     3/5
    *
-   * **The strongest stat on stone so far, and the first there whose gain matches its cost.** Swept
-   * against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): on stone with the
-   * four probe minds, 16.8 % at x0.5, 32.2 % at x0.75, 60.4 % at x1.25, 72.4 % at x1.5 and 84.6 % at
-   * x2 (paired d 1.78); on the skeleton duelist's mirror, 22.1 % to 87.8 %. Modules lost fall from
-   * 0.98 a bout to 0.13 on stone. Every bout at every level ended on an empty bar inside 115 s, the
-   * overtime drain taking the same share of a tough body as of any other, so no level reaches the
-   * cap. Nothing physical moves, so the range is the swept one. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Toughness".
+   * **Its gain matches its cost.** Swept against an unmodified body over 384 bouts a level under
+   * the physical contact model (`research/stat-sweep.mjs` at 231403a, physical contact session 10,
+   * Node harness, research runner; stone with the four probe minds, the skeleton duelist's mirror):
+   * stone wins 18.0 % at x0.5, 36.1 % at x0.75, 59.1 % at x1.25, 69.3 % at x1.5 and 83.1 % at x2
+   * (paired d 1.65); the skeleton 21.1 % at x0.5 and 83.9 % at x2 (d 1.63). Nothing physical moves,
+   * so the range is the swept one. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
    */
   toughness: Object.freeze({ label: "Toughness", min: 0.5, max: 2, step: 0.05, live: true }),
   /**
@@ -249,8 +267,13 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    *     wrist blade        14.7/32    18.1/38    21.1/39    23.6/38    23.9/38    23.9/38
    *     wrist mace         28.8/284   31.9/298   32.8/290   32.8/289   32.8/301   32.8/302
    *     skeletal blade     17.0/46    17.6/47    17.6/46    17.5/46    17.6/47    17.5/47
-   *     anatomical blade    9.2/62    11.1/77    12.1/108   13.6/149   13.4/171   12.0/228
+   *     anatomical blade    8.4/67    11.2/76    11.8/119   13.0/155   13.2/181   12.3/219
    *     pitch blade        12.4/--    15.5/--    18.4/--    19.7/--    15.5/--    12.4/--
+   *
+   * Re-measured at 567350a, 2026-09-24: every row is the same to the digit but the anatomical arm's,
+   * which physical contact session 09's capability builder now drives at the orientation it holds.
+   * Timed as a mind times it (`timed`), the skeletal blade rises to 21.5 m/s at x1.5 and is flat
+   * after, and the other rows keep their shape.
    *
    * The committed sword shape -- the one `tests/golem-bench.test.mjs` holds under 50 mm of stray --
    * stays at 32 mm on the wrist and 16 mm on the skeletal arm at every level to x2.5, so the plan's
@@ -260,14 +283,15 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * spent by x1.5. The anatomical arm is the known cost inside the range: its stray grows at every
    * level above x1, to 149 mm at x1.5, though its tip speed still rises.
    *
-   * Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`): stone with
-   * the four probe minds, 15.5 % at x0.5, 29.2 % at x0.75, 62.4 % at x1.25, 65.0 % at x1.5 and
-   * 70.3 % at x2.5; the skeleton duelist's mirror, 3.4 %, 17.4 %, 71.4 %, 77.9 % and 80.2 %. Both
-   * flatten past x1.5, and on stone the share of contacts that are real blows falls from 45.8 % to
-   * 41.9 % there. The pitch-blade build is flat from x1 to x1.5 (49.3 %, 52.6 %) and collapses
-   * at x2 (20.3 %), where the hinge stops following. The human mirror gains nothing above x1 (48.7 %
-   * at x1.5), though it barely lands a blow. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Arm speed".
+   * Swept against an unmodified body over 384 bouts a level under the physical contact model
+   * (`research/stat-sweep.mjs` at 231403a, physical contact session 10, Node harness, research
+   * runner; stone with the four probe minds, the skeleton duelist's mirror): stone wins 14.8 % at
+   * x0.5, 31.0 % at x0.75, 55.5 % at x1.1, 54.7 % at x1.25 and 49.6 % at x1.5 (paired d 0.14), so
+   * it peaks early; the skeleton 14.8 % at x0.5 and 66.4 % at x1.5 (d 0.40). Under the old contact
+   * model, and not re-measured: the pitch-blade build was flat from x1 to x1.5 (49.3 %, 52.6 %) and
+   * collapsed at x2 (20.3 %), where the hinge stops following, and the human mirror gained nothing
+   * above x1. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical
+   * contact 10".
    */
   armSpeed: Object.freeze({ label: "Arm speed", min: 0.5, max: 1.5, step: 0.05, live: true }),
   /**
@@ -281,9 +305,13 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * settled) and direction changes, then whether the sweep-then-hold rings.
    *
    *     weight                 0.50         0.70         0.75         0.80         1.00         2.00
-   *     pitch blade        2.40/53      2.40/31      0.65/25      0.52/25      0.40/18      0.10/8
-   *     skeletal blade     0.40/9 grows     --       0.25/7 grows 0.20/7       0.18/6       0.08/4
-   *     wrist blade        0.20/6           --           --           --       0.09/4       0.05/2
+   *     pitch blade        2.40/48      2.40/15      1.07/31      0.77/21      0.40/18      0.10/8
+   *     skeletal blade     0.40/9 grows 0.26/7 grows 0.25/7 grows 0.20/7       0.18/6       0.08/4
+   *     wrist blade        0.20/6       0.14/5       0.10/4       0.10/4       0.09/4       0.05/2
+   *
+   * Re-measured at 567350a, 2026-09-24. Physical contact session 07's rule that the arm's torques
+   * follow the stat makes the pitch hinge settle more slowly below x1 (0.52 s at x0.8 before it,
+   * 0.77 after), and it still settles; the skeletal hold still grows at x0.75 and not at x0.8.
    *
    * Every chain rings less as it gets heavier and none grows at the heavy end, so the ceiling is the
    * swept x2. What rises with it is the anatomical arm's rest wander, 1.8 mm at x1 to 4.5 at x1.5,
@@ -291,14 +319,16 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * whole range, because every arm link's rotational inertia sits on the solver's floor at every
    * level and the rate limits shape a commanded move.
    *
-   * The impulse that staggers a body is linear in the stat: 0.42 N.s at x0.5, 0.80 at x1 and 1.57 at
-   * x2 on stone. Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`),
-   * stone with the four probe minds does not win by it: 47.7 % at x0.5, 44.7 % at x1.5 and 43.0 % at
-   * x2 (d -0.15 against the control), while its knockdowns go from 14.61 a bout to 0.65. The minds
-   * stretch a heavy arm's strokes (`strokeInertiaScale`, 14.4 % at x2) that the arm itself does not
-   * need. The skeleton duelist's mirror loses by it outright: 74.5 % at x0.5, 58.3 % at x0.9, 38.8 %
-   * at x1.5 (d -0.27) and 45.3 % at x2, with its knockdowns going from 7.05 a bout to 1.75. The
-   * tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Weight".
+   * What fells a body is linear in the stat, since its lines are its own geometry times its mass.
+   * Swept against an unmodified body over 384 bouts a level under the physical contact model
+   * (`research/stat-sweep.mjs` at 231403a, physical contact session 10, Node harness, research
+   * runner; stone with the four probe minds, the skeleton duelist's mirror): **both bodies win by
+   * it**: stone 35.2 % at x0.8 (paired d -0.38), 58.5 % at x1.1, 66.9 % at x1.25 and 79.7 % at x2
+   * (d 0.81); the skeleton 43.0 % at x0.8 and 68.2 % at x2 (d 0.49), its knockdowns going from 18.1
+   * a bout to 11.6. Stone's modified corner falls more often at either end than in the control
+   * mirror (2.06 a bout at x0.8, about one from x1.1 up, against 0.52), which is not explained.
+   * Under the attributes set's contact model neither body won by it. The tables are
+   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
    */
   weight: Object.freeze({ label: "Weight", min: 0.8, max: 2, step: 0.05, live: true }),
   /**
@@ -324,14 +354,13 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * **A plate on the pitch chain is refused below x1** (`golemSetupRefusal`). The board keeps its
    * size and the chest under it does not, so the board sits 23 mm inside a plated chest at x0.8.
    *
-   * Swept against an unmodified body over 384 bouts a level (`research/stat-sweep.mjs`), **the
-   * two bodies point opposite ways.** Stone with the four probe minds is flat below x1 (48.7 % at
-   * x0.8) and loses above it, 41.9 % at x1.1 and 33.1 % at x1.25 (d -0.48 against the control),
-   * dealing 5.68 a bout against 7.60 while it goes down 0.59 times against 4.89. Turning the minds'
-   * stroke stretch off (`strokeInertiaScale`, which times a x1.25 stone arm 38 % slower) leaves
-   * x1.25 at 35.4 %, so that is not the cause, and the cause is not isolated. The skeleton duelist's
-   * mirror wins big and loses small: 42.4 % at x0.8, 29.7 % at x0.9, 72.9 % at x1.1 (d 0.57) and
-   * 60.9 % at x1.25. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Size".
+   * Swept against an unmodified body over 384 bouts a level under the physical contact model
+   * (`research/stat-sweep.mjs` at 231403a, physical contact session 10, Node harness, research
+   * runner; stone with the four probe minds, the skeleton duelist's mirror): **the strongest stat
+   * on stone, and both bodies win by it**: stone 10.2 % at x0.8 (paired d -1.08), 27.1 % at x0.9,
+   * 69.3 % at x1.1 and 84.9 % at x1.25 (d 0.98); the skeleton 16.7 % at x0.8 and 74.7 % at x1.25 (d
+   * 0.76). Under the attributes set's contact model stone lost by it above x1 (33.1 % at x1.25).
+   * The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
    */
   size: Object.freeze({ label: "Size", min: 0.8, max: 1.25, step: 0.05, live: true }),
 });
@@ -661,8 +690,7 @@ interface LyingRule {
 /**
  * A locomotion table with its knockdown's lie shortened by the recovery stat: the stillness a fall
  * must hold before it counts as finished (`restSeconds`) and the cap that ends a lie whatever the
- * body is doing (`maxLyingSeconds`), both divided. At x1, or on a table with no knockdown, the table
- * it was handed comes back.
+ * body is doing (`maxLyingSeconds`), both divided. At x1 the table it was handed comes back.
  *
  * **Half of the stat, and the half only the body can see.** The other half -- the frozen dwell, the
  * frozen rise and every body's own rise length, the knockdown's `risePeakMps` included -- is divided
@@ -671,10 +699,10 @@ interface LyingRule {
  * never removed: the range keeps it finite, and a cap is what lets a body that is struck while it
  * lies get up at all (the house rule on recovery).
  */
-export function withRecovery<K extends LyingRule, T extends { readonly knockdown: K | null }>(
+export function withRecovery<K extends LyingRule, T extends { readonly knockdown: K }>(
   table: T, recovery: number,
 ): T {
-  if (recovery === 1 || table.knockdown === null) return table;
+  if (recovery === 1) return table;
   const knockdown = table.knockdown;
   return {
     ...table,

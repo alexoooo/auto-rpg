@@ -2,14 +2,14 @@
 // is not `tactics.ts`, `hands.ts`, `rng.ts` or `downed.ts`**, and those four import nothing with a scene in
 // it, so a whole bout of this mind's cadence can be stepped in front of a hand-written view.
 import { isShield, type Striker, type WeaponKind } from "../hands.ts";
-import { finishPoint, standOffReach } from "../downed.ts";
+import { finishPoint, presses, standOffReach } from "../downed.ts";
 import { mulberry32 } from "../rng.ts";
 import type { DuelOption, DuelReading, MyPhase } from "./duel-model.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 import {
   GOLEM_TACTICS, STROKE_SHAPES, aimAt, angleTo, canAttack, canCover, canSwing, clamp, distance,
-  freshGolemIntent, innerReach, mirror, reachForDistance, readyNatural, strokeInertiaScale, watch,
+  freshGolemIntent, innerReach, mirror, reachForDistance, readyNatural, strokeTimeScale, watch,
   writeAim,
   type Aim, type GolemStance, type Point, type StrokeShape, type TacticalRanges, type Threat,
 } from "./tactics.ts";
@@ -645,13 +645,16 @@ function slotMark(them: BodyView, slot: TargetSlot, into: Point): Point {
  */
 function fencerRanges(
   reach: number, cap: EffectorCapability, theirReach: number, inside: boolean, longer: boolean,
-  T: FencerTactics,
+  T: FencerTactics, press = false,
 ): TacticalRanges {
   const slack = reach * T.slackFraction;
   const near = innerReach(reach, cap);
   const standOff = inside ? 0
     : theirReach * (longer ? T.longStandOff : T.standOffFraction);
-  const hold = Math.max(reach * T.holdFraction, near + slack, standOff);
+  // **Pressing closes to the arm's own inner edge** (physical contact session 09): a body that
+  // heavily outweighs the other (`presses` in `src/downed.ts`) holds as close as it can still
+  // strike from, which is body to body, rather than at any fraction of its reach.
+  const hold = press ? near + slack : Math.max(reach * T.holdFraction, near + slack, standOff);
   return Object.freeze({
     near, hold, slack,
     strike: Math.max(reach * T.strikeFraction, hold + slack),
@@ -954,7 +957,8 @@ export function golemFencer(
     // **A downed body is finished, not stood off from** (physical contact session 03): the stand-off
     // drops its floor at their reach and the range is taken to their live core (`finishPoint` in
     // `src/downed.ts`). Standing, both are what they always were.
-      : fencerRanges(reach, cap, standOffReach(them), T.closeOnRecover && shorter && inside, longer, T);
+      : fencerRanges(reach, cap, standOffReach(self, them), T.closeOnRecover && shorter && inside, longer, T,
+        presses(self, them));
     const { near, hold, strike, slack } = ranges;
     const gap = headfirst ? bodyGap : distance(socket, finishPoint(them, finish) ? finish : them.shoulder);
 
@@ -1108,7 +1112,7 @@ export function golemFencer(
       // Both phases stretched by what this arm is carrying, and the stop-hit's ceiling applied to
       // the stretched chamber rather than to the shape's: a stop-hit is "as short as this arm can
       // make it", and a cap read off the blade's bench would let a maul snatch itself up.
-      const scale = strokeInertiaScale(cap.swingInertia);
+      const scale = strokeTimeScale(cap);
       chamberSeconds = quick ? Math.min(shape.chamberSeconds * scale, T.stopHitChamberSeconds)
         : shape.chamberSeconds * scale;
       strokeSeconds = shape.strokeSeconds * scale;
@@ -1336,7 +1340,7 @@ export function golemFencer(
         !self.hands[spare].lost && canAttack(spareCap) && !isShield(self.hands[spare].weapon) &&
         random() < T.comboFraction) {
         const spareShape = strokeFor(self.hands[spare].weapon);
-        const spareScale = strokeInertiaScale(spareCap.swingInertia);
+        const spareScale = strokeTimeScale(spareCap);
         combo = {
           hand: spare, shape: spareShape, elapsed: 0,
           chamberSeconds: T.comboChamberSeconds * spareScale,

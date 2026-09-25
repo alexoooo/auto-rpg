@@ -13,9 +13,8 @@ export const HUMAN_BIPED = { ...LOCOMOTION_BIPED,
   footprintRadius: 0.28, footprintHeight: 1.8, crouchDepth: 0.22,
   // Stone's leg torques from before stone took its own body density (2026-09-24).
   hipTorque: 900, kneeTorque: 500, ankleTorque: 220,
-  // Stone's bench shove from before stone took its own body density; the human's mass did not move
-  // with stone's, so it holds nothing either.
-  shoveImpulseNs: 200, stabilityMassRatio: 1,
+  // Stone's bench shove from before stone took its own body density.
+  shoveImpulseNs: 200,
   carrier: { ...LOCOMOTION_BIPED.carrier, maxSpeedMps: 2.6 },
 };
 export const HUMAN_TORSO = { ...TORSO_PLAIN, coreWidth: 0.36, coreHeight: 0.46, coreDepth: 0.23,

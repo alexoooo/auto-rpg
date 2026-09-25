@@ -88,7 +88,7 @@ try {
     case "dagger-campaign": {
       if (!flags.model) throw new Error("dagger-campaign requires an initial student --model");
       let model = JSON.parse(readFileSync(resolve(flags.model), "utf8"));
-      if (model.version !== 2 || model.hz !== 12 || model.samplingStd || model.scope) throw new Error("DAgger campaign requires a deterministic unscoped version-2, 12 Hz student");
+      if (![2, 3].includes(model.version) || model.hz !== 12 || model.samplingStd || model.scope) throw new Error("DAgger campaign requires a deterministic unscoped version-2 or -3, 12 Hz student");
       if (existsSync(join(directory, "dagger-campaign.json"))) throw new Error("preserve completed DAgger rounds; use a new campaign directory");
       const roundLimit = Number(flags.rounds ?? 3), seed = Number(flags.seed ?? 7001);
       const retention = Number(flags.retention ?? 100000), queryWeight = Number(flags.queryWeight ?? 8);

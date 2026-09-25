@@ -10,7 +10,7 @@ import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../min
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 import {
   aimAt, angleTo, canAttack, canCover, canSwing, clamp, distance, freshGolemIntent, innerReach,
-  mirror, reachForDistance, readyNatural, strokeInertiaScale, watch, writeAim,
+  mirror, reachForDistance, readyNatural, strokeTimeScale, watch, writeAim,
   type Aim, type Point, type StrokeShape, type Threat,
 } from "./tactics.ts";
 import { slotHealth, strokeReader, type StrokePhase, type TargetSlot } from "./tactics-v2.ts";
@@ -1032,7 +1032,7 @@ export function golemDriven(
     // the one copy of that rule in `tactics.ts`. Read per control step rather than per stroke,
     // which is cheaper than the branch that would cache it and keeps the acting hand's own figure
     // correct when the attacker changes.
-    const inertiaScale = strokeInertiaScale(cap.swingInertia);
+    const inertiaScale = strokeTimeScale(cap);
     const hand = intent[attacker];
     const off = intent[spare];
     const me = self.hands[attacker];

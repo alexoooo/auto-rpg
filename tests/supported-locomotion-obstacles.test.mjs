@@ -6,6 +6,7 @@ import { flatSupportedWorldRegistry, isStandableUpwardNormalY, PhysicalSupported
 import { deriveLocomotionFootprint, StandableWorldRegistry, SUPPORTED_CARRIER_V1,
   VirtualLocomotionCarrier } from "../src/supported-locomotion-runtime.ts";
 import { SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
+import { tippingLineMps } from "../src/tipping.ts";
 
 const point = (x, y, z) => ({ x, y, z });
 const normal = (degrees) => Object.freeze([
@@ -17,12 +18,14 @@ const footprint = (id = "obstacle-fixture", heightM = 1.8, radiusM = 0.5) =>
   deriveLocomotionFootprint({ radiusM, heightM, provenance: { profileId: id,
     source: "construct-bind-geometry", measuredAt: "declared obstacle fixture envelope" } });
 const authority = Object.freeze({ carrierPartId: "pelvis",
-  supportBindings: Object.freeze([{ role: "left-foot" }, { role: "right-foot" }]),
-  braceCapacityMultiplier: 1.5, gaitStabilityScale: 1 });
+  supportBindings: Object.freeze([{ role: "left-foot" }, { role: "right-foot" }]) });
 const STOP = Object.freeze({ localForward: 0, localRight: 0, yaw: 0 });
-// A knockdown for the 10 kg fixture: ten times its fall line, whatever that line is. It was a literal
-// 1 N.s until physical contact session 06 scaled the ledger's lines by 20 and left it a stagger.
-const KNOCKDOWN = Object.freeze({ horizontalShoveNs: Object.freeze([10 * 10 * SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS, 0]) });
+// The fixture's stated rigid body (physical contact session 08): its 10 kg at the root, 0.9 m up,
+// with a 0.3 m gyration, over a square stance 0.1 m either side of its foot. A knockdown is ten times
+// its fall line along the push, formed by the same function the ledger reads.
+const COM_HEIGHT_M = 0.9, GYRATION_M = 0.3, STANCE_HALF_M = 0.1;
+const KNOCKDOWN = Object.freeze({ horizontalShoveNs: Object.freeze([
+  10 * 10 * tippingLineMps(COM_HEIGHT_M, GYRATION_M, STANCE_HALF_M), 0]) });
 
 const floorRegistry = (support = () => true) => {
   const registry = new StandableWorldRegistry();
@@ -36,13 +39,20 @@ const physical = (id, x, registry, overrides = {}) => {
   const rootState = overrides.rootState ?? { motionType: "dynamic", position: point(x, 0.9, 0),
     velocity: point(0, 0, 0), massKg: 10, released: false };
   const forces = [];
+  const foot = overrides.supportPoint ?? (() => point(x, 0.04, 0));
   const port = new PhysicalSupportedLocomotionPort({ id, position: rootState.position, yaw: 0,
     footprint: overrides.footprint ?? footprint(id), ownerPartIds: new Set([`${id}.root`]),
     root: overrides.root ?? { sample: () => rootState, applyForce: (force) => forces.push(force),
       clearDrive() {} }, registry, supportedMassKg: rootState.massKg,
     authority: () => authority, liveSupport: () => true, postureSupported: () => true,
     supportBindings: ["left-foot", "right-foot"],
-    supportPoint: overrides.supportPoint ?? (() => point(x, 0.04, 0)),
+    supportPoint: foot,
+    massDistribution: () => ({ x: rootState.position.x, y: COM_HEIGHT_M, z: rootState.position.z, gyrationM: GYRATION_M }),
+    supportPatch: () => {
+      const at = foot();
+      return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) =>
+        point(at.x + sx * STANCE_HALF_M, 0, at.z + sz * STANCE_HALF_M));
+    },
     releaseRoot: overrides.releaseRoot, restoreRoot: overrides.restoreRoot,
     releaseAnatomyCollision: overrides.releaseAnatomyCollision,
     restoreSupportedAnatomyCollision: overrides.restoreSupportedAnatomyCollision,

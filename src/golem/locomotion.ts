@@ -16,7 +16,11 @@ import type {
   SupportState,
 } from "../supported-locomotion-state.ts";
 import type { BuiltModule, GolemModuleDefinition, ModuleBuild } from "./module.ts";
-import { GOLEM_RUIN } from "./config.ts";
+import { GOLEM_RUIN, type Knockdown } from "./config.ts";
+import { SUPPORTED_LOCOMOTION_V1 } from "../supported-locomotion-state.ts";
+import { massDistributionOf, type MassDistribution, type PointMass } from "../tipping.ts";
+import { partBodyOf } from "../rig.ts";
+import type { WorldPoint } from "../supported-locomotion-runtime.ts";
 
 /**
  * The locomotion module contract, and the instrument that reads one.
@@ -154,6 +158,170 @@ export interface LocomotionLoad {
   readonly part: Part;
   /** Everything above the waist, kilograms. */
   readonly massKg: number;
+  /**
+   * Every part still on the whole body, legs and load together (physical contact session 08): what
+   * the port's tipping geometry is read from (`bodyReaders`). Absent, the module reads its own parts
+   * and the load's body.
+   */
+  readonly parts?: () => Iterable<Part>;
+}
+
+/**
+ * Whether a knocked-down body's fall has finished (`Knockdown`), the one rule every locomotion
+ * module runs (physical contact session 08; it was the biped's alone). `track` is called once a
+ * substep with the body's readers (`bodyReaders`). A fall is a descent, so it has finished once the
+ * whole body's centre of mass has come down at least half of its height over the ground when the
+ * fall began, and has then gone down no faster than `restSpeedMps` for `restSeconds` together; or
+ * once the body has lain `maxLyingSeconds`, whatever it was doing. Every clock restarts whenever
+ * the body is not fallen.
+ */
+export class KnockdownSettle {
+  private readonly knockdown: Knockdown;
+  private lyingS = 0;
+  private stillS = 0;
+  private low = false;
+  private lastY = NaN;
+  private floorY = NaN;
+  private startY = NaN;
+
+  constructor(knockdown: Knockdown) {
+    this.knockdown = knockdown;
+  }
+
+  track(fallen: boolean, dt: number, body: BodyReaders): void {
+    if (!fallen) {
+      this.lyingS = 0;
+      this.stillS = 0;
+      this.low = false;
+      this.lastY = NaN;
+      return;
+    }
+    const mass = body.mass();
+    if (!mass) return;
+    if (Number.isNaN(this.lastY)) {
+      let floorY = Infinity;
+      for (const point of body.ground()) floorY = Math.min(floorY, point.y);
+      this.floorY = Number.isFinite(floorY) ? floorY : mass.y;
+      this.startY = mass.y;
+    } else {
+      const descent = (this.lastY - mass.y) / dt;
+      this.low ||= mass.y <= this.startY - 0.5 * (this.startY - this.floorY);
+      this.stillS = this.low && descent <= this.knockdown.restSpeedMps ? this.stillS + dt : 0;
+      this.lyingS += dt;
+    }
+    this.lastY = mass.y;
+  }
+
+  get settled(): boolean {
+    return this.stillS >= this.knockdown.restSeconds || this.lyingS >= this.knockdown.maxLyingSeconds;
+  }
+
+  /**
+   * How long a rise over `distanceM` lasts: the lift is a smoothstep, whose peak speed is 1.5 times
+   * its mean, so a rise that may not exceed `risePeakMps` lasts at least 1.5 d / risePeakMps, and
+   * never less than the frozen floor, which is a time and goes as the square root of the size.
+   */
+  risingDurationS(distanceM: number, size: number): number {
+    return Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * Math.sqrt(size),
+      1.5 * distanceM / this.knockdown.risePeakMps);
+  }
+}
+
+/** A rectangular contact patch's four corners, as signs on its two half-extents. */
+export const PATCH_CORNERS: readonly (readonly [number, number])[] = Object.freeze([
+  Object.freeze([-1, -1] as const), Object.freeze([1, -1] as const), Object.freeze([1, 1] as const),
+  Object.freeze([-1, 1] as const),
+]);
+
+/** What `bodyReaders` hands back. */
+export interface BodyReaders {
+  readonly mass: () => MassDistribution | null;
+  readonly ground: () => WorldPoint[];
+}
+
+/**
+ * What the port's tipping geometry reads off a body (physical contact session 08), from the parts it
+ * is handed each boundary.
+ *
+ * - `mass`: where the parts' mass is and how it is spread, from each part's recorded mass at its own
+ *   centre of mass (`partBodyOf`), or its solver mass read once and kept where no builder recorded
+ *   one -- a mass read crosses into the plugin, and a part's mass does not change.
+ * - `ground`: each part's lowest points, which the port keeps where they are on the floor: a box's
+ *   eight corners, a capsule's two end caps, a sphere's bottom and a cylinder's two rims, each at
+ *   its own lowest. A lying or rising body rests on these, and its base is what they span.
+ *
+ * Positions are the nodes' own fields, which a scene-root body's `syncTransform` writes and reading
+ * stamps nothing (see `Golem.observe`).
+ */
+export function bodyReaders(parts: () => Iterable<Part>): BodyReaders {
+  const masses = new Map<Part, number>();
+  const massOf = (part: Part): number => {
+    let mass = masses.get(part);
+    if (mass === undefined) {
+      mass = partBodyOf(part.body)?.massKg ?? part.body.getMassProperties().mass ?? 0;
+      masses.set(part, mass);
+    }
+    return mass;
+  };
+  function* points(): Iterable<PointMass> {
+    for (const part of parts()) {
+      const p = part.mesh.position;
+      const offset = partBodyOf(part.body)?.centerOfMass;
+      if (offset) {
+        const [x, y, z] = rotate(part.mesh.rotationQuaternion, offset.x, offset.y, offset.z);
+        yield { massKg: massOf(part), x: p.x + x, y: p.y + y, z: p.z + z };
+      } else {
+        yield { massKg: massOf(part), x: p.x, y: p.y, z: p.z };
+      }
+    }
+  }
+  const ground = (): WorldPoint[] => {
+    const out: WorldPoint[] = [];
+    for (const part of parts()) {
+      const shape = partBodyOf(part.body)?.shape;
+      if (!shape) continue;
+      const p = part.mesh.position;
+      const q = part.mesh.rotationQuaternion;
+      const at = (x: number, y: number, z: number): void => {
+        const [dx, dy, dz] = rotate(q, x, y, z);
+        out.push({ x: p.x + dx, y: p.y + dy, z: p.z + dz });
+      };
+      if (shape.kind === "box") {
+        const [hx, hy, hz] = [shape.size[0] / 2, shape.size[1] / 2, shape.size[2] / 2];
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) at(sx * hx, sy * hy, sz * hz);
+      } else if (shape.kind === "sphere") {
+        out.push({ x: p.x, y: p.y - shape.radius, z: p.z });
+      } else {
+        // Along local Y: a capsule's two end-cap centres, each with its radius straight down; a
+        // cylinder's two cap centres, each with its radius down within the cap's own plane.
+        const [ax, ay, az] = rotate(q, 0, 1, 0);
+        const ends = shape.kind === "capsule" ? shape.height / 2 - shape.radius : shape.height / 2;
+        let dx = 0, dy = -shape.radius, dz = 0;
+        if (shape.kind === "cylinder") {
+          // World down with its part along the axis taken out, scaled to the radius.
+          const along = -ay;
+          const rx = ax * along, ry = -1 + ay * along, rz = az * along;
+          const length = Math.hypot(rx, ry, rz);
+          if (length > 1e-6) { dx = rx / length * shape.radius; dy = ry / length * shape.radius; dz = rz / length * shape.radius; }
+        }
+        for (const sign of [-1, 1]) {
+          out.push({ x: p.x + sign * ax * ends + dx, y: p.y + sign * ay * ends + dy, z: p.z + sign * az * ends + dz });
+        }
+      }
+    }
+    return out;
+  };
+  return Object.freeze({ mass: () => massDistributionOf(points()), ground });
+}
+
+/** A vector turned by a node's rotation quaternion (identity when it has none). */
+function rotate(q: Readonly<{ x: number; y: number; z: number; w: number }> | null, x: number, y: number,
+  z: number): [number, number, number] {
+  if (!q) return [x, y, z];
+  // v + 2 w (u x v) + 2 u x (u x v)
+  const tx = 2 * (q.y * z - q.z * y), ty = 2 * (q.z * x - q.x * z), tz = 2 * (q.x * y - q.y * x);
+  return [x + q.w * tx + (q.y * tz - q.z * ty), y + q.w * ty + (q.z * tx - q.x * tz),
+    z + q.w * tz + (q.x * ty - q.y * tx)];
 }
 
 /** One named place a locomotion module can prove it is standing on something. */
@@ -190,7 +358,7 @@ export interface BuiltLocomotion extends BuiltModule<LocomotionCommand> {
   readonly world: StandableWorldRegistry;
   readonly footprint: LocomotionFootprint;
   readonly heightRange: LocomotionHeightRange;
-  /** The live stability authority. Recomputed per boundary, because gait scale moves with speed. */
+  /** The live stability authority, read at every boundary. */
   authority(): StabilityAuthority;
   /**
    * Root-up, root-above-feet and stack-above-root, together.

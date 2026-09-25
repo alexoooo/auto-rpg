@@ -604,7 +604,7 @@ export class Combat {
     const normal = this.contactNormal(velocity, event);
     const transferNs = normal ? this.transfer(this.strikerMassAt(weapon, point, normal),
       effectiveMassAt(event.collidedAgainst, point, normal), this.closingSpeedAt(velocity, event), normal,
-      velocity, event.collidedAgainst, weapon.body) : 0;
+      velocity, event.collidedAgainst, weapon.body, point.y) : 0;
     const report: HitReport = {
       ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
@@ -714,16 +714,24 @@ export class Combat {
    * replaced was added on top of it. What the ledger needs is the reading, not a second push.
    *
    * The struck part and the striker go with it, so the target can refuse a contact its contact press
-   * is already reading (`Golem.queueStabilityEvent`, physical contact session 07).
+   * is already reading (`Golem.queueStabilityEvent`, physical contact session 07), and so does the
+   * height it landed at, which the ledger reads as a lever about the base (physical contact session
+   * 08).
+   *
+   * **What is filed is the physical impulse, for every contact.** Physical contact session 08 first
+   * filed seven times it (`BLOW_GAIN`), because with every blow read at the centre of mass's height
+   * an x1 stone mirror all but never fell. Once a blow's height reached the ledger as its lever, the
+   * stone mirror fell 0.49 [0.34, 0.66] times a body a bout with no gain at all (96 pairs, Node
+   * research runner), and the gain went.
    */
   private transfer(strikerMassKg: number, struckMassKg: number, closingSpeed: number, normal: Vector3,
-    velocity: Vector3, struck: PhysicsBody, striker: PhysicsBody): number {
+    velocity: Vector3, struck: PhysicsBody, striker: PhysicsBody, atY: number): number {
     if (!(closingSpeed > 0)) return 0;
     const impulseNs = contactImpulseNs(strikerMassKg, struckMassKg, closingSpeed);
     const along = this.scratch.push.copyFrom(normal);
     if (Vector3.Dot(along, velocity) < 0) along.scaleInPlace(-1);
     along.scaleInPlace(impulseNs);
-    this.target?.queueStabilityEvent?.({ horizontalShoveNs: [along.x, along.z], verticalShoveNs: along.y },
+    this.target?.queueStabilityEvent?.({ horizontalShoveNs: [along.x, along.z], verticalShoveNs: along.y, atY },
       struck, striker);
     return impulseNs;
   }
@@ -826,7 +834,7 @@ export class Combat {
     // priced on (physical contact session 06). A blade leaned on pushes by what it carries, as a
     // slap does, because the solver does not know which side of a blade arrived.
     const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed, normal, velocity,
-      event.collidedAgainst, weapon.body) : 0;
+      event.collidedAgainst, weapon.body, point.y) : 0;
     if (!weapon.projectileImpact && energyJ < biteFloorJ(weapon.kind)
       && biteMechanism(weapon.kind) !== "blunt") {
       // The alignment is reported rather than zeroed. It used to be a hard zero because it had

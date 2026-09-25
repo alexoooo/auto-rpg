@@ -10,6 +10,7 @@ import { attributeOf, withArmSpeed, withSize, withWeight } from "../../attribute
 import { CHAIN_REACH, CHAIN_REACH_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
+  type ArmDrive,
   type ChainCrossing,
   type ChainLimits,
   type EffectorAxisView,
@@ -118,6 +119,8 @@ interface ArmCore {
   /** The reachable set, published on the envelope and clamped to before every drive. */
   readonly reachable: ReachEnvelope;
   readonly envelopeAxes: readonly ModuleAxisEnvelope[];
+  /** What this build did to the drive, against the table it was handed (`ArmDrive`). */
+  readonly drive: ArmDrive;
   /** The three task-space axis views, allocated once and mutated in place. */
   readonly axes: readonly EffectorAxisView[];
   /** Where the hand actually is, into a ref this core owns. */
@@ -717,6 +720,13 @@ export function buildArmCore(
     buildDirection: foreDir.clone(),
     reachable,
     envelopeAxes,
+    // Against the table this core was handed, which is its chain's shipped one: the swing axis's
+    // rate as published above, taken at the unnarrowed reach so a terminal's narrowing is not read
+    // as a slower arm, and the shoulder's torque, which lifts the whole limb about the socket.
+    drive: Object.freeze({
+      rateScale: (R.anchorRate / R.reachMax) / (reachTable.anchorRate / reachTable.reachMax),
+      torqueScale: R.shoulderTorque / reachTable.shoulderTorque,
+    }),
     axes,
 
     hand: handPoint,

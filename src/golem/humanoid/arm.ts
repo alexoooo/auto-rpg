@@ -173,7 +173,9 @@ export const anatomicalChain = defineChain({
         for (let i = 0; i < 7; i++) { axes[i].commanded = angles[i]; axes[i].achieved = achieved[i]; }
       },
       envelope: () => ({ fullOrientation: true, axes: ARM_IDS.map((id, i) => ({ id, unit: "rad", min: supported && i >= 5 ? 0 : ARM_LIMITS[i][0], max: supported && i >= 5 ? 0 : ARM_LIMITS[i][1], rate: rates[i] })),
-        reach: reachable.reachMax, reachable, strokes: ARM_STROKES, settledBand: 0.025 }),
+        reach: reachable.reachMax, reachable, strokes: ARM_STROKES, settledBand: 0.025,
+        // The shoulder's rate and torque against the shipped arm's (`ArmDrive`); a human is x1 in size.
+        drive: { rateScale: rates[0] / RATES[0], torqueScale: weight } }),
       axes: () => axes, stroke: () => "idle", anchor: worldCommand,
       anchorStray: () => Vector3.Distance(worldCommand(), handPoint()), cursor,
       orientation: () => socketRotation().conjugate().multiply(hand.mesh.rotationQuaternion!),

@@ -5,45 +5,50 @@ import {
   SUPPORTED_LOCOMOTION_V1 as V1,
   constructPostureIsSupported,
   fallenDwellS,
-  fighterPostureIsSupported,
   initialSupportedLocomotionState,
   isFreshStandableSupport,
+  ledgerFalls,
   recoveredRiseS,
   RISE_POSTURE_DEADLINE,
   risingEligibility,
   risingFloorS,
-  stabilityCapacity,
-  stabilityMassKg,
+  stabilityLines,
   stepSupportedLocomotionState,
 } from "../src/supported-locomotion.ts";
 import { recoveryHitInterrupted } from "../src/supported-locomotion-production.ts";
+import { rockingDecayMps2, TIPPING, tippingLineMps } from "../src/tipping.ts";
 
-// The three lines of the ledger. Physical contact session 06 scaled all three by one factor, so every
-// crossing below is written against them rather than against a literal that moves when they do; the
-// frozen-literal test beside them is the one place their values are pinned.
-const S = V1.STAGGER_SPECIFIC_IMPULSE_MPS;
-const F = V1.FALL_SPECIFIC_IMPULSE_MPS;
-const D = V1.STABILITY_DECAY_MPS_PER_S;
-const authority = Object.freeze({ carrierPartId: "carrier", supportBindings: Object.freeze([{ role: "left" }, { role: "right" }]),
-  braceCapacityMultiplier: 1, gaitStabilityScale: 1 });
+// Physical contact session 08: the ledger's lines are the body's own. A stated body -- its centre of
+// mass 1 m up, a 0.5 m gyration, a square base 0.2 m from the centre each way -- and every crossing
+// below is written against the lines that geometry gives, through the functions the ledger reads.
+const H = 1, K = 0.5, R = 0.2;
+const square = (r) => Object.freeze([[-r, -r], [r, -r], [r, r], [-r, r]].map((point) => Object.freeze(point)));
+const geometry = (overrides = {}) => Object.freeze({ comHeightM: H, gyrationM: K, groundY: 0, hull: square(R), ...overrides });
+const tipping = geometry();
+const authority = Object.freeze({ carrierPartId: "carrier", supportBindings: Object.freeze([{ role: "left" }, { role: "right" }]) });
+/** The fall line of a geometry along x, as the ledger reads it. */
+const fallAlong = (shape, x = 1, z = 0) => stabilityLines(authority, shape, x, z).fallAtMps;
+const { fallAtMps: F, staggerAtMps: S, decayMps2: D } = stabilityLines(authority, tipping, 1, 0);
 const contact = (overrides = {}) => ({ safeBoundarySequence: 7, supportBinding: "left", contactedOwner: "arena-floor",
   category: "standable-world", point: [0, 0, 0], upwardNormal: [0, 1, 0], freshness: "current", ...overrides });
 const boundary = (overrides = {}) => ({ dt: 0.001, safeBoundarySequence: 7, authority, liveSupport: true,
-  postureSupported: true, supportEvidence: [contact()], supportedMassKg: 1, contactShoves: [],
+  postureSupported: true, supportEvidence: [contact()], supportedMassKg: 1, contactShoves: [], tipping,
   recoveryGroundAvailable: true, occupancyClear: true,
   hitInterrupted: false, fallSettled: true, risingDurationS: V1.RISING_DURATION_S, ...overrides });
 const state = (overrides = {}) => ({ ...initialSupportedLocomotionState(), ...overrides });
 
-test("the_v1_stability_and_recovery_constants_are_frozen_as_measured_literals", () => {
+test("the_v1_recovery_constants_are_frozen_and_no_stability_line_is_one_of_them", () => {
   assert.deepEqual(V1, {
-    STABILITY_DECAY_MPS_PER_S: 0.40,
-    STAGGER_SPECIFIC_IMPULSE_MPS: 0.12,
-    FALL_SPECIFIC_IMPULSE_MPS: 0.28,
-    BRACE_CAPACITY_MULTIPLIER: 1.50,
     FALLEN_DWELL_S: 0.35,
     SUPPORT_GRACE_S: 0.35,
     RISING_DURATION_S: 0.45,
   });
+  // The stagger line is a stated fraction of the body's own fall line, the one number session 06's
+  // two lines left behind.
+  assert.equal(TIPPING.STAGGER_FRACTION, 0.12 / 0.28);
+  assert.ok(Math.abs(F - tippingLineMps(H, K, R)) < 1e-12, "the fall line is the rocking body's");
+  assert.ok(Math.abs(S - F * 0.12 / 0.28) < 1e-12);
+  assert.ok(Math.abs(D - rockingDecayMps2(H, R)) < 1e-12);
 });
 
 test("the_recovery_stat_divides_the_dwell_and_the_rise_floor_on_every_reader_and_refuses_a_rise_under_its_own_floor", () => {
@@ -111,7 +116,6 @@ test("the_stability_stat_is_a_factor_on_both_thresholds_and_on_the_recovery_inte
   const shove = (specific, extra = {}) => stepSupportedLocomotionState(state(), boundary({
     contactShoves: [{ horizontalShoveNs: [specific, 0] }], ...extra,
   }));
-  // Brace 1 is a wheel's, and the whole reason the stat is its own field: brace is refused below 1.
   const shaky = { ...authority, stabilityScale: 0.5 };
   assert.equal(shove(S * 0.5 - 1e-6, { authority: shaky }).state, "supported");
   assert.equal(shove(S * 0.5, { authority: shaky }).state, "staggered");
@@ -121,50 +125,90 @@ test("the_stability_stat_is_a_factor_on_both_thresholds_and_on_the_recovery_inte
   assert.equal(shove(F, { authority: steady }).state, "staggered", "x1's fall is x2's stagger");
   assert.equal(shove(F * 2, { authority: steady }).state, "fallen");
   assert.equal(shove(F).state, "fallen", "the control: the same shove fells a body at x1");
-
-  const all = { ...authority, braceCapacityMultiplier: 1.5, gaitStabilityScale: 0.8, stabilityScale: 1.25 };
-  assert.equal(stabilityCapacity(all), 1.5 * 0.8 * 1.25);
-  assert.equal(stabilityCapacity(authority), 1, "absent reads as 1");
-  assert.equal(stabilityCapacity(null), 1);
+  assert.ok(Math.abs(stabilityLines(steady, tipping, 1, 0).fallAtMps - 2 * F) < 1e-12, "the stat scales the line");
+  assert.equal(stabilityLines(steady, tipping, 1, 0).decayMps2, D, "and gravity rights the body as fast as before");
 
   const hit = (specific) => [{ horizontalShoveNs: [specific, 0] }];
-  assert.equal(recoveryHitInterrupted(hit(S), 1, authority), true);
-  assert.equal(recoveryHitInterrupted(hit(S), 1, steady), false, "the rise is interrupted on the same rule");
-  assert.equal(recoveryHitInterrupted(hit(S * 0.5), 1, shaky), true);
+  assert.equal(recoveryHitInterrupted(hit(S), 1, authority, tipping), true);
+  assert.equal(recoveryHitInterrupted(hit(S * 0.99), 1, authority, tipping), false);
+  assert.equal(recoveryHitInterrupted(hit(S), 1, steady, tipping), false, "the rise is interrupted on the same rule");
+  assert.equal(recoveryHitInterrupted(hit(S * 0.5), 1, shaky, tipping), true);
 
   for (const bad of [0, -1, Number.NaN, Infinity]) {
     assert.throws(() => shove(0, { authority: { ...authority, stabilityScale: bad } }), /invalid stability scaling/, String(bad));
   }
 });
 
-test("the_holding_ratio_divides_the_mass_a_shove_is_read_against_and_leaves_every_threshold_and_the_decay_alone", () => {
-  // Physical contact session 04: a body twice as heavy, holding a ratio of 2, reads a shove as the
-  // body it was would have. Every threshold and the decay stay the frozen literals.
-  const held = { ...authority, stabilityMassRatio: 2 };
-  const shove = (ns, extra = {}) => stepSupportedLocomotionState(state(), boundary({
-    contactShoves: [{ horizontalShoveNs: [ns, 0] }], supportedMassKg: 2, ...extra,
+test("the_lines_are_the_body_s_own_geometry_wider_is_harder_higher_is_easier_and_no_base_is_never_tipped", () => {
+  const shove = (specific, extra = {}) => stepSupportedLocomotionState(state(), boundary({
+    contactShoves: [{ horizontalShoveNs: [specific, 0] }], ...extra,
   }));
-  // At capacity 1 the stagger is S m/s and the fall F; held, a 2 kg body reads as 1 kg.
-  assert.equal(shove(S * 0.8, { authority: held }).state, "supported");
-  assert.equal(shove(S * 1.2, { authority: held }).state, "staggered");
-  assert.equal(shove(F * 1.1, { authority: held }).state, "fallen");
-  assert.equal(shove(S * 1.2).state, "supported", "the control: without the ratio the same shove is half of a stagger");
-  assert.equal(shove(F * 1.1).state, "staggered", "and half of a fall");
-  assert.equal(stabilityMassKg(2, held), 1);
-  assert.equal(stabilityMassKg(2, authority), 2, "absent reads as 1");
-  assert.equal(stabilityMassKg(2, null), 2);
+  // The control: F fells the stated body.
+  assert.equal(shove(F).state, "fallen");
+  // A wider base holds the same blow, and a taller body on the same base does not.
+  assert.equal(shove(F, { tipping: geometry({ hull: square(0.3) }) }).state, "staggered");
+  assert.ok(tippingLineMps(H, K, 0.3) > F);
+  const tall = geometry({ comHeightM: 1.5 });
+  assert.equal(shove(fallAlong(tall), { tipping: tall }).state, "fallen");
+  assert.ok(fallAlong(tall) < F);
+  // A narrow base falls along its narrow way first: 0.1 m across z, 0.3 m along x.
+  const narrow = geometry({ hull: Object.freeze([[-0.3, -0.1], [0.3, -0.1], [0.3, 0.1], [-0.3, 0.1]]) });
+  const across = fallAlong(narrow, 0, 1);
+  assert.ok(Math.abs(across - tippingLineMps(H, K, 0.1)) < 1e-12);
+  assert.equal(stepSupportedLocomotionState(state(), boundary({ tipping: narrow,
+    contactShoves: [{ horizontalShoveNs: [0, across] }] })).state, "fallen");
+  assert.notEqual(shove(across, { tipping: narrow }).state, "fallen", "the same blow along the long way");
+  // With no direction -- the diagnostic's reading -- the lines are the weakest way's, not the strongest.
+  assert.ok(Math.abs(stabilityLines(authority, narrow).fallAtMps - across) < 1e-12);
+  assert.ok(stabilityLines(authority, narrow, 1, 0).fallAtMps > across, "the control: the long way is higher");
+  // A body with no tipping reading cannot be tipped: support grace is what puts it down.
+  assert.equal(shove(F * 100, { tipping: null }).state, "supported");
+  assert.equal(stabilityLines(authority, null).fallAtMps, Infinity);
+  // And a centre of mass outside its base with nothing on the ledger is not a fall: its locomotion
+  // is holding it up. Pushed further out, any lean at all tips it; pushed back onto its base, it
+  // has the whole base to cross.
+  const outside = geometry({ hull: Object.freeze([[0.1, -0.1], [0.3, -0.1], [0.3, 0.1], [0.1, 0.1]]) });
+  assert.equal(stepSupportedLocomotionState(state(), boundary({ tipping: outside })).state, "supported");
+  assert.equal(ledgerFalls({ specificImpulseMps: 0, leanX: 0, leanZ: 0 }, authority, outside), false);
+  assert.equal(shove(-1e-9, { tipping: outside }).state, "fallen", "any lean further out tips it");
+  assert.equal(shove(F, { tipping: outside }).state, "staggered", "pushed back across a 0.3 m reach");
+  assert.ok(stabilityLines(authority, outside, 1, 0).fallAtMps > F);
+});
 
-  const decayed = stepSupportedLocomotionState(state({ state: "staggered", specificImpulseMps: S + D * 0.025 }),
-    boundary({ dt: 0.05, authority: held, supportedMassKg: 2 }));
-  assert.ok(Math.abs(decayed.specificImpulseMps - (S - D * 0.025)) < 1e-12, "the ledger decays at the literal rate");
+test("the_ledger_is_a_vector_opposite_blows_cancel_and_gravity_rights_a_lean_along_its_own_way", () => {
+  const blows = (...pushes) => boundary({ contactShoves: pushes.map((push) => ({ horizontalShoveNs: push })) });
+  const cancelled = stepSupportedLocomotionState(state(), blows([F, 0], [-F, 0]));
+  assert.equal(cancelled.state, "supported");
+  assert.equal(cancelled.specificImpulseMps, 0);
+  // The control: the same two blows from one side are a fall.
+  assert.equal(stepSupportedLocomotionState(state(), blows([F / 2, 0], [F / 2, 0])).state, "fallen");
+  // Two blows at right angles add as a vector: 0.8 F each way is 1.13 F along the diagonal, where
+  // the square reaches R sqrt(2) and the line is higher still.
+  const diagonal = stepSupportedLocomotionState(state(), blows([F * 0.8, 0], [0, F * 0.8]));
+  assert.ok(Math.abs(diagonal.specificImpulseMps - F * 0.8 * Math.SQRT2) < 1e-12);
+  assert.equal(diagonal.state, "staggered", "the diagonal line is past 1.13 F");
+  assert.ok(stabilityLines(authority, tipping, 1, 1).fallAtMps > F * 0.8 * Math.SQRT2);
+  // A lean decays along its own direction at the rate its own reach sets, keeping its direction.
+  const leaning = state({ state: "staggered", specificImpulseMps: 0.1, leanX: 0.06, leanZ: 0.08 });
+  const next = stepSupportedLocomotionState(leaning, boundary({ dt: 0.01 }));
+  const along = stabilityLines(authority, tipping, 0.06, 0.08).decayMps2;
+  assert.ok(Math.abs(next.specificImpulseMps - (0.1 - along * 0.01)) < 1e-12, String(next.specificImpulseMps));
+  assert.ok(Math.abs(next.leanX / next.leanZ - 0.75) < 1e-12, "the lean turned while it decayed");
+  // A blow against the lean rights the body faster than gravity does.
+  const struck = stepSupportedLocomotionState(leaning, boundary({ dt: 1e-6,
+    contactShoves: [{ horizontalShoveNs: [-0.06, -0.08] }] }));
+  assert.ok(Math.abs(struck.specificImpulseMps - along * 1e-6) < 1e-12, String(struck.specificImpulseMps));
+});
 
-  const hit = [{ horizontalShoveNs: [S * 1.2, 0] }];
-  assert.equal(recoveryHitInterrupted(hit, 2, held), true, "a rise is interrupted on the same reading");
-  assert.equal(recoveryHitInterrupted(hit, 2, authority), false);
-
-  for (const bad of [0, -1, Number.NaN, Infinity]) {
-    assert.throws(() => shove(0, { authority: { ...authority, stabilityMassRatio: bad } }), /invalid stability scaling/, String(bad));
-  }
+test("a_blow_counts_by_its_lever_about_the_base", () => {
+  // Struck at twice the centre of mass's height the blow tips twice as hard, at the ground not at all.
+  const at = (atY, ns) => stepSupportedLocomotionState(state(), boundary({
+    contactShoves: [{ horizontalShoveNs: [ns, 0], atY }] }));
+  assert.equal(at(2 * H, F / 2).state, "fallen");
+  assert.equal(at(H, F / 2).state, "staggered", "the control: at the centre of mass it is half a fall");
+  assert.equal(at(undefined, F / 2).state, "staggered", "no height is the centre of mass");
+  assert.equal(at(0, F * 100).specificImpulseMps, 0, "a blow along the floor tips nothing");
+  assert.throws(() => at(Number.NaN, 1), /finite height/);
 });
 
 test("wall_opponent_weapon_debris_and_stale_contacts_are_not_standable_ground", () => {
@@ -196,7 +240,7 @@ test("a_shove_is_mass_dependent_and_its_vertical_part_moves_no_ledger", () => {
   // Physical contact session 06 deleted the mass-independent bash: every contact files the impulse
   // it moved, and the ledger divides it by the body's stability mass. One blow that staggers a 10 kg
   // body is a hundredth of that to a 1000 kg one.
-  const ns = V1.STAGGER_SPECIFIC_IMPULSE_MPS * 10 * 1.5;
+  const ns = S * 10 * 1.5;
   const event = Object.freeze({ horizontalShoveNs: [ns * 0.6, ns * 0.8], verticalShoveNs: ns * 5 });
   const light = stepSupportedLocomotionState(state(), boundary({ supportedMassKg: 10, contactShoves: [event] }));
   const heavy = stepSupportedLocomotionState(state(), boundary({ supportedMassKg: 1_000, contactShoves: [event] }));
@@ -207,24 +251,25 @@ test("a_shove_is_mass_dependent_and_its_vertical_part_moves_no_ledger", () => {
   // The vertical part is carried for session 07 and read by no threshold: straight up, a body that
   // a horizontal tenth of it would fell stays put.
   const lift = stepSupportedLocomotionState(state(), boundary({ supportedMassKg: 10,
-    contactShoves: [{ horizontalShoveNs: [0, 0], verticalShoveNs: V1.FALL_SPECIFIC_IMPULSE_MPS * 10 * 10 }] }));
+    contactShoves: [{ horizontalShoveNs: [0, 0], verticalShoveNs: F * 10 * 10 }] }));
   assert.equal(lift.state, "supported");
   assert.equal(lift.specificImpulseMps, 0);
   assert.throws(() => stepSupportedLocomotionState(state(), boundary({
     contactShoves: [{ horizontalShoveNs: [0, 0], verticalShoveNs: Number.NaN }] })), /finite vertical/);
 });
 
-test("an_upright_carrier_with_folded_torso_or_inverted_head_is_not_supported", () => {
-  assert.equal(fighterPostureIsSupported({ pelvisUpDot: 1, torsoHeightAbovePelvisM: 0.5,
-    headHeightAboveTorsoM: 0.2 }), true);
-  assert.equal(fighterPostureIsSupported({ pelvisUpDot: 1, torsoHeightAbovePelvisM: 0.01,
-    headHeightAboveTorsoM: 0.2 }), false);
-  assert.equal(fighterPostureIsSupported({ pelvisUpDot: 1, torsoHeightAbovePelvisM: 0.5,
-    headHeightAboveTorsoM: -0.2 }), false);
+test("a_carrier_with_a_broken_chain_or_a_folded_body_is_not_supported", () => {
+  // Session 08 left one posture predicate for every body.
   assert.equal(constructPostureIsSupported({ chainContinuous: true, carrierUpDot: 1,
     rootHeightAboveCarrierM: 0.3, terminalHeightAboveRootM: 0.2 }), true);
   assert.equal(constructPostureIsSupported({ chainContinuous: false, carrierUpDot: 1,
     rootHeightAboveCarrierM: 0.3, terminalHeightAboveRootM: 0.2 }), false);
+  assert.equal(constructPostureIsSupported({ chainContinuous: true, carrierUpDot: 0.5,
+    rootHeightAboveCarrierM: 0.3, terminalHeightAboveRootM: 0.2 }), false);
+  assert.equal(constructPostureIsSupported({ chainContinuous: true, carrierUpDot: 1,
+    rootHeightAboveCarrierM: 0.05, terminalHeightAboveRootM: 0.2 }), false);
+  assert.equal(constructPostureIsSupported({ chainContinuous: true, carrierUpDot: 1,
+    rootHeightAboveCarrierM: 0.3, terminalHeightAboveRootM: 0.01 }), false);
 });
 
 test("rising_belongs_to_the_body_and_a_settled_body_past_its_dwell_rises_with_nobody_asking", () => {
@@ -269,7 +314,7 @@ test("a_fall_level_blow_obstruction_or_lost_support_aborts_rising_state_and_leav
     risingElapsedS: 0.1, driveStaged: true });
   // The mass is 1 kg and the capacity 1, so a shove of N s is its specific impulse.
   for (const rejected of [
-    boundary({ contactShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS, 0] }], hitInterrupted: true }),
+    boundary({ contactShoves: [{ horizontalShoveNs: [F, 0] }], hitInterrupted: true }),
     boundary({ occupancyClear: false }),
     boundary({ liveSupport: false }),
   ]) {
@@ -280,19 +325,26 @@ test("a_fall_level_blow_obstruction_or_lost_support_aborts_rising_state_and_leav
   }
 });
 
-test("a_rise_is_put_down_by_the_standing_fall_line_and_a_staggering_blow_under_it_does_not_stop_it", () => {
+test("a_rise_is_put_down_by_the_fall_line_of_the_body_it_is_and_a_staggering_blow_under_it_does_not_stop_it", () => {
   // Physical contact session 02: no immunity and no stagger-level interrupt, just the fall line.
   const rising = state({ state: "rising", fallenElapsedS: V1.FALLEN_DWELL_S,
     risingElapsedS: 0.1, driveStaged: true });
   const under = stepSupportedLocomotionState(rising, boundary({
-    contactShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS - 1e-6, 0] }], hitInterrupted: true }));
+    contactShoves: [{ horizontalShoveNs: [F - 1e-6, 0] }], hitInterrupted: true }));
   assert.equal(under.state, "rising", "a staggering blow under the fall line put the rise down");
   assert.equal(under.driveStaged, true);
   const at = stepSupportedLocomotionState(rising, boundary({
-    contactShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS, 0] }] }));
+    contactShoves: [{ horizontalShoveNs: [F, 0] }] }));
   assert.equal(at.state, "fallen", "a blow at the fall line did not put the rise down");
+  // Session 08: the line is the geometry the boundary hands over. A body half-way up is low on its
+  // base, and the blow that fells it standing does not fell it there.
+  const low = geometry({ comHeightM: 0.4 });
+  assert.equal(stepSupportedLocomotionState(rising, boundary({ tipping: low,
+    contactShoves: [{ horizontalShoveNs: [F, 0] }] })).state, "rising");
+  assert.equal(stepSupportedLocomotionState(rising, boundary({ tipping: low,
+    contactShoves: [{ horizontalShoveNs: [fallAlong(low), 0] }] })).state, "fallen");
   // Blows accumulate across the rise as they do standing: two under the line that sum over it fell it.
-  const half = boundary({ contactShoves: [{ horizontalShoveNs: [V1.FALL_SPECIFIC_IMPULSE_MPS * 0.6, 0] }] });
+  const half = boundary({ dt: 1e-6, contactShoves: [{ horizontalShoveNs: [F * 0.6, 0] }] });
   const once = stepSupportedLocomotionState(rising, half);
   assert.equal(once.state, "rising");
   assert.equal(stepSupportedLocomotionState(once, half).state, "fallen");
@@ -305,10 +357,11 @@ test("the_fall_ledger_is_zeroed_as_the_rise_begins_and_does_not_follow_the_body_
   // The ledger that put the body down stays on it while it lies, and a rise that inherited it would
   // be felled by the first touch -- or at once, before anything touched it.
   const lying = state({ state: "fallen", fallenElapsedS: V1.FALLEN_DWELL_S,
-    specificImpulseMps: V1.FALL_SPECIFIC_IMPULSE_MPS * 2 });
+    specificImpulseMps: F * 2, leanX: F * 2 });
   const rising = stepSupportedLocomotionState(lying, boundary());
   assert.equal(rising.state, "rising");
   assert.equal(rising.specificImpulseMps, 0);
+  assert.equal(rising.leanX, 0);
   const next = stepSupportedLocomotionState(rising, boundary());
   assert.equal(next.state, "rising");
   assert.equal(next.driveStaged, true);
@@ -412,7 +465,7 @@ test("renamed_parts_preserve_support_while_tiny_support_spam_cannot_raise_the_ac
   assert.equal(lost.state, "fallen");
 });
 
-test("stagger_fall_brace_decay_and_cumulative_shoves_cross_each_frozen_threshold_in_both_directions", () => {
+test("stagger_fall_decay_and_cumulative_shoves_cross_each_line_in_both_directions", () => {
   const shove = (specific, extra = {}) => stepSupportedLocomotionState(state(), boundary({
     contactShoves: [{ horizontalShoveNs: [specific, 0] }], ...extra,
   }));
@@ -421,11 +474,6 @@ test("stagger_fall_brace_decay_and_cumulative_shoves_cross_each_frozen_threshold
   assert.equal(shove(F - 1e-6).state, "staggered");
   assert.equal(shove(F).state, "fallen");
 
-  const braced = { ...authority, braceCapacityMultiplier: 1.50 };
-  assert.equal(shove(F * 1.49, { authority: braced }).state, "staggered");
-  assert.equal(shove(F * 1.50, { authority: braced }).state, "fallen");
-  const degraded = { ...authority, gaitStabilityScale: 0.5 };
-  assert.equal(shove(S * 0.5, { authority: degraded }).state, "staggered");
 
   let cumulative = stepSupportedLocomotionState(state(), boundary({ dt: 0.000001,
     contactShoves: [{ horizontalShoveNs: [S * 0.52, 0] }] }));
@@ -434,8 +482,8 @@ test("stagger_fall_brace_decay_and_cumulative_shoves_cross_each_frozen_threshold
     contactShoves: [{ horizontalShoveNs: [S * 0.52, 0] }] }));
   assert.equal(cumulative.state, "staggered");
 
-  const decayed = stepSupportedLocomotionState(state({ state: "staggered", specificImpulseMps: S + D * 0.025 }),
-    boundary({ dt: 0.05 }));
+  const decayed = stepSupportedLocomotionState(state({ state: "staggered", specificImpulseMps: S + D * 0.025,
+    leanX: S + D * 0.025 }), boundary({ dt: 0.05 }));
   assert.equal(decayed.state, "supported");
   assert.ok(Math.abs(decayed.specificImpulseMps - (S - D * 0.025)) < 1e-12);
 });

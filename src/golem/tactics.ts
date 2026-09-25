@@ -13,7 +13,7 @@ import { isShield, type Striker, type WeaponKind } from "../hands.ts";
 // The same seeded stream `policies.ts` draws from, for the same argument, from the one file both
 // may import. This file carried its own copy until 2026-09-05; `rng.ts` says why it moved.
 import { mulberry32 } from "../rng.ts";
-import { finishPoint, standOffReach } from "../downed.ts";
+import { finishPoint, presses, standOffReach } from "../downed.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
 
@@ -211,11 +211,14 @@ export interface TacticalRanges {
  * shape assertions that do not have a second body to hand still read the same ranges they did.
  */
 export function tacticalRanges(
-  reach: number, cap: EffectorCapability, theirReach = 0,
+  reach: number, cap: EffectorCapability, theirReach = 0, press = false,
 ): TacticalRanges {
   const slack = reach * GOLEM_TACTICS.slackFraction;
   const near = innerReach(reach, cap);
-  const hold = Math.max(
+  // **Pressing closes to the arm's own inner edge** (physical contact session 09): a body that
+  // heavily outweighs the other (`presses` in `src/downed.ts`) holds as close as it can still
+  // strike from, which is body to body, rather than at any fraction of its reach.
+  const hold = press ? near + slack : Math.max(
     reach * GOLEM_TACTICS.holdFraction,
     near + slack,
     theirReach * GOLEM_TACTICS.standOffFraction,
@@ -1250,7 +1253,7 @@ const coverReachFor = (weapon: Striker): number =>
  * the same body, and a mace that is heavy for a learned mind and weightless for the fencer it is
  * rated against would make every paired column in this record an artifact of which machine was on
  * which side. So the constants live here, beside `STROKE_SHAPES`, and all three read them through
- * `strokeInertiaScale` below.
+ * `strokeTimeScale` below.
  *
  * Mutable and moved with `Object.assign`, which is the idiom `GOLEM_TACTICS` already uses and the
  * reason `CUT` above is getters rather than a snapshot: a sweep over `gain` is a sweep over how
@@ -1273,7 +1276,7 @@ export const STROKE_INERTIA = {
    * does not require the guess: it is whatever the default body already is, so the change is
    * defined as a change to everything that differs from it.
    *
-   * **To the last digit the arm actually publishes**, and not 10.12, because `strokeInertiaScale`
+   * **To the last digit the arm actually publishes**, and not 10.12, because `strokeTimeScale`
    * raises the ratio to a power: at 10.12 the default arm scales by 1.0002 rather than by 1, and
    * that is enough to move `golem-fencer`'s commit off the stroke bench's sequence in the sixth
    * decimal and turn a digit-for-digit test red for no behaviour at all. It cannot be *derived*
@@ -1298,7 +1301,7 @@ export const STROKE_INERTIA = {
    * real sword on a body a sixth of its old mass means.
    *
    * What the wrong value cost is worth recording, because it is the argument for the pin. At
-   * 1.64013336 the default arm's ratio is 2.3004 and `strokeInertiaScale` returns **1.5167**:
+   * 1.64013336 the default arm's ratio is 2.3004 and the stretch (then `strokeInertiaScale`) returned **1.5167**:
    * every stroke in the game timed 52 % longer than the shape it was benched at, and the mind
    * asking for it none the wiser. It showed up as strokes overrunning their own shapes -- 208
    * frames against the 142 asked for, 143 against 106 -- eight tests across three files, none of
@@ -1329,22 +1332,44 @@ export const STROKE_INERTIA = {
 };
 
 /**
- * What to multiply a stroke's chamber and arc by, for an effector of this swing inertia.
+ * What to multiply a stroke's chamber and arc by, for this arm: the slower of the two limits on how
+ * fast it can carry a stroke (physical contact session 09).
  *
- * Returns exactly 1 when the row is down or the figure is missing, so a caller needs no branch and
- * a module that publishes no inertia -- a waist, a neck, an empty socket -- is simply unscaled.
+ * - **The rate.** The shapes were benched on the default arm at its shipped command rates, and
+ *   they are the fastest stroke those rates make: a 1.3 kg blade peaked at 19.87 m/s at the tip and
+ *   an 18 kg mace at 18.71, so at the light end the arm is limited by its rates and not by its
+ *   load. An arm whose rates are `rateScale` times its chain's carries the same arc in
+ *   `1 / rateScale` of the time -- the arm speed stat, and the root of size, which a point
+ *   chain's rate divides by (`ArmDrive`).
+ * - **The load.** The time a torque needs to carry an inertia through an angle goes as
+ *   `sqrt(I / torque)`, and `STROKE_INERTIA.ref` is where on the default arm it starts to bind.
+ *   An arm whose socket torque is `torqueScale` times its chain's divides its inertia by that
+ *   before the ratio is taken, so the weight stat, which grows the links and their torques
+ *   together, retimes nothing, and size, which grows the links as the fifth power of size and the
+ *   torques as the fourth, retimes little.
+ *
+ * **The slower one governs**, which is how a stroke is timed by whichever limit it meets first.
+ * At x1 the rate term is 1, so this is `max(1, sqrt(I / ref))` there -- the inertia stretch it
+ * replaces, to the bit, which is what keeps every x1 stroke timed as it was and the floor it kept:
+ * no load makes a stroke quicker than the benched shape. What changes is every body the stats
+ * moved. Before, a x1.25 stone arm was timed 38 % slower, its x2-weight arm 14 % slower and the
+ * all-max giant about 70 % slower, and the giant's x1.5 arm speed bought nothing; the arm itself is
+ * about 12 % slower at x1.25 and no slower at x2 weight.
+ *
+ * `gain` is an exponent on both terms: at 0 every stroke keeps the shape's own duration. A slot
+ * that publishes no drive or no inertia answers 1 on that term, so a caller needs no branch.
  */
-export function strokeInertiaScale(swingInertia: number): number {
+export function strokeTimeScale(
+  cap: Pick<EffectorCapability, "swingInertia" | "rateScale" | "torqueScale">,
+): number {
   const { ref, gain } = STROKE_INERTIA;
-  if (!(gain > 0) || !(ref > 0) || !(swingInertia > 0)) return 1;
-  // **A load never makes a stroke quicker than the benched shape, only slower.** That floor is a
-  // reading of the bench rather than a convenience: a 1.3 kg blade peaked at 19.87 m/s at the tip
-  // and an 18 kg mace at 18.71, so at the light end the arm is not inertia-limited at all -- it is
-  // limited by `ANCHOR_DRIVE.linearRate` and by the motor's force, and the shapes are the fastest
-  // stroke that actuator makes. Without the floor a pitch chain carrying a blade -- 1.14 kg m2,
-  // a ninth of the reference -- would sweep its arc in 0.067 s, which is less than one ask at
-  // `askHz` and therefore a stroke no mind could steer, gate or abort.
-  return Math.max(1, Math.pow(swingInertia / ref, 0.5 * gain));
+  if (!(gain > 0)) return 1;
+  const rate = cap.rateScale > 0 ? cap.rateScale : 1;
+  const torque = cap.torqueScale > 0 ? cap.torqueScale : 1;
+  const byRate = Math.pow(1 / rate, gain);
+  const byLoad = ref > 0 && cap.swingInertia > 0
+    ? Math.pow(cap.swingInertia / (ref * torque), 0.5 * gain) : 0;
+  return Math.max(byRate, byLoad);
 }
 
 export interface StrokeShape {
@@ -1655,7 +1680,7 @@ export function golemTactics(seed: number): GolemTactics {
     // **A downed body is finished, not stood off from** (physical contact session 03): the stand-off
     // drops its floor at their reach and the range is taken to their live core (`finishPoint` in
     // `src/downed.ts`). Standing, both are what they always were.
-      : tacticalRanges(reach, cap, standOffReach(them));
+      : tacticalRanges(reach, cap, standOffReach(self, them), presses(self, them));
     const { near, hold, strike, slack } = ranges;
     const gap = headfirst ? bodyGap : distance(socket, finishPoint(them, finish) ? finish : them.shoulder);
 

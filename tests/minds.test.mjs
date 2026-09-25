@@ -8,7 +8,7 @@ import { blankIntent, cursorForElevation, postureFor, rollForStroke } from
   "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
 import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
-import { assertCompleteView } from "./fixtures/view.mjs";
+import { BODY_FACTS, assertCompleteView } from "./fixtures/view.mjs";
 
 /**
  * The policies, argued with rather than watched.
@@ -122,6 +122,7 @@ const SHAPE = {
   crownHeight: CONFIG.body.headCentre + CONFIG.body.headRadius,
   vitalHeight: CONFIG.body.torsoCentre,
   collisionRadius: CONFIG.body.pelvisRadius,
+  ...BODY_FACTS,
 };
 
 /**

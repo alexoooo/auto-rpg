@@ -25,9 +25,12 @@ import {
 } from "./supported-locomotion-runtime.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
 import { CONTACT_PRESS, type PressReading } from "./contact-press.ts";
-import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEligibility, risingFloorS, shoveSpecificImpulseMps, sizeTime, stabilityCapacity, stabilityMassKg, stepSupportedLocomotionState,
-  SUPPORTED_LOCOMOTION_V1, type StabilityAuthority, type SupportState, type SupportedLocomotionBoundary,
-  type SupportedLocomotionState } from "./supported-locomotion-state.ts";
+import { fallenDwellS, initialSupportedLocomotionState, ledgerFalls, recoveredRiseS, risingEligibility, risingFloorS,
+  shoveSpecificImpulse, sizeTime, stabilityLines, stepSupportedLocomotionState,
+  type StabilityAuthority, type StabilityLines, type SupportState,
+  type SupportedLocomotionBoundary, type SupportedLocomotionState } from "./supported-locomotion-state.ts";
+import { baseReachM, hullHoldsCentre, leanHoldN, leanRoomM, TIPPING, tippingGeometry, type MassDistribution,
+  type TippingGeometry } from "./tipping.ts";
 /**
  * The scheduler seam, moved here on 2026-09-04 when `src/construct/` and `src/forge/` were
  * deleted with the golem plan set's first session.
@@ -48,7 +51,7 @@ import { fallenDwellS, initialSupportedLocomotionState, recoveredRiseS, risingEl
  *
  * **Session 05 landed without one, and here is why rather than merely that.** Its locomotion
  * modules do supply a `StabilityAuthority` -- `src/golem/locomotion/biped.ts` publishes one per
- * boundary, with a gait scale that falls with carrier speed -- but they supply it through the
+ * boundary, its support bindings and its stat scales -- but they supply it through the
  * `authority` *callback* on `PhysicalSupportedLocomotionOptions`, which is the seam the Warrior
  * already uses and which needs no scheduler. The three methods below exist for a caller that
  * admits parameterized Actions into control groups and then submits movement under a token, and
@@ -104,7 +107,8 @@ const STOP: LocomotionRequest = Object.freeze({
 
 /**
  * A lying body is kept from starting its rise by a new *staggering* contact transfer, not a
- * brush; a rise already under way is put down by the ledger instead (`stepSupportedLocomotionState`).
+ * brush -- staggering against the lines of the body as it lies, read as the ledger reads them; a rise
+ * already under way is put down by the ledger instead (`stepSupportedLocomotionState`).
  * The ledger still
  * records every physical contact for normal supported/fallen thresholds, but treating any
  * positive floating-point contact as an interrupt made a weapon scrape reset a bounded rise at
@@ -113,10 +117,11 @@ const STOP: LocomotionRequest = Object.freeze({
  * damage rule.
  */
 export function recoveryHitInterrupted(events: readonly StabilityEvent[], supportedMassKg: number,
-  authority: StabilityAuthority | null): boolean {
-  const freshSpecificImpulseMps = shoveSpecificImpulseMps(events, supportedMassKg, authority);
-  const capacity = stabilityCapacity(authority);
-  return freshSpecificImpulseMps >= SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity;
+  authority: StabilityAuthority | null, tipping: TippingGeometry | null): boolean {
+  const [x, z] = shoveSpecificImpulse(events, supportedMassKg, tipping);
+  const freshSpecificImpulseMps = Math.hypot(x, z);
+  return freshSpecificImpulseMps > 0 &&
+    freshSpecificImpulseMps >= stabilityLines(authority, tipping, x, z).staggerAtMps;
 }
 
 export const DEFAULT_SUPPORTED_CARRIER: VirtualCarrierConfig = Object.freeze({
@@ -217,6 +222,24 @@ export interface PhysicalSupportedLocomotionOptions {
    *  `RISING_DURATION_S`. Asked before the state steps, so the rise it admits is the one it runs. */
   readonly risingDuration?: (distanceM: number) => number;
   readonly supportBindings: readonly string[];
+  /**
+   * Where the whole body's mass is and how it is spread, read off its live parts (physical contact
+   * session 08). With `supportPatch` it is the body's tipping geometry; absent, or null, is a body
+   * the ledger cannot tip.
+   */
+  readonly massDistribution?: () => MassDistribution | null;
+  /**
+   * The corners of one support's contact patch in world axes -- a sole's four, a wheel's patch --
+   * whether or not it is planted this boundary: a body's base is its stance, and a foot in the air
+   * is on its way down. Null for a support that is gone.
+   */
+  readonly supportPatch?: (binding: string) => readonly WorldPoint[] | null;
+  /**
+   * Every part's lowest points in world axes, on the floor or not; the port keeps those within
+   * `TIPPING.CONTACT_BAND_M` of the lowest. A lying or rising body rests on these, and they are
+   * what its base is while it has no stance.
+   */
+  readonly groundContacts?: () => readonly WorldPoint[];
   /** Read-only live topology projected by the body owner; never a runtime/body handle. */
   readonly supportGroups?: () => readonly PhysicalSupportGroupDiagnostic[];
   /** Live terminal/contact point for one registered support role. */
@@ -252,18 +275,19 @@ export interface PhysicalSupportedLocomotionDiagnostic {
   /**
    * What a shove is worth to this body, and the mass it was divided by to say so.
    *
-   * `supportedMassKg` is on the readout because without it the other three numbers cannot be
-   * checked or reproduced: a shove arrives in newton-seconds and becomes a specific impulse by
-   * one division, and the divisor is a getter on the carrier that changes as modules are bolted
-   * on or cut off. A reading that reports the quotient and hides the denominator is one nobody
-   * can compute the next shove from.
+   * `supportedMassKg` is on the readout because without it the other numbers cannot be checked
+   * or reproduced: a shove arrives in newton-seconds and becomes a specific impulse by one
+   * division, and the divisor is a getter on the carrier that changes as modules are bolted on or
+   * cut off. A reading that reports the quotient and hides the denominator is one nobody can
+   * compute the next shove from. A line in newton-seconds at the centre of mass is a line here
+   * times it.
    *
-   * `stabilityMassKg` is that divisor: `supportedMassKg` over the authority's holding ratio
-   * (`StabilityAuthority.stabilityMassRatio`, physical contact session 04). A threshold in
-   * newton-seconds is a threshold here times it, not times the supported mass.
+   * The two lines are along the body's weakest direction (`stabilityLines` with no direction);
+   * `PhysicalSupportedLocomotionPort.stabilityLinesAlong` gives them along any other.
+   * `tipping` is the last boundary's geometry they were read from.
    */
   readonly stability: Readonly<{ specificImpulseMps: number; supportedMassKg: number;
-    stabilityMassKg: number; staggerAtMps: number; fallAtMps: number }>;
+    staggerAtMps: number; fallAtMps: number; tipping: TippingGeometry | null }>;
   readonly authority: boolean;
   readonly activeGroup: string | null;
   readonly liveSupport: boolean;
@@ -352,8 +376,15 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   private releaseReason: string | null = null;
   /** The press read before this boundary, and the pair's push from the last resolution. */
   private press: PressReading | null = null;
-  private pairPush: Readonly<{ x: number; z: number }> | null = null;
+  private pairPush: PairPush | null = null;
   private lifted = false;
+  /** The last boundary's tipping geometry (`readTipping`), for the diagnostic and `stabilityLinesAlong`. */
+  private tipping: TippingGeometry | null = null;
+  /**
+   * The last standing base that held the centre of mass, relative to its ground point: the stance a
+   * rising body is judged on (`readTipping`).
+   */
+  private standingHull: TippingGeometry["hull"] | null = null;
   private readonly contactTally = { lifts: 0, pushedS: 0, liftN: 0 };
   private lastRiseGate: { readonly prior: SupportedLocomotionState;
     readonly boundary: SupportedLocomotionBoundary; readonly pairOccupancyClear: boolean;
@@ -379,8 +410,29 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   /** What the other bodies pressed on this one with over the press's window; read by the next boundary. */
   applyContactPress(reading: PressReading): void { this.press = reading; }
 
-  /** What the other body's trunk pushes with, newtons, from the last pair resolution; null for none. */
-  notePairPush(push: Readonly<{ x: number; z: number }> | null): void { this.pairPush = push; }
+  /** What the other body's trunk delivered on the last pair resolution; null for none. */
+  notePairPush(push: PairPush | null): void { this.pairPush = push; }
+
+  /** The world height of its centre of mass at the last boundary, or null before its first. */
+  centreOfMassY(): number | null {
+    return this.tipping ? this.tipping.groundY + this.tipping.comHeightM : null;
+  }
+
+  /**
+   * The most this body pushes with along (`dirX`, `dirZ`), unit, at world height `atY`, N: what its
+   * feet grip, `GRIP * W`, and what it holds leaning into the push against the push's own reaction --
+   * its weight over its base's whole depth along the push (`leanHoldN`). A walker pushing harder than
+   * that is tipped over backwards by what it pushes, so a walker does not. The grip alone before the
+   * body's first boundary.
+   */
+  pushCapN(dirX: number, dirZ: number, atY: number): number {
+    const weightN = this.options.supportedMassKg * CONTACT_PRESS.GRAVITY_MPS2;
+    const grip = CONTACT_PRESS.GRIP * weightN;
+    const tipping = this.tipping;
+    if (!tipping) return grip;
+    const depth = baseReachM(tipping.hull, dirX, dirZ) + baseReachM(tipping.hull, -dirX, -dirZ);
+    return Math.min(grip, leanHoldN(tipping, weightN, atY, depth));
+  }
 
   contactPress(): ContactPressDiagnostic {
     const slide = this.carrier.slide;
@@ -396,13 +448,24 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
    * - **Lifted**: the other bodies held this one up with more than its weight over the press's window
    *   (`ContactPress`). The boundary sets it down as fallen, and the release keeps the velocity the
    *   carrier last drove the root at.
-   * - **Pushed**: a horizontal force past the feet's grip, `GRIP * W`. The force is the other body's
-   *   trunk if the two footprints met on the last resolution -- what its feet can push with,
-   *   `GRIP * W_other` along the contact -- and otherwise what its parts pressed with, each capped at
-   *   the same grip by `ContactPress`. Whatever is past this body's grip is the excess: it slides the
-   *   carrier at `excess / M` and files `excess * dt` to the ledger, which is the stagger the plan
-   *   asked for. With no excess the feet brake the slide at `GRIP * g`. So two bodies of one weight
-   *   never push each other: each pushes with exactly the grip the other holds with.
+   * - **Pushed**: the force between the two trunks on the last pair resolution
+   *   (`resolvePhysicalSupportedPair`), on this body whether it was the one pushed or the one pushing.
+   *   The one pushing reads the reaction: its feet hold it where it is, and the ledger files what is
+   *   past what its lean holds (`leanHoldN`), which its own push is capped below (`pushCapN`). The one
+   *   pushed stands against it with its lean over its base's whole depth and no more than its grip,
+   *   `GRIP * W`; what is past that drives its carrier back, and its legs follow that as fast as they
+   *   accelerate. Only what outruns its legs -- a step's drive past `M * maxAcceleration * dt` -- goes
+   *   to the ledger, at the height the two bodies meet. So of one weight a push is stood against, a
+   *   heavier body walks the other back, and one heavy enough to drive it faster than it can step
+   *   puts it down (physical contact session 10; session 07 had the ledger read only the part past
+   *   the grip, so a body of one weight could never be pushed over at all, and one a part heavier
+   *   was tipped by walking into it).
+   * - **Pressed**: otherwise, what the other body's parts pressed with, each capped at its grip by
+   *   `ContactPress`. Whatever is past this body's grip is the excess: it slides the carrier at
+   *   `excess / M` and files `excess * dt` to the ledger. A press carries no height, and the solver's
+   *   report of a keyframed squeeze is not a force to file whole (see `ContactPress`).
+   *
+   * With nothing past the grip the feet brake the slide at `GRIP * g`.
    */
   private readContact(): void {
     const reading = this.press;
@@ -420,10 +483,40 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       // Past the weight by more than rounding: an equal body's press is capped at exactly this.
       this.lifted = reading.liftN > weightN * (1 + CONTACT_PRESS.MARGIN);
     }
-    const fx = pair ? pair.x : reading?.pushX ?? 0;
-    const fz = pair ? pair.z : reading?.pushZ ?? 0;
-    const force = Math.hypot(fx, fz);
     const grip = CONTACT_PRESS.GRIP * weightN;
+    if (pair) {
+      const impulse = Math.hypot(pair.x, pair.z);
+      const ux = pair.x / impulse, uz = pair.z / impulse;
+      const tipping = this.tipping;
+      if (pair.driving) {
+        // Its own push's reaction: its legs hold it where it is, and its lean against the rest.
+        const held = tipping ? leanHoldN(tipping, weightN, pair.atY, leanRoomM(tipping.hull, ux, uz)) * dt : 0;
+        if (impulse > held) {
+          const past = 1 - held / impulse;
+          this.staged.queueStabilityEvent({ horizontalShoveNs: [pair.x * past, pair.z * past], atY: pair.atY });
+        }
+        this.carrier.brakeSlide(CONTACT_PRESS.GRIP * CONTACT_PRESS.GRAVITY_MPS2 * dt);
+        return;
+      }
+      // Driven: it stands against the push with its lean over its whole base, and no more than its
+      // feet grip; the rest drives it back, and its legs follow as fast as they accelerate its base.
+      // What outruns its legs tips it.
+      const depth = tipping ? baseReachM(tipping.hull, ux, uz) + baseReachM(tipping.hull, -ux, -uz) : 0;
+      const stood = Math.min(grip, leanHoldN(tipping, weightN, pair.atY, depth)) * dt;
+      if (impulse > stood * (1 + CONTACT_PRESS.MARGIN)) {
+        const past = impulse - stood;
+        this.carrier.slideBy(ux * past / massKg, uz * past / massKg);
+        this.contactTally.pushedS += dt;
+        const outrun = past - massKg * this.carrier.config.maxAccelerationMps2 * dt;
+        if (outrun > 0) this.staged.queueStabilityEvent({ horizontalShoveNs: [ux * outrun, uz * outrun], atY: pair.atY });
+      } else {
+        this.carrier.brakeSlide(CONTACT_PRESS.GRIP * CONTACT_PRESS.GRAVITY_MPS2 * dt);
+      }
+      return;
+    }
+    const fx = reading?.pushX ?? 0;
+    const fz = reading?.pushZ ?? 0;
+    const force = Math.hypot(fx, fz);
     if (force > grip * (1 + CONTACT_PRESS.MARGIN)) {
       const share = 1 - grip / force;
       const ex = fx * share, ez = fz * share;
@@ -447,6 +540,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         this.carrier.ownerPartIds, binding, this.sequence);
     });
     const shoves = this.staged.snapshot().stabilityEvents;
+    const tipping = this.readTipping(evidenceBindings);
+    this.tipping = tipping;
     const liveSupport = this.options.liveSupport();
     const postureSupported = this.options.postureSupported();
     const root = this.options.root.sample();
@@ -490,9 +585,9 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       dt: this.staged.snapshot().committed?.dt ?? 1 / 240,
       safeBoundarySequence: this.sequence,
       authority, liveSupport, postureSupported, supportEvidence: evidence,
-      supportedMassKg: this.options.supportedMassKg, contactShoves: shoves,
+      supportedMassKg: this.options.supportedMassKg, contactShoves: shoves, tipping,
       recoveryGroundAvailable, occupancyClear,
-      hitInterrupted: recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority),
+      hitInterrupted: recoveryHitInterrupted(shoves, this.options.supportedMassKg, authority, tipping),
       fallSettled: this.options.fallSettled?.() ?? true,
       risingDurationS,
       lifted: this.lifted,
@@ -508,8 +603,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       : null;
     if (this.supportState.state === "fallen" && priorState === "rising") {
       // The state machine's own order: the ledger first, then the gate, then the deadline.
-      this.riseAbort = this.supportState.specificImpulseMps >=
-        SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * stabilityCapacity(authority) ? "blow"
+      this.riseAbort = ledgerFalls(this.supportState, authority, tipping) ? "blow"
         : !risingEligibility({ ...prior, fallenElapsedS: Math.max(prior.fallenElapsedS, fallenDwellS(authority)) },
           boundary).eligible ? "refused" : "deadline";
     }
@@ -589,6 +683,77 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       withinAcceleration: gate.withinAcceleration, recoverySweepClear: gate.recoverySweepClear,
       relocated: gate.relocated, riseAbort: this.riseAbort, hitInterrupted: boundary.hitInterrupted });
   }
+  /**
+   * The body's tipping geometry this boundary: its whole mass's distribution over its base.
+   *
+   * **What the base is depends on whether the body stands.** A standing or staggered body's is its
+   * stance -- the patch of every support it has, planted or not, because a foot in the air is on
+   * its way down -- together with anything else of it on the floor. A lying or rising body has no
+   * stance: its base is whatever of it is on the floor, a support patch included only when it is.
+   * "On the floor" is within `TIPPING.CONTACT_BAND_M` of the lowest point the body has.
+   *
+   * **A rising body is judged on the stance it is rising onto**: the last standing base that held
+   * its centre of mass, around where that centre of mass is now, at its live height and gyration. The
+   * rise is authored -- the carrier hoists the pelvis while the legs still lie where they fell -- so
+   * what is on the floor spans nothing under the centre of mass: measured on stone x1 mirrors
+   * (`.review/rise-base.mjs`, Node bout runner), the lowest points stay about a metre from it for the
+   * whole rise, and the fall line read 0 from 0.2 s into every rise, so that any touch put the body
+   * down again. That is a keyframe's reading, not a body's. A low body on its feet is hard to tip
+   * and gets easier as it straightens, and no blow is exempt. A body that has never stood is judged
+   * on what is on the floor. Null without both readers, and for a body with no base.
+   */
+  private readTipping(bindings: readonly string[]): TippingGeometry | null {
+    const patch = this.options.supportPatch;
+    const mass = this.options.massDistribution?.() ?? null;
+    if (!patch || !mass) return null;
+    const stance = bindings.flatMap((binding) => patch(binding) ?? []);
+    const contacts = this.options.groundContacts?.() ?? [];
+    let lowest = Infinity;
+    for (const point of stance) lowest = Math.min(lowest, point.y);
+    for (const point of contacts) lowest = Math.min(lowest, point.y);
+    const onFloor = (point: WorldPoint): boolean => point.y <= lowest + TIPPING.CONTACT_BAND_M;
+    const standing = this.supportState.state === "supported" || this.supportState.state === "staggered";
+    if (standing) {
+      const geometry = tippingGeometry(mass, [...stance, ...contacts.filter(onFloor)]);
+      if (geometry && hullHoldsCentre(geometry.hull)) this.standingHull = geometry.hull;
+      return geometry;
+    }
+    const live = tippingGeometry(mass, [...stance.filter(onFloor), ...contacts.filter(onFloor)]);
+    if (this.supportState.state !== "rising" || !live || !this.standingHull) return live;
+    return Object.freeze({ ...live, hull: this.standingHull });
+  }
+
+  /**
+   * The stagger and fall lines and the righting rate along one horizontal direction, from the last
+   * boundary's geometry: what a push that way would have to reach. For a bench or a census; the
+   * state machine reads the same function (`stabilityLines`).
+   */
+  stabilityLinesAlong(dirX: number, dirZ: number): StabilityLines {
+    return stabilityLines(this.activeAuthority ?? this.options.authority(), this.tipping, dirX, dirZ);
+  }
+
+  /**
+   * The horizontal impulse that would put this body down along its weakest direction, N.s: the fall
+   * line there times the mass a shove is divided by. Physical contact session 09, for
+   * `BodyView.stabilityImpulseNs`, which a mind reads on both bodies every control step -- so it is
+   * formed once per boundary's geometry rather than once per read, which would be 32 hull clips and
+   * an allocation a read. Zero until the body's base has first been read, at its first control
+   * step: no geometry is no line, and a view field is finite.
+   */
+  fallImpulseNs(): number {
+    const authority = this.activeAuthority ?? this.options.authority();
+    if (this.fallImpulseOf !== this.tipping || this.fallImpulseAuthority !== authority) {
+      this.fallImpulseOf = this.tipping;
+      this.fallImpulseAuthority = authority;
+      const line = stabilityLines(authority, this.tipping).fallAtMps;
+      this.fallImpulse = Number.isFinite(line) ? line * this.options.supportedMassKg : 0;
+    }
+    return this.fallImpulse;
+  }
+  private fallImpulseOf: TippingGeometry | null | undefined = undefined;
+  private fallImpulseAuthority: unknown = undefined;
+  private fallImpulse = 0;
+
   carrierGround(): WorldPoint {
     const state = this.carrier.state;
     return Object.freeze({ x: state.x, y: 0, z: state.z });
@@ -597,7 +762,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const request = this.staged.sample().request;
     const allowed = this.priorAllowed();
     const authority = this.activeAuthority ?? this.options.authority();
-    const capacity = stabilityCapacity(authority);
+    const lines = stabilityLines(authority, this.tipping);
     const staged = this.staged.snapshot();
     const constrained = request !== null && allowed !== null &&
       (Math.abs(request.localForward - allowed.localForward) > 1e-9 ||
@@ -619,9 +784,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     return Object.freeze({ state: Object.freeze({ ...this.supportState }), ...this.lastBoundary,
       stability: Object.freeze({ specificImpulseMps: this.supportState.specificImpulseMps,
         supportedMassKg: this.options.supportedMassKg,
-        stabilityMassKg: stabilityMassKg(this.options.supportedMassKg, authority),
-        staggerAtMps: SUPPORTED_LOCOMOTION_V1.STAGGER_SPECIFIC_IMPULSE_MPS * capacity,
-        fallAtMps: SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity }),
+        staggerAtMps: lines.staggerAtMps, fallAtMps: lines.fallAtMps, tipping: this.tipping }),
       activeGroup: this.activeAuthorityOwner?.split("/", 1)[0] ?? null,
       supportGroups, requested: request === null ? null : Object.freeze({ ...request }),
       allowed: allowed === null ? null : Object.freeze({ ...allowed }), blockedReason,
@@ -830,6 +993,30 @@ export function isPhysicalSupportedLocomotionPort(
   return port instanceof PhysicalSupportedLocomotionPort;
 }
 
+/** The force between two trunks on one pair resolution, on one of them. */
+export interface PairPush {
+  /** Horizontal impulse on this body over the step, N.s. */
+  readonly x: number;
+  readonly z: number;
+  /** The world height the trunks meet at: the lower of the two centres of mass. */
+  readonly atY: number;
+  /** Whether this body is the one driving it, rather than the one it drives. */
+  readonly driving: boolean;
+}
+
+/**
+ * The impulse one walker drives into the other along the unit (`ux`, `uz`) in a step, N.s: the
+ * closing momentum the pair resolution took from it, `M dv`, and no more than it pushes with over the
+ * step (`pushCapN`). The resolution stops a walker outright where the footprints meet; the momentum it
+ * arrived with past what it pushes with is taken up by its own legs, as a walker's is when it walks
+ * into a wall, and is not a blow. Blows are struck with parts, through `Combat`.
+ */
+export function pairDriveNs(pusher: PhysicalSupportedLocomotionPort, blockedM: number, ux: number, uz: number,
+  atY: number, dt: number): number {
+  if (!(blockedM > 0) || !(dt > 0)) return 0;
+  return Math.min(pusher.supportedMassKg * blockedM / dt, pusher.pushCapN(ux, uz, atY) * dt);
+}
+
 /** Both proposals exist before the symmetric footprint calculation commits either body. */
 export function resolvePhysicalSupportedPair(
   left: SupportedLocomotionPort | null | undefined,
@@ -851,18 +1038,26 @@ export function resolvePhysicalSupportedPair(
   const allowed: PairAllowedMoves = left.blocksOpponentFootprint() && right.blocksOpponentFootprint()
     ? resolveCarrierPair(leftProposal, rightProposal, left.registry)
     : Object.freeze({ left: independentlyAllowed(leftProposal), right: independentlyAllowed(rightProposal) });
-  // Where the footprints met, a body still walking in pushes the other with what its feet hold,
-  // `GRIP * W`, along the contact (physical contact session 07). The other reads it at its next
-  // boundary. Keyframed trunks report no contact to the solver, so this is the only way one body
-  // walks into another.
+  // Where the footprints met, the trunks push on each other with one force, set by the one driving
+  // harder (`pairDriveNs`): a body standing its ground against a harder push holds it with its feet and
+  // its lean, not with a push of its own. Both read it at their next boundary (`readContact`).
+  // Keyframed trunks report no contact to the solver, so this is the only way one body walks into
+  // another (physical contact session 07; the force and its reaction, session 10).
   const contact = allowed.contact ?? null;
-  const pushOf = (pusher: PhysicalSupportedLocomotionPort, closing: number, sign: number) => {
-    if (!contact || !(closing > 0)) return null;
-    const push = CONTACT_PRESS.GRIP * pusher.supportedMassKg * CONTACT_PRESS.GRAVITY_MPS2 * sign;
-    return Object.freeze({ x: contact.nx * push, z: contact.nz * push });
-  };
-  left.notePairPush(pushOf(right, contact?.rightClosing ?? 0, -1));
-  right.notePairPush(pushOf(left, contact?.leftClosing ?? 0, 1));
+  const leftY = left.centreOfMassY(), rightY = right.centreOfMassY();
+  const atY = leftY === null || rightY === null ? null : Math.min(leftY, rightY);
+  const leftDrive = contact && atY !== null ? pairDriveNs(left, contact.leftBlocked, contact.nx, contact.nz, atY, dt) : 0;
+  const rightDrive = contact && atY !== null ? pairDriveNs(right, contact.rightBlocked, -contact.nx, -contact.nz, atY, dt) : 0;
+  const impulse = Math.max(leftDrive, rightDrive);
+  if (contact && atY !== null && impulse > 0) {
+    left.notePairPush(Object.freeze({ x: -contact.nx * impulse, z: -contact.nz * impulse, atY,
+      driving: leftDrive >= rightDrive }));
+    right.notePairPush(Object.freeze({ x: contact.nx * impulse, z: contact.nz * impulse, atY,
+      driving: rightDrive >= leftDrive }));
+  } else {
+    left.notePairPush(null);
+    right.notePairPush(null);
+  }
   left.commitPhysical(leftProposal, allowed.left, dt);
   right.commitPhysical(rightProposal, allowed.right, dt);
   return true;

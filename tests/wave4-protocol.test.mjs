@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { AUTHORIZATION, remainingAllowance, fixtures, compare, TEACHER_OPPONENTS } from "../research/lab/wave4-protocol.mjs";
-import { aimReachResidual, DIRECT_FIELDS, controlledMind } from "../src/golem/lab-policy.ts";
+import { aimReachResidual, DIRECT_FIELDS, controlledMind, LAB_VERSION } from "../src/golem/lab-policy.ts";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { namedBuild } from "../src/golem/roster.ts";
 import { createEnvironment, recording } from "../research/lab/environment.mjs";
@@ -48,7 +48,7 @@ test("restricted residual modifies only aim and reach, preserving whole baseline
 });
 
 test("restricted residual training adapter and exported policy have identical physical traces", async () => {
-  const model = { version: 2, surface: "residual", baseline: "golem-duelist", hz: 12,
+  const model = { version: LAB_VERSION, surface: "residual", baseline: "golem-duelist", hz: 12,
     residualMode: "aim-reach", observationNames: OBSERVATION_NAMES,
     layers: [{ activation: "linear", weights: Array.from({ length: 22 }, () => OBSERVATION_NAMES.map(() => 0)), bias: Array(22).fill(0.8) }] };
   const run = async (external, mode) => {

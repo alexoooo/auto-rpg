@@ -49,7 +49,8 @@ import { GOLEM_MODULES } from "../src/golem/registry.ts";
 import { SKELETAL_REACH } from "../src/golem/skeleton/body.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { BUTTON_REACH } from "../src/buttons.ts";
-import { STROKE_INERTIA, strokeInertiaScale } from "../src/golem/tactics.ts";
+import { STROKE_INERTIA, strokeTimeScale } from "../src/golem/tactics.ts";
+import { ATTRIBUTES, ATTRIBUTE_IDS } from "../src/golem/attributes.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("./harness/bout-runner.mjs");
@@ -1345,8 +1346,8 @@ test("the_default_arms_swing_inertia_is_the_reference_every_stroke_is_timed_agai
     + `against is ${STROKE_INERTIA.ref}`);
   // And the consequence that matters, stated separately because it is the one a reader wants:
   // the body the record was measured on keeps the arc it was measured with, to the last bit.
-  assert.equal(strokeInertiaScale(cap.swingInertia), 1,
-    `the default arm's strokes scale by ${strokeInertiaScale(cap.swingInertia)} rather than by 1`);
+  assert.equal(strokeTimeScale(cap), 1,
+    `the default arm's strokes scale by ${strokeTimeScale(cap)} rather than by 1`);
   // And a body carrying a load that is genuinely heavier, so the floor is not what is making the
   // line above pass.
   //
@@ -1369,7 +1370,63 @@ test("the_default_arms_swing_inertia_is_the_reference_every_stroke_is_timed_agai
       secondary: { chain: "wrist", terminal: "maul" } },
   });
   const load = heavy.golem.view.self.capabilities.effectors.primary;
-  assert.ok(strokeInertiaScale(load.swingInertia) > 1.5,
+  assert.ok(strokeTimeScale(load) > 1.5,
     `a maul arm is ${load.swingInertia} kg m2 and scales by `
-    + `${strokeInertiaScale(load.swingInertia)}, so nothing here is scaling`);
+    + `${strokeTimeScale(load)}, so nothing here is scaling`);
+});
+
+test("a_strokes_time_is_the_arms_own_rate_and_torque_against_its_load_and_not_its_load_alone", async (t) => {
+  // Physical contact session 09. Timing a stroke by the load alone stretched a x2-weight arm by
+  // 14 % and an all-max giant's by 68 %, while the arm that swings it had been given the torque
+  // (weight x size^4) and the rate (arm speed / sqrt(size)) to swing it at least as fast. The
+  // arm's own time scale is the slower of its rate against the shipped table's and its load
+  // against the torque it has to move it, so each level is pinned on what its arm actually is.
+  const at = async (attributes) => {
+    const { golem } = await standAGolem(t, { setup: { ...defaultGolemSetup(), attributes } });
+    return golem.view.self.capabilities.effectors.primary;
+  };
+  // Weight scales mass and torque together and leaves the rate alone: the load's time is the
+  // shipped one, to rounding.
+  const heavy = await at({ weight: 2 });
+  assert.ok(heavy.torqueScale > 1.9 && heavy.rateScale === 1,
+    `a x2-weight arm publishes torque x${heavy.torqueScale} and rate x${heavy.rateScale}`);
+  assert.ok(Math.abs(strokeTimeScale(heavy) - 1) < 0.01,
+    `a x2-weight arm is timed x${strokeTimeScale(heavy)}, not the shipped arm's own 1`);
+  // Size slows the arm's rate by sqrt(size) and not by its load (size^5 over size^4).
+  const tall = await at({ size: 1.25 });
+  assert.ok(Math.abs(strokeTimeScale(tall) - Math.sqrt(1.25)) < 0.01,
+    `a x1.25-size arm is timed x${strokeTimeScale(tall)}, not sqrt(1.25) = 1.118`);
+  // Every stat at its ceiling is a faster arm than the shipped one, not a slower one.
+  const giant = await at(Object.fromEntries(ATTRIBUTE_IDS.map((id) => [id, ATTRIBUTES[id].max])));
+  assert.ok(strokeTimeScale(giant) < 1,
+    `an all-max arm is timed x${strokeTimeScale(giant)} (rate x${giant.rateScale}, torque `
+    + `x${giant.torqueScale}), which is no faster than the shipped arm`);
+});
+
+test("a_golem_publishes_what_its_stats_do_as_physical_quantities_a_mind_can_read", async (t) => {
+  // Physical contact session 09. The body's supported mass, the impulse its weakest fall line
+  // stands for, its arm's rate at the hand and the health a joule of a cut takes from its core --
+  // each read off the running body, pinned at x1 to the figures measured on the Node arena
+  // harness (2026-09-24), and moved by the stat that should move it.
+  const shipped = await standAGolem(t);
+  shipped.run(1);
+  const x1 = shipped.golem.view.self;
+  const near = (value, want, what) =>
+    assert.ok(Math.abs(value / want - 1) < 0.02, `${what} publishes ${value}, not ${want}`);
+  near(x1.massKg, 247.2, "massKg");
+  near(x1.stabilityImpulseNs, 117.1, "stabilityImpulseNs");
+  near(x1.armRate, 11.81, "armRate");
+  near(x1.soak, 2.323e-3, "soak");
+  const heavy = await standAGolem(t, { setup: { ...defaultGolemSetup(), attributes: { weight: 2 } } });
+  heavy.run(1);
+  const x2 = heavy.golem.view.self;
+  assert.ok(x2.massKg > 1.5 * x1.massKg, `a x2-weight body publishes ${x2.massKg} kg against ${x1.massKg}`);
+  assert.ok(x2.stabilityImpulseNs > 1.5 * x1.stabilityImpulseNs,
+    `a x2-weight body takes ${x2.stabilityImpulseNs} N.s to fell against ${x1.stabilityImpulseNs}`);
+  const fast = await standAGolem(t, { setup: { ...defaultGolemSetup(), attributes: { armSpeed: 1.5 } } });
+  fast.run(1);
+  near(fast.golem.view.self.armRate, 1.5 * x1.armRate, "a x1.5 arm-speed arm's rate");
+  const tough = await standAGolem(t, { setup: { ...defaultGolemSetup(), attributes: { toughness: 2 } } });
+  tough.run(1);
+  near(tough.golem.view.self.soak, x1.soak / 2, "a x2-toughness core's soak");
 });

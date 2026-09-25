@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { infer, sampleNetwork, validateNetwork, OBSERVATION_NAMES } from "../src/golem/lab-policy.ts";
+import { infer, sampleNetwork, validateNetwork, OBSERVATION_NAMES, LAB_VERSION } from "../src/golem/lab-policy.ts";
 import { createEnvironment, recording, replay } from "../research/lab/environment.mjs";
 
-const model = () => ({ version: 2, surface: "residual", baseline: "golem-duelist", hz: 12,
+const model = () => ({ version: LAB_VERSION, surface: "residual", baseline: "golem-duelist", hz: 12,
   observationNames: OBSERVATION_NAMES, samplingStd: Array(22).fill(0.5),
   layers: [{ activation: "linear", weights: Array.from({ length: 22 }, () => Array(OBSERVATION_NAMES.length).fill(0)),
     bias: Array(22).fill(1.5) }] });

@@ -39,10 +39,11 @@ import { wheelModule } from "../../src/golem/locomotion/wheel.ts";
 import { skeletonBiped } from "../../src/golem/skeleton/body.ts";
 import { buildLocomotionCourse, registerLocomotionCourse } from "../../src/golem/locomotion/course.ts";
 import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readout.ts";
+import { effectorCapability } from "../../src/golem/module.ts";
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
 import {
-  GOLEM_TACTICS, STROKE_SHAPES, aimAt, canCover, canSwing, distance, reachForDistance,
+  GOLEM_TACTICS, STROKE_SHAPES, strokeTimeScale, aimAt, canCover, canSwing, distance, reachForDistance,
   tacticalRanges, writeAim,
 } from "../../src/golem/tactics.ts";
 import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-production.ts";
@@ -619,24 +620,11 @@ export async function runGolemBench({
 // ------------------------------------------------------------------------ the stroke bench
 
 /**
- * The mind's own capability record, built from a bench module's published envelope.
- *
- * `Golem.golemCapabilities` writes these same four fields off the same envelope, and this is a
- * second copy of three lines rather than an import because that method is private to an assembled
- * golem and there is no golem on the stand. What keeps the copy honest is that every field is a
- * read of something the module publishes: nothing here is a bench-only number, so a module whose
- * envelope changes changes both readers together.
+ * The mind's own capability record, built from a bench module's published envelope by
+ * `effectorCapability`, the one builder `Golem.golemCapabilities` uses too. It was a second copy
+ * until physical contact session 09, and the copy lacked the full-orientation branch.
  */
-export const capabilityOf = (module) => {
-  const envelope = module.envelope();
-  const ceiling = (id) => Math.max(0, envelope.axes.find((axis) => axis.id === id)?.max ?? 0);
-  return Object.freeze({
-    strokes: envelope.strokes,
-    reachable: envelope.reachable,
-    rollMax: ceiling("roll"),
-    bendMax: ceiling("bend"),
-  });
-};
+export const capabilityOf = (module) => effectorCapability(module.envelope());
 
 /** What a mind reads off the hand for a bench module, from the registry rather than a second table. */
 export const weaponOf = (moduleId) =>
@@ -798,6 +786,10 @@ export function strokeProbe({
     const anchor = view.anchor ?? tip;
     const tipSpeed = have ? Vector3.Distance(tip, tipWas) / SUBSTEP : 0;
     const anchorSpeed = have ? Vector3.Distance(anchor, anchorWas) / SUBSTEP : 0;
+    // How much of the tip's motion the edge leads with: 1 is edge first, 0 is the flat.
+    const edgeLead = have && view.edge && tipSpeed > 0
+      ? Math.abs(Vector3.Dot(view.edge, tip.subtract(tipWas))) / (view.edge.length() * tipSpeed * SUBSTEP)
+      : null;
     tipWas.copyFrom(tip);
     anchorWas.copyFrom(anchor);
     have = true;
@@ -826,6 +818,7 @@ export function strokeProbe({
         at: t,
         speed: anchorSpeed + (tipSpeed - anchorSpeed) * u,
         tipSpeed,
+        edgeLead,
         alongMetres: span * (1 - u),
       };
     }
@@ -847,6 +840,12 @@ export function strokeProbe({
     speedAtMark: nearest ? nearest.speed : 0,
     /** Metres a second of the business end at the same step, which is always the larger. */
     tipSpeedAtMark: nearest ? nearest.tipSpeed : 0,
+    /**
+     * How much of the tip's motion the edge led with at that step, 0 to 1: the cosine between the
+     * published edge direction and the tip's velocity. Null for a terminal that publishes no edge.
+     * A cut scores on it (`edgeAlignment` in `src/scoring.ts`), and speed alone does not say it.
+     */
+    edgeLeadAtMark: nearest ? nearest.edgeLead : null,
     /** How close the weapon actually came to the mark there, metres. */
     missMetres: nearest ? nearest.miss : null,
     /** How far back from the business end the mark fell, metres: where on the blade it landed. */
@@ -1147,6 +1146,12 @@ export async function runStrokeBench({
   attributes = null,
   /** The motor tone the arm is built on, as `runGolemBench` takes it. */
   tone = null,
+  /**
+   * Whether to time the shape as a mind times it for this arm: its chamber and arc times
+   * `strokeTimeScale` of the arm's own capability (physical contact session 09). Off, the shape
+   * runs at the durations it was benched at, whatever the arm.
+   */
+  timed = false,
 }) {
   const kind = weaponOf(moduleId);
   let reader = null;
@@ -1161,7 +1166,10 @@ export async function runStrokeBench({
     sequence: ({ module, socket }) => {
       const cap = capabilityOf(module);
       const envelope = module.envelope();
-      const shape = Object.freeze({ ...STROKE_SHAPES[kind], ...(shapeOverride ?? {}) });
+      const authored = { ...STROKE_SHAPES[kind], ...(shapeOverride ?? {}) };
+      const scale = timed ? strokeTimeScale(cap) : 1;
+      const shape = Object.freeze({ ...authored, chamberSeconds: authored.chamberSeconds * scale,
+        strokeSeconds: authored.strokeSeconds * scale });
       const mark = markFor(socket, envelope, cap, markOptions ?? {});
       const script = strokeSequence({
         shape, cap, socket: socket.world, mark, reach: envelope.reach,
@@ -1178,7 +1186,7 @@ export async function runStrokeBench({
       });
       plan = {
         shape, mark, reach: envelope.reach, markMetres: distance(socket.world, mark),
-        sweeps: canSwing(cap),
+        sweeps: canSwing(cap), cap,
       };
       return script;
     },
@@ -1192,6 +1200,8 @@ export async function runStrokeBench({
     massKg: run.massKg,
     reach: plan.reach,
     shape: plan.shape,
+    /** The capability the mind would read off this arm, as `capabilityOf` builds it. */
+    capability: plan.cap,
     markMetres: plan.markMetres,
     /**
      * Whether the arc swept at all: false for a chain whose azimuth has one value.
@@ -1611,8 +1621,10 @@ const LOCOMOTION_SWEEPS = {
     // These three are about a knockdown, so they are the only ones read over the whole sequence.
     waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
       values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
+    // Straddling its own fall line along the push, 264.8 N.s at x1 (physical contact session 08,
+    // Node locomotion bench), and on to the bench's own shove.
     shove: { block: LOCOMOTION_BIPED, key: "shoveImpulseNs",
-      values: [10, 12, 200, 600, 1600], sequence: LOCOMOTION_SEQUENCE },
+      values: [200, 250, 280, 600, 1600], sequence: LOCOMOTION_SEQUENCE },
     fallenTorque: { block: LOCOMOTION_BIPED, key: "fallenTorqueScale",
       values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
   },
@@ -1626,17 +1638,10 @@ const LOCOMOTION_SWEEPS = {
       values: [120, 352, 700, 1200, 2400] },
     waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
       values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
-    // The bracket that matters, and its values straddle the biped's own 10/12 on purpose: the
-    // comparison the session exists for is that the shove the biped survives puts this over.
+    // The bracket that matters: its line is 110.1 N.s against the biped's 264.8 (physical contact
+    // session 08, Node locomotion bench), and 225 is the shove the biped survives and this does not.
     shove: { block: LOCOMOTION_WHEEL, key: "shoveImpulseNs",
-      values: [4, 6, 8, 10, 12, 700], sequence: LOCOMOTION_SEQUENCE },
-    // **Read at the biped's own "leaves it standing" impulse, which is what `with` is for.** At
-    // this module's own 1600 N.s bench shove every row of this sweep is identical to the digit --
-    // 225 times the threshold swamps any capacity multiplier -- so a sweep taken there would be a
-    // column of one number and a reader would conclude the field does nothing.
-    stand: { block: LOCOMOTION_WHEEL, key: "gaitStabilityScaleStand",
-      values: [0.35, 0.50, 0.70, 0.85, 1.00], sequence: LOCOMOTION_SEQUENCE,
-      with: [[LOCOMOTION_WHEEL, { shoveImpulseNs: 10 }]] },
+      values: [80, 100, 120, 225, 800], sequence: LOCOMOTION_SEQUENCE },
     fallenTorque: { block: LOCOMOTION_WHEEL, key: "fallenTorqueScale",
       values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
   },
@@ -1658,16 +1663,10 @@ const LOCOMOTION_SWEEPS = {
     targetRate: { block: LOCOMOTION_MULTILEG, key: "targetRate", values: [2, 4, 6, 10, 20] },
     waistTorque: { block: BENCH_STAND_LOCOMOTION, key: "waistTorque",
       values: [800, 2000, 5000, 12000], sequence: LOCOMOTION_SEQUENCE },
-    // Straddling the biped's 12, from above: the other comparison the session exists for is that
-    // the shove that fells the biped leaves this one standing.
+    // Straddling its own line, 623.7 N.s, from the biped's 270 that fells a biped and leaves this
+    // one standing (physical contact session 08, Node locomotion bench).
     shove: { block: LOCOMOTION_MULTILEG, key: "shoveImpulseNs",
-      values: [12, 20, 24, 30, 40, 900], sequence: LOCOMOTION_SEQUENCE },
-    // Read at the biped's own fall impulse for the reason the wheel's `stand` sweep states: at
-    // this module's own 2400 N.s bench shove every row is identical, because 104 times the
-    // threshold does not care what the threshold is.
-    brace: { block: LOCOMOTION_MULTILEG, key: "braceCapacityMultiplier",
-      values: [1.0, 1.5, 2.0, 2.6, 3.4], sequence: LOCOMOTION_SEQUENCE,
-      with: [[LOCOMOTION_MULTILEG, { shoveImpulseNs: 12 }]] },
+      values: [270, 550, 600, 650, 700, 1200], sequence: LOCOMOTION_SEQUENCE },
     fallenTorque: { block: LOCOMOTION_MULTILEG, key: "fallenTorqueScale",
       values: [1.0, 0.30, 0.08, 0.0], sequence: LOCOMOTION_SEQUENCE },
   },

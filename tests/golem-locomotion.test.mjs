@@ -35,6 +35,7 @@ import {
 } from "./harness/golem-bench.mjs";
 import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { ATTRIBUTES, resolveAttributes } from "../src/golem/attributes.ts";
+import { baseReachM } from "../src/tipping.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
 /**
@@ -401,12 +402,11 @@ test("the_scripted_locomotion_run_walks_crouches_falls_and_rises", async () => {
   // 4. The knockdown: the root goes DYNAMIC, the body tips, and the rise completes inside the
   //    budget written in the module file.
   //
-  //    **It tips, and is lifted before it lands.** A stone biped has no settle rule of its own, so
-  //    it rises the moment its 0.35 s dwell is up, and since 2026-09-23 nothing waits for a mind to
-  //    ask (physical contact session 02). The bench's `down` phase used to hold still for 0.68 s
-  //    and let it reach an up-dot of 0.1; it now reaches 0.746 (Node bench), which is what a bout
-  //    always gave it, because every mind was moving.
-  assert.ok(state.minUpDot < 0.9, `the shove only tilted the root to an up-dot of ${state.minUpDot}`);
+  //    **It goes over and lies until it has come down.** Since physical contact session 08 stone
+  //    runs the one knockdown (`KNOCKDOWN`): it lies until its centre of mass has come half way to
+  //    the floor and stopped coming down, where it once rose the moment a 0.35 s dwell was up at an
+  //    up-dot of 0.746. It now reaches -0.183 (Node bench), past lying on its side.
+  assert.ok(state.minUpDot < 0.3, `the shove only tilted the root to an up-dot of ${state.minUpDot}`);
   assert.ok(state.recoveredSeconds !== null, "the golem never came back to supported");
   assert.ok(state.riseSeconds > 0 && state.riseSeconds <= B.riseBudgetSeconds,
     `the rise took ${state.riseSeconds} s against a budget of ${B.riseBudgetSeconds}`);
@@ -436,40 +436,39 @@ test("the_shove_releases_the_root_to_DYNAMIC_and_the_rise_restores_it", async ()
     // Recovery cannot require the support state it exists to restore: the first construct
     // controller demanded three planted contacts in its constructor, so a fallen Mind selected
     // recover for ever and the scheduler refused it for ever. Here nothing is required of the
-    // command at all: the body rises once its dwell is up.
+    // command at all: the body rises once it has settled (`KnockdownSettle`), which the table's
+    // 2.5 s cap bounds, and the rise after it is under a second.
     drive(f.module, { forward: 1 });
-    step(f.scene, 1.6);
+    step(f.scene, 3.6);
     assert.equal(f.module.port.state, "supported", f.module.port.diagnostic().releaseReason ?? "");
     assert.equal(f.module.root.body.getMotionType(), PhysicsMotionType.ANIMATED);
     assert.ok(constructPostureIsSupported(f.module.postureEvidence()));
   } finally { f.dispose(); }
 });
 
-test("a_shove_under_the_braced_fall_threshold_does_not_knock_the_golem_down", async () => {
+test("a_shove_under_the_body_s_own_fall_line_does_not_knock_the_golem_down_and_one_over_it_does", async () => {
   // The control for the cell above, and the reason it is here rather than in a comment: an
   // assertion that a large shove knocks a body over is satisfied by a body that falls over
-  // whatever you do to it.
-  const f = await fixture();
-  try {
-    drive(f.module, {});
-    step(f.scene, 1);
-    const mass = f.module.port.diagnostic();
-    const capacity = B.braceCapacityMultiplier * f.module.authority().gaitStabilityScale;
-    // The mass a shove is read against: what the bench holds up, over the holding ratio the stone
-    // body took with its density (physical contact session 04).
-    const stabilityMassKg = (B.pelvisMass + 2 * (B.thighMass + B.shinMass + B.footMass) +
-      BENCH_STAND_LOCOMOTION.mass) / B.stabilityMassRatio;
-    const fallAtNs = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity * stabilityMassKg;
-    assert.ok(Math.abs(mass.stability.fallAtMps -
-      SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS * capacity) < 1e-9);
-    // To Havok's single-precision mass: the port reads 280.04999 kg where the tables sum to 280.05.
-    assert.ok(Math.abs(mass.stability.stabilityMassKg - stabilityMassKg) < 1e-4,
-      `the port reads a shove against ${mass.stability.stabilityMassKg} kg, not ${stabilityMassKg}`);
-    f.module.port.queueStabilityEvent({ horizontalShoveNs: [fallAtNs * 0.9, 0] });
-    step(f.scene, 0.2);
-    assert.notEqual(f.module.port.state, "fallen");
-    assert.equal(f.module.root.body.getMotionType(), PhysicsMotionType.ANIMATED);
-  } finally { f.dispose(); }
+  // whatever you do to it. The line is the body's own geometry along the push (physical contact
+  // session 08), at the mass the bench holds up; the two halves are a pair on fresh fixtures.
+  for (const [at, falls] of [[0.9, false], [1.1, true]]) {
+    const f = await fixture();
+    try {
+      drive(f.module, {});
+      step(f.scene, 1);
+      const { stability } = f.module.port.diagnostic();
+      // To Havok's single-precision mass: the port reads 280.04999 kg where the tables sum to 280.05.
+      const massKg = B.pelvisMass + 2 * (B.thighMass + B.shinMass + B.footMass) + BENCH_STAND_LOCOMOTION.mass;
+      assert.ok(Math.abs(stability.supportedMassKg - massKg) < 1e-4,
+        `the port reads a shove against ${stability.supportedMassKg} kg, not ${massKg}`);
+      const fallAtNs = f.module.port.stabilityLinesAlong(1, 0).fallAtMps * stability.supportedMassKg;
+      f.module.port.queueStabilityEvent({ horizontalShoveNs: [fallAtNs * at, 0] });
+      step(f.scene, 0.2);
+      assert.equal(f.module.port.state === "fallen", falls, `${at} of the fall line: ${f.module.port.state}`);
+      assert.equal(f.module.root.body.getMotionType(),
+        falls ? PhysicsMotionType.DYNAMIC : PhysicsMotionType.ANIMATED);
+    } finally { f.dispose(); }
+  }
 });
 
 test("a_planted_sole_holds_its_ground_within_the_budget_written_in_the_module_file", async () => {
@@ -603,17 +602,20 @@ test("the_turning_stat_spins_every_body_at_its_multiple_and_a_sole_keeps_its_sha
 
 test("the_stability_stat_moves_both_thresholds_on_every_body_and_nothing_staggers_on_its_own_gait_at_the_floor", async () => {
   // Session 06's claims at the ends of the range the row ships (the table is its doc comment in
-  // `src/golem/attributes.ts`): both thresholds are the multiple of x1's on every body, a shove
-  // either side of the moved fall threshold lands on the right side of it -- on the biped, and on
-  // the wheel, whose brace of 1 is why the stat is not routed through brace -- and a body at the
-  // floor still walks without its own gait putting it over.
+  // `src/golem/attributes.ts`): both lines are the multiple of x1's on every body, a shove either
+  // side of the moved fall line lands on the right side of it -- on the biped and on the wheel, the
+  // highest and the lowest line a standing body has -- and a body at the floor still walks without
+  // its own gait putting it over. Since session 08 the lines are the body's geometry along the push.
   const row = ATTRIBUTES.stability;
   const blocks = { biped: B, skeleton: SKELETON_BIPED, multileg: LOCOMOTION_MULTILEG, wheel: LOCOMOTION_WHEEL };
   const STAND = [{ name: "stand", until: 0.5, forward: 0, strafe: 0, turn: 0, crouch: 0 }];
   const read = async (moduleId, level) => {
     let stability = null;
     await runGolemLocomotion({ moduleId, sequence: STAND, attributes: level === 1 ? null : { stability: level },
-      watch: ({ module }) => { stability = module.port.diagnostic().stability; } });
+      watch: ({ module }) => {
+        stability = { ...module.port.stabilityLinesAlong(1, 0),
+          supportedMassKg: module.port.diagnostic().stability.supportedMassKg };
+      } });
     return stability;
   };
   const SHOVE = [
@@ -636,8 +638,12 @@ test("the_stability_stat_moves_both_thresholds_on_every_body_and_nothing_stagger
       assert.ok(Math.abs(moved.staggerAtMps - base.staggerAtMps * level) < 1e-12, `${where} staggers at ${moved.staggerAtMps}`);
       assert.ok(Math.abs(moved.fallAtMps - base.fallAtMps * level) < 1e-12, `${where} falls at ${moved.fallAtMps}`);
       if (moduleId === "biped" || moduleId === "wheel") {
-        const fallNs = moved.fallAtMps * moved.stabilityMassKg;
-        assert.equal(await fell(moduleId, level, fallNs * 0.95), false, `${where} fell under its own threshold`);
+        // 0.85 rather than 0.95 underneath: the bench's shove is a real impulse as well as a ledger
+        // entry, and it carries the body's mass toward the edge it is pushed over, so a body falls
+        // a little under the line its standing geometry gives -- at x2, 0.917 of it on the biped and
+        // 0.961 on the wheel (`.review/shove-bench.mjs`, Node locomotion bench, 2026-09-24).
+        const fallNs = moved.fallAtMps * moved.supportedMassKg;
+        assert.equal(await fell(moduleId, level, fallNs * 0.85), false, `${where} fell under its own threshold`);
         assert.equal(await fell(moduleId, level, fallNs * 1.05), true, `${where} stood over its own threshold`);
       }
     }
@@ -645,6 +651,28 @@ test("the_stability_stat_moves_both_thresholds_on_every_body_and_nothing_stagger
     await runGolemLocomotion({ moduleId, sequence: walkSequenceFor(moduleId), attributes: { stability: row.min },
       watch: ({ module }) => { if (module.evidence().state !== "supported") off++; } });
     assert.equal(off, 0, `${moduleId} at x${row.min} left the supported state on its own walk`);
+  }
+});
+
+test("a_foot_in_the_air_is_still_part_of_the_base_a_walking_body_stands_on", async () => {
+  // **A body's base is its stance, lifted feet included** (physical contact session 08): a foot in
+  // the air is on its way down, so a walking body is not a one-legged body half the time. Read off
+  // each body's own walk (Node locomotion bench): the biped's weakest fall line is zero -- its centre
+  // of mass past its whole stance, the carrier ahead of the legs -- in 3 of 360 walking samples and
+  // the skeleton's in 19, and with only planted soles in the base those were 139 and 151. The
+  // control is that a sole really is off the floor in about half the samples.
+  for (const moduleId of ["biped", "skeleton"]) {
+    let samples = 0, zero = 0, lifted = 0;
+    await runGolemLocomotion({ moduleId, sequence: walkSequenceFor(moduleId), watch: ({ module, phase }) => {
+      const evidence = module.evidence();
+      if (phase !== "walk" || evidence.state !== "supported") return;
+      samples++;
+      if (module.port.diagnostic().stability.fallAtMps === 0) zero++;
+      if (evidence.plantedFeet < 2) lifted++;
+    } });
+    assert.ok(samples > 300, `${moduleId} walked ${samples} samples`);
+    assert.ok(lifted > samples / 4, `${moduleId} lifted a sole in ${lifted} of ${samples}`);
+    assert.ok(zero < samples / 10, `${moduleId} read a zero fall line in ${zero} of ${samples} walking samples`);
   }
 });
 
@@ -923,6 +951,14 @@ test("physical_corpus_two_bipeds_share_one_registry_and_a_fallen_one_rises_clear
     // **Fallen is lower, not absent.** A living fallen carrier still reserves its ordinary
     // query-only footprint, and treating it as non-blocking is what let one carrier stand through
     // the other's ragdoll.
+    //
+    // **The lie is cut to its shortest here, and that is the fixture's one stated edit.** The pair
+    // resolver separates the two carriers at about half a metre a second while one lies, so under
+    // the knockdown's own lie (`KNOCKDOWN`, up to 2.5 s) they are clear long before the rise and
+    // there is no retreat to test: measured (Node, this fixture), 0.897 m apart at the rise. A cap
+    // under the dwell makes the rise start at the dwell, from inside the other's footprint.
+    const knockdown = B.knockdown;
+    B.knockdown = { ...knockdown, maxLyingSeconds: 0.1 };
     const arena = await createHeadlessArena();
     const scene = arena.scene;
     const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
@@ -990,6 +1026,7 @@ test("physical_corpus_two_bipeds_share_one_registry_and_a_fallen_one_rises_clear
       scene.onBeforePhysicsObservable.remove(control);
       for (const { module, stand } of built) { module.dispose(); stand.dispose(); }
       arena.dispose();
+      B.knockdown = knockdown;
     }
   });
 
@@ -1073,23 +1110,19 @@ async function moduleFixture(definition, { prepare = null, populateDefaultGeomet
 }
 
 /**
- * What a module's own declared fall threshold is worth in newton-seconds, standing still: over the
- * mass it holds up divided by its holding ratio (physical contact session 04).
+ * The biped's own fall line along the bench's push, standing, in newton-seconds: its geometry's line
+ * (physical contact session 08) times the mass the bench holds up. The two comparison cells at the
+ * foot of this file straddle it, and they read it off a standing biped rather than a literal,
+ * because a pinned newton-second goes quietly stale while still reading like a measurement.
  */
-const fallThresholdNs = (module, supportedMassKg) =>
-  SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS *
-  module.authority().braceCapacityMultiplier * module.authority().gaitStabilityScale *
-  (module.authority().stabilityScale ?? 1) * supportedMassKg / (module.authority().stabilityMassRatio ?? 1);
-
-// The biped's own braced fall boundary, standing, in newton-seconds: the frozen specific impulse
-// times its declared brace capacity times the mass the bench actually holds up, over the holding
-// ratio stone took with its body density on 2026-09-24. The two comparison
-// cells at the foot of this file straddle it, and they take it from here rather than from a
-// literal, because the body was re-scaled on 2026-09-18 and a pinned newton-second would have
-// gone quietly stale while still reading like a measurement.
-const BIPED_FALL_NS = SUPPORTED_LOCOMOTION_V1.FALL_SPECIFIC_IMPULSE_MPS *
-  B.braceCapacityMultiplier * (B.pelvisMass + 2 * (B.thighMass + B.shinMass + B.footMass) +
-  BENCH_STAND_LOCOMOTION.mass) / B.stabilityMassRatio;
+async function bipedFallNs() {
+  const f = await moduleFixture(bipedModule);
+  try {
+    drive(f.module, {});
+    step(f.scene, 1);
+    return f.module.port.stabilityLinesAlong(1, 0).fallAtMps * f.module.port.diagnostic().stability.supportedMassKg;
+  } finally { f.dispose(); }
+}
 
 // --------------------------------------------------------------------------- pure geometry
 
@@ -1427,11 +1460,29 @@ test("a_multileg_tripod_always_has_three_pads_down_and_they_hold_their_ground", 
 
 // ------------------------------------------------------- the knockdown, per module and across
 
-test("each_module_falls_at_its_own_declared_threshold_and_not_at_the_biped_s", async () => {
+test("a_standing_wheel_stands_on_a_square_as_wide_as_its_tread", async () => {
+  // The wheel's patch is a recorded choice (physical contact session 08): a line contact has no
+  // fore-aft base at all, so it is given a square as wide as the wheel, centred on the contact and
+  // turned with the axle. Its base therefore spans the tread's width across and along, whatever
+  // the centre of mass's small offset inside it.
+  const f = await moduleFixture(wheelModule);
+  try {
+    drive(f.module, {});
+    step(f.scene, 1);
+    const { tipping } = f.module.port.diagnostic().stability;
+    assert.ok(tipping, "the control: a standing wheel has a tipping reading");
+    for (const [x, z] of [[1, 0], [0, 1]]) {
+      const span = baseReachM(tipping.hull, x, z) + baseReachM(tipping.hull, -x, -z);
+      assert.ok(Math.abs(span - W.wheelWidth) < 1e-3, `the base spans ${span.toFixed(4)} m along (${x}, ${z})`);
+    }
+  } finally { f.dispose(); }
+});
+
+test("each_module_falls_at_the_line_its_own_geometry_gives", async () => {
   // The bracket, taken the cheap way: an authored transfer queued straight into the port, which is
   // the same mass-independent unit the state machine works in, so a whole scripted sequence is not
-  // needed to find the crossing. The measured newton-second brackets over `LOCOMOTION_SEQUENCE`
-  // are in `docs/measurements.md` and in each block's `shoveImpulseNs` comment.
+  // needed to find the crossing. The bench's own brackets are in the measurements doc's physical
+  // contact 08 section.
   for (const [definition, supportedMassKg] of [
     [wheelModule, W.yokeMass + W.wheelMass + BENCH_STAND_LOCOMOTION.mass],
     [multilegModule, ML.chassisMass + 6 * (ML.femurMass + ML.shinMass + ML.footMass)
@@ -1441,22 +1492,21 @@ test("each_module_falls_at_its_own_declared_threshold_and_not_at_the_biped_s", a
     try {
       drive(f.module, {});
       step(f.scene, 1);
-      const threshold = fallThresholdNs(f.module, supportedMassKg);
       // To Havok's single-precision mass, as in the biped's cell above.
-      assert.ok(Math.abs(f.module.port.diagnostic().stability.fallAtMps
-        * f.module.port.diagnostic().stability.stabilityMassKg - threshold) < 1e-5);
+      assert.ok(Math.abs(f.module.port.diagnostic().stability.supportedMassKg - supportedMassKg) < 1e-3);
+      const threshold = f.module.port.stabilityLinesAlong(1, 0).fallAtMps * supportedMassKg;
       f.module.port.queueStabilityEvent({ horizontalShoveNs: [threshold * 0.9, 0] });
       step(f.scene, 0.2);
       assert.notEqual(f.module.port.state, "fallen",
-        `${definition.id} fell at 90 % of its own declared threshold`);
-      // 1.2 x rather than the 0.3 that would top the first one up: **the ledger decays**, at a
-      // frozen 0.020 m/s per second, so 0.2 s of standing there has already spent more of the
-      // first shove than a small second one would replace. One transfer that crosses the boundary
-      // on its own is what this half is about.
+        `${definition.id} fell at 90 % of its own line`);
+      // 1.2 x rather than the 0.3 that would top the first one up: **the ledger decays**, at the
+      // body's own righting rate (`rockingDecayMps2`), so 0.2 s of standing there has already spent
+      // more of the first shove than a small second one would replace. One transfer that crosses the
+      // line on its own is what this half is about.
       f.module.port.queueStabilityEvent({ horizontalShoveNs: [threshold * 1.2, 0] });
       step(f.scene, 0.2);
       assert.equal(f.module.port.state, "fallen",
-        `${definition.id} stayed up past its own declared threshold`);
+        `${definition.id} stayed up past its own line`);
       assert.equal(f.module.root.body.getMotionType(), PhysicsMotionType.DYNAMIC,
         `${definition.id}'s root was not released to the ragdoll`);
     } finally { f.dispose(); }
@@ -1466,10 +1516,10 @@ test("each_module_falls_at_its_own_declared_threshold_and_not_at_the_biped_s", a
 test("the_same_shove_the_biped_survives_knocks_the_wheel_down", async () => {
   // **The first of the two assertions that matter**, and it is a comparison rather than a number:
   // if both options merely fell over at some impulse the locomotion contract would have carried no
-  // difference at all, whatever the config blocks said. 0.85 of the biped's own declared threshold
-  // is Session 05's own measured "leaves the biped standing" row -- 10 N.s against 11.76 then, and
-  // the same fraction of a sixth of that now.
-  const SHOVE = BIPED_FALL_NS * 0.85;
+  // difference at all, whatever the config blocks said. 0.85 of the biped's own line is Session 05's
+  // own measured "leaves the biped standing" row -- 10 N.s against 11.76 then. The wheel's line is
+  // its narrow contact: 0.30 m/s against the biped's 0.95 (Node locomotion bench, 2026-09-24).
+  const SHOVE = await bipedFallNs() * 0.85;
   const biped = await runGolemLocomotion({
     moduleId: "biped", sequence: LOCOMOTION_SEQUENCE,
     overrides: [[LOCOMOTION_BIPED, { shoveImpulseNs: SHOVE }]],
@@ -1482,19 +1532,21 @@ test("the_same_shove_the_biped_survives_knocks_the_wheel_down", async () => {
     `${SHOVE.toFixed(2)} N.s felled the biped, so this comparison is about the wrong impulse`);
   assert.ok(wheel.state.firstFallenSeconds !== null,
     `${SHOVE.toFixed(2)} N.s left the wheel standing: the contract carried no difference`);
+  // Came back, and not inside the budget: a gentle topple takes longer to come down, and the lie
+  // waits for the centre of mass to come half way to the floor -- 2.84 s from the fall to supported
+  // at this shove against 1.93 at the bench's own (Node locomotion bench, 2026-09-24), which is
+  // what the budget was set on.
   assert.ok(wheel.state.recoveredSeconds !== null, "the wheel never came back to supported");
-  assert.ok(wheel.state.riseSeconds > 0 && wheel.state.riseSeconds <= W.riseBudgetSeconds,
-    `the wheel's rise took ${wheel.state.riseSeconds} s against ${W.riseBudgetSeconds}`);
-  // And the mechanism is the declared authority rather than a special case: the same frozen
-  // constant, multiplied by each module's own two published fields.
+  // And the mechanism is each body's own geometry rather than a special case: one formula, read
+  // off each standing body (`stabilityLines`).
   assert.ok(wheel.state.selfContacts === 0 && biped.state.selfContacts === 0);
 });
 
 test("the_shove_that_fells_the_biped_does_not_fell_the_multileg", async () => {
-  // **The second of the two.** 1.02 of the biped's declared threshold is Session 05's own measured
-  // "puts the biped down" row -- 12 N.s against 11.76 then -- and the multileg's declared brace
-  // capacity, 2.6 against the biped's 1.5, is what stands it up under the same transfer.
-  const SHOVE = BIPED_FALL_NS * 1.02;
+  // **The second of the two.** 1.02 of the biped's line is Session 05's own measured "puts the biped
+  // down" row -- 12 N.s against 11.76 then -- and the multileg's lower, wider body, a line of
+  // 1.97 m/s against the biped's 0.95, is what stands it up under the same transfer.
+  const SHOVE = await bipedFallNs() * 1.02;
   const biped = await runGolemLocomotion({
     moduleId: "biped", sequence: LOCOMOTION_SEQUENCE,
     overrides: [[LOCOMOTION_BIPED, { shoveImpulseNs: SHOVE }]],
@@ -1515,15 +1567,12 @@ test("the_shove_that_fells_the_biped_does_not_fell_the_multileg", async () => {
 
 test("the_bench_shove_each_module_ships_with_actually_puts_that_module_over", async () => {
   // **A threshold crossed is not a body on the floor, and the two are further apart on some bodies
-  // than on others.** Since 2026-09-23 (physical contact session 02) a body with no settle rule
-  // rises as soon as its dwell is up, so the bench's drop is cut short where a bout's always was:
-  // the wheel now tips to an up-dot of 0.555 and the multileg to 0.395 (Node bench), and what is
-  // left to pin is that each module's own shove fells it and tips it. The calibration below is
-  // what chose the shoves, and is kept for that. The state machine's boundary is a decaying ledger in mass-independent units;
-  // whether a person sees a knockdown is mass and base geometry. Each module's `shoveImpulseNs` is
-  // therefore chosen for the *drop* rather than for the threshold, exactly as the biped's 600 was,
-  // and the ratios are wildly different: 51x the threshold for the biped, 225x for the wheel and
-  // 104x for the multileg. The numbers are in `docs/measurements.md`.
+  // than on others.** Each module's `shoveImpulseNs` was chosen for the *drop* rather than for the
+  // threshold, when the threshold was a frozen specific impulse times a brace: 51x it for the biped,
+  // 225x for the wheel and 104x for the multileg. Since physical contact session 08 the line is the
+  // body's own geometry and those shoves are 2.33, 7.26 and 1.92 times it (Node locomotion bench,
+  // `.review/shove-bench.mjs`), and every body runs the one knockdown, so it lies until it has come
+  // down: the wheel reaches an up-dot of -0.081 and the multileg -0.324.
   //
   // The floors below are each module's own measured drop with a margin, and they are **not** the
   // same fraction: a wheel falls from 1.160 m to 0.368 (0.32 of standing) and a multileg from
@@ -1540,7 +1589,7 @@ test("the_bench_shove_each_module_ships_with_actually_puts_that_module_over", as
       `${id}: its own bench shove only tilted the root to an up-dot of ${run.state.minUpDot}`);
     assert.ok(run.state.minHeightM < module.heightRange.standM * floor,
       `${id}: the socket only came down to ${run.state.minHeightM.toFixed(3)} m`);
-    assert.ok(run.state.riseSeconds > 0 && run.state.riseSeconds <= 1.60,
+    assert.ok(run.state.riseSeconds > 0 && run.state.riseSeconds <= (module === wheelModule ? W : ML).riseBudgetSeconds,
       `${id}: the rise took ${run.state.riseSeconds} s`);
     assert.ok(run.state.riseSeconds >= SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S +
       SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S - 1e-9,

@@ -68,3 +68,28 @@ item-sourced armour or arm speed later reach a mind with no change.
 - **In a bout it deals 0.06 damage a body, against 0.10** (the x1 mirror, Node harness, research
   runner, cap 150 s, 192 blocks). Its contacts held at 303.5 a bout, and every bout still runs to
   the drain.
+
+## What landed, 2026-09-24
+
+Every figure is in `docs/analysis/2026-09-23-attribute-measurements.md` "Physical contact 09: minds
+read what the attributes do", with its harness, and the bout-level readings are taken with session
+08's last commit in "Re-measured at 567350a". Two commits, ec9b8b2 and adfa2b4. What differs from
+the plan above:
+
+- **`BodyView` publishes `massKg`, `stabilityImpulseNs`, `armRate` and `soak`**, all read off the
+  built body. `labObservation` takes them as version 3; `neuralFeatures` does not, and its version
+  did not move.
+- **`strokeTimeScale` takes the slower of the arm's rate and its load against its torque.** At x1 it
+  is the old rule to the bit. The x2-weight mace peaks at 19.8 m/s, against 14.8 under the old
+  stretch and 18.3 at x1; the inertia-only mutation turns the stroke-bench test red. The duelist (v1)
+  does not time strokes by the arm.
+- **The stand-off is the shorter arm's**, and a body at 1.5 times the other's published mass presses
+  to push range. v4 (the miser) keeps its searched stand-off.
+- **The human against an idle dummy is still at zero outright wins.** The stand-off was half of it:
+  with the drain it now wears down stone, the skeleton and the giant. The other half is its stroke:
+  its blade arrives flat (edge lead 0.28 on the stroke bench, 0.24 to 0.36 in a bout), because the
+  human arm's roll is a quarter turn from the stroke table's, and it holds at the very end of its
+  reach. Turning the roll to -1.57 leads with the edge (0.90) but misses by 0.40 m. Neither is a
+  stand-off matter, and both are in session 10's list.
+- **The stroke bench's capability builder had lost the full-orientation branch** and drove the human
+  arm at roll 0; it is one builder with the golem's now (adfa2b4), and the bench reads the edge lead.

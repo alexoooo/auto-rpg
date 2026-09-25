@@ -192,6 +192,11 @@ export const pitchChain = defineChain({
         id: "pitch", unit: "rad" as const, min: P.pitchMin, max: P.pitchMax, rate: P.targetRate,
       })]),
       reach: P.linkLength,
+      // The hinge's command rate and its torque, against the shipped hinge's (`ArmDrive`).
+      drive: Object.freeze({
+        rateScale: P.targetRate / CHAIN_PITCH.targetRate,
+        torqueScale: P.motorTorque / CHAIN_PITCH.motorTorque,
+      }),
       // A chop and a raised guard, and no cut: a cut is the target swept along an arc, and a
       // one-axis chain has no arc to sweep it along. As on rung 3 this list says what the module
       // is *good for* and not what it will run for you -- see `ARM_STROKES` in `arm-core.ts` for

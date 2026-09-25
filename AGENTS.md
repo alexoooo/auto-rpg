@@ -732,6 +732,61 @@ directly under `node`. It is how a body gets measured without a person watching.
   along the wall, and `STALL` in `src/dungeon/run.ts` replans a leg the body has stopped on. Test
   navigation on more than one seed.
 
+**The next five entries are what the physical contact set paid for**, 2026-09-23 to 2026-09-24.
+
+- **A copy that names its fields drops every field it does not name, and a rule gets invented to
+  make up for what it dropped.** `copyStabilityEvent` in `src/supported-locomotion.ts` copied a
+  shove field by field, and `atY` -- the height a blow landed at, its lever about the base -- was
+  added to the event after the copy was written. `Combat` filed it and the state machine read it,
+  and each half had a passing test. The staging between them dropped it, so every blow in every bout
+  landed at the centre of mass's height. An x1 stone mirror then all but never fell, which is one of
+  the plan's conditions for the physical way having failed, so a blow gain of 7 was calibrated in to
+  make up for it -- and its doc comment said it multiplied scored blows while the code multiplied
+  every contact, parries included. With the height restored, the gain came out and nothing needed
+  it. Two rules follow.
+  - **Test the whole path, not its two ends.**
+    `a_blow_s_height_reaches_the_ledger_as_its_lever_about_the_base` shoves a real standing body
+    through the port. Reverting the copy turns it red, which neither end's own test could.
+  - **Before a physical model is declared to have failed, check that its inputs reach it.** The
+    special rule it would license is the more expensive mistake of the two.
+- **A scripted mind's fallback is part of the fixture.** `a_thrust_books_a_thrust_in_a_real_bout`
+  drove a mind that thrusts whenever it may and otherwise does `close`. Closing walked the body in
+  to 0.94 m of ground gap against an 1.84 m reach, so every thrust began with its point already
+  inside the other body and rested there at a median 0.65 m/s: 355 of 364 point-first contacts were
+  under the point's floor. The test passed on between one and five stray thrusts in some 1,500
+  contacts, and failed when the dynamics under it moved. With `hold` as the fallback the same
+  thrust books 66 times in six bouts against an idle body. When a scripted policy is the fixture,
+  what it does between the actions under test is part of what the test measures.
+- **Turning a leg about the hip is not a stance offset.** Moving a biped's feet under its centre of
+  mass by rotating each whole leg changes that leg's height (`cos(b + x)` against `cos(b - x)`), so
+  two planted feet under an offset are two unequal legs. At the start of a walk the support passes
+  to the swing foot and the stance foot slides, and a rear offset reaches the hip's stop. It cut the
+  skeleton's standing time with its centre of mass outside its base from 36.3 % to 4.0 % (Node bout
+  runner), and put walk-start sole slip over its 300 mm/s budget on both bipeds (Node locomotion
+  bench).
+  Keeping the heights with the knee made the walk far worse (517 mm/s at x1). The trial is written
+  up in the measurements doc under "Physical contact 08". A stance that shifts the feet needs the
+  foot placement itself to move, not the legs to lean.
+- **A rule that goes quiet at equal values is usually a missing response, not a balance.** Session 07
+  capped a walker's push at its grip and filed whatever was past the other body's grip as a shove, so
+  two bodies of one weight could never move each other, and one a tenth heavier tipped the other
+  over by walking into it. It looked like a deliberate exception and was arbitrary at the one value
+  where it was exact. What was missing was what a standing body does when pushed: it leans against
+  the push, and past that it steps back. With both in (`readContact` in
+  `src/supported-locomotion-production.ts`), the equal case holds by physics rather than by a tie,
+  a heavier body walks the other back, and only one heavy enough to outrun its legs tips it. Lean
+  alone was not enough: a pushed body that can only lean is felled by any sustained push, which took
+  a brawler mirror from 1.2 falls a body a bout to 4.4.
+- **A resolver that ignores a body giving way turns a push into a flicker.** `resolveCarrierPair`
+  took the two closing moves as if both bodies stood still, so a walker behind a body moving off
+  stopped where they touched, the next step found a gap, and a sustained push came out as one step on
+  and one off, which the feet's brake then won. Twice as heavy moved the other 0.11 m. With the
+  overlap counted at the end of the step, it moves it 8.98 m. Related, and it cost a whole
+  investigation: in `tests/contact-press.test.mjs` (and anything else built the same way), `run`
+  advances whole 1/60 s frames until its clock passes the target, so `run(FIXED)` is a frame and not a
+  substep. A loop that meant to run 3 s ran 12, drove the body into the wall, and read as a push rule
+  that tipped a body it should not have.
+
 ## House rules
 
 Each one was paid for.

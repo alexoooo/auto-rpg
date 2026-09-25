@@ -398,6 +398,9 @@ export function wristChainFrom<K extends ChainId>(
         strokes: ARM_STROKES,
         reachable: core.reachable,
         settledBand: R.settledBand,
+        // The core's: a stroke's arc is the swing and the lift, and the wrist's own rates turn the
+        // item rather than carrying it.
+        drive: core.drive,
       });
 
       const aim = {

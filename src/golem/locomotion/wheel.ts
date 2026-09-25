@@ -56,6 +56,9 @@ import {
   type LocomotionReadoutState,
   type LocomotionSupportBinding,
   legRuin,
+  KnockdownSettle,
+  bodyReaders,
+  PATCH_CORNERS,
 } from "../locomotion.ts";
 
 /**
@@ -90,12 +93,10 @@ import {
  * - *No strafe.* A wheel cannot travel sideways, so `command` clamps `localRight` to zero and the
  *   envelope publishes a strafe axis whose range is `0..0`. That is frozen rule 3 -- the command
  *   is clamped into the envelope before the carrier is ever handed it -- and not a refusal branch.
- * - *A lower fall threshold, and it comes through the `StabilityAuthority` like everything else.*
- *   `braceCapacityMultiplier` is 1.0 (the floor the state machine admits) against the biped's 1.5,
- *   and the gait scale runs from 0.70 standing to 0.35 at speed where the biped's runs 1.00 to
- *   0.75. There is no special case anywhere: the same frozen `FALL_SPECIFIC_IMPULSE_MPS` lands
- *   less than half as high on this body, which is what makes the cross-module comparison in
- *   `tests/golem-locomotion.test.mjs` mean something.
+ * - *A lower fall line, and it comes from the body like everything else.* Since physical contact
+ *   session 08 the line is the body's own geometry, and a tall body on one narrow patch has a low
+ *   one: 0.30 m/s against the biped's 0.95. There is no special case anywhere, which is what makes
+ *   the cross-module comparison in `tests/golem-locomotion.test.mjs` mean something.
  *
  * **A wheel that cannot fall over is not a wheel**, which is Session 05's finding restated for one
  * joint: the spin motor's ceiling drops to `fallenTorqueScale` while the body is fallen, because a
@@ -421,6 +422,20 @@ return defineLocomotion({
     const standingYokeY = socket.world.y - yokeDown;
     /** The mass the carrier holds up, read live because `carry` arrives one module later. */
     const supportedMass = (): number => W.yokeMass + W.wheelMass + carriedMassKg;
+    /**
+     * The whole body the port's tipping geometry is read from (physical contact session 08): every
+     * part the assembly says is on it once a load declares them (`LocomotionLoad.parts`), and
+     * otherwise this module's own live parts and its load's body.
+     */
+    let carriedParts: (() => Iterable<Part>) | null = null;
+    const ownParts = function* (): Iterable<Part> {
+      yield yoke;
+      yield wheel;
+      if (load) yield load;
+    };
+    const readers = bodyReaders(() => (carriedParts ?? ownParts)());
+    /** Whether a fallen body's fall has come to rest (`KnockdownSettle`). */
+    const settle = new KnockdownSettle(W.knockdown);
     const yaw = facing.toEulerAngles().y;
 
     let request: LocomotionRequest = Object.freeze({
@@ -449,6 +464,8 @@ return defineLocomotion({
       forward: new Vector3(),
       marker: new Vector3(),
       contact: new Vector3(),
+      corner: new Vector3(),
+      across: new Vector3(),
       slip: new Vector3(),
       velocity: new Vector3(),
       drive: new Vector3(),
@@ -585,20 +602,10 @@ return defineLocomotion({
     const carrierSpeed = (): number => Math.abs(carrierForward());
 
     const authority = (): StabilityAuthority => {
-      // The one live field, and on this body both ends of it are below the biped's. A wheel is
-      // easier to put over at speed for the same reason a biped is -- more of its capacity is
-      // spent going somewhere -- and it starts lower because a single contact line has no
-      // fore-aft base at all. Clamped into (0, 1], which the state machine's own boundary check
-      // refuses to be handed anything outside of.
-      const fraction = clamp(carrierSpeed() / W.carrier.maxSpeedMps, 0, 1);
-      const scale = clamp(W.gaitStabilityScaleStand -
-        (W.gaitStabilityScaleStand - W.gaitStabilityScaleMin) * fraction, 1e-6, 1);
+      // The wheel's patch is its footing (`supportPatch`), so the authority carries no live field.
       return Object.freeze({
         carrierPartId: yoke.name,
         supportBindings: Object.freeze(SUPPORT_BINDINGS.map(({ role }) => Object.freeze({ role }))),
-        braceCapacityMultiplier: W.braceCapacityMultiplier,
-        stabilityMassRatio: W.stabilityMassRatio,
-        gaitStabilityScale: scale,
         stabilityScale: stability,
         recoveryScale: recovery,
         sizeScale: size,
@@ -625,7 +632,32 @@ return defineLocomotion({
         const point = contactPoint(scratch.contact);
         return { x: point.x, y: point.y, z: point.z };
       },
+      /**
+       * **A tread has no patch of its own worth the name**, so it is given a square as wide as the
+       * wheel, centred on the contact and turned with the axle: a recorded choice (physical contact
+       * session 08). A line contact has no fore-aft base at all, and a body on one could be pushed
+       * over by a breath; the square is what the tread's width and its give are worth.
+       */
+      supportPatch: (binding: string): WorldPoint[] | null => {
+        if (binding !== "wheel" || severed) return null;
+        const axle = rootAxle();
+        scratch.across.set(axle.x, 0, axle.z);
+        if (scratch.across.lengthSquared() < 1e-9) scratch.across.set(1, 0, 0);
+        scratch.across.normalize();
+        const contact = contactPoint(scratch.contact);
+        const half = W.wheelWidth / 2;
+        return PATCH_CORNERS.map(([across, along]) => {
+          // Along the tread is the axle turned a quarter about up: (x, z) to (-z, x).
+          scratch.corner.set(contact.x + (across * scratch.across.x - along * scratch.across.z) * half,
+            contact.y, contact.z + (across * scratch.across.z + along * scratch.across.x) * half);
+          return { x: scratch.corner.x, y: scratch.corner.y, z: scratch.corner.z };
+        });
+      },
+      massDistribution: readers.mass,
+      groundContacts: readers.ground,
       liveSupport: () => !severed,
+      fallSettled: (): boolean => settle.settled,
+      risingDuration: (distanceM: number): number => settle.risingDurationS(distanceM, size),
       postureSupported: () => constructPostureIsSupported(postureEvidence()),
 
       /**
@@ -894,6 +926,7 @@ return defineLocomotion({
         }
         load = next.part;
         carriedMassKg = next.massKg;
+        carriedParts = next.parts ?? null;
         rootSample.massKg = supportedMass();
       },
 
@@ -905,6 +938,7 @@ return defineLocomotion({
       endSubstep(dt: number): void {
         if (severed) return;
         elapsed += dt;
+        settle.track(activePort.state === "fallen", dt, readers);
         readEvidence(dt);
         readout.sample(evidence);
       },
