@@ -128,4 +128,48 @@ the weights do.
 
 ## What landed
 
-(filled in when it lands)
+As planned above: `DUNGEON_ENEMIES` in `src/dungeon/enemies.ts`, golems 0.55 and skeletons 0.45, no humans, and
+`DungeonRun` spawning `drawEnemy(random)`. `NAMED_BUILDS` is unchanged and pinned by name. The false comments are
+corrected: `roster.ts`'s header and `PLAYABLE_BUILDS`, `SKELETON_BUILDS`, `tests/roster.test.mjs`, and the README's
+"eight enemy golems" (found by review).
+
+- **The draw takes two numbers an enemy where it took one**, from the same stream as every policy's seed, so every
+  golem that still spawns on a seed may be a different build with a different policy seed. That is the whole of the
+  change on a seed with no skeleton in it.
+- **No test failed, and three were pinned anyway.** `tests/dungeon-physical.test.mjs`, `tests/skeleton-dungeon.test.mjs`,
+  `tests/humanoid.test.mjs`, `tests/dungeon-fog.test.mjs` and `tests/dungeon.test.mjs` passed unchanged. But seed 42,
+  which most of `dungeon-physical`'s fixtures use, now draws six skeletons and two golems where it drew eight golems,
+  so every dormancy test and the force-movement blocker had become skeleton-only without anything going red (found by
+  review). `DungeonRun` takes an optional `enemies: (i) => string`, and the tests name what they are about: one stone
+  sleeper, a pair of skeleton sleepers, and a stone blocker (0.34 m across, against a skeleton's 0.28). The fight tests
+  stay on the draw, which now puts skeletons through them.
+- **Sweep, the null control** (`scripts/dungeon/sweep.mjs`, Node headless harness): plain and `--visuals` identical to
+  session 05's in outcome and simulated time; `--classic` identical on the 15 rows it shares with session 03's run
+  (default 1-10, multileg 1-5).
+- **The fights** (`.scratch/enemies.mjs`, Node headless harness, generated seeds 1-10 with their spawns, the default
+  hero on the sweep's cursor rule, 120 s cap):
+
+  | | before | after |
+  |---|---|---|
+  | golems spawned / woke / killed / in rock | 80 / 30 / 2 / 1 | 52 / 29 / 3 / 1 |
+  | skeletons spawned / woke / killed / in rock | -- | 28 / 9 / 4 / 0 |
+  | hero dead / won / still going at the cap | 7 / 1 / 2 | 9 / 1 / 0 |
+
+  Skeletons wake, fight and die: the 9 that woke landed 389 blows on the hero (43 each; 16 cuts, 28 crushes), against
+  2,003 from the 29 golems that woke (69 each). None stood in rock. Fewer skeletons woke because fewer were in the
+  hero's way: over the same runs, every enemy that could see the hero within 14 m woke, 29 of 29 golems and 9 of 9
+  skeletons, and none woke without (checked by review). So the dead count going from 7 to 9 is not the skeletons. On
+  seed 8 no skeleton woke, and seed 10 spawned none: that is the reshuffled stream.
+- **Found on the way, not fixed: a hero that stops fighting.** The two seeds "still going at the cap" before were not
+  stalls. In both, the hero stands still from about 10 s to the cap beside a golem that is hitting it (on seed 10, 0.7 m
+  from a `ram-capped`), with `hero.target` null and its vitality draining (1.00 to 0.80 between 6 s and 24 s; traced by
+  review at HEAD). That is the hero's targeting in the probe's facing mode, and it is older than this session. The
+  suspect, not verified, is `perceive`'s filter on the cursor's direction, which would drop an enemy in contact behind
+  the cursor.
+- **Tests** (`tests/dungeon-enemies.test.mjs`): the plan's four, the no-humans rule folded into
+  `the_research_pool_is_not_the_dungeon_pool`, and `a_generated_run_spawns_more_than_one_family` building ten real runs
+  and reading each enemy's family from its built locomotion module, not from the name drawn.
+- **Mutations:** 7, all red (`.scratch/mutate-fb04.mjs`): the draw always taking family 0, the family labels swapped,
+  the weights skewed, the last build of a family never drawn, `run.ts` back on `NAMED_BUILDS` (with its import, so the
+  test and not `tsc` catches it), humans drawn, and the research pool widened by a skeleton.
+- **Humans wait** for the one-seed frame measurement on the owner's machine.

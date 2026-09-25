@@ -8,7 +8,8 @@ import { PhysicsActivationControl } from "@babylonjs/core/Physics/v2/IPhysicsEng
 import { Combat } from "../combat.ts";
 import { Golem } from "../golem/golem.ts";
 import { bodyFamily, FAMILY_POLICY } from "../golem/family.ts";
-import { NAMED_BUILDS, namedBuild } from "../golem/roster.ts";
+import { namedBuild } from "../golem/roster.ts";
+import { drawEnemy } from "./enemies.ts";
 import { unitDefinition } from "../units.ts";
 import type { Intent, Mind } from "../mind.ts";
 import { mulberry32 } from "../rng.ts";
@@ -92,7 +93,9 @@ export class DungeonRun {
   private dodgeStart: Point = { x: 0, z: 0 };
   private dodgeVector: Point = { x: 0, z: 0 };
 
-  constructor(scene: Scene, seed: number, heroBuild = "default", visuals: boolean | DungeonSurfaces = true, layout?: DungeonMap, heroSetup?: GolemSetup) {
+  /** `enemies` names spawn `i`'s build in place of the draw from `DUNGEON_ENEMIES`, for a test about one family. */
+  constructor(scene: Scene, seed: number, heroBuild = "default", visuals: boolean | DungeonSurfaces = true, layout?: DungeonMap, heroSetup?: GolemSetup,
+    enemies?: (i: number) => string) {
     this.map = layout ?? generateLevel(seed).map;
     this.world = buildDungeonWorld(scene, this.map, visuals);
     this.plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
@@ -119,7 +122,7 @@ export class DungeonRun {
       this.actors.push(actor); return actor;
     };
     this.hero = create("hero", heroBuild, this.map.start, "left");
-    this.map.spawns.forEach((at, i) => create(`enemy-${i}`, NAMED_BUILDS[Math.floor(random() * NAMED_BUILDS.length)].name, at, "right"));
+    this.map.spawns.forEach((at, i) => create(`enemy-${i}`, enemies?.(i) ?? drawEnemy(random), at, "right"));
     // One lookup per body, independent of which enemy the player has selected.
     const owners = new Map(this.actors.flatMap(actor => actor.body.limbs.map(limb => [limb.part.body, actor] as const)));
     for (const actor of this.actors) actor.combat.attachResolver(body => {

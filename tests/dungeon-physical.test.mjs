@@ -195,7 +195,8 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
 test("force movement goes around an occupied floor point instead of stopping to duel", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 12, z: 9 }];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map);
+  // A stone blocker, the widest footprint this test had before skeletons were drawn (0.34 m to a skeleton's 0.28).
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, () => "pitch-blade");
   try {
     run.actors[1].body.stopFighting(); // A real, stationary opponent blocking the direct route.
     run.actors[1].combat.stop();
@@ -214,7 +215,8 @@ test("an_enemy_nobody_is_near_sleeps_and_wakes_before_it_could_see_the_hero", as
   // so it sleeps once the first second is out. The hero then walks to it through the room at (25, 9).
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 25, z: 25 }];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map);
+  // A stone sleeper; the pair below is two skeletons, so dormancy is held to both families.
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, () => "pitch-blade");
   try {
     const enemy = run.actors[1], apart = () => distance(run.hero.body.feetPosition(), enemy.body.feetPosition());
     const frame = () => { arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60); };
@@ -260,7 +262,7 @@ test("a_sleeper_wakes_for_a_neighbour_walking_up_and_the_pair_sleeps_once_both_a
   // one sent from the room at (41, 25) to a home 3 m from the first, so that it walks up to a sleeper.
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 25, z: 25 }, { x: 41, z: 25 }];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map);
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, i => ["skeleton-dual-blades", "skeleton-maul"][i]);
   try {
     const [, sleeper, walker] = run.actors, home = { x: 28, z: 25 };
     assert.ok(walkable(map, home, walker.radius), "the walker's new home is not open floor");

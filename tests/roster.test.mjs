@@ -1,5 +1,5 @@
 // The roster: every build a person can pick is one the registry accepts, the other families are
-// heroes and not the enemy pool, and a family whose hands hold chosen weapons is armed from what
+// not in the research pool, and a family whose hands hold chosen weapons is armed from what
 // its own chains offer -- which is what the dungeon's hero picker hands `ARMED_SETUP`.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -17,7 +17,7 @@ test("every_playable_build_is_accepted_at_load", () => {
   for (const build of PLAYABLE_BUILDS) assert.equal(golemSetupRefusal(build.setup), null, build.name);
   for (const build of [...HUMAN_BUILDS, ...SKELETON_BUILDS]) {
     assert.ok(names.includes(build.name), `${build.name} cannot be picked`);
-    assert.ok(!NAMED_BUILDS.some((enemy) => enemy.name === build.name), `${build.name} is in the enemy pool`);
+    assert.ok(!NAMED_BUILDS.some((enemy) => enemy.name === build.name), `${build.name} is in the research pool`);
   }
   assert.ok(SKELETON_BUILDS.every((build) => bodyFamily(build.setup) === "skeleton"));
 });
