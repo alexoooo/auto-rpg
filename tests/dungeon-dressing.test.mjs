@@ -69,11 +69,12 @@ function colliderRows(scene) {
   }).sort();
 }
 
-// Pinned at the commit before the dungeon's look changed (f1ccfed): seeds 1 and 2, with and without visuals.
-// Nothing a look session adds may add, move or re-layer a body; this is what says so.
+// Seeds 1 and 2, with and without visuals, pinned from a run of the level as the generator lays it now. Nothing a look
+// session adds may add, move or re-layer a body; this is what says so. A change to the generator moves the level and
+// is re-pinned only once the level tests are green.
 const PINNED = {
-  1: { count: 242, sha256: "bd1838d940ccf75f89d9d6e47e70e02eb07decc2235b120233465dfe2f6d6ea4" },
-  2: { count: 279, sha256: "1070cb3997c61e4c509532cf51cfe8b506a825f52cc066489858ec94aa90da90" },
+  1: { count: 208, sha256: "0da39aab989cfbaf3674b072cf7183d614aa156e6c3416829415ff8ba04a63bd" },
+  2: { count: 269, sha256: "2abcd71c319e7978f2f3992d5f753ba941ee4e31b89a06dac4689a9153e03668" },
 };
 
 test("the_dungeon_builds_the_same_colliders_with_or_without_visuals", async () => {

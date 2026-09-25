@@ -51,7 +51,7 @@ levels on seeds 0-23 still have a wall (the floor is 20), and the walls fall fro
 
 ## Tests: `tests/dungeon-level.test.mjs`
 
-- **New: `a_dividing_wall_leaves_no_side_narrower_than_two_blocks`.** Over seeds 0-23:
+- **New: `a_dividing_wall_leaves_no_one_block_strip`.** Over seeds 0-23:
   - for every room with rock inside its bounds (the walled-room test's own rule), find the wall line;
   - assert that both sides are at least `2 * LEVEL.block - 1` cells deep: 5, the shorter side of a middle split. The
     depth is what the complaint is about: a side 5 deep is a half-room, whatever its exits;
@@ -101,4 +101,49 @@ Record each old figure beside its new one in "What landed".
 
 ## What landed
 
-(filled in when it lands)
+- `LEVEL.dividerMinBlocks` is 4 and `divide` puts the wall at `2 + floor(random() * (span - 3))`, as planned. The
+  doc comments on both say what the rule does now; the `divide` comment's near/far wording was backwards and now
+  reads "takes its cell from the side toward the room's middle". The constants table in
+  `docs/plans/2026-09-23-depths-00-overview.md` says 4.
+- **The cubby measurement** (Node, `generateLevel`, seeds 1-50), before and after:
+
+  | | before | after |
+  |---|---|---|
+  | walls | 244 | 120 |
+  | a side under 5 cells deep | 202 (all 3 deep) | 0 |
+  | side depths | 3: 202, 5: 165, 6: 42, 8: 79 | 5: 120, 6: 120 |
+  | sides no corridor enters, reached only through the arch | 84, of which 3 deep: 41 (29 3x6, 9 3x9, 3 3x12) | 30 (11 5x6, 4 6x6, 4 5x9, 10 6x9, 1 6x12) |
+
+  The review's general pocket finder (a strip with rock on three sides, anywhere on the grid) found 108 pockets 3
+  cells across or of 9 cells or fewer before, 93 of them 3x3, and **0** after: nothing outside `divide` made them.
+  On seeds 0-23 the walls fall from 120 to 54, and 22 of 24 levels keep one.
+- **Tests:**
+  - `a_dividing_wall_leaves_no_one_block_strip` is new. It asserts 5 cells, the shorter side of a middle split, so
+    its name says what it refuses rather than "two blocks".
+  - `walls_cross_the_long_rooms_and_the_count_is_the_walls_that_stand` keeps its floor of 20: 22 measured.
+  - `a_seed_keeps_the_best_scoring_of_its_candidates`: seed 55 still has two candidates tied at the best score.
+- **Pins re-pinned** (each from a run, after the level tests were green):
+  - `the_dungeon_builds_the_same_colliders_with_or_without_visuals`: seed 1 242 bodies -> 208, seed 2 279 -> 269,
+    with new hashes; each identical across flat, visual and stone. The review rebuilt the old pins from the old
+    generator with today's world builder, so only the level moved.
+  - `a_visual_world_draws_few_meshes_and_every_one_is_fogged` (not in the plan): its `> 200` colliders was a guard
+    that the filter found the walls, fused into the same assertion as "no collider is drawn" under that message.
+    Seed 1 has 199 now. Split into two assertions; the floor is 170, the same headroom it had.
+  - `the_camera_never_sees_into_the_rock`: 75,236 rays -> 69,558; floor 70,000 -> 65,000, the same headroom.
+  - `the_hero_explores_generated_levels_to_their_exits`: its second biped level was generated seed 7, chosen
+    because it wedged the biped on a rock corner that only the stall branch of `DungeonRun.follow` frees. The new
+    seed 7 never reaches that branch, and neither does any generated seed from 1 to 45 (found by review). The old
+    level is frozen as `cornerStallLevel` in `tests/fixtures/corner-stall-level.mjs` and the test runs that. On it
+    the biped wins at 63.05 s; with the branch's move to the middle of the cell removed it is still there at the
+    120 s cap. Its quoted times: generated seed 1 37.3 -> 47.6, multileg seed 1 147.6 -> 103.8.
+- **Sweep** (Node headless harness, `scripts/dungeon/sweep.mjs`): every generated row still wins; biped seeds 1-20 at
+  24.7 to 80.2 s (30.6 to 86.2 before), multileg seeds 1-5 at 57.8 to 133.0 (49.5 to 155.8). The `--classic` rows
+  (`default:42,0-10:180 multileg:42,0-10:180`) are identical to the baseline in every outcome and simulated time.
+- **Mutations**, each red: the old wall position; `dividerMinBlocks` 3 or 2; the `linksHold` undo removed (the
+  level file fails at load); the stall branch's step to the cell's middle removed (the explore test).
+- **Gate:** `npm test` 982 pass, 0 fail; `npm run check` and `npm run build` clean. A first run cancelled the lab
+  bridge test (`tests/lab-bridge.test.mjs`) at its 15 s timeout under the suite's load; alone it passes in 1.0 s.
+- **What remains**, for the owner's eye rather than a defect: 15 halves that no corridor enters are no bigger than a
+  6x6 room, reached only through the 3-cell arch; 48 bays of 5x3 cells beside an arch; 27 leaf rooms of 2x2 blocks
+  (21 before, a shift in the random stream). If halves reached only through the arch still read as pointless,
+  `dividerChance: 0` removes dividers altogether.

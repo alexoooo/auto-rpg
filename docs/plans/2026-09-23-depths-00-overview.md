@@ -85,7 +85,7 @@ All in `LEVEL`, a frozen table at the head of `src/dungeon/level.ts` (the dungeo
 | `corridorMax` | 2 | Corridor length in blocks. |
 | `maxRooms`, `minRooms` | 11, 6 | Today's floor has 7. |
 | `branchChance`, `branchDecay` | 0.75, 0.8 | Chance a side of a room grows a room, falling with depth. |
-| `dividerChance`, `dividerMinBlocks` | 0.6, 3 | Walls across rooms at least 9 m long. |
+| `dividerChance`, `dividerMinBlocks` | 0.6, 4 | Walls across rooms at least 12 m long, at the middle: a 9 m room's wall left a one-block strip beside its arch (dungeon feedback 03). |
 | `doorChance` | 0.6 | Doors per corridor. Today every corridor has two. |
 | `spawnCount` | 8 | Today's count, so a run is as hard as it was. |
 | `minExitPath` | 24 | Metres on foot from start to exit, cell to cell. A guard: the prototype's shortest over 24 seeds was 50. |

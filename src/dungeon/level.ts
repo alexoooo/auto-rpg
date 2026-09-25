@@ -35,7 +35,11 @@ export const LEVEL = Object.freeze({
   /** Room sizes tried on one side of a room before that side is given up. */
   attempts: 4,
   dividerChance: 0.6,
-  dividerMinBlocks: 3,
+  /** A room this many blocks long, or longer, may be divided. At four, the only wall that leaves no side a
+   * one-block strip is the middle one, which splits the room 6 | 5 cells. At three, every wall left a strip three
+   * cells deep beside the arch, and one in five of those had no other way in (seeds 1-50: 202 strips in 244 walls,
+   * 41 of them pockets). */
+  dividerMinBlocks: 4,
   doorChance: 0.6,
   spawnCount: 8,
   /** Metres from the start a spawn must be, as the old generator's test asked. */
@@ -325,9 +329,9 @@ function linksHold(layout: Layout, map: DungeonMap, room: number): boolean {
 
 /**
  * Diablo's walls across rooms: one fine-cell wall across the room's long axis, with a gap one
- * block wide. The wall sits on a block boundary, on the boundary's near side in the room's first
- * half and its far side in the second, so the floor either side is at least one block wide: a wall
- * on the far side of the last boundary would leave a strip two cells wide that nobody can enter.
+ * block wide. The wall stands on a block boundary at least two blocks from either end, and takes its
+ * cell from the side toward the room's middle, so each side is a half-room at least five cells deep
+ * and never a strip one block wide beside the arch.
  * A wall is taken down unless `linksHold` -- which is what refuses one across a corridor mouth.
  * Returns how many walls stand.
  */
@@ -339,7 +343,8 @@ function divide(layout: Layout, map: DungeonMap, random: () => number): number {
     // A room long in x gets a wall that is a fine column; a room long in z gets a fine row.
     const acrossX = r.w >= r.d;
     const span = acrossX ? r.w : r.d, other = acrossX ? r.d : r.w, low = acrossX ? r.x : r.z;
-    const at = 1 + Math.floor(random() * (span - 1));
+    // Two blocks at least on each side: the wall stands on a boundary from the second to the last but one.
+    const at = 2 + Math.floor(random() * (span - 3));
     const line = at * 2 <= span ? (low + at) * k : (low + at) * k - 1;
     const arch = Math.floor(random() * other);
     const from = (acrossX ? r.z : r.x) * k, to = from + other * k;

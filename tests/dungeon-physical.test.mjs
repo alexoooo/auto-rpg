@@ -8,6 +8,7 @@ import { deriveLocomotionFootprint } from "../src/supported-locomotion-runtime.t
 import { distance, findPath } from "../src/dungeon/map.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
+import { cornerStallLevel } from "./fixtures/corner-stall-level.mjs";
 import { CONFIG } from "../src/config.ts";
 import { Combat } from "../src/combat.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -121,16 +122,20 @@ test("mouse-facing-only exploration reaches the exit using revealed frontiers", 
 
 test("the_hero_explores_generated_levels_to_their_exits", async () => {
   // The default biped on two levels, and the widest hero on one. Node headless harness: the biped
-  // wins seed 1 at 37.3 simulated seconds, and seed 7 at 63.1 -- a level where it once stood on the
-  // clearance arc of a rock corner for good, handed the same blocked leg by every replan (see the
-  // stall branch of `DungeonRun.follow`). Seeds 1-20 win at 30.6 to 86.2. The multileg wins seed 1
-  // at 147.6, touring most of the level at about 1 m/s with the exit in the far corner, hence its
-  // cap (seeds 2-5: 49.5 to 155.8). Two biped seeds and not three: this file runs beside
+  // wins generated seed 1 at 47.6 simulated seconds (`scripts/dungeon/sweep.mjs`; seeds 1-20 win at
+  // 24.7 to 80.2). Its second level is `cornerStallLevel`, frozen from the generator because on it the
+  // biped stands on the clearance arc of a rock corner and is handed the same blocked leg by every
+  // replan: it wins at 63.05 through the stall branch of `DungeonRun.follow`, and without that
+  // branch's move to the middle of its own cell it is still there at the cap. The multileg walks at
+  // about 1 m/s and wins seed 1 at 103.8, hence its cap (seeds 2-5: 57.8 to 133.0). Two biped
+  // levels and not three: this file runs beside
   // `the_planner_drives_a_real_bout...` in `tests/golem-mind.test.mjs`, whose wall-clock budget
   // reads the suite's load, and a third tipped it over.
-  for (const [seed, build, cap] of [[1, "default", 120], [7, "default", 120], [1, "multileg", 240]]) {
+  const generated = (seed) => { const { map } = generateLevel(seed); map.spawns = []; return map; };
+  for (const [level, build, cap] of [[() => generated(1), "default", 120], [cornerStallLevel, "default", 120],
+    [() => generated(1), "multileg", 240]]) {
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-    const map = generateLevel(seed).map; map.spawns = [];
+    const map = level(), seed = map.seed;
     const run = new DungeonRun(arena.scene, seed, build, false, map);
     try {
       run.commands.setMode({ keyboard: false, facing: true });
