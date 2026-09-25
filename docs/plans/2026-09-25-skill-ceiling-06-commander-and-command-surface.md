@@ -47,6 +47,14 @@ designed for control:
   one.
 - **The natural striker**, as today.
 
+**Channels are declared per module, from shared kinds.** The list above is the golem's and the
+skeleton's. A family declares which channels its modules offer, choosing from kinds with one
+meaning each: effector (task space), trunk, a stepping gait (biped, quadruped, multileg), a rolling
+base, a natural striker, and any kind a new family adds. A command names channels by kind, so the
+expert and the planner drive a morphology they have never seen by reading its declaration. A family
+may add a kind of its own, such as a tail or a grab. It declares the kind, its bench and its
+actuator, and nothing shared changes.
+
 **The authority rule, restated.** Every channel is something a motor or the carrier actually does,
 within its limits. Nothing sets a pose or a joint state directly. Each new channel names the
 actuator that carries it, and gets a bench showing the body can follow it.

@@ -27,6 +27,12 @@ The first suite. Each drill is parametrised by bodies and attributes, and seeded
 
 `hold under orders` waits on session 06's orders and is added there.
 
+**A drill declares the capabilities it needs**, never a body. `land a clean blow` needs an edged
+effector, and `finish` needs a striker that can reach the ground. A morphology without them skips
+the drill, and the skip is reported, not scored. The start-state builder places bodies from their
+declared parts, so a quadruped or a wheeled build is placed the same way as a biped. The suite runs
+in the tests on the odd morphology from the overview.
+
 Every drill reports its pass rate, and a margin where it has one (time to success, wound taken, edge
 lead). Its variance is measured, and the number of runs for a stated precision is recorded beside
 it.

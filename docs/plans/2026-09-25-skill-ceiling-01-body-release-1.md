@@ -5,7 +5,8 @@
 Four changes to the body, landed together because each one re-baselines every measurement and they
 should be paid for once:
 
-1. physics at the rate chosen by `docs/analysis/2026-09-25-physics-rate.md`;
+1. a control clock separate from the solver, and physics at the rate the two physics-rate
+   analyses support;
 2. the biological size law;
 3. arms built at guard, so no bout opens with a free clash;
 4. a side-mirror gate, so no comparison is ever decided by which side a body stood on.
@@ -27,22 +28,37 @@ found:
 - **Control costs twice what Havok does.** At 240 Hz it is 92 against 46 ms per simulated second
   (Node bout runner), so the control loop is the larger cost.
 
-This session therefore takes the cost in this order, measuring after each step and stopping when
-the owner's laptop holds the fights wanted:
+A second study, `docs/analysis/2026-09-25-physics-rate-2.md`, asks the owner's question directly: is
+120 Hz a retune, or a limit on what bodies and minds can do? It measures a **capability envelope**
+at 240, at untuned 120 and at retuned 120, and sweeps each drive to its stability boundary at both
+rates. The envelope covers:
 
-1. **Run control on a slower clock than the solver.** Motor targets would be refreshed every
-   second or third substep and held between refreshes, with the solver kept at 240. That leaves
-   contacts and feet as they are. Watch for the trap in `AGENTS.md` where a keyframed anchor
-   coasted between refreshes. Measure it with the arm and locomotion benches and a bout row, as
-   the analysis did for the rate.
-2. **180 Hz**, if more is needed. Fix the tests that assume 240 so they read the rate. Retune the
-   head-ram's lunge and the biped and skeleton feet. Make every per-step literal the analysis lists
-   read the rate or seconds.
-3. **120 Hz** only as a retuning project of its own:
-   - the arm filter (`CHAIN_REACH.targetResponse` 40 to 20 gives back most of the arm);
-   - the legs, not yet diagnosed;
-   - the human arm;
-   - a re-measure of the mind rankings.
+- the arm's rise time, overshoot, stray and ceiling tip speed;
+- foot slip, top speed, turn rate, the fall line and rise time;
+- impact and lift transfer;
+- all of these at the ends of the attribute ranges.
+
+It also prototypes a control clock separate from the solver. This session lands what that study
+supports, in three parts.
+
+**Three parts:**
+
+1. **Rate-invariant constants.** Every drive constant is stated in continuous time, in seconds and
+   per-second gains, and converted by the step. Every per-step literal the first analysis listed
+   reads the rate. Tests pinned to 240, or to one exact trajectory, are made rate-honest. After
+   this, the physics rate is one config value.
+2. **A control clock separate from the solver.** Minds, skills and servo targets run on their own
+   fixed clock (the owner has named 60 or 90 Hz as candidates). Whatever the study shows must stay
+   per substep stays: probably keyframed carriers, with targets extrapolated between control ticks.
+   That avoids the trap in `AGENTS.md` where a keyframed anchor coasted between refreshes. The
+   control rate is a second config value.
+3. **The physics rate.** It is 120 if the study finds the retuned envelope equal to 240's with no
+   hard stability limit that anything uses; otherwise 180 or 240. A subsystem that is *limited* at
+   120 rather than detuned is named, along with what it would cost the game.
+
+Bout-level differences between rates are attributed, not assumed. Shorter bouts at 120 might come
+from the body, or from mind constants that count substeps. Until that is known, they are not a
+property of the physics.
 
 Separately, `targetResponse` 20 is better than what ships even at 240. Cover overshoot falls from
 188 to 1 mm and cut stray from 38 to 17 mm, for 25 % less peak blade speed. Give it its own bout
@@ -120,4 +136,5 @@ one slower and the small one quicker.
 
 ## Depends on
 
-`docs/analysis/2026-09-25-physics-rate.md`.
+`docs/analysis/2026-09-25-physics-rate.md`, and `docs/analysis/2026-09-25-physics-rate-2.md` (in
+progress).

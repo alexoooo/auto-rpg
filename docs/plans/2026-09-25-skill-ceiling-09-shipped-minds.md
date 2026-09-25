@@ -24,6 +24,12 @@ decision layer over session 08's skills:
 Not every school has to beat every other. A mind may specialise, and it is labelled honestly with
 the matchups where it is worse.
 
+**Per family.** Each family (stone golem, skeleton, human, and every family after them) ships at
+least one mind. The planner is the one every family gets for free, because it searches whatever
+command surface a morphology declares. It is what a new family plays with on the day its body
+lands. A family's own minds are held to the same gates as the planner, and must beat it on that
+family's bodies.
+
 ## Gates
 
 For each shipped mind:
