@@ -16,6 +16,10 @@ import { PALM_GRIP, HUMAN_MOUNT } from "../src/golem/humanoid/grip.ts";
 import { TERMINAL_BLADE, TERMINAL_MACE, TERMINAL_PLATE, TERMINAL_WHIP } from "../src/golem/config.ts";
 import { turnHand } from "../src/golem/humanoid/orientation.ts";
 import { freshHavok, runBout } from "./harness/bout-runner.mjs";
+import { CONFIG } from "../src/config.ts";
+
+/** One control step is one solver substep, at whatever rate the solver runs. */
+const SUBSTEP = 1 / CONFIG.world.physicsHz;
 
 const advance = (scene, frames) => {
   for (let i = 0; i < frames; i++) {
@@ -67,11 +71,11 @@ for (const terminal of ["blade", "plate", "mace", "whip", "fist"]) {
     }));
     const command = neutralIntent(); let clock = 0;
     const observer = scene.onBeforePhysicsObservable.add(() => {
-      clock += 1 / 240;
+      clock += SUBSTEP;
       const sweep = Math.min(1, Math.max(0, (clock - 1) / 0.3));
       command.primary.pointerX = 0.3 * sweep; command.secondary.pointerX = -0.3 * sweep;
       command.primary.pointerY = command.secondary.pointerY = 0.6 * sweep;
-      modules.forEach(m => { m.command(command); m.step(1 / 240); });
+      modules.forEach(m => { m.command(command); m.step(SUBSTEP); });
     });
     try {
       // Keep bodies awake: a sleeping hinge would conceal steady-state instability.
@@ -113,7 +117,7 @@ for (const terminal of ["blade", "plate", "mace", "whip", "fist"]) {
 test("human maul takes its second grip, and the shared biped walks without losing health", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const run = new DungeonRun(arena.scene, 42, "human-maul", false);
-  const observer = arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / 240));
+  const observer = arena.scene.onBeforePhysicsObservable.add(() => run.step(SUBSTEP));
   try {
     advance(arena.scene, 300);
     const view = run.hero.body.effectors.primary.module.view();
@@ -273,7 +277,7 @@ test("full human body holds loaded wrists and shield steady after a sweep and im
   const command = neutralIntent();
   let clock = 0;
   const observer = scene.onBeforePhysicsObservable.add(() => {
-    clock += 1 / 240; run.step(1 / 240);
+    clock += SUBSTEP; run.step(SUBSTEP);
     const sweep = Math.min(1, Math.max(0, (clock - 1) / .3));
     command.primary.pointerX = .3 * sweep;
     command.secondary.pointerX = -.3 * sweep;

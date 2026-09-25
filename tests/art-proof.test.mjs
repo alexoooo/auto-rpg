@@ -14,6 +14,9 @@ import { proofIntent, stepProofGolem } from '../src/art-proof/motion.ts';
 import { dressGolem } from '../src/art-proof/presenter.ts';
 import { prepareTemplate } from '../src/art-proof/assets.ts';
 import { validateRoomPlacements } from '../src/arena-room.ts';
+import { CONFIG } from '../src/config.ts';
+/** One control step is one solver substep, at whatever rate the solver runs. */
+const SUBSTEP=1/CONFIG.world.physicsHz;
 const manifest=JSON.parse(await readFile(new URL('../public/assets/art-proof/manifest.json',import.meta.url),'utf8'));
 const source=JSON.parse(await readFile(new URL('../assets/art-proof/source.json',import.meta.url),'utf8'));
 const glb=await readFile(new URL('../public/assets/art-proof/golem.glb',import.meta.url));
@@ -35,7 +38,7 @@ async function fixture(upgraded) {
   const casters=new Set();const shadows={addShadowCaster:m=>casters.add(m),removeShadowCaster:m=>casters.delete(m)};
   const before=scene.getPhysicsEngine().getPhysicsPlugin().numBodies;
   const presenter=dressGolem(golem,templates,manifest,materials,shadows);presenter.show(upgraded);
-  scene.onBeforePhysicsObservable.add(()=>{stepProofGolem(golem,1/240,clock);clock+=1/240;});
+  scene.onBeforePhysicsObservable.add(()=>{stepProofGolem(golem,SUBSTEP,clock);clock+=SUBSTEP;});
   const run=seconds=>{for(let i=0;i<Math.round(seconds*60);i++){scene._renderId++;scene._advancePhysicsEngineStep(1000/60);}};
   return {...arena,golem,templates,presenter,materials,shadows,before,run,
     dispose(){presenter.dispose();golem.dispose();arena.dispose();}};

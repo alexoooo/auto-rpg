@@ -8,6 +8,11 @@ import { humanMind, NEUTRAL } from '../src/mind.ts';
 import { stepPair } from '../src/fighter.ts';
 import { flatSupportedWorldRegistry } from '../src/supported-locomotion-production.ts';
 import { CHAIN_REACH as R } from '../src/golem/config.ts';
+import { CONFIG } from '../src/config.ts';
+
+// The control step is the solver's substep at whatever rate it runs: a clock advanced by a literal
+// 1/240 runs at half speed under 120 Hz physics, and every window below then reads the wrong seconds.
+const SUBSTEP = 1 / CONFIG.world.physicsHz;
 
 // Compare the actual elbow with the geometric pose requested by the public command axes.
 // A stationary hand alone cannot detect an elbow swinging around it.
@@ -49,7 +54,7 @@ for (const hz of [1, 2]) for (const lift of [-.6, 0, .6]) for (const reach of [-
     for (const g of pair) for (const { part } of g.limbs)
       scene.getPhysicsEngine().getPhysicsPlugin().setActivationControl(part.body, 1);
     let clock = 0, maxElbow = 0, maxHand = 0, peakSpeed = 0, residual = 0;
-    const before = scene.onBeforePhysicsObservable.add(() => { stepPair(...pair, 1 / 240, clock); clock += 1 / 240; });
+    const before = scene.onBeforePhysicsObservable.add(() => { stepPair(...pair, SUBSTEP, clock); clock += SUBSTEP; });
     const after = scene.onAfterPhysicsObservable.add(() => {
       for (let i = 0; i < pair.length; i++) {
         if (clock >= 2.5 && clock < 5) {
@@ -96,7 +101,7 @@ test('coordinated arm yields to a physical obstruction and recovers without stor
     setup: defaultGolemSetup(), mind: humanMind(source), controlPolicies: [], locomotionWorld: world,
   }));
   let clock = 0;
-  const before = scene.onBeforePhysicsObservable.add(() => { stepPair(...pair, 1 / 240, clock); clock += 1 / 240; });
+  const before = scene.onBeforePhysicsObservable.add(() => { stepPair(...pair, SUBSTEP, clock); clock += SUBSTEP; });
   const advance = seconds => {
     const until = clock + seconds;
     while (clock < until) { scene._renderId++; scene._advancePhysicsEngineStep(1000 / 60); }

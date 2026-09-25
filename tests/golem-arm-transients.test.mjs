@@ -8,6 +8,11 @@ import { humanMind, splitMind, NEUTRAL } from '../src/mind.ts';
 import { applyButtonPose } from '../src/buttons.ts';
 import { stepPair } from '../src/fighter.ts';
 import { flatSupportedWorldRegistry } from '../src/supported-locomotion-production.ts';
+import { CONFIG } from '../src/config.ts';
+
+// The control step is the solver's substep at whatever rate it runs: a clock advanced by a literal
+// 1/240 runs at half speed under 120 Hz physics, and every window below then reads the wrong seconds.
+const SUBSTEP = 1 / CONFIG.world.physicsHz;
 
 for (const hand of ['primary', 'secondary']) for (const frames of [[1000/60], [1000/30], [8,27,11,42,16]]) {
   test(`${hand} press/release and sweep stops settle at the tip (${frames})`, async () => {
@@ -23,7 +28,7 @@ for (const hand of ['primary', 'secondary']) for (const frames of [[1000/60], [1
     let clock=0, phase=-1, frame=0;
     const clouds = Array.from({length:6},()=>pair.map(()=>[]));
     const before=scene.onBeforePhysicsObservable.add(()=>{
-      stepPair(...pair,1/240,clock); clock+=1/240;
+      stepPair(...pair,SUBSTEP,clock); clock+=SUBSTEP;
     });
     const after=scene.onAfterPhysicsObservable.add(()=>{
       const age=clock-2-phase;
@@ -45,8 +50,9 @@ for (const hand of ['primary', 'secondary']) for (const frames of [[1000/60], [1
       let worst=0;
       for (let p=0;p<6;p++) for (const samples of clouds[p]) {
         // Sweep itself ends at phase 4 + .25: assess its remaining .25s settling separately.
-        const points=p===4?samples.slice(Math.ceil(.25*240)):samples;
-        assert.ok(points.length>30,'the awake settling window must actually be sampled');
+        const points=p===4?samples.slice(Math.ceil(.25*CONFIG.world.physicsHz)):samples;
+        // At least 0.3 s of the window, counted in seconds rather than samples so it means one thing at any rate.
+        assert.ok(points.length>=.3*CONFIG.world.physicsHz,'the awake settling window must actually be sampled');
         const last=points.at(-1);
         let local=0; for (const point of points) local=Math.max(local,Vector3.Distance(point,last));
         worst=Math.max(worst,local);
