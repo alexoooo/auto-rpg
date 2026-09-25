@@ -15,8 +15,8 @@ import { boundary, WALL_HEIGHT, wallSurface, type WallFace } from "./fog.ts";
 import { dungeonFog } from "./fog-plugin.ts";
 import { dungeonStone, flatStone, type DungeonSurfaces } from "./stone.ts";
 import { masonryQuads, type Quad } from "./masonry.ts";
-import { DRESSING, FLOOR_TOP, decalCorners, decalHeight, hungCentre, type Dressing, type TorchPlacement } from "./dressing.ts";
-import { ATLAS, atlasRect, decalAtlas } from "./decals.ts";
+import { DRESSING, FLOOR_TOP, HUNG_TOP, decalCorners, decalHeight, hungCentre, muralHeight, type Dressing, type TorchPlacement } from "./dressing.ts";
+import { ATLAS, atlasRect, decalAtlas, muralRect } from "./decals.ts";
 
 /** Visible surfaces are merged into one mesh per square of this many cells a side, so that a level is a few dozen
  * draws rather than one per wall run and a batch of two thousand tile instances. */
@@ -229,9 +229,11 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     },
     /**
      * The level's clutter (`dressingPlacements`), in one atlas painted in code (`decals.ts`), alpha-tested and fogged,
-     * and owning no body. Markings and roots are merged a chunk at a time; puddles apart, in a glossy material, to
-     * catch the torchlight. A web is a mesh of its own, hidden until the floor it hangs over is explored, as a sconce
-     * is: it faces into the room on a diagonal, so the fog reads half of it from the rock and half from the floor.
+     * and owning no body. Markings, roots and murals are merged a chunk at a time, each set apart; puddles in a glossy
+     * material, to catch the torchlight. A mural shows only its tile's part of its own aspect (`muralRect`), with the
+     * tile's left edge on the left as the camera looks at the face. A web is a mesh of its own, hidden until the floor
+     * it hangs over is explored, as a sconce is: it faces into the room on a diagonal, so the fog reads half of it from
+     * the rock and half from the floor.
      */
     dress(dressing: readonly Dressing[]): Mesh[] {
       if (!fog || !dressing.length) return [];
@@ -244,8 +246,8 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
         fog.attach(m, null); return m;
       };
       const matte = material("dungeon dressing", 0.95), glossy = material("dungeon puddles", 0.12);
-      const flat: Quad[] = [], wet: Quad[] = [], hung: Quad[] = [], webs: { quad: Quad; floor: Point }[] = [];
-      const top = WALL_HEIGHT - 0.01, proud = DRESSING.hungProud;
+      const flat: Quad[] = [], wet: Quad[] = [], hung: Quad[] = [], murals: Quad[] = [], webs: { quad: Quad; floor: Point }[] = [];
+      const top = HUNG_TOP, proud = DRESSING.hungProud;
       for (const d of dressing) {
         if (d.kind === "decal") {
           const [u0, v0, u1, v1] = atlasRect(d.decal), y = decalHeight(d.layer);
@@ -257,6 +259,14 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
           const at = (s: number, y: number): [number, number, number] =>
             [c.x + d.facing.x * proud + along.x * s * d.width / 2, y, c.z + d.facing.z * proud + along.z * s * d.width / 2];
           hung.push({ cell: d.cell, normal: [d.facing.x, 0, d.facing.z], corners: [at(-1, top), at(1, top), at(1, top - d.drop), at(-1, top - d.drop)],
+            uvs: [[u0, v0], [u1, v0], [u1, v1], [u0, v1]] });
+        } else if (d.kind === "mural") {
+          // Screen right, looking at the face from in front of it, is (-facing.z, facing.x).
+          const [u0, v0, u1, v1] = muralRect(d.piece), c = hungCentre(d), right = { x: -d.facing.z, z: d.facing.x };
+          const high = d.y + muralHeight(d) / 2, low = d.y - muralHeight(d) / 2;
+          const at = (s: number, y: number): [number, number, number] =>
+            [c.x + d.facing.x * proud + right.x * s * d.width / 2, y, c.z + d.facing.z * proud + right.z * s * d.width / 2];
+          murals.push({ cell: d.cell, normal: [d.facing.x, 0, d.facing.z], corners: [at(-1, high), at(1, high), at(1, low), at(-1, low)],
             uvs: [[u0, v0], [u1, v0], [u1, v1], [u0, v1]] });
         } else {
           const [u0, v0, u1, v1] = atlasRect("cobweb"), { corner: c, into } = d, n = Math.SQRT1_2;
@@ -272,6 +282,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
       add(mergedQuads(scene, "dressing.floor", flat, 1), matte);
       add(mergedQuads(scene, "dressing.puddles", wet, 1), glossy);
       add(mergedQuads(scene, "dressing.hung", hung, 1), matte);
+      add(mergedQuads(scene, "dressing.murals", murals, 1), matte);
       for (const [i, { quad, floor }] of webs.entries()) {
         const [mesh] = mergedQuads(scene, `dressing.web.${i}`, [quad], 1);
         mesh.isVisible = false; fittings.push({ mesh, floor: cellKey(map, floor) }); add([mesh], matte);

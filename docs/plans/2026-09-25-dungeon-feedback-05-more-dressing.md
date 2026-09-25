@@ -179,4 +179,67 @@ each refused mural by hand, as the roots cases do.
 
 ## What landed
 
-(filled in when it lands)
+As planned above, with these differences and figures (Node, seeds 1-50, unless named).
+
+- **The aspect lives in `decals.ts`** as `MURAL_ASPECT`, not in `DRESSING.murals`. The painter and the quad both read
+  it, and `dressing.ts` already imports `decals.ts`. A piece in the table cannot therefore be drawn at an aspect it was
+  not painted in. `muralRect(piece)` is the quad's part of the tile, and a `Tile` built with an aspect clips its
+  paint to that strip. A mural carries no `height`: `muralHeight(m)` is its width over its aspect, so the two cannot
+  disagree.
+- **`HUNG_TOP`** (`WALL_HEIGHT - 0.01`) is the one top that roots, `"top"` pieces and `world.ts` all hang from.
+- **A mural reports every reason it is refused**, as roots do (`muralProblems`), except an unknown piece, which has no
+  size to check. The overlap rule is in `validateDressing` because it needs the others: a mural may not meet a root or
+  another mural on the same wall plane, across cells as well as within one (`wallsMeet`).
+- **The new tiles**, share of the solid part (alpha 0.5) over the part the quad shows, and the share kept at the third
+  mipmap over the share (`.scratch/atlas05.mjs`):
+
+  | tile | share | mip 3 |
+  |---|---|---|
+  | rubble | 8.8 % | 0.92 |
+  | scorch | 26.7 % | 1.00 |
+  | straw | 20.2 % | 1.05 |
+  | grime | 27.7 % | 1.01 |
+  | stain | 29.1 % | 0.96 |
+  | lichen | 12.4 % | 1.02 |
+  | fissure | 8.8 % | 0.94 |
+  | chains | 25.8 % | 1.05 |
+  | banner | 59.4 % | 0.98 |
+
+  The first seven tiles are painted as they were. **The banner has its own bound, under 65 %**: it is cloth and meant
+  to read as one solid piece; every other tile stays under 45 %. Stain touches its tile's top, as roots and webs do.
+- **Layers:** at the new density, 0.79 % of markings are dropped for want of a free layer, against a copy with no
+  limit (`.scratch/layers05.mjs`). `DECAL_LAYERS` stays 3.
+- **Counts**, at pi and on the diagonal:
+
+  | | pi | pi/4 |
+  |---|---|---|
+  | markings a level | 105.5 | 105.5 |
+  | fewest markings in a room | 7 | 7 |
+  | rooms with a wall piece | 96.7 % | 100 % |
+  | wall pieces a level | 26.6 | 29.5 |
+  | roots a level | 12 | 12 |
+  | webs a level | 3.00 | 1.66 |
+
+  The test's floors are 6 markings a room, a wall piece in 90 % of rooms (not the plan's 70 %: 96.7 % was measured),
+  and 22 wall pieces a level, which `muralsPerRoom` [1, 1] fails. The density test doubles the murals on their own:
+  that hangs 1.58 times as many (seeds 1-10), as a room's camera-facing walls start to fill, so its floor for murals is
+  1.5 where the others' is 1.6. Doubled with the roots, it is 1.39, because the extra roots take the walls first
+  (found by review).
+- **Tests:** the plan's `murals_hang_on_faces_the_camera_sees` is not a test of its own. The drawn test holds each
+  mural's quad to its face, width, height and the camera (normal at least 0.3), and its UVs to `muralRect`, upright and
+  unmirrored, twice: against the face's own right-hand side, and through the camera's view matrix, which does not share
+  `world.ts`'s idea of which way is right (found by review; each check alone goes red on a mirrored or flipped piece).
+  `validateDressing`, clean on every seed at both azimuths, checks each is `seen` at its own height. The
+  refusal cases cover every rule, each by one stated edit to a real mural, the hidden case with a seen-before control.
+  The atlas test adds that nothing is painted outside a wall tile's strip, and that `muralRect` is that strip.
+- **Sweep** (`scripts/dungeon/sweep.mjs`, Node headless harness, default seeds 1-20 and multileg 1-5): identical
+  outcomes and simulated times to session 02's, plain and `--visuals`.
+- **Mutations:** 25, all red (`.scratch/mutate-fb05.mjs`): each refusal rule removed, the overlap rule dropped and made
+  blind to roots, placement blind to roots, murals at `y` 0, `muralsPerRoom` [0, 0] and [1, 1], density read from
+  `DRESSING` instead of the table passed, chains in one-pixel strokes, the quad showing the whole tile, paint outside
+  the strip, a mural mirrored, wound backwards, drawn square or not drawn, and a kind with no painter (a compile error).
+- **Murals are not kept clear of cobwebs**, as roots were not before them: 24 pieces over 50 levels sit behind a web at
+  pi, 18 on the diagonal (found by review). A web is drawn in front of what it covers, so it reads as a web over a
+  stain or a banner; if the owner sees it as a fault, the clearance is a rule of its own.
+- **Not built: solid clutter.** Rubble heaps, barrels, crates and carts need cells with colliders, which is depths
+  session 06's set pieces. Whether to build them is the owner's decision.

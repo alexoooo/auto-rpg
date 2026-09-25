@@ -2,6 +2,11 @@ import { mulberry32 } from "../rng.ts";
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
 import { boundary, doorCells, WALL_HEIGHT } from "./fog.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
+import { MURAL_ASPECT, WALL_PIECES, type WallPiece } from "./decals.ts";
+
+/** A wall piece's draw: its weight, its width in metres, and the height of its middle, or "top" to hang it from the
+ * wall's top. Its height is its width over its tile's aspect (`MURAL_ASPECT` in `decals.ts`, which paints it). */
+interface MuralSpec { weight: number; width: readonly [number, number]; y: "top" | readonly [number, number] }
 
 /** Where the dungeon's body-free decoration goes. Every number here is a starting value set by eye; the owner
  * judges density in play (docs/plans/2026-09-24-dungeon-look-01-light-and-air.md, and -05-dressing.md). */
@@ -14,20 +19,26 @@ export const DRESSING = Object.freeze({
   /** How far off the wall face the torch's light stands. A light at the flame would sit 0.12 m from the stone, and an
    * inverse-square light that close burns a hot spot into the wall; this one lights the floor the flame looks at. */
   torchLightProud: 0.4,
-  /** Flat markings: a whole number of them in each room, drawn between these, and a chance for each corridor cell. */
-  decalsPerRoom: Object.freeze([3, 6] as const), corridorDecalsPerCell: 0.02,
+  /** Flat markings: a whole number of them in each room, drawn between these, and a chance for each corridor cell.
+   * The owner asked for more clutter; these were [3, 6] and 0.02. */
+  decalsPerRoom: Object.freeze([7, 12] as const), corridorDecalsPerCell: 0.06,
   /** How often each kind is drawn, and the side of its square in metres. A size is the whole tile's, rim included. */
   decals: Object.freeze({
-    blood: Object.freeze({ weight: 0.25, size: Object.freeze([0.8, 1.5] as const) }),
-    crack: Object.freeze({ weight: 0.25, size: Object.freeze([1, 1.8] as const) }),
-    moss: Object.freeze({ weight: 0.2, size: Object.freeze([0.9, 1.8] as const) }),
-    puddle: Object.freeze({ weight: 0.15, size: Object.freeze([0.9, 1.6] as const) }),
-    bones: Object.freeze({ weight: 0.15, size: Object.freeze([0.6, 1] as const) }),
+    blood: Object.freeze({ weight: 0.14, size: Object.freeze([0.8, 1.5] as const) }),
+    crack: Object.freeze({ weight: 0.14, size: Object.freeze([1, 1.8] as const) }),
+    moss: Object.freeze({ weight: 0.12, size: Object.freeze([0.9, 1.8] as const) }),
+    puddle: Object.freeze({ weight: 0.08, size: Object.freeze([0.9, 1.6] as const) }),
+    bones: Object.freeze({ weight: 0.12, size: Object.freeze([0.6, 1] as const) }),
+    rubble: Object.freeze({ weight: 0.14, size: Object.freeze([0.7, 1.3] as const) }),
+    scorch: Object.freeze({ weight: 0.06, size: Object.freeze([0.9, 1.6] as const) }),
+    straw: Object.freeze({ weight: 0.1, size: Object.freeze([0.8, 1.4] as const) }),
+    grime: Object.freeze({ weight: 0.1, size: Object.freeze([1.4, 2.4] as const) }),
   }),
   /** No marking comes within this of the start or the exit, where the eye goes first. */
   keepClear: 1.2,
-  /** Roots hang from a wall's top: at most this many a level, no two closer, this wide, and reaching this far down. */
-  rootsPerLevel: 6, rootSpacing: 4, rootWidth: Object.freeze([0.5, 0.9] as const), rootDrop: Object.freeze([0.9, 1.7] as const),
+  /** Roots hang from a wall's top: at most this many a level, no two closer, this wide, and reaching this far down.
+   * The cap is what binds (6 a level at both azimuths, seeds 1-50), so it is what moved for more wall decoration. */
+  rootsPerLevel: 12, rootSpacing: 4, rootWidth: Object.freeze([0.5, 0.9] as const), rootDrop: Object.freeze([0.9, 1.7] as const),
   /** How far off the wall's face a hung piece stands. */
   hungProud: 0.01,
   /** The chance of a web in each inner corner of a room that faces the camera, how far along each wall it reaches, and
@@ -35,7 +46,27 @@ export const DRESSING = Object.freeze({
    * diagonal, so the chance is about half what it was: 0.5 on the diagonal and 0.28 square to the walls give 2.84 and
    * 2.86 webs a level (seeds 1-50). */
   cobwebsPerRoomCorner: 0.28, cobwebSpan: Object.freeze([0.35, 0.55] as const), cobwebDrop: Object.freeze([0.45, 0.7] as const),
+  /** Pieces on the walls the camera sees: a whole number of them for each room, drawn between these, each with a few
+   * tries at a face. */
+  muralsPerRoom: Object.freeze([2, 4] as const),
+  /** Each piece's draw (`MuralSpec`). Every draw fits between `MURAL_FLOOR` and the wall's top: the tallest is a
+   * 0.9 m stain, 2.0 m high, and the lowest bottom a fissure's, 0.12 m. Lichen's middle is drawn from [0.6, 1.1]
+   * because at [0.4, 1.0] a 0.9 m patch reached below the floor. */
+  murals: Object.freeze({
+    stain: Object.freeze({ weight: 0.25, width: Object.freeze([0.5, 0.9] as const), y: "top" }),
+    lichen: Object.freeze({ weight: 0.25, width: Object.freeze([0.5, 0.9] as const), y: Object.freeze([0.6, 1.1] as const) }),
+    fissure: Object.freeze({ weight: 0.2, width: Object.freeze([0.4, 0.7] as const), y: Object.freeze([0.9, 1.6] as const) }),
+    chains: Object.freeze({ weight: 0.15, width: Object.freeze([0.3, 0.45] as const), y: Object.freeze([1.5, 1.9] as const) }),
+    banner: Object.freeze({ weight: 0.15, width: Object.freeze([0.6, 0.85] as const), y: Object.freeze([1.6, 1.9] as const) }),
+  } satisfies Record<WallPiece, MuralSpec>),
 });
+
+/** The top of everything hung on a wall: a centimetre under the coping, as the roots have always hung. */
+export const HUNG_TOP = WALL_HEIGHT - 0.01;
+/** No wall piece comes lower than this: under it the floor's tiles and a golem's feet are in front of it. */
+export const MURAL_FLOOR = 0.1;
+/** A wall piece's height: its width over its tile's aspect, so its painting is not stretched. */
+export const muralHeight = (m: { piece: WallPiece; width: number }): number => m.width / MURAL_ASPECT[m.piece];
 
 /**
  * How squarely a hung piece's face must look toward the camera, as the ground dot product of its normal with the unit
@@ -63,11 +94,26 @@ function seen(map: DungeonMap, p: { x: number; y: number; z: number }, toward: P
   return true;
 }
 
-/** Whether roots can be seen at all: each end of their width and their middle, halfway down them, in front of the wall. */
-const rootsSeen = (map: DungeonMap, r: { cell: Point; facing: Point; along: number; width: number; drop: number }, toward: Point) => {
-  const c = hungCentre(r), y = WALL_HEIGHT - r.drop / 2;
+/** Whether a piece `width` wide on a wall can be seen at all: each end of it and its middle, at height `y`, in front
+ * of the wall. */
+const hungSeen = (map: DungeonMap, r: { cell: Point; facing: Point; along: number; width: number }, y: number, toward: Point) => {
+  const c = hungCentre(r);
   return [-0.5, 0, 0.5].every(k => seen(map, {
     x: c.x + r.facing.x * 0.01 + Math.abs(r.facing.z) * k * r.width, y, z: c.z + r.facing.z * 0.01 + Math.abs(r.facing.x) * k * r.width }, toward));
+};
+/** Roots are seen where their top half is: sampled halfway down them. */
+const rootsSeen = (map: DungeonMap, r: { cell: Point; facing: Point; along: number; width: number; drop: number }, toward: Point) =>
+  hungSeen(map, r, WALL_HEIGHT - r.drop / 2, toward);
+
+/** Where a piece on a wall lies along that wall's plane: the plane itself, and the span it covers along it. Two pieces
+ * overlap only on one plane, facing one way. */
+function wallSpan(p: { cell: Point; facing: Point; along: number; width: number }) {
+  const c = hungCentre(p), onX = p.facing.x !== 0, middle = onX ? c.z : c.x;
+  return { plane: `${p.facing.x},${p.facing.z},${onX ? c.x : c.z}`, from: middle - p.width / 2, to: middle + p.width / 2 };
+}
+const wallsMeet = (a: { cell: Point; facing: Point; along: number; width: number }, b: { cell: Point; facing: Point; along: number; width: number }) => {
+  const s = wallSpan(a), t = wallSpan(b);
+  return s.plane === t.plane && s.from < t.to - 1e-9 && t.from < s.to - 1e-9;
 };
 
 /** The table `dressingPlacements` reads: `DRESSING`, or a caller's variation of it. */
@@ -93,11 +139,14 @@ export const FLOOR_DECALS = Object.freeze(Object.keys(DRESSING.decals) as FloorD
  *   wall's top down by `drop`, `width` wide and centred `along` the face from the cell's middle.
  * - A **cobweb** hangs across an inner corner of a room, at the half-integer point `corner`, where the floor lies
  *   toward `into` (a diagonal of unit steps): from `span` along each wall at the top, down by `drop`.
+ * - A **mural** is a piece painted on a wall: on the face of rock cell `cell` looking along `facing`, `hungProud` off
+ *   it, centred `along` the face from the cell's middle and at height `y`, `width` wide and `muralHeight` high.
  */
 export type Dressing =
   | { kind: "decal"; decal: FloorDecal; at: Point; size: number; turn: number; layer: number }
   | { kind: "roots"; cell: Point; facing: Point; along: number; width: number; drop: number }
-  | { kind: "cobweb"; corner: Point; into: Point; span: number; drop: number };
+  | { kind: "cobweb"; corner: Point; into: Point; span: number; drop: number }
+  | { kind: "mural"; piece: WallPiece; cell: Point; facing: Point; along: number; y: number; width: number };
 
 /** A decal's four corners on the floor, in order around it, starting from its tile's (u0, v0) corner. */
 export function decalCorners(d: { at: Point; size: number; turn: number }): Point[] {
@@ -105,7 +154,7 @@ export function decalCorners(d: { at: Point; size: number; turn: number }): Poin
   return [[-h, -h], [-h, h], [h, h], [h, -h]].map(([a, b]) => ({ x: d.at.x + a * c - b * s, z: d.at.z + a * s + b * c }));
 }
 
-/** Where hung roots meet their wall: the middle of their top edge, on the face. */
+/** Where a hung piece meets its wall: the middle of its width, on the face, on the ground. */
 export const hungCentre = (r: { cell: Point; facing: Point; along: number }): Point =>
   ({ x: r.cell.x + r.facing.x * 0.5 + Math.abs(r.facing.z) * r.along, z: r.cell.z + r.facing.z * 0.5 + Math.abs(r.facing.x) * r.along });
 
@@ -217,9 +266,10 @@ function innerCorners(map: DungeonMap): { corner: Point; into: Point }[] {
  * The level's clutter, a function of the seed, drawn from a stream of its own so that no change here moves a torch:
  * `torchPlacements` reads nothing of this. Markings are drawn in each room and along the corridors, and each is kept
  * only where its whole square lies on floor, clear of the start and the exit, with a layer free of every marking it
- * overlaps. Roots hang on walls that face floor, clear of torches and doorways; webs hang in rooms' inner corners.
- * Both hang only where the camera, standing `toward` of the hero, sees their face (`FACING_MIN`), and roots only where
- * no nearer wall hides the top half of them. The dressing is baked once a level, so the page hands its own view.
+ * overlaps. Roots hang on walls that face floor, clear of torches and doorways; webs hang in rooms' inner corners;
+ * murals go on the walls of each room, clear of torches, doorways and each other. All hang only where the camera,
+ * standing `toward` of the hero, sees their face (`FACING_MIN`), and roots and murals only where no nearer wall hides
+ * them. The dressing is baked once a level, so the page hands its own view.
  * Every placement passes `validateDressing`.
  */
 export function dressingPlacements(map: DungeonMap, seed: number, densities: DressingTable = DRESSING,
@@ -276,7 +326,49 @@ export function dressingPlacements(map: DungeonMap, seed: number, densities: Dre
     if (!torches.some(t => Math.hypot(t.flame.x - corner.x, t.flame.z - corner.z) < WEB_TORCH_CLEARANCE))
       webs.push({ kind: "cobweb", corner, into, span, drop });
   }
-  return [...decals, ...roots, ...webs];
+
+  // Murals, after everything above so that none of it moves: a room's own faces are those whose floor is in the room.
+  const pieceTotal = WALL_PIECES.reduce((s, k) => s + densities.murals[k].weight, 0);
+  const drawPiece = (): WallPiece => {
+    let pick = random() * pieceTotal;
+    for (const k of WALL_PIECES) { pick -= densities.murals[k].weight; if (pick < 0) return k; }
+    return WALL_PIECES[WALL_PIECES.length - 1];
+  };
+  const murals: Extract<Dressing, { kind: "mural" }>[] = [];
+  for (const [i] of map.rooms.entries()) {
+    const own = faces.filter(({ cell, facing }) => roomAt(map, cell.x + facing.x, cell.z + facing.z) === i);
+    const [lo, hi] = densities.muralsPerRoom, count = lo + Math.floor(random() * (hi - lo + 1));
+    for (let n = 0; n < count && own.length; n++) for (let attempt = 0; attempt < MURAL_TRIES; attempt++) {
+      const { cell, facing } = own[Math.floor(random() * own.length)], piece = drawPiece(), spec: MuralSpec = densities.murals[piece];
+      const width = between(spec.width), height = width / MURAL_ASPECT[piece];
+      const y = spec.y === "top" ? HUNG_TOP - height / 2 : between(spec.y);
+      const m = { kind: "mural" as const, piece, cell, facing, along: (random() - 0.5) * (1 - width), y, width };
+      if (muralProblems(map, m, torches, toward).length || [...roots, ...murals].some(o => wallsMeet(o, m))) continue;
+      murals.push(m); break;
+    }
+  }
+  return [...decals, ...roots, ...webs, ...murals];
+}
+
+/** A mural's tries at a face before it is given up. */
+const MURAL_TRIES = 8;
+
+/** Every reason a wall piece may not hang where it is, apart from its neighbours; empty when it may. The placement
+ * and `validateDressing` both ask it. */
+function muralProblems(map: DungeonMap, m: Extract<Dressing, { kind: "mural" }>, torches: readonly TorchPlacement[], toward: Point): string[] {
+  const { cell, facing } = m, name = `a ${m.piece} at (${cell.x}, ${cell.z})`, centre = hungCentre(m), problems: string[] = [];
+  if (!WALL_PIECES.includes(m.piece)) return [`${name} is no kind of wall piece`];
+  const height = muralHeight(m);
+  if (!boundary(map, cell.x, cell.z)) problems.push(`${name} hangs on no collider`);
+  if (Math.abs(facing.x) + Math.abs(facing.z) !== 1 || !isFloor(map, cell.x + facing.x, cell.z + facing.z)) problems.push(`${name} faces no floor`);
+  if (!(m.width > 0) || Math.abs(m.along) + m.width / 2 > 0.5 + 1e-9) problems.push(`${name} leaves its cell's face`);
+  if (!(m.y - height / 2 >= MURAL_FLOOR - 1e-9)) problems.push(`${name} hangs down to ${(m.y - height / 2).toFixed(2)} m`);
+  if (!(m.y + height / 2 <= WALL_HEIGHT + 1e-9)) problems.push(`${name} rises to ${(m.y + height / 2).toFixed(2)} m, over the wall`);
+  if (map.doors.flatMap(doorCells).some(c => c.x === cell.x + facing.x && c.z === cell.z + facing.z)) problems.push(`${name} hangs in a doorway`);
+  if (torches.some(t => Math.hypot(t.flame.x - centre.x, t.flame.z - centre.z) < ROOT_TORCH_CLEARANCE)) problems.push(`${name} hangs at a torch`);
+  if (!facesCamera(facing, toward)) problems.push(`${name} faces away from the camera`);
+  else if (!hungSeen(map, m, m.y, toward)) problems.push(`${name} hangs where a nearer wall hides it`);
+  return problems;
 }
 
 /** Every reason a dressing is not body-free clutter that the colliders allow, or that a camera standing `toward` of
@@ -305,7 +397,7 @@ export function validateDressing(map: DungeonMap, dressing: readonly Dressing[],
       if (doorways.some(c => c.x === cell.x + facing.x && c.z === cell.z + facing.z)) problems.push(`${name} hang in a doorway`);
       if (!facesCamera(facing, toward)) problems.push(`${name} face away from the camera`);
       else if (!rootsSeen(map, d, toward)) problems.push(`${name} hang where a nearer wall hides them`);
-    } else {
+    } else if (d.kind === "cobweb") {
       const { corner, into } = d, name = `a web at (${corner.x}, ${corner.z})`, floor = { x: corner.x + into.x / 2, z: corner.z + into.z / 2 };
       if (Math.abs(into.x) !== 1 || Math.abs(into.z) !== 1 || !Number.isInteger(floor.x) || !Number.isInteger(floor.z)) problems.push(`${name} is not in a corner`);
       else if (!isFloor(map, floor.x, floor.z) || isFloor(map, floor.x - into.x, floor.z) || isFloor(map, floor.x, floor.z - into.z)
@@ -317,6 +409,10 @@ export function validateDressing(map: DungeonMap, dressing: readonly Dressing[],
       if (!(d.span > 0 && d.span <= 0.6)) problems.push(`${name} spans ${d.span} m`);
       if (!(d.drop > 0 && WALL_HEIGHT - d.drop >= 2)) problems.push(`${name} hangs down to ${(WALL_HEIGHT - d.drop).toFixed(2)} m`);
       if (torches.some(t => Math.hypot(t.flame.x - corner.x, t.flame.z - corner.z) < WEB_TORCH_CLEARANCE)) problems.push(`${name} hangs at a torch`);
+    } else {
+      problems.push(...muralProblems(map, d, torches, toward));
+      if (dressing.some(o => o !== d && (o.kind === "roots" || o.kind === "mural") && wallsMeet(o, d)))
+        problems.push(`a ${d.piece} at (${d.cell.x}, ${d.cell.z}) overlaps another piece on its wall`);
     }
   }
   return problems;
