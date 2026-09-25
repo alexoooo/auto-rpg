@@ -214,11 +214,15 @@ test("an_enemy_nobody_is_near_sleeps_and_wakes_before_it_could_see_the_hero", as
     const enemy = run.actors[1], apart = () => distance(run.hero.body.feetPosition(), enemy.body.feetPosition());
     const frame = () => { arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60); };
     arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / CONFIG.world.physicsHz));
+    const syncing = enemy.bodies.map(body => body.disableSync);
     for (let i = 0; i < 60 * 1.5; i++) frame();
     assert.ok(enemy.dormant, `an unalerted enemy ${apart().toFixed(1)} m away, at home, is awake`);
+    assert.ok(enemy.bodies.every(body => body.disableSync), "a sleeper's transforms are still copied back every step");
     assert.ok(enemy.body.limbs.every(limb => enemy.bodies.includes(limb.part.body)), "the sleeping enemy's bodies were not all collected");
-    // Every body of it, to the bit: a sleeping enemy that still drifted would be simulated after all.
-    const pose = () => enemy.bodies.map(body => [...body.transformNode.position.asArray(), ...body.transformNode.rotationQuaternion.asArray()]);
+    // Every body of it, to the bit: a sleeping enemy that still drifted would be simulated after all. Read from
+    // Havok, not from the meshes: a sleeper's meshes are no longer synced, so they would hold still regardless.
+    const hk = arena.scene.getPhysicsEngine().getPhysicsPlugin()._hknp;
+    const pose = () => enemy.bodies.map(body => hk.HP_Body_GetQTransform(body._pluginData.hpBodyId)[1].flat());
     const held = pose();
     for (let i = 0; i < 60; i++) frame();
     assert.deepEqual(pose(), held, "a sleeping enemy's bodies moved");
@@ -236,6 +240,7 @@ test("an_enemy_nobody_is_near_sleeps_and_wakes_before_it_could_see_the_hero", as
     assert.equal(sleptInSight, null, `the enemy slept ${sleptInSight?.toFixed(1)} m from the hero, within its sight`);
     assert.ok(wokeAt !== null && wokeAt > 14, `the enemy woke at ${wokeAt?.toFixed(1)} m`);
     assert.equal(wakes, 1, "the enemy went back to sleep as the hero came on");
+    assert.deepEqual(enemy.bodies.map(body => body.disableSync), syncing, "waking did not restore each body's sync");
     assert.equal(enemy.target, run.hero, "the woken enemy never saw the hero");
     // Woken, it is a working body: it leaves home for the hero.
     for (let i = 0; i < 60 * 6 && distance(enemy.body.feetPosition(), enemy.home) < 1; i++) frame();
