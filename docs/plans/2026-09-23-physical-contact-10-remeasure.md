@@ -68,8 +68,8 @@ Commits 9e25d3f to e762c74, 2026-09-25. Every figure names its harness in the me
 ## Left open
 
 - **Seven idle cells at zero**: the skeleton against stone, the human and the giant, and the human
-  against every body. The overview's floor ("every body can beat an idle dummy") is not met; it was
-  not met at session 01 either.
+  against every body. The overview's floor ("every body can beat an idle dummy") is not met; the
+  same seven cells were at zero at 4df55cc and 567350a, and no new one has joined them.
 - **An idle stone body is felled on almost nothing** against a brawler: 56 falls in four 60 s bouts
   (67 at 567350a), most while it is still rising, the first from standing on a weakest-direction
   fall line of 0.014 m/s (`.review/pc10/idle-falls.mjs`, Node bout runner). Not caused by the
