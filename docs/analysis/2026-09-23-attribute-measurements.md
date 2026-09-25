@@ -3749,3 +3749,38 @@ a body a bout, left / right):
 Lean alone felled a brawler mirror four times as often, 72 of 139 falls led by the pair push in
 the second before them (`.review/pc10/fall-source.mjs`); with the step, 20 of 62. The duelists
 seldom meet trunk to trunk, so their cells hardly move.
+
+### Stone weight under the balance response
+
+`research/stat-sweep.mjs --stat weight --pairs 192` at 231403a, Node harness, research runner,
+supported locomotion, cap 150 s, seed 20260923, the four probe minds, 384 bouts a level; "Before" is
+the same sweep at 567350a, under session 07's push (`research/runs/pc10b` against `pc10`):
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 35.2 [30.2, 40.4] | 33.2 | -0.38 | -0.45 | 2.06 | 2.32 | 20.1 | 20.8 | 19.3 | 20.1 |
+| x0.90 | 38.8 [33.1, 44.5] | 40.4 | -0.20 | -0.17 | 1.97 | 2.10 | 18.1 | 17.9 | 20.2 | 21.4 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 58.5 [53.3, 64.2] | 60.8 | 0.32 | 0.35 | 1.07 | 0.95 | 7.3 | 6.4 | 20.1 | 20.1 |
+| x1.25 | 66.9 [61.7, 71.9] | 66.3 | 0.51 | 0.51 | 1.05 | 0.91 | 7.7 | 7.2 | 20.7 | 20.2 |
+| x1.50 | 66.0 [60.7, 71.1] | 69.3 | 0.55 | 0.64 | 0.87 | 1.02 | 6.7 | 7.7 | 19.2 | 20.9 |
+| x2.00 | 79.7 [75.3, 84.1] | 77.1 | 0.81 | 0.77 | 1.14 | 1.17 | 10.0 | 9.7 | 22.5 | 22.6 |
+
+Nothing moved outside its interval. The weight stat is what it was: x2 wins 79.7 %, d = 0.81, and x0.8
+loses at d = -0.38. The brawler mirror moved (the bout table above); pooled with the three other
+probe minds, the new rule does not show at this n.
+
+### Stone size under the balance response
+
+The same protocol, `--stat size`:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 10.2 [6.8, 13.8] | 8.3 | -1.08 | -1.20 | 4.77 | 5.48 | 33.3 | 38.4 | 24.8 | 24.9 |
+| x0.90 | 27.1 [22.4, 32.0] | 26.8 | -0.53 | -0.59 | 2.95 | 3.14 | 24.8 | 24.2 | 22.1 | 23.0 |
+| x1.00 (control) | 47.1 [41.7, 52.6] | 47.7 | -- | -- | 0.52 | 0.62 | 2.9 | 4.4 | 18.8 | 20.5 |
+| x1.10 | 69.3 [64.1, 74.5] | 68.5 | 0.47 | 0.49 | 0.75 | 0.72 | 7.1 | 6.5 | 18.2 | 17.4 |
+| x1.25 | 84.9 [81.0, 88.5] | 87.5 | 0.98 | 1.08 | 0.49 | 0.50 | 5.6 | 6.3 | 14.9 | 14.0 |
+
+Nothing moved outside its interval here either: x1.25 wins 84.9 % (87.5 before), d = 0.98, and x0.8
+10.2 %. Size stays the strongest stat on stone.
