@@ -3784,3 +3784,25 @@ The same protocol, `--stat size`:
 
 Nothing moved outside its interval here either: x1.25 wins 84.9 % (87.5 before), d = 0.98, and x0.8
 10.2 %. Size stays the strongest stat on stone.
+
+### Skeleton weight and size under the balance response
+
+The skeleton duelist mirror, `--build skeleton-warrior --minds skeleton-duelist`, otherwise the same
+protocol. Weight:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 43.0 [37.8, 48.2] | 41.7 | -0.19 | -0.19 | 18.11 | 18.01 | 70.2 | 70.2 | 56.3 | 56.1 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x2.00 | 68.2 [63.3, 72.9] | 68.2 | 0.49 | 0.48 | 11.59 | 10.96 | 49.3 | 47.5 | 50.1 | 49.9 |
+
+Size:
+
+| Level | Win % [95 %] | Before | Paired d | Before | Knockdowns | Before | Time down % | Before | Seconds | Before |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| x0.80 | 16.7 [13.0, 20.6] | 19.8 | -0.88 | -0.80 | 24.01 | 23.85 | 72.9 | 72.5 | 63.0 | 62.7 |
+| x1.00 (control) | 49.5 [44.5, 54.2] | 49.7 | -- | -- | 16.67 | 16.51 | 64.2 | 64.0 | 56.6 | 56.3 |
+| x1.25 | 74.7 [70.1, 78.9] | 76.6 | 0.76 | 0.74 | 8.26 | 8.10 | 51.4 | 49.9 | 38.0 | 38.2 |
+
+Both are where they were. The skeleton still falls 16.7 times a body a bout at x1 and is down 64 % of
+it, which the balance response neither causes nor cures: its falls are the stance's (session 08).
