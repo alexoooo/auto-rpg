@@ -303,6 +303,25 @@ export const golemLayersFor = (side: Side) => {
 };
 
 /**
+ * Pin the step Havok's solver is told to expect to `1 / tuningHz`, whatever step the
+ * world is actually advanced by (`CONFIG.world.solverTuningHz` says why).
+ *
+ * `HavokPlugin.executeStep` calls `HP_World_SetIdealStepTime(world, delta)` and then
+ * `HP_World_Step(world, delta)` with the same delta, and has no setting to part them. So the
+ * plugin gets its own view of the bindings in which that one call is replaced; every other
+ * binding is the loaded instance's own. The ideal step is computed exactly as Babylon's
+ * accumulator computes a substep, `(1000 / hz) / 1000`, so at `physicsHz === tuningHz` the
+ * solver is handed the bits it was handed before this existed.
+ */
+function holdIdealStep(plugin: HavokPlugin, havok: HavokPhysicsWithBindings, tuningHz: number): void {
+  if (!(tuningHz > 0)) throw new Error("solverTuningHz must be a positive rate");
+  const ideal = (1000 / tuningHz) / 1000;
+  const bindings = Object.create(havok) as HavokPhysicsWithBindings;
+  bindings.HP_World_SetIdealStepTime = (world, _taken) => havok.HP_World_SetIdealStepTime(world, ideal);
+  (plugin as unknown as { _hknp: HavokPhysicsWithBindings })._hknp = bindings;
+}
+
+/**
  * Bring the solver up on a scene, with the settings the whole prototype was
  * tuned against.
  *
@@ -325,13 +344,16 @@ export const golemLayersFor = (side: Side) => {
  */
 export function attachPhysics(scene: Scene, havok: HavokPhysicsWithBindings): HavokPlugin {
   const plugin = new HavokPlugin(true, havok);
+  holdIdealStep(plugin, havok, CONFIG.world.solverTuningHz);
   scene.enablePhysics(new Vector3(0, CONFIG.world.gravity, 0), plugin);
 
   // A sword tip travelling faster than the default clamp is exactly the case
   // this prototype exists to explore, so raise the ceiling out of the way.
   plugin.setVelocityLimits(220, 220);
-  // Tells Havok what step size to expect, which its solver uses when tuning
-  // constraint response. The world still steps by the real frame delta.
+  // The plugin's fallback step, read only when it is built with
+  // `useDeltaForWorldStep` false, and it is built with it true -- so this sets
+  // nothing Havok sees. The expected step the solver does read is pinned by
+  // `holdIdealStep` above.
   plugin.setTimeStep(1 / 60);
 
   if (!scene.getPhysicsEngine()) {

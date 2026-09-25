@@ -39,6 +39,20 @@ export const CONFIG = {
      * the frame rate is doing.
      */
     physicsHz: 240,
+    /**
+     * The step Havok is told to expect (`HP_World_SetIdealStepTime`), in steps per second,
+     * held apart from the step it is actually handed.
+     *
+     * Babylon's plugin sets the ideal step to the step it takes, every step, so halving
+     * `physicsHz` also changed how stiffly every constraint, motor and contact answers per
+     * second -- and every drive in the tree was tuned at 240. Stepping at 120 with the ideal
+     * step left at 1/240 gives back the 240 envelope at 120's cost (Node golem bench, wrist
+     * blade: idle stray 24.7 -> 1.6 mm, cut stray 108.9 -> 48.8, biped walk slip 567 -> 151
+     * mm/s, against 3.05, 37.9 and 99 at 240), where 1/360 and 1/480 are worse again. The
+     * table is in `docs/analysis/2026-09-25-physics-rate-2.md`. It is a property of the tuning,
+     * not of the rate: change it only with every drive re-measured.
+     */
+    solverTuningHz: 240,
     /** Clamp: a long stall must not integrate one enormous step. */
     maxFrameSeconds: 1 / 20,
   },
