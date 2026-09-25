@@ -237,6 +237,12 @@ export type StabilityEvent = Readonly<{
   readonly verticalShoveNs?: number;
   /** The world height it landed at, m; absent is the centre of mass. */
   readonly atY?: number;
+  /**
+   * **A force held across the step, not a blow**: `horizontalShoveNs` is that force times the step.
+   * `readContact` files the pair push and the contact press this way. The ledger integrates it
+   * against the step's righting instead of adding it after (`nextLean`). Absent is a blow.
+   */
+  readonly sustained?: boolean;
 }>;
 
 export interface SupportedLocomotionState {
@@ -407,16 +413,34 @@ const ZERO_LEAN: Lean = Object.freeze({ specificImpulseMps: 0, leanX: 0, leanZ: 
  * The ledger after one boundary: the prior lean righted by gravity at its own direction's rate, and
  * this boundary's shoves added as a vector. A body rocking one way that is struck from the other is
  * righted by the blow, as a rocking body is.
+ *
+ * **A held force is integrated against the righting, not added after it** (2026-09-25 rate falls).
+ * A blow lands in an instant, so it is added once the step's righting has been taken. A held force
+ * `a` (m/s^2 of the ledger) acts across the whole step against the righting `d`, so the lean moves
+ * by `(a - d) dt` and does not go below zero. Adding it after the righting as well left `a dt` on
+ * the ledger at every boundary, even for a push that the body holds (`a <= d`), which is exactly
+ * what `leanHoldN` and `pushCapN` size a push to. That residue is one step's worth, so it doubled at
+ * 120 Hz. Removing it did not change the fall counts by more than their noise at either rate: the
+ * brawler's extra falls at 120 Hz have another cause (`docs/analysis/2026-09-25-rate-falls.md`,
+ * Node research runner). With no held force the result is the same as before.
  */
 function nextLean(prior: SupportedLocomotionState, input: SupportedLocomotionBoundary): Lean {
-  const [addX, addZ] = shoveSpecificImpulse(input.contactShoves, input.supportedMassKg, input.tipping);
-  const priorMps = Math.hypot(prior.leanX, prior.leanZ);
-  const kept = priorMps > 0
-    ? Math.max(0, priorMps - stabilityLines(input.authority, input.tipping, prior.leanX, prior.leanZ).decayMps2
-      * input.dt) / priorMps
+  const blows = input.contactShoves.filter((event) => !event.sustained);
+  const held = input.contactShoves.filter((event) => event.sustained);
+  const [addX, addZ] = shoveSpecificImpulse(blows, input.supportedMassKg, input.tipping);
+  let fromX = prior.leanX, fromZ = prior.leanZ;
+  if (held.length > 0) {
+    const [heldX, heldZ] = shoveSpecificImpulse(held, input.supportedMassKg, input.tipping);
+    fromX += heldX;
+    fromZ += heldZ;
+  }
+  const fromMps = Math.hypot(fromX, fromZ);
+  const kept = fromMps > 0
+    ? Math.max(0, fromMps - stabilityLines(input.authority, input.tipping, fromX, fromZ).decayMps2
+      * input.dt) / fromMps
     : 0;
-  const leanX = prior.leanX * kept + addX;
-  const leanZ = prior.leanZ * kept + addZ;
+  const leanX = fromX * kept + addX;
+  const leanZ = fromZ * kept + addZ;
   return { specificImpulseMps: Math.hypot(leanX, leanZ), leanX, leanZ };
 }
 

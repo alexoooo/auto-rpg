@@ -39,6 +39,29 @@ export const CONFIG = {
      * the frame rate is doing.
      */
     physicsHz: 240,
+    /**
+     * The step Havok is told to expect (`HP_World_SetIdealStepTime`), in steps per second,
+     * held apart from the step it is actually handed.
+     *
+     * Babylon's plugin sets the ideal step to the step it takes, every step, so halving
+     * `physicsHz` also changed how stiffly every constraint, motor and contact answers per
+     * second -- and every drive in the tree was tuned at 240. Stepping at 120 with the ideal
+     * step left at 1/240 gives back the 240 envelope at 120's cost (Node golem bench, wrist
+     * blade: idle stray 24.7 -> 1.6 mm, cut stray 108.9 -> 48.8, biped walk slip 567 -> 151
+     * mm/s, against 3.05, 37.9 and 99 at 240), where 1/360 and 1/480 are worse again. The
+     * table is in `docs/analysis/2026-09-25-physics-rate-2.md`. It is a property of the tuning,
+     * not of the rate: change it only with every drive re-measured.
+     */
+    solverTuningHz: 240,
+    /**
+     * How often a golem's mind is asked for a new command, in decisions per second. Between two
+     * decisions the held command is re-applied on every substep, so each servo still tracks, each
+     * carrier still stages its request and each gait still runs at `physicsHz`; only publishing the
+     * view and `Mind.decide` are skipped. The substep interval is `round(physicsHz / controlHz)`,
+     * never less than one, so a value at or above `physicsHz` decides every substep, as before.
+     * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md`.
+     */
+    controlHz: 240,
     /** Clamp: a long stall must not integrate one enormous step. */
     maxFrameSeconds: 1 / 20,
   },
@@ -1016,7 +1039,9 @@ export const CONFIG = {
      * at the maximum. So 40 m/s is above every blow a striker in this program has been measured
      * to land and far below every excursion, and it clips nothing in that sample. It is checked
      * against the *unprojected* tip speed rather than the closing speed, because what is being
-     * refused is a striker travelling impossibly fast whatever the manifold says about it.
+     * refused is a striker travelling impossibly fast whatever the manifold says about it. Under
+     * `contactReading: "arrival"` it is checked against the speed that reading bills, the whole
+     * speed as the step began, before `arrivalReadFraction` (see `arrivalReadFraction`).
      *
      * Projectiles are exempt: `CONFIG.arrow.speedMax` is 48 m/s and a loosed arrow's speed is
      * authored by the bow rather than found by the solver.
@@ -1027,6 +1052,105 @@ export const CONFIG = {
      * whether this is a guard or a crutch. `docs/measurements.md` under Session 03 has the rate.
      */
     impossibleSpeed: 40.0,
+
+    /**
+     * Which velocity a contact is scored from.
+     *
+     * - `"settled"` (the default, and every build before 2026-09-25): `velocityAt` at the moment
+     *   Havok reports the contact, which is **after** the solver step that found it. Havok's
+     *   contacts are speculative, so that velocity is whatever the solver left of the blade after
+     *   answering a contact that was usually still tens of millimetres open, and how much it left
+     *   depends on the step length against the ideal step (`world.solverTuningHz`): the gap is
+     *   crossed in fewer, larger steps at 120 Hz. Measured on real blade blows, the same arrival
+     *   speed is read at 0.709 of itself at 240 Hz and 0.747 at 120/240 tuned (a selection
+     *   effect: fewer contacts get through), and at 9-13 m/s of arrival 59.3 % of contacts bite at
+     *   240 against 41.7 % at 120 tuned. That is the whole of the rate's tempo gap: a 120 Hz
+     *   fight ran 1.41x as long (paired Delta ln s +0.345 +- 0.137) with blades arriving just as
+     *   fast (preClosing mean 8.90 against 8.82 m/s).
+     * - `"arrival"`: **every quantity of the contact read as the step that found it began.** A
+     *   `StepStart` (`src/step-start.ts`) samples each striker's linear and angular velocity and
+     *   the pose of every body a reading may walk on `onBeforePhysicsObservable`. The contact is
+     *   then priced from that instant: the velocity `v + w x r` about the centre of mass where
+     *   it was, the edge, blade and tip, and both effective masses (`effectiveMassAt`'s `pose`).
+     *   Havok's point and normal come from the pre-step detection, so this is the one instant they
+     *   agree with. The event point lies on the striker's collider in that pose to p90 0.7-1.3 mm,
+     *   against 12-71 mm after the step. The whip's weight, a sphere, prices at 0.415 kg at 240 and
+     *   at 120 against a rigid-body 0.42; read against the post-step pose it was 0.353 and 0.244.
+     *   The velocity is billed times `arrivalReadFraction`, and `impossibleSpeed` reads it whole.
+     *
+     * **What it fixes.** Node research runner, supported locomotion, PROBE_MINDS, stone golems,
+     * each named build's mirror, 192 bouts per set, 150 s cap, seed 20260923; paired t120 (physics
+     * 120 Hz, solver tuned to 240) against s240 under the same reading, naive 95 % with the
+     * interval clustered by mind pairing in brackets
+     * (`docs/analysis/2026-09-25-rate-contact-reading.md`):
+     *
+     * | build   | settled: Delta ln s     | arrival 0.56: Delta ln s        | arrival 0.56: Delta damage/s |
+     * |---------|------------------------:|--------------------------------:|-----------------------------:|
+     * | default | +0.345 +- 0.137 (0.263) |         +0.126 +- 0.115 (0.220) |      +0.018 +- 0.097 (0.123) |
+     * | mace    | +0.246 +- 0.056 (0.088) |         -0.023 +- 0.034 (0.029) |      +0.018 +- 0.012 (0.015) |
+     * | maul    | +0.093 +- 0.064 (0.082) |         +0.033 +- 0.049 (0.061) |      -0.019 +- 0.023 (0.031) |
+     * | whip    | +0.045 +- 0.038 (0.054) |         +0.005 +- 0.026 (0.029) |      -0.002 +- 0.007 (0.009) |
+     * | fists   | +0.064 +- 0.030 (0.045) |         -0.026 +- 0.019 (0.026) |      +0.012 +- 0.008 (0.011) |
+     *
+     * The settled reading's tempo gap is the step answering a speculative contact: a 120 Hz fight
+     * ran 1.41x as long on the default mirror with blades arriving just as fast. Under arrival four
+     * builds of five are rate-invariant and default keeps a third of its gap in length (knockdowns
+     * rise at 120, +0.71 a bout) and none of it in damage per second.
+     *
+     * **What it costs.** At 240, against settled, arrival 0.56 moves the default mirror's scores
+     * (96 sides each): miser +37.5 +- 13.0, duelist -22.9 +- 13.5, champion -10.4, brawler -4.2.
+     * That is the edge. The miser's cuts arrive edge-on and the contact step turns them 8.4 degrees
+     * on average, against about 5 for the others, so a reading of the arrival pays it for what the
+     * settled one read away. One fraction chosen on the blade leaves the blunt and fist builds 6-15 %
+     * longer at 240, because the step keeps a different share of each striker's arrival.
+     * In time, it adds no plugin read to the two per solid striker per substep that the velocity
+     * already cost (about 400 B), and copies 44-54 poses per `Combat` per substep from
+     * `mesh.position` and `mesh.rotationQuaternion`, with no plugin read and no allocation: about
+     * 1.4-2.0 % of a frame in all (Node bout runner, on a loaded box).
+     *
+     * The default stays `"settled"`, which is bit-identical to the build before it (192 of 192
+     * bouts at 240 and at 120/240). Switching is a balance decision, and it is the one to make
+     * before the physics rate drops to 120.
+     */
+    contactReading: "settled" as "settled" | "arrival",
+
+    /**
+     * The fraction of the arrival velocity an `"arrival"` reading bills, chosen to keep **the
+     * settled 240 Hz fight's length**. Read only under `contactReading: "arrival"`.
+     *
+     * It was 0.60 while the reading priced a pre-step velocity against a post-step pose, and while
+     * `impossibleSpeed` checked the settled speed rather than the one billed. Both moved it.
+     *
+     * - **Reading every quantity at the step's start bills more for the same velocity.** On the
+     *   same biting blade contacts of the 240 settled set, re-scored offline at 0.60, it bills
+     *   1.18x the mixed reading. Almost all of that is the edge, read before the contact step
+     *   turned the blade (mean |edge| 0.786 against 0.730). The mace, maul and fist bill the same
+     *   under both readings to within 4 %.
+     * - **The guard now reads the arrival.** It refuses 34 of those 25 545 blade contacts -- blades
+     *   the solver had flung to 40-220 m/s in the step before -- and they carried almost a quarter
+     *   of everything the unguarded reading would have billed. Re-scored with the guard, 0.60 bills
+     *   1.04x the settled damage, against 1.35x without it.
+     *
+     * Node research runner, the protocol of the table above, 192 paired bouts a set, against 240
+     * settled (`docs/analysis/2026-09-25-rate-contact-reading.md`):
+     *
+     * | 240 arrival, k | median s | pooled damage/s | Delta ln s (naive / clustered 95 %) |
+     * |----------------|---------:|----------------:|------------------------------------:|
+     * | 0.56           |    14.58 |           0.699 |             -0.022 +- 0.136 / 0.468 |
+     * | 0.58           |    12.77 |           0.780 |             -0.131 +- 0.129 / 0.432 |
+     * | 0.60           |    10.87 |           0.858 |             -0.225 +- 0.127 / 0.399 |
+     * | 0.62           |    10.13 |           0.968 |             -0.311 +- 0.121 / 0.378 |
+     * | (240 settled)  |    14.95 |           0.786 |                                   - |
+     *
+     * Delta ln s falls 0.048 per 0.01 of fraction and crosses zero at 0.554, so 0.56 keeps the
+     * length. The clustered interval (by unordered mind pairing, t on 9 degrees of freedom) is about
+     * three times the naive one; it is the slope that places the fraction, and the slope is well
+     * determined. Pooled damage per second is not kept (0.89x), because a bout under this reading
+     * ends on less damage in all (a mean 13.9 a bout against 15.3). The settled set's two shortest bouts,
+     * 0.90 s each, end on a blade that arrived at 220 m/s and was read at 37 m/s after the step,
+     * just under the guard; under this reading the guard refuses that blow.
+     */
+    arrivalReadFraction: 0.56,
 
     /**
      * **The breaking point**: how far below empty, as a fraction of the part's full health, a part

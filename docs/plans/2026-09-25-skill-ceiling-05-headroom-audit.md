@@ -18,6 +18,11 @@ and the named builds: the expert's score and each naive mind's score, against th
 Report headroom above walker and above the duelist, per weapon class, with the expert's
 compute curve beside every figure.
 
+Modules combine, so the unit of the audit is the **module**. The measurement covers a stratified
+sample of builds in which every module appears, plus every named build. A module's headroom is
+read across the builds that contain it. Every family gets the same audit, and a family added later
+runs it before its modules ship.
+
 A body is **flagged as a dead end** when both hold:
 
 - its headroom is small, and the expert's curve on it has flattened;

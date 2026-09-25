@@ -493,7 +493,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         const held = tipping ? leanHoldN(tipping, weightN, pair.atY, leanRoomM(tipping.hull, ux, uz)) * dt : 0;
         if (impulse > held) {
           const past = 1 - held / impulse;
-          this.staged.queueStabilityEvent({ horizontalShoveNs: [pair.x * past, pair.z * past], atY: pair.atY });
+          this.staged.queueStabilityEvent({ horizontalShoveNs: [pair.x * past, pair.z * past], atY: pair.atY,
+            sustained: true });
         }
         this.carrier.brakeSlide(CONTACT_PRESS.GRIP * CONTACT_PRESS.GRAVITY_MPS2 * dt);
         return;
@@ -508,7 +509,10 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         this.carrier.slideBy(ux * past / massKg, uz * past / massKg);
         this.contactTally.pushedS += dt;
         const outrun = past - massKg * this.carrier.config.maxAccelerationMps2 * dt;
-        if (outrun > 0) this.staged.queueStabilityEvent({ horizontalShoveNs: [ux * outrun, uz * outrun], atY: pair.atY });
+        if (outrun > 0) {
+          this.staged.queueStabilityEvent({ horizontalShoveNs: [ux * outrun, uz * outrun], atY: pair.atY,
+            sustained: true });
+        }
       } else {
         this.carrier.brakeSlide(CONTACT_PRESS.GRIP * CONTACT_PRESS.GRAVITY_MPS2 * dt);
       }
@@ -520,7 +524,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     if (force > grip * (1 + CONTACT_PRESS.MARGIN)) {
       const share = 1 - grip / force;
       const ex = fx * share, ez = fz * share;
-      this.staged.queueStabilityEvent({ horizontalShoveNs: [ex * dt, ez * dt] });
+      this.staged.queueStabilityEvent({ horizontalShoveNs: [ex * dt, ez * dt], sustained: true });
       this.carrier.slideBy(ex / massKg * dt, ez / massKg * dt);
       this.contactTally.pushedS += dt;
     } else {

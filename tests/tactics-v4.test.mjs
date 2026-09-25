@@ -387,7 +387,10 @@ test("a_whole_stroke_at_swing_one_is_the_third_executors_cut_command_for_command
   const v4 = record(right, driven,
     () => driven.stance === "chamber" || driven.stance === "commit");
 
-  assert.ok(v3.length > 100, `the third executor never threw a cut: ${v3.length} exchange frames`);
+  // Timed, not counted: the floor is 0.4 s of exchange, which was 100 frames at 240 Hz. A whole cut
+  // reads 0.596 s at 240 (143 frames) and 0.608 s at 120 (73), Node, this fixture, 2026-09-25.
+  assert.ok(v3.length * FIXED > 0.4,
+    `the third executor never threw a cut: ${v3.length} exchange frames, ${(v3.length * FIXED).toFixed(3)} s`);
   assert.equal(v4.length, v3.length,
     `v3's cut ran ${v3.length} frames and v4's swing of one ran ${v4.length}`);
   for (let i = 0; i < v3.length; i += 1) {
@@ -656,11 +659,19 @@ test("the_latch_reads_the_abort_gate_at_the_stroke_and_the_row_down_reads_it_eve
     });
     let recovered = 0;
     let wasRecovering = false;
-    drive(fixture, driven, 3.0, (intent, step) => {
+    const each = (intent, step) => {
       assertInsideEnvelope(intent, fixture.self, `latchAbort ${latchAbort} step ${step}`);
       if (driven.stance === "recover" && !wasRecovering) recovered += 1;
       wasRecovering = driven.stance === "recover";
-    });
+    };
+    drive(fixture, driven, 3.0, each);
+    // **A stroke still in flight when the window closes is let finish**, so that "every stroke ran
+    // through to a recover" is a claim about strokes and not about where three seconds fall. The
+    // third latched stroke reached its recover 4 ms inside the window at 240 Hz, and at 120 Hz the
+    // same stroke was still in its commit at 3.0 s (Node, this fixture, 2026-09-25). No new stroke
+    // can start while one is in flight, so this adds none.
+    for (let extra = 0; extra < CONFIG.world.physicsHz && (driven.stance === "chamber" || driven.stance === "commit");
+      extra += 1) drive(fixture, driven, FIXED, each);
     return { strokes: driven.strokes, aborts: driven.aborts, recovered };
   };
 

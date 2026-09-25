@@ -7,7 +7,8 @@ import type { Observable } from "@babylonjs/core/Misc/observable.js";
 import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 
 import { CONFIG } from "./config.ts";
-import { effectiveMassAt } from "./body-inertia.ts";
+import { effectiveMassAt, type EffectiveMassOptions } from "./body-inertia.ts";
+import { StepStart } from "./step-start.ts";
 import type { Side } from "./physics.ts";
 import type { WeaponKind } from "./hands.ts";
 import type { Limb } from "./fighter.ts";
@@ -118,6 +119,19 @@ export interface Striking {
   /** Projectiles may restrict scoring to the body that raised their first contact. */
   allowsContact?(body: PhysicsBody): boolean;
   velocityAt(world: Vector3): Vector3;
+  /**
+   * The point Havok's linear velocity belongs to, in world terms. Optional: an `"arrival"` reading
+   * (`CONFIG.combat.contactReading`) needs it to place its cached angular velocity, and a striker
+   * without it is read about its transform node's position instead.
+   *
+   * **This and the three answers below it are fixed in `body`.** An `"arrival"` reading carries each
+   * back to the solver step's start through `body`'s own change of pose over the step
+   * (`StepStart.pointAtStart` and `directionAtStart` in `src/step-start.ts`), which is exact for a
+   * point or a direction that rides on `body` and wrong for one that does not. Every solid golem
+   * striker is a `RigidStrike` and meets it; a projectile keeps its own arrival pose instead
+   * (`impactTipPosition`, `impactBladeDirection`).
+   */
+  centreOfMass?(): Vector3;
   edgeDirection(): Vector3;
   bladeDirection(): Vector3;
   tipPosition(): Vector3;
@@ -385,14 +399,38 @@ export class Combat {
     push: new Vector3(),
     normal: new Vector3(),
     contactNormal: new Vector3(),
+    rel: new Vector3(),
+    centre: new Vector3(),
+    edge: new Vector3(),
+    blade: new Vector3(),
+    tip: new Vector3(),
+    point: new Vector3(),
   };
+
+  /**
+   * The state every body was in as the solver step began -- each solid striker's velocity, and the
+   * pose of every body a reading walks -- for an `"arrival"` reading, and null under the default
+   * `"settled"` one. See `CONFIG.combat.contactReading` and `src/step-start.ts`.
+   */
+  private readonly start: StepStart | null;
+  /** `effectiveMassAt`'s options: the step's start under `"arrival"`, and nothing under `"settled"`. */
+  private readonly massOptions: EffectiveMassOptions | undefined;
+  private readonly arrivalScale: number;
 
   constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void,
     onRefusal?: (event: CombatRefusalEvent) => void) {
     this.side = side;
     this.onReport = onReport;
     this.onRefusal = onRefusal;
+    this.arrivalScale = CONFIG.combat.arrivalReadFraction;
+    const first = weapons.find((weapon): weapon is Striking => weapon !== null);
+    this.start = CONFIG.combat.contactReading === "arrival" && first
+      ? new StepStart(first.body.transformNode.getScene()) : null;
+    this.massOptions = this.start ? { pose: this.start.poseOf } : undefined;
     try {
+      // Projectiles are left to their own `velocityAt`, which already returns a cached free-flight
+      // velocity, and to their own cached arrival pose (`impactTipPosition`, `impactBladeDirection`).
+      for (const weapon of weapons) if (weapon && !weapon.projectileImpact) this.start?.watchVelocity(weapon.body);
       for (const weapon of weapons) {
         if (!weapon) continue;
         const trigger = weapon.nonSolvingTrigger;
@@ -408,8 +446,69 @@ export class Combat {
     } catch (error) {
       for (const watch of this.watching) watch.remove();
       this.watching.length = 0;
+      this.start?.dispose();
       throw error;
     }
+  }
+
+  /**
+   * The step's start for a striker whose contacts it reads -- a solid one under `"arrival"` -- and
+   * null for every other. A projectile keeps its own arrival state.
+   */
+  private startFor(weapon: Striking): StepStart | null {
+    return this.start?.velocityOf(weapon.body) ? this.start : null;
+  }
+
+  /**
+   * The striker's velocity at a contact point, as `CONFIG.combat.contactReading` says to read it.
+   *
+   * `"settled"` is `velocityAt`: the body after the solver step that found the contact. `"arrival"`
+   * is the rigid-body velocity at the same point from the linear and angular velocity sampled before
+   * that step, about the centre of mass *where it was then*, scaled by `arrivalReadFraction`. The
+   * point is Havok's, which is from before the step as well, so `r` is a lever the body had rather
+   * than the distance it moved in one step.
+   */
+  private strikerVelocity(weapon: Striking, point: Vector3): Vector3 {
+    const arrival = this.arrivalVelocity(weapon, point);
+    return arrival ? arrival.scaleInPlace(this.arrivalScale) : this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+  }
+
+  /**
+   * The striker's whole velocity at `point` as the step began, unscaled, or null when this striker
+   * is not read on arrival. Written into the velocity scratch.
+   */
+  private arrivalVelocity(weapon: Striking, point: Vector3): Vector3 | null {
+    const start = this.startFor(weapon);
+    const moving = start?.velocityOf(weapon.body);
+    if (!start || !moving) return null;
+    const centre = start.pointAtStart(weapon.body,
+      weapon.centreOfMass?.() ?? weapon.body.transformNode.position, this.scratch.centre);
+    const rel = this.scratch.rel.copyFrom(point).subtractInPlace(centre);
+    Vector3.CrossToRef(moving.angular, rel, this.scratch.velocity);
+    return this.scratch.velocity.addInPlace(moving.linear);
+  }
+
+  /**
+   * The striker's edge, length and tip at the instant the contact describes: where they are now
+   * under `"settled"`, and carried back to the step's start with the striker's own body under
+   * `"arrival"`. Each answer of a `Striking` is fixed in its `body`, which is what makes the carry
+   * exact. Each writes its own scratch, so the three never alias one another or the striker's.
+   */
+  private edgeOf(weapon: Striking): Vector3 {
+    const start = this.startFor(weapon);
+    return start ? start.directionAtStart(weapon.body, weapon.edgeDirection(), this.scratch.edge) : weapon.edgeDirection();
+  }
+
+  private bladeOf(weapon: Striking): Vector3 {
+    const impact = weapon.impactBladeDirection?.();
+    if (impact) return impact;
+    const start = this.startFor(weapon);
+    return start ? start.directionAtStart(weapon.body, weapon.bladeDirection(), this.scratch.blade) : weapon.bladeDirection();
+  }
+
+  private tipOf(weapon: Striking): Vector3 {
+    const start = this.startFor(weapon);
+    return start ? start.pointAtStart(weapon.body, weapon.tipPosition(), this.scratch.tip) : weapon.tipPosition();
   }
 
   /**
@@ -425,6 +524,12 @@ export class Combat {
   attach(target: Combatant): void {
     this.targetResolver = null;
     this.target = target;
+    // Under `"arrival"`, the target's pose at each step's start: every part a struck limb's effective
+    // mass walks is joined to one of these.
+    if (this.start) {
+      for (const limb of target.limbs) this.start.track(limb.part.body);
+      for (const striker of target.strikers) this.start.track(striker.body);
+    }
   }
 
   /** Multi-actor hosts resolve the struck body, independently of policy target selection. */
@@ -463,6 +568,7 @@ export class Combat {
   dispose(): void {
     for (const watch of this.watching) watch.remove();
     this.watching.length = 0;
+    this.start?.dispose();
   }
 
   private onTrigger(weapon: Striking, trigger: NonSolvingStrikeTrigger,
@@ -471,7 +577,12 @@ export class Combat {
     const collidedAgainst = event.collider === trigger.body ? event.collidedAgainst
       : event.collidedAgainst === trigger.body ? event.collider : null;
     if (!collidedAgainst) return;
-    const point = trigger.contactPoint(collidedAgainst);
+    // The owner derives the point from its live source, which is the pose the step *ended* in.
+    // Under `"arrival"` every other quantity is read at the step's start, so the point goes back
+    // there with the striker's own body, as Havok's manifold point already is.
+    const live = trigger.contactPoint(collidedAgainst);
+    const start = this.startFor(weapon);
+    const point = start ? start.pointAtStart(weapon.body, live, this.scratch.point) : live;
     // A trigger has no solver manifold by construction. `resolve` still files the ordinary
     // transfer along the real fist's material-point velocity; the diagnostic impulse is
     // truthfully zero rather than borrowed from an unrelated anatomy contact.
@@ -532,7 +643,13 @@ export class Combat {
     // fixture that found it; the short version is that energy goes as the square of the speed,
     // so a 136 m/s excursion that the retired ramp threw away is now a killing blow. Projectiles
     // are exempt because a loosed arrow's speed is authored by the bow.
-    const arriving = weapon.velocityAt(event.point as Vector3).length();
+    //
+    // The speed checked is the one the reading bills: under `"arrival"` the striker's whole speed
+    // as the step began, before the fraction. Checking the settled speed there let a blade the
+    // solver had flung to 220 m/s in the step before through, because the step that found the
+    // contact had already slowed it, and billed it at the fraction of its fling.
+    const arriving = (this.arrivalVelocity(weapon, event.point as Vector3)
+      ?? weapon.velocityAt(event.point as Vector3)).length();
     if (!weapon.projectileImpact && arriving > CONFIG.combat.impossibleSpeed) {
       this.onRefusal?.({ reason: "impossible-speed", effectorId: weapon.effectorId, at: this.clock });
       return;
@@ -597,14 +714,14 @@ export class Combat {
     this.lastParryAt.set(weapon.effectorId, this.clock);
 
     const point = event.point as Vector3;
-    const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    const velocity = this.strikerVelocity(weapon, point);
     // **A parry pushes the body behind the guard** (physical contact session 06): the same transfer
     // a blow makes, between the striker and whatever stopped it, each walked back to its own body.
     // A blade caught on a plate drives the plate's owner back by what the blade carried.
     const normal = this.contactNormal(velocity, event);
     const transferNs = normal ? this.transfer(this.strikerMassAt(weapon, point, normal),
-      effectiveMassAt(event.collidedAgainst, point, normal), this.closingSpeedAt(velocity, event), normal,
-      velocity, event.collidedAgainst, weapon.body, point.y) : 0;
+      effectiveMassAt(event.collidedAgainst, point, normal, this.massOptions), this.closingSpeedAt(velocity, event),
+      normal, velocity, event.collidedAgainst, weapon.body, point.y) : 0;
     const report: HitReport = {
       ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
@@ -624,7 +741,7 @@ export class Combat {
       energyJ: 0,
       edgeAlignment: 0,
       bladeAlignment: 0,
-      tipDistanceM: Vector3.Distance(point, weapon.tipPosition()),
+      tipDistanceM: Vector3.Distance(point, this.tipOf(weapon)),
       solverImpulse: event.impulse,
       transferNs,
       damage: 0,
@@ -634,7 +751,7 @@ export class Combat {
       at: this.clock,
       point: point.clone(),
       velocity: velocity.clone(),
-      edge: weapon.edgeDirection().clone(),
+      edge: this.edgeOf(weapon).clone(),
     };
     this.lastHit = report;
     this.onReport?.({ report, effectorId: weapon.effectorId, hand: weapon.hand, blocked: true });
@@ -697,7 +814,8 @@ export class Combat {
 
   /** What arrives behind the striker at the contact: a projectile's own mass, or its chain's. */
   private strikerMassAt(weapon: Striking, point: Vector3, normal: Vector3): number {
-    return weapon.projectileImpact ? weapon.projectileImpact.massKg : effectiveMassAt(weapon.body, point, normal);
+    return weapon.projectileImpact ? weapon.projectileImpact.massKg
+      : effectiveMassAt(weapon.body, point, normal, this.massOptions);
   }
 
   /**
@@ -740,7 +858,7 @@ export class Combat {
     const C = CONFIG.combat;
     const point = event.point as Vector3;
 
-    const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    const velocity = this.strikerVelocity(weapon, point);
     const speed = velocity.length();
     // Both masses are effective masses at the contact, along one normal (physical contact session
     // 05): each side's chain, walked back to a trunk that floats with the rest of its body, so a
@@ -752,7 +870,8 @@ export class Combat {
     // right answer for hitting something that cannot move, and the ceiling on every other answer.
     const closingSpeed = this.closingSpeedAt(velocity, event);
     const normal = this.contactNormal(velocity, event);
-    const partMassKg = normal ? effectiveMassAt(limb.part.body, point, normal) : bodyMassKg(limb.part.body);
+    const partMassKg = normal ? effectiveMassAt(limb.part.body, point, normal, this.massOptions)
+      : bodyMassKg(limb.part.body);
     const strikerMassKg = normal ? this.strikerMassAt(weapon, point, normal)
       : weapon.projectileImpact ? weapon.projectileImpact.massKg : bodyMassKg(weapon.body);
     // A stationary contact has no direction and therefore a zero shove. This
@@ -771,17 +890,17 @@ export class Combat {
     // both sides of its edge axis and does not care; an axe's -X is the poll,
     // and `scoring.ts` is what knows the difference. The report keeps the
     // magnitude because the HUD draws a bar with it.
-    const alongEdge = Vector3.Dot(direction, weapon.edgeDirection());
+    const edge = this.edgeOf(weapon);
+    const alongEdge = Vector3.Dot(direction, edge);
     const edgeAlignment = Math.abs(alongEdge);
     // Hoisted above the early-out for the same reason `alongEdge` was: these two describe the
     // contact, not the score, and a weak contact that is dropped without them cannot be told
     // apart from a square one afterwards. The cost is a normalize, a dot and a distance on the
     // path that skips scoring, which is what the log is worth.
-    const impactAxis = (weapon.impactBladeDirection?.() ?? weapon.bladeDirection())
-      .clone().normalize();
+    const impactAxis = this.bladeOf(weapon).clone().normalize();
     const shaftAlignment = Vector3.Dot(direction, impactAxis);
     const bladeAlignment = Math.abs(shaftAlignment);
-    const tipDistanceM = Vector3.Distance(point, weapon.tipPosition());
+    const tipDistanceM = Vector3.Distance(point, this.tipOf(weapon));
     const nearTip = tipDistanceM < C.thrustTipZone;
     // What the blow is actually charged at, which is `closingSpeed` alone unless `drawFraction`
     // is paying an aligned edge for its slide. One copy of that rule, in `scoring.ts`, because
@@ -813,7 +932,7 @@ export class Combat {
       at: this.clock,
       point: point.clone(),
       velocity: velocity.clone(),
-      edge: weapon.edgeDirection().clone(),
+      edge: this.edgeOf(weapon).clone(),
     };
 
     // The weapon's own floor, asked of the table rather than assumed to be the

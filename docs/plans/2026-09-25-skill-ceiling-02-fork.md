@@ -28,6 +28,12 @@ order. That is a measurable property, and this session measures it.
 
    Capture reads `mesh.position` and `mesh.rotationQuaternion`, never a world matrix, per the trap
    in `AGENTS.md`.
+
+   **Every stateful piece implements one interface** (`capture()` / `restore(state)`): a module, a
+   carrier, `Combat`, a mind. The fork walks a body's pieces and never asks what they are. A new
+   morphology is forkable by implementing the interface in its own modules. A test fails if any
+   registered module does not implement it. Another test forks an odd build (three legs, one
+   arm) and checks isolation on it.
 2. **Restore into a scratch world.** Build the same bodies in a second scene and write the state in
    by teleport (`disablePreStep = false` for one solver step, following the `setTargetTransform`
    trap), then restore motor targets. It is restore-into-fresh, not restore-in-place, so the

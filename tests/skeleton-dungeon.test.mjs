@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
+import { CONFIG } from "../src/config.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
@@ -18,7 +19,7 @@ const advance = (scene, frames) => {
 test("a_skeleton_hero_walks_the_dungeon", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const run = new DungeonRun(arena.scene, 42, "skeleton-warrior", false);
-  const observer = arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / 240));
+  const observer = arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / CONFIG.world.physicsHz));
   try {
     advance(arena.scene, 300);
     const modules = new Set(run.hero.body.visualParts().map((part) => part.moduleId));

@@ -157,6 +157,16 @@ const firstStretch = (samples, state) => stretches(samples, state)[0] ?? [];
 const lasted = (stretch) => stretch.at(-1).at - stretch[0].at + FIXED;
 
 /**
+ * How far a lie held to its cap may read past the cap: three substeps. `KnockdownSettle` starts its
+ * clock the step after the release, sums it a step at a time (so a cap that is a whole number of
+ * steps can land a step late on the float), and the state leaves fallen on the boundary after the
+ * rule says so. The latency is counted in substeps, so the allowance is too. Measured (Node headless
+ * arena, skeleton at x1, 2026-09-25): one substep past the cap at 240 Hz, two at 120 -- which a
+ * two-substep allowance missed by 2e-12 s.
+ */
+const CAP_LATENCY = 3 * FIXED;
+
+/**
  * Every actuator driven was built on one of the two golems' tones, and the two mirrors drove as
  * many. The per-row ceiling check reads this golem's tone and so cannot see a module built on
  * another; this can.
@@ -300,7 +310,7 @@ test("a_fall_level_blow_while_a_skeleton_rises_puts_it_down_and_it_lies_its_whol
       `between the lies the skeleton was ${[...new Set(between.map((row) => row.state))].join(", ")}`);
     assert.ok(lasted(between) < 0.3 + 0.1, `the struck rise lasted ${lasted(between).toFixed(3)} s`);
     for (const [label, lie] of [["first", first], ["second", second]]) {
-      assert.ok(Math.abs(lasted(lie) - rule.maxLyingSeconds) <= 2 * FIXED,
+      assert.ok(Math.abs(lasted(lie) - rule.maxLyingSeconds) <= CAP_LATENCY,
         `the ${label} lie lasted ${lasted(lie).toFixed(3)} s against a cap of ${rule.maxLyingSeconds}`);
     }
     for (const row of second) {
@@ -345,7 +355,7 @@ test("a_skeleton_that_never_comes_to_rest_still_rises_at_the_cap", async () => {
     const fallen = firstStretch(samples, "fallen");
     assert.ok(fallen.length > 0, "the shove did not knock the skeleton down");
     const lay = fallen.at(-1).at - fallen[0].at + FIXED;
-    assert.ok(Math.abs(lay - rule.maxLyingSeconds) <= 2 * FIXED,
+    assert.ok(Math.abs(lay - rule.maxLyingSeconds) <= CAP_LATENCY,
       `lay ${lay.toFixed(3)} s against a cap of ${rule.maxLyingSeconds}`);
     assert.ok(samples.some((row) => row.at > fallen.at(-1).at && row.state === "rising"), "never rose");
   } finally {
@@ -372,9 +382,7 @@ test("the_recovery_stat_divides_every_lie_and_rise_and_the_cap_still_ends_a_lie_
       const lies = stretches(samples, "fallen");
       assert.equal(lies.length, 1, `x${recovery}: ${lies.length} lies`);
       const lay = lasted(lies[0]);
-      // Three substeps: the rule starts counting the step after the release, sums its clock a step
-      // at a time, and the state leaves fallen on the boundary after the rule says so.
-      assert.ok(Math.abs(lay - cap) <= 3 * FIXED, `${setupOf.name} at x${recovery} lay ${lay.toFixed(3)} s against a cap of ${cap.toFixed(3)}`);
+      assert.ok(Math.abs(lay - cap) <= CAP_LATENCY, `${setupOf.name} at x${recovery} lay ${lay.toFixed(3)} s against a cap of ${cap.toFixed(3)}`);
       const rising = firstStretch(samples, "rising");
       assert.ok(rising.length > 0, `${setupOf.name} at x${recovery} never began to rise`);
       // The lift is divided too: no faster than the table's peak times the stat, and no shorter than

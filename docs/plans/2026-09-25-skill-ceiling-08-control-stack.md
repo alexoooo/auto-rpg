@@ -24,10 +24,19 @@ executors. It is proved by porting the duelist onto it and matching the original
   so a learned predictor (for example, "does their tip reach me in the next 0.3 s") trains on dense,
   correct targets. That is the opposite of the bout-result signal every past campaign started from.
 
+## What is shared and what is the family's
+
+Perception primitives, the body card bench, the skill *framework* (channel ownership, composition,
+benches) and compute accounting are shared. **Skills and decisions belong to a family.** The golem
+and the skeleton may share a `stroke` if one serves both, and the human may need its own. A future
+quadruped writes skills its gait needs. Sharing is taken where it measures as good as a family's
+own, and never forced. A skill lists the capabilities it needs, so the framework refuses it on a
+body that lacks them.
+
 ## Skills
 
 Parametrised, composable, and each owning channels (legs, trunk, each arm, the natural striker). Two
-skills cannot own one channel at once. The first set:
+skills cannot own one channel at once. The first set, written for the golem and the skeleton:
 
 | skill | parameters | its bench measures |
 |---|---|---|

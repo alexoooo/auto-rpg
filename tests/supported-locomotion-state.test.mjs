@@ -200,6 +200,43 @@ test("the_ledger_is_a_vector_opposite_blows_cancel_and_gravity_rights_a_lean_alo
   assert.ok(Math.abs(struck.specificImpulseMps - along * 1e-6) < 1e-12, String(struck.specificImpulseMps));
 });
 
+/**
+ * **A held force leans a body by how long it is held, not by the step it is filed at** (2026-09-25
+ * rate falls). The pair push and the contact press are filed each step as force times step. The
+ * ledger used to add them after the step's righting, so a push the body holds -- one under the
+ * righting `D`, as a walker's own push is sized to be -- still left `a dt` on the ledger at every
+ * boundary: twice as much at 120 Hz as at 240. Integrated against the righting, a held push leaves
+ * nothing, and one past the righting builds `(a - D) t` at any step. The control is the same force
+ * filed as blows, which the ledger still reads as blows: `a dt` at every boundary.
+ */
+test("a_held_force_leans_a_body_by_how_long_it_is_held_not_by_the_step_it_is_filed_at", () => {
+  const close = (actual, expected, tolerance, label) =>
+    assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: ${actual} against ${expected}`);
+  const hold = (a, dt, sustained, seconds = 0.5) => {
+    let next = state();
+    const steps = Math.round(seconds / dt);
+    let peak = 0;
+    for (let i = 0; i < steps; i += 1) {
+      next = stepSupportedLocomotionState(next, boundary({ dt,
+        contactShoves: [{ horizontalShoveNs: [a * dt, 0], ...(sustained ? { sustained: true } : {}) }] }));
+      peak = Math.max(peak, next.specificImpulseMps);
+    }
+    return { lean: next.specificImpulseMps, peak, state: next.state };
+  };
+  for (const dt of [1 / 240, 1 / 120, 1 / 60]) {
+    const held = hold(0.9 * D, dt, true);
+    assert.equal(held.peak, 0, `a push under the righting leaves nothing at 1/${Math.round(1 / dt)} s`);
+    const past = hold(1.5 * D, dt, true, 0.1);
+    close(past.lean, 0.5 * D * 0.1, 1e-9, `a push past the righting builds (a - D) t at 1/${Math.round(1 / dt)} s`);
+    // The control: the same force filed as blows reads a step's worth at every boundary.
+    close(hold(0.9 * D, dt, false).lean, 0.9 * D * dt, 1e-12, `as blows at 1/${Math.round(1 / dt)} s`);
+  }
+  // Held and struck together: the blow still lands whole after the step's righting.
+  const both = stepSupportedLocomotionState(state(), boundary({ dt: 1 / 120, contactShoves: [
+    { horizontalShoveNs: [0.9 * D / 120, 0], sustained: true }, { horizontalShoveNs: [S / 2, 0] }] }));
+  close(both.specificImpulseMps, S / 2, 1e-12, "a blow on top of a held push");
+});
+
 test("a_blow_counts_by_its_lever_about_the_base", () => {
   // Struck at twice the centre of mass's height the blow tips twice as hard, at the ground not at all.
   const at = (atY, ns) => stepSupportedLocomotionState(state(), boundary({

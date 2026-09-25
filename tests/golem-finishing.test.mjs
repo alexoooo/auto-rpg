@@ -187,11 +187,21 @@ test("a_standing_mind_aims_at_a_downed_body_where_it_lies_and_crouches_over_it",
 // The owner's rule: a body on the floor swings and parries, and `GROUNDED_TONE` is what makes it
 // weak, never its mind. In reach, a downed mind thrusts and guards as often as it would standing,
 // and aims from where its socket actually is -- upward at a standing body, 0.6 or more of the cursor
-// above its standing aim at 0.4 m (probe: duelist +0.65 against -0.20).
+// above its standing aim at 0.3 m (probe: duelist +0.71 against -0.20).
+//
+// **0.3 m, not the edge of anybody's reach.** The brawler closes while `gap > near + slack` and
+// strikes inside it, and the lying body's pose -- which a fall does not reproduce to the centimetre
+// -- moves where that edge falls for this fixture. Measured (Node headless arena, the brawler with
+// its feet the stated gap apart): it walks in rather than thrusting from 0.45 m at 240 Hz and from
+// 0.40 m at 120, where the fall left the shoulder 89 mm further round; from 0.25 to 0.35 m it
+// thrusts 0.18 to 0.19 of the time at both. The mind itself is rate-free here: the 120 Hz fixture
+// driven at 1/240 s reads the same as at 1/120, and the 240 Hz one the same the other way. 0.4 m
+// was 0.05 m inside the edge at one rate and on it at the other; 0.3 m is at least 0.1 m inside
+// it at both, and every mind still thrusts, guards and aims up there.
 test("a_downed_mind_in_reach_strikes_and_guards_from_its_live_socket", () => {
   for (const name of MINDS) {
-    const up = drive(name, at(standing.self, 0.4));
-    const lying = drive(name, at(downed.self, 0.4));
+    const up = drive(name, at(standing.self, 0.3));
+    const lying = drive(name, at(downed.self, 0.3));
     assert.ok(lying.thrust > 0, `${name} never thrust from the floor`);
     assert.ok(lying.guard > 0.5, `${name} guarded ${lying.guard.toFixed(2)} of the time from the floor`);
     assert.ok(lying.lift > up.lift + 0.6,

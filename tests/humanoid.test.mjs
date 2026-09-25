@@ -16,6 +16,10 @@ import { PALM_GRIP, HUMAN_MOUNT } from "../src/golem/humanoid/grip.ts";
 import { TERMINAL_BLADE, TERMINAL_MACE, TERMINAL_PLATE, TERMINAL_WHIP } from "../src/golem/config.ts";
 import { turnHand } from "../src/golem/humanoid/orientation.ts";
 import { freshHavok, runBout } from "./harness/bout-runner.mjs";
+import { CONFIG } from "../src/config.ts";
+
+/** One control step is one solver substep, at whatever rate the solver runs. */
+const SUBSTEP = 1 / CONFIG.world.physicsHz;
 
 const advance = (scene, frames) => {
   for (let i = 0; i < frames; i++) {
@@ -67,11 +71,11 @@ for (const terminal of ["blade", "plate", "mace", "whip", "fist"]) {
     }));
     const command = neutralIntent(); let clock = 0;
     const observer = scene.onBeforePhysicsObservable.add(() => {
-      clock += 1 / 240;
+      clock += SUBSTEP;
       const sweep = Math.min(1, Math.max(0, (clock - 1) / 0.3));
       command.primary.pointerX = 0.3 * sweep; command.secondary.pointerX = -0.3 * sweep;
       command.primary.pointerY = command.secondary.pointerY = 0.6 * sweep;
-      modules.forEach(m => { m.command(command); m.step(1 / 240); });
+      modules.forEach(m => { m.command(command); m.step(SUBSTEP); });
     });
     try {
       // Keep bodies awake: a sleeping hinge would conceal steady-state instability.
@@ -113,7 +117,7 @@ for (const terminal of ["blade", "plate", "mace", "whip", "fist"]) {
 test("human maul takes its second grip, and the shared biped walks without losing health", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const run = new DungeonRun(arena.scene, 42, "human-maul", false);
-  const observer = arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / 240));
+  const observer = arena.scene.onBeforePhysicsObservable.add(() => run.step(SUBSTEP));
   try {
     advance(arena.scene, 300);
     const view = run.hero.body.effectors.primary.module.view();
@@ -156,9 +160,19 @@ test("authored human policy closes and wounds an exposed opponent", async () => 
   // tip is under the blade's own, so the human's pace halved and 42/77 -- 0.071 before -- wounds
   // nothing in 15 s. A fixture has to exhibit a wound for this to test one, so the seeds moved to
   // the first pair (a, a + 35) from 42 up that clears the threshold, and the assertion did not.
-  const result = runBout({ left: "humanoid-duelist", right: "idle", leftGolem: humanSetup(), rightGolem: humanSetup("fist", "fist"),
-    locomotionMode: "supported", seeds: [44, 79], maxSeconds: 15, separation: 2.6, physics: await freshHavok() });
-  assert.ok(result.left.hits > 5);
+  //
+  // **That rule is now the fixture, rather than the seeds it last chose.** Which pairs wound moves
+  // with the dynamics, and the solver's rate is dynamics: measured (Node bout runner, 2026-09-25),
+  // damage by a from 42 is 0, 0, 0.132, 0, 0.016, 0.085, 0.045, 0.015 at 240 Hz and 0.080, 0, 0, 0,
+  // 0.006, 0, 0.513, 0.056 at 120, with more than five hits in every bout at both. So the bout is
+  // the first pair from 44 up -- 44 at 240, 48 at 120 -- whose wound clears the threshold, and the
+  // test fails only when none of eight does.
+  let result = null;
+  for (let a = 44; a < 52 && !(result?.left.damage > 0.05); a += 1) {
+    result = runBout({ left: "humanoid-duelist", right: "idle", leftGolem: humanSetup(), rightGolem: humanSetup("fist", "fist"),
+      locomotionMode: "supported", seeds: [a, a + 35], maxSeconds: 15, separation: 2.6, physics: await freshHavok() });
+    assert.ok(result.left.hits > 5, `seeds ${a}/${a + 35}: ${result.left.hits} hits`);
+  }
   assert.ok(result.left.damage > 0.05, "motion and weapon scraping alone must not pass");
   assert.ok(result.behaviour.right.vitality < 0.999);
 });
@@ -273,7 +287,7 @@ test("full human body holds loaded wrists and shield steady after a sweep and im
   const command = neutralIntent();
   let clock = 0;
   const observer = scene.onBeforePhysicsObservable.add(() => {
-    clock += 1 / 240; run.step(1 / 240);
+    clock += SUBSTEP; run.step(SUBSTEP);
     const sweep = Math.min(1, Math.max(0, (clock - 1) / .3));
     command.primary.pointerX = .3 * sweep;
     command.secondary.pointerX = -.3 * sweep;

@@ -5,7 +5,8 @@
 Four changes to the body, landed together because each one re-baselines every measurement and they
 should be paid for once:
 
-1. physics at the rate chosen by `docs/analysis/2026-09-25-physics-rate.md`;
+1. a control clock separate from the solver, and physics at the rate the two physics-rate
+   analyses support;
 2. the biological size law;
 3. arms built at guard, so no bout opens with a free clash;
 4. a side-mirror gate, so no comparison is ever decided by which side a body stood on.
@@ -27,22 +28,76 @@ found:
 - **Control costs twice what Havok does.** At 240 Hz it is 92 against 46 ms per simulated second
   (Node bout runner), so the control loop is the larger cost.
 
-This session therefore takes the cost in this order, measuring after each step and stopping when
-the owner's laptop holds the fights wanted:
+A second study, `docs/analysis/2026-09-25-physics-rate-2.md`, asked whether 120 Hz is a retune or
+a limit. **It is a retune**, and most of it is one setting:
 
-1. **Run control on a slower clock than the solver.** Motor targets would be refreshed every
-   second or third substep and held between refreshes, with the solver kept at 240. That leaves
-   contacts and feet as they are. Watch for the trap in `AGENTS.md` where a keyframed anchor
-   coasted between refreshes. Measure it with the arm and locomotion benches and a bout row, as
-   the analysis did for the rate.
-2. **180 Hz**, if more is needed. Fix the tests that assume 240 so they read the rate. Retune the
-   head-ram's lunge and the biped and skeleton feet. Make every per-step literal the analysis lists
-   read the rate or seconds.
-3. **120 Hz** only as a retuning project of its own:
-   - the arm filter (`CHAIN_REACH.targetResponse` 40 to 20 gives back most of the arm);
-   - the legs, not yet diagnosed;
-   - the human arm;
-   - a re-measure of the mind rankings.
+- **The cause.** Babylon tells Havok to expect exactly the step it takes, and Havok sets the
+  stiffness of every motor, joint and contact from that expected step. So 120 Hz halved everything's
+  stiffness. `CONFIG.world.solverTuningHz` (landed, 240) holds the expected step at 1/240
+  whatever the real step is. That puts the feet, the human arm, contact and lift back on 240's
+  numbers, and at the attribute extremes too.
+- **The margin.** Every arm drive has 4-16x of gain above what ships before it goes unstable at 120.
+- **What is left at 120:**
+  - stone and skeleton stroke stray is 1.3-1.6x;
+  - the whip's peak is unsettled;
+  - retuned 120 fights run 26 % longer with 25 % less damage per second. That was shown to be
+    physical, not the minds or their rate.
+- **The control clock.** `CONFIG.world.controlHz` (landed, 240) has the mind decide every
+  `physicsHz / controlHz` substeps and re-applies the held command in between. At 240 physics,
+  control at 120, 80 and 60 Hz leaves bouts statistically unchanged and costs 0.89x, 0.81x and
+  0.80x. At 120 physics with 120 control it costs 0.55x (Node bout runner). Publishing the view is
+  3.5x the mind's decision, and the locomotion setup costs as much as the servos. Those two are
+  the next cost targets. The 0.35 s severs once seen with 60 Hz control on 120 Hz physics were one seed-independent
+  opening under the unlanded exact servo filter. On main none occur
+  (`docs/analysis/2026-09-25-rate-control-clock.md`).
+
+The follow-up studies, all Node, each with its own analysis dated 2026-09-25:
+
+- **Tempo** (`rate-tempo.md`, `rate-contact-reading.md`). Blades arrive just as fast at 120. The
+  gap was the contact reading: `Combat` scored from the state after the solver step that found the
+  contact, which depends on the step length. `CONFIG.combat.contactReading: "arrival"` (landed,
+  off) reads speed, point, edge and both effective masses before the step, and guards the billed
+  speed. At `arrivalReadFraction` 0.56 it keeps the settled 240 fight's length and is
+  rate-invariant on the mace, maul, whip and fist mirrors. It closes about two thirds of the
+  default mirror's gap. It is a balance change at 240: miser +37.5, duelist -22.9 points. The
+  servo-gain alternative was rejected, because it closes the gap by flinging the blade (cover
+  overshoot 188 to 345 mm).
+- **Early severs** (`rate-control-clock.md`). They came from the unlanded exact-servo experiment, and
+  were one opening counted 24 times. Main shows none. 60 Hz control is not ruled out at 120.
+  **Every bout of a mind pairing plays the same opening whatever its seeds**, so every
+  comparison clusters by pairing.
+- **Whip** (`rate-whip.md`). Not peak-limited at 120 (n = 400 a rate). Its lower score was the
+  mispricing the arrival reading fixes. Only the fast attribute extremes lose 8-12 % of lash peak.
+  The whip build loses about 99 % of its bouts at both rates, so it is a dead-end candidate for
+  session 05 whatever the rate.
+- **Tests** (`rate-tests.md`). 23 of the 30 reds were the tests and are rate-honest now. 7 are
+  real at 120:
+  - arm stray and arrival (4, one of them the whip's single-trial peak);
+  - stroke cut speed (1);
+  - no foot down while walking and strafing (2).
+- **Falls** (`rate-falls.md`). The brawler falls 1.5x as often at 120. In close contact its centre of
+  mass rides to the rear edge of its soles (-34 mm against -3). It is Havok's contact under the
+  held ideal step, not our code, and the excess is not significant once clustered. A real ledger
+  error was fixed on the way: a held push was added after the righting, not against it.
+
+What is left for part 3:
+
+- the switch to the arrival reading, the owner's balance call;
+- the close-contact posture at 120;
+- the 7 residual tests.
+
+**Three parts:**
+
+1. **Rate-invariant constants.** Every drive constant is stated in continuous time, in seconds and
+   per-second gains, and converted by the step. Every per-step literal the first analysis listed
+   reads the rate. Tests pinned to 240, or to one exact trajectory, are made rate-honest. After
+   this, the physics rate is one config value.
+2. **The control rate**, now a config value. What is left is choosing its default from the
+   cost table and the eye gate, and making the view publication cheaper, since that is where the
+   control cost now sits.
+3. **The physics rate.** It is 120 if the follow-ups close the tempo gap or the owner accepts it,
+   and if nothing turns out *limited* rather than detuned. Otherwise it is 180 or 240. A limited
+   subsystem is named, along with what it would cost the game.
 
 Separately, `targetResponse` 20 is better than what ships even at 240. Cover overshoot falls from
 188 to 1 mm and cut stray from 38 to 17 mm, for 25 % less peak blade speed. Give it its own bout
@@ -120,4 +175,5 @@ one slower and the small one quicker.
 
 ## Depends on
 
-`docs/analysis/2026-09-25-physics-rate.md`.
+`docs/analysis/2026-09-25-physics-rate.md`, and `docs/analysis/2026-09-25-physics-rate-2.md`, and its
+follow-up studies.

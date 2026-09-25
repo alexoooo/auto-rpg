@@ -942,6 +942,83 @@ test("physical_corpus_a_slope_past_the_frozen_limit_is_not_support_and_the_carri
     } finally { f.dispose(); }
   });
 
+/**
+ * One occupied-recovery run: two bipeds on a shared registry, their grounds `apartM` apart along x,
+ * and the left one shoved over. What it reports is read after the rise has had time to finish:
+ * whether the shove put it down at all, how far apart the two were on the last substep it lay
+ * there, how far apart they stand after, both support states, and the standing one's self-contacts.
+ *
+ * **The lie is cut to its shortest here, and that is the fixture's one stated edit.** The pair
+ * resolver separates the two carriers at about half a metre a second while one lies, so under
+ * the knockdown's own lie (`KNOCKDOWN`, up to 2.5 s) they are clear long before the rise and
+ * there is no retreat to test: measured (Node, this fixture at 0.50 m), 0.897 m apart at the rise.
+ * A cap under the dwell makes the rise start at the dwell, from inside the other's footprint.
+ */
+async function occupiedRecovery(apartM) {
+  const knockdown = B.knockdown;
+  B.knockdown = { ...knockdown, maxLyingSeconds: 0.1 };
+  const arena = await createHeadlessArena();
+  const scene = arena.scene;
+  const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
+  const world = flatSupportedWorldRegistry();
+  const built = ["left", "right"].map((side, index) => {
+    const stand = buildGolemStand(scene, {
+      side, ground: new Vector3((index === 0 ? -0.5 : 0.5) * apartM, 0, 0),
+      facing: Quaternion.Identity(), slot: "locomotion",
+    });
+    const module = bipedModule.build({
+      scene, side, name: `golem.pair.${side}`, socket: stand.socket("locomotion"),
+      layers: golemLayers(side), materials: stand.materials, world,
+    });
+    plugin.setActivationControl(stand.block.body, 1);
+    for (const part of module.parts) plugin.setActivationControl(part.part.body, 1);
+    return { stand, module };
+  });
+  const [a, b] = built;
+  const stop = Object.freeze({ localForward: 0, localRight: 0, yaw: 0 });
+  const apart = () => Math.hypot(a.module.port.carrierGround().x - b.module.port.carrierGround().x,
+    a.module.port.carrierGround().z - b.module.port.carrierGround().z);
+  let lastFallenApart = null;
+  const control = scene.onBeforePhysicsObservable.add(() => {
+    if (a.module.port.state === "fallen") lastFallenApart = apart();
+    for (const { module } of built) module.beginSubstep();
+    a.module.port.beginControlStep();
+    b.module.port.beginControlStep();
+    a.module.port.request(stop);
+    b.module.port.request(stop);
+    const resolved = resolvePhysicalSupportedPair(a.module.port, b.module.port, SUBSTEP);
+    assert.equal(resolved, true, "the pair did not resolve as two physical ports");
+    for (const { module } of built) {
+      module.gait(SUBSTEP);
+      module.endSubstep(SUBSTEP);
+    }
+  });
+  try {
+    step(scene, 0.5);
+    assert.equal(a.module.port.state, "supported");
+    assert.equal(b.module.port.state, "supported");
+    // The two footprints overlap by construction: every separation run is under the 0.68 m the
+    // pair needs, which is the "close opponent" fixture the deleted corpus used.
+    const separation = Math.abs(a.module.port.carrierGround().x - b.module.port.carrierGround().x);
+    assert.ok(separation < 2 * bipedModule.footprint.radiusM,
+      `the pair fixture is ${separation.toFixed(3)} m apart and so cannot exhibit an occupied recovery`);
+    a.module.shove();
+    step(scene, 2.5);
+    return {
+      apartM, lastFallenApart, apart: apart(), states: [a.module.port.state, b.module.port.state],
+      selfContacts: b.module.readout().selfContacts,
+    };
+  } finally {
+    scene.onBeforePhysicsObservable.remove(control);
+    for (const { module, stand } of built) { module.dispose(); stand.dispose(); }
+    arena.dispose();
+    B.knockdown = knockdown;
+  }
+}
+
+/** The separations the occupied-recovery cell runs, every one inside the pair's 0.68 m. */
+const OCCUPIED_SEPARATIONS_M = [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60];
+
 test("physical_corpus_two_bipeds_share_one_registry_and_a_fallen_one_rises_clear_of_the_other",
   async () => {
     // The occupied-recovery cell, and the first time a *pair* of golems has been resolved. It is
@@ -951,83 +1028,32 @@ test("physical_corpus_two_bipeds_share_one_registry_and_a_fallen_one_rises_clear
     // **Fallen is lower, not absent.** A living fallen carrier still reserves its ordinary
     // query-only footprint, and treating it as non-blocking is what let one carrier stand through
     // the other's ragdoll.
-    //
-    // **The lie is cut to its shortest here, and that is the fixture's one stated edit.** The pair
-    // resolver separates the two carriers at about half a metre a second while one lies, so under
-    // the knockdown's own lie (`KNOCKDOWN`, up to 2.5 s) they are clear long before the rise and
-    // there is no retreat to test: measured (Node, this fixture), 0.897 m apart at the rise. A cap
-    // under the dwell makes the rise start at the dwell, from inside the other's footprint.
-    const knockdown = B.knockdown;
-    B.knockdown = { ...knockdown, maxLyingSeconds: 0.1 };
-    const arena = await createHeadlessArena();
-    const scene = arena.scene;
-    const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
-    const world = flatSupportedWorldRegistry();
-    const built = ["left", "right"].map((side, index) => {
-      const stand = buildGolemStand(scene, {
-        side, ground: new Vector3(index === 0 ? -0.25 : 0.25, 0, 0),
-        facing: Quaternion.Identity(), slot: "locomotion",
-      });
-      const module = bipedModule.build({
-        scene, side, name: `golem.pair.${side}`, socket: stand.socket("locomotion"),
-        layers: golemLayers(side), materials: stand.materials, world,
-      });
-      plugin.setActivationControl(stand.block.body, 1);
-      for (const part of module.parts) plugin.setActivationControl(part.part.body, 1);
-      return { stand, module };
-    });
-    const [a, b] = built;
-    const stop = Object.freeze({ localForward: 0, localRight: 0, yaw: 0 });
-    const apart = () => Math.hypot(a.module.port.carrierGround().x - b.module.port.carrierGround().x,
-      a.module.port.carrierGround().z - b.module.port.carrierGround().z);
-    let lastFallenApart = null;
-    const control = scene.onBeforePhysicsObservable.add(() => {
-      if (a.module.port.state === "fallen") lastFallenApart = apart();
-      for (const { module } of built) module.beginSubstep();
-      a.module.port.beginControlStep();
-      b.module.port.beginControlStep();
-      a.module.port.request(stop);
-      b.module.port.request(stop);
-      const resolved = resolvePhysicalSupportedPair(a.module.port, b.module.port, SUBSTEP);
-      assert.equal(resolved, true, "the pair did not resolve as two physical ports");
-      for (const { module } of built) {
-        module.gait(SUBSTEP);
-        module.endSubstep(SUBSTEP);
-      }
-    });
-    try {
-      step(scene, 0.5);
-      assert.equal(a.module.port.state, "supported");
-      assert.equal(b.module.port.state, "supported");
-      // The two footprints overlap by construction: 0.50 m apart against 0.68 m of required
-      // separation, which is the "close opponent" fixture the deleted corpus used.
-      const separation = Math.abs(a.module.port.carrierGround().x - b.module.port.carrierGround().x);
-      assert.ok(separation < 2 * bipedModule.footprint.radiusM,
-        `the pair fixture is ${separation.toFixed(3)} m apart and so cannot exhibit an occupied recovery`);
-
-      a.module.shove();
-      step(scene, 2.5);
+    const need = 2 * bipedModule.footprint.radiusM;
+    const runs = [];
+    for (const apartM of OCCUPIED_SEPARATIONS_M) runs.push(await occupiedRecovery(apartM));
+    for (const run of runs.filter((r) => r.lastFallenApart !== null)) {
       // It rises on its own, clear of the carrier standing over it: the rise retreats by the
       // separation the pair needs rather than lifting it into the other's footprint.
-      assert.equal(a.module.port.state, "supported", "the fallen golem never rose clear of its neighbour");
-      assert.equal(b.module.port.state, "supported",
-        "the standing golem lost its own support because its neighbour fell");
-      assert.equal(b.module.readout().selfContacts, 0);
-      assert.ok(apart() >= 2 * bipedModule.footprint.radiusM - 1e-6,
-        `the risen golem stands ${apart().toFixed(3)} m from its neighbour, inside both footprints`);
-      // **And the retreat is what cleared it, not the fall.** The shove carries the ragdoll away
-      // from its neighbour, and left alone it drifts clear and rises from there: measured (Node, this
-      // fixture), with no retreat allowed the last fallen substep is 0.686 m apart, and with it
-      // 0.625 m -- the body left the floor from inside the other's footprint and was carried clear.
-      assert.ok(lastFallenApart !== null && lastFallenApart < 2 * bipedModule.footprint.radiusM,
-        `the golem only rose once the fall had carried it ${lastFallenApart?.toFixed(3)} m clear, ` +
-        "so this fixture never tested a retreat");
-    } finally {
-      scene.onBeforePhysicsObservable.remove(control);
-      for (const { module, stand } of built) { module.dispose(); stand.dispose(); }
-      arena.dispose();
-      B.knockdown = knockdown;
+      assert.equal(run.states[0], "supported", `${run.apartM} m: the fallen golem never rose clear of its neighbour`);
+      assert.equal(run.states[1], "supported",
+        `${run.apartM} m: the standing golem lost its own support because its neighbour fell`);
+      assert.equal(run.selfContacts, 0);
+      assert.ok(run.apart >= need - 1e-6,
+        `${run.apartM} m: the risen golem stands ${run.apart.toFixed(3)} m from its neighbour, inside both footprints`);
     }
+    // **And the retreat is what cleared it, not the fall.** A run only tests the retreat if the
+    // body left the floor from inside the other's footprint, and where the ragdoll ends up is not a
+    // property of the rule: the shove may only stagger it, or carry it clear by itself, depending on
+    // how it meets its neighbour, and that moves with the separation and with the solver's rate.
+    // This cell once ran 0.50 m alone, where it lay 0.644 m apart at 240 Hz and 0.698 at 120 -- clear
+    // on its own, so the retreat went untested. Measured (Node headless arena, 2026-09-25), the
+    // separations that leave it down inside the 0.68 m: 0.30, 0.35, 0.50, 0.55 and 0.60 at 240 Hz;
+    // 0.20, 0.25, 0.30, 0.55 and 0.60 at 120, where 0.35 only staggers it. Five of nine at either
+    // rate, against the three asked for. With the retreat taken out (`findRecoveryTarget` returning
+    // the body's own spot), the 0.30 m run never rises at either rate.
+    const inside = runs.filter((r) => r.lastFallenApart !== null && r.lastFallenApart < need);
+    assert.ok(inside.length >= 3,
+      `only ${inside.length} of ${runs.length} separations left the golem on the floor inside its neighbour's footprint, so this fixture barely tested a retreat`);
   });
 
 test("the_course_is_registered_as_a_body_and_as_a_query_collider_for_every_piece", async () => {

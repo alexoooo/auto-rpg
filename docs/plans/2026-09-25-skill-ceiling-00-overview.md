@@ -69,6 +69,13 @@ the notes of the style and matchup sets. The attribute figures are in
 - **Every attribute must pay.** Attributes may be changed, added or removed.
 - **A clean break.** The old executors and minds leave the tree once the new stack beats them.
   Git holds them.
+- **Many morphologies, and each family may have its own AI.** The golem will get many more legs,
+  bodies, weapons and heads. The skeleton gets the same kind of modularity with its own flavour.
+  The human stays human. New families will come: animals, zombies, monster templates. Sharing
+  across families is welcome and never required.
+- **Physics rate and control rate are separate numbers.** A laptop may need the minds' control to
+  run at 60 or 90 Hz under a faster solver. 120 Hz physics is free performance if a retune gives
+  back everything the bodies and minds could do at 240. Whether it can is measured, not assumed.
 
 ## Definitions
 
@@ -112,8 +119,43 @@ orders (a person's clicks, or an auto-commander)
 perception      one module, every reading truth-checked against the simulator
 ```
 
-The mind decides 10 to 30 times a second, depending on its budget. Skills and servos run every
-substep and are cheap.
+The mind decides 10 to 30 times a second, depending on its budget. Skills and servos run on the
+control clock, which session 01 separates from the solver's.
+
+## Many morphologies: what is shared and what a family owns
+
+The set is built so that a new morphology costs a family its body and whatever AI it wants, and
+nothing else.
+
+| Shared by every family | Owned by a family |
+|---|---|
+| the fork (02): capture and restore through one interface that every module implements | its modules and their physics |
+| drills (03), each declaring the capabilities it needs | which command channels it declares (06) |
+| the expert (04), which drives any declared command surface | its skills (08), if it wants any |
+| the headroom and attribute audits (05) | its decision minds (09), if it wants any |
+| perception primitives, the body card bench, compute accounting (08) | family-specific readings |
+| the league protocol and its gates | |
+
+**The day-one AI for any morphology is a planner.** A family that has written no mind yet is
+still played by the budgeted planner from session 09, searching its declared command surface
+through a learned or fitted model. It is weaker than a family that has written its own skills,
+but it works. That keeps the morphology count from being bounded by how many minds anyone has
+time to write, and it gives every family's hand-written mind a measured floor to beat.
+
+**Nothing that makes up a morphology can be special-cased.** No shared component may ask which
+module, family or weapon it is looking at. It reads declared capabilities and channels. This is
+today's rule for golem minds ("capabilities, never module ids", in `tactics.ts`), widened to the
+fork, the drills, the expert and the audits.
+
+**A test builds a body that exists nowhere else.** The fork, the drills, the expert and the body
+card each run in the suite on a deliberately odd morphology, such as a three-legged,
+one-armed build or a wheeled head-rammer. That proves no shared component assumes a biped with
+two hands. It is the fixture rule from `AGENTS.md`: choose the fixture by what the defect needs.
+
+**The headroom audit scales by sampling.** Modules combine, so session 05 does not measure every
+build. It measures every module in a stratified sample of builds, plus every named build. A
+module is flagged as a dead end when the builds containing it have low headroom across the
+sample.
 
 ## How the set runs
 
@@ -140,7 +182,7 @@ silently moves the ground under a comparison.
 
 | File | What |
 |---|---|
-| `-01-body-release-1.md` | Physics at the chosen rate, the biological size law, arms built at guard, a side-mirror gate. The owner looks. |
+| `-01-body-release-1.md` | A control clock apart from the solver, physics at the chosen rate, the biological size law, arms built at guard, a side-mirror gate. The owner looks. |
 | `-02-fork.md` | A forkable world and snapshotable minds. How far a fork stays faithful. |
 | `-03-drills-and-league.md` | Drills from constructed start states, the naive ladder, and the league protocol. |
 | `-04-expert.md` | The reference expert: full knowledge, then model-only, and how its score grows with compute. |
