@@ -41,6 +41,46 @@ For the owner, in this order:
 3. **Anything a session stopped on** or left open.
 4. **The owner's eye list** below.
 
+## What landed
+
+Commits 9e25d3f to e762c74, 2026-09-25. Every figure names its harness in the measurements doc,
+"Physical contact 10".
+
+- **The balance response** (the owner's "do option 3"). A body walked into leans, steps back past its
+  lean, and is tipped only when outrun, and the pair resolver follows a body that gives way; the
+  equal-weight exception is gone. Stone walking into an idle stone for 3 s moves it 0.009 m at x1,
+  0.99 m at weight x1.1 and 8.98 m at x2, and only the giant tips it (Node headless arena).
+- **Every stat re-measured, twice.** Once at 567350a (`research/runs/pc10`) and once under the
+  balance response at 231403a (`research/runs/pc10b`), 384 bouts a level, stone with the four probe
+  minds and the skeleton duelist's mirror. No level of any stat moved outside its interval between
+  the two, so the contact model's readings replicate. Each attribute row's duel paragraph now quotes
+  them.
+- **What the contact model did to the stats**, against the attributes set's readings: weight and size
+  now win on both bodies (size is stone's strongest, 84.9 % at x1.25; weight x2 79.7 %), where stone
+  used to lose by both; stability barely matters (46.1 % to 48.2 % across x0.5 to x2); recovery is a
+  small cost below x1 and no gain above; toughness and the skeleton's armour are where they were.
+- **The giant, the censuses and the idle matrix** did not move under the balance response: the giant
+  wins 99.2 % at max, stone falls 0.33 times a body a bout and the skeleton 9.64, and the same seven
+  idle cells are at zero outright wins.
+- **Ranges**: no row's `min` or `max` moved. Recovery's ceiling stays x1.25, with stone above it read
+  only in a 3 s window (see "Left open").
+
+## Left open
+
+- **Seven idle cells at zero**: the skeleton against stone, the human and the giant, and the human
+  against every body. The overview's floor ("every body can beat an idle dummy") is not met; it was
+  not met at session 01 either.
+- **An idle stone body is felled on almost nothing** against a brawler: 56 falls in four 60 s bouts
+  (67 at 567350a), most while it is still rising, the first from standing on a weakest-direction
+  fall line of 0.014 m/s (`.review/pc10/idle-falls.mjs`, Node bout runner). Not caused by the
+  balance response; not diagnosed.
+- **Stone's modified corner falls more often at either end of the weight row** than in the control
+  mirror (2.06 a bout at x0.8, about one from x1.1 up, against 0.52). Not explained.
+- **Stone recovery above x1.25** was read with a 3 s window per shove against the 7 s below it. A 7 s
+  re-read needs a Node load hook that the session's permission classifier blocked; it waits on the
+  owner's approval.
+- **The human's flat blade** and **the skeleton's stance** (sessions 08 and 09), both on the eye list.
+
 ## The owner's eye list
 
 Collected from every session. Look at each on the dev server after the set is done. Each item names
