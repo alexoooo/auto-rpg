@@ -29,8 +29,10 @@
  * instance's, after which the fork is the original to the bit: no divergence at all over four
  * seconds of a fought bout (`docs/analysis/2026-09-25-fork.md`). Two conditions, both checked:
  * the fork's instance is not the original's (the copy would overwrite the original), and every
- * body and joint handle in the fork is the number the original's has, which holds when both worlds
- * were built by the same code into instances with the same history -- fresh ones.
+ * body handle in the fork is the number the original's has, which holds when both worlds were built
+ * by the same code into instances with the same history -- fresh ones. A joint made mid-bout (a
+ * maul's grip) gets another address when the fork replays it, and is pointed at the original's
+ * after the copy (`copyHeap`).
  *
  * The transform is written with `HP_Body_SetQTransform`, which is what the TELEPORT prestep
  * (`disablePreStep = false`) does inside `executeStep`, done at once instead of on the next
