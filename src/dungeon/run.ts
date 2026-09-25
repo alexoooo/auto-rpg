@@ -47,6 +47,17 @@ const STALL = { seconds: 0.5, metres: 0.05 } as const;
 /** How far an enemy sees the hero along a clear line (`canSee`). */
 const SIGHT_METRES = 14;
 /**
+ * With the cursor steering its facing, the hero takes on what the cursor points at, and also any enemy nearer than
+ * `metres` wherever it stands, turning to it for as long as it stays within `keepMetres` -- whichever way the cursor
+ * then points, so a hero walked away from an enemy on it backs off facing it. An enemy upon the hero comes before
+ * one further off, and among either the one the cursor points at comes first (`aimRank`). An enemy that came from
+ * behind the cursor used to be nobody's target: the hero walked on into it, was stopped by its body, and stood being
+ * hit, over a minute and a half in all across seeds 1-10 (Node headless harness).
+ */
+const SET_UPON = { metres: 2.5, keepMetres: 3.5 } as const;
+/** The cone about the cursor's direction the hero picks targets from, as the cosine of its half-angle (73 degrees). */
+const AIM_COSINE = 0.3;
+/**
  * An enemy standing at home, unalerted and far from everybody awake, is taken out of the simulation:
  * its bodies are held asleep in Havok, and the run neither observes, decides for nor drives it, which
  * pauses that one body where it stands. It wakes before it could see the hero -- `wakeMetres` is
@@ -178,14 +189,33 @@ export class DungeonRun {
         findPath(this.map, heroAt, this.hero.lastSeen, this.hero.radius).length) { this.hero.target = null; return; }
       this.commands.clear(); this.hero.lastSeen = null;
     }
-    const look = this.commands.cursor ? direction(heroAt, this.commands.cursor) : null;
-    const candidates = this.actors.slice(1).filter(a => a.body.alive && canSee(this.map, heroAt, a.body.feetPosition(), 8))
-      .filter(a => {
-        if (!this.commands.mode.facing || !look) return true;
-        const toward = direction(heroAt, a.body.feetPosition()); return toward.x * look.x + toward.z * look.z > 0.3;
-      }).sort((a, b) => distance(a.body.feetPosition(), heroAt) - distance(b.body.feetPosition(), heroAt));
     const current = this.hero.target;
-    this.hero.target = current && candidates.includes(current) && distance(current.body.feetPosition(), heroAt) < 5 ? current : candidates[0] ?? null;
+    const candidates = this.actors.slice(1).filter(a => a.body.alive && canSee(this.map, heroAt, a.body.feetPosition(), 8))
+      .filter(a => this.aimedAt(a) || distance(heroAt, a.body.feetPosition()) < (a === current ? SET_UPON.keepMetres : SET_UPON.metres))
+      .sort((a, b) => this.aimRank(a) - this.aimRank(b) || distance(a.body.feetPosition(), heroAt) - distance(b.body.feetPosition(), heroAt));
+    const keep = current && candidates.includes(current) && distance(current.body.feetPosition(), heroAt) < 5
+      && this.aimRank(current) <= this.aimRank(candidates[0]);
+    this.hero.target = keep ? current : candidates[0] ?? null;
+  }
+
+  /**
+   * Which the hero takes on first, lowest first: an enemy upon it that the cursor points at, one upon it, one the cursor
+   * points at, then the rest. Every enemy ranks alike unless the cursor steers the hero's facing. The hero's own target
+   * stays upon it out to `keepMetres`, or one circling at about `metres` would swap it for another at every perception.
+   */
+  private aimRank(actor: DungeonActor): number {
+    if (!this.commands.mode.facing || !this.commands.cursor) return 0;
+    const reach = actor === this.hero.target ? SET_UPON.keepMetres : SET_UPON.metres;
+    const upon = distance(this.hero.body.feetPosition(), actor.body.feetPosition()) < reach;
+    return (upon ? 0 : 2) + (this.aimedAt(actor) ? 0 : 1);
+  }
+
+  /** Whether the cursor points the hero at `actor`: always, unless the cursor steers the hero's facing. */
+  private aimedAt(actor: DungeonActor): boolean {
+    const heroAt = this.hero.body.feetPosition();
+    if (!this.commands.mode.facing || !this.commands.cursor) return true;
+    const look = direction(heroAt, this.commands.cursor), toward = direction(heroAt, actor.body.feetPosition());
+    return toward.x * look.x + toward.z * look.z > AIM_COSINE;
   }
 
   private heroMovement(): Point | null {
@@ -346,7 +376,8 @@ export class DungeonRun {
       if (actor === this.hero) {
         move = this.heroMovement();
         if (move) move = this.evade(move);
-        if (this.commands.mode.facing) look = this.commands.cursor
+        // A target outside the cursor's cone, which only one set upon the hero can be, is fought as the policy turns to it.
+        if (this.commands.mode.facing && !(actor.target && !this.aimedAt(actor.target))) look = this.commands.cursor
           ? { x: this.commands.cursor.x - at.x, z: this.commands.cursor.z - at.z }
           : { x: Math.sin(actor.body.view.self.facing), z: Math.cos(actor.body.view.self.facing) };
       } else if (actor.target && distance(at, actor.target.body.feetPosition()) <= 3.5) move = null;
