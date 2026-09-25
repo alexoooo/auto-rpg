@@ -60,10 +60,13 @@ export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: numbe
   return { drawn, lit: t * t * (3 - 2 * t) };
 }
 
+/** How tall a wall stands, its collider and its drawn skin alike. */
+export const WALL_HEIGHT = 2.8;
+
 /** How deep in front of the hero, along the view, a wall is cut away: a 2.8 m wall covers `2.8 / tan(pitch)` of
  * ground behind it, plus a margin for the body. 8.98 at the default pitch, where it was 9. */
 export function fadeDepth(pitch: number): number {
-  return Math.SQRT2 * (2.8 / Math.tan(pitch) + 1.5);
+  return Math.SQRT2 * (WALL_HEIGHT / Math.tan(pitch) + 1.5);
 }
 
 /** A rock cell with floor among its eight neighbours: where a wall stands, and a collider with it. */

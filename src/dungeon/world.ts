@@ -1,7 +1,6 @@
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
-import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
@@ -9,15 +8,16 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
 import { LAYER, COLLIDES } from "../physics.ts";
 import { cellKey, isFloor, walkable, type DungeonMap, type Point } from "./map.ts";
-import { boundary, wallSurface, type WallFace } from "./fog.ts";
+import { boundary, WALL_HEIGHT, wallSurface, type WallFace } from "./fog.ts";
 import { dungeonFog } from "./fog-plugin.ts";
+import { dungeonStone, flatStone, type DungeonSurfaces } from "./stone.ts";
 
 /** Visible surfaces are merged into one mesh per square of this many cells a side, so that a level is a few dozen
  * draws rather than one per wall run and a batch of two thousand tile instances. */
 export const VISUAL_CHUNK = 16;
-const WALL_HEIGHT = 2.8;
-/** A floor tile's half-width and height: the 2 cm gaps between tiles are the grid the floor reads as. */
-const TILE = Object.freeze({ half: 0.49, y: 0.015 });
+/** A floor tile's half-width and height. A flat floor's tiles leave 2 cm gaps, the only grid it has; a textured
+ * floor's meet edge to edge, and the texture draws its own joints. */
+const TILE = Object.freeze({ flatHalf: 0.49, half: 0.5, y: 0.015 });
 
 type Corner = readonly [number, number, number];
 interface Quad { cell: Point; corners: Corner[]; normal: Corner }
@@ -37,11 +37,12 @@ function faceCorners(x: number, z: number, face: WallFace): Omit<Quad, "cell"> {
 
 /**
  * Quads merged into one mesh per chunk of `VISUAL_CHUNK` cells, named `${prefix}.${cx}.${cz}`. UVs are world
- * metres, by the rule `mapUvsInMetres` in `src/arena-room.ts` applies: x and z on a face looking up, the
- * horizontal along the face and the height on a side. Babylon's front face winds so that the right-handed cross
- * product of its first two edges points away from the normal, and each quad is ordered to match.
+ * metres over the span one image repeat covers, by the rule `mapUvsInMetres` in `src/arena-room.ts` applies: x and
+ * z on a face looking up, the horizontal along the face and the height on a side. Babylon's front face winds so
+ * that the right-handed cross product of its first two edges points away from the normal, and each quad is
+ * ordered to match.
  */
-function mergedQuads(scene: Scene, prefix: string, quads: readonly Quad[]): Mesh[] {
+function mergedQuads(scene: Scene, prefix: string, quads: readonly Quad[], metresPerRepeat: number): Mesh[] {
   const chunks = new Map<string, Quad[]>();
   for (const quad of quads) {
     const key = `${Math.floor(quad.cell.x / VISUAL_CHUNK)}.${Math.floor(quad.cell.z / VISUAL_CHUNK)}`;
@@ -54,7 +55,8 @@ function mergedQuads(scene: Scene, prefix: string, quads: readonly Quad[]): Mesh
       const base = positions.length / 3;
       for (const [x, y, z] of corners) {
         positions.push(x, y, z); normals.push(...normal);
-        if (normal[1] !== 0) uvs.push(x, z); else if (normal[0] !== 0) uvs.push(z, y); else uvs.push(x, y);
+        const m = metresPerRepeat;
+        if (normal[1] !== 0) uvs.push(x / m, z / m); else if (normal[0] !== 0) uvs.push(z / m, y / m); else uvs.push(x / m, y / m);
       }
       const [a, b, c] = corners, u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
       const facing = (u[1] * v[2] - u[2] * v[1]) * normal[0] + (u[2] * v[0] - u[0] * v[2]) * normal[1]
@@ -70,7 +72,9 @@ function mergedQuads(scene: Scene, prefix: string, quads: readonly Quad[]): Mesh
   });
 }
 
-export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals = true) {
+/** `visuals` is false for a world with no drawn floor or walls, true for the flat colours, and otherwise the page's
+ * chosen stone (`dungeonStone` in `stone.ts`). The colliders are the same in every case. */
+export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolean | DungeonSurfaces = true) {
   const registry = new StandableWorldRegistry();
   const up = [0, 1, 0] as const;
   registry.register({ id: "dungeon-ground", category: "standable-world", ownerPartId: null, upwardNormal: up,
@@ -105,13 +109,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals = true)
       }
       return null;
     } });
-  // PBR, so that the torches and the lantern fall off here as they do on the golems. Colours are authored in sRGB.
-  const material = (name: string, color: string, roughness = 0.92) => {
-    const m = new PBRMaterial(name, scene); m.albedoColor = Color3.FromHexString(color).toLinearSpace();
-    m.metallic = 0; m.roughness = roughness; m.maxSimultaneousLights = 4; return m;
-  };
-  const stone = material("dungeon basalt", "#494b55"), floorMaterial = material("worn flagstones", "#77747a");
-  const wood = material("ironbound doors", "#806044", 0.8);
+  const wood = flatStone(scene, "ironbound doors", "#806044", 0.8);
   const bodies: PhysicsAggregate[] = [];
   const box = (name: string, x: number, y: number, z: number, width: number, height: number, depth: number) => {
     const mesh = MeshBuilder.CreateBox(name, { width, height, depth }, scene); mesh.position.set(x, y, z);
@@ -125,32 +123,33 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals = true)
   for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size;) {
     if (!boundary(map, x, z)) { x++; continue; }
     const start = x; while (x < map.size && x - start < 4 && boundary(map, x, z)) x++;
-    const wall = box(`wall.${z}.${start}`, (start + x - 1) / 2, 1.4, z, x - start, 2.8, 1);
+    const wall = box(`wall.${z}.${start}`, (start + x - 1) / 2, WALL_HEIGHT / 2, z, x - start, WALL_HEIGHT, 1);
     wall.mesh.isVisible = false; wall.mesh.isPickable = false;
   }
   const doors = map.doors.map(d => {
     const object = box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3);
-    object.mesh.material = wood; object.mesh.isPickable = false; object.mesh.isVisible = visuals; return object;
+    object.mesh.material = wood; object.mesh.isPickable = false; object.mesh.isVisible = visuals !== false; return object;
   });
   // Fog is a mask the surfaces read (`fog-plugin.ts`), so nothing here is shown or hidden cell by cell.
-  const fog = visuals ? dungeonFog(scene, map) : null;
+  const look = visuals === true ? dungeonStone(scene) : visuals || null;
+  const fog = look ? dungeonFog(scene, map) : null;
   const surfaces: Mesh[] = [];
-  if (fog) {
-    for (const surface of [stone, floorMaterial, wood]) fog.attach(surface);
-    const tiles: Quad[] = [];
-    for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) if (isFloor(map, x, z)) {
-      const { half: h, y } = TILE;
+  if (look && fog) {
+    fog.attach(look.floor.material, look.floor.textured ? "floor" : null);
+    fog.attach(look.wall.material, look.wall.textured ? "wall" : null);
+    fog.attach(wood, null);
+    const tiles: Quad[] = [], h = look.floor.textured ? TILE.half : TILE.flatHalf, { y } = TILE;
+    for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size; x++) if (isFloor(map, x, z))
       tiles.push({ cell: { x, z }, normal: [0, 1, 0], corners: [[x - h, y, z - h], [x - h, y, z + h], [x + h, y, z + h], [x + h, y, z - h]] });
-    }
-    for (const mesh of mergedQuads(scene, "floor.visual", tiles)) { mesh.material = floorMaterial; surfaces.push(mesh); }
+    for (const mesh of mergedQuads(scene, "floor.visual", tiles, look.floor.metresPerRepeat)) { mesh.material = look.floor.material; surfaces.push(mesh); }
     const walls = wallSurface(map).map(({ cell, face }) => ({ cell, ...faceCorners(cell.x, cell.z, face) }));
-    for (const mesh of mergedQuads(scene, "wall.visual", walls)) { mesh.material = stone; surfaces.push(mesh); }
+    for (const mesh of mergedQuads(scene, "wall.visual", walls, look.wall.metresPerRepeat)) { mesh.material = look.wall.material; surfaces.push(mesh); }
   }
   const exit = MeshBuilder.CreateTorus("exit sigil", { diameter: 2, thickness: 0.12, tessellation: 40 }, scene);
   exit.position.set(map.exit.x, 0.06, map.exit.z); exit.isPickable = false; exit.isVisible = false;
   // #42b998 in linear light has a luminance of 0.381; bloom extracts what exceeds its 1.1 threshold after the 1.15
   // exposure, so x3 (0.381 x 3 x 1.15 = 1.32) glows and the x2.2 first written (0.965) did not.
-  const exitMaterial = material("exit light", "#93edcf");
+  const exitMaterial = flatStone(scene, "exit light", "#93edcf");
   exitMaterial.emissiveColor = Color3.FromHexString("#42b998").toLinearSpace().scale(3); exit.material = exitMaterial;
   return {
     registry, fog, surfaces,

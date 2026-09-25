@@ -9,7 +9,7 @@ import { ShaderLanguage } from "@babylonjs/core/Materials/shaderLanguage.js";
 import type { UniformBuffer } from "@babylonjs/core/Materials/uniformBuffer.js";
 import type { SubMesh } from "@babylonjs/core/Meshes/subMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { FOG_SAMPLE, fadeDepth, fogMask } from "./fog.ts";
+import { FOG_SAMPLE, WALL_HEIGHT, fadeDepth, fogMask } from "./fog.ts";
 import type { DungeonMap, Point } from "./map.ts";
 
 /** Set by eye, and judged on the owner's machine. */
@@ -26,7 +26,29 @@ export const FOG_LOOK = Object.freeze({
   dither: 0.8,
 });
 
+/**
+ * What a textured floor or wall does to its own albedo, set by eye and judged on the owner's machine. A 1k map
+ * repeats every 2 or 3 m, and at the widest zoom that is a grid the eye finds at once: a two-octave value noise of
+ * world position, at spans that share no multiple with the map's, varies the brightness under it. A per-cell UV
+ * rotation would do it too, and would put a mip seam on every cell edge.
+ */
+export const STONE_LOOK = Object.freeze({
+  /** Albedo is multiplied by between these, by noise at these two spans, weighted 0.65 and 0.35. */
+  vary: Object.freeze([0.78, 1.08] as const), spans: Object.freeze([7, 2.3] as const),
+  /** A wall's foot darkens to this share of its albedo, rising to full over this height. */
+  foot: 0.55, footRise: 0.9,
+  /** Damp grime, a near-black green, in patches up to this height at most. */
+  grime: Object.freeze([0.018, 0.024, 0.012] as const), grimeHeight: 0.6, grimeStrength: 0.7,
+  /** A wall's top is darker than its face, and the face's top edge is lit: the concepts' coping, without geometry. */
+  top: 0.6, copingDepth: 0.06, coping: 1.6,
+});
+
+/** Which stone rules a material's fragments follow: a floor's, a wall's, or none (flat colour, and doors). */
+export type StoneRole = "floor" | "wall" | null;
+
 interface FogView { size: number; hero: Point; depth: number; texture: RawTexture }
+
+const f = (v: number) => v.toFixed(3);
 
 // The uniforms are **not** declared here: `getUniforms` puts them in the material's uniform buffer, and Babylon
 // declares that itself; a second declaration is a GLSL redefinition (see `procedural-surface.ts`). Its `fragment`
@@ -41,6 +63,30 @@ const FRAGMENT = Object.freeze({
 uniform sampler2D fogMaskSampler;
 float dungeonBayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }
 float dungeonBayer4(vec2 a) { return dungeonBayer2(0.5 * a) * 0.25 + dungeonBayer2(a); }
+#ifdef DUNGEON_STONE
+float dungeonHash(vec2 c) { return fract(sin(dot(c, vec2(127.1, 311.7))) * 43758.5453); }
+float dungeonNoise(vec2 p) {
+  vec2 i = floor(p), u = fract(p); u = u * u * (3.0 - 2.0 * u);
+  return mix(mix(dungeonHash(i), dungeonHash(i + vec2(1.0, 0.0)), u.x), mix(dungeonHash(i + vec2(0.0, 1.0)), dungeonHash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+#endif
+#endif
+`,
+  // After the albedo map is read and before any light: `surfaceAlbedo` is linear, and every light sees the change.
+  CUSTOM_FRAGMENT_UPDATE_ALPHA: `
+#if defined(DUNGEON_FOG) && defined(DUNGEON_STONE)
+float dungeonVary = 0.65 * dungeonNoise(vPositionW.xz / ${f(STONE_LOOK.spans[0])}) + 0.35 * dungeonNoise(vPositionW.xz / ${f(STONE_LOOK.spans[1])} + 17.0);
+surfaceAlbedo *= mix(${f(STONE_LOOK.vary[0])}, ${f(STONE_LOOK.vary[1])}, dungeonVary);
+#ifdef DUNGEON_WALL
+surfaceAlbedo *= mix(${f(STONE_LOOK.foot)}, 1.0, smoothstep(0.0, ${f(STONE_LOOK.footRise)}, vPositionW.y));
+float dungeonGrime = (1.0 - smoothstep(0.0, ${f(STONE_LOOK.grimeHeight)} * (0.4 + 0.6 * dungeonVary), vPositionW.y))
+  * smoothstep(0.35, 0.75, dungeonNoise(vPositionW.xz / 1.3 + 5.0));
+surfaceAlbedo = mix(surfaceAlbedo, vec3(${STONE_LOOK.grime.map(f).join(", ")}), ${f(STONE_LOOK.grimeStrength)} * dungeonGrime);
+#ifdef NORMAL
+if (vNormalW.y > 0.5) surfaceAlbedo *= ${f(STONE_LOOK.top)};
+else if (vPositionW.y > ${f(WALL_HEIGHT - STONE_LOOK.copingDepth)}) surfaceAlbedo = min(surfaceAlbedo * ${f(STONE_LOOK.coping)}, vec3(1.0));
+#endif
+#endif
 #endif
 `,
   CUSTOM_FRAGMENT_MAIN_BEGIN: `
@@ -78,16 +124,21 @@ finalColor.rgb = mix(vec3(${FOG_LOOK.memory.join(", ")}) + ${FOG_LOOK.memoryLumi
 export class DungeonFogPlugin extends MaterialPluginBase {
   readonly view: FogView;
 
-  constructor(material: PBRMaterial, view: FogView) {
-    super(material, "DungeonFog", 200, { DUNGEON_FOG: false });
-    this.view = view;
+  readonly stone: StoneRole;
+
+  constructor(material: PBRMaterial, view: FogView, stone: StoneRole = null) {
+    super(material, "DungeonFog", 200, { DUNGEON_FOG: false, DUNGEON_STONE: false, DUNGEON_WALL: false });
+    this.view = view; this.stone = stone;
     this.doNotSerialize = true;
     this._enable(true);
   }
 
   override getClassName(): string { return "DungeonFogPlugin"; }
   override isCompatible(shaderLanguage: ShaderLanguage): boolean { return shaderLanguage === ShaderLanguage.GLSL; }
-  override prepareDefines(defines: MaterialDefines): void { (defines as MaterialDefines & { DUNGEON_FOG: boolean }).DUNGEON_FOG = true; }
+  override prepareDefines(defines: MaterialDefines): void {
+    const own = defines as MaterialDefines & { DUNGEON_FOG: boolean; DUNGEON_STONE: boolean; DUNGEON_WALL: boolean };
+    own.DUNGEON_FOG = true; own.DUNGEON_STONE = this.stone !== null; own.DUNGEON_WALL = this.stone === "wall";
+  }
   override getSamplers(samplers: string[]): void { samplers.push("fogMaskSampler"); }
   override getActiveTextures(activeTextures: BaseTexture[]): void { activeTextures.push(this.view.texture); }
   override hasTexture(texture: BaseTexture): boolean { return texture === this.view.texture; }
@@ -119,7 +170,9 @@ export function dungeonFog(scene: Scene, map: DungeonMap) {
   const plugins: DungeonFogPlugin[] = [];
   return {
     texture, bytes, plugins,
-    attach(material: PBRMaterial): DungeonFogPlugin { const plugin = new DungeonFogPlugin(material, view); plugins.push(plugin); return plugin; },
+    attach(material: PBRMaterial, stone: StoneRole = null): DungeonFogPlugin {
+      const plugin = new DungeonFogPlugin(material, view, stone); plugins.push(plugin); return plugin;
+    },
     update(visible: ReadonlySet<number>, explored: ReadonlySet<number>, pitch: number): void {
       fogMask(map, visible, explored, bytes); texture.update(bytes); view.depth = fadeDepth(pitch);
     },

@@ -3,7 +3,7 @@
 //   node scripts/dungeon/sweep.mjs                                   default:1-20:120 multileg:1-5:240
 //   node scripts/dungeon/sweep.mjs default:1,7:120 multileg:12:240   those builds and seeds, capped in seconds
 //   ... --classic   the classic fixture's levels (tests/fixtures/classic-dungeon.mjs), cursor at (9, 60)
-//   ... --visuals   build the run with its visuals, as the page does
+//   ... --visuals   build the run with its drawn floor and walls, in the flat colours; the page uses textured stone
 // Generated levels send the cursor 30 m past the exit, as the_hero_explores_generated_levels_to_their_exits
 // does. Harness: tests/harness/golem-headless-arena.mjs, stepped at 60 Hz by _advancePhysicsEngineStep.
 import { createHeadlessArena } from "../../tests/harness/golem-headless-arena.mjs";

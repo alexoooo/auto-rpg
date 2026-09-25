@@ -28,6 +28,7 @@ import { torchPlacements } from "./dressing.ts";
 import { lightDungeon, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
+import { dungeonStone, stoneQuery } from "./stone.ts";
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id); if (!element) throw new Error(`Missing dungeon element ${id}`); return element as T;
@@ -39,6 +40,8 @@ const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
 const pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
+// `?floor=` and `?wall=`, each `a`, `b` or `flat`, to compare the two candidate stones and the untextured colours.
+const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
 // Wheel locomotion cannot strafe; the hero picker offers bodies that can honor screen movement.
 for (const build of PLAYABLE_BUILDS.filter(b => b.setup.locomotion !== "locomotion.wheel")) {
@@ -124,7 +127,7 @@ async function boot(): Promise<void> {
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
-    run = new DungeonRun(scene, seed, selectedBuild, true, undefined, selectedEquipment); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
+    run = new DungeonRun(scene, seed, selectedBuild, dungeonStone(scene, stone.floor, stone.wall), undefined, selectedEquipment); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     run.pitch = pitch;
     // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
     // code no Node test loads, so the rule that it adds no body is held here, where it runs.

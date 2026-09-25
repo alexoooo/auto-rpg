@@ -18,6 +18,7 @@ import { generateLevel } from "./level.ts";
 import { composeIntent, DungeonCommands, neutralIntent, screenMovement } from "./commands.ts";
 import { resolveDungeonLocomotion } from "./locomotion.ts";
 import { buildDungeonWorld } from "./world.ts";
+import type { DungeonSurfaces } from "./stone.ts";
 import { CAMERA_PITCH } from "./camera.ts";
 
 export interface DungeonActor {
@@ -88,7 +89,7 @@ export class DungeonRun {
   private dodgeStart: Point = { x: 0, z: 0 };
   private dodgeVector: Point = { x: 0, z: 0 };
 
-  constructor(scene: Scene, seed: number, heroBuild = "default", visuals = true, layout?: DungeonMap, heroSetup?: GolemSetup) {
+  constructor(scene: Scene, seed: number, heroBuild = "default", visuals: boolean | DungeonSurfaces = true, layout?: DungeonMap, heroSetup?: GolemSetup) {
     this.map = layout ?? generateLevel(seed).map;
     this.world = buildDungeonWorld(scene, this.map, visuals);
     this.plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;

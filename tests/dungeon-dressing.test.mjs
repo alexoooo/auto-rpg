@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { DRESSING, torchPlacements } from "../src/dungeon/dressing.ts";
 import { buildDungeonWorld } from "../src/dungeon/world.ts";
+import { dungeonStone } from "../src/dungeon/stone.ts";
 import { fadeDepth } from "../src/dungeon/fog.ts";
 import { CAMERA_PITCH } from "../src/dungeon/camera.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
@@ -78,10 +79,12 @@ const PINNED = {
 };
 
 test("the_dungeon_builds_the_same_colliders_with_or_without_visuals", async () => {
-  for (const seed of [1, 2]) for (const visuals of [false, true]) {
+  // Flat colours, and textured stone with a texture factory that loads nothing.
+  for (const seed of [1, 2]) for (const visuals of [false, true, "stone"]) {
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
     try {
-      const world = buildDungeonWorld(arena.scene, generateLevel(seed).map, visuals);
+      const world = buildDungeonWorld(arena.scene, generateLevel(seed).map,
+        visuals === "stone" ? dungeonStone(arena.scene, "a", "b", () => null) : visuals);
       const rows = colliderRows(arena.scene);
       const sha256 = createHash("sha256").update(rows.join("\n")).digest("hex");
       assert.deepEqual({ count: rows.length, sha256 }, PINNED[seed], `seed ${seed}, visuals ${visuals}`);
