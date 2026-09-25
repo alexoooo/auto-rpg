@@ -68,6 +68,24 @@ order. That is a measurable property, and this session measures it.
   written here, with the rule: a fork that ranks four prefixes no better than chance at 0.5 s is
   not a planning substrate, and session 04 stops to rethink.
 
+**Result, 2026-09-25** (`docs/analysis/2026-09-25-fork.md`; Node bout runner and fork study, main at
+release-120, 5ac61ce; 222 fork moments over 70 mirror bouts of the five probe minds):
+
+- **Isolation: passes.** Bouts with forks taken and discarded throughout are bit-identical in pose
+  and result to bouts without them. That holds with forks in the original's Havok instance, in a
+  second one, and for exact forks. No worker fallback is needed.
+- **Threshold, set from the data: at 1 s, pairwise agreement ≥ 0.98 and top-1 agreement ≥ 0.95**
+  with a replay from t = 0.
+  - The rule behind the numbers: a planning fork must scramble the ranking no more than the
+    opponent's dice already do over twice the horizon. An exact fork with the opponent reseeded
+    agrees at 2 s with lower bounds of 0.984 pairwise and 0.967 top-1.
+- **The exact fork (Havok's heap copied) passes: 1.000 pairwise and 1.000 top-1 at 0.5, 1 and 2 s.**
+  Its score vectors are identical to the replay's at all 222 moments. It is the planning substrate.
+- **The teleport fork (state written through Havok's accessors) fails**, at 0.743 pairwise and 0.582
+  top-1 at 1 s. It is not a planning substrate.
+- **The chance rule does not trigger.** At 0.5 s the teleport fork's 95 % lower bounds, 0.779
+  pairwise and 0.629 top-1, are far above chance (0.5 and 0.25). The exact fork is at 1.000.
+
 ## Depends on
 
 Body release 1.
