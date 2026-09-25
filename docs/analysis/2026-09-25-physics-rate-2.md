@@ -95,7 +95,7 @@ different step:
   step is `e1 = (e0 + c*dt)*e^{-r*dt}` and `v1 = (v0 - r*c*dt)*e^{-r*dt}`, with `c = v0 + r*e0`.
   The per-step distance cap is applied to the combined move, as before.
 
-Both are behind `SERVO_TUNING` in `src/golem/joint-servo.ts`. The knob is off by default, so the
+Both are behind `SERVO_TUNING` in `src/golem/joint-servo.ts`, which is not on main (section 9). The knob is off by default, so the
 branch is bit-identical to shipped at 240. The human arm has its own velocity drive
 (`HUMAN_ARM_DRIVE.response`) and is untouched by the knob, which is why its r240 row equals s240.
 
@@ -520,7 +520,11 @@ a design call. Section 5 names the experiment that decides whether the tempo can
 
 ## 9. What landing on main would take
 
-On this branch now:
+**Landed on main 2026-09-25:** `solverTuningHz` and `controlHz`. `SERVO_TUNING` was not landed.
+It is kept on the branch `physics-rate-servo-tuning` (main plus that one commit) for the follow-up
+studies, which need its gain knob.
+
+As it stood on the study branch:
 
 - **`solverTuningHz`** (`src/config.ts`, `holdIdealStep` in `src/physics.ts`), committed.
   Bit-identical at 240, so it can land as it stands. It is the precondition for any rate below 240.

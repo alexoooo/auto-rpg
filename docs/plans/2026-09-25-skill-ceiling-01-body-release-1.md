@@ -28,18 +28,35 @@ found:
 - **Control costs twice what Havok does.** At 240 Hz it is 92 against 46 ms per simulated second
   (Node bout runner), so the control loop is the larger cost.
 
-A second study, `docs/analysis/2026-09-25-physics-rate-2.md`, asks the owner's question directly: is
-120 Hz a retune, or a limit on what bodies and minds can do? It measures a **capability envelope**
-at 240, at untuned 120 and at retuned 120, and sweeps each drive to its stability boundary at both
-rates. The envelope covers:
+A second study, `docs/analysis/2026-09-25-physics-rate-2.md`, asked whether 120 Hz is a retune or
+a limit. **It is a retune**, and most of it is one setting:
 
-- the arm's rise time, overshoot, stray and ceiling tip speed;
-- foot slip, top speed, turn rate, the fall line and rise time;
-- impact and lift transfer;
-- all of these at the ends of the attribute ranges.
+- **The cause.** Babylon tells Havok to expect exactly the step it takes, and Havok sets the
+  stiffness of every motor, joint and contact from that expected step. So 120 Hz halved everything's
+  stiffness. `CONFIG.world.solverTuningHz` (landed, 240) holds the expected step at 1/240
+  whatever the real step is. That puts the feet, the human arm, contact and lift back on 240's
+  numbers, and at the attribute extremes too.
+- **The margin.** Every arm drive has 4-16x of gain above what ships before it goes unstable at 120.
+- **What is left at 120:**
+  - stone and skeleton stroke stray is 1.3-1.6x;
+  - the whip's peak is unsettled;
+  - retuned 120 fights run 26 % longer with 25 % less damage per second. That was shown to be
+    physical, not the minds or their rate.
+- **The control clock.** `CONFIG.world.controlHz` (landed, 240) has the mind decide every
+  `physicsHz / controlHz` substeps and re-applies the held command in between. At 240 physics,
+  control at 120, 80 and 60 Hz leaves bouts statistically unchanged and costs 0.89x, 0.81x and
+  0.80x. At 120 physics with 120 control it costs 0.55x (Node bout runner). Publishing the view is
+  3.5x the mind's decision, and the locomotion setup costs as much as the servos. Those two are
+  the next cost targets. 60 Hz control on 120 Hz physics showed unexplained severs at 0.35 s.
 
-It also prototypes a control clock separate from the solver. This session lands what that study
-supports, in three parts.
+The follow-up studies are:
+
+- the tempo gap: per-contact speed at 240 against 120, then a servo-gain pass at 120;
+- the early severs;
+- the whip;
+- the tests pinned to 240.
+
+What they find decides part 3 below.
 
 **Three parts:**
 
@@ -47,18 +64,12 @@ supports, in three parts.
    per-second gains, and converted by the step. Every per-step literal the first analysis listed
    reads the rate. Tests pinned to 240, or to one exact trajectory, are made rate-honest. After
    this, the physics rate is one config value.
-2. **A control clock separate from the solver.** Minds, skills and servo targets run on their own
-   fixed clock (the owner has named 60 or 90 Hz as candidates). Whatever the study shows must stay
-   per substep stays: probably keyframed carriers, with targets extrapolated between control ticks.
-   That avoids the trap in `AGENTS.md` where a keyframed anchor coasted between refreshes. The
-   control rate is a second config value.
-3. **The physics rate.** It is 120 if the study finds the retuned envelope equal to 240's with no
-   hard stability limit that anything uses; otherwise 180 or 240. A subsystem that is *limited* at
-   120 rather than detuned is named, along with what it would cost the game.
-
-Bout-level differences between rates are attributed, not assumed. Shorter bouts at 120 might come
-from the body, or from mind constants that count substeps. Until that is known, they are not a
-property of the physics.
+2. **The control rate**, now a config value. What is left is choosing its default from the
+   cost table and the eye gate, and making the view publication cheaper, since that is where the
+   control cost now sits.
+3. **The physics rate.** It is 120 if the follow-ups close the tempo gap or the owner accepts it,
+   and if nothing turns out *limited* rather than detuned. Otherwise it is 180 or 240. A limited
+   subsystem is named, along with what it would cost the game.
 
 Separately, `targetResponse` 20 is better than what ships even at 240. Cover overshoot falls from
 188 to 1 mm and cut stray from 38 to 17 mm, for 25 % less peak blade speed. Give it its own bout
@@ -136,5 +147,5 @@ one slower and the small one quicker.
 
 ## Depends on
 
-`docs/analysis/2026-09-25-physics-rate.md`, and `docs/analysis/2026-09-25-physics-rate-2.md` (in
-progress).
+`docs/analysis/2026-09-25-physics-rate.md`, and `docs/analysis/2026-09-25-physics-rate-2.md`, and its
+follow-up studies.
