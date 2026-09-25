@@ -29,8 +29,8 @@ import { fallenDwellS, initialSupportedLocomotionState, ledgerFalls, recoveredRi
   shoveSpecificImpulse, sizeTime, stabilityLines, stepSupportedLocomotionState,
   type StabilityAuthority, type StabilityLines, type SupportState,
   type SupportedLocomotionBoundary, type SupportedLocomotionState } from "./supported-locomotion-state.ts";
-import { baseReachM, hullHoldsCentre, leanHoldN, leanRoomM, TIPPING, tippingGeometry, type MassDistribution,
-  type TippingGeometry } from "./tipping.ts";
+import { baseReachM, hullCentreMarginM, leanHoldN, leanRoomM, TIPPING, tippingGeometry,
+  type MassDistribution, type TippingGeometry } from "./tipping.ts";
 /**
  * The scheduler seam, moved here on 2026-09-04 when `src/construct/` and `src/forge/` were
  * deleted with the golem plan set's first session.
@@ -386,10 +386,11 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   /** The last boundary's tipping geometry (`readTipping`), for the diagnostic and `stabilityLinesAlong`. */
   private tipping: TippingGeometry | null = null;
   /**
-   * The last standing base that held the centre of mass, relative to its ground point: the stance a
-   * rising body is judged on (`readTipping`).
+   * The most centred standing base the body has had, relative to its centre of mass's ground point,
+   * and how far inside it that point was: the stance a rising body is judged on (`readTipping`).
    */
   private standingHull: TippingGeometry["hull"] | null = null;
+  private standingMargin = -Infinity;
   private readonly contactTally = { lifts: 0, pushedS: 0, liftN: 0 };
   private lastRiseGate: { readonly prior: SupportedLocomotionState;
     readonly boundary: SupportedLocomotionBoundary; readonly pairOccupancyClear: boolean;
@@ -702,15 +703,20 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
    * stance: its base is whatever of it is on the floor, a support patch included only when it is.
    * "On the floor" is within `TIPPING.CONTACT_BAND_M` of the lowest point the body has.
    *
-   * **A rising body is judged on the stance it is rising onto**: the last standing base that held
-   * its centre of mass, around where that centre of mass is now, at its live height and gyration. The
-   * rise is authored -- the carrier hoists the pelvis while the legs still lie where they fell -- so
-   * what is on the floor spans nothing under the centre of mass: measured on stone x1 mirrors
-   * (`.review/rise-base.mjs`, Node bout runner), the lowest points stay about a metre from it for the
-   * whole rise, and the fall line read 0 from 0.2 s into every rise, so that any touch put the body
-   * down again. That is a keyframe's reading, not a body's. A low body on its feet is hard to tip
-   * and gets easier as it straightens, and no blow is exempt. A body that has never stood is judged
-   * on what is on the floor. Null without both readers, and for a body with no base.
+   * **A rising body is judged on the stance it is rising onto**: the most centred standing base it
+   * has had, around where its centre of mass is now, at its live height and gyration. The rise is
+   * authored and the pelvis keyframed, so what is on the floor midway spans little under the centre
+   * of mass: in the staged rise's gather the centre of mass is still 0.3 to 0.7 m off the feet at
+   * 0.3 s (`research/rise-bench.mjs`, Node headless arena). A low body on its feet is hard to tip and
+   * gets easier as it straightens, and no blow is exempt. A body that has never stood is judged on
+   * what is on the floor.
+   *
+   * **Most centred, not last.** It was the last standing base that held the centre of mass, which is
+   * the one read the instant before the fall, with the centre of mass on its edge: a rising body's
+   * fall line had a median of about 0.02 m/s and any touch put it down again. 126 of stone's 259
+   * falls began in a rise, and 3310 of the skeleton mirror's 7528 (Node research runner,
+   * `docs/analysis/2026-09-25-falls-and-rise.md`). Null without both readers, and for a body with no
+   * base.
    */
   private readTipping(bindings: readonly string[]): TippingGeometry | null {
     const patch = this.options.supportPatch;
@@ -725,7 +731,11 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const standing = this.supportState.state === "supported" || this.supportState.state === "staggered";
     if (standing) {
       const geometry = tippingGeometry(mass, [...stance, ...contacts.filter(onFloor)]);
-      if (geometry && hullHoldsCentre(geometry.hull)) this.standingHull = geometry.hull;
+      const margin = geometry ? hullCentreMarginM(geometry.hull) : -Infinity;
+      if (geometry && margin >= 0 && margin > this.standingMargin) {
+        this.standingHull = geometry.hull;
+        this.standingMargin = margin;
+      }
       return geometry;
     }
     const live = tippingGeometry(mass, [...stance.filter(onFloor), ...contacts.filter(onFloor)]);
