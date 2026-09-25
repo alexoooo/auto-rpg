@@ -12,7 +12,6 @@
     { "sourceUrl": "https://polyhaven.com/a/stone_wall_05", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/wooden_planks", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
-    { "sourceUrl": "https://polyhaven.com/a/cobblestone_floor_06", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/old_stone_wall", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" }
   ],
@@ -173,20 +172,20 @@
       "name": "stone-wall-albedo", "file": "stone_wall_05_diff_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_diff_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
       "sha256": "0dbdc815a88f3f4365254fa5a927dfcac46031a28a9b6bdc01654b34a1d4ac7a", "channel": "albedo", "colourSpace": "srgb",
-      "family": "stone-wall", "consumers": ["room.wall", "dungeon.wall.a"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1
+      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1
     },
     {
       "name": "stone-wall-normal", "file": "stone_wall_05_nor_gl_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_nor_gl_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
       "sha256": "e726242629e27941f0027d059ac14328d094664616ebd0b7edc629d9ac4dc100", "channel": "normal", "colourSpace": "linear",
-      "family": "stone-wall", "consumers": ["room.wall", "dungeon.wall.a"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1,
+      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1,
       "normalConvention": "opengl", "tangentBasis": "babylon-lh"
     },
     {
       "name": "stone-wall-orm", "file": "stone_wall_05_arm_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_arm_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
       "sha256": "51dc391cc9897c22376b01d1d40dced68276d76d42ed72bb349d4296cfcccdc2", "channel": "orm", "colourSpace": "linear",
-      "family": "stone-wall", "consumers": ["room.wall", "dungeon.wall.a"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1
+      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1
     },
     {
       "name": "room-timber-albedo", "file": "wooden_planks_diff_1k.jpg", "localUrl": "/assets/textures/wooden_planks_diff_1k.jpg",
@@ -227,61 +226,42 @@
       "family": "banner-cloth", "consumers": ["room.banner"], "scale": 1, "invertY": false, "metresPerRepeat": 0.4
     },
     {
-      "name": "cobblestone-floor-06-albedo", "file": "cobblestone_floor_06_diff_1k.jpg", "localUrl": "/assets/textures/cobblestone_floor_06_diff_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cobblestone_floor_06/cobblestone_floor_06_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/cobblestone_floor_06",
-      "sha256": "8d9b2f0c41ac5e03c80a155ebe363f6f2f1adc954de06be475b0dec4210a1e57", "channel": "albedo", "colourSpace": "srgb",
-      "family": "dungeon-floor", "consumers": ["dungeon.floor.a"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
-    },
-    {
-      "name": "cobblestone-floor-06-normal", "file": "cobblestone_floor_06_nor_gl_1k.jpg", "localUrl": "/assets/textures/cobblestone_floor_06_nor_gl_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cobblestone_floor_06/cobblestone_floor_06_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/cobblestone_floor_06",
-      "sha256": "ab4554f04a0837de31d87fa7c92479a0e496f85b3331a8212f2188ad56e405c8", "channel": "normal", "colourSpace": "linear",
-      "family": "dungeon-floor", "consumers": ["dungeon.floor.a"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0,
-      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
-    },
-    {
-      "name": "cobblestone-floor-06-orm", "file": "cobblestone_floor_06_arm_1k.jpg", "localUrl": "/assets/textures/cobblestone_floor_06_arm_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/cobblestone_floor_06/cobblestone_floor_06_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/cobblestone_floor_06",
-      "sha256": "d60496c991768bca17e0c8106a6fedffbb995740a0f2a34db90fdfeb089ad467", "channel": "orm", "colourSpace": "linear",
-      "family": "dungeon-floor", "consumers": ["dungeon.floor.a"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
-    },
-    {
       "name": "large-floor-tiles-02-albedo", "file": "large_floor_tiles_02_diff_1k.jpg", "localUrl": "/assets/textures/large_floor_tiles_02_diff_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_floor_tiles_02/large_floor_tiles_02_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02",
       "sha256": "3865ed2510bad61c7c62fe9f854d5af57f1bc37e4b6d8931f03b12d033f9e17c", "channel": "albedo", "colourSpace": "srgb",
-      "family": "dungeon-floor", "consumers": ["dungeon.floor.b"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0
+      "family": "dungeon-floor", "consumers": ["dungeon.floor"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0
     },
     {
       "name": "large-floor-tiles-02-normal", "file": "large_floor_tiles_02_nor_gl_1k.jpg", "localUrl": "/assets/textures/large_floor_tiles_02_nor_gl_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_floor_tiles_02/large_floor_tiles_02_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02",
       "sha256": "80eed7cdd3eedaf0e348f0388eb47bed183b025165433ba0eef2bf2bd2546e47", "channel": "normal", "colourSpace": "linear",
-      "family": "dungeon-floor", "consumers": ["dungeon.floor.b"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0,
+      "family": "dungeon-floor", "consumers": ["dungeon.floor"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0,
       "normalConvention": "opengl", "tangentBasis": "babylon-lh"
     },
     {
       "name": "large-floor-tiles-02-orm", "file": "large_floor_tiles_02_arm_1k.jpg", "localUrl": "/assets/textures/large_floor_tiles_02_arm_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_floor_tiles_02/large_floor_tiles_02_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02",
       "sha256": "14951d93859094b979257990b396fe0cb52415461218d6a8749b7bf43de92496", "channel": "orm", "colourSpace": "linear",
-      "family": "dungeon-floor", "consumers": ["dungeon.floor.b"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0
+      "family": "dungeon-floor", "consumers": ["dungeon.floor"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0
     },
     {
       "name": "old-stone-wall-albedo", "file": "old_stone_wall_diff_1k.jpg", "localUrl": "/assets/textures/old_stone_wall_diff_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/old_stone_wall",
       "sha256": "76210155ce0a17f006664f602305583e145a8a00be77bea8a0e3341df5148710", "channel": "albedo", "colourSpace": "srgb",
-      "family": "dungeon-wall", "consumers": ["dungeon.wall.b"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
+      "family": "dungeon-wall", "consumers": ["dungeon.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
     },
     {
       "name": "old-stone-wall-normal", "file": "old_stone_wall_nor_gl_1k.jpg", "localUrl": "/assets/textures/old_stone_wall_nor_gl_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/old_stone_wall",
       "sha256": "f847656c8f8e62dd78189ca6ff3ee2f42f9127cfa7834ebd3d313df1699e9c28", "channel": "normal", "colourSpace": "linear",
-      "family": "dungeon-wall", "consumers": ["dungeon.wall.b"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0,
+      "family": "dungeon-wall", "consumers": ["dungeon.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0,
       "normalConvention": "opengl", "tangentBasis": "babylon-lh"
     },
     {
       "name": "old-stone-wall-orm", "file": "old_stone_wall_arm_1k.jpg", "localUrl": "/assets/textures/old_stone_wall_arm_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/old_stone_wall",
       "sha256": "2527086a398628049e457219658a2f6f4941f7df0664372d5608ee0e6c1bed00", "channel": "orm", "colourSpace": "linear",
-      "family": "dungeon-wall", "consumers": ["dungeon.wall.b"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
+      "family": "dungeon-wall", "consumers": ["dungeon.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
     }
   ]
 }

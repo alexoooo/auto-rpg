@@ -40,7 +40,7 @@ const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
 const pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
-// `?floor=` and `?wall=`, each `a`, `b` or `flat`, to compare the two candidate stones and the untextured colours.
+// `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost.
 const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
 // Wheel locomotion cannot strafe; the hero picker offers bodies that can honor screen movement.

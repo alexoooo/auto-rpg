@@ -20,8 +20,10 @@ repetition. The owner asked for downloads.
 
 ## The textures
 
-**The owner chose `b` for both** after playing it, and saw no repetition. `b` is the default; `a` stays
-reachable by query until its files leave.
+**The owner chose `b` for both** after playing it, and saw no repetition. `a` has since left: the
+cobblestone's three files, rows and source, and `dungeon.wall.a` from `stone_wall_05`'s rows. The
+consumers are now `dungeon.floor` and `dungeon.wall`, and `?floor=` and `?wall=` take `flat`, the GPU
+control; any other value draws the stone. `dist/` loses the cobblestone's 2,429,090 bytes of JPG, and a little of the bundled registry.
 
 | Surface | Choice | Poly Haven asset | Repeats every | Bytes added |
 |---|---|---|---|---|
@@ -106,7 +108,7 @@ of an asset before it writes any. It is idempotent.
     - every row has a `CC0-1.0` source;
     - each dungeon consumer has exactly one albedo, normal and ORM map;
     - each dungeon surface repeats at 1.5 m or more.
-  - **`stone_is_chosen_from_the_query_and_defaults_to_the_owners_choice`.**
+  - **`stone_is_the_default_and_flat_is_the_control`.**
   - **`a_textured_world_spans_its_maps_meets_edge_to_edge_and_varies_only_stone`**, under
     `NullEngine` with a texture factory that loads nothing, for three floor/wall pairs:
     - every vertex's UV is its world metres over its surface's span, on all three face

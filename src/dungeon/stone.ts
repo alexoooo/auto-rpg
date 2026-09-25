@@ -4,18 +4,14 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { surfaceMetresPerRepeat, TEXTURED_SURFACES, type SurfaceDescriptor } from "../materials.ts";
 import { surface, type TextureFactory } from "../surface.ts";
 
-/** A textured candidate, or session 01's flat colour. */
-export type StoneChoice = "a" | "b" | "flat";
-export const STONE_CHOICES: readonly StoneChoice[] = Object.freeze(["a", "b", "flat"]);
+/** The textured stone, or session 01's flat colour: the control for what the maps cost. */
+export type StoneChoice = "stone" | "flat";
 
 /** A floor or wall material, and the metres its maps span, which its UVs are divided by. */
 export interface StoneSurface { material: PBRMaterial; metresPerRepeat: number; textured: boolean }
 export interface DungeonSurfaces { floor: StoneSurface; wall: StoneSurface }
 
-const CANDIDATES: Record<"floor" | "wall", Record<"a" | "b", SurfaceDescriptor>> = {
-  floor: { a: TEXTURED_SURFACES.dungeonFloorA, b: TEXTURED_SURFACES.dungeonFloorB },
-  wall: { a: TEXTURED_SURFACES.dungeonWallA, b: TEXTURED_SURFACES.dungeonWallB },
-};
+const STONE: Record<"floor" | "wall", SurfaceDescriptor> = { floor: TEXTURED_SURFACES.dungeonFloor, wall: TEXTURED_SURFACES.dungeonWall };
 /** Session 01's colours, authored in sRGB. */
 const FLAT = Object.freeze({ floor: { name: "worn flagstones", colour: "#77747a" }, wall: { name: "dungeon basalt", colour: "#494b55" } });
 
@@ -29,7 +25,7 @@ export function flatStone(scene: Scene, name: string, colour: string, roughness 
 
 function stoneSurface(scene: Scene, kind: "floor" | "wall", choice: StoneChoice, textures?: TextureFactory): StoneSurface {
   if (choice === "flat") return { material: flatStone(scene, FLAT[kind].name, FLAT[kind].colour), metresPerRepeat: 1, textured: false };
-  const descriptor = CANDIDATES[kind][choice];
+  const descriptor = STONE[kind];
   const material = surface(scene, descriptor, textures);
   material.maxSimultaneousLights = 4;
   return { material, metresPerRepeat: surfaceMetresPerRepeat(descriptor), textured: true };
@@ -40,12 +36,9 @@ export function dungeonStone(scene: Scene, floor: StoneChoice = "flat", wall: St
   return { floor: stoneSurface(scene, "floor", floor, textures), wall: stoneSurface(scene, "wall", wall, textures) };
 }
 
-/** `?floor=` and `?wall=`, each `a`, `b` or `flat`; `b`, the owner's choice, when absent or unreadable. */
+/** `?floor=flat` and `?wall=flat` draw session 01's colours; anything else, or nothing, draws the stone. */
 export function stoneQuery(search: string): { floor: StoneChoice; wall: StoneChoice } {
   const params = new URLSearchParams(search);
-  const read = (key: string): StoneChoice => {
-    const value = params.get(key);
-    return STONE_CHOICES.includes(value as StoneChoice) ? value as StoneChoice : "b";
-  };
+  const read = (key: string): StoneChoice => params.get(key) === "flat" ? "flat" : "stone";
   return { floor: read("floor"), wall: read("wall") };
 }

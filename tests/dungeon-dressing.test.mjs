@@ -76,7 +76,7 @@ test("the_dungeon_builds_the_same_colliders_with_or_without_visuals", async () =
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
     try {
       const world = buildDungeonWorld(arena.scene, generateLevel(seed).map,
-        visuals === "stone" ? dungeonStone(arena.scene, "a", "b", () => null) : visuals);
+        visuals === "stone" ? dungeonStone(arena.scene, "stone", "stone", () => null) : visuals);
       const rows = colliderRows(arena.scene);
       const sha256 = createHash("sha256").update(rows.join("\n")).digest("hex");
       assert.deepEqual({ count: rows.length, sha256 }, PINNED[seed], `seed ${seed}, visuals ${visuals}`);

@@ -10,7 +10,7 @@ import { dungeonStone, stoneQuery } from "../src/dungeon/stone.ts";
 import { buildDungeonWorld } from "../src/dungeon/world.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 
-const DUNGEON = ["dungeon.floor.a", "dungeon.floor.b", "dungeon.wall.a", "dungeon.wall.b"];
+const DUNGEON = ["dungeon.floor", "dungeon.wall"];
 /** A texture factory that loads nothing, as Node cannot. */
 const noImages = () => null;
 
@@ -26,28 +26,29 @@ test("dungeon_textures_are_registered_with_provenance", () => {
     const rows = registry.textures.filter(r => r.consumers.includes(consumer));
     assert.deepEqual(rows.map(r => r.channel).sort(), ["albedo", "normal", "orm"], `${consumer} has one map per channel`);
   }
-  for (const name of ["dungeonFloorA", "dungeonFloorB", "dungeonWallA", "dungeonWallB"])
+  for (const name of ["dungeonFloor", "dungeonWall"])
     assert.ok(surfaceMetresPerRepeat(TEXTURED_SURFACES[name]) >= 1.5, `${name} repeats at a stone's scale`);
 });
 
-test("stone_is_chosen_from_the_query_and_defaults_to_the_owners_choice", () => {
-  assert.deepEqual(stoneQuery(""), { floor: "b", wall: "b" });
-  assert.deepEqual(stoneQuery("?play=dungeon&floor=b&wall=flat"), { floor: "b", wall: "flat" });
-  assert.deepEqual(stoneQuery("?floor=c&wall=B"), { floor: "b", wall: "b" });
-  assert.deepEqual(stoneQuery("?floor=a&wall=a"), { floor: "a", wall: "a" });
+test("stone_is_the_default_and_flat_is_the_control", () => {
+  assert.deepEqual(stoneQuery(""), { floor: "stone", wall: "stone" });
+  assert.deepEqual(stoneQuery("?play=dungeon&floor=flat"), { floor: "flat", wall: "stone" });
+  assert.deepEqual(stoneQuery("?wall=flat"), { floor: "stone", wall: "flat" });
+  // A link from before the choice still draws the stone.
+  assert.deepEqual(stoneQuery("?floor=b&wall=a"), { floor: "stone", wall: "stone" });
 });
 
 test("a_textured_world_spans_its_maps_meets_edge_to_edge_and_varies_only_stone", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   try {
     const map = generateLevel(1).map;
-    for (const [floor, wall] of [["a", "b"], ["b", "flat"], ["flat", "a"]]) {
+    for (const [floor, wall] of [["stone", "stone"], ["stone", "flat"], ["flat", "stone"]]) {
       const look = dungeonStone(arena.scene, floor, wall, noImages), world = buildDungeonWorld(arena.scene, map, look);
       const drawn = kind => world.surfaces.filter(m => m.name.startsWith(`${kind}.visual`));
       for (const [kind, choice] of [["floor", floor], ["wall", wall]]) {
         const { material, metresPerRepeat, textured } = look[kind];
         assert.equal(textured, choice !== "flat");
-        if (textured) assert.equal(metresPerRepeat, surfaceMetresPerRepeat(TEXTURED_SURFACES[`dungeon${kind === "floor" ? "Floor" : "Wall"}${choice.toUpperCase()}`]));
+        if (textured) assert.equal(metresPerRepeat, surfaceMetresPerRepeat(TEXTURED_SURFACES[kind === "floor" ? "dungeonFloor" : "dungeonWall"]));
         assert.ok(drawn(kind).length > 0 && drawn(kind).every(m => m.material === material), `${kind} is drawn in the chosen stone`);
         // UVs are world metres over the span: x and z looking up, along the face and up it on a side.
         const faces = new Set();
