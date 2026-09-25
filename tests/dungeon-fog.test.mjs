@@ -136,6 +136,18 @@ test("the_fog_shader_samples_as_fogSample_does", () => {
     "smoothstep(0.5, 1.0, dungeonFog)"]) assert.ok(source.includes(piece), `the shader no longer reads ${piece}`);
 });
 
+test("the_heart_of_the_bubble_keeps_half_the_wall_as_a_checkerboard", () => {
+  // The owner: with 13 of 16 pixels gone the bubble was "almost a bit too transparent"; Diablo's wall stays plainly
+  // there, half of it drawn. The shader's own dither, `dungeonBayer4`, at the heart's share over one 4x4 tile.
+  const bayer2 = (x, y) => { x = Math.floor(x); y = Math.floor(y); const v = 0.5 * x + y * y * 0.75; return v - Math.floor(v); };
+  const bayer4 = (x, y) => bayer2(0.5 * x, 0.5 * y) * 0.25 + bayer2(x, y);
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++)
+    assert.equal(bayer4(x + 0.5, y + 0.5) < CUT_AWAY.most, (x + y) % 2 === 0, `pixel (${x}, ${y}) at the heart`);
+  const source = Object.values(DungeonFogPlugin.prototype.getCustomCode.call(null, "fragment")).join(" ");
+  for (const piece of ["return fract(dot(a, vec2(0.5, a.y * 0.75)));", "return dungeonBayer2(0.5 * a) * 0.25 + dungeonBayer2(a);"])
+    assert.ok(source.includes(piece), `the shader's dither is no longer ${piece}`);
+});
+
 test("a_wall_in_front_ghosts_around_the_hero_and_the_opening_has_no_edge", () => {
   // The cut-away was a world-space box, 13 of 16 pixels dropped inside it and none outside: a square hole on screen.
   const hero = { x: 20, z: 20 };
@@ -153,7 +165,7 @@ test("a_wall_in_front_ghosts_around_the_hero_and_the_opening_has_no_edge", () =>
     }
     assert.ok(hiding >= 5, `pitch ${pitch}: ${hiding} depths checked`);
     // A wall the hero is pressed against, its face 0.28 m off a human's centre, is dropped as fully as the heart: the
-    // shader drops a pixel whose Bayer value, k / 16, is below the share, and `ahead` is short enough for all 13.
+    // shader drops a pixel whose Bayer value, k / 16, is below the share, and `ahead` is short enough for all 8.
     const dropped = share => Array.from({ length: 16 }, (_, k) => k / 16 < share).filter(Boolean).length;
     const pressed = 0.28 / Math.max(Math.abs(toward.x), Math.abs(toward.z));
     assert.equal(dropped(cut(pressed, 0, CUT_AWAY.centre + pressed * Math.tan(pitch))), dropped(CUT_AWAY.most),
@@ -194,10 +206,10 @@ test("a_wall_in_front_ghosts_around_the_hero_and_the_opening_has_no_edge", () =>
     assert.equal(cut(8, 0, 0.6), 0, `pitch ${pitch}: a low wall far in front`);
   }
   // The camera's pitch moves the opening: a steeper camera sees the top of a wall half a metre in front nearer the
-  // body. At pitch 30 that top is in the soft ring, 0.63 dropped; at 45 it is 0.76.
+  // body. At pitch 30 that top is in the soft ring, 0.79 of the heart's drop; at 45 it is 0.95.
   for (const azimuth of AZIMUTHS) {
     const toward = cameraToward(azimuth), top = pitch => cutAway(hero, onView(hero, toward, 0.5, 0, WALL_HEIGHT), pitch, toward);
-    assert.ok(top(Math.PI / 4) > top(CAMERA_PITCH) + 0.1, `azimuth ${azimuth}: ${top(Math.PI / 4)} against ${top(CAMERA_PITCH)}`);
+    assert.ok(top(Math.PI / 4) > top(CAMERA_PITCH) + 0.125 * CUT_AWAY.most, `azimuth ${azimuth}: ${top(Math.PI / 4)} against ${top(CAMERA_PITCH)}`);
   }
   // The view turns the opening with it: over the body toward one camera is beside or behind the hero for the other.
   const over = onView(hero, cameraToward(CAMERA_AZIMUTH), 1, 0, CUT_AWAY.centre + Math.tan(CAMERA_PITCH));

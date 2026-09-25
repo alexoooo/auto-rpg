@@ -69,7 +69,9 @@ export const WALL_HEIGHT = 2.8;
  * drops a share of a wall's pixels by a 4x4 ordered dither; the share is greatest where the wall covers the hero's
  * body on screen and falls smoothly to none at the rim of an oval around it, so the opening has no edge. The owner
  * asked for a bubble that shows the hero and a bit of the room around them, and that reads plainly as a see-through
- * bubble: so it is wide, most of its radius is the fade, and its heart keeps enough of the wall to be a ghost.
+ * bubble: so it is wide and most of its radius is the fade. Its heart keeps half the wall, as a checkerboard, as
+ * Diablo's did: with 13 of 16 pixels dropped the owner found it "almost a bit too transparent", where only partly
+ * transparent makes it obvious the hero is behind a wall.
  */
 export const CUT_AWAY = Object.freeze({
   /** The oval's centre above the hero's feet: the middle of the body. */
@@ -80,12 +82,12 @@ export const CUT_AWAY = Object.freeze({
   /** Out to this share of the oval's radius the drop is full; beyond it, it falls to none at the rim, so four fifths
    * of the radius are a visible fade. */
   soft: 0.2,
-  /** The share dropped at the oval's heart, so the wall ghosts rather than vanishes: 13 of 16 pixels. */
-  most: 0.8,
+  /** The share dropped at the oval's heart: 8 of 16 pixels, which the dither draws as a checkerboard. */
+  most: 0.5,
   /** A wall behind the hero hides nothing: the drop rises from none to full over this far toward the camera. A wall
    * the hero is pressed against has its face 0.28 m off a human's centre: 0.28 m toward a camera square to it, 0.4 m
    * toward one on the diagonal. At 0.32 the square case is 0.957 of the full drop, which the 4x4 dither draws as the
-   * full 13 of 16 pixels (0.35 drew 12; past about 0.328 it is 12). A 2 cm step changes the share by at most
+   * full 8 of 16 pixels (past about 0.36 it is 7). A 2 cm step changes the share by at most
    * 0.03 / `ahead` of `most`, which reaches a tenth at 0.30. */
   ahead: 0.32,
   /** A wall's foot stays whole below the first height and is fully in the cut above the second: the footprint reads. */
