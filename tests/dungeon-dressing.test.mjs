@@ -5,8 +5,6 @@ import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { DRESSING, torchPlacements } from "../src/dungeon/dressing.ts";
 import { buildDungeonWorld } from "../src/dungeon/world.ts";
 import { dungeonStone } from "../src/dungeon/stone.ts";
-import { fadeDepth } from "../src/dungeon/fog.ts";
-import { CAMERA_PITCH } from "../src/dungeon/camera.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { isFloor } from "../src/dungeon/map.ts";
 import { ShaderStore } from "@babylonjs/core/Engines/shaderStore.js";
@@ -51,12 +49,6 @@ test("torch_placements_are_a_function_of_the_seed", () => {
   const map = levels.get(1);
   assert.deepEqual(torchPlacements(map, 1), torchPlacements(map, 1));
   assert.notDeepEqual(torchPlacements(map, 1), torchPlacements(map, 2), "the seed draws the torches, on the same walls");
-});
-
-test("the_fade_band_is_todays_at_the_default_pitch", () => {
-  // The band was a hand-set 9 before it was derived; derived, it is 8.980 at the default pitch.
-  assert.ok(Math.abs(fadeDepth(CAMERA_PITCH) - 8.980) < 0.001, `was 9 by hand, is ${fadeDepth(CAMERA_PITCH)}`);
-  assert.ok(fadeDepth(Math.PI / 4) < fadeDepth(CAMERA_PITCH), "a steeper camera sees over more of a wall");
 });
 
 /** Every body the world builds, as a row a hash can hold: name, where and how big (to 0.1 mm), what it hits, its

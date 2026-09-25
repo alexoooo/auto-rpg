@@ -77,7 +77,7 @@ export class DungeonRun {
   clock = 0;
   status: "playing" | "won" | "dead" = "playing";
   notice = "Find the exit. Click to move; drag to keep moving through danger.";
-  /** The camera's elevation, which decides how much ground a wall hides in front of the hero. The page sets it. */
+  /** The camera's elevation, which decides where on a wall in front of the hero the cut-away falls. The page sets it. */
   pitch = CAMERA_PITCH;
   private nextPerception = 0;
   private readonly plugin: HavokPlugin;

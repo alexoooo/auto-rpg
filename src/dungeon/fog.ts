@@ -63,10 +63,42 @@ export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: numbe
 /** How tall a wall stands, its collider and its drawn skin alike. */
 export const WALL_HEIGHT = 2.8;
 
-/** How deep in front of the hero, along the view, a wall is cut away: a 2.8 m wall covers `2.8 / tan(pitch)` of
- * ground behind it, plus a margin for the body. 8.98 at the default pitch, where it was 9. */
-export function fadeDepth(pitch: number): number {
-  return Math.SQRT2 * (WALL_HEIGHT / Math.tan(pitch) + 1.5);
+/**
+ * How a wall between the hero and the camera ghosts away, set by eye and judged on the owner's machine. The shader
+ * drops a share of a wall's pixels by a 4x4 ordered dither; the share is greatest where the wall covers the hero's
+ * body on screen and falls smoothly to none at the rim of an oval around it, so the opening has no edge. It replaced
+ * a world-space box that dropped 13 of 16 pixels inside and none outside, which read as a square hole.
+ */
+export const CUT_AWAY = Object.freeze({
+  /** The oval's centre above the hero's feet: the middle of the body. */
+  centre: 0.9,
+  /** The oval's half-width and half-height on screen, in metres at the hero. */
+  across: 2.4, up: 2.2,
+  /** Out to this share of the oval's radius the drop is full; beyond it, it falls to none at the rim. */
+  soft: 0.3,
+  /** The share dropped at the oval's heart, so the wall ghosts rather than vanishes: 13 of 16 pixels. */
+  most: 0.8,
+  /** A wall behind the hero hides nothing: the drop rises from none to full over this far toward the camera. Short
+   * enough that a wall the hero is pressed against, whose face is 0.28 m off a human's centre and so 0.4 m toward the
+   * camera in the hero's own column, is at the full drop; long enough that no 2 cm is a step. */
+  ahead: 0.35,
+  /** A wall's foot stays whole below the first height and is fully in the cut above the second: the footprint reads. */
+  foot: Object.freeze([0.1, 0.5] as const),
+});
+
+const smoothstep = (a: number, b: number, v: number) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/**
+ * The share of a wall's pixels at `at` that the cut-away drops, 0 to `CUT_AWAY.most`, with the camera at `pitch`
+ * and toward +x+z of the hero, as `frameDungeon` puts it. The shader in `fog-plugin.ts` is the same rule: change both.
+ */
+export function cutAway(hero: Point, at: { x: number; y: number; z: number }, pitch: number): number {
+  const dx = at.x - hero.x, dz = at.z - hero.z;
+  const along = (dx + dz) * Math.SQRT1_2, across = (dx - dz) * Math.SQRT1_2;
+  const up = (at.y - CUT_AWAY.centre) * Math.cos(pitch) - along * Math.sin(pitch);
+  const r = Math.hypot(across / CUT_AWAY.across, up / CUT_AWAY.up);
+  return CUT_AWAY.most * (1 - smoothstep(CUT_AWAY.soft, 1, r)) * smoothstep(0, CUT_AWAY.ahead, along)
+    * smoothstep(CUT_AWAY.foot[0], CUT_AWAY.foot[1], at.y);
 }
 
 /** A rock cell with floor among its eight neighbours: where a wall stands, and a collider with it. */

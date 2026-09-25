@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
-import { FOG, boundary, doorCells, fogMask, fogSample, validateDungeonVisuals, wallSurface, SIDE_FACES } from "../src/dungeon/fog.ts";
+import { CUT_AWAY, FOG, WALL_HEIGHT, boundary, cutAway, doorCells, fogMask, fogSample, validateDungeonVisuals, wallSurface, SIDE_FACES } from "../src/dungeon/fog.ts";
 import { buildDungeonWorld, VISUAL_CHUNK } from "../src/dungeon/world.ts";
-import { DungeonFogPlugin } from "../src/dungeon/fog-plugin.ts";
+import { DungeonFogPlugin, dungeonFog } from "../src/dungeon/fog-plugin.ts";
+import { CAMERA_PITCH } from "../src/dungeon/camera.ts";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { isFloor, reveal } from "../src/dungeon/map.ts";
@@ -116,6 +118,80 @@ test("the_fog_shader_samples_as_fogSample_does", () => {
   for (const piece of ["dungeonAt = vPositionW.xz - 0.200 * vNormalW.xz", "ivec2(floor(dungeonAt + 0.5))", "ivec2(int(fogBand.w) - 1)",
     "texelFetch(fogMaskSampler, dungeonCell, 0).r < 0.020", "texture2D(fogMaskSampler, (dungeonAt + 0.5) / fogBand.w).r",
     "smoothstep(0.5, 1.0, dungeonFog)"]) assert.ok(source.includes(piece), `the shader no longer reads ${piece}`);
+});
+
+test("a_wall_in_front_ghosts_around_the_hero_and_the_opening_has_no_edge", () => {
+  // The cut-away was a world-space box, 13 of 16 pixels dropped inside it and none outside: a square hole on screen.
+  const hero = { x: 20, z: 20 };
+  const wall = (along, across, y) => ({ x: hero.x + (along + across) * Math.SQRT1_2, y, z: hero.z + (along - across) * Math.SQRT1_2 });
+  const steps = (from, to) => Array.from({ length: Math.round((to - from) / 0.02) + 1 }, (_, i) => from + i * 0.02);
+  for (const pitch of [CAMERA_PITCH, Math.PI / 4]) {
+    const cut = (along, across, y) => cutAway(hero, wall(along, across, y), pitch);
+    // Every wall in front that can hide the hero is at the heart where it covers the middle of the body.
+    let hiding = 0;
+    for (const along of [0.4, 0.55, 0.8, 1.1, 1.5, 1.9, 3, 4.5]) {
+      const y = CUT_AWAY.centre + along * Math.tan(pitch);
+      if (y > WALL_HEIGHT) continue;
+      hiding++;
+      assert.ok(cut(along, 0, y) > 0.999 * CUT_AWAY.most, `pitch ${pitch}: a wall ${along} m in front over the body`);
+    }
+    assert.ok(hiding >= 5, `pitch ${pitch}: ${hiding} depths checked`);
+    // No edge: along every line across it, up it and toward the camera, no 2 cm changes the share by a tenth of its most.
+    const lines = [
+      steps(-4, 4).map(across => cut(1.5, across, 1.8)),
+      steps(0, WALL_HEIGHT).map(y => cut(1.5, 0, y)),
+      steps(-2, 8).map(along => cut(along, 0, Math.min(WALL_HEIGHT, CUT_AWAY.centre + 1.5 * Math.tan(pitch)))),
+      steps(-4, 4).map(across => cut(3, across, WALL_HEIGHT)),
+    ];
+    for (const [i, line] of lines.entries()) {
+      const jump = Math.max(...line.slice(1).map((v, j) => Math.abs(v - line[j])));
+      assert.ok(jump < 0.1 * CUT_AWAY.most, `pitch ${pitch}, line ${i}: a 2 cm step of ${jump.toFixed(3)}`);
+      assert.ok(Math.max(...line) > 0.5 * CUT_AWAY.most, `pitch ${pitch}, line ${i} crosses the opening`);
+    }
+    // Partial, and only where it helps: never a whole wall, nothing beside or behind the hero, the foot whole, the oval closed.
+    for (const along of steps(-3, 8)) for (const across of [-3, -2.4, -1, 0, 1, 2.4, 3]) for (const y of [0, 0.1, 0.8, 1.6, WALL_HEIGHT]) {
+      const share = cut(along, across, y);
+      assert.ok(share >= 0 && share <= CUT_AWAY.most + 1e-9, `share ${share}`);
+      if (along <= 0 || y <= CUT_AWAY.foot[0] || Math.abs(across) >= CUT_AWAY.across) assert.equal(share, 0, `${along}, ${across}, ${y}`);
+    }
+    // It is cut on the screen: every point on one line of sight, off the body in the soft ring, drops the same share.
+    const sight = t => {
+      const along = 0.5 * CUT_AWAY.up * Math.sin(pitch) + t * Math.cos(pitch);
+      return cut(along, 0.5 * CUT_AWAY.across, CUT_AWAY.centre - 0.5 * CUT_AWAY.up * Math.cos(pitch) + t * Math.sin(pitch));
+    };
+    const top = (WALL_HEIGHT - CUT_AWAY.centre + 0.5 * CUT_AWAY.up * Math.cos(pitch)) / Math.sin(pitch);
+    const shares = steps(1.5, Math.min(5.5, top)).map(sight).filter((_, i, all) => i % 25 === 0 || i === all.length - 1);
+    for (const share of shares) assert.ok(Math.abs(share - shares[0]) < 1e-9, `pitch ${pitch}: ${shares.map(v => v.toFixed(4))}`);
+    assert.ok(shares[0] > 0.1 * CUT_AWAY.most && shares[0] < 0.9 * CUT_AWAY.most, `pitch ${pitch}: ${shares[0]} is in the soft ring`);
+    // Far enough toward the camera, a wall sits below the hero on screen and hides nothing: it is whole.
+    assert.equal(cut(8, 0, 0.6), 0, `pitch ${pitch}: a low wall far in front`);
+  }
+  // The camera's pitch moves the opening: a steeper camera sees the top of a wall 1 m in front nearer the body.
+  assert.ok(cutAway(hero, wall(1, 0, WALL_HEIGHT), Math.PI / 4) > cutAway(hero, wall(1, 0, WALL_HEIGHT), CAMERA_PITCH) + 0.1);
+});
+
+test("the_cut_away_shader_is_cutAway_and_is_handed_the_pitch", async () => {
+  // No test runs the shader, so this is a tripwire for the hand-copied rule, not a proof.
+  const f = v => v.toFixed(3);
+  const source = Object.values(DungeonFogPlugin.prototype.getCustomCode.call(null, "fragment")).join(" ");
+  for (const piece of ["(dungeonAhead.x + dungeonAhead.y) * 0.70711", "(dungeonAhead.x - dungeonAhead.y) * 0.70711",
+    `(vPositionW.y - ${f(CUT_AWAY.centre)}) * fogBand.x - dungeonAlong * fogBand.y`,
+    `${f(CUT_AWAY.most)} * (1.0 - smoothstep(${f(CUT_AWAY.soft)}, 1.0, length(vec2(dungeonAcross / ${f(CUT_AWAY.across)}, dungeonUp / ${f(CUT_AWAY.up)}))))`,
+    `${f(CUT_AWAY.up)}))))
+  * smoothstep(0.0, ${f(CUT_AWAY.ahead)}, dungeonAlong) * smoothstep(${f(CUT_AWAY.foot[0])}, ${f(CUT_AWAY.foot[1])}, vPositionW.y);`,
+    "dungeonBayer4(gl_FragCoord.xy) < dungeonCut) discard"]) assert.ok(source.includes(piece), `the shader no longer reads ${piece}`);
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false }), map = levels.get(1);
+  try {
+    const fog = dungeonFog(arena.scene, map), plugin = fog.attach(new PBRMaterial("probe", arena.scene), "wall");
+    for (const pitch of [CAMERA_PITCH, Math.PI / 4]) {
+      fog.update(new Set(), new Set(), pitch);
+      const bound = {};
+      plugin.bindForSubMesh({ updateFloat2: (n, ...v) => { bound[n] = v; }, updateFloat4: (n, ...v) => { bound[n] = v; }, setTexture() {} });
+      assert.deepEqual([bound.fogBand[0], bound.fogBand[1], bound.fogBand[3]], [Math.cos(pitch), Math.sin(pitch), map.size]);
+      assert.deepEqual(bound.fogHero, [map.start.x, map.start.z]);
+    }
+    fog.dispose();
+  } finally { arena.dispose(); }
 });
 
 test("the_wall_surface_is_the_outer_skin_of_the_colliders", () => {

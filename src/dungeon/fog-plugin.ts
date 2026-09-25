@@ -9,7 +9,7 @@ import { ShaderLanguage } from "@babylonjs/core/Materials/shaderLanguage.js";
 import type { UniformBuffer } from "@babylonjs/core/Materials/uniformBuffer.js";
 import type { SubMesh } from "@babylonjs/core/Meshes/subMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { FOG_SAMPLE, WALL_HEIGHT, fadeDepth, fogMask } from "./fog.ts";
+import { CUT_AWAY, FOG_SAMPLE, WALL_HEIGHT, fogMask } from "./fog.ts";
 import type { DungeonMap, Point } from "./map.ts";
 
 /** Set by eye, and judged on the owner's machine. */
@@ -18,12 +18,6 @@ export const FOG_LOOK = Object.freeze({
    * surface's own lit brightness so that remembered stone stays readable. */
   memory: Object.freeze([0.035, 0.04, 0.05] as const),
   memoryLuminance: 0.18,
-  /** How far to either side of the hero's column, in the `x - z` units the cut-away is measured in (sqrt 2 per
-   * metre across the view), a wall in front of the hero opens. */
-  sideMargin: 3.5,
-  /** The share of an opened wall's pixels dropped, by a 4x4 ordered dither: 13 of 16. The boxes it replaces
-   * were drawn at 0.16 opacity. */
-  dither: 0.8,
 });
 
 /**
@@ -46,7 +40,7 @@ export const STONE_LOOK = Object.freeze({
 /** Which stone rules a material's fragments follow: a floor's, a wall's, or none (flat colour, and doors). */
 export type StoneRole = "floor" | "wall" | null;
 
-interface FogView { size: number; hero: Point; depth: number; texture: RawTexture }
+interface FogView { size: number; hero: Point; pitch: number; texture: RawTexture }
 
 const f = (v: number) => v.toFixed(3);
 
@@ -56,6 +50,7 @@ const f = (v: number) => v.toFixed(3);
 // declared. The discards come first in `main`, before any lighting is paid for, and before the prepass writes, so
 // an unexplored or cut-away pixel leaves no trace in the ambient occlusion either.
 // The mask is read as `FOG_SAMPLE` says, and `fogSample` in `fog.ts` is the same rule on the CPU: change both.
+// The cut-away is `cutAway` in `fog.ts`, with `fogBand.xy` the camera pitch's cosine and sine.
 // `texelFetch` and a one-channel texture need WebGL2, as SSAO2 does.
 const FRAGMENT = Object.freeze({
   CUSTOM_FRAGMENT_DEFINITIONS: `
@@ -100,9 +95,11 @@ ivec2 dungeonCell = clamp(ivec2(floor(dungeonAt + 0.5)), ivec2(0), ivec2(int(fog
 if (texelFetch(fogMaskSampler, dungeonCell, 0).r < ${FOG_SAMPLE.drawnFrom.toFixed(3)}) discard;
 float dungeonFog = texture2D(fogMaskSampler, (dungeonAt + 0.5) / fogBand.w).r;
 vec2 dungeonAhead = vPositionW.xz - fogHero;
-float dungeonAlong = dungeonAhead.x + dungeonAhead.y;
-if (vPositionW.y > 0.05 && dungeonAlong > 0.0 && dungeonAlong < fogBand.x &&
-    abs(dungeonAhead.x - dungeonAhead.y) < fogBand.y && dungeonBayer4(gl_FragCoord.xy) < fogBand.z) discard;
+float dungeonAlong = (dungeonAhead.x + dungeonAhead.y) * 0.70711, dungeonAcross = (dungeonAhead.x - dungeonAhead.y) * 0.70711;
+float dungeonUp = (vPositionW.y - ${f(CUT_AWAY.centre)}) * fogBand.x - dungeonAlong * fogBand.y;
+float dungeonCut = ${f(CUT_AWAY.most)} * (1.0 - smoothstep(${f(CUT_AWAY.soft)}, 1.0, length(vec2(dungeonAcross / ${f(CUT_AWAY.across)}, dungeonUp / ${f(CUT_AWAY.up)}))))
+  * smoothstep(0.0, ${f(CUT_AWAY.ahead)}, dungeonAlong) * smoothstep(${f(CUT_AWAY.foot[0])}, ${f(CUT_AWAY.foot[1])}, vPositionW.y);
+if (dungeonBayer4(gl_FragCoord.xy) < dungeonCut) discard;
 #endif
 `,
   // After the material's own image processing: in linear light while `forgePost` does that processing, as it does
@@ -151,9 +148,9 @@ export class DungeonFogPlugin extends MaterialPluginBase {
     return shaderType === "fragment" && shaderLanguage === ShaderLanguage.GLSL ? FRAGMENT : null;
   }
   override bindForSubMesh(uniformBuffer: UniformBuffer, _scene: Scene, _engine: AbstractEngine, _subMesh: SubMesh): void {
-    const { hero, depth, size, texture } = this.view;
+    const { hero, pitch, size, texture } = this.view;
     uniformBuffer.updateFloat2("fogHero", hero.x, hero.z);
-    uniformBuffer.updateFloat4("fogBand", depth, FOG_LOOK.sideMargin, FOG_LOOK.dither, size);
+    uniformBuffer.updateFloat4("fogBand", Math.cos(pitch), Math.sin(pitch), 0, size);
     uniformBuffer.setTexture("fogMaskSampler", texture);
   }
 }
@@ -166,7 +163,7 @@ export function dungeonFog(scene: Scene, map: DungeonMap) {
     Constants.TEXTURE_BILINEAR_SAMPLINGMODE, Constants.TEXTURETYPE_UNSIGNED_BYTE);
   texture.name = "dungeon fog mask";
   texture.wrapU = texture.wrapV = Constants.TEXTURE_CLAMP_ADDRESSMODE;
-  const view: FogView = { size: map.size, hero: { x: map.start.x, z: map.start.z }, depth: fadeDepth(Math.PI / 6), texture };
+  const view: FogView = { size: map.size, hero: { x: map.start.x, z: map.start.z }, pitch: Math.PI / 6, texture };
   const plugins: DungeonFogPlugin[] = [];
   return {
     texture, bytes, plugins,
@@ -174,7 +171,7 @@ export function dungeonFog(scene: Scene, map: DungeonMap) {
       const plugin = new DungeonFogPlugin(material, view, stone); plugins.push(plugin); return plugin;
     },
     update(visible: ReadonlySet<number>, explored: ReadonlySet<number>, pitch: number): void {
-      fogMask(map, visible, explored, bytes); texture.update(bytes); view.depth = fadeDepth(pitch);
+      fogMask(map, visible, explored, bytes); texture.update(bytes); view.pitch = pitch;
     },
     setHero(hero: Point): void { view.hero.x = hero.x; view.hero.z = hero.z; },
     dispose(): void { texture.dispose(); },
