@@ -14,7 +14,18 @@ export type DriverStopReason = "verdict" | "handover" | "dispose";
 export interface InstalledDriver {
   readonly surface: string;
   readonly name: string;
-  step(dt: number): void;
+  /**
+   * Decide and apply, on a substep that is due a decision.
+   *
+   * **Two durations, because a decision and a substep are two clocks.** `dt` is the substep, and
+   * it is what the applied command is stepped with, because `apply` runs once per substep whether
+   * the command in it is fresh or held. `decisionSeconds` is how long the decision will stand,
+   * `every` substeps (`CONFIG.world.controlHz`), and it is what the mind is told. Handing the
+   * interval to both made `apply` count a decision's whole interval on its first substep and then
+   * each held substep again. Nothing in `apply` reads its duration today, so that was latent; the
+   * split makes it impossible rather than unread. Omitted, the two are the same substep.
+   */
+  step(dt: number, decisionSeconds?: number): void;
   /**
    * Re-apply the last decision without asking the mind, on a substep between two decisions
    * (`CONFIG.world.controlHz`). A driver without it is stepped on every substep.
@@ -113,13 +124,14 @@ export function stepControlledPair(left: ControlledBody, right: ControlledBody, 
   right.sampleContactPress?.(leftSource ? [leftSource] : []);
   left.locomotion?.beginControlStep();
   right.locomotion?.beginControlStep();
-  // A decision spans `every` substeps and is told so; between two, the held command is re-applied
-  // so that servos, carriers and gaits go on at the physics rate. A driver with no `hold` decides
-  // every substep, as before.
+  // A decision spans `every` substeps and the mind is told so; its command is applied with the
+  // substep, on this substep as on every held one after it. Between two decisions the held command
+  // is re-applied so that servos, carriers and gaits go on at the physics rate. A driver with no
+  // `hold` decides every substep, as before.
   for (const body of [left, right]) {
     const driver = body.control.driver;
     if (!driver.hold) driver.step(dt);
-    else if (due) driver.step(dt * every);
+    else if (due) driver.step(dt, dt * every);
     else driver.hold(dt);
   }
   if (isPhysicalSupportedLocomotionPort(left.locomotion) ||

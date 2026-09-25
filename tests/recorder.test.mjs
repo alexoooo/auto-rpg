@@ -171,7 +171,7 @@ test("every_driver_records_the_intent_immediately_after_deciding", async () => {
   // for and not what survived the arm. It was two endpoints until the humanoid one went with the
   // Warrior; `src/humanoid-control.ts` carried the identical three lines.
   const source = await readFile(new URL("../src/golem/golem-control.ts", import.meta.url), "utf8");
-  assert.match(source, /this\.apply\(dt, this\.mind\.decide\(this\.view, dt\)\)/);
+  assert.match(source, /this\.apply\(dt, this\.mind\.decide\(this\.view, decisionSeconds\)\)/);
   assert.match(source, /this\.recording\.intent\(intent\);\s*this\.observer\?\.\(this\.options\.view, intent\);\s*this\.options\.apply/);
 });
 

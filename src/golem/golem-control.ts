@@ -176,9 +176,10 @@ class GolemDriver implements InstalledDriver {
     this.canStep = canStep;
   }
   get name(): string { return this.mind.name; }
-  step(dt: number): void {
+  /** The mind is told how long its decision stands; the command is applied for one substep. */
+  step(dt: number, decisionSeconds = dt): void {
     if (!this.active || !this.canStep()) return;
-    this.apply(dt, this.mind.decide(this.view, dt));
+    this.apply(dt, this.mind.decide(this.view, decisionSeconds));
   }
   /** Re-apply the last decision without asking the mind again (`CONFIG.world.controlHz`). */
   hold(dt: number): void {
