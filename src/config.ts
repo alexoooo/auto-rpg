@@ -53,6 +53,15 @@ export const CONFIG = {
      * not of the rate: change it only with every drive re-measured.
      */
     solverTuningHz: 240,
+    /**
+     * How often a golem's mind is asked for a new command, in decisions per second. Between two
+     * decisions the held command is re-applied on every substep, so each servo still tracks, each
+     * carrier still stages its request and each gait still runs at `physicsHz`; only publishing the
+     * view and `Mind.decide` are skipped. The substep interval is `round(physicsHz / controlHz)`,
+     * never less than one, so a value at or above `physicsHz` decides every substep, as before.
+     * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md`.
+     */
+    controlHz: 240,
     /** Clamp: a long stall must not integrate one enormous step. */
     maxFrameSeconds: 1 / 20,
   },

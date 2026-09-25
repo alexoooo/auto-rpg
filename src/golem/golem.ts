@@ -997,8 +997,10 @@ export class Golem implements Combatant {
     describe(into: BodyView): void;
     nearestPartTo(point: Vector3): number;
     publishProjectiles(into: ProjectileView[], at: number, owner: "self" | "opponent"): number;
-  } | null, clock: number): void {
+  } | null, clock: number, publish = true): void {
     this.locomotionModule.beginSubstep();
+    this.view.clock = clock;
+    if (!publish) return;
     this.describe(this.view.self);
     if (opponent) opponent.describe(this.view.opponent);
     this.view.measure = opponent ? opponent.nearestPartTo(this.view.self.shoulder) : Infinity;

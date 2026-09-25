@@ -6,6 +6,7 @@ import type { PressSource } from "./contact-press.ts";
 import { resolveSupportedPair } from "./supported-locomotion.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 import { isPhysicalSupportedLocomotionPort, resolvePhysicalSupportedPair } from "./supported-locomotion-production.ts";
+import { CONFIG } from "./config.ts";
 
 export type DriverStopReason = "verdict" | "handover" | "dispose";
 
@@ -14,6 +15,11 @@ export interface InstalledDriver {
   readonly surface: string;
   readonly name: string;
   step(dt: number): void;
+  /**
+   * Re-apply the last decision without asking the mind, on a substep between two decisions
+   * (`CONFIG.world.controlHz`). A driver without it is stepped on every substep.
+   */
+  hold?(dt: number): void;
   stop(reason: DriverStopReason): void;
 }
 
@@ -68,7 +74,8 @@ export interface ControlEndpoint {
 export interface ControlledBody {
   readonly control: ControlEndpoint;
   readonly locomotion?: SupportedLocomotionPort | null;
-  observe(opponent: ControlledBody, clock: number): void;
+  /** `publish` false keeps the per-substep sampling and skips the view, between two decisions. */
+  observe(opponent: ControlledBody, clock: number, publish?: boolean): void;
   /**
    * The half of a substep that has to happen **after** both carriers are resolved, or absent for
    * a body with no such half.
@@ -90,17 +97,31 @@ export interface ControlledBody {
   sampleContactPress?(others: readonly PressSource[]): void;
 }
 
+/** Substeps since each pair began, keyed on its left body, for the control clock. */
+const substepOf = new WeakMap<ControlledBody, number>();
+
 export function stepControlledPair(left: ControlledBody, right: ControlledBody, dt: number, clock: number): void {
-  left.observe(right, clock);
-  right.observe(left, clock);
+  const every = Math.max(1, Math.round(CONFIG.world.physicsHz / CONFIG.world.controlHz));
+  const substep = substepOf.get(left) ?? 0;
+  substepOf.set(left, substep + 1);
+  const due = substep % every === 0;
+  left.observe(right, clock, due);
+  right.observe(left, clock, due);
   const leftSource = left.pressSource?.();
   const rightSource = right.pressSource?.();
   left.sampleContactPress?.(rightSource ? [rightSource] : []);
   right.sampleContactPress?.(leftSource ? [leftSource] : []);
   left.locomotion?.beginControlStep();
   right.locomotion?.beginControlStep();
-  left.control.driver.step(dt);
-  right.control.driver.step(dt);
+  // A decision spans `every` substeps and is told so; between two, the held command is re-applied
+  // so that servos, carriers and gaits go on at the physics rate. A driver with no `hold` decides
+  // every substep, as before.
+  for (const body of [left, right]) {
+    const driver = body.control.driver;
+    if (!driver.hold) driver.step(dt);
+    else if (due) driver.step(dt * every);
+    else driver.hold(dt);
+  }
   if (isPhysicalSupportedLocomotionPort(left.locomotion) ||
       isPhysicalSupportedLocomotionPort(right.locomotion)) {
     if (!resolvePhysicalSupportedPair(left.locomotion, right.locomotion, dt)) {

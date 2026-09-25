@@ -171,7 +171,8 @@ class GolemDriver implements InstalledDriver {
     canStep: () => boolean) {
     this.mind = mind;
     this.view = view;
-    this.apply = apply;
+    // Every applied decision is kept, so that `hold` can re-apply it between two decisions.
+    this.apply = (dt, intent) => { this.held = intent; apply(dt, intent); };
     this.canStep = canStep;
   }
   get name(): string { return this.mind.name; }
@@ -179,5 +180,12 @@ class GolemDriver implements InstalledDriver {
     if (!this.active || !this.canStep()) return;
     this.apply(dt, this.mind.decide(this.view, dt));
   }
+  /** Re-apply the last decision without asking the mind again (`CONFIG.world.controlHz`). */
+  hold(dt: number): void {
+    if (!this.active || !this.canStep()) return;
+    if (!this.held) { this.step(dt); return; }
+    this.apply(dt, this.held);
+  }
+  private held: Intent | null = null;
   stop(_reason: DriverStopReason): void { this.active = false; }
 }
