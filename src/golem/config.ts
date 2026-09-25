@@ -3039,8 +3039,32 @@ export const LOCOMOTION_BIPED = {
    * the stride stops being a stride. Above 11 the knee stops being clipped too, the swing sole is
    * flung higher, and the flight creeps back. 10.5 is taken -- clear of the cliff, still clipping
    * the knee, and the middle of the flat part. 2026-09-18, the Node bench.
+   *
+   * **At 120 Hz the cliff came up under 10.5, and 11.5 is taken.** Found by the size-law study
+   * (`docs/analysis/2026-09-25-size-law.md` on its own branch), which read 684.7 mm/s at 0.90 of the
+   * rate and 279.1 at 0.95, so the x1 walk sat within 5 % of the cliff edge and a larger body fell
+   * off it first. Re-measured here, Node locomotion bench (`runGolemLocomotion`, release-120
+   * defaults), stone biped, mean planted-sole slip in mm/s and substeps with no sole down (of 479)
+   * over a clear walk (1 s standing, 2 s at full forward, 1 s stopped: 6.4 m, inside the ring of
+   * posts), at the size stat's levels:
+   *
+   *     rate rad/s    x0.8       x0.9       x1         x1.1       x1.2       x1.25
+   *     9.45                                684.7, 43
+   *     9.97                                279.1, 4
+   *     10.5          151.9, 6   189.8, 7   222.8, 8   236.8, 5   342.1, 4   301.6, 4
+   *     11.03         141.9, 14  197.9, 12  227.1, 4   217.2, 6   220.4, 4   255.7, 5
+   *     **11.5**      155.7, 15  184.1, 8   184.0, 6   198.1, 5   217.7, 7   235.6, 9
+   *     11.55         155.7, 14  190.8, 6   175.6, 8   201.0, 5   218.3, 6   233.0, 9
+   *     12.6                                181.1, 17
+   *
+   * The skeleton builds from this table and barely notices: at x1, 162.9 mm/s at 10.5 and 172.9 at
+   * 11.5; at x1.25, 271.9 and 259.4. Over the tests' `WALK_SEQUENCE` (which runs into the wall at
+   * 12.7 m) the stone biped's flight goes from 10 of 959 substeps at 10.5 to 7 at 11.5. What it
+   * costs is the small body: at x0.8 the flight count goes from 6 to 15 of 479, the knee no longer
+   * clipped and the swing sole flung higher, as the sweep above found above 11. 2026-09-25, the Node
+   * bench.
    */
-  targetRate: 10.5,
+  targetRate: 11.5,
 
   /**
    * The three motor ceilings, newton-metres. **Swept, and they are ceilings and not stiffnesses.**

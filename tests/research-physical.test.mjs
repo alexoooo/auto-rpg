@@ -61,13 +61,19 @@ async function firstExhibiting(from, pairs, run, exhibits) {
 test("the worker counts a corner's knockdowns and its time down from that corner's own body", async () => {
   // The fixture: the brawler against an idle stone body at stability x0.5, beside the same bout at
   // x1 as the control that the count is read off the body -- the first pair from 44 up on which
-  // x0.5 goes down at least twice and more often than x1, over fifteen seconds. Measured (Node
+  // x0.5 goes down at least twice and more often than x1, over twenty seconds. Measured (Node
   // bout runner through `research/worker.mjs`, 2026-09-25): at 240 Hz that is 44 and 45, eight
   // falls for 12.73 s against five for 8.90; at 120 it is 50 and 51, four for 5.78 against two for
   // 3.77. (Ten seconds found no pair from 44 to 123 at 240; session 08 had 50 and 51 there.)
+  // Twenty seconds since the falls-and-rise study (2026-09-25). After its staged rise and
+  // `LOCOMOTION_BIPED.targetRate` 11.5, fifteen seconds found no pair from 44 to 75: every pair put
+  // both bodies down twice, for 6.25 to 6.37 s, except 50 and 51, where x1 went down three times.
+  // At twenty seconds, 44 and 45 give three falls for 9.02 s against two for 6.37. The stability
+  // attribute hardly separates these two bodies: the brawler's blows pass both lines. At twenty
+  // seconds an x2 control went down five times on 46 and 47, against x0.5's two (same runner).
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "shaky", setup: withAttributeSetting(base.setup, { stability: 0.5 }) }];
-  const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 15 } };
+  const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 20 } };
   const found = await firstExhibiting(44, 8, async (seeds) => {
     const job = { id: "down", round: 0, block: "down", left: "golem-brawler", right: "idle",
       leftBuild: "default", rightBuild: "shaky", seeds };
@@ -82,8 +88,12 @@ test("the worker counts a corner's knockdowns and its time down from that corner
   assert.ok(shaky.sides.right.knockdowns <= 2 * shaky.sides.right.downSeconds,
     `${shaky.sides.right.knockdowns} knockdowns in ${shaky.sides.right.downSeconds} s down is a count of frames`);
   assert.ok(shaky.sides.right.downSeconds > 0 && shaky.sides.right.downSeconds <= shaky.seconds);
-  assert.equal(shaky.sides.left.knockdowns, 0, "and the count is the fallen corner's, not the bout's");
-  assert.equal(shaky.sides.left.downSeconds, 0);
+  // The count is the fallen corner's and not the bout's, so the two corners read differently. It is
+  // not a zero: the brawler goes down once in every twenty-second bout where x0.5 goes down three
+  // times, together with it. That held on 44 to 59 (same runner, 2026-09-25).
+  assert.ok(shaky.sides.left.knockdowns < shaky.sides.right.knockdowns,
+    `the brawler's ${shaky.sides.left.knockdowns} against the idle body's ${shaky.sides.right.knockdowns}: the count is the fallen corner's, not the bout's`);
+  assert.ok(shaky.sides.left.downSeconds < shaky.sides.right.downSeconds);
   assert.ok(steady.sides.right.downSeconds > 0 && steady.sides.right.downSeconds < shaky.sides.right.downSeconds,
     `the steadier body is down ${steady.sides.right.downSeconds} s, against ${shaky.sides.right.downSeconds}`);
 });

@@ -210,7 +210,21 @@ test("a standing body held up past its weight is lifted off its feet, and one he
  * lean over its whole base; what is past that drives it back, and what drives it faster than its legs
  * can follow tips it. So of one weight the push holds; a tenth heavier and twice as heavy, the walker
  * walks the idle body back, further the heavier it is; and a giant, twice the weight and a quarter the
- * size again, outruns its legs and puts it down. Nothing is special at one weight. The walker starts a
+ * size again, outruns its legs and puts it down. Nothing is special at one weight.
+ *
+ * The giant fells a body of half the stability, on the first contact and within a few centimetres of
+ * where it stood. **What the giant felled here before 2026-09-25 was a post.** A default body backs
+ * away at the giant's pace once the contact's acceleration is spent. The outrun rule files only the
+ * part of a push past what the legs can accelerate, so a steady push files nothing. Measured (Node,
+ * this test's own pair), such a body went down 8.08 m from where it stood, 2.90 s in, against the
+ * headless arena's ring of posts at 9.5 m, at `LOCOMOTION_BIPED.targetRate` 10.5. At 11.5 it went
+ * down at 8.11 m, by "supported posture was lost". At 11.0 it was still standing at 8.48 m when the
+ * three seconds ran out. A giant at movement x1.5 does no better: it drives it 8 m and more. With
+ * stability x0.5 it goes down at 0.47 s and 0.09 m at both rates, which is the rule acting in open
+ * ground. With the outrun filing in `readContact` switched off, that body stands, so the case is
+ * about the rule. The distance guard is what stops a post from passing this again.
+ *
+ * The walker starts a
  * metre and a half away (the giant 1.8), so the footprints meet within the first half second, files
  * the push's reaction to its own ledger as a held force, and never tips on it. The filing is counted
  * at the call, because a push the walker holds leaves its ledger at zero. Reading the ledger for it
@@ -226,7 +240,8 @@ test("a body walked into stands against one weight, is walked back by a heavier 
     ["heavy", { weight: 2 }, 1.5], ["giant", { size: 1.25, weight: 2 }, 1.8]]) {
     walking = true;
     const left = withAttributeSetting(defaultGolemSetup(), attributes);
-    const { bodies: [pusher, pushed], run, dispose } = await pair({ left, gap, leftMind: walker });
+    const right = withAttributeSetting(defaultGolemSetup(), name === "giant" ? { stability: 0.5 } : {});
+    const { bodies: [pusher, pushed], run, dispose } = await pair({ left, right, gap, leftMind: walker });
     try {
       pushed.press.sample = () => NO_PRESS;
       const start = pushed.locomotion.carrierGround().z;
@@ -268,6 +283,7 @@ test("a body walked into stands against one weight, is walked back by a heavier 
     `and walks it back further (${heavy.movedStanding.toFixed(3)} m)`);
   assert.equal(heavy.stoppedMps, 0, "and the pushed body's feet stop the slide once it stops");
   assert.equal(giant.fell, true, "a giant drives it faster than its legs can follow, and tips it");
+  assert.ok(giant.movedStanding < 1, `in open ground, not against a post (${giant.movedStanding.toFixed(3)} m)`);
   for (const [name, result] of Object.entries(results)) {
     assert.ok(result.filed.held > 0, `${name}: the walker files the push's reaction`);
     assert.equal(result.filed.struck, 0, `${name}: as a held force, not as blows`);
