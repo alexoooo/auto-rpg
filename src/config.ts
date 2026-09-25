@@ -38,7 +38,7 @@ export const CONFIG = {
      * 240 Hz costs about 2.5 ms a frame and buys a chain that does not care what
      * the frame rate is doing.
      */
-    physicsHz: 240,
+    physicsHz: 120,
     /**
      * The step Havok is told to expect (`HP_World_SetIdealStepTime`), in steps per second,
      * held apart from the step it is actually handed.
@@ -61,7 +61,7 @@ export const CONFIG = {
      * never less than one, so a value at or above `physicsHz` decides every substep, as before.
      * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md`.
      */
-    controlHz: 240,
+    controlHz: 120,
     /** Clamp: a long stall must not integrate one enormous step. */
     maxFrameSeconds: 1 / 20,
   },
@@ -1112,7 +1112,7 @@ export const CONFIG = {
      * bouts at 240 and at 120/240). Switching is a balance decision, and it is the one to make
      * before the physics rate drops to 120.
      */
-    contactReading: "settled" as "settled" | "arrival",
+    contactReading: "arrival" as "settled" | "arrival",
 
     /**
      * The fraction of the arrival velocity an `"arrival"` reading bills, chosen to keep **the
