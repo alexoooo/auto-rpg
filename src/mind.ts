@@ -681,6 +681,13 @@ export interface FighterView {
 export interface Mind {
   readonly name: string;
   decide(view: FighterView, dt: number): Intent;
+  /**
+   * A fork of the world (`src/forkable.ts`, skill ceiling session 02). A mind whose state all hangs
+   * on its fields needs neither -- the fork walks fields -- and a mind that keeps state in a closure
+   * hands it over here, which `src/fork/mind.ts` snapshots and restores.
+   */
+  captureState?(): Record<string, unknown>;
+  restoreState?(state: Record<string, unknown>): void;
 }
 
 /**
@@ -756,6 +763,9 @@ export function idleMind(): Mind {
   return {
     name: "idle",
     decide: (view) => postureFor(view, "idle", intent),
+    // A fork of the world (`src/forkable.ts`): the command it writes.
+    captureState: () => ({ intent }),
+    restoreState: () => { /* the command is restored in place */ },
   };
 }
 

@@ -5,6 +5,7 @@
 import { isShield, type Striker, type WeaponKind } from "../hands.ts";
 import { finishPoint, isDowned } from "../downed.ts";
 import { mulberry32 } from "../rng.ts";
+import type { Forkable } from "../forkable.ts";
 import type { MyPhase } from "./duel-model.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
@@ -636,7 +637,7 @@ export function blendArc(kind: WeaponKind, swing: number, into: Arc = freshArc()
 export type DrivenStance = "free" | "chamber" | "commit" | "recover" | "ram";
 
 /** What the executor exposes to a test, to an instrument and to the mind that drives it. */
-export interface GolemDriven {
+export interface GolemDriven extends Forkable {
   readonly stance: DrivenStance;
   /** Their arm's phase as read, which is `strokeReader`'s answer and not mine. */
   readonly phase: StrokePhase;
@@ -1480,6 +1481,24 @@ export function golemDriven(
       plan(view, dt);
       if (view.self.capabilities?.pairedHands) mirror(intent.primary, intent.secondary);
       return intent;
+    },
+    // A fork of the world (`src/forkable.ts`): every let and every object the executor steps on.
+    captureState: (): Record<string, unknown> => ({
+      random, intent, reader, cadence, aim, cover, spareAim, probeAim, threat, mark, finish,
+      guardMark, held, probe, meeting, healthBySlot, weakestAt, arc, command, refusals, reading,
+      neutral, pilot, T, attacker, prefer, nextPrefer, arcSwing, latchedAbort, stance, elapsed,
+      justEntered, inside, cooldown, strokes, aborts, gapRate, lastGap, ramFired, ramFiredAt,
+      theirsSeconds, mineSeconds, theirCommits, sinceTheirCommit, sinceMyStroke, sinceContact,
+      lastRhythmTheirs, lastMine, lastVitalities, lastTheirs, parrying, intercept, touched,
+      lastTouched,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({
+        attacker, prefer, nextPrefer, arcSwing, latchedAbort, stance, elapsed, justEntered, inside,
+        cooldown, strokes, aborts, gapRate, lastGap, ramFired, ramFiredAt, theirsSeconds,
+        mineSeconds, theirCommits, sinceTheirCommit, sinceMyStroke, sinceContact, lastRhythmTheirs,
+        lastMine, lastVitalities, lastTheirs, parrying, intercept, touched, lastTouched,
+      } = state as never);
     },
   };
 }

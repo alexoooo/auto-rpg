@@ -435,7 +435,7 @@ export function reaperPilot(seed: number, T: ReaperTactics = REAPER): Pilot {
   let strokeHeight = 0.5;
   let feinting = false;
 
-  return (reading, view): StyleCommand => {
+  const pilot: Pilot = (reading, view): StyleCommand => {
     const them = view.opponent;
     const clock = view.clock;
     const rise = them.crownHeight - them.ground.y;
@@ -536,6 +536,15 @@ export function reaperPilot(seed: number, T: ReaperTactics = REAPER): Pilot {
     if (circling) command.strafe = clamp(reading.circleSide * T.circleStrafe, -1, 1);
     return command;
   };
+  // A fork of the world (`src/forkable.ts`): the stream, the command it writes, and its phase.
+  return Object.assign(pilot, {
+    captureState: (): Record<string, unknown> => ({
+      random, command, T, opened, patience, circling, phaseUntil, strokeHeight, feinting,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({ opened, patience, circling, phaseUntil, strokeHeight, feinting } = state as never);
+    },
+  });
 }
 
 /** The mind over the executor, with an optional hook on the ask for a command log. */

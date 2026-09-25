@@ -254,6 +254,15 @@ export const noneChain = defineChain({
         part.shape.dispose();
         part.mesh.dispose(false, false);
       },
+      // The fork's record (`src/forkable.ts`). The weld goes when the cap is severed, which the
+      // body's topology replays before this is restored; the scratch vectors are listed so the
+      // closure audit sees every object this closure writes.
+      captureState: (): Record<string, unknown> => ({
+        weld, commanded, capLocal, capWorld, capSocket, striker,
+      }),
+      restoreState(state: Record<string, unknown>): void {
+        ({ weld } = state as never);
+      },
     });
   },
 });

@@ -1192,7 +1192,7 @@ return defineLocomotion({
       waist = null;
     };
 
-    const built: BuiltLocomotion = Object.freeze({
+    const built: BuiltLocomotion = Object.freeze({ // fork: derived -- a body family that copies this face forks through the same record
       parts: frozenParts,
       ruin: ruin.ruin,
       mobility: ruin.mobility,
@@ -1316,6 +1316,20 @@ return defineLocomotion({
         pelvis.body.dispose();
         pelvis.shape.dispose();
         pelvis.mesh.dispose(false, false);
+      },
+
+      // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+      captureState: (): Record<string, unknown> => ({
+        load, carriedMassKg, waist, carriedParts, stride, crouchLevel, wantedCrouch, request, severed,
+        risingStart, port, elapsed, contacts, selfContacts, hipDrop, limp,
+        B, L, ctx, socket, local, legs, readers, ruin, settle, watchers, commanded, evidence, readout,
+        scratch, rootSample, activePort, world, own,
+      }),
+      restoreState(state: Record<string, unknown>): void {
+        ({
+          load, carriedMassKg, waist, carriedParts, stride, crouchLevel, wantedCrouch, request, severed,
+          risingStart, port, elapsed, contacts, selfContacts, hipDrop, limp,
+        } = state as never);
       },
     });
 

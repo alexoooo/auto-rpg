@@ -11,6 +11,7 @@ import { CONFIG } from "../config.ts";
 import { CONTACT_PRESS, ContactPress, type PressSource } from "../contact-press.ts";
 import type { HumanDriverSource } from "../control-host.ts";
 import type { Limb } from "../fighter.ts";
+import { isTopological, type Topological } from "../forkable.ts";
 import { TERMINAL_DESCRIPTION } from "./build.ts";
 import type { TerminalId } from "./module.ts";
 import type { WeaponKind } from "../hands.ts";
@@ -293,7 +294,16 @@ const blankBody = (): BodyView => ({
   health: {},
 });
 
-export class Golem implements Combatant {
+/** What a fork replays on a fresh golem before it writes any state: see `Golem.restoreTopology`. */
+interface GolemTopology {
+  /** Each module's own, where it has one: a joint it made mid-bout (a maul's second grip). */
+  readonly modules: readonly unknown[];
+  readonly severed: readonly boolean[];
+  readonly ruined: readonly boolean[];
+  readonly dead: boolean;
+}
+
+export class Golem implements Combatant, Topological {
   private humanAppearance: ReturnType<typeof dressHumanoid> = null;
   readonly actorId?: string;
   readonly kind = "golem" as const;
@@ -388,6 +398,7 @@ export class Golem implements Combatant {
   private readonly asPressSource: PressSource;
 
   constructor(scene: Scene, options: GolemOptions) {
+    // fork: config -- names: options. The build's arguments, read by closures made below and never written.
     this.side = options.side;
     this.actorId = options.actorId;
     const setup = options.setup;
@@ -1443,6 +1454,54 @@ export class Golem implements Combatant {
       legs.severed = true;
       legs.built.sever();
     }
+  }
+
+  // ---------------------------------------------------------------------------------- forking
+
+  /**
+   * Which modules are off, which pieces have been handed to `ruin`, and whether this body is dead:
+   * the three events that change the physical assembly rather than a field (skill ceiling session
+   * 02). Everything else about a golem is fields, which the fork walks.
+   */
+  captureTopology(): GolemTopology {
+    return {
+      modules: this.modules.map((module) => (isTopological(module.built) ? module.built.captureTopology() : null)),
+      severed: this.modules.map((module) => module.severed),
+      ruined: this.limbs.map((limb) => this.ruined.has(limb)),
+      dead: this.dead,
+    };
+  }
+
+  /**
+   * Replay those events on a fresh body built from the same setup, through the same code that
+   * made them -- `ruin`, `sever` and `die` -- so that the joints they dispose and the shapes they
+   * re-layer go the same way. Ruins first: `settleRuin` never ruins a piece of a severed module,
+   * so every ruin predates its module's sever. The sever is replayed with no kick, because the
+   * kick's impulse is already in the captured velocities, and whatever it writes to fields is
+   * overwritten by the state restore that follows.
+   */
+  restoreTopology(topology: unknown): void {
+    const t = topology as GolemTopology;
+    if (t.severed.length !== this.modules.length || t.ruined.length !== this.limbs.length) {
+      throw new Error("fork: a golem's topology was captured from a different build");
+    }
+    // The modules' own first: a joint made mid-bout was made while its module was still on.
+    this.modules.forEach((module, i) => {
+      if (t.modules[i] !== null && isTopological(module.built)) module.built.restoreTopology(t.modules[i]);
+    });
+    this.limbs.forEach((limb, i) => {
+      if (!t.ruined[i] || this.ruined.has(limb)) return;
+      this.ruined.add(limb);
+      const module = this.moduleOfLimb.get(limb);
+      if (module && !module.severed) module.built.ruin?.(limb.key);
+    });
+    this.modules.forEach((module, i) => {
+      if (!t.severed[i] || module.severed) return;
+      const limb = module.limbs[0];
+      if (limb) this.sever(limb, Vector3.ZeroReadOnly as Vector3);
+      else { module.severed = true; module.built.sever(); }
+    });
+    if (t.dead && !this.dead) this.die();
   }
 
   dispose(): void {

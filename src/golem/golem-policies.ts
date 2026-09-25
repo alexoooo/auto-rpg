@@ -51,6 +51,9 @@ export function golemDuelistMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
   return {
     name: "golem-duelist",
     decide: (view, dt): Intent => tactics.decide(view, dt),
+    // A fork of the world (`src/forkable.ts`): the tactics are held here and nowhere else.
+    captureState: () => ({ tactics }),
+    restoreState: () => { /* the tactics restore through their own record */ },
   };
 }
 
@@ -85,6 +88,9 @@ export function golemPlannerMind(seed = (Math.random() * 0x100000000) >>> 0): Mi
     name: "golem-planner",
     fencer: planner.fencer,
     decide: (view, dt): Intent => planner.decide(view, dt),
+    // A fork of the world (`src/forkable.ts`): the planner, which `fencer` does not reach.
+    captureState: () => ({ planner }),
+    restoreState: () => { /* the planner restores through its own record */ },
   };
 }
 
@@ -252,6 +258,9 @@ export function golemTacticianMind(seed = (Math.random() * 0x100000000) >>> 0): 
     name: "golem-tactician",
     styled: tactician.styled,
     decide: (view, dt): Intent => tactician.decide(view, dt),
+    // A fork of the world (`src/forkable.ts`): the tactician, which `styled` does not reach.
+    captureState: () => ({ tactician }),
+    restoreState: () => { /* the tactician restores through its own record */ },
   };
 }
 

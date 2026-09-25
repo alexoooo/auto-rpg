@@ -4,6 +4,7 @@
 import { hasPoint, isShield, type Striker, type WeaponKind } from "../hands.ts";
 import { finishPoint, presses, standOffReach } from "../downed.ts";
 import { mulberry32 } from "../rng.ts";
+import type { Forkable } from "../forkable.ts";
 import type { DuelReading, MyPhase } from "./duel-model.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
@@ -429,7 +430,7 @@ export type StyleAskHook = (
 ) => void;
 
 /** What the executor exposes to a test and to the policy that names it. */
-export interface GolemStyled {
+export interface GolemStyled extends Forkable {
   readonly stance: StyleStance;
   readonly phase: StrokePhase;
   readonly target: TargetSlot;
@@ -1364,6 +1365,25 @@ export function golemStyled(
       if (view.self.capabilities?.pairedHands) mirror(intent.primary, intent.secondary);
       return intent;
     },
+    // A fork of the world (`src/forkable.ts`): every let and every object the executor steps on.
+    captureState: (): Record<string, unknown> => ({
+      random, intent, reader, aim, cover, spareAim, probeAim, threat, mark, finish, guardMark,
+      probe, meeting, healthBySlot, arc, available, reading, director, T, attacker, prefer,
+      nextPrefer, target, thrusting, cutting, justEntered, stance, elapsed, chamberSeconds, combo,
+      inside, cooldown, fallbackSide, gapRate, lastGap, ramFired, ramFiredAt, theirsSeconds,
+      mineSeconds, theirCommits, sinceTheirCommit, sinceMyStroke, sinceContact, lastRhythmTheirs,
+      lastMine, lastVitalities, option, exchangeOption, sinceAsk, lastTheirs, parrying,
+      parryRelease, intercept,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({
+        attacker, prefer, nextPrefer, target, thrusting, cutting, justEntered, stance, elapsed,
+        chamberSeconds, combo, inside, cooldown, fallbackSide, gapRate, lastGap, ramFired, ramFiredAt,
+        theirsSeconds, mineSeconds, theirCommits, sinceTheirCommit, sinceMyStroke, sinceContact,
+        lastRhythmTheirs, lastMine, lastVitalities, option, exchangeOption, sinceAsk, lastTheirs,
+        parrying, parryRelease, intercept,
+      } = state as never);
+    },
   };
 }
 
@@ -1375,11 +1395,16 @@ export function golemStyled(
  * four columns a per-decision reward needs. Session 08 hangs the corpus here.
  */
 export function watchedDirector(director: StyleDirector, onAsk: StyleAskHook): StyleDirector {
-  return (available, reading, view) => {
+  const watched: StyleDirector = (available, reading, view) => {
     const option = director(available, reading, view);
     onAsk(available, reading, view, option);
     return option;
   };
+  // A fork of the world (`src/forkable.ts`): the director it watches; the hook is the caller's log.
+  return Object.assign(watched, {
+    captureState: (): Record<string, unknown> => ({ director }),
+    restoreState(): void { /* every object in the record is restored in place */ },
+  });
 }
 
 /**
@@ -1403,9 +1428,14 @@ export function exploringDirector(
 ): StyleDirector {
   if (!(explore > 0)) return director;
   const random = mulberry32(seed);
-  return (available, reading, view) => {
+  const exploring: StyleDirector = (available, reading, view) => {
     const answer = director(available, reading, view);
     if (random() >= explore) return answer;
     return available[Math.min(available.length - 1, Math.floor(random() * available.length))];
   };
+  // A fork of the world (`src/forkable.ts`): the director it wraps and its own stream.
+  return Object.assign(exploring, {
+    captureState: (): Record<string, unknown> => ({ director, random }),
+    restoreState(): void { /* every object in the record is restored in place */ },
+  });
 }

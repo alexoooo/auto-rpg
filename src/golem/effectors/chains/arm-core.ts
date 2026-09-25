@@ -923,5 +923,15 @@ export function buildArmCore(
         part.mesh.dispose(false, false);
       }
     },
+
+    // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+    captureState: (): Record<string, unknown> => ({
+      yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive,
+      wanted, demanded, sent, slewed, achieved, axisViews, scratch, commandedPoint,
+      relative, inverse, yawServo, pitchServo, elbowServo, R, commandVelocity, handPivot,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({ yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive } = state as never);
+    },
   });
 }

@@ -4,6 +4,7 @@
 import { isShield, type Striker, type WeaponKind } from "../hands.ts";
 import { finishPoint, presses, standOffReach } from "../downed.ts";
 import { mulberry32 } from "../rng.ts";
+import type { Forkable } from "../forkable.ts";
 import type { DuelOption, DuelReading, MyPhase } from "./duel-model.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
@@ -480,7 +481,7 @@ export type StrokePhase = "idle" | "chamber" | "commit" | "recover";
  * it, which is how its thresholds were checked against the duelist's true stances before the
  * tournament checked what they were worth; `GOLEM_TACTICS_V2.readSeconds` has both tables.
  */
-export interface StrokeReader {
+export interface StrokeReader extends Forkable {
   readonly phase: StrokePhase;
   /** The low-passed extension, as a fraction of the watched hand's reach. */
   readonly extension: number;
@@ -561,6 +562,15 @@ export function strokeReader(tactics: FencerTactics = GOLEM_TACTICS_V2): StrokeR
         phase = "idle";
       }
       return phase;
+    },
+    // A fork of the world (`src/forkable.ts`): the reader's filters and its phase.
+    captureState: (): Record<string, unknown> => ({
+      tactics, extension, rate, last, phase, sinceExchange, lastTipSpeed, point, rush,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({
+        extension, rate, last, phase, sinceExchange, lastTipSpeed, point, rush,
+      } = state as never);
     },
   };
 }
@@ -666,7 +676,7 @@ function fencerRanges(
 export type FencerStance = GolemStance | "feint";
 
 /** What the fencer exposes to a test and to the policy that names it. */
-export interface GolemFencer {
+export interface GolemFencer extends Forkable {
   readonly stance: FencerStance;
   /** Their arm's phase, as read. */
   readonly phase: StrokePhase;
@@ -1381,6 +1391,21 @@ export function golemFencer(
       plan(view, dt);
       if (view.self.capabilities?.pairedHands) mirror(intent.primary, intent.secondary);
       return intent;
+    },
+    // A fork of the world (`src/forkable.ts`): every let and every object the fencer steps on.
+    captureState: (): Record<string, unknown> => ({
+      random, intent, reader, overrides, aim, cover, spareAim, probeAim, threat, mark, finish,
+      guardMark, probe, healthBySlot, available, reading, director, T, attacker, prefer, nextPrefer,
+      target, stance, elapsed, ranged, chamberSeconds, strokeSeconds, combo, inside, cooldown,
+      sinceOpening, patience, crowdedGrace, circle, circleLeft, gapRate, lastGap, ramFired,
+      ramFiredAt, option, directed, sinceAsk,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({
+        attacker, prefer, nextPrefer, target, stance, elapsed, ranged, chamberSeconds,
+        strokeSeconds, combo, inside, cooldown, sinceOpening, patience, crowdedGrace, circle,
+        circleLeft, gapRate, lastGap, ramFired, ramFiredAt, option, directed, sinceAsk,
+      } = state as never);
     },
   };
 }

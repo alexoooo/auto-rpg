@@ -111,6 +111,18 @@ export interface ControlledBody {
 /** Substeps since each pair began, keyed on its left body, for the control clock. */
 const substepOf = new WeakMap<ControlledBody, number>();
 
+/**
+ * The pair's control clock, for a fork (skill ceiling session 02): the one piece of bout state that
+ * lives in this module rather than on an object, so a walk of the world cannot see it.
+ */
+export function pairSubstep(left: ControlledBody): number {
+  return substepOf.get(left) ?? 0;
+}
+
+export function setPairSubstep(left: ControlledBody, substep: number): void {
+  substepOf.set(left, substep);
+}
+
 export function stepControlledPair(left: ControlledBody, right: ControlledBody, dt: number, clock: number): void {
   const every = Math.max(1, Math.round(CONFIG.world.physicsHz / CONFIG.world.controlHz));
   const substep = substepOf.get(left) ?? 0;

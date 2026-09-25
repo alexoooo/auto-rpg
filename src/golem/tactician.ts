@@ -1,5 +1,6 @@
 import type { FighterView, Intent } from "../mind.ts";
 import { mulberry32 } from "../rng.ts";
+import type { Forkable } from "../forkable.ts";
 import { planIn, type Plan, type PlanWeights } from "./duel-model.ts";
 import { checkStyleModel, styleObserve, STYLE_VOCABULARY, type StyleModelTables } from "./style-model.ts";
 import { STYLE_MODEL_TABLES } from "./style-model-tables.ts";
@@ -53,7 +54,7 @@ export const GOLEM_TACTICIAN = {
 };
 export type TacticianTactics = { -readonly [K in keyof typeof GOLEM_TACTICIAN]: number };
 
-export interface GolemTactician {
+export interface GolemTactician extends Forkable {
   readonly styled: GolemStyled;
   /** The last plan the search returned, for a test and the readout. */
   readonly lastPlan: Plan<StyleOption> | null;
@@ -72,7 +73,7 @@ export function golemTactician(
   checkStyleModel(tables);
   let lastPlan: Plan<StyleOption> | null = null;
   let replans = 0;
-  let totalMs = 0;
+  let totalMs = 0; // fork: instrument -- wall-clock time this process spent planning, not state
   let explored = 0;
   // Drawn apart from the executor's own stream, exactly as the planner's is, so that a tactician
   // at explore zero draws nothing and the executor under it rolls as it would under any director.
@@ -104,5 +105,14 @@ export function golemTactician(
     get totalMs(): number { return totalMs; },
     get explored(): number { return explored; },
     decide: (view, dt) => styled.decide(view, dt),
+    // A fork of the world (`src/forkable.ts`): the last plan, the counts, the stream, the executor.
+    captureState: (): Record<string, unknown> => ({
+      lastPlan, replans, explored, random, styled, tables, P, T,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({
+        lastPlan, replans, explored,
+      } = state as never);
+    },
   };
 }

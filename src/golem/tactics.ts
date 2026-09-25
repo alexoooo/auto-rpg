@@ -13,6 +13,7 @@ import { isShield, type Striker, type WeaponKind } from "../hands.ts";
 // The same seeded stream `policies.ts` draws from, for the same argument, from the one file both
 // may import. This file carried its own copy until 2026-09-05; `rng.ts` says why it moved.
 import { mulberry32 } from "../rng.ts";
+import type { Forkable } from "../forkable.ts";
 import { finishPoint, presses, standOffReach } from "../downed.ts";
 import type { BodyView, FighterView, HandIntent, HandName, Intent } from "../mind.ts";
 import type { EffectorCapability, GolemCapabilities } from "./module.ts";
@@ -1519,7 +1520,7 @@ export const freshGolemIntent = (): Intent => ({
 });
 
 /** What the tactics expose to a test and to the policy that names them. */
-export interface GolemTactics {
+export interface GolemTactics extends Forkable {
   readonly stance: GolemStance;
   decide(view: FighterView, dt: number): Intent;
 }
@@ -2005,6 +2006,18 @@ export function golemTactics(seed: number): GolemTactics {
       // ignores and a test cannot read.
       if (view.self.capabilities?.pairedHands) mirror(intent.primary, intent.secondary);
       return intent;
+    },
+    // A fork of the world (`src/forkable.ts`): every let and every object the duelist steps on.
+    captureState: (): Record<string, unknown> => ({
+      random, intent, aim, cover, threat, mark, guardMark, finish, attacker, prefer, stance,
+      elapsed, ranged, cooldown, sinceOpening, patience, crowdedGrace, circle, circleLeft, gapRate,
+      lastGap, ramFired, ramFiredAt,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({
+        attacker, prefer, stance, elapsed, ranged, cooldown, sinceOpening, patience, crowdedGrace,
+        circle, circleLeft, gapRate, lastGap, ramFired, ramFiredAt,
+      } = state as never);
     },
   };
 }
