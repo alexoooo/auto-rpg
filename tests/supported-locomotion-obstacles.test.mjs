@@ -264,6 +264,52 @@ test("a_rising_body_that_is_asked_to_walk_keeps_its_carrier_on_its_rise_and_gets
   } finally { riser.port.dispose(); follower.port.dispose(); }
 });
 
+// **A lying body does not refuse a rise under way** (2026-09-25 falls and rise). A body that went
+// down beside a riser moved its footprint from its carrier to its ragdoll root, inside the riser's,
+// and the riser went down with it on the next boundary. A body walking in on its feet still refuses
+// the rise; the pair is what shows the rule is about lying and not about any occupant at all.
+test("a_rise_under_way_is_not_put_down_by_a_lying_body_but_is_by_one_walking_in", () => {
+  const dt = 1 / 60;
+  const run = (blockerFalls) => {
+    const registry = floorRegistry();
+    const riser = physical("riser", 0, registry);
+    const blocker = physical("blocker", 1.2, registry);
+    try {
+      riser.port.beginControlStep(); blocker.port.beginControlStep();
+      riser.port.queueStabilityEvent(KNOCKDOWN);
+      riser.port.beginControlStep();
+      assert.equal(riser.port.state, "fallen", "the fixture did not knock the riser down");
+      let intruded = false;
+      for (let step = 0; step < 6 / dt && riser.port.state !== "supported"; step += 1) {
+        if (riser.port.state === "rising" && !intruded) {
+          intruded = true;
+          if (blockerFalls) {
+            blocker.port.queueStabilityEvent(KNOCKDOWN);
+            blocker.port.beginControlStep();
+            assert.equal(blocker.port.state, "fallen", "the fixture did not knock the blocker down");
+            blocker.rootState.position.x = 0.5;
+          }
+        }
+        if (intruded && !blockerFalls) advance(blocker.port, dt, { ...STOP, localRight: -1 });
+        riser.port.updatePairOccupancy(blocker.port);
+        advance(riser.port, dt, STOP);
+        if (intruded && riser.port.state === "fallen") break;
+      }
+      assert.ok(intruded, "the riser never began to rise");
+      const gap = Math.hypot(blocker.port.carrierGround().x, blocker.port.carrierGround().z);
+      return { state: riser.port.state, abort: riser.port.riseGate()?.riseAbort ?? null,
+        inside: (blockerFalls ? Math.abs(blocker.rootState.position.x) : gap) < 1 };
+    } finally { riser.port.dispose(); blocker.port.dispose(); }
+  };
+  const lying = run(true);
+  assert.ok(lying.inside, "the lying body never lay inside the riser's footprint");
+  assert.equal(lying.abort, null, `a lying body put the rise down (${lying.abort})`);
+  assert.equal(lying.state, "supported", "the riser never got up beside a lying body");
+  const walking = run(false);
+  assert.ok(walking.inside, "the walking body never entered the riser's footprint");
+  assert.equal(walking.abort, "refused", "a body walking into a rise under way did not refuse it");
+});
+
 test("an_occupied_recovery_with_no_clear_ground_in_reach_is_refused", () => {
   // Ground only on a patch too small to hold both footprints apart: every spot in reach is either
   // inside the blocker's footprint or off the floor.

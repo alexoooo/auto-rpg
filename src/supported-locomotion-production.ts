@@ -154,7 +154,11 @@ export const RECOVERY_RING_ANGLES = 16;
 export const RECOVERY_SEPARATION_MARGIN_M = 0.02;
 
 /** Another carrier's footprint, as the rise gate reads it: where it stands (or lies) and how wide. */
-interface RecoveryOccupant { readonly x: number; readonly z: number; readonly radiusM: number }
+interface RecoveryOccupant {
+  readonly x: number; readonly z: number; readonly radiusM: number;
+  /** Fallen: its footprint is its ragdoll root, and it reserves space only against a rise that has not begun. */
+  readonly lying: boolean;
+}
 
 /** Downward/ceiling normals and any surface steeper than the frozen 35 degree limit are not feet. */
 export function isStandableUpwardNormalY(y: number): boolean {
@@ -585,7 +589,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const rise = riseTo(recoveryTarget);
     const risingDurationS = rise.durationS;
     const recoveryWithinAccelerationLimit = rise.withinAcceleration;
-    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget, 0);
+    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget, 0, this.supportState.state === "rising");
     const occupancyClear = recoveryWithinAccelerationLimit && this.pairOccupancyClear &&
       sweepClear(recoveryTarget);
     this.lastBoundary = Object.freeze({ authority: authority !== null, liveSupport, postureSupported,
@@ -885,8 +889,9 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
 
   /** Where this carrier's footprint is, for another body's rise gate: its ragdoll root while fallen. */
   private occupantFootprint(): RecoveryOccupant {
-    const at = this.supportState.state === "fallen" ? this.options.root.sample().position : this.carrier.state;
-    return Object.freeze({ x: at.x, z: at.z, radiusM: this.carrier.footprint.radiusM });
+    const lying = this.supportState.state === "fallen";
+    const at = lying ? this.options.root.sample().position : this.carrier.state;
+    return Object.freeze({ x: at.x, z: at.z, radiusM: this.carrier.footprint.radiusM, lying });
   }
 
   /**
@@ -905,8 +910,26 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     this.occupants = Object.freeze(others.map((other) => other.occupantFootprint()));
   }
 
-  private clearOfOccupants(target: { readonly x: number; readonly z: number }, marginM: number): boolean {
-    return this.occupants.every((other) => Math.hypot(other.x - target.x, other.z - target.z) >=
+  /**
+   * Whether `target` is clear of the other footprints by `marginM`.
+   *
+   * **A body lying down reserves its footprint against a rise that has not begun, not against one
+   * under way** (2026-09-25 falls and rise). Before a rise, a lying body is lower, not absent: nobody
+   * rises through it, and the rings go around it. Once the rise has begun, though, the riser is a
+   * keyframed body the solver moves a ragdoll out of the way of. Refusing it there dropped the riser
+   * for a bookkeeping step rather than for a push. A body that falls moves its footprint from its
+   * carrier to its ragdoll root in one boundary, and two bodies at exact contact are within one
+   * footprint of each other. So when the other body went down beside a riser, the riser went down
+   * with it on the next boundary. Of 452 refused rises on the skeleton group, 443 were against a
+   * lying body: 263 of them fell within a median 0.01 s of the other's own fall, and the other 180
+   * were against a ragdoll still settling. Stone had 18 of 19 and the wheel group 24 of 24 (Node
+   * research runner, `research/fall-loop.mjs`, 192 bouts a group). Bodies that are standing or
+   * rising still refuse a rise under way.
+   */
+  private clearOfOccupants(target: { readonly x: number; readonly z: number }, marginM: number,
+    riseUnderWay = false): boolean {
+    return this.occupants.every((other) => (riseUnderWay && other.lying) ||
+      Math.hypot(other.x - target.x, other.z - target.z) >=
       this.carrier.footprint.radiusM + other.radiusM + marginM - 1e-9);
   }
 
