@@ -218,9 +218,10 @@ export interface PhysicalSupportedLocomotionOptions {
   /** Whether a fallen body's fall has finished; absent is the frozen dwell alone. Read once per
    *  boundary, before the state steps. See `SupportedLocomotionBoundary.fallSettled`. */
   readonly fallSettled?: () => boolean;
-  /** How long a rise over this distance (metres, live root to recovery target) lasts; absent is
-   *  `RISING_DURATION_S`. Asked before the state steps, so the rise it admits is the one it runs. */
-  readonly risingDuration?: (distanceM: number) => number;
+  /** How long a rise over this distance (metres, live root to recovery target) lasts, to stand
+   *  facing `yaw`; absent is `RISING_DURATION_S`. Asked before the state steps, so the rise it admits
+   *  is the one it runs. */
+  readonly risingDuration?: (distanceM: number, yaw: number) => number;
   readonly supportBindings: readonly string[];
   /**
    * Where the whole body's mass is and how it is spread, read off its live parts (physical contact
@@ -248,8 +249,12 @@ export interface PhysicalSupportedLocomotionOptions {
   /** Fighter's supported root follows the resolved upright carrier until an authored release makes it ragdoll. */
   readonly driveAnimatedRoot?: (position: WorldPoint,
     velocity: Readonly<{ x: number; y: number; z: number }>, yaw: number, dt: number) => void;
-  /** Applies only the occupancy-checked, acceleration-bounded RisingActuator frame. */
-  readonly driveRisingRoot?: (position: WorldPoint, velocity: WorldPoint, yaw: number) => void;
+  /**
+   * Applies only the occupancy-checked, acceleration-bounded RisingActuator frame. `elapsedS` of
+   * `durationS` is how far into the rise the frame is, which a body that stages its rise reads.
+   */
+  readonly driveRisingRoot?: (position: WorldPoint, velocity: WorldPoint, yaw: number, elapsedS: number,
+    durationS: number) => void;
   readonly releaseRoot?: () => void;
   readonly restoreRoot?: () => void;
   readonly releaseAnatomyCollision?: () => void;
@@ -561,7 +566,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       const distanceM = Math.hypot(target.x - root.position.x, target.y - root.position.y,
         target.z - root.position.z);
       const durationS = this.rising?.durationS ?? recoveredRiseS(
-        this.options.risingDuration?.(distanceM) ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeTime(authority),
+        this.options.risingDuration?.(distanceM, this.carrier.state.yaw) ??
+          SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeTime(authority),
         distanceM, SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2, authority);
       return { durationS, withinAcceleration:
         6 * distanceM / (durationS * durationS) <= SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2 };
@@ -948,7 +954,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     if (this.supportState.state === "rising" && this.rising) {
       if (this.risingFrameComplete) {
         if (this.options.driveRisingRoot) {
-          this.options.driveRisingRoot(this.rising.target, { x: 0, y: 0, z: 0 }, this.rising.yaw);
+          this.options.driveRisingRoot(this.rising.target, { x: 0, y: 0, z: 0 }, this.rising.yaw,
+            this.rising.durationS, this.rising.durationS);
         } else {
           this.motor.drive(this.rising.target, { x: 0, y: 0, z: 0 }, "rising");
           this.options.applyAngularDrive?.(this.rising.yaw, "rising");
@@ -957,7 +964,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         const frame = this.rising.step(dt);
         this.risingFrameComplete = frame.complete;
         if (this.options.driveRisingRoot) {
-          this.options.driveRisingRoot(frame.position, frame.velocity, frame.yaw);
+          this.options.driveRisingRoot(frame.position, frame.velocity, frame.yaw, this.rising.elapsed,
+            this.rising.durationS);
         } else {
           this.motor.drive(frame.position, frame.velocity, "rising");
           this.options.applyAngularDrive?.(frame.yaw, "rising");

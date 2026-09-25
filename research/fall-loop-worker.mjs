@@ -26,6 +26,10 @@ import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 
 // A sweep knob, read once per worker: the skeleton's hip lead (`hipAhead`), m.
 if (process.env.SKELETON_HIP_AHEAD) SKELETON_BIPED.hipAhead = Number(process.env.SKELETON_HIP_AHEAD);
+// And the skeleton's rise turn rate (`BipedRise.turnPeakRadS`), rad/s.
+if (process.env.SKELETON_TURN_PEAK) {
+  SKELETON_BIPED.rise = Object.freeze({ ...SKELETON_BIPED.rise, turnPeakRadS: Number(process.env.SKELETON_TURN_PEAK) });
+}
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 const SIDES = ["left", "right"];

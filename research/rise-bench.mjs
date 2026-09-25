@@ -88,6 +88,11 @@ export async function riseBench(setup, { push = "back", walk = 0, seconds = 9, t
   const feet = [limb("legs.footL"), limb("legs.footR")];
   const shoulders = golem.limbs.filter((l) => /\.(primary|secondary)\.(collar|upper)$/.test(l.key)).map((l) => l.part);
   const hands = golem.limbs.filter((l) => /\.(primary|secondary)\.(wrist|hand)$/.test(l.key)).map((l) => l.part);
+  // What a rising body strikes with: the items at the ends of its arms.
+  const items = golem.limbs.filter((l) => /\.(primary|secondary)\.(blade|plate|mace|maul|fist|lash)$/.test(l.key))
+    .map((l) => l.part);
+  const lastItem = items.map(() => null);
+  let lastPelvisQ = null;
   let clock = 0;
   const control = scene.onBeforePhysicsObservable.add(() => { stepPair(...pair, FIXED, clock); clock += FIXED; });
   const rows = [];
@@ -117,6 +122,17 @@ export async function riseBench(setup, { push = "back", walk = 0, seconds = 9, t
       const low = Math.min(...patch.map((c) => c.y));
       return low - floor < 0.03 && speed < 0.25;
     });
+    const itemSpeed = Math.max(0, ...items.map((part, i) => {
+      const p = part.mesh.position;
+      const v = lastItem[i] ? Math.hypot(p.x - lastItem[i].x, p.y - lastItem[i].y, p.z - lastItem[i].z) / FIXED : 0;
+      lastItem[i] = p.clone();
+      return v;
+    }));
+    const pq = pelvis.mesh.rotationQuaternion;
+    const dot = lastPelvisQ ? Math.min(1, Math.abs(pq.x * lastPelvisQ.x + pq.y * lastPelvisQ.y +
+      pq.z * lastPelvisQ.z + pq.w * lastPelvisQ.w)) : 1;
+    const pelvisTurn = 2 * Math.acos(dot) / FIXED;
+    lastPelvisQ = pq.clone();
     const soleMid = feet.reduce((a, f) => a.addInPlace(f.mesh.position), new Vector3()).scale(0.5);
     const feetHull = convexHull(patches.map((c) => [c.x - md.x, c.z - md.z]));
     const stance = port.tipping?.hull ?? null;
@@ -132,6 +148,7 @@ export async function riseBench(setup, { push = "back", walk = 0, seconds = 9, t
       })(),
       bothPlanted: planted.every(Boolean),
       feetUnderHips: Math.hypot(soleMid.x - pelvis.mesh.position.x, soleMid.z - pelvis.mesh.position.z),
+      itemSpeed, pelvisTurn,
       feetMargin: margin(feetHull), stanceMargin: stance ? margin(stance) : null, comY: md.y - floor });
   });
   const run = (s) => { const end = clock + s; while (clock < end) { scene._renderId += 1; scene._advancePhysicsEngineStep(1000 / 60); } };
@@ -194,6 +211,10 @@ export function readRises(rows) {
       pitchEnd: rise.at(-1).pitch,
       comOverFeet: second.filter((r) => r.feetMargin !== null && r.feetMargin >= 0).length / second.length,
       feetUnderHipsEnd: rise.at(-1).feetUnderHips,
+      // From the second step: the first carries the handover from ragdoll to keyframe.
+      itemPeak: Math.max(...rise.slice(1).map((r) => r.itemSpeed)),
+      itemP90: rise.slice(1).map((r) => r.itemSpeed).sort((a, b) => a - b)[Math.floor(0.9 * (rise.length - 2))],
+      turnPeak: Math.max(...rise.slice(1).map((r) => r.pelvisTurn)),
       armHang: rise.reduce((a, r) => a + r.handDrop, 0) / rise.length,
       armHangStanding: after.length ? after.reduce((a, r) => a + r.handDrop, 0) / after.length : null,
       after: {
@@ -212,6 +233,8 @@ async function main() {
     builds: { type: "string", default: "default,skeleton-warrior,human-warrior" },
     pushes: { type: "string", default: "back,front,side" }, walk: { type: "string", default: "0" },
     trace: { type: "string" },
+    /** Print the rise's speeds instead: the pelvis's peak turn rate and the items' speeds. */
+    speeds: { type: "boolean", default: false },
     /** JSON merged over every biped family's `rise` table, for a sweep. */
     rise: { type: "string" },
     /** JSON keyed by family ("stone", "skeleton", "human"), merged over that family's biped table. */
@@ -235,8 +258,13 @@ async function main() {
     }
   }
   const f = (x, d = 2) => (x === undefined || x === null || !Number.isFinite(x) ? "-" : x.toFixed(d));
-  console.log("| build | push | outcome | T s | hip/shoulder 50 % s | hip/shoulder 90 % s | planted before lift s | planted through lift | trunk pitch peak/50/90/end rad | COM over feet | feet-hip end m | arm hang m | after: refell, min margin mm, outside, feet-hip max m |");
-  console.log("|---|---|---|---:|---|---|---:|---:|---|---:|---:|---:|---|");
+  if (values.speeds) {
+    console.log("| build | push | T s | pelvis turn peak rad/s | item speed peak / p90 m/s |");
+    console.log("|---|---|---:|---:|---|");
+  } else {
+    console.log("| build | push | outcome | T s | hip/shoulder 50 % s | hip/shoulder 90 % s | planted before lift s | planted through lift | trunk pitch peak/50/90/end rad | COM over feet | feet-hip end m | arm hang m | after: refell, min margin mm, outside, feet-hip max m |");
+    console.log("|---|---|---|---:|---|---|---:|---:|---|---:|---:|---:|---|");
+  }
   for (const name of values.builds.split(",")) {
     const setup = PLAYABLE_BUILDS.find((b) => b.name === name).setup;
     for (const push of values.pushes.split(",")) {
@@ -246,6 +274,10 @@ async function main() {
         writeFileSync(`${values.trace}-${name}-${push}.json`, JSON.stringify(result.trace));
       }
       for (const r of result.rises) {
+        if (values.speeds) {
+          console.log(`| ${name} | ${push} | ${f(r.durationS)} | ${f(r.turnPeak)} | ${f(r.itemPeak)} / ${f(r.itemP90)} |`);
+          continue;
+        }
         console.log(`| ${name} | ${push} | ${r.outcome} | ${f(r.durationS)} | ${f(r.hip50)} / ${f(r.shoulder50)} | ${f(r.hip90)} / ${f(r.shoulder90)} | ${f(r.plantedBeforeLift)} | ${f(r.plantedThroughLift)} | ${f(r.pitchPeak)} / ${f(r.pitchAt50)} / ${f(r.pitchAt90)} / ${f(r.pitchEnd)} | ${f(r.comOverFeet)} | ${f(r.feetUnderHipsEnd)} | ${f(r.armHang)} | ${r.after.refell}, ${f(1000 * r.after.minStanceMargin, 0)}, ${f(r.after.outsideShare)}, ${f(r.after.feetUnderHipsMax)} |`);
       }
       if (!result.rises.length) console.log(`| ${name} | ${push} | no rise |`);

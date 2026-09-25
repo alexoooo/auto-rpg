@@ -2599,6 +2599,95 @@ export const KNOCKDOWN: Knockdown = Object.freeze({
 });
 
 /**
+ * How a biped gets up (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`): three stages, the
+ * pelvis keyframed and the legs driven by their own motors to a pose solved for where the pelvis is.
+ *
+ * 1. **Gather** (at least `gatherS`): the legs fold and pull the feet in under where the body will
+ *    stand, while the pelvis turns from however it lay to upright with the trunk pitched forward by
+ *    `trunkPitch` and moves to the squat's height, `hipsBack` of a thigh behind the feet.
+ * 2. **Hold** (`holdS`): the squat, both soles on the floor under the body.
+ * 3. **Extend**: the legs straighten, the hips travel forward over the feet, and the trunk comes
+ *    upright last: it holds its pitch for the first `trunkLag` of the extension.
+ *
+ * Every lift is a smoothstep held to `KNOCKDOWN.risePeakMps`, so the rise lasts the gather, the hold
+ * and the extension together (`bipedRiseDurationS`), and is judged, as a standing body is, on the
+ * feet it is standing on.
+ *
+ * **It replaced a marionette.** The old rise hoisted the pelvis straight up where it lay, upright
+ * from the first frame, while the legs, still lying where they fell, were dragged in under it, and a
+ * standing body never steps to put them back. Node rise bench (`research/rise-bench.mjs`), one fall
+ * each way (back / front / side); "planted" is the share of the pelvis's last 0.2 m with both soles
+ * on the floor under the hips, "over feet" the share of the rise's second half with the centre of
+ * mass over the two soles, "pitch" the trunk's forward pitch (rad) when the pelvis has made half and
+ * nine tenths of its gain, "margin" the least centre-of-mass margin in the stance over 3 s standing:
+ *
+ * | body | rise | rise s | planted | over feet | pitch 50 % | pitch 90 % | margin mm |
+ * | --- | --- | --- | --- | --- | --- | --- | --- |
+ * | stone | hoist | 1.22 / 0.84 / 0.85 | 0 / 0 / 0 | 0.04 / 0 / 0.22 | -0.80 / 0.71 / -0.15 | -0.16 / 0.15 / -0.03 | 10 / -163 / 141 |
+ * | stone | **staged** | 1.42 / 1.04 / 1.05 | **1 / 1 / 1** | **1 / 1 / 1** | -0.63 / 0.49 / 0.27 | 0.22 / 0.16 / 0.16 | **141 / 141 / 141** |
+ * | human | hoist | 1.27 / 1.21 / 1.18 | 0 / 0.04 / 0 | 0.12 / 0 / 0.11 | -0.79 / 0.80 / -0.15 | -0.16 / 0.16 / -0.03 | 82 / -161 / 87 |
+ * | human | **staged** | 1.47 / 1.41 / 1.38 | **0.97 / 0.97 / 0.97** | **1 / 1 / 1** | -0.12 / 0.64 / 0.23 | 0.19 / 0.19 / 0.19 | **114 / 114 / 114** |
+ * | skeleton | hoist | 1.25 / 1.08 / 1.17 | 0.04 / 0.04 / 0 | 0.25 / 0.08 / 0.17 | -1.24 / 1.05 / -0.99 | -0.18 / 0.57 / -0.21 | 38 / 29 / 33 |
+ * | skeleton | **staged** | 1.45 / 1.28 / 1.37 | **0.97 / 0.97 / 0.97** | **0.72 / 1 / 1** | -0.73 / 0.81 / -0.57 | 0.43 / 0 / 0.16 | -6 / 39 / 33 |
+ *
+ * The skeleton runs its own `trunkPitch` and `hipsBack` (`SKELETON_BIPED`). The staged rise costs
+ * 0.2 s a rise, the hold. Turning the pelvis upright in the first half of the gather, so that a body
+ * sits up before its hips come off the floor, was tried and put the feet nowhere after a fall on the
+ * back: stone's "planted" went to 0 and its feet ended 0.23 m from its hips.
+ *
+ * **The gather's turn is held to `turnPeakRadS`.** Uncapped, the gather turned the pelvis upright at
+ * 3 to 5 rad/s, which swings the arms and what they carry into whoever stands beside the riser: the
+ * largest shoves on a standing skeleton came from a rising opponent's items (p90 15.6 Ns against 5.4
+ * from a standing one, Node research runner, six mirrors). The gather lasts at least
+ * `1.5 * turn / turnPeakRadS` (`bipedRisePlan`, the turn from `bipedRiseTurnRad`). Node rise bench,
+ * back / front / side, "item p90" the 90th percentile over the rise of the fastest carried part's
+ * speed, "planted" the seconds both soles are down before the pelvis lifts; and the skeleton mirror,
+ * Node research runner, 192 bouts:
+ *
+ * | cap rad/s | body | rise s | item p90 m/s | planted s | skeleton falls/min, down %, re-fall <=2 s % |
+ * | --- | --- | --- | --- | --- | --- |
+ * | none | stone | 1.42 / 1.04 / 1.05 | 6.64 / 5.16 / 5.73 | 0.32 / 0.04 / 0.25 | |
+ * | none | skeleton | 1.40 / 1.28 / 1.25 | 4.74 / 5.12 / 5.03 | 0.09 x 3 | 9.99, 42.3, 49.7 |
+ * | none | human | 1.47 / 1.41 / 1.38 | 3.83 / 2.61 / 3.14 | 0.04 / 0.03 / 0.03 | |
+ * | **3** | stone | 1.54 / 1.13 / 1.36 | 5.19 / 4.83 / 3.20 | 0.32 / 0.13 / 0.29 | |
+ * | **3** | skeleton | 1.43 / 1.39 / 1.50 | 4.70 / 4.43 / 3.36 | 0.09 x 3 | **9.18, 44.1, 46.5** |
+ * | **3** | human | 1.58 / 1.41 / 1.38 | 3.23 / 2.61 / 3.14 | 0.04 / 0.03 / 0.03 | |
+ * | 2 | stone | 2.02 / 1.40 / 1.74 | 2.84 / 3.54 / 2.13 | 0.37 / **0** / 0.30 | |
+ * | 2 | skeleton | 1.83 / 1.78 / 1.94 | 3.53 / 2.94 / 1.90 | 0.09 x 3 | 8.53, 48.9, 47.8 |
+ * | 2 | human | 2.05 / 1.58 / 1.75 | 2.17 / 2.22 / 2.16 | 0.02 / 0.03 / 0.04 | |
+ *
+ * 3, because 2 costs half a second a rise, a larger share of the bout spent down, and stone's fall
+ * onto its front then lifts with nothing planted.
+ */
+export interface BipedRise {
+  /** The squat's knee bend, rad. */
+  readonly kneeFold: number;
+  /** The trunk's forward pitch in the squat, rad. */
+  readonly trunkPitch: number;
+  /** How far behind the feet the pelvis sits in the squat, as a share of the thigh. */
+  readonly hipsBack: number;
+  /** The least the gather lasts, s. */
+  readonly gatherS: number;
+  /** The squat's hold, s. */
+  readonly holdS: number;
+  /** The share of the extension the trunk keeps its pitch through. */
+  readonly trunkLag: number;
+  /** The gather's fastest turn of the pelvis, from how it lay to upright, rad/s. */
+  readonly turnPeakRadS: number;
+}
+
+/** How a `BipedRise` follows the size stat: two times and a rate; the rest are angles and shares. */
+export const BIPED_RISE_SIZE: SizeLaws<BipedRise> = {
+  kneeFold: "one", trunkPitch: "one", hipsBack: "one", gatherS: "duration", holdS: "duration",
+  trunkLag: "one", turnPeakRadS: "frequency",
+};
+
+/** The staged get-up every biped runs (`BipedRise`). */
+export const BIPED_RISE: BipedRise = Object.freeze({
+  kneeFold: 1.6, trunkPitch: 0.35, hipsBack: 0.2, gatherS: 0.3, holdS: 0.2, trunkLag: 0.35, turnPeakRadS: 3,
+});
+
+/**
  * The biped: a pelvis carrier on two legs of thigh, shin and foot.
  *
  * **Read the frozen choice before any number here.** Continuous dynamic-root balance was tried at
@@ -2656,6 +2745,15 @@ export const LOCOMOTION_BIPED = {
    * which is 0.12 + 0.06 + 0.40 + 0.32 + 0.12 = 1.02. 2026-09-04.
    */
   hipInset: 0.06,
+  /**
+   * How far ahead of the pelvis's own centre the hip pivots sit, metres: where the legs hang from,
+   * and so where the feet stand. Zero for a body whose centre of mass is over its pelvis, as stone's
+   * and the human's are (0.033 and 0.029 m ahead, `docs/analysis/2026-09-23-attribute-measurements.md`).
+   * A body that carries its weight ahead of its pelvis sets it so that its feet stand under that
+   * weight (`SKELETON_BIPED`), because nothing in this module balances: a body whose centre of mass
+   * is past its toes falls to any touch.
+   */
+  hipAhead: 0,
 
   /**
    * Thigh, shin and foot: the segments, and their masses at stone's 2600 kg/m3.
@@ -3034,6 +3132,8 @@ export const LOCOMOTION_BIPED = {
 
   /** How a knockdown runs its course: the one table every body runs (`KNOCKDOWN`). */
   knockdown: KNOCKDOWN,
+  /** How it gets up: the staged rise every biped runs (`BIPED_RISE`). */
+  rise: BIPED_RISE,
 
   /** Solver damping on the leg joints' driven axes. A position motor is a spring, and a spring
    *  with no damper rings -- the finding `CHAIN_WRIST.motorDamping` records, and the same
@@ -3238,7 +3338,7 @@ export const LOCOMOTION_BIPED = {
 export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   pelvisWidth: "length", pelvisHeight: "length", pelvisDepth: "length", pelvisMass: "mass",
   pelvisHealth: "one", pelvisVitalityWeight: "one",
-  hipHeight: "length", hipSide: "length", hipInset: "length",
+  hipHeight: "length", hipSide: "length", hipInset: "length", hipAhead: "length",
   thighLength: "length", thighRadius: "length", thighMass: "mass", thighHealth: "one",
   thighVitalityWeight: "one",
   shinLength: "length", shinRadius: "length", shinMass: "mass", shinHealth: "one", shinVitalityWeight: "one",
@@ -3250,7 +3350,7 @@ export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   strideCadence: "perLength", strideSwing: "one", kneeLiftScale: "one", kneeLiftPhase: "one",
   strideAbduct: "one", plantBandM: "length", targetRate: "frequency",
   hipTorque: "torque", kneeTorque: "torque", ankleTorque: "torque", fallenTorqueScale: "one",
-  knockdown: KNOCKDOWN_SIZE,
+  knockdown: KNOCKDOWN_SIZE, rise: BIPED_RISE_SIZE,
   motorDamping: "one", linearDamping: "frequency", angularDamping: "frequency",
   crouchDepth: "length", crouchResponse: "frequency", heightRate: "speed",
   carrier: CARRIER_SIZE,

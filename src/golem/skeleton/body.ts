@@ -1,6 +1,7 @@
 import type { ArmourByHit } from "../../scoring.ts";
 import {
-  CHAIN_REACH, CHAIN_WRIST, HEAD_NECK, LOCOMOTION_BIPED, TERMINAL_FIST, TORSO_PLAIN, TORSO_WAIST,
+  BIPED_RISE, CHAIN_REACH, CHAIN_WRIST, HEAD_NECK, LOCOMOTION_BIPED, TERMINAL_FIST, TORSO_PLAIN,
+  TORSO_WAIST,
 } from "../config.ts";
 import { wristChainFrom } from "../effectors/chains/wrist.ts";
 import type { ShellLook } from "../effectors/shell.ts";
@@ -108,6 +109,20 @@ export const SKELETON_BIPED = {
   hipTorque: 450, kneeTorque: 250, ankleTorque: 110,
   // The bench's knockdown, stone's from before stone took its own body density (2026-09-24).
   shoveImpulseNs: 200,
+  /**
+   * The staged rise with the trunk upright in the squat and the hips a third of a thigh back.
+   * A 100 Nm waist at `fallenTone` cannot hold a forward-pitched ribcage while the pelvis turns
+   * under it: at stone's 0.35 rad the core overshoots to about +0.46 rad and the body stands with
+   * its centre of mass off its feet. Node rise bench (`research/rise-bench.mjs`), one fall each way,
+   * the share of the rise's second half with the centre of mass over the feet, and the least
+   * centre-of-mass margin in the stance over the 3 s after standing:
+   *
+   * | trunkPitch, hipsBack | back | front | side |
+   * | --- | --- | --- | --- |
+   * | 0.35, 0.2 (every biped's) | 0.06, -23 mm | 0.23, 19 mm | 0.00, -20 mm |
+   * | **0, 0.3** | **0.72, -6 mm** | **1.00, 39 mm** | **1.00, 33 mm** |
+   */
+  rise: Object.freeze({ ...BIPED_RISE, trunkPitch: 0, hipsBack: 0.3 }),
 };
 
 /**

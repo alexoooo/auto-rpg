@@ -14,7 +14,7 @@ import {
 } from "../src/golem/config.ts";
 import { hobble, legRuin, locomotionCommand } from "../src/golem/locomotion.ts";
 import {
-  bipedFootSpeed, bipedModule, bipedPose, bipedStandHeight,
+  bipedFootSpeed, bipedModule, bipedPose, bipedRiseFrame, bipedRiseLegs, bipedRisePlan, bipedStandHeight,
 } from "../src/golem/locomotion/biped.ts";
 import { LOCOMOTION_COURSE } from "../src/golem/locomotion/course.ts";
 import {
@@ -33,6 +33,7 @@ import { SUPPORTED_LOCOMOTION_V1, constructPostureIsSupported } from
 import {
   LOCOMOTION_MODULES, LOCOMOTION_SEQUENCE, WALK_SEQUENCE, runGolemLocomotion, walkSequenceFor,
 } from "./harness/golem-bench.mjs";
+import { HUMAN_BIPED } from "../src/golem/humanoid/body.ts";
 import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
 import { ATTRIBUTES, resolveAttributes } from "../src/golem/attributes.ts";
 import { baseReachM } from "../src/tipping.ts";
@@ -231,6 +232,79 @@ test("the_crouch_is_solved_so_the_sole_stays_on_the_floor", () => {
   assert.ok(Math.abs(bipedModule.heightRange.standM - bipedStandHeight()) < 1e-12);
   assert.ok(Math.abs(bipedModule.heightRange.crouchM -
     (bipedStandHeight() - B.crouchDepth)) < 1e-12);
+});
+
+test("the_staged_rise_puts_both_soles_level_under_the_body_before_it_lifts_and_the_trunk_comes_up_last", () => {
+  // The rise's legs are solved, not animated: at every frame of the plan the ankle is where the solve
+  // says, `back` of the pelvis's hip ahead of it and the foot's height above the floor, with the sole
+  // level. Forward is minus the sine: a flexed hip is a negative angle and swings the foot forward.
+  for (const [name, table] of [["stone", B], ["skeleton", SKELETON_BIPED], ["human", HUMAN_BIPED]]) {
+    const { thighLength: t, shinLength: s, hipInset, footHeight } = table;
+    for (const startY of [0.15, 0.3, 0.5]) {
+      const plan = bipedRisePlan(startY, table);
+      const total = plan.gatherS + plan.holdS + plan.extendS;
+      let lastY = -Infinity;
+      for (let at = 0; at <= total + 1e-9; at += total / 60) {
+        const frame = bipedRiseFrame(at, plan, table);
+        const legs = bipedRiseLegs(frame.y, frame.pitch, frame.back, table);
+        const thigh = frame.pitch + legs.hip;
+        const ahead = -(t * Math.sin(thigh) + s * Math.sin(thigh + legs.knee));
+        const below = t * Math.cos(thigh) + s * Math.cos(thigh + legs.knee);
+        const label = `${name} from ${startY} m at ${at.toFixed(2)} s`;
+        if (frame.turned === 1) {
+          assert.ok(Math.abs(thigh + legs.knee + legs.ankle) < 1e-9, `${label}: the sole is not level`);
+          // The human's deepest squat asks a little more hip than its stop allows; the stop costs the
+          // foot a couple of centimetres and never more.
+          const within = legs.hip <= table.hipJointMin + 0.05 + 1e-12 ? 0.03 : 1e-3;
+          // The hip hangs `hipInset` under the pelvis and stands `hipAhead` in front of it, both in
+          // the pelvis's pitched frame; upright, the ankle is under it.
+          const { hipAhead } = table;
+          const wantBelow = frame.y - hipInset * Math.cos(frame.pitch) - hipAhead * Math.sin(frame.pitch) - footHeight;
+          const wantAhead = frame.back + hipInset * Math.sin(frame.pitch) + hipAhead * (1 - Math.cos(frame.pitch));
+          assert.ok(Math.hypot(below - wantBelow, ahead - wantAhead) < within,
+            `${label}: the ankle is ${ahead.toFixed(3)} m ahead of the hip and ${below.toFixed(3)} m under it, ` +
+            `against ${wantAhead.toFixed(3)} and ${wantBelow.toFixed(3)}`);
+        }
+        // The pelvis never comes down, and does not leave the squat until the hold is over.
+        assert.ok(frame.y >= lastY - 1e-12, `${label}: the pelvis came down`);
+        lastY = frame.y;
+        if (at <= plan.gatherS + plan.holdS) assert.ok(frame.y <= plan.squatY + 1e-12, `${label}: lifted in the squat`);
+        // The trunk keeps its pitch through the first `trunkLag` of the extension.
+        const u = (at - plan.gatherS - plan.holdS) / plan.extendS;
+        if (u <= table.rise.trunkLag) assert.equal(frame.pitch, table.rise.trunkPitch, `${label}: the trunk rose early`);
+      }
+      const end = bipedRiseFrame(total, plan, table);
+      assert.ok(Math.abs(end.y - plan.standY) < 1e-9 && end.pitch === 0 && end.back === 0 && end.turned === 1,
+        `${name}: the rise does not end standing`);
+      assert.ok(plan.squatY < plan.standY - 0.15, `${name}: the squat is ${(plan.standY - plan.squatY).toFixed(3)} m deep`);
+      // Stretched to a length, the three stages fill it.
+      const stretched = bipedRisePlan(startY, table, 2 * total);
+      assert.ok(Math.abs(stretched.gatherS + stretched.holdS + stretched.extendS - 2 * total) < 1e-9);
+    }
+  }
+});
+
+// **The gather turns no faster than `turnPeakRadS`** (2026-09-25 falls and rise). A pelvis turned
+// from lying to upright in the gather's 0.3 s swung the arms it carries through the other body at up
+// to 6 m/s. The turn is paced from the angle it has to make; the control is that a large turn is
+// paced by that cap and not by something else that happens to be slower.
+test("the_staged_rise_turns_the_pelvis_no_faster_than_its_table_allows", () => {
+  for (const [name, table] of [["stone", B], ["skeleton", SKELETON_BIPED], ["human", HUMAN_BIPED]]) {
+    const cap = table.rise.turnPeakRadS;
+    for (const turnRad of [0.4, 1.6, Math.PI]) {
+      const plan = bipedRisePlan(0.3, table, undefined, turnRad);
+      const step = plan.gatherS / 2000;
+      let peak = 0;
+      for (let at = step; at <= plan.gatherS + 1e-9; at += step) {
+        const rate = (bipedRiseFrame(at, plan, table).turned - bipedRiseFrame(at - step, plan, table).turned) / step;
+        peak = Math.max(peak, rate * turnRad);
+      }
+      assert.ok(peak <= cap * 1.001, `${name}: turned ${turnRad.toFixed(2)} rad at up to ${peak.toFixed(3)} rad/s`);
+      if (turnRad === Math.PI) {
+        assert.ok(peak >= cap * 0.99, `${name}: a half turn peaked at ${peak.toFixed(3)} rad/s, under its ${cap}`);
+      }
+    }
+  }
 });
 
 test("the_biped_is_registered_and_declares_exactly_the_locomotion_slot", () => {
