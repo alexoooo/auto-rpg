@@ -2,6 +2,7 @@
 import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import type { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { jointsOf, partBodyOf, type PartBody, type PartJoint } from "./rig.ts";
+import type { PoseSource } from "./step-start.ts";
 import { effectiveMassKg, lumpLinks, principalInertia, worldInertia,
   type LinkJoint, type RigidLink, type Vec3 } from "./golem/effective-mass.ts";
 
@@ -45,6 +46,14 @@ export interface EffectiveMassOptions {
   readonly inertia?: "geometric" | "solver";
   /** Bodies that cannot move -- the bench's keyframed stand. A pinned body becomes the base. */
   readonly pinned?: ReadonlySet<PhysicsBody>;
+  /**
+   * Where each part stood at the instant the contact describes, when that is not where it stands
+   * now. A collision callback runs after the solver step, and Havok's point and normal are from
+   * before it, so `Combat`'s `"arrival"` reading hands in the step's start (`StepStart.poseOf` in
+   * `src/step-start.ts`): the point, the lever and every joint are then read at one instant. A part
+   * it has no pose for is read where it stands. Absent: every part where it stands.
+   */
+  readonly pose?: PoseSource;
 }
 
 type Rotation = readonly [number, number, number, number];
@@ -68,8 +77,9 @@ const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 
 function linkOf(entry: PartBody, options: EffectiveMassOptions): RigidLink {
   const mesh = entry.part.mesh;
-  const rotation = rotationOf(mesh.rotationQuaternion);
-  const position = vec(mesh.position);
+  const at = options.pose?.(entry.part.body) ?? null;
+  const rotation = rotationOf(at ? at.rotation : mesh.rotationQuaternion);
+  const position = vec(at ? at.position : mesh.position);
   const pinned = options.pinned?.has(entry.part.body) ?? false;
   if (options.inertia !== "geometric") {
     const props = entry.part.body.getMassProperties();
@@ -87,9 +97,10 @@ function linkOf(entry: PartBody, options: EffectiveMassOptions): RigidLink {
 }
 
 /** The pivot and the locked angular axes of a joint, in world terms, from its child's pose. */
-function jointFrame(joint: PartJoint): { pivot: Vec3; locked: Vec3[] } {
-  const rotation = rotationOf(joint.child.mesh.rotationQuaternion);
-  const pivot = add(vec(joint.child.mesh.position), rotate(rotation, vec(joint.pivotChild)));
+function jointFrame(joint: PartJoint, options: EffectiveMassOptions): { pivot: Vec3; locked: Vec3[] } {
+  const at = options.pose?.(joint.child.body) ?? null;
+  const rotation = rotationOf(at ? at.rotation : joint.child.mesh.rotationQuaternion);
+  const pivot = add(vec(at ? at.position : joint.child.mesh.position), rotate(rotation, vec(joint.pivotChild)));
   const x = vec(joint.axisChild.clone().normalize());
   const y = vec(joint.perpChild.clone().normalize());
   const z: Vec3 = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]];
@@ -162,7 +173,7 @@ export function effectiveMassAt(body: PhysicsBody, point: Vector3, normal: Vecto
     const a = at(joint.parent.body);
     const b = at(joint.child.body);
     if (a === b) continue;
-    const { pivot, locked } = jointFrame(joint);
+    const { pivot, locked } = jointFrame(joint, options);
     linkJoints.push({ a, b, pivot, lockedAngular: locked });
   }
   return effectiveMassKg(links, linkJoints, { link: at(body), point: vec(point), normal: vec(normal) });
