@@ -35,8 +35,16 @@ export const CONFIG = {
      * in the hand even with the cursor held still -- measured at 40 mm of tip
      * wander under realistic frame jitter, against 0 mm at a fixed step.
      *
-     * 240 Hz costs about 2.5 ms a frame and buys a chain that does not care what
-     * the frame rate is doing.
+     * 240 Hz cost about 2.5 ms a frame and bought a chain that does not care what
+     * the frame rate is doing, and every drive in the tree was tuned there.
+     *
+     * **It is 120 from the release of 2026-09-25**, the owner's decision, at half
+     * the solver's cost. What keeps the 240 behaviour is held apart from the rate
+     * rather than retuned: Havok's ideal step (`solverTuningHz`), the arm servos'
+     * lead, gain and command filter (`servoLead`, `servoGain` in
+     * `src/golem/joint-servo.ts`), and the contact reading (`combat.contactReading`
+     * `"arrival"`), which reads a blow as the step that found it began rather than
+     * as the solver left it. The account is `docs/analysis/2026-09-25-release-120.md`.
      */
     physicsHz: 120,
     /**
@@ -51,6 +59,11 @@ export const CONFIG = {
      * mm/s, against 3.05, 37.9 and 99 at 240), where 1/360 and 1/480 are worse again. The
      * table is in `docs/analysis/2026-09-25-physics-rate-2.md`. It is a property of the tuning,
      * not of the rate: change it only with every drive re-measured.
+     *
+     * The release runs exactly that way: `physicsHz` 120 against this 240. The arm servos read
+     * it too. Their lead, their gain and the arm command filter were counted in steps and are
+     * held per second at this rate (`servoLead` and `servoGain` in `src/golem/joint-servo.ts`,
+     * with the table), so at 240 they are bit-identical to the build before them.
      */
     solverTuningHz: 240,
     /**
@@ -59,7 +72,9 @@ export const CONFIG = {
      * carrier still stages its request and each gait still runs at `physicsHz`; only publishing the
      * view and `Mind.decide` are skipped. The substep interval is `round(physicsHz / controlHz)`,
      * never less than one, so a value at or above `physicsHz` decides every substep, as before.
-     * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md`.
+     * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md`. It was 240 with
+     * `physicsHz` 240 until the release of 2026-09-25; at 120 against 120 a mind still decides
+     * every substep, half as often a second.
      */
     controlHz: 120,
     /** Clamp: a long stall must not integrate one enormous step. */
@@ -1056,9 +1071,9 @@ export const CONFIG = {
     /**
      * Which velocity a contact is scored from.
      *
-     * - `"settled"` (the default, and every build before 2026-09-25): `velocityAt` at the moment
-     *   Havok reports the contact, which is **after** the solver step that found it. Havok's
-     *   contacts are speculative, so that velocity is whatever the solver left of the blade after
+     * - `"settled"` (the default of every build before the release of 2026-09-25): `velocityAt`
+     *   at the moment Havok reports the contact, which is **after** the solver step that found it.
+     *   Havok's contacts are speculative, so that velocity is whatever the solver left of the blade after
      *   answering a contact that was usually still tens of millimetres open, and how much it left
      *   depends on the step length against the ideal step (`world.solverTuningHz`): the gap is
      *   crossed in fewer, larger steps at 120 Hz. Measured on real blade blows, the same arrival
@@ -1108,9 +1123,11 @@ export const CONFIG = {
      * `mesh.position` and `mesh.rotationQuaternion`, with no plugin read and no allocation: about
      * 1.4-2.0 % of a frame in all (Node bout runner, on a loaded box).
      *
-     * The default stays `"settled"`, which is bit-identical to the build before it (192 of 192
-     * bouts at 240 and at 120/240). Switching is a balance decision, and it is the one to make
-     * before the physics rate drops to 120.
+     * The default stayed `"settled"` when this landed, bit-identical to the build before it (192 of
+     * 192 bouts at 240 and at 120/240), because switching is a balance decision. **The owner took it
+     * with the release of 2026-09-25**: `"arrival"`, with `world.physicsHz` at 120. `"settled"` is
+     * still that bit-identical reading, and the fixtures that fire a contact by hand read which one
+     * is in force.
      */
     contactReading: "arrival" as "settled" | "arrival",
 

@@ -100,6 +100,12 @@ export class JointActuator {
  * | wrist blade cut peak tip (m/s)        |        +0.83 +- 0.07 | -0.31 +- 0.04 |         -0.60 +- 0.03 |
  * | whip scripted-lash peak (m/s)         |        +1.20 +- 0.45 | -0.18 +- 0.49 |         -0.79 +- 0.48 |
  *
+ * The two speed rows are peaks of a point differenced back across one physics step, and that
+ * instrument reads low at 120 whatever the arm does. On the shipped cut, trial 0, the 240 physics
+ * read at 120's spacing peaks at 17.95 or 17.51 m/s by sampling phase, against 18.14 read at every
+ * step and 17.50 for the 120 physics (see `strokeProbe` in `tests/harness/golem-bench.mjs`). So
+ * the columns compare with each other, all at 120, and the loss against 240 is mostly the reading.
+ *
  * The exact discretisation of branch `physics-rate-servo-tuning` (a gain of
  * `(1 - e^(-k dt)) / dt` and an exactly integrated filter) was measured beside these and is not
  * the form here: it changes the arm at 240 as well, and at 120 it is slower than 240 by -0.79

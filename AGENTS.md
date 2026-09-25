@@ -214,8 +214,9 @@ directly under `node`. It is how a body gets measured without a person watching.
   The second half is the one that has cost the most, three separate times. Whoever reads a
   node first in a frame gets a fresh matrix and **silently converts every later reader that
   frame -- including a person measuring from the console -- into a reader of that first
-  sample.** With the control loop at 240 Hz against a 60 Hz display, a per-substep reader is
-  always first by up to three substeps. On the Warrior the symptom was a clean nine per cent
+  sample.** With the control loop at 240 Hz against a 60 Hz display, as it was then, a
+  per-substep reader was always first by up to three substeps; at today's 120 Hz
+  (`CONFIG.world.physicsHz` and `controlHz`, since 2026-09-25) it is first by one. On the Warrior the symptom was a clean nine per cent
   regression in the weapon, in a build where the physics was provably bit-identical: peak
   anchor-to-hand error read 273.84 mm against a true 242.88, with tip speed and elbow drift
   shifted to match. The tell was a rest-pose error that neither decayed nor responded to what the
@@ -536,7 +537,7 @@ directly under `node`. It is how a body gets measured without a person watching.
   Session 16 planned a per-frame publication on the premise that the `ToRef` pair was free,
   and shipped an `observe` that read velocities eight times where four had been read
   before -- a bare-handed fighter went from allocating nothing per view to about 1.6 KB a
-  step at 240 Hz. So: **the budget is the number of boundary reads, not the number of
+  step at the 240 Hz of the day. So: **the budget is the number of boundary reads, not the number of
   `Vector3`s**, the cheap direction is to ask once and derive every consumer from that
   reading, and a point that coincides with the body's own centre needs no angular read at
   all because `w x 0` is zero. `refreshRoot` in `src/golem/locomotion/biped.ts` is the pattern:
@@ -721,6 +722,15 @@ directly under `node`. It is how a body gets measured without a person watching.
   `settleRippleMm` said so, and the *arrival* was the number that moved. **Prefer an exclusion
   that times itself** (wait for the error to stop falling) over one that counts steps, and when a
   reading depends on how long you watched, watch longer until it stops.
+
+  **The same holds for a step's length.** When the physics went from 240 to 120 Hz on
+  2026-09-25, the stroke bench's speed at the mark fell 2.0 m/s and a test went red. The blade had
+  not slowed. The reading was a one-step backward difference, taken at the nearest step, so it read
+  the previous step's mean speed, up to half a step off the blade's passage, on a blade gaining
+  400 m/s every second. The 240 physics sampled at 120's spacing read what 120 read. **Before
+  calling a difference across rates physical, read the faster rate at the slower one's spacing.**
+  `strokeProbe` in `tests/harness/golem-bench.mjs` now reads the speed at the instant of closest
+  approach, and its header has the table.
 
 - **The carrier's gait is an ellipse, and a planner that checks a direction is checking one the
   body will not take.** `VirtualLocomotionCarrier.propose` scales each local axis by its own
