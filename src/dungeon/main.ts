@@ -24,7 +24,7 @@ import { attributeAction, attributesPanel, followAttributeSlider, renderAttribut
 import { DungeonRun } from "./run.ts";
 import { cellKey, type Point } from "./map.ts";
 import { CAMERA_PITCH, frameDungeon, pickingCoordinates } from "./camera.ts";
-import { torchPlacements } from "./dressing.ts";
+import { dressingPlacements, torchPlacements } from "./dressing.ts";
 import { lightDungeon, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
@@ -41,7 +41,7 @@ const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
 const pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
 // `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost, and
-// `?masonry=0` the flat wall skin, the control for what the blocks cost.
+// `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
 const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
 // Wheel locomotion cannot strafe; the hero picker offers bodies that can honor screen movement.
@@ -135,6 +135,7 @@ async function boot(): Promise<void> {
     const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
     const torches = torchPlacements(run.map, seed);
     lighting = lightDungeon(scene, camera, run.map, torches); run.world.sconces(torches);
+    if (stone.dressing) run.world.dress(dressingPlacements(run.map, seed));
     if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);
     scene.onBeforePhysicsObservable.add(() => {
       if (!run || paused) return;

@@ -61,21 +61,20 @@ Each session lands green on its own, and the owner looks at each one.
 | 01 | Light and air: PBR surfaces, torches, post-processing, pitch knob | none |
 | 02 | Fog-of-war in a material plugin; merged floor and wall meshes; world-metre UVs | none (the flat colours stay until 03) |
 | 03 | Stone: Poly Haven CC0 floor and wall sets, compared in play | downloaded CC0 JPGs |
-| 04 | A dungeon kit from Blender: masonry, arches, doors, sconces, rubble | `public/assets/dungeon/kit.glb` |
-| 05 | Dressing: body-free floor markings and wall dressing | from the 04 kit |
+| 04 | Masonry, doors and sconces, built as procedural geometry in `src/dungeon/masonry.ts` rather than a Blender kit | none |
+| 05 | Dressing: body-free floor markings, roots and cobwebs | none: an atlas painted in code, `src/dungeon/decals.ts` |
 | 06 | Pixel look, an experiment behind `?look=pixel` | none |
 
-Order: 01, then 02, then 03 and 04 (04 bakes 03's maps), then 05 and 06. 06 depends only on 01,
-and may go earlier if the owner asks.
+Order: 01, then 02, then 03 and 04 (04 lays its blocks in 03's wall material), then 05 and 06.
+06 depends only on 01, and may go earlier if the owner asks.
 
 **Against depths session 06** (set pieces, `docs/plans/2026-09-23-depths-06-*.md`), which is
 waiting on the owner's play of depths 05:
 - Its `stampPieces` puts rock inside room bounds: pillars, piers and chamber walls.
-- The rules here that read rock inside room bounds are:
-  - 01's torch rule, which excludes it, so it is safe as written;
-  - 04's `dividerGaps`, which would take a pillar's line for a divider.
-- Whichever of the two lands second restates `dividerGaps` against `Room.piece` in the same
-  commit, and re-runs `every_standing_divider_has_one_gap` over seeds that carry pieces.
+- The one rule here that reads rock inside room bounds is 01's torch rule, which excludes it, so it
+  is safe as written. 04 planned a `dividerGaps` that would have read it too, and did not need one.
+- 05's roots may hang on any rock face the camera sees, so a pillar may carry them. A pillar is a
+  collider, so that is allowed.
 
 ## What must not move
 
@@ -96,10 +95,12 @@ waiting on the owner's play of depths 05:
     body-free case AGENTS.md names for scrims, and may hang over the floor.
   - A floor marking is flat.
   - Nothing solid-looking stands on a floor cell.
-  - A wall-mounted piece names its wall collider and stands at most `KIT.proud` (0.08 m) past its
-    face; 04 states the rule. It is the one tolerance in this plan, and the owner may refuse it.
-  - Nothing spans an opening below `ROOM.maxReachHeight` (3.6 m): doors and arches get jambs,
-    not lintels.
+  - A wall-mounted piece -- a sconce, or roots -- hangs on the face of a rock cell and stands at
+    most 0.08 m past it (`SCONCE.proud` in 04, `WALL_ALLOWANCE` in 05). It is the one tolerance in
+    this plan, and the owner may refuse it.
+  - A cobweb is thin silk across a room's inner corner, kept 2 m up or higher; 05 argues it.
+  - Nothing spans an opening below `ROOM.maxReachHeight` (3.6 m): no lintels. An opening's sides
+    get quoins.
   - Nothing rises above a wall collider's 2.8 m top: that is below the reach ceiling, with no
     collider around it.
 - **Solid floor props** (barrels, carts, crates) are **not in this plan**. They need cells the

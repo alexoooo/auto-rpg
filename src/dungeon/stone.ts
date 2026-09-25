@@ -37,10 +37,10 @@ export function dungeonStone(scene: Scene, floor: StoneChoice = "flat", wall: St
   return { floor: stoneSurface(scene, "floor", floor, textures), wall: stoneSurface(scene, "wall", wall, textures) };
 }
 
-/** `?floor=flat` and `?wall=flat` draw session 01's colours, and `?masonry=0` the flat wall skin; anything else, or
- * nothing, draws the stone in blocks. */
-export function stoneQuery(search: string): { floor: StoneChoice; wall: StoneChoice; masonry: boolean } {
+/** `?floor=flat` and `?wall=flat` draw session 01's colours, `?masonry=0` the flat wall skin, and `?dressing=0` no
+ * clutter; anything else, or nothing, draws the stone in blocks, dressed. */
+export function stoneQuery(search: string): { floor: StoneChoice; wall: StoneChoice; masonry: boolean; dressing: boolean } {
   const params = new URLSearchParams(search);
   const read = (key: string): StoneChoice => params.get(key) === "flat" ? "flat" : "stone";
-  return { floor: read("floor"), wall: read("wall"), masonry: params.get("masonry") !== "0" };
+  return { floor: read("floor"), wall: read("wall"), masonry: params.get("masonry") !== "0", dressing: params.get("dressing") !== "0" };
 }
