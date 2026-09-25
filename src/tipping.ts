@@ -164,6 +164,35 @@ export function hullHoldsCentre(hull: readonly (readonly [number, number])[]): b
 }
 
 /**
+ * **What a standing body holds by leaning** (physical contact session 10): the horizontal force,
+ * landing at world height `atY`, that it holds with its centre of mass moved `roomM` against the
+ * force, N. Leant that far it holds `W * room` of moment about the edge the force would tip it over,
+ * on top of what its reach on that side already holds and the ledger's righting already reads
+ * (`rockingDecayMps2`); so a sustained force tips it only once `F (y - ground) > W (reach + room)`.
+ *
+ * The room is how far its centre of mass can go before it is over the other edge: `leanRoomM`. A
+ * rigid body has none -- it holds `W * reach` and tips past it -- and the golems' carriers are rigid
+ * keyframes, so the body's balance is read here rather than rendered: measured on stone
+ * (`.review/pc10/lean-room.mjs`, Node headless arena), the waist's full lean moves the centre of mass
+ * 0.10 m against the base's 0.34 m of depth. Infinite for a force at or below the ground, which tips
+ * nothing, and zero for a body with no reading.
+ */
+export function leanHoldN(geometry: TippingGeometry | null | undefined, weightN: number, atY: number,
+  roomM: number): number {
+  if (!geometry || !(roomM > 0) || !(weightN > 0)) return 0;
+  const arm = atY - geometry.groundY;
+  return arm > 0 ? weightN * roomM / arm : Infinity;
+}
+
+/**
+ * How far a body's centre of mass can move against a force along (`dirX`, `dirZ`) before it is over
+ * its base's edge on the side the force comes from, m: the base's reach the other way.
+ */
+export function leanRoomM(hull: readonly (readonly [number, number])[], dirX: number, dirZ: number): number {
+  return baseReachM(hull, -dirX, -dirZ);
+}
+
+/**
  * The ledger's fall line, m/s of `J / M` at the centre of mass's height, for a body whose centre of
  * mass is `h` above the ground, `k` its radius of gyration and `r` the base's reach along the push.
  */

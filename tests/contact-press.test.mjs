@@ -139,6 +139,26 @@ test("where two footprints meet the pair resolver says along what and how hard e
   assert.equal(apart.contact, null, "the control: two bodies apart meet nowhere");
 });
 
+/**
+ * **A walker follows a body that gives way** (physical contact session 10). The resolver takes away
+ * only what would still overlap at the end of the step, so a walker behind a body being driven off
+ * keeps up with it. Taking its whole closing move stopped it where they touched, which left a gap, so
+ * every sustained push ran one step on and one step off and the feet braked the driven body between.
+ */
+test("a walker touching a body that is moving off follows it, and is stopped by one standing still", () => {
+  const registry = new StandableWorldRegistry();
+  const walk = { localForward: 0, localRight: 1, yaw: 0 };
+  const receding = carrier(0.52, "right");
+  receding.slideBy(0.5, 0);
+  const following = resolveCarrierPair(carrier(-0.52, "left").propose(walk, 0.1), receding.propose(STOP, 0.1), registry);
+  const standing = resolveCarrierPair(carrier(-0.52, "left").propose(walk, 0.1), carrier(0.52, "right").propose(STOP, 0.1), registry);
+  assert.ok(following.contact && standing.contact, "they meet");
+  assert.ok(standing.left.x < 0.1 - 1e-6, `the control: one standing still stops it short of its 0.1 m (${standing.left.x})`);
+  assert.ok(Math.abs(following.left.x - standing.left.x - 0.05) < 1e-9,
+    `the walker keeps up with the 0.05 m the other gave way (${following.left.x} against ${standing.left.x})`);
+  assert.ok(Math.abs(following.right.x - 0.05) < 1e-9, "and the body giving way is not held back");
+});
+
 /** Two golems facing each other `gap` metres apart, stepped together as `stepPair` steps a bout. */
 async function pair({ left = defaultGolemSetup(), right = defaultGolemSetup(), gap = 6, leftMind = idleMind() } = {}) {
   const arena = await createHeadlessArena();
@@ -185,35 +205,44 @@ test("a standing body held up past its weight is lifted off its feet, and one he
 });
 
 /**
- * Walked into by a body of the same weight, an idle body stays where it stood; walked into by one
- * twice as heavy, it is shoved back, and when the heavy one stops its feet brake the slide. The walker
- * starts a metre and a half away, so the footprints meet within the first half second. The pushed
- * body's own press reads nothing here, so what moves it is the trunk alone, through the pair resolver:
- * an arm's press is the first test's subject.
+ * **Walked into, a body stands, gives ground, or is tipped** (physical contact session 10). A walker
+ * pushes with no more than its grip and its own balance hold, and the other stands against it with its
+ * lean over its whole base; what is past that drives it back, and what drives it faster than its legs
+ * can follow tips it. So of one weight the push holds; a tenth heavier and twice as heavy, the walker
+ * walks the idle body back, further the heavier it is; and a giant, twice the weight and a quarter the
+ * size again, outruns its legs and puts it down. Nothing is special at one weight. The walker starts a
+ * metre and a half away (the giant 1.8), so the footprints meet within the first half second, reads
+ * the push's reaction on its own ledger, and never tips on it. The pushed body's own press reads
+ * nothing here, so what moves it is the trunk alone, through the pair resolver: an arm's press is the
+ * first test's subject.
  */
-test("a body walking into one of its own weight never pushes it, and one twice as heavy does", async () => {
+test("a body walked into stands against one weight, is walked back by a heavier one and felled by a giant", async () => {
   let walking = true;
   const walker = { name: "walks", decide: () => ({ ...freshIntent(), forward: walking ? 1 : 0 }) };
-  const heavy = withAttributeSetting(defaultGolemSetup(), { weight: 2 });
   const results = {};
-  for (const [name, left] of [["equal", defaultGolemSetup()], ["heavy", heavy]]) {
+  for (const [name, attributes, gap] of [["equal", {}, 1.5], ["heavier", { weight: 1.1 }, 1.5],
+    ["heavy", { weight: 2 }, 1.5], ["giant", { size: 1.25, weight: 2 }, 1.8]]) {
     walking = true;
-    const { bodies: [pusher, pushed], run, dispose } = await pair({ left, gap: 1.5, leftMind: walker });
+    const left = withAttributeSetting(defaultGolemSetup(), attributes);
+    const { bodies: [pusher, pushed], run, dispose } = await pair({ left, gap, leftMind: walker });
     try {
       pushed.press.sample = () => NO_PRESS;
       const start = pushed.locomotion.carrierGround().z;
-      // The fastest it slid while it was walked into, not the slide at the end: the walker's arms file
-      // blows as well, and since physical contact session 08 those knock the pushed body down, which
-      // ends its slide -- at 0.75 s in this fixture (`.review/walk-push.mjs`, Node, 2026-09-24).
-      let slideMps = 0;
-      for (let t = 0; t < 3; t += 0.05) {
-        run(0.05);
-        slideMps = Math.max(slideMps, pushed.locomotion.contactPress().slideMps);
+      let fell = false, walkerLedger = 0, walkerFell = false, movedStanding = 0;
+      for (let t = 0; t < 3; t += 1 / 60) {
+        run(1 / 60);
+        if (!fell && pushed.locomotion.state === "fallen") {
+          fell = true;
+          assert.equal(pushed.locomotion.diagnostic().releaseReason, "stability threshold was exceeded",
+            `${name}: it was tipped over, not lifted`);
+        }
+        if (!fell) movedStanding = pushed.locomotion.carrierGround().z - start;
+        walkerLedger = Math.max(walkerLedger, pusher.locomotion.diagnostic().stability.specificImpulseMps);
+        walkerFell ||= pusher.locomotion.state === "fallen";
       }
       walking = false;
       run(1.5);
-      results[name] = { moved: pushed.locomotion.carrierGround().z - start,
-        pushedS: pushed.locomotion.contactPress().pushedS, slideMps,
+      results[name] = { fell, movedStanding, walkerLedger, walkerFell,
         stoppedMps: pushed.locomotion.contactPress().slideMps,
         resistance: [pusher, pushed].map((body) => body.locomotion.proposal(FIXED).resistance),
         massKg: [pusher, pushed].map((body) => body.locomotion.supportedMassKg) };
@@ -221,16 +250,24 @@ test("a body walking into one of its own weight never pushes it, and one twice a
       dispose();
     }
   }
-  assert.equal(results.equal.pushedS, 0, "an equal body never pushes past the grip");
-  assert.ok(Math.abs(results.equal.moved) < 0.01, `the idle body stood its ground (${results.equal.moved.toFixed(4)} m)`);
-  assert.ok(results.heavy.pushedS > 0, "a body twice as heavy pushes past the grip");
-  assert.ok(results.heavy.moved > 0.2, `and shoves the idle body back (${results.heavy.moved.toFixed(3)} m)`);
-  assert.ok(results.heavy.slideMps > 0.05, `sliding it while it walks (${results.heavy.slideMps.toFixed(3)} m/s)`);
-  assert.equal(results.heavy.stoppedMps, 0, "and the pushed body's feet stop the slide once it stops");
+  const { equal, heavier, heavy, giant } = results;
+  assert.equal(equal.fell, false, "a body of one weight stands against the push");
+  assert.ok(Math.abs(equal.movedStanding) < 0.05, `and all but holds its ground (${equal.movedStanding.toFixed(4)} m)`);
+  assert.equal(heavier.fell, false, "a tenth heavier does not tip it");
+  assert.ok(heavier.movedStanding > 0.3, `it walks it back (${heavier.movedStanding.toFixed(3)} m)`);
+  assert.equal(heavy.fell, false, "twice as heavy does not tip it either");
+  assert.ok(heavy.movedStanding > 3 * heavier.movedStanding,
+    `and walks it back further (${heavy.movedStanding.toFixed(3)} m)`);
+  assert.equal(heavy.stoppedMps, 0, "and the pushed body's feet stop the slide once it stops");
+  assert.equal(giant.fell, true, "a giant drives it faster than its legs can follow, and tips it");
+  for (const [name, result] of Object.entries(results)) {
+    assert.ok(result.walkerLedger > 0, `${name}: the walker reads the push's reaction`);
+    assert.equal(result.walkerFell, false, `${name}: and never pushes past its own balance`);
+  }
   // Each carrier resists the other with its own mass, so a light body walking into a heavy one is the
   // one stopped (`resolveCarrierPair`).
-  assert.deepEqual(results.heavy.resistance, results.heavy.massKg, "a carrier resists with its mass");
-  assert.ok(results.heavy.massKg[0] > 1.5 * results.heavy.massKg[1], "and the heavy one's is the larger");
+  assert.deepEqual(heavy.resistance, heavy.massKg, "a carrier resists with its mass");
+  assert.ok(heavy.massKg[0] > 1.5 * heavy.massKg[1], "and the heavy one's is the larger");
 });
 
 test("a contact the press is reading is not filed a second time as a blow", async () => {

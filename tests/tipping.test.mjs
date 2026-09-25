@@ -8,7 +8,8 @@ import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { boxPart } from "../src/rig.ts";
 import { LAYER } from "../src/physics.ts";
 import {
-  baseReachM, convexHull, leverAt, massDistributionOf, rockingDecayMps2, tippingGeometry, tippingLineMps, TIPPING,
+  baseReachM, convexHull, leanHoldN, leanRoomM, leverAt, massDistributionOf, rockingDecayMps2, tippingGeometry,
+  tippingLineMps, TIPPING,
 } from "../src/tipping.ts";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
@@ -64,6 +65,42 @@ test("a blow counts by its height over the centre of mass's, never below the gro
   assert.equal(leverAt(geometry, undefined), 1);
   // A body whose centre of mass is under its lowest support has nothing to tip over.
   assert.equal(tippingGeometry(mass, [{ x: 0, y: 1.6, z: 0 }]), null);
+});
+
+/**
+ * **A leaning body tips at the static line through its whole base** (physical contact session 10). A
+ * sustained force filed past what the lean holds, at its lever, against the righting the ledger
+ * already gives: it grows exactly when `F (y - ground) > W (reach + room)`, and the room is the base's
+ * reach on the side the force comes from. Checked on an off-centre base, both ways along it, so a
+ * room read off the wrong side cannot pass.
+ */
+test("a body leaning against a push holds it until the push beats its weight over the base's whole depth", () => {
+  const massKg = 100, weightN = massKg * TIPPING.GRAVITY_MPS2;
+  const mass = massDistributionOf([{ massKg, x: 0, y: 1.1, z: 0 }]);
+  const geometry = tippingGeometry(mass, [{ x: -0.2, y: 0, z: -0.15 }, { x: 0.14, y: 0, z: -0.15 },
+    { x: 0.14, y: 0, z: 0.15 }, { x: -0.2, y: 0, z: 0.15 }]);
+  close(leanRoomM(geometry.hull, 1, 0), 0.2, 1e-12, "pushed along +x it leans back toward -x");
+  close(leanRoomM(geometry.hull, -1, 0), 0.14, 1e-12, "and along -x toward +x");
+  const atY = 0.9;
+  close(leanHoldN(geometry, weightN, atY, 0.2), weightN * 0.2 / 0.9, 1e-9, "the lean's moment over the arm");
+  assert.equal(leanHoldN(geometry, weightN, 0, 0.2), Infinity, "a force at the feet tips nothing");
+  assert.equal(leanHoldN(null, weightN, atY, 0.2), 0, "a body with no reading holds nothing");
+  assert.equal(leanHoldN(geometry, weightN, atY, 0), 0, "and one with no room nothing past its reach");
+  // One second of the ledger: what is filed past the lean, at its lever, less the righting.
+  const net = (forceN, dir) => {
+    const hold = leanHoldN(geometry, weightN, atY, leanRoomM(geometry.hull, dir, 0));
+    const filed = Math.max(0, forceN - hold) * leverAt(geometry, atY) / massKg;
+    return filed - rockingDecayMps2(geometry.comHeightM, baseReachM(geometry.hull, dir, 0));
+  };
+  for (const dir of [1, -1]) {
+    const line = weightN * 0.34 / atY;
+    assert.ok(net(line * 1.01, dir) > 0, `1 % past the whole depth it tips (${dir})`);
+    assert.ok(net(line * 0.99, dir) < 0, `1 % under it the lean holds (${dir})`);
+    // The control: without the lean it would go at its reach alone, well under the line.
+    const reach = baseReachM(geometry.hull, dir, 0);
+    const rigid = (forceN) => forceN * leverAt(geometry, atY) / massKg - rockingDecayMps2(geometry.comHeightM, reach);
+    assert.ok(rigid(weightN * reach / atY * 1.01) > 0, `a rigid body goes at its reach (${dir})`);
+  }
 });
 
 /**

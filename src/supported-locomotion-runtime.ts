@@ -335,14 +335,18 @@ export class VirtualLocomotionCarrier {
 
 /**
  * Where two footprints met on this step, if they did: the unit normal from the left disc's centre
- * toward the right's, and how far each was still moving into the other along it. What a push reads
- * (physical contact session 07); nothing here pushes.
+ * toward the right's, how far each was still moving into the other along it, and how much of that
+ * the resolution took away from each. What a push reads (physical contact session 07); nothing here
+ * pushes.
  */
 export interface PairContact {
   readonly nx: number;
   readonly nz: number;
   readonly leftClosing: number;
   readonly rightClosing: number;
+  /** Metres of each carrier's closing move along the normal that the resolution removed. */
+  readonly leftBlocked: number;
+  readonly rightBlocked: number;
 }
 
 export interface PairAllowedMoves {
@@ -399,15 +403,22 @@ export function resolveCarrierPair(
     const rightPrefix = moveScaled(rightMove, contactAt);
     const leftRemainder = moveScaled(leftMove, 1 - contactAt);
     const rightRemainder = moveScaled(rightMove, 1 - contactAt);
-    const leftClosing = Math.max(0, leftRemainder.x * nx + leftRemainder.z * nz);
-    const rightClosing = Math.max(0, -(rightRemainder.x * nx + rightRemainder.z * nz));
-    contact = Object.freeze({ nx, nz, leftClosing, rightClosing });
-    const excess = leftClosing + rightClosing;
+    const leftAlong = leftRemainder.x * nx + leftRemainder.z * nz;
+    const rightAlong = -(rightRemainder.x * nx + rightRemainder.z * nz);
+    const leftClosing = Math.max(0, leftAlong);
+    const rightClosing = Math.max(0, rightAlong);
+    // What would overlap by the end of the step: one body's closing less what the other gives way by.
+    // A walker behind a body that is moving off follows it rather than stopping where they touched,
+    // which left a gap for the next step to find and broke every sustained push into one step on and
+    // one off (physical contact session 10).
+    const excess = Math.max(0, leftAlong + rightAlong);
     const totalResistance = left.resistance + right.resistance;
     let leftReduction = Math.min(leftClosing, excess * right.resistance / totalResistance);
     let rightReduction = Math.min(rightClosing, excess - leftReduction);
     leftReduction = Math.min(leftClosing, leftReduction + Math.max(0, excess - leftReduction - rightReduction));
     rightReduction = Math.min(rightClosing, rightReduction + Math.max(0, excess - leftReduction - rightReduction));
+    contact = Object.freeze({ nx, nz, leftClosing, rightClosing,
+      leftBlocked: leftReduction, rightBlocked: rightReduction });
     leftMove = Object.freeze({ x: leftPrefix.x + leftRemainder.x - nx * leftReduction,
       z: leftPrefix.z + leftRemainder.z - nz * leftReduction, yaw: leftMove.yaw });
     rightMove = Object.freeze({ x: rightPrefix.x + rightRemainder.x + nx * rightReduction,

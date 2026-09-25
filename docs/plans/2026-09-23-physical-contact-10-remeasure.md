@@ -128,7 +128,11 @@ the build and what to look for.
     anything;
   - the heavy mauls swinging at the arm's pace and straying 125 to 173 mm off their anchor;
   - an outreached body holding at its own reach rather than outside the other's.
-- **10:** the all-max giant against a x1, which should look and win like a giant.
+- **10:**
+  - the all-max giant against a x1, which should look and win like a giant;
+  - a heavier body walking a lighter one back, and a giant putting one down by walking into it;
+  - two bodies of one weight shouldering, neither giving ground, and neither leaning visibly (the
+    lean is read, not drawn).
 - **Carried from the attributes set**, still unchecked:
   - the attribute sliders in the arena setup corners and the dungeon hero dialog, with Reset and a
     URL round trip through a navigation;
@@ -293,10 +297,11 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   0.80 W. `GRIP` is 0.55, the sole's friction. With both caps, two bodies of one weight can never
   push or lift each other, which replaces the plan's reading that two x1 arms lifting is the rule
   working. `ContactPress` in `src/contact-press.ts`.
-- **07, walking into a body is a grip rule, not a mass split.** A closing body pushes the other with
-  its own grip, and each carrier resists with its mass, so an equal walker never shoves.
-  `resolvePhysicalSupportedPair` in `src/supported-locomotion-production.ts`. Keyframed trunks report
-  no contact to each other (0 events in 16 bouts), so the solver cannot decide this.
+- **07, walking into a body is a grip rule, not a mass split.** *Superseded by session 10's balance
+  response below.* A closing body pushed the other with its own grip, and each carrier resisted with
+  its mass, so an equal walker never shoved -- and a walker any heavier tipped what it walked into,
+  because what was past the grip went to the ledger whole. Keyframed trunks report no contact to each
+  other (0 events in 16 bouts), so the solver cannot decide this.
 - **07, the dungeon has no pair push.** Its group resolver stops a body that is walked into; an arm's
   press still reaches it. `src/dungeon/run.ts`.
 - **05, the capped socket's shove is accepted as physics.** Its summed damage on the same contacts
@@ -392,3 +397,36 @@ Each entry names the session, the choice, where it lives and how to reverse it.
   reach, and the executor floors it at nothing by design, so neither the shorter-arm rule nor
   pressing reaches it. Routing `holdFor` in `src/golem/tactics-v4.ts` through `standOffReach` and
   `presses` would apply them, and would move a searched table.
+- **10, a body walked into leans, steps back, and is tipped only when it is outrun.** The owner asked
+  for the equal-weight exception to go ("it seems arbitrary") and chose the balance response. The
+  body driven stands against the push with its lean over its base's whole depth, `W * depth / y`, and
+  no more than its grip; what is past that drives its carrier back, and its legs follow at the
+  carrier's own `maxAccelerationMps2`. Only a step's drive past that goes to the ledger, at the height
+  the two bodies meet. Measured (`.review/pc10/walk-into.mjs` and `walk-giant.mjs`, Node headless
+  arena, stone walking 3 s into an idle stone): of one weight it moves 0.009 m; a tenth heavier walks
+  it back 0.99 m, twice as heavy 8.98 m at up to 3.2 m/s, and size x1.25 10.0 m, none of them tipping
+  it; x0.8 moves it 0.001 m; and the giant (size x1.25, weight x2) tips it at 0.38 s. `readContact` in
+  `src/supported-locomotion-production.ts`. To go back to lean alone, file the driven body's whole
+  excess over its lean hold and do not slide it; that version felled a brawler mirror 4.4 times a body
+  a bout against 1.2 (Node bout runner, 16 bouts).
+- **10, a walker pushes with no more than its grip and what it holds leaning into the reaction.** The
+  reaction is filed on its own ledger past that hold, so it never pushes itself over. The closing
+  momentum the resolution takes off it past that is its own legs', as walking into a wall is, and is
+  not a blow. `pushCapN` and `pairDriveNs`. The alternative, the whole `M dv`, turns every meeting at
+  a walk into a tackle.
+- **10, a lean is read, not rendered.** The carriers are rigid keyframes, and the waist's full lean
+  moves stone's centre of mass 0.10 m of the base's 0.34 (`.review/pc10/lean-room.mjs`, Node headless
+  arena), so the hold credits a balance the body is not drawn doing. `leanHoldN` in `src/tipping.ts`.
+  A body standing against a push does not visibly lean; it is on the eye list below.
+- **10, the resolver follows a body that gives way.** Two footprints that meet now lose only what would
+  still overlap at the end of the step, so a walker behind a body moving off keeps up with it. Before,
+  it stopped where they touched, left a gap for the next step, and broke every sustained push into
+  one step on and one off, which the feet's brake then won. `resolveCarrierPair` in
+  `src/supported-locomotion-runtime.ts`; to reverse, sum the two closings again.
+
+- **10, the knockdown fixture runs fifteen seconds.** Its rule -- the first seed pair from 44 up on
+  which an idle stone body at stability x0.5 falls at least twice and more often than at x1 -- found
+  no pair to 123 for any probe mind inside ten seconds under the balance response, because each mind
+  plays an idle body out almost alike whatever the seed. At fifteen seconds the rule's first pair is
+  44 and 45. `the worker counts a corner's knockdowns ...` in `tests/research-physical.test.mjs`; the
+  sever fixture kept its seeds and re-pinned its contact counts.
