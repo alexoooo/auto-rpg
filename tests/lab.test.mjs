@@ -114,6 +114,12 @@ test("direct commands remain legal after losing both hands and bespoke policies 
   const bout = createBout({ left: "idle", right: "idle", seeds: [1, 2],
     locomotionMode: "supported", maxSeconds: 1, physics: await freshHavok() });
   try {
+    // Two frames, not one. A body's base is first read at its first control step and published at
+    // the next, and the first 1/60 s frame holds a single control step at 120 Hz physics: Babylon's
+    // accumulator takes it as one 1/120 step and a float remainder. After one frame the view read
+    // stabilityImpulseNs 0 at 120 and 113.8 N s at 240; after two, 113.8 at both (Node bout runner,
+    // 2026-09-25).
+    bout.step();
     bout.step();
     // Real publication, explicitly changed to exercise the capability-loss branch.
     const view = bout.left.view;

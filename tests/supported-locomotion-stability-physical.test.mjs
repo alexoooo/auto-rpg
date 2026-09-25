@@ -19,7 +19,11 @@ import { flatSupportedWorldRegistry } from "../src/supported-locomotion-producti
 import { unitDefinition } from "../src/units.ts";
 
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
-const FIXED = 1 / 240;
+// The production rate, read rather than restated: this cell's claim is that a real solver at the
+// rate the game runs brackets the lines, so it steps at whatever `physicsHz` is.
+const FIXED = 1 / CONFIG.world.physicsHz;
+/** Boundaries the standing body is given before its lines are read: 1/30 s, which was 8 at 240 Hz. */
+const SETTLE_STEPS = Math.round(CONFIG.world.physicsHz / 30);
 const EMPTY_LOADOUT = Object.freeze({ primary: "empty", secondary: "empty" });
 
 const materialsFor = (scene) => {
@@ -38,7 +42,7 @@ const physicalCell = async (line, fraction, seconds, landsAt = null) => {
   const engine = new NullEngine({ renderWidth: 64, renderHeight: 64 });
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
-  scene.getPhysicsEngine().setSubTimeStep(1000 / 240);
+  scene.getPhysicsEngine().setSubTimeStep(1000 * FIXED);
 
   const ground = MeshBuilder.CreateBox("stability-bracket.ground",
     { width: 12, height: 1, depth: 12 }, scene);
@@ -70,7 +74,7 @@ const physicalCell = async (line, fraction, seconds, landsAt = null) => {
     for (const fighter of [left, right]) for (const { part } of fighter.limbs) {
       plugin.setActivationControl(part.body, 1);
     }
-    for (let index = 0; index < 8; index += 1) step(index * FIXED);
+    for (let index = 0; index < SETTLE_STEPS; index += 1) step(index * FIXED);
 
     // The divisor, from the port itself. This used to be `CONFIG.body`'s humanoid masses added
     // up, which was a real claim while the Warrior was the subject: one table fed both the rig
@@ -97,7 +101,7 @@ const physicalCell = async (line, fraction, seconds, landsAt = null) => {
     const atY = landsAt ? landsAt(tipping) : undefined;
     left.queueStabilityEvent({ horizontalShoveNs: [specificImpulseMps * supportedMassKg, 0],
       ...(atY === undefined ? {} : { atY }) });
-    step(8 * FIXED);
+    step(SETTLE_STEPS * FIXED);
 
     const diagnostic = left.locomotion.diagnostic();
     const after = left.locomotion.stabilityLinesAlong(1, 0);
@@ -106,7 +110,7 @@ const physicalCell = async (line, fraction, seconds, landsAt = null) => {
     // for the one that is released: the drop is read as the deepest the trunk went, since a released
     // body gets up again on its own inside the window (physical contact session 02).
     let ragdollDropM = 0;
-    for (let index = 9; index < 9 + Math.round(seconds / FIXED); index += 1) {
+    for (let index = SETTLE_STEPS + 1; index < SETTLE_STEPS + 1 + Math.round(seconds / FIXED); index += 1) {
       step(index * FIXED);
       ragdollDropM = Math.max(ragdollDropM, standingTorsoY - trunk.mesh.position.y);
     }
@@ -117,7 +121,7 @@ const physicalCell = async (line, fraction, seconds, landsAt = null) => {
       liveSupport: diagnostic.liveSupport,
       postureSupported: diagnostic.postureSupported,
       releaseReason: diagnostic.releaseReason,
-      physicsHz: CONFIG.world.physicsHz });
+      subStepMs: scene.getPhysicsEngine().getSubTimeStep() });
   } finally {
     left.dispose(); right.dispose(); materials.owner.dispose(false, false);
     scene.dispose(); engine.dispose();
@@ -138,7 +142,7 @@ test("real_Havok_brackets_the_body_s_own_stagger_and_fall_lines_on_a_supported_b
 
   for (const cell of cells) {
     const row = await physicalCell(cell.line, cell.fraction, 4.5);
-    assert.equal(row.physicsHz, 240, `${cell.id} must run the production fixed-step rate`);
+    assert.equal(row.subStepMs, 1000 / CONFIG.world.physicsHz, `${cell.id} must run the production fixed-step rate`);
     assert.ok(row.lines.staggerAtMps > 0 && row.lines.fallAtMps > row.lines.staggerAtMps,
       `${cell.id}: lines ${row.lines.staggerAtMps} / ${row.lines.fallAtMps}`);
     assert.ok(Math.abs(row.after.fallAtMps / row.lines.fallAtMps - 1) < 0.005 || cell.expectedState !== "supported",
