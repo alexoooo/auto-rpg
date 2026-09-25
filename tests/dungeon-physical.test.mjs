@@ -167,6 +167,15 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
       edgeDirection: () => new Vector3(0, 0, 1), bladeDirection: () => new Vector3(0, 1, 0),
       tipPosition: () => new Vector3(0, 0, 0) };
     combat = new Combat("left", [weapon]); combat.advance(1);
+    // The same 12 m/s under an `"arrival"` reading, which reads the body as the step began rather
+    // than `velocityAt`, and bills `arrivalReadFraction` of it: the body is moved at 12 over that
+    // fraction and sampled the way a solver step samples it. The hero's own `Combat` watches the
+    // same body and samples it too, so it is stopped: only the probe may score.
+    run.hero.combat.stop();
+    const share = CONFIG.combat.contactReading === "arrival" ? CONFIG.combat.arrivalReadFraction : 1;
+    source.body.setLinearVelocity(new Vector3(0, 0, 12 / share));
+    source.body.setAngularVelocity(new Vector3(0, 0, 0));
+    arena.scene.onBeforePhysicsObservable.notifyObservers(arena.scene);
     const limb = struck.body.limbs.find(l => !l.guarding && !l.fatal);
     const before = limb.health, untouched = selected.body.vitality;
     const event = { collider: source.body, collidedAgainst: limb.part.body, type: PhysicsEventType.COLLISION_STARTED,

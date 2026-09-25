@@ -165,15 +165,40 @@ test("authored human policy closes and wounds an exposed opponent", async () => 
   // with the dynamics, and the solver's rate is dynamics: measured (Node bout runner, 2026-09-25),
   // damage by a from 42 is 0, 0, 0.132, 0, 0.016, 0.085, 0.045, 0.015 at 240 Hz and 0.080, 0, 0, 0,
   // 0.006, 0, 0.513, 0.056 at 120, with more than five hits in every bout at both. So the bout is
-  // the first pair from 44 up -- 44 at 240, 48 at 120 -- whose wound clears the threshold, and the
-  // test fails only when none of eight does.
+  // the first pair from 44 up whose wound clears the threshold, and the test fails only when none
+  // of eight does.
+  //
+  // **The threshold is blows, not a price, from the release at 120 Hz.** 0.05 of damage was two or
+  // so blows at the settled reading's prices, and the `"arrival"` reading bills a blow about half of
+  // that (`CONFIG.combat.contactReading`): the same bouts land as many blows and none clears 0.05.
+  // Node bout runner, seeds 42 to 57 (a, a + 35), 2026-09-25, landed arm servo:
+  //
+  // | rate, reading | mean damage | bouts over 0.05 | mean blows | bouts with 2 or more |
+  // |---------------|------------:|----------------:|-----------:|---------------------:|
+  // | 240, settled  |      0.036  |       4 of 16   |      1.75  |            9 of 16   |
+  // | 240, arrival  |      0.017  |       0 of 16   |      1.50  |            8 of 16   |
+  // | 120, settled  |      0.022  |       2 of 16   |      0.81  |            3 of 16   |
+  // | 120, arrival  |      0.018  |       0 of 16   |      1.63  |           10 of 16   |
+  //
+  // "2 or more" counts bouts that also did damage. (0 of 34 over 0.05 at 120 arrival from 42 to
+  // 75; 9 of 34 at 240 settled.) A blow is a report over its weapon's energy
+  // floor -- `alignments` in `tests/harness/bout-runner.mjs`, which excludes the `weak` contacts a
+  // scrape files -- so two of them that wound are a policy that closed and struck, whatever the
+  // reading prices them at. The first such pair from 44 is 44 at 240 settled and 45 at 120 arrival;
+  // `alignments` counts parries too, which an idle opponent does not make.
+  //
+  // Watched red at 120 arrival with the policy's pointers low-passed at 0.03 a decision and its
+  // thrust dropped, which walks in and scrapes: 44/79 files 15 hits and no blow and is refused,
+  // and 45/80 then fails on 2 hits. Dropping the thrust alone does not stop a strike -- the
+  // tactics' strokes are pointer sweeps -- and the same 16 seeds still land 1.6 blows a bout.
   let result = null;
-  for (let a = 44; a < 52 && !(result?.left.damage > 0.05); a += 1) {
+  const struck = (bout) => bout && bout.left.alignments.length >= 2 && bout.left.damage > 0;
+  for (let a = 44; a < 52 && !struck(result); a += 1) {
     result = runBout({ left: "humanoid-duelist", right: "idle", leftGolem: humanSetup(), rightGolem: humanSetup("fist", "fist"),
       locomotionMode: "supported", seeds: [a, a + 35], maxSeconds: 15, separation: 2.6, physics: await freshHavok() });
     assert.ok(result.left.hits > 5, `seeds ${a}/${a + 35}: ${result.left.hits} hits`);
   }
-  assert.ok(result.left.damage > 0.05, "motion and weapon scraping alone must not pass");
+  assert.ok(struck(result), `motion and weapon scraping alone must not pass: ${result.left.alignments.length} blows`);
   assert.ok(result.behaviour.right.vitality < 0.999);
 });
 
