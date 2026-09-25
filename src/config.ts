@@ -1052,6 +1052,57 @@ export const CONFIG = {
     impossibleSpeed: 40.0,
 
     /**
+     * Which velocity a contact is scored from.
+     *
+     * - `"settled"` (the default, and every build before 2026-09-25): `velocityAt` at the moment
+     *   Havok reports the contact, which is **after** the solver step that found it. Havok's
+     *   contacts are speculative, so that velocity is whatever the solver left of the blade after
+     *   answering a contact that was usually still tens of millimetres open, and how much it left
+     *   depends on the step length against the ideal step (`world.solverTuningHz`): the gap is
+     *   crossed in fewer, larger steps at 120 Hz. Measured on real blade blows, the same arrival
+     *   speed is read at 0.709 of itself at 240 Hz and 0.747 at 120/240 tuned (a selection
+     *   effect: fewer contacts get through), and at 9-13 m/s of arrival 59.3 % of contacts bite at
+     *   240 against 41.7 % at 120 tuned. That is the whole of the rate's tempo gap: a 120 Hz
+     *   fight ran 1.41x as long (paired Delta ln s +0.345 +- 0.137) with blades arriving just as
+     *   fast (preClosing mean 8.90 against 8.82 m/s).
+     * - `"arrival"`: the striker's linear and angular velocity sampled on
+     *   `onBeforePhysicsObservable` before every solver step, carried to the contact point as
+     *   `v + w x r` about the centre of mass, times `arrivalReadFraction`. It is the velocity the
+     *   blade brought to the step, so it does not depend on how the solver answered it.
+     *
+     * Node research runner, supported locomotion, PROBE_MINDS, stone default golems, 192 paired
+     * bouts per set, 150 s cap, seed 20260923 (`docs/analysis/2026-09-25-rate-tempo.md`):
+     *
+     * | set (reading, k)       | median s | damage/s | blade bites/s | Delta ln s vs s240 settled |
+     * |------------------------|---------:|---------:|--------------:|---------------------------:|
+     * | 240 settled            |    14.95 |    0.786 |         1.560 |                          - |
+     * | 120/240 settled        |    21.82 |    0.555 |         1.157 |            +0.345 +- 0.137 |
+     * | 240 arrival 0.60       |    15.45 |    0.900 |         1.965 |            -0.005 +- 0.104 |
+     * | 120/240 arrival 0.60   |    15.30 |    0.879 |         1.903 |            +0.037 +- 0.140 |
+     * | 240 arrival 0.55       |    19.55 |    0.684 |         1.718 |            +0.253 +- 0.111 |
+     * | 120/240 arrival 0.55   |    17.73 |    0.721 |         1.837 |            +0.200 +- 0.144 |
+     *
+     * Paired against its own 240 set, a 120/240 arrival set runs as long (Delta ln s +0.043 +-
+     * 0.149 at 0.60, -0.053 +- 0.147 at 0.55), so the reading is rate-invariant where the settled
+     * one is not. It is not free at 240: at 0.60 it moves the duelist's score by -14.6 +- 12.0
+     * points and the miser's by +15.6 +- 13.1 (96 sides each). The default therefore stays
+     * `"settled"`, which is bit-identical to the build before it (192 of 192 bouts); switching is
+     * a balance decision, and it is the one to make before the physics rate drops to 120. Under
+     * `"arrival"` each solid striker costs one linear and one angular plugin read per substep.
+     */
+    contactReading: "settled" as "settled" | "arrival",
+
+    /**
+     * The fraction of the arrival velocity an `"arrival"` reading bills. The settled reading
+     * keeps about 0.58 of an arrival on average (re-scoring the logged 240 Hz contacts offline:
+     * 0.60 bills 1.09x the settled damage and 1.10x the bites, 0.55 bills 0.89x and 0.98x), so
+     * it is the bite threshold the fraction really moves. 0.60 keeps the 240 Hz fight's length
+     * (table above) at 1.15x its damage per second; 0.55 keeps its damage per second and runs
+     * 1.29x as long. Read only under `contactReading: "arrival"`.
+     */
+    arrivalReadFraction: 0.6,
+
+    /**
      * **The breaking point**: how far below empty, as a fraction of the part's full health, a part
      * may be beaten before any wounding blow takes it off. See `severs` in `src/scoring.ts`.
      *

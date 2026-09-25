@@ -118,6 +118,12 @@ export interface Striking {
   /** Projectiles may restrict scoring to the body that raised their first contact. */
   allowsContact?(body: PhysicsBody): boolean;
   velocityAt(world: Vector3): Vector3;
+  /**
+   * The point Havok's linear velocity belongs to, in world terms. Optional: an `"arrival"` reading
+   * (`CONFIG.combat.contactReading`) needs it to place its cached angular velocity, and a striker
+   * without it is read about its transform node's position instead.
+   */
+  centreOfMass?(): Vector3;
   edgeDirection(): Vector3;
   bladeDirection(): Vector3;
   tipPosition(): Vector3;
@@ -385,14 +391,25 @@ export class Combat {
     push: new Vector3(),
     normal: new Vector3(),
     contactNormal: new Vector3(),
+    rel: new Vector3(),
   };
+
+  /**
+   * Each solid striker's velocity as the solver step began, for an `"arrival"` reading, and null
+   * under the default `"settled"` one. See `CONFIG.combat.contactReading`.
+   */
+  private readonly arrival: Map<Striking, { readonly linear: Vector3; readonly angular: Vector3 }> | null;
+  private readonly arrivalScale: number;
 
   constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void,
     onRefusal?: (event: CombatRefusalEvent) => void) {
     this.side = side;
     this.onReport = onReport;
     this.onRefusal = onRefusal;
+    this.arrivalScale = CONFIG.combat.arrivalReadFraction;
+    this.arrival = CONFIG.combat.contactReading === "arrival" ? new Map() : null;
     try {
+      if (this.arrival) this.watchArrival(weapons);
       for (const weapon of weapons) {
         if (!weapon) continue;
         const trigger = weapon.nonSolvingTrigger;
@@ -408,8 +425,53 @@ export class Combat {
     } catch (error) {
       for (const watch of this.watching) watch.remove();
       this.watching.length = 0;
+      this.unwatchArrival?.();
       throw error;
     }
+  }
+
+  private unwatchArrival: (() => void) | null = null;
+
+  /**
+   * Cache each solid striker's velocity before every solver step, on the physics clock.
+   *
+   * `onBeforePhysicsObservable` runs before each solver step, when the bodies still carry what the
+   * previous step left them -- the velocity a blow arrives with. A collision callback runs after the
+   * step that found the contact, and the solver has answered it by then. Projectiles are left to
+   * their own `velocityAt`, which already returns a cached free-flight velocity.
+   */
+  private watchArrival(weapons: readonly (Striking | null)[]): void {
+    const cache = this.arrival;
+    if (!cache) return;
+    const solid = weapons.filter((w): w is Striking => w !== null && !w.projectileImpact);
+    if (solid.length === 0) return;
+    for (const weapon of solid) cache.set(weapon, { linear: new Vector3(), angular: new Vector3() });
+    const scene = solid[0].body.transformNode.getScene();
+    const observer = scene.onBeforePhysicsObservable.add(() => {
+      for (const weapon of solid) {
+        const entry = cache.get(weapon);
+        if (!entry) continue;
+        weapon.body.getLinearVelocityToRef(entry.linear);
+        weapon.body.getAngularVelocityToRef(entry.angular);
+      }
+    });
+    this.unwatchArrival = () => { scene.onBeforePhysicsObservable.remove(observer); this.unwatchArrival = null; };
+  }
+
+  /**
+   * The striker's velocity at a contact point, as `CONFIG.combat.contactReading` says to read it.
+   *
+   * `"settled"` is `velocityAt`: the body after the solver step that found the contact. `"arrival"`
+   * is the rigid-body velocity at the same point from the linear and angular velocity cached before
+   * that step, scaled by `arrivalReadFraction`, about the centre of mass where the body is now.
+   */
+  private strikerVelocity(weapon: Striking, point: Vector3): Vector3 {
+    const entry = this.arrival?.get(weapon);
+    if (!entry) return this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    const centre = weapon.centreOfMass?.() ?? weapon.body.transformNode.position;
+    const rel = this.scratch.rel.copyFrom(point).subtractInPlace(centre);
+    Vector3.CrossToRef(entry.angular, rel, this.scratch.velocity);
+    return this.scratch.velocity.addInPlace(entry.linear).scaleInPlace(this.arrivalScale);
   }
 
   /**
@@ -463,6 +525,7 @@ export class Combat {
   dispose(): void {
     for (const watch of this.watching) watch.remove();
     this.watching.length = 0;
+    this.unwatchArrival?.();
   }
 
   private onTrigger(weapon: Striking, trigger: NonSolvingStrikeTrigger,
@@ -597,7 +660,7 @@ export class Combat {
     this.lastParryAt.set(weapon.effectorId, this.clock);
 
     const point = event.point as Vector3;
-    const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    const velocity = this.strikerVelocity(weapon, point);
     // **A parry pushes the body behind the guard** (physical contact session 06): the same transfer
     // a blow makes, between the striker and whatever stopped it, each walked back to its own body.
     // A blade caught on a plate drives the plate's owner back by what the blade carried.
@@ -740,7 +803,7 @@ export class Combat {
     const C = CONFIG.combat;
     const point = event.point as Vector3;
 
-    const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    const velocity = this.strikerVelocity(weapon, point);
     const speed = velocity.length();
     // Both masses are effective masses at the contact, along one normal (physical contact session
     // 05): each side's chain, walked back to a trunk that floats with the rest of its body, so a
