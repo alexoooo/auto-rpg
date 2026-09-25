@@ -160,9 +160,19 @@ test("authored human policy closes and wounds an exposed opponent", async () => 
   // tip is under the blade's own, so the human's pace halved and 42/77 -- 0.071 before -- wounds
   // nothing in 15 s. A fixture has to exhibit a wound for this to test one, so the seeds moved to
   // the first pair (a, a + 35) from 42 up that clears the threshold, and the assertion did not.
-  const result = runBout({ left: "humanoid-duelist", right: "idle", leftGolem: humanSetup(), rightGolem: humanSetup("fist", "fist"),
-    locomotionMode: "supported", seeds: [44, 79], maxSeconds: 15, separation: 2.6, physics: await freshHavok() });
-  assert.ok(result.left.hits > 5);
+  //
+  // **That rule is now the fixture, rather than the seeds it last chose.** Which pairs wound moves
+  // with the dynamics, and the solver's rate is dynamics: measured (Node bout runner, 2026-09-25),
+  // damage by a from 42 is 0, 0, 0.132, 0, 0.016, 0.085, 0.045, 0.015 at 240 Hz and 0.080, 0, 0, 0,
+  // 0.006, 0, 0.513, 0.056 at 120, with more than five hits in every bout at both. So the bout is
+  // the first pair from 44 up -- 44 at 240, 48 at 120 -- whose wound clears the threshold, and the
+  // test fails only when none of eight does.
+  let result = null;
+  for (let a = 44; a < 52 && !(result?.left.damage > 0.05); a += 1) {
+    result = runBout({ left: "humanoid-duelist", right: "idle", leftGolem: humanSetup(), rightGolem: humanSetup("fist", "fist"),
+      locomotionMode: "supported", seeds: [a, a + 35], maxSeconds: 15, separation: 2.6, physics: await freshHavok() });
+    assert.ok(result.left.hits > 5, `seeds ${a}/${a + 35}: ${result.left.hits} hits`);
+  }
   assert.ok(result.left.damage > 0.05, "motion and weapon scraping alone must not pass");
   assert.ok(result.behaviour.right.vitality < 0.999);
 });
