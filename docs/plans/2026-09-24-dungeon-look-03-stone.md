@@ -44,7 +44,15 @@ Starting `metresPerRepeat` values, tuned by eye:
 ## Materials
 
 - **Descriptors.** `BASE` gets `dungeon.floor.a`, `dungeon.floor.b`, `dungeon.wall.a` and
-  `dungeon.wall.b`, which replace session 02's pair. `?stone=a|b` (default `a`) chooses the pair.
+  `dungeon.wall.b`. Session 02 left the flat PBR colours of session 01 in place, so these are the
+  dungeon's first textured surfaces. `?stone=a|b` (default `a`) chooses the pair.
+- **Keep `world.ts` Node-loadable.** `sharedSurface` starts image loads, and `world.ts` runs under
+  `NullEngine` in the tests. Hand the textured materials in from the page, or give `surface()` a
+  texture factory that loads nothing under Node; either way the plugin attaches to the material
+  the chunks carry, never to a clone. `surface()` attaches maps only to the original, in the decode
+  callback, so a clone taken before decode stays flat for ever.
+- **Tiles edge to edge.** Session 02 kept 0.98 m tiles because their 2 cm gaps were the only grid
+  the flat floor had. With a flagstone texture, `TILE.half` in `world.ts` becomes 0.5.
 - **Repetition, in the fog plugin**, with no per-cell UV rotation. A per-cell rotation breaks the
   UV derivatives at every cell edge and shows mip seams. An offset by a whole tile of a wrapping
   texture does nothing.

@@ -59,7 +59,7 @@ Each session lands green on its own, and the owner looks at each one.
 | # | Session | New assets |
 |---|---|---|
 | 01 | Light and air: PBR surfaces, torches, post-processing, pitch knob | none |
-| 02 | Fog-of-war in a material plugin; merged floor and wall meshes; world-metre UVs | none (reuses `slab_tiles`, `stone_wall_05`) |
+| 02 | Fog-of-war in a material plugin; merged floor and wall meshes; world-metre UVs | none (the flat colours stay until 03) |
 | 03 | Stone: Poly Haven CC0 floor and wall sets, compared in play | downloaded CC0 JPGs |
 | 04 | A dungeon kit from Blender: masonry, arches, doors, sconces, rubble | `public/assets/dungeon/kit.glb` |
 | 05 | Dressing: body-free floor markings and wall dressing | from the 04 kit |

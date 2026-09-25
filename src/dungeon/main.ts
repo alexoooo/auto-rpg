@@ -115,7 +115,7 @@ async function boot(): Promise<void> {
     if (!run || !camera || !lighting) return;
     const hero = run.hero.body.feetPosition();
     frameDungeon(camera, hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch);
-    lighting.update(hero, zoom, pitch);
+    lighting.update(hero, zoom, pitch); run.world.setHero(hero);
   };
   const rebuild = (nextSeed: number) => {
     lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
