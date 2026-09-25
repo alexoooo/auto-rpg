@@ -280,15 +280,32 @@ function worldHandles(track: WorldTrack): { bodies: Raw[]; constraints: Raw[] } 
  * contact and warm start of every world in the instance -- becomes the original's.
  */
 function copyHeap(scene: Scene, state: NativeState): void {
-  const module = pluginOf(scene)._hknp as unknown as HavokHeap;
+  const plugin = pluginOf(scene);
+  const module = plugin._hknp as unknown as HavokHeap;
   if (instanceId(module) === state.instance) {
     throw new Error("fork: an exact fork needs a Havok instance of its own; this is the original's");
   }
-  const here = worldHandles(worldTrack(scene));
+  const track = worldTrack(scene);
+  const here = worldHandles(track);
   const agree = (a: readonly Raw[], b: readonly Raw[]) => a.length === b.length && a.every((x, i) => sameRaw(x, b[i]));
-  if (!agree(here.bodies, state.handles.bodies) || !agree(here.constraints, state.handles.constraints)) {
-    throw new Error("fork: this world's Havok handles are not the original's -- build both into fresh instances");
+  if (!agree(here.bodies, state.handles.bodies)) {
+    throw new Error("fork: this world's Havok body handles are not the original's -- build both into fresh instances");
   }
+  // A joint made mid-bout -- a maul's second hand closing on the haft -- is replayed in the fork at
+  // a moment of its own, so Havok hands it another address. Pair joints by key and, once the
+  // original's memory is in, point the fork's joint at the original's: that joint is in the copy.
+  const keys = constraintKeys(track);
+  const theirs = new Map(state.constraints.map((captured, i) => [captured.key, state.handles.constraints[i]]));
+  const moved: { constraint: ConstraintInternals & { _pluginData: unknown[] }; to: Raw[] }[] = [];
+  track.constraints.forEach((constraint, i) => {
+    const mine = here.constraints[i], wanted = theirs.get(keys[i]!);
+    if (wanted === undefined) throw new Error(`fork: constraint ${keys[i]} here was not captured`);
+    if (sameRaw(mine, wanted)) return;
+    if (!Array.isArray(mine) || !Array.isArray(wanted) || mine.length !== wanted.length) {
+      throw new Error(`fork: constraint ${keys[i]} is live in one world and not the other`);
+    }
+    moved.push({ constraint: constraint as unknown as ConstraintInternals & { _pluginData: unknown[] }, to: wanted });
+  });
   const heap = state.heap!;
   // Grow by asking the allocator for the shortfall; whatever it writes is overwritten below.
   for (let tries = 0; module.HEAPU8.length < heap.length && tries < 8; tries += 1) {
@@ -297,6 +314,21 @@ function copyHeap(scene: Scene, state: NativeState): void {
   }
   if (module.HEAPU8.length < heap.length) throw new Error("fork: could not grow the fork's Havok heap");
   module.HEAPU8.set(heap);
+  // Every old address out of the plugin's joint map first, then every new one in, so that two joints
+  // that swapped addresses cannot overwrite each other.
+  const pairs = (plugin as unknown as { _constraintToBodyIdPair: Map<unknown, unknown> })._constraintToBodyIdPair;
+  const held = moved.map(({ constraint }) => constraint._pluginData.map((jointId) => {
+    const key = (jointId as unknown[])[0];
+    const pair = pairs.get(key);
+    pairs.delete(key);
+    return pair;
+  }));
+  moved.forEach(({ constraint, to }, m) => {
+    constraint._pluginData = to.map((jointId) => copyRaw(jointId));
+    constraint._pluginData.forEach((jointId, j) => {
+      if (held[m]![j] !== undefined) pairs.set((jointId as unknown[])[0], held[m]![j]);
+    });
+  });
 }
 
 export function captureNative(scene: Scene, options: NativeCaptureOptions = {}): NativeState {

@@ -425,35 +425,45 @@ test("an_exact_fork_is_its_original_to_the_bit_even_after_a_sever", async () => 
   // the bout's whole result and the JavaScript graph then agree to the bit for as long as both run --
   // which also catches, behaviourally, any stepping state the graph failed to carry (a
   // non-enumerable engagement tracker was found this way).
-  const minds = { left: "golem-brawler", right: "golem-champion", physics: await freshHavok() };
-  const bout = createBout(options(minds));
-  try {
-    steps(bout, 120);
-    const [limb] = [...bout.left.moduleOfLimb].find(([, module]) => module.slot === "primary");
-    bout.left.sever(limb, new Vector3(1, 0, 0));
-    steps(bout, 120);
-    const capture = captureBout(bout, { heap: true });
-    const fork = await exactFork(options(minds), capture);
-    // The control: a teleport fork of the same moment, whose cold solver is visible to the same test.
-    const teleport = forkBout(options(minds), { ...capture, native: { ...capture.native, heap: null } },
-      { physics: await freshHavok() });
+  //
+  // Two builds: the shipped golems under two minds, and two mauls against a fist, whose second hand
+  // closes on the haft mid-bout -- a joint the fork replays at a moment of its own, so Havok hands it
+  // another address, which the copy has to point back at the original's.
+  const builds = [
+    { left: "golem-brawler", right: "golem-champion" },
+    { left: "golem-duelist", right: "golem-brawler", leftGolem: AUDIT_PAIRS[1][0], rightGolem: AUDIT_PAIRS[1][1] },
+  ];
+  for (const build of builds) {
+    const minds = { ...build, physics: await freshHavok() };
+    const bout = createBout(options(minds));
     try {
-      let teleportParted = false;
-      for (let i = 0; i < 240 && bout.active; i++) {
-        bout.step();
-        fork.step();
-        teleport.step();
-        assert.ok(poseBytes(bout).equals(poseBytes(fork)), `an exact fork parted from its original at frame ${i + 1}`);
-        if (!poseBytes(bout).equals(poseBytes(teleport))) teleportParted = true;
+      steps(bout, 120);
+      const [limb] = [...bout.left.moduleOfLimb].find(([, module]) => module.slot === "primary");
+      bout.left.sever(limb, new Vector3(1, 0, 0));
+      steps(bout, 120);
+      const capture = captureBout(bout, { heap: true });
+      const fork = await exactFork(options(minds), capture);
+      // The control: a teleport fork of the same moment, whose cold solver the same test can see.
+      const teleport = forkBout(options(minds), { ...capture, native: { ...capture.native, heap: null } },
+        { physics: await freshHavok() });
+      try {
+        let teleportParted = false;
+        for (let i = 0; i < 180 && bout.active; i++) {
+          bout.step();
+          fork.step();
+          teleport.step();
+          assert.ok(poseBytes(bout).equals(poseBytes(fork)), `${build.left}: an exact fork parted from its original at frame ${i + 1}`);
+          if (!poseBytes(bout).equals(poseBytes(teleport))) teleportParted = true;
+        }
+        assert.ok(teleportParted, `${build.left}: a teleport fork is told apart from its original`);
+        assert.ok(JSON.stringify(fork.result()) === JSON.stringify(bout.result()), `${build.left}: the results differ`);
+        assert.deepEqual(diffGraphs(captureBout(bout).graph, captureBout(fork).graph), []);
+      } finally {
+        fork.dispose();
+        teleport.dispose();
       }
-      assert.ok(teleportParted, "a teleport fork is told apart from its original");
-      assert.equal(JSON.stringify(fork.result()), JSON.stringify(bout.result()));
-      assert.deepEqual(diffGraphs(captureBout(bout).graph, captureBout(fork).graph), []);
     } finally {
-      fork.dispose();
-      teleport.dispose();
+      bout.dispose();
     }
-  } finally {
-    bout.dispose();
   }
 });
