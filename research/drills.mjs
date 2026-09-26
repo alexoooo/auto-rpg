@@ -39,14 +39,27 @@ export function drillJobs({ drills = DRILL_NAMES, runs, build, obuild }) {
 
 /** Every drill's summary, from the rows of a run directory. */
 export function summarize(rows, rungs = RUNGS) {
+  // A run that failed is counted and its first error kept, never dropped: a drill whose every run
+  // failed to build (get-inside, when the size ceiling moved under it on 2026-09-25) otherwise
+  // vanished from the table without a line saying so.
   const byDrill = new Map();
+  const failed = new Map();
   for (const row of rows) {
-    if (row.status !== "ok") continue;
+    if (row.status !== "ok") {
+      const f = failed.get(row.drill) ?? { count: 0, error: String(row.error ?? row.status).split("\n")[0] };
+      f.count += 1;
+      failed.set(row.drill, f);
+      continue;
+    }
     if (!byDrill.has(row.drill)) byDrill.set(row.drill, []);
     byDrill.get(row.drill).push(row.run);
   }
   const out = {};
-  for (const [drill, runs] of byDrill) out[drill] = summarizeDrill(runs, rungs);
+  for (const drill of new Set([...byDrill.keys(), ...failed.keys()])) {
+    const summary = byDrill.has(drill) ? summarizeDrill(byDrill.get(drill), rungs)
+      : { runs: 0, scored: 0, void: 0, skipped: 0, refused: 0, rungs: {}, pairs: {} };
+    out[drill] = { ...summary, failed: failed.get(drill)?.count ?? 0, firstError: failed.get(drill)?.error ?? null };
+  }
   return out;
 }
 
@@ -56,7 +69,8 @@ const pct = (p) => (Number.isFinite(p) ? (100 * p).toFixed(1) : "-");
 export function table(summary) {
   const lines = [];
   for (const [drill, s] of Object.entries(summary)) {
-    lines.push(`${drill}: ${s.runs} runs, ${s.scored} scored, ${s.void} void, ${s.skipped} skipped, ${s.refused} refused`);
+    lines.push(`${drill}: ${s.runs} runs, ${s.scored} scored, ${s.void} void, ${s.skipped} skipped, ${s.refused} refused, ${s.failed ?? 0} failed`);
+    if (s.failed) lines.push(`  FAILED ${s.failed}: ${s.firstError}`);
     for (const [rung, r] of Object.entries(s.rungs)) {
       lines.push(`  ${rung.padEnd(24)} pass ${pct(r.pass).padStart(5)} %  var ${r.variance.toFixed(3)}  runs for +/-2 ${String(r.runsFor2).padStart(5)}  margin ${r.margin.toFixed(3)} (sd ${r.marginSd.toFixed(3)})`);
     }

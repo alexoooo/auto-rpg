@@ -32,6 +32,7 @@ import { captureBout, exactFork } from "./fork.mjs";
 import { restoreMind, snapshotMind } from "../../src/fork/mind.ts";
 import { policyMind } from "../../src/mind.ts";
 import { mulberry32 } from "../../src/rng.ts";
+import { ATTRIBUTES } from "../../src/golem/attributes.ts";
 import { biteMechanism } from "../../src/scoring.ts";
 import { isShield } from "../../src/hands.ts";
 import {
@@ -559,8 +560,12 @@ export const DRILLS = Object.freeze([
     name: "get-inside",
     needs: { subject: ["striker"], opponent: ["striker"] },
     horizon: 3,
-    /** The opponent is the same body a quarter larger: longer-armed by the size attribute's ceiling. */
-    opponentSetup: (setup) => ({ ...setup, attributes: { ...(setup.attributes ?? {}), size: 1.25 } }),
+    /**
+     * The opponent is the same body at the size attribute's ceiling, so longer-armed. It is read from
+     * the row: the drill wrote 1.25 when that was the ceiling, and when the size law moved it to 1.1
+     * on 2026-09-25 every run of this drill failed to build.
+     */
+    opponentSetup: (setup) => ({ ...setup, attributes: { ...(setup.attributes ?? {}), size: ATTRIBUTES.size.max } }),
     params: (rng) => ({ separation: 2.8 + 0.3 * rng(), outside: 1.02 + 0.1 * rng(), pause: 0.2 + 0.3 * rng() }),
     /**
      * Inside is the subject's own striking range, as a fraction of its striker's: the duelist's
