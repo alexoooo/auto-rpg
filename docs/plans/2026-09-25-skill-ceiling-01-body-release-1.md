@@ -80,11 +80,34 @@ The follow-up studies, all Node, each with its own analysis dated 2026-09-25:
   held ideal step, not our code, and the excess is not significant once clustered. A real ledger
   error was fixed on the way: a held push was added after the righting, not against it.
 
-What is left for part 3:
+**Release 120 landed on 2026-09-25**, on the owner's word ("turn on arrival reading", "go ahead
+with the 120hz change (and associated tuning)", and a falls retune):
 
-- the switch to the arrival reading, the owner's balance call;
-- the close-contact posture at 120;
-- the 7 residual tests.
+- **Defaults.** `physicsHz` and `controlHz` are 120, `solverTuningHz` stays 240, and
+  `contactReading` is "arrival".
+- **Arm servos** (`docs/analysis/2026-09-25-release-120.md`). `JointServo.track` aimed at the
+  target of the step it was in, a lead of one step, which doubled at 120: every parry arrived early
+  and overshot. The lead, the gain and the arm's command filter are now held per second at
+  `solverTuningHz`, so 240 is bit-identical. The wrist blade parry overshoot went from +77.8 to
+  -2.9 mm, paired against 240 (Node golem bench). No motor ceiling moved.
+- **Arrival fraction per striker kind.** `club` and `empty` bill at 0.62 and every other kind at
+  0.56. Every mirror's length is inside its clustered interval of settled 240 (Node research
+  runner, 192 paired bouts each).
+- **Falls and the rise** (`docs/analysis/2026-09-25-falls-and-rise.md`). The rise is staged: gather
+  the feet, squat, extend with the trunk last. It is judged on its most centred stance, and is not
+  cancelled by a body lying beside it. The skeleton's legs moved under its weight
+  (`SKELETON_BIPED.hipAhead` 0.09), and `LOCOMOTION_BIPED.targetRate` went from 10.5 to 11.5. Falls
+  per minute roughly halved (stone 2.51 to 1.37, skeleton 17.19 to 9.30), and falls during a rise
+  went from 126 to 0 on stone and from 3310 to 87 on the skeleton (Node research runner, 192 bouts
+  a group).
+- **The size law** (part 2 below, `docs/analysis/2026-09-25-size-law.md`) landed in the same merge.
+- **Tests.** The residual reds were the tests themselves and are rate-honest now, each mutated to
+  show it bites. The one real residual was the strafe: nothing ever wrote the ankle's roll, so a
+  stance sole rolled onto its leading edge and stood past the plant band at every handover at 120.
+  `bipedAnkleRoll` levels it (42 to 0 of 959 airborne substeps, Node locomotion bench).
+
+What is still open is on the owner's list in `2026-09-25-skill-ceiling-00-overview.md`: the eye
+gates, and the skeleton at about 9 falls a minute against a proposed band of 3 to 5.
 
 **Three parts:**
 

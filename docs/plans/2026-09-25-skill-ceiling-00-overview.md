@@ -220,3 +220,38 @@ session here:
 | `tactics.ts` to `tactics-v4.ts`, `pilot.ts`, the duel and style models, champion tables, style directors | 09 |
 | The lab's pilot, direct and residual surfaces, `researched-*.json`, `src/policy-ratings.json` | 09 |
 | `golem-duelist`, `golem-miser`, `golem-researched-needle-v1` | kept as frozen benchmark opponents until 09's minds beat them on drills and in the league; then removed |
+
+## For the owner's return
+
+The owner was away from 2026-09-25 and asked for the set to keep going. What needs their eye or
+their choice is collected here instead of stopping the run. Each item names where its evidence is.
+
+**Eye checks, on the dev server:**
+
+- **The rise and the falls.** `docs/analysis/2026-09-25-falls-and-rise.md` section 7 lists seven
+  things: the rise from each side, the first second after a stand, whether 1.1 to 1.6 s reads as
+  slow, the skeleton mirror over a minute, a fallen body's blade, the arms during a rise, and a
+  skeleton in a clinch.
+- **120 Hz.** Session 01's eye gate: blades that still read as fast and solid, and nothing passing
+  through anything.
+- **The size trade-off.** Size now runs from x0.8 to x1.1, so the eye gate's x0.8 against x1.25 is
+  x0.8 against x1.1.
+- **The arrival reading's balance.** In the default mirror the duelist went from 52.1 % to 20.8 %
+  and the miser from 40.6 % to 62.5 % (`docs/analysis/2026-09-25-release-120.md`). That was known
+  and accepted at 240. It is listed so the fights are watched with it in mind.
+
+**Choices:**
+
+- **Size is a penalty only** under the biological law: a larger body is weaker and slower for its
+  mass, with nothing on the other side of the scale. The plan's first ordering wants the bigger body
+  to win between equal minds (`docs/analysis/2026-09-25-size-law.md`). Session 05 measures it and
+  session 07 acts, but what size should buy is the owner's call.
+- **Should a giant knock a default body down in open ground?** Today it walks it back at its own
+  pace, because the tipping rule reads acceleration and not speed. Yes needs a speed rule for being
+  pushed back.
+- **The skeleton falls about 9 times a minute**, against a proposed band of 3 to 5. Stone and wheel
+  are at about 1.4, inside their proposed band of 0.5 to 2. The human never falls. Should it?
+- **The whip build loses about 99 % of its bouts** at both rates. It is a dead-end candidate for
+  session 05, and the four-bead lash is a design choice.
+- **Judging balance on the carried base** is an option recorded by the rate-falls study and not
+  taken.
