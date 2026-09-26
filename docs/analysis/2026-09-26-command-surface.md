@@ -324,15 +324,22 @@ left unspent when the session was wound down.
   it goes on only if the head-to-head interval clears 50 % with no loss against the duelist.
 - **Effectors in task space, with a speed and a stiffness.** Not built. The effector channel still
   carries envelope coordinates (section 1).
-- **A page switch for the flags.** `CHANNEL_FLAGS` is reachable only from Node (`setChannelFlags`).
-  The eye gate needs one.
+- **Page switch: built in the continuation.** Open `?play=arena&channels=stance,step` or
+  `?play=dungeon&channels=stance,step`. An opt-in diagnostic panel shows the flags in force and
+  applies checkbox changes by navigation, preserving the matchup, seed and other parameters.
+  `channels=` explicitly disables all experiments; omitting it uses shipped defaults and shows
+  no panel. Unknown names and duplicate `channels` parameters are refused before boot. Existing
+  policies still write their usual commands: enabling a channel does not invent proposals.
+  Validation: 1044/1044 Node tests, check and build; URL tests caught four mutations (ignored
+  selection, accepted duplicate parameters, accepted inherited property names, dropped matchup).
+  Arena and dungeon browser startup and the arena switch were checked on a temporary 5182 server.
 - The step run was never completed at 32 pairs for plain `-step`. It is not needed for the verdict,
   because `-stepadd` supersedes it.
 
 ## Eye gate
 
-The eye gate is deferred. None of these can be looked at on the page until the flags have a page
-switch:
+The eye gate is deferred. The page flag switch is available, but observing the expert's proposals
+still needs a browser-compatible command-mind preview; the expert itself runs offline under Node:
 
 - **The stances.** Attack is staggered with weight forward; cover is wider. Each should read as a
   stance, not a split or a lean. Look at the stone, the human and the skeleton.

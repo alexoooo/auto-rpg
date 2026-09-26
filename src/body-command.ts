@@ -112,7 +112,7 @@ export const CHANNEL_FLAGS: ChannelFlags = { ...DEFAULT_CHANNEL_FLAGS };
 export function setChannelFlags(next: Partial<ChannelFlags>): ChannelFlags {
   const previous = { ...CHANNEL_FLAGS };
   for (const key of Object.keys(next) as (keyof ChannelFlags)[]) {
-    if (!(key in DEFAULT_CHANNEL_FLAGS)) throw new Error(`no channel flag "${String(key)}"`);
+    if (!Object.hasOwn(DEFAULT_CHANNEL_FLAGS, key)) throw new Error(`no channel flag "${String(key)}"`);
     if (typeof next[key] !== "boolean") throw new Error(`channel flag "${String(key)}" takes a boolean`);
     CHANNEL_FLAGS[key] = next[key] as boolean;
   }
@@ -123,7 +123,7 @@ export function setChannelFlags(next: Partial<ChannelFlags>): ChannelFlags {
 export function parseChannelFlags(text: string | null | undefined): Partial<ChannelFlags> {
   const out: Partial<ChannelFlags> = {};
   for (const name of (text ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
-    if (!(name in DEFAULT_CHANNEL_FLAGS)) throw new Error(`no channel flag "${name}"`);
+    if (!Object.hasOwn(DEFAULT_CHANNEL_FLAGS, name)) throw new Error(`no channel flag "${name}"`);
     out[name as keyof ChannelFlags] = true;
   }
   return out;

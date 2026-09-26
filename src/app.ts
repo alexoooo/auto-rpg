@@ -8,6 +8,7 @@
  */
 import "./menu.css";
 import { MENU_HREF, playHref, routeFor, type Route } from "./app-route.ts";
+import { configureChannelExperiments } from "./channel-experiments.ts";
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -28,6 +29,7 @@ window.addEventListener("pageshow", (event) => {
 });
 
 async function open(route: Route): Promise<void> {
+  configureChannelExperiments();
   switch (route) {
     // Each case names the document before its first `await`. The research preview sets its own
     // title after `await import("/src/app.ts")`, which resolves at that first `await`, so the

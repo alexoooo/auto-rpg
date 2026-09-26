@@ -5,6 +5,22 @@ unattended by Claude Code. That session was wound down here on the owner's word,
 what the next agent, Codex, needs to carry on. Read `AGENTS.md` first: its traps and house rules all
 apply.
 
+## Continuation, 2026-09-26
+
+The original wind-down landed at `597ecf36`, including both WIP merges. References below to
+`4a33b10a` as main and to unmerged branches describe the earlier checkpoint.
+
+The browser channel switch is now implemented: `?play=arena&channels=stance,step`, or the same
+with `play=dungeon`. Its opt-in panel applies changes by navigation before bodies are constructed;
+`channels=` switches everything off. No shipped defaults changed. Existing policies do not use
+the new channels merely because they are enabled, so the expert eye check still needs a
+browser-compatible preview. Task-space effector targets and the unfinished research runs remain
+open. No research runs were resumed in this continuation.
+
+Validation: 1044/1044 tests, check and build; four deliberate breaks caught by the new URL tests.
+Arena and dungeon browser startup, the arena switch, and the absence of the panel on a normal
+page were checked on a temporary server on 5182. That server was stopped; 5180 was untouched.
+
 ## The owner's standing instructions
 
 - **Keep going session to session.** The owner asked for the AI work to go on while they are away

@@ -85,7 +85,7 @@ Session 05 (the footwork check). The orders half does not depend on it and may l
 ## Result: the orders half
 
 Landed on 2026-09-26, in five commits (683cbf7 plumbing, c75c488 arena, 0a6d9ce dungeon, 814b81d
-drill, c9173ae retirements). The command-surface half has not been started. The write-up is
+drill, c9173ae retirements). The command-surface half is recorded below. The write-up is
 `docs/analysis/2026-09-26-orders.md`.
 
 - **Orders.**
@@ -119,9 +119,8 @@ drill, c9173ae retirements). The command-surface half has not been started. The 
 
 ## Result: the command-surface half (work in progress)
 
-Stopped on 2026-09-26, when the session was wound down. It is on branch
-`worktree-agent-a2839c7b55a39942a` and has not been merged into main; main's 4a33b10a is merged into
-it. The write-up is `docs/analysis/2026-09-26-command-surface.md`.
+The initial work was merged into main at `033a86ce` on 2026-09-26, with measurements still partial.
+The write-up is `docs/analysis/2026-09-26-command-surface.md`.
 
 - **Built.** `BodyCommand` has an `Intent` adapter, so the duelist, the miser and the needle run
   unchanged. Channels are declared per module from shared kinds. Two footwork channels sit behind
@@ -138,4 +137,12 @@ it. The write-up is `docs/analysis/2026-09-26-command-surface.md`.
   stone and 54.8 % [38.1, 71.4] on the skeleton. The analysis's section 7 has the commands that
   finish it.
 - **Not built.** Effector targets in world task space, with a speed and a stiffness.
-- **Eye gate: deferred.** It needs a page switch for the flags.
+- **Browser switch built, 2026-09-26 continuation.** `?play=arena&channels=stance,step` (or
+  `play=dungeon`) enables the experiments before bodies are built. The opt-in panel can switch
+  them and restart the page, preserving the matchup and other URL parameters. `channels=` turns
+  both off; omitting it uses shipped defaults and hides the panel. This does not make legacy
+  policies propose on those channels. Tests: 1044/1044, check and build; four deliberate breaks
+  caught by the new URL tests. Arena and dungeon browser startup and switching checked on 5182,
+  then the server stopped. The owner's 5180 server was untouched.
+- **Eye gate: deferred.** The flag switch is available; viewing expert proposals still needs a
+  browser-compatible command-mind preview. The offline expert remains a Node instrument.
