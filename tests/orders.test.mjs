@@ -9,8 +9,8 @@ import { createHash } from "node:crypto";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createBout, freshHavok, FRAME } from "./harness/bout-runner.mjs";
 import {
-  AUTO_COMMANDERS, AttackNearest, HoldHere, ORDER_TUNING, OrderFollower, StandingOrders, autoCommander,
-  hasOrders, isAutoCommanderName,
+  AUTO_COMMANDERS, AttackNearest, HoldHere, ORDER_TUNING, OrderFollower, STEER_LEAD_M, StandingOrders,
+  attackMoveOrder, autoCommander, fightOrder, hasOrders, holdOrder, isAutoCommanderName, moveOrder, steerPoint,
 } from "../src/orders.ts";
 import { policyMind } from "../src/mind.ts";
 
@@ -174,6 +174,44 @@ test("every_auto_commander_is_built_by_name", () => {
   assert.equal(isAutoCommanderName("puppet"), false);
   assert.equal(new AttackNearest().orders(), null);
   assert.equal(new StandingOrders().orders(), null);
+});
+
+test("a_person_s_gestures_make_the_orders_the_help_sheet_names", () => {
+  const here = { x: 1, z: 2 }, there = { x: -3, z: 4 };
+  // A click on the enemy: fight it, and no destination.
+  assert.deepEqual(fightOrder("right"), { target: "right", destination: null });
+  // A click on the ground: go and hold, keeping a body target and dropping an attack-move point.
+  assert.deepEqual(moveOrder(null, here), { target: null, destination: here });
+  assert.deepEqual(moveOrder(fightOrder("right"), here), { target: "right", destination: here });
+  assert.deepEqual(moveOrder(attackMoveOrder(there), here), { target: null, destination: here });
+  // The other button: an attack-move, which is a point target and no destination.
+  assert.deepEqual(attackMoveOrder(there), { target: there, destination: null });
+  assert.deepEqual(holdOrder(fightOrder("left"), here), { target: "left", destination: here });
+  // Points are copied, never aliased: a live Vector3 handed in must not move the order.
+  const live = { x: 5, z: 6 };
+  const moved = moveOrder(null, live);
+  live.x = 99;
+  assert.equal(moved.destination.x, 5);
+});
+
+test("steering_puts_the_destination_a_step_ahead_in_the_camera_s_frame", () => {
+  const ground = { x: 1, z: 1 }, L = STEER_LEAD_M;
+  const near = (a, b) => Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.z - b.z) < 1e-9;
+  // Nothing held, or no frame, is no destination.
+  assert.equal(steerPoint(ground, { x: 0, z: 1 }, { forward: 0, strafe: 0 }), null);
+  assert.equal(steerPoint(ground, { x: 0, z: 0 }, { forward: 1, strafe: 0 }), null);
+  // A camera looking down +Z: W is +Z, D is +X (the ground is left-handed, y up).
+  assert.ok(near(steerPoint(ground, { x: 0, z: 1 }, { forward: 1, strafe: 0 }), { x: 1, z: 1 + L }));
+  assert.ok(near(steerPoint(ground, { x: 0, z: 1 }, { forward: 0, strafe: 1 }), { x: 1 + L, z: 1 }));
+  assert.ok(near(steerPoint(ground, { x: 0, z: 1 }, { forward: -1, strafe: 0 }), { x: 1, z: 1 - L }));
+  assert.ok(near(steerPoint(ground, { x: 0, z: 1 }, { forward: 0, strafe: -1 }), { x: 1 - L, z: 1 }));
+  // A camera looking down +X, with a length that is not one: W is +X, D is -Z.
+  assert.ok(near(steerPoint(ground, { x: 4, z: 0 }, { forward: 1, strafe: 0 }), { x: 1 + L, z: 1 }));
+  assert.ok(near(steerPoint(ground, { x: 4, z: 0 }, { forward: 0, strafe: 1 }), { x: 1, z: 1 - L }));
+  // A diagonal is the same step, not a longer one.
+  const diagonal = steerPoint(ground, { x: 0, z: 1 }, { forward: 1, strafe: 1 });
+  assert.ok(Math.abs(Math.hypot(diagonal.x - 1, diagonal.z - 1) - L) < 1e-9);
+  assert.ok(L > ORDER_TUNING.slowM, "a steering step walks at full command");
 });
 
 // ---------------------------------------------------------------------------------------------

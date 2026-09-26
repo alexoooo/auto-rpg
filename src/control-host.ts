@@ -1,5 +1,4 @@
-import type { HumanOwnership } from "./input.ts";
-import type { FighterView, HandCursors, Mind } from "./mind.ts";
+import type { FighterView, HandCursors, HumanOwnership, Mind } from "./mind.ts";
 import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
 import type { PressSource } from "./contact-press.ts";

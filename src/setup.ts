@@ -1,4 +1,6 @@
 import {
+  commanderOf,
+  withCommander,
   withGolemAttribute,
   withGolemBuild,
   withGolemEffector,
@@ -28,6 +30,16 @@ import {
   BODY_FAMILIES, FAMILY_FIXED_ATTRIBUTES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily,
 } from "./golem/family.ts";
 import { FAMILY_SETUP } from "./golem/family-setup.ts";
+import { AUTO_COMMANDERS, isAutoCommanderName, type AutoCommanderName } from "./orders";
+
+/**
+ * The auto-commanders a corner can be given, as the screen names them. A side nobody commands takes
+ * its orders from one of these; a side a person commands (the HUD's Command) takes the person's.
+ */
+const COMMANDER_LABEL: Record<AutoCommanderName, { label: string; title: string }> = {
+  "attack-nearest": { label: "Attack nearest", title: "No orders: fight the nearest enemy" },
+  "hold-here": { label: "Hold here", title: "Hold the ground it starts on, and fight from there" },
+};
 import { ATTRIBUTE_IDS } from "./golem/attributes.ts";
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "./attributes-ui";
 import { randomSeed } from "./rng";
@@ -324,6 +336,12 @@ export class SetupScreen {
           <label class="show-all" data-side="${side}" data-wrap="showAllPolicies"><input type="checkbox"
             data-side="${side}" data-field="showAllPolicies" /> show every policy</label>
         </div>
+        <div class="section-head">Orders</div>
+        <div class="segmented" role="group" aria-label="${title} orders">
+          ${AUTO_COMMANDERS.map((name) => `<button class="segment" type="button" data-side="${side}"`
+            + ` data-field="commander" data-commander="${name}" title="${COMMANDER_LABEL[name].title}">`
+            + `${COMMANDER_LABEL[name].label}</button>`).join("")}
+        </div>
         <div class="contender-actions">
           <button class="action" type="button" data-side="${side}" data-field="randomize">Randomize</button>
           <button class="action quiet" type="button" data-side="${side}" data-field="customize">Customize</button>
@@ -444,6 +462,14 @@ export class SetupScreen {
         const side = target.dataset.side as Side | undefined;
         if (side !== "left" && side !== "right") return;
         this.randomize(side);
+        break;
+      }
+      case "commander": {
+        const side = target.dataset.side as Side | undefined;
+        const name = target.dataset.commander ?? "";
+        if ((side !== "left" && side !== "right") || !isAutoCommanderName(name)) return;
+        if (commanderOf(this.matchup[side]) === name) return;
+        this.matchup = withCommander(this.matchup, side, name);
         break;
       }
       case "attributeReset":
@@ -581,6 +607,11 @@ export class SetupScreen {
         : [buildRow(null, null, `${definition.label} with ${setup.handA} and ${setup.handB}`)]));
       this.seeds[side].textContent = !build ? ""
         : setup.seed !== undefined ? `seed ${setup.seed}` : "picked by hand";
+      for (const button of this.host.querySelectorAll<HTMLButtonElement>(`[data-side="${side}"][data-field="commander"]`)) {
+        const current = commanderOf(setup) === button.dataset.commander;
+        button.classList.toggle("active", current);
+        button.setAttribute("aria-pressed", String(current));
+      }
       for (const button of this.host.querySelectorAll<HTMLButtonElement>(`[data-side="${side}"][data-field="family"]`)) {
         const current = build !== null && bodyFamily(build) === button.dataset.family;
         button.classList.toggle("active", current);
@@ -694,9 +725,7 @@ export class SetupScreen {
       }
       const assessment = assessPolicy(POLICIES.find((p) => p.name === setup.policy), true, setup.golem);
       if (assessment.status !== "applicable") return `${side}: ${assessment.reason}`;
-      if (setup.control === "you" && !definition.humanAdapter) {
-        return `control surface ${definition.kind} has no human adapter`;
-      }
+
       // The build's own refusal, by name, from the file that owns the legal pairs. It should be
       // unreachable through the pickers -- every option offered is one the registry has and the
       // two-socket rule is applied by the reducer -- which is exactly why it is checked here: a

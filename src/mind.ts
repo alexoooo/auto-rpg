@@ -6,7 +6,19 @@ import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 // to nothing, which is what keeps `input.ts` -- and through it the DOM -- out of
 // the graph a headless harness loads; the two below them are real, and
 // everything they reach is `config.ts`, which reaches nothing.
-import type { HumanOwnership } from "./input.ts";
+/**
+ * Which of a split body's channels a person drives, read only by `splitMind` below. It lived in
+ * `input.ts` until the arena began taking orders instead of a puppet (skill ceiling session 06)
+ * and goes with `splitMind` when that is retired.
+ */
+export interface HumanOwnership {
+  posture: boolean;
+  drivenWrist: boolean;
+  /** The feet: `forward`, `strafe` and `turn`. Off leaves the body walking itself. */
+  locomotion: boolean;
+  /** The acting hand and the buttons on it. Off leaves the mind fighting with it. */
+  attack: boolean;
+}
 // `hands.ts` imports nothing, which is the property that let the kinds move
 // there in the first place. It is also why this one can be a real import rather
 // than a type-only one and still cost a headless harness nothing: there is no

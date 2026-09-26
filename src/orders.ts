@@ -201,6 +201,55 @@ export class HoldHere implements Commander {
   }
 }
 
+/**
+ * What a person's gestures make of their orders. Pure, so the rules are argued with in
+ * `tests/orders.test.mjs` rather than only by clicking; `src/input.ts` reports the gesture and the
+ * page picks what it landed on, and both hand the result to a `StandingOrders`.
+ *
+ * - A click on an enemy: fight that one, and drop any destination -- the order is "go and get him".
+ * - A click on the ground: go there and hold it. A body target already ordered stays ordered, so
+ *   "fight him, from over there" is two clicks.
+ * - The other button on the ground: attack-move -- walk there, and fight whatever comes near.
+ * - Hold (`H`): hold the ground the body is standing on.
+ * - Steering (WASD): a destination a step ahead of the body in the camera's frame, renewed every
+ *   frame the keys are held. Letting go holds the ground where the body then is.
+ */
+export const fightOrder = (target: string): Orders => ({ target, destination: null });
+
+export const moveOrder = (current: Orders | null, point: GroundPoint): Orders => ({
+  target: typeof current?.target === "string" ? current.target : null,
+  destination: { x: point.x, z: point.z },
+});
+
+export const attackMoveOrder = (point: GroundPoint): Orders =>
+  ({ target: { x: point.x, z: point.z }, destination: null });
+
+export const holdOrder = (current: Orders | null, ground: GroundPoint): Orders => moveOrder(current, ground);
+
+/** How far ahead of the body a steering key puts its destination, metres: past `slowM`, so the walk is at full command. */
+export const STEER_LEAD_M = 1.2;
+
+/**
+ * The destination WASD asks for, or null when no key is held. `forward` is the camera's horizontal
+ * look direction (any length); `axes.forward` is W minus S and `axes.strafe` is D minus A. The
+ * ground is left-handed, y up, so the camera's right is `(forward.z, -forward.x)`.
+ */
+export function steerPoint(
+  ground: GroundPoint,
+  forward: GroundPoint,
+  axes: { readonly forward: number; readonly strafe: number },
+  lead = STEER_LEAD_M,
+): GroundPoint | null {
+  const length = Math.hypot(forward.x, forward.z);
+  if (length < 1e-9 || (axes.forward === 0 && axes.strafe === 0)) return null;
+  const fx = forward.x / length, fz = forward.z / length;
+  const wx = fx * axes.forward + fz * axes.strafe;
+  const wz = fz * axes.forward - fx * axes.strafe;
+  const w = Math.hypot(wx, wz);
+  if (w < 1e-9) return null;
+  return { x: ground.x + (wx / w) * lead, z: ground.z + (wz / w) * lead };
+}
+
 /** The auto-commanders an AI side may be given, by name. */
 export const AUTO_COMMANDERS = Object.freeze(["attack-nearest", "hold-here"] as const);
 export type AutoCommanderName = (typeof AUTO_COMMANDERS)[number];
