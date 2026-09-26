@@ -208,13 +208,14 @@ export const anatomicalChain = defineChain({
       // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
       captureState: (): Record<string, unknown> => ({
         supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime,
-        commanded, previousAngles, previousRotations,
+        commanded, previousAngles, previousRotations, lastStep,
         ctx, rates, reachable, bind, bodies, constraints, actuators, groups, axes, handPivot, handWeld,
+        previousPoint,
       }),
       restoreState(state: Record<string, unknown>): void {
         ({
           supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime,
-          commanded, previousAngles, previousRotations,
+          commanded, previousAngles, previousRotations, lastStep,
         } = state as never);
       },
     } as BuiltChain;

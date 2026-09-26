@@ -959,9 +959,10 @@ export function buildArmCore(
       yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive,
       wanted, demanded, sent, slewed, achieved, axisViews, scratch, commandedPoint,
       relative, inverse, yawServo, pitchServo, elbowServo, R, commandVelocity, handPivot,
+      previousPoint, steeredPoint, lastStep,
     }),
     restoreState(state: Record<string, unknown>): void {
-      ({ yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive } = state as never);
+      ({ yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive, lastStep } = state as never);
     },
   });
 }

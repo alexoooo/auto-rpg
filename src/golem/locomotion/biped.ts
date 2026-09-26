@@ -1509,14 +1509,14 @@ return defineLocomotion({
       // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
       captureState: (): Record<string, unknown> => ({
         load, carriedMassKg, waist, carriedParts, stride, crouchLevel, wantedCrouch, request, severed,
-        risingStart, port, elapsed, contacts, selfContacts, hipDrop, limp,
+        risingStart, port, elapsed, contacts, selfContacts, hipDrop, limp, risePlan, riseFrame,
         B, L, ctx, socket, local, legs, readers, ruin, settle, watchers, commanded, evidence, readout,
         scratch, rootSample, activePort, world, own,
       }),
       restoreState(state: Record<string, unknown>): void {
         ({
           load, carriedMassKg, waist, carriedParts, stride, crouchLevel, wantedCrouch, request, severed,
-          risingStart, port, elapsed, contacts, selfContacts, hipDrop, limp,
+          risingStart, port, elapsed, contacts, selfContacts, hipDrop, limp, risePlan, riseFrame,
         } = state as never);
       },
     });
