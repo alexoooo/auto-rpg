@@ -4,7 +4,7 @@
 # skill (survive-cut, punish-miss, land-clean-blow, and get-inside at half the runs). Rungs: the
 # ladder, the family's duelist for a human, and the three experts.
 #
-#   LANES=4 UNTIL=2026-09-26T14:00 bash research/headroom-drills.sh [reverse]
+#   LANES=4 RUNS=40 GI_RUNS=16 UNTIL=2026-09-26T14:00 BASE=research/runs/headroom-drills-40 bash research/headroom-drills.sh [reverse]
 #
 # Several copies may run at once, over the same list or in reverse: each claims a body by making
 # research/runs/headroom-drills/<body>.claim (mkdir is atomic) and skips a body another has claimed,
@@ -13,7 +13,7 @@
 set -u
 cd "$(dirname "$0")/.."
 DRILL_EXPERTS="expert@c8,h1;expert-persist@c8,h1;expert@c4,h1"
-base=research/runs/headroom-drills
+base="${BASE:-research/runs/headroom-drills}"
 mkdir -p "$base"
 bodies=$(node --input-type=module -e "import { AUDIT_BUILDS } from './research/headroom-builds.mjs'; console.log(AUDIT_BUILDS.map((b) => b.name).join(' '))")
 if [ "${1:-}" = "reverse" ]; then bodies=$(echo "$bodies" | tr ' ' '\n' | tac | tr '\n' ' '); fi
