@@ -62,9 +62,9 @@ export class GameAudio {
     this.refreshGain();
   }
   private refreshGain(): void {
-    this.button.textContent = this.muted ? "Sound off" : "Sound on";
-    this.button.setAttribute("aria-pressed", String(!this.muted));
-    if (this.context && this.master) this.master.gain.setTargetAtTime(this.active && !this.muted ? this.volume * .65 : 0, this.context.currentTime, .025);
+    this.button.textContent = this.failed ? "Sound unavailable" : this.muted ? "Sound off" : "Sound on";
+    this.button.setAttribute("aria-pressed", String(!this.muted && !this.failed));
+    if (this.context && this.master) this.master.gain.setTargetAtTime(this.active && !this.muted && !this.failed ? this.volume * .65 : 0, this.context.currentTime, .025);
   }
   private async unlock(): Promise<void> {
     if (this.disposed || this.failed || this.muted || !this.volume) return;
@@ -82,7 +82,11 @@ export class GameAudio {
       }
       if (this.context.state === "suspended") await this.context.resume();
       this.refreshGain();
-    } catch { this.failed = true; this.reset(); /* Audio must never prevent play. */ }
+    } catch (error) { this.fail(error); }
+  }
+  private fail(error: unknown): void {
+    this.failed = true; this.reset(); this.refreshGain();
+    console.warn("Game audio disabled:", error);
   }
   setActive(active: boolean): void {
     active = active && !document.hidden && !this.disposed;
@@ -98,10 +102,12 @@ export class GameAudio {
   }
   private ready(): boolean { return this.active && !this.muted && this.volume > 0 && !this.failed && this.context?.state === "running"; }
   setView(listener: SoundPoint, toward: SoundPoint, torches: readonly SoundPoint[] = []): void {
-    this.listener = { ...listener }; this.toward = { ...toward }; this.torches = [...torches];
+    // Babylon Vector3 stores coordinates behind prototype getters; spread drops them.
+    this.listener = { x: listener.x, z: listener.z }; this.toward = { x: toward.x, z: toward.z };
+    this.torches = torches.map(point => ({ x: point.x, z: point.z }));
   }
   update(): void {
-    try { this.updateAudio(); } catch { this.failed = true; this.reset(); }
+    try { this.updateAudio(); } catch (error) { this.fail(error); }
   }
   private updateAudio(): void {
     if (!this.ready()) { this.inbox.clear(); return; }

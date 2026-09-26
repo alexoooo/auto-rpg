@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { impactCue, ImpactInbox, soundPlacement } from '../src/audio-cues.ts';
@@ -89,5 +90,19 @@ test('synthesized buffers are finite, bounded, cached and have silent seams', ()
     assert.ok(data.some(v=>Math.abs(v)>.01),`${kind} must be audible`);
     assert.ok(data.every(v=>Math.abs(v)<=1),`${kind} clips`);
     assert.equal(Math.abs(data[0]),0);assert.ok(Math.abs(data.at(-1))<.001,`${kind} has a seam click`);
+  }
+});
+
+
+test('audio copies Babylon vector coordinates before positioning arena and dungeon impacts', () => {
+  for (const dungeon of [false,true]) {
+    const audio=Object.create(GameAudio.prototype);
+    audio.voices=new Set();audio.dungeon=dungeon;
+    const listener=new Vector3(10,0,20), toward=new Vector3(0,0,1);
+    audio.setView(listener,toward);
+    listener.x=999; toward.z=-1; // The audio view is a snapshot, not a reference.
+    const played=[]; audio.play=(kind,gain,pan)=>played.push({kind,gain,pan});
+    audio.impact({...impactCue(event(),'hero','golem'), point:{x:15,z:20}});
+    assert.deepEqual(played,[{kind:'stone',gain:(.08+.5*.5)*(dungeon?(1-5/18)**2:1),pan:-.5}]);
   }
 });
