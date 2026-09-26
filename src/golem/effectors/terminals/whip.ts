@@ -256,6 +256,9 @@ export const whipDefinition = (config: typeof TERMINAL_WHIP & { gripFromButt?: n
         }
         beads.length = 0;
       },
+      // A fork of the world (`src/forkable.ts`): a lash keeps no state beyond its bodies and joints.
+      captureState: (): Record<string, unknown> => ({ joints, W, beads, strikers }),
+      restoreState: (state: Record<string, unknown>): void => { ({ joints } = state as never); },
     });
   },
 });

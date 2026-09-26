@@ -205,6 +205,18 @@ export const anatomicalChain = defineChain({
       sever() { if (stopped) return; stopped = true; release(); constraints.forEach(c => c.dispose()); },
       dispose() { if (!stopped) { release(); constraints.forEach(c => c.dispose()); } stopped = true;
         bodies.forEach(p => { p.body.dispose(); p.shape.dispose(); p.mesh.dispose(false, false); }); },
-    };
+      // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+      captureState: (): Record<string, unknown> => ({
+        supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime,
+        commanded, previousAngles, previousRotations,
+        ctx, rates, reachable, bind, bodies, constraints, actuators, groups, axes, handPivot, handWeld,
+      }),
+      restoreState(state: Record<string, unknown>): void {
+        ({
+          supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime,
+          commanded, previousAngles, previousRotations,
+        } = state as never);
+      },
+    } as BuiltChain;
   },
 });

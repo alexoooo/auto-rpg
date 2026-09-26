@@ -112,7 +112,7 @@ export function guardianDirector(seed: number, T: GuardianTactics = GUARDIAN): S
     return null;
   };
 
-  return (available, reading, view): StyleOption => {
+  const director: StyleDirector = (available, reading, view): StyleOption => {
     const clock = view.clock;
     // The abort ask, which this style receives often because `chamberAbort` is on: three options
     // and never `hold`. Meeting their point is what it abandons a chamber *for*.
@@ -148,6 +148,13 @@ export function guardianDirector(seed: number, T: GuardianTactics = GUARDIAN): S
 
     return "hold";
   };
+  // A fork of the world (`src/forkable.ts`): its stream, its table and its patience.
+  return Object.assign(director, {
+    captureState: (): Record<string, unknown> => ({ random, T, opened, patience }),
+    restoreState(state: Record<string, unknown>): void {
+      ({ opened, patience } = state as never);
+    },
+  });
 }
 
 /** The style over the executor, with an optional hook on the ask for a decision log. */

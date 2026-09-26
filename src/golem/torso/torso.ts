@@ -559,6 +559,17 @@ export function torsoModule(
             part.mesh.dispose(false, false);
           }
         },
+
+        // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+        captureState: (): Record<string, unknown> => ({
+          bearingWeld, waistJoint, wantedLean, wantedTwist, commandedLean, commandedTwist, severed,
+          T, W, socket, up, axisViews, axes, scratch, view, sockets, twistServo, leanServo,
+        }),
+        restoreState(state: Record<string, unknown>): void {
+          ({
+            bearingWeld, waistJoint, wantedLean, wantedTwist, commandedLean, commandedTwist, severed,
+          } = state as never);
+        },
       });
     },
   });

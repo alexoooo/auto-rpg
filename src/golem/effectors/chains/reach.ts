@@ -131,6 +131,9 @@ export const reachChain = defineChain({
       limp: () => core.unmotorise(),
       sever: () => core.sever(),
       dispose: () => core.dispose(),
+      // A fork of the world (`src/forkable.ts`): this rung keeps nothing but its core and one ref.
+      captureState: (): Record<string, unknown> => ({ core, commandedEnd, R }),
+      restoreState: (): void => {},
     });
   },
 });

@@ -151,17 +151,29 @@ export const maulDefinition = (config: typeof TERMINAL_MAUL & { trailingGripOffs
 
     let grip: Physics6DoFConstraint | null = null;
     let severed = false;
-    const takeGrip = (): void => {
+    /** The frames the grip was built with, in the trailing link's frame; null until it is taken. */
+    let gripFrame: { readonly axis: readonly number[]; readonly perp: readonly number[] } | null = null;
+    const takeGrip = (frame: typeof gripFrame = null): void => {
       // Its two reference frames are built to agree **in world on this step**, which is the same
       // rule the weld obeys: the limits are measured from that reference, so a pair whose zero
       // was a quarter turn out would start against its own stop. The bar's axes are carried into
-      // the *trailing link's* current frame for that reason.
-      const barRotation = part.mesh.rotationQuaternion ?? identity;
-      new Vector3(1, 0, 0).rotateByQuaternionToRef(barRotation, scratch.barX);
-      new Vector3(0, 1, 0).rotateByQuaternionToRef(barRotation, scratch.barY);
-      (trailing.link.mesh.rotationQuaternion ?? identity).conjugateToRef(scratch.intoLink);
-      scratch.barX.rotateByQuaternionToRef(scratch.intoLink, scratch.gripAxis);
-      scratch.barY.rotateByQuaternionToRef(scratch.intoLink, scratch.gripPerp);
+      // the *trailing link's* current frame for that reason. A fork replaying the grip hands in the
+      // frames the original was built with, because its own bodies are not yet where they were.
+      if (frame) {
+        scratch.gripAxis.set(frame.axis[0]!, frame.axis[1]!, frame.axis[2]!);
+        scratch.gripPerp.set(frame.perp[0]!, frame.perp[1]!, frame.perp[2]!);
+      } else {
+        const barRotation = part.mesh.rotationQuaternion ?? identity;
+        new Vector3(1, 0, 0).rotateByQuaternionToRef(barRotation, scratch.barX);
+        new Vector3(0, 1, 0).rotateByQuaternionToRef(barRotation, scratch.barY);
+        (trailing.link.mesh.rotationQuaternion ?? identity).conjugateToRef(scratch.intoLink);
+        scratch.barX.rotateByQuaternionToRef(scratch.intoLink, scratch.gripAxis);
+        scratch.barY.rotateByQuaternionToRef(scratch.intoLink, scratch.gripPerp);
+      }
+      gripFrame = Object.freeze({
+        axis: Object.freeze([scratch.gripAxis.x, scratch.gripAxis.y, scratch.gripAxis.z]),
+        perp: Object.freeze([scratch.gripPerp.x, scratch.gripPerp.y, scratch.gripPerp.z]),
+      });
       const cone = { min: -M.gripCone, max: M.gripCone };
       grip = joint(ctx.scene, trailing.link, part, {
         pivotParent: trailing.pivot,
@@ -233,6 +245,19 @@ export const maulDefinition = (config: typeof TERMINAL_MAUL & { trailingGripOffs
         part.body.dispose();
         part.shape.dispose();
         part.mesh.dispose(false, false);
+      },
+
+      // A fork of the world (`src/forkable.ts`). The grip is a joint made mid-bout, so a fork
+      // replays it as topology -- with the original's frames -- before any state is written.
+      captureTopology: (): unknown => gripFrame,
+      restoreTopology: (topology: unknown): void => {
+        if (topology !== null && !grip) takeGrip(topology as typeof gripFrame);
+      },
+      captureState: (): Record<string, unknown> => ({
+        grip, weld, severed, gripFrame, M, scratch, secondGripLocal, identity, trailing, striker,
+      }),
+      restoreState: (state: Record<string, unknown>): void => {
+        ({ grip, weld, severed, gripFrame } = state as never);
       },
     });
   },

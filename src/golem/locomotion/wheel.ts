@@ -999,6 +999,20 @@ return defineLocomotion({
           part.mesh.dispose(false, false);
         }
       },
+
+      // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+      captureState: (): Record<string, unknown> => ({
+        hinge, waist, load, carriedMassKg, carriedParts, request, severed, risingStart, port, elapsed,
+        contacts, selfContacts, commandedSpin, lastSpinAngle, achievedSpin, sampled, limp,
+        W, L, ctx, socket, facing, local, shells, readers, ruin, settle, watchers, evidence, readout,
+        lastWheel, scratch, rootSample, activePort, world, own,
+      }),
+      restoreState(state: Record<string, unknown>): void {
+        ({
+          hinge, waist, load, carriedMassKg, carriedParts, request, severed, risingStart, port, elapsed,
+          contacts, selfContacts, commandedSpin, lastSpinAngle, achievedSpin, sampled, limp,
+        } = state as never);
+      },
     });
 
     /** Contacts, counted the way both bench harnesses already count them. */

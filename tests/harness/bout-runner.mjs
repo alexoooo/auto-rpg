@@ -45,11 +45,13 @@ import { CONFIG } from "../../src/config.ts";
 import { attachPhysics, LAYER, COLLIDES } from "../../src/physics.ts";
 import { ROOM_WALL_COLLIDERS } from "../../src/arena-room.ts";
 import { stepPair } from "../../src/fighter.ts";
+import { pairSubstep, setPairSubstep } from "../../src/control-host.ts";
 import { policyForUnit, unitDefinition } from "../../src/units.ts";
 import { Combat } from "../../src/combat.ts";
 import { policyMind } from "../../src/mind.ts";
 import { advance, begin, selectScreen } from "../../src/bout.ts";
 import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-production.ts";
+import { trackWorld } from "../../src/fork/native.ts";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "../../src/recorder.ts";
 
@@ -88,6 +90,9 @@ export function buildArena(physics = havok) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachPhysics(scene, physics);
+  // Before the first body: a fork pairs this world's bodies and joints with another's by the order
+  // they were made in (`src/fork/native.ts`). Recording them changes nothing the solver sees.
+  trackWorld(scene);
   scene.getPhysicsEngine().setSubTimeStep(1000 / CONFIG.world.physicsHz);
 
   const mat = (name) => new StandardMaterial(name, scene);
@@ -541,7 +546,24 @@ export function createBout({
     scene.dispose();
     engine.dispose();
   };
-  return { step, finish, result, dispose, left, right,
+  // What a fork of this bout captures and restores (skill ceiling session 02, `tests/harness/fork.mjs`):
+  // the two bodies and the two ledgers are walked field by field; this runner's own lets, and the
+  // pair's control clock in `control-host.ts`, are the one closure the walk cannot see into.
+  const runner = {
+    captureState: () => ({
+      state, decided, frames, finished, disposed, leftRecord, rightRecord, sides,
+      substep: pairSubstep(left),
+    }),
+    restoreState: (s) => {
+      ({ state, decided, frames, finished, disposed } = s);
+      setPairSubstep(left, s.substep);
+    },
+  };
+  const forkWorld = () => ({
+    roots: { runner, left, right, leftCombat: sides[0].combat, rightCombat: sides[1].combat, recorder },
+    topological: [left, right],
+  });
+  return { step, finish, result, dispose, left, right, scene, forkWorld,
     get active() { return !disposed && active(); }, get clock() { return state.clock; } };
 }
 

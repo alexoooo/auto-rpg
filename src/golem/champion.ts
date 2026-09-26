@@ -1,5 +1,6 @@
 import type { BodyView, FighterView, Intent } from "../mind.ts";
 import type { HandName } from "../hands.ts";
+import type { Forkable } from "../forkable.ts";
 import { GOLEM_PLANNER, golemPlanner, type GolemPlanner, type PlannerTactics } from "./planner.ts";
 import { canAttack } from "./tactics.ts";
 import { GOLEM_TACTICS_V2, type AskHook, type FencerTactics, type GolemFencer } from "./tactics-v2.ts";
@@ -146,7 +147,7 @@ export function golemChampion(seed: number, entry: ChampionEntry | null, onAsk: 
   return golemPlanner(seed, undefined, planner, fencer, onAsk);
 }
 
-export interface GolemChampionMind {
+export interface GolemChampionMind extends Forkable {
   readonly name: "golem-champion";
   /** The fencer under the planner, once the first view has named the class; null before it. */
   readonly fencer: GolemFencer | null;
@@ -155,6 +156,11 @@ export interface GolemChampionMind {
   readonly armClass: string | null;
   readonly entry: ChampionEntry | null;
   decide(view: FighterView, dt: number): Intent;
+  /**
+   * Build the planner a captured champion had, before a fork lays its state over this one: called
+   * with the captured record's primitive values only.
+   */
+  prepareState(state: Record<string, unknown>): void;
 }
 
 /**
@@ -180,6 +186,25 @@ export function golemChampionMind(seed: number, tables: ChampionTables, onAsk: A
         planner = golemChampion(seed, entry, onAsk);
       }
       return planner.decide(view, dt);
+    },
+    // A fork of the world (`src/forkable.ts`): the class read off the first view, the entry it
+    // chose, and the planner built for it. `tables` first, so the entry is paired through them.
+    captureState: (): Record<string, unknown> => ({ tables, cls, entry, planner }),
+    restoreState(state: Record<string, unknown>): void {
+      ({ cls, entry, planner } = state as never);
+    },
+    /**
+     * A fresh champion has not read a view, so it has no planner for a captured one to be laid
+     * over. Handed the captured record's plain values before anything is paired, it builds the
+     * planner the captured class names -- the one its first view would have built -- so there is
+     * one to write into. The entry is looked up again rather than taken from the record, because
+     * it is an object and objects are not paired yet when this runs.
+     */
+    prepareState(state: Record<string, unknown>): void {
+      if (planner !== null || typeof state.cls !== "string") return;
+      cls = state.cls;
+      entry = championEntry(tables, cls);
+      planner = golemChampion(seed, entry, onAsk);
     },
   };
 }

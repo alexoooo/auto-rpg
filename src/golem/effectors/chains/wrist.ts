@@ -719,6 +719,19 @@ export function wristChainFrom<K extends ChainId>(
           }
           core.dispose();
         },
+
+        // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+        captureState: (): Record<string, unknown> => ({
+          rollJoint, bendJoint, rollForce, bendForce, wantedRoll, wantedBend, commandedRoll,
+          commandedBend, severed, limp, tipToSocket, core, wristAxes, aim, scratch, rollServo, bendServo,
+          R, W, rates, along, axes,
+        }),
+        restoreState(state: Record<string, unknown>): void {
+          ({
+            rollJoint, bendJoint, rollForce, bendForce, wantedRoll, wantedBend, commandedRoll,
+            commandedBend, severed, limp, tipToSocket,
+          } = state as never);
+        },
       });
     },
   });

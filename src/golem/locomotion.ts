@@ -104,6 +104,8 @@ export const hobble = (command: LocomotionCommand, mobility: number): Locomotion
 export function legRuin(legs: readonly (readonly string[])[]): {
   readonly ruin: (partId: string) => void;
   readonly mobility: () => number;
+  readonly captureState: () => Record<string, unknown>;
+  readonly restoreState: (state: Record<string, unknown>) => void;
 } {
   const ruined = new Set<number>();
   let mobility = 1;
@@ -115,6 +117,10 @@ export function legRuin(legs: readonly (readonly string[])[]): {
       mobility = 1 - (1 - GOLEM_RUIN.strippedMobility) * ruined.size / legs.length;
     },
     mobility: (): number => mobility,
+    // A fork of the world (`src/forkable.ts`). Ruins are replayed by the golem's topology first;
+    // the record is carried as well, so a leg ruined some other way is still covered.
+    captureState: (): Record<string, unknown> => ({ ruined, mobility, legs }),
+    restoreState: (state: Record<string, unknown>): void => { ({ mobility } = state as never); },
   });
 }
 
@@ -256,7 +262,7 @@ export interface BodyReaders {
  * stamps nothing (see `Golem.observe`).
  */
 export function bodyReaders(parts: () => Iterable<Part>): BodyReaders {
-  const masses = new Map<Part, number>();
+  const masses = new Map<Part, number>(); // fork: derived -- each part's mass, read once; it never changes
   const massOf = (part: Part): number => {
     let mass = masses.get(part);
     if (mass === undefined) {

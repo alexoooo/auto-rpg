@@ -255,7 +255,7 @@ export function golemMaterials(
   faction: GolemFaction,
   requestedSurface: GolemSurfaceMode = DEFAULT_GOLEM_SURFACE_MODE,
 ): GolemMaterialPalette {
-  let factions = scenePalettes.get(scene);
+  let factions = scenePalettes.get(scene); // fork: presentation -- the scene's palettes; nothing steps on them
   if (!factions) {
     factions = new Map();
     scenePalettes.set(scene, factions);
@@ -263,7 +263,7 @@ export function golemMaterials(
   const known = factions.get(faction);
   if (known) return known;
 
-  const textures = stoneTextures(scene, faction);
+  const textures = stoneTextures(scene, faction); // fork: presentation
   const stoneProfile = GOLEM_MATERIAL_PROFILES["carved-stone"];
   const carvedStone = material(scene, `golem.${faction}.carved-stone`, stoneProfile.albedoByFaction[faction]);
   carvedStone.metallic = stoneProfile.metallic;
@@ -305,10 +305,10 @@ export function golemMaterials(
     attachGolemProceduralSurface(rune, "rune", requestedSurface, surface),
   ]);
 
-  let disposed = false;
+  let disposed = false; // fork: presentation
   // No procedural plugin: the shader has stone, bronze, plain and rune families and no bone one,
   // so a bone shows no wear cracks. `plugins` stays four long.
-  let bone: PBRMaterial | null = null, boneModel: PBRMaterial | null = null;
+  let bone: PBRMaterial | null = null, boneModel: PBRMaterial | null = null; // fork: presentation
   const live = (): void => { if (disposed) throw new Error(`golem.${faction} palette is disposed`); };
   const boneMaterial = (name: string, albedo: readonly [number, number, number], roughness: number): PBRMaterial => {
     const made = material(scene, `golem.${faction}.${name}`, albedo);

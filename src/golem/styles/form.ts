@@ -104,7 +104,7 @@ export function formDirector(seed: number, T: FormTactics = FORM): StyleDirector
     return want;
   };
 
-  return (available, reading, view): StyleOption => {
+  const director: StyleDirector = (available, reading, view): StyleOption => {
     const clock = view.clock;
     // The abort ask, which offers three things and never `hold`: meet the point if the spare can,
     // otherwise finish what was started. Leaving is not this style's answer to a committed arm.
@@ -140,6 +140,13 @@ export function formDirector(seed: number, T: FormTactics = FORM): StyleDirector
     }
     return circling && available.includes("circle") ? "circle" : "hold";
   };
+  // A fork of the world (`src/forkable.ts`): its stream, its table and its phase.
+  return Object.assign(director, {
+    captureState: (): Record<string, unknown> => ({ random, T, opened, patience, circling, phaseUntil }),
+    restoreState(state: Record<string, unknown>): void {
+      ({ opened, patience, circling, phaseUntil } = state as never);
+    },
+  });
 }
 
 /** The style over the executor, with an optional hook on the ask for a decision log. */

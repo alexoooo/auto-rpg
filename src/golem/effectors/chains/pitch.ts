@@ -390,6 +390,14 @@ export const pitchChain = defineChain({
         part.shape.dispose();
         part.mesh.dispose(false, false);
       },
+
+      // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+      captureState: (): Record<string, unknown> => ({
+        hinge, commandedPitch, wantedPitch, severed, passive, P, down, axisView, axes, scratch,
+      }),
+      restoreState(state: Record<string, unknown>): void {
+        ({ hinge, commandedPitch, wantedPitch, severed, passive } = state as never);
+      },
     });
   },
 });

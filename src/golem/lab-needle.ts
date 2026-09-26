@@ -41,5 +41,8 @@ export function needleMind(seed: number): Mind {
     intent.actingHand = "primary";
     if (elapsed >= 0.64) { active = false; cooldown = 0.15; }
     return intent;
-  } };
+  },
+  // A fork of the world (`src/forkable.ts`): the duelist under it, the aim, and the jab's clocks.
+  captureState: () => ({ base, aim, active, elapsed, cooldown }),
+  restoreState: (state) => { ({ active, elapsed, cooldown } = state as never); } };
 }

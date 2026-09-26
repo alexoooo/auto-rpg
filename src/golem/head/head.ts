@@ -655,6 +655,19 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
           }
           plate = null;
         },
+
+        // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+        captureState: (): Record<string, unknown> => ({
+          columnWeld, neckJoint, plate, plateWeld, striker, wantedPitch, commandedPitch, phase,
+          phaseTime, appliedPhase, thrustHeld, severed, lungeAge, struck,
+          N, ram, socket, neck, head, up, axisViews, axes, scratch, view, pitchServo, yawServo,
+        }),
+        restoreState(state: Record<string, unknown>): void {
+          ({
+            columnWeld, neckJoint, plate, plateWeld, striker, wantedPitch, commandedPitch, phase,
+            phaseTime, appliedPhase, thrustHeld, severed, lungeAge, struck,
+          } = state as never);
+        },
       });
     },
   });

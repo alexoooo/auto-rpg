@@ -2,6 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { Striking } from "../../combat.ts";
 import type { HandIntent } from "../../mind.ts";
+import { isTopological } from "../../forkable.ts";
 import { attributeOf, SIZE_LAW_POWER, withSize, type SizeLaws } from "../attributes.ts";
 import {
   EFFECTOR_SLOTS,
@@ -336,6 +337,18 @@ export function effectorModule(
           end.dispose();
           built.dispose();
           trailing?.dispose();
+        },
+        // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on,
+        // and the terminal's topology -- a maul's second grip is a joint made mid-bout.
+        captureTopology: (): unknown => (isTopological(end) ? end.captureTopology() : null),
+        restoreTopology: (topology: unknown): void => {
+          if (topology !== null && isTopological(end)) end.restoreTopology(topology);
+        },
+        captureState: (): Record<string, unknown> => ({
+          severed, limp, built, trailing, end, ctx, view, limbIds, limits, envelope,
+        }),
+        restoreState: (state: Record<string, unknown>): void => {
+          ({ severed, limp } = state as never);
         },
       });
     },
