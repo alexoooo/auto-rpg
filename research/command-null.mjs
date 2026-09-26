@@ -1,7 +1,7 @@
 // The command surface's null control (skill ceiling session 06, the command-surface half;
 // `docs/analysis/2026-09-26-command-surface.md`).
 //
-//   node research/command-null.mjs --tag base  [--lanes 6]
+//   node research/command-null.mjs --tag base  [--lanes 6] [--flags stance,step]
 //   node research/command-null.mjs --compare research/runs/command-null-base research/runs/command-null-after
 //
 // With every new channel off and every mind going through the adapter from `Intent`, a bout must be
@@ -12,6 +12,10 @@
 // Each row carries the bout's trajectory hash (`trajectoryTracer`), a digest of both behaviour
 // records, the verdict, the clock and both bars, and an expert row its decision labels.
 //
+// `--flags` turns channels on for the whole run. Nothing in the fixture writes a stance or a step,
+// so a run with a flag on must compare identical with one without it: that is the restricted side
+// of a with/without experiment, which holds the channel at neutral.
+//
 // Harness: the Node bout runner through `runJobs` in `research/runner.mjs` and
 // `research/command-null-worker.mjs`, the research `PROTOCOL` (150 s cap, supported locomotion).
 import { join, resolve } from "node:path";
@@ -19,6 +23,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { runJobs, readResults } from "./runner.mjs";
 import { PROTOCOL, seed } from "./schedule.mjs";
+import { parseChannelFlags } from "../src/body-command.ts";
 
 export const HARNESS = "Node bout runner, research runner (research/command-null-worker.mjs), supported locomotion, research PROTOCOL";
 
@@ -61,17 +66,20 @@ function compare(a, b) {
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { tag: { type: "string" }, lanes: { type: "string", default: "6" },
-    compare: { type: "string", multiple: true } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { tag: { type: "string" }, lanes: { type: "string", default: "6" },
+    compare: { type: "string", multiple: true }, flags: { type: "string" } } });
   if (values.compare) {
-    if (values.compare.length !== 2) throw new Error("--compare takes two run directories");
-    process.exitCode = compare(resolve(values.compare[0]), resolve(values.compare[1])) ? 0 : 1;
+    // `--compare A B` as the header spells it, or `--compare A --compare B`.
+    const dirs = [...values.compare, ...positionals];
+    if (dirs.length !== 2) throw new Error("--compare takes two run directories");
+    process.exitCode = compare(resolve(dirs[0]), resolve(dirs[1])) ? 0 : 1;
     return;
   }
   const dir = resolve(join("research", "runs", `command-null-${values.tag ?? "run"}`));
   const jobs = nullJobs();
   const manifest = { protocol: { maxSeconds: PROTOCOL.maxSeconds, settleSeconds: PROTOCOL.settleSeconds,
-    locomotionMode: PROTOCOL.locomotionMode }, experiment: "command-null-v1", harness: HARNESS };
+    locomotionMode: PROTOCOL.locomotionMode }, experiment: "command-null-v1", harness: HARNESS,
+    flags: parseChannelFlags(values.flags) };
   console.log(`${jobs.length} bouts into ${dir}`);
   const rows = await runJobs(dir, manifest, jobs, { workers: Number(values.lanes), jobLimitMs: 60 * 60000,
     workerUrl: new URL("./command-null-worker.mjs", import.meta.url),

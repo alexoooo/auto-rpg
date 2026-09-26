@@ -12,6 +12,7 @@ import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createBout, freshHavok } from "../tests/harness/bout-runner.mjs";
 import { expertMind, runExpertBout } from "../tests/harness/expert.mjs";
 import { policyMind } from "../src/mind.ts";
+import { DEFAULT_CHANNEL_FLAGS, setChannelFlags } from "../src/body-command.ts";
 import { trajectoryTracer } from "./side-mirror.mjs";
 import { auditBuild } from "./headroom-builds.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
@@ -19,6 +20,8 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 const digestOf = (value) => createHash("sha1").update(JSON.stringify(value)).digest("hex").slice(0, 16);
 
 export async function playNull(job, manifest) {
+  // The run's channel flags, from the defaults every job, so a realm's previous job leaves none set.
+  setChannelFlags({ ...DEFAULT_CHANNEL_FLAGS, ...(manifest.flags ?? {}) });
   const setupOf = (name) => {
     const build = auditBuild(name);
     if (!build) throw new Error(`no build "${name}"`);

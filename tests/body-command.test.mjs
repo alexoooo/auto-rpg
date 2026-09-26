@@ -159,11 +159,14 @@ async function drive(setup, mind, seconds = 2) {
   const bout = createBout({ left: "golem-duelist", right: "golem-duelist", seeds: [3, 4], physics: await freshHavok(),
     leftGolem: setup, leftMind: mind, locomotionMode: "supported", maxSeconds: 30, separation: 12 });
   const track = [];
+  // The ground track is the carrier's and reads no leg, so every part's position goes in as well:
+  // with the ground alone, a stance that moved both feet compared equal (mutation-checked).
+  const meshes = bout.left.limbs.map((l) => l.part.mesh);
   try {
     const frames = Math.round(seconds * 60);
     for (let f = 0; f < frames && bout.step(); f += 1) {
       const g = bout.left.view.self.ground;
-      track.push([g.x, g.y, g.z]);
+      track.push([g.x, g.y, g.z, ...meshes.flatMap((m) => [m.position.x, m.position.y, m.position.z])]);
     }
     return { track, held: bout.left.control.driver.held };
   } finally {
@@ -194,4 +197,11 @@ test("a_feature_the_body_did_not_declare_is_inert_bit_for_bit", async () => {
   const plain = await drive(BODIES.default, commandMind(0.6), 1.5);
   const written = await drive(BODIES.default, commandMind(0.6, stanceWriter), 1.5);
   assert.deepEqual(written.track, plain.track);
+  // The control: the same writer on the same body with the flag on does move it, so the two
+  // equalities above are about the declaration and not about a reading that cannot see a stance.
+  const again = setChannelFlags({ stance: true });
+  try {
+    const declared = await drive(BODIES.default, commandMind(0.6, stanceWriter), 1.5);
+    assert.notDeepEqual(declared.track, plain.track, "a declared stance moved nothing this test reads");
+  } finally { setChannelFlags(again); }
 });
