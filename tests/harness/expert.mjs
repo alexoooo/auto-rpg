@@ -35,7 +35,10 @@
 //     hold-range drill's band;
 //   - stall and retreat: session 03's near-range stall seconds and retreat-outside-reach seconds
 //     (`src/engagement.ts`) accrued by the expert over the horizon, each at a cost per second, so
-//     it cannot win by standing off.
+//     it cannot win by standing off;
+//   - task, in a drill only: the drill's own judge over the rollout (`DRILL_TASKS` in
+//     `tests/harness/drills.mjs`), worth 1 for a pass and shaped by the drill's margin, so that on a
+//     drill the expert searches for what the drill scores. A rollout there stops where the rung does.
 //
 // **Fork reuse.** An exact fork costs a fresh Havok instance and a build (session 02: 93 ms of its
 // median, far more on a loaded host). A fork world is kept and restored again for every candidate:
@@ -87,6 +90,12 @@ export const EXPERT_DEFAULTS = Object.freeze({
    * opponent's actual future, which only a test of the plumbing wants.
    */
   reseed: true,
+  /**
+   * In a drill, add the drill's own judge over each rollout to the objective (`DRILL_TASKS` in
+   * `tests/harness/drills.mjs`): the expert then searches for the drill's pass, which is what the
+   * drill scores. Off (`-bout`), it plays a drill on the bout objective alone.
+   */
+  task: true,
   /** Keep each decision's predicted end state (bars and a pose hash), for a test. */
   trace: false,
   /** The objective's weights, in bars (a whole bar is 1). */
@@ -99,7 +108,8 @@ export const EXPERT_DEFAULTS = Object.freeze({
 
 /**
  * An expert by name: `expert`, then any of `-persist` (the model-only instrument), `-blind` (a fork
- * four decisions stale, the sanity mutation), `-fresh` (no fork reuse), and `@` with comma-separated
+ * four decisions stale, the sanity mutation), `-fresh` (no fork reuse), `-bout` (a drill played on
+ * the bout objective, not the drill's judge), and `@` with comma-separated
  * overrides: `c16` candidates, `h1` horizon seconds, `r2` rounds, `d4` decisions a second, `s4`
  * stale decisions. `expert@c8,h0.5` is 8 candidates over half a second.
  */
@@ -111,6 +121,7 @@ export function expertConfig(name) {
     if (flag === "persist") config.opponent = "persistence";
     else if (flag === "blind") config.stale = 4;
     else if (flag === "fresh") config.reuse = false;
+    else if (flag === "bout") config.task = false;
     else throw new Error(`expert: unknown flag "-${flag}" in "${name}"`);
   }
   for (const item of (match[2] ?? "").split(",").filter(Boolean)) {
@@ -609,15 +620,20 @@ export class ExpertMind {
         for (const stream of randomStreams(this.pool.slots.O.mind)) { stream.reseed(mixSeed(reseed, i)); i += 1; }
       }
       const start = reading(world, E, config.band);
-      const frames = Math.round(config.horizon / FRAME);
+      // In a drill, the drill's own judge over the rollout, and no further than the rung runs.
+      const task = config.task && host.task ? host.task(world) : null;
+      const frames = Math.min(Math.round(config.horizon / FRAME), task ? task.remaining : Infinity);
       for (let f = 0; f < frames && world.active; f += 1) {
         host.beforeStep?.(world);
         world.step();
+        if (task) { task.frame(); if (task.done()) break; }
       }
       const end = reading(world, E, config.band);
       cost.simulate += performance.now() - clock;
       if (config.trace) end.pose = poseHash(world);
-      return { ...scoreRollout(start, end, config.weights), predicted: config.trace ? end : undefined };
+      const score = scoreRollout(start, end, config.weights);
+      if (task) { score.task = task.value(); score.total += score.task; }
+      return { ...score, predicted: config.trace ? end : undefined };
     };
 
     const scored = [];
@@ -646,6 +662,7 @@ export class ExpertMind {
     this.log.push({
       t: clock, label: best.plan.label, n: scored.length,
       terms, ...(predicted ? { predicted } : {}),
+      ...(config.trace ? { candidates: scored.map(({ plan, score }) => ({ label: plan.label, task: score.task, vE: score.predicted.vE })) } : {}),
       spread: Math.max(...totals) - Math.min(...totals),
       tied: totals.filter((total) => total === best.score.total).length,
       ms: performance.now() - started + moment.ms, cost,

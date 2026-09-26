@@ -9,6 +9,8 @@
 //   control: with the persistence model in the opponent's place, the predictions do not all come
 //   true, so the comparison can fail. (Restarting the duelist's dice is not a control: it draws
 //   only on a few state changes, and over these seconds it drew nothing that changed a pose.)
+// - **In a drill, the drill's judge scores the rollout in its fork.** Every candidate's task term
+//   is survive-cut's pass less the rollout's own wound.
 // - **An expert opponent is played forward from its own plan.** With an expert in each corner, a
 //   rollout plays the other corner's committed plan and restored shadows; against an expert whose
 //   plan carries no state, the predictions come true exactly as against the duelist.
@@ -19,7 +21,8 @@
 //
 // Mutation checks, each run and each red: the shadows not restored into a rollout, a capture
 // without Havok's heap (the teleport fork), a reused fork not restored, an expert opponent left to
-// its fork slot's shell or played without its shadows, and the search keeping the worst plan. Two
+// its fork slot's shell or played without its shadows, a drill task judging the live world, never
+// framed or left off, and the search keeping the worst plan. Two
 // edits survive and are equivalent here: not cloning a warm plan (the moment already holds a clone,
 // and only one rollout of a fresh moment plays it) and the drill host's range feed (no drill reads
 // it inside a rung; see `drillHost`).
@@ -100,13 +103,22 @@ test("a_rollout_is_the_future_it_predicts_in_a_drill_rung", async () => {
   // second long, so the decisions come four times a second over a quarter-second horizon.
   let expert = null;
   const config = { ...PLUMB, decisionHz: 4, horizon: 0.25 };
-  const run = await runDrill({ drill: "survive-cut", subjectSetup: RAM, opponentSetup: TRI, seed: 500,
+  const run = await runDrill({ drill: "survive-cut", subjectSetup: RAM, opponentSetup: TRI, seed: 503,
     rungs: ["plumb"], rungFactory: (rung, seed) => (rung === "plumb" ? (expert = new Witnessed(config, seed)) : null) });
   assert.ok(run.rungs?.plumb, `the drill did not play the rung: ${JSON.stringify(run)}`);
   const checks = expert.checks();
   assert.ok(checks.length >= 3, `only ${checks.length} decisions were checked`);
   assert.deepEqual(checks, checks.map(() => ({ pose: true, bars: true })), "a predicted state did not come true");
   assert.equal(run.rungs.plumb.planner.decisions, expert.log.length, "the rung did not keep the planner's summary");
+
+  // The drill's judge scored every rollout in its fork: survive-cut's task is its pass less the
+  // wound, and the wound is the rollout's, from the bar at the decision to the rollout's end.
+  const tasks = expert.log.flatMap((entry, k) => entry.candidates.map((candidate) => {
+    const wound = expert.seen[k].vE - candidate.vE;
+    return { task: candidate.task, judged: Number(wound < 0.03) - wound };
+  }));
+  assert.ok(tasks.some((row) => row.judged !== 1), "no rollout was wounded: the task's margin went unseen");
+  assert.deepEqual(tasks.map((row) => row.task), tasks.map((row) => row.judged));
 });
 
 test("an_expert_opponent_is_played_forward_from_its_own_plan", async () => {
@@ -130,10 +142,10 @@ test("a_reused_fork_is_a_fresh_fork", async () => {
 test("an_expert_name_parses_to_its_search_and_a_bad_one_is_refused", () => {
   assert.equal(expertConfig("golem-duelist"), null);
   assert.deepEqual(expertConfig("expert"), { ...EXPERT_DEFAULTS, weights: { ...EXPERT_DEFAULTS.weights } });
-  const named = expertConfig("expert-persist-blind-fresh@c8,h0.5,r1,d2,s3");
+  const named = expertConfig("expert-persist-blind-fresh-bout@c8,h0.5,r1,d2,s3");
   assert.deepEqual(
     { ...named, weights: undefined },
-    { ...EXPERT_DEFAULTS, weights: undefined, opponent: "persistence", stale: 3, reuse: false,
+    { ...EXPERT_DEFAULTS, weights: undefined, opponent: "persistence", stale: 3, reuse: false, task: false,
       candidates: 8, horizon: 0.5, rounds: 1, decisionHz: 2 });
   assert.equal(expertConfig("expert-blind").stale, 4);
   for (const bad of ["expert-psychic", "expert@c", "expert@x3", "expert@c0", "expert@h0"]) {

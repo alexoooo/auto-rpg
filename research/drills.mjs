@@ -5,6 +5,12 @@
 //                            [--obuild default] [--out research/runs/drills-default]
 //   node research/drills.mjs --summary [--out research/runs/drills-default]
 //
+// `--experts` adds rungs played by session 04's reference expert, `;`-separated names such as
+// `expert@c8,h1;expert-blind@c8,h1` (`expertConfig` in `tests/harness/expert.mjs`), after the
+// ladder and the guardless duelist, so every expert rung is paired with them start by start.
+// `--lanes` is at most 20 (start at 8 while other runs share the machine), and `--job-minutes` is
+// one run's wall limit, five by default; a run with expert rungs needs longer.
+//
 // One job is one run of one drill: a start built once and every rung played from an exact fork of
 // it (`tests/harness/drills.mjs`), so every rung pair is compared start by start. The rungs are the
 // naive ladder and the guardless duelist beside it, for the plan's mutation check. The subject's
@@ -13,12 +19,13 @@
 // Harness: the Node bout runner and the fork harness, through `runJobs` in `research/runner.mjs`:
 // isolated worker lanes, one run per lane at a time, resumable from `results.jsonl`.
 import { join, resolve } from "node:path";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { runJobs, readResults } from "./runner.mjs";
 import { seed } from "./schedule.mjs";
 import { DRILL_NAMES, GUARDLESS, LADDER, OPPONENT_MIND, summarizeDrill } from "../tests/harness/drills.mjs";
+import { expertConfig } from "../tests/harness/expert.mjs";
 import { namedBuild } from "../src/golem/roster.ts";
 
 export const HARNESS = "Node bout runner and fork harness, research runner, supported locomotion";
@@ -89,26 +96,31 @@ async function main() {
     runs: { type: "string", default: "1000" }, lanes: { type: "string", default: "6" },
     drills: { type: "string", default: DRILL_NAMES.join(",") }, build: { type: "string", default: "default" },
     obuild: { type: "string" }, out: { type: "string" }, summary: { type: "boolean", default: false },
+    experts: { type: "string", default: "" }, "job-minutes": { type: "string", default: "5" },
   } });
+  const experts = values.experts.split(";").filter(Boolean);
+  for (const name of experts) if (!expertConfig(name)) throw new Error(`not an expert: "${name}"`);
+  const rungs = [...RUNGS, ...experts];
   const build = values.build;
   const obuild = values.obuild ?? build;
   const dir = resolve(values.out ?? join("research", "runs", `drills-${build}-${obuild}`));
   if (values.summary) {
-    const summary = summarize(readResults(dir));
+    const rows = readResults(dir);
+    const summary = summarize(rows, JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")).rungs);
     writeFileSync(join(dir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
     console.log(`${HARNESS}\n${table(summary)}`);
     return;
   }
   const lanes = Number(values.lanes);
-  if (lanes > 6) throw new Error("at most 6 lanes: other runs share this machine");
+  if (lanes > 20) throw new Error("at most 20 lanes: other runs share this machine");
   for (const name of [build, obuild]) if (!namedBuild(name)) throw new Error(`no named build "${name}"`);
   const jobs = drillJobs({ drills: values.drills.split(","), runs: Number(values.runs), build, obuild });
-  const manifest = { protocol: "drills-v1", harness: HARNESS, rungs: RUNGS,
+  const manifest = { protocol: "drills-v1", harness: HARNESS, rungs,
     builds: [...new Set([build, obuild])].map((name) => ({ name, setup: namedBuild(name).setup })) };
-  const rows = await runJobs(dir, manifest, jobs, { workers: lanes,
+  const rows = await runJobs(dir, manifest, jobs, { workers: lanes, jobLimitMs: Number(values["job-minutes"]) * 60000,
     workerUrl: new URL("./drills-worker.mjs", import.meta.url),
     onProgress: (p) => console.log(`${p.done}/${p.total} in ${p.elapsedSeconds.toFixed(0)} s, ${p.failures} failed`) });
-  const summary = summarize(rows);
+  const summary = summarize(rows, rungs);
   writeFileSync(join(dir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
   console.log(`${HARNESS}\n${table(summary)}`);
 }

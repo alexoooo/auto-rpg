@@ -6,6 +6,10 @@
 //   node research/league.mjs --mirror golem-walker [--clusters 8] [--classes blade] [--out DIR]
 //   node research/league.mjs --summary --out DIR
 //
+// `--lanes` is at most 20 (the owner's ceiling for this machine; start at 8 while other runs
+// share it). `--job-minutes` is one bout's wall limit, five by default; a corner played by session
+// 04's expert (`expert...`, `research/league-worker.mjs`) needs far longer.
+//
 // **Asymmetric pairs.** On identical bodies four of seven weapon classes decided nothing, so every
 // pair here is a weapon class's build against the same build with one body module changed -- a
 // plated torso, three legs, a wheel, a ram head -- and a variant the registry refuses, or one that
@@ -212,6 +216,7 @@ async function main() {
     classes: { type: "string", default: Object.keys(WEAPON_CLASSES).join(",") },
     variants: { type: "string", default: Object.keys(BODY_VARIANTS).join(",") },
     out: { type: "string" }, summary: { type: "boolean", default: false },
+    "job-minutes": { type: "string", default: "5" },
   } });
   const a = values.mirror ?? values.a;
   const b = values.mirror ?? values.b;
@@ -225,7 +230,7 @@ async function main() {
     return;
   }
   const lanes = Number(values.lanes);
-  if (lanes > 6) throw new Error("at most 6 lanes: other runs share this machine");
+  if (lanes > 20) throw new Error("at most 20 lanes: other runs share this machine");
   const { pairs, omitted } = leaguePairs(values.classes.split(","), values.variants.split(","));
   for (const o of omitted) console.log(`omitted ${o.weaponClass} + ${o.variant}: ${o.reason}`);
   const jobs = leagueJobs({ a, b, pairs, clusters: Number(values.clusters) });
@@ -233,7 +238,7 @@ async function main() {
   for (const pair of pairs) for (const build of [pair.base, pair.other]) builds.set(build.name, build);
   const manifest = { protocol: { maxSeconds: PROTOCOL.maxSeconds, settleSeconds: PROTOCOL.settleSeconds,
     locomotionMode: PROTOCOL.locomotionMode }, league: "league-v1", harness: HARNESS, builds: [...builds.values()] };
-  const rows = await runJobs(dir, manifest, jobs, { workers: lanes,
+  const rows = await runJobs(dir, manifest, jobs, { workers: lanes, jobLimitMs: Number(values["job-minutes"]) * 60000,
     workerUrl: new URL("./league-worker.mjs", import.meta.url),
     onProgress: (p) => console.log(`${p.done}/${p.total} in ${p.elapsedSeconds.toFixed(0)} s, ${p.failures} failed`) });
   const summary = leagueSummary(rows);

@@ -1,16 +1,20 @@
 // One drill run per job, for `research/drills.mjs` through `runJobs` in `research/runner.mjs`: a
 // worker thread holds one job at a time, and every run builds its worlds in Havok instances of
-// their own (`tests/harness/drills.mjs`), so no two arenas ever share a realm at once.
+// their own (`tests/harness/drills.mjs`), so no two arenas ever share a realm at once. A rung named
+// `expert...` is session 04's reference expert (`tests/harness/expert.mjs`), whose forks are
+// Havok instances of their own as well.
 import { parentPort } from "node:worker_threads";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { runDrill } from "../tests/harness/drills.mjs";
+import { expertMind } from "../tests/harness/expert.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 export async function execute(job, manifest) {
   const builds = new Map(manifest.builds.map((build) => [build.name, build.setup]));
   const started = performance.now();
   const run = await runDrill({ drill: job.drill, subjectSetup: builds.get(job.leftBuild),
-    opponentSetup: builds.get(job.rightBuild), seed: job.seeds[0], rungs: manifest.rungs });
+    opponentSetup: builds.get(job.rightBuild), seed: job.seeds[0], rungs: manifest.rungs,
+    rungFactory: expertMind });
   // `winner` is null because a drill run has none; `runJobs`' schedule check requires the field.
   return { ...job, status: "ok", winner: null, wallSeconds: (performance.now() - started) / 1000, run };
 }
