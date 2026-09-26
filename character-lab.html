@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#141a1b"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%23141a1b'/%3E%3Ctext x='5' y='30' font-family='serif' font-size='31' fill='%23d0b17c'%3EW%3C/text%3E%3C/svg%3E"><title>Character Workshop</title></head>
 <body><div id="workshop">
-  <header><a class="brand" href="./character-lab.html" aria-label="Character Workshop home"><span class="brand-mark">W</span><span>THE WORKSHOP<small>CHARACTER STUDIES / 01</small></span></a><span class="edition">ORIGINAL CHARACTERS <i></i> INTERACTIVE STUDY</span></header>
+  <header><a class="brand" href="./character-lab.html" aria-label="Character Workshop home"><span class="brand-mark">W</span><span>THE WORKSHOP<small>CHARACTER STUDIES / 01</small></span></a><span class="edition">CHARACTER WORKSHOP <i></i> INTERACTIVE STUDY</span></header>
   <main>
     <aside class="panel">
       <div class="eyebrow">BUILD YOUR CHARACTER</div><h1>A face.<br> A fighting chance.</h1><p class="intro">Two adventurers. A kit of your choosing.<br>Make them your own.</p>
@@ -10,20 +10,20 @@
         <button class="character" data-character="rogue" aria-pressed="false"><span class="portrait rogue">R</span><span><strong>The Rogue</strong><small>Female · 1.73 m</small></span><span class="selection-dot"></span></button>
       </div></fieldset>
       <fieldset id="kit" disabled><legend><span>02</span> Assemble your kit</legend>
-        <div class="equipment-row"><div><strong>Footwear</strong><small>Laced leather boots</small></div><div class="segments" aria-label="Footwear"><button data-boots="false" aria-pressed="false">None</button><button data-boots="true" aria-pressed="true">Boots</button></div></div>
-        <div class="equipment-row"><div><strong>Armour</strong><small>Steel & brass plate</small></div><div class="segments" aria-label="Armour"><button data-armour="false" aria-pressed="false">None</button><button data-armour="true" aria-pressed="true">Equipped</button></div></div>
+        <div class="equipment-row"><div><strong>Footwear</strong><small>Fitted leather boots</small></div><div class="segments" aria-label="Footwear"><button data-boots="false" aria-pressed="false">None</button><button data-boots="true" aria-pressed="true">Boots</button></div></div>
+        <div class="equipment-row"><div><strong>Armour</strong><small>Fitted armour</small></div><div class="segments" aria-label="Armour"><button data-armour="false" aria-pressed="false">None</button><button data-armour="true" aria-pressed="true">Equipped</button></div></div>
         <label class="weapon-label" for="weapon">In your hands</label><select id="weapon"><option value="empty">Empty hands</option><option value="sword">Sword</option><option value="shield">Shield</option><option value="sword-shield" selected>Sword & shield</option><option value="bow">Bow · two hands</option></select>
         <p class="equipment-note" id="equipment-note">Arming sword in the right hand. Heater shield in the left.</p>
       </fieldset>
-      <div class="panel-foot"><span class="small-diamond">◇</span><p>Made for the journey.<br><span>Original models, shared anatomy, interchangeable kit.</span></p></div>
+      <div class="panel-foot"><span class="small-diamond">◇</span><p>Made for the journey.<br><span>Customized CC0 anatomy · authored kit and motion.</span></p></div>
     </aside>
     <section class="stage" aria-label="Interactive character preview">
       <canvas id="stage" aria-label="3D character. Drag to rotate and scroll or pinch to zoom." tabindex="0"></canvas>
       <div class="stage-top"><span class="eyebrow">THE ATELIER</span><span id="model-count">01 / 02</span></div>
       <div class="stage-label"><span class="eyebrow" id="character-class">STEEL & RESOLVE</span><h2 id="character-title">The Fighter</h2><p id="loadout-summary">Leather boots · Plate armour · Sword & shield</p></div>
       <div id="loading" role="status" aria-live="polite">Preparing the workshop…</div>
-      <div class="stage-tools"><div class="segments pose-controls" aria-label="Pose"><button data-pose="inspection" aria-pressed="true">Inspect</button><button data-pose="ready" aria-pressed="false">Ready</button></div><button id="grip-view" class="icon-button">Inspect grip</button><button id="reset" class="icon-button" title="Reset camera">↺ <span>Reset view</span></button></div>
-      <div class="stage-bottom"><span>↔ DRAG TO ROTATE <span class="separator">/</span> SCROLL TO ZOOM</span><details><summary>Fit checks</summary><div class="fit-options"><button data-pose="raised" aria-pressed="false">Raised arms</button><button data-pose="crouched" aria-pressed="false">Crouch</button></div></details></div>
+      <div class="stage-tools"><div class="segments"><button id="play">Pause</button><button id="restart">Restart</button><button data-pose="inspection">Neutral</button><button data-pose="loop">Walk & attack</button></div><button id="grip-view" class="icon-button">Inspect grip</button><button id="reset" class="icon-button">Reset view</button></div>
+      <div class="stage-bottom"><label for="timeline">Motion</label><input id="timeline" type="range" min="0" max="12" step="0.01" value="0"><span id="time-label">0.0 / 12.0 s</span><select id="speed" aria-label="Playback speed"><option value="0.25">· speed</option><option value="0.5">· speed</option><option value="1" selected>Full speed</option></select></div>
     </section>
   </main><footer><span>CHARACTER WORKSHOP</span><span>A study in form, fit & equipment.</span><span>EXPERIMENT 001</span></footer>
 </div><script type="module" src="/src/character-lab/main.ts"></script></body></html>

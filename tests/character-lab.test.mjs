@@ -1,88 +1,70 @@
 import test from 'node:test';
-import { surface, gripGap } from '../scripts/character-lab/contact.mjs';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { NullEngine } from '@babylonjs/core/Engines/nullEngine.js';
 import { Scene } from '@babylonjs/core/scene.js';
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader.js';
 import '@babylonjs/loaders/glTF/index.js';
-import { visiblePart, clipFor, CHARACTERS } from '../src/character-lab/catalog.ts';
-
-for (const id of ['fighter', 'rogue']) test(`character lab: ${id} exported kit and actual pose bindings`, async () => {
-  const engine = new NullEngine(); const scene = new Scene(engine);
-  try {
-    const bytes = await readFile(new URL(`../public/assets/character-lab/${id}.glb`, import.meta.url));
-    const asset = await LoadAssetContainerAsync(bytes, scene, { pluginExtension: '.glb' });
-    asset.addAllToScene();
-    const meshes = asset.meshes.filter(m => m.getTotalVertices() > 0);
-    const groups = new Set(meshes.map(m => m.name.split('__')[0]));
-    assert.deepEqual(groups, new Set(['base', 'bare', 'boots', 'armour', 'sword', 'shield', 'bow', 'handR_open', 'handR_power', 'handR_hook', 'handL_open', 'handL_power']));
-    for (const mesh of meshes) assert.ok(mesh.skeleton, `${mesh.name} has skin bindings`);
-    for (const boots of [false, true]) for (const armour of [false, true]) for (const weapon of ['empty', 'sword', 'shield', 'sword-shield', 'bow']) {
-      const kit = { boots, armour, weapon };
-      const actual = new Set(meshes.filter(m => visiblePart(m.name, kit)).map(m => m.name.split('__')[0]));
-      const expected = new Set(['base', boots ? 'boots' : 'bare', 'handR_' + (weapon === 'bow' ? 'hook' : weapon.includes('sword') ? 'power' : 'open'), 'handL_' + (weapon === 'bow' || weapon.includes('shield') ? 'power' : 'open')]);
-      if (armour) expected.add('armour');
-      if (weapon === 'sword-shield') { expected.add('sword'); expected.add('shield'); }
-      else if (weapon !== 'empty') expected.add(weapon);
-      assert.deepEqual(actual, expected, JSON.stringify(kit));
-      const straps=meshes.filter(m=>m.name.startsWith('shield__forearm_strap_') && visiblePart(m.name,kit));
-      assert.deepEqual(straps.map(m=>m.name),weapon.includes('shield')?[`shield__forearm_strap_${armour?'armour':'cloth'}`]:[], 'strap fits selected forearm covering');
-      for (const pose of ['inspection', 'ready', 'raised', 'crouched']) {
-        assert.ok(asset.animationGroups.some(a => a.name === clipFor(pose, kit)), `${pose}/${weapon} exported`);
-      }
-    }
-    function sample(pose) {
-      for (const a of asset.animationGroups) a.stop();
-      const clip = asset.animationGroups.find(a => a.name === pose); clip.start(false); clip.goToFrame(clip.from); clip.pause();
-      const result = {};
-      for (const name of ['pelvis', 'hand.L', 'hand.R', 'foot.L', 'foot.R']) {
-        const node = asset.transformNodes.find(n => n.name === name); assert.ok(node, name);
-        node.computeWorldMatrix(true); result[name] = node.getAbsolutePosition().clone();
-      }
-      return result;
-    }
-    const rest = sample('inspection-empty'); const crouch = sample('crouched-empty');
-    assert.ok(Math.abs(rest.pelvis.y - crouch.pelvis.y - .17) < .001, 'crouch actually lowers pelvis');
-    for (const foot of ['foot.L', 'foot.R']) assert.ok(rest[foot].subtract(crouch[foot]).length() < .001, `${foot} remains planted`);
-    const raised = sample('raised-empty');
-    for (const hand of ['hand.L', 'hand.R']) assert.ok(raised[hand].y - rest[hand].y > .6, `${hand} really rises`);
-    for (const pose of ['inspection', 'ready', 'raised', 'crouched']) for (const weapon of ['sword','shield','bow']) {
-      sample(`${pose}-${weapon}`);
-      scene.incrementRenderId(); for(const n of asset.transformNodes)n.computeWorldMatrix(true);
-      for(const skeleton of asset.skeletons)skeleton.prepare(true);
-      const mean=points=>points.reduce((sum,p)=>sum.add(p),Vector3.Zero()).scale(1/points.length);
-      for(const side of ['L','R']) {
-        const upper=surface(meshes.find(m=>m.name===`base__upper_sleeve_${side}`));
-        const fore=surface(meshes.find(m=>m.name===`base__fore_sleeve_${side}`));
-        const elbow=mean(upper.slice(-24)), foreStart=mean(fore.slice(0,24)), wrist=mean(fore.slice(-24));
-        assert.ok(elbow.subtract(foreStart).length()<.001, `${pose}/${weapon}/${side}: elbow connection`);
-        const palm=surface(meshes.find(m=>m.name===`hand${side}_${side==='L'?'power':weapon==='bow'?'hook':'power'}__palm`));
-        assert.ok(mean(palm.slice(0,24)).subtract(wrist).length()<.012, `${pose}/${weapon}/${side}: hand joins wrist`);
-        const axis=mean(palm.slice(-24)).subtract(mean(palm.slice(0,24))).normalize();
-        const foreAxis=wrist.subtract(foreStart).normalize();
-        if((weapon==='shield' && side==='L') || weapon==='bow') {
-          const dot=Vector3.Dot(axis,foreAxis);
-          assert.ok(dot>(weapon==='shield'?.98:.6), `${pose}/${weapon}/${side}: wrist folds back (${dot})`);
-          assert.ok(Vector3.Dot(axis.scale(-1),foreAxis)<.6, 'a reversed wrist fails the alignment check');
-        }
-      }
-      for(const [prefix,item] of [[weapon==='sword'?'handR_power':'handL_power',`${weapon}__grip`], ...(weapon==='bow'?[['handR_hook','bow__string']]:[])]) {
-        const grip=surface(meshes.find(m=>m.name===item));
-        for(const part of ['palm','thenar','thumb']) {
-          const gap=gripGap(surface(meshes.find(m=>m.name===`${prefix}__${part}`),true),grip);
-          assert.ok(gap>-.001, `${pose}/${item}/${part} penetrates grip by ${-gap}m`);
-        }
-        for(let i=0;i<(item==='bow__string'?3:4);i++) {
-          const points=surface(meshes.find(m=>m.name===`${prefix}__finger_${i}`),true);
-          const gap=gripGap(points,grip);
-          assert.ok(gap>-.001 && gap<.001, `${pose}/${item}/finger${i}: ${gap}m contact gap`);
-          assert.ok(Math.abs(gripGap(points.map(p=>p.add(new (p.constructor)(.2,.2,.2))),grip))>.01, 'detached finger fails contact check');
-        }
-        if(item==='bow__string') assert.ok(gripGap(surface(meshes.find(m=>m.name==='handR_hook__finger_3'),true),grip)>.005, 'little finger stays off string');
-      }
-    }
-    assert.equal(CHARACTERS[id].asset, `${id}.glb`);
-  } finally { scene.dispose(); engine.dispose(); }
+import {visiblePart,clipFor} from '../src/character-lab/catalog.ts';
+import {surface,gripGap} from '../scripts/character-lab/contact.mjs';
+import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
+for(const id of ['fighter','rogue']) test(`character workshop: ${id} loadouts and real motion`,async()=>{
+ const engine=new NullEngine();const scene=new Scene(engine);
+ try{
+  const bytes=await readFile(new URL(`../public/assets/character-lab/${id}.glb`,import.meta.url));
+  const asset=await LoadAssetContainerAsync(bytes,scene,{pluginExtension:'.glb'});asset.addAllToScene();
+  const meshes=asset.meshes.filter(m=>m.getTotalVertices());
+  assert.ok(meshes.every(m=>m.skeleton),'every visible part has skin bindings');
+  for(const boots of [false,true])for(const armour of [false,true])for(const weapon of ['empty','sword','shield','sword-shield','bow']){
+   const kit={boots,armour,weapon};const actual=new Set(meshes.filter(m=>visiblePart(m.name,kit)).map(m=>m.name.split('__')[0]));
+   const expected=new Set(['base',boots?'boots':'bare',...(armour?['armour']:[]),...(weapon==='empty'?[]:weapon==='sword-shield'?['sword','shield']:[weapon])]);assert.deepEqual(actual,expected);
+   for(const pose of ['inspection','loop'])assert.ok(asset.animationGroups.some(a=>a.name===clipFor(pose,kit)));
+  }
+  const point=name=>{const n=asset.transformNodes.find(n=>n.name===name);assert.ok(n,name);n.computeWorldMatrix(true);return n.getAbsolutePosition().clone()};
+  function sample(weapon,t){for(const a of asset.animationGroups)a.stop();const a=asset.animationGroups.find(a=>a.name==='loop-'+weapon);a.start(false);a.pause();a.goToFrame(t*60);for(const n of asset.transformNodes)n.computeWorldMatrix(true);return {root:point('pelvis'),left:point('foot_l'),right:point('hand_r')};}
+  for(const weapon of ['empty','sword','shield','sword-shield','bow']){
+   const start=sample(weapon,0),advanced=sample(weapon,3.1),end=sample(weapon,12);
+   assert.ok(advanced.root.subtract(start.root).length()>1.5,'walk advances through world');
+   assert.ok(end.root.subtract(start.root).length()<.005,'loop returns to origin');
+   const guard=sample(weapon,3.1),strike=sample(weapon,4.5);
+   const moved=weapon==='shield'?point('hand_l'):strike.right;
+   sample(weapon,3.1);const previous=weapon==='shield'?point('hand_l'):guard.right;
+   assert.ok(moved.subtract(previous).length()>.08,`${weapon} attack moves its active hand`);
+  }
+  const stanceA=sample('empty',.8),stanceB=sample('empty',1.0);
+  assert.ok(stanceA.left.subtract(stanceB.left).length()<.012,'stance foot stays planted while pelvis advances');
+  assert.ok(stanceA.root.subtract(stanceB.root).length()>.1,'fixture actually advances');
+  const bow=meshes.find(m=>m.name==='bow__stave');assert.ok(bow.morphTargetManager);
+  sample('bow',3.1);const rest=bow.morphTargetManager.getTarget(0).influence;
+  sample('bow',4.6);assert.ok(bow.morphTargetManager.getTarget(0).influence-rest>.9,'bow actually flexes during draw');
+  sample('bow',5);assert.ok(bow.morphTargetManager.getTarget(0).influence<.01,'bow returns after release');
+  // These read exported bone transforms, not the generator's target positions.
+  for(const weapon of ['empty','sword','shield','sword-shield','bow'])for(let t=0;t<12;t+=.2){
+   sample(weapon,t);
+   for(const side of ['l','r']){
+    const fore=point('hand_'+side).subtract(point('lowerarm_'+side)).normalize();
+    const palm=point('middle_01_'+side).subtract(point('hand_'+side)).normalize();
+    assert.ok(Vector3.Dot(fore,palm)>.985,`${weapon}/${t}/${side}: wrist bends backwards`);
+   }
+   if(weapon==='bow'){
+    const pelvis=point('pelvis'),neck=point('neck_01');const up=neck.subtract(pelvis).normalize();const across=point('upperarm_l').subtract(point('upperarm_r')).normalize();let front=Vector3.Cross(up,across).normalize();if(Vector3.Dot(front,point('ball_l').subtract(point('foot_l')))<0)front=front.scale(-1);
+    const centre=pelvis.add(neck).scale(.5);const height=neck.subtract(pelvis).length()*.52;
+    const inside=p=>{const d=p.subtract(centre);return (Vector3.Dot(d,across)/.16)**2+(Vector3.Dot(d,up)/height)**2+(Vector3.Dot(d,front)/.13)**2<1;};
+    assert.equal(inside(centre),true,'torso fixture can detect an internal point');
+    for(const name of ['hand_r','middle_01_r','hand_l','middle_01_l'])assert.equal(inside(point(name)),false,`${t}/${name}: hand enters torso envelope`);
+   }
+  }
+  const skin=meshes.find(m=>m.name==='base__skin'),jointIndices=skin.getVerticesData('matricesIndices'),jointWeights=skin.getVerticesData('matricesWeights');
+  const byIndex=new Map(skin.skeleton.bones.map(b=>[b.getIndex(),b.name]));
+  for(const weapon of ['sword','shield','bow']){
+   sample(weapon,0);scene.incrementRenderId();for(const n of asset.transformNodes)n.computeWorldMatrix(true);for(const skeleton of asset.skeletons)skeleton.prepare(true);
+   const points=surface(skin),grip=surface(meshes.find(m=>m.name===weapon+'__grip')),side=weapon==='sword'?'r':'l';
+   for(const digit of ['index','middle','ring','pinky','thumb']){
+    const belongs=i=>[0,1,2,3].some(j=>{const name=byIndex.get(jointIndices[i*4+j]);return name?.startsWith(digit+'_')&&name.endsWith('_'+side)&&jointWeights[i*4+j]>.25});
+    const subset=points.filter((_,i)=>belongs(i));assert.ok(subset.length>8);
+    const gap=gripGap(subset,grip);assert.ok(gap>-.0015&&gap<.003,`${weapon}/${digit}: skin contact gap ${gap}m`);
+    assert.ok(gripGap(subset.map(p=>p.add(new Vector3(1,1,1))),grip)>.1,'detached hand fails contact');
+   }
+  }
+ }finally{scene.dispose();engine.dispose();}
 });
