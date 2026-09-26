@@ -188,7 +188,9 @@ function assertCeilings(row, scale, label) {
 }
 
 function assertCommands(row, intent, label) {
-  assert.deepEqual(row.commands, { torso: intent.posture, head: intent.natural,
+  // The torso takes the trunk's lean and twist; the crouch is the legs' (`BodyCommand.trunk`).
+  const torso = { trunkLean: intent.posture.trunkLean, trunkTwist: intent.posture.trunkTwist };
+  assert.deepEqual(row.commands, { torso, head: intent.natural,
     primary: intent.primary, secondary: intent.secondary }, `${label} at ${row.at.toFixed(3)} s`);
 }
 

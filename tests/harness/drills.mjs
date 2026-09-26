@@ -30,7 +30,8 @@
 import { createBout, freshHavok, FRAME } from "./bout-runner.mjs";
 import { captureBout, exactFork } from "./fork.mjs";
 import { restoreMind, snapshotMind } from "../../src/fork/mind.ts";
-import { policyMind } from "../../src/mind.ts";
+import { isCommandMind, policyMind } from "../../src/mind.ts";
+import { freshBodyCommand, intentToCommand } from "../../src/body-command.ts";
 import { ORDER_TUNING, StandingOrders } from "../../src/orders.ts";
 import { mulberry32 } from "../../src/rng.ts";
 import { ATTRIBUTES } from "../../src/golem/attributes.ts";
@@ -187,6 +188,8 @@ export class DrillDriver {
     this.handoff = Infinity;
     this.minds = [];
     this.intent = freshGolemIntent();
+    /** What this driver hands the body: the script's intent adapted, or an `Intent` mind's after handoff. */
+    this.applied = freshBodyCommand();
     this.aim = { swing: 0, lift: 0, horizontal: 0 };
     this.mark = { x: 0, y: 0, z: 0 };
   }
@@ -200,19 +203,24 @@ export class DrillDriver {
    * `orders` is whatever the body's commander handed over this decision (`src/orders.ts`), passed on to
    * every mind as the host passes it; the body's own `OrderFollower` carries it out on the command
    * this returns. A drill with no commander passes nothing, as every drill did before orders.
+   *
+   * A body command (`src/body-command.ts`): a mind in `minds` may be an `Intent` mind, whose answer
+   * is adapted here, or a command mind such as the expert, whose answer is handed on as it is.
    */
-  decide(view, dt, orders) {
+  command(view, dt, orders) {
     this.clock += dt;
     this.phaseClock += dt;
     let handed = null;
     for (let i = 0; i < this.minds.length; i += 1) {
-      const intent = orders === undefined ? this.minds[i].decide(view, dt) : this.minds[i].decide(view, dt, orders);
-      if (i === 0 && this.clock >= this.handoff) handed = intent;
+      const mind = this.minds[i];
+      const ask = isCommandMind(mind) ? mind.command : mind.decide;
+      const out = orders === undefined ? ask.call(mind, view, dt) : ask.call(mind, view, dt, orders);
+      if (i === 0 && this.clock >= this.handoff) handed = isCommandMind(mind) ? out : intentToCommand(out, this.applied);
     }
     if (handed) return handed;
     SCRIPTS[this.drill][this.role](this, view, dt);
     if (view.self.capabilities?.pairedHands) mirror(this.intent.primary, this.intent.secondary);
-    return this.intent;
+    return intentToCommand(this.intent, this.applied);
   }
 }
 

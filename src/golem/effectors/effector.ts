@@ -4,8 +4,10 @@ import type { Striking } from "../../combat.ts";
 import type { HandIntent } from "../../mind.ts";
 import { isTopological } from "../../forkable.ts";
 import { attributeOf, SIZE_LAW_POWER, withSize, type SizeLaws } from "../attributes.ts";
+import { effectorChannel } from "../../body-command.ts";
 import {
   EFFECTOR_SLOTS,
+  effectorSlot,
   rodInertia,
   type BuiltChain,
   type BuiltModule,
@@ -263,6 +265,11 @@ export function effectorModule(
       // nothing -- and every one of them reaches the world transform through `mesh.position`
       // and `mesh.rotationQuaternion` alone. See `RigidStrike` for why that is not optional.
       const slot = ctx.socket.slot;
+      // The hand this socket answers to, and whether its chain takes an orientation as well as a
+      // point: the effector channel (`src/body-command.ts`), settled once at build. Rung 0's cap has
+      // no axis to drive, so a capped socket declares no channel at all.
+      const channels = Object.freeze(envelope.axes.length > 0
+        ? [effectorChannel(id, effectorSlot(slot) ?? "primary", !!envelope.fullOrientation)] : []);
       // **Whether there is an edge to report is the terminal's answer, not the chain's.** A
       // capped socket bites with mass, so an edge alignment taken off it would be a number with
       // no meaning that a readout would nonetheless print -- and a number that means nothing is
@@ -308,6 +315,7 @@ export function effectorModule(
         },
         envelope: () => envelope,
         view: () => view,
+        channels: () => channels,
         // **Both chains, whichever was struck.** A maul's second hand holds the same haft, so a
         // ruined link on either arm is the end of wielding it; and a trailing arm left driven
         // after the first went slack would haul the weapon on its own.

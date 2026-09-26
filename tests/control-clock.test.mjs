@@ -37,14 +37,15 @@ test("a_decision_is_told_its_interval_and_each_substep_applies_one_substep", asy
       const control = new GolemControlEndpoint({
         initialMind: {
           name: "counter",
-          decide: (_view, dt) => {
+          // A command mind, so the driver hands on the very record it returned and the tag survives.
+          command: (_view, dt) => {
             calls.push({ side, what: "decide", dt });
             decided += 1;
             return { tag: `${side}-${decided}` };
           },
         },
         view: {}, canStep: () => true, stopBody: () => {},
-        apply: (dt, intent) => calls.push({ side, what: "apply", dt, tag: intent.tag }),
+        apply: (dt, command) => calls.push({ side, what: "apply", dt, tag: command.tag }),
         policies: [{ name: "counter", label: "Counter" }],
       });
       return {

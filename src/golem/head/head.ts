@@ -14,6 +14,7 @@ import type { NaturalIntent } from "../../mind.ts";
 import { COLLIDES, LAYER } from "../../physics.ts";
 import { boxPart, capsulePart, joint, type Part } from "../../rig.ts";
 import { slewTowards } from "../anchor-drive.ts";
+import { naturalChannel } from "../../body-command.ts";
 import { attributeOf, withSize, type SizeLaws } from "../attributes.ts";
 import { HEAD_NECK, HEAD_NECK_SIZE } from "../config.ts";
 import { skullShell } from "../bone-shells.ts";
@@ -206,6 +207,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
     itemMassKg: tuning.ram?.plateMass ?? 0,
 
     build(ctx: ModuleBuild): BuiltModule<NaturalIntent> {
+      const channels = Object.freeze([naturalChannel(id, tuning.ram !== null)]);
       // The body's weight stat, on the neck's and the head's masses (`withWeight`). A ram's plate is
       // an item and keeps its own.
       const weight = attributeOf(ctx, "weight");
@@ -612,6 +614,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
 
         envelope: () => envelope,
         view: () => view,
+        channels: () => channels,
 
         sever(): void {
           if (severed) return;

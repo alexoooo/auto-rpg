@@ -26,6 +26,7 @@ import { HAND_REACH } from "./hands.ts";
 import { blankIntent, postureFor } from "./policies.ts";
 import { CONFIG } from "./config.ts";
 import type { Orders } from "./orders.ts";
+import type { BodyCommand } from "./body-command.ts";
 import { humanoidDuelist } from "./golem/humanoid/policy.ts";
 import { skeletonDuelist } from "./golem/skeleton/policy.ts";
 import type { BodyFamily } from "./golem/family.ts";
@@ -116,7 +117,7 @@ export interface Intent {
    * three sessions it wrote into `primary` anyway: `crawlerMind` set
    * `primary.thrust` and `Centipede.update` read it, on a body whose published
    * `hands` is `Object.freeze({})`. Every reader downstream then had to know
-   * that one body's `primary` meant something else -- `recordIntentAttack` still
+   * that one body's `primary` meant something else -- `recordIntentAttack` (now `recordCommandAttack`) still
    * carried the exception in a comment.
    *
    * The two buttons are spelled as the hands spell them rather than as `strike`
@@ -665,6 +666,28 @@ export interface Mind {
   captureState?(): Record<string, unknown>;
   restoreState?(state: Record<string, unknown>): void;
 }
+
+/**
+ * A mind that writes the body command directly (`src/body-command.ts`, skill ceiling session 06)
+ * rather than an `Intent`. The driver hands its command to the body as it is; an `Intent` mind's
+ * command goes through `intentToCommand` first. Everything new is written this way, and the
+ * reference expert (`tests/harness/expert.mjs`) is the first: it plans on channels a body declares,
+ * which `Intent` has no words for.
+ */
+export interface CommandMind {
+  readonly name: string;
+  /** The same contract as `Mind.decide`: called once per decision, and the result is read at once. */
+  command(view: FighterView, dt: number, orders?: Orders | null): BodyCommand;
+  readonly obeysOrders?: boolean;
+  captureState?(): Record<string, unknown>;
+  restoreState?(state: Record<string, unknown>): void;
+}
+
+/** Anything a body's driver can run: an `Intent` mind through the adapter, or a command mind. */
+export type BodyMind = Mind | CommandMind;
+
+export const isCommandMind = (mind: BodyMind): mind is CommandMind =>
+  typeof (mind as CommandMind).command === "function";
 
 /**
  * What a fighter asks for when nobody is asking it for anything.

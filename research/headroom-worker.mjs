@@ -54,7 +54,8 @@ export function behaviourReader() {
         const a = acc[side];
         const view = bout[side].view;
         if (!view?.self) continue;
-        const intent = bout[side].control?.driver?.held ?? null;
+        // The applied body command, whichever kind of mind wrote it (`GolemDriver.held`).
+        const command = bout[side].control?.driver?.held ?? null;
         a.frames += 1;
         const g = view.self.ground, o = view.opponent.ground;
         a.gap += Math.hypot(g.x - o.x, g.z - o.z);
@@ -62,13 +63,15 @@ export function behaviourReader() {
         if (Number.isFinite(f)) { a.fraction += f; a.fractionFrames += 1; if (f <= 1) a.inReach += 1; }
         const support = view.self.support;
         if (support === "fallen" || support === "rising") a.down += 1;
-        if (!intent) continue;
-        a.forward += intent.forward;
-        if (intent.forward < -0.2) a.back += 1;
-        if (intent.forward > 0.3 && Number.isFinite(f) && f <= 1.1) a.press += 1;
-        a.strafe += Math.abs(intent.strafe);
-        a.turn += Math.abs(intent.turn);
-        const striking = Boolean(intent.primary?.thrust || intent.secondary?.thrust || intent.natural?.thrust);
+        if (!command) continue;
+        const gait = command.gait;
+        a.forward += gait.forward;
+        if (gait.forward < -0.2) a.back += 1;
+        if (gait.forward > 0.3 && Number.isFinite(f) && f <= 1.1) a.press += 1;
+        a.strafe += Math.abs(gait.strafe);
+        a.turn += Math.abs(gait.turn);
+        const striking = Boolean(command.effectors.primary.aim.thrust || command.effectors.secondary.aim.thrust
+          || command.natural.thrust);
         if (striking) a.committed += 1;
         if (striking && !a.striking) a.strokes += 1;
         a.striking = striking;

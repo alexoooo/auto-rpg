@@ -56,6 +56,7 @@ import { rangeFraction } from "./drills.mjs";
 import { restoreWorld } from "../../src/fork/world.ts";
 import { randomStreams, restoreMind, snapshotMind } from "../../src/fork/mind.ts";
 import { policyMind } from "../../src/mind.ts";
+import { cloneBodyCommand, copyBodyCommand, freshBodyCommand, intentToCommand } from "../../src/body-command.ts";
 import { mulberry32 } from "../../src/rng.ts";
 import { isShield } from "../../src/hands.ts";
 import {
@@ -244,6 +245,8 @@ export class Program {
     this.stroke = state ? state.stroke : -1;
     this.done = state ? state.done : false;
     this.intent = freshGolemIntent();
+    /** What the program hands the body: `intent` adapted, with the channels `Intent` has no word for. */
+    this.command = freshBodyCommand();
     this.aim = { swing: 0, lift: 0, horizontal: 0 };
     this.mark = { x: 0, y: 0, z: 0 };
   }
@@ -252,27 +255,36 @@ export class Program {
 
   clone() { return new Program(this.plan, this.state()); }
 
-  /** A command for this substep. `latest` holds each shadow's command for this same substep. */
+  /**
+   * A body command for this substep. `latest` holds each shadow's `Intent` for this same substep.
+   * The segments write an `Intent` -- the stroke and cover code is the ladder's own -- and it is
+   * adapted here, once, into the command; a `hold` holds a whole command.
+   */
   decide(view, dt, latest) {
     const plan = this.plan;
     const seg = plan.segs.length > 1 && this.t >= plan.switchAt ? 1 : 0;
     if (seg !== this.seg) { this.seg = seg; this.segT = 0; this.stroke = -1; this.done = false; }
     const spec = plan.segs[seg];
     const intent = this.intent;
+    const command = this.command;
     if (!view.self.capabilities) {
       copyIntent(freshGolemIntent(), intent);
+      intentToCommand(intent, command);
     } else if (spec.kind === "follow") {
       copyIntent(latest[spec.mind], intent);
       intent.forward = clamp(intent.forward + spec.df, -1, 1);
       intent.strafe = clamp(intent.strafe + spec.ds, -1, 1);
+      intentToCommand(intent, command);
     } else if (spec.kind === "hold") {
-      copyIntent(spec.intent, intent);
+      intentToCommand(intent, command);
+      copyBodyCommand(spec.command, command);
     } else {
       this.segment(spec, view, dt);
+      intentToCommand(intent, command);
     }
     this.t += dt;
     this.segT += dt;
-    return intent;
+    return command;
   }
 
   /** The two segments this file writes: a stance, and a single stroke. */
@@ -344,7 +356,7 @@ export function proposals(config, { hold, warm }) {
     single("circle-l", stance(0, -0.7, true), h),
     single("circle-r", stance(0, 0.7, true), h),
     single("cut-low", stroke(0, LINES[2], 0, 0), h),
-    single("hold", { kind: "hold", intent: hold }, h),
+    single("hold", { kind: "hold", command: hold }, h),
     pair("duelist-cut", follow("golem-duelist"), stroke(0, 0, 0, 0), cut),
     pair("back-cut", stance(-0.5, 0, true), stroke(0, 0, 0, 0.4), cut),
   ];
@@ -395,8 +407,8 @@ function randomPlan(rng, config, base) {
  * `Program.clone` -- so the capture holds nothing for it and the fork restores nothing into it.
  */
 export class ExpertShell {
-  constructor() { this.name = "expert-shell"; this.intent = freshGolemIntent(); }
-  decide() { return this.intent; }
+  constructor() { this.name = "expert-shell"; this.out = freshBodyCommand(); }
+  command() { return this.out; }
   captureState() { return {}; }
   restoreState() { /* nothing is world state */ }
 }
@@ -418,18 +430,18 @@ class RolloutMind extends ExpertShell {
     this.used = [...shadowsOf(program.plan)];
     for (const name of this.used) restoreMind(this.shadows[name], snapshots[name]);
   }
-  decide(view, dt) {
+  command(view, dt) {
     for (const name of this.used) this.latest[name] = this.shadows[name].decide(view, dt);
-    const intent = this.program.decide(view, dt, this.latest);
-    if (!this.strafe) intent.strafe = 0;
-    return intent;
+    const command = this.program.decide(view, dt, this.latest);
+    if (!this.strafe) command.gait.strafe = 0;
+    return command;
   }
 }
 
 /** The persistence model: the command the opponent applied last in the live world, held. */
 class PersistenceMind extends ExpertShell {
   constructor() { super(); this.name = "persistence-model"; }
-  hold(intent) { copyIntent(intent, this.intent); }
+  hold(command) { copyBodyCommand(command, this.out); }
 }
 
 /** A 32-bit mix of a seed and a stream index (`src/fork/mind.ts` keeps its own private). */
@@ -561,7 +573,9 @@ export class ExpertMind {
     this.shadows = Object.fromEntries(SHADOWS.map((name, i) => [name, policyMind(name, mixSeed(seed, i))]));
     this.latest = {};
     this.program = null;
-    this.out = freshGolemIntent();
+    this.out = freshBodyCommand();
+    /** The duelist's intent adapted, for the substeps before the first plan. */
+    this.adapted = freshBodyCommand();
     this.next = 0;
     this.pool = null;
     this.history = [];
@@ -571,11 +585,13 @@ export class ExpertMind {
     this.waited = 0;
   }
 
-  decide(view, dt) {
+  command(view, dt) {
     for (const name of SHADOWS) this.latest[name] = this.shadows[name].decide(view, dt);
-    const intent = this.program ? this.program.decide(view, dt, this.latest) : this.latest["golem-duelist"];
-    copyIntent(intent, this.out);
-    if (!this.config.strafe) this.out.strafe = 0;
+    const command = this.program
+      ? this.program.decide(view, dt, this.latest)
+      : intentToCommand(this.latest["golem-duelist"], this.adapted);
+    copyBodyCommand(command, this.out);
+    if (!this.config.strafe) this.out.gait.strafe = 0;
     return this.out;
   }
 
@@ -603,8 +619,8 @@ export class ExpertMind {
       clock,
       capture: captureBout(host.live, { heap: true }),
       snapshots: this.snapshots(),
-      held: cloneIntent(host.live[O].control.driver.held ?? freshGolemIntent()),
-      hold: cloneIntent(this.out),
+      held: cloneBodyCommand(host.live[O].control.driver.held ?? freshBodyCommand()),
+      hold: cloneBodyCommand(this.out),
       warm: this.program ? this.program.clone() : null,
       // An expert opponent: the plan it is playing and its shadows, to play it forward in a rollout.
       opponent: them ? { program: them.program ? them.program.clone() : new Program(FOLLOW_DUELIST), snapshots: them.snapshots(),
@@ -764,10 +780,11 @@ export function boutHost(live, base, side, opponentExpert = null) {
  * policies and a fresh Havok instance in `physics` (an exact fork needs the original built into
  * one); `experts` maps a side to its expert. With two, both take their moment before either
  * searches, so neither corner sees the plan the other is choosing on the same frame.
- * `onFrame(bout)` runs after each frame. Returns the result, both final bars and each expert's
+ * `onFrame(bout)` runs after each frame, and `onFinish(bout)` once after `bout.finish()` and before
+ * the bout is disposed (a trajectory tracer's last sample). Returns the result, both final bars and each expert's
  * summary by side.
  */
-export async function runExpertBout(options, { experts, onFrame = null }) {
+export async function runExpertBout(options, { experts, onFrame = null, onFinish = null }) {
   const { leftMind, rightMind, ...base } = options;
   if (leftMind || rightMind) throw new Error("runExpertBout: name both policies; the experts are passed apart");
   const sides = Object.keys(experts);
@@ -784,6 +801,7 @@ export async function runExpertBout(options, { experts, onFrame = null }) {
       onFrame?.(bout);
     }
     const result = bout.finish();
+    onFinish?.(bout);
     return { result, vitality: [bout.left.vitality, bout.right.vitality],
       experts: Object.fromEntries(sides.map((side) => [side, experts[side].summary()])) };
   } finally {

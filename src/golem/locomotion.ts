@@ -1,4 +1,5 @@
 import type { Intent } from "../mind.ts";
+import type { BodyCommand, StanceCommand } from "../body-command.ts";
 import type { Part } from "../rig.ts";
 import type { LocomotionRequest } from "../supported-locomotion.ts";
 import type {
@@ -57,6 +58,12 @@ export interface LocomotionCommand {
   readonly request: LocomotionRequest;
   /** 0 standing through 1 fully crouched, as `PostureIntent.crouch` states it. */
   readonly crouch: number;
+  /**
+   * Where the feet stand under the carrier (`StanceCommand`), or absent for the neutral stance.
+   * Only a stepping gait that declares the `stance` feature reads it; every other module drops it,
+   * and `Golem.applyCommand` never sets it on a body whose gait did not declare it.
+   */
+  readonly stance?: StanceCommand;
 }
 
 /**
@@ -77,6 +84,21 @@ export const locomotionCommand = (intent: Intent): LocomotionCommand => ({
 });
 
 /**
+ * A `BodyCommand`'s gait and crouch, narrowed onto one locomotion module: the command-surface
+ * twin of `locomotionCommand`, and for an adapted `Intent` the same numbers exactly. The stance
+ * is passed only when the caller says the gait declared it (`withStance`).
+ */
+export const gaitLocomotionCommand = (command: BodyCommand, withStance: boolean): LocomotionCommand => ({
+  request: {
+    localForward: command.gait.forward,
+    localRight: command.gait.strafe,
+    yaw: command.gait.turn,
+  },
+  crouch: command.trunk.crouch,
+  ...(withStance ? { stance: command.gait.stance } : {}),
+});
+
+/**
  * A command scaled to what the legs have left: forward, strafe and turn by `mobility`.
  *
  * **At the narrowing, not in a module**, because a golem hands its command to two places -- the
@@ -94,6 +116,8 @@ export const hobble = (command: LocomotionCommand, mobility: number): Locomotion
       yaw: command.request.yaw * mobility,
     }),
     crouch: command.crouch,
+    // A stance is where the feet stand, not how fast they go: a lamed leg keeps it.
+    ...(command.stance ? { stance: command.stance } : {}),
   });
 
 /**
