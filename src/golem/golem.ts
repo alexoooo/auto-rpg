@@ -48,6 +48,7 @@ import { GOLEM_ASSEMBLY } from "./config.ts";
 import { armourAt, resolveAttributes, type Attributes } from "./attributes.ts";
 import { GolemControlEndpoint } from "./golem-control.ts";
 import { gaitLocomotionCommand, hobble, type BuiltLocomotion } from "./locomotion.ts";
+import { stepTravel } from "../step-target.ts";
 import { dressGolemPart } from "./appearance.ts";
 import { dressHumanoid } from "./humanoid/appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
@@ -336,6 +337,14 @@ export class Golem implements Combatant, Topological {
   private readonly modules: AssembledModule[] = [];
   /** Whether this body's gait declared the stance feature, settled once at assembly. */
   private readonly stanceDeclared: boolean;
+  /** Whether it declared the step target, settled at the same moment. */
+  private readonly stepDeclared: boolean;
+  /** The step point being walked to, NaN for none, and how long ago the command first named it, s. */
+  private stepX = Number.NaN;
+  private stepZ = Number.NaN;
+  private stepElapsed = 0;
+  /** The executor's travel for this control step, rewritten in place. */
+  private readonly stepScratch = { forward: 0, strafe: 0 };
   /** The torso's half of the trunk command, rewritten in place every control step. */
   private readonly trunkScratch = { trunkLean: 0, trunkTwist: 0 };
   private readonly locomotionModule: BuiltLocomotion;
@@ -577,6 +586,7 @@ export class Golem implements Combatant, Topological {
     const self = blankBody() as GolemView;
     self.capabilities = this.golemCapabilities();
     this.stanceDeclared = gaitDeclares(self.capabilities.channels, "stance");
+    this.stepDeclared = gaitDeclares(self.capabilities.channels, "step");
     this.view = {
       self,
       opponent: blankBody(),
@@ -772,7 +782,7 @@ export class Golem implements Combatant, Topological {
    */
   private applyCommand(dt: number, command: BodyCommand): void {
     this.settleRuin();
-    const locomotion = hobble(gaitLocomotionCommand(command, this.stanceDeclared),
+    const locomotion = hobble(gaitLocomotionCommand(command, this.stanceDeclared, this.stepTravel(dt, command)),
       this.locomotionModule.mobility());
     this.locomotionModule.command(locomotion);
     // **And the port, separately, because the pair path is what stages a request.** A module's
@@ -790,7 +800,27 @@ export class Golem implements Combatant, Topological {
     for (const effector of this.effectorModules) {
       effector.module.command(command.effectors[effector.driven].aim);
     }
-    void dt;
+  }
+
+  /**
+   * The step target, where the gait declared one and the command names one: the travel that
+   * carries the carrier to the point on time (`stepTravel` in `src/step-target.ts`), or null for
+   * the command's own forward and strafe. The clock restarts whenever the command names a
+   * different point, so a mind that keeps naming one point is asking for one arrival.
+   */
+  private stepTravel(dt: number, command: BodyCommand): { forward: number; strafe: number } | null {
+    const step = this.stepDeclared ? command.gait.step : null;
+    if (!step) {
+      this.stepX = Number.NaN; this.stepZ = Number.NaN; this.stepElapsed = 0;
+      return null;
+    }
+    if (step.x !== this.stepX || step.z !== this.stepZ) {
+      this.stepX = step.x; this.stepZ = step.z; this.stepElapsed = 0;
+    }
+    stepTravel(step, step.within - this.stepElapsed, this.locomotion.carrierState(), this.locomotion.carrierConfig,
+      this.stepScratch);
+    this.stepElapsed += dt;
+    return this.stepScratch;
   }
 
   /**

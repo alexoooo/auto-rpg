@@ -86,12 +86,15 @@ export const locomotionCommand = (intent: Intent): LocomotionCommand => ({
 /**
  * A `BodyCommand`'s gait and crouch, narrowed onto one locomotion module: the command-surface
  * twin of `locomotionCommand`, and for an adapted `Intent` the same numbers exactly. The stance
- * is passed only when the caller says the gait declared it (`withStance`).
+ * is passed only when the caller says the gait declared it (`withStance`), and `travel`, where
+ * there is one, is the step target's executor's (`stepTravel` in `src/step-target.ts`) and
+ * replaces the command's forward and strafe.
  */
-export const gaitLocomotionCommand = (command: BodyCommand, withStance: boolean): LocomotionCommand => ({
+export const gaitLocomotionCommand = (command: BodyCommand, withStance: boolean,
+  travel: { readonly forward: number; readonly strafe: number } | null = null): LocomotionCommand => ({
   request: {
-    localForward: command.gait.forward,
-    localRight: command.gait.strafe,
+    localForward: travel ? travel.forward : command.gait.forward,
+    localRight: travel ? travel.strafe : command.gait.strafe,
     yaw: command.gait.turn,
   },
   crouch: command.trunk.crouch,
