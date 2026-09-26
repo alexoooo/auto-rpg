@@ -12,7 +12,7 @@
  * Harnesses: the Node bout runner through the research runner for every bout table, and the Node
  * bout runner and fork harness for the drills (see `research/headroom.mjs` and `research/drills.mjs`).
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { readResults } from "./runner.mjs";
@@ -184,6 +184,23 @@ function pairedCurve(b) {
   return { mean: d.mean, ci: d.ci ?? null, flat: d.ci ? d.ci.low <= 0 : true };
 }
 
+/**
+ * The write-up's one table: every body's shares against the reference, the expert's own margin, and
+ * both instruments' headroom beside the dead-end verdict. A body the expert never wins with is named
+ * apart ("cannot win"): that is a body the reference beats however it is played, which the
+ * headroom rule, a difference between two minds, does not see.
+ */
+function glanceTable(bodies, dead) {
+  const lines = ["| Body | class | walker | duelist | expert | persist | c4 | expert margin | expert - duelist margin | c8 - c4 margin | drill headroom | verdict |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"];
+  for (const b of bodies) {
+    const r = dead.rows.find((x) => x.body === b.body);
+    const verdict = r?.flagged ? "**dead end**" : b.expert && b.expert.score.mean === 0 ? "**cannot win**" : "";
+    lines.push(`| ${b.body} | ${b.class} | ${pct(b.walker?.score.mean)} | ${pct(b.duelist?.score.mean)} | ${pct(b.expert?.score.mean)} | ${pct(b.persist?.score.mean)} | ${pct(b.curve?.score.mean)} | ${f2(b.expert?.margin.mean)} | ${f2(r?.bout?.headroom)} | ${f2(r?.bout?.curve?.mean)} | ${pp(r?.drill?.headroom)} | ${verdict} |`);
+  }
+  return lines.join("\n");
+}
+
 function deadEndSection(dead) {
   const lines = [`## Dead ends\n\nBout threshold (natural break in the expert - duelist bar margin): ${f2(dead.boutThreshold)}; drill threshold (natural break in the mean expert - duelist pass rate): ${pp(dead.drillThreshold)} points.\n`,
     "| Body | bout headroom (margin) | share | c8 - c4 margin | drill headroom | drill c8 - c4 | low on bouts | low on drills | curve flat | flagged |",
@@ -214,6 +231,13 @@ function idleTable(rows) {
   const attackers = [...new Set(Object.values(cells).map((c) => c.attacker))];
   const dummies = ["stone", "skeleton", "human", "giant"];
   const lines = [`| Attacker | ${dummies.map((d) => `v ${d}`).join(" | ")} |`, `| --- |${dummies.map(() => " ---: |").join("")}`];
+  // The dummy's bar at the cap, where the attacker did not finish it: a body that has taken a third
+  // of the dummy's bar in the time is slow, one that has taken none cannot hurt it.
+  const dummyBar = (cell) => {
+    const bars = rows.filter((r) => r.status === "ok" && r.cell === cell && r.winner !== r.aSide)
+      .map((r) => r.vitality[r.aSide === "left" ? 1 : 0]);
+    return bars.length ? bars.reduce((x, y) => x + y, 0) / bars.length : null;
+  };
   let zero = 0, total = 0;
   for (const a of attackers) {
     lines.push(`| ${a} | ${dummies.map((d) => {
@@ -221,9 +245,11 @@ function idleTable(rows) {
       if (!c) return "-";
       total += 1;
       if (c.outright === 0) zero += 1;
-      return `${c.outright}/${c.bouts}${c.median !== null ? ` (${c.median.toFixed(0)} s)` : ""}`;
+      const left = c.outright < c.bouts ? dummyBar(`${a}>${d}`) : null;
+      return `${c.outright}/${c.bouts}${c.median !== null ? ` (${c.median.toFixed(0)} s)` : ""}${left !== null ? ` [bar ${left.toFixed(2)}]` : ""}`;
     }).join(" | ")} |`);
   }
+  lines.push("", "Wins/bouts inside the overtime mark, the median time of a win, and in brackets the idle dummy's bar left at the cap in the bouts not won.");
   return { table: lines.join("\n"), zero, total, cells };
 }
 
@@ -260,6 +286,45 @@ function attributeBalance(expert, duelists) {
     const ds = Object.values(duelists).map((d) => pp(perStep(find(d, id, row.min), find(d, id, row.max), id)));
     lines.push(`| ${id} (${row.min}-${row.max}) | ${lo ? `${pct(lo.score.mean)} (n ${lo.bouts})` : "-"} / ${hi ? `${pct(hi.score.mean)} (n ${hi.bouts})` : "-"} | ${pp(perStep(lo, hi, id))} | ${ds.join(" | ")} | ${behaviour} |`);
   }
+  // The control is the mind's mirror at x1 on the same seeds: its A share is not 50 by construction
+  // (A keeps its seed across the swap), so it is the reference each level's share is read against.
+  const control = (s) => { const c = s ? Object.values(s.cells).find((x) => x.meta.attribute === "control") : null; return c ? `${pct(c.score.mean)} [${pct(c.score.low)}, ${pct(c.score.high)}]` : "-"; };
+  lines.push("", `Control, x1 against x1 on the same seeds, A's share: expert ${control(expert)}; ${Object.entries(duelists).map(([n, d]) => `duelist ${n} ${control(d)}`).join("; ")}.`);
+  return lines.join("\n");
+}
+
+/**
+ * Bouts an attribute level did not change at all: the same seconds and both bars to the last bit as
+ * the control's bout on the same seed pair and side. Every cell of a sweep shares its seeds
+ * (`seedKey` in `research/headroom.mjs`), so a bout that matches its control is one in which the
+ * attribute was never exercised -- a stability that no fall reaches, an armour no blow lands on --
+ * and its share there says nothing about whether it pays.
+ */
+export function unchangedCounts(rows) {
+  const control = new Map();
+  for (const r of rows) if (r.status === "ok" && r.attribute === "control") control.set(`${r.k}/${r.aSide}`, r);
+  const counts = {};
+  for (const r of rows) {
+    if (r.status !== "ok" || r.attribute === "control") continue;
+    const c = control.get(`${r.k}/${r.aSide}`);
+    if (!c || String(c.seeds) !== String(r.seeds)) continue;
+    const key = `${r.attribute}=${r.level}`;
+    counts[key] ??= { same: 0, n: 0 };
+    counts[key].n += 1;
+    if (c.seconds === r.seconds && c.vitality[0] === r.vitality[0] && c.vitality[1] === r.vitality[1]) counts[key].same += 1;
+  }
+  return counts;
+}
+
+function unchangedTable(runs) {
+  const names = Object.keys(runs);
+  const counts = Object.fromEntries(names.map((n) => [n, unchangedCounts(runs[n])]));
+  const keys = [...new Set(names.flatMap((n) => Object.keys(counts[n])))].sort();
+  const lines = [`| Attribute | level | ${names.join(" | ")} |`, `| --- | ---: |${names.map(() => " ---: |").join("")}`];
+  for (const key of keys) {
+    const [id, level] = key.split("=");
+    lines.push(`| ${id} | ${level} | ${names.map((n) => (counts[n][key] ? `${counts[n][key].same}/${counts[n][key].n}` : "-")).join(" | ")} |`);
+  }
   return lines.join("\n");
 }
 
@@ -284,6 +349,36 @@ function attributeTable(expert, duelists) {
   return lines.join("\n");
 }
 
+/**
+ * What each run cost: its rows, and the lane-hours they took (the sum of every job's own wall
+ * seconds, which is what a lane was busy for; the wall clock a run took is that over its lanes, and
+ * longer while a lane waited on a slow job). Every `headroom-*` run directory under the root,
+ * drills included, one level down.
+ */
+function computeTable(root) {
+  const dirs = [];
+  for (const name of existsSync(root) ? readdirSync(root).sort() : []) {
+    if (!name.startsWith("headroom-")) continue;
+    const dir = join(root, name);
+    if (existsSync(join(dir, "results.jsonl"))) dirs.push([name, dir]);
+    else if (statSync(dir).isDirectory()) for (const sub of readdirSync(dir).sort()) if (existsSync(join(dir, sub, "results.jsonl"))) dirs.push([`${name}/${sub}`, join(dir, sub)]);
+  }
+  const groups = new Map();
+  for (const [name, dir] of dirs) {
+    const rows = rowsOf(dir);
+    const group = name.includes("/") ? name.split("/")[0] : name;
+    const g = groups.get(group) ?? { rows: 0, laneSeconds: 0 };
+    g.rows += rows.length;
+    g.laneSeconds += rows.reduce((a, r) => a + (Number.isFinite(r.wallSeconds) ? r.wallSeconds : 0), 0);
+    groups.set(group, g);
+  }
+  const lines = ["| run | rows | lane-hours |", "| --- | ---: | ---: |"];
+  let total = 0;
+  for (const [name, g] of groups) { total += g.laneSeconds; lines.push(`| ${name} | ${g.rows} | ${(g.laneSeconds / 3600).toFixed(1)} |`); }
+  lines.push(`| total | | ${(total / 3600).toFixed(1)} |`);
+  return lines.join("\n");
+}
+
 async function main() {
   const { values } = parseArgs({ options: { runs: { type: "string", default: join("research", "runs") }, headroom: { type: "string", default: "headroom-headroom" }, drills: { type: "string", default: "headroom-drills-40" }, json: { type: "string" } } });
   const root = resolve(values.runs);
@@ -296,7 +391,10 @@ async function main() {
     out.headroom = bodies.map(({ walker, duelist, expert, persist, curve, ...rest }) => ({ ...rest,
       scores: { walker: walker?.score, duelist: duelist?.score, expert: expert?.score, persist: persist?.score, curve: curve?.score },
       expertWall: expert?.wallSeconds, expertSeconds: expert?.seconds }));
-    sections.push(`## Headroom bouts (${headRows.length} bouts)\n\n${headroomTable(bodies)}\n\n### By weapon class\n\n${rollup(bodies, (b) => b.class)}\n\n### By module\n\n${rollup(bodies, (b) => b.modules)}`);
+    // A body counts once per effector chain, whatever it carries in each socket on that chain.
+    const chains = (b) => [...new Set(b.modules.filter((m) => m.startsWith("effector.")).map((m) => m.split(".").slice(0, 2).join(".")))];
+    sections.push(`## Headroom bouts (${headRows.length} bouts)\n\n${headroomTable(bodies)}\n\n### By weapon class\n\n${rollup(bodies, (b) => b.class)}` +
+      `\n\n### By module\n\n${rollup(bodies, (b) => b.modules)}\n\n### By effector chain\n\n${rollup(bodies, chains)}`);
     const coverage = moduleCoverage();
     sections.push(`Module coverage: ${[...coverage].map(([id, names]) => `${id} ${names.length}`).join(", ")}`);
   }
@@ -309,8 +407,9 @@ async function main() {
     const dead = deadEnds(out.headroom ? headroomBodies(headRows) : [], drills);
     out.deadEnds = dead;
     sections.push(deadEndSection(dead));
+    if (out.headroom) sections.push(`## Headroom at a glance\n\n${glanceTable(headroomBodies(headRows), dead)}`);
   }
-  for (const exp of ["orderings", "footwork"]) {
+  for (const exp of ["orderings", "orderings-skeleton", "footwork"]) {
     const rows = rowsOf(join(root, `headroom-${exp}`));
     if (!rows.length) continue;
     const s = summarize(rows);
@@ -329,15 +428,21 @@ async function main() {
   }
   const attrRows = rowsOf(join(root, "headroom-attributes-expert"));
   const duelists = {};
+  const attributeRuns = attrRows.length ? { expert: attrRows } : {};
   for (const name of existsSync(root) ? readdirSync(root) : []) {
     const m = /^headroom-attributes-duelist-(.+)$/.exec(name);
-    if (m) { const rows = rowsOf(join(root, name)); if (rows.length) duelists[m[1]] = summarize(rows); }
+    if (m) {
+      const rows = rowsOf(join(root, name));
+      if (rows.length) { duelists[m[1]] = summarize(rows); attributeRuns[`duelist ${m[1]}`] = rows; }
+    }
   }
   if (attrRows.length || Object.keys(duelists).length) {
     const expert = attrRows.length ? summarize(attrRows) : null;
-    out.attributes = { expert, duelists };
-    sections.push(`## Attribute audit (${attrRows.length} expert bouts)\n\n${attributeBalance(expert, duelists)}\n\n### Every level\n\n${attributeTable(expert, duelists)}`);
+    out.attributes = { expert, duelists, unchanged: Object.fromEntries(Object.entries(attributeRuns).map(([n, rows]) => [n, unchangedCounts(rows)])) };
+    sections.push(`## Attribute audit (${attrRows.length} expert bouts)\n\n${attributeBalance(expert, duelists)}\n\n### Every level\n\n${attributeTable(expert, duelists)}` +
+      `\n\n### Bouts the attribute did not change (identical to the control's bout on the same seeds and side)\n\n${unchangedTable(attributeRuns)}`);
   }
+  sections.push(`## Compute\n\n${computeTable(root)}`);
   console.log(sections.join("\n\n"));
   if (values.json) writeFileSync(values.json, `${JSON.stringify(out, null, 1)}\n`);
 }

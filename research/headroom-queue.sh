@@ -30,6 +30,7 @@ case "$which" in
     ;;
   stone)
     node research/headroom.mjs --exp orderings --pairs 16 --ladder-pairs 48 --lanes "${LANES:-6}" --job-minutes 120
+    node research/headroom.mjs --exp orderings --build skeleton-warrior --tag skeleton --pairs 16 --ladder-pairs 48 --lanes "${LANES:-6}" --job-minutes 120
     node research/headroom.mjs --exp footwork --pairs 16 --lanes "${LANES:-6}" --job-minutes 120
     node research/headroom.mjs --exp idle --pairs 1 --lanes "${LANES:-6}" --job-minutes 60
     node research/headroom.mjs --exp attributes --pairs 8 --levels ends --lanes "${LANES:-6}" --job-minutes 120

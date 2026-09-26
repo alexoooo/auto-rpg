@@ -96,26 +96,32 @@ export const EXPERIMENTS = {
     return jobs;
   },
   /**
-   * The three orderings on stone: equal minds x1 against x1.1, the expert against the duelist on
-   * equal bodies, and the expert at x1 against the duelist at x1.1. A is always the side the
-   * ordering says should win: the bigger body, or the better mind.
+   * The three orderings: equal minds x1 against x1.1, the expert against the duelist on equal
+   * bodies, and the expert at x1 against the duelist at x1.1. A is always the side the ordering says
+   * should win: the bigger body, or the better mind. On the stone default unless `--build` names
+   * another body that can vary size (the skeleton; a human is fixed at x1), whose own family's
+   * duelist then stands in for the golem's.
    */
   orderings(o) {
-    const big = `default@size=${ATTRIBUTES.size.max}`;
+    const base = o.build ?? "default";
+    const duelist = familyDuelist(buildOf(base).setup);
+    const big = `${base}@size=${ATTRIBUTES.size.max}`;
     const cells = [
-      ...["golem-walker", "golem-duelist"].map((m) => ({ cell: `size|${m}`, a: m, b: m, aBuild: big, bBuild: "default", n: o.ladderPairs })),
-      { cell: `size|${RULER}`, a: RULER, b: RULER, aBuild: big, bBuild: "default", n: o.pairs },
-      { cell: `size|${PERSIST}`, a: PERSIST, b: PERSIST, aBuild: big, bBuild: "default", n: o.pairs },
-      { cell: `mind|${RULER}`, a: RULER, b: "golem-duelist", aBuild: "default", bBuild: "default", n: o.pairs },
-      { cell: `mind|${PERSIST}`, a: PERSIST, b: "golem-duelist", aBuild: "default", bBuild: "default", n: o.pairs },
-      { cell: `mind|golem-walker`, a: "golem-walker", b: "golem-duelist", aBuild: "default", bBuild: "default", n: o.ladderPairs },
-      { cell: `skill-vs-size|${RULER}`, a: RULER, b: "golem-duelist", aBuild: "default", bBuild: big, n: o.pairs },
-      { cell: `skill-vs-size|${PERSIST}`, a: PERSIST, b: "golem-duelist", aBuild: "default", bBuild: big, n: o.pairs },
+      ...["golem-walker", duelist].map((m) => ({ cell: `size|${m}`, a: m, b: m, aBuild: big, bBuild: base, n: o.ladderPairs })),
+      { cell: `size|${RULER}`, a: RULER, b: RULER, aBuild: big, bBuild: base, n: o.pairs },
+      { cell: `size|${PERSIST}`, a: PERSIST, b: PERSIST, aBuild: big, bBuild: base, n: o.pairs },
+      { cell: `mind|${RULER}`, a: RULER, b: duelist, aBuild: base, bBuild: base, n: o.pairs },
+      { cell: `mind|${PERSIST}`, a: PERSIST, b: duelist, aBuild: base, bBuild: base, n: o.pairs },
+      { cell: `mind|golem-walker`, a: "golem-walker", b: duelist, aBuild: base, bBuild: base, n: o.ladderPairs },
+      { cell: `skill-vs-size|${RULER}`, a: RULER, b: duelist, aBuild: base, bBuild: big, n: o.pairs },
+      { cell: `skill-vs-size|${PERSIST}`, a: PERSIST, b: duelist, aBuild: base, bBuild: big, n: o.pairs },
     ];
     const jobs = [];
     const most = Math.max(...cells.map((c) => c.n));
+    // The stone run's seed key is "stone", kept so its schedule, and the run it resumes, stay as queued.
+    const seedKey = base === "default" ? "stone" : base;
     for (let k = 0; k < most; k += 1) for (const c of cells) {
-      if (k < c.n) jobs.push(...swappedPair({ exp: "orderings", ...c, seedKey: "stone", k }));
+      if (k < c.n) jobs.push(...swappedPair({ exp: "orderings", ...c, seedKey, k }));
     }
     return jobs;
   },
