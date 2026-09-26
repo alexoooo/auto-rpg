@@ -26,7 +26,7 @@ import {
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
 import { CONTACT_PRESS, type PressReading } from "./contact-press.ts";
 import { fallenDwellS, initialSupportedLocomotionState, ledgerFalls, recoveredRiseS, risingEligibility, risingFloorS,
-  shoveSpecificImpulse, sizeTime, stabilityLines, stepSupportedLocomotionState,
+  shoveSpecificImpulse, sizeDriveTime, stabilityLines, stepSupportedLocomotionState,
   type StabilityAuthority, type StabilityLines, type SupportState,
   type SupportedLocomotionBoundary, type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 import { baseReachM, hullCentreMarginM, leanHoldN, leanRoomM, TIPPING, tippingGeometry,
@@ -566,13 +566,13 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     // The rise under way keeps the length it began with; a prospective one is asked for afresh, of
     // the body at x1, and then divided by its recovery stat here, so every body's rise answers to
     // the stat on one rule (`recoveredRiseS`). A body that states no rise of its own takes the frozen
-    // one at its size, which is a time (`sizeTime`).
+    // one at its size, which is a drive's time (`sizeDriveTime`).
     const riseTo = (target: WorldPoint) => {
       const distanceM = Math.hypot(target.x - root.position.x, target.y - root.position.y,
         target.z - root.position.z);
       const durationS = this.rising?.durationS ?? recoveredRiseS(
         this.options.risingDuration?.(distanceM, this.carrier.state.yaw) ??
-          SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeTime(authority),
+          SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeDriveTime(authority),
         distanceM, SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2, authority);
       return { durationS, withinAcceleration:
         6 * distanceM / (durationS * durationS) <= SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2 };

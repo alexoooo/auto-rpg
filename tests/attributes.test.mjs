@@ -52,6 +52,8 @@ import { freshIntent } from "../src/action-primitives.ts";
 import { RIBCAGE, SKELETAL_REACH, SKELETAL_WRIST, SKELETON_ARMOUR, SKELETON_BIPED, SKULL, SPINE } from "../src/golem/skeleton/body.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
+import { fallenDwellS, risingFloorS, SUPPORTED_LOCOMOTION_V1 } from "../src/supported-locomotion-state.ts";
+import { KnockdownSettle } from "../src/golem/locomotion.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { effectiveMassAt } from "../src/body-inertia.ts";
 import { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
@@ -150,8 +152,8 @@ test("a golem setup carrying a stat outside its row is refused where every build
   assert.equal(golemSetupRefusal({ ...setup, attributes: { size: 1 } }), null);
   assert.equal(golemSetupRefusal({ ...setup, attributes: { movement: 1.2 } }), null, "a measured stat inside its range");
   assert.match(golemSetupRefusal({ ...setup, attributes: { movement: 1.6 } }) ?? "", /Movement x1.6 is outside/);
-  assert.equal(golemSetupRefusal({ ...setup, attributes: { size: 1.2 } }), null, "every row is measured now");
-  assert.match(golemSetupRefusal({ ...setup, attributes: { size: 1.3 } }) ?? "", /Size x1.3 is outside/);
+  assert.equal(golemSetupRefusal({ ...setup, attributes: { size: 1.1 } }), null, "every row is measured now");
+  assert.match(golemSetupRefusal({ ...setup, attributes: { size: 1.15 } }) ?? "", /Size x1.15 is outside/);
   assert.match(golemSetupRefusal({ ...setup, attributes: { reach: 1 } }) ?? "", /no attribute "reach"/);
 });
 
@@ -653,18 +655,21 @@ test("size multiplies each field of a copy by its law's power, recurses where a 
   const s = 1.5;
   const sized = withSize(table, laws, s);
   assert.deepEqual(sized, {
-    length: 2 * s, mass: 3 * s ** 3, rate: 4 * s ** -0.5, band: [s, 2 * s], names: ["a"], label: "stone",
-    on: true, none: null, nested: { torque: 5 * s ** 4, ratio: 0.5 }, kept: { anything: 7 },
+    length: 2 * s, mass: 3 * s ** 3, rate: 4 / s, band: [s, 2 * s], names: ["a"], label: "stone",
+    on: true, none: null, nested: { torque: 5 * s ** 3, ratio: 0.5 }, kept: { anything: 7 },
   });
   assert.equal(sized.kept, table.kept, "a record carried by `one` is carried whole");
   assert.deepEqual(table.nested, { torque: 5, ratio: 0.5 }, "and the table handed in was not written");
   assert.throws(() => withSize(table, { ...laws, mass: undefined }, s), /no size law for mass/);
   assert.throws(() => withSize(table, { ...laws, nested: { torque: "torque" } }, s), /no size law for nested\.ratio/);
   assert.throws(() => withSize(table, { ...laws, stale: "length" }, s), /names stale, which the table does not have/);
-  // The powers are similarity at constant density, with time going as the root of length.
+  // The powers are similarity at constant density with a biological strength -- force as s^2 and
+  // torque as s^3 -- so the drives run on a clock of s, and what gravity alone does on one of its
+  // root (`SizeLaw`).
   assert.deepEqual(SIZE_LAW_POWER, {
-    one: 0, length: 1, perLength: -1, mass: 3, inertia: 5, torque: 4, force: 3, impulse: 3.5,
-    speed: 0.5, frequency: -0.5, angularAcceleration: -1, duration: 0.5,
+    one: 0, length: 1, perLength: -1, mass: 3, inertia: 5, force: 2, torque: 3,
+    speed: 0, frequency: -1, duration: 1, acceleration: -1, angularAcceleration: -2,
+    fallSpeed: 0.5, fallDuration: 0.5, fallImpulse: 3.5,
   });
 });
 
@@ -741,7 +746,7 @@ test("every shipped body table has a size law for every field, and each leaf mov
  * does not say. The laws are the carrier table's own (`CARRIER_SIZE` in `config.ts`).
  */
 const CARRIER_AXIS_LAWS = Object.freeze({
-  speed: ["speed", "one"], strafe: ["speed", "one"], yaw: ["frequency", "angularAcceleration"], height: ["length", "speed"],
+  speed: ["speed", "acceleration"], strafe: ["speed", "acceleration"], yaw: ["frequency", "angularAcceleration"], height: ["length", "speed"],
 });
 
 test("size scales every golem and skeleton module's body parts by s^3 in mass and s in place, and leaves items alone", async () => {
@@ -874,30 +879,30 @@ test("size scales every golem and skeleton module's body parts by s^3 in mass an
 test("a human's size is fixed at x1: refused on its setup, not set on its corner, and dropped when a corner draws one", () => {
   const human = FAMILY_SETUP.human();
   assert.equal(bodyFamily(human), "human");
-  assert.match(golemSetupRefusal({ ...human, attributes: { size: 1.25 } }), /Size is fixed at x1 on a human/);
+  assert.match(golemSetupRefusal({ ...human, attributes: { size: 1.1 } }), /Size is fixed at x1 on a human/);
   assert.equal(golemSetupRefusal({ ...human, attributes: { size: 1 } }), null, "the control: x1 is a human's size");
-  assert.equal(golemSetupRefusal({ ...defaultGolemSetup(), attributes: { size: 1.25 } }), null,
+  assert.equal(golemSetupRefusal({ ...defaultGolemSetup(), attributes: { size: 1.1 } }), null,
     "and a stone golem's is not");
 
   const corner = withGolemBuild(golemMatchup(BUILD), "left", human, 3);
-  assert.equal(withGolemAttribute(corner, "left", "size", 1.25), corner, "a human corner refuses the stat");
+  assert.equal(withGolemAttribute(corner, "left", "size", 1.1), corner, "a human corner refuses the stat");
   assert.notEqual(withGolemAttribute(corner, "left", "movement", 1.2), corner, "the control: it takes another");
 
   const tuned = golemMatchup(BUILD);
-  tuned.left.golem = { ...BUILD, attributes: { size: 1.25, movement: 1.2 } };
+  tuned.left.golem = { ...BUILD, attributes: { size: 1.1, movement: 1.2 } };
   assert.deepEqual(withGolemBuild(tuned, "left", human, 4).left.golem.attributes, { movement: 1.2 },
     "a corner that draws a human keeps its other stats and loses size");
-  assert.deepEqual(withGolemBuild(tuned, "left", skeletonSetup(), 4).left.golem.attributes, { size: 1.25, movement: 1.2 },
+  assert.deepEqual(withGolemBuild(tuned, "left", skeletonSetup(), 4).left.golem.attributes, { size: 1.1, movement: 1.2 },
     "the control: a skeleton keeps both");
 });
 
 /**
  * A ram's lunge is the neck's, so it follows the body: a larger head drives, follows and stays armed
- * for longer, each as a duration (the root of s), while its plate keeps its own size. Read from the
- * striker's own gate -- armed is what decides whether a touch is a blow -- counted in control steps
- * from the thrust edge.
+ * for longer, each as a drive's duration (s itself, `SizeLaw`), while its plate keeps its own size.
+ * Read from the striker's own gate -- armed is what decides whether a touch is a blow -- counted in
+ * control steps from the thrust edge.
  */
-test("a larger ram's lunge is armed for the root of its size longer", async () => {
+test("a larger ram's lunge is armed for its size longer", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const s = 1.25;
   const dt = 1 / 240;
@@ -928,10 +933,47 @@ test("a larger ram's lunge is armed for the root of its size longer", async () =
     const plain = armedSteps(1);
     const big = armedSteps(s);
     assert.ok(plain > 10 && plain < 2400, `the control: a lunge arms and disarms (${plain} steps)`);
-    assert.ok(Math.abs(big - plain * Math.sqrt(s)) <= 2, `armed ${plain} steps at x1 and ${big} at x${s}`);
+    assert.ok(Math.abs(big - plain * s ** SIZE_LAW_POWER.duration) <= 2, `armed ${plain} steps at x1 and ${big} at x${s}`);
   } finally {
     arena.dispose?.();
   }
+});
+
+/**
+ * **Two clocks** (`SizeLaw`, skill ceiling session 01). What a drive does -- a walk, a lift, a rise --
+ * runs on a clock of `s`, and what gravity alone does -- a body coming down and settling, and the
+ * impulse that tips it -- on one of `sqrt(s)`. Each field below is read at a size whose root and
+ * whose value differ by a factor the assertions can tell apart (1.2 against 1.44), through the path
+ * a body reads it: the sized table, the port's floors on the authority, and the settle's rise.
+ */
+test("a sized body walks and rises on the drive clock and falls on gravity's", () => {
+  const s = 1.44;
+  const root = 1.2;
+  const near = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
+  const B = withSize(LOCOMOTION_BIPED, LOCOMOTION_BIPED_SIZE, s);
+  const knock = LOCOMOTION_BIPED.knockdown;
+  // Gravity's: a lying body's descent, its stillness, the cap on its lie, and the bench's shove.
+  assert.ok(near(B.knockdown.restSpeedMps, knock.restSpeedMps * root), "rest speed is the fall's");
+  assert.ok(near(B.knockdown.restSeconds, knock.restSeconds * root), "rest time is the fall's");
+  assert.ok(near(B.knockdown.maxLyingSeconds, knock.maxLyingSeconds * root), "the lie's cap is the fall's");
+  assert.ok(near(B.shoveImpulseNs, LOCOMOTION_BIPED.shoveImpulseNs * s ** 3 * root), "the shove tips the body");
+  // The drive's: the lift, the walk, the push that starts one, and the turn.
+  assert.ok(near(B.knockdown.risePeakMps, knock.risePeakMps), "a rise lifts no faster");
+  const was = LOCOMOTION_BIPED.carrier;
+  assert.ok(near(B.carrier.maxSpeedMps, was.maxSpeedMps), "a larger body walks no faster");
+  assert.ok(near(B.carrier.maxAccelerationMps2, was.maxAccelerationMps2 / s), "and gets going more slowly");
+  assert.ok(near(B.carrier.maxYawSpeedRadS, was.maxYawSpeedRadS / s), "and turns more slowly");
+  assert.ok(near(B.carrier.maxYawAccelerationRadS2, was.maxYawAccelerationRadS2 / s ** 2));
+  assert.ok(near(B.targetRate, LOCOMOTION_BIPED.targetRate / s), "its joints' rates are the drive's");
+  assert.ok(near(B.hipTorque, LOCOMOTION_BIPED.hipTorque * s ** 3), "and its torques a force on a lever");
+  // The port's two floors, on the authority the builders hand it.
+  const sized = { carrierPartId: "carrier", supportBindings: [], sizeScale: s };
+  assert.ok(near(fallenDwellS(sized), SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S * root), "the dwell is the fall's");
+  assert.ok(near(risingFloorS(sized), SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * s), "the rise floor is the drive's");
+  assert.equal(fallenDwellS({ ...sized, sizeScale: 1 }), SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S, "the control: x1 is x1");
+  // And the settle's own rise, which the port takes over the floor when it states one.
+  const settle = new KnockdownSettle(knock);
+  assert.ok(near(settle.risingDurationS(0, s), SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * s), "a short rise is the drive's floor");
 });
 
 /**
@@ -1033,7 +1075,7 @@ test("a plate on the pitch chain is refused below x1, and only there", () => {
   assert.match(golemSetupRefusal(withAttributeSetting(setup, { size: 0.95 })) ?? "", /plate on the pitch chain/);
   assert.match(golemSetupRefusal(withAttributeSetting({ ...setup, primary: pitch.secondary, secondary: pitch.primary }, { size: 0.8 })) ?? "",
     /plate on the pitch chain/, "in either socket");
-  assert.equal(golemSetupRefusal(withAttributeSetting(setup, { size: 1.25 })), null, "the control: above x1 it is clear");
+  assert.equal(golemSetupRefusal(withAttributeSetting(setup, { size: 1.1 })), null, "the control: above x1 it is clear");
   assert.equal(golemSetupRefusal(withAttributeSetting({ ...setup, secondary: { chain: "wrist", terminal: "plate" },
     primary: { chain: "wrist", terminal: "blade" } }, { size: 0.8 })), null, "the control: a wrist plate is clear");
   assert.equal(golemSetupRefusal(withAttributeSetting({ ...setup, secondary: pitch.primary }, { size: 0.8 })), null,

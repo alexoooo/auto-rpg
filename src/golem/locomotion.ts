@@ -18,6 +18,7 @@ import type {
 import type { BuiltModule, GolemModuleDefinition, ModuleBuild } from "./module.ts";
 import { GOLEM_RUIN, type Knockdown } from "./config.ts";
 import { SUPPORTED_LOCOMOTION_V1 } from "../supported-locomotion-state.ts";
+import { SIZE_LAW_POWER } from "./attributes.ts";
 import { massDistributionOf, type MassDistribution, type PointMass } from "../tipping.ts";
 import { partBodyOf } from "../rig.ts";
 import type { WorldPoint } from "../supported-locomotion-runtime.ts";
@@ -219,10 +220,11 @@ export class KnockdownSettle {
   /**
    * How long a rise over `distanceM` lasts: the lift is a smoothstep, whose peak speed is 1.5 times
    * its mean, so a rise that may not exceed `risePeakMps` lasts at least 1.5 d / risePeakMps, and
-   * never less than the frozen floor, which is a time and goes as the square root of the size.
+   * never less than the frozen floor, which is a drive's time and goes as the size (`duration` in
+   * `SizeLaw`; `sizeDriveTime` is the port's copy of the same factor).
    */
   risingDurationS(distanceM: number, size: number): number {
-    return Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * Math.sqrt(size),
+    return Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * size ** SIZE_LAW_POWER.duration,
       1.5 * distanceM / this.knockdown.risePeakMps);
   }
 }

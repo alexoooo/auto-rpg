@@ -246,10 +246,11 @@ export interface ModuleEnvelope {
  * table (physical contact session 09).
  *
  * - `rateScale` is the angular rate its command may move at, over the shipped chain's. The arm
- *   speed stat multiplies it, and size divides it by the root of the size: a point chain's rate is
- *   a speed at the hand, which grows as the root of length, over a reach that grows as length.
+ *   speed stat multiplies it, and size divides it by the size: a point chain's rate is a speed
+ *   at the hand, which a drive holds at any size (`speed` in `SizeLaw`), over a reach that grows as
+ *   length.
  * - `torqueScale` is the torque that swings it about the socket, over the shipped chain's: weight
- *   times the fourth power of size on a stone arm, weight alone on a human one.
+ *   times the cube of size on a stone arm (`torque` in `SizeLaw`), weight alone on a human one.
  *
  * Both are 1 on every arm at x1, which is what keeps every stroke there timed as it was.
  */

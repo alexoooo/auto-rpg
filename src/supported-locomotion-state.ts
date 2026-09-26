@@ -1,6 +1,7 @@
 import {
   baseReachM, leverAt, rockingDecayMps2, TIPPING, tippingLineMps, type TippingGeometry,
 } from "./tipping.ts";
+import { SIZE_LAW_POWER } from "./golem/attributes.ts";
 
 export type SupportState = "supported" | "staggered" | "fallen" | "rising";
 
@@ -93,10 +94,11 @@ export interface StabilityAuthority {
    */
   readonly recoveryScale?: number;
   /**
-   * The body's size stat (`src/golem/attributes.ts`). Both floors of a knockdown are times and go as
-   * the square root of the size (`SizeLaw`). The tipping line reads it from the body itself -- a
-   * larger body's centre of mass is higher and its base wider -- so it is not applied there again.
-   * Absent reads as 1.
+   * The body's size stat (`src/golem/attributes.ts`). Both floors of a knockdown are times, on
+   * different clocks (`SizeLaw`): the dwell is the fall's, the root of the size (`sizeFallTime`),
+   * and the rise is a drive's, the size itself (`sizeDriveTime`). The tipping line reads it from the
+   * body itself -- a larger body's centre of mass is higher and its base wider -- so it is not
+   * applied there again. Absent reads as 1.
    */
   readonly sizeScale?: number;
 }
@@ -172,27 +174,38 @@ export function stabilityLines(authority: StabilityAuthority | null | undefined,
 }
 
 /**
- * The square root of the body's size: the factor on a speed and on a time alike (`SizeLaw`), and
- * exactly 1 for a body at x1 or an authority that names none.
+ * The factor on a time gravity sets, at the body's size: its root (`fallDuration` in `SizeLaw`), and
+ * exactly 1 for a body at x1 or an authority that names none. A body tips over and settles on this
+ * clock whatever its strength.
  */
-export function sizeTime(authority: StabilityAuthority | null | undefined): number {
-  return Math.sqrt(authority?.sizeScale ?? 1);
+export function sizeFallTime(authority: StabilityAuthority | null | undefined): number {
+  return (authority?.sizeScale ?? 1) ** SIZE_LAW_POWER.fallDuration;
+}
+
+/**
+ * The factor on a time a drive takes, at the body's size: the size itself (`duration` in `SizeLaw`,
+ * torque `s^3` on inertia `s^5`), and exactly 1 at x1. A rise is lifted by the body, so it is on this
+ * clock; it was on the fall's until the size law followed biology (skill ceiling session 01).
+ */
+export function sizeDriveTime(authority: StabilityAuthority | null | undefined): number {
+  return (authority?.sizeScale ?? 1) ** SIZE_LAW_POWER.duration;
 }
 
 /**
  * The shortest a body lies before it may rise: the frozen dwell over its recovery stat. The one place
- * the dwell is divided; the state machine and the port's rise gate read it here.
+ * the dwell is divided; the state machine and the port's rise gate read it here. At size it is the
+ * fall's time, since it is a floor on the ragdoll.
  */
 export function fallenDwellS(authority: StabilityAuthority | null | undefined): number {
-  return SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S * sizeTime(authority) / (authority?.recoveryScale ?? 1);
+  return SUPPORTED_LOCOMOTION_V1.FALLEN_DWELL_S * sizeFallTime(authority) / (authority?.recoveryScale ?? 1);
 }
 
 /**
  * The shortest a rise may last: the frozen rise over the body's recovery stat. A body may lengthen a
- * rise past this and never shorten one under it.
+ * rise past this and never shorten one under it. At size it is a drive's time.
  */
 export function risingFloorS(authority: StabilityAuthority | null | undefined): number {
-  return SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * sizeTime(authority) / (authority?.recoveryScale ?? 1);
+  return SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * sizeDriveTime(authority) / (authority?.recoveryScale ?? 1);
 }
 
 /**

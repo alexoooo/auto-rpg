@@ -1392,10 +1392,11 @@ test("a_strokes_time_is_the_arms_own_rate_and_torque_against_its_load_and_not_it
     `a x2-weight arm publishes torque x${heavy.torqueScale} and rate x${heavy.rateScale}`);
   assert.ok(Math.abs(strokeTimeScale(heavy) - 1) < 0.01,
     `a x2-weight arm is timed x${strokeTimeScale(heavy)}, not the shipped arm's own 1`);
-  // Size slows the arm's rate by sqrt(size) and not by its load (size^5 over size^4).
-  const tall = await at({ size: 1.25 });
-  assert.ok(Math.abs(strokeTimeScale(tall) - Math.sqrt(1.25)) < 0.01,
-    `a x1.25-size arm is timed x${strokeTimeScale(tall)}, not sqrt(1.25) = 1.118`);
+  // Size slows the arm by the size itself, on the drive clock: its rate divides by the size, and
+  // its load (size^5 over size^3) asks for the same factor.
+  const tall = await at({ size: 1.1 });
+  assert.ok(Math.abs(strokeTimeScale(tall) - 1.1) < 0.01,
+    `a x1.1-size arm is timed x${strokeTimeScale(tall)}, not 1.1`);
   // Every stat at its ceiling is a faster arm than the shipped one, not a slower one.
   const giant = await at(Object.fromEntries(ATTRIBUTE_IDS.map((id) => [id, ATTRIBUTES[id].max])));
   assert.ok(strokeTimeScale(giant) < 1,
