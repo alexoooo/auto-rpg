@@ -21,6 +21,7 @@ import { parentPort } from "node:worker_threads";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createBout, freshHavok, FRAME } from "../tests/harness/bout-runner.mjs";
 import { policyMind } from "../src/mind.ts";
+import { trajectoryTracer } from "./side-mirror.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 const SIDES = ["left", "right"];
@@ -144,10 +145,13 @@ export async function execute(job, manifest) {
       }
     }
   };
-  let result;
+  // With `manifest.trace`, the bout's trajectory hash, as `research/worker.mjs` carries it.
+  const tracer = manifest.trace ? trajectoryTracer(bout) : null;
+  let result, traced = {};
   try {
-    while (bout.step()) frame();
+    while (bout.step()) { frame(); tracer?.frame(); }
     result = bout.finish();
+    if (tracer) traced = tracer.finish();
   } finally { bout.dispose(); }
   const sides = {};
   for (const side of SIDES) {
@@ -173,7 +177,7 @@ export async function execute(job, manifest) {
         p50: reach[Math.floor(reach.length * 0.5)], p90: reach[Math.floor(reach.length * 0.9)] } : null,
     };
   }
-  return { ...job, status: "ok", winner: result.winner, ending: result.ending, seconds: result.seconds, sides };
+  return { ...job, status: "ok", winner: result.winner, ending: result.ending, seconds: result.seconds, sides, ...traced };
 }
 
 /**

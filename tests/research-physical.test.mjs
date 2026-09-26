@@ -137,3 +137,24 @@ test("the worker counts the modules each corner lost and the real blows it lande
   }
   assert.notDeepEqual(counts[0], counts[1], `the two corners' counts are one record: ${JSON.stringify(counts)}`);
 });
+
+test("a traced bout is the bout untraced, and its trajectory is the side mirror's", async () => {
+  const { playMirror } = await import("../research/side-mirror-worker.mjs");
+  const protocol = { ...PROTOCOL, maxSeconds: 5 };
+  const manifest = { builds: NAMED_BUILDS, candidates: [], protocol };
+  const job = { id: "trace", round: 0, block: "trace", left: "golem-duelist", right: "golem-duelist",
+    leftBuild: "default", rightBuild: "default", seeds: [44, 45] };
+  const plain = await execute(job, manifest);
+  const traced = await execute(job, { ...manifest, trace: true });
+  assert.equal(plain.trajectory, undefined, "no trace unless asked for");
+  const { trajectory, prefixes, ...rest } = traced;
+  assert.deepEqual(rest, plain, "tracing moves nothing in the bout");
+  assert.match(trajectory, /^[0-9a-f]{16}$/);
+  // The mirror worker with no `build` plays the default golem on both sides: the same bout.
+  const mirror = await playMirror(job, { protocol });
+  assert.equal(trajectory, mirror.trajectory, "one trajectory means one thing in both workers");
+  assert.deepEqual(prefixes, mirror.prefixes);
+  // Control: another seed pair is another trajectory, so the equal hashes above are not a constant.
+  const other = await execute({ ...job, seeds: [46, 47] }, { ...manifest, trace: true });
+  assert.notEqual(other.trajectory, trajectory);
+});

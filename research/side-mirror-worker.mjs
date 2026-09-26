@@ -10,8 +10,9 @@
  * plays the same *whole* bout whatever its seeds. Such a mirror's 128 bouts are one bout counted
  * 128 times, and a band taken on 128 would be a band on nothing. So every bout carries a running
  * hash of both bodies -- every limb's position and health, both bars -- taken every
- * `SAMPLE_FRAMES` frames, with its prefix read off at each of `CHECKPOINTS`. Equal final hashes are
- * one bout; the prefixes say how long a mirror's bouts share their opening before they part.
+ * `SAMPLE_FRAMES` frames, with its prefix read off at each of `CHECKPOINTS` (`trajectoryTracer` in
+ * `research/side-mirror.mjs`). Equal final hashes are one bout; the prefixes say how long a
+ * mirror's bouts share their opening before they part.
  *
  * **Seeding.** Each side's mind is built from its own seed, `seeds[0]` on the left and `seeds[1]` on
  * the right, which is what `createBout` does for a mind named by string. A mind built here and handed
@@ -21,11 +22,10 @@
  * given the seed of its own side.
  */
 import { parentPort } from "node:worker_threads";
-import { createHash } from "node:crypto";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createBout, freshHavok } from "../tests/harness/bout-runner.mjs";
 import { policyMind } from "../src/mind.ts";
-import { CHECKPOINTS, SAMPLE_FRAMES } from "./side-mirror.mjs";
+import { trajectoryTracer } from "./side-mirror.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 
@@ -43,38 +43,18 @@ export async function playMirror(job, manifest, { makeMind = sideMind } = {}) {
     leftGolem: setup, rightGolem: setup,
     ...manifest.protocol, physics: await freshHavok(),
   });
-  const hash = createHash("sha1");
-  const floats = new Float64Array(1);
-  const bytes = new Uint8Array(floats.buffer);
-  const put = (x) => { floats[0] = x; hash.update(bytes); };
-  const sample = () => {
-    for (const body of [bout.left, bout.right]) {
-      for (const limb of body.limbs) {
-        const p = limb.part.mesh.position;
-        put(p.x); put(p.y); put(p.z); put(limb.health);
-      }
-      put(body.vitality);
-    }
-  };
-  const prefixes = {};
-  let result, vitality, frames = 0, next = 0;
+  const tracer = trajectoryTracer(bout);
+  let result, vitality, traced;
   try {
-    while (bout.step()) {
-      frames += 1;
-      if (frames % SAMPLE_FRAMES === 0) sample();
-      while (next < CHECKPOINTS.length && bout.clock >= CHECKPOINTS[next]) {
-        prefixes[CHECKPOINTS[next]] = hash.copy().digest("hex").slice(0, 16);
-        next += 1;
-      }
-    }
+    while (bout.step()) tracer.frame();
     result = bout.finish();
     vitality = [bout.left.vitality, bout.right.vitality];
-    sample();
+    traced = tracer.finish();
   } finally { bout.dispose(); }
   return {
     ...job, status: "ok", winner: result.winner, ending: result.ending, seconds: result.seconds,
     vitality, damage: [result.left.damage, result.right.damage], hits: [result.left.hits, result.right.hits],
-    trajectory: hash.digest("hex").slice(0, 16), prefixes,
+    ...traced,
   };
 }
 

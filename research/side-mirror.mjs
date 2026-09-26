@@ -39,6 +39,7 @@
  * time, a fresh Havok per bout, resumable from `results.jsonl`. Never `Promise.all` over bouts
  * (`AGENTS.md`: one realm runs one Havok arena at a time).
  */
+import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -51,6 +52,48 @@ export const HARNESS = "Node harness, research runner, supported locomotion";
 export const SAMPLE_FRAMES = 6;
 /** Bout seconds at which the worker keeps the trajectory's prefix hash. */
 export const CHECKPOINTS = Object.freeze([0.5, 1, 2, 4, 8, 16, 32, 64]);
+
+/**
+ * The trajectory hash one bout carries, for any worker that plays one: call `frame()` after every
+ * `bout.step()` that returned true, and `finish()` once after `bout.finish()`, before the bout is
+ * disposed. It hashes both bodies -- every limb's `mesh.position` and health, then the bar -- every
+ * `SAMPLE_FRAMES` frames and once more at the end, and keeps the prefix at each of `CHECKPOINTS`.
+ * `mesh.position` stamps nothing (`AGENTS.md`), so a traced bout is the bout untraced.
+ *
+ * `research/side-mirror-worker.mjs` and `research/worker.mjs` (when `manifest.trace` is set) both
+ * use it, so a trajectory means one thing wherever it is counted.
+ */
+export function trajectoryTracer(bout) {
+  const hash = createHash("sha1");
+  const floats = new Float64Array(1);
+  const bytes = new Uint8Array(floats.buffer);
+  const put = (x) => { floats[0] = x; hash.update(bytes); };
+  const sample = () => {
+    for (const body of [bout.left, bout.right]) {
+      for (const limb of body.limbs) {
+        const p = limb.part.mesh.position;
+        put(p.x); put(p.y); put(p.z); put(limb.health);
+      }
+      put(body.vitality);
+    }
+  };
+  const prefixes = {};
+  let frames = 0, next = 0;
+  return {
+    frame() {
+      frames += 1;
+      if (frames % SAMPLE_FRAMES === 0) sample();
+      while (next < CHECKPOINTS.length && bout.clock >= CHECKPOINTS[next]) {
+        prefixes[CHECKPOINTS[next]] = hash.copy().digest("hex").slice(0, 16);
+        next += 1;
+      }
+    },
+    finish() {
+      sample();
+      return { trajectory: hash.digest("hex").slice(0, 16), prefixes };
+    },
+  };
+}
 
 /**
  * The minds the gate covers, each with why. The probe set is `PROBE_MINDS` in
