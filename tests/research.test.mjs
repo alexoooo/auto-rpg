@@ -105,6 +105,18 @@ test("failed workers create explicit failures rather than wins or draws", async 
     assert.equal(completeRounds(jobs, rows).length, 0);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+test("a job past its wall limit fails, and one inside it does not", async () => {
+  const workerUrl = new URL("./harness/research-worker-fixture.mjs", import.meta.url);
+  const jobs = schedule(["a", "b"], NAMED_BUILDS.slice(0, 2), 1).slice(0, 1);
+  for (const [limit, status] of [[100, "failed"], [5000, "ok"]]) {
+    const directory = mkdtempSync(join(tmpdir(), "ai-limit-"));
+    try {
+      const rows = await runJobs(directory, { delayMs: 600 }, jobs, { workers: 1, workerUrl, jobLimitMs: limit });
+      assert.equal(rows[0].status, status, `limit ${limit} ms`);
+      if (status === "failed") assert.match(rows[0].error, /wall limit/);
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  }
+});
 test("a live run directory cannot be opened for a second computation", () => {
   const directory = mkdtempSync(join(tmpdir(), "ai-lock-"));
   try {
