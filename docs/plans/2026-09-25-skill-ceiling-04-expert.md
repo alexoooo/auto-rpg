@@ -76,12 +76,13 @@ The default is `expert@c8,h1`: 8 candidates, a 1 s horizon, 4 decisions a second
     - survive-cut: 86.0 against 32.3 % (+53.8 ± 10.6, n 93);
     - punish-miss: 100 against 67.5 % (n 200);
     - land-clean-blow: 100 against 79.0 % (n 200);
-    - get-inside: 100 against 91.7 %, inside in 0.38 against 1.14 s (n 60);
-    - hold-range: 100 against 96.7 %, with a better share in band (n 60);
-    - finish: level (n 60).
+    - get-inside: 100 against 91.5 %, inside in 0.39 against 1.21 s (n 200);
+    - hold-range: 99.5 against 96.5 %, with a better share in band (n 200);
+    - finish: level (n 200).
 
-    It beats every rung of the ladder except the walker's speed on get-inside, 0.38 against
-    0.33 s. The cause is the objective: it prices earliness at 0.25 / 3 bars a second.
+    It beats every rung of the ladder except the walker's speed on get-inside, 0.39 against
+    0.33 s. The cause is the objective: it prices earliness at 0.25 / 3 bars a second, beside the
+    bout's damage at full weight.
 - **Sanity checks.**
   - **Beats idle** in 108 of 108 bouts, all seven weapon classes.
   - **Its mirror is inside its band:** the left corner scored 48.4 % over 64 distinct bouts, ±12.3.
@@ -89,10 +90,14 @@ The default is `expert@c8,h1`: 8 candidates, a 1 s horizon, 4 decisions a second
     duelist's 29 % on survive-cut. `-blind` (four stale) is inert on survive-cut, because the
     first decision decides the drill and that decision is exact under it. It is 41 points down on
     punish-miss.
-- **Compute.** Flat in candidates (c4 to c32) on every drill from c8. The horizon is a trade-off
-  rather than a budget.
+- **Compute.** The drill pass rates are flat in candidates (c4 to c32), and every margin is flat
+  from c8 except one. The horizon is a trade-off rather than a budget.
   - Headroom is called everywhere except survive-cut's low line, which reads 20 → 33 % from c4 to
     c32 on 15 starts and is a lower bound.
+  - On get-inside c32 is 0.45 s *slower* inside than c8 while scoring higher on its own
+    objective. Round 1 takes a prefix of the fixed plans, so only c32 reaches back-off-then-cut,
+    and the objective prefers its blow to an early entry. Candidates buy proposal coverage as
+    well as density.
 - **Model-only** (persistence), beside full knowledge:
   - survive-cut 50.5 % against 86.0 %;
   - level on the other five drills;
@@ -104,7 +109,8 @@ The default is `expert@c8,h1`: 8 candidates, a 1 s horizon, 4 decisions a second
 **Open for the owner:**
 - the ruler's budget;
 - full knowledge or persistence, or both;
-- whether the drill task should weight time more heavily;
+- whether the drill task should weight time more heavily, or drop the bout's damage term inside a
+  drill;
 - which stale-fork mutation stands.
 
 ## Depends on
