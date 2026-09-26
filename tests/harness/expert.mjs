@@ -83,9 +83,11 @@ export const EXPERT_DEFAULTS = Object.freeze({
   opponent: "full",
   /**
    * Plan on the capture from this many decisions ago: 0 is the live world, more is a blinded fork.
-   * Until that many decisions have passed, the oldest capture held is used -- which, in a drill
-   * rung shorter than `stale` decisions, is the live world at every decision, so the blinding is
-   * inert there (`-blind`, as the 2026-09-25 drill grid ran it).
+   * Until that many decisions have passed, the oldest capture held is used: in a drill rung of
+   * `stale` decisions or fewer, that is the rung's first moment at every decision, so the first
+   * decision is exact and each later one plans on the start again (`-blind`, as the 2026-09-25 drill
+   * grid ran it). Where the first decision settles the drill, as a parry does in survive-cut, that
+   * blinding costs nothing.
    */
   stale: 0,
   /**
