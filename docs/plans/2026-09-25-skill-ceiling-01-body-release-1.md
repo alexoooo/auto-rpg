@@ -203,6 +203,29 @@ The gate becomes a test at a smaller n that runs in the suite, and a research-ha
   compared with the old figures as a regression.
 - The idle-dummy matrix, as recorded, not gated. Session 05 gates it with the expert.
 
+**Result, 2026-09-25** (`docs/analysis/2026-09-25-release-1-baseline.md`). Release 1 is cb1bd38,
+measured with the instruments in ebd8fc3 and cd800eb.
+
+- **Fingerprint.** All 55 body-fingerprint sections moved, as a change of rate must. The readable
+  readout (`research/body-readout.mjs`) shows what moved:
+  - no x1 body's build-time number, except the fall line;
+  - the size law's rates and torques at x0.8 and x1.1;
+  - the giant, from 949 kg and 2.63 m to 648 kg and 2.31 m.
+- **Control row** (Node research runner, 384 bouts, 372 distinct trajectories):
+  - damage 7.21 +- 0.83 a body a bout;
+  - falls 0.67 +- 0.86;
+  - bout 24.4 +- 13.3 s;
+  - decided 96.3 +- 8.5 % (clustered by the ten pairings);
+  - the x1-against-x1 win share, a null, 45.6 +- 5.9 %;
+  - the miser takes 86 % of its bouts against the other three.
+- **Idle matrix** (same runner, naive family minds). The seven carried cells are all still at zero:
+  the skeleton against stone, human and giant, and the human against everything. Among the other
+  seventeen builds, a further 40 cells of 68 are at zero:
+  - every human build;
+  - every skeleton build against stone, human and giant, and the skeleton maul against a skeleton
+    too;
+  - the maul, whip, fists and capped-ram stone builds against every dummy.
+
 ## Eye gate
 
 The owner watches, on the dev server:
