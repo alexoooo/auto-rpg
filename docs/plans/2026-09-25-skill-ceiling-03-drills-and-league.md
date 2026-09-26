@@ -81,6 +81,37 @@ scripts that read the mirrored pool are retired in session 09.
   idle passes as often as the duelist does is measuring nothing, and is fixed or removed.
 - Mutation check. Break the duelist's guard; `survive the cut` must fall.
 
+**Result, 2026-09-25** (`docs/analysis/2026-09-25-drills.md`). The harness is the drill runner, which
+is the Node bout runner and the fork harness driven by `research/drills.mjs` in six lanes. The build
+is the default golem against itself, 1,000 runs a drill, on the fork branch before main's release
+120 was merged:
+
+- **The numbers the data set:**
+  - `survive-cut`: the wound threshold is **0.03** of the bar, and a start is void unless the cut
+    wounds an idle body over it.
+  - `get-inside`: striking range is 0.92 of a hand's range, or reach plus lunge for a natural
+    striker. The wound threshold is 0.03.
+  - `hold-range`: the band is [0.65, 1.0] of range for 90 % of 3 s, with the opponent closing at
+    0.25 to 0.5 forward. A start is void unless idle leaves the band.
+  - `land-clean-blow`: 0.8 alignment, as written.
+- **Pass rates (idle / walker / duelist / guardless duelist):**
+  - survive-cut: 0 / 11.0 / 27.5 / 19.2 % (717 scored, 283 void);
+  - land-clean-blow: 0 / 57.3 / 84.1 / 74.2 %;
+  - get-inside: 0 / 79.5 / 10.0 / 100 %;
+  - hold-range: 0 / 0 / 95.8 / 74.4 %;
+  - punish-miss: 0 / 62.7 / 63.2 / 12.3 %;
+  - finish: 0 / 98.9 / 100 / 93.7 %.
+
+  Runs for ±2 points: 105 to 2,350 a drill and rung.
+- **Idle passes nothing, anywhere.**
+- **The ladder is ordered, idle ≤ walker ≤ duelist, on five of six drills.** It is inverted on
+  get-inside, by the duelist's own stand-off rule.
+- **Mutation check: passes.** The guardless duelist's survive-cut is −8.2 ± 4.3 points, and −37.9 ±
+  5.2 on the high line.
+- **`recover` and `off-balance` are removed**, with `recover-up` tried beside them. Idle passed at
+  least as often as the duelist in each, because no mind has a lever on balance yet. They come back
+  with one.
+
 ## Depends on
 
 Session 02, for start states.
