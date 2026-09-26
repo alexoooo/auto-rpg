@@ -233,7 +233,7 @@ The owner watches, on the dev server:
 - stone default against stone default;
 - the all-max giant against x1;
 - the human and the skeleton each against stone;
-- a size x0.8 against a size x1.25.
+- a size x0.8 against a size x1.1, the ceiling since the size law (it was x1.25 when this was written).
 
 What to look for: blades that still read as fast and solid at the new rate; nothing passing through
 anything; the opening, with no clash before the bodies close; and the size trade-off, with the big
