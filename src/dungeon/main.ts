@@ -21,6 +21,8 @@ import type { GolemSetup } from "../bout.ts";
 import { PLAYABLE_BUILDS } from "../golem/roster.ts";
 import { describeAttributes, withAttribute, withAttributeSetting, type AttributeSetting } from "../golem/attributes.ts";
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "../attributes-ui.ts";
+import { GameAudio } from "../game-audio.ts";
+import { namedBuild } from "../golem/roster.ts";
 import { DungeonRun } from "./run.ts";
 import { orderLabel } from "./commands.ts";
 import { cellKey, type Point } from "./map.ts";
@@ -115,13 +117,15 @@ async function boot(): Promise<void> {
   let selectedEquipment: GolemSetup | undefined;
   let route: LinesMesh | null = null, routeSignature = "", lastUi = 0;
   const held = new Set<string>();
+  const audio = new GameAudio(true);
+  let soundTorches: ReturnType<typeof torchPlacements> = [];
   const probe = lookProbe(engine, () => scene && lighting ? { scene, lighting } : null);
   const meter = frameMeter(engine, need("frame-meter"));
   const abort = new AbortController(), signal = abort.signal;
   const setPaused = (value: boolean) => {
     if (!run || !scene) return;
     if (run.status !== "playing") value = true;
-    paused = value; scene.physicsEnabled = !value && run.status === "playing";
+    paused = value; audio.setActive(!value && run.status === "playing"); scene.physicsEnabled = !value && run.status === "playing";
     held.clear(); run.commands.right = run.commands.up = 0; run.commands.cancelPointer();
     need("pause-panel").hidden = !value;
     need("pause-title").textContent = run.status === "won" ? "You escaped." : run.status === "dead"
@@ -137,18 +141,23 @@ async function boot(): Promise<void> {
     lighting.update(hero, zoom, pitch, toward); run.world.setHero(hero);
   };
   const rebuild = (nextSeed: number) => {
+    audio.reset(); soundTorches = [];
     lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
     seed = nextSeed >>> 0; scene = new Scene(engine);
     attachPhysics(scene, havok); scene.getPhysicsEngine()!.setSubTimeStep(1000 / CONFIG.world.physicsHz);
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
-    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: stone.masonry }, undefined, selectedEquipment, companions); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
+    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: stone.masonry }, undefined, selectedEquipment, companions, undefined, (attacker, event) => {
+      if (!run || !run.visible.has(cellKey(run.map, event.report.point))) return;
+      const target = run.actors.find(a => a.id === event.report.targetId);
+      if (target) audio.report(event, attacker, bodyFamily(target === run.hero && selectedEquipment ? selectedEquipment : namedBuild(target.name)!.setup));
+    }); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     run.pitch = pitch; run.toward = toward;
     // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
     // code no Node test loads, so the rule that it adds no body is held here, where it runs.
     const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
-    const torches = torchPlacements(run.map, seed);
+    const torches = torchPlacements(run.map, seed); soundTorches = torches;
     lighting = lightDungeon(scene, camera, run.map, torches, azimuth); run.world.sconces(torches);
     if (stone.dressing) run.world.dress(dressingPlacements(run.map, seed, DRESSING, toward));
     if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);
@@ -170,6 +179,7 @@ async function boot(): Promise<void> {
   const launch = (nextSeed: number) => {
     try { rebuild(nextSeed); }
     catch (error) {
+      audio.setActive(false);
       lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null;
       need("start-panel").hidden = false; need("pause-panel").hidden = true;
       need("notice").textContent = `Could not build this dungeon: ${String(error)}`; console.error(error);
@@ -303,6 +313,8 @@ async function boot(): Promise<void> {
   engine.runRenderLoop(() => meter.frame(() => {
     if (!scene || !run) return;
     framing();
+    audio.setView(run.leader.body.feetPosition(), toward, soundTorches.filter(t => run!.visible.has(cellKey(run!.map, { x: t.cell.x + t.facing.x, z: t.cell.z + t.facing.z }))).map(t => t.flame));
+    audio.update();
     if (performance.now() - lastUi > 100) {
       lastUi = performance.now(); run.present(); lighting?.refreshFog(run.explored);
       need<HTMLProgressElement>("hero-hp").value = run.hero.body.vitality;
@@ -332,7 +344,7 @@ async function boot(): Promise<void> {
     scene.render();
   }));
   const dispose = () => {
-    abort.abort(); engine.stopRenderLoop(); lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
+    audio.dispose(); abort.abort(); engine.stopRenderLoop(); lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
   };
   window.addEventListener("pagehide", dispose, { once: true, signal });
   import.meta.hot?.dispose(dispose);

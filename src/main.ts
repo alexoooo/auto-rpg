@@ -11,6 +11,8 @@ import { Hud, type CommandReadout, type CommandSideReadout } from "./hud";
 import { Controls } from "./input";
 import { AimIndicator } from "./aim";
 import { OrderDisplay } from "./targeting";
+import { bodyFamily } from "./golem/family.ts";
+import { GameAudio } from "./game-audio.ts";
 import { DamageFeedback } from "./damage-feedback";
 import { advanceFight, FightEnd } from "./fight-end";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
@@ -426,6 +428,9 @@ async function boot(): Promise<void> {
    * still on it is not the same fight over again.
    */
   const damageFeedback = new DamageFeedback(arena.scene);
+  const audio = new GameAudio();
+  arena.scene.onDisposeObservable.addOnce(() => audio.dispose());
+  import.meta.hot?.dispose(() => audio.dispose());
   const buildBout = (matchup: Matchup) => {
     const F = CONFIG.fighter;
     const leftDefinition = unitDefinition(matchup.left.unit);
@@ -473,8 +478,8 @@ async function boot(): Promise<void> {
     const recorder = new BoutRecorder();
     wireBoutRecorder(recorder, left, right);
     const sides = [
-      { fighter: left, combat: new Combat("left", leftStrikers, combatRecorder(recorder, "left", event => damageFeedback.report(event, right))) },
-      { fighter: right, combat: new Combat("right", rightStrikers, combatRecorder(recorder, "right", event => damageFeedback.report(event, left))) },
+      { fighter: left, combat: new Combat("left", leftStrikers, combatRecorder(recorder, "left", event => { damageFeedback.report(event, right); audio.report(event, "left", bodyFamily(matchup.right.golem ?? defaultGolemSetup())); })) },
+      { fighter: right, combat: new Combat("right", rightStrikers, combatRecorder(recorder, "right", event => { damageFeedback.report(event, left); audio.report(event, "right", bodyFamily(matchup.left.golem ?? defaultGolemSetup())); })) },
     ];
     // Each blade is pointed at the other body. The collision layers already say
     // the same thing in the solver; this says it again in the scoring.
@@ -578,7 +583,7 @@ async function boot(): Promise<void> {
     // Before the bodies go: a stump's emitter is parented to the severed part's
     // mesh, and a node whose parent has been disposed does not go with it. It
     // stays exactly where it last stood, bleeding, for the rest of the run.
-    damageFeedback.clear();
+    damageFeedback.clear(); audio.reset();
     hintLeft = CONFIG.bout.hintSeconds;
 
     for (const side of bout.sides) side.combat.dispose();
@@ -751,6 +756,7 @@ async function boot(): Promise<void> {
     pauseControls: () => controls.pauseCombat(),
     showPaused: (paused) => {
       damageFeedback.setPaused(paused);
+      if (paused) audio.setActive(false);
       presentation.showPaused(paused);
     },
     rebuild,
@@ -1100,6 +1106,9 @@ async function boot(): Promise<void> {
   };
 
   engine.runRenderLoop(() => {
+    audio.setActive(controls.isActive && state.phase === "fight");
+    audio.setView(focus, { x: arena.camera.position.x - focus.x, z: arena.camera.position.z - focus.z });
+    audio.update();
     const rawDeltaMs = engine.getDeltaTime();
     const dt = Math.min(rawDeltaMs / 1000, CONFIG.world.maxFrameSeconds);
     if (dt <= 0) return;
