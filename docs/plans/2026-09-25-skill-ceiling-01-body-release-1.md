@@ -154,6 +154,14 @@ slower for its mass, which is the trade-off the owner asked for.
 
 ## 3. Arms built at guard
 
+**Done 2026-09-25** (`docs/analysis/2026-09-25-arms-at-guard.md`). Every arm is built at the pose its
+rest command holds (`restCursor` in `src/golem/effectors/chains/arm-core.ts`). An idle stone tip
+peaks at 0.10 m/s in the first 0.6 s, against 12.8. The first contact in a stone mirror moved from
+0.117 s, before any mind acted, to 0.217-0.283 s, after the bodies close. `settleSeconds` is now
+refused, because a settle runs no control and lets the arms droop. The trailing maul chain is not
+yet built at its grip. Paired bouts moved nothing outside their intervals (Node research runner,
+384 bouts a tree).
+
 Fighters are built with both arms hanging and swept to guard, so both blades meet and score at
 t = 0.067 s. `settleSeconds` in `tests/harness/bout-runner.mjs` only partly cures it: a first blow
 still lands 0.05 s after scoring opens. Build each arm's links already at the guard pose, following
