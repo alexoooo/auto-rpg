@@ -31,6 +31,7 @@ import {
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
 import { slewTowards } from "../anchor-drive.ts";
+import { gaitChannels } from "../../body-command.ts";
 import {
   BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, LOCOMOTION_MULTILEG, LOCOMOTION_MULTILEG_SIZE,
 } from "../config.ts";
@@ -254,6 +255,9 @@ return defineLocomotion({
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
+    // What this carrier answers to (`src/body-command.ts`), read at build so a flag flipped later
+    // cannot change a body already standing.
+    const channels = gaitChannels("stepping-gait", "locomotion.multileg", { crouch: false, stance: false });
     // This body's own table, its carrier's travel scaled by its movement stat.
     // The parts' masses times the weight stat (`withWeight`); the supported mass below reads them too.
     // Then every field at its size stat by its law (`withSize`).
@@ -952,6 +956,7 @@ return defineLocomotion({
       gait,
       evidence: (): LocomotionEvidence => evidence,
       readout: (): LocomotionReadoutState => readout.state(),
+      channels: () => channels,
 
       command(next: LocomotionCommand): void {
         if (severed) return;

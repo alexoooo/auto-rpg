@@ -31,6 +31,7 @@ import {
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
 import { slewTowards } from "../anchor-drive.ts";
+import { gaitChannels, stanceIsNeutral, type StanceCommand } from "../../body-command.ts";
 import {
   BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, LOCOMOTION_BIPED, LOCOMOTION_BIPED_SIZE,
 } from "../config.ts";
@@ -175,8 +176,73 @@ export function bipedFootSpeed(
   return ((left + right) / 2) * B.carrier.maxSpeedMps;
 }
 
+/**
+ * One leg's joints for a foot placed `fore` ahead of its hip and `out` outward of it, with the hip
+ * `depth` above the ankle: the abduction that swings the leg out to the foot, then the two-link
+ * solve in the plane it swings into (`bipedStanceFeet` keeps the reach inside the leg).
+ */
+function stanceLeg(fore: number, out: number, depth: number, B = LOCOMOTION_BIPED):
+  { readonly hip: number; readonly knee: number; readonly abduct: number } {
+  const { thighLength: t, shinLength: s } = B;
+  const plane = Math.hypot(out, depth);
+  const reach = Math.min(t + s, Math.hypot(fore, plane));
+  const knee = Math.acos(clamp((reach * reach - t * t - s * s) / (2 * t * s), -1, 1));
+  return {
+    // Negative flexion is forward, as the stride's is.
+    hip: -Math.atan2(fore, plane) - Math.atan2(s * Math.sin(knee), t + s * Math.cos(knee)),
+    knee,
+    abduct: Math.atan2(out, depth),
+  };
+}
+
+/**
+ * Where each foot stands for a stance, m: ahead of its own hip (`foreLeft`, `foreRight`) and
+ * outward of it (`out`, the same for both), and the one hip height both legs reach (`depth`, hip to
+ * ankle). The depth is the crouch's, lowered only as far as the longer placement needs to stay
+ * inside a straight leg, so a wide or long stance sits the hips down rather than lifting a foot.
+ */
+export function bipedStanceFeet(stance: StanceCommand, crouch: number, B = LOCOMOTION_BIPED):
+  { readonly foreLeft: number; readonly foreRight: number; readonly out: number; readonly depth: number } {
+  const width = clamp(stance.width, -1, 1), lead = clamp(stance.lead, -1, 1), weight = clamp(stance.weight, -1, 1);
+  const leg = B.thighLength + B.shinLength;
+  const wanted = leg - clamp(crouch, 0, 1) * B.crouchDepth;
+  const place = (reach: number) => {
+    const shift = -weight * B.stanceShift * reach;
+    const foreRight = 0.5 * lead * B.stanceLead * reach + shift;
+    const foreLeft = -0.5 * lead * B.stanceLead * reach + shift;
+    const depthFor = (out: number): number => {
+      const room = (fore: number): number => Math.sqrt(Math.max(0, leg * leg - fore * fore - out * out));
+      return Math.min(wanted, room(foreLeft), room(foreRight));
+    };
+    // The splay stops where the ankle's roll can no longer level the sole across it (`ankleRoll`):
+    // a full width in a full crouch would otherwise stand the stone body on its soles' inner
+    // edges. Narrowing only ever deepens the room, so the second depth admits the narrowed splay.
+    const asked = width * B.stanceWidth;
+    const out = Math.sign(asked) * Math.min(Math.abs(asked), depthFor(asked) * Math.tan(B.ankleRoll));
+    return { foreLeft, foreRight, out, depth: depthFor(out) };
+  };
+  // And the fore-aft placement stops where the ankle's pitch can no longer level the sole along
+  // it: a full lead in a full crouch asks the rear ankle for -0.98 rad against its -0.95
+  // (`ankleTargetMin`), which would stand that foot on its toe. The reach is bisected down until
+  // both soles are level; a stance that fits, which is nearly all of them, takes the first branch.
+  const level = (feet: ReturnType<typeof place>): boolean => [feet.foreLeft, feet.foreRight].every((fore) => {
+    const joints = stanceLeg(fore, feet.out, feet.depth, B);
+    const ankle = -(joints.hip + joints.knee);
+    return ankle >= B.ankleTargetMin && ankle <= B.ankleTargetMax;
+  });
+  const full = place(1);
+  if (level(full)) return full;
+  let fits = 0, fails = 1;
+  for (let i = 0; i < 24; i += 1) {
+    const mid = (fits + fails) / 2;
+    if (level(place(mid))) fits = mid; else fails = mid;
+  }
+  return place(fits);
+}
+
 export function bipedPose(
   phase: number, forward: number, right: number, turn: number, crouch: number, B = LOCOMOTION_BIPED,
+  stance: StanceCommand | null = null,
 ): BipedPose {
   const step = Math.sin(phase);
   const opposite = Math.sin(phase + Math.PI);
@@ -206,6 +272,26 @@ export function bipedPose(
   // than swinging out in front of it as the knee folds. Straight from `legPose`.
   const crouchHip = -Math.atan2(shin * Math.sin(crouchKnee), thigh + shin * kneeCos);
 
+  // **The stance, where there is one, replaces the crouch's base pose and nothing else**: the
+  // stride below is added on top of it exactly as it is on top of the crouch. A neutral stance
+  // takes the branch-free path the walk always took, to the last bit (`CHANNEL_FLAGS.stance`).
+  const stanced = !stanceIsNeutral(stance);
+  let baseHipLeft = crouchHip, baseHipRight = crouchHip, baseKneeLeft = crouchKnee, baseKneeRight = crouchKnee;
+  let baseAbductLeft = 0, baseAbductRight = 0, stanceTilt = 0;
+  if (stanced) {
+    const feet = bipedStanceFeet(stance!, crouch, B);
+    const left = stanceLeg(feet.foreLeft, feet.out, feet.depth, B);
+    const rightLeg = stanceLeg(feet.foreRight, feet.out, feet.depth, B);
+    baseHipLeft = left.hip; baseKneeLeft = left.knee;
+    baseHipRight = rightLeg.hip; baseKneeRight = rightLeg.knee;
+    // Outward is the leg's own side. Measured on the stance bench (`research/stance-bench.mjs`), a
+    // positive target carries either foot toward the golem's right: the other sign put `width` 1
+    // at 0.219 m between the soles against 0.380 neutral, and this one at 0.541.
+    baseAbductLeft = ABDUCT_SIGN * left.abduct;
+    baseAbductRight = -ABDUCT_SIGN * rightLeg.abduct;
+    stanceTilt = left.abduct;
+  }
+
   // **The stride is a vector and not a scalar**, which is the whole of the strafe fix. The swing
   // *amplitude* is how fast this foot is travelling and the *direction* is which way, so a pure
   // side-step is the same walk cycle turned a quarter turn rather than a forward walk played
@@ -222,9 +308,9 @@ export function bipedPose(
   const swingLeft = B.strideSwing * travelLeft;
   const swingRight = B.strideSwing * travelRight;
 
-  const hipLeft = clamp(crouchHip + step * swingLeft * alongLeft.fore,
+  const hipLeft = clamp(baseHipLeft + step * swingLeft * alongLeft.fore,
     B.hipSwingMin, B.hipSwingMax);
-  const hipRight = clamp(crouchHip + opposite * swingRight * alongRight.fore,
+  const hipRight = clamp(baseHipRight + opposite * swingRight * alongRight.fore,
     B.hipSwingMin, B.hipSwingMax);
   // **The lateral half of the same stride.** `strideAbduct` is a smaller amplitude than
   // `strideSwing` because the hip's abduction stop is narrower than its flexion stop -- the
@@ -238,9 +324,11 @@ export function bipedPose(
   // full-speed strafe: +0.16 read 841 mm/s of planted-sole slip and -0.16 read 536, against 702
   // with the axis left at zero. A guess would have shipped a gait that braced *against* the
   // travel and still called itself a fix.
-  const abductLeft = clamp(ABDUCT_SIGN * step * B.strideAbduct * travelLeft * alongLeft.side,
+  const strideAbductLeft = ABDUCT_SIGN * step * B.strideAbduct * travelLeft * alongLeft.side;
+  const strideAbductRight = ABDUCT_SIGN * opposite * B.strideAbduct * travelRight * alongRight.side;
+  const abductLeft = clamp(stanced ? baseAbductLeft + strideAbductLeft : strideAbductLeft,
     -B.hipAbduct, B.hipAbduct);
-  const abductRight = clamp(ABDUCT_SIGN * opposite * B.strideAbduct * travelRight * alongRight.side,
+  const abductRight = clamp(stanced ? baseAbductRight + strideAbductRight : strideAbductRight,
     -B.hipAbduct, B.hipAbduct);
   // The knee folds only on the way through, which is what `max(0, -sin(phase + kneeLiftPhase))`
   // is: a half-cycle of lift, phase-shifted so it peaks at mid-swing -- where the hip is passing
@@ -249,14 +337,19 @@ export function bipedPose(
   // lifted off the floor exactly as a foot swinging forward is. It was the fore-aft part until
   // 2026-09-05, which meant a strafing golem dragged both soles through the whole cycle.
   const kneeLeft = clamp(
-    crouchKnee + Math.max(0, -Math.sin(phase + B.kneeLiftPhase)) * swingLeft * B.kneeLiftScale,
+    baseKneeLeft + Math.max(0, -Math.sin(phase + B.kneeLiftPhase)) * swingLeft * B.kneeLiftScale,
     B.kneeTargetMin, B.kneeTargetMax);
   const kneeRight = clamp(
-    crouchKnee + Math.max(0, -Math.sin(phase + B.kneeLiftPhase + Math.PI))
+    baseKneeRight + Math.max(0, -Math.sin(phase + B.kneeLiftPhase + Math.PI))
       * swingRight * B.kneeLiftScale,
     B.kneeTargetMin, B.kneeTargetMax);
-  const extension = (hip: number, knee: number): number =>
-    thigh * Math.cos(hip) + shin * Math.cos(hip + knee);
+  // Under a stance the leg hangs in a plane tilted out by its abduction, so its height is the
+  // in-plane extension times that tilt's cosine; with none the tilt is exactly zero and so is
+  // the difference.
+  const tilt = stanced ? Math.cos(stanceTilt) : 1;
+  const extension = (hip: number, knee: number): number => stanced
+    ? tilt * (thigh * Math.cos(hip) + shin * Math.cos(hip + knee))
+    : thigh * Math.cos(hip) + shin * Math.cos(hip + knee);
 
   return Object.freeze({
     hipLeft, hipRight, kneeLeft, kneeRight, abductLeft, abductRight,
@@ -566,6 +659,9 @@ return defineLocomotion({
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
+    // What this carrier answers to (`src/body-command.ts`), read at build so a flag flipped later
+    // cannot change a body already standing.
+    const channels = gaitChannels("stepping-gait", id, { crouch: true, stance: true });
     // This body's own table: the carrier's travel scaled by its movement stat and its yaw by its
     // turning stat, read by the port, the stride and the envelope alike (`withMovement` says why
     // all of them), the gait re-timed to carry the travel (`bipedAtMovement`), and the knockdown's
@@ -853,6 +949,11 @@ return defineLocomotion({
     let stride = 0;
     let crouchLevel = 0;
     let wantedCrouch = 0;
+    // The stance (`StanceCommand`): what was asked, and where each axis has slewed to. All zero on a
+    // body whose gait did not declare the feature, which then never leaves the walk's own path.
+    let wantedWidth = 0, wantedLead = 0, wantedWeight = 0;
+    let stanceWidth = 0, stanceLead = 0, stanceWeight = 0;
+    const stanceLevel = { width: 0, lead: 0, weight: 0 }; // fork: derived -- rewritten from the three lets above before every read
     let request: LocomotionRequest = Object.freeze({
       localForward: 0, localRight: 0, yaw: 0,
     });
@@ -1301,7 +1402,19 @@ return defineLocomotion({
       // size it is the fraction a second at every size (`LOCOMOTION_BIPED_SIZE`).
       crouchLevel += clamp((wantedCrouch - crouchLevel) * B.crouchResponse * dt,
         -B.heightRate / size * dt, B.heightRate / size * dt);
-      const pose = bipedPose(stride, move.forward, move.right, move.yaw, crouchLevel, B);
+      stanceWidth = slewTowards(stanceWidth, wantedWidth, B.stanceRate, dt);
+      stanceLead = slewTowards(stanceLead, wantedLead, B.stanceRate, dt);
+      stanceWeight = slewTowards(stanceWeight, wantedWeight, B.stanceRate, dt);
+      // **A stance is where the feet stand, and a walk moves them**: it fades out as the carrier's
+      // travel rises, gone at full speed. Held through a walk, a full lead read 824 mm/s of
+      // planted-sole slip and a full weight forward 1706, against 321 neutral (Node locomotion
+      // bench, stone, 2 s at full forward): the stride swung each foot about a base the carrier
+      // was dragging it off.
+      const fade = 1 - Math.min(1, Math.hypot(move.forward, move.right));
+      stanceLevel.width = stanceWidth * fade;
+      stanceLevel.lead = stanceLead * fade;
+      stanceLevel.weight = stanceWeight * fade;
+      const pose = bipedPose(stride, move.forward, move.right, move.yaw, crouchLevel, B, stanceLevel);
       hipDrop = pose.hipDrop;
       // The *commanded* angle is rate-limited, which is the ceiling that makes a flicked key a
       // move rather than a snap -- the same argument `CHAIN_PITCH.targetRate` carries. Nothing
@@ -1453,11 +1566,16 @@ return defineLocomotion({
       gait,
       evidence: (): LocomotionEvidence => evidence,
       readout: (): LocomotionReadoutState => readout.state(),
+      channels: () => channels,
 
       command(next: LocomotionCommand): void {
         if (severed) return;
         request = next.request;
         wantedCrouch = clamp(next.crouch, 0, 1);
+        // Absent unless this gait declared the stance feature (`Golem.applyCommand`).
+        wantedWidth = clamp(next.stance?.width ?? 0, -1, 1);
+        wantedLead = clamp(next.stance?.lead ?? 0, -1, 1);
+        wantedWeight = clamp(next.stance?.weight ?? 0, -1, 1);
       },
 
       /**
@@ -1567,6 +1685,7 @@ return defineLocomotion({
       captureState: (): Record<string, unknown> => ({
         load, carriedMassKg, waist, carriedParts, stride, crouchLevel, wantedCrouch, request, severed,
         risingStart, port, elapsed, contacts, selfContacts, hipDrop, limp, risePlan, riseFrame,
+        wantedWidth, wantedLead, wantedWeight, stanceWidth, stanceLead, stanceWeight,
         B, L, ctx, socket, local, legs, readers, ruin, settle, watchers, commanded, evidence, readout,
         scratch, rootSample, activePort, world, own,
       }),
@@ -1574,6 +1693,7 @@ return defineLocomotion({
         ({
           load, carriedMassKg, waist, carriedParts, stride, crouchLevel, wantedCrouch, request, severed,
           risingStart, port, elapsed, contacts, selfContacts, hipDrop, limp, risePlan, riseFrame,
+          wantedWidth, wantedLead, wantedWeight, stanceWidth, stanceLead, stanceWeight,
         } = state as never);
       },
     });

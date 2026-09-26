@@ -18,7 +18,9 @@
 // does not care where a plan came from: the ladder's own continuation (`follow`), a hold, and
 // strokes toward sampled marks are proposals like any other.
 //
-// **What it drives** is `Intent`, the controller a person uses, until session 06 replaces it.
+// **What it drives** is a `BodyCommand` (`src/body-command.ts`, session 06). Its segments still write
+// the ladder's `Intent`, adapted once per substep; the stance and the step target, which `Intent` has
+// no word for, are written onto the command after (`-stance`, `-step`).
 //
 // **Two instruments** (the owner's decision, 2026-09-25):
 //   - `full` -- inside a rollout the opponent is its real mind, restored from the capture and
@@ -56,6 +58,7 @@ import { rangeFraction } from "./drills.mjs";
 import { restoreWorld } from "../../src/fork/world.ts";
 import { randomStreams, restoreMind, snapshotMind } from "../../src/fork/mind.ts";
 import { policyMind } from "../../src/mind.ts";
+import { cloneBodyCommand, copyBodyCommand, freshBodyCommand, intentToCommand } from "../../src/body-command.ts";
 import { mulberry32 } from "../../src/rng.ts";
 import { isShield } from "../../src/hands.ts";
 import {
@@ -123,6 +126,25 @@ export const EXPERT_DEFAULTS = Object.freeze({
    * footwork check (session 05). Turning is kept, so it still faces them.
    */
   strafe: true,
+  /**
+   * Session 06's channels, each off by default so the expert is session 05's ruler. `-stance`: the
+   * stroke and stand segments carry a stance (width, lead foot, weight), attacking or covering.
+   * `-step`: three of the ruler's proposals give way to step-target plans (in, out, and a slip to
+   * either side around them). A channel the body does not declare (its flag off) is written and
+   * ignored, so a channel expert on a body without the channel plays its footwork as a stand.
+   */
+  stance: false,
+  step: false,
+  /**
+   * `-stepkeys`: the `-step` proposals with every step's fixed point reached by the keys instead of
+   * the channel -- full travel along the unit vector to it until inside 50 mm, the step bench's
+   * `keys` mind. The control that tells the step executor apart from the proposal list.
+   */
+  stepKeys: false,
+  /** `-stepadd`: the ruler's head proposals kept, the channel only in its two least-chosen slots. */
+  stepAdd: false,
+  /** A scale on every step proposal's `within` (`@w0.5` halves it, asking the carrier to hurry). */
+  stepWithin: 1,
 });
 
 /**
@@ -130,7 +152,8 @@ export const EXPERT_DEFAULTS = Object.freeze({
  * four decisions stale, the sanity mutation), `-lag` (every search on the capture one decision
  * old, and none before there is one: the sanity mutation that bites in a one-second drill),
  * `-fresh` (no fork reuse), `-bout` (a drill played on
- * the bout objective, not the drill's judge), `-fb` (forward and back only: no strafe), and `@` with comma-separated
+ * the bout objective, not the drill's judge), `-fb` (forward and back only: no strafe), `-stance` and
+ * `-step` (session 06's footwork channels, `EXPERT_DEFAULTS`), and `@` with comma-separated
  * overrides: `c16` candidates, `h1` horizon seconds, `r2` rounds, `d4` decisions a second, `s4`
  * stale decisions. `expert@c8,h0.5` is 8 candidates over half a second.
  */
@@ -145,6 +168,10 @@ export function expertConfig(name) {
     else if (flag === "fresh") config.reuse = false;
     else if (flag === "bout") config.task = false;
     else if (flag === "fb") config.strafe = false;
+    else if (flag === "stance") config.stance = true;
+    else if (flag === "step") config.step = true;
+    else if (flag === "stepkeys") { config.step = true; config.stepKeys = true; }
+    else if (flag === "stepadd") { config.step = true; config.stepAdd = true; }
     else throw new Error(`expert: unknown flag "-${flag}" in "${name}"`);
   }
   for (const item of (match[2] ?? "").split(",").filter(Boolean)) {
@@ -155,6 +182,7 @@ export function expertConfig(name) {
     else if (key === "r") config.rounds = value;
     else if (key === "d") config.decisionHz = value;
     else if (key === "s") config.stale = value;
+    else if (key === "w") config.stepWithin = value;
     else throw new Error(`expert: unknown override "${item}" in "${name}"`);
   }
   if (!(config.candidates >= 1 && config.horizon > 0 && config.decisionHz > 0 && config.rounds >= 1)) {
@@ -232,6 +260,18 @@ function markAt(view, mark, lift, lateral) {
 }
 
 /**
+ * The keys to a point (`-stepkeys`): full travel along the unit vector to it in the body's frame,
+ * nothing inside 50 mm -- what a mind without the step channel does (`stepMind` "keys" in
+ * `research/step-bench.mjs`).
+ */
+export function keysToward(command, view, point) {
+  const g = view.self.ground, yaw = view.self.facing;
+  const dx = point.x - g.x, dz = point.z - g.z, d = Math.hypot(dx, dz);
+  command.gait.forward = d > 0.05 ? (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / d : 0;
+  command.gait.strafe = d > 0.05 ? (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / d : 0;
+}
+
+/**
  * One plan being played: plain state and scratch, so a plan in progress can be cloned into a
  * rollout (the warm start) and go on exactly as the live one will.
  */
@@ -243,44 +283,91 @@ export class Program {
     this.seg = state ? state.seg : 0;
     this.stroke = state ? state.stroke : -1;
     this.done = state ? state.done : false;
+    /** A step segment's ground point, fixed when the segment begins (NaN before). */
+    this.px = state ? state.px : Number.NaN;
+    this.pz = state ? state.pz : Number.NaN;
+    this.step = { x: 0, z: 0, within: 0 };
     this.intent = freshGolemIntent();
+    /** What the program hands the body: `intent` adapted, with the channels `Intent` has no word for. */
+    this.command = freshBodyCommand();
     this.aim = { swing: 0, lift: 0, horizontal: 0 };
     this.mark = { x: 0, y: 0, z: 0 };
   }
 
-  state() { return { t: this.t, segT: this.segT, seg: this.seg, stroke: this.stroke, done: this.done }; }
+  state() {
+    return { t: this.t, segT: this.segT, seg: this.seg, stroke: this.stroke, done: this.done, px: this.px, pz: this.pz };
+  }
 
   clone() { return new Program(this.plan, this.state()); }
 
-  /** A command for this substep. `latest` holds each shadow's command for this same substep. */
+  /**
+   * A body command for this substep. `latest` holds each shadow's `Intent` for this same substep.
+   * The segments write an `Intent` -- the stroke and cover code is the ladder's own -- and it is
+   * adapted here, once, into the command; a `hold` holds a whole command.
+   */
   decide(view, dt, latest) {
     const plan = this.plan;
     const seg = plan.segs.length > 1 && this.t >= plan.switchAt ? 1 : 0;
-    if (seg !== this.seg) { this.seg = seg; this.segT = 0; this.stroke = -1; this.done = false; }
+    if (seg !== this.seg) {
+      this.seg = seg; this.segT = 0; this.stroke = -1; this.done = false; this.px = Number.NaN; this.pz = Number.NaN;
+    }
     const spec = plan.segs[seg];
     const intent = this.intent;
+    const command = this.command;
     if (!view.self.capabilities) {
       copyIntent(freshGolemIntent(), intent);
+      intentToCommand(intent, command);
     } else if (spec.kind === "follow") {
       copyIntent(latest[spec.mind], intent);
       intent.forward = clamp(intent.forward + spec.df, -1, 1);
       intent.strafe = clamp(intent.strafe + spec.ds, -1, 1);
+      intentToCommand(intent, command);
     } else if (spec.kind === "hold") {
-      copyIntent(spec.intent, intent);
+      intentToCommand(intent, command);
+      copyBodyCommand(spec.command, command);
     } else {
       this.segment(spec, view, dt);
+      intentToCommand(intent, command);
+      // The channels `Intent` has no word for: written only by a segment that names them, so a
+      // plan of the ruler's proposals hands the body the neutral stance and no step.
+      if (spec.st) {
+        const stance = command.gait.stance;
+        stance.width = spec.st.width; stance.lead = spec.st.lead; stance.weight = spec.st.weight;
+      }
+      if (spec.kind === "step" && spec.keys) keysToward(command, view, this.stepTarget(spec, view));
+      else if (spec.kind === "step") command.gait.step = this.stepTarget(spec, view);
     }
     this.t += dt;
     this.segT += dt;
-    return intent;
+    return command;
   }
 
-  /** The two segments this file writes: a stance, and a single stroke. */
+  /**
+   * A step segment's point, fixed on the ground when the segment begins: the line from them to this
+   * body turned by `a` radians about them, at `r` times the present distance, and never closer than
+   * the two bodies' collision radii and 0.1 m. Held for the segment, so the step's clock runs.
+   */
+  stepTarget(spec, view) {
+    if (!Number.isFinite(this.px)) {
+      const o = view.opponent.ground, s = view.self.ground;
+      const dx = s.x - o.x, dz = s.z - o.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const c = Math.cos(spec.a), n = Math.sin(spec.a);
+      const floor = (view.self.collisionRadius ?? 0) + (view.opponent.collisionRadius ?? 0) + 0.1;
+      const r = Math.max(d * spec.r, floor);
+      this.px = o.x + ((dx * c - dz * n) / d) * r;
+      this.pz = o.z + ((dx * n + dz * c) / d) * r;
+    }
+    this.step.x = this.px; this.step.z = this.pz; this.step.within = spec.within;
+    return this.step;
+  }
+
+  /** The three segments this file writes: a stand, a step (a stand while the carrier walks), and a single stroke. */
   segment(spec, view, dt) {
     const intent = this.intent;
     faceThem(intent, view);
-    intent.forward = spec.f;
-    intent.strafe = spec.s;
+    intent.forward = spec.f ?? 0;
+    intent.strafe = spec.s ?? 0;
     intent.posture.crouch = 0;
     const striker = chooseStriker(view);
     const hand = striker ? striker.hand : null;
@@ -295,7 +382,7 @@ export class Program {
         if (hand === null) restHand(intent, "primary");
       }
     };
-    if (spec.kind === "stance" || !striker) stance();
+    if (spec.kind !== "stroke" || !striker) stance();
     else if (this.done || this.segT < spec.delay) stance();
     else {
       if (this.stroke < 0) this.stroke = 0;
@@ -314,6 +401,8 @@ export class Program {
 const follow = (mind, df = 0, ds = 0) => ({ kind: "follow", mind, df, ds });
 const stance = (f, s, guard, extra = {}) => ({ kind: "stance", f, s, guard, lift: 0, lateral: 0, ...extra });
 const stroke = (delay, lift, lateral, f, s = 0) => ({ kind: "stroke", delay, lift, lateral, f, s, guard: true });
+/** A step to a point fixed at the segment's start (`Program.stepTarget`), covering or pointing meanwhile. */
+const step = (r, a, within, guard) => ({ kind: "step", r, a, within, guard, lift: 0, lateral: 0 });
 const single = (label, seg, horizon) => ({ label, segs: [seg], switchAt: horizon });
 const pair = (label, a, b, switchAt) => ({ label, segs: [a, b], switchAt });
 
@@ -327,7 +416,7 @@ const FOLLOW_DUELIST = Object.freeze({ label: "duelist", segs: [follow("golem-du
  * The structured proposals, in the order they are kept when the budget is short. The first is the
  * duelist's own continuation, so that a decision on which every candidate ties is the duelist's.
  */
-export function proposals(config, { hold, warm }) {
+export function proposals(config, { hold, warm, turn = 0 }) {
   const h = config.horizon;
   const cut = Math.min(0.5 * h, 0.4);
   const list = [
@@ -344,29 +433,100 @@ export function proposals(config, { hold, warm }) {
     single("circle-l", stance(0, -0.7, true), h),
     single("circle-r", stance(0, 0.7, true), h),
     single("cut-low", stroke(0, LINES[2], 0, 0), h),
-    single("hold", { kind: "hold", intent: hold }, h),
+    single("hold", { kind: "hold", command: hold }, h),
     pair("duelist-cut", follow("golem-duelist"), stroke(0, 0, 0, 0), cut),
     pair("back-cut", stance(-0.5, 0, true), stroke(0, 0, 0, 0.4), cut),
   ];
-  return list.filter(Boolean);
+  // `-step`: the step target in the first six slots, which are all a c8 search evaluates (n1 = 6).
+  // It takes the three slots whose job it does by keys -- stepping in, backing off, and the second
+  // line -- and adds the slip: in, out, and around them to either side, each ending on a cut or a
+  // cover. Not with `-fb`, whose control is the keys forward and back.
+  if (config.step && config.strafe) {
+    const w = config.stepWithin;
+    const swap = (label, ...plans) => { list.splice(list.findIndex((p) => p?.label === label), 1, ...plans); };
+    if (config.stepAdd) {
+      // `-stepadd`: the ruler's head kept whole, and the channel only in the two slots it chooses
+      // least (back-off and press, 6.8 and 2.4 % of its decisions over the step run's bouts): the
+      // step out, and one slip, to either side on alternate decisions.
+      const side = (turn ?? 0) % 2 === 0 ? 1 : -1;
+      swap("back-off", single("step-out", step(STEP.outR, 0, w * STEP.within, true), h));
+      swap("press", pair(side > 0 ? "slip-l" : "slip-r", step(1, side * STEP.slipA, w * cut, true), stroke(0, 0, 0, 0), cut));
+    } else {
+      swap("step-cut", pair("stepin-cut", step(STEP.inR, 0, w * cut, false), stroke(0, 0, 0, 0), cut));
+      swap("back-off", single("step-out", step(STEP.outR, 0, w * STEP.within, true), h));
+      swap("cut-high",
+        pair("slip-l", step(1, STEP.slipA, w * cut, true), stroke(0, 0, 0, 0), cut),
+        pair("slip-r", step(1, -STEP.slipA, w * cut, true), stroke(0, 0, 0, 0), cut));
+    }
+    if (config.stepKeys) {
+      for (let i = 0; i < list.length; i += 1) {
+        const plan = list[i];
+        if (plan && !plan.warm && plan.segs.some((seg) => seg.kind === "step")) {
+          list[i] = { ...plan, segs: plan.segs.map((seg) => (seg.kind === "step" ? { ...seg, keys: true } : seg)) };
+        }
+      }
+    }
+  }
+  const out = list.filter(Boolean);
+  // `-stance`: every stand, step and stroke of a fresh proposal carries a stance, the attacking one
+  // on a stroke or a stand that points, the covering one on a stand or step that covers.
+  if (!config.stance) return out;
+  const withStance = (seg) => (seg.kind === "stroke" || seg.kind === "stance" || seg.kind === "step")
+    ? { ...seg, st: { ...(seg.kind === "stroke" || !seg.guard ? STANCES.attack : STANCES.cover) } }
+    : seg;
+  return out.map((plan) => (plan.warm ? plan : { ...plan, segs: plan.segs.map(withStance) }));
 }
 
-/** Whether a plan in progress differs from the same plan begun afresh: a switch, or a stroke under way. */
-const carriesState = (plan) => plan.segs.length > 1 || plan.segs.some((seg) => seg.kind === "stroke");
+/**
+ * The step proposals' geometry: `inR` and `outR` scale the present distance, `slipA` turns the line
+ * about them (0.6 rad at 1.5 m is 0.85 m across, inside the stone biped's 2.4 m/s strafe in 0.4 s),
+ * and `within` is the time a step out is given. A step that feeds a cut is given the switch time.
+ */
+const STEP = Object.freeze({ inR: 0.75, outR: 1.35, slipA: 0.6, within: 0.5 });
+/**
+ * The stance proposals' two stances, from the stance bench's fall impulses (`stanceWidth` and its
+ * table in `src/golem/config.ts`): a staggered foot buys margin fore and aft (behind 115 to 186 N s
+ * on the stone default), and a body struck or pushed from the front falls behind, so both keep the
+ * weight forward, which buys behind again (to 172 at +1). Attacking: staggered, weight well over
+ * the front foot. Covering: wider as well, for the lateral margin a glancing blow takes (238 to 309
+ * at +1), and less weight forward. The jitter moves each of the three.
+ */
+const STANCES = Object.freeze({
+  attack: Object.freeze({ width: 0, lead: 1, weight: 0.5 }),
+  cover: Object.freeze({ width: 0.5, lead: 1, weight: 0.25 }),
+});
+
+/**
+ * Whether a plan in progress differs from the same plan begun afresh: a switch, a stroke under way,
+ * or a step whose point was fixed where the body stood when it began.
+ */
+const carriesState = (plan) => plan.segs.length > 1 || plan.segs.some((seg) => seg.kind === "stroke" || seg.kind === "step");
 
 const gauss = (rng) => {
   const u = Math.max(rng(), 1e-12), v = rng();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 };
 /** Per-parameter noise, before `config.noise`: forward and strafe, metres of mark, seconds. */
-const SIGMA = Object.freeze({ f: 0.35, s: 0.35, lift: 0.15, lateral: 0.15, delay: 0.1, switchAt: 0.15, df: 0.3, ds: 0.3 });
+const SIGMA = Object.freeze({ f: 0.35, s: 0.35, lift: 0.15, lateral: 0.15, delay: 0.1, switchAt: 0.15, df: 0.3, ds: 0.3,
+  r: 0.15, a: 0.3, within: 0.15, stance: 0.4 });
 
+/**
+ * A noisy copy of a segment. Only the fields a segment has draw from `rng`, so a plan with no stance
+ * and no step draws exactly what it drew before session 06 and the ruler's search is unchanged.
+ */
 function jitterSeg(seg, rng, scale) {
   const out = { ...seg };
   const n = (key, lo, hi) => { if (typeof out[key] === "number") out[key] = clamp(out[key] + SIGMA[key] * scale * gauss(rng), lo, hi); };
   if (seg.kind === "follow") { n("df", -1, 1); n("ds", -1, 1); }
-  if (seg.kind === "stance" || seg.kind === "stroke") { n("f", -1, 1); n("s", -1, 1); n("lift", -0.6, 0.6); n("lateral", -0.5, 0.5); }
+  if (seg.kind === "stance" || seg.kind === "stroke" || seg.kind === "step") {
+    n("f", -1, 1); n("s", -1, 1); n("lift", -0.6, 0.6); n("lateral", -0.5, 0.5);
+  }
   if (seg.kind === "stroke") n("delay", 0, 0.6);
+  if (seg.kind === "step") { n("r", 0.5, 1.8); n("a", -1.2, 1.2); n("within", 0.15, 1); }
+  if (seg.st) {
+    const d = () => SIGMA.stance * scale * gauss(rng);
+    out.st = { width: clamp(seg.st.width + d(), -1, 1), lead: clamp(seg.st.lead + d(), -1, 1), weight: clamp(seg.st.weight + d(), -1, 1) };
+  }
   return out;
 }
 
@@ -395,8 +555,8 @@ function randomPlan(rng, config, base) {
  * `Program.clone` -- so the capture holds nothing for it and the fork restores nothing into it.
  */
 export class ExpertShell {
-  constructor() { this.name = "expert-shell"; this.intent = freshGolemIntent(); }
-  decide() { return this.intent; }
+  constructor() { this.name = "expert-shell"; this.out = freshBodyCommand(); }
+  command() { return this.out; }
   captureState() { return {}; }
   restoreState() { /* nothing is world state */ }
 }
@@ -418,18 +578,18 @@ class RolloutMind extends ExpertShell {
     this.used = [...shadowsOf(program.plan)];
     for (const name of this.used) restoreMind(this.shadows[name], snapshots[name]);
   }
-  decide(view, dt) {
+  command(view, dt) {
     for (const name of this.used) this.latest[name] = this.shadows[name].decide(view, dt);
-    const intent = this.program.decide(view, dt, this.latest);
-    if (!this.strafe) intent.strafe = 0;
-    return intent;
+    const command = this.program.decide(view, dt, this.latest);
+    if (!this.strafe) command.gait.strafe = 0;
+    return command;
   }
 }
 
 /** The persistence model: the command the opponent applied last in the live world, held. */
 class PersistenceMind extends ExpertShell {
   constructor() { super(); this.name = "persistence-model"; }
-  hold(intent) { copyIntent(intent, this.intent); }
+  hold(command) { copyBodyCommand(command, this.out); }
 }
 
 /** A 32-bit mix of a seed and a stream index (`src/fork/mind.ts` keeps its own private). */
@@ -561,7 +721,9 @@ export class ExpertMind {
     this.shadows = Object.fromEntries(SHADOWS.map((name, i) => [name, policyMind(name, mixSeed(seed, i))]));
     this.latest = {};
     this.program = null;
-    this.out = freshGolemIntent();
+    this.out = freshBodyCommand();
+    /** The duelist's intent adapted, for the substeps before the first plan. */
+    this.adapted = freshBodyCommand();
     this.next = 0;
     this.pool = null;
     this.history = [];
@@ -571,11 +733,13 @@ export class ExpertMind {
     this.waited = 0;
   }
 
-  decide(view, dt) {
+  command(view, dt) {
     for (const name of SHADOWS) this.latest[name] = this.shadows[name].decide(view, dt);
-    const intent = this.program ? this.program.decide(view, dt, this.latest) : this.latest["golem-duelist"];
-    copyIntent(intent, this.out);
-    if (!this.config.strafe) this.out.strafe = 0;
+    const command = this.program
+      ? this.program.decide(view, dt, this.latest)
+      : intentToCommand(this.latest["golem-duelist"], this.adapted);
+    copyBodyCommand(command, this.out);
+    if (!this.config.strafe) this.out.gait.strafe = 0;
     return this.out;
   }
 
@@ -603,8 +767,8 @@ export class ExpertMind {
       clock,
       capture: captureBout(host.live, { heap: true }),
       snapshots: this.snapshots(),
-      held: cloneIntent(host.live[O].control.driver.held ?? freshGolemIntent()),
-      hold: cloneIntent(this.out),
+      held: cloneBodyCommand(host.live[O].control.driver.held ?? freshBodyCommand()),
+      hold: cloneBodyCommand(this.out),
       warm: this.program ? this.program.clone() : null,
       // An expert opponent: the plan it is playing and its shadows, to play it forward in a rollout.
       opponent: them ? { program: them.program ? them.program.clone() : new Program(FOLLOW_DUELIST), snapshots: them.snapshots(),
@@ -674,7 +838,7 @@ export class ExpertMind {
     const scored = [];
     const n2 = config.rounds > 1 ? Math.floor(config.candidates / 3) : 0;
     const n1 = Math.max(1, config.candidates - n2);
-    const base = proposals(config, { hold: at.hold, warm: at.warm });
+    const base = proposals(config, { hold: at.hold, warm: at.warm, turn: this.log.length });
     const round1 = base.slice(0, n1);
     while (round1.length < n1) round1.push(randomPlan(this.rng, config, base.filter((p) => !p.warm)));
     for (const plan of round1) scored.push({ plan, score: await evaluate(plan) });
@@ -764,10 +928,11 @@ export function boutHost(live, base, side, opponentExpert = null) {
  * policies and a fresh Havok instance in `physics` (an exact fork needs the original built into
  * one); `experts` maps a side to its expert. With two, both take their moment before either
  * searches, so neither corner sees the plan the other is choosing on the same frame.
- * `onFrame(bout)` runs after each frame. Returns the result, both final bars and each expert's
+ * `onFrame(bout)` runs after each frame, and `onFinish(bout)` once after `bout.finish()` and before
+ * the bout is disposed (a trajectory tracer's last sample). Returns the result, both final bars and each expert's
  * summary by side.
  */
-export async function runExpertBout(options, { experts, onFrame = null }) {
+export async function runExpertBout(options, { experts, onFrame = null, onFinish = null }) {
   const { leftMind, rightMind, ...base } = options;
   if (leftMind || rightMind) throw new Error("runExpertBout: name both policies; the experts are passed apart");
   const sides = Object.keys(experts);
@@ -784,6 +949,7 @@ export async function runExpertBout(options, { experts, onFrame = null }) {
       onFrame?.(bout);
     }
     const result = bout.finish();
+    onFinish?.(bout);
     return { result, vitality: [bout.left.vitality, bout.right.vitality],
       experts: Object.fromEntries(sides.map((side) => [side, experts[side].summary()])) };
   } finally {

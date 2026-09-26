@@ -11,6 +11,7 @@ import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts"
 import type { GolemMaterialPalette } from "./materials.ts";
 import type { Attributes } from "./attributes.ts";
 import type { MotorTone } from "./joint-servo.ts";
+import type { ChannelDeclaration } from "../body-command.ts";
 
 /**
  * The golem module contract: what every slot's option has to be, in one file.
@@ -464,6 +465,12 @@ export interface BuiltModule<Command> {
    * which is what a trunk and a head still do.
    */
   ruin?(partId: string): void;
+  /**
+   * The command channels this module answers, from the shared kinds in `src/body-command.ts`: what
+   * a planner may write for it, feature by feature, and the actuator that carries each out. Read
+   * once, when the golem is assembled, and published on `GolemCapabilities.channels`.
+   */
+  channels?(): readonly ChannelDeclaration[];
   sever(): void;
   dispose(): void;
 }
@@ -1057,6 +1064,12 @@ export interface GolemCapabilities {
    * name.
    */
   readonly pairedHands: boolean;
+  /**
+   * Every command channel the body answers, from each module's own declaration
+   * (`BuiltModule.channels`, `src/body-command.ts`). A planner reads this rather than a module id:
+   * which kinds it may write, with which features, and what carries each one out.
+   */
+  readonly channels: readonly ChannelDeclaration[];
 }
 
 /**

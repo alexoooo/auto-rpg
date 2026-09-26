@@ -6,6 +6,7 @@ import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, behaviourRecord, combatRec
   sampleBoutRecorder, wireBoutRecorder } from "../src/recorder.ts";
 import { EngagementTracker, opportunityForAction } from "../src/engagement.ts";
 import { blankIntent } from "../src/policies.ts";
+import { intentToCommand } from "../src/body-command.ts";
 import { BODY_FACTS, assertCompleteView } from "./fixtures/view.mjs";
 
 const hand = (weapon = "sword", reach = 1.2, outboard = 1) => ({
@@ -29,7 +30,7 @@ const view = ({ measure = 1.2, primary = "sword", secondary = "empty", clock = 0
   });
 const durable = (recorder) => JSON.parse(JSON.stringify(recorder.records));
 const sample = (recorder, side, published, intent, dt = 1 / 240) => {
-  recorder.intent(side, published, intent);
+  recorder.command(side, published, intentToCommand(intent));
   recorder.sample(side, { view: published, dt, clock: published.clock });
 };
 
@@ -82,7 +83,7 @@ test("the_same_sample_and_event_stream_produces_the_same_record_in_both_loops", 
   // The bench receives a pair and projects it at its call site; the page calls
   // the same per-body seam twice. No recorder branch knows which loop did so.
   for (const [side, published, intent] of [["left", left, leftIntent], ["right", right, rightIntent]]) {
-    bench.intent(side, published, intent);
+    bench.command(side, published, intentToCommand(intent));
   }
   for (const [side, published] of [["left", left], ["right", right]]) {
     bench.sample(side, { view: published, dt: 1 / 240, clock: published.clock });
@@ -100,7 +101,7 @@ test("the_shared_loop_adapter_wires_intents_samples_and_combat_for_both_sides", 
   const body = (published) => {
     let attached = null; let side = null;
     return {
-      emit: (intent) => attached.intent(side, published, intent),
+      emit: (intent) => attached.command(side, published, intentToCommand(intent)),
       control: { recording: {
         attach: (next, nextSide) => { attached = next; side = nextSide; },
         sample: (dt, clock) => attached.sample(side, { view: published, dt, clock }),
@@ -164,14 +165,16 @@ test("the_engagement_recorder_reads_no_controls_or_mind_identity", async () => {
 // All three runners are gone. The version constant itself survives in `src/recorder.ts` and is
 // still read by the page; nothing left in this tree resumes a run against it.
 
-test("every_driver_records_the_intent_immediately_after_deciding", async () => {
-  // Asserted as text, on the one endpoint there is. What it pins is an *order*: the intent
+test("every_driver_records_the_command_immediately_after_deciding", async () => {
+  // Asserted as text, on the one endpoint there is. What it pins is an *order*: the command
   // reaches the recorder before it reaches the body, so a bout's record is what the mind asked
   // for and not what survived the arm. It was two endpoints until the humanoid one went with the
-  // Warrior; `src/humanoid-control.ts` carried the identical three lines.
+  // Warrior; `src/humanoid-control.ts` carried the identical three lines. Since skill ceiling
+  // session 06 what is recorded is the `BodyCommand`, an `Intent` mind's adapted at the driver.
   const source = await readFile(new URL("../src/golem/golem-control.ts", import.meta.url), "utf8");
-  assert.match(source, /this\.apply\(dt, this\.mind\.decide\(this\.view, decisionSeconds\)\)/);
-  assert.match(source, /this\.recording\.intent\(intent\);\s*this\.observer\?\.\(this\.options\.view, intent\);\s*this\.options\.apply/);
+  assert.match(source, /this\.applyIntent\(dt, mind\.decide\(this\.view, decisionSeconds\)\)/);
+  assert.match(source, /this\.apply\(dt, mind\.command\(this\.view, decisionSeconds\), null\)/);
+  assert.match(source, /this\.recording\.command\(command\);\s*this\.observer\?\.\(this\.options\.view, intent, command\);\s*this\.options\.apply/);
 });
 
 /**
