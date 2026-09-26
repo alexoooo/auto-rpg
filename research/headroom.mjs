@@ -7,7 +7,7 @@
 //   node research/headroom.mjs --exp idle       [--attackers a,b,...] [--pairs 1] [--lanes 8]
 //   node research/headroom.mjs --exp attributes [--attributes id,...] [--minds m1;m2] [--pairs 8] [--lanes 8]
 //   node research/headroom.mjs --exp footwork   [--pairs 16] [--lanes 8]
-//   node research/headroom.mjs --exp channel --channel stance|step|stance-step [--bodies a,b] [--with-fb] [--skip-ruler] [--pairs 32] [--lanes 6]
+//   node research/headroom.mjs --exp channel --channel stance|step|stance-step [--bodies a,b] [--with-fb] [--skip-ruler | --ruler-only] [--pairs 32] [--lanes 6]
 //   node research/headroom.mjs --exp <name> --summary [--out DIR]
 //
 // Every experiment is a list of **cells**, each one mind A on one body against mind B on another,
@@ -201,6 +201,8 @@ export const EXPERIMENTS = {
     const channel = o.channel ?? "step";
     // `--subject` and `--rival` name the two experts outright, for the diagnostic cells (a variant
     // against the ruler, or the channel against its keys control); `--h2h-only` plays that cell alone.
+    // `--ruler-only` plays the ruler against the duelist alone, the headroom column's other half, for
+    // when the run that should have played it was stopped short.
     const subject = o.subject ?? `expert-${channel}@c8,h1`;
     const rival = o.rival ?? RULER;
     const bodies = o.bodies ? list(o.bodies) : ["default", "skeleton-warrior"];
@@ -208,6 +210,11 @@ export const EXPERIMENTS = {
     for (let k = 0; k < o.pairs; k += 1) for (const body of bodies) {
       const duelist = familyDuelist(buildOf(body).setup);
       const h2h = { cell: `${body}|h2h|${subject}${rival === RULER ? "" : `|${rival}`}`, a: subject, b: rival };
+      if (o["ruler-only"]) {
+        jobs.push(...swappedPair({ exp: "channel", cell: `${body}|vs-duelist|${RULER}`, a: RULER, b: duelist, aBuild: body, bBuild: body,
+          seedKey: body, k, extra: { body, channel } }));
+        continue;
+      }
       if (o["h2h-only"]) {
         jobs.push(...swappedPair({ exp: "channel", ...h2h, aBuild: body, bBuild: body, seedKey: body, k, extra: { body, channel } }));
         continue;
@@ -382,7 +389,7 @@ async function main() {
     attributes: { type: "string" }, build: { type: "string" }, levels: { type: "string", default: "ends" }, tag: { type: "string" },
     channel: { type: "string" }, flags: { type: "string" }, "with-fb": { type: "boolean", default: false },
     "skip-ruler": { type: "boolean", default: false }, subject: { type: "string" }, rival: { type: "string" },
-    "h2h-only": { type: "boolean", default: false },
+    "h2h-only": { type: "boolean", default: false }, "ruler-only": { type: "boolean", default: false },
   } });
   const exp = values.exp;
   if (!EXPERIMENTS[exp]) throw new Error(`--exp is one of ${Object.keys(EXPERIMENTS).join(", ")}`);

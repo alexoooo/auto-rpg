@@ -116,3 +116,26 @@ drill, c9173ae retirements). The command-surface half has not been started. The 
   read a target, so nothing was refused. `AGENTS.md`'s first house rule and the input traps were
   rewritten in the same commit.
 - **Eye gate: deferred.** The analysis lists what the owner should look at.
+
+## Result: the command-surface half (work in progress)
+
+Stopped on 2026-09-26, when the session was wound down. It is on branch
+`worktree-agent-a2839c7b55a39942a` and has not been merged into main; main's 4a33b10a is merged into
+it. The write-up is `docs/analysis/2026-09-26-command-surface.md`.
+
+- **Built.** `BodyCommand` has an `Intent` adapter, so the duelist, the miser and the needle run
+  unchanged. Channels are declared per module from shared kinds. Two footwork channels sit behind
+  flags, each with its actuator and a bench:
+  - the stance: width, lead and weight (`research/stance-bench.mjs`);
+  - the step target, with a timing (`research/step-bench.mjs`).
+- **The expert proposes on both channels.** `-fb` is still the restricted control.
+- **Null control.** In the Node bout runner, 45 of 45 bouts are bit-identical by trajectory hash in
+  nine runs: every commit, flags off and flags on, and after main was merged.
+- **step: off.** It does not raise headroom. `-stepadd` scored 40.6 % [28.1, 53.1] on the stone and
+  43.8 % [32.8, 54.7] on the skeleton against the ruler (32 pairs each, Node bout runner). The first
+  version's loss came from the proposal list, not the channel.
+- **stance: off, pending.** The run is partial at 182 of 256 bouts: 41.3 % [26.1, 56.5] on the
+  stone and 54.8 % [38.1, 71.4] on the skeleton. The analysis's section 7 has the commands that
+  finish it.
+- **Not built.** Effector targets in world task space, with a speed and a stiffness.
+- **Eye gate: deferred.** It needs a page switch for the flags.

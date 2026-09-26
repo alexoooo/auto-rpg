@@ -28,6 +28,14 @@ const pct = (x) => (Number.isFinite(x) ? (100 * x).toFixed(1) : "-");
 const f3 = (x) => (Number.isFinite(x) ? x.toFixed(3) : "-");
 const band = (f, key, fmt) => `${fmt(f[key].mean)} [${fmt(f[key].low)}, ${fmt(f[key].high)}]`;
 
+/** An expert's plan shares, % of its decisions, each jitter (`label~`) folded into its plan. */
+function foldedLabels(expert) {
+  if (!expert?.decisions) return "";
+  const folded = {};
+  for (const [label, n] of Object.entries(expert.labels ?? {})) folded[label.replace(/~$/, "")] = (folded[label.replace(/~$/, "")] ?? 0) + n;
+  return Object.entries(folded).sort((x, y) => y[1] - x[1]).map(([name, n]) => `${name} ${pct(n / expert.decisions)}`).join(", ");
+}
+
 function main() {
   const { values } = parseArgs({ options: { runs: { type: "string", default: join("research", "runs") } } });
   const cells = [];
@@ -71,8 +79,7 @@ function main() {
     for (const [label, cell] of [["h2h", h2h], ["vs duelist", vs]]) {
       if (!cell) continue;
       const b = cell.behaviour;
-      const labels = Object.entries(cell.expert.labels ?? {}).sort((x, y) => y[1] - x[1]).slice(0, 7)
-        .map(([name, n]) => `${name} ${pct(n / cell.expert.decisions)}`).join(", ");
+      const labels = foldedLabels(cell.expert);
       console.log(`  what it did (${label}): stepping ${pct(b.steppingShare.a)} %, stanced ${pct(b.stancedShare.a)} % `
         + `(width ${f3(b.stanceWidth.a)}, |lead| ${f3(b.stanceLead.a)}, weight ${f3(b.stanceWeight.a)}), `
         + `strafe ${f3(b.strafe.a)} against ${f3(b.strafe.b)}, forward ${f3(b.forward.a)} against ${f3(b.forward.b)}, `
@@ -99,10 +106,7 @@ function main() {
   for (const c of h2hs) {
     const e = c.expertB;
     if (!e?.decisions) continue;
-    const folded = {};
-    for (const [label, n] of Object.entries(e.labels ?? {})) folded[label.replace(/~$/, "")] = (folded[label.replace(/~$/, "")] ?? 0) + n;
-    const labels = Object.entries(folded).sort((x, y) => y[1] - x[1]).map(([name, n]) => `${name} ${pct(n / e.decisions)}`).join(", ");
-    console.log(`${c.meta.b} against ${c.meta.a} on ${c.meta.body} (${c.run.replace("headroom-channel-", "")}), ${e.decisions} decisions: ${labels}`);
+    console.log(`${c.meta.b} against ${c.meta.a} on ${c.meta.body} (${c.run.replace("headroom-channel-", "")}), ${e.decisions} decisions: ${foldedLabels(e)}`);
   }
 }
 
