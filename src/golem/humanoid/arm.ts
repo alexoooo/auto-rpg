@@ -11,6 +11,7 @@ import { PALM_GRIP, HUMAN_MOUNT } from "./grip.ts";
 import { carryOrientation } from "./orientation.ts";
 import { humanEquipment } from "./equipment.ts";
 import type { HandIntent } from "../../mind.ts";
+import type { EffectorTarget } from "../../body-command.ts";
 
 // Three anatomical segments. The seven coordinates are virtual axes, never extra bodies.
 const MASSES = [2.8, 2.0, 1.1];
@@ -48,6 +49,7 @@ export const anatomicalChain = defineChain({
     // A strapped shield is known before `attachment` is called, so the arm can be built holding it.
     let supported = mount === "forearm";
     let forced: Vector3 | null = null, forcedOrientation: Quaternion | null = null;
+    let taskSpeed = 1, taskForce = 1, exactTask = false;
     const socketRotation = () => ctx.socket.mount.mesh.rotationQuaternion!;
     const socketPoint = () => rotate(ctx.socket.local, socketRotation()).addInPlace(ctx.socket.mount.mesh.position);
     // **Built at guard**: the command starts at the one an un-pressed hand gives (`restCursor`), and
@@ -66,6 +68,15 @@ export const anatomicalChain = defineChain({
       const reach = span(command.reach, reachable.reachMin, reachable.reachMax);
       const p = forced ? rotate(forced.subtract(socketPoint()), socketRotation().conjugate()) :
         new Vector3(Math.sin(swing) * Math.cos(lift) * reach * side, Math.sin(lift) * reach, Math.cos(swing) * Math.cos(lift) * reach);
+      if (exactTask) {
+        const distance = p.length();
+        const azimuth = clamp(Math.atan2(p.x * side, p.z), reachable.swingMin, reachable.swingMax);
+        const elevation = clamp(distance > 1e-9 ? Math.asin(clamp(p.y / distance, -1, 1)) : 0,
+          reachable.liftMin, reachable.liftMax);
+        const radius = clamp(distance, reachable.reachMin, reachable.reachMax);
+        p.set(side * Math.sin(azimuth) * Math.cos(elevation) * radius, Math.sin(elevation) * radius,
+          Math.cos(azimuth) * Math.cos(elevation) * radius);
+      }
       p.x = side * Math.max(reachable.carryMin, p.x * side);
       // Keep cross-body commands in front of the chest, including paired grips.
       if (p.x * side < 0.03) p.z = Math.max(0.22, p.z);
@@ -90,7 +101,14 @@ export const anatomicalChain = defineChain({
         p.x = side * (p.x * side * .35 - .14);
         p.z = clamp(p.z, .24, .45); p.y = clamp(p.y - .12, -.25, .15);
       }
-      desired = solveArm(p, forced ? (forcedOrientation ? socketRotation().conjugate().multiply(forcedOrientation) : null) : orientation, desired, 24, side, supported);
+      // Task commands specify the complete pose. A soft elbow-pole objective would compete with
+      // that pose and bias a reachable endpoint; joint stops and the envelope still constrain it.
+      desired = solveArm(p, forced ? (forcedOrientation ? socketRotation().conjugate().multiply(forcedOrientation) : null) : orientation,
+        desired, 24, exactTask ? 0 : side, supported);
+      if (exactTask && Vector3.Distance(armForward(desired).point, p) > .001) {
+        // An incompatible orientation must not pull the endpoint outside the clamped envelope.
+        desired = solveArm(p, null, desired, 24, 0, supported);
+      }
     };
     // Run to the solve's own fixed point, which is what `step` would otherwise walk the arm onto one
     // solve at a time: `solveArm` returns its seed unchanged once it is within its tolerance.
@@ -170,14 +188,26 @@ export const anatomicalChain = defineChain({
       parts, weld: handWeld, ownTerminal: null, reach: reachable.reachMax,
       command(next) {
         command = { ...next, ...(next.orientation ? { orientation: { ...next.orientation } } : {}) }; forced = null;
+        taskSpeed = 1; taskForce = 1; exactTask = false;
       },
-      commandWeldTo(world, orientation) { forced = world.clone(); forcedOrientation = orientation?.clone() ?? null; },
+      // A strapped forearm shield is not a hand-mounted endpoint. It declares no task actuator
+      // until it has its own forearm target mapping, rather than quietly aiming the palm instead.
+      ...(supported ? {} : { commandTarget(target: EffectorTarget, tipOffset: number) {
+        forcedOrientation = new Quaternion(target.orientation.x, target.orientation.y, target.orientation.z, target.orientation.w);
+        forced = new Vector3(target.position.x, target.position.y, target.position.z)
+          .subtractInPlace(rotate(HUMAN_MOUNT.perp.scale(tipOffset), forcedOrientation));
+        taskSpeed = target.speed; taskForce = target.force; exactTask = true;
+      } }),
+      commandWeldTo(world, orientation) {
+        forced = world.clone(); forcedOrientation = orientation?.clone() ?? null;
+        taskSpeed = 1; taskForce = 1; exactTask = false;
+      },
       commandedOrientation: () => socketRotation().multiply(commanded.rotation),
       step(dt) {
         if (stopped || passive) return;
         solveTime += dt;
         if (solveTime >= 1 / 60) { solve(); solveTime = 0; }
-        angles = angles.map((a, i) => a + clamp(desired[i] - a, -rates[i] * dt, rates[i] * dt));
+        angles = angles.map((a, i) => a + clamp(desired[i] - a, -rates[i] * taskSpeed * dt, rates[i] * taskSpeed * dt));
         previousPoint.copyFrom(commanded.point); lastStep = dt;
         commanded = armForward(angles);
         const rotations = groups.map(i => commanded.frames[i].rotation);
@@ -199,7 +229,7 @@ export const anatomicalChain = defineChain({
             const from = previousAngles[coordinate], to = angles[coordinate];
             const target = i === 0 ? velocity.asArray()[axis] : (to - from) / dt +
               gain * ((lead === 1 ? to : from + (to - from) * lead) - achieved[coordinate]);
-            actuators[i][axis].drive(clamp(target, -8, 8), TORQUES[i][axis] * weight);
+            actuators[i][axis].drive(clamp(target, -8, 8), TORQUES[i][axis] * weight * taskForce);
           }
         }
         previousRotations = rotations.map(q => q.clone()); previousAngles = [...angles];
@@ -220,14 +250,14 @@ export const anatomicalChain = defineChain({
         bodies.forEach(p => { p.body.dispose(); p.shape.dispose(); p.mesh.dispose(false, false); }); },
       // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
       captureState: (): Record<string, unknown> => ({
-        supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime,
+        supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime, taskSpeed, taskForce, exactTask,
         commanded, previousAngles, previousRotations, lastStep,
         ctx, rates, reachable, bind, bodies, constraints, actuators, groups, axes, handPivot, handWeld,
         previousPoint, initial,
       }),
       restoreState(state: Record<string, unknown>): void {
         ({
-          supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime,
+          supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime, taskSpeed, taskForce, exactTask,
           commanded, previousAngles, previousRotations, lastStep,
         } = state as never);
       },

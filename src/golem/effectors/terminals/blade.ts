@@ -45,6 +45,7 @@ import { swordHiltShell, socketShell } from "../shell.ts";
  */
 export const bladeDefinition = (gripToBlade = 0) => defineTerminal({
   id: "blade",
+  rigidTip: true,
   sockets: 1,
   bite: "edge",
   label: "blade",

@@ -798,7 +798,9 @@ export class Golem implements Combatant, Topological {
     this.torsoModule.command(trunk);
     this.headModule.command(command.natural);
     for (const effector of this.effectorModules) {
-      effector.module.command(command.effectors[effector.driven].aim);
+      const next = command.effectors[effector.driven];
+      if (next.target && effector.module.commandEffector) effector.module.commandEffector(next);
+      else effector.module.command(next.aim);
     }
   }
 

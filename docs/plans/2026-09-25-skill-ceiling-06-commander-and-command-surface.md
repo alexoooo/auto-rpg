@@ -136,7 +136,11 @@ The write-up is `docs/analysis/2026-09-26-command-surface.md`.
 - **stance: off, pending.** The run is partial at 182 of 256 bouts: 41.3 % [26.1, 56.5] on the
   stone and 54.8 % [38.1, 71.4] on the skeleton. The analysis's section 7 has the commands that
   finish it.
-- **Not built.** Effector targets in world task space, with a speed and a stiffness.
+- **Task-space pilot built in the continuation.** Behind the off-by-default `effector` flag,
+  the anatomical hand accepts a world business-end target, hand orientation, joint-speed fraction
+  and force fraction. Blade, fist and mace are supported on either socket. Paired grips,
+  other chains and attachments remain open, as do expert proposals and headroom
+  measurements. See `docs/analysis/2026-09-26-effector-target.md` for the bench and mutation checks.
 - **Browser switch built, 2026-09-26 continuation.** `?play=arena&channels=stance,step` (or
   `play=dungeon`) enables the experiments before bodies are built. The opt-in panel can switch
   them and restart the page, preserving the matchup and other URL parameters. `channels=` turns

@@ -120,7 +120,7 @@ test("each_module_declares_its_channels_from_the_shared_kinds_and_odd_bodies_dec
 });
 
 test("a_flag_declares_its_feature_only_on_a_gait_that_can_carry_it", async () => {
-  const flags = { stance: true, step: true };
+  const flags = { stance: true, step: true, effector: false };
   const stone = await channelsOf(BODIES.default, flags);
   assert.ok(declares(stone.channels, "stepping-gait", "stance"), "a biped stands where it is told to");
   assert.ok(declares(stone.channels, "stepping-gait", "step"));
@@ -131,7 +131,7 @@ test("a_flag_declares_its_feature_only_on_a_gait_that_can_carry_it", async () =>
   const multileg = await channelsOf(BODIES["one-armed-multileg"], flags);
   assert.ok(!multileg.list.some((entry) => entry.includes("stance")), multileg.list.join(", "));
   // The flags are back where they were.
-  assert.deepEqual({ ...CHANNEL_FLAGS }, { stance: false, step: false });
+  assert.deepEqual({ ...CHANNEL_FLAGS }, { stance: false, step: false, effector: false });
 });
 
 // ---------------------------------------------------------------------------------------------

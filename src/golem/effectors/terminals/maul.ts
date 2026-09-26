@@ -64,6 +64,7 @@ import { RigidStrike } from "../striker.ts";
  */
 export const maulDefinition = (config: typeof TERMINAL_MAUL & { trailingGripOffsetM?: number } = TERMINAL_MAUL) => defineTerminal({
   id: "maul",
+  rigidTip: true,
   trailingGripOffsetM: config.trailingGripOffsetM ?? 0,
   sockets: 2,
   bite: "mass",

@@ -44,6 +44,7 @@ import { RigidStrike } from "../striker.ts";
  */
 export const maceDefinition = (config: typeof TERMINAL_MACE & { gripFromButt?: number } = TERMINAL_MACE) => defineTerminal({
   id: "mace",
+  rigidTip: true,
   sockets: 1,
   bite: "mass",
   label: "mace",

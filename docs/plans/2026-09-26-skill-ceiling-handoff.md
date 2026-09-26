@@ -14,12 +14,23 @@ The browser channel switch is now implemented: `?play=arena&channels=stance,step
 with `play=dungeon`. Its opt-in panel applies changes by navigation before bodies are constructed;
 `channels=` switches everything off. No shipped defaults changed. Existing policies do not use
 the new channels merely because they are enabled, so the expert eye check still needs a
-browser-compatible preview. Task-space effector targets and the unfinished research runs remain
-open. No research runs were resumed in this continuation.
+browser-compatible preview. No long-running research jobs were resumed in this continuation.
+
+The first task-space actuator is also implemented behind the off-by-default `effector` flag:
+the anatomical hand with blade, fist or mace, world endpoint and hand orientation, bounded
+speed and force, including exact-fork state. Stone/skeleton task actuators,
+forearm shields, paired grips and expert proposals/headroom still remain. The bench and exact scope
+are in `docs/analysis/2026-09-26-effector-target.md`. The original open lists below are retained as
+the wind-down record; read this continuation first.
 
 Validation: 1044/1044 tests, check and build; four deliberate breaks caught by the new URL tests.
 Arena and dungeon browser startup, the arena switch, and the absence of the panel on a normal
 page were checked on a temporary server on 5182. That server was stopped; 5180 was untouched.
+
+After the actuator pilot: 1051/1051 tests, check and build, eleven caught task-test mutations,
+and all 15 named six-second bout fingerprints unchanged with `effector` off or on but unwritten.
+The final browser diagnostic was checked again and its temporary server stopped. The evidence
+is in the main checkout's gitignored `research/runs/effector-target-continuation/`.
 
 ## The owner's standing instructions
 

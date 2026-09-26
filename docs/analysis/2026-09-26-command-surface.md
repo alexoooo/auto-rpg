@@ -21,6 +21,10 @@ The tables are printed by `node research/command-surface-report.mjs`; the runs a
 
 ## Summary
 
+**Continuation:** the browser flag switch and the first anatomical task-space actuator are now
+built. `docs/analysis/2026-09-26-effector-target.md` records its scope and checks. The footwork
+measurements below are still the wind-down results; their pending runs were not resumed.
+
 **Work in progress.** The session was wound down before the stance run finished; see section 7.
 
 - **The surface is built.** It has `BodyCommand`, channels declared per module from shared kinds,
@@ -322,8 +326,9 @@ left unspent when the session was wound down.
   is a determinism check for free.
 - **Then re-read.** Run `node research/command-surface-report.mjs` and settle the stance's verdict:
   it goes on only if the head-to-head interval clears 50 % with no loss against the duelist.
-- **Effectors in task space, with a speed and a stiffness.** Not built. The effector channel still
-  carries envelope coordinates (section 1).
+- **Effectors in task space, with speed and effort.** The anatomical pilot is now built behind
+  `effector`, off by default; see `2026-09-26-effector-target.md`. Other chains, attachment mappings
+  and the expert/headroom experiments remain open. The legacy aim still carries envelope coordinates.
 - **Page switch: built in the continuation.** Open `?play=arena&channels=stance,step` or
   `?play=dungeon&channels=stance,step`. An opt-in diagnostic panel shows the flags in force and
   applies checkbox changes by navigation, preserving the matchup, seed and other parameters.

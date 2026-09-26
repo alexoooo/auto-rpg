@@ -6,8 +6,8 @@
  * drive a body with, and every mind wrote it because a person did. A person no longer puppets a body
  * (the orders half retired that), so the command is shaped by what a body can be asked to do:
  *
- * - **effector**, one per business end: its aim inside the envelope the chain publishes (the
- *   `HandIntent` coordinates, unchanged);
+ * - **effector**, one per business end: its legacy envelope aim, or an experimental world target
+ *   on a chain that declares one, with bounded speed and force;
  * - **trunk**: lean, twist and crouch;
  * - **gait**: travel and turn, and on a stepping gait a stance (width, lead foot, weight) and a step
  *   target with a timing;
@@ -50,13 +50,14 @@ export const CHANNEL_KINDS: readonly ChannelKind[] = Object.freeze(
  * What one channel answers. Each is a field (or a group of fields) of `BodyCommand`:
  *
  * - `aim` -- `effectors[hand].aim`, the envelope coordinates; `orientation` -- its optional pose;
+ * - `target`, `speed`, `force` -- `effectors[hand].target`, a world pose and fractions of motor ceilings;
  * - `lean`, `twist`, `crouch` -- `trunk`;
  * - `travel`, `turn` -- `gait.forward`/`strafe` and `gait.turn`;
  * - `stance` -- `gait.stance`; `step` -- `gait.step`;
  * - `thrust`, `guard` -- `natural`.
  */
 export type ChannelFeature = "aim" | "orientation" | "lean" | "twist" | "crouch"
-  | "travel" | "turn" | "stance" | "step" | "thrust" | "guard";
+  | "travel" | "turn" | "stance" | "step" | "thrust" | "guard" | "target" | "speed" | "force";
 
 export interface ChannelDeclaration {
   readonly kind: ChannelKind;
@@ -101,11 +102,13 @@ export interface ChannelFlags {
   stance: boolean;
   /** `gait.step`: a ground point and a time, carried out by the carrier. */
   step: boolean;
+  /** World-space effector targets, only on chains that implement the target actuator. */
+  effector: boolean;
 }
 
-export const DEFAULT_CHANNEL_FLAGS: Readonly<ChannelFlags> = Object.freeze({ stance: false, step: false });
+export const DEFAULT_CHANNEL_FLAGS: Readonly<ChannelFlags> = Object.freeze({ stance: false, step: false, effector: false });
 
-/** The live flags. Mutated only through `setChannelFlags`, by a harness, before a build. */
+/** The live flags. Mutated only through `setChannelFlags`, by a harness or page, before a build. */
 export const CHANNEL_FLAGS: ChannelFlags = { ...DEFAULT_CHANNEL_FLAGS };
 
 /** Set some flags and return the previous values, so a caller can put them back. */
@@ -119,7 +122,7 @@ export function setChannelFlags(next: Partial<ChannelFlags>): ChannelFlags {
   return previous;
 }
 
-/** Flags by name, `stance,step`, as a harness spells them on a command line or in a manifest. */
+/** Flags by name, e.g. `stance,step,effector`, as a harness or page spells them. */
 export function parseChannelFlags(text: string | null | undefined): Partial<ChannelFlags> {
   const out: Partial<ChannelFlags> = {};
   for (const name of (text ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
@@ -136,6 +139,19 @@ export function parseChannelFlags(text: string | null | undefined): Partial<Chan
 export interface EffectorCommand {
   /** Where in its envelope the business end is asked to be, in the chain's own coordinates. */
   aim: HandIntent;
+  /** Experimental task-space command; absent/null retains the legacy aim exactly. */
+  target?: EffectorTarget | null;
+}
+
+export interface EffectorTarget {
+  /** Business-end point, world metres. The module removes its own terminal offset. */
+  position: { x: number; y: number; z: number };
+  /** World orientation of the carrying hand's frame, not a socket-relative quaternion. */
+  orientation: { x: number; y: number; z: number; w: number };
+  /** Fraction of the chain's joint target-rate ceilings, clamped to [0, 1]. */
+  speed: number;
+  /** Fraction of available motor effort, clamped to [0, 1], multiplied by the body's live tone. */
+  force: number;
 }
 
 export interface TrunkCommand {
@@ -239,6 +255,16 @@ export function copyBodyCommand(from: BodyCommand, into: BodyCommand): BodyComma
   into.actingHand = from.actingHand;
   for (const hand of ["primary", "secondary"] as const) {
     copyAim(from.effectors[hand].aim, into.effectors[hand].aim);
+    const target = from.effectors[hand].target;
+    if (target) {
+      const p = target.position, q = target.orientation;
+      into.effectors[hand].target = { position: { x: p.x, y: p.y, z: p.z }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w },
+        speed: target.speed, force: target.force };
+    } else if (target === null) {
+      into.effectors[hand].target = null;
+    } else {
+      delete into.effectors[hand].target;
+    }
   }
   into.trunk.lean = from.trunk.lean;
   into.trunk.twist = from.trunk.twist;
@@ -275,6 +301,8 @@ export function intentToCommand(intent: Intent, into: BodyCommand = freshBodyCom
   into.actingHand = intent.actingHand;
   into.effectors.primary.aim = intent.primary;
   into.effectors.secondary.aim = intent.secondary;
+  delete into.effectors.primary.target;
+  delete into.effectors.secondary.target;
   into.trunk.lean = intent.posture.trunkLean;
   into.trunk.twist = intent.posture.trunkTwist;
   into.trunk.crouch = intent.posture.crouch;
@@ -296,9 +324,12 @@ export function intentToCommand(intent: Intent, into: BodyCommand = freshBodyCom
 // ---------------------------------------------------------------------------------------------
 
 /** An effector socket: its aim, and its pose where the chain takes one. */
-export const effectorChannel = (module: string, hand: HandName, orientation: boolean): ChannelDeclaration =>
-  declare("effector", module, orientation ? ["aim", "orientation"] : ["aim"],
-    "the chain's joint servos, driven toward the aim through its rate limit and at its torque ceilings", hand);
+export function effectorChannel(module: string, hand: HandName, orientation: boolean, target = false): ChannelDeclaration {
+  const features: ChannelFeature[] = orientation ? ["aim", "orientation"] : ["aim"];
+  if (target && CHANNEL_FLAGS.effector) features.push("target", "speed", "force");
+  return declare("effector", module, features,
+    "the chain's joint servos, driven toward the aim or world target through its rate limit and at its torque ceilings", hand);
+}
 
 /** A torso: lean and twist. */
 export const trunkChannel = (module: string): ChannelDeclaration =>
