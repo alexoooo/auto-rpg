@@ -7,6 +7,7 @@
 //   node research/headroom.mjs --exp idle       [--attackers a,b,...] [--pairs 1] [--lanes 8]
 //   node research/headroom.mjs --exp attributes [--attributes id,...] [--minds m1;m2] [--pairs 8] [--lanes 8]
 //   node research/headroom.mjs --exp footwork   [--pairs 16] [--lanes 8]
+//   node research/headroom.mjs --exp channel --channel stance|step|stance-step [--bodies a,b] [--with-fb] [--skip-ruler] [--pairs 32] [--lanes 6]
 //   node research/headroom.mjs --exp <name> --summary [--out DIR]
 //
 // Every experiment is a list of **cells**, each one mind A on one body against mind B on another,
@@ -34,6 +35,7 @@ import { cohensD, interval } from "./stat-sweep.mjs";
 import { AUDIT_BUILDS, auditBuild, familyDuelist, giantSetup, withAttribute } from "./headroom-builds.mjs";
 import { ATTRIBUTE_IDS, ATTRIBUTES } from "../src/golem/attributes.ts";
 import { CONFIG } from "../src/config.ts";
+import { parseChannelFlags } from "../src/body-command.ts";
 
 export const HARNESS = "Node bout runner, research runner (research/headroom-worker.mjs), supported locomotion, research PROTOCOL";
 
@@ -185,7 +187,46 @@ export const EXPERIMENTS = {
     }
     return jobs;
   },
+  /**
+   * A command-surface channel (session 06): the ruler with the channel's proposals
+   * (`expert-<channel>@c8,h1`, `--channel stance|step|stance-step`) against the ruler holding the
+   * channel at neutral, head to head, which is the verdict (session 05: footwork pays only against
+   * an opponent that can punish without it); and each against the body's own family duelist, on
+   * the same seeds, for the headroom column. `--with-fb` adds the channel expert against the
+   * forward-back ruler, session 05's restricted control. Both corners are one body (`--bodies`), and
+   * the run builds every body with the channel's flag on (`manifest.flags`), so the neutral side is
+   * the body the null control measured (`research/command-null.mjs --flags`).
+   */
+  channel(o) {
+    const channel = o.channel ?? "step";
+    const subject = `expert-${channel}@c8,h1`;
+    const bodies = o.bodies ? list(o.bodies) : ["default", "skeleton-warrior"];
+    const jobs = [];
+    for (let k = 0; k < o.pairs; k += 1) for (const body of bodies) {
+      const duelist = familyDuelist(buildOf(body).setup);
+      const cells = [
+        { cell: `${body}|h2h|${subject}`, a: subject, b: RULER },
+        { cell: `${body}|vs-duelist|${subject}`, a: subject, b: duelist },
+        ...(o["skip-ruler"] ? [] : [{ cell: `${body}|vs-duelist|${RULER}`, a: RULER, b: duelist }]),
+        ...(o["with-fb"] ? [{ cell: `${body}|vs-fb|${subject}`, a: subject, b: "expert-fb@c8,h1" }] : []),
+      ];
+      // One seed schedule for every channel (`exp` "channel"), so the ruler's own cell is the same
+      // bouts in every run and `--skip-ruler` reuses the first run's.
+      for (const c of cells) {
+        jobs.push(...swappedPair({ exp: "channel", ...c, aBuild: body, bBuild: body, seedKey: body, k,
+          extra: { body, channel } }));
+      }
+    }
+    return jobs;
+  },
 };
+
+/** The body flags a run builds with: `--flags` if given, else what `--exp channel` needs. */
+export function runFlags(exp, values) {
+  if (values.flags !== undefined) return parseChannelFlags(values.flags);
+  if (exp !== "channel") return {};
+  return parseChannelFlags((values.channel ?? "step").replace(/-/g, ","));
+}
 
 // ---------------------------------------------------------------------------------------------
 // Reading a run
@@ -235,7 +276,8 @@ export function cellFigures(rows) {
   const bouts = pairs.flatMap((p) => [p.left, p.right]);
   const behaviour = {};
   for (const key of ["gapM", "fraction", "inReachShare", "forward", "backShare", "pressShare", "strafe", "turn",
-    "committedShare", "strokesPerMinute", "downShare", "damage", "falls", "nearRangeStallSeconds", "retreatOutsideReachSeconds"]) {
+    "committedShare", "strokesPerMinute", "downShare", "damage", "falls", "nearRangeStallSeconds", "retreatOutsideReachSeconds",
+    "stanceWidth", "stanceLead", "stanceWeight", "stancedShare", "steppingShare"]) {
     behaviour[key] = { a: sideMean(pairs, "a", key), b: sideMean(pairs, "b", key) };
   }
   const expert = {};
@@ -324,10 +366,13 @@ async function main() {
     pairs: { type: "string", default: "8" }, "curve-pairs": { type: "string" }, "ladder-pairs": { type: "string" },
     bodies: { type: "string" }, minds: { type: "string" }, attackers: { type: "string" }, mind: { type: "string" },
     attributes: { type: "string" }, build: { type: "string" }, levels: { type: "string", default: "ends" }, tag: { type: "string" },
+    channel: { type: "string" }, flags: { type: "string" }, "with-fb": { type: "boolean", default: false },
+    "skip-ruler": { type: "boolean", default: false },
   } });
   const exp = values.exp;
   if (!EXPERIMENTS[exp]) throw new Error(`--exp is one of ${Object.keys(EXPERIMENTS).join(", ")}`);
-  const dir = resolve(values.out ?? join("research", "runs", `headroom-${exp}${values.tag ? `-${values.tag}` : ""}`));
+  const named = exp === "channel" ? `channel-${values.channel ?? "step"}` : exp;
+  const dir = resolve(values.out ?? join("research", "runs", `headroom-${named}${values.tag ? `-${values.tag}` : ""}`));
   if (values.summary) {
     const rows = readResults(dir);
     const summary = exp === "idle" ? { failed: rows.filter((r) => r.status !== "ok").length, idle: idleFigures(rows) } : summarize(rows);
@@ -343,8 +388,8 @@ async function main() {
   if (lanes > 20) throw new Error("at most 20 lanes: other runs share this machine");
   const names = new Set(jobs.flatMap((job) => [job.leftBuild, job.rightBuild]));
   const manifest = { protocol: { maxSeconds: PROTOCOL.maxSeconds, settleSeconds: PROTOCOL.settleSeconds,
-    locomotionMode: PROTOCOL.locomotionMode }, experiment: `headroom-v1/${exp}`, harness: HARNESS,
-    builds: [...names].sort().map(buildOf) };
+    locomotionMode: PROTOCOL.locomotionMode }, experiment: `headroom-v1/${named}`, harness: HARNESS,
+    builds: [...names].sort().map(buildOf), flags: runFlags(exp, values) };
   console.log(`${jobs.length} bouts into ${dir}`);
   const rows = await runJobs(dir, manifest, jobs, { workers: lanes, jobLimitMs: Number(values["job-minutes"]) * 60000,
     // --until: a wall-clock time (anything Date.parse reads) after which no job starts and an unfinished one

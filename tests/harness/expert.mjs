@@ -18,7 +18,9 @@
 // does not care where a plan came from: the ladder's own continuation (`follow`), a hold, and
 // strokes toward sampled marks are proposals like any other.
 //
-// **What it drives** is `Intent`, the controller a person uses, until session 06 replaces it.
+// **What it drives** is a `BodyCommand` (`src/body-command.ts`, session 06). Its segments still write
+// the ladder's `Intent`, adapted once per substep; the stance and the step target, which `Intent` has
+// no word for, are written onto the command after (`-stance`, `-step`).
 //
 // **Two instruments** (the owner's decision, 2026-09-25):
 //   - `full` -- inside a rollout the opponent is its real mind, restored from the capture and
@@ -124,6 +126,15 @@ export const EXPERT_DEFAULTS = Object.freeze({
    * footwork check (session 05). Turning is kept, so it still faces them.
    */
   strafe: true,
+  /**
+   * Session 06's channels, each off by default so the expert is session 05's ruler. `-stance`: the
+   * stroke and stand segments carry a stance (width, lead foot, weight), attacking or covering.
+   * `-step`: three of the ruler's proposals give way to step-target plans (in, out, and a slip to
+   * either side around them). A channel the body does not declare (its flag off) is written and
+   * ignored, so a channel expert on a body without the channel plays its footwork as a stand.
+   */
+  stance: false,
+  step: false,
 });
 
 /**
@@ -131,7 +142,8 @@ export const EXPERT_DEFAULTS = Object.freeze({
  * four decisions stale, the sanity mutation), `-lag` (every search on the capture one decision
  * old, and none before there is one: the sanity mutation that bites in a one-second drill),
  * `-fresh` (no fork reuse), `-bout` (a drill played on
- * the bout objective, not the drill's judge), `-fb` (forward and back only: no strafe), and `@` with comma-separated
+ * the bout objective, not the drill's judge), `-fb` (forward and back only: no strafe), `-stance` and
+ * `-step` (session 06's footwork channels, `EXPERT_DEFAULTS`), and `@` with comma-separated
  * overrides: `c16` candidates, `h1` horizon seconds, `r2` rounds, `d4` decisions a second, `s4`
  * stale decisions. `expert@c8,h0.5` is 8 candidates over half a second.
  */
@@ -146,6 +158,8 @@ export function expertConfig(name) {
     else if (flag === "fresh") config.reuse = false;
     else if (flag === "bout") config.task = false;
     else if (flag === "fb") config.strafe = false;
+    else if (flag === "stance") config.stance = true;
+    else if (flag === "step") config.step = true;
     else throw new Error(`expert: unknown flag "-${flag}" in "${name}"`);
   }
   for (const item of (match[2] ?? "").split(",").filter(Boolean)) {
@@ -244,6 +258,10 @@ export class Program {
     this.seg = state ? state.seg : 0;
     this.stroke = state ? state.stroke : -1;
     this.done = state ? state.done : false;
+    /** A step segment's ground point, fixed when the segment begins (NaN before). */
+    this.px = state ? state.px : Number.NaN;
+    this.pz = state ? state.pz : Number.NaN;
+    this.step = { x: 0, z: 0, within: 0 };
     this.intent = freshGolemIntent();
     /** What the program hands the body: `intent` adapted, with the channels `Intent` has no word for. */
     this.command = freshBodyCommand();
@@ -251,7 +269,9 @@ export class Program {
     this.mark = { x: 0, y: 0, z: 0 };
   }
 
-  state() { return { t: this.t, segT: this.segT, seg: this.seg, stroke: this.stroke, done: this.done }; }
+  state() {
+    return { t: this.t, segT: this.segT, seg: this.seg, stroke: this.stroke, done: this.done, px: this.px, pz: this.pz };
+  }
 
   clone() { return new Program(this.plan, this.state()); }
 
@@ -263,7 +283,9 @@ export class Program {
   decide(view, dt, latest) {
     const plan = this.plan;
     const seg = plan.segs.length > 1 && this.t >= plan.switchAt ? 1 : 0;
-    if (seg !== this.seg) { this.seg = seg; this.segT = 0; this.stroke = -1; this.done = false; }
+    if (seg !== this.seg) {
+      this.seg = seg; this.segT = 0; this.stroke = -1; this.done = false; this.px = Number.NaN; this.pz = Number.NaN;
+    }
     const spec = plan.segs[seg];
     const intent = this.intent;
     const command = this.command;
@@ -281,18 +303,45 @@ export class Program {
     } else {
       this.segment(spec, view, dt);
       intentToCommand(intent, command);
+      // The channels `Intent` has no word for: written only by a segment that names them, so a
+      // plan of the ruler's proposals hands the body the neutral stance and no step.
+      if (spec.st) {
+        const stance = command.gait.stance;
+        stance.width = spec.st.width; stance.lead = spec.st.lead; stance.weight = spec.st.weight;
+      }
+      if (spec.kind === "step") command.gait.step = this.stepTarget(spec, view);
     }
     this.t += dt;
     this.segT += dt;
     return command;
   }
 
-  /** The two segments this file writes: a stance, and a single stroke. */
+  /**
+   * A step segment's point, fixed on the ground when the segment begins: the line from them to this
+   * body turned by `a` radians about them, at `r` times the present distance, and never closer than
+   * the two bodies' collision radii and 0.1 m. Held for the segment, so the step's clock runs.
+   */
+  stepTarget(spec, view) {
+    if (!Number.isFinite(this.px)) {
+      const o = view.opponent.ground, s = view.self.ground;
+      const dx = s.x - o.x, dz = s.z - o.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const c = Math.cos(spec.a), n = Math.sin(spec.a);
+      const floor = (view.self.collisionRadius ?? 0) + (view.opponent.collisionRadius ?? 0) + 0.1;
+      const r = Math.max(d * spec.r, floor);
+      this.px = o.x + ((dx * c - dz * n) / d) * r;
+      this.pz = o.z + ((dx * n + dz * c) / d) * r;
+    }
+    this.step.x = this.px; this.step.z = this.pz; this.step.within = spec.within;
+    return this.step;
+  }
+
+  /** The three segments this file writes: a stand, a step (a stand while the carrier walks), and a single stroke. */
   segment(spec, view, dt) {
     const intent = this.intent;
     faceThem(intent, view);
-    intent.forward = spec.f;
-    intent.strafe = spec.s;
+    intent.forward = spec.f ?? 0;
+    intent.strafe = spec.s ?? 0;
     intent.posture.crouch = 0;
     const striker = chooseStriker(view);
     const hand = striker ? striker.hand : null;
@@ -307,7 +356,7 @@ export class Program {
         if (hand === null) restHand(intent, "primary");
       }
     };
-    if (spec.kind === "stance" || !striker) stance();
+    if (spec.kind !== "stroke" || !striker) stance();
     else if (this.done || this.segT < spec.delay) stance();
     else {
       if (this.stroke < 0) this.stroke = 0;
@@ -326,6 +375,8 @@ export class Program {
 const follow = (mind, df = 0, ds = 0) => ({ kind: "follow", mind, df, ds });
 const stance = (f, s, guard, extra = {}) => ({ kind: "stance", f, s, guard, lift: 0, lateral: 0, ...extra });
 const stroke = (delay, lift, lateral, f, s = 0) => ({ kind: "stroke", delay, lift, lateral, f, s, guard: true });
+/** A step to a point fixed at the segment's start (`Program.stepTarget`), covering or pointing meanwhile. */
+const step = (r, a, within, guard) => ({ kind: "step", r, a, within, guard, lift: 0, lateral: 0 });
 const single = (label, seg, horizon) => ({ label, segs: [seg], switchAt: horizon });
 const pair = (label, a, b, switchAt) => ({ label, segs: [a, b], switchAt });
 
@@ -360,25 +411,74 @@ export function proposals(config, { hold, warm }) {
     pair("duelist-cut", follow("golem-duelist"), stroke(0, 0, 0, 0), cut),
     pair("back-cut", stance(-0.5, 0, true), stroke(0, 0, 0, 0.4), cut),
   ];
-  return list.filter(Boolean);
+  // `-step`: the step target in the first six slots, which are all a c8 search evaluates (n1 = 6).
+  // It takes the three slots whose job it does by keys -- stepping in, backing off, and the second
+  // line -- and adds the slip: in, out, and around them to either side, each ending on a cut or a
+  // cover. Not with `-fb`, whose control is the keys forward and back.
+  if (config.step && config.strafe) {
+    const swap = (label, ...plans) => { list.splice(list.findIndex((p) => p?.label === label), 1, ...plans); };
+    swap("step-cut", pair("stepin-cut", step(STEP.inR, 0, cut, false), stroke(0, 0, 0, 0), cut));
+    swap("back-off", single("step-out", step(STEP.outR, 0, STEP.within, true), h));
+    swap("cut-high",
+      pair("slip-l", step(1, STEP.slipA, cut, true), stroke(0, 0, 0, 0), cut),
+      pair("slip-r", step(1, -STEP.slipA, cut, true), stroke(0, 0, 0, 0), cut));
+  }
+  const out = list.filter(Boolean);
+  // `-stance`: every stand, step and stroke of a fresh proposal carries a stance, the attacking one
+  // on a stroke or a stand that points, the covering one on a stand or step that covers.
+  if (!config.stance) return out;
+  const withStance = (seg) => (seg.kind === "stroke" || seg.kind === "stance" || seg.kind === "step")
+    ? { ...seg, st: { ...(seg.kind === "stroke" || !seg.guard ? STANCES.attack : STANCES.cover) } }
+    : seg;
+  return out.map((plan) => (plan.warm ? plan : { ...plan, segs: plan.segs.map(withStance) }));
 }
 
-/** Whether a plan in progress differs from the same plan begun afresh: a switch, or a stroke under way. */
-const carriesState = (plan) => plan.segs.length > 1 || plan.segs.some((seg) => seg.kind === "stroke");
+/**
+ * The step proposals' geometry: `inR` and `outR` scale the present distance, `slipA` turns the line
+ * about them (0.6 rad at 1.5 m is 0.85 m across, inside the stone biped's 2.4 m/s strafe in 0.4 s),
+ * and `within` is the time a step out is given. A step that feeds a cut is given the switch time.
+ */
+const STEP = Object.freeze({ inR: 0.75, outR: 1.35, slipA: 0.6, within: 0.5 });
+/**
+ * The stance proposals' two stances: attacking, right foot forward with the weight over it, and
+ * covering, wide, right foot forward and the weight back. The jitter moves each of the three.
+ */
+const STANCES = Object.freeze({
+  attack: Object.freeze({ width: 0, lead: 1, weight: 0.5 }),
+  cover: Object.freeze({ width: 0.5, lead: 1, weight: -0.5 }),
+});
+
+/**
+ * Whether a plan in progress differs from the same plan begun afresh: a switch, a stroke under way,
+ * or a step whose point was fixed where the body stood when it began.
+ */
+const carriesState = (plan) => plan.segs.length > 1 || plan.segs.some((seg) => seg.kind === "stroke" || seg.kind === "step");
 
 const gauss = (rng) => {
   const u = Math.max(rng(), 1e-12), v = rng();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 };
 /** Per-parameter noise, before `config.noise`: forward and strafe, metres of mark, seconds. */
-const SIGMA = Object.freeze({ f: 0.35, s: 0.35, lift: 0.15, lateral: 0.15, delay: 0.1, switchAt: 0.15, df: 0.3, ds: 0.3 });
+const SIGMA = Object.freeze({ f: 0.35, s: 0.35, lift: 0.15, lateral: 0.15, delay: 0.1, switchAt: 0.15, df: 0.3, ds: 0.3,
+  r: 0.15, a: 0.3, within: 0.15, stance: 0.4 });
 
+/**
+ * A noisy copy of a segment. Only the fields a segment has draw from `rng`, so a plan with no stance
+ * and no step draws exactly what it drew before session 06 and the ruler's search is unchanged.
+ */
 function jitterSeg(seg, rng, scale) {
   const out = { ...seg };
   const n = (key, lo, hi) => { if (typeof out[key] === "number") out[key] = clamp(out[key] + SIGMA[key] * scale * gauss(rng), lo, hi); };
   if (seg.kind === "follow") { n("df", -1, 1); n("ds", -1, 1); }
-  if (seg.kind === "stance" || seg.kind === "stroke") { n("f", -1, 1); n("s", -1, 1); n("lift", -0.6, 0.6); n("lateral", -0.5, 0.5); }
+  if (seg.kind === "stance" || seg.kind === "stroke" || seg.kind === "step") {
+    n("f", -1, 1); n("s", -1, 1); n("lift", -0.6, 0.6); n("lateral", -0.5, 0.5);
+  }
   if (seg.kind === "stroke") n("delay", 0, 0.6);
+  if (seg.kind === "step") { n("r", 0.5, 1.8); n("a", -1.2, 1.2); n("within", 0.15, 1); }
+  if (seg.st) {
+    const d = () => SIGMA.stance * scale * gauss(rng);
+    out.st = { width: clamp(seg.st.width + d(), -1, 1), lead: clamp(seg.st.lead + d(), -1, 1), weight: clamp(seg.st.weight + d(), -1, 1) };
+  }
   return out;
 }
 

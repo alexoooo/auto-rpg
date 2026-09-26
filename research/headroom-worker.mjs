@@ -17,6 +17,7 @@ import { createBout, freshHavok, FRAME } from "../tests/harness/bout-runner.mjs"
 import { expertMind, runExpertBout } from "../tests/harness/expert.mjs";
 import { rangeFraction } from "../tests/harness/drills.mjs";
 import { policyMind } from "../src/mind.ts";
+import { DEFAULT_CHANNEL_FLAGS, setChannelFlags } from "../src/body-command.ts";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 const other = (side) => (side === "left" ? "right" : "left");
@@ -46,7 +47,8 @@ function leadCounter(band = LEAD_BAND) {
  */
 export function behaviourReader() {
   const blank = () => ({ frames: 0, gap: 0, fraction: 0, fractionFrames: 0, inReach: 0, forward: 0, back: 0,
-    press: 0, strafe: 0, turn: 0, committed: 0, strokes: 0, down: 0, striking: false });
+    press: 0, strafe: 0, turn: 0, committed: 0, strokes: 0, down: 0, striking: false,
+    width: 0, lead: 0, weight: 0, stanced: 0, stepping: 0 });
   const acc = { left: blank(), right: blank() };
   return {
     feed(bout) {
@@ -70,6 +72,11 @@ export function behaviourReader() {
         if (gait.forward > 0.3 && Number.isFinite(f) && f <= 1.1) a.press += 1;
         a.strafe += Math.abs(gait.strafe);
         a.turn += Math.abs(gait.turn);
+        // The footwork channels (session 06): the stance as commanded, and how often a step is named.
+        const stance = gait.stance;
+        a.width += stance.width; a.lead += Math.abs(stance.lead); a.weight += stance.weight;
+        if (stance.width !== 0 || stance.lead !== 0 || stance.weight !== 0) a.stanced += 1;
+        if (gait.step) a.stepping += 1;
         const striking = Boolean(command.effectors.primary.aim.thrust || command.effectors.secondary.aim.thrust
           || command.natural.thrust);
         if (striking) a.committed += 1;
@@ -87,6 +94,8 @@ export function behaviourReader() {
           inReachShare: a.inReach / n, forward: a.forward / n, backShare: a.back / n, pressShare: a.press / n,
           strafe: a.strafe / n, turn: a.turn / n, committedShare: a.committed / n,
           strokesPerMinute: seconds > 0 ? (60 * a.strokes) / seconds : 0, downShare: a.down / n,
+          stanceWidth: a.width / n, stanceLead: a.lead / n, stanceWeight: a.weight / n,
+          stancedShare: a.stanced / n, steppingShare: a.stepping / n,
         };
       }
       return out;
@@ -95,6 +104,9 @@ export function behaviourReader() {
 }
 
 export async function execute(job, manifest) {
+  // The run's channel flags (session 06's `--exp channel`), set from the defaults every job so a
+  // realm's previous job leaves none behind. A run that names none builds every body as before.
+  setChannelFlags({ ...DEFAULT_CHANNEL_FLAGS, ...(manifest.flags ?? {}) });
   const builds = new Map(manifest.builds.map((build) => [build.name, build.setup]));
   const setupOf = (name) => {
     const setup = builds.get(name);
