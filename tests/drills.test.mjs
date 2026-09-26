@@ -19,7 +19,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 
-import { GUARDLESS, runDrill, summarizeDrill } from "./harness/drills.mjs";
+import { DRILLS, GUARDLESS, runDrill, summarizeDrill } from "./harness/drills.mjs";
+import { summarize, table } from "../research/drills.mjs";
+import { attributesRefusal } from "../src/golem/attributes.ts";
+import { defaultGolemSetup } from "../src/golem/build.ts";
 import { namedBuild } from "../src/golem/roster.ts";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
@@ -116,4 +119,26 @@ test("breaking_the_duelists_guard_fails_survive_the_cut_on_the_high_line", async
   assert.ok(guarded >= 2, `the duelist survives some high cuts (${guarded} of 8)`);
   assert.ok(broken < guarded, `and fewer with its guard broken (${broken} against ${guarded})`);
   assert.ok(brokenWound > guardedWound, `and takes more from them (${brokenWound.toFixed(3)} against ${guardedWound.toFixed(3)})`);
+});
+
+test("every_drill_builds_its_opponent_inside_the_attribute_rows_and_a_failed_run_is_counted", async () => {
+  // get-inside wrote its longer-armed opponent as size 1.25, the ceiling when it was written. The size
+  // law moved the ceiling to 1.1 on 2026-09-25, and every one of 1,000 runs then failed to build while
+  // the drill table printed the other five drills and no line for this one (drill runner,
+  // `research/runs/drills-release1`). So each drill's opponent is checked against the rows the body
+  // is built from, on the default body and on the odd pair, and a failed run is a counted row.
+  for (const base of [defaultGolemSetup(), TRI, RAM]) {
+    for (const d of DRILLS) {
+      if (!d.opponentSetup) continue;
+      const refusal = attributesRefusal(d.opponentSetup(base).attributes);
+      assert.equal(refusal, null, `${d.name}'s opponent: ${refusal}`);
+    }
+  }
+  const ok = { status: "ok", drill: "finish", run: { drill: "finish", subject: "left", skipped: "no striker" } };
+  const failed = { status: "failed", drill: "get-inside", error: "Error: Size x1.25 is outside x0.8 to x1.1\n    at build" };
+  const summary = summarize([ok, failed, failed]);
+  assert.equal(summary["get-inside"].failed, 2, "a drill whose every run failed still has a row");
+  assert.equal(summary["get-inside"].firstError, "Error: Size x1.25 is outside x0.8 to x1.1");
+  assert.equal(summary.finish.failed, 0);
+  assert.match(table(summary), /get-inside: .* 2 failed\n  FAILED 2: Error: Size x1\.25/);
 });
