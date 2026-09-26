@@ -148,7 +148,7 @@ export class GameAudio {
   private buffer(kind: string): AudioBuffer {
     const cached = this.buffers.get(kind); if (cached) return cached;
     const ctx = this.context!, loop = kind === "air" || kind === "fire";
-    const duration = loop ? 6 : kind === "metal" ? .55 : kind === "debris" ? .4 : .26;
+    const duration = loop ? 6 : kind === "metal" ? .22 : kind === "debris" ? .4 : .26;
     const buffer = ctx.createBuffer(1, Math.ceil(duration * ctx.sampleRate), ctx.sampleRate), data = buffer.getChannelData(0);
     let low = 0;
     for (let i = 0; i < data.length; i++) {
@@ -163,7 +163,13 @@ export class GameAudio {
           + Math.sin(t * 2 * Math.PI * 145) * .3 * Math.exp(-t * 35)
           + Math.sin(t * 2 * Math.PI * 273) * .13 * Math.exp(-t * 45)
           + Math.sin(t * 2 * Math.PI * 527) * .055 * Math.exp(-t * 65); break;
-        case "metal": value = (Math.sin(t * 2 * Math.PI * 930) * .3 + Math.sin(t * 2 * Math.PI * 1473) * .2 + Math.sin(t * 2 * Math.PI * 2311) * .1) * Math.exp(-t * 13) + noise * .25 * Math.exp(-t * 110); break;
+        // Weapon guards also appear as BLOCKED. Keep their attack bright, but make the
+        // sound mostly a broad clack: sustained pure high tones read as loose tinware.
+        case "metal": value = (noise - low) * .3 * Math.exp(-t * 130)
+          + low * .85 * Math.exp(-t * 38)
+          + Math.sin(2 * Math.PI * (430 * t - 100 * t * t)) * .18 * Math.exp(-t * 42)
+          + Math.sin(t * 2 * Math.PI * 783) * .085 * Math.exp(-t * 58)
+          + Math.sin(t * 2 * Math.PI * 1231) * .035 * Math.exp(-t * 85); break;
         case "stone": value = low * 2 * Math.exp(-t * 28) + Math.sin(t * 2 * Math.PI * 115) * .35 * Math.exp(-t * 40); break;
         case "bone": value = noise * .55 * Math.exp(-t * 65) + Math.sin(t * 2 * Math.PI * 360) * .25 * Math.exp(-t * 32); break;
         case "body": value = low * Math.exp(-t * 35) + Math.sin(t * 2 * Math.PI * 85) * .5 * Math.exp(-t * 32); break;
