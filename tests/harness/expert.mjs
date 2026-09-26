@@ -135,6 +135,16 @@ export const EXPERT_DEFAULTS = Object.freeze({
    */
   stance: false,
   step: false,
+  /**
+   * `-stepkeys`: the `-step` proposals with every step's fixed point reached by the keys instead of
+   * the channel -- full travel along the unit vector to it until inside 50 mm, the step bench's
+   * `keys` mind. The control that tells the step executor apart from the proposal list.
+   */
+  stepKeys: false,
+  /** `-stepadd`: the ruler's head proposals kept, the channel only in its two least-chosen slots. */
+  stepAdd: false,
+  /** A scale on every step proposal's `within` (`@w0.5` halves it, asking the carrier to hurry). */
+  stepWithin: 1,
 });
 
 /**
@@ -160,6 +170,8 @@ export function expertConfig(name) {
     else if (flag === "fb") config.strafe = false;
     else if (flag === "stance") config.stance = true;
     else if (flag === "step") config.step = true;
+    else if (flag === "stepkeys") { config.step = true; config.stepKeys = true; }
+    else if (flag === "stepadd") { config.step = true; config.stepAdd = true; }
     else throw new Error(`expert: unknown flag "-${flag}" in "${name}"`);
   }
   for (const item of (match[2] ?? "").split(",").filter(Boolean)) {
@@ -170,6 +182,7 @@ export function expertConfig(name) {
     else if (key === "r") config.rounds = value;
     else if (key === "d") config.decisionHz = value;
     else if (key === "s") config.stale = value;
+    else if (key === "w") config.stepWithin = value;
     else throw new Error(`expert: unknown override "${item}" in "${name}"`);
   }
   if (!(config.candidates >= 1 && config.horizon > 0 && config.decisionHz > 0 && config.rounds >= 1)) {
@@ -247,6 +260,18 @@ function markAt(view, mark, lift, lateral) {
 }
 
 /**
+ * The keys to a point (`-stepkeys`): full travel along the unit vector to it in the body's frame,
+ * nothing inside 50 mm -- what a mind without the step channel does (`stepMind` "keys" in
+ * `research/step-bench.mjs`).
+ */
+export function keysToward(command, view, point) {
+  const g = view.self.ground, yaw = view.self.facing;
+  const dx = point.x - g.x, dz = point.z - g.z, d = Math.hypot(dx, dz);
+  command.gait.forward = d > 0.05 ? (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / d : 0;
+  command.gait.strafe = d > 0.05 ? (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / d : 0;
+}
+
+/**
  * One plan being played: plain state and scratch, so a plan in progress can be cloned into a
  * rollout (the warm start) and go on exactly as the live one will.
  */
@@ -309,7 +334,8 @@ export class Program {
         const stance = command.gait.stance;
         stance.width = spec.st.width; stance.lead = spec.st.lead; stance.weight = spec.st.weight;
       }
-      if (spec.kind === "step") command.gait.step = this.stepTarget(spec, view);
+      if (spec.kind === "step" && spec.keys) keysToward(command, view, this.stepTarget(spec, view));
+      else if (spec.kind === "step") command.gait.step = this.stepTarget(spec, view);
     }
     this.t += dt;
     this.segT += dt;
@@ -390,7 +416,7 @@ const FOLLOW_DUELIST = Object.freeze({ label: "duelist", segs: [follow("golem-du
  * The structured proposals, in the order they are kept when the budget is short. The first is the
  * duelist's own continuation, so that a decision on which every candidate ties is the duelist's.
  */
-export function proposals(config, { hold, warm }) {
+export function proposals(config, { hold, warm, turn = 0 }) {
   const h = config.horizon;
   const cut = Math.min(0.5 * h, 0.4);
   const list = [
@@ -416,12 +442,30 @@ export function proposals(config, { hold, warm }) {
   // line -- and adds the slip: in, out, and around them to either side, each ending on a cut or a
   // cover. Not with `-fb`, whose control is the keys forward and back.
   if (config.step && config.strafe) {
+    const w = config.stepWithin;
     const swap = (label, ...plans) => { list.splice(list.findIndex((p) => p?.label === label), 1, ...plans); };
-    swap("step-cut", pair("stepin-cut", step(STEP.inR, 0, cut, false), stroke(0, 0, 0, 0), cut));
-    swap("back-off", single("step-out", step(STEP.outR, 0, STEP.within, true), h));
-    swap("cut-high",
-      pair("slip-l", step(1, STEP.slipA, cut, true), stroke(0, 0, 0, 0), cut),
-      pair("slip-r", step(1, -STEP.slipA, cut, true), stroke(0, 0, 0, 0), cut));
+    if (config.stepAdd) {
+      // `-stepadd`: the ruler's head kept whole, and the channel only in the two slots it chooses
+      // least (back-off and press, 6.8 and 2.4 % of its decisions over the step run's bouts): the
+      // step out, and one slip, to either side on alternate decisions.
+      const side = (turn ?? 0) % 2 === 0 ? 1 : -1;
+      swap("back-off", single("step-out", step(STEP.outR, 0, w * STEP.within, true), h));
+      swap("press", pair(side > 0 ? "slip-l" : "slip-r", step(1, side * STEP.slipA, w * cut, true), stroke(0, 0, 0, 0), cut));
+    } else {
+      swap("step-cut", pair("stepin-cut", step(STEP.inR, 0, w * cut, false), stroke(0, 0, 0, 0), cut));
+      swap("back-off", single("step-out", step(STEP.outR, 0, w * STEP.within, true), h));
+      swap("cut-high",
+        pair("slip-l", step(1, STEP.slipA, w * cut, true), stroke(0, 0, 0, 0), cut),
+        pair("slip-r", step(1, -STEP.slipA, w * cut, true), stroke(0, 0, 0, 0), cut));
+    }
+    if (config.stepKeys) {
+      for (let i = 0; i < list.length; i += 1) {
+        const plan = list[i];
+        if (plan && !plan.warm && plan.segs.some((seg) => seg.kind === "step")) {
+          list[i] = { ...plan, segs: plan.segs.map((seg) => (seg.kind === "step" ? { ...seg, keys: true } : seg)) };
+        }
+      }
+    }
   }
   const out = list.filter(Boolean);
   // `-stance`: every stand, step and stroke of a fresh proposal carries a stance, the attacking one
@@ -440,12 +484,16 @@ export function proposals(config, { hold, warm }) {
  */
 const STEP = Object.freeze({ inR: 0.75, outR: 1.35, slipA: 0.6, within: 0.5 });
 /**
- * The stance proposals' two stances: attacking, right foot forward with the weight over it, and
- * covering, wide, right foot forward and the weight back. The jitter moves each of the three.
+ * The stance proposals' two stances, from the stance bench's fall impulses (`stanceWidth` and its
+ * table in `src/golem/config.ts`): a staggered foot buys margin fore and aft (behind 115 to 186 N s
+ * on the stone default), and a body struck or pushed from the front falls behind, so both keep the
+ * weight forward, which buys behind again (to 172 at +1). Attacking: staggered, weight well over
+ * the front foot. Covering: wider as well, for the lateral margin a glancing blow takes (238 to 309
+ * at +1), and less weight forward. The jitter moves each of the three.
  */
 const STANCES = Object.freeze({
   attack: Object.freeze({ width: 0, lead: 1, weight: 0.5 }),
-  cover: Object.freeze({ width: 0.5, lead: 1, weight: -0.5 }),
+  cover: Object.freeze({ width: 0.5, lead: 1, weight: 0.25 }),
 });
 
 /**
@@ -790,7 +838,7 @@ export class ExpertMind {
     const scored = [];
     const n2 = config.rounds > 1 ? Math.floor(config.candidates / 3) : 0;
     const n1 = Math.max(1, config.candidates - n2);
-    const base = proposals(config, { hold: at.hold, warm: at.warm });
+    const base = proposals(config, { hold: at.hold, warm: at.warm, turn: this.log.length });
     const round1 = base.slice(0, n1);
     while (round1.length < n1) round1.push(randomPlan(this.rng, config, base.filter((p) => !p.warm)));
     for (const plan of round1) scored.push({ plan, score: await evaluate(plan) });

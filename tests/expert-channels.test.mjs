@@ -29,7 +29,7 @@ import { Logger } from "@babylonjs/core/Misc/logger.js";
 
 import { freshHavok } from "./harness/bout-runner.mjs";
 import {
-  EXPERT_DEFAULTS, ExpertMind, Program, expertConfig, jitterPlan, poseHash, proposals, runExpertBout,
+  EXPERT_DEFAULTS, ExpertMind, Program, expertConfig, jitterPlan, keysToward, poseHash, proposals, runExpertBout,
 } from "./harness/expert.mjs";
 import { freshBodyCommand, setChannelFlags } from "../src/body-command.ts";
 import { mulberry32 } from "../src/rng.ts";
@@ -80,6 +80,42 @@ test("the_step_proposals_are_in_the_slots_a_c8_search_evaluates_and_not_with_fb"
   // `-fb` keeps its keys: the step expert restricted to forward and back proposes no step.
   const fb = proposals(expertConfig("expert-fb-step@c8,h1"), { hold, warm: null });
   assert.deepEqual(fb.map((plan) => plan.label), RULER);
+});
+
+test("the_diagnostic_variants_keep_the_plans_they_claim_to", () => {
+  const hold = freshBodyCommand();
+  const labels = (name, turn = 0) => proposals(expertConfig(name), { hold, warm: null, turn }).map((plan) => plan.label);
+  // `-stepadd` keeps the ruler's head and puts the channel in back-off's and press's slots, one slip a
+  // decision, to alternate sides.
+  assert.deepEqual(labels("expert-stepadd@c8,h1").slice(0, 6), ["duelist", "cut-mid", "step-cut", "step-out", "cut-high", "slip-l"]);
+  assert.deepEqual(labels("expert-stepadd@c8,h1", 1).slice(0, 6), ["duelist", "cut-mid", "step-cut", "step-out", "cut-high", "slip-r"]);
+  const sides = [0, 1].map((turn) => proposals(expertConfig("expert-stepadd@c8,h1"), { hold, warm: null, turn })
+    .find((plan) => plan.label.startsWith("slip")).segs[0].a);
+  assert.ok(sides[0] > 0 && sides[1] < 0, `slips at ${sides}`);
+  // `-stepkeys` is `-step`'s list, every step marked for the keys and nothing else changed.
+  const step = proposals(expertConfig("expert-step@c8,h1"), { hold, warm: null });
+  const keys = proposals(expertConfig("expert-stepkeys@c8,h1"), { hold, warm: null });
+  assert.deepEqual(keys.map((plan) => plan.label), step.map((plan) => plan.label));
+  assert.deepEqual(keys.map((plan) => plan.segs.map(({ keys: k, ...seg }) => seg)), step.map((plan) => plan.segs));
+  assert.ok(segsOf(keys).every((seg) => (seg.kind === "step") === (seg.keys === true)));
+  assert.ok(segsOf(step).every((seg) => !("keys" in seg)));
+  // `@w` scales every step's time and nothing else.
+  const fast = proposals(expertConfig("expert-step@c8,h1,w0.5"), { hold, warm: null });
+  const within = (list) => segsOf(list).filter((seg) => seg.kind === "step").map((seg) => seg.within);
+  assert.deepEqual(within(fast), within(step).map((w) => 0.5 * w));
+});
+
+test("the_keys_control_drives_full_travel_at_the_point_in_the_body_s_frame_and_stops_inside_50_mm", () => {
+  const view = (facing) => ({ self: { ground: { x: 1, z: 1 }, facing } });
+  const command = freshBodyCommand();
+  // Facing +z, a point ahead and to the right: forward and strafe positive, a unit vector.
+  keysToward(command, view(0), { x: 2, z: 2 });
+  assert.ok(Math.abs(command.gait.forward - Math.SQRT1_2) < 1e-12 && Math.abs(command.gait.strafe - Math.SQRT1_2) < 1e-12);
+  // Facing +x the same point is ahead and to the left: both sides of centre.
+  keysToward(command, view(Math.PI / 2), { x: 2, z: 2 });
+  assert.ok(Math.abs(command.gait.forward - Math.SQRT1_2) < 1e-12 && Math.abs(command.gait.strafe + Math.SQRT1_2) < 1e-12);
+  keysToward(command, view(0.3), { x: 1.03, z: 0.97 });
+  assert.deepEqual([command.gait.forward, command.gait.strafe], [0, 0]);
 });
 
 /** A published view with only what a step point reads. */

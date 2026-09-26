@@ -41,7 +41,7 @@ export interface StepCeilings {
  *
  * With the brake, 2026-09-26 (Node locomotion bench, `research/step-bench.mjs`, 1 s settle then 3 s
  * with the point; 0.6 and 1.5 m at four bearings). `keys` is the naive mind the channel replaces:
- * the unit vector to the point on `forward` and `strafe` until it is inside 10 mm.
+ * the unit vector to the point on `forward` and `strafe` until it is inside 50 mm.
  *
  * | build            | dist m | within s | step arrives s | step overshoot / miss mm | keys arrives s | keys overshoot / miss mm |
  * |------------------|--------|----------|----------------|--------------------------|----------------|--------------------------|

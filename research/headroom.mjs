@@ -199,13 +199,21 @@ export const EXPERIMENTS = {
    */
   channel(o) {
     const channel = o.channel ?? "step";
-    const subject = `expert-${channel}@c8,h1`;
+    // `--subject` and `--rival` name the two experts outright, for the diagnostic cells (a variant
+    // against the ruler, or the channel against its keys control); `--h2h-only` plays that cell alone.
+    const subject = o.subject ?? `expert-${channel}@c8,h1`;
+    const rival = o.rival ?? RULER;
     const bodies = o.bodies ? list(o.bodies) : ["default", "skeleton-warrior"];
     const jobs = [];
     for (let k = 0; k < o.pairs; k += 1) for (const body of bodies) {
       const duelist = familyDuelist(buildOf(body).setup);
+      const h2h = { cell: `${body}|h2h|${subject}${rival === RULER ? "" : `|${rival}`}`, a: subject, b: rival };
+      if (o["h2h-only"]) {
+        jobs.push(...swappedPair({ exp: "channel", ...h2h, aBuild: body, bBuild: body, seedKey: body, k, extra: { body, channel } }));
+        continue;
+      }
       const cells = [
-        { cell: `${body}|h2h|${subject}`, a: subject, b: RULER },
+        h2h,
         { cell: `${body}|vs-duelist|${subject}`, a: subject, b: duelist },
         ...(o["skip-ruler"] ? [] : [{ cell: `${body}|vs-duelist|${RULER}`, a: RULER, b: duelist }]),
         ...(o["with-fb"] ? [{ cell: `${body}|vs-fb|${subject}`, a: subject, b: "expert-fb@c8,h1" }] : []),
@@ -280,17 +288,23 @@ export function cellFigures(rows) {
     "stanceWidth", "stanceLead", "stanceWeight", "stancedShare", "steppingShare"]) {
     behaviour[key] = { a: sideMean(pairs, "a", key), b: sideMean(pairs, "b", key) };
   }
-  const expert = {};
-  for (const row of bouts) {
-    const s = row.experts?.[row.aSide];
-    if (!s) continue;
-    expert.decisions = (expert.decisions ?? 0) + s.decisions;
-    expert.ms = (expert.ms ?? 0) + s.msTotal;
-    for (const [label, n] of Object.entries(s.labels ?? {})) {
-      expert.labels ??= {};
-      expert.labels[label] = (expert.labels[label] ?? 0) + n;
+  // What each side's expert chose, if it is one: `expert` is A's, `expertB` B's.
+  const expertOf = (sideOf) => {
+    const expert = {};
+    for (const row of bouts) {
+      const s = row.experts?.[sideOf(row)];
+      if (!s) continue;
+      expert.decisions = (expert.decisions ?? 0) + s.decisions;
+      expert.ms = (expert.ms ?? 0) + s.msTotal;
+      for (const [label, n] of Object.entries(s.labels ?? {})) {
+        expert.labels ??= {};
+        expert.labels[label] = (expert.labels[label] ?? 0) + n;
+      }
     }
-  }
+    return expert;
+  };
+  const expert = expertOf((row) => row.aSide);
+  const expertB = expertOf((row) => otherSide(row.aSide));
   return {
     pairs: pairs.length, halfPairs: half, bouts: bouts.length, byK: Object.fromEntries([...whole.keys()].map((k, i) => [k, { score: scores[i], margin: margins[i] }])),
     score: ci(scores), margin: { ...ci(margins), d: cohensD(margins) },
@@ -300,7 +314,7 @@ export function cellFigures(rows) {
     endings: bouts.reduce((acc, row) => ({ ...acc, [row.ending]: (acc[row.ending] ?? 0) + 1 }), {}),
     winnersBar: mean(bouts.filter((row) => row.winner !== null).map((row) => row.vitality[sideIndex(row.winner)])),
     leadChanges: mean(bouts.map((row) => row.leadChanges)),
-    behaviour, expert,
+    behaviour, expert, expertB,
   };
 }
 
@@ -367,7 +381,8 @@ async function main() {
     bodies: { type: "string" }, minds: { type: "string" }, attackers: { type: "string" }, mind: { type: "string" },
     attributes: { type: "string" }, build: { type: "string" }, levels: { type: "string", default: "ends" }, tag: { type: "string" },
     channel: { type: "string" }, flags: { type: "string" }, "with-fb": { type: "boolean", default: false },
-    "skip-ruler": { type: "boolean", default: false },
+    "skip-ruler": { type: "boolean", default: false }, subject: { type: "string" }, rival: { type: "string" },
+    "h2h-only": { type: "boolean", default: false },
   } });
   const exp = values.exp;
   if (!EXPERIMENTS[exp]) throw new Error(`--exp is one of ${Object.keys(EXPERIMENTS).join(", ")}`);
