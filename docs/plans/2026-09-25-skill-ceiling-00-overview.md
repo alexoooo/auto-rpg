@@ -284,7 +284,15 @@ their choice is collected here instead of stopping the run. Each item names wher
   - session 05 reports full knowledge and the persistence model side by side, as the plan says,
     because their gap is how much of a win came from reading one opponent;
   - the drill objective keeps its weight on time. The expert then reaches the inside later than the
-    walker (0.38 against 0.33 s) and levels with the duelist on finish;
+    walker (0.39 against 0.33 s at n 200). Its first blow on finish lands in 0.103 s, against the
+    duelist's 0.096 (−0.007 ± 0.007), so the two are level;
+  - or should a drill drop the bout's damage term from its rollouts instead? That term is why c32
+    gets inside at 0.84 s against c8's 0.39: it trades 0.029 of task score for 0.065 of predicted
+    damage;
+  - should the fixed plan list be sized to fit the first round, or ordered per drill? The first
+    round takes a prefix of the list: 6 plans at c8, all of them at c32. So the candidates axis
+    also changes which plans are tried. back-off-then-cut, last on the list, is reached only by
+    c32;
   - `-lag` (one decision stale) is the blinded-fork sanity check, since `-blind` is inert on
     survive-cut.
 - **Judging balance on the carried base** is an option recorded by the rate-falls study and not
