@@ -117,6 +117,12 @@ export const EXPERT_DEFAULTS = Object.freeze({
   band: Object.freeze([0.65, 1.0]),
   /** Scale on every proposal's noise. */
   noise: 1,
+  /**
+   * Whether the expert may strafe. Off (`-fb`), every command it applies, live and in its own
+   * rollouts, has its strafe zeroed: footwork restricted to forward and back, the headroom audit's
+   * footwork check (session 05). Turning is kept, so it still faces them.
+   */
+  strafe: true,
 });
 
 /**
@@ -124,7 +130,7 @@ export const EXPERT_DEFAULTS = Object.freeze({
  * four decisions stale, the sanity mutation), `-lag` (every search on the capture one decision
  * old, and none before there is one: the sanity mutation that bites in a one-second drill),
  * `-fresh` (no fork reuse), `-bout` (a drill played on
- * the bout objective, not the drill's judge), and `@` with comma-separated
+ * the bout objective, not the drill's judge), `-fb` (forward and back only: no strafe), and `@` with comma-separated
  * overrides: `c16` candidates, `h1` horizon seconds, `r2` rounds, `d4` decisions a second, `s4`
  * stale decisions. `expert@c8,h0.5` is 8 candidates over half a second.
  */
@@ -138,6 +144,7 @@ export function expertConfig(name) {
     else if (flag === "lag") { config.stale = 1; config.lag = true; }
     else if (flag === "fresh") config.reuse = false;
     else if (flag === "bout") config.task = false;
+    else if (flag === "fb") config.strafe = false;
     else throw new Error(`expert: unknown flag "-${flag}" in "${name}"`);
   }
   for (const item of (match[2] ?? "").split(",").filter(Boolean)) {
@@ -403,6 +410,8 @@ class RolloutMind extends ExpertShell {
     this.latest = {};
     this.program = null;
     this.used = [];
+    /** Whether the plan it plays may strafe: the config of the expert whose plan this is. */
+    this.strafe = true;
   }
   load(program, snapshots) {
     this.program = program;
@@ -411,7 +420,9 @@ class RolloutMind extends ExpertShell {
   }
   decide(view, dt) {
     for (const name of this.used) this.latest[name] = this.shadows[name].decide(view, dt);
-    return this.program.decide(view, dt, this.latest);
+    const intent = this.program.decide(view, dt, this.latest);
+    if (!this.strafe) intent.strafe = 0;
+    return intent;
   }
 }
 
@@ -563,7 +574,9 @@ export class ExpertMind {
   decide(view, dt) {
     for (const name of SHADOWS) this.latest[name] = this.shadows[name].decide(view, dt);
     const intent = this.program ? this.program.decide(view, dt, this.latest) : this.latest["golem-duelist"];
-    return copyIntent(intent, this.out);
+    copyIntent(intent, this.out);
+    if (!this.config.strafe) this.out.strafe = 0;
+    return this.out;
   }
 
   captureState() { return {}; }
@@ -594,7 +607,8 @@ export class ExpertMind {
       hold: cloneIntent(this.out),
       warm: this.program ? this.program.clone() : null,
       // An expert opponent: the plan it is playing and its shadows, to play it forward in a rollout.
-      opponent: them ? { program: them.program ? them.program.clone() : new Program(FOLLOW_DUELIST), snapshots: them.snapshots() } : null,
+      opponent: them ? { program: them.program ? them.program.clone() : new Program(FOLLOW_DUELIST), snapshots: them.snapshots(),
+        strafe: them.config.strafe } : null,
       ms: performance.now() - started,
     };
     return true;
@@ -627,12 +641,14 @@ export class ExpertMind {
       clock = performance.now();
       const rollout = this.pool.rollout;
       rollout.load(plan.warm ? plan.warm.clone() : new Program(plan), at.snapshots);
+      rollout.strafe = config.strafe;
       this.pool.slots.E.mind = rollout;
       if (config.opponent === "persistence") {
         this.pool.persist.hold(at.held);
         this.pool.slots.O.mind = this.pool.persist;
       } else if (at.opponent) {
         this.pool.rolloutO.load(at.opponent.program.clone(), at.opponent.snapshots);
+        this.pool.rolloutO.strafe = at.opponent.strafe;
         this.pool.slots.O.mind = this.pool.rolloutO;
       } else if (config.reseed) {
         let i = 0;

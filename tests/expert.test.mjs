@@ -155,6 +155,25 @@ test("a_lagged_expert_plans_on_the_world_one_decision_old", async () => {
   assert.deepEqual(live.log.map((entry) => entry.on), live.log.map((entry) => entry.t));
 });
 
+test("a_forward_back_expert_never_strafes_and_still_predicts_its_future", async () => {
+  // The footwork check's restricted expert (`-fb`, session 05): every command it applies has its
+  // strafe zeroed, in the live bout and in its rollouts, so its predictions still come true.
+  const strafes = async (config) => {
+    const expert = new Witnessed(config, 5);
+    const applied = [];
+    await runExpertBout({ ...BASE, maxSeconds: 2.6, physics: await freshHavok() },
+      { experts: { left: expert }, onFrame: (bout) => applied.push(bout.left.control.driver.held?.strafe ?? 0) });
+    return { applied, checks: expert.checks() };
+  };
+  const fb = await strafes({ ...PLUMB, strafe: false });
+  assert.ok(fb.checks.length >= 4, `only ${fb.checks.length} decisions were checked`);
+  assert.deepEqual(fb.checks, fb.checks.map(() => ({ pose: true, bars: true })), "a predicted state did not come true");
+  assert.deepEqual(fb.applied, fb.applied.map(() => 0), "the forward-back expert strafed");
+  // The control: unrestricted, the same expert on the same bout does strafe.
+  const free = await strafes(PLUMB);
+  assert.ok(free.applied.some((s) => s !== 0), "the unrestricted expert never strafed: the check cannot fail");
+});
+
 test("an_expert_name_parses_to_its_search_and_a_bad_one_is_refused", () => {
   assert.equal(expertConfig("golem-duelist"), null);
   assert.deepEqual(expertConfig("expert"), { ...EXPERT_DEFAULTS, weights: { ...EXPERT_DEFAULTS.weights } });
@@ -166,6 +185,7 @@ test("an_expert_name_parses_to_its_search_and_a_bad_one_is_refused", () => {
   assert.equal(expertConfig("expert-blind").stale, 4);
   assert.deepEqual([expertConfig("expert-lag").stale, expertConfig("expert-lag").lag], [1, true]);
   assert.equal(expertConfig("expert").lag, false);
+  assert.deepEqual([expertConfig("expert-fb").strafe, expertConfig("expert").strafe], [false, true]);
   for (const bad of ["expert-psychic", "expert@c", "expert@x3", "expert@c0", "expert@h0"]) {
     assert.throws(() => expertConfig(bad), /expert:/, bad);
   }

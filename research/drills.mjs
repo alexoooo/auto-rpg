@@ -8,6 +8,10 @@
 // `--experts` adds rungs played by session 04's reference expert, `;`-separated names such as
 // `expert@c8,h1;expert-blind@c8,h1` (`expertConfig` in `tests/harness/expert.mjs`), after the
 // ladder and the guardless duelist, so every expert rung is paired with them start by start.
+// `--minds` adds rungs played by named policies (`policyMind`), such as a family's own duelist
+// on a human or skeleton subject, before any expert rung. `--build` and `--obuild` take any
+// name `auditBuild` in `research/headroom-builds.mjs` answers: a playable build or one of the
+// headroom audit's sample builds.
 // `--lanes` is at most 20 (start at 8 while other runs share the machine), and `--job-minutes` is
 // one run's wall limit, five by default; a run with expert rungs needs longer.
 //
@@ -26,7 +30,8 @@ import { runJobs, readResults } from "./runner.mjs";
 import { seed } from "./schedule.mjs";
 import { DRILL_NAMES, GUARDLESS, LADDER, OPPONENT_MIND, summarizeDrill } from "../tests/harness/drills.mjs";
 import { expertConfig } from "../tests/harness/expert.mjs";
-import { namedBuild } from "../src/golem/roster.ts";
+import { auditBuild } from "./headroom-builds.mjs";
+import { POLICIES } from "../src/mind.ts";
 
 export const HARNESS = "Node bout runner and fork harness, research runner, supported locomotion";
 export const RUNGS = Object.freeze([...LADDER, GUARDLESS]);
@@ -96,11 +101,13 @@ async function main() {
     runs: { type: "string", default: "1000" }, lanes: { type: "string", default: "6" },
     drills: { type: "string", default: DRILL_NAMES.join(",") }, build: { type: "string", default: "default" },
     obuild: { type: "string" }, out: { type: "string" }, summary: { type: "boolean", default: false },
-    experts: { type: "string", default: "" }, "job-minutes": { type: "string", default: "5" },
+    experts: { type: "string", default: "" }, minds: { type: "string", default: "" }, "job-minutes": { type: "string", default: "5" }, until: { type: "string" },
   } });
   const experts = values.experts.split(";").filter(Boolean);
   for (const name of experts) if (!expertConfig(name)) throw new Error(`not an expert: "${name}"`);
-  const rungs = [...RUNGS, ...experts];
+  const minds = values.minds.split(";").filter(Boolean);
+  for (const name of minds) if (!POLICIES.some((policy) => policy.name === name) || RUNGS.includes(name)) throw new Error(`not a new policy rung: "${name}"`);
+  const rungs = [...RUNGS, ...minds, ...experts];
   const build = values.build;
   const obuild = values.obuild ?? build;
   const dir = resolve(values.out ?? join("research", "runs", `drills-${build}-${obuild}`));
@@ -113,11 +120,14 @@ async function main() {
   }
   const lanes = Number(values.lanes);
   if (lanes > 20) throw new Error("at most 20 lanes: other runs share this machine");
-  for (const name of [build, obuild]) if (!namedBuild(name)) throw new Error(`no named build "${name}"`);
+  for (const name of [build, obuild]) if (!auditBuild(name)) throw new Error(`no audit build "${name}"`);
   const jobs = drillJobs({ drills: values.drills.split(","), runs: Number(values.runs), build, obuild });
   const manifest = { protocol: "drills-v1", harness: HARNESS, rungs,
-    builds: [...new Set([build, obuild])].map((name) => ({ name, setup: namedBuild(name).setup })) };
+    builds: [...new Set([build, obuild])].map((name) => ({ name, setup: auditBuild(name).setup })) };
   const rows = await runJobs(dir, manifest, jobs, { workers: lanes, jobLimitMs: Number(values["job-minutes"]) * 60000,
+    // --until: a wall-clock time (anything Date.parse reads) after which no job starts and an unfinished one
+    // is left pending for a resume; the runs are ordered by seed pair, so a cut run is a balanced one.
+    deadline: values.until ? Date.parse(values.until) : Infinity,
     workerUrl: new URL("./drills-worker.mjs", import.meta.url),
     onProgress: (p) => console.log(`${p.done}/${p.total} in ${p.elapsedSeconds.toFixed(0)} s, ${p.failures} failed`) });
   const summary = summarize(rows, rungs);

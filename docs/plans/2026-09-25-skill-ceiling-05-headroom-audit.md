@@ -101,3 +101,44 @@ Each item has a proposed change for session 07, and the owner chooses among them
 ## Depends on
 
 Session 04.
+
+## Result
+
+Ran on 2026-09-26; the write-up is `docs/analysis/2026-09-26-headroom.md`. Every figure is Node and
+headless, on the bout runner unless named. The ruler was `expert@c8,h1`, 151 lane-hours in about
+9.5 h of wall time. Nothing was removed and nothing was retuned.
+
+- **Headroom.** 30 bodies: every named build plus a stratified sample that covers every module.
+  1920 bouts; the drills ran 40 starts each.
+  - The ruler wins every bout against the reference on 26 bodies.
+  - One dead end, `human-unarmed`, against thresholds taken from the distribution: 1.26 bars on
+    bouts and +13.5 points on drills.
+  - `skeleton-fists` and `skeleton-whip` cannot win against the reference.
+  - Persistence headroom is zero on the humans, skeletons, fists and capped ram.
+  - The compute curve still climbs on the humans and whips.
+- **Orderings** at x1.1 (x1.25 is past the row), stone and skeleton, 480 bouts each.
+  - Skill over size: 100 % on both.
+  - Mind over mind: 100 % on both.
+  - Size over size: 84 % under the expert on stone; 32 to 57 % for the naive minds; 32 to 55 % for
+    every mind on the skeleton.
+- **Idle gate**, 248 bouts at 60 s.
+  - 50 of 124 cells have no win inside the mark.
+  - `ram-capped` cannot hurt an idle body.
+  - The humans cannot finish one in 60 s.
+  - The skeleton's old zeros were the mind's.
+- **Leverage.**
+  - Balance: a window exists in the biped gait. The idle stone is felled by the waist lean motor
+    folding (`TORSO_WAIST.leanTorque`, 0 falls at the doc table's value).
+  - Commitment: time out of guard, 0.7 to 1.3 s, and no balance cost.
+  - Precision: through the edge, 7x; blunt damage is linear in energy.
+  - Deflection: physical against an edge, not against a mace.
+  - Footwork: 22 points head to head, a lower bound.
+- **Attributes.**
+  - Toughness, arm speed, weight and size pay 3.3 to 4.2 points a step.
+  - Movement, turning, stability, recovery and armour pay a quarter or less, and movement runs
+    backwards.
+  - Toughness is raw power.
+  - Size divides by weapon for the duelist.
+  - Only weight changes the ruler's plan.
+
+Seventeen proposals for session 07 are in the write-up's section 6.
