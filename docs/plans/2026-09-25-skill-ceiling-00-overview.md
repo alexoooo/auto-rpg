@@ -260,5 +260,14 @@ their choice is collected here instead of stopping the run. Each item names wher
   `docs/analysis/2026-09-25-side-mirror.md`. A seeded spawn jitter would fix it, and would change
   every recorded number. Until then, comparisons play each pairing both ways round, which cancels
   the lean.
+- **The expert as the ruler** (`docs/analysis/2026-09-25-expert.md`). Session 05 goes ahead on these
+  defaults, and the owner may overrule any of them:
+  - the expert is `expert@c8,h1` at 4 decisions a second, about 12x slower than real time;
+  - session 05 reports full knowledge and the persistence model side by side, as the plan says,
+    because their gap is how much of a win came from reading one opponent;
+  - the drill objective keeps its weight on time. The expert then reaches the inside later than the
+    walker (0.38 against 0.33 s) and levels with the duelist on finish;
+  - `-lag` (one decision stale) is the blinded-fork sanity check, since `-blind` is inert on
+    survive-cut.
 - **Judging balance on the carried base** is an option recorded by the rate-falls study and not
   taken.
