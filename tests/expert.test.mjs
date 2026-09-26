@@ -16,13 +16,17 @@
 //   plan carries no state, the predictions come true exactly as against the duelist.
 // - **A reused fork is a fresh fork.** One kept fork world restored for every candidate chooses and
 //   predicts exactly what a fresh exact fork per candidate does.
+// - **A lagged expert plans on the world one decision old** (`-lag`, the blinded-fork mutation):
+//   it does not search at its first decision, and each search after it is on the capture the
+//   decision before took. Beside it, the control: unlagged, every search is on its own moment.
 // - **Names parse to searches** and a bad name is refused rather than run as a default.
 // - **The expert beats idle** on the odd pair: it empties the idle body's bar and loses none.
 //
 // Mutation checks, each run and each red: the shadows not restored into a rollout, a capture
 // without Havok's heap (the teleport fork), a reused fork not restored, an expert opponent left to
 // its fork slot's shell or played without its shadows, a drill task judging the live world, never
-// framed or left off, and the search keeping the worst plan. Two
+// framed or left off, the search keeping the worst plan, a lagged expert searching with no stale
+// capture or on the live moment, and `-lag` parsed without its wait. Two
 // edits survive and are equivalent here: not cloning a warm plan (the moment already holds a clone,
 // and only one rollout of a fresh moment plays it) and the drill host's range feed (no drill reads
 // it inside a rung; see `drillHost`).
@@ -139,6 +143,18 @@ test("a_reused_fork_is_a_fresh_fork", async () => {
   assert.ok(reused.builds < fresh.builds, `reuse built ${reused.builds} worlds and fresh ${fresh.builds}`);
 });
 
+test("a_lagged_expert_plans_on_the_world_one_decision_old", async () => {
+  // The blinded-fork mutation (`-lag`): no search at the first decision, and every search after it
+  // on the capture the decision before took.
+  const lagged = await witnessBout({ ...PLUMB, stale: 1, lag: true }, 2.1);
+  assert.ok(lagged.log.length >= 3, `only ${lagged.log.length} searches`);
+  assert.ok(lagged.log[0].t > 0, "the first decision searched with no stale capture to search on");
+  assert.deepEqual(lagged.log.map((entry) => entry.on), [0, ...lagged.log.slice(0, -1).map((entry) => entry.t)]);
+  // The control: unlagged, every search is on its own moment.
+  const live = await witnessBout(PLUMB, 1.1);
+  assert.deepEqual(live.log.map((entry) => entry.on), live.log.map((entry) => entry.t));
+});
+
 test("an_expert_name_parses_to_its_search_and_a_bad_one_is_refused", () => {
   assert.equal(expertConfig("golem-duelist"), null);
   assert.deepEqual(expertConfig("expert"), { ...EXPERT_DEFAULTS, weights: { ...EXPERT_DEFAULTS.weights } });
@@ -148,6 +164,8 @@ test("an_expert_name_parses_to_its_search_and_a_bad_one_is_refused", () => {
     { ...EXPERT_DEFAULTS, weights: undefined, opponent: "persistence", stale: 3, reuse: false, task: false,
       candidates: 8, horizon: 0.5, rounds: 1, decisionHz: 2 });
   assert.equal(expertConfig("expert-blind").stale, 4);
+  assert.deepEqual([expertConfig("expert-lag").stale, expertConfig("expert-lag").lag], [1, true]);
+  assert.equal(expertConfig("expert").lag, false);
   for (const bad of ["expert-psychic", "expert@c", "expert@x3", "expert@c0", "expert@h0"]) {
     assert.throws(() => expertConfig(bad), /expert:/, bad);
   }

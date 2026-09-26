@@ -81,8 +81,19 @@ export const EXPERT_DEFAULTS = Object.freeze({
   rounds: 2,
   /** `full`: the opponent's real mind, reseeded. `persistence`: its last applied command, held. */
   opponent: "full",
-  /** Plan on the capture from this many decisions ago: 0 is the live world, more is a blinded fork. */
+  /**
+   * Plan on the capture from this many decisions ago: 0 is the live world, more is a blinded fork.
+   * Until that many decisions have passed, the oldest capture held is used -- which, in a drill
+   * rung shorter than `stale` decisions, is the live world at every decision, so the blinding is
+   * inert there (`-blind`, as the 2026-09-25 drill grid ran it).
+   */
   stale: 0,
+  /**
+   * With `stale`, a decision with no capture `stale` decisions old does not search at all: the plan
+   * in hand plays on (the duelist's continuation, before the first search). So every search is on a
+   * stale world from the first decision of a drill rung on (`-lag`).
+   */
+  lag: false,
   /** Reuse one fork world across candidates and decisions (bit-identical; see the header). */
   reuse: true,
   /**
@@ -108,7 +119,9 @@ export const EXPERT_DEFAULTS = Object.freeze({
 
 /**
  * An expert by name: `expert`, then any of `-persist` (the model-only instrument), `-blind` (a fork
- * four decisions stale, the sanity mutation), `-fresh` (no fork reuse), `-bout` (a drill played on
+ * four decisions stale, the sanity mutation), `-lag` (every search on the capture one decision
+ * old, and none before there is one: the sanity mutation that bites in a one-second drill),
+ * `-fresh` (no fork reuse), `-bout` (a drill played on
  * the bout objective, not the drill's judge), and `@` with comma-separated
  * overrides: `c16` candidates, `h1` horizon seconds, `r2` rounds, `d4` decisions a second, `s4`
  * stale decisions. `expert@c8,h0.5` is 8 candidates over half a second.
@@ -120,6 +133,7 @@ export function expertConfig(name) {
   for (const flag of (match[1] ?? "").split("-").filter(Boolean)) {
     if (flag === "persist") config.opponent = "persistence";
     else if (flag === "blind") config.stale = 4;
+    else if (flag === "lag") { config.stale = 1; config.lag = true; }
     else if (flag === "fresh") config.reuse = false;
     else if (flag === "bout") config.task = false;
     else throw new Error(`expert: unknown flag "-${flag}" in "${name}"`);
@@ -540,6 +554,8 @@ export class ExpertMind {
     this.history = [];
     this.log = [];
     this.pending = null;
+    /** Decisions that did not search, for want of a capture old enough (`lag`). */
+    this.waited = 0;
   }
 
   decide(view, dt) {
@@ -598,6 +614,7 @@ export class ExpertMind {
     // The moment the search plans on: now, or `stale` decisions ago (the blinded-fork mutation).
     this.history.push(moment);
     while (this.history.length > config.stale + 1) this.history.shift();
+    if (config.lag && this.history.length <= config.stale) { this.waited += 1; return; }
     const at = this.history[0];
     const reseed = Math.floor(this.rng() * 0x100000000) >>> 0;
 
@@ -660,7 +677,7 @@ export class ExpertMind {
     const totals = scored.map((entry) => entry.score.total);
     const { predicted, ...terms } = best.score;
     this.log.push({
-      t: clock, label: best.plan.label, n: scored.length,
+      t: clock, on: at.clock, label: best.plan.label, n: scored.length,
       terms, ...(predicted ? { predicted } : {}),
       ...(config.trace ? { candidates: scored.map(({ plan, score }) => ({ label: plan.label, task: score.task, vE: score.predicted.vE })) } : {}),
       spread: Math.max(...totals) - Math.min(...totals),
@@ -682,6 +699,7 @@ export class ExpertMind {
     const ms = this.log.map((entry) => entry.ms).sort((a, b) => a - b);
     return {
       decisions: n,
+      ...(this.waited ? { waited: this.waited } : {}),
       msMedian: n ? ms[Math.floor(n / 2)] : 0,
       msTotal: ms.reduce((s, x) => s + x, 0),
       msParts: Object.fromEntries(["capture", "restore", "simulate"].map((key) => [key, this.log.reduce((s, e) => s + e.cost[key], 0)])),
