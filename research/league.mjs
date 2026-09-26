@@ -31,7 +31,10 @@
 // pooled, because a pooled total is mostly the maul's.
 //
 // **A mirror** is A = B: the same code with one mind in both corners, read by its side split. A
-// side more than the 95 % band from 50 % fails (session 01's gate).
+// side more than the 95 % band from 50 % fails. The verdict is `sideVerdict` in
+// `research/side-mirror.mjs`, session 01's gate, so that there is one: its share and band are taken
+// over distinct bouts (here distinct outcomes, since this worker hashes no trajectory), because a
+// pairing whose seeds reach nothing plays one bout however many clusters it is given.
 //
 // Harness: the Node bout runner through `runJobs` in `research/runner.mjs`, the research `PROTOCOL`
 // cap (`research/schedule.mjs`), supported locomotion. Not comparable with page readings.
@@ -42,6 +45,7 @@ import { parseArgs } from "node:util";
 import { runJobs, readResults } from "./runner.mjs";
 import { PROTOCOL, seed, stable } from "./schedule.mjs";
 import { cohensD, interval } from "./stat-sweep.mjs";
+import { refuseSideDecided, sideVerdict } from "./side-mirror.mjs";
 import { namedBuild } from "../src/golem/roster.ts";
 import { golemSetupRefusal } from "../src/golem/build.ts";
 
@@ -159,8 +163,8 @@ export function leagueFigures(rows) {
     b: mean(bouts.map((row) => row.sides[other(row.aSide)][field])),
   });
   const leftScore = clusters.size > 1 ? interval(per("left")) : { mean: mean(per("left")), low: NaN, high: NaN };
-  // The gate's band: 95 % of a 50 % share over this many bouts, draws counted as halves.
-  const band = 1.96 * Math.sqrt(0.25 / Math.max(bouts.length, 1));
+  // The gate: the left corner's share over distinct bouts, against a fair coin's band at that count.
+  const side = bouts.length ? sideVerdict(bouts) : null;
   return {
     bouts: bouts.length, pairs: pairs.length, clusters: clusters.size,
     score: clusters.size > 1 ? interval(per("scores")) : { mean: mean(per("scores")), low: NaN, high: NaN },
@@ -168,7 +172,8 @@ export function leagueFigures(rows) {
       d: cohensD(pairMargin) },
     bySide: { aLeft: mean(bouts.filter((row) => row.aSide === "left").map(aScore)),
       aRight: mean(bouts.filter((row) => row.aSide === "right").map(aScore)) },
-    mirror: { left: leftScore, band, inside: Math.abs(leftScore.mean - 0.5) <= band },
+    mirror: { left: leftScore, distinct: side?.distinct ?? 0, distinctLeft: side?.share ?? NaN,
+      band: side?.band ?? NaN, inside: side?.verdict === "pass" },
     guard: {
       nearRangeStallSeconds: perMind("nearRangeStallSeconds"),
       retreatOutsideReachSeconds: perMind("retreatOutsideReachSeconds"),
@@ -199,7 +204,7 @@ export function table(summary, { a, b }) {
   const row = (label, s) => {
     const g = s.guard;
     lines.push(`${label.padEnd(11)} bouts ${String(s.bouts).padStart(4)}  ` + (mirror
-      ? `left ${pct(s.mirror.left.mean)} % [${pct(s.mirror.left.low)}, ${pct(s.mirror.left.high)}] band +/-${pct(s.mirror.band)} ${s.mirror.inside ? "inside" : "OUTSIDE"}`
+      ? `left ${pct(s.mirror.left.mean)} % [${pct(s.mirror.left.low)}, ${pct(s.mirror.left.high)}]; over ${s.mirror.distinct} distinct ${pct(s.mirror.distinctLeft)} % band +/-${pct(s.mirror.band)} ${s.mirror.inside ? "inside" : "OUTSIDE"}`
       : `A score ${pct(s.score.mean)} % [${pct(s.score.low)}, ${pct(s.score.high)}] (A left ${pct(s.bySide.aLeft)}, A right ${pct(s.bySide.aRight)})  margin ${f3(s.margin.mean)} [${f3(s.margin.low)}, ${f3(s.margin.high)}] d ${f2(s.margin.d)}`));
     lines.push(`${"".padEnd(11)} stall s A ${f2(g.nearRangeStallSeconds.a)} B ${f2(g.nearRangeStallSeconds.b)}  retreat s A ${f2(g.retreatOutsideReachSeconds.a)} B ${f2(g.retreatOutsideReachSeconds.b)}  lead changes ${f2(g.leadChanges)}  winner's bar ${f3(g.winnersBar)}  decided ${pct(g.decidedBeforeCap)} %  falls ${f2(g.falls)}  ${f2(s.seconds)} s`);
   };
@@ -221,6 +226,8 @@ async function main() {
   const a = values.mirror ?? values.a;
   const b = values.mirror ?? values.b;
   if (!values.summary && (!a || !b)) throw new Error("name --a and --b, or --mirror");
+  // A mind's own mirror is how it is checked; any other comparison with it is measuring its side.
+  if (!values.summary && a !== b) refuseSideDecided([a, b], "a league comparison");
   const dir = resolve(values.out ?? join("research", "runs", `league-${a}-${b}`));
   if (values.summary) {
     const rows = readResults(dir);
