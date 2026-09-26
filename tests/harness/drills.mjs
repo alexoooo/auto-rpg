@@ -492,7 +492,11 @@ const SCRIPTS = {
 /** An event, as a trace keeps it. */
 const eventRow = (e) => ({ side: e.side, kind: e.report.kind, damage: e.report.damage, at: e.report.at,
   edge: e.report.edgeAlignment, blade: e.report.bladeAlignment, limb: e.report.limb ?? null,
-  blocked: Boolean(e.blocked), guarded: Boolean(e.guarded) });
+  closing: e.report.closingSpeed, blocked: Boolean(e.blocked), guarded: Boolean(e.guarded) });
+
+/** How a drill's control may admit a start (`runDrill`'s `admission`). */
+export const ADMISSIONS = Object.freeze(["wound", "arrival"]);
+const ARRIVAL_VOID = "the cut touched nothing of an idle body";
 
 /** Damage-bearing events a side scored after t0, from a fork's event list. */
 const scored = (events, side) => events.filter((e) => e.side === side && e.report.damage > 0 && e.report.kind !== "weak");
@@ -880,14 +884,24 @@ export function drillHost({ live, base, S, O, name, params, seed, liveDrivers, c
  * `{ start, rungs: { [rung]: result } }`. `fix` pins named parameters over the drawn ones, for a
  * test or a study that holds one of them still (a line, a range); the draw order is unchanged.
  *
+ * `admission` is how the control admits a start. `"wound"`, the default, is the drill's own
+ * `admit`. `"arrival"` is survive-cut's alone: it admits every start on which the opponent's cut
+ * touched the subject during the control -- its body, its arms or what it holds -- so a start
+ * whose cut the idle body's rest guard already stops is scored rather than void, and the idle rung
+ * passes it. Since arms are built at guard (2026-09-25) the wound rule voids 39 or 40 of 40 starts
+ * on five human bodies and 22 of 40 on the stone default (drill runner, the audit's starts), because
+ * the cut meets a rest guard first (`docs/analysis/2026-09-26-release-2-questions.md`, item 17).
+ *
  * `rungFactory(name, seed)` builds a rung's mind where it answers one (null otherwise, and the
  * ladder's `rungMind` builds it). A rung mind with a `beforeFrame(host)` method is a planner: it is
  * awaited before every frame with a `drillHost` for its own rung world, its `summary()` is kept as
  * the rung's `planner` field, and its `dispose()` runs when the rung does.
  */
 export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed, rungs = LADDER, trace = false, fix = {},
-  rungFactory = null }) {
+  rungFactory = null, admission = "wound" }) {
   const drill = drillNamed(name);
+  if (!ADMISSIONS.includes(admission)) throw new Error(`admission is one of ${ADMISSIONS.join(", ")}, not "${admission}"`);
+  if (admission === "arrival" && name !== "survive-cut") throw new Error("arrival admission is defined for survive-cut alone");
   const rng = mulberry32(seed);
   const S = rng() < 0.5 ? "left" : "right";
   const O = other(S);
@@ -1015,8 +1029,9 @@ export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed,
       planner = null;
       fork.dispose();
     }
-    if (rung === drill.control && !drill.admit(results[rung])) {
-      return { drill: name, seed, subject: S, start: start.summary, void: drill.voidReason, control: results[rung] };
+    if (rung === drill.control && !(admission === "arrival" ? events.some((e) => e.side === O) : drill.admit(results[rung]))) {
+      return { drill: name, seed, subject: S, start: start.summary, void: admission === "arrival" ? ARRIVAL_VOID : drill.voidReason,
+        control: results[rung] };
     }
   }
   if (drill.control && !rungs.includes(drill.control)) delete results[drill.control];

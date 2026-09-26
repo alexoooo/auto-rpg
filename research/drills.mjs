@@ -2,7 +2,7 @@
 // (`docs/plans/2026-09-25-skill-ceiling-03-drills-and-league.md`, "Measure").
 //
 //   node research/drills.mjs [--runs 1000] [--lanes 6] [--drills survive-cut,...] [--build default]
-//                            [--obuild default] [--out research/runs/drills-default]
+//                            [--obuild default] [--admission arrival] [--out research/runs/drills-default]
 //   node research/drills.mjs --summary [--out research/runs/drills-default]
 //
 // `--experts` adds rungs played by session 04's reference expert, `;`-separated names such as
@@ -102,6 +102,7 @@ async function main() {
     drills: { type: "string", default: DRILL_NAMES.join(",") }, build: { type: "string", default: "default" },
     obuild: { type: "string" }, out: { type: "string" }, summary: { type: "boolean", default: false },
     experts: { type: "string", default: "" }, minds: { type: "string", default: "" }, "job-minutes": { type: "string", default: "5" }, until: { type: "string" },
+    admission: { type: "string", default: "wound" },
   } });
   const experts = values.experts.split(";").filter(Boolean);
   for (const name of experts) if (!expertConfig(name)) throw new Error(`not an expert: "${name}"`);
@@ -122,7 +123,10 @@ async function main() {
   if (lanes > 20) throw new Error("at most 20 lanes: other runs share this machine");
   for (const name of [build, obuild]) if (!auditBuild(name)) throw new Error(`no audit build "${name}"`);
   const jobs = drillJobs({ drills: values.drills.split(","), runs: Number(values.runs), build, obuild });
-  const manifest = { protocol: "drills-v1", harness: HARNESS, rungs,
+  // `--admission arrival`: survive-cut admits a start its cut touched the idle body on at all, rather
+  // than one it wounded (`runDrill` in `tests/harness/drills.mjs`); kept in the manifest, so a resume
+  // cannot mix the two, and left out at the default so older runs keep their identity.
+  const manifest = { protocol: "drills-v1", harness: HARNESS, rungs, ...(values.admission === "wound" ? {} : { admission: values.admission }),
     builds: [...new Set([build, obuild])].map((name) => ({ name, setup: auditBuild(name).setup })) };
   const rows = await runJobs(dir, manifest, jobs, { workers: lanes, jobLimitMs: Number(values["job-minutes"]) * 60000,
     // --until: a wall-clock time (anything Date.parse reads) after which no job starts and an unfinished one

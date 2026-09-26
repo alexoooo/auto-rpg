@@ -14,7 +14,7 @@ export async function execute(job, manifest) {
   const started = performance.now();
   const run = await runDrill({ drill: job.drill, subjectSetup: builds.get(job.leftBuild),
     opponentSetup: builds.get(job.rightBuild), seed: job.seeds[0], rungs: manifest.rungs,
-    rungFactory: expertMind });
+    rungFactory: expertMind, admission: manifest.admission ?? "wound" });
   // `winner` is null because a drill run has none; `runJobs`' schedule check requires the field.
   return { ...job, status: "ok", winner: null, wallSeconds: (performance.now() - started) / 1000, run };
 }
