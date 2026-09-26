@@ -88,8 +88,8 @@ el('grip-view').addEventListener('click', () => {
   if (!mesh) return;
   resetCamera(); mesh.refreshBoundingInfo({ applySkeleton: true }); mesh.computeWorldMatrix(true);
   camera.setTarget(mesh.getBoundingInfo().boundingBox.centerWorld.clone());
-  camera.radius = weapon === 'bow' ? .7 : .5;
-  camera.alpha = weapon === 'shield' ? Math.PI + .3 : Math.PI / 2 + .3;
+  camera.radius = weapon === 'bow' || weapon === 'shield' ? .7 : .5;
+  camera.alpha = weapon === 'shield' ? .3 : Math.PI / 2 + .3;
   camera.beta = 1.1;
 });
 // Keyboard alternative to drag for the focusable preview.

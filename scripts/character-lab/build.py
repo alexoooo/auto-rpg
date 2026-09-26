@@ -3,7 +3,7 @@ import bpy, bmesh, math, json, sys
 from pathlib import Path
 from mathutils import Vector, Matrix
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from grips import build_hands, build_equipment, GRIP_OFFSET, GRIP_DOWN, STRING_BACK
+from grips import build_hands, build_equipment, GRIP_OFFSET, GRIP_DOWN, STRING_BACK, HOOK_OFFSET, HOOK_DOWN
 ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'public/assets/character-lab'; SOURCE=ROOT/'assets/character-lab'
 OUT.mkdir(parents=True,exist_ok=True); SOURCE.mkdir(parents=True,exist_ok=True)
@@ -118,8 +118,6 @@ def character(kind):
         tunic.vertex_groups['thigh.R'].add([i],amount*(1-left),'REPLACE')
     loft('base__neck',[(0,0,shoulder,.065,.060),(0,0,neck+.065,.056,.054)],skin,'neck')
     loft('base__collar',[(0,0,shoulder+.012,.076,.072),(0,0,shoulder+.055,.071,.067)],leather,'chest')
-    tube('base__placket',[(0,-.143,shoulder-.11),(0,-.12,shoulder-.27),(0,-.105,hip+.12)],.012,leather,'chest')
-    for z,y in [(shoulder-.12,-.15),(shoulder-.18,-.138),(shoulder-.24,-.13)]:orb('base__button',(0,y,z),(.009,.005,.009),trim,'chest')
     loft('base__belt',[(0,0,hip+.02,.192 if female else .214,.139),(0,0,hip+.075,.162 if female else .194,.122)],leather,'pelvis',24)
     box('base__buckle',(0,-.127,hip+.048),(.065,.018,.053),trim,'pelvis')
     box('base__buckle_inset',(0,-.138,hip+.048),(.039,.009,.029),leather,'pelvis',.002)
@@ -128,9 +126,12 @@ def character(kind):
     for s,sign in [('R',-1),('L',1)]:
         sh,el,_=bones[f'upper.{s}'];_,wr,_=bones[f'fore.{s}'];knee=bones[f'shin.{s}'][0][2]
         orb('base__shoulder_gusset_'+s,sh,(.085,.085,.082) if female else (.099,.094,.09),cloth,'chest')
-        loft('base__sleeve_'+s,[(*sh,.080 if female else .096,.081),(sign*(sx+.035),-.004,shoulder-.15,.068 if female else .079,.071),
-          (*el,.051 if female else .062,.056),(sign*(wx-.012),-.02,shoulder-.44,.047 if female else .054,.05),(*wr,.036,.039)],cloth,
-          [{'chest':.85,f'upper.{s}':.15},{f'upper.{s}':1},{f'upper.{s}':.5,f'fore.{s}':.5},{f'fore.{s}':1},{f'fore.{s}':1}])
+        # Joint-centred volumes preserve the elbow through large bends and forearm twist.
+        # A single sparse loft with averaged elbow weights collapsed between these bones.
+        tube('base__upper_sleeve_'+s,[sh,Vector(sh).lerp(Vector(el),.45),el],
+             [.080 if female else .096,.072 if female else .084,.055],cloth,f'upper.{s}',24)
+        orb('base__elbow_'+s,el,(.056,.056,.056),cloth,f'fore.{s}',24,16)
+        tube('base__fore_sleeve_'+s,[el,Vector(el).lerp(Vector(wr),.5),wr],[.055,.05,.038],cloth,f'fore.{s}',24)
         loft('base__cuff_'+s,[(wr[0],wr[1],wr[2]+.04,.043,.045),(wr[0],wr[1],wr[2]-.004,.040,.043)],leather,f'fore.{s}')
         x=sign*.10
         # Omit the always-covered proximal trouser region, so it cannot poke through the skirt.
@@ -222,6 +223,12 @@ def character(kind):
         rest=data.bones[f'hand.{s}']
         rig.pose.bones[f'hand.{s}'].matrix=Matrix.Translation(Vector(point))@rotation.to_4x4()@rest.matrix_local.to_3x3().to_4x4()
         bpy.context.view_layer.update()
+    def straight_wrist(s,point):
+        # Hand length (-Z in bind space) continues the achieved forearm axis.
+        fore=rig.pose.bones[f'fore.{s}'];z=(fore.head-Vector(point)).normalized()
+        up=Vector((0,0,1));y=(up-z*up.dot(z)).normalized();x=y.cross(z).normalized()
+        rotation=Matrix((x,y,z)).transposed();wrist_frame(s,point,rotation)
+        return rotation
     for pose,weapon in [(p,w) for p in ['inspection','ready','raised','crouched'] for w in ['empty','sword','shield','sword-shield','bow']]:
         rig.animation_data_clear()
         for pb in rig.pose.bones:pb.rotation_mode='QUATERNION';pb.matrix_basis=Matrix.Identity(4)
@@ -244,17 +251,17 @@ def character(kind):
                 orient(f'foot.{s}',ankle,Vector(bones[f'foot.{s}'][1]))
             arm('L',(.28,-.22,shoulder-.52));arm('R',(-.28,-.22,shoulder-.52))
         if weapon in ['shield','sword-shield']:
-            if pose=='inspection':left=arm('L',(wx,-.18,shoulder-.56))
-            else:left=rig.pose.bones['hand.L'].head.copy()
-            wrist_frame('L',left,Matrix.Rotation(math.pi/2,3,'Z'))
+            height={'inspection':-.30,'ready':-.25,'raised':.02,'crouched':-.48}[pose]
+            left=arm('L',(.055,-.30,shoulder+height))
+            straight_wrist('L',left)
         if weapon=='bow':
             height={'inspection':-.28,'ready':-.22,'raised':.12,'crouched':-.45}[pose]
             left=arm('L',(.16,-.38 if pose=='ready' else -.30,shoulder+height))
             left_rotation=Matrix(((0,0,1),(1,0,0),(0,1,0)))
-            right_rotation=Matrix(((0,0,1),(-1,0,0),(0,-1,0)))
+            right_rotation=Matrix(((0,0,-1),(1,0,0),(0,-1,0)))
             wrist_frame('L',left,left_rotation)
             string_point=left+left_rotation@Vector((-GRIP_OFFSET+STRING_BACK,0,-GRIP_DOWN))
-            right_target=string_point-right_rotation@Vector((GRIP_OFFSET,0,-GRIP_DOWN))
+            right_target=string_point-right_rotation@Vector((HOOK_OFFSET,0,-HOOK_DOWN))
             right=arm('R',right_target)
             if (right-right_target).length>.0001:raise ValueError(f'{kind}/{pose}: unreachable bowstring hand')
             wrist_frame('R',right,right_rotation)

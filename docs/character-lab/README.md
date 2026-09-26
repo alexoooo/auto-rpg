@@ -23,7 +23,7 @@ For the production version, run `npm run build`, then `npm run preview -- --host
 - Use **Inspect grip** to frame the equipped hand, then rotate to inspect both sides. Right-drag pans between the two bow hands.
 - Drag to orbit; wheel or pinch to zoom; right-drag to pan; Reset view restores framing.
 - With the canvas focused, Left/Right rotate, Up/Down change the inspection height, and +/− zoom.
-- Inspect shows an equipment-specific relaxed pose; Ready applies the equipment pose. Fit checks exposes raised arms and a planted-foot crouch.
+- Inspect shows an equipment-specific relaxed pose; Ready applies another equipment pose; the bow remains in low preparation, without a drawn string or nocked arrow. Fit checks exposes raised arms and a planted-foot crouch.
 
 ## Authoring and rebuilding
 
@@ -55,7 +55,7 @@ npm exec --yes --package=playwright -- node scripts/character-lab/browser-check.
 
 Playwright runs in a separate headless browser and is not added to the game's dependencies. Review artifacts go into `.review/character-lab`; representative screenshots are refreshed in this directory.
 
-The original visibility-only acceptance was insufficient: it did not verify grasping. The correction adds open, power-grip and string-hook hand variants; solid shield geometry with connected handle mounts; equipment-specific wrist frames; and close-up rendering that does not cull moved fingers using bind-pose bounds. Contact checks sample vertices, triangle centres and edge midpoints, with a 1 mm tolerance and deliberately detached negative controls. These are geometry checks, not simulated grasp forces.
+The original visibility-only acceptance was insufficient: it did not verify grasping. The correction adds open, power-grip and three-finger string-hook hand variants; a strapped heater with separate hand grip and fitted forearm enarme; equipment-specific wrist frames; and close-up rendering that does not cull moved fingers using bind-pose bounds. Contact checks sample vertices, triangle centres and edge midpoints, with a 1 mm tolerance and deliberately detached negative controls. These are geometry checks, not simulated grasp forces.
 
 [Fighter preview](fighter.jpg) · [Rogue preview](rogue.jpg) · [Mobile preview](mobile.jpg)
 
@@ -66,3 +66,15 @@ This is stylized prototype art, not a production realistic-human pipeline. Holdi
 Grip correction verification (2026-09-26): 1,024 repository tests passed; the final geometry contact tests, TypeScript check and production build passed. Production browser checks covered 40 loadouts and 160 poses with no browser errors. Four close-up angles per item and character were captured and reviewed.
 
 [Actual sword grip](sword-grip.png) · [Shield handle and mounts](shield-grip.png) · [Both bow hands](bow-grip.png)
+
+## Arm and shield correction
+
+The earlier contact checks did not establish a valid arm chain or shield hold. The shield now uses a strapped arrangement: the forearm runs across the back of the board, a broad enarme wraps the forearm, and the fist holds a separate upright handle with the wrist aligned to the forearm. Cloth and armour use separately fitted strap meshes.
+
+The bow's right wrist was reversed, and sparse sleeve weights collapsed the elbow. The sleeves now have joint-centred upper-arm, elbow and forearm volumes. Tests measure exported elbow-ring continuity, hand-to-wrist joins and wrist direction, in addition to surface contact. The string hand uses three open J-shaped hooks; the little finger stays clear. Bow limbs follow a smooth curve. The floating tunic placket was removed.
+
+This is a low preparation pose, not a drawn shooting pose. A firing animation still needs a nocked arrow, limb flex, moving string, draw and release. Archery form reference: [World Archery's hook and straight-wrist guidance](https://www.worldarchery.sport/news/157499/coach-kim-hyung-taks-5-keys-great-recurve-archery-technique). Shield attachment context: [shield straps](https://en.wikipedia.org/wiki/Strapped_shield). The linked YouTube video could not be retrieved during this correction.
+
+Whole-arm review is reproducible with `scripts/character-lab/anatomy-review.mjs` through the same ephemeral Playwright command as the other browser checks. It captures both characters, shield/bow, all four poses, both armour states and front/back/side views. Review complete silhouettes as well as the grip details; contact-test success alone is not visual acceptance.
+
+[Complete bow arm pose](bow-arm-pose.png) · [Shield forearm position](shield-arm-pose.png). Final verification: 1,024 repository tests passed; focused exported-geometry checks, TypeScript and production build passed. Production browser checks passed 40 loadouts and 160 pose combinations. The 96 full-pose captures and 24 grip views were reviewed, including cloth/armour and front/back/side views.
