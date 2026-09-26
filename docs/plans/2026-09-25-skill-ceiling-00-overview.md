@@ -253,5 +253,12 @@ their choice is collected here instead of stopping the run. Each item names wher
   are at about 1.4, inside their proposed band of 0.5 to 2. The human never falls. Should it?
 - **The whip build loses about 99 % of its bouts** at both rates. It is a dead-end candidate for
   session 05, and the four-bead lash is a design choice.
+- **Should the seeds reach the opening?** Today every bout of one mind pairing opens identically
+  whatever its seeds, so float rounding between the two mirrored spawns decides a short fight. The
+  miser leans left (59.4 % over 186 distinct bouts, pooled over two runs), and the guardian always
+  wins from the left, because its fight ends before its seed first acts. Both are listed in
+  `docs/analysis/2026-09-25-side-mirror.md`. A seeded spawn jitter would fix it, and would change
+  every recorded number. Until then, comparisons play each pairing both ways round, which cancels
+  the lean.
 - **Judging balance on the carried base** is an option recorded by the rate-falls study and not
   taken.
