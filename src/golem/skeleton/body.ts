@@ -279,8 +279,8 @@ const reachAtBend = (bend: number): number =>
  * wrist link beyond them, put the grip 1.04 m from the shoulder of a body 1.62 m tall, and with a
  * 0.8 m sword on the end the arm read as a spear. At 0.30 and 0.25 the elbow hangs at the bottom of
  * the ribcage and the grip sits 0.68 m out, as on a person. `reachMin` and `reachMax` are solved at
- * stone's two elbow bends (2.50 and 0.12 rad) because the joint limits are stone's; `reachNeutral`
- * and `carryMin` are stone's scaled by `ARM_SCALE`.
+ * stone's two elbow bends (2.50 and 0.12 rad) because the joint limits are stone's; `carryMin` is
+ * stone's scaled by `ARM_SCALE`.
  *
  * **The joint ceilings are stone's**, and the Node bench says the lighter arm needs no other.
  * Each pair's scripted sequence beside its `effector.wrist.*` twin (no pair stuck, touched anything
@@ -313,7 +313,6 @@ export const SKELETAL_REACH = {
   foreLength: FOREARM, foreRadius: 0.018, foreMass: 0.4, foreHealth: 20,
   reachMin: reachAtBend(2.50),
   reachMax: reachAtBend(0.12),
-  reachNeutral: CHAIN_REACH.reachNeutral * ARM_SCALE,
   carryMin: CHAIN_REACH.carryMin * ARM_SCALE,
 };
 

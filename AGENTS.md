@@ -244,10 +244,14 @@ directly under `node`. It is how a body gets measured without a person watching.
   every hittable thing imports took the whole graph out of Node's reach.
 - **A blade that is *struck* goes far faster than one that is driven, and a peak that does
   not say which it is means nothing.** Two exclusions are mandatory for any tip-speed
-  reading. The first 0.6 s (`BENCH_READOUT.startupExclusionSeconds`), because an arm is built
-  hanging straight down and has to be driven onto its commanded pose: the Warrior's anchor
+  reading. The first 0.6 s (`BENCH_READOUT.startupExclusionSeconds`), because an arm used to be
+  built hanging straight down and driven onto its commanded pose: the Warrior's anchor
   keyframed there on the very first control step, a snap worth **77 m/s** in a fighter that
-  never swung, and a golem arm ramps there over `CHAIN_REACH.acquireSeconds`. And a
+  never swung, and a golem arm swept there at up to 12.8 m/s. Since 2026-09-25 every arm is
+  built at its rest command (`restCursor` in `src/golem/effectors/chains/arm-core.ts`), an idle
+  fighter's tip peaks at 0.16 m/s or less in that window (the whip's lash, 3.3, excepted), and
+  `an_arm_is_built_where_its_rest_command_holds_it` goes red if one is built hanging again; the
+  window is kept because a stand's first command need not be the rest one. And a
   quarter second after any contact: blade on blade, a glance off a body, or a dropped sword
   hitting the floor all spin the blade past anything a motor could do, measured over
   **100 m/s**. Related: **a swing measured from rest is a floor on a swing measured in

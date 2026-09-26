@@ -111,7 +111,8 @@ export function effectorModule(
     build(ctx: ModuleBuild): BuiltModule<HandIntent> {
       const size = attributeOf(ctx, "size");
       const limits = terminal?.limits ? withSize(terminal.limits, CHAIN_LIMITS_SIZE, size) : null;
-      const built = chain.build(ctx, limits, null, terminal?.massKg ?? 0);
+      const built = chain.build(ctx, limits, null, terminal?.massKg ?? 0,
+        terminal ? terminal.attachment ?? "socket" : undefined);
 
       // The trailing chain is built before the terminal, because the terminal needs its weld --
       // and everything built here is taken down again if any of the four refusals fires, which

@@ -48,6 +48,9 @@ import {
 } from "./harness/golem-bench.mjs";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { PLAYABLE_BUILDS } from "../src/golem/roster.ts";
+import { restCursor } from "../src/golem/effectors/chains/arm-core.ts";
+import { NEUTRAL } from "../src/mind.ts";
+import { freshIntent } from "../src/action-primitives.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SUBSTEP = 1 / CONFIG.world.physicsHz;
@@ -376,14 +379,15 @@ test("rung 1 tracks its command, strokes and never touches itself", async () => 
     `the limb's fastest moment was ${state.peakTipSpeedRaw} m/s inside an exclusion window,`
     + ` against ${state.peakTipSpeedDriven} m/s for the stroke itself`);
 
-  // **The limb lifts out of its build pose under a rate-limited command**, which is a detected
-  // step in the first phase of the sequence. Started at the cursor instead, the command never
-  // moves at all, no step is detected, and this reads null -- which is the mutation that turns
-  // this red. A Warrior's anchor is teleported to the cursor on the first control step and this
-  // is the golem's refusal of that.
+  // **The limb is built where the rest command holds it**, so the sequence's first phase, which
+  // asks for exactly that, detects no step at all. Until 2026-09-25 the link was built hanging and
+  // lifted out of its build pose under a rate-limited command, and this asserted that step; built
+  // hanging again, it is a step once more and this reads a number -- which is the mutation that
+  // turns this red. `an_arm_is_built_where_its_rest_command_holds_it` is the same rule in a bout.
   const rest = run.marks.find((mark) => mark.phase === "rest");
-  assert.ok(rest?.state.settleSeconds !== null && rest?.state.settleSeconds !== undefined,
-    "the limb did not lift out of its build pose; the command began where the cursor was");
+  assert.ok(rest, "the scripted sequence must contain a rest step");
+  assert.equal(rest.state.settleSeconds, null,
+    "the limb moved at rest: it was not built where its rest command holds it");
 
   // Wander at rest, against rung 0's floor of 1.5e-5 mm. 2.876 mm measured; provisional, pinned
   // from the 2026-09-04 Node bench run, to be re-taken after the owner's gate.
@@ -2034,4 +2038,52 @@ test("the_stroke_bench_reads_how_much_of_the_tip_s_motion_the_edge_leads", async
   assert.ok(wrist.edgeLeadAtMark > 0.9, `the wrist blade's edge leads ${wrist.edgeLeadAtMark} at the mark`);
   const flat = await runStrokeBench({ moduleId: "effector.wrist.blade", timed: true, shape: { roll: -0.8, windRoll: -0.8 } });
   assert.ok(flat.edgeLeadAtMark < 0.4, `turned 1.1 rad off, the wrist blade's edge still leads ${flat.edgeLeadAtMark}`);
+});
+
+test("an_arm_is_built_where_its_rest_command_holds_it", async () => {
+  // Skill ceiling 01, part 3. Every arm used to be built hanging and swept to guard by its drive
+  // over the first fifth of a second, so a fighter nobody had moved peaked at 12.8 m/s at the tip
+  // (stone), 14.9 (pitch), 5.65 (human) and 9.55 (skeleton), and two stone fighters at the arena's
+  // separation clashed blades at 0.117 s in every probe-mind mirror (Node bout runner, 120 Hz).
+  // Built at the pose the rest command holds, nothing moves until a commander moves it: 0.16 m/s
+  // or less. `docs/analysis/2026-09-25-arms-at-guard.md`.
+  //
+  // The rest command is restated in the body (`restCursor`), so first: it is the one the mind's
+  // `NEUTRAL` and the option layer's `freshIntent` hold, on both hands.
+  for (const slot of ["primary", "secondary"]) {
+    const rest = restCursor(slot);
+    for (const [name, intent] of [["NEUTRAL", NEUTRAL], ["freshIntent", freshIntent()]]) {
+      const hand = intent[slot];
+      assert.deepEqual({ pointerX: rest.pointerX, pointerY: rest.pointerY, reach: rest.reach },
+        { pointerX: hand.pointerX, pointerY: hand.pointerY, reach: hand.reach },
+        `the ${slot} arm is built at a cursor ${name} does not hold`);
+      assert.equal(hand.roll, 0, `${name}'s ${slot} hand rests rolled, and the arm is built unrolled`);
+      assert.equal(hand.wristBend, 0, `${name}'s ${slot} hand rests bent, and the arm is built straight`);
+    }
+  }
+  // Then every arm family, standing idle and alone: the stone wrist chain, the reach chain (the
+  // same core without a wrist), the pitch hinge, the anatomical arm holding a blade, a strapped
+  // plate and a second blade, and the skeletal chain.
+  const stone = PLAYABLE_BUILDS.find((b) => b.name === "default").setup;
+  const setups = [
+    ["default", stone],
+    ["reach", { ...stone, primary: { chain: "reach", terminal: "blade" }, secondary: { chain: "reach", terminal: "plate" } }],
+    ["pitch-blade", PLAYABLE_BUILDS.find((b) => b.name === "pitch-blade").setup],
+    ["human-warrior", PLAYABLE_BUILDS.find((b) => b.name === "human-warrior").setup],
+    ["human-dual-swords", PLAYABLE_BUILDS.find((b) => b.name === "human-dual-swords").setup],
+    ["skeleton-warrior", PLAYABLE_BUILDS.find((b) => b.name === "skeleton-warrior").setup],
+  ];
+  for (const [name, setup] of setups) {
+    let peak = 0, where = "";
+    const bout = createBout({ left: "idle", right: "idle", seeds: [1, 2], locomotionMode: "supported",
+      leftGolem: setup, rightGolem: setup, separation: 20, maxSeconds: 0.6, physics: await freshHavok(),
+      onSample: ({ left, clock }) => {
+        for (const hand of ["primary", "secondary"]) {
+          const speed = left.view.self.hands[hand].tipSpeed;
+          if (speed > peak) { peak = speed; where = `${hand} at ${clock.toFixed(3)} s`; }
+        }
+      } });
+    try { while (bout.step()); } finally { bout.dispose(); }
+    assert.ok(peak < 0.5, `${name}, idle: a tip reached ${peak.toFixed(2)} m/s (${where}) with nothing commanding it`);
+  }
 });
