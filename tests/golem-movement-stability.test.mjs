@@ -4,7 +4,10 @@ import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { PhysicsConstraintAxis } from '@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js';
 import { CONFIG } from '../src/config.ts';
 import { stepPair } from '../src/fighter.ts';
-import { humanMind, idleMind, NEUTRAL } from '../src/mind.ts';
+import { idleMind, NEUTRAL } from '../src/mind.ts';
+
+/** A mind that hands the body whatever the test has written into `source.state`. */
+const scripted = (source) => ({ name: 'scripted', decide: () => source.state });
 import { boxPart, joint } from '../src/rig.ts';
 import { Golem } from '../src/golem/golem.ts';
 import { defaultGolemSetup } from '../src/golem/build.ts';
@@ -82,7 +85,7 @@ for (const [label, overrides] of builds) {
       const sources = [0, 1].map(() => ({ state: structuredClone(NEUTRAL) }));
       const pair = ['left', 'right'].map((side, i) => new Golem(scene, {
         side, origin: new Vector3(i ? 4 : -4, 0, 0), facing: i * Math.PI,
-        setup: { ...defaultGolemSetup(), ...overrides }, mind: humanMind(sources[i]),
+        setup: { ...defaultGolemSetup(), ...overrides }, mind: scripted(sources[i]),
         controlPolicies: [], locomotionWorld: world,
       }));
       const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
@@ -176,7 +179,7 @@ for (const frameMs of [1000 / 60, 1000 / 30]) {
     source.state.secondary.reach = 1 / 7;
     const pair = ['left', 'right'].map((side, i) => new Golem(scene, {
       side, origin: new Vector3(0, 0, i * 8), facing: i * Math.PI,
-      setup: defaultGolemSetup(), mind: humanMind(source), controlPolicies: [], locomotionWorld: world,
+      setup: defaultGolemSetup(), mind: scripted(source), controlPolicies: [], locomotionWorld: world,
     }));
     for (const g of pair) for (const { part } of g.limbs)
       scene.getPhysicsEngine().getPhysicsPlugin().setActivationControl(part.body, 1);

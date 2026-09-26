@@ -1232,7 +1232,7 @@ export const CHAIN_REACH = {
    * Nothing replaced them. Reach became a continuous channel on `HandIntent`, elevation became
    * unconditional, and speed became what it should always have been: how fast a commander moves
    * its own target against `anchorForce` and 29.5 kg of stone. A person still gets the three
-   * poses those buttons used to give -- `src/buttons.ts` synthesizes them, to the millimetre --
+   * poses those buttons used to give -- `src/bench/buttons.ts` synthesizes them, to the millimetre --
    * because a mouse is an impoverished input device and a policy is not.
    *
    * `reachGuard`, `reachThrust` and `reachResponse` went with them and for the same reason.
@@ -4025,7 +4025,7 @@ export const HEAD_PLAIN = {
    * 0.70 rad is 40 degrees: a deep duck that puts the crown between the enemy and the face, which
    * is what a head with nothing on it does. `HEAD_RAM.guardPitch` is much shallower, because a
    * plate presented at 40 degrees is pointing at the floor. It is a **level** rather than a
-   * stroke -- the rule `src/buttons.ts` states -- and it is short of `HEAD_NECK.pitchMax`, so a
+   * stroke -- the rule `src/bench/buttons.ts` states -- and it is short of `HEAD_NECK.pitchMax`, so a
    * guard is a pose and not a limit. Chosen by eye against the stand, 2026-09-04.
    */
   guardPitch: 0.70,

@@ -154,7 +154,6 @@ test("the_showcase_matchup_names_a_unit_and_a_policy_the_registry_has", () => {
     assert.equal(definition.kind, "golem");
     assert.ok(definition.driverOptions.some((driver) => driver.name === matchup[side].policy),
       `the golem offers "${matchup[side].policy}"`);
-    assert.equal(definition.humanAdapter, true, "a person can take a golem");
   }
 });
 

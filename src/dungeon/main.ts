@@ -22,6 +22,7 @@ import { PLAYABLE_BUILDS } from "../golem/roster.ts";
 import { describeAttributes, withAttribute, withAttributeSetting, type AttributeSetting } from "../golem/attributes.ts";
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "../attributes-ui.ts";
 import { DungeonRun } from "./run.ts";
+import { orderLabel } from "./commands.ts";
 import { cellKey, type Point } from "./map.ts";
 import { CAMERA_PITCH, frameDungeon, pickingCoordinates } from "./camera.ts";
 import { dressingPlacements, torchPlacements } from "./dressing.ts";
@@ -36,6 +37,7 @@ const need = <T extends HTMLElement>(id: string): T => {
 const canvas = need<HTMLCanvasElement>("dungeon"), start = need<HTMLButtonElement>("start");
 const heroBuild = need<HTMLSelectElement>("hero-build"), seedInput = need<HTMLInputElement>("seed");
 const keyboard = need<HTMLInputElement>("keyboard"), facing = need<HTMLInputElement>("facing");
+const companionCount = need<HTMLSelectElement>("companions"), partyList = need<HTMLOListElement>("party-list");
 const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
@@ -45,7 +47,13 @@ const pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.
 const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
 // Wheel locomotion cannot strafe; the hero picker offers bodies that can honor screen movement.
-for (const build of PLAYABLE_BUILDS.filter(b => b.setup.locomotion !== "locomotion.wheel")) {
+const WALKERS = PLAYABLE_BUILDS.filter(b => b.setup.locomotion !== "locomotion.wheel");
+/** The companions for a hero: the next walkers on the list after the hero's own build, so none is its twin. */
+const companionBuilds = (hero: string, count: number): string[] => {
+  const at = Math.max(0, WALKERS.findIndex(b => b.name === hero));
+  return Array.from({ length: count }, (_, i) => WALKERS[(at + 1 + i) % WALKERS.length].name);
+};
+for (const build of WALKERS) {
   const option = document.createElement("option"); option.value = build.name; option.textContent = build.name.replaceAll("-", " "); heroBuild.append(option);
 }
 
@@ -97,7 +105,7 @@ async function boot(): Promise<void> {
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
   let scene: Scene | null = null, run: DungeonRun | null = null, camera: FreeCamera | null = null;
-  let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default";
+  let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default", companions: string[] = [];
   let selectedEquipment: GolemSetup | undefined;
   let route: LinesMesh | null = null, routeSignature = "", lastUi = 0;
   const held = new Set<string>();
@@ -110,14 +118,15 @@ async function boot(): Promise<void> {
     paused = value; scene.physicsEnabled = !value && run.status === "playing";
     held.clear(); run.commands.right = run.commands.up = 0; run.commands.cancelPointer();
     need("pause-panel").hidden = !value;
-    need("pause-title").textContent = run.status === "won" ? "You escaped." : run.status === "dead" ? "Your golem has fallen." : "Paused";
+    need("pause-title").textContent = run.status === "won" ? "You escaped." : run.status === "dead"
+      ? run.party.length > 1 ? "Your party has fallen." : "Your golem has fallen." : "Paused";
     need("pause-copy").textContent = run.status === "playing" ? "Your run is frozen. Wheel zoom remains available." : `Seed ${seed} · ${Math.floor(run.clock)} seconds in the depths.`;
     need("resume").hidden = run.status !== "playing";
     need("pause-button").textContent = value ? "Resume · Esc" : "Pause · Esc";
   };
   const framing = () => {
     if (!run || !camera || !lighting) return;
-    const hero = run.hero.body.feetPosition();
+    const hero = run.leader.body.feetPosition();
     frameDungeon(camera, hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch);
     lighting.update(hero, zoom, pitch); run.world.setHero(hero);
   };
@@ -128,7 +137,7 @@ async function boot(): Promise<void> {
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
-    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: stone.masonry }, undefined, selectedEquipment); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
+    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: stone.masonry }, undefined, selectedEquipment, companions); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     run.pitch = pitch;
     // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
     // code no Node test loads, so the rule that it adds no body is held here, where it runs.
@@ -147,6 +156,7 @@ async function boot(): Promise<void> {
     need("hero-name").textContent = selectedBuild.replaceAll("-", " ");
     // From the body that was built, not from the dialog, so the line is what is walking about.
     need("hero-attributes-line").textContent = describeAttributes(run.hero.body.attributes);
+    partyRows();
     setPaused(false); framing(); run.present(); lighting.refreshFog(run.explored); scene.render(); canvas.focus();
     Object.assign(window, { __dungeon: { get run() { return run; }, get scene() { return scene; }, get camera() { return camera; },
       get lighting() { return lighting; }, look: probe, engine } });
@@ -171,6 +181,7 @@ async function boot(): Promise<void> {
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) { seedInput.setCustomValidity("Enter a seed from 0 to 4294967295."); seedInput.reportValidity(); return; }
     seedInput.setCustomValidity(""); selectedBuild = heroBuild.value;
+    companions = companionBuilds(selectedBuild, Number(companionCount.value));
     const arm = heroArming();
     selectedEquipment = arm ? arm(heroPrimary.value, heroSecondary.value) : undefined;
     // A hero somebody tuned is handed over as a whole setup; one nobody tuned goes the way it always
@@ -190,6 +201,38 @@ async function boot(): Promise<void> {
   need("new-run").addEventListener("click", () => launch(randomSeed()), { signal });
   const toggleHelp = () => { const panel = need("help"); panel.hidden = !panel.hidden; need("help-button").setAttribute("aria-expanded", String(!panel.hidden)); if (!panel.hidden) setPaused(true); };
   need("help-button").addEventListener("click", toggleHelp, { signal }); need("close-help").addEventListener("click", toggleHelp, { signal });
+  // One row per party member, built once a run; `partyStatus` refreshes them. A row is a button: a
+  // click selects that member alone and Shift adds it, as a click on its body does.
+  const partyRows = () => {
+    if (!run) return;
+    partyList.replaceChildren(...run.party.map((member, i) => {
+      const row = document.createElement("li"), button = document.createElement("button");
+      button.type = "button"; button.dataset.member = member.id;
+      button.innerHTML = `<kbd>${i + 1}</kbd><span>${member.name.replaceAll("-", " ")} <small></small></span><progress max="1" value="1"></progress>`;
+      row.append(button); return row;
+    }));
+  };
+  const partyStatus = () => {
+    if (!run) return;
+    for (const button of partyList.querySelectorAll<HTMLButtonElement>("button[data-member]")) {
+      const member = run.party.find(m => m.id === button.dataset.member); if (!member) continue;
+      button.setAttribute("aria-pressed", String(run.selected.has(member.id)));
+      button.classList.toggle("fallen", !member.body.alive);
+      button.querySelector("progress")!.value = member.body.vitality;
+      button.querySelector("small")!.textContent = member.body.alive ? `· ${orderLabel(member.order, member.post, member === run.hero)}` : "· fallen";
+    }
+  };
+  const selectMember = (id: string, add: boolean) => {
+    if (!run) return;
+    run.select(add ? [...run.selected, id] : [id]); partyStatus();
+  };
+  partyList.addEventListener("click", event => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-member]");
+    if (!button?.dataset.member) return;
+    selectMember(button.dataset.member, event.shiftKey);
+    // A focused button takes Space, which pauses here, as a second press.
+    button.blur(); canvas.focus();
+  }, { signal });
   const sampleKeys = () => {
     if (!run) return;
     run.commands.right = Number(held.has("KeyD") || held.has("ArrowRight")) - Number(held.has("KeyA") || held.has("ArrowLeft"));
@@ -202,6 +245,14 @@ async function boot(): Promise<void> {
     }
     if (event.key === "?") { if (!event.repeat) toggleHelp(); return; }
     if (paused || !run) return;
+    const digit = /^Digit([0-9])$/.exec(event.code);
+    if (digit && !event.repeat) {
+      const index = Number(digit[1]);
+      if (index === 0) { run.select(null); partyStatus(); }
+      else if (run.party[index - 1]) selectMember(run.party[index - 1].id, event.shiftKey);
+      return;
+    }
+    if (event.code === "KeyF" && !event.repeat) { run.regroup(); partyStatus(); return; }
     if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) {
       event.preventDefault(); held.add(event.code); sampleKeys();
     }
@@ -221,6 +272,10 @@ async function boot(): Promise<void> {
   canvas.addEventListener("pointerdown", event => {
     if (paused || !run || !scene || event.button !== 0) return;
     canvas.focus(); const p = pointer(event); if (!p.ground) return;
+    // A click on a party member selects it, and is not an order.
+    const friend = scene.pick(p.x, p.y, mesh => run!.memberAt(mesh) !== null, false, camera!);
+    const member = friend?.pickedMesh ? run.memberAt(friend.pickedMesh) : null;
+    if (member) { selectMember(member.id, event.shiftKey); return; }
     const picked = scene.pick(p.x, p.y, mesh => run!.targetAt(mesh) !== null, false, camera!);
     const target = picked?.pickedMesh ? run.targetAt(picked.pickedMesh) : null;
     if (!target && !run.explored.has(cellKey(run.map, p.ground))) return;
@@ -246,18 +301,25 @@ async function boot(): Promise<void> {
       lastUi = performance.now(); run.present(); lighting?.refreshFog(run.explored);
       need<HTMLProgressElement>("hero-hp").value = run.hero.body.vitality;
       need("hp-label").textContent = `${Math.ceil(run.hero.body.vitality * 100)}% HP`;
-      const target = run.hero.target; need("target-panel").hidden = !target || !target.body.alive;
+      partyStatus();
+      const target = run.leader.target; need("target-panel").hidden = !target || !target.body.alive;
       if (target) { need("target-name").textContent = target.name.replaceAll("-", " "); need<HTMLProgressElement>("target-hp").value = target.body.vitality; }
       need("notice").textContent = run.notice;
-      const order = run.commands.order;
-      const points: Point[] = order.kind === "force" ? [...run.hero.route, ...order.points.slice(1)] : run.hero.route;
-      const signature = JSON.stringify(points);
+      // Every standing member's route, from its feet: the rest of a drawn route after the point it is on.
+      const walks = run.party.filter(m => m.body.alive).map(m => {
+        const order = m.order;
+        return { force: order.kind === "force", from: m.body.feetPosition(),
+          points: (order.kind === "force" ? [...m.route, ...order.points.slice(m.next + 1)] : m.route) as Point[] };
+      }).filter(walk => walk.points.length);
+      const signature = JSON.stringify(walks.map(w => [w.force, w.points]));
       if (signature !== routeSignature) {
         route?.dispose(); route = null; routeSignature = signature;
-        if (points.length) {
-          const hero = run.hero.body.feetPosition();
-          route = MeshBuilder.CreateLines("movement route", { points: [new Vector3(hero.x, 0.06, hero.z), ...points.map(p => new Vector3(p.x, 0.06, p.z))] }, scene);
-          route.color = order.kind === "force" ? Color3.FromHexString("#70d8e0") : Color3.FromHexString("#dec693"); route.isPickable = false;
+        if (walks.length) {
+          const cool = Color3.FromHexString("#70d8e0"), warm = Color3.FromHexString("#dec693");
+          const lines = walks.map(w => [new Vector3(w.from.x, 0.06, w.from.z), ...w.points.map(p => new Vector3(p.x, 0.06, p.z))]);
+          route = MeshBuilder.CreateLineSystem("movement route", { lines,
+            colors: walks.map((w, i) => lines[i].map(() => (w.force ? cool : warm).toColor4())) }, scene);
+          route.isPickable = false;
         }
       }
     }

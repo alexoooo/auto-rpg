@@ -22,6 +22,7 @@ import {
   isAttributeId, withAttribute, withAttributeSetting, type AttributeId, type AttributeSetting,
 } from "./golem/attributes.ts";
 import type { Side } from "./physics.ts";
+import { isAutoCommanderName, type AutoCommanderName } from "./orders.ts";
 import type { HitKind } from "./scoring.ts";
 
 /**
@@ -87,38 +88,6 @@ export function pauseAction(phase: Phase, running: boolean): PauseAction {
 
 /** Whether a side reads a policy or a person. */
 export type Control = "mind" | "you";
-
-/**
- * How much of a body a person is driving, when that body is theirs.
- *
- * `control` answers *which* body is yours; this answers *how much of it*, and the two are kept
- * apart rather than folded into one four-valued field because almost nothing needs the second.
- * The camera, `humanSide`, the aim indicator, `Targeting` and `withControl`'s one-person
- * invariant all ask the same yes-or-no question they always asked, and only `splitMind` reads
- * the split. One field spelling all four states would make every one of those readers enumerate
- * three cases to learn one bit.
- *
- * There is no fourth value for *neither*: a body you drive nothing of is a body the mind has,
- * which is `control: "mind"` and already spelled.
- */
-export type Channels = "move" | "attack" | "both";
-
-/**
- * Whether the person is driving this side's feet, and whether they are driving its hands.
- *
- * Asked through a predicate rather than off the field because the answer is a conjunction --
- * a side only has channels at all while it is yours -- and because both are total over a
- * `channels` that is missing. That is not defensiveness: links made before this field existed
- * carry `control: "you"` and nothing else, and back then taking a body took all of it, so
- * absent reads as `both` and an old link still means what it meant.
- */
-export function drivesMove(side: SideSetup): boolean {
-  return side.control === "you" && side.channels !== "attack";
-}
-
-export function drivesAttack(side: SideSetup): boolean {
-  return side.control === "you" && side.channels !== "move";
-}
 
 /** One corner of the setup screen. */
 /**
@@ -221,12 +190,15 @@ export interface SideSetup {
   unit: string;
   /** Which policy, by `Policy.name` in `mind.ts`. */
   policy: string;
+  /** Who commands this side: a person (`"you"`), or its own auto-commander (`"mind"`). */
   control: Control;
   /**
-   * Which channels are yours, read only while `control` is `"you"`. Optional, because a link
-   * or a harness from before the split says nothing and means `"both"`; see `drivesMove`.
+   * The auto-commander that hands this side its orders while nobody commands it (`src/orders.ts`).
+   * Optional, and absent means `"attack-nearest"`, which hands over no orders at all: every link
+   * and every harness from before orders existed says nothing here and means exactly what it
+   * meant. Read only while `control` is `"mind"`; a side a person commands takes the person's.
    */
-  channels?: Channels;
+  commander?: AutoCommanderName;
   /** The primary hand -- the one the mouse starts on. */
   handA: string;
   /** The secondary. `empty` is a choice rather than an absence. */
@@ -322,8 +294,7 @@ export function defaultMatchup(): Matchup {
     // there was a choice -- so the default matchup is the body every number in
     // `docs/measurements.md` was taken from, and a bout opened without touching
     // the pickers is still that measurement's bout.
-    left: { unit: "warrior", policy: "idle", control: "you", channels: "both",
-      handA: "sword", handB: "empty" },
+    left: { unit: "warrior", policy: "idle", control: "you", handA: "sword", handB: "empty" },
     right: { unit: "warrior", policy: "idle", control: "mind", handA: "sword", handB: "empty" },
   };
 }
@@ -626,13 +597,12 @@ const readSide = (value: unknown): SideSetup | null => {
     unit: value.unit, policy: value.policy, control: value.control,
     handA: value.handA, handB: value.handB,
   };
-  // Absent is not a shape the codec has to refuse, unlike the fields above: every link written
-  // before the channel split omits it and every one of them meant `both`, so reading it that
-  // way decodes the link that was actually shared rather than repairing a broken one.
-  if (value.channels !== undefined) {
-    if (value.channels !== "move" && value.channels !== "attack"
-      && value.channels !== "both") return null;
-    side.channels = value.channels;
+  // `channels` -- which half of a body a person puppeted -- is read by nothing since skill ceiling
+  // session 06: a person commands a side and no longer drives it. A link from before then may still
+  // carry the field, so it is ignored rather than refused, and the link opens the fight it named.
+  if (value.commander !== undefined) {
+    if (typeof value.commander !== "string" || !isAutoCommanderName(value.commander)) return null;
+    side.commander = value.commander;
   }
   if (value.golem !== undefined) {
     const golem = readGolem(value.golem);
@@ -674,6 +644,21 @@ export function withPolicy(matchup: Matchup, side: Side, policy: string): Matchu
 }
 
 /**
+ * The auto-commander a side's orders come from while nobody commands it. `"attack-nearest"` is the
+ * default and is stored as an absence, so a corner nobody touched writes the same link it always
+ * did and a harness matchup built before orders is the same matchup.
+ */
+export function withCommander(matchup: Matchup, side: Side, commander: AutoCommanderName): Matchup {
+  const next = copy(matchup);
+  if (commander === "attack-nearest") delete next[side].commander;
+  else next[side].commander = commander;
+  return next;
+}
+
+/** A side's auto-commander, with the absent default spelled out. */
+export const commanderOf = (side: SideSetup): AutoCommanderName => side.commander ?? "attack-nearest";
+
+/**
  * Put something in a hand.
  *
  * The club is one weapon and takes two hands, so choosing it in either hand
@@ -707,14 +692,15 @@ export function withEquipment(
 /**
  * Choosing who you are, which is also choosing who you are not.
  *
- * There is one of you, so taking a side gives the other one back to its policy.
- * The HUD's two drive buttons cannot say that on their own -- neither knows the
- * other exists -- so the rule lives here where it can be tested, and the HUD
- * re-reads both labels from the answer. Letting the DOM own it instead is how
- * you get a page that offers two humans and an arena that has one.
+ * There is one of you, so commanding a side gives the other one back to its
+ * auto-commander. The HUD's two command buttons cannot say that on their own --
+ * neither knows the other exists -- so the rule lives here where it can be
+ * tested, and the HUD re-reads both labels from the answer. Letting the DOM own
+ * it instead is how you get a page that offers two commanders and an arena that
+ * has one.
  *
- * `withChannels`, and through it `takeBody`, and `releaseBody` all reach the
- * field through here, so none of them can break the invariant.
+ * `commandSide` and `standDown` both reach the field through here, so neither
+ * can break the invariant.
  */
 export function withControl(matchup: Matchup, side: Side, control: Control): Matchup {
   const next = copy(matchup);
@@ -724,80 +710,44 @@ export function withControl(matchup: Matchup, side: Side, control: Control): Mat
 }
 
 /**
- * Drive a body's movement, its attacks, both, or neither.
+ * Taking command of a side in the middle of a bout.
  *
- * Since 2026-09-23 who drives is an in-game choice, and the only page caller is `takeBody`, which
- * asks for both. The split itself is still live -- `splitMind` reads `channels`, and a matchup
- * link can carry "move" or "attack" -- and this is the reducer that keeps the split and the
- * one-person rule together: asking for neither hands the body back to its mind, and asking for
- * either takes it off the other corner through `withControl`.
+ * **A person commands and does not puppet** (skill ceiling session 06): the side's own mind goes on
+ * driving its body, and what changes is who hands it orders -- the person, through a
+ * `StandingOrders`, instead of the side's auto-commander. So this is a change to the matchup and
+ * nothing else. Who commands which side is what `humanSide` answers, what a link carries, and what
+ * `main.ts` reads to decide whom the camera follows and whose orders a click makes.
+ *
+ * There is one of you, so `withControl` gives the side you left back to its auto-commander in the
+ * same breath. The change persists past the bout: `restart` keeps the matchup and `toSelect`
+ * carries it back to the screen, so a bout commanded from the right is commanded from it again by
+ * Fight or Replay.
+ *
+ * Refused from the screen, by returning exactly the state it was handed: there is no bout to
+ * command there. `over` is allowed: a decided bout deliberately does not stop the world -- see
+ * `Phase` -- and refusing a click while the verdict is on screen would be a rule invented to
+ * protect a banner.
  */
-export function withChannels(
-  matchup: Matchup,
-  side: Side,
-  move: boolean,
-  attack: boolean,
-): Matchup {
-  if (!move && !attack) return withControl(matchup, side, "mind");
-  const next = copy(withControl(matchup, side, "you"));
-  next[side].channels = move && attack ? "both" : move ? "move" : "attack";
-  return next;
-}
-
-/**
- * Taking a body in the middle of a bout.
- *
- * It is a change to the matchup and nothing else, which is the point rather than
- * a shortcut. Who is driving which fighter is already a property of the matchup
- * -- it is what `humanSide` answers, what a link carries, and what
- * `main.ts` reads to decide whom the camera follows, which body the aim
- * indicator draws for and which pair `Targeting` is pointed at. Stepping into a
- * body mid-fight is the same fact arriving through a different door, so it is
- * the same field, and everything downstream retargets without being told.
- *
- * Two consequences worth stating because they are load-bearing rather than
- * incidental. There is one of you, so `withControl` gives the body you left back
- * to `mind` in the same breath -- the arena never has to work out who was
- * displaced, because the matchup has already said. And the change persists past
- * the bout: `restart` keeps the matchup and `toSelect` carries it back to the
- * screen, so a bout you fought out from the right-hand body is fought from it
- * again by Fight or Replay. That is the same argument `toSelect` already makes
- * for keeping the matchup at all -- the thing you want after a bout is the same
- * bout again.
- *
- * **The whole body**, whatever split the corner carried. A link can still say
- * "move" or "attack", and since nothing on the page edits the split any more, a
- * Take that kept it would hand over half a body with no control that could
- * give back the rest.
- *
- * Refused from the screen, by returning exactly the state it was handed. There
- * is no body to take there, and a takeover armed behind the curtain would be a
- * click on a fighter nobody can see. `over` is allowed: a decided bout deliberately does not stop the world --
- * see `Phase` -- so there are still two bodies being driven, and refusing to let
- * somebody pick one up while the verdict is on screen would be a rule invented
- * to protect a banner.
- */
-export function takeBody(state: BoutState, side: Side): BoutState {
+export function commandSide(state: BoutState, side: Side): BoutState {
   if (state.phase === "select") return state;
-  return { ...state, matchup: withChannels(state.matchup, side, true, true) };
+  return { ...state, matchup: withControl(state.matchup, side, "you") };
 }
 
 /**
- * What a side's drive button in the HUD does: let go of the body you drive, or take any other.
- * One rule for the button's label and for its act, so the two cannot disagree.
+ * What a side's button in the HUD does: stand down from the side you command, or command any
+ * other. One rule for the button's label and for its act, so the two cannot disagree.
  */
-export const driveAction = (driving: Side | null, side: Side): "take" | "release" =>
-  driving === side ? "release" : "take";
+export const commandAction = (commanding: Side | null, side: Side): "command" | "stand-down" =>
+  commanding === side ? "stand-down" : "command";
 
 /**
- * Letting go of the body you drive, so that both fighters are their own minds'.
+ * Standing down from the side you command, so that both sides take their auto-commanders' orders.
  *
- * `takeBody`'s other half, and on the same terms: refused from the screen, allowed in a fight, a
- * pause or a verdict, and a matter of the matchup alone -- the camera, the aim indicator and
- * `Targeting` follow `humanSide`, which with nobody human answers null. With nobody human already
- * it hands back exactly the state it was given.
+ * `commandSide`'s other half, and on the same terms: refused from the screen, allowed in a fight,
+ * a pause or a verdict, and a matter of the matchup alone. With nobody commanding already it hands
+ * back exactly the state it was given.
  */
-export function releaseBody(state: BoutState): BoutState {
+export function standDown(state: BoutState): BoutState {
   if (state.phase === "select") return state;
   const side = humanSide(state.matchup);
   if (side === null) return state;

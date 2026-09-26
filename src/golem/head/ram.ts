@@ -13,9 +13,10 @@ import { headModule, type HeadModuleDefinition } from "./head.ts";
  *
  * The centipede is the precedent, copied rather than reinvented: a `Striking` with `hand` null and
  * a stable `effectorId`, driven from `Intent.natural`, on a body that publishes no hand for it.
- * `applyButtonPose` in `src/buttons.ts` is what makes the left mouse button fire it -- one press
- * onto the acting hand and the natural striker together -- which is the half that was left behind
- * the first time this channel was built and left a person unable to make a centipede bite.
+ * On the module bench, `applyButtonPose` in `src/bench/buttons.ts` is what makes the left mouse
+ * button fire it -- one press onto the acting hand and the natural striker together -- which is the
+ * half that was left behind the first time this channel was built and left a person unable to make
+ * a centipede bite. In the arena a person gives orders and the mind fires it.
  */
 export const headRam: HeadModuleDefinition = headModule("head.ram", "ram head", {
   guardPitch: HEAD_RAM.guardPitch,

@@ -3,11 +3,11 @@ import { PhysicsConstraintAxis } from "@babylonjs/core/Physics/v2/IPhysicsEngine
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
-import type { HandCursor, HandIntent } from "../../../mind.ts";
+import type { HandIntent } from "../../../mind.ts";
 import { capsulePart, joint, type Part } from "../../../rig.ts";
 import type { Armour } from "../../../scoring.ts";
 import { attributeOf, withArmSpeed, withSize, withWeight } from "../../attributes.ts";
-import { BUTTON_REACH } from "../../../buttons.ts";
+import { HAND_REACH } from "../../../hands.ts";
 import { CONFIG } from "../../../config.ts";
 import { CHAIN_REACH, CHAIN_REACH_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
@@ -63,17 +63,6 @@ const spanned = (t: number, min: number, max: number): number =>
   min + ((clamp(t, -1, 1) + 1) / 2) * (max - min);
 
 /**
- * And back: where the cursor has to sit for `value` to be the number this span produced.
- *
- * Immediately beside its forward direction on purpose. The one inverse this directory has got
- * wrong was written in another file from the mapping it inverts, and the plausible-but-wrong
- * version agreed with the right one for every positive input -- so a handover test passed against
- * a deliberately broken inverse until both sides of centre were sampled.
- */
-const unspanned = (value: number, min: number, max: number): number =>
-  max === min ? 0 : clamp(((value - min) / (max - min)) * 2 - 1, -1, 1);
-
-/**
  * The two-bone solution at a given reach: the shoulder's offset and the elbow's bend, radians.
  *
  * `beta` is the elbow bend, straight from the cosine rule and single-valued because the elbow
@@ -116,8 +105,8 @@ export interface RestCursor {
  */
 export const restCursor = (slot: GolemSlot): RestCursor =>
   slot === "secondary"
-    ? { pointerX: CONFIG.arm.restPointerX, pointerY: CONFIG.arm.restPointerY, reach: BUTTON_REACH.neutral }
-    : { pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral };
+    ? { pointerX: CONFIG.arm.restPointerX, pointerY: CONFIG.arm.restPointerY, reach: HAND_REACH.neutral }
+    : { pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral };
 
 /** The command, in the module's own three task-space terms. */
 export interface ArmCommand {
@@ -200,14 +189,6 @@ interface ArmCore {
   stroke(): EffectorStroke;
   anchorPoint(): Vector3;
   anchorStray(): number;
-  /**
-   * The two aiming axes of the cursor that command the pose this core is commanding.
-   *
-   * `roll` and `wristBend` are the wrist's and are zero here: rung 2 has no orientation to
-   * express, so rung 3 overwrites those two and rung 2 answers the honest zero. See
-   * `BuiltChain.cursor`.
-   */
-  cursor(): HandCursor;
   command(next: HandIntent): void;
   /**
    * Send the hand point toward a world point. See `BuiltChain.commandWeldTo`.
@@ -838,31 +819,12 @@ export function buildArmCore(
      */
     stroke: (): EffectorStroke => "idle",
 
-    // `slewed` is the rate-limited command --
-    // so this is the pose the chain is *commanding*, not the pose the limb has reached. That is
-    // the same choice `Arm.angles()` makes for the Warrior, and it is what makes the first
-    // command after a handover identical to the last command before it rather than to whatever
-    // lag the drive happened to be carrying. Allocates one record per takeover, which is where
-    // it is called.
-    cursor: (): HandCursor => ({
-      pointerX: unspanned(slewed.swing, L.swingMin, L.swingMax) * outboard,
-      pointerY: unspanned(slewed.lift, L.liftMin, L.liftMax),
-      // The third one, and it had to join the other two the moment reach became a commanded
-      // axis: an incoming driver whose reach channel said something else would be asking this
-      // hand to cross up to 0.42 m on its first step, at the anchor's ceiling, with a blade on
-      // the end. That is the teleport `cursorForPose` exists to prevent, arriving through the
-      // axis nobody had to invert while the buttons owned it.
-      reach: unspanned(slewed.reach, L.reachMin, L.reachMax),
-      roll: 0,
-      wristBend: 0,
-    }),
-
     /**
      * Three normalized channels onto three published axes, and nothing else.
      *
      * **No branch on `thrust` or `guard` anywhere in this function**, which is the whole of
      * Session 12 stated as a property a reader can check by looking. Both buttons are still on
-     * the command and both still mean something -- to `src/buttons.ts`, which turns a person's
+     * the command and both still mean something -- to `src/bench/buttons.ts`, which turns a person's
      * held button into the `reach` below, and to a policy, which may read its own. Neither is
      * something this chain does to whoever is driving it.
      */

@@ -239,6 +239,24 @@ their choice is collected here instead of stopping the run. Each item names wher
 - **The arrival reading's balance.** In the default mirror the duelist went from 52.1 % to 20.8 %
   and the miser from 40.6 % to 62.5 % (`docs/analysis/2026-09-25-release-120.md`). That was known
   and accepted at 240. It is listed so the fights are watched with it in mind.
+- **Orders, in place of taking a body** (session 06, `docs/analysis/2026-09-26-orders.md`). In the
+  arena:
+  - click the enemy, click the floor, and right-click an attack-move. Orders should be obeyed
+    promptly, and a body under a move order should still defend itself;
+  - a holding body drifts between 0.3 and 0.8 m of its point while it fights. It should read as
+    holding ground, not twitching;
+  - WASD steering, which puts the destination 1.2 m ahead in the camera's frame;
+  - the order markers.
+
+  In the dungeon:
+  - a party of the hero and two companions;
+  - selection by key, by row and by click;
+  - posts held, and F regrouping;
+  - companions passing each other in corridors;
+  - the spread when several are sent to one point;
+  - the frame cost, especially on Firefox.
+
+  And `/bench.html`'s puppet still drives a module by mouse.
 
 **Choices:**
 
@@ -266,7 +284,15 @@ their choice is collected here instead of stopping the run. Each item names wher
   - session 05 reports full knowledge and the persistence model side by side, as the plan says,
     because their gap is how much of a win came from reading one opponent;
   - the drill objective keeps its weight on time. The expert then reaches the inside later than the
-    walker (0.38 against 0.33 s) and levels with the duelist on finish;
+    walker (0.39 against 0.33 s at n 200). Its first blow on finish lands in 0.103 s, against the
+    duelist's 0.096 (−0.007 ± 0.007), so the two are level;
+  - or should a drill drop the bout's damage term from its rollouts instead? That term is why c32
+    gets inside at 0.84 s against c8's 0.39: it trades 0.029 of task score for 0.065 of predicted
+    damage;
+  - should the fixed plan list be sized to fit the first round, or ordered per drill? The first
+    round takes a prefix of the list: 6 plans at c8, all of them at c32. So the candidates axis
+    also changes which plans are tried. back-off-then-cut, last on the list, is reached only by
+    c32;
   - `-lag` (one decision stale) is the blinded-fork sanity check, since `-blind` is inert on
     survive-cut.
 - **Judging balance on the carried base** is an option recorded by the rate-falls study and not

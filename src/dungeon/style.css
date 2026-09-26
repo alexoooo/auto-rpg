@@ -15,6 +15,9 @@ a { color: #d7c5a2; text-decoration: none; } kbd { color: #8b949b; font: 11px sy
 progress::-webkit-progress-bar { background: #292c30; } progress::-webkit-progress-value { background: #ba6156; } .health span { display: block; font-size: 11px; margin-top: 6px; color: #bcb6ae; }
 .control-panel { flex: 1; } .switches { display: flex; gap: 22px; flex-wrap: wrap; } .switches label { cursor: pointer; font-size: 12px; } input[type=checkbox] { accent-color: #d9bb80; vertical-align: middle; margin: 0 7px 0 0; }
 .control-panel small { display: block; color: #8e98a3; font-size: 11px; margin-top: 12px; }
+.party-panel { min-width: 230px; } .party-panel kbd { font-size: 9px; } #party-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+#party-list button { display: grid; grid-template-columns: 14px 1fr 64px; gap: 8px; align-items: center; width: 100%; padding: 4px 8px; background: #0a0e1690; color: #bcb6ae; border: 1px solid transparent; border-radius: 3px; font: inherit; font-size: 11px; text-align: left; cursor: pointer; text-transform: capitalize; }
+#party-list button[aria-pressed="true"] { border-color: #d9bb80; color: #f1e6cf; } #party-list button.fallen { opacity: .45; } #party-list progress { height: 4px; }
 #notice { position: fixed; bottom: 145px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #d3c8b3; background: #0a0e16b0; padding: 8px 16px; border-radius: 3px; text-align: center; pointer-events: none; }
 .dialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100vw - 32px)); padding: 34px; background: #10171ff5; border: 1px solid #625844; border-radius: 8px; box-shadow: 0 18px 80px #0009; }
 h1, h2 { font-family: Georgia, serif; font-weight: 400; margin: 12px 0 18px; } h1 { font-size: 39px; } h2 { font-size: 27px; } p { font-size: 13px; line-height: 1.7; color: #aab1ba; }

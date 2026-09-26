@@ -127,14 +127,15 @@ directly under `node`. It is how a body gets measured without a person watching.
   manager attaches to the canvas with `preventDefaultOnPointerDown` defaulting to true, and
   cancelling `pointerdown` suppresses the *compatibility* mouse events for the rest of that
   gesture. A listener on `mousemove`/`mousedown` therefore goes deaf the instant any button
-  is held: the arm freezes and the button appears to do nothing, which reads as two bugs and
-  is one. `src/input.ts` uses pointer events throughout, and `main.ts` turns the flag off as
-  well. Do not "fix" a frozen-input report by adding `preventDefault` to a mouse handler --
-  that handler is not being called at all.
+  is held: when a person still drove the arm, it froze and the button appeared to do nothing,
+  which reads as two bugs and is one. `src/input.ts` uses pointer events throughout, and so does
+  the bench puppet in `src/bench/puppet-controls.ts`. Do not "fix" a frozen-input report by
+  adding `preventDefault` to a mouse handler -- that handler is not being called at all.
 - **A button over the arena is also a press on the arena.** `Controls` listens on the window, so a
-  click on a DOM control is a thrust as well, and `#hud` is `pointer-events: none` besides. The
-  HUD's Take / Let go buttons and the verdict bar therefore take the pointer back themselves, stop
-  `pointerdown` and `pointermove` from reaching the window, and let `pointerup` through, so that a
+  click on a DOM control is an order as well, and `#hud` is `pointer-events: none` besides. The
+  HUD's Command / Stand down buttons and the verdict bar therefore take the pointer back
+  themselves, stop `pointerdown` and `pointermove` from reaching the window, and let `pointerup`
+  through, so that a
   press begun on the canvas still ends over them. Each also blurs itself on click, because a
   focused button takes Enter, and a held Space, whose repeats `Controls` does not cancel, as a
   second press.
@@ -147,9 +148,11 @@ directly under `node`. It is how a body gets measured without a person watching.
   guard pose with nothing held, and no amount of further clicking freed it. Whether a
   button is down is a *level*, so read it from `event.buttons` -- the live bitmask that
   every pointer event carries, `pointermove` included -- and the next twitch of the mouse
-  repairs a lost edge. `src/buttons.ts` holds that rule and keeps edges for actions
-  alone, which must fire once per press. Same lesson as the trap above: nothing the
-  browser says about the end of a gesture is guaranteed to arrive.
+  repairs a lost edge. `src/bench/buttons.ts` holds that rule for the bench puppet, the one
+  place a mouse still presses a hand, and keeps edges for actions alone, which must fire once
+  per press. The arena's `src/input.ts` has only edges (an order is a click) and levels it drops
+  whole on a blur, a hidden tab, a `pointercancel` and a lost capture. Same lesson as the trap
+  above: nothing the browser says about the end of a gesture is guaranteed to arrive.
 - **`scene.pick` needs `@babylonjs/core/Culling/ray.js` imported for its side effect.**
   Without it the call throws "Ray needs to be imported before as it contains a side-effect
   required by your code" -- once per frame from inside the render loop, which is easy to
@@ -349,26 +352,25 @@ directly under `node`. It is how a body gets measured without a person watching.
   `capSeconds` when no `maxSeconds` is passed. When a number's justification names a harness,
   check which harness is about to read it.
 - **Most of `src/` is imported directly by Node** in the test run -- `scoring.ts`, `config.ts`
-  and `buttons.ts`, and everything a body, a mind, a bout or a harness pulls in -- so relative
+  and `bench/buttons.ts`, and everything a body, a mind, a bout or a harness pulls in -- so relative
   imports there carry explicit `.ts` extensions. Vite does not care; Node's ESM resolver does.
   The page entries and presentation modules no test loads (`main.ts`, `input.ts`, `hud.ts` and
-  the like) are the ones that omit them. `buttons.ts` imports nothing today, which is
-  the only reason it does not show one -- give it an import and it needs the extension. The
+  the like) are the ones that omit them. `bench/buttons.ts` is a bench file a test loads, so its
+  one import, `../hands.ts`, carries the extension. The
   same graph carries a second constraint: **Node runs a `.ts` file by stripping its types,
   and strip-only mode rejects TypeScript parameter properties** --
   `constructor(private readonly scene: Scene)` fails to parse with "TypeScript parameter
   property is not supported in strip-only mode". One of them anywhere in what a harness
   imports blocks the whole harness, so those files use fields and assignments instead.
-- **A hand-written `FighterView` has to carry every field the real one does.** There are three
-  whole ones in the tree -- `facing()` in `tests/minds.test.mjs` and the `view()` helpers in
-  `tests/options.test.mjs` and `tests/recorder.test.mjs` -- plus the partial `handsView` in
-  `tests/human-ownership.test.mjs`, and all are plain JS, so none is a compile error when the
+- **A hand-written `FighterView` has to carry every field the real one does.** There are two
+  whole ones in the tree -- `facing()` in `tests/minds.test.mjs` and the `view()` helper in
+  `tests/recorder.test.mjs` -- and both are plain JS, so neither is a compile error when the
   view grows a field. The two that existed the day it grew `hands` both threw on the first
   substep, twelve tests and the whole bench at once, with a `TypeError` that names the policy
-  rather than the fixture. The three whole ones are built through `assertCompleteView` in
+  rather than the fixture. Both are built through `assertCompleteView` in
   `tests/fixtures/view.mjs`, which checks them against that file's hand-kept field lists, so add
   a field to the view and to those lists together. `self: {` does not find the recorder's; grep
-  for `assertCompleteView`, `FighterView` and `handsView` instead. Those lists are checked only
+  for `assertCompleteView` and `FighterView` instead. Those lists are checked only
   against the hand-written views, never against a real publication, and they already lack two
   fields a golem publishes (see `publishedFixture` above).
 - **A fixture may simplify the world; it may not describe one that cannot exist.**
@@ -388,18 +390,6 @@ directly under `node`. It is how a body gets measured without a person watching.
 - **A view field with no reader is a field that will drift.** `HandView` shipped three of
   them for one session's servo and they went out with the servo. `WEAPON_KINDS` sat unread
   for two sessions and is the reason the rule is written down at all.
-- **A command channel with no writer is a button a person cannot press, and it looks exactly
-  like a body that does not work.** Session 17 gave a natural striker its own `Intent.natural`
-  because a body whose weapon is its own head was being driven through a hand slot it does not
-  have. The body side moved onto it, a mind wrote it, every test drove it -- and the *host* side
-  was left behind: `Controls.state.natural` was initialised in the field list and never assigned
-  again, and `splitMind` took `natural` from the policy, so even a written one would have been
-  discarded. A person can take either side whatever the body, so somebody could take a
-  head-butting golem, walk it around, and find the attack button dead. This is the same shape as the unread-field rule above, pointed the other way: a field nothing *writes* is
-  as broken as one nothing reads, and it is harder to see because the type checks and the tests
-  that drive it by hand all pass. `applyButtonPose` in `src/buttons.ts` owns the mapping now --
-  one press onto the acting hand and the natural striker together -- because `input.ts` cannot
-  be loaded by Node and a rule written there is a rule no test can reach.
 - **`Combat.log` keeps the newest 24 entries.** A bout produces hundreds, so a total summed
   from it at the end is not a total, it is the last second and a half. Accumulate from
   `lastHit` per step instead, keyed on `at`.
@@ -805,22 +795,22 @@ directly under `node`. It is how a body gets measured without a person watching.
 
 Each one was paid for.
 
-- **A policy plays with the controller a person plays with.** `Mind.decide` returns an `Intent`,
-  and `Controls.state` is annotated as one -- so the person and the AI hand a fighter the same
-  fields. Nothing may reach past it to set a joint angle, place a blade, or ask for a pose the
-  solver would refuse a person. An AI that could pose the arm directly would be a different
-  game's AI. **The command is not the controller**: `Intent` was once a type alias for the
-  human's own `InputState`, so the mouse wheel's `zoom` was a field on every policy's command.
-  Camera state -- zoom, orbit, pan -- lives on `CameraGestureState` in `src/camera.ts` and
-  reaches no mind. The seam survives; the alias does not.
+- **A mind drives a body only through its command.** `Mind.decide` returns an `Intent`, and
+  nothing may reach past it to set a joint angle, place a blade, or ask for a pose the solver
+  would refuse the command. An AI that could pose the arm directly would be a different game's
+  AI. **The command is not the controller**: `Intent` was once a type alias for the human's own
+  `InputState`, so the mouse wheel's `zoom` was a field on every policy's command. Camera state
+  -- zoom, orbit, pan -- lives on `CameraGestureState` in `src/camera.ts` and reaches no mind,
+  and `a_combat_intent_contains_no_camera_state` in `tests/minds.test.mjs` holds that.
 
-  **The field count used to be written here and kept going stale**, so it is not written here.
-  `COMBAT_FIELDS` in `tests/fixtures/intent.mjs` names the set and is asserted against every
-  producer of a command, which is the copy that cannot drift; mutating it turns several files
-  red at once. The one place the two sides are not identical is a *narrowing* rather than a
-  second field: `Intent.actingHand` is `HandName | null`, and `Controls.state` is
-  `Intent & { actingHand: HandName }`, because a cursor is always on a hand and a set of jaws is
-  not one.
+  **A person commands and does not puppet.** Since skill ceiling session 06 a person hands a body
+  `Orders` (`src/orders.ts`) -- a target and a destination -- and the body's own mind carries them
+  out while it defends itself; auto-commanders hand the same shape. A person no longer writes an
+  `Intent` in the arena, so the old parity rule between a person's command and a policy's went
+  with the puppet. The bench page's puppet (`src/bench/`) is the one place a mouse still writes an
+  `Intent`, and it is a test instrument rather than a way to play. A body handed no orders runs
+  `mind.decide` exactly as it did before orders existed; the seam is `GolemDriver.step` in
+  `src/golem/golem-control.ts`, and a change there gets the null control below.
 - **Cosmetics never carry authority.** Anything purely decorative owns no collision and decides
   no hit.
 - **The visible room is not the collision arena.** `src/arena-room.ts` keeps the ground and post
@@ -844,9 +834,10 @@ Each one was paid for.
   where the 9 % transient disagreement comes from -- needed two builds bisected, and neither had
   been committed. It is the cheapest rule here and the one that has already cost the most.
 - **A change to shared execution-layer code gets a bout either side of it, and the null control
-  is not optional because it is a null.** What `src/policies.ts` and `src/options.ts` both import
-  from `src/action-primitives.ts` -- today `actionStrokeRoll`, `applyActionPosture`,
-  `blankThreat`, `freshIntent` and `selectThreat` -- is the leak path. A change shipped green at
+  is not optional because it is a null.** What `src/policies.ts` imports from
+  `src/action-primitives.ts` -- today `actionStrokeRoll`, `applyActionPosture`, `blankThreat`,
+  `freshIntent` and `selectThreat` -- is the leak path, and so is the orders seam in
+  `GolemDriver.step`. A change shipped green at
   474 tests once and moved a matchup by about 2.5 standard deviations, and nobody knew until the
   next session went looking.
 - **Recovery cannot require the support state it exists to restore.** The controller of the
@@ -886,12 +877,13 @@ spin, which are rewritten on the edges into and out of a knockdown and never per
 `src/config.ts`, tune from the console first, then write the number back into the file with its
 table.
 
-**There is one deliberate exception.** The option layer keeps its own frozen block --
-`ACTION_TUNING` in `src/action-primitives.ts`, and `TARGET_SPAN_FRACTION` in `src/options.ts` --
-and neither is reachable from `__sword.config`. `options.ts` may not import `config.ts` at all,
-which `options_and_features_have_no_mutable_config_backdoor` pins by reading the source text: a
-legality or aim rule a console command can move is a rule an artifact can be trained against and
-deployed without. Both places say so in their own docstrings.
+**There is one deliberate exception.** The action primitives keep their own frozen block,
+`ACTION_TUNING` in `src/action-primitives.ts`, which is not reachable from `__sword.config`. That
+file may not import `config.ts` at all, which `action_primitives_have_no_mutable_config_backdoor`
+in `tests/minds.test.mjs` pins by reading the source text: a legality or aim rule a console
+command can move is a rule an artifact can be trained against and deployed without. The file says
+so in its own docstring. (The option layer, `src/options.ts`, kept a second such block until
+skill ceiling session 06 retired it.)
 
 `src/scoring.ts` is the balance rule -- what counts as a cut, a thrust, or a clang -- kept pure
 and free of Babylon so it can be argued with in `tests/scoring.test.mjs` rather than only by

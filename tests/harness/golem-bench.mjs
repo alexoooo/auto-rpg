@@ -24,7 +24,8 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
-import { BUTTON_REACH, reachFromButtons } from "../../src/buttons.ts";
+import { HAND_REACH } from "../../src/hands.ts";
+import { reachFromButtons } from "../../src/bench/buttons.ts";
 import { CONFIG } from "../../src/config.ts";
 import { GOLEM_EFFECTORS } from "../../src/golem/build.ts";
 import { resolveAttributes } from "../../src/golem/attributes.ts";
@@ -312,11 +313,11 @@ const benchIntent = () => ({
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
   primary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
   secondary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
 });

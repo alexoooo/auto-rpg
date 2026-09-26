@@ -2,15 +2,13 @@
 // runs a TypeScript file by stripping its types, and its ESM resolver insists on
 // the extension where Vite does not care.
 //
-// `config.ts`, `hands.ts` and `rng.ts` are the only run-time imports in this file, and that
-// is a property worth keeping rather than an accident. Each of them imports nothing at all, so
-// a policy can be put in front of a hand-written view in `tests/minds.test.mjs`
+// `action-primitives.ts` is the only run-time import in this file, and that is a property worth
+// keeping rather than an accident. It reaches no scene, so a policy can be put in front of a hand-written view in `tests/minds.test.mjs`
 // with no Babylon, no scene and no bout anywhere in the graph -- which is what
 // makes those tests cost milliseconds instead of seconds. The geometry below is
 // therefore written out in scalars on `{ x, y, z }` rather than through
 // `Vector3`'s methods: every position a view carries is a `Vector3` in the
 // arena, but nothing here needs it to be one, so nothing here demands it.
-import { CONFIG } from "./config.ts";
 import type { HandName } from "./hands.ts";
 import type { FighterView, Intent } from "./mind.ts";
 import { actionStrokeRoll, applyActionPosture, blankThreat, freshIntent, selectThreat,
@@ -23,23 +21,17 @@ import { actionStrokeRoll, applyActionPosture, blankThreat, freshIntent, selectT
  * `swinger`, `duelist`, `archer`, `crawler` -- and they went with the Warrior they were written
  * for: their ranges were an arming sword's length in disguise and their stroke geometry a right
  * arm's. What is left is the part that was never about a humanoid at all, and that the golem's
- * tactics and the person's own hands both go through:
+ * tactics go through:
  *
  * - `blankIntent`, the one shape every mind fills in and nothing reallocates;
  * - `postureFor`, the whole-body answer to an action, waist and knees and wrist;
- * - the cursor/angle inverses, which is the mapping a takeover has to invert to seed a hand;
  * - `rollForStroke`, which is the difference between a cut and a slap.
  *
- * The import list is the property worth keeping: `config.ts`, `mind.ts` for types only, and
+ * The import list is the property worth keeping: `hands.ts` and `mind.ts` for types only, and
  * `action-primitives.ts`. No Babylon, no scene, no bout -- which is what lets
  * `tests/minds.test.mjs` cost milliseconds instead of seconds. The geometry below is therefore
  * written out in scalars on `{ x, y, z }` rather than through `Vector3`'s methods.
  */
-
-const A = CONFIG.arm;
-
-const clamp = (value: number, min: number, max: number) =>
-  value < min ? min : value > max ? max : value;
 
 /**
  * A fresh intent for a policy to own and overwrite in place.
@@ -87,7 +79,7 @@ export function postureFor(view: FighterView, action: PostureAction, into: Inten
  * could actually hurt, and the faster of the two when both could.
  *
  * It was a lead-versus-off pick written out here, **byte-identical to a copy in
- * `options.ts`** and disagreeing with a third in `learning/features.ts` -- so
+ * the option layer's `options.ts`** (since retired) and disagreeing with a third in `learning/features.ts` -- so
  * the guard and the learned perception could be looking at different hands, and
  * nothing said so. `selectThreat` is the one answer now, and it can also say
  * "the shaft in the air", which no version of this shape could.
@@ -105,46 +97,6 @@ export function postureFor(view: FighterView, action: PostureAction, into: Inten
  */
 const threatScratch = blankThreat();
 const threatHand = (view: FighterView): ThreatView => selectThreat(view, threatScratch);
-
-/**
- * The cursor and the arm's aim, in both directions.
- *
- * `Fighter.aimArm` maps the cursor onto an azimuth and an elevation **in torso
- * space** through its own `spread`, which is deliberately asymmetric -- the arm
- * reaches further across its own side than across the far one -- so the inverse
- * has to be asymmetric in the same way, and reading the four limits out of
- * `config.ts` is how the two stay married when somebody retunes the envelope.
- *
- * `azimuthOf` and `elevationOf` are `spread` written out for the two axes it is
- * used on, which is a third copy of one rule and is worth being uneasy about.
- * They are not shared with `fighter.ts` because that file imports Babylon and
- * this one deliberately imports nothing but `config.ts`, which is the whole
- * reason `tests/minds.test.mjs` costs milliseconds. What guards the drift is not
- * this comment: it is the takeover reading in `main.ts`, which inverts the
- * mapping to seed a handover and then measures how far the hand actually moved
- * on the next step. A disagreement between the two copies shows up there as
- * hundreds of millimetres, immediately, in the page.
- *
- * The inverses clamp into the cursor's own -1..1, so a point behind the fighter
- * or above its reach comes back as the nearest thing the controller can ask for
- * rather than as a wrapped angle pointing somewhere absurd. That matters: a
- * target directly behind produces an azimuth near +-pi, and without the clamp
- * the sign of that would decide which way the arm flailed.
- */
-const azimuthRange = (hand: HandName): readonly [number, number] =>
-  hand === "primary" ? [A.azMin, A.azMax] : [-A.azMax, -A.azMin];
-export const azimuthOf = (pointerX: number, hand: HandName = "primary") => {
-  const [min, max] = azimuthRange(hand);
-  return pointerX >= 0 ? pointerX * max : pointerX * -min;
-};
-export const elevationOf = (pointerY: number) =>
-  pointerY >= 0 ? pointerY * A.elMax : pointerY * -A.elMin;
-export const cursorForAzimuth = (azimuth: number, hand: HandName = "primary") => {
-  const [min, max] = azimuthRange(hand);
-  return clamp(azimuth >= 0 ? azimuth / max : azimuth / -min, -1, 1);
-};
-export const cursorForElevation = (elevation: number) =>
-  clamp(elevation >= 0 ? elevation / A.elMax : elevation / -A.elMin, -1, 1);
 
 /**
  * The wrist roll that puts the edge along the stroke, from the stroke alone.

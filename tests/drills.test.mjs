@@ -12,6 +12,8 @@
 // - **A start its control does not admit is void.** Reported with the reason, never scored.
 // - **Breaking the duelist's guard fails `survive-cut`.** The plan's mutation check, on the high
 //   line, where the default golem's guard is.
+// - **Every rung obeys `hold-under-orders`** (session 06): walked to its point and held there under a
+//   duelist's attack, where the same start with no commander does not hold it.
 //
 // Harness: the Node bout runner and the fork harness (`tests/harness/drills.mjs`); every world in a
 // Havok instance of its own.
@@ -119,6 +121,28 @@ test("breaking_the_duelists_guard_fails_survive_the_cut_on_the_high_line", async
   assert.ok(guarded >= 2, `the duelist survives some high cuts (${guarded} of 8)`);
   assert.ok(broken < guarded, `and fewer with its guard broken (${broken} against ${guarded})`);
   assert.ok(brokenWound > guardedWound, `and takes more from them (${brokenWound.toFixed(3)} against ${guardedWound.toFixed(3)})`);
+});
+
+test("every_rung_obeys_a_hold_order_under_attack_and_a_body_given_none_does_not_hold_the_point", async () => {
+  // Two scored starts of the drill's own schedule (`research/drills.mjs`, runs 0 and 5), one per
+  // side. Every rung is walked to its point by its orders and held there; the same start played with
+  // no commander is the control, and it does not hold the point, so the reading is of the orders and not of a
+  // body that happened to be standing near the point.
+  const setup = namedBuild("default").setup;
+  for (const seed of [1608165828, 549795645]) {
+    const ordered = await drill("hold-under-orders", setup, setup, seed, ["idle", "golem-duelist"]);
+    assert.ok(ordered.rungs, `seed ${seed}: ${ordered.void ?? ordered.refused ?? ordered.skipped}`);
+    for (const [rung, r] of Object.entries(ordered.rungs)) {
+      assert.ok(r.arrived <= 2, `seed ${seed} ${rung}: arrived at ${r.arrived}`);
+      assert.ok(r.held >= 0.95, `seed ${seed} ${rung}: held ${r.held}`);
+    }
+    const free = await drill("hold-under-orders", setup, setup, seed, ["golem-duelist"], { unordered: true });
+    // Scored, or void on its idle control: either way a result from a body with no commander. A
+    // duelist's own footwork may cross the point (seed 1608165828's did, at 0.83 s); it does not stay.
+    const r = free.rungs ? free.rungs["golem-duelist"] : free.control;
+    assert.ok(!(r.arrived <= 2 && r.held >= 0.95), `seed ${seed}: with no commander nobody holds the point (${JSON.stringify(r)})`);
+    assert.equal(r.pass, false);
+  }
 });
 
 test("every_drill_builds_its_opponent_inside_the_attribute_rows_and_a_failed_run_is_counted", async () => {
