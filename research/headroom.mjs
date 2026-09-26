@@ -5,7 +5,8 @@
 //   node research/headroom.mjs --exp headroom   [--bodies a,b,...] [--minds m1;m2] [--pairs 8] [--lanes 8]
 //   node research/headroom.mjs --exp orderings  [--pairs 16] [--lanes 8]
 //   node research/headroom.mjs --exp idle       [--attackers a,b,...] [--pairs 1] [--lanes 8]
-//   node research/headroom.mjs --exp attributes [--attributes id,...] [--minds m1;m2] [--pairs 8] [--lanes 8]
+//   node research/headroom.mjs --exp attributes [--attributes id,...] [--minds m1;m2] [--opponent m] [--pairs 8] [--lanes 8]
+//   node research/headroom.mjs --exp family     [--bodies a,b] [--opponents x,y] [--minds m1;m2] [--experts e1;e2] [--pairs 2] [--ladder-pairs 24]
 //   node research/headroom.mjs --exp footwork   [--pairs 16] [--lanes 8]
 //   node research/headroom.mjs --exp channel --channel stance|step|stance-step [--bodies a,b] [--with-fb] [--skip-ruler | --ruler-only] [--pairs 32] [--lanes 6]
 //   node research/headroom.mjs --exp <name> --summary [--out DIR]
@@ -149,6 +150,10 @@ export const EXPERIMENTS = {
    * control is the mind's own mirror at x1 against x1.
    */
   attributes(o) {
+    // `--opponent` plays B with another mind (release 2: the expert against the brawler, where
+    // bodies fall); by default B is A's own mind, the mirror this experiment was built on.
+    const against = (mind) => o.opponent ?? mind;
+    const vs = o.opponent ? `>${o.opponent}` : "";
     const ids = o.attributes ? list(o.attributes) : [...ATTRIBUTE_IDS];
     const levelsOf = (id) => {
       const row = ATTRIBUTES[id];
@@ -158,15 +163,50 @@ export const EXPERIMENTS = {
     const cells = [];
     const base = o.build ?? "default";
     for (const mind of minds(o.minds ?? RULER)) {
-      cells.push({ cell: `control|${mind}`, a: mind, b: mind, aBuild: base, bBuild: base, attribute: "control", level: 1 });
+      cells.push({ cell: `control|${mind}${vs}`, a: mind, b: against(mind), aBuild: base, bBuild: base, attribute: "control", level: 1 });
       for (const id of ids) for (const level of levelsOf(id)) {
-        cells.push({ cell: `${id}=${level}|${mind}`, a: mind, b: mind, aBuild: `${base}@${id}=${level}`, bBuild: base, attribute: id, level });
+        cells.push({ cell: `${id}=${level}|${mind}${vs}`, a: mind, b: against(mind), aBuild: `${base}@${id}=${level}`, bBuild: base, attribute: id, level });
       }
     }
     const jobs = [];
     for (let k = 0; k < o.pairs; k += 1) for (const c of cells) {
       jobs.push(...swappedPair({ exp: "attributes", cell: c.cell, a: c.a, b: c.b, aBuild: c.aBuild, bBuild: c.bBuild,
         seedKey: `attributes-${base}`, k, extra: { attribute: c.attribute, level: c.level } }));
+    }
+    return jobs;
+  },
+  /**
+   * A body against its own family (release 2, question 2(b)): each subject body (`--bodies`) against
+   * each other build of its family (`--opponents`), played both ways round. Equal naive minds
+   * (`--minds`, the walker and the family's duelist by default) on the two bodies, over
+   * `--ladder-pairs`; and the ruler (`--experts`) on the subject against the family's duelist on
+   * the other body, and on the other body against the family's duelist on the subject, over
+   * `--pairs`. A is the subject body in a naive cell and the ruler's body in an expert one.
+   */
+  family(o) {
+    const subjects = list(o.bodies ?? "skeleton-fists,skeleton-whip");
+    const opponents = list(o.opponents ?? "skeleton-warrior,skeleton-mace,skeleton-dual-blades,skeleton-maul");
+    const duelist = familyDuelist(buildOf(subjects[0]).setup);
+    const naive = minds(o.minds ?? `golem-walker;${duelist}`);
+    const experts = o.experts === "" ? [] : minds(o.experts ?? RULER);
+    const cells = [];
+    for (const s of subjects) for (const x of opponents) {
+      const seedKey = `${s}~${x}`;
+      for (const m of naive) {
+        cells.push({ cell: `${s}~${x}|${m}`, a: m, b: m, aBuild: s, bBuild: x, n: o.ladderPairs, seedKey,
+          extra: { body: s, other: x, role: "naive" } });
+      }
+      for (const e of experts) {
+        cells.push({ cell: `${s}>${x}|${e}`, a: e, b: duelist, aBuild: s, bBuild: x, n: o.pairs, seedKey,
+          extra: { body: s, other: x, role: "expert-on-subject" } });
+        cells.push({ cell: `${x}>${s}|${e}`, a: e, b: duelist, aBuild: x, bBuild: s, n: o.pairs, seedKey,
+          extra: { body: s, other: x, role: "expert-against-subject" } });
+      }
+    }
+    const jobs = [];
+    const most = Math.max(...cells.map((c) => c.n));
+    for (let k = 0; k < most; k += 1) for (const c of cells) {
+      if (k < c.n) jobs.push(...swappedPair({ exp: "family", ...c, k }));
     }
     return jobs;
   },
@@ -390,6 +430,7 @@ async function main() {
     channel: { type: "string" }, flags: { type: "string" }, "with-fb": { type: "boolean", default: false },
     "skip-ruler": { type: "boolean", default: false }, subject: { type: "string" }, rival: { type: "string" },
     "h2h-only": { type: "boolean", default: false }, "ruler-only": { type: "boolean", default: false },
+    opponent: { type: "string" }, opponents: { type: "string" }, experts: { type: "string" },
   } });
   const exp = values.exp;
   if (!EXPERIMENTS[exp]) throw new Error(`--exp is one of ${Object.keys(EXPERIMENTS).join(", ")}`);

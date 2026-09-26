@@ -271,3 +271,44 @@ test("researched policies reach the actual body picker and factory, never a fore
     assert.throws(() => golem.createPolicy(entries[1].name), /does not support/);
   } finally { POLICIES.splice(POLICIES.length - entries.length, entries.length); }
 });
+
+test("a counterfactual knob is set only for its run and refused whole when any part of it is wrong", async () => {
+  const { applyOverrides, KNOBS } = await import("../research/overrides.mjs");
+  const { TORSO_WAIST } = await import("../src/golem/config.ts");
+  const shipped = TORSO_WAIST.leanTorque;
+  const restore = applyOverrides({ "waist.leanTorque": 4630 });
+  try { assert.equal(TORSO_WAIST.leanTorque, 4630); } finally { restore(); }
+  assert.equal(TORSO_WAIST.leanTorque, shipped);
+  assert.equal(KNOBS["waist.leanTorque"].block, TORSO_WAIST);
+  assert.throws(() => applyOverrides({ "waist.leanTorque": 4630, "waist.nothing": 1 }), /no override knob/);
+  assert.equal(TORSO_WAIST.leanTorque, shipped);
+  assert.throws(() => applyOverrides({ "waist.leanTorque": Number.NaN }), /finite/);
+  assert.equal(TORSO_WAIST.leanTorque, shipped);
+  applyOverrides(undefined)();
+  assert.equal(TORSO_WAIST.leanTorque, shipped);
+});
+
+test("no research worker module loads another worker module, directly or through a helper", () => {
+  // Importing a worker module registers its `parentPort` handler as well, so every job runs twice
+  // and the second answer is taken as the next job's result (docs/analysis/2026-09-26-headroom.md,
+  // section 7). Static imports only: a dynamic one inside a function runs where it is called.
+  const dir = new URL("../research/", import.meta.url);
+  const source = (file) => readFileSync(new URL(file, dir), "utf8");
+  const registers = (text) => /parentPort\)?\s*(\?\.|\.)\s*on\s*\(/.test(text);
+  const localImports = (file) => [...source(file).matchAll(/^import[^;]*?from\s+"(\.\/[^"]+\.mjs)"/gms)]
+    .map((m) => m[1].slice(2));
+  const workers = ["census-worker.mjs", "drills-worker.mjs", "fall-loop-worker.mjs", "headroom-worker.mjs",
+    "league-worker.mjs", "side-mirror-worker.mjs", "stroke-worker.mjs", "worker.mjs"];
+  for (const worker of workers) assert.ok(registers(source(worker)), `${worker} is expected to register a handler`);
+  for (const worker of workers) {
+    const seen = new Set();
+    const queue = localImports(worker);
+    while (queue.length) {
+      const file = queue.shift();
+      if (seen.has(file)) continue;
+      seen.add(file);
+      assert.ok(!registers(source(file)), `${worker} loads ${file}, which registers a worker message handler`);
+      queue.push(...localImports(file));
+    }
+  }
+});
