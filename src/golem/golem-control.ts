@@ -15,6 +15,7 @@ import {
   type Mind,
 } from "../mind.ts";
 import type { Side } from "../physics.ts";
+import { hasOrders, OrderFollower, type Commander } from "../orders.ts";
 import type { BoutRecorder } from "../recorder.ts";
 
 /**
@@ -90,6 +91,12 @@ export class GolemControlEndpoint implements ControlEndpoint {
   private readonly factory: (name: string, seed?: number) => Mind;
   private readonly options: GolemControlOptions;
   observer: ((view: FighterView, intent: Intent) => void) | null = null;
+  /**
+   * Who hands this body its orders (`src/orders.ts`): a person's `StandingOrders`, an auto-commander,
+   * or null for none. Read at every decision, so a new commander or a new order takes effect at the
+   * next one; it survives an `install`, because it belongs to the body and not to the mind.
+   */
+  commander: Commander | null = null;
 
   constructor(options: GolemControlOptions) {
     this.options = options;
@@ -156,7 +163,7 @@ export class GolemControlEndpoint implements ControlEndpoint {
       this.recording.intent(intent);
       this.observer?.(this.options.view, intent);
       this.options.apply(dt, intent);
-    }, this.options.canStep);
+    }, this.options.canStep, () => this.commander);
   }
 }
 
@@ -166,11 +173,15 @@ class GolemDriver implements InstalledDriver {
   private readonly view: FighterView;
   private readonly apply: (dt: number, intent: Intent) => void;
   private readonly canStep: () => boolean;
+  private readonly commander: () => Commander | null;
+  /** Carries a destination out on top of the mind's command; untouched while there are no orders. */
+  readonly follower = new OrderFollower();
   private active = true;
   constructor(mind: Mind, view: FighterView, apply: (dt: number, intent: Intent) => void,
-    canStep: () => boolean) {
+    canStep: () => boolean, commander: () => Commander | null = () => null) {
     this.mind = mind;
     this.view = view;
+    this.commander = commander;
     // Every applied decision is kept, so that `hold` can re-apply it between two decisions.
     this.apply = (dt, intent) => { this.held = intent; apply(dt, intent); };
     this.canStep = canStep;
@@ -179,7 +190,11 @@ class GolemDriver implements InstalledDriver {
   /** The mind is told how long its decision stands; the command is applied for one substep. */
   step(dt: number, decisionSeconds = dt): void {
     if (!this.active || !this.canStep()) return;
-    this.apply(dt, this.mind.decide(this.view, decisionSeconds));
+    const orders = this.commander()?.orders(this.view) ?? null;
+    // No orders: the call every bout made before orders existed, argument for argument.
+    if (!hasOrders(orders)) { this.apply(dt, this.mind.decide(this.view, decisionSeconds)); return; }
+    const intent = this.mind.decide(this.view, decisionSeconds, orders);
+    this.apply(dt, this.mind.obeysOrders ? intent : this.follower.obey(intent, this.view, orders));
   }
   /** Re-apply the last decision without asking the mind again (`CONFIG.world.controlHz`). */
   hold(dt: number): void {

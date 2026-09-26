@@ -38,6 +38,7 @@ import {
   postureFor,
 } from "./policies.ts";
 import { CONFIG } from "./config.ts";
+import type { Orders } from "./orders.ts";
 import { humanoidDuelist } from "./golem/humanoid/policy.ts";
 import { skeletonDuelist } from "./golem/skeleton/policy.ts";
 import type { BodyFamily } from "./golem/family.ts";
@@ -680,7 +681,19 @@ export interface FighterView {
  */
 export interface Mind {
   readonly name: string;
-  decide(view: FighterView, dt: number): Intent;
+  /**
+   * `orders` is what the body's commander handed over for this decision (`src/orders.ts`): absent
+   * or null when there are none, which is every call a bout made before orders existed and still
+   * every call on a side nobody commands. A mind may read it; whether or not it does, the driver
+   * carries a destination out on top of its command unless it declares `obeysOrders`.
+   */
+  decide(view: FighterView, dt: number, orders?: Orders | null): Intent;
+  /**
+   * True for a mind that carries its own orders out, so the driver applies its command as it is
+   * rather than through `OrderFollower`. No shipped mind sets it; the reader coming is session 04's
+   * expert, which plans footwork and so has its own answer to where a destination is.
+   */
+  readonly obeysOrders?: boolean;
   /**
    * A fork of the world (`src/forkable.ts`, skill ceiling session 02). A mind whose state all hangs
    * on its fields needs neither -- the fork walks fields -- and a mind that keeps state in a closure

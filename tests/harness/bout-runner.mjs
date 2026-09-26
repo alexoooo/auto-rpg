@@ -218,7 +218,8 @@ export function createBout({
   leftUnit = "golem", rightUnit = "golem",
   leftGolem = undefined, rightGolem = undefined,
   locomotionMode = undefined,
-  leftMind = null, rightMind = null, onSample = null, onEvent = null, onRefusal = null,
+  leftMind = null, rightMind = null, leftCommander = null, rightCommander = null,
+  onSample = null, onEvent = null, onRefusal = null,
   onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
   settleSeconds = 0,
   maxSeconds = CONFIG.bout.capSeconds,
@@ -292,6 +293,11 @@ export function createBout({
       locomotionMode,
       locomotionWorld,
     });
+
+  // Who orders each body (`src/orders.ts`). Null, the default, is no commander at all: the bout
+  // every caller ran before orders existed.
+  left.control.commander = leftCommander;
+  right.control.commander = rightCommander;
 
   const leftRecord = sideRecord(leftPolicy);
   const rightRecord = sideRecord(rightPolicy);

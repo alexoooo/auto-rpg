@@ -3,6 +3,7 @@ import type { FighterView, HandCursors, Mind } from "./mind.ts";
 import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
 import type { PressSource } from "./contact-press.ts";
+import type { Commander } from "./orders.ts";
 import { resolveSupportedPair } from "./supported-locomotion.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 import { isPhysicalSupportedLocomotionPort, resolvePhysicalSupportedPair } from "./supported-locomotion-production.ts";
@@ -73,6 +74,12 @@ export interface ControlEndpoint {
   readonly driver: InstalledDriver;
   readonly recording: ControlRecordingPort | null;
   readonly diagnostics?: ControlDiagnosticsPort | null;
+  /**
+   * Who hands this body its orders (`src/orders.ts`), or null for nobody, which is a body that
+   * fights the nearest enemy exactly as it did before orders existed. A host writes it; the
+   * installed driver reads it at every decision.
+   */
+  commander: Commander | null;
   install(driver: InstalledDriver): void;
   installPolicy(name: string, seed?: number): void;
   installHuman(): void;
