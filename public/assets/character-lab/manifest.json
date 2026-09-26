@@ -1,0 +1,17 @@
+{
+  "generator": "scripts/character-lab/build.py",
+  "characters": [
+    {
+      "id": "fighter",
+      "heightM": 1.88,
+      "meshes": 149,
+      "vertices": 10628
+    },
+    {
+      "id": "rogue",
+      "heightM": 1.73,
+      "meshes": 148,
+      "vertices": 10746
+    }
+  ]
+}
