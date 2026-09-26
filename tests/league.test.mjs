@@ -54,8 +54,8 @@ test("each_mind_keeps_its_seed_and_its_body_on_either_side", () => {
 
 /** A league row, as the worker writes one. */
 const row = ({ pair, block = pair, aSide, winner, vitality = [0.5, 0.5], ending = winner ? "exhausted" : "time",
-  leadChanges = 0, falls = [0, 0] }) => ({
-  status: "ok", pair, block, weaponClass: "mace", aSide, winner, ending, seconds: 30, vitality, leadChanges,
+  leadChanges = 0, falls = [0, 0], seconds = 30 }) => ({
+  status: "ok", pair, block, weaponClass: "mace", aSide, winner, ending, seconds, vitality, leadChanges,
   sides: {
     left: { falls: falls[0], nearRangeStallSeconds: 1, retreatOutsideReachSeconds: 2 },
     right: { falls: falls[1], nearRangeStallSeconds: 3, retreatOutsideReachSeconds: 4 },
@@ -83,15 +83,40 @@ test("a_mind_that_wins_everything_scores_one_on_either_side", () => {
 test("a_mirror_whose_left_corner_always_wins_fails_the_side_gate", () => {
   const biased = [];
   const level = [];
+  // Every bout ends at its own second, so each is a distinct bout and the band is the band of 64.
   for (let k = 0; k < 32; k += 1) {
-    biased.push(row({ pair: `p${k}`, aSide: "left", winner: "left" }), row({ pair: `p${k}`, aSide: "right", winner: "left" }));
-    level.push(row({ pair: `p${k}`, aSide: "left", winner: k % 2 ? "left" : "right" }),
-      row({ pair: `p${k}`, aSide: "right", winner: k % 2 ? "right" : "left" }));
+    biased.push(row({ pair: `p${k}`, aSide: "left", winner: "left", seconds: 30 + k }),
+      row({ pair: `p${k}`, aSide: "right", winner: "left", seconds: 70 + k }));
+    level.push(row({ pair: `p${k}`, aSide: "left", winner: k % 2 ? "left" : "right", seconds: 30 + k }),
+      row({ pair: `p${k}`, aSide: "right", winner: k % 2 ? "right" : "left", seconds: 70 + k }));
   }
+  assert.equal(leagueFigures(biased).mirror.distinct, 64);
   assert.equal(leagueFigures(biased).mirror.inside, false);
   assert.equal(leagueFigures(biased).mirror.left.mean, 1);
   assert.equal(leagueFigures(level).mirror.inside, true);
   assert.equal(aScore(biased[1]), 0, "A on the right lost to the left corner");
+});
+
+test("a_mirror_s_band_counts_each_distinct_bout_once", () => {
+  // Eight distinct bouts, each played eight times; six of the eight go to the left corner (75 %).
+  // Counted as 64 bouts that is 25 points against a band of 12.3 and fails; the gate counts 8, whose
+  // band is 34.6, and it cannot tell that from a fair coin. `sideVerdict` in `research/side-mirror.mjs`.
+  const rows = [];
+  for (let k = 0; k < 32; k += 1) {
+    for (const aSide of ["left", "right"]) {
+      const bout = (2 * k + (aSide === "left" ? 0 : 1)) % 8;
+      rows.push(row({ pair: `p${k}`, aSide, winner: bout < 6 ? "left" : "right", seconds: 30 + bout }));
+    }
+  }
+  const { mirror } = leagueFigures(rows);
+  assert.equal(mirror.distinct, 8);
+  assert.equal(mirror.distinctLeft, 0.75);
+  assert.equal(mirror.inside, true);
+  // And one decisive bout played 64 times is decided by the side, whatever a band would say.
+  const one = Array.from({ length: 32 }, (_, k) => ["left", "right"].map((aSide) =>
+    row({ pair: `p${k}`, aSide, winner: "right" }))).flat();
+  assert.equal(leagueFigures(one).mirror.distinct, 1);
+  assert.equal(leagueFigures(one).mirror.inside, false);
 });
 
 test("a_bout_that_ran_to_the_cap_is_not_decided_and_falls_count_both_bodies", () => {

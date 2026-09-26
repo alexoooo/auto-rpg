@@ -45,6 +45,7 @@ import { parseArgs } from "node:util";
 import { ATTRIBUTES, ATTRIBUTE_IDS, isAttributeId } from "../src/golem/attributes.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { PROTOCOL, seed } from "./schedule.mjs";
+import { refuseSideDecided } from "./side-mirror.mjs";
 
 export const HARNESS = "Node harness, research runner, supported locomotion";
 
@@ -361,6 +362,7 @@ async function main() {
     if (refusal) throw new Error(`${level.key}: ${refusal}`);
   }
   const minds = values.minds ? values.minds.split(",") : [...PROBE_MINDS];
+  refuseSideDecided(minds, "a stat sweep");
   const blocks = Number(values.pairs), runSeed = Number(values.seed);
   const jobs = sweepJobs({ levels, blocks, minds, runSeed });
   const directory = resolve(values.dir ?? `research/runs/${values.stat ? `stat-${values.stat}`
