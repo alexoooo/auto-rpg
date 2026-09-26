@@ -27,7 +27,7 @@ import { COLLIDES, LAYER } from "../src/physics.ts";
 import { resolvePhysicalSupportedPair } from "../src/supported-locomotion-production.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
 import { SUPPORTED_CARRIER_V1 } from "../src/supported-locomotion-runtime.ts";
-import { BUTTON_REACH } from "../src/buttons.ts";
+import { HAND_REACH } from "../src/hands.ts";
 import { SUPPORTED_LOCOMOTION_V1, constructPostureIsSupported } from
   "../src/supported-locomotion-state.ts";
 import {
@@ -361,11 +361,11 @@ const drive = (module, { forward = 0, strafe = 0, turn = 0, crouch = 0 } = {}) =
     natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch },
     primary: {
-      pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+      pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
       roll: 0, wristBend: 0, thrust: false, guard: false,
     },
     secondary: {
-      pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+      pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
       roll: 0, wristBend: 0, thrust: false, guard: false,
     },
   }));

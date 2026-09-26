@@ -5,7 +5,7 @@ import {
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
-import type { HandCursor, HandIntent } from "../../../mind.ts";
+import type { HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import { slewTowards } from "../../anchor-drive.ts";
 import { attributeOf, withArmSpeed, withSize, withWeight } from "../../attributes.ts";
@@ -59,21 +59,6 @@ const pitchForPointer = (pointerY: number): number => {
   const P = CHAIN_PITCH;
   const t = pointerY < -1 ? -1 : pointerY > 1 ? 1 : pointerY;
   return P.pitchMin + ((t + 1) / 2) * (P.pitchMax - P.pitchMin);
-};
-
-/**
- * And back again: where the cursor has to sit for this pitch to be the one commanded.
- *
- * Written here rather than at the caller, immediately beside the forward mapping, because a
- * cursor inverse spelled somewhere else is the defect `tests/handover.test.mjs` records paying
- * for -- the plausible inverse and the correct one agreed on one side of centre and nobody
- * noticed until both sides were sampled.
- */
-const pointerForPitch = (pitch: number): number => {
-  const P = CHAIN_PITCH;
-  const span = P.pitchMax - P.pitchMin;
-  const t = span === 0 ? 0 : ((pitch - P.pitchMin) / span) * 2 - 1;
-  return t < -1 ? -1 : t > 1 ? 1 : t;
 };
 
 /**
@@ -340,21 +325,6 @@ export const pitchChain = defineChain({
       // to stray from. Session 03's chains have one and fill both of these in.
       anchor: () => null,
       anchorStray: () => null,
-
-      /**
-       * The seed a takeover needs: one axis, so one number.
-       *
-       * `pointerX`, `roll` and `wristBend` are zero because nothing on this rung reads them --
-       * the frozen rule "a chain that has no use for a field ignores it", answered from the
-       * other side. `reach` joins that list here, and on this rung it really is a zero rather
-       * than an omission: there is one link on one hinge and no distance to command. Taken from
-       * `commandedPitch`, which is where the rate limiter has got to rather than where the cursor
-       * was, so the first command after a handover is the command the outgoing driver had left
-       * standing.
-       */
-      cursor: (): HandCursor => ({
-        pointerX: 0, pointerY: pointerForPitch(commandedPitch), reach: 0, roll: 0, wristBend: 0,
-      }),
 
       commandedEnd(distanceFromSocket: number): Vector3 {
         // The commanded limb direction at the commanded pitch, in the mount's frame, carried

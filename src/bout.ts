@@ -89,38 +89,6 @@ export function pauseAction(phase: Phase, running: boolean): PauseAction {
 /** Whether a side reads a policy or a person. */
 export type Control = "mind" | "you";
 
-/**
- * How much of a body a person is driving, when that body is theirs.
- *
- * `control` answers *which* body is yours; this answers *how much of it*, and the two are kept
- * apart rather than folded into one four-valued field because almost nothing needs the second.
- * The camera, `humanSide`, the aim indicator, `Targeting` and `withControl`'s one-person
- * invariant all ask the same yes-or-no question they always asked, and only `splitMind` reads
- * the split. One field spelling all four states would make every one of those readers enumerate
- * three cases to learn one bit.
- *
- * There is no fourth value for *neither*: a body you drive nothing of is a body the mind has,
- * which is `control: "mind"` and already spelled.
- */
-export type Channels = "move" | "attack" | "both";
-
-/**
- * Whether the person is driving this side's feet, and whether they are driving its hands.
- *
- * Asked through a predicate rather than off the field because the answer is a conjunction --
- * a side only has channels at all while it is yours -- and because both are total over a
- * `channels` that is missing. That is not defensiveness: links made before this field existed
- * carry `control: "you"` and nothing else, and back then taking a body took all of it, so
- * absent reads as `both` and an old link still means what it meant.
- */
-export function drivesMove(side: SideSetup): boolean {
-  return side.control === "you" && side.channels !== "attack";
-}
-
-export function drivesAttack(side: SideSetup): boolean {
-  return side.control === "you" && side.channels !== "move";
-}
-
 /** One corner of the setup screen. */
 /**
  * What a hand can be given, and what the picker offers.
@@ -231,11 +199,6 @@ export interface SideSetup {
    * meant. Read only while `control` is `"mind"`; a side a person commands takes the person's.
    */
   commander?: AutoCommanderName;
-  /**
-   * Which channels are yours, read only while `control` is `"you"`. Optional, because a link
-   * or a harness from before the split says nothing and means `"both"`; see `drivesMove`.
-   */
-  channels?: Channels;
   /** The primary hand -- the one the mouse starts on. */
   handA: string;
   /** The secondary. `empty` is a choice rather than an absence. */
@@ -331,8 +294,7 @@ export function defaultMatchup(): Matchup {
     // there was a choice -- so the default matchup is the body every number in
     // `docs/measurements.md` was taken from, and a bout opened without touching
     // the pickers is still that measurement's bout.
-    left: { unit: "warrior", policy: "idle", control: "you", channels: "both",
-      handA: "sword", handB: "empty" },
+    left: { unit: "warrior", policy: "idle", control: "you", handA: "sword", handB: "empty" },
     right: { unit: "warrior", policy: "idle", control: "mind", handA: "sword", handB: "empty" },
   };
 }
@@ -635,14 +597,9 @@ const readSide = (value: unknown): SideSetup | null => {
     unit: value.unit, policy: value.policy, control: value.control,
     handA: value.handA, handB: value.handB,
   };
-  // Absent is not a shape the codec has to refuse, unlike the fields above: every link written
-  // before the channel split omits it and every one of them meant `both`, so reading it that
-  // way decodes the link that was actually shared rather than repairing a broken one.
-  if (value.channels !== undefined) {
-    if (value.channels !== "move" && value.channels !== "attack"
-      && value.channels !== "both") return null;
-    side.channels = value.channels;
-  }
+  // `channels` -- which half of a body a person puppeted -- is read by nothing since skill ceiling
+  // session 06: a person commands a side and no longer drives it. A link from before then may still
+  // carry the field, so it is ignored rather than refused, and the link opens the fight it named.
   if (value.commander !== undefined) {
     if (typeof value.commander !== "string" || !isAutoCommanderName(value.commander)) return null;
     side.commander = value.commander;
@@ -742,34 +699,13 @@ export function withEquipment(
  * it instead is how you get a page that offers two commanders and an arena that
  * has one.
  *
- * `withChannels`, `commandSide` and `standDown` all reach the field through
- * here, so none of them can break the invariant.
+ * `commandSide` and `standDown` both reach the field through here, so neither
+ * can break the invariant.
  */
 export function withControl(matchup: Matchup, side: Side, control: Control): Matchup {
   const next = copy(matchup);
   next[side].control = control;
   if (control === "you") next[other(side)].control = "mind";
-  return next;
-}
-
-/**
- * Drive a body's movement, its attacks, both, or neither.
- *
- * No page calls it since the arena took orders instead of a puppet (skill ceiling session 06). The
- * split itself is still live until that session's retirements -- `splitMind` reads `channels`, and a matchup
- * link can carry "move" or "attack" -- and this is the reducer that keeps the split and the
- * one-person rule together: asking for neither hands the body back to its mind, and asking for
- * either takes it off the other corner through `withControl`.
- */
-export function withChannels(
-  matchup: Matchup,
-  side: Side,
-  move: boolean,
-  attack: boolean,
-): Matchup {
-  if (!move && !attack) return withControl(matchup, side, "mind");
-  const next = copy(withControl(matchup, side, "you"));
-  next[side].channels = move && attack ? "both" : move ? "move" : "attack";
   return next;
 }
 

@@ -1,7 +1,8 @@
 import { CONFIG } from "../config.ts";
 import { turnHand } from "../golem/humanoid/orientation.ts";
 import { otherHand, type HandName, type Intent } from "../mind.ts";
-import { applyButtonPose, maskOfButton, nextSpent, poseFromButtons, releaseButtons, BUTTON_REACH } from "../buttons.ts";
+import { applyButtonPose, maskOfButton, nextSpent, poseFromButtons, releaseButtons } from "./buttons.ts";
+import { HAND_REACH } from "../hands.ts";
 import { CAMERA_ZOOM_NOTCHES, dragCamera, slewCameraZoom, type CameraGestureState } from "../camera.ts";
 
 /**
@@ -102,7 +103,7 @@ export class PuppetControls {
       // this field on every button event and `releaseButtons` puts it back here,
       // so this is only where it begins -- but beginning it anywhere else would
       // extend a golem's arm for the one frame before the first pointer event.
-      reach: BUTTON_REACH.neutral,
+      reach: HAND_REACH.neutral,
       roll: 0, wristBend: 0, thrust: false, guard: false,
     },
     // The hand the mouse is not on starts at rest, not out in front. It stays
@@ -111,7 +112,7 @@ export class PuppetControls {
     secondary: {
       pointerX: CONFIG.arm.restPointerX,
       pointerY: CONFIG.arm.restPointerY,
-      reach: BUTTON_REACH.neutral,
+      reach: HAND_REACH.neutral,
       roll: 0,
       wristBend: 0,
       thrust: false,

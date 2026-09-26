@@ -237,9 +237,9 @@ const postureChannel = (intent: Intent): TorsoCommand => intent.posture;
  * cannot press, and it looks exactly like a body that does not work -- which is on record for
  * this exact channel: Session 17 gave a natural striker its own `Intent.natural`, the body side
  * moved onto it, every test drove it, and the *host* side was left behind, so somebody could take
- * a centipede, walk it around and find the attack button dead. The writers are
- * `applyButtonPose` in `src/buttons.ts` for a person and `Mind.decide` for a policy; this is
- * where what they wrote arrives.
+ * a centipede, walk it around and find the attack button dead. The writers are `Mind.decide`
+ * for a policy and, on the module bench, `applyButtonPose` in `src/bench/buttons.ts` for a
+ * person; this is where what they wrote arrives.
  */
 const naturalChannel = (intent: Intent): NaturalIntent => intent.natural;
 

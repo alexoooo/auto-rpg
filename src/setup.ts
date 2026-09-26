@@ -301,9 +301,9 @@ export class SetupScreen {
 
   private corner(side: Side): string {
     const title = side === "left" ? "Left contender" : "Right contender";
-    // The policy picker stays enabled on the side a person is driving, and that is not an
-    // oversight: the body you let go of picks this policy back up, so what is chosen here is what
-    // that fighter becomes the moment you step out of it.
+    // The policy picker stays enabled on the side a person commands, and that is not an
+    // oversight: a commanded side is still fought by this policy -- a person hands it orders, not
+    // arms -- so what is chosen here is how that fighter carries them out.
     return `
       <section class="contender" data-side="${side}" aria-label="${title}">
         <header class="contender-head">

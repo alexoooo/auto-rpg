@@ -10,7 +10,7 @@ import { ARM_IDS, ARM_LIMITS, ARM_REST, armForward, clamp, solveArm, validOrient
 import { PALM_GRIP, HUMAN_MOUNT } from "./grip.ts";
 import { carryOrientation } from "./orientation.ts";
 import { humanEquipment } from "./equipment.ts";
-import type { HandCursor, HandIntent } from "../../mind.ts";
+import type { HandIntent } from "../../mind.ts";
 
 // Three anatomical segments. The seven coordinates are virtual axes, never extra bodies.
 const MASSES = [2.8, 2.0, 1.1];
@@ -149,9 +149,6 @@ export const anatomicalChain = defineChain({
         : rotate(Vector3.Lerp(previousPoint, commanded.point, lead), socketRotation()).addInPlace(socketPoint());
     };
     const handPoint = () => rotate(handPivot, hand.mesh.rotationQuaternion!).addInPlace(hand.mesh.position);
-    const cursor = (): HandCursor => ({ pointerX: command.pointerX, pointerY: command.pointerY, reach: command.reach,
-      roll: command.roll, wristBend: command.wristBend,
-      orientation: { x: commanded.rotation.x, y: commanded.rotation.y, z: commanded.rotation.z, w: commanded.rotation.w } });
     let previousAngles = [...initial];
     let previousRotations = groups.map(i => bind.frames[i].rotation.clone());
     const handWeld = { kind: "hand" as const, link: hand, pivot: handPivot, world: toWorld(bind.point),
@@ -213,7 +210,7 @@ export const anatomicalChain = defineChain({
         // The shoulder's rate and torque against the shipped arm's (`ArmDrive`); a human is x1 in size.
         drive: { rateScale: rates[0] / RATES[0], torqueScale: weight } }),
       axes: () => axes, stroke: () => "idle", anchor: worldCommand,
-      anchorStray: () => Vector3.Distance(steeredTo(), handPoint()), cursor,
+      anchorStray: () => Vector3.Distance(steeredTo(), handPoint()),
       orientation: () => socketRotation().conjugate().multiply(hand.mesh.rotationQuaternion!),
       commandedEnd(distance) { return worldCommand().addInPlace(rotate(HUMAN_MOUNT.perp.scale(distance - reachable.reachMax), socketRotation().multiply(commanded.rotation))); },
       unmotorise() { passive = true; release(); },

@@ -1,4 +1,3 @@
-import type { FighterView, HandCursors, HumanOwnership, Mind } from "./mind.ts";
 import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
 import type { PressSource } from "./contact-press.ts";
@@ -41,26 +40,6 @@ export interface ControlRecordingPort {
   detach(): void;
 }
 
-/**
- * The person, as a control surface sees them: a mind, what they own, and where to put their cursor.
- *
- * Declared here rather than beside one surface because there are two surfaces now and there is
- * exactly one person. `humanoid-v1` and `golem-v1` install the same object, and the page builds
- * one of them -- so a body a person can take is a body that satisfies this, whatever it is made
- * of. The three imports above are all type-only and erase, which is what keeps `input.ts` (and
- * through it the DOM) out of the graph a headless harness loads.
- *
- * **`seed` takes a cursor and not a pose**, and that is the whole of what made one seam serve two
- * bodies. A Warrior arm's pose is an `ArmPose` inverted by `policies.ts`; a golem effector's is a
- * chain's own commanded state inverted by the chain. Neither is a thing the other could read. What
- * both can answer is where the cursor has to sit, which is the only thing the person needs told.
- */
-export interface HumanDriverSource {
-  readonly mind: Mind;
-  readonly ownership: HumanOwnership;
-  seed(view: FighterView, cursors: HandCursors): void;
-}
-
 /** Optional read-only diagnostics; the surface-specific adapter owns the payload type. */
 export interface ControlDiagnosticsPort {
   readonly surface: string;
@@ -81,8 +60,6 @@ export interface ControlEndpoint {
   commander: Commander | null;
   install(driver: InstalledDriver): void;
   installPolicy(name: string, seed?: number): void;
-  installHuman(): void;
-  releaseHuman(): void;
   stopFighting(): void;
   dispose(): void;
 }

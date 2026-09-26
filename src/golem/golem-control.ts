@@ -2,15 +2,11 @@ import type {
   ControlEndpoint,
   ControlRecordingPort,
   DriverStopReason,
-  HumanDriverSource,
   InstalledDriver,
 } from "../control-host.ts";
 import {
-  handoverFromCursors,
   policyMind,
-  splitMind,
   type FighterView,
-  type HandCursors,
   type Intent,
   type Mind,
 } from "../mind.ts";
@@ -29,15 +25,10 @@ import type { BoutRecorder } from "../recorder.ts";
  * is an interface: the host installs, releases and steps a driver without knowing which surface it
  * is talking to, and every place that *does* care compares tags.
  *
- * What is genuinely different is one line, and it is the one that matters: the cursor seed. A
- * Warrior's comes from `cursorForPose`, which is the seven-axis arm's own inverse; a golem's comes
- * from the module the cursor is driving, because a golem effector is a one-, three- or five-axis
- * chain that owns its mapping. Both produce a `HandCursors`, which is why one `handoverFromCursors`
- * serves both -- see `HumanDriverSource`.
- *
- * **`Intent` is not widened by any of this.** What arrives at `apply` is the same eight-field
- * command a person's mouse produces, and the golem narrows it onto its five modules. That is the
- * direction the one-seam rule allows and the whole reason a mouse can drive a golem at all.
+ * **`Intent` is not widened by any of this.** What arrives at `apply` is the one command a mind
+ * produces, and the golem narrows it onto its five modules. A person does not write it: a person
+ * hands the body orders through `commander`, and the installed mind turns them into a command
+ * (skill ceiling session 06, which retired the puppet takeover this file used to seed).
  */
 
 // Declared in `src/control-surfaces.ts`, which imports nothing, and re-exported here where every
@@ -47,7 +38,6 @@ export { GOLEM_CONTROL_SURFACE };
 
 export interface GolemControlOptions {
   readonly initialMind: Mind;
-  readonly initialPolicyName?: string;
   readonly view: FighterView;
   readonly canStep: () => boolean;
   readonly apply: (dt: number, intent: Intent) => void;
@@ -55,17 +45,6 @@ export interface GolemControlOptions {
   readonly clearLocomotion?: (reason: string) => void;
   readonly policies: readonly { readonly name: string; readonly label: string }[];
   readonly policyFactory?: (name: string, seed?: number) => Mind;
-  readonly human?: HumanDriverSource;
-  /**
-   * Where the cursor has to sit for this golem to be commanded into the pose it is in, or null
-   * when there is nothing to seed from.
-   *
-   * Null is a real answer rather than a failure: a golem whose effectors have both been cut off
-   * has no pose for a cursor to mean anything about, exactly as a Warrior whose sword arm is off
-   * has none. The body is still worth taking -- it walks, it turns, it can be hit -- so the
-   * refusal is of the seed and not of the takeover.
-   */
-  readonly cursorSeed?: () => HandCursors | null;
 }
 
 class GolemRecording implements ControlRecordingPort {
@@ -87,7 +66,6 @@ export class GolemControlEndpoint implements ControlEndpoint {
   readonly surface = GOLEM_CONTROL_SURFACE;
   readonly recording: GolemRecording;
   private installed: InstalledDriver;
-  private selectedPolicy: string;
   private readonly factory: (name: string, seed?: number) => Mind;
   private readonly options: GolemControlOptions;
   observer: ((view: FighterView, intent: Intent) => void) | null = null;
@@ -102,7 +80,6 @@ export class GolemControlEndpoint implements ControlEndpoint {
     this.options = options;
     this.recording = new GolemRecording(options.view);
     this.factory = options.policyFactory ?? policyMind;
-    this.selectedPolicy = options.initialPolicyName ?? options.initialMind.name;
     this.installed = this.driverFor(options.initialMind);
   }
 
@@ -129,23 +106,9 @@ export class GolemControlEndpoint implements ControlEndpoint {
     if (!this.options.policies.some((option) => option.name === name)) {
       throw new Error(`control policy "${name}" is not available for surface ${this.surface}`);
     }
-    this.selectedPolicy = name;
     this.installMind(this.factory(name, seed));
   }
 
-  installHuman(): void {
-    const human = this.options.human;
-    if (!human) throw new Error(`control surface ${this.surface} has no human adapter`);
-    const seed = this.options.cursorSeed?.() ?? null;
-    if (seed) human.seed(this.options.view, seed);
-    const shared = splitMind(human.mind, this.factory(this.selectedPolicy), human.ownership);
-    // The seed alone does not survive contact with either driver -- a person's next mouse event
-    // writes an absolute cursor over it, and a freshly built policy parks its cursor wherever its
-    // own opening pose is -- so the rebase is what carries the takeover past its first frame.
-    this.installMind(seed ? handoverFromCursors(shared, seed) : shared);
-  }
-
-  releaseHuman(): void { this.installPolicy(this.selectedPolicy); }
   stopFighting(): void {
     this.installed.stop("verdict");
     this.options.clearLocomotion?.("verdict");

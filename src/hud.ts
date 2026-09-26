@@ -61,7 +61,7 @@ export interface Telemetry {
  */
 export interface CommandSideReadout {
   readonly side: Side;
-  /** The mind's own name, which is a wrapper's inner name when a takeover is rebasing. */
+  /** The mind's own name. */
   readonly mind: string;
   /** Commanded stand-off, as a multiple of their published reach. */
   readonly standOff: number;
@@ -172,7 +172,7 @@ export class Hud {
    * `AGENTS.md`'s diagnostics rule is that nothing which changes state may open, close or navigate
    * a surface a person owns. `update` writes into these two elements and never touches the `open`
    * attribute of the disclosure holding them, so a panel somebody opened to watch a stand-off stays
-   * open through a verdict, a restart and a takeover, and one they left shut stays shut through all
+   * open through a verdict, a restart and a change of command, and one they left shut stays shut through all
    * three. That is also why the readout ships shut: it is a diagnostic, not a gauge.
    */
   private readonly commandLists: Record<"left" | "right", HTMLElement>;

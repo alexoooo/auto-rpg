@@ -308,10 +308,6 @@ export function effectorModule(
         },
         envelope: () => envelope,
         view: () => view,
-        // The driven chain's, and never the trailing one's. A maul's second arm follows the
-        // first's commanded point rather than a cursor of its own, so it has no pose of its own
-        // to seed and asking it would hand a takeover the cursor for an arm nobody drives.
-        cursor: () => built.cursor(),
         // **Both chains, whichever was struck.** A maul's second hand holds the same haft, so a
         // ruined link on either arm is the end of wielding it; and a trailing arm left driven
         // after the first went slack would haul the weapon on its own.

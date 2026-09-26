@@ -602,9 +602,9 @@ async function boot(): Promise<void> {
    * Taking command of a side, and standing down.
    *
    * Neither touches a mind: the body's own policy goes on driving it, and what moves is who hands
-   * it orders. So there is nothing to seed and no handover to measure -- the continuity a puppet
-   * takeover had to buy (`handover` in `mind.ts`) does not arise when the thing that changes is a
-   * commander. A side taken up starts with no orders, which is the bout as it was.
+   * it orders. So there is nothing to seed and no handover to measure: the continuity a puppet
+   * takeover once had to buy does not arise when the thing that changes is a commander. A side
+   * taken up starts with no orders, which is the bout as it was.
    */
   const commandNow = (side: Side): void => {
     if (state.phase === "select") return;
@@ -1071,7 +1071,7 @@ async function boot(): Promise<void> {
     const sides: CommandSideReadout[] = [];
     for (const side of ["left", "right"] as const) {
       const body = side === "left" ? bout.left : bout.right;
-      const mind = body.humanDriver?.mind as (Mind & { driven?: GolemDriven }) | undefined;
+      const mind = (body.control.driver as { mind?: Mind }).mind as (Mind & { driven?: GolemDriven }) | undefined;
       const driven = mind?.driven;
       if (!mind || !driven) continue;
       const engagement = bout.recorder.engagement[side];

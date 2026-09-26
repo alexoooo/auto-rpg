@@ -40,6 +40,25 @@ export const otherHand = (hand: HandName): HandName =>
   hand === "primary" ? "secondary" : "primary";
 
 /**
+ * Three reaches a hand can ask for (`HandIntent.reach`), each a fraction of the chain's own shell:
+ * -1 fully drawn in, +1 fully extended.
+ *
+ * `neutral` is the one every un-pressed command carries: `NEUTRAL` in `src/mind.ts`, `freshIntent`
+ * in `src/action-primitives.ts`, and a golem arm's resting command. `guard` and `thrust` are the two
+ * ends, and they are what the module bench's mouse puppet (`src/bench/buttons.ts`) turns a held
+ * button into.
+ *
+ * This was `BUTTON_REACH` in `src/buttons.ts`, the arena's mouse adapter. The arena went over to
+ * orders in skill ceiling session 06 and the adapter moved to the bench, but the resting reach
+ * belongs to every command, so it moved here, to the file that imports nothing.
+ */
+export const HAND_REACH = Object.freeze({
+  guard: -1,
+  neutral: 1 / 7,
+  thrust: 1,
+});
+
+/**
  * What is in a hand.
  *
  * `empty` is a kind rather than a null, and that is deliberate: a hand holding
@@ -357,7 +376,8 @@ export const isStriking = (kind: Striker): boolean => GRIPS[kind].use === "strik
  *
  * `isStriking` above answers true for `empty`, deliberately and for a stated
  * reason -- a fist is an attack. This is the narrower question, and it was
- * spelled out twice before it was a function: `options.ts`'s `accepts("cut")`
+ * spelled out twice before it was a function: the option layer's `accepts("cut")`
+ * (`src/options.ts`, retired in skill ceiling session 06)
  * held it as `isStriking(kind) && kind !== "empty"`, and the refusal one screen
  * below already called the thing it names "a held striking weapon". A third
  * copy was about to be written in `learning/tactical-teacher.ts`, which is what

@@ -1,12 +1,7 @@
 import type { CombatReportEvent } from "./combat.ts";
 import type { FighterView, Intent } from "./mind.ts";
-import {
-  behaviourRecord,
-  recordBehaviourSample,
-  recordCombatEvent,
-  recordIntentAttack,
-  type BehaviourRecord,
-} from "./options.ts";
+import { attackOpportunity, engagementRecord, EngagementTracker, type EngagementRecord } from "./engagement.ts";
+import { HANDS, type HandName, type Striker } from "./hands.ts";
 import type { Side } from "./physics.ts";
 import type { ControlEndpoint } from "./control-host.ts";
 
@@ -28,7 +23,7 @@ export interface BodyNeutralControlEvent {
 }
 
 type IntentEdge = Parameters<typeof recordIntentAttack>[3];
-type SampleEdge = Parameters<typeof recordBehaviourSample>[4];
+type SampleEdge = Parameters<typeof recordBehaviourSample>[3];
 
 const opposite = (side: Side): Side => side === "left" ? "right" : "left";
 
@@ -57,7 +52,7 @@ export class BoutRecorder {
     if (view.clock !== clock) {
       throw new Error(`recorder sample clock ${clock} disagrees with published view clock ${view.clock}`);
     }
-    recordBehaviourSample(this.records[side], view, null, dt, this.samples[side]);
+    recordBehaviourSample(this.records[side], view, dt, this.samples[side]);
     const intent = this.pendingIntents[side];
     const observedView = this.pendingViews[side];
     this.pendingIntents[side] = null;
@@ -133,4 +128,97 @@ export function sampleBoutRecorder(recorder: BoutRecorder, left: RecordedBody, r
   void recorder;
   left.control.recording?.sample(dt, clock);
   right.control.recording?.sample(dt, clock);
+}
+
+/**
+ * One contact, as the behaviour record files it.
+ *
+ * The behaviour record lived in `src/options.ts` beside the option layer until skill ceiling
+ * session 06 retired that layer. The option-keyed half of it (time per option, transitions,
+ * attempts per option, the longest occupancy) went with the layer: the recorder had always passed
+ * no option, so those fields were zeros nobody read. What is left is what `research/` and the
+ * tests read -- the range bins, contacts, blocks, damage and the engagement record.
+ */
+export interface CombatEvent {
+  hand: HandName; weapon: Striker; damage: number; blocked: boolean;
+  /** Optional only for old parity rows; factual evaluators always supply both. */
+  at?: number; opportunityKey?: string; defending?: boolean; contactId?: string;
+}
+export interface BehaviourRecord {
+  rangeBins: [number, number, number, number];
+  contacts: Record<HandName, number>; contactsByKind: Partial<Record<Striker, number>>;
+  blocks: number; crouchTime: number; trunkTwistSignChanges: number; damage: number; vitality: number; win: boolean; seconds: number;
+  engagement: EngagementRecord;
+  /** Private recorder state; durable reporters omit underscore-prefixed fields. */
+  _engagement: EngagementTracker; _lastBlockAt: Record<string, number>; _blocksSeen: Set<string>;
+}
+/**
+ * The durable record owned by `BoutRecorder` in both the page and bench loops.
+ *
+ * Its three writers remain separate because geometry samples, selected intent
+ * and combat resolution arrive on three different seams. `BoutRecorder` owns
+ * their ordering and side attribution; these functions own what each fact means.
+ */
+export function behaviourRecord(): BehaviourRecord {
+  const engagement = engagementRecord();
+  const record = { rangeBins: [0, 0, 0, 0], contacts: { primary: 0, secondary: 0 }, contactsByKind: {},
+    blocks: 0, crouchTime: 0, trunkTwistSignChanges: 0, damage: 0, vitality: 1, win: false, seconds: 0,
+    engagement } as unknown as BehaviourRecord;
+  Object.defineProperties(record, {
+    _engagement: { value: new EngagementTracker(engagement), enumerable: false },
+    _lastBlockAt: { value: {}, enumerable: false },
+    _blocksSeen: { value: new Set<string>(), enumerable: false },
+  });
+  return record;
+}
+export function recordCombatEvent(record: BehaviourRecord, event: CombatEvent): void {
+  if (!event.defending) {
+    record.contacts[event.hand] += 1; record.contactsByKind[event.weapon] = (record.contactsByKind[event.weapon] ?? 0) + 1;
+    record.damage += event.damage;
+  }
+  if (event.blocked) {
+    const key = `${event.hand}:${event.weapon}`; const previous = record._lastBlockAt[key] ?? -Infinity;
+    const unseen = event.contactId === undefined || !record._blocksSeen.has(event.contactId);
+    const separated = event.contactId !== undefined || event.at === undefined || event.at - previous >= 0.20;
+    if (unseen && separated) {
+      record.blocks += 1;
+      if (event.contactId !== undefined) record._blocksSeen.add(event.contactId);
+      if (event.at !== undefined) record._lastBlockAt[key] = event.at;
+    }
+  }
+  if (event.at !== undefined) {
+    const factualKey = event.weapon === "bite" ? "natural:bite"
+      : `hand:${event.hand}:${event.weapon === "arrow" ? "bow" : event.weapon}`;
+    record._engagement.contact(event.opportunityKey ?? factualKey, event.at, event.damage);
+  }
+}
+export function recordIntentAttack(record: BehaviourRecord, view: FighterView, intent: Intent,
+  previous: { thrust?: Record<HandName, boolean>; guard?: Record<HandName, boolean>; natural?: boolean }): void {
+  previous.thrust ??= { primary: false, secondary: false };
+  previous.guard ??= { primary: false, secondary: false };
+  previous.natural ??= false;
+  const opportunities = attackOpportunity(view).filter((row) => row.viable);
+  for (const row of opportunities) {
+    if (row.key.startsWith("natural:")) {
+      // The natural channel, not `primary`. This read the primary hand's button
+      // on a body that publishes no hands, which was the alias itself: the
+      // exception lived here as a comment and in `Centipede.update` as a fact.
+      if (intent.natural.thrust && !previous.natural) record._engagement.attack(row.key, view.clock);
+      continue;
+    }
+    const [, handName] = row.key.split(":"); const hand = handName as HandName;
+    const shot = row.striker === "bow" && previous.thrust[hand] && !intent[hand].thrust;
+    const committed = row.striker !== "bow" && ((intent[hand].thrust && !previous.thrust[hand]) ||
+      (previous.guard[hand] && !intent[hand].guard));
+    if (shot || committed) record._engagement.attack(row.key, view.clock);
+  }
+  for (const hand of HANDS) { previous.thrust[hand] = intent[hand].thrust; previous.guard[hand] = intent[hand].guard; }
+  previous.natural = intent.natural.thrust;
+}
+export function recordBehaviourSample(record: BehaviourRecord, view: FighterView, dt: number,
+  previous: { twistSign?: number }): void {
+  const bin = view.measure < 0.7 ? 0 : view.measure < 1.2 ? 1 : view.measure < 1.8 ? 2 : 3; record.rangeBins[bin] += dt;
+  record._engagement.sample(view, dt);
+  const sign = Math.sign(view.self.trunkTwist); if (previous.twistSign && sign && previous.twistSign !== sign) record.trunkTwistSignChanges += 1;
+  if (sign) previous.twistSign = sign; record.crouchTime += view.self.crouch * dt; record.vitality = view.self.vitality; record.seconds += dt;
 }

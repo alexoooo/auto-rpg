@@ -28,11 +28,8 @@ import {
   toSelect,
   vitality,
   verdict,
-  withChannels,
   withCommander,
   withControl,
-  drivesAttack,
-  drivesMove,
   withEquipment,
   withGolemBuild,
   withGolemEffector,
@@ -115,36 +112,6 @@ test("there is one of you, so taking a side gives the other one back to its poli
   const taken = withControl(defaultMatchup(), "right", "you");
   assert.equal(humanSide(taken), "right");
   assert.equal(taken.left.control, "mind");
-});
-
-test("both boxes clear hands the body back, and either box on takes the whole corner", () => {
-  const start = defaultMatchup();
-  const both = withChannels(start, "right", true, true);
-  assert.equal(humanSide(both), "right", "ticking a box takes the body, and takes it off the left");
-  assert.equal(both.left.control, "mind");
-  assert.ok(drivesMove(both.right) && drivesAttack(both.right));
-
-  const move = withChannels(start, "right", true, false);
-  assert.ok(drivesMove(move.right) && !drivesAttack(move.right));
-  const attack = withChannels(start, "right", false, true);
-  assert.ok(!drivesMove(attack.right) && drivesAttack(attack.right));
-
-  // Clearing the last box is the only way back to a fully automatic corner, which is why the
-  // rule lives in the reducer: the screen has no third control meaning "nobody".
-  const neither = withChannels(move, "right", false, false);
-  assert.equal(neither.right.control, "mind");
-  assert.ok(!drivesMove(neither.right) && !drivesAttack(neither.right));
-});
-
-test("a corner that says nothing about channels is a corner driven whole", () => {
-  // Every `?matchup=` link written before the split says `control: "you"` and no more, and back
-  // then taking a body took all of it. The predicates answer for that corner rather than the
-  // codec repairing it, so an old link still starts the fight it named.
-  const old = { ...defaultMatchup().left, control: "you" };
-  delete old.channels;
-  assert.ok(drivesMove(old) && drivesAttack(old));
-  const theirs = { ...old, control: "mind" };
-  assert.ok(!drivesMove(theirs) && !drivesAttack(theirs), "a mind's corner drives neither");
 });
 
 test("letting go of a side leaves two policies fighting and does not hand you the other", () => {
@@ -326,8 +293,8 @@ test("taking the body you already drive leaves the matchup where it was", () => 
 test("taking a body does not touch either side's policy", () => {
   // The policy a side carries is what it becomes the moment you step out of it,
   // which is the whole reason the setup screen leaves the picker enabled on the
-  // side a person is driving. A takeover that reset it would silently make every
-  // released body an idle one.
+  // side a person commands. Taking command in a way that reset it would silently
+  // make every body stood down an idle one.
   const chosen = withPolicy(withPolicy(defaultMatchup(), "left", "duelist"), "right", "swinger");
   const swapped = commandSide(begin(selectScreen(defaultMatchup()), chosen), "right");
   assert.equal(swapped.matchup.left.policy, "duelist");
@@ -354,7 +321,7 @@ test("taking a body is refused from the screen, where there is no body to take",
 
 test("taking a body is allowed once the bout is decided, because the world is still running", () => {
   // `over` deliberately does not stop the fighters -- see `Phase` -- so refusing
-  // a takeover there would be a rule invented to protect a banner.
+  // command there would be a rule invented to protect a banner.
   const over = advance(
     begin(selectScreen(defaultMatchup()), defaultMatchup()),
     ring(corner(minus("head")), corner(whole())),
@@ -377,7 +344,7 @@ test("the body you took mid-fight is the one selected when you get back to the s
   assert.equal(humanSide(back.matchup), "right");
 });
 
-test("five takeovers in one bout leave one driver, not five", () => {
+test("five changes of command in one bout leave one commanded side, not five", () => {
   let state = begin(selectScreen(defaultMatchup()), defaultMatchup());
   for (const side of ["right", "left", "right", "right", "left"]) {
     state = commandSide(state, side);
@@ -1005,14 +972,13 @@ test("a link that is not a matchup is refused by shape rather than repaired", ()
   assert.equal(matchupFromQuery(encode({
     left: { ...good.left, control: "you" }, right: { ...good.right, control: "you" },
   })), null, "two of you");
-  assert.equal(matchupFromQuery(encode({
-    ...good, left: { ...good.left, channels: "both hands" },
-  })), null, "a channel set the code does not have");
-  // Absent is the one omission this codec reads rather than refuses, and the reason is in
-  // `readSide`: it is what every link predating the split means, not a field gone missing.
-  assert.deepEqual(matchupFromQuery(encode(good)), good, "a link with no channels at all");
-  const half = { ...good, left: { ...good.left, control: "you", channels: "move" } };
-  assert.deepEqual(matchupFromQuery(encode(half)), half, "and one that names half a body");
+  // `channels` said which half of a body a person puppeted, and nothing reads it since skill ceiling
+  // session 06. A link written before then may carry it, and it still opens the fight it named.
+  const commanded = { ...good, left: { ...good.left, control: "you" } };
+  for (const channels of ["move", "attack", "both", "both hands"]) {
+    assert.deepEqual(matchupFromQuery(encode({ ...good, left: { ...commanded.left, channels } })), commanded,
+      `an old link naming ${channels}`);
+  }
   // A well-shaped link naming ids the registry does not have is *not* this codec's refusal.
   const strange = { ...good, left: { ...good.left, golem: { ...HAND_BUILD, head: "head.of.lettuce" } } };
   assert.deepEqual(matchupFromQuery(encode(strange)), strange);
