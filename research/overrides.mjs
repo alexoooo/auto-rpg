@@ -18,14 +18,18 @@
  * another worker module: see `research/headroom-worker.mjs`).
  */
 import { TORSO_WAIST } from "../src/golem/config.ts";
+import { WALKER } from "../src/golem/walker.ts";
 
 /**
  * The knobs, by name. `waist.leanTorque` is the stone waist's lean ceiling in N.m, the product the
  * shipped table writes as `onBody(600)` (1852 N.m). The skeleton's spine (`SPINE`) and the human's
- * waist (`HUMAN_WAIST`) are their own tables and do not move with it.
+ * waist (`HUMAN_WAIST`) are their own tables and do not move with it. `walker.holdFraction` is
+ * where the naive walker stops walking in, as a fraction of its reach (`WALKER` in
+ * `src/golem/walker.ts`; release 2's question 5(b)).
  */
 export const KNOBS = Object.freeze({
   "waist.leanTorque": Object.freeze({ block: TORSO_WAIST, key: "leanTorque" }),
+  "walker.holdFraction": Object.freeze({ block: WALKER, key: "holdFraction" }),
 });
 
 /**
