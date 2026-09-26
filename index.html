@@ -123,6 +123,9 @@
           <div class="switches"><label><input id="keyboard" type="checkbox" /> Keyboard movement</label><label><input id="facing" type="checkbox" /> Mouse facing</label></div>
           <small id="control-help">Click to attack-move · click an enemy to lock on · drag to force move</small>
         </section>
+        <section class="party-panel" aria-label="Your party"><span class="eyebrow">YOUR PARTY <kbd>1</kbd>–<kbd>4</kbd> · <kbd>0</kbd> all · <kbd>F</kbd> regroup</span>
+          <ol id="party-list"></ol>
+        </section>
         <button id="help-button" type="button" aria-expanded="false">Controls <kbd>?</kbd></button>
       </footer>
       <section id="start-panel" class="dialog" aria-labelledby="start-title">
@@ -134,6 +137,7 @@
           <label class="field">Other hand <select id="hero-secondary"></select></label>
         </div>
         <div id="hero-attributes"></div>
+        <label class="field">Companions <select id="companions"><option value="0">None</option><option value="1">One</option><option value="2" selected>Two</option><option value="3">Three</option></select></label>
         <label class="field">Dungeon seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
         <button id="start" class="primary" disabled>Preparing Havok…</button>
         <small>Physical combat · one floor · no upgrades or saved progress</small>
@@ -147,6 +151,7 @@
       <section id="help" class="dialog help" hidden>
         <h2>Your golem fights automatically.</h2>
         <p>With both switches off, <b>click the floor</b> to attack-move, <b>click an enemy</b> to lock on, or <b>drag a route</b> to keep moving through danger. The hero follows while you draw.</p>
+        <p>You order a <b>party</b>. An order goes to whoever is selected: everybody at first. <b>1</b>–<b>4</b> or a click on a party member or its row selects that one alone, <b>Shift</b> adds it, <b>0</b> selects everybody. A companion you sent somewhere holds there; <b>F</b> calls the selected companions back to the hero, whom an idle companion follows. Enemies go for whichever of you they see nearest, and the run lasts while anybody stands.</p>
         <p><b>Keyboard movement</b> uses WASD or arrows, relative to the screen. <b>Mouse facing</b> turns toward the cursor. Each switch gives its channel to you and leaves the other to the AI. With mouse facing alone, the hero explores automatically.</p>
         <p>Attacks and counters are always automatic. Brief dodges may adjust movement. Doors open on approach. Reach the green exit circle to escape.</p>
         <p><b>Wheel</b> zooms · <b>Space / Esc</b> pauses · <b>?</b> closes this help.</p><button id="close-help">Got it</button>
