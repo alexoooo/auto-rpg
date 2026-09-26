@@ -21,7 +21,7 @@ The [module bench](https://alexoooo.github.io/auto-rpg/bench.html) is also avail
 
 Choose **New Game** from the main menu. Pick a golem and a seed,
 then explore a generated floor of seven to eleven rooms -- walls with arches across the larger ones,
-and loops that save the walk back -- with eight enemy golems. Doors open on approach;
+and loops that save the walk back -- with eight enemies, golems and skeletons. Doors open on approach;
 reach the green exit circle to win. Wounds persist until the run ends. Retry preserves the seed
 and build; New dungeon generates another floor. This mode has no saved progression or loot.
 

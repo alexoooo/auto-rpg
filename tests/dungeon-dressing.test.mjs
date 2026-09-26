@@ -2,14 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
-import { DRESSING, FLOOR_DECALS, FLOOR_TOP, WALL_ALLOWANCE, dressingPlacements, hungCentre, torchPlacements, validateDressing } from "../src/dungeon/dressing.ts";
-import { ATLAS, DECAL_KINDS, atlasRect, decalAtlas } from "../src/dungeon/decals.ts";
-import { WALL_HEIGHT } from "../src/dungeon/fog.ts";
+import { DRESSING, FACING_MIN, FLOOR_DECALS, FLOOR_TOP, WALL_ALLOWANCE, dressingPlacements, hungCentre, muralHeight, torchPlacements, validateDressing } from "../src/dungeon/dressing.ts";
+import { ATLAS, DECAL_KINDS, MURAL_ASPECT, WALL_PIECES, atlasRect, decalAtlas, muralRect } from "../src/dungeon/decals.ts";
+import { WALL_HEIGHT, doorCells } from "../src/dungeon/fog.ts";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { buildDungeonWorld } from "../src/dungeon/world.ts";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { frameDungeon } from "../src/dungeon/camera.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon } from "../src/dungeon/camera.ts";
 import { dungeonStone } from "../src/dungeon/stone.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { isFloor } from "../src/dungeon/map.ts";
@@ -69,11 +69,12 @@ function colliderRows(scene) {
   }).sort();
 }
 
-// Pinned at the commit before the dungeon's look changed (f1ccfed): seeds 1 and 2, with and without visuals.
-// Nothing a look session adds may add, move or re-layer a body; this is what says so.
+// Seeds 1 and 2, with and without visuals, pinned from a run of the level as the generator lays it now. Nothing a look
+// session adds may add, move or re-layer a body; this is what says so. A change to the generator moves the level and
+// is re-pinned only once the level tests are green.
 const PINNED = {
-  1: { count: 242, sha256: "bd1838d940ccf75f89d9d6e47e70e02eb07decc2235b120233465dfe2f6d6ea4" },
-  2: { count: 279, sha256: "1070cb3997c61e4c509532cf51cfe8b506a825f52cc066489858ec94aa90da90" },
+  1: { count: 208, sha256: "0da39aab989cfbaf3674b072cf7183d614aa156e6c3416829415ff8ba04a63bd" },
+  2: { count: 269, sha256: "2abcd71c319e7978f2f3992d5f753ba941ee4e31b89a06dac4689a9153e03668" },
 };
 
 test("the_dungeon_builds_the_same_colliders_with_or_without_visuals", async () => {
@@ -104,47 +105,111 @@ test("the_orthographic_light_proxy_patch_finds_its_anchor", () => {
 
 const dressings = new Map(SEEDS.map(seed => [seed, dressingPlacements(levels.get(seed), seed)]));
 const ofKind = (list, kind) => list.filter(d => d.kind === kind);
+/** The page's azimuth, square to the walls, and the old diagonal: hung dressing is placed for the view it is seen from. */
+const AZIMUTHS = [CAMERA_AZIMUTH, Math.PI / 4];
+const dressedFor = new Map(AZIMUTHS.map(azimuth => [azimuth, azimuth === CAMERA_AZIMUTH ? dressings
+  : new Map(SEEDS.map(seed => [seed, dressingPlacements(levels.get(seed), seed, DRESSING, cameraToward(azimuth))]))]));
 
 test("dressing_is_flat_on_the_floor_or_hung_on_a_wall", () => {
-  const seen = new Set();
-  for (const [seed, map] of levels) {
-    const dressing = dressings.get(seed);
-    assert.deepEqual(validateDressing(map, dressing, torchPlacements(map, seed)), [], `seed ${seed}`);
-    for (const [i, { min, max }] of map.rooms.entries()) {
-      const inside = ofKind(dressing, "decal").filter(({ at }) => at.x >= min.x - 0.5 && at.x <= max.x + 0.5 && at.z >= min.z - 0.5 && at.z <= max.z + 0.5);
-      assert.ok(inside.length >= 3, `seed ${seed}: room ${i} has ${inside.length} markings`);
+  for (const azimuth of AZIMUTHS) {
+    const toward = cameraToward(azimuth), seen = new Set();
+    let rooms = 0, muralled = 0;
+    for (const [seed, map] of levels) {
+      const dressing = dressedFor.get(azimuth).get(seed), where = `azimuth ${azimuth}, seed ${seed}`;
+      assert.deepEqual(validateDressing(map, dressing, torchPlacements(map, seed), toward), [], where);
+      for (const [i, { min, max }] of map.rooms.entries()) {
+        const within = p => p.x >= min.x - 0.5 && p.x <= max.x + 0.5 && p.z >= min.z - 0.5 && p.z <= max.z + 0.5;
+        // At least 7 in every room on seeds 1-50 at both azimuths, which is `decalsPerRoom`'s least draw.
+        const inside = ofKind(dressing, "decal").filter(({ at }) => within(at));
+        assert.ok(inside.length >= 6, `${where}: room ${i} has ${inside.length} markings`);
+        rooms++;
+        if (ofKind(dressing, "mural").some(m => within({ x: m.cell.x + m.facing.x, z: m.cell.z + m.facing.z }))) muralled++;
+      }
+      for (const d of dressing) seen.add(d.kind === "decal" ? d.decal : d.kind === "mural" ? d.piece : d.kind);
     }
-    for (const d of dressing) seen.add(d.kind === "decal" ? d.decal : d.kind);
+    // A piece on the walls of 96.7 % of rooms square to the walls and all of them on the diagonal, and 26.6 and 29.5 of
+    // them a level (seeds 1-50): the owner asked for more on the walls, not one piece a room.
+    const murals = [...levels.keys()].reduce((n, seed) => n + ofKind(dressedFor.get(azimuth).get(seed), "mural").length, 0) / levels.size;
+    assert.ok(muralled >= 0.9 * rooms, `azimuth ${azimuth}: ${muralled} of ${rooms} rooms have a piece on a wall`);
+    assert.ok(murals >= 22, `azimuth ${azimuth}: ${murals.toFixed(1)} wall pieces a level`);
+    assert.deepEqual([...seen].sort(), [...FLOOR_DECALS, "roots", "cobweb", ...WALL_PIECES].sort(), `azimuth ${azimuth}: every kind is drawn somewhere`);
   }
-  assert.deepEqual([...seen].sort(), [...FLOOR_DECALS, "roots", "cobweb"].sort(), "every kind is drawn somewhere");
+  // The validator reads the view it is handed: what is placed for one camera faces away from the other.
+  const map = levels.get(1), square = dressedFor.get(CAMERA_AZIMUTH).get(1);
+  assert.match(validateDressing(map, square, torchPlacements(map, 1), cameraToward(Math.PI / 4)).join("\n"), /face away from the camera/);
+  // Ten degrees off the axis a side face shows a sliver, 0.17 of the view: too near edge-on to hang anything on.
+  const yawed = cameraToward(170 * Math.PI / 180), [first] = ofKind(square, "roots");
+  for (const seed of SEEDS) for (const { facing } of ofKind(dressingPlacements(levels.get(seed), seed, DRESSING, yawed), "roots"))
+    assert.deepEqual(facing, { x: 0, z: -1 }, `seed ${seed}: roots on a side face at 170 degrees`);
+  const sideways = square.map(d => d === first ? { ...first, facing: { x: 1, z: 0 } } : d);
+  assert.match(validateDressing(map, sideways, torchPlacements(map, 1), yawed).join("\n"), /face away from the camera/);
 });
 
 test("the_dressing_validator_refuses_each_thing_it_is_for", () => {
   // One stated edit to a real placement each, so that a validator which passed everything would fail here.
-  const map = levels.get(1), torches = torchPlacements(map, 1), dressing = dressings.get(1);
-  const [decal] = ofKind(dressing, "decal"), [roots] = ofKind(dressing, "roots"), [web] = ofKind(dressing, "cobweb");
-  const rock = { x: 0, z: 0 }, overlapping = ofKind(dressing, "decal").find(o => o !== decal && Math.hypot(o.at.x - decal.at.x, o.at.z - decal.at.z) < 0.1);
-  assert.equal(overlapping, undefined, "the fixture's first marking stands alone");
-  const refused = (edit, pattern) => {
-    const problems = validateDressing(map, dressing.map(d => d === edit.from ? edit.to : d).concat(edit.extra ?? []), torches);
-    assert.match(problems.join("\n"), pattern);
-  };
-  refused({ from: decal, to: { ...decal, at: rock } }, /leaves the floor/);
-  refused({ from: decal, to: { ...decal, layer: 7 } }, /on layer 7/);
-  refused({ from: decal, to: decal, extra: [{ ...decal }] }, /shares a depth/);
-  refused({ from: decal, to: { ...decal, at: { ...map.start } } }, /at the start or the exit/);
-  refused({ from: roots, to: { ...roots, cell: { x: roots.cell.x + roots.facing.x, z: roots.cell.z + roots.facing.z } } }, /hang on no collider/);
-  refused({ from: roots, to: { ...roots, along: 0.4 } }, /leave their cell's face/);
-  refused({ from: roots, to: { ...roots, cell: torches[0].cell, facing: torches[0].facing, along: 0 } }, /hang at a torch/);
-  refused({ from: web, to: { ...web, drop: 1.2 } }, /hangs down to 1.60 m/);
-  refused({ from: web, to: { ...web, into: { x: -web.into.x, z: -web.into.z } } }, /not in an inner corner/);
-  refused({ from: roots, to: { ...roots, facing: { x: -roots.facing.x, z: -roots.facing.z } } }, /face away from the camera/);
-  // A wall facing +x whose floor has rock on its +z side: the camera looks at it across that rock.
-  let behind;
-  for (let z = 0; z < map.size && !behind; z++) for (let x = 0; x < map.size && !behind; x++)
-    if (!isFloor(map, x, z) && isFloor(map, x + 1, z) && !isFloor(map, x + 1, z + 1)) behind = { x, z };
-  refused({ from: roots, to: { ...roots, cell: behind, facing: { x: 1, z: 0 }, along: 0, width: 0.5, drop: 1.7 } }, /nearer wall hides them/);
-  refused({ from: web, to: { ...web, into: { x: web.into.x, z: -web.into.z } } }, /faces away from the camera/);
+  for (const azimuth of AZIMUTHS) {
+    const toward = cameraToward(azimuth), where = `azimuth ${azimuth}`;
+    const map = levels.get(1), torches = torchPlacements(map, 1), dressing = dressedFor.get(azimuth).get(1);
+    const [decal] = ofKind(dressing, "decal"), [roots] = ofKind(dressing, "roots"), [web] = ofKind(dressing, "cobweb"), [mural] = ofKind(dressing, "mural");
+    const rock = { x: 0, z: 0 }, overlapping = ofKind(dressing, "decal").find(o => o !== decal && Math.hypot(o.at.x - decal.at.x, o.at.z - decal.at.z) < 0.1);
+    assert.equal(overlapping, undefined, `${where}: the fixture's first marking stands alone`);
+    const problemsOf = (edit, on = map) => validateDressing(on, dressing.map(d => d === edit.from ? edit.to : d).concat(edit.extra ?? []), torches, toward);
+    const refused = (edit, pattern, on = map) => assert.match(problemsOf(edit, on).join("\n"), pattern, where);
+    refused({ from: decal, to: { ...decal, at: rock } }, /leaves the floor/);
+    refused({ from: decal, to: { ...decal, layer: 7 } }, /on layer 7/);
+    refused({ from: decal, to: decal, extra: [{ ...decal }] }, /shares a depth/);
+    refused({ from: decal, to: { ...decal, at: { ...map.start } } }, /at the start or the exit/);
+    refused({ from: roots, to: { ...roots, cell: { x: roots.cell.x + roots.facing.x, z: roots.cell.z + roots.facing.z } } }, /hang on no collider/);
+    refused({ from: roots, to: { ...roots, along: 0.4 } }, /leave their cell's face/);
+    refused({ from: roots, to: { ...roots, cell: torches[0].cell, facing: torches[0].facing, along: 0 } }, /hang at a torch/);
+    refused({ from: web, to: { ...web, drop: 1.2 } }, /hangs down to 1.60 m/);
+    refused({ from: web, to: { ...web, into: { x: -web.into.x, z: -web.into.z } } }, /not in an inner corner/);
+    refused({ from: roots, to: { ...roots, facing: { x: -roots.facing.x, z: -roots.facing.z } } }, /face away from the camera/);
+    // A quarter turn: behind the camera's shoulder on the diagonal, and edge-on to it when it is square to the walls.
+    const dot = f => f.x * toward.x + f.z * toward.z;
+    const turned = [{ x: roots.facing.z, z: -roots.facing.x }, { x: -roots.facing.z, z: roots.facing.x }].sort((a, b) => dot(a) - dot(b))[0];
+    assert.ok(dot(turned) < FACING_MIN, where);
+    refused({ from: roots, to: { ...roots, facing: turned } }, /face away from the camera/);
+    // A wall the camera looks at across rock: on the diagonal, a wall facing +x whose floor has rock on its +z side is
+    // in the level; square to the walls no generated -z face has rock within three cells of it (seeds 1-50), so the
+    // level is given some, by one stated edit: the floor two cells in front of a real one turned to rock.
+    let behind, facing, on = map;
+    if (azimuth === Math.PI / 4) {
+      facing = { x: 1, z: 0 };
+      for (let z = 0; z < map.size && !behind; z++) for (let x = 0; x < map.size && !behind; x++)
+        if (!isFloor(map, x, z) && isFloor(map, x + 1, z) && !isFloor(map, x + 1, z + 1)) behind = { x, z };
+    } else {
+      facing = { x: 0, z: -1 };
+      for (let z = 0; z < map.size && !behind; z++) for (let x = 0; x < map.size && !behind; x++)
+        if (!isFloor(map, x, z) && [1, 2, 3].every(k => isFloor(map, x, z - k) && isFloor(map, x - 1, z - k) && isFloor(map, x + 1, z - k))) behind = { x, z };
+      on = { ...map, floor: map.floor.slice() }; on.floor[(behind.z - 2) * map.size + behind.x] = 0;
+    }
+    const hidden = { from: roots, to: { ...roots, cell: behind, facing, along: 0, width: 0.5, drop: 1.7 } };
+    if (on !== map) assert.doesNotMatch(problemsOf(hidden).join("\n"), /nearer wall hides them/, `${where}: seen before the edit`);
+    refused(hidden, /nearer wall hides them/, on);
+    refused({ from: web, to: { ...web, into: { x: web.into.x, z: -web.into.z } } }, /faces away from the camera/);
+    // A wall piece, one stated edit to a real one for each rule.
+    refused({ from: mural, to: { ...mural, piece: "bones" } }, /no kind of wall piece/);
+    refused({ from: mural, to: { ...mural, cell: { x: mural.cell.x + mural.facing.x, z: mural.cell.z + mural.facing.z } } }, /hangs on no collider/);
+    refused({ from: mural, to: { ...mural, facing: { x: 2 * mural.facing.x, z: 2 * mural.facing.z } } }, /faces no floor/);
+    refused({ from: mural, to: { ...mural, along: 0.45 } }, /leaves its cell's face/);
+    refused({ from: mural, to: { ...mural, y: 0 } }, /hangs down to/);
+    refused({ from: mural, to: { ...mural, y: WALL_HEIGHT } }, /over the wall/);
+    refused({ from: mural, to: { ...mural, cell: torches[0].cell, facing: torches[0].facing, along: 0 } }, /hangs at a torch/);
+    refused({ from: mural, to: { ...mural, facing: { x: -mural.facing.x, z: -mural.facing.z } } }, /faces away from the camera/);
+    refused({ from: mural, to: mural, extra: [{ ...mural }] }, /overlaps another piece on its wall/);
+    refused({ from: mural, to: { ...mural, cell: roots.cell, facing: roots.facing, along: roots.along } }, /overlaps another piece on its wall/);
+    // A doorway: the rock beside one of a door's cells, looking at it.
+    let jamb;
+    for (const cell of map.doors.flatMap(doorCells)) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]])
+      if (!jamb && !isFloor(map, cell.x + dx, cell.z + dz)) jamb = { cell: { x: cell.x + dx, z: cell.z + dz }, facing: { x: -dx, z: -dz } };
+    refused({ from: mural, to: { ...mural, ...jamb, along: 0 } }, /hangs in a doorway/);
+    // The nearer-wall fixture above, low enough on the wall that the roots' own test would not see it: a small patch of
+    // lichen with its middle 1.8 m up, whose sight line crosses the cell two in front of the face.
+    const low = { from: mural, to: { ...mural, piece: "lichen", cell: behind, facing, along: 0, width: 0.5, y: 1.8 } };
+    if (on !== map) assert.doesNotMatch(problemsOf(low).join("\n"), /nearer wall hides it/, `${where}: a piece seen before the edit`);
+    refused(low, /nearer wall hides it/, on);
+  }
 });
 
 test("dressing_keeps_the_start_and_exit_clean", () => {
@@ -182,25 +247,41 @@ test("dressing_density_is_what_the_table_asks", () => {
     const once = count(DRESSING, kind), twice = count(doubled, kind);
     assert.ok(twice >= 1.6 * once, `${kind}: ${once} at the table's density, ${twice} at twice it`);
   }
+  // Murals alone: with the roots doubled too, the extra roots take the walls first (1.39 times as many murals). On
+  // their own, a room's camera-facing walls start to fill: 1.58 times as many (seeds 1-10).
+  const once = count(DRESSING, "mural"), twice = count({ ...DRESSING, muralsPerRoom: DRESSING.muralsPerRoom.map(n => n * 2) }, "mural");
+  assert.ok(twice >= 1.5 * once, `mural: ${once} at the table's density, ${twice} at twice it`);
 });
 
 test("the_atlas_paints_a_shape_on_a_clear_rim_in_every_tile", () => {
   const bytes = decalAtlas(), width = ATLAS.tile * ATLAS.columns;
   assert.equal(bytes.length, width * ATLAS.tile * ATLAS.rows * 4);
+  // A banner is cloth, meant to read as one solid piece: 59.4 % of its part of the tile. Everything else is a shape
+  // with the stone showing round and through it.
+  const most = kind => kind === "banner" ? 0.65 : 0.45;
   for (const kind of DECAL_KINDS) {
     const [u0, v0] = atlasRect(kind), ox = Math.round(u0 * width), oy = Math.round(v0 * ATLAS.tile * ATLAS.rows);
     const alpha = (x, y) => bytes[((oy + y) * width + ox + x) * 4 + 3];
-    let solid = 0, rim = 0, top = 0;
+    // A wall piece's quad shows only the centred part of its tile of its own aspect; paint outside it is never seen.
+    const aspect = MURAL_ASPECT[kind] ?? 1, shown = x => x >= ATLAS.tile * (1 - aspect) / 2 && x < ATLAS.tile * (1 + aspect) / 2;
+    if (kind in MURAL_ASPECT) {
+      // And the quad's part of the tile is that same centred strip, so the piece is drawn unstretched.
+      const [a0, b0, a1, b1] = atlasRect(kind), [m0, n0, m1, n1] = muralRect(kind), inset = (1 - aspect) / 2 / ATLAS.columns;
+      assert.ok(Math.abs(m0 - a0 - inset) < 1e-12 && Math.abs(a1 - m1 - inset) < 1e-12 && n0 === b0 && n1 === b1, `${kind}: its quad shows ${[m0, n0, m1, n1]}`);
+    }
+    let solid = 0, rim = 0, top = 0, outside = 0;
     for (let y = 0; y < ATLAS.tile; y++) for (let x = 0; x < ATLAS.tile; x++) {
       const inRim = Math.min(x, y, ATLAS.tile - 1 - x, ATLAS.tile - 1 - y) < ATLAS.rim;
       if (inRim && alpha(x, y) > 0) rim++;
+      if (!shown(x) && alpha(x, y) > 0) outside++;
       if (alpha(x, y) >= 128) { solid++; if (y < ATLAS.rim + 4) top++; }
     }
-    const share = solid / ATLAS.tile ** 2;
+    const share = solid / (ATLAS.tile ** 2 * aspect);
     assert.equal(rim, 0, `${kind}: ${rim} pixels of the rim are painted`);
-    assert.ok(share > 0.02 && share < 0.45, `${kind}: ${(share * 100).toFixed(1)} % of the tile is solid`);
+    assert.equal(outside, 0, `${kind}: ${outside} pixels are painted where its quad does not show`);
+    assert.ok(share > 0.02 && share < most(kind), `${kind}: ${(share * 100).toFixed(1)} % of the tile is solid`);
     // A hung piece meets the wall's top along its tile's top edge; a marking lies clear of every edge.
-    if (kind === "roots" || kind === "cobweb") assert.ok(top > 10, `${kind} does not hang from the top of its tile`);
+    if (kind === "roots" || kind === "cobweb" || kind === "stain") assert.ok(top > 10, `${kind} does not hang from the top of its tile`);
     else assert.equal(top, 0, `${kind} touches its tile's top`);
     // The renderer minifies: at play zoom a 0.5 m web is about 32 pixels, the third mipmap. Box-filtered as the GPU
     // builds them, at least half of what is solid has to stay solid there, or the alpha test takes the shape away.
@@ -211,7 +292,7 @@ test("the_atlas_paints_a_shape_on_a_clear_rim_in_every_tile", () => {
         next[y * m + x] = (level[2 * y * n + 2 * x] + level[2 * y * n + 2 * x + 1] + level[(2 * y + 1) * n + 2 * x] + level[(2 * y + 1) * n + 2 * x + 1]) / 4;
       level = next;
     }
-    const kept = level.filter(a => a >= 0.5).length / level.length;
+    const kept = level.filter(a => a >= 0.5).length / (level.length * aspect);
     assert.ok(kept >= share / 2, `${kind}: ${(share * 100).toFixed(1)} % solid, ${(kept * 100).toFixed(1)} % at the third mipmap`);
   }
 });
@@ -228,8 +309,8 @@ function worldVertices(mesh) {
 test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   try {
-    for (const seed of [1, 4]) {
-      const map = levels.get(seed), dressing = dressings.get(seed), world = buildDungeonWorld(arena.scene, map, true);
+    for (const azimuth of AZIMUTHS) for (const seed of [1, 4]) {
+      const map = levels.get(seed), dressing = dressedFor.get(azimuth).get(seed), world = buildDungeonWorld(arena.scene, map, true);
       const bodies = arena.scene.meshes.filter(m => m.physicsBody).length, meshes = world.dress(dressing);
       assert.equal(arena.scene.meshes.filter(m => m.physicsBody).length, bodies, `seed ${seed}: dressing added a body`);
       const named = prefix => meshes.filter(m => m.name.startsWith(prefix));
@@ -274,8 +355,9 @@ test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body
       // Hung pieces: each quad samples its own kind's whole tile with the tile's top (v0) at its top edge, and faces the
       // camera, which culls a back face and draws nothing of one seen edge-on.
       const camera = new FreeCamera("dressing view", Vector3.Zero(), arena.scene);
-      frameDungeon(camera, { x: map.size / 2, z: map.size / 2 }, 10, 1.5);
-      const toCamera = camera.position.subtract(camera.getTarget()).normalize();
+      frameDungeon(camera, { x: map.size / 2, z: map.size / 2 }, 10, 1.5, CAMERA_PITCH, azimuth);
+      // From the framed point: a camera's target is computed with its view matrix, and none has been asked for yet.
+      const toCamera = camera.position.subtract(new Vector3(map.size / 2, 1, map.size / 2)).normalize();
       for (const [prefix, kind] of [["dressing.hung", "roots"], ["dressing.web.", "cobweb"]]) for (const mesh of named(prefix)) {
         const [u0, v0, u1, v1] = atlasRect(kind), uv = mesh.getVerticesData(VertexBuffer.UVKind), normal = mesh.getVerticesData(VertexBuffer.NormalKind);
         const ys = worldVertices(mesh).map(v => v[1]);
@@ -284,9 +366,46 @@ test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body
           assert.ok(Math.min(...us) === u0 && Math.max(...us) === u1, `seed ${seed}: ${mesh.name} leaves its tile`);
           for (let k = q; k < q + 4; k++) assert.equal(uv[2 * k + 1], ys[k] === top ? v0 : v1, `seed ${seed}: ${mesh.name} hangs upside down`);
           const facing = normal[3 * q] * toCamera.x + normal[3 * q + 1] * toCamera.y + normal[3 * q + 2] * toCamera.z;
-          assert.ok(facing > 0.3, `seed ${seed}: ${mesh.name} faces the camera at ${facing.toFixed(2)}`);
+          assert.ok(facing > 0.3, `azimuth ${azimuth}, seed ${seed}: ${mesh.name} faces the camera at ${facing.toFixed(2)}`);
         }
       }
+      // Murals: each quad on its own face, within the allowance off it, its width and its height, showing its piece's
+      // part of the tile upright and unmirrored (its left edge on the left as the camera looks at the face), and facing
+      // the camera.
+      const murals = ofKind(dressing, "mural"), muralMeshes = named("dressing.murals"), view = camera.getViewMatrix(true);
+      const muralVertices = muralMeshes.flatMap(worldVertices);
+      assert.ok(murals.length > 0, `seed ${seed}: a level with no murals tests nothing`);
+      assert.equal(muralVertices.length, 4 * murals.length, `seed ${seed}: murals drawn`);
+      let drawn = 0;
+      for (const mesh of muralMeshes) {
+        const uv = mesh.getVerticesData(VertexBuffer.UVKind), normal = mesh.getVerticesData(VertexBuffer.NormalKind), vs = worldVertices(mesh);
+        for (let q = 0; q < vs.length; q += 4) {
+          const quad = vs.slice(q, q + 4), mid = quad.reduce((s, v) => [s[0] + v[0] / 4, s[1] + v[1] / 4, s[2] + v[2] / 4], [0, 0, 0]);
+          const m = murals.find(o => { const c = hungCentre(o); return Math.hypot(c.x - mid[0], c.z - mid[2]) < 0.05 && Math.abs(o.y - mid[1]) < 1e-6; });
+          assert.ok(m, `seed ${seed}: a mural quad at (${mid.map(n => n.toFixed(2))}) is no mural's`);
+          const c = hungCentre(m), right = { x: -m.facing.z, z: m.facing.x }, [u0, v0, u1, v1] = muralRect(m.piece), h = muralHeight(m);
+          for (const [k, v] of quad.entries()) {
+            const off = (v[0] - c.x) * m.facing.x + (v[2] - c.z) * m.facing.z, side = (v[0] - c.x) * right.x + (v[2] - c.z) * right.z;
+            assert.ok(off > 0 && off <= WALL_ALLOWANCE && Math.abs(Math.abs(side) - m.width / 2) < 1e-6, `seed ${seed}: a ${m.piece} leaves its face`);
+            assert.ok(Math.abs(Math.abs(v[1] - m.y) - h / 2) < 1e-6 && v[1] <= WALL_HEIGHT, `seed ${seed}: a ${m.piece} is the wrong height`);
+            const [u, w] = [uv[2 * (q + k)], uv[2 * (q + k) + 1]];
+            assert.equal(u, side < 0 ? u0 : u1, `seed ${seed}: a ${m.piece} is mirrored or off its part of the tile`);
+            assert.equal(w, v[1] > m.y ? v0 : v1, `seed ${seed}: a ${m.piece} hangs upside down`);
+          }
+          // The same through the camera itself, so the test does not share `world.ts`'s idea of which way is right:
+          // in view space, the tile's left edge is left of its right and its top above its bottom.
+          const seen = quad.map(v => Vector3.TransformCoordinates(new Vector3(...v), view));
+          const us = [0, 1, 2, 3].map(k => uv[2 * (q + k)]), ws = [0, 1, 2, 3].map(k => uv[2 * (q + k) + 1]);
+          for (const a of [0, 1, 2, 3]) for (const b of [0, 1, 2, 3]) {
+            if (us[a] < us[b]) assert.ok(seen[a].x < seen[b].x, `azimuth ${azimuth}, seed ${seed}: a ${m.piece} is mirrored on screen`);
+            if (ws[a] < ws[b]) assert.ok(seen[a].y > seen[b].y, `azimuth ${azimuth}, seed ${seed}: a ${m.piece} is upside down on screen`);
+          }
+          const facing = normal[3 * q] * toCamera.x + normal[3 * q + 1] * toCamera.y + normal[3 * q + 2] * toCamera.z;
+          assert.ok(facing > 0.3, `azimuth ${azimuth}, seed ${seed}: a ${m.piece} faces the camera at ${facing.toFixed(2)}`);
+          drawn++;
+        }
+      }
+      assert.equal(drawn, murals.length);
       camera.dispose();
       // Webs: one mesh each, over their corner's floor cell and above a golem's head, hidden until that floor is explored.
       const webs = ofKind(dressing, "cobweb"), webMeshes = named("dressing.web.");
@@ -297,7 +416,7 @@ test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body
       }
       const floorOf = w => (w.corner.z + w.into.z / 2) * map.size + w.corner.x + w.into.x / 2;
       assert.ok(webMeshes.every(m => !m.isVisible), `seed ${seed}: a web shows before its floor is explored`);
-      world.present(new Set(), new Set([floorOf(webs[0])]), { x: 0, z: 0 }, Math.PI / 6);
+      world.present(new Set(), new Set([floorOf(webs[0])]), { x: 0, z: 0 }, Math.PI / 6, cameraToward(azimuth));
       assert.deepEqual(webMeshes.map(m => m.isVisible), webs.map(w => floorOf(w) === floorOf(webs[0])), `seed ${seed}: webs do not follow their floors`);
       world.dispose();
     }

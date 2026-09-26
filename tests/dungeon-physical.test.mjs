@@ -8,6 +8,7 @@ import { deriveLocomotionFootprint } from "../src/supported-locomotion-runtime.t
 import { distance, findPath } from "../src/dungeon/map.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
+import { cornerStallLevel } from "./fixtures/corner-stall-level.mjs";
 import { CONFIG } from "../src/config.ts";
 import { Combat, arrivalReadFraction } from "../src/combat.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -121,16 +122,20 @@ test("mouse-facing-only exploration reaches the exit using revealed frontiers", 
 
 test("the_hero_explores_generated_levels_to_their_exits", async () => {
   // The default biped on two levels, and the widest hero on one. Node headless harness: the biped
-  // wins seed 1 at 37.3 simulated seconds, and seed 7 at 63.1 -- a level where it once stood on the
-  // clearance arc of a rock corner for good, handed the same blocked leg by every replan (see the
-  // stall branch of `DungeonRun.follow`). Seeds 1-20 win at 30.6 to 86.2. The multileg wins seed 1
-  // at 147.6, touring most of the level at about 1 m/s with the exit in the far corner, hence its
-  // cap (seeds 2-5: 49.5 to 155.8). Two biped seeds and not three: this file runs beside
+  // wins generated seed 1 at 47.6 simulated seconds (`scripts/dungeon/sweep.mjs`; seeds 1-20 win at
+  // 24.7 to 80.2). Its second level is `cornerStallLevel`, frozen from the generator because on it the
+  // biped stands on the clearance arc of a rock corner and is handed the same blocked leg by every
+  // replan: it wins at 63.05 through the stall branch of `DungeonRun.follow`, and without that
+  // branch's move to the middle of its own cell it is still there at the cap. The multileg walks at
+  // about 1 m/s and wins seed 1 at 103.8, hence its cap (seeds 2-5: 57.8 to 133.0). Two biped
+  // levels and not three: this file runs beside
   // `the_planner_drives_a_real_bout...` in `tests/golem-mind.test.mjs`, whose wall-clock budget
   // reads the suite's load, and a third tipped it over.
-  for (const [seed, build, cap] of [[1, "default", 120], [7, "default", 120], [1, "multileg", 240]]) {
+  const generated = (seed) => { const { map } = generateLevel(seed); map.spawns = []; return map; };
+  for (const [level, build, cap] of [[() => generated(1), "default", 120], [cornerStallLevel, "default", 120],
+    [() => generated(1), "multileg", 240]]) {
     const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-    const map = generateLevel(seed).map; map.spawns = [];
+    const map = level(), seed = map.seed;
     const run = new DungeonRun(arena.scene, seed, build, false, map);
     try {
       run.commands.setMode({ keyboard: false, facing: true });
@@ -204,7 +209,8 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
 test("force movement goes around an occupied floor point instead of stopping to duel", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 12, z: 9 }];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map);
+  // A stone blocker, the widest footprint this test had before skeletons were drawn (0.34 m to a skeleton's 0.28).
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], () => "pitch-blade");
   try {
     run.actors[1].body.stopFighting(); // A real, stationary opponent blocking the direct route.
     run.actors[1].combat.stop();
@@ -223,7 +229,8 @@ test("an_enemy_nobody_is_near_sleeps_and_wakes_before_it_could_see_the_hero", as
   // so it sleeps once the first second is out. The hero then walks to it through the room at (25, 9).
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 25, z: 25 }];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map);
+  // A stone sleeper; the pair below is two skeletons, so dormancy is held to both families.
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], () => "pitch-blade");
   try {
     const enemy = run.actors[1], apart = () => distance(run.hero.body.feetPosition(), enemy.body.feetPosition());
     const frame = () => { arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60); };
@@ -269,7 +276,7 @@ test("a_sleeper_wakes_for_a_neighbour_walking_up_and_the_pair_sleeps_once_both_a
   // one sent from the room at (41, 25) to a home 3 m from the first, so that it walks up to a sleeper.
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 25, z: 25 }, { x: 41, z: 25 }];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map);
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], i => ["skeleton-dual-blades", "skeleton-maul"][i]);
   try {
     const [, sleeper, walker] = run.actors, home = { x: 28, z: 25 };
     assert.ok(walkable(map, home, walker.radius), "the walker's new home is not open floor");
@@ -290,6 +297,74 @@ test("a_sleeper_wakes_for_a_neighbour_walking_up_and_the_pair_sleeps_once_both_a
     assert.equal(sleeper.combat.now, run.hero.combat.now);
     assert.equal(walker.combat.now, run.hero.combat.now);
   } finally { run.dispose(); arena.dispose(); }
+});
+
+test("a_hero_facing_the_cursor_answers_an_enemy_that_comes_at_it_from_behind", async () => {
+  // Facing mode with no key held: the hero stands at the start, turned to a cursor far to the east, and one enemy
+  // starts 4 m behind it to the west. It is outside the cursor's cone, so standing off it is nobody's target; once it
+  // is upon the hero, the hero takes it on, turns to it, and hits it. It used to stand there and be hit.
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const map = classicDungeon(42); map.spawns = [{ x: map.start.x - 4, z: map.start.z }];
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], () => "default");
+  try {
+    run.commands.setMode({ keyboard: true, facing: true });
+    run.commands.cursor = { x: map.start.x + 40, z: map.start.z };
+    const enemy = run.actors[1], frame = () => { arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60); };
+    arena.scene.onBeforePhysicsObservable.add(() => run.step(1 / CONFIG.world.physicsHz));
+    const apart = () => distance(run.hero.body.feetPosition(), enemy.body.feetPosition());
+    let standingOff = 0, aimedAtStandingOff = 0, upon = 0, unanswered = 0, spell = 0, turned = false, struck = false, lastHit = null;
+    for (let f = 0; f < 60 * 10 && enemy.body.alive && run.hero.body.alive; f++) {
+      frame();
+      const at = run.hero.body.feetPosition(), to = enemy.body.feetPosition();
+      const toward = { x: (to.x - at.x) / apart(), z: (to.z - at.z) / apart() }, facing = run.hero.body.view.self.facing;
+      // Before it first comes upon the hero, while it stands off behind: the cursor's aim holds.
+      if (!upon && apart() > 3.6 && toward.x < 0.3) { standingOff++; if (run.hero.target) aimedAtStandingOff++; }
+      if (apart() < 2.4) {
+        upon++;
+        // Perception runs on its own clock, so a moment without a target is allowed; a spell of one is not.
+        spell = run.hero.target === enemy ? 0 : spell + 1;
+        unanswered = Math.max(unanswered, spell);
+        if (toward.x < 0.3 && Math.sin(facing) * toward.x + Math.cos(facing) * toward.z > 0.8) turned = true;
+      }
+      const hit = run.hero.combat.lastHit;
+      if (hit && hit !== lastHit) { lastHit = hit; if (hit.targetId === enemy.id && hit.kind !== "weak") struck = true; }
+    }
+    assert.ok(standingOff > 10, `the enemy stood off behind the hero for ${standingOff} frames`);
+    assert.equal(aimedAtStandingOff, 0, "the hero took on an enemy behind it that was not upon it");
+    assert.ok(upon > 60, `the enemy was upon the hero for ${upon} frames`);
+    assert.ok(unanswered < 30, `the hero went ${unanswered} frames with an enemy upon it and no target`);
+    assert.ok(turned, "the hero never turned from the cursor to the enemy upon it");
+    assert.ok(struck, "the hero never struck the enemy upon it");
+  } finally { run.dispose(); arena.dispose(); }
+});
+
+test("an_enemy_upon_the_hero_comes_first_and_the_cursor_chooses_between_equals", async () => {
+  // Enemies stand where they were built, east (the cursor's side) or west of the hero at the start, and one perception
+  // is read. Upon means nearer than 2.5 m. Outside facing mode the cursor chooses nothing and the nearest is taken.
+  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const pick = (offsets, { facing = true, current = null } = {}) => {
+    const map = classicDungeon(42);
+    map.spawns = offsets.map(x => ({ x: map.start.x + x, z: map.start.z }));
+    const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], () => "default");
+    try {
+      run.commands.setMode({ keyboard: true, facing });
+      run.commands.cursor = { x: map.start.x + 40, z: map.start.z };
+      if (current !== null) run.hero.target = run.actors[1 + current];
+      run.perceive();
+      return offsets[run.actors.indexOf(run.hero.target) - 1];
+    } finally { run.dispose(); }
+  };
+  try {
+    assert.equal(pick([-1, 1.5]), 1.5, "of two upon the hero, the one the cursor points at");
+    assert.equal(pick([3, -2]), -2, "one upon the hero before one the cursor points at further off");
+    assert.equal(pick([-3, 1], { current: 0 }), 1, "a target kept from behind gives way to one upon the hero under the cursor");
+    assert.equal(pick([4, 3]), 3, "of two the cursor points at further off, the nearer");
+    // The hero's own target stays upon it out to 3.5 m, so an enemy circling across 2.5 m is not swapped at each look.
+    assert.equal(pick([2.6, -2], { current: 0 }), 2.6, "a target the cursor points at, just past 2.5 m, against one upon the hero");
+    assert.equal(pick([-3, 4], { current: 0 }), -3, "a target set upon the hero, backed off to 3 m, against one the cursor points at");
+    assert.equal(pick([-1, 1.5], { facing: false }), -1, "without the cursor steering, the nearest");
+    assert.equal(pick([4, 1], { facing: false, current: 0 }), 4, "without the cursor steering, a target within 5 m is kept");
+  } finally { arena.dispose(); }
 });
 
 test("a_footprint_that_starts_inside_the_dungeon_solid_may_leave_it_and_nothing_else", async () => {
