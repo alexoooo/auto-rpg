@@ -2,7 +2,7 @@ import type { Combatant } from "./units";
 import type { HitReport } from "./combat";
 import type { Side } from "./physics";
 import { describeAttributes } from "./golem/attributes.ts";
-import { driveAction } from "./bout.ts";
+import { commandAction } from "./bout.ts";
 
 export interface Telemetry {
   fps: number;
@@ -61,7 +61,7 @@ export interface Telemetry {
  */
 export interface CommandSideReadout {
   readonly side: Side;
-  /** The mind's own name, which is a wrapper's inner name when a takeover is rebasing. */
+  /** The mind's own name. */
   readonly mind: string;
   /** Commanded stand-off, as a multiple of their published reach. */
   readonly standOff: number;
@@ -172,12 +172,12 @@ export class Hud {
    * `AGENTS.md`'s diagnostics rule is that nothing which changes state may open, close or navigate
    * a surface a person owns. `update` writes into these two elements and never touches the `open`
    * attribute of the disclosure holding them, so a panel somebody opened to watch a stand-off stays
-   * open through a verdict, a restart and a takeover, and one they left shut stays shut through all
+   * open through a verdict, a restart and a change of command, and one they left shut stays shut through all
    * three. That is also why the readout ships shut: it is a diagnostic, not a gauge.
    */
   private readonly commandLists: Record<"left" | "right", HTMLElement>;
   private readonly skimPicker: HTMLSelectElement;
-  /** Take or Let go, one a side, written from `telemetry.driving` like the title beside it. */
+  /** Command or Stand down, one a side, written from `telemetry.driving` like the title beside it. */
   private readonly driveButtons: Record<"left" | "right", HTMLButtonElement>;
   /**
    * What each body was built at, one read-only line a side, inside the command readout. Read from
@@ -192,9 +192,9 @@ export class Hud {
    * @param onSkim what to do when somebody picks a skim speed, or nothing at all for a host that
    *   has no simulation to skim. The control is inert rather than absent in that case, because a
    *   panel whose contents depend on who constructed it is a panel two people describe differently.
-   * @param onDrive what to do when somebody presses a side's Take or Let go. It is one question
-   *   either way -- "that side's button" -- and the host decides which act it is from who is
-   *   driving. Inert when absent, for the same reason as `onSkim`.
+   * @param onDrive what to do when somebody presses a side's Command or Stand down. It is one
+   *   question either way -- "that side's button" -- and the host decides which act it is from who
+   *   is commanding. Inert when absent, for the same reason as `onSkim`.
    */
   constructor(
     host: HTMLElement,
@@ -218,10 +218,10 @@ export class Hud {
       </div>
       <div class="hud-col hud-right">
         <div class="limbs">
-          <div class="limbs-title"><span data-title-left>Left</span><button class="drive" type="button" data-drive-left>Take</button></div>
+          <div class="limbs-title"><span data-title-left>Left</span><button class="drive" type="button" data-drive-left>Command</button></div>
           <div class="vitality-track"><span class="vitality-fill" data-vitality-left></span></div>
           <div class="vitality-value" data-vitality-value-left>100% vitality</div>
-          <div class="limbs-title"><span data-title-right>Right</span><button class="drive" type="button" data-drive-right>Take</button></div>
+          <div class="limbs-title"><span data-title-right>Right</span><button class="drive" type="button" data-drive-right>Command</button></div>
           <div class="vitality-track"><span class="vitality-fill" data-vitality-right></span></div>
           <div class="vitality-value" data-vitality-value-right>100% vitality</div>
           <details class="injuries">
@@ -290,10 +290,9 @@ export class Hud {
     };
     for (const side of ["left", "right"] as const) {
       const button = this.driveButtons[side];
-      // Kept from `Controls`, which listens on the window: a press on this button is not a thrust,
-      // and a move while it is held is not the thrust level either (`src/buttons.ts` reads the held
-      // buttons off every pointer event). The release is let through, so a press that began on the
-      // canvas and was let go over the button still ends its thrust.
+      // Kept from `Controls`, which listens on the window: a press on this button is not an order
+      // on the arena behind it. The release is let through, so a camera drag that began on the
+      // canvas and was let go over the button still ends.
       for (const kind of ["pointerdown", "pointermove"]) {
         button.addEventListener(kind, (event) => event.stopPropagation());
       }
@@ -368,7 +367,7 @@ export class Hud {
       const title = side === "left" ? "Left" : "Right";
       this.limbTitles[side].textContent =
         telemetry.driving === side ? `${title} · you` : title;
-      const drive = driveAction(telemetry.driving, side) === "release" ? "Let go" : "Take";
+      const drive = commandAction(telemetry.driving, side) === "stand-down" ? "Stand down" : "Command";
       if (this.driveButtons[side].textContent !== drive) this.driveButtons[side].textContent = drive;
       const life = fighters[side].vitality;
       this.vitalityFills[side].style.width = `${(life * 100).toFixed(1)}%`;

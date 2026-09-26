@@ -29,6 +29,13 @@ Attacks and counters are automatic. With both control switches off, click the fl
 attack-move, click an enemy to lock on, or drag to draw a force-move route. The hero follows
 while you draw and can counterattack or briefly evade without stopping to trade blows.
 
+You order a **party**: the hero and up to three companions (two by default). An order goes to
+whoever is selected, which is everybody at first; **1**-**4**, a click on a member or its row
+selects that one alone, **Shift** adds, **0** selects everybody. A companion sent somewhere holds
+there, **F** calls the selected companions back, and an idle companion follows the hero. Enemies
+go for whichever of you they see nearest; the run lasts while anybody stands and is won by
+anybody at the exit.
+
 | Keyboard movement | Mouse facing | Controls |
 | --- | --- | --- |
 | Off | Off | Mouse orders; AI faces and fights |
@@ -91,30 +98,22 @@ Node is older than 22.13.0.
 
 ## Controls
 
-The mouse belongs to the **arm**, not to the camera. That is the central control decision and
-the reason this reads as Die by the Sword rather than as a third-person action game; turning is
-on the keyboard precisely so the mouse can be spent entirely on the blade.
-
-The pointer is **not** captured. Where the cursor sits in the window is where the hand is asked
-to be, so the middle of the window is always centre guard and the arm has a home you can find
-again. An earlier version took a pointer lock and accumulated relative movement: the arm
-drifted, centre was unrecoverable, and you could not get your mouse back.
+You **command**; you do not puppet. The side you command is fought by its own policy -- arms,
+guard and footwork -- and what you hand it are **orders**: whom to attack and where to go
+(`src/orders.ts`). It goes on defending itself while it obeys. An earlier version gave the mouse
+to one arm, Die by the Sword style, and a person drove the body through the same command a
+policy writes; that is gone from the arena and lives on only as the bench page's puppet.
 
 | Input | Does |
 | --- | --- |
-| Mouse | moves one arm -- the cursor is where that hand goes |
-| W / S | walk forward and back |
-| A / D | strafe |
-| Q / E | turn |
-| Left button | thrust -- drive the point out |
-| Right button | guard -- pull the blade in close |
-| L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
+| Command / Stand down | beside each fighter's name in the readout -- give that side orders, or hand it back to its own, in a fight or a pause |
+| Click the enemy | attack it, and drop any place to hold |
+| Click the floor | go there and hold it, fighting from there |
+| Right-click the floor | attack-move -- walk there, and fight whatever comes near |
+| W / A / S / D | steer, relative to the camera -- let go to hold where you stopped |
+| H | hold the ground you are standing on |
+| X | no orders -- fight the nearest, as a side with none does |
 | Middle drag | orbit the camera; hold Shift to pan within the room |
-| Left Shift / arrows | crouch, lean and twist when direct posture is enabled |
-| Z / X, T / Y | roll and bend the driven wrist when direct wrist is enabled |
-| F | the mouse changes hands -- the one it leaves goes back to its policy |
-| C | arm a takeover, then click either fighter -- you drive that one and the one you leave picks its policy back up |
-| Take / Let go | the button beside each fighter's name in the readout -- drive that body, or hand yours back to its policy, in a fight or a pause |
 | Wheel | zoom -- the camera only; no fighter is asked for anything |
 | V | camera -- Overhead behind the fighter, or Fixed on a world bearing |
 | `[` / `]` | swing the Fixed camera round the arena, 45 degrees at a time |
@@ -123,11 +122,12 @@ drifted, centre was unrecoverable, and you could not get your mouse back.
 | Tab | toggle the readout |
 | ? | the controls -- this list, over whatever is on screen |
 
-**Half of that table is not a combat control.** The wheel, the middle drag and the two bearing
-keys move the camera and nothing else: you and a policy issue exactly the same command --
-locomotion, posture, and two hands -- and how the arena is framed is yours alone. That is why
-taking a body mid-bout changes nothing about the view, and why no policy can zoom out to see
-further than you can.
+**No order is a combat control.** An order names a target and a destination and nothing else;
+the arms, the guard and the footwork that carry it out are the policy's. The camera keys move
+the camera and nothing else, which is why commanding a side mid-bout changes nothing about the
+view, and why no policy can zoom out to see further than you can. A side handed no orders at all
+fights exactly as it did before orders existed, which a null control in the Node bout runner
+checks bit for bit.
 
 **Pause is a mode in the arena, not another screen.** Space, Esc, focus loss and a screenshot
 tool taking focus freeze physics, fighters, blood and game-time notices at the same instant. The
@@ -137,9 +137,9 @@ way back to the pickers. Returning focus never resumes on its own, so preparing 
 cannot restart the fight behind the capture tool.
 
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner -- a
-body, a policy, and whether that side is driven by a mind or by you -- and the Fight button
-starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy.
+body, a policy, and whether that side takes its orders from an auto-commander or from you -- and
+the Fight button starts what is on it. There is one of you, so commanding a side hands the other
+one back to its own orders.
 
 A bout ends when a fighter's one derived vitality bar reaches zero, or when the clock runs out.
 Zero head or trunk health is fatal by itself; serious combined wounds elsewhere can spend the
@@ -302,11 +302,10 @@ __sword.config.sword.mass = 1.9
 console handle that quietly refers to a disposed body is worse than no handle. `__sword.right.mind`
 is assignable, so a scripted sweep can be dropped onto either side without rebuilding anything.
 
-The option layer is the one exception and it is on purpose: `ACTION_TUNING` in
-`src/action-primitives.ts` and `TARGET_SPAN_FRACTION` in `src/options.ts` are frozen and
-unreachable from `__sword.config`, because `options.ts` may not import `config.ts` -- a legality
-or aim rule a console command can move is a rule a learned artifact can be trained against and
-deployed without. `AGENTS.md` carries the full argument.
+The action primitives are the one exception and it is on purpose: `ACTION_TUNING` in
+`src/action-primitives.ts` is frozen and unreachable from `__sword.config`, because that file may
+not import `config.ts` -- a legality or aim rule a console command can move is a rule a learned
+artifact can be trained against and deployed without. `AGENTS.md` carries the full argument.
 
 **Motor ceilings are the exception, and right now they are the rough edge.** They are set on
 native solver objects at construction, so a number changed from the console does not reach them

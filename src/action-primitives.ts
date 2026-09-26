@@ -1,14 +1,17 @@
-import { BUTTON_REACH } from "./buttons.ts";
-import type { BodyView, FighterView, Intent } from "./mind.ts";
-import { HANDS, STRIKER_KINDS, isShield, isStriking, type HandName, type Striker, type WeaponKind } from "./hands.ts";
+import { HAND_REACH } from "./hands.ts";
+import type { FighterView, Intent } from "./mind.ts";
+import { HANDS, STRIKER_KINDS, isStriking, type HandName, type Striker, type WeaponKind } from "./hands.ts";
 
 /**
- * The option layer's whole tuning surface, and why it is not `CONFIG`.
+ * The action primitives' whole tuning surface, and why it is not `CONFIG`.
  *
  * `AGENTS.md` calls `src/config.ts` "the whole tuning surface", and this block is
- * the standing exception: `options.ts` and `learning/features.ts` may not import
- * `config.ts` at all, which `options_and_features_have_no_mutable_config_backdoor`
- * pins by reading the source text. The reason is not tidiness. `CONFIG` is
+ * the standing exception: this file may not import `config.ts` at all, which
+ * `action_primitives_have_no_mutable_config_backdoor` in `tests/minds.test.mjs`
+ * pins by reading the source text. It was the option layer's (`src/options.ts`),
+ * which skill ceiling session 06 retired with the puppet takeover; what is left is
+ * what the golem's scripted execution reads through `policies.ts` -- the rest
+ * command, the threat selection and the stroke roll. The reason is not tidiness. `CONFIG` is
  * deliberately mutable so a person can type `__sword.config.arm.stiffness = 1600`
  * at the console and see the next frame change; a learned controller's legality
  * and aim rules must not be reachable that way, because an artifact trained
@@ -17,8 +20,7 @@ import { HANDS, STRIKER_KINDS, isShield, isStriking, type HandName, type Striker
  * number in it carries its own argument.
  *
  * So these are **not** reachable from `__sword.config`, on purpose, and moving
- * one there is a contract change rather than a convenience. `TARGET_SPAN_FRACTION`
- * in `options.ts` is outside for the same reason and says so in place.
+ * one there is a contract change rather than a convenience.
  */
 export const ACTION_TUNING = Object.freeze({
   restPointerX: 0,
@@ -27,7 +29,7 @@ export const ACTION_TUNING = Object.freeze({
    * The arm's aiming envelope, mirroring `CONFIG.arm.az/elMin/Max`.
    *
    * **Four entries where there were two, and the two that were here were read
-   * by nothing.** `azimuthRange`, `actionAimAt` and `elevation` each wrote the
+   * by nothing.** `azimuthRange`, the option layer's aim and `elevation` each wrote the
    * numbers out again, so `azimuthMax` appeared in its own comment and in one
    * test and nowhere a program looked -- and moving it 1.30 -> 1.45 turned that
    * test red while changing no behaviour at all, which is the shape this
@@ -47,21 +49,7 @@ export const ACTION_TUNING = Object.freeze({
   elevationMax: 1.25,
   rollMin: -1.40,
   rollMax: 1.40,
-  drawSeconds: 0.90,
-  walkSpeed: 2.90,
-  boutSeconds: 60,
-  arrowSpeed: 48,
   gravity: 9.81,
-  // Preserve the operation order of the physical definition without importing
-  // mutable CONFIG into this Node-loadable module.
-  tunedSwordReach: 0.45 + (0.19 / 2 + 0.84),
-  tunedBareReach: 0.45,
-  // Nearest-part measure when two ordinary bodies have just enough clearance
-  // for a 0.72 m shoulder-to-shoulder punch. Below this they are genuinely
-  // body-to-body rather than merely inside the sword's crowding distance.
-  tunedBareCrowd: 0.24,
-  bareStrikeRange: 0.72,
-  duelistRangeSlack: 0.06,
   // How wide a shaft may be predicted to pass and still count as the thing
   // worth covering, added to the observer's own collision radius. Half a body
   // width: an arrow that will miss by more than that is not going to be
@@ -71,148 +59,35 @@ export const ACTION_TUNING = Object.freeze({
   // It is also the scale of the weight `arriving` puts on a melee tip, which is
   // the same tolerance asked as a question of degree rather than as a gate.
   arrowMissMargin: 0.45,
-  /**
-   * How far below the target's shoulder an unaimed shaft is meant to arrive.
-   *
-   * The chest rather than the collar: a shoulder is where the arm hangs from,
-   * and a shot placed exactly on it passes over a body that has crouched at all.
-   * This was a literal inside `actionArrowTargetY`, which `actionArcherAim` was
-   * its only caller of; the function went when the aim became an argument, and
-   * the number is named because it is the default the archer's whole measured
-   * record was taken at.
-   *
-   * It sat *beside* this block rather than in it for one session, which is a
-   * balance number outside the one place its own file keeps them. Same value,
-   * same argument, reachable through the same object as the rest.
-   */
-  arrowShoulderDrop: 0.12,
-  /**
-   * How far off the covering line the hand that is *not* leading a guard is
-   * held, radians, outboard.
-   *
-   * The same number and the same argument as `GUARD.spread` in `policies.ts`,
-   * which is where it was measured -- two blades on one covering line rest
-   * against each other, and a guard occupying the space of the guard beside it
-   * is a guard doing nothing. Its table is 24 bouts of two swords against
-   * `swinger`: 342.9 damage taken at 0, 322.0 at 0.15, **294.4 at 0.30**, 308.7
-   * at 0.45.
-   *
-   * It is a **mirror rather than an import**, for the reason this whole block
-   * exists: `policies.ts` reads mutable `CONFIG` and the option layer may not.
-   * The two copies are the same claim, so a session that moves one moves both --
-   * `GUARD.spread`'s own note says so in place.
-   *
-   * Only the supporting hand is moved, and only when it is holding something.
-   * A bare fist supporting a guard stays on the line, which is what
-   * `planOffHand` does with one and is what keeps the scripted parity sweep --
-   * which is run on `sword+empty` and nothing else -- out of this.
-   */
-  guardSpread: 0.30,
   // How far back along its own flight a shaft's anchor is taken, in seconds.
   //
   // A number with a motor consequence, which is why it is here rather than
   // written into `arrowAnchor` as a literal: `duelistMind` reads `tip -
   // shoulder` as the direction a threat is pointing, so this is the whole of
   // what an arrow's `inLine` and therefore its `openingNow` are computed from. A
-  // tenth of a second is about 4.8 m of flight at `arrowSpeed`, which is long
+  // tenth of a second is about 4.8 m of flight at a 48 m/s shot, which is long
   // enough that the direction is the shaft's and not the solver's jitter.
   arrowAnchorSeconds: 0.1,
 });
 
-export const bareCrowdDistance = (reach: number): number =>
-  Math.max(0.18, ACTION_TUNING.tunedBareCrowd + (reach - ACTION_TUNING.tunedBareReach));
-export const bareHoldDistance = (): number =>
-  ACTION_TUNING.bareStrikeRange - ACTION_TUNING.duelistRangeSlack;
-
-export const ACTION_STROKE_TIMING = Object.freeze({ chamber: 0.15, commit: 0.11, recover: 0.26 });
-export type ActionStrokePhase = "chamber" | "commit" | "recover" | "complete";
-export interface ActionStrokeReading { phase: ActionStrokePhase; fraction: number }
-export function actionStrokeReading(elapsed: number): ActionStrokeReading {
-  const chamberEnd = ACTION_STROKE_TIMING.chamber;
-  const commitEnd = chamberEnd + ACTION_STROKE_TIMING.commit;
-  const recoverEnd = commitEnd + ACTION_STROKE_TIMING.recover;
-  if (elapsed < chamberEnd) return { phase: "chamber", fraction: clampAction(elapsed / chamberEnd, 0, 1) };
-  if (elapsed < commitEnd) return { phase: "commit", fraction: clampAction((elapsed - chamberEnd) / ACTION_STROKE_TIMING.commit, 0, 1) };
-  if (elapsed < recoverEnd) return { phase: "recover", fraction: clampAction((elapsed - commitEnd) / ACTION_STROKE_TIMING.recover, 0, 1) };
-  return { phase: "complete", fraction: 1 };
-}
-export function actionStrokePose(reading: ActionStrokeReading,
-  start: ActionAim, chamber: ActionAim, commit: ActionAim, guard: ActionAim): ActionAim {
-  if (reading.phase === "chamber") return {
-    pointerX: strokePoint(start.pointerX, chamber.pointerX, reading.fraction),
-    pointerY: strokePoint(start.pointerY, chamber.pointerY, reading.fraction),
-  };
-  if (reading.phase === "commit") return {
-    pointerX: strokePoint(chamber.pointerX, commit.pointerX, reading.fraction),
-    pointerY: strokePoint(chamber.pointerY, commit.pointerY, reading.fraction),
-  };
-  return {
-    pointerX: strokePoint(commit.pointerX, guard.pointerX, reading.fraction),
-    pointerY: strokePoint(commit.pointerY, guard.pointerY, reading.fraction),
-  };
-}
-
-export const ACTION_SHOT_TIMING = Object.freeze({ draw: 0.90, release: 1 / 240, cooldown: 0.30 });
-export type ActionShotPhase = "draw" | "release" | "cooldown" | "complete";
-export function actionShotPhase(elapsed: number): ActionShotPhase {
-  if (elapsed < ACTION_SHOT_TIMING.draw) return "draw";
-  if (elapsed < ACTION_SHOT_TIMING.draw + ACTION_SHOT_TIMING.release) return "release";
-  if (elapsed < ACTION_SHOT_TIMING.draw + ACTION_SHOT_TIMING.release + ACTION_SHOT_TIMING.cooldown) return "cooldown";
-  return "complete";
-}
-
 export const clampAction = (value: number, low = -1, high = 1): number =>
   Math.max(low, Math.min(high, Number.isFinite(value) ? value : 0));
-
-export function actionArrowLift(range: number): number {
-  const flight = range / ACTION_TUNING.arrowSpeed;
-  return ACTION_TUNING.gravity * flight * flight * 0.5;
-}
-/**
- * Aim a bow, over whatever it is being aimed at.
- *
- * `aimedY` is the height the shaft is meant to *arrive* at, and it defaults to
- * the one every figure in `docs/measurements.md` was taken against -- twelve
- * centimetres below the target's shoulder -- so no existing caller moves. The
- * lift is added on top of it and is not a target: it is how much the archer
- * points *over* to pay for the flight, and separating the two is the whole
- * reason this takes an argument at all. `options.ts` composes a named body
- * region with the same lift; `policies.ts` passes none.
- *
- * **What this does not break, and it is worth saying which.** `arrowCrossing`
- * and `selectThreat`'s arrow tier both extrapolate the shaft's *published*
- * position and velocity under gravity, and neither reads `actionArrowLift` -- so
- * a defender still answers the shot that was actually taken whatever it was
- * aimed at. What is aim-dependent is the *worked example* in
- * `approachToScratch`'s note (136 mm of predicted miss at 8 m, 306 at 12, 689 at
- * 18): those were measured on a shot aimed over by exactly this lift from the
- * -0.12 line, and a deployed archer that names `low` would need them re-taken.
- * Nothing names one yet -- session 17 Stage B builds the seam and Stage C is
- * where a learned controller can reach it.
- */
-export function actionArcherAim(view: FighterView, hand: HandName, into: ActionAim,
-  aimedY: number = view.opponent.shoulder.y - ACTION_TUNING.arrowShoulderDrop): ActionAim {
-  const range = actionDistance(view.self.shoulder, view.opponent.shoulder);
-  return actionAimAt(view, { x: view.opponent.ground.x,
-    y: aimedY + actionArrowLift(range), z: view.opponent.ground.z },
-  into, hand, view.self.hands[hand].shoulder);
-}
 
 export function freshIntent(): Intent {
   return {
     forward: 0, strafe: 0, turn: 0, actingHand: "primary",
     natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-    // `BUTTON_REACH.neutral` rather than a number of this table's own, and the
-    // import is deliberate: this is what an un-pressed hand asks for, `buttons.ts`
-    // is where that is decided, and it imports nothing at all -- so there is no
+    // `HAND_REACH.neutral` rather than a number of this table's own, and the
+    // import is deliberate: this is what a hand at rest asks for, `hands.ts` is
+    // where that is decided, and it imports nothing at all -- so there is no
     // mutable table behind it and no second copy to drift. The rule this file is
     // held to forbids `config.ts` specifically, and for a reason that does not
     // apply here: `CONFIG` is mutable from the console on purpose.
-    primary: { pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    primary: { pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
       roll: 0, wristBend: 0, thrust: false, guard: false },
     secondary: { pointerX: ACTION_TUNING.restPointerX, pointerY: ACTION_TUNING.restPointerY,
-      reach: BUTTON_REACH.neutral, roll: 0, wristBend: 0, thrust: false, guard: false },
+      reach: HAND_REACH.neutral, roll: 0, wristBend: 0, thrust: false, guard: false },
   };
 }
 
@@ -257,13 +132,7 @@ export function applyActionPosture(
   return into;
 }
 
-export const strokePoint = (from: number, to: number, fraction: number): number =>
-  clampAction(from + (to - from) * clampAction(fraction, 0, 1));
-
 export interface ActionPoint { x: number; y: number; z: number }
-export const actionDistance = (a: ActionPoint, b: ActionPoint): number =>
-  Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-export interface ActionAim { pointerX: number; pointerY: number }
 
 /**
  * The one thing coming at me that is worth answering, and what is known about it.
@@ -323,49 +192,6 @@ export const blankThreat = (): ThreatView => ({
   tipSpeed: 0, reach: 0, lost: false, outboard: 1, timeToClosest: 0, closestMiss: 0,
 });
 
-/** A factual attached guard surface; path choice remains the controller's job. */
-export interface BlockerView {
-  found: boolean;
-  weapon: WeaponKind;
-  source: HandName | null;
-  tip: ActionPoint;
-  outboard: number;
-}
-
-export const blankBlocker = (): BlockerView => ({
-  found: false, weapon: "empty", source: null, tip: { x: 0, y: 0, z: 0 }, outboard: 1,
-});
-
-/**
- * Select the first attached described shield in canonical hand order, then the first mounted
- * shield effector. A mounted plate remains an effector with `source: null`; calling it a hand
- * would corrupt control ownership merely to make the shared blocker geometry visible.
- *
- * This publishes equipment, position and ownership only. It does not call a hand
- * "open", predict a parry, or choose which side to attack; those are tactics and
- * belong to the Action consuming this record. Mounted non-hand blockers can join
- * the same view once `EffectorView` can honestly identify non-striking modules.
- */
-export function selectBlocker(body: BodyView, into: BlockerView = blankBlocker()): BlockerView {
-  into.found = false; into.weapon = "empty"; into.source = null; into.outboard = 1;
-  into.tip.x = 0; into.tip.y = 0; into.tip.z = 0;
-  for (const name of HANDS) {
-    const hand = body.hands[name];
-    if (!hand || hand.lost || !isShield(hand.weapon)) continue;
-    into.found = true; into.weapon = hand.weapon; into.source = name; into.outboard = hand.outboard;
-    into.tip.x = hand.tip.x; into.tip.y = hand.tip.y; into.tip.z = hand.tip.z;
-    break;
-  }
-  if (!into.found) for (const effector of body.effectors ?? []) {
-    if (effector.lost || !isShield(effector.weapon)) continue;
-    into.found = true; into.weapon = effector.weapon; into.source = null;
-    into.outboard = effector.tip.x < body.shoulder.x ? -1 : 1;
-    into.tip.x = effector.tip.x; into.tip.y = effector.tip.y; into.tip.z = effector.tip.z;
-    break;
-  }
-  return into;
-}
-
 /**
  * Closest approach of a point under a constant vertical acceleration to a fixed
  * point.
@@ -378,11 +204,10 @@ export function selectBlocker(body: BodyView, into: BlockerView = blankBlocker()
  * goes to zero and `miss` goes to the distance the thing is at, so nothing that
  * ranks on either key steps as a stroke turns over.
  *
- * **`accelY` is the argument that keeps this consistent with `arrowCrossing`.**
- * That function argues at length that a defender predicting a straight line
- * answers the shot the archer did not take, and the same is true here -- only
- * worse, because this one decides whether the shaft is answered at all. An
- * archer aims *over* the target by `actionArrowLift`, so a straight line taken
+ * **`accelY` is the gravity term, and it is there for the shaft.** A defender
+ * predicting a straight line answers the shot the archer did not take, and here
+ * that decides whether the shaft is answered at all. An archer aims *over* the
+ * target by a lift (the retired option layer's `actionArrowLift`), so a straight line taken
  * off the current velocity sails above the vitals by very nearly that lift: 136
  * mm of predicted miss at 8 m, 306 at 12 and 689 at 18, against a gate of about
  * 610. The gravity-free version therefore declined shafts that were going to
@@ -545,8 +370,8 @@ const arriving = (speed: number, miss: number, gate: number): number => speed * 
  *   the tree can tell the difference; the day one does, this is the claim to
  *   argue with rather than an accident of two branches sharing a number.
  * - **Then an attached hand that cannot strike**, then a lost one, then the body
- *   itself -- which is the literal `options.ts` and `policies.ts` used to
- *   synthesise inline for a body with no hands.
+ *   itself -- which is the literal the scripted policies and the retired option
+ *   layer used to synthesise inline for a body with no hands.
  *
  * Ties break by publication order and then by kind. For two hands that is the
  * primary, which is what both motor copies did; see `offerThreat`. **There is no
@@ -656,108 +481,12 @@ export function selectThreat(view: FighterView, into: ThreatView = blankThreat()
     0, 0, 0, them.tipSpeed, them.reach, false, 1, reading.seconds, reading.miss);
 }
 
-/**
- * Where an approaching shaft will cross the plane of the defender's shoulders.
- *
- * The plane is built from published facts and nothing else: `BodyView.facing`
- * is its normal and the covering hand's own `shoulder` is a point on it, which
- * is the same socket every other aim in this file is taken from. "Shoulder
- * plane" appears nowhere else in this tree; it is defined here and only here.
- *
- * Gravity is carried, because it is carried on the way out -- `actionArrowLift`
- * is what an archer aims *over*, and a defender that predicted a straight line
- * would answer the shot the archer did not take. Over a crossing time of a
- * couple of tenths of a second it is tens of millimetres, which is small and is
- * not nothing.
- *
- * Null when the shaft is not coming through the plane from the front. That is
- * not a failure: a shot already past, or one overtaking from behind, has no
- * positive crossing, and the caller keeps the melee target it would have used.
- */
-const CROSSING = { x: 0, y: 0, z: 0 };
-function arrowCrossing(view: FighterView, threat: ThreatView, from: ActionPoint): ActionPoint | null {
-  const nx = Math.sin(view.self.facing); const nz = Math.cos(view.self.facing);
-  const closing = threat.velocity.x * nx + threat.velocity.z * nz;
-  if (closing > -1e-6) return null;
-  const t = ((from.x - threat.tip.x) * nx + (from.z - threat.tip.z) * nz) / closing;
-  if (!(t > 0)) return null;
-  CROSSING.x = threat.tip.x + threat.velocity.x * t;
-  CROSSING.y = threat.tip.y + threat.velocity.y * t - ACTION_TUNING.gravity * t * t * 0.5;
-  CROSSING.z = threat.tip.z + threat.velocity.z * t;
-  return CROSSING;
-}
-
-/** Shared inverse of the arm's cursor mapping, kept free of mutable runtime config. */
-export function actionAimAt(view: FighterView, target: ActionPoint, into: ActionAim,
-  hand: HandName, from: ActionPoint = view.self.shoulder): ActionAim {
-  const dx = target.x - from.x; const dy = target.y - from.y; const dz = target.z - from.z;
-  const cos = Math.cos(view.self.facing); const sin = Math.sin(view.self.facing);
-  const localX = dx * cos - dz * sin; const localZ = dx * sin + dz * cos;
-  const length = Math.hypot(localX, dy, localZ);
-  const [azMin, azMax] = azimuthRange(hand);
-  into.pointerX = clampAction(Math.atan2(localX, localZ) / (localX >= 0 ? azMax : -azMin));
-  const angle = length > 1e-6 ? Math.asin(clampAction(dy / length)) : 0;
-  into.pointerY = clampAction(angle / (angle >= 0 ? ACTION_TUNING.elevationMax : -ACTION_TUNING.elevationMin));
-  return into;
-}
-
-/**
- * The shared guard target: the crossing for a shaft, an extended point for a
- * blade, otherwise the opponent's chest.
- *
- * This is the function that actually decides what a cover aims at -- every
- * `cover`, every spare hand and both of `duelist`'s covering lines come through
- * here -- so the arrow branch belongs here and nowhere else. It is fixed motor
- * execution rather than a hidden policy decision: whether to cover at all is
- * still chosen above, and this only answers where a hand goes once that choice
- * is made. What is *in* the hand does not enter into it, which is why a shield,
- * a buckler, a blade and a bare forearm all end up on the same crossing.
- */
-export function actionCoverAt(view: FighterView, threat: ThreatView, into: ActionAim,
-  hand: HandName, from: ActionPoint = view.self.hands[hand].shoulder,
-  measuredTipGap?: number, measuredBodyGap?: number): ActionAim {
-  if (threat.striker === "arrow") {
-    const crossing = arrowCrossing(view, threat, from);
-    if (crossing) return actionAimAt(view, crossing, into, hand, from);
-  }
-  const tipGap = measuredTipGap ?? Math.hypot(threat.tip.x - view.self.shoulder.x,
-    threat.tip.y - view.self.shoulder.y, threat.tip.z - view.self.shoulder.z);
-  const bodyGap = measuredBodyGap ?? Math.hypot(view.opponent.shoulder.x - view.self.shoulder.x,
-    view.opponent.shoulder.y - view.self.shoulder.y, view.opponent.shoulder.z - view.self.shoulder.z);
-  const target = tipGap < bodyGap ? threat.tip : { x: view.opponent.ground.x,
-    y: view.opponent.shoulder.y, z: view.opponent.ground.z };
-  return actionAimAt(view, target, into, hand, from);
-}
-
 const azimuthRange = (hand: HandName): readonly [number, number] =>
   hand === "primary" ? [ACTION_TUNING.azimuthMin, ACTION_TUNING.azimuthMax]
     : [-ACTION_TUNING.azimuthMax, -ACTION_TUNING.azimuthMin];
 const azimuth = (pointer: number, hand: "primary" | "secondary"): number => {
   const [min, max] = azimuthRange(hand);
   return pointer >= 0 ? pointer * max : pointer * -min;
-};
-/**
- * The two directions of the arm's azimuth mapping, for a caller that has to
- * move a placement by an *angle* rather than by a cursor step.
- *
- * **The envelope is asymmetric and that is the whole reason these are a pair.**
- * A primary arm reaches 1.30 rad outboard and 1.15 rad across its own body, and
- * the secondary is the mirror of that -- so a cursor step is a different angle
- * on each side of centre, and an inverse that divided by a single half-range
- * would agree with the true one for exactly one sign. `tests/handover.test.mjs`
- * records that trap costing a session; anything using these samples both sides.
- *
- * `policies.ts` has the same pair over mutable `CONFIG.arm`, and `ACTION_TUNING`
- * is the frozen copy the option layer is allowed to read -- all four bounds of
- * it, since session 18's remediation, rather than the two that used to sit
- * there unread while this file wrote the numbers out three more times.
- * `the_option_layer_and_the_scripted_layer_share_one_azimuth_mapping` compares
- * the two mappings and the four constants rather than claiming they agree.
- */
-export const actionAzimuthOf = (pointer: number, hand: HandName): number => azimuth(pointer, hand);
-export const actionCursorForAzimuth = (angle: number, hand: HandName): number => {
-  const [min, max] = azimuthRange(hand);
-  return clampAction(angle >= 0 ? angle / max : angle / -min);
 };
 const elevation = (pointer: number): number =>
   pointer >= 0 ? pointer * ACTION_TUNING.elevationMax : pointer * -ACTION_TUNING.elevationMin;
@@ -771,17 +500,3 @@ export function actionStrokeRoll(fromX: number, fromY: number, toX: number, toY:
   return clampAction(roll, ACTION_TUNING.rollMin, ACTION_TUNING.rollMax);
 }
 
-export function boundIntent(intent: Intent): Intent {
-  intent.forward = clampAction(intent.forward); intent.strafe = clampAction(intent.strafe);
-  intent.turn = clampAction(intent.turn);
-  intent.posture.trunkLean = clampAction(intent.posture.trunkLean);
-  intent.posture.trunkTwist = clampAction(intent.posture.trunkTwist);
-  intent.posture.crouch = clampAction(intent.posture.crouch, 0, 1);
-  for (const name of ["primary", "secondary"] as const) {
-    const hand = intent[name];
-    hand.pointerX = clampAction(hand.pointerX); hand.pointerY = clampAction(hand.pointerY);
-    hand.roll = clampAction(hand.roll, ACTION_TUNING.rollMin, ACTION_TUNING.rollMax);
-    hand.wristBend = clampAction(hand.wristBend, 0, 1);
-  }
-  return intent;
-}

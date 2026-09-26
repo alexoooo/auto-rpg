@@ -40,7 +40,7 @@ import {
   golemModule,
 } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
-import { BUTTON_REACH } from "../src/buttons.ts";
+import { HAND_REACH } from "../src/hands.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import {
   COMMITTED_SHAPE_CANDIDATES, PARRY_ACROSS_METRES, PARRY_ARRIVED_METRES, STROKE_GUARD_SECONDS,
@@ -61,11 +61,11 @@ const benchIntent = () => ({
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
   primary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
   secondary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
 });

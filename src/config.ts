@@ -1447,13 +1447,13 @@ export const CONFIG = {
     probeSeconds: 150,
 
     /**
-     * How long the takeover hint stays on the banner at the start of a bout.
+     * How long the command hint stays on the banner at the start of a bout.
      *
-     * Long enough to be read once without being read twice. The feature it
-     * points at is not new -- `C` has taken a body mid-fight since session 07,
-     * and the curtain has listed it the whole time -- but a key on a screen you
-     * dismissed in order to start playing is a key nobody has, and this is what
-     * that cost. Purely a screen number; nothing in the rules reads it.
+     * Long enough to be read once without being read twice. It points at taking
+     * command of a side and giving it orders (skill ceiling session 06), which the
+     * curtain lists too -- but a key on a screen you dismissed in order to start
+     * playing is a key nobody has. Purely a screen number; nothing in the rules
+     * reads it.
      */
     hintSeconds: 6,
   },
@@ -1921,88 +1921,6 @@ export const CONFIG = {
     ringRadius: 0.62,
     /** Outline thickness on the limb under the cursor. */
     outlineWidth: 0.014,
-  },
-
-  /**
-   * Taking a body, on `C`.
-   *
-   * The interaction reuses `targeting`'s numbers above -- the same ring radius
-   * and the same outline width -- because it is deliberately the same two-step
-   * gesture with a wider predicate, and two rings that meant the same thing at
-   * two sizes would read as two different things.
-   */
-  takeover: {
-    /**
-     * How long the commanded cursor takes to walk from the pose a handover found
-     * to the pose its new driver is asking for, in seconds.
-     *
-     * The seed alone -- writing the found pose into the new driver's intent -- is
-     * what makes the takeover frame itself exact. Measured in the headless bench
-     * (`.review/takeover-probe.mjs`: one fighter sweeping 1.8 cursor units every
-     * half second, taken at four different points of the sweep, commanded hand
-     * jump on the step after the swap, in millimetres):
-     *
-     *     tip at the swap   take seeded   take bare   give seeded   give bare
-     *       20.49 m/s          0.000         257.2       0.000         270.5
-     *       13.42              0.000         365.7       0.000         379.4
-     *        9.79              0.000         462.9       0.000         476.9
-     *        6.74              0.000         506.4       0.000         520.5
-     *
-     * Exactly zero, not nearly zero, because the seed is the inverse of the map
-     * the arm is about to apply and the round trip is exact. "Bare" is the same
-     * swap with the seed taken away, which is what the page did before this
-     * session: a quarter to half a metre of hand asked for in a single 1/240 s
-     * substep at the 850 N linear ceiling. Note that giving a body *back* to a
-     * policy is the worse of the two -- a freshly built `swinger` parks its
-     * cursor at centre guard on its first `decide` -- so a session that had
-     * seeded only the taking half would have fixed the half that was easier to
-     * notice.
-     *
-     * The blade's own point is not a usable reading here and the same run says
-     * why: over the one substep after the swap it moved 21 to 68 mm *seeded* and
-     * 27 to 76 mm bare, because a blade at 20 m/s covers 83 mm in a substep no
-     * matter who is holding it. A tip figure cannot carry a 20 mm acceptance
-     * unless the body is standing still, which is why `__sword.takeover` reports
-     * the commanded hand and reports the tip beside it with a warning.
-     *
-     * What the seed cannot do is survive the *next* frame, because a person's
-     * cursor is absolute and `Controls` writes its true position back on the next
-     * mouse event, and because a policy handed a body asks for its own cursor
-     * immediately. So the blade would not teleport on the frame anybody measured
-     * and would teleport on the one after it.
-     *
-     * This is the width of that bridge. It is a choice rather than a sweep, and
-     * the argument for the value is what it implies about hand speed: the aiming
-     * envelope is 2.45 rad of azimuth by 2.30 of elevation, so crossing the whole
-     * of it at a 0.45 m neutral reach is about 1.1 m of hand travel, and 0.25 s
-     * of it is 4.4 m/s. That is brisk -- a walk-in is 2.9 m/s -- and it is well
-     * under the 10 to 40 m/s a committed cut puts through the tip, so a rebase
-     * can never be mistaken for an attack, and it cannot land one either:
-     * `combat.cutFloorJ` is 10.62 J, which a bare 1.35 kg blade meeting a torso
-     * clears at 4.01 m/s at the *tip* (3.0 with a stone arm's chain behind it), and
-     * a hand crossing at 4.4 would therefore pass, so
-     * this is the one number in the block that somebody should watch in the page.
-     * If a takeover is ever seen to cut, halve it.
-     *
-     * Set it to 0 and the bridge disappears, leaving exactly the seed the plan
-     * for session 07 asks for and nothing else. That is kept working on purpose:
-     * it is the control condition for any argument about whether the bridge is
-     * worth having, and it takes effect on the next handover with nothing to
-     * rebuild.
-     */
-    rebaseSeconds: 0.25,
-    /**
-     * How much wider than `targeting.ringRadius` a candidate's ring is drawn.
-     *
-     * Wider than the lock ring's 1.16, so that the two are told apart by size as
-     * well as by colour when a lock is up and a takeover is armed at the same
-     * time -- which is a state you can be in, because a lock survives a handover.
-     *
-     * Read once, when the torus is built, like `targeting.ringRadius` beside it:
-     * it is geometry rather than a gain, so changing it from the console does
-     * nothing until the page is reloaded. `rebaseSeconds` above is the live one.
-     */
-    ringScale: 1.42,
   },
 
   /**

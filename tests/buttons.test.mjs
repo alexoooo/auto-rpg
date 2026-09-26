@@ -1,26 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { HAND_REACH } from "../src/hands.ts";
 import {
   AUXILIARY,
-  BUTTON_REACH,
   PRIMARY,
   SECONDARY,
   applyButtonPose,
   maskOfButton,
-  nextDraw,
   nextSpent,
   poseFromButtons,
   reachFromButtons,
   releaseButtons,
-} from "../src/buttons.ts";
+} from "../src/bench/buttons.ts";
 
 const LEFT = 0;
 const MIDDLE = 1;
 const RIGHT = 2;
 
 /**
- * A stand-in for the pointer listeners in `src/input.ts`, which hold no logic of
+ * A stand-in for the pointer listeners in `src/bench/puppet-controls.ts`, which hold no logic of
  * their own beyond this: clear the arriving button's spent bit on a press, pay
  * out the actions that press owes, then take the pose from `event.buttons`. It
  * carries its own idea of what the browser would report in `buttons` so that a
@@ -30,15 +29,15 @@ const RIGHT = 2;
 function hand({ picksTarget = () => false, acting = "primary" } = {}) {
   let spent = 0;
   let held = 0;
-  // The three slots a press can land on, because that is what `Controls.state`
+  // The three slots a press can land on, because that is what the puppet's state
   // carries and what `applyButtonPose` writes. The stand-in used to keep one
   // `{ thrust, guard }` of its own and set the two fields inline, which was a
   // second copy of the mapping -- and it went on passing when the real one grew
   // a third slot and the host never wrote it.
   const channels = {
     natural: { thrust: false, guard: false },
-    primary: { thrust: false, guard: false, reach: BUTTON_REACH.neutral },
-    secondary: { thrust: false, guard: false, reach: BUTTON_REACH.neutral },
+    primary: { thrust: false, guard: false, reach: HAND_REACH.neutral },
+    secondary: { thrust: false, guard: false, reach: HAND_REACH.neutral },
   };
 
   const apply = (swallowed = 0) => {
@@ -92,7 +91,7 @@ const open = { thrust: false, guard: false };
  * The same two buttons on a hand slot, which carries the reach they stand for as
  * well.
  *
- * A hand has a reach axis and a set of jaws does not, so `Controls.state` grew a
+ * A hand has a reach axis and a set of jaws does not, so the command grew a
  * third field on the two hand slots and not on `natural` -- and every assertion
  * below that compares a whole slot has to know which of the two shapes it is
  * looking at. Deriving it here rather than writing the number out is the point:
@@ -145,10 +144,11 @@ test("the pose is exactly what the bitmask says, for all eight combinations", ()
  *
  * A creature whose weapon is its head has no hand slot to be driven through, so
  * session 17 gave it `Intent.natural` -- and then wrote it from the policy side
- * only. `Controls.state.natural` was initialised once and never assigned again,
- * which is a command channel a person cannot press: the setup screen offers
- * "you" for either side whatever the unit, so somebody could take a centipede,
- * walk it around, and find the attack button dead.
+ * only. The arena's `Controls.state.natural`, while a person still drove a body
+ * through these buttons, was initialised once and never assigned again, which is
+ * a command channel a person cannot press: somebody could take a centipede, walk
+ * it around, and find the attack button dead. The bench puppet is the one place
+ * the mapping is still pressed, and the rule is the same there.
  *
  * There is no second button to invent. A natural striker is aimed by turning
  * the body, so the left and right buttons mean the same two things to jaws that
@@ -345,60 +345,4 @@ test("a spent bit lasts exactly as long as the button that owes it", () => {
   assert.equal(nextSpent(held, PRIMARY | SECONDARY, 0), PRIMARY, "kept while the button is down");
   assert.equal(nextSpent(held, SECONDARY, 0), 0, "forgotten as soon as buttons says it is up");
   assert.equal(poseFromButtons(PRIMARY, held).thrust, false);
-});
-
-/**
- * The bow's draw, which is the level-and-edge rule one layer up from the mouse.
- *
- * Pure, so these cost microseconds -- which is the whole argument for the rule
- * living in this file rather than beside the arrows.
- */
-const BOW = { drawSeconds: 1.0, minDraw: 0.4, speedMin: 20, speedMax: 50 };
-
-test("holding grows the draw and never looses on its own", () => {
-  let draw = 0;
-  for (let i = 0; i < 300; i += 1) {
-    const step = nextDraw(draw, true, 1 / 60, BOW);
-    assert.equal(step.loose, 0, "a held button never looses, however long it is held");
-    draw = step.draw;
-  }
-  assert.equal(draw, 1, "and the draw stops at full rather than running past it");
-});
-
-test("letting go of a full draw looses at speedMax and empties the string", () => {
-  const step = nextDraw(1, false, 1 / 60, BOW);
-  assert.equal(step.loose, BOW.speedMax);
-  assert.equal(step.draw, 0);
-});
-
-test("letting go below the bar abandons the shot rather than taking a weak one", () => {
-  const step = nextDraw(BOW.minDraw - 0.001, false, 1 / 60, BOW);
-  assert.equal(step.loose, 0, "nothing leaves the string");
-  assert.equal(step.draw, 0, "and the draw is gone -- it is abandoned, not held");
-});
-
-test("the bar is a floor on the shot, not a dead zone that is then ignored", () => {
-  // A bow released *exactly* at the bar looses, at speedMin. Getting this wrong
-  // the obvious way -- ramping speed from a draw of 0 rather than from the bar
-  // -- makes the weakest legal shot 40 % of speedMin instead of speedMin, and
-  // nothing in the arena would say so.
-  assert.equal(nextDraw(BOW.minDraw, false, 1 / 60, BOW).loose, BOW.speedMin);
-  const half = nextDraw((1 + BOW.minDraw) / 2, false, 1 / 60, BOW).loose;
-  assert.ok(
-    Math.abs(half - (BOW.speedMin + BOW.speedMax) / 2) < 1e-9,
-    `halfway up the ramp is halfway between the speeds; got ${half}`,
-  );
-});
-
-test("a draw that is not held and not past the bar is simply nothing", () => {
-  const step = nextDraw(0, false, 1 / 60, BOW);
-  assert.equal(step.draw, 0);
-  assert.equal(step.loose, 0);
-});
-
-test("a minDraw of 1 does not hand the solver an infinity", () => {
-  // Legal to type at the console, so it has to have an answer.
-  const step = nextDraw(1, false, 1 / 60, { ...BOW, minDraw: 1 });
-  assert.equal(step.loose, BOW.speedMax);
-  assert.ok(Number.isFinite(step.loose));
 });

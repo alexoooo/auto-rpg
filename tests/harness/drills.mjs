@@ -31,6 +31,7 @@ import { createBout, freshHavok, FRAME } from "./bout-runner.mjs";
 import { captureBout, exactFork } from "./fork.mjs";
 import { restoreMind, snapshotMind } from "../../src/fork/mind.ts";
 import { policyMind } from "../../src/mind.ts";
+import { ORDER_TUNING, StandingOrders } from "../../src/orders.ts";
 import { mulberry32 } from "../../src/rng.ts";
 import { ATTRIBUTES } from "../../src/golem/attributes.ts";
 import { biteMechanism } from "../../src/scoring.ts";
@@ -195,12 +196,17 @@ export class DrillDriver {
     this.phaseClock = 0;
   }
 
-  decide(view, dt) {
+  /**
+   * `orders` is whatever the body's commander handed over this decision (`src/orders.ts`), passed on to
+   * every mind as the host passes it; the body's own `OrderFollower` carries it out on the command
+   * this returns. A drill with no commander passes nothing, as every drill did before orders.
+   */
+  decide(view, dt, orders) {
     this.clock += dt;
     this.phaseClock += dt;
     let handed = null;
     for (let i = 0; i < this.minds.length; i += 1) {
-      const intent = this.minds[i].decide(view, dt);
+      const intent = orders === undefined ? this.minds[i].decide(view, dt) : this.minds[i].decide(view, dt, orders);
       if (i === 0 && this.clock >= this.handoff) handed = intent;
     }
     if (handed) return handed;
@@ -455,6 +461,19 @@ const SCRIPTS = {
       followThrough(d, view);
     },
   },
+  "hold-under-orders": {
+    subject: standStill,
+    opponent(d, view, dt) {
+      const p = d.params;
+      stance(d, view);
+      if (d.phase === "stance") {
+        walkTo(d, rangeFraction(view), p.range, strikerRange(chooseStriker(view)), dt);
+        if (d.settled >= p.pause || d.phaseClock > 4) { d.ready = true; d.go("wait"); }
+      } else {
+        d.intent.forward = 0;
+      }
+    },
+  },
   finish: {
     subject(d, view, dt) {
       const p = d.params;
@@ -645,6 +664,68 @@ export const DRILLS = Object.freeze([
         frame() { if (at === null && scored(ctx.events, ctx.S).length > 0) at = ctx.t(); },
         done: () => at !== null,
         result: () => ({ pass: at !== null, margin: at ?? drill.horizon }),
+      };
+    },
+  },
+  {
+    /**
+     * Session 06's drill: ordered to a point beside where it stands, with a duelist that has just
+     * started fighting it at arm's length, the subject gets there and holds it -- inside the leash
+     * for the rest of the horizon -- and takes less than the threshold on the way. The orders carry
+     * the feet on every rung (`OrderFollower`, as a person's `StandingOrders` would on the page), so
+     * idle arrives and holds too; what the ladder is judged on is the defending while it obeys.
+     *
+     * The point is `shift` metres off the subject's ground, turned `angle` from the bearing to the
+     * opponent: a side-step of 60 to 120 degrees, so the body crosses in front of an armed opponent
+     * rather than walking out of its reach or into it.
+     */
+    name: "hold-under-orders",
+    needs: { subject: ["striker"], opponent: ["striker"] },
+    horizon: 3,
+    params: (rng) => ({ separation: separation(rng), range: 1.05 + 0.1 * rng(), pause: 0.3 + 0.3 * rng(),
+      shift: 1 + 0.5 * rng(), angle: (rng() < 0.5 ? -1 : 1) * (Math.PI / 3 + (Math.PI / 3) * rng()) }),
+    /** Seconds the subject has to arrive: the longest shift at a carrier's walk, with the start of it. */
+    arriveBy: 2,
+    /** The share of the frames after arriving that the subject is inside the leash. */
+    heldShare: 0.95,
+    threshold: 0.03,
+    /** An attack that does not wound an idle body obeying the same order over the threshold is not arriving. */
+    control: "idle",
+    admit(control) { return control.margin >= this.threshold; },
+    voidReason: "the duelist did not wound an idle body holding its orders over the threshold",
+    atStart(ctx) {
+      handToMind(ctx.driver(ctx.O), ctx.seed ^ 0x5bd1e995);
+      const self = ctx.view(ctx.S).self;
+      const [dx, dz] = rotate(bearing(self, ctx.view(ctx.O).self), ctx.params.angle);
+      const orders = new StandingOrders();
+      orders.current = { target: null, destination: { x: self.ground.x + dx * ctx.params.shift, z: self.ground.z + dz * ctx.params.shift } };
+      ctx.state.goal = orders.current.destination;
+      // `fix: { unordered: true }` plays the same start with no commander, for the study of what
+      // obeying costs; the judge then reads the undelivered order, which such a run cannot pass.
+      if (!ctx.params.unordered) ctx.golem(ctx.S).control.commander = orders;
+    },
+    judge(ctx) {
+      const v0 = ctx.view(ctx.S).self.vitality;
+      const goal = ctx.state.goal;
+      const drill = this;
+      let arrived = null;
+      let after = 0;
+      let inside = 0;
+      let wound = 0;
+      return {
+        frame() {
+          const self = ctx.view(ctx.S).self;
+          const d = Math.hypot(self.ground.x - goal.x, self.ground.z - goal.z);
+          if (arrived === null) { if (d <= ORDER_TUNING.arriveM) arrived = ctx.t(); }
+          else { after += 1; if (d <= ORDER_TUNING.leashM) inside += 1; }
+          wound = v0 - self.vitality;
+        },
+        done: () => false,
+        result: () => {
+          const held = after > 0 ? inside / after : 0;
+          return { pass: arrived !== null && arrived <= drill.arriveBy && held >= drill.heldShare && wound < drill.threshold,
+            margin: wound, arrived: arrived ?? drill.horizon, held };
+        },
       };
     },
   },

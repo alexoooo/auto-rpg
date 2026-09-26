@@ -6,17 +6,15 @@ import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 // to nothing, which is what keeps `input.ts` -- and through it the DOM -- out of
 // the graph a headless harness loads; the two below them are real, and
 // everything they reach is `config.ts`, which reaches nothing.
-import type { HumanOwnership } from "./input.ts";
 // `hands.ts` imports nothing, which is the property that let the kinds move
 // there in the first place. It is also why this one can be a real import rather
 // than a type-only one and still cost a headless harness nothing: there is no
 // graph behind it to pull in.
 import { HANDS, otherHand, type HandName, type WeaponKind } from "./hands.ts";
-// The mouse adapter's own reach constants. `buttons.ts` imports nothing at all -- which is what
-// makes it loadable by a Node test, and what makes this edge safe in a file whose whole value is
-// that Babylon and the DOM are not in its graph. The rest intents below need the same neutral a
-// person's un-pressed hand asks for, and stating it twice is how two of them would part company.
-import { BUTTON_REACH } from "./buttons.ts";
+// The resting reach every command carries, from the same leaf. The rest intents below need the
+// neutral every other command starts from, and stating it twice is how two of them would part
+// company.
+import { HAND_REACH } from "./hands.ts";
 // The dependency on `policies.ts` runs one way only: `policies.ts` takes
 // `Intent`, `Mind` and `FighterView` from here and all three of them are types,
 // so they erase and there is no module cycle at run time. That is worth the
@@ -25,23 +23,12 @@ import { BUTTON_REACH } from "./buttons.ts";
 // because nobody reads the constant during evaluation is a thing that stops
 // working when somebody moves a line, and it stops working in the browser rather
 // than in a test.
-//
-// The two cursor inverses come from `policies.ts` rather than being written
-// again here, because there are already three copies of that one mapping in the
-// tree -- `fighter.ts`'s `spread`, and the two directions in `policies.ts` -- and
-// a fourth would be the one that drifts. See `cursorForPose` below for what
-// depends on them agreeing.
-import {
-  cursorForAzimuth,
-  cursorForElevation,
-  blankIntent,
-  postureFor,
-} from "./policies.ts";
+import { blankIntent, postureFor } from "./policies.ts";
 import { CONFIG } from "./config.ts";
+import type { Orders } from "./orders.ts";
 import { humanoidDuelist } from "./golem/humanoid/policy.ts";
 import { skeletonDuelist } from "./golem/skeleton/policy.ts";
 import type { BodyFamily } from "./golem/family.ts";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 // The two surface tags, from the leaf that owns them. Taking either from its own endpoint would
 // close a run-time cycle -- both endpoints import this file for values, and `POLICIES` below reads
 // the tag while this module is still evaluating. `control-surfaces.ts` imports nothing at all.
@@ -75,19 +62,15 @@ import { RESEARCHED_POLICIES } from "./golem/researched-policies.ts";
  * every joint, limited by the physics and by the intelligence of the policy and
  * by nothing else. So the surface was widened to the body's own continuous
  * command space -- `reach` joined the two aiming axes -- and the scripting moved
- * *out* of the body and into the drivers. A mouse is now a thin producer of
- * points in that space: `src/buttons.ts` turns a held right button into a reach
- * the way a policy would, instead of the arm turning it into a pose nobody
- * asked for.
+ * *out* of the body and into the drivers.
  *
- * The property that made the old rule worth keeping survives intact, and it is
- * why the surface was widened rather than bypassed. Taking over a body mid-bout
- * is still a swap of which `Mind` a fighter reads from, the physics still never
- * notices, and there is still exactly one command vocabulary -- so there is no
- * AI-only channel, no pose a policy can ask for that a person cannot, and no
- * second surface to keep in step with this one. What a body will *accept* is
- * published on its own envelope, which is frozen rule 3: the module publishes
- * what it can reach and the mind picks inside it.
+ * **A person no longer writes this at all** (skill ceiling session 06). In the arena and the
+ * dungeon a person hands a body orders -- whom to fight and where to be (`src/orders.ts`) -- and
+ * the body's own mind turns them into an `Intent`. What survives of the old rule is the authority
+ * half: this is the one command a body takes, nothing reaches past it to set a joint or place a
+ * blade, and what a body will *accept* is published on its own envelope, which is frozen rule 3:
+ * the module publishes what it can reach and the mind picks inside it. The module bench is the one
+ * place a mouse still writes it, through `src/bench/buttons.ts`.
  *
  * This was `type Intent = InputState` until session 15 -- an alias onto the
  * DOM-side input state, on the argument that two structurally identical
@@ -102,10 +85,9 @@ import { RESEARCHED_POLICIES } from "./golem/researched-policies.ts";
  * of those makes it look load-bearing.
  *
  * The command is therefore declared here, in the module with no DOM in its
- * graph, and `Controls.state` is annotated **as an** `Intent` -- which is the
- * same drift protection the alias bought, pointed so that the fighter is the
- * authority on what a command is. Camera state lives on `CameraGestureState`,
- * which belongs to the host and reaches no mind at all.
+ * graph, so that the fighter is the authority on what a command is. Camera
+ * state lives on `CameraGestureState`, which belongs to the host and reaches no
+ * mind at all.
  */
 export interface Intent {
   /** -1 back, +1 forward. */
@@ -117,24 +99,10 @@ export interface Intent {
   /**
    * Which hand is acting, or `null` when what is acting is not a hand.
    *
-   * **It means the same thing for a person and for a policy**, which is why it
-   * is one field and not two. A person's answer is "the hand the mouse is on":
-   * there is one cursor and there are two hands, and the alternative -- half the
-   * screen each, or a modifier key held down -- was rejected because the mouse
-   * being spent *entirely* on one blade is the whole reason this reads as Die by
-   * the Sword. A policy's answer is "the hand this option is executing on". Both
-   * are the same sentence, and every combat reader wants that sentence: the
-   * commit posture twists toward it, the tactic merge carries it, and
-   * `splitMind` reads exactly this to decide which hand it takes from the person
-   * and which it takes from the policy.
-   *
-   * Session 17's plan asked for a type split -- a host-owned `Controls.driving`
-   * beside a policy-owned `Intent.actingHand` -- and the code says the two
-   * meanings are already apart. `Fighter` never reads the field at all,
-   * `splitMind` deliberately ignores the policy's copy, and the two surviving
-   * combat readers want the acting hand. So this is the rename and not the
-   * split; `Controls.state` narrows it to a real hand, because a cursor is
-   * always on one.
+   * A policy's answer is "the hand this stroke is executing on", and every
+   * combat reader wants that sentence: the commit posture twists toward it and
+   * the tactic merge carries it. (It was also "the hand the mouse is on" while a
+   * person could puppet a body, which ended in skill ceiling session 06.)
    *
    * `null` is the natural channel below: jaws are not a hand, and using
    * `primary` as a bite placeholder is exactly what a centipede that publishes
@@ -257,9 +225,9 @@ export interface HandIntent {
    * `thrust` used to start a scripted stroke inside the chain, during which the
    * commander's own swing and lift were ignored for its duration.
    *
-   * What they mean now is what `src/buttons.ts` says they mean: a press is an
-   * edge and a hold is a level, and a *driver* -- the mouse adapter, or a policy
-   * -- turns them into positions. The Warrior's arm still reads them directly,
+   * What they mean now is what `src/bench/buttons.ts` says they mean: a press is
+   * an edge and a hold is a level, and a *driver* -- a policy, or the bench's
+   * mouse puppet -- turns them into positions. The Warrior's arm still reads them directly,
    * because that arm's reach has always been a button-driven filter and moving
    * it would move every measured Warrior number for a gain nobody asked for.
    */
@@ -281,9 +249,6 @@ export interface HandIntent {
  */
 export type { HandName };
 export { HANDS, otherHand };
-
-/** One pose per hand, which is what a takeover has to seed from. */
-export type ArmPoses = Record<HandName, ArmPose>;
 
 /**
  * How much of each part of a body is left, keyed by `Limb.key`: 1 whole, 0 gone.
@@ -666,10 +631,9 @@ export interface FighterView {
 /**
  * Whoever is driving one fighter.
  *
- * The human is a `Mind` too -- one that hands back `controls.state` -- and that
- * is the whole design. There is no branch anywhere in `Fighter` for "is this one
- * the player", no authority to transfer and no mode to be in, because both sides
- * were always producing the same `Intent`.
+ * A person is not one. A person commands -- hands a body orders, through `decide`'s third
+ * argument -- and the mind drives. There is no branch anywhere in a body for "is this one the
+ * player", no authority to transfer and no mode to be in.
  *
  * `decide` is handed the control step's `dt` rather than being expected to find
  * a clock, so a policy with a cadence integrates the same number the solver
@@ -680,7 +644,19 @@ export interface FighterView {
  */
 export interface Mind {
   readonly name: string;
-  decide(view: FighterView, dt: number): Intent;
+  /**
+   * `orders` is what the body's commander handed over for this decision (`src/orders.ts`): absent
+   * or null when there are none, which is every call a bout made before orders existed and still
+   * every call on a side nobody commands. A mind may read it; whether or not it does, the driver
+   * carries a destination out on top of its command unless it declares `obeysOrders`.
+   */
+  decide(view: FighterView, dt: number, orders?: Orders | null): Intent;
+  /**
+   * True for a mind that carries its own orders out, so the driver applies its command as it is
+   * rather than through `OrderFollower`. No shipped mind sets it; the reader coming is session 04's
+   * expert, which plans footwork and so has its own answer to where a destination is.
+   */
+  readonly obeysOrders?: boolean;
   /**
    * A fork of the world (`src/forkable.ts`, skill ceiling session 02). A mind whose state all hangs
    * on its fields needs neither -- the fork walks fields -- and a mind that keeps state in a closure
@@ -715,7 +691,7 @@ export const NEUTRAL: Intent = Object.freeze({
   // holds -- and the whole point of freezing this is that a policy handed the
   // neutral intent cannot quietly turn it into its own.
   primary: Object.freeze({
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   }),
   // The off hand rests rather than points. See `arm.restPointerY`.
@@ -725,7 +701,7 @@ export const NEUTRAL: Intent = Object.freeze({
     // The same reach a neutral hand asks for. A resting arm is not a drawn-in
     // one, and `guard` is what used to pull a hand in: a rest intent that pulled
     // in by default would be that coupling put back through the front door.
-    reach: BUTTON_REACH.neutral,
+    reach: HAND_REACH.neutral,
     roll: 0,
     wristBend: 0,
     thrust: false,
@@ -769,498 +745,10 @@ export function idleMind(): Mind {
   };
 }
 
-/**
- * A person, as a mind.
- *
- * Structurally typed on purpose -- it asks for anything carrying a live
- * `Intent`, which `Controls` is -- so that this module imports nothing from
- * `input.ts` at run time and stays loadable by Node. `Controls.state` is
- * mutated in place by the pointer and key listeners and read immediately by the
- * fighter, which is exactly the contract `Mind` already describes for a policy
- * that owns its intent.
- */
-export function humanMind(source: { readonly state: Intent }, name = "you"): Mind {
-  return { name, decide: () => source.state };
-}
-
-/**
- * One mouse, two hands.
- *
- * A person has one cursor and a fighter has two arms, so exactly one of them can
- * be the person's at a time and the other has to be driven by something. This is
- * that something: it runs both minds every step, takes the feet and the driven
- * hand from the person, and takes the other hand from the policy.
- *
- * Splitting the *cursor* instead -- half the screen each, or a modifier held
- * down -- was the obvious alternative and is worse. The mouse being spent
- * entirely on one blade is the whole reason this reads as Die by the Sword
- * rather than as a third-person action game, and halving it would make both
- * hands worse to control in order to avoid making a choice. `F` makes the
- * choice, and it can be made mid-swing.
- *
- * The policy is driven every step whichever hand it is on, and at its own `dt`,
- * for the same reason `handover` drives its inner mind through the rebase
- * window: a policy whose cadence stopped while somebody else was using its arm
- * would be a different policy. It writes into its own hand slot -- policies say
- * which hand they mean through `actingHand` -- and this reads that slot rather
- * than assuming a side, so a policy needs to know nothing about any of this.
- *
- * House rule 1 survives intact: what reaches the fighter is still one `Intent`,
- * still the same shape a person produces, and there is still nothing anywhere
- * that asks which of the two hands is the real one. (The count used to be quoted
- * here and kept going stale: "nine-field" was already wrong when it was written,
- * the command was eight fields until session 15 took the camera out of it, seven
- * after that, and eight again since session 17 gave a natural striker its own
- * channel. `COMBAT_FIELDS` in `tests/fixtures/intent.mjs` names the set and every
- * producer of a command is asserted against it, which is the copy that cannot
- * drift -- it lived in `tests/minds.test.mjs` and was quoted as single-sourced
- * while five test files each held their own literal.)
- */
-export function splitMind(
-  person: Mind,
-  policy: Mind,
-  ownership: HumanOwnership =
-    { posture: false, drivenWrist: false, locomotion: true, attack: true },
-): Mind {
-  const blended: Intent = {
-    ...NEUTRAL,
-    natural: { ...NEUTRAL.natural },
-    posture: { ...NEUTRAL.posture },
-    primary: { ...NEUTRAL.primary },
-    secondary: { ...NEUTRAL.secondary },
-  };
-
-  return {
-    name: person.name,
-    decide(view: FighterView, dt: number): Intent {
-      const mine = person.decide(view, dt);
-      const theirs = policy.decide(view, dt);
-      // A cursor is always on a hand, so this cannot fire from `Controls` --
-      // which narrows the field to a `HandName` in its own declaration. It is
-      // refused by name rather than repaired because the alternative is to pick
-      // a hand for somebody: a body whose striker is its head has nothing for
-      // one mouse to divide, and answering "primary" would put the person on an
-      // arm that does not exist.
-      // **The feet, on their own switch.** A person who has taken only the attack still wants the
-      // body to walk itself, and `theirs` is a whole plan for this body rather than a fallback --
-      // the policy is driven every step either way, so what arrives here is what it would have
-      // done had nobody taken anything.
-      const feet = ownership.locomotion ? mine : theirs;
-      blended.forward = feet.forward;
-      blended.strafe = feet.strafe;
-      blended.turn = feet.turn;
-
-      // **The hand, on its own switch, and the refusal moves inside it.** Dividing a command that
-      // names no acting hand is impossible and still throws -- but only when there is something to
-      // divide. With `attack` off there is no person's hand in this at all, so a body a cursor
-      // could never have been put on (a centipede, a golem built with no arms) is drivable by the
-      // feet alone instead of being refused outright.
-      if (!ownership.attack) {
-        blended.actingHand = theirs.actingHand;
-        blended.natural.thrust = theirs.natural.thrust;
-        blended.natural.guard = theirs.natural.guard;
-        const posture = ownership.posture ? mine.posture : theirs.posture;
-        blended.posture.trunkLean = posture.trunkLean;
-        blended.posture.trunkTwist = posture.trunkTwist;
-        blended.posture.crouch = posture.crouch;
-        composeHand(blended.primary, theirs.primary, theirs.primary);
-        composeHand(blended.secondary, theirs.secondary, theirs.secondary);
-        return blended;
-      }
-
-      const driven = mine.actingHand;
-      if (driven === null) {
-        throw new Error(`splitMind cannot divide "${person.name}": a command that names no acting hand has no hand to hand over`);
-      }
-
-      blended.actingHand = driven;
-      // Hand input must not also duck or attack with the head. Natural actions
-      // stay with the policy while any usable hand exists; limb loss enables
-      // the same mouse buttons as a fallback through published capabilities.
-      const hasHand = Object.values(view.self.hands).some(hand => !hand.lost);
-      const natural = hasHand ? theirs.natural : mine.natural;
-      blended.natural.thrust = natural.thrust;
-      blended.natural.guard = natural.guard;
-      // Posture and wrist orientation are policy-owned during human play. The
-      // body keeps moving as part of the fight while the person's mouse remains
-      // entirely available to place one hand.
-      const posture = ownership.posture ? mine.posture : theirs.posture;
-      blended.posture.trunkLean = posture.trunkLean;
-      blended.posture.trunkTwist = posture.trunkTwist;
-      blended.posture.crouch = posture.crouch;
-
-      // The person's hand is the person's, and the other one is the policy's
-      // plan **for that same hand** -- not for whichever hand the policy calls
-      // its own.
-      //
-      // It used to be `theirs[theirs.actingHand]`, and that was right for exactly
-      // as long as a policy planned one hand: whatever it had, it wanted its arm
-      // to do, and which arm that was did not matter. It matters now. A policy
-      // plans a hand by *what is in it*, so its plan for the secondary is a plan
-      // for the secondary's weapon -- and handing that plan to the other arm
-      // hands a sword's cadence to a shield. That is not hypothetical: pick a
-      // sword and a shield, take the sword, and the old rule ran `swinger`'s
-      // commit stroke on the shield arm for the whole bout. The board was being
-      // swung like a bat.
-      const spare = otherHand(driven);
-      composeHand(
-        blended[driven],
-        mine[driven],
-        ownership.drivenWrist ? mine[driven] : theirs[driven],
-      );
-      composeHand(blended[spare], theirs[spare], theirs[spare]);
-      return blended;
-    },
-  };
-}
-
-/**
- * Compose one whole hand without aliasing either live source.
- *
- * Position/buttons and wrist orientation have different owners during human
- * play. Keeping that split in one exhaustive copy makes a new hand field a
- * compile-time decision instead of something a spread silently assigns to the
- * wrong driver.
- */
-function composeHand(into: HandIntent, position: HandIntent, orientation: HandIntent): void {
-  const composed: HandIntent = {
-    pointerX: position.pointerX,
-    pointerY: position.pointerY,
-    // Position, not orientation: reach is where the hand *is*, and the driver
-    // holding the buttons is the one who decides it. Putting it on the
-    // orientation side would hand one driver the aim of an arm and another its
-    // extension.
-    reach: position.reach,
-    thrust: position.thrust,
-    guard: position.guard,
-    roll: orientation.roll,
-    wristBend: orientation.wristBend,
-  };
-  Object.assign(into, composed);
-  if (orientation.orientation) into.orientation = { ...orientation.orientation };
-  else delete into.orientation;
-}
-
-
-/**
- * The pose an arm is actually in, exactly as `Fighter.armAngles()` answers it.
- *
- * Declared here rather than imported from `fighter.ts` for the reason every
- * other shape in this file is: `fighter.ts` imports Babylon, and the whole value
- * of this module is that it does not. `Fighter.armAngles()`'s return type
- * satisfies this structurally, so what is handed in is the arm's own reading and
- * not a translation of it.
- */
-export interface ArmPose {
-  /** Torso-space bearing of the hand from the shoulder, radians. */
-  azimuth: number;
-  /** Torso-space elevation of the same, radians. */
-  elevation: number;
-  /** Wrist roll, radians, already inside `arm.rollMin`/`rollMax`. */
-  roll: number;
-  /** Wrist bend intent, normalized 0..1. */
-  wristBend: number;
-  /** Shoulder to hand centre, metres. */
-  reach: number;
-}
-
-/**
- * Where the cursor has to sit for the arm to be commanded into the pose it is
- * already in.
- *
- * This is the whole of what stops a blade teleporting when a body changes hands.
- * `Fighter.aimArm` maps the *absolute* cursor position onto an azimuth and an
- * elevation -- which is the property that gives the arm a home you can find
- * again, and is therefore not negotiable -- so the instant a new driver takes a
- * body, the arm is commanded to wherever that driver's cursor happens to be
- * sitting, at the measured 850 N linear ceiling, with a sword on the end. At a
- * full-envelope jump that is roughly 0.7 m of hand travel asked for in one
- * substep.
- *
- * The fix is continuity rather than a clamp. Invert the mapping, and the cursor
- * does not move at all: what moves is its meaning, so that where it sits now is
- * where the arm already is, and the first command after a handover is exactly
- * the command the previous driver had left standing.
- *
- * **`reach` was deliberately not inverted here, and Session 12 changed half of
- * that.** The old argument was sound for the body it was about and is still
- * sound for it: `aimArm` takes a Warrior's reach from the thrust and guard
- * buttons and filters it toward the wanted value at `arm.reachResponse`, which
- * is 9 per second, so it is continuous across a handover by construction and
- * carries whatever the arm had rather than snapping. A driver taking a Warrior
- * with the guard button held simply starts pulling the hand in from where it
- * was. That has not changed, and this function still describes a Warrior.
- *
- * What the argument also said was that there is no cursor position that could
- * express a reach, because the controller has two aiming axes and reach is not
- * one of them. That was a claim about the *command surface*, and the surface was
- * the thing that turned out to be wrong: `HandIntent.reach` exists now, a golem
- * chain reads it as its third positional degree of freedom, and a golem
- * effector's own `cursor()` inverts it. So the field is on `HandCursor` and this
- * function fills it honestly, from the pose it was handed, against the Warrior's
- * own reach span -- unread by `Arm`, which still uses its buttons, and correct
- * for the one thing a `HandCursor` is for, which is being interpolated away from
- * during a rebase.
- */
-export function cursorForPose(pose: ArmPose, hand: HandName = "primary"): HandCursor {
-  const A = CONFIG.arm;
-  return {
-    pointerX: cursorForAzimuth(pose.azimuth, hand),
-    pointerY: cursorForElevation(pose.elevation),
-    // `reachGuard` to `reachMax` is the span the two buttons already move this
-    // arm through, so this is that arm's own shell and not an invented one.
-    reach: A.reachMax === A.reachGuard
-      ? 0
-      : Math.max(-1, Math.min(1,
-        ((pose.reach - A.reachGuard) / (A.reachMax - A.reachGuard)) * 2 - 1)),
-    roll: pose.roll,
-    wristBend: pose.wristBend,
-  };
-}
-
-/**
- * Where a cursor has to sit for one effector to be commanded into the pose it is in.
- *
- * The five *placing* fields of a `HandIntent` and nothing else: `thrust` and `guard` are buttons
- * rather than places, and a button needs no inverse because a press is an edge that has already
- * been paid out by the time a handover happens.
- *
- * `reach` joined this list in Session 12 and had to. It became a commandable axis of the arm, so
- * a handover that did not carry it would hand the incoming driver a hand at 0.66 m and a command
- * of 0.54 m -- a 120 mm step, at the anchor's own ceiling, with a blade on the end, which is
- * precisely the teleport this whole mechanism exists to prevent. The note above `cursorForPose`
- * records the argument for the opposite decision, and what changed under it.
- *
- * Declared as its own type because a golem answers it from somewhere else entirely. A Warrior's
- * arm is a seven-axis chain whose cursor mapping lives in `policies.ts`, and a golem effector is a
- * one-, three- or five-axis chain that owns its own mapping and publishes its own inverse. Both
- * produce this, which is what lets one handover serve both bodies.
- */
-export interface HandCursor {
-  orientation?: { x: number; y: number; z: number; w: number };
-  pointerX: number;
-  pointerY: number;
-  /** Normalized into the chain's own reach shell. Zero on a chain with no reach axis. */
-  reach: number;
-  roll: number;
-  wristBend: number;
-}
-
-/** Both hands' seeds. Always both: the cursor is absolute, so the hand it is *not* on matters. */
-export type HandCursors = Record<HandName, HandCursor>;
-
-/** The Warrior's own answer: one inverse per hand, mirrored by `cursorForAzimuth`. */
-export const cursorsForPoses = (poses: ArmPoses): HandCursors => ({
-  primary: cursorForPose(poses.primary, "primary"),
-  secondary: cursorForPose(poses.secondary, "secondary"),
-});
-
 /** Convert normalized bend to a mirrored anatomical angle. */
 export function mirroredWristBend(wristBend: number, outboard: number): number {
   const bend = Math.max(0, Math.min(1, wristBend));
   return bend * CONFIG.arm.wristBendMax * (outboard < 0 ? -1 : 1);
-}
-
-/**
- * Where a pose puts the hand, relative to the shoulder, in the torso's own frame.
- *
- * The same three lines `Fighter.aimArm` builds its `dirLocal` from, scaled by the
- * reach -- which makes this the *commanded* hand position and not a reading of
- * where the hand got to. That distinction is the whole reason the takeover
- * measurement is taken from here rather than from the blade: a blade mid-swing
- * moves 42 mm in a single 240 Hz substep entirely legitimately, so a tip
- * displacement measured across a handover cannot tell a teleport from a swing.
- * The commanded point can: it moves at most a couple of millimetres a substep
- * even during the fastest stroke either policy has, so anything above that is
- * the handover and nothing else.
- *
- * Torso-local on purpose. A fighter that is walking is being translated and
- * turned by its own locomotion during the same step, and a world-space
- * difference would fold that in.
- */
-export function handOffset(pose: ArmPose): { x: number; y: number; z: number } {
-  const cosEl = Math.cos(pose.elevation);
-  return {
-    x: Math.sin(pose.azimuth) * cosEl * pose.reach,
-    y: Math.sin(pose.elevation) * pose.reach,
-    z: Math.cos(pose.azimuth) * cosEl * pose.reach,
-  };
-}
-
-/**
- * How far the hand is being asked to jump between two poses, in millimetres.
- *
- * Millimetres because that is the unit every acceptance and every rig readout in
- * this directory is already written in, and because a handover worth
- * complaining about is hundreds of them while a good one is single figures.
- */
-export function poseShiftMm(before: ArmPose, after: ArmPose): number {
-  const a = handOffset(before);
-  const b = handOffset(after);
-  return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) * 1000;
-}
-
-/**
- * A mind that has just been handed a body, and knows what pose it found it in.
- *
- * `settled` is false for as long as the rebase window is open, and true once
- * this is passing the inner mind's intent through untouched.
- */
-export interface Handover extends Mind {
-  readonly settled: boolean;
-}
-
-/**
- * Hand a body to a new mind without the blade noticing.
- *
- * Two things are going on and it is worth separating them, because the plan for
- * this session asks for one of them and one alone is not enough.
- *
- * The first is the seed: `cursorForPose` says where the cursor would have to be
- * for the arm to be commanded into the pose it is already in, and writing that
- * into whoever is taking over makes the very first command after a handover
- * identical to the last command before it. That is exact, it needs no
- * interpolation, and it is what the takeover-frame acceptance measures.
- *
- * The second is that the seed does not survive contact with either kind of
- * driver, which is the correction this session owes the plan. For a person,
- * `Controls.onPointerMove` writes the *absolute* cursor position back into the
- * intent on the very next mouse event -- so seeding the state alone moves the
- * teleport twenty milliseconds later, to a moment nobody is measuring, and the
- * blade still jumps. For a policy it is worse: a freshly built `swinger` parks
- * its cursor at centre guard on its first `decide` and a `duelist` puts it on
- * the covering line, neither of which has any relation to the pose it is being
- * handed, so a body released mid-swing snaps as hard as one taken mid-swing.
- *
- * So the seed is where this *starts* and the rebase is how it *ends*: for
- * `seconds` the commanded cursor walks linearly from the found pose to whatever
- * the new mind is asking for, and after that this object is transparent. The
- * blend is on the two aiming axes and the wrist roll only; the feet and the
- * buttons are the new driver's from the first step, because neither can teleport
- * anything -- reach is filtered at `arm.reachResponse` and the locomotion at
- * `fighter.accelResponse`. (The camera zoom used to be in that list of things
- * passed through, which was true and is now vacuous: a command carries no camera
- * state, and the framing a takeover inherits is the host's throughout.)
- *
- * Linear rather than exponential, and that is deliberate: an exponential
- * approach never actually arrives, so the wrapper would never become
- * transparent and every fighter in a long bout would end up reading the world
- * through however many handovers it had lived through. This one has an end.
- *
- * The inner mind is driven every step from the first, at its own `dt`, so a
- * policy's cadence runs normally through the window and what is blended is only
- * what it asks the hand for. A policy that was told the fight had paused for a
- * quarter of a second would be a different policy.
- */
-export function handover(
-  inner: Mind,
-  poses: ArmPoses,
-  seconds = CONFIG.takeover.rebaseSeconds,
-): Handover {
-  return handoverFromCursors(inner, cursorsForPoses(poses), seconds);
-}
-
-/**
- * The same, seeded from a cursor rather than from a Warrior arm's pose.
- *
- * `handover` above is this with `cursorsForPoses` in front of it, and the split is what lets a
- * golem be taken over by the same rule rather than by a second one. A golem effector is not a
- * seven-axis humanoid arm: its chain owns its own cursor mapping, its `swing` is outboard-signed
- * against its own socket, and rungs 0 to 2 have no roll to invert -- so pushing a golem's pose
- * through `ArmPose` and `cursorForAzimuth` would be asking the Warrior's inverse a question about
- * a body it knows nothing about. What both bodies *can* answer is the seed itself, which is the
- * thing this actually needs.
- *
- * Everything below is unchanged and the Warrior's behaviour with it: `handover` produces exactly
- * the seed it always did, `tests/handover.test.mjs` still pins the jump against its unseeded
- * control, and no number in `docs/measurements.md` moves.
- */
-export function handoverFromCursors(
-  inner: Mind,
-  seed: HandCursors,
-  seconds = CONFIG.takeover.rebaseSeconds,
-): Handover {
-  // Mutable, allocated once, and never handed out except during the window --
-  // the same contract `NEUTRAL` documents and every policy already keeps.
-  //
-  // The two hands are rebuilt rather than spread: `{ ...NEUTRAL }` copies the
-  // *references* to NEUTRAL's two frozen hand objects, so the first write to
-  // `blended.primary.pointerX` would throw in a module (which is strict) or, far
-  // worse, silently do nothing if this ever ran unstrict.
-  const blended: Intent = {
-    ...NEUTRAL,
-    natural: { ...NEUTRAL.natural },
-    posture: { ...NEUTRAL.posture },
-    primary: { ...NEUTRAL.primary },
-    secondary: { ...NEUTRAL.secondary },
-  };
-  let elapsed = 0;
-  let done = seconds <= 0;
-
-  return {
-    // The inner mind's own name, so a readout says `swinger` rather than naming
-    // a wrapper nobody chose. What a handover is doing is visible through
-    // `settled` and through `__sword.takeover`, which is where somebody looking
-    // for it would look.
-    name: inner.name,
-    get settled(): boolean {
-      return done;
-    },
-    decide(view: FighterView, dt: number): Intent {
-      const asked = inner.decide(view, dt);
-      if (done) return asked;
-
-      // The fraction is taken *before* the step is counted, so the first call
-      // after a handover blends at exactly zero and commands exactly the pose
-      // that was found. Counting first would put the first command 1/60th of the
-      // way across the envelope -- about 12 mm of hand at a full-width rebase,
-      // which is most of the 20 mm the acceptance allows, spent on nothing.
-      const t = elapsed / seconds;
-      elapsed += dt;
-      if (elapsed >= seconds) done = true;
-
-      blended.forward = asked.forward;
-      blended.strafe = asked.strafe;
-      blended.turn = asked.turn;
-      blended.actingHand = asked.actingHand;
-      // A rebase has nothing to interpolate here: jaws have no pose, so the
-      // button passes through from the first step exactly as `thrust` does on a
-      // hand. Leaving it out would have made a taken-over centipede stop biting
-      // for the whole rebase window.
-      blended.natural.thrust = asked.natural.thrust;
-      blended.natural.guard = asked.natural.guard;
-      blended.posture.trunkLean = asked.posture.trunkLean;
-      blended.posture.trunkTwist = asked.posture.trunkTwist;
-      blended.posture.crouch = asked.posture.crouch;
-      // Both hands, and by the same clock. A takeover that rebased one hand and
-      // snapped the other would be exactly half a fix: the cursor is absolute,
-      // so whichever hand it is not currently driving is still being commanded
-      // from a pose the incoming mind knows nothing about.
-      for (const name of HANDS) {
-        const to = blended[name];
-        const from = seed[name];
-        const want = asked[name];
-        to.thrust = want.thrust;
-        to.guard = want.guard;
-        to.pointerX = from.pointerX + (want.pointerX - from.pointerX) * t;
-        to.pointerY = from.pointerY + (want.pointerY - from.pointerY) * t;
-        // Interpolated with the other two placing axes, not passed through with
-        // the buttons. On a golem this is the difference between an arm that
-        // slides out over the rebase window and one that is told to cross
-        // 120 mm on the first step after a takeover.
-        to.reach = from.reach + (want.reach - from.reach) * t;
-        to.roll = from.roll + (want.roll - from.roll) * t;
-        to.wristBend = from.wristBend + (want.wristBend - from.wristBend) * t;
-        if (from.orientation && want.orientation) {
-          const a = from.orientation, b = want.orientation;
-          const q = Quaternion.Slerp(new Quaternion(a.x, a.y, a.z, a.w), new Quaternion(b.x, b.y, b.z, b.w), t);
-          to.orientation = { x: q.x, y: q.y, z: q.z, w: q.w };
-        } else if (want.orientation) to.orientation = { ...want.orientation };
-        else delete to.orientation;
-      }
-      return blended;
-    },
-  };
 }
 
 /**

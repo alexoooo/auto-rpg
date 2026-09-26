@@ -4,7 +4,10 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
 import { Golem } from '../src/golem/golem.ts';
 import { defaultGolemSetup } from '../src/golem/build.ts';
-import { humanMind, NEUTRAL } from '../src/mind.ts';
+import { NEUTRAL } from '../src/mind.ts';
+
+/** A mind that hands the body whatever the test has written into `source.state`. */
+const scripted = (source) => ({ name: 'scripted', decide: () => source.state });
 import { stepPair } from '../src/fighter.ts';
 import { flatSupportedWorldRegistry } from '../src/supported-locomotion-production.ts';
 import { CHAIN_REACH as R } from '../src/golem/config.ts';
@@ -43,7 +46,7 @@ for (const hz of [1, 2]) for (const lift of [-.6, 0, .6]) for (const reach of [-
     const world = flatSupportedWorldRegistry();
     const pair = ['left', 'right'].map((side, i) => new Golem(scene, {
       side, origin: new Vector3(0, 0, i * 8), facing: i * Math.PI,
-      setup: defaultGolemSetup(), mind: humanMind(source), controlPolicies: [], locomotionWorld: world,
+      setup: defaultGolemSetup(), mind: scripted(source), controlPolicies: [], locomotionWorld: world,
     }));
     const parts = pair.map(g => {
       const get = key => g.limbs.find(limb => limb.key.endsWith(key)).part;
@@ -98,7 +101,7 @@ test('coordinated arm yields to a physical obstruction and recovers without stor
   const source = { state: structuredClone(NEUTRAL) };
   const pair = ['left', 'right'].map((side, i) => new Golem(scene, {
     side, origin: new Vector3(0, 0, i * 8), facing: i * Math.PI,
-    setup: defaultGolemSetup(), mind: humanMind(source), controlPolicies: [], locomotionWorld: world,
+    setup: defaultGolemSetup(), mind: scripted(source), controlPolicies: [], locomotionWorld: world,
   }));
   let clock = 0;
   const before = scene.onBeforePhysicsObservable.add(() => { stepPair(...pair, SUBSTEP, clock); clock += SUBSTEP; });

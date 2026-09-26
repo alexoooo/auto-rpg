@@ -40,7 +40,7 @@ import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
 import { pathToFileURL } from "node:url";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 
-import { BUTTON_REACH } from "../../src/buttons.ts";
+import { HAND_REACH } from "../../src/hands.ts";
 import { CONFIG } from "../../src/config.ts";
 import { resolveAttributes } from "../../src/golem/attributes.ts";
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
@@ -62,7 +62,7 @@ export const IMPACT_MODULES = Object.freeze([
   "effector.skeletal.blade", "effector.pitch.blade", "effector.anatomical.blade",
 ]);
 
-const blankHand = () => ({ pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral, roll: 0, wristBend: 0,
+const blankHand = () => ({ pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral, roll: 0, wristBend: 0,
   thrust: false, guard: false });
 const benchIntent = () => ({ forward: 0, strafe: 0, turn: 0, actingHand: "primary",
   natural: { thrust: false, guard: false }, posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
@@ -332,7 +332,7 @@ async function main() {
   const rows = [];
   for (const moduleId of modules) {
     for (const [level, attributes] of Object.entries(presets)) {
-      for (const [poseName, pose] of Object.entries({ guard: { reach: BUTTON_REACH.guard }, extended: { reach: BUTTON_REACH.thrust } })) {
+      for (const [poseName, pose] of Object.entries({ guard: { reach: HAND_REACH.guard }, extended: { reach: HAND_REACH.thrust } })) {
         for (const normal of ["edge", "axis"]) {
           const tap = await tapProbe({ moduleId, pose, normal, attributes });
           rows.push({ kind: "tap", level, ...tap, pose: poseName });

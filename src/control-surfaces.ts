@@ -7,7 +7,7 @@
  *
  * What moved them is a cycle. `Policy.surface` in `mind.ts` is a control-surface tag, `POLICIES`
  * reads it at module evaluation time, and both endpoints import `mind.ts` for *values* --
- * `policyMind`, `splitMind`, `handoverFromCursors`. Taking the constant from either of them would
+ * `policyMind`. Taking the constant from either of them would
  * close a run-time loop that happens to work because nobody reads a constant during evaluation,
  * which is precisely the thing `mind.ts`'s own header says stops working the moment somebody moves
  * a line, and stops working in the browser rather than in a test. A leaf with no imports cannot be

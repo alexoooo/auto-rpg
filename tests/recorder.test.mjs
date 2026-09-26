@@ -2,10 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
-  wireBoutRecorder } from "../src/recorder.ts";
+import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, behaviourRecord, combatRecorder, recordCombatEvent,
+  sampleBoutRecorder, wireBoutRecorder } from "../src/recorder.ts";
 import { EngagementTracker, opportunityForAction } from "../src/engagement.ts";
-import { behaviourRecord, recordBehaviourSample } from "../src/options.ts";
 import { blankIntent } from "../src/policies.ts";
 import { BODY_FACTS, assertCompleteView } from "./fixtures/view.mjs";
 
@@ -175,14 +174,17 @@ test("every_driver_records_the_intent_immediately_after_deciding", async () => {
   assert.match(source, /this\.recording\.intent\(intent\);\s*this\.observer\?\.\(this\.options\.view, intent\);\s*this\.options\.apply/);
 });
 
-test("a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_a_single_weapon_cut", () => {
+/**
+ * The recorder reads attacks off the command alone. A second, labelled path -- the option layer
+ * naming "cut" or "cover" and the record counting that -- sat beside it until skill ceiling session
+ * 06 retired `src/options.ts`; the two tests below were comparisons against it, and what is left
+ * of each is the label-free reading and the research tracker's.
+ */
+test("a_label_free_record_counts_a_single_weapon_cut_as_one_attack", () => {
   const published = view();
   const intent = blankIntent(); intent.primary.thrust = true;
   const labelFree = new BoutRecorder(); sample(labelFree, "left", published, intent);
-  const labelled = behaviourRecord();
-  recordBehaviourSample(labelled, published, "cut", 1 / 240, {});
   assert.equal(labelFree.records.left.engagement.attacksInWindow, 1);
-  assert.equal(labelled.engagement.attacksInWindow, 1);
 });
 
 test("the_four_known_attack_path_disagreements_are_measured_not_assumed", () => {
@@ -190,7 +192,6 @@ test("the_four_known_attack_path_disagreements_are_measured_not_assumed", () => 
   const research = new EngagementTracker(); research.sample(axe, 1 / 240);
   const unsupported = opportunityForAction(axe, "thrust", "primary");
   if (unsupported) research.attack(unsupported.key, axe.clock);
-  const axeLabel = behaviourRecord(); recordBehaviourSample(axeLabel, axe, "thrust", 1 / 240, {});
   const axeFree = new BoutRecorder(); const axeIntent = blankIntent(); axeIntent.primary.thrust = true;
   sample(axeFree, "left", axe, axeIntent);
 
@@ -198,37 +199,32 @@ test("the_four_known_attack_path_disagreements_are_measured_not_assumed", () => 
   const named = new EngagementTracker(); named.sample(dual, 1 / 240);
   const secondary = opportunityForAction(dual, "cut", "secondary");
   named.attack(secondary.key, dual.clock);
-  const dualLabel = behaviourRecord(); recordBehaviourSample(dualLabel, dual, "cut", 1 / 240, {});
   const dualFree = new BoutRecorder(); const secondaryIntent = blankIntent(); secondaryIntent.secondary.thrust = true;
   sample(dualFree, "left", dual, secondaryIntent);
 
-  const edgeFree = new BoutRecorder(); const edgeLabel = behaviourRecord(); const edgePrevious = {};
+  const edgeFree = new BoutRecorder();
   const first = view(); const press = blankIntent(); press.primary.thrust = true;
-  sample(edgeFree, "left", first, press); recordBehaviourSample(edgeLabel, first, "cut", 1 / 240, edgePrevious);
+  sample(edgeFree, "left", first, press);
   const away = view({ measure: 3, clock: 1 });
-  sample(edgeFree, "left", away, blankIntent()); recordBehaviourSample(edgeLabel, away, "cut", 1, edgePrevious);
+  sample(edgeFree, "left", away, blankIntent());
   const second = view({ clock: 1.1 });
-  sample(edgeFree, "left", second, press); recordBehaviourSample(edgeLabel, second, "cut", 1 / 240, edgePrevious);
+  sample(edgeFree, "left", second, press);
 
-  const releaseFree = new BoutRecorder(); const releaseLabel = behaviourRecord(); const releasePrevious = {};
+  const releaseFree = new BoutRecorder();
   const guard = blankIntent(); guard.primary.guard = true;
   const guarded = view(); sample(releaseFree, "left", guarded, guard);
-  recordBehaviourSample(releaseLabel, guarded, "cover", 1 / 240, releasePrevious);
   const released = view({ clock: 1 / 240 }); sample(releaseFree, "left", released, blankIntent());
-  recordBehaviourSample(releaseLabel, released, "cover", 1 / 240, releasePrevious);
 
   assert.deepEqual({
-    unsupportedThrust: [research.record.attacksInWindow, axeLabel.engagement.attacksInWindow,
-      axeFree.records.left.engagement.attacksInWindow],
-    namedDualWield: [named.record.attacksInWindow, dualLabel.engagement.attacksInWindow,
-      dualFree.records.left.engagement.attacksInWindow],
-    repeatedButtonEdge: [edgeLabel.engagement.attacksInWindow, edgeFree.records.left.engagement.attacksInWindow],
-    guardRelease: [releaseLabel.engagement.attacksInWindow, releaseFree.records.left.engagement.attacksInWindow],
+    unsupportedThrust: [research.record.attacksInWindow, axeFree.records.left.engagement.attacksInWindow],
+    namedDualWield: [named.record.attacksInWindow, dualFree.records.left.engagement.attacksInWindow],
+    repeatedButtonEdge: edgeFree.records.left.engagement.attacksInWindow,
+    guardRelease: releaseFree.records.left.engagement.attacksInWindow,
   }, {
-    unsupportedThrust: [0, 2, 1],
-    namedDualWield: [1, 2, 1],
-    repeatedButtonEdge: [1, 2],
-    guardRelease: [0, 1],
+    unsupportedThrust: [0, 1],
+    namedDualWield: [1, 1],
+    repeatedButtonEdge: 2,
+    guardRelease: 1,
   });
 });
 
@@ -252,4 +248,22 @@ test("a_sample_refuses_a_clock_that_is_not_the_published_clock", () => {
   const recorder = new BoutRecorder(); const published = view({ clock: 1 });
   assert.throws(() => recorder.sample("left", { view: published, dt: 1 / 240, clock: 2 }),
     /sample clock 2 disagrees with published view clock 1/);
+});
+
+test("the_behaviour_record_counts_events_instead_of_the_truncated_combat_log", () => {
+  const record = behaviourRecord();
+  for (let i = 0; i < 40; i += 1) recordCombatEvent(record, {
+    hand: i % 2 ? "secondary" : "primary", weapon: i % 3 ? "sword" : "empty",
+    damage: 1, blocked: i % 4 === 0,
+  });
+  assert.deepEqual(record.contacts, { primary: 20, secondary: 20 });
+  assert.equal(record.damage, 40);
+  assert.equal(record.blocks, 10);
+  // One contact reported twice is one block, and so is a second report of a block on the same hand
+  // and weapon inside a fifth of a second; a block a full second later is a second block.
+  for (const event of [
+    { contactId: "c1" }, { contactId: "c1" },
+    { at: 3.00 }, { at: 3.10 }, { at: 4.00 },
+  ]) recordCombatEvent(record, { hand: "primary", weapon: "sword", damage: 0, blocked: true, ...event });
+  assert.equal(record.blocks, 13);
 });

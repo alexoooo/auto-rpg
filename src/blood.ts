@@ -49,7 +49,7 @@ const PARTICLE_UPDATE_SPEED = 0.01;
  * ours that can outlive the body it was hanging on, nothing for
  * `refreshShadowCasters` to sweep up, and nothing to make the mesh count in the
  * readout wander during a fight. Everything it does name is prefixed `blood.`,
- * alongside `aim.`, `target.`, `takeover.` and `rig.`.
+ * alongside `aim.`, `target.`, `orders.` and `rig.`.
  */
 export class Blood {
   private readonly scene: Scene;

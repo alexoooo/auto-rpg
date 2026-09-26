@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
-import { PRIMARY, SECONDARY, applyButtonPose, poseFromButtons } from "../src/buttons.ts";
+import { PRIMARY, SECONDARY, applyButtonPose, poseFromButtons } from "../src/bench/buttons.ts";
 import { Combat, arrivalReadFraction } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
 import { COLLIDES, LAYER } from "../src/physics.ts";
@@ -38,7 +38,7 @@ import { RigidStrike } from "../src/golem/effectors/striker.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
-import { BUTTON_REACH } from "../src/buttons.ts";
+import { HAND_REACH } from "../src/hands.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { runTorsoBench } from "./harness/golem-torso-bench.mjs";
 
@@ -52,11 +52,11 @@ const benchIntent = () => ({
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
   primary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
   secondary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
 });
