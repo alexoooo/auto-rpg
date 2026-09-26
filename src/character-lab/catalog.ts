@@ -15,10 +15,12 @@ export const WEAPONS: Record<WeaponId, { label: string; groups: readonly string[
 };
 export function visiblePart(name: string, kit: Loadout): boolean {
   const group = name.split('__')[0];
+  if (group.startsWith('handR_')) return group === (kit.weapon === 'bow' ? 'handR_hook' : kit.weapon.includes('sword') ? 'handR_power' : 'handR_open');
+  if (group.startsWith('handL_')) return group === (kit.weapon === 'bow' || kit.weapon.includes('shield') ? 'handL_power' : 'handL_open');
   if (group === 'base') return true;
   if (group === 'bare') return !kit.boots;
   if (group === 'boots') return kit.boots;
   if (group === 'armour') return kit.armour;
   return WEAPONS[kit.weapon].groups.includes(group);
 }
-export const clipFor = (pose: PoseId, kit: Loadout) => pose === 'ready' ? `ready-${kit.weapon}` : pose;
+export const clipFor = (pose: PoseId, kit: Loadout) => `${pose}-${kit.weapon}`;

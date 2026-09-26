@@ -29,7 +29,7 @@ try {
       for (const boots of [false, true]) for (const armour of [false, true]) for (const weapon of ['empty', 'sword', 'shield', 'sword-shield', 'bow']) {
         document.querySelector(`[data-boots=${boots}]`).click(); document.querySelector(`[data-armour=${armour}]`).click();
         const picker = document.querySelector('#weapon'); picker.value = weapon; picker.dispatchEvent(new Event('change', { bubbles: true }));
-        const expected = ['base', boots ? 'boots' : 'bare', ...(armour ? ['armour'] : []), ...(weapon === 'empty' ? [] : weapon === 'sword-shield' ? ['sword', 'shield'] : [weapon])].sort();
+        const expected = ['handR_' + (weapon === 'bow' ? 'hook' : weapon.includes('sword') ? 'power' : 'open'), 'handL_' + (weapon === 'bow' || weapon.includes('shield') ? 'power' : 'open'), 'base', boots ? 'boots' : 'bare', ...(armour ? ['armour'] : []), ...(weapon === 'empty' ? [] : weapon === 'sword-shield' ? ['sword', 'shield'] : [weapon])].sort();
         const actual = [...new Set(lab.assets.get(id).meshes.filter(m => m.isEnabled() && m.getTotalVertices()).map(m => m.name.split('__')[0]))].sort();
         if (JSON.stringify(expected) !== JSON.stringify(actual)) throw Error('Incorrect equipment visibility');
         for (const [other, asset] of lab.assets) if (other !== id && asset.meshes.some(m => m.isEnabled() && m.getTotalVertices())) throw Error('Inactive character visible');

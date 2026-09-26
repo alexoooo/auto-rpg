@@ -1,7 +1,9 @@
 """Original assets, Blender 4.5. Metres, Z up, facing -Y. No third-party geometry."""
-import bpy, bmesh, math, json
+import bpy, bmesh, math, json, sys
 from pathlib import Path
 from mathutils import Vector, Matrix
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from grips import build_hands, build_equipment, GRIP_OFFSET, GRIP_DOWN, STRING_BACK
 ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'public/assets/character-lab'; SOURCE=ROOT/'assets/character-lab'
 OUT.mkdir(parents=True,exist_ok=True); SOURCE.mkdir(parents=True,exist_ok=True)
@@ -130,11 +132,6 @@ def character(kind):
           (*el,.051 if female else .062,.056),(sign*(wx-.012),-.02,shoulder-.44,.047 if female else .054,.05),(*wr,.036,.039)],cloth,
           [{'chest':.85,f'upper.{s}':.15},{f'upper.{s}':1},{f'upper.{s}':.5,f'fore.{s}':.5},{f'fore.{s}':1},{f'fore.{s}':1}])
         loft('base__cuff_'+s,[(wr[0],wr[1],wr[2]+.04,.043,.045),(wr[0],wr[1],wr[2]-.004,.040,.043)],leather,f'fore.{s}')
-        hand=f'hand.{s}';cx,cy,cz=wr[0],wr[1],wr[2]-.045
-        orb('base__palm_'+s,(cx,cy,cz),(.040,.026,.060),skin,hand)
-        for j in range(4):
-            fx=cx+(j-1.5)*.018;tube('base__finger_'+s+str(j),[(fx,cy,cz-.026),(fx,cy-.023,cz-.059),(fx,cy-.043,cz-.044)],[.010,.009,.008],skin,hand)
-        tube('base__thumb_'+s,[(cx-sign*.027,cy,cz+.006),(cx-sign*.043,cy-.027,cz-.015),(cx-sign*.019,cy-.047,cz-.026)],[.014,.013,.010],skin,hand)
         x=sign*.10
         # Omit the always-covered proximal trouser region, so it cannot poke through the skirt.
         loft('base__trousers_'+s,[(x,0,hip-.19,.085,.09),
@@ -201,24 +198,8 @@ def character(kind):
         for sign in [-1,1]:
             tube('base__beard_cheek',[(sign*.088,-.027,hz-.042),(sign*.067,-.059,hz-.069),(sign*.042,-.068,hz-.088)], [.009,.012,.014],hair,'head')
             tube('base__moustache',[(sign*.004,-.09,hz-.048),(sign*.016,-.086,hz-.050),(sign*.025,-.08,hz-.056)],[.004,.006,.003],hair,'head')
-    x,y,z=Vector(bones['hand.R'][0])+Vector((0,-.056,-.072));hand='hand.R'
-    tube('sword__grip',[(x,y-.065,z),(x,y+.065,z)],.019,leather,hand,12)
-    for j in range(7):tube('sword__binding',[(x+.020*math.cos(k*math.pi/8),y-.058+j*.017,z+.020*math.sin(k*math.pi/8)) for k in range(17)],.0025,trim,hand)
-    orb('sword__pommel',(x,y+.085,z),(.026,.025,.026),trim,hand)
-    tube('sword__crossguard',[(x-.125,y-.085,z+.012),(x,y-.075,z),(x+.125,y-.085,z+.012)],[.012,.016,.012],trim,hand)
-    mesh('sword__blade',[(x-.035,y-.09,z),(x,y-.09,z+.009),(x+.035,y-.09,z),(x,y-.09,z-.009),(x-.022,y-.70,z),(x,y-.70,z+.006),(x+.022,y-.70,z),(x,y-.70,z-.006),(x,y-.84,z)],
-      [(0,4,5,1),(1,5,6,2),(2,6,7,3),(3,7,4,0),(4,8,5),(5,8,6),(6,8,7),(7,8,4)],blade,hand)
-    gx,gy,gz=Vector(bones['hand.L'][0])+Vector((0,-.055,-.055))
-    outline=[(-.205,.23),(.205,.23),(.22,.10),(.17,-.13),(0,-.30),(-.17,-.13),(-.22,.10)]
-    vs=[(gx+a,gy-.052,gz+b) for a,b in outline]+[(gx,gy-.095,gz+.005)]
-    mesh('shield__face',vs,[(j,(j+1)%7,7) for j in range(7)],steel,'hand.L')
-    tube('shield__rim',vs[:7]+vs[:1],.012,trim,'hand.L');box('shield__grip',(gx,gy,gz),(.025,.027,.15),leather,'hand.L')
-    for dx in [-.12,.12]:tube('shield__rivet_line',[(gx+dx,gy-.07,gz+.18),(gx+dx*.45,gy-.087,gz-.13)],.007,trim,'hand.L')
-    orb('shield__boss',(gx,gy-.10,gz+.01),(.052,.028,.052),trim,'hand.L')
-    pts=[(gx,gy+.065,gz-.66),(gx,gy-.065,gz-.57),(gx,gy-.14,gz-.35),(gx,gy-.04,gz-.13),(gx,gy,gz),(gx,gy-.04,gz+.13),(gx,gy-.14,gz+.35),(gx,gy-.065,gz+.57),(gx,gy+.065,gz+.66)]
-    tube('bow__limbs',pts,[.009,.012,.022,.024,.021,.024,.022,.012,.009],wood,'hand.L',12)
-    tube('bow__string',[pts[0],(gx,gy+.065,gz),pts[-1]],.0018,string,'hand.L')
-    tube('bow__grip',[(gx,gy,gz-.065),(gx,gy,gz+.065)],.025,leather,'hand.L',12)
+    build_hands(bones,skin,lip,mesh,loft,tube,orb)
+    build_equipment(bones,(leather,steel,trim,blade,wood,string),mesh,tube,orb,box)
     # Recompute outward normals for both descending sleeve lofts and ascending body lofts.
     for obj in bpy.context.scene.objects:
         if obj.type=='MESH':
@@ -237,14 +218,17 @@ def character(kind):
         hint=Vector((1 if s=='L' else -1,.7,-.35));perp=(hint-u*hint.dot(u)).normalized();e=sh+u*mid+perp*height
         orient(f'upper.{s}',sh,e);orient(f'fore.{s}',e,t);orient(f'hand.{s}',t,t+Vector((0,0,-.12)))
         return t
-    for pose in ['inspection','ready-empty','ready-sword','ready-shield','ready-sword-shield','ready-bow','raised','crouched']:
+    def wrist_frame(s,point,rotation):
+        rest=data.bones[f'hand.{s}']
+        rig.pose.bones[f'hand.{s}'].matrix=Matrix.Translation(Vector(point))@rotation.to_4x4()@rest.matrix_local.to_3x3().to_4x4()
+        bpy.context.view_layer.update()
+    for pose,weapon in [(p,w) for p in ['inspection','ready','raised','crouched'] for w in ['empty','sword','shield','sword-shield','bow']]:
         rig.animation_data_clear()
         for pb in rig.pose.bones:pb.rotation_mode='QUATERNION';pb.matrix_basis=Matrix.Identity(4)
         bpy.context.view_layer.update()
-        if pose.startswith('ready'):
+        if pose=='ready':
             right=arm('R',(-.28,-.23,shoulder-.37));arm('L',(.27,-.22,shoulder-.34))
-            if pose in ['ready-sword','ready-sword-shield']:orient('hand.R',right,right+Vector((0,-.109,-.050)))
-            if pose=='ready-bow':arm('L',(.08,-.32,shoulder-.20));arm('R',(.08,-.255,shoulder-.18))
+            if weapon in ['sword','sword-shield']:orient('hand.R',right,right+Vector((0,-.109,-.050)))
         if pose=='raised':arm('L',(.30,-.15,shoulder+.31));arm('R',(-.30,-.15,shoulder+.31))
         if pose=='crouched':
             rig.pose.bones['pelvis'].location.y=-.17
@@ -259,17 +243,32 @@ def character(kind):
                 orient(f'thigh.{s}',start,knee);orient(f'shin.{s}',knee,ankle)
                 orient(f'foot.{s}',ankle,Vector(bones[f'foot.{s}'][1]))
             arm('L',(.28,-.22,shoulder-.52));arm('R',(-.28,-.22,shoulder-.52))
+        if weapon in ['shield','sword-shield']:
+            if pose=='inspection':left=arm('L',(wx,-.18,shoulder-.56))
+            else:left=rig.pose.bones['hand.L'].head.copy()
+            wrist_frame('L',left,Matrix.Rotation(math.pi/2,3,'Z'))
+        if weapon=='bow':
+            height={'inspection':-.28,'ready':-.22,'raised':.12,'crouched':-.45}[pose]
+            left=arm('L',(.16,-.38 if pose=='ready' else -.30,shoulder+height))
+            left_rotation=Matrix(((0,0,1),(1,0,0),(0,1,0)))
+            right_rotation=Matrix(((0,0,1),(-1,0,0),(0,-1,0)))
+            wrist_frame('L',left,left_rotation)
+            string_point=left+left_rotation@Vector((-GRIP_OFFSET+STRING_BACK,0,-GRIP_DOWN))
+            right_target=string_point-right_rotation@Vector((GRIP_OFFSET,0,-GRIP_DOWN))
+            right=arm('R',right_target)
+            if (right-right_target).length>.0001:raise ValueError(f'{kind}/{pose}: unreachable bowstring hand')
+            wrist_frame('R',right,right_rotation)
         for pb in rig.pose.bones:
             for frame in [1,2]:
                 pb.keyframe_insert('location',frame=frame,group=pb.name)
                 pb.keyframe_insert('rotation_quaternion' if pb.rotation_mode=='QUATERNION' else 'rotation_euler',frame=frame,group=pb.name)
                 pb.keyframe_insert('scale',frame=frame,group=pb.name)
-        action=rig.animation_data.action;action.name=pose;action.use_fake_user=True
+        action=rig.animation_data.action;action.name=f'{pose}-{weapon}';action.use_fake_user=True
     rig.animation_data_clear()
     for pb in rig.pose.bones:pb.matrix_basis=Matrix.Identity(4)
     rig.animation_data_create()
-    rig.animation_data.action=bpy.data.actions['inspection']
-    rig.animation_data.action_slot=bpy.data.actions['inspection'].slots[0]
+    rig.animation_data.action=bpy.data.actions['inspection-empty']
+    rig.animation_data.action_slot=bpy.data.actions['inspection-empty'].slots[0]
     bpy.context.scene.frame_start=1;bpy.context.scene.frame_end=2
     bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/f'{kind}.blend'))
     bpy.ops.export_scene.gltf(filepath=str(OUT/f'{kind}.glb'),export_format='GLB',export_animations=True,export_animation_mode='ACTIONS',export_skins=True,export_yup=True,export_extras=True,export_optimize_animation_size=False)

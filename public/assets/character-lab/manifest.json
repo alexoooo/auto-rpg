@@ -4,14 +4,14 @@
     {
       "id": "fighter",
       "heightM": 1.88,
-      "meshes": 149,
-      "vertices": 10628
+      "meshes": 179,
+      "vertices": 21988
     },
     {
       "id": "rogue",
       "heightM": 1.73,
-      "meshes": 148,
-      "vertices": 10746
+      "meshes": 178,
+      "vertices": 22106
     }
   ]
 }

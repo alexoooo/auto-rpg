@@ -26,7 +26,7 @@ scene.ambientColor = new Color3(.24, .27, .25);
 scene.imageProcessingConfiguration.exposure = 1.3;
 scene.imageProcessingConfiguration.contrast = 1.12;
 const camera = new ArcRotateCamera('workshop-camera', Math.PI / 2 + .22, 1.39, 3.9, new Vector3(0, 1.02, 0), scene);
-camera.fov = .57; camera.minZ = .02; camera.lowerRadiusLimit = .85; camera.upperRadiusLimit = 5;
+camera.fov = .57; camera.minZ = .01; camera.lowerRadiusLimit = .2; camera.upperRadiusLimit = 5;
 camera.lowerBetaLimit = .45; camera.upperBetaLimit = 1.65; camera.wheelDeltaPercentage = .015;
 camera.pinchDeltaPercentage = .008; camera.panningSensibility = 1200; camera.attachControl(canvas, true);
 const fill = new HemisphericLight('softbox-fill', new Vector3(0, 1, -.6), scene);
@@ -81,13 +81,24 @@ function resetCamera() {
   camera.setTarget(new Vector3(0, 1.02, 0)); camera.alpha = Math.PI / 2 + .22; camera.beta = 1.39; camera.radius = 3.9;
 }
 el('reset').addEventListener('click', resetCamera);
+el('grip-view').addEventListener('click', () => {
+  const weapon = loadouts[current].weapon;
+  const part = weapon === 'empty' ? 'handR_open__palm' : `${weapon === 'sword-shield' ? 'sword' : weapon}__grip`;
+  const mesh = assets.get(current)?.meshes.find(m => m.name === part);
+  if (!mesh) return;
+  resetCamera(); mesh.refreshBoundingInfo({ applySkeleton: true }); mesh.computeWorldMatrix(true);
+  camera.setTarget(mesh.getBoundingInfo().boundingBox.centerWorld.clone());
+  camera.radius = weapon === 'bow' ? .7 : .5;
+  camera.alpha = weapon === 'shield' ? Math.PI + .3 : Math.PI / 2 + .3;
+  camera.beta = 1.1;
+});
 // Keyboard alternative to drag for the focusable preview.
 canvas.addEventListener('keydown', event => {
   if (event.key === 'ArrowLeft') camera.alpha -= .12;
   else if (event.key === 'ArrowRight') camera.alpha += .12;
   else if (event.key === 'ArrowUp') camera.target.y = Math.min(1.9, camera.target.y + .08);
   else if (event.key === 'ArrowDown') camera.target.y = Math.max(.15, camera.target.y - .08);
-  else if (event.key === '+' || event.key === '=') camera.radius = Math.max(.85, camera.radius - .15);
+  else if (event.key === '+' || event.key === '=') camera.radius = Math.max(.2, camera.radius - .15);
   else if (event.key === '-') camera.radius = Math.min(5, camera.radius + .15);
   else return;
   event.preventDefault();
@@ -105,7 +116,12 @@ async function start() {
       asset.addAllToScene(); assets.set(id, asset);
       for (const animation of asset.animationGroups) animation.stop();
       for (const mesh of asset.meshes) {
-        if (mesh.name !== '__root__') { mesh.setEnabled(false); mesh.receiveShadows = true; shadow.addShadowCaster(mesh); }
+        if (mesh.name !== '__root__') {
+          // The small skinned parts move outside their bind-pose bounds. Keep them
+          // eligible for rendering when inspecting a posed wrist at close range.
+          mesh.alwaysSelectAsActiveMesh = true;
+          mesh.setEnabled(false); mesh.receiveShadows = true; shadow.addShadowCaster(mesh);
+        }
       }
     }
     sync(); ready = true; el<HTMLFieldSetElement>('kit').disabled = false; el('loading').hidden = true;
