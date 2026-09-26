@@ -175,6 +175,18 @@ the header rule in `AGENTS.md` about welds that disagree at construction. Then c
 
 ## 4. The side-mirror gate
 
+**Done 2026-09-25** (`docs/analysis/2026-09-25-side-mirror.md`). `research/side-mirror.mjs` is the
+full-n row and `tests/side-mirror.test.mjs` the suite's. The band comes from distinct trajectories:
+the brawler's 128 bouts are 20, and the guardian's are one. On c563e66, 13 of 14 mirrors pass at 128
+bouts (Node research runner). The guardian fails, 128 of 128 to the left, because its seed first acts
+after its 2.15 s mirror is over, and it is listed in `SIDE_DECIDED`, which both comparison scripts
+refuse. The v4 mirrors pass on this tree (reaper 48.8, driver 55.5, miser 59.7), and the 15 % and
+64 % below are not reproduced. The miser passes twice at 128 but fails pooled over 186 distinct
+bouts (59.4 +- 7.2). Its cause and the guardian's are a seed-independent opening decided by float
+rounding between two symmetric slots: the exactly mirrored world hands each lean to the other side.
+There is no arena or body bias: 49.8 +- 2.8 % left, pooled. `research/league.mjs --mirror` reads the
+same verdict.
+
 Every mind in the probe set and every naive-ladder mind plays its own mirror, 128 bouts, with scores
 split by side. A side that differs from 50 % by more than the 95 % band fails. The v4 mirrors are
 known to fail (`golem-reaper` 15 %, `golem-driver` 64 %, from their circling path). They are not
