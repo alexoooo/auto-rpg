@@ -94,7 +94,15 @@ test("the worker counts a corner's knockdowns and its time down from that corner
   assert.ok(shaky.sides.left.knockdowns < shaky.sides.right.knockdowns,
     `the brawler's ${shaky.sides.left.knockdowns} against the idle body's ${shaky.sides.right.knockdowns}: the count is the fallen corner's, not the bout's`);
   assert.ok(shaky.sides.left.downSeconds < shaky.sides.right.downSeconds);
-  assert.ok(steady.sides.right.downSeconds > 0 && steady.sides.right.downSeconds < shaky.sides.right.downSeconds,
+  // The control's time down is its own body's: read, and not the x0.5 body's. **It was "less than
+  // x0.5's" until the sole was levelled** (`bipedAnkleRoll`, 2026-09-25), and that was a claim about
+  // how long a fall lasts rather than about the counter. After it, no pair from 44 to 83 has x0.5
+  // both fall more often and stay down longer: 50/51 and 78/79 give five falls for 13.05 s against
+  // four for 13.12, every other pair either two for 5.48 against four for 8.28 or five for 12.80 on
+  // both (Node bout runner through `research/worker.mjs`, 120 Hz). A worker that read the other
+  // corner, or the bout, fails the corner lines above; what is left to this one is that the
+  // control reads a time down of its own.
+  assert.ok(steady.sides.right.downSeconds > 0 && steady.sides.right.downSeconds !== shaky.sides.right.downSeconds,
     `the steadier body is down ${steady.sides.right.downSeconds} s, against ${shaky.sides.right.downSeconds}`);
 });
 

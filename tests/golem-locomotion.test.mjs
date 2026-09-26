@@ -792,6 +792,14 @@ test("a_sole_holds_its_ground_sideways_and_in_a_spin_too_and_not_only_in_a_walk"
   // slow. 0.583 and 0.99 are the 2026-09-05 measurements' own fractions of their own travel,
   // carried across unchanged; against them the same runs now read 1163.9 mm/s of 1400 sideways
   // and 369.8 of 564 in a pivot, which are the same 0.83 and 0.66 of budget as before.
+  //
+  // **The first assertion went red at 120 Hz and the cause was a foot on its edge.** 42 of 959
+  // strafe substeps had no sole in the band, one or two at every handover. The swing foot was on
+  // time; the stance foot had rolled 0.254 rad onto its leading edge, its centre 21.6 mm up,
+  // because the ankle's roll was never written and a sole dragged sideways on its edge trips on it
+  // (`bipedAnkleRoll` in `src/golem/locomotion/biped.ts`, with the table). Levelled, the strafe
+  // reads 0 of 959 at 1303.2 mm/s of slip, 0.93 of budget, and 0 of 1919 at 1338.4 at 240 (Node
+  // locomotion bench).
   const strafeTravelMps = B.carrier.strafeSpeedMps;
   const pivotTravelMps = B.carrier.maxYawSpeedRadS * B.hipSide;
   for (const [name, sequence, budget, measured] of [

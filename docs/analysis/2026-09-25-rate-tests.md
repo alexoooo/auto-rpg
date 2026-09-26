@@ -79,6 +79,14 @@ Two caveats sit with this class:
   the x2 weight that suffers at 120.
 - The **walk** has more than three times as much time in flight at 120. The **strafe** goes from
   never leaving the ground to 0.35 s off it, although its slip is lower.
+  - **The strafe row is resolved, and it was not a servo or a handover.** The ankle's roll axis
+    was armed and never written, so a stance foot rolled with its abducted leg onto the edge that
+    leads the travel, tripped on it and wedged the leg. How far that wedge deflects depends on
+    the step: the stance foot's peak roll is 0.187 rad at 240 and 0.254 at 120, and at 120 that
+    lifts the sole's centre 21.6 mm, past the 20 mm band. The swing foot lands on time. With the
+    sole levelled (`bipedAnkleRoll` in `src/golem/locomotion/biped.ts`, which has the table), the
+    strafe reads 0 of 959 at slip 1.303 m/s and 0 of 1919 at 1.338 (Node locomotion bench), and the
+    paired mirror bouts do not move at either rate (Node research runner).
 - A servo-gain pass at 120 is the parallel study's remit. Previous analysis, sections 2 and 6.
 
 ## What else was checked

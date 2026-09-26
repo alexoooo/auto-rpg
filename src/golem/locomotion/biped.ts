@@ -276,6 +276,60 @@ export function bipedPose(
   });
 }
 
+/**
+ * The ankle's roll for a hip abduction, radians: the sole held level across its width, as the
+ * ankle's pitch (`hip + knee + ankle = 0`) holds it level along its length.
+ *
+ * **`armMotors` has armed this axis since Session 05 and nothing ever wrote a target to it**, the
+ * defect the hip's abduction had until 2026-09-05. When the abduction was written, the ankle
+ * kept holding the foot square to the shin, so a stance foot rolled with its leg -- 0.10 to 0.12
+ * rad at the extreme of a side-step, by command -- onto the edge that leads the travel. A foot
+ * dragged sideways on its leading edge trips on it: friction below the ankle rolls it further,
+ * the edge digs, and the stance leg becomes a strut wedged between the keyframed pelvis and the
+ * floor, its hip abduction pushed 0.09 rad past its command and its knee twisted 0.06 rad about
+ * an axis it has no joint for. How far a wedge like that deflects is set by how soft the solver
+ * is, so it is set by the step: the stance foot's peak roll read 0.141 rad stepping at 480 Hz,
+ * 0.187 at 240 and 0.254 at 120 (0.257 at 120 with Havok's ideal step at 120 as well, so the
+ * held ideal step is not what softens it). At 120 the sole's centre stood 21.6 mm off the floor
+ * on its edge -- past the 20 mm plant band -- for a substep or two at every handover, and a
+ * full-speed strafe spent 42 of 959 substeps with no sole down. The swing foot was not late: at
+ * the handover the airborne substeps came from, it entered the band at 2.258 s at 120 against
+ * 2.254 s at 240, inside one 120 Hz substep. Levelled, the peak roll is 0.031 at
+ * 120 and 0.034 at 240: the wedge is gone at both rates rather than tuned under the band at one.
+ *
+ * Clamped to the joint's own roll range (`ankleRoll`), past which the sole tilts, as the pitch's
+ * clamp lets it in a deep crouch; a full-speed stone strafe commands 0.12 rad against 0.14. The sign is measured, as `ABDUCT_SIGN` is: the other one read 0.402 rad of stance roll and 126
+ * of 959 strafe substeps with no sole down.
+ *
+ * Node locomotion bench (`runGolemLocomotion`), stand 1 s / move 6 s / stop 1 s, at 120 Hz and at
+ * 240 (ideal step 240 in both): substeps with no sole in the plant band, mean planted-sole slip,
+ * and the stance foot's peak roll; before (the roll held at 0) -> after:
+ *
+ * | body     | cell           | rate | flight        | slip mm/s        | stance roll rad |
+ * |----------|----------------|------|---------------|------------------|-----------------|
+ * | stone    | strafe         | 120  | 42 -> 0 / 959 | 1016.6 -> 1303.2 | 0.254 -> 0.031  |
+ * | stone    | strafe         | 240  | 0 -> 0 / 1919 | 1164.3 -> 1338.4 | 0.187 -> 0.034  |
+ * | stone    | forward+strafe | 120  | 29 -> 7 / 959 | 1526.3 -> 1561.3 | 0.097 -> 0.072  |
+ * | stone    | forward+strafe | 240  | 0 -> 0 / 1919 | 1651.1 -> 1740.0 | 0.097 -> 0.038  |
+ * | skeleton | strafe         | 120  | 0 -> 0 / 959  | 1258.6 -> 1314.3 | 0.122 -> 0.022  |
+ * | skeleton | strafe         | 240  | 0 -> 0 / 1919 | 1275.0 -> 1322.4 | 0.122 -> 0.026  |
+ *
+ * The stone biped's walk and turn command no abduction and are bit-identical in every field the
+ * bench reads; the skeleton's hips sit ahead of its pivot, so its turn commands a little and its
+ * slip moved 306.3 -> 306.2 mm/s. The strafe's slip rises by what the tripped edge was holding and
+ * stays inside that test's budget (0.583 of 2.4 m/s, 1399 mm/s): a sole held by its edge digging
+ * in is a foot standing on a quarter-radian tilt, not a planted one.
+ *
+ * Node research runner (`research/stat-sweep.mjs --stat weight --levels 1 --pairs 48`, seed
+ * 20260923, the four probe minds, stone default mirrors, 96 bouts a set), paired after - before
+ * per bout, +- 95 %: at 120, bout length -3.35 +- 3.50 s, knockdowns -0.02 +- 0.27, damage
+ * -0.58 +- 0.77, left wins +0.06 +- 0.13; at 240, +1.31 +- 4.01 s, -0.06 +- 0.24, +0.59 +- 0.99,
+ * -0.04 +- 0.12. Nothing a fight reads moved outside its noise at either rate.
+ */
+export function bipedAnkleRoll(abduct: number, B = LOCOMOTION_BIPED): number {
+  return clamp(-abduct, -B.ankleRoll, B.ankleRoll);
+}
+
 /** How far the module's socket sits above the sole it is built standing on, metres. */
 export const bipedStandHeight = (B = LOCOMOTION_BIPED): number => {
   return B.pelvisHeight / 2 + B.hipInset + B.thighLength + B.shinLength + B.footHeight;
@@ -1172,6 +1226,9 @@ return defineLocomotion({
       leg.hip?.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_Z, abduct);
       leg.knee?.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, knee);
       leg.ankle?.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, ankle);
+      // The roll that keeps the sole flat across its width against that abduction: see
+      // `bipedAnkleRoll` for what a sole on its edge did to a strafe.
+      leg.ankle?.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_Z, bipedAnkleRoll(abduct, B));
     };
 
     /**
