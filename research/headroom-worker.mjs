@@ -17,6 +17,7 @@ import { createBout, freshHavok, FRAME } from "../tests/harness/bout-runner.mjs"
 import { expertMind, runExpertBout } from "../tests/harness/expert.mjs";
 import { rangeFraction } from "../tests/harness/drills.mjs";
 import { policyMind } from "../src/mind.ts";
+import { applyOverrides } from "./overrides.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 const other = (side) => (side === "left" ? "right" : "left");
@@ -146,8 +147,11 @@ export async function execute(job, manifest) {
 }
 
 if (parentPort) parentPort.on("message", async ({ job, manifest }) => {
+  // A run's counterfactual knobs (`research/overrides.mjs`), set for this bout and put back after it.
+  const restore = applyOverrides(manifest.overrides);
   try { parentPort.postMessage(await execute(job, manifest)); }
   catch (error) { parentPort.postMessage({ ...job, status: "failed", error: String(error?.stack ?? error) }); }
+  finally { restore(); }
 });
 
 export { other };
