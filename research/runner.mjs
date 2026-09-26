@@ -55,10 +55,15 @@ export function prepareRun(directory, manifest, jobs) {
   return rows;
 }
 
-/** Persistent workers, but a fresh wasm instance for every job. Never two worlds in a realm. */
+/**
+ * Persistent workers, but a fresh wasm instance for every job. Never two worlds in a realm.
+ * `jobLimitMs` is one job's wall limit: five minutes suits a bout, and a caller whose job is a
+ * search (session 04's expert plays a bout at a twentieth of real time or slower) sets its own.
+ */
 export async function runJobs(directory, manifest, jobs, { workers = defaultWorkers(), deadline = Infinity,
-  onProgress = () => {}, workerUrl = new URL("./worker.mjs", import.meta.url) } = {}) {
+  onProgress = () => {}, workerUrl = new URL("./worker.mjs", import.meta.url), jobLimitMs = 300000 } = {}) {
   if (!Number.isInteger(workers) || workers < 1 || workers > 64) throw new Error("invalid worker count");
+  if (!(jobLimitMs > 0)) throw new Error("invalid job wall limit");
   const rows = prepareRun(directory, manifest, jobs);
   const done = new Set(rows.map((row) => row.id));
   const pending = jobs.filter((job) => !done.has(job.id));
@@ -93,8 +98,8 @@ export async function runJobs(directory, manifest, jobs, { workers = defaultWork
           worker.once("message", message); worker.once("error", error); worker.once("exit", exited);
           timer = setTimeout(() => {
             if (Date.now() >= deadline) finish({ ...job, status: "interrupted" });
-            else error(new Error("bout exceeded five-minute wall limit"));
-          }, Math.max(1, Math.min(300000, deadline - Date.now())));
+            else error(new Error(`job exceeded its ${(jobLimitMs / 60000).toFixed(1)}-minute wall limit`));
+          }, Math.max(1, Math.min(jobLimitMs, deadline - Date.now())));
           worker.postMessage({ job, manifest });
         });
         if (row.status === "interrupted") break; // An uncompleted job remains pending on resume.

@@ -5,9 +5,14 @@
 // Beside the bout's result it reads, once a frame, the two things only a frame-by-frame reader
 // can: the lead (whose bar is higher, outside a dead band) and each body's falls (edges into
 // `fallen` on its published support state).
+//
+// A corner named `expert...` is session 04's reference expert (`tests/harness/expert.mjs`), which
+// searches on exact forks of the bout before each frame it decides on; its row carries the
+// expert's summary by side.
 import { parentPort } from "node:worker_threads";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createBout, freshHavok } from "../tests/harness/bout-runner.mjs";
+import { expertMind, runExpertBout } from "../tests/harness/expert.mjs";
 import { policyMind } from "../src/mind.ts";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -35,27 +40,36 @@ export function leadCounter(band = LEAD_BAND) {
 
 export async function execute(job, manifest) {
   const builds = new Map(manifest.builds.map((build) => [build.name, build.setup]));
-  const bout = createBout({ left: job.left, right: job.right,
-    leftMind: policyMind(job.left, job.seeds[0]), rightMind: policyMind(job.right, job.seeds[1]),
+  const options = { left: job.left, right: job.right,
     seeds: job.seeds, leftGolem: builds.get(job.leftBuild), rightGolem: builds.get(job.rightBuild),
-    ...manifest.protocol, physics: await freshHavok() });
+    ...manifest.protocol, physics: await freshHavok() };
   const lead = leadCounter();
   const falls = { left: 0, right: 0 };
   const was = { left: "supported", right: "supported" };
+  const frame = (bout) => {
+    lead.feed(bout.left.vitality, bout.right.vitality);
+    for (const side of ["left", "right"]) {
+      const support = bout[side].view?.self?.support ?? "supported";
+      if (support === "fallen" && was[side] !== "fallen") falls[side] += 1;
+      was[side] = support;
+    }
+  };
   let result;
   let vitality;
-  try {
-    while (bout.step()) {
-      lead.feed(bout.left.vitality, bout.right.vitality);
-      for (const side of ["left", "right"]) {
-        const support = bout[side].view?.self?.support ?? "supported";
-        if (support === "fallen" && was[side] !== "fallen") falls[side] += 1;
-        was[side] = support;
-      }
-    }
-    result = bout.finish();
-    vitality = [bout.left.vitality, bout.right.vitality];
-  } finally { bout.dispose(); }
+  let experts;
+  const expertBy = { left: expertMind(job.left, job.seeds[0]), right: expertMind(job.right, job.seeds[1]) };
+  if (expertBy.left || expertBy.right) {
+    const chosen = Object.fromEntries(Object.entries(expertBy).filter(([, expert]) => expert));
+    ({ result, vitality, experts } = await runExpertBout(options, { experts: chosen, onFrame: frame }));
+  } else {
+    const bout = createBout({ ...options,
+      leftMind: policyMind(job.left, job.seeds[0]), rightMind: policyMind(job.right, job.seeds[1]) });
+    try {
+      while (bout.step()) frame(bout);
+      result = bout.finish();
+      vitality = [bout.left.vitality, bout.right.vitality];
+    } finally { bout.dispose(); }
+  }
   const sides = Object.fromEntries(["left", "right"].map((side) => [side, {
     damage: result[side].damage,
     falls: falls[side],
@@ -63,7 +77,8 @@ export async function execute(job, manifest) {
     retreatOutsideReachSeconds: result.behaviour[side].engagement.retreatOutsideReachSeconds,
   }]));
   return { ...job, status: "ok", winner: result.winner, ending: result.ending, seconds: result.seconds,
-    vitality, leadChanges: lead.changes, sides, instrumentVersion: result.engagementInstrumentVersion };
+    vitality, leadChanges: lead.changes, sides, instrumentVersion: result.engagementInstrumentVersion,
+    ...(experts ? { experts } : {}) };
 }
 
 if (parentPort) parentPort.on("message", async ({ job, manifest }) => {

@@ -707,6 +707,89 @@ export function missingFor(drill, subjectView, opponentView) {
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * Each drill's judge result read as one number a planner maximises: a pass is worth 1, and the
+ * margin shapes the search on either side of it -- an earlier blow, a smaller wound, more of the
+ * rollout in the band, a shorter way still to go inside. Each is taken over one rollout, from a
+ * judge begun at the rollout's start (so a wound is the rollout's, and a blow's time is the rung's).
+ */
+export const DRILL_TASKS = Object.freeze({
+  "survive-cut": (r) => Number(r.pass) - r.margin,
+  "land-clean-blow": (r, drill) => (r.pass ? 1 + 0.25 * (1 - r.margin / drill.horizon) : 0.5 * r.bestLead),
+  "get-inside": (r, drill, ctx) => (r.pass ? 1 + 0.25 * (1 - r.margin / drill.horizon)
+    : -Math.max(0, rangeFraction(ctx.view(ctx.S)) - drill.inside(chooseStriker(ctx.view(ctx.S))))) - r.wound,
+  "hold-range": (r) => r.margin,
+  "punish-miss": (r, drill) => (r.pass ? 1 + 0.25 * (1 - r.margin / drill.horizon) : 0),
+  finish: (r, drill) => (r.pass ? 1 + 0.25 * (1 - r.margin / drill.horizon) : 0),
+});
+
+/**
+ * What a planning rung (session 04's expert) forks its own rung's world with: the live rung world,
+ * the subject's side, and a builder for a world with the same drivers and the same minds in them,
+ * unrestored. The subject's slot holds `shell` (a `Forkable` with an empty record, which is what
+ * the planner's own slot captures as), and the opponent's driver holds a fresh mind of each policy
+ * its live driver holds, for the world walk to pair and restore. `signature` changes when the live
+ * opponent's minds do, so a planner that keeps a built world knows to build another.
+ *
+ * `task(world)`, called on a restored fork before a rollout, is the drill's own judge run over that
+ * rollout (`DRILL_TASKS`): a planner that scores with it is searching for the drill's pass. It
+ * gives the frames left in the rung (a rollout past the rung's end would score what the drill never
+ * sees), a `frame()` to call after each step, `done()`, and `value()` at the end.
+ */
+export function drillHost({ live, base, S, O, name, params, seed, liveDrivers, ctx: liveCtx }) {
+  const minds = () => liveDrivers[O].minds.map((mind) => mind.name);
+  const drill = drillNamed(name);
+  return {
+    live, side: S,
+    signature: () => minds().join(","),
+    build(physics, shell) {
+      const drivers = { [S]: new DrillDriver(name, "subject", params), [O]: new DrillDriver(name, "opponent", params) };
+      drivers[S].minds = [shell];
+      drivers[O].minds = minds().map((policy) => policyMind(policy, 0));
+      const events = [];
+      const world = createBout({ ...base, physics, leftMind: drivers.left, rightMind: drivers.right,
+        onSample: null, onEvent: (e) => events.push(e), onRefusal: null, onVerdict: null });
+      world.drillDrivers = drivers;
+      world.drillEvents = events;
+      return world;
+    },
+    task(world) {
+      const events = world.drillEvents;
+      events.length = 0;
+      const frame0 = liveCtx.frame;
+      let frame = 0;
+      const ctx = {
+        S, O, params, seed, events, state: {},
+        get frame() { return frame0 + frame; },
+        view: (side) => world[side].view,
+        golem: (side) => world[side],
+        driver: (side) => world.drillDrivers[side],
+        t: () => (frame0 + frame) * FRAME,
+      };
+      const judge = drill.judge(ctx);
+      const value = DRILL_TASKS[name];
+      return {
+        remaining: Math.max(0, Math.round(drill.horizon / FRAME) - frame0),
+        frame() { frame += 1; judge.frame(); },
+        done: () => judge.done(),
+        value: () => value(judge.result(), drill, ctx),
+      };
+    },
+    /**
+     * The drivers' one fact about the other body, fed once a frame as the live world feeds it. No
+     * drill reads it inside a rung today (only the preludes' walks do), so deleting this feed turns
+     * nothing red; it is here so that a rollout stays the live rung's future when one does.
+     */
+    beforeStep(world) {
+      for (const side of [S, O]) {
+        const theirs = world[other(side)].view;
+        world.drillDrivers[side].theirFraction = rangeFraction(theirs);
+        world.drillDrivers[side].theirRange = strikerRange(chooseStriker(theirs));
+      }
+    },
+  };
+}
+
+/**
  * Run one drill from one seed for every rung.
  *
  * `subjectSetup` and `opponentSetup` are golem setups; the subject's side is drawn from the seed
@@ -715,8 +798,14 @@ export function missingFor(drill, subjectView, opponentView) {
  * moment, `{ void }` for a start its control did not admit, and otherwise
  * `{ start, rungs: { [rung]: result } }`. `fix` pins named parameters over the drawn ones, for a
  * test or a study that holds one of them still (a line, a range); the draw order is unchanged.
+ *
+ * `rungFactory(name, seed)` builds a rung's mind where it answers one (null otherwise, and the
+ * ladder's `rungMind` builds it). A rung mind with a `beforeFrame(host)` method is a planner: it is
+ * awaited before every frame with a `drillHost` for its own rung world, its `summary()` is kept as
+ * the rung's `planner` field, and its `dispose()` runs when the rung does.
  */
-export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed, rungs = LADDER, trace = false, fix = {} }) {
+export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed, rungs = LADDER, trace = false, fix = {},
+  rungFactory = null }) {
   const drill = drillNamed(name);
   const rng = mulberry32(seed);
   const S = rng() < 0.5 ? "left" : "right";
@@ -801,6 +890,7 @@ export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed,
 
   // ---- each rung, in an exact fork ---------------------------------------------------------
   const results = {};
+  let planner = null;
   // The control plays first, whether or not it is a rung asked for; a start it does not admit is
   // void and the other rungs are not played from it.
   const order = drill.control ? [drill.control, ...rungs.filter((rung) => rung !== drill.control)] : rungs;
@@ -819,13 +909,17 @@ export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed,
         });
         forkDrivers[side].handoff = start.carried[side].handoff;
       }
-      forkDrivers[S].minds = [rungMind(rung, (seed ^ 0x3c6ef372) >>> 0)];
+      const mind = (rungFactory?.(rung, (seed ^ 0x3c6ef372) >>> 0)) ?? rungMind(rung, (seed ^ 0x3c6ef372) >>> 0);
+      planner = typeof mind.beforeFrame === "function" ? mind : null;
+      forkDrivers[S].minds = [mind];
       forkDrivers[S].handoff = forkDrivers[S].clock;
       const ctx = context(fork, forkDrivers, events, {});
       drill.atStart?.(ctx);
+      const host = planner ? drillHost({ live: fork, base, S, O, name, params, seed, liveDrivers: forkDrivers, ctx }) : null;
       const judge = drill.judge(ctx);
       const frames = Math.round(drill.horizon / FRAME);
       while (ctx.frame < frames && fork.active) {
+        if (planner) await planner.beforeFrame(host);
         ctx.feed();
         fork.step();
         ctx.tick();
@@ -833,8 +927,11 @@ export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed,
         if (judge.done()) break;
       }
       results[rung] = { ...judge.result(), seconds: ctx.t() };
+      if (planner?.summary) results[rung].planner = planner.summary();
       if (trace) results[rung].events = events.map(eventRow);
     } finally {
+      planner?.dispose?.();
+      planner = null;
       fork.dispose();
     }
     if (rung === drill.control && !drill.admit(results[rung])) {
