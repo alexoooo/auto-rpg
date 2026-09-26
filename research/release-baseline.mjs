@@ -70,7 +70,9 @@ export function controlBaseline(rows) {
   const per = [...pairings.values()].sort((a, b) => a.key.localeCompare(b.key)).map(({ key, rows: own }) => {
     const figures = own.map(bout);
     const [a] = key.split(" ~ ");
-    // The pairing's first-named mind's score, a draw a half; a mirror reads 50 by construction.
+    // The pairing's first-named mind's score, a draw a half. In a mirror both corners are that mind,
+    // and the sweep's modified corner (which keeps its mind across a block's side swap) is the one
+    // read, so a mirror's figure is a null whose expectation is 50.
     const firstScore = mean(own.map((row) => {
       const aSide = row.minds[0] === a ? row.modified : other(row.modified);
       return row.winner === null ? 0.5 : row.winner === aSide ? 1 : 0;
@@ -97,8 +99,9 @@ export function idleDistinct(rows, overtimeSeconds) {
   }
   return [...cells.values()].map((c) => {
     const firsts = [...c.seen.values()];
-    const outright = firsts.filter((row) => row.winner === row.attackerSide && row.seconds < overtimeSeconds).length;
-    return { attacker: c.attacker, dummy: c.dummy, mind: c.mind, distinct: firsts.length, outrightDistinct: outright };
+    const outright = firsts.filter((row) => row.winner === row.attackerSide && row.seconds < overtimeSeconds);
+    return { attacker: c.attacker, dummy: c.dummy, mind: c.mind, distinct: firsts.length, outrightDistinct: outright.length,
+      medianOutrightSeconds: median(outright.map((row) => row.seconds)) };
   });
 }
 
@@ -118,7 +121,7 @@ function controlMarkdown(c, header) {
     row("Bout length, s", "seconds", 1),
     row("Decided, %", "decided", 1, 100),
     row("Past the overtime mark, %", "overtime", 1, 100), "",
-    "By unordered pairing (the first-named mind's score; a mirror is 50 by construction):", "",
+    "By unordered pairing (the first-named mind's score; in a mirror, the modified corner's, a null that expects 50):", "",
     "| Pairing | Bouts | Distinct | Outcomes | First's score % | Damage / body | Falls / body | Mean s | Median s | Decided % |",
     "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...c.pairings.map((p) => `| ${p.key} | ${p.bouts} | ${p.distinct} | ${p.outcomes} | ${f(p.firstScore, 1, 100)} | ${f(p.damage)} | ${f(p.falls)} | ${f(p.seconds, 1)} | ${f(p.medianSeconds, 1)} | ${f(p.decided, 1, 100)} |`),
@@ -142,9 +145,9 @@ async function main() {
       seed: manifest.seed, fingerprint: manifest.fingerprint.slice(0, 12) }));
     if (rows.every((row) => row.trajectory)) {
       out.push("Distinct trajectories a cell, and outright wins counted once per trajectory:", "",
-        "| Attacker | Mind | Dummy | Distinct | Outright (distinct) |", "| --- | --- | --- | ---: | ---: |",
+        "| Attacker | Mind | Dummy | Distinct | Outright (distinct) | Median outright win, s |", "| --- | --- | --- | ---: | ---: | ---: |",
         ...idleDistinct(rows, CONFIG.bout.overtimeSeconds).map((c) =>
-          `| ${c.attacker} | ${c.mind} | ${c.dummy} | ${c.distinct} | ${c.outrightDistinct} |`), "");
+          `| ${c.attacker} | ${c.mind} | ${c.dummy} | ${c.distinct} | ${c.outrightDistinct} | ${c.medianOutrightSeconds === null ? "--" : c.medianOutrightSeconds.toFixed(1)} |`), "");
     }
   }
   console.log(out.join("\n"));
