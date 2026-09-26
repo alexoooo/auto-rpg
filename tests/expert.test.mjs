@@ -9,16 +9,20 @@
 //   control: with the persistence model in the opponent's place, the predictions do not all come
 //   true, so the comparison can fail. (Restarting the duelist's dice is not a control: it draws
 //   only on a few state changes, and over these seconds it drew nothing that changed a pose.)
+// - **An expert opponent is played forward from its own plan.** With an expert in each corner, a
+//   rollout plays the other corner's committed plan and restored shadows; against an expert whose
+//   plan carries no state, the predictions come true exactly as against the duelist.
 // - **A reused fork is a fresh fork.** One kept fork world restored for every candidate chooses and
 //   predicts exactly what a fresh exact fork per candidate does.
 // - **Names parse to searches** and a bad name is refused rather than run as a default.
 // - **The expert beats idle** on the odd pair: it empties the idle body's bar and loses none.
 //
 // Mutation checks, each run and each red: the shadows not restored into a rollout, a capture
-// without Havok's heap (the teleport fork), a reused fork not restored, and the search keeping the
-// worst plan. Two edits survive and are equivalent here: not cloning a warm plan (the moment already
-// holds a clone, and only one rollout of a fresh moment plays it) and the drill host's range feed
-// (no drill reads it inside a rung; see `drillHost`).
+// without Havok's heap (the teleport fork), a reused fork not restored, an expert opponent left to
+// its fork slot's shell or played without its shadows, and the search keeping the worst plan. Two
+// edits survive and are equivalent here: not cloning a warm plan (the moment already holds a clone,
+// and only one rollout of a fresh moment plays it) and the drill host's range feed (no drill reads
+// it inside a rung; see `drillHost`).
 //
 // Harness: the Node bout runner, the fork harness and the drill runner; every world in a Havok
 // instance of its own.
@@ -26,10 +30,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 
-import { createBout, freshHavok } from "./harness/bout-runner.mjs";
+import { freshHavok } from "./harness/bout-runner.mjs";
 import { runDrill } from "./harness/drills.mjs";
 import {
-  EXPERT_DEFAULTS, ExpertMind, boutHost, expertConfig, poseHash, runExpertBout,
+  EXPERT_DEFAULTS, ExpertMind, expertConfig, poseHash, runExpertBout,
 } from "./harness/expert.mjs";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
@@ -47,12 +51,13 @@ const PLUMB = { ...EXPERT_DEFAULTS, candidates: 3, rounds: 1, horizon: 0.5, deci
 /** An expert that also notes the live world's pose and bars each time a decision falls due. */
 class Witnessed extends ExpertMind {
   constructor(config, seed) { super(config, seed); this.seen = []; }
-  async beforeFrame(host) {
-    if (host.live.clock + 1e-9 >= this.next) {
+  prepare(host) {
+    const due = super.prepare(host);
+    if (due) {
       const E = host.side, O = E === "left" ? "right" : "left";
       this.seen.push({ pose: poseHash(host.live), vE: host.live[E].vitality, vO: host.live[O].vitality });
     }
-    return super.beforeFrame(host);
+    return due;
   }
   /** Each decision's prediction against what the live world then held, one row a decision. */
   checks() {
@@ -68,21 +73,15 @@ class Witnessed extends ExpertMind {
 const BASE = { left: "golem-duelist", right: "golem-duelist", seeds: [11, 22], locomotionMode: "supported",
   maxSeconds: 150, leftGolem: TRI, rightGolem: RAM, separation: 2.2 };
 
-/** A bout with the expert on the left for `seconds`, its search awaited before every frame. */
-async function witnessBout(config, seconds) {
+/**
+ * A bout of `seconds` with a witnessed expert on the left, and `right` (an expert, or null for the
+ * duelist) on the right.
+ */
+async function witnessBout(config, seconds, right = null) {
   const expert = new Witnessed(config, 5);
-  const bout = createBout({ ...BASE, leftMind: expert, physics: await freshHavok() });
-  try {
-    const host = boutHost(bout, BASE, "left");
-    while (bout.active && bout.clock < seconds) {
-      await expert.beforeFrame(host);
-      bout.step();
-    }
-    return { checks: expert.checks(), log: expert.log, builds: expert.pool?.builds ?? 0 };
-  } finally {
-    expert.dispose();
-    bout.dispose();
-  }
+  const experts = right ? { left: expert, right } : { left: expert };
+  const { experts: summaries } = await runExpertBout({ ...BASE, maxSeconds: seconds, physics: await freshHavok() }, { experts });
+  return { checks: expert.checks(), log: expert.log, builds: summaries.left.builds };
 }
 
 test("a_rollout_is_the_future_it_predicts_in_a_bout", async () => {
@@ -110,10 +109,20 @@ test("a_rollout_is_the_future_it_predicts_in_a_drill_rung", async () => {
   assert.equal(run.rungs.plumb.planner.decisions, expert.log.length, "the rung did not keep the planner's summary");
 });
 
+test("an_expert_opponent_is_played_forward_from_its_own_plan", async () => {
+  // An expert with one candidate always commits the duelist's continuation, which carries no state
+  // of its own, so the plan the other expert plays it forward from is what it then does.
+  const follower = () => new ExpertMind({ ...EXPERT_DEFAULTS, candidates: 1, rounds: 1, horizon: 0.25, decisionHz: 2 }, 6);
+  const { checks, log } = await witnessBout(PLUMB, 2.6, follower());
+  assert.ok(checks.length >= 4, `only ${checks.length} decisions were checked`);
+  assert.deepEqual(checks, checks.map(() => ({ pose: true, bars: true })), "a predicted state did not come true");
+  assert.ok(log.some((entry) => entry.label !== "duelist"), "the witnessed expert only ever followed the duelist");
+});
+
 test("a_reused_fork_is_a_fresh_fork", async () => {
   const reused = await witnessBout(PLUMB, 2.1);
   const fresh = await witnessBout({ ...PLUMB, reuse: false }, 2.1);
-  const strip = (log) => log.map(({ ms, ...entry }) => entry);
+  const strip = (log) => log.map(({ ms, cost, ...entry }) => entry);
   assert.deepEqual(strip(reused.log), strip(fresh.log));
   assert.ok(reused.builds < fresh.builds, `reuse built ${reused.builds} worlds and fresh ${fresh.builds}`);
 });
@@ -134,9 +143,9 @@ test("an_expert_name_parses_to_its_search_and_a_bad_one_is_refused", () => {
 
 test("the_expert_beats_idle_on_the_odd_pair", async () => {
   const config = { ...EXPERT_DEFAULTS, candidates: 4, rounds: 1, horizon: 0.75, decisionHz: 2 };
-  const { vitality, result, expert } = await runExpertBout(
+  const { vitality, result, experts: { left: expert } } = await runExpertBout(
     { ...BASE, right: "idle", maxSeconds: 8, physics: await freshHavok() },
-    { side: "left", expert: new ExpertMind(config, 9) });
+    { experts: { left: new ExpertMind(config, 9) } });
   const [mine, theirs] = vitality;
   assert.equal(mine, 1, "the expert lost bar to an idle body");
   assert.equal(result.winner, "left", `the idle body kept ${theirs} of its bar through 8 s`);

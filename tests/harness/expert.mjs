@@ -286,6 +286,9 @@ const pair = (label, a, b, switchAt) => ({ label, segs: [a, b], switchAt });
 /** The lines a proposal's stroke is thrown at: metres over their shoulder, the drills' cut lines. */
 const LINES = Object.freeze([0.3, 0, -0.35]);
 
+/** The duelist's own continuation, as a plan: what an expert plays before its first search. */
+const FOLLOW_DUELIST = Object.freeze({ label: "duelist", segs: [follow("golem-duelist")], switchAt: Infinity });
+
 /**
  * The structured proposals, in the order they are kept when the budget is short. The first is the
  * duelist's own continuation, so that a decision on which every candidate ties is the duelist's.
@@ -413,6 +416,7 @@ export class ForkPool {
     this.world = null;
     this.topology = null;
     this.rollout = new RolloutMind(SHADOWS);
+    this.rolloutO = new RolloutMind(SHADOWS);
     this.persist = new PersistenceMind();
     this.slots = null;
     this.builds = 0;
@@ -524,6 +528,7 @@ export class ExpertMind {
     this.pool = null;
     this.history = [];
     this.log = [];
+    this.pending = null;
   }
 
   decide(view, dt) {
@@ -537,38 +542,68 @@ export class ExpertMind {
 
   /** Search if a decision is due. `host` is what lets the expert capture and fork its world. */
   async beforeFrame(host) {
-    const clock = host.live.clock;
-    if (clock + 1e-9 < this.next) return;
-    this.next = clock + 1 / this.config.decisionHz;
-    await this.search(host, clock);
+    if (this.prepare(host)) await this.search(host);
   }
 
-  async search(host, clock) {
+  /**
+   * Take the moment a due decision plans on, and say whether one is due. Two experts in one bout
+   * both prepare before either searches, so each sees the other's plan as it stood at the moment and
+   * neither sees the plan the other is about to choose (`runExpertBout`).
+   */
+  prepare(host) {
+    const clock = host.live.clock;
+    if (clock + 1e-9 < this.next) return false;
+    this.next = clock + 1 / this.config.decisionHz;
     const started = performance.now();
-    const config = this.config;
-    const E = host.side, O = other(E);
-    this.pool ??= new ForkPool(host, config);
-    // The moment the search plans on: now, or `stale` decisions ago (the blinded-fork mutation).
-    const moment = {
+    const O = other(host.side);
+    const them = host.opponentExpert ?? null;
+    this.pending = {
+      clock,
       capture: captureBout(host.live, { heap: true }),
-      snapshots: Object.fromEntries(SHADOWS.map((name) => [name, snapshotMind(this.shadows[name])])),
+      snapshots: this.snapshots(),
       held: cloneIntent(host.live[O].control.driver.held ?? freshGolemIntent()),
       hold: cloneIntent(this.out),
       warm: this.program ? this.program.clone() : null,
+      // An expert opponent: the plan it is playing and its shadows, to play it forward in a rollout.
+      opponent: them ? { program: them.program ? them.program.clone() : new Program(FOLLOW_DUELIST), snapshots: them.snapshots() } : null,
+      ms: performance.now() - started,
     };
+    return true;
+  }
+
+  snapshots() {
+    return Object.fromEntries(SHADOWS.map((name) => [name, snapshotMind(this.shadows[name])]));
+  }
+
+  async search(host) {
+    const started = performance.now();
+    const moment = this.pending;
+    this.pending = null;
+    const clock = moment.clock;
+    const cost = { capture: moment.ms, restore: 0, simulate: 0 };
+    const config = this.config;
+    const E = host.side;
+    this.pool ??= new ForkPool(host, config);
+    // The moment the search plans on: now, or `stale` decisions ago (the blinded-fork mutation).
     this.history.push(moment);
     while (this.history.length > config.stale + 1) this.history.shift();
     const at = this.history[0];
     const reseed = Math.floor(this.rng() * 0x100000000) >>> 0;
 
     const evaluate = async (plan) => {
+      let clock = performance.now();
       const world = await this.pool.acquire(at.capture);
+      cost.restore += performance.now() - clock;
+      clock = performance.now();
       const rollout = this.pool.rollout;
       rollout.load(plan.warm ? plan.warm.clone() : new Program(plan), at.snapshots);
       this.pool.slots.E.mind = rollout;
       if (config.opponent === "persistence") {
         this.pool.persist.hold(at.held);
         this.pool.slots.O.mind = this.pool.persist;
+      } else if (at.opponent) {
+        this.pool.rolloutO.load(at.opponent.program.clone(), at.opponent.snapshots);
+        this.pool.slots.O.mind = this.pool.rolloutO;
       } else if (config.reseed) {
         let i = 0;
         for (const stream of randomStreams(this.pool.slots.O.mind)) { stream.reseed(mixSeed(reseed, i)); i += 1; }
@@ -580,6 +615,7 @@ export class ExpertMind {
         world.step();
       }
       const end = reading(world, E, config.band);
+      cost.simulate += performance.now() - clock;
       if (config.trace) end.pose = poseHash(world);
       return { ...scoreRollout(start, end, config.weights), predicted: config.trace ? end : undefined };
     };
@@ -612,7 +648,7 @@ export class ExpertMind {
       terms, ...(predicted ? { predicted } : {}),
       spread: Math.max(...totals) - Math.min(...totals),
       tied: totals.filter((total) => total === best.score.total).length,
-      ms: performance.now() - started,
+      ms: performance.now() - started + moment.ms, cost,
     });
   }
 
@@ -631,6 +667,7 @@ export class ExpertMind {
       decisions: n,
       msMedian: n ? ms[Math.floor(n / 2)] : 0,
       msTotal: ms.reduce((s, x) => s + x, 0),
+      msParts: Object.fromEntries(["capture", "restore", "simulate"].map((key) => [key, this.log.reduce((s, e) => s + e.cost[key], 0)])),
       rollouts: this.log.reduce((s, e) => s + e.n, 0),
       builds: this.pool?.builds ?? 0,
       labels, terms,
@@ -654,38 +691,50 @@ export function expertMind(name, seed) {
 /**
  * A host for a bout built by `createBout(base)` with the expert on `side`. `base` names both
  * policies (the expert's side names the policy the bout's matchup records) and carries no mind
- * objects; the opponent is built by name in every fork and restored by the world walk.
+ * objects; the opponent is built by name in every fork and restored by the world walk. With an
+ * expert in the other corner too (`opponentExpert`), both of a fork's slots hold shells, and the
+ * search puts the opponent's current plan in its slot (`ExpertMind.search`).
  */
-export function boutHost(live, base, side) {
+export function boutHost(live, base, side, opponentExpert = null) {
+  const O = other(side);
   return {
-    live, side,
+    live, side, opponentExpert,
     build: (physics, shell) => createBout({ ...base, physics, [`${side}Mind`]: shell,
+      ...(opponentExpert ? { [`${O}Mind`]: new ExpertShell() } : {}),
       onSample: null, onEvent: null, onRefusal: null, onVerdict: null }),
   };
 }
 
 /**
- * One bout with an expert in one corner, run to its end: `runBout`'s loop with the expert's search
- * awaited before each frame. `options` are `createBout`'s, with names for both policies and a fresh
- * Havok instance in `physics` (an exact fork needs the original built into one). `onFrame(bout)`
- * runs after each frame. Returns the result, both final bars and the expert's summary.
+ * One bout with an expert in one corner or both, run to its end: `runBout`'s loop with each
+ * expert's search awaited before each frame. `options` are `createBout`'s, with names for both
+ * policies and a fresh Havok instance in `physics` (an exact fork needs the original built into
+ * one); `experts` maps a side to its expert. With two, both take their moment before either
+ * searches, so neither corner sees the plan the other is choosing on the same frame.
+ * `onFrame(bout)` runs after each frame. Returns the result, both final bars and each expert's
+ * summary by side.
  */
-export async function runExpertBout(options, { side, expert, onFrame = null }) {
+export async function runExpertBout(options, { experts, onFrame = null }) {
   const { leftMind, rightMind, ...base } = options;
-  if (leftMind || rightMind) throw new Error("runExpertBout: name both policies; the expert is passed apart");
-  const bout = createBout({ ...base, [`${side}Mind`]: expert });
-  const host = boutHost(bout, { ...base, physics: undefined }, side);
+  if (leftMind || rightMind) throw new Error("runExpertBout: name both policies; the experts are passed apart");
+  const sides = Object.keys(experts);
+  if (sides.length === 0 || sides.some((side) => side !== "left" && side !== "right")) throw new Error("runExpertBout: experts by side");
+  const bout = createBout({ ...base, ...Object.fromEntries(sides.map((side) => [`${side}Mind`, experts[side]])) });
+  const hosts = Object.fromEntries(sides.map((side) =>
+    [side, boutHost(bout, { ...base, physics: undefined }, side, experts[other(side)] ?? null)]));
   try {
     for (;;) {
       if (!bout.active) break;
-      await expert.beforeFrame(host);
+      const due = sides.filter((side) => experts[side].prepare(hosts[side]));
+      for (const side of due) await experts[side].search(hosts[side]);
       if (!bout.step()) break;
       onFrame?.(bout);
     }
     const result = bout.finish();
-    return { result, vitality: [bout.left.vitality, bout.right.vitality], expert: expert.summary() };
+    return { result, vitality: [bout.left.vitality, bout.right.vitality],
+      experts: Object.fromEntries(sides.map((side) => [side, experts[side].summary()])) };
   } finally {
-    expert.dispose();
+    for (const side of sides) experts[side].dispose();
     bout.dispose();
   }
 }
