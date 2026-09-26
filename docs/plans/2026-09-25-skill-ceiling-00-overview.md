@@ -297,3 +297,35 @@ their choice is collected here instead of stopping the run. Each item names wher
     survive-cut.
 - **Judging balance on the carried base** is an option recorded by the rate-falls study and not
   taken.
+- **Session 07's changes**: session 05's 17 proposals, in `docs/analysis/2026-09-26-headroom.md`
+  section 6. Session 07's plan has the owner choose every change, so no body has been removed and
+  no attribute retuned. The largest:
+  - **Dead end:** `human-unarmed`. Take it off the shelf, keep it as a handicap build, or give the
+    fist enough crush to matter.
+  - **Cannot win against the reference:** `skeleton-fists`, `skeleton-whip`, and `ram-capped`. The
+    capped ram cannot hurt a body that stands still.
+  - **The humans kill slowly.** No human body takes down an idle dummy in 60 s. The human arm's tip
+    peaks at 12.6 m/s, against stone's 31.5.
+  - **The orderings: set the numbers for "clearly".**
+    - Skill beats size at 100 % on both families, including the expert at x1 against the duelist at
+      x1.1.
+    - Size pays the expert on stone (84.4 %), but not on the skeleton (43.8 %).
+    - Size hurts the walker on both families (32.3 %): its strokes land worse, at the same rate.
+  - **The waist lean ceiling.** `TORSO_WAIST.leanTorque` (1852 N.m) is why an idle stone is felled on
+    almost nothing. At its own doc table's 1500 there were 0 falls in 719 s, against 36 in 394 s.
+    It has no table beside it.
+  - **Attributes.**
+    - Movement does not pay and runs backwards.
+    - Stability and recovery are unreached in bouts that do not fall.
+    - Armour pays about a seventh of the strong four a step.
+    - Toughness, arm speed and weight pay a naive mind as much as the expert.
+
+  The follow-up pass after session 05 measures the items the audit says to answer before choosing:
+  - 2(b): the skeletons against their own family;
+  - 5(b): why a bigger walker's strokes land worse;
+  - 6: the waist sweep, with its table;
+  - 13(a): stability and recovery where bodies fall;
+  - 16: size with the expert on the mace and the maul;
+  - 17: survive-cut on the humans.
+
+  Each choice then comes with its table.
