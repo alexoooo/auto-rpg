@@ -158,7 +158,25 @@ test("walls_cross_the_long_rooms_and_the_count_is_the_walls_that_stand", () => {
     assert.equal(walled, metrics.dividers, `seed ${map.seed}`);
     if (walled > 0) divided++;
   }
-  assert.ok(divided >= 20, `${divided} of 24 levels have a wall across a room`); // 24 on the prototype
+  assert.ok(divided >= 20, `${divided} of 24 levels have a wall across a room`); // 22 measured
+});
+
+test("a_dividing_wall_leaves_no_one_block_strip", () => {
+  // A one-block strip beside the arch is a cubby in the wall, not a half-room.
+  let walls = 0;
+  for (const { map } of LEVELS) for (const r of map.rooms) {
+    const rock = [];
+    for (let z = r.min.z; z <= r.max.z; z++) for (let x = r.min.x; x <= r.max.x; x++) if (!isFloor(map, x, z)) rock.push({ x, z });
+    if (rock.length === 0) continue;
+    walls++;
+    const column = rock.every((c) => c.x === rock[0].x), row = rock.every((c) => c.z === rock[0].z);
+    assert.ok(column !== row, `seed ${map.seed}: the rock in room ${JSON.stringify(r)} is not one straight wall`);
+    const line = column ? rock[0].x : rock[0].z;
+    const depths = column ? [line - r.min.x, r.max.x - line] : [line - r.min.z, r.max.z - line];
+    // Five is the shorter side of a middle split: two blocks less the wall's own cell.
+    assert.ok(Math.min(...depths) >= 2 * LEVEL.block - 1, `seed ${map.seed}: a wall leaves sides ${depths} cells deep`);
+  }
+  assert.ok(walls > 0, "no level has a wall to check");
 });
 
 test("a_level_prints_square_with_one_start_and_one_exit", () => {

@@ -1,4 +1,5 @@
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
+import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
 /** What the fog mask holds for a cell: never seen, seen before, in sight now. */
 export const FOG = Object.freeze({ unexplored: 0, remembered: 128, visible: 255 });
@@ -66,22 +67,29 @@ export const WALL_HEIGHT = 2.8;
 /**
  * How a wall between the hero and the camera ghosts away, set by eye and judged on the owner's machine. The shader
  * drops a share of a wall's pixels by a 4x4 ordered dither; the share is greatest where the wall covers the hero's
- * body on screen and falls smoothly to none at the rim of an oval around it, so the opening has no edge. It replaced
- * a world-space box that dropped 13 of 16 pixels inside and none outside, which read as a square hole.
+ * body on screen and falls smoothly to none at the rim of an oval around it, so the opening has no edge. The owner
+ * asked for a bubble that shows the hero and a bit of the room around them, and that reads plainly as a see-through
+ * bubble: so it is wide and most of its radius is the fade. Its heart keeps half the wall, as a checkerboard, as
+ * Diablo's did: with 13 of 16 pixels dropped the owner found it "almost a bit too transparent", where only partly
+ * transparent makes it obvious the hero is behind a wall.
  */
 export const CUT_AWAY = Object.freeze({
   /** The oval's centre above the hero's feet: the middle of the body. */
   centre: 0.9,
-  /** The oval's half-width and half-height on screen, in metres at the hero. */
-  across: 2.4, up: 2.2,
-  /** Out to this share of the oval's radius the drop is full; beyond it, it falls to none at the rim. */
-  soft: 0.3,
-  /** The share dropped at the oval's heart, so the wall ghosts rather than vanishes: 13 of 16 pixels. */
-  most: 0.8,
-  /** A wall behind the hero hides nothing: the drop rises from none to full over this far toward the camera. Short
-   * enough that a wall the hero is pressed against, whose face is 0.28 m off a human's centre and so 0.4 m toward the
-   * camera in the hero's own column, is at the full drop; long enough that no 2 cm is a step. */
-  ahead: 0.35,
+  /** The oval's half-width and half-height on screen, in metres at the hero: the body and about a body-length either
+   * side, and the whole of a wall in front of the hero at pitch 30. */
+  across: 3.6, up: 3.2,
+  /** Out to this share of the oval's radius the drop is full; beyond it, it falls to none at the rim, so four fifths
+   * of the radius are a visible fade. */
+  soft: 0.2,
+  /** The share dropped at the oval's heart: 8 of 16 pixels, which the dither draws as a checkerboard. */
+  most: 0.5,
+  /** A wall behind the hero hides nothing: the drop rises from none to full over this far toward the camera. A wall
+   * the hero is pressed against has its face 0.28 m off a human's centre: 0.28 m toward a camera square to it, 0.4 m
+   * toward one on the diagonal. At 0.32 the square case is 0.957 of the full drop, which the 4x4 dither draws as the
+   * full 8 of 16 pixels (past about 0.36 it is 7). A 2 cm step changes the share by at most
+   * 0.03 / `ahead` of `most`, which reaches a tenth at 0.30. */
+  ahead: 0.32,
   /** A wall's foot stays whole below the first height and is fully in the cut above the second: the footprint reads. */
   foot: Object.freeze([0.1, 0.5] as const),
 });
@@ -90,11 +98,13 @@ const smoothstep = (a: number, b: number, v: number) => { const t = Math.min(1, 
 
 /**
  * The share of a wall's pixels at `at` that the cut-away drops, 0 to `CUT_AWAY.most`, with the camera at `pitch`
- * and toward +x+z of the hero, as `frameDungeon` puts it. The shader in `fog-plugin.ts` is the same rule: change both.
+ * and standing `toward` of the hero (`cameraToward` of its azimuth), as `frameDungeon` puts it. The shader in
+ * `fog-plugin.ts` is the same rule: change both.
  */
-export function cutAway(hero: Point, at: { x: number; y: number; z: number }, pitch: number): number {
+export function cutAway(hero: Point, at: { x: number; y: number; z: number }, pitch: number,
+  toward: Point = cameraToward(CAMERA_AZIMUTH)): number {
   const dx = at.x - hero.x, dz = at.z - hero.z;
-  const along = (dx + dz) * Math.SQRT1_2, across = (dx - dz) * Math.SQRT1_2;
+  const along = dx * toward.x + dz * toward.z, across = dx * toward.z - dz * toward.x;
   const up = (at.y - CUT_AWAY.centre) * Math.cos(pitch) - along * Math.sin(pitch);
   const r = Math.hypot(across / CUT_AWAY.across, up / CUT_AWAY.up);
   return CUT_AWAY.most * (1 - smoothstep(CUT_AWAY.soft, 1, r)) * smoothstep(0, CUT_AWAY.ahead, along)

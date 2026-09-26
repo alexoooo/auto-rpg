@@ -9,7 +9,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { Camera } from "@babylonjs/core/Cameras/camera.js";
-import { frameDungeon, pickingCoordinates } from "../src/dungeon/camera.ts";
+import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "../src/dungeon/camera.ts";
 
 test("fog blocks enemy sight through closed doors and exploration uses known frontiers", () => {
   const map = classicDungeon(42), door = map.doors[0];
@@ -42,9 +42,14 @@ test("all four input modes, click lock, live drag and cancellation have distinct
 });
 
 test("screen movement is normalized and remains independent of facing and automatic attacks", () => {
-  assert.ok(screenMovement(1, 0).x < 0 && screenMovement(1, 0).z > 0);
-  assert.ok(screenMovement(0, 1).x < 0 && screenMovement(0, 1).z < 0);
-  assert.ok(Math.abs(Math.hypot(...Object.values(screenMovement(1, 1))) - 1) < 1e-10);
+  const is = (v, x, z) => Math.abs(v.x - x) < 1e-12 && Math.abs(v.z - z) < 1e-12;
+  // Square to the walls, each key walks along one axis: right is +x and up is +z.
+  assert.ok(is(screenMovement(1, 0), 1, 0) && is(screenMovement(0, 1), 0, 1), "a key walks along an axis");
+  // On the old diagonal, right is toward -x +z and up toward -x -z.
+  const diagonal = cameraToward(Math.PI / 4), h = Math.SQRT1_2;
+  assert.ok(is(screenMovement(1, 0, diagonal), -h, h) && is(screenMovement(0, 1, diagonal), -h, -h), "the diagonal's keys");
+  for (const toward of [cameraToward(CAMERA_AZIMUTH), diagonal, cameraToward(1)])
+    assert.ok(Math.abs(Math.hypot(...Object.values(screenMovement(1, 1, toward))) - 1) < 1e-10);
   const base = neutralIntent(); base.primary.thrust = true; base.forward = -1;
   for (const facing of [-2, -0.5, 0, 1.5, 3]) {
     const movement = screenMovement(1, 0), command = composeIntent(base, facing, movement, { x: 0, z: -1 });
@@ -60,14 +65,18 @@ test("keyboard directions project onto screen axes and HiDPI picking is scaled e
   const engine = new NullEngine({ renderWidth: 1200, renderHeight: 800 }); const scene = new Scene(engine);
   try {
     const camera = new FreeCamera("dungeon", new Vector3(), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
-    frameDungeon(camera, { x: 9, z: 9 }, 10, 1.5); scene.render();
-    const viewport = camera.viewport.toGlobal(1200, 800);
-    const project = p => Vector3.Project(p, Matrix.Identity(), scene.getTransformMatrix(), viewport);
-    const centre = project(new Vector3(9, 0, 9));
-    for (const [right, up] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const movement = screenMovement(right, up); const projected = project(new Vector3(9 + movement.x, 0, 9 + movement.z));
-      if (right) { assert.ok((projected.x - centre.x) * right > 0); assert.ok(Math.abs(projected.y - centre.y) < 1e-4); }
-      else { assert.ok((projected.y - centre.y) * up < 0); assert.ok(Math.abs(projected.x - centre.x) < 1e-4); }
+    // The default, the old diagonal, and a bearing that is neither.
+    for (const azimuth of [CAMERA_AZIMUTH, Math.PI / 4, 1]) {
+      frameDungeon(camera, { x: 9, z: 9 }, 10, 1.5, CAMERA_PITCH, azimuth); scene.render();
+      const viewport = camera.viewport.toGlobal(1200, 800);
+      const project = p => Vector3.Project(p, Matrix.Identity(), scene.getTransformMatrix(), viewport);
+      const centre = project(new Vector3(9, 0, 9));
+      for (const [right, up] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const movement = screenMovement(right, up, cameraToward(azimuth));
+        const projected = project(new Vector3(9 + movement.x, 0, 9 + movement.z)), at = `azimuth ${azimuth}, key ${right},${up}`;
+        if (right) { assert.ok((projected.x - centre.x) * right > 0, at); assert.ok(Math.abs(projected.y - centre.y) < 1e-4, at); }
+        else { assert.ok((projected.y - centre.y) * up < 0, at); assert.ok(Math.abs(projected.x - centre.x) < 1e-4, at); }
+      }
     }
     for (const scale of [1, 1 / 1.5, 0.5]) {
       assert.deepEqual(pickingCoordinates(420, 310, { left: 20, top: 10, width: 800, height: 600 }, 800 / scale, 600 / scale, scale), { x: 400, y: 300 });

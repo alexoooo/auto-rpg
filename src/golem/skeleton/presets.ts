@@ -10,8 +10,8 @@ export const skeletonSetup = (primary = "blade", secondary = "plate"): GolemSetu
 };
 
 /**
- * The skeletons a person can pick by name. A hero and not an enemy: none is in `NAMED_BUILDS`,
- * which is the dungeon's enemy pool. The maul is here because its grip is taken
+ * The skeletons a person can pick by name. None is in `NAMED_BUILDS`, the research pool; the
+ * dungeon draws them as enemies. The maul is here because its grip is taken
  * and held on the bone arm (the skeletal chain's maul-grip test).
  */
 export const SKELETON_BUILDS = [
