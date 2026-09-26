@@ -702,6 +702,43 @@ export function missingFor(drill, subjectView, opponentView) {
 // ---------------------------------------------------------------------------------------------
 
 /**
+ * What a planning rung (session 04's expert) forks its own rung's world with: the live rung world,
+ * the subject's side, and a builder for a world with the same drivers and the same minds in them,
+ * unrestored. The subject's slot holds `shell` (a `Forkable` with an empty record, which is what
+ * the planner's own slot captures as), and the opponent's driver holds a fresh mind of each policy
+ * its live driver holds, for the world walk to pair and restore. `signature` changes when the live
+ * opponent's minds do, so a planner that keeps a built world knows to build another.
+ */
+export function drillHost({ live, base, S, O, name, params, liveDrivers }) {
+  const minds = () => liveDrivers[O].minds.map((mind) => mind.name);
+  return {
+    live, side: S,
+    signature: () => minds().join(","),
+    build(physics, shell) {
+      const drivers = { [S]: new DrillDriver(name, "subject", params), [O]: new DrillDriver(name, "opponent", params) };
+      drivers[S].minds = [shell];
+      drivers[O].minds = minds().map((policy) => policyMind(policy, 0));
+      const world = createBout({ ...base, physics, leftMind: drivers.left, rightMind: drivers.right,
+        onSample: null, onEvent: null, onRefusal: null, onVerdict: null });
+      world.drillDrivers = drivers;
+      return world;
+    },
+    /**
+     * The drivers' one fact about the other body, fed once a frame as the live world feeds it. No
+     * drill reads it inside a rung today (only the preludes' walks do), so deleting this feed turns
+     * nothing red; it is here so that a rollout stays the live rung's future when one does.
+     */
+    beforeStep(world) {
+      for (const side of [S, O]) {
+        const theirs = world[other(side)].view;
+        world.drillDrivers[side].theirFraction = rangeFraction(theirs);
+        world.drillDrivers[side].theirRange = strikerRange(chooseStriker(theirs));
+      }
+    },
+  };
+}
+
+/**
  * Run one drill from one seed for every rung.
  *
  * `subjectSetup` and `opponentSetup` are golem setups; the subject's side is drawn from the seed
@@ -710,8 +747,14 @@ export function missingFor(drill, subjectView, opponentView) {
  * moment, `{ void }` for a start its control did not admit, and otherwise
  * `{ start, rungs: { [rung]: result } }`. `fix` pins named parameters over the drawn ones, for a
  * test or a study that holds one of them still (a line, a range); the draw order is unchanged.
+ *
+ * `rungFactory(name, seed)` builds a rung's mind where it answers one (null otherwise, and the
+ * ladder's `rungMind` builds it). A rung mind with a `beforeFrame(host)` method is a planner: it is
+ * awaited before every frame with a `drillHost` for its own rung world, its `summary()` is kept as
+ * the rung's `planner` field, and its `dispose()` runs when the rung does.
  */
-export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed, rungs = LADDER, trace = false, fix = {} }) {
+export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed, rungs = LADDER, trace = false, fix = {},
+  rungFactory = null }) {
   const drill = drillNamed(name);
   const rng = mulberry32(seed);
   const S = rng() < 0.5 ? "left" : "right";
@@ -796,6 +839,7 @@ export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed,
 
   // ---- each rung, in an exact fork ---------------------------------------------------------
   const results = {};
+  let planner = null;
   // The control plays first, whether or not it is a rung asked for; a start it does not admit is
   // void and the other rungs are not played from it.
   const order = drill.control ? [drill.control, ...rungs.filter((rung) => rung !== drill.control)] : rungs;
@@ -814,13 +858,17 @@ export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed,
         });
         forkDrivers[side].handoff = start.carried[side].handoff;
       }
-      forkDrivers[S].minds = [rungMind(rung, (seed ^ 0x3c6ef372) >>> 0)];
+      const mind = (rungFactory?.(rung, (seed ^ 0x3c6ef372) >>> 0)) ?? rungMind(rung, (seed ^ 0x3c6ef372) >>> 0);
+      planner = typeof mind.beforeFrame === "function" ? mind : null;
+      forkDrivers[S].minds = [mind];
       forkDrivers[S].handoff = forkDrivers[S].clock;
       const ctx = context(fork, forkDrivers, events, {});
       drill.atStart?.(ctx);
+      const host = planner ? drillHost({ live: fork, base, S, O, name, params, liveDrivers: forkDrivers }) : null;
       const judge = drill.judge(ctx);
       const frames = Math.round(drill.horizon / FRAME);
       while (ctx.frame < frames && fork.active) {
+        if (planner) await planner.beforeFrame(host);
         ctx.feed();
         fork.step();
         ctx.tick();
@@ -828,8 +876,11 @@ export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed,
         if (judge.done()) break;
       }
       results[rung] = { ...judge.result(), seconds: ctx.t() };
+      if (planner?.summary) results[rung].planner = planner.summary();
       if (trace) results[rung].events = events.map(eventRow);
     } finally {
+      planner?.dispose?.();
+      planner = null;
       fork.dispose();
     }
     if (rung === drill.control && !drill.admit(results[rung])) {
