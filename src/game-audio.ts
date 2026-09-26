@@ -157,6 +157,12 @@ export class GameAudio {
       const attack = Math.min(1, t / .002), tail = Math.min(1, (duration - t) / .02);
       let value: number;
       switch (kind) {
+        // A held shield is damped by its grip and the body behind it: a broad crack and low
+        // panel thump, not the long, high partials of two small bare metal objects.
+        case "shield": value = noise * .38 * Math.exp(-t * 150) + low * 1.1 * Math.exp(-t * 32)
+          + Math.sin(t * 2 * Math.PI * 145) * .3 * Math.exp(-t * 35)
+          + Math.sin(t * 2 * Math.PI * 273) * .13 * Math.exp(-t * 45)
+          + Math.sin(t * 2 * Math.PI * 527) * .055 * Math.exp(-t * 65); break;
         case "metal": value = (Math.sin(t * 2 * Math.PI * 930) * .3 + Math.sin(t * 2 * Math.PI * 1473) * .2 + Math.sin(t * 2 * Math.PI * 2311) * .1) * Math.exp(-t * 13) + noise * .25 * Math.exp(-t * 110); break;
         case "stone": value = low * 2 * Math.exp(-t * 28) + Math.sin(t * 2 * Math.PI * 115) * .35 * Math.exp(-t * 40); break;
         case "bone": value = noise * .55 * Math.exp(-t * 65) + Math.sin(t * 2 * Math.PI * 360) * .25 * Math.exp(-t * 32); break;

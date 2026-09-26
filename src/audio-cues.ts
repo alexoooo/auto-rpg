@@ -1,7 +1,7 @@
 import type { CombatReportEvent } from "./combat.ts";
 import type { BodyFamily } from "./golem/family.ts";
 
-export type SoundKind = "stone" | "bone" | "body" | "metal";
+export type SoundKind = "stone" | "bone" | "body" | "metal" | "shield";
 export interface SoundPoint { x: number; z: number }
 export interface ImpactCue { key: string; kind: SoundKind; strength: number; severed: boolean; point: SoundPoint }
 const surfaces: Record<BodyFamily, SoundKind> = { golem: "stone", skeleton: "bone", human: "body" };
@@ -14,7 +14,8 @@ export function impactCue(event: CombatReportEvent, attacker: string, family: Bo
     : Math.max(Math.abs(r.solverImpulse || 0) / 8, Math.abs(r.speed || 0) / 12);
   if (!Number.isFinite(strength) || strength < .035) return null;
   return { key: `${attacker}:${r.targetId ?? "opponent"}`, kind: blocked
-    ? r.key === "block:empty" ? "body" : "metal" : surfaces[family],
+    ? r.key === "block:empty" ? "body"
+      : r.key === "block:shield" || r.key === "block:buckler" ? "shield" : "metal" : surfaces[family],
     strength: Math.min(1, strength), severed: r.severed,
     point: { x: r.point.x, z: r.point.z } };
 }

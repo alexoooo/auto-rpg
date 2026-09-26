@@ -17,6 +17,8 @@ test('audio classifies real report distinctions without mutating reports', () =>
   assert.equal(impactCue(hit, 'hero', 'skeleton').kind, 'bone');
   assert.equal(impactCue(hit, 'hero', 'human').kind, 'body');
   assert.equal(impactCue(event({}, { guarded: true }), 'hero', 'human').kind, 'metal');
+  for (const key of ['block:shield','block:buckler'])
+    assert.equal(impactCue(event({key,energyJ:0,damage:0},{blocked:true}),'hero','golem').kind,'shield');
   const blocked = impactCue(event({ energyJ: 0, damage: 0 }, { blocked: true }), 'hero', 'golem');
   assert.equal(blocked.kind, 'metal'); assert.ok(blocked.strength > 0);
   assert.equal(impactCue(event({ key: 'block:empty' }, { blocked: true }), 'hero', 'human').kind, 'body');
@@ -83,7 +85,7 @@ test('synthesized buffers are finite, bounded, cached and have silent seams', ()
   const audio=Object.create(GameAudio.prototype); audio.buffers=new Map(); let seed=123;
   audio.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   audio.context={sampleRate:48000,createBuffer:(_,n)=>{const data=new Float32Array(n);return {getChannelData:()=>data};}};
-  for(const kind of ['stone','bone','body','metal','debris','air','fire','drip']){
+  for(const kind of ['stone','bone','body','metal','shield','debris','air','fire','drip']){
     const buffer=audio.buffer(kind), data=buffer.getChannelData(0);
     assert.equal(audio.buffer(kind),buffer,'buffers are reused');
     assert.ok(data.every(Number.isFinite));
