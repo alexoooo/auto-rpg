@@ -48,7 +48,7 @@ import {
 import { GOLEM_MODULES } from "../src/golem/registry.ts";
 import { SKELETAL_REACH } from "../src/golem/skeleton/body.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
-import { BUTTON_REACH } from "../src/buttons.ts";
+import { HAND_REACH } from "../src/hands.ts";
 import { STROKE_INERTIA, strokeTimeScale } from "../src/golem/tactics.ts";
 import { ATTRIBUTES, ATTRIBUTE_IDS } from "../src/golem/attributes.ts";
 
@@ -68,21 +68,21 @@ const FRAME_MS = 1000 / 60;
  * hands the chain `undefined`, `spanned` answers `NaN`, and the anchor is driven
  * at a target that is not a place: `a_walking_golems_effector_stays_on_its_own
  * _anchor` read **6031.7 mm** of stray, which is the arm having left. Taking the
- * value from `src/buttons.ts` rather than typing 1/7 is the same argument the
- * bench script makes: a fixture that hard-codes the number would go on passing
- * after the mapping it is standing in for had changed. `buttons.ts` imports
- * nothing, so no test's import graph grows a scene by reading it.
+ * value from `HAND_REACH` in `src/hands.ts` rather than typing 1/7 is the same
+ * argument the bench script makes: a fixture that hard-codes the number would go
+ * on passing after the constant it is standing in for had changed. `hands.ts`
+ * imports nothing, so no test's import graph grows a scene by reading it.
  */
 const blankIntent = () => ({
   forward: 0, strafe: 0, turn: 0, actingHand: "primary",
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
   primary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
   secondary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
 });
@@ -1392,10 +1392,11 @@ test("a_strokes_time_is_the_arms_own_rate_and_torque_against_its_load_and_not_it
     `a x2-weight arm publishes torque x${heavy.torqueScale} and rate x${heavy.rateScale}`);
   assert.ok(Math.abs(strokeTimeScale(heavy) - 1) < 0.01,
     `a x2-weight arm is timed x${strokeTimeScale(heavy)}, not the shipped arm's own 1`);
-  // Size slows the arm's rate by sqrt(size) and not by its load (size^5 over size^4).
-  const tall = await at({ size: 1.25 });
-  assert.ok(Math.abs(strokeTimeScale(tall) - Math.sqrt(1.25)) < 0.01,
-    `a x1.25-size arm is timed x${strokeTimeScale(tall)}, not sqrt(1.25) = 1.118`);
+  // Size slows the arm by the size itself, on the drive clock: its rate divides by the size, and
+  // its load (size^5 over size^3) asks for the same factor.
+  const tall = await at({ size: 1.1 });
+  assert.ok(Math.abs(strokeTimeScale(tall) - 1.1) < 0.01,
+    `a x1.1-size arm is timed x${strokeTimeScale(tall)}, not 1.1`);
   // Every stat at its ceiling is a faster arm than the shipped one, not a slower one.
   const giant = await at(Object.fromEntries(ATTRIBUTE_IDS.map((id) => [id, ATTRIBUTES[id].max])));
   assert.ok(strokeTimeScale(giant) < 1,

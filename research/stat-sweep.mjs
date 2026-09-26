@@ -5,6 +5,7 @@
  *       --pairs 192 --workers 24 --dir research/runs/stat-movement
  *     node research/stat-sweep.mjs --edge wheel --pairs 192 --dir research/runs/edge-wheel
  *     node research/stat-sweep.mjs --attributes max,max-normal-body,size-weight-max  *       --pairs 192 --dir research/runs/giant
+ *     node research/stat-sweep.mjs --stat size --levels 1 --pairs 192 --trace --dir research/runs/control
  *
  * The plan was `docs/plans/2026-09-23-attributes-02-sweep-instrument.md` (in git at fd4285a); the
  * tables it produces go into `docs/analysis/2026-09-23-attribute-measurements.md`.
@@ -45,6 +46,7 @@ import { parseArgs } from "node:util";
 import { ATTRIBUTES, ATTRIBUTE_IDS, isAttributeId } from "../src/golem/attributes.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { PROTOCOL, seed } from "./schedule.mjs";
+import { refuseSideDecided } from "./side-mirror.mjs";
 
 export const HARNESS = "Node harness, research runner, supported locomotion";
 
@@ -336,6 +338,7 @@ async function main() {
     pairs: { type: "string", default: "192" }, workers: { type: "string", default: "24" },
     build: { type: "string", default: "default" }, minds: { type: "string" },
     seed: { type: "string", default: "20260923" }, dir: { type: "string" },
+    trace: { type: "boolean", default: false },
   } });
   if ([values.stat, values.edge, values.attributes].filter(Boolean).length !== 1) {
     throw new Error("name exactly one of --stat <id>, --edge <named build> or --attributes <preset,...>");
@@ -361,6 +364,7 @@ async function main() {
     if (refusal) throw new Error(`${level.key}: ${refusal}`);
   }
   const minds = values.minds ? values.minds.split(",") : [...PROBE_MINDS];
+  refuseSideDecided(minds, "a stat sweep");
   const blocks = Number(values.pairs), runSeed = Number(values.seed);
   const jobs = sweepJobs({ levels, blocks, minds, runSeed });
   const directory = resolve(values.dir ?? `research/runs/${values.stat ? `stat-${values.stat}`
@@ -371,6 +375,9 @@ async function main() {
     levels: levels.map(({ key, value, control }) => ({ key, value, control })),
     builds: [{ name: "base", setup: base }, ...levels.map((level) => ({ name: level.key, setup: level.setup }))],
     candidates: [],
+    // Each row then carries its trajectory hash (`research/worker.mjs`), so bouts of one mind
+    // pairing that played one trajectory can be counted once. Absent unless asked for.
+    ...(values.trace ? { trace: true } : {}),
   };
   console.log(`${jobs.length} bouts (${levels.length} levels x ${blocks} blocks x 2) into ${directory}`);
   const started = Date.now();

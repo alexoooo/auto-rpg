@@ -10,7 +10,7 @@ import { Combat } from "./combat";
 import { Hud, type CommandReadout, type CommandSideReadout } from "./hud";
 import { Controls } from "./input";
 import { AimIndicator } from "./aim";
-import { Takeover, Targeting } from "./targeting";
+import { OrderDisplay } from "./targeting";
 import { DamageFeedback } from "./damage-feedback";
 import { advanceFight, FightEnd } from "./fight-end";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
@@ -38,13 +38,18 @@ import {
 } from "./golem/parts-bin";
 import { flatSupportedWorldRegistry } from "./supported-locomotion-production";
 import type { Side } from "./physics";
+import { POLICIES, type Mind } from "./mind";
 import {
-  HANDS,
-  POLICIES,
-  handoverFromCursors,
-  humanMind,
-  type Mind,
-} from "./mind";
+  attackMoveOrder,
+  autoCommander,
+  fightOrder,
+  holdOrder,
+  moveOrder,
+  StandingOrders,
+  steerPoint,
+  type GroundPoint,
+  type Orders,
+} from "./orders";
 import { policyLine } from "./policy-lines.ts";
 import {
   loadoutForUnit,
@@ -53,26 +58,23 @@ import {
   unitDefinition,
   UNIT_REGISTRY,
   type Combatant,
-  type DrivableCombatant,
 } from "./units";
-import type { HumanDriverSource } from "./control-host";
 import { randomSeed } from "./rng";
 import { MENU_HREF } from "./app-route";
 import { fittedPolicy, randomCorner } from "./random-corner.ts";
 import {
   begin,
-  drivesAttack,
-  drivesMove,
+  commandAction,
+  commanderOf,
+  commandSide,
   golemMatchup,
   humanSide,
   matchupFromQuery,
   matchupQuery,
   MATCHUP_PARAM,
   pauseAction,
-  driveAction,
-  releaseBody,
   selectScreen,
-  takeBody,
+  standDown,
   toSelect,
   withGolemEffector,
   type Matchup,
@@ -98,80 +100,20 @@ const need = <T extends HTMLElement>(id: string): T => {
  */
 type CameraSubject = Combatant;
 
-const MODE_TEXT: Record<string, string> = {
-  free: "",
-  selecting: "SELECT TARGET &mdash; click an enemy, or L to cancel",
-  locked: "LOCKED &mdash; strafe to circle, Q/E to break",
+/** The nudge that says orders exist, for the first seconds of a bout. See `hintLeft`. */
+const HINT_TEXT = "Command a side from the readout &mdash; then click to give it orders (? for the keys)";
+
+/** What the banner says a commanded side is doing, from its orders alone. */
+const ordersText = (orders: Orders | null): string => {
+  if (!orders || (orders.target === null && orders.destination === null)) {
+    return "ORDERS &mdash; none: fighting the nearest";
+  }
+  if (orders.destination) return typeof orders.target === "string"
+    ? "ORDERS &mdash; fight the enemy from the ring"
+    : "ORDERS &mdash; hold the ring";
+  if (typeof orders.target === "string") return "ORDERS &mdash; attack the enemy";
+  return "ORDERS &mdash; attack-move";
 };
-
-/** The takeover's own level, worded to match `SELECT TARGET` because it is the
- *  same gesture with a wider choice. */
-const TAKE_TEXT = "TAKE A BODY &mdash; click either fighter, or C to cancel";
-
-/** The nudge that says the gesture above exists. See `hintLeft`. */
-const HINT_TEXT = "C to take a body &mdash; either one, at any point in the fight";
-
-/** Which hand the mouse just moved to. `F` swaps; the other goes to its policy. */
-const HAND_A_TEXT = "MOUSE ON THE PRIMARY HAND &mdash; F to swap";
-const HAND_B_TEXT = "MOUSE ON THE SECONDARY HAND &mdash; F to swap";
-
-/**
- * One body changing hands, and what the change cost.
- *
- * Both figures are millimetres and both are taken across the first control step
- * after the swap, which is the step the plan's acceptance calls the takeover
- * frame. They are two different questions and only one of them has a threshold.
- *
- * `commandMm` is the hand's *commanded* position, in the torso's own frame,
- * before and after -- so it is the discontinuity the handover introduced and
- * nothing else. A blade mid-swing legitimately moves 42 mm in a single 240 Hz
- * substep, and both policies sweep the cursor fast enough to move the commanded
- * point by a millimetre or two in the same time, so this is the reading that can
- * carry a 20 mm acceptance without arguing about what the fighter was doing at
- * the time. Unseeded, it is the width of whatever the cursor happened to be
- * across from the pose, and a full-envelope miss is around 700 mm.
- *
- * `tipMm` is how far the point of the blade actually went over that step, which
- * is the literal reading and is reported because somebody will want it -- but it
- * contains the swing as well as the handover and must not be compared against 20
- * mm unless the body was standing still. Take that one at rest.
- */
-interface HandReading {
-  side: Side;
-  /** The mind that was driving, by name. */
-  from: string;
-  /** The mind that has it now, by the same. */
-  to: string;
-  /** False when there was no pose to seed from. `refused` says why. */
-  seeded: boolean;
-  refused: string | null;
-  /** Both are NaN until the control step after the swap has filled them in. */
-  commandMm: number;
-  tipMm: number;
-}
-
-/** A takeover: the body taken, and the body given back, if there was one. */
-/**
- * How far a body's commanded business end jumped, in millimetres.
- *
- * `poseShiftMm` in `mind.ts` is this with an `ArmPose` in front of it: it turns two humanoid arm
- * poses into two points and subtracts them. Session 08 needed the same number from a golem, whose
- * effector has no `ArmPose` and whose commanded point is published directly, so the subtraction
- * moved here and each body answers with a point. Millimetres because every acceptance and every
- * rig readout in this directory is written in them, and because a handover worth complaining
- * about is hundreds of them while a good one is single figures.
- */
-const commandShiftMm = (
-  before: { readonly x: number; readonly y: number; readonly z: number },
-  after: { readonly x: number; readonly y: number; readonly z: number },
-): number => Math.hypot(after.x - before.x, after.y - before.y, after.z - before.z) * 1000;
-
-interface TakeoverReading {
-  /** Simulation seconds, on `Combat`'s clock -- the one `HitReport.at` uses. */
-  at: number;
-  taken: HandReading;
-  released: HandReading | null;
-}
 
 async function boot(): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
@@ -366,7 +308,6 @@ async function boot(): Promise<void> {
     if (state.phase !== "select") return;
     const changed = bodies(matchup) !== bodies(state.matchup);
     state = selectScreen(matchup);
-    syncChannels();
     window.history.replaceState(null, "", linkFor(matchup));
     if (changed && setup.refusal === null) rebuild();
   };
@@ -381,9 +322,6 @@ async function boot(): Promise<void> {
       restartBout({ resume: true });
     },
     onToggleReadout: () => hud.toggle(),
-    // Nothing to draw: the effector overlay lives on the bench, where an arm is tuned.
-    // See `ControlHooks.onToggleRig` in `src/input.ts`.
-    onToggleRig: () => {},
     onToggleCamera: () => {
       // A mode, not a rebuild: the camera object, the scene and the engine are
       // untouched and the next frame's goals simply move somewhere else. Nothing
@@ -432,95 +370,37 @@ async function boot(): Promise<void> {
     },
     onPauseOnly: () => pause(),
     onToggleHelp: () => toggleHelp(),
-    onToggleLock: () => targeting.toggle(),
-    onSwapHands: () => {
-      // The mouse has already changed hands by the time this runs -- `Controls`
-      // moves `actingHand` itself, because the state is its own. What is left is
-      // to seed the hand it has arrived at from the pose that hand is actually
-      // in, exactly as a takeover does: the cursor is absolute, so a hand taken
-      // over without seeding snaps to wherever the mouse happens to be at the
-      // full 850 N the grip can pull.
-      const body = yours().humanDriver;
-      if (!body) return;
-      const found = body.drivenPose().cursors;
-      if (!found) return;
-      Object.assign(controls.state[controls.state.actingHand], found[controls.state.actingHand]);
-      handNotice = controls.state.actingHand === "primary" ? HAND_A_TEXT : HAND_B_TEXT;
-      handLeft = CONFIG.camera.noticeSeconds;
-    },
-    onToggleTakeover: () => {
-      // Arming the takeover drops a target choice that was still open. Two armed
-      // modes would be two breathing rings under one cursor and a click that had
-      // to decide which of them it belonged to, and the honest answer to that is
-      // to not be in the state. A *lock* is left alone: a lock is a level rather
-      // than a question, it survives a handover, and dropping it every time
-      // somebody thought about changing bodies would be a trap of exactly the
-      // kind `Targeting` was written to avoid.
-      if (targeting.status === "selecting") targeting.toggle();
-      takeover.toggle();
-    },
-    onPrimaryDown: () => {
-      // The takeover gets first refusal, and swallows the click whether or not
-      // it landed on a body: a click that both missed a fighter and started a
-      // thrust would be a swing nobody asked for, delivered at the one moment
-      // the player was thinking about something else.
-      if (takeover.isArmed) {
-        const picked = takeover.pick();
-        if (picked) takeBodyNow(picked === bout.left ? "left" : "right");
-        return true;
+    onOrderClick: (button, x, y) => {
+      // A click orders the side a person commands, and nothing when nobody does: with two
+      // policies fighting there is nobody to order, and the display draws no outline to say so.
+      if (humanSide(state.matchup) === null) return;
+      if (button === "primary" && orderDisplay.enemyAt(x, y)) {
+        giveOrders(fightOrder(enemySide()));
+        return;
       }
-      return targeting.primaryDown();
+      const ground = orderDisplay.groundAt(x, y);
+      if (!ground) return;
+      giveOrders(button === "primary" ? moveOrder(person.current, ground) : attackMoveOrder(ground));
+    },
+    onHold: () => {
+      if (humanSide(state.matchup) === null) return;
+      giveOrders(holdOrder(person.current, groundOf(yours())));
+    },
+    onClearOrders: () => {
+      if (humanSide(state.matchup) === null) return;
+      giveOrders(null);
     },
   });
 
   /**
-   * The driven corner's channels, pushed onto the ownership a split mind reads.
-   *
-   * A push and not a pull, because `splitMind` is handed the ownership *object* once and reads
-   * its fields every step (`src/mind.ts`), so a body already fighting changes hands the moment
-   * this runs -- no rebuild, no re-install. It is called wherever the matchup can move: the
-   * opening, taking a body, letting one go, and the setup screen, whose changes no longer touch
-   * who drives but cost nothing to cover.
-   *
-   * With nobody human the two fields are left at what a person taking this body *would* get,
-   * rather than false. Nothing reads them in that state -- there is no split mind to read them --
-   * and a field that means "the person drives the feet" should not say no while there is no
-   * person to say it of.
+   * The person's orders, as a commander: one `StandingOrders` for the page, installed on whichever
+   * side the matchup says a person commands and read by that body's driver at every decision.
+   * Every other side takes its own auto-commander (`SideSetup.commander`), which by default is
+   * attack-nearest and hands over no orders at all -- the bout without orders, to the bit.
    */
-  const syncChannels = (): void => {
-    const mine = humanSide(state.matchup);
-    const side = mine === null ? null : state.matchup[mine];
-    controls.ownership.locomotion = side === null || drivesMove(side);
-    controls.ownership.attack = side === null || drivesAttack(side);
-  };
-
-  /**
-   * You, as a mind like any other.
-   *
-   * It hands back `controls.state` and nothing else, so a fighter driven by a
-   * person and a fighter driven by a policy are indistinguishable from inside
-   * `Fighter` -- which is the whole of what session 07 needs, and the reason
-   * taking over a body will be a pointer swap rather than a mode.
-   */
-  const you = humanMind(controls);
-
-  /** Typed page injection; each definition constructs its own policy/split driver. */
-  const humanSource: HumanDriverSource = {
-    mind: you,
-    ownership: controls.ownership,
-    // A cursor and not a pose, since session 08: a golem's effectors are chains with their own
-    // mappings and their own inverses, so what crosses this seam is the answer both bodies can
-    // give rather than a humanoid arm's angles only one of them has.
-    seed: (view, cursors) => {
-      controls.state.posture.crouch = view.self.crouch;
-      controls.state.posture.trunkLean = view.self.trunkLean;
-      controls.state.posture.trunkTwist = view.self.trunkTwist;
-      for (const name of HANDS) {
-        delete controls.state[name].orientation;
-        Object.assign(controls.state[name], cursors[name]);
-      }
-    },
-  };
+  const person = new StandingOrders();
+  /** True while the steering keys are held, so their release can turn into a hold. */
+  let steering = false;
 
   /**
    * What a corner's two pickers mean to a body.
@@ -560,8 +440,6 @@ async function boot(): Promise<void> {
         origin: Vector3.Zero(),
         facing: 0,
         policyName: matchup.left.policy,
-        humanActive: matchup.left.control === "you",
-        human: leftDefinition.humanAdapter ? humanSource : undefined,
         loadout: loadoutFor(matchup.left),
         golem: matchup.left.golem,
         materials: arena.materials,
@@ -575,8 +453,6 @@ async function boot(): Promise<void> {
         origin: new Vector3(0, 0, F.separation),
         facing: Math.PI,
         policyName: matchup.right.policy,
-        humanActive: matchup.right.control === "you",
-        human: rightDefinition.humanAdapter ? humanSource : undefined,
         loadout: loadoutFor(matchup.right),
         golem: matchup.right.golem,
         materials: arena.materials,
@@ -614,7 +490,22 @@ async function boot(): Promise<void> {
   };
 
   let bout = buildBout(state.matchup);
-  syncChannels();
+
+  /**
+   * Who hands each body its orders, from the matchup: the person on the side they command, and the
+   * side's auto-commander everywhere else. Called wherever the matchup or the bodies can move -- a
+   * rebuild, taking command, standing down -- and it replaces both commanders every time, so a
+   * `HoldHere` stood down from and taken up again holds where the body is now.
+   */
+  const installCommanders = (): void => {
+    for (const side of ["left", "right"] as const) {
+      const body = side === "left" ? bout.left : bout.right;
+      body.control.commander = state.matchup[side].control === "you"
+        ? person
+        : autoCommander(commanderOf(state.matchup[side]));
+    }
+  };
+  installCommanders();
   // The showcase is the arena with physics off, from the first frame: two bodies standing at
   // their marks exactly as built, with no gravity to sag them and no mind to move them, until
   // Fight enables the solver through `resumeHost`. `leave` puts it back this way.
@@ -631,32 +522,17 @@ async function boot(): Promise<void> {
   const yours = (): Combatant => (observedSide() === "right" ? bout.right : bout.left);
   const theirs = (): Combatant => (observedSide() === "right" ? bout.left : bout.right);
 
-  const ownPosture = need<HTMLInputElement>("own-posture");
-  const ownWrist = need<HTMLInputElement>("own-wrist");
-  const seedOwnedChannels = (): void => {
-    const body = yours().humanDriver;
-    if (!body) return;
-    controls.state.posture.crouch = body.view.self.crouch;
-    controls.state.posture.trunkLean = body.view.self.trunkLean;
-    controls.state.posture.trunkTwist = body.view.self.trunkTwist;
-    // Only the two channels the checkbox is about. Taking the whole seed here would move the
-    // cursor as well, which is a takeover and not a change of who owns the wrist.
-    const found = body.drivenPose().cursors;
-    if (!found) return;
-    for (const name of HANDS) {
-      controls.state[name].roll = found[name].roll;
-      controls.state[name].wristBend = found[name].wristBend;
-      if (found[name].orientation) controls.state[name].orientation = { ...found[name].orientation! };
-      else delete controls.state[name].orientation;
-    }
+  const enemySide = (): Side => (observedSide() === "right" ? "left" : "right");
+  /** A body's ground point, copied out of the `Vector3` so an order never holds a live one. */
+  const groundOf = (body: Combatant): GroundPoint => {
+    const feet = body.feetPosition();
+    return { x: feet.x, z: feet.z };
   };
-  const updateOwnership = (): void => {
-    seedOwnedChannels();
-    controls.ownership.posture = ownPosture.checked;
-    controls.ownership.drivenWrist = ownWrist.checked;
+  /** The orders the commanded side is under, written by every gesture. */
+  const giveOrders = (orders: Orders | null): void => {
+    person.current = orders;
+    steering = false;
   };
-  ownPosture.addEventListener("change", updateOwnership);
-  ownWrist.addEventListener("change", updateOwnership);
 
   /**
    * The diagnostics skim: extra fixed steps a frame, off by default.
@@ -671,36 +547,17 @@ async function boot(): Promise<void> {
   const hud = new Hud(need("hud"), (speed) => {
     skimSpeed = SKIM_SPEEDS.includes(speed) ? speed : 1;
   }, (side) => {
-    // Who drives is a choice made in the game, at any point of a bout -- a pause included, where
-    // it only swaps minds and nothing steps until resume. The button is "Let go" on your own side.
-    if (driveAction(humanSide(state.matchup), side) === "release") releaseBodyNow();
-    else takeBodyNow(side);
+    // Who commands is a choice made in the game, at any point of a bout -- a pause included, where
+    // it only swaps commanders and nothing steps until resume. The button is "Stand down" on the
+    // side you command.
+    if (commandAction(humanSide(state.matchup), side) === "stand-down") standDownNow();
+    else commandNow(side);
   });
   const aim = new AimIndicator(arena.scene);
-  const targeting = new Targeting(arena.scene, yours());
-  targeting.attach(yours(), theirs());
-  const takeover = new Takeover(arena.scene);
-  takeover.attach(bout.left, bout.right);
+  const orderDisplay = new OrderDisplay(arena.scene);
+  const commandedBody = (): Combatant | null => humanSide(state.matchup) === null ? null : yours();
+  orderDisplay.attach(commandedBody(), theirs());
   refreshShadowCasters(arena.scene, arena.shadows);
-
-  /**
-   * Handover readings waiting for the first control step after their swap.
-   *
-   * They cannot be taken at the moment of the swap, because what is being
-   * measured is what the *new* mind commands and nothing has asked it yet. A
-   * swap happens inside a pointer event or a console call, so the next
-   * `stepPair` is the takeover frame and there is exactly one of them to wait
-   * for.
-   */
-  const pending: {
-    body: DrivableCombatant;
-    reading: HandReading;
-    command: { readonly x: number; readonly y: number; readonly z: number };
-    tip: Vector3;
-  }[] = [];
-  /** The last dozen takeovers, so "five times in one bout" is a thing you can
-   *  read rather than a thing you have to watch for. */
-  const takeovers: TakeoverReading[] = [];
 
   /**
    * Both fighters again, from nothing, with whatever minds the matchup asks for.
@@ -728,167 +585,41 @@ async function boot(): Promise<void> {
     bout.left.dispose();
     bout.right.dispose();
     bout = buildBout(state.matchup);
-
-    targeting.attach(yours(), theirs());
-    takeover.attach(bout.left, bout.right);
+    // The bout again from nothing, orders included: a hold point from the last bout is a point on a
+    // floor this one has not been told about.
+    giveOrders(null);
+    installCommanders();
+    orderDisplay.attach(commandedBody(), theirs());
     refreshShadowCasters(arena.scene, arena.shadows);
     presentRebuiltFrame({
       placeCamera: () => placeCamera(yours(), 0, true),
       updateRoomOcclusion: () => arena.updateRoomOcclusion(bout.occlusionTargets),
       render: () => arena.scene.render(),
     });
-    // Nothing in flight can be settled against bodies that no longer exist, and
-    // a rebuild is the one moment where a pending reading's fighter is a
-    // disposed one. What it leaves behind in `takeovers` keeps its NaN, which is
-    // exactly what it is: a reading that was never taken.
-    pending.length = 0;
   };
 
   /**
-   * Taking a body, and giving one back.
+   * Taking command of a side, and standing down.
    *
-   * The swap itself is one assignment per fighter and the physics never notices
-   * it, which is what session 05's seam bought: both a person and a policy hand
-   * back the same `Intent`, so there is no authority to transfer and no branch
-   * anywhere in `Fighter` for which of them is driving. What the rest of this
-   * costs is entirely about *continuity* -- see `handover` in `mind.ts` for why
-   * the seed alone is not enough -- and about measuring whether the continuity
-   * worked.
-   *
-   * The mind a released body picks up is a **freshly built** policy rather than
-   * the one that was driving before you stepped in. That is not laziness: the
-   * old one stopped existing at the moment you took the body, its cadence was
-   * its own state and nothing was ticking it, and handing it back mid-stroke
-   * would have it resume a plan formed against a fight it had not seen for ten
-   * seconds. Which policy it is comes from the matchup, which is what the setup
-   * screen's still-enabled policy picker on your own side is for.
+   * Neither touches a mind: the body's own policy goes on driving it, and what moves is who hands
+   * it orders. So there is nothing to seed and no handover to measure: the continuity a puppet
+   * takeover once had to buy does not arise when the thing that changes is a commander. A side
+   * taken up starts with no orders, which is the bout as it was.
    */
-  const handOver = (body: DrivableCombatant, side: Side, incoming: Mind): HandReading => {
-    const found = body.drivenPose();
-    const reading: HandReading = {
-      side,
-      from: body.mind.name,
-      to: incoming.name,
-      seeded: false,
-      refused: null,
-      // Not a zero, because a zero is what a *good* handover reads and a reading
-      // that has not been taken yet must not be able to pass for one. They stay
-      // NaN until the next control step fills them in, and a reading discarded by
-      // a rebuild before that step ever came stays NaN forever, which is the
-      // truth about it.
-      commandMm: Number.NaN,
-      tipMm: Number.NaN,
-    };
-
-    if (found.cursors) {
-      // The person's own cursor is rebased as well as the mind's, and the two
-      // are not the same act. Wrist orientation is an absolute policy output,
-      // seeded with the cursor so the handover begins from one whole pose. The two pointer axes are absolute by
-      // design, and `onPointerMove` writes the true cursor position back over
-      // this on the very next mouse event; seeding them is what makes the
-      // takeover frame itself exact, and `handover`'s rebase window is what
-      // carries it across the frames after that.
-      if (incoming === you) {
-        controls.state.posture.crouch = body.view.self.crouch;
-        controls.state.posture.trunkLean = body.view.self.trunkLean;
-        controls.state.posture.trunkTwist = body.view.self.trunkTwist;
-        // Both hands, because whichever one the cursor is not on is still being commanded
-        // from a pose it knows nothing about.
-        for (const name of HANDS) {
-          delete controls.state[name].orientation;
-          Object.assign(controls.state[name], found.cursors[name]);
-        }
-      }
-      body.mind = handoverFromCursors(incoming, found.cursors);
-      reading.seeded = true;
-    } else {
-      // No pose to be continuous with -- a Warrior whose sword arm is off, a golem with both
-      // effectors gone. The body is still worth taking, so the refusal is of the seed and names
-      // itself rather than of the takeover, and the body says which sentence.
-      reading.refused = found.refusal;
-      body.mind = incoming;
-    }
-    pending.push({ body, reading, command: found.command, tip: found.tip });
-    return reading;
+  const commandNow = (side: Side): void => {
+    if (state.phase === "select") return;
+    state = commandSide(state, side);
+    giveOrders(null);
+    installCommanders();
+    orderDisplay.attach(commandedBody(), theirs());
   };
 
-  /**
-   * The mind a body you leave picks up: a whole policy, not a split one, because nobody is driving
-   * that body any more, so both of its hands go back to the mind the corner names.
-   */
-  const releasedPolicy = (side: Side): Mind => {
-    const factory = unitDefinition(state.matchup[side].unit).createPolicy;
-    if (!factory) throw new Error(`unit "${state.matchup[side].unit}" has no humanoid policy handover`);
-    return factory(state.matchup[side].policy);
-  };
-
-  /**
-   * Letting go of the body you drive, from the HUD. The same handover a takeover makes for the body
-   * it leaves, and nothing else: both fighters are then their own minds', and the camera, the aim
-   * and `Targeting` follow the left, which is what `observedSide` answers with nobody human.
-   */
-  const releaseBodyNow = (): HandReading | null => {
-    if (state.phase === "select") return null;
-    const before = humanSide(state.matchup);
-    if (before === null) return null;
-    const leaving = (before === "left" ? bout.left : bout.right).humanDriver;
-    if (!leaving) return null;
-    const reading = handOver(leaving, before, releasedPolicy(before));
-    state = releaseBody(state);
-    syncChannels();
-    targeting.attach(yours(), theirs());
-    return reading;
-  };
-
-  const takeBodyNow = (side: Side): TakeoverReading | null => {
-    if (state.phase === "select") return null;
-
-    const before = humanSide(state.matchup);
-    const target = (side === "left" ? bout.left : bout.right).humanDriver;
-    if (!target) return null;
-
-    // No branch for "you already drive this one", deliberately, and it is the
-    // same argument the seam itself rests on. Re-taking your own body seeds from
-    // the pose you are commanding, which is the pose your cursor already means,
-    // so the rebase is a walk of nothing at all -- and the reading proves it
-    // rather than a special case promising it.
-    const taken = handOver(target, side, you);
-
-    let released: HandReading | null = null;
-    if (before && before !== side) {
-      const leaving = (before === "left" ? bout.left : bout.right).humanDriver;
-      if (!leaving) return null;
-      released = handOver(leaving, before, releasedPolicy(before));
-    }
-
-    state = takeBody(state, side);
-    // The whole body, whatever split a link gave the corner: `takeBody` asks for both channels.
-    // Taking a body with a key or a button is not the place to discover you have only half of it.
-    syncChannels();
-    // Only when the side actually moved. `attach` drops the lock, and dropping
-    // somebody's lock because they clicked the body they were already in would
-    // be a punishment for reading the mode's own instructions.
-    if (humanSide(state.matchup) !== before) targeting.attach(yours(), theirs());
-
-    const reading: TakeoverReading = { at: bout.sides[0].combat.now, taken, released };
-    takeovers.push(reading);
-    // Enough to check "five times in one bout" against, and short enough that
-    // holding it costs nothing.
-    if (takeovers.length > 12) takeovers.shift();
-    return reading;
-  };
-
-  const settlePending = (): void => {
-    for (const read of pending) {
-      // Both readings come back through the same `drivenPose` the seed came from, so the before
-      // and the after are the same question asked twice rather than two questions that happen to
-      // agree. `commandShiftMm` is `poseShiftMm`'s arithmetic with the pose already resolved to a
-      // point, which is what let a golem answer it at all.
-      const now = read.body.drivenPose();
-      read.reading.commandMm = commandShiftMm(read.command, now.command);
-      read.reading.tipMm = Vector3.Distance(read.tip, now.tip) * 1000;
-    }
-    pending.length = 0;
+  const standDownNow = (): void => {
+    if (state.phase === "select") return;
+    state = standDown(state);
+    giveOrders(null);
+    installCommanders();
+    orderDisplay.attach(commandedBody(), theirs());
   };
 
   /** The bout as the rules read it: two bodies, and the last blow each landed. */
@@ -1000,9 +731,6 @@ async function boot(): Promise<void> {
       bout.left.stepPostVerdictPresentation?.(FIXED_STEP);
       bout.right.stepPostVerdictPresentation?.(FIXED_STEP);
     }
-    // Here rather than at the swap, because the quantity is what the *new* mind
-    // commanded and this is the first step it has been asked.
-    if (pending.length > 0) settlePending();
   });
   arena.scene.onAfterPhysicsObservable.add(() => {
     // Smoothed, because a raw per-frame number is unreadable at 60 Hz.
@@ -1057,15 +785,7 @@ async function boot(): Promise<void> {
     restartBout({ resume: true });
   };
 
-  /**
-   * Back to the setup screen, from wherever you were.
-   *
-   * The takeover is cancelled *here* and no longer on a pause. An armed takeover
-   * behind a pause is fine -- the bodies it points at are still standing and
-   * still the ones you will be clicking on when the curtain lifts -- but behind
-   * the setup screen it points at a pair about to be replaced, and `C` is gated
-   * on `active` so it could not be cancelled by hand.
-   */
+  /** Back to the setup screen, from wherever you were. */
   const leave = (): void => {
     state = toSelect(state);
     // The skim is a thing you turn on to watch one bout, not a setting. Left standing it would
@@ -1075,7 +795,6 @@ async function boot(): Promise<void> {
     skimSpeed = 1;
     controls.pause();
     arena.scene.physicsEnabled = false;
-    takeover.cancel();
     setup.show(state.matchup);
     presentation.showPaused(false);
     presentation.showSetup(true);
@@ -1117,8 +836,9 @@ async function boot(): Promise<void> {
   once(boutEndReplay, () => restartBout({ resume: true }));
   once(boutEndRandom, randomReplay);
   once(boutEndLeave, leave);
-  // Kept from `Controls`, which listens on the window: a press on the verdict bar is not a thrust.
-  // The release is let through, so a press begun on the canvas still ends its thrust over the bar.
+  // Kept from `Controls`, which listens on the window: a press on the verdict bar is not an order
+  // on the arena behind it. The release is let through, so a camera drag begun on the canvas still
+  // ends over the bar.
   for (const kind of ["pointerdown", "pointermove"]) {
     boutEnd.addEventListener(kind, (event) => event.stopPropagation());
   }
@@ -1279,34 +999,25 @@ async function boot(): Promise<void> {
    * The outcome comes first and is a *verdict*: it stands for as long as the
    * bout is over, which is until you leave it, and it is the one message that is
    * about something that has already happened rather than about something you
-   * are doing. Targeting owns the line as a level: `SELECT TARGET` stands for as
-   * long as the choice is armed, and `free` maps to an empty string on purpose
-   * so the banner disappears in ordinary play. The camera has no level worth
-   * showing -- which camera you are looking through is the one piece of state
-   * already in front of you -- so it borrows the line as a notice that expires.
+   * are doing. The commanded side's orders own the line as a level: they stand
+   * for as long as they are in force, and with nobody commanding there is no
+   * such line. The camera has no level worth showing -- which camera you are
+   * looking through is the one piece of state already in front of you -- so it
+   * borrows the line as a notice that expires.
    *
-   * The colour follows the verdict first and targeting second, so a lock left
-   * armed when somebody's head came off does not paint the result red as though
-   * it were an instruction. One banner, one colour.
+   * The colour follows the verdict alone. One banner, one colour.
    */
   let cameraNotice = "";
   let noticeLeft = 0;
   /**
-   * Seconds left on the takeover hint.
+   * Seconds left on the orders hint.
    *
-   * Which body is yours has been changeable mid-bout since session 07 and the
-   * curtain has listed `C` the whole time, and it turns out that a key on a
-   * screen you dismissed to start playing is a key nobody has. The feature was
-   * not missing; the affordance was. It shows for a few seconds at the start of
-   * each bout, last in the banner's priority list so it can never cover a
-   * verdict or a mode line, and it is gone by the time anything is happening.
+   * A key on a screen you dismissed to start playing is a key nobody has, so the hint shows for a
+   * few seconds at the start of each bout while nobody commands a side, last in the banner's
+   * priority list so it can never cover a verdict, and it is gone by the time anything is happening.
    */
   let hintLeft = 0;
-  /** The `F` notice, on the same timer arrangement as the camera's. */
-  let handNotice = "";
-  let handLeft = 0;
   let shownBanner = "";
-  let shownMode = "";
 
   const announceCamera = (): void => {
     const C = CONFIG.camera;
@@ -1326,10 +1037,7 @@ async function boot(): Promise<void> {
    * from the same instant rather than one from the mind and one from the world.
    *
    * A mind with no `driven` contributes no entry and its half of the panel is empty. That is every
-   * hand-coded style below the fourth executor, every Warrior policy, and -- deliberately -- a body
-   * a person has just taken: `handoverFromCursors` and `splitMind` wrap the mind without
-   * republishing it, and a panel that went on printing the commands of a mind nobody is running any
-   * more would be worse than a panel that goes quiet.
+   * hand-coded style below the fourth executor.
    */
   /**
    * The last ask count and the wall-clock instant it was read at, per side, and the rate between.
@@ -1363,7 +1071,7 @@ async function boot(): Promise<void> {
     const sides: CommandSideReadout[] = [];
     for (const side of ["left", "right"] as const) {
       const body = side === "left" ? bout.left : bout.right;
-      const mind = body.humanDriver?.mind as (Mind & { driven?: GolemDriven }) | undefined;
+      const mind = (body.control.driver as { mind?: Mind }).mind as (Mind & { driven?: GolemDriven }) | undefined;
       const driven = mind?.driven;
       if (!mind || !driven) continue;
       const engagement = bout.recorder.engagement[side];
@@ -1419,11 +1127,23 @@ async function boot(): Promise<void> {
         internals._renderId += 1;
         internals._advancePhysicsEngineStep(1000 * dt);
       }
-      controls.sample(dt);
-      targeting.releaseIfSteering(controls.state.turn);
-      // One owner of the cursor's outline at a time; see `Targeting.update`.
-      targeting.update(dt, !takeover.isArmed);
-      takeover.update(dt);
+      const steer = controls.sample(dt);
+      const commanded = commandedBody();
+      if (commanded && (steer.forward !== 0 || steer.strafe !== 0)) {
+        // WASD steers in the camera's frame: a destination a step ahead of the body, renewed every
+        // frame the keys are held. The frame is the camera's own look direction on the floor.
+        const point = steerPoint(groundOf(commanded),
+          { x: focus.x - arena.camera.position.x, z: focus.z - arena.camera.position.z }, steer);
+        if (point) {
+          person.current = moveOrder(person.current, point);
+          steering = true;
+        }
+      } else if (commanded && steering) {
+        // Letting go of the keys holds the ground the body is on, rather than a point a step
+        // beyond it that it would walk on to.
+        giveOrders(holdOrder(person.current, groundOf(commanded)));
+      }
+      orderDisplay.update(dt, commanded ? person.current : null);
       for (const side of bout.sides) side.combat.advance(dt);
       // After `advance`, so a report filed this frame is already timestamped.
       damageFeedback.update(dt);
@@ -1456,13 +1176,11 @@ async function boot(): Promise<void> {
     const timers = advanceActiveHostTimers(runningHost, {
       camera: noticeLeft,
       hint: hintLeft,
-      hand: handLeft,
+      hand: 0,
     }, dt);
     noticeLeft = timers.camera;
     hintLeft = timers.hint;
-    handLeft = timers.hand;
     if (noticeLeft === 0) cameraNotice = "";
-    if (handLeft === 0) handNotice = "";
 
     const decided = state.outcome;
     // The verdict bar owns its own element and nothing else: it never touches the curtain, the
@@ -1474,24 +1192,19 @@ async function boot(): Promise<void> {
         : "",
       // What the winner kept, beside the verdict that earned it and never without one.
       decided ? salvageNotice : "",
-      // Ahead of the lock's own line, because it is the mode you just entered and
-      // the one a click is about to be spent on.
-      takeover.isArmed ? TAKE_TEXT : "",
-      MODE_TEXT[targeting.status] ?? "",
-      handNotice,
+      // The commanded side's orders, as a level: they stand for as long as they are in force.
+      !decided && humanSide(state.matchup) !== null ? ordersText(person.current) : "",
       cameraNotice,
       // Last, and silent the moment anything else has something to say.
-      hintLeft > 0 && !decided && !takeover.isArmed ? HINT_TEXT : "",
+      hintLeft > 0 && !decided && humanSide(state.matchup) === null ? HINT_TEXT : "",
     ]
       .filter((part) => part !== "")
       .join(" &middot; ");
-    if (banner !== shownBanner || targeting.status !== shownMode) {
+    if (banner !== shownBanner) {
       shownBanner = banner;
-      shownMode = targeting.status;
       modeLine.innerHTML = banner;
       modeLine.classList.toggle("on", banner !== "");
       modeLine.classList.toggle("decided", decided !== null);
-      modeLine.classList.toggle("locked", decided === null && shownMode === "locked");
     }
 
     // The newer of the two sides' last blows, which is simply the last blow
@@ -1550,14 +1263,10 @@ async function boot(): Promise<void> {
   // 13.41. It is now one assignment, and it takes effect on the next substep
   // with nothing to rebuild:
   //
-  //     let x = 0.6;
-  //     __sword.right.mind = { name: "sweep", decide: (view, dt) => {
-  //       x = Math.max(-0.6, x - dt / 0.25 * 1.2);
-  //       return { ...__sword.controls.state, pointerX: x, pointerY: 0 };
-  //     } };
+  //     __sword.right.control.installPolicy("golem-duelist")
   //
-  // and `__sword.right.mind = { name: "idle", decide: () => NEUTRAL }` puts it
-  // back. `__sword.right.view` is what any such mind is being shown.
+  // `__sword.right.view` is what any such mind is being shown, and `__sword.orders` is the
+  // person's orders: `__sword.orders.current = { target: null, destination: { x: 1, z: 2 } }`.
   Object.assign(window as unknown as Record<string, unknown>, {
     __sword: {
       engine,
@@ -1589,45 +1298,24 @@ async function boot(): Promise<void> {
       get state() {
         return state;
       },
-      targeting,
       /**
-       * Taking a body, from the console as well as from `C` and a click.
-       *
-       * `take(side)` is the whole of the takeover measurement's setup, and it is
-       * here rather than only on the mouse because the interesting moment is
-       * *mid-swing* -- which is not a moment you can reliably click on. Arm a
-       * swinger on the left, wait for it to commit, and:
-       *
-       *     __sword.takeover.take("left"); __sword.takeover.last
-       *
-       * The reading arrives on the next control step, which is the takeover
-       * frame. `taken.commandMm` is the hand's commanded jump in millimetres and
-       * is the figure the acceptance is written against; `taken.tipMm` is how far
-       * the blade itself went over the same step, which contains the swing as
-       * well as the handover and is only comparable against 20 mm on a body that
-       * was standing still. `released` is the same pair for the body handed back
-       * to its policy, and is null when there was nobody to hand one back from.
-       *
-       * To see what the seed is worth, turn it off and take the same body again:
-       * `__sword.config.takeover.rebaseSeconds = 0` leaves only the plan's
-       * one-frame seed, and the takeover frame still reads clean while the frame
-       * after it does not.
+       * The person's orders, and who commands which side. `current` is what the commanded side's
+       * body reads at its next decision; `command(side)` and `standDown()` are the HUD's buttons.
        */
-      takeover: {
-        get armed(): boolean {
-          return takeover.isArmed;
+      orders: {
+        get current(): Orders | null {
+          return person.current;
         },
-        cancel: () => takeover.cancel(),
-        take: (side: Side) => takeBodyNow(side),
-        /** Hand the body you drive back to its policy, as the HUD's "Let go" does. */
-        release: () => releaseBodyNow(),
-        /** The last handover, or null if nothing has changed hands yet. */
-        get last(): TakeoverReading | null {
-          return takeovers.length > 0 ? takeovers[takeovers.length - 1] : null;
+        set current(orders: Orders | null) {
+          giveOrders(orders);
         },
-        /** The last dozen, oldest first. */
-        get readings(): readonly TakeoverReading[] {
-          return takeovers;
+        command: (side: Side) => commandNow(side),
+        standDown: () => standDownNow(),
+        get commanders(): Record<Side, string | null> {
+          return {
+            left: bout.left.control.commander?.name ?? null,
+            right: bout.right.control.commander?.name ?? null,
+          };
         },
       },
       controls,

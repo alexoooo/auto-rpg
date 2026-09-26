@@ -1,12 +1,14 @@
-import { FULL_TONE, JointActuator, JointServo } from "../../joint-servo.ts";
+import { FULL_TONE, JointActuator, JointServo, servoLead } from "../../joint-servo.ts";
 import { PhysicsConstraintAxis } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
-import type { HandCursor, HandIntent } from "../../../mind.ts";
+import type { HandIntent } from "../../../mind.ts";
 import { capsulePart, joint, type Part } from "../../../rig.ts";
 import type { Armour } from "../../../scoring.ts";
 import { attributeOf, withArmSpeed, withSize, withWeight } from "../../attributes.ts";
+import { HAND_REACH } from "../../../hands.ts";
+import { CONFIG } from "../../../config.ts";
 import { CHAIN_REACH, CHAIN_REACH_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
 import {
@@ -18,6 +20,7 @@ import {
   type EffectorStrokeKind,
   type GolemMount,
   type GolemPart,
+  type GolemSlot,
   type ModuleAxisEnvelope,
   type ModuleBuild,
   type ReachEnvelope,
@@ -60,17 +63,6 @@ const spanned = (t: number, min: number, max: number): number =>
   min + ((clamp(t, -1, 1) + 1) / 2) * (max - min);
 
 /**
- * And back: where the cursor has to sit for `value` to be the number this span produced.
- *
- * Immediately beside its forward direction on purpose. The one inverse this directory has got
- * wrong was written in another file from the mapping it inverts, and the plausible-but-wrong
- * version agreed with the right one for every positive input -- so a handover test passed against
- * a deliberately broken inverse until both sides of centre were sampled.
- */
-const unspanned = (value: number, min: number, max: number): number =>
-  max === min ? 0 : clamp(((value - min) / (max - min)) * 2 - 1, -1, 1);
-
-/**
  * The two-bone solution at a given reach: the shoulder's offset and the elbow's bend, radians.
  *
  * `beta` is the elbow bend, straight from the cosine rule and single-valued because the elbow
@@ -90,6 +82,31 @@ const twoBone = (R: typeof CHAIN_REACH, reach: number): { alpha: number; beta: n
 };
 
 const AXIS_X = Object.freeze(new Vector3(1, 0, 0));
+const AXIS_Y = Object.freeze(new Vector3(0, 1, 0));
+
+/** A hand's three positional cursor channels, each -1 to +1. */
+export interface RestCursor {
+  readonly pointerX: number;
+  readonly pointerY: number;
+  readonly reach: number;
+}
+
+/**
+ * The cursor an un-pressed hand gives: `NEUTRAL` in `src/mind.ts`, `freshIntent` in
+ * `src/action-primitives.ts`, and a person's `Controls` before the mouse moves all hold it. **It is
+ * the pose every arm is built in**, so that the first move a limb makes is one its commander asked
+ * for rather than the drive sweeping it up from wherever construction left it. The primary hand
+ * points ahead at the neutral reach and the off hand rests low (`arm.restPointerY`).
+ *
+ * Restated rather than imported, because `mind.ts` is the policy seam and a body module that
+ * imported it for a constant would be a body reading the mind's file. What keeps the copies
+ * together is `an_arm_is_built_where_its_rest_command_holds_it` in `tests/golem-bench.test.mjs`,
+ * which asserts this against both of them.
+ */
+export const restCursor = (slot: GolemSlot): RestCursor =>
+  slot === "secondary"
+    ? { pointerX: CONFIG.arm.restPointerX, pointerY: CONFIG.arm.restPointerY, reach: HAND_REACH.neutral }
+    : { pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral };
 
 /** The command, in the module's own three task-space terms. */
 export interface ArmCommand {
@@ -172,14 +189,6 @@ interface ArmCore {
   stroke(): EffectorStroke;
   anchorPoint(): Vector3;
   anchorStray(): number;
-  /**
-   * The two aiming axes of the cursor that command the pose this core is commanding.
-   *
-   * `roll` and `wristBend` are the wrist's and are zero here: rung 2 has no orientation to
-   * express, so rung 3 overwrites those two and rung 2 answers the honest zero. See
-   * `BuiltChain.cursor`.
-   */
-  cursor(): HandCursor;
   command(next: HandIntent): void;
   /**
    * Send the hand point toward a world point. See `BuiltChain.commandWeldTo`.
@@ -275,11 +284,34 @@ export function buildArmCore(
   const facing = socket.rotation;
   const stone = materialForGolemRole(ctx.materials, "shell");
 
+  /**
+   * Clamp a demanded target into the envelope, in place.
+   *
+   * **This is the mapping, and it runs before the anchor is ever handed a target** -- frozen rule
+   * 3. The reach and the lift are box limits; the swing is a box limit *and* the minimum outboard
+   * carry, which is a floor that depends on the other two. `carryMin` is stated from the socket,
+   * so the condition on the horizontal reach `h = r cos(lift)` is `h sin(swing) >= carryMin`,
+   * which is a floor of `asin(carryMin / h)` on the swing. That coupling is what makes this an
+   * envelope rather than an azimuth limit: a long cross-body command is refused a pose that a
+   * short one is given, and neither is refused by a branch anywhere downstream.
+   */
+  const clampInto = (into: ArmCommand, swing: number, lift: number, reach: number): void => {
+    into.reach = clamp(reach, L.reachMin, L.reachMax);
+    into.lift = clamp(lift, L.liftMin, L.liftMax);
+    let s = clamp(swing, L.swingMin, L.swingMax);
+    const horizontal = into.reach * Math.cos(into.lift);
+    if (horizontal > 1e-6) {
+      const floor = Math.asin(clamp(L.carryMin / horizontal, -1, 1));
+      if (s < floor) s = Math.min(floor, L.swingMax);
+    }
+    into.swing = s;
+  };
+
   // --- the build pose -----------------------------------------------------------------------
   //
   // **The chain is built with its elbow already bent, and that is a measurement rather than a
-  // preference.** Every other chain in this directory is built hanging straight down, which for a
-  // one-bone limb is the rest pose and is right. For a two-bone limb it is the *singular*
+  // preference.** The one-bone pitch chain is built as one straight link, which for a one-bone
+  // limb is all there is. For a two-bone limb a straight elbow is the *singular*
   // configuration: with the elbow perfectly straight, a force applied at the hand has no moment
   // arm about the elbow at all, so the anchor cannot bend it and can only pull the whole chain
   // about the shoulder. Built straight, the peak anchor stray over the scripted sequence measured
@@ -289,35 +321,54 @@ export function buildArmCore(
   // is not posed wrongly, it is stuck on something -- and at a singularity it is stuck on its own
   // geometry.
   //
-  // The pose is `swing 0, lift liftMin, reach reachNeutral`: arm down and a little forward, elbow
-  // bent 1.39 rad, comfortably inside every stop and 0.96 rad off the straight singularity. It is
-  // also inside the envelope, so the first command the cursor gives is a *move* rather than a
-  // step out of an unreachable pose.
-  // Clamped into the limits rather than taken raw, because a narrowing that put the build pose
-  // outside the envelope would make the first command the cursor gives a *step out of an
-  // unreachable pose* -- which is the shape of the failure rung 1's `jointMin` records, a
-  // violation the solver clears on step one by throwing the limb at 9.95 m/s.
-  const buildLift = clamp(R.liftMin, L.liftMin, L.liftMax);
-  const buildReach = clamp(R.reachNeutral, L.reachMin, L.reachMax);
+  // **And it is built at guard: at the pose the hand's rest command asks for** (`restCursor`), with
+  // the collar already yawed to it. It used to be `swing 0, lift liftMin, reach reachNeutral`, arm
+  // down and a little forward, and every fighter's first fifth of a second was the anchor sweeping
+  // both hands from there up to guard, the blade's tip peaking at 12.8 m/s in a fighter standing
+  // idle (Node bout runner, 120 Hz). At `CONFIG.fighter.separation` the two blades crossed on the
+  // way: a blade-on-blade contact at t = 0.117 s in all four probe-mind mirrors, identical across
+  // minds because no mind had yet moved anything. Built where the command already is, the idle
+  // tip peaks at 0.10 m/s and the first move an arm makes is its commander's.
+  // `docs/analysis/2026-09-25-arms-at-guard.md`.
+  //
+  // Clamped into the limits rather than taken raw -- `clampInto`, the mapping's own clamp --
+  // because a narrowing that put the build pose outside the envelope would make the first command
+  // the cursor gives a *step out of an unreachable pose*, which is the shape of the failure rung
+  // 1's `jointMin` records: a violation the solver clears on step one by throwing the limb at
+  // 9.95 m/s. The guard is always bent: the rest reach sits well inside `reachMax`, so the elbow
+  // is off the straight singularity by the same kind of margin the hanging pose had.
+  const rest = restCursor(socket.slot);
+  const build: ArmCommand = { swing: 0, lift: 0, reach: 0 };
+  clampInto(build, spanned(rest.pointerX * outboard, L.swingMin, L.swingMax),
+    spanned(rest.pointerY, L.liftMin, L.liftMax), spanned(rest.reach, L.reachMin, L.reachMax));
+  const buildSwing = build.swing;
+  const buildLift = build.lift;
+  const buildReach = build.reach;
   const buildBones = twoBone(R, buildReach);
   const upperPitch = buildLift + Math.PI / 2 - buildBones.alpha;
   const forePitch = upperPitch + buildBones.beta;
+  /**
+   * The collar's world frame at construction: the socket's, turned about its own vertical by the
+   * build swing. The yaw hinge's angle *is* that turn (`angle(socket.mount, collar, "y")`), so
+   * this is a hinge built at exactly the angle its servo is first told to hold.
+   */
+  const collarFrame = facing.multiply(Quaternion.RotationAxis(AXIS_Y, outboard * buildSwing));
 
-  /** A limb direction at pitch angle `a`, carried into the world by the socket's own frame. */
+  /** A limb direction at pitch angle `a`, carried into the world by the collar's own frame. */
   const limbDirection = (a: number, into: Vector3): Vector3 => {
     into.set(0, -Math.cos(a), Math.sin(a));
-    return into.rotateByQuaternionToRef(facing, into);
+    return into.rotateByQuaternionToRef(collarFrame, into);
   };
   /**
    * The world frame a link at pitch angle `a` is built in.
    *
-   * `facing.multiply(local)` is "turn in the link's own frame, then carry into the world", which
-   * is the order Babylon's quaternion product takes -- checked rather than assumed, because the
-   * other order is a link built a quarter turn out and a joint whose two frames disagree at
+   * `collarFrame.multiply(local)` is "turn in the link's own frame, then carry into the world",
+   * which is the order Babylon's quaternion product takes -- checked rather than assumed, because
+   * the other order is a link built a quarter turn out and a joint whose two frames disagree at
    * construction is a violation the solver clears by throwing the limb.
    */
   const limbFrame = (a: number): Quaternion =>
-    facing.multiply(Quaternion.RotationAxis(AXIS_X, -a));
+    collarFrame.multiply(Quaternion.RotationAxis(AXIS_X, -a));
 
   const upperDir = limbDirection(upperPitch, new Vector3());
   const foreDir = limbDirection(forePitch, new Vector3());
@@ -327,7 +378,7 @@ export function buildArmCore(
   const collar = capsulePart(ctx.scene, {
     name: `${ctx.name}.collar`,
     position: socket.world.clone(),
-    rotation: facing,
+    rotation: collarFrame,
     height: R.collarLength,
     radius: R.collarRadius,
     mass: R.collarMass,
@@ -424,7 +475,7 @@ export function buildArmCore(
   };
   const tone = ctx.tone ?? FULL_TONE;
   const yawServo = new JointServo(new JointActuator(yaw, PhysicsConstraintAxis.ANGULAR_X, tone),
-    () => angle(socket.mount, collar, "y"), 0, R.jointResponse);
+    () => angle(socket.mount, collar, "y"), outboard * buildSwing, R.jointResponse);
   const pitchServo = new JointServo(new JointActuator(pitch, PhysicsConstraintAxis.ANGULAR_X, tone),
     () => angle(collar, upper, "x"), -upperPitch, R.jointResponse);
   const elbowServo = new JointServo(new JointActuator(elbowJoint, PhysicsConstraintAxis.ANGULAR_X, tone),
@@ -443,6 +494,22 @@ export function buildArmCore(
   const handWorld = elbowWorld.add(foreDir.scale(R.foreLength));
   // Compatibility readouts call this an anchor; it is a target point, with no physics body.
   const commandedPoint = handWorld.clone();
+  /**
+   * **The stray is read against the point the servo is steering to now, not the one it is sent
+   * to next.** It is sampled before the solver step, when `commandedPoint` is already where the
+   * hand is meant to be at the step's *end*; the servo aims `servoLead` of the way there. At the
+   * tuning rate those are one point and this is bit-identical to reading `commandedPoint`. At a
+   * longer step the difference is the command's motion over the rest of the step, v x (dt -
+   * 1/240), which is not an error of the arm's: read against the end of a 120 Hz step, a fist
+   * punch "strayed" 18.1 mm against 7.4 at 240 with the arm behaving the same.
+   */
+  const previousPoint = handWorld.clone();
+  const steeredPoint = handWorld.clone();
+  let lastStep = 0;
+  const steeredTo = (): Vector3 => {
+    const lead = servoLead(lastStep);
+    return lead === 1 ? commandedPoint : Vector3.LerpToRef(previousPoint, commandedPoint, lead, steeredPoint);
+  };
 
   // --- the shell --------------------------------------------------------------------------
   const parts: readonly GolemPart[] = Object.freeze([
@@ -513,24 +580,23 @@ export function buildArmCore(
 
   // --- state -------------------------------------------------------------------------------
   //
-  // **The command starts at the build pose, not at the cursor.** A command initialised at the
-  // cursor would be a step the rate limiter has to run on the very first control step -- which is
-  // precisely how a Warrior arm keyframes onto its commanded pose and reads 77 m/s of tip speed
-  // in a fighter that never swings. `AnchorDrive` starts its own commanded point at `handWorld`
-  // for the same reason, and `slewed` below is read back out of it, so the published command
-  // starts there too rather than at a mapped cursor.
-  const wanted: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
+  // **The command starts at the build pose, and the build pose is the rest command's.** A command
+  // initialised anywhere else would be a step the rate limiter has to run on the very first
+  // control step -- which is how a Warrior arm keyframed onto its commanded pose and read 77 m/s of
+  // tip speed in a fighter that never swung. Every one of these, and the swing servo's seed, is
+  // the build pose, so an un-pressed hand's first command asks for exactly where the hand is.
+  const wanted: ArmCommand = { swing: buildSwing, lift: buildLift, reach: buildReach };
   /** The clamped demand: where the mapping wants the hand, before the rate limit. */
-  const demanded: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
+  const demanded: ArmCommand = { swing: buildSwing, lift: buildLift, reach: buildReach };
   /**
    * The rate-limited command, **in the chain's own coordinates**, which is what the anchor is
    * handed. See `stepToward` for why the limiting happens here rather than at the anchor.
    */
-  const sent: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
+  const sent: ArmCommand = { swing: buildSwing, lift: buildLift, reach: buildReach };
   /** The commanded pose published to policies and diagnostics. */
-  const slewed: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
+  const slewed: ArmCommand = { swing: buildSwing, lift: buildLift, reach: buildReach };
   /** Where the hand actually got to, in the same three terms. Allocated once, read every step. */
-  const achieved: ArmCommand = { swing: 0, lift: buildLift, reach: buildReach };
+  const achieved: ArmCommand = { swing: buildSwing, lift: buildLift, reach: buildReach };
   /** The aim stage, if a chain above installed one. See `adjustPoint`. */
   let correct: PointCorrection | null = null;
   let severed = false;
@@ -541,7 +607,7 @@ export function buildArmCore(
 
   const axisViews = [
     { id: "reach", commanded: buildReach, achieved: buildReach },
-    { id: "swing", commanded: 0, achieved: 0 },
+    { id: "swing", commanded: buildSwing, achieved: buildSwing },
     { id: "lift", commanded: buildLift, achieved: buildLift },
   ];
   const axes: readonly EffectorAxisView[] = Object.freeze(axisViews);
@@ -599,17 +665,6 @@ export function buildArmCore(
   };
 
   /**
-   * Clamp a demanded target into the envelope, in place.
-   *
-   * **This is the mapping, and it runs before the anchor is ever handed a target** -- frozen rule
-   * 3. The reach and the lift are box limits; the swing is a box limit *and* the minimum outboard
-   * carry, which is a floor that depends on the other two. `carryMin` is stated from the socket,
-   * so the condition on the horizontal reach `h = r cos(lift)` is `h sin(swing) >= carryMin`,
-   * which is a floor of `asin(carryMin / h)` on the swing. That coupling is what makes this an
-   * envelope rather than an azimuth limit: a long cross-body command is refused a pose that a
-   * short one is given, and neither is refused by a branch anywhere downstream.
-   */
-  /**
    * The forearm and the arm plane's lateral, as units in world space, at any pose.
    *
    * **One law, read by four callers.** `commandedForearm` and `commandedLateral` each carried
@@ -631,17 +686,6 @@ export function buildArmCore(
     scratch.local.rotateByQuaternionToRef(mountRotation(), lateral);
   };
 
-  const clampInto = (into: ArmCommand, swing: number, lift: number, reach: number): void => {
-    into.reach = clamp(reach, L.reachMin, L.reachMax);
-    into.lift = clamp(lift, L.liftMin, L.liftMax);
-    let s = clamp(swing, L.swingMin, L.swingMax);
-    const horizontal = into.reach * Math.cos(into.lift);
-    if (horizontal > 1e-6) {
-      const floor = Math.asin(clamp(L.carryMin / horizontal, -1, 1));
-      if (s < floor) s = Math.min(floor, L.swingMax);
-    }
-    into.swing = s;
-  };
 
   /**
    * Walk the sent command toward the demanded one, by at most `metres` of hand travel.
@@ -732,7 +776,7 @@ export function buildArmCore(
     hand: handPoint,
     elbow: elbowPoint,
     anchorPoint: () => commandedPoint,
-    anchorStray: () => Vector3.Distance(handPoint(), commandedPoint),
+    anchorStray: () => Vector3.Distance(handPoint(), steeredTo()),
 
     commandedHand: (): Vector3 =>
       scratch.commandedHand.copyFrom(commandedPoint),
@@ -775,31 +819,12 @@ export function buildArmCore(
      */
     stroke: (): EffectorStroke => "idle",
 
-    // `slewed` is the rate-limited command --
-    // so this is the pose the chain is *commanding*, not the pose the limb has reached. That is
-    // the same choice `Arm.angles()` makes for the Warrior, and it is what makes the first
-    // command after a handover identical to the last command before it rather than to whatever
-    // lag the drive happened to be carrying. Allocates one record per takeover, which is where
-    // it is called.
-    cursor: (): HandCursor => ({
-      pointerX: unspanned(slewed.swing, L.swingMin, L.swingMax) * outboard,
-      pointerY: unspanned(slewed.lift, L.liftMin, L.liftMax),
-      // The third one, and it had to join the other two the moment reach became a commanded
-      // axis: an incoming driver whose reach channel said something else would be asking this
-      // hand to cross up to 0.42 m on its first step, at the anchor's ceiling, with a blade on
-      // the end. That is the teleport `cursorForPose` exists to prevent, arriving through the
-      // axis nobody had to invert while the buttons owned it.
-      reach: unspanned(slewed.reach, L.reachMin, L.reachMax),
-      roll: 0,
-      wristBend: 0,
-    }),
-
     /**
      * Three normalized channels onto three published axes, and nothing else.
      *
      * **No branch on `thrust` or `guard` anywhere in this function**, which is the whole of
      * Session 12 stated as a property a reader can check by looking. Both buttons are still on
-     * the command and both still mean something -- to `src/buttons.ts`, which turns a person's
+     * the command and both still mean something -- to `src/bench/buttons.ts`, which turns a person's
      * held button into the `reach` below, and to a policy, which may read its own. Neither is
      * something this chain does to whoever is driving it.
      */
@@ -854,12 +879,24 @@ export function buildArmCore(
       // mapping asks for. The second clamp is cheap insurance and not decoration: the carry floor
       // is a curve in these coordinates and a straight interpolation between two poses that both
       // clear it is not obliged to.
-      // The construction pose can be below the aiming envelope. Acquire it with a smooth
-      // speed ramp rather than clamping the hanging arm onto the envelope on the first step.
-      // Once acquired, normal continuous control keeps its existing speed and range limits.
+      // The speed ramps up over `acquireSeconds` from the build. The build pose is clamped into
+      // the envelope, so `acquiring` clears on the first step; the ramp stays, because it is what
+      // keeps a mind's first move from being a full-rate sweep (see `acquireSeconds`). Once past
+      // it, normal continuous control keeps its existing speed and range limits.
       driveAge += dt;
       const ramp = Math.min(1, driveAge / R.acquireSeconds);
-      stepToward(sent, demanded, R.anchorRate * ramp * ramp * (3 - 2 * ramp) * dt, dt);
+      // **At the tuning rate, whatever the step.** The filter is semi-implicit Euler, and one step
+      // of 1/120 s is not two of 1/240: the command it hands the joints would arrive later and
+      // settle differently at every rate. So a longer step runs it as the steps of
+      // `CONFIG.world.solverTuningHz` it spans (two at 120, one at 240 -- bit-identical there),
+      // with the ceiling shared between them. Node golem bench, 200 perturbed trials, paired
+      // against 240: with the lead and gain of `servoLead`, the punch strays +3.1 / +4.5 mm
+      // (fist / plate) on one filter step and +1.0 / +1.2 on two.
+      const substeps = Math.max(1, Math.round(dt * CONFIG.world.solverTuningHz));
+      const sub = dt / substeps;
+      for (let i = 0; i < substeps; i += 1) {
+        stepToward(sent, demanded, R.anchorRate * ramp * ramp * (3 - 2 * ramp) * sub, sub);
+      }
       clampInto(scratch.pose, sent.swing, sent.lift, sent.reach);
       if (acquiring && Math.abs(scratch.pose.swing - sent.swing)
         + Math.abs(scratch.pose.lift - sent.lift) + Math.abs(scratch.pose.reach - sent.reach) < 1e-8) {
@@ -868,6 +905,8 @@ export function buildArmCore(
       if (!acquiring) Object.assign(sent, scratch.pose);
 
       pointAt(sent.swing, sent.lift, sent.reach, scratch.target);
+      previousPoint.copyFrom(commandedPoint);
+      lastStep = dt;
       commandedPoint.copyFrom(scratch.target);
       Object.assign(slewed, sent);
       driveJoints(dt);
@@ -922,6 +961,17 @@ export function buildArmCore(
         // or disposing one module removes another's texture.
         part.mesh.dispose(false, false);
       }
+    },
+
+    // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+    captureState: (): Record<string, unknown> => ({
+      yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive,
+      wanted, demanded, sent, slewed, achieved, axisViews, scratch, commandedPoint,
+      relative, inverse, yawServo, pitchServo, elbowServo, R, commandVelocity, handPivot,
+      previousPoint, steeredPoint, lastStep, collarFrame,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({ yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive, lastStep } = state as never);
     },
   });
 }

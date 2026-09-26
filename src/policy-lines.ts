@@ -51,6 +51,8 @@ const POLICY_LINES: Readonly<Record<string, string>> = Object.freeze({
   "golem-reaper": "Hangs at the very tip of its reach, cuts often from there, and parries when it can.",
   // src/golem/styles/miser.ts
   "golem-miser": "A search-tuned reaper that wastes nothing: stands close and recovers fast.",
+  // src/golem/walker.ts
+  "golem-walker": "Walks straight at you and swings on a steady beat, never guarding, a naive baseline.",
   // src/golem/researched-variants.json, against the parent's table
   "golem-researched-form-3-5": "Tuned Golem form: stands farther out, attacks sooner and cuts deeper.",
   "golem-researched-guardian-3-4": "Tuned Golem guardian: the same blocking, but starts its own attacks sooner.",

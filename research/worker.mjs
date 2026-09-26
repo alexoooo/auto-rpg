@@ -5,6 +5,7 @@ import { CONFIG } from "../src/config.ts";
 import { candidateMind } from "../src/golem/research-candidates.ts";
 import { policyMind } from "../src/mind.ts";
 import { labMind } from "../src/golem/lab-policy.ts";
+import { trajectoryTracer } from "./side-mirror.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
 export function descriptors(record, retreatSeconds, attacks) {
@@ -53,10 +54,16 @@ export async function execute(job, manifest) {
       down[side].was = state;
     }
   };
+  // With `manifest.trace`, the row carries the bout's trajectory hash and its prefixes
+  // (`trajectoryTracer` in `research/side-mirror.mjs`), so bouts that played one trajectory can be
+  // counted once. It reads `mesh.position` only, so a traced bout is the bout untraced.
+  const tracer = manifest.trace ? trajectoryTracer(bout) : null;
+  let traced = {};
   try {
-    while (bout.step()) watchDown();
+    while (bout.step()) { watchDown(); tracer?.frame(); }
     result = bout.finish();
     vitality = [bout.left.vitality, bout.right.vitality];
+    if (tracer) traced = tracer.finish();
     // Modules each corner lost, read off the body's own report before it is disposed. A body without
     // one (none today) reads zero.
     severs = Object.fromEntries(["left", "right"].map((side) =>
@@ -72,7 +79,7 @@ export async function execute(job, manifest) {
   }]));
   return { ...job, status: "ok", winner: result.winner, ending: result.ending, seconds: result.seconds,
     overtime: result.seconds >= CONFIG.bout.overtimeSeconds, sides, vitality,
-    instrumentVersion: result.engagementInstrumentVersion };
+    instrumentVersion: result.engagementInstrumentVersion, ...traced };
 }
 
 if (parentPort) parentPort.on("message", async ({ job, manifest }) => {

@@ -18,7 +18,9 @@ export const LAB_BASELINES: Record<string, (seed: number) => Mind> = {
   "humanoid-duelist": humanoidDuelist,
 };
 export function originalMind(name: string, seed: number): Mind {
-  if (name === "idle") { const intent = blankIntent(); return { name: "idle", decide: (view) => postureFor(view, "idle", intent) }; }
+  if (name === "idle") { const intent = blankIntent(); return { name: "idle", decide: (view) => postureFor(view, "idle", intent),
+    // A fork of the world (`src/forkable.ts`): the command it writes.
+    captureState: () => ({ intent }), restoreState: () => { /* restored in place */ } }; }
   const factory = LAB_BASELINES[name];
   if (!factory) throw new Error(`not an original lab baseline: ${name}`);
   return factory(seed);

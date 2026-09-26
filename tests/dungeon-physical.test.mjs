@@ -10,7 +10,7 @@ import { generateLevel } from "../src/dungeon/level.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { cornerStallLevel } from "./fixtures/corner-stall-level.mjs";
 import { CONFIG } from "../src/config.ts";
-import { Combat } from "../src/combat.ts";
+import { Combat, arrivalReadFraction } from "../src/combat.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
@@ -172,10 +172,24 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
       edgeDirection: () => new Vector3(0, 0, 1), bladeDirection: () => new Vector3(0, 1, 0),
       tipPosition: () => new Vector3(0, 0, 0) };
     combat = new Combat("left", [weapon]); combat.advance(1);
+    // The same 12 m/s under an `"arrival"` reading, which reads the body as the step began rather
+    // than `velocityAt`, and bills `arrivalReadFraction` of it: the body is moved at 12 over that
+    // fraction and sampled the way a solver step samples it. The hero's own `Combat` watches the
+    // same body and samples it too, so it is stopped: only the probe may score.
+    run.hero.combat.stop();
+    const share = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction(weapon.kind) : 1;
+    source.body.setLinearVelocity(new Vector3(0, 0, 12 / share));
+    source.body.setAngularVelocity(new Vector3(0, 0, 0));
+    arena.scene.onBeforePhysicsObservable.notifyObservers(arena.scene);
     const limb = struck.body.limbs.find(l => !l.guarding && !l.fatal);
     const before = limb.health, untouched = selected.body.vitality;
+    // The contact point is the striker's own centre, so the probe's energy is its body's whole mass
+    // at 12 m/s wherever the hero's arm is. It was the struck limb's position, and the striker's
+    // effective mass there is set by the lever from the blade to that limb: with the hero's arm
+    // built at guard (2026-09-25) that lever put the same 12 m/s under the club's floor, a slap, and
+    // a routing test failed on an energy it was never about.
     const event = { collider: source.body, collidedAgainst: limb.part.body, type: PhysicsEventType.COLLISION_STARTED,
-      point: limb.part.mesh.position.clone(), normal: new Vector3(0, 0, 1), distance: 0, impulse: 0 };
+      point: source.body.transformNode.position.clone(), normal: new Vector3(0, 0, 1), distance: 0, impulse: 0 };
     combat.attach(selected.body);
     source.body.getCollisionObservable().notifyObservers(event);
     assert.equal(limb.health, before, "the unchanged duel attachment cannot score against another body");
@@ -196,7 +210,7 @@ test("force movement goes around an occupied floor point instead of stopping to 
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 12, z: 9 }];
   // A stone blocker, the widest footprint this test had before skeletons were drawn (0.34 m to a skeleton's 0.28).
-  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, () => "pitch-blade");
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], () => "pitch-blade");
   try {
     run.actors[1].body.stopFighting(); // A real, stationary opponent blocking the direct route.
     run.actors[1].combat.stop();
@@ -216,7 +230,7 @@ test("an_enemy_nobody_is_near_sleeps_and_wakes_before_it_could_see_the_hero", as
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 25, z: 25 }];
   // A stone sleeper; the pair below is two skeletons, so dormancy is held to both families.
-  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, () => "pitch-blade");
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], () => "pitch-blade");
   try {
     const enemy = run.actors[1], apart = () => distance(run.hero.body.feetPosition(), enemy.body.feetPosition());
     const frame = () => { arena.scene._renderId++; arena.scene._advancePhysicsEngineStep(1000 / 60); };
@@ -262,7 +276,7 @@ test("a_sleeper_wakes_for_a_neighbour_walking_up_and_the_pair_sleeps_once_both_a
   // one sent from the room at (41, 25) to a home 3 m from the first, so that it walks up to a sleeper.
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: 25, z: 25 }, { x: 41, z: 25 }];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, i => ["skeleton-dual-blades", "skeleton-maul"][i]);
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], i => ["skeleton-dual-blades", "skeleton-maul"][i]);
   try {
     const [, sleeper, walker] = run.actors, home = { x: 28, z: 25 };
     assert.ok(walkable(map, home, walker.radius), "the walker's new home is not open floor");
@@ -291,7 +305,7 @@ test("a_hero_facing_the_cursor_answers_an_enemy_that_comes_at_it_from_behind", a
   // is upon the hero, the hero takes it on, turns to it, and hits it. It used to stand there and be hit.
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   const map = classicDungeon(42); map.spawns = [{ x: map.start.x - 4, z: map.start.z }];
-  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, () => "default");
+  const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], () => "default");
   try {
     run.commands.setMode({ keyboard: true, facing: true });
     run.commands.cursor = { x: map.start.x + 40, z: map.start.z };
@@ -331,7 +345,7 @@ test("an_enemy_upon_the_hero_comes_first_and_the_cursor_chooses_between_equals",
   const pick = (offsets, { facing = true, current = null } = {}) => {
     const map = classicDungeon(42);
     map.spawns = offsets.map(x => ({ x: map.start.x + x, z: map.start.z }));
-    const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, () => "default");
+    const run = new DungeonRun(arena.scene, 42, "default", false, map, undefined, [], () => "default");
     try {
       run.commands.setMode({ keyboard: true, facing });
       run.commands.cursor = { x: map.start.x + 40, z: map.start.z };

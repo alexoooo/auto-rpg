@@ -56,7 +56,7 @@ import { CONFIG } from "../src/config.ts";
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { unitDefinition } from "../src/units.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
-import { BUTTON_REACH } from "../src/buttons.ts";
+import { HAND_REACH } from "../src/hands.ts";
 import { GOLEM_TACTICS } from "../src/golem/tactics.ts";
 import { COMMITTED_SHAPES, GOLEM_TACTICS_V3, THRUST_SHAPES, golemStyled } from "../src/golem/tactics-v3.ts";
 import {
@@ -95,11 +95,11 @@ const blankIntent = () => ({
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
   primary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
   secondary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
 });
@@ -1629,20 +1629,26 @@ test("version_2s_nine_columns_are_the_trace_a_hand_stepped_recursion_predicts", 
  */
 test("golem_driver_fights_a_real_bout_and_the_ram_head_charges", async () => {
   const physics = await freshHavok();
-  const run = (setup, label, tuning = DRIVER) => {
-    const driven = golemDriver(SEED, tuning);
+  const run = (setup, label, tuning = DRIVER, seed = SEED) => {
+    const driven = golemDriver(seed, tuning);
     const blows = { left: 0, right: 0 };
+    // The head's own blows, by the effector that struck: a capped socket files contacts of its own
+    // (`cap.shove`), and counted with them the ram's claim passed with the plate unable to score.
+    let rammed = 0;
     const result = runBout({
       left: "golem-driver", right: "golem-fencer",
       leftUnit: "golem", rightUnit: "golem",
       leftGolem: setup, rightGolem: defaultGolemSetup(),
       locomotionMode: "supported",
-      seeds: [SEED, SEED + 17],
+      seeds: [seed, seed + 17],
       maxSeconds: 14,
       physics,
       leftMind: { name: "golem-driver", driven, decide: (view, dt) => driven.decide(view, dt) },
-      rightMind: golemFencer(SEED + 17),
-      onEvent: (event) => { blows[event.side] += 1; },
+      rightMind: golemFencer(seed + 17),
+      onEvent: (event) => {
+        blows[event.side] += 1;
+        if (event.side === "left" && event.effectorId.endsWith(".ram")) rammed += 1;
+      },
     });
     assert.ok(driven.asks > 0, `${label}: the driver was never asked anything in fourteen seconds`);
     const rate = driven.asks / result.seconds;
@@ -1651,7 +1657,7 @@ test("golem_driver_fights_a_real_bout_and_the_ram_head_charges", async () => {
     for (const [name, count] of Object.entries(driven.refusals)) {
       assert.equal(count, 0, `${label}: the driver wrote ${name} out of range ${count} times`);
     }
-    return { blows, strokes: driven.strokes, aborts: driven.aborts, seconds: result.seconds };
+    return { blows, rammed, strokes: driven.strokes, aborts: driven.aborts, seconds: result.seconds };
   };
 
   const plain = run(defaultGolemSetup(), "the default golem");
@@ -1663,11 +1669,23 @@ test("golem_driver_fights_a_real_bout_and_the_ram_head_charges", async () => {
   assert.ok(feinting.strokes > 0 && feinting.aborts > 0,
     "a driver deliberately showing strokes never took one back in a real bout");
 
-  const capped = run(setupWith({ head: "head.ram",
+  // **Up to four bouts for the ram, and the first in which the plate lands ends it**, because one
+  // fourteen-second bout is a draw from a distribution and not the claim. Node bout runner, the
+  // first 24 seeds from `SEED`, bouts in which the ram's own plate filed any contact: 20 of 24 at
+  // 240 Hz under the settled reading and 16 of 24 at 120 Hz under the arrival one, 40 and 38 plate
+  // contacts in all. `SEED` itself is a miss at 120 and lands on the third draw. Four misses in a
+  // row is the claim failing. Watched red with the plate's gate refusing every contact.
+  const cappedSetup = setupWith({ head: "head.ram",
     primary: { chain: "none", terminal: "none" },
-    secondary: { chain: "none", terminal: "none" } }), "the ram head");
-  assert.ok(capped.strokes > 0, "a body whose only weapon is its head never charged");
-  assert.ok(capped.blows.left > 0, "the ram head landed nothing at all in fourteen seconds");
+    secondary: { chain: "none", terminal: "none" } });
+  const rams = [];
+  for (let draw = 0; draw < 4 && !rams.some((ram) => ram.rammed > 0); draw += 1) {
+    const capped = run(cappedSetup, `the ram head, draw ${draw}`, DRIVER, SEED + draw);
+    assert.ok(capped.strokes > 0, `a body whose only weapon is its head never charged (draw ${draw})`);
+    rams.push(capped);
+  }
+  assert.ok(rams.some((ram) => ram.rammed > 0),
+    `the ram head landed nothing at all in four bouts of fourteen seconds: ${rams.map((ram) => ram.rammed)}`);
 });
 
 /**

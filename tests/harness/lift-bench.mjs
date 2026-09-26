@@ -40,7 +40,7 @@ import { PhysicsConstraintAxis, PhysicsMotionType } from "@babylonjs/core/Physic
 import { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 import { pathToFileURL } from "node:url";
 
-import { BUTTON_REACH } from "../../src/buttons.ts";
+import { HAND_REACH } from "../../src/hands.ts";
 import { CONFIG } from "../../src/config.ts";
 import { ATTRIBUTES, ATTRIBUTE_IDS } from "../../src/golem/attributes.ts";
 import { COLLIDES, LAYER } from "../../src/physics.ts";
@@ -67,8 +67,8 @@ export const everyStatAt = (value) => Object.freeze(Object.fromEntries(ATTRIBUTE
 })));
 
 export const DIRECTIONS = Object.freeze({
-  up: { pointerY: 1, reach: BUTTON_REACH.thrust },
-  sideways: { pointerX: 1, reach: BUTTON_REACH.thrust },
+  up: { pointerY: 1, reach: HAND_REACH.thrust },
+  sideways: { pointerX: 1, reach: HAND_REACH.thrust },
 });
 
 /**

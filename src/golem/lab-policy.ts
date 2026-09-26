@@ -149,7 +149,10 @@ export function bespokeMind(kind: Bespoke, seed: number): Mind {
     if (r.theirs === "commit") return choose("void", "parry", "withdraw");
     return kind === "punisher" ? choose("wait", "close", "hold") : choose("cut", "strike", "close");
   });
-  return { name: `lab-${kind}`, decide: (v, dt) => executor.decide(v, dt) };
+  return { name: `lab-${kind}`, decide: (v, dt) => executor.decide(v, dt),
+    // A fork of the world (`src/forkable.ts`): the executor and the feint's clock.
+    captureState: () => ({ executor, feinted }),
+    restoreState: (state) => { ({ feinted } = state as never); } };
 }
 
 export interface DenseLayer { weights: number[][]; bias: number[]; activation: "tanh" | "linear" }

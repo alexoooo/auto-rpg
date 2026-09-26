@@ -332,27 +332,50 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    */
   weight: Object.freeze({ label: "Weight", min: 0.8, max: 2, step: 0.05, live: true }),
   /**
-   * How big the body is: every body table at the stat by its fields' laws (`withSize` below),
-   * similarity at constant density with time as the root of length. Items keep their size, so a
-   * larger body is also a relatively smaller weapon. A human is fixed at x1
-   * (`FAMILY_FIXED_ATTRIBUTES`). Sessions 12a and 12b, 2026-09-23.
+   * How big the body is: every body table at the stat by its fields' laws (`withSize` below), on the
+   * biological pair at constant density -- force s^2, torque s^3, so a drive's time goes as s and a
+   * fall's as its root (`SIZE_LAW_POWER`). Items keep their size, so a larger body is also a
+   * relatively smaller weapon. A human is fixed at x1 (`FAMILY_FIXED_ATTRIBUTES`). Sessions 12a
+   * and 12b, 2026-09-23; the biological law, skill ceiling session 01, 2026-09-25.
    *
-   * **The floor is the arm, and it is x0.8.** Arm torque goes as s^4 and the item in the hand does
-   * not shrink. Node bench, `.review/size-bench.mjs arm`, stroke stray in mm:
+   * **The row is x0.8 to x1.1**, and the numbers that set it are the Node bench's
+   * (`research/size-bench.mjs`, release-120 at 5ac61ce, 120 Hz), stroke stray in mm, the pitch
+   * hinge's worst arrival in seconds, and the stone biped's mean planted-sole slip over a two-second
+   * walk against its 300 mm/s budget:
    *
-   *     size            0.75    0.80    1.00    1.25    1.50
-   *     wrist blade      109    48.8    37.9    22.1    36.3
-   *     skeletal blade  67.0    66.0    46.5    23.5    15.1
-   *     wrist whip      19.2    10.4     8.1     9.5     115
-   *     wrist maul       228     224     210    88.5     280
+   *     size              0.75    0.80    0.90    1.00    1.10    1.15    1.20    1.25    1.50
+   *     wrist blade        143    83.9    69.6    48.8    41.5    41.4    41.7    41.6    67.7
+   *     wrist whip        25.3    22.1    17.8    14.6    14.9    16.0    21.1    31.7     186
+   *     wrist maul         223     210     238     196     135     147     170     198     251
+   *     pitch arrival s   1.34   0.283   0.625   0.233   0.250   0.200   0.167   0.167   0.192
+   *     biped slip         186     163     161     223     253     413     444     609     466
    *
-   * At x0.75 the pitch hinge also takes 3.45 s to arrive, against 0.283 at x1. **The ceiling is
-   * x1.25**, because at x1.5 the whip and the maul stray and the biped's foot slip (414 mm/s)
-   * passes its 367 budget. Top speed goes as the root of size, and the impulse that staggers a body
-   * as about s^3.5: 0.38 N.s at x0.8, 0.80 at x1 and 1.72 at x1.25 on stone.
+   * **The floor is the arm, as it was.** At x0.75 the wrist blade strays three times its x1 figure
+   * and the pitch hinge takes 1.34 s to arrive with 0.85 rad of overshoot, exactly as they did
+   * under dynamic similarity (143.9 mm and 1.39 s at the same base). The law gives a small arm more
+   * torque than it had, and also a faster command (the rate goes as 1/s where it went as the root),
+   * and the item it holds does not shrink, so the small arm is no steadier than it was.
+   *
+   * **The ceiling is the stone biped's foot slip, and it came down from x1.25.** Its slip leaves
+   * the budget between x1.1 and x1.15. Neither torque nor gravity is why: the leg torques at the
+   * old s^4 read 411 mm/s at x1.2 against 444, and gravity scaled on the drive clock reads 588.
+   * What moves it is `LOCOMOTION_BIPED.targetRate`, which sits five to ten per cent above a cliff at
+   * x1 at 120 Hz (0.90 of it reads 685, 0.95 reads 279), and the cliff does not follow the drive
+   * clock exactly: 1.05 of the sized rate brings x1.2 to 221. The arms alone would allow x1.25,
+   * where every stroke is inside the bench's 50 mm or within 2.1 mm of its own x1 figure; at x1.5
+   * the whip and the maul stray, as before. The skeleton's own gait is inside its budget to x1.5.
+   *
+   * Top speed no longer grows with size (3.2 m/s at every level). What fells a body did not move
+   * with the law, because it is geometry and mass and no actuator: the bench's weakest-way fall
+   * impulse on stone reads 62.1, 85.9, 117.1 and 156.9 N s at x0.8, x0.9, x1 and x1.1 under both
+   * laws, about s^3 and not the s^3.5 the shove tables' `fallImpulse` law gives, because the live
+   * tipping line barely moves with size (0.479 to 0.480 m/s over the row).
    *
    * **A plate on the pitch chain is refused below x1** (`golemSetupRefusal`). The board keeps its
    * size and the chest under it does not, so the board sits 23 mm inside a plated chest at x0.8.
+   *
+   * The stat sweep below was taken under dynamic similarity; the biological law's is in
+   * `docs/analysis/2026-09-25-size-law.md`.
    *
    * Swept against an unmodified body over 384 bouts a level under the physical contact model
    * (`research/stat-sweep.mjs` at 231403a, physical contact session 10, Node harness, research
@@ -362,7 +385,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * 0.76). Under the attributes set's contact model stone lost by it above x1 (33.1 % at x1.25).
    * The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
    */
-  size: Object.freeze({ label: "Size", min: 0.8, max: 1.25, step: 0.05, live: true }),
+  size: Object.freeze({ label: "Size", min: 0.8, max: 1.1, step: 0.05, live: true }),
 });
 
 export const isAttributeId = (id: unknown): id is AttributeId =>
@@ -597,8 +620,35 @@ function scaledFields<T extends object>(table: T, keys: readonly NumberKey<T>[],
 
 /**
  * How one field of a body table changes when every length of the body is multiplied by `s`:
- * geometric similarity at constant density, with the time scale `sqrt(s)` that keeps a body's
- * motion under the same gravity looking the same (a pendulum's period goes as `sqrt(length)`).
+ * geometric similarity at constant density, **with the body's strength following biology rather
+ * than dynamic similarity** (the owner's decision, 2026-09-25; skill ceiling session 01). The
+ * argument, and the bench tables it moved, are `docs/analysis/2026-09-25-size-law.md`.
+ *
+ * **The pair everything follows from.** A muscle's force goes as its cross-section, so `force` is
+ * `s^2`, and a joint's `torque`, a force on a lever, is `s^3`. Mass stays `s^3` and inertia `s^5`.
+ * So a larger body is weaker for its mass by `1 / s`: it holds its own weight up with a torque of
+ * `s^3` against a load of `s^4`. Until then force went as `s^3` and torque as `s^4` (dynamic
+ * similarity), which made a larger body exactly as strong for its mass as a small one, and time
+ * went as `sqrt(s)` everywhere, drives and gravity alike.
+ *
+ * **Two clocks, where there was one.** Under dynamic similarity the drives and gravity kept one time
+ * scale, `sqrt(s)`, which is what made the similarity exact. Under the new pair they part:
+ *
+ * - **The drive clock is `s`.** An actuator turning a link through a fixed angle has an angular
+ *   acceleration of torque over inertia, `s^3 / s^5 = s^-2`, so the time it takes goes as `s` and
+ *   every rate it can hold as `1 / s`. A point on the link, `s` out, then moves at `s / s = s^0`:
+ *   **a larger body's limbs move no faster, and turn more slowly** -- Hill's result that animals of
+ *   one shape run at about one top speed whatever their size. A linear drive (a leg pushing the
+ *   carrier) accelerates at force over mass, `s^2 / s^3 = s^-1`. Every rate limit, servo response,
+ *   gait timing, rise and lunge in a table is on this clock: `speed`, `frequency`, `duration`,
+ *   `acceleration`, `angularAcceleration`.
+ * - **The fall clock is `sqrt(s)`.** What gravity alone does -- a body tipping over its base and
+ *   coming to rest, and the impulse that tips it -- was never dynamic similarity's to change,
+ *   because no actuator enters it: a pendulum's period goes as `sqrt(length)` whatever its
+ *   muscles. Those fields keep the powers they had under their own names: `fallSpeed`,
+ *   `fallDuration`, `fallImpulse`.
+ *
+ * The laws:
  *
  * - `one`: angles, ratios, fractions, health, armour, and anything whose value only matters by
  *   being set (a joint motor's `motorDamping`, measured to be saturated).
@@ -606,25 +656,36 @@ function scaledFields<T extends object>(table: T, keys: readonly NumberKey<T>[],
  * - `perLength`: `1 / s`. A stride's radians per metre of foot travel.
  * - `mass`: `s^3`. The weight stat multiplies on top.
  * - `inertia`: `s^5`, mass times length squared: a floor stated in kg m2.
- * - `torque`: `s^4`, what holds a pose against gravity.
- * - `force`: `s^3`.
- * - `impulse`: `s^3.5`, a mass times a speed.
- * - `speed`: `sqrt(s)`, a linear rate in m/s.
- * - `frequency`: `1 / sqrt(s)`, an angular rate or any per-second rate: a joint's target rate, a
- *   first-order response, a body's damping.
- * - `angularAcceleration`: `1 / s`.
- * - `duration`: `sqrt(s)`.
- *
- * A linear acceleration is `one`, since `sqrt(s) / sqrt(s)` is 1.
+ * - `force`: `s^2`, a muscle's cross-section. No table carries one today (the reach anchor's
+ *   `anchorForce` went in 2026-09-18); it is here so that the next one has its law.
+ * - `torque`: `s^3`, a force on a lever. Was `s^4`, what held a pose against gravity exactly.
+ * - `speed`: `s^0`, a linear rate a drive holds, m/s: a joint's rate times the lever it acts on. Was
+ *   `sqrt(s)`.
+ * - `frequency`: `1 / s`, an angular rate or any per-second rate a drive sets: a joint's target
+ *   rate, a first-order servo response, a body's damping. Was `1 / sqrt(s)`. Damping is on the
+ *   drive clock because it is there to settle the drives: at the drive's own frequency the loop
+ *   keeps its damping ratio, where the fall clock would over-damp a larger body's every move.
+ * - `duration`: `s`, the time a drive takes: a lunge, a ramp, a rise. Was `sqrt(s)`.
+ * - `acceleration`: `1 / s`, a linear acceleration a drive can give its own mass: force over mass.
+ *   Was `one` (`sqrt(s) / sqrt(s)`), and not a law of its own.
+ * - `angularAcceleration`: `1 / s^2`, torque over inertia. Was `1 / s`.
+ * - `fallSpeed`: `sqrt(s)`, a speed gravity sets: how fast a falling body is still coming down.
+ * - `fallDuration`: `sqrt(s)`, a time gravity sets: how long a fall takes to finish and settle.
+ * - `fallImpulse`: `s^3.5`, the impulse that tips a body over its base: its mass times the speed
+ *   its tipping line is (`tippingLineMps` in `src/tipping.ts`, a root of `g` times a length).
+ *   This was `impulse`, "a mass times a speed", when there was one kind of speed. A drive's
+ *   impulse, mass times a drive speed, is `s^3`; no table carries one, so it has no law.
  */
 export type SizeLaw =
-  | "one" | "length" | "perLength" | "mass" | "inertia" | "torque" | "force" | "impulse"
-  | "speed" | "frequency" | "angularAcceleration" | "duration";
+  | "one" | "length" | "perLength" | "mass" | "inertia" | "force" | "torque"
+  | "speed" | "frequency" | "duration" | "acceleration" | "angularAcceleration"
+  | "fallSpeed" | "fallDuration" | "fallImpulse";
 
 /** The power of `s` each law multiplies by. */
 export const SIZE_LAW_POWER: Readonly<Record<SizeLaw, number>> = Object.freeze({
-  one: 0, length: 1, perLength: -1, mass: 3, inertia: 5, torque: 4, force: 3, impulse: 3.5,
-  speed: 0.5, frequency: -0.5, angularAcceleration: -1, duration: 0.5,
+  one: 0, length: 1, perLength: -1, mass: 3, inertia: 5, force: 2, torque: 3,
+  speed: 0, frequency: -1, duration: 1, acceleration: -1, angularAcceleration: -2,
+  fallSpeed: 0.5, fallDuration: 0.5, fallImpulse: 3.5,
 });
 
 /** The fields of `T` a size law must be declared for: every number, and every nested record. */

@@ -81,3 +81,38 @@ and nothing about the fight got worse from the surface change.
 ## Depends on
 
 Session 05 (the footwork check). The orders half does not depend on it and may land first.
+
+## Result: the orders half
+
+Landed on 2026-09-26, in five commits (683cbf7 plumbing, c75c488 arena, 0a6d9ce dungeon, 814b81d
+drill, c9173ae retirements). The command-surface half has not been started. The write-up is
+`docs/analysis/2026-09-26-orders.md`.
+
+- **Orders.**
+  - `src/orders.ts` has `Orders { target, destination }`, a person's `StandingOrders`, and the
+    auto-commanders `attack-nearest` and `hold-here`.
+  - Every mind obeys through the `OrderFollower`, which takes the footwork only, so a body under a
+    move order still fights and guards.
+  - The arena takes clicks, right-click attack-move, WASD, H and X, with Command / Stand down.
+  - In the dungeon one person orders a party of the hero and up to three companions.
+- **No orders is bit-identical.**
+  - Arena: 28 bouts in the Node bout runner (7 benchmark minds x 3 builds against the duelist,
+    plus a mirror each, 4 lanes). Every trajectory hash and verdict was identical on the base tree,
+    after the plumbing and after the retirements.
+  - Dungeon: a solo run was identical across six scenarios in the Node headless dungeon harness.
+- **The hold-under-orders drill** joins session 03's suite. Over 200 runs (Node bout runner and
+  fork harness, 150 scored), every rung arrived and held on every scored start. Pass rates were
+  idle 0 %, walker 4 %, duelist 10 % and guardless duelist 30 %: the wound decides the drill, not
+  obedience. Moving under orders costs no measurable wound (40 starts, fork harness).
+- **Retired:**
+  - `splitMind`/`handover` and the human driver;
+  - the cursor and pose inverses;
+  - the takeover UI and its config;
+  - the `COMBAT_FIELDS` fixtures;
+  - `src/options.ts`, whose behaviour record moved into `src/recorder.ts`.
+
+  `src/buttons.ts` moved to `src/bench/buttons.ts`, since the bench puppet still presses buttons,
+  and `BUTTON_REACH` became `HAND_REACH` in `src/hands.ts`. No benchmark mind or research script
+  read a target, so nothing was refused. `AGENTS.md`'s first house rule and the input traps were
+  rewritten in the same commit.
+- **Eye gate: deferred.** The analysis lists what the owner should look at.

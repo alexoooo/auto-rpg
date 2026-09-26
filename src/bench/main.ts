@@ -43,7 +43,7 @@ import {
 import { buildLocomotionCourse, registerLocomotionCourse } from "../golem/locomotion/course.ts";
 import { buildGolemStand, golemLayers, type GolemStand } from "../golem/stand.ts";
 import { EFFECTOR_SLOTS, effectorSlot, type GolemSlot } from "../golem/module.ts";
-import { Controls } from "../input.ts";
+import { PuppetControls } from "./puppet-controls.ts";
 import { attachPhysics } from "../physics.ts";
 import { flatSupportedWorldRegistry } from "../supported-locomotion-production.ts";
 import { BenchOverlay } from "./overlay.ts";
@@ -80,7 +80,7 @@ import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
  * torso has one, and the last head-slot option anybody picked is what goes on it. The gate that
  * needs it is the one the session plan actually asks -- lean a trunk *with a head on it* and see
  * whether the head bobs. `controls.ownership.posture` is set true for the same gate's sake:
- * `Controls` gates the arrow keys on ownership because in the arena a policy steers the body, and
+ * `PuppetControls` gates the arrow keys on ownership because in the arena a policy steers the body, and
  * on a bench the person is the only driver there is.
  *
  * **It carries no list of what it can show.** The picker is built from `GOLEM_MODULES` in
@@ -516,12 +516,12 @@ async function main(): Promise<void> {
   build();
 
   // --- input -------------------------------------------------------------------------------
-  // `Controls` is the arena's, unchanged, because the frozen choice for this session is that
-  // the mouse mapping is the page's existing one: the cursor is absolute, its position is where
-  // the effector is asked to be, and `F` swaps sockets. What the bench does not have is a bout,
-  // a target, a takeover or a camera mode, so those hooks are answered with nothing.
+  // `PuppetControls` is the arena's old controller, which moved here when the arena began taking
+  // orders instead (skill ceiling session 06): the cursor is absolute, its position is where the
+  // effector is asked to be, and `F` swaps sockets. What the bench does not have is a bout or a
+  // camera mode, so those hooks are answered with nothing.
   const noop = (): void => { /* the bench has no bout to do this to */ };
-  const controls = new Controls(canvas, {
+  const controls = new PuppetControls(canvas, {
     onReset: () => build(),
     onToggleReadout: () => {
       readoutWanted = !readoutWanted;
@@ -559,8 +559,6 @@ async function main(): Promise<void> {
     },
     onToggleCamera: noop,
     onRotateCamera: noop,
-    onToggleLock: noop,
-    onToggleTakeover: noop,
     onSwapHands: () => {
       // **What `F` means depends on how many effectors are on the stand, and both meanings are
       // the same sentence.** An effector reads the channel of the socket it was built into, so
@@ -584,10 +582,9 @@ async function main(): Promise<void> {
       }
       build();
     },
-    onPrimaryDown: () => false,
   });
   // **The person owns their own posture here, and without this line a torso has no writer.**
-  // `Controls` gates the arrow keys on `ownership.posture`, which is false by default because in
+  // `PuppetControls` gates the arrow keys on `ownership.posture`, which is false by default because in
   // the arena a policy is steering the body while the person spends the mouse on one hand. There
   // is no policy on the bench: the person is the only driver, so `Intent.posture.trunkLean` and
   // `trunkTwist` are theirs to write and nothing else would ever write them. A command channel
@@ -604,7 +601,7 @@ async function main(): Promise<void> {
   // what a bearing is.
   controls.camera.yaw = -1.1;
 
-  // The number keys, `P` and `B` are the bench's own, because `Controls` has no opinion about any
+  // The number keys, `P` and `B` are the bench's own, because `PuppetControls` has no opinion about any
   // of them: its default branch drops an unhandled code into the held set, where a digit, a `P`
   // and a `B` are all inert.
   //

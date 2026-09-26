@@ -121,7 +121,7 @@ export function driverPilot(seed: number, T: DriverTactics = DRIVER): Pilot {
   let feinting = false;
   let feintAt = Number.POSITIVE_INFINITY;
 
-  return (reading, view): StyleCommand => {
+  const pilot: Pilot = (reading, view): StyleCommand => {
     const them = view.opponent;
     const clock = view.clock;
     const rise = them.crownHeight - them.ground.y;
@@ -250,6 +250,13 @@ export function driverPilot(seed: number, T: DriverTactics = DRIVER): Pilot {
     if (circling) command.strafe = clamp(reading.circleSide * T.circleStrafe, -1, 1);
     return command;
   };
+  // A fork of the world (`src/forkable.ts`): the stream, the command it writes, and its phase.
+  return Object.assign(pilot, {
+    captureState: (): Record<string, unknown> => ({ random, command, T, opened, patience, circling, phaseUntil, strokeHeight, strokeLateral, strokeSwing, strokeBite, feinting, feintAt }),
+    restoreState(state: Record<string, unknown>): void {
+      ({ opened, patience, circling, phaseUntil, strokeHeight, strokeLateral, strokeSwing, strokeBite, feinting, feintAt } = state as never);
+    },
+  });
 }
 
 /** The mind over the executor, with an optional hook on the ask for a command log. */

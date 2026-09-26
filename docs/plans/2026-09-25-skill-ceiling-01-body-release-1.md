@@ -80,11 +80,34 @@ The follow-up studies, all Node, each with its own analysis dated 2026-09-25:
   held ideal step, not our code, and the excess is not significant once clustered. A real ledger
   error was fixed on the way: a held push was added after the righting, not against it.
 
-What is left for part 3:
+**Release 120 landed on 2026-09-25**, on the owner's word ("turn on arrival reading", "go ahead
+with the 120hz change (and associated tuning)", and a falls retune):
 
-- the switch to the arrival reading, the owner's balance call;
-- the close-contact posture at 120;
-- the 7 residual tests.
+- **Defaults.** `physicsHz` and `controlHz` are 120, `solverTuningHz` stays 240, and
+  `contactReading` is "arrival".
+- **Arm servos** (`docs/analysis/2026-09-25-release-120.md`). `JointServo.track` aimed at the
+  target of the step it was in, a lead of one step, which doubled at 120: every parry arrived early
+  and overshot. The lead, the gain and the arm's command filter are now held per second at
+  `solverTuningHz`, so 240 is bit-identical. The wrist blade parry overshoot went from +77.8 to
+  -2.9 mm, paired against 240 (Node golem bench). No motor ceiling moved.
+- **Arrival fraction per striker kind.** `club` and `empty` bill at 0.62 and every other kind at
+  0.56. Every mirror's length is inside its clustered interval of settled 240 (Node research
+  runner, 192 paired bouts each).
+- **Falls and the rise** (`docs/analysis/2026-09-25-falls-and-rise.md`). The rise is staged: gather
+  the feet, squat, extend with the trunk last. It is judged on its most centred stance, and is not
+  cancelled by a body lying beside it. The skeleton's legs moved under its weight
+  (`SKELETON_BIPED.hipAhead` 0.09), and `LOCOMOTION_BIPED.targetRate` went from 10.5 to 11.5. Falls
+  per minute roughly halved (stone 2.51 to 1.37, skeleton 17.19 to 9.30), and falls during a rise
+  went from 126 to 0 on stone and from 3310 to 87 on the skeleton (Node research runner, 192 bouts
+  a group).
+- **The size law** (part 2 below, `docs/analysis/2026-09-25-size-law.md`) landed in the same merge.
+- **Tests.** The residual reds were the tests themselves and are rate-honest now, each mutated to
+  show it bites. The one real residual was the strafe: nothing ever wrote the ankle's roll, so a
+  stance sole rolled onto its leading edge and stood past the plant band at every handover at 120.
+  `bipedAnkleRoll` levels it (42 to 0 of 959 airborne substeps, Node locomotion bench).
+
+What is still open is on the owner's list in `2026-09-25-skill-ceiling-00-overview.md`: the eye
+gates, and the skeleton at about 9 falls a minute against a proposed band of 3 to 5.
 
 **Three parts:**
 
@@ -131,6 +154,14 @@ slower for its mass, which is the trade-off the owner asked for.
 
 ## 3. Arms built at guard
 
+**Done 2026-09-25** (`docs/analysis/2026-09-25-arms-at-guard.md`). Every arm is built at the pose its
+rest command holds (`restCursor` in `src/golem/effectors/chains/arm-core.ts`). An idle stone tip
+peaks at 0.10 m/s in the first 0.6 s, against 12.8. The first contact in a stone mirror moved from
+0.117 s, before any mind acted, to 0.217-0.283 s, after the bodies close. `settleSeconds` is now
+refused, because a settle runs no control and lets the arms droop. The trailing maul chain is not
+yet built at its grip. Paired bouts moved nothing outside their intervals (Node research runner,
+384 bouts a tree).
+
 Fighters are built with both arms hanging and swept to guard, so both blades meet and score at
 t = 0.067 s. `settleSeconds` in `tests/harness/bout-runner.mjs` only partly cures it: a first blow
 still lands 0.05 s after scoring opens. Build each arm's links already at the guard pose, following
@@ -143,6 +174,18 @@ the header rule in `AGENTS.md` about welds that disagree at construction. Then c
 - a first contact at no earlier than the time the two bodies can physically close.
 
 ## 4. The side-mirror gate
+
+**Done 2026-09-25** (`docs/analysis/2026-09-25-side-mirror.md`). `research/side-mirror.mjs` is the
+full-n row and `tests/side-mirror.test.mjs` the suite's. The band comes from distinct trajectories:
+the brawler's 128 bouts are 20, and the guardian's are one. On c563e66, 13 of 14 mirrors pass at 128
+bouts (Node research runner). The guardian fails, 128 of 128 to the left, because its seed first acts
+after its 2.15 s mirror is over, and it is listed in `SIDE_DECIDED`, which both comparison scripts
+refuse. The v4 mirrors pass on this tree (reaper 48.8, driver 55.5, miser 59.7), and the 15 % and
+64 % below are not reproduced. The miser passes twice at 128 but fails pooled over 186 distinct
+bouts (59.4 +- 7.2). Its cause and the guardian's are a seed-independent opening decided by float
+rounding between two symmetric slots: the exactly mirrored world hands each lean to the other side.
+There is no arena or body bias: 49.8 +- 2.8 % left, pooled. `research/league.mjs --mirror` reads the
+same verdict.
 
 Every mind in the probe set and every naive-ladder mind plays its own mirror, 128 bouts, with scores
 split by side. A side that differs from 50 % by more than the 95 % band fails. The v4 mirrors are
@@ -160,6 +203,29 @@ The gate becomes a test at a smaller n that runs in the suite, and a research-ha
   compared with the old figures as a regression.
 - The idle-dummy matrix, as recorded, not gated. Session 05 gates it with the expert.
 
+**Result, 2026-09-25** (`docs/analysis/2026-09-25-release-1-baseline.md`). Release 1 is cb1bd38,
+measured with the instruments in ebd8fc3 and cd800eb.
+
+- **Fingerprint.** All 55 body-fingerprint sections moved, as a change of rate must. The readable
+  readout (`research/body-readout.mjs`) shows what moved:
+  - no x1 body's build-time number, except the fall line;
+  - the size law's rates and torques at x0.8 and x1.1;
+  - the giant, from 949 kg and 2.63 m to 648 kg and 2.31 m.
+- **Control row** (Node research runner, 384 bouts, 372 distinct trajectories):
+  - damage 7.21 +- 0.83 a body a bout;
+  - falls 0.67 +- 0.86;
+  - bout 24.4 +- 13.3 s;
+  - decided 96.3 +- 8.5 % (clustered by the ten pairings);
+  - the x1-against-x1 win share, a null, 45.6 +- 5.9 %;
+  - the miser takes 86 % of its bouts against the other three.
+- **Idle matrix** (same runner, naive family minds). The seven carried cells are all still at zero:
+  the skeleton against stone, human and giant, and the human against everything. Among the other
+  seventeen builds, a further 40 cells of 68 are at zero:
+  - every human build;
+  - every skeleton build against stone, human and giant, and the skeleton maul against a skeleton
+    too;
+  - the maul, whip, fists and capped-ram stone builds against every dummy.
+
 ## Eye gate
 
 The owner watches, on the dev server:
@@ -167,7 +233,7 @@ The owner watches, on the dev server:
 - stone default against stone default;
 - the all-max giant against x1;
 - the human and the skeleton each against stone;
-- a size x0.8 against a size x1.25.
+- a size x0.8 against a size x1.1, the ceiling since the size law (it was x1.25 when this was written).
 
 What to look for: blades that still read as fast and solid at the new rate; nothing passing through
 anything; the opening, with no clash before the bodies close; and the size trade-off, with the big

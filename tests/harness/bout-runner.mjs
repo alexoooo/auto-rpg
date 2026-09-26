@@ -45,11 +45,13 @@ import { CONFIG } from "../../src/config.ts";
 import { attachPhysics, LAYER, COLLIDES } from "../../src/physics.ts";
 import { ROOM_WALL_COLLIDERS } from "../../src/arena-room.ts";
 import { stepPair } from "../../src/fighter.ts";
+import { pairSubstep, setPairSubstep } from "../../src/control-host.ts";
 import { policyForUnit, unitDefinition } from "../../src/units.ts";
 import { Combat } from "../../src/combat.ts";
 import { policyMind } from "../../src/mind.ts";
 import { advance, begin, selectScreen } from "../../src/bout.ts";
 import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-production.ts";
+import { trackWorld } from "../../src/fork/native.ts";
 import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBoutRecorder,
   wireBoutRecorder } from "../../src/recorder.ts";
 
@@ -88,6 +90,9 @@ export function buildArena(physics = havok) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachPhysics(scene, physics);
+  // Before the first body: a fork pairs this world's bodies and joints with another's by the order
+  // they were made in (`src/fork/native.ts`). Recording them changes nothing the solver sees.
+  trackWorld(scene);
   scene.getPhysicsEngine().setSubTimeStep(1000 / CONFIG.world.physicsHz);
 
   const mat = (name) => new StandardMaterial(name, scene);
@@ -213,7 +218,8 @@ export function createBout({
   leftUnit = "golem", rightUnit = "golem",
   leftGolem = undefined, rightGolem = undefined,
   locomotionMode = undefined,
-  leftMind = null, rightMind = null, onSample = null, onEvent = null, onRefusal = null,
+  leftMind = null, rightMind = null, leftCommander = null, rightCommander = null,
+  onSample = null, onEvent = null, onRefusal = null,
   onVerdict = null, postVerdictFrames = 0, postVerdictActionProbe = false, physics = havok,
   settleSeconds = 0,
   maxSeconds = CONFIG.bout.capSeconds,
@@ -222,6 +228,31 @@ export function createBout({
 }) {
   if (!Number.isFinite(maxSeconds) || maxSeconds <= 0) {
     throw new Error("runBout maxSeconds must be a positive finite number");
+  }
+  /**
+   * `settleSeconds` used to run that much physics before either `Combat` watched the other body,
+   * and **only zero is accepted now**, because the thing it half-cured is gone and what it did is
+   * now a defect.
+   *
+   * Both fighters were built with their arms hanging and swept to guard, so both blades met at
+   * t = 0.067 s (later 0.117 s at 120 Hz), before any mind had acted -- byte-identical openings
+   * across minds, which is the tell of construction rather than tactics. Settling first partly
+   * cured it. Since 2026-09-25 every arm is built at the pose its rest command holds
+   * (`restCursor` in `src/golem/effectors/chains/arm-core.ts`), an idle mirror at the arena's own
+   * separation makes no contact at all in its first second in any playable build, and nothing is
+   * left to settle.
+   *
+   * And settling now does harm: no control step runs while it does, so no joint motor is driven
+   * and an arm built at guard hangs slack under gravity for the whole of it. After 0.6 s the
+   * primary tip was 1.29 m from where the same bout had it with no settle (stone default; 2.23
+   * human, 1.23 skeleton), and the first control step swept it back up. Four seed pairs of every
+   * probe-mind mirror, Node bout runner, 120 Hz: damage in the first 0.5 s, settle 0 against 0.6,
+   * stone default 0.000 / 0.351 (miser), 0.000 / 0.300 (duelist). A caller that asks for a settle
+   * is asking for that, so it is refused by name rather than run.
+   * `docs/analysis/2026-09-25-arms-at-guard.md`.
+   */
+  if (settleSeconds !== 0) {
+    throw new Error("runBout settleSeconds must be 0: arms are built at guard, and a settle runs no control, so it only lets them droop");
   }
   // Refused rather than clamped, and by name: a schedule that parsed a stage wrongly would
   // otherwise put two bodies inside one another and read as a physics failure three files away.
@@ -263,6 +294,11 @@ export function createBout({
       locomotionWorld,
     });
 
+  // Who orders each body (`src/orders.ts`). Null, the default, is no commander at all: the bout
+  // every caller ran before orders existed.
+  left.control.commander = leftCommander;
+  right.control.commander = rightCommander;
+
   const leftRecord = sideRecord(leftPolicy);
   const rightRecord = sideRecord(rightPolicy);
   const recorder = new BoutRecorder();
@@ -285,52 +321,6 @@ export function createBout({
       onRefusal === null ? undefined : (event) => onRefusal({ side: "right", ...event })),
       record: rightRecord, last: null },
   ];
-  /**
-   * Seconds of physics run before either `Combat` is allowed to watch the other body.
-   *
-   * **Opt-in, and zero by default, because turning it on moves every recorded number.** Both
-   * fighters are built with their arms hanging at the hip and spawn 2.6 m apart, and the anchor
-   * sweeps each hand up to guard over the first tenth of a second. The hand is rate-limited to
-   * 6 m/s, but a 6 m/s hand whips a 0.9 m blade to about 20 m/s, and at 2.6 m the two points
-   * reach each other: **both blades clash and score at t = 0.067 s**, four frames in, before any
-   * mind has influenced anything.
-   *
-   * Measured across seven minds in their own mirrors, that opening is worth 1.0 to 1.3 of the
-   * roughly 8 damage in a bout -- 13 to 16 % of the whole budget -- and it is **lopsided**, by up
-   * to 0.45 of a bar to one side, deterministically, every time. Three different minds on two
-   * different executors (`golem-reaper`, `golem-driver`, `golem-form`) score byte-identical
-   * openings, which is the tell that it is construction and not tactics: it is `WARMUP`'s 77 m/s
-   * snap, one layer on, and `WARMUP` only ever kept it out of a *readout*.
-   *
-   * Settling first is what a fight actually does -- both fighters are on guard before it starts.
-   * **It is a partial cure and is not claimed as more.** At 0.6 s, 16 mirror bouts a row, the
-   * construction asymmetry goes but an early exchange does not:
-   *
-   * ```
-   *                    settle 0                       settle 0.6
-   * mirror        L dmg  R dmg   L-R   left-win    L dmg  R dmg   L-R   left-win
-   * golem-duelist  0.476  0.617 -0.141   62.5      0.471  0.614 -0.143   43.8
-   * golem-fencer   0.476  0.617 -0.141   31.3      0.471  0.614 -0.143   50.0
-   * golem-champion 0.620  0.575 +0.045   62.5      0.615  0.565 +0.050   50.0
-   * golem-reaper   0.889  0.438 +0.451    0.0      0.792  0.526 +0.266   31.3
-   * golem-driver   0.889  0.438 +0.451   62.5      0.403  0.451 -0.048   43.8
-   * golem-form     0.889  0.438 +0.451   81.3      0.403  0.451 -0.048   37.5
-   * ```
-   *
-   * The three minds that shared a byte-identical +0.451 opening no longer do, and every mirror
-   * moves toward 50 -- but a first blow still lands 0.05 s after scoring opens, at 13.4 m/s, so
-   * by 0.6 s the bodies have closed and are genuinely fighting rather than still standing up.
-   * The win-rate columns are 16 bouts each and carry a +/-24 point band; the damage columns are
-   * what carries the finding. Curing it properly means building the arms at guard rather than
-   * sweeping them there, which is a change to the body and not to the harness.
-   */
-  if (settleSeconds > 0) {
-    const settleFrames = Math.round(settleSeconds * 60);
-    for (let i = 0; i < settleFrames; i += 1) {
-      scene._renderId += 1;
-      scene._advancePhysicsEngineStep(1000 * FRAME);
-    }
-  }
   sides[0].combat.attach(right);
   sides[1].combat.attach(left);
 
@@ -342,14 +332,15 @@ export function createBout({
   /**
    * Seconds at the top of a bout during which no blade counts as driven.
    *
-   * Both arms are built hanging straight down and the anchor keyframes itself
-   * onto the commanded pose on the very first control step, so the grip drags
-   * the hand and a 1.35 kg lever from the hip to the guard in one substep. That
-   * snap takes the point of the blade to **77 m/s** in a fighter that never
-   * swings at all -- `idle`'s figure, and identical to within 3 m/s across every
-   * bout, which is the tell that it is construction and not tactics. It is real,
-   * and the page does it too the moment you press Fight, but it is not a swing
-   * and counting it would answer the tip-speed claim with an artefact.
+   * Written for the Warrior, whose arms were built hanging and whose anchor keyframed onto the
+   * commanded pose on the first control step: a snap worth **77 m/s** at the point in a fighter
+   * that never swung. Golem arms were built hanging too and swept to guard over their first tenth
+   * of a second (12.8 m/s at the tip, stone default, idle). **Since 2026-09-25 every arm is built
+   * at guard** and an idle fighter's tip peaks at 0.16 m/s or less in this window in every playable
+   * build but the whip, whose free lash drops 3.3 m/s under gravity (Node bout runner, 120 Hz), so
+   * what the window now holds is each mind's own first moves under `CHAIN_REACH.acquireSeconds`.
+   * It is kept at 0.6 so that `peakTipDriven` stays comparable with every figure recorded against
+   * it; a reading that wants those first moves should take `peakTip`.
    */
   const WARMUP = 0.6;
 
@@ -541,7 +532,24 @@ export function createBout({
     scene.dispose();
     engine.dispose();
   };
-  return { step, finish, result, dispose, left, right,
+  // What a fork of this bout captures and restores (skill ceiling session 02, `tests/harness/fork.mjs`):
+  // the two bodies and the two ledgers are walked field by field; this runner's own lets, and the
+  // pair's control clock in `control-host.ts`, are the one closure the walk cannot see into.
+  const runner = {
+    captureState: () => ({
+      state, decided, frames, finished, disposed, leftRecord, rightRecord, sides,
+      substep: pairSubstep(left),
+    }),
+    restoreState: (s) => {
+      ({ state, decided, frames, finished, disposed } = s);
+      setPairSubstep(left, s.substep);
+    },
+  };
+  const forkWorld = () => ({
+    roots: { runner, left, right, leftCombat: sides[0].combat, rightCombat: sides[1].combat, recorder },
+    topological: [left, right],
+  });
+  return { step, finish, result, dispose, left, right, scene, forkWorld,
     get active() { return !disposed && active(); }, get clock() { return state.clock; } };
 }
 

@@ -5,12 +5,13 @@ import {
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
-import type { HandCursor, HandIntent } from "../../../mind.ts";
+import type { HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import { slewTowards } from "../../anchor-drive.ts";
 import { attributeOf, withArmSpeed, withSize, withWeight } from "../../attributes.ts";
 import { CHAIN_PITCH, CHAIN_PITCH_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";
+import { restCursor } from "./arm-core.ts";
 import {
   defineChain,
   rodInertia,
@@ -58,21 +59,6 @@ const pitchForPointer = (pointerY: number): number => {
   const P = CHAIN_PITCH;
   const t = pointerY < -1 ? -1 : pointerY > 1 ? 1 : pointerY;
   return P.pitchMin + ((t + 1) / 2) * (P.pitchMax - P.pitchMin);
-};
-
-/**
- * And back again: where the cursor has to sit for this pitch to be the one commanded.
- *
- * Written here rather than at the caller, immediately beside the forward mapping, because a
- * cursor inverse spelled somewhere else is the defect `tests/handover.test.mjs` records paying
- * for -- the plausible inverse and the correct one agreed on one side of centre and nobody
- * noticed until both sides were sampled.
- */
-const pointerForPitch = (pitch: number): number => {
-  const P = CHAIN_PITCH;
-  const span = P.pitchMax - P.pitchMin;
-  const t = span === 0 ? 0 : ((pitch - P.pitchMin) / span) * 2 - 1;
-  return t < -1 ? -1 : t > 1 ? 1 : t;
 };
 
 /**
@@ -140,18 +126,22 @@ export const pitchChain = defineChain({
     const socket = ctx.socket;
     const facing = socket.rotation;
 
-    // The link hangs straight down from the socket, its own +Y pointing back up at the socket
-    // exactly as every Warrior bone does. Building it anywhere else would put the hinge's two
-    // frames at odds at construction, which is a violation the solver clears by throwing the
-    // limb.
+    // **The link is built at guard: at the pitch the hand's rest command asks for** (`restCursor`
+    // in `arm-core.ts`), its own +Y pointing back up at the socket exactly as every Warrior bone
+    // does. It used to hang straight down and be swept up to `restPitch` on the first steps, which
+    // is a limb moving before anybody moved it. A pitch inside the hinge's stops is a hinge built
+    // at an angle, not a violation: the frame is the socket's turned about its own lateral by the
+    // pitch, which is the relative rotation `writeMotor` holds, so the two agree at construction.
+    const buildPitch = pitchForPointer(restCursor(socket.slot).pointerY);
+    const linkFrame = facing.multiply(Quaternion.RotationAxis(new Vector3(1, 0, 0), -buildPitch));
     const down = new Vector3();
-    new Vector3(0, -1, 0).rotateByQuaternionToRef(facing, down);
+    new Vector3(0, -Math.cos(buildPitch), Math.sin(buildPitch)).rotateByQuaternionToRef(facing, down);
     const position = socket.world.add(down.scale(P.linkLength / 2));
 
     const part = capsulePart(ctx.scene, {
       name,
       position,
-      rotation: facing,
+      rotation: linkFrame,
       height: P.linkLength,
       radius: P.linkRadius,
       mass: P.linkMass,
@@ -174,13 +164,12 @@ export const pitchChain = defineChain({
       swing: { x: { min: -P.jointMax, max: -P.jointMin } },
     });
 
-    // **The command starts at the build pose, not at the cursor.** The link is built hanging
-    // straight down, so a command initialised anywhere else would be a step the rate limiter
-    // has to run on the very first control step -- which is precisely how a Warrior arm
-    // keyframes onto its commanded pose and reads 77 m/s of tip speed in a fighter that never
-    // swings. Starting here and slewing up makes the first move a move.
-    let commandedPitch = 0;
-    let wantedPitch = P.restPitch;
+    // **The command starts at the build pose, and the build pose is the rest command.** A command
+    // initialised anywhere else would be a step the rate limiter has to run on the very first
+    // control step -- which is how a Warrior arm keyframed onto its commanded pose and read 77 m/s
+    // of tip speed in a fighter that never swung. Here nothing has to be run at all.
+    let commandedPitch = buildPitch;
+    let wantedPitch = buildPitch;
     let severed = false;
     /** Set once by `unmotorise`: this limb is carried by something rather than driven. */
     let passive = false;
@@ -299,7 +288,8 @@ export const pitchChain = defineChain({
         link: part,
         pivot: new Vector3(0, -P.linkLength / 2, 0),
         world: socket.world.add(down.scale(P.linkLength)),
-        rotation: facing.clone(),
+        // The link's own build frame: a weld is built in the frame of the link it welds onto.
+        rotation: linkFrame.clone(),
         mount: LINK_MOUNT,
       }),
       ownTerminal: null,
@@ -335,21 +325,6 @@ export const pitchChain = defineChain({
       // to stray from. Session 03's chains have one and fill both of these in.
       anchor: () => null,
       anchorStray: () => null,
-
-      /**
-       * The seed a takeover needs: one axis, so one number.
-       *
-       * `pointerX`, `roll` and `wristBend` are zero because nothing on this rung reads them --
-       * the frozen rule "a chain that has no use for a field ignores it", answered from the
-       * other side. `reach` joins that list here, and on this rung it really is a zero rather
-       * than an omission: there is one link on one hinge and no distance to command. Taken from
-       * `commandedPitch`, which is where the rate limiter has got to rather than where the cursor
-       * was, so the first command after a handover is the command the outgoing driver had left
-       * standing.
-       */
-      cursor: (): HandCursor => ({
-        pointerX: 0, pointerY: pointerForPitch(commandedPitch), reach: 0, roll: 0, wristBend: 0,
-      }),
 
       commandedEnd(distanceFromSocket: number): Vector3 {
         // The commanded limb direction at the commanded pitch, in the mount's frame, carried
@@ -389,6 +364,14 @@ export const pitchChain = defineChain({
         part.body.dispose();
         part.shape.dispose();
         part.mesh.dispose(false, false);
+      },
+
+      // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+      captureState: (): Record<string, unknown> => ({
+        hinge, commandedPitch, wantedPitch, severed, passive, P, down, axisView, axes, scratch,
+      }),
+      restoreState(state: Record<string, unknown>): void {
+        ({ hinge, commandedPitch, wantedPitch, severed, passive } = state as never);
       },
     });
   },

@@ -103,6 +103,23 @@ test("group locomotion constrains swept encounters and queued actors without pai
   assert.equal(alone[0].x, 0.25);
 });
 
+test("two_party_members_slide_past_each_other_where_strangers_stop", () => {
+  // Touching (1 m apart at 0.5 m radii), the walker moving obliquely into a body that stands still.
+  const open = { allowedFraction: () => 1 };
+  const pair = () => [proposal(0, 0, 0.3, 0.3), proposal(1, 0, 0, 0)];
+  const strangers = resolveGroupMoves(pair(), [true, true], open);
+  assert.deepEqual([strangers[0].x, strangers[0].z], [0, 0], "strangers: the whole move is refused");
+  assert.deepEqual(resolveGroupMoves(pair(), [true, true], open, ["enemy", null]), strangers, "no two groups alike: strangers");
+  const friends = resolveGroupMoves(pair(), [true, true], open, ["party", "party"]);
+  assert.ok(Math.abs(friends[0].x) < 1e-12, "friends: the part that closes on the other is refused");
+  assert.equal(friends[0].z, 0.3, "and the part along it is kept");
+  assert.deepEqual([friends[1].x, friends[1].z], [0, 0]);
+  // Both moving into each other, head on and off-line: each keeps only what does not close on the other.
+  const both = resolveGroupMoves([proposal(0, 0, 0.2, 0.1), proposal(1, 0, -0.2, 0.1)], [true, true], open, ["party", "party"]);
+  assert.ok(Math.abs(both[0].x) < 1e-12 && Math.abs(both[1].x) < 1e-12);
+  assert.equal(both[0].z, 0.1); assert.equal(both[1].z, 0.1);
+});
+
 test("a_move_obliquely_into_a_wall_slides_along_it", () => {
   // A wall across +x: any sweep that gains x is refused whole, any other is allowed.
   const wall = { allowedFraction: (from, to) => to.x > from.x + 1e-9 ? 0 : 1 };

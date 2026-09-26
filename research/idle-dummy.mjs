@@ -2,6 +2,7 @@
  * Can every body defeat an idle dummy of every family?
  *
  *     node research/idle-dummy.mjs --blocks 12 --dir research/runs/pc01/idle
+ *     node research/idle-dummy.mjs --attackers roster --naive --trace --dir research/runs/idle-roster
  *
  * The owner's floor for the physical-contact set (2026-09-23): lopsided cross-family fights are fine,
  * but every attacker must be able to beat every idle dummy. A cell is an attacker -- a named build,
@@ -35,13 +36,31 @@ export const IDLE_BODIES = Object.freeze({
   giant: { build: "default", preset: "max", minds: PROBE },
 });
 
-/** Every job of the matrix: attacker x dummy x block x side. */
-export function idleJobs({ attackers, dummies, blocks, runSeed }) {
+/**
+ * An attacker by name: one of `IDLE_BODIES`, or any playable build (`PLAYABLE_BUILDS` in
+ * `src/golem/roster.ts`, handed in as `builds`) played by its family's naive mind. With `naive`, an
+ * `IDLE_BODIES` row is played by that mind too, instead of its own list.
+ *
+ * The naive mind is `FAMILY_POLICY` in `src/golem/family.ts`: each family's duelist, the top rung of
+ * the naive ladder (`LADDER` in `tests/harness/drills.mjs`) for stone, and the only fighting mind a
+ * human or a skeleton has.
+ */
+export function idleAttacker(name, { builds, naive = false, familyPolicy, familyOf }) {
+  const listed = IDLE_BODIES[name];
+  const build = builds.find((b) => b.name === (listed ? listed.build : name));
+  if (!build) throw new Error(`there is no idle-matrix body or playable build "${name}"`);
+  const mind = familyPolicy[familyOf(build.setup)];
+  if (listed) return naive ? { ...listed, minds: [mind] } : listed;
+  return { build: name, minds: [mind] };
+}
+
+/** Every job of the matrix: attacker x dummy x block x side. `bodies` maps an attacker to its row. */
+export function idleJobs({ attackers, dummies, blocks, runSeed, bodies = IDLE_BODIES }) {
   const jobs = [];
   for (const a of attackers) for (const d of dummies) {
     const cell = `${a}>${d}`;
     for (let k = 0; k < blocks; k++) {
-      const mind = IDLE_BODIES[a].minds[k % IDLE_BODIES[a].minds.length];
+      const mind = bodies[a].minds[k % bodies[a].minds.length];
       const pair = `${cell}/${mind}/${k}`;
       const seeds = [seed(runSeed, pair, "attacker"), seed(runSeed, pair, "dummy")];
       for (const attackerSide of ["left", "right"]) {
@@ -96,23 +115,35 @@ async function main() {
     dummies: { type: "string", default: "stone,skeleton,human,giant" },
     blocks: { type: "string", default: "12" }, workers: { type: "string", default: "24" },
     seed: { type: "string", default: "20260923" }, dir: { type: "string", default: "research/runs/idle-dummy" },
+    naive: { type: "boolean", default: false }, trace: { type: "boolean", default: false },
   } });
-  const [{ PLAYABLE_BUILDS }, { runJobs }, { fingerprint }] = await Promise.all([
-    import("../src/golem/roster.ts"), import("./runner.mjs"), import("./fingerprint.mjs")]);
-  const setupOf = (name) => {
-    const body = IDLE_BODIES[name];
-    if (!body) throw new Error(`there is no idle-matrix body "${name}"; they are ${Object.keys(IDLE_BODIES).join(", ")}`);
+  const [{ PLAYABLE_BUILDS }, { FAMILY_POLICY, bodyFamily }, { runJobs }, { fingerprint }] = await Promise.all([
+    import("../src/golem/roster.ts"), import("../src/golem/family.ts"), import("./runner.mjs"), import("./fingerprint.mjs")]);
+  // `roster` is the four rows above and every other playable build: the named stone builds and
+  // every human and skeleton build, each by its family's naive mind.
+  const covered = new Set(Object.values(IDLE_BODIES).map((body) => body.build));
+  const expand = (list) => list.split(",").flatMap((name) => (name !== "roster" ? [name]
+    : [...Object.keys(IDLE_BODIES), ...PLAYABLE_BUILDS.map((b) => b.name).filter((b) => !covered.has(b))]));
+  const attackers = expand(values.attackers), dummies = values.dummies.split(",");
+  const bodies = Object.fromEntries(attackers.map((name) => [name, idleAttacker(name,
+    { builds: PLAYABLE_BUILDS, naive: values.naive, familyPolicy: FAMILY_POLICY, familyOf: bodyFamily })]));
+  const setupOf = (body) => {
     const found = PLAYABLE_BUILDS.find((build) => build.name === body.build);
     return { ...found.setup, ...(body.preset ? { attributes: ATTRIBUTE_PRESETS[body.preset]() } : {}) };
   };
-  const attackers = values.attackers.split(","), dummies = values.dummies.split(",");
+  const dummyOf = (name) => {
+    if (!IDLE_BODIES[name]) throw new Error(`there is no idle-matrix dummy "${name}"; they are ${Object.keys(IDLE_BODIES).join(", ")}`);
+    return IDLE_BODIES[name];
+  };
   const blocks = Number(values.blocks), runSeed = Number(values.seed);
-  const jobs = idleJobs({ attackers, dummies, blocks, runSeed });
+  const jobs = idleJobs({ attackers, dummies, blocks, runSeed, bodies });
   const hash = fingerprint().hash;
   const manifest = { version: 1, kind: "idle-dummy", fingerprint: hash, protocol: PROTOCOL, attackers, dummies,
     blocks, seed: runSeed, candidates: [],
-    builds: [...attackers.map((a) => ({ name: `attacker:${a}`, setup: setupOf(a) })),
-      ...dummies.map((d) => ({ name: `dummy:${d}`, setup: setupOf(d) }))] };
+    builds: [...attackers.map((a) => ({ name: `attacker:${a}`, setup: setupOf(bodies[a]) })),
+      ...dummies.map((d) => ({ name: `dummy:${d}`, setup: setupOf(dummyOf(d)) }))],
+    // Absent unless asked for, so an earlier run's manifest reads as it did.
+    ...(values.naive ? { naive: true } : {}), ...(values.trace ? { trace: true } : {}) };
   const directory = resolve(values.dir);
   console.log(`${jobs.length} bouts into ${directory}`);
   const started = Date.now();

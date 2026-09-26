@@ -40,7 +40,7 @@ import {
   golemModule,
 } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
-import { BUTTON_REACH } from "../src/buttons.ts";
+import { HAND_REACH } from "../src/hands.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import {
   COMMITTED_SHAPE_CANDIDATES, PARRY_ACROSS_METRES, PARRY_ARRIVED_METRES, STROKE_GUARD_SECONDS,
@@ -48,6 +48,9 @@ import {
 } from "./harness/golem-bench.mjs";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 import { PLAYABLE_BUILDS } from "../src/golem/roster.ts";
+import { restCursor } from "../src/golem/effectors/chains/arm-core.ts";
+import { NEUTRAL } from "../src/mind.ts";
+import { freshIntent } from "../src/action-primitives.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SUBSTEP = 1 / CONFIG.world.physicsHz;
@@ -58,11 +61,11 @@ const benchIntent = () => ({
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
   primary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
   secondary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
 });
@@ -376,14 +379,15 @@ test("rung 1 tracks its command, strokes and never touches itself", async () => 
     `the limb's fastest moment was ${state.peakTipSpeedRaw} m/s inside an exclusion window,`
     + ` against ${state.peakTipSpeedDriven} m/s for the stroke itself`);
 
-  // **The limb lifts out of its build pose under a rate-limited command**, which is a detected
-  // step in the first phase of the sequence. Started at the cursor instead, the command never
-  // moves at all, no step is detected, and this reads null -- which is the mutation that turns
-  // this red. A Warrior's anchor is teleported to the cursor on the first control step and this
-  // is the golem's refusal of that.
+  // **The limb is built where the rest command holds it**, so the sequence's first phase, which
+  // asks for exactly that, detects no step at all. Until 2026-09-25 the link was built hanging and
+  // lifted out of its build pose under a rate-limited command, and this asserted that step; built
+  // hanging again, it is a step once more and this reads a number -- which is the mutation that
+  // turns this red. `an_arm_is_built_where_its_rest_command_holds_it` is the same rule in a bout.
   const rest = run.marks.find((mark) => mark.phase === "rest");
-  assert.ok(rest?.state.settleSeconds !== null && rest?.state.settleSeconds !== undefined,
-    "the limb did not lift out of its build pose; the command began where the cursor was");
+  assert.ok(rest, "the scripted sequence must contain a rest step");
+  assert.equal(rest.state.settleSeconds, null,
+    "the limb moved at rest: it was not built where its rest command holds it");
 
   // Wander at rest, against rung 0's floor of 1.5e-5 mm. 2.876 mm measured; provisional, pinned
   // from the 2026-09-04 Node bench run, to be re-taken after the owner's gate.
@@ -1723,7 +1727,11 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   const strokeEnds = STROKE_GUARD_SECONDS + shipped.shape.chamberSeconds + shipped.shape.strokeSeconds;
   assert.ok(shipped.crossedAt < strokeEnds,
     `the bearing was crossed at ${shipped.crossedAt.toFixed(3)} s, after the arc ended at ${strokeEnds.toFixed(3)}`);
-  assert.ok(shipped.markAt > shipped.crossedAt,
+  // Both are stamped on steps, and a crossing is stamped on the first step past the bearing, so
+  // the two falling on one step says the nearest step is the first one past it -- which is after,
+  // and is what 120 Hz physics reads on the shipped cut (both 0.775 s; at 240, 0.7833 against
+  // 0.775; Node golem bench). Strictly before is the defect this was written for.
+  assert.ok(shipped.markAt >= shipped.crossedAt,
     "the weapon was nearest the mark before it crossed its bearing, which is not a swing");
   // Re-taken 2026-09-17, when `chamberReach` 0 and `followLift` 0.95 shipped. The old entry was
   // pinned from the 2026-09-06 bench, where the cut missed by 0.63 m and arrived 17 ms *after* its
@@ -1763,9 +1771,15 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   // the 22.1 that stood between. The bar is placed under the reading and above the old floor, so
   // it still catches the regression it was written for -- a cut that arrives at walking pace --
   // without asserting a speed only an unfair wrist could reach.
+  //
+  // **Re-taken 2026-09-25 at 120 Hz physics, on a corrected instrument, and the bar held.** The
+  // old reading went to 13.44 at 120 and this went red, and none of that was the blade: read at
+  // 120's spacing, the same 240 physics reads 13.11 to 14.70 depending on which steps are kept.
+  // `strokeProbe` now reads the speed at the instant of closest approach, and its header has the
+  // table. On it, Node golem bench: 15.63 at 240, 15.16 at 120.
   assert.ok(shipped.speedAtMark > 14.5,
-    `the shipped cut reaches the mark at ${shipped.speedAtMark.toFixed(1)}, under the 15.5 `
-    + "measured at the shipped lift cap on 2026-09-19; re-take the entry");
+    `the shipped cut reaches the mark at ${shipped.speedAtMark.toFixed(2)}, under the 15.16 `
+    + "measured at 120 Hz on 2026-09-25; re-take the entry");
 
   // What the grid chose, which is the row `COMMITTED_SHAPE_CANDIDATES` carries.
   const chosen = COMMITTED_SHAPE_CANDIDATES.sword;
@@ -1773,7 +1787,9 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   assert.ok(best.missMetres < 0.10,
     `the chosen cut misses by ${best.missMetres.toFixed(3)} m, and the candidate row claims`
     + ` ${chosen.bench.missMetres}`);
-  // The re-swept candidate trades some speed for coordinated, eased motion: 14.09 m/s.
+  // The re-swept candidate trades some speed for coordinated, eased motion: 14.09 m/s. On the
+  // sub-step reading (2026-09-25, Node golem bench) it is 13.47 at 240 and 13.12 at 120, the
+  // latter 0.02 under the 13.14 to 13.33 that 240 physics reads at 120's spacing.
   assert.ok(best.speedAtMark > 13,
     `the chosen cut arrives at ${best.speedAtMark.toFixed(2)} m/s against a claimed ${chosen.bench.speedAtMark}`);
   assert.ok(best.peakAnchorStrayMm < 50,
@@ -2022,4 +2038,52 @@ test("the_stroke_bench_reads_how_much_of_the_tip_s_motion_the_edge_leads", async
   assert.ok(wrist.edgeLeadAtMark > 0.9, `the wrist blade's edge leads ${wrist.edgeLeadAtMark} at the mark`);
   const flat = await runStrokeBench({ moduleId: "effector.wrist.blade", timed: true, shape: { roll: -0.8, windRoll: -0.8 } });
   assert.ok(flat.edgeLeadAtMark < 0.4, `turned 1.1 rad off, the wrist blade's edge still leads ${flat.edgeLeadAtMark}`);
+});
+
+test("an_arm_is_built_where_its_rest_command_holds_it", async () => {
+  // Skill ceiling 01, part 3. Every arm used to be built hanging and swept to guard by its drive
+  // over the first fifth of a second, so a fighter nobody had moved peaked at 12.8 m/s at the tip
+  // (stone), 14.9 (pitch), 5.65 (human) and 9.55 (skeleton), and two stone fighters at the arena's
+  // separation clashed blades at 0.117 s in every probe-mind mirror (Node bout runner, 120 Hz).
+  // Built at the pose the rest command holds, nothing moves until a commander moves it: 0.16 m/s
+  // or less. `docs/analysis/2026-09-25-arms-at-guard.md`.
+  //
+  // The rest command is restated in the body (`restCursor`), so first: it is the one the mind's
+  // `NEUTRAL` and the option layer's `freshIntent` hold, on both hands.
+  for (const slot of ["primary", "secondary"]) {
+    const rest = restCursor(slot);
+    for (const [name, intent] of [["NEUTRAL", NEUTRAL], ["freshIntent", freshIntent()]]) {
+      const hand = intent[slot];
+      assert.deepEqual({ pointerX: rest.pointerX, pointerY: rest.pointerY, reach: rest.reach },
+        { pointerX: hand.pointerX, pointerY: hand.pointerY, reach: hand.reach },
+        `the ${slot} arm is built at a cursor ${name} does not hold`);
+      assert.equal(hand.roll, 0, `${name}'s ${slot} hand rests rolled, and the arm is built unrolled`);
+      assert.equal(hand.wristBend, 0, `${name}'s ${slot} hand rests bent, and the arm is built straight`);
+    }
+  }
+  // Then every arm family, standing idle and alone: the stone wrist chain, the reach chain (the
+  // same core without a wrist), the pitch hinge, the anatomical arm holding a blade, a strapped
+  // plate and a second blade, and the skeletal chain.
+  const stone = PLAYABLE_BUILDS.find((b) => b.name === "default").setup;
+  const setups = [
+    ["default", stone],
+    ["reach", { ...stone, primary: { chain: "reach", terminal: "blade" }, secondary: { chain: "reach", terminal: "plate" } }],
+    ["pitch-blade", PLAYABLE_BUILDS.find((b) => b.name === "pitch-blade").setup],
+    ["human-warrior", PLAYABLE_BUILDS.find((b) => b.name === "human-warrior").setup],
+    ["human-dual-swords", PLAYABLE_BUILDS.find((b) => b.name === "human-dual-swords").setup],
+    ["skeleton-warrior", PLAYABLE_BUILDS.find((b) => b.name === "skeleton-warrior").setup],
+  ];
+  for (const [name, setup] of setups) {
+    let peak = 0, where = "";
+    const bout = createBout({ left: "idle", right: "idle", seeds: [1, 2], locomotionMode: "supported",
+      leftGolem: setup, rightGolem: setup, separation: 20, maxSeconds: 0.6, physics: await freshHavok(),
+      onSample: ({ left, clock }) => {
+        for (const hand of ["primary", "secondary"]) {
+          const speed = left.view.self.hands[hand].tipSpeed;
+          if (speed > peak) { peak = speed; where = `${hand} at ${clock.toFixed(3)} s`; }
+        }
+      } });
+    try { while (bout.step()); } finally { bout.dispose(); }
+    assert.ok(peak < 0.5, `${name}, idle: a tip reached ${peak.toFixed(2)} m/s (${where}) with nothing commanding it`);
+  }
 });

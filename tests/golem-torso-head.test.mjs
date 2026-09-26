@@ -19,8 +19,8 @@ import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
-import { PRIMARY, SECONDARY, applyButtonPose, poseFromButtons } from "../src/buttons.ts";
-import { Combat } from "../src/combat.ts";
+import { PRIMARY, SECONDARY, applyButtonPose, poseFromButtons } from "../src/bench/buttons.ts";
+import { Combat, arrivalReadFraction } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
 import { COLLIDES, LAYER } from "../src/physics.ts";
 import { boxPart } from "../src/rig.ts";
@@ -38,7 +38,7 @@ import { RigidStrike } from "../src/golem/effectors/striker.ts";
 import { GOLEM_MODULES, golemModule } from "../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { flatSupportedWorldRegistry } from "../src/supported-locomotion-production.ts";
-import { BUTTON_REACH } from "../src/buttons.ts";
+import { HAND_REACH } from "../src/hands.ts";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { runTorsoBench } from "./harness/golem-torso-bench.mjs";
 
@@ -52,11 +52,11 @@ const benchIntent = () => ({
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
   primary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
   secondary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
 });
@@ -619,6 +619,8 @@ async function hammerBlow(torsoId, aim = "edge") {
   // takes off, and subtracts the answer itself -- `Combat` leaves the subtraction to a body that
   // implements `applyDamage`.
   const target = {
+    limbs: [limb],
+    strikers: [],
     limbFor: (body) => (body === core.part.body ? limb : undefined),
     parriedBy: () => null,
     sever: () => { limb.severed = true; },
@@ -636,7 +638,11 @@ async function hammerBlow(torsoId, aim = "edge") {
   try {
     plugin.setActivationControl(stand.block.body, 1);
     for (const part of torso.parts) plugin.setActivationControl(part.part.body, 1);
-    const speed = 8;
+    // **8 m/s as billed.** An `"arrival"` reading scores `arrivalReadFraction` of the speed the
+    // hammer had as the step began (`CONFIG.combat.contactReading`), so under it the hammer is
+    // driven at 8 over that fraction; the blow `scoreHit` is handed is the same 8 m/s cut either
+    // way, which is what the armour comparison and the pure-scorer check below are about.
+    const speed = CONFIG.combat.contactReading === "arrival" ? 8 / arrivalReadFraction(striker.kind) : 8;
     const upright = benchIntent();
     for (let frame = 0; frame < 40 && reports.length === 0; frame += 1) {
       // A whole `Intent`, because a registered option adapts the command rather than being handed
@@ -716,7 +722,7 @@ test("the plated torso takes less of the same scored blow than the plain one", a
   const raw = scoreHit(contact, "sword").damage;
   // A part in ten million, which is the width of the arena's own answer rather than a slack
   // bound: the report's own columns are float32 round trips through the solver, so 8 m/s comes
-  // back as 8.0000004 and the two damages differ in the seventh decimal. Tighter than this is a
+  // back a few parts in ten million off 8 and the two damages differ in the seventh decimal. Tighter than this is a
   // test of Havok's float width; looser is a test of nothing.
   assert.ok(Math.abs(raw - a.preArmourDamage) < 1e-6,
     `the pure scorer says ${raw} and the arena says ${a.preArmourDamage}`);
@@ -798,6 +804,8 @@ async function lungeAtPost(headId, top, fire = true) {
     vitalityWeight: 1, fatal: false,
   };
   const target = {
+    limbs: [limb],
+    strikers: [],
     limbFor: (body) => (body === post.body ? limb : undefined),
     parriedBy: () => null,
     sever: () => {},
@@ -893,16 +901,36 @@ test("the ram's lunge is filed on a post and the plain head files nothing on the
   const reduced = (best.strikerMassKg * best.partMassKg) / (best.strikerMassKg + best.partMassKg);
   assert.ok(Math.abs(best.energyJ - 0.5 * reduced * best.closingSpeed ** 2) < 1e-6,
     `the report's energy is not the reduced-mass one: ${best.energyJ}`);
-  // **At the 1.3 to 1.8 m/s a lunge reaches, that is under `crushFloorJ` on a post this light, so
+  // **At the 1.8 to 2.7 m/s a lunge reaches, that is under `crushFloorJ` on a post this light, so
   // the lunge is a shove.** It was over the floor until physical contact session 05: the ram had
   // always declared the neck and trunk behind its plate, and the effective mass reads about what it
   // declared, while every arm put its chain behind its blow for the first time and the blunt price
   // and floor rose 3.786 times to hold a stone arm's pace. The ram still wounds in a bout, where
   // the carrier walks it in and what it meets is a body rather than a free post. The lever that
   // would make a lunge hurt on its own is `HEAD_RAM.lunge.driveTorque`, not a scoring row.
+  //
+  // **The lower bound is on what arrived, and the price is on what is billed.** An `"arrival"`
+  // reading bills `arrivalReadFraction` of the speed the plate had as the step began, so the
+  // energy it reports is that fraction squared of the energy that arrived. The bound below
+  // (a quarter of the floor) is about the lunge -- a plate that crawls onto the post -- and not
+  // about the price, so it reads the energy before the fraction. Node lungeAtPost harness, the
+  // best report, 2026-09-25:
+  //
+  // | rate, reading | billed m/s | billed J | arrived m/s | arrived J |
+  // |---------------|-----------:|---------:|------------:|----------:|
+  // | 240, settled  |      1.84  |   11.16  |       1.84  |    11.16  |
+  // | 120, settled  |      2.05  |   12.91  |       2.05  |    12.91  |
+  // | 240, arrival  |      1.18  |    4.57  |       2.11  |    14.56  |
+  // | 120, arrival  |      1.51  |    6.91  |       2.70  |    22.04  |
+  //
+  // Read against the billed energy the bound failed under the arrival reading at both rates.
+  // Watched red on this line at 120 arrival with `HEAD_RAM.lunge.driveTorque` at half (1.7 J
+  // billed, 5.5 J arrived); at 100 of its 146 it still passes, and at a tenth nothing is filed.
+  const billedShare = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction("ram") ** 2 : 1;
+  const arrivedJ = best.energyJ / billedShare;
   assert.equal(best.kind, "slap", `the lunge arrived with ${best.energyJ.toFixed(1)} J`);
-  assert.ok(best.energyJ < CONFIG.combat.crushFloorJ && best.energyJ > CONFIG.combat.crushFloorJ / 4,
-    `the lunge arrived with ${best.energyJ.toFixed(1)} J against a floor of ${CONFIG.combat.crushFloorJ}`);
+  assert.ok(best.energyJ < CONFIG.combat.crushFloorJ && arrivedJ > CONFIG.combat.crushFloorJ / 4,
+    `the lunge billed ${best.energyJ.toFixed(1)} J and arrived with ${arrivedJ.toFixed(1)} J against a floor of ${CONFIG.combat.crushFloorJ}`);
 
   assert.deepEqual(plain.reports, [],
     "a plain head has no striker, so `Combat` watches nothing and files nothing");

@@ -4,8 +4,8 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
 import { Golem } from '../src/golem/golem.ts';
 import { defaultGolemSetup } from '../src/golem/build.ts';
-import { humanMind, splitMind, NEUTRAL } from '../src/mind.ts';
-import { applyButtonPose } from '../src/buttons.ts';
+import { NEUTRAL } from '../src/mind.ts';
+import { applyButtonPose } from '../src/bench/buttons.ts';
 import { stepPair } from '../src/fighter.ts';
 import { flatSupportedWorldRegistry } from '../src/supported-locomotion-production.ts';
 import { CONFIG } from '../src/config.ts';
@@ -19,9 +19,16 @@ for (const hand of ['primary', 'secondary']) for (const frames of [[1000/60], [1
     const arena = await createHeadlessArena(), { scene } = arena;
     const source = { state: structuredClone(NEUTRAL) }, world = flatSupportedWorldRegistry();
     source.state.actingHand = hand;
+    // The script's feet and acting hand, and everything else at rest -- the composition the retired
+    // puppet split gave this test, spelt out: the spare hand, the trunk and the head's buttons stay
+    // neutral, so a press drives the one arm under measurement and not the head's lunge as well.
+    const spare = hand === 'primary' ? 'secondary' : 'primary';
+    const scripted = { name: 'scripted', decide: () => ({
+      ...source.state, natural: NEUTRAL.natural, posture: NEUTRAL.posture, [spare]: NEUTRAL[spare],
+    }) };
     const pair = ['left','right'].map((side,i) => new Golem(scene, {
       side, origin: new Vector3(0,0,i*8), facing:i*Math.PI, setup:defaultGolemSetup(),
-      mind:splitMind(humanMind(source), {name:"idle",decide:()=>NEUTRAL}, {posture:false,drivenWrist:true,locomotion:true,attack:true}), controlPolicies:[], locomotionWorld:world,
+      mind:scripted, controlPolicies:[], locomotionWorld:world,
     }));
     for (const g of pair) for (const {part} of g.limbs)
       scene.getPhysicsEngine().getPhysicsPlugin().setActivationControl(part.body,1);

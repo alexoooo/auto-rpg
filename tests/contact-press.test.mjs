@@ -209,9 +209,23 @@ test("a standing body held up past its weight is lifted off its feet, and one he
  * pushes with no more than its grip and its own balance hold, and the other stands against it with its
  * lean over its whole base; what is past that drives it back, and what drives it faster than its legs
  * can follow tips it. So of one weight the push holds; a tenth heavier and twice as heavy, the walker
- * walks the idle body back, further the heavier it is; and a giant, twice the weight and a quarter the
- * size again, outruns its legs and puts it down. Nothing is special at one weight. The walker starts a
- * metre and a half away (the giant 1.8), so the footprints meet within the first half second, files
+ * walks the idle body back, further the heavier it is; and a giant -- the largest, heaviest body the
+ * rows allow, against the smallest, lightest one -- outruns its legs and puts it down. Nothing is
+ * special at one weight. The giant needs the small body since the size law followed biology (skill
+ * ceiling session 01): a larger walker is no faster, and against a x1 body a x1.1 giant at twice the
+ * weight walks it back without felling it, as does one at x1.5 movement and even one at x1.25 (Node
+ * harness, this test).
+ *
+ * **What the giant felled here before 2026-09-25 was a post.** A default body backs away at the
+ * giant's pace once the contact's acceleration is spent, and the outrun rule files only the part of
+ * a push past what the legs can accelerate, so a steady push files nothing. Such a body went down
+ * about 8 m from where it stood, against the headless arena's ring of posts at 9.5 m. The small body
+ * goes down 0.05 m from where it stood, on the first contact (Node, this test's own pair, at 120 Hz
+ * with `LOCOMOTION_BIPED.targetRate` 11.5). With the outrun filing in `readContact` switched off it
+ * stands, so the case is about the rule. The distance guard is what stops a post from passing this
+ * again.
+ *
+ * The walker starts a metre and a half away, so the footprints meet within the first half second, files
  * the push's reaction to its own ledger as a held force, and never tips on it. The filing is counted
  * at the call, because a push the walker holds leaves its ledger at zero. Reading the ledger for it
  * once passed on the residue one step left there (2026-09-25 rate falls). The pushed body's own press
@@ -222,11 +236,12 @@ test("a body walked into stands against one weight, is walked back by a heavier 
   let walking = true;
   const walker = { name: "walks", decide: () => ({ ...freshIntent(), forward: walking ? 1 : 0 }) };
   const results = {};
-  for (const [name, attributes, gap] of [["equal", {}, 1.5], ["heavier", { weight: 1.1 }, 1.5],
-    ["heavy", { weight: 2 }, 1.5], ["giant", { size: 1.25, weight: 2 }, 1.8]]) {
+  for (const [name, attributes, gap, against = {}] of [["equal", {}, 1.5], ["heavier", { weight: 1.1 }, 1.5],
+    ["heavy", { weight: 2 }, 1.5], ["giant", { size: 1.1, weight: 2 }, 1.5, { size: 0.8, weight: 0.8 }]]) {
     walking = true;
     const left = withAttributeSetting(defaultGolemSetup(), attributes);
-    const { bodies: [pusher, pushed], run, dispose } = await pair({ left, gap, leftMind: walker });
+    const right = withAttributeSetting(defaultGolemSetup(), against);
+    const { bodies: [pusher, pushed], run, dispose } = await pair({ left, right, gap, leftMind: walker });
     try {
       pushed.press.sample = () => NO_PRESS;
       const start = pushed.locomotion.carrierGround().z;
@@ -268,6 +283,7 @@ test("a body walked into stands against one weight, is walked back by a heavier 
     `and walks it back further (${heavy.movedStanding.toFixed(3)} m)`);
   assert.equal(heavy.stoppedMps, 0, "and the pushed body's feet stop the slide once it stops");
   assert.equal(giant.fell, true, "a giant drives it faster than its legs can follow, and tips it");
+  assert.ok(giant.movedStanding < 1, `in open ground, not against a post (${giant.movedStanding.toFixed(3)} m)`);
   for (const [name, result] of Object.entries(results)) {
     assert.ok(result.filed.held > 0, `${name}: the walker files the push's reaction`);
     assert.equal(result.filed.struck, 0, `${name}: as a held force, not as blows`);

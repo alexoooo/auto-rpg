@@ -50,9 +50,9 @@ import {
  * one is used anyway: a centipede was driven through `primary.thrust` on a body that publishes no
  * hands, every reader downstream carried the exception, and when the channel was finally split
  * out the *host* side was left behind so a person could take a centipede, walk it around and find
- * the attack button dead. `applyButtonPose` in `src/buttons.ts` owns that mapping now -- one press
- * onto the acting hand and the natural striker together -- so the same left button that thrusts a
- * blade fires this lunge, and `tests/golem-torso-head.test.mjs` drives it through exactly that
+ * the attack button dead. `applyButtonPose` in `src/bench/buttons.ts` owns that mapping on the
+ * module bench -- one press onto the acting hand and the natural striker together -- so the same
+ * left button that thrusts a blade fires this lunge, and `tests/golem-torso-head.test.mjs` drives it through exactly that
  * function rather than by setting the flag by hand.
  *
  * **One two-axis joint, and only pitch is commanded by the default head controller.** The pitch is the nod: rest,
@@ -571,7 +571,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
 
         command(next: NaturalIntent): void {
           if (severed) return;
-          // `guard` is a level and `thrust` is an edge -- the rule `src/buttons.ts` states and the
+          // `guard` is a level and `thrust` is an edge -- the rule `src/bench/buttons.ts` states and the
           // rule the mouse already obeys. Holding the button does not chain lunges, and a lunge
           // already running is not restarted by a second press: a velocity event has a length, and
           // re-triggering it halfway through would make it a pose sequence with extra steps.
@@ -654,6 +654,19 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
             part.mesh.dispose(false, false);
           }
           plate = null;
+        },
+
+        // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
+        captureState: (): Record<string, unknown> => ({
+          columnWeld, neckJoint, plate, plateWeld, striker, wantedPitch, commandedPitch, phase,
+          phaseTime, appliedPhase, thrustHeld, severed, lungeAge, struck,
+          N, ram, socket, neck, head, up, axisViews, axes, scratch, view, pitchServo, yawServo,
+        }),
+        restoreState(state: Record<string, unknown>): void {
+          ({
+            columnWeld, neckJoint, plate, plateWeld, striker, wantedPitch, commandedPitch, phase,
+            phaseTime, appliedPhase, thrustHeld, severed, lungeAge, struck,
+          } = state as never);
         },
       });
     },

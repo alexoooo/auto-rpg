@@ -59,7 +59,7 @@ import { GUARDIAN, golemGuardian } from "../src/golem/styles/guardian.ts";
 import { SKIRMISHER, golemSkirmisher } from "../src/golem/styles/skirmisher.ts";
 import { golemPlanner } from "../src/golem/planner.ts";
 import { NO_CHAMPIONS, golemChampionMind } from "../src/golem/champion.ts";
-import { BUTTON_REACH } from "../src/buttons.ts";
+import { HAND_REACH } from "../src/hands.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("./harness/bout-runner.mjs");
@@ -98,7 +98,7 @@ test("a_units_picker_never_offers_a_mind_written_for_the_other_control_surface",
     ...POLICIES.filter((policy) => policy.name.startsWith("golem-researched-")).map((policy) => policy.name),
     "idle", "golem-duelist", "humanoid-duelist", "skeleton-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-    "golem-reaper", "golem-miser",
+    "golem-reaper", "golem-miser", "golem-walker",
   ]);
   // The other surface has no body in the tree any more -- the Warrior went with the research --
   // so what is asserted is the half of the rule that can still be run: a name that is not one of
@@ -180,21 +180,21 @@ async function standAGolem(t, setup = defaultGolemSetup()) {
  * hands the chain `undefined`, `spanned` answers `NaN`, and the anchor is driven
  * at a target that is not a place: `a_walking_golems_effector_stays_on_its_own
  * _anchor` read **6031.7 mm** of stray, which is the arm having left. Taking the
- * value from `src/buttons.ts` rather than typing 1/7 is the same argument the
- * bench script makes: a fixture that hard-codes the number would go on passing
- * after the mapping it is standing in for had changed. `buttons.ts` imports
- * nothing, so no test's import graph grows a scene by reading it.
+ * value from `HAND_REACH` in `src/hands.ts` rather than typing 1/7 is the same
+ * argument the bench script makes: a fixture that hard-codes the number would go
+ * on passing after the constant it is standing in for had changed. `hands.ts`
+ * imports nothing, so no test's import graph grows a scene by reading it.
  */
 const blankIntent = () => ({
   forward: 0, strafe: 0, turn: 0, actingHand: "primary",
   natural: { thrust: false, guard: false },
   posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
   primary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
   secondary: {
-    pointerX: 0, pointerY: 0, reach: BUTTON_REACH.neutral,
+    pointerX: 0, pointerY: 0, reach: HAND_REACH.neutral,
     roll: 0, wristBend: 0, thrust: false, guard: false,
   },
 });

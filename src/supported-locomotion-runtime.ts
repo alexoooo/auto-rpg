@@ -567,6 +567,9 @@ export class RisingActuator {
     }
   }
 
+  /** How far into the rise the last frame was, s. */
+  get elapsed(): number { return this.elapsedS; }
+
   step(dt: number): RisingFrame {
     if (!this.active) throw new Error("rising actuator is not active");
     positive(dt, "rising dt");

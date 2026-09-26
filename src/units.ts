@@ -10,12 +10,12 @@ import { GOLEM_CONTROL_SURFACE } from "./golem/golem-control.ts";
 import type { FighterMaterials, Limb } from "./fighter.ts";
 import type { Striking } from "./combat.ts";
 import type { HitKind } from "./scoring.ts";
-import type { ControlEndpoint, HumanDriverSource } from "./control-host.ts";
+import type { ControlEndpoint } from "./control-host.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
 import type { StandableWorldRegistry } from "./supported-locomotion-runtime.ts";
 import { isWeaponKind, type WeaponKind } from "./hands.ts";
-import { POLICIES, splitMind, type HandCursors, type HandName, type Mind } from "./mind.ts";
+import { POLICIES, type HandName, type Mind } from "./mind.ts";
 import type { Side } from "./physics.ts";
 
 /** A body kind accepted at the setup boundary. */
@@ -46,10 +46,8 @@ export interface CombatantBuild {
   readonly mind?: Mind;
   readonly loadout?: Record<HandName, WeaponKind>;
   readonly materials: FighterMaterials;
-  readonly human?: HumanDriverSource;
   readonly policyName?: string;
   readonly policySeed?: number;
-  readonly humanActive?: boolean;
   /** Pair-owned and immutable. Omitted direct harnesses retain historical locomotion. */
   readonly locomotionMode?: LocomotionMode;
   readonly locomotionWorld?: StandableWorldRegistry;
@@ -65,63 +63,6 @@ export interface CombatantBuild {
 }
 
 /**
- * What a takeover finds when it picks a body up, and what it measures the pickup by.
- *
- * Allocated per takeover rather than published, because a takeover happens on a click or a console
- * call and never in a loop -- the opposite of everything on `BodyView`, which is republished 240
- * times a second and may allocate nothing.
- */
-export interface DrivenPose {
-  /**
-   * Where the cursor has to sit for this body to be commanded into the pose it is in, or null
-   * when there is no pose to seed from.
-   *
-   * Null is a real answer and not a failure. A Warrior whose sword arm has been cut off is still
-   * worth taking -- it walks, it turns, it can be hit -- but seeding from the angles it happens to
-   * still be carrying would write a cursor position describing a pose that stopped existing when
-   * the limb came off. `refusal` says which.
-   */
-  readonly cursors: HandCursors | null;
-  /** Why there is no seed, when there is none. Named, so a reading can print the sentence. */
-  readonly refusal: string | null;
-  /**
-   * The commanded business end, in the body's own trunk frame, metres.
-   *
-   * The quantity the takeover acceptance is written against. A blade mid-swing legitimately moves
-   * 42 mm of *tip* in one 240 Hz substep, so a tip displacement across a handover cannot tell a
-   * teleport from a swing; the commanded point moves a millimetre or two even during the fastest
-   * stroke, so anything above that is the handover and nothing else. Trunk-local, because a body
-   * that is walking is being translated and turned during the same step.
-   */
-  readonly command: { readonly x: number; readonly y: number; readonly z: number };
-  /** Where the business end actually is, world. The literal reading, kept because somebody wants it. */
-  readonly tip: Vector3;
-}
-
-/**
- * A body a person can take over: it can report where its cursor would have to be, and accept a
- * driver.
- *
- * **This is what replaced `isArticulatedCombatant` as the takeover's gate.** That predicate asked
- * "is this concrete `Fighter`", which happened to be the same question for as long as the only
- * takeable body was a Warrior, and stopped being the same question the moment a golem could be
- * driven with the same mouse. What the host actually needs is three things -- swap the mind, read
- * the published view for the posture seed, and ask where the cursor goes -- and none of the three
- * is a fact about humanoid anatomy.
- *
- * `isArticulatedCombatant` survives beside it and still means what it says: `scripts/measure.mjs`
- * asks it in order to reach `Fighter.armed`, which is a question about an arm. The two are
- * different questions and they were one predicate.
- */
-export interface DrivableCombatant {
-  /** Who is driving. Assignment installs a new mind through the body's own control endpoint. */
-  mind: Mind;
-  /** The published view, for the posture half of the seed. */
-  readonly view: import("./mind.ts").FighterView;
-  drivenPose(): DrivenPose;
-}
-
-/**
  * The common body seam. Warrior is its only implementation in this session;
  * keeping the name independent of Fighter lets later units enter through the
  * registry instead of making the host switch on their kind.
@@ -132,16 +73,6 @@ export interface Combatant {
   readonly side: Side;
   readonly control: ControlEndpoint;
   readonly locomotion?: SupportedLocomotionPort | null;
-  /**
-   * The takeover capability port: this body when a person can drive it, null when they cannot.
-   *
-   * The same shape as `articulated` above and for the same stated reason -- an explicit port
-   * rather than a duck-type -- but a much narrower question. A `Centipede` answers null today not
-   * because a person cannot steer one (they can, from the setup screen) but because mid-bout
-   * takeover was never wired for it and quietly turning it on here would be this session widening
-   * a body it did not build.
-   */
-  readonly humanDriver: DrivableCombatant | null;
   /**
    * The body an overhead camera sits behind, or absent for a body with nothing that reads as a
    * heading.
@@ -184,7 +115,6 @@ export interface Combatant {
   readonly costume: readonly AbstractMesh[];
   readonly alive: boolean;
   readonly vitality: number;
-  lockTarget: Vector3 | null;
   observe(opponent: Combatant, clock: number): void;
   describe(into: import("./mind.ts").BodyView): void;
   /**
@@ -240,7 +170,6 @@ export interface UnitDefinition extends UnitSelectionRules {
   /** Null means every policy can drive the body's articulated input surface. */
   readonly compatiblePolicies: readonly string[] | null;
   readonly driverOptions: readonly { readonly name: string; readonly label: string }[];
-  readonly humanAdapter: boolean;
   readonly controlSurface: string;
   readonly supportedLocomotionPort: SupportedLocomotionCompatibility | null;
   readonly defaultPolicy: string;
@@ -289,22 +218,16 @@ const policyFactory = (unit: string, options: readonly { readonly name: string }
 const initialMind = (ctx: CombatantBuild, definition: UnitDefinition): Mind => {
   if (ctx.mind) return ctx.mind;
   if (!definition.createPolicy) throw new Error(`control surface ${definition.controlSurface} has no humanoid Mind factory`);
-  const policy = definition.createPolicy(ctx.policyName ?? definition.defaultPolicy, ctx.policySeed);
-  if (!ctx.humanActive) return policy;
-  if (!ctx.human || !definition.humanAdapter) {
-    throw new Error(`control surface ${definition.controlSurface} has no human adapter`);
-  }
-  return splitMind(ctx.human.mind, policy, ctx.human.ownership);
+  return definition.createPolicy(ctx.policyName ?? definition.defaultPolicy, ctx.policySeed);
 };
 
 /**
- * The golem: five modules, no held equipment, and the same mouse.
+ * The golem: five modules and no held equipment.
  *
  * **`hands` is 2 and the two hands are the two effector sockets.** Not a coincidence and not a
  * widening: `Intent` splits a person's command into `primary` and `secondary` hand channels, a
  * golem has exactly two effector sockets, and calling them by the channel names is what lets
- * `HandName` fit without a third vocabulary, lets `splitMind` find a hand to give the person, and
- * keeps every hand-keyed record in `src/options.ts` working. A golem head files its blows with
+ * `HandName` fit without a third vocabulary and keeps every hand-keyed record working. A golem head files its blows with
  * `hand` null through the body-neutral channel, exactly as a centipede's jaws do.
  *
  * **`equipment` is the setup sentinel and nothing else.** A golem carries nothing: its weapons are
@@ -331,7 +254,7 @@ const initialMind = (ctx: CombatantBuild, definition: UnitDefinition): Mind => {
 const GOLEM_POLICIES: readonly string[] = Object.freeze([
   "idle", "humanoid-duelist", "skeleton-duelist", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
   "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-  "golem-reaper", "golem-miser",
+  "golem-reaper", "golem-miser", "golem-walker",
 ]);
 
 /** Published and isolated-review candidates use the same legal golem surface. */
@@ -361,7 +284,6 @@ const golem: UnitDefinition = Object.freeze({
   hands: 2,
   get compatiblePolicies() { return golemPolicyNames(); },
   get driverOptions() { return golemDriverOptions(); },
-  humanAdapter: true,
   controlSurface: GOLEM_CONTROL_SURFACE,
   supportedLocomotionPort: SUPPORTED_LOCOMOTION_PORT_V1,
   // **Read by callers that name no policy, and never by the setup screen.** `withUnit` in
@@ -398,9 +320,7 @@ const golem: UnitDefinition = Object.freeze({
     facing: ctx.facing,
     setup: ctx.golem ?? defaultGolemSetup(),
     mind: initialMind(ctx, golem),
-    human: ctx.human,
     controlPolicies: golem.driverOptions,
-    controlPolicyName: ctx.policyName,
     controlPolicyFactory: golem.createPolicy ?? undefined,
     locomotionWorld: ctx.locomotionWorld,
   }),

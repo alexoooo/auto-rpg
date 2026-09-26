@@ -87,7 +87,7 @@ const endpoint = () => new GolemControlEndpoint({
  *
  * Every line here is one of Session 08's frozen choices and each would be a real defect if it
  * moved. `hands` is 2 because the two effector sockets *are* the two hand names, which is what
- * lets `HandName` fit without a third vocabulary and `splitMind` find a hand to give the person.
+ * lets `HandName` fit without a third vocabulary.
  * The surface tag is its own because a driver built for one surface must not install on the other.
  * `equipment` is the setup sentinel and nothing else, because a golem carries nothing at all.
  */
@@ -95,7 +95,6 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
   const golem = unitDefinition("golem");
   assert.equal(golem.controlSurface, "golem-v1");
   assert.equal(golem.hands, 2);
-  assert.equal(golem.humanAdapter, true);
   assert.equal(golem.supportedLocomotionPort, "supported-locomotion-v1");
   assert.deepEqual([...golem.equipment], ["empty"]);
   assert.deepEqual(golem.loadouts, [{ primary: "empty", secondary: "empty" }]);
@@ -107,7 +106,7 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
   assert.deepEqual([...(golem.compatiblePolicies ?? [])], [
     "idle", "humanoid-duelist", "skeleton-duelist", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
     "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-    "golem-reaper", "golem-miser",
+    "golem-reaper", "golem-miser", "golem-walker",
     ...researchedVariants.map((candidate) => candidate.name),
     ...researchedLab.map((candidate) => candidate.name),
   ]);
@@ -126,10 +125,6 @@ test("a_driver_for_one_surface_is_refused_by_the_other_surface_name", () => {
   assert.throws(() => control.install({
     surface: "construct-v1", name: "construct-hold", step: () => {}, stop: () => {},
   }), /control source for surface construct-v1 cannot drive surface golem-v1/);
-});
-
-test("a_body_without_a_human_adapter_disables_you_instead_of_installing_a_policy", () => {
-  assert.throws(() => endpoint().installHuman(), /control surface golem-v1 has no human adapter/);
 });
 
 test("both_bodies_observe_before_either_installed_driver_steps", () => {

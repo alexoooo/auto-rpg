@@ -1,7 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
-import type { HandCursor } from "../../../mind.ts";
 import { COLLIDES, LAYER } from "../../../physics.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import { attributeOf, withSize, withWeight } from "../../attributes.ts";
@@ -24,11 +23,6 @@ import { RigidStrike } from "../striker.ts";
 
 /** No axes, so nothing here is ever read as a command. Declared once so both callers agree. */
 const NO_AXES: readonly EffectorAxisView[] = Object.freeze([]);
-
-/** The centre of the window: the seed a chain with no cursor mapping owes a takeover. */
-const NO_CURSOR: HandCursor = Object.freeze({
-  pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0,
-});
 
 /**
  * How the cap is bolted to the socket.
@@ -224,11 +218,6 @@ export const noneChain = defineChain({
       stroke: () => "idle" as const,
       anchor: () => null,
       anchorStray: () => null,
-      // Every cursor position commands the same pose, because no cursor position commands
-      // anything at all -- so a takeover of a body carrying rung 0 has nothing to rebase and the
-      // honest seed is the centre of the window. Allocated once, like everything else published
-      // from here.
-      cursor: () => NO_CURSOR,
       // The commanded end is where a rigid cap on a stand that does not move *has* to be, so
       // the readout's target-versus-actual here is the solver's own error and nothing else --
       // which is exactly what a noise floor is.
@@ -253,6 +242,15 @@ export const noneChain = defineChain({
         part.body.dispose();
         part.shape.dispose();
         part.mesh.dispose(false, false);
+      },
+      // The fork's record (`src/forkable.ts`). The weld goes when the cap is severed, which the
+      // body's topology replays before this is restored; the scratch vectors are listed so the
+      // closure audit sees every object this closure writes.
+      captureState: (): Record<string, unknown> => ({
+        weld, commanded, capLocal, capWorld, capSocket, striker,
+      }),
+      restoreState(state: Record<string, unknown>): void {
+        ({ weld } = state as never);
       },
     });
   },

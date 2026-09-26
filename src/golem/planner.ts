@@ -1,5 +1,6 @@
 import type { FighterView, Intent } from "../mind.ts";
 import { mulberry32 } from "../rng.ts";
+import type { Forkable } from "../forkable.ts";
 import {
   checkDuelModel, observe, planOption,
   type DuelModelTables, type DuelOption, type Plan,
@@ -62,7 +63,7 @@ export const GOLEM_PLANNER = {
 };
 export type PlannerTactics = { -readonly [K in keyof typeof GOLEM_PLANNER]: number };
 
-export interface GolemPlanner {
+export interface GolemPlanner extends Forkable {
   readonly fencer: GolemFencer;
   /** The last plan the search returned, for a test and the readout. */
   readonly lastPlan: Plan | null;
@@ -81,7 +82,7 @@ export function golemPlanner(
   checkDuelModel(tables);
   let lastPlan: Plan | null = null;
   let replans = 0;
-  let totalMs = 0;
+  let totalMs = 0; // fork: instrument -- wall-clock time this process spent planning, not state
   let explored = 0;
   // The fencer's own stream is seeded from the same number; this one is drawn apart from it so
   // that a planner with `explore` at zero draws nothing and the fencer under it rolls as it
@@ -113,5 +114,14 @@ export function golemPlanner(
     get totalMs(): number { return totalMs; },
     get explored(): number { return explored; },
     decide: (view, dt) => fencer.decide(view, dt),
+    // A fork of the world (`src/forkable.ts`): the last plan, the counts, the stream, the fencer.
+    captureState: (): Record<string, unknown> => ({
+      lastPlan, replans, explored, random, fencer, tables, P, T,
+    }),
+    restoreState(state: Record<string, unknown>): void {
+      ({
+        lastPlan, replans, explored,
+      } = state as never);
+    },
   };
 }

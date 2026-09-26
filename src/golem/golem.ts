@@ -9,8 +9,8 @@ import { vitality as vitalityOf } from "../bout.ts";
 import type { Striking } from "../combat.ts";
 import { CONFIG } from "../config.ts";
 import { CONTACT_PRESS, ContactPress, type PressSource } from "../contact-press.ts";
-import type { HumanDriverSource } from "../control-host.ts";
 import type { Limb } from "../fighter.ts";
+import { isTopological, type Topological } from "../forkable.ts";
 import { TERMINAL_DESCRIPTION } from "./build.ts";
 import type { TerminalId } from "./module.ts";
 import type { WeaponKind } from "../hands.ts";
@@ -19,7 +19,6 @@ import type {
   BodyView,
   EffectorView as PublishedEffector,
   FighterView,
-  HandCursors,
   HandIntent,
   HandName,
   HandView,
@@ -210,9 +209,7 @@ export interface GolemOptions {
   readonly facing: number;
   readonly setup: GolemSetup;
   readonly mind: Mind;
-  readonly human?: HumanDriverSource;
   readonly controlPolicies: readonly { readonly name: string; readonly label: string }[];
-  readonly controlPolicyName?: string;
   readonly controlPolicyFactory?: (name: string, seed?: number) => Mind;
   /** The shared world registry. A pair of golems must be handed exactly the same one. */
   readonly locomotionWorld?: StandableWorldRegistry;
@@ -293,14 +290,21 @@ const blankBody = (): BodyView => ({
   health: {},
 });
 
-export class Golem implements Combatant {
+/** What a fork replays on a fresh golem before it writes any state: see `Golem.restoreTopology`. */
+interface GolemTopology {
+  /** Each module's own, where it has one: a joint it made mid-bout (a maul's second grip). */
+  readonly modules: readonly unknown[];
+  readonly severed: readonly boolean[];
+  readonly ruined: readonly boolean[];
+  readonly dead: boolean;
+}
+
+export class Golem implements Combatant, Topological {
   private humanAppearance: ReturnType<typeof dressHumanoid> = null;
   readonly actorId?: string;
   readonly kind = "golem" as const;
   /** Not a humanoid, and it does not pretend to be one. See `Combatant.articulated`. */
   readonly articulated = null;
-  /** A body a person drives with the same mouse. See `Combatant.humanDriver`. */
-  readonly humanDriver: Golem = this;
   readonly side: Side;
   readonly control: GolemControlEndpoint;
   readonly locomotion: PhysicalSupportedLocomotionPort;
@@ -311,7 +315,6 @@ export class Golem implements Combatant {
   /** A frozen view of actual module registration, including shield and collider-only visuals. */
   visualParts(): readonly GolemVisualPart[] { return Object.freeze([...this.visualBindings]); }
   readonly view: FighterView;
-  lockTarget: Vector3 | null = null;
 
   private readonly materials: GolemMaterialPalette;
   /**
@@ -388,6 +391,7 @@ export class Golem implements Combatant {
   private readonly asPressSource: PressSource;
 
   constructor(scene: Scene, options: GolemOptions) {
+    // fork: config -- names: options. The build's arguments, read by closures made below and never written.
     this.side = options.side;
     this.actorId = options.actorId;
     const setup = options.setup;
@@ -577,7 +581,6 @@ export class Golem implements Combatant {
 
     this.control = new GolemControlEndpoint({
       initialMind: options.mind,
-      initialPolicyName: options.controlPolicyName,
       view: this.view,
       canStep: () => !this.dead && this.fighting,
       apply: (dt, intent) => this.applyIntent(dt, intent),
@@ -585,8 +588,6 @@ export class Golem implements Combatant {
       clearLocomotion: (reason) => this.locomotion.clear(reason),
       policies: options.controlPolicies,
       policyFactory: options.controlPolicyFactory,
-      human: options.human,
-      cursorSeed: () => this.cursorSeed(),
     });
     this.humanAppearance = dressHumanoid(scene, this.visualBindings, this.side);
     for (const mesh of this.humanAppearance?.meshes ?? []) { this.owned.add(mesh); this.costume.push(mesh); }
@@ -630,8 +631,8 @@ export class Golem implements Combatant {
    * the centipede uses it too.
    *
    * The shells become pickable here and nowhere else. A shell carries no authority and never will
-   * -- nothing in this file gives one a body, a shape or a constraint -- but a pick is how the
-   * takeover ring finds a body under the cursor, and most module builders set `isPickable = false`
+   * -- nothing in this file gives one a body, a shape or a constraint -- but a pick is how a
+   * person's click finds the body to name as a target, and most module builders set `isPickable = false`
    * on their cosmetics because on the bench nothing picks anything. Choosing what a click may
    * choose is the assembly's business, which is why it is done once, here, on the meshes this
    * body then admits to owning.
@@ -802,77 +803,6 @@ export class Golem implements Combatant {
       this.ruined.add(limb);
       module.built.ruin?.(limb.key);
     }
-  }
-
-  /**
-   * Where a person's cursor has to sit for this golem to be commanded into the pose it is in.
-   *
-   * Null when neither effector can answer -- both cut off -- which is the golem's version of the
-   * Warrior's "the sword arm is off, so there is no pose to seed from". The body is still worth
-   * taking, so the refusal is of the seed and not of the takeover.
-   */
-  private cursorSeed(): HandCursors | null {
-    const seed: HandCursors = {
-      primary: { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0 },
-      secondary: { pointerX: 0, pointerY: 0, reach: 0, roll: 0, wristBend: 0 },
-    };
-    let found = false;
-    for (const hand of HANDS) {
-      const effector = this.effectors[hand];
-      if (!effector) continue;
-      const record = this.recordFor(effector.module);
-      if (!record || record.severed) continue;
-      const cursor = effector.module.cursor?.();
-      if (!cursor) continue;
-      seed[hand] = cursor;
-      found = true;
-    }
-    return found ? seed : null;
-  }
-
-  /**
-   * What a takeover has to seed from and measure against. See `DrivenPose` in `src/units.ts`.
-   *
-   * `command` is the primary effector's commanded business end **in the trunk's own frame**, which
-   * is the same choice the Warrior's `handOffset` makes and for the same reason: a golem that is
-   * walking is being translated and turned by its own carrier during the very step the reading
-   * spans, and a world-space difference would fold that in and report a walk as a handover jump.
-   */
-  drivenPose(): {
-    readonly cursors: HandCursors | null;
-    readonly refusal: string | null;
-    readonly command: { readonly x: number; readonly y: number; readonly z: number };
-    readonly tip: Vector3;
-  } {
-    const cursors = this.cursorSeed();
-    const effector = this.effectors.primary;
-    const record = effector ? this.recordFor(effector.module) : null;
-    const live = effector && record && !record.severed ? effector : null;
-    const view = live ? live.module.view() : null;
-    const command = { x: 0, y: 0, z: 0 };
-    const tip = new Vector3();
-    if (live && view) {
-      const socket = live.socket;
-      const mount = socket.mount.mesh;
-      const inverse = (mount.rotationQuaternion ?? Quaternion.Identity()).clone();
-      inverse.conjugateInPlace();
-      const offset = view.commandedTip.subtract(this.socketWorld(socket, new Vector3()));
-      offset.rotateByQuaternionToRef(inverse, offset);
-      command.x = offset.x;
-      command.y = offset.y;
-      command.z = offset.z;
-      tip.copyFrom(view.tip);
-    } else {
-      tip.copyFrom(this.centre());
-    }
-    return Object.freeze({
-      cursors,
-      refusal: cursors
-        ? null
-        : "both effectors are off, so there is no pose to seed from",
-      command: Object.freeze(command),
-      tip,
-    });
   }
 
   /** The body an overhead camera sits behind: the carrier root, which is what turns. */
@@ -1443,6 +1373,54 @@ export class Golem implements Combatant {
       legs.severed = true;
       legs.built.sever();
     }
+  }
+
+  // ---------------------------------------------------------------------------------- forking
+
+  /**
+   * Which modules are off, which pieces have been handed to `ruin`, and whether this body is dead:
+   * the three events that change the physical assembly rather than a field (skill ceiling session
+   * 02). Everything else about a golem is fields, which the fork walks.
+   */
+  captureTopology(): GolemTopology {
+    return {
+      modules: this.modules.map((module) => (isTopological(module.built) ? module.built.captureTopology() : null)),
+      severed: this.modules.map((module) => module.severed),
+      ruined: this.limbs.map((limb) => this.ruined.has(limb)),
+      dead: this.dead,
+    };
+  }
+
+  /**
+   * Replay those events on a fresh body built from the same setup, through the same code that
+   * made them -- `ruin`, `sever` and `die` -- so that the joints they dispose and the shapes they
+   * re-layer go the same way. Ruins first: `settleRuin` never ruins a piece of a severed module,
+   * so every ruin predates its module's sever. The sever is replayed with no kick, because the
+   * kick's impulse is already in the captured velocities, and whatever it writes to fields is
+   * overwritten by the state restore that follows.
+   */
+  restoreTopology(topology: unknown): void {
+    const t = topology as GolemTopology;
+    if (t.severed.length !== this.modules.length || t.ruined.length !== this.limbs.length) {
+      throw new Error("fork: a golem's topology was captured from a different build");
+    }
+    // The modules' own first: a joint made mid-bout was made while its module was still on.
+    this.modules.forEach((module, i) => {
+      if (t.modules[i] !== null && isTopological(module.built)) module.built.restoreTopology(t.modules[i]);
+    });
+    this.limbs.forEach((limb, i) => {
+      if (!t.ruined[i] || this.ruined.has(limb)) return;
+      this.ruined.add(limb);
+      const module = this.moduleOfLimb.get(limb);
+      if (module && !module.severed) module.built.ruin?.(limb.key);
+    });
+    this.modules.forEach((module, i) => {
+      if (!t.severed[i] || module.severed) return;
+      const limb = module.limbs[0];
+      if (limb) this.sever(limb, Vector3.ZeroReadOnly as Vector3);
+      else { module.severed = true; module.built.sever(); }
+    });
+    if (t.dead && !this.dead) this.die();
   }
 
   dispose(): void {

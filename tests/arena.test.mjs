@@ -19,7 +19,6 @@ import { CONFIG } from "../src/config.ts";
 import { CAMERA_ZOOM_NOTCHES, orbitFraming, slewCameraZoom } from "../src/camera.ts";
 import { blankIntent } from "../src/policies.ts";
 import { BoutRecorder } from "../src/recorder.ts";
-import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { ROOM_METRES, TEXTURED_SURFACES } from "../src/materials.ts";
 import {
@@ -153,12 +152,10 @@ test("wheel_zoom_reaches_both_limits_without_mutating_the_human_intent", () => {
   assert.ok(Math.abs(tilted.height
     - (C.fixed.height + Math.sin(0.4) * C.fixed.distance) * C.zoomMin) < 1e-9);
 
-  // And the thing the wheel must never reach. `Controls.state` is an `Intent`,
-  // which `tsc --noEmit` checks; this is the run-time half of the same claim,
-  // asserted against the command shape every policy and the person share.
+  // And the thing the wheel must never reach: the command every mind owns
+  // carries no camera state.
   const intent = blankIntent();
   assert.equal("zoom" in intent, false);
-  assert.deepEqual(Object.keys(intent).sort(), COMBAT_FIELDS);
 });
 
 test("cosmetic_room_dressing_creates_no_physics_body", async (t) => {

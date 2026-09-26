@@ -2,6 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { Striking } from "../../combat.ts";
 import type { HandIntent } from "../../mind.ts";
+import { isTopological } from "../../forkable.ts";
 import { attributeOf, SIZE_LAW_POWER, withSize, type SizeLaws } from "../attributes.ts";
 import {
   EFFECTOR_SLOTS,
@@ -110,7 +111,8 @@ export function effectorModule(
     build(ctx: ModuleBuild): BuiltModule<HandIntent> {
       const size = attributeOf(ctx, "size");
       const limits = terminal?.limits ? withSize(terminal.limits, CHAIN_LIMITS_SIZE, size) : null;
-      const built = chain.build(ctx, limits, null, terminal?.massKg ?? 0);
+      const built = chain.build(ctx, limits, null, terminal?.massKg ?? 0,
+        terminal ? terminal.attachment ?? "socket" : undefined);
 
       // The trailing chain is built before the terminal, because the terminal needs its weld --
       // and everything built here is taken down again if any of the four refusals fires, which
@@ -306,10 +308,6 @@ export function effectorModule(
         },
         envelope: () => envelope,
         view: () => view,
-        // The driven chain's, and never the trailing one's. A maul's second arm follows the
-        // first's commanded point rather than a cursor of its own, so it has no pose of its own
-        // to seed and asking it would hand a takeover the cursor for an arm nobody drives.
-        cursor: () => built.cursor(),
         // **Both chains, whichever was struck.** A maul's second hand holds the same haft, so a
         // ruined link on either arm is the end of wielding it; and a trailing arm left driven
         // after the first went slack would haul the weapon on its own.
@@ -336,6 +334,18 @@ export function effectorModule(
           end.dispose();
           built.dispose();
           trailing?.dispose();
+        },
+        // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on,
+        // and the terminal's topology -- a maul's second grip is a joint made mid-bout.
+        captureTopology: (): unknown => (isTopological(end) ? end.captureTopology() : null),
+        restoreTopology: (topology: unknown): void => {
+          if (topology !== null && isTopological(end)) end.restoreTopology(topology);
+        },
+        captureState: (): Record<string, unknown> => ({
+          severed, limp, built, trailing, end, ctx, view, limbIds, limits, envelope,
+        }),
+        restoreState: (state: Record<string, unknown>): void => {
+          ({ severed, limp } = state as never);
         },
       });
     },

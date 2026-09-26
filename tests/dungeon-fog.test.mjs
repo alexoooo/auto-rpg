@@ -424,7 +424,7 @@ test("presenting_a_run_writes_its_fog_mask_and_no_golem_is_fogged", async () => 
     run.toward = diagonal; run.present();
     assert.deepEqual(run.world.surfaces[0].material.pluginManager.getPlugin("DungeonFog").view.toward, diagonal);
     run.commands.setMode({ keyboard: true, facing: false }); run.commands.right = 1;
-    // `heroMovement` is private to TypeScript alone.
-    assert.deepEqual(run.heroMovement(), screenMovement(1, 0, diagonal));
+    // `memberMovement` is private to TypeScript alone.
+    assert.deepEqual(run.memberMovement(run.hero), screenMovement(1, 0, diagonal));
   } finally { run.dispose(); arena.dispose(); }
 });

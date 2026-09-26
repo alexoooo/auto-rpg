@@ -80,7 +80,7 @@ export function refreshShadowCasters(scene: Scene, shadows: ShadowGenerator): vo
     if (
       mesh.name.startsWith("aim.")
       || mesh.name.startsWith("target.")
-      || mesh.name.startsWith("takeover.")
+      || mesh.name.startsWith("orders.")
       || mesh.name.startsWith("rig.")
     ) continue;
     list.push(mesh);

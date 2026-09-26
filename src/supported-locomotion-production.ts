@@ -26,11 +26,11 @@ import {
 import type { StabilityEvent } from "./supported-locomotion-state.ts";
 import { CONTACT_PRESS, type PressReading } from "./contact-press.ts";
 import { fallenDwellS, initialSupportedLocomotionState, ledgerFalls, recoveredRiseS, risingEligibility, risingFloorS,
-  shoveSpecificImpulse, sizeTime, stabilityLines, stepSupportedLocomotionState,
+  shoveSpecificImpulse, sizeDriveTime, stabilityLines, stepSupportedLocomotionState,
   type StabilityAuthority, type StabilityLines, type SupportState,
   type SupportedLocomotionBoundary, type SupportedLocomotionState } from "./supported-locomotion-state.ts";
-import { baseReachM, hullHoldsCentre, leanHoldN, leanRoomM, TIPPING, tippingGeometry, type MassDistribution,
-  type TippingGeometry } from "./tipping.ts";
+import { baseReachM, hullCentreMarginM, leanHoldN, leanRoomM, TIPPING, tippingGeometry,
+  type MassDistribution, type TippingGeometry } from "./tipping.ts";
 /**
  * The scheduler seam, moved here on 2026-09-04 when `src/construct/` and `src/forge/` were
  * deleted with the golem plan set's first session.
@@ -154,7 +154,11 @@ export const RECOVERY_RING_ANGLES = 16;
 export const RECOVERY_SEPARATION_MARGIN_M = 0.02;
 
 /** Another carrier's footprint, as the rise gate reads it: where it stands (or lies) and how wide. */
-interface RecoveryOccupant { readonly x: number; readonly z: number; readonly radiusM: number }
+interface RecoveryOccupant {
+  readonly x: number; readonly z: number; readonly radiusM: number;
+  /** Fallen: its footprint is its ragdoll root, and it reserves space only against a rise that has not begun. */
+  readonly lying: boolean;
+}
 
 /** Downward/ceiling normals and any surface steeper than the frozen 35 degree limit are not feet. */
 export function isStandableUpwardNormalY(y: number): boolean {
@@ -218,9 +222,10 @@ export interface PhysicalSupportedLocomotionOptions {
   /** Whether a fallen body's fall has finished; absent is the frozen dwell alone. Read once per
    *  boundary, before the state steps. See `SupportedLocomotionBoundary.fallSettled`. */
   readonly fallSettled?: () => boolean;
-  /** How long a rise over this distance (metres, live root to recovery target) lasts; absent is
-   *  `RISING_DURATION_S`. Asked before the state steps, so the rise it admits is the one it runs. */
-  readonly risingDuration?: (distanceM: number) => number;
+  /** How long a rise over this distance (metres, live root to recovery target) lasts, to stand
+   *  facing `yaw`; absent is `RISING_DURATION_S`. Asked before the state steps, so the rise it admits
+   *  is the one it runs. */
+  readonly risingDuration?: (distanceM: number, yaw: number) => number;
   readonly supportBindings: readonly string[];
   /**
    * Where the whole body's mass is and how it is spread, read off its live parts (physical contact
@@ -248,8 +253,12 @@ export interface PhysicalSupportedLocomotionOptions {
   /** Fighter's supported root follows the resolved upright carrier until an authored release makes it ragdoll. */
   readonly driveAnimatedRoot?: (position: WorldPoint,
     velocity: Readonly<{ x: number; y: number; z: number }>, yaw: number, dt: number) => void;
-  /** Applies only the occupancy-checked, acceleration-bounded RisingActuator frame. */
-  readonly driveRisingRoot?: (position: WorldPoint, velocity: WorldPoint, yaw: number) => void;
+  /**
+   * Applies only the occupancy-checked, acceleration-bounded RisingActuator frame. `elapsedS` of
+   * `durationS` is how far into the rise the frame is, which a body that stages its rise reads.
+   */
+  readonly driveRisingRoot?: (position: WorldPoint, velocity: WorldPoint, yaw: number, elapsedS: number,
+    durationS: number) => void;
   readonly releaseRoot?: () => void;
   readonly restoreRoot?: () => void;
   readonly releaseAnatomyCollision?: () => void;
@@ -381,10 +390,11 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   /** The last boundary's tipping geometry (`readTipping`), for the diagnostic and `stabilityLinesAlong`. */
   private tipping: TippingGeometry | null = null;
   /**
-   * The last standing base that held the centre of mass, relative to its ground point: the stance a
-   * rising body is judged on (`readTipping`).
+   * The most centred standing base the body has had, relative to its centre of mass's ground point,
+   * and how far inside it that point was: the stance a rising body is judged on (`readTipping`).
    */
   private standingHull: TippingGeometry["hull"] | null = null;
+  private standingMargin = -Infinity;
   private readonly contactTally = { lifts: 0, pushedS: 0, liftN: 0 };
   private lastRiseGate: { readonly prior: SupportedLocomotionState;
     readonly boundary: SupportedLocomotionBoundary; readonly pairOccupancyClear: boolean;
@@ -556,12 +566,13 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     // The rise under way keeps the length it began with; a prospective one is asked for afresh, of
     // the body at x1, and then divided by its recovery stat here, so every body's rise answers to
     // the stat on one rule (`recoveredRiseS`). A body that states no rise of its own takes the frozen
-    // one at its size, which is a time (`sizeTime`).
+    // one at its size, which is a drive's time (`sizeDriveTime`).
     const riseTo = (target: WorldPoint) => {
       const distanceM = Math.hypot(target.x - root.position.x, target.y - root.position.y,
         target.z - root.position.z);
       const durationS = this.rising?.durationS ?? recoveredRiseS(
-        this.options.risingDuration?.(distanceM) ?? SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeTime(authority),
+        this.options.risingDuration?.(distanceM, this.carrier.state.yaw) ??
+          SUPPORTED_CARRIER_V1.RISING_DURATION_S * sizeDriveTime(authority),
         distanceM, SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2, authority);
       return { durationS, withinAcceleration:
         6 * distanceM / (durationS * durationS) <= SUPPORTED_CARRIER_V1.RISING_MAX_ACCELERATION_MPS2 };
@@ -578,7 +589,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const rise = riseTo(recoveryTarget);
     const risingDurationS = rise.durationS;
     const recoveryWithinAccelerationLimit = rise.withinAcceleration;
-    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget, 0);
+    this.pairOccupancyClear = this.clearOfOccupants(recoveryTarget, 0, this.supportState.state === "rising");
     const occupancyClear = recoveryWithinAccelerationLimit && this.pairOccupancyClear &&
       sweepClear(recoveryTarget);
     this.lastBoundary = Object.freeze({ authority: authority !== null, liveSupport, postureSupported,
@@ -696,15 +707,20 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
    * stance: its base is whatever of it is on the floor, a support patch included only when it is.
    * "On the floor" is within `TIPPING.CONTACT_BAND_M` of the lowest point the body has.
    *
-   * **A rising body is judged on the stance it is rising onto**: the last standing base that held
-   * its centre of mass, around where that centre of mass is now, at its live height and gyration. The
-   * rise is authored -- the carrier hoists the pelvis while the legs still lie where they fell -- so
-   * what is on the floor spans nothing under the centre of mass: measured on stone x1 mirrors
-   * (`.review/rise-base.mjs`, Node bout runner), the lowest points stay about a metre from it for the
-   * whole rise, and the fall line read 0 from 0.2 s into every rise, so that any touch put the body
-   * down again. That is a keyframe's reading, not a body's. A low body on its feet is hard to tip
-   * and gets easier as it straightens, and no blow is exempt. A body that has never stood is judged
-   * on what is on the floor. Null without both readers, and for a body with no base.
+   * **A rising body is judged on the stance it is rising onto**: the most centred standing base it
+   * has had, around where its centre of mass is now, at its live height and gyration. The rise is
+   * authored and the pelvis keyframed, so what is on the floor midway spans little under the centre
+   * of mass: in the staged rise's gather the centre of mass is still 0.3 to 0.7 m off the feet at
+   * 0.3 s (`research/rise-bench.mjs`, Node headless arena). A low body on its feet is hard to tip and
+   * gets easier as it straightens, and no blow is exempt. A body that has never stood is judged on
+   * what is on the floor.
+   *
+   * **Most centred, not last.** It was the last standing base that held the centre of mass, which is
+   * the one read the instant before the fall, with the centre of mass on its edge: a rising body's
+   * fall line had a median of about 0.02 m/s and any touch put it down again. 126 of stone's 259
+   * falls began in a rise, and 3310 of the skeleton mirror's 7528 (Node research runner,
+   * `docs/analysis/2026-09-25-falls-and-rise.md`). Null without both readers, and for a body with no
+   * base.
    */
   private readTipping(bindings: readonly string[]): TippingGeometry | null {
     const patch = this.options.supportPatch;
@@ -719,7 +735,11 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     const standing = this.supportState.state === "supported" || this.supportState.state === "staggered";
     if (standing) {
       const geometry = tippingGeometry(mass, [...stance, ...contacts.filter(onFloor)]);
-      if (geometry && hullHoldsCentre(geometry.hull)) this.standingHull = geometry.hull;
+      const margin = geometry ? hullCentreMarginM(geometry.hull) : -Infinity;
+      if (geometry && margin >= 0 && margin > this.standingMargin) {
+        this.standingHull = geometry.hull;
+        this.standingMargin = margin;
+      }
       return geometry;
     }
     const live = tippingGeometry(mass, [...stance.filter(onFloor), ...contacts.filter(onFloor)]);
@@ -869,8 +889,9 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
 
   /** Where this carrier's footprint is, for another body's rise gate: its ragdoll root while fallen. */
   private occupantFootprint(): RecoveryOccupant {
-    const at = this.supportState.state === "fallen" ? this.options.root.sample().position : this.carrier.state;
-    return Object.freeze({ x: at.x, z: at.z, radiusM: this.carrier.footprint.radiusM });
+    const lying = this.supportState.state === "fallen";
+    const at = lying ? this.options.root.sample().position : this.carrier.state;
+    return Object.freeze({ x: at.x, z: at.z, radiusM: this.carrier.footprint.radiusM, lying });
   }
 
   /**
@@ -889,8 +910,26 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     this.occupants = Object.freeze(others.map((other) => other.occupantFootprint()));
   }
 
-  private clearOfOccupants(target: { readonly x: number; readonly z: number }, marginM: number): boolean {
-    return this.occupants.every((other) => Math.hypot(other.x - target.x, other.z - target.z) >=
+  /**
+   * Whether `target` is clear of the other footprints by `marginM`.
+   *
+   * **A body lying down reserves its footprint against a rise that has not begun, not against one
+   * under way** (2026-09-25 falls and rise). Before a rise, a lying body is lower, not absent: nobody
+   * rises through it, and the rings go around it. Once the rise has begun, though, the riser is a
+   * keyframed body the solver moves a ragdoll out of the way of. Refusing it there dropped the riser
+   * for a bookkeeping step rather than for a push. A body that falls moves its footprint from its
+   * carrier to its ragdoll root in one boundary, and two bodies at exact contact are within one
+   * footprint of each other. So when the other body went down beside a riser, the riser went down
+   * with it on the next boundary. Of 452 refused rises on the skeleton group, 443 were against a
+   * lying body: 263 of them fell within a median 0.01 s of the other's own fall, and the other 180
+   * were against a ragdoll still settling. Stone had 18 of 19 and the wheel group 24 of 24 (Node
+   * research runner, `research/fall-loop.mjs`, 192 bouts a group). Bodies that are standing or
+   * rising still refuse a rise under way.
+   */
+  private clearOfOccupants(target: { readonly x: number; readonly z: number }, marginM: number,
+    riseUnderWay = false): boolean {
+    return this.occupants.every((other) => (riseUnderWay && other.lying) ||
+      Math.hypot(other.x - target.x, other.z - target.z) >=
       this.carrier.footprint.radiusM + other.radiusM + marginM - 1e-9);
   }
 
@@ -948,7 +987,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     if (this.supportState.state === "rising" && this.rising) {
       if (this.risingFrameComplete) {
         if (this.options.driveRisingRoot) {
-          this.options.driveRisingRoot(this.rising.target, { x: 0, y: 0, z: 0 }, this.rising.yaw);
+          this.options.driveRisingRoot(this.rising.target, { x: 0, y: 0, z: 0 }, this.rising.yaw,
+            this.rising.durationS, this.rising.durationS);
         } else {
           this.motor.drive(this.rising.target, { x: 0, y: 0, z: 0 }, "rising");
           this.options.applyAngularDrive?.(this.rising.yaw, "rising");
@@ -957,7 +997,8 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         const frame = this.rising.step(dt);
         this.risingFrameComplete = frame.complete;
         if (this.options.driveRisingRoot) {
-          this.options.driveRisingRoot(frame.position, frame.velocity, frame.yaw);
+          this.options.driveRisingRoot(frame.position, frame.velocity, frame.yaw, this.rising.elapsed,
+            this.rising.durationS);
         } else {
           this.motor.drive(frame.position, frame.velocity, "rising");
           this.options.applyAngularDrive?.(frame.yaw, "rising");

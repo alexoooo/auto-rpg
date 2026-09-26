@@ -10,6 +10,8 @@
  * Units are SI throughout -- metres, kilograms, seconds, radians.
  */
 
+import type { Striker } from "./hands.ts";
+
 /**
  * Which reading of the arena the camera is giving. The two names are also the
  * keys of the two presets in the `camera` block below, which is what lets the
@@ -35,10 +37,18 @@ export const CONFIG = {
      * in the hand even with the cursor held still -- measured at 40 mm of tip
      * wander under realistic frame jitter, against 0 mm at a fixed step.
      *
-     * 240 Hz costs about 2.5 ms a frame and buys a chain that does not care what
-     * the frame rate is doing.
+     * 240 Hz cost about 2.5 ms a frame and bought a chain that does not care what
+     * the frame rate is doing, and every drive in the tree was tuned there.
+     *
+     * **It is 120 from the release of 2026-09-25**, the owner's decision, at half
+     * the solver's cost. What keeps the 240 behaviour is held apart from the rate
+     * rather than retuned: Havok's ideal step (`solverTuningHz`), the arm servos'
+     * lead, gain and command filter (`servoLead`, `servoGain` in
+     * `src/golem/joint-servo.ts`), and the contact reading (`combat.contactReading`
+     * `"arrival"`), which reads a blow as the step that found it began rather than
+     * as the solver left it. The account is `docs/analysis/2026-09-25-release-120.md`.
      */
-    physicsHz: 240,
+    physicsHz: 120,
     /**
      * The step Havok is told to expect (`HP_World_SetIdealStepTime`), in steps per second,
      * held apart from the step it is actually handed.
@@ -51,6 +61,11 @@ export const CONFIG = {
      * mm/s, against 3.05, 37.9 and 99 at 240), where 1/360 and 1/480 are worse again. The
      * table is in `docs/analysis/2026-09-25-physics-rate-2.md`. It is a property of the tuning,
      * not of the rate: change it only with every drive re-measured.
+     *
+     * The release runs exactly that way: `physicsHz` 120 against this 240. The arm servos read
+     * it too. Their lead, their gain and the arm command filter were counted in steps and are
+     * held per second at this rate (`servoLead` and `servoGain` in `src/golem/joint-servo.ts`,
+     * with the table), so at 240 they are bit-identical to the build before them.
      */
     solverTuningHz: 240,
     /**
@@ -59,9 +74,11 @@ export const CONFIG = {
      * carrier still stages its request and each gait still runs at `physicsHz`; only publishing the
      * view and `Mind.decide` are skipped. The substep interval is `round(physicsHz / controlHz)`,
      * never less than one, so a value at or above `physicsHz` decides every substep, as before.
-     * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md`.
+     * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md`. It was 240 with
+     * `physicsHz` 240 until the release of 2026-09-25; at 120 against 120 a mind still decides
+     * every substep, half as often a second.
      */
-    controlHz: 240,
+    controlHz: 120,
     /** Clamp: a long stall must not integrate one enormous step. */
     maxFrameSeconds: 1 / 20,
   },
@@ -1041,7 +1058,7 @@ export const CONFIG = {
      * against the *unprojected* tip speed rather than the closing speed, because what is being
      * refused is a striker travelling impossibly fast whatever the manifold says about it. Under
      * `contactReading: "arrival"` it is checked against the speed that reading bills, the whole
-     * speed as the step began, before `arrivalReadFraction` (see `arrivalReadFraction`).
+     * speed as the step began, before its kind's row of `arrivalReadFractions`.
      *
      * Projectiles are exempt: `CONFIG.arrow.speedMax` is 48 m/s and a loosed arrow's speed is
      * authored by the bow rather than found by the solver.
@@ -1056,9 +1073,9 @@ export const CONFIG = {
     /**
      * Which velocity a contact is scored from.
      *
-     * - `"settled"` (the default, and every build before 2026-09-25): `velocityAt` at the moment
-     *   Havok reports the contact, which is **after** the solver step that found it. Havok's
-     *   contacts are speculative, so that velocity is whatever the solver left of the blade after
+     * - `"settled"` (the default of every build before the release of 2026-09-25): `velocityAt`
+     *   at the moment Havok reports the contact, which is **after** the solver step that found it.
+     *   Havok's contacts are speculative, so that velocity is whatever the solver left of the blade after
      *   answering a contact that was usually still tens of millimetres open, and how much it left
      *   depends on the step length against the ideal step (`world.solverTuningHz`): the gap is
      *   crossed in fewer, larger steps at 120 Hz. Measured on real blade blows, the same arrival
@@ -1076,7 +1093,8 @@ export const CONFIG = {
      *   agree with. The event point lies on the striker's collider in that pose to p90 0.7-1.3 mm,
      *   against 12-71 mm after the step. The whip's weight, a sphere, prices at 0.415 kg at 240 and
      *   at 120 against a rigid-body 0.42; read against the post-step pose it was 0.353 and 0.244.
-     *   The velocity is billed times `arrivalReadFraction`, and `impossibleSpeed` reads it whole.
+     *   The velocity is billed times its kind's row of `arrivalReadFractions`, and
+     *   `impossibleSpeed` reads it whole.
      *
      * **What it fixes.** Node research runner, supported locomotion, PROBE_MINDS, stone golems,
      * each named build's mirror, 192 bouts per set, 150 s cap, seed 20260923; paired t120 (physics
@@ -1108,11 +1126,13 @@ export const CONFIG = {
      * `mesh.position` and `mesh.rotationQuaternion`, with no plugin read and no allocation: about
      * 1.4-2.0 % of a frame in all (Node bout runner, on a loaded box).
      *
-     * The default stays `"settled"`, which is bit-identical to the build before it (192 of 192
-     * bouts at 240 and at 120/240). Switching is a balance decision, and it is the one to make
-     * before the physics rate drops to 120.
+     * The default stayed `"settled"` when this landed, bit-identical to the build before it (192 of
+     * 192 bouts at 240 and at 120/240), because switching is a balance decision. **The owner took it
+     * with the release of 2026-09-25**: `"arrival"`, with `world.physicsHz` at 120. `"settled"` is
+     * still that bit-identical reading, and the fixtures that fire a contact by hand read which one
+     * is in force.
      */
-    contactReading: "settled" as "settled" | "arrival",
+    contactReading: "arrival" as "settled" | "arrival",
 
     /**
      * The fraction of the arrival velocity an `"arrival"` reading bills, chosen to keep **the
@@ -1149,8 +1169,47 @@ export const CONFIG = {
      * ends on less damage in all (a mean 13.9 a bout against 15.3). The settled set's two shortest bouts,
      * 0.90 s each, end on a blade that arrived at 220 m/s and was read at 37 m/s after the step,
      * just under the guard; under this reading the guard refuses that blow.
+     *
+     * **One row per striker kind, since the release of 2026-09-25.** The table above chose the
+     * blade's fraction on the default mirror, and the step keeps a different share of each kind's
+     * arrival: at 240 one fraction left the blunt and fist mirrors 6-15 % longer than settled. At
+     * the release (physics and control at 120, the arm servos held to 240,
+     * `docs/analysis/2026-09-25-release-120.md`) each weapon mirror was held to its own settled 240
+     * length. Node research runner, the protocol above, paired against 240 settled, naive 95 % with
+     * the interval clustered by mind pairing in brackets; each variant moves one row:
+     *
+     * | mirror (kind moved)  | Delta ln s at 0.56      | Delta ln s at 0.62      | crossing |
+     * |----------------------|------------------------:|------------------------:|---------:|
+     * | default (empty)      | -0.029 +- 0.146 (0.407) | -0.031 +- 0.149 (0.394) |        - |
+     * | mace (club)          | +0.122 +- 0.055 (0.086) | -0.024 +- 0.061 (0.120) |    0.610 |
+     * | maul (club)          | +0.173 +- 0.064 (0.129) | +0.074 +- 0.066 (0.158) |    0.665 |
+     * | fists (empty)        | +0.097 +- 0.031 (0.060) | +0.007 +- 0.033 (0.056) |    0.625 |
+     * | whip (whip)          | +0.085 +- 0.035 (0.094) | +0.063 +- 0.034 (0.094) |   (0.79) |
+     *
+     * - **`empty` is 0.62.** The fists keep their length at it; the default mirror's plate is the
+     *   same kind and its length does not move (its blade decides it).
+     * - **`club` is 0.62**, the one value measured on both club mirrors. The mace crosses at 0.61 and
+     *   the maul at 0.665; 0.62 leaves the mace 0.024 short and the maul 0.074 long, each inside its
+     *   clustered interval. The maul's remainder travels with its falls (+3.49 a bout at 0.62), which
+     *   are locomotion's to answer rather than the reading's.
+     * - **`whip` stays at 0.56.** Its length hardly answers the fraction (-0.022 over 0.06, against
+     *   -0.09 to -0.15 for the others), so its crossing is an extrapolation to 0.79, and its excess
+     *   travels with its falls (+2.9 a bout). A fraction that bought that length back would be a
+     *   rule standing in for a cause somewhere else.
+     * - **With both rows in**, the mace and the whip carry a plate, which is `empty`, and move again:
+     *   the mace to -0.063 +- 0.062 (0.109) and the whip to +0.047 +- 0.033 (0.067). The maul
+     *   stays at +0.074, the fists at +0.007 and the default mirror at -0.031. So every mirror is
+     *   inside its clustered interval of settled 240.
+     * - **The rest keep the blade's 0.56**: no research mirror fields an axe, bow, shield, buckler,
+     *   arrow, bite or ram, so none has a length to hold. A kind is set here when one is measured.
+     *
+     * `arrivalReadFraction` in `src/combat.ts` reads it, and is total over `Striker`.
      */
-    arrivalReadFraction: 0.56,
+    arrivalReadFractions: {
+      sword: 0.56, axe: 0.56, bow: 0.56, shield: 0.56, buckler: 0.56,
+      club: 0.62, empty: 0.62, whip: 0.56,
+      arrow: 0.56, bite: 0.56, ram: 0.56,
+    } satisfies Record<Striker, number>,
 
     /**
      * **The breaking point**: how far below empty, as a fraction of the part's full health, a part
@@ -1388,13 +1447,13 @@ export const CONFIG = {
     probeSeconds: 150,
 
     /**
-     * How long the takeover hint stays on the banner at the start of a bout.
+     * How long the command hint stays on the banner at the start of a bout.
      *
-     * Long enough to be read once without being read twice. The feature it
-     * points at is not new -- `C` has taken a body mid-fight since session 07,
-     * and the curtain has listed it the whole time -- but a key on a screen you
-     * dismissed in order to start playing is a key nobody has, and this is what
-     * that cost. Purely a screen number; nothing in the rules reads it.
+     * Long enough to be read once without being read twice. It points at taking
+     * command of a side and giving it orders (skill ceiling session 06), which the
+     * curtain lists too -- but a key on a screen you dismissed in order to start
+     * playing is a key nobody has. Purely a screen number; nothing in the rules
+     * reads it.
      */
     hintSeconds: 6,
   },
@@ -1862,88 +1921,6 @@ export const CONFIG = {
     ringRadius: 0.62,
     /** Outline thickness on the limb under the cursor. */
     outlineWidth: 0.014,
-  },
-
-  /**
-   * Taking a body, on `C`.
-   *
-   * The interaction reuses `targeting`'s numbers above -- the same ring radius
-   * and the same outline width -- because it is deliberately the same two-step
-   * gesture with a wider predicate, and two rings that meant the same thing at
-   * two sizes would read as two different things.
-   */
-  takeover: {
-    /**
-     * How long the commanded cursor takes to walk from the pose a handover found
-     * to the pose its new driver is asking for, in seconds.
-     *
-     * The seed alone -- writing the found pose into the new driver's intent -- is
-     * what makes the takeover frame itself exact. Measured in the headless bench
-     * (`.review/takeover-probe.mjs`: one fighter sweeping 1.8 cursor units every
-     * half second, taken at four different points of the sweep, commanded hand
-     * jump on the step after the swap, in millimetres):
-     *
-     *     tip at the swap   take seeded   take bare   give seeded   give bare
-     *       20.49 m/s          0.000         257.2       0.000         270.5
-     *       13.42              0.000         365.7       0.000         379.4
-     *        9.79              0.000         462.9       0.000         476.9
-     *        6.74              0.000         506.4       0.000         520.5
-     *
-     * Exactly zero, not nearly zero, because the seed is the inverse of the map
-     * the arm is about to apply and the round trip is exact. "Bare" is the same
-     * swap with the seed taken away, which is what the page did before this
-     * session: a quarter to half a metre of hand asked for in a single 1/240 s
-     * substep at the 850 N linear ceiling. Note that giving a body *back* to a
-     * policy is the worse of the two -- a freshly built `swinger` parks its
-     * cursor at centre guard on its first `decide` -- so a session that had
-     * seeded only the taking half would have fixed the half that was easier to
-     * notice.
-     *
-     * The blade's own point is not a usable reading here and the same run says
-     * why: over the one substep after the swap it moved 21 to 68 mm *seeded* and
-     * 27 to 76 mm bare, because a blade at 20 m/s covers 83 mm in a substep no
-     * matter who is holding it. A tip figure cannot carry a 20 mm acceptance
-     * unless the body is standing still, which is why `__sword.takeover` reports
-     * the commanded hand and reports the tip beside it with a warning.
-     *
-     * What the seed cannot do is survive the *next* frame, because a person's
-     * cursor is absolute and `Controls` writes its true position back on the next
-     * mouse event, and because a policy handed a body asks for its own cursor
-     * immediately. So the blade would not teleport on the frame anybody measured
-     * and would teleport on the one after it.
-     *
-     * This is the width of that bridge. It is a choice rather than a sweep, and
-     * the argument for the value is what it implies about hand speed: the aiming
-     * envelope is 2.45 rad of azimuth by 2.30 of elevation, so crossing the whole
-     * of it at a 0.45 m neutral reach is about 1.1 m of hand travel, and 0.25 s
-     * of it is 4.4 m/s. That is brisk -- a walk-in is 2.9 m/s -- and it is well
-     * under the 10 to 40 m/s a committed cut puts through the tip, so a rebase
-     * can never be mistaken for an attack, and it cannot land one either:
-     * `combat.cutFloorJ` is 10.62 J, which a bare 1.35 kg blade meeting a torso
-     * clears at 4.01 m/s at the *tip* (3.0 with a stone arm's chain behind it), and
-     * a hand crossing at 4.4 would therefore pass, so
-     * this is the one number in the block that somebody should watch in the page.
-     * If a takeover is ever seen to cut, halve it.
-     *
-     * Set it to 0 and the bridge disappears, leaving exactly the seed the plan
-     * for session 07 asks for and nothing else. That is kept working on purpose:
-     * it is the control condition for any argument about whether the bridge is
-     * worth having, and it takes effect on the next handover with nothing to
-     * rebuild.
-     */
-    rebaseSeconds: 0.25,
-    /**
-     * How much wider than `targeting.ringRadius` a candidate's ring is drawn.
-     *
-     * Wider than the lock ring's 1.16, so that the two are told apart by size as
-     * well as by colour when a lock is up and a takeover is armed at the same
-     * time -- which is a state you can be in, because a lock survives a handover.
-     *
-     * Read once, when the torus is built, like `targeting.ringRadius` beside it:
-     * it is geometry rather than a gain, so changing it from the console does
-     * nothing until the page is reloaded. `rebaseSeconds` above is the live one.
-     */
-    ringScale: 1.42,
   },
 
   /**

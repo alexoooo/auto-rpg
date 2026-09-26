@@ -2,8 +2,9 @@
 //
 // **This file imports no value**, and that is why it is a file: the golem executors under
 // `src/golem/` keep the property of importing no value beyond `hands.ts` and `rng.ts` (the header
-// of `src/golem/tactics.ts` says why), and `src/options.ts` asks the same question. One rule, one
-// copy, reachable from both without dragging `action-primitives.ts`'s Warrior strokes along.
+// of `src/golem/tactics.ts` says why), and the option layer (`src/options.ts`, retired in skill
+// ceiling session 06) asked the same question. One rule, one copy, reachable from every executor
+// without dragging `action-primitives.ts` along.
 import type { BodyView } from "./mind.ts";
 
 /**

@@ -30,11 +30,25 @@ async function arena() {
   return { bout, striker, combat, queued };
 }
 
-/** One contact of `striker` on `body` at the blade's centre of mass, moving at `velocity`. */
+/**
+ * One contact of `striker` on `body` at the blade's centre of mass, billed at `velocity`.
+ *
+ * The blade is sampled before the contact the way a solver step samples it
+ * (`onBeforePhysicsObservable`, as `tests/contact-reading.test.mjs` does), because an `"arrival"`
+ * reading (`CONFIG.combat.contactReading`) scores the velocity the step began with and would
+ * otherwise read the bout's last step instead of this blow. It scores `arrivalReadFraction` of that
+ * velocity, so the blade is moved at `velocity` over the fraction and the blow billed is `velocity`
+ * under either reading.
+ */
 async function strike(striker, body, velocity) {
   const { PhysicsEventType } = await import("@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js");
-  striker.body.setLinearVelocity(velocity);
+  const { CONFIG } = await import("../src/config.ts");
+  const { arrivalReadFraction } = await import("../src/combat.ts");
+  const share = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction(striker.kind) : 1;
+  striker.body.setLinearVelocity(velocity.scale(1 / share));
   striker.body.setAngularVelocity(velocity.scale(0));
+  const scene = striker.body.transformNode.getScene();
+  scene.onBeforePhysicsObservable.notifyObservers(scene);
   const point = striker.centreOfMass().clone();
   const normal = velocity.normalizeToNew();
   striker.body.getCollisionObservable().notifyObservers({ collider: striker.body, collidedAgainst: body,
@@ -97,7 +111,10 @@ test("a_parry_pushes_the_body_behind_the_guard_by_the_same_rule", async () => {
     const expected = contactImpulseNs(effectiveMassAt(striker.body, point, normal),
       effectiveMassAt(guard.body, point, normal), 9);
     assert.equal(queued.length, 2, "the block files a shove on the guard's owner");
-    near(report.transferNs, expected, 1e-9, "reported");
-    for (const event of queued) near(filed(event), expected, 1e-9, "filed");
+    // A part in a million, the width of Havok's float32 velocity: under an `"arrival"` reading the
+    // 9 m/s is the blade's 9 / `arrivalReadFraction` read back through the plugin and scaled, and
+    // comes back 1.7e-8 off. A block reports no closing speed to check the impulse against instead.
+    near(report.transferNs, expected, 1e-6, "reported");
+    for (const event of queued) near(filed(event), expected, 1e-6, "filed");
   } finally { bout.dispose(); }
 });

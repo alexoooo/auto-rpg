@@ -18,6 +18,7 @@ import type {
 import type { BuiltModule, GolemModuleDefinition, ModuleBuild } from "./module.ts";
 import { GOLEM_RUIN, type Knockdown } from "./config.ts";
 import { SUPPORTED_LOCOMOTION_V1 } from "../supported-locomotion-state.ts";
+import { SIZE_LAW_POWER } from "./attributes.ts";
 import { massDistributionOf, type MassDistribution, type PointMass } from "../tipping.ts";
 import { partBodyOf } from "../rig.ts";
 import type { WorldPoint } from "../supported-locomotion-runtime.ts";
@@ -103,6 +104,8 @@ export const hobble = (command: LocomotionCommand, mobility: number): Locomotion
 export function legRuin(legs: readonly (readonly string[])[]): {
   readonly ruin: (partId: string) => void;
   readonly mobility: () => number;
+  readonly captureState: () => Record<string, unknown>;
+  readonly restoreState: (state: Record<string, unknown>) => void;
 } {
   const ruined = new Set<number>();
   let mobility = 1;
@@ -114,6 +117,10 @@ export function legRuin(legs: readonly (readonly string[])[]): {
       mobility = 1 - (1 - GOLEM_RUIN.strippedMobility) * ruined.size / legs.length;
     },
     mobility: (): number => mobility,
+    // A fork of the world (`src/forkable.ts`). Ruins are replayed by the golem's topology first;
+    // the record is carried as well, so a leg ruined some other way is still covered.
+    captureState: (): Record<string, unknown> => ({ ruined, mobility, legs }),
+    restoreState: (state: Record<string, unknown>): void => { ({ mobility } = state as never); },
   });
 }
 
@@ -219,10 +226,11 @@ export class KnockdownSettle {
   /**
    * How long a rise over `distanceM` lasts: the lift is a smoothstep, whose peak speed is 1.5 times
    * its mean, so a rise that may not exceed `risePeakMps` lasts at least 1.5 d / risePeakMps, and
-   * never less than the frozen floor, which is a time and goes as the square root of the size.
+   * never less than the frozen floor, which is a drive's time and goes as the size (`duration` in
+   * `SizeLaw`; `sizeDriveTime` is the port's copy of the same factor).
    */
   risingDurationS(distanceM: number, size: number): number {
-    return Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * Math.sqrt(size),
+    return Math.max(SUPPORTED_LOCOMOTION_V1.RISING_DURATION_S * size ** SIZE_LAW_POWER.duration,
       1.5 * distanceM / this.knockdown.risePeakMps);
   }
 }
@@ -254,7 +262,7 @@ export interface BodyReaders {
  * stamps nothing (see `Golem.observe`).
  */
 export function bodyReaders(parts: () => Iterable<Part>): BodyReaders {
-  const masses = new Map<Part, number>();
+  const masses = new Map<Part, number>(); // fork: derived -- each part's mass, read once; it never changes
   const massOf = (part: Part): number => {
     let mass = masses.get(part);
     if (mass === undefined) {

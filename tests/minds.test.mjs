@@ -3,11 +3,10 @@ import assert from "node:assert/strict";
 import researchedVariants from "../src/golem/researched-variants.json" with { type: "json" };
 import researchedLab from "../src/golem/researched-lab.json" with { type: "json" };
 
-import { NEUTRAL, POLICIES, mirroredWristBend, otherHand, policyMind, splitMind } from "../src/mind.ts";
-import { blankIntent, cursorForElevation, postureFor, rollForStroke } from
+import { NEUTRAL, POLICIES, mirroredWristBend, otherHand, policyMind } from "../src/mind.ts";
+import { blankIntent, postureFor, rollForStroke } from
   "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
-import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { BODY_FACTS, assertCompleteView } from "./fixtures/view.mjs";
 
 /**
@@ -302,7 +301,7 @@ test("the picker offers exactly the policies that exist", () => {
     POLICIES.map((policy) => policy.name),
     [...researchedVariants.map((candidate) => candidate.name), ...researchedLab.map((candidate) => candidate.name), "idle", "golem-duelist", "humanoid-duelist", "skeleton-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
       "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-      "golem-reaper", "golem-miser"],
+      "golem-reaper", "golem-miser", "golem-walker"],
   );
   for (const policy of POLICIES) {
     // Every row builds. The one row that could refuse was `golem-snapshot`, a slot with nothing
@@ -323,16 +322,19 @@ test("the picker offers exactly the policies that exist", () => {
  * would pass the day somebody adds a field for the readout or the pointer lock.
  * Naming the whole set makes any new field a decision somebody has to take.
  *
- * The list itself lived here, and three durable documents pointed at "the copy
- * that cannot drift" while there were **six** hand-written copies of it across
- * five test files. It is `tests/fixtures/intent.mjs` now, on the model
- * `tests/fixtures/view.mjs` set; this is still the test that ties it to reality,
- * because it drives every shipped mind through it.
+ * The set is `NEUTRAL`'s own keys. A person no longer writes a command (skill
+ * ceiling session 06), so there is no second producer whose fields have to be
+ * kept in step by a hand-kept list, and the `COMBAT_FIELDS` fixture that did
+ * that went with the takeover; what is left to guard is that every mind hands a
+ * body exactly the command `NEUTRAL` declares, and no camera state rides in it.
  */
 test("a_combat_intent_contains_no_camera_state", () => {
   const fieldsOf = (intent) => Object.keys(intent).sort();
-  assert.deepEqual(fieldsOf(NEUTRAL), COMBAT_FIELDS, "the frozen neutral command");
-  assert.deepEqual(fieldsOf(blankIntent()), COMBAT_FIELDS, "the intent every policy owns");
+  const COMMAND = fieldsOf(NEUTRAL);
+  for (const host of ["zoom", "panX", "panY", "orbit", "mode"]) {
+    assert.ok(!COMMAND.includes(host), `the neutral command carries the camera's ${host}`);
+  }
+  assert.deepEqual(fieldsOf(blankIntent()), COMMAND, "the intent every policy owns");
   assert.deepEqual(Object.keys(NEUTRAL.posture).sort(), ["crouch", "trunkLean", "trunkTwist"]);
   // Every shipped mind, driven rather than merely constructed: a policy that
   // writes a field its blank did not declare is exactly as wrong as a blank that
@@ -341,7 +343,7 @@ test("a_combat_intent_contains_no_camera_state", () => {
     const mind = policyMind(policy.name, 20260824);
     for (const gap of [0.8, 1.4, 3.2]) {
       const out = mind.decide(facing({ gap }), FIXED);
-      assert.deepEqual(fieldsOf(out), COMBAT_FIELDS, `${policy.name} at ${gap} m`);
+      assert.deepEqual(fieldsOf(out), COMMAND, `${policy.name} at ${gap} m`);
     }
   }
 });
@@ -408,268 +410,6 @@ test("the roll stays inside what the wrist is allowed", () => {
   }
 });
 
-// ---- one mouse, two hands -------------------------------------------------
-
-/**
- * A mind that asks for one fixed thing, per hand.
- *
- * `actingHand` is which hand it is *attacking* with, which is now a different
- * question from which hands it has an opinion about: every policy plans both.
- */
-const twoHanded = (name, actingHand, over) => {
-  const intent = blankIntent();
-  intent.actingHand = actingHand;
-  Object.assign(intent, over.body ?? {});
-  Object.assign(intent.posture, over.posture ?? {});
-  Object.assign(intent.primary, over.primary ?? {});
-  Object.assign(intent.secondary, over.secondary ?? {});
-  return { name, decide: () => intent };
-};
-
-test("the person keeps the feet and the hand the mouse is on", () => {
-  const person = twoHanded("you", "primary", {
-    body: { forward: 1, strafe: -1, turn: 0.5 },
-    primary: { pointerX: 0.4, pointerY: -0.3, roll: 0.9, thrust: true, guard: false },
-  });
-  const policy = twoHanded("swinger", "primary", {
-    body: { forward: -1, strafe: 1, turn: -1 },
-    primary: { pointerX: -0.8, pointerY: 0.7, roll: -1.1, thrust: false, guard: true },
-    secondary: { pointerX: 0.15, pointerY: -0.05, roll: 1.4, thrust: false, guard: true },
-  });
-
-  const split = splitMind(person, policy);
-  const out = split.decide(facing({ gap: 1.2 }), FIXED);
-
-  // The body is the person's, whole.
-  assert.equal(out.forward, 1);
-  assert.equal(out.strafe, -1);
-  assert.equal(out.turn, 0.5);
-  assert.equal(out.actingHand, "primary");
-
-  // Position and buttons are theirs; wrist orientation is policy-owned.
-  assert.deepEqual(out.primary, {
-    pointerX: 0.4, pointerY: -0.3, reach: NEUTRAL.primary.reach,
-    roll: -1.1, wristBend: 0, thrust: true, guard: false,
-  });
-  // And the spare one takes the policy's plan **for that same hand** -- not the
-  // plan it made for the hand it is attacking with. That distinction is the
-  // whole of this rule: a policy plans a hand by what is in it, so its secondary
-  // plan is a plan for the secondary's weapon.
-  assert.deepEqual(out.secondary, {
-    pointerX: 0.15, pointerY: -0.05, reach: NEUTRAL.secondary.reach,
-    roll: 1.4, wristBend: 0, thrust: false, guard: true,
-  });
-});
-
-test("split_mind_composes_only_fighter_commands", () => {
-  // The person's half of this is `Controls.state` in the page, and the host owns
-  // more state than a command -- the camera gesture, the ownership switches, and
-  // whatever the next session adds. `splitMind` starts from `NEUTRAL` and assigns
-  // named fields, so nothing a source happens to be carrying can reach a fighter
-  // by spread. Both sources here carry a host field, which is exactly what a
-  // caller left over from before the seam moved looks like.
-  const person = twoHanded("you", "primary", {
-    body: { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6 },
-    primary: { pointerX: 0.4, thrust: true },
-  });
-  const policy = twoHanded("duelist", "secondary", {
-    body: { zoom: 9, panX: 3, mode: "orbit" },
-    secondary: { pointerX: -0.2, roll: 0.7, guard: true },
-  });
-
-  const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
-
-  assert.deepEqual(Object.keys(out).sort(), COMBAT_FIELDS, "a host field reached the fighter");
-  // ...and it is still the composition it was: the feet and the driven hand from
-  // the person, the spare hand from the policy's plan for that same hand.
-  assert.equal(out.forward, 1);
-  assert.equal(out.actingHand, "primary");
-  assert.equal(out.primary.pointerX, 0.4);
-  assert.equal(out.primary.thrust, true);
-  assert.equal(out.secondary.pointerX, -0.2);
-  assert.equal(out.secondary.guard, true);
-  assert.deepEqual(Object.keys(NEUTRAL).sort(), COMBAT_FIELDS, "the shared neutral was written through");
-});
-
-test("human_play_gives_wrist_orientation_to_the_policy_and_position_to_the_pointer", () => {
-  const person = twoHanded("you", "primary", {
-    primary: { pointerX: 0.63, pointerY: -0.42, roll: 1.25, wristBend: 0.91, thrust: true },
-  });
-  const policy = twoHanded("duelist", "primary", {
-    primary: { pointerX: -0.8, pointerY: 0.7, roll: -0.74, wristBend: 0.36, guard: true },
-  });
-  const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
-
-  assert.equal(out.primary.pointerX, 0.63);
-  assert.equal(out.primary.pointerY, -0.42);
-  assert.equal(out.primary.thrust, true);
-  assert.equal(out.primary.roll, -0.74);
-  assert.equal(out.primary.wristBend, 0.36);
-});
-
-test("a_high_threat_makes_the_posture_layer_crouch_and_cover", () => {
-  const view = facing({ gap: 0.9, tipSpeed: 12 });
-  putTip(view, { x: 0, y: 1.72, z: 0.22 });
-  const intent = blankIntent();
-
-  postureFor(view, "cover", intent);
-
-  assert.ok(intent.posture.crouch >= 0.45, `crouch ${intent.posture.crouch}`);
-  assert.ok(intent.posture.trunkLean < 0, `lean ${intent.posture.trunkLean}`);
-  assert.ok(intent.primary.wristBend > 0, "the covering wrist should not stay neutral");
-  assert.ok(intent.secondary.wristBend > 0, "posture owns both wrists");
-});
-
-test("a_commit_twists_into_the_strike_and_recovers_to_neutral", () => {
-  const view = facing();
-  const intent = blankIntent();
-  intent.actingHand = "secondary";
-
-  postureFor(view, "commit", intent);
-  assert.ok(intent.posture.trunkTwist < -0.4, `secondary commit twist ${intent.posture.trunkTwist}`);
-  assert.ok(intent.posture.trunkLean > 0, "reach should carry the chest into the stroke");
-
-  postureFor(view, "recover", intent);
-  assert.deepEqual(intent.posture, { trunkLean: 0, trunkTwist: 0, crouch: 0 });
-});
-
-test("human_play_keeps_locomotion_and_buttons_but_uses_policy_posture", () => {
-  const person = twoHanded("you", "secondary", {
-    body: { forward: 1, strafe: -1, turn: 0.5 },
-    posture: { trunkLean: 0.9, trunkTwist: -0.8, crouch: 0.1 },
-    secondary: { pointerX: 0.4, pointerY: -0.3, roll: 1.1, wristBend: 0.2, thrust: true },
-  });
-  const policy = twoHanded("duelist", "primary", {
-    body: { forward: -1, strafe: 1, turn: -1 },
-    posture: { trunkLean: -0.35, trunkTwist: 0.7, crouch: 0.65 },
-    primary: { roll: -0.8, wristBend: 0.75, guard: true },
-    secondary: { roll: -0.6, wristBend: 0.55, guard: true },
-  });
-
-  const out = splitMind(person, policy).decide(facing(), FIXED);
-  assert.deepEqual(
-    { forward: out.forward, strafe: out.strafe, turn: out.turn, actingHand: out.actingHand },
-    { forward: 1, strafe: -1, turn: 0.5, actingHand: "secondary" },
-  );
-  assert.deepEqual(out.posture, { trunkLean: -0.35, trunkTwist: 0.7, crouch: 0.65 });
-  assert.equal(out.secondary.pointerX, 0.4);
-  assert.equal(out.secondary.pointerY, -0.3);
-  assert.equal(out.secondary.thrust, true);
-  assert.equal(out.secondary.roll, -0.6);
-  assert.equal(out.secondary.wristBend, 0.55);
-});
-
-test("every_shipped_policy_keeps_roll_and_bend_inside_anatomical_limits", () => {
-  for (const policy of POLICIES) {
-    const track = drive(policyMind(policy.name, 20260823), 8, (clock) =>
-      facing({ gap: 0.9 + 0.6 * Math.sin(clock), mine: { primary: "axe", secondary: "shield" } }),
-    );
-    for (const intent of track) {
-      for (const name of ["primary", "secondary"]) {
-        const hand = intent[name];
-        assert.ok(hand.roll >= CONFIG.arm.rollMin && hand.roll <= CONFIG.arm.rollMax,
-          `${policy.name}.${name} roll ${hand.roll}`);
-        assert.ok(hand.wristBend >= 0 && hand.wristBend <= 1,
-          `${policy.name}.${name} bend ${hand.wristBend}`);
-      }
-    }
-  }
-});
-
-test("the_same_bend_intent_mirrors_between_left_and_right_hands", () => {
-  const right = mirroredWristBend(0.65, 1);
-  const left = mirroredWristBend(0.65, -1);
-  assert.ok(right > 0);
-  assert.equal(left, -right);
-  assert.equal(Math.abs(right), 0.65 * CONFIG.arm.wristBendMax);
-});
-
-test("the policy's attack does not follow the person round to the other arm", () => {
-  // The defect this pins, in the terms it was found in: pick a sword and a
-  // shield, take the sword, and the old rule copied `theirs[theirs.actingHand]` --
-  // the swing -- onto whichever arm was spare. That arm was the shield's. The
-  // board was being swung on the commit stroke of a cut, for the whole bout.
-  const cut = { pointerX: -0.9, pointerY: 0.8, reach: NEUTRAL.primary.reach,
-    roll: -0.93, wristBend: 0, thrust: false, guard: false };
-  const cover = { pointerX: 0.55, pointerY: 0.1, reach: NEUTRAL.secondary.reach,
-    roll: 1.2, wristBend: 0, thrust: false, guard: false };
-  const policy = twoHanded("swinger", "primary", { primary: cut, secondary: cover });
-
-  for (const acting of ["primary", "secondary"]) {
-    const person = twoHanded("you", acting, { [acting]: { pointerX: 0.4 } });
-    const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
-    const spare = otherHand(acting);
-    assert.deepEqual(
-      out[spare],
-      spare === "primary" ? cut : cover,
-      `acting with the ${acting}, the ${spare} should get the policy's plan for the ${spare}`,
-    );
-  }
-});
-
-test("swapping hands swaps which one the policy has", () => {
-  const person = twoHanded("you", "secondary", {
-    secondary: { pointerX: 0.25, roll: 0.5 },
-  });
-  const policy = twoHanded("duelist", "primary", { primary: { pointerX: -0.6, guard: true } });
-
-  const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
-
-  assert.equal(out.actingHand, "secondary");
-  assert.equal(out.secondary.pointerX, 0.25, "the mouse is on the secondary now");
-  assert.equal(out.primary.pointerX, -0.6, "so the policy has the primary");
-  assert.equal(out.primary.guard, true);
-  assert.equal(otherHand(out.actingHand), "primary");
-});
-
-test("a policy reading a hand does not read the person's", () => {
-  // The failure this guards is a spread instead of a field-by-field copy: the
-  // two hands would then be references to the two minds' own live objects, and
-  // a policy that writes its hand next step would silently rewrite what the
-  // fighter was already given.
-  const person = twoHanded("you", "primary", { primary: { pointerX: 0.5 } });
-  const policyIntent = blankIntent();
-  const policy = {
-    name: "shifty",
-    decide: () => {
-      policyIntent.primary.pointerX += 0.1;
-      return policyIntent;
-    },
-  };
-
-  const split = splitMind(person, policy);
-  const first = { ...split.decide(facing({ gap: 1.2 }), FIXED).secondary };
-  split.decide(facing({ gap: 1.2 }), FIXED);
-
-  assert.ok(first.pointerX !== policyIntent.primary.pointerX, "the copy was taken, not aliased");
-});
-
-test("the policy is driven every step, at its own dt", () => {
-  // A policy whose cadence stopped while somebody else was using its arm would
-  // be a different policy -- the same argument `handover` makes for driving its
-  // inner mind through the rebase window.
-  const seen = [];
-  const policy = {
-    name: "counter",
-    decide: (view, dt) => {
-      seen.push(dt);
-      return blankIntent();
-    },
-  };
-  const split = splitMind(twoHanded("you", "primary", {}), policy);
-  for (let i = 0; i < 12; i += 1) split.decide(facing({ gap: 1.2 }), FIXED);
-
-  assert.equal(seen.length, 12);
-  assert.ok(seen.every((dt) => dt === FIXED));
-});
-
-test("a split mind answers to the person's name", () => {
-  // A readout should say who is driving, and "you" is the answer even though
-  // half the body is on a policy.
-  const split = splitMind(twoHanded("you", "primary", {}), twoHanded("a-policy", "primary", {}));
-  assert.equal(split.name, "you");
-});
-
 // ---- two hands ------------------------------------------------------------
 
 test("a single-bit stroke is allowed to ask for more roll but both answers obey the wrist", () => {
@@ -709,3 +449,15 @@ test("a single-bit stroke is allowed to ask for more roll but both answers obey 
  * and the two are deliberately not mixed -- these run in microseconds and that
  * runs the solver for minutes.
  */
+
+// A legality or aim rule a console command can move is a rule an artifact can be trained against
+// and deployed without. This was `options_and_features_have_no_mutable_config_backdoor`, read off
+// `src/options.ts`; that file went in skill ceiling session 06, and the frozen block it guarded
+// lives on in `src/action-primitives.ts`, which is what is read now.
+test("action_primitives_have_no_mutable_config_backdoor", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { ACTION_TUNING } = await import("../src/action-primitives.ts");
+  const source = await readFile(new URL("../src/action-primitives.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /from ["'](?:\.\.\/)?(?:\.\/)?config\.ts["']/);
+  assert.equal(Object.isFrozen(ACTION_TUNING), true);
+});

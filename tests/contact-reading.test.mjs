@@ -9,25 +9,25 @@ import assert from "node:assert/strict";
 const near = (actual, expected, what) =>
   assert.ok(Math.abs(actual - expected) <= 1e-6 * Math.max(1, Math.abs(expected)), `${what}: ${actual} against ${expected}`);
 
-async function arena(reading, fraction, onRefusal) {
+async function arena(reading, fraction, onRefusal, { build = "default", kind = "sword" } = {}) {
   const { Logger } = await import("@babylonjs/core/Misc/logger.js");
   const { createBout, freshHavok } = await import("./harness/bout-runner.mjs");
   const { namedBuild } = await import("../src/golem/roster.ts");
   const { Combat } = await import("../src/combat.ts");
   const { CONFIG } = await import("../src/config.ts");
   Logger.LogLevels = Logger.ErrorLogLevel;
-  const setup = namedBuild("default").setup;
+  const setup = namedBuild(build).setup;
   const bout = createBout({ left: "idle", right: "idle", leftGolem: setup, rightGolem: setup,
     locomotionMode: "supported", physics: await freshHavok(), seeds: [1, 2] });
   for (let i = 0; i < 30; i++) bout.step();
-  const striker = bout.left.strikers.find((s) => s.kind === "sword");
-  assert.ok(striker, "the control: a blade to strike with");
-  const saved = { reading: CONFIG.combat.contactReading, fraction: CONFIG.combat.arrivalReadFraction };
+  const striker = bout.left.strikers.find((s) => s.kind === kind);
+  assert.ok(striker, `the control: a ${kind} to strike with`);
+  const saved = { reading: CONFIG.combat.contactReading, fraction: CONFIG.combat.arrivalReadFractions[kind] };
   CONFIG.combat.contactReading = reading;
-  CONFIG.combat.arrivalReadFraction = fraction;
+  CONFIG.combat.arrivalReadFractions[kind] = fraction;
   let combat;
   try { combat = new Combat("left", [striker], undefined, onRefusal); }
-  finally { CONFIG.combat.contactReading = saved.reading; CONFIG.combat.arrivalReadFraction = saved.fraction; }
+  finally { CONFIG.combat.contactReading = saved.reading; CONFIG.combat.arrivalReadFractions[kind] = saved.fraction; }
   combat.advance(1);
   combat.attach(bout.right);
   const scene = striker.body.transformNode.getScene();
@@ -53,9 +53,9 @@ async function strike({ striker, scene }, body, before, after, offset) {
   return point;
 }
 
-async function readings(reading, fraction) {
+async function readings(reading, fraction, striker) {
   const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
-  const fixture = await arena(reading, fraction);
+  const fixture = await arena(reading, fraction, undefined, striker);
   try {
     const core = fixture.bout.right.limbs.find((l) => l.key.endsWith("core"));
     assert.ok(core, "the control: a core to strike");
@@ -83,6 +83,30 @@ test("a_settled_reading_scores_the_velocity_the_solver_left_and_an_arrival_readi
     near(report.closingSpeed, fraction * 9.8, `arrival closing at ${fraction}`);
     assert.ok(report.speed > settled.report.speed, "the control: the two readings differ");
   }
+});
+
+test("each_striker_kind_is_billed_at_its_own_arrival_fraction", async () => {
+  const { STRIKER_KINDS } = await import("../src/hands.ts");
+  const { arrivalReadFraction } = await import("../src/combat.ts");
+  const { CONFIG } = await import("../src/config.ts");
+  const table = CONFIG.combat.arrivalReadFractions;
+  // One row per kind of the union and no other, each a fraction, each answered as its own row.
+  assert.deepEqual(Object.keys(table).sort(), [...STRIKER_KINDS].sort());
+  for (const kind of STRIKER_KINDS) assert.equal(arrivalReadFraction(kind), table[kind], kind);
+  // A row that is not a fraction throws by name rather than billing nothing, or more than arrived.
+  for (const bad of [0, -0.5, 1.2, Number.NaN, undefined]) {
+    assert.throws(() => arrivalReadFraction("club", { ...table, club: bad }), /club/, `a club row of ${bad}`);
+  }
+  assert.throws(() => arrivalReadFraction("halberd"), /halberd/);
+
+  // A hand-fired club is billed at the club's row and a blade at the blade's, each with the other
+  // row left where it stands: a `Combat` that billed every kind at one row fails one of the two.
+  const club = await readings("arrival", 0.8, { build: "mace", kind: "club" });
+  assert.notEqual(table.sword, 0.8, "the control: the blade's row is not the club's");
+  near(club.report.speed, 0.8 * club.arrived.length(), "a club at the club's row");
+  const blade = await readings("arrival", 0.5);
+  assert.notEqual(table.club, 0.5, "the control: the club's row is not the blade's");
+  near(blade.report.speed, 0.5 * blade.arrived.length(), "a blade at the blade's row");
 });
 
 async function guarded(reading, arrivingAt) {

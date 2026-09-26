@@ -442,7 +442,9 @@ export const CHAIN_PITCH = {
    * whose two frames disagree at construction, arriving through a joint limit instead of a
    * weld, and it was caught by the weld-frame assertion in `tests/golem-bench.test.mjs` rather
    * than by looking. -0.05 puts the build pose a shade inside the stop; the commanded floor of
-   * 0.30 is 0.35 clear of it. 2026-09-04.
+   * 0.30 is 0.35 clear of it. 2026-09-04. Since 2026-09-25 the link is built at its rest
+   * command's pitch (`buildPitch` in `effectors/chains/pitch.ts`), which is inside the commanded
+   * range and so further still from this stop; the rule stands for whatever pose it is built at.
    */
   jointMin: -0.05,
   jointMax: 2.35,
@@ -930,11 +932,12 @@ export const CHAIN_REACH = {
    * 0.12 radians is visibly near straight without reaching the IK singularity;
    * 2.50 leaves 0.10 radians before the folded elbow's physical stop.
    * The shell is 0.252..0.779 m; terminal-specific restrictions still narrow it.
-   * The build pose remains 0.54 m. Continuous commands span this whole shell.
+   * Continuous commands span this whole shell. The build pose is the rest command's
+   * (`restCursor` in `effectors/chains/arm-core.ts`), which is why `reachNeutral`, the old
+   * build reach of 0.54 m, is gone.
    */
   reachMin: Math.sqrt(0.42 ** 2 + 0.36 ** 2 + 2 * 0.42 * 0.36 * Math.cos(2.50)),
   reachMax: Math.sqrt(0.42 ** 2 + 0.36 ** 2 + 2 * 0.42 * 0.36 * Math.cos(0.12)),
-  reachNeutral: 0.54,
 
   /**
    * The envelope's angular limits, radians, **outboard-signed**.
@@ -1150,7 +1153,25 @@ export const CHAIN_REACH = {
    * the setting taken off it. 2026-09-18, the Node bench.
    */
   anchorRate: 5,
-  /** Smooth acquisition from the hanging build pose; normal target rates are unchanged. */
+  /**
+   * The anchor's rate ramps from zero to `anchorRate` over this long after the arm is built.
+   *
+   * Written to acquire the guard smoothly from a hanging build pose. Since 2026-09-25 the arm is
+   * built at guard and there is nothing to acquire, but the ramp still shapes a commander's first
+   * move, and it is kept on a measurement: probe-mind mirrors at the arena's separation, one bout
+   * each, Node bout runner, 120 Hz, arms built at guard --
+   *
+   * | build, mirror | ramp 0.2 s: first contact, both sides' damage by 0.5 s | no ramp |
+   * | --- | --- | --- |
+   * | stone default, champion | 0.267 s, 0.000 | 0.083 s, 0.687 |
+   * | stone default, miser | 0.217 s, 0.000 | 0.100 s, 0.729 |
+   * | stone default, brawler | 0.267 s, 0.332 | 0.100 s, 0.407 |
+   * | stone default, duelist | 0.283 s, 0.000 | 0.100 s, 0.480 |
+   * | skeleton, all four | 0.150 s, 0.000 | 0.067 s, 0.000 to 0.149 |
+   *
+   * Without it every mind's opening guard sweeps both blades into each other at a full rate from
+   * the first step, which is the construction clash back again under a mind's name.
+   */
   acquireSeconds: 0.2,
   // Headless awake button/sweep-stop trials, both hands and frame-jitter cases:
   // tiny wrist inertia left centimetres of ring. Matching every serial bearing
@@ -1211,11 +1232,12 @@ export const CHAIN_REACH = {
    * Nothing replaced them. Reach became a continuous channel on `HandIntent`, elevation became
    * unconditional, and speed became what it should always have been: how fast a commander moves
    * its own target against `anchorForce` and 29.5 kg of stone. A person still gets the three
-   * poses those buttons used to give -- `src/buttons.ts` synthesizes them, to the millimetre --
+   * poses those buttons used to give -- `src/bench/buttons.ts` synthesizes them, to the millimetre --
    * because a mouse is an impoverished input device and a policy is not.
    *
-   * `reachGuard`, `reachThrust` and `reachResponse` went with them and for the same reason;
-   * `reachNeutral` survives above, where it is now only the build pose.
+   * `reachGuard`, `reachThrust` and `reachResponse` went with them and for the same reason.
+   * `reachNeutral` survived as the build pose until 2026-09-25, when every arm began to be built
+   * at its rest command instead.
    */
 
   /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
@@ -1234,7 +1256,7 @@ export const CHAIN_REACH_SIZE: SizeLaws<typeof CHAIN_REACH> = {
   upperVitalityWeight: "one",
   foreLength: "length", foreRadius: "length", foreMass: "mass", foreHealth: "one",
   foreVitalityWeight: "one",
-  reachMin: "length", reachMax: "length", reachNeutral: "length",
+  reachMin: "length", reachMax: "length",
   swingMin: "one", swingMax: "one", liftMin: "one", liftMax: "one", carryMin: "length",
   jointMargin: "one", pitchJointMin: "one", pitchJointMax: "one", elbowJointMin: "one", elbowJointMax: "one",
   anchorRate: "speed", acquireSeconds: "duration",
@@ -2582,20 +2604,126 @@ export interface Knockdown {
   readonly risePeakMps: number;
 }
 
-/** How a carrier's travel follows the size stat (`SizeLaw` in `./attributes.ts`). */
+/**
+ * How a carrier's travel follows the size stat (`SizeLaw` in `./attributes.ts`): on the drive
+ * clock, because the legs are what move it. Its speeds are `s^0` (a larger body walks no faster,
+ * where it walked `sqrt(s)` faster under dynamic similarity), its acceleration is force over mass,
+ * `s^-1` (it was `one`), and its turn is a rate and an angular acceleration, `s^-1` and `s^-2`.
+ *
+ * The wheel's top speed was chosen at the edge of its rolling (`LOCOMOTION_WHEEL.carrier`), and it
+ * rolls at 3.2 m/s at every size from x0.6 to x2: mean contact slip 0.0 mm/s over a two-second walk
+ * (`research/size-bench.mjs move`, Node bench, 2026-09-25). A reading over the harness's own
+ * three-second walk says otherwise below x1, and that is the arena's ring of posts, which the walk
+ * reaches at 9.2 m.
+ */
 const CARRIER_SIZE = {
-  maxSpeedMps: "speed", backSpeedMps: "speed", strafeSpeedMps: "speed", maxAccelerationMps2: "one",
+  maxSpeedMps: "speed", backSpeedMps: "speed", strafeSpeedMps: "speed", maxAccelerationMps2: "acceleration",
   maxYawSpeedRadS: "frequency", maxYawAccelerationRadS2: "angularAcceleration",
 } as const;
 
-/** How a `Knockdown` follows the size stat: its two speeds and its two times. */
+/**
+ * How a `Knockdown` follows the size stat: its two speeds and its two times. **Three are the fall
+ * clock and one is the drive's.** How fast a lying body is still coming down, how long it must hold
+ * that, and the cap on the whole lie are gravity's doing -- a body tipping over and settling, with
+ * its legs limp -- so they go as `sqrt(s)` (`fallSpeed`, `fallDuration`), as they did. The rise's
+ * peak speed is the lift, which a drive does, so it is a `speed`: `s^0`, where it was `sqrt(s)`.
+ */
 const KNOCKDOWN_SIZE: SizeLaws<Knockdown> = {
-  restSpeedMps: "speed", restSeconds: "duration", maxLyingSeconds: "duration", risePeakMps: "speed",
+  restSpeedMps: "fallSpeed", restSeconds: "fallDuration", maxLyingSeconds: "fallDuration", risePeakMps: "speed",
 };
 
 /** The one knockdown every body runs (`Knockdown`). */
 export const KNOCKDOWN: Knockdown = Object.freeze({
   restSpeedMps: 0.3, restSeconds: 0.2, maxLyingSeconds: 2.5, risePeakMps: 0.9,
+});
+
+/**
+ * How a biped gets up (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`): three stages, the
+ * pelvis keyframed and the legs driven by their own motors to a pose solved for where the pelvis is.
+ *
+ * 1. **Gather** (at least `gatherS`): the legs fold and pull the feet in under where the body will
+ *    stand, while the pelvis turns from however it lay to upright with the trunk pitched forward by
+ *    `trunkPitch` and moves to the squat's height, `hipsBack` of a thigh behind the feet.
+ * 2. **Hold** (`holdS`): the squat, both soles on the floor under the body.
+ * 3. **Extend**: the legs straighten, the hips travel forward over the feet, and the trunk comes
+ *    upright last: it holds its pitch for the first `trunkLag` of the extension.
+ *
+ * Every lift is a smoothstep held to `KNOCKDOWN.risePeakMps`, so the rise lasts the gather, the hold
+ * and the extension together (`bipedRiseDurationS`), and is judged, as a standing body is, on the
+ * feet it is standing on.
+ *
+ * **It replaced a marionette.** The old rise hoisted the pelvis straight up where it lay, upright
+ * from the first frame, while the legs, still lying where they fell, were dragged in under it, and a
+ * standing body never steps to put them back. Node rise bench (`research/rise-bench.mjs`), one fall
+ * each way (back / front / side); "planted" is the share of the pelvis's last 0.2 m with both soles
+ * on the floor under the hips, "over feet" the share of the rise's second half with the centre of
+ * mass over the two soles, "pitch" the trunk's forward pitch (rad) when the pelvis has made half and
+ * nine tenths of its gain, "margin" the least centre-of-mass margin in the stance over 3 s standing:
+ *
+ * | body | rise | rise s | planted | over feet | pitch 50 % | pitch 90 % | margin mm |
+ * | --- | --- | --- | --- | --- | --- | --- | --- |
+ * | stone | hoist | 1.22 / 0.84 / 0.85 | 0 / 0 / 0 | 0.04 / 0 / 0.22 | -0.80 / 0.71 / -0.15 | -0.16 / 0.15 / -0.03 | 10 / -163 / 141 |
+ * | stone | **staged** | 1.42 / 1.04 / 1.05 | **1 / 1 / 1** | **1 / 1 / 1** | -0.63 / 0.49 / 0.27 | 0.22 / 0.16 / 0.16 | **141 / 141 / 141** |
+ * | human | hoist | 1.27 / 1.21 / 1.18 | 0 / 0.04 / 0 | 0.12 / 0 / 0.11 | -0.79 / 0.80 / -0.15 | -0.16 / 0.16 / -0.03 | 82 / -161 / 87 |
+ * | human | **staged** | 1.47 / 1.41 / 1.38 | **0.97 / 0.97 / 0.97** | **1 / 1 / 1** | -0.12 / 0.64 / 0.23 | 0.19 / 0.19 / 0.19 | **114 / 114 / 114** |
+ * | skeleton | hoist | 1.25 / 1.08 / 1.17 | 0.04 / 0.04 / 0 | 0.25 / 0.08 / 0.17 | -1.24 / 1.05 / -0.99 | -0.18 / 0.57 / -0.21 | 38 / 29 / 33 |
+ * | skeleton | **staged** | 1.45 / 1.28 / 1.37 | **0.97 / 0.97 / 0.97** | **0.72 / 1 / 1** | -0.73 / 0.81 / -0.57 | 0.43 / 0 / 0.16 | -6 / 39 / 33 |
+ *
+ * The skeleton runs its own `trunkPitch` and `hipsBack` (`SKELETON_BIPED`). The staged rise costs
+ * 0.2 s a rise, the hold. Turning the pelvis upright in the first half of the gather, so that a body
+ * sits up before its hips come off the floor, was tried and put the feet nowhere after a fall on the
+ * back: stone's "planted" went to 0 and its feet ended 0.23 m from its hips.
+ *
+ * **The gather's turn is held to `turnPeakRadS`.** Uncapped, the gather turned the pelvis upright at
+ * 3 to 5 rad/s, which swings the arms and what they carry into whoever stands beside the riser: the
+ * largest shoves on a standing skeleton came from a rising opponent's items (p90 15.6 Ns against 5.4
+ * from a standing one, Node research runner, six mirrors). The gather lasts at least
+ * `1.5 * turn / turnPeakRadS` (`bipedRisePlan`, the turn from `bipedRiseTurnRad`). Node rise bench,
+ * back / front / side, "item p90" the 90th percentile over the rise of the fastest carried part's
+ * speed, "planted" the seconds both soles are down before the pelvis lifts; and the skeleton mirror,
+ * Node research runner, 192 bouts:
+ *
+ * | cap rad/s | body | rise s | item p90 m/s | planted s | skeleton falls/min, down %, re-fall <=2 s % |
+ * | --- | --- | --- | --- | --- | --- |
+ * | none | stone | 1.42 / 1.04 / 1.05 | 6.64 / 5.16 / 5.73 | 0.32 / 0.04 / 0.25 | |
+ * | none | skeleton | 1.40 / 1.28 / 1.25 | 4.74 / 5.12 / 5.03 | 0.09 x 3 | 9.99, 42.3, 49.7 |
+ * | none | human | 1.47 / 1.41 / 1.38 | 3.83 / 2.61 / 3.14 | 0.04 / 0.03 / 0.03 | |
+ * | **3** | stone | 1.54 / 1.13 / 1.36 | 5.19 / 4.83 / 3.20 | 0.32 / 0.13 / 0.29 | |
+ * | **3** | skeleton | 1.43 / 1.39 / 1.50 | 4.70 / 4.43 / 3.36 | 0.09 x 3 | **9.18, 44.1, 46.5** |
+ * | **3** | human | 1.58 / 1.41 / 1.38 | 3.23 / 2.61 / 3.14 | 0.04 / 0.03 / 0.03 | |
+ * | 2 | stone | 2.02 / 1.40 / 1.74 | 2.84 / 3.54 / 2.13 | 0.37 / **0** / 0.30 | |
+ * | 2 | skeleton | 1.83 / 1.78 / 1.94 | 3.53 / 2.94 / 1.90 | 0.09 x 3 | 8.53, 48.9, 47.8 |
+ * | 2 | human | 2.05 / 1.58 / 1.75 | 2.17 / 2.22 / 2.16 | 0.02 / 0.03 / 0.04 | |
+ *
+ * 3, because 2 costs half a second a rise, a larger share of the bout spent down, and stone's fall
+ * onto its front then lifts with nothing planted.
+ */
+export interface BipedRise {
+  /** The squat's knee bend, rad. */
+  readonly kneeFold: number;
+  /** The trunk's forward pitch in the squat, rad. */
+  readonly trunkPitch: number;
+  /** How far behind the feet the pelvis sits in the squat, as a share of the thigh. */
+  readonly hipsBack: number;
+  /** The least the gather lasts, s. */
+  readonly gatherS: number;
+  /** The squat's hold, s. */
+  readonly holdS: number;
+  /** The share of the extension the trunk keeps its pitch through. */
+  readonly trunkLag: number;
+  /** The gather's fastest turn of the pelvis, from how it lay to upright, rad/s. */
+  readonly turnPeakRadS: number;
+}
+
+/** How a `BipedRise` follows the size stat: two times and a rate; the rest are angles and shares. */
+export const BIPED_RISE_SIZE: SizeLaws<BipedRise> = {
+  kneeFold: "one", trunkPitch: "one", hipsBack: "one", gatherS: "duration", holdS: "duration",
+  trunkLag: "one", turnPeakRadS: "frequency",
+};
+
+/** The staged get-up every biped runs (`BipedRise`). */
+export const BIPED_RISE: BipedRise = Object.freeze({
+  kneeFold: 1.6, trunkPitch: 0.35, hipsBack: 0.2, gatherS: 0.3, holdS: 0.2, trunkLag: 0.35, turnPeakRadS: 3,
 });
 
 /**
@@ -2656,6 +2784,15 @@ export const LOCOMOTION_BIPED = {
    * which is 0.12 + 0.06 + 0.40 + 0.32 + 0.12 = 1.02. 2026-09-04.
    */
   hipInset: 0.06,
+  /**
+   * How far ahead of the pelvis's own centre the hip pivots sit, metres: where the legs hang from,
+   * and so where the feet stand. Zero for a body whose centre of mass is over its pelvis, as stone's
+   * and the human's are (0.033 and 0.029 m ahead, `docs/analysis/2026-09-23-attribute-measurements.md`).
+   * A body that carries its weight ahead of its pelvis sets it so that its feet stand under that
+   * weight (`SKELETON_BIPED`), because nothing in this module balances: a body whose centre of mass
+   * is past its toes falls to any touch.
+   */
+  hipAhead: 0,
 
   /**
    * Thigh, shin and foot: the segments, and their masses at stone's 2600 kg/m3.
@@ -2941,8 +3078,32 @@ export const LOCOMOTION_BIPED = {
    * the stride stops being a stride. Above 11 the knee stops being clipped too, the swing sole is
    * flung higher, and the flight creeps back. 10.5 is taken -- clear of the cliff, still clipping
    * the knee, and the middle of the flat part. 2026-09-18, the Node bench.
+   *
+   * **At 120 Hz the cliff came up under 10.5, and 11.5 is taken.** Found by the size-law study
+   * (`docs/analysis/2026-09-25-size-law.md` on its own branch), which read 684.7 mm/s at 0.90 of the
+   * rate and 279.1 at 0.95, so the x1 walk sat within 5 % of the cliff edge and a larger body fell
+   * off it first. Re-measured here, Node locomotion bench (`runGolemLocomotion`, release-120
+   * defaults), stone biped, mean planted-sole slip in mm/s and substeps with no sole down (of 479)
+   * over a clear walk (1 s standing, 2 s at full forward, 1 s stopped: 6.4 m, inside the ring of
+   * posts), at the size stat's levels:
+   *
+   *     rate rad/s    x0.8       x0.9       x1         x1.1       x1.2       x1.25
+   *     9.45                                684.7, 43
+   *     9.97                                279.1, 4
+   *     10.5          151.9, 6   189.8, 7   222.8, 8   236.8, 5   342.1, 4   301.6, 4
+   *     11.03         141.9, 14  197.9, 12  227.1, 4   217.2, 6   220.4, 4   255.7, 5
+   *     **11.5**      155.7, 15  184.1, 8   184.0, 6   198.1, 5   217.7, 7   235.6, 9
+   *     11.55         155.7, 14  190.8, 6   175.6, 8   201.0, 5   218.3, 6   233.0, 9
+   *     12.6                                181.1, 17
+   *
+   * The skeleton builds from this table and barely notices: at x1, 162.9 mm/s at 10.5 and 172.9 at
+   * 11.5; at x1.25, 271.9 and 259.4. Over the tests' `WALK_SEQUENCE` (which runs into the wall at
+   * 12.7 m) the stone biped's flight goes from 10 of 959 substeps at 10.5 to 7 at 11.5. What it
+   * costs is the small body: at x0.8 the flight count goes from 6 to 15 of 479, the knee no longer
+   * clipped and the swing sole flung higher, as the sweep above found above 11. 2026-09-25, the Node
+   * bench.
    */
-  targetRate: 10.5,
+  targetRate: 11.5,
 
   /**
    * The three motor ceilings, newton-metres. **Swept, and they are ceilings and not stiffnesses.**
@@ -3034,6 +3195,8 @@ export const LOCOMOTION_BIPED = {
 
   /** How a knockdown runs its course: the one table every body runs (`KNOCKDOWN`). */
   knockdown: KNOCKDOWN,
+  /** How it gets up: the staged rise every biped runs (`BIPED_RISE`). */
+  rise: BIPED_RISE,
 
   /** Solver damping on the leg joints' driven axes. A position motor is a spring, and a spring
    *  with no damper rings -- the finding `CHAIN_WRIST.motorDamping` records, and the same
@@ -3233,12 +3396,40 @@ export const LOCOMOTION_BIPED = {
  *
  * `heightRate` is metres a second where it bounds the pelvis's lift and the envelope's height
  * axis, so it is a speed; the crouch divides it by the size where it reads it as a fraction of the
- * crouch a second. `shoveImpulseNs` is the bench's knockdown, a mass times a speed.
+ * crouch a second.
+ *
+ * `shoveImpulseNs` is the bench's knockdown, and what it has to beat is the body's fall line: its
+ * mass times the speed that tips it over its base, which is gravity's, `sqrt(g L)`. So it is a
+ * `fallImpulse`, `s^3.5`, which is the number `impulse` had under dynamic similarity for the same
+ * reason. The slip budget is a speed on the drive clock, `s^0`, and so is a larger body's gait;
+ * `riseBudgetSeconds` is a `duration`, `s`, because above x1 the rise (a drive) is the slower of
+ * the two clocks a knockdown runs on.
+ *
+ * **`targetRate` is on the drive clock and it is what bounds the size row's ceiling**
+ * (`ATTRIBUTES.size`). The commanded hip's rate goes as `1/s` and so does the limit, but the stone
+ * biped's walk at 120 Hz sits five to ten per cent above the limit's cliff at x1, and the cliff does
+ * not follow the drive clock exactly. Mean planted-sole slip over a two-second walk against the
+ * 300 mm/s budget, the sized `targetRate` times a factor (`research/size-bench.mjs move`, Node
+ * bench, release-120 at 5ac61ce, 2026-09-25):
+ *
+ *     factor    x0.75   x0.8     x1    x1.1   x1.15    x1.2   x1.25    x1.5
+ *      0.90        --     --   684.7     --      --      --      --      --
+ *      0.95        --     --   279.1     --      --   725.5      --      --
+ *      1.00     185.9  163.1   222.8  252.7   413.0   444.2   608.7   465.8
+ *      1.05        --     --   227.1     --      --   220.5   326.1   251.3
+ *      1.10     180.5  162.1   175.6  192.7   178.8   209.7   199.9   246.6
+ *      1.20        --     --   181.1     --      --      --   199.7      --
+ *      1.30        --     --   177.7     --      --      --   199.9      --
+ *
+ * So 10 % more rate at x1 holds the budget from x0.75 to x1.5 and reads better at x1 itself. That is
+ * a tuning of the x1 walk at 120 Hz, and it is left to that tuning rather than done here; the size
+ * row is set on the shipped rate. Neither the leg torques' law nor gravity is the cause: at x1.2 the
+ * torques at the old `s^4` read 411.4 and gravity scaled by `1/s` reads 587.8.
  */
 export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   pelvisWidth: "length", pelvisHeight: "length", pelvisDepth: "length", pelvisMass: "mass",
   pelvisHealth: "one", pelvisVitalityWeight: "one",
-  hipHeight: "length", hipSide: "length", hipInset: "length",
+  hipHeight: "length", hipSide: "length", hipInset: "length", hipAhead: "length",
   thighLength: "length", thighRadius: "length", thighMass: "mass", thighHealth: "one",
   thighVitalityWeight: "one",
   shinLength: "length", shinRadius: "length", shinMass: "mass", shinHealth: "one", shinVitalityWeight: "one",
@@ -3250,12 +3441,12 @@ export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   strideCadence: "perLength", strideSwing: "one", kneeLiftScale: "one", kneeLiftPhase: "one",
   strideAbduct: "one", plantBandM: "length", targetRate: "frequency",
   hipTorque: "torque", kneeTorque: "torque", ankleTorque: "torque", fallenTorqueScale: "one",
-  knockdown: KNOCKDOWN_SIZE,
+  knockdown: KNOCKDOWN_SIZE, rise: BIPED_RISE_SIZE,
   motorDamping: "one", linearDamping: "frequency", angularDamping: "frequency",
   crouchDepth: "length", crouchResponse: "frequency", heightRate: "speed",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
-  shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
+  shoveImpulseNs: "fallImpulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
 
 /**
@@ -3834,7 +4025,7 @@ export const HEAD_PLAIN = {
    * 0.70 rad is 40 degrees: a deep duck that puts the crown between the enemy and the face, which
    * is what a head with nothing on it does. `HEAD_RAM.guardPitch` is much shallower, because a
    * plate presented at 40 degrees is pointing at the floor. It is a **level** rather than a
-   * stroke -- the rule `src/buttons.ts` states -- and it is short of `HEAD_NECK.pitchMax`, so a
+   * stroke -- the rule `src/bench/buttons.ts` states -- and it is short of `HEAD_NECK.pitchMax`, so a
    * guard is a pose and not a limit. Chosen by eye against the stand, 2026-09-04.
    */
   guardPitch: 0.70,
@@ -4822,7 +5013,7 @@ export const LOCOMOTION_WHEEL_SIZE: SizeLaws<typeof LOCOMOTION_WHEEL> = {
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
   knockdown: KNOCKDOWN_SIZE,
-  shoveImpulseNs: "impulse", meanContactSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
+  shoveImpulseNs: "fallImpulse", meanContactSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };
 
 /**
@@ -5289,5 +5480,5 @@ export const LOCOMOTION_MULTILEG_SIZE: SizeLaws<typeof LOCOMOTION_MULTILEG> = {
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
   knockdown: KNOCKDOWN_SIZE,
-  shoveImpulseNs: "impulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
+  shoveImpulseNs: "fallImpulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",
 };

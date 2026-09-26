@@ -111,7 +111,7 @@ export function skirmisherDirector(seed: number, T: SkirmisherTactics = SKIRMISH
     return want;
   };
 
-  return (available, reading, view): StyleOption => {
+  const director: StyleDirector = (available, reading, view): StyleOption => {
     const clock = view.clock;
     // The abort ask, which this style is not configured to receive -- `chamberAbort` is off -- and
     // answers by finishing the stroke if it ever is. There is no parry here to answer with.
@@ -154,6 +154,13 @@ export function skirmisherDirector(seed: number, T: SkirmisherTactics = SKIRMISH
     if (reading.theirs === "idle" && available.includes("circle")) return "circle";
     return "hold";
   };
+  // A fork of the world (`src/forkable.ts`): its stream, its table and its phase.
+  return Object.assign(director, {
+    captureState: (): Record<string, unknown> => ({ random, T, opened, patience, owed, opening, cutting }),
+    restoreState(state: Record<string, unknown>): void {
+      ({ opened, patience, owed, opening, cutting } = state as never);
+    },
+  });
 }
 
 /** The style over the executor, with an optional hook on the ask for a decision log. */

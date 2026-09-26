@@ -1,3 +1,4 @@
+import type { Forkable } from "../forkable.ts";
 import type { FighterView } from "../mind.ts";
 import { MY_PHASES, THEIR_PHASES } from "./duel-model.ts";
 import { FEATURE_WEAPONS } from "./neural-features.ts";
@@ -44,7 +45,7 @@ import type { StyleCommand } from "./tactics-v4.ts";
 export const PILOT_HZ = 12;
 
 /** A clock that says which steps are asks, and remembers how many there have been. */
-export interface AskCadence {
+export interface AskCadence extends Forkable {
   /** How many asks have been taken since this object was made. */
   readonly asks: number;
   /** How many of those were an event rather than the clock coming round. */
@@ -81,6 +82,9 @@ export function askCadence(hz: number = PILOT_HZ): AskCadence {
       asks += 1;
       return true;
     },
+    // A fork of the world (`src/forkable.ts`): the cadence's clock and its counts.
+    captureState: (): Record<string, unknown> => ({ since, asks, events }),
+    restoreState(state: Record<string, unknown>): void { ({ since, asks, events } = state as never); },
   };
 }
 
@@ -151,11 +155,17 @@ export type PilotHook = (reading: PilotReading, view: FighterView, command: Styl
  * on the executor are what say how much of it was legal.
  */
 export function watchedPilot(pilot: Pilot, onAsk: PilotHook): Pilot {
-  return (reading, view) => {
+  const watched: Pilot = (reading, view) => {
     const command = pilot(reading, view);
     onAsk(reading, view, command);
     return command;
   };
+  // A fork of the world (`src/forkable.ts`) reaches the pilot through the watch. The hook is the
+  // caller's, a log outside the world, and is not state of the pilot's.
+  return Object.assign(watched, {
+    captureState: (): Record<string, unknown> => ({ pilot }),
+    restoreState(): void { /* the pilot is restored through its own record */ },
+  });
 }
 
 // ---------------------------------------------------------------------------------- the columns
@@ -310,7 +320,7 @@ export function pilotFeatureCount(version: number = PILOT_FEATURES_VERSION): num
  * call sets all three decays to the reading itself, and the difference between the columns after
  * that is the difference the trace exists to publish.
  */
-export interface PilotTrace {
+export interface PilotTrace extends Forkable {
   /** The nine, in `PILOT_TRACE_NAMES` order. The caller reads and does not write. */
   readonly values: Float64Array;
   /** Whether `step` has been called, which is what tells a first ask from a later one. */
@@ -346,6 +356,9 @@ export function pilotTrace(): PilotTrace {
       primed = true;
       return values;
     },
+    // A fork of the world (`src/forkable.ts`): the traces and whether they have started.
+    captureState: (): Record<string, unknown> => ({ values, now, primed }),
+    restoreState(state: Record<string, unknown>): void { ({ primed } = state as never); },
   };
 }
 

@@ -1,8 +1,7 @@
-import type { HumanOwnership } from "./input.ts";
-import type { FighterView, HandCursors, Mind } from "./mind.ts";
 import type { BoutRecorder } from "./recorder.ts";
 import type { Side } from "./physics.ts";
 import type { PressSource } from "./contact-press.ts";
+import type { Commander } from "./orders.ts";
 import { resolveSupportedPair } from "./supported-locomotion.ts";
 import type { SupportedLocomotionPort } from "./supported-locomotion.ts";
 import { isPhysicalSupportedLocomotionPort, resolvePhysicalSupportedPair } from "./supported-locomotion-production.ts";
@@ -41,26 +40,6 @@ export interface ControlRecordingPort {
   detach(): void;
 }
 
-/**
- * The person, as a control surface sees them: a mind, what they own, and where to put their cursor.
- *
- * Declared here rather than beside one surface because there are two surfaces now and there is
- * exactly one person. `humanoid-v1` and `golem-v1` install the same object, and the page builds
- * one of them -- so a body a person can take is a body that satisfies this, whatever it is made
- * of. The three imports above are all type-only and erase, which is what keeps `input.ts` (and
- * through it the DOM) out of the graph a headless harness loads.
- *
- * **`seed` takes a cursor and not a pose**, and that is the whole of what made one seam serve two
- * bodies. A Warrior arm's pose is an `ArmPose` inverted by `policies.ts`; a golem effector's is a
- * chain's own commanded state inverted by the chain. Neither is a thing the other could read. What
- * both can answer is where the cursor has to sit, which is the only thing the person needs told.
- */
-export interface HumanDriverSource {
-  readonly mind: Mind;
-  readonly ownership: HumanOwnership;
-  seed(view: FighterView, cursors: HandCursors): void;
-}
-
 /** Optional read-only diagnostics; the surface-specific adapter owns the payload type. */
 export interface ControlDiagnosticsPort {
   readonly surface: string;
@@ -73,10 +52,14 @@ export interface ControlEndpoint {
   readonly driver: InstalledDriver;
   readonly recording: ControlRecordingPort | null;
   readonly diagnostics?: ControlDiagnosticsPort | null;
+  /**
+   * Who hands this body its orders (`src/orders.ts`), or null for nobody, which is a body that
+   * fights the nearest enemy exactly as it did before orders existed. A host writes it; the
+   * installed driver reads it at every decision.
+   */
+  commander: Commander | null;
   install(driver: InstalledDriver): void;
   installPolicy(name: string, seed?: number): void;
-  installHuman(): void;
-  releaseHuman(): void;
   stopFighting(): void;
   dispose(): void;
 }
@@ -110,6 +93,18 @@ export interface ControlledBody {
 
 /** Substeps since each pair began, keyed on its left body, for the control clock. */
 const substepOf = new WeakMap<ControlledBody, number>();
+
+/**
+ * The pair's control clock, for a fork (skill ceiling session 02): the one piece of bout state that
+ * lives in this module rather than on an object, so a walk of the world cannot see it.
+ */
+export function pairSubstep(left: ControlledBody): number {
+  return substepOf.get(left) ?? 0;
+}
+
+export function setPairSubstep(left: ControlledBody, substep: number): void {
+  substepOf.set(left, substep);
+}
 
 export function stepControlledPair(left: ControlledBody, right: ControlledBody, dt: number, clock: number): void {
   const every = Math.max(1, Math.round(CONFIG.world.physicsHz / CONFIG.world.controlHz));

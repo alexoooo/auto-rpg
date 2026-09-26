@@ -311,6 +311,30 @@ const PARRY_LABEL: Record<WeaponKind, string> = {
 };
 
 /**
+ * The share of its arrival velocity an `"arrival"` reading bills for a striker of `kind`: its row
+ * of `CONFIG.combat.arrivalReadFractions`, or of `table` where a `Combat` took that table at
+ * construction. Total over `Striker`: a kind added to the union without a case here is a compile
+ * error, and a row that is not a fraction throws by name rather than billing nothing or double.
+ */
+export function arrivalReadFraction(kind: Striker,
+  table: Readonly<Record<Striker, number>> = CONFIG.combat.arrivalReadFractions): number {
+  switch (kind) {
+    case "sword": case "axe": case "bow": case "shield": case "buckler": case "club": case "empty":
+    case "whip": case "arrow": case "bite": case "ram": {
+      const fraction = table[kind];
+      if (!(fraction > 0 && fraction <= 1)) {
+        throw new Error(`the arrival fraction for a ${kind} is ${fraction}, which is not in (0, 1]`);
+      }
+      return fraction;
+    }
+    default: {
+      const unknown: never = kind;
+      throw new Error(`no arrival fraction for a striker of kind ${String(unknown)}`);
+    }
+  }
+}
+
+/**
  * Turning a contact into a wound.
  *
  * Damage is computed from the blade's own speed at the contact point and how
@@ -415,14 +439,18 @@ export class Combat {
   private readonly start: StepStart | null;
   /** `effectiveMassAt`'s options: the step's start under `"arrival"`, and nothing under `"settled"`. */
   private readonly massOptions: EffectiveMassOptions | undefined;
-  private readonly arrivalScale: number;
+  /** `CONFIG.combat.arrivalReadFractions` as it stood when this was built. */
+  private readonly arrivalFractions: Readonly<Record<Striker, number>>;
 
   constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void,
     onRefusal?: (event: CombatRefusalEvent) => void) {
     this.side = side;
     this.onReport = onReport;
     this.onRefusal = onRefusal;
-    this.arrivalScale = CONFIG.combat.arrivalReadFraction;
+    this.arrivalFractions = { ...CONFIG.combat.arrivalReadFractions };
+    if (CONFIG.combat.contactReading === "arrival") {
+      for (const weapon of weapons) if (weapon) arrivalReadFraction(weapon.kind, this.arrivalFractions);
+    }
     const first = weapons.find((weapon): weapon is Striking => weapon !== null);
     this.start = CONFIG.combat.contactReading === "arrival" && first
       ? new StepStart(first.body.transformNode.getScene()) : null;
@@ -464,13 +492,15 @@ export class Combat {
    *
    * `"settled"` is `velocityAt`: the body after the solver step that found the contact. `"arrival"`
    * is the rigid-body velocity at the same point from the linear and angular velocity sampled before
-   * that step, about the centre of mass *where it was then*, scaled by `arrivalReadFraction`. The
+   * that step, about the centre of mass *where it was then*, scaled by its kind's `arrivalReadFraction`. The
    * point is Havok's, which is from before the step as well, so `r` is a lever the body had rather
    * than the distance it moved in one step.
    */
   private strikerVelocity(weapon: Striking, point: Vector3): Vector3 {
     const arrival = this.arrivalVelocity(weapon, point);
-    return arrival ? arrival.scaleInPlace(this.arrivalScale) : this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    return arrival
+      ? arrival.scaleInPlace(arrivalReadFraction(weapon.kind, this.arrivalFractions))
+      : this.scratch.velocity.copyFrom(weapon.velocityAt(point));
   }
 
   /**

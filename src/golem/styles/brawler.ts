@@ -82,7 +82,7 @@ export function brawlerDirector(seed: number, T: BrawlerTactics = BRAWLER): Styl
   // matches the other three styles and a decision log can be replayed the same way.
   void random;
 
-  return (available, reading): StyleOption => {
+  const director: StyleDirector = (available, reading): StyleOption => {
     // The abort ask, which this style is not configured to receive -- `chamberAbort` is off -- and
     // would answer by finishing the stroke. A brawler does not take a stroke back.
     if (!available.includes("hold")) return available[0];
@@ -113,6 +113,11 @@ export function brawlerDirector(seed: number, T: BrawlerTactics = BRAWLER): Styl
 
     return T.closesAlways ? "close" : "hold";
   };
+  // A fork of the world (`src/forkable.ts`): its stream and its table.
+  return Object.assign(director, {
+    captureState: (): Record<string, unknown> => ({ random, T }),
+    restoreState(): void { /* every object in the record is restored in place */ },
+  });
 }
 
 /** The style over the executor, with an optional hook on the ask for a decision log. */
