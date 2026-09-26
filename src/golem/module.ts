@@ -884,9 +884,15 @@ export interface EffectorChainDefinition {
    * the only cure Havok offers is to make the carrying links heavy enough. `wrist.ts` scales its
    * ring and link by `CHAIN_WRIST.carryRatio`; the reach chain's 8.8 kg forearm held a 27 kg bar
    * to 1.3 mm and ignores the number until a bench says otherwise. Zero for a capped socket.
+   *
+   * `mount` is where the terminal will be attached (`EffectorTerminalDefinition.attachment`), or
+   * undefined for a chain built with no terminal. A chain whose rest pose depends on it -- the
+   * anatomical arm holds a strapped shield in a different pose from a held one -- needs it at
+   * build, because every arm is built in its rest pose and `attachment()` is called afterwards.
    */
   build(
     ctx: ModuleBuild, limits: ChainLimits | null, crossing: ChainCrossing | null, carriedKg: number,
+    mount?: EquipmentAttachment,
   ): BuiltChain;
 }
 

@@ -178,8 +178,13 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
     arena.scene.onBeforePhysicsObservable.notifyObservers(arena.scene);
     const limb = struck.body.limbs.find(l => !l.guarding && !l.fatal);
     const before = limb.health, untouched = selected.body.vitality;
+    // The contact point is the striker's own centre, so the probe's energy is its body's whole mass
+    // at 12 m/s wherever the hero's arm is. It was the struck limb's position, and the striker's
+    // effective mass there is set by the lever from the blade to that limb: with the hero's arm
+    // built at guard (2026-09-25) that lever put the same 12 m/s under the club's floor, a slap, and
+    // a routing test failed on an energy it was never about.
     const event = { collider: source.body, collidedAgainst: limb.part.body, type: PhysicsEventType.COLLISION_STARTED,
-      point: limb.part.mesh.position.clone(), normal: new Vector3(0, 0, 1), distance: 0, impulse: 0 };
+      point: source.body.transformNode.position.clone(), normal: new Vector3(0, 0, 1), distance: 0, impulse: 0 };
     combat.attach(selected.body);
     source.body.getCollisionObservable().notifyObservers(event);
     assert.equal(limb.health, before, "the unchanged duel attachment cannot score against another body");

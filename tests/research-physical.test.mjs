@@ -71,62 +71,66 @@ test("the worker counts a corner's knockdowns and its time down from that corner
   // At twenty seconds, 44 and 45 give three falls for 9.02 s against two for 6.37. The stability
   // attribute hardly separates these two bodies: the brawler's blows pass both lines. At twenty
   // seconds an x2 control went down five times on 46 and 47, against x0.5's two (same runner).
+  // Since the arms are built at guard (2026-09-25) it does not separate them in x0.5's favour at
+  // all: from 44 to 91 the x0.5 body goes down twice on every pair (three times on 50/51 and
+  // 78/79), and x1 goes down either as often or five times (same runner). What the counter needs is
+  // two bouts that differ only in the idle body and whose counts differ, so the fixture is that:
+  // `fallen` is whichever of the two bodies went down more, at least twice, and `control` the other.
+  // The first such pair from 44 is 46 and 47: x1 five falls for 10.98 s, x0.5 two for 5.22.
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "shaky", setup: withAttributeSetting(base.setup, { stability: 0.5 }) }];
   const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 20 } };
   const found = await firstExhibiting(44, 8, async (seeds) => {
     const job = { id: "down", round: 0, block: "down", left: "golem-brawler", right: "idle",
       leftBuild: "default", rightBuild: "shaky", seeds };
-    return { shaky: await execute(job, manifest), steady: await execute({ ...job, rightBuild: "default" }, manifest) };
-  }, ({ shaky, steady }) => shaky.sides.right.knockdowns >= 2
-    && shaky.sides.right.knockdowns > steady.sides.right.knockdowns);
-  assert.ok(found, "no pair from 44 to 59 has the x0.5 body go down at least twice and more often than x1");
-  const { shaky, steady } = found;
+    const pair = [await execute(job, manifest), await execute({ ...job, rightBuild: "default" }, manifest)];
+    pair.sort((a, b) => b.sides.right.knockdowns - a.sides.right.knockdowns);
+    return { fallen: pair[0], control: pair[1] };
+  }, ({ fallen, control }) => fallen.sides.right.knockdowns >= 2
+    && fallen.sides.right.knockdowns > control.sides.right.knockdowns);
+  assert.ok(found, "no pair from 44 to 59 has one idle body go down at least twice and more often than the other");
+  const { fallen, control } = found;
   // A count on the edge into fallen, not on every fallen frame: each fall here costs at least 1.45 s
   // down (fewest measured, both rates), so an edge count is well under two a second of time down, and
   // a frame count reads sixty.
-  assert.ok(shaky.sides.right.knockdowns <= 2 * shaky.sides.right.downSeconds,
-    `${shaky.sides.right.knockdowns} knockdowns in ${shaky.sides.right.downSeconds} s down is a count of frames`);
-  assert.ok(shaky.sides.right.downSeconds > 0 && shaky.sides.right.downSeconds <= shaky.seconds);
+  assert.ok(fallen.sides.right.knockdowns <= 2 * fallen.sides.right.downSeconds,
+    `${fallen.sides.right.knockdowns} knockdowns in ${fallen.sides.right.downSeconds} s down is a count of frames`);
+  assert.ok(fallen.sides.right.downSeconds > 0 && fallen.sides.right.downSeconds <= fallen.seconds);
   // The count is the fallen corner's and not the bout's, so the two corners read differently. It is
-  // not a zero: the brawler goes down once in every twenty-second bout where x0.5 goes down three
-  // times, together with it. That held on 44 to 59 (same runner, 2026-09-25).
-  assert.ok(shaky.sides.left.knockdowns < shaky.sides.right.knockdowns,
-    `the brawler's ${shaky.sides.left.knockdowns} against the idle body's ${shaky.sides.right.knockdowns}: the count is the fallen corner's, not the bout's`);
-  assert.ok(shaky.sides.left.downSeconds < shaky.sides.right.downSeconds);
-  // The control's time down is its own body's: read, and not the x0.5 body's. **It was "less than
-  // x0.5's" until the sole was levelled** (`bipedAnkleRoll`, 2026-09-25), and that was a claim about
-  // how long a fall lasts rather than about the counter. After it, no pair from 44 to 83 has x0.5
-  // both fall more often and stay down longer: 50/51 and 78/79 give five falls for 13.05 s against
-  // four for 13.12, every other pair either two for 5.48 against four for 8.28 or five for 12.80 on
-  // both (Node bout runner through `research/worker.mjs`, 120 Hz). A worker that read the other
-  // corner, or the bout, fails the corner lines above; what is left to this one is that the
-  // control reads a time down of its own.
-  assert.ok(steady.sides.right.downSeconds > 0 && steady.sides.right.downSeconds !== shaky.sides.right.downSeconds,
-    `the steadier body is down ${steady.sides.right.downSeconds} s, against ${shaky.sides.right.downSeconds}`);
+  // not always a zero: the brawler went down once in every twenty-second bout where x0.5 went down
+  // three times, together with it, on 44 to 59 (same runner, 2026-09-25). With the arms built at
+  // guard it stays up in the x1 bout on 46 and 47, and goes down once, for 2.68 s, beside x0.5.
+  assert.ok(fallen.sides.left.knockdowns < fallen.sides.right.knockdowns,
+    `the brawler's ${fallen.sides.left.knockdowns} against the idle body's ${fallen.sides.right.knockdowns}: the count is the fallen corner's, not the bout's`);
+  assert.ok(fallen.sides.left.downSeconds < fallen.sides.right.downSeconds);
+  assert.ok(control.sides.right.downSeconds > 0 && control.sides.right.downSeconds < fallen.sides.right.downSeconds,
+    `the control is down ${control.sides.right.downSeconds} s, against ${fallen.sides.right.downSeconds}`);
 });
 
 test("the worker counts the modules each corner lost and the real blows it landed, each from that corner's own record", async () => {
   // The fixture: the champion against a brawler at toughness x0.5, beside the same bout at x1 as the
-  // control that the count is read off the body -- the first pair from 50 up on which the soft corner
+  // control that the count is read off the body -- the first pair from 72 up on which the soft corner
   // alone loses exactly one module in ten seconds and the x1 control keeps every one. Measured (Node
   // bout runner through `research/worker.mjs`, 2026-09-25): at 240 Hz that is 50 and 51; at 120 it
-  // is 52 and 53, where 50 and 51 sever nothing.
+  // is 52 and 53, where 50 and 51 sever nothing. With the arms built at guard (2026-09-25) no pair
+  // from 50 to 71 severs anything in ten seconds, and 72 and 73 is the first that does; 74, 76, 86
+  // and 96 exhibit too (same runner), so the search starts at 72.
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "soft", setup: withAttributeSetting(base.setup, { toughness: 0.5 }) }];
   const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 10 } };
-  const found = await firstExhibiting(50, 8, async (seeds) => {
+  const found = await firstExhibiting(72, 8, async (seeds) => {
     const job = { id: "sever", round: 0, block: "sever", left: "golem-champion", right: "golem-brawler",
       leftBuild: "default", rightBuild: "soft", seeds };
     return { soft: await execute(job, manifest), plain: await execute({ ...job, rightBuild: "default" }, manifest) };
   }, ({ soft, plain }) => soft.sides.right.severs === 1 && plain.sides.right.severs === 0);
-  assert.ok(found, "no pair from 50 to 65 has the x0.5 corner lose one module and the x1 control none");
+  assert.ok(found, "no pair from 72 to 87 has the x0.5 corner lose one module and the x1 control none");
   const { soft } = found;
   assert.equal(soft.sides.left.severs, 0, "and the count is the corner's own, not the bout's");
   // The same bout's contacts, and of them the real blows: the ones above the weapon's energy floor,
   // one for each alignment the runner filed. So each corner's real blows are some of its contacts
   // and not all of them, and neither corner's pair is the other's. Measured on the pairs above:
-  // [[34, 15], [23, 17]] at 240 Hz, [[112, 53], [65, 44]] at 120, left then right.
+  // [[34, 15], [23, 17]] at 240 Hz, [[112, 53], [65, 44]] at 120, left then right; [[125, 49],
+  // [103, 37]] at 120 with the arms built at guard.
   const counts = ["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]);
   for (const [hits, realBlows] of counts) {
     assert.ok(realBlows > 0 && realBlows < hits, `real blows and contacts read ${JSON.stringify(counts)}`);

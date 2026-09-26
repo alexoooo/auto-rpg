@@ -442,7 +442,9 @@ export const CHAIN_PITCH = {
    * whose two frames disagree at construction, arriving through a joint limit instead of a
    * weld, and it was caught by the weld-frame assertion in `tests/golem-bench.test.mjs` rather
    * than by looking. -0.05 puts the build pose a shade inside the stop; the commanded floor of
-   * 0.30 is 0.35 clear of it. 2026-09-04.
+   * 0.30 is 0.35 clear of it. 2026-09-04. Since 2026-09-25 the link is built at its rest
+   * command's pitch (`buildPitch` in `effectors/chains/pitch.ts`), which is inside the commanded
+   * range and so further still from this stop; the rule stands for whatever pose it is built at.
    */
   jointMin: -0.05,
   jointMax: 2.35,
@@ -930,11 +932,12 @@ export const CHAIN_REACH = {
    * 0.12 radians is visibly near straight without reaching the IK singularity;
    * 2.50 leaves 0.10 radians before the folded elbow's physical stop.
    * The shell is 0.252..0.779 m; terminal-specific restrictions still narrow it.
-   * The build pose remains 0.54 m. Continuous commands span this whole shell.
+   * Continuous commands span this whole shell. The build pose is the rest command's
+   * (`restCursor` in `effectors/chains/arm-core.ts`), which is why `reachNeutral`, the old
+   * build reach of 0.54 m, is gone.
    */
   reachMin: Math.sqrt(0.42 ** 2 + 0.36 ** 2 + 2 * 0.42 * 0.36 * Math.cos(2.50)),
   reachMax: Math.sqrt(0.42 ** 2 + 0.36 ** 2 + 2 * 0.42 * 0.36 * Math.cos(0.12)),
-  reachNeutral: 0.54,
 
   /**
    * The envelope's angular limits, radians, **outboard-signed**.
@@ -1150,7 +1153,25 @@ export const CHAIN_REACH = {
    * the setting taken off it. 2026-09-18, the Node bench.
    */
   anchorRate: 5,
-  /** Smooth acquisition from the hanging build pose; normal target rates are unchanged. */
+  /**
+   * The anchor's rate ramps from zero to `anchorRate` over this long after the arm is built.
+   *
+   * Written to acquire the guard smoothly from a hanging build pose. Since 2026-09-25 the arm is
+   * built at guard and there is nothing to acquire, but the ramp still shapes a commander's first
+   * move, and it is kept on a measurement: probe-mind mirrors at the arena's separation, one bout
+   * each, Node bout runner, 120 Hz, arms built at guard --
+   *
+   * | build, mirror | ramp 0.2 s: first contact, both sides' damage by 0.5 s | no ramp |
+   * | --- | --- | --- |
+   * | stone default, champion | 0.267 s, 0.000 | 0.083 s, 0.687 |
+   * | stone default, miser | 0.217 s, 0.000 | 0.100 s, 0.729 |
+   * | stone default, brawler | 0.267 s, 0.332 | 0.100 s, 0.407 |
+   * | stone default, duelist | 0.283 s, 0.000 | 0.100 s, 0.480 |
+   * | skeleton, all four | 0.150 s, 0.000 | 0.067 s, 0.000 to 0.149 |
+   *
+   * Without it every mind's opening guard sweeps both blades into each other at a full rate from
+   * the first step, which is the construction clash back again under a mind's name.
+   */
   acquireSeconds: 0.2,
   // Headless awake button/sweep-stop trials, both hands and frame-jitter cases:
   // tiny wrist inertia left centimetres of ring. Matching every serial bearing
@@ -1214,8 +1235,9 @@ export const CHAIN_REACH = {
    * poses those buttons used to give -- `src/buttons.ts` synthesizes them, to the millimetre --
    * because a mouse is an impoverished input device and a policy is not.
    *
-   * `reachGuard`, `reachThrust` and `reachResponse` went with them and for the same reason;
-   * `reachNeutral` survives above, where it is now only the build pose.
+   * `reachGuard`, `reachThrust` and `reachResponse` went with them and for the same reason.
+   * `reachNeutral` survived as the build pose until 2026-09-25, when every arm began to be built
+   * at its rest command instead.
    */
 
   /** How this table's shells are drawn: carved stone. See `ShellLook` in `effectors/shell.ts`. */
@@ -1234,7 +1256,7 @@ export const CHAIN_REACH_SIZE: SizeLaws<typeof CHAIN_REACH> = {
   upperVitalityWeight: "one",
   foreLength: "length", foreRadius: "length", foreMass: "mass", foreHealth: "one",
   foreVitalityWeight: "one",
-  reachMin: "length", reachMax: "length", reachNeutral: "length",
+  reachMin: "length", reachMax: "length",
   swingMin: "one", swingMax: "one", liftMin: "one", liftMax: "one", carryMin: "length",
   jointMargin: "one", pitchJointMin: "one", pitchJointMax: "one", elbowJointMin: "one", elbowJointMax: "one",
   anchorRate: "speed", acquireSeconds: "duration",
