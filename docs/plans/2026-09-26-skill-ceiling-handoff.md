@@ -7,7 +7,7 @@ apply.
 
 ## Current checkpoint (supersedes the historical notes below)
 
-Implementation and evidence through `f5a6cfa4` are merged into local `main`. Latest full validation:
+Implementation through `6c3686e2` is merged into local `main`. Latest full validation:
 1089/1089 tests, typecheck and build. Repeated fetches found no incoming commits beyond `9a320286`;
 this continuation has not pushed. The working implementation checkout is
 `.claude/worktrees/codex-command-surface`, branch `codex-command-surface`.
@@ -18,12 +18,12 @@ this continuation has not pushed. The working implementation checkout is
 | Session 06 orders | Complete |
 | Session 06 footwork channels | Complete measurements; stance and step fail the enablement gate and remain off |
 | Session 06 task-space effectors | Anatomical blade/fist/mace actuator, expert proposals and browser preview built; no headroom gain established; flag off |
-| Session 07 prerequisites | Fist-family and mace-size studies complete; human rate/torque/clamp question measured; maul and brawler studies still running/pending |
+| Session 07 prerequisites | Fist-family, mace-size and maul-size studies complete; human rate/torque/clamp question measured; brawler study running |
 | Session 07 body release | Owner choices/eye gate remain; no body removals or default retunes |
 | Sessions 08-09 | Not begun; depend on body-release decisions |
 
 Current research lives in the **main checkout** under `research/runs/release2-continuation/`.
-`size-maul-expert` is active toward 64 bouts; `attr-expert-v-brawler` follows it. Do not launch a
+`size-maul-expert` completed 64/64; `attr-expert-v-brawler` is active toward 80 bouts. Do not launch a
 second writer into an active directory. `headroom.mjs` now holds `run.lock` through computation
 and summary writes. Original worktree data were preserved; legacy manifests in the copies gained
 only explicit empty flags, with schedule/build/protocol validation retained.
@@ -31,7 +31,7 @@ only explicit empty flags, with schedule/build/protocol validation retained.
 Completed evidence is tracked under `research/results/`. Read the updated analyses first:
 
 - `docs/analysis/2026-09-26-command-surface.md`: complete stance/ruler verdict.
-- `docs/analysis/2026-09-26-release-2-questions.md`: fist-family and mace-size results.
+- `docs/analysis/2026-09-26-release-2-questions.md`: fist-family, mace-size and maul-size results.
 - `docs/analysis/2026-09-26-human-arm-limits.md`: normal-stroke rate sensitivity; raising the
   velocity clamp buys no useful speed there, and no motor/default was raised.
 - `docs/analysis/2026-09-26-effector-candidate-scores.md`: exact candidate predictions and per-hand

@@ -161,3 +161,17 @@ The write-up is `docs/analysis/2026-09-26-command-surface.md`.
   `docs/analysis/2026-09-26-effector-preview.md`.
 - **Eye gate: deferred.** The flag switch and arm preview are available for the owner.
   The offline expert remains a Node instrument.
+
+### Current task-space verdict
+
+The continuation corrected endpoint clamping and changed proposals to use attainable held poses.
+The ruler's null bouts remain unchanged. Eighteen forked candidate probes now retain the full
+score terms and per-hand combat reports, and their selected rollouts exactly match live playback.
+In the sampled warmed states, task contacts are blocked or below the existing damage thresholds
+before armour. A further 114 forced trajectory trials varied duration, lift and extension; none
+wounded in that one-seed, one-corner screen. This does not establish a headroom gain or justify
+enabling the channel. Other engagement states and task actuators remain open.
+
+Read `docs/analysis/2026-09-26-effector-candidate-scores.md` and
+`docs/analysis/2026-09-26-effector-impact-screen.md` before launching more bouts. The current
+enablement verdict is **off** for all three experimental channels; the orders half remains shipped.
