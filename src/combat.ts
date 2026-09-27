@@ -396,6 +396,7 @@ export class Combat {
   private readonly projectileHits = new Set<string>();
   /** False from the verdict edge onward; observers stay installed until dispose. */
   private active = true;
+  private keepProjectiles = false;
   private readonly onReport?: (event: CombatReportEvent) => void;
   private readonly onRefusal?: (event: CombatRefusalEvent) => void;
 
@@ -591,7 +592,8 @@ export class Combat {
   }
 
   /** Stop accepting contacts without mutating an observable during its callback. */
-  stop(): void {
+  stop(keepProjectiles = false): void {
+    this.keepProjectiles = keepProjectiles;
     this.active = false;
   }
 
@@ -630,7 +632,7 @@ export class Combat {
   }
 
   private onContact(weapon: Striking, event: IPhysicsCollisionEvent): void {
-    if (!this.active) return;
+    if (!this.active && !(this.keepProjectiles && weapon.projectileImpact)) return;
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
     if (this.targetResolver) this.target = this.targetResolver(event.collidedAgainst);
     const refusal = weapon.refusalForContact?.(event.collidedAgainst) ?? null;

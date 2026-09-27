@@ -83,13 +83,13 @@ const updateEquipment = () => {
   heroEquipment.hidden = !heroArming();
   if (!setup || heroEquipment.hidden) return;
   for (const [picker, hand] of [[heroPrimary, setup.primary], [heroSecondary, setup.secondary]] as const) {
-    picker.replaceChildren(...golemTerminalOptions(hand.chain).filter(option=>!setup.human
-      || (picker===heroPrimary?["blade","fist"]:["plate","fist"]).includes(option.id)).map(({ id, label }) => {
+    picker.replaceChildren(...golemTerminalOptions(hand.chain).filter(option=>(!setup.human && option.id !== "bow")
+      || (picker===heroPrimary?(setup.human?.model==="workshop-rogue"?["bow","blade","fist"]:["blade","fist"]):(setup.human?.model==="workshop-rogue"?["plate","fist","bow"]:["plate","fist"])).includes(option.id)).map(({ id, label }) => {
       const option = document.createElement("option"); option.value = id; option.textContent = label; return option;
     }));
     picker.value = hand.terminal;
   }
-  heroSecondary.disabled = heroPrimary.value === "maul";
+  heroSecondary.disabled = ["maul", "bow"].includes(heroPrimary.value);
 };
 heroBuild.addEventListener("change", updateEquipment);
 heroBuild.addEventListener("change", () => {
@@ -115,7 +115,7 @@ heroAttributesPanel.addEventListener("input", followAttributeSlider);
 heroAttributesPanel.addEventListener("change", editHeroAttributes);
 heroAttributesPanel.addEventListener("click", event => { if (event.target instanceof HTMLButtonElement) editHeroAttributes(event); });
 renderHeroAttributes();
-heroPrimary.addEventListener("change", () => { heroSecondary.disabled = heroPrimary.value === "maul"; });
+heroPrimary.addEventListener("change", () => { heroSecondary.disabled = ["maul", "bow"].includes(heroPrimary.value); });
 updateEquipment();
 
 async function boot(): Promise<void> {
@@ -215,7 +215,7 @@ async function boot(): Promise<void> {
     companions = companionBuilds(selectedBuild, Number(companionCount.value));
     const arm = heroArming();
     selectedEquipment = arm ? arm(heroPrimary.value, heroSecondary.value) : undefined;
-    if(selectedEquipment && heroSetup()?.human) selectedEquipment.human={model:"workshop-fighter",
+    if(selectedEquipment && heroSetup()?.human) selectedEquipment.human={model:heroSetup()!.human!.model,
       boots:workshopAppearance.querySelector<HTMLInputElement>('[data-workshop="boots"]')!.checked,
       armour:workshopAppearance.querySelector<HTMLInputElement>('[data-workshop="armour"]')!.checked};
     // A hero somebody tuned is handed over as a whole setup; one nobody tuned goes the way it always

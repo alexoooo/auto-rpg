@@ -583,9 +583,9 @@ const readGolem = (value: unknown): GolemSetup | null => {
     golem.family = value.family;
   }
   if (value.human !== undefined) {
-    if (!isRecord(value.human) || value.human.model !== "workshop-fighter"
+    if (!isRecord(value.human) || (value.human.model !== "workshop-fighter" && value.human.model !== "workshop-rogue")
       || typeof value.human.boots !== "boolean" || typeof value.human.armour !== "boolean") return null;
-    golem.human = { model: "workshop-fighter", boots: value.human.boots, armour: value.human.armour };
+    golem.human = { model: value.human.model, boots: value.human.boots, armour: value.human.armour };
   }
   if (value.attributes !== undefined) {
     const attributes = readAttributes(value.attributes);

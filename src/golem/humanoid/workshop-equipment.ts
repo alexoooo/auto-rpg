@@ -10,32 +10,34 @@ import { TERMINAL_BLADE, TERMINAL_FIST } from "../config.ts";
 import { bladeDefinition } from "../effectors/terminals/blade.ts";
 import { RigidStrike } from "../effectors/striker.ts";
 import { humanEquipment } from "./equipment.ts";
-import { WORKSHOP_SOURCE } from "./workshop-profile.ts";
+import { workshopSource, type WorkshopModel } from "./workshop-profile.ts";
 import { attributeOf } from "../attributes.ts";
 import { fistDefinition } from "../effectors/terminals/fist.ts";
 
 /** Keep the board rigid, translating its grip onto the scaled hand at the wrist. */
-export const workshopShieldShift = (size: number) =>
-  Vector3.FromArray(WORKSHOP_SOURCE.palm.secondary).add(new Vector3(0, -.045, 0)).scale(size - 1);
+export const workshopShieldShift = (size: number, model: WorkshopModel = "workshop-fighter") =>
+  Vector3.FromArray(workshopSource(model).palm.secondary).add(new Vector3(0, -.045, 0)).scale(size - 1);
 
 const bounds = (points: number[][]) => {
   const low = [0,1,2].map(i=>Math.min(...points.map(p=>p[i])));
   const high = [0,1,2].map(i=>Math.max(...points.map(p=>p[i])));
   return { centre: Vector3.FromArray(low.map((v,i)=>(v+high[i])/2)), size: Vector3.FromArray(high.map((v,i)=>v-low[i])), low, high };
 };
+export function workshopEquipmentProfile(model: WorkshopModel = "workshop-fighter") {
+const WORKSHOP_SOURCE = workshopSource(model);
 const sword = bounds(WORKSHOP_SOURCE.equipment.blade.points);
-export const WORKSHOP_SWORD = bladeDefinition(sword.low[2]-WORKSHOP_SOURCE.palm.primary[2], {
+const WORKSHOP_SWORD = bladeDefinition(sword.low[2]-WORKSHOP_SOURCE.palm.primary[2], {
   ...TERMINAL_BLADE, width:sword.size.y, thickness:sword.size.x, length:sword.size.z, tipOffset:sword.size.z,
 });
 const shieldPoints = WORKSHOP_SOURCE.equipment.plate.points.map(p=>[p[0],p[1]-.045,p[2]]);
-export const WORKSHOP_SHIELD_BOUNDS = bounds(shieldPoints);
-export const WORKSHOP_SHIELD = defineTerminal({
+const WORKSHOP_SHIELD_BOUNDS = bounds(shieldPoints);
+const WORKSHOP_SHIELD = defineTerminal({
   id:"plate", label:"Workshop heater shield", sockets:1, bite:"none", massKg:3.5,
   attachment:"forearm", partRole:"equipment", limits:null,
   build(ctx,onto) {
     if(onto.kind!=="forearm") throw new Error("Workshop shield requires forearm support");
     const name=`${ctx.name}.plate`, {size}=WORKSHOP_SHIELD_BOUNDS;
-    const centre=WORKSHOP_SHIELD_BOUNDS.centre.add(workshopShieldShift(attributeOf(ctx,"size")));
+    const centre=WORKSHOP_SHIELD_BOUNDS.centre.add(workshopShieldShift(attributeOf(ctx,"size"), model));
     const mesh=new Mesh(name,ctx.scene), vertex=new VertexData();
     vertex.positions=shieldPoints.flatMap(p=>Vector3.FromArray(p).subtract(WORKSHOP_SHIELD_BOUNDS.centre).asArray());
     vertex.indices=[];for(let i=1;i<shieldPoints.length-1;i++)vertex.indices.push(0,i,i+1);
@@ -54,7 +56,11 @@ export const WORKSHOP_SHIELD = defineTerminal({
       dispose(){striker.sever();weld.dispose();part.body.dispose();part.shape.dispose();mesh.dispose(false,false);}};
   },
 });
-export function workshopEquipment(terminal: EffectorTerminalDefinition, size = 1, weight = 1): EffectorTerminalDefinition {
+return { WORKSHOP_SWORD, WORKSHOP_SHIELD, WORKSHOP_SHIELD_BOUNDS };
+}
+export const { WORKSHOP_SWORD, WORKSHOP_SHIELD, WORKSHOP_SHIELD_BOUNDS } = workshopEquipmentProfile();
+export function workshopEquipment(terminal: EffectorTerminalDefinition, size = 1, weight = 1, model: WorkshopModel = "workshop-fighter"): EffectorTerminalDefinition {
+  const {WORKSHOP_SWORD,WORKSHOP_SHIELD} = workshopEquipmentProfile(model);
   switch(terminal.id) {
     case "blade": return { ...WORKSHOP_SWORD, attachment:"hand" };
     case "plate": return WORKSHOP_SHIELD;

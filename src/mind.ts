@@ -45,6 +45,7 @@ import {
   golemFormMind, golemGuardianMind, golemMiserMind, golemPlannerMind, golemReaperMind,
   golemSkirmisherMind, golemTacticianMind, golemWalkerMind,
 } from "./golem/golem-policies.ts";
+import { humanoidArcher } from "./golem/humanoid/archer-policy.ts";
 import { RESEARCHED_POLICIES } from "./golem/researched-policies.ts";
 
 /**
@@ -133,6 +134,7 @@ export interface Intent {
 
 /** The natural striker's two buttons. No pose: a body aims jaws by turning. */
 export interface NaturalIntent {
+  lookYaw?: number;
   thrust: boolean;
   guard: boolean;
 }
@@ -436,6 +438,7 @@ export interface EffectorView {
 
 /** One body as a mind sees it: where it is, where its blade is, what is left of it. */
 export interface BodyView {
+  ranged?: import("./archery.ts").RangedView;
   /** Registry identity and unlike-body geometry used by tactics and framing. */
   unit: string;
   reach: number;
@@ -834,6 +837,7 @@ export interface Policy {
 
 export const POLICIES: readonly Policy[] = [
   ...RESEARCHED_POLICIES,
+  { name: "humanoid-archer", label: "Human archer", surface: GOLEM_SURFACE, bodyFamily: "human", requirement: "bow", create: humanoidArcher },
   { name: "idle", label: "Idle", surface: null, create: idleMind },
   { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
   { name: "humanoid-duelist", label: "Human duelist", surface: GOLEM_SURFACE, bodyFamily: "human", create: humanoidDuelist },

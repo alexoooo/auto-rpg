@@ -145,6 +145,7 @@ const ROWS = [
   [named("skeleton-warrior"), named("default"), SKELETON_STONE],
   [named("skeleton-mace"), named("human-warrior"), SKELETON_HUMAN],
   [named("skeleton-maul"), inline("skeleton-whip-fist", skeletonSetup("whip", "fist")), SKELETONS],
+  [named("workshop-rogue"), named("human-warrior"), ["humanoid-archer", "humanoid-duelist"]],
 ];
 
 /**

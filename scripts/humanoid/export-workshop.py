@@ -3,16 +3,18 @@
 Read-only derivative of the workshop source. Never saves the .blend or rewrites the preview.
 Keeps authored topology, UVs, materials, textures and rest transforms; removes preview motion.
 """
-import bpy, json, hashlib
+import bpy, json, hashlib, sys
 from pathlib import Path
 from mathutils import Vector, Matrix, Quaternion
 
 ROOT = Path(__file__).resolve().parents[2]
-source = ROOT / 'assets/character-lab/fighter.blend'
+model = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'fighter'
+assert model in ('fighter', 'rogue')
+source = ROOT / f'assets/character-lab/{model}.blend'
 rig = bpy.data.objects['WorkshopRig']
 bones = rig.data.bones
-out = ROOT / 'public/assets/humanoid/workshop-fighter.glb'
-profile_path = ROOT / 'assets/humanoid/workshop-fighter.json'
+out = ROOT / f'public/assets/humanoid/workshop-{model}.glb'
+profile_path = ROOT / f'assets/humanoid/workshop-{model}.json'
 
 def length(name):
     return (bones[name].tail_local - bones[name].head_local).length
@@ -33,14 +35,16 @@ def region(name):
 
 # Store authored finger poses separately; no walk/attack track may reach game authority.
 grips = {}
-for kit in ['empty', 'sword', 'shield', 'sword-shield']:
-    rig.animation_data.action = bpy.data.actions['inspection-' + kit]
-    bpy.context.scene.frame_set(1)
+for kit in ['empty', 'sword', 'shield', 'sword-shield', 'bow']:
+    rig.animation_data.action = bpy.data.actions[('loop-' if kit == 'bow' else 'inspection-') + kit]
+    bpy.context.scene.frame_set(271 if kit == 'bow' else 1)
     grips[kit] = {p.name: list(p.matrix_basis.to_quaternion()) for p in rig.pose.bones
                   if p.name.startswith(('thumb_', 'index_', 'middle_', 'ring_', 'pinky_'))}
+rig.animation_data.action = bpy.data.actions['inspection-empty']
+bpy.context.scene.frame_set(1)
 for obj in list(bpy.data.objects):
     obj.animation_data_clear()
-    if obj.name.startswith('bow__') or obj.get('authoringOnly'):
+    if (model == 'fighter' and obj.name.startswith('bow__')) or obj.get('authoringOnly'):
         bpy.data.objects.remove(obj, do_unlink=True)
 for pose in rig.pose.bones:
     pose.matrix_basis.identity()
@@ -48,8 +52,8 @@ rig.data.pose_position = 'REST'
 bpy.context.view_layer.update()
 
 profile = {
-    'version': 1, 'model': 'workshop-fighter',
-    'source': {'path': 'assets/character-lab/fighter.blend',
+    'version': 1, 'model': 'workshop-' + model,
+    'source': {'path': f'assets/character-lab/{model}.blend',
                'sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
                'anatomy': 'MakeHuman/MPFB CC0; workshop-authored clothing, equipment and fitting'},
     'upperLength': length('upperarm_r'), 'foreLength': length('lowerarm_r'),
@@ -90,6 +94,7 @@ for s, slot, leg in [('r','primary','R'),('l','secondary','L')]:
     grip = point(w+(v*.095+n*.046)*scale)
     q = Matrix((y.cross(handle),y,handle)).transposed().to_quaternion()
     profile.setdefault('palm',{})[slot] = list(q.inverted()@(grip-centre))
+    if s == 'r': profile['stringHook'] = list(q.inverted() @ (point(w+(v*.145+n*.039+u*.016)*scale)-centre))
     segment('locomotion.thigh'+leg,'thigh_'+s,'calf_'+s)
     segment('locomotion.shin'+leg,'calf_'+s,'foot_'+s)
     frames['locomotion.foot'+leg] = frame(point(bones['foot_'+s].head_local)+Vector((0,-.04,.065)),Vector((0,1,0)),Vector((0,0,1)))
@@ -105,6 +110,9 @@ for prefix, slot, part in [('sword','primary','blade'),('shield','secondary','pl
     obj=bpy.data.objects[prefix+'__'+('blade' if prefix=='sword' else 'board')]
     points=[q.inverted()@(point(obj.matrix_world@v.co)-centre) for v in obj.data.vertices]
     equipment[part]={'points':[list(p) for p in points]}
+if model == 'rogue':
+    row = frames['secondary.hand']; q = Quaternion((row['rotation'][3], *row['rotation'][:3])); centre = Vector(row['position'])
+    equipment['bow'] = {obj.name: [list(q.inverted() @ (point(obj.matrix_world @ v.co) - centre)) for v in obj.data.vertices] for obj in bpy.data.objects if obj.type == 'MESH' and obj.name.startswith('bow__')}
 profile['equipment']=equipment
 profile_path.write_text(json.dumps(profile, indent=2) + '\n')
 out.parent.mkdir(parents=True, exist_ok=True)

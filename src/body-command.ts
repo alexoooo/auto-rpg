@@ -57,7 +57,7 @@ export const CHANNEL_KINDS: readonly ChannelKind[] = Object.freeze(
  * - `thrust`, `guard` -- `natural`.
  */
 export type ChannelFeature = "aim" | "orientation" | "lean" | "twist" | "crouch"
-  | "travel" | "turn" | "stance" | "step" | "thrust" | "guard" | "target" | "speed" | "force";
+  | "travel" | "turn" | "stance" | "step" | "thrust" | "guard" | "target" | "speed" | "force" | "shoot";
 
 export interface ChannelDeclaration {
   readonly kind: ChannelKind;
@@ -137,6 +137,7 @@ export function parseChannelFlags(text: string | null | undefined): Partial<Chan
 // ---------------------------------------------------------------------------------------------
 
 export interface EffectorCommand {
+  ranged?: import("./archery.ts").RangedCommand | null;
   /** Where in its envelope the business end is asked to be, in the chain's own coordinates. */
   aim: HandIntent;
   /** Experimental task-space command; absent/null retains the legacy aim exactly. */
@@ -201,6 +202,7 @@ export interface GaitCommand {
 }
 
 export interface NaturalCommand {
+  lookYaw?: number;
   thrust: boolean;
   guard: boolean;
 }
@@ -255,6 +257,9 @@ export function copyBodyCommand(from: BodyCommand, into: BodyCommand): BodyComma
   into.actingHand = from.actingHand;
   for (const hand of ["primary", "secondary"] as const) {
     copyAim(from.effectors[hand].aim, into.effectors[hand].aim);
+    const ranged = from.effectors[hand].ranged;
+    if (ranged) into.effectors[hand].ranged = { ...ranged, target: { ...ranged.target } };
+    else delete into.effectors[hand].ranged;
     const target = from.effectors[hand].target;
     if (target) {
       const p = target.position, q = target.orientation;
@@ -282,6 +287,7 @@ export function copyBodyCommand(from: BodyCommand, into: BodyCommand): BodyComma
   } else {
     g.step = null;
   }
+  if (from.natural.lookYaw !== undefined) into.natural.lookYaw=from.natural.lookYaw; else delete into.natural.lookYaw;
   into.natural.thrust = from.natural.thrust;
   into.natural.guard = from.natural.guard;
   return into;
@@ -301,6 +307,8 @@ export function intentToCommand(intent: Intent, into: BodyCommand = freshBodyCom
   into.actingHand = intent.actingHand;
   into.effectors.primary.aim = intent.primary;
   into.effectors.secondary.aim = intent.secondary;
+  delete into.effectors.primary.ranged;
+  delete into.effectors.secondary.ranged;
   delete into.effectors.primary.target;
   delete into.effectors.secondary.target;
   into.trunk.lean = intent.posture.trunkLean;
@@ -314,6 +322,7 @@ export function intentToCommand(intent: Intent, into: BodyCommand = freshBodyCom
   g.stance.lead = 0;
   g.stance.weight = 0;
   g.step = null;
+  delete into.natural.lookYaw;
   into.natural.thrust = intent.natural.thrust;
   into.natural.guard = intent.natural.guard;
   return into;

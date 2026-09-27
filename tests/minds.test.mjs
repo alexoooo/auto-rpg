@@ -299,7 +299,7 @@ function drive(mind, seconds, viewFor) {
 test("the picker offers exactly the policies that exist", () => {
   assert.deepEqual(
     POLICIES.map((policy) => policy.name),
-    [...researchedVariants.map((candidate) => candidate.name), ...researchedLab.map((candidate) => candidate.name), "idle", "golem-duelist", "humanoid-duelist", "skeleton-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
+    [...researchedVariants.map((candidate) => candidate.name), ...researchedLab.map((candidate) => candidate.name), "humanoid-archer", "idle", "golem-duelist", "humanoid-duelist", "skeleton-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
       "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
       "golem-reaper", "golem-miser", "golem-walker"],
   );

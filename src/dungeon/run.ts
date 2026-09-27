@@ -11,7 +11,8 @@ import { bodyFamily, FAMILY_POLICY } from "../golem/family.ts";
 import { namedBuild } from "../golem/roster.ts";
 import { drawEnemy } from "./enemies.ts";
 import { unitDefinition } from "../units.ts";
-import type { Intent, Mind } from "../mind.ts";
+import { isCommandMind, type Intent, type Mind } from "../mind.ts";
+import { freshBodyCommand, intentToCommand, type BodyCommand } from "../body-command.ts";
 import { mulberry32 } from "../rng.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, walkable,
   type DungeonMap, type Point } from "./map.ts";
@@ -23,7 +24,7 @@ import type { DungeonSurfaces } from "./stone.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
 
 export interface DungeonActor {
-  id: string; name: string; body: Golem; combat: Combat; policy: Mind; intent: Intent;
+  id: string; name: string; body: Golem; combat: Combat; policy: Mind; intent: Intent; command: BodyCommand;
   target: DungeonActor | null; home: Point; lastSeen: Point | null; alertedUntil: number;
   route: Point[]; goal: Point | null; nextPlan: number; radius: number;
   /** Where the body last made progress along its route, and when. */
@@ -151,16 +152,18 @@ export class DungeonRun {
       const build = namedBuild(buildName);
       if (!build) throw new Error(`Unknown dungeon golem: ${buildName}`);
       const setup = id === "hero" && heroSetup ? heroSetup : build.setup;
-      const policy = definition.createPolicy!(FAMILY_POLICY[bodyFamily(setup)], Math.floor(random() * 0xffffffff));
+      const policy = definition.createPolicy!(setup.primary.terminal === "bow" ? "humanoid-archer" : FAMILY_POLICY[bodyFamily(setup)], Math.floor(random() * 0xffffffff));
       let intent = neutralIntent();
-      const source: Mind = { name: "dungeon", decide: () => intent };
+      let command=freshBodyCommand();
+      const source = { name: "dungeon", decide: () => intent, command: () => command };
       const priorMeshes = new Set(scene.meshes);
       const body = new Golem(scene, { actorId: id, side, origin: new Vector3(at.x, 0, at.z), facing: side === "left" ? 0 : Math.PI,
         setup, mind: source, controlPolicies: definition.driverOptions, locomotionWorld: this.world.registry });
       const combat = new Combat(side, body.strikers, onReport ? event => onReport(id, event) : undefined);
       const made = scene.meshes.filter(mesh => !priorMeshes.has(mesh));
       const actor: DungeonActor = { id, name: buildName, body, combat, policy,
-        get intent() { return intent; }, set intent(value) { intent = value; }, target: null,
+        get intent() { return intent; }, set intent(value) { intent = value; },
+        get command() { return command; }, set command(value) { command = value; }, target: null,
         home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
         progress: { at: { ...at }, since: 0 },
         radius: body.locomotion.footprint.radiusM,
@@ -340,7 +343,7 @@ export class DungeonRun {
     }
     if (actor.target) {
       const targetAt = actor.target.body.feetPosition();
-      if (distance(at, targetAt) > 3.5) return this.follow(actor, targetAt);
+      if (distance(at, targetAt) > (actor.policy.name === "humanoid-archer" ? 7 : 3.5)) return this.follow(actor, targetAt);
       return null; // Combat policy owns close-range positioning unless the player owns movement.
     }
     if (order.kind === "lock" && actor.lastSeen) return this.follow(actor, actor.lastSeen);
@@ -504,7 +507,8 @@ export class DungeonRun {
     for (const actor of live) actor.body.locomotion.beginControlStep();
     for (const actor of live) {
       if (!actor.body.alive) {
-        if (!actor.stopped) { actor.combat.stop(); actor.body.stopFighting(); actor.stopped = true; }
+        if (!actor.stopped) { actor.combat.stop(true); actor.body.stopFighting(); actor.stopped = true; }
+        actor.combat.advance(dt);
         continue;
       }
       const at = actor.body.feetPosition();
@@ -518,7 +522,7 @@ export class DungeonRun {
           ? { x: this.commands.cursor.x - at.x, z: this.commands.cursor.z - at.z }
           : { x: Math.sin(actor.body.view.self.facing), z: Math.cos(actor.body.view.self.facing) };
       } else if (this.party.includes(actor)) move = this.memberMovement(actor);
-      else if (actor.target && distance(at, actor.target.body.feetPosition()) <= 3.5) move = null;
+      else if (actor.target && distance(at, actor.target.body.feetPosition()) <= (actor.policy.name === "humanoid-archer" ? 7 : 3.5)) move = null;
       else {
         const goal = actor.target?.body.feetPosition() ?? (actor.alertedUntil > this.clock ? actor.lastSeen : actor.home);
         move = goal && distance(at, goal) > 0.4 ? this.follow(actor, goal) : { x: 0, z: 0 };
@@ -528,6 +532,23 @@ export class DungeonRun {
       if (actor === this.hero && this.commands.mode.facing && this.commands.cursor && look && Math.hypot(look.x, look.z) <= 0.08)
         look = { x: Math.sin(actor.body.view.self.facing), z: Math.cos(actor.body.view.self.facing) };
       actor.intent = composeIntent(base, actor.body.view.self.facing, move, look);
+      actor.command = intentToCommand(actor.intent);
+      if (isCommandMind(actor.policy)) {
+        const ranged = actor.target?.body.alive ? actor.policy.command(actor.body.view,dt) : freshBodyCommand();
+        if (move && Math.hypot(move.x,move.z)>.1) {
+          ranged.gait.forward=actor.command.gait.forward;ranged.gait.strafe=actor.command.gait.strafe;
+          ranged.gait.turn=actor.command.gait.turn;delete ranged.effectors.primary.ranged;
+        }
+        // Party members obstruct the line even though friendly collisions are excluded.
+        const mark=actor.target?.body.view.self.vitalPoint, start=actor.body.view.self.shoulder;
+        if(mark) for(const ally of this.party.includes(actor)?this.party:this.enemies) {
+          if(ally===actor || !ally.body.alive)continue;
+          const p=ally.body.view.self.vitalPoint, dx=mark.x-start.x,dz=mark.z-start.z;
+          const t=((p.x-start.x)*dx+(p.z-start.z)*dz)/(dx*dx+dz*dz);
+          if(t>0 && t<1 && Math.hypot(p.x-start.x-t*dx,p.z-start.z-t*dz)<ally.radius+.15) delete ranged.effectors.primary.ranged;
+        }
+        actor.command=ranged;
+      }
       actor.body.control.driver.step(dt);
       actor.combat.advance(dt);
     }

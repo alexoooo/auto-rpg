@@ -3,7 +3,7 @@ import { bipedDefinition } from "../locomotion/biped.ts";
 import { torsoModule } from "../torso/torso.ts";
 import { headModule } from "../head/head.ts";
 import type { GolemPart, ModuleBuild } from "../module.ts";
-import { WORKSHOP_SOURCE } from "./workshop-profile.ts";
+import { workshopSource, type WorkshopModel } from "./workshop-profile.ts";
 
 /** Human geometry is data supplied to the shared builders, never global tuning mutation. */
 export const HUMAN_BIPED = { ...LOCOMOTION_BIPED,
@@ -44,16 +44,22 @@ export const humanTorso = humanDefinition(torsoModule("torso.human", "human armo
 export const humanHead = humanDefinition(headModule("head.human", "human helmeted head", { guardPitch: 0.25, ram: null }, HUMAN_HEAD));
 
 // Geometry follows the saved model. Protection, mass and drive budgets remain the human's.
+export function workshopBody(model: WorkshopModel) {
+const WORKSHOP_SOURCE = workshopSource(model);
 const workshopLegs = { ...HUMAN_BIPED, thighLength: WORKSHOP_SOURCE.thighLength,
   shinLength: WORKSHOP_SOURCE.shinLength, hipSide: WORKSHOP_SOURCE.hipSide };
 const workshopWaistY = workshopLegs.pelvisHeight / 2 + workshopLegs.hipInset
   + workshopLegs.thighLength + workshopLegs.shinLength + workshopLegs.footHeight;
 const workshopCoreHeight = WORKSHOP_SOURCE.neckHeight - workshopWaistY;
-export const workshopBiped = humanDefinition(bipedDefinition("locomotion.human", "workshop fighter legs", workshopLegs));
-export const workshopTorso = humanDefinition(torsoModule("torso.human", "workshop fighter torso", {
+const workshopBiped = humanDefinition(bipedDefinition("locomotion.human", "workshop fighter legs", workshopLegs));
+const workshopTorso = humanDefinition(torsoModule("torso.human", "workshop fighter torso", {
   ...HUMAN_TORSO, coreHeight: workshopCoreHeight, socketSide: WORKSHOP_SOURCE.shoulderSide,
   socketHeight: WORKSHOP_SOURCE.shoulderHeight - workshopWaistY - workshopCoreHeight / 2,
   socketFront: .0208679512143135, neckHeight: workshopCoreHeight / 2,
 }, HUMAN_WAIST));
-export const workshopHead = humanDefinition(headModule("head.human", "workshop fighter head",
-  { guardPitch: .25, ram: null }, { ...HUMAN_HEAD, neckLength: WORKSHOP_SOURCE.neckLength }));
+const workshopHead = humanDefinition(headModule("head.human", "workshop fighter head",
+  { guardPitch: .25, ram: null }, { ...HUMAN_HEAD, neckLength: WORKSHOP_SOURCE.neckLength, ...(model === "workshop-rogue" ? {yawJointMin:-1.45,yawJointMax:1.45} : {}) }));
+
+return { legs: workshopBiped, torso: workshopTorso, head: workshopHead };
+}
+export const { legs: workshopBiped, torso: workshopTorso, head: workshopHead } = workshopBody("workshop-fighter");

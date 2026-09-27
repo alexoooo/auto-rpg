@@ -608,7 +608,7 @@ export class Golem implements Combatant, Topological {
       policyFactory: options.controlPolicyFactory,
     });
     this.humanAppearance = setup.human ? dressWorkshopFighter(scene, this.visualBindings, this.side, setup.human,
-      setup.primary.terminal === "blade" ? setup.secondary.terminal === "plate" ? "sword-shield" : "sword"
+      setup.primary.terminal === "bow" ? "bow" : setup.primary.terminal === "blade" ? setup.secondary.terminal === "plate" ? "sword-shield" : "sword"
         : setup.secondary.terminal === "plate" ? "shield" : "empty", this.attributes.size) : dressHumanoid(scene, this.visualBindings, this.side);
     for (const mesh of this.humanAppearance?.meshes ?? []) { this.owned.add(mesh); this.costume.push(mesh); }
 
@@ -700,7 +700,7 @@ export class Golem implements Combatant, Topological {
       };
       this.limbs.push(limb);
       this.visualBindings.push(Object.freeze({
-        slot, moduleId: id, id: part.id, host: part.part.mesh,
+        slot: part.visualSlot ?? slot, moduleId: id, id: part.id, host: part.part.mesh,
         shells: part.shell, damage: limb,
       }));
       record.limbs.push(limb);
@@ -803,7 +803,8 @@ export class Golem implements Combatant, Topological {
     this.headModule.command(command.natural);
     for (const effector of this.effectorModules) {
       const next = command.effectors[effector.driven];
-      if (next.target && effector.module.commandEffector) effector.module.commandEffector(next);
+      if (effector.module.ranged && (!this.alive || this.locomotion.state === "fallen" || this.locomotion.state === "rising")) effector.module.command(next.aim);
+      else if ((next.target || next.ranged || effector.module.ranged) && effector.module.commandEffector) effector.module.commandEffector(next);
       else effector.module.command(next.aim);
     }
   }
@@ -993,7 +994,7 @@ export class Golem implements Combatant, Topological {
     this.view.measure = opponent ? opponent.nearestPartTo(this.view.self.shoulder) : Infinity;
     this.view.clock = clock;
     this.view.projectiles.length =
-      opponent ? opponent.publishProjectiles(this.view.projectiles, 0, "opponent") : 0;
+      this.publishProjectiles(this.view.projectiles, opponent ? opponent.publishProjectiles(this.view.projectiles, 0, "opponent") : 0, "self");
   }
 
   /**
@@ -1100,7 +1101,10 @@ export class Golem implements Combatant, Topological {
   }
 
   /** A golem looses nothing; hand the cursor back rather than truncating the other body's. */
-  publishProjectiles(_into: ProjectileView[], at: number): number { return at; }
+  publishProjectiles(into: ProjectileView[], at: number, owner: "self" | "opponent" = "self"): number {
+    for (const e of this.effectorModules) at = e.module.publishProjectiles?.(into, at, owner) ?? at;
+    return at;
+  }
   stepProjectiles(): void { /* nothing of a golem's is ever in the air */ }
 
   /**
@@ -1191,7 +1195,7 @@ export class Golem implements Combatant, Topological {
       // linear and an angular velocity, and both cross the plugin boundary at 216 and 184 bytes a
       // call. A severed module is not asked at all -- a limb lying on the floor is not arriving
       // anywhere -- which is the same rule `describeFighter` applies to a dropped sword.
-      const striker = !lost && effector ? effector.module.strikers[0] : null;
+      const striker = !lost && effector && !effector.module.ranged ? effector.module.strikers[0] : null;
       if (striker && view) {
         record.tipVelocity.copyFrom(striker.velocityAt(view.tip));
         record.tipSpeed = record.tipVelocity.length();
@@ -1206,6 +1210,8 @@ export class Golem implements Combatant, Topological {
     into.tip.copyFrom(lead.tip);
     into.tipSpeed = lead.tipSpeed;
     into.effectors = this.publishedEffectors(into);
+    const ranged = this.effectors.primary?.module.ranged?.();
+    if (ranged) into.ranged = { ...ranged }; else delete into.ranged;
     into.vitality = this.vitality;
     for (const limb of this.limbs) {
       into.health[limb.key] = limb.severed ? 0 : Math.max(0, limb.health / limb.maxHealth);

@@ -551,9 +551,10 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
       const pitchServo = new JointServo(new JointActuator(neckJoint, HINGE, tone), achievedPitch);
       const yawServo = new JointServo(new JointActuator(neckJoint, PhysicsConstraintAxis.ANGULAR_Y, tone),
         achievedYaw);
+      let lookYaw = 0;
       const writeMotor = (dt: number): void => {
         if (severed) return;
-        yawServo.track(0, dt, N.yawTorque);
+        yawServo.track(lookYaw, dt, N.yawTorque);
         if (phase === "idle") {
           if (appliedPhase !== "idle") pitchServo.seed(commandedPitch);
           pitchServo.track(commandedPitch, dt,
@@ -577,6 +578,7 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
           // rule the mouse already obeys. Holding the button does not chain lunges, and a lunge
           // already running is not restarted by a second press: a velocity event has a length, and
           // re-triggering it halfway through would make it a pose sequence with extra steps.
+          lookYaw = Math.max(N.yawJointMin, Math.min(N.yawJointMax, next.lookYaw ?? 0));
           wantedPitch = next.guard ? tuning.guardPitch : N.restPitch;
           if (ram && next.thrust && !thrustHeld && phase === "idle") {
             phase = "drive";
@@ -662,13 +664,13 @@ export function headModule(id: string, label: string, tuning: HeadTuning, neckTa
         // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
         captureState: (): Record<string, unknown> => ({
           columnWeld, neckJoint, plate, plateWeld, striker, wantedPitch, commandedPitch, phase,
-          phaseTime, appliedPhase, thrustHeld, severed, lungeAge, struck,
-          N, ram, socket, neck, head, up, axisViews, axes, scratch, view, pitchServo, yawServo,
+          phaseTime, appliedPhase, thrustHeld, severed, lungeAge, struck, lookYaw,
+          N, ram, socket, neck, head, up, axisViews, axes, scratch, view, pitchServo, yawServo, tuning,
         }),
         restoreState(state: Record<string, unknown>): void {
           ({
             columnWeld, neckJoint, plate, plateWeld, striker, wantedPitch, commandedPitch, phase,
-            phaseTime, appliedPhase, thrustHeld, severed, lungeAge, struck,
+            phaseTime, appliedPhase, thrustHeld, severed, lungeAge, struck, lookYaw,
           } = state as never);
         },
       });
