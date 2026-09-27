@@ -36,13 +36,18 @@ test("task proposals fit the short search without changing the ruler or its rand
     jitterPlan(ruler[1], mulberry32(7), 1, expertConfig("expert@c8,h1")));
   const original = targetPlan("target-soft");
   const mutations = Array.from({ length: 20 }, (_, seed) => jitterPlan(original, mulberry32(seed), 1, config));
-  for (const key of ["speed", "force", "roll", "sweep", "duration", "retract", "extend"]) {
+  for (const key of ["speed", "force", "roll", "sweep", "sweepTo", "tilt", "duration", "retract", "extend"]) {
     assert.ok(mutations.some(mutated => mutated.segs[0][key] !== original.segs[0][key]), `${key} never explored`);
   }
   for (let seed = 0; seed < 50; seed++) {
     const seg = jitterPlan(original, mulberry32(seed), 10, config).segs[0];
     assert.ok(seg.speed >= .1 && seg.speed <= 1 && seg.force >= .1 && seg.force <= 1);
+    assert.ok(seg.sweepTo >= -.5 && seg.sweepTo <= .8 && seg.tilt >= -1.2 && seg.tilt <= .6);
   }
+  const older = structuredClone(original);
+  delete older.segs[0].sweepTo; delete older.segs[0].tilt;
+  const revised = jitterPlan(older, mulberry32(7), 1, config).segs[0];
+  assert.ok(Number.isFinite(revised.sweepTo) && Number.isFinite(revised.tilt));
 });
 
 test("the effector pilot schedules supported bodies and measures target use separately from legacy strokes", () => {
@@ -82,6 +87,14 @@ test("task trajectories use each live socket, retain phase, and obey declaration
   try {
     bout.step();
     const view = bout.left.view;
+    const older = structuredClone(targetPlan());
+    delete older.segs[0].sweepTo; delete older.segs[0].tilt;
+    const oldTarget = new Program(older).decide(view, .1, {}).effectors.primary.target;
+    const oldLine = new Vector3(oldTarget.position.x, oldTarget.position.y, oldTarget.position.z)
+      .subtract(view.self.hands.primary.shoulder).normalize();
+    const oldOrientation = new Quaternion(...["x", "y", "z", "w"].map(k => oldTarget.orientation[k]));
+    assert.ok(Vector3.Distance(oldLine, Vector3.Forward().rotateByQuaternionToRef(oldOrientation, new Vector3())) < 1e-6,
+      "an older recorded trajectory must retain its untilted orientation");
     for (const [turn, hand] of [[0, "primary"], [1, "secondary"]]) {
       const program = new Program(targetPlan("target-soft", turn));
       const start = structuredClone(program.decide(view, .2, {}));
@@ -90,9 +103,11 @@ test("task trajectories use each live socket, retain phase, and obey declaration
       assert.equal(start.actingHand, hand);
       assert.equal(target.speed, .6); assert.equal(target.force, .5);
       const delta = new Vector3(target.position.x, target.position.y, target.position.z).subtract(view.self.hands[hand].shoulder);
-      assert.ok(Math.abs(delta.length() - .75 * view.self.hands[hand].reach) < 1e-10);
+      assert.ok(Math.abs(delta.length() - .65 * view.self.hands[hand].reach) < 1e-10);
       const direction = Vector3.Forward().rotateByQuaternionToRef(new Quaternion(...["x", "y", "z", "w"].map(k => target.orientation[k])), new Vector3());
-      assert.ok(Vector3.Distance(direction, delta.normalize()) < 1e-6, "orientation disagrees with the requested line");
+      assert.ok(Math.abs(Vector3.Dot(direction, delta.normalize()) - Math.cos(.6)) < 1e-6,
+        "the shaft must tilt relative to the requested line");
+      assert.ok(direction.y > delta.y, "the carrying hand must tilt the shaft upward");
       const clone = program.clone();
       const next = structuredClone(program.decide(view, .1, {}));
       assert.deepEqual(clone.decide(view, .1, {}), next, "warm clone restarted a trajectory");

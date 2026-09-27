@@ -84,6 +84,15 @@ cells are unchanged. Both 45-bout null runs (flag off/on but unused), focused ph
 five caught mutations, all 1076 tests and check/build pass. See `docs/analysis/2026-09-26-effector-endpoint-fallback.md`.
 Next remains attainable proposals and a new bounded paired screen, not a default change.
 
+The shared defaults now use shorter extension, upward hand tilt and an outboard-to-centre sweep
+(reversed for soft). All 18 weapon/hand/proposal final endpoints pass a 10 mm stationary physical
+gate; the largest miss is 5.63 mm. The expert explores tilt and end bearing, and older plans stay
+loadable. See `docs/analysis/2026-09-26-effector-attainable-proposals.md`. This is an endpoint
+result, not a combat-headroom claim. The stance run has also resumed from its saved 182/256 bouts
+in the main checkout (`headroom-channel-stance`); keep that process/run separate from the new
+effector screens.
+Validation: 1077 tests, check/build, 45 identical null bouts and four caught proposal mutations.
+
 ## The owner's standing instructions
 
 - **Keep going session to session.** The owner asked for the AI work to go on while they are away

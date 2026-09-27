@@ -24,3 +24,14 @@ test("proposal diagnostic distinguishes target geometry from the physical motor 
     await assert.rejects(proposalBench(options), /invalid proposal bench/);
   }
 });
+
+test("default proposal endpoints settle within a centimetre on both supported sockets", async () => {
+  for (const terminal of ["blade", "fist", "mace"]) for (const hand of ["primary", "secondary"])
+    for (const kind of ["sweep", "point", "soft"]) {
+      const result = await proposalBench({ terminal, hand, kind });
+      const label = `${terminal}/${hand}/${kind}`;
+      assert.ok(result.final.requestError < .01, `${label}: commanded endpoint ${result.final.requestError} m`);
+      assert.ok(result.final.totalError < .01, `${label}: physical endpoint ${result.final.totalError} m`);
+      assert.deepEqual(result.damage, { left: 0, right: 0 });
+    }
+});

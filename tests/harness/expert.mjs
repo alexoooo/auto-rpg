@@ -551,9 +551,10 @@ function jitterSeg(seg, rng, scale) {
   if (seg.kind === "stroke") n("delay", 0, 0.6);
   if (seg.kind === "step") { n("r", 0.5, 1.8); n("a", -1.2, 1.2); n("within", 0.15, 1); }
   if (seg.kind === "target") {
-    const vary = (key, sigma, lo, hi) => { out[key] = clamp(seg[key] + sigma * scale * gauss(rng), lo, hi); };
+    const vary = (key, sigma, lo, hi, missing) => { out[key] = clamp((seg[key] ?? missing) + sigma * scale * gauss(rng), lo, hi); };
     vary("lift", .15, -.6, .6); vary("lateral", .15, -.5, .5);
     vary("sweep", .3, -1, 1); vary("roll", .3, -Math.PI, Math.PI);
+    vary("sweepTo", .2, -.5, .8, -seg.sweep); vary("tilt", .2, -1.2, .6, 0);
     vary("duration", .15, .15, 1); vary("retract", .1, .4, 1); vary("extend", .1, .4, 1);
     vary("speed", .2, .1, 1); vary("force", .2, .1, 1);
   }

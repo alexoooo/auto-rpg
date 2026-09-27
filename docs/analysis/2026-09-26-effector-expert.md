@@ -4,6 +4,11 @@ Skill-ceiling session 06 continuation. The actuator's bench is in
 `2026-09-26-effector-target.md`; this work adds the expert that can ask for it.
 The `effector` channel remains off by default. No body, motor ceiling or shipped policy was tuned.
 
+This records the initial proposals and screen at `d6b7ce71`. The subsequent endpoint correction
+and revised defaults are in `2026-09-26-effector-endpoint-fallback.md` and
+`2026-09-26-effector-attainable-proposals.md`. Commands below run the current implementation;
+the archived screening record identifies the original source hashes.
+
 ## What the expert searches
 
 `expert-effector@c8,h1` adds three plans: a sweep, a straight extension, and a reverse sweep with
