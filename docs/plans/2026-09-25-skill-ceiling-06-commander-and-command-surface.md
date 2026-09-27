@@ -153,5 +153,10 @@ The write-up is `docs/analysis/2026-09-26-command-surface.md`.
   policies propose on those channels. Tests: 1044/1044, check and build; four deliberate breaks
   caught by the new URL tests. Arena and dungeon browser startup and switching checked on 5182,
   then the server stopped. The owner's 5180 server was untouched.
-- **Eye gate: deferred.** The flag switch is available; viewing expert proposals still needs a
-  browser-compatible command-mind preview. The offline expert remains a Node instrument.
+- **Proposal preview built.** `?play=arena&channels=effector&effector-preview=soft` repeats a
+  shared arm proposal over the left policy. Choose a human blade, fist or mace; the panel also
+  offers sweep and point. It is a demonstration, not the offline search. Scope and validation
+  (1073 tests, check/build, unchanged nulls, mutation and browser checks) are recorded in
+  `docs/analysis/2026-09-26-effector-preview.md`.
+- **Eye gate: deferred.** The flag switch and arm preview are available for the owner.
+  The offline expert remains a Node instrument.

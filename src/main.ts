@@ -41,6 +41,9 @@ import {
 import { flatSupportedWorldRegistry } from "./supported-locomotion-production";
 import type { Side } from "./physics";
 import { POLICIES, type Mind } from "./mind";
+import { GolemControlEndpoint } from "./golem/golem-control.ts";
+import { EffectorPreviewMind } from "./effector-preview.ts";
+import { effectorPreviewFromSearch } from "./effector-preview-query.ts";
 import {
   attackMoveOrder,
   autoCommander,
@@ -118,6 +121,7 @@ const ordersText = (orders: Orders | null): string => {
 };
 
 async function boot(): Promise<void> {
+  const preview = effectorPreviewFromSearch(window.location.search);
   const canvas = need<HTMLCanvasElement>("stage");
   const curtain = need("curtain");
   const pauseMenu = need("pause-menu");
@@ -472,6 +476,9 @@ async function boot(): Promise<void> {
       // building the second body. A throwing constructor leaves no bout owner to release the first.
       left.dispose();
       throw error;
+    }
+    if (preview && left.control instanceof GolemControlEndpoint) {
+      left.control.installMind(new EffectorPreviewMind(left.control.mind, preview));
     }
     const leftStrikers = left.strikers;
     const rightStrikers = right.strikers;

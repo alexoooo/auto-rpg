@@ -228,6 +228,11 @@ their choice is collected here instead of stopping the run. Each item names wher
 
 **Eye checks, on the dev server:**
 
+- **Experimental arm proposals.** Open `?play=arena&channels=effector&effector-preview=soft`
+  with a human left contender. Compare sweep, point and soft in the collapsed experimental panel.
+  This repeats a proposal over its policy; it does not run the expert search. Blade, fist and mace
+  arms are supported. `docs/analysis/2026-09-26-effector-preview.md` records the scope.
+
 - **The rise and the falls.** `docs/analysis/2026-09-25-falls-and-rise.md` section 7 lists seven
   things: the rise from each side, the first second after a stand, whether 1.1 to 1.6 s reads as
   slow, the skeleton mirror over a minute, a fallen body's blade, the arms during a rise, and a

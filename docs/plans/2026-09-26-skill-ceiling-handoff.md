@@ -55,8 +55,18 @@ tree passes 1070 tests, check and build.
 
 Next: use the screening evidence to refine the task proposal family, then run full-length paired
 headroom with the corrected human opponent model. Stone/skeleton task mappings, forearm shields,
-paired grips and the browser command-mind preview remain open. Owner body/default choices remain
+paired grips remain open. Owner body/default choices remain
 deferred; sessions 08 and 09 have not begun.
+
+### Browser proposal preview continuation
+
+The preview is now implemented: `?play=arena&channels=effector&effector-preview=soft` (also
+`sweep` or `point`), with a left human contender. The opt-in panel selects the proposal and
+restarts while retaining matchup/seeds. It repeats one shared trajectory over the chosen policy;
+it is not an online expert. See `docs/analysis/2026-09-26-effector-preview.md` for scope and checks.
+Validation: 1073 tests, check/build, 45 identical command-null bouts, identical pre/post extraction
+traces for all three proposals, four caught mutations and browser startup/switch/pause checks.
+All channels remain off by default; full-length headroom and the owner's eye gate remain open.
 
 ## The owner's standing instructions
 

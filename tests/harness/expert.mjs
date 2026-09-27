@@ -53,14 +53,14 @@
 // Harness: the Node bout runner and the fork harness. Readings are comparable with other Node bout
 // runner and drill runner readings, and with nothing taken on the page.
 import { createHash } from "node:crypto";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { createBout, freshHavok, FRAME } from "./bout-runner.mjs";
 import { captureBout } from "./fork.mjs";
 import { rangeFraction } from "./drills.mjs";
 import { restoreWorld } from "../../src/fork/world.ts";
 import { randomStreams, restoreMind, snapshotMind } from "../../src/fork/mind.ts";
 import { policyMind } from "../../src/mind.ts";
-import { cloneBodyCommand, copyBodyCommand, declares, freshBodyCommand, intentToCommand } from "../../src/body-command.ts";
+import { cloneBodyCommand, copyBodyCommand, freshBodyCommand, intentToCommand } from "../../src/body-command.ts";
+import { applyEffectorTrajectory, effectorTrajectory } from "../../src/effector-trajectories.ts";
 import { mulberry32 } from "../../src/rng.ts";
 import { isShield } from "../../src/hands.ts";
 import {
@@ -356,24 +356,7 @@ export class Program {
    * Segment time is already cloned for warm starts and forks, so a sweep continues in phase.
    */
   effectorTarget(spec, view) {
-    const hand = [spec.hand, spec.hand === "primary" ? "secondary" : "primary"].find(name =>
-      !view.self.hands[name].lost && declares(view.self.capabilities.channels, "effector", "target", name));
-    if (!hand) return;
-    const me = view.self.hands[hand];
-    markAt(view, this.mark, spec.lift, spec.lateral);
-    const dx = this.mark.x - me.shoulder.x, dy = this.mark.y - me.shoulder.y, dz = this.mark.z - me.shoulder.z;
-    const progress = clamp(this.segT / spec.duration, 0, 1);
-    const yaw = Math.atan2(dx, dz) + me.outboard * spec.sweep * (1 - 2 * progress);
-    const pitch = Math.atan2(dy, Math.hypot(dx, dz));
-    const distance = me.reach * (spec.retract + (spec.extend - spec.retract) * progress);
-    const horizontal = distance * Math.cos(pitch);
-    const q = Quaternion.RotationYawPitchRoll(yaw, -pitch, spec.roll);
-    this.command.effectors[hand].target = {
-      position: { x: me.shoulder.x + horizontal * Math.sin(yaw), y: me.shoulder.y + distance * Math.sin(pitch),
-        z: me.shoulder.z + horizontal * Math.cos(yaw) },
-      orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, speed: spec.speed, force: spec.force,
-    };
-    this.command.actingHand = hand;
+    applyEffectorTrajectory(this.command, view, spec, this.segT);
   }
 
   /**
@@ -506,12 +489,11 @@ export function proposals(config, { hold, warm, turn = 0 }) {
     // Keep the ruler's first three candidates. The remaining c8 first-round slots explore a
     // sweep, a point and reduced effort; alternate hands across decisions without body IDs.
     const hand = turn % 2 === 0 ? "primary" : "secondary";
-    const target = (extra) => ({ kind: "target", hand, f: 0, s: 0, guard: true, lift: 0, lateral: 0,
-      duration: Math.min(h, .6), retract: .75, extend: 1, sweep: .55, roll: 0, speed: 1, force: 1, ...extra });
+    const target = kind => ({ kind: "target", f: 0, s: 0, guard: true, ...effectorTrajectory(kind, hand, h) });
     out.splice(3 + (out.some(p => p.warm) ? 1 : 0), 0,
-      single("target-sweep", target({}), h),
-      single("target-point", target({ sweep: 0, retract: .65 }), h),
-      single("target-soft", target({ sweep: -.55, speed: .6, force: .5 }), h));
+      single("target-sweep", target("sweep"), h),
+      single("target-point", target("point"), h),
+      single("target-soft", target("soft"), h));
   }
   // `-stance`: every stand, step and stroke of a fresh proposal carries a stance, the attacking one
   // on a stroke or a stand that points, the covering one on a stand or step that covers.
