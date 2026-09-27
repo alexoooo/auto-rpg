@@ -2,7 +2,7 @@
  * The golem torso and head bench's Node harness: a trunk on the stand with a head on it.
  *
  * **It is not the page bench and its numbers are not the page bench's**, and it is not
- * `scripts/golem-bench.mjs` either. Three harnesses now, and the rule has not changed: the page
+ * `tests/harness/golem-bench.mjs` either. Three harnesses now, and the rule has not changed: the page
  * and the headless bench agree on converged behaviour and disagree by about 9 % on the Warrior's
  * peak transient with identical code, and putting two of them in one column has already produced
  * a regression report about a build where nothing had changed. Every figure this prints says
@@ -14,11 +14,11 @@
  * modules on each other, and reads both. Sharing the file would have meant a flag in the middle
  * of a harness two other sessions are extending in parallel.
  *
- *     node scripts/golem-torso-bench.mjs
- *     node scripts/golem-torso-bench.mjs --torso torso.plated --head head.ram
- *     node scripts/golem-torso-bench.mjs --head head.ram --no-torso
- *     node scripts/golem-torso-bench.mjs --sweep leanTorque
- *     node scripts/golem-torso-bench.mjs --json
+ *     node tests/harness/golem-torso-bench.mjs
+ *     node tests/harness/golem-torso-bench.mjs --torso torso.plated --head head.ram
+ *     node tests/harness/golem-torso-bench.mjs --head head.ram --no-torso
+ *     node tests/harness/golem-torso-bench.mjs --sweep leanTorque
+ *     node tests/harness/golem-torso-bench.mjs --json
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
@@ -32,7 +32,7 @@ import { createHeadlessArena } from "./golem-headless-arena.mjs";
 import { RingMeter } from "./ring-meter.mjs";
 
 export const HARNESS =
-  "the Node torso bench (scripts/golem-torso-bench.mjs, NullEngine, real Havok, no rendering)";
+  "the Node torso bench (tests/harness/golem-torso-bench.mjs, NullEngine, real Havok, no rendering)";
 
 const FRAME = 1 / 60;
 const SUBSTEP = 1 / CONFIG.world.physicsHz;

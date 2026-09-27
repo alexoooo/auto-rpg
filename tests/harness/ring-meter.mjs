@@ -138,9 +138,9 @@ export class RingMeter {
    * `bar` is a reversal; anything smaller is the floor, not a bounce. That is hysteresis rather
    * than a sign test on a derivative, which would count solver noise as direction changes.
    *
-   * `CONFIG.arm.gripAngularDamping`'s table is what this column is for, and what it should be
-   * compared against: the Warrior's arm went from 10 direction changes over 0.68 s undamped to 2
-   * over 0.10 s at the strongest damping swept.
+   * The Warrior arm's `gripAngularDamping` table (`docs/history.md`) is what this column is for,
+   * and what it should be compared against: the Warrior's arm went from 10 direction changes over
+   * 0.68 s undamped to 2 over 0.10 s at the strongest damping swept.
    */
   reversals(bar) {
     if (!this.axis) return { directionChanges: 0, reversalTimes: [], reversalPeaksMm: [] };

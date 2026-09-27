@@ -9,10 +9,10 @@
 // Two harnesses, and they are never mixed in one column. The cheap tests drive `golemTactics`
 // directly in front of a **real** published view flattened into a fixture -- no Babylon in that
 // path at all once the fixture exists, which is what lets a whole bout of the mind's cadence be
-// stepped in milliseconds. The bout tests are `scripts/measure.mjs` used as a library: the same
+// stepped in milliseconds. The bout tests are `tests/harness/bout-runner.mjs`: the same
 // `NullEngine` arena, the same real Havok, the same `stepPair` loop the page runs with the render
 // half taken out. Nothing here may be compared with a page reading or with a figure from
-// `scripts/golem-bench.mjs`.
+// `tests/harness/golem-bench.mjs`.
 //
 // **Six mutations were watched red on 2026-09-05**, because a green test asserting something the
 // code does not do is the worst defect this tree produces and it is invisible by construction:
@@ -50,7 +50,6 @@ import {
 } from "../src/golem/tactics.ts";
 import { HAND_REACH } from "../src/hands.ts";
 
-process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("./harness/bout-runner.mjs");
 
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);

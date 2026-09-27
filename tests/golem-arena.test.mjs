@@ -6,10 +6,11 @@
 // judgement stayed red, and a number that has never been checked against a person's eye can only
 // say "this did not change", never "this is right". Sessions 02 to 07 marked theirs the same way.
 //
-// The harness is `scripts/measure.mjs` used as a library -- the same `NullEngine` arena, the same
-// real Havok, the same `stepPair` loop the page runs, with the render half taken out -- plus
-// `scripts/golem-headless-arena.mjs` for the two lifecycle tests that need a bare scene. Nothing
-// here may be compared with a page reading or with a figure from `scripts/golem-bench.mjs`: the
+// The harness is `tests/harness/bout-runner.mjs` -- the same `NullEngine` arena, the same real
+// Havok, the same `stepPair` loop the page runs, with the render half taken out -- plus
+// `tests/harness/golem-headless-arena.mjs` for the two lifecycle tests that need a bare scene.
+// Nothing here may be compared with a page reading or with a figure from
+// `tests/harness/golem-bench.mjs`: the
 // two harnesses in this directory that have been compared agree on converged behaviour and
 // disagree by about 9 % on the Warrior's peak transient with identical code, and putting two of
 // them in one column has already produced a regression report about a build where nothing had
@@ -52,7 +53,6 @@ import { HAND_REACH } from "../src/hands.ts";
 import { STROKE_INERTIA, strokeTimeScale } from "../src/golem/tactics.ts";
 import { ATTRIBUTES, ATTRIBUTE_IDS } from "../src/golem/attributes.ts";
 
-process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("./harness/bout-runner.mjs");
 
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);

@@ -55,7 +55,7 @@ const CAP_MOUNT: GolemMount = Object.freeze({
  * - **`pl.setActivationControl(body, 1)` before believing it.** Havok deactivates a body at
  *   rest, so a reading taken after the cap settles reads a perfect zero no matter how badly it
  *   would shake if it were awake -- which is a sleeping body hiding every steady-state defect,
- *   not a still one. The bench forces activation; see `scripts/golem-bench.mjs`.
+ *   not a still one. The bench forces activation; see `tests/harness/golem-bench.mjs`.
  * - **A rigid weld, not a drive.** There is no motor here to fight a contact, no anchor to
  *   stray from, and no target to converge on, so anything the readout sees is the solver, the
  *   step size and the harness. That is the point.

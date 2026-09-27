@@ -39,7 +39,6 @@ test("the_engagement_instrument_has_an_explicit_resume_version", () => {
 });
 
 test("the_bench_report_carries_the_versioned_records_from_the_shared_recorder", async () => {
-  process.env.SWORD_MEASURE_LIBRARY = "1";
   const { runBout } = await import("./harness/bout-runner.mjs");
   let samples = 0;
   const result = runBout({

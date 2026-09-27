@@ -30,8 +30,8 @@ import type { BodyCommand } from "./body-command.ts";
 import { humanoidDuelist } from "./golem/humanoid/policy.ts";
 import { skeletonDuelist } from "./golem/skeleton/policy.ts";
 import type { BodyFamily } from "./golem/family.ts";
-// The two surface tags, from the leaf that owns them. Taking either from its own endpoint would
-// close a run-time cycle -- both endpoints import this file for values, and `POLICIES` below reads
+// The surface tag, from the leaf that owns it. Taking it from its own endpoint would
+// close a run-time cycle -- the endpoint imports this file for values, and `POLICIES` below reads
 // the tag while this module is still evaluating. `control-surfaces.ts` imports nothing at all.
 import {
   GOLEM_CONTROL_SURFACE as GOLEM_SURFACE,
@@ -822,7 +822,7 @@ export interface Policy {
    *
    * The seed is optional and the picker never passes one, so a policy chosen
    * from the screen draws its own and two fighters on the same policy do not
-   * fight in lockstep. What passes one is `scripts/measure.mjs`, because "a
+   * fight in lockstep. What passes one is a harness or the research league, because "a
    * hundred bouts" has to mean a hundred *different* bouts and the only honest
    * place for that variety is the policies' own cadence -- nudging the physics
    * to make a distribution measures a slightly different simulator every time,

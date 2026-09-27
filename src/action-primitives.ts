@@ -12,7 +12,7 @@ import { HANDS, STRIKER_KINDS, isStriking, type HandName, type Striker, type Wea
  * which skill ceiling session 06 retired with the puppet takeover; what is left is
  * what the golem's scripted execution reads through `policies.ts` -- the rest
  * command, the threat selection and the stroke roll. The reason is not tidiness. `CONFIG` is
- * deliberately mutable so a person can type `__sword.config.arm.stiffness = 1600`
+ * deliberately mutable so a person can type `__sword.config.combat.hitCooldown = 0.2`
  * at the console and see the next frame change; a learned controller's legality
  * and aim rules must not be reachable that way, because an artifact trained
  * against one table and deployed against another is the exact failure the
@@ -26,7 +26,7 @@ export const ACTION_TUNING = Object.freeze({
   restPointerX: 0,
   restPointerY: -1,
   /**
-   * The arm's aiming envelope, mirroring `CONFIG.arm.az/elMin/Max`.
+   * The arm's aiming envelope, mirroring the retired Warrior arm's `az`/`elMin`/`Max`.
    *
    * **Four entries where there were two, and the two that were here were read
    * by nothing.** `azimuthRange`, the option layer's aim and `elevation` each wrote the
@@ -40,8 +40,8 @@ export const ACTION_TUNING = Object.freeze({
    * The envelope is asymmetric, which is why it takes four numbers and not two:
    * a primary arm reaches 1.30 rad outboard and 1.15 rad across its own body,
    * and a secondary is the mirror. `azimuthRange` is what applies the mirror;
-   * these are stated in the primary's frame, signed, exactly as `CONFIG.arm`
-   * states them.
+   * these are stated in the primary's frame, signed, exactly as the Warrior's arm
+   * table stated them (`docs/history.md`).
    */
   azimuthMin: -1.15,
   azimuthMax: 1.30,

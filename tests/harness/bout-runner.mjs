@@ -1,12 +1,9 @@
 // The bout runner: one real bout under real Havok, headless, from the setup screen to the banner.
 //
-// Extracted from `scripts/measure.mjs` on 2026-09-06 so that the tournament
-// (`scripts/tournament.mjs`, one of these per worker thread) and the measure run the
-// *same* bout rather than two implementations of one. Nothing in here moved when it
-// moved: the measure's golem section was rerun before and after the extraction and
-// printed the same tables to the digit. Tests import it through `scripts/measure.mjs`,
-// which re-exports `freshHavok` and `runBout`, so nothing that already used the bench
-// as a library had to change.
+// Extracted from `scripts/measure.mjs` on 2026-09-06 so that the tournament and the measure
+// ran the *same* bout rather than two implementations of one; the measure's golem section
+// printed the same tables to the digit before and after. Both scripts were deleted on
+// 2026-09-18. The tests and `research/` import this file directly.
 //
 // Everything here obeys the two traps that have already cost this directory time. It
 // never calls `scene.render()` to drive the world -- `getDeltaTime()` is near zero

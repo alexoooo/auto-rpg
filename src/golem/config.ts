@@ -10,9 +10,10 @@ import type { ShellLook } from "./effectors/shell.ts";
  * middle of the same object; a flat file of `export const`s puts them at the end of it.
  *
  * **The house rule applies to every number here.** No feel complaint is fixed by raising a
- * motor ceiling without a measured before/after table beside the number. Every number in
- * `CONFIG.arm` carries one, and so does every number here: a short table when it was swept, a
- * one-line statement of how it was chosen when it was not, and the date either way.
+ * motor ceiling without a measured before/after table beside the number. Every number in the
+ * retired Warrior's arm table carried one (`docs/history.md`), and so does every number here: a
+ * short table when it was swept, a one-line statement of how it was chosen when it was not, and
+ * the date either way.
  *
  * Units are SI throughout -- metres, kilograms, seconds, radians, newtons, newton-metres.
  *
@@ -163,9 +164,10 @@ const onBody = (shipped: number): number => shipped * BODY_OVER_SHIPPED;
  * The reusable anchor drive: a massless keyframed frame that drags a body about.
  *
  * These are the *defaults*. A chain hands `AnchorDrive` its own parameters, and the ones here
- * are what a chain gets if it does not care -- copied from `CONFIG.arm`'s measured Warrior
- * numbers and then scaled for stone, so that the first chain to use them starts from something
- * that was measured rather than from a guess.
+ * are what a chain gets if it does not care -- copied from the retired Warrior's measured arm
+ * numbers (`docs/history.md`, "The retired Warrior's arm table") and then scaled for stone, so
+ * that the first chain to use them starts from something that was measured rather than from a
+ * guess.
  *
  * **No page-side reader in Session 02.** Rung 0 has no drive and rung 1 drives a hinge motor
  * directly, so the reader that spends these is Session 03's `reach` chain, which is the first
@@ -188,7 +190,7 @@ export const ANCHOR_DRIVE = {
   /**
    * Diameter of the anchor's own sphere, metres.
    *
-   * `CONFIG.arm`'s anchors are 0.02 and this is the same number for the same reason: it is
+   * The Warrior arm's anchors were 0.02 and this is the same number for the same reason: it is
    * massless, on no collision layer, and invisible, so the only thing the size decides is how
    * big the dot is when the rig overlay draws it. 2026-09-04.
    */
@@ -197,7 +199,7 @@ export const ANCHOR_DRIVE = {
   /**
    * Linear force ceiling, newtons.
    *
-   * `CONFIG.arm.linearMotorForce` is 850 N against a Warrior arm of 2.70 + 1.80 + 0.65 kg
+   * The Warrior arm's `linearMotorForce` was 850 N against a Warrior arm of 2.70 + 1.80 + 0.65 kg
    * carrying a 1.35 kg sword -- 6.50 kg driven. Rung 1's link and blade are 10.70 kg, which the
    * Node bench prints, so the mass ratio is 1.646 and 850 x 1.646 is 1400 N: the same
    * authority per kilogram rather than a new decision. It is a ceiling, not a stiffness -- the
@@ -232,9 +234,9 @@ export const ANCHOR_DRIVE = {
   /**
    * Angular force ceiling, newton-metres.
    *
-   * `CONFIG.arm.wristMotorForce` is 110 N.m, set from a measured re-aim time (0.42 s to 0.07 s
-   * going from 42 to 110, and nothing above 110 improved it). Scaled by the same 1.646 mass
-   * ratio as the linear cap: 181, rounded to 185. Same caveat as above. 2026-09-04.
+   * The Warrior arm's `wristMotorForce` was 110 N.m, set from a measured re-aim time (0.42 s to
+   * 0.07 s going from 42 to 110, and nothing above 110 improved it). Scaled by the same 1.646
+   * mass ratio as the linear cap: 181, rounded to 185. Same caveat as above. 2026-09-04.
    */
   // 111 from 2026-09-18, which is 110 times the 1.0050 derived above it, for the reason above it.
   // It read 30 -- 185 times `SHIPPED_MASS_SCALE` -- on the premise corrected there.
@@ -638,10 +640,10 @@ export const CHAIN_PITCH = {
 
 
   /**
-   * Damping on the link, per `CONFIG.arm`'s pair.
+   * Damping on the link, per the Warrior arm's pair.
    *
    *
-   * `arm.linearDamping` is 0.7 and `arm.angularDamping` is 3, and they bleed off residual
+   * `arm.linearDamping` was 0.7 and `arm.angularDamping` was 3, and they bled off residual
    * ringing in the chain. Copied rather than re-derived: the link is one capsule on one hinge
    * and there is nothing here the Warrior's numbers were not already about. Measured effect at
    * these settings: 2.876 mm of tip wander once the limb has arrived and held for 0.05 s,
@@ -954,7 +956,7 @@ export const CHAIN_REACH = {
    * tan(|swingMin|)` = 0.34 - 0.109 = 0.231 m, outboard of the narrowed slab's 0.22 face. See
    * `BENCH_STAND.width`. Past about 0.54 rad that closes and the elbow goes through the ribs.
    *
-   * `swingMax` of 1.30 is `CONFIG.arm.azMax` exactly; the golem reaches as far outboard as a
+   * `swingMax` of 1.30 is the Warrior arm's `azMax` exactly; the golem reaches as far outboard as a
    * Warrior does. `liftMin` and `liftMax` are -0.95 and 1.05 against a Warrior's -1.05 and 1.25,
    * clipped at the bottom for floor clearance: at `reachMax` and `liftMin` the blade's point sits
    * 0.50 m off the floor, and a contact would open a 0.25 s tip-speed exclusion window on every
@@ -1187,7 +1189,7 @@ export const CHAIN_REACH = {
   elbowTorque: 720,
 
   /**
-   * Damping on the three links, per `CONFIG.arm`'s pair and rung 1's.
+   * Damping on the three links, per the Warrior arm's pair and rung 1's.
    *
    * 0.7 and 3 unchanged. Copied rather than re-derived for the reason rung 1 gives: there is
    * nothing in a chain of stone capsules on hinges that the Warrior's numbers were not already
@@ -1632,7 +1634,7 @@ export const CHAIN_WRIST = {
    * The wrist hinges' solver damping. **Swept.**
    *
    * A position motor is a spring, and a spring with no damper rings. That is the same finding
-   * `CONFIG.arm.gripAngularDamping` records for the Warrior's sword, and the wrist reproduced it
+   * the Warrior arm's `gripAngularDamping` records for its sword, and the wrist reproduced it
    * exactly: built straight with 3.6 kg of link and blade hanging off two motorised hinges, rung
    * 3 rang for **2.1 s** from its own build pose while rungs 0, 1 and 2 all settled inside 0.5 s,
    * and the readout reported 208.79 mm of "tip wander at rest" that was entirely that decay.
@@ -1670,7 +1672,7 @@ export const CHAIN_WRIST = {
   /**
    * Damping on the two wrist links.
    *
-   * `CHAIN_REACH`'s pair unchanged, for the same reason it copied `CONFIG.arm`'s. 2026-09-04.
+   * `CHAIN_REACH`'s pair unchanged, for the same reason it copied the Warrior arm's. 2026-09-04.
    */
   linearDamping: 0.7,
   angularDamping: 3,
@@ -3203,7 +3205,7 @@ export const LOCOMOTION_BIPED = {
    *  caveat: Babylon writes it through `if (l.damping)`, so what matters is set against unset.
    *  6 is the middle of the range over which nothing changed there. 2026-09-04. */
   motorDamping: 6,
-  /** `CONFIG.arm`'s pair, unchanged, for the reason every other block here copies them.
+  /** The Warrior arm's pair, unchanged, for the reason every other block here copies them.
    *  2026-09-04. */
   linearDamping: 0.7,
   angularDamping: 3,
@@ -3663,7 +3665,7 @@ export const TORSO_WAIST = {
    */
   motorDamping: 6,
 
-  /** `CONFIG.arm`'s damping pair, as every golem link uses. 2026-09-04. */
+  /** The Warrior arm's damping pair, as every golem link uses. 2026-09-04. */
   linearDamping: 0.7,
   angularDamping: 3,
 
@@ -4030,7 +4032,7 @@ export const HEAD_NECK = {
 
   /** `CHAIN_WRIST.motorDamping`'s setting and argument, unchanged. 2026-09-04. */
   motorDamping: 6,
-  /** `CONFIG.arm`'s damping pair. 2026-09-04. */
+  /** The Warrior arm's damping pair. 2026-09-04. */
   linearDamping: 0.7,
   angularDamping: 3,
   /** The first published axis of a head is the pitch, in radians. 2026-09-04. */
@@ -4871,7 +4873,7 @@ export const LOCOMOTION_WHEEL = {
   wheelSpinTorque: onBody(1200),
 
   /**
-   * Solver damping on the hinge, and the pair every other block here copies from `CONFIG.arm`.
+   * Solver damping on the hinge, and the pair every other block here copies from the Warrior arm.
    * 2026-09-04.
    */
   motorDamping: 6,
@@ -5386,7 +5388,7 @@ export const LOCOMOTION_MULTILEG = {
    */
   fallenTorqueScale: 0.08,
 
-  /** Solver damping on the leg joints' driven axes, and `CONFIG.arm`'s pair. The biped's three,
+  /** Solver damping on the leg joints' driven axes, and the Warrior arm's pair. The biped's three,
    *  unchanged, for the reason every other block here copies them. 2026-09-04. */
   motorDamping: 6,
   linearDamping: 0.7,

@@ -288,8 +288,8 @@ const golem: UnitDefinition = Object.freeze({
   // **Read by callers that name no policy, and never by the setup screen.** `withUnit` in
   // `src/bout.ts` treats a policy as a saved user choice rather than body repair, so a corner that
   // becomes a golem keeps whatever it had and an incompatible one blocks Fight until a person
-  // picks; this field is what `unitDefinition().build` falls back to, which is `scripts/measure.mjs`
-  // and the tests. Its own mind rather than `idle`, so a harness that asks for "a golem" gets a
+  // picks; this field is what `unitDefinition().build` falls back to, which is the harnesses and
+  // the tests. Its own mind rather than `idle`, so a harness that asks for "a golem" gets a
   // body that fights. `idle` stays selectable and stays the thing measurements compare against.
   defaultPolicy: "golem-duelist",
   defaultGolem: defaultGolemSetup(),

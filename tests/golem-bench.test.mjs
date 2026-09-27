@@ -7,7 +7,7 @@
 // eye is a number that can only say "this did not change", never "this is right". The point of
 // having them at all is the first of those two, which is worth having.
 //
-// The harness is the Node bench (`scripts/golem-bench.mjs`, `NullEngine`, real Havok, no
+// The harness is the Node bench (`tests/harness/golem-bench.mjs`, `NullEngine`, real Havok, no
 // rendering). Nothing here may be compared with a page reading: the two harnesses in this
 // directory agree on converged behaviour and disagree by about 9 % on the Warrior's peak
 // transient with identical code, and putting both in one column has already produced a
@@ -300,7 +300,7 @@ test("rung 0 reads a noise floor of nothing, with activation forced", async () =
     "rung 0 has no target and no drive, so its target error is exactly zero");
 
   // **Tip wander at rest reads zero on something that cannot move**, and the measurement is
-  // only real because `scripts/golem-bench.mjs` forces `setActivationControl(body, 1)` on every
+  // only real because `tests/harness/golem-bench.mjs` forces `setActivationControl(body, 1)` on every
   // body first: Havok deactivates a body at rest, and a sleeping body reads a perfect zero
   // however badly it shakes when awake.
   //

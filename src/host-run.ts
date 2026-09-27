@@ -70,7 +70,7 @@ export const SKIM_SPEEDS: readonly number[] = Object.freeze([1, 2, 4]);
  * **It multiplies the number of fixed steps and never the size of one**, which is the whole of what
  * makes this safe. `AGENTS.md` carries the trap in as many words -- the solver must never see a
  * variable timestep, and stepping by a raw frame delta was measured at 40 mm of tip wander against
- * 0 mm fixed -- and it cost two sessions. The pattern is `scripts/bout-runner.mjs`'s: its loop
+ * 0 mm fixed -- and it cost two sessions. The pattern is `tests/harness/bout-runner.mjs`'s: its loop
  * advances `scene._renderId` and calls `_advancePhysicsEngineStep` with a fixed frame's worth of
  * milliseconds, once per simulated frame, and Babylon's own sub-step accumulator inside that call
  * is what keeps the solver's step the size `setSubTimeStep` fixed it at. Running that loop body
@@ -144,7 +144,7 @@ export function restartHost(state: BoutState, host: RunningHost, resume: boolean
  * the one thing an extra run needs that the first does not: drive the solver itself. The page's
  * first run is followed by `scene.render()`, which advances physics off the frame delta; every run
  * after it has to advance the world by hand before doing the frame's work, which is
- * `scripts/bout-runner.mjs`'s loop and nothing else. Presentation stays at one per frame, because
+ * `tests/harness/bout-runner.mjs`'s loop and nothing else. Presentation stays at one per frame, because
  * the camera and the room occlusion are about what is on screen and not about what the world did.
  */
 export function runHostFrame(

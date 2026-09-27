@@ -364,8 +364,8 @@ export class Combat {
    * One `Combat` per side rather than per blade, which is what it has always
    * been -- but a side now carries up to two things and either of them can score.
    * The alternative was a watcher per weapon and a list of them in `bout.sides`,
-   * which would have moved the same change into `main.ts`, `rigview.ts`, the
-   * HUD's "newest blow by anybody" reduction and `scripts/measure.mjs`. What
+   * which would have moved the same change into `main.ts`, the Warrior's `rigview.ts`,
+   * the HUD's "newest blow by anybody" reduction and the bout runner. What
    * scores is a property of a side; what it is holding is a detail of it.
    *
    * The weapon is captured per observer rather than looked up from the event,
@@ -992,7 +992,7 @@ export class Combat {
       // genuinely not been computed yet at this point in the method; `drawFraction` moved the
       // edge dot products above this early-out, so zeroing now discards a number sitting in
       // scope and tells the HUD a brush was flat when it may have been square. Nothing keys off
-      // the old zero -- `scripts/bout-runner.mjs` drops weak contacts by `kind`, which is what
+      // the old zero -- `tests/harness/bout-runner.mjs` drops weak contacts by `kind`, which is what
       // its `alignments` column is about -- so this is strictly more of what happened.
       return { ...base, kind: "weak", edgeAlignment, damage: 0,
         preArmourDamage: 0, postArmourDamage: 0, severed: false, transferNs };

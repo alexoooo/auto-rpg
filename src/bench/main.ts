@@ -781,7 +781,7 @@ async function main(): Promise<void> {
   /**
    * The console handle, in the house style.
    *
-   * The arena exposes `window.__sword` so that `__sword.config.arm.stiffness = 1600` takes
+   * The arena exposes `window.__sword` so that `__sword.config.combat.hitCooldown = 0.2` takes
    * effect on the next frame, and the documented way to tune anything here is to move a number
    * from the console first and write it back into the file afterwards. The golem blocks in
    * `src/golem/config.ts` are deliberately mutable for that reason -- with the same caveat the

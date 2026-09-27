@@ -7,9 +7,9 @@
 // can only say "this did not change", never "this is right". Sessions 02 and 03 marked theirs the
 // same way and for the same reason.
 //
-// The harness is the Node torso bench (`scripts/golem-torso-bench.mjs`, `NullEngine`, real Havok,
+// The harness is the Node torso bench (`tests/harness/golem-torso-bench.mjs`, `NullEngine`, real Havok,
 // no rendering). Nothing here may be compared with a page reading or with a figure from
-// `scripts/golem-bench.mjs`: the two harnesses in this directory that have been compared agree on
+// `tests/harness/golem-bench.mjs`: the two harnesses in this directory that have been compared agree on
 // converged behaviour and disagree by about 9 % on the Warrior's peak transient with identical
 // code, and putting two of them in one column has already produced a regression report about a
 // build where nothing had changed.

@@ -14,13 +14,13 @@
  * to run Babylon's fixed sub-step accumulator, and `scene._renderId += 1` once per simulated
  * frame or every matrix a reader touches freezes at its first sample.
  *
- *     node scripts/golem-bench.mjs --chain pitch --terminal blade
- *     node scripts/golem-bench.mjs --module effector.none
- *     node scripts/golem-bench.mjs --chain pitch --terminal blade --sweep torque
- *     node scripts/golem-bench.mjs --chain pitch --terminal blade --json
- *     node scripts/golem-bench.mjs --stroke
- *     node scripts/golem-bench.mjs --stroke --sweep stroke --json
- *     node scripts/golem-bench.mjs --parry
+ *     node tests/harness/golem-bench.mjs --chain pitch --terminal blade
+ *     node tests/harness/golem-bench.mjs --module effector.none
+ *     node tests/harness/golem-bench.mjs --chain pitch --terminal blade --sweep torque
+ *     node tests/harness/golem-bench.mjs --chain pitch --terminal blade --json
+ *     node tests/harness/golem-bench.mjs --stroke
+ *     node tests/harness/golem-bench.mjs --stroke --sweep stroke --json
+ *     node tests/harness/golem-bench.mjs --parry
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
@@ -51,7 +51,7 @@ import { flatSupportedWorldRegistry } from "../../src/supported-locomotion-produ
 import { createHeadlessArena } from "./golem-headless-arena.mjs";
 import { RingMeter } from "./ring-meter.mjs";
 
-export const HARNESS = "the Node bench (scripts/golem-bench.mjs, NullEngine, real Havok, no rendering)";
+export const HARNESS = "the Node bench (tests/harness/golem-bench.mjs, NullEngine, real Havok, no rendering)";
 
 const FRAME = 1 / 60;
 const SUBSTEP = 1 / CONFIG.world.physicsHz;
@@ -1356,7 +1356,7 @@ export const STROKE_GRID = Object.freeze({
  * `missMetres` first and `speedAtMark` second, because a speed at a mark the weapon never reached
  * is a number about nothing -- and on the shipped shapes the blade misses by 0.63 m.
  *
- * The rows are the 2026-09-06 grid, `node scripts/golem-bench.mjs --stroke --sweep stroke`, 320
+ * The rows are the 2026-09-06 grid, `node tests/harness/golem-bench.mjs --stroke --sweep stroke`, 320
  * cells over the five wrist modules the arena fields. `club` has **no** entry, and that is the
  * session's finding rather than an omission: no cell of the grid brings a mace within 0.47 m of
  * its mark or a maul within 0.94 m, and the mace's anchor stray runs from 283 to 583 mm across

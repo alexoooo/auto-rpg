@@ -1020,7 +1020,7 @@ async function boot(): Promise<void> {
       // At speed 1 this branch never runs and the frame is the frame it always was: the work
       // below, then `scene.render()`, which advances physics off the engine's own delta. Above 1,
       // every run after the first has to advance the world itself, and it does it exactly as
-      // `scripts/bout-runner.mjs` does -- bump the render id, then call the millisecond-valued
+      // `tests/harness/bout-runner.mjs` does -- bump the render id, then call the millisecond-valued
       // `_advancePhysicsEngineStep`, which runs Babylon's fixed sub-step accumulator and notifies
       // `onBeforePhysicsObservable` before each solver step. The solver's step is whatever
       // `setSubTimeStep` fixed it at and is untouched; what changes is how many of them a rendered
@@ -1152,8 +1152,8 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", () => engine.resize());
 
   // A live handle on everything, for tuning from the console. CONFIG is
-  // deliberately mutable, so `__sword.config.arm.linearMotorForce = 1600` takes
-  // effect on the very next frame -- which is the whole point of a feel
+  // deliberately mutable, so `__sword.config.combat.hitCooldown = 0.2` takes
+  // effect on the very next contact -- which is the whole point of a feel
   // prototype. Anything the solver caches natively -- a motor ceiling, chiefly --
   // does not move until something re-applies it. `__sword.left.applyTuning()` was
   // the humanoid fighter's way of doing that and went with it on 2026-09-18; a

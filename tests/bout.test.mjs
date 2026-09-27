@@ -551,7 +551,7 @@ test("the harness cap stays past the ramp, so a sweep measures the game that shi
   // 60, so every probe in `scripts/` would have stopped its bouts in the instant
   // before the drain and reported the game as it was -- with no error, because a
   // bout cut off at the cap reads exactly like a bout nobody won. `PROBE_CAP` in
-  // `scripts/tournament.mjs` is this number, and this is what keeps it honest.
+  // the retired `scripts/tournament.mjs` was this number, and this is what keeps it honest.
   const { overtimeSeconds, overtimeKillSeconds, probeSeconds, capSeconds } = CONFIG.bout;
   assert.ok(probeSeconds > overtimeSeconds + overtimeKillSeconds,
     `a harness capped at ${probeSeconds} s never sees the ramp finish`);
@@ -728,7 +728,7 @@ test("behind the setup screen there is nothing to pause, and it says so", () => 
 });
 
 test("the bout cap that ships is a player's, not the bench's", () => {
-  // 60 s is `scripts/measure.mjs`'s number and the argument for it is entirely
+  // 60 s was the retired `scripts/measure.mjs`'s number and the argument for it is entirely
   // about running a hundred bouts. Applied to the page it ended a fight
   // underneath whoever was having it after one minute, which is what put the
   // phase into `over` without anybody asking -- and every pause bug above only

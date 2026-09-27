@@ -144,146 +144,19 @@ export const CONFIG = {
     separation: 2.6,
   },
 
+  /**
+   * What is left of the retired Warrior's arm table: the few numbers something still reads. The
+   * rest -- its segment sizes, motor ceilings, damping pair, grip damping, elbow pole, aiming
+   * envelope and reach ladder, each with the measurement that chose it -- is in
+   * `docs/history.md` under "The retired Warrior's arm table", which the golem tables that
+   * copied those numbers cite.
+   */
   arm: {
-    upperLength: 0.30,
-    upperRadius: 0.056,
-    upperMass: 2.7,
-
-    foreLength: 0.27,
-    foreRadius: 0.048,
-    foreMass: 1.8,
-
-    handLength: 0.12,
-    handRadius: 0.046,
+    /** The Warrior's hand, and the fist mass `tests/scoring.test.mjs` prices a punch at. */
     handMass: 0.65,
 
-    /**
-     * The arm is driven by solver motors, not by forces applied from outside.
-     *
-     * The first version applied a spring-damper to the hand every frame with
-     * `applyForce`. That is explicit integration bolted onto an implicit solver,
-     * and it shook itself apart: Babylon converts a force to an impulse using
-     * `getTimeStep()` while the world actually steps by the real frame delta, so
-     * the effective gain flickered frame to frame. Motors live inside the solver,
-     * so they are unconditionally stable and do not care about the frame rate.
-     *
-     * These are force *ceilings*, not stiffnesses. The lag and overshoot that
-     * make the weapon feel heavy come from the ceiling being finite -- the motor
-     * simply cannot drag the sword instantly -- rather than from a tuned spring.
-     */
-    linearMotorForce: 850,
-    // 110 rather than 42: measured re-aim time after a cursor jump falls from
-    // 0.42 s to 0.07 s, and nothing above 110 improves it further.
-    wristMotorForce: 110,
-
-    /** Bleeds off residual ringing in the chain. */
-    linearDamping: 0.7,
-    angularDamping: 3,
-
-    /**
-     * The grip's damping term, as a bleed-off rate in reciprocal seconds.
-     *
-     * A position motor is a spring with no damper, so it overshoots and rings --
-     * which is what the settling bob at the tip actually was. Raising the motor
-     * force made it worse (44 mm at 110 N.m against 234 mm at 800), because a
-     * stiffer spring simply overshoots harder, and raising the blade's own
-     * angular damping cost swing power because it fights every rotation, wanted
-     * or not.
-     *
-     * This is the missing derivative term, and it is measured against the
-     * anchor rather than against the world: it resists the blade turning
-     * *differently* from the way it has been told to turn, so a commanded swing
-     * passes through most of the way untouched and the ringing is bled off. A
-     * hand grips a sword in exactly that sense.
-     *
-     * Sweep the cursor across for a quarter-second and then hold it dead still
-     * -- which is what a player actually does, and what a cursor *jump* does not
-     * reproduce, because a teleport builds no momentum for the blade to carry:
-     *
-     *     rate    peak swing   direction changes   time to settle
-     *        0      32.1 m/s          10               0.68 s
-     *       14      30.2                7               0.41
-     *       25      28.7                6               0.34
-     *       55      26.3                4               0.21
-     *       80      25.0                3               0.18
-     *      140      22.8                2               0.10
-     *
-     * 55 is the knee. Three times steadier for a sixth of the swing speed, and
-     * 26 m/s is still well over twice the speed a cut needs to do full damage.
-     */
-    gripAngularDamping: 55,
-
-    /**
-     * Resting muscle tone, in newton-metres.
-     *
-     * This was once the attempted fix for the elbow hanging like a rope, and it
-     * was the wrong instrument -- see `elbowPole` below for what the problem
-     * actually was. What tone is still good for is agreeing with the inverse
-     * kinematics rather than fighting them: a slight standing bend means the
-     * solved elbow and the joint's own preference point the same way.
-     *
-     * Both ceilings are tiny next to the roughly 380 N.m the grip commands at
-     * the shoulder, so neither can argue about where the hand goes.
-     */
-    shoulderTone: 0,
-    elbowTone: 6,
-    /** The elbow's preferred bend, radians. Slightly bent, like an arm. */
-    elbowRest: -0.45,
-
-    /**
-     * The elbow's pole vector -- the spare degree of freedom, finally held.
-     *
-     * Muscle tone was the wrong instrument for this. Pinning the hand in six
-     * degrees of freedom leaves the seven-degree-of-freedom arm one axis over:
-     * the elbow can swivel freely about the line from shoulder to hand without
-     * moving the hand at all. A joint spring cannot fix that, because the
-     * elbow's *bend* is already determined by how far the hand is from the
-     * shoulder -- what is undetermined is which way round the circle of valid
-     * elbow positions it sits, and that is a direction, not an angle. So the
-     * elbow is placed analytically instead: two-bone inverse kinematics puts it
-     * on that circle, and this vector, in torso space, says where on the circle.
-     * Down, a little outboard, a little back -- where a person's elbow goes.
-     */
-    elbowPole: { x: 0.42, y: -1, z: -0.5 },
-    /**
-     * How hard the arm insists on that elbow, in newton-metres.
-     *
-     * Small on purpose. The grip commands something like 380 N.m at the
-     * shoulder, so this cannot argue about where the hand goes -- and measured,
-     * it does not: hand-to-anchor error stays at 0 mm across the whole aiming
-     * envelope at every setting tried, up to 70.
-     *
-     * What it does fix, measured over a sweep and hold:
-     *
-     *                        elbow travel   drift while the hand is still
-     *     no pole vector        1370 mm              127 mm
-     *     45 N.m                 635                   0
-     *
-     * That 127 mm of elbow with the hand completely stationary was the rope.
-     * Past about 45 the returns flatten (612 mm at 70), so this stops there.
-     */
-    elbowPoleForce: 45,
-
-    /**
-     * Reach, measured from the shoulder to the centre of the hand.
-     *
-     * The chain reaches 0.63 m fully extended, so everything here stays inside
-     * that. The first pass let a thrust ask for 0.70 -- past full extension --
-     * which pinned the elbow against its stop and buzzed there.
-     */
+    /** The reach a hand that is not reaching asks for, metres from shoulder to hand. */
     reachNeutral: 0.45,
-    reachThrust: 0.60,
-    reachGuard: 0.28,
-    reachMax: 0.61,
-    reachResponse: 9,
-
-    // There was a `minShieldReach` here for an afternoon -- a floor under
-    // `reachGuard` for a hand holding a shield, on the argument that a guard
-    // pulls the plate into its owner's chest. **The measurement refuted it.**
-    // At `reachGuard` the nearest point of the plate is 298 mm from the centre
-    // of the torso, which is 108 mm outside it, and lifting the reach to 0.42 m
-    // moved the plate *closer* to the head, from 623 mm to 307 mm, rather than
-    // further. It stopped nothing and cost a knob, so it is gone.
 
     /**
      * Where an unused hand rests, as a cursor position.
@@ -296,33 +169,18 @@ export const CONFIG = {
      * broken rather than as a pose, because nothing about a person looks like
      * that.
      *
-     * The off arm used to hang because it was not driven at all: it was two
-     * capsules counterswinging on the gait, and gravity and the stride did this
-     * job for free. It is a real arm now and has to be told.
-     *
-     * `-1` is the bottom of the envelope, and the envelope is what limits it:
-     * `elMin` is -1.05 rad, about sixty degrees below the horizontal, so a
-     * resting arm angles down and forward rather than hanging plumb. Widening
-     * `elMin` would let it hang properly and would also change where every
-     * *aimed* low guard can reach, which is a change to the controller and wants
-     * its own measurement.
+     * `-1` is the bottom of whatever envelope the arm maps the cursor onto --
+     * `liftMin` for a golem chain -- so a resting arm angles down and forward
+     * rather than hanging plumb.
      */
     restPointerX: 0,
     restPointerY: -1,
 
-    /** Where the cursor sits maps straight onto where the hand goes. */
-    azMin: -1.15,
-    azMax: 1.30,
-    elMin: -1.05,
-    elMax: 1.25,
     /** Anatomical forearm pronation/supination, not an endlessly turning propeller. */
     rollMin: -1.40,
     rollMax: 1.40,
     /** Normalized intent 0..1 maps onto this anatomical wrist bend in radians. */
-    wristBendMin: 0,
     wristBendMax: Math.PI / 2,
-    /** Wrist orientation follows policy changes without becoming an instantaneous snap. */
-    wristResponse: 18,
   },
 
   sword: {
@@ -895,8 +753,8 @@ export const CONFIG = {
      *
      * It is no longer a ramp -- nothing saturates at it and nothing is scored against it -- and
      * it is kept because it is the anchor: move it and every joules-per-damage constant here has
-     * to be re-derived. `scripts/measure.mjs` also reads it as the speed a driven blade is
-     * expected to clear, which is a claim about an arm rather than about a score.
+     * to be re-derived. The retired `scripts/measure.mjs` also read it as the speed a driven blade
+     * was expected to clear, which is a claim about an arm rather than about a score.
      */
     referenceSpeed: 11.0,
     /** How sharply an edge's damage falls off as it turns away from the cut. */
@@ -1366,8 +1224,8 @@ export const CONFIG = {
      *
      * So the cap that ships is a *safety net* -- long enough that no fight
      * anybody is having is cut short, short enough that a forgotten tab does not
-     * accumulate an hour of idle-versus-idle -- and `scripts/measure.mjs` sets
-     * its own 60 at the top, where the argument for 60 actually lives.
+     * accumulate an hour of idle-versus-idle -- and a harness passes its own
+     * `maxSeconds` to `runBout` in `tests/harness/bout-runner.mjs`.
      */
     capSeconds: 600,
 

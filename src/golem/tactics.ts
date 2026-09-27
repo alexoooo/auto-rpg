@@ -253,9 +253,9 @@ export function readyNatural(body: BodyView): { readonly reach: number } | null 
  * `HandView.reach`, which the module publishes for whatever is actually bolted on.
  *
  * The sweeps below are all the **Node arena harness** -- `NullEngine`, real Havok, the same
- * `stepPair` loop the page runs with the render half taken out, driven through `scripts/measure.mjs`
- * as a library. Nothing here may be compared with a page reading or with a figure from
- * `scripts/golem-bench.mjs`; the two harnesses in this directory that have been compared disagree by
+ * `stepPair` loop the page runs with the render half taken out, driven through
+ * `tests/harness/bout-runner.mjs`. Nothing here may be compared with a page reading or with a
+ * figure from `tests/harness/golem-bench.mjs`; the two harnesses that have been compared disagree by
  * about 9 % on a peak transient with identical code. **Every one of these is provisional**, pinned
  * before any human gate, and is a measurement rather than a verdict.
  */

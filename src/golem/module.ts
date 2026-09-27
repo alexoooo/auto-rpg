@@ -20,7 +20,7 @@ import type { ChannelDeclaration, EffectorCommand, EffectorTarget } from "../bod
  * contract those modules implement, and it lands here unchanged for every later session --
  * chains and terminals (03, 04), locomotion (05, 06), torso and head (07).
  *
- * **Explicit `.ts` on every intra-directory import.** `scripts/golem-bench.mjs` and
+ * **Explicit `.ts` on every intra-directory import.** `tests/harness/golem-bench.mjs` and
  * `tests/golem-bench.test.mjs` load this graph directly under Node, which strips types rather
  * than compiling them, and Node's ESM resolver insists on the extension where Vite does not
  * care. The same rule bans TypeScript parameter properties from anything in this graph; see

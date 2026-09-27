@@ -5,6 +5,11 @@ import { randomGolemSetup } from "./build.ts";
 // AI campaign repeatedly finished blade mirrors that this table rejects. Preserve the existing
 // random-pool filter until its broader body classes are remeasured, but do not tell players that
 // a flagged hand-built matchup is impossible to finish.
+//
+// The scripts the comments below cite -- `scripts/viability.mjs`, which took the tables,
+// `scripts/train-ppo.mjs` and `scripts/tournament.mjs` -- were deleted on 2026-09-18 (0517aaf5).
+// Re-measuring the tables means restoring `viability.mjs` from Git and porting it onto
+// `tests/harness/bout-runner.mjs`.
 
 /**
  * Can this pair of bodies end a bout? Session 01 of the learn set.
