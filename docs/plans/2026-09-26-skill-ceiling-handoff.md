@@ -44,7 +44,9 @@ Completed evidence is tracked under `research/results/`. Read the updated analys
   a chamber raises one sampled contact to 6.25 J, still below the 10.62 J cut floor. The
   experimental effector channel remains off.
 - `docs/analysis/2026-09-27-wrist-task-target.md`: stone and skeleton wrists now hold reachable
-  rigid single-socket world targets in the physical bench. Forearm shields and paired grips remain open.
+  rigid single-socket world targets in the physical bench. A four-bout smoke screen confirms the
+  existing expert selects those targets, without establishing headroom. Forearm shields and paired
+  grips remain open.
 
 No development server from this continuation is left running. The owner's server is untouched.
 
