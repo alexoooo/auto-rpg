@@ -1,4 +1,4 @@
-// Drills (skill ceiling session 03, `docs/plans/2026-09-25-skill-ceiling-03-drills-and-league.md`).
+// Drills (skill ceiling session 03, `docs/analysis/2026-09-25-drills.md`).
 //
 // A drill is a start state, a horizon of one to three seconds, and a success criterion. One run of
 // a drill builds its start once and plays every rung of the ladder from it:

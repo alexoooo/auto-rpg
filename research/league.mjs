@@ -1,4 +1,4 @@
-// The league protocol (skill ceiling session 03, `docs/plans/2026-09-25-skill-ceiling-03-drills-and-league.md`):
+// The league protocol (skill ceiling session 03, `docs/analysis/2026-09-25-drills.md`):
 // the one way a full-bout comparison between two minds is run from here on.
 //
 //   node research/league.mjs --a golem-duelist --b golem-walker [--clusters 4] [--lanes 6]

@@ -1,4 +1,4 @@
-// A fork of a headless bout (skill ceiling session 02, `docs/plans/2026-09-25-skill-ceiling-02-fork.md`).
+// A fork of a headless bout (skill ceiling session 02, `docs/analysis/2026-09-25-fork.md`).
 //
 // `captureBout` reads a live bout into data and writes nothing; `forkBout` builds a scratch bout
 // from the same options and writes that data into it, and the scratch bout then steps like any

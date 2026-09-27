@@ -6,7 +6,7 @@ bodies and attributes until skill pays. Planned on 2026-09-25.
 
 Current checkpoint: `docs/plans/2026-09-26-skill-ceiling-handoff.md`. Sessions 01-05 and the
 orders work are complete; footwork experiments remain off after measurement, and task-space
-effectors remain an off-by-default anatomical pilot. All session-07 prerequisite studies have
+effectors remain off by default, with anatomical and stone/skeleton wrist pilots. All session-07 prerequisite studies have
 finished. Body-release choices and eye gates remain, followed by sessions 08-09; the full plan
 is not complete. Historical measurements and open questions below retain their original context.
 
@@ -188,11 +188,7 @@ silently moves the ground under a comparison.
 
 | File | What |
 |---|---|
-| `-01-body-release-1.md` | A control clock apart from the solver, physics at the chosen rate, the biological size law, arms built at guard, a side-mirror gate. The owner looks. |
-| `-02-fork.md` | A forkable world and snapshotable minds. How far a fork stays faithful. |
-| `-03-drills-and-league.md` | Drills from constructed start states, the naive ladder, and the league protocol. |
-| `-04-expert.md` | The reference expert: full knowledge, then model-only, and how its score grows with compute. |
-| `-05-headroom-audit.md` | Headroom and the three orderings on every body; the skill-leverage and attribute audits. |
+| Sessions 01-05 (complete; plans removed) | Body release, forks, drills/league, expert and headroom audit. Results remain in `docs/analysis/`; see [historical retrieval](README.md). |
 | `-06-commander-and-command-surface.md` | Orders from a person; the body command surface redesigned for control; the human-parity machinery retired. The owner looks. |
 | `-07-body-release-2.md` | Act on the audit: remove dead ends, redesign attributes, add control points, re-measure. |
 | `-08-control-stack.md` | Perception, skills and a decision layer; the duelist ported as a regression check; the body card. |

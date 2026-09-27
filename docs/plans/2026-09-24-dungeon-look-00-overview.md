@@ -1,5 +1,16 @@
 # Dungeon look 00: overview
 
+Current status, 2026-09-27: sessions 01-05 and the subsequent dungeon-feedback work have
+landed; their completed plans were removed. Session 06's optional pixel-look experiment is
+still unimplemented. This overview is retained for its context and physicality rules; its
+description of what the dungeon draws is the historical starting point, not current behavior.
+See [plan status and historical retrieval](README.md).
+
+An unresolved review question from the stone session is whether `tangentBasis: "babylon-lh"`
+in `surface()` gives the intended orientation for OpenGL normal maps on Babylon-built meshes.
+The proposed check is a rendered raking-light comparison. The cleanup does not claim that
+check, owner texture/lighting preferences, or frame-cost reviews have been completed.
+
 The owner sent four concept images for the dungeon (not checked in) and asked whether the
 environment's visual fidelity can be improved: "feel free to use Blender or download assets".
 

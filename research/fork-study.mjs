@@ -1,5 +1,5 @@
 // Skill ceiling session 02: how long a fork of a bout stays faithful, and whether it ranks commands
-// the way the real world does (`docs/plans/2026-09-25-skill-ceiling-02-fork.md`, "Measure").
+// the way the real world does (`docs/analysis/2026-09-25-fork.md`).
 //
 //   node research/fork-study.mjs [--lanes 6] [--seeds 12] [--out research/runs/fork-study]
 //   node research/fork-study.mjs --summary [--out research/runs/fork-study]

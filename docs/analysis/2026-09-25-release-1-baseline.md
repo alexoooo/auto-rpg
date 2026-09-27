@@ -1,6 +1,6 @@
 # Body release 1: the baseline
 
-This is skill ceiling 01's Measure section (`docs/plans/2026-09-25-skill-ceiling-01-body-release-1.md`). It records:
+This is skill ceiling 01's Measure section (`git show 8ea28dc28fa2fece040262f6c8dad28c9aa36269:docs/plans/2026-09-25-skill-ceiling-01-body-release-1.md`). It records:
 
 - the body fingerprint before and after;
 - the probe-mind control row;

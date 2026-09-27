@@ -1,5 +1,5 @@
 // The bodies of the headroom audit (skill ceiling session 05,
-// `docs/plans/2026-09-25-skill-ceiling-05-headroom-audit.md`).
+// `docs/analysis/2026-09-26-headroom.md`).
 //
 // Modules combine, so the audit's unit is the **module**: it measures every named build and a
 // stratified sample of builds in which every module on the shelf appears, and reads a module's

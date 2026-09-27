@@ -34,3 +34,10 @@ prior checkout with the flag off. Full validation: 1100/1100 tests, typecheck an
 This establishes that the new actuator can hold reachable poses, not that a policy using it
 raises combat headroom. The channel remains off. Full-length paired headroom and the owner's
 body-release choices remain separate gates.
+
+A four-bout, one-pair-per-body smoke screen through `research/headroom.mjs` also confirmed that
+`expert-effector@c8,h1` selects actual targets on these new wrists: its targeted-step share was
+0.166–0.249 on stone and 0.291–0.332 on skeleton. Both corner-swapped pairs split their wins and
+their mean vitality margins were negative (stone -0.205, skeleton -0.041). These four six-second
+bouts are integration evidence only; they are too small and short for a headroom verdict. The
+gitignored rows and summary are in `research/runs/effector-expert/wrist-h2h-screen/`.

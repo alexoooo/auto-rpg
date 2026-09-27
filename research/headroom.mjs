@@ -1,6 +1,5 @@
 // The headroom audit's full bouts (skill ceiling session 05,
-// `docs/plans/2026-09-25-skill-ceiling-05-headroom-audit.md`; the write-up is
-// `docs/analysis/2026-09-26-headroom.md`).
+// written up in `docs/analysis/2026-09-26-headroom.md`).
 //
 //   node research/headroom.mjs --exp headroom   [--bodies a,b,...] [--minds m1;m2] [--pairs 8] [--lanes 8]
 //   node research/headroom.mjs --exp orderings  [--pairs 16] [--lanes 8]

@@ -1,4 +1,4 @@
-// A forkable world (skill ceiling session 02, `docs/plans/2026-09-25-skill-ceiling-02-fork.md`).
+// A forkable world (skill ceiling session 02, `docs/analysis/2026-09-25-fork.md`).
 //
 // What is held here, and what each hold is for:
 // - **Completeness.** Every closure a world can reach hands over every `let` and every private
