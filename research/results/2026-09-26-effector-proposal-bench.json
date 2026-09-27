@@ -1,0 +1,588 @@
+{
+  "baseCommit": "e165b365",
+  "sourceSha256": {
+    "research/effector-proposal-bench.mjs": "bb9f18e7c9ec6a32600ad5f21ad9c7ba7a9ecf53e88c2ddb390d9c4fafe4740e",
+    "src/effector-trajectories.ts": "4fff14cce70449ae8b43c8b6e273035d3bbbf700dd47ef2f4e93db681ab94ab4",
+    "src/golem/humanoid/arm.ts": "5a5edd8421209932628fe1e4ba5021b022c8ce8247c8702da5775684c6e9a5d0",
+    "src/golem/humanoid/kinematics.ts": "2a65d3580d1ea2496ae6ab60944e45dc7757f3a57510b4042c55d26c0fb065f4",
+    "src/golem/effectors/effector.ts": "a88646eb12ba97913c03251ceec7faae754bc37bc59fa92aa6d89151cfa1468b"
+  },
+  "results": [
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "sweep",
+      "terminal": "blade",
+      "hand": "primary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.6450566323590692,
+          "y": 1.3549915103664496,
+          "z": 1.247190789652861
+        },
+        "commanded": {
+          "x": -0.2598701941569885,
+          "y": 2.0555365889485637,
+          "z": 0.9072606570270562
+        },
+        "actual": {
+          "x": -0.261527256667614,
+          "y": 2.0546416521072386,
+          "z": 0.9068946242332458
+        },
+        "requestError": 0.8687257877877361,
+        "followingError": 0.0019185275917291808,
+        "totalError": 0.8674137323419993
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "point",
+      "terminal": "blade",
+      "hand": "primary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.1336800323381891,
+          "y": 1.354992352554677,
+          "z": 1.5127911539925527
+        },
+        "commanded": {
+          "x": -0.3635849950885957,
+          "y": 1.9099485619752863,
+          "z": 1.0294607672840024
+        },
+        "actual": {
+          "x": -0.36160174906253817,
+          "y": 1.9114675045013427,
+          "z": 1.0299264788627625
+        },
+        "requestError": 0.888176313910751,
+        "followingError": 0.0025411293693802673,
+        "totalError": 0.887765133472666
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "soft",
+      "terminal": "blade",
+      "hand": "primary",
+      "force": 0.5,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.9364100747175279,
+          "y": 1.3549856407643148,
+          "z": 1.3321916411037216
+        },
+        "commanded": {
+          "x": 0.25982830128951134,
+          "y": 1.9099219454397278,
+          "z": 1.18006599752009
+        },
+        "actual": {
+          "x": 0.12658320069313048,
+          "y": 1.6537028193473815,
+          "z": 1.2654136061668395
+        },
+        "requestError": 0.8881775778624097,
+        "followingError": 0.3011423445983378,
+        "totalError": 0.8657429321818264
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "sweep",
+      "terminal": "blade",
+      "hand": "secondary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.6450568363755709,
+          "y": 1.3549915890478028,
+          "z": 1.2471927097681628
+        },
+        "commanded": {
+          "x": -0.10739042272951561,
+          "y": 2.1541346985136913,
+          "z": 0.5076233407814308
+        },
+        "actual": {
+          "x": -0.10714600682258606,
+          "y": 2.1538394689559937,
+          "z": 0.508441436290741
+        },
+        "requestError": 1.323544271524379,
+        "followingError": 0.0009034267483598858,
+        "totalError": 1.3227700089636576
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "point",
+      "terminal": "blade",
+      "hand": "secondary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.1336844049503642,
+          "y": 1.3549891830249032,
+          "z": 1.5127953944062345
+        },
+        "commanded": {
+          "x": -0.2828498764895809,
+          "y": 2.1325796788735962,
+          "z": 0.6136677048682501
+        },
+        "actual": {
+          "x": -0.2827706128358841,
+          "y": 2.1323766708374023,
+          "z": 0.6142678894102573
+        },
+        "requestError": 1.1980517180938588,
+        "followingError": 0.0006385267997673563,
+        "totalError": 1.1974596781618196
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "soft",
+      "terminal": "blade",
+      "hand": "secondary",
+      "force": 0.5,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.9364095349861283,
+          "y": 1.3549862647125206,
+          "z": 1.332192869934577
+        },
+        "commanded": {
+          "x": -0.7203161032045099,
+          "y": 1.8934465984345974,
+          "z": 1.0454641399994857
+        },
+        "actual": {
+          "x": -0.7198501944541931,
+          "y": 1.8926677942276,
+          "z": 1.0463883399963378
+        },
+        "requestError": 0.6471856509699808,
+        "followingError": 0.0012952808925634858,
+        "totalError": 0.6462844609663145
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "sweep",
+      "terminal": "fist",
+      "hand": "primary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.205097982484736,
+          "y": 1.3549948835183272,
+          "z": 0.6091843034677297
+        },
+        "commanded": {
+          "x": 0.04912172303375412,
+          "y": 1.427894216825025,
+          "z": 0.5737822877955744
+        },
+        "actual": {
+          "x": 0.04884743362665177,
+          "y": 1.427681250870228,
+          "z": 0.5736545556783677
+        },
+        "requestError": 0.2668244257636853,
+        "followingError": 0.00037000631145607597,
+        "totalError": 0.2665219415747548
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "point",
+      "terminal": "fist",
+      "hand": "primary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.17527604567145574,
+          "y": 1.3549948648118908,
+          "z": 0.7389163407737919
+        },
+        "commanded": {
+          "x": 0.12343001016000256,
+          "y": 1.4127313086299067,
+          "z": 0.6885711190689972
+        },
+        "actual": {
+          "x": 0.12335777491331101,
+          "y": 1.4125748300552368,
+          "z": 0.6886002559959888
+        },
+        "requestError": 0.09249945779036062,
+        "followingError": 0.00017479255049870706,
+        "totalError": 0.09242655258803077
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "soft",
+      "terminal": "fist",
+      "hand": "primary",
+      "force": 0.5,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.5673518587718678,
+          "y": 1.355000299383229,
+          "z": 0.6507158034950341
+        },
+        "commanded": {
+          "x": 0.4970345246962376,
+          "y": 1.412775658937954,
+          "z": 0.63475729334846
+        },
+        "actual": {
+          "x": 0.49794793531298637,
+          "y": 1.4128509163856506,
+          "z": 0.634411390721798
+        },
+        "requestError": 0.09239693549723305,
+        "followingError": 0.0009796077099302747,
+        "totalError": 0.09181194015446575
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "sweep",
+      "terminal": "fist",
+      "hand": "secondary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.205094874614392,
+          "y": 1.354992261816706,
+          "z": 0.6091844848091235
+        },
+        "commanded": {
+          "x": -0.1947793420590564,
+          "y": 1.38433228811428,
+          "z": 0.5275732377122498
+        },
+        "actual": {
+          "x": -0.1945798585936427,
+          "y": 1.3841287142038345,
+          "z": 0.5275093207601458
+        },
+        "requestError": 0.40917065138650066,
+        "followingError": 0.0002920982142256648,
+        "totalError": 0.4089739082692789
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "point",
+      "terminal": "fist",
+      "hand": "secondary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.17528100052355253,
+          "y": 1.3549904914893576,
+          "z": 0.7389174817385473
+        },
+        "commanded": {
+          "x": -0.3530002280319777,
+          "y": 1.3610210433866317,
+          "z": 0.5935892966459666
+        },
+        "actual": {
+          "x": -0.352842710390687,
+          "y": 1.3609057995676994,
+          "z": 0.5936154222860932
+        },
+        "requestError": 0.22965359297141533,
+        "followingError": 0.00019691494151513803,
+        "totalError": 0.22951217867844537
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "soft",
+      "terminal": "fist",
+      "hand": "secondary",
+      "force": 0.5,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.5673720813303604,
+          "y": 1.3549881543517173,
+          "z": 0.6507034411342069
+        },
+        "commanded": {
+          "x": -0.5291030079682424,
+          "y": 1.2894235241893532,
+          "z": 0.5991336117415188
+        },
+        "actual": {
+          "x": -0.5289773122221232,
+          "y": 1.2893028366565704,
+          "z": 0.5992404329776764
+        },
+        "requestError": 0.09177521456206846,
+        "followingError": 0.00020439099211046657,
+        "totalError": 0.09185401713646683
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "sweep",
+      "terminal": "mace",
+      "hand": "primary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.5684190026507775,
+          "y": 1.3549919210024914,
+          "z": 1.136050081193244
+        },
+        "commanded": {
+          "x": -0.2060459378940357,
+          "y": 1.946206040530977,
+          "z": 0.8491663647109111
+        },
+        "actual": {
+          "x": -0.20778749808669092,
+          "y": 1.945258617401123,
+          "z": 0.8487147331237793
+        },
+        "requestError": 0.7504336346231768,
+        "followingError": 0.0020333749241393164,
+        "totalError": 0.7490203316410787
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "point",
+      "terminal": "mace",
+      "hand": "primary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.14092380697377185,
+          "y": 1.3549944727900214,
+          "z": 1.3779840394593634
+        },
+        "commanded": {
+          "x": -0.27877558369382527,
+          "y": 1.8233177061169188,
+          "z": 0.9700822839021035
+        },
+        "actual": {
+          "x": -0.3127597332000733,
+          "y": 1.7840619325637816,
+          "z": 0.9700152635574341
+        },
+        "requestError": 0.7495719255596534,
+        "followingError": 0.051922467840471505,
+        "totalError": 0.7458995654726573
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "soft",
+      "terminal": "mace",
+      "hand": "primary",
+      "force": 0.5,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.8721278626238897,
+          "y": 1.3549839024448684,
+          "z": 1.2134751357535223
+        },
+        "commanded": {
+          "x": 0.3011186126195592,
+          "y": 1.8233107633486443,
+          "z": 1.08509225507292
+        },
+        "actual": {
+          "x": 0.4005678713321686,
+          "y": 0.9501962423324585,
+          "z": 1.0984023571014405
+        },
+        "requestError": 0.7495757308546898,
+        "followingError": 0.8788607857242355,
+        "totalError": 0.6320313438058583
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "sweep",
+      "terminal": "mace",
+      "hand": "secondary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": 0.5684198800450083,
+          "y": 1.3549924348226652,
+          "z": 1.1360532460210717
+        },
+        "commanded": {
+          "x": -0.12260685792837121,
+          "y": 2.0200409593818724,
+          "z": 0.5110902639319019
+        },
+        "actual": {
+          "x": -0.12230478823184968,
+          "y": 2.0196832180023194,
+          "z": 0.5118494763970375
+        },
+        "requestError": 1.144721023478776,
+        "followingError": 0.0008919801362240711,
+        "totalError": 1.1439164089316194
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "point",
+      "terminal": "mace",
+      "hand": "secondary",
+      "force": 1,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.14092936958918245,
+          "y": 1.3549897353007456,
+          "z": 1.377987333096261
+        },
+        "commanded": {
+          "x": -0.2950654768793503,
+          "y": 1.9981801198422842,
+          "z": 0.6101666875162308
+        },
+        "actual": {
+          "x": -0.2949435293674469,
+          "y": 1.9979350090026855,
+          "z": 0.6107512004673481
+        },
+        "requestError": 1.013410259527795,
+        "followingError": 0.0006454501602540851,
+        "totalError": 1.0127933005303886
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    },
+    {
+      "harness": "Node/Havok bout runner, supported human, idle opponent at 4 m, 1 s rest + 0.6 s trajectory + 2.4 s hold",
+      "kind": "soft",
+      "terminal": "mace",
+      "hand": "secondary",
+      "force": 0.5,
+      "final": {
+        "seconds": 2.991666666666655,
+        "requested": {
+          "x": -0.8721255710462203,
+          "y": 1.3549860508250877,
+          "z": 1.2134774356005817
+        },
+        "commanded": {
+          "x": -0.6870077840332778,
+          "y": 1.7882290127855807,
+          "z": 0.9677118299080993
+        },
+        "actual": {
+          "x": -0.6864128530025482,
+          "y": 1.7873801231384276,
+          "z": 0.9686883330345154
+        },
+        "requestError": 0.5313838462902905,
+        "followingError": 0.0014241189979313207,
+        "totalError": 0.5304484443845439
+      },
+      "damage": {
+        "left": 0,
+        "right": 0
+      }
+    }
+  ]
+}

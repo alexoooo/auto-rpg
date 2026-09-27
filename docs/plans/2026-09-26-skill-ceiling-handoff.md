@@ -68,6 +68,14 @@ Validation: 1073 tests, check/build, 45 identical command-null bouts, identical 
 traces for all three proposals, four caught mutations and browser startup/switch/pause checks.
 All channels remain off by default; full-length headroom and the owner's eye gate remain open.
 
+The next diagnostic found a request-mapping gap before further headroom searches: in the
+stationary human proposal bench, the primary blade point finishes 888 mm from its requested
+endpoint while the physical blade follows the commanded endpoint within 2.5 mm. The orientation
+fallback preserves a clamped palm target, which does not preserve the carried endpoint after
+orientation changes. See `docs/analysis/2026-09-26-effector-proposal-geometry.md` and its 18-cell
+record. Address endpoint-aware fallback and attainable proposals before the next long search;
+this does not justify stronger motors or enabling the flag.
+
 ## The owner's standing instructions
 
 - **Keep going session to session.** The owner asked for the AI work to go on while they are away

@@ -85,6 +85,6 @@ server was stopped. Logs and the two 15-bout null comparisons are kept locally u
 - Expert proposals for target, speed and force are now implemented; see
   `2026-09-26-effector-expert.md`. Full-length paired headroom remains open. The bounded screening
   run is not sufficient evidence to enable the flag.
-- A browser command-mind preview for the owner's eye gate. `?play=arena&channels=effector`
-  enables declarations and exposes the flag panel, but does not make legacy minds use targets.
+- The browser proposal preview is now available: see `2026-09-26-effector-preview.md`.
+  `?play=arena&channels=effector` alone still does not make legacy minds use targets.
 - The pending stance/ruler and release-2 research runs from the handoff are unchanged.
