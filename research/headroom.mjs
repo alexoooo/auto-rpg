@@ -334,7 +334,7 @@ export function cellFigures(rows) {
   const behaviour = {};
   for (const key of ["gapM", "fraction", "inReachShare", "forward", "backShare", "pressShare", "strafe", "turn",
     "committedShare", "strokesPerMinute", "downShare", "damage", "falls", "nearRangeStallSeconds", "retreatOutsideReachSeconds",
-    "stanceWidth", "stanceLead", "stanceWeight", "stancedShare", "steppingShare"]) {
+    "stanceWidth", "stanceLead", "stanceWeight", "stancedShare", "steppingShare", "targetedShare", "targetSpeed", "targetForce"]) {
     behaviour[key] = { a: sideMean(pairs, "a", key), b: sideMean(pairs, "b", key) };
   }
   // What each side's expert chose, if it is one: `expert` is A's, `expertB` B's.

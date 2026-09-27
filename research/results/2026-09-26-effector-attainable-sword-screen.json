@@ -1,0 +1,315 @@
+{
+  "kind": "effector-attainable-sword-screen",
+  "commit": "9a320286",
+  "harness": "Node/Havok bout runner, research/headroom-worker.mjs",
+  "capSeconds": 6,
+  "flags": {
+    "effector": true
+  },
+  "limitation": "One corner-swapped seed pair per cell and a six-second cap measure early proposal use, not full-bout headroom.",
+  "sourceSHA256": {
+    "tests/harness/expert.mjs": "b75e008c51f68415be8338b7be4a5f243367fe2e8d67695418e2aad23acfd9b9",
+    "src/effector-trajectories.ts": "8bbc77389b9e130e0d63b4cc5fa320f65679d986c4fca53d26b4c7f779801dd9",
+    "src/golem/humanoid/arm.ts": "cca054fc40d8931bcd711c5f8d704aebd280b03eb0aa1e05673f00d38a81dd0d",
+    "src/golem/humanoid/task-kinematics.ts": "aa2f4189ddf374e65e854b08d3096417adddef83206eaa017ee41e967a8a969b",
+    "src/golem/humanoid/policy.ts": "9d4cc869a5c975e0a50e31de58869fa7414fed0cd5450275102990b782e0fd6b",
+    "research/headroom.mjs": "adff76f60e0471e0dec80e844644c04b1f707af1e67bb3683a39b97699076ef5",
+    "research/headroom-worker.mjs": "ab452a9db0c668f0fb063b77f0a6bdc184e62d87982b6089d1812c1437ad5825"
+  },
+  "cells": [
+    {
+      "cell": "human-warrior|h2h|expert-effector@c8,h1",
+      "bouts": 2,
+      "seedPairs": 1,
+      "draws": 2,
+      "targetedFrameShare": 0.0,
+      "meanSubjectMargin": 0.0
+    },
+    {
+      "cell": "human-warrior|vs-duelist|expert-effector@c8,h1",
+      "bouts": 2,
+      "seedPairs": 1,
+      "draws": 2,
+      "targetedFrameShare": 0.0,
+      "meanSubjectMargin": 0.00015774622763975454
+    },
+    {
+      "cell": "human-warrior|vs-duelist|expert@c8,h1",
+      "bouts": 2,
+      "seedPairs": 1,
+      "draws": 2,
+      "targetedFrameShare": 0.0,
+      "meanSubjectMargin": 0.00016617796400253404
+    }
+  ],
+  "bouts": [
+    {
+      "id": "human-warrior|h2h|expert-effector@c8,h1#0/left",
+      "cell": "human-warrior|h2h|expert-effector@c8,h1",
+      "k": 0,
+      "aSide": "left",
+      "seeds": [
+        4054295894,
+        4199231891
+      ],
+      "winner": null,
+      "ending": "time",
+      "seconds": 6.016666666666651,
+      "vitality": [
+        1,
+        1
+      ],
+      "wallSeconds": 125.8630802,
+      "targets": {
+        "left": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        },
+        "right": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        }
+      },
+      "experts": {
+        "left": {
+          "decisions": 25,
+          "labels": {
+            "step-cut": 3,
+            "duelist": 18,
+            "cut-mid": 3,
+            "warm": 1
+          }
+        },
+        "right": {
+          "decisions": 25,
+          "labels": {
+            "step-cut": 2,
+            "duelist": 18,
+            "cut-mid": 4,
+            "warm": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "human-warrior|h2h|expert-effector@c8,h1#0/right",
+      "cell": "human-warrior|h2h|expert-effector@c8,h1",
+      "k": 0,
+      "aSide": "right",
+      "seeds": [
+        4199231891,
+        4054295894
+      ],
+      "winner": null,
+      "ending": "time",
+      "seconds": 6.016666666666651,
+      "vitality": [
+        1,
+        1
+      ],
+      "wallSeconds": 126.5565524,
+      "targets": {
+        "left": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        },
+        "right": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        }
+      },
+      "experts": {
+        "left": {
+          "decisions": 25,
+          "labels": {
+            "step-cut": 3,
+            "duelist": 15,
+            "cut-mid": 4,
+            "warm": 2,
+            "press": 1
+          }
+        },
+        "right": {
+          "decisions": 25,
+          "labels": {
+            "step-cut": 2,
+            "duelist": 19,
+            "duelist~": 1,
+            "cut-mid": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "human-warrior|vs-duelist|expert-effector@c8,h1#0/left",
+      "cell": "human-warrior|vs-duelist|expert-effector@c8,h1",
+      "k": 0,
+      "aSide": "left",
+      "seeds": [
+        4054295894,
+        4199231891
+      ],
+      "winner": null,
+      "ending": "time",
+      "seconds": 6.016666666666651,
+      "vitality": [
+        1,
+        0.9998619072387565
+      ],
+      "wallSeconds": 63.007022400000004,
+      "targets": {
+        "left": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        },
+        "right": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        }
+      },
+      "experts": {
+        "left": {
+          "decisions": 25,
+          "labels": {
+            "duelist": 17,
+            "cut-mid": 3,
+            "warm": 4,
+            "step-cut": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "human-warrior|vs-duelist|expert-effector@c8,h1#0/right",
+      "cell": "human-warrior|vs-duelist|expert-effector@c8,h1",
+      "k": 0,
+      "aSide": "right",
+      "seeds": [
+        4199231891,
+        4054295894
+      ],
+      "winner": null,
+      "ending": "time",
+      "seconds": 6.016666666666651,
+      "vitality": [
+        0.999822600305964,
+        1
+      ],
+      "wallSeconds": 64.82879099999998,
+      "targets": {
+        "left": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        },
+        "right": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        }
+      },
+      "experts": {
+        "right": {
+          "decisions": 25,
+          "labels": {
+            "duelist": 16,
+            "cut-mid": 3,
+            "warm": 4,
+            "step-cut": 1,
+            "warm~": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "human-warrior|vs-duelist|expert@c8,h1#0/left",
+      "cell": "human-warrior|vs-duelist|expert@c8,h1",
+      "k": 0,
+      "aSide": "left",
+      "seeds": [
+        4054295894,
+        4199231891
+      ],
+      "winner": null,
+      "ending": "time",
+      "seconds": 6.016666666666651,
+      "vitality": [
+        1,
+        0.9998450437660309
+      ],
+      "wallSeconds": 63.876714800000016,
+      "targets": {
+        "left": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        },
+        "right": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        }
+      },
+      "experts": {
+        "left": {
+          "decisions": 25,
+          "labels": {
+            "duelist": 14,
+            "cut-mid": 4,
+            "warm": 5,
+            "step-cut": 1,
+            "cut-high": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "human-warrior|vs-duelist|expert@c8,h1#0/right",
+      "cell": "human-warrior|vs-duelist|expert@c8,h1",
+      "k": 0,
+      "aSide": "right",
+      "seeds": [
+        4199231891,
+        4054295894
+      ],
+      "winner": null,
+      "ending": "time",
+      "seconds": 6.016666666666651,
+      "vitality": [
+        0.999822600305964,
+        1
+      ],
+      "wallSeconds": 64.17338940000002,
+      "targets": {
+        "left": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        },
+        "right": {
+          "targetedShare": 0,
+          "targetSpeed": null,
+          "targetForce": null
+        }
+      },
+      "experts": {
+        "right": {
+          "decisions": 25,
+          "labels": {
+            "duelist": 16,
+            "cut-mid": 3,
+            "warm": 4,
+            "step-cut": 1,
+            "warm~": 1
+          }
+        }
+      }
+    }
+  ]
+}

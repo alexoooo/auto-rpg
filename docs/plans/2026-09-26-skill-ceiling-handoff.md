@@ -93,6 +93,17 @@ in the main checkout (`headroom-channel-stance`); keep that process/run separate
 effector screens.
 Validation: 1077 tests, check/build, 45 identical null bouts and four caught proposal mutations.
 
+The revised six-bout sword screen is complete: all six-second draws and no selected task targets.
+Reachability improved, but no combat benefit is demonstrated. See
+`docs/analysis/2026-09-26-effector-sword-screen.md`. The report now separates repeated runs and
+protocols, and reports target use; do not mix short screens with the full headroom study.
+
+The stance run has completed 256/256 with no failures: head-to-head score is 44.5% [32.8, 57.0]
+on stone and 56.3% [43.8, 68.8] on skeleton, 32 pairs each. Neither interval clears 50%, so stance
+stays off. The 128-bout ruler-versus-duelist control run is now active in the main checkout at
+`research/runs/headroom-channel-ruler`; once it completes, update the command-surface analysis and
+plan with the complete paired margins. The earlier wind-down instructions below remain historical.
+
 ## The owner's standing instructions
 
 - **Keep going session to session.** The owner asked for the AI work to go on while they are away
