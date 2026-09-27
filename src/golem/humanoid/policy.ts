@@ -6,7 +6,12 @@ import { carryOrientation, aimOrientation } from "./orientation.ts";
 /** Tactical decisions stay in the existing executor; the pose adapter uses declared capabilities. */
 export function humanoidDuelist(seed = (Math.random() * 0x100000000) >>> 0): Mind {
   const tactics = golemTactics(seed);
-  return { name: "humanoid-duelist", decide(view, dt) {
+  return { name: "humanoid-duelist",
+    // The pose adapter owns no clock, but its enclosed tactics do. A reused rollout must
+    // restore those clocks and random streams as well as the body's physical state.
+    captureState: () => ({ tactics }),
+    restoreState() { /* the graph restores the enclosed tactics in place */ },
+    decide(view, dt) {
     const source = tactics.decide(view, dt);
     const result = { ...source, primary: { ...source.primary }, secondary: { ...source.secondary },
       posture: { ...source.posture }, natural: { ...source.natural } };
