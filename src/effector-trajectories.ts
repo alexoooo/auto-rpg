@@ -1,8 +1,11 @@
-/** Task-space proposals shared by the offline expert and its opt-in browser demonstration. */
+/** Task-space proposals for the offline expert and its benches. */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { declares, type BodyCommand } from "./body-command.ts";
 import type { FighterView, HandName } from "./mind.ts";
-import type { EffectorPreviewKind } from "./effector-preview-query.ts";
+
+/** The three arm proposals the expert chooses between. */
+export const EFFECTOR_PROPOSALS = ["sweep", "point", "soft"] as const;
+export type EffectorProposalKind = typeof EFFECTOR_PROPOSALS[number];
 
 export interface EffectorTrajectory {
   hand: HandName;
@@ -20,7 +23,7 @@ export interface EffectorTrajectory {
   force: number;
 }
 
-export function effectorTrajectory(kind: EffectorPreviewKind, hand: HandName, horizon = 1): EffectorTrajectory {
+export function effectorTrajectory(kind: EffectorProposalKind, hand: HandName, horizon = 1): EffectorTrajectory {
   // The held-pose bench covers both sockets and blade/fist/mace. A straight hand at full
   // radial reach asks for an incompatible anatomical pose; inward sweeps also hit the carry
   // boundary. Start outboard, finish on the mark, and let the carried shaft rise from the hand.

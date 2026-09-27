@@ -1,5 +1,10 @@
 # Effector proposal preview, 2026-09-26
 
+> **Deleted 2026-09-27.** The page path below, `src/effector-preview*.ts`, `src/channel-query.ts`
+> and the channel panel in `src/channel-experiments.ts` went with the next-phase cleanup; tag
+> `pre-next-phase-cleanup` holds them. The proposals themselves remain in
+> `src/effector-trajectories.ts` for the offline expert and its benches.
+
 Session 06 now has an opt-in browser demonstration of the offline expert's three arm proposals.
 Open `/?play=arena&channels=effector&effector-preview=soft`, choose a human left contender and
 start the bout. The collapsed experimental panel selects `sweep`, `point`, `soft` or Off.

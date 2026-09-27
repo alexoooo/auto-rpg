@@ -1,5 +1,14 @@
 # Session 09: shipped minds, and the clean break
 
+> **Closed 2026-09-27, not completed.** The owner closed the skill-ceiling set with the next-phase
+> cleanup ([consolidation](../analysis/2026-09-27-next-phase-consolidation.md)). The footwork
+> channels failed their enablement gate and the effector and wrist-target work found no headroom;
+> every experimental channel stays off by default. The `BodyCommand` seam, capability
+> publication, the task-space actuator and the benches are kept for the layered AI that replaces
+> sessions 08-09. The URL-gated page experiments (the channel panel and the effector-preview mind)
+> and every golem mind but the v1 duelist and the walker were deleted; tag
+> `pre-next-phase-cleanup` holds them. Read what follows as history.
+
 ## Goal
 
 The minds a player meets, built on the control stack, each gated on its fraction of the expert

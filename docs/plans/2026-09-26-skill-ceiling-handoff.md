@@ -1,5 +1,14 @@
 # Skill ceiling: handoff, 2026-09-26
 
+> **Closed 2026-09-27, not completed.** The owner closed the skill-ceiling set with the next-phase
+> cleanup ([consolidation](../analysis/2026-09-27-next-phase-consolidation.md)). The footwork
+> channels failed their enablement gate and the effector and wrist-target work found no headroom;
+> every experimental channel stays off by default. The `BodyCommand` seam, capability
+> publication, the task-space actuator and the benches are kept for the layered AI that replaces
+> sessions 08-09. The URL-gated page experiments (the channel panel and the effector-preview mind)
+> and every golem mind but the v1 duelist and the walker were deleted; tag
+> `pre-next-phase-cleanup` holds them. Read what follows as history.
+
 The skill-ceiling plan set (`docs/plans/2026-09-25-skill-ceiling-00..09`) was being run
 unattended by Claude Code. That session was wound down here on the owner's word, and this file is
 what the next agent, Codex, needs to carry on. Read `AGENTS.md` first: its traps and house rules all

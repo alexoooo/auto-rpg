@@ -9,7 +9,12 @@ That proposal does not establish completion of the outstanding work below.
 | [Depths](2026-09-23-depths-00-overview.md) | Session 06: authored room set pieces; earlier implementation sessions have landed. |
 | [Skeleton art](2026-09-23-skeleton-art-00-overview.md) | Session 03: visual review and fit/performance questions; session 04: optional costume. |
 | [Dungeon look](2026-09-24-dungeon-look-00-overview.md) | Session 06: optional pixel-look experiment; recorded visual/performance questions still need judgment. |
-| [Skill ceiling](2026-09-25-skill-ceiling-00-overview.md) | Session 06 task-control headroom and eye gates, session 07 release decisions, sessions 08-09 control stack and shipped minds. Read the [handoff](2026-09-26-skill-ceiling-handoff.md) and its linked analyses first. |
+
+## Closed without completion
+
+The [skill-ceiling](2026-09-25-skill-ceiling-00-overview.md) set was closed on 2026-09-27 by the
+next-phase cleanup. Sessions 06-09 will not be run. Its files stay because the analyses link them,
+and each opens with a banner saying what was kept and what was deleted.
 
 ## Completed plans removed
 
