@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createBout, freshHavok } from "../tests/harness/bout-runner.mjs";
 import { ExpertMind, expertConfig, boutHost, poseHash } from "../tests/harness/expert.mjs";
+import { captureCombatReports } from "../tests/harness/rollout-reports.mjs";
 import { humanSetup } from "../src/golem/humanoid/presets.ts";
 import { setChannelFlags } from "../src/body-command.ts";
 
@@ -41,15 +42,20 @@ export async function effectorCandidateProbe({ terminal = "blade", side = "left"
     await expert.beforeFrame(boutHost(bout, base, side));
     if (poseHash(bout) !== before.pose) throw new Error("search changed the live pose");
     const decision = expert.log.at(-1);
-    for (let i = 0; i < 60 && bout.active; i++) bout.step();
+    const actualReports = captureCombatReports(bout);
+    try { for (let i = 0; i < 60 && bout.active; i++) bout.step(); }
+    finally { actualReports.stop(); }
     const live = { pose: poseHash(bout), vE: bout[side].vitality, vO: bout[other].vitality,
       contacts: Object.fromEntries(Object.entries(counts()).map(([key, value]) => [key, value - before.contacts[key]])) };
     const predictionMatches = Object.entries(live).every(([key, value]) => key === "contacts"
       ? Object.entries(value).every(([field, count]) => decision.predicted.contacts[field] === count)
       : decision.predicted[key] === value);
-    if (!predictionMatches) throw new Error("winning candidate prediction did not match live playback");
+    if (!predictionMatches || JSON.stringify(actualReports.reports) !== JSON.stringify(decision.predicted.reports)) {
+      throw new Error("winning candidate prediction did not match live playback");
+    }
     return { terminal, side, separation, before, chosen: decision.label, terms: decision.terms,
-      candidates: decision.candidates, spread: decision.spread, tied: decision.tied, live, predictionMatches };
+      candidates: decision.candidates, spread: decision.spread, tied: decision.tied, live, predictionMatches,
+      reportsMatch: true };
   } finally { expert.dispose(); bout?.dispose(); setChannelFlags(flags); }
 }
 

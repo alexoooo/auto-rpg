@@ -54,3 +54,36 @@ The existing tie-break and all defaults remain unchanged.
 Evidence: `research/results/2026-09-26-effector-candidate-contacts.json`. Validation: 1086 tests,
 check/build; exact playback of poses, bars and counters; two additional caught mutations
 (cumulative counts instead of deltas, missing candidate contact trace).
+
+## Per-hand report continuation
+
+The optional trace now forwards each combat callback once and copies its scalar report, then
+restores the original callbacks before returning a fork to its pool. This avoids the 24-entry
+limit of `Combat.log`. Reports identify the hand, weapon, struck part, blocking/guarding,
+closing speed, scored energy, alignments and damage before/after armour. All 18 winning report
+sequences exactly match live playback; the earlier scores, counters and physical predictions
+are unchanged.
+
+The primary hand carries the target in all these first-decision plans. Across its 18 target
+rollouts per weapon:
+
+| Primary weapon | Contacts | Explicit blocks | Body contacts | Maximum body closing m/s | Maximum scored body energy J | Pre-armour damage |
+|---|---:|---:|---:|---:|---:|---:|
+| blade | 60 | 56 | 4 | 1.562 | 0.579 | 0 |
+| mace | 54 | 45 | 9 | 1.698 | 1.829 | 0 |
+| fist | 64 | 0 | 64 | 1.330 | 1.646 | 0 |
+
+The remaining own-contact counts in the previous table belong to the off hand. Block reports
+intentionally carry zero scoring energy and are excluded from the body maxima above. Body-contact
+energy includes the current scoring law's draw contribution for edges. Every primary body contact
+is below its existing floor: 10.62 J for the blade, 29.67 J for the mace/fist. Blade contacts are
+`weak`; mace/fist body contacts are `slap`. These contacts produce zero damage before armour,
+so armour is not what removed a wound. This is a finding about these plans and states, not a
+reason to change a damage threshold or motor ceiling.
+
+Next: screen the legal trajectory's timing and aim in the same warmed state, with per-hand body
+energy and damage as the readings, then verify any promising plan in mirrored held-out states.
+
+Evidence: `research/results/2026-09-26-effector-candidate-reports.json`; `reportColumns` describes
+its compact report arrays. Validation: 1087 tests, check/build, exact report playback, and three
+caught observer mutations (lost callback forwarding, lost restoration, wrong hand).

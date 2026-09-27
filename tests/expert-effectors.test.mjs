@@ -165,12 +165,19 @@ test("the task expert evaluates targets and its exact rollouts predict the live 
         const chosen = entry.candidates.find(c => c.label === entry.label && c.total === entry.terms.total);
         assert.ok(chosen, "chosen rollout is absent from candidate scores");
         assert.equal(chosen.total, Math.max(...entry.candidates.map(c => c.total)));
-        const { label, vE, vO, contacts, ...terms } = chosen;
+        const { label, vE, vO, contacts, reports, ...terms } = chosen;
         assert.deepEqual(terms, entry.terms);
         assert.equal(vE, entry.predicted.vE);
         assert.equal(vO, entry.predicted.vO);
         assert.deepEqual(contacts, entry.predicted.contacts);
+        assert.deepEqual(reports, entry.predicted.reports);
         for (const candidate of entry.candidates) {
+          const own = candidate.reports.filter(r => r.side === "left" && r.hand !== null);
+          const other = candidate.reports.filter(r => r.side === "right" && r.hand !== null);
+          assert.equal(own.length, candidate.contacts.contactsE);
+          assert.equal(other.length, candidate.contacts.contactsO);
+          assert.equal(other.filter(r => r.blocked || r.guarded).length, candidate.contacts.blocksE);
+          assert.equal(own.filter(r => r.blocked || r.guarded).length, candidate.contacts.blocksO);
           let total = 0;
           for (const key of ["damage", "end", "down", "position", "stall", "retreat"]) {
             assert.ok(Number.isFinite(candidate[key]), `missing candidate ${key}`);

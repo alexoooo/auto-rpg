@@ -55,6 +55,7 @@
 import { createHash } from "node:crypto";
 import { createBout, freshHavok, FRAME } from "./bout-runner.mjs";
 import { captureBout } from "./fork.mjs";
+import { captureCombatReports } from "./rollout-reports.mjs";
 import { rangeFraction } from "./drills.mjs";
 import { restoreWorld } from "../../src/fork/world.ts";
 import { randomStreams, restoreMind, snapshotMind } from "../../src/fork/mind.ts";
@@ -867,17 +868,21 @@ export class ExpertMind {
       // In a drill, the drill's own judge over the rollout, and no further than the rung runs.
       const task = config.task && host.task ? host.task(world) : null;
       const frames = Math.min(Math.round(config.horizon / FRAME), task ? task.remaining : Infinity);
-      for (let f = 0; f < frames && world.active; f += 1) {
-        host.beforeStep?.(world);
-        world.step();
-        if (task) { task.frame(); if (task.done()) break; }
-      }
+      const reports = config.trace ? captureCombatReports(world) : null;
+      try {
+        for (let f = 0; f < frames && world.active; f += 1) {
+          host.beforeStep?.(world);
+          world.step();
+          if (task) { task.frame(); if (task.done()) break; }
+        }
+      } finally { reports?.stop(); }
       const end = reading(world, E, config.band);
       cost.simulate += performance.now() - clock;
       if (config.trace) {
         end.pose = poseHash(world);
         end.contacts = Object.fromEntries(Object.entries(traceContacts(world, E))
           .map(([key, value]) => [key, value - contactStart[key]]));
+        end.reports = reports.reports;
       }
       const score = scoreRollout(start, end, config.weights);
       if (task) { score.task = task.value(); score.total += score.task; }
@@ -911,7 +916,8 @@ export class ExpertMind {
       t: clock, on: at.clock, label: best.plan.label, n: scored.length,
       terms, ...(predicted ? { predicted } : {}),
       ...(config.trace ? { candidates: scored.map(({ plan, score: { predicted, ...terms } }) =>
-        ({ label: plan.label, ...terms, vE: predicted.vE, vO: predicted.vO, contacts: predicted.contacts })) } : {}),
+        ({ label: plan.label, ...terms, vE: predicted.vE, vO: predicted.vO,
+          contacts: predicted.contacts, reports: predicted.reports })) } : {}),
       spread: Math.max(...totals) - Math.min(...totals),
       tied: totals.filter((total) => total === best.score.total).length,
       ms: performance.now() - started + moment.ms, cost,

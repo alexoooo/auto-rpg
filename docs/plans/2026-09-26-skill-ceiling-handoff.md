@@ -83,7 +83,9 @@ an earlier legacy proposal, so none is selected. This explains these openings, n
 headroom. Contact tracing now shows all 18 blade targets encounter blocks, as do 17/18 mace
 targets. Fists contact without blocks and still do no damage. All 18 predicted contact deltas
 match live playback; 1086 tests and check/build pass. Report-level speed/edge/armour and trajectory
-line/timing remain to diagnose. See
+line/timing remain to diagnose. Per-hand reports now show primary body-contact energies at most
+0.58 / 1.83 / 1.65 J for blade/mace/fist, below their existing floors; all pre-armour damage is zero.
+The 18 winning report sequences match live playback; 1087 tests and check/build pass. See
 `docs/analysis/2026-09-26-effector-candidate-scores.md`; 1086 tests and check/build pass.
 
 ### Expert continuation, 2026-09-26
