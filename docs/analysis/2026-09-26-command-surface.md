@@ -23,9 +23,12 @@ The tables are printed by `node research/command-surface-report.mjs`; the runs a
 
 **Continuation:** the browser flag switch and the first anatomical task-space actuator are now
 built. `docs/analysis/2026-09-26-effector-target.md` records its scope and checks. The footwork
-measurements below are still the wind-down results; their pending runs were not resumed.
+measurements below now include the completed stance and ruler controls. The anatomical preview
+and attainable proposals are recorded in `2026-09-26-effector-attainable-proposals.md`.
 
-**Work in progress.** The session was wound down before the stance run finished; see section 7.
+**Footwork verdict complete.** Stance finished 256/256 bouts and its independent ruler controls
+128/128, with no failures. Compact pair evidence and source provenance are archived in
+`research/results/2026-09-26-footwork-verdict.json`. Task-space headroom remains open.
 
 - **The surface is built.** It has `BodyCommand`, channels declared per module from shared kinds,
   and an `Intent` adapter. Two new footwork channels sit behind flags: the stance (width, lead foot
@@ -37,8 +40,8 @@ measurements below are still the wind-down results; their pending runs were not 
   the ruler: 12.5 % on the stone, over 8 pairs. Diagnostic runs traced that loss to the proposal
   list, not to the channel. `-stepadd` keeps the ruler's list and adds the channel. It scored 40.6 %
   [28.1, 53.1] on the stone and 43.8 % [32.8, 54.7] on the skeleton.
-- **The stance is not yet decided.** It is partial at 23 and 21 of 32 pairs: 41.3 % [26.1, 56.5]
-  on the stone and 54.8 % [38.1, 71.4] on the skeleton.
+- **Stance does not pass the enablement gate.** At 32 pairs per body it scores 44.5 %
+  [32.8, 57.0] on stone and 56.3 % [43.8, 68.8] on skeleton; neither interval clears 50 %.
 - **Both flags stay off by default.**
 
 ## 1. What was built
@@ -67,11 +70,11 @@ the needle and every other hand-written mind run unchanged as benchmarks. A comm
   velocity inside the ceilings a person's keys are inside.
 - **Behind flags.** `CHANNEL_FLAGS` (`stance`, `step`), both off by default. With a flag off the
   feature is not declared and the body does not read it, whatever a command says.
-- **Effectors are not yet in world task space.** The effector channel carries the chain's envelope
-  coordinates (the old `HandIntent`: two cursor axes, reach, roll, bend), not a world target point,
-  a speed and a stiffness. The expert and the ladder convert a world mark into those coordinates in
-  the mind (`aimAt`, `pointAt`), every substep. Moving that conversion into the body would add no
-  reach; a speed or stiffness level would, and it is left open (section 6).
+- **Anatomical task-space pilot added in the continuation.** Human blade, fist and mace accept a
+  world endpoint, hand orientation, speed and force behind `effector`, off by default. Other chains
+  retain envelope coordinates. The expert proposals and browser preview are built, but the bounded
+  sword screen selected no targets and establishes no headroom gain. See
+  `2026-09-26-effector-sword-screen.md`.
 
 ## 2. The benches
 
@@ -253,37 +256,42 @@ the interval. **The step channel does not raise headroom at c8,h1 on either body
 
 ### The stance
 
-**Partial: 182 of 256 bouts.** The run was stopped when the session was wound down. It resumes
-from its `results.jsonl` (section 7). Bout runner, `research/headroom.mjs --exp channel --channel
-stance --skip-ruler`.
+**Complete: 256 of 256 bouts, plus 128 independent ruler controls.** Bout runner,
+`research/headroom.mjs --exp channel --channel stance --skip-ruler --pairs 32 --lanes 6`.
+The ruler uses `--channel ruler --flags step --ruler-only`, the same protocol and seed pairs.
+All 31 previously recorded ruler bouts reproduce seeds, verdict, ending, duration and vitality
+exactly. Stance combines 182 historical rows with 74 resumed rows; it is not a single-revision run.
+The continuation's 45-bout neutral fingerprint checks support combining these measurements.
 
 | A | B | body | pairs | A's score % | margin |
 |---|---|---|---:|---|---|
-| `expert-stance` | ruler | default | 23 | 41.3 [26.1, 56.5] | -0.054 [-0.132, 0.025] |
-| `expert-stance` | ruler | skeleton-warrior | 21 | 54.8 [38.1, 71.4] | +0.027 [-0.136, 0.184] |
-| `expert-stance` | duelist | default | 23 | 100.0 | 0.776 [0.734, 0.811] |
-| `expert-stance` | skeleton duelist | skeleton-warrior | 23 | 100.0 | 0.966 [0.946, 0.982] |
+| `expert-stance` | ruler | default | 32 | 44.5 [32.8, 57.0] | -0.040 [-0.105, 0.025] |
+| `expert-stance` | ruler | skeleton-warrior | 32 | 56.3 [43.8, 68.8] | +0.047 [-0.076, 0.170] |
+| `expert-stance` | duelist | default | 32 | 100.0 | 0.788 [0.755, 0.818] |
+| `expert-stance` | skeleton duelist | skeleton-warrior | 32 | 100.0 | 0.965 [0.948, 0.979] |
+| ruler | duelist | default | 32 | 100.0 | 0.808 [0.771, 0.842] |
+| ruler | skeleton duelist | skeleton-warrior | 32 | 100.0 | 0.985 [0.973, 0.994] |
 
-- **Headroom against the duelist.** This is paired with the ruler's cell from the step run. That
-  cell has only 8 pairs on the stone and 7 on the skeleton, because the step run was stopped;
-  `--ruler-only` exists to fill it. The difference is +0.007 bars [-0.072, 0.089] on the stone and
-  -0.019 [-0.045, -0.000] on the skeleton, with both sides at 100 %.
-- **What it did.** In its head-to-head bouts it held a stance for 73 to 77 % of frames. That stance
-  was nearly all lead (|lead| 0.70 to 0.74), with weight forward about 0.35 and almost no width. It
-  chose the ruler's plans in the ruler's proportions, as expected: the stance rides on every plan,
-  so it does not change which plan is chosen. It fell about as often as the ruler did.
+- **Headroom against the duelist.** Paired over all 32 seed pairs: stance minus ruler is
+  -0.020 bars [-0.062, 0.020] on stone and -0.020 [-0.040, -0.001] on skeleton. Both win every
+  bout; the skeleton's remaining-vitality margin is slightly worse with stance.
+- **What it did.** Stance is active in 77.7 % of stone head-to-head frames and 73.3 % of skeleton
+  frames. Mean absolute lead is 0.749 / 0.709, weight 0.362 / 0.339, width 0.038 / 0.050.
+  Falls per bout are 0.141 / 4.688 against the ruler's 0.156 / 4.953.
 
-So far the stance is inside the interval on both bodies: below 50 % on the stone and above it on the
-skeleton. It has not raised headroom against the duelist. On partial n this is not a verdict.
+Neither head-to-head interval clears 50 %, and stance does not raise the duelist margin.
+**Stance stays off.** This rejects enabling it under the stated gate; it does not prove that
+no stronger search or other proposal family could exploit it.
 
 ## 5. Default flags
 
-`DEFAULT_CHANNEL_FLAGS` in `src/body-command.ts` stays `{ stance: false, step: false }`.
+`DEFAULT_CHANNEL_FLAGS` in `src/body-command.ts` stays `{ stance: false, step: false, effector: false }`.
 
 - **step: off.** At 32 pairs on both bodies no variant beats the ruler, and none raises headroom
   against the duelist.
-- **stance: off, pending.** At partial n (23 and 21 pairs) it has not beaten the ruler on either
-  body. On the stone the interval reaches up to 56.5 %, so it is not yet excluded.
+- **stance: off.** At 32 pairs neither body passes the head-to-head gate, and the skeleton
+  loses a small amount of margin against its duelist.
+- **effector: off.** The anatomical pilot is still experimental; no full-bout headroom gain is established.
 
 Neither channel rose, so a `stance-step` run was not justified and was not made.
 
@@ -307,28 +315,21 @@ was about 12 h: one run per channel, plus diagnostics.
 | `headroom-channel-step` (stopped) | 123 | 0.8 h | 4.6 |
 | `step-fast`, `stepkeys-diag`, `step-vs-keys` (concurrent, 2 lanes each) | 96 | 0.3 h | 4.8 |
 | `headroom-channel-stepadd` | 128 | 1.6 h | 9.3 |
-| `headroom-channel-stance` (stopped, partial) | 182 | 1.35 h | 7.7 |
+| `headroom-channel-stance` (completed after resumption) | 256 | about 1.64 h | 9.43 |
+| `headroom-channel-ruler` | 128 | 541 s | 0.88 |
 | `command-null-*` (9 runs of 45) | 405 | about 0.4 h | small |
 
-In all, about 4.5 h of run wall time and 27 lane-hours. That was inside the 12 h. The remainder was
-left unspent when the session was wound down.
+The completed footwork work totals about 4.9 h of run wall time and 29 lane-hours, including
+the historical diagnostics and null checks. The resumed 74 stance bouts took 1058 s on six lanes.
 
 ## 7. Open
 
-- **Finish the stance run.** 74 bouts are left. The command below resumes it by job id from its
-  `results.jsonl`; the pair count must stay 32, or the schedule hash will not match. It takes about
-  0.7 h on 6 lanes:
-  `node research/headroom.mjs --exp channel --channel stance --skip-ruler --pairs 32 --lanes 6`
-- **Fill the ruler's cell against the duelist to 32 pairs.** This cell is the headroom column's
-  other half. It is 128 bouts, about 0.4 h:
-  `node research/headroom.mjs --exp channel --channel ruler --flags step --ruler-only --pairs 32 --lanes 6`
-  Its first 8 pairs repeat the step run's seeds, so they should reproduce those rows exactly. That
-  is a determinism check for free.
-- **Then re-read.** Run `node research/command-surface-report.mjs` and settle the stance's verdict:
-  it goes on only if the head-to-head interval clears 50 % with no loss against the duelist.
+- **Footwork measurement complete.** Reproduce its report with
+  `node research/command-surface-report.mjs --include stance,stepadd,ruler --ruler-run ruler`.
+  This explicitly selects compatible full-length runs; short effector screens remain separate.
 - **Effectors in task space, with speed and effort.** The anatomical pilot is now built behind
   `effector`, off by default; see `2026-09-26-effector-target.md`. Other chains, attachment mappings
-  and the expert/headroom experiments remain open. The legacy aim still carries envelope coordinates.
+  and full-length headroom remain open; expert proposals and the anatomical browser preview are built. The legacy aim still carries envelope coordinates.
 - **Page switch: built in the continuation.** Open `?play=arena&channels=stance,step` or
   `?play=dungeon&channels=stance,step`. An opt-in diagnostic panel shows the flags in force and
   applies checkbox changes by navigation, preserving the matchup, seed and other parameters.

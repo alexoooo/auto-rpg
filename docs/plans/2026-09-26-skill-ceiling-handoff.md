@@ -32,6 +32,18 @@ and all 15 named six-second bout fingerprints unchanged with `effector` off or o
 The final browser diagnostic was checked again and its temporary server stopped. The evidence
 is in the main checkout's gitignored `research/runs/effector-target-continuation/`.
 
+### Completed footwork continuation
+
+The stance and ruler runs below are now complete: 256 stance bouts and 128 ruler controls,
+no failures. Stance scores 44.5 % [32.8, 57.0] on stone and 56.3 % [43.8, 68.8] on skeleton
+against the ruler, at 32 pairs each. Neither passes the enablement gate; stance and step stay off.
+All 31 historical ruler repeats retain exact verdict, duration and vitality. See the updated
+`docs/analysis/2026-09-26-command-surface.md` and
+`research/results/2026-09-26-footwork-verdict.json`. Do not resume these completed jobs or the
+superseded plain-step run. Latest code validation: 1081 tests, check/build; this follow-up only
+archives evidence and updates the plans. Remote main fetched again: it includes `9a320286`;
+local reporting commit `4d167705` is ahead and nothing incoming requires a merge.
+
 ### Expert continuation, 2026-09-26
 
 `expert-effector@c8,h1` now proposes endpoint trajectories with orientation, speed and force,

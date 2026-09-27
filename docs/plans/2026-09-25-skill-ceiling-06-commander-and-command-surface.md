@@ -133,9 +133,10 @@ The write-up is `docs/analysis/2026-09-26-command-surface.md`.
 - **step: off.** It does not raise headroom. `-stepadd` scored 40.6 % [28.1, 53.1] on the stone and
   43.8 % [32.8, 54.7] on the skeleton against the ruler (32 pairs each, Node bout runner). The first
   version's loss came from the proposal list, not the channel.
-- **stance: off, pending.** The run is partial at 182 of 256 bouts: 41.3 % [26.1, 56.5] on the
-  stone and 54.8 % [38.1, 71.4] on the skeleton. The analysis's section 7 has the commands that
-  finish it.
+- **stance: off, completed.** All 256 stance bouts and 128 ruler controls finished without failures.
+  At 32 pairs, head-to-head scores are 44.5 % [32.8, 57.0] on stone and 56.3 % [43.8, 68.8]
+  on skeleton. Neither clears the enablement gate. Paired duelist margins are -0.020 bars on both
+  bodies; the analysis records intervals, repeated controls and compact evidence.
 - **Task-space pilot built in the continuation.** Behind the off-by-default `effector` flag,
   the anatomical hand accepts a world business-end target, hand orientation, joint-speed fraction
   and force fraction. Blade, fist and mace are supported on either socket. Paired grips,
