@@ -41,6 +41,11 @@ Completed evidence is tracked under `research/results/`. Read the updated analys
 
 No development server from this continuation is left running. The owner's server is untouched.
 
+The historical survive-cut admission test gap below is now closed at the report boundary:
+the test takes a real blocked-cut report stream, switches only the attacking side and verifies
+that the subject's contacts cannot admit the cut. The physical admitted/missed controls remain.
+Mutations counting any contact, counting the wrong side and bypassing arrival all fail.
+
 ## Continuation, 2026-09-26
 
 The original wind-down landed at `597ecf36`, including both WIP merges. References below to
@@ -350,8 +355,8 @@ override (`research/overrides.mjs`); no shipped default changed.
   3. Summarise each run with `--summary --out <dir>`.
   4. Run `node research/release2-attr-falls.mjs <dir>` on the attribute runs.
   5. Fill section 5 and the partial marks in sections 3 and 4.
-- **One known gap in a test:** the survive-cut admission test does not catch a mutation that counts
-  the subject's own contacts, because no fixture start has the idle subject touching anything.
+- **Historical test gap, now closed:** the survive-cut admission test originally missed a mutation
+  counting the subject's own contacts. The current report-boundary check above catches it.
 
 ## What comes next
 

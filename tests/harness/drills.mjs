@@ -506,6 +506,9 @@ const eventRow = (e) => ({ side: e.side, kind: e.report.kind, damage: e.report.d
 export const ADMISSIONS = Object.freeze(["wound", "arrival"]);
 const ARRIVAL_VOID = "the cut touched nothing of an idle body";
 
+/** Arrival is the opponent's contact, including a blocked one; the subject's hits cannot admit it. */
+export const cutArrived = (events, opponent) => events.some((event) => event.side === opponent);
+
 /** Damage-bearing events a side scored after t0, from a fork's event list. */
 const scored = (events, side) => events.filter((e) => e.side === side && e.report.damage > 0 && e.report.kind !== "weak");
 
@@ -1037,7 +1040,7 @@ export async function runDrill({ drill: name, subjectSetup, opponentSetup, seed,
       planner = null;
       fork.dispose();
     }
-    if (rung === drill.control && !(admission === "arrival" ? events.some((e) => e.side === O) : drill.admit(results[rung]))) {
+    if (rung === drill.control && !(admission === "arrival" ? cutArrived(events, O) : drill.admit(results[rung]))) {
       return { drill: name, seed, subject: S, start: start.summary, void: admission === "arrival" ? ARRIVAL_VOID : drill.voidReason,
         control: results[rung] };
     }
