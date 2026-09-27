@@ -18,20 +18,21 @@ this continuation has not pushed. The working implementation checkout is
 | Session 06 orders | Complete |
 | Session 06 footwork channels | Complete measurements; stance and step fail the enablement gate and remain off |
 | Session 06 task-space effectors | Anatomical blade/fist/mace actuator, expert proposals and browser preview built; no headroom gain established; flag off |
-| Session 07 prerequisites | Fist-family, mace-size and maul-size studies complete; human rate/torque/clamp question measured; brawler study running |
+| Session 07 prerequisites | All requested studies complete: fist-family, mace/maul size, human rate/torque/clamp and expert against brawler |
 | Session 07 body release | Owner choices/eye gate remain; no body removals or default retunes |
 | Sessions 08-09 | Not begun; depend on body-release decisions |
 
 Current research lives in the **main checkout** under `research/runs/release2-continuation/`.
-`size-maul-expert` completed 64/64; `attr-expert-v-brawler` is active toward 80 bouts. Do not launch a
-second writer into an active directory. `headroom.mjs` now holds `run.lock` through computation
+`size-maul-expert` completed 64/64; `attr-expert-v-brawler` completed 80/80, both without failures.
+No continuation research process remains running. Do not resume these completed jobs.
+`headroom.mjs` now holds `run.lock` through computation
 and summary writes. Original worktree data were preserved; legacy manifests in the copies gained
 only explicit empty flags, with schedule/build/protocol validation retained.
 
 Completed evidence is tracked under `research/results/`. Read the updated analyses first:
 
 - `docs/analysis/2026-09-26-command-surface.md`: complete stance/ruler verdict.
-- `docs/analysis/2026-09-26-release-2-questions.md`: fist-family, mace-size and maul-size results.
+- `docs/analysis/2026-09-26-release-2-questions.md`: completed family, size and attribute results.
 - `docs/analysis/2026-09-26-human-arm-limits.md`: normal-stroke rate sensitivity; raising the
   velocity clamp buys no useful speed there, and no motor/default was raised.
 - `docs/analysis/2026-09-26-effector-candidate-scores.md`: exact candidate predictions and per-hand
@@ -96,10 +97,12 @@ beat the fist duelist faster and retained more vitality. Two pairs per cell make
 screen. The updated release-2 questions and `research/results/2026-09-26-skeleton-fists-family.json`
 record the result, provenance and an exact historical replay.
 
-Mace/maul size copies have 44/34 unique historical rows with no duplicates, under the same
-`research/runs/release2-continuation/` parent. Mace completed 64/64 with no failures: size 1.1 wins 93.8 %, versus 62.5 % for the x1
-mirror, a paired +31.3 points [12.5, 43.8]. Smaller sizes lose heavily. Maul is now running, then
-`attr-expert-v-brawler` (a manifest but no historical result rows). Run only one campaign at a time.
+Mace/maul size copies began with 44/34 unique historical rows with no duplicates, under the same
+`research/runs/release2-continuation/` parent. Both completed 64/64 with no failures. Size 1.1
+scores 93.8 % on mace and 87.5 % on maul, paired gains of 31.3 and 37.5 points over their controls.
+Smaller sizes lose heavily. `attr-expert-v-brawler` completed 80/80 from no historical rows:
+the expert wins every bout; recovery and high stability exactly match control records, because
+the expert never falls at baseline. Low stability produces one fall. All these runs are finished.
 
 The headroom CLI now holds the existing `lockRun` through scheduling, appends and summary writes,
 including summary-only mode, and releases it in `finally`. This prevents the concurrent writers
@@ -123,11 +126,10 @@ all predicted pose hashes and vitality bars match. Each best target proposal tie
 an earlier legacy proposal, so none is selected. This explains these openings, not full-bout
 headroom. Contact tracing now shows all 18 blade targets encounter blocks, as do 17/18 mace
 targets. Fists contact without blocks and still do no damage. All 18 predicted contact deltas
-match live playback; 1086 tests and check/build pass. Report-level speed/edge/armour and trajectory
-line/timing remain to diagnose. Per-hand reports now show primary body-contact energies at most
+match live playback. Per-hand reports now show primary body-contact energies at most
 0.58 / 1.83 / 1.65 J for blade/mace/fist, below their existing floors; all pre-armour damage is zero.
 The 18 winning report sequences match live playback; 1087 tests and check/build pass. See
-`docs/analysis/2026-09-26-effector-candidate-scores.md`; 1086 tests and check/build pass.
+`docs/analysis/2026-09-26-effector-candidate-scores.md`.
 
 ### Forced trajectory screen
 

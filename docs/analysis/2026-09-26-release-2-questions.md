@@ -7,14 +7,15 @@ session's commits. It answers the questions of the headroom audit's proposals
 **Nothing shipped was changed**: no body was removed and no default moved. Every counterfactual is a
 harness override, named with its run.
 
-**Status after continuation** (the original session ended at 17:18; only the brawler run remains open):
+**Status after continuation:** all prerequisite studies below are complete. The original session
+ended at 17:18; the continuation finished its remaining campaigns without changing defaults.
 
 | item | status | reading | recommendation |
 | --- | --- | --- | --- |
 | 6, waist lean | answered | 1200 raw is the knee: 45 % fewer stone falls, re-falls 15 to 28 % → 9 to 10 %, and the naive balance holds | 1200, behind an eye gate; not shipped |
 | 5(b), x1.1 walker | answered | The walker cannot choose its range. Its 0.80 hold jams its strokes | accept; consider hold 0.88 |
 | 2(b), fists and whip in their family | complete: naive 768; whip expert 16; fists expert 32 | They lose under equal naive minds. The expert wins with both, slowly | accept as weak builds |
-| 13(a), stability and recovery | partial: 3 of 4 runs; expert against brawler running | Recovery pays only for the expert on the skeleton. Stability's high end pays nothing in completed runs | look at the skeleton's floor time, then stability's reach |
+| 13(a), stability and recovery | complete: all 4 runs | Recovery pays for the expert on the skeleton. Against the brawler the expert never falls at baseline, so recovery remains unused | look at the skeleton's floor time, then stability's reach |
 | 16, size on mace and maul | complete: 64 bouts each | size pays on both under the expert; smaller bodies spend much longer down | retain the measured size law; defaults unchanged |
 | 17, survive-cut | answered | The rest guard survives the cut on five humans (97.5 to 100 %) | accept; report "passes at rest" |
 | 4(a), human arm energy | answered (table) | 1/4 to 1/10 of stone's momentum, mostly speed | rate sensitivity dominates the normal stroke; defaults unchanged |
@@ -481,9 +482,29 @@ from the rows' own sides by `research/release2-attr-falls.mjs`.
 | | recovery 0.5 | 64 | 42.2 | 2.1 | 2.3 | 17.1 | 11.1 |
 | | recovery 1.25 | 64 | 34.4 | 3.5 | 3.1 | 14.9 | 14.9 |
 
-**The expert against the brawler, where bodies fall: running.** The historical directory had no
-completed bouts. Its validated continuation is `research/runs/release2-continuation/attr-expert-v-brawler`,
-80 bouts on four lanes, started after the maul study completed.
+**The expert against the brawler: complete, but the expert does not fall at baseline.**
+`research/runs/release2-continuation/attr-expert-v-brawler` finished all 80 bouts, zero failures,
+489 s on four lanes. The historical directory supplied only a manifest; all rows are new.
+Evidence: `research/results/2026-09-26-attributes-expert-brawler.json`.
+
+| stone expert vs brawler | bouts | A share % | bar margin | A / B falls per minute | A / B down % | seconds |
+|---|---:|---:|---:|---:|---:|---:|
+| control | 16 | 100 | 0.918 | 0.00 / 11.51 | 0.0 / 40.0 | 6.84 |
+| stability 0.5 | 16 | 100 | 0.913 | 0.55 / 10.92 | 1.8 / 39.5 | 6.87 |
+| stability 2 | 16 | 100 | 0.918 | 0.00 / 11.51 | 0.0 / 40.0 | 6.84 |
+| recovery 0.5 | 16 | 100 | 0.918 | 0.00 / 11.51 | 0.0 / 40.0 | 6.84 |
+| recovery 1.25 | 16 | 100 | 0.918 | 0.00 / 11.51 | 0.0 / 40.0 | 6.84 |
+
+Each high-stability or recovery bout exactly matches its same-seed control in verdict, duration,
+vitality, lead changes and both sides' recorded behaviour. These are record comparisons, not
+trajectory-hash assertions. Low stability matches 12/16 and produces one subject fall in total;
+its paired margin change is -0.0049 bars [-0.0187, 0.0041]. All score changes are zero in this sample.
+The 100 % bootstrap intervals collapse with all wins and do not imply population certainty.
+
+The brawler falls frequently, but the altered attribute belongs to the expert. The expert kills
+the brawler in about seven seconds while staying upright at baseline, so this matchup does not
+exercise its recovery. This closes the requested comparison without establishing recovery's
+value under pressure or overturning the skeleton result. It does not justify changing either stat.
 
 A share has a 95 % interval of about ± 12 points at 64 bouts, and about ± 25 at 16.
 
@@ -520,7 +541,7 @@ If stability then reaches the waist, the brawler would read it, which is what se
 waist doing.
 
 Compute: 80 expert bouts on 4 lanes, 14:37 to 16:06; 320 + 320 naive bouts on 3 lanes, 16:07 to
-17:00. The expert-against-brawler cells were not run.
+17:00. The continuation completed 80 expert-against-brawler bouts in 489 s on four lanes.
 
 ## 5. Item 16: size with the expert on the mace and the maul
 

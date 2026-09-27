@@ -10,8 +10,9 @@ three orderings hold and every attribute pays.
 `docs/analysis/2026-09-26-release-2-questions.md` answers the audit's questions for items 6, 5(b)
 and 17. The 4(a) continuation separates rate, torque and velocity-clamp sensitivity without
 changing defaults. Item 2(b) is complete, including all 32 fist-family expert bouts; 13(a) is
-partial; item 16 is complete on both mace and maul (size pays under the expert).
-The final expert-against-brawler attribute run is in progress.
+complete with all 80 expert-against-brawler bouts; item 16 is complete on both mace and maul
+(64 bouts each, size pays under the expert). The expert never falls at baseline against the
+brawler, so that comparison leaves recovery unused rather than proving it ineffective.
 Its status table is at the top. Nothing shipped was changed. In short:
 
 - **6.** 1200 raw is the waist lean's knee. It shows no stuck steps and needs an eye check of how
@@ -19,6 +20,12 @@ Its status table is at the top. Nothing shipped was changed. In short:
 - **5(b).** The naive walker's 0.80 hold jams its strokes, and it cannot choose its range.
 - **17.** survive-cut has nothing to measure on a shielded human. The rest guard already survives the
   cut.
+
+All prerequisite campaigns are finished. The next body-release work selects from the audit's
+proposals and takes the chosen changes through the before/after loop below. The waist's feel
+comparison and the arena/dungeon orders eye gates remain open. Session 06's experimental channels
+remain off; its anatomical task actuator is still a limited pilot. No body-release-2 fingerprint
+or acceptance claim has been made, and sessions 08-09 have not begun.
 
 ## What it may do
 
