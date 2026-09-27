@@ -24,26 +24,30 @@ export const FAMILY_LABEL: Readonly<Record<BodyFamily, string>> =
  * The stats a family's bodies are built at x1 whatever is asked, and why. Total, so a new family
  * says what it cannot follow.
  *
- * **A human is the size it is.** Its skin is one fitted model (`warrior.glb`) and its arm's lengths
- * are literals in `humanoid/kinematics.ts`, so neither follows a size law (session 12 of the
- * attribute plan set, 2026-09-23). `golemSetupRefusal` refuses a human build at any other size,
- * the corner and hero reducers drop the stat when a body becomes human, and the panels show it
- * fixed with this reason.
+ * The legacy human retains fixed skin and arm proportions. Model-aware callers use
+ * `fixedAttributes`, which permits Size for the workshop fighter.
+
  */
 export const FAMILY_FIXED_ATTRIBUTES: Readonly<Record<BodyFamily, Readonly<Partial<Record<AttributeId, string>>>>> =
   Object.freeze({
     human: Object.freeze({
-      size: "a human's skin is a fixed-size model and its arm's lengths are fixed",
+      size: "the legacy human has fixed skin and arm proportions",
     }),
     golem: Object.freeze({}),
     skeleton: Object.freeze({}),
   });
 
+/** Restrictions belong to the actual model: the workshop rig supports Size. */
+export function fixedAttributes(setup: { family?: BodyFamily; locomotion: string; human?: { model: string } }) {
+  return setup.human?.model === "workshop-fighter" && bodyFamily(setup) === "human"
+    ? FAMILY_FIXED_ATTRIBUTES.golem : FAMILY_FIXED_ATTRIBUTES[bodyFamily(setup)];
+}
+
 /** A setting without the stats this family fixes, or the very setting when it fixes none of them. */
 export function withoutFixedAttributes<T extends Partial<Record<AttributeId, number>>>(
-  setting: T | undefined, family: BodyFamily,
+  setting: T | undefined, body: BodyFamily | Parameters<typeof fixedAttributes>[0],
 ): T | undefined {
-  const fixed = Object.keys(FAMILY_FIXED_ATTRIBUTES[family]);
+  const fixed = Object.keys(typeof body === "string" ? FAMILY_FIXED_ATTRIBUTES[body] : fixedAttributes(body));
   if (!setting || !fixed.some((id) => id in setting)) return setting;
   const next: Partial<Record<string, number>> = { ...setting };
   for (const id of fixed) delete next[id];

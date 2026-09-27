@@ -6,11 +6,17 @@ import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugi
 import { joint, registerPartBody } from "../../rig.ts";
 import { COLLIDES, LAYER } from "../../physics.ts";
 import { defineTerminal, effectorSlot, type EffectorTerminalDefinition } from "../module.ts";
-import { TERMINAL_BLADE } from "../config.ts";
+import { TERMINAL_BLADE, TERMINAL_FIST } from "../config.ts";
 import { bladeDefinition } from "../effectors/terminals/blade.ts";
 import { RigidStrike } from "../effectors/striker.ts";
 import { humanEquipment } from "./equipment.ts";
 import { WORKSHOP_SOURCE } from "./workshop-profile.ts";
+import { attributeOf } from "../attributes.ts";
+import { fistDefinition } from "../effectors/terminals/fist.ts";
+
+/** Keep the board rigid, translating its grip onto the scaled hand at the wrist. */
+export const workshopShieldShift = (size: number) =>
+  Vector3.FromArray(WORKSHOP_SOURCE.palm.secondary).add(new Vector3(0, -.045, 0)).scale(size - 1);
 
 const bounds = (points: number[][]) => {
   const low = [0,1,2].map(i=>Math.min(...points.map(p=>p[i])));
@@ -28,9 +34,10 @@ export const WORKSHOP_SHIELD = defineTerminal({
   attachment:"forearm", partRole:"equipment", limits:null,
   build(ctx,onto) {
     if(onto.kind!=="forearm") throw new Error("Workshop shield requires forearm support");
-    const name=`${ctx.name}.plate`, {centre,size}=WORKSHOP_SHIELD_BOUNDS;
+    const name=`${ctx.name}.plate`, {size}=WORKSHOP_SHIELD_BOUNDS;
+    const centre=WORKSHOP_SHIELD_BOUNDS.centre.add(workshopShieldShift(attributeOf(ctx,"size")));
     const mesh=new Mesh(name,ctx.scene), vertex=new VertexData();
-    vertex.positions=shieldPoints.flatMap(p=>Vector3.FromArray(p).subtract(centre).asArray());
+    vertex.positions=shieldPoints.flatMap(p=>Vector3.FromArray(p).subtract(WORKSHOP_SHIELD_BOUNDS.centre).asArray());
     vertex.indices=[];for(let i=1;i<shieldPoints.length-1;i++)vertex.indices.push(0,i,i+1);
     vertex.normals=[];VertexData.ComputeNormals(vertex.positions,vertex.indices,vertex.normals);vertex.applyToMesh(mesh);
     mesh.position.copyFrom(centre.rotateByQuaternionToRef(onto.rotation,new Vector3()).add(onto.world));
@@ -47,11 +54,14 @@ export const WORKSHOP_SHIELD = defineTerminal({
       dispose(){striker.sever();weld.dispose();part.body.dispose();part.shape.dispose();mesh.dispose(false,false);}};
   },
 });
-export function workshopEquipment(terminal: EffectorTerminalDefinition): EffectorTerminalDefinition {
+export function workshopEquipment(terminal: EffectorTerminalDefinition, size = 1, weight = 1): EffectorTerminalDefinition {
   switch(terminal.id) {
     case "blade": return { ...WORKSHOP_SWORD, attachment:"hand" };
     case "plate": return WORKSHOP_SHIELD;
-    case "fist": return humanEquipment(terminal);
+    case "fist": return size === 1 && weight === 1 ? humanEquipment(terminal) : {
+      ...humanEquipment(terminal), ...fistDefinition({ ...TERMINAL_FIST, radius: .045 * size, mass: .35 * weight * size ** 3 }),
+      attachment: "hand", partRole: "body", appearance: "human", label: "Empty hand",
+    };
     default: throw new Error(`Workshop fighter does not support ${terminal.id}`);
   }
 }

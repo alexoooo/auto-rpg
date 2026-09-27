@@ -1,17 +1,18 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { ARM_LIMITS, armForward, clamp } from "./kinematics.ts";
+import { ARM_LIMITS, armForward, clamp, LEGACY_ARM_GEOMETRY } from "./kinematics.ts";
 
 /** Position-only fallback for a carried endpoint. Every accepted step improves the endpoint
  * and retains the palm envelope; anatomical stops apply before accepting it. No physical pose
  * or velocity enters this solve. The ordinary hand-pose solver owns orientation first. */
 export function solveTaskEndpoint(target: Vector3, offset: Vector3, seed: readonly number[],
-  acceptsPalm: (point: Vector3) => boolean, passes = 24): number[] {
+  acceptsPalm: (point: Vector3) => boolean, passes = 24, geometry = LEGACY_ARM_GEOMETRY): number[] {
+  const forward = (angles: readonly number[]) => armForward(angles, geometry);
   let angles = [...seed];
   const endpoint = (pose: ReturnType<typeof armForward>) =>
     pose.point.add(offset.rotateByQuaternionToRef(pose.rotation, new Vector3()));
-  if (!acceptsPalm(armForward(angles).point)) return angles;
+  if (!acceptsPalm(forward(angles).point)) return angles;
   for (let pass = 0; pass < passes; pass++) {
-    const pose = armForward(angles), tip = endpoint(pose), error = target.subtract(tip);
+    const pose = forward(angles), tip = endpoint(pose), error = target.subtract(tip);
     const squared = error.lengthSquared();
     if (squared < .0003 ** 2) break;
     const columns = pose.frames.map(frame => Vector3.Cross(frame.axis, tip.subtract(frame.pivot)).asArray());
@@ -33,7 +34,7 @@ export function solveTaskEndpoint(target: Vector3, offset: Vector3, seed: readon
     let accepted = false;
     for (const fraction of [1, .5, .25, .125, .0625]) {
       const candidate = angles.map((angle, i) => clamp(angle + delta[i] * fraction, ARM_LIMITS[i][0], ARM_LIMITS[i][1]));
-      const next = armForward(candidate);
+      const next = forward(candidate);
       if (!acceptsPalm(next.point) || Vector3.DistanceSquared(endpoint(next), target) >= squared) continue;
       angles = candidate; accepted = true; break;
     }

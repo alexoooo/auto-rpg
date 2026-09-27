@@ -335,7 +335,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * How big the body is: every body table at the stat by its fields' laws (`withSize` below), on the
    * biological pair at constant density -- force s^2, torque s^3, so a drive's time goes as s and a
    * fall's as its root (`SIZE_LAW_POWER`). Items keep their size, so a larger body is also a
-   * relatively smaller weapon. A human is fixed at x1 (`FAMILY_FIXED_ATTRIBUTES`). Sessions 12a
+   * relatively smaller weapon. The legacy human is fixed at x1; the workshop human supports this range. Sessions 12a
    * and 12b, 2026-09-23; the biological law, skill ceiling session 01, 2026-09-25.
    *
    * **The row is x0.8 to x1.1**, and the numbers that set it are the Node bench's

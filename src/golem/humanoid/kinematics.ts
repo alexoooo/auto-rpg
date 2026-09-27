@@ -10,6 +10,7 @@ export const ARM_LENGTHS = [0, 0, 0.32, 0.27, 0, 0, 0.09];
 export interface HumanArmGeometry {
   readonly lengths: readonly number[];
   readonly palm: Vector3;
+  readonly scale?: number;
 }
 export const LEGACY_ARM_GEOMETRY: HumanArmGeometry = { lengths: ARM_LENGTHS, palm: PALM_GRIP };
 export const ARM_LIMITS = [[-2.5, 2.5], [-2.7, 1.4], [-1.6, 1.6], [-2.65, -0.04],
@@ -42,11 +43,20 @@ export function rotationError(wanted: Quaternion, actual: Quaternion): Vector3 {
 
 /** Bounded damped least-squares solve. It reads commanded geometry, never physical lag. */
 export function solveArm(point: Vector3, orientation: Quaternion | null, previous = ARM_REST, passes = 18, side = 0, supported = false, geometry = LEGACY_ARM_GEOMETRY): number[] {
+  if (geometry.scale !== undefined && geometry.scale !== 1) {
+    // Solve in reference metres, so damping and orientation weights do not change
+    // the chosen pose just because the same anatomy was built taller or shorter.
+    const inverse = 1 / geometry.scale;
+    return solveArm(point.scale(inverse), orientation, previous, passes, side, supported, {
+      lengths: geometry.lengths.map(length => length * inverse), palm: geometry.palm.scale(inverse), scale: 1,
+    });
+  }
   const upper = geometry.lengths[2], fore = geometry.lengths[3];
   const q = [...previous];
   if (supported) q[5] = q[6] = 0;
   const wrist = orientation ? point.subtract(new Vector3(0, -geometry.lengths[6] / 2, 0).add(geometry.palm).rotateByQuaternionToRef(orientation, new Vector3())) : point;
-  const distance = clamp(wrist.length(), .08, geometry === LEGACY_ARM_GEOMETRY ? .585 : upper + fore - .005), direction = wrist.normalizeToNew();
+  const size = geometry.scale ?? 1;
+  const distance = clamp(wrist.length(), .08 * size, geometry === LEGACY_ARM_GEOMETRY ? .585 : upper + fore - .005 * size), direction = wrist.normalizeToNew();
   const along = (upper * upper - fore * fore + distance * distance) / (2 * distance);
   const pole = new Vector3(side * .8, -1, -.2);
   pole.subtractInPlace(direction.scale(Vector3.Dot(pole, direction))).normalize();

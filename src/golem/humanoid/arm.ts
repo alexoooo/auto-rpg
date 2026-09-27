@@ -3,7 +3,7 @@ import { PhysicsConstraintAxis, PhysicsConstraintAxisLimitMode } from "@babylonj
 import { capsulePart, joint, type Part } from "../../rig.ts";
 import { materialForGolemRole } from "../materials.ts";
 import { FULL_TONE, JointActuator, servoGain, servoLead } from "../joint-servo.ts";
-import { attributeOf } from "../attributes.ts";
+import { attributeOf, SIZE_LAW_POWER } from "../attributes.ts";
 import { defineChain, type BuiltChain, type GolemPart } from "../module.ts";
 import { ARM_STROKES, restCursor } from "../effectors/chains/arm-core.ts";
 import { ARM_IDS, ARM_LIMITS, ARM_REST, armForward, clamp, solveArm, validOrientation, rotationError, measureArm } from "./kinematics.ts";
@@ -37,22 +37,25 @@ export const anatomicalChain = defineChain({
   id: "anatomical", fitTerminal: humanEquipment, label: "anatomical arm - full hand pose", axes: 7,
   strokes: ARM_STROKES, pointTarget: true, massKg: MASSES.reduce((a, b) => a + b), swingInertia: 0.8,
   build(ctx, limits, crossing, _carriedKg, mount): BuiltChain {
-    const geometry = ctx.human ? workshopArm(ctx.socket.outboard) : LEGACY_ARM_GEOMETRY;
+    const size = ctx.human ? attributeOf(ctx, "size") : 1;
+    const massScale = size ** SIZE_LAW_POWER.mass, torqueScale = size ** SIZE_LAW_POWER.torque;
+    const frequency = size ** SIZE_LAW_POWER.frequency, inertiaScale = size ** SIZE_LAW_POWER.inertia;
+    const geometry = ctx.human ? workshopArm(ctx.socket.outboard, size) : LEGACY_ARM_GEOMETRY;
     const equipmentMount = ctx.human ? { axis: Vector3.Up(), perp: Vector3.Forward() } : HUMAN_MOUNT;
     const forward = (angles: readonly number[]) => armForward(angles, geometry);
     const side = ctx.socket.outboard;
     // The body's arm-speed stat, on every coordinate's rate (`withArmSpeed` says why the rate and
     // not the torque). The +-8 clamp on a drive target below is a bound on the command, not a rate.
     const armSpeed = attributeOf(ctx, "armSpeed");
-    const rates = armSpeed === 1 ? RATES : RATES.map((rate) => rate * armSpeed);
+    const rates = armSpeed === 1 && size === 1 ? RATES : RATES.map((rate) => rate * armSpeed * frequency);
     // And its weight stat, on each segment's mass and on the torques that move them (`withWeight`);
     // the inertia floor below stays.
     const weight = attributeOf(ctx, "weight");
-    const reachable = { reachMin: Math.max(0.24, limits?.reachMin ?? 0.24), reachMax: Math.min(0.65, limits?.reachMax ?? 0.65),
+    const reachable = { reachMin: Math.max(0.24 * size, limits?.reachMin ?? 0.24 * size), reachMax: Math.min(0.65 * size, limits?.reachMax ?? 0.65 * size),
       swingMin: crossing?.swingMin ?? Math.max(-0.65, limits?.swingMin ?? -0.65),
       swingMax: Math.min(1.6, limits?.swingMax ?? 1.6),
       liftMin: Math.max(-1.15, limits?.liftMin ?? -1.15), liftMax: Math.min(1.15, limits?.liftMax ?? 1.15),
-      carryMin: crossing?.carryMin ?? Math.max(-0.13, limits?.carryMin ?? -0.13) };
+      carryMin: crossing?.carryMin ?? Math.max(-0.13 * size, limits?.carryMin ?? -0.13 * size) };
     const rotate = (p: Vector3, q: Quaternion) => p.rotateByQuaternionToRef(q, new Vector3());
     // A strapped shield is known before `attachment` is called, so the arm can be built holding it.
     let supported = mount === "forearm";
@@ -75,7 +78,7 @@ export const anatomicalChain = defineChain({
       return radius >= reachable.reachMin - .001 && radius <= reachable.reachMax + .001
         && swing >= reachable.swingMin - .001 && swing <= reachable.swingMax + .001
         && lift >= reachable.liftMin - .001 && lift <= reachable.liftMax + .001
-        && p.x * side >= reachable.carryMin - .001 && (p.x * side >= .03 || p.z >= .219);
+        && p.x * side >= reachable.carryMin - .001 && (p.x * side >= .03 * size || p.z >= .219 * size);
     };
     const solve = () => {
       const previousDesired = desired;
@@ -96,7 +99,7 @@ export const anatomicalChain = defineChain({
       }
       p.x = side * Math.max(reachable.carryMin, p.x * side);
       // Keep cross-body commands in front of the chest, including paired grips.
-      if (p.x * side < 0.03) p.z = Math.max(0.22, p.z);
+      if (p.x * side < 0.03 * size) p.z = Math.max(0.22 * size, p.z);
       if (p.length() > reachable.reachMax) p.scaleInPlace(reachable.reachMax / p.length());
       const requestedOrientation = validOrientation(command.orientation);
       let orientation = requestedOrientation;
@@ -109,14 +112,14 @@ export const anatomicalChain = defineChain({
       }
       if (supported && !forced) {
         const face = requestedOrientation ? rotate(Vector3.Right().scale(side), requestedOrientation) :
-          new Vector3(p.x * .4, 0, Math.max(.1, p.z)).normalize();
+          new Vector3(p.x * .4, 0, Math.max(.1 * size, p.z)).normalize();
         // Keep the shield's top well-defined even when the requested normal is vertical.
         if (Math.abs(face.y) > .98) { face.y = Math.sign(face.y) * .98; face.z += .2; face.normalize(); }
         const x = face.scale(side), y = Vector3.Cross(Vector3.Up(), face).normalize().scale(side), z = Vector3.Cross(x, y);
         const basis = Matrix.Identity(); Matrix.FromXYZAxesToRef(x, y, z, basis);
         orientation = Quaternion.FromRotationMatrix(basis);
-        p.x = side * (p.x * side * .35 - .14);
-        p.z = clamp(p.z, .24, .45); p.y = clamp(p.y - .12, -.25, .15);
+        p.x = side * (p.x * side * .35 - .14 * size);
+        p.z = clamp(p.z, .24 * size, .45 * size); p.y = clamp(p.y - .12 * size, -.25 * size, .15 * size);
       }
       // Task commands specify the complete pose. A soft elbow-pole objective would compete with
       // that pose and bias a reachable endpoint; joint stops and the envelope still constrain it.
@@ -130,7 +133,7 @@ export const anatomicalChain = defineChain({
         const offset = HUMAN_MOUNT.perp.scale(taskTipOffset);
         const target = rotate(forced.add(rotate(offset, forcedOrientation)).subtract(socketPoint()), socketRotation().conjugate());
         const error = (angles: readonly number[]) => {
-          const pose = armForward(angles);
+          const pose = forward(angles);
           return Vector3.Distance(pose.point.add(rotate(offset, pose.rotation)), target);
         };
         let best = error(desired);
@@ -138,8 +141,8 @@ export const anatomicalChain = defineChain({
           // Try the previous solution first; subsequent candidates need a meaningful improvement.
           const seeds = [previousDesired, desired];
           for (const seed of seeds) {
-            if (!acceptsTaskPalm(armForward(seed).point)) continue;
-            const candidate = solveTaskEndpoint(target, offset, seed, acceptsTaskPalm);
+            if (!acceptsTaskPalm(forward(seed).point)) continue;
+            const candidate = solveTaskEndpoint(target, offset, seed, acceptsTaskPalm, 24, geometry);
             const next = error(candidate);
             if (next < best - .0003) { desired = candidate; best = next; }
           }
@@ -163,14 +166,14 @@ export const anatomicalChain = defineChain({
       const distal = i === 0 ? bind.frames[2].end : i === 1 ? bind.frames[3].end : bind.frames[6].end;
       const body = capsulePart(ctx.scene, { name: `${ctx.name}.${ids[i]}`,
         position: toWorld(Vector3.Center(proximal, distal)), rotation: ctx.socket.rotation.multiply(frame.rotation),
-        height: lengths[i], radius: i === 0 ? .055 : i === 1 ? .043 : .032,
-        mass: MASSES[i] * weight, layer: ctx.layers.body, collidesWith: ctx.layers.bodyCollidesWith,
+        height: lengths[i], radius: (i === 0 ? .055 : i === 1 ? .043 : .032) * size,
+        mass: MASSES[i] * weight * massScale, layer: ctx.layers.body, collidesWith: ctx.layers.bodyCollidesWith,
         material: materialForGolemRole(ctx.materials, "armour") });
-      body.body.setLinearDamping(.1); body.body.setAngularDamping(.2);
+      body.body.setLinearDamping(.1 * frequency); body.body.setAngularDamping(.2 * frequency);
       const properties = body.body.getMassProperties(), inertia = properties.inertia!;
       body.body.setMassProperties({ ...properties, inertia: new Vector3(
-        Math.max(inertia.x, HUMAN_ARM_DRIVE.inertiaFloor), Math.max(inertia.y, HUMAN_ARM_DRIVE.inertiaFloor),
-        Math.max(inertia.z, HUMAN_ARM_DRIVE.inertiaFloor)) });
+        Math.max(inertia.x, HUMAN_ARM_DRIVE.inertiaFloor * inertiaScale), Math.max(inertia.y, HUMAN_ARM_DRIVE.inertiaFloor * inertiaScale),
+        Math.max(inertia.z, HUMAN_ARM_DRIVE.inertiaFloor * inertiaScale)) });
       const parent = i ? bodies[i - 1] : ctx.socket.mount;
       const constraint = joint(ctx.scene, parent, body, {
         pivotParent: i ? new Vector3(0, -lengths[i - 1] / 2, 0) : ctx.socket.local,
@@ -250,7 +253,7 @@ export const anatomicalChain = defineChain({
         const achieved = measureArm(bodies.map(b => socketRotation().conjugate().multiply(b.mesh.rotationQuaternion!)), angles);
         // The golem servo's law, held to the tuning rate the same way (`servoLead` and `servoGain`
         // in `src/golem/joint-servo.ts`): at 240 Hz this is `wanted` and `response` exactly.
-        const lead = servoLead(dt), gain = servoGain(HUMAN_ARM_DRIVE.response, dt);
+        const lead = servoLead(dt), gain = servoGain(HUMAN_ARM_DRIVE.response * frequency, dt);
         for (let i = 0; i < 3; i++) {
           const parent = i ? bodies[i - 1].mesh.rotationQuaternion! : socketRotation();
           const wanted = i ? rotations[i - 1].conjugate().multiply(rotations[i]) : rotations[i];
@@ -265,16 +268,16 @@ export const anatomicalChain = defineChain({
             const from = previousAngles[coordinate], to = angles[coordinate];
             const target = i === 0 ? velocity.asArray()[axis] : (to - from) / dt +
               gain * ((lead === 1 ? to : from + (to - from) * lead) - achieved[coordinate]);
-            actuators[i][axis].drive(clamp(target, -HUMAN_ARM_DRIVE.velocityLimit, HUMAN_ARM_DRIVE.velocityLimit), TORQUES[i][axis] * weight * taskForce);
+            actuators[i][axis].drive(clamp(target, -HUMAN_ARM_DRIVE.velocityLimit * frequency, HUMAN_ARM_DRIVE.velocityLimit * frequency), TORQUES[i][axis] * weight * torqueScale * taskForce);
           }
         }
         previousRotations = rotations.map(q => q.clone()); previousAngles = [...angles];
         for (let i = 0; i < 7; i++) { axes[i].commanded = angles[i]; axes[i].achieved = achieved[i]; }
       },
       envelope: () => ({ fullOrientation: true, axes: ARM_IDS.map((id, i) => ({ id, unit: "rad", min: supported && i >= 5 ? 0 : ARM_LIMITS[i][0], max: supported && i >= 5 ? 0 : ARM_LIMITS[i][1], rate: rates[i] })),
-        reach: reachable.reachMax, reachable, strokes: ARM_STROKES, settledBand: 0.025,
-        // The shoulder's rate and torque against the shipped arm's (`ArmDrive`); a human is x1 in size.
-        drive: { rateScale: rates[0] / RATES[0], torqueScale: weight } }),
+        reach: reachable.reachMax, reachable, strokes: ARM_STROKES, settledBand: 0.025 * size,
+        // The shoulder's rate and torque against the shipped arm's (`ArmDrive`); the legacy human retains x1.
+        drive: { rateScale: rates[0] / RATES[0], torqueScale: weight * torqueScale } }),
       axes: () => axes, stroke: () => "idle", anchor: worldCommand,
       anchorStray: () => Vector3.Distance(steeredTo(), handPoint()),
       orientation: () => socketRotation().conjugate().multiply(hand.mesh.rotationQuaternion!),
@@ -288,7 +291,7 @@ export const anatomicalChain = defineChain({
       captureState: (): Record<string, unknown> => ({
         supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime, taskSpeed, taskForce, exactTask, taskTipOffset,
         commanded, previousAngles, previousRotations, lastStep,
-        ctx, rates, reachable, bind, bodies, constraints, actuators, groups, axes, handPivot, handWeld, geometry, lengths,
+        ctx, rates, reachable, bind, bodies, constraints, actuators, groups, axes, handPivot, handWeld, geometry, lengths, size, massScale, torqueScale, frequency, inertiaScale,
         previousPoint, initial,
       }),
       restoreState(state: Record<string, unknown>): void {
