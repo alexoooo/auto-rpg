@@ -291,9 +291,21 @@ That experience will expose the RPG requirements before more levels multiply the
 
 ## Suggested sequence and first milestone
 
-0. Retire and clean up, as listed above, including the `AGENTS.md` restructure. This takes one or
-   two sessions, each landing as its own commit with `npm test`, `npm run check` and `npm run
-   build` green.
+0. Retire and clean up, as listed above, including the `AGENTS.md` restructure. **Done
+   2026-09-27** on the owner's choices "v1 only" and "trim page paths"; tag
+   `pre-next-phase-cleanup` holds everything removed.
+   - `AGENTS.md` is current rules only; the incident narratives are in `docs/history.md`.
+   - Policies: idle, golem-duelist, golem-walker, humanoid-duelist, skeleton-duelist and
+     humanoid-archer remain. `policy-ratings.json` is empty until the league is re-run, and
+     probe gauntlets now use the duelist and walker, so no table from before compares with one
+     after.
+   - Skill ceiling closed; the channel panel and effector-preview page paths are deleted, and the
+     `BodyCommand` seam, actuator and benches are kept.
+   - `CONFIG.arm` keeps only the fields something reads; the Warrior's full table is in
+     `docs/history.md`. `HUMANOID_CONTROL_SURFACE` and citations of deleted scripts are gone.
+   - Left for the work that replaces them: `UnitKind`/`UnitLoadout` (the equipment system),
+     the two human paths (step 2), and the retired minds' names in dated measurement tables,
+     which record how those numbers were measured.
 1. Spike the collision budget, then establish the shared encounter runtime and multi-actor rules.
 2. Separate character anatomy and equipment, with persistent character descriptions.
 3. Complete the workshop Warrior and Rogue paths; test body contracts with the simple quadruped
@@ -314,6 +326,5 @@ visual reviews or skill-ceiling release gates as complete.
 2. **Dungeon control.** Does the player steer the hero directly, as in Diablo, or give orders as
    in the Arena? The dungeon currently mixes keyboard movement with automatic attacks. The answer
    decides what the orders layer must express.
-3. **Skill-ceiling plan set.** Is it closed, as recommended above, or are any of sessions 06-09
-   still wanted?
+3. **Skill-ceiling plan set.** Closed by the owner on 2026-09-27.
 4. **Legacy human.** Is it retired in favour of the workshop model, or kept as a costume?
