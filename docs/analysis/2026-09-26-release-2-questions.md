@@ -17,7 +17,7 @@ harness override, named with its run.
 | 13(a), stability and recovery | partial: 3 of 4 runs; expert against brawler not run | Recovery pays only for the expert on the skeleton. Stability's high end pays nothing | look at the skeleton's floor time, then stability's reach |
 | 16, size on mace and maul | NOT YET MEASURED (runs partial, unread) | -- | -- |
 | 17, survive-cut | answered | The rest guard survives the cut on five humans (97.5 to 100 %) | accept; report "passes at rest" |
-| 4(a), human arm energy | answered (table) | 1/4 to 1/10 of stone's momentum, mostly speed | find the binding limit before `TORQUES` |
+| 4(a), human arm energy | answered (table) | 1/4 to 1/10 of stone's momentum, mostly speed | rate/torque sweep done; isolate velocity clamp before tuning |
 
 Harnesses, as in the audit:
 
@@ -651,11 +651,14 @@ is the bench's tap, at guard, along the edge. The chains are the stone arm (`wri
 - The audit's commitment-bench tip peak (12.6 m/s human against 31.5 stone) is the same gap, read on
   a different instrument.
 
-**Which limit binds is not measured.** The human arm's drive clamps each joint's velocity target to
-8 rad/s, and the arm has its own `RATES`. On a chain like that, a force ceiling can stop mattering
-above some value, while the rate goes on shaping every move (the trap "On a low-axis chain the
-anchor's rate limit shapes a commanded move" in `AGENTS.md`). Before `TORQUES` is raised, sweep it
-on this bench, with the velocity clamp and `RATES` held, and see whether the tip speed moves.
+**Rate/torque sensitivity now measured; velocity clamp unresolved.** A 36-cell continuation
+holds geometry, mass and the 8 rad/s clamp fixed, varies the existing `armSpeed` attribute
+(0.5, 1, 1.5), and independently scales motor ceilings (0.5, 1, 2, 4) in both impact-bench passes.
+At normal rate, doubling torque barely changes blade/mace free-stroke peak speed (11.22 to
+11.18 / 9.16 to 9.03 m/s). Raising rate alone to 1.5 raises them to 12.84 / 13.42 m/s.
+This argues against a torque-only speed repair on this stroke, not for a shipped rate increase.
+The velocity clamp has not been intervened on; higher-rate strokes also respond to torque.
+See `2026-09-26-human-arm-limits.md` for the table, invalid impact placements and limits.
 
 **Options for the owner** (the audit's, with this table): (a) raise the human arm's delivery, with
 a before/after table on these rows. This is the "before" half. First find which of `TORQUES`, the

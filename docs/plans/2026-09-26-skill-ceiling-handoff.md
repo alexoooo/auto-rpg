@@ -44,6 +44,14 @@ superseded plain-step run. Latest code validation: 1081 tests, check/build; this
 archives evidence and updates the plans. Remote main fetched again: it includes `9a320286`;
 local reporting commit `4d167705` is ahead and nothing incoming requires a merge.
 
+### Human arm limit continuation
+
+`research/human-arm-limits.mjs` now separates motor-ceiling and command-rate sensitivity over
+36 impact-bench cells. Doubling torque at normal rate barely changes blade/mace free-stroke
+speed; armSpeed 1.5 raises it by about 14 % / 47 %. No shipped tuning changed. The 8 rad/s
+velocity clamp remains unisolated, and sphere overlap invalidates 12 impact rows. Read
+`docs/analysis/2026-09-26-human-arm-limits.md` before further tuning or research.
+
 ### Expert continuation, 2026-09-26
 
 `expert-effector@c8,h1` now proposes endpoint trajectories with orientation, speed and force,
