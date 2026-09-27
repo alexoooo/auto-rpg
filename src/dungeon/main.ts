@@ -15,7 +15,7 @@ import HavokPhysics from "@babylonjs/havok";
 import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { attachPhysics } from "../physics.ts";
 import { CONFIG } from "../config.ts";
-import { bodyFamily, FAMILY_FIXED_ATTRIBUTES, withoutFixedAttributes } from "../golem/family.ts";
+import { bodyFamily, fixedAttributes, withoutFixedAttributes } from "../golem/family.ts";
 import { ARMED_SETUP } from "../golem/family-setup.ts";
 import { golemSetupRefusal, golemTerminalOptions } from "../golem/build.ts";
 import type { GolemSetup } from "../bout.ts";
@@ -92,14 +92,18 @@ const updateEquipment = () => {
   heroSecondary.disabled = heroPrimary.value === "maul";
 };
 heroBuild.addEventListener("change", updateEquipment);
-heroBuild.addEventListener("change", () => renderHeroAttributes());
+heroBuild.addEventListener("change", () => {
+  const setup = heroSetup();
+  if (setup) heroAttributes = withoutFixedAttributes(heroAttributes, setup) ?? {};
+  renderHeroAttributes();
+});
 // The hero's attributes, held here until Start puts them on the hero's setup. Only the hero: every
 // enemy is built at x1. Nothing is remembered between visits, because the dungeon remembers nothing.
 const heroAttributesPanel = need("hero-attributes");
 let heroAttributes: AttributeSetting = {};
 heroAttributesPanel.innerHTML = attributesPanel("hero");
 // A stat the hero's family fixes is shown fixed, and left off the hero at Start (`FAMILY_FIXED_ATTRIBUTES`).
-const heroFixed = () => { const setup = heroSetup(); return setup ? FAMILY_FIXED_ATTRIBUTES[bodyFamily(setup)] : {}; };
+const heroFixed = () => { const setup = heroSetup(); return setup ? fixedAttributes(setup) : {}; };
 const renderHeroAttributes = () => renderAttributes(heroAttributesPanel, "hero", heroAttributes, false, heroFixed());
 const editHeroAttributes = (event: Event) => {
   const action = attributeAction(event.target);
@@ -217,7 +221,7 @@ async function boot(): Promise<void> {
     // A hero somebody tuned is handed over as a whole setup; one nobody tuned goes the way it always
     // did, so a default run is the run it was.
     const base = selectedEquipment ?? heroSetup();
-    const kept = base ? withoutFixedAttributes(heroAttributes, bodyFamily(base)) ?? {} : {};
+    const kept = base ? withoutFixedAttributes(heroAttributes, base) ?? {} : {};
     if (base && Object.keys(kept).length > 0) selectedEquipment = withAttributeSetting(base, kept);
     // Named here rather than thrown by the body's constructor from inside the run.
     const refused = selectedEquipment ? golemSetupRefusal(selectedEquipment) : null;

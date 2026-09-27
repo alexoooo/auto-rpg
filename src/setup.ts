@@ -27,7 +27,7 @@ import {
 } from "./golem/build";
 import type { PartsBin } from "./golem/parts-bin";
 import {
-  BODY_FAMILIES, FAMILY_FIXED_ATTRIBUTES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily,
+  BODY_FAMILIES, fixedAttributes, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily,
 } from "./golem/family.ts";
 import { FAMILY_SETUP } from "./golem/family-setup.ts";
 import { humanSetup } from "./golem/humanoid/presets.ts";
@@ -660,7 +660,7 @@ export class SetupScreen {
       this.attributePanels[side].hidden = build === null;
       if (build) {
         renderAttributes(this.attributePanels[side], side, build.attributes, false,
-          FAMILY_FIXED_ATTRIBUTES[bodyFamily(build)]);
+          fixedAttributes(build));
       }
       if (build) {
         const family = bodyFamily(build);

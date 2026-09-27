@@ -609,7 +609,7 @@ export class Golem implements Combatant, Topological {
     });
     this.humanAppearance = setup.human ? dressWorkshopFighter(scene, this.visualBindings, this.side, setup.human,
       setup.primary.terminal === "blade" ? setup.secondary.terminal === "plate" ? "sword-shield" : "sword"
-        : setup.secondary.terminal === "plate" ? "shield" : "empty") : dressHumanoid(scene, this.visualBindings, this.side);
+        : setup.secondary.terminal === "plate" ? "shield" : "empty", this.attributes.size) : dressHumanoid(scene, this.visualBindings, this.side);
     for (const mesh of this.humanAppearance?.meshes ?? []) { this.owned.add(mesh); this.costume.push(mesh); }
 
     // Every part is watched, because a lift or a push can arrive on any of them: a blade under the

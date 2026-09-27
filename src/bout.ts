@@ -15,7 +15,7 @@ import { handsFor, isWeaponKind, type WeaponKind } from "./hands.ts";
 // `family.ts` imports only a type, which is the only reason this file may have
 // it, for the same reason as `hands.ts` above. It is a table of families and
 // nothing that builds a body.
-import { bodyFamily, FAMILY_FIXED_ATTRIBUTES, isBodyFamily, withoutFixedAttributes } from "./golem/family.ts";
+import { fixedAttributes, isBodyFamily, withoutFixedAttributes } from "./golem/family.ts";
 // `attributes.ts` imports nothing at all, for the same reason again: the link codec needs its list
 // of stat ids, and the list lives beside the table that says what each stat is.
 import {
@@ -433,7 +433,7 @@ export function withGolemAttribute(
   const corner = matchup[side].golem;
   if (!corner) return matchup;
   // A stat the body's family fixes is not the corner's to set (`FAMILY_FIXED_ATTRIBUTES`).
-  if (value !== 1 && id in FAMILY_FIXED_ATTRIBUTES[bodyFamily(corner)]) return matchup;
+  if (value !== 1 && id in fixedAttributes(corner)) return matchup;
   const next = copy(matchup);
   const build = next[side].golem;
   if (!build) return matchup;
@@ -468,7 +468,7 @@ export function withGolemBuild(
   // Less whatever the new body's family fixes: a stone golem at x1.2 that draws a human is a human
   // at x1, not a build the refusal turns away (`FAMILY_FIXED_ATTRIBUTES`).
   next[side].golem = withAttributeSetting(copyGolem(build), withoutFixedAttributes(
-    { ...corner.attributes, ...build.attributes }, bodyFamily(build)));
+    { ...corner.attributes, ...build.attributes }, build));
   next[side].seed = seed;
   return next;
 }

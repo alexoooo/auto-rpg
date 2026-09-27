@@ -54,3 +54,29 @@ kinematics and an actual Havok bout with hits and blocks. The full suite passed
 Browser checks covered arena selection/combat, dungeon selection/entry, all
 sixteen loadouts, repeated instance disposal and a separated arm. A deterministic
 eight-second legacy-human control bout remained byte-identical after the change.
+
+## Size
+
+The workshop fighter supports Size ×0.80–×1.10 in steps of 0.05, in both arena
+and dungeon setup. The legacy human remains fixed at ×1. Body geometry, skin,
+clothing and armour follow Size; the sword and shield retain their dimensions
+and masses. Empty hands scale with the body. Arm masses, inertia and drive clock
+follow the existing body size laws.
+
+Finger poses are fitted to the unchanged handles in normalized hand space.
+`assets/humanoid/workshop-size-grips.json` stores poses at 0.025 intervals;
+intermediate sizes interpolate rotations. Regenerate with Blender in background
+mode using `scripts/humanoid/fit-workshop-size-grips.py`. This writes metadata
+only: the original blend, GLB and textures remain unchanged. Shield straps refit
+to the scaled forearm while their board attachments remain fixed.
+
+`tests/workshop-size.test.mjs` covers model switching, serialization, scaled
+forward/inverse kinematics, grip interpolation and an awake Havok arm sweep at
+every offered size. `tests/attributes.test.mjs` measures whole-body scaling.
+
+Browser validation sampled 25 sizes (0.0125 spacing) against the rendered hand
+vertices and rigid handles: worst nearest contact gap 0.755 mm, worst penetration
+0.263 mm. All 16 loadouts rendered at ×0.8, ×1 and ×1.1. Arena selection/combat
+at ×0.8 and dungeon selection/entry at ×1.1 passed. The supported eight-second
+legacy-human mirror bout (seeds 17/29, `tests/harness/bout-runner.mjs`) remained
+byte-identical to the pre-change control.

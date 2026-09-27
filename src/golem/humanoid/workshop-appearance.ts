@@ -5,6 +5,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { Bone } from "@babylonjs/core/Bones/bone.js";
 import { Skeleton } from "@babylonjs/core/Bones/skeleton.js";
 import { visiblePart } from "../../character-lab/catalog.ts";
@@ -12,7 +13,7 @@ import { WORKSHOP_SHIELD_BOUNDS } from "./workshop-equipment.ts";
 import { workshopCaps } from "./workshop-caps.ts";
 import { compactWorkshopRegion } from "./workshop-region.ts";
 import { publicAssetUrl } from "../../asset-url.ts";
-import { WORKSHOP_SOURCE, type HumanAppearanceSetting } from "./workshop-profile.ts";
+import { WORKSHOP_SOURCE, workshopGrips, type HumanAppearanceSetting } from "./workshop-profile.ts";
 import type { HumanVisualPart } from "./appearance.ts";
 
 const assets = new WeakMap<Scene, AssetContainer>();
@@ -32,7 +33,7 @@ const palette = (skeleton: Skeleton) => new Map(skeleton.bones.map((bone,index)=
 
 /** Only achieved physical transforms enter this adapter. It owns no animation or collision. */
 export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPart[], side: string,
-  setting: HumanAppearanceSetting, kit: "empty" | "sword" | "shield" | "sword-shield") {
+  setting: HumanAppearanceSetting, kit: "empty" | "sword" | "shield" | "sword-shield", size = 1) {
   const asset = assets.get(scene);
   if (!asset) {
     if (scene.getEngine().getRenderingCanvas()) throw new Error("Workshop fighter assets were not loaded before construction");
@@ -53,7 +54,7 @@ export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPa
   const hosts = new Map(parts.map(part => [`${part.slot}.${part.id.split(".").pop()}`, part.host]));
   const frames = WORKSHOP_SOURCE.frames as Record<string, {position:number[];rotation:number[]}>;
   const definitions = WORKSHOP_SOURCE.bones as Record<string, {host:string}>;
-  const fingers = WORKSHOP_SOURCE.grips[kit] as Record<string,number[]>;
+  const fingers = workshopGrips(kit, size);
   const rows = nodes.filter(node => definitions[originalName(node)]).map(node => {
     const name = originalName(node), key = definitions[name].host;
     const rest = globals.get(node)!.clone(), restLocal = local(node);
@@ -82,6 +83,27 @@ export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPa
       const rest=offset.multiply(hand);
       mesh.makeGeometryUnique();mesh.skeleton=null;
       mesh.bakeTransformIntoVertices(globals.get(mesh)!.multiply(Matrix.Invert(rest)));
+      if (size !== 1 && name.startsWith("shield__forearm_strap_")) {
+        // Fit the loop to the scaled forearm, with its ends still on the rigid board.
+        // Coordinates here are relative to the unscaled shield collider's centre.
+        const points = mesh.getVerticesData("position")!;
+        const centre = WORKSHOP_SHIELD_BOUNDS.centre.add(new Vector3(0, .045, 0));
+        const palm = Vector3.FromArray(WORKSHOP_SOURCE.palm.secondary);
+        const boardX = WORKSHOP_SHIELD_BOUNDS.high[0];
+        let top = boardX;
+        for (let i = 0; i < points.length; i += 3) top = Math.max(top, points[i] + centre.x);
+        for (let i = 0; i < points.length; i += 3) {
+          const x = points[i] + centre.x;
+          const arch = Math.max(0, Math.min(1, (x - boardX) / (top - boardX)));
+          points[i] += (size - 1) * (x - palm.x) * arch;
+          points[i + 1] += (size - 1) * (points[i + 1] + centre.y - palm.y);
+          points[i + 2] += (size - 1) * (points[i + 2] + centre.z - palm.z);
+        }
+        mesh.setVerticesData("position", points, true);
+        const normals: number[] = [];
+        VertexData.ComputeNormals(points, mesh.getIndices()!, normals);
+        mesh.setVerticesData("normal", normals, true);
+      }
       mesh.parent=host;mesh.position.setAll(0);mesh.scaling.setAll(1);mesh.rotationQuaternion=Quaternion.Identity();
       mesh.metadata={...mesh.metadata,humanSlot:slot,humanLayer:"equipment"};meshes.push(mesh);
       continue;
@@ -120,7 +142,7 @@ export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPa
       const parentMatrix = achieved.get(parent) ?? globals.get(parent) ?? Matrix.Identity();
       const host = hosts.get(row.key);
       let matrix = row.finger ? row.restLocal.multiply(parentMatrix) : host
-        ? row.rest.multiply(row.inverse).multiply(Matrix.Compose(Vector3.One(),host.rotationQuaternion??Quaternion.Identity(),host.position))
+        ? row.rest.multiply(row.inverse).multiply(Matrix.Compose(Vector3.One().scale(size),host.rotationQuaternion??Quaternion.Identity(),host.position))
         : row.restLocal.multiply(parentMatrix);
       const suffix=row.name.endsWith("_r")?"primary":"secondary";
       const upperHelper=row.name.startsWith("upperarm_swing_")||row.name.startsWith("upperarm_twist_");
@@ -146,10 +168,10 @@ export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPa
           const anchorName=upperHelper?`upperarm_${row.name.endsWith("_r")?"r":"l"}`:`hand_${row.name.endsWith("_r")?"r":"l"}`;
           const source=WORKSHOP_SOURCE.bones[anchorName as keyof typeof WORKSHOP_SOURCE.bones].head;
           const sourceAnchor=new Vector3(-source[0],source[2],-source[1]);
-          const length=upperHelper?WORKSHOP_SOURCE.upperLength:WORKSHOP_SOURCE.foreLength;
+          const length=(upperHelper?WORKSHOP_SOURCE.upperLength:WORKSHOP_SOURCE.foreLength)*size;
           const anchor=new Vector3(0,(upperHelper?1:-1)*length/2,0).rotateByQuaternionToRef(q,new Vector3()).add(segment.position);
           matrix=row.rest.multiply(Matrix.Translation(-sourceAnchor.x,-sourceAnchor.y,-sourceAnchor.z))
-            .multiply(Matrix.Compose(Vector3.One(),delta,anchor));
+            .multiply(Matrix.Compose(Vector3.One().scale(size),delta,anchor));
         }
       }
       achieved.set(row.node,matrix);

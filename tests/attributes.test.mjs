@@ -28,7 +28,7 @@ import {
   withGolemSlot,
   withPolicy,
 } from "../src/bout.ts";
-import { bodyFamily, FAMILY_FIXED_ATTRIBUTES, FAMILY_POLICY } from "../src/golem/family.ts";
+import { bodyFamily, fixedAttributes, FAMILY_POLICY } from "../src/golem/family.ts";
 import { FAMILY_SETUP } from "../src/golem/family-setup.ts";
 import { randomViableOpponent } from "../src/golem/viability.ts";
 import { mulberry32 } from "../src/rng.ts";
@@ -1013,7 +1013,7 @@ test("size grows a whole golem about its feet: body parts by s in place and s^3 
     for (const s of [ATTRIBUTES.size.min, ATTRIBUTES.size.max]) {
       const k = s ** 3;
       for (const { name, setup } of PLAYABLE_BUILDS) {
-        if ("size" in FAMILY_FIXED_ATTRIBUTES[bodyFamily(setup)]) continue;
+        if ("size" in fixedAttributes(setup)) continue;
         const sized = withAttributeSetting(setup, { size: s });
         if (golemSetupRefusal(sized) !== null) {
           seen.refused.push(`${name} x${s}`);

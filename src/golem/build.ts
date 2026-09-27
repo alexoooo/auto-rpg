@@ -1,6 +1,6 @@
 import type { GolemEffectorSetup, GolemSetup } from "../bout.ts";
 import {
-  BODY_FAMILIES, FAMILY_FIXED_ATTRIBUTES, FAMILY_LABEL, bodyFamily, moduleFamily, type BodyFamily,
+  BODY_FAMILIES, fixedAttributes, FAMILY_LABEL, bodyFamily, moduleFamily, type BodyFamily,
 } from "./family.ts";
 import { ATTRIBUTES, attributesRefusal, isAttributeId, resolveAttributes } from "./attributes.ts";
 import type { WeaponKind } from "../hands.ts";
@@ -443,7 +443,7 @@ export function golemSetupRefusal(setup: GolemSetup): string | null {
   // The stats, checked here for the reason durability is: this is where every build is checked,
   // whether it came off the screen, out of a link, or out of a harness. A stat the family fixes is
   // refused off x1 by name rather than quietly built at x1.
-  for (const [id, reason] of Object.entries(FAMILY_FIXED_ATTRIBUTES[family])) {
+  for (const [id, reason] of Object.entries(fixedAttributes(setup))) {
     if (!isAttributeId(id) || (setup.attributes?.[id] ?? 1) === 1) continue;
     return `${ATTRIBUTES[id].label} is fixed at x1 on a ${FAMILY_LABEL[family].toLowerCase()}: ${reason}`;
   }
@@ -483,8 +483,9 @@ export function golemEffectorPlan(setup: GolemSetup): GolemEffectorPlan {
   const secondary = golemEffector(setup.secondary.chain, setup.secondary.terminal);
   if (!primary || !secondary) throw new Error("golem effector plan lost an option it had just found");
   if (setup.human) {
+    const {size, weight} = resolveAttributes(setup);
     const fit = (option: GolemEffectorOption): GolemEffectorOption => ({ ...option,
-      definition: effectorModule({ ...anatomicalChain, fitTerminal: workshopEquipment }, terminalOf(option.terminal!)) });
+      definition: effectorModule({ ...anatomicalChain, fitTerminal: terminal => workshopEquipment(terminal, size, weight) }, terminalOf(option.terminal!)) });
     return Object.freeze({primary:fit(primary),secondary:fit(secondary)});
   }
   return Object.freeze({ primary, secondary: primary.sockets === 2 ? null : secondary });
