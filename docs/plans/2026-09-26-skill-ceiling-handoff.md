@@ -7,8 +7,8 @@ apply.
 
 ## Current checkpoint (supersedes the historical notes below)
 
-Implementation and evidence through the 2026-09-27 trajectory follow-up are merged into local
-`main`. Latest full validation: 1095/1095 tests, typecheck and build. The workshop-fighter
+Implementation and evidence through the 2026-09-27 wrist-target continuation are merged into local
+`main`. Latest full validation: 1100/1100 tests, typecheck and build. The workshop-fighter
 integration from `origin/main` is included; this continuation has not pushed. The working
 implementation checkout is
 `.claude/worktrees/codex-command-surface`, branch `codex-command-surface`.
@@ -18,7 +18,7 @@ implementation checkout is
 | Sessions 01-05 | Complete; existing body release, exact forks, drills, expert and audit retained |
 | Session 06 orders | Complete |
 | Session 06 footwork channels | Complete measurements; stance and step fail the enablement gate and remain off |
-| Session 06 task-space effectors | Anatomical blade/fist/mace actuator, expert proposals and browser preview built; no headroom gain established; flag off |
+| Session 06 task-space effectors | Anatomical and stone/skeleton wrist blade/fist/mace actuators, expert proposals and browser preview built; no headroom gain established; flag off |
 | Session 07 prerequisites | All requested studies complete: fist-family, mace/maul size, human rate/torque/clamp and expert against brawler |
 | Session 07 body release | Owner choices/eye gate remain; no body removals or default retunes |
 | Sessions 08-09 | Not begun; depend on body-release decisions |
@@ -42,7 +42,9 @@ Completed evidence is tracked under `research/results/`. Read the updated analys
   in the sampled state. Do not start a larger headroom campaign on the strength of this grid.
 - `docs/analysis/2026-09-27-effector-trajectory-followup.md`: 64 further blade trajectory cells;
   a chamber raises one sampled contact to 6.25 J, still below the 10.62 J cut floor. The
-  experimental effector channel remains off and broader task actuators remain open.
+  experimental effector channel remains off.
+- `docs/analysis/2026-09-27-wrist-task-target.md`: stone and skeleton wrists now hold reachable
+  rigid single-socket world targets in the physical bench. Forearm shields and paired grips remain open.
 
 No development server from this continuation is left running. The owner's server is untouched.
 

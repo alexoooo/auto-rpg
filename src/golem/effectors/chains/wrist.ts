@@ -6,6 +6,7 @@ import {
 import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 
 import type { HandIntent } from "../../../mind.ts";
+import type { EffectorTarget } from "../../../body-command.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import type { Armour } from "../../../scoring.ts";
 import { slewTowards } from "../../anchor-drive.ts";
@@ -282,6 +283,11 @@ export function wristChainFrom<K extends ChainId>(
       let severed = false;
       /** Set once by `limp`: the wrist hangs, and nothing drives its roll or its bend again. */
       let limp = false;
+      let taskTarget: EffectorTarget | null = null;
+      let taskTipOffset = 0;
+      let taskSpeed = 1;
+      let taskForce = 1;
+      const taskRotation = new Quaternion();
 
       const wristAxes = [
         { id: "roll", commanded: 0, achieved: 0 },
@@ -445,6 +451,46 @@ export function wristChainFrom<K extends ChainId>(
       };
 
       /**
+       * Solve a requested business end with the axes this arm owns: three for the hand point,
+       * then roll and bend. A full quaternion can ask for a sixth axis this wrist does not have;
+       * its lateral and forward directions are projected onto the arm's real two angular stops.
+       * No achieved transform enters the solve, so physical lag cannot wind up the command.
+       */
+      const solveTask = (): void => {
+        if (!taskTarget) return;
+        const p = taskTarget.position;
+        const q = taskTarget.orientation;
+        taskRotation.copyFromFloats(q.x, q.y, q.z, q.w);
+        rotate(AXIS_X, taskRotation, scratch.ringX);
+        rotate(AXIS_DOWN, taskRotation, scratch.wristDown);
+        scratch.sendHand.copyFrom(core.commandedHand());
+        // A long mace overhang can make a full fixed-point correction cross the reachable
+        // shell and bounce between two branches. Six damped passes converge from the live
+        // commanded hand on the stone and skeletal blade, fist and mace benches.
+        for (let pass = 0; pass < AIM_PASSES * 2; pass += 1) {
+          core.basisAt(scratch.sendHand, aim.forearm, aim.lateral);
+          Vector3.CrossToRef(aim.lateral, aim.forearm, scratch.cross);
+          wantedRoll = clamp(Math.atan2(Vector3.Dot(scratch.ringX, scratch.cross),
+            Vector3.Dot(scratch.ringX, aim.lateral)), -rollLimit, rollLimit);
+          scratch.rolled.copyFrom(aim.lateral).scaleInPlace(Math.cos(wantedRoll))
+            .addInPlace(scratch.cross.scaleInPlace(Math.sin(wantedRoll)));
+          Vector3.CrossToRef(scratch.rolled, aim.forearm, scratch.cross);
+          const bend = Math.atan2(Vector3.Dot(scratch.wristDown, scratch.cross),
+            Vector3.Dot(scratch.wristDown, aim.forearm));
+          wantedBend = clamp(BEND_SIGN * bend, 0, bendLimit);
+          scratch.wristDir.copyFrom(aim.forearm).scaleInPlace(Math.cos(BEND_SIGN * wantedBend))
+            .addInPlace(scratch.cross.scaleInPlace(Math.sin(BEND_SIGN * wantedBend)));
+          scratch.end.copyFrom(aim.forearm).scaleInPlace(W.ringLength)
+            .addInPlace(scratch.wristDir.scaleInPlace(W.wristLength + taskTipOffset));
+          scratch.sendHand.set(
+            scratch.sendHand.x + .3 * (p.x - scratch.end.x - scratch.sendHand.x),
+            scratch.sendHand.y + .3 * (p.y - scratch.end.y - scratch.sendHand.y),
+            scratch.sendHand.z + .3 * (p.z - scratch.end.z - scratch.sendHand.z));
+        }
+        core.commandPoint(scratch.sendHand);
+      };
+
+      /**
        * The roll the ring actually achieved, radians.
        *
        * The ring's own +X expressed in the forearm's frame is `(cos r, 0, -sin r)` for a rotation
@@ -497,9 +543,22 @@ export function wristChainFrom<K extends ChainId>(
 
         command(next: HandIntent): void {
           if (severed) return;
+          taskTarget = null; taskTipOffset = 0; taskSpeed = 1; taskForce = 1;
+          core.adjustPoint(aimTipThrough);
+          core.setTaskDrive(1, 1);
           core.command(next);
           wantedRoll = clamp(next.roll * outboard, -rollLimit, rollLimit);
           wantedBend = clamp(next.wristBend, 0, 1) * bendLimit;
+        },
+
+        commandTarget(target: EffectorTarget, tipOffset: number): void {
+          if (severed) return;
+          taskTarget = { position: { ...target.position }, orientation: { ...target.orientation },
+            speed: target.speed, force: target.force };
+          taskTipOffset = tipOffset;
+          taskSpeed = target.speed; taskForce = target.force;
+          core.adjustPoint(null);
+          core.setTaskDrive(taskSpeed, taskForce);
         },
 
         /**
@@ -589,6 +648,7 @@ export function wristChainFrom<K extends ChainId>(
         },
         step(dt: number): void {
           if (severed) return;
+          solveTask();
           // Rate-limited, like every other command in a golem: the ceiling is what makes a flicked
           // key a turn rather than a snap, and it is the same `slewTowards` the anchor and rung 1's
           // hinge both use so the three cannot drift apart.
@@ -596,14 +656,14 @@ export function wristChainFrom<K extends ChainId>(
           // **Before the core steps, not after**, which is the whole of why this moved: the aim
           // correction below is a function of the roll and the bend, so a core stepped first would
           // spend the frame aiming through last frame's wrist.
-          commandedRoll = slewTowards(commandedRoll, wantedRoll, rates.rollRate, dt);
-          commandedBend = slewTowards(commandedBend, wantedBend, rates.bendRate, dt);
+          commandedRoll = slewTowards(commandedRoll, wantedRoll, rates.rollRate * taskSpeed, dt);
+          commandedBend = slewTowards(commandedBend, wantedBend, rates.bendRate * taskSpeed, dt);
           core.step(dt);
           if (rollJoint && !limp) {
-            rollServo.track(commandedRoll, dt, rollForce);
+            rollServo.track(commandedRoll, dt, rollForce * taskForce);
           }
           if (bendJoint && !limp) {
-            bendServo.track(BEND_SIGN * commandedBend, dt, bendForce);
+            bendServo.track(BEND_SIGN * commandedBend, dt, bendForce * taskForce);
           }
           wristAxes[0].commanded = commandedRoll;
           wristAxes[0].achieved = achievedRoll();
@@ -704,13 +764,14 @@ export function wristChainFrom<K extends ChainId>(
         // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
         captureState: (): Record<string, unknown> => ({
           rollJoint, bendJoint, rollForce, bendForce, wantedRoll, wantedBend, commandedRoll,
-          commandedBend, severed, limp, tipToSocket, core, wristAxes, aim, scratch, rollServo, bendServo,
+          commandedBend, severed, limp, tipToSocket, taskTarget, taskTipOffset, taskSpeed, taskForce,
+          core, wristAxes, aim, scratch, taskRotation, rollServo, bendServo,
           R, W, rates, along, axes,
         }),
         restoreState(state: Record<string, unknown>): void {
           ({
             rollJoint, bendJoint, rollForce, bendForce, wantedRoll, wantedBend, commandedRoll,
-            commandedBend, severed, limp, tipToSocket,
+            commandedBend, severed, limp, tipToSocket, taskTarget, taskTipOffset, taskSpeed, taskForce,
           } = state as never);
         },
       });

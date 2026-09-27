@@ -140,8 +140,10 @@ The write-up is `docs/analysis/2026-09-26-command-surface.md`.
 - **Task-space pilot built in the continuation.** Behind the off-by-default `effector` flag,
   the anatomical hand accepts a world business-end target, hand orientation, joint-speed fraction
   and force fraction. Blade, fist and mace are supported on either socket. Paired grips,
-  other chains and attachments remain open. See `docs/analysis/2026-09-26-effector-target.md`
-  for the bench and mutation checks.
+  other chains and attachments remained open at that checkpoint. The stone and skeleton wrist
+  chains now accept the same rigid single-socket targets; see
+  `docs/analysis/2026-09-27-wrist-task-target.md`. Forearm shields and paired grips remain open.
+  See `docs/analysis/2026-09-26-effector-target.md` for the anatomical bench and mutation checks.
 - **Task proposals built in the next continuation.** `expert-effector` explores endpoint sweeps,
   extensions, orientation, speed and force on declared live hands. The 45-bout ruler null remains
   identical. A hidden-state defect in the humanoid opponent model was repaired before screening;
