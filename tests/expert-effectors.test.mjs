@@ -129,10 +129,15 @@ test("task trajectories use each live socket, retain phase, and obey declaration
 });
 
 class Witnessed extends ExpertMind {
-  constructor(cfg, seed) { super(cfg, seed); this.seen = []; }
+  constructor(cfg, seed) { super(cfg, seed); this.seen = []; this.contacts = []; }
   prepare(host) {
     const due = super.prepare(host);
-    if (due) this.seen.push({ pose: poseHash(host.live), vE: host.live.left.vitality, vO: host.live.right.vitality });
+    if (due) {
+      this.seen.push({ pose: poseHash(host.live), vE: host.live.left.vitality, vO: host.live.right.vitality });
+      const { left, right } = host.live.forkWorld().roots.recorder.records;
+      this.contacts.push({ contactsE: left.contacts.primary + left.contacts.secondary,
+        contactsO: right.contacts.primary + right.contacts.secondary, blocksE: left.blocks, blocksO: right.blocks });
+    }
     return due;
   }
 }
@@ -152,16 +157,19 @@ test("the task expert evaluates targets and its exact rollouts predict the live 
       for (let i = 0; i + 1 < expert.seen.length; i++) {
         const prediction = expert.log[i].predicted;
         assert.deepEqual(expert.seen[i + 1], { pose: prediction.pose, vE: prediction.vE, vO: prediction.vO });
+        assert.deepEqual(prediction.contacts, Object.fromEntries(Object.entries(expert.contacts[i + 1])
+          .map(([key, value]) => [key, value - expert.contacts[i][key]])));
       }
       assert.ok(expert.seen.length >= 4);
       for (const entry of expert.log) {
         const chosen = entry.candidates.find(c => c.label === entry.label && c.total === entry.terms.total);
         assert.ok(chosen, "chosen rollout is absent from candidate scores");
         assert.equal(chosen.total, Math.max(...entry.candidates.map(c => c.total)));
-        const { label, vE, vO, ...terms } = chosen;
+        const { label, vE, vO, contacts, ...terms } = chosen;
         assert.deepEqual(terms, entry.terms);
         assert.equal(vE, entry.predicted.vE);
         assert.equal(vO, entry.predicted.vO);
+        assert.deepEqual(contacts, entry.predicted.contacts);
         for (const candidate of entry.candidates) {
           let total = 0;
           for (const key of ["damage", "end", "down", "position", "stall", "retreat"]) {

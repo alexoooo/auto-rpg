@@ -26,3 +26,31 @@ tie-break merely to force target use would not establish a benefit.
 Evidence: `research/results/2026-09-26-effector-candidate-probes.json`. Validation: 1086 tests,
 check/build, all 18 exact live predictions, and two caught trace mutations (missing opponent
 vitality and incorrect candidate totals). Effector remains off by default.
+
+## Contact continuation
+
+Trace-only recorder deltas now separate weapon contacts and blocks for each corner, measured
+between the start and end of each candidate rollout. These are reported hand-weapon events,
+not raw Havok contacts. Cumulative prelude contacts are subtracted. All 18 winners also match
+live contact/block deltas exactly, and every prior score, choice and pose remains unchanged.
+
+| Target family | Rollouts | With own reported contact | With opponent block | Own contacts / opponent blocks total |
+|---|---:|---:|---:|---:|
+| blade | 18 | 18 | 18 | 66 / 62 |
+| mace | 18 | 17 | 17 | 78 / 57 |
+| fist | 18 | 18 | 0 | 118 / 0 |
+
+Both bars remain exactly 1 in all 54 target rollouts. Thus these are mostly not misses: every
+blade target encounters a block, as do all but one mace target. Fists make reported contacts
+without recorded blocks and still cause no wound. The counts do not identify why every
+individual unblocked contact scores zero; that needs report-level speed, edge and armour data.
+
+The initial placement sweep also converges during warmup: actual blade gaps at the decision
+are 1.490-1.524 m, mace 1.354-1.391 m, fists 0.687-0.775 m. It did not create three distinct
+engagement ranges. Further diagnostics should select the engagement state itself, then test
+trajectory line, timing and edge presentation against these guards before another headroom run.
+The existing tie-break and all defaults remain unchanged.
+
+Evidence: `research/results/2026-09-26-effector-candidate-contacts.json`. Validation: 1086 tests,
+check/build; exact playback of poses, bars and counters; two additional caught mutations
+(cumulative counts instead of deltas, missing candidate contact trace).

@@ -28,13 +28,25 @@ export async function effectorCandidateProbe({ terminal = "blade", side = "left"
     // Before its first search, the expert uses its normal shadow-policy continuation.
     for (let i = 0; i < 45 && bout.active; i++) bout.step();
     if (!bout.active) throw new Error("candidate probe ended during warmup");
-    const before = { pose: poseHash(bout), vE: bout[side].vitality, vO: bout[other].vitality };
+    const counts = () => {
+      const records = bout.forkWorld().roots.recorder.records;
+      const own = records[side], opponent = records[other];
+      return { contactsE: own.contacts.primary + own.contacts.secondary,
+        contactsO: opponent.contacts.primary + opponent.contacts.secondary,
+        blocksE: own.blocks, blocksO: opponent.blocks };
+    };
+    const me = bout[side].view.self.ground, them = bout[other].view.self.ground;
+    const before = { pose: poseHash(bout), vE: bout[side].vitality, vO: bout[other].vitality,
+      gapM: Math.hypot(me.x - them.x, me.z - them.z), contacts: counts() };
     await expert.beforeFrame(boutHost(bout, base, side));
     if (poseHash(bout) !== before.pose) throw new Error("search changed the live pose");
     const decision = expert.log.at(-1);
     for (let i = 0; i < 60 && bout.active; i++) bout.step();
-    const live = { pose: poseHash(bout), vE: bout[side].vitality, vO: bout[other].vitality };
-    const predictionMatches = Object.entries(live).every(([key, value]) => decision.predicted[key] === value);
+    const live = { pose: poseHash(bout), vE: bout[side].vitality, vO: bout[other].vitality,
+      contacts: Object.fromEntries(Object.entries(counts()).map(([key, value]) => [key, value - before.contacts[key]])) };
+    const predictionMatches = Object.entries(live).every(([key, value]) => key === "contacts"
+      ? Object.entries(value).every(([field, count]) => decision.predicted.contacts[field] === count)
+      : decision.predicted[key] === value);
     if (!predictionMatches) throw new Error("winning candidate prediction did not match live playback");
     return { terminal, side, separation, before, chosen: decision.label, terms: decision.terms,
       candidates: decision.candidates, spread: decision.spread, tied: decision.tied, live, predictionMatches };

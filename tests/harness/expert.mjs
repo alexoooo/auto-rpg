@@ -728,6 +728,15 @@ export function poseHash(world) {
   return createHash("sha256").update(new Uint8Array(new Float64Array(values).buffer)).digest("hex").slice(0, 16);
 }
 
+/** Optional hand-weapon report counts; these are not raw solver contacts. */
+function traceContacts(world, E) {
+  const records = world.forkWorld().roots.recorder.records;
+  const own = records[E], opponent = records[other(E)];
+  return { contactsE: own.contacts.primary + own.contacts.secondary,
+    contactsO: opponent.contacts.primary + opponent.contacts.secondary,
+    blocksE: own.blocks, blocksO: opponent.blocks };
+}
+
 /** The readings the objective takes at either end of a rollout. */
 function reading(world, E, band) {
   const O = other(E);
@@ -854,6 +863,7 @@ export class ExpertMind {
         for (const stream of randomStreams(this.pool.slots.O.mind)) { stream.reseed(mixSeed(reseed, i)); i += 1; }
       }
       const start = reading(world, E, config.band);
+      const contactStart = config.trace ? traceContacts(world, E) : null;
       // In a drill, the drill's own judge over the rollout, and no further than the rung runs.
       const task = config.task && host.task ? host.task(world) : null;
       const frames = Math.min(Math.round(config.horizon / FRAME), task ? task.remaining : Infinity);
@@ -864,7 +874,11 @@ export class ExpertMind {
       }
       const end = reading(world, E, config.band);
       cost.simulate += performance.now() - clock;
-      if (config.trace) end.pose = poseHash(world);
+      if (config.trace) {
+        end.pose = poseHash(world);
+        end.contacts = Object.fromEntries(Object.entries(traceContacts(world, E))
+          .map(([key, value]) => [key, value - contactStart[key]]));
+      }
       const score = scoreRollout(start, end, config.weights);
       if (task) { score.task = task.value(); score.total += score.task; }
       return { ...score, predicted: config.trace ? end : undefined };
@@ -897,7 +911,7 @@ export class ExpertMind {
       t: clock, on: at.clock, label: best.plan.label, n: scored.length,
       terms, ...(predicted ? { predicted } : {}),
       ...(config.trace ? { candidates: scored.map(({ plan, score: { predicted, ...terms } }) =>
-        ({ label: plan.label, ...terms, vE: predicted.vE, vO: predicted.vO })) } : {}),
+        ({ label: plan.label, ...terms, vE: predicted.vE, vO: predicted.vO, contacts: predicted.contacts })) } : {}),
       spread: Math.max(...totals) - Math.min(...totals),
       tied: totals.filter((total) => total === best.score.total).length,
       ms: performance.now() - started + moment.ms, cost,
