@@ -7,10 +7,12 @@ import { attributeOf } from "../attributes.ts";
 import { defineChain, type BuiltChain, type GolemPart } from "../module.ts";
 import { ARM_STROKES, restCursor } from "../effectors/chains/arm-core.ts";
 import { ARM_IDS, ARM_LIMITS, ARM_REST, armForward, clamp, solveArm, validOrientation, rotationError, measureArm } from "./kinematics.ts";
-import { PALM_GRIP, HUMAN_MOUNT } from "./grip.ts";
+import { HUMAN_MOUNT } from "./grip.ts";
 import { carryOrientation } from "./orientation.ts";
 import { solveTaskEndpoint } from "./task-kinematics.ts";
 import { humanEquipment } from "./equipment.ts";
+import { workshopArm } from "./workshop-profile.ts";
+import { LEGACY_ARM_GEOMETRY } from "./kinematics.ts";
 import type { HandIntent } from "../../mind.ts";
 import type { EffectorTarget } from "../../body-command.ts";
 
@@ -33,6 +35,9 @@ export const anatomicalChain = defineChain({
   id: "anatomical", fitTerminal: humanEquipment, label: "anatomical arm - full hand pose", axes: 7,
   strokes: ARM_STROKES, pointTarget: true, massKg: MASSES.reduce((a, b) => a + b), swingInertia: 0.8,
   build(ctx, limits, crossing, _carriedKg, mount): BuiltChain {
+    const geometry = ctx.human ? workshopArm(ctx.socket.outboard) : LEGACY_ARM_GEOMETRY;
+    const equipmentMount = ctx.human ? { axis: Vector3.Up(), perp: Vector3.Forward() } : HUMAN_MOUNT;
+    const forward = (angles: readonly number[]) => armForward(angles, geometry);
     const side = ctx.socket.outboard;
     // The body's arm-speed stat, on every coordinate's rate (`withArmSpeed` says why the rate and
     // not the torque). The +-8 clamp on a drive target below is a bound on the command, not a rate.
@@ -114,10 +119,10 @@ export const anatomicalChain = defineChain({
       // Task commands specify the complete pose. A soft elbow-pole objective would compete with
       // that pose and bias a reachable endpoint; joint stops and the envelope still constrain it.
       desired = solveArm(p, forced ? (forcedOrientation ? socketRotation().conjugate().multiply(forcedOrientation) : null) : orientation,
-        desired, 24, exactTask ? 0 : side, supported);
-      if (exactTask && Vector3.Distance(armForward(desired).point, p) > .001) {
+        desired, 24, exactTask ? 0 : side, supported, geometry);
+      if (exactTask && Vector3.Distance(forward(desired).point, p) > .001) {
         // First restore the clamped palm; the carried endpoint is handled separately below.
-        desired = solveArm(p, null, desired, 24, 0, supported);
+        desired = solveArm(p, null, desired, 24, 0, supported, geometry);
       }
       if (exactTask && forced && forcedOrientation) {
         const offset = HUMAN_MOUNT.perp.scale(taskTipOffset);
@@ -146,11 +151,11 @@ export const anatomicalChain = defineChain({
       solve();
       if (desired.every((a, i) => Math.abs(a - before[i]) < 1e-9)) break;
     }
-    const initial = [...desired], bind = armForward(initial);
+    const initial = [...desired], bind = forward(initial);
     const bodies: Part[] = [], constraints: ReturnType<typeof joint>[] = [];
     const toWorld = (p: Vector3) => rotate(p, ctx.socket.rotation).addInPlace(ctx.socket.world);
     const actuators: JointActuator[][] = [];
-    const groups = [2, 4, 6], ids = ["upper", "fore", "hand"], lengths = [.32, .27, .09];
+    const groups = [2, 4, 6], ids = ["upper", "fore", "hand"], lengths = [geometry.lengths[2], geometry.lengths[3], geometry.lengths[6]];
     for (let i = 0; i < 3; i++) {
       const frame = bind.frames[groups[i]], proximal = bind.frames[i === 0 ? 0 : i === 1 ? 3 : 5].pivot;
       const distal = i === 0 ? bind.frames[2].end : i === 1 ? bind.frames[3].end : bind.frames[6].end;
@@ -180,10 +185,10 @@ export const anatomicalChain = defineChain({
     const parts: GolemPart[] = bodies.map((part, i) => ({ id: part.name, part, shell: [],
       health: i < 2 ? 100 : 70, vitalityWeight: i < 2 ? .025 : .015,
       fatal: false, armour: .35, combatRole: "body", appearance: "human" }));
-    const hand = bodies[2], handPivot = PALM_GRIP.clone();
+    const hand = bodies[2], handPivot = geometry.palm.clone();
     const release = () => actuators.flat().forEach(a => a.release());
     let angles = [...initial], stopped = false, passive = false, solveTime = 0;
-    let commanded = armForward(angles);
+    let commanded = forward(angles);
     const axes = ARM_IDS.map((id, i) => ({ id, commanded: initial[i], achieved: initial[i] }));
     const worldCommand = () => rotate(commanded.point, socketRotation()).addInPlace(socketPoint());
     // The stray is read against the point the drive is steering to, as the golem arm's is (see
@@ -199,7 +204,7 @@ export const anatomicalChain = defineChain({
     let previousAngles = [...initial];
     let previousRotations = groups.map(i => bind.frames[i].rotation.clone());
     const handWeld = { kind: "hand" as const, link: hand, pivot: handPivot, world: toWorld(bind.point),
-      rotation: hand.mesh.rotationQuaternion!.clone(), mount: HUMAN_MOUNT };
+      rotation: hand.mesh.rotationQuaternion!.clone(), mount: equipmentMount };
     return {
       attachment(kind) {
         if (kind === "hand") return handWeld;
@@ -211,7 +216,7 @@ export const anatomicalChain = defineChain({
         constraints[2].setAxisMaxLimit(PhysicsConstraintAxis.ANGULAR_X, 0);
         constraints[2].setAxisMinLimit(PhysicsConstraintAxis.ANGULAR_Y, 0);
         constraints[2].setAxisMaxLimit(PhysicsConstraintAxis.ANGULAR_Y, 0);
-        return { kind, link: bodies[1], pivot: new Vector3(0, -.27 / 2, 0),
+        return { kind, link: bodies[1], pivot: new Vector3(0, -lengths[1] / 2, 0),
           world: toWorld(bind.frames[3].end), rotation: bodies[1].mesh.rotationQuaternion!.clone(), mount: HUMAN_MOUNT };
       },
       parts, weld: handWeld, ownTerminal: null, reach: reachable.reachMax,
@@ -238,7 +243,7 @@ export const anatomicalChain = defineChain({
         if (solveTime >= 1 / 60) { solve(); solveTime = 0; }
         angles = angles.map((a, i) => a + clamp(desired[i] - a, -rates[i] * taskSpeed * dt, rates[i] * taskSpeed * dt));
         previousPoint.copyFrom(commanded.point); lastStep = dt;
-        commanded = armForward(angles);
+        commanded = forward(angles);
         const rotations = groups.map(i => commanded.frames[i].rotation);
         const achieved = measureArm(bodies.map(b => socketRotation().conjugate().multiply(b.mesh.rotationQuaternion!)), angles);
         // The golem servo's law, held to the tuning rate the same way (`servoLead` and `servoGain`
@@ -281,7 +286,7 @@ export const anatomicalChain = defineChain({
       captureState: (): Record<string, unknown> => ({
         supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime, taskSpeed, taskForce, exactTask, taskTipOffset,
         commanded, previousAngles, previousRotations, lastStep,
-        ctx, rates, reachable, bind, bodies, constraints, actuators, groups, axes, handPivot, handWeld,
+        ctx, rates, reachable, bind, bodies, constraints, actuators, groups, axes, handPivot, handWeld, geometry, lengths,
         previousPoint, initial,
       }),
       restoreState(state: Record<string, unknown>): void {

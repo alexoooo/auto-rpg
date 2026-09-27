@@ -11,6 +11,7 @@ export const HUMAN_BUILDS = [
   { name: "human-dual-swords", setup: humanSetup("blade", "blade") },
   { name: "human-unarmed", setup: humanSetup("fist", "fist") },
   { name: "human-maul", setup: humanSetup("maul", "maul") },
+  { name: "workshop-fighter", setup: { ...humanSetup(), human: { model: "workshop-fighter" as const, boots: true, armour: true } } },
 ];
 export const hasAnatomicalArm = (setup?: GolemSetup): boolean =>
   setup?.primary.chain === "anatomical" || setup?.secondary.chain === "anatomical";

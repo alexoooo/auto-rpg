@@ -371,6 +371,7 @@ export interface GolemSocket {
 }
 
 export interface ModuleBuild {
+  readonly human?: import("./humanoid/workshop-profile.ts").HumanAppearanceSetting;
   readonly scene: Scene;
   readonly side: Side;
   /** Name prefix for every body and mesh, so two golems in one scene can be told apart. */

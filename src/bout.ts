@@ -160,6 +160,7 @@ export interface GolemEffectorSetup {
  * is choosing equipment.
  */
 export interface GolemSetup {
+  human?: import("./golem/humanoid/workshop-profile.ts").HumanAppearanceSetting;
   family?: import("./golem/family.ts").BodyFamily;
   locomotion: string;
   torso: string;
@@ -226,6 +227,7 @@ export interface SideSetup {
 }
 
 const copyGolem = (setup: GolemSetup): GolemSetup => ({
+  ...(setup.human ? { human: { ...setup.human } } : {}),
   ...(setup.family ? { family: setup.family } : {}),
   locomotion: setup.locomotion,
   torso: setup.torso,
@@ -579,6 +581,11 @@ const readGolem = (value: unknown): GolemSetup | null => {
   if (value.family !== undefined) {
     if (!isBodyFamily(value.family)) return null;
     golem.family = value.family;
+  }
+  if (value.human !== undefined) {
+    if (!isRecord(value.human) || value.human.model !== "workshop-fighter"
+      || typeof value.human.boots !== "boolean" || typeof value.human.armour !== "boolean") return null;
+    golem.human = { model: "workshop-fighter", boots: value.human.boots, armour: value.human.armour };
   }
   if (value.attributes !== undefined) {
     const attributes = readAttributes(value.attributes);

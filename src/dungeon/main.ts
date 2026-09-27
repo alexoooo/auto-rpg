@@ -1,4 +1,5 @@
 import { loadHumanAssets } from "../golem/humanoid/appearance.ts";
+import { loadWorkshopAssets } from "../golem/humanoid/workshop-appearance.ts";
 import { loadSkeletonAssets } from "../golem/skeleton/appearance.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
@@ -66,6 +67,10 @@ for (const build of WALKERS) {
 }
 
 const heroEquipment = need("hero-equipment");
+const workshopAppearance=document.createElement("div");
+workshopAppearance.hidden=true;
+workshopAppearance.innerHTML='<label><input type="checkbox" data-workshop="boots" checked> Boots</label> <label><input type="checkbox" data-workshop="armour" checked> Armour</label><p>Appearance only; human protection is unchanged.</p>';
+heroEquipment.append(workshopAppearance);
 const heroPrimary = need<HTMLSelectElement>("hero-primary"), heroSecondary = need<HTMLSelectElement>("hero-secondary");
 const heroSetup = () => PLAYABLE_BUILDS.find(b => b.name === heroBuild.value)?.setup;
 /** How the chosen hero's hands are armed, or null for a family whose weapons are its build. */
@@ -74,10 +79,12 @@ const heroArming = () => { const setup = heroSetup(); return setup ? ARMED_SETUP
 // setup screen offers for those chains.
 const updateEquipment = () => {
   const setup = heroSetup();
+  workshopAppearance.hidden=!setup?.human;
   heroEquipment.hidden = !heroArming();
   if (!setup || heroEquipment.hidden) return;
   for (const [picker, hand] of [[heroPrimary, setup.primary], [heroSecondary, setup.secondary]] as const) {
-    picker.replaceChildren(...golemTerminalOptions(hand.chain).map(({ id, label }) => {
+    picker.replaceChildren(...golemTerminalOptions(hand.chain).filter(option=>!setup.human
+      || (picker===heroPrimary?["blade","fist"]:["plate","fist"]).includes(option.id)).map(({ id, label }) => {
       const option = document.createElement("option"); option.value = id; option.textContent = label; return option;
     }));
     picker.value = hand.terminal;
@@ -140,7 +147,7 @@ async function boot(): Promise<void> {
     frameDungeon(camera, hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
     lighting.update(hero, zoom, pitch, toward); run.world.setHero(hero);
   };
-  const rebuild = (nextSeed: number) => {
+  const rebuild = async (nextSeed: number) => {
     audio.reset(); soundTorches = [];
     lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
     seed = nextSeed >>> 0; scene = new Scene(engine);
@@ -148,6 +155,7 @@ async function boot(): Promise<void> {
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
+    await loadWorkshopAssets(scene);
     run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: stone.masonry }, undefined, selectedEquipment, companions, undefined, (attacker, event) => {
       if (!run || !run.visible.has(cellKey(run.map, event.report.point))) return;
       const target = run.actors.find(a => a.id === event.report.targetId);
@@ -176,14 +184,17 @@ async function boot(): Promise<void> {
     Object.assign(window, { __dungeon: { get run() { return run; }, get scene() { return scene; }, get camera() { return camera; },
       get lighting() { return lighting; }, look: probe, engine } });
   };
-  const launch = (nextSeed: number) => {
-    try { rebuild(nextSeed); }
+  let launching=false;
+  const launch = async (nextSeed: number) => {
+    if(launching)return;
+    launching=true;start.disabled=true;
+    try { await rebuild(nextSeed); }
     catch (error) {
       audio.setActive(false);
       lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null;
       need("start-panel").hidden = false; need("pause-panel").hidden = true;
       need("notice").textContent = `Could not build this dungeon: ${String(error)}`; console.error(error);
-    }
+    } finally { launching=false;start.disabled=false; }
   };
   const modeChanged = () => {
     held.clear(); run?.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
@@ -200,6 +211,9 @@ async function boot(): Promise<void> {
     companions = companionBuilds(selectedBuild, Number(companionCount.value));
     const arm = heroArming();
     selectedEquipment = arm ? arm(heroPrimary.value, heroSecondary.value) : undefined;
+    if(selectedEquipment && heroSetup()?.human) selectedEquipment.human={model:"workshop-fighter",
+      boots:workshopAppearance.querySelector<HTMLInputElement>('[data-workshop="boots"]')!.checked,
+      armour:workshopAppearance.querySelector<HTMLInputElement>('[data-workshop="armour"]')!.checked};
     // A hero somebody tuned is handed over as a whole setup; one nobody tuned goes the way it always
     // did, so a default run is the run it was.
     const base = selectedEquipment ?? heroSetup();

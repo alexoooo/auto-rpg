@@ -43,7 +43,7 @@ import { swordHiltShell, socketShell } from "../shell.ts";
  * its whole life because of it. A terminal that ever grows a second leaf sets the masks on
  * each leaf.
  */
-export const bladeDefinition = (gripToBlade = 0) => defineTerminal({
+export const bladeDefinition = (gripToBlade = 0, geometry = TERMINAL_BLADE) => defineTerminal({
   id: "blade",
   rigidTip: true,
   sockets: 1,
@@ -53,13 +53,13 @@ export const bladeDefinition = (gripToBlade = 0) => defineTerminal({
   // wounds nothing, so it can neither be beaten to nothing nor take the arm off with it. The owner,
   // 2026-09-23, asked whether a held blade, mace and maul should stop taking damage: "yes".
   partRole: "equipment",
-  massKg: TERMINAL_BLADE.mass,
+  massKg: geometry.mass,
   // One socket, one body, nothing taken away: a blade on the end of an arm reaches everywhere
   // the arm does. Session 04's mace is the only terminal in the shelf that narrows anything.
   limits: null,
 
   build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal {
-    const B = TERMINAL_BLADE;
+    const B = geometry;
     const name = `${ctx.name}.blade`;
 
     // The rotation the weld is about to demand, rather than the golem's own.

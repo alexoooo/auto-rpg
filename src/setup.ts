@@ -30,6 +30,7 @@ import {
   BODY_FAMILIES, FAMILY_FIXED_ATTRIBUTES, FAMILY_LABEL, FAMILY_POLICY, bodyFamily, isBodyFamily, moduleFamily,
 } from "./golem/family.ts";
 import { FAMILY_SETUP } from "./golem/family-setup.ts";
+import { humanSetup } from "./golem/humanoid/presets.ts";
 import { AUTO_COMMANDERS, isAutoCommanderName, type AutoCommanderName } from "./orders";
 
 /**
@@ -318,6 +319,16 @@ export class SetupScreen {
             + `${FAMILY_LABEL[family]}</button>`).join("")}
         </div>
         <div class="section-head">Build</div>
+        <div data-side="${side}" data-wrap="humanModel" hidden>
+          <label>Character <select data-side="${side}" data-field="humanModel">
+            <option value="legacy">Legacy warrior</option><option value="workshop-fighter">Workshop fighter</option>
+          </select></label>
+          <span data-side="${side}" data-wrap="humanAppearance" hidden>
+            <label><input type="checkbox" data-side="${side}" data-field="humanBoots"> Boots</label>
+            <label><input type="checkbox" data-side="${side}" data-field="humanArmour"> Armour</label>
+            <small>Appearance only; human protection is unchanged.</small>
+          </span>
+        </div>
         <ul class="build-rows" data-side="${side}" data-field="build"></ul>
         <div class="customize" data-side="${side}" data-wrap="customize" hidden>
           ${GOLEM_FIELDS.map(({ field, label }) => `
@@ -357,6 +368,20 @@ export class SetupScreen {
     if (side !== "left" && side !== "right") return;
 
     switch (target.dataset.field) {
+      case "humanModel": {
+        const build=humanSetup();
+        if(target.value==="workshop-fighter")build.human={model:"workshop-fighter",boots:true,armour:true};
+        this.matchup=withGolemBuild(this.matchup,side,build,randomSeed());
+        break;
+      }
+      case "humanBoots":
+      case "humanArmour": {
+        const build=this.matchup[side].golem;
+        if(!build?.human)return;
+        const human={...build.human,[target.dataset.field==="humanBoots"?"boots":"armour"]:(target as HTMLInputElement).checked};
+        this.matchup=withGolemBuild(this.matchup,side,{...build,human},this.matchup[side].seed??randomSeed());
+        break;
+      }
       case "showAllPolicies":
         this.showAllPolicies[side] = (target as HTMLInputElement).checked;
         this.render();
@@ -618,6 +643,11 @@ export class SetupScreen {
         button.setAttribute("aria-pressed", String(current));
       }
       const open = build !== null && this.customizing[side];
+      this.host.querySelector<HTMLElement>(`[data-side="${side}"][data-wrap="humanModel"]`)!.hidden=!build||bodyFamily(build)!=="human";
+      this.host.querySelector<HTMLSelectElement>(`[data-side="${side}"][data-field="humanModel"]`)!.value=build?.human?.model??"legacy";
+      this.host.querySelector<HTMLElement>(`[data-side="${side}"][data-wrap="humanAppearance"]`)!.hidden=!build?.human;
+      for(const [field,value]of [["humanBoots",build?.human?.boots],["humanArmour",build?.human?.armour]]as const)
+        this.host.querySelector<HTMLInputElement>(`[data-side="${side}"][data-field="${field}"]`)!.checked=!!value;
       this.customizePanels[side].hidden = !open;
       // Customize swaps the summary for the pickers rather than stacking them under it: the rows
       // say what the pickers say, and a panel with both is taller than a laptop window.
@@ -652,7 +682,8 @@ export class SetupScreen {
           fill(chainField, golemChainOptions(family), pick.chain);
           // Only the terminals this chain is actually offered with, which is the picker "hides
           // pairs the registry does not have" with the registry itself as the list.
-          fill(terminalField, golemTerminalOptions(pick.chain), pick.terminal);
+          fill(terminalField, golemTerminalOptions(pick.chain).filter(option=>!build.human
+            || (socket==="primary"?["blade","fist"]:["plate","fist"]).includes(option.id)), pick.terminal);
           // And the bin beside the shelf. A key the bin no longer holds is offered back as a
           // disabled row naming itself, which is exactly how an incompatible policy is shown
           // above -- the person sees what happened, and `refusal` blocks Fight until they choose.

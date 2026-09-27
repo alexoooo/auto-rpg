@@ -51,6 +51,7 @@ import { gaitLocomotionCommand, hobble, type BuiltLocomotion } from "./locomotio
 import { stepTravel } from "../step-target.ts";
 import { dressGolemPart } from "./appearance.ts";
 import { dressHumanoid } from "./humanoid/appearance.ts";
+import { dressWorkshopFighter } from "./humanoid/workshop-appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
 import {
   axisCeiling,
@@ -405,7 +406,7 @@ export class Golem implements Combatant, Topological {
   private readonly asPressSource: PressSource;
 
   constructor(scene: Scene, options: GolemOptions) {
-    // fork: config -- names: options. The build's arguments, read by closures made below and never written.
+    // fork: config -- names: options, setup. The build's arguments, read by closures made below and never written.
     this.side = options.side;
     this.actorId = options.actorId;
     const setup = options.setup;
@@ -422,9 +423,9 @@ export class Golem implements Combatant, Topological {
     this.materials = golemMaterials(scene, options.side, "procedural-pbr");
     const facing = Quaternion.RotationAxis(UP, options.facing);
 
-    const locomotionDefinition = golemLocomotion(setup.locomotion);
-    const torsoDefinition = golemTorso(setup.torso);
-    const headDefinition = golemHead(setup.head);
+    const locomotionDefinition = golemLocomotion(setup.locomotion, setup.human);
+    const torsoDefinition = golemTorso(setup.torso, setup.human);
+    const headDefinition = golemHead(setup.head, setup.human);
     if (!locomotionDefinition || !torsoDefinition || !headDefinition) {
       this.materials.dispose();
       throw new Error(`golem build names a module that is not assemblable: ${setup.locomotion}, ${setup.torso}, ${setup.head}`);
@@ -463,6 +464,7 @@ export class Golem implements Combatant, Topological {
       world: options.locomotionWorld,
       tone: this.tone,
       attributes: this.attributes,
+      human: setup.human,
     });
 
     // --- locomotion, then the torso on its root, then the head and both effectors -------------
@@ -605,7 +607,9 @@ export class Golem implements Combatant, Topological {
       policies: options.controlPolicies,
       policyFactory: options.controlPolicyFactory,
     });
-    this.humanAppearance = dressHumanoid(scene, this.visualBindings, this.side);
+    this.humanAppearance = setup.human ? dressWorkshopFighter(scene, this.visualBindings, this.side, setup.human,
+      setup.primary.terminal === "blade" ? setup.secondary.terminal === "plate" ? "sword-shield" : "sword"
+        : setup.secondary.terminal === "plate" ? "shield" : "empty") : dressHumanoid(scene, this.visualBindings, this.side);
     for (const mesh of this.humanAppearance?.meshes ?? []) { this.owned.add(mesh); this.costume.push(mesh); }
 
     // Every part is watched, because a lift or a push can arrive on any of them: a blade under the

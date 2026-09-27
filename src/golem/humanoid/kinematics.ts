@@ -6,22 +6,29 @@ import { PALM_GRIP } from "./grip.ts";
 export const ARM_AXES = [Vector3.Up(), Vector3.Right(), Vector3.Up(), Vector3.Right(),
   Vector3.Up(), Vector3.Right(), Vector3.Forward()];
 export const ARM_LENGTHS = [0, 0, 0.32, 0.27, 0, 0, 0.09];
+/** Geometry is per body. Omitting it retains the legacy warrior's exact arithmetic. */
+export interface HumanArmGeometry {
+  readonly lengths: readonly number[];
+  readonly palm: Vector3;
+}
+export const LEGACY_ARM_GEOMETRY: HumanArmGeometry = { lengths: ARM_LENGTHS, palm: PALM_GRIP };
 export const ARM_LIMITS = [[-2.5, 2.5], [-2.7, 1.4], [-1.6, 1.6], [-2.65, -0.04],
   [-1.5, 1.5], [-0.85, 0.85], [-0.5, 0.5]] as const;
 export const ARM_REST = [0, 0.35, 0, -1.3, 0, 0, 0];
 export const ARM_IDS = ["shoulderYaw", "shoulderPitch", "upper", "fore", "pronation", "wrist", "hand"];
 export const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
 
-export function armForward(angles: readonly number[]) {
+export function armForward(angles: readonly number[], geometry = LEGACY_ARM_GEOMETRY) {
+  const { lengths, palm } = geometry;
   let rotation = Quaternion.Identity(), point = Vector3.Zero();
   const frames: { pivot: Vector3; rotation: Quaternion; end: Vector3; axis: Vector3 }[] = [];
   for (let i = 0; i < 7; i++) {
     const axis = ARM_AXES[i].rotateByQuaternionToRef(rotation, new Vector3());
     rotation = rotation.multiply(Quaternion.RotationAxis(ARM_AXES[i], angles[i])).normalize();
-    const end = new Vector3(0, -ARM_LENGTHS[i], 0).rotateByQuaternionToRef(rotation, new Vector3()).addInPlace(point);
+    const end = new Vector3(0, -lengths[i], 0).rotateByQuaternionToRef(rotation, new Vector3()).addInPlace(point);
     frames.push({ pivot: point, rotation, end, axis }); point = end;
   }
-  point = frames[6].pivot.add(new Vector3(0, -ARM_LENGTHS[6] / 2, 0).add(PALM_GRIP).rotateByQuaternionToRef(rotation, new Vector3()));
+  point = frames[6].pivot.add(new Vector3(0, -lengths[6] / 2, 0).add(palm).rotateByQuaternionToRef(rotation, new Vector3()));
   return { point, rotation, frames };
 }
 
@@ -34,17 +41,18 @@ export function rotationError(wanted: Quaternion, actual: Quaternion): Vector3 {
 }
 
 /** Bounded damped least-squares solve. It reads commanded geometry, never physical lag. */
-export function solveArm(point: Vector3, orientation: Quaternion | null, previous = ARM_REST, passes = 18, side = 0, supported = false): number[] {
+export function solveArm(point: Vector3, orientation: Quaternion | null, previous = ARM_REST, passes = 18, side = 0, supported = false, geometry = LEGACY_ARM_GEOMETRY): number[] {
+  const upper = geometry.lengths[2], fore = geometry.lengths[3];
   const q = [...previous];
   if (supported) q[5] = q[6] = 0;
-  const wrist = orientation ? point.subtract(new Vector3(0, -.045, 0).add(PALM_GRIP).rotateByQuaternionToRef(orientation, new Vector3())) : point;
-  const distance = clamp(wrist.length(), .08, .585), direction = wrist.normalizeToNew();
-  const along = (.32 * .32 - .27 * .27 + distance * distance) / (2 * distance);
+  const wrist = orientation ? point.subtract(new Vector3(0, -geometry.lengths[6] / 2, 0).add(geometry.palm).rotateByQuaternionToRef(orientation, new Vector3())) : point;
+  const distance = clamp(wrist.length(), .08, geometry === LEGACY_ARM_GEOMETRY ? .585 : upper + fore - .005), direction = wrist.normalizeToNew();
+  const along = (upper * upper - fore * fore + distance * distance) / (2 * distance);
   const pole = new Vector3(side * .8, -1, -.2);
   pole.subtractInPlace(direction.scale(Vector3.Dot(pole, direction))).normalize();
-  const elbow = direction.scale(along).add(pole.scale(Math.sqrt(Math.max(0, .32 * .32 - along * along))));
+  const elbow = direction.scale(along).add(pole.scale(Math.sqrt(Math.max(0, upper * upper - along * along))));
   for (let pass = 0; pass < passes; pass++) {
-    const f = armForward(q), dp = point.subtract(f.point);
+    const f = armForward(q, geometry), dp = point.subtract(f.point);
     const dr = orientation ? rotationError(orientation, f.rotation).scale(0.3) : Vector3.Zero();
     if (dp.length() < 0.0003 && dr.length() < 0.0003) break;
     const de = side ? elbow.subtract(f.frames[2].end).scale(.12) : Vector3.Zero();
@@ -74,8 +82,8 @@ export function solveArm(point: Vector3, orientation: Quaternion | null, previou
     }
   }
   // Position and anatomical limits take priority over an impossible requested orientation.
-  if (side && orientation && Vector3.Distance(armForward(q).point, point) > .015)
-    return solveArm(point, null, q, passes, side, supported);
+  if (side && orientation && Vector3.Distance(armForward(q, geometry).point, point) > .015)
+    return solveArm(point, null, q, passes, side, supported, geometry);
   return q;
 }
 
