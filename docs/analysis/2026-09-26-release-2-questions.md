@@ -7,13 +7,13 @@ session's commits. It answers the questions of the headroom audit's proposals
 **Nothing shipped was changed**: no body was removed and no default moved. Every counterfactual is a
 harness override, named with its run.
 
-**Status at the wind-down** (the owner ended the session at 17:18; WIP):
+**Status after continuation** (the original session ended at 17:18; size and brawler runs remain open):
 
 | item | status | reading | recommendation |
 | --- | --- | --- | --- |
 | 6, waist lean | answered | 1200 raw is the knee: 45 % fewer stone falls, re-falls 15 to 28 % → 9 to 10 %, and the naive balance holds | 1200, behind an eye gate; not shipped |
 | 5(b), x1.1 walker | answered | The walker cannot choose its range. Its 0.80 hold jams its strokes | accept; consider hold 0.88 |
-| 2(b), fists and whip in their family | partial: naive 768 of 768; whip expert 16 of 16; fists expert unfinished | They lose to every skeleton build under equal minds. The expert wins with the whip | accept as weak builds |
+| 2(b), fists and whip in their family | complete: naive 768; whip expert 16; fists expert 32 | They lose under equal naive minds. The expert wins with both, slowly | accept as weak builds |
 | 13(a), stability and recovery | partial: 3 of 4 runs; expert against brawler not run | Recovery pays only for the expert on the skeleton. Stability's high end pays nothing | look at the skeleton's floor time, then stability's reach |
 | 16, size on mace and maul | NOT YET MEASURED (runs partial, unread) | -- | -- |
 | 17, survive-cut | answered | The rest guard survives the cut on five humans (97.5 to 100 %) | accept; report "passes at rest" |
@@ -410,7 +410,28 @@ margin, and the bout's length:
 | skeleton-dual-blades | skeleton-whip | 2 / 2 | 1.00 | 5.9 |
 | skeleton-maul | skeleton-whip | 2 / 2 | 1.00 | 44.1 |
 
-**skeleton-fists with the expert: partial, not read.** `research/runs/release2/family-fists-expert` holds some of its 32 bouts (the log read 13 of 32 at about 17:01). Two runners wrote to it for its last 18 minutes, so check it for duplicate job ids before summarising. The naive table above stands without it.
+**Skeleton-fists expert continuation complete:** 32/32 bouts, two swapped seed pairs per cell,
+no failures. One physically identical duplicate was removed from a copy of the historical data;
+17 historical rows plus 15 resumed rows remain. The original files are untouched. A historical
+warrior-versus-fists replay exactly reproduced seeds, verdict, duration and vitality.
+Compact evidence: `research/results/2026-09-26-skeleton-fists-family.json`.
+
+| expert on | against skeleton duelist on | expert wins | margin | bout s |
+|---|---|---:|---:|---:|
+| skeleton-fists | skeleton-warrior | 4 / 4 | 0.556 | 83.2 |
+| skeleton-fists | skeleton-mace | 4 / 4 | 0.595 | 83.0 |
+| skeleton-fists | skeleton-dual-blades | 4 / 4 | 0.417 | 92.2 |
+| skeleton-fists | skeleton-maul | 4 / 4 | 0.400 | 96.0 |
+| skeleton-warrior | skeleton-fists | 4 / 4 | 0.947 | 8.6 |
+| skeleton-mace | skeleton-fists | 4 / 4 | 1.000 | 7.1 |
+| skeleton-dual-blades | skeleton-fists | 4 / 4 | 0.988 | 4.7 |
+| skeleton-maul | skeleton-fists | 4 / 4 | 0.931 | 56.5 |
+
+Fists show the same qualitative result as the whip: the expert can win with the weak build,
+but takes much longer and retains less vitality. These are mechanism screens, not precise balance
+estimates: only two independent seed pairs per cell. An all-win bootstrap interval degenerates
+at this sample size and should not be read as population certainty. No body/default choice changes.
+The continuation took 999 s on three lanes.
 
 - **The expert wins with the whip, and slowly.** It needs 84 to 102 s and keeps 0.23 to 0.60 of its
   bar. The expert on any other build kills the whip's duelist in 6 to 44 s without being touched.

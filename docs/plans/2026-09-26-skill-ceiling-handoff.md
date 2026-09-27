@@ -47,11 +47,17 @@ local reporting commit `4d167705` is ahead and nothing incoming requires a merge
 ### Release-2 resume and directory ownership
 
 The historical fist-family run had 18 rows, 17 unique jobs and one duplicate with identical
-physical results. A deduplicated copy now resumes at
-`research/runs/release2-continuation/family-fists-expert`; the old worktree files are untouched.
-Its older manifest needed only `flags: {}`; the runner then accepted the unchanged schedule hash,
-protocol and body definitions. The mace/maul size runs have 44/34 unique rows with no duplicates;
-the expert-versus-brawler directory has a manifest but no completed result file.
+physical results. Its deduplicated copy completed 32/32 bouts with no failures in
+`research/runs/release2-continuation/family-fists-expert`; originals are untouched. Its old manifest
+needed only `flags: {}` before the unchanged schedule/build/protocol checks passed. Fists won
+4/4 with the expert against each armed family build, taking 83-96 s on average; armed experts
+beat the fist duelist faster and retained more vitality. Two pairs per cell make this a mechanism
+screen. The updated release-2 questions and `research/results/2026-09-26-skeleton-fists-family.json`
+record the result, provenance and an exact historical replay.
+
+Mace/maul size copies have 44/34 unique historical rows with no duplicates, under the same
+`research/runs/release2-continuation/` parent. Mace has resumed toward 64; run maul next, then
+`attr-expert-v-brawler` (a manifest but no historical result rows). Run only one campaign at a time.
 
 The headroom CLI now holds the existing `lockRun` through scheduling, appends and summary writes,
 including summary-only mode, and releases it in `finally`. This prevents the concurrent writers

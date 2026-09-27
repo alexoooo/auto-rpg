@@ -8,7 +8,9 @@ three orderings hold and every attribute pays.
 ## Before the owner chooses
 
 `docs/analysis/2026-09-26-release-2-questions.md` answers the audit's questions for items 6, 5(b)
-and 17, and 4(a) as a table. It answers 2(b) and 13(a) in part, and it has no reading yet for 16.
+and 17. The 4(a) continuation separates rate, torque and velocity-clamp sensitivity without
+changing defaults. Item 2(b) is complete, including all 32 fist-family expert bouts; 13(a) is
+partial and 16 remains open while its size runs resume.
 Its status table is at the top. Nothing shipped was changed. In short:
 
 - **6.** 1200 raw is the waist lean's knee. It shows no stuck steps and needs an eye check of how
