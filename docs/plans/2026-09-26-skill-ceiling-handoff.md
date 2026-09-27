@@ -62,8 +62,9 @@ resume or successful summary; both missing-lock and leaked-lock mutations are ca
 
 `research/human-arm-limits.mjs` now separates motor-ceiling and command-rate sensitivity over
 36 impact-bench cells. Doubling torque at normal rate barely changes blade/mace free-stroke
-speed; armSpeed 1.5 raises it by about 14 % / 47 %. No shipped tuning changed. The 8 rad/s
-velocity clamp remains unisolated, and sphere overlap invalidates 12 impact rows. Read
+speed; armSpeed 1.5 raises it by about 14 % / 47 %. No shipped tuning changed. A further 144-cell clamp sweep finds no useful normal-rate speed gain above 8 rad/s;
+the default remains 8. All 36 original cells, six human bout fingerprints and 45 command-null
+bouts remain identical. Sphere overlap invalidates 12 rows in the original impact sweep. Read
 `docs/analysis/2026-09-26-human-arm-limits.md` before further tuning or research.
 
 ### Expert continuation, 2026-09-26

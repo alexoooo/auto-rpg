@@ -28,7 +28,9 @@ const RATES = [3, 3, 4, 4, 5, 5, 4];
 // the anatomical arm with its blade / mace (240 Hz; 120 on the shipped law; 120 as here):
 // stroke stray 76.0 / 136.1, 91.9 / 144.4, 78.7 / 130.0 mm; parry overshoot 113 / 180, 119 / 228,
 // 97 / 196 mm; peak stroke tip 11.24 / 9.26, 11.41 / 9.26, 11.11 / 9.21 m/s.
-export const HUMAN_ARM_DRIVE = { inertiaFloor: 0.015, response: 10 };
+// Per-axis servo target ceiling, rad/s. Kept at the original 8; the impact-bench
+// counterfactual varies this independently of command rates and motor force.
+export const HUMAN_ARM_DRIVE = { inertiaFloor: 0.015, response: 10, velocityLimit: 8 };
 export const anatomicalChain = defineChain({
   id: "anatomical", fitTerminal: humanEquipment, label: "anatomical arm - full hand pose", axes: 7,
   strokes: ARM_STROKES, pointTarget: true, massKg: MASSES.reduce((a, b) => a + b), swingInertia: 0.8,
@@ -258,7 +260,7 @@ export const anatomicalChain = defineChain({
             const from = previousAngles[coordinate], to = angles[coordinate];
             const target = i === 0 ? velocity.asArray()[axis] : (to - from) / dt +
               gain * ((lead === 1 ? to : from + (to - from) * lead) - achieved[coordinate]);
-            actuators[i][axis].drive(clamp(target, -8, 8), TORQUES[i][axis] * weight * taskForce);
+            actuators[i][axis].drive(clamp(target, -HUMAN_ARM_DRIVE.velocityLimit, HUMAN_ARM_DRIVE.velocityLimit), TORQUES[i][axis] * weight * taskForce);
           }
         }
         previousRotations = rotations.map(q => q.clone()); previousAngles = [...angles];

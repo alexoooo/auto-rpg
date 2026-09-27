@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { humanArmLimitCell } from "../research/human-arm-limits.mjs";
 import { strokeProbe } from "./harness/impact-bench.mjs";
+import { HUMAN_ARM_DRIVE } from "../src/golem/humanoid/arm.ts";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -24,8 +25,23 @@ test("impact motor-tone control preserves the original stroke and separates forc
 });
 
 test("arm-limit counterfactuals reject invalid inputs before building a world", async () => {
-  for (const args of [{ terminal: "plate" }, { tone: -1 }, { tone: NaN }, { armSpeed: 2 }]) {
+  for (const args of [{ terminal: "plate" }, { tone: -1 }, { tone: NaN }, { armSpeed: 2 },
+    { velocityLimit: 0 }, { velocityLimit: Infinity }]) {
     await assert.rejects(humanArmLimitCell(args), /invalid human arm limit cell/);
   }
   await assert.rejects(strokeProbe({ moduleId: "effector.anatomical.blade", tone: Infinity }), /invalid stroke motor tone/);
+});
+
+test("servo-clamp counterfactual changes only the requested bound and restores shipped tuning", async () => {
+  const before = { ...HUMAN_ARM_DRIVE };
+  const low = await humanArmLimitCell({ velocityLimit: 4 });
+  assert.deepEqual(HUMAN_ARM_DRIVE, before);
+  const normal = await humanArmLimitCell();
+  const high = await humanArmLimitCell({ velocityLimit: 16 });
+  assert.ok(low.peakTipMps < normal.peakTipMps - 0.4, "lower clamp must affect the free pass");
+  assert.ok(Math.abs(low.momentumNs - 7.3900150663) < 0.02, "contact pass must use the same clamp");
+  const { velocityLimit: ignoredNormal, ...normalPhysics } = normal;
+  const { velocityLimit: ignoredHigh, ...highPhysics } = high;
+  assert.deepEqual(highPhysics, normalPhysics, "raising the bound must leave this sub-limit stroke alone");
+  assert.deepEqual(HUMAN_ARM_DRIVE, before);
 });

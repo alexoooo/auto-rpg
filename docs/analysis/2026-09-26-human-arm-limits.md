@@ -42,16 +42,41 @@ and energy. Free-pass speed remains available even when the second pass misses. 
 remain pushes, so their momentum is not evidence of a faster blow. No combat/headroom conclusion
 follows from this table.
 
-## Checks and next experiment
+## Checks and velocity-clamp continuation
 
 Explicit tone/rate 1 reproduces the original full impact record exactly. Tests distinguish the
 free and contact passes, check rate sensitivity and reject invalid configurations and overlap
 energy. The fixed contact regression catches accidentally applying tone only in the free pass.
 
-The remaining question is the 8 rad/s velocity clamp. Isolate that in a harness counterfactual
-with rates and torques held, and measure saturation during the stroke before selecting any
-body-release change. Raising an already-clamped output would also raise sub-limit commands and
-would not isolate the clamp. Owner choices and the before/after gate still apply to shipped tuning.
+The velocity clamp is now isolated in `node research/human-arm-limits.mjs --clamp`: 144 cells,
+three rate levels, four torque levels, and ceilings of 4, 8, 16 and 32 rad/s. The ceiling is
+extracted into `HUMAN_ARM_DRIVE.velocityLimit`, still 8 by default; the bench temporarily overrides
+it and restores it after each pass. This clamps the original velocity demand at a different bound;
+it does not multiply commands that were already below the bound.
+
+| Terminal, rate 1 / tone 1 | Clamp 4 peak m/s | Clamp 8 | Clamp 16 | Clamp 32 |
+|---|---:|---:|---:|---:|
+| blade | 10.69649 | 11.21523 | 11.21523 | 11.21523 |
+| mace | 9.03251 | 9.15738 | 9.15734 | 9.15734 |
+| fist | 2.76875 | 3.07894 | 3.07894 | 3.07894 |
+
+At normal rate and force the blade/fist records are exactly unchanged above 8; mace speed changes
+by less than 0.00005 m/s. The clamp is not a useful speed lever on these normal-rate strokes.
+At rate 1.5, increasing it to 16 raises mace speed by 0.03 to 0.13 m/s depending on tone; it can
+matter elsewhere. This is an intervention result, not a count of saturated motor substeps.
+
+The measured normal-rate bottleneck is chiefly command-rate sensitivity, with torque helping when
+rate is higher. A rate increase still needs a combat/accuracy comparison and the owner's body
+choice; these settled strokes do not justify shipping one. All defaults remain unchanged.
+The full clamp record is `research/results/2026-09-26-human-arm-clamp.json`.
+
+Default-preservation checks: all 36 original impact cells, six six-second human bout records and
+trajectory fingerprints, and all 45 command-null bouts are identical. Three further mutations are
+caught: ignoring the configurable clamp, scaling the whole command, and dropping the second-pass
+clamp override.
 
 Validation: 1083/1083 tests, `npm run check` and `npm run build` pass. Four deliberate mutations
 were caught: losing tone in either pass, losing the rate attribute, and reporting overlap energy.
+
+After the clamp continuation: 1086/1086 tests, check and build pass; shipped ceilings, rates and
+forces remain unchanged. The run-lock increment before it passed 1085 tests and check/build.
