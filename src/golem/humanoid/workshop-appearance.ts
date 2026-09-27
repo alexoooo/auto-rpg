@@ -10,6 +10,7 @@ import { Skeleton } from "@babylonjs/core/Bones/skeleton.js";
 import { visiblePart } from "../../character-lab/catalog.ts";
 import { WORKSHOP_SHIELD_BOUNDS } from "./workshop-equipment.ts";
 import { workshopCaps } from "./workshop-caps.ts";
+import { compactWorkshopRegion } from "./workshop-region.ts";
 import { publicAssetUrl } from "../../asset-url.ts";
 import { WORKSHOP_SOURCE, type HumanAppearanceSetting } from "./workshop-profile.ts";
 import type { HumanVisualPart } from "./appearance.ts";
@@ -28,16 +29,6 @@ const compose = (row: {position: number[]; rotation: number[]}): Matrix =>
   Matrix.Compose(Vector3.One(), Quaternion.FromArray(row.rotation), Vector3.FromArray(row.position));
 // glTF palette indices are independent of Babylon's hierarchy-ordered bones array.
 const palette = (skeleton: Skeleton) => new Map(skeleton.bones.map((bone,index)=>[bone.getIndex()??index,bone]));
-function compactRegion(mesh:Mesh, faces:readonly number[]):void {
-  const vertices=[...new Set(faces)], remap=new Map(vertices.map((vertex,index)=>[vertex,index]));
-  for(const kind of mesh.getVerticesDataKinds()) {
-    const data=mesh.getVerticesData(kind)!,stride=mesh.getVertexBuffer(kind)!.getSize();
-    const packed=new Float32Array(vertices.length*stride);
-    vertices.forEach((vertex,index)=>{for(let i=0;i<stride;i++)packed[index*stride+i]=data[vertex*stride+i];});
-    mesh.setVerticesData(kind,packed,true,stride);
-  }
-  mesh.setIndices(faces.map(index=>remap.get(index)!));
-}
 
 /** Only achieved physical transforms enter this adapter. It owns no animation or collision. */
 export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPart[], side: string,
@@ -113,7 +104,7 @@ export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPa
     }
     for(const [slot,faces] of groups) {
       const region=mesh.clone(`${mesh.name}.${slot}`,mesh.parent,true)!;
-      region.makeGeometryUnique();compactRegion(region,faces);
+      region.makeGeometryUnique();compactWorkshopRegion(region,faces);
       region.metadata={...mesh.metadata,humanSlot:slot,humanLayer:name.startsWith("armour__")?"armour":"body"};
       region.computeBonesUsingShaders=false;
       meshes.push(region);
