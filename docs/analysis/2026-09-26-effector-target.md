@@ -15,8 +15,10 @@ The module owns the terminal offset. The chain subtracts that offset along the r
 orientation to obtain a palm target, transforms it into its live socket frame, clamps it through
 the reachable envelope and solves within its joint stops. This mode removes the solver's soft
 elbow-pole preference, which otherwise competes with a fully specified pose and leaves a reachable
-target centimetres short. If an orientation conflicts with the clamped palm position, position
-takes priority. The legacy mapper retains its preference and mapping exactly.
+target centimetres short. For incompatible poses, the later endpoint-aware fallback tries to
+reduce carried-tip error while retaining the palm envelope and anatomical stops; it does not
+promise to reach an impossible request. See `2026-09-26-effector-endpoint-fallback.md` for the
+correction to the initial palm-only fallback. The legacy mapper retains its mapping exactly.
 
 The flag is `effector`, off by default. A module declares `target`, `speed` and `force` only if
 its chain implements `commandTarget`, its terminal declares a rigid tip along the attachment

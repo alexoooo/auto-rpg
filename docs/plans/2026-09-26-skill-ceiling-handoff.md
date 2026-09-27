@@ -76,6 +76,14 @@ orientation changes. See `docs/analysis/2026-09-26-effector-proposal-geometry.md
 record. Address endpoint-aware fallback and attainable proposals before the next long search;
 this does not justify stronger motors or enabling the flag.
 
+The constrained endpoint fallback is now implemented. It includes the carried offset in a
+position-only solve and accepts only improving steps within the palm envelope and joint stops.
+Primary sword point error falls from 888 mm to 185 mm in that stationary diagnostic; all final
+physical-following errors are under 3.3 mm. Impossible requests still miss, and several sweep
+cells are unchanged. Both 45-bout null runs (flag off/on but unused), focused physical/fork tests,
+five caught mutations, all 1076 tests and check/build pass. See `docs/analysis/2026-09-26-effector-endpoint-fallback.md`.
+Next remains attainable proposals and a new bounded paired screen, not a default change.
+
 ## The owner's standing instructions
 
 - **Keep going session to session.** The owner asked for the AI work to go on while they are away

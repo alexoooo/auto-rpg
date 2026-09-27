@@ -129,6 +129,8 @@ test("task commands reach the whole body's modules, remain inert when disabled a
           assert.deepEqual({ speed: restored.taskSpeed, force: restored.taskForce, exact: restored.exactTask }, reading);
           assert.deepEqual(restored.forced.asArray(), state().forced.asArray());
           assert.deepEqual(restored.forcedOrientation.asArray(), state().forcedOrientation.asArray());
+          assert.ok(state().taskTipOffset > .1, "fixture needs a carried endpoint away from the palm");
+          assert.equal(restored.taskTipOffset, state().taskTipOffset);
           assert.deepEqual(fork.left.control.driver.held, driver.held);
         } finally { fork.dispose(); }
       }

@@ -9,6 +9,7 @@ test("proposal diagnostic distinguishes target geometry from the physical motor 
   const loose = await proposalBench({ kind: "point", force: 0 });
   assert.ok(held.samples.length > 150);
   assert.ok(held.final.followingError < .01, "the powered blade must reach its commanded pose");
+  assert.ok(held.final.requestError < .25, "orientation relaxation abandoned the carried endpoint");
   assert.ok(loose.final.followingError > .5, "zero effort must expose the mass falling away");
   assert.ok(Math.abs(held.final.requestError - loose.final.requestError) < .003,
     "request geometry must not be mistaken for physical tracking");
