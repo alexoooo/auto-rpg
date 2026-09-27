@@ -25,6 +25,12 @@ try{
    await page.evaluate(({t,a})=>{const l=window.__characterLab;l.sample(t);const n=l.assets.get(l.current).transformNodes.find(n=>n.name==='pelvis');n.computeWorldMatrix(true);const p=n.getAbsolutePosition();l.camera.setTarget(p.clone());l.camera.target.y=1.05;l.camera.alpha=a;l.camera.beta=1.35;l.camera.radius=4.3;l.render()},{t,a});await page.waitForTimeout(60);await page.locator('#stage').screenshot({path:`${output}/${id}-${weapon}-${t}-${view}.png`});
   }}
  }
+ // Exercise the running render loop as well as deterministic scrub samples.
+ for(const speed of ['1','0.25']){
+  await page.selectOption('#speed',speed);await page.evaluate(()=>window.__characterLab.sample(3));await page.locator('#play').click();
+  await page.waitForFunction(()=>window.__characterLab.seconds>3.35,null,{timeout:10000});await page.locator('#play').click();
+  const stopped=await page.evaluate(()=>window.__characterLab.seconds);await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>window.__characterLab.seconds),stopped);
+ }
  await page.locator('#reset').click();await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:`${output}/mobile.png`,fullPage:true});assert.deepEqual(errors,[]);
  await writeFile(`${output}/report.json`,JSON.stringify({...result,errors,orbit:true,zoom:true,mobile:true},null,2));console.log(JSON.stringify(result));
 }finally{await browser.close()}

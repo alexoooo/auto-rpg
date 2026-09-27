@@ -17,7 +17,9 @@ This is an authored animation study, not a physically simulated or AI-generated 
 
 ## Source and rebuilding
 
-Editable Blender files are in `assets/character-lab`; portable runtime exports are in `public/assets/character-lab`. The active generator is `scripts/character-lab/realistic/build.py`. `motion.py` authors anatomy-relative equipment, finger poses and the walk/attack timeline. `morph_export.py` binds bow flex, string movement and arrow flight to the exported clips.
+Editable Blender files are in `assets/character-lab`; portable runtime exports are in `public/assets/character-lab`. The active generator is `scripts/character-lab/realistic/build.py`. `motion.py` authors anatomy-relative equipment, fitted finger poses and the walk/attack timeline. `rig.py` distributes shoulder and forearm twist across helper joints and normalizes skin influences. Shoulder plates follow upper-arm swing without inheriting its full axial twist. `phases.py` provides the shared bow timeline; `morph_export.py` binds its flex and string movement to the exported clips. The arrow has a separate joint so it leaves the hand in world space after release.
+
+Archery turns the hips and feet together to an 83-degree stance. Bow extension uses each model's measured arm length; the drawing hand follows the same nock used by the string and arrow. Equipped poses reject unreachable wrist targets during authoring. The sword wind-up stays forward of the shoulder and the cut reaches forward before recovery.
 
 Run `scripts/character-lab/realistic/rebuild.ps1 -Blender PATH_TO_BLENDER_EXE` with Blender 4.5.12. This downloads the tools and core assets to ignored `.tools/mpfb`; it does not install an add-on in the user's Blender preferences.
 
@@ -31,8 +33,10 @@ Used assets: middleage Caucasian male / young Caucasian female skins, low-poly e
 
 `npm test`, `npm run check`, `npm run build`. The character tests load the actual GLBs and check all 40 loadouts, real forward/return displacement, stance-foot motion, attacks and bow deformation. Browser review is additionally required: these numerical checks do not establish anatomical or artistic quality.
 
-The exported-asset regressions also sample wrist alignment and bow hand/torso clearance throughout the loop, and measure every gripping finger and thumb against the actual exported handle. Contact checks use skin vertices, not continuous triangle collision detection.
+The exported-asset regressions sample the sword/shield and bow loops at 60 Hz. They check bow angular continuity, wrist cross-section collapse, arm/head and opposite-arm triangle intersections, and equipment/body triangle intersections. Grip checks require palm and finger-pad patches near the actual exported handle, with detached-patch and collapsed-wrist controls. These are sampled surface checks, not a proof of collision freedom between samples or a general collision solver.
 
 Run `npm exec --yes --package=playwright -- node scripts/character-lab/browser-check.mjs URL` against a development or production preview. It checks 40 configurations and 440 animation samples, retained loadouts, orbit/zoom, grip framing, mobile overflow, browser errors and scene resource counts. It saves front/side pose captures to ignored `.review/character-lab/acceptance`. `realistic-grips.mjs` additionally captures hand closeups against port 5183.
+
+`visual-review.mjs URL fighter` (or `rogue`) captures grip closeups and front, side, rear and overhead attack poses. Append `armour` to inspect the equipped silhouette as well. The intermediate frames matter: a plausible end pose can conceal a bad transition.
 
 The animation is a fixed preview choreography. It is not a general collision-avoiding controller, and the simplified armour and clothing are not a finished production art set.

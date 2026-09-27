@@ -227,11 +227,11 @@ def build(kind):
  rig.animation_data.action=None
  for pb in rig.pose.bones:pb.matrix_basis=Matrix.Identity(4)
  bpy.context.scene.frame_set(1)
- bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/(kind+'.blend')))
+ bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/(kind+'.blend')),compress=True)
  bpy.ops.object.select_all(action='DESELECT')
  for o in bpy.context.scene.objects:
   if not o.get('authoringOnly'):o.select_set(True)
- bpy.ops.export_scene.gltf(filepath=str(OUT/(kind+'.glb')),export_format='GLB',use_selection=True,export_animations=True,export_animation_mode='ACTIONS',export_skins=True,export_yup=True,export_extras=True,export_optimize_animation_size=False)
+ bpy.ops.export_scene.gltf(filepath=str(OUT/(kind+'.glb')),export_format='GLB',use_selection=True,export_animations=True,export_animation_mode='ACTIONS',export_skins=True,export_yup=True,export_extras=True,export_optimize_animation_size=True,export_force_sampling=False)
  from morph_export import add_morph_animation
  add_morph_animation(OUT/(kind+'.glb'))
  print('REALISTIC_COMPLETE',kind,flush=True)

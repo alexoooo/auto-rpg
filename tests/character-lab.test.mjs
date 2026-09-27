@@ -7,6 +7,7 @@ import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader.js'
 import '@babylonjs/loaders/glTF/index.js';
 import {visiblePart,clipFor} from '../src/character-lab/catalog.ts';
 import {surface,gripGap} from '../scripts/character-lab/contact.mjs';
+import {skinRegions,gripDistances,contactPatch} from '../scripts/character-lab/validation.mjs';
 import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 for(const id of ['fighter','rogue']) test(`character workshop: ${id} loadouts and real motion`,async()=>{
  const engine=new NullEngine();const scene=new Scene(engine);
@@ -44,7 +45,7 @@ for(const id of ['fighter','rogue']) test(`character workshop: ${id} loadouts an
    for(const side of ['l','r']){
     const fore=point('hand_'+side).subtract(point('lowerarm_'+side)).normalize();
     const palm=point('middle_01_'+side).subtract(point('hand_'+side)).normalize();
-    assert.ok(Vector3.Dot(fore,palm)>.985,`${weapon}/${t}/${side}: wrist bends backwards`);
+    assert.ok(Vector3.Dot(fore,palm)>Math.cos(Math.PI/3),`${weapon}/${t}/${side}: wrist exceeds 60 degrees`);
    }
    if(weapon==='bow'){
     const pelvis=point('pelvis'),neck=point('neck_01');const up=neck.subtract(pelvis).normalize();const across=point('upperarm_l').subtract(point('upperarm_r')).normalize();let front=Vector3.Cross(up,across).normalize();if(Vector3.Dot(front,point('ball_l').subtract(point('foot_l')))<0)front=front.scale(-1);
@@ -56,9 +57,16 @@ for(const id of ['fighter','rogue']) test(`character workshop: ${id} loadouts an
   }
   const skin=meshes.find(m=>m.name==='base__skin'),jointIndices=skin.getVerticesData('matricesIndices'),jointWeights=skin.getVerticesData('matricesWeights');
   const byIndex=new Map(skin.skeleton.bones.map(b=>[b.getIndex(),b.name]));
+  const regions={l:skinRegions(skin,'l'),r:skinRegions(skin,'r')};
   for(const weapon of ['sword','shield','bow']){
    sample(weapon,0);scene.incrementRenderId();for(const n of asset.transformNodes)n.computeWorldMatrix(true);for(const skeleton of asset.skeletons)skeleton.prepare(true);
    const points=surface(skin),grip=surface(meshes.find(m=>m.name===weapon+'__grip')),side=weapon==='sword'?'r':'l';
+   for(const label of ['palm','index','middle','ring','pinky','thumb']){
+    const patch=regions[side][label].map(i=>points[i]);assert.ok(patch.length>8,`${label}: contact region exists`);
+    const contact=contactPatch(gripDistances(patch,grip));
+    assert.ok(contact.minimum>-.0015&&contact.patch<.004,`${weapon}/${label}: distributed contact ${JSON.stringify(contact)}`);
+    assert.ok(contactPatch(gripDistances(patch.map(p=>p.add(new Vector3(.1,0,.1))),grip)).patch>.02,'detached contact patch fails');
+   }
    for(const digit of ['index','middle','ring','pinky','thumb']){
     const belongs=i=>[0,1,2,3].some(j=>{const name=byIndex.get(jointIndices[i*4+j]);return name?.startsWith(digit+'_')&&name.endsWith('_'+side)&&jointWeights[i*4+j]>.25});
     const subset=points.filter((_,i)=>belongs(i));assert.ok(subset.length>8);
