@@ -73,6 +73,15 @@ the default remains 8. All 36 original cells, six human bout fingerprints and 45
 bouts remain identical. Sphere overlap invalidates 12 rows in the original impact sweep. Read
 `docs/analysis/2026-09-26-human-arm-limits.md` before further tuning or research.
 
+### Candidate-score continuation
+
+The trace now records every evaluated candidate's score terms and both final vitality bars.
+`research/effector-candidates.mjs` probes 18 warmed human states and plays each winner live;
+all predicted pose hashes and vitality bars match. Each best target proposal ties at zero with
+an earlier legacy proposal, so none is selected. This explains these openings, not full-bout
+headroom. Contacts/blocks and contact-capable motion remain to diagnose. See
+`docs/analysis/2026-09-26-effector-candidate-scores.md`; 1086 tests and check/build pass.
+
 ### Expert continuation, 2026-09-26
 
 `expert-effector@c8,h1` now proposes endpoint trajectories with orientation, speed and force,

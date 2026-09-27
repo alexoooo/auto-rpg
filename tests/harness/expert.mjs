@@ -896,7 +896,8 @@ export class ExpertMind {
     this.log.push({
       t: clock, on: at.clock, label: best.plan.label, n: scored.length,
       terms, ...(predicted ? { predicted } : {}),
-      ...(config.trace ? { candidates: scored.map(({ plan, score }) => ({ label: plan.label, task: score.task, vE: score.predicted.vE })) } : {}),
+      ...(config.trace ? { candidates: scored.map(({ plan, score: { predicted, ...terms } }) =>
+        ({ label: plan.label, ...terms, vE: predicted.vE, vO: predicted.vO })) } : {}),
       spread: Math.max(...totals) - Math.min(...totals),
       tied: totals.filter((total) => total === best.score.total).length,
       ms: performance.now() - started + moment.ms, cost,

@@ -154,6 +154,23 @@ test("the task expert evaluates targets and its exact rollouts predict the live 
         assert.deepEqual(expert.seen[i + 1], { pose: prediction.pose, vE: prediction.vE, vO: prediction.vO });
       }
       assert.ok(expert.seen.length >= 4);
+      for (const entry of expert.log) {
+        const chosen = entry.candidates.find(c => c.label === entry.label && c.total === entry.terms.total);
+        assert.ok(chosen, "chosen rollout is absent from candidate scores");
+        assert.equal(chosen.total, Math.max(...entry.candidates.map(c => c.total)));
+        const { label, vE, vO, ...terms } = chosen;
+        assert.deepEqual(terms, entry.terms);
+        assert.equal(vE, entry.predicted.vE);
+        assert.equal(vO, entry.predicted.vO);
+        for (const candidate of entry.candidates) {
+          let total = 0;
+          for (const key of ["damage", "end", "down", "position", "stall", "retreat"]) {
+            assert.ok(Number.isFinite(candidate[key]), `missing candidate ${key}`);
+            total += expert.config.weights[key] * candidate[key];
+          }
+          assert.equal(candidate.total, total);
+        }
+      }
       if (effector) assert.ok(expert.log[0].candidates.some(c => c.label === "target-soft"), "targets were never evaluated");
       return { targetFrames, labels: expert.log.map(e => e.label) };
     };
