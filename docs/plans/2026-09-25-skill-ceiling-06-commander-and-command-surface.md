@@ -172,6 +172,12 @@ before armour. A further 114 forced trajectory trials varied duration, lift and 
 wounded in that one-seed, one-corner screen. This does not establish a headroom gain or justify
 enabling the channel. Other engagement states and task actuators remain open.
 
+A 2026-09-27 follow-up screened 64 additional blade trajectories with orientation changes and a
+two-phase chamber. The strongest body contact rose to 6.25 J but remained below the current cut
+floor and did no pre-armour damage. See
+`docs/analysis/2026-09-27-effector-trajectory-followup.md`. Task-space headroom is still
+unestablished; this added evidence does not change the off verdict.
+
 Read `docs/analysis/2026-09-26-effector-candidate-scores.md` and
 `docs/analysis/2026-09-26-effector-impact-screen.md` before launching more bouts. The current
 enablement verdict is **off** for all three experimental channels; the orders half remains shipped.

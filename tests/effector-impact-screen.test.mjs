@@ -19,6 +19,9 @@ test("forced-plan screen compares the same warmed state and observes changed phy
   assert.ok(altered.maxBodyEnergyJ > 3 && altered.maxBodyEnergyJ < 3.6,
     "the changed trajectory must reach a body with the measured energy");
   assert.ok(altered.bodyContacts > 0);
+  assert.equal(altered.strongestBodyContact.energyJ, altered.maxBodyEnergyJ,
+    "the report explaining the peak comes from the body contact, not a block");
+  assert.ok(Number.isFinite(altered.strongestBodyContact.edgeAlignment));
   assert.deepEqual(CHANNEL_FLAGS, flags);
 });
 
