@@ -43,6 +43,59 @@ The main obstacles are inherited assumptions: `GolemSetup` describes five fixed 
 effectors are still keyed by two hand names, observations focus on one opponent, and Arena
 and Dungeon have different encounter execution paths.
 
+## Retire before building
+
+The following items are sized from a code survey on 2026-09-27. Most of the AI code on `main`
+has no future in the next phase. Clearing it first makes the new boundaries cheaper to draw and
+prevents agents from maintaining abandoned paths.
+
+- **Policy set.** The arena picker offers about twenty policies from `POLICIES` in `src/mind.ts`.
+  They sit on four full copies of one tactical state machine: `golemTactics` in
+  `src/golem/tactics.ts`, and `tactics-v2.ts`, `tactics-v3.ts` and `tactics-v4.ts`, about 6,400
+  lines together. Each later version spreads the previous table and rewrites the state machine.
+  About 500 KB of solved tables and network weights ship in the page bundle:
+  `style-model-tables.ts`, `duel-model-tables.ts` and `researched-lab.json`.
+  All of these were tuned and rated on stone-golem fights. The dungeon runs only the v1 family
+  (`FAMILY_POLICY` in `src/golem/family.ts`).
+  - Keep v1's duelist family as the reference floor. It is the default and the only dungeon
+    mind.
+  - Also keep at most one stronger rated mind as a second reference.
+  - Tag the commit before removing the rest from `src/`. Keep their results and provenance under
+    `research/`.
+- **Skill-ceiling plan set.** Close sessions 06-09 explicitly. The footwork channels failed their
+  enablement gate. The effector and wrist-target work found no headroom. Every experimental
+  channel is off by default (`DEFAULT_CHANNEL_FLAGS` in `src/body-command.ts`).
+  - Keep the `BodyCommand`/`ChannelDeclaration` seam and capability publication, because the
+    layered AI below builds on them.
+  - Keep the benches.
+  - Either delete the URL-gated experiment paths (`channel-experiments.ts`,
+    `effector-preview*.ts`) or record them as frozen.
+- **The name "Warrior".** The historical Warrior (`arm.ts`, `weapon.ts`, `arrow.ts`, cut
+  2026-09-18) is still discussed throughout `AGENTS.md` and in code comments. "Warrior" is now
+  a playable class. Remove the leftovers:
+  - the Warrior motor fields in `CONFIG.arm`, which nothing reads;
+  - `UnitKind`, which has the single member `"golem"`;
+  - `UnitLoadout`.
+  Then refer to the old body as "the retired Warrior" where history must mention it.
+- **Two human paths.** Make the workshop model the human and retire the legacy human appearance,
+  unless it earns a place as a separate costume. Today the workshop fighter is not a family. It
+  is `family: "human"` plus an optional `human` profile, so every human feature has two paths.
+- **Dead code and stale prose.**
+  - Code with no production caller: `neuralFeatures`, `FEATURE_NAMES`, `HUMANOID_CONTROL_SURFACE`,
+    and the `pilotFeatures`/`pilotTrace` exports used only by tests.
+  - Comments that cite scripts that no longer exist (`scripts/measure.mjs`, `tune.mjs`,
+    `tournament.mjs`) and retired minds (`golem-neural`, `golem-learner`, `golem-snapshot`,
+    `golem-selector`).
+  - `obeysOrders` stays until the orders rework below replaces it.
+- **Working-tree hygiene.**
+  - Prune the stale worktrees: 13 were registered on 2026-09-27, several of them under `%TEMP%`.
+  - Merge or delete the unmerged branch `physics-rate-servo-tuning`.
+  - Delete `bash.exe.stackdump` from the root.
+- **`AGENTS.md`.** Turn it into a short list of current invariants, commands and house rules, each
+  a line or two long and linked to its history. Move the incident narratives to
+  `docs/history.md`. Today it is 73 KB, loaded into every agent session. Much of it describes
+  deleted code: Warrior weapons, arrows, `rigview.ts`, and a `PhysicsViewer` that nothing uses.
+
 ## Separate anatomy, appearance, equipment and fighting style
 
 Give a character four independent descriptions:
@@ -72,6 +125,9 @@ need a humanoid shoulder model. Keep the golem assembly as one supported body bu
 
 Prove the boundary with the workshop human and one simple quadruped that walks and bites.
 Build that quadruped early enough to expose assumptions before implementing many more bodies.
+A non-biped carrier already works: the stone `multileg` in `src/golem/locomotion/multileg.ts` is
+a six-legged tripod gait. The quadruped's new questions are therefore a head-mounted natural
+weapon and an `Intent` without two hands, not whether legs other than two can walk.
 
 ## Make equipment authoritative physical data
 
@@ -94,6 +150,21 @@ release, ammunition and projectile ownership.
 Start with representative items: boots, leg armour, torso armour, helmet, sword, shield, maul
 and bow. Expand the catalogue, including staves, after these exercise the full equipment path.
 
+Several existing hooks help:
+
+- Every `GolemPart` already carries an optional `armour`. That may be a per-hit-kind table
+  (`ArmourByHit` in `src/scoring.ts`), which `Golem.applyDamage` combines with the attribute
+  armour.
+- Terminals already carry `massKg`, and `itemMassKg` keeps held items out of the body-weight
+  scaling.
+- An armour item is therefore mostly two things: mass added to the parts it covers, and an armour
+  table applied to those parts. The damage model does not need rewriting.
+
+Holdables are less far along. `bow` and `axe` are in the `WeaponKind` vocabulary in
+`src/hands.ts`, but no terminal builds either, and there is no staff. The arena parts bin
+(`src/golem/parts-bin.ts`) is the only loot and inventory today. It stores whole effector module
+ids and should be replaced by item instances, not extended.
+
 ## Share one encounter runtime across modes
 
 Arena uses `stepControlledPair` in `src/control-host.ts`. `DungeonRun` in
@@ -102,10 +173,33 @@ and locomotion sequence. Extract shared ownership of actor registration, clocks,
 control, contacts, damage events, spawning and disposal. Modes supply objectives and lifecycle
 rules. Preserve the fairness boundary: everyone observes before anyone acts.
 
-Separate actor identity, faction and collision behavior. `src/physics.ts` uses left/right
-collision categories extensively. Establish explicit behavior for allied collisions, friendly
-fire, self-collision, neutral actors and projectiles in a small multi-actor physical test before
-expanding wave sizes.
+The pair assumption is wide:
+
+- `Side` and the `LEFT_*`/`RIGHT_*` collision bits in `src/physics.ts`.
+- `stepControlledPair` and `ControlledBody.observe(opponent)` in `src/control-host.ts`.
+- `Matchup`, `Ring` and `settle` in `src/bout.ts`.
+- `Combat(side)` with a single `attach` target.
+- `BoutRecorder`, `FightEnd`, the HUD, setup and the camera in `src/main.ts`.
+
+The dungeon works around it:
+
+- It places the hero and companions on `"left"` and every enemy on `"right"`.
+- It finds the struck body through `Combat.attachResolver`.
+- It brings up its own engine and Havok, and hand-writes its own multi-actor step loop.
+- Allies therefore pass through each other, `avoidCrowd` in `src/dungeon/run.ts` steers them
+  apart, and friendly fire is impossible.
+
+Separate actor identity, faction and collision behavior. Establish explicit behavior for allied
+collisions, friendly fire, self-collision, neutral actors and projectiles. Prove it in a small
+multi-actor physical test before expanding wave sizes.
+
+**Spike the collision budget first.** Havok filters on 32-bit membership and collide-with masks.
+The two-side table already spends bits per side, and bits per actor will not scale to a wave. The
+open question is how a body excludes its own parts while colliding with everyone else's. Candidates
+include layers by role plus per-constraint collision disabling between jointed parts, together
+with the command-volume clearance already used for owner-held equipment. Answer it with a
+measured test before the runtime's actor model is fixed, because every other part of the runtime
+depends on the answer.
 
 Expose nearby threats and relevant terrain as well as a selected target to AI. A duelist may
 focus on one opponent while still noticing another attacker.
@@ -119,6 +213,22 @@ The proposed control flow is:
 Share targeting, navigation, threat assessment and equipment knowledge where useful. Allow
 family-specific locomotion and weapon-specific skills. An insect and a swordsman can understand
 the same order to close distance while executing it differently.
+
+Orders are not inputs to minds today:
+
+- No mind reads `Orders` (`src/orders.ts`), and none declares `obeysOrders`.
+- `GolemDriver.step` in `src/golem/golem-control.ts` passes each intent through
+  `OrderFollower.obey`. When an order is active, this overwrites the mind's `forward` and
+  `strafe`, and its `turn` when facing away from the enemy.
+- The dungeon composes movement separately in `composeIntent` (`src/dungeon/commands.ts`).
+
+In the new stack the tactical layer takes the order as an input and decides how to honour it
+while defending itself. Arena and Dungeon share that path.
+
+The exact-fork machinery (`src/fork/`, `src/forkable.ts`) is a strategic asset for the skill
+ceiling. A bit-exact capture of the whole physical world makes search-based tactics possible:
+roll several continuations forward and choose among them. Such a ceiling rises with compute,
+unlike a hand-tuned state machine. Keep every new controller `Forkable` from the start.
 
 Skills should accept continuous direction, reach, timing, orientation and effort, and report
 progress and failure. Support feints, interrupted attacks, recovery and coordination. Keep finer
@@ -149,6 +259,11 @@ repeated jamming do not establish the intended skill ceiling. Keep a few stable 
 policies and retire superseded production implementations after replacements pass the gates.
 Preserve research results and their provenance.
 
+Build this suite before the new AI, with the v1 duelist as its floor. Every new controller is
+then judged by the suite from its first day, not by a bespoke study. Generalize the policy league
+(`research/league.mjs`, `src/policy-rating.ts`) to rate a combination of body, equipment and mind
+rather than a mind on a stone body. The Ladder's challenge tiers need the same rating.
+
 ## Add persistent character state before progression
 
 A saved character describes equipment, attributes, training choices and any persistent injuries.
@@ -176,7 +291,10 @@ That experience will expose the RPG requirements before more levels multiply the
 
 ## Suggested sequence and first milestone
 
-1. Establish the shared encounter runtime and multi-actor rules.
+0. Retire and clean up, as listed above, including the `AGENTS.md` restructure. This takes one or
+   two sessions, each landing as its own commit with `npm test`, `npm run check` and `npm run
+   build` green.
+1. Spike the collision budget, then establish the shared encounter runtime and multi-actor rules.
 2. Separate character anatomy and equipment, with persistent character descriptions.
 3. Complete the workshop Warrior and Rogue paths; test body contracts with the simple quadruped
    during this foundation work.
@@ -186,7 +304,16 @@ That experience will expose the RPG requirements before more levels multiply the
 The first milestone: create a workshop Warrior, equip armour and a sword or maul, fight a dummy
 then a skeleton, retain the character between encounters, and run those same encounters headlessly.
 
-Alongside this work, correct stale architectural comments, distinguish active research from
-historical experiments, and eventually shorten `AGENTS.md` into current invariants linked to
-incident history. Broad renaming should follow real boundary changes. These recommendations
-do not mark unfinished visual reviews or skill-ceiling release gates as complete.
+Broad renaming should follow real boundary changes. These recommendations do not mark unfinished
+visual reviews or skill-ceiling release gates as complete.
+
+## Open decisions for the owner
+
+1. **Stone golems.** Do they remain a playable and enemy family, or become legacy? The
+   recommendation is to keep them as enemies, since they are the most tuned bodies in the tree.
+2. **Dungeon control.** Does the player steer the hero directly, as in Diablo, or give orders as
+   in the Arena? The dungeon currently mixes keyboard movement with automatic attacks. The answer
+   decides what the orders layer must express.
+3. **Skill-ceiling plan set.** Is it closed, as recommended above, or are any of sessions 06-09
+   still wanted?
+4. **Legacy human.** Is it retired in favour of the workshop model, or kept as a costume?
