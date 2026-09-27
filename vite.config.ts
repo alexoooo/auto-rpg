@@ -26,6 +26,6 @@ export default defineConfig({
     // `dist`, which is the failure that looks like a routing problem and is a config one.
     // `bench.html` is the golem effector bench.
     // `dungeon.html` only forwards to `./?play=dungeon`; it is kept so old links do not 404.
-    rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html", dungeon: "dungeon.html" } },
+    rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html", dungeon: "dungeon.html", characterLab: "character-lab.html" } },
   },
 });

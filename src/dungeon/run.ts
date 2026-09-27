@@ -5,7 +5,7 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
 import { PhysicsActivationControl } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import { Combat } from "../combat.ts";
+import { Combat, type CombatReportEvent } from "../combat.ts";
 import { Golem } from "../golem/golem.ts";
 import { bodyFamily, FAMILY_POLICY } from "../golem/family.ts";
 import { namedBuild } from "../golem/roster.ts";
@@ -141,7 +141,8 @@ export class DungeonRun {
 
   /** `enemies` overrides each spawn build for tests about one family. */
   constructor(scene: Scene, seed: number, heroBuild = "default", visuals: boolean | DungeonSurfaces = true, layout?: DungeonMap,
-    heroSetup?: GolemSetup, companions: readonly string[] = [], enemies?: (i: number) => string) {
+    heroSetup?: GolemSetup, companions: readonly string[] = [], enemies?: (i: number) => string,
+    onReport?: (attacker: string, event: CombatReportEvent) => void) {
     this.map = layout ?? generateLevel(seed).map;
     this.world = buildDungeonWorld(scene, this.map, visuals);
     this.plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
@@ -156,7 +157,7 @@ export class DungeonRun {
       const priorMeshes = new Set(scene.meshes);
       const body = new Golem(scene, { actorId: id, side, origin: new Vector3(at.x, 0, at.z), facing: side === "left" ? 0 : Math.PI,
         setup, mind: source, controlPolicies: definition.driverOptions, locomotionWorld: this.world.registry });
-      const combat = new Combat(side, body.strikers);
+      const combat = new Combat(side, body.strikers, onReport ? event => onReport(id, event) : undefined);
       const made = scene.meshes.filter(mesh => !priorMeshes.has(mesh));
       const actor: DungeonActor = { id, name: buildName, body, combat, policy,
         get intent() { return intent; }, set intent(value) { intent = value; }, target: null,
