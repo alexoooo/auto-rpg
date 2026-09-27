@@ -1,0 +1,2040 @@
+{
+  "date": "2026-09-26",
+  "provenance": {
+    "source": ".claude/worktrees/agent-ab2c4459397f43305/research/runs/release2/family-fists-expert",
+    "historicalRows": 18,
+    "uniqueRows": 17,
+    "duplicatePhysicalResultsIdentical": true,
+    "continuationRevision": "a7e8fc7e",
+    "note": "Original files preserved. Repeated job has identical seeds/verdict/ending/duration/vitality; retained its final record.",
+    "manifestMigration": "Added flags:{} to older non-channel manifest; inherited off defaults unchanged. Runner must still validate exact builds/protocol/schedule hash."
+  },
+  "completed": 32,
+  "failures": 0,
+  "continuationWallSeconds": 999,
+  "historicalRepeat": {
+    "id": "skeleton-warrior>skeleton-fists|expert@c8,h1#0/left",
+    "fields": {
+      "seeds": true,
+      "winner": true,
+      "ending": true,
+      "seconds": true,
+      "vitality": true
+    },
+    "old": {
+      "seconds": 3.9333333333333242,
+      "vitality": [
+        1,
+        0.21217192543067442
+      ]
+    },
+    "fresh": {
+      "seconds": 3.9333333333333242,
+      "vitality": [
+        1,
+        0.21217192543067442
+      ]
+    }
+  },
+  "summary": {
+    "failed": 0,
+    "cells": {
+      "skeleton-fists>skeleton-warrior|expert@c8,h1": {
+        "pairs": 2,
+        "halfPairs": 0,
+        "bouts": 4,
+        "byK": {
+          "0": {
+            "score": 1,
+            "margin": 0.49746040152494936
+          },
+          "1": {
+            "score": 1,
+            "margin": 0.6136526856776953
+          }
+        },
+        "score": {
+          "mean": 1,
+          "low": 1,
+          "high": 1
+        },
+        "margin": {
+          "mean": 0.5555565436013223,
+          "low": 0.49746040152494936,
+          "high": 0.6136526856776953,
+          "d": 6.761856902591431
+        },
+        "aLeft": 1,
+        "aRight": 1,
+        "seconds": 83.1958333333299,
+        "wallSeconds": 480.78238865000003,
+        "decided": 1,
+        "endings": {
+          "exhausted": 4
+        },
+        "winnersBar": 0.5555565436013223,
+        "leadChanges": 0.25,
+        "behaviour": {
+          "gapM": {
+            "a": 0.6504524820445401,
+            "b": 0.6504524820445401
+          },
+          "fraction": {
+            "a": 1.0553278350453514,
+            "b": 0.5953483025598681
+          },
+          "inReachShare": {
+            "a": 0.5673556588274757,
+            "b": 0.9546660260848527
+          },
+          "forward": {
+            "a": 0.33265429183618417,
+            "b": -0.5551501282272643
+          },
+          "backShare": {
+            "a": 0.0649897381261011,
+            "b": 0.7564284855590614
+          },
+          "pressShare": {
+            "a": 0.3213018812248704,
+            "b": 0.06940233999689865
+          },
+          "strafe": {
+            "a": 0.20315359284930087,
+            "b": 0.5500000000000219
+          },
+          "turn": {
+            "a": 0.5644410322322693,
+            "b": 0.9111464796880473
+          },
+          "committedShare": {
+            "a": 0.12433971312323924,
+            "b": 0.12962527699938736
+          },
+          "strokesPerMinute": {
+            "a": 55.845343570727906,
+            "b": 34.530557515040584
+          },
+          "downShare": {
+            "a": 0.08774240223834068,
+            "b": 0.9015592294315382
+          },
+          "damage": {
+            "a": 1.6543141242736907,
+            "b": 0.18546995081598844
+          },
+          "falls": {
+            "a": 2.75,
+            "b": 23.75
+          },
+          "nearRangeStallSeconds": {
+            "a": 0,
+            "b": 0
+          },
+          "retreatOutsideReachSeconds": {
+            "a": 4.260416666666713,
+            "b": 0.9583333333333314
+          },
+          "stanceWidth": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceLead": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceWeight": {
+            "a": 0,
+            "b": 0
+          },
+          "stancedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "steppingShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetSpeed": {
+            "a": null,
+            "b": null
+          },
+          "targetForce": {
+            "a": null,
+            "b": null
+          }
+        },
+        "expert": {
+          "decisions": 1333,
+          "ms": 1870616.621199998,
+          "labels": {
+            "cut-mid": 112,
+            "warm": 329,
+            "duelist": 336,
+            "step-cut": 107,
+            "warm~": 37,
+            "duelist~": 92,
+            "step-cut~": 59,
+            "cut-high": 71,
+            "back-off~": 26,
+            "cut-mid~": 18,
+            "press": 56,
+            "cut-high~": 12,
+            "back-off": 50,
+            "press~": 28
+          }
+        },
+        "expertB": {},
+        "meta": {
+          "a": "expert@c8,h1",
+          "b": "skeleton-duelist",
+          "aBuild": "skeleton-fists",
+          "bBuild": "skeleton-warrior",
+          "body": "skeleton-fists"
+        }
+      },
+      "skeleton-warrior>skeleton-fists|expert@c8,h1": {
+        "pairs": 2,
+        "halfPairs": 0,
+        "bouts": 4,
+        "byK": {
+          "0": {
+            "score": 1,
+            "margin": 0.8939140372846628
+          },
+          "1": {
+            "score": 1,
+            "margin": 1
+          }
+        },
+        "score": {
+          "mean": 1,
+          "low": 1,
+          "high": 1
+        },
+        "margin": {
+          "mean": 0.9469570186423314,
+          "low": 0.8939140372846628,
+          "high": 1,
+          "d": 12.623719712492782
+        },
+        "aLeft": 1,
+        "aRight": 1,
+        "seconds": 8.600000000000062,
+        "wallSeconds": 50.92519267500004,
+        "decided": 1,
+        "endings": {
+          "exhausted": 4
+        },
+        "winnersBar": 1,
+        "leadChanges": 0,
+        "behaviour": {
+          "gapM": {
+            "a": 0.8757854245366493,
+            "b": 0.8757854245366493
+          },
+          "fraction": {
+            "a": 0.7795065481825749,
+            "b": 1.59605249948312
+          },
+          "inReachShare": {
+            "a": 0.8613144719547732,
+            "b": 0.1295816201654243
+          },
+          "forward": {
+            "a": 0.15809235550984654,
+            "b": 0.7428159120948159
+          },
+          "backShare": {
+            "a": 0.20600068481424413,
+            "b": 0.0064043945870687876
+          },
+          "pressShare": {
+            "a": 0.36015511133213585,
+            "b": 0.1004886208511444
+          },
+          "strafe": {
+            "a": 0.20336403006323134,
+            "b": 0.5500000000000042
+          },
+          "turn": {
+            "a": 0.42385045998334736,
+            "b": 0.8059704273691228
+          },
+          "committedShare": {
+            "a": 0.1388425778727097,
+            "b": 0.02682811887143337
+          },
+          "strokesPerMinute": {
+            "a": 65.6374071628305,
+            "b": 7.222752138006315
+          },
+          "downShare": {
+            "a": 0.04256854256854257,
+            "b": 0.9158350498981384
+          },
+          "damage": {
+            "a": 2.7298693730299837,
+            "b": 0
+          },
+          "falls": {
+            "a": 0.25,
+            "b": 3.5
+          },
+          "nearRangeStallSeconds": {
+            "a": 0,
+            "b": 0
+          },
+          "retreatOutsideReachSeconds": {
+            "a": 0.19166666666666665,
+            "b": 0.3937500000000004
+          },
+          "stanceWidth": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceLead": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceWeight": {
+            "a": 0,
+            "b": 0
+          },
+          "stancedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "steppingShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetSpeed": {
+            "a": null,
+            "b": null
+          },
+          "targetForce": {
+            "a": null,
+            "b": null
+          }
+        },
+        "expert": {
+          "decisions": 140,
+          "ms": 197845.43179999886,
+          "labels": {
+            "step-cut~": 8,
+            "warm": 36,
+            "back-off~": 7,
+            "duelist~": 10,
+            "duelist": 27,
+            "step-cut": 22,
+            "cut-mid": 12,
+            "warm~": 4,
+            "cut-high": 6,
+            "cut-mid~": 3,
+            "back-off": 1,
+            "press": 1,
+            "cut-high~": 3
+          }
+        },
+        "expertB": {},
+        "meta": {
+          "a": "expert@c8,h1",
+          "b": "skeleton-duelist",
+          "aBuild": "skeleton-warrior",
+          "bBuild": "skeleton-fists",
+          "body": "skeleton-fists"
+        }
+      },
+      "skeleton-fists>skeleton-mace|expert@c8,h1": {
+        "pairs": 2,
+        "halfPairs": 0,
+        "bouts": 4,
+        "byK": {
+          "0": {
+            "score": 1,
+            "margin": 0.4166666666669505
+          },
+          "1": {
+            "score": 1,
+            "margin": 0.7725483365262973
+          }
+        },
+        "score": {
+          "mean": 1,
+          "low": 1,
+          "high": 1
+        },
+        "margin": {
+          "mean": 0.5946075015966239,
+          "low": 0.4166666666669505,
+          "high": 0.7725483365262973,
+          "d": 2.3628696397290496
+        },
+        "aLeft": 1,
+        "aRight": 1,
+        "seconds": 83.04583333332991,
+        "wallSeconds": 511.5833229500001,
+        "decided": 1,
+        "endings": {
+          "exhausted": 4
+        },
+        "winnersBar": 0.5946075015966239,
+        "leadChanges": 0.5,
+        "behaviour": {
+          "gapM": {
+            "a": 0.6351428443595265,
+            "b": 0.6351428443595265
+          },
+          "fraction": {
+            "a": 1.0813742910704565,
+            "b": 0.5960333913576391
+          },
+          "inReachShare": {
+            "a": 0.5065787420790548,
+            "b": 0.9583462976411609
+          },
+          "forward": {
+            "a": 0.33337576736240093,
+            "b": -0.43115026855732674
+          },
+          "backShare": {
+            "a": 0.08290422887336138,
+            "b": 0.6506767324928459
+          },
+          "pressShare": {
+            "a": 0.30693103103824404,
+            "b": 0.12772966074695488
+          },
+          "strafe": {
+            "a": 0.19058921923186992,
+            "b": 0.550000000000018
+          },
+          "turn": {
+            "a": 0.5444241520806183,
+            "b": 0.9300352991846403
+          },
+          "committedShare": {
+            "a": 0.12142940740992912,
+            "b": 0.15339091306904665
+          },
+          "strokesPerMinute": {
+            "a": 56.94738718088081,
+            "b": 31.513513209183476
+          },
+          "downShare": {
+            "a": 0.1512989264859002,
+            "b": 0.9152772170578023
+          },
+          "damage": {
+            "a": 1.6383080879402847,
+            "b": 0.05166148781584297
+          },
+          "falls": {
+            "a": 4.25,
+            "b": 22.75
+          },
+          "nearRangeStallSeconds": {
+            "a": 0,
+            "b": 0
+          },
+          "retreatOutsideReachSeconds": {
+            "a": 3.86666666666667,
+            "b": 0.3770833333333333
+          },
+          "stanceWidth": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceLead": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceWeight": {
+            "a": 0,
+            "b": 0
+          },
+          "stancedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "steppingShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetSpeed": {
+            "a": null,
+            "b": null
+          },
+          "targetForce": {
+            "a": null,
+            "b": null
+          }
+        },
+        "expert": {
+          "decisions": 1330,
+          "ms": 1989566.5699000051,
+          "labels": {
+            "cut-high": 86,
+            "warm": 311,
+            "step-cut": 138,
+            "warm~": 49,
+            "cut-mid": 106,
+            "back-off": 48,
+            "duelist": 290,
+            "duelist~": 99,
+            "press": 56,
+            "step-cut~": 59,
+            "cut-mid~": 23,
+            "cut-high~": 21,
+            "press~": 19,
+            "back-off~": 25
+          }
+        },
+        "expertB": {},
+        "meta": {
+          "a": "expert@c8,h1",
+          "b": "skeleton-duelist",
+          "aBuild": "skeleton-fists",
+          "bBuild": "skeleton-mace",
+          "body": "skeleton-fists"
+        }
+      },
+      "skeleton-mace>skeleton-fists|expert@c8,h1": {
+        "pairs": 2,
+        "halfPairs": 0,
+        "bouts": 4,
+        "byK": {
+          "0": {
+            "score": 1,
+            "margin": 1
+          },
+          "1": {
+            "score": 1,
+            "margin": 1
+          }
+        },
+        "score": {
+          "mean": 1,
+          "low": 1,
+          "high": 1
+        },
+        "margin": {
+          "mean": 1,
+          "low": 1,
+          "high": 1,
+          "d": null
+        },
+        "aLeft": 1,
+        "aRight": 1,
+        "seconds": 7.0666666666666735,
+        "wallSeconds": 41.87839444999993,
+        "decided": 1,
+        "endings": {
+          "exhausted": 4
+        },
+        "winnersBar": 1,
+        "leadChanges": 0,
+        "behaviour": {
+          "gapM": {
+            "a": 0.9360362233530529,
+            "b": 0.9360362233530529
+          },
+          "fraction": {
+            "a": 0.8094961678096715,
+            "b": 1.6171647799353535
+          },
+          "inReachShare": {
+            "a": 0.8100374942245717,
+            "b": 0.15960167722227858
+          },
+          "forward": {
+            "a": 0.27281989124819783,
+            "b": 0.7067406718430826
+          },
+          "backShare": {
+            "a": 0.10103623264314034,
+            "b": 0.02628156302113041
+          },
+          "pressShare": {
+            "a": 0.37657513516038954,
+            "b": 0.07042007447306484
+          },
+          "strafe": {
+            "a": 0.17439668524816315,
+            "b": 0.5500000000000032
+          },
+          "turn": {
+            "a": 0.43730064993694484,
+            "b": 0.8415539710330213
+          },
+          "committedShare": {
+            "a": 0.32728343274056493,
+            "b": 0.05311076399796692
+          },
+          "strokesPerMinute": {
+            "a": 97.03517028565419,
+            "b": 17.41863761117662
+          },
+          "downShare": {
+            "a": 0.21043819413368048,
+            "b": 0.8962346513008332
+          },
+          "damage": {
+            "a": 2.682916843371962,
+            "b": 0
+          },
+          "falls": {
+            "a": 0.5,
+            "b": 4.5
+          },
+          "nearRangeStallSeconds": {
+            "a": 0,
+            "b": 0
+          },
+          "retreatOutsideReachSeconds": {
+            "a": 0.24166666666666664,
+            "b": 2.054166666666669
+          },
+          "stanceWidth": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceLead": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceWeight": {
+            "a": 0,
+            "b": 0
+          },
+          "stancedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "steppingShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetSpeed": {
+            "a": null,
+            "b": null
+          },
+          "targetForce": {
+            "a": null,
+            "b": null
+          }
+        },
+        "expert": {
+          "decisions": 116,
+          "ms": 163008.49800000252,
+          "labels": {
+            "cut-mid": 13,
+            "warm": 35,
+            "warm~": 6,
+            "step-cut": 5,
+            "back-off": 1,
+            "cut-high": 11,
+            "duelist": 24,
+            "cut-mid~": 4,
+            "duelist~": 7,
+            "cut-high~": 5,
+            "back-off~": 3,
+            "step-cut~": 2
+          }
+        },
+        "expertB": {},
+        "meta": {
+          "a": "expert@c8,h1",
+          "b": "skeleton-duelist",
+          "aBuild": "skeleton-mace",
+          "bBuild": "skeleton-fists",
+          "body": "skeleton-fists"
+        }
+      },
+      "skeleton-fists>skeleton-dual-blades|expert@c8,h1": {
+        "pairs": 2,
+        "halfPairs": 0,
+        "bouts": 4,
+        "byK": {
+          "0": {
+            "score": 1,
+            "margin": 0.4044919528087562
+          },
+          "1": {
+            "score": 1,
+            "margin": 0.42966223732475994
+          }
+        },
+        "score": {
+          "mean": 1,
+          "low": 1,
+          "high": 1
+        },
+        "margin": {
+          "mean": 0.41707709506675805,
+          "low": 0.4044919528087562,
+          "high": 0.42966223732475994,
+          "d": 23.433826662688432
+        },
+        "aLeft": 1,
+        "aRight": 1,
+        "seconds": 92.17499999999606,
+        "wallSeconds": 583.9422442499999,
+        "decided": 1,
+        "endings": {
+          "exhausted": 4
+        },
+        "winnersBar": 0.41707709506675805,
+        "leadChanges": 0,
+        "behaviour": {
+          "gapM": {
+            "a": 0.6551231898254478,
+            "b": 0.6551231898254478
+          },
+          "fraction": {
+            "a": 1.0605618934810668,
+            "b": 0.576153649716628
+          },
+          "inReachShare": {
+            "a": 0.5109607742214042,
+            "b": 0.9561436265322799
+          },
+          "forward": {
+            "a": 0.3312385308871211,
+            "b": -0.5536076377288099
+          },
+          "backShare": {
+            "a": 0.06916603313590937,
+            "b": 0.752733695041199
+          },
+          "pressShare": {
+            "a": 0.3038002572171015,
+            "b": 0.07329680638763111
+          },
+          "strafe": {
+            "a": 0.18981991976875778,
+            "b": 0.5500000000000372
+          },
+          "turn": {
+            "a": 0.505011358720182,
+            "b": 0.9297564647701239
+          },
+          "committedShare": {
+            "a": 0.12754342954659248,
+            "b": 0.13423936895223143
+          },
+          "strokesPerMinute": {
+            "a": 54.31384804760643,
+            "b": 35.68989236380311
+          },
+          "downShare": {
+            "a": 0.14191871421000457,
+            "b": 0.9166492790665444
+          },
+          "damage": {
+            "a": 1.2649149332459653,
+            "b": 0.15587961992250002
+          },
+          "falls": {
+            "a": 5,
+            "b": 24.25
+          },
+          "nearRangeStallSeconds": {
+            "a": 0,
+            "b": 0
+          },
+          "retreatOutsideReachSeconds": {
+            "a": 2.920833333333335,
+            "b": 0.24374999999999997
+          },
+          "stanceWidth": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceLead": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceWeight": {
+            "a": 0,
+            "b": 0
+          },
+          "stancedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "steppingShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetSpeed": {
+            "a": null,
+            "b": null
+          },
+          "targetForce": {
+            "a": null,
+            "b": null
+          }
+        },
+        "expert": {
+          "decisions": 1478,
+          "ms": 2272936.1162000014,
+          "labels": {
+            "step-cut~": 63,
+            "step-cut": 132,
+            "warm": 392,
+            "duelist": 337,
+            "cut-high": 87,
+            "back-off": 51,
+            "press": 80,
+            "cut-mid": 101,
+            "warm~": 45,
+            "press~": 21,
+            "back-off~": 22,
+            "duelist~": 99,
+            "cut-high~": 25,
+            "cut-mid~": 23
+          }
+        },
+        "expertB": {},
+        "meta": {
+          "a": "expert@c8,h1",
+          "b": "skeleton-duelist",
+          "aBuild": "skeleton-fists",
+          "bBuild": "skeleton-dual-blades",
+          "body": "skeleton-fists"
+        }
+      },
+      "skeleton-dual-blades>skeleton-fists|expert@c8,h1": {
+        "pairs": 2,
+        "halfPairs": 0,
+        "bouts": 4,
+        "byK": {
+          "0": {
+            "score": 1,
+            "margin": 1
+          },
+          "1": {
+            "score": 1,
+            "margin": 0.976000931167309
+          }
+        },
+        "score": {
+          "mean": 1,
+          "low": 1,
+          "high": 1
+        },
+        "margin": {
+          "mean": 0.9880004655836545,
+          "low": 0.976000931167309,
+          "high": 1,
+          "d": 58.22074463806042
+        },
+        "aLeft": 1,
+        "aRight": 1,
+        "seconds": 4.670833333333322,
+        "wallSeconds": 31.824396000000156,
+        "decided": 1,
+        "endings": {
+          "exhausted": 4
+        },
+        "winnersBar": 0.9880004655836545,
+        "leadChanges": 0,
+        "behaviour": {
+          "gapM": {
+            "a": 1.0610168315021524,
+            "b": 1.0610168315021524
+          },
+          "fraction": {
+            "a": 0.8243964566561397,
+            "b": 1.580724505444378
+          },
+          "inReachShare": {
+            "a": 0.795831961251072,
+            "b": 0.12874656966935635
+          },
+          "forward": {
+            "a": 0.2287770735206639,
+            "b": 0.5961463613753697
+          },
+          "backShare": {
+            "a": 0.13032053488372441,
+            "b": 0.02226211749558809
+          },
+          "pressShare": {
+            "a": 0.3760507959664494,
+            "b": 0.05285703805268136
+          },
+          "strafe": {
+            "a": 0.21489890185542865,
+            "b": 0.5499999999999999
+          },
+          "turn": {
+            "a": 0.6034189413941414,
+            "b": 0.9071032805003552
+          },
+          "committedShare": {
+            "a": 0.14782520008840322,
+            "b": 0.054224890950864066
+          },
+          "strokesPerMinute": {
+            "a": 53.30589268803095,
+            "b": 14.853990698913428
+          },
+          "downShare": {
+            "a": 0.13223938223938225,
+            "b": 0.8457975890436703
+          },
+          "damage": {
+            "a": 2.824106426496127,
+            "b": 0.029465523400137188
+          },
+          "falls": {
+            "a": 0.25,
+            "b": 1.75
+          },
+          "nearRangeStallSeconds": {
+            "a": 0,
+            "b": 0
+          },
+          "retreatOutsideReachSeconds": {
+            "a": 0.2375,
+            "b": 0.3770833333333336
+          },
+          "stanceWidth": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceLead": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceWeight": {
+            "a": 0,
+            "b": 0
+          },
+          "stancedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "steppingShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetSpeed": {
+            "a": null,
+            "b": null
+          },
+          "targetForce": {
+            "a": null,
+            "b": null
+          }
+        },
+        "expert": {
+          "decisions": 77,
+          "ms": 123681.90770000173,
+          "labels": {
+            "duelist": 18,
+            "cut-high~": 3,
+            "cut-mid": 4,
+            "step-cut": 9,
+            "warm": 20,
+            "warm~": 6,
+            "duelist~": 5,
+            "cut-high": 3,
+            "cut-mid~": 6,
+            "step-cut~": 2,
+            "back-off": 1
+          }
+        },
+        "expertB": {},
+        "meta": {
+          "a": "expert@c8,h1",
+          "b": "skeleton-duelist",
+          "aBuild": "skeleton-dual-blades",
+          "bBuild": "skeleton-fists",
+          "body": "skeleton-fists"
+        }
+      },
+      "skeleton-maul>skeleton-fists|expert@c8,h1": {
+        "pairs": 2,
+        "halfPairs": 0,
+        "bouts": 4,
+        "byK": {
+          "0": {
+            "score": 1,
+            "margin": 0.924027777777835
+          },
+          "1": {
+            "score": 1,
+            "margin": 0.9379321540364489
+          }
+        },
+        "score": {
+          "mean": 1,
+          "low": 1,
+          "high": 1
+        },
+        "margin": {
+          "mean": 0.9309799659071419,
+          "low": 0.924027777777835,
+          "high": 0.9379321540364489,
+          "d": 94.68993571487009
+        },
+        "aLeft": 1,
+        "aRight": 1,
+        "seconds": 56.47499999999808,
+        "wallSeconds": 310.105322375,
+        "decided": 1,
+        "endings": {
+          "exhausted": 4
+        },
+        "winnersBar": 0.9309799659071419,
+        "leadChanges": 0,
+        "behaviour": {
+          "gapM": {
+            "a": 0.9421974838295386,
+            "b": 0.9421974838295386
+          },
+          "fraction": {
+            "a": 0.7915119744278926,
+            "b": 1.6460637673328347
+          },
+          "inReachShare": {
+            "a": 0.853370830859032,
+            "b": 0.10302719336776793
+          },
+          "forward": {
+            "a": 0.06610706301597616,
+            "b": 0.7431840345351353
+          },
+          "backShare": {
+            "a": 0.29049411268611647,
+            "b": 0.02062913336621002
+          },
+          "pressShare": {
+            "a": 0.2963595058644566,
+            "b": 0.04956256383495802
+          },
+          "strafe": {
+            "a": 0.2456111858647601,
+            "b": 0.5499999999999793
+          },
+          "turn": {
+            "a": 0.3291785250763808,
+            "b": 0.9185627245184989
+          },
+          "committedShare": {
+            "a": 0.23627350330824562,
+            "b": 0.027397523349859957
+          },
+          "strokesPerMinute": {
+            "a": 75.62881113752445,
+            "b": 7.29479634279803
+          },
+          "downShare": {
+            "a": 0.0862995071580047,
+            "b": 0.9692698626384901
+          },
+          "damage": {
+            "a": 2.6794365471156416,
+            "b": 0.02323167916357854
+          },
+          "falls": {
+            "a": 1.75,
+            "b": 20.75
+          },
+          "nearRangeStallSeconds": {
+            "a": 0,
+            "b": 0
+          },
+          "retreatOutsideReachSeconds": {
+            "a": 0.24375000000000005,
+            "b": 11.743749999999956
+          },
+          "stanceWidth": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceLead": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceWeight": {
+            "a": 0,
+            "b": 0
+          },
+          "stancedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "steppingShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetSpeed": {
+            "a": null,
+            "b": null
+          },
+          "targetForce": {
+            "a": null,
+            "b": null
+          }
+        },
+        "expert": {
+          "decisions": 906,
+          "ms": 1207975.1592000024,
+          "labels": {
+            "duelist~": 77,
+            "duelist": 279,
+            "step-cut": 53,
+            "warm": 203,
+            "cut-high": 53,
+            "cut-mid~": 20,
+            "back-off": 32,
+            "cut-mid": 84,
+            "cut-high~": 25,
+            "back-off~": 34,
+            "press": 10,
+            "warm~": 14,
+            "step-cut~": 17,
+            "press~": 5
+          }
+        },
+        "expertB": {},
+        "meta": {
+          "a": "expert@c8,h1",
+          "b": "skeleton-duelist",
+          "aBuild": "skeleton-maul",
+          "bBuild": "skeleton-fists",
+          "body": "skeleton-fists"
+        }
+      },
+      "skeleton-fists>skeleton-maul|expert@c8,h1": {
+        "pairs": 2,
+        "halfPairs": 0,
+        "bouts": 4,
+        "byK": {
+          "0": {
+            "score": 1,
+            "margin": 0.33500000000030405
+          },
+          "1": {
+            "score": 1,
+            "margin": 0.4645833333336027
+          }
+        },
+        "score": {
+          "mean": 1,
+          "low": 1,
+          "high": 1
+        },
+        "margin": {
+          "mean": 0.39979166666695337,
+          "low": 0.33500000000030405,
+          "high": 0.4645833333336027,
+          "d": 4.363144415107142
+        },
+        "aLeft": 1,
+        "aRight": 1,
+        "seconds": 96.01249999999584,
+        "wallSeconds": 502.33794300000005,
+        "decided": 1,
+        "endings": {
+          "exhausted": 4
+        },
+        "winnersBar": 0.39979166666695337,
+        "leadChanges": 0,
+        "behaviour": {
+          "gapM": {
+            "a": 0.6081535513253853,
+            "b": 0.6081535513253853
+          },
+          "fraction": {
+            "a": 1.020483184487095,
+            "b": 0.5741677829715257
+          },
+          "inReachShare": {
+            "a": 0.575698827952523,
+            "b": 0.796855017451428
+          },
+          "forward": {
+            "a": 0.3506802390786402,
+            "b": -0.7199281663646862
+          },
+          "backShare": {
+            "a": 0.05592341609177512,
+            "b": 0.7800593741469359
+          },
+          "pressShare": {
+            "a": 0.3367611208391999,
+            "b": 0.02669673542092927
+          },
+          "strafe": {
+            "a": 0.19809862194309696,
+            "b": 0.5500000000000426
+          },
+          "turn": {
+            "a": 0.5448383522418071,
+            "b": 0.9085813776568973
+          },
+          "committedShare": {
+            "a": 0.12048840328031563,
+            "b": 0.15689194424131828
+          },
+          "strokesPerMinute": {
+            "a": 57.46691031111094,
+            "b": 32.46854573048228
+          },
+          "downShare": {
+            "a": 0.12171770411112465,
+            "b": 0.9084147280535296
+          },
+          "damage": {
+            "a": 1.4055221016233104,
+            "b": 0
+          },
+          "falls": {
+            "a": 4.5,
+            "b": 28
+          },
+          "nearRangeStallSeconds": {
+            "a": 0,
+            "b": 0
+          },
+          "retreatOutsideReachSeconds": {
+            "a": 5.833333333333416,
+            "b": 8.2937499999997
+          },
+          "stanceWidth": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceLead": {
+            "a": 0,
+            "b": 0
+          },
+          "stanceWeight": {
+            "a": 0,
+            "b": 0
+          },
+          "stancedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "steppingShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetedShare": {
+            "a": 0,
+            "b": 0
+          },
+          "targetSpeed": {
+            "a": null,
+            "b": null
+          },
+          "targetForce": {
+            "a": null,
+            "b": null
+          }
+        },
+        "expert": {
+          "decisions": 1539,
+          "ms": 1954495.203300001,
+          "labels": {
+            "cut-mid~": 29,
+            "step-cut~": 91,
+            "warm": 375,
+            "step-cut": 155,
+            "cut-high": 96,
+            "warm~": 58,
+            "cut-mid": 116,
+            "duelist": 360,
+            "press": 56,
+            "back-off": 48,
+            "duelist~": 91,
+            "press~": 17,
+            "back-off~": 16,
+            "cut-high~": 31
+          }
+        },
+        "expertB": {},
+        "meta": {
+          "a": "expert@c8,h1",
+          "b": "skeleton-duelist",
+          "aBuild": "skeleton-fists",
+          "bBuild": "skeleton-maul",
+          "body": "skeleton-fists"
+        }
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "skeleton-fists>skeleton-warrior|expert@c8,h1#0/left",
+      "pair": "skeleton-fists>skeleton-warrior|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-fists>skeleton-warrior|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-warrior",
+      "seeds": [
+        2730336917,
+        1855753068
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 80.3166666666634,
+      "vitality": [
+        0.5554968032780532,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-warrior|expert@c8,h1#0/right",
+      "pair": "skeleton-fists>skeleton-warrior|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-fists>skeleton-warrior|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-warrior",
+      "seeds": [
+        1855753068,
+        2730336917
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 89.44999999999621,
+      "vitality": [
+        0,
+        0.43942399977184554
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-warrior>skeleton-fists|expert@c8,h1#0/left",
+      "pair": "skeleton-warrior>skeleton-fists|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-warrior>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-warrior",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        2730336917,
+        1855753068
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 3.9333333333333242,
+      "vitality": [
+        1,
+        0.21217192543067442
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-warrior>skeleton-fists|expert@c8,h1#0/right",
+      "pair": "skeleton-warrior>skeleton-fists|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-warrior>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-warrior",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        1855753068,
+        2730336917
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 8.099999999999982,
+      "vitality": [
+        0,
+        1
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-mace|expert@c8,h1#0/left",
+      "pair": "skeleton-fists>skeleton-mace|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-fists>skeleton-mace|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-mace",
+      "seeds": [
+        2965266189,
+        3458279650
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 100.33333333332892,
+      "vitality": [
+        0.3277777777780835,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-mace|expert@c8,h1#0/right",
+      "pair": "skeleton-fists>skeleton-mace|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-fists>skeleton-mace|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-mace",
+      "seeds": [
+        3458279650,
+        2965266189
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 89.66666666666286,
+      "vitality": [
+        0,
+        0.5055555555558175
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-mace>skeleton-fists|expert@c8,h1#0/left",
+      "pair": "skeleton-mace>skeleton-fists|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-mace>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-mace",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        2965266189,
+        3458279650
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 6.26666666666665,
+      "vitality": [
+        1,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-mace>skeleton-fists|expert@c8,h1#0/right",
+      "pair": "skeleton-mace>skeleton-fists|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-mace>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-mace",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        3458279650,
+        2965266189
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 8.71666666666668,
+      "vitality": [
+        0,
+        1
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-dual-blades|expert@c8,h1#0/left",
+      "pair": "skeleton-fists>skeleton-dual-blades|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-fists>skeleton-dual-blades|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-dual-blades",
+      "seeds": [
+        4023335028,
+        1551414685
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 85.28333333332978,
+      "vitality": [
+        0.5383639849868429,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-dual-blades|expert@c8,h1#0/right",
+      "pair": "skeleton-fists>skeleton-dual-blades|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-fists>skeleton-dual-blades|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-dual-blades",
+      "seeds": [
+        1551414685,
+        4023335028
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 100.51666666666225,
+      "vitality": [
+        0,
+        0.27061992063066953
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-dual-blades>skeleton-fists|expert@c8,h1#0/left",
+      "pair": "skeleton-dual-blades>skeleton-fists|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-dual-blades>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-dual-blades",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        4023335028,
+        1551414685
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 7.116666666666647,
+      "vitality": [
+        1,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-dual-blades>skeleton-fists|expert@c8,h1#0/right",
+      "pair": "skeleton-dual-blades>skeleton-fists|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-dual-blades>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-dual-blades",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        1551414685,
+        4023335028
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 4.316666666666657,
+      "vitality": [
+        0,
+        1
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-maul>skeleton-fists|expert@c8,h1#0/left",
+      "pair": "skeleton-maul>skeleton-fists|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-maul>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-maul",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        1784677565,
+        3460381307
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 53.28333333333159,
+      "vitality": [
+        1,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-maul|expert@c8,h1#0/left",
+      "pair": "skeleton-fists>skeleton-maul|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-fists>skeleton-maul|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-maul",
+      "seeds": [
+        1784677565,
+        3460381307
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 97.03333333332911,
+      "vitality": [
+        0.3827777777780701,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-maul|expert@c8,h1#0/right",
+      "pair": "skeleton-fists>skeleton-maul|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-fists>skeleton-maul|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-maul",
+      "seeds": [
+        3460381307,
+        1784677565
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 102.76666666666212,
+      "vitality": [
+        0,
+        0.287222222222538
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-maul>skeleton-fists|expert@c8,h1#0/right",
+      "pair": "skeleton-maul>skeleton-fists|expert@c8,h1#0",
+      "k": 0,
+      "cell": "skeleton-maul>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-maul",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        3460381307,
+        1784677565
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 69.11666666666403,
+      "vitality": [
+        0,
+        0.8480555555556699
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-warrior>skeleton-fists|expert@c8,h1#1/left",
+      "pair": "skeleton-warrior>skeleton-fists|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-warrior>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-warrior",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        2984517289,
+        2333171213
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 10.816666666666784,
+      "vitality": [
+        1,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-warrior>skeleton-fists|expert@c8,h1#1/right",
+      "pair": "skeleton-warrior>skeleton-fists|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-warrior>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-warrior",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        2333171213,
+        2984517289
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 11.550000000000153,
+      "vitality": [
+        0,
+        1
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-warrior|expert@c8,h1#1/left",
+      "pair": "skeleton-fists>skeleton-warrior|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-fists>skeleton-warrior|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-warrior",
+      "seeds": [
+        2984517289,
+        2333171213
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 80.34999999999673,
+      "vitality": [
+        0.641762657307289,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-warrior|expert@c8,h1#1/right",
+      "pair": "skeleton-fists>skeleton-warrior|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-fists>skeleton-warrior|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-warrior",
+      "seeds": [
+        2333171213,
+        2984517289
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 82.66666666666326,
+      "vitality": [
+        0,
+        0.5855427140481015
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-mace>skeleton-fists|expert@c8,h1#1/left",
+      "pair": "skeleton-mace>skeleton-fists|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-mace>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-mace",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        2572223411,
+        775562228
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 4.016666666666658,
+      "vitality": [
+        1,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-mace|expert@c8,h1#1/left",
+      "pair": "skeleton-fists>skeleton-mace|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-fists>skeleton-mace|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-mace",
+      "seeds": [
+        2572223411,
+        775562228
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 82.18333333332995,
+      "vitality": [
+        0.6302777777780011,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-mace>skeleton-fists|expert@c8,h1#1/right",
+      "pair": "skeleton-mace>skeleton-fists|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-mace>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-mace",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        775562228,
+        2572223411
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 9.266666666666707,
+      "vitality": [
+        0,
+        1
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-mace|expert@c8,h1#1/right",
+      "pair": "skeleton-fists>skeleton-mace|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-fists>skeleton-mace|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-mace",
+      "seeds": [
+        775562228,
+        2572223411
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 59.999999999997875,
+      "vitality": [
+        0,
+        0.9148188952745935
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-dual-blades>skeleton-fists|expert@c8,h1#1/left",
+      "pair": "skeleton-dual-blades>skeleton-fists|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-dual-blades>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-dual-blades",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        2139705139,
+        766782972
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 3.733333333333325,
+      "vitality": [
+        1,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-dual-blades>skeleton-fists|expert@c8,h1#1/right",
+      "pair": "skeleton-dual-blades>skeleton-fists|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-dual-blades>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-dual-blades",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        766782972,
+        2139705139
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 3.516666666666659,
+      "vitality": [
+        0,
+        0.9520018623346181
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-dual-blades|expert@c8,h1#1/right",
+      "pair": "skeleton-fists>skeleton-dual-blades|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-fists>skeleton-dual-blades|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-dual-blades",
+      "seeds": [
+        766782972,
+        2139705139
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 87.51666666666299,
+      "vitality": [
+        0,
+        0.4789522326139276
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-dual-blades|expert@c8,h1#1/left",
+      "pair": "skeleton-fists>skeleton-dual-blades|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-fists>skeleton-dual-blades|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-dual-blades",
+      "seeds": [
+        2139705139,
+        766782972
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 95.3833333333292,
+      "vitality": [
+        0.3803722420355923,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-maul|expert@c8,h1#1/left",
+      "pair": "skeleton-fists>skeleton-maul|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-fists>skeleton-maul|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-maul",
+      "seeds": [
+        3764436599,
+        3815112144
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 82.78333333332992,
+      "vitality": [
+        0.6202777777780062,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-maul>skeleton-fists|expert@c8,h1#1/left",
+      "pair": "skeleton-maul>skeleton-fists|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-maul>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-maul",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        3764436599,
+        3815112144
+      ],
+      "aSide": "left",
+      "winner": "left",
+      "ending": "exhausted",
+      "seconds": 65.89999999999755,
+      "vitality": [
+        0.875864308072898,
+        0
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-maul>skeleton-fists|expert@c8,h1#1/right",
+      "pair": "skeleton-maul>skeleton-fists|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-maul>skeleton-fists|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-maul",
+      "bBuild": "skeleton-fists",
+      "seeds": [
+        3815112144,
+        3764436599
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 37.59999999999915,
+      "vitality": [
+        0,
+        1
+      ],
+      "status": "ok"
+    },
+    {
+      "id": "skeleton-fists>skeleton-maul|expert@c8,h1#1/right",
+      "pair": "skeleton-fists>skeleton-maul|expert@c8,h1#1",
+      "k": 1,
+      "cell": "skeleton-fists>skeleton-maul|expert@c8,h1",
+      "a": "expert@c8,h1",
+      "b": "skeleton-duelist",
+      "aBuild": "skeleton-fists",
+      "bBuild": "skeleton-maul",
+      "seeds": [
+        3815112144,
+        3764436599
+      ],
+      "aSide": "right",
+      "winner": "right",
+      "ending": "exhausted",
+      "seconds": 101.46666666666219,
+      "vitality": [
+        0,
+        0.3088888888891992
+      ],
+      "status": "ok"
+    }
+  ]
+}

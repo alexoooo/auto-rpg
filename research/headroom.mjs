@@ -31,7 +31,7 @@ import { join, resolve } from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { runJobs, readResults } from "./runner.mjs";
+import { runJobs, readResults, lockRun } from "./runner.mjs";
 import { PROTOCOL, seed } from "./schedule.mjs";
 import { cohensD, interval } from "./stat-sweep.mjs";
 import { AUDIT_BUILDS, auditBuild, familyDuelist, giantSetup, withAttribute } from "./headroom-builds.mjs";
@@ -334,7 +334,7 @@ export function cellFigures(rows) {
   const behaviour = {};
   for (const key of ["gapM", "fraction", "inReachShare", "forward", "backShare", "pressShare", "strafe", "turn",
     "committedShare", "strokesPerMinute", "downShare", "damage", "falls", "nearRangeStallSeconds", "retreatOutsideReachSeconds",
-    "stanceWidth", "stanceLead", "stanceWeight", "stancedShare", "steppingShare"]) {
+    "stanceWidth", "stanceLead", "stanceWeight", "stancedShare", "steppingShare", "targetedShare", "targetSpeed", "targetForce"]) {
     behaviour[key] = { a: sideMean(pairs, "a", key), b: sideMean(pairs, "b", key) };
   }
   // What each side's expert chose, if it is one: `expert` is A's, `expertB` B's.
@@ -439,35 +439,40 @@ async function main() {
   if (!EXPERIMENTS[exp]) throw new Error(`--exp is one of ${Object.keys(EXPERIMENTS).join(", ")}`);
   const named = exp === "channel" ? `channel-${values.channel ?? "step"}` : exp;
   const dir = resolve(values.out ?? join("research", "runs", `headroom-${named}${values.tag ? `-${values.tag}` : ""}`));
-  if (values.summary) {
-    const rows = readResults(dir);
+  // Own the directory through result appends and summary replacement. A second CLI must not
+  // schedule the same unfinished jobs; release even on a rejected resume or summary failure.
+  const unlock = lockRun(dir);
+  try {
+    if (values.summary) {
+      const rows = readResults(dir);
+      const summary = exp === "idle" ? { failed: rows.filter((r) => r.status !== "ok").length, idle: idleFigures(rows) } : summarize(rows);
+      writeFileSync(join(dir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
+      console.log(exp === "idle" ? JSON.stringify(summary.idle, null, 1) : `${HARNESS}\n${table(summary)}`);
+      return;
+    }
+    const pairs = Number(values.pairs);
+    const o = { ...values, pairs, curvePairs: Number(values["curve-pairs"] ?? Math.max(1, Math.floor(pairs / 2))),
+      ladderPairs: Number(values["ladder-pairs"] ?? pairs * 2) };
+    const cap = values["max-seconds"] === undefined ? undefined : Number(values["max-seconds"]);
+    if (cap !== undefined && !(Number.isFinite(cap) && cap > 0)) throw new Error("--max-seconds must be finite and positive");
+    const jobs = EXPERIMENTS[exp](o).map(job => cap === undefined ? job : { ...job, maxSeconds: cap });
+    const lanes = Number(values.lanes);
+    if (lanes > 20) throw new Error("at most 20 lanes: other runs share this machine");
+    const names = new Set(jobs.flatMap((job) => [job.leftBuild, job.rightBuild]));
+    const manifest = { protocol: { maxSeconds: cap ?? PROTOCOL.maxSeconds, settleSeconds: PROTOCOL.settleSeconds,
+      locomotionMode: PROTOCOL.locomotionMode }, experiment: `headroom-v1/${named}`, harness: HARNESS,
+      builds: [...names].sort().map(buildOf), flags: runFlags(exp, values) };
+    console.log(`${jobs.length} bouts into ${dir}`);
+    const rows = await runJobs(dir, manifest, jobs, { workers: lanes, jobLimitMs: Number(values["job-minutes"]) * 60000,
+      // --until: a wall-clock time (anything Date.parse reads) after which no job starts and an unfinished one
+      // is left pending for a resume; the runs are ordered by seed pair, so a cut run is a balanced one.
+      deadline: values.until ? Date.parse(values.until) : Infinity,
+      workerUrl: new URL("./headroom-worker.mjs", import.meta.url),
+      onProgress: (p) => console.log(`${p.done}/${p.total} in ${p.elapsedSeconds.toFixed(0)} s, ${p.failures} failed`) });
     const summary = exp === "idle" ? { failed: rows.filter((r) => r.status !== "ok").length, idle: idleFigures(rows) } : summarize(rows);
     writeFileSync(join(dir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
-    console.log(exp === "idle" ? JSON.stringify(summary.idle, null, 1) : `${HARNESS}\n${table(summary)}`);
-    return;
-  }
-  const pairs = Number(values.pairs);
-  const o = { ...values, pairs, curvePairs: Number(values["curve-pairs"] ?? Math.max(1, Math.floor(pairs / 2))),
-    ladderPairs: Number(values["ladder-pairs"] ?? pairs * 2) };
-  const cap = values["max-seconds"] === undefined ? undefined : Number(values["max-seconds"]);
-  if (cap !== undefined && !(Number.isFinite(cap) && cap > 0)) throw new Error("--max-seconds must be finite and positive");
-  const jobs = EXPERIMENTS[exp](o).map(job => cap === undefined ? job : { ...job, maxSeconds: cap });
-  const lanes = Number(values.lanes);
-  if (lanes > 20) throw new Error("at most 20 lanes: other runs share this machine");
-  const names = new Set(jobs.flatMap((job) => [job.leftBuild, job.rightBuild]));
-  const manifest = { protocol: { maxSeconds: cap ?? PROTOCOL.maxSeconds, settleSeconds: PROTOCOL.settleSeconds,
-    locomotionMode: PROTOCOL.locomotionMode }, experiment: `headroom-v1/${named}`, harness: HARNESS,
-    builds: [...names].sort().map(buildOf), flags: runFlags(exp, values) };
-  console.log(`${jobs.length} bouts into ${dir}`);
-  const rows = await runJobs(dir, manifest, jobs, { workers: lanes, jobLimitMs: Number(values["job-minutes"]) * 60000,
-    // --until: a wall-clock time (anything Date.parse reads) after which no job starts and an unfinished one
-    // is left pending for a resume; the runs are ordered by seed pair, so a cut run is a balanced one.
-    deadline: values.until ? Date.parse(values.until) : Infinity,
-    workerUrl: new URL("./headroom-worker.mjs", import.meta.url),
-    onProgress: (p) => console.log(`${p.done}/${p.total} in ${p.elapsedSeconds.toFixed(0)} s, ${p.failures} failed`) });
-  const summary = exp === "idle" ? { failed: rows.filter((r) => r.status !== "ok").length, idle: idleFigures(rows) } : summarize(rows);
-  writeFileSync(join(dir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
-  console.log(exp === "idle" ? `${HARNESS}\n${JSON.stringify(summary.idle, null, 1)}` : `${HARNESS}\n${table(summary)}`);
+    console.log(exp === "idle" ? `${HARNESS}\n${JSON.stringify(summary.idle, null, 1)}` : `${HARNESS}\n${table(summary)}`);
+  } finally { unlock(); }
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === pathToFileURL(fileURLToPath(import.meta.url)).href) {

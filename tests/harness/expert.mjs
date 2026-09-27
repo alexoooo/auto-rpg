@@ -55,6 +55,7 @@
 import { createHash } from "node:crypto";
 import { createBout, freshHavok, FRAME } from "./bout-runner.mjs";
 import { captureBout } from "./fork.mjs";
+import { captureCombatReports } from "./rollout-reports.mjs";
 import { rangeFraction } from "./drills.mjs";
 import { restoreWorld } from "../../src/fork/world.ts";
 import { randomStreams, restoreMind, snapshotMind } from "../../src/fork/mind.ts";
@@ -728,6 +729,15 @@ export function poseHash(world) {
   return createHash("sha256").update(new Uint8Array(new Float64Array(values).buffer)).digest("hex").slice(0, 16);
 }
 
+/** Optional hand-weapon report counts; these are not raw solver contacts. */
+function traceContacts(world, E) {
+  const records = world.forkWorld().roots.recorder.records;
+  const own = records[E], opponent = records[other(E)];
+  return { contactsE: own.contacts.primary + own.contacts.secondary,
+    contactsO: opponent.contacts.primary + opponent.contacts.secondary,
+    blocksE: own.blocks, blocksO: opponent.blocks };
+}
+
 /** The readings the objective takes at either end of a rollout. */
 function reading(world, E, band) {
   const O = other(E);
@@ -854,17 +864,26 @@ export class ExpertMind {
         for (const stream of randomStreams(this.pool.slots.O.mind)) { stream.reseed(mixSeed(reseed, i)); i += 1; }
       }
       const start = reading(world, E, config.band);
+      const contactStart = config.trace ? traceContacts(world, E) : null;
       // In a drill, the drill's own judge over the rollout, and no further than the rung runs.
       const task = config.task && host.task ? host.task(world) : null;
       const frames = Math.min(Math.round(config.horizon / FRAME), task ? task.remaining : Infinity);
-      for (let f = 0; f < frames && world.active; f += 1) {
-        host.beforeStep?.(world);
-        world.step();
-        if (task) { task.frame(); if (task.done()) break; }
-      }
+      const reports = config.trace ? captureCombatReports(world) : null;
+      try {
+        for (let f = 0; f < frames && world.active; f += 1) {
+          host.beforeStep?.(world);
+          world.step();
+          if (task) { task.frame(); if (task.done()) break; }
+        }
+      } finally { reports?.stop(); }
       const end = reading(world, E, config.band);
       cost.simulate += performance.now() - clock;
-      if (config.trace) end.pose = poseHash(world);
+      if (config.trace) {
+        end.pose = poseHash(world);
+        end.contacts = Object.fromEntries(Object.entries(traceContacts(world, E))
+          .map(([key, value]) => [key, value - contactStart[key]]));
+        end.reports = reports.reports;
+      }
       const score = scoreRollout(start, end, config.weights);
       if (task) { score.task = task.value(); score.total += score.task; }
       return { ...score, predicted: config.trace ? end : undefined };
@@ -896,7 +915,9 @@ export class ExpertMind {
     this.log.push({
       t: clock, on: at.clock, label: best.plan.label, n: scored.length,
       terms, ...(predicted ? { predicted } : {}),
-      ...(config.trace ? { candidates: scored.map(({ plan, score }) => ({ label: plan.label, task: score.task, vE: score.predicted.vE })) } : {}),
+      ...(config.trace ? { candidates: scored.map(({ plan, score: { predicted, ...terms } }) =>
+        ({ label: plan.label, ...terms, vE: predicted.vE, vO: predicted.vO,
+          contacts: predicted.contacts, reports: predicted.reports })) } : {}),
       spread: Math.max(...totals) - Math.min(...totals),
       tied: totals.filter((total) => total === best.score.total).length,
       ms: performance.now() - started + moment.ms, cost,

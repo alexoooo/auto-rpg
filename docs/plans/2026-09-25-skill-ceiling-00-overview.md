@@ -4,6 +4,12 @@ Ten sessions, 00 to 09. They replace the golem AI's four executors and twenty-on
 control stack. They measure every body by how much a strong mind can get out of it, and change the
 bodies and attributes until skill pays. Planned on 2026-09-25.
 
+Current checkpoint: `docs/plans/2026-09-26-skill-ceiling-handoff.md`. Sessions 01-05 and the
+orders work are complete; footwork experiments remain off after measurement, and task-space
+effectors remain an off-by-default anatomical pilot. All session-07 prerequisite studies have
+finished. Body-release choices and eye gates remain, followed by sessions 08-09; the full plan
+is not complete. Historical measurements and open questions below retain their original context.
+
 ## The goal, in the owner's words
 
 - A very skilled fighter can take down an unskilled fighter twice their size, as in real life.

@@ -5,6 +5,48 @@ unattended by Claude Code. That session was wound down here on the owner's word,
 what the next agent, Codex, needs to carry on. Read `AGENTS.md` first: its traps and house rules all
 apply.
 
+## Current checkpoint (supersedes the historical notes below)
+
+Implementation through `6c3686e2` is merged into local `main`. Latest full validation:
+1089/1089 tests, typecheck and build. Repeated fetches found no incoming commits beyond `9a320286`;
+this continuation has not pushed. The working implementation checkout is
+`.claude/worktrees/codex-command-surface`, branch `codex-command-surface`.
+
+| Plan area | Current state |
+|---|---|
+| Sessions 01-05 | Complete; existing body release, exact forks, drills, expert and audit retained |
+| Session 06 orders | Complete |
+| Session 06 footwork channels | Complete measurements; stance and step fail the enablement gate and remain off |
+| Session 06 task-space effectors | Anatomical blade/fist/mace actuator, expert proposals and browser preview built; no headroom gain established; flag off |
+| Session 07 prerequisites | All requested studies complete: fist-family, mace/maul size, human rate/torque/clamp and expert against brawler |
+| Session 07 body release | Owner choices/eye gate remain; no body removals or default retunes |
+| Sessions 08-09 | Not begun; depend on body-release decisions |
+
+Current research lives in the **main checkout** under `research/runs/release2-continuation/`.
+`size-maul-expert` completed 64/64; `attr-expert-v-brawler` completed 80/80, both without failures.
+No continuation research process remains running. Do not resume these completed jobs.
+`headroom.mjs` now holds `run.lock` through computation
+and summary writes. Original worktree data were preserved; legacy manifests in the copies gained
+only explicit empty flags, with schedule/build/protocol validation retained.
+
+Completed evidence is tracked under `research/results/`. Read the updated analyses first:
+
+- `docs/analysis/2026-09-26-command-surface.md`: complete stance/ruler verdict.
+- `docs/analysis/2026-09-26-release-2-questions.md`: completed family, size and attribute results.
+- `docs/analysis/2026-09-26-human-arm-limits.md`: normal-stroke rate sensitivity; raising the
+  velocity clamp buys no useful speed there, and no motor/default was raised.
+- `docs/analysis/2026-09-26-effector-candidate-scores.md`: exact candidate predictions and per-hand
+  reports explain blocks and sub-threshold contacts.
+- `docs/analysis/2026-09-26-effector-impact-screen.md`: 114 forced trajectory trials, none wounding
+  in the sampled state. Do not start a larger headroom campaign on the strength of this grid.
+
+No development server from this continuation is left running. The owner's server is untouched.
+
+The historical survive-cut admission test gap below is now closed at the report boundary:
+the test takes a real blocked-cut report stream, switches only the attacking side and verifies
+that the subject's contacts cannot admit the cut. The physical admitted/missed controls remain.
+Mutations counting any contact, counting the wrong side and bypassing arrival all fail.
+
 ## Continuation, 2026-09-26
 
 The original wind-down landed at `597ecf36`, including both WIP merges. References below to
@@ -31,6 +73,71 @@ After the actuator pilot: 1051/1051 tests, check and build, eleven caught task-t
 and all 15 named six-second bout fingerprints unchanged with `effector` off or on but unwritten.
 The final browser diagnostic was checked again and its temporary server stopped. The evidence
 is in the main checkout's gitignored `research/runs/effector-target-continuation/`.
+
+### Completed footwork continuation
+
+The stance and ruler runs below are now complete: 256 stance bouts and 128 ruler controls,
+no failures. Stance scores 44.5 % [32.8, 57.0] on stone and 56.3 % [43.8, 68.8] on skeleton
+against the ruler, at 32 pairs each. Neither passes the enablement gate; stance and step stay off.
+All 31 historical ruler repeats retain exact verdict, duration and vitality. See the updated
+`docs/analysis/2026-09-26-command-surface.md` and
+`research/results/2026-09-26-footwork-verdict.json`. Do not resume these completed jobs or the
+superseded plain-step run. Latest code validation: 1081 tests, check/build; this follow-up only
+archives evidence and updates the plans. Remote main fetched again: it includes `9a320286`;
+local reporting commit `4d167705` is ahead and nothing incoming requires a merge.
+
+### Release-2 resume and directory ownership
+
+The historical fist-family run had 18 rows, 17 unique jobs and one duplicate with identical
+physical results. Its deduplicated copy completed 32/32 bouts with no failures in
+`research/runs/release2-continuation/family-fists-expert`; originals are untouched. Its old manifest
+needed only `flags: {}` before the unchanged schedule/build/protocol checks passed. Fists won
+4/4 with the expert against each armed family build, taking 83-96 s on average; armed experts
+beat the fist duelist faster and retained more vitality. Two pairs per cell make this a mechanism
+screen. The updated release-2 questions and `research/results/2026-09-26-skeleton-fists-family.json`
+record the result, provenance and an exact historical replay.
+
+Mace/maul size copies began with 44/34 unique historical rows with no duplicates, under the same
+`research/runs/release2-continuation/` parent. Both completed 64/64 with no failures. Size 1.1
+scores 93.8 % on mace and 87.5 % on maul, paired gains of 31.3 and 37.5 points over their controls.
+Smaller sizes lose heavily. `attr-expert-v-brawler` completed 80/80 from no historical rows:
+the expert wins every bout; recovery and high stability exactly match control records, because
+the expert never falls at baseline. Low stability produces one fall. All these runs are finished.
+
+The headroom CLI now holds the existing `lockRun` through scheduling, appends and summary writes,
+including summary-only mode, and releases it in `finally`. This prevents the concurrent writers
+that produced the historical duplicate. Tests cover live-owner refusal and cleanup after a bad
+resume or successful summary; both missing-lock and leaked-lock mutations are caught.
+
+### Human arm limit continuation
+
+`research/human-arm-limits.mjs` now separates motor-ceiling and command-rate sensitivity over
+36 impact-bench cells. Doubling torque at normal rate barely changes blade/mace free-stroke
+speed; armSpeed 1.5 raises it by about 14 % / 47 %. No shipped tuning changed. A further 144-cell clamp sweep finds no useful normal-rate speed gain above 8 rad/s;
+the default remains 8. All 36 original cells, six human bout fingerprints and 45 command-null
+bouts remain identical. Sphere overlap invalidates 12 rows in the original impact sweep. Read
+`docs/analysis/2026-09-26-human-arm-limits.md` before further tuning or research.
+
+### Candidate-score continuation
+
+The trace now records every evaluated candidate's score terms and both final vitality bars.
+`research/effector-candidates.mjs` probes 18 warmed human states and plays each winner live;
+all predicted pose hashes and vitality bars match. Each best target proposal ties at zero with
+an earlier legacy proposal, so none is selected. This explains these openings, not full-bout
+headroom. Contact tracing now shows all 18 blade targets encounter blocks, as do 17/18 mace
+targets. Fists contact without blocks and still do no damage. All 18 predicted contact deltas
+match live playback. Per-hand reports now show primary body-contact energies at most
+0.58 / 1.83 / 1.65 J for blade/mace/fist, below their existing floors; all pre-armour damage is zero.
+The 18 winning report sequences match live playback; 1087 tests and check/build pass. See
+`docs/analysis/2026-09-26-effector-candidate-scores.md`.
+
+### Forced trajectory screen
+
+`research/effector-impact-screen.mjs` now screens sweep/point duration, aim height and extension
+from identical warmed states, with legacy controls: 114 trials on blade/mace/fist. None wounds.
+The best blade target reaches 3.31 J, below its existing 10.62 J floor; mace/fist targets remain
+below 1 J against their 29.67 J floor. No proposal defaults change and no larger headroom campaign
+is justified by this grid. See `docs/analysis/2026-09-26-effector-impact-screen.md` for limitations.
 
 ### Expert continuation, 2026-09-26
 
@@ -93,6 +200,17 @@ in the main checkout (`headroom-channel-stance`); keep that process/run separate
 effector screens.
 Validation: 1077 tests, check/build, 45 identical null bouts and four caught proposal mutations.
 
+The revised six-bout sword screen is complete: all six-second draws and no selected task targets.
+Reachability improved, but no combat benefit is demonstrated. See
+`docs/analysis/2026-09-26-effector-sword-screen.md`. The report now separates repeated runs and
+protocols, and reports target use; do not mix short screens with the full headroom study.
+
+The stance run has completed 256/256 with no failures: head-to-head score is 44.5% [32.8, 57.0]
+on stone and 56.3% [43.8, 68.8] on skeleton, 32 pairs each. Neither interval clears 50%, so stance
+stays off. The 128-bout ruler-versus-duelist control run is now active in the main checkout at
+`research/runs/headroom-channel-ruler`; once it completes, update the command-surface analysis and
+plan with the complete paired margins. The earlier wind-down instructions below remain historical.
+
 ## The owner's standing instructions
 
 - **Keep going session to session.** The owner asked for the AI work to go on while they are away
@@ -113,7 +231,7 @@ Validation: 1077 tests, check/build, 45 identical null bouts and four caught pro
   or retune a shipped default without that choice. Measurements, counterfactuals and flagged
   experiments are fine.
 
-## Where things stand
+## Historical wind-down: where things stood
 
 - **`main` is at 4a33b10a**, pushed. It includes the owner's own dungeon feedback work. The last
   full gate run passed: 1015/1015 tests, check and build.
@@ -141,7 +259,7 @@ Validation: 1077 tests, check/build, 45 identical null bouts and four caught pro
 - **Run data** is in `research/runs/`, which is gitignored and resumable from each run's
   `results.jsonl`. Each worktree has its own `research/runs/`.
 
-## Work in progress
+## Historical wind-down: work in progress
 
 Both branches below were merged into `main` at wind-down, so nothing lives only on a local branch.
 Their docs carry WIP marks where a reading is missing. No research process is running. The owner's
@@ -239,8 +357,8 @@ override (`research/overrides.mjs`); no shipped default changed.
   3. Summarise each run with `--summary --out <dir>`.
   4. Run `node research/release2-attr-falls.mjs <dir>` on the attribute runs.
   5. Fill section 5 and the partial marks in sections 3 and 4.
-- **One known gap in a test:** the survive-cut admission test does not catch a mutation that counts
-  the subject's own contacts, because no fixture start has the idle subject touching anything.
+- **Historical test gap, now closed:** the survive-cut admission test originally missed a mutation
+  counting the subject's own contacts. The current report-boundary check above catches it.
 
 ## What comes next
 

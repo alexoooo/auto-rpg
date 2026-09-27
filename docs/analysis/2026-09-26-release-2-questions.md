@@ -7,17 +7,18 @@ session's commits. It answers the questions of the headroom audit's proposals
 **Nothing shipped was changed**: no body was removed and no default moved. Every counterfactual is a
 harness override, named with its run.
 
-**Status at the wind-down** (the owner ended the session at 17:18; WIP):
+**Status after continuation:** all prerequisite studies below are complete. The original session
+ended at 17:18; the continuation finished its remaining campaigns without changing defaults.
 
 | item | status | reading | recommendation |
 | --- | --- | --- | --- |
 | 6, waist lean | answered | 1200 raw is the knee: 45 % fewer stone falls, re-falls 15 to 28 % → 9 to 10 %, and the naive balance holds | 1200, behind an eye gate; not shipped |
 | 5(b), x1.1 walker | answered | The walker cannot choose its range. Its 0.80 hold jams its strokes | accept; consider hold 0.88 |
-| 2(b), fists and whip in their family | partial: naive 768 of 768; whip expert 16 of 16; fists expert unfinished | They lose to every skeleton build under equal minds. The expert wins with the whip | accept as weak builds |
-| 13(a), stability and recovery | partial: 3 of 4 runs; expert against brawler not run | Recovery pays only for the expert on the skeleton. Stability's high end pays nothing | look at the skeleton's floor time, then stability's reach |
-| 16, size on mace and maul | NOT YET MEASURED (runs partial, unread) | -- | -- |
+| 2(b), fists and whip in their family | complete: naive 768; whip expert 16; fists expert 32 | They lose under equal naive minds. The expert wins with both, slowly | accept as weak builds |
+| 13(a), stability and recovery | complete: all 4 runs | Recovery pays for the expert on the skeleton. Against the brawler the expert never falls at baseline, so recovery remains unused | look at the skeleton's floor time, then stability's reach |
+| 16, size on mace and maul | complete: 64 bouts each | size pays on both under the expert; smaller bodies spend much longer down | retain the measured size law; defaults unchanged |
 | 17, survive-cut | answered | The rest guard survives the cut on five humans (97.5 to 100 %) | accept; report "passes at rest" |
-| 4(a), human arm energy | answered (table) | 1/4 to 1/10 of stone's momentum, mostly speed | find the binding limit before `TORQUES` |
+| 4(a), human arm energy | answered (table) | 1/4 to 1/10 of stone's momentum, mostly speed | rate sensitivity dominates the normal stroke; defaults unchanged |
 
 Harnesses, as in the audit:
 
@@ -410,7 +411,28 @@ margin, and the bout's length:
 | skeleton-dual-blades | skeleton-whip | 2 / 2 | 1.00 | 5.9 |
 | skeleton-maul | skeleton-whip | 2 / 2 | 1.00 | 44.1 |
 
-**skeleton-fists with the expert: partial, not read.** `research/runs/release2/family-fists-expert` holds some of its 32 bouts (the log read 13 of 32 at about 17:01). Two runners wrote to it for its last 18 minutes, so check it for duplicate job ids before summarising. The naive table above stands without it.
+**Skeleton-fists expert continuation complete:** 32/32 bouts, two swapped seed pairs per cell,
+no failures. One physically identical duplicate was removed from a copy of the historical data;
+17 historical rows plus 15 resumed rows remain. The original files are untouched. A historical
+warrior-versus-fists replay exactly reproduced seeds, verdict, duration and vitality.
+Compact evidence: `research/results/2026-09-26-skeleton-fists-family.json`.
+
+| expert on | against skeleton duelist on | expert wins | margin | bout s |
+|---|---|---:|---:|---:|
+| skeleton-fists | skeleton-warrior | 4 / 4 | 0.556 | 83.2 |
+| skeleton-fists | skeleton-mace | 4 / 4 | 0.595 | 83.0 |
+| skeleton-fists | skeleton-dual-blades | 4 / 4 | 0.417 | 92.2 |
+| skeleton-fists | skeleton-maul | 4 / 4 | 0.400 | 96.0 |
+| skeleton-warrior | skeleton-fists | 4 / 4 | 0.947 | 8.6 |
+| skeleton-mace | skeleton-fists | 4 / 4 | 1.000 | 7.1 |
+| skeleton-dual-blades | skeleton-fists | 4 / 4 | 0.988 | 4.7 |
+| skeleton-maul | skeleton-fists | 4 / 4 | 0.931 | 56.5 |
+
+Fists show the same qualitative result as the whip: the expert can win with the weak build,
+but takes much longer and retains less vitality. These are mechanism screens, not precise balance
+estimates: only two independent seed pairs per cell. An all-win bootstrap interval degenerates
+at this sample size and should not be read as population certainty. No body/default choice changes.
+The continuation took 999 s on three lanes.
 
 - **The expert wins with the whip, and slowly.** It needs 84 to 102 s and keeps 0.23 to 0.60 of its
   bar. The expert on any other build kills the whip's duelist in 6 to 44 s without being touched.
@@ -460,7 +482,29 @@ from the rows' own sides by `research/release2-attr-falls.mjs`.
 | | recovery 0.5 | 64 | 42.2 | 2.1 | 2.3 | 17.1 | 11.1 |
 | | recovery 1.25 | 64 | 34.4 | 3.5 | 3.1 | 14.9 | 14.9 |
 
-**The expert against the brawler, where bodies fall: NOT YET MEASURED.** `research/runs/release2/attr-expert-v-brawler` was started at 17:18 and stopped within a minute.
+**The expert against the brawler: complete, but the expert does not fall at baseline.**
+`research/runs/release2-continuation/attr-expert-v-brawler` finished all 80 bouts, zero failures,
+489 s on four lanes. The historical directory supplied only a manifest; all rows are new.
+Evidence: `research/results/2026-09-26-attributes-expert-brawler.json`.
+
+| stone expert vs brawler | bouts | A share % | bar margin | A / B falls per minute | A / B down % | seconds |
+|---|---:|---:|---:|---:|---:|---:|
+| control | 16 | 100 | 0.918 | 0.00 / 11.51 | 0.0 / 40.0 | 6.84 |
+| stability 0.5 | 16 | 100 | 0.913 | 0.55 / 10.92 | 1.8 / 39.5 | 6.87 |
+| stability 2 | 16 | 100 | 0.918 | 0.00 / 11.51 | 0.0 / 40.0 | 6.84 |
+| recovery 0.5 | 16 | 100 | 0.918 | 0.00 / 11.51 | 0.0 / 40.0 | 6.84 |
+| recovery 1.25 | 16 | 100 | 0.918 | 0.00 / 11.51 | 0.0 / 40.0 | 6.84 |
+
+Each high-stability or recovery bout exactly matches its same-seed control in verdict, duration,
+vitality, lead changes and both sides' recorded behaviour. These are record comparisons, not
+trajectory-hash assertions. Low stability matches 12/16 and produces one subject fall in total;
+its paired margin change is -0.0049 bars [-0.0187, 0.0041]. All score changes are zero in this sample.
+The 100 % bootstrap intervals collapse with all wins and do not imply population certainty.
+
+The brawler falls frequently, but the altered attribute belongs to the expert. The expert kills
+the brawler in about seven seconds while staying upright at baseline, so this matchup does not
+exercise its recovery. This closes the requested comparison without establishing recovery's
+value under pressure or overturning the skeleton result. It does not justify changing either stat.
 
 A share has a 95 % interval of about ± 12 points at 64 bouts, and about ± 25 at 16.
 
@@ -497,30 +541,58 @@ If stability then reaches the waist, the brawler would read it, which is what se
 waist doing.
 
 Compute: 80 expert bouts on 4 lanes, 14:37 to 16:06; 320 + 320 naive bouts on 3 lanes, 16:07 to
-17:00. The expert-against-brawler cells were not run.
+17:00. The continuation completed 80 expert-against-brawler bouts in 489 s on four lanes.
 
-## 5. Item 16: size with the expert on the mace and the maul -- NOT YET MEASURED
+## 5. Item 16: size with the expert on the mace and the maul
 
-**Status: partial runs exist, but nobody has read them.** The session was wound down while they
-ran. Neither run has a summary yet, and this section draws no conclusion.
+**Both complete.** Node bout runner, research PROTOCOL, expert c8/h1 mirror,
+8 corner-swapped seed pairs per cell. A has the named size, B stays at 1. The mace continuation
+finished 64/64 bouts with no failures: 44 historical rows plus 20 new rows, 889 s on four lanes.
+No duplicate job IDs were present. A historical mace cell replay exactly reproduced seeds,
+verdict, duration and vitality. Evidence: `research/results/2026-09-26-mace-size-expert.json`.
 
-- `research/runs/release2/size-mace-expert`: 64 bouts queued (sizes 0.8, 0.9 and 1.1, plus a
-  control; 8 corner-swapped pairs a cell; the expert mirror on the stone mace). It was stopped at
-  17:18 after about 70 minutes on 4 lanes.
-- `research/runs/release2/size-maul-expert`: the same design on the stone maul. The log read 12 of
-  64 at 16:07; the run was stopped at 17:18.
-  - Two runners wrote to this directory in its last minutes, and so did two to
-    `family-fists-expert` (see "Process notes" below).
-  - Check `results.jsonl` for duplicate job ids before summarising either run.
+| A size | A score %, pair-bootstrap interval | bar margin | A / B falls per minute | A / B down % |
+|---|---|---:|---:|---:|
+| 1 (control) | 62.5 [37.5, 81.3] | 0.122 | 0.42 / 1.48 | 1.3 / 7.4 |
+| 0.8 | 0.0 [0.0, 0.0] | -0.720 | 13.32 / 0.15 | 54.5 / 0.8 |
+| 0.9 | 12.5 [0.0, 25.0] | -0.490 | 9.32 / 0.14 | 40.6 / 0.7 |
+| 1.1 | 93.8 [81.3, 100.0] | 0.377 | 0.00 / 6.17 | 0.0 / 28.0 |
 
-Resume, one at a time, and then summarise:
+The x1 mirror is not exactly 50 % at this sample size. Pairing each size with that control on
+shared seeds gives score changes of -62.5 points [-81.3, -37.5] at 0.8, -50.0 [-75.0, -25.0]
+at 0.9, and +31.3 [12.5, 43.8] at 1.1. Corresponding margin changes are -0.841 [-0.967, -0.720],
+-0.612 [-0.781, -0.441], and +0.256 [0.173, 0.339] bars. Size clearly pays on the stone mace
+under this expert. The small body spends much more of the bout down; these data do not isolate
+reach, momentum and balance as causes. An all-loss bootstrap interval is not population certainty.
+No shipped body/default changes follow automatically.
 
-    node research/headroom.mjs --exp attributes --attributes size --build mace --levels 0.8,0.9,1.1 --minds "expert@c8,h1" --pairs 8 --lanes 4 --out research/runs/release2/size-mace-expert
-    node research/headroom.mjs --exp attributes --attributes size --build maul --levels 0.8,0.9,1.1 --minds "expert@c8,h1" --pairs 8 --lanes 4 --out research/runs/release2/size-maul-expert
-    node research/headroom.mjs --exp attributes --summary --out research/runs/release2/size-mace-expert
+**Maul.** The continuation finished 64/64 without failures: 34 unique historical rows plus 30 new
+rows, 2232 s on four lanes. Its historical replay also matched seeds, verdict, duration and vitality.
+Evidence: `research/results/2026-09-26-maul-size-expert.json`.
 
-(Add the same selection flags to `--summary` if it asks for them.) Price: a maul expert bout took
-about 11 lane-minutes. Each run is about 3 to 4 hours on 3 to 4 lanes.
+| A size | A score %, pair-bootstrap interval | bar margin | A / B falls per minute | A / B down % |
+|---|---|---:|---:|---:|
+| 1 (control) | 50.0 [18.8, 81.3] | -0.016 | 5.42 / 4.61 | 26.2 / 21.5 |
+| 0.8 | 18.8 [0.0, 43.8] | -0.195 | 14.61 / 1.51 | 56.8 / 7.6 |
+| 0.9 | 6.3 [0.0, 18.8] | -0.237 | 10.12 / 2.28 | 43.2 / 11.0 |
+| 1.1 | 87.5 [68.8, 100.0] | 0.237 | 1.43 / 9.49 | 7.6 / 44.2 |
+
+Paired against the size-1 control, scores change by -31.3 points [-62.5, -6.3] at 0.8,
+-43.8 [-68.8, -18.8] at 0.9 and +37.5 [12.5, 68.8] at 1.1. Margin changes are
+-0.179 [-0.296, -0.071], -0.221 [-0.363, -0.067] and +0.253 [0.097, 0.407] bars.
+Thus size pays on the maul as well as the mace. These eight-pair samples do not establish that
+0.8 is better than 0.9: both are worse than the control, and the endpoints are not a fitted curve.
+The smaller bodies' floor time again accompanies the disadvantage without isolating its cause.
+
+Original worktree data remain untouched; the copies add only an explicit empty flags field to
+legacy manifests, with schedule/build/protocol validation intact. No body/default was retuned.
+
+Reproduce the completed mace summary and fall table:
+
+    node research/headroom.mjs --exp attributes --summary --out research/runs/release2-continuation/size-mace-expert
+    node research/release2-attr-falls.mjs research/runs/release2-continuation/size-mace-expert
+
+Use `size-maul-expert` in those same commands for the completed maul study.
 
 ## 6. Item 17: why survive-cut is void on five human bodies
 
@@ -651,11 +723,16 @@ is the bench's tap, at guard, along the edge. The chains are the stone arm (`wri
 - The audit's commitment-bench tip peak (12.6 m/s human against 31.5 stone) is the same gap, read on
   a different instrument.
 
-**Which limit binds is not measured.** The human arm's drive clamps each joint's velocity target to
-8 rad/s, and the arm has its own `RATES`. On a chain like that, a force ceiling can stop mattering
-above some value, while the rate goes on shaping every move (the trap "On a low-axis chain the
-anchor's rate limit shapes a commanded move" in `AGENTS.md`). Before `TORQUES` is raised, sweep it
-on this bench, with the velocity clamp and `RATES` held, and see whether the tip speed moves.
+**Rate, torque and velocity-clamp sensitivity now measured.** A 36-cell continuation
+holds geometry, mass and the 8 rad/s clamp fixed, varies the existing `armSpeed` attribute
+(0.5, 1, 1.5), and independently scales motor ceilings (0.5, 1, 2, 4) in both impact-bench passes.
+At normal rate, doubling torque barely changes blade/mace free-stroke peak speed (11.22 to
+11.18 / 9.16 to 9.03 m/s). Raising rate alone to 1.5 raises them to 12.84 / 13.42 m/s.
+This argues against a torque-only speed repair on this stroke, not for a shipped rate increase.
+Raising the velocity clamp from 8 to 16/32 rad/s leaves blade and fist unchanged at normal
+rate/torque and changes mace peak by less than 0.00005 m/s. Higher-rate strokes also respond to
+torque; the settled-stroke result does not itself justify shipping a rate change.
+See `2026-09-26-human-arm-limits.md` for the table, invalid impact placements and limits.
 
 **Options for the owner** (the audit's, with this table): (a) raise the human arm's delivery, with
 a before/after table on these rows. This is the "before" half. First find which of `TORQUES`, the

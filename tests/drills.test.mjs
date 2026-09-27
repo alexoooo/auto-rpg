@@ -21,7 +21,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 
-import { DRILLS, GUARDLESS, runDrill, summarizeDrill } from "./harness/drills.mjs";
+import { DRILLS, GUARDLESS, cutArrived, runDrill, summarizeDrill } from "./harness/drills.mjs";
 import { summarize, table } from "../research/drills.mjs";
 import { attributesRefusal } from "../src/golem/attributes.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
@@ -118,6 +118,16 @@ test("a_cut_a_rest_guard_stops_is_void_by_wound_and_scored_by_arrival", async ()
   assert.equal(byArrival.void, undefined, "the cut arrived, so the start is scored");
   assert.equal(byArrival.rungs.idle.pass, true, "and the rest guard's survival is a pass");
   assert.ok(byArrival.rungs.idle.events.some((e) => e.side !== byArrival.subject && e.blocked), "the cut met the shield");
+  // Exercise admission on the real contact reports, then change only their attacking side.
+  // An idle control rarely strikes, so another physical idle run cannot cover that distinction.
+  const opponent = byArrival.subject === "left" ? "right" : "left";
+  const contacts = byArrival.rungs.idle.events.filter((e) => e.side === opponent);
+  assert.equal(cutArrived(contacts, opponent), true, "blocked opponent contacts admit a cut");
+  assert.equal(cutArrived([], opponent), false, "no contacts cannot admit a cut");
+  assert.equal(cutArrived(contacts.map((e) => ({ ...e, side: byArrival.subject })), opponent), false,
+    "contacts by the subject alone cannot admit the opponent's cut");
+  assert.equal(cutArrived(contacts.map((e) => ({ ...e, side: byArrival.subject })), byArrival.subject), true,
+    "the same rule follows the opponent when the corners swap");
   // And the control: the audit's second start on the human mace, whose cut touches nothing at all.
   const missed = await runDrill({ ...start, subjectSetup: auditBuild("human-mace").setup, admission: "arrival",
     seed: seed("drills", "survive-cut", "human-mace", "default", 1) });

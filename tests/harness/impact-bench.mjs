@@ -181,6 +181,8 @@ export async function tapProbe({ moduleId, pose = {}, normal = "edge", attribute
 }
 
 /**
+ * Optional tone scales only motor ceilings in both passes; values above one are a bench
+ * counterfactual, not a shipped attribute. Rates, geometry and mass remain unchanged.
  * One stroke into a hanging sphere of `massKg`. `touched: false` where the stroke never reached it.
  *
  * Two passes of the same deterministic stroke. The first, with nothing in the way, finds the substep
@@ -192,8 +194,9 @@ export async function tapProbe({ moduleId, pose = {}, normal = "edge", attribute
  * long the guard lasted. A sphere that is touched within two substeps of appearing was hung inside
  * the arm, and its row says `overlapped` rather than reporting a collision nothing swung.
  */
-export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attributes = null, guardSeconds = 1.5,
+export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attributes = null, guardSeconds = 1.5, tone = null, overrides = null,
   releaseOnContact = false, freeStopsOnContact = false }) {
+  if (tone !== null && (!Number.isFinite(tone) || tone < 0)) throw new Error("invalid stroke motor tone");
   const { runGolemBench, strokeSequence, capabilityOf, markFor } = await import("./golem-bench.mjs");
   const { GOLEM_TACTICS, STROKE_SHAPES } = await import("../../src/golem/tactics.ts");
   const kind = weaponOf(moduleId);
@@ -212,7 +215,7 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
   };
   // Pass one: the peak of the stroke, unobstructed.
   let peak = null;
-  await runGolemBench({ moduleId, attributes, sequence, probe: ({ t, module }) => {
+  await runGolemBench({ moduleId, attributes, tone, overrides, sequence, probe: ({ t, module }) => {
     if (t < window.from || t > window.to) return;
     const striker = module.strikers[0];
     const tip = striker.tipPosition();
@@ -230,7 +233,7 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
   let state = "waiting", contacts = 0, contactSubsteps = 0, normal = null, point = null, result = null, touchedAt = null, now = 0;
   const pre = { lin: new Vector3(), ang: new Vector3(), com: new Vector3() };
   const velocityAt = (lin, ang, com, at) => lin.add(Vector3.Cross(ang, at.subtract(com)));
-  try { await runGolemBench({ moduleId, attributes, sequence, probe: ({ t, module }) => {
+  try { await runGolemBench({ moduleId, attributes, tone, overrides, sequence, probe: ({ t, module }) => {
     now = t;
     if (!sphere) {
       if (t < window.hang) return;
@@ -319,7 +322,7 @@ export async function strokeProbe({ moduleId, massKg = 20, radiusM = 0.15, attri
       restitution: v > 1e-6 ? (u - after) / v : null, ...(model ?? {}) };
     state = "done";
   } }); } finally { HavokPlugin.prototype.initConstraint = init; }
-  return { moduleId, massKg, releaseOnContact, ...(result ?? { touched: false }) };
+  return { moduleId, massKg, releaseOnContact, peakTipMps: peak.speed, ...(result ?? { touched: false }) };
 }
 
 const kgText = (kg) => kg === undefined ? "--" : Number.isFinite(kg) ? kg.toFixed(2) : "inf";
