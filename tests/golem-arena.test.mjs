@@ -1088,7 +1088,7 @@ test("a_golem_stroke_claims_each_part_once_and_a_plate_only_ever_blocks", async 
   let blocksBooked = 0;
   for (const [bout, seeds] of SEED_PAIRS.entries()) {
     const result = runBout({
-      left: "golem-fencer", right: "golem-duelist",
+      left: "golem-duelist", right: "golem-duelist",
       leftUnit: "golem", rightUnit: "golem",
       leftGolem: setup, rightGolem: setup,
       locomotionMode: "supported",

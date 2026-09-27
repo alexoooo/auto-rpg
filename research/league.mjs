@@ -18,7 +18,7 @@
 //
 // **The unit is the corner-swapped pair.** Mind A on one body against mind B on the other, played
 // twice with the same seeds: A on the left, then A on the right, each mind keeping its own seed
-// (the seed pair is reversed with the sides, as `comparisonJobs` in `research/search.mjs` does). A
+// (the seed pair is reversed with the sides, as `comparisonJobs` in the retired `research/search.mjs` did). A
 // **cluster** is one seed pair on one class and variant, and holds two corner-swapped pairs: A on
 // the class build and B on the variant, and the bodies the other way round. The paired criterion is
 // Cohen's d of A's bar margin over corner-swapped pairs; every interval is a bootstrap over whole

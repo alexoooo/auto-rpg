@@ -21,8 +21,11 @@ import { assertCompleteView, publishedFixture } from "./fixtures/view.mjs";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
-/** One executor per golem mind family: v1, v2 (through the planner), v3 and v4. */
-const MINDS = ["golem-duelist", "golem-champion", "golem-brawler", "golem-miser"];
+/**
+ * The golem minds the finishing rules are checked on. Until 2026-09-27 this was one executor per
+ * mind family, v1 to v4 (duelist, champion, brawler, miser); the next-phase cleanup kept v1 alone.
+ */
+const MINDS = ["golem-duelist"];
 
 /**
  * A standing skeleton pair six metres apart; the left one is knocked down by a queued shove twice
@@ -150,12 +153,9 @@ const claimsStanding = (view) => ({ ...view, opponent: { ...view.opponent, suppo
 // ranges (`standOffReach` in `src/downed.ts`). The control is the **same** lying body with its
 // `support` edited back to `supported`: its shoulder is live and already low, so the 3-D gap to it
 // already pulls a mind in from its standing hold (1.45 m) to about 0.8, and only the stand-off rule
-// is left between the two. Measured (Node harness, headless arena): duelist 0.55 m against 0.80,
-// champion 0.70 against 0.80, miser 0.20 against 0.85 -- the miser's executor floors a hold at
-// nothing of its own, so without their reach there is nothing to hold it off. The brawler closes on
-// anything and is not asked.
+// is left between the two. Measured (Node harness, headless arena): duelist 0.55 m against 0.80.
 test("a_standing_mind_holds_nearer_a_downed_body_than_the_same_body_said_to_be_standing", () => {
-  for (const name of MINDS.filter((mind) => mind !== "golem-brawler")) {
+  for (const name of MINDS) {
     const lying = holdOf(name, downed.them);
     const said = holdOf(name, claimsStanding(downed.them));
     const up = holdOf(name, standing.them);
@@ -168,8 +168,8 @@ test("a_standing_mind_holds_nearer_a_downed_body_than_the_same_body_said_to_be_s
 // same body standing (probe: -0.86 against -0.23 for the duelist), and right over it the mark is
 // below the arm's own floor and the crouch the executors derive from it comes on (0.48, against
 // none standing). **This is carried by the live shoulder as much as by `finishPoint`**: with the
-// helper made to ignore `support`, every figure here still holds, because v1, v2 and v3 aim at
-// their published shoulder and v4 scales by it. What `finishPoint` adds is the core's own place
+// helper made to ignore `support`, every figure here still holds, because v1 aims at its
+// published shoulder. What `finishPoint` adds is the core's own place
 // rather than a column over the feet, which is 0.21 m further on for this fall.
 test("a_standing_mind_aims_at_a_downed_body_where_it_lies_and_crouches_over_it", () => {
   for (const name of MINDS) {
@@ -189,7 +189,8 @@ test("a_standing_mind_aims_at_a_downed_body_where_it_lies_and_crouches_over_it",
 // and aims from where its socket actually is -- upward at a standing body, 0.6 or more of the cursor
 // above its standing aim at 0.3 m (probe: duelist +0.71 against -0.20).
 //
-// **0.3 m, not the edge of anybody's reach.** The brawler closes while `gap > near + slack` and
+// **0.3 m, not the edge of anybody's reach.** It was chosen while the brawler (retired 2026-09-27)
+// was checked here too. The brawler closed while `gap > near + slack` and
 // strikes inside it, and the lying body's pose -- which a fall does not reproduce to the centimetre
 // -- moves where that edge falls for this fixture. Measured (Node headless arena, the brawler with
 // its feet the stated gap apart): it walks in rather than thrusting from 0.45 m at 240 Hz and from

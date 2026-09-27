@@ -77,8 +77,8 @@ test("each block is one mind pair on one seed pair, played with the modified cor
   const at = (level) => jobs.filter((j) => j.level === level).map(({ pair, modified, seeds, left, right }) =>
     ({ pair, modified, seeds, left, right }));
   assert.deepEqual(at("x1.25"), at("x1.00"), "every level plays the same blocks, so it can pair with the control");
-  assert.equal(new Set(jobs.filter((j) => j.level === "x1.00").map((j) => j.minds.join())).size, 16,
-    "sixteen blocks reach every ordered pair of the four minds");
+  assert.equal(new Set(jobs.filter((j) => j.level === "x1.00").map((j) => j.minds.join())).size,
+    PROBE_MINDS.length ** 2, "the blocks reach every ordered pair of the probe minds");
 });
 
 test("the modified corner's score and margin read the side it was on", () => {

@@ -28,10 +28,10 @@ import { join, resolve } from "node:path";
 import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { ATTRIBUTE_PRESETS, sweepJobs, HARNESS } from "./stat-sweep.mjs";
+import { ATTRIBUTE_PRESETS, PROBE_MINDS, sweepJobs, HARNESS } from "./stat-sweep.mjs";
 import { PROTOCOL } from "./schedule.mjs";
 
-const PROBE = ["golem-champion", "golem-miser", "golem-brawler", "golem-duelist"];
+const PROBE = PROBE_MINDS;
 
 /**
  * The matchups, each a modified corner and a base corner. `modified` and `base` are named builds,

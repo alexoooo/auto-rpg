@@ -7,7 +7,7 @@ import { buildArena } from "./arena";
 import { refreshShadowCasters, type RoomOcclusionTarget } from "./arena-room";
 import { stepPair } from "./fighter";
 import { Combat } from "./combat";
-import { Hud, type CommandReadout, type CommandSideReadout } from "./hud";
+import { Hud, type CommandReadout } from "./hud";
 import { Controls } from "./input";
 import { AimIndicator } from "./aim";
 import { OrderDisplay } from "./targeting";
@@ -19,10 +19,6 @@ import { BoutRecorder, ENGAGEMENT_INSTRUMENT_VERSION, combatRecorder, sampleBout
   wireBoutRecorder } from "./recorder";
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
   runHostFrame, SKIM_SPEEDS, type RunningHost } from "./host-run";
-import type { GolemDriven } from "./golem/tactics-v4";
-import { GOLEM_TACTICS } from "./golem/tactics";
-import { setLiveStrokeRow } from "./golem/stroke-rows";
-import { strokeLink } from "./golem/stroke-link";
 import { SetupScreen } from "./setup";
 import {
   defaultGolemSetup,
@@ -40,7 +36,7 @@ import {
 } from "./golem/parts-bin";
 import { flatSupportedWorldRegistry } from "./supported-locomotion-production";
 import type { Side } from "./physics";
-import { POLICIES, type Mind } from "./mind";
+import { POLICIES } from "./mind";
 import { GolemControlEndpoint } from "./golem/golem-control.ts";
 import { EffectorPreviewMind } from "./effector-preview.ts";
 import { effectorPreviewFromSearch } from "./effector-preview-query.ts";
@@ -226,7 +222,7 @@ async function boot(): Promise<void> {
    *
    * `matchupQuery` builds a query string from the matchup alone, and the three places below hand
    * it straight to `replaceState`, which replaces the *whole* query. So every parameter that is
-   * not the matchup -- `drawFraction`, `tactic` -- was silently
+   * not the matchup, such as `drawFraction`, was silently
    * dropped from the address bar the first time anybody touched the setup screen. The running page
    * was unaffected, because all four are read once at boot, which is exactly what made it hard to
    * notice: the screen kept doing what the link asked while the link stopped saying so, and a URL
@@ -255,32 +251,6 @@ async function boot(): Promise<void> {
     }
   }
 
-  /**
-   * `?tactic=chamberReach:-0.15,cutRoll:0` -- the sword's stroke shape, for the length of one page.
-   *
-   * **The same job as `?drawFraction=`, for the eight rows the tuner cannot reach.** Those rows are
-   * read live out of `GOLEM_TACTICS` by `STROKE_SHAPES.sword`, which is exactly why no automatic
-   * process re-reads them and why every sweep of them in `docs/measurements.md` had to be run by
-   * hand. Three of them now move the alignment statistic by more than two standard deviations, and
-   * none of that is a reason to change a constant: the phase's own finding is that better-aligned
-   * is not the same as more dangerous, `strokeSeconds` being cleanly anti-correlated. A table
-   * cannot settle that. The owner watching the same seed under two strokes might.
-   *
-   * **Every refusal is named and nothing half-applies.** An unknown row, a non-number, or a
-   * duration at or below zero refuses the whole link rather than applying the rest of it, because a
-   * page running three of the four numbers somebody asked for is a page that will be used to report
-   * a result nobody can reproduce.
-   *
-   * **It says which minds it reaches, because it does not reach all of them.** A v2 mind --
-   * `golem-fencer`, the matchup every measurement here is taken on -- reads the shape at stroke
-   * time and sees this. A v3 mind on a committed arc runs `COMMITTED_SHAPES`, which spread the
-   * getters at module load and so froze whatever the table held before this ran. See
-   * `src/golem/stroke-rows.ts`; the note below says it on screen rather than leaving it to be
-   * discovered by someone comparing two tabs that were never different.
-   */
-  const tactic = strokeLink(query.get("tactic"), (row) => GOLEM_TACTICS[row]);
-  for (const { row, value } of tactic.apply) setLiveStrokeRow(GOLEM_TACTICS, row, value);
-  const tacticNote = tactic.note;
 
   const opening = linked && linkRefusal === null ? linked : golemMatchup(defaultGolemSetup());
   let state = selectScreen(opening);
@@ -1041,76 +1011,7 @@ async function boot(): Promise<void> {
     noticeLeft = C.noticeSeconds;
   };
 
-  /**
-   * What each side is asking the executor for, for the readout.
-   *
-   * **Read off `GolemDriven` and off the bout's own engagement record, and nothing is computed
-   * here.** The command is the one in force -- the last ask, clamped -- and the gap is the one the
-   * pilot was handed on that ask, so the asked stand-off and the held stand-off are two readings
-   * from the same instant rather than one from the mind and one from the world.
-   *
-   * A mind with no `driven` contributes no entry and its half of the panel is empty. That is every
-   * hand-coded style below the fourth executor.
-   */
-  /**
-   * The last ask count and the wall-clock instant it was read at, per side, and the rate between.
-   *
-   * A rate rather than an average, for the reason `CommandSideReadout.asksPerSecond` gives: the
-   * mind is stepped by the physics observable and the bout clock is the clamped frame delta, so
-   * the two disagree by however much this host is dropping. The smoothing is a plain one-pole
-   * filter on a window that is one frame wide, and it is reset with the rest of the readout when a
-   * body is rebuilt because the counter behind it belongs to a mind that no longer exists.
-   */
-  const askRate: Record<Side, { asks: number; at: number; rate: number }> = {
-    left: { asks: 0, at: 0, rate: 0 },
-    right: { asks: 0, at: 0, rate: 0 },
-  };
-  const askedPerSecond = (side: Side, asks: number): number => {
-    const seen = askRate[side];
-    const now = performance.now();
-    if (seen.at === 0 || asks < seen.asks) {
-      askRate[side] = { asks, at: now, rate: 0 };
-      return 0;
-    }
-    const seconds = (now - seen.at) / 1000;
-    if (seconds < 1e-3) return seen.rate;
-    const sampled = (asks - seen.asks) / seconds;
-    const rate = seen.rate === 0 ? sampled : seen.rate + (sampled - seen.rate) * 0.25;
-    askRate[side] = { asks, at: now, rate };
-    return rate;
-  };
-
-  const commandReadout = (): CommandReadout => {
-    const sides: CommandSideReadout[] = [];
-    for (const side of ["left", "right"] as const) {
-      const body = side === "left" ? bout.left : bout.right;
-      const mind = (body.control.driver as { mind?: Mind }).mind as (Mind & { driven?: GolemDriven }) | undefined;
-      const driven = mind?.driven;
-      if (!mind || !driven) continue;
-      const engagement = bout.recorder.engagement[side];
-      const theirReach = driven.reading.theirReach;
-      sides.push({
-        side,
-        mind: mind.name,
-        standOff: driven.command.standOff,
-        // The same coordinate the command is written in -- multiples of *their* published reach --
-        // because the whole value of the pair is that the two numbers can be subtracted.
-        heldOff: theirReach > 1e-6 ? driven.reading.gap / theirReach : 0,
-        advance: driven.command.advance,
-        strafe: driven.command.strafe,
-        lean: driven.command.lean,
-        commit: driven.command.commit,
-        abort: driven.command.abort,
-        parry: driven.command.parry,
-        phase: driven.phase,
-        stance: driven.stance,
-        asksPerSecond: askedPerSecond(side, driven.asks),
-        stallSeconds: engagement.nearRangeStallSeconds,
-        outsideReachSeconds: engagement.retreatOutsideReachSeconds,
-      });
-    }
-    return { skim: skimSpeed, sides };
-  };
+  const commandReadout = (): CommandReadout => ({ skim: skimSpeed });
 
   engine.runRenderLoop(() => {
     audio.setActive(controls.isActive && state.phase === "fight");
@@ -1346,7 +1247,6 @@ async function boot(): Promise<void> {
       ? "Havok ready."
       : `Havok ready. The link was refused and the showcase pair is shown instead: ${linkRefusal}`,
     drawNote,
-    tacticNote,
   ].filter((part) => part !== "").join(" ");
   // Anything past "Havok ready." is a refused link or an overridden constant, and is read whole:
   // the footer's one quiet line becomes as many as it takes.

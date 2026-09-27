@@ -32,7 +32,7 @@ const row = (job, winner, trajectory = `${job.id}`) => ({
 });
 
 test("a mirror block is one seed pair played both ways round, each side seeded from its own seed", () => {
-  const jobs = mirrorJobs({ minds: ["golem-duelist", "golem-reaper"], blocks: 5, runSeed: 7 });
+  const jobs = mirrorJobs({ minds: ["golem-duelist", "golem-walker"], blocks: 5, runSeed: 7 });
   assert.equal(jobs.length, 2 * 5 * 2);
   const blocks = Map.groupBy(jobs, (job) => job.block);
   assert.equal(blocks.size, 10);
@@ -116,10 +116,9 @@ async function smallMirror(mind, blocks, options = {}) {
 /**
  * The registered mind, except that on `side` it reacts a quarter of a second late: it decides every
  * thirtieth control step (120 Hz) and holds that command in between. Each side keeps its own seed.
- * The miser's own mirror leans left (59.7 and 59.2 % on two full-n runs), so the late side here is
- * the left: the control has to beat that lean to fail the gate. On these seeds the late left lost
- * all eight of four blocks, in 7 to 17 s (Node bout runner, 2026-09-25); the duelist late on the
- * right also lost all eight, but its bouts run 19 to 66 s.
+ * Until 2026-09-27 the control was the miser late on the left, which lost all eight bouts of four
+ * blocks in 7 to 17 s; the miser was retired then. The duelist late on the right also lost all eight
+ * on these seeds, in 19 to 66 s (Node bout runner, 2026-09-25), and is the control now.
  *
  * Clearing the `thrust` buttons on one side is not a handicap and was tried first: over eight seed
  * pairs the duelist's mirror with them cleared played the same sixteen bouts, winners and lengths,
@@ -136,15 +135,15 @@ const lateOn = (side) => (name, seed, at) => {
 };
 
 test("a shipped mind's mirror is not decided by side, and a mirror with one side late is", async () => {
-  const fair = await smallMirror("golem-champion", SMALL_BLOCKS);
+  const fair = await smallMirror("golem-duelist", SMALL_BLOCKS);
   assert.equal(fair.distinct, 2 * SMALL_BLOCKS, "every bout its own trajectory: the seeds reach the bout");
   assert.equal(fair.verdict, "pass", `left ${fair.share} against a band of ${fair.band}`);
   // The control: the detector finding a side on real bouts at this n. Six bouts, a band of 40 points,
   // so all six to one side is needed.
-  const handicapped = await smallMirror("golem-miser", 3, { makeMind: lateOn("left") });
+  const handicapped = await smallMirror("golem-duelist", 3, { makeMind: lateOn("right") });
   assert.equal(handicapped.distinct, 6);
   assert.equal(handicapped.verdict, "fail", `left ${handicapped.share} against a band of ${handicapped.band}`);
-  assert.ok(handicapped.share < 0.5, "and it is the late side that loses");
+  assert.ok(handicapped.share > 0.5, "and it is the late side that loses");
 });
 
 test("a mind listed as side-decided still is, and nothing that measures minds measures against one", async () => {
@@ -158,7 +157,8 @@ test("a mind listed as side-decided still is, and nothing that measures minds me
     assert.deepEqual(built, jobs.flatMap((job) => [{ side: "left", seed: job.seeds[0] }, { side: "right", seed: job.seeds[1] }]));
   }
   for (const name of [...PROBE_MINDS, ...LADDER]) assert.ok(!Object.hasOwn(SIDE_DECIDED, name), `${name} is side-decided`);
-  assert.throws(() => refuseSideDecided(["golem-duelist", "golem-guardian"]), /golem-guardian/);
+  assert.throws(() => refuseSideDecided(["golem-duelist", "fixture-mind"], "a comparison", { "fixture-mind": "a fixture" }),
+    /fixture-mind \(a fixture\)/);
   assert.doesNotThrow(() => refuseSideDecided([...PROBE_MINDS, ...LADDER]));
   // The two scripts that compare minds refuse a listed one in their `main`, which no test runs.
   for (const [file, call] of [["stat-sweep.mjs", /refuseSideDecided\(minds, /], ["league.mjs", /refuseSideDecided\(\[a, b\], /]]) {

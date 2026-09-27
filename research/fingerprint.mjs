@@ -15,9 +15,7 @@ export function fingerprint(root = ROOT) {
     const key = relative(root, path).replaceAll("\\", "/");
     if (files.has(key)) return;
     const source = readFileSync(path, "utf8");
-    // Published parameters have their own per-policy version. Adding a policy must not
-    // invalidate measurements of unchanged policies or the simulator they all share.
-    files.set(key, ["src/golem/researched-variants.json", "src/golem/researched-lab.json"].includes(key) ? "per-policy-versioned" : source);
+    files.set(key, source);
     if (!/\.(ts|mjs|js)$/.test(path)) return;
     let parsed = parsedImports.get(path);
     if (parsed?.source !== source) {
@@ -34,7 +32,6 @@ export function fingerprint(root = ROOT) {
       visit(resolved);
     }
   }
-  for (const entry of ["tests/harness/bout-runner.mjs", "src/golem/roster.ts", "src/golem/research-candidates.ts",
-    "research/worker.mjs", "package-lock.json"]) visit(resolve(root, entry));
+  for (const entry of ["tests/harness/bout-runner.mjs", "src/golem/roster.ts", "research/worker.mjs", "package-lock.json"]) visit(resolve(root, entry));
   return { hash: digest(Object.fromEntries([...files.entries()].sort())), files: [...files.keys()].sort() };
 }

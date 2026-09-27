@@ -56,8 +56,8 @@ test("a_drawn_corner_keeps_a_policy_that_drives_it_and_is_given_its_family_s_oth
     assert.deepEqual(fitted.left, start.left, "the other corner is untouched");
   }
   // And a policy that already applies is left alone.
-  const kept = fittedPolicy(withPolicy(golemMatchup(defaultGolemSetup()), "right", "golem-brawler"), "right");
-  assert.equal(kept.right.policy, "golem-brawler");
+  const kept = fittedPolicy(withPolicy(golemMatchup(defaultGolemSetup()), "right", "golem-walker"), "right");
+  assert.equal(kept.right.policy, "golem-walker");
 });
 
 test("an_old_link_naming_a_mode_still_opens_and_carries_no_mode", () => {

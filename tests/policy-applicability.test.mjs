@@ -10,25 +10,20 @@ import { NAMED_BUILDS, namedBuild } from "../src/golem/roster.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { createBout, freshHavok } from "./harness/bout-runner.mjs";
 
-const needle = POLICIES.find((p) => p.name === "golem-researched-needle-v1");
-const paired = POLICIES.find((p) => p.name === "golem-researched-paired-v1");
+const archer = POLICIES.find((p) => p.name === "humanoid-archer");
+const human = (name) => HUMAN_BUILDS.find((b) => b.name === name).setup;
 
-test("specialists require actual controls, while evidence scope does not restrict compatibility", () => {
-  for (const [name, expected] of [["default", "applicable"], ["two-blades", "applicable"],
-    ["pitch-blade", "fallback-only"], ["maul", "fallback-only"], ["ram-capped", "fallback-only"],
-    ["fists", "fallback-only"], ["whip", "fallback-only"]]) {
-    assert.equal(assessPolicy(needle, true, namedBuild(name).setup).status, expected, name);
+test("a requirement reads the body's actual controls", () => {
+  assert.equal(archer.requirement, "bow", "the fixture is the one policy that declares a requirement");
+  assert.equal(assessPolicy(archer, true, human("workshop-rogue")).status, "applicable");
+  for (const name of ["human-warrior", "human-dual-swords", "human-unarmed", "human-maul", "workshop-fighter"]) {
+    const assessment = assessPolicy(archer, true, human(name));
+    assert.equal(assessment.status, "incompatible", name);
+    assert.match(assessment.reason, /bow/, name);
   }
-  for (const name of ["two-blades", "fists", "pitch-blade", "default"]) {
-    // A shield arm still accepts thrust commands; compatibility is not a strength claim.
-    assert.equal(assessPolicy(paired, true, namedBuild(name).setup).status, "applicable", name);
-  }
-  for (const name of ["maul", "ram-capped"]) {
-    assert.equal(assessPolicy(paired, true, namedBuild(name).setup).status, "fallback-only", name);
-  }
-  assert.equal(assessPolicy(needle, false, defaultGolemSetup()).status, "incompatible");
+  assert.equal(assessPolicy(archer, false, human("workshop-rogue")).status, "incompatible");
   assert.equal(assessPolicy(undefined, true, defaultGolemSetup()).status, "incompatible");
-  assert.equal(assessPolicy(needle, true, { ...defaultGolemSetup(), primary: { chain: "bad", terminal: "blade" } }).status, "incompatible");
+  assert.equal(assessPolicy(archer, true, { ...human("workshop-rogue"), primary: { chain: "bad", terminal: "bow" } }).status, "incompatible");
 });
 
 test("every registered effector's setup declaration agrees with a real assembled body", async () => {
@@ -41,7 +36,7 @@ test("every registered effector's setup declaration agrees with a real assembled
     try {
       bout.step();
       assert.deepEqual(policyBodyForSetup(build), policyBodyForView(bout.left.view.self), option.id);
-      for (const policy of [needle, paired]) {
+      for (const policy of [archer]) {
         assert.deepEqual(assessRequirement(policy.requirement, policyBodyForSetup(build)),
           assessRequirement(policy.requirement, policyBodyForView(bout.left.view.self)));
       }
@@ -92,20 +87,22 @@ test("policies are offered only on the body family they were built and measured 
 });
 
 test("picker preserves stale selections while hiding other unavailable policies", () => {
-  const rows = POLICIES.map((p) => ({ ...p, assessment: assessPolicy(p, true, namedBuild("maul").setup) }));
-  const selected = needle.name;
+  const rows = POLICIES.map((p) => ({ ...p, assessment: assessPolicy(p, true, human("human-warrior")) }));
+  const selected = archer.name;
   const visible = policyPickerRows(rows, selected, false);
-  assert.ok(visible.some((r) => r.name === selected && r.assessment.status === "fallback-only"));
-  assert.ok(!visible.some((r) => r.name === paired.name));
+  assert.ok(visible.some((r) => r.name === selected && r.assessment.status === "incompatible"));
+  assert.ok(visible.some((r) => r.name === "humanoid-duelist"), "the control: an applicable row is shown");
+  assert.ok(!visible.some((r) => r.name === "golem-duelist"));
   assert.deepEqual(policyPickerRows(rows, selected, true), rows);
-  assert.equal(assessPolicy(needle, true, namedBuild("two-blades").setup).status, "applicable");
 });
 
 test("limb loss changes applicability without mutating the selected policy", () => {
-  const body = policyBodyForSetup(namedBuild("two-blades").setup);
+  const body = policyBodyForSetup(human("workshop-rogue"));
+  assert.equal(assessRequirement(archer.requirement, body).status, "applicable");
   body.secondary.lost = true;
-  assert.equal(assessRequirement(paired.requirement, body).status, "fallback-only");
-  assert.equal(assessRequirement(needle.requirement, body).status, "applicable");
+  assert.equal(assessRequirement(archer.requirement, body).status, "incompatible");
+  body.secondary.lost = false;
   body.primary.lost = true;
-  assert.equal(assessRequirement(needle.requirement, body).status, "fallback-only");
+  assert.equal(assessRequirement(archer.requirement, body).status, "incompatible");
+  assert.equal(archer.requirement, "bow");
 });

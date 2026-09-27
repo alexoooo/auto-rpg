@@ -15,8 +15,8 @@
  * inside the block rather than across a pool. The modified body carries `attributes: { [stat]:
  * level }` -- at x1 too, explicitly, so the null row runs the same setup path every other row does --
  * and the other body carries none. Each side's mind is seeded from its own seed and the pair is
- * reversed with the sides, which is `comparisonJobs` in `research/search.mjs` and the reason for
- * the memory `probe-minds-need-side-correct-seeds`.
+ * reversed with the sides, as `comparisonJobs` in the retired `research/search.mjs` did, and the
+ * reason for the memory `probe-minds-need-side-correct-seeds`.
  *
  * **The seeds do not depend on the level.** Every level plays the same blocks, so a level can be
  * paired block by block against the control level (x1, or `control` under `--edge`), and that
@@ -50,8 +50,13 @@ import { refuseSideDecided } from "./side-mirror.mjs";
 
 export const HARNESS = "Node harness, research runner, supported locomotion";
 
-/** The overkill probe's four: designed minds that disagree about how to fight. */
-export const PROBE_MINDS = Object.freeze(["golem-champion", "golem-miser", "golem-brawler", "golem-duelist"]);
+/**
+ * The probe minds. Until 2026-09-27 these were four designed minds that disagreed about how to fight
+ * (champion, miser, brawler, duelist); the next-phase cleanup retired all but the v1 duelist, so the
+ * probe is the duelist and the walker until a new benchmark suite replaces it. Tables taken on the
+ * old four are not comparable with tables taken on these two.
+ */
+export const PROBE_MINDS = Object.freeze(["golem-duelist", "golem-walker"]);
 
 export const DEFAULT_LEVELS = Object.freeze([0.75, 0.9, 1, 1.1, 1.25, 1.5]);
 
@@ -157,9 +162,8 @@ export function cohensD(values) {
 }
 
 /**
- * A percentile bootstrap over whole blocks. `research/search.mjs` has the same one; it is repeated
- * rather than imported because that module pulls the candidate registry, and this one is loaded by
- * a test with no bouts in it.
+ * A percentile bootstrap over whole blocks. (`research/search.mjs` carried the same one until it was
+ * retired on 2026-09-27.)
  */
 export function interval(values, runSeed = 20260923, iterations = 4000) {
   if (!values.length || values.some((v) => !Number.isFinite(v))) throw new Error("interval needs finite block values");

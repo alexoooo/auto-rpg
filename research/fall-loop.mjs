@@ -14,17 +14,17 @@ import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { sweepJobs, HARNESS } from "./stat-sweep.mjs";
+import { PROBE_MINDS, sweepJobs, HARNESS } from "./stat-sweep.mjs";
 import { PROTOCOL } from "./schedule.mjs";
 
-const PROBE = ["golem-champion", "golem-miser", "golem-brawler", "golem-duelist"];
+const PROBE = PROBE_MINDS;
 
 export const LOOP_GROUPS = Object.freeze({
   stone: { build: "default", minds: PROBE },
   skeleton: { build: "skeleton-warrior", minds: ["skeleton-duelist"] },
   human: { build: "human-warrior", minds: ["humanoid-duelist"] },
-  multileg: { build: "multileg", minds: ["golem-brawler", "golem-duelist"] },
-  wheel: { build: "wheel", minds: ["golem-brawler", "golem-duelist"] },
+  multileg: { build: "multileg", minds: ["golem-walker", "golem-duelist"] },
+  wheel: { build: "wheel", minds: ["golem-walker", "golem-duelist"] },
 });
 
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);

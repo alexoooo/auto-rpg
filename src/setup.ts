@@ -53,13 +53,6 @@ import ratingArtifact from "./policy-ratings.json";
 import currentFingerprint from "virtual:ai-fingerprint";
 import { policyRatingBadge, policyRatingNote } from "./policy-rating";
 import { policyLine } from "./policy-lines.ts";
-import researchedVariants from "./golem/researched-variants.json";
-import researchedLab from "./golem/researched-lab.json";
-
-const policyVersion = (name: string): string => {
-  const variant = ([...researchedVariants, ...researchedLab] as { name: string }[]).find((row) => row.name === name);
-  return variant ? JSON.stringify(variant) : name;
-};
 
 /**
  * The nine `<select>`s a golem corner keeps behind its Customize toggle, and what each edits.
@@ -621,7 +614,7 @@ export class SetupScreen {
       rating.classList.toggle("warn", !usable);
       rating.title = [
         usable ? "" : selected.assessment.reason,
-        policyRatingNote(setup.policy, ratingArtifact, currentFingerprint, policyVersion(setup.policy)),
+        policyRatingNote(setup.policy, ratingArtifact, currentFingerprint),
         selected.evidenceScope,
         usable ? selected.assessment.reason : "",
       ].filter(Boolean).join("\n");

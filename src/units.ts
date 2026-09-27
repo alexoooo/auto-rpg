@@ -244,25 +244,24 @@ const initialMind = (ctx: CombatantBuild, definition: UnitDefinition): Mind => {
  * read against. The exclusion now runs both ways: `Policy.surface` keeps `golem-duelist` out of a
  * Warrior's picker for exactly the mirror reason.
  *
- * **The fitted minds are gone and this list is the record of it.** `golem-neural`, `golem-learner`,
+ * **The fitted minds are gone, and so is the rest of the stone-golem league.** `golem-neural`, `golem-learner`,
  * `golem-policy`, `golem-snapshot` and `golem-selector` were all weights -- three of them checked
  * in, one fetched into a slot at boot, one a table choosing between the others -- and every one was
  * fitted under a body that weighed 560 kg and a damage scale calibrated at a speed the fight never
  * reached. Keeping them would have meant shipping a mind whose competence was an artefact of
- * numbers this project is about to change.
+ * numbers this project is about to change. The 2026-09-27 cleanup retired the rest of the stone-golem
+ * league in the same spirit -- fencer, planner, champion, the four styles, tactician, driver,
+ * reaper, miser and the researched and lab minds -- all tuned and rated on stone bodies before the
+ * next phase changed what a body is. They remain at the tag `pre-next-phase-cleanup`.
+ *
+ * With them went the hand-kept list of names this row used to carry beside `POLICIES`: every
+ * registered policy on the golem surface, or on none, is the golem's, and `assessPolicy` in
+ * `src/policy-applicability.ts` rather than this row decides which body family and equipment each
+ * one is offered on.
  */
-const GOLEM_POLICIES: readonly string[] = Object.freeze([
-  "idle", "humanoid-archer", "humanoid-duelist", "skeleton-duelist", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
-  "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-  "golem-reaper", "golem-miser", "golem-walker",
-]);
-
-/** Published and isolated-review candidates use the same legal golem surface. */
-const golemPolicyNames = (): readonly string[] => [
-  ...GOLEM_POLICIES,
-  ...POLICIES.filter((policy) => policy.name.startsWith("golem-researched-")
-    && policy.surface === GOLEM_CONTROL_SURFACE).map((policy) => policy.name),
-];
+const golemPolicyNames = (): readonly string[] => POLICIES
+  .filter((policy) => policy.surface === null || policy.surface === GOLEM_CONTROL_SURFACE)
+  .map((policy) => policy.name);
 
 /**
  * The rows a golem's picker offers.

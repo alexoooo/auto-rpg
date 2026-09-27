@@ -173,13 +173,15 @@ test("every_registered_module_hands_its_stepping_state_to_the_fork", () => {
   assert.deepEqual(others.filter((id) => !built.has(id)), []);
 });
 
-/** Every mind the expert plays against (the plan's list), and the idle one. */
-const MINDS = ["idle", "golem-duelist", "golem-miser", "golem-researched-needle-v1", "golem-champion", "golem-brawler",
-  "golem-walker"];
+/**
+ * Every named golem mind, and the idle one. Until 2026-09-27 this was the expert's whole gauntlet
+ * (miser, needle, champion and brawler as well); the next-phase cleanup retired those.
+ */
+const MINDS = ["idle", "golem-duelist", "golem-walker"];
 
 test("every_named_golem_mind_hands_its_stepping_state_to_the_fork", () => {
   const findings = [];
-  for (const [left, right] of [[MINDS[1], MINDS[2]], [MINDS[3], MINDS[4]], [MINDS[5], MINDS[0]], [MINDS[6], MINDS[1]]]) {
+  for (const [left, right] of [[MINDS[1], MINDS[2]], [MINDS[2], MINDS[0]], [MINDS[1], MINDS[1]]]) {
     findings.push(...audit({ left, right }).report.findings);
   }
   assert.deepEqual(findings, [], describeFindings(findings));
@@ -232,12 +234,12 @@ test("a_restored_mind_decides_bit_identically_and_a_reseeded_one_draws_new_dice"
     assert.equal(firstDifference(fresh, tail), -1, `${name}: restored into a fresh mind`);
     if (name === "idle") continue;
     // The controls: a mind with nothing restored does not replay the tail, and a reseeded one keeps
-    // its moment and draws different dice. Measured over this tail (Node bout runner), the duelist,
-    // miser, needle and champion part from their own replay 189 to 353 decisions after a reseed;
-    // the brawler draws nothing in these four seconds, so a reseed cannot show on it. Nor does the
-    // walker, which draws once, for its clock's phase, when it is built.
+    // its moment and draws different dice. Measured over this tail (Node bout runner), the duelist
+    // (with the retired miser, needle and champion) parted from its own replay 189 to 353 decisions
+    // after a reseed. The walker draws once, for its clock's phase, when it is built, so a reseed
+    // cannot show on it.
     assert.notEqual(firstDifference(policyMind(name, SEEDS[0]), tail), -1, `${name}: the control replays too`);
-    if (name !== "golem-brawler" && name !== "golem-walker") {
+    if (name !== "golem-walker") {
       const reseeded = policyMind(name, SEEDS[0]);
       restoreMind(reseeded, snapshot, { reseed: 7 });
       assert.notEqual(firstDifference(reseeded, tail), -1, `${name}: a reseeded mind draws the same dice`);
@@ -356,7 +358,7 @@ test("forking_an_odd_build_leaves_the_original_bit_identical", () => {
 });
 
 test("forking_a_fought_bout_leaves_it_bit_identical", () => {
-  const minds = { left: "golem-brawler", right: "golem-champion" };
+  const minds = { left: "golem-duelist", right: "golem-walker" };
   const plain = history(minds, 240, []);
   const forked = history(minds, 240, [40, 100, 170]);
   assert.equal(forked.hash, plain.hash);
@@ -380,7 +382,12 @@ test("a_fork_starts_within_the_solver_floor_of_its_original", () => {
   // it cannot: one that loses their angular velocity reads 35.1, inside the spread. That is held
   // by the fidelity tests above, which read a fork's own capture back, and the fork a search trusts
   // is the exact one, which is its original to the bit.
-  const minds = { left: "golem-brawler", right: "golem-miser" };
+  //
+  // Every figure above is from the brawler against the miser, both retired on 2026-09-27. On the
+  // duelist against the walker, which replaced them, the eight read 75.8, 9.0, 5.2, 73.0, 3.2, 5.0,
+  // 4.1 and 14.3 mm, a median of 7.1 (Node bout runner). The velocity-loss sensitivity has not been
+  // re-measured on this pair.
+  const minds = { left: "golem-duelist", right: "golem-walker" };
   const bout = createBout(options(minds));
   const gaps = [];
   try {
@@ -417,10 +424,10 @@ test("a_fork_starts_within_the_solver_floor_of_its_original", () => {
 test("a_capture_restored_over_the_same_world_changes_nothing", () => {
   // Havok does not treat a write of the value already there as a no-op: rewriting a body's mass
   // properties moved parts 3.21 mm within three frames, its transform 5.32 mm, a motor's stiffness
-  // or velocity target 0.18 mm (Node bout runner, brawler against miser at frame 240). The restore
-  // therefore writes only what differs, and this holds it: a capture written back over a world in
+  // or velocity target 0.18 mm (Node bout runner, the since-retired brawler against the miser at
+  // frame 240). The restore therefore writes only what differs, and this holds it: a capture written back over a world in
   // exactly that state leaves it stepping bit-identically with a twin nobody touched.
-  const minds = { left: "golem-brawler", right: "golem-miser" };
+  const minds = { left: "golem-duelist", right: "golem-walker" };
   const bout = createBout(options(minds));
   const twin = createBout(options(minds));
   try {
@@ -452,8 +459,8 @@ test("an_exact_fork_is_its_original_to_the_bit_even_after_a_sever", async () => 
   // closes on the haft mid-bout -- a joint the fork replays at a moment of its own, so Havok hands it
   // another address, which the copy has to point back at the original's.
   const builds = [
-    { left: "golem-brawler", right: "golem-champion" },
-    { left: "golem-duelist", right: "golem-brawler", leftGolem: AUDIT_PAIRS[1][0], rightGolem: AUDIT_PAIRS[1][1] },
+    { left: "golem-duelist", right: "golem-walker" },
+    { left: "golem-duelist", right: "golem-duelist", leftGolem: AUDIT_PAIRS[1][0], rightGolem: AUDIT_PAIRS[1][1] },
   ];
   for (const build of builds) {
     const minds = { ...build, physics: await freshHavok() };

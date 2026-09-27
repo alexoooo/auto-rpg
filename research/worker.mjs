@@ -2,9 +2,7 @@ import { parentPort } from "node:worker_threads";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createBout, freshHavok, FRAME } from "../tests/harness/bout-runner.mjs";
 import { CONFIG } from "../src/config.ts";
-import { candidateMind } from "../src/golem/research-candidates.ts";
 import { policyMind } from "../src/mind.ts";
-import { labMind } from "../src/golem/lab-policy.ts";
 import { trajectoryTracer } from "./side-mirror.mjs";
 Logger.LogLevels = Logger.ErrorLogLevel;
 
@@ -18,11 +16,8 @@ export async function execute(job, manifest) {
   const retreat = { left: 0, right: 0 };
   const attacks = { left: 0, right: 0 };
   const builds = new Map(manifest.builds.map((build) => [build.name, build.setup]));
-  const candidates = new Map((manifest.candidates ?? []).map((candidate) => [candidate.name, candidate]));
-  const labCandidates = new Map((manifest.labCandidates ?? []).map((candidate) => [candidate.name, candidate]));
   const mind = (name, seed, side) => {
-    const inner = labCandidates.has(name) ? labMind(labCandidates.get(name).spec, seed)
-      : candidates.has(name) ? candidateMind(candidates.get(name), seed) : policyMind(name, seed);
+    const inner = policyMind(name, seed);
     const previous = { primary: false, secondary: false, natural: false };
     return { name: inner.name, decide(view, dt) {
       const intent = inner.decide(view, dt);
@@ -36,8 +31,7 @@ export async function execute(job, manifest) {
   };
   // `runBout`'s own loop, opened up so the bodies can be read before they are disposed: the final
   // bar is what a stat sweep's paired margin is taken on (`research/stat-sweep.mjs`).
-  const bout = createBout({ left: labCandidates.has(job.left) ? "golem-duelist" : candidates.get(job.left)?.parent ?? job.left,
-    right: labCandidates.has(job.right) ? "golem-duelist" : candidates.get(job.right)?.parent ?? job.right,
+  const bout = createBout({ left: job.left, right: job.right,
     leftMind: mind(job.left, job.seeds[0], "left"), rightMind: mind(job.right, job.seeds[1], "right"),
     seeds: job.seeds, leftGolem: builds.get(job.leftBuild), rightGolem: builds.get(job.rightBuild),
     ...manifest.protocol, physics: await freshHavok() });

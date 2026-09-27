@@ -6,14 +6,9 @@ import { join } from "node:path";
 import { initialRating, updateRating, ratePeriod } from "../research/rating.mjs";
 import { schedule, completeRounds, PROTOCOL } from "../research/schedule.mjs";
 import { runJobs, prepareRun, lockRun, retryFileLock } from "../research/runner.mjs";
-import { pairedComparison, bootstrap, comparisonJobs, trainingBuilds } from "../research/search.mjs";
 import { policyRatingBadge, policyRatingLabel, policyRatingNote } from "../src/policy-rating.ts";
-import { candidateBounds, validateCandidate, SEARCH_FIELDS, SEARCH_PARENTS } from "../src/golem/research-candidates.ts";
 import { NAMED_BUILDS } from "../src/golem/roster.ts";
 import { fingerprint } from "../research/fingerprint.mjs";
-import { reviewedCandidates } from "../research/promotion.mjs";
-import { digest } from "../research/schedule.mjs";
-import { previewHtml } from "../research/preview.mjs";
 import { POLICIES } from "../src/mind.ts";
 import { unitDefinition } from "../src/units.ts";
 import { GOLEM_CONTROL_SURFACE } from "../src/control-surfaces.ts";
@@ -41,6 +36,7 @@ test("Glicko-2 reproduces Glickman's published example", () => {
   assert.ok(Math.abs(actual.deviation - 151.52) < 0.01);
   assert.ok(Math.abs(actual.volatility - 0.059996) < 0.000001);
 });
+
 test("rating periods are order independent, draws symmetric, and reversing results reverses strength", () => {
   const ratings = { a: initialRating(), b: initialRating(), c: initialRating() };
   const rows = [{ id: "1", status: "ok", left: "a", right: "b", winner: "left" },
@@ -53,6 +49,7 @@ test("rating periods are order independent, draws symmetric, and reversing resul
   assert.ok(draw.a.deviation < 350);
   assert.throws(() => ratePeriod(ratings, [{ ...rows[0], status: "failed" }]), /failed/);
 });
+
 test("league balances builds, policy assignments and sides, with seeds following policies", () => {
   const names = Array.from({ length: 12 }, (_, i) => `p${i}`);
   const jobs = schedule(names, NAMED_BUILDS, 1);
@@ -72,6 +69,7 @@ test("league balances builds, policy assignments and sides, with seeds following
   assert.equal(counts.size, 12 * 12 * 2);
   assert.equal(new Set(counts.values()).size, 1);
 });
+
 test("incomplete or failed rounds cannot contribute, and altered jobs are rejected", () => {
   const jobs = schedule(["a", "b"], NAMED_BUILDS.slice(0, 2), 2);
   const rows = jobs.map((j) => ({ ...j, status: "ok", winner: null }));
@@ -81,6 +79,7 @@ test("incomplete or failed rounds cannot contribute, and altered jobs are reject
   assert.throws(() => completeRounds(jobs, [{ ...rows[0], seeds: [1, 2] }]), /seeds/);
   assert.throws(() => completeRounds(jobs, [rows[0], rows[0]]), /duplicate/);
 });
+
 test("resuming produces identical results and refuses changed manifests", async () => {
   const directory = mkdtempSync(join(tmpdir(), "ai-runner-"));
   const jobs = schedule(["a", "b"], NAMED_BUILDS.slice(0, 2), 1);
@@ -95,6 +94,7 @@ test("resuming produces identical results and refuses changed manifests", async 
     assert.throws(() => prepareRun(directory, { ...manifest, fingerprint: "changed" }, jobs), /mismatch/);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+
 test("failed workers create explicit failures rather than wins or draws", async () => {
   const directory = mkdtempSync(join(tmpdir(), "ai-failure-"));
   const jobs = schedule(["a", "b"], NAMED_BUILDS.slice(0, 2), 1).slice(0, 1);
@@ -105,6 +105,7 @@ test("failed workers create explicit failures rather than wins or draws", async 
     assert.equal(completeRounds(jobs, rows).length, 0);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+
 test("a job past its wall limit fails, and one inside it does not", async () => {
   const workerUrl = new URL("./harness/research-worker-fixture.mjs", import.meta.url);
   const jobs = schedule(["a", "b"], NAMED_BUILDS.slice(0, 2), 1).slice(0, 1);
@@ -117,6 +118,7 @@ test("a job past its wall limit fails, and one inside it does not", async () => 
     } finally { rmSync(directory, { recursive: true, force: true }); }
   }
 });
+
 test("a live run directory cannot be opened for a second computation", () => {
   const directory = mkdtempSync(join(tmpdir(), "ai-lock-"));
   try {
@@ -126,25 +128,7 @@ test("a live run directory cannot be opened for a second computation", () => {
     lockRun(directory)();
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
-test("candidate search bounds enforce all and only the permitted policy parameters", () => {
-  for (const parent of Object.keys(SEARCH_PARENTS)) {
-    const candidate = { name: "golem-researched-test", label: "Test", parent,
-      parameters: Object.fromEntries(SEARCH_FIELDS.map((key) => [key, SEARCH_PARENTS[parent][key]])) };
-    validateCandidate(candidate);
-    const bad = structuredClone(candidate); bad.parameters.turnGain = candidateBounds(parent, "turnGain")[1] + 0.01;
-    assert.throws(() => validateCandidate(bad), /turnGain/);
-    assert.throws(() => validateCandidate({ ...candidate, parameters: { ...candidate.parameters, motorTorque: 99 } }), /exactly/);
-  }
-});
-test("paired bootstrap detects a real improvement and rejects unmatched samples", () => {
-  const jobs = comparisonJobs(["parent", "candidate"], ["foe"], NAMED_BUILDS.slice(0, 2), "holdout");
-  const rows = jobs.map((job) => ({ ...job, status: "ok", winner: job.left === "candidate" ? "left" : "right" }));
-  const band = pairedComparison(rows, "candidate", "parent");
-  assert.deepEqual(pairedComparison([...rows].reverse(), "candidate", "parent"), band);
-  assert.ok(band.low > 0); assert.equal(band.blocks, 2);
-  assert.deepEqual(bootstrap([0, 0, 0]), { mean: 0, low: 0, high: 0, blocks: 3 });
-  assert.throws(() => pairedComparison(rows.slice(1), "candidate", "parent"), /incomplete/);
-});
+
 test("selector labels retain dated measurements after simulation and policy changes", () => {
   const data = { version: 1, fingerprint: "current", evaluatedAt: "2026-09-20T00:00:00Z", rounds: 1,
     policies: { a: { rating: 1538.3, deviation: 50, bouts: 528, provisional: true } } };
@@ -173,23 +157,11 @@ test("selector labels retain dated measurements after simulation and policy chan
   assert.match(policyRatingNote("a", data, "current"), /^Unrated:/);
 });
 
-test("paired bootstrap is invariant to worker completion order on heterogeneous blocks", () => {
-  const values = [0, 0.1, 0.35, 0.5, 0.75, 0.9, -0.1, -0.25, 1.1, 0.15, 0.28, 0.42];
-  assert.notDeepEqual(bootstrap(values), bootstrap([...values].reverse()),
-    "the unsorted control must be capable of exposing order dependence");
-  const jobs = comparisonJobs(["parent", "candidate"], ["foe"], NAMED_BUILDS, "ordering");
-  const rows = jobs.map((job) => ({ ...job, status: "ok", winner: null }));
-  const measure = (row, name) => name === "parent" ? 0
-    : values[NAMED_BUILDS.findIndex((build) => build.name === row.leftBuild)];
-  assert.deepEqual(pairedComparison(rows, "candidate", "parent", measure),
-    pairedComparison([...rows].reverse(), "candidate", "parent", measure));
-});
-
-test("fingerprints track transitive runtime code, excluding type-only UI and separately versioned candidates", () => {
+test("fingerprints track transitive runtime code, excluding type-only UI", () => {
   const root = mkdtempSync(join(tmpdir(), "ai-fingerprint-"));
   try {
     for (const dir of ["tests/harness", "src/golem", "research"]) mkdirSync(join(root, dir), { recursive: true });
-    for (const path of ["src/golem/roster.ts", "src/golem/research-candidates.ts", "research/worker.mjs"]) {
+    for (const path of ["src/golem/roster.ts", "research/worker.mjs"]) {
       writeFileSync(join(root, path), "export const value = 1;\n");
     }
     writeFileSync(join(root, "package-lock.json"), "{}");
@@ -218,48 +190,11 @@ test("fingerprints track transitive runtime code, excluding type-only UI and sep
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("promotion requires both confirmed improvement and review of the exact parameters", () => {
-  const parent = "golem-form";
-  const candidate = { name: "golem-researched-test", label: "Test", parent,
-    parameters: Object.fromEntries(SEARCH_FIELDS.map((key) => [key, SEARCH_PARENTS[parent][key]])) };
-  const confirmation = { status: "complete", fingerprint: "current", eligible: [candidate] };
-  const review = { fingerprint: "current", candidates: [] };
-  assert.deepEqual(reviewedCandidates(confirmation, review, "current"), []);
-  review.candidates.push({ name: candidate.name, candidateHash: digest(candidate), accepted: true,
-    notes: "Distinct retreat and counterattack observed", reviewedAt: "2026-09-20", scenarios: ["default versus fencer"] });
-  assert.deepEqual(reviewedCandidates(confirmation, review, "current"), [candidate]);
-  assert.deepEqual(reviewedCandidates({ ...confirmation, eligible: [] }, review, "current"), []);
-  assert.throws(() => reviewedCandidates(confirmation, review, "changed"), /fingerprint/);
-  review.candidates[0].candidateHash = "different-parameters";
-  assert.deepEqual(reviewedCandidates(confirmation, review, "current"), []);
-});
-
-test("candidate previews preserve the real arena document and refuse a missing entry", () => {
-  const template = '<main id="curtain">Arena</main><script type="module" src="/src/app.ts"></script>';
-  const result = previewHtml(template, []);
-  assert.ok(result.startsWith('<main id="curtain">Arena</main>'));
-  assert.match(result, /await import\('\/src\/app.ts'\)/);
-  assert.throws(() => previewHtml("<main>Missing entry</main>", []), /exactly one/);
-  assert.throws(() => previewHtml(template + template, []), /exactly one/);
-});
-
-test("training and selection exclude all four reserved generalization builds", () => {
-  const builds = trainingBuilds(NAMED_BUILDS);
-  assert.equal(builds.length, 8);
-  assert.deepEqual(NAMED_BUILDS.filter((build) => !builds.includes(build)).map((build) => build.name).sort(),
-    ["multileg", "pitch-blade", "plated", "wheel"]);
-  for (const phase of ["train-0", "selection"]) {
-    const jobs = comparisonJobs(["candidate", "parent"], ["foe"], builds, phase);
-    assert.equal(jobs.length, 32);
-    assert.ok(jobs.every((job) => builds.some((build) => build.name === job.leftBuild)));
-  }
-});
-
-test("researched policies reach the actual body picker and factory, never a foreign surface", () => {
+test("a registered policy reaches the actual body picker and factory, never a foreign surface", () => {
   const mind = { decide: () => ({}) };
   const entries = [
-    { name: "golem-researched-picker-test", label: "Picker test", surface: GOLEM_CONTROL_SURFACE, create: () => mind },
-    { name: "golem-researched-foreign-test", label: "Foreign", surface: "foreign", create: () => mind },
+    { name: "golem-picker-test", label: "Picker test", surface: GOLEM_CONTROL_SURFACE, create: () => mind },
+    { name: "golem-foreign-test", label: "Foreign", surface: "foreign", create: () => mind },
   ];
   POLICIES.push(...entries);
   try {

@@ -658,9 +658,9 @@ export const GOLEM_TACTICS = {
    *
    * The blade table above is 32 bouts against the **Warrior**, and its only column is damage taken
    * because every row of it won every bout -- so it priced the guard purely as a defence. That is
-   * half a question. `tests/harness/stroke-phase.mjs` measures 46 % of a golem mind's damage being
-   * made by an arm that is not swinging, most of it by a held blade a body walks into, so the
-   * guard has an offensive price the first table could not see. Re-swept on `golem-reaper` against
+   * half a question. `tests/harness/stroke-phase.mjs` (retired 2026-09-27 with the reaper) measured
+   * 46 % of a golem mind's damage being made by an arm that is not swinging, most of it by a held
+   * blade a body walks into, so the guard has an offensive price the first table could not see. Re-swept on `golem-reaper` against
    * the four-mind gauntlet, 384 bouts a cell, both sides, seed base 70250101:
    *
    * ```
@@ -753,8 +753,8 @@ export const GOLEM_TACTICS = {
    *
    * It had no table. The block above belongs to `coverAcross`, and this row sat on the next line
    * with nothing of its own -- which matters more than it looks, because `coverLift` is on the
-   * larger half of the fight: `tests/harness/stroke-phase.mjs` measures 44.4 % of a reaper's
-   * cutting damage arriving off a blade that is being *held*, and this and `guardReach` are what
+   * larger half of the fight: `tests/harness/stroke-phase.mjs` (retired 2026-09-27) measured 44.4 %
+   * of a reaper's cutting damage arriving off a blade that is being *held*, and this and `guardReach` are what
    * say where it is held. The 2026-09-06 league search left every one of its seven classes within
    * 0.007 of the initial -0.15, which is a search reporting that it never moved the row, not a
    * search confirming it.

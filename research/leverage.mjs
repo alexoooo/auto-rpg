@@ -530,7 +530,7 @@ export async function deflectionCheck(modules, angles = [0, 30, 45, 60]) {
 // ---------------------------------------------------------------------------------------------
 
 /** Idle stone against a brawler, corner-swapped, read by the fall loop's per-substep probe. */
-export function idleFelledJobs(pairs, attacker = "golem-brawler") {
+export function idleFelledJobs(pairs, attacker = "golem-duelist") {
   const jobs = [];
   for (let k = 0; k < pairs; k += 1) {
     const seeds = [seed("headroom-v1", "idle-felled", k, "a"), seed("headroom-v1", "idle-felled", k, "b")];
@@ -584,7 +584,7 @@ export function idleFelledSummary(rows) {
  * from the soles' midpoint toward the attacker, the carrier's travel, the gap, the pair push it was
  * handed, and the blows its ledger was handed. Same bout and seeds as `idleFelledJobs(k)`'s job.
  */
-export async function idleFelledTrace(k = 0, idleSide = "left", attacker = "golem-brawler", { before = 1.5, every = 0.1, leanScale = 1 } = {}) {
+export async function idleFelledTrace(k = 0, idleSide = "left", attacker = "golem-duelist", { before = 1.5, every = 0.1, leanScale = 1 } = {}) {
   // `leanScale`: a counterfactual on the stone waist's lean ceiling (`TORSO_WAIST.leanTorque`), for
   // this bout only and put back after it -- a probe of the diagnosis, never a retune.
   const shippedLean = TORSO_WAIST.leanTorque;
@@ -659,7 +659,7 @@ async function traceIdleFelled(k, idleSide, attacker, { before, every }) {
  * times the shipped one. Per fall, how far the head had gone back from the pelvis (away from the
  * attacker) and down, and what the ledger was handed in the half second before.
  */
-export async function idleTraceCheck(pairs, leanScale = 1, attacker = "golem-brawler") {
+export async function idleTraceCheck(pairs, leanScale = 1, attacker = "golem-duelist") {
   const bouts = [];
   for (let k = 0; k < pairs; k += 1) {
     const r = await idleFelledTrace(k, "left", attacker, { leanScale, before: 0.5, every: 1 / CONFIG.world.physicsHz });
@@ -674,7 +674,7 @@ export async function idleTraceCheck(pairs, leanScale = 1, attacker = "golem-bra
   }
   const falls = bouts.flatMap((b) => b.falls);
   const seconds = bouts.reduce((a, b) => a + b.seconds, 0);
-  return { harness: "Node bout runner (createBout, research PROTOCOL), idle stone default against a golem-brawler on the stone default",
+  return { harness: "Node bout runner (createBout, research PROTOCOL), idle stone default against a golem-duelist on the stone default",
     leanScale, leanTorque: TORSO_WAIST.leanTorque * leanScale, bouts, falls: falls.length, seconds, fallsPerMinute: (60 * falls.length) / seconds,
     inContact: falls.filter((f) => f.inContact).length, headBackMedian: quantile(falls.map((f) => f.headBackM), 0.5),
     blowMedian: quantile(falls.map((f) => f.blowMps), 0.5), idleWins: bouts.filter((b) => b.winner === "left").length };
@@ -686,7 +686,7 @@ async function main() {
   const { values } = parseArgs({ options: {
     check: { type: "string" }, builds: { type: "string" }, modules: { type: "string" }, angles: { type: "string" },
     pairs: { type: "string", default: "16" }, lanes: { type: "string", default: "8" }, out: { type: "string" },
-    attacker: { type: "string", default: "golem-brawler" }, "lean-scale": { type: "string", default: "1" },
+    attacker: { type: "string", default: "golem-duelist" }, "lean-scale": { type: "string", default: "1" },
   } });
   const dir = resolve(values.out ?? join("research", "runs", "leverage"));
   mkdirSync(dir, { recursive: true });

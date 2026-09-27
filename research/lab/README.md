@@ -1,3 +1,8 @@
+> **Retired 2026-09-27.** The laboratory's code (the Node environment, the Python trainer and bridge,
+> the campaign drivers) and every mind it admitted were removed in the next-phase cleanup; the tag
+> `pre-next-phase-cleanup` holds them. The notes in this directory and `results/` are kept as the
+> record of what was tried and measured. Nothing below runs against the current tree.
+
 # Next-wave combat laboratory
 
 This is experimental infrastructure with a separate evidence-gated admission path. It runs the

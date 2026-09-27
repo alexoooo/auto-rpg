@@ -99,10 +99,10 @@ test("holding_a_command_is_a_zero_order_hold_of_the_mind", async () => {
     };
     const trace = [];
     const bout = createBout({
-      left: "golem-brawler", right: "golem-miser", seeds, maxSeconds: 150,
+      left: "golem-duelist", right: "golem-walker", seeds, maxSeconds: 150,
       locomotionMode: "supported", physics: await freshHavok(),
-      leftMind: held(policyMind("golem-brawler", seeds[0])),
-      rightMind: held(policyMind("golem-miser", seeds[1])),
+      leftMind: held(policyMind("golem-duelist", seeds[0])),
+      rightMind: held(policyMind("golem-walker", seeds[1])),
       onSample: ({ left, right }) => {
         const row = [];
         for (const body of [left, right]) {

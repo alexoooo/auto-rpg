@@ -648,11 +648,12 @@ const clampTo = (value, low, high) => (value < low ? low : value > high ? high :
  *
  * **This is `driveStroke` and the fencer's `holdGuard` written out against a stand instead of
  * against an opponent**, and it is written out rather than called because the mind's copy is a
- * closure over a whole `FighterView`. Every line below has a line in `src/golem/tactics-v2.ts`
- * it is a transcription of, the arithmetic goes through the same `aimAt`, `writeAim` and
- * `reachForDistance` the mind uses, and `tests/golem-bench.test.mjs` steps a real fencer on a
- * fixture and asserts the two agree to the digit. That test is what makes a number off this
- * bench a claim about the game rather than about the bench.
+ * closure over a whole `FighterView`. Every line below had a line in `src/golem/tactics-v2.ts`
+ * it was a transcription of, and the arithmetic goes through the same `aimAt`, `writeAim` and
+ * `reachForDistance` the minds use. **The fencer and its executor were retired on 2026-09-27**,
+ * and with them the test that stepped a real fencer on a fixture and asserted the two agreed to the
+ * digit. Until a kept mind's stroke is pinned against this sequence the same way, a number off
+ * this bench is a claim about the bench and not about the game.
  *
  * What is deliberately *not* here is the step-in and the trunk lean. `StrokeShape.stepIn` adds to
  * `Intent.forward` and the commit writes the posture, and the stand has neither feet nor a trunk

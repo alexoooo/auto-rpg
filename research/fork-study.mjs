@@ -32,7 +32,7 @@ const arg = (name, fallback) => {
 };
 
 /** The probe minds, each in a mirror. */
-export const MINDS = ["golem-duelist", "golem-miser", "golem-researched-needle-v1", "golem-champion", "golem-brawler"];
+export const MINDS = ["golem-duelist", "golem-walker"];
 /** Horizons after the fork moment, seconds. */
 export const HORIZONS = [0.1, 0.25, 0.5, 1, 2, 4];
 /** Ranking horizons, seconds, and how long a prefix overrides the mind. */

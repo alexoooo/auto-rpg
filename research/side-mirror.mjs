@@ -2,7 +2,7 @@
  * The side-mirror gate: every mind against itself, scored by side.
  *
  *     node research/side-mirror.mjs --dir research/runs/side-mirror
- *     node research/side-mirror.mjs --minds golem-duelist,golem-reaper --blocks 64 --workers 12
+ *     node research/side-mirror.mjs --minds golem-duelist,golem-walker --blocks 64 --workers 12
  *
  * The table it writes (`mirror.md` beside `results.jsonl`) is recorded and explained in
  * `docs/analysis/2026-09-25-side-mirror.md`.
@@ -98,25 +98,14 @@ export function trajectoryTracer(bout) {
 /**
  * The minds the gate covers, each with why. The probe set is `PROBE_MINDS` in
  * `research/stat-sweep.mjs`. The naive ladder is session 03's, `LADDER` in `tests/harness/drills.mjs`
- * (`idle`, `golem-walker`, `golem-duelist`). The v4 minds are those over the
- * fourth executor, `golemDriven` in `src/golem/tactics-v4.ts`. The rest are the other named golem
- * minds in `POLICIES` (`src/mind.ts`), measured so that every one of them has a mirror on record.
+ * (`idle`, `golem-walker`, `golem-duelist`). Until 2026-09-27 the list also held the v4 minds and
+ * every other named golem mind; the next-phase cleanup retired them, and their mirrors are on record
+ * in the analysis above.
  */
 export const MIRROR_MINDS = Object.freeze([
   { name: "idle", roles: ["ladder"] },
-  { name: "golem-walker", roles: ["ladder"] },
+  { name: "golem-walker", roles: ["probe", "ladder"] },
   { name: "golem-duelist", roles: ["probe", "ladder"] },
-  { name: "golem-champion", roles: ["probe"] },
-  { name: "golem-brawler", roles: ["probe"] },
-  { name: "golem-miser", roles: ["probe", "v4"] },
-  { name: "golem-reaper", roles: ["v4"] },
-  { name: "golem-driver", roles: ["v4"] },
-  { name: "golem-fencer", roles: ["named"] },
-  { name: "golem-planner", roles: ["named"] },
-  { name: "golem-form", roles: ["named"] },
-  { name: "golem-skirmisher", roles: ["named"] },
-  { name: "golem-guardian", roles: ["named"] },
-  { name: "golem-tactician", roles: ["named"] },
 ]);
 
 export const DEFAULT_BLOCKS = 64;
@@ -126,18 +115,18 @@ export const DEFAULT_BLOCKS = 64;
  * them**: `refuseSideDecided` is called by `research/stat-sweep.mjs` and by `research/league.mjs`
  * for any comparison that is not the mind's own mirror, and `tests/side-mirror.test.mjs` fails if
  * a listed mind stops failing, so the list cannot go stale in either direction without a red test.
+ *
+ * Empty since 2026-09-27: its one entry, `golem-guardian` (one bout whatever the seeds, the left
+ * winning it at 2.15 s, 128 of 128), was retired with the other non-v1 minds.
  */
-export const SIDE_DECIDED = Object.freeze({
-  "golem-guardian": "its mirror is one bout whatever the seeds, and the left wins it at 2.15 s, 128 of 128 "
-    + "(docs/analysis/2026-09-25-side-mirror.md)",
-});
+export const SIDE_DECIDED = Object.freeze({});
 
-/** Throws if any of `minds` is side-decided, naming each and why. */
-export function refuseSideDecided(minds, what = "a comparison") {
-  const listed = [...new Set(minds)].filter((name) => Object.hasOwn(SIDE_DECIDED, name));
+/** Throws if any of `minds` is side-decided, naming each and why. `decided` is for a test's fixture. */
+export function refuseSideDecided(minds, what = "a comparison", decided = SIDE_DECIDED) {
+  const listed = [...new Set(minds)].filter((name) => Object.hasOwn(decided, name));
   if (listed.length) {
     throw new Error(`${what} may not measure against a mind its side decides: `
-      + listed.map((name) => `${name} (${SIDE_DECIDED[name]})`).join("; "));
+      + listed.map((name) => `${name} (${decided[name]})`).join("; "));
   }
 }
 

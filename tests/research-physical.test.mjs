@@ -7,12 +7,11 @@ import { execute } from "../research/worker.mjs";
 import { runJobs } from "../research/runner.mjs";
 import { PROTOCOL } from "../research/schedule.mjs";
 import { NAMED_BUILDS } from "../src/golem/roster.ts";
-import { SEARCH_FIELDS, SEARCH_PARENTS } from "../src/golem/research-candidates.ts";
 import { withAttributeSetting } from "../src/golem/attributes.ts";
 
 test("fresh-Havok measurements agree serially and in isolated workers; passive and active fixtures differ", async () => {
-  const manifest = { builds: NAMED_BUILDS, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 5 } };
-  const job = { id: "test", round: 0, block: "test", left: "golem-fencer", right: "idle",
+  const manifest = { builds: NAMED_BUILDS, protocol: { ...PROTOCOL, maxSeconds: 5 } };
+  const job = { id: "test", round: 0, block: "test", left: "golem-duelist", right: "idle",
     leftBuild: "default", rightBuild: "default", seeds: [44, 45] };
   const a = await execute(job, manifest);
   const b = await execute(job, manifest);
@@ -26,19 +25,6 @@ test("fresh-Havok measurements agree serially and in isolated workers; passive a
     assert.deepEqual(rows.find((r) => r.id === "test"), a);
     assert.deepEqual(rows.find((r) => r.id === "second"), { ...a, id: "second", block: "second" });
   } finally { rmSync(directory, { recursive: true, force: true }); }
-});
-
-test("the candidate adapter preserves each unchanged parent's physical bout", async () => {
-  for (const parent of Object.keys(SEARCH_PARENTS)) {
-    const candidate = { name: "golem-researched-control", label: "Control", parent,
-      parameters: Object.fromEntries(SEARCH_FIELDS.map((key) => [key, SEARCH_PARENTS[parent][key]])) };
-    const manifest = { builds: NAMED_BUILDS, candidates: [candidate], protocol: { ...PROTOCOL, maxSeconds: 5 } };
-    const job = { id: "parent", round: 0, block: "control", left: parent, right: "golem-fencer",
-      leftBuild: "default", rightBuild: "default", seeds: [44, 45] };
-    const expected = await execute(job, manifest);
-    const actual = await execute({ ...job, left: candidate.name }, manifest);
-    assert.deepEqual(actual, { ...expected, left: candidate.name }, parent);
-  }
 });
 
 /**
@@ -59,67 +45,47 @@ async function firstExhibiting(from, pairs, run, exhibits) {
 }
 
 test("the worker counts a corner's knockdowns and its time down from that corner's own body", async () => {
-  // The fixture: the brawler against an idle stone body at stability x0.5, beside the same bout at
-  // x1 as the control that the count is read off the body -- the first pair from 44 up on which
-  // x0.5 goes down at least twice and more often than x1, over twenty seconds. Measured (Node
-  // bout runner through `research/worker.mjs`, 2026-09-25): at 240 Hz that is 44 and 45, eight
-  // falls for 12.73 s against five for 8.90; at 120 it is 50 and 51, four for 5.78 against two for
-  // 3.77. (Ten seconds found no pair from 44 to 123 at 240; session 08 had 50 and 51 there.)
-  // Twenty seconds since the falls-and-rise study (2026-09-25). After its staged rise and
-  // `LOCOMOTION_BIPED.targetRate` 11.5, fifteen seconds found no pair from 44 to 75: every pair put
-  // both bodies down twice, for 6.25 to 6.37 s, except 50 and 51, where x1 went down three times.
-  // At twenty seconds, 44 and 45 give three falls for 9.02 s against two for 6.37. The stability
-  // attribute hardly separates these two bodies: the brawler's blows pass both lines. At twenty
-  // seconds an x2 control went down five times on 46 and 47, against x0.5's two (same runner).
-  // Since the arms are built at guard (2026-09-25) it does not separate them in x0.5's favour at
-  // all: from 44 to 91 the x0.5 body goes down twice on every pair (three times on 50/51 and
-  // 78/79), and x1 goes down either as often or five times (same runner). What the counter needs is
-  // two bouts that differ only in the idle body and whose counts differ, so the fixture is that:
-  // `fallen` is whichever of the two bodies went down more, at least twice, and `control` the other.
-  // The first such pair from 44 is 46 and 47: x1 five falls for 10.98 s, x0.5 two for 5.22.
-  const base = NAMED_BUILDS.find((build) => build.name === "default");
-  const builds = [...NAMED_BUILDS, { name: "shaky", setup: withAttributeSetting(base.setup, { stability: 0.5 }) }];
-  const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 20 } };
-  const found = await firstExhibiting(44, 8, async (seeds) => {
-    const job = { id: "down", round: 0, block: "down", left: "golem-brawler", right: "idle",
-      leftBuild: "default", rightBuild: "shaky", seeds };
-    const pair = [await execute(job, manifest), await execute({ ...job, rightBuild: "default" }, manifest)];
-    pair.sort((a, b) => b.sides.right.knockdowns - a.sides.right.knockdowns);
-    return { fallen: pair[0], control: pair[1] };
-  }, ({ fallen, control }) => fallen.sides.right.knockdowns >= 2
-    && fallen.sides.right.knockdowns > control.sides.right.knockdowns);
-  assert.ok(found, "no pair from 44 to 59 has one idle body go down at least twice and more often than the other");
-  const { fallen, control } = found;
-  // A count on the edge into fallen, not on every fallen frame: each fall here costs at least 1.45 s
-  // down (fewest measured, both rates), so an edge count is well under two a second of time down, and
-  // a frame count reads sixty.
+  // The fixture: the walker on the maul build against an idle stone default, forty seconds, on two
+  // seed pairs whose counts differ, the one with more falls as `fallen` and the other as the
+  // control that the count is read off the body. Until 2026-09-27 the pair differed in the idle
+  // body's stability instead, with the brawler as the attacker; the brawler was retired then, and
+  // neither the duelist nor the walker on the default build separates x0.5 stability from x1 at all
+  // -- over seeds 44 to 59 and twenty seconds, both read identical counts on every pair, and the
+  // duelist never fells the idle body.
+  // Measured (Node bout runner through `research/worker.mjs`, 2026-09-27): seeds 46/47, nine falls
+  // for 28.3 s down, the walker itself down once; seeds 44/45, three for 8.7 s.
+  const manifest = { builds: NAMED_BUILDS, protocol: { ...PROTOCOL, maxSeconds: 40 } };
+  const job = { id: "down", round: 0, block: "down", left: "golem-walker", right: "idle",
+    leftBuild: "maul", rightBuild: "default" };
+  const fallen = await execute({ ...job, seeds: [46, 47] }, manifest);
+  const control = await execute({ ...job, seeds: [44, 45] }, manifest);
+  assert.ok(fallen.sides.right.knockdowns >= 2 && fallen.sides.right.knockdowns > control.sides.right.knockdowns,
+    `the fixture no longer exhibits: ${fallen.sides.right.knockdowns} falls against the control's ${control.sides.right.knockdowns}`);
+  // A count on the edge into fallen, not on every fallen frame: each fall costs over a second down,
+  // so an edge count is well under two a second of time down, and a frame count reads sixty.
   assert.ok(fallen.sides.right.knockdowns <= 2 * fallen.sides.right.downSeconds,
     `${fallen.sides.right.knockdowns} knockdowns in ${fallen.sides.right.downSeconds} s down is a count of frames`);
   assert.ok(fallen.sides.right.downSeconds > 0 && fallen.sides.right.downSeconds <= fallen.seconds);
-  // The count is the fallen corner's and not the bout's, so the two corners read differently. It is
-  // not always a zero: the brawler went down once in every twenty-second bout where x0.5 went down
-  // three times, together with it, on 44 to 59 (same runner, 2026-09-25). With the arms built at
-  // guard it stays up in the x1 bout on 46 and 47, and goes down once, for 2.68 s, beside x0.5.
+  // The count is the fallen corner's and not the bout's, so the two corners read differently.
   assert.ok(fallen.sides.left.knockdowns < fallen.sides.right.knockdowns,
-    `the brawler's ${fallen.sides.left.knockdowns} against the idle body's ${fallen.sides.right.knockdowns}: the count is the fallen corner's, not the bout's`);
+    `the walker's ${fallen.sides.left.knockdowns} against the idle body's ${fallen.sides.right.knockdowns}: the count is the fallen corner's, not the bout's`);
   assert.ok(fallen.sides.left.downSeconds < fallen.sides.right.downSeconds);
   assert.ok(control.sides.right.downSeconds > 0 && control.sides.right.downSeconds < fallen.sides.right.downSeconds,
     `the control is down ${control.sides.right.downSeconds} s, against ${fallen.sides.right.downSeconds}`);
 });
 
 test("the worker counts the modules each corner lost and the real blows it landed, each from that corner's own record", async () => {
-  // The fixture: the champion against a brawler at toughness x0.5, beside the same bout at x1 as the
+  // The fixture: the duelist against a duelist at toughness x0.5, beside the same bout at x1 as the
   // control that the count is read off the body -- the first pair from 72 up on which the soft corner
-  // alone loses exactly one module in ten seconds and the x1 control keeps every one. Measured (Node
-  // bout runner through `research/worker.mjs`, 2026-09-25): at 240 Hz that is 50 and 51; at 120 it
-  // is 52 and 53, where 50 and 51 sever nothing. With the arms built at guard (2026-09-25) no pair
-  // from 50 to 71 severs anything in ten seconds, and 72 and 73 is the first that does; 74, 76, 86
-  // and 96 exhibit too (same runner), so the search starts at 72.
+  // alone loses exactly one module in ten seconds and the x1 control keeps every one. Until
+  // 2026-09-27 it was the champion against a brawler (both retired then), for which 72 and 73 was
+  // the first such pair with the arms built at guard. On the duelist mirror 72 and 73 exhibits too
+  // (Node bout runner through `research/worker.mjs`, 2026-09-27).
   const base = NAMED_BUILDS.find((build) => build.name === "default");
   const builds = [...NAMED_BUILDS, { name: "soft", setup: withAttributeSetting(base.setup, { toughness: 0.5 }) }];
-  const manifest = { builds, candidates: [], protocol: { ...PROTOCOL, maxSeconds: 10 } };
+  const manifest = { builds, protocol: { ...PROTOCOL, maxSeconds: 10 } };
   const found = await firstExhibiting(72, 8, async (seeds) => {
-    const job = { id: "sever", round: 0, block: "sever", left: "golem-champion", right: "golem-brawler",
+    const job = { id: "sever", round: 0, block: "sever", left: "golem-duelist", right: "golem-duelist",
       leftBuild: "default", rightBuild: "soft", seeds };
     return { soft: await execute(job, manifest), plain: await execute({ ...job, rightBuild: "default" }, manifest) };
   }, ({ soft, plain }) => soft.sides.right.severs === 1 && plain.sides.right.severs === 0);
@@ -130,7 +96,7 @@ test("the worker counts the modules each corner lost and the real blows it lande
   // one for each alignment the runner filed. So each corner's real blows are some of its contacts
   // and not all of them, and neither corner's pair is the other's. Measured on the pairs above:
   // [[34, 15], [23, 17]] at 240 Hz, [[112, 53], [65, 44]] at 120, left then right; [[125, 49],
-  // [103, 37]] at 120 with the arms built at guard.
+  // [103, 37]] at 120 with the arms built at guard; [[74, 17], [67, 13]] on the duelist mirror.
   const counts = ["left", "right"].map((side) => [soft.sides[side].hits, soft.sides[side].realBlows]);
   for (const [hits, realBlows] of counts) {
     assert.ok(realBlows > 0 && realBlows < hits, `real blows and contacts read ${JSON.stringify(counts)}`);
@@ -141,7 +107,7 @@ test("the worker counts the modules each corner lost and the real blows it lande
 test("a traced bout is the bout untraced, and its trajectory is the side mirror's", async () => {
   const { playMirror } = await import("../research/side-mirror-worker.mjs");
   const protocol = { ...PROTOCOL, maxSeconds: 5 };
-  const manifest = { builds: NAMED_BUILDS, candidates: [], protocol };
+  const manifest = { builds: NAMED_BUILDS, protocol };
   const job = { id: "trace", round: 0, block: "trace", left: "golem-duelist", right: "golem-duelist",
     leftBuild: "default", rightBuild: "default", seeds: [44, 45] };
   const plain = await execute(job, manifest);

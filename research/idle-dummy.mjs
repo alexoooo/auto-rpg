@@ -23,11 +23,11 @@ import { join, resolve } from "node:path";
 import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { ATTRIBUTE_PRESETS, HARNESS } from "./stat-sweep.mjs";
+import { ATTRIBUTE_PRESETS, HARNESS, PROBE_MINDS } from "./stat-sweep.mjs";
 import { PROTOCOL, seed } from "./schedule.mjs";
 import { CONFIG } from "../src/config.ts";
 
-const PROBE = ["golem-champion", "golem-miser", "golem-brawler", "golem-duelist"];
+const PROBE = PROBE_MINDS;
 
 export const IDLE_BODIES = Object.freeze({
   stone: { build: "default", minds: PROBE },

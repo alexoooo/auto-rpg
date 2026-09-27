@@ -1,7 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import researchedVariants from "../src/golem/researched-variants.json" with { type: "json" };
-import researchedLab from "../src/golem/researched-lab.json" with { type: "json" };
 
 import {
   UNIT_REGISTRY,
@@ -101,14 +99,10 @@ test("the_golem_is_assembled_rather_than_equipped_and_answers_to_its_own_surface
   // Its own minds and the control condition, in that order and nothing else. `idle` stays because
   // standing still is a command any body executes and because Session 08's baseline was taken on
   // it; every scripted policy in `src/policies.ts` stays out because its ranges are a Warrior's
-  // arming sword in disguise. The fencer and the planner follow the duelist, which stays the
-  // baseline.
+  // arming sword in disguise. The duelist stays the baseline; the minds that followed it were
+  // retired on 2026-09-27.
   assert.deepEqual([...(golem.compatiblePolicies ?? [])], [
-    "idle", "humanoid-archer", "humanoid-duelist", "skeleton-duelist", "golem-duelist", "golem-fencer", "golem-planner", "golem-champion", "golem-form",
-    "golem-skirmisher", "golem-guardian", "golem-brawler", "golem-tactician", "golem-driver",
-    "golem-reaper", "golem-miser", "golem-walker",
-    ...researchedVariants.map((candidate) => candidate.name),
-    ...researchedLab.map((candidate) => candidate.name),
+    "humanoid-archer", "idle", "golem-duelist", "humanoid-duelist", "skeleton-duelist", "golem-walker",
   ]);
   assert.ok(golem.defaultGolem, "a golem corner opens on a build");
   for (const slot of ["locomotion", "torso", "head"]) {

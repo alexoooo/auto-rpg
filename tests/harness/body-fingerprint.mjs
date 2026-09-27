@@ -120,7 +120,9 @@ const stone = (label, [primaryChain, primaryTerminal], [secondaryChain, secondar
     secondary: { chain: secondaryChain, terminal: secondaryTerminal },
   });
 
-const STONE = ["golem-duelist", "golem-fencer"];
+// Stone against stone was the duelist against the fencer until the fencer was retired on 2026-09-27,
+// so a digest taken before that commit does not compare with one taken after it.
+const STONE = ["golem-duelist", "golem-duelist"];
 const HUMANS = ["humanoid-duelist", "humanoid-duelist"];
 const HUMAN_STONE = ["humanoid-duelist", "golem-duelist"];
 const SKELETON_STONE = ["skeleton-duelist", "golem-duelist"];

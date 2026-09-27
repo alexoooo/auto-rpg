@@ -484,17 +484,15 @@ export function withGolemBuild(
  * sentence -- and the box that hands you a body is one click away. The build is passed
  * in for the reason `withGolemBuild` gives; `unit` and `policy` are the registry's own ids,
  * spelled here because this module cannot ask the registry, and `tests/bout.test.mjs` checks
- * them against it. The policy is the fencer, and the style set's final table is the reason it
- * stays one: second of fourteen minds over random pairs of bodies on seed 20260906, 4,096 bouts,
- * at 0.529 +- 0.028 points a bout behind `golem-selector`'s 0.537 +- 0.026 -- a gap a fifth the
- * size of either interval, and a ranking a 4,096-bout tournament cannot resolve is not a reason
- * to move a default. Session 15 of the style set in `docs/measurements.md`; the screen is the
- * random-pairs cell and the picker offers the other fourteen.
+ * them against it. The policy is the duelist, the v1 mind and the one golem fighter the 2026-09-27
+ * cleanup kept. Until then it was the fencer, second of fourteen minds over random pairs of bodies
+ * (session 15 of the style set in `docs/measurements.md`); the fencer went with the rest of that
+ * league, and the tag `pre-next-phase-cleanup` holds it.
  *
  * **This puts one build on both sides, and the default build's mirror is a pair Session 01 of the
  * learn set measured as one that cannot finish.** `defaultGolemSetup` is a blade and blade against
- * blade decided 287 of 796 bouts under `golem-driver`, against a floor of half. The default was
- * left where it is on purpose -- it is the reference body a dozen sweeps in `docs/measurements.md`
+ * blade decided 287 of 796 bouts under the since-retired `golem-driver`, against a floor of half.
+ * The default was left where it is on purpose -- it is the reference body a dozen sweeps in `docs/measurements.md`
  * were taken on, and moving it would strip their provenance to improve one screen -- so the fact
  * is asserted in `tests/bout.test.mjs` against the predicate rather than left here in prose, where
  * a claim about a build rots quietly. This module may not import the golem registry or anything
@@ -504,7 +502,7 @@ export function withGolemBuild(
 export function golemMatchup(build: GolemSetup): Matchup {
   const side = (): SideSetup => ({
     unit: "golem",
-    policy: "golem-fencer",
+    policy: "golem-duelist",
     control: "mind",
     handA: "empty",
     handB: "empty",

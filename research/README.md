@@ -1,49 +1,54 @@
 # AI league and research
 
-The next-wave combat lab (PPO, NEAT, evolution, bespoke policies, direct control and slow
-teachers) is documented in [lab/README.md](lab/README.md). It is isolated from the production
-league and does not automatically promote experimental policies or replace arena ratings.
+Everything here runs the game's real Havok bout runner (`tests/harness/bout-runner.mjs`) under
+Node, one arena per worker thread (`runJobs` in `runner.mjs`). `results/` holds published
+evidence; large resumable logs live in ignored `runs/` directories.
 
-The league measures policies across bodies, using the game's real Havok bout runner. Ratings are
-offline Glicko-2 measurements, not a difficulty promise for a particular selected body. Arena games
-never alter them. `src/policy-ratings.json` is the small shipped artifact; `results/` holds published
-evidence. Large resumable logs live in ignored `runs/` directories.
+**Retired 2026-09-27.** The parameter search, confirmation, browser preview and promotion pipeline
+(`search.mjs`, `promotion.mjs`, `preview.mjs`, `revalidate.mjs`), the laboratory under `lab/`
+(PPO, NEAT, evolution, the bespoke and residual policies, the teacher datasets and wave 4), and
+every mind they produced were removed in the next-phase cleanup, together with the stone-golem
+minds other than the v1 duelist and the walker. The tag `pre-next-phase-cleanup` holds all of it;
+`lab/`'s notes and `results/` stay as the record. Probe and gauntlet lists that named retired
+minds now name the duelist and the walker, so tables taken before and after that date are not
+comparable.
 
-After confirmation, `publish` also saves the compact search history, frozen finalists,
-confirmation intervals, any browser review, and recorded compute usage to `results/experiment.json`.
+## The rating league
 
-## Commands
-
-From the repository root, with the lockfile's dependencies installed:
+Ratings are offline Glicko-2 measurements, not a difficulty promise for a particular selected body.
+Arena games never alter them. `src/policy-ratings.json` is the small shipped artifact, and it is
+empty until the league is next run on the current roster.
 
 ```powershell
-node research/cli.mjs run --dir research/runs/current --hours 8
+node research/cli.mjs evaluate --dir research/runs/current --hours 3
 node research/cli.mjs summarize --dir research/runs/current
-node research/cli.mjs evaluate --dir research/runs/current --hours 8
-node research/cli.mjs search --dir research/runs/current --hours 8
-node research/cli.mjs confirm --dir research/runs/current --hours 8
 node research/cli.mjs publish --dir research/runs/current
-node research/cli.mjs preview --dir research/runs/current
-node research/cli.mjs promote --dir research/runs/current --hours 8
 ```
 
-`run` evaluates, searches, and confirms; it publishes any complete baseline rounds. Promotion is
-separate because confirmed candidates must first be watched in the browser. `--workers N` overrides
-the default of half the logical CPUs, capped at eight. `--rounds 1` allows a smaller provisional
-league. `--seed` fixes a different evaluation seed. Run directories are immutable experiments:
-resuming uses their saved roster and protocol, not new command-line round/seed choices.
+`evaluate` publishes any complete rounds when it finishes. `--workers N` overrides the default of
+half the logical CPUs, capped at eight. `--rounds 1` allows a smaller provisional league. `--seed`
+fixes a different evaluation seed. Run directories are immutable experiments: resuming uses their
+saved roster and protocol, not new command-line round/seed choices. The hour allowance is
+cumulative across `evaluate` calls in a directory. Completed jobs are appended immediately;
+interrupted jobs remain pending. A failed job is recorded with its error, never counted as a draw
+and never silently dropped. Do not run two commands against one directory.
 
-The eight-hour allowance is cumulative across computation commands in a directory. `run` reserves
-three hours for evaluation, up to the sixth elapsed hour for search, and the remaining time for
-confirmation; earlier finishes carry time forward. A later promotion uses remaining allowance.
-Completed jobs are appended immediately. Interrupted jobs remain pending. A failed job is recorded
-with its error, never counted as a draw and never silently dropped. Fix the cause and start a new
-experiment if a failure prevents a complete round. Do not run two commands against one directory.
+## The other instruments
 
-**Golem stats have their own sweep.** `research/stat-sweep.mjs --stat <id>` plays one golem
-attribute at several multipliers against an unmodified body, on the same worker lanes, and
-`--edge <named build>` plays a whole build instead as a known-answer check. How to read its
-tables, and every table taken so far, is `docs/analysis/2026-09-23-attribute-measurements.md`.
+- `league.mjs`: the paired comparison of two minds over body variants and weapon classes (skill
+  ceiling session 03, `docs/analysis/2026-09-25-drills.md`), refusing a side-decided mind.
+- `side-mirror.mjs`: every mind against itself, scored by side
+  (`docs/analysis/2026-09-25-side-mirror.md`).
+- `stat-sweep.mjs --stat <id>`: one golem attribute at several multipliers against an unmodified
+  body; `--edge <named build>` plays a whole build as a known-answer check
+  (`docs/analysis/2026-09-23-attribute-measurements.md`). `downed-census.mjs`, `fall-loop.mjs`,
+  `idle-dummy.mjs` and `control-band.mjs` read its runs or run beside it.
+- `drills.mjs`, `headroom.mjs` and their reports: the skill-ceiling drill suite and headroom audit.
+- `command-null.mjs`: the null control for the body-command channels.
+- `fork-study.mjs`: what an exact fork buys a search, on the kept minds.
+- The benches (`rise-bench`, `size-bench`, `stance-bench`, `step-bench`, `grounded-tone`,
+  `human-arm-limits`, `effector-*`, `leverage`, `body-readout`) each measure one body question and
+  name their harness in their own header.
 
 ## What is measured
 
@@ -51,10 +56,10 @@ Harness: `tests/harness/bout-runner.mjs`, supported locomotion, a fresh wasm ins
 150-second cap, normal startup, no settling or damage-based draw adjustment. The game's verdict
 determines 1/0.5/0 points. Overtime remains the game's rule and is reported explicitly.
 
-Twelve baseline minds play all 66 pairs on twelve same-build matchups and six adjacent roster
-cross-build pairings. Each cross-build pairing exchanges policy-to-body assignment and arena side.
-That is 48 games per policy pair, or 3,168 per round. Four independent seed rounds total 12,672.
-Each policy sees each build and arena side equally often. Seeds follow policies when sides swap.
+Every registered policy but `idle` plays every other on twelve same-build matchups and six adjacent
+roster cross-build pairings. Each cross-build pairing exchanges policy-to-body assignment and arena
+side, so each policy sees each build and arena side equally often. Seeds follow policies when sides
+swap. (Until 2026-09-27 this was twelve baseline golem minds, 66 pairs and 3,168 games a round.)
 
 Glicko-2 starts at 1500 / RD 350 / volatility 0.06, with tau 0.5. A full round is one simultaneous
 rating period. Publication excludes incomplete rounds, and ratings are provisional below four
@@ -74,107 +79,12 @@ mean duration, and behavior. A single rating cannot express counterstrategies.
 - Engagement measurements retain the recorder's opportunity, stall, movement and drought fields.
 
 These definitions compare styles without reading their private option names. The physical control
-test checks repeated/worker parity and separates an attacking fencer from Idle. It deliberately
+test checks repeated/worker parity and separates an attacking duelist from Idle. It deliberately
 does not equate command rate with lethality or use tip-speed peaks as fighting quality.
 
 Runtime source dependencies are hashed after TypeScript removes type-only imports. The lockfile
-and measurement worker are included. Published candidate parameters are independently versioned.
-The arena always shows the last measured rating with its evaluation date, even after runtime or
-policy changes; the detail note identifies changed versions without hiding the score. Fingerprints
-still protect research resume, evidence and promotion from mixing incompatible experiments.
+and measurement worker are included. The arena always shows the last measured rating with its
+evaluation date, even after runtime or policy changes; the detail note identifies changed versions
+without hiding the score. Fingerprints
+still protect research resume and evidence from mixing incompatible experiments.
 Manifests also record the exact protocol, roster, runtime, dependencies and instrument version.
-
-## First experiment
-
-Form, Guardian and Skirmisher retain their tactical rules. Cross-entropy search changes only six
-parameters: `standOffFraction`, `patience`, `strikeBite`, `recoverSeconds`, `closeGain`, `turnGain`.
-Bounds are 75–125% of the parent's values, with bite capped at one and zero sentinels retained.
-No motor, physics, stroke-shape or shared executor constant changes.
-
-Each generation evaluates sixteen candidates and the unchanged parent against Duelist, Fencer,
-Planner and Miser on eight training builds, with both sides. Four elites update the sampling
-distribution. Generation zero starts at each parent; one candidate always uses the current mean.
-Up to eight generations run round-robin across styles. Incomplete generations are resumable and
-produce no winner.
-
-Each generation winner enters a separate selection batch on the same eight training builds.
-The other four builds remain untouched until confirmation. The selected finalist per style is
-frozen in `finalists.json` before final confirmation. Training, selection and confirmation use
-disjoint seed namespaces. Final confirmation uses two seed repetitions, all twelve builds, and
-all baseline opponents except the three parent styles; the five opponents not used during
-training and four withheld builds receive separate reports.
-
-Promotion requires a paired 95% bootstrap lower bound above zero for improvement over the parent.
-Resampling uses side-swapped pairs as blocks, with 4,000 deterministic bootstrap draws. Behavioral
-differences between eligible candidates use the same held-out jobs. Keep candidates in descending
-improvement order only if each differs from every retained candidate on at least one descriptor
-whose paired interval excludes zero. This exploratory diversity gate is not a multiple-testing
-corrected scientific claim. Record negative results rather than weakening the gates.
-
-`preview` generates an isolated copy of the arena page in the run directory and prints its local
-URL. Start the normal development server to view it. It adds eligible candidates only to that
-page's in-memory registry; the normal arena and published registry stay unchanged. Stop the
-development server after review.
-
-After watching representative fights, record `browser-review.json` in the run directory:
-
-```json
-{
-  "fingerprint": "the manifest fingerprint",
-  "candidates": [{
-    "name": "the immutable candidate ID",
-    "candidateHash": "digest(candidate) from research/schedule.mjs",
-    "accepted": true,
-    "reviewedAt": "ISO timestamp",
-    "scenarios": ["default versus fencer, both sides", "a withheld build versus an unseen opponent"],
-    "notes": "Observed fighting behavior and any limitations"
-  }]
-}
-```
-
-`promote` accepts only eligible, reviewed parameter artifacts. It extends the original league,
-retains its baseline bouts, and evaluates new opponents/build assignments before registering new
-picker policies and publishing ratings. Existing policy implementations remain available.
-The published `baseline.json` then describes the expanded league; `original-roster.json` retains
-the pre-promotion league for comparison. After promotion, use `summarize`/`publish` with
-`--dir research/runs/current/promoted-league` for the expanded ratings, or rerun `promote` on
-the parent directory to republish the complete evidence bundle from cached results. Publishing
-the parent directory directly intentionally publishes only its original roster.
-
-If an integration change invalidates a completed experiment's source fingerprint, keep its
-finalists frozen and revalidate rather than silently relabelling old bout results:
-
-```powershell
-node research/revalidate.mjs research/runs/original research/runs/revalidated
-node research/cli.mjs confirm --dir research/runs/revalidated --hours 8
-node research/cli.mjs evaluate --dir research/runs/revalidated --hours 8
-```
-
-The target must be new. This transfers candidates and training provenance, not bout results;
-confirmation and ratings run again. It also transfers the already-used compute allowance and
-locks the source budget against further computation. Use `confirm` and `evaluate`, not `search`
-or `run`, in this revalidation directory: the original search identity is intentionally retained.
-Review and promote against the new fingerprint. Published experiment evidence identifies the
-training origin separately from the final evaluation source.
-
-## Next research agenda
-
-1. Re-establish strength, counters, build weaknesses and side bias under current physics. Inspect
-   overtime and engagement before treating passive survival as improved fighting.
-2. Optimize a roster of styles. Extend successful parameter search into a quality-diversity
-   archive, with measured movement/attack descriptors and independent promotion tests.
-3. Recollect exploratory transitions and refit Planner/Tactician models. Their shipped tables
-   predate the physics changes and their original training scripts were removed. Compare refits
-   against the original tables and scripted directors on withheld opponents and builds.
-4. Compare small learned tactical directors: imitation from existing policies, evolutionary
-   optimization, and reinforcement learning. First report sample cost and browser inference
-   latency. Retain the existing FighterView/Intent boundary and current reaction privileges.
-5. Add frozen past opponents and specialist exploiters to training. Keep the full matchup matrix
-   and a diverse archive; success against the latest champion alone is insufficient.
-
-Advancement requires reproducible held-out improvements, credible behavior measurements, and
-browser inspection. No cloud spending or GPU training is part of this first local CPU phase.
-
-References: [Glicko-2 specification](https://www.glicko.net/glicko/glicko2.pdf),
-[Multi-Emitter MAP-Elites](https://arxiv.org/abs/2007.05352),
-[AlphaStar league training](https://deepmind.google/blog/alphastar-grandmaster-level-in-starcraft-ii-using-multi-agent-reinforcement-learning/).

@@ -41,12 +41,9 @@ import {
 // policy that is selectable exists. It reaches this file for types only, so the edge runs one way
 // at run time and there is no cycle to be careful about.
 import {
-  golemBrawlerMind, golemChampionMind, golemDriverMind, golemDuelistMind, golemFencerMind,
-  golemFormMind, golemGuardianMind, golemMiserMind, golemPlannerMind, golemReaperMind,
-  golemSkirmisherMind, golemTacticianMind, golemWalkerMind,
+  golemDuelistMind, golemWalkerMind,
 } from "./golem/golem-policies.ts";
 import { humanoidArcher } from "./golem/humanoid/archer-policy.ts";
-import { RESEARCHED_POLICIES } from "./golem/researched-policies.ts";
 
 /**
  * What a fighter can ask for.
@@ -836,23 +833,11 @@ export interface Policy {
 }
 
 export const POLICIES: readonly Policy[] = [
-  ...RESEARCHED_POLICIES,
   { name: "humanoid-archer", label: "Human archer", surface: GOLEM_SURFACE, bodyFamily: "human", requirement: "bow", create: humanoidArcher },
   { name: "idle", label: "Idle", surface: null, create: idleMind },
   { name: "golem-duelist", label: "Golem duelist", surface: GOLEM_SURFACE, create: golemDuelistMind },
   { name: "humanoid-duelist", label: "Human duelist", surface: GOLEM_SURFACE, bodyFamily: "human", create: humanoidDuelist },
   { name: "skeleton-duelist", label: "Skeleton duelist", surface: GOLEM_SURFACE, bodyFamily: "skeleton", create: skeletonDuelist },
-  { name: "golem-fencer", label: "Golem fencer", surface: GOLEM_SURFACE, create: golemFencerMind },
-  { name: "golem-planner", label: "Golem planner", surface: GOLEM_SURFACE, create: golemPlannerMind },
-  { name: "golem-champion", label: "Golem champion", surface: GOLEM_SURFACE, create: golemChampionMind },
-  { name: "golem-form", label: "Golem form", surface: GOLEM_SURFACE, create: golemFormMind },
-  { name: "golem-skirmisher", label: "Golem skirmisher", surface: GOLEM_SURFACE, create: golemSkirmisherMind },
-  { name: "golem-guardian", label: "Golem guardian", surface: GOLEM_SURFACE, create: golemGuardianMind },
-  { name: "golem-brawler", label: "Golem brawler", surface: GOLEM_SURFACE, create: golemBrawlerMind },
-  { name: "golem-tactician", label: "Golem tactician", surface: GOLEM_SURFACE, create: golemTacticianMind },
-  { name: "golem-driver", label: "Golem driver", surface: GOLEM_SURFACE, create: golemDriverMind },
-  { name: "golem-reaper", label: "Golem reaper", surface: GOLEM_SURFACE, create: golemReaperMind },
-  { name: "golem-miser", label: "Golem miser", surface: GOLEM_SURFACE, create: golemMiserMind },
   // The naive ladder's middle rung (skill ceiling session 03): idle, this, then the duelist.
   { name: "golem-walker", label: "Golem walker", surface: GOLEM_SURFACE, create: golemWalkerMind },
 ];

@@ -5,8 +5,13 @@ import { golemEffector, golemSetupRefusal } from "./golem/build.ts";
 import { EFFECTOR_CHAINS } from "./golem/registry.ts";
 import { bodyFamily } from "./golem/family.ts";
 
-export type PolicyRequirement = "independent-hands" | "point-primary" | "twin-blades" | "dual-strikers" | "bow";
-export type Applicability = { status: "applicable" | "fallback-only" | "incompatible"; reason: string };
+/**
+ * What a policy needs of the body before the picker offers it. Only `bow` is declared today; the
+ * hand and blade requirements of the researched specialists, and the `fallback-only` status they
+ * fell back through, went with those minds on 2026-09-27 (tag `pre-next-phase-cleanup`).
+ */
+export type PolicyRequirement = "bow";
+export type Applicability = { status: "applicable" | "incompatible"; reason: string };
 export interface PolicyBody {
   pairedHands: boolean;
   primary: { thrust: boolean; aiming: boolean; pointed: boolean; lost: boolean; weapon: WeaponKind };
@@ -41,34 +46,16 @@ export function policyBodyForView(self: BodyView): PolicyBody | null {
 export function assessRequirement(requirement: PolicyRequirement | undefined, body: PolicyBody | null): Applicability {
   if (!requirement) return { status: "applicable", reason: "" };
   if (!body) return { status: "incompatible", reason: "This policy requires golem body capabilities." };
-  let reason: string;
   switch (requirement) {
     case "bow":
       return body.pairedHands && body.primary.weapon === "bow" && !body.primary.lost && !body.secondary.lost
         ? { status: "applicable", reason: "" }
         : { status: "incompatible", reason: "Requires a bow and both arms." };
-    case "twin-blades":
-    case "dual-strikers": {
-      const allowed = requirement === "twin-blades" ? ["sword"] : ["sword", "empty"];
-      if (!body.pairedHands && [body.primary, body.secondary].every((hand) =>
-        !hand.lost && hand.thrust && allowed.includes(hand.weapon))) return { status: "applicable", reason: "" };
-      reason = requirement === "twin-blades"
-        ? "Requires two independent, present blade hands with thrust control."
-        : "Requires two independent, present blade or fist hands with thrust control.";
-      return { status: "fallback-only", reason: `${reason} Otherwise uses the model's baseline policy.` };
+    default: {
+      const unknown: never = requirement;
+      throw new Error(`no rule for policy requirement ${String(unknown)}`);
     }
-    case "independent-hands":
-      if (!body.pairedHands && !body.primary.lost && !body.secondary.lost
-        && body.primary.thrust && body.secondary.thrust) return { status: "applicable", reason: "" };
-      reason = "Requires two independent, present hands that support thrust commands.";
-      break;
-    case "point-primary":
-      if (!body.pairedHands && !body.primary.lost && body.primary.thrust
-        && body.primary.aiming && body.primary.pointed) return { status: "applicable", reason: "" };
-      reason = "Requires an aimable, pointed primary weapon with thrust control and an independent grip.";
-      break;
   }
-  return { status: "fallback-only", reason: `${reason} Otherwise uses Duelist behavior.` };
 }
 
 /** Unit admission is supplied by the existing registry, never approximated here. */
