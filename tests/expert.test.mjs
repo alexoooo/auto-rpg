@@ -162,7 +162,7 @@ test("a_forward_back_expert_never_strafes_and_still_predicts_its_future", async 
     const expert = new Witnessed(config, 5);
     const applied = [];
     await runExpertBout({ ...BASE, maxSeconds: 2.6, physics: await freshHavok() },
-      { experts: { left: expert }, onFrame: (bout) => applied.push(bout.left.control.driver.held?.strafe ?? 0) });
+      { experts: { left: expert }, onFrame: (bout) => applied.push(bout.left.control.driver.held?.gait.strafe ?? 0) });
     return { applied, checks: expert.checks() };
   };
   const fb = await strafes({ ...PLUMB, strafe: false });

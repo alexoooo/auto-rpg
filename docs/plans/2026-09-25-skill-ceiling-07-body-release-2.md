@@ -5,6 +5,18 @@
 Act on session 05's audit, as the owner chooses from its proposals. Then re-measure until the
 three orderings hold and every attribute pays.
 
+## Before the owner chooses
+
+`docs/analysis/2026-09-26-release-2-questions.md` answers the audit's questions for items 6, 5(b)
+and 17, and 4(a) as a table. It answers 2(b) and 13(a) in part, and it has no reading yet for 16.
+Its status table is at the top. Nothing shipped was changed. In short:
+
+- **6.** 1200 raw is the waist lean's knee. It shows no stuck steps and needs an eye check of how
+  the trunk takes a blow.
+- **5(b).** The naive walker's 0.80 hold jams its strokes, and it cannot choose its range.
+- **17.** survive-cut has nothing to measure on a shielded human. The rest guard already survives the
+  cut.
+
 ## What it may do
 
 Each change is chosen by the owner from session 05's list, and each is measured with the expert

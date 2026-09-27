@@ -20,6 +20,7 @@ import {
   type PairAllowedMoves,
   type SupportedRootAdapter,
   type VirtualCarrierConfig,
+  type VirtualCarrierState,
   type WorldQueryCollider,
   type WorldPoint,
 } from "./supported-locomotion-runtime.ts";
@@ -777,6 +778,10 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   private fallImpulseOf: TippingGeometry | null | undefined = undefined;
   private fallImpulseAuthority: unknown = undefined;
   private fallImpulse = 0;
+
+  /** The carrier's state and ceilings, which the step target's executor plans against (`src/step-target.ts`). */
+  carrierState(): VirtualCarrierState { return this.carrier.state; }
+  get carrierConfig(): VirtualCarrierConfig { return this.carrier.config; }
 
   carrierGround(): WorldPoint {
     const state = this.carrier.state;

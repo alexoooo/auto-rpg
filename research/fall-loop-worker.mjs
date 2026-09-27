@@ -23,6 +23,7 @@ import { CONFIG } from "../src/config.ts";
 import { policyMind } from "../src/mind.ts";
 import { shoveSpecificImpulse } from "../src/supported-locomotion-state.ts";
 import { SKELETON_BIPED } from "../src/golem/skeleton/body.ts";
+import { applyOverrides } from "./overrides.mjs";
 
 // A sweep knob, read once per worker: the skeleton's hip lead (`hipAhead`), m.
 if (process.env.SKELETON_HIP_AHEAD) SKELETON_BIPED.hipAhead = Number(process.env.SKELETON_HIP_AHEAD);
@@ -206,6 +207,9 @@ export async function execute(job, manifest) {
 }
 
 if (parentPort) parentPort.on("message", async ({ job, manifest }) => {
+  // A run's counterfactual knobs (`research/overrides.mjs`), set for this bout and put back after it.
+  const restore = applyOverrides(manifest.overrides);
   try { parentPort.postMessage(await execute(job, manifest)); }
   catch (error) { parentPort.postMessage({ ...job, status: "failed", error: String(error?.stack ?? error) }); }
+  finally { restore(); }
 });

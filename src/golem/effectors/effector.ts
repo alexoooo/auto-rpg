@@ -4,8 +4,11 @@ import type { Striking } from "../../combat.ts";
 import type { HandIntent } from "../../mind.ts";
 import { isTopological } from "../../forkable.ts";
 import { attributeOf, SIZE_LAW_POWER, withSize, type SizeLaws } from "../attributes.ts";
+import { CHANNEL_FLAGS, effectorChannel, type EffectorCommand } from "../../body-command.ts";
+import { checkedEffectorTarget } from "../../effector-target.ts";
 import {
   EFFECTOR_SLOTS,
+  effectorSlot,
   rodInertia,
   type BuiltChain,
   type BuiltModule,
@@ -263,6 +266,13 @@ export function effectorModule(
       // nothing -- and every one of them reaches the world transform through `mesh.position`
       // and `mesh.rotationQuaternion` alone. See `RigidStrike` for why that is not optional.
       const slot = ctx.socket.slot;
+      // A paired grip needs a joint task envelope; the current per-arm envelope is not one.
+      const taskDeclared = CHANNEL_FLAGS.effector && sockets === 1 && !!built.commandTarget && terminal?.rigidTip === true;
+      // The hand this socket answers to, and whether its chain takes an orientation as well as a
+      // point: the effector channel (`src/body-command.ts`), settled once at build. Rung 0's cap has
+      // no axis to drive, so a capped socket declares no channel at all.
+      const channels = Object.freeze(envelope.axes.length > 0
+        ? [effectorChannel(id, effectorSlot(slot) ?? "primary", !!envelope.fullOrientation, taskDeclared)] : []);
       // **Whether there is an edge to report is the terminal's answer, not the chain's.** A
       // capped socket bites with mass, so an edge alignment taken off it would be a number with
       // no meaning that a readout would nonetheless print -- and a number that means nothing is
@@ -291,6 +301,14 @@ export function effectorModule(
         parts,
         strikers,
         command: (next: HandIntent) => built.command(next),
+        commandEffector: (next: EffectorCommand) => {
+          if (taskDeclared && next.target) {
+            const task = checkedEffectorTarget(next.target);
+            built.commandTarget!(task, end.tipOffset);
+          } else {
+            built.command(next.aim);
+          }
+        },
         step: (dt: number) => {
           built.step(dt);
           if (trailing) {
@@ -308,6 +326,7 @@ export function effectorModule(
         },
         envelope: () => envelope,
         view: () => view,
+        channels: () => channels,
         // **Both chains, whichever was struck.** A maul's second hand holds the same haft, so a
         // ruined link on either arm is the end of wielding it; and a trailing arm left driven
         // after the first went slack would haul the weapon on its own.

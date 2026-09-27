@@ -99,6 +99,9 @@ function copyInto(out: Record<string, unknown>, from: Record<string, unknown>): 
  * hysteresis between `arriveM` and `leashM`; `destination` is the point it was measured against,
  * so a new point starts a new walk.
  */
+/** The three fields the follower reads and rewrites: an `Intent` has them, and so does a gait command. */
+export interface Movement { forward: number; strafe: number; turn: number }
+
 export class OrderFollower {
   holding = false;
   private goalX = Number.NaN;
@@ -108,9 +111,10 @@ export class OrderFollower {
   /**
    * The command to apply: the mind's own, or a copy with `forward`, `strafe` and (away from the
    * enemy) `turn` written by the orders. The arms, the trunk and the natural striker are always the
-   * mind's, which is what "still defending itself" is.
+   * mind's, which is what "still defending itself" is. `intent` is any record with the three
+   * movement fields: an `Intent`, or a body command's gait (`GolemDriver.obeyCommand`).
    */
-  obey(intent: Intent, view: FighterView, orders: Orders): Intent {
+  obey<T extends Movement = Intent>(intent: T, view: FighterView, orders: Orders): T {
     const self = view.self;
     const enemy = view.opponent;
     const ex = enemy.ground.x - self.ground.x, ez = enemy.ground.z - self.ground.z;
@@ -143,7 +147,7 @@ export class OrderFollower {
       copyInto(out, intent as unknown as Record<string, unknown>);
       out.forward = clamp1(wx * sin + wz * cos);
       out.strafe = clamp1(wx * cos - wz * sin);
-      return out as unknown as Intent;
+      return out as unknown as T;
     }
     this.holding = false;
     copyInto(out, intent as unknown as Record<string, unknown>);
@@ -154,7 +158,7 @@ export class OrderFollower {
     if (!(enemyGap <= ORDER_TUNING.threatM)) {
       out.turn = clamp1(wrap(Math.atan2(dx, dz) - facing) * ORDER_TUNING.turnGain);
     }
-    return out as unknown as Intent;
+    return out as unknown as T;
   }
 }
 

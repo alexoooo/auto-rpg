@@ -104,6 +104,28 @@ test("a_start_its_control_does_not_admit_is_void_and_never_scored", async () => 
   assert.equal(summary.rungs["golem-duelist"].n, 0);
 });
 
+test("a_cut_a_rest_guard_stops_is_void_by_wound_and_scored_by_arrival", async () => {
+  // The headroom audit's first survive-cut start on the human warrior: the cut meets the idle
+  // body's shield and wounds nothing, so the wound rule voids it; arrival scores it, idle passing.
+  const { auditBuild } = await import("../research/headroom-builds.mjs");
+  const { seed } = await import("../research/schedule.mjs");
+  const start = { drill: "survive-cut", subjectSetup: auditBuild("human-warrior").setup,
+    opponentSetup: namedBuild("default").setup, seed: seed("drills", "survive-cut", "human-warrior", "default", 0), rungs: ["idle"] };
+  const byWound = await runDrill(start);
+  assert.match(byWound.void ?? "", /did not wound an idle body/);
+  assert.ok(byWound.control.margin < 0.03, "the idle body took no wound over the threshold");
+  const byArrival = await runDrill({ ...start, admission: "arrival", trace: true });
+  assert.equal(byArrival.void, undefined, "the cut arrived, so the start is scored");
+  assert.equal(byArrival.rungs.idle.pass, true, "and the rest guard's survival is a pass");
+  assert.ok(byArrival.rungs.idle.events.some((e) => e.side !== byArrival.subject && e.blocked), "the cut met the shield");
+  // And the control: the audit's second start on the human mace, whose cut touches nothing at all.
+  const missed = await runDrill({ ...start, subjectSetup: auditBuild("human-mace").setup, admission: "arrival",
+    seed: seed("drills", "survive-cut", "human-mace", "default", 1) });
+  assert.match(missed.void ?? "", /touched nothing/, "a cut that never arrives stays void");
+  await assert.rejects(runDrill({ ...start, drill: "hold-range", admission: "arrival" }), /survive-cut alone/);
+  await assert.rejects(runDrill({ ...start, admission: "touch" }), /admission is one of/);
+});
+
 test("breaking_the_duelists_guard_fails_survive_the_cut_on_the_high_line", async () => {
   const setup = namedBuild("default").setup;
   let guarded = 0;

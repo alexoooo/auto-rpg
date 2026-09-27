@@ -85,7 +85,7 @@ Session 05 (the footwork check). The orders half does not depend on it and may l
 ## Result: the orders half
 
 Landed on 2026-09-26, in five commits (683cbf7 plumbing, c75c488 arena, 0a6d9ce dungeon, 814b81d
-drill, c9173ae retirements). The command-surface half has not been started. The write-up is
+drill, c9173ae retirements). The command-surface half is recorded below. The write-up is
 `docs/analysis/2026-09-26-orders.md`.
 
 - **Orders.**
@@ -116,3 +116,37 @@ drill, c9173ae retirements). The command-surface half has not been started. The 
   read a target, so nothing was refused. `AGENTS.md`'s first house rule and the input traps were
   rewritten in the same commit.
 - **Eye gate: deferred.** The analysis lists what the owner should look at.
+
+## Result: the command-surface half (work in progress)
+
+The initial work was merged into main at `033a86ce` on 2026-09-26, with measurements still partial.
+The write-up is `docs/analysis/2026-09-26-command-surface.md`.
+
+- **Built.** `BodyCommand` has an `Intent` adapter, so the duelist, the miser and the needle run
+  unchanged. Channels are declared per module from shared kinds. Two footwork channels sit behind
+  flags, each with its actuator and a bench:
+  - the stance: width, lead and weight (`research/stance-bench.mjs`);
+  - the step target, with a timing (`research/step-bench.mjs`).
+- **The expert proposes on both channels.** `-fb` is still the restricted control.
+- **Null control.** In the Node bout runner, 45 of 45 bouts are bit-identical by trajectory hash in
+  nine runs: every commit, flags off and flags on, and after main was merged.
+- **step: off.** It does not raise headroom. `-stepadd` scored 40.6 % [28.1, 53.1] on the stone and
+  43.8 % [32.8, 54.7] on the skeleton against the ruler (32 pairs each, Node bout runner). The first
+  version's loss came from the proposal list, not the channel.
+- **stance: off, pending.** The run is partial at 182 of 256 bouts: 41.3 % [26.1, 56.5] on the
+  stone and 54.8 % [38.1, 71.4] on the skeleton. The analysis's section 7 has the commands that
+  finish it.
+- **Task-space pilot built in the continuation.** Behind the off-by-default `effector` flag,
+  the anatomical hand accepts a world business-end target, hand orientation, joint-speed fraction
+  and force fraction. Blade, fist and mace are supported on either socket. Paired grips,
+  other chains and attachments remain open, as do expert proposals and headroom
+  measurements. See `docs/analysis/2026-09-26-effector-target.md` for the bench and mutation checks.
+- **Browser switch built, 2026-09-26 continuation.** `?play=arena&channels=stance,step` (or
+  `play=dungeon`) enables the experiments before bodies are built. The opt-in panel can switch
+  them and restart the page, preserving the matchup and other URL parameters. `channels=` turns
+  both off; omitting it uses shipped defaults and hides the panel. This does not make legacy
+  policies propose on those channels. Tests: 1044/1044, check and build; four deliberate breaks
+  caught by the new URL tests. Arena and dungeon browser startup and switching checked on 5182,
+  then the server stopped. The owner's 5180 server was untouched.
+- **Eye gate: deferred.** The flag switch is available; viewing expert proposals still needs a
+  browser-compatible command-mind preview. The offline expert remains a Node instrument.

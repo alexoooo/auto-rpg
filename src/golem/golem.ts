@@ -22,13 +22,13 @@ import type {
   HandIntent,
   HandName,
   HandView,
-  Intent,
-  Mind,
+  BodyMind,
   NaturalAttackView,
   NaturalIntent,
   ProjectileView,
 } from "../mind.ts";
 import { NEUTRAL } from "../mind.ts";
+import { gaitDeclares, intentToCommand, type BodyCommand, type ChannelDeclaration } from "../body-command.ts";
 import { COLLIDES, LAYER, golemLayersFor, type Side } from "../physics.ts";
 import { boxPart, type Part } from "../rig.ts";
 import { armouredDamage, type HitKind } from "../scoring.ts";
@@ -47,7 +47,8 @@ import {
 import { GOLEM_ASSEMBLY } from "./config.ts";
 import { armourAt, resolveAttributes, type Attributes } from "./attributes.ts";
 import { GolemControlEndpoint } from "./golem-control.ts";
-import { hobble, locomotionCommand, type BuiltLocomotion } from "./locomotion.ts";
+import { gaitLocomotionCommand, hobble, type BuiltLocomotion } from "./locomotion.ts";
+import { stepTravel } from "../step-target.ts";
 import { dressGolemPart } from "./appearance.ts";
 import { dressHumanoid } from "./humanoid/appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
@@ -65,7 +66,7 @@ import {
 } from "./module.ts";
 import { moduleDurability, type GolemModuleReport } from "./parts-bin.ts";
 import { refreshGolemWear, seedGolemWear, type GolemWearTie } from "./wear.ts";
-import type { BuiltTorso, TorsoCommand } from "./torso/torso.ts";
+import type { BuiltTorso } from "./torso/torso.ts";
 
 /**
  * A golem: five modules bolted together, driven through one `Intent`, and hittable.
@@ -171,6 +172,7 @@ interface MountedModule {
   ruin?(partId: string): void;
   sever(): void;
   dispose(): void;
+  channels?(): readonly ChannelDeclaration[];
 }
 
 /** One module in one slot, with the limbs it registered and whether it has come off. */
@@ -208,9 +210,9 @@ export interface GolemOptions {
   readonly origin: Vector3;
   readonly facing: number;
   readonly setup: GolemSetup;
-  readonly mind: Mind;
+  readonly mind: BodyMind;
   readonly controlPolicies: readonly { readonly name: string; readonly label: string }[];
-  readonly controlPolicyFactory?: (name: string, seed?: number) => Mind;
+  readonly controlPolicyFactory?: (name: string, seed?: number) => BodyMind;
   /** The shared world registry. A pair of golems must be handed exactly the same one. */
   readonly locomotionWorld?: StandableWorldRegistry;
 }
@@ -333,6 +335,18 @@ export class Golem implements Combatant, Topological {
   /** The torso's core, whose position `describe` publishes as the live `vitalPoint`. */
   private readonly core: Part;
   private readonly modules: AssembledModule[] = [];
+  /** Whether this body's gait declared the stance feature, settled once at assembly. */
+  private readonly stanceDeclared: boolean;
+  /** Whether it declared the step target, settled at the same moment. */
+  private readonly stepDeclared: boolean;
+  /** The step point being walked to, NaN for none, and how long ago the command first named it, s. */
+  private stepX = Number.NaN;
+  private stepZ = Number.NaN;
+  private stepElapsed = 0;
+  /** The executor's travel for this control step, rewritten in place. */
+  private readonly stepScratch = { forward: 0, strafe: 0 };
+  /** The torso's half of the trunk command, rewritten in place every control step. */
+  private readonly trunkScratch = { trunkLean: 0, trunkTwist: 0 };
   private readonly locomotionModule: BuiltLocomotion;
   private readonly torsoModule: BuiltTorso;
   private readonly headModule: BuiltModule<NaturalIntent>;
@@ -571,6 +585,8 @@ export class Golem implements Combatant, Topological {
     // whether a module is still attached, and `HandView.lost` is where `describe` says that.
     const self = blankBody() as GolemView;
     self.capabilities = this.golemCapabilities();
+    this.stanceDeclared = gaitDeclares(self.capabilities.channels, "stance");
+    this.stepDeclared = gaitDeclares(self.capabilities.channels, "step");
     this.view = {
       self,
       opponent: blankBody(),
@@ -583,7 +599,7 @@ export class Golem implements Combatant, Topological {
       initialMind: options.mind,
       view: this.view,
       canStep: () => !this.dead && this.fighting,
-      apply: (dt, intent) => this.applyIntent(dt, intent),
+      apply: (dt, command) => this.applyCommand(dt, command),
       stopBody: () => this.stopBody(),
       clearLocomotion: (reason) => this.locomotion.clear(reason),
       policies: options.controlPolicies,
@@ -726,8 +742,8 @@ export class Golem implements Combatant, Topological {
 
   // --------------------------------------------------------------------------- the control seam
 
-  get mind(): Mind { return this.control.mind; }
-  set mind(value: Mind) { this.control.installMind(value); }
+  get mind(): BodyMind { return this.control.mind; }
+  set mind(value: BodyMind) { this.control.installMind(value); }
 
   /**
    * The fraction of every upper-body motor ceiling this substep: `GROUNDED_TONE` while the body
@@ -755,16 +771,19 @@ export class Golem implements Combatant, Topological {
   }
 
   /**
-   * The whole `Intent`, narrowed onto five modules. Nothing here widens the command.
+   * The whole `BodyCommand`, narrowed onto five modules. Nothing here widens the command: a
+   * feature a module did not declare (`capabilities.channels`) is never handed to it, which is how
+   * a channel behind a flag that is off leaves a body exactly as it was.
    *
    * **A fallen body still takes its whole command**, from a person or a policy alike, at
    * `GROUNDED_TONE` (`motorTone`). Until physical contact session 02 a skeleton's torso, head and
    * hands were handed `NEUTRAL` while it lay; the owner's call was that a grounded body may swing
    * and parry weakly, so the tone is what weakens it and nothing takes the command away.
    */
-  private applyIntent(dt: number, intent: Intent): void {
+  private applyCommand(dt: number, command: BodyCommand): void {
     this.settleRuin();
-    const locomotion = hobble(locomotionCommand(intent), this.locomotionModule.mobility());
+    const locomotion = hobble(gaitLocomotionCommand(command, this.stanceDeclared, this.stepTravel(dt, command)),
+      this.locomotionModule.mobility());
     this.locomotionModule.command(locomotion);
     // **And the port, separately, because the pair path is what stages a request.** A module's
     // `command` is what the module keeps -- the crouch it drives and the request it hands its own
@@ -773,13 +792,37 @@ export class Golem implements Combatant, Topological {
     // a bench and stand perfectly still in a bout, which is the least visible way this could have
     // gone wrong.
     this.locomotion.request(locomotion.request);
-    const posture: TorsoCommand = intent.posture;
-    this.torsoModule.command(posture);
-    this.headModule.command(intent.natural);
+    const trunk = this.trunkScratch;
+    trunk.trunkLean = command.trunk.lean;
+    trunk.trunkTwist = command.trunk.twist;
+    this.torsoModule.command(trunk);
+    this.headModule.command(command.natural);
     for (const effector of this.effectorModules) {
-      effector.module.command(intent[effector.driven]);
+      const next = command.effectors[effector.driven];
+      if (next.target && effector.module.commandEffector) effector.module.commandEffector(next);
+      else effector.module.command(next.aim);
     }
-    void dt;
+  }
+
+  /**
+   * The step target, where the gait declared one and the command names one: the travel that
+   * carries the carrier to the point on time (`stepTravel` in `src/step-target.ts`), or null for
+   * the command's own forward and strafe. The clock restarts whenever the command names a
+   * different point, so a mind that keeps naming one point is asking for one arrival.
+   */
+  private stepTravel(dt: number, command: BodyCommand): { forward: number; strafe: number } | null {
+    const step = this.stepDeclared ? command.gait.step : null;
+    if (!step) {
+      this.stepX = Number.NaN; this.stepZ = Number.NaN; this.stepElapsed = 0;
+      return null;
+    }
+    if (step.x !== this.stepX || step.z !== this.stepZ) {
+      this.stepX = step.x; this.stepZ = step.z; this.stepElapsed = 0;
+    }
+    stepTravel(step, step.within - this.stepElapsed, this.locomotion.carrierState(), this.locomotion.carrierConfig,
+      this.stepScratch);
+    this.stepElapsed += dt;
+    return this.stepScratch;
   }
 
   /**
@@ -867,6 +910,15 @@ export class Golem implements Combatant, Topological {
    * case for a module id.
    */
   private golemCapabilities(): GolemCapabilities {
+    // Every module's declared channels, once each: a two-socket terminal is one module answering
+    // for both hands, and it declares both of its channels itself.
+    const seen = new Set<MountedModule>();
+    const channels: ChannelDeclaration[] = [];
+    for (const record of this.modules) {
+      if (seen.has(record.built)) continue;
+      seen.add(record.built);
+      channels.push(...(record.built.channels?.() ?? []));
+    }
     const effector = (hand: HandName): EffectorCapability =>
       effectorCapability(this.effectors[hand]?.module.envelope() ?? null);
     const range = this.locomotionModule.heightRange;
@@ -877,6 +929,7 @@ export class Golem implements Combatant, Topological {
       // The one place the mind learns both sockets hold one terminal: the records are the same
       // object, because `plan.secondary` was null and the primary answered for both.
       pairedHands: this.effectors.secondary === this.effectors.primary,
+      channels: Object.freeze(channels),
     });
   }
 
@@ -1352,7 +1405,7 @@ export class Golem implements Combatant, Topological {
     // One neutral command, so the modules hold a pose that was chosen rather than whatever the
     // last driver happened to leave standing. `stopFighting` stops the driver, so nothing will
     // command them again.
-    this.applyIntent(0, NEUTRAL);
+    this.applyCommand(0, intentToCommand(NEUTRAL));
   }
 
   /**

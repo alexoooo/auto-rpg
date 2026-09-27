@@ -12,6 +12,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 import type { Observer } from "@babylonjs/core/Misc/observable.js";
 
 import type { Striking } from "../../combat.ts";
+import { gaitChannels } from "../../body-command.ts";
 import { boxPart, cylinderPart, joint, type Part } from "../../rig.ts";
 import { supportedRootTargetToRef } from "../../supported-root-drive.ts";
 import type { LocomotionRequest } from "../../supported-locomotion.ts";
@@ -171,6 +172,9 @@ return defineLocomotion({
   supportBindings: SUPPORT_BINDINGS,
 
   build(ctx: ModuleBuild): BuiltLocomotion {
+    // What this carrier answers to (`src/body-command.ts`), read at build so a flag flipped later
+    // cannot change a body already standing.
+    const channels = gaitChannels("rolling-base", "locomotion.wheel", { crouch: false, stance: false });
     // This body's own table, its carrier's travel scaled by its movement stat.
     // The parts' masses times the weight stat (`withWeight`); the supported mass below reads them too.
     // Then every field at its size stat by its law (`withSize`).
@@ -891,6 +895,7 @@ return defineLocomotion({
       gait,
       evidence: (): LocomotionEvidence => evidence,
       readout: (): LocomotionReadoutState => readout.state(),
+      channels: () => channels,
 
       command(next: LocomotionCommand): void {
         if (severed) return;

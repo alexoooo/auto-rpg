@@ -11,6 +11,7 @@ import type { StandableWorldRegistry } from "../supported-locomotion-runtime.ts"
 import type { GolemMaterialPalette } from "./materials.ts";
 import type { Attributes } from "./attributes.ts";
 import type { MotorTone } from "./joint-servo.ts";
+import type { ChannelDeclaration, EffectorCommand, EffectorTarget } from "../body-command.ts";
 
 /**
  * The golem module contract: what every slot's option has to be, in one file.
@@ -423,6 +424,8 @@ export interface BuiltModule<Command> {
   readonly strikers: readonly Striking[];
   /** Once per control boundary. */
   command(next: Command): void;
+  /** An effector's channel dispatch; other module kinds do not implement it. */
+  commandEffector?(next: EffectorCommand): void;
   /** Once per physics substep, at 240 Hz, from `scene.onBeforePhysicsObservable`. */
   step(dt: number): void;
   envelope(): ModuleEnvelope;
@@ -464,6 +467,12 @@ export interface BuiltModule<Command> {
    * which is what a trunk and a head still do.
    */
   ruin?(partId: string): void;
+  /**
+   * The command channels this module answers, from the shared kinds in `src/body-command.ts`: what
+   * a planner may write for it, feature by feature, and the actuator that carries each out. Read
+   * once, when the golem is assembled, and published on `GolemCapabilities.channels`.
+   */
+  channels?(): readonly ChannelDeclaration[];
   sever(): void;
   dispose(): void;
 }
@@ -653,6 +662,8 @@ export interface ChainLimits {
 }
 
 export interface BuiltChain {
+  /** Business-end target on a chain with an explicit task-space actuator. */
+  commandTarget?(target: EffectorTarget, tipOffset: number): void;
   orientation?(): Quaternion;
   readonly parts: readonly GolemPart[];
   /**
@@ -866,6 +877,8 @@ export interface EffectorChainDefinition {
 }
 
 export interface EffectorTerminalDefinition {
+  /** The business end is fixed at tipOffset along the attachment's handle axis (not a flexible lash). */
+  readonly rigidTip?: boolean;
   readonly attachment?: EquipmentAttachment;
   readonly partRole?: "body" | "equipment";
   readonly appearance?: "human";
@@ -1057,6 +1070,12 @@ export interface GolemCapabilities {
    * name.
    */
   readonly pairedHands: boolean;
+  /**
+   * Every command channel the body answers, from each module's own declaration
+   * (`BuiltModule.channels`, `src/body-command.ts`). A planner reads this rather than a module id:
+   * which kinds it may write, with which features, and what carries each one out.
+   */
+  readonly channels: readonly ChannelDeclaration[];
 }
 
 /**

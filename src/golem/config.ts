@@ -3230,6 +3230,52 @@ export const LOCOMOTION_BIPED = {
   heightRate: 0.9,
 
   /**
+   * The stance channel (`StanceCommand` in `src/body-command.ts`): where the feet stand under the
+   * hips, each axis a signed fraction of these. Skill ceiling session 06, 2026-09-26, and behind
+   * `CHANNEL_FLAGS.stance`: a body built with the flag off never reads them.
+   *
+   * - `stanceWidth`, m: how far each foot moves outward at `width` 1 (inward at -1), from under
+   *   its own hip at `hipSide`. 0.08 m is 0.11 rad of abduction on a standing leg, inside
+   *   `hipAbduct` 0.20 with the strafe's 0.16 of stride on top clamped, and the ankle's roll
+   *   (`ankleRoll` 0.14) levels the sole across it.
+   * - `stanceLead`, m: the stagger at `lead` 1, the right foot that far ahead of the left (the
+   *   left ahead at -1), each foot half of it from under its hip.
+   * - `stanceShift`, m: how far both feet move back at `weight` 1, which carries the hips, and so
+   *   the weight, over the front of the base (forward at -1).
+   * - `stanceRate`, 1/s: how fast each axis slews toward its command, so a full change of stance
+   *   takes about half a second, a step's worth; the joints' own `targetRate` is on top.
+   *
+   * Solved as foot placement, not as a lean of the whole leg: both legs reach the one hip height
+   * (`bipedPose`), so two planted feet under a stance are two equal legs -- the trap
+   * `AGENTS.md` records from physical contact 08. In a deep crouch the placement is bounded by
+   * the ankle, which must still level the sole along and across it (`bipedStanceFeet`); only a
+   * full lead or width past about three quarters of a crouch reaches that bound.
+   *
+   * Node locomotion bench (`research/stance-bench.mjs`), stone default, the stance held 1.5 s
+   * standing: soles apart and staggered, m; fall impulse ahead / behind / left / right, N s; then
+   * planted-sole slip at 0.35 and at full forward, mm/s, 1.5 s each (the stance fades out with
+   * the travel, `gait` in `src/golem/locomotion/biped.ts`). No cell went down.
+   *
+   * | stance              | apart | stagger | ahead | behind | left | right | slip 0.35 | slip 1 |
+   * |---------------------|-------|---------|-------|--------|------|-------|-----------|--------|
+   * | neutral             | 0.380 |  0.000  |  167  |  115   | 238  |  247  |    628    |  374   |
+   * | width +1            | 0.541 |  0.000  |  167  |  115   | 309  |  319  |    639    |  359   |
+   * | width -1            | 0.219 |  0.000  |  167  |  115   | 169  |  179  |    639    |  361   |
+   * | lead +1             | 0.380 |  0.299  |  232  |  186   | 239  |  238  |    657    |  433   |
+   * | weight +1 (forward) | 0.380 |  0.000  |  110  |  172   | 238  |  248  |    812    |  425   |
+   * | weight -1 (back)    | 0.380 |  0.000  |  225  |   59   | 238  |  248  |    618    |  284   |
+   *
+   * Every axis buys the direction it should and pays in the opposite one, which is what makes it a
+   * choice: width trades lateral margin both ways, lead buys fore-aft margin at a small lateral
+   * cost, weight moves margin from one end of the base to the other. The skeleton reads the same
+   * shapes at a tenth of the impulse (weakest 10 N s neutral).
+   */
+  stanceWidth: 0.08,
+  stanceLead: 0.3,
+  stanceShift: 0.08,
+  stanceRate: 3,
+
+  /**
    * The virtual carrier's own ceilings.
    *
    * `DEFAULT_SUPPORTED_CARRIER` is 1.6 m/s, 9 m/s2, 2.4 rad/s and 14 rad/s2, and it is a
@@ -3444,6 +3490,7 @@ export const LOCOMOTION_BIPED_SIZE: SizeLaws<typeof LOCOMOTION_BIPED> = {
   knockdown: KNOCKDOWN_SIZE, rise: BIPED_RISE_SIZE,
   motorDamping: "one", linearDamping: "frequency", angularDamping: "frequency",
   crouchDepth: "length", crouchResponse: "frequency", heightRate: "speed",
+  stanceWidth: "length", stanceLead: "length", stanceShift: "length", stanceRate: "frequency",
   carrier: CARRIER_SIZE,
   footprintRadius: "length", footprintHeight: "length",
   shoveImpulseNs: "fallImpulse", meanFootSlipBudgetMps: "speed", riseBudgetSeconds: "duration",

@@ -44,6 +44,7 @@ export const fistDefinition = (
   config: typeof TERMINAL_FIST & { readonly armour?: Armour } = TERMINAL_FIST,
 ) => defineTerminal({
   id: "fist",
+  rigidTip: true,
   sockets: 1,
   bite: "mass",
   label: "fist",

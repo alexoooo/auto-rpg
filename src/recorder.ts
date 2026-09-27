@@ -1,5 +1,6 @@
 import type { CombatReportEvent } from "./combat.ts";
-import type { FighterView, Intent } from "./mind.ts";
+import type { FighterView } from "./mind.ts";
+import type { BodyCommand } from "./body-command.ts";
 import { attackOpportunity, engagementRecord, EngagementTracker, type EngagementRecord } from "./engagement.ts";
 import { HANDS, type HandName, type Striker } from "./hands.ts";
 import type { Side } from "./physics.ts";
@@ -22,7 +23,7 @@ export interface BodyNeutralControlEvent {
   readonly payload: Readonly<Record<string, unknown>>;
 }
 
-type IntentEdge = Parameters<typeof recordIntentAttack>[3];
+type CommandEdge = Parameters<typeof recordCommandAttack>[3];
 type SampleEdge = Parameters<typeof recordBehaviourSample>[3];
 
 const opposite = (side: Side): Side => side === "left" ? "right" : "left";
@@ -32,8 +33,8 @@ export class BoutRecorder {
   readonly records: Readonly<Record<Side, BehaviourRecord>>;
   readonly engagement: Readonly<Record<Side, BehaviourRecord["engagement"]>>;
   readonly controlEvents: BodyNeutralControlEvent[] = [];
-  private readonly intentEdges: Record<Side, IntentEdge> = { left: {}, right: {} };
-  private readonly pendingIntents: Record<Side, Intent | null> = { left: null, right: null };
+  private readonly commandEdges: Record<Side, CommandEdge> = { left: {}, right: {} };
+  private readonly pendingCommands: Record<Side, BodyCommand | null> = { left: null, right: null };
   private readonly pendingViews: Record<Side, FighterView | null> = { left: null, right: null };
   private readonly samples: Record<Side, SampleEdge> = { left: {}, right: {} };
   private contactSequence = 0;
@@ -53,17 +54,18 @@ export class BoutRecorder {
       throw new Error(`recorder sample clock ${clock} disagrees with published view clock ${view.clock}`);
     }
     recordBehaviourSample(this.records[side], view, dt, this.samples[side]);
-    const intent = this.pendingIntents[side];
+    const command = this.pendingCommands[side];
     const observedView = this.pendingViews[side];
-    this.pendingIntents[side] = null;
+    this.pendingCommands[side] = null;
     this.pendingViews[side] = null;
-    if (intent && observedView) recordIntentAttack(this.records[side], observedView, intent, this.intentEdges[side]);
+    if (command && observedView) recordCommandAttack(this.records[side], observedView, command, this.commandEdges[side]);
   }
 
-  intent(side: Side, view: FighterView, intent: Intent): void {
-    if (this.pendingIntents[side]) throw new Error(`recorder received two ${side} intents before one sample`);
+  /** The command a body applied, read at the next `sample` (`src/body-command.ts`). */
+  command(side: Side, view: FighterView, command: BodyCommand): void {
+    if (this.pendingCommands[side]) throw new Error(`recorder received two ${side} commands before one sample`);
     this.pendingViews[side] = view;
-    this.pendingIntents[side] = intent;
+    this.pendingCommands[side] = command;
   }
 
   combat(striker: Side, event: CombatReportEvent): void {
@@ -155,7 +157,7 @@ export interface BehaviourRecord {
 /**
  * The durable record owned by `BoutRecorder` in both the page and bench loops.
  *
- * Its three writers remain separate because geometry samples, selected intent
+ * Its three writers remain separate because geometry samples, the applied command
  * and combat resolution arrive on three different seams. `BoutRecorder` owns
  * their ordering and side attribution; these functions own what each fact means.
  */
@@ -192,7 +194,7 @@ export function recordCombatEvent(record: BehaviourRecord, event: CombatEvent): 
     record._engagement.contact(event.opportunityKey ?? factualKey, event.at, event.damage);
   }
 }
-export function recordIntentAttack(record: BehaviourRecord, view: FighterView, intent: Intent,
+export function recordCommandAttack(record: BehaviourRecord, view: FighterView, command: BodyCommand,
   previous: { thrust?: Record<HandName, boolean>; guard?: Record<HandName, boolean>; natural?: boolean }): void {
   previous.thrust ??= { primary: false, secondary: false };
   previous.guard ??= { primary: false, secondary: false };
@@ -203,17 +205,18 @@ export function recordIntentAttack(record: BehaviourRecord, view: FighterView, i
       // The natural channel, not `primary`. This read the primary hand's button
       // on a body that publishes no hands, which was the alias itself: the
       // exception lived here as a comment and in `Centipede.update` as a fact.
-      if (intent.natural.thrust && !previous.natural) record._engagement.attack(row.key, view.clock);
+      if (command.natural.thrust && !previous.natural) record._engagement.attack(row.key, view.clock);
       continue;
     }
     const [, handName] = row.key.split(":"); const hand = handName as HandName;
-    const shot = row.striker === "bow" && previous.thrust[hand] && !intent[hand].thrust;
-    const committed = row.striker !== "bow" && ((intent[hand].thrust && !previous.thrust[hand]) ||
-      (previous.guard[hand] && !intent[hand].guard));
+    const aim = command.effectors[hand].aim;
+    const shot = row.striker === "bow" && previous.thrust[hand] && !aim.thrust;
+    const committed = row.striker !== "bow" && ((aim.thrust && !previous.thrust[hand]) ||
+      (previous.guard[hand] && !aim.guard));
     if (shot || committed) record._engagement.attack(row.key, view.clock);
   }
-  for (const hand of HANDS) { previous.thrust[hand] = intent[hand].thrust; previous.guard[hand] = intent[hand].guard; }
-  previous.natural = intent.natural.thrust;
+  for (const hand of HANDS) { previous.thrust[hand] = command.effectors[hand].aim.thrust; previous.guard[hand] = command.effectors[hand].aim.guard; }
+  previous.natural = command.natural.thrust;
 }
 export function recordBehaviourSample(record: BehaviourRecord, view: FighterView, dt: number,
   previous: { twistSign?: number }): void {
