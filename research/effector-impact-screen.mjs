@@ -54,11 +54,16 @@ export async function impactScreenCell({ terminal, plan, side = "left", seeds = 
     const reports = evidence.reports.filter(r => r.side === side);
     const primary = reports.filter(r => r.hand === "primary");
     const body = primary.filter(r => !r.blocked);
+    const strongest = body.reduce((best, report) => !best || report.energyJ > best.energyJ ? report : best, null);
     return { terminal, side, seeds, label: plan.label, plan, start, end, targetHands: [...targetHands],
       damageMargin: (start.opponent - end.opponent) - (start.own - end.own),
       primaryContacts: primary.length, primaryBlocks: primary.filter(r => r.blocked).length,
       bodyContacts: body.length, maxBodyEnergyJ: Math.max(0, ...body.map(r => r.energyJ)),
       maxBodyClosingMps: Math.max(0, ...body.map(r => r.closingSpeed)),
+      strongestBodyContact: strongest && { energyJ: strongest.energyJ, closingSpeed: strongest.closingSpeed,
+        edgeAlignment: strongest.edgeAlignment, bladeAlignment: strongest.bladeAlignment,
+        tipDistanceM: strongest.tipDistanceM, kind: strongest.kind, weapon: strongest.weapon,
+        preArmourDamage: strongest.preArmourDamage, postArmourDamage: strongest.postArmourDamage },
       preArmourDamage: body.reduce((sum, r) => sum + r.preArmourDamage, 0),
       postArmourDamage: body.reduce((sum, r) => sum + r.postArmourDamage, 0) };
   } finally { evidence?.stop(); expert.dispose(); bout?.dispose(); setChannelFlags(flags); }

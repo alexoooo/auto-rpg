@@ -7,9 +7,10 @@ apply.
 
 ## Current checkpoint (supersedes the historical notes below)
 
-Implementation through `6c3686e2` is merged into local `main`. Latest full validation:
-1089/1089 tests, typecheck and build. Repeated fetches found no incoming commits beyond `9a320286`;
-this continuation has not pushed. The working implementation checkout is
+Implementation and evidence through the 2026-09-27 trajectory follow-up are merged into local
+`main`. Latest full validation: 1095/1095 tests, typecheck and build. The workshop-fighter
+integration from `origin/main` is included; this continuation has not pushed. The working
+implementation checkout is
 `.claude/worktrees/codex-command-surface`, branch `codex-command-surface`.
 
 | Plan area | Current state |
@@ -39,6 +40,9 @@ Completed evidence is tracked under `research/results/`. Read the updated analys
   reports explain blocks and sub-threshold contacts.
 - `docs/analysis/2026-09-26-effector-impact-screen.md`: 114 forced trajectory trials, none wounding
   in the sampled state. Do not start a larger headroom campaign on the strength of this grid.
+- `docs/analysis/2026-09-27-effector-trajectory-followup.md`: 64 further blade trajectory cells;
+  a chamber raises one sampled contact to 6.25 J, still below the 10.62 J cut floor. The
+  experimental effector channel remains off and broader task actuators remain open.
 
 No development server from this continuation is left running. The owner's server is untouched.
 
