@@ -14,6 +14,7 @@ import { noneChain } from "./effectors/chains/none.ts";
 import { pitchChain } from "./effectors/chains/pitch.ts";
 import { reachChain } from "./effectors/chains/reach.ts";
 import { wristChain } from "./effectors/chains/wrist.ts";
+import { anatomicalBow, bowTerminal } from "./humanoid/bow.ts";
 import { anatomicalChain } from "./humanoid/arm.ts";
 import { humanBiped, humanTorso, humanHead } from "./humanoid/body.ts";
 import { ribcageTorso, skeletalChain, skeletonBiped, skullHead } from "./skeleton/body.ts";
@@ -265,6 +266,7 @@ export const EFFECTOR_CHAINS = {
  *  set's Session 01 appended `fist` and its Session 02 the `maul`, taking the two-socket bar
  *  from the mace. */
 export const EFFECTOR_TERMINALS = {
+  bow: bowTerminal,
   blade: bladeTerminal,
   plate: plateTerminal,
   mace: maceTerminal,
@@ -339,7 +341,8 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(torsoPlated, "torso", postureChannel),
   benchOption(headPlain, "head", naturalChannel),
   benchOption(headRam, "head", naturalChannel),
-  ...Object.values(EFFECTOR_TERMINALS).map(terminal => benchOption(effectorModule(anatomicalChain, terminal), "effector", handChannel)),
+  benchOption(anatomicalBow, "effector", handChannel),
+  ...Object.values(EFFECTOR_TERMINALS).filter(t => t.id !== "bow").map(terminal => benchOption(effectorModule(anatomicalChain, terminal), "effector", handChannel)),
   benchOption(humanBiped, "locomotion", locomotionCommand, built => ({
     lines: () => formatLocomotion(built.readout(), built.evidence()), shove: () => built.shove(),
   })),
@@ -347,7 +350,7 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(humanHead, "head", naturalChannel),
   // The skeleton, appended so every index above stays where it was: `defaultGolemSetup` reads the
   // first of each list and the bench page lists in this order.
-  ...Object.values(EFFECTOR_TERMINALS).map(terminal => benchOption(effectorModule(skeletalChain, terminal), "effector", handChannel)),
+  ...Object.values(EFFECTOR_TERMINALS).filter(t => t.id !== "bow").map(terminal => benchOption(effectorModule(skeletalChain, terminal), "effector", handChannel)),
   benchOption(skeletonBiped, "locomotion", locomotionCommand, built => ({
     lines: () => formatLocomotion(built.readout(), built.evidence()), shove: () => built.shove(),
   })),

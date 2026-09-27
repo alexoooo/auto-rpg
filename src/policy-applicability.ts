@@ -5,7 +5,7 @@ import { golemEffector, golemSetupRefusal } from "./golem/build.ts";
 import { EFFECTOR_CHAINS } from "./golem/registry.ts";
 import { bodyFamily } from "./golem/family.ts";
 
-export type PolicyRequirement = "independent-hands" | "point-primary" | "twin-blades" | "dual-strikers";
+export type PolicyRequirement = "independent-hands" | "point-primary" | "twin-blades" | "dual-strikers" | "bow";
 export type Applicability = { status: "applicable" | "fallback-only" | "incompatible"; reason: string };
 export interface PolicyBody {
   pairedHands: boolean;
@@ -20,7 +20,7 @@ export function policyBodyForSetup(build: GolemSetup): PolicyBody {
   const hand = (slot: "primary" | "secondary") => {
     const pick = build[slot], option = golemEffector(pick.chain, pick.terminal)!;
     const chain = EFFECTOR_CHAINS[option.chain];
-    return { thrust: chain.strokes.includes("thrust"), aiming: chain.pointTarget,
+    return { thrust: option.terminal !== "bow" && chain.strokes.includes("thrust"), aiming: chain.pointTarget,
       pointed: hasPoint(option.weapon), lost: false, weapon: option.weapon };
   };
   return { pairedHands: golemEffector(build.primary.chain, build.primary.terminal)!.sockets === 2,
@@ -43,6 +43,10 @@ export function assessRequirement(requirement: PolicyRequirement | undefined, bo
   if (!body) return { status: "incompatible", reason: "This policy requires golem body capabilities." };
   let reason: string;
   switch (requirement) {
+    case "bow":
+      return body.pairedHands && body.primary.weapon === "bow" && !body.primary.lost && !body.secondary.lost
+        ? { status: "applicable", reason: "" }
+        : { status: "incompatible", reason: "Requires a bow and both arms." };
     case "twin-blades":
     case "dual-strikers": {
       const allowed = requirement === "twin-blades" ? ["sword"] : ["sword", "empty"];

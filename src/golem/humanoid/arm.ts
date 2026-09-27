@@ -40,7 +40,7 @@ export const anatomicalChain = defineChain({
     const size = ctx.human ? attributeOf(ctx, "size") : 1;
     const massScale = size ** SIZE_LAW_POWER.mass, torqueScale = size ** SIZE_LAW_POWER.torque;
     const frequency = size ** SIZE_LAW_POWER.frequency, inertiaScale = size ** SIZE_LAW_POWER.inertia;
-    const geometry = ctx.human ? workshopArm(ctx.socket.outboard, size) : LEGACY_ARM_GEOMETRY;
+    const geometry = ctx.human ? workshopArm(ctx.socket.outboard, size, ctx.human.model) : LEGACY_ARM_GEOMETRY;
     const equipmentMount = ctx.human ? { axis: Vector3.Up(), perp: Vector3.Forward() } : HUMAN_MOUNT;
     const forward = (angles: readonly number[]) => armForward(angles, geometry);
     const side = ctx.socket.outboard;
@@ -61,6 +61,7 @@ export const anatomicalChain = defineChain({
     let supported = mount === "forearm";
     let forced: Vector3 | null = null, forcedOrientation: Quaternion | null = null;
     let taskSpeed = 1, taskForce = 1, exactTask = false, taskTipOffset = 0;
+    let reseedPoint: Vector3 | null = null, reseedOrientation: Quaternion | null = null;
     const socketRotation = () => ctx.socket.mount.mesh.rotationQuaternion!;
     const socketPoint = () => rotate(ctx.socket.local, socketRotation()).addInPlace(ctx.socket.mount.mesh.position);
     // **Built at guard**: the command starts at the one an un-pressed hand gives (`restCursor`), and
@@ -125,6 +126,18 @@ export const anatomicalChain = defineChain({
       // that pose and bias a reachable endpoint; joint stops and the envelope still constrain it.
       desired = solveArm(p, forced ? (forcedOrientation ? socketRotation().conjugate().multiply(forcedOrientation) : null) : orientation,
         desired, 24, exactTask ? 0 : side, supported, geometry);
+      if (exactTask && forcedOrientation && ctx.human?.model === "workshop-rogue") {
+        const wanted = socketRotation().conjugate().multiply(forcedOrientation);
+        const cost = (a: number[]) => { const f=forward(a); return Vector3.Distance(f.point,p) + rotationError(wanted,f.rotation).length()*.3; };
+        if (cost(desired)>.012 && (!reseedPoint || Vector3.Distance(reseedPoint,p)>.025
+          || !reseedOrientation || rotationError(wanted,reseedOrientation).length()>.1)) {
+          reseedPoint=p.clone();reseedOrientation=wanted.clone();
+          for (const seed of [[side*1.5,-1,0,-1.2,0,0,0],[side*1.5,-1.5,0,-.5,0,0,0],[0,-1.2,0,-2,0,0,0]]) {
+            const candidate=solveArm(p,wanted,seed,80,0,supported,geometry);
+            if(cost(candidate)<cost(desired)) desired=candidate;
+          }
+        }
+      }
       if (exactTask && Vector3.Distance(forward(desired).point, p) > .001) {
         // First restore the clamped palm; the carried endpoint is handled separately below.
         desired = solveArm(p, null, desired, 24, 0, supported, geometry);
@@ -289,14 +302,14 @@ export const anatomicalChain = defineChain({
         bodies.forEach(p => { p.body.dispose(); p.shape.dispose(); p.mesh.dispose(false, false); }); },
       // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
       captureState: (): Record<string, unknown> => ({
-        supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime, taskSpeed, taskForce, exactTask, taskTipOffset,
+        supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime, taskSpeed, taskForce, exactTask, taskTipOffset, reseedPoint, reseedOrientation,
         commanded, previousAngles, previousRotations, lastStep,
         ctx, rates, reachable, bind, bodies, constraints, actuators, groups, axes, handPivot, handWeld, geometry, lengths, size, massScale, torqueScale, frequency, inertiaScale,
         previousPoint, initial,
       }),
       restoreState(state: Record<string, unknown>): void {
         ({
-          supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime, taskSpeed, taskForce, exactTask, taskTipOffset,
+          supported, command, desired, angles, stopped, passive, forced, forcedOrientation, solveTime, taskSpeed, taskForce, exactTask, taskTipOffset, reseedPoint, reseedOrientation,
           commanded, previousAngles, previousRotations, lastStep,
         } = state as never);
       },

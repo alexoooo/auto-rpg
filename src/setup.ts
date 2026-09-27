@@ -321,7 +321,7 @@ export class SetupScreen {
         <div class="section-head">Build</div>
         <div data-side="${side}" data-wrap="humanModel" hidden>
           <label>Character <select data-side="${side}" data-field="humanModel">
-            <option value="legacy">Legacy warrior</option><option value="workshop-fighter">Workshop fighter</option>
+            <option value="legacy">Legacy warrior</option><option value="workshop-fighter">Workshop fighter</option><option value="workshop-rogue">Workshop rogue</option>
           </select></label>
           <span data-side="${side}" data-wrap="humanAppearance" hidden>
             <label><input type="checkbox" data-side="${side}" data-field="humanBoots"> Boots</label>
@@ -370,8 +370,10 @@ export class SetupScreen {
     switch (target.dataset.field) {
       case "humanModel": {
         const build=humanSetup();
-        if(target.value==="workshop-fighter")build.human={model:"workshop-fighter",boots:true,armour:true};
+        if(target.value==="workshop-fighter" || target.value==="workshop-rogue")build.human={model:target.value,boots:true,armour:target.value==="workshop-fighter"};
+        if (target.value === "workshop-rogue") { build.primary.terminal = build.secondary.terminal = "bow"; }
         this.matchup=withGolemBuild(this.matchup,side,build,randomSeed());
+        this.matchup=withPolicy(this.matchup,side,target.value === "workshop-rogue" ? "humanoid-archer" : "humanoid-duelist");
         break;
       }
       case "humanBoots":
@@ -452,6 +454,12 @@ export class SetupScreen {
           : { chain: wanted.chain, terminal: golemTerminalOptions(wanted.chain)[0]?.id ?? NO_TERMINAL };
         this.matchup = withGolemEffector(this.matchup, side, socket, legal,
           (pick) => (golemEffector(pick.chain, pick.terminal)?.sockets ?? 1) === 2);
+        if (this.matchup[side].golem?.human?.model === "workshop-rogue") {
+          const build=this.matchup[side].golem!;
+          if (build.primary.terminal !== "bow" && build.secondary.terminal === "blade")
+            build.secondary={chain:"anatomical",terminal:"fist"};
+          this.matchup=withPolicy(this.matchup,side,build.primary.terminal === "bow" ? "humanoid-archer" : "humanoid-duelist");
+        }
         break;
       }
       default:
@@ -682,8 +690,8 @@ export class SetupScreen {
           fill(chainField, golemChainOptions(family), pick.chain);
           // Only the terminals this chain is actually offered with, which is the picker "hides
           // pairs the registry does not have" with the registry itself as the list.
-          fill(terminalField, golemTerminalOptions(pick.chain).filter(option=>!build.human
-            || (socket==="primary"?["blade","fist"]:["plate","fist"]).includes(option.id)), pick.terminal);
+          fill(terminalField, golemTerminalOptions(pick.chain).filter(option=>(!build.human && option.id !== "bow")
+            || (socket==="primary"?(build.human?.model==="workshop-rogue"?["bow","blade","fist"]:["blade","fist"]):(build.human?.model==="workshop-rogue"?["plate","fist","bow"]:["plate","fist"])).includes(option.id)), pick.terminal);
           // And the bin beside the shelf. A key the bin no longer holds is offered back as a
           // disabled row naming itself, which is exactly how an incompatible policy is shown
           // above -- the person sees what happened, and `refusal` blocks Fight until they choose.

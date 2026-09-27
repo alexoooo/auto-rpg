@@ -369,18 +369,18 @@ const onBoneArm = (limits: ChainLimits | null): ChainLimits | null => limits && 
  * chain's inboard floors rather than narrowing them, and the grip it serves is taken and held on
  * this arm (the maul row beside `SKELETAL_REACH`).
  */
-const SKELETAL_TERMINALS: Readonly<Record<TerminalId, EffectorTerminalDefinition>> = Object.freeze({
+const SKELETAL_TERMINALS: Readonly<Record<Exclude<TerminalId, "bow">, EffectorTerminalDefinition>> = Object.freeze({
   blade: bladeTerminal, plate: plateTerminal, mace: maceTerminal,
   whip: whipTerminal, maul: maulTerminal, fist: fistDefinition(SKELETAL_FIST),
 });
-const SKELETAL_FITS: Readonly<Record<TerminalId, EffectorTerminalDefinition>> = Object.freeze(
+const SKELETAL_FITS: Readonly<Record<Exclude<TerminalId, "bow">, EffectorTerminalDefinition>> = Object.freeze(
   Object.fromEntries(Object.entries(SKELETAL_TERMINALS).map(([id, terminal]) =>
     [id, Object.freeze({ ...terminal, limits: onBoneArm(terminal.limits) })])) as
-    Record<TerminalId, EffectorTerminalDefinition>,
+    Record<Exclude<TerminalId, "bow">, EffectorTerminalDefinition>,
 );
 
 export const skeletalEquipment = (terminal: EffectorTerminalDefinition): EffectorTerminalDefinition =>
-  SKELETAL_FITS[terminal.id];
+  terminal.id === "bow" ? terminal : SKELETAL_FITS[terminal.id];
 
 export const skeletalChain = wristChainFrom("skeletal", "skeletal arm - reach plus roll and bend",
   SKELETAL_REACH, SKELETAL_WRIST, { fitTerminal: skeletalEquipment, armour: SKELETON_ARMOUR });

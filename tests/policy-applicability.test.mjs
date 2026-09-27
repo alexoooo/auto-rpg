@@ -35,6 +35,7 @@ test("every registered effector's setup declaration agrees with a real assembled
   for (const option of GOLEM_EFFECTORS) {
     const pick = { chain: option.chain, terminal: option.terminal ?? "none" };
     const build = { ...FAMILY_SETUP[moduleFamily(option.chain)](), primary: pick, secondary: pick };
+    if (option.terminal === "bow") build.human = { model: "workshop-rogue", boots: true, armour: false };
     const bout = createBout({ left: "idle", right: "idle", seeds: [7, 8], maxSeconds: 1,
       leftGolem: build, rightGolem: defaultGolemSetup(), locomotionMode: "supported", physics: await freshHavok() });
     try {

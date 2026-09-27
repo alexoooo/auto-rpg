@@ -21,6 +21,7 @@ import labEntries from "./golem/researched-lab.json" with { type: "json" };
  * overrides either with something better.
  */
 const POLICY_LINES: Readonly<Record<string, string>> = Object.freeze({
+  "humanoid-archer": "Keeps bow range, turns side-on to draw and shoot, and retreats when an opponent closes.",
   // src/mind.ts, idleMind
   "idle": "Stands still with its weapon held out and never attacks, a do-nothing baseline.",
   // src/golem/golem-policies.ts and src/golem/tactics.ts

@@ -54,7 +54,7 @@ export type ChainId = "none" | "pitch" | "reach" | "wrist" | "anatomical" | "ske
 
 /** The terminal shelf. `blade` is built in Session 02; `plate`, `mace` and `whip` are
  *  Session 04's; `fist` is Session 01 of the matchup set's. */
-export type TerminalId = "blade" | "plate" | "mace" | "whip" | "fist" | "maul";
+export type TerminalId = "blade" | "plate" | "mace" | "whip" | "fist" | "maul" | "bow";
 
 /**
  * One severable piece of a module.
@@ -65,6 +65,7 @@ export type TerminalId = "blade" | "plate" | "mace" | "whip" | "fist" | "maul";
  * (house rule), so a shell mesh has no body and may be absent entirely.
  */
 export interface GolemPart {
+  readonly visualSlot?: GolemSlot;
   /** Explicit anatomy/equipment classification; absent preserves legacy golem behavior. */
   readonly combatRole?: "body" | "equipment";
   readonly appearance?: "human";
@@ -421,6 +422,8 @@ export interface ModuleBuild {
 }
 
 export interface BuiltModule<Command> {
+  ranged?(): import("../archery.ts").RangedView;
+  publishProjectiles?(into: import("../mind.ts").ProjectileView[], at: number, owner: "self" | "opponent"): number;
   readonly parts: readonly GolemPart[];
   readonly strikers: readonly Striking[];
   /** Once per control boundary. */

@@ -73,10 +73,11 @@ test("over_a_few_hundred_draws_every_option_of_every_slot_appears", () => {
   assert.deepEqual([...seen.torso].sort(), ids(golemTorsoOptions()));
   assert.deepEqual([...seen.head].sort(), ids(golemHeadOptions()));
   const offered = golemChainOptions().flatMap((chain) =>
-    golemTerminalOptions(chain.id).map((terminal) => `${chain.id}+${terminal.id}`)).sort();
+    golemTerminalOptions(chain.id).filter(terminal => terminal.id !== "bow").map((terminal) => `${chain.id}+${terminal.id}`)).sort();
   assert.deepEqual([...seen.effector].sort(), offered,
     "every chain-and-terminal pair the registry offers is drawn, and nothing it does not");
-  assert.equal(offered.length, GOLEM_EFFECTORS.length, "the option lists are the registry's");
+  assert.equal(offered.length, GOLEM_EFFECTORS.filter(option => option.terminal !== "bow").length,
+    "random legacy bodies exclude the workshop-only bow");
 });
 
 test("a_two_socket_terminal_drawn_in_either_socket_claims_both", () => {

@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/character-lab/realistic'))
 from grip_fit import fit, fit_thumb
 
-source = json.loads((ROOT / 'assets/humanoid/workshop-fighter.json').read_text())
+model = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'fighter'
+source = json.loads((ROOT / f'assets/humanoid/workshop-{model}.json').read_text())
 rig = bpy.data.objects['WorkshopRig']
 skin = bpy.data.objects['base__skin']
 rig.animation_data_clear()
@@ -48,6 +49,6 @@ for step in range(13):
         for j, q in enumerate(fit_thumb(rig, skin, side, frame, centre, .018 * k / size, half=.075 * k / size)):
             closed[f'thumb_{j+1:02}_{side}'] = list(q)
     samples.append({'size': size, 'closed': closed})
-out = ROOT / 'assets/humanoid/workshop-size-grips.json'
+out = ROOT / ('assets/humanoid/workshop-size-grips.json' if model == 'fighter' else f'assets/humanoid/workshop-{model}-size-grips.json')
 out.write_text(json.dumps({'sourceSha256': source['source']['sha256'], 'samples': samples}, indent=2) + '\n')
 print('Wrote', out)

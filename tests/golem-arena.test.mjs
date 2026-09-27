@@ -134,7 +134,7 @@ test("a_two_socket_terminal_claims_both_effector_sockets_and_a_third_is_refused_
   assert.ok(maul, "the maul is registered on at least one chain");
   assert.equal(maul.sockets, 2);
   for (const option of GOLEM_EFFECTORS) {
-    assert.equal(option.sockets, option.terminal === "maul" ? 2 : 1, option.id);
+    assert.equal(option.sockets, ["maul", "bow"].includes(option.terminal) ? 2 : 1, option.id);
   }
 
   const both = {

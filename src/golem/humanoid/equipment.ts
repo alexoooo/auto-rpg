@@ -9,8 +9,8 @@ import type { EffectorTerminalDefinition, TerminalId } from "../module.ts";
 
 // Equipment fitted for a human grip. Mass belongs to the terminal and therefore reaches
 // both Havok and impact scoring; no post-construction mass override can leave them apart.
-const labels: Record<TerminalId, string> = { blade: "Arming sword", plate: "Heater shield", mace: "Mace", maul: "Maul (two hands)", whip: "Whip", fist: "Empty hand" };
-const fitted: Record<TerminalId, EffectorTerminalDefinition> = {
+const labels: Record<TerminalId, string> = { bow: "Bow (two hands)", blade: "Arming sword", plate: "Heater shield", mace: "Mace", maul: "Maul (two hands)", whip: "Whip", fist: "Empty hand" };
+const fitted: Record<Exclude<TerminalId, "bow">, EffectorTerminalDefinition> = {
   blade: bladeDefinition(0.065),
   fist: fistDefinition({ ...TERMINAL_FIST, radius: 0.045, mass: 0.35 }),
   mace: maceDefinition({ ...TERMINAL_MACE, mass: 1.8, gripFromButt: 0.07, haftRadius: 0.012, limits: { ...TERMINAL_MACE.limits, rollMax: null, bendMax: 1.25 } }),
@@ -19,6 +19,6 @@ const fitted: Record<TerminalId, EffectorTerminalDefinition> = {
   whip: whipDefinition({ ...TERMINAL_WHIP, segmentMass: 0.08, segmentRadius: 0.012, gripFromButt: 0.06 }),
 };
 export const humanEquipment = (terminal: EffectorTerminalDefinition): EffectorTerminalDefinition =>
-  ({ ...fitted[terminal.id], label: labels[terminal.id], attachment: terminal.id === "plate" ? "forearm" : "hand",
+  terminal.id === "bow" ? terminal : ({ ...fitted[terminal.id], label: labels[terminal.id], attachment: terminal.id === "plate" ? "forearm" : "hand",
     partRole: terminal.id === "fist" ? "body" : "equipment",
     ...(terminal.id === "fist" ? { appearance: "human" as const } : {}) });

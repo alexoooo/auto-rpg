@@ -5,23 +5,29 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { Bone } from "@babylonjs/core/Bones/bone.js";
 import { Skeleton } from "@babylonjs/core/Bones/skeleton.js";
 import { visiblePart } from "../../character-lab/catalog.ts";
-import { WORKSHOP_SHIELD_BOUNDS } from "./workshop-equipment.ts";
+import { workshopEquipmentProfile } from "./workshop-equipment.ts";
 import { workshopCaps } from "./workshop-caps.ts";
 import { compactWorkshopRegion } from "./workshop-region.ts";
 import { publicAssetUrl } from "../../asset-url.ts";
-import { WORKSHOP_SOURCE, workshopGrips, type HumanAppearanceSetting } from "./workshop-profile.ts";
+import { workshopSource, workshopGrips, WORKSHOP_STRING_HOOK, WORKSHOP_BOW, type HumanAppearanceSetting } from "./workshop-profile.ts";
 import type { HumanVisualPart } from "./appearance.ts";
 
-const assets = new WeakMap<Scene, AssetContainer>();
+const assets = new WeakMap<Scene, Map<string, AssetContainer>>();
 export async function loadWorkshopAssets(scene: Scene): Promise<void> {
   if (assets.has(scene) || !scene.getEngine().getRenderingCanvas()) return;
-  const container = await LoadAssetContainerAsync(publicAssetUrl("/assets/humanoid/workshop-fighter.glb"), scene);
-  assets.set(scene, container);
-  scene.onDisposeObservable.addOnce(() => container.dispose());
+  const models = new Map<string, AssetContainer>();
+  for (const model of ["workshop-fighter", "workshop-rogue"]) {
+    const container = await LoadAssetContainerAsync(publicAssetUrl(`/assets/humanoid/${model}.glb`), scene);
+    models.set(model, container);
+    scene.onDisposeObservable.addOnce(() => container.dispose());
+  }
+  assets.set(scene, models);
 }
 
 const local = (node: TransformNode): Matrix => Matrix.Compose(node.scaling,
@@ -33,8 +39,10 @@ const palette = (skeleton: Skeleton) => new Map(skeleton.bones.map((bone,index)=
 
 /** Only achieved physical transforms enter this adapter. It owns no animation or collision. */
 export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPart[], side: string,
-  setting: HumanAppearanceSetting, kit: "empty" | "sword" | "shield" | "sword-shield", size = 1) {
-  const asset = assets.get(scene);
+  setting: HumanAppearanceSetting, kit: "empty" | "sword" | "shield" | "sword-shield" | "bow", size = 1) {
+  const asset = assets.get(scene)?.get(setting.model);
+  const WORKSHOP_SOURCE = workshopSource(setting.model);
+  const {WORKSHOP_SHIELD_BOUNDS} = workshopEquipmentProfile(setting.model);
   if (!asset) {
     if (scene.getEngine().getRenderingCanvas()) throw new Error("Workshop fighter assets were not loaded before construction");
     return null;
@@ -54,7 +62,7 @@ export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPa
   const hosts = new Map(parts.map(part => [`${part.slot}.${part.id.split(".").pop()}`, part.host]));
   const frames = WORKSHOP_SOURCE.frames as Record<string, {position:number[];rotation:number[]}>;
   const definitions = WORKSHOP_SOURCE.bones as Record<string, {host:string}>;
-  const fingers = workshopGrips(kit, size);
+  const fingers = workshopGrips(kit, size, setting.model);
   const rows = nodes.filter(node => definitions[originalName(node)]).map(node => {
     const name = originalName(node), key = definitions[name].host;
     const rest = globals.get(node)!.clone(), restLocal = local(node);
@@ -66,10 +74,36 @@ export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPa
     return { node, name, key, rest, restLocal, finger: !!finger, inverse: Matrix.Invert(compose(frames[key])) };
   });
   const meshes: Mesh[] = [];
+  const bowMeshes: Mesh[] = [];
+  let string: ReturnType<typeof MeshBuilder.CreateLines> | null = null;
   for (const mesh of nodes.filter((node): node is Mesh => node instanceof Mesh && node.getTotalVertices() > 0)) {
     const name = originalName(mesh);
     mesh.setEnabled(visiblePart(name,{...setting,weapon:kit}));
     mesh.receiveShadows = true;
+    if(name.startsWith("bow__")) {
+      const host=hosts.get("secondary.bow");
+      if(!host || name==="bow__string") { mesh.dispose(false,false);continue; }
+      const rest=Matrix.Translation(...WORKSHOP_SOURCE.palm.secondary as [number,number,number]).multiply(compose(frames["secondary.hand"]));
+      mesh.makeGeometryUnique();mesh.skeleton=null;
+      mesh.bakeTransformIntoVertices(globals.get(mesh)!.multiply(Matrix.Invert(rest)));
+      if(name === "bow__arrow") {
+        const points=WORKSHOP_BOW.bow__arrow;
+        const tail=[...points].sort((a,b)=>b[1]-a[1]).slice(0,8)
+          .reduce((sum,p)=>sum.addInPlace(Vector3.FromArray(p)),Vector3.Zero()).scale(1/8);
+        const tip=Vector3.FromArray(points.reduce((a,b)=>a[1]<b[1]?a:b));
+        const axis=tip.subtract(tail), ratio=.95/axis.length();axis.normalize();
+        const origin=tail.subtract(Vector3.FromArray(WORKSHOP_SOURCE.palm.secondary));
+        const vertices=mesh.getVerticesData("position")!;
+        for(let i=0;i<vertices.length;i+=3) {
+          const p=Vector3.FromArray(vertices,i), along=Vector3.Dot(p.subtract(origin),axis);
+          p.addInPlace(axis.scale(along*(ratio-1)));p.toArray(vertices,i);
+        }
+        mesh.setVerticesData("position",vertices);
+      }
+      mesh.parent=host;mesh.position.setAll(0);mesh.scaling.setAll(1);mesh.rotationQuaternion=Quaternion.Identity();
+      mesh.metadata={...mesh.metadata,humanSlot:"secondary",humanLayer:"equipment"};meshes.push(mesh);bowMeshes.push(mesh);
+      continue;
+    }
     if(name.startsWith("sword__")||name.startsWith("shield__")) {
       const sword=name.startsWith("sword__"),slot=sword?"primary":"secondary",host=hosts.get(`${slot}.${sword?"blade":"plate"}`);
       if(!host) { mesh.dispose(false,false);continue; }
@@ -135,7 +169,39 @@ export function dressWorkshopFighter(scene: Scene, parts: readonly HumanVisualPa
     mesh.dispose(false,false);
   }
   for (const part of parts) { part.host.isVisible=false; for (const shell of part.shells) shell.isVisible=false; }
+  const bowHost=hosts.get("secondary.bow");
+  // The authored arrow already slopes upward in the hand frame. Rotate its actual
+  // shaft axis, not a guessed -Y axis, or its tip floats above the arrow rest.
+  const arrowPoints = WORKSHOP_BOW.bow__arrow;
+  const tailPoints = [...arrowPoints].sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const sourceTail = tailPoints.reduce((sum,p)=>sum.addInPlace(Vector3.FromArray(p)),Vector3.Zero()).scale(1/8);
+  const sourceTip = Vector3.FromArray(arrowPoints.reduce((a,b)=>a[1]<b[1]?a:b));
+  const sourceAxis = sourceTip.subtract(sourceTail).normalize();
+  if(bowHost) {
+    string=MeshBuilder.CreateLines(`workshop.${side}.string`,{points:[Vector3.Zero(),Vector3.Zero(),Vector3.Zero()],updatable:true},scene);
+    string.color=new Color3(.7,.65,.5);string.isPickable=false;meshes.push(string);
+  }
   const update = () => {
+    if(bowHost && string) {
+      const q=bowHost.rotationQuaternion!, palm=Vector3.FromArray(WORKSHOP_SOURCE.palm.secondary);
+      const world=(p:Vector3)=>p.subtract(palm).rotateByQuaternionToRef(q,new Vector3()).add(bowHost.position);
+      const upper=world(new Vector3(.03774,.1053,.57359)),lower=world(new Vector3(.03774,.1053,-.59772));
+      const hand=hosts.get("primary.hand")!;
+      const nock=Vector3.FromArray(WORKSHOP_STRING_HOOK).scale(size).rotateByQuaternionToRef(hand.rotationQuaternion!,new Vector3()).add(hand.position);
+      const state=bowHost.metadata?.archery;
+      const loaded=state && (state.phase==="draw"||state.phase==="aim"||state.phase==="raise");
+      MeshBuilder.CreateLines(string.name,{points:[upper,loaded?nock:Vector3.Lerp(upper,lower,.5),lower],instance:string},scene);
+      const arrow=bowMeshes.find(m=>originalName(m)==="bow__arrow");
+      if(arrow) {
+        arrow.setEnabled(!!loaded);
+        const sourceNock=sourceTail.subtract(palm);
+        const inverse=q.conjugate(), localNock=nock.subtract(bowHost.position).rotateByQuaternionToRef(inverse,new Vector3());
+        const rest=world(new Vector3(.03774,-.0314,.075));
+        const direction=rest.subtract(nock).normalize().rotateByQuaternionToRef(inverse,new Vector3());
+        const rotation=Quaternion.Identity();Quaternion.FromUnitVectorsToRef(sourceAxis,direction,rotation);
+        arrow.rotationQuaternion=rotation;arrow.position.copyFrom(localNock.subtract(sourceNock.rotateByQuaternionToRef(rotation,new Vector3())));
+      }
+    }
     const achieved = new Map<TransformNode,Matrix>();
     for (const row of rows) {
       const parent = row.node.parent as TransformNode;

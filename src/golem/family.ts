@@ -39,7 +39,7 @@ export const FAMILY_FIXED_ATTRIBUTES: Readonly<Record<BodyFamily, Readonly<Parti
 
 /** Restrictions belong to the actual model: the workshop rig supports Size. */
 export function fixedAttributes(setup: { family?: BodyFamily; locomotion: string; human?: { model: string } }) {
-  return setup.human?.model === "workshop-fighter" && bodyFamily(setup) === "human"
+  return (setup.human?.model === "workshop-fighter" || setup.human?.model === "workshop-rogue") && bodyFamily(setup) === "human"
     ? FAMILY_FIXED_ATTRIBUTES.golem : FAMILY_FIXED_ATTRIBUTES[bodyFamily(setup)];
 }
 

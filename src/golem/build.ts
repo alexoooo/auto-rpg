@@ -17,7 +17,9 @@ import {
 import { effectorModule } from "./effectors/effector.ts";
 import { headPlain } from "./head/plain.ts";
 import { headRam } from "./head/ram.ts";
-import { humanBiped, humanTorso, humanHead, workshopBiped, workshopTorso, workshopHead } from "./humanoid/body.ts";
+import { humanBiped, humanTorso, humanHead, workshopBody } from "./humanoid/body.ts";
+import { isWorkshopModel } from "./humanoid/workshop-profile.ts";
+import { anatomicalBow } from "./humanoid/bow.ts";
 import { anatomicalChain } from "./humanoid/arm.ts";
 import { workshopEquipment } from "./humanoid/workshop-equipment.ts";
 import { ribcageTorso, skeletonBiped, skullHead } from "./skeleton/body.ts";
@@ -99,11 +101,11 @@ const byId = <T extends { readonly id: string }>(list: readonly T[], id: string)
   list.find((entry) => entry.id === id) ?? null;
 
 export const golemLocomotion = (id: string, human?: GolemSetup["human"]): LocomotionModuleDefinition | null =>
-  human && id === humanBiped.id ? workshopBiped : byId(GOLEM_LOCOMOTION, id);
+  human && id === humanBiped.id ? workshopBody(human.model).legs : byId(GOLEM_LOCOMOTION, id);
 export const golemTorso = (id: string, human?: GolemSetup["human"]): TorsoModuleDefinition | null =>
-  human && id === humanTorso.id ? workshopTorso : byId(TORSOS, id);
+  human && id === humanTorso.id ? workshopBody(human.model).torso : byId(TORSOS, id);
 export const golemHead = (id: string, human?: GolemSetup["human"]): HeadModuleDefinition | null =>
-  human && id === humanHead.id ? workshopHead : byId(HEADS, id);
+  human && id === humanHead.id ? workshopBody(human.model).head : byId(HEADS, id);
 
 // ------------------------------------------------------------------------------- the effectors
 
@@ -130,6 +132,7 @@ export const golemHead = (id: string, human?: GolemSetup["human"]): HeadModuleDe
  * the planner is not.
  */
 export const TERMINAL_DESCRIPTION: Record<TerminalId, WeaponKind> = Object.freeze({
+  bow: "bow",
   blade: "sword",
   plate: "shield",
   mace: "club",
@@ -176,7 +179,7 @@ export const GOLEM_EFFECTORS: readonly GolemEffectorOption[] = Object.freeze(
     if (!chain) return [];
     const terminal = parts.length === 3 ? terminalOf(parts[2]) : null;
     if (parts.length === 3 && !terminal) return [];
-    const definition = effectorModule(chain, terminal);
+    const definition = terminal?.id === "bow" ? anatomicalBow : effectorModule(chain, terminal);
     if (definition.id !== id) return [];
     return [Object.freeze({
       id,
@@ -309,7 +312,7 @@ export function randomGolemSetup(rng: () => number, family: BodyFamily = "golem"
   };
   const socket = (): GolemEffectorSetup => {
     const chain = pick(golemChainOptions(family)).id;
-    return { chain, terminal: pick(golemTerminalOptions(chain)).id };
+    return { chain, terminal: pick(golemTerminalOptions(chain).filter(option => option.id !== "bow")).id };
   };
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const primary = socket();
@@ -396,11 +399,13 @@ const listed = (words: readonly string[]): string =>
  * never went near the screen is checked.
  */
 export function golemSetupRefusal(setup: GolemSetup): string | null {
-  if (setup.human && (setup.human.model !== "workshop-fighter"
+  const archer = setup.human?.model === "workshop-rogue" && setup.primary.terminal === "bow" && setup.secondary.terminal === "bow";
+  if ((setup.primary.terminal === "bow" || setup.secondary.terminal === "bow") && !archer) return "Bow requires the workshop rogue and both hands.";
+  if (setup.human && (!isWorkshopModel(setup.human.model)
     || typeof setup.human.boots !== "boolean" || typeof setup.human.armour !== "boolean"
     || bodyFamily(setup) !== "human"
-    || !["blade", "fist"].includes(setup.primary.terminal ?? "")
-    || !["plate", "fist"].includes(setup.secondary.terminal ?? ""))) {
+    || (!archer && !["blade", "fist"].includes(setup.primary.terminal ?? ""))
+    || (!archer && !["plate", "fist"].includes(setup.secondary.terminal ?? "")))) {
     return "Workshop fighter requires a human body, sword or empty right hand, and shield or empty left hand.";
   }
   if (!golemLocomotion(setup.locomotion)) {
@@ -482,10 +487,11 @@ export function golemEffectorPlan(setup: GolemSetup): GolemEffectorPlan {
   const primary = golemEffector(setup.primary.chain, setup.primary.terminal);
   const secondary = golemEffector(setup.secondary.chain, setup.secondary.terminal);
   if (!primary || !secondary) throw new Error("golem effector plan lost an option it had just found");
+  if (setup.primary.terminal === "bow") return Object.freeze({ primary, secondary: null });
   if (setup.human) {
     const {size, weight} = resolveAttributes(setup);
     const fit = (option: GolemEffectorOption): GolemEffectorOption => ({ ...option,
-      definition: effectorModule({ ...anatomicalChain, fitTerminal: terminal => workshopEquipment(terminal, size, weight) }, terminalOf(option.terminal!)) });
+      definition: effectorModule({ ...anatomicalChain, fitTerminal: terminal => workshopEquipment(terminal, size, weight, setup.human!.model) }, terminalOf(option.terminal!)) });
     return Object.freeze({primary:fit(primary),secondary:fit(secondary)});
   }
   return Object.freeze({ primary, secondary: primary.sockets === 2 ? null : secondary });

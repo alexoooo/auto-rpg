@@ -162,7 +162,7 @@ for (const id of EFFECTOR_IDS) {
       // would mostly miss, and one that scored with all eight would bruise with its own handle.
       assert.ok(module.strikers.length >= 1, "a terminal that offers no striker scores nothing");
       // A whip's lash bites with its weight and its last few beads.
-      assert.equal(module.strikers.length, id.endsWith(".whip") ? TERMINAL_WHIP.strikingSegments + 1 : 1);
+      assert.equal(module.strikers.length, id.endsWith(".bow") ? 12 : id.endsWith(".whip") ? TERMINAL_WHIP.strikingSegments + 1 : 1);
       const view = module.view();
       assert.ok(view, "an effector publishes a view");
       assert.equal(view.slot, "primary");
@@ -1969,7 +1969,7 @@ test("a_skeletal_arm_publishes_each_terminals_reach_scaled_to_its_length", async
     companion: stand.socket("secondary"), layers: golemLayers("left"), materials: stand.materials,
   });
   try {
-    for (const [id, terminal] of Object.entries(EFFECTOR_TERMINALS)) {
+    for (const [id, terminal] of Object.entries(EFFECTOR_TERMINALS).filter(([id]) => golemModule(`effector.skeletal.${id}`))) {
       const built = golemModule(`effector.skeletal.${id}`).build(ctx(`scaled.${id}`));
       try {
         const reach = built.envelope().axes.find((axis) => axis.id === "reach");

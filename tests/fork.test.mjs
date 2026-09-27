@@ -56,6 +56,7 @@ const AUDIT_PAIRS = [
   [golem("locomotion.biped", "torso.plain", "head.plain", ["reach", "maul"], ["reach", "maul"]),
     golem("locomotion.wheel", "torso.plain", "head.ram", ["wrist", "fist"], ["none", "none"])],
   [humanSetup("maul", "maul"), skeletonSetup("fist", "whip")],
+  [humanSetup("bow", "bow"), humanSetup()],
 ];
 
 /** Two golems nobody would field: three legs and one arm, against a wheeled head-rammer. */
