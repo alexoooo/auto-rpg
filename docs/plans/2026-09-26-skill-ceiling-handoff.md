@@ -44,6 +44,20 @@ superseded plain-step run. Latest code validation: 1081 tests, check/build; this
 archives evidence and updates the plans. Remote main fetched again: it includes `9a320286`;
 local reporting commit `4d167705` is ahead and nothing incoming requires a merge.
 
+### Release-2 resume and directory ownership
+
+The historical fist-family run had 18 rows, 17 unique jobs and one duplicate with identical
+physical results. A deduplicated copy now resumes at
+`research/runs/release2-continuation/family-fists-expert`; the old worktree files are untouched.
+Its older manifest needed only `flags: {}`; the runner then accepted the unchanged schedule hash,
+protocol and body definitions. The mace/maul size runs have 44/34 unique rows with no duplicates;
+the expert-versus-brawler directory has a manifest but no completed result file.
+
+The headroom CLI now holds the existing `lockRun` through scheduling, appends and summary writes,
+including summary-only mode, and releases it in `finally`. This prevents the concurrent writers
+that produced the historical duplicate. Tests cover live-owner refusal and cleanup after a bad
+resume or successful summary; both missing-lock and leaked-lock mutations are caught.
+
 ### Human arm limit continuation
 
 `research/human-arm-limits.mjs` now separates motor-ceiling and command-rate sensitivity over
