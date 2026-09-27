@@ -56,7 +56,8 @@ screen. The updated release-2 questions and `research/results/2026-09-26-skeleto
 record the result, provenance and an exact historical replay.
 
 Mace/maul size copies have 44/34 unique historical rows with no duplicates, under the same
-`research/runs/release2-continuation/` parent. Mace has resumed toward 64; run maul next, then
+`research/runs/release2-continuation/` parent. Mace completed 64/64 with no failures: size 1.1 wins 93.8 %, versus 62.5 % for the x1
+mirror, a paired +31.3 points [12.5, 43.8]. Smaller sizes lose heavily. Maul is now running, then
 `attr-expert-v-brawler` (a manifest but no historical result rows). Run only one campaign at a time.
 
 The headroom CLI now holds the existing `lockRun` through scheduling, appends and summary writes,

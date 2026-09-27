@@ -15,7 +15,7 @@ harness override, named with its run.
 | 5(b), x1.1 walker | answered | The walker cannot choose its range. Its 0.80 hold jams its strokes | accept; consider hold 0.88 |
 | 2(b), fists and whip in their family | complete: naive 768; whip expert 16; fists expert 32 | They lose under equal naive minds. The expert wins with both, slowly | accept as weak builds |
 | 13(a), stability and recovery | partial: 3 of 4 runs; expert against brawler not run | Recovery pays only for the expert on the skeleton. Stability's high end pays nothing | look at the skeleton's floor time, then stability's reach |
-| 16, size on mace and maul | NOT YET MEASURED (runs partial, unread) | -- | -- |
+| 16, size on mace and maul | mace complete; maul running | size pays strongly on mace under the expert | await maul; defaults unchanged |
 | 17, survive-cut | answered | The rest guard survives the cut on five humans (97.5 to 100 %) | accept; report "passes at rest" |
 | 4(a), human arm energy | answered (table) | 1/4 to 1/10 of stone's momentum, mostly speed | rate sensitivity dominates the normal stroke; defaults unchanged |
 
@@ -520,28 +520,38 @@ waist doing.
 Compute: 80 expert bouts on 4 lanes, 14:37 to 16:06; 320 + 320 naive bouts on 3 lanes, 16:07 to
 17:00. The expert-against-brawler cells were not run.
 
-## 5. Item 16: size with the expert on the mace and the maul -- NOT YET MEASURED
+## 5. Item 16: size with the expert on the mace and the maul
 
-**Status: partial runs exist, but nobody has read them.** The session was wound down while they
-ran. Neither run has a summary yet, and this section draws no conclusion.
+**Mace complete; maul running.** Node bout runner, research PROTOCOL, expert c8/h1 mirror,
+8 corner-swapped seed pairs per cell. A has the named size, B stays at 1. The mace continuation
+finished 64/64 bouts with no failures: 44 historical rows plus 20 new rows, 889 s on four lanes.
+No duplicate job IDs were present. A historical mace cell replay exactly reproduced seeds,
+verdict, duration and vitality. Evidence: `research/results/2026-09-26-mace-size-expert.json`.
 
-- `research/runs/release2/size-mace-expert`: 64 bouts queued (sizes 0.8, 0.9 and 1.1, plus a
-  control; 8 corner-swapped pairs a cell; the expert mirror on the stone mace). It was stopped at
-  17:18 after about 70 minutes on 4 lanes.
-- `research/runs/release2/size-maul-expert`: the same design on the stone maul. The log read 12 of
-  64 at 16:07; the run was stopped at 17:18.
-  - Two runners wrote to this directory in its last minutes, and so did two to
-    `family-fists-expert` (see "Process notes" below).
-  - Check `results.jsonl` for duplicate job ids before summarising either run.
+| A size | A score %, pair-bootstrap interval | bar margin | A / B falls per minute | A / B down % |
+|---|---|---:|---:|---:|
+| 1 (control) | 62.5 [37.5, 81.3] | 0.122 | 0.42 / 1.48 | 1.3 / 7.4 |
+| 0.8 | 0.0 [0.0, 0.0] | -0.720 | 13.32 / 0.15 | 54.5 / 0.8 |
+| 0.9 | 12.5 [0.0, 25.0] | -0.490 | 9.32 / 0.14 | 40.6 / 0.7 |
+| 1.1 | 93.8 [81.3, 100.0] | 0.377 | 0.00 / 6.17 | 0.0 / 28.0 |
 
-Resume, one at a time, and then summarise:
+The x1 mirror is not exactly 50 % at this sample size. Pairing each size with that control on
+shared seeds gives score changes of -62.5 points [-81.3, -37.5] at 0.8, -50.0 [-75.0, -25.0]
+at 0.9, and +31.3 [12.5, 43.8] at 1.1. Corresponding margin changes are -0.841 [-0.967, -0.720],
+-0.612 [-0.781, -0.441], and +0.256 [0.173, 0.339] bars. Size clearly pays on the stone mace
+under this expert. The small body spends much more of the bout down; these data do not isolate
+reach, momentum and balance as causes. An all-loss bootstrap interval is not population certainty.
+No shipped body/default changes follow automatically.
 
-    node research/headroom.mjs --exp attributes --attributes size --build mace --levels 0.8,0.9,1.1 --minds "expert@c8,h1" --pairs 8 --lanes 4 --out research/runs/release2/size-mace-expert
-    node research/headroom.mjs --exp attributes --attributes size --build maul --levels 0.8,0.9,1.1 --minds "expert@c8,h1" --pairs 8 --lanes 4 --out research/runs/release2/size-maul-expert
-    node research/headroom.mjs --exp attributes --summary --out research/runs/release2/size-mace-expert
+Maul resumes from 34 unique historical rows toward 64 in
+`research/runs/release2-continuation/size-maul-expert`. Its historical replay also matched exactly.
+Original worktree data remain untouched; the copies add only an explicit empty flags field to
+legacy manifests, with schedule/build/protocol validation intact. Run the brawler comparison next.
 
-(Add the same selection flags to `--summary` if it asks for them.) Price: a maul expert bout took
-about 11 lane-minutes. Each run is about 3 to 4 hours on 3 to 4 lanes.
+Reproduce the completed mace summary and fall table:
+
+    node research/headroom.mjs --exp attributes --summary --out research/runs/release2-continuation/size-mace-expert
+    node research/release2-attr-falls.mjs research/runs/release2-continuation/size-mace-expert
 
 ## 6. Item 17: why survive-cut is void on five human bodies
 
