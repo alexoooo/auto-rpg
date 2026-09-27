@@ -199,6 +199,8 @@ interface ArmCore {
    * exactly the argument a cursor is.
    */
   commandPoint(world: Vector3): void;
+  /** Task requests narrow the existing motors; a legacy command restores both full ceilings. */
+  setTaskDrive(speed: number, force: number): void;
   step(dt: number): void;
   /** Release the joint motors and keep the linkage. See `BuiltChain.unmotorise`. */
   unmotorise(): void;
@@ -485,9 +487,9 @@ export function buildArmCore(
   };
   const driveJoints = (dt: number): void => {
     const { alpha, beta } = twoBone(R, slewed.reach);
-    yawServo.track(outboard * slewed.swing, dt, R.yawTorque);
-    pitchServo.track(-(slewed.lift + Math.PI / 2 - alpha), dt, R.shoulderTorque);
-    elbowServo.track(-beta, dt, R.elbowTorque);
+    yawServo.track(outboard * slewed.swing, dt, R.yawTorque * taskForce);
+    pitchServo.track(-(slewed.lift + Math.PI / 2 - alpha), dt, R.shoulderTorque * taskForce);
+    elbowServo.track(-beta, dt, R.elbowTorque * taskForce);
   };
 
   const handPivot = new Vector3(0, -R.foreLength / 2, 0);
@@ -604,6 +606,8 @@ export function buildArmCore(
   let driveAge = 0;
   /** Set once by `unmotorise`: this limb is being carried rather than driven. */
   let passive = false;
+  let taskSpeed = 1;
+  let taskForce = 1;
 
   const axisViews = [
     { id: "reach", commanded: buildReach, achieved: buildReach },
@@ -842,6 +846,11 @@ export function buildArmCore(
       sphericalOf(world, wanted);
     },
 
+    setTaskDrive(speed: number, force: number): void {
+      taskSpeed = speed;
+      taskForce = force;
+    },
+
     step(dt: number): void {
       if (severed) return;
       if (passive) {
@@ -895,7 +904,7 @@ export function buildArmCore(
       const substeps = Math.max(1, Math.round(dt * CONFIG.world.solverTuningHz));
       const sub = dt / substeps;
       for (let i = 0; i < substeps; i += 1) {
-        stepToward(sent, demanded, R.anchorRate * ramp * ramp * (3 - 2 * ramp) * sub, sub);
+        stepToward(sent, demanded, R.anchorRate * taskSpeed * ramp * ramp * (3 - 2 * ramp) * sub, sub);
       }
       clampInto(scratch.pose, sent.swing, sent.lift, sent.reach);
       if (acquiring && Math.abs(scratch.pose.swing - sent.swing)
@@ -965,13 +974,14 @@ export function buildArmCore(
 
     // A fork of the world (`src/forkable.ts`): every let and private object this closure steps on.
     captureState: (): Record<string, unknown> => ({
-      yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive,
+      yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive, taskSpeed, taskForce,
       wanted, demanded, sent, slewed, achieved, axisViews, scratch, commandedPoint,
       relative, inverse, yawServo, pitchServo, elbowServo, R, commandVelocity, handPivot,
       previousPoint, steeredPoint, lastStep, collarFrame,
     }),
     restoreState(state: Record<string, unknown>): void {
-      ({ yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive, lastStep } = state as never);
+      ({ yaw, pitch, elbowJoint, correct, severed, acquiring, driveAge, passive, lastStep,
+        taskSpeed, taskForce } = state as never);
     },
   });
 }
