@@ -1,6 +1,6 @@
 # Arms built at guard
 
-Skill ceiling 01, part 3 (`docs/plans/2026-09-25-skill-ceiling-01-body-release-1.md`). Before is
+Skill ceiling 01, part 3 (`git show 8ea28dc28fa2fece040262f6c8dad28c9aa36269:docs/plans/2026-09-25-skill-ceiling-01-body-release-1.md`). Before is
 0ca3565, the integrate-120 tree, and after is 548d0c5, which builds every arm at guard. All figures
 come from the Node bout runner (`tests/harness/bout-runner.mjs`) at 120 Hz physics and control,
 called directly unless the table says `research/runner.mjs`.

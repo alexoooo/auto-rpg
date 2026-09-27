@@ -1,6 +1,6 @@
 /**
  * The walker: the middle rung of the naive ladder (skill ceiling session 03,
- * `docs/plans/2026-09-25-skill-ceiling-03-drills-and-league.md`).
+ * `docs/analysis/2026-09-25-drills.md`).
  *
  * It faces the other body, walks straight in, and swings on a fixed clock whenever the other body
  * is inside its reach. That is the whole of it, and each missing piece is missing on purpose:

@@ -9,7 +9,7 @@ import { MURAL_ASPECT, WALL_PIECES, type WallPiece } from "./decals.ts";
 interface MuralSpec { weight: number; width: readonly [number, number]; y: "top" | readonly [number, number] }
 
 /** Where the dungeon's body-free decoration goes. Every number here is a starting value set by eye; the owner
- * judges density in play (docs/plans/2026-09-24-dungeon-look-01-light-and-air.md, and -05-dressing.md). */
+ * judges density in play (docs/plans/2026-09-24-dungeon-look-00-overview.md). */
 export const DRESSING = Object.freeze({
   /** No two torches closer than this, in metres. */
   torchSpacing: 7,

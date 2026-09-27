@@ -6,7 +6,7 @@
  *     node research/idle-dummy.mjs --attackers roster --naive --trace --workers 8 --dir DIR/idle
  *     node research/release-baseline.mjs --control DIR/control --idle DIR/idle > DIR/baseline.md
  *
- * Skill ceiling 01's Measure section (`docs/plans/2026-09-25-skill-ceiling-01-body-release-1.md`),
+ * Skill ceiling 01's Measure section (`docs/analysis/2026-09-25-release-1-baseline.md`),
  * and session 07's for release 2: the probe-mind control row and the idle-dummy matrix.
  *
  * **Why distinct trajectories.** Every bout of one mind pairing plays the same opening whatever its

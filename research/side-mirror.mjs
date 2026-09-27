@@ -4,8 +4,8 @@
  *     node research/side-mirror.mjs --dir research/runs/side-mirror
  *     node research/side-mirror.mjs --minds golem-duelist,golem-reaper --blocks 64 --workers 12
  *
- * The plan is part 4 of `docs/plans/2026-09-25-skill-ceiling-01-body-release-1.md`; the table it
- * writes (`mirror.md` beside `results.jsonl`) is in `docs/analysis/2026-09-25-side-mirror.md`.
+ * The table it writes (`mirror.md` beside `results.jsonl`) is recorded and explained in
+ * `docs/analysis/2026-09-25-side-mirror.md`.
  *
  * **What a mirror is.** One mind on both sides of one build, and nothing else different but the
  * side. The right body is the left one turned half a turn, so a left share away from 50 % is the

@@ -1,5 +1,5 @@
 // Skill ceiling session 03: the drill suite, run at scale
-// (`docs/plans/2026-09-25-skill-ceiling-03-drills-and-league.md`, "Measure").
+// (`docs/analysis/2026-09-25-drills.md`).
 //
 //   node research/drills.mjs [--runs 1000] [--lanes 6] [--drills survive-cut,...] [--build default]
 //                            [--obuild default] [--admission arrival] [--out research/runs/drills-default]

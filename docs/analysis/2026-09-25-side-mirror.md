@@ -1,6 +1,6 @@
 # The side-mirror gate
 
-Skill ceiling 01, part 4 (`docs/plans/2026-09-25-skill-ceiling-01-body-release-1.md`). Every
+Skill ceiling 01, part 4 (`git show 8ea28dc28fa2fece040262f6c8dad28c9aa36269:docs/plans/2026-09-25-skill-ceiling-01-body-release-1.md`). Every
 probe-set mind, every naive-ladder mind, the v4 minds and the other named golem minds play their own
 mirror, and the left side's share is read against a fair coin's band.
 
