@@ -34,6 +34,9 @@ import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
 
+import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "./reference.ts";
+import { dressReference, type ReferenceQuality } from "./reference-look.ts";
+
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id); if (!element) throw new Error(`Missing dungeon element ${id}`); return element as T;
 };
@@ -44,13 +47,13 @@ const companionCount = need<HTMLSelectElement>("companions"), partyList = need<H
 const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
-const pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
+let pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
 // `?azimuth=` in degrees, any finite value, to compare the camera's bearing: 45 is the old diagonal. An absent or
 // empty parameter is the default, not 0, which `Number` would make of it.
 const azimuthText = new URLSearchParams(location.search).get("azimuth")?.trim();
 const azimuthQuery = azimuthText ? Number(azimuthText) : NaN;
-const azimuth = Number.isFinite(azimuthQuery) ? (azimuthQuery % 360 + 360) % 360 * Math.PI / 180 : CAMERA_AZIMUTH;
-const toward = cameraToward(azimuth);
+let azimuth = Number.isFinite(azimuthQuery) ? (azimuthQuery % 360 + 360) % 360 * Math.PI / 180 : CAMERA_AZIMUTH;
+let toward = cameraToward(azimuth);
 // `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost, and
 // `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
 const stone = stoneQuery(location.search);
@@ -116,6 +119,16 @@ heroAttributesPanel.addEventListener("change", editHeroAttributes);
 heroAttributesPanel.addEventListener("click", event => { if (event.target instanceof HTMLButtonElement) editHeroAttributes(event); });
 renderHeroAttributes();
 heroPrimary.addEventListener("change", () => { heroSecondary.disabled = ["maul", "bow"].includes(heroPrimary.value); });
+const scenario = need<HTMLSelectElement>("dungeon-scene"), quality = need<HTMLSelectElement>("dungeon-quality");
+scenario.value = new URLSearchParams(location.search).get("scene") === "reference" ? "reference" : "generated";
+quality.value = new URLSearchParams(location.search).get("quality") === "reduced" ? "reduced" : "high";
+const chooseScenario = () => {
+  quality.parentElement!.hidden = scenario.value !== "reference";
+  if (scenario.value === "reference") { companionCount.value = "0"; heroBuild.value = "workshop-fighter"; }
+  updateEquipment(); renderHeroAttributes();
+};
+scenario.addEventListener("change", chooseScenario);
+chooseScenario();
 updateEquipment();
 
 async function boot(): Promise<void> {
@@ -126,12 +139,18 @@ async function boot(): Promise<void> {
   let scene: Scene | null = null, run: DungeonRun | null = null, camera: FreeCamera | null = null;
   let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default", companions: string[] = [];
   let selectedEquipment: GolemSetup | undefined;
+  let reference = false, selectedQuality: ReferenceQuality = "high";
+  let referenceLook: Awaited<ReturnType<typeof dressReference>> | null = null;
   let route: LinesMesh | null = null, routeSignature = "", lastUi = 0;
   const held = new Set<string>();
   const audio = new GameAudio(true);
   let soundTorches: ReturnType<typeof torchPlacements> = [];
   const probe = lookProbe(engine, () => scene && lighting ? { scene, lighting } : null);
-  const meter = frameMeter(engine, need("frame-meter"));
+  const meterElement = need("frame-meter");
+  const diagnostics = document.createElement("details"), summary = document.createElement("summary");
+  summary.textContent = "Performance"; diagnostics.append(summary);
+  const meterParent = meterElement.parentElement!;
+  const meter = frameMeter(engine, meterElement);
   const abort = new AbortController(), signal = abort.signal;
   const setPaused = (value: boolean) => {
     if (!run || !scene) return;
@@ -148,19 +167,26 @@ async function boot(): Promise<void> {
   const framing = () => {
     if (!run || !camera || !lighting) return;
     const hero = run.leader.body.feetPosition();
-    frameDungeon(camera, hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
+    frameDungeon(camera, reference ? { x: 9.5 + (hero.x - 9.5) * .4, z: 9 + (hero.z - 9) * .4 } : hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
     lighting.update(hero, zoom, pitch, toward); run.world.setHero(hero);
   };
   const rebuild = async (nextSeed: number) => {
     audio.reset(); soundTorches = [];
-    lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
-    seed = nextSeed >>> 0; scene = new Scene(engine);
-    attachPhysics(scene, havok); scene.getPhysicsEngine()!.setSubTimeStep(1000 / CONFIG.world.physicsHz);
+    referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
+    seed = nextSeed >>> 0;
+    if (reference) { meterParent.prepend(diagnostics); diagnostics.append(meterElement); }
+    else { meterParent.prepend(meterElement); diagnostics.remove(); }
+    pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : reference ? REFERENCE_CAMERA.pitch : CAMERA_PITCH;
+    azimuth = Number.isFinite(azimuthQuery) ? azimuthQuery * Math.PI / 180 : reference ? REFERENCE_CAMERA.azimuth : CAMERA_AZIMUTH;
+    toward = cameraToward(azimuth); zoom = reference ? REFERENCE_CAMERA.zoom : 10;
+    engine.setHardwareScalingLevel(reference ? selectedQuality === "reduced" ? 1.4 : 1 : 1 / Math.min(devicePixelRatio, 1.5));
+    scene = new Scene(engine);
+    attachPhysics(scene, havok); scene.physicsEnabled = false; scene.getPhysicsEngine()!.setSubTimeStep(1000 / CONFIG.world.physicsHz);
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
     await loadWorkshopAssets(scene);
-    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: stone.masonry }, undefined, selectedEquipment, companions, undefined, (attacker, event) => {
+    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry }, reference ? referenceChamber(seed) : undefined, selectedEquipment, companions, reference ? () => "skeleton-warrior" : undefined, (attacker, event) => {
       if (!run || !run.visible.has(cellKey(run.map, event.report.point))) return;
       const target = run.actors.find(a => a.id === event.report.targetId);
       if (target) audio.report(event, attacker, bodyFamily(target === run.hero && selectedEquipment ? selectedEquipment : namedBuild(target.name)!.setup));
@@ -169,9 +195,14 @@ async function boot(): Promise<void> {
     // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
     // code no Node test loads, so the rule that it adds no body is held here, where it runs.
     const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
-    const torches = torchPlacements(run.map, seed); soundTorches = torches;
+    const torches = reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed); soundTorches = torches;
     lighting = lightDungeon(scene, camera, run.map, torches, azimuth); run.world.sconces(torches);
-    if (stone.dressing) run.world.dress(dressingPlacements(run.map, seed, DRESSING, toward));
+    if (!reference && stone.dressing) run.world.dress(dressingPlacements(run.map, seed, DRESSING, toward));
+    if (reference) {
+      referenceLook = await dressReference(scene, run.world, selectedQuality, azimuth);
+      lighting.lantern.intensity = 9;
+      if (selectedQuality === "reduced") lighting.setLook({ ssao: false });
+    }
     if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);
     scene.onBeforePhysicsObservable.add(() => {
       if (!run || paused) return;
@@ -195,7 +226,7 @@ async function boot(): Promise<void> {
     try { await rebuild(nextSeed); }
     catch (error) {
       audio.setActive(false);
-      lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null;
+      referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null;
       need("start-panel").hidden = false; need("pause-panel").hidden = true;
       need("notice").textContent = `Could not build this dungeon: ${String(error)}`; console.error(error);
     } finally { launching=false;start.disabled=false; }
@@ -212,6 +243,11 @@ async function boot(): Promise<void> {
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) { seedInput.setCustomValidity("Enter a seed from 0 to 4294967295."); seedInput.reportValidity(); return; }
     seedInput.setCustomValidity(""); selectedBuild = heroBuild.value;
+    reference = scenario.value === "reference"; selectedQuality = quality.value === "reduced" ? "reduced" : "high";
+    const url = new URL(location.href);
+    if (reference) { url.searchParams.set("scene", "reference"); url.searchParams.set("quality", selectedQuality); }
+    else { url.searchParams.delete("scene"); url.searchParams.delete("quality"); }
+    history.replaceState(null, "", url);
     companions = companionBuilds(selectedBuild, Number(companionCount.value));
     const arm = heroArming();
     selectedEquipment = arm ? arm(heroPrimary.value, heroSecondary.value) : undefined;
@@ -329,7 +365,7 @@ async function boot(): Promise<void> {
   canvas.addEventListener("wheel", event => { event.preventDefault(); zoom = Math.max(6, Math.min(18, zoom * Math.exp(event.deltaY * 0.001))); }, { passive: false, signal });
   window.addEventListener("resize", () => engine.resize(), { signal });
   engine.runRenderLoop(() => meter.frame(() => {
-    if (!scene || !run) return;
+    if (!scene || !run || launching) return;
     framing();
     audio.setView(run.leader.body.feetPosition(), toward, soundTorches.filter(t => run!.visible.has(cellKey(run!.map, { x: t.cell.x + t.facing.x, z: t.cell.z + t.facing.z }))).map(t => t.flame));
     audio.update();
@@ -362,7 +398,7 @@ async function boot(): Promise<void> {
     scene.render();
   }));
   const dispose = () => {
-    audio.dispose(); abort.abort(); engine.stopRenderLoop(); lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
+    audio.dispose(); abort.abort(); engine.stopRenderLoop(); referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
   };
   window.addEventListener("pagehide", dispose, { once: true, signal });
   import.meta.hot?.dispose(dispose);

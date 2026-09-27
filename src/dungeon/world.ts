@@ -145,6 +145,10 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
   };
   const floor = box("dungeon slab", (map.size - 1) / 2, -0.5, (map.size - 1) / 2, map.size, 1, map.size);
   floor.mesh.isVisible = false;
+  for (const o of map.obstacles ?? []) {
+    const prop=box(o.id,o.x,o.height/2,o.z,o.width,o.height,o.depth);
+    prop.mesh.isVisible=false;prop.mesh.isPickable=false;
+  }
   // The colliders are what they always were, and none is drawn: `wallSurface` draws their outer skin instead.
   for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size;) {
     if (!boundary(map, x, z)) { x++; continue; }

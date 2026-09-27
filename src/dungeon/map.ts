@@ -2,7 +2,9 @@ export interface Point { x: number; z: number }
 /** A room's floor, as inclusive fine-cell bounds; `centre` is a cell a body can stand on. */
 export interface Room { id: number; centre: Point; min: Point; max: Point }
 export interface Door { id: number; point: Point; axis: "x" | "z"; open: boolean }
+export interface DungeonObstacle { id: string; x: number; z: number; width: number; depth: number; height: number; blocksSight: boolean }
 export interface DungeonMap {
+  obstacles?: readonly DungeonObstacle[];
   seed: number; size: number; floor: Uint8Array; rooms: Room[]; doors: Door[];
   start: Point; exit: Point; spawns: Point[];
 }
@@ -13,8 +15,10 @@ export function isFloor(map: DungeonMap, x: number, z: number): boolean {
 }
 
 /** Clearance is measured against cell rectangles, not an arbitrary number of tile neighbours. */
-export function walkable(map: DungeonMap, p: Point, radius: number, closedDoors = false): boolean {
+export function walkable(map: DungeonMap, p: Point, radius: number, closedDoors = false, sight = false): boolean {
   if (!isFloor(map, Math.round(p.x), Math.round(p.z))) return false;
+  if (map.obstacles?.some(o => (!sight || o.blocksSight) && Math.hypot(
+    Math.max(0,Math.abs(p.x-o.x)-o.width/2),Math.max(0,Math.abs(p.z-o.z)-o.depth/2)) < radius+.001)) return false;
   const reach = Math.ceil(radius + 0.5);
   for (let z = Math.round(p.z) - reach; z <= Math.round(p.z) + reach; z++)
     for (let x = Math.round(p.x) - reach; x <= Math.round(p.x) + reach; x++) {
@@ -26,15 +30,15 @@ export function walkable(map: DungeonMap, p: Point, radius: number, closedDoors 
     Math.abs(p.z - d.point.z) < (d.axis === "z" ? 0.18 : 1.5) + radius);
 }
 
-export function clearSegment(map: DungeonMap, a: Point, b: Point, radius: number, closedDoors = false): boolean {
+export function clearSegment(map: DungeonMap, a: Point, b: Point, radius: number, closedDoors = false, sight = false): boolean {
   const steps = Math.max(1, Math.ceil(distance(a, b) / 0.2));
   for (let i = 0; i <= steps; i++) if (!walkable(map,
-    { x: a.x + (b.x - a.x) * i / steps, z: a.z + (b.z - a.z) * i / steps }, radius, closedDoors)) return false;
+    { x: a.x + (b.x - a.x) * i / steps, z: a.z + (b.z - a.z) * i / steps }, radius, closedDoors, sight)) return false;
   return true;
 }
 
 export function canSee(map: DungeonMap, a: Point, b: Point, range = 12): boolean {
-  return distance(a, b) <= range && clearSegment(map, a, b, 0, true);
+  return distance(a, b) <= range && clearSegment(map, a, b, 0, true, true);
 }
 
 /**

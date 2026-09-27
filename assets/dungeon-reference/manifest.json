@@ -1,0 +1,18 @@
+{
+  "generator": "scripts/dungeon/build-reference.py",
+  "seed": 271828,
+  "units": "metres",
+  "source": "assets/dungeon-reference/chamber.blend",
+  "materials": [
+    "wall",
+    "trim",
+    "floor",
+    "root",
+    "earth",
+    "iron",
+    "wet",
+    "tomb"
+  ],
+  "textures": "Existing CC0 textures registered in src/textures.json",
+  "triangles": 130836
+}
