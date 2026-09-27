@@ -5,6 +5,42 @@ unattended by Claude Code. That session was wound down here on the owner's word,
 what the next agent, Codex, needs to carry on. Read `AGENTS.md` first: its traps and house rules all
 apply.
 
+## Current checkpoint (supersedes the historical notes below)
+
+Implementation and evidence through `f5a6cfa4` are merged into local `main`. Latest full validation:
+1089/1089 tests, typecheck and build. Repeated fetches found no incoming commits beyond `9a320286`;
+this continuation has not pushed. The working implementation checkout is
+`.claude/worktrees/codex-command-surface`, branch `codex-command-surface`.
+
+| Plan area | Current state |
+|---|---|
+| Sessions 01-05 | Complete; existing body release, exact forks, drills, expert and audit retained |
+| Session 06 orders | Complete |
+| Session 06 footwork channels | Complete measurements; stance and step fail the enablement gate and remain off |
+| Session 06 task-space effectors | Anatomical blade/fist/mace actuator, expert proposals and browser preview built; no headroom gain established; flag off |
+| Session 07 prerequisites | Fist-family and mace-size studies complete; human rate/torque/clamp question measured; maul and brawler studies still running/pending |
+| Session 07 body release | Owner choices/eye gate remain; no body removals or default retunes |
+| Sessions 08-09 | Not begun; depend on body-release decisions |
+
+Current research lives in the **main checkout** under `research/runs/release2-continuation/`.
+`size-maul-expert` is active toward 64 bouts; `attr-expert-v-brawler` follows it. Do not launch a
+second writer into an active directory. `headroom.mjs` now holds `run.lock` through computation
+and summary writes. Original worktree data were preserved; legacy manifests in the copies gained
+only explicit empty flags, with schedule/build/protocol validation retained.
+
+Completed evidence is tracked under `research/results/`. Read the updated analyses first:
+
+- `docs/analysis/2026-09-26-command-surface.md`: complete stance/ruler verdict.
+- `docs/analysis/2026-09-26-release-2-questions.md`: fist-family and mace-size results.
+- `docs/analysis/2026-09-26-human-arm-limits.md`: normal-stroke rate sensitivity; raising the
+  velocity clamp buys no useful speed there, and no motor/default was raised.
+- `docs/analysis/2026-09-26-effector-candidate-scores.md`: exact candidate predictions and per-hand
+  reports explain blocks and sub-threshold contacts.
+- `docs/analysis/2026-09-26-effector-impact-screen.md`: 114 forced trajectory trials, none wounding
+  in the sampled state. Do not start a larger headroom campaign on the strength of this grid.
+
+No development server from this continuation is left running. The owner's server is untouched.
+
 ## Continuation, 2026-09-26
 
 The original wind-down landed at `597ecf36`, including both WIP merges. References below to
@@ -188,7 +224,7 @@ plan with the complete paired margins. The earlier wind-down instructions below 
   or retune a shipped default without that choice. Measurements, counterfactuals and flagged
   experiments are fine.
 
-## Where things stand
+## Historical wind-down: where things stood
 
 - **`main` is at 4a33b10a**, pushed. It includes the owner's own dungeon feedback work. The last
   full gate run passed: 1015/1015 tests, check and build.
@@ -216,7 +252,7 @@ plan with the complete paired margins. The earlier wind-down instructions below 
 - **Run data** is in `research/runs/`, which is gitignored and resumable from each run's
   `results.jsonl`. Each worktree has its own `research/runs/`.
 
-## Work in progress
+## Historical wind-down: work in progress
 
 Both branches below were merged into `main` at wind-down, so nothing lives only on a local branch.
 Their docs carry WIP marks where a reading is missing. No research process is running. The owner's
