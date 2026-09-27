@@ -49,7 +49,8 @@ function leadCounter(band = LEAD_BAND) {
 export function behaviourReader() {
   const blank = () => ({ frames: 0, gap: 0, fraction: 0, fractionFrames: 0, inReach: 0, forward: 0, back: 0,
     press: 0, strafe: 0, turn: 0, committed: 0, strokes: 0, down: 0, striking: false,
-    width: 0, lead: 0, weight: 0, stanced: 0, stepping: 0 });
+    width: 0, lead: 0, weight: 0, stanced: 0, stepping: 0,
+    targeted: 0, targetHands: 0, targetSpeed: 0, targetForce: 0 });
   const acc = { left: blank(), right: blank() };
   return {
     feed(bout) {
@@ -78,6 +79,11 @@ export function behaviourReader() {
         a.width += stance.width; a.lead += Math.abs(stance.lead); a.weight += stance.weight;
         if (stance.width !== 0 || stance.lead !== 0 || stance.weight !== 0) a.stanced += 1;
         if (gait.step) a.stepping += 1;
+        const targets = [command.effectors.primary.target, command.effectors.secondary.target].filter(Boolean);
+        if (targets.length) a.targeted += 1;
+        for (const target of targets) {
+          a.targetHands += 1; a.targetSpeed += target.speed; a.targetForce += target.force;
+        }
         const striking = Boolean(command.effectors.primary.aim.thrust || command.effectors.secondary.aim.thrust
           || command.natural.thrust);
         if (striking) a.committed += 1;
@@ -97,6 +103,9 @@ export function behaviourReader() {
           strokesPerMinute: seconds > 0 ? (60 * a.strokes) / seconds : 0, downShare: a.down / n,
           stanceWidth: a.width / n, stanceLead: a.lead / n, stanceWeight: a.weight / n,
           stancedShare: a.stanced / n, steppingShare: a.stepping / n,
+          targetedShare: a.targeted / n,
+          targetSpeed: a.targetHands ? a.targetSpeed / a.targetHands : null,
+          targetForce: a.targetHands ? a.targetForce / a.targetHands : null,
         };
       }
       return out;

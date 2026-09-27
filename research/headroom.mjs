@@ -9,6 +9,7 @@
 //   node research/headroom.mjs --exp family     [--bodies a,b] [--opponents x,y] [--minds m1;m2] [--experts e1;e2] [--pairs 2] [--ladder-pairs 24]
 //   node research/headroom.mjs --exp footwork   [--pairs 16] [--lanes 8]
 //   node research/headroom.mjs --exp channel --channel stance|step|stance-step [--bodies a,b] [--with-fb] [--skip-ruler | --ruler-only] [--pairs 32] [--lanes 6]
+//   Add --max-seconds 6 for a bounded screening run; it is not a full-length headroom verdict.
 //   node research/headroom.mjs --exp <name> --summary [--out DIR]
 //
 // Every experiment is a list of **cells**, each one mind A on one body against mind B on another,
@@ -245,7 +246,8 @@ export const EXPERIMENTS = {
     // when the run that should have played it was stopped short.
     const subject = o.subject ?? `expert-${channel}@c8,h1`;
     const rival = o.rival ?? RULER;
-    const bodies = o.bodies ? list(o.bodies) : ["default", "skeleton-warrior"];
+    const bodies = o.bodies ? list(o.bodies) : channel.split("-").includes("effector")
+      ? ["human-warrior", "human-unarmed", "human-mace"] : ["default", "skeleton-warrior"];
     const jobs = [];
     for (let k = 0; k < o.pairs; k += 1) for (const body of bodies) {
       const duelist = familyDuelist(buildOf(body).setup);
@@ -424,6 +426,7 @@ async function main() {
   const { values } = parseArgs({ options: {
     exp: { type: "string" }, out: { type: "string" }, summary: { type: "boolean", default: false },
     lanes: { type: "string", default: "8" }, "job-minutes": { type: "string", default: "120" }, until: { type: "string" },
+    "max-seconds": { type: "string" },
     pairs: { type: "string", default: "8" }, "curve-pairs": { type: "string" }, "ladder-pairs": { type: "string" },
     bodies: { type: "string" }, minds: { type: "string" }, attackers: { type: "string" }, mind: { type: "string" },
     attributes: { type: "string" }, build: { type: "string" }, levels: { type: "string", default: "ends" }, tag: { type: "string" },
@@ -446,11 +449,13 @@ async function main() {
   const pairs = Number(values.pairs);
   const o = { ...values, pairs, curvePairs: Number(values["curve-pairs"] ?? Math.max(1, Math.floor(pairs / 2))),
     ladderPairs: Number(values["ladder-pairs"] ?? pairs * 2) };
-  const jobs = EXPERIMENTS[exp](o);
+  const cap = values["max-seconds"] === undefined ? undefined : Number(values["max-seconds"]);
+  if (cap !== undefined && !(Number.isFinite(cap) && cap > 0)) throw new Error("--max-seconds must be finite and positive");
+  const jobs = EXPERIMENTS[exp](o).map(job => cap === undefined ? job : { ...job, maxSeconds: cap });
   const lanes = Number(values.lanes);
   if (lanes > 20) throw new Error("at most 20 lanes: other runs share this machine");
   const names = new Set(jobs.flatMap((job) => [job.leftBuild, job.rightBuild]));
-  const manifest = { protocol: { maxSeconds: PROTOCOL.maxSeconds, settleSeconds: PROTOCOL.settleSeconds,
+  const manifest = { protocol: { maxSeconds: cap ?? PROTOCOL.maxSeconds, settleSeconds: PROTOCOL.settleSeconds,
     locomotionMode: PROTOCOL.locomotionMode }, experiment: `headroom-v1/${named}`, harness: HARNESS,
     builds: [...names].sort().map(buildOf), flags: runFlags(exp, values) };
   console.log(`${jobs.length} bouts into ${dir}`);

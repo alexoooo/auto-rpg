@@ -32,6 +32,32 @@ and all 15 named six-second bout fingerprints unchanged with `effector` off or o
 The final browser diagnostic was checked again and its temporary server stopped. The evidence
 is in the main checkout's gitignored `research/runs/effector-target-continuation/`.
 
+### Expert continuation, 2026-09-26
+
+`expert-effector@c8,h1` now proposes endpoint trajectories with orientation, speed and force,
+admitted by each live hand's declaration. Warm starts preserve trajectory phase. The original
+expert remains unchanged. `research/headroom.mjs --exp channel --channel effector` selects the
+three supported human audit bodies, and its worker reports actual target use.
+
+This exposed and repaired a missing snapshot record in `humanoidDuelist`: its enclosed tactics
+were not restored in exact forks. Full-model expert evaluations **against that policy** need
+repetition; ordinary human bouts and expert evaluations against other policies are not invalidated
+by this defect. See `docs/analysis/2026-09-26-humanoid-fork.md`.
+
+Validation is now 1057/1057 tests, check and build; ten deliberate mutations caught; the original
+45 command-null bouts and six additional human/stone control bouts are unchanged. A bounded
+six-second paired screening run is recorded in `docs/analysis/2026-09-26-effector-expert.md`.
+It is not a full headroom verdict, and `effector` remains off. No browser preview, other task
+actuators, or original stance/ruler/release-2 research jobs were completed in this continuation.
+All 36 screening bouts completed: fists and maces select targets, swords do not, and no full-bout
+gain is established. The incoming audio/workshop changes at `1820d219` were merged; the combined
+tree passes 1070 tests, check and build.
+
+Next: use the screening evidence to refine the task proposal family, then run full-length paired
+headroom with the corrected human opponent model. Stone/skeleton task mappings, forearm shields,
+paired grips and the browser command-mind preview remain open. Owner body/default choices remain
+deferred; sessions 08 and 09 have not begun.
+
 ## The owner's standing instructions
 
 - **Keep going session to session.** The owner asked for the AI work to go on while they are away

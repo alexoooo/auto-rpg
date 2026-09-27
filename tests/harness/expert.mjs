@@ -20,7 +20,8 @@
 //
 // **What it drives** is a `BodyCommand` (`src/body-command.ts`, session 06). Its segments still write
 // the ladder's `Intent`, adapted once per substep; the stance and the step target, which `Intent` has
-// no word for, are written onto the command after (`-stance`, `-step`).
+// no word for, are written onto the command after (`-stance`, `-step`). `-effector` adds endpoint
+// trajectories directly on the command, with speed and force proposals admitted by live declarations.
 //
 // **Two instruments** (the owner's decision, 2026-09-25):
 //   - `full` -- inside a rollout the opponent is its real mind, restored from the capture and
@@ -52,13 +53,14 @@
 // Harness: the Node bout runner and the fork harness. Readings are comparable with other Node bout
 // runner and drill runner readings, and with nothing taken on the page.
 import { createHash } from "node:crypto";
+import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { createBout, freshHavok, FRAME } from "./bout-runner.mjs";
 import { captureBout } from "./fork.mjs";
 import { rangeFraction } from "./drills.mjs";
 import { restoreWorld } from "../../src/fork/world.ts";
 import { randomStreams, restoreMind, snapshotMind } from "../../src/fork/mind.ts";
 import { policyMind } from "../../src/mind.ts";
-import { cloneBodyCommand, copyBodyCommand, freshBodyCommand, intentToCommand } from "../../src/body-command.ts";
+import { cloneBodyCommand, copyBodyCommand, declares, freshBodyCommand, intentToCommand } from "../../src/body-command.ts";
 import { mulberry32 } from "../../src/rng.ts";
 import { isShield } from "../../src/hands.ts";
 import {
@@ -135,6 +137,8 @@ export const EXPERT_DEFAULTS = Object.freeze({
    */
   stance: false,
   step: false,
+  /** Experimental endpoint trajectories, admitted per live hand's channel declaration. */
+  effector: false,
   /**
    * `-stepkeys`: the `-step` proposals with every step's fixed point reached by the keys instead of
    * the channel -- full travel along the unit vector to it until inside 50 mm, the step bench's
@@ -153,7 +157,7 @@ export const EXPERT_DEFAULTS = Object.freeze({
  * old, and none before there is one: the sanity mutation that bites in a one-second drill),
  * `-fresh` (no fork reuse), `-bout` (a drill played on
  * the bout objective, not the drill's judge), `-fb` (forward and back only: no strafe), `-stance` and
- * `-step` (session 06's footwork channels, `EXPERT_DEFAULTS`), and `@` with comma-separated
+ * `-step` (session 06's footwork channels), `-effector` (task-space trajectories), and `@` with comma-separated
  * overrides: `c16` candidates, `h1` horizon seconds, `r2` rounds, `d4` decisions a second, `s4`
  * stale decisions. `expert@c8,h0.5` is 8 candidates over half a second.
  */
@@ -169,6 +173,7 @@ export function expertConfig(name) {
     else if (flag === "bout") config.task = false;
     else if (flag === "fb") config.strafe = false;
     else if (flag === "stance") config.stance = true;
+    else if (flag === "effector") config.effector = true;
     else if (flag === "step") config.step = true;
     else if (flag === "stepkeys") { config.step = true; config.stepKeys = true; }
     else if (flag === "stepadd") { config.step = true; config.stepAdd = true; }
@@ -336,10 +341,39 @@ export class Program {
       }
       if (spec.kind === "step" && spec.keys) keysToward(command, view, this.stepTarget(spec, view));
       else if (spec.kind === "step") command.gait.step = this.stepTarget(spec, view);
+      if (spec.kind === "target") this.effectorTarget(spec, view);
     }
     this.t += dt;
     this.segT += dt;
     return command;
+  }
+
+  /**
+   * A bounded open-loop sweep about the live shoulder, aimed at an opponent-relative mark.
+   * The requested quaternion samples world hand +Z along the line, with a roll about it; this
+   * is a proposal, not an inverse of a particular arm. Only the body's actuator solves/clamps it.
+   * Read the published socket and reach, never the achieved tip (which would wind up a servo).
+   * Segment time is already cloned for warm starts and forks, so a sweep continues in phase.
+   */
+  effectorTarget(spec, view) {
+    const hand = [spec.hand, spec.hand === "primary" ? "secondary" : "primary"].find(name =>
+      !view.self.hands[name].lost && declares(view.self.capabilities.channels, "effector", "target", name));
+    if (!hand) return;
+    const me = view.self.hands[hand];
+    markAt(view, this.mark, spec.lift, spec.lateral);
+    const dx = this.mark.x - me.shoulder.x, dy = this.mark.y - me.shoulder.y, dz = this.mark.z - me.shoulder.z;
+    const progress = clamp(this.segT / spec.duration, 0, 1);
+    const yaw = Math.atan2(dx, dz) + me.outboard * spec.sweep * (1 - 2 * progress);
+    const pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    const distance = me.reach * (spec.retract + (spec.extend - spec.retract) * progress);
+    const horizontal = distance * Math.cos(pitch);
+    const q = Quaternion.RotationYawPitchRoll(yaw, -pitch, spec.roll);
+    this.command.effectors[hand].target = {
+      position: { x: me.shoulder.x + horizontal * Math.sin(yaw), y: me.shoulder.y + distance * Math.sin(pitch),
+        z: me.shoulder.z + horizontal * Math.cos(yaw) },
+      orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, speed: spec.speed, force: spec.force,
+    };
+    this.command.actingHand = hand;
   }
 
   /**
@@ -362,7 +396,7 @@ export class Program {
     return this.step;
   }
 
-  /** The three segments this file writes: a stand, a step (a stand while the carrier walks), and a single stroke. */
+  /** Legacy cover/point/stroke backing; target segments replace the chosen hand after adaptation. */
   segment(spec, view, dt) {
     const intent = this.intent;
     faceThem(intent, view);
@@ -468,6 +502,17 @@ export function proposals(config, { hold, warm, turn = 0 }) {
     }
   }
   const out = list.filter(Boolean);
+  if (config.effector) {
+    // Keep the ruler's first three candidates. The remaining c8 first-round slots explore a
+    // sweep, a point and reduced effort; alternate hands across decisions without body IDs.
+    const hand = turn % 2 === 0 ? "primary" : "secondary";
+    const target = (extra) => ({ kind: "target", hand, f: 0, s: 0, guard: true, lift: 0, lateral: 0,
+      duration: Math.min(h, .6), retract: .75, extend: 1, sweep: .55, roll: 0, speed: 1, force: 1, ...extra });
+    out.splice(3 + (out.some(p => p.warm) ? 1 : 0), 0,
+      single("target-sweep", target({}), h),
+      single("target-point", target({ sweep: 0, retract: .65 }), h),
+      single("target-soft", target({ sweep: -.55, speed: .6, force: .5 }), h));
+  }
   // `-stance`: every stand, step and stroke of a fresh proposal carries a stance, the attacking one
   // on a stroke or a stand that points, the covering one on a stand or step that covers.
   if (!config.stance) return out;
@@ -498,9 +543,9 @@ const STANCES = Object.freeze({
 
 /**
  * Whether a plan in progress differs from the same plan begun afresh: a switch, a stroke under way,
- * or a step whose point was fixed where the body stood when it began.
+ * a task trajectory in flight, or a step whose point was fixed where the body stood when it began.
  */
-const carriesState = (plan) => plan.segs.length > 1 || plan.segs.some((seg) => seg.kind === "stroke" || seg.kind === "step");
+const carriesState = (plan) => plan.segs.length > 1 || plan.segs.some((seg) => seg.kind === "stroke" || seg.kind === "step" || seg.kind === "target");
 
 const gauss = (rng) => {
   const u = Math.max(rng(), 1e-12), v = rng();
@@ -523,6 +568,13 @@ function jitterSeg(seg, rng, scale) {
   }
   if (seg.kind === "stroke") n("delay", 0, 0.6);
   if (seg.kind === "step") { n("r", 0.5, 1.8); n("a", -1.2, 1.2); n("within", 0.15, 1); }
+  if (seg.kind === "target") {
+    const vary = (key, sigma, lo, hi) => { out[key] = clamp(seg[key] + sigma * scale * gauss(rng), lo, hi); };
+    vary("lift", .15, -.6, .6); vary("lateral", .15, -.5, .5);
+    vary("sweep", .3, -1, 1); vary("roll", .3, -Math.PI, Math.PI);
+    vary("duration", .15, .15, 1); vary("retract", .1, .4, 1); vary("extend", .1, .4, 1);
+    vary("speed", .2, .1, 1); vary("force", .2, .1, 1);
+  }
   if (seg.st) {
     const d = () => SIGMA.stance * scale * gauss(rng);
     out.st = { width: clamp(seg.st.width + d(), -1, 1), lead: clamp(seg.st.lead + d(), -1, 1), weight: clamp(seg.st.weight + d(), -1, 1) };
