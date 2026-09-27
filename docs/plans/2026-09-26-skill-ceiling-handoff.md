@@ -88,6 +88,14 @@ line/timing remain to diagnose. Per-hand reports now show primary body-contact e
 The 18 winning report sequences match live playback; 1087 tests and check/build pass. See
 `docs/analysis/2026-09-26-effector-candidate-scores.md`; 1086 tests and check/build pass.
 
+### Forced trajectory screen
+
+`research/effector-impact-screen.mjs` now screens sweep/point duration, aim height and extension
+from identical warmed states, with legacy controls: 114 trials on blade/mace/fist. None wounds.
+The best blade target reaches 3.31 J, below its existing 10.62 J floor; mace/fist targets remain
+below 1 J against their 29.67 J floor. No proposal defaults change and no larger headroom campaign
+is justified by this grid. See `docs/analysis/2026-09-26-effector-impact-screen.md` for limitations.
+
 ### Expert continuation, 2026-09-26
 
 `expert-effector@c8,h1` now proposes endpoint trajectories with orientation, speed and force,
