@@ -77,6 +77,26 @@ The final kit contains 93,737 triangles (5,809 more than the previous pass), wit
 
 ### Random Crypt (2026-09-28)
 
+#### Room archetypes
+
+Every generated dungeon now has one Guard Hall at the entrance and a seeded shuffle of Burial Chamber, Ruined Chapel and Rootbound Chamber. Each has three arrangement variants and a half-turn orientation. The chapel is elongated; the rootbound floor has clipped corners. The shared `Room` gameplay interface is unchanged: archetype metadata belongs to `CryptRoomPlan`.
+
+The Guard Hall has weapon racks, benches, banners and open party staging. Burial chambers contain three differently arranged sarcophagi and dense niches. Chapels have an altar, four columns and four benches around clear axial routes. Rootbound chambers have heavier wall roots, moss/scatter, wet paving and two root-covered stone clusters. Furnishings are generated before enemy placement; the six enemies are chosen from reachable floor positions away from doors and the entrance.
+
+`CRYPT_FURNITURE` defines each solid module's dimensions; its placement creates both an obstacle and an art instance linked by `obstacleId`. Tests measure the exported GLB against these dimensions. Thin wall banners and surface moss remain cosmetic. The kit adds shared wood and cloth surfaces, bringing the generated architecture to nine material batches. Existing reference chamber assets are untouched.
+
+Torch placements optionally carry colour, point-light intensity and shadow-light intensity. Defaults preserve existing dungeons; archetypes tint their flames and lights and restrict damp patches to the rootbound room. Two shadow lights remain active near the camera. Fog and cutaways apply to the new furnishings as well as the masonry.
+
+The seed sweep covers 100 dungeons, all 12 type/variant combinations, party staging, obstacle/art agreement, door clearance, connected room centres and enemy positions. Real-Havok navigation fixtures retain the furnishing colliders and doors but omit enemies to isolate movement through each non-entry archetype. The single-room kit fixture remains covered separately.
+
+Rendering comparison used the existing `.review/crypt-compare.mjs` harness: Edge headless, Intel Iris Xe ANGLE D3D11, 1920x1080, High, seed 0, first-room-centred orthographic half-height 7, all geometry revealed and physics frozen. After 20 warm-up frames, 120 render/`gl.finish` samples measured 38.4 ms median / 52.7 ms p95 before and 43.7 ms / 62.9 ms after. The median increase is 13.8%, inside the 15% target; p95 increased 19.4%. These are rendering measurements, not live combat FPS. The full suite was not running during either measurement.
+
+Production browser checks passed seeds 0 (fighter/High), 1 (rogue/Reduced, alternate bearing), and 42 (full party/High). All four room types were captured and inspected, with door opening, paused zoom, two active shadow lights, and restart returning to identical body/mesh/light counts. No browser errors remained. A separate 25-second real-Havok combat run retained encounters and furnishing colliders, opened four doors and recorded damage with finite actor positions; it was not an assertion that the hero wins.
+
+Final archetype validation: all 966 tests passed, along with `npm run check` and `npm run build`. The authored GLB footprint tests and real-physics traversal tests are part of that suite.
+
+#### Initial connected-room implementation
+
 Random Crypt now generates a connected four-chamber dungeon. The original single-room generator remains as the kit regression fixture; the selector calls `generateCryptDungeon`. Chamber dimensions, the omitted connection in a four-room grid, and decoration are seeded. Three corridors link every chamber, with working doors at both ends. The entrance has space for the full party; each other chamber contains two enemies. The exit occupies the chamber farthest from the entrance along the connection graph.
 
 The camera follows the leader at room scale (initial zoom 8), with existing paused zoom controls. Interior and corridor walls use local cutaways. Each chamber has its own tomb and torch pair; only the two shadow lights nearest the camera target are enabled, keeping the active shadow budget constant. All masonry comes from the same kit and uses the existing fog and collision map.

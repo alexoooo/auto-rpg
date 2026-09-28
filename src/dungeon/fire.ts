@@ -1,3 +1,4 @@
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Effect } from "@babylonjs/core/Materials/effect.js";
 import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
@@ -20,8 +21,8 @@ import type { Point } from "./map.ts";
 const HEAD = "varying vec2 vUV; uniform float time;", TAIL = "gl_FragColor=vec4(c,a*.82);}";
 const forge = Effect.ShadersStore.proofFireFragmentShader;
 if (!forge.includes(HEAD) || !forge.endsWith(TAIL)) throw new Error("dungeon fire: proofFire has changed; derive the fade again");
-Effect.ShadersStore.dungeonFireFragmentShader = forge.replace(HEAD, `${HEAD} uniform float fade;`)
-  .slice(0, -TAIL.length) + "gl_FragColor=vec4(c*fade,a*.82*fade);}";
+Effect.ShadersStore.dungeonFireFragmentShader = forge.replace(HEAD, `${HEAD} uniform float fade; uniform vec3 tint;`)
+  .slice(0, -TAIL.length) + "gl_FragColor=vec4(c*fade*tint,a*.82*fade);}";
 
 /** Which shaders a dungeon flame draws with: the forge's vertex, the fading fragment. */
 export const DUNGEON_FIRE = Object.freeze({ vertex: "proofFire", fragment: "dungeonFire" });
@@ -34,13 +35,18 @@ export const DUNGEON_FIRE = Object.freeze({ vertex: "proofFire", fragment: "dung
  */
 export function flameMaterial(scene: Scene) {
   const material = new ShaderMaterial("dungeon.fire", scene, DUNGEON_FIRE, {
-    attributes: ["position", "uv"], uniforms: ["worldViewProjection", "time", "fade"], needAlphaBlending: true,
+    attributes: ["position", "uv"], uniforms: ["worldViewProjection", "time", "fade", "tint"], needAlphaBlending: true,
   });
   material.backFaceCulling = false; material.disableDepthWrite = true;
   const fades = new Map<AbstractMesh, number>();
-  const binding = material.onBindObservable.add(mesh => material.getEffect()?.setFloat("fade", fades.get(mesh) ?? 1));
+  const tints = new Map<AbstractMesh, Color3>(), white=Color3.White();
+  const binding = material.onBindObservable.add(mesh => {
+    material.getEffect()?.setFloat("fade", fades.get(mesh) ?? 1);
+    material.getEffect()?.setColor3("tint", tints.get(mesh) ?? white);
+  });
   return {
     material,
+    setTint(flame: AbstractMesh, color: Color3): void { tints.set(flame,color); },
     setFade(flame: AbstractMesh, fade: number): void { fades.set(flame, fade); },
     dispose(): void { material.onBindObservable.remove(binding); },
   };

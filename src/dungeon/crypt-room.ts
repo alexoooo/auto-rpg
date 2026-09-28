@@ -1,11 +1,13 @@
+import { CRYPT_ROOM_LOOK, type CryptArchetype } from "./crypt-archetypes.ts";
 import { companionSpawn } from "./party-placement.ts";
 import { mulberry32 } from "../rng.ts";
 import { findPath, walkable, type DungeonMap, type Point } from "./map.ts";
 import type { TorchPlacement } from "./dressing.ts";
 
-export interface CryptPlacement { piece: string; x: number; z: number; turn: number }
+export interface CryptPlacement { piece: string; x: number; z: number; turn: number; obstacleId?: string }
 export interface CryptRoomPlan {
   map: DungeonMap;
+  archetypes?: CryptArchetype[];
   placements: CryptPlacement[];
   torches: TorchPlacement[];
   bounds: { min: Point; max: Point };
@@ -54,14 +56,19 @@ export function generateCryptRoom(seed: number): CryptRoomPlan {
 }
 
 /** The same masonry kit dresses both the proof room and connected gameplay maps. */
-export function dressCryptMap(map: DungeonMap, art: () => number): CryptRoomPlan {
+export function dressCryptMap(map: DungeonMap, art: () => number, archetypes?: CryptArchetype[], furniture?: CryptPlacement[]): CryptRoomPlan {
   const {size,floor}=map;
   const min={x:Math.min(...map.rooms.map(r=>r.min.x)),z:Math.min(...map.rooms.map(r=>r.min.z))};
   const max={x:Math.max(...map.rooms.map(r=>r.max.x)),z:Math.max(...map.rooms.map(r=>r.max.z))};
+  const lookAt=(x:number,z:number)=>{
+    const room=map.rooms.find(r=>x>=r.min.x-1&&x<=r.max.x+1&&z>=r.min.z-1&&z<=r.max.z+1);
+    const type=archetypes?.find(a=>a.room===room?.id);return type?CRYPT_ROOM_LOOK[type.kind]:undefined;
+  };
   const placements:CryptPlacement[]=[],put=(piece:string,x:number,z:number,turn=0)=>placements.push({piece,x,z,turn});
   const solid=new Map<string,{x:number;z:number;nx:number;nz:number}>(),key=(x:number,z:number)=>`${x},${z}`;
   for(let z=0;z<size;z++)for(let x=0;x<size;x++)if(floor[z*size+x]){
     put('paving'+Math.floor(art()*4),x,z);
+    if(lookAt(x,z)?.damp && art()<.18)put('scatter',x,z);
     for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])if(!floor[(z+dz)*size+x+dx])solid.set(key(x+dx,z+dz),{x:x+dx,z:z+dz,nx:-dx,nz:-dz});
   }
   const cornerSide=(c:{x:number;z:number;nx:number;nz:number})=>{
@@ -75,31 +82,35 @@ export function dressCryptMap(map: DungeonMap, art: () => number): CryptRoomPlan
   for(const cell of solid.values()){
     const {x,z,nx,nz}=cell, tx=nz,tz=-nx;
     const span=[-1,0,1].map(i=>solid.get(key(x+tx*i,z+tz*i)));
-    if(span.some(p=>!p||p.nx!==nx||p.nz!==nz||cornerSide(p)!==0||consumed.has(key(p.x,p.z)))||art()>.48)continue;
+    if(span.some(p=>!p||p.nx!==nx||p.nz!==nz||cornerSide(p)!==0||consumed.has(key(p.x,p.z)))||art()>(lookAt(x,z)?.niches??(archetypes?.length ? .12 : .48)))continue;
     put('niche',x,z,Math.atan2(nx,nz));niches.push(placements.at(-1)!);
     for(const p of span)consumed.add(key(p!.x,p!.z));
   }
   for(const {x,z,nx,nz} of solid.values())if(!consumed.has(key(x,z)))put(cornerSide({x,z,nx,nz})<0?'corner-left':cornerSide({x,z,nx,nz})>0?'corner-right':'wall',x,z,Math.atan2(nx,nz));
   for(const p of niches){
-    if(art()<.65)put('roots',p.x,p.z,p.turn);
+    if(art()<(lookAt(p.x,p.z)?.roots??(archetypes?.length?0:.65)))put('roots',p.x,p.z,p.turn);
     const nx=Math.sin(p.turn),nz=Math.cos(p.turn);
-    put('scatter',p.x+nx*.85,p.z+nz*.85,p.turn);
+    if(art()<(lookAt(p.x,p.z)?.scatter??1))put('scatter',p.x+nx*.85,p.z+nz*.85,p.turn);
   }
   for(const door of map.doors)put('portal',door.point.x,door.point.z,door.axis==='x'?Math.PI/2:0);
-  for(const tomb of map.obstacles??[])put('tomb',tomb.x,tomb.z,tomb.width>tomb.depth?0:Math.PI/2);
+  if(furniture)placements.push(...furniture);
+  else for(const tomb of map.obstacles??[])put('tomb',tomb.x,tomb.z,tomb.width>tomb.depth?0:Math.PI/2);
   const torches:TorchPlacement[]=[];
   for(const room of map.rooms){
     const {min,max,centre}=room;
+    const type=archetypes?.find(a=>a.room===room.id),look=type?CRYPT_ROOM_LOOK[type.kind]:undefined;
+    if(type?.kind==='guard')for(const x of [centre.x-2.7,centre.x+2.7])put('banner',x,max.z+1,Math.PI);
+    if(type?.kind==='rootbound')for(const c of solid.values())if(lookAt(c.x,c.z)===look&&art()<.55)put('roots',c.x,c.z,Math.atan2(c.nx,c.nz));
     const candidates=[...solid.values()].filter(c=>(c.x===min.x-1&&c.z>=min.z&&c.z<=max.z)||(c.z===max.z+1&&c.x>=min.x&&c.x<=max.x));
     const priority=(c:{x:number;z:number})=>c.x===min.x-1?Math.abs(c.z-centre.z):Math.abs(c.x-centre.x)+.1;
     const chosen:TorchPlacement[]=[];
     for(const c of candidates.sort((a,b)=>priority(a)-priority(b))){
       if(chosen.some(t=>Math.hypot(c.x-t.cell.x,c.z-t.cell.z)<Math.min(max.x-min.x+1,max.z-min.z+1)*.65))continue;
-      chosen.push({room:room.id,cell:{x:c.x,z:c.z},facing:{x:c.nx,z:c.nz},
+      chosen.push({...(look?{color:look.color,intensity:look.intensity,shadowIntensity:look.shadow}:{}),room:room.id,cell:{x:c.x,z:c.z},facing:{x:c.nx,z:c.nz},
         flame:{x:c.x+c.nx*.65,y:2.05,z:c.z+c.nz*.65},light:{x:c.x+c.nx,y:2.05,z:c.z+c.nz}});
       if(chosen.length===2)break;
     }
     torches.push(...chosen);
   }
-  return {map,placements,torches,bounds:{min,max},damp:torches.map(t=>({x:t.light.x+t.facing.x*1.4,z:t.light.z+t.facing.z*1.4}))};
+  return {map,archetypes,placements,torches,bounds:{min,max},damp:torches.filter(t=>!archetypes||CRYPT_ROOM_LOOK[archetypes.find(a=>a.room===t.room)!.kind].damp).map(t=>({x:t.light.x+t.facing.x*1.4,z:t.light.z+t.facing.z*1.4}))};
 }

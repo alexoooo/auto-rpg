@@ -93,13 +93,13 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const iron=flatStone(scene,"reference.iron","#444a4d",.4);iron.metallic=.8;
   const tomb=textured("crypt.tomb", "#ddd5c3");
   const wood=surface(scene,TEXTURED_SURFACES.weaponWood);
-  const materials={wall,trim,floor,root:rootMat,earth,iron,tomb};
-  wood.maxSimultaneousLights=6;world.fog?.attach(wood,null);
+  const cloth=flatStone(scene,"crypt.cloth","#752c25",.95);
+  const materials={wall,trim,floor,root:rootMat,earth,iron,tomb,wood,cloth};
   new CryptCutaway(wood, azimuth, cutaway);
   for(const door of world.doorVisuals) { door.wood.material=wood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
   for(const [name,material] of Object.entries(materials)) {
-    material.maxSimultaneousLights=6;world.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"?"wall":null);
-    if (["wall", "trim", "root", "earth", "iron"].includes(name)) new CryptCutaway(material, azimuth, cutaway);
+    material.maxSimultaneousLights=6;world.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan?.archetypes)?"wall":null);
+    if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, azimuth, cutaway);
   }
   // Retain working doors and exit; replace only the old architectural skin.
   for(const mesh of world.surfaces)if(mesh.name.startsWith("wall.")||mesh.name.startsWith("floor."))mesh.setEnabled(false);
@@ -120,7 +120,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const lights=torches.map((torch,i)=>{
     const light=new SpotLight(`reference.shadow.${i}`,new Vector3(torch.light.x,2.45,torch.light.z),
       new Vector3(torch.facing.x,-.85,torch.facing.z).normalize(),Math.PI*.68,1.5,scene);
-    light.diffuse=Color3.FromHexString("#ffb665");light.intensity=85;light.range=12;
+    light.diffuse=Color3.FromHexString(torch.color??"#ffb665");light.intensity=torch.shadowIntensity??85;light.range=12;
     light.shadowMinZ=.1;light.shadowMaxZ=18;
     const shadow=new ShadowGenerator(quality==="high"?2048:1024,light);
     shadow.usePercentageCloserFiltering=true;shadow.bias=.001;shadow.normalBias=.018;
@@ -134,5 +134,5 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
     const nearest=lights.map((light,i)=>({i,d:Vector3.DistanceSquared(light.position,target)})).sort((a,b)=>a.d-b.d).slice(0,2).map(v=>v.i);
     lights.forEach((light,i)=>light.setEnabled(nearest.includes(i)));
   }) : null;
-  return {dispose(){if(observer)scene.onBeforeRenderObservable.remove(observer);shadows.forEach(s=>s.dispose());lights.forEach(l=>l.dispose());container.dispose();Object.values(materials).forEach(m=>m.dispose(false,false));wood.dispose(false,false);maps.forEach(t=>t.dispose());}};
+  return {dispose(){if(observer)scene.onBeforeRenderObservable.remove(observer);shadows.forEach(s=>s.dispose());lights.forEach(l=>l.dispose());container.dispose();Object.values(materials).forEach(m=>m.dispose(false,false));maps.forEach(t=>t.dispose());}};
 }

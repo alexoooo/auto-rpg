@@ -159,6 +159,9 @@ export const hungCentre = (r: { cell: Point; facing: Point; along: number }): Po
   ({ x: r.cell.x + r.facing.x * 0.5 + Math.abs(r.facing.z) * r.along, z: r.cell.z + r.facing.z * 0.5 + Math.abs(r.facing.x) * r.along });
 
 export interface TorchPlacement {
+  color?: string;
+  intensity?: number;
+  shadowIntensity?: number;
   /** The rock cell the sconce is set into. */
   cell: Point;
   /** Unit step from the rock cell to the floor cell it lights: one of the four axis directions. */

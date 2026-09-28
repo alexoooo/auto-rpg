@@ -1,3 +1,4 @@
+import {CRYPT_FURNITURE} from '../src/dungeon/crypt-archetypes.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -37,14 +38,22 @@ test('crypt kit has baked origins, valid normals, colours and a bounded tomb',()
   const bytes=readFileSync(new URL('../public/assets/crypt-kit/kit.glb',import.meta.url));
   const n=bytes.readUInt32LE(12),g=JSON.parse(bytes.subarray(20,20+n));
   const read=i=>{const a=g.accessors[i],v=g.bufferViews[a.bufferView],width={VEC2:2,VEC3:3,VEC4:4}[a.type];
-    assert.equal(a.componentType,5126);
-    return Array.from({length:a.count},(_,j)=>Array.from({length:width},(_,k)=>bytes.readFloatLE(28+n+(v.byteOffset??0)+(a.byteOffset??0)+j*(v.byteStride??width*4)+k*4)));};
+    assert.ok([5126,5121].includes(a.componentType));
+    const bytesPer=a.componentType===5126?4:1;
+    return Array.from({length:a.count},(_,j)=>Array.from({length:width},(_,k)=>a.componentType===5126?bytes.readFloatLE(28+n+(v.byteOffset??0)+(a.byteOffset??0)+j*(v.byteStride??width*bytesPer)+k*bytesPer):bytes.readUInt8(28+n+(v.byteOffset??0)+(a.byteOffset??0)+j*(v.byteStride??width)+k)/255));};
   for(const node of g.nodes){
     assert.equal(node.rotation,undefined);assert.equal(node.translation,undefined);assert.equal(node.scale,undefined);
     for(const p of g.meshes[node.mesh].primitives){
       for(const normal of read(p.attributes.NORMAL))assert.ok(Math.abs(Math.hypot(...normal)-1)<.001);
       for(const colour of read(p.attributes.COLOR_0))assert.ok(colour.every(v=>v>=0&&v<=1));
       for(const uv of read(p.attributes.TEXCOORD_0))assert.ok(uv.every(Number.isFinite));
+      const footprint=CRYPT_FURNITURE[node.name.split('__')[0]];
+      if(footprint){
+        const a=g.accessors[p.attributes.POSITION],[w,d,h]=footprint;
+        assert.ok(a.min[0]>=-w/2-.001&&a.max[0]<=w/2+.001,node.name+' width');
+        assert.ok(a.min[2]>=-d/2-.001&&a.max[2]<=d/2+.001,node.name+' depth');
+        assert.ok(a.min[1]>=-.001&&a.max[1]<=h+.001,node.name+' height');
+      }
       if(node.name==='tomb__tomb'){
         const a=g.accessors[p.attributes.POSITION];
         a.min.forEach((v,i)=>assert.ok(Math.abs(v-[-1.25,0,-.575][i])<.001));

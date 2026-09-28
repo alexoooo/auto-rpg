@@ -107,13 +107,14 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   const flames = torches.map((torch, i) => {
     const flame = MeshBuilder.CreatePlane(`torch.flame.${i}`, { width: 0.3, height: 0.58 }, scene);
     flame.position.set(torch.flame.x, torch.flame.y, torch.flame.z);
+    if(torch.color)flameLook.setTint(flame,Color3.FromHexString(torch.color));
     flame.material = fire; flame.billboardMode = Mesh.BILLBOARDMODE_Y; flame.isPickable = false; flame.isVisible = false;
     return { flame, floor: cellKey(map, { x: torch.cell.x + torch.facing.x, z: torch.cell.z + torch.facing.z }) };
   });
   const lights = torches.map((torch, i) => {
     const light = new PointLight(`torch.light.${i}`, new Vector3(torch.light.x, torch.light.y, torch.light.z), scene);
-    light.diffuse = torchColor; light.intensity = DUNGEON_LOOK.torch.intensity;
-    light.range = lightRange(DUNGEON_LOOK.torch.intensity + DUNGEON_LOOK.torch.flicker);
+    light.diffuse = torch.color ? Color3.FromHexString(torch.color) : torchColor; light.intensity = torch.intensity ?? DUNGEON_LOOK.torch.intensity;
+    light.range = lightRange((torch.intensity ?? DUNGEON_LOOK.torch.intensity) + DUNGEON_LOOK.torch.flicker);
     return light;
   });
   // The container takes its lights out of `scene.lights`, and its own switch is the only one it reads: a member
@@ -152,7 +153,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   const flicker = scene.onBeforeRenderObservable.add(() => {
     if (scene.physicsEnabled) time += Math.min(scene.getEngine().getDeltaTime(), 50) / 1000;
     fire.setFloat("time", time);
-    lights.forEach((light, i) => light.intensity = DUNGEON_LOOK.torch.intensity + Math.sin(time * 8 + i * 1.7) * DUNGEON_LOOK.torch.flicker);
+    lights.forEach((light, i) => light.intensity = (torches[i].intensity ?? DUNGEON_LOOK.torch.intensity) + Math.sin(time * 8 + i * 1.7) * DUNGEON_LOOK.torch.flicker);
   });
 
   return {

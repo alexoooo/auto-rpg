@@ -1,3 +1,4 @@
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
@@ -217,13 +218,13 @@ test("a_wall_in_front_ghosts_around_the_hero_and_the_opening_has_no_edge", () =>
   assert.equal(cutAway(hero, over, CAMERA_PITCH, cameraToward(CAMERA_AZIMUTH + Math.PI)), 0, "behind a camera turned round");
 });
 
-test("a_dungeon_flame_is_the_forge_flame_times_its_fade", () => {
+test("a_dungeon_flame_is_the_forge_flame_times_its_fade_and_tint", () => {
   const forge = Effect.ShadersStore.proofFireFragmentShader, own = Effect.ShadersStore.dungeonFireFragmentShader;
-  const expected = forge.replace("varying vec2 vUV; uniform float time;", "varying vec2 vUV; uniform float time; uniform float fade;")
-    .replace("gl_FragColor=vec4(c,a*.82);}", "gl_FragColor=vec4(c*fade,a*.82*fade);}");
+  const expected = forge.replace("varying vec2 vUV; uniform float time;", "varying vec2 vUV; uniform float time; uniform float fade; uniform vec3 tint;")
+    .replace("gl_FragColor=vec4(c,a*.82);}", "gl_FragColor=vec4(c*fade*tint,a*.82*fade);}");
   assert.notEqual(expected, forge);
   assert.equal(own, expected);
-  assert.ok(own.includes("uniform float fade;") && own.includes("vec4(c*fade,a*.82*fade)"));
+  assert.ok(own.includes("uniform float fade;") && own.includes("vec4(c*fade*tint,a*.82*fade)"));
   assert.deepEqual({ ...DUNGEON_FIRE }, { vertex: "proofFire", fragment: "dungeonFire" });
   assert.ok(Effect.ShadersStore.proofFireVertexShader, "the flame draws with the forge's vertex shader");
 });
@@ -239,21 +240,26 @@ test("each_flame_is_drawn_with_its_own_fade", async () => {
       flame.position.x = i * 1.5; flame.material = look.material;
       if (fade !== undefined) look.setFade(flame, fade);
     }
-    const drawn = new Map();
-    let last;
+    const drawn = new Map(), colours = new Map();
+    const tint=new Color3(.8,.5,.2);look.setTint(scene.getMeshByName('a'),tint);
+    let last,lastTint;
     // Added after the material's own observer, so it runs after it: it sees what that observer wrote for this mesh.
-    look.material.onBindObservable.add(mesh => drawn.set(mesh.name, last));
+    look.material.onBindObservable.add(mesh => { drawn.set(mesh.name,last);colours.set(mesh.name,lastTint); });
     for (let frame = 0; frame < 3; frame++) {
       scene.render();
       const effect = look.material.getEffect();
       if (effect && !effect.probed) {
         const setFloat = effect.setFloat.bind(effect);
         effect.setFloat = (name, value) => { if (name === "fade") last = value; return setFloat(name, value); };
+        const setColor3=effect.setColor3.bind(effect);
+        effect.setColor3=(name,value)=>{if(name==='tint')lastTint=value.asArray();return setColor3(name,value);};
         effect.probed = true;
       }
       last = undefined;
     }
     assert.deepEqual(Object.fromEntries(drawn), { a: 0.2, b: 0.9, whole: 1 });
+    assert.deepEqual(Object.fromEntries(colours),{a:[.8,.5,.2],b:[1,1,1],whole:[1,1,1]});
+    assert.ok(look.material.getEffect().getUniformNames().includes('tint'));
     // NullEngine accepts a write to any name, so the write above proves nothing about the GPU. A uniform the effect
     // was not built with has no location in WebGL, and the flame would draw at the shader's default of 0: invisible.
     assert.ok(look.material.getEffect().getUniformNames().includes("fade"), "the effect declares no fade uniform");
