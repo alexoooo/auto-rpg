@@ -68,12 +68,25 @@ The owner's answers, 2026-09-27:
 | How scoring reads a blow | Arrival read whole. Today's fractions move into the joules-per-damage prices. |
 | A straight arm billing the body | A joint give model, so a locked arm gives as a real one does. |
 | Order | This session first; the damage unit is set on real numbers after it. |
+| The top of the size range | Many elite fighters are over 2 m, so the human ceiling reaches past 2 m. |
 
 Steps, in landing order. Each is its own commit, with a bout either side wherever it touches a fight.
 
 1. **Scoring reads arrival whole.** `arrivalReadFractions` goes, and each kind's joules-per-damage
    divides by its fraction squared. Damage is then unchanged except at the speed floors; report
    what the floors change.
+
+   **Done 2026-09-27.** Each mechanism has one price, so blunt took the row measured on the club
+   and the fist, 0.62. The whip and the ram were at 0.56, and each now pays 1.226 times what it did
+   for a blow, with a floor 10 % slower. The shove kept its fraction as `shoveReadFractions` (step 5
+   has why). The builds were compared as 96-bout mirrors: duelist and walker, the Node research
+   runner, seed 20260923, the same blocks before and after. Default, fists, mace, maul,
+   skeleton-warrior, warrior, warrior-club and warrior-unarmed are bit-identical. Two moved:
+   - the whip mirror: 2.32 to 2.90 damage a bout, Delta ln s -0.039 +- 0.004;
+   - ram-capped: 1.53 to 1.61, Delta ln s -0.005 +- 0.002.
+
+   The same run showed that the human mirrors barely fight: under 0.3 damage a bout, and every
+   bout runs to the cap.
 2. **Anthropometry.**
    - x1 is a typical adult, and each model's scale comes from its own stature.
    - Segment masses follow de Leva's fractions of a body mass set by the model's build. Today every
@@ -91,9 +104,16 @@ Steps, in landing order. Each is its own commit, with a bout either side whereve
    - `effectiveMassAt` couples the chain to the body only as far as each joint's torque can hold
      over the contact.
    - Targets: a punch of 2-4 kg, and a club head under about 1.5 kg.
-   - It touches every family's scoring, so it gets a bout comparison across families.
+   - The shove reads the arrival whole with it, and `shoveReadFractions` goes. Read whole on
+     today's masses, the shove doubled the maul mirror's falls and added two or three a bout to
+     the skeleton's and the club Warrior's (the table is at `shoveReadFractions`), so the falls
+     are measured on masses that are right.
+   - It touches every family's scoring and falls, so it gets a bout comparison across families.
 6. **Human attribute ranges.**
-   - Size runs about x0.9-1.1 around the new x1.
+   - Size runs from about x0.9 to about x1.18 around the new x1: for a 1.77 m x1, from 1.59 m to
+     about 2.09 m. Heavyweight boxers stand 1.98-2.13 m (Klitschko, Fury, Valuev). The ceiling is a
+     human row of its own, checked on the human feet. Today's x1.1 is the stone biped's foot slip,
+     and the human arms alone allowed x1.25.
    - Weight becomes a build range of about x0.85-1.25, not a doubling of density.
    - Arm speed spans typical to elite.
    - Run the strike search at minimum, default and maximum for the punch, the one-handed club and

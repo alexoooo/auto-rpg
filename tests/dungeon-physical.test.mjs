@@ -10,7 +10,7 @@ import { generateLevel } from "../src/dungeon/level.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { cornerStallLevel } from "./fixtures/corner-stall-level.mjs";
 import { CONFIG } from "../src/config.ts";
-import { Combat, arrivalReadFraction } from "../src/combat.ts";
+import { Combat } from "../src/combat.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
@@ -168,23 +168,23 @@ test("contact resolution wounds an unselected actor and attributes its parry", a
     const source = run.hero.body.strikers[0];
     // Real body, target anatomy, mass and damage path; a stated synthetic arrival isolates routing.
     const weapon = { kind: "club", effectorId: "routing-probe", hand: "primary",
-      body: source.body, spent: false, velocityAt: () => new Vector3(0, 0, 12),
+      body: source.body, spent: false, velocityAt: () => new Vector3(0, 0, 20),
       edgeDirection: () => new Vector3(0, 0, 1), bladeDirection: () => new Vector3(0, 1, 0),
       tipPosition: () => new Vector3(0, 0, 0) };
     combat = new Combat("left", [weapon]); combat.advance(1);
-    // The same 12 m/s under an `"arrival"` reading, which reads the body as the step began rather
-    // than `velocityAt`, and bills `arrivalReadFraction` of it: the body is moved at 12 over that
-    // fraction and sampled the way a solver step samples it. The hero's own `Combat` watches the
-    // same body and samples it too, so it is stopped: only the probe may score.
+    // The same 20 m/s under an `"arrival"` reading, which reads the body as the step began rather
+    // than `velocityAt`: the body is moved at 20 and sampled the way a solver step samples it.
+    // It was 12 while an arrival reading billed a club 0.62 of its speed, which is 19.4 of arrival.
+    // The hero's own `Combat` watches the same body and samples it too, so it is stopped: only the
+    // probe may score.
     run.hero.combat.stop();
-    const share = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction(weapon.kind) : 1;
-    source.body.setLinearVelocity(new Vector3(0, 0, 12 / share));
+    source.body.setLinearVelocity(new Vector3(0, 0, 20));
     source.body.setAngularVelocity(new Vector3(0, 0, 0));
     arena.scene.onBeforePhysicsObservable.notifyObservers(arena.scene);
     const limb = struck.body.limbs.find(l => !l.guarding && !l.fatal);
     const before = limb.health, untouched = selected.body.vitality;
     // The contact point is the striker's own centre, so the probe's energy is its body's whole mass
-    // at 12 m/s wherever the hero's arm is. It was the struck limb's position, and the striker's
+    // at 20 m/s wherever the hero's arm is. It was the struck limb's position, and the striker's
     // effective mass there is set by the lever from the blade to that limb: with the hero's arm
     // built at guard (2026-09-25) that lever put the same 12 m/s under the club's floor, a slap, and
     // a routing test failed on an energy it was never about.

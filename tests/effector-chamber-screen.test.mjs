@@ -19,11 +19,12 @@ test("a continuous chamber changes a real blade contact from the same warmed sta
   assert.equal(a.start.pose, b.start.pose);
   assert.deepEqual(b.targetHands, ["primary"]);
   // On the Warrior (Node bout runner, 2026-09-27) the straight plan touches nothing and this chamber
-  // lands one weak contact of 0.974 J at edge alignment 0.661. It was chamber/t0.3 at 6.0 to 6.5 J on
-  // the legacy human; of the twelve chambers only this one reaches the Warrior's opponent.
-  assert.ok(b.maxBodyEnergyJ > a.maxBodyEnergyJ + .5,
+  // lands one weak contact of 3.105 J at edge alignment 0.661, read whole; billed at 0.56 of its
+  // speed it was 0.974 J. It was chamber/t0.3 at 6.0 to 6.5 J on the legacy human, billed; of the
+  // twelve chambers only this one reaches the Warrior's opponent.
+  assert.ok(b.maxBodyEnergyJ > a.maxBodyEnergyJ + 1.5,
     "the chamber must produce a measurably different body contact");
-  assert.ok(b.maxBodyEnergyJ > .9 && b.maxBodyEnergyJ < 1.05);
+  assert.ok(b.maxBodyEnergyJ > 2.9 && b.maxBodyEnergyJ < 3.3);
   assert.equal(b.strongestBodyContact.kind, "weak");
   assert.ok(b.strongestBodyContact.edgeAlignment > .6 && b.strongestBodyContact.edgeAlignment < .7);
   assert.equal(b.preArmourDamage, 0);

@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 const near = (actual, expected, what) =>
   assert.ok(Math.abs(actual - expected) <= 1e-6 * Math.max(1, Math.abs(expected)), `${what}: ${actual} against ${expected}`);
 
-async function arena(reading, fraction, onRefusal, { build = "default", kind = "sword" } = {}) {
+async function arena(reading, onRefusal, { build = "default", kind = "sword" } = {}) {
   const { Logger } = await import("@babylonjs/core/Misc/logger.js");
   const { createBout, freshHavok } = await import("./harness/bout-runner.mjs");
   const { namedBuild } = await import("../src/golem/roster.ts");
@@ -22,12 +22,11 @@ async function arena(reading, fraction, onRefusal, { build = "default", kind = "
   for (let i = 0; i < 30; i++) bout.step();
   const striker = bout.left.strikers.find((s) => s.kind === kind);
   assert.ok(striker, `the control: a ${kind} to strike with`);
-  const saved = { reading: CONFIG.combat.contactReading, fraction: CONFIG.combat.arrivalReadFractions[kind] };
+  const saved = CONFIG.combat.contactReading;
   CONFIG.combat.contactReading = reading;
-  CONFIG.combat.arrivalReadFractions[kind] = fraction;
   let combat;
   try { combat = new Combat("left", [striker], undefined, onRefusal); }
-  finally { CONFIG.combat.contactReading = saved.reading; CONFIG.combat.arrivalReadFractions[kind] = saved.fraction; }
+  finally { CONFIG.combat.contactReading = saved; }
   combat.advance(1);
   combat.attach(bout.right);
   const scene = striker.body.transformNode.getScene();
@@ -53,9 +52,9 @@ async function strike({ striker, scene }, body, before, after, offset) {
   return point;
 }
 
-async function readings(reading, fraction, striker) {
+async function readings(reading, striker) {
   const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
-  const fixture = await arena(reading, fraction, undefined, striker);
+  const fixture = await arena(reading, undefined, striker);
   try {
     const core = fixture.bout.right.limbs.find((l) => l.key.endsWith("core"));
     assert.ok(core, "the control: a core to strike");
@@ -71,48 +70,32 @@ async function readings(reading, fraction, striker) {
 }
 
 test("a_settled_reading_scores_the_velocity_the_solver_left_and_an_arrival_reading_the_one_it_was_handed", async () => {
-  const settled = await readings("settled", 0.6);
+  const settled = await readings("settled");
   near(settled.report.speed, settled.settled.length(), "settled speed");
   near(settled.report.closingSpeed, settled.settled.length(), "settled closing");
 
-  // Sampled on both sides of the fraction: 1 is the arrival itself, 0.6 bills six tenths of it.
-  for (const fraction of [1, 0.6]) {
-    const { report, arrived } = await readings("arrival", fraction);
-    near(report.speed, fraction * arrived.length(), `arrival speed at ${fraction}`);
-    // The arrival carries the turn about the centre of mass: w x r adds 0.8 m/s along the blow.
-    near(report.closingSpeed, fraction * 9.8, `arrival closing at ${fraction}`);
-    assert.ok(report.speed > settled.report.speed, "the control: the two readings differ");
-  }
+  const { report, arrived } = await readings("arrival");
+  near(report.speed, arrived.length(), "arrival speed");
+  // The arrival carries the turn about the centre of mass: w x r adds 0.8 m/s along the blow.
+  near(report.closingSpeed, 9.8, "arrival closing");
+  assert.ok(report.speed > settled.report.speed, "the control: the two readings differ");
 });
 
-test("each_striker_kind_is_billed_at_its_own_arrival_fraction", async () => {
-  const { STRIKER_KINDS } = await import("../src/hands.ts");
-  const { arrivalReadFraction } = await import("../src/combat.ts");
-  const { CONFIG } = await import("../src/config.ts");
-  const table = CONFIG.combat.arrivalReadFractions;
-  // One row per kind of the union and no other, each a fraction, each answered as its own row.
-  assert.deepEqual(Object.keys(table).sort(), [...STRIKER_KINDS].sort());
-  for (const kind of STRIKER_KINDS) assert.equal(arrivalReadFraction(kind), table[kind], kind);
-  // A row that is not a fraction throws by name rather than billing nothing, or more than arrived.
-  for (const bad of [0, -0.5, 1.2, Number.NaN, undefined]) {
-    assert.throws(() => arrivalReadFraction("club", { ...table, club: bad }), /club/, `a club row of ${bad}`);
-  }
-  assert.throws(() => arrivalReadFraction("halberd"), /halberd/);
-
-  // A hand-fired club is billed at the club's row and a blade at the blade's, each with the other
-  // row left where it stands: a `Combat` that billed every kind at one row fails one of the two.
-  const club = await readings("arrival", 0.8, { build: "mace", kind: "club" });
-  assert.notEqual(table.sword, 0.8, "the control: the blade's row is not the club's");
-  near(club.report.speed, 0.8 * club.arrived.length(), "a club at the club's row");
-  const blade = await readings("arrival", 0.5);
-  assert.notEqual(table.club, 0.5, "the control: the club's row is not the blade's");
-  near(blade.report.speed, 0.5 * blade.arrived.length(), "a blade at the blade's row");
+// Until 2026-09-27 an arrival reading billed each kind a fraction of its arrival, 0.56 for a blade
+// and 0.62 for a club (`CONFIG.combat.contactReading` has the history); the prices carry it now.
+// A club and a blade are both billed whole, so a `Combat` that kept a row for either fails here.
+test("every_striker_kind_is_billed_its_whole_arrival", async () => {
+  const club = await readings("arrival", { build: "mace", kind: "club" });
+  near(club.report.speed, club.arrived.length(), "a club, whole");
+  near(club.report.closingSpeed, 9.8, "a club's closing speed, whole");
+  const blade = await readings("arrival");
+  near(blade.report.speed, blade.arrived.length(), "a blade, whole");
 });
 
 async function guarded(reading, arrivingAt) {
   const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
   const refusals = [];
-  const fixture = await arena(reading, 0.54, (event) => refusals.push(event.reason));
+  const fixture = await arena(reading, (event) => refusals.push(event.reason));
   try {
     const core = fixture.bout.right.limbs.find((l) => l.key.endsWith("core"));
     const before = { linear: new Vector3(0, 0, arrivingAt), angular: new Vector3(0, 0, 0) };

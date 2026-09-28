@@ -736,6 +736,29 @@ export const CONFIG = {
    * factor without a measurement of its own, and the point floor is untouched: no live golem or
    * human striker bites either way, so there was nothing to hold.
    *
+   * **Then the arrival was read whole** (2026-09-27, `docs/plans/2026-09-27-warrior-rogue-reptile.md`,
+   * Session 2). From the release of 2026-09-25 to this date a contact's velocity was billed times
+   * its kind's `arrivalReadFractions` row, a fight-length calibration that kept a bout as long as
+   * the retired `"settled"` reading made it, and which left every blow booked at 31-38 % of the
+   * energy that arrived. The fractions went into the prices instead. Energy goes as the square of
+   * the velocity, so each price and floor is the one before divided by its row squared:
+   *
+   *     mechanism  row    J per damage          floor J
+   *     edge       0.56    62.08 ->  197.96     10.62 -> 33.86
+   *     chop       0.56    46.24 ->  147.45     (the edge's)
+   *     blunt      0.62   436.29 -> 1134.99     29.67 -> 77.19
+   *     point      -      34 and 1.12, unchanged
+   *
+   * A sword, an axe, a club, a stone or human fist and a golem plate therefore score exactly what
+   * they did, and clear their floors at the same arrival speed: a blade with a stone arm behind it
+   * at 3.0 / 0.56 = 5.36 m/s of arrival, a club at 2.2 / 0.62 = 3.55. Blunt is one price, so it
+   * takes the row of the two blunt kinds that were measured, the club and the fist. The whip and the
+   * ram plate were at 0.56, the whip because its length hardly answered the fraction and the ram for
+   * want of a mirror that fields one; each now pays 1.226 times what it did for a blow, and clears
+   * the floor 10 % slower. A swung arrow or a bite, which no live striker produces today, is now read
+   * whole like a loosed arrow. The shove each contact files (`Combat.transfer`) keeps its fraction for
+   * now, as `shoveReadFractions`, which says why.
+   *
    * **What retired, and why none of it is missed.** `damageScale`, `chopScale`, `crushScale`,
    * `fistScale` and `ramScale` were five ceilings each argued on its own day against a Warrior;
    * `minCrushSpeed`, `fistMinSpeed`, `fistReferenceSpeed`, `biteMinSpeed`, `biteReferenceSpeed`,
@@ -841,51 +864,54 @@ export const CONFIG = {
      *
      * `0.5 * 1.32372 * 11^2 / 2.3 * 1.783`: the Warrior's 1.35 kg sword into a 68 kg torso at the
      * reference speed, over the 2.3 that `damageScale` paid for exactly that blow, times what a
-     * stone arm's chain adds behind a blade (the header's second table). Quality multiplies it,
-     * so a badly placed cut still pays almost nothing.
+     * stone arm's chain adds behind a blade (the header's second table), over the 0.56^2 of the
+     * arrival a contact was billed until the arrival was read whole (the header's third table).
+     * Quality multiplies it, so a badly placed cut still pays almost nothing.
      */
-    cutJoulesPerDamage: 62.08,
+    cutJoulesPerDamage: 197.96,
     /**
      * An axe's edge, joules per point of wound. The same arm speed arriving through a hand's
      * width of edge instead of through 840 mm of it.
      *
-     * `0.5 * 1.37176 * 11^2 / 3.2 * 1.783`, from `chopScale`, which was the one number of the
+     * `0.5 * 1.37176 * 11^2 / 3.2 * 1.783 / 0.56^2`, from `chopScale`, which was the one number of the
      * axe's three that the bench did not refuse, times the edge's chain factor. It is 75 % of the
      * sword's, which is the 1.4 the physical argument asked for, arrived at from the other end.
      * No live striker chops, so nothing measured the axe's own factor; it takes the edge's
      * because it is an edge on an arm and already shares the edge's floor.
      */
-    chopJoulesPerDamage: 46.24,
+    chopJoulesPerDamage: 147.45,
     /**
      * Blunt, joules per point of wound: a club, a fist, a lash, a bash, a ram.
      *
-     * `0.5 * 3.23810 * 11^2 / 1.7 * 3.786`, from `crushScale`, times what a stone golem's
-     * chain adds behind a blunt striker (the header's second table). Before that factor it cost
+     * `0.5 * 3.23810 * 11^2 / 1.7 * 3.786 / 0.62^2`, from `crushScale`, times what a stone golem's
+     * chain adds behind a blunt striker (the header's second table), over the club's and the
+     * fist's arrival row (the third). Before that factor it cost
      * three and a third times a sword's edge, which is the whole of the difference between
      * placing a blow and arriving with one; a chain couples more behind a heavy head than behind
      * a blade, so the ratio is seven now, paid on joules a heavy head delivers far more of.
      */
-    crushJoulesPerDamage: 436.29,
+    crushJoulesPerDamage: 1134.99,
     /**
      * Below this much arriving energy an edge is weak: it shoves and does not bite.
      *
-     * `0.5 * 1.32372 * 3^2 * 1.783`, the retired `minCutSpeed` of 3.0 m/s restated for the
-     * Warrior's own sword on a torso with a stone arm's chain behind it, so a blade being leaned
-     * on is exactly as harmless as it was. A bare 1.35 kg blade needs 4.01 m/s.
+     * `0.5 * 1.32372 * 3^2 * 1.783 / 0.56^2`, the retired `minCutSpeed` of 3.0 m/s restated for the
+     * Warrior's own sword on a torso with a stone arm's chain behind it, and for the arrival read
+     * whole, so a blade being leaned on is exactly as harmless as it was. That is 5.36 m/s of
+     * arrival; a bare 1.35 kg blade needs 7.15.
      */
-    cutFloorJ: 10.62,
+    cutFloorJ: 33.86,
     /**
      * Below this much arriving energy a blunt blow is a slap: it takes the shove path and scores
      * nothing.
      *
-     * `0.5 * 3.23810 * 2.2^2 * 3.786`, the retired `minCrushSpeed` of 2.2 m/s for the Warrior's
-     * 3.4 kg club on a torso, with a stone golem's chain behind it. At the masses that arrive it
+     * `0.5 * 3.23810 * 2.2^2 * 3.786 / 0.62^2`, the retired `minCrushSpeed` of 2.2 m/s for the Warrior's
+     * 3.4 kg club on a torso, with a stone golem's chain behind it: 3.55 m/s of arrival. At the masses that arrive it
      * is below the edge's floor in speed, which is the statement the two retired speeds made: a
      * blade that arrives slowly is a blade being leaned on, and a club that arrives slowly is
      * still several kilograms of wood. Stated for the bare weapons it is not, because a chain
-     * couples more behind a heavy head than behind a blade; a bare 3.4 kg club needs 4.28 m/s.
+     * couples more behind a heavy head than behind a blade; a bare 3.4 kg club needs 6.90 m/s.
      */
-    crushFloorJ: 29.67,
+    crushFloorJ: 77.19,
     /**
      * Below this much arriving axial energy a point does not bury itself.
      *
@@ -916,7 +942,7 @@ export const CONFIG = {
      * against the *unprojected* tip speed rather than the closing speed, because what is being
      * refused is a striker travelling impossibly fast whatever the manifold says about it. Under
      * `contactReading: "arrival"` it is checked against the speed that reading bills, the whole
-     * speed as the step began, before its kind's row of `arrivalReadFractions`.
+     * speed as the step began.
      *
      * Projectiles are exempt: `CONFIG.arrow.speedMax` is 48 m/s and a loosed arrow's speed is
      * authored by the bow rather than found by the solver.
@@ -951,8 +977,8 @@ export const CONFIG = {
      *   agree with. The event point lies on the striker's collider in that pose to p90 0.7-1.3 mm,
      *   against 12-71 mm after the step. The whip's weight, a sphere, prices at 0.415 kg at 240 and
      *   at 120 against a rigid-body 0.42; read against the post-step pose it was 0.353 and 0.244.
-     *   The velocity is billed times its kind's row of `arrivalReadFractions`, and
-     *   `impossibleSpeed` reads it whole.
+     *   Until 2026-09-27 the velocity was billed times a per-kind fraction (the history is under
+     *   "The arrival fraction" below); it is billed whole now, and the prices carry the fraction.
      *
      * **What it fixes.** Node research runner, supported locomotion, PROBE_MINDS, stone golems,
      * each named build's mirror, 192 bouts per set, 150 s cap, seed 20260923; paired t120 (physics
@@ -989,81 +1015,49 @@ export const CONFIG = {
      * with the release of 2026-09-25**: `"arrival"`, with `world.physicsHz` at 120. `"settled"` is
      * still that bit-identical reading, and the fixtures that fire a contact by hand read which one
      * is in force.
+     *
+     * **The arrival fraction, 2026-09-25 to 2026-09-27.** The reading first billed a fraction of
+     * the arrival velocity, chosen to keep the settled 240 Hz fight's length: Delta ln s against
+     * 240 settled fell 0.048 per 0.01 of fraction and crossed zero at 0.554 on the default mirror
+     * (192 paired bouts, Node research runner), so the blade took 0.56. At the release each weapon
+     * mirror was held to its own settled length: the club took 0.62 (the mace crossed at 0.61, the
+     * maul at 0.665), the fist 0.62 (crossing 0.625), and the whip stayed at 0.56 because its length
+     * hardly answered the fraction (crossing extrapolated to 0.79, its excess travelling with its
+     * falls). No mirror fielded an axe, bow, shield, arrow, bite or ram, so they kept the blade's
+     * row. `docs/analysis/2026-09-25-rate-contact-reading.md` and
+     * `docs/analysis/2026-09-25-release-120.md` have the tables.
+     *
+     * It billed a blow at 31-38 % of the energy that arrived, which made every joule in a readout a
+     * third of a real one (`docs/analysis/2026-09-27-human-strike-realism.md`, finding 1). Since
+     * 2026-09-27 the velocity is billed whole, and the fraction lives in the prices: the header's
+     * third table.
      */
     contactReading: "arrival" as "settled" | "arrival",
-
     /**
-     * The fraction of the arrival velocity an `"arrival"` reading bills, chosen to keep **the
-     * settled 240 Hz fight's length**. Read only under `contactReading: "arrival"`.
+     * The share of a contact's arrival that the shove it files is read at (`Combat.transfer`),
+     * under `contactReading: "arrival"`: the fractions the reading billed every quantity at from
+     * 2026-09-25 to 2026-09-27, kept on the shove alone. The stability ledger's lines were set
+     * against those impulses.
      *
-     * It was 0.60 while the reading priced a pre-step velocity against a post-step pose, and while
-     * `impossibleSpeed` checked the settled speed rather than the one billed. Both moved it.
+     * **A step in waiting, not a rule.** The shove read whole is the contact's physical impulse. It
+     * was tried with the scoring change and moved falls a great deal. Node research runner,
+     * supported locomotion, duelist and walker, each build's mirror, 48 side-swapped blocks (96
+     * bouts), seed 20260923, knockdowns a body a bout, fraction then whole:
      *
-     * - **Reading every quantity at the step's start bills more for the same velocity.** On the
-     *   same biting blade contacts of the 240 settled set, re-scored offline at 0.60, it bills
-     *   1.18x the mixed reading. Almost all of that is the edge, read before the contact step
-     *   turned the blade (mean |edge| 0.786 against 0.730). The mace, maul and fist bill the same
-     *   under both readings to within 4 %.
-     * - **The guard now reads the arrival.** It refuses 34 of those 25 545 blade contacts -- blades
-     *   the solver had flung to 40-220 m/s in the step before -- and they carried almost a quarter
-     *   of everything the unguarded reading would have billed. Re-scored with the guard, 0.60 bills
-     *   1.04x the settled damage, against 1.35x without it.
+     *     build            knockdowns     Delta (95 %)     Delta ln s
+     *     default          0.10 -> 0.10   +0.00            -0.001 +- 0.003
+     *     fists            1.13 -> 1.37   +0.25 +- 0.19    -0.003 +- 0.014
+     *     mace             0.53 -> 1.28   +0.76 +- 0.19    +0.054 +- 0.087
+     *     maul             4.02 -> 8.10   +4.08 +- 0.71    +0.209 +- 0.095
+     *     skeleton-warrior 9.07 -> 12.04  +2.97 +- 0.95    +0.121 +- 0.104
+     *     warrior-club     7.17 -> 9.30   +2.13 +- 0.81    -0.046 +- 0.066
      *
-     * Node research runner, the protocol of the table above, 192 paired bouts a set, against 240
-     * settled (`docs/analysis/2026-09-25-rate-contact-reading.md`):
-     *
-     * | 240 arrival, k | median s | pooled damage/s | Delta ln s (naive / clustered 95 %) |
-     * |----------------|---------:|----------------:|------------------------------------:|
-     * | 0.56           |    14.58 |           0.699 |             -0.022 +- 0.136 / 0.468 |
-     * | 0.58           |    12.77 |           0.780 |             -0.131 +- 0.129 / 0.432 |
-     * | 0.60           |    10.87 |           0.858 |             -0.225 +- 0.127 / 0.399 |
-     * | 0.62           |    10.13 |           0.968 |             -0.311 +- 0.121 / 0.378 |
-     * | (240 settled)  |    14.95 |           0.786 |                                   - |
-     *
-     * Delta ln s falls 0.048 per 0.01 of fraction and crosses zero at 0.554, so 0.56 keeps the
-     * length. The clustered interval (by unordered mind pairing, t on 9 degrees of freedom) is about
-     * three times the naive one; it is the slope that places the fraction, and the slope is well
-     * determined. Pooled damage per second is not kept (0.89x), because a bout under this reading
-     * ends on less damage in all (a mean 13.9 a bout against 15.3). The settled set's two shortest bouts,
-     * 0.90 s each, end on a blade that arrived at 220 m/s and was read at 37 m/s after the step,
-     * just under the guard; under this reading the guard refuses that blow.
-     *
-     * **One row per striker kind, since the release of 2026-09-25.** The table above chose the
-     * blade's fraction on the default mirror, and the step keeps a different share of each kind's
-     * arrival: at 240 one fraction left the blunt and fist mirrors 6-15 % longer than settled. At
-     * the release (physics and control at 120, the arm servos held to 240,
-     * `docs/analysis/2026-09-25-release-120.md`) each weapon mirror was held to its own settled 240
-     * length. Node research runner, the protocol above, paired against 240 settled, naive 95 % with
-     * the interval clustered by mind pairing in brackets; each variant moves one row:
-     *
-     * | mirror (kind moved)  | Delta ln s at 0.56      | Delta ln s at 0.62      | crossing |
-     * |----------------------|------------------------:|------------------------:|---------:|
-     * | default (empty)      | -0.029 +- 0.146 (0.407) | -0.031 +- 0.149 (0.394) |        - |
-     * | mace (club)          | +0.122 +- 0.055 (0.086) | -0.024 +- 0.061 (0.120) |    0.610 |
-     * | maul (club)          | +0.173 +- 0.064 (0.129) | +0.074 +- 0.066 (0.158) |    0.665 |
-     * | fists (empty)        | +0.097 +- 0.031 (0.060) | +0.007 +- 0.033 (0.056) |    0.625 |
-     * | whip (whip)          | +0.085 +- 0.035 (0.094) | +0.063 +- 0.034 (0.094) |   (0.79) |
-     *
-     * - **`empty` is 0.62.** The fists keep their length at it; the default mirror's plate is the
-     *   same kind and its length does not move (its blade decides it).
-     * - **`club` is 0.62**, the one value measured on both club mirrors. The mace crosses at 0.61 and
-     *   the maul at 0.665; 0.62 leaves the mace 0.024 short and the maul 0.074 long, each inside its
-     *   clustered interval. The maul's remainder travels with its falls (+3.49 a bout at 0.62), which
-     *   are locomotion's to answer rather than the reading's.
-     * - **`whip` stays at 0.56.** Its length hardly answers the fraction (-0.022 over 0.06, against
-     *   -0.09 to -0.15 for the others), so its crossing is an extrapolation to 0.79, and its excess
-     *   travels with its falls (+2.9 a bout). A fraction that bought that length back would be a
-     *   rule standing in for a cause somewhere else.
-     * - **With both rows in**, the mace and the whip carry a plate, which is `empty`, and move again:
-     *   the mace to -0.063 +- 0.062 (0.109) and the whip to +0.047 +- 0.033 (0.067). The maul
-     *   stays at +0.074, the fists at +0.007 and the default mirror at -0.031. So every mirror is
-     *   inside its clustered interval of settled 240.
-     * - **The rest keep the blade's 0.56**: no research mirror fields an axe, bow, shield, buckler,
-     *   arrow, bite or ram, so none has a length to hold. A kind is set here when one is measured.
-     *
-     * `arrivalReadFraction` in `src/combat.ts` reads it, and is total over `Striker`.
+     * Most of that is heavy blunt heads with a whole body billed behind them, which is
+     * `effectiveMassAt` treating every joint as free. So the shove goes whole together with the
+     * joint give model, in Session 2 of `docs/plans/2026-09-27-warrior-rogue-reptile.md`, and its
+     * falls are measured there against masses that are right.
      */
-    arrivalReadFractions: {
+    shoveReadFractions: {
       sword: 0.56, axe: 0.56, bow: 0.56, shield: 0.56, buckler: 0.56,
       club: 0.62, empty: 0.62, whip: 0.56,
       arrow: 0.56, bite: 0.56, ram: 0.56,

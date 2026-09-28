@@ -1417,7 +1417,8 @@ test("a_golem_publishes_what_its_stats_do_as_physical_quantities_a_mind_can_read
   near(x1.massKg, 247.2, "massKg");
   near(x1.stabilityImpulseNs, 117.1, "stabilityImpulseNs");
   near(x1.armRate, 11.81, "armRate");
-  near(x1.soak, 2.323e-3, "soak");
+  // 2.323e-3 until the arrival was read whole (2026-09-27), when the edge's price rose by 1 / 0.56^2.
+  near(x1.soak, 7.286e-4, "soak");
   const heavy = await standAGolem(t, { setup: { ...defaultGolemSetup(), attributes: { weight: 2 } } });
   heavy.run(1);
   const x2 = heavy.golem.view.self;
