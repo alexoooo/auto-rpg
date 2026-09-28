@@ -1073,6 +1073,7 @@ test("nothing a golem publishes reaches the world transform through a world matr
   const roots = [
     path.join(ROOT, "src", "golem"),
     path.join(ROOT, "src", "bench"),
+    path.join(ROOT, "src", "core"),
   ];
   const offenders = [];
   const walk = (directory) => {

@@ -65,7 +65,7 @@ Each stage lands as commits behind tests. Measurements name their harness. Where
 - `CONFIG.axe` and `CONFIG.bow` are still read, as fixtures, by `tests/scoring.test.mjs` and `tests/minds.test.mjs`.
 - The retired-policy ids in `tests/bout.test.mjs` are opaque strings to reducers that read no registry.
 - Two behaviours were found and not changed, because stage 0 changes no behaviour:
-  - `PhysicalSupportedLocomotionPort` falls back to a `1 / 240` s step before its first commit;
+  - `PhysicalSupportedLocomotionPort` falls back to a `1 / 240` s step whenever it holds no commit: before its first, and for a step after `clear()`, which drops it;
   - `BENCH_READOUT.stuckWindowSteps` is 24 steps, which was 0.1 s at 240 Hz and is 0.2 s now.
 
 ### Stage 1: the body spec and the human spec
