@@ -97,6 +97,54 @@
     "paving3__earth": {
       "triangles": 24
     },
+    "floor-roots__root": {
+      "triangles": 480
+    },
+    "wall-pier__wall": {
+      "triangles": 892
+    },
+    "wall-pier__trim": {
+      "triangles": 616
+    },
+    "wall-panel__wall": {
+      "triangles": 936
+    },
+    "wall-panel__trim": {
+      "triangles": 352
+    },
+    "wall-repair__wall": {
+      "triangles": 1112
+    },
+    "wall-repair__trim": {
+      "triangles": 176
+    },
+    "wall-repair__iron": {
+      "triangles": 88
+    },
+    "slabs-long__floor": {
+      "triangles": 44
+    },
+    "slabs-long__earth": {
+      "triangles": 12
+    },
+    "slabs-large__floor": {
+      "triangles": 176
+    },
+    "slabs-large__earth": {
+      "triangles": 24
+    },
+    "slabs-broken__floor": {
+      "triangles": 196
+    },
+    "slabs-broken__earth": {
+      "triangles": 12
+    },
+    "slabs-fractured__floor": {
+      "triangles": 118
+    },
+    "slabs-fractured__earth": {
+      "triangles": 12
+    },
     "tomb__tomb": {
       "triangles": 3444
     }

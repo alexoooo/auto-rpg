@@ -8,6 +8,8 @@ export const CRYPT_FURNITURE = {
   tomb: [2.5,1.15,1.1], column: [.8,.8,2.65], altar: [2.4,1.1,1.05],
   bench: [1.7,.55,.65], rack: [1.8,.6,1.9], cluster: [1.8,1.5,.55],
 } as const;
+/** Open frames obstruct feet, not vision. Keep this independent of collision height. */
+export const CRYPT_SIGHT = { tomb:false, column:true, altar:false, bench:false, rack:false, cluster:false } as const;
 export function cryptFurniture(room: Room, type: CryptArchetype): { obstacles: DungeonObstacle[]; placements: CryptPlacement[] } {
   const obstacles: DungeonObstacle[]=[],placements: CryptPlacement[]=[];
   const mirror=type.turn===0?1:-1,shift=(type.variant-1)*.3;
@@ -15,7 +17,7 @@ export function cryptFurniture(room: Room, type: CryptArchetype): { obstacles: D
     const [w,d,height]=CRYPT_FURNITURE[piece],rotated=Math.abs(Math.sin(turn))>.5;
     const at={x:room.centre.x+x*mirror,z:room.centre.z+z*mirror};
     const id=`crypt.${room.id}.${piece}.${obstacles.length}`;
-    obstacles.push({id,...at,width:rotated?d:w,depth:rotated?w:d,height,blocksSight:height>1.5});
+    obstacles.push({id,...at,width:rotated?d:w,depth:rotated?w:d,height,blocksSight:CRYPT_SIGHT[piece]});
     placements.push({piece,...at,turn:turn+type.turn,obstacleId:id});
   };
   switch(type.kind){

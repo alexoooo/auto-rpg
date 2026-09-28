@@ -24,6 +24,7 @@ import { describeAttributes, withAttribute, withAttributeSetting, type Attribute
 import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "../attributes-ui.ts";
 import { GameAudio } from "../game-audio.ts";
 import { namedBuild } from "../golem/roster.ts";
+import { EnemyHover } from "./hover.ts";
 import { DungeonRun } from "./run.ts";
 import { orderLabel } from "./commands.ts";
 import { cellKey, type Point } from "./map.ts";
@@ -141,6 +142,8 @@ async function boot(): Promise<void> {
   const havok = await HavokPhysics({ locateFile: () => havokWasmUrl });
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
+  const hover = new EnemyHover();
+  let hoverPointer: { clientX:number; clientY:number } | null = null;
   let scene: Scene | null = null, run: DungeonRun | null = null, camera: FreeCamera | null = null;
   let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default", companions: string[] = [];
   let selectedEquipment: GolemSetup | undefined;
@@ -182,7 +185,7 @@ async function boot(): Promise<void> {
   };
   const rebuild = async (nextSeed: number) => {
     audio.reset(); soundTorches = [];
-    referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
+    hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
     seed = nextSeed >>> 0;
     cryptPlan = selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
     if (reference) { meterParent.prepend(diagnostics); diagnostics.append(meterElement); }
@@ -237,7 +240,7 @@ async function boot(): Promise<void> {
     try { await rebuild(nextSeed); }
     catch (error) {
       audio.setActive(false);
-      referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null;
+      hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null;
       need("start-panel").hidden = false; need("pause-panel").hidden = true;
       need("notice").textContent = `Could not build this dungeon: ${String(error)}`; console.error(error);
     } finally { launching=false;start.disabled=false; }
@@ -363,10 +366,13 @@ async function boot(): Promise<void> {
     run.commands.down(p.screen, p.ground, target?.id ?? null); canvas.setPointerCapture(event.pointerId);
   }, { signal });
   canvas.addEventListener("pointermove", event => {
+    hoverPointer={clientX:event.clientX,clientY:event.clientY};
     if (paused || !run || !scene) return;
     const p = pointer(event); if (!(event.buttons & 1)) run.commands.cancelPointer();
     run.commands.move(p.screen, p.ground);
   }, { signal });
+  canvas.addEventListener("pointerleave", () => { hoverPointer=null; hover.clear(); }, { signal });
+  window.addEventListener("blur", () => { hoverPointer=null; hover.clear(); }, { signal });
   canvas.addEventListener("pointerup", event => {
     if (event.button !== 0 || !run) return;
     run.commands.upPointer(); if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
@@ -406,10 +412,16 @@ async function boot(): Promise<void> {
         }
       }
     }
+    if(hoverPointer && document.elementFromPoint(hoverPointer.clientX,hoverPointer.clientY)===canvas){
+      const rect=canvas.getBoundingClientRect();
+      const p=pickingCoordinates(hoverPointer.clientX,hoverPointer.clientY,rect,engine.getRenderWidth(),engine.getRenderHeight(),engine.getHardwareScalingLevel());
+      const hit=scene.pick(p.x,p.y,m=>m.isVisible&&run!.targetAt(m)!==null,false,camera!);
+      hover.show(hit?.pickedMesh?run.targetAt(hit.pickedMesh):null);
+    }else hover.clear();
     scene.render();
   }));
   const dispose = () => {
-    audio.dispose(); abort.abort(); engine.stopRenderLoop(); referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
+    audio.dispose(); abort.abort(); engine.stopRenderLoop(); hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
   };
   window.addEventListener("pagehide", dispose, { once: true, signal });
   import.meta.hot?.dispose(dispose);

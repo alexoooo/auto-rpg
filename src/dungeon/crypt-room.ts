@@ -4,6 +4,11 @@ import { mulberry32 } from "../rng.ts";
 import { findPath, walkable, type DungeonMap, type Point } from "./map.ts";
 import type { TorchPlacement } from "./dressing.ts";
 
+/** Footprints used by deterministic packing and its coverage checks. */
+export const CRYPT_PAVING: Readonly<Record<string, readonly [number,number]>> = {
+  paving0:[1,1],paving1:[1,1],paving2:[1,1],paving3:[1,1],
+  'slabs-long':[2,1],'slabs-large':[2,2],'slabs-broken':[2,2],'slabs-fractured':[1,1],
+};
 export interface CryptPlacement { piece: string; x: number; z: number; turn: number; obstacleId?: string }
 export interface CryptRoomPlan {
   map: DungeonMap;
@@ -65,9 +70,21 @@ export function dressCryptMap(map: DungeonMap, art: () => number, archetypes?: C
     const type=archetypes?.find(a=>a.room===room?.id);return type?CRYPT_ROOM_LOOK[type.kind]:undefined;
   };
   const placements:CryptPlacement[]=[],put=(piece:string,x:number,z:number,turn=0)=>placements.push({piece,x,z,turn});
+  const paved=new Set<number>();
   const solid=new Map<string,{x:number;z:number;nx:number;nz:number}>(),key=(x:number,z:number)=>`${x},${z}`;
   for(let z=0;z<size;z++)for(let x=0;x<size;x++)if(floor[z*size+x]){
-    put('paving'+Math.floor(art()*4),x,z);
+    if(!paved.has(z*size+x)){
+      const room=map.rooms.find(r=>x>=r.min.x&&x<=r.max.x&&z>=r.min.z&&z<=r.max.z);
+      const kind=archetypes?.find(a=>a.room===room?.id)?.kind;
+      const roll=art(),turn=art()<.5?0:Math.PI/2;
+      let piece=roll<(kind==='chapel'?.58:.30)?'slabs-large':roll<.63?'slabs-broken':'slabs-long';
+      let [w,d]=CRYPT_PAVING[piece];if(turn){[w,d]=[d,w];}
+      const fits=Array.from({length:d},(_,dz)=>Array.from({length:w},(_,dx)=>({x:x+dx,z:z+dz}))).flat()
+        .every(p=>p.x<size&&p.z<size&&floor[p.z*size+p.x]&&!paved.has(p.z*size+p.x)&&(!room||(p.x<=room.max.x&&p.z<=room.max.z)));
+      if(!fits){w=d=1;piece=art()<.4?'slabs-fractured':'paving'+Math.floor(art()*4);}
+      put(piece,x+(w-1)/2,z+(d-1)/2,turn);
+      for(let dz=0;dz<d;dz++)for(let dx=0;dx<w;dx++)paved.add((z+dz)*size+x+dx);
+    }
     if(lookAt(x,z)?.damp && art()<.18)put('scatter',x,z);
     for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])if(!floor[(z+dz)*size+x+dx])solid.set(key(x+dx,z+dz),{x:x+dx,z:z+dz,nx:-dx,nz:-dz});
   }
@@ -86,7 +103,13 @@ export function dressCryptMap(map: DungeonMap, art: () => number, archetypes?: C
     put('niche',x,z,Math.atan2(nx,nz));niches.push(placements.at(-1)!);
     for(const p of span)consumed.add(key(p!.x,p!.z));
   }
-  for(const {x,z,nx,nz} of solid.values())if(!consumed.has(key(x,z)))put(cornerSide({x,z,nx,nz})<0?'corner-left':cornerSide({x,z,nx,nz})>0?'corner-right':'wall',x,z,Math.atan2(nx,nz));
+  for(const {x,z,nx,nz} of solid.values())if(!consumed.has(key(x,z))){
+    const corner=cornerSide({x,z,nx,nz}),look=lookAt(x,z);
+    const detail=(Math.abs(nx?z:x)%3===0)?'wall-pier':art()<.55?'wall-panel':'wall-repair';
+    put(corner<0?'corner-left':corner>0?'corner-right':art()<.78?detail:'wall',x,z,Math.atan2(nx,nz));
+    if(art()<(look?.roots??.15))put('roots',x,z,Math.atan2(nx,nz));
+    if(look?.damp&&art()<.75)put('floor-roots',x+nx,z+nz,Math.atan2(nx,nz));
+  }
   for(const p of niches){
     if(art()<(lookAt(p.x,p.z)?.roots??(archetypes?.length?0:.65)))put('roots',p.x,p.z,p.turn);
     const nx=Math.sin(p.turn),nz=Math.cos(p.turn);

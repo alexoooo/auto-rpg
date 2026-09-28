@@ -112,6 +112,71 @@ def corner(sign):
 module('corner-left',lambda:corner(-1));module('corner-right',lambda:corner(1))
 module('wall',wall);module('niche',niche);module('portal',portal);module('roots',roots);module('scatter',scatter)
 for i in range(4):module('paving'+str(i),paving)
+
+def paving_span(width,depth,broken=False):
+    # Independently partition a larger footprint, so joints do not repeat every metre.
+    box('mortar',(0,-.025,0),(width,.015,depth),'earth',0,shade=.48)
+    if broken:
+        # Irregular fracture network, not an ornamental X repeated in every slab.
+        sites=[(rng.uniform(-width*.47,width*.47),rng.uniform(-depth*.47,depth*.47)) for _ in range(8 if width==2 else 5)]
+        for sx,sz in sites:
+            poly=[(-width/2,-depth/2),(width/2,-depth/2),(width/2,depth/2),(-width/2,depth/2)]
+            for tx,tz in sites:
+                if (tx,tz)==(sx,sz):continue
+                nx,nz=tx-sx,tz-sz;limit=(tx*tx+tz*tz-sx*sx-sz*sz)/2
+                clipped=[]
+                for a,b in zip(poly,poly[1:]+poly[:1]):
+                    da=a[0]*nx+a[1]*nz-limit;db=b[0]*nx+b[1]*nz-limit
+                    if da<=0:clipped.append(a)
+                    if (da<=0)!=(db<=0):
+                        t=da/(da-db);clipped.append((a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])))
+                poly=clipped
+                if not poly:break
+            if len(poly)<3:continue
+            px=sum(v[0] for v in poly)/len(poly);pz=sum(v[1] for v in poly)/len(poly)
+            poly=[(px+(x-px)*.976,pz+(z-pz)*.976) for x,z in poly]
+            top=rng.uniform(-.009,.008);n=len(poly)
+            verts=[(x,-.028,z) for x,z in poly]+[(x,top-.009,z) for x,z in poly]+[(px+(x-px)*.975,top,pz+(z-pz)*.975) for x,z in poly]
+            faces=[tuple(reversed(range(n))),tuple(range(2*n,3*n))]
+            for ring in [0,n]:faces += [(ring+i,ring+(i+1)%n,ring+(i+1)%n+n,ring+i+n) for i in range(n)]
+            mesh_object('broken.slab',verts,faces,'floor',rng.uniform(.56,.95))
+
+    else:
+        rows=[-depth/2,depth/2] if depth==1 else [-depth/2,-.27,.36,depth/2]
+        for z0,z1 in zip(rows,rows[1:]):
+            cuts=[-width/2,width/2] if rng.random()<.5 else [-width/2,rng.uniform(-.3,.3),width/2]
+            for x0,x1 in zip(cuts,cuts[1:]):
+                before=set(bpy.context.scene.objects);flagstone(x0,x1,z0,z1)
+                # Subtle offsets affect only appearance, never the shared flat floor.
+                lift=rng.uniform(-.008,.004)
+                for o in set(bpy.context.scene.objects)-before:o.location.z+=lift
+
+def floor_roots():
+    for j in range(2):
+        pts=[(-.47,.004,-.35+j*.28),(-.2,.004,-.1+j*.2),(.1,.004,.06+j*.16),(.45,.004,.24+j*.14)]
+        strand('floor.root',pts,.005)
+        strand('floor.feeder',[pts[1],(-.04,.004,-.28),(.23,.004,-.44)],.003)
+
+def wall_detail(kind):
+    wall()
+    if kind=='pier':
+        for k in range(8):box('pilaster',(0,.18+k*.33,.445),(.32,.31,.10),'trim',.013)
+        for y in [.14,2.57]:box('capital',(0,y,.445),(.48,.13,.10),'trim',.017)
+    elif kind=='panel':
+        box('tablet',(0,1.57,.445),(.66,1.14,.10),'trim',.025)
+        box('inset',(0,1.57,.496),(.51,.95,.008),'wall',.002,shade=.52)
+        for y in [1.25,1.57,1.89]:box('relief',(0,y,.496),(.27,.055,.008),'trim',.002)
+    else:
+        for k in range(5):
+            x=(-.2 if k%2 else .12)
+            box('patch',(x,.4+k*.4,.435),(.51,.23,.11),'wall',.027,shade=rng.uniform(.48,.72))
+        for x in [-.29,.28]:box('iron.tie',(x,1.9,.497),(.055,.4,.006),'iron',.002)
+
+module('floor-roots',floor_roots)
+for name in ['pier','panel','repair']:module('wall-'+name,lambda name=name:wall_detail(name))
+for name,w,d,broken in [('slabs-long',2,1,False),('slabs-large',2,2,False),('slabs-broken',2,2,True),('slabs-fractured',1,1,True)]:
+    module(name,lambda w=w,d=d,broken=broken:paving_span(w,d,broken))
+
 # Keep the current carved tomb exactly; translate its authored origin into kit space.
 with bpy.data.libraries.load(str(ROOT/'assets/dungeon-reference/chamber.blend')) as (data,loaded):
     loaded.objects=[name for name in data.objects if name.startswith('sarcophagus.')]

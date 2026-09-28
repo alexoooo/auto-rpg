@@ -129,3 +129,43 @@ Matched rendering-only check: Edge headless / Intel Iris Xe ANGLE D3D11, visible
 The generated room meets the 15% relative rendering budget on this machine. These are rendering costs, not live-combat FPS or a promise of 60 fps. Local screenshots and raw samples are `.review/crypt-baseline-final.*` and `.review/crypt-random-final.*`.
 
 Final validation: all 964 tests passed, as did `npm run check` and `npm run build`. Production-browser checks passed seeds 0, 1, 2, 12, 21 and 42 with fighter/rogue, High/Reduced, alternate camera bearing and a full four-member party. Each check covered fixed-step combat, door opening, paused close zoom and restart with stable body/mesh/light counts; no browser errors were reported. Entrance and revealed-room captures were visually inspected.
+
+
+## Random Crypt surface and visibility pass (2026-09-28)
+
+Random Crypt now packs one-, two- and four-cell paving modules deterministically instead of
+putting the same small paving pattern in every cell. Long slabs, chipped large stones and
+irregular fractured patches share an unbroken mortar bed. Walkable relief stays within one
+centimetre of the flat collision floor: this is visual wear, not physical terrain. World-space
+soil/moss stains follow the stone surfaces without floating decal planes; chapel paving favours
+larger slabs, and room-specific weathering keeps central traffic paths cleaner. Thin feeder roots
+extend onto the rootbound floor. Panels, pilasters and repaired masonry fill most previously
+plain wall spans. Their solid geometry remains within the existing wall cells.
+
+Furnishing sight blocking is explicit in `CRYPT_SIGHT`: racks remain collision obstacles but
+allow vision through their open frames; columns remain opaque. Opaque furnishing cells render
+from surrounding floor visibility, like walls and closed doors. Previously a column blocked
+sight to its own centre and therefore hid both itself and its floor, producing the isolated
+black squares in seed 2124530852. Scenery has separate persistent coverage memory, additional
+corner samples, and bounded interior gap filling; it never writes to the run's explored or
+visible sets. A coverage-based fade darkens the inside of the reveal boundary while retaining
+strict discard on unexplored cells. Enemies and AI still use the authoritative visibility.
+
+Enemy hover uses a narrow warm stencil highlight over the visible costume and equipment,
+including while paused. It clears on concealment, pointer departure/UI, death and restart.
+The expanded-mesh outline rendered black under SSAO; the highlight layer was verified in the
+actual post-processed browser. It is allocated lazily and disabled when no enemy is hovered.
+
+Validation: 973 full-suite tests passed; the subsequent stencil implementation passed the seven
+focused detail tests and the production-browser hover/cleanup checks. Type checking and the
+production build passed. Browser checks covered seed 2124530852 (High), seed 1 (Reduced,
+225-degree view), all four room types, close zoom, doors, pause and restart. Partial-visibility
+screenshots confirmed the formerly missing columns and floor squares now render correctly.
+The existing headless fighter traversal checks passed with the decorated rooms.
+
+Rendering harness: Edge headless, Intel Iris Xe/ANGLE D3D11, seed 0, 1920x1080, High,
+room-centred orthographic half-height 7, revealed scenery, frozen physics, 20 warmup and 120
+samples of RAF -> render -> gl.finish. Final median 33.7 ms / p95 47.5 ms; the prior recorded
+archetype pass was 43.7 / 62.9 ms under the same harness. These separate-session timings show
+no observed regression, not a claimed speedup. Assembled kit triangles rose from 373,070 to
+395,828 (+6.1%); material batches remain nine. Neither timing includes an active hover highlight.

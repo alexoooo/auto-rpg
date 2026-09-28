@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {companionSpawn} from '../src/dungeon/party-placement.ts';
-import {generateCryptRoom} from '../src/dungeon/crypt-room.ts';
+import {CRYPT_PAVING,generateCryptRoom} from '../src/dungeon/crypt-room.ts';
 import {walkable,findPath} from '../src/dungeon/map.ts';
 import {createHeadlessArena} from './harness/golem-headless-arena.mjs';
 import {buildDungeonWorld} from '../src/dungeon/world.ts';
@@ -59,12 +59,18 @@ test('crypt kit has baked origins, valid normals, colours and a bounded tomb',()
         a.min.forEach((v,i)=>assert.ok(Math.abs(v-[-1.25,0,-.575][i])<.001));
         a.max.forEach((v,i)=>assert.ok(Math.abs(v-[1.25,1.1,.575][i])<.001));
       }
-      if(node.name.startsWith('wall__')||node.name.startsWith('corner-')||node.name.startsWith('niche__')){
+      if(node.name.startsWith('wall')||node.name.startsWith('corner-')||node.name.startsWith('niche__')){
         const a=g.accessors[p.attributes.POSITION],half=node.name.startsWith('niche__')?1.5:.5;
         assert.ok(a.min[0]>=-half-.001&&a.max[0]<=half+.001,'wall module crosses its allocated cells');
         assert.ok(a.min[2]>=-.501&&a.max[2]<=.501,'solid wall ornament escapes its rock footprint');
       }
-      if(node.name.startsWith('paving'))assert.ok(g.accessors[p.attributes.POSITION].max[1]<.005);
+      const paving=CRYPT_PAVING[node.name.split('__')[0]];
+      if(paving){
+        const a=g.accessors[p.attributes.POSITION];
+        assert.ok(a.max[1]<=.01&&a.min[1]>=-.07,node.name+' shallow relief');
+        assert.ok(a.min[0]>=-paving[0]/2-.001&&a.max[0]<=paving[0]/2+.001,node.name+' paving width');
+        assert.ok(a.min[2]>=-paving[1]/2-.001&&a.max[2]<=paving[1]/2+.001,node.name+' paving depth');
+      }
     }
   }
 });

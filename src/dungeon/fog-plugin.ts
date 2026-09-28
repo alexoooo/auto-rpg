@@ -10,6 +10,7 @@ import type { UniformBuffer } from "@babylonjs/core/Materials/uniformBuffer.js";
 import type { SubMesh } from "@babylonjs/core/Meshes/subMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { CUT_AWAY, FOG_SAMPLE, WALL_HEIGHT, fogMask } from "./fog.ts";
+import { revealScenery } from "./scenery-visibility.ts";
 import { MASONRY } from "./masonry.ts";
 import type { DungeonMap, Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
@@ -103,6 +104,15 @@ vec2 dungeonAt = vPositionW.xz;
 ivec2 dungeonCell = clamp(ivec2(floor(dungeonAt + 0.5)), ivec2(0), ivec2(int(fogBand.w) - 1));
 if (texelFetch(fogMaskSampler, dungeonCell, 0).r < ${FOG_SAMPLE.drawnFrom.toFixed(3)}) discard;
 float dungeonFog = texture2D(fogMaskSampler, (dungeonAt + 0.5) / fogBand.w).r;
+// Interpolate known coverage separately from brightness: fade to black inside the
+// revealed boundary, never expose fragments on the other side of a wall/door.
+ivec2 dungeonBase = ivec2(floor(dungeonAt));
+vec2 dungeonFraction = fract(dungeonAt);
+float dungeonKnown00 = step(0.02, texelFetch(fogMaskSampler, clamp(dungeonBase, ivec2(0), ivec2(int(fogBand.w)-1)), 0).r);
+float dungeonKnown10 = step(0.02, texelFetch(fogMaskSampler, clamp(dungeonBase+ivec2(1,0), ivec2(0), ivec2(int(fogBand.w)-1)), 0).r);
+float dungeonKnown01 = step(0.02, texelFetch(fogMaskSampler, clamp(dungeonBase+ivec2(0,1), ivec2(0), ivec2(int(fogBand.w)-1)), 0).r);
+float dungeonKnown11 = step(0.02, texelFetch(fogMaskSampler, clamp(dungeonBase+ivec2(1,1), ivec2(0), ivec2(int(fogBand.w)-1)), 0).r);
+float dungeonCoverage = mix(mix(dungeonKnown00,dungeonKnown10,dungeonFraction.x),mix(dungeonKnown01,dungeonKnown11,dungeonFraction.x),dungeonFraction.y);
 vec2 dungeonAhead = vPositionW.xz - fogHero;
 float dungeonAlong = dot(dungeonAhead, fogToward), dungeonAcross = dungeonAhead.x * fogToward.y - dungeonAhead.y * fogToward.x;
 float dungeonUp = (vPositionW.y - ${f(CUT_AWAY.centre)}) * fogBand.x - dungeonAlong * fogBand.y;
@@ -118,6 +128,7 @@ if (dungeonBayer4(gl_FragCoord.xy) < dungeonCut) discard;
 float dungeonLuma = dot(finalColor.rgb, vec3(0.2126, 0.7152, 0.0722));
 finalColor.rgb = mix(vec3(${FOG_LOOK.memory.join(", ")}) + ${FOG_LOOK.memoryLuminance.toFixed(3)} * dungeonLuma, finalColor.rgb,
   smoothstep(0.5, 1.0, dungeonFog));
+finalColor.rgb *= smoothstep(0.50, 0.90, dungeonCoverage);
 #endif
 `,
 });
@@ -177,13 +188,17 @@ export function dungeonFog(scene: Scene, map: DungeonMap) {
   const view: FogView = { size: map.size, hero: { x: map.start.x, z: map.start.z }, pitch: Math.PI / 6,
     toward: cameraToward(CAMERA_AZIMUTH), texture };
   const plugins: DungeonFogPlugin[] = [];
+  const sceneryMemory = new Set<number>();
+  let sceneryKey="";
   return {
     texture, bytes, plugins,
     attach(material: PBRMaterial, stone: StoneRole = null): DungeonFogPlugin {
       const plugin = new DungeonFogPlugin(material, view, stone); plugins.push(plugin); return plugin;
     },
     update(visible: ReadonlySet<number>, explored: ReadonlySet<number>, pitch: number, toward: Point): void {
-      fogMask(map, visible, explored, bytes); texture.update(bytes); view.pitch = pitch;
+      const key=`${view.hero.x.toFixed(2)},${view.hero.z.toFixed(2)}:${explored.size}:${[...visible].join(',')}:${map.doors.map(d=>Number(d.open)).join('')}`;
+      if(key!==sceneryKey){revealScenery(map,view.hero,visible,explored,sceneryMemory);sceneryKey=key;}
+      fogMask(map, visible, sceneryMemory, bytes); texture.update(bytes); view.pitch = pitch;
       view.toward = { x: toward.x, z: toward.z };
     },
     setHero(hero: Point): void { view.hero.x = hero.x; view.hero.z = hero.z; },

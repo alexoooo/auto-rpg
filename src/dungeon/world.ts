@@ -298,7 +298,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     /** Writes the fog mask from what the hero sees and has seen. A closed door is drawn wherever the mask shows it. */
     present(visible: ReadonlySet<number>, explored: ReadonlySet<number>, hero: Point, pitch: number, toward: Point) {
       if (!fog) return;
-      fog.update(visible, explored, pitch, toward); fog.setHero(hero);
+      fog.setHero(hero); fog.update(visible, explored, pitch, toward);
       exit.isVisible = explored.has(cellKey(map, map.exit));
       for (const { mesh, floor } of fittings) mesh.isVisible = explored.has(floor);
     },

@@ -1,3 +1,4 @@
+import {revealScenery} from "../src/dungeon/scenery-visibility.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -420,7 +421,10 @@ test("presenting_a_run_writes_its_fog_mask_and_no_golem_is_fogged", async () => 
   try {
     run.present();
     const { fog } = run.world;
-    assert.deepEqual(fog.bytes, fogMask(run.map, run.visible, run.explored));
+    const before = new Set(run.explored);
+    const scenery = revealScenery(run.map, run.hero.body.feetPosition(), run.visible, run.explored, new Set());
+    assert.deepEqual(fog.bytes, fogMask(run.map, run.visible, scenery));
+    assert.deepEqual(run.explored,before);
     assert.equal(fog.bytes[run.map.start.z * run.map.size + run.map.start.x], FOG.visible);
     assert.ok(fog.bytes.some(b => b === 0), "the level is not all explored at the start");
     for (const actor of run.actors) for (const { mesh } of actor.meshes)

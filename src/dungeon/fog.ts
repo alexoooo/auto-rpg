@@ -9,8 +9,8 @@ export const FOG = Object.freeze({ unexplored: 0, remembered: 128, visible: 255 
  * point pulled `pull` metres back along its normal, into the solid it belongs to: a wall face, on a cell's edge,
  * 0.3 m into its wall cell; a door's broad face, 0.175 m off its cell's centre, to within 0.025 of it; a floor or
  * a top where it lies. Whether it is drawn at all is the mask of the cell that point is in, unfiltered, so no
- * pixel shows ground the fog hides. Only the tint is bilinear, which is what softens the fog's edge -- and a pull
- * of half a cell would have tinted a door from the ground behind it.
+ * pixel shows ground the fog hides. Bilinear brightness blends remembered ground; a separate known-coverage
+ * interpolation fades to black inside the reveal edge. A half-cell pull would tint a door from behind it.
  */
 export const FOG_SAMPLE = Object.freeze({ pull: 0.2, drawnFrom: 0.02 });
 
@@ -40,6 +40,18 @@ export function fogMask(map: DungeonMap, visible: ReadonlySet<number>, explored:
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++)
       if (isFloor(map, cell.x + dx, cell.z + dz)) into[key] = Math.max(into[key], floorValue((cell.z + dz) * map.size + cell.x + dx));
   }
+  // An opaque furnishing cannot see its own centre either. Show its occupied cells
+  // from the surrounding floor, just like a wall; otherwise the column AND its
+  // paving disappear as an isolated black square in a completely explored room.
+  for(const o of map.obstacles??[])if(o.blocksSight){
+    const minX=Math.max(0,Math.floor(o.x-o.width/2+.5)),maxX=Math.min(map.size-1,Math.floor(o.x+o.width/2+.5));
+    const minZ=Math.max(0,Math.floor(o.z-o.depth/2+.5)),maxZ=Math.min(map.size-1,Math.floor(o.z+o.depth/2+.5));
+    let brightest=0;
+    for(let z=minZ-1;z<=maxZ+1;z++)for(let x=minX-1;x<=maxX+1;x++)
+      if(isFloor(map,x,z)&&(x<minX||x>maxX||z<minZ||z>maxZ))brightest=Math.max(brightest,floorValue(z*map.size+x));
+    for(let z=minZ;z<=maxZ;z++)for(let x=minX;x<=maxX;x++)
+      if(isFloor(map,x,z))into[z*map.size+x]=Math.max(into[z*map.size+x],brightest);
+  }
   return into;
 }
 
@@ -50,7 +62,7 @@ export function doorCells(door: DungeonMap["doors"][number]): Point[] {
 
 /** The fog shader's decision for a fragment at world `x`, `z` facing `nx`, `nz` (`FOG_SAMPLE`): whether it is
  * drawn, and how lit it is, 0 the remembered tint and 1 full light. */
-export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: number, nx = 0, nz = 0): { drawn: boolean; lit: number } {
+export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: number, nx = 0, nz = 0): { drawn: boolean; lit: number; edge: number } {
   const at = { x: x - FOG_SAMPLE.pull * nx, z: z - FOG_SAMPLE.pull * nz };
   const clampCell = (v: number) => Math.min(map.size - 1, Math.max(0, v));
   const byte = (cx: number, cz: number) => mask[clampCell(cz) * map.size + clampCell(cx)] / 255;
@@ -58,7 +70,10 @@ export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: numbe
   const x0 = Math.floor(at.x), z0 = Math.floor(at.z), fx = at.x - x0, fz = at.z - z0;
   const m = (byte(x0, z0) * (1 - fx) + byte(x0 + 1, z0) * fx) * (1 - fz) + (byte(x0, z0 + 1) * (1 - fx) + byte(x0 + 1, z0 + 1) * fx) * fz;
   const t = Math.min(1, Math.max(0, (m - 0.5) / 0.5));
-  return { drawn, lit: t * t * (3 - 2 * t) };
+  const known=(cx:number,cz:number)=>byte(cx,cz)>=FOG_SAMPLE.drawnFrom?1:0;
+  const coverage=(known(x0,z0)*(1-fx)+known(x0+1,z0)*fx)*(1-fz)+(known(x0,z0+1)*(1-fx)+known(x0+1,z0+1)*fx)*fz;
+  const edgeT=Math.min(1,Math.max(0,(coverage-.5)/.4));
+  return { drawn, lit: t * t * (3 - 2 * t), edge:edgeT*edgeT*(3-2*edgeT) };
 }
 
 /** How tall a wall stands, its collider and its drawn skin alike. */

@@ -1,3 +1,4 @@
+import { CryptWeathering } from "./crypt-weathering.ts";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 import "@babylonjs/loaders/glTF/glTFFileLoader.js";
@@ -64,7 +65,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   if(plan) assembleCryptKit(container,plan);
   const torches=plan?.torches??REFERENCE_TORCHES;
   const bounds=plan?.bounds;
-  const cutaway=plan && plan.map.rooms.length>1 ? plan.placements.filter(p=>["wall","corner-left","corner-right","niche","roots","portal"].includes(p.piece) && Math.sin(p.turn)*Math.sin(azimuth)+Math.cos(p.turn)*Math.cos(azimuth)<-.1).map(p=>`(abs(vPositionW.x-${p.x.toFixed(3)}) < ${Math.abs(Math.cos(p.turn))>.5?"1.55":"0.55"} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${Math.abs(Math.sin(p.turn))>.5?"1.55":"0.55"})`).join(" || ") : bounds?`${Math.sin(azimuth)>0?`vPositionW.x > ${bounds.max.x+.45}`:`vPositionW.x < ${bounds.min.x-.45}`} || ${Math.cos(azimuth)>0?`vPositionW.z > ${bounds.max.z+.45}`:`vPositionW.z < ${bounds.min.z-.45}`}`:undefined;
+  const cutaway=plan && plan.map.rooms.length>1 ? plan.placements.filter(p=>["wall","wall-pier","wall-panel","wall-repair","corner-left","corner-right","niche","roots","portal"].includes(p.piece) && Math.sin(p.turn)*Math.sin(azimuth)+Math.cos(p.turn)*Math.cos(azimuth)<-.1).map(p=>`(abs(vPositionW.x-${p.x.toFixed(3)}) < ${Math.abs(Math.cos(p.turn))>.5?"1.55":"0.55"} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${Math.abs(Math.sin(p.turn))>.5?"1.55":"0.55"})`).join(" || ") : bounds?`${Math.sin(azimuth)>0?`vPositionW.x > ${bounds.max.x+.45}`:`vPositionW.x < ${bounds.min.x-.45}`} || ${Math.cos(azimuth)>0?`vPositionW.z > ${bounds.max.z+.45}`:`vPositionW.z < ${bounds.min.z-.45}`}`:undefined;
   const root=container.meshes.find(m=>m.name==="__root__");
   // The export uses game metre coordinates. Remove the loader's RH-to-LH root
   // conversion; glTF meshes retain their explicit clockwise face convention.
@@ -88,6 +89,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const wall=textured("crypt.wall", "#c7ced0");
   const floor=textured("crypt.floor", "#bdc7ce");
   new CryptDamp(floor,plan?.damp);
+  if(plan)new CryptWeathering(floor,plan);
   const rootMat=textured("reference.root","#756247"); rootMat.roughness=1;
   const earth=textured("reference.earth","#a5b275"); earth.roughness=1;
   const iron=flatStone(scene,"reference.iron","#444a4d",.4);iron.metallic=.8;
