@@ -14,9 +14,11 @@ import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
  *
  * Each segment is a dynamic body whose node sits at the segment frame's origin, turned to its
  * frame (`frameOf`). Its mass, centre of mass and inertia are set from the spec explicitly,
- * so the collision shape carries no mass. Each joint is a 6-DoF constraint at the joint's centre
- * whose free angular axes are the spec's freedoms, limited to their ranges; every other axis is
- * locked, and the two segments it joins do not collide with each other.
+ * so the collision shape carries no mass. Havok takes the inertia per kilogram of the body's mass
+ * (H49), so the spec's kg m2 is divided by the segment's mass on the way in. Each joint is a 6-DoF
+ * constraint at the joint's centre whose free angular axes are the spec's freedoms, limited to
+ * their ranges; every other axis is locked, and the two segments it joins do not collide with
+ * each other.
  *
  * The body is built in its reference pose, where every joint's angle is zero, so no constraint
  * disagrees with its bodies at construction (H09).
@@ -104,7 +106,7 @@ function buildSegment(spec: SegmentSpec, model: string, placement: Placement, sc
   body.setMassProperties({
     mass: spec.mass.value,
     centerOfMass: v3(local(frame, spec.centreOfMass.value)),
-    inertia: v3(spec.inertia.value),
+    inertia: v3(spec.inertia.value).scaleInPlace(1 / spec.mass.value),
     inertiaOrientation: Quaternion.Identity(),
   });
   return { spec, frame, node, body, shape };

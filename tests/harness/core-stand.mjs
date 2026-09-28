@@ -63,6 +63,25 @@ export async function coreStand(spec, { gravity = true, ground = true, position 
 }
 
 /**
+ * Spin segment `name` of `spec` by an angular impulse of `impulse` about its frame's `axisName`,
+ * weightless and in the air, for one step: the answer is how fast it then turns about that axis,
+ * and how fast about any other. Build the segment alone (`joints: []`) to read its own inertia.
+ */
+export async function spinOnce(spec, name, axisName, impulse) {
+  const stand = await coreStand(spec, { gravity: false, ground: false });
+  try {
+    const { body, frame } = stand.built.segments.get(name);
+    const axis = new Vector3(...frame[axisName]);
+    body.applyAngularImpulse(axis.scale(impulse));
+    stand.step(1);
+    const w = Vector3.Zero();
+    body.getAngularVelocityToRef(w);
+    const along = Vector3.Dot(w, axis);
+    return { along, across: w.subtract(axis.scale(along)).length() };
+  } finally { stand.dispose(); }
+}
+
+/**
  * The child's rotation relative to its parent since the reference pose, in the body frame: the
  * rotation that, applied to the child in the reference pose with the parent held there, gives the
  * joint's present angle. Read from the nodes (H24). Babylon's `a.multiply(b)` applies b, then a.

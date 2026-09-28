@@ -104,10 +104,18 @@ into the limit for 1 s, range -0.2 to 0.6 rad; `tests/core-build.test.mjs` pins 
 - In a joint with three freedoms, the second passes its ends by about 0.01-0.02 rad, and turning
   it drags the third about 0.22 rad; the third stops short, at 0.55 and -0.15.
 - A motor far above its load (1000 N m on a 1 kg rod) drives through a limit, by 0.05 rad on X.
+  Held against its limit, a one-freedom joint's locked axes then give too: its whole turn read
+  0.64 rad at 300 N m and 1.46 rad at 1000, against 0.60 and 0.65 about its free axis.
 
 So a ball joint's range is only as exact as the freedom on X. Stage 1's human joints put the
 freedom whose range matters most first, and stage 2 reads the ranges again with muscle-sized
 motors.
+
+**Found while building (2026-09-28): Havok's inertia unit.** `buildBody` gave Havok kg m2 where it
+takes kg m2 per kilogram (H49), so every segment turned as if its inertia were its mass times the
+spec's: the Warrior's 0.48 kg hand spun 2.1 times too fast and his trunk far too slowly. A test
+that reads the inertia back could not see it. The builder now divides by the mass, and each
+segment of both humans answers an angular impulse within 0.4 % of its spec (Node stand, 120 Hz).
 
 ### Stage 2: the muscle actuator
 

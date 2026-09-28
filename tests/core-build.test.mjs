@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsConstraintMotorType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { sourced } from "../src/core/spec/quantity.ts";
-import { coreStand, relativeRotation } from "./harness/core-stand.mjs";
+import { coreStand, relativeRotation, spinOnce } from "./harness/core-stand.mjs";
 
 const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "a stand-in leaf for the builder's tests");
 
@@ -37,8 +37,9 @@ test("a built segment's mass, centre of mass and inertia are the spec's, and its
     for (const segment of stand.built.segments.values()) {
       const props = segment.body.getMassProperties();
       close(props.mass, segment.spec.mass.value, 1e-6, `${segment.spec.name} mass`);
+      // Havok carries inertia per kilogram (H49); the next test reads it by how the body turns.
       const inertia = segment.spec.inertia.value;
-      ["x", "y", "z"].forEach((axis, i) => close(props.inertia[axis], inertia[i], 1e-6, `${segment.spec.name} I${axis}`));
+      ["x", "y", "z"].forEach((axis, i) => close(props.inertia[axis] * props.mass, inertia[i], 1e-6, `${segment.spec.name} I${axis}`));
       // The centre of mass, carried to the world through the node, is where the spec put it.
       const world = Vector3.TransformCoordinates(props.centerOfMass, segment.node.computeWorldMatrix(true));
       segment.spec.centreOfMass.value.forEach((c, i) => close(world.asArray()[i], c, 1e-6, `${segment.spec.name} centre of mass`));
@@ -47,6 +48,24 @@ test("a built segment's mass, centre of mass and inertia are the spec's, and its
       segment.frame.y.forEach((c, i) => close(y.asArray()[i], c, 1e-7, `${segment.spec.name} frame y`));
     }
   } finally { stand.dispose(); }
+});
+
+/**
+ * **Read the inertia by what it does, not by what it reads back**: a segment built alone, weightless,
+ * given an angular impulse of its spec inertia times 1 rad/s about each frame axis, turns at 1 rad/s
+ * about that axis. A read-back returns whatever was written, in whatever unit: the build that gave
+ * Havok kg m2 where it takes kg m2 per kilogram (H49) passed a read-back and turned the 2 kg rod
+ * here at half the rate.
+ */
+test("a built segment turns under an impulse as its spec's inertia says", async () => {
+  const spec = rods([["bend", [1, 0, 0]]]);
+  for (const segment of spec.segments) {
+    for (const [i, axisName] of ["x", "y", "z"].entries()) {
+      const spin = await spinOnce({ ...spec, segments: [segment], joints: [] }, segment.name, axisName, segment.inertia.value[i]);
+      close(spin.along, 1, 0.01, `${segment.name} about ${axisName}`);
+      close(spin.across, 0, 0.01, `${segment.name} about ${axisName}, off its axis`);
+    }
+  }
 });
 
 /**
@@ -99,7 +118,8 @@ test("the reference pose reads as no rotation at every joint", async () => {
 
 /**
  * Limits, driven into by a motor of 10 N m, well above the rod's needs and not so far above them
- * that it drives through the limit (at 1000 N m it does, by 0.05 rad on an X axis).
+ * that it drives through the limit (at 1000 N m it does, by 0.05 rad on an X axis, and a
+ * one-freedom joint's locked axes give by more than a radian).
  */
 const LIMIT_TEST = { speed: 3, seconds: 1, range: [-0.2, 0.6], force: 10 };
 
