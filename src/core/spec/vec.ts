@@ -24,3 +24,13 @@ export function normalize(a: Vec3): Vec3 {
 
 /** `a` with its component along the unit vector `along` removed, normalized. */
 export const orthogonalTo = (a: Vec3, along: Vec3): Vec3 => normalize(sub(a, scale(along, dot(a, along))));
+
+/**
+ * The signed angle about the unit `axis` from `from` to `to`, each projected onto the plane square
+ * to it: positive in the sense that turns `from` toward `cross(axis, from)`, the sense a positive
+ * rotation about `axis` has.
+ */
+export function angleAbout(axis: Vec3, from: Vec3, to: Vec3): number {
+  const f = orthogonalTo(from, axis), t = orthogonalTo(to, axis);
+  return Math.atan2(dot(cross(f, t), axis), dot(f, t));
+}

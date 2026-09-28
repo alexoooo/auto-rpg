@@ -7,13 +7,17 @@ import assert from "node:assert/strict";
 import { FIT_SCALE, bodyMass, stature, WORKSHOP_SEX } from "../src/core/human/model.ts";
 import { rigPoint, WORKSHOP_MODELS } from "../src/core/human/rig.ts";
 import { frameOf, segmentFrame } from "../src/core/spec/body.ts";
-import { dot, normalize, sub } from "../src/core/spec/vec.ts";
+import { cross, dot, length, normalize, sub } from "../src/core/spec/vec.ts";
 import { HUMAN_PARENTS, humanSegments } from "../src/core/human/segments.ts";
 import { TRUNK_SEGMENTS, workshopEnvelope } from "../src/core/human/envelope.ts";
 import { SIDES } from "../src/core/human/landmarks.ts";
 import { inventory, sourcesOf } from "../src/core/spec/provenance.ts";
 import { footprint, transcribed, trunkEnvelope } from "../scripts/core/workshop-envelope.mjs";
+import { humanSpec } from "../src/core/human/spec.ts";
+import { peakTorque } from "../src/core/human/muscle.ts";
+import { EXERTIONS, measuredTorque, subjectMass } from "../src/core/human/tables/joint-torques.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
+import { jointSenses } from "./fixtures/joint-senses.mjs";
 import { clearance, lowest, solid } from "./fixtures/shapes.mjs";
 
 const table = (model) => ({ mass: bodyMass(model), stature: stature(model), segments: humanSegments(model) });
@@ -173,4 +177,85 @@ test("the clearance measure finds an overlap and a gap it is shown", () => {
   assert.ok(Math.abs(clearance(capsule(1, 0.1), box(0)) - 0.4) < 1e-9);
   assert.ok(Math.abs(clearance(box(0), box(1.25)) - 0.25) < 1e-9);
   assert.ok(clearance(box(0), box(0.75)) < 0);
+});
+
+test("every number in each model's whole spec, joints and muscle included, says where it came from", () => {
+  for (const model of WORKSHOP_MODELS) assert.deepEqual(specProvenanceFaults(humanSpec(model)), [], model);
+});
+
+test("the joints join exactly the segment tree, on square unit axes, each range about the reference pose", () => {
+  for (const model of WORKSHOP_MODELS) {
+    const { joints } = humanSpec(model);
+    assert.equal(joints.length, HUMAN_PARENTS.size, model);
+    assert.deepEqual(new Set(joints.map((j) => `${j.child} in ${j.parent}`)),
+      new Set([...HUMAN_PARENTS].map(([child, parent]) => `${child} in ${parent}`)), model);
+    for (const joint of joints) {
+      joint.dofs.forEach((dof, i) => {
+        const what = `${model} ${joint.name} ${dof.positive}`;
+        assert.ok(Math.abs(length(dof.axis.value) - 1) < 1e-9, `${what}: axis length ${length(dof.axis.value)}`);
+        for (const other of joint.dofs.slice(i + 1)) {
+          assert.ok(Math.abs(dot(dof.axis.value, other.axis.value)) < 1e-9, `${what} and ${other.positive} are not square`);
+        }
+        assert.ok(dof.min.value <= 0 && dof.max.value >= 0 && dof.min.value < dof.max.value, `${what}: ${dof.min.value}..${dof.max.value}`);
+        assert.ok(dof.muscle.peakPositive.value > 0 && dof.muscle.peakNegative.value > 0, what);
+      });
+    }
+  }
+});
+
+/**
+ * A positive turn about an axis moves a lever v toward cross(axis, v); each freedom must move its
+ * lever the anatomical way (`tests/fixtures/joint-senses.mjs`). The weakest is the elbow, whose
+ * flexion carries the hand of an arm held out from the side upward and in, at about 0.5.
+ */
+test("each freedom's positive turn is the motion it is named for", () => {
+  for (const model of WORKSHOP_MODELS) {
+    const spec = humanSpec(model);
+    const rows = jointSenses(spec);
+    assert.equal(rows.length, spec.joints.reduce((n, j) => n + j.dofs.length, 0), `${model}: a freedom with no row`);
+    for (const [name, positive, lever, direction] of rows) {
+      const dof = spec.joints.find((j) => j.name === name).dofs.find((d) => d.positive === positive);
+      const along = dot(normalize(cross(dof.axis.value, lever)), direction);
+      assert.ok(along > 0.4, `${model} ${name} ${positive} moves its lever ${along.toFixed(3)} along the way it should`);
+    }
+  }
+});
+
+/**
+ * Each model reads its own sex's ranges where a source splits them, and only the men's torques: the
+ * women's column is the check below, never an input. The control: the Rogue does read a women's
+ * range, so the detector sees a column.
+ */
+test("each model reads its own sex's ranges and only the men's torques", () => {
+  const byColumn = new Set(["moromizato-2016", "zwerus-2019", "kitsoulis-2010", "hallaceli-2014", "jiang-2025"]);
+  const torques = new Set(["ds-2009", "anderson-2007", "pan-2025", "vasavada-2001", "axelsson-2018", "peleg-2025", "da-fonseca-2025"]);
+  const column = { male: "men", female: "women" };
+  for (const model of WORKSHOP_MODELS) {
+    const read = [...leaves(humanSpec(model))].map((leaf) => leaf.provenance);
+    const ranges = read.filter((p) => byColumn.has(p.source));
+    assert.ok(ranges.length > 20, model);
+    for (const p of ranges) assert.match(p.where, new RegExp(`, ${column[WORKSHOP_SEX[model]]}(, (left|right))?$`), `${model} reads ${p.source} ${p.where}`);
+    const torque = read.filter((p) => torques.has(p.source));
+    assert.ok(torque.length >= EXERTIONS.length, model);
+    for (const p of torque) assert.ok(!/women/.test(p.where), `${model} reads ${p.source} ${p.where}`);
+  }
+});
+
+/**
+ * The muscle rule predicts the Rogue from the men; the women's measured column, at her mass, is
+ * what it should land near (`docs/analysis/2026-09-27-human-strike-reference.md` section 9). The
+ * band holds the spread that table shows (0.63 to 1.37, the trunk and the wrist's ulnar deviation
+ * lowest) and a middle near 0.97; scaled by mass alone the middle ratio is 1.39, and with her mass
+ * left out 1.25 (Node, pure spec).
+ */
+test("the Rogue's torques, scaled from the men's by her muscle, land near the women's measured column", () => {
+  const mass = bodyMass("workshop-rogue").value;
+  const ratios = EXERTIONS.map((exertion) => {
+    const measured = measuredTorque(exertion, "female").value * mass / subjectMass(exertion, "female").value;
+    return [exertion, peakTorque("workshop-rogue", exertion).value / measured];
+  });
+  for (const [exertion, ratio] of ratios) assert.ok(ratio > 0.55 && ratio < 1.5, `${exertion}: ${ratio.toFixed(2)}`);
+  const sorted = ratios.map(([, ratio]) => ratio).sort((a, b) => a - b);
+  const middle = (sorted[(sorted.length - 1) >> 1] + sorted[sorted.length >> 1]) / 2;
+  assert.ok(middle > 0.85 && middle < 1.15, `middle ratio ${middle.toFixed(3)}`);
 });

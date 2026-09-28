@@ -10,8 +10,7 @@ import { coreStand, relativeRotation } from "./harness/core-stand.mjs";
 
 const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "a stand-in leaf for the builder's tests");
 
-const muscle = () => ({ peakPositive: q(50, "N m"), peakNegative: q(50, "N m"), maxVelocity: q(10, "rad/s"),
-  curvature: q(0.25, "1"), eccentric: q(1.5, "1") });
+const muscle = () => ({ peakPositive: q(50, "N m"), peakNegative: q(50, "N m") });
 
 /** Two rods: a parent from 1.5 m down to 1 m, and a child hanging from it, tilted in x and z. */
 function rods(dofs, range = [-1, 1]) {

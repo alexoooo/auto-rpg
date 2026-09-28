@@ -31,7 +31,7 @@ The owner's decisions, 2026-09-28:
 | The strike search and re-reader (`research/strike-optimizer.mjs`, `strike-eval.mjs`, and `research/human-strikes.mjs` with 44 searched strikes on `wip/s2-step6-human-ranges`) | the instrument that checks the new human's arm against those targets, ported to the core's world |
 | Joint give in the effective mass (20830082) | kept as is; the contact physics the core scores with |
 | The human attribute rows (size x0.9–1.18, weight x0.85–1.25, arm speed), with their tables | the human spec's attribute bounds; the range mechanism is reworked for specs |
-| The muscle-mass derivation (Janssen 2000; checked against Miller 1993 and Kumar 2001) | the muscle model's input, in place of the fitted shares |
+| The muscle-mass derivation (Janssen 2000; checked against Miller 1993 and Kumar 2001) | the muscle model's input, in place of the fitted shares; stage 1 replaced Janssen's split with Abe 2003's (reference section 9.1) |
 | "The fist outruns an elite hook; the club is right" | the force-velocity acceptance test |
 | The whole-shove bout table (4350cb8e) | locomotion v2's acceptance test: reading a shove whole must not multiply falls, because the body steps |
 | Sessions 3 (damage unit) and 4 (one HP pool with overflow) | stage 5's design, recalibrated on the new human's strikes |
@@ -73,15 +73,19 @@ Each stage lands as commits behind tests. Measurements name their harness. Where
 **`src/core/spec/`: the types.**
 - Segments: shape, dimensions, mass and inertia, each from the spec.
 - Joints: axes, limits, and parent and child frames.
-- Muscles, per joint degree of freedom: peak isometric torque, maximum velocity and curve parameters.
+- Muscles, per joint degree of freedom: peak isometric torque. The maximum velocity, the curve and the
+  eccentric ceiling join in stage 2, with their sources.
 - Contact surfaces and damageable parts, with their properties.
 - Every number carries its provenance.
 
 **`src/core/human/`: the Warrior and Rogue specs.**
 - Geometry from the rig (`assets/humanoid/workshop-*.json`) and the stature, and masses from de Leva.
 - Segment shapes are sized from segment volume and density wherever the rig gives no dimension. The unexplained boxes and radii go.
-- Muscle mass per region from the model's sex and mass (Janssen 2000).
-- The Warrior's peak joint torques come from cited adult-male data. Before this stage, the reference document gains hip, knee, ankle, trunk and neck rows.
+- Muscle mass per region from the model's sex and mass (Abe 2003: its women's and men's shares come from the same
+  people, where Janssen 2000's upper body mixes the arms with the trunk).
+- Peak joint torques are young men's measured torques scaled by the model's regional muscle; the women's
+  columns are the Rogue's check, never an input. Joint ranges are measured ranges, shifted by each
+  joint's angle in the rig's pose. Sources, tables and stated assumptions: reference section 9.
 
 **The builder.** `buildBody(spec, world)` makes Havok bodies and joints from a spec and nothing else. Attributes act on the spec, once, before the build.
 
@@ -112,6 +116,7 @@ motors.
   - the Hill curve on the concentric side, and a stated eccentric ceiling;
   - activation is the controller's 0–1 command.
   - Torque–angle is added only if a measurement asks for it.
+  - `MuscleSpec` gains the unloaded speed, the curve's shape and the eccentric ceiling, each sourced.
 - **The Havok side:** a velocity motor whose maximum force is recomputed from the muscle every substep.
   - The speed is read once per substep (H50).
   - The stand tests the curve for stability at 120 Hz.

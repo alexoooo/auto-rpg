@@ -3,10 +3,12 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { HavokPhysicsWithBindings } from "@babylonjs/havok";
+import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Quantity } from "../spec/quantity.ts";
 
 /**
- * The core's physics world: Havok on a scene, with standard gravity and a fixed step.
+ * The core's physics world: Havok on a scene, with standard gravity (`STANDARD_GRAVITY`) and a
+ * fixed step.
  *
  * The side-effect import above is load-bearing (H02): without it the tree-shaken build has no
  * `scene.enablePhysics`. The Havok instance is handed in, loaded by the caller, because loading
@@ -16,10 +18,6 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  * body needs conditioning, it is named, measured and added as such (the plan's rule), not folded
  * into a body's numbers.
  */
-
-/** Standard gravity, the conventional value of the acceleration of free fall. */
-export const STANDARD_GRAVITY: Quantity<number> = sourced(9.80665, "m/s2", "cgpm-1901",
-  "Declaration on the unit of mass and on the definition of weight; conventional value of gn");
 
 /** The fixed step's rate: physics and control run at 120 Hz. */
 export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-rate",

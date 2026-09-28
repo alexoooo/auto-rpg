@@ -91,18 +91,14 @@ export interface DofSpec {
 
 /**
  * The muscles acting on one freedom, lumped: what the joint can do, not which muscle does it.
- * Stage 2 of the plan turns this into a torque ceiling at a speed.
+ * Stage 2 of the plan turns this into a torque ceiling at a speed, and adds the fields that curve
+ * needs (the unloaded shortening speed, the curve's shape, the eccentric ceiling) with their
+ * sources, when a rule first reads them.
  */
 export interface MuscleSpec {
   /** Peak isometric torque toward positive and toward negative angles, N m, as magnitudes. */
   readonly peakPositive: Quantity<number>;
   readonly peakNegative: Quantity<number>;
-  /** Unloaded shortening speed, rad/s: the speed at which a concentric torque falls to zero. */
-  readonly maxVelocity: Quantity<number>;
-  /** Hill's a/F0: the concentric curve's curvature. */
-  readonly curvature: Quantity<number>;
-  /** The eccentric ceiling as a multiple of isometric torque. */
-  readonly eccentric: Quantity<number>;
 }
 
 export interface SegmentFrame {
