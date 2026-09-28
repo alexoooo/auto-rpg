@@ -9,7 +9,7 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 
 test("a continuous chamber changes a real blade contact from the same warmed state", async () => {
   const straight = orientationScreenPlans().find(p => p.label === "tilt0/roll0/to-0.5");
-  const chamber = chamberScreenPlans().find(p => p.label === "chamber/t0.3/r0.45/a0.8");
+  const chamber = chamberScreenPlans().find(p => p.label === "chamber/t0.15/r0.45/a0.8");
   const first = chamber.segs[0], second = chamber.segs[1];
   assert.equal(chamber.switchAt, first.duration);
   assert.equal(first.extend, second.retract, "the hand reaches the same distance at the boundary");
@@ -18,11 +18,14 @@ test("a continuous chamber changes a real blade contact from the same warmed sta
   const b = await impactScreenCell({ terminal: "blade", plan: chamber });
   assert.equal(a.start.pose, b.start.pose);
   assert.deepEqual(b.targetHands, ["primary"]);
-  assert.ok(b.maxBodyEnergyJ > a.maxBodyEnergyJ + 2,
+  // On the Warrior (Node bout runner, 2026-09-27) the straight plan touches nothing and this chamber
+  // lands one weak contact of 0.974 J at edge alignment 0.661. It was chamber/t0.3 at 6.0 to 6.5 J on
+  // the legacy human; of the twelve chambers only this one reaches the Warrior's opponent.
+  assert.ok(b.maxBodyEnergyJ > a.maxBodyEnergyJ + .5,
     "the chamber must produce a measurably different body contact");
-  assert.ok(b.maxBodyEnergyJ > 6 && b.maxBodyEnergyJ < 6.5);
+  assert.ok(b.maxBodyEnergyJ > .9 && b.maxBodyEnergyJ < 1.05);
   assert.equal(b.strongestBodyContact.kind, "weak");
-  assert.ok(b.strongestBodyContact.edgeAlignment > .35 && b.strongestBodyContact.edgeAlignment < .45);
+  assert.ok(b.strongestBodyContact.edgeAlignment > .6 && b.strongestBodyContact.edgeAlignment < .7);
   assert.equal(b.preArmourDamage, 0);
 });
 

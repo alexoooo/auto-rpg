@@ -4,13 +4,12 @@
 // Modules combine, so the audit's unit is the **module**: it measures every named build and a
 // stratified sample of builds in which every module on the shelf appears, and reads a module's
 // headroom across the builds that contain it. The named builds (`PLAYABLE_BUILDS` in
-// `src/golem/roster.ts`) leave out every reach-chain effector, the pitch chain's mace and fist, the
-// human's mace and whip and the skeleton's fist and whip. Each sample below adds one of those and,
+// `src/golem/roster.ts`) leave out every reach-chain effector, the pitch chain's mace and fist, and
+// the skeleton's fist and whip. (The legacy human's mace and whip went with it on 2026-09-27.) Each sample below adds one of those and,
 // where it can, also moves a second slot off the default, so that no module is read on one context
 // alone.
 import { namedBuild, PLAYABLE_BUILDS } from "../src/golem/roster.ts";
 import { defaultGolemSetup, golemSetupRefusal } from "../src/golem/build.ts";
-import { humanSetup } from "../src/golem/humanoid/presets.ts";
 import { skeletonSetup } from "../src/golem/skeleton/presets.ts";
 import { bodyFamily, FAMILY_POLICY } from "../src/golem/family.ts";
 import { ATTRIBUTE_IDS, ATTRIBUTES } from "../src/golem/attributes.ts";
@@ -26,8 +25,6 @@ export const SAMPLE_BUILDS = Object.freeze([
   { name: "reach-fists-plated", setup: stone({ torso: "torso.plated", primary: pick("reach", "fist"), secondary: pick("reach", "fist") }) },
   { name: "pitch-mace-ram", setup: stone({ head: "head.ram", primary: pick("pitch", "mace"), secondary: pick("pitch", "plate") }) },
   { name: "pitch-fists", setup: stone({ primary: pick("pitch", "fist"), secondary: pick("pitch", "fist") }) },
-  { name: "human-mace", setup: humanSetup("mace", "plate") },
-  { name: "human-whip", setup: humanSetup("whip", "plate") },
   { name: "skeleton-fists", setup: skeletonSetup("fist", "fist") },
   { name: "skeleton-whip", setup: skeletonSetup("whip", "plate") },
 ].map((build) => Object.freeze({ ...build, setup: Object.freeze(build.setup) })));

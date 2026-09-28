@@ -43,7 +43,7 @@ test("task commands survive a deep copy and the legacy adapter clears them on bo
 });
 
 test("world targets reach both anatomical business ends from a rotated socket with physical motors", async () => {
-  for (const terminal of ["blade", "fist", "mace"]) for (const slot of ["primary", "secondary"]) {
+  for (const terminal of ["blade", "fist"]) for (const slot of ["primary", "secondary"]) {
     const result = await targetBench({ terminal, slot, yaw: .7 });
     assert.ok(result.channels.some(c => c.features.includes("target") && c.features.includes("speed") && c.features.includes("force")));
     assert.ok(result.tipError < .003, `${terminal} ${slot} actual tip ${result.tipError} m`);
@@ -56,8 +56,6 @@ test("world targets reach both anatomical business ends from a rotated socket wi
   }
   const shield = await targetBench({ terminal: "plate", seconds: 0 });
   assert.ok(shield.channels.every(c => !c.features.includes("target")), "a forearm-mounted shield needs its own target mapping");
-  const paired = await targetBench({ terminal: "maul", seconds: 0 });
-  assert.ok(paired.channels.every(c => !c.features.includes("target")), "a paired grip needs a joint task envelope");
 });
 
 test("target speed narrows joint target rates and zero speed holds the commanded pose", async () => {
@@ -96,7 +94,7 @@ test("an unreachable task remains finite and inside every anatomical joint stop"
 test("task commands reach the whole body's modules, remain inert when disabled and survive an exact fork", async () => {
   async function run(enabled, writesTarget, forkIt = false) {
     const previous = setChannelFlags({ effector: enabled });
-    const options = { left: "idle", right: "idle", leftGolem: humanSetup("blade", "whip"),
+    const options = { left: "idle", right: "idle", leftGolem: humanSetup("blade", "plate"),
       seeds: [19, 31], separation: 12, locomotionMode: "supported", maxSeconds: 30 };
     const bout = createBout({ ...options, physics: await freshHavok() });
     try {
@@ -120,7 +118,7 @@ test("task commands reach the whole body's modules, remain inert when disabled a
         const declarations = bout.left.view.self.capabilities.channels;
         assert.ok(declarations.some(c => c.hand === "primary" && c.features.includes("target")));
         assert.ok(declarations.filter(c => c.hand === "secondary").every(c => !c.features.includes("target")),
-          "a flexible lash is not a rigid endpoint");
+          "a shield has no rigid endpoint to place");
       }
       if (forkIt) {
         const fork = await exactFork(options, captureBout(bout, { heap: true }));

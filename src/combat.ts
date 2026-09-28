@@ -83,6 +83,15 @@ export interface Striking {
   readonly body: PhysicsBody;
   /** Supported bodies may replace a solving striker contact with this sensor-only path. */
   readonly nonSolvingTrigger?: NonSolvingStrikeTrigger;
+  /**
+   * A striker that finds its own contacts publishes them here, and the solver's events for its body
+   * are then not read at all. A loosed arrow sweeps its shape along the step it is about to fly and
+   * reports what that finds. Havok's manifold for a 9 mm shaft at 46 m/s is not evidence: it
+   * reports a speculative contact while the point is still short of the target face, at a point that is
+   * nowhere on the shaft. Read as a blow, that contact spent every arrow the Rogue loosed in the
+   * dungeon for no damage (Node headless arena, 2026-09-27).
+   */
+  readonly contactEvents?: Observable<IPhysicsCollisionEvent>;
   /** Compound owners must prove the contact belongs to this semantic module leaf. */
   allowsSourceContact?(point: Vector3): boolean;
   /** Stateful effectors may accept at most one contact per target and action instance. */
@@ -468,7 +477,7 @@ export class Combat {
           if (observer) this.watching.push({ weapon, remove: () => trigger.events.remove(observer) });
           continue;
         }
-        const observable = weapon.body.getCollisionObservable();
+        const observable = weapon.contactEvents ?? weapon.body.getCollisionObservable();
         const observer = observable.add((event) => this.onContact(weapon, event));
         if (observer) this.watching.push({ weapon, remove: () => observable.remove(observer) });
       }

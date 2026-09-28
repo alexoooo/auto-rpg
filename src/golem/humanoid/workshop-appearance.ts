@@ -16,7 +16,10 @@ import { workshopCaps } from "./workshop-caps.ts";
 import { compactWorkshopRegion } from "./workshop-region.ts";
 import { publicAssetUrl } from "../../asset-url.ts";
 import { workshopSource, workshopGrips, WORKSHOP_STRING_HOOK, WORKSHOP_BOW, type HumanAppearanceSetting } from "./workshop-profile.ts";
-import type { HumanVisualPart } from "./appearance.ts";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
+
+/** One physical part as the costume sees it: the host it follows and the shells it replaces. */
+export interface HumanVisualPart { slot: string; moduleId: string; id: string; host: AbstractMesh; shells: readonly AbstractMesh[] }
 
 const assets = new WeakMap<Scene, Map<string, AssetContainer>>();
 export async function loadWorkshopAssets(scene: Scene): Promise<void> {

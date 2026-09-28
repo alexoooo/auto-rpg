@@ -52,7 +52,7 @@ test("task proposals fit the short search without changing the ruler or its rand
 
 test("the effector pilot schedules supported bodies and measures target use separately from legacy strokes", () => {
   const jobs = EXPERIMENTS.channel({ channel: "effector", pairs: 1 });
-  assert.deepEqual([...new Set(jobs.map(j => j.body))], ["human-warrior", "human-unarmed", "human-mace"]);
+  assert.deepEqual([...new Set(jobs.map(j => j.body))], ["warrior", "warrior-unarmed", "warrior-sword"]);
   assert.equal(jobs.length, 18);
   assert.deepEqual(runFlags("channel", { channel: "effector" }), { effector: true });
   for (const cell of new Set(jobs.map(j => j.cell))) {

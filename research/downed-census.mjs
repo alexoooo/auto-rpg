@@ -41,7 +41,7 @@ export const CENSUS_GROUPS = Object.freeze({
   stone: { build: "default", modified: "default", minds: PROBE },
   skeleton: { build: "skeleton-warrior", modified: "skeleton-warrior", minds: ["skeleton-duelist"] },
   giant: { build: "default", modified: "default", preset: "max", minds: PROBE },
-  human: { build: "human-warrior", modified: "human-warrior", minds: ["humanoid-duelist"] },
+  human: { build: "warrior", modified: "warrior", minds: ["humanoid-duelist"] },
 });
 
 const LONG = 5;

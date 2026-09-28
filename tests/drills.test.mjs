@@ -105,12 +105,12 @@ test("a_start_its_control_does_not_admit_is_void_and_never_scored", async () => 
 });
 
 test("a_cut_a_rest_guard_stops_is_void_by_wound_and_scored_by_arrival", async () => {
-  // The headroom audit's first survive-cut start on the human warrior: the cut meets the idle
+  // The headroom audit's first survive-cut start on the Warrior: the cut meets the idle
   // body's shield and wounds nothing, so the wound rule voids it; arrival scores it, idle passing.
   const { auditBuild } = await import("../research/headroom-builds.mjs");
   const { seed } = await import("../research/schedule.mjs");
-  const start = { drill: "survive-cut", subjectSetup: auditBuild("human-warrior").setup,
-    opponentSetup: namedBuild("default").setup, seed: seed("drills", "survive-cut", "human-warrior", "default", 0), rungs: ["idle"] };
+  const start = { drill: "survive-cut", subjectSetup: auditBuild("warrior").setup,
+    opponentSetup: namedBuild("default").setup, seed: seed("drills", "survive-cut", "warrior", "default", 0), rungs: ["idle"] };
   const byWound = await runDrill(start);
   assert.match(byWound.void ?? "", /did not wound an idle body/);
   assert.ok(byWound.control.margin < 0.03, "the idle body took no wound over the threshold");
@@ -128,9 +128,9 @@ test("a_cut_a_rest_guard_stops_is_void_by_wound_and_scored_by_arrival", async ()
     "contacts by the subject alone cannot admit the opponent's cut");
   assert.equal(cutArrived(contacts.map((e) => ({ ...e, side: byArrival.subject })), byArrival.subject), true,
     "the same rule follows the opponent when the corners swap");
-  // And the control: the audit's second start on the human mace, whose cut touches nothing at all.
-  const missed = await runDrill({ ...start, subjectSetup: auditBuild("human-mace").setup, admission: "arrival",
-    seed: seed("drills", "survive-cut", "human-mace", "default", 1) });
+  // And the control: the same start with the cut drawn from twice its range, so it touches nothing.
+  // (It was the audit's start on the human mace, which went with the legacy human on 2026-09-27.)
+  const missed = await runDrill({ ...start, admission: "arrival", fix: { range: 2 } });
   assert.match(missed.void ?? "", /touched nothing/, "a cut that never arrives stays void");
   await assert.rejects(runDrill({ ...start, drill: "hold-range", admission: "arrival" }), /survive-cut alone/);
   await assert.rejects(runDrill({ ...start, admission: "touch" }), /admission is one of/);

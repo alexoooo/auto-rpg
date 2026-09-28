@@ -23,7 +23,14 @@ const bounds = (points: number[][]) => {
   const high = [0,1,2].map(i=>Math.max(...points.map(p=>p[i])));
   return { centre: Vector3.FromArray(low.map((v,i)=>(v+high[i])/2)), size: Vector3.FromArray(high.map((v,i)=>v-low[i])), low, high };
 };
+/** One profile per model, built once: every world that fits a model's equipment holds the same one. */
+const PROFILES = new Map<WorkshopModel, ReturnType<typeof buildProfile>>();
 export function workshopEquipmentProfile(model: WorkshopModel = "workshop-fighter") {
+  let profile = PROFILES.get(model);
+  if (!profile) { profile = buildProfile(model); PROFILES.set(model, profile); }
+  return profile;
+}
+function buildProfile(model: WorkshopModel) {
 const WORKSHOP_SOURCE = workshopSource(model);
 const sword = bounds(WORKSHOP_SOURCE.equipment.blade.points);
 const WORKSHOP_SWORD = bladeDefinition(sword.low[2]-WORKSHOP_SOURCE.palm.primary[2], {
@@ -68,6 +75,6 @@ export function workshopEquipment(terminal: EffectorTerminalDefinition, size = 1
       ...humanEquipment(terminal), ...fistDefinition({ ...TERMINAL_FIST, radius: .045 * size, mass: .35 * weight * size ** 3 }),
       attachment: "hand", partRole: "body", appearance: "human", label: "Empty hand",
     };
-    default: throw new Error(`Workshop fighter does not support ${terminal.id}`);
+    default: throw new Error(`The Warrior and the Rogue do not carry ${terminal.id}`);
   }
 }

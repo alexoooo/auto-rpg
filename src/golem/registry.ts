@@ -342,7 +342,9 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(headPlain, "head", naturalChannel),
   benchOption(headRam, "head", naturalChannel),
   benchOption(anatomicalBow, "effector", handChannel),
-  ...Object.values(EFFECTOR_TERMINALS).filter(t => t.id !== "bow").map(terminal => benchOption(effectorModule(anatomicalChain, terminal), "effector", handChannel)),
+  // The Warrior and the Rogue carry a sword, a shield or nothing (`workshopEquipment`); the legacy
+  // human's mace, whip and maul went with it on 2026-09-27.
+  ...[bladeTerminal, plateTerminal, fistTerminal].map(terminal => benchOption(effectorModule(anatomicalChain, terminal), "effector", handChannel)),
   benchOption(humanBiped, "locomotion", locomotionCommand, built => ({
     lines: () => formatLocomotion(built.readout(), built.evidence()), shove: () => built.shove(),
   })),

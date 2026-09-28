@@ -690,11 +690,11 @@ async function main() {
   } });
   const dir = resolve(values.out ?? join("research", "runs", "leverage"));
   mkdirSync(dir, { recursive: true });
-  const builds = values.builds ? values.builds.split(",") : ["default", "skeleton-warrior", "human-warrior", "multileg", "wheel", "maul"];
+  const builds = values.builds ? values.builds.split(",") : ["default", "skeleton-warrior", "warrior", "multileg", "wheel", "maul"];
   let result;
   if (values.check === "balance") result = await balanceCheck(builds);
   else if (values.check === "commitment") result = await commitmentCheck(builds);
-  else if (values.check === "precision") result = await precisionCheck(values.builds ? builds : ["default", "skeleton-warrior", "human-warrior", "plated"]);
+  else if (values.check === "precision") result = await precisionCheck(values.builds ? builds : ["default", "skeleton-warrior", "warrior", "plated"]);
   else if (values.check === "deflection") {
     result = await deflectionCheck(values.modules ? values.modules.split(",")
       : ["effector.wrist.blade", "effector.wrist.mace", "effector.wrist.maul", "effector.anatomical.blade"],

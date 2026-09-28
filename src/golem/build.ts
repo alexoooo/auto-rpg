@@ -22,6 +22,7 @@ import { isWorkshopModel } from "./humanoid/workshop-profile.ts";
 import { anatomicalBow } from "./humanoid/bow.ts";
 import { anatomicalChain } from "./humanoid/arm.ts";
 import { workshopEquipment } from "./humanoid/workshop-equipment.ts";
+import { humanSetup } from "./humanoid/presets.ts";
 import { ribcageTorso, skeletonBiped, skullHead } from "./skeleton/body.ts";
 import { bipedModule } from "./locomotion/biped.ts";
 import { multilegModule } from "./locomotion/multileg.ts";
@@ -310,6 +311,9 @@ export function randomGolemSetup(rng: () => number, family: BodyFamily = "golem"
     if (items.length === 0) throw new Error("a golem slot with nothing to draw from");
     return items[Math.min(items.length - 1, Math.floor(rng() * items.length))];
   };
+  // A human is the Warrior, whose hands are not one shelf: a sword or nothing on the right, a
+  // shield or nothing on the left. The Rogue's bow is never drawn, as no bow is.
+  if (family === "human") return humanSetup(pick(["blade", "fist"]), pick(["plate", "fist"]));
   const socket = (): GolemEffectorSetup => {
     const chain = pick(golemChainOptions(family)).id;
     return { chain, terminal: pick(golemTerminalOptions(chain).filter(option => option.id !== "bow")).id };
@@ -400,13 +404,14 @@ const listed = (words: readonly string[]): string =>
  */
 export function golemSetupRefusal(setup: GolemSetup): string | null {
   const archer = setup.human?.model === "workshop-rogue" && setup.primary.terminal === "bow" && setup.secondary.terminal === "bow";
-  if ((setup.primary.terminal === "bow" || setup.secondary.terminal === "bow") && !archer) return "Bow requires the workshop rogue and both hands.";
+  if ((setup.primary.terminal === "bow" || setup.secondary.terminal === "bow") && !archer) return "Bow requires the Rogue and both hands.";
+  if (bodyFamily(setup) === "human" && !setup.human) return "A human is the Warrior or the Rogue; choose one.";
   if (setup.human && (!isWorkshopModel(setup.human.model)
     || typeof setup.human.boots !== "boolean" || typeof setup.human.armour !== "boolean"
     || bodyFamily(setup) !== "human"
     || (!archer && !["blade", "fist"].includes(setup.primary.terminal ?? ""))
     || (!archer && !["plate", "fist"].includes(setup.secondary.terminal ?? "")))) {
-    return "Workshop fighter requires a human body, sword or empty right hand, and shield or empty left hand.";
+    return "The Warrior and the Rogue need a human body, a sword or empty right hand, and a shield or empty left hand.";
   }
   if (!golemLocomotion(setup.locomotion)) {
     return `no golem locomotion module "${setup.locomotion}"`;
@@ -481,6 +486,14 @@ export interface GolemEffectorPlan {
   readonly secondary: GolemEffectorOption | null;
 }
 
+/**
+ * One fitted definition per model, size, weight and option, so that two worlds built from one setup
+ * hold the same definition, as they do a registry option's. Built afresh per call, each world held
+ * its own copy of the chain and terminal, and the fork's closure audit could not tell those
+ * definitions from state (`every_registered_module_hands_its_stepping_state_to_the_fork`).
+ */
+const WORKSHOP_FITTED = new Map<string, GolemEffectorOption["definition"]>();
+
 export function golemEffectorPlan(setup: GolemSetup): GolemEffectorPlan {
   const refusal = golemSetupRefusal(setup);
   if (refusal) throw new Error(refusal);
@@ -490,8 +503,17 @@ export function golemEffectorPlan(setup: GolemSetup): GolemEffectorPlan {
   if (setup.primary.terminal === "bow") return Object.freeze({ primary, secondary: null });
   if (setup.human) {
     const {size, weight} = resolveAttributes(setup);
-    const fit = (option: GolemEffectorOption): GolemEffectorOption => ({ ...option,
-      definition: effectorModule({ ...anatomicalChain, fitTerminal: terminal => workshopEquipment(terminal, size, weight, setup.human!.model) }, terminalOf(option.terminal!)) });
+    const model = setup.human.model;
+    const fit = (option: GolemEffectorOption): GolemEffectorOption => {
+      const key = `${model}|${size}|${weight}|${option.id}`;
+      let definition = WORKSHOP_FITTED.get(key);
+      if (!definition) {
+        definition = effectorModule({ ...anatomicalChain, fitTerminal: terminal => workshopEquipment(terminal, size, weight, model) },
+          terminalOf(option.terminal!));
+        WORKSHOP_FITTED.set(key, definition);
+      }
+      return { ...option, definition };
+    };
     return Object.freeze({primary:fit(primary),secondary:fit(secondary)});
   }
   return Object.freeze({ primary, secondary: primary.sockets === 2 ? null : secondary });

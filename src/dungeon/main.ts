@@ -1,4 +1,3 @@
-import { loadHumanAssets } from "../golem/humanoid/appearance.ts";
 import { loadWorkshopAssets } from "../golem/humanoid/workshop-appearance.ts";
 import { loadSkeletonAssets } from "../golem/skeleton/appearance.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
@@ -65,6 +64,8 @@ const companionBuilds = (hero: string, count: number): string[] => {
 for (const build of WALKERS) {
   const option = document.createElement("option"); option.value = build.name; option.textContent = build.name.replaceAll("-", " "); heroBuild.append(option);
 }
+// The Warrior leads unless somebody picks another hero.
+heroBuild.value = "warrior";
 
 const heroEquipment = need("hero-equipment");
 const workshopAppearance=document.createElement("div");
@@ -119,7 +120,7 @@ heroPrimary.addEventListener("change", () => { heroSecondary.disabled = ["maul",
 updateEquipment();
 
 async function boot(): Promise<void> {
-  await Promise.all([loadHumanAssets(), loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error))]);
+  await loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error));
   const havok = await HavokPhysics({ locateFile: () => havokWasmUrl });
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
@@ -140,7 +141,7 @@ async function boot(): Promise<void> {
     held.clear(); run.commands.right = run.commands.up = 0; run.commands.cancelPointer();
     need("pause-panel").hidden = !value;
     need("pause-title").textContent = run.status === "won" ? "You escaped." : run.status === "dead"
-      ? run.party.length > 1 ? "Your party has fallen." : "Your golem has fallen." : "Paused";
+      ? run.party.length > 1 ? "Your party has fallen." : "Your hero has fallen." : "Paused";
     need("pause-copy").textContent = run.status === "playing" ? "Your run is frozen. Wheel zoom remains available." : `Seed ${seed} · ${Math.floor(run.clock)} seconds in the depths.`;
     need("resume").hidden = run.status !== "playing";
     need("pause-button").textContent = value ? "Resume · Esc" : "Pause · Esc";

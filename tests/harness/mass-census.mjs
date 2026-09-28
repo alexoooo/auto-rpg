@@ -31,7 +31,7 @@ export const CENSUS_FAMILIES = Object.freeze([
   { family: "stone", build: "default" },
   { family: "giant (stone at max)", build: "default", preset: "max" },
   { family: "skeleton", build: "skeleton-warrior" },
-  { family: "human", build: "human-warrior" },
+  { family: "human", build: "warrior" },
   { family: "wheel", build: "wheel" },
   { family: "multileg", build: "multileg" },
 ]);

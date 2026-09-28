@@ -31,7 +31,7 @@ export function firstMet(events, subject) {
 }
 
 const { values } = parseArgs({ options: {
-  bodies: { type: "string", default: "human-warrior,human-mace,human-unarmed,human-dual-swords,human-whip,human-maul,default" },
+  bodies: { type: "string", default: "warrior,warrior-sword,warrior-unarmed,rogue-sword,default" },
   obuild: { type: "string", default: "default" }, runs: { type: "string", default: "40" },
 } });
 const out = join("research", "runs", "release2", "survive-cut");

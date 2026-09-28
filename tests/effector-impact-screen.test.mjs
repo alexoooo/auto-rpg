@@ -11,12 +11,14 @@ test("forced-plan screen compares the same warmed state and observes changed phy
   const flags = { ...CHANNEL_FLAGS };
   const control = await impactScreenCell({ terminal: "blade", plan: plans.find(p => p.label === "cut-mid") });
   const altered = await impactScreenCell({ terminal: "blade",
-    plan: plans.find(p => p.label === "sweep/t0.3/y-0.35/r0.95") });
+    plan: plans.find(p => p.label === "sweep/t0.3/y0.35/r0.95") });
   assert.equal(control.start.pose, altered.start.pose);
   assert.deepEqual(control.targetHands, []);
   assert.deepEqual(altered.targetHands, ["primary"]);
   assert.equal(control.maxBodyEnergyJ, 0);
-  assert.ok(altered.maxBodyEnergyJ > 3 && altered.maxBodyEnergyJ < 3.6,
+  // 3.183 J on the Warrior (Node bout runner, 2026-09-27); the plan was sweep/t0.3/y-0.35/r0.95 at
+  // 3.0 to 3.6 J on the legacy human, which on the Warrior touches nothing.
+  assert.ok(altered.maxBodyEnergyJ > 3 && altered.maxBodyEnergyJ < 3.4,
     "the changed trajectory must reach a body with the measured energy");
   assert.ok(altered.bodyContacts > 0);
   assert.equal(altered.strongestBodyContact.energyJ, altered.maxBodyEnergyJ,

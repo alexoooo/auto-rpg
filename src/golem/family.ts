@@ -18,29 +18,25 @@ export const isBodyFamily = (value: unknown): value is BodyFamily =>
 
 /** What the setup screen's button for each family says. */
 export const FAMILY_LABEL: Readonly<Record<BodyFamily, string>> =
-  Object.freeze({ human: "Human warrior", golem: "Stone golem", skeleton: "Skeleton" });
+  Object.freeze({ human: "Human", golem: "Stone golem", skeleton: "Skeleton" });
 
 /**
  * The stats a family's bodies are built at x1 whatever is asked, and why. Total, so a new family
  * says what it cannot follow.
  *
- * The legacy human retains fixed skin and arm proportions. Model-aware callers use
- * `fixedAttributes`, which permits Size for the workshop fighter.
-
+ * None is fixed today. The legacy human fixed Size, because its skin and arm proportions were one
+ * fitted model; the Warrior and the Rogue that replaced it on 2026-09-27 are fitted at every size.
  */
 export const FAMILY_FIXED_ATTRIBUTES: Readonly<Record<BodyFamily, Readonly<Partial<Record<AttributeId, string>>>>> =
   Object.freeze({
-    human: Object.freeze({
-      size: "the legacy human has fixed skin and arm proportions",
-    }),
+    human: Object.freeze({}),
     golem: Object.freeze({}),
     skeleton: Object.freeze({}),
   });
 
-/** Restrictions belong to the actual model: the workshop rig supports Size. */
-export function fixedAttributes(setup: { family?: BodyFamily; locomotion: string; human?: { model: string } }) {
-  return (setup.human?.model === "workshop-fighter" || setup.human?.model === "workshop-rogue") && bodyFamily(setup) === "human"
-    ? FAMILY_FIXED_ATTRIBUTES.golem : FAMILY_FIXED_ATTRIBUTES[bodyFamily(setup)];
+/** The stats this setup's body is built at x1 whatever is asked: its family's row. */
+export function fixedAttributes(setup: { family?: BodyFamily; locomotion: string }) {
+  return FAMILY_FIXED_ATTRIBUTES[bodyFamily(setup)];
 }
 
 /** A setting without the stats this family fixes, or the very setting when it fixes none of them. */

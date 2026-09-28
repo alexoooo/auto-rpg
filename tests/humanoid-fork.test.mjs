@@ -11,7 +11,7 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 
 test("the human pose adapter exposes its tactical state and replays a mid-bout fork", async () => {
   const options = { left: "humanoid-duelist", right: "humanoid-duelist", seeds: [11, 22],
-    leftGolem: humanSetup(), rightGolem: humanSetup("mace", "fist"),
+    leftGolem: humanSetup(), rightGolem: humanSetup("fist", "fist"),
     locomotionMode: "supported", separation: 2.2, maxSeconds: 10 };
   const live = createBout({ ...options, physics: await freshHavok() });
   let fork;
