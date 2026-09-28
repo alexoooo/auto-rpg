@@ -34,7 +34,8 @@ import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
 
-import { generateCryptRoom, type CryptRoomPlan } from "./crypt-room.ts";
+import { type CryptRoomPlan } from "./crypt-room.ts";
+import { generateCryptDungeon } from "./crypt-dungeon.ts";
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 
 import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "./reference.ts";
@@ -176,30 +177,20 @@ async function boot(): Promise<void> {
     // Keep the composed room view when wide; centre the leader for close inspection.
     const follow = .4 + .6 * Math.max(0, Math.min(1, (6.5 - zoom) / 3.5));
     const centre=cryptPlan?{x:(cryptPlan.bounds.min.x+cryptPlan.bounds.max.x)/2,z:(cryptPlan.bounds.min.z+cryptPlan.bounds.max.z)/2}:{x:9.5,z:9};
-    frameDungeon(camera, reference ? { x: centre.x + (hero.x - centre.x) * follow, z: centre.z + (hero.z - centre.z) * follow } : hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
+    frameDungeon(camera, reference && !cryptPlan ? { x: centre.x + (hero.x - centre.x) * follow, z: centre.z + (hero.z - centre.z) * follow } : hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
     lighting.update(hero, zoom, pitch, toward); run.world.setHero(hero);
   };
   const rebuild = async (nextSeed: number) => {
     audio.reset(); soundTorches = [];
     referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
     seed = nextSeed >>> 0;
-    cryptPlan = selectedScenario === "random-crypt" ? generateCryptRoom(seed) : undefined;
+    cryptPlan = selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
     if (reference) { meterParent.prepend(diagnostics); diagnostics.append(meterElement); }
     else { meterParent.prepend(meterElement); diagnostics.remove(); }
     pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : reference ? REFERENCE_CAMERA.pitch : CAMERA_PITCH;
     azimuth = Number.isFinite(azimuthQuery) ? azimuthQuery * Math.PI / 180 : reference ? REFERENCE_CAMERA.azimuth : CAMERA_AZIMUTH;
     toward = cameraToward(azimuth); zoom = reference ? REFERENCE_CAMERA.zoom : 10;
-    if (cryptPlan) {
-      // Fit both passages and the wall tops around the actual composed camera target.
-      const { map, bounds } = cryptPlan, aspect=engine.getRenderWidth()/engine.getRenderHeight();
-      const target={x:(bounds.min.x+bounds.max.x)*.3+map.start.x*.4,z:(bounds.min.z+bounds.max.z)*.3+map.start.z*.4};
-      for(let z=0;z<map.size;z++)for(let x=0;x<map.size;x++)if(map.floor[z*map.size+x])
-        for(const dx of [-1.5,1.5])for(const dz of [-1.5,1.5]) {
-          const rx=x+dx-target.x,rz=z+dz-target.z,vertical=-(rx*toward.x+rz*toward.z)*Math.sin(pitch);
-          zoom=Math.max(zoom,Math.abs(rx*toward.z-rz*toward.x)/aspect+.4,
-            Math.abs(vertical-Math.cos(pitch))+.4,Math.abs(vertical+1.86*Math.cos(pitch))+.4);
-        }
-    }
+    if (cryptPlan) zoom = 8; // Follow exploration at room scale, rather than fitting the entire dungeon.
     engine.setHardwareScalingLevel(reference ? selectedQuality === "reduced" ? 1.4 : 1 : 1 / Math.min(devicePixelRatio, 1.5));
     scene = new Scene(engine);
     attachPhysics(scene, havok); scene.physicsEnabled = false; scene.getPhysicsEngine()!.setSubTimeStep(1000 / CONFIG.world.physicsHz);

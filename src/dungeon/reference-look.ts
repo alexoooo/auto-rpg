@@ -35,10 +35,9 @@ class CryptDamp extends MaterialPluginBase {
       CUSTOM_FRAGMENT_DEFINITIONS: `
         float cryptDamp(vec2 p) {
           float edge = sin(p.x*8.1+sin(p.y*5.0)) * sin(p.y*9.3+p.x*2.0)*0.14;
-          float a = length((p-vec2(${centres[0].x.toFixed(4)},${centres[0].z.toFixed(4)}))/vec2(1.6,0.9));
-          float b = length((p-vec2(${centres[1].x.toFixed(4)},${centres[1].z.toFixed(4)}))/vec2(1.25,0.7));
-          float c = length((p-vec2(${(centres[2]??centres[0]).x.toFixed(4)},${(centres[2]??centres[0]).z.toFixed(4)}))/vec2(0.8,1.3));
-          return 1.0-smoothstep(0.60,1.05,min(a,min(b,c))+edge);
+          float wetDistance = 10000.0;
+          ${centres.map(p=>`wetDistance = min(wetDistance,length((p-vec2(${p.x.toFixed(4)},${p.z.toFixed(4)}))/vec2(1.6,0.9)));`).join("\n")}
+          return 1.0-smoothstep(0.60,1.05,wetDistance+edge);
         }`,
       CUSTOM_FRAGMENT_BEFORE_LIGHTS: "surfaceAlbedo *= mix(1.0, 0.68, cryptDamp(vPositionW.xz));",
       CUSTOM_FRAGMENT_UPDATE_METALLICROUGHNESS: "metallicRoughness.g = mix(metallicRoughness.g, 0.24, cryptDamp(vPositionW.xz));",
@@ -65,7 +64,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   if(plan) assembleCryptKit(container,plan);
   const torches=plan?.torches??REFERENCE_TORCHES;
   const bounds=plan?.bounds;
-  const cutaway=bounds?`${Math.sin(azimuth)>0?`vPositionW.x > ${bounds.max.x+.45}`:`vPositionW.x < ${bounds.min.x-.45}`} || ${Math.cos(azimuth)>0?`vPositionW.z > ${bounds.max.z+.45}`:`vPositionW.z < ${bounds.min.z-.45}`}`:undefined;
+  const cutaway=plan && plan.map.rooms.length>1 ? plan.placements.filter(p=>["wall","corner-left","corner-right","niche","roots","portal"].includes(p.piece) && Math.sin(p.turn)*Math.sin(azimuth)+Math.cos(p.turn)*Math.cos(azimuth)<-.1).map(p=>`(abs(vPositionW.x-${p.x.toFixed(3)}) < ${Math.abs(Math.cos(p.turn))>.5?"1.55":"0.55"} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${Math.abs(Math.sin(p.turn))>.5?"1.55":"0.55"})`).join(" || ") : bounds?`${Math.sin(azimuth)>0?`vPositionW.x > ${bounds.max.x+.45}`:`vPositionW.x < ${bounds.min.x-.45}`} || ${Math.cos(azimuth)>0?`vPositionW.z > ${bounds.max.z+.45}`:`vPositionW.z < ${bounds.min.z-.45}`}`:undefined;
   const root=container.meshes.find(m=>m.name==="__root__");
   // The export uses game metre coordinates. Remove the loader's RH-to-LH root
   // conversion; glTF meshes retain their explicit clockwise face convention.
@@ -114,7 +113,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   // A cut-away wall must take its elevated fittings with it. Keep its light contribution;
   // this is the same presentation-only cross-section as the wall, not an extinguished torch.
   torches.forEach((torch, i) => {
-    const front = (Math.sin(azimuth) > 0 ? torch.cell.x > (bounds?bounds.max.x+.45:15.45) : torch.cell.x < (bounds?bounds.min.x-.45:3.55))
+    const front = plan && plan.map.rooms.length>1 ? torch.facing.x*Math.sin(azimuth)+torch.facing.z*Math.cos(azimuth)<-.1 : (Math.sin(azimuth) > 0 ? torch.cell.x > (bounds?bounds.max.x+.45:15.45) : torch.cell.x < (bounds?bounds.min.x-.45:3.55))
       || (Math.cos(azimuth) > 0 ? torch.cell.z > (bounds?bounds.max.z+.45:13.45) : torch.cell.z < (bounds?bounds.min.z-.45:4.55));
     if (front) for (const name of [`torch.flame.${i}`, `torch.sconce.${i}`]) scene.getMeshByName(name)?.setEnabled(false);
   });
@@ -129,5 +128,11 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
       && mesh.name !== "reference.floor" && mesh.name !== "reference.earth" && !mesh.name.includes("flame"))shadow.addShadowCaster(mesh);
     shadows.push(shadow);return light;
   });
-  return {dispose(){shadows.forEach(s=>s.dispose());lights.forEach(l=>l.dispose());container.dispose();Object.values(materials).forEach(m=>m.dispose(false,false));wood.dispose(false,false);maps.forEach(t=>t.dispose());}};
+  // Keep the shadow budget fixed as the dungeon grows. Lighting follows the viewed room.
+  const observer=plan && plan.map.rooms.length>1 ? scene.onBeforeRenderObservable.add(()=>{
+    const target=(scene.activeCamera as import("@babylonjs/core/Cameras/targetCamera.js").TargetCamera | null)?.getTarget();if(!target)return;
+    const nearest=lights.map((light,i)=>({i,d:Vector3.DistanceSquared(light.position,target)})).sort((a,b)=>a.d-b.d).slice(0,2).map(v=>v.i);
+    lights.forEach((light,i)=>light.setEnabled(nearest.includes(i)));
+  }) : null;
+  return {dispose(){if(observer)scene.onBeforeRenderObservable.remove(observer);shadows.forEach(s=>s.dispose());lights.forEach(l=>l.dispose());container.dispose();Object.values(materials).forEach(m=>m.dispose(false,false));wood.dispose(false,false);maps.forEach(t=>t.dispose());}};
 }

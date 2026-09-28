@@ -77,7 +77,17 @@ The final kit contains 93,737 triangles (5,809 more than the previous pass), wit
 
 ### Random Crypt (2026-09-28)
 
-Choose **Random Crypt** in the Dungeon selector, or open `/?play=dungeon&scene=random-crypt`. The existing seed field drives the room; Retry Same Seed reproduces it, while New Dungeon selects another seed. High/Reduced, equipment, companions and paused wheel zoom remain available. The initial camera fits the room, passages and wall tops; fog still reveals the room during normal play.
+Random Crypt now generates a connected four-chamber dungeon. The original single-room generator remains as the kit regression fixture; the selector calls `generateCryptDungeon`. Chamber dimensions, the omitted connection in a four-room grid, and decoration are seeded. Three corridors link every chamber, with working doors at both ends. The entrance has space for the full party; each other chamber contains two enemies. The exit occupies the chamber farthest from the entrance along the connection graph.
+
+The camera follows the leader at room scale (initial zoom 8), with existing paused zoom controls. Interior and corridor walls use local cutaways. Each chamber has its own tomb and torch pair; only the two shadow lights nearest the camera target are enabled, keeping the active shadow budget constant. All masonry comes from the same kit and uses the existing fog and collision map.
+
+Connected-layout checks cover 40 replayable seeds, all room centres and encounters reachable with 0.65 m clearance, full-party staging, six working door positions and matching portal placements. A separate real-Havok navigation run with enemies omitted to isolate traversal took the fighter from the entrance to within one metre of the exit in 13.4 simulated seconds, opening four doors.
+
+Validation of the connected version: 965 tests passed; typecheck and production build passed. Production Edge checks passed seeds 0, 1, 2 and 42, covering fighter, rogue, Reduced/High, an alternate camera bearing, and a full party (10 total actors). Door opening, pause/zoom and restart were checked with stable body/mesh/light counts and no browser errors. The browser's four-second simulation check begins in the safe entrance and does not claim combat coverage. Entrance and whole-dungeon art captures were inspected, with an additional settled-texture check for the doors.
+
+Choose **Random Crypt** in the Dungeon selector, or open `/?play=dungeon&scene=random-crypt`. The existing seed field drives the dungeon; Retry Same Seed reproduces it, while New Dungeon selects another seed. High/Reduced, equipment, companions and paused wheel zoom remain available. The camera follows exploration; fog reveals rooms and corridors during normal play.
+
+The following measurements describe the original single-room kit proof, retained as a regression fixture.
 
 `generateCryptRoom(seed)` produces a `CryptRoomPlan`: a gameplay `DungeonMap` plus visual module placements, room bounds, torch positions and damp regions. The two horizontal dimensions independently choose 10, 12 or 14 metres. Three-metre-wide passages enter opposite sides at seeded offsets; one carved tomb and three skeleton warriors occupy validated positions. Layout and decoration use separate random streams. Navigation is checked with 0.65 m clearance, and initial enemies stay outside the exit door's automatic opening radius.
 

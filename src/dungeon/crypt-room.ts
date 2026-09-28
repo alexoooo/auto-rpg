@@ -50,6 +50,14 @@ export function generateCryptRoom(seed: number): CryptRoomPlan {
     map.spawns.push(p);if(map.spawns.length===3)break;
   }
   if(map.spawns.length!==3)throw new Error('Crypt room cannot place its encounter');
+  return dressCryptMap(map,art);
+}
+
+/** The same masonry kit dresses both the proof room and connected gameplay maps. */
+export function dressCryptMap(map: DungeonMap, art: () => number): CryptRoomPlan {
+  const {size,floor}=map;
+  const min={x:Math.min(...map.rooms.map(r=>r.min.x)),z:Math.min(...map.rooms.map(r=>r.min.z))};
+  const max={x:Math.max(...map.rooms.map(r=>r.max.x)),z:Math.max(...map.rooms.map(r=>r.max.z))};
   const placements:CryptPlacement[]=[],put=(piece:string,x:number,z:number,turn=0)=>placements.push({piece,x,z,turn});
   const solid=new Map<string,{x:number;z:number;nx:number;nz:number}>(),key=(x:number,z:number)=>`${x},${z}`;
   for(let z=0;z<size;z++)for(let x=0;x<size;x++)if(floor[z*size+x]){
@@ -77,18 +85,21 @@ export function generateCryptRoom(seed: number): CryptRoomPlan {
     const nx=Math.sin(p.turn),nz=Math.cos(p.turn);
     put('scatter',p.x+nx*.85,p.z+nz*.85,p.turn);
   }
-  put('portal',at(entry,1).x,at(entry,1).z,alongX?Math.PI/2:0);
-  put('portal',door.x,door.z,alongX?Math.PI/2:0);
-  put('tomb',map.obstacles![0].x,map.obstacles![0].z,turn);
-  const torchCandidates=[...solid.values()].filter(c=>c.x===min.x-1||c.z===max.z+1);
+  for(const door of map.doors)put('portal',door.point.x,door.point.z,door.axis==='x'?Math.PI/2:0);
+  for(const tomb of map.obstacles??[])put('tomb',tomb.x,tomb.z,tomb.width>tomb.depth?0:Math.PI/2);
   const torches:TorchPlacement[]=[];
-  const centre={x:(min.x+max.x)/2,z:(min.z+max.z)/2};
-  const priority=(c:{x:number;z:number})=>c.x===min.x-1?Math.abs(c.z-centre.z):Math.abs(c.x-centre.x)+.1;
-  for(const c of torchCandidates.sort((a,b)=>priority(a)-priority(b))){
-    if(torches.length && Math.hypot(c.x-torches[0].cell.x,c.z-torches[0].cell.z)<Math.min(width,depth)*.65)continue;
-    torches.push({room:0,cell:{x:c.x,z:c.z},facing:{x:c.nx,z:c.nz},
-      flame:{x:c.x+c.nx*.65,y:2.05,z:c.z+c.nz*.65},light:{x:c.x+c.nx,y:2.05,z:c.z+c.nz}});
-    if(torches.length===2)break;
+  for(const room of map.rooms){
+    const {min,max,centre}=room;
+    const candidates=[...solid.values()].filter(c=>(c.x===min.x-1&&c.z>=min.z&&c.z<=max.z)||(c.z===max.z+1&&c.x>=min.x&&c.x<=max.x));
+    const priority=(c:{x:number;z:number})=>c.x===min.x-1?Math.abs(c.z-centre.z):Math.abs(c.x-centre.x)+.1;
+    const chosen:TorchPlacement[]=[];
+    for(const c of candidates.sort((a,b)=>priority(a)-priority(b))){
+      if(chosen.some(t=>Math.hypot(c.x-t.cell.x,c.z-t.cell.z)<Math.min(max.x-min.x+1,max.z-min.z+1)*.65))continue;
+      chosen.push({room:room.id,cell:{x:c.x,z:c.z},facing:{x:c.nx,z:c.nz},
+        flame:{x:c.x+c.nx*.65,y:2.05,z:c.z+c.nz*.65},light:{x:c.x+c.nx,y:2.05,z:c.z+c.nz}});
+      if(chosen.length===2)break;
+    }
+    torches.push(...chosen);
   }
   return {map,placements,torches,bounds:{min,max},damp:torches.map(t=>({x:t.light.x+t.facing.x*1.4,z:t.light.z+t.facing.z*1.4}))};
 }
