@@ -222,6 +222,14 @@ const handChannel = (intent: Intent, ctx: ModuleBuild): HandIntent => {
 };
 
 /**
+ * An effector definition as the bench drives it, bound to the hand channel of its socket like
+ * every registered effector. For a definition built elsewhere: a workshop model's fitted arm
+ * (`golemEffectorPlan`), which no registry entry carries.
+ */
+export const benchEffectorOption = (definition: Parameters<typeof benchOption<HandIntent>>[0]): GolemBenchOption =>
+  benchOption(definition, "effector", handChannel);
+
+/**
  * A trunk reads the posture channel, and only the two numbers of it that are its own.
  *
  * `Intent.posture` also carries `crouch`, which belongs to the locomotion module -- so this is a

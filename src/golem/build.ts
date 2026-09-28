@@ -2,7 +2,7 @@ import type { GolemEffectorSetup, GolemSetup } from "../bout.ts";
 import {
   BODY_FAMILIES, fixedAttributes, FAMILY_LABEL, bodyFamily, moduleFamily, type BodyFamily,
 } from "./family.ts";
-import { ATTRIBUTES, attributesRefusal, isAttributeId, resolveAttributes } from "./attributes.ts";
+import { ATTRIBUTES, attributesRefusal, isAttributeId, resolveAttributes, type Attributes } from "./attributes.ts";
 import type { WeaponKind } from "../hands.ts";
 import {
   CHAIN_PITCH,
@@ -20,7 +20,8 @@ import { headRam } from "./head/ram.ts";
 import { humanBiped, humanTorso, humanHead, workshopBody } from "./humanoid/body.ts";
 import { isWorkshopModel } from "./humanoid/workshop-profile.ts";
 import { anatomicalBow } from "./humanoid/bow.ts";
-import { anatomicalChain } from "./humanoid/arm.ts";
+import { workshopAnatomicalChain } from "./humanoid/arm.ts";
+import { WORKSHOP_FIT_SCALE } from "./humanoid/anthropometry.ts";
 import { workshopEquipment } from "./humanoid/workshop-equipment.ts";
 import { humanSetup } from "./humanoid/presets.ts";
 import { ribcageTorso, skeletonBiped, skullHead } from "./skeleton/body.ts";
@@ -495,21 +496,50 @@ export interface GolemEffectorPlan {
  */
 const WORKSHOP_FITTED = new Map<string, GolemEffectorOption["definition"]>();
 
+/**
+ * The bow at a model's own arms: two of its anatomical arms and the bow, where `anatomicalBow`
+ * states the bench arm's. One per model, as `WORKSHOP_FITTED` holds one per fit.
+ */
+const WORKSHOP_BOWS = new Map<string, GolemEffectorOption["definition"]>();
+
+/**
+ * The stats a body's modules are built at: the setup's, except that a human's size is the stat
+ * times its model's fit to a typical adult (`WORKSHOP_FIT_SCALE`), so that x1 is 1.77 m where the
+ * model was authored at 1.88. Every module reads its size from here, through
+ * `ModuleBuild.attributes`, and so does whatever else sizes a built body: the stand, the costume
+ * and the carried mass. What a body's stats *are* -- the readout, the refusals, the link -- is
+ * `resolveAttributes`.
+ */
+export function builtAttributes(setup: GolemSetup): Attributes {
+  const stats = resolveAttributes(setup);
+  return setup.human ? Object.freeze({ ...stats, size: stats.size * WORKSHOP_FIT_SCALE }) : stats;
+}
+
 export function golemEffectorPlan(setup: GolemSetup): GolemEffectorPlan {
   const refusal = golemSetupRefusal(setup);
   if (refusal) throw new Error(refusal);
   const primary = golemEffector(setup.primary.chain, setup.primary.terminal);
   const secondary = golemEffector(setup.secondary.chain, setup.secondary.terminal);
   if (!primary || !secondary) throw new Error("golem effector plan lost an option it had just found");
-  if (setup.primary.terminal === "bow") return Object.freeze({ primary, secondary: null });
+  if (setup.primary.terminal === "bow") {
+    if (!setup.human) return Object.freeze({ primary, secondary: null });
+    const model = setup.human.model;
+    let definition = WORKSHOP_BOWS.get(model);
+    if (!definition) {
+      definition = Object.freeze({ ...primary.definition,
+        massKg: 2 * workshopAnatomicalChain(model).massKg + (primary.definition.itemMassKg ?? 0) });
+      WORKSHOP_BOWS.set(model, definition);
+    }
+    return Object.freeze({ primary: { ...primary, definition }, secondary: null });
+  }
   if (setup.human) {
-    const {size, weight} = resolveAttributes(setup);
+    const {size, weight} = builtAttributes(setup);
     const model = setup.human.model;
     const fit = (option: GolemEffectorOption): GolemEffectorOption => {
       const key = `${model}|${size}|${weight}|${option.id}`;
       let definition = WORKSHOP_FITTED.get(key);
       if (!definition) {
-        definition = effectorModule({ ...anatomicalChain, fitTerminal: terminal => workshopEquipment(terminal, size, weight, model) },
+        definition = effectorModule({ ...workshopAnatomicalChain(model), fitTerminal: terminal => workshopEquipment(terminal, size, weight, model) },
           terminalOf(option.terminal!));
         WORKSHOP_FITTED.set(key, definition);
       }
@@ -568,11 +598,12 @@ export function defaultGolemDimensions(): {
  * each item's share is its own.
  */
 export function golemUpperMassKg(setup: GolemSetup): number {
-  const torso = golemTorso(setup.torso);
-  const head = golemHead(setup.head);
+  // A human's are its model's (`workshopBody`), as the golem builds them.
+  const torso = golemTorso(setup.torso, setup.human);
+  const head = golemHead(setup.head, setup.human);
   if (!torso || !head) throw new Error(golemSetupRefusal(setup) ?? "incomplete golem build");
   const plan = golemEffectorPlan(setup);
-  const { weight, size } = resolveAttributes(setup);
+  const { weight, size } = builtAttributes(setup);
   const body = weight * size ** 3;
   // At x1 the definition's own figure, untouched: (m - i) + i is not always m in floating point.
   const massOf = (module: {

@@ -11,6 +11,7 @@ import { solveTaskEndpoint } from '../src/golem/humanoid/task-kinematics.ts';
 import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
 import { buildGolemStand, golemLayers } from '../src/golem/stand.ts';
 import { neutralIntent } from '../src/dungeon/commands.ts';
+import { workshopSegmentKg } from '../src/golem/humanoid/anthropometry.ts';
 
 const setup = (size = 1, primary = 'blade', secondary = 'plate') => ({ ...humanSetup(primary, secondary),
   human: { model: 'workshop-fighter', boots: true, armour: true }, attributes: { size } });
@@ -87,7 +88,8 @@ test('awake workshop arms scale physically and hold fixed-size equipment through
       try {
         for (const module of modules) {
           const upper = module.parts.find(p => p.id.endsWith('.upper')).part;
-          assert.ok(Math.abs(upper.body.getMassProperties().mass - 2.8 * size ** 3) < 1e-6);
+          // The size here is the size the module is built at, so the model's own upper arm times its cube.
+          assert.ok(Math.abs(upper.body.getMassProperties().mass - workshopSegmentKg('workshop-fighter').arm[0] * size ** 3) < 1e-6);
           assert.ok(Math.abs(module.envelope().reachable.reachMax - .65 * size) < 1e-6);
         }
         for (let frame = 0; frame < 360; frame++) { scene._renderId++; scene._advancePhysicsEngineStep(1000 / 60); }

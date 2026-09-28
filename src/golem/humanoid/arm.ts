@@ -11,12 +11,14 @@ import { HUMAN_MOUNT } from "./grip.ts";
 import { carryOrientation } from "./orientation.ts";
 import { solveTaskEndpoint } from "./task-kinematics.ts";
 import { humanEquipment } from "./equipment.ts";
-import { workshopArm } from "./workshop-profile.ts";
+import { workshopArm, type WorkshopModel } from "./workshop-profile.ts";
+import { workshopArmKg, workshopSegmentKg } from "./anthropometry.ts";
 import { LEGACY_ARM_GEOMETRY } from "./kinematics.ts";
 import type { HandIntent } from "../../mind.ts";
 import type { EffectorTarget } from "../../body-command.ts";
 
-// Three anatomical segments. The seven coordinates are virtual axes, never extra bodies.
+// Three anatomical segments. The seven coordinates are virtual axes, never extra bodies. These are
+// the bench arm's masses; a workshop human's are its model's (`workshopSegmentKg`).
 const MASSES = [2.8, 2.0, 1.1];
 // Constraint-axis budgets: shoulder X/Y/Z, elbow pronation/flexion, wrist deviation/bend.
 const TORQUES = [[100, 100, 65], [25, 75, 0], [20, 25, 0]];
@@ -41,6 +43,7 @@ export const anatomicalChain = defineChain({
     const massScale = size ** SIZE_LAW_POWER.mass, torqueScale = size ** SIZE_LAW_POWER.torque;
     const frequency = size ** SIZE_LAW_POWER.frequency, inertiaScale = size ** SIZE_LAW_POWER.inertia;
     const geometry = ctx.human ? workshopArm(ctx.socket.outboard, size, ctx.human.model) : LEGACY_ARM_GEOMETRY;
+    const masses = ctx.human ? workshopSegmentKg(ctx.human.model).arm : MASSES;
     const equipmentMount = ctx.human ? { axis: Vector3.Up(), perp: Vector3.Forward() } : HUMAN_MOUNT;
     const forward = (angles: readonly number[]) => armForward(angles, geometry);
     const side = ctx.socket.outboard;
@@ -180,7 +183,7 @@ export const anatomicalChain = defineChain({
       const body = capsulePart(ctx.scene, { name: `${ctx.name}.${ids[i]}`,
         position: toWorld(Vector3.Center(proximal, distal)), rotation: ctx.socket.rotation.multiply(frame.rotation),
         height: lengths[i], radius: (i === 0 ? .055 : i === 1 ? .043 : .032) * size,
-        mass: MASSES[i] * weight * massScale, layer: ctx.layers.body, collidesWith: ctx.layers.bodyCollidesWith,
+        mass: masses[i] * weight * massScale, layer: ctx.layers.body, collidesWith: ctx.layers.bodyCollidesWith,
         material: materialForGolemRole(ctx.materials, "armour") });
       body.body.setLinearDamping(.1 * frequency); body.body.setAngularDamping(.2 * frequency);
       const properties = body.body.getMassProperties(), inertia = properties.inertia!;
@@ -316,3 +319,21 @@ export const anatomicalChain = defineChain({
     } as BuiltChain;
   },
 });
+
+/**
+ * The anatomical arm as a workshop model has it: its own links' mass (`workshopSegmentKg`) and the
+ * swing inertia that goes with it. The bench arm's 0.8 kg m2 is its 5.9 kg as a rod about the
+ * shoulder, so a model's is that times its mass over 5.9, the arm's length being the model's either
+ * way. One per model, so every world that fits a model holds the same definition.
+ */
+const WORKSHOP_CHAINS = new Map<WorkshopModel, typeof anatomicalChain>();
+export function workshopAnatomicalChain(model: WorkshopModel): typeof anatomicalChain {
+  let chain = WORKSHOP_CHAINS.get(model);
+  if (!chain) {
+    const massKg = workshopArmKg(model);
+    chain = Object.freeze({ ...anatomicalChain, massKg,
+      swingInertia: anatomicalChain.swingInertia * massKg / anatomicalChain.massKg });
+    WORKSHOP_CHAINS.set(model, chain);
+  }
+  return chain;
+}

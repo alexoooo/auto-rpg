@@ -92,6 +92,54 @@ Steps, in landing order. Each is its own commit, with a bout either side whereve
    - Segment masses follow de Leva's fractions of a body mass set by the model's build. Today every
      part mass is a constant, so the Rogue weighs what the Warrior does.
    - The human hand comes to about 0.5 kg.
+
+   **Done 2026-09-28** (`src/golem/humanoid/anthropometry.ts`).
+   - A human is built at its size stat times `WORKSHOP_FIT_SCALE`, 1.77 / 1.88 (`builtAttributes`
+     in `src/golem/build.ts`). At x1 the Warrior's skin stands 1.77 m and the Rogue's 1.63 m.
+   - Body mass: the Warrior 79 kg, and the Rogue 57.6 kg, the Warrior's mass times the ratio of the
+     two models' voxelized volumes.
+   - Every part takes de Leva's fraction of its model's body mass. The Warrior's hand link and fist
+     together weigh 0.48 kg.
+   - Readings, Node headless bout: the built Warrior weighs 79.00 kg and the Rogue 57.57 kg.
+     `tests/workshop-anthropometry.test.mjs` pins every part's mass, the neck height and the carried
+     upper mass at x1 and x1.1.
+   - `golemUpperMassKg` had been reading the bench human's torso and head tables for every human;
+     it now reads the model's own.
+   - The head collider's top stands 8.6 cm above the skin, at 1.851 m on the Warrior and 1.714 m on
+     the Rogue. That is a hitbox finding, not fixed here.
+   - Arm bench, before and after: the Node golem bench at 120 Hz, the model's own arm on the stand
+     (`runStrokeBench` with `human`). Stroke stray and peak driven tip speed, before and after:
+
+     | arm | stroke stray mm | peak driven tip m/s |
+     |---|---:|---:|
+     | Warrior sword | 436 / 363 | 11.6 / 11.1 |
+     | Warrior club | 353 / 184 | 11.0 / 9.4 |
+     | Warrior fist | 35 / 23 | 3.3 / 3.6 |
+     | Rogue sword | 152 / 102 | 6.9 / 10.4 |
+     | Rogue club | 213 / 96 | 6.9 / 8.9 |
+     | Rogue fist | 57 / 24 | 4.1 / 4.6 |
+
+     Parry overshoot stays at 3 to 5 mm. Tip lag on the sword and the club is 0.8 to 1.4 m both
+     before and after; that is step 4's.
+   - Fights: 96-bout mirrors on the Node research runner, seed 20260923, the same blocks as step 1.
+     All seven non-human builds are bit-identical (default, fists, mace, maul, whip, ram-capped,
+     skeleton-warrior). The human builds, before and after:
+
+     | build | damage a bout | knockdowns a bout | Delta ln s |
+     |---|---:|---:|---:|
+     | warrior | 0.29 / 0.15 | 0.43 / 0.40 | -0.002 +- 0.006 |
+     | warrior-sword | 0.68 / 0.38 | 0.40 / 0.31 | +0.009 +- 0.004 |
+     | warrior-club | 0.22 / 0.07 | 7.17 / 6.84 | +0.009 +- 0.008 |
+     | warrior-unarmed | 0.01 / 0.00 | 2.07 / 1.63 | +0.001 +- 0.001 |
+     | rogue-sword | 0.12 / 0.12 | 0.35 / 0.32 | -0.006 +- 0.009 |
+     | rogue (bow) | 0.00 / 0.00 | 0.02 / 0.03 | 0 |
+
+     A lighter body delivers less, as it should. Nearly every human bout still runs to the cap. The
+     bow mirror lands nothing either before or after.
+   - Screens re-pinned: the chamber screen's best cut is now 2.04 J, and three of its twelve chambers
+     reach the opponent where none did. The impact screen's best is 0.95 J.
+   - Grip poses are looked up at the built size, and the pose table starts at x0.80, so a stat below
+     x0.85 wears the x0.80 poses.
 3. **The trunk.** The human waist gets its own twist rate and range, set from swing data: the upper
    trunk turns at about 10-16 rad/s through about 100 degrees. Today it has stone's 4 rad/s and
    0.65 rad. `humanoidDuelist`'s x0.35 on the twist goes, or is argued for with a measurement.

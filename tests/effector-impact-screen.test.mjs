@@ -16,10 +16,11 @@ test("forced-plan screen compares the same warmed state and observes changed phy
   assert.deepEqual(control.targetHands, []);
   assert.deepEqual(altered.targetHands, ["primary"]);
   assert.equal(control.maxBodyEnergyJ, 0);
-  // 10.15 J on the Warrior with the arrival read whole (Node bout runner, 2026-09-27), and 3.183 J
-  // while it was billed at 0.56 of its speed; the plan was sweep/t0.3/y-0.35/r0.95 at 3.0 to 3.6 J
-  // on the legacy human, which on the Warrior touches nothing.
-  assert.ok(altered.maxBodyEnergyJ > 9.5 && altered.maxBodyEnergyJ < 10.8,
+  // 0.946 J on the Warrior at a typical adult's size and de Leva's masses (Node bout runner,
+  // 2026-09-28), five weak contacts. On the 1.88 m, 107 kg Warrior it was 10.15 J with the arrival
+  // read whole and 3.183 J billed at 0.56 of its speed; the plan was sweep/t0.3/y-0.35/r0.95 at 3.0
+  // to 3.6 J on the legacy human, which on the Warrior touches nothing.
+  assert.ok(altered.maxBodyEnergyJ > 0.85 && altered.maxBodyEnergyJ < 1.05,
     "the changed trajectory must reach a body with the measured energy");
   assert.ok(altered.bodyContacts > 0);
   assert.equal(altered.strongestBodyContact.energyJ, altered.maxBodyEnergyJ,

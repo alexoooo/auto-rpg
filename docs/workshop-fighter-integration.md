@@ -2,8 +2,9 @@
 
 Choose **Human â†’ Workshop fighter** in arena setup, or **Workshop fighter** in the
 dungeon hero picker. The primary hand supports sword or empty hand; the secondary
-hand supports shield or empty hand. Boots and armour toggle the appearance only:
-the existing human mass, protection and damage rules remain in effect.
+hand supports shield or empty hand. Boots and armour toggle the appearance only.
+Each part's mass is the model's own (`src/golem/humanoid/anthropometry.ts`), and
+the human protection and damage rules remain in effect.
 
 This integration covers the male melee fighter. The legacy warrior and the
 character workshop remain available. Rogue, archery and the module bench are not
@@ -62,6 +63,13 @@ and dungeon setup. The legacy human remains fixed at Ã—1. Body geometry, skin,
 clothing and armour follow Size; the sword and shield retain their dimensions
 and masses. Empty hands scale with the body. Arm masses, inertia and drive clock
 follow the existing body size laws.
+
+Size ×1 is a typical adult: the model is built at the stat times
+`WORKSHOP_FIT_SCALE` (1.77 / 1.88), so the Warrior stands 1.77 m and weighs
+79 kg, and the Rogue, on its own proportions, 1.63 m and 57.6 kg. Segment
+masses are de Leva's fractions of that body mass. Grip poses are looked up at
+the built size, so a stat below ×0.85 reads the ×0.80 poses until the grip
+table is extended.
 
 Finger poses are fitted to the unchanged handles in normalized hand space.
 `assets/humanoid/workshop-size-grips.json` stores poses at 0.025 intervals;

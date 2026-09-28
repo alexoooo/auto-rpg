@@ -13,6 +13,7 @@ import { humanEquipment } from "./equipment.ts";
 import { workshopSource, type WorkshopModel } from "./workshop-profile.ts";
 import { attributeOf } from "../attributes.ts";
 import { fistDefinition } from "../effectors/terminals/fist.ts";
+import { workshopSegmentKg } from "./anthropometry.ts";
 
 /** Keep the board rigid, translating its grip onto the scaled hand at the wrist. */
 export const workshopShieldShift = (size: number, model: WorkshopModel = "workshop-fighter") =>
@@ -72,8 +73,11 @@ export function workshopEquipment(terminal: EffectorTerminalDefinition, size = 1
     case "blade": return { ...WORKSHOP_SWORD, attachment:"hand" };
     case "plate": return WORKSHOP_SHIELD;
     case "club": return humanEquipment(terminal);
-    case "fist": return size === 1 && weight === 1 ? humanEquipment(terminal) : {
-      ...humanEquipment(terminal), ...fistDefinition({ ...TERMINAL_FIST, radius: .045 * size, mass: .35 * weight * size ** 3 }),
+    // The closed fingers, the model's own share of its hand (`workshopSegmentKg`), at the size and
+    // weight the body is built at: a fist is the body's, not an item.
+    case "fist": return {
+      ...humanEquipment(terminal), ...fistDefinition({ ...TERMINAL_FIST, radius: .045 * size,
+        mass: workshopSegmentKg(model).fist * weight * size ** 3 }),
       attachment: "hand", partRole: "body", appearance: "human", label: "Empty hand",
     };
     default: throw new Error(`The Warrior and the Rogue do not carry ${terminal.id}`);
