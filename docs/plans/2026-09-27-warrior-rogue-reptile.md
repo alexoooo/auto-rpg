@@ -7,7 +7,9 @@ Planned 2026-09-27 from the owner's brief:
 - Set hit points to reptile 1, Rogue 4 and Warrior 6.
 - Keep body-part damage, but carry excess damage into neighbouring parts, so one blow can kill
   from anywhere.
-- The strongest punch does 1 damage.
+- The strongest punch does 1 damage. Revised the same day: the strongest club hit, a club being
+  wood. Then: a typical human at default attributes strikes like a typical adult, and one at maximum
+  attributes and size like an elite one.
 
 The owner's answers, 2026-09-27:
 
@@ -46,18 +48,66 @@ The owner's answers, 2026-09-27:
   shot. Worth an eye check when the Warrior's guard is next looked at.
 - **The Rogue's second arrow can miss wide.** At an idle Warrior at 5 m it passed 5 mm outside the
   core's edge on seeds 17/29. The lead term reads the target's stagger after the first hit. This
-  is Session 5's reading to take.
+  is Session 6's reading to take.
 
-## Session 2: the damage unit
+## Session 2: a human strikes like a human
 
-- Measure the strongest punch: the Warrior's bare fist, at default attributes, over enough bouts
-  and a punch bench that the maximum is a punch rather than a contact flick (see the peak and
-  exclusion traps in `docs/history.md`).
-- Rescale scoring so that punch is worth 1. That is one unit constant, applied where scoring
-  prices energy. Every weapon keeps its ratio to the fist.
+Sources:
+- `docs/analysis/2026-09-27-human-strike-realism.md` has the findings.
+- `docs/analysis/2026-09-27-human-strike-reference.md` has the sourced human values.
+- The strike search is `research/strike-optimizer.mjs`.
+
+Each change is checked against the reference at default, minimum and maximum attributes, and every
+row names its harness.
+
+The owner's answers, 2026-09-27:
+
+| Question | Answer |
+|---|---|
+| What size x1 means | A typical adult, about 1.76-1.78 m and 78-80 kg. The Rogue keeps its own proportions. |
+| How scoring reads a blow | Arrival read whole. Today's fractions move into the joules-per-damage prices. |
+| A straight arm billing the body | A joint give model, so a locked arm gives as a real one does. |
+| Order | This session first; the damage unit is set on real numbers after it. |
+
+Steps, in landing order. Each is its own commit, with a bout either side wherever it touches a fight.
+
+1. **Scoring reads arrival whole.** `arrivalReadFractions` goes, and each kind's joules-per-damage
+   divides by its fraction squared. Damage is then unchanged except at the speed floors; report
+   what the floors change.
+2. **Anthropometry.**
+   - x1 is a typical adult, and each model's scale comes from its own stature.
+   - Segment masses follow de Leva's fractions of a body mass set by the model's build. Today every
+     part mass is a constant, so the Rogue weighs what the Warrior does.
+   - The human hand comes to about 0.5 kg.
+3. **The trunk.** The human waist gets its own twist rate and range, set from swing data: the upper
+   trunk turns at about 10-16 rad/s through about 100 degrees. Today it has stone's 4 rad/s and
+   0.65 rad. `humanoidDuelist`'s x0.35 on the twist goes, or is argued for with a measurement.
+4. **Arm speed.**
+   - Joint command rates move toward human joint speeds: elbow 22-41 rad/s, and a swing driven
+     from the trunk.
+   - Measure the arm bench's stroke stray and parry overshoot before and after (H64).
+   - Torques stay human; pronation comes down to about 12 N m.
+5. **Joint give.**
+   - `effectiveMassAt` couples the chain to the body only as far as each joint's torque can hold
+     over the contact.
+   - Targets: a punch of 2-4 kg, and a club head under about 1.5 kg.
+   - It touches every family's scoring, so it gets a bout comparison across families.
+6. **Human attribute ranges.**
+   - Size runs about x0.9-1.1 around the new x1.
+   - Weight becomes a build range of about x0.85-1.25, not a doubling of density.
+   - Arm speed spans typical to elite.
+   - Run the strike search at minimum, default and maximum for the punch, the one-handed club and
+     the sword, and check each against the reference.
+
+## Session 3: the damage unit
+
+- Measure the strongest club hit: the Warrior's club at default attributes, found by the strike
+  search. That is the best contact, not a fight's typical one.
+- Rescale scoring so that hit is worth 1. That is one unit constant, applied where scoring prices
+  energy. Every weapon keeps its ratio to the club.
 - Record the table beside the constant.
 
-## Session 3: one HP pool with overflow
+## Session 4: one HP pool with overflow
 
 - **Each body has an HP total.**
   - Warrior 6 and Rogue 4, per model.
@@ -81,7 +131,7 @@ The owner's answers, 2026-09-27:
   skeleton's ribcage stays fatal, because it is that body's head. The dungeon and the arena use the
   same rule.
 
-## Session 4: the reptile
+## Session 5: the reptile
 
 - A new family, `reptile`, with modules:
   - a quadruped locomotion, parameterising `multilegDefinition` for four legs and a trot;
@@ -94,7 +144,7 @@ The owner's answers, 2026-09-27:
 - Several spawn at once in the dungeon, and it is selectable in the arena.
 - Appearance starts as procedural scaled shells; a modelled asset is later art work.
 
-## Session 5: readings and eye gates
+## Session 6: readings and eye gates
 
 - Readings, Node bout runner, several seeds:
   - Warrior against reptile, Rogue against reptile, and a Warrior mirror;

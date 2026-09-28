@@ -8,6 +8,7 @@ That proposal does not establish completion of the outstanding work below.
 |---|---|
 | [Depths](2026-09-23-depths-00-overview.md) | Session 06: authored room set pieces; earlier implementation sessions have landed. |
 | [Skeleton art](2026-09-23-skeleton-art-00-overview.md) | Session 03: visual review and fit/performance questions; session 04: optional costume. |
+| [Warrior, Rogue and the reptile](2026-09-27-warrior-rogue-reptile.md) | Session 1 landed. Session 2, a human that strikes like a human, is in progress; then the damage unit, the HP pool, the reptile and readings. |
 | [Dungeon look](2026-09-24-dungeon-look-00-overview.md) | Session 06: optional pixel-look experiment; recorded visual/performance questions still need judgment. |
 
 ## Closed without completion
