@@ -260,6 +260,113 @@ Steps, in landing order. Each is its own commit, with a bout either side whereve
      the skeleton's and the club Warrior's (the table is at `shoveReadFractions`), so the falls
      are measured on masses that are right.
    - It touches every family's scoring and falls, so it gets a bout comparison across families.
+
+   **Done 2026-09-28**: joint give landed as 20830082. The whole shove was landed and reverted.
+
+   - **Joint give** (`contactGive` in `src/golem/effective-mass.ts`, `contactGiveAt` in
+     `src/body-inertia.ts`).
+     - Each motored free axis of each joint on the chain becomes a bounded row, holding up to its
+       live motor ceiling times `CONFIG.combat.jointHoldSeconds`. The pivot rows and the locked
+       axes stay hard.
+     - The contact is an active-set box problem. With the set fixed, the give is linear in the
+       impulse, so `Combat` solves the pair for the impulse at which both sides' give together
+       equals the closing speed, then reads each side's mass as that impulse over its own give.
+     - A soft contact that every joint holds reads the whole body behind it; a hard one reads the
+       free chain.
+     - `tests/effective-mass.test.mjs` checks a closed form, and 48 random chains against an
+       independent projected Gauss-Seidel solve. 16 or more of those cases must saturate, as the
+       control.
+   - **The hold is 15 ms**, the middle of the reference contact times: 11 ms on a dummy's face and
+     27 ms on a padded wall. The best searched strikes, re-read at each hold (Node bout runner,
+     `research/strike-eval.mjs`, the Warrior at x1 against an idle Warrior), striker kg:
+
+     | hold ms | 0 | 8 | 15 | 27 |
+     |---|---:|---:|---:|---:|
+     | punch, 12.1 m/s | 1.45 | 1.70 | 1.91 | 2.24 |
+     | club, 16.3 m/s | 1.90 | 1.98 | 2.05 | 2.16 |
+
+     - Searched again under the hold, the punch is 115 J at 11.3 m/s and 2.05 kg. The reference
+       is a typical 94 J at 2.93 kg and 8 m/s, and an elite 120 J.
+     - The punch is inside the 2-4 kg target from about 15 ms. The club does not reach its
+       under-1.5 kg target at any hold: it reads 1.9 kg with every joint free.
+   - **The club is heavy for its size.** The 1.15 kg ash club reads about 2 kg at the head with the
+     arm free. That is its geometry and its grip, not the joints, and is Session 3's question
+     together with the damage unit.
+   - **Census.** Contacts closing over 5 m/s, median striker kg, free / 15 ms (Node bout runner,
+     golem-duelist mirrors, 4 x 60 s):
+
+     | build | strike | free | held |
+     |---|---|---:|---:|
+     | warrior-unarmed | punch | 0.62 | 1.40 |
+     | warrior-club | club | 0.97 | 1.10 |
+     | warrior-sword | sword | 0.69 | 0.81 |
+     | rogue-sword | sword | 0.56 | 0.70 |
+     | fists | fist | 3.82 | 7.55 |
+     | mace | club | 4.01 | 4.85 |
+     | default | sword | 1.36 | 2.20 |
+     | skeleton-warrior | sword | 1.42 | 2.59 |
+     | maul | club | 17.8 | 21.1 |
+     | skeleton-maul | club | 15.4 | 12.9 |
+
+     The whip is unchanged. A bout takes the same wall time with the hold as without.
+   - Fights with joint give alone: 96-bout mirrors on the Node research runner, seed 20260923,
+     golem duelist and walker.
+     - The humans, against step 4's sets:
+
+       | build | damage a bout | knockdowns a bout | Delta ln s |
+       |---|---:|---:|---:|
+       | warrior-sword | 3.41 / 4.36 | 0.62 / 0.82 | -0.057 +- 0.013 |
+       | warrior | 1.59 / 1.91 | 0.39 / 0.45 | -0.030 +- 0.010 |
+       | warrior-club | 0.47 / 0.52 | 7.85 / 9.46 | -0.001 +- 0.009 |
+       | warrior-unarmed | 0.01 / 0.01 | 1.18 / 2.21 | -0.001 +- 0.001 |
+       | rogue-sword | 0.55 / 0.78 | 0.76 / 1.06 | -0.009 +- 0.011 |
+
+       The bow mirror is inert before and after.
+     - The other families, against step 2's sets (steps 3 and 4 moved only humans):
+
+       | build | median s | damage a bout | knockdowns a bout | Delta ln s |
+       |---|---:|---:|---:|---:|
+       | default | 12.3 / 7.7 | 6.90 / 7.47 | 0.10 / 0.05 | -0.57 +- 0.12 |
+       | fists | 86.0 / 35.9 | 3.75 / 5.61 | 1.13 / 0.64 | -0.93 +- 0.06 |
+       | mace | 51.2 / 36.0 | 5.65 / 6.44 | 0.53 / 0.69 | -0.34 +- 0.09 |
+       | skeleton-warrior | 56.5 / 31.4 | 1.95 / 2.13 | 9.07 / 7.11 | -0.49 +- 0.14 |
+       | maul | 58.7 / 60.4 | 5.46 / 5.72 | 4.02 / 4.47 | +0.02 +- 0.08 |
+       | whip | 99.9 / 97.0 | 2.90 / 3.02 | 0.24 / 0.30 | -0.023 +- 0.008 |
+       | ram-capped | 113.6 / 113.6 | 1.61 / 1.54 | 0.70 / 0.74 | -0.011 +- 0.021 |
+
+     - A stone body's blows now bill its body, so its fights end sooner: the fists mirror in under
+       half the time.
+     - Three human bouts in 96 hit the runner's five-minute wall limit under CPU load. The
+       comparison pairs on the bouts both sides finished.
+   - **The shove stays fractional; reading it whole was reverted.** 8e496d0b read the arrival
+     whole and dropped `shoveReadFractions`, and 4350cb8e reverts it: its bout gate failed. The
+     change raised knockdowns a bout on every family that shoves, human and stone. Fraction / whole,
+     both with joint give (Node research runner, 96-bout mirrors, seed 20260923, golem duelist and
+     walker):
+
+     | build | knockdowns a bout | Delta knockdowns |
+     |---|---:|---:|
+     | warrior-club | 9.46 / 15.05 | +5.6 +- 0.9 |
+     | rogue-sword | 1.06 / 6.28 | +5.2 +- 1.1 |
+     | maul | 4.47 / 8.16 | +3.7 +- 0.6 |
+     | warrior-unarmed | 2.21 / 4.69 | +2.5 +- 0.6 |
+     | skeleton-warrior | 7.11 / 9.44 | +2.3 +- 0.8 |
+     | warrior | 0.45 / 2.06 | +1.6 +- 0.4 |
+     | fists | 0.64 / 1.89 | +1.3 +- 0.3 |
+     | warrior-sword | 0.82 / 1.78 | +1.0 +- 0.3 |
+
+     The rogue mirror is inert before and after. The chain stopped before default, whip, mace
+     and ram-capped, since the gate had already failed.
+     - The masses are no longer the problem; the fall line is. The stability ledger fells a body
+       once its shove crosses the passive tipping line (`tippingLineMps` x stability), and nothing
+       in it takes a step. A real body steps under a shove it cannot absorb standing. So the
+       fraction stands in for the step until the ledger has one: an **open decision for the
+       owner**.
+   - **Open: ram-capped flings a body.** The capped ram's shove lands contacts at 15-28 m/s closing
+     on 44-150 kg, up to 21 kJ. Traced in bout seeds [5, 6] at t = 54.817 s (Node bout runner):
+     - every part of both bodies goes from 1-4 m/s to 15-32 m/s in one frame;
+     - the struck body's pelvis then holds 13-17 m/s for over a third of a second while it falls.
+     It is the solver, not the reading, and it predates joint give. It is not fixed here.
 6. **Human attribute ranges.**
    - Size runs from about x0.9 to about x1.18 around the new x1: for a 1.77 m x1, from 1.59 m to
      about 2.09 m. Heavyweight boxers stand 1.98-2.13 m (Klitschko, Fury, Valuev). The ceiling is a
