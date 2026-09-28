@@ -35,6 +35,8 @@ export interface BuiltSegment {
   readonly node: TransformNode;
   readonly body: PhysicsBody;
   readonly shape: PhysicsShape;
+  /** The node's rotation in the reference pose, from which a joint reads its angles. */
+  readonly rest: Quaternion;
 }
 
 /** A spec freedom as the constraint has it: which angular axis, and whether its sense is flipped. */
@@ -51,6 +53,11 @@ export interface BuiltJoint {
   readonly child: BuiltSegment;
   readonly constraint: Physics6DoFConstraint;
   readonly dofs: readonly BuiltDof[];
+  /**
+   * The constraint's X, Y and Z, body frame, reference pose: X is the first freedom's axis, and
+   * Havok measures the joint's angles about these (`jointAngles`).
+   */
+  readonly axes: { readonly x: Vec3; readonly y: Vec3; readonly z: Vec3 };
 }
 
 export interface BuiltBody {
@@ -109,7 +116,7 @@ function buildSegment(spec: SegmentSpec, model: string, placement: Placement, sc
     inertia: v3(spec.inertia.value).scaleInPlace(1 / spec.mass.value),
     inertiaOrientation: Quaternion.Identity(),
   });
-  return { spec, frame, node, body, shape };
+  return { spec, frame, node, body, shape, rest: node.rotationQuaternion.clone() };
 }
 
 /**
@@ -120,7 +127,7 @@ function buildSegment(spec: SegmentSpec, model: string, placement: Placement, sc
  * The engine's Z is X cross Y in Babylon's components; `tests/core-build.test.mjs` drives each
  * axis both ways round and reads the turn back.
  */
-function constraintAxes(dofs: readonly DofSpec[]): { readonly x: Vec3; readonly y: Vec3; readonly signs: readonly (1 | -1)[] } {
+function constraintAxes(dofs: readonly DofSpec[]): { readonly x: Vec3; readonly y: Vec3; readonly z: Vec3; readonly signs: readonly (1 | -1)[] } {
   if (dofs.length < 1 || dofs.length > 3) throw new Error(`a joint has one to three freedoms, not ${dofs.length}`);
   const x = normalize(dofs[0]!.axis.value);
   const y = dofs[1] ? normalize(dofs[1].axis.value) : orthogonalTo(Math.abs(x[1]) < Math.abs(x[0]) ? [0, 1, 0] : [1, 0, 0], x);
@@ -131,11 +138,11 @@ function constraintAxes(dofs: readonly DofSpec[]): { readonly x: Vec3; readonly 
     if (Math.abs(Math.abs(alignment) - 1) > 1e-9) throw new Error(`freedom ${dof.positive}'s axis is not square to the others`);
     return alignment > 0 ? 1 : -1;
   });
-  return { x, y, signs };
+  return { x, y, z, signs };
 }
 
 function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, scene: Scene): BuiltJoint {
-  const { x, y, signs } = constraintAxes(spec.dofs);
+  const { x, y, z, signs } = constraintAxes(spec.dofs);
   const limits: Physics6DoFLimit[] = LINEAR.map((axis) => ({ axis, minLimit: 0, maxLimit: 0 }));
   const dofs: BuiltDof[] = spec.dofs.map((dof, k) => ({ spec: dof, axis: ANGULAR[k]!, sign: signs[k]! }));
   ANGULAR.forEach((axis, k) => {
@@ -157,7 +164,7 @@ function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, 
     collision: false,
   }, limits, scene);
   parent.body.addConstraint(child.body, constraint);
-  return { spec, parent, child, constraint, dofs };
+  return { spec, parent, child, constraint, dofs, axes: { x, y, z } };
 }
 
 /** Build `spec` in its reference pose at `placement`. */
