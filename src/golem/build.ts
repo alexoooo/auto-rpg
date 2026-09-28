@@ -134,6 +134,7 @@ export const golemHead = (id: string, human?: GolemSetup["human"]): HeadModuleDe
  */
 export const TERMINAL_DESCRIPTION: Record<TerminalId, WeaponKind> = Object.freeze({
   bow: "bow",
+  club: "club",
   blade: "sword",
   plate: "shield",
   mace: "club",
@@ -311,9 +312,9 @@ export function randomGolemSetup(rng: () => number, family: BodyFamily = "golem"
     if (items.length === 0) throw new Error("a golem slot with nothing to draw from");
     return items[Math.min(items.length - 1, Math.floor(rng() * items.length))];
   };
-  // A human is the Warrior, whose hands are not one shelf: a sword or nothing on the right, a
-  // shield or nothing on the left. The Rogue's bow is never drawn, as no bow is.
-  if (family === "human") return humanSetup(pick(["blade", "fist"]), pick(["plate", "fist"]));
+  // A human is the Warrior, whose hands are not one shelf: a sword, a club or nothing on the right,
+  // a shield or nothing on the left. The Rogue's bow is never drawn, as no bow is.
+  if (family === "human") return humanSetup(pick(["blade", "club", "fist"]), pick(["plate", "fist"]));
   const socket = (): GolemEffectorSetup => {
     const chain = pick(golemChainOptions(family)).id;
     return { chain, terminal: pick(golemTerminalOptions(chain).filter(option => option.id !== "bow")).id };
@@ -409,9 +410,9 @@ export function golemSetupRefusal(setup: GolemSetup): string | null {
   if (setup.human && (!isWorkshopModel(setup.human.model)
     || typeof setup.human.boots !== "boolean" || typeof setup.human.armour !== "boolean"
     || bodyFamily(setup) !== "human"
-    || (!archer && !["blade", "fist"].includes(setup.primary.terminal ?? ""))
+    || (!archer && !["blade", "club", "fist"].includes(setup.primary.terminal ?? ""))
     || (!archer && !["plate", "fist"].includes(setup.secondary.terminal ?? "")))) {
-    return "The Warrior and the Rogue need a human body, a sword or empty right hand, and a shield or empty left hand.";
+    return "The Warrior and the Rogue need a human body, a sword, club or empty right hand, and a shield or empty left hand.";
   }
   if (!golemLocomotion(setup.locomotion)) {
     return `no golem locomotion module "${setup.locomotion}"`;

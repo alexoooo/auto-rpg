@@ -29,9 +29,10 @@ test("a requirement reads the body's actual controls", () => {
 test("every registered effector's setup declaration agrees with a real assembled body", async () => {
   for (const option of GOLEM_EFFECTORS) {
     const pick = { chain: option.chain, terminal: option.terminal ?? "none" };
-    // A human's hands are not one shelf: the shield goes on the left and the sword on the right.
+    // A human's hands are not one shelf: the shield goes on the left, the sword and club on the right.
+    const rightOnly = pick.terminal === "blade" || pick.terminal === "club";
     const build = moduleFamily(option.chain) === "human"
-      ? humanSetup(pick.terminal === "plate" ? "fist" : pick.terminal, pick.terminal === "blade" ? "fist" : pick.terminal)
+      ? humanSetup(pick.terminal === "plate" ? "fist" : pick.terminal, rightOnly ? "fist" : pick.terminal)
       : { ...FAMILY_SETUP[moduleFamily(option.chain)](), primary: pick, secondary: pick };
     const bout = createBout({ left: "idle", right: "idle", seeds: [7, 8], maxSeconds: 1,
       leftGolem: build, rightGolem: defaultGolemSetup(), locomotionMode: "supported", physics: await freshHavok() });

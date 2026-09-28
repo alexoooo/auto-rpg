@@ -55,7 +55,7 @@ const AUDIT_PAIRS = [
     golem("locomotion.multileg", "torso.plain", "head.plain", ["reach", "mace"], ["wrist", "whip"])],
   [golem("locomotion.biped", "torso.plain", "head.plain", ["reach", "maul"], ["reach", "maul"]),
     golem("locomotion.wheel", "torso.plain", "head.ram", ["wrist", "fist"], ["none", "none"])],
-  [humanSetup("fist", "plate"), skeletonSetup("fist", "whip")],
+  [humanSetup("club", "plate"), skeletonSetup("fist", "whip")],
   [humanSetup("bow", "bow"), humanSetup()],
 ];
 

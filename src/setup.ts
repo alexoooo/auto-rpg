@@ -682,7 +682,7 @@ export class SetupScreen {
           // Only the terminals this chain is actually offered with, which is the picker "hides
           // pairs the registry does not have" with the registry itself as the list.
           fill(terminalField, golemTerminalOptions(pick.chain).filter(option=>(!build.human && option.id !== "bow")
-            || (socket==="primary"?(build.human?.model==="workshop-rogue"?["bow","blade","fist"]:["blade","fist"]):(build.human?.model==="workshop-rogue"?["plate","fist","bow"]:["plate","fist"])).includes(option.id)), pick.terminal);
+            || (socket==="primary"?(build.human?.model==="workshop-rogue"?["bow","blade","club","fist"]:["blade","club","fist"]):(build.human?.model==="workshop-rogue"?["plate","fist","bow"]:["plate","fist"])).includes(option.id)), pick.terminal);
           // And the bin beside the shelf. A key the bin no longer holds is offered back as a
           // disabled row naming itself, which is exactly how an incompatible policy is shown
           // above -- the person sees what happened, and `refusal` blocks Fight until they choose.

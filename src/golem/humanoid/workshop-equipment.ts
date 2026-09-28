@@ -71,6 +71,7 @@ export function workshopEquipment(terminal: EffectorTerminalDefinition, size = 1
   switch(terminal.id) {
     case "blade": return { ...WORKSHOP_SWORD, attachment:"hand" };
     case "plate": return WORKSHOP_SHIELD;
+    case "club": return humanEquipment(terminal);
     case "fist": return size === 1 && weight === 1 ? humanEquipment(terminal) : {
       ...humanEquipment(terminal), ...fistDefinition({ ...TERMINAL_FIST, radius: .045 * size, mass: .35 * weight * size ** 3 }),
       attachment: "hand", partRole: "body", appearance: "human", label: "Empty hand",

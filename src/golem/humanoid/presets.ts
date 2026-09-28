@@ -19,6 +19,7 @@ export const humanSetup = (primary = "blade", secondary = "plate",
 export const HUMAN_BUILDS = [
   { name: "warrior", setup: humanSetup() },
   { name: "warrior-sword", setup: humanSetup("blade", "fist") },
+  { name: "warrior-club", setup: humanSetup("club", "plate") },
   { name: "warrior-unarmed", setup: humanSetup("fist", "fist") },
   { name: "rogue", setup: humanSetup("bow", "bow") },
   { name: "rogue-sword", setup: humanSetup("blade", "plate", "workshop-rogue") },

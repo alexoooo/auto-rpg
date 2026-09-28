@@ -147,10 +147,11 @@ const ROWS = [
   [named("skeleton-mace"), named("warrior"), SKELETON_HUMAN],
   [named("skeleton-maul"), inline("skeleton-whip-fist", skeletonSetup("whip", "fist")), SKELETONS],
   [named("rogue"), named("warrior"), ["humanoid-archer", "humanoid-duelist"]],
+  [named("warrior-club"), named("warrior-unarmed"), HUMANS],
 ];
 
 /**
- * The fifteen bouts, in the order they were added. Seeds for bout `i` are
+ * The bouts, in the order they were added. Seeds for bout `i` are
  * `[0x5ce1e700 + 2 * i, 0x5ce1e701 + 2 * i]`, so a row appended later leaves every earlier row's
  * seeds -- and so its digest -- where they were.
  */
