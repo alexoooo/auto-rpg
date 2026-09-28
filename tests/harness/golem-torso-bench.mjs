@@ -23,7 +23,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import { CONFIG } from "../../src/config.ts";
-import { slewTowards } from "../../src/golem/anchor-drive.ts";
+import { slewTowards } from "../../src/golem/slew.ts";
 import { BENCH_READOUT, BODY_OVER_SHIPPED, HEAD_NECK, HEAD_RAM, TORSO_WAIST } from "../../src/golem/config.ts";
 import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readout.ts";
 import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";

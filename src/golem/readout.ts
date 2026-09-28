@@ -19,7 +19,7 @@ import { BENCH_READOUT } from "./config.ts";
  * One control step's worth of evidence.
  *
  * A single object the caller allocates once and mutates, rather than a fresh record per step:
- * this is fed at 240 Hz and the Warrior's own view publication is the place this directory
+ * this is fed at 120 Hz and the Warrior's own view publication is the place this directory
  * learned that an object per step is a real cost rather than a tidiness argument.
  */
 export interface ReadoutSample {

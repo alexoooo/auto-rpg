@@ -1,6 +1,6 @@
 /**
  * The headroom audit's tables, from its run directories (skill ceiling session 05; the write-up is
- * `docs/analysis/2026-09-26-headroom.md`, whose tables this prints).
+ * `docs/analysis/2026-09-26-headroom.md` (in git at c76ce6bc), whose tables this prints).
  *
  *     node research/headroom-report.mjs [--runs research/runs] [--headroom headroom-headroom] [--json out.json]
  *

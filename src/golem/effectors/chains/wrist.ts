@@ -9,7 +9,7 @@ import type { HandIntent } from "../../../mind.ts";
 import type { EffectorTarget } from "../../../body-command.ts";
 import { capsulePart, joint } from "../../../rig.ts";
 import type { Armour } from "../../../scoring.ts";
-import { slewTowards } from "../../anchor-drive.ts";
+import { slewTowards } from "../../slew.ts";
 import { attributeOf, withArmSpeed, withSize } from "../../attributes.ts";
 import { CHAIN_REACH, CHAIN_REACH_SIZE, CHAIN_WRIST, CHAIN_WRIST_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";

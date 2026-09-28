@@ -1005,7 +1005,7 @@ Each one was paid for.
 Beside the code it decides, first: the argument for a constant is its doc comment in `config.ts`,
 with the table that chose it. `docs/` holds what does not belong to one file -- working plans in
 `docs/plans/`, dated design analyses in `docs/analysis/`, and the standing notes
-`docs/humanoids.md` and `docs/movement-stability.md`.
+`docs/humanoids.md` and `docs/movement-stability.md` (both in git at c76ce6bc).
 
 `src/config.ts` is the tuning surface a person reaches, and it is deliberately mutable: the arena
 page exposes it as `window.__sword.config`, so `__sword.config.combat.hitCooldown = 0.2` takes

@@ -1,5 +1,5 @@
 // The walker, the middle rung of the naive ladder (skill ceiling session 03,
-// `docs/analysis/2026-09-25-drills.md`).
+// `docs/analysis/2026-09-25-drills.md` (in git at c76ce6bc)).
 //
 // What is held here:
 // - **It walks in and swings on its clock.** Against a body that stands, it closes from the spawn to

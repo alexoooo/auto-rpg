@@ -1,4 +1,4 @@
-// Drills (skill ceiling session 03, `docs/analysis/2026-09-25-drills.md`).
+// Drills (skill ceiling session 03, `docs/analysis/2026-09-25-drills.md` (in git at c76ce6bc)).
 //
 // A drill is a start state, a horizon of one to three seconds, and a success criterion. One run of
 // a drill builds its start once and plays every rung of the ladder from it:
@@ -9,7 +9,7 @@
 //    natural striker -- so a multileg, a wheel or a biped is placed by the same rule. The drill's
 //    action then runs on the same clock: a committed cut, a guard held on a stated line, a shove
 //    past a body's own fall line. Nothing is teleported. A teleported body starts out of its own
-//    equilibrium and with the solver's warm start cold (`docs/analysis/2026-09-25-fork.md`, the
+//    equilibrium and with the solver's warm start cold (`docs/analysis/2026-09-25-fork.md` (in git at c76ce6bc), the
 //    floor), and it would have to settle anyway; walking it there costs a second of simulation
 //    and leaves a body that is standing the way it stands.
 // 2. **At the start's moment, t0, the world is captured with Havok's heap** and every rung is an
@@ -527,7 +527,7 @@ const scored = (events, side) => events.filter((e) => e.side === side && e.repor
  * took from this start is the cut every rung faced.
  *
  * Three drills of the plan's suite were built, measured and removed (Node bout runner, default
- * golem against itself, 40 runs each, `docs/analysis/2026-09-25-drills.md`): `recover`, `recover
+ * golem against itself, 40 runs each, `docs/analysis/2026-09-25-drills.md` (in git at c76ce6bc)): `recover`, `recover
  * up` and `off-balance`. In each, idle passed at least as often as the duelist: `recover` (a shove
  * at 0.80 to 0.95 of the fall line, still up after 2 s) 40 of 40 against 34, `recover-up` (1.1 to
  * 1.3 of the line, up again inside 2 s) 0 of 40 for every rung, `off-balance` (the opponent
@@ -901,7 +901,7 @@ export function drillHost({ live, base, S, O, name, params, seed, liveDrivers, c
  * whose cut the idle body's rest guard already stops is scored rather than void, and the idle rung
  * passes it. Since arms are built at guard (2026-09-25) the wound rule voids 39 or 40 of 40 starts
  * on five human bodies and 22 of 40 on the stone default (drill runner, the audit's starts), because
- * the cut meets a rest guard first (`docs/analysis/2026-09-26-release-2-questions.md`, item 17).
+ * the cut meets a rest guard first (`docs/analysis/2026-09-26-release-2-questions.md` (in git at c76ce6bc), item 17).
  *
  * `rungFactory(name, seed)` builds a rung's mind where it answers one (null otherwise, and the
  * ladder's `rungMind` builds it). A rung mind with a `beforeFrame(host)` method is a planner: it is

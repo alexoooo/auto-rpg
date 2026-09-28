@@ -225,7 +225,7 @@ test("a counterfactual knob is set only for its run and refused whole when any p
 
 test("no research worker module loads another worker module, directly or through a helper", () => {
   // Importing a worker module registers its `parentPort` handler as well, so every job runs twice
-  // and the second answer is taken as the next job's result (docs/analysis/2026-09-26-headroom.md,
+  // and the second answer is taken as the next job's result (docs/analysis/2026-09-26-headroom.md (in git at c76ce6bc),
   // section 7). Static imports only: a dynamic one inside a function runs where it is called.
   const dir = new URL("../research/", import.meta.url);
   const source = (file) => readFileSync(new URL(file, dir), "utf8");

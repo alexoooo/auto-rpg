@@ -6,17 +6,17 @@
  *     node research/idle-dummy.mjs --attackers roster --naive --trace --workers 8 --dir DIR/idle
  *     node research/release-baseline.mjs --control DIR/control --idle DIR/idle > DIR/baseline.md
  *
- * Skill ceiling 01's Measure section (`docs/analysis/2026-09-25-release-1-baseline.md`),
+ * Skill ceiling 01's Measure section (`docs/analysis/2026-09-25-release-1-baseline.md` (in git at c76ce6bc)),
  * and session 07's for release 2: the probe-mind control row and the idle-dummy matrix.
  *
  * **Why distinct trajectories.** Every bout of one mind pairing plays the same opening whatever its
- * seeds (`docs/analysis/2026-09-25-rate-control-clock.md`), and a pairing whose seeds reach nothing
+ * seeds (`docs/analysis/2026-09-25-rate-control-clock.md` (in git at c76ce6bc)), and a pairing whose seeds reach nothing
  * plays one bout however often it is run. Both runs are traced (`--trace`, `trajectoryTracer` in
  * `research/side-mirror.mjs`), and this counts the distinct final hashes per pairing, and per cell.
  *
  * **Why clustered.** The control row's intervals take the unordered mind pairings as clusters (ten,
  * from the four probe minds) and put a t interval on their means, which is what
- * `docs/analysis/2026-09-25-release-120.md` calls "clustered". A pairing is the unit its bouts are not
+ * `docs/analysis/2026-09-25-release-120.md` (in git at c76ce6bc) calls "clustered". A pairing is the unit its bouts are not
  * independent within. The naive 95 % interval, over bouts, is printed beside it.
  */
 import { readFileSync } from "node:fs";

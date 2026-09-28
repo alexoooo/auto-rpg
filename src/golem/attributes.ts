@@ -4,7 +4,7 @@
  * The plan set was `docs/plans/2026-09-23-attributes-00-overview.md` (in git at fd4285a), and the
  * argument for each stat -- which number it scales and what bounds it -- is "A first slice of
  * numeric attributes" in
- * `docs/analysis/2026-09-22-attributes-and-mind-schools.md`. The owner's decisions, 2026-09-23:
+ * `docs/analysis/2026-09-22-attributes-and-mind-schools.md` (in git at c76ce6bc). The owner's decisions, 2026-09-23:
  * every stat is a factor with a default of 1.00, at which a body is exactly the body it was; armour
  * scales the armour fraction and toughness scales health; weight and size are two stats; and
  * armour and arm speed may later come from item stats as well as from the setup.
@@ -79,7 +79,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * % with no paired d above 0.09, the skeleton at 45.3 % at x0.75 and 43.0 % at x1.5. The minds
    * fight in contact, where two footprints block each other and top speed binds only on the
    * approach -- the brawler asked for full speed 76.5 % of a bout and had it 24.8 % (the attributes
-   * set's reading). The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical
+   * set's reading). The tables are `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc), "Physical
    * contact 10".
    */
   movement: Object.freeze({ label: "Movement", min: 0.75, max: 1.5, step: 0.05, live: true }),
@@ -113,7 +113,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * -0.26) and 53.1 % at x1.5 (d 0.12). The minds commanded a full turn 3 % to 48 % of a bout and
    * sat at the cap 2 % to 26 % (the attributes set's reading), so a slower cap binds and a faster
    * one mostly does not. The range is the swept one. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
+   * `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc), "Physical contact 10".
    */
   turning: Object.freeze({ label: "Turning", min: 0.5, max: 1.5, step: 0.05, live: true }),
   /**
@@ -145,7 +145,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * minds, the skeleton duelist's mirror): stone wins 46.1 % at x0.5 (paired d -0.12) and 48.2 % at
    * x2, its knockdowns going from 0.63 a bout to 0.47; the skeleton 45.3 % at x0.5 and 51.3 % at x2
    * (d 0.01), falling 18.3 to 16.0 times a bout, because its falls are its stance's. The range is
-   * the attributes set's. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`,
+   * the attributes set's. The tables are `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc),
    * "Physical contact 10".
    */
   stability: Object.freeze({ label: "Stability", min: 0.5, max: 2, step: 0.05, live: true }),
@@ -190,7 +190,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * 64 % of a bout at x1, wins 29.7 % at x0.5 (d -0.46, down 83 %) and 52.1 % at x1.25 (d -0.01).
    * The attributes set read the skeleton at 60.2 % at x1.5, outside the range, under the old
    * contact model; that level was not re-measured. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
+   * `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc), "Physical contact 10".
    */
   recovery: Object.freeze({ label: "Recovery", min: 0.5, max: 1.25, step: 0.05, live: true }),
   /**
@@ -222,7 +222,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * model and was not re-measured. No level is unsafe -- nothing physical moves and the cap keeps
    * every blow landing a tenth -- so the range is the swept one; how much of it a fair fight wants
    * is a balance call, not a bench one. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
+   * `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc), "Physical contact 10".
    */
   armour: Object.freeze({ label: "Armour", min: 0.5, max: 2, step: 0.05, live: true }),
   /**
@@ -250,7 +250,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * stone wins 18.0 % at x0.5, 36.1 % at x0.75, 59.1 % at x1.25, 69.3 % at x1.5 and 83.1 % at x2
    * (paired d 1.65); the skeleton 21.1 % at x0.5 and 83.9 % at x2 (d 1.63). Nothing physical moves,
    * so the range is the swept one. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
+   * `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc), "Physical contact 10".
    */
   toughness: Object.freeze({ label: "Toughness", min: 0.5, max: 2, step: 0.05, live: true }),
   /**
@@ -290,7 +290,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * it peaks early; the skeleton 14.8 % at x0.5 and 66.4 % at x1.5 (d 0.40). Under the old contact
    * model, and not re-measured: the pitch-blade build was flat from x1 to x1.5 (49.3 %, 52.6 %) and
    * collapsed at x2 (20.3 %), where the hinge stops following, and the human mirror gained nothing
-   * above x1. The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical
+   * above x1. The tables are `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc), "Physical
    * contact 10".
    */
   armSpeed: Object.freeze({ label: "Arm speed", min: 0.5, max: 1.5, step: 0.05, live: true }),
@@ -328,7 +328,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * a bout to 11.6. Stone's modified corner falls more often at either end than in the control
    * mirror (2.06 a bout at x0.8, about one from x1.1 up, against 0.52), which is not explained.
    * Under the attributes set's contact model neither body won by it. The tables are
-   * `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
+   * `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc), "Physical contact 10".
    */
   weight: Object.freeze({ label: "Weight", min: 0.8, max: 2, step: 0.05, live: true }),
   /**
@@ -381,7 +381,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * size and the chest under it does not, so the board sits 23 mm inside a plated chest at x0.8.
    *
    * The stat sweep below was taken under dynamic similarity; the biological law's is in
-   * `docs/analysis/2026-09-25-size-law.md`.
+   * `docs/analysis/2026-09-25-size-law.md` (in git at c76ce6bc).
    *
    * Swept against an unmodified body over 384 bouts a level under the physical contact model
    * (`research/stat-sweep.mjs` at 231403a, physical contact session 10, Node harness, research
@@ -389,7 +389,7 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * on stone, and both bodies win by it**: stone 10.2 % at x0.8 (paired d -1.08), 27.1 % at x0.9,
    * 69.3 % at x1.1 and 84.9 % at x1.25 (d 0.98); the skeleton 16.7 % at x0.8 and 74.7 % at x1.25 (d
    * 0.76). Under the attributes set's contact model stone lost by it above x1 (33.1 % at x1.25).
-   * The tables are `docs/analysis/2026-09-23-attribute-measurements.md`, "Physical contact 10".
+   * The tables are `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc), "Physical contact 10".
    */
   size: Object.freeze({ label: "Size", min: 0.8, max: 1.1, step: 0.05, live: true }),
 });
@@ -628,7 +628,7 @@ function scaledFields<T extends object>(table: T, keys: readonly NumberKey<T>[],
  * How one field of a body table changes when every length of the body is multiplied by `s`:
  * geometric similarity at constant density, **with the body's strength following biology rather
  * than dynamic similarity** (the owner's decision, 2026-09-25; skill ceiling session 01). The
- * argument, and the bench tables it moved, are `docs/analysis/2026-09-25-size-law.md`.
+ * argument, and the bench tables it moved, are `docs/analysis/2026-09-25-size-law.md` (in git at c76ce6bc).
  *
  * **The pair everything follows from.** A muscle's force goes as its cross-section, so `force` is
  * `s^2`, and a joint's `torque`, a force on a lever, is `s^3`. Mass stays `s^3` and inertia `s^5`.

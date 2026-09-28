@@ -112,7 +112,7 @@ export const SKELETON_BIPED = {
    * middle of the pelvis, its feet stood behind its weight, and a skeleton walking at speed had its
    * centre of mass outside its stance a third of the time. At the moment a standing skeleton fell,
    * its median margin was -16 mm and its median fall line 0 m/s, so any blow at all felled it
-   * (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`).
+   * (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc)).
    *
    * The table has three sources:
    * - the stance probe (Node bout runner, four skeleton-duelist mirrors): the share of standing time

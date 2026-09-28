@@ -331,7 +331,7 @@ export function buildArmCore(
   // way: a blade-on-blade contact at t = 0.117 s in all four probe-mind mirrors, identical across
   // minds because no mind had yet moved anything. Built where the command already is, the idle
   // tip peaks at 0.10 m/s and the first move an arm makes is its commander's.
-  // `docs/analysis/2026-09-25-arms-at-guard.md`.
+  // `docs/analysis/2026-09-25-arms-at-guard.md` (in git at c76ce6bc).
   //
   // Clamped into the limits rather than taken raw -- `clampInto`, the mapping's own clamp --
   // because a narrowing that put the build pose outside the envelope would make the first command
@@ -695,7 +695,7 @@ export function buildArmCore(
    * Walk the sent command toward the demanded one, by at most `metres` of hand travel.
    *
    * **The rate limit belongs here and not at the anchor, and 2026-09-05 is when that was
-   * measured rather than argued.** `AnchorDrive` slews its commanded *point* along the straight
+   * measured rather than argued.** The since-deleted `AnchorDrive` slewed its commanded *point* along the straight
    * line to the target, and a straight line between two poses on this chain's shell passes
    * *inside* the shell: swinging the hand from one side of the envelope to the other -- 1.8 rad
    * apart at 0.54 m -- cuts a chord whose closest approach to the socket is 0.335 m, so the

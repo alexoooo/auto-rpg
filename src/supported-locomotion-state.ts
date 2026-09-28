@@ -434,7 +434,7 @@ const ZERO_LEAN: Lean = Object.freeze({ specificImpulseMps: 0, leanX: 0, leanZ: 
  * the ledger at every boundary, even for a push that the body holds (`a <= d`), which is exactly
  * what `leanHoldN` and `pushCapN` size a push to. That residue is one step's worth, so it doubled at
  * 120 Hz. Removing it did not change the fall counts by more than their noise at either rate: the
- * brawler's extra falls at 120 Hz have another cause (`docs/analysis/2026-09-25-rate-falls.md`,
+ * brawler's extra falls at 120 Hz have another cause (`docs/analysis/2026-09-25-rate-falls.md` (in git at c76ce6bc),
  * Node research runner). With no held force the result is the same as before.
  */
 function nextLean(prior: SupportedLocomotionState, input: SupportedLocomotionBoundary): Lean {

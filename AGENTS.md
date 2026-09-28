@@ -6,9 +6,11 @@ the browser, on Babylon.js 9 and Havok. Beside `src/` are the tests and headless
 (`tests/`), the policy league and research scripts (`research/`), asset-export scripts
 (`scripts/`), design notes (`docs/`) and the GitHub Pages deploy (`.github/workflows/pages.yml`).
 
-**Where the project is going:** [next-phase consolidation](docs/analysis/2026-09-27-next-phase-consolidation.md)
-(Arena, Ladder and a Diablo-like Dungeon; equipment; many morphologies; layered AI). Active plans
-are indexed in [docs/plans/README.md](docs/plans/README.md).
+**Where the project is going:** Arena, Ladder and a Diablo-like Dungeon; equipment; many
+morphologies; layered AI. The work now is [the core foundation](docs/plans/2026-09-28-core-foundation.md):
+a clean, physically based core beside the old game, humans first, argued in
+[the foundation audit](docs/analysis/2026-09-28-foundation-audit.md). Plans are indexed in
+[docs/plans/README.md](docs/plans/README.md), which also says which commit holds a deleted document.
 
 **Rules below are short on purpose.** Each cites an entry in [docs/history.md](docs/history.md)
 (`H01`-`H72`) that holds the incident, the numbers and how it was found. Read the entry before
@@ -42,6 +44,29 @@ development server running.
 `runBout`; tests and `research/` run bouts through it. `golem-headless-arena.mjs` is the physics
 arena without fighters; `golem-bench.mjs` and `golem-torso-bench.mjs` are the module benches
 (both also run directly under `node`).
+
+## The core (`src/core/`) and the old path
+
+New body, muscle, locomotion and rules work goes into `src/core/`, built beside the old game
+([the plan](docs/plans/2026-09-28-core-foundation.md)). Everything else under `src/` is the
+**old path**: it stays playable (stone and skeleton until they are ported), it is fixed only when
+it blocks play, and it is not extended. `src/core/` has these rules:
+
+- **It imports nothing from `src/golem/`, `src/config.ts` or the old minds.** Engine glue with no
+  body knowledge (`src/physics.ts`, and what it takes of `src/body-inertia.ts`,
+  `src/golem/effective-mass.ts`, `src/tipping.ts`, `src/fork/`) is moved or re-exported through
+  `src/core/` when it is taken. A boundary test enforces this; it lands with the directory.
+- **Every number in a spec says where it came from**: a citation, a derivation from other spec
+  values, or a documented sweep with its table. A test reads every numeric leaf's provenance. A
+  spec never spreads another family's spec; families share code, not values.
+- **Tuning is immutable.** An experiment passes an override in; nothing mutates a global.
+- **One world step** owns physics, control, combat and the clock. The page, the harness and the
+  research runners all call it.
+- **Solver conditioning is not anatomy.** An inertia floor or damping term that exists for the
+  solver is named as such, measured, and kept out of the body's numbers.
+- **The legacy human** (`humanBiped`, `humanTorso`, `humanHead` in `src/golem/humanoid/body.ts`,
+  labelled "legacy" on the bench) is not the Warrior or the Rogue; only `workshopBody(model)`
+  fights. Take no human reading from it.
 
 ## Babylon and Havok
 
@@ -237,14 +262,16 @@ Each one was paid for; the full text is in [docs/history.md](docs/history.md).
 
 The argument for a constant is its doc comment, with the table that chose it: `src/config.ts` for
 the arena and `src/golem/config.ts` for body tables. `docs/` holds what belongs to no one file:
-plans in `docs/plans/`, dated analyses in `docs/analysis/`, standing notes
-(`docs/humanoids.md`, `docs/movement-stability.md`, `docs/workshop-fighter-integration.md`,
-`docs/rogue-archer.md`) and the history behind this file.
+plans in `docs/plans/`, dated analyses in `docs/analysis/`, standing notes on assets and
+pages (`docs/workshop-fighter-integration.md`, `docs/rogue-archer.md`,
+`docs/dungeon-reference.md`, `docs/character-lab/`) and the history behind this file. A plan or
+analysis that is finished or superseded is deleted, not kept; what cites it names the commit
+that still has it.
 
 `src/config.ts` is deliberately mutable: the arena exposes it as `window.__sword.config`, so tune
 from the console, then write the number back with its table. `src/golem/config.ts` is not exposed.
-Motor ceilings in body tables are those of a body on its feet; `MotorTone` scales them for a body
-whose locomotion names a `fallenTone` while it is down.
+Motor ceilings in body tables are those of a body on its feet; `MotorTone` scales them by
+`GROUNDED_TONE` (`src/golem/golem.ts`) while the body is down, and climbs back to full as it rises.
 
 `ACTION_TUNING` in `src/action-primitives.ts` is deliberately frozen and that file may not import
 `config.ts` (`action_primitives_have_no_mutable_config_backdoor`): a rule a console can move is a

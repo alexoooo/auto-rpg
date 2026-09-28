@@ -147,7 +147,7 @@ const sweptBox = (from: WorldPoint, to: WorldPoint, box: Readonly<{
   if (inside(from.x, from.z)) return 0;
   if (!inside(to.x, to.z)) return null;
   // A bisection rather than a slab intersection: the segment is one substep long -- at 1.2 m/s
-  // and 240 Hz that is 5 mm -- so twenty halvings resolve the contact to well under a micron,
+  // and 120 Hz that is 10 mm -- so twenty halvings resolve the contact to well under a micron,
   // and a rectangle's exact entry point is not worth a second copy of a slab test that would then
   // have to agree with this one.
   let low = 0;

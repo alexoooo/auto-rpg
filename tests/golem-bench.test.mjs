@@ -19,14 +19,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { PhysicsConstraintAxis } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
 import { CONFIG } from "../src/config.ts";
 import { COLLIDES, LAYER, collisionFilterIsExact } from "../src/physics.ts";
-import { capsulePart } from "../src/rig.ts";
-import { AnchorDrive, slewTowards } from "../src/golem/anchor-drive.ts";
+import { slewTowards } from "../src/golem/slew.ts";
 import {
-  ANCHOR_DRIVE, BENCH_READOUT, BENCH_STAND, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
+  BENCH_READOUT, BENCH_STAND, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST,
   TERMINAL_BLADE, TERMINAL_FIST, TERMINAL_MACE, TERMINAL_MAUL, TERMINAL_PLATE, TERMINAL_WHIP,
   TORSO_PLAIN, TORSO_PLATED,
 } from "../src/golem/config.ts";
@@ -903,7 +901,7 @@ test("rung 2 follows its command at a rate limit, and its buttons do nothing at 
       // **Writing that down is what found the componentwise limiter.** The first draft of this
       // read 0.0667 s and 8.39 m/s, because `AnchorDrive` slewed x, y and z separately -- a box
       // and not a ball, whose corner is sqrt(3) times its edge, and whose axes are the *world's*,
-      // so a golem's arm was faster for facing diagonally. `AnchorDrive.linearRate` carries the
+      // so a golem's arm was faster for facing diagonally. `AnchorDrive.linearRate` (in git at c76ce6bc) carries the
       // account. Measured after the fix: 6 frames, 0.100 s, 5.000 m/s.
       watching = true;
       furthest = 0;
@@ -983,95 +981,8 @@ test("rungs 2 and 3 track their commands with zero contacts over the scripted se
 });
 
 // ---------------------------------------------------------------------------------------
-// The anchor drive, which has no page-side reader until Session 03.
+// The rate limit every chain shares.
 // ---------------------------------------------------------------------------------------
-
-test("the anchor drive rate-limits its target and its force cap is finite", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const scene = arena.scene;
-  const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
-  const layers = golemLayers("left");
-
-  const freeBody = (name, at) => capsulePart(scene, {
-    name, position: at, rotation: Quaternion.Identity(),
-    height: 0.3, radius: 0.05, mass: 5,
-    layer: layers.body, collidesWith: layers.bodyCollidesWith,
-  });
-
-  const start = new Vector3(0, 2, 0);
-  const strong = freeBody("anchor.strong", start);
-  const weak = freeBody("anchor.weak", new Vector3(2, 2, 0));
-  const drives = [
-    new AnchorDrive(scene, {
-      name: "strong", target: strong, position: start.clone(),
-      rotation: Quaternion.Identity(), parameters: { ...ANCHOR_DRIVE_AXES() },
-    }),
-    new AnchorDrive(scene, {
-      name: "weak", target: weak, position: new Vector3(2, 2, 0),
-      rotation: Quaternion.Identity(),
-      // One newton against a 5 kg body under gravity: the cap is what decides, so this body
-      // must fall out from under its anchor.
-      parameters: { ...ANCHOR_DRIVE_AXES(), linearForce: 1, angularForce: 1 },
-    }),
-  ];
-  const wanted = [new Vector3(0, 2, 3), new Vector3(2, 2, 0)];
-  const control = scene.onBeforePhysicsObservable.add(() => {
-    for (let index = 0; index < drives.length; index += 1) {
-      drives[index].drive(SUBSTEP, wanted[index], Quaternion.Identity());
-    }
-  });
-  try {
-    for (const part of [strong, weak]) plugin.setActivationControl(part.body, 1);
-    const seconds = 0.25;
-    for (let frame = 0; frame * FRAME < seconds; frame += 1) {
-      scene._renderId += 1;
-      scene._advancePhysicsEngineStep(1000 * FRAME);
-    }
-    const elapsed = Math.ceil(seconds / FRAME) * FRAME;
-
-    // **The rate limit.** The target is 3 m away; the anchor may not have gone further than
-    // `linearRate` metres a second however far away it was told to be. That is the whole
-    // difference from `Arm`'s anchor, which is teleported and therefore keyframes onto its
-    // commanded pose on the first control step -- 77 m/s of tip speed in a fighter that never
-    // swings. Mutating `slewTowards` to return `wanted` turns this red.
-    const travelled = Vector3.Distance(drives[0].anchor.mesh.position, start);
-    assert.ok(travelled <= ANCHOR_DRIVE.linearRate * elapsed + 1e-6,
-      `the anchor moved ${travelled} m in ${elapsed} s at a limit of ${ANCHOR_DRIVE.linearRate} m/s`);
-    assert.ok(travelled > 0.5 * ANCHOR_DRIVE.linearRate * elapsed,
-      "the anchor did not move at anything like its own rate limit");
-
-    // **The force cap.** A body whose anchor is commanded to hold still, with a 1 N ceiling,
-    // falls: the drive is a finite force budget and not a constraint.
-    assert.ok(drives[1].stray() > 0.05,
-      `a 1 N motor held a 5 kg body to ${drives[1].stray()} m of its anchor under gravity`);
-    // And the strong one does not, which is the control: without it the assertion above is
-    // satisfied by an anchor drive that does nothing at all.
-    assert.ok(drives[0].stray() < 0.25,
-      `the full-force anchor let its body stray ${drives[0].stray()} m`);
-  } finally {
-    scene.onBeforePhysicsObservable.remove(control);
-    for (const drive of drives) drive.dispose();
-    for (const part of [strong, weak]) {
-      part.body.dispose();
-      part.shape.dispose();
-      part.mesh.dispose(false, false);
-    }
-    arena.dispose();
-  }
-});
-
-const ANCHOR_DRIVE_AXES = () => ({
-  linear: [
-    PhysicsConstraintAxis.LINEAR_X, PhysicsConstraintAxis.LINEAR_Y, PhysicsConstraintAxis.LINEAR_Z,
-  ],
-  angular: [
-    PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Y, PhysicsConstraintAxis.ANGULAR_Z,
-  ],
-  linearForce: ANCHOR_DRIVE.linearForce,
-  angularForce: ANCHOR_DRIVE.angularForce,
-  linearRate: ANCHOR_DRIVE.linearRate,
-  angularRate: ANCHOR_DRIVE.angularRate,
-});
 
 test("slewTowards is a ceiling on speed and not an exponential response", () => {
   // The distinction matters enough to be its own assertion: `1 - exp(-k*dt)` moves fastest when
@@ -1744,7 +1655,7 @@ test("the stroke probe reads the mark once, and the shipped cut arrives after it
   // **Re-taken 2026-09-18, and this entry is a floor now rather than a ceiling.** It read
   // `> 0.4` and said so in as many words: the miss was an open defect at 0.65 m, the bound was a
   // ceiling, and improving it meant re-taking the entry. It improved. Correcting the arm chains
-  // for the sword they carry -- the account is beside `ANCHOR_DRIVE.linearForce` -- took the miss
+  // for the sword they carry -- the account is beside `ANCHOR_DRIVE.linearForce`, in git at c76ce6bc -- took the miss
   // to **0.294 m** and put the mark at `alongMetres` 0.000, which is the point of the blade
   // rather than a third of the way down it. So the entry is re-taken the way it asked to be, and
   // pinned from below so the improvement cannot quietly go away.
@@ -2046,7 +1957,7 @@ test("an_arm_is_built_where_its_rest_command_holds_it", async () => {
   // (stone), 14.9 (pitch), 5.65 (human) and 9.55 (skeleton), and two stone fighters at the arena's
   // separation clashed blades at 0.117 s in every probe-mind mirror (Node bout runner, 120 Hz).
   // Built at the pose the rest command holds, nothing moves until a commander moves it: 0.16 m/s
-  // or less. `docs/analysis/2026-09-25-arms-at-guard.md`.
+  // or less. `docs/analysis/2026-09-25-arms-at-guard.md` (in git at c76ce6bc).
   //
   // The rest command is restated in the body (`restCursor`), so first: it is the one the mind's
   // `NEUTRAL` and the option layer's `freshIntent` hold, on both hands.

@@ -282,7 +282,7 @@ export interface EffectorAxisView {
  * `Fighter.observe` is built the same way and `tests/view.test.mjs` pins it.
  *
  * Every object here is allocated once at build and mutated in place: this is published at
- * 240 Hz.
+ * 120 Hz.
  */
 export interface EffectorView {
   /** Achieved hand orientation in the socket frame, for pose diagnostics. */
@@ -298,7 +298,7 @@ export interface EffectorView {
    * Where the chain's own anchor has got to, or null for a chain with no anchor.
    *
    * A field on the view rather than an overlay reaching into a chain, which is the seam Session
-   * 02 asked for when it noted that `AnchorDrive` builds an invisible massless sphere and
+   * 02 asked for when it noted that `AnchorDrive` built an invisible massless sphere and
    * nothing in the module contract published it. The overlay draws this beside the commanded
    * and achieved tips, so a limb hanging behind its own anchor is visible rather than merely
    * measured.
@@ -309,8 +309,8 @@ export interface EffectorView {
    * anchor.
    *
    * Null for both of Session 02's chains, which is why it is nullable rather than absent: rung
-   * 0 has no drive at all and rung 1 drives a hinge motor directly. Session 03's `reach` and
-   * `wrist` chains drive an `AnchorDrive` and fill it, and a driven limb that is not within a
+   * 0 has no drive at all and rung 1 drives a hinge motor directly. The `reach` and
+   * `wrist` chains fill it from the arm core's steered hand point, and a driven limb that is not within a
    * few millimetres of its own anchor is not posed wrongly, it is stuck on something -- which
    * is the reading `AGENTS.md` says to take first.
    */
@@ -430,7 +430,7 @@ export interface BuiltModule<Command> {
   command(next: Command): void;
   /** An effector's channel dispatch; other module kinds do not implement it. */
   commandEffector?(next: EffectorCommand): void;
-  /** Once per physics substep, at 240 Hz, from `scene.onBeforePhysicsObservable`. */
+  /** Once per physics substep, at 120 Hz, from `scene.onBeforePhysicsObservable`. */
   step(dt: number): void;
   envelope(): ModuleEnvelope;
   /**

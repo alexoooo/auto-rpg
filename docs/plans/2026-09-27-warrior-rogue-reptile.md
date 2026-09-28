@@ -57,7 +57,7 @@ The owner's answers, 2026-09-27:
 ## Session 2: a human strikes like a human
 
 Sources:
-- `docs/analysis/2026-09-27-human-strike-realism.md` has the findings.
+- `docs/analysis/2026-09-27-human-strike-realism.md` (in git at c76ce6bc) has the findings.
 - `docs/analysis/2026-09-27-human-strike-reference.md` has the sourced human values.
 - The strike search is `research/strike-optimizer.mjs`.
 

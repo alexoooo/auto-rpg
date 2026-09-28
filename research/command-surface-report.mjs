@@ -1,5 +1,5 @@
 // The command surface's verdict tables (skill ceiling session 06; the write-up is
-// `docs/analysis/2026-09-26-command-surface.md`), read from every `research/headroom.mjs --exp
+// `docs/analysis/2026-09-26-command-surface.md` (in git at c76ce6bc)), read from every `research/headroom.mjs --exp
 // channel` run under `research/runs/headroom-channel-*`.
 //
 //   node research/command-surface-report.mjs [--runs research/runs]

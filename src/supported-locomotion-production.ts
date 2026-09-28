@@ -32,75 +32,6 @@ import { fallenDwellS, initialSupportedLocomotionState, ledgerFalls, recoveredRi
   type SupportedLocomotionBoundary, type SupportedLocomotionState } from "./supported-locomotion-state.ts";
 import { baseReachM, hullCentreMarginM, leanHoldN, leanRoomM, TIPPING, tippingGeometry,
   type MassDistribution, type TippingGeometry } from "./tipping.ts";
-/**
- * The scheduler seam, moved here on 2026-09-04 when `src/construct/` and `src/forge/` were
- * deleted with the golem plan set's first session.
- *
- * Five declarations came across -- the two specs an admission query names, the token it
- * answers with, the submission that installs one, and the port interface this class
- * implements. What did not come across is the construct parameter grammar (`ParameterSpec`,
- * `QuantityUnit`), because this module reads no field of either spec: `authority` hands both
- * straight to the caller-supplied `resolveActionAuthority` and looks at neither. So an
- * `ActionSpec` here is the identity a caller needs to name an Action and its control group,
- * and not a body-description format.
- *
- * **This seam has no writer, and as of 2026-09-04 it has no reader that is coming either.**
- * The Warrior and Broot both declare `supportedLocomotionPort` and drive the carrier through
- * `request`/`resolve` without ever calling `authority` or `stage`; the only caller that did
- * was the construct runtime. The header used to name golem session 05 as the reader that was
- * coming and said to delete this if that session landed without one.
- *
- * **Session 05 landed without one, and here is why rather than merely that.** Its locomotion
- * modules do supply a `StabilityAuthority` -- `src/golem/locomotion/biped.ts` publishes one per
- * boundary, its support bindings and its stat scales -- but they supply it through the
- * `authority` *callback* on `PhysicalSupportedLocomotionOptions`, which is the seam the Warrior
- * already uses and which needs no scheduler. The three methods below exist for a caller that
- * admits parameterized Actions into control groups and then submits movement under a token, and
- * the golem plan set has no such caller and will not grow one: frozen rule 9 says there is no
- * learning in it and that the central mind is a scripted state machine, and frozen rule 8 says
- * `Intent` is the whole command surface -- an Action/control-group admission query would be a
- * second one. Sessions 06 (wheel and multileg), 08 (assembly) and 09 (the scripted mind) are the
- * only ones left that could plausibly want it, and each of them commands locomotion through the
- * same `Intent`.
- *
- * So this is **dead and should be deleted**: measured 2026-09-04, nothing outside this file
- * references `ActionSpec`, `ControlGroupSpec`, `LocomotionAuthorityToken`, `LocomotionSubmission`,
- * `LocomotionSchedulerPort`, `resolveActionAuthority`, `authority`, `stage`, `priorSample`,
- * `clearSubmission` or `clearAll` -- not one source file, test, script or document outside
- * `docs/plans/golem-01-demolition.md`, which names them only to record that they were moved here.
- * Session 05 left the deletion rather than taking it because two other sessions were editing this
- * tree at the same time and a cut this wide is not an append; whoever next has this file to
- * themselves should make it, and `clear` remains the whole of what `clearAll` and
- * `clearSubmission` do.
- */
-export interface ActionSpec {
-  readonly id: string;
-  readonly group: string;
-}
-
-export interface ControlGroupSpec {
-  readonly id: string;
-}
-
-export interface LocomotionAuthorityToken {
-  readonly carrierPartId: string;
-}
-
-export interface LocomotionSubmission {
-  readonly action: string;
-  readonly group: string;
-  readonly authority: LocomotionAuthorityToken;
-  readonly request: LocomotionRequest;
-}
-
-/** Optional runtime seam: a pair may deliberately construct without a carrier. */
-export interface LocomotionSchedulerPort {
-  authority(action: ActionSpec, group: ControlGroupSpec): LocomotionAuthorityToken | null;
-  stage(submission: LocomotionSubmission): void;
-  priorSample(authority: LocomotionAuthorityToken): SupportedLocomotionSample;
-  clearSubmission(action: string, group: string, authority: LocomotionAuthorityToken, reason: string): void;
-  clearAll(reason: string): void;
-}
 
 const STOP: LocomotionRequest = Object.freeze({
   localForward: 0, localRight: 0, yaw: 0,
@@ -264,7 +195,6 @@ export interface PhysicalSupportedLocomotionOptions {
   readonly restoreRoot?: () => void;
   readonly releaseAnatomyCollision?: () => void;
   readonly restoreSupportedAnatomyCollision?: () => void;
-  readonly resolveActionAuthority?: (action: ActionSpec, group: ControlGroupSpec) => LocomotionAuthorityToken | null;
 }
 
 export interface PhysicalSupportBindingDiagnostic {
@@ -299,7 +229,6 @@ export interface PhysicalSupportedLocomotionDiagnostic {
   readonly stability: Readonly<{ specificImpulseMps: number; supportedMassKg: number;
     staggerAtMps: number; fallAtMps: number; tipping: TippingGeometry | null }>;
   readonly authority: boolean;
-  readonly activeGroup: string | null;
   readonly liveSupport: boolean;
   readonly postureSupported: boolean;
   readonly supportGroups: readonly PhysicalSupportGroupDiagnostic[];
@@ -361,7 +290,7 @@ export interface RiseGateDiagnostic {
 }
 
 /** Production command buffer plus the non-body carrier and bounded dynamic-root motor. */
-export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort, LocomotionSchedulerPort {
+export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort {
   readonly physicalSupportedLocomotionV1 = true;
   readonly registry: StandableWorldRegistry;
   private readonly staged = new StagedSupportedLocomotionPort();
@@ -371,8 +300,6 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   private readonly options: PhysicalSupportedLocomotionOptions;
   private supportState: SupportedLocomotionState = initialSupportedLocomotionState();
   private sequence = 0;
-  private activeAuthority: (StabilityAuthority & { readonly requiresAllFreshSupport?: boolean }) | null = null;
-  private activeAuthorityOwner: string | null = null;
   private rising: RisingActuator | null = null;
   private risingFrameComplete = false;
   private occupants: readonly RecoveryOccupant[] = [];
@@ -547,7 +474,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
     this.readContact();
     this.staged.beginControlStep();
     this.sequence += 1;
-    const authority = this.activeAuthority ?? this.options.authority();
+    const authority = this.options.authority();
     const evidenceBindings = authority?.supportBindings.map(({ role }) => role) ?? this.options.supportBindings;
     const evidence = evidenceBindings.flatMap((binding) => {
       const point = this.options.supportPoint ? this.options.supportPoint(binding) : this.carrier.state;
@@ -720,7 +647,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
    * the one read the instant before the fall, with the centre of mass on its edge: a rising body's
    * fall line had a median of about 0.02 m/s and any touch put it down again. 126 of stone's 259
    * falls began in a rise, and 3310 of the skeleton mirror's 7528 (Node research runner,
-   * `docs/analysis/2026-09-25-falls-and-rise.md`). Null without both readers, and for a body with no
+   * `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc)). Null without both readers, and for a body with no
    * base.
    */
   private readTipping(bindings: readonly string[]): TippingGeometry | null {
@@ -754,7 +681,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
    * state machine reads the same function (`stabilityLines`).
    */
   stabilityLinesAlong(dirX: number, dirZ: number): StabilityLines {
-    return stabilityLines(this.activeAuthority ?? this.options.authority(), this.tipping, dirX, dirZ);
+    return stabilityLines(this.options.authority(), this.tipping, dirX, dirZ);
   }
 
   /**
@@ -766,7 +693,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
    * step: no geometry is no line, and a view field is finite.
    */
   fallImpulseNs(): number {
-    const authority = this.activeAuthority ?? this.options.authority();
+    const authority = this.options.authority();
     if (this.fallImpulseOf !== this.tipping || this.fallImpulseAuthority !== authority) {
       this.fallImpulseOf = this.tipping;
       this.fallImpulseAuthority = authority;
@@ -790,7 +717,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
   diagnostic(): PhysicalSupportedLocomotionDiagnostic {
     const request = this.staged.sample().request;
     const allowed = this.priorAllowed();
-    const authority = this.activeAuthority ?? this.options.authority();
+    const authority = this.options.authority();
     const lines = stabilityLines(authority, this.tipping);
     const staged = this.staged.snapshot();
     const constrained = request !== null && allowed !== null &&
@@ -814,7 +741,6 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       stability: Object.freeze({ specificImpulseMps: this.supportState.specificImpulseMps,
         supportedMassKg: this.options.supportedMassKg,
         staggerAtMps: lines.staggerAtMps, fallAtMps: lines.fallAtMps, tipping: this.tipping }),
-      activeGroup: this.activeAuthorityOwner?.split("/", 1)[0] ?? null,
       supportGroups, requested: request === null ? null : Object.freeze({ ...request }),
       allowed: allowed === null ? null : Object.freeze({ ...allowed }), blockedReason,
       releaseReason: this.releaseReason,
@@ -824,31 +750,6 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
         : this.supportState.state === "fallen" ? 0 : null });
   }
 
-  authority(action: ActionSpec, group: ControlGroupSpec): LocomotionAuthorityToken | null {
-    // This is an admission query, not ownership.  The scheduler probes it before it cancels an
-    // old parameterized Action; claiming ownership here let that old cancellation clear the
-    // newly probed authority.  The following safe boundary then evaluated a still-moving
-    // two-foot body with capacity 1 instead of its declared combat brace and could release it
-    // under a sub-braced blow.  `stage` is the only proof that the Action actually survived
-    // admission and authored a carrier request, so it is the only place that may install it.
-    return this.options.resolveActionAuthority?.(action, group) ?? null;
-  }
-  stage(submission: LocomotionSubmission): void {
-    if (!("supportBindings" in submission.authority)) {
-      throw new Error(`physical locomotion submission "${submission.group}/${submission.action}" lacks stability authority`);
-    }
-    this.activeAuthority = submission.authority as StabilityAuthority;
-    this.activeAuthorityOwner = `${submission.group}/${submission.action}`;
-    this.staged.request(submission.request);
-  }
-  priorSample(_authority: LocomotionAuthorityToken): SupportedLocomotionSample {
-    return Object.freeze({ request: this.priorAllowed() });
-  }
-  clearSubmission(action: string, group: string, _authority: LocomotionAuthorityToken, reason: string): void {
-    if (this.activeAuthorityOwner !== `${group}/${action}`) return;
-    this.clear(reason);
-  }
-  clearAll(reason: string): void { this.clear(reason); }
 
   proposal(dt: number): CarrierProposal {
     if (this.disposed) throw new Error("physical supported locomotion port is disposed");
@@ -859,16 +760,6 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
       // the live fallen root at each safe boundary so the body can be walked around but not through.
       const live = this.options.root.sample().position;
       this.carrier.reset({ x: live.x, y: this.carrier.state.y, z: live.z }, this.carrier.state.yaw);
-    }
-    const missingRequiredFallbackSupport = this.activeAuthority?.requiresAllFreshSupport === true &&
-      this.activeAuthority.supportBindings.some(({ role }) =>
-        !this.lastBoundary.freshSupportBindings.includes(role));
-    if (missingRequiredFallbackSupport) {
-      // Support grace decides when the body falls; it is not air-walk authority. A fallback
-      // carrier missing any member of its exact authored support set stops on this same pair
-      // boundary, while retaining the state-machine grace that lets a physical replant recover.
-      this.carrier.reset(this.carrier.state, this.carrier.state.yaw);
-      return this.carrier.propose(STOP, dt, this.options.supportedMassKg);
     }
     // **A rising carrier stands still.** The rise owns the root and drives it to its fixed target, so
     // a carrier that walked on the mind's request would leave the body it describes: the other body
@@ -1030,7 +921,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
 
   /** Compatibility-only commit; physical pairs always use `commitPhysical`. */
   commit(resolution: LocomotionResolution): void { this.staged.commit(resolution); }
-  clear(reason: string): void { this.activeAuthority = null; this.activeAuthorityOwner = null;
+  clear(reason: string): void {
     this.staged.clear(reason); this.motor.drive(
     { x: this.carrier.state.x, y: this.carrier.state.y, z: this.carrier.state.z },
     { x: 0, y: 0, z: 0 }, "fallen"); }

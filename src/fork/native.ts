@@ -27,7 +27,7 @@
  * included -- is that instance's linear memory. A capture taken with `{ heap: true }` copies it, and
  * a restore into a world built by the same code *in another, fresh instance* copies it over that
  * instance's, after which the fork is the original to the bit: no divergence at all over four
- * seconds of a fought bout (`docs/analysis/2026-09-25-fork.md`). Two conditions, both checked:
+ * seconds of a fought bout (`docs/analysis/2026-09-25-fork.md` (in git at c76ce6bc)). Two conditions, both checked:
  * the fork's instance is not the original's (the copy would overwrite the original), and every
  * body handle in the fork is the number the original's has, which holds when both worlds were built
  * by the same code into instances with the same history -- fresh ones. A joint made mid-bout (a

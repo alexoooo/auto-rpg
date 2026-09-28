@@ -54,6 +54,20 @@ Each stage lands as commits behind tests. Measurements name their harness. Where
   - the 240 Hz comments that describe today's rate;
   - AGENTS.md gains a section on `src/core/` and its rules.
 
+**What landed (2026-09-28).**
+- `docs/` was cleared to this plan's working set; `docs/plans/README.md` says which commit holds each deleted document.
+- Deleted: `AnchorDrive` and its `ANCHOR_DRIVE` table (`slewTowards`, which six modules use, moved to `src/golem/slew.ts`); the scheduler seam; `CONFIG.rigView`, `CONFIG.buckler` and every unread `CONFIG.body` field.
+- `defaultMatchup`, which only tests read and whose comment claimed the page opened on it, became `tests/fixtures/matchup.mjs`.
+- The legacy human's modules are labelled "legacy".
+- The comments that stated 240 Hz as today's rate now say 120 Hz, and AGENTS.md has its `GROUNDED_TONE` sentence and its core section.
+
+**Left on purpose.**
+- `CONFIG.axe` and `CONFIG.bow` are still read, as fixtures, by `tests/scoring.test.mjs` and `tests/minds.test.mjs`.
+- The retired-policy ids in `tests/bout.test.mjs` are opaque strings to reducers that read no registry.
+- Two behaviours were found and not changed, because stage 0 changes no behaviour:
+  - `PhysicalSupportedLocomotionPort` falls back to a `1 / 240` s step before its first commit;
+  - `BENCH_READOUT.stuckWindowSteps` is 24 steps, which was 0.1 s at 240 Hz and is 0.2 s now.
+
 ### Stage 1: the body spec and the human spec
 
 **`src/core/spec/`: the types.**

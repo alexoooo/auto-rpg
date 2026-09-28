@@ -1,6 +1,6 @@
 /**
  * The skill-leverage checks of the headroom audit (skill ceiling session 05,
- * written up in `docs/analysis/2026-09-26-headroom.md`). Each check is a bench and a number:
+ * written up in `docs/analysis/2026-09-26-headroom.md` (in git at c76ce6bc)). Each check is a bench and a number:
  *
  *     node research/leverage.mjs --check balance     [--builds default,skeleton-warrior,...]
  *     node research/leverage.mjs --check commitment  [--builds ...]

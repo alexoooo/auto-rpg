@@ -1,7 +1,7 @@
 /**
  * The fall loop: how often bodies fall, how long they stay down, and how often a body that has just
  * stood falls again -- with what fed the ledger on the boundary it fell (2026-09-25,
- * `docs/analysis/2026-09-25-falls-and-rise.md`).
+ * `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc)).
  *
  *     node research/fall-loop.mjs --groups stone --blocks 32 --dir research/runs/falls-loop/base
  *     node research/fall-loop.mjs --summarize research/runs/falls-loop/base

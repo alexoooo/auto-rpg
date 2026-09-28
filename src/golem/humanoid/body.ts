@@ -68,9 +68,16 @@ function humanDefinition<T extends { parts: readonly GolemPart[] }, D extends { 
       combatRole: "body" as const, armour: part.armour ?? 0.35 })) };
   } } as D;
 }
-export const humanBiped = humanDefinition(bipedDefinition("locomotion.human", "human legs", HUMAN_BIPED));
-export const humanTorso = humanDefinition(torsoModule("torso.human", "human armoured torso", HUMAN_TORSO, HUMAN_WAIST));
-export const humanHead = humanDefinition(headModule("head.human", "human helmeted head", { guardPitch: 0.25, ram: null }, HUMAN_HEAD));
+/**
+ * **The legacy human**, registered for the bench and the module pickers only. No fight builds
+ * these: the Warrior and the Rogue are `workshopBody(model)`, which shares these module ids but
+ * not their numbers (this body has a 14 kg pelvis and 0.40/0.39 m legs). A reading taken from
+ * these modules is not a reading of either model; the labels say "legacy" so it cannot be
+ * mistaken for one. The core foundation replaces both.
+ */
+export const humanBiped = humanDefinition(bipedDefinition("locomotion.human", "legacy human legs", HUMAN_BIPED));
+export const humanTorso = humanDefinition(torsoModule("torso.human", "legacy human armoured torso", HUMAN_TORSO, HUMAN_WAIST));
+export const humanHead = humanDefinition(headModule("head.human", "legacy human helmeted head", { guardPitch: 0.25, ram: null }, HUMAN_HEAD));
 
 /**
  * A workshop model's body. Geometry follows the saved model, at the size it was authored; the size

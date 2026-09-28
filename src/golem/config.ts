@@ -161,113 +161,6 @@ const bodyNs = (stone: number): number => stone * STONE_BODY_DENSITY / GEOMETRIC
 const onBody = (shipped: number): number => shipped * BODY_OVER_SHIPPED;
 
 /**
- * The reusable anchor drive: a massless keyframed frame that drags a body about.
- *
- * These are the *defaults*. A chain hands `AnchorDrive` its own parameters, and the ones here
- * are what a chain gets if it does not care -- copied from the retired Warrior's measured arm
- * numbers (`docs/history.md`, "The retired Warrior's arm table") and then scaled for stone, so
- * that the first chain to use them starts from something that was measured rather than from a
- * guess.
- *
- * **No page-side reader in Session 02.** Rung 0 has no drive and rung 1 drives a hinge motor
- * directly, so the reader that spends these is Session 03's `reach` chain, which is the first
- * one whose target is a point rather than an angle. That is a named reader that is coming
- * rather than a field nobody has ever read, which is the distinction `AGENTS.md` draws before
- * anything is deleted for having no reader.
- * `tests/golem-bench.test.mjs` drives one on the bench stand and asserts that the
- * force cap and the rate limit each do what they say, so these numbers are exercised rather
- * than merely declared.
- *
- * **Session 03 arrived and swept them, and both moved.** The tables live in `CHAIN_REACH` beside
- * `anchorForce` and `anchorRate` rather than here, because what they measure is one chain's mass
- * and one chain's lever and neither is a property of this class -- a golem arm nearly three times
- * rung 1's mass wants 3900 N, and its 1.52 m tip turns an anchor rate into something about seven
- * times larger, so 6 m/s here is five times too fast there. These stay as they are: they are the
- * defaults a chain gets if it does not care, and the two chains that do care state their own.
- * 2026-09-04.
- */
-export const ANCHOR_DRIVE = {
-  /**
-   * Diameter of the anchor's own sphere, metres.
-   *
-   * The Warrior arm's anchors were 0.02 and this is the same number for the same reason: it is
-   * massless, on no collision layer, and invisible, so the only thing the size decides is how
-   * big the dot is when the rig overlay draws it. 2026-09-04.
-   */
-  markerDiameter: 0.02,
-
-  /**
-   * Linear force ceiling, newtons.
-   *
-   * The Warrior arm's `linearMotorForce` was 850 N against a Warrior arm of 2.70 + 1.80 + 0.65 kg
-   * carrying a 1.35 kg sword -- 6.50 kg driven. Rung 1's link and blade are 10.70 kg, which the
-   * Node bench prints, so the mass ratio is 1.646 and 850 x 1.646 is 1400 N: the same
-   * authority per kilogram rather than a new decision. It is a ceiling, not a stiffness -- the
-   * lag and follow-through that make a limb read as heavy come from the ceiling being finite.
-   *
-   * **A starting point, not a measurement.** Nothing on the page spends it in this session, so
-   * it has been proved to hold a body against gravity and to be genuinely finite, and not to
-   * feel like anything. Session 03 has to sweep it against its own chain's mass and write its
-   * own table here. 2026-09-04.
-   */
-  // **854 from 2026-09-18, and it is the Warrior's own number back again.**
-  //
-  // This read 227 for most of a day -- 1400 times `SHIPPED_MASS_SCALE` -- on the reasoning that a
-  // limb which lost five sixths of its mass should lose five sixths of its force. The limb did not
-  // lose five sixths of its mass. `TERMINAL_BLADE.mass` is 1.30 kg and is the one mass in this
-  // file `kg()` does not wrap, because an arming sword already weighs what an arming sword weighs;
-  // scaling everything around it left the blade as a third of what the hand is holding. The same
-  // false premise is accounted for beside `CHAIN_PITCH.motorTorque` and `STROKE_INERTIA.ref`, and
-  // this is the third place it reached.
-  //
-  // The rule two paragraphs up is the one that fixes it, unchanged, because it is a rule about
-  // authority per kilogram and not about any particular kilogram: 850 N holds the Warrior's
-  // 6.50 kg of arm and sword, and the figure to scale by is whatever the Node bench prints for
-  // this chain. It printed 10.70 kg in 2026-09-04 and the constant was 1400. **It now prints
-  // 6.5326 kg** -- because that is what the re-scale was for, a golem whose sword arm weighs what
-  // a person's sword arm weighs -- so the ratio is 1.0050 and the constant is 854.
-  //
-  // That the answer came back to within half a percent of the Warrior's own 850 N is the
-  // re-scale's own check on itself, and it is worth more than the constant is.
-  linearForce: 854,
-
-  /**
-   * Angular force ceiling, newton-metres.
-   *
-   * The Warrior arm's `wristMotorForce` was 110 N.m, set from a measured re-aim time (0.42 s to
-   * 0.07 s going from 42 to 110, and nothing above 110 improved it). Scaled by the same 1.646
-   * mass ratio as the linear cap: 181, rounded to 185. Same caveat as above. 2026-09-04.
-   */
-  // 111 from 2026-09-18, which is 110 times the 1.0050 derived above it, for the reason above it.
-  // It read 30 -- 185 times `SHIPPED_MASS_SCALE` -- on the premise corrected there.
-  angularForce: 111,
-
-  /**
-   * How fast the *commanded* point may move, metres per second.
-   *
-   * The Warrior's anchor has no rate limit at all: it is teleported to wherever the cursor
-   * says and `setTargetTransform` gives the constraint a velocity from the difference. That is
-   * exactly what makes a Warrior arm keyframe onto its commanded pose on the first control
-   * step and read 77 m/s of tip speed in a fighter that never swings. A golem's command is
-   * rate-limited instead, so the first step is a move and not a snap.
-   *
-   * 6 m/s is `CHAIN_PITCH.targetRate`'s swept 6 rad/s carried across at rung 1's 1.14 m reach,
-   * which is 6.8 m/s at the tip -- so this is the same ceiling in the units an anchor works in,
-   * rounded down. It has not been swept in its own right, for the reason the force caps give
-   * above. 2026-09-04.
-   */
-  linearRate: 6,
-
-  /**
-   * How fast the *commanded* frame may turn, radians per second.
-   *
-   * Same argument as `linearRate`. 8 rad/s is about 460 deg/s, which is a fast wrist and well
-   * inside what the angular cap can actually deliver against stone. 2026-09-04.
-   */
-  angularRate: 8,
-};
-
-/**
  * The bench stand: a kinematic block with one socket on each side.
  *
  * Frozen choice from the session plan: an `ANIMATED` stone block at Warrior torso height with
@@ -786,7 +679,7 @@ export const BENCH_READOUT = {
    * seconds.
    *
    * A settle time is only meaningful against a target that has stopped moving. 0.05 s is
-   * twelve control steps at 240 Hz. 2026-09-04.
+   * six control steps at 120 Hz. 2026-09-04.
    */
   stepHoldSeconds: 0.05,
   /**
@@ -800,8 +693,9 @@ export const BENCH_READOUT = {
    * How many consecutive control steps of a non-converging error make a stuck step, and by how
    * little the error has to move to count as non-converging.
    *
-   * 24 steps is 0.1 s at 240 Hz, and 1e-4 rad over that window is a limb that is not going
-   * anywhere. Stroke steps are excluded outright rather than filtered, because a chop's error
+   * 24 steps was 0.1 s at 240 Hz, and 1e-4 rad over that window is a limb that is not going
+   * anywhere. **At today's 120 Hz it is 0.2 s**: the window is counted in steps and was not
+   * re-taken when the rate halved (H66 says to prefer a window that times itself). Stroke steps are excluded outright rather than filtered, because a chop's error
    * is enormous by design. 2026-09-04.
    */
   stuckWindowSteps: 24,
@@ -1045,7 +939,7 @@ export const CHAIN_REACH = {
    * **1.2 m/s at the hand is about 7 m/s at the tip**, and that multiplier is the finding: the
    * blade's point is 1.52 m from the socket and the hand 0.72 m, and the forearm turns about the
    * elbow as well, so an anchor rate carried across to the tip is amplified about sevenfold at the
-   * peak. `ANCHOR_DRIVE.linearRate`'s 6 m/s -- derived in Session 02 by carrying rung 1's swept
+   * peak. The since-deleted `ANCHOR_DRIVE.linearRate`'s 6 m/s -- derived in Session 02 by carrying rung 1's swept
    * 6 rad/s across at *that* chain's reach -- is therefore five times too fast here, and measured
    * it produced a guard raise that peaked at **34.46 m/s** and took 0.05 s. A stone arm does not
    * raise its guard in a twentieth of a second.
@@ -1110,7 +1004,7 @@ export const CHAIN_REACH = {
    * **That argument was void the moment it was written, and the ceiling is re-taken here on a
    * third sweep.** The force was not scaled with the mass it moves, because a third of what the
    * hand holds is a 1.30 kg sword that does not scale -- the account is beside
-   * `ANCHOR_DRIVE.linearForce` -- and `anchorForce` is 1584 N now, not 632. The bench readings
+   * `ANCHOR_DRIVE.linearForce`, in git at c76ce6bc -- and `anchorForce` is 1584 N now, not 632. The bench readings
    * quoted as the check do not reproduce either: the maul's grip is taken at 0.146 s and 0.921 s
    * on the corrected arm, not 0.246 and 0.467. A conclusion drawn from a wrong premise is not
    * made right by landing on a defensible number, so it was re-swept rather than left standing.
@@ -1550,7 +1444,7 @@ export const CHAIN_WRIST = {
    * motors holding it should shrink to match. **That number is wrong.** The 3.6 kg it scaled was
    * `wristMass` 2.3 plus `TERMINAL_BLADE.mass` 1.30, and the blade is the one mass in this file
    * `kg()` does not wrap -- an arming sword already weighs what an arming sword weighs. The same
-   * false premise is accounted for beside `ANCHOR_DRIVE.linearForce`, `CHAIN_PITCH.motorTorque`
+   * false premise is accounted for beside `ANCHOR_DRIVE.linearForce` (in git at c76ce6bc), `CHAIN_PITCH.motorTorque`
    * and `STROKE_INERTIA.ref`; this is the fourth place it reached and the last one found.
    *
    * What the bend actually holds, off the built arm rather than off the config: the wrist link at
@@ -2670,7 +2564,7 @@ export const KNOCKDOWN: Knockdown = Object.freeze({
 });
 
 /**
- * How a biped gets up (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`): three stages, the
+ * How a biped gets up (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc)): three stages, the
  * pelvis keyframed and the legs driven by their own motors to a pose solved for where the pelvis is.
  *
  * 1. **Gather** (at least `gatherS`): the legs fold and pull the feet in under where the body will
@@ -2819,7 +2713,7 @@ export const LOCOMOTION_BIPED = {
   /**
    * How far ahead of the pelvis's own centre the hip pivots sit, metres: where the legs hang from,
    * and so where the feet stand. Zero for a body whose centre of mass is over its pelvis, as stone's
-   * and the human's are (0.033 and 0.029 m ahead, `docs/analysis/2026-09-23-attribute-measurements.md`).
+   * and the human's are (0.033 and 0.029 m ahead, `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc)).
    * A body that carries its weight ahead of its pelvis sets it so that its feet stand under that
    * weight (`SKELETON_BIPED`), because nothing in this module balances: a body whose centre of mass
    * is past its toes falls to any touch.
@@ -3112,7 +3006,7 @@ export const LOCOMOTION_BIPED = {
    * the knee, and the middle of the flat part. 2026-09-18, the Node bench.
    *
    * **At 120 Hz the cliff came up under 10.5, and 11.5 is taken.** Found by the size-law study
-   * (`docs/analysis/2026-09-25-size-law.md` on its own branch), which read 684.7 mm/s at 0.90 of the
+   * (`docs/analysis/2026-09-25-size-law.md` (in git at c76ce6bc) on its own branch), which read 684.7 mm/s at 0.90 of the
    * rate and 279.1 at 0.95, so the x1 walk sat within 5 % of the cliff edge and a larger body fell
    * off it first. Re-measured here, Node locomotion bench (`runGolemLocomotion`, release-120
    * defaults), stone biped, mean planted-sole slip in mm/s and substeps with no sole down (of 479)
@@ -3205,7 +3099,7 @@ export const LOCOMOTION_BIPED = {
    * **A ragdoll whose legs are still holding their pose is a stumble, not a knockdown.** Measured
    * before this existed: a shove 51 times the golem's own fall threshold tipped the root to an
    * up-dot of 0.816 and dropped the assembly 0.23 m, because the leg motors went on driving their
-   * gait targets at full torque under a released root and simply held it up. `CONFIG.body`'s
+   * gait targets at full torque under a released root and simply held it up. The retired Warrior's
    * `deadJointStrength` is 0.08 and makes exactly this argument for a corpse; this is that number
    * for a knockdown, restored the moment the rise completes.
    *
@@ -3220,7 +3114,7 @@ export const LOCOMOTION_BIPED = {
    * tone at all the legs fold flat under the falling body and prop it at 0.484 m, while at 0.08
    * they stay long enough to be fallen over and the assembly reaches 0.367 m. Zero is also a body
    * that has been let go of, which is the same reason the stroke follow-throughs on the effector
-   * chains are not zero either. 0.08 is taken, and it is `CONFIG.body.deadJointStrength` exactly.
+   * chains are not zero either. 0.08 is taken, and it is the Warrior's `deadJointStrength` exactly.
    * 2026-09-04, the Node bench.
    */
   fallenTorqueScale: 0.08,
@@ -4932,7 +4826,7 @@ export const LOCOMOTION_WHEEL = {
    * them; this module's one motor is a **velocity** motor on a free axis, which has no pose to
    * hold and cannot prop anything up. 0.08 is kept on the argument rather than on the column --
    * a body that has been let go of should not still be driving itself along the floor, whatever
-   * the up-dot says -- and it is `CONFIG.body.deadJointStrength` exactly, as the biped's is.
+   * the up-dot says -- and it is the Warrior's `deadJointStrength` exactly, as the biped's is.
    * 2026-09-04, the Node bench.
    */
   fallenTorqueScale: 0.08,
@@ -5413,7 +5307,7 @@ export const LOCOMOTION_MULTILEG = {
    * The reason is scale rather than structure: eighteen motors at 180/60/30 N.m are holding
    * 77.4 kg of leg under 632 kg of golem, so leaving them armed props nothing up. The biped's six
    * at 900/500/220 under 560 kg are a different ratio entirely. 0.08 is kept on the argument --
-   * a body that has been let go of should be let go of -- and it is `CONFIG.body.deadJointStrength`
+   * a body that has been let go of should be let go of -- and it is the Warrior's `deadJointStrength`
    * exactly. 2026-09-04, the Node bench.
    */
   fallenTorqueScale: 0.08,

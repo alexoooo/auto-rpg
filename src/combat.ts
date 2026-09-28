@@ -389,7 +389,7 @@ export class Combat {
    * this walks is complete before the first step. That was chosen against the
    * alternative on a measurement -- 24 arrows parked STATIC on membership mask 0
    * cost **-0.0015 ms/frame**, which is below the bench's own noise -- and what
-   * it buys is that an observable is never touched at 240 Hz and no arrow can
+   * it buys is that an observable is never touched at 120 Hz and no arrow can
    * outlive the observer watching it. `Fighter.strikers` is what hands them over.
    */
   private readonly watching: { weapon: Striking; remove: () => void }[] = [];

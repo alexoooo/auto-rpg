@@ -1,4 +1,4 @@
-// The reference expert (skill ceiling session 04, `docs/analysis/2026-09-25-expert.md`).
+// The reference expert (skill ceiling session 04, `docs/analysis/2026-09-25-expert.md` (in git at c76ce6bc)).
 //
 // An offline mind that searches its own body's command space on exact forks of the live world. It
 // is an instrument: it never ships, and what it scores on a body is meant to be a fact about the

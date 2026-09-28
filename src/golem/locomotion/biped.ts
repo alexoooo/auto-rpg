@@ -30,7 +30,7 @@ import {
   type ConstructPostureEvidence,
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
-import { slewTowards } from "../anchor-drive.ts";
+import { slewTowards } from "../slew.ts";
 import { gaitChannels, stanceIsNeutral, type StanceCommand } from "../../body-command.ts";
 import {
   BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, LOCOMOTION_BIPED, LOCOMOTION_BIPED_SIZE,
@@ -972,7 +972,7 @@ return defineLocomotion({
      * Held rather than re-solved inside `driveAnimatedRoot`, and that is not only an allocation:
      * the drive runs from `commitPhysical`, which is *earlier* in the same substep than `gait`, so
      * re-solving there would give the root a height from a stride phase the legs have not been
-     * given yet. One substep of lag at 240 Hz, and the root and the legs agree about which pose
+     * given yet. One substep of lag at 120 Hz, and the root and the legs agree about which pose
      * they are in.
      */
     let hipDrop = 0;

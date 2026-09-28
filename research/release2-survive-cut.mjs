@@ -1,6 +1,6 @@
 /**
  * Release 2's question 17: why survive-cut cannot be played on five human bodies (the headroom
- * audit, `docs/analysis/2026-09-26-headroom.md` section 3: 39 or 40 of 40 starts void). Replays the
+ * audit, `docs/analysis/2026-09-26-headroom.md` (in git at c76ce6bc) section 3: 39 or 40 of 40 starts void). Replays the
  * audit's own starts -- the seeds `research/drills.mjs` draws, `seed("drills", drill, build,
  * obuild, i)` -- with the drill's control rung alone and a trace, and files each start by what the
  * reference's cut met first and what the idle body's bar lost.
@@ -8,7 +8,7 @@
  *     node research/release2-survive-cut.mjs [--bodies a,b] [--obuild default] [--runs 40]
  *
  * Harness: the drill runner (`runDrill` in `tests/harness/drills.mjs`, exact forks), one Havok arena
- * per start, sequential in this realm. Write-up: `docs/analysis/2026-09-26-release-2-questions.md`,
+ * per start, sequential in this realm. Write-up: `docs/analysis/2026-09-26-release-2-questions.md` (in git at c76ce6bc),
  * section 6.
  */
 import { writeFileSync, mkdirSync } from "node:fs";

@@ -42,7 +42,7 @@ interface Moving {
  * the other turns the distance a body moved in one step into a lever arm it does not have: on the
  * whip's 60 mm weight, a sphere whose true lever about its own centre is exactly zero, it read 26 mm
  * at 240 Hz and 50 mm at 120, and priced the weight at 0.31 and 0.16 kg against a true 0.42
- * (`docs/analysis/2026-09-25-rate-whip.md`, section 7). The error is the step's length, so it is a
+ * (`docs/analysis/2026-09-25-rate-whip.md` (in git at c76ce6bc), section 7). The error is the step's length, so it is a
  * rate dependence in a reading, which is the one thing a reading may not have.
  *
  * So this samples, on `onBeforePhysicsObservable` -- before every solver step, on the physics clock --

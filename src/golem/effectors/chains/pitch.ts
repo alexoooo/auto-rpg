@@ -7,7 +7,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 
 import type { HandIntent } from "../../../mind.ts";
 import { capsulePart, joint } from "../../../rig.ts";
-import { slewTowards } from "../../anchor-drive.ts";
+import { slewTowards } from "../../slew.ts";
 import { attributeOf, withArmSpeed, withSize, withWeight } from "../../attributes.ts";
 import { CHAIN_PITCH, CHAIN_PITCH_SIZE } from "../../config.ts";
 import { materialForGolemRole } from "../../materials.ts";

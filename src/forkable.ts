@@ -1,6 +1,6 @@
 /**
  * The one interface a stateful piece of a world implements to be forked (skill ceiling session 02,
- * `docs/analysis/2026-09-25-fork.md`).
+ * `docs/analysis/2026-09-25-fork.md` (in git at c76ce6bc)).
  *
  * **Who implements it.** A class needs nothing: the fork walks its fields (`src/fork/graph.ts`),
  * so a field added to `Combat` or to a `Golem` is captured the day it is added. What the walk

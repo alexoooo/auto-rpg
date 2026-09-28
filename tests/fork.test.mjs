@@ -1,4 +1,4 @@
-// A forkable world (skill ceiling session 02, `docs/analysis/2026-09-25-fork.md`).
+// A forkable world (skill ceiling session 02, `docs/analysis/2026-09-25-fork.md` (in git at c76ce6bc)).
 //
 // What is held here, and what each hold is for:
 // - **Completeness.** Every closure a world can reach hands over every `let` and every private
@@ -17,7 +17,7 @@
 //
 // Harness: the Node bout runner (`tests/harness/bout-runner.mjs`) and the fork harness beside it
 // (`tests/harness/fork.mjs`), one Havok instance per file, and fresh ones for the exact fork. Readings here are comparable with the
-// Node figures in `docs/analysis/2026-09-25-fork.md` and with nothing taken on the page.
+// Node figures in `docs/analysis/2026-09-25-fork.md` (in git at c76ce6bc) and with nothing taken on the page.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";

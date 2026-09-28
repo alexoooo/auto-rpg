@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+import { plainMatchup } from "./fixtures/matchup.mjs";
 import { handsFor, isWeaponKind, WEAPON_KINDS } from "../src/hands.ts";
 import { defaultGolemSetup } from "../src/golem/build.ts";
 import { armedTerminal, viableBuild, viablePair } from "../src/golem/viability.ts";
@@ -12,7 +13,6 @@ import {
   beaten,
   begin,
   drain,
-  defaultMatchup,
   golemMatchup,
   humanSide,
   matchupFromQuery,
@@ -101,7 +101,7 @@ const ring = (left, right) => ({ left, right });
 // ---------- the matchup ----------
 
 test("the screen opens with the left fighter yours and a policy opposite", () => {
-  const matchup = defaultMatchup();
+  const matchup = plainMatchup();
   assert.equal(humanSide(matchup), "left");
   assert.equal(matchup.right.control, "mind");
   assert.equal(matchup.left.policy, "idle");
@@ -109,25 +109,25 @@ test("the screen opens with the left fighter yours and a policy opposite", () =>
 });
 
 test("there is one of you, so taking a side gives the other one back to its policy", () => {
-  const taken = withControl(defaultMatchup(), "right", "you");
+  const taken = withControl(plainMatchup(), "right", "you");
   assert.equal(humanSide(taken), "right");
   assert.equal(taken.left.control, "mind");
 });
 
 test("letting go of a side leaves two policies fighting and does not hand you the other", () => {
-  const nobody = withControl(defaultMatchup(), "left", "mind");
+  const nobody = withControl(plainMatchup(), "left", "mind");
   assert.equal(humanSide(nobody), null);
   assert.equal(nobody.right.control, "mind");
 });
 
 test("choosing a policy or a unit touches one side only, and does not move the control", () => {
-  const start = defaultMatchup();
-  const changed = withUnit(withPolicy(start, "right", "idle"), "right", "warrior");
+  const start = plainMatchup();
+  const changed = withUnit(withPolicy(start, "right", "idle"), "right", "other-unit");
   assert.deepEqual(changed.left, start.left);
-  assert.equal(changed.right.unit, "warrior");
+  assert.equal(changed.right.unit, "other-unit");
   assert.equal(changed.right.control, "mind");
   assert.notEqual(changed, start, "the matchup is replaced rather than edited in place");
-  assert.equal(start.right.unit, "warrior", "and the one handed in is untouched");
+  assert.equal(start.right.unit, "plain-unit", "and the one handed in is untouched");
 });
 
 test("changing_unit_preserves_the_policy_even_when_the_new_surface_refuses_it", () => {
@@ -138,9 +138,9 @@ test("changing_unit_preserves_the_policy_even_when_the_new_surface_refuses_it", 
     defaultPolicy: "idle",
   };
   const valid = {
-    ...defaultMatchup(),
+    ...plainMatchup(),
     right: {
-      ...defaultMatchup().right,
+      ...plainMatchup().right,
       policy: "duelist",
       handA: "sword",
       handB: "buckler",
@@ -167,12 +167,12 @@ test("changing_unit_preserves_the_policy_even_when_the_new_surface_refuses_it", 
   assert.equal(wrongLoadout.right.handA, "sword");
   assert.equal(wrongLoadout.right.handB, "buckler");
 
-  const normalized = withUnit(defaultMatchup(), "right", "fixed-pair-unit", rules);
+  const normalized = withUnit(plainMatchup(), "right", "fixed-pair-unit", rules);
   assert.equal(normalized.right.unit, "fixed-pair-unit");
-  assert.equal(normalized.right.policy, defaultMatchup().right.policy);
+  assert.equal(normalized.right.policy, plainMatchup().right.policy);
   assert.equal(normalized.right.handA, "sword");
   assert.equal(normalized.right.handB, "buckler");
-  assert.deepEqual(normalized.left, defaultMatchup().left);
+  assert.deepEqual(normalized.left, plainMatchup().left);
 });
 
 test("an unknown policy is refused by name rather than quietly becoming idle", () => {
@@ -190,8 +190,8 @@ test("an unknown policy is refused by name rather than quietly becoming idle", (
 // ---------- the phases ----------
 
 test("the screen starts a bout, with the matchup that was on the screen", () => {
-  const chosen = withControl(defaultMatchup(), "right", "you");
-  const fighting = begin(selectScreen(defaultMatchup()), chosen);
+  const chosen = withControl(plainMatchup(), "right", "you");
+  const fighting = begin(selectScreen(plainMatchup()), chosen);
 
   assert.equal(fighting.phase, "fight");
   assert.equal(fighting.clock, 0);
@@ -200,8 +200,8 @@ test("the screen starts a bout, with the matchup that was on the screen", () => 
 });
 
 test("the Fight button is refused anywhere but the screen", () => {
-  const fighting = begin(selectScreen(defaultMatchup()), defaultMatchup());
-  const other = withControl(defaultMatchup(), "right", "you");
+  const fighting = begin(selectScreen(plainMatchup()), plainMatchup());
+  const other = withControl(plainMatchup(), "right", "you");
 
   assert.equal(begin(fighting, other), fighting, "mid-fight it is a Resume button");
 
@@ -212,7 +212,7 @@ test("the Fight button is refused anywhere but the screen", () => {
 
 test("restart_from_fight_or_verdict_returns_a_fresh_fight_with_the_same_matchup", () => {
   const fighting = advance(
-    begin(selectScreen(defaultMatchup()), defaultMatchup()),
+    begin(selectScreen(plainMatchup()), plainMatchup()),
     ring(corner(whole()), corner(whole())),
     4,
   );
@@ -232,14 +232,14 @@ test("restart_from_fight_or_verdict_returns_a_fresh_fight_with_the_same_matchup"
 });
 
 test("restart_is_refused_only_when_no_bout_exists", () => {
-  const screen = selectScreen(defaultMatchup());
+  const screen = selectScreen(plainMatchup());
   assert.equal(restart(screen), screen);
 });
 
 test("a decided bout can still return to setup with the same matchup", () => {
-  const chosen = withControl(defaultMatchup(), "right", "you");
+  const chosen = withControl(plainMatchup(), "right", "you");
   const over = advance(
-    begin(selectScreen(defaultMatchup()), chosen),
+    begin(selectScreen(plainMatchup()), chosen),
     ring(corner(minus("head")), corner(whole(), blow("right"))),
     1 / 60,
   );
@@ -252,17 +252,17 @@ test("a decided bout can still return to setup with the same matchup", () => {
 });
 
 test("going back to the screen is refused when you are already on it", () => {
-  const screen = selectScreen(defaultMatchup());
+  const screen = selectScreen(plainMatchup());
   assert.equal(toSelect(screen), screen);
 });
 
 test("time passes in a fight and nowhere else", () => {
   const still = ring(corner(whole()), corner(whole()));
 
-  const screen = selectScreen(defaultMatchup());
+  const screen = selectScreen(plainMatchup());
   assert.equal(advance(screen, still, 1), screen);
 
-  const fighting = advance(begin(screen, defaultMatchup()), still, 0.5);
+  const fighting = advance(begin(screen, plainMatchup()), still, 0.5);
   assert.equal(fighting.clock, 0.5);
   assert.equal(fighting.phase, "fight");
 
@@ -274,7 +274,7 @@ test("time passes in a fight and nowhere else", () => {
 // ---------- taking command of a side ----------
 
 test("taking a body mid-fight makes it yours and hands the other one back", () => {
-  const fighting = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  const fighting = begin(selectScreen(plainMatchup()), plainMatchup());
   assert.equal(humanSide(fighting.matchup), "left");
 
   const swapped = commandSide(fighting, "right");
@@ -285,7 +285,7 @@ test("taking a body mid-fight makes it yours and hands the other one back", () =
 });
 
 test("taking the body you already drive leaves the matchup where it was", () => {
-  const fighting = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  const fighting = begin(selectScreen(plainMatchup()), plainMatchup());
   const again = commandSide(fighting, "left");
   assert.deepEqual(again.matchup, fighting.matchup);
 });
@@ -295,8 +295,8 @@ test("taking a body does not touch either side's policy", () => {
   // which is the whole reason the setup screen leaves the picker enabled on the
   // side a person commands. Taking command in a way that reset it would silently
   // make every body stood down an idle one.
-  const chosen = withPolicy(withPolicy(defaultMatchup(), "left", "duelist"), "right", "swinger");
-  const swapped = commandSide(begin(selectScreen(defaultMatchup()), chosen), "right");
+  const chosen = withPolicy(withPolicy(plainMatchup(), "left", "duelist"), "right", "swinger");
+  const swapped = commandSide(begin(selectScreen(plainMatchup()), chosen), "right");
   assert.equal(swapped.matchup.left.policy, "duelist");
   assert.equal(swapped.matchup.right.policy, "swinger");
 });
@@ -304,7 +304,7 @@ test("taking a body does not touch either side's policy", () => {
 test("commanding a side keeps its auto-commander for when you stand down", () => {
   // The corner's `commander` is what the side goes back to; taking command must not erase it, or
   // standing down from a side set to hold would hand it attack-nearest instead.
-  const held = withCommander(defaultMatchup(), "right", "hold-here");
+  const held = withCommander(plainMatchup(), "right", "hold-here");
   const fighting = begin(selectScreen(held), held);
   const taken = commandSide(fighting, "right");
   assert.equal(taken.matchup.right.control, "you");
@@ -315,7 +315,7 @@ test("commanding a side keeps its auto-commander for when you stand down", () =>
 });
 
 test("taking a body is refused from the screen, where there is no body to take", () => {
-  const screen = selectScreen(defaultMatchup());
+  const screen = selectScreen(plainMatchup());
   assert.equal(commandSide(screen, "right"), screen);
 });
 
@@ -323,7 +323,7 @@ test("taking a body is allowed once the bout is decided, because the world is st
   // `over` deliberately does not stop the fighters -- see `Phase` -- so refusing
   // command there would be a rule invented to protect a banner.
   const over = advance(
-    begin(selectScreen(defaultMatchup()), defaultMatchup()),
+    begin(selectScreen(plainMatchup()), plainMatchup()),
     ring(corner(minus("head")), corner(whole())),
     1 / 60,
   );
@@ -338,14 +338,14 @@ test("the body you took mid-fight is the one selected when you get back to the s
   // The same argument `toSelect` already makes for keeping the matchup at all:
   // the thing you want after a bout is the same bout again, and a choice made
   // with a click is as much a choice as one made with a radio button.
-  const fighting = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  const fighting = begin(selectScreen(plainMatchup()), plainMatchup());
   const back = toSelect(commandSide(fighting, "right"));
   assert.equal(back.phase, "select");
   assert.equal(humanSide(back.matchup), "right");
 });
 
 test("five changes of command in one bout leave one commanded side, not five", () => {
-  let state = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  let state = begin(selectScreen(plainMatchup()), plainMatchup());
   for (const side of ["right", "left", "right", "right", "left"]) {
     state = commandSide(state, side);
     const human = ["left", "right"].filter((s) => state.matchup[s].control === "you");
@@ -355,8 +355,8 @@ test("five changes of command in one bout leave one commanded side, not five", (
 });
 
 test("letting go leaves two minds and both policies where they were", () => {
-  const chosen = withPolicy(withPolicy(defaultMatchup(), "left", "duelist"), "right", "swinger");
-  const fighting = begin(selectScreen(defaultMatchup()), chosen);
+  const chosen = withPolicy(withPolicy(plainMatchup(), "left", "duelist"), "right", "swinger");
+  const fighting = begin(selectScreen(plainMatchup()), chosen);
   assert.equal(humanSide(fighting.matchup), "left");
   const released = standDown(fighting);
   assert.equal(humanSide(released.matchup), null);
@@ -369,15 +369,15 @@ test("letting go leaves two minds and both policies where they were", () => {
 });
 
 test("letting go and taking again leaves exactly one driver", () => {
-  let state = standDown(begin(selectScreen(defaultMatchup()), defaultMatchup()));
+  let state = standDown(begin(selectScreen(plainMatchup()), plainMatchup()));
   state = commandSide(state, "right");
   assert.deepEqual(["left", "right"].filter((s) => state.matchup[s].control === "you"), ["right"]);
 });
 
 test("letting go is refused from the screen and is nothing with nobody to let go of", () => {
-  const screen = selectScreen(defaultMatchup());
+  const screen = selectScreen(plainMatchup());
   assert.equal(standDown(screen), screen);
-  const nobody = standDown(begin(selectScreen(defaultMatchup()), defaultMatchup()));
+  const nobody = standDown(begin(selectScreen(plainMatchup()), plainMatchup()));
   assert.equal(standDown(nobody), nobody);
 });
 
@@ -587,7 +587,7 @@ test("the ramp is the same clock however a body's weights are scaled", () => {
 
 test("nothing drains before the mark, and the first drained frame is only its overhang", () => {
   const still = ring(corner(whole()), corner(whole()));
-  let state = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  let state = begin(selectScreen(plainMatchup()), plainMatchup());
 
   state = advance(state, still, CONFIG.bout.overtimeSeconds - 9);
   assert.equal(state.phase, "fight");
@@ -608,7 +608,7 @@ test("the ramp resolves a bout on accumulated damage, and names the side that wa
   // carrying damage simply reaches zero first. `settle` still invents nothing.
   const hurt = whole().map((part) => (part.key === "torso" ? { ...part, health: 50 } : part));
   const board = ring(corner(hurt, blow("left")), corner(whole(), blow("right")));
-  let state = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  let state = begin(selectScreen(plainMatchup()), plainMatchup());
   for (let frame = 0; frame < 60 * 200 && state.phase === "fight"; frame += 1) {
     state = advance(state, board, 1 / 60);
   }
@@ -645,10 +645,10 @@ test("the verdict spells the four kinds of blow, and lower-cases the limb", () =
 // ---------- and all of it end to end ----------
 
 test("one pass through every phase, in the order a player walks it", () => {
-  const chosen = withPolicy(withControl(defaultMatchup(), "right", "you"), "left", "idle");
+  const chosen = withPolicy(withControl(plainMatchup(), "right", "you"), "left", "idle");
   const still = ring(corner(whole()), corner(whole()));
 
-  let state = selectScreen(defaultMatchup());
+  let state = selectScreen(plainMatchup());
   assert.equal(state.phase, "select");
 
   state = begin(state, chosen);
@@ -773,7 +773,7 @@ test("a hand can be given a kind that takes two, and the table is what says so",
   // `handsFor` now, so a second two-handed kind is a row rather than an edit
   // here -- and the club, which is that kind today, still behaves exactly as it
   // did.
-  const both = withEquipment(defaultMatchup(), "left", "handA", "club");
+  const both = withEquipment(plainMatchup(), "left", "handA", "club");
   assert.equal(both.left.handA, "club");
   assert.equal(both.left.handB, "club", "a two-handed weapon fills the other hand");
 
@@ -783,7 +783,7 @@ test("a hand can be given a kind that takes two, and the table is what says so",
 
   // The kinds that take one hand leave the other alone, all of them.
   for (const kind of WEAPON_KINDS.filter((k) => handsFor(k) === 1)) {
-    const one = withEquipment(defaultMatchup(), "left", "handA", kind);
+    const one = withEquipment(plainMatchup(), "left", "handA", kind);
     assert.equal(one.left.handB, "empty", `${kind} should not reach across`);
   }
 });
@@ -799,12 +799,12 @@ test("a hand offered a kind the code does not have is left empty rather than tru
   assert.equal(isWeaponKind("toString"), false, "and not a prototype member either");
 
   // A stale matchup does not crash the reducer on its way past.
-  const stale = withEquipment(defaultMatchup(), "left", "handA", "halberd");
+  const stale = withEquipment(plainMatchup(), "left", "handA", "halberd");
   assert.equal(stale.left.handB, "empty");
 });
 
 test("equipping a hand touches that hand, that side, and nothing else", () => {
-  const before = defaultMatchup();
+  const before = plainMatchup();
   const after = withEquipment(before, "left", "handB", "shield");
 
   assert.equal(after.left.handB, "shield");
@@ -814,34 +814,23 @@ test("equipping a hand touches that hand, that side, and nothing else", () => {
 });
 
 test("a club fills both hands, because it is one weapon", () => {
-  const club = withEquipment(defaultMatchup(), "right", "handA", "club");
+  const club = withEquipment(plainMatchup(), "right", "handA", "club");
   assert.equal(club.right.handA, "club");
   assert.equal(club.right.handB, "club", "the second hand is on the haft");
 
   // And from the other side, which is the case a rule written once and applied
   // to `handA` only would get wrong.
-  const other = withEquipment(defaultMatchup(), "right", "handB", "club");
+  const other = withEquipment(plainMatchup(), "right", "handB", "club");
   assert.equal(other.right.handA, "club");
   assert.equal(other.right.handB, "club");
 });
 
 test("putting something else in a hand puts the club down", () => {
-  const club = withEquipment(defaultMatchup(), "left", "handA", "club");
+  const club = withEquipment(plainMatchup(), "left", "handA", "club");
   const after = withEquipment(club, "left", "handA", "sword");
 
   assert.equal(after.left.handA, "sword");
   assert.equal(after.left.handB, "empty", "half a club is not a weapon");
-});
-
-test("a bout opens with the loadout every measurement was taken from", () => {
-  // A sword and an empty hand, on both sides. Every number in
-  // `docs/measurements.md` predates there being a choice, and a default that
-  // quietly changed the body would have invalidated all of them at once.
-  const opening = defaultMatchup();
-  for (const side of ["left", "right"]) {
-    assert.equal(opening[side].handA, "sword");
-    assert.equal(opening[side].handB, "empty");
-  }
 });
 
 // ---------------------------------------------------------------- the matchup set's Session 03
@@ -911,7 +900,7 @@ test("a drawn build is installed with its seed, on that side only, and copied", 
 });
 
 test("a build cannot be installed on a corner that is not a golem", () => {
-  const matchup = defaultMatchup();
+  const matchup = plainMatchup();
   assert.equal(withGolemBuild(matchup, "left", HAND_BUILD, 3), matchup);
 });
 
@@ -943,8 +932,8 @@ test("a matchup round-trips through its own query string, seeds and salvage incl
   const query = matchupQuery(matchup);
   assert.match(query, /^\?matchup=/);
   assert.deepEqual(matchupFromQuery(query), matchup);
-  // The Warrior matchup too: the codec is the matchup's shape, not the golem's.
-  assert.deepEqual(matchupFromQuery(matchupQuery(defaultMatchup())), defaultMatchup());
+  // A matchup with no golem too: the codec is the matchup's shape, not the golem's.
+  assert.deepEqual(matchupFromQuery(matchupQuery(plainMatchup())), plainMatchup());
 });
 
 test("a link that is not a matchup is refused by shape rather than repaired", () => {
@@ -1024,7 +1013,7 @@ test("a side's command button stands down from your own side and commands any ot
 
 test("a corner's auto-commander is absent by default and round-trips a link", () => {
   // Absent is attack-nearest, so a corner nobody touched writes the link it always did.
-  const plain = defaultMatchup();
+  const plain = plainMatchup();
   assert.equal(commanderOf(plain.left), "attack-nearest");
   assert.equal(withCommander(plain, "left", "attack-nearest").left.commander, undefined);
   const held = withCommander(plain, "left", "hold-here");

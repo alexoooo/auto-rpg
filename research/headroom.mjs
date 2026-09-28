@@ -1,5 +1,5 @@
 // The headroom audit's full bouts (skill ceiling session 05,
-// written up in `docs/analysis/2026-09-26-headroom.md`).
+// written up in `docs/analysis/2026-09-26-headroom.md` (in git at c76ce6bc)).
 //
 //   node research/headroom.mjs --exp headroom   [--bodies a,b,...] [--minds m1;m2] [--pairs 8] [--lanes 8]
 //   node research/headroom.mjs --exp orderings  [--pairs 16] [--lanes 8]
@@ -14,7 +14,7 @@
 // Every experiment is a list of **cells**, each one mind A on one body against mind B on another,
 // played in **corner-swapped pairs**: one seed pair, A on the left and then A on the right, each
 // mind keeping its own seed (the pair is reversed with the sides, as the league does). A pairing
-// replays one opening whatever its seeds on some minds (`docs/analysis/2026-09-25-side-mirror.md`),
+// replays one opening whatever its seeds on some minds (`docs/analysis/2026-09-25-side-mirror.md` (in git at c76ce6bc)),
 // so a cell is only ever read over whole pairs, and every interval is a bootstrap over seed pairs.
 //
 // **Common random numbers across minds.** In the headroom experiment the seeds of pair k on a body

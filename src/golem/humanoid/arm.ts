@@ -105,7 +105,7 @@ export const anatomicalChain = defineChain({
     // pose, a sweep of both hands in a fighter nobody had moved (5.65 m/s at the tip, idle, Node bout
     // runner, 120 Hz). Every joint is defined by body-local frames at `ARM_REST`, so a body built at
     // any other pose inside `ARM_LIMITS` is a joint built at an angle, not a violation.
-    // `docs/analysis/2026-09-25-arms-at-guard.md`.
+    // `docs/analysis/2026-09-25-arms-at-guard.md` (in git at c76ce6bc).
     let command: HandIntent = { ...restCursor(ctx.socket.slot), roll: 0, wristBend: 0, thrust: false, guard: false };
     let desired = [...ARM_REST];
     const acceptsTaskPalm = (p: Vector3): boolean => {

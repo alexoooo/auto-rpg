@@ -1,6 +1,6 @@
 /**
  * Release 2's question 5(b): why a bigger walker's strokes land worse. The headroom audit's size
- * cell (`docs/analysis/2026-09-26-headroom.md` section 2, bout runner, n 96) has the x1.1 walker
+ * cell (`docs/analysis/2026-09-26-headroom.md` (in git at c76ce6bc) section 2, bout runner, n 96) has the x1.1 walker
  * stroking at the x1 walker's rate and dealing half its damage. This plays that cell again with
  * every stroke instrumented (`research/stroke-worker.mjs`) beside two controls, and reports the
  * stroke's range, its tip against the mark, and what each contact was.
@@ -11,7 +11,7 @@
  * Harness: the Node research runner (`runJobs`, one Havok arena per worker realm), the research
  * `PROTOCOL` (150 s cap, supported locomotion), corner-swapped seed pairs. A is the bigger body in
  * a size cell and the left-hand build's player in the mirror. Write-up:
- * `docs/analysis/2026-09-26-release-2-questions.md`, section 2.
+ * `docs/analysis/2026-09-26-release-2-questions.md` (in git at c76ce6bc), section 2.
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";

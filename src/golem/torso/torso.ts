@@ -11,7 +11,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 
 import type { Striking } from "../../combat.ts";
 import { boxPart, capsulePart, joint } from "../../rig.ts";
-import { slewTowards } from "../anchor-drive.ts";
+import { slewTowards } from "../slew.ts";
 import { trunkChannel } from "../../body-command.ts";
 import { attributeOf, withSize, type SizeLaws } from "../attributes.ts";
 import { TORSO_WAIST, TORSO_WAIST_SIZE } from "../config.ts";
