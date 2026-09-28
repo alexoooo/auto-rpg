@@ -53,17 +53,12 @@ test("the worker counts a corner's knockdowns and its time down from that corner
   // -- over seeds 44 to 59 and twenty seconds, both read identical counts on every pair, and the
   // duelist never fells the idle body.
   // Measured (Node bout runner through `research/worker.mjs`, 2026-09-27): seeds 46/47, nine falls
-  // for 28.3 s down, the walker itself down once; seeds 44/45, three for 8.7 s. With the shove read
-  // whole (2026-09-28) the maul fells the idle body as often as it stands, and every pair from 40 to
-  // 51 reads twelve falls: 33.0 s down on 44/45 and 28.7 s on 46/47. 52/53 reads nine for 25.8 s,
-  // 54/55 eight for 25.4 s. So the control is the first pair from 52 up with fewer falls.
+  // for 28.3 s down, the walker itself down once; seeds 44/45, three for 8.7 s.
   const manifest = { builds: NAMED_BUILDS, protocol: { ...PROTOCOL, maxSeconds: 40 } };
   const job = { id: "down", round: 0, block: "down", left: "golem-walker", right: "idle",
     leftBuild: "maul", rightBuild: "default" };
-  const fallen = await execute({ ...job, seeds: [44, 45] }, manifest);
-  const control = await firstExhibiting(52, 4, (seeds) => execute({ ...job, seeds }, manifest),
-    (found) => found.sides.right.knockdowns < fallen.sides.right.knockdowns);
-  assert.ok(control, `no pair from 52 to 59 falls fewer than ${fallen.sides.right.knockdowns} times`);
+  const fallen = await execute({ ...job, seeds: [46, 47] }, manifest);
+  const control = await execute({ ...job, seeds: [44, 45] }, manifest);
   assert.ok(fallen.sides.right.knockdowns >= 2 && fallen.sides.right.knockdowns > control.sides.right.knockdowns,
     `the fixture no longer exhibits: ${fallen.sides.right.knockdowns} falls against the control's ${control.sides.right.knockdowns}`);
   // A count on the edge into fallen, not on every fallen frame: each fall costs over a second down,
