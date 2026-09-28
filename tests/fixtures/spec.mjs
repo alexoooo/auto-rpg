@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { SOURCES } from "../../src/core/sources.ts";
 import { derivationsOf, inventory, sourcesOf } from "../../src/core/spec/provenance.ts";
+import { readGlb } from "../../scripts/core/glb.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 
@@ -35,9 +36,13 @@ function atPointer(document, pointer) {
     .reduce((node, token) => (node == null ? undefined : node[token]), document);
 }
 
+/** An asset's JSON: the file itself, or a GLB's JSON chunk. */
 const files = new Map();
 function json(file) {
-  if (!files.has(file)) files.set(file, JSON.parse(fs.readFileSync(path.join(ROOT, file), "utf8")));
+  if (!files.has(file)) {
+    const full = path.join(ROOT, file);
+    files.set(file, file.endsWith(".glb") ? readGlb(full).json : JSON.parse(fs.readFileSync(full, "utf8")));
+  }
   return files.get(file);
 }
 
@@ -68,7 +73,9 @@ export function specProvenanceFaults(spec) {
       const source = SOURCES[key];
       if (!source) { faults.push(`${where} rests on "${key}", which SOURCES does not list`); continue; }
       if (!at) faults.push(`${where} rests on ${key} without saying where in it`);
-      if (source.kind === "asset") {
+      if (source.kind === "asset" && !/\.(json|glb)$/.test(source.file)) {
+        faults.push(`${where}: ${key} is ${source.file}, which a JSON pointer cannot read back`);
+      } else if (source.kind === "asset") {
         const found = atPointer(json(source.file), at);
         if (found === undefined || !sameValue(leaf.value, found)) {
           faults.push(`${where}: ${source.file} ${at} is ${JSON.stringify(found)}, not ${leaf.value}`);

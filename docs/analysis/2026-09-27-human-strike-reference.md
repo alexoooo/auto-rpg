@@ -121,6 +121,36 @@ Useful sums at 80 kg:
 | Golf: what predicts club and ball speed | Pelvis rotation velocity alone does not separate groups | Torso-pelvis separation (X-factor) and upper-torso rotation velocity correlate with ball velocity | Myers et al. 2008 |
 | Ground reaction force | -- | Lead-foot force 123 % of body weight in pro hitters; lead-leg ground reaction force correlates with punch hand velocity | Welch et al. 1995; Stanley et al. 2018 (as reported in reviews) |
 
+## 8. The workshop models
+
+Added 2026-09-28 for the core's human spec (`src/core/human/`). These are measurements of this
+repository's assets, not literature.
+
+**Stature.** Each model's stature is the top of its skin: the maximum y of `base__skin`'s
+positions in `public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0. Hair is not stature.
+
+| Model | Skin top at the authored size | At x1 (x 1.77 / 1.880) |
+|---|---|---|
+| Warrior (`workshop-fighter`) | 1.8805 m | 1.770 m |
+| Rogue (`workshop-rogue`) | 1.7305 m | 1.629 m |
+
+x1 is the owner's typical adult (2026-09-27): 1.77 m and 79 kg for a man. The Rogue takes the
+Warrior's factor, so she keeps her size against him.
+
+**Volume.** Each model's skin, feet, jacket, trousers, collar and belt were closed by voxel flood
+fill in the bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm; a finer grid
+leaks through a seam. What is enclosed, and what is not outside, bracket the volume (litres, at the
+authored size):
+
+| Model | Enclosed | Not outside | Taken |
+|---|---|---|---|
+| Warrior | 107.6 | 111.4 | 109.5 |
+| Rogue | 78.0 | 81.6 | 79.8 |
+
+The ratio is 0.729 on either bound to the third digit, and the clothes are the same garments on
+both. The Rogue's mass is the Warrior's 79 kg times this ratio, 57.6 kg: her own build's mass at
+the same density.
+
 ## Notes and caveats
 
 1. **Effective mass depends on its definition.**

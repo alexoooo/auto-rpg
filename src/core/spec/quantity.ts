@@ -32,7 +32,8 @@ export type Unit =
   | "N m" | "N"
   | "rad" | "deg"
   | "rad/s" | "deg/s"
-  | "s";
+  | "m/s2"
+  | "s" | "Hz";
 
 /** A number read from a source: `where` says where in it, as the source is cited. */
 export interface FromSource {

@@ -61,6 +61,16 @@ test("the rule finds a source the list does not have, and a leaf that does not s
   assert.deepEqual(specProvenanceFaults({ nowhere }), ["nowhere rests on de-leva-1996 without saying where in it"]);
 });
 
+test("the rule reads an asset's number back, from a JSON file and from a GLB's JSON chunk", () => {
+  const rig = sourced(1.0165272951126099, "m", "workshop-fighter-rig", "/bones/pelvis/head/2");
+  const glb = sourced(1.8804991245269775, "m", "workshop-fighter-glb", "/accessors/231/max/1");
+  assert.deepEqual(specProvenanceFaults({ rig: derive("m", "the same", [rig, glb], (a) => a) }), []);
+  const moved = sourced(1.0166, "m", "workshop-fighter-rig", "/bones/pelvis/head/2");
+  assert.deepEqual(specProvenanceFaults({ moved }), ["moved: assets/humanoid/workshop-fighter.json /bones/pelvis/head/2 is 1.0165272951126099, not 1.0166"]);
+  const missing = sourced(1, "m", "workshop-fighter-glb", "/accessors/231/max/7");
+  assert.deepEqual(specProvenanceFaults({ missing }), ["missing: public/assets/humanoid/workshop-fighter.glb /accessors/231/max/7 is undefined, not 1"]);
+});
+
 test("a quantity refuses a number that is not finite, and converts to SI by its unit's definition", () => {
   assert.throws(() => sourced(Number.NaN, "kg", "de-leva-1996", "x"));
   assert.throws(() => derive("kg", "divide", [bodyMass()], (m) => m / 0));
@@ -76,7 +86,8 @@ test("every source is complete, and every file it names exists", () => {
     switch (source.kind) {
       case "literature": assert.ok(source.cite && /^https?:\/\//.test(source.link), key); break;
       case "decision": assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(source.date) && source.decided && source.record, key); break;
-      case "asset": assert.ok(fs.existsSync(path.join(ROOT, source.file)) && source.what, key); break;
+      // An asset's `where` is a JSON pointer, so the rule can read the number back from it.
+      case "asset": assert.ok(fs.existsSync(path.join(ROOT, source.file)) && /.(json|glb)$/.test(source.file) && source.what, key); break;
       case "measurement": assert.ok(source.how && source.record, key); break;
       default: assert.fail(`${key} has an unknown kind ${source.kind}`);
     }
