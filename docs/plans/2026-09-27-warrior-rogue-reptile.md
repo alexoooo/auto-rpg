@@ -1,5 +1,9 @@
 # Warrior, Rogue and the reptile
 
+> **Paused 2026-09-28.** The owner chose to build a physically based core first
+> ([the core foundation](2026-09-28-core-foundation.md)); its salvage table says where each piece of
+> this plan goes. Session 2 steps 1-5 landed; step 6 is parked on `wip/s2-step6-human-ranges`.
+
 Planned 2026-09-27 from the owner's brief:
 
 - Focus on the two new human forms, the Rogue and the Warrior.

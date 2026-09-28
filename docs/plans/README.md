@@ -1,6 +1,6 @@
 # Active and deferred plans
 
-Reviewed 2026-09-27. The new direction and preparatory recommendations are in
+Reviewed 2026-09-28. The new direction and preparatory recommendations are in
 [next-phase consolidation](../analysis/2026-09-27-next-phase-consolidation.md).
 That proposal does not establish completion of the outstanding work below.
 
@@ -8,7 +8,8 @@ That proposal does not establish completion of the outstanding work below.
 |---|---|
 | [Depths](2026-09-23-depths-00-overview.md) | Session 06: authored room set pieces; earlier implementation sessions have landed. |
 | [Skeleton art](2026-09-23-skeleton-art-00-overview.md) | Session 03: visual review and fit/performance questions; session 04: optional costume. |
-| [Warrior, Rogue and the reptile](2026-09-27-warrior-rogue-reptile.md) | Session 1 landed. Session 2, a human that strikes like a human, is in progress; then the damage unit, the HP pool, the reptile and readings. |
+| [The core foundation](2026-09-28-core-foundation.md) | Active from 2026-09-28: a physically based core beside the old one, humans first. Stage 0 next. |
+| [Warrior, Rogue and the reptile](2026-09-27-warrior-rogue-reptile.md) | **Paused 2026-09-28** for the core foundation, which salvages it: Session 2 steps 1-5 landed, step 6 is parked on `wip/s2-step6-human-ranges`, and Sessions 3-5 become the core's stages 5 and 7. |
 | [Dungeon look](2026-09-24-dungeon-look-00-overview.md) | Session 06: optional pixel-look experiment; recorded visual/performance questions still need judgment. |
 
 ## Closed without completion
