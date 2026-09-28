@@ -89,7 +89,9 @@ Each stage lands as commits behind tests. Measurements name their harness. Where
 
 **The builder.** `buildBody(spec, world)` makes Havok bodies and joints from a spec and nothing else. Attributes act on the spec, once, before the build.
 
-**Stand.** A Node stand builds a spec and holds it posed against gravity with its joints motored.
+**Stand.** A Node stand builds a spec and holds it posed against gravity with its joints motored,
+pinned at the pelvis (`tests/core-stand.test.mjs`). Standing on its own feet is stage 4's; see
+"standing on the feet" below.
 
 **Tests.**
 - Masses sum to the model's mass.
@@ -116,6 +118,34 @@ takes kg m2 per kilogram (H49), so every segment turned as if its inertia were i
 spec's: the Warrior's 0.48 kg hand spun 2.1 times too fast and his trunk far too slowly. A test
 that reads the inertia back could not see it. The builder now divides by the mass, and each
 segment of both humans answers an angular impulse within 0.4 % of its spec (Node stand, 120 Hz).
+
+**Found while building (2026-09-28): standing on the feet** (Node stand, 120 Hz, each human on
+the ground, every freedom braked by a zero-velocity motor).
+- The Rogue stands. The Warrior topples backward within about 2 s, at his weaker peaks and at
+  10^5 N m alike. A servo toward the reference pose (velocity -angle/tau, tau 0.02-0.2 s, capped
+  by the peak in the direction pushed) topples him too.
+- In the reference pose his centre of mass is 1-2 mm ahead of his ankle axis (the Rogue's, 4 mm).
+  Past about 7 degrees back, gravity's moment is more than both dorsiflexors' 43 N m hold.
+- What tips him is the solver. A toy -- a 70 kg pole on a 1 kg foot box, hinged at the ankle, 1 cm
+  forward of it -- falls forward with the hinge free, as it should. A zero-velocity motor of
+  1000 N m on the hinge instead drives it backward 52 degrees in 1 s:
+
+  | Toy variant | Hinge after 1 s (deg) |
+  |---|---|
+  | 1 kg foot | -51.6 |
+  | 1 kg foot, 480 Hz / 1920 Hz sub-step | -28.4 / -6.2 |
+  | 1 kg foot, its inertia x10 / x100 | -11.8 / -0.7 |
+  | 10 kg foot / 10 kg foot, inertia x100 | -12.1 / -0.05 |
+
+  So a motor across a large inertia ratio, on a body in ground contact, is not held by Havok's
+  solver at 120 Hz. On the Warrior, feet at x100 inertia still drift 3.5 degrees in 5 s; with
+  his ankles locked by their limits instead of braked, he stands.
+- Consequences, for the owner: standing is a balance problem and belongs to stage 4, with
+  position feedback on the body, not the joint. Stage 2's ankle must be read against this before
+  its motor is trusted, and so, if the same ratio does the same there, must the wrist under a
+  weapon. The measured ways out are
+  a foot inertia floor (named, like any floor), a finer sub-step, or an ankle held through its
+  limits; none is chosen here.
 
 ### Stage 2: the muscle actuator
 

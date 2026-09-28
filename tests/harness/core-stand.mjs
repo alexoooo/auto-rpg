@@ -3,7 +3,12 @@
  *
  * The recipe is AGENTS.md's: a `NullEngine`, a `Scene`, Havok from bytes, and each step a render id
  * and one fixed physics step. The body is built through `buildBody` and nothing else, so what the
- * stand reads is what the spec states.
+ * stand reads is what the spec states. Every segment is kept awake: a sleeping body reads a perfect
+ * zero (H08).
+ *
+ * Holding a pose is the stand's, not the core's: `holdReferencePose` brakes every freedom at a
+ * muscle's isometric peak. It is a test instrument until the muscle actuator (stage 2 of the plan)
+ * drives the joints.
  */
 import { readFile } from "node:fs/promises";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
@@ -12,7 +17,7 @@ import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import { PhysicsShapeBox } from "@babylonjs/core/Physics/v2/physicsShape.js";
-import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { PhysicsActivationControl, PhysicsConstraintMotorType, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import HavokPhysics from "@babylonjs/havok";
 import { attachHavok, PHYSICS_HZ } from "../../src/core/engine/havok.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
@@ -26,9 +31,10 @@ export async function freshHavok() {
 
 /**
  * A stand for `spec`. `gravity: false` builds a world without it, for reading a joint alone;
- * `ground: false` leaves the body in the air.
+ * `ground: false` leaves the body in the air; `pinned` names a segment the stand holds still, as a
+ * mannequin's stand holds its pelvis.
  */
-export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0] } = {}) {
+export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachHavok(scene, await freshHavok());
@@ -43,6 +49,13 @@ export async function coreStand(spec, { gravity = true, ground = true, position 
     floor = { node, body };
   }
   const built = buildBody(spec, scene, { position });
+  const plugin = scene.getPhysicsEngine().getPhysicsPlugin();
+  for (const segment of built.segments.values()) plugin.setActivationControl(segment.body, PhysicsActivationControl.ALWAYS_ACTIVE);
+  if (pinned !== undefined) {
+    const segment = built.segments.get(pinned);
+    if (!segment) throw new Error(`no segment ${pinned} to pin`);
+    segment.body.setMotionType(PhysicsMotionType.STATIC);
+  }
   const stepMs = 1000 / PHYSICS_HZ.value;
   return {
     scene, built, floor,
@@ -61,6 +74,28 @@ export async function coreStand(spec, { gravity = true, ground = true, position 
     },
   };
 }
+
+/**
+ * Brake every freedom of `built` where it stands: a velocity motor asking for no motion, whose
+ * ceiling is `ceiling(dof)`, by default the freedom's weaker isometric peak. A motor's ceiling is
+ * one number for both senses, so the weaker peak is what the muscle can hold whichever way it is
+ * loaded.
+ *
+ * A brake has no memory of where it started, so what the solver lets through it keeps. It holds a
+ * body on a stand (`pinned`); it does not balance one on its feet (plan, stage 1, "Found while
+ * building").
+ */
+export function holdReferencePose(built, ceiling = weakerPeak) {
+  for (const joint of built.joints.values()) {
+    for (const dof of joint.dofs) {
+      joint.constraint.setAxisMotorType(dof.axis, PhysicsConstraintMotorType.VELOCITY);
+      joint.constraint.setAxisMotorTarget(dof.axis, 0);
+      joint.constraint.setAxisMotorMaxForce(dof.axis, ceiling(dof));
+    }
+  }
+}
+
+const weakerPeak = (dof) => Math.min(dof.spec.muscle.peakPositive.value, dof.spec.muscle.peakNegative.value);
 
 /**
  * Spin segment `name` of `spec` by an angular impulse of `impulse` about its frame's `axisName`,
