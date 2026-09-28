@@ -331,7 +331,7 @@ export function buildArmCore(
   // way: a blade-on-blade contact at t = 0.117 s in all four probe-mind mirrors, identical across
   // minds because no mind had yet moved anything. Built where the command already is, the idle
   // tip peaks at 0.10 m/s and the first move an arm makes is its commander's.
-  // `docs/analysis/2026-09-25-arms-at-guard.md`.
+  // `docs/analysis/2026-09-25-arms-at-guard.md` (in git at c76ce6bc).
   //
   // Clamped into the limits rather than taken raw -- `clampInto`, the mapping's own clamp --
   // because a narrowing that put the build pose outside the envelope would make the first command

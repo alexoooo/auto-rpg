@@ -1,4 +1,4 @@
-// The reference expert (skill ceiling session 04, `docs/analysis/2026-09-25-expert.md`),
+// The reference expert (skill ceiling session 04, `docs/analysis/2026-09-25-expert.md` (in git at c76ce6bc)),
 // on the odd morphology: a three-legged, one-armed body against a wheeled head-rammer with no hands.
 //
 // What is held here:

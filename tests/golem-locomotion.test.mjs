@@ -742,7 +742,7 @@ test("a_foot_in_the_air_is_still_part_of_the_base_a_walking_body_stands_on", asy
   // (`SKELETON_BIPED.hipAhead`). Pressed against a post, its centre of mass then sat on its heels,
   // 26 mm from the rear edge against 103 mm before, and read a zero line in 104 of those 125 samples.
   // Its first 8 m read none, both before and after. That is the close-contact cost of the change,
-  // recorded in `docs/analysis/2026-09-25-falls-and-rise.md`, and not what this test is about. So
+  // recorded in `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc), and not what this test is about. So
   // this walk stops 2.5 s in, at 8 m. Over it the biped reads a zero line in 0 of 150 samples and
   // the skeleton in 1. With only planted soles in the base those are 81 and 85, the mutation that
   // turns this red. Soles are lifted in 104 and 113 samples.

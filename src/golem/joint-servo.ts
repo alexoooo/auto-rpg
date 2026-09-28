@@ -109,7 +109,7 @@ export class JointActuator {
  * The exact discretisation of branch `physics-rate-servo-tuning` (a gain of
  * `(1 - e^(-k dt)) / dt` and an exactly integrated filter) was measured beside these and is not
  * the form here: it changes the arm at 240 as well, and at 120 it is slower than 240 by -0.79
- * m/s of cut peak and -1.43 of lash. `docs/analysis/2026-09-25-release-120.md` has every row.
+ * m/s of cut peak and -1.43 of lash. `docs/analysis/2026-09-25-release-120.md` (in git at c76ce6bc) has every row.
  */
 const tuningStep = (): number => 1 / CONFIG.world.solverTuningHz;
 

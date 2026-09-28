@@ -46,7 +46,7 @@ export const CONFIG = {
      * lead, gain and command filter (`servoLead`, `servoGain` in
      * `src/golem/joint-servo.ts`), and the contact reading (`combat.contactReading`
      * `"arrival"`), which reads a blow as the step that found it began rather than
-     * as the solver left it. The account is `docs/analysis/2026-09-25-release-120.md`.
+     * as the solver left it. The account is `docs/analysis/2026-09-25-release-120.md` (in git at c76ce6bc).
      */
     physicsHz: 120,
     /**
@@ -59,7 +59,7 @@ export const CONFIG = {
      * step left at 1/240 gives back the 240 envelope at 120's cost (Node golem bench, wrist
      * blade: idle stray 24.7 -> 1.6 mm, cut stray 108.9 -> 48.8, biped walk slip 567 -> 151
      * mm/s, against 3.05, 37.9 and 99 at 240), where 1/360 and 1/480 are worse again. The
-     * table is in `docs/analysis/2026-09-25-physics-rate-2.md`. It is a property of the tuning,
+     * table is in `docs/analysis/2026-09-25-physics-rate-2.md` (in git at c76ce6bc). It is a property of the tuning,
      * not of the rate: change it only with every drive re-measured.
      *
      * The release runs exactly that way: `physicsHz` 120 against this 240. The arm servos read
@@ -74,7 +74,7 @@ export const CONFIG = {
      * carrier still stages its request and each gait still runs at `physicsHz`; only publishing the
      * view and `Mind.decide` are skipped. The substep interval is `round(physicsHz / controlHz)`,
      * never less than one, so a value at or above `physicsHz` decides every substep, as before.
-     * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md`. It was 240 with
+     * The prototype's table is in `docs/analysis/2026-09-25-physics-rate-2.md` (in git at c76ce6bc). It was 240 with
      * `physicsHz` 240 until the release of 2026-09-25; at 120 against 120 a mind still decides
      * every substep, half as often a second.
      */
@@ -984,7 +984,7 @@ export const CONFIG = {
      * each named build's mirror, 192 bouts per set, 150 s cap, seed 20260923; paired t120 (physics
      * 120 Hz, solver tuned to 240) against s240 under the same reading, naive 95 % with the
      * interval clustered by mind pairing in brackets
-     * (`docs/analysis/2026-09-25-rate-contact-reading.md`):
+     * (`docs/analysis/2026-09-25-rate-contact-reading.md` (in git at c76ce6bc)):
      *
      * | build   | settled: Delta ln s     | arrival 0.56: Delta ln s        | arrival 0.56: Delta damage/s |
      * |---------|------------------------:|--------------------------------:|-----------------------------:|
@@ -1024,11 +1024,11 @@ export const CONFIG = {
      * maul at 0.665), the fist 0.62 (crossing 0.625), and the whip stayed at 0.56 because its length
      * hardly answered the fraction (crossing extrapolated to 0.79, its excess travelling with its
      * falls). No mirror fielded an axe, bow, shield, arrow, bite or ram, so they kept the blade's
-     * row. `docs/analysis/2026-09-25-rate-contact-reading.md` and
-     * `docs/analysis/2026-09-25-release-120.md` have the tables.
+     * row. `docs/analysis/2026-09-25-rate-contact-reading.md` (in git at c76ce6bc) and
+     * `docs/analysis/2026-09-25-release-120.md` (in git at c76ce6bc) have the tables.
      *
      * It billed a blow at 31-38 % of the energy that arrived, which made every joule in a readout a
-     * third of a real one (`docs/analysis/2026-09-27-human-strike-realism.md`, finding 1). Since
+     * third of a real one (`docs/analysis/2026-09-27-human-strike-realism.md` (in git at c76ce6bc), finding 1). Since
      * 2026-09-27 the velocity is billed whole, and the fraction lives in the prices: the header's
      * third table.
      */

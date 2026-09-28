@@ -1,7 +1,7 @@
 /**
  * One bout, read for the fall loop: every knockdown, what fed the ledger on the boundary it fell,
  * how long the body had been up, and what the first seconds after each rise looked like
- * (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`).
+ * (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc)).
  *
  * The worker `research/fall-loop.mjs` hands to `runJobs`. It plays the bout `research/worker.mjs`
  * plays -- `createBout` under the research `PROTOCOL`, a fresh Havok -- and reads once a substep, on

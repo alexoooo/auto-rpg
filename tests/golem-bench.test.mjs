@@ -2046,7 +2046,7 @@ test("an_arm_is_built_where_its_rest_command_holds_it", async () => {
   // (stone), 14.9 (pitch), 5.65 (human) and 9.55 (skeleton), and two stone fighters at the arena's
   // separation clashed blades at 0.117 s in every probe-mind mirror (Node bout runner, 120 Hz).
   // Built at the pose the rest command holds, nothing moves until a commander moves it: 0.16 m/s
-  // or less. `docs/analysis/2026-09-25-arms-at-guard.md`.
+  // or less. `docs/analysis/2026-09-25-arms-at-guard.md` (in git at c76ce6bc).
   //
   // The rest command is restated in the body (`restCursor`), so first: it is the one the mind's
   // `NEUTRAL` and the option layer's `freshIntent` hold, on both hands.

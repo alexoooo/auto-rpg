@@ -6,9 +6,11 @@ the browser, on Babylon.js 9 and Havok. Beside `src/` are the tests and headless
 (`tests/`), the policy league and research scripts (`research/`), asset-export scripts
 (`scripts/`), design notes (`docs/`) and the GitHub Pages deploy (`.github/workflows/pages.yml`).
 
-**Where the project is going:** [next-phase consolidation](docs/analysis/2026-09-27-next-phase-consolidation.md)
-(Arena, Ladder and a Diablo-like Dungeon; equipment; many morphologies; layered AI). Active plans
-are indexed in [docs/plans/README.md](docs/plans/README.md).
+**Where the project is going:** Arena, Ladder and a Diablo-like Dungeon; equipment; many
+morphologies; layered AI. The work now is [the core foundation](docs/plans/2026-09-28-core-foundation.md):
+a clean, physically based core beside the old game, humans first, argued in
+[the foundation audit](docs/analysis/2026-09-28-foundation-audit.md). Plans are indexed in
+[docs/plans/README.md](docs/plans/README.md), which also says which commit holds a deleted document.
 
 **Rules below are short on purpose.** Each cites an entry in [docs/history.md](docs/history.md)
 (`H01`-`H72`) that holds the incident, the numbers and how it was found. Read the entry before
@@ -237,9 +239,11 @@ Each one was paid for; the full text is in [docs/history.md](docs/history.md).
 
 The argument for a constant is its doc comment, with the table that chose it: `src/config.ts` for
 the arena and `src/golem/config.ts` for body tables. `docs/` holds what belongs to no one file:
-plans in `docs/plans/`, dated analyses in `docs/analysis/`, standing notes
-(`docs/humanoids.md`, `docs/movement-stability.md`, `docs/workshop-fighter-integration.md`,
-`docs/rogue-archer.md`) and the history behind this file.
+plans in `docs/plans/`, dated analyses in `docs/analysis/`, standing notes on assets and
+pages (`docs/workshop-fighter-integration.md`, `docs/rogue-archer.md`,
+`docs/dungeon-reference.md`, `docs/character-lab/`) and the history behind this file. A plan or
+analysis that is finished or superseded is deleted, not kept; what cites it names the commit
+that still has it.
 
 `src/config.ts` is deliberately mutable: the arena exposes it as `window.__sword.config`, so tune
 from the console, then write the number back with its table. `src/golem/config.ts` is not exposed.

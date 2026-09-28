@@ -7,7 +7,7 @@
  *     node research/release2-attr-falls.mjs <run directory> [...]
  *
  * Harness: whatever the run's was -- the Node bout runner through the research runner, research
- * `PROTOCOL`. Write-up: `docs/analysis/2026-09-26-release-2-questions.md`, section 4.
+ * `PROTOCOL`. Write-up: `docs/analysis/2026-09-26-release-2-questions.md` (in git at c76ce6bc), section 4.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";

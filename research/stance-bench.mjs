@@ -2,7 +2,7 @@
 // stance through a command mind, standing and then walking, and read for where its feet went, how
 // high its hips sit, and how hard it is to push over in each direction.
 //
-// The authority rule of `docs/plans/2026-09-25-skill-ceiling-06-commander-and-command-surface.md`:
+// The authority rule of `docs/plans/2026-09-25-skill-ceiling-06-commander-and-command-surface.md` (in git at c76ce6bc):
 // the channel names its actuator (`gaitChannels` in `src/body-command.ts`: the hip abduction and
 // flexion, knee and ankle servos) and this measures what that actuator does with the command.
 //

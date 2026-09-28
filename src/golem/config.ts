@@ -2670,7 +2670,7 @@ export const KNOCKDOWN: Knockdown = Object.freeze({
 });
 
 /**
- * How a biped gets up (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`): three stages, the
+ * How a biped gets up (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc)): three stages, the
  * pelvis keyframed and the legs driven by their own motors to a pose solved for where the pelvis is.
  *
  * 1. **Gather** (at least `gatherS`): the legs fold and pull the feet in under where the body will
@@ -2819,7 +2819,7 @@ export const LOCOMOTION_BIPED = {
   /**
    * How far ahead of the pelvis's own centre the hip pivots sit, metres: where the legs hang from,
    * and so where the feet stand. Zero for a body whose centre of mass is over its pelvis, as stone's
-   * and the human's are (0.033 and 0.029 m ahead, `docs/analysis/2026-09-23-attribute-measurements.md`).
+   * and the human's are (0.033 and 0.029 m ahead, `docs/analysis/2026-09-23-attribute-measurements.md` (in git at c76ce6bc)).
    * A body that carries its weight ahead of its pelvis sets it so that its feet stand under that
    * weight (`SKELETON_BIPED`), because nothing in this module balances: a body whose centre of mass
    * is past its toes falls to any touch.
@@ -3112,7 +3112,7 @@ export const LOCOMOTION_BIPED = {
    * the knee, and the middle of the flat part. 2026-09-18, the Node bench.
    *
    * **At 120 Hz the cliff came up under 10.5, and 11.5 is taken.** Found by the size-law study
-   * (`docs/analysis/2026-09-25-size-law.md` on its own branch), which read 684.7 mm/s at 0.90 of the
+   * (`docs/analysis/2026-09-25-size-law.md` (in git at c76ce6bc) on its own branch), which read 684.7 mm/s at 0.90 of the
    * rate and 279.1 at 0.95, so the x1 walk sat within 5 % of the cliff edge and a larger body fell
    * off it first. Re-measured here, Node locomotion bench (`runGolemLocomotion`, release-120
    * defaults), stone biped, mean planted-sole slip in mm/s and substeps with no sole down (of 479)

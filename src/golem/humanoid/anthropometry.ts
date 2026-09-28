@@ -3,7 +3,7 @@ import type { WorkshopModel } from "./workshop-profile.ts";
 /**
  * How big and how heavy a human is at x1, and how its mass is shared among its parts. Session 2,
  * step 2 of `docs/plans/2026-09-27-warrior-rogue-reptile.md`; the findings that asked for it are
- * `docs/analysis/2026-09-27-human-strike-realism.md` ("The body is not a typical adult").
+ * `docs/analysis/2026-09-27-human-strike-realism.md` (in git at c76ce6bc) ("The body is not a typical adult").
  *
  * **x1 is a typical adult** (the owner's decision, 2026-09-27): about 1.77 m and 79 kg for a man.
  * Until then a Warrior at x1 was the workshop model at the size it was authored, 1.88 m of skin

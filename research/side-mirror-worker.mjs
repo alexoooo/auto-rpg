@@ -6,7 +6,7 @@
  * directly, one bout after another in its own realm.
  *
  * **Why a trajectory hash.** Every bout of one mind pairing plays the same opening whatever its
- * seeds (`docs/analysis/2026-09-25-rate-control-clock.md`), and a mind whose seed reaches nothing
+ * seeds (`docs/analysis/2026-09-25-rate-control-clock.md` (in git at c76ce6bc)), and a mind whose seed reaches nothing
  * plays the same *whole* bout whatever its seeds. Such a mirror's 128 bouts are one bout counted
  * 128 times, and a band taken on 128 would be a band on nothing. So every bout carries a running
  * hash of both bodies -- every limb's position and health, both bars -- taken every

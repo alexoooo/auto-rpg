@@ -1,6 +1,6 @@
 /**
  * The body command: what a mind hands a body, by channel (skill ceiling session 06, the
- * command-surface half; `docs/analysis/2026-09-26-command-surface.md`).
+ * command-surface half; `docs/analysis/2026-09-26-command-surface.md` (in git at c76ce6bc)).
  *
  * **Designed for control rather than for a mouse.** `Intent` was the controller a person used to
  * drive a body with, and every mind wrote it because a person did. A person no longer puppets a body

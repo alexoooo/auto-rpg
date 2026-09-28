@@ -1,6 +1,6 @@
 /**
  * The rise, measured: a standing body knocked down by a shove and watched while it gets up and for
- * three seconds after (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`).
+ * three seconds after (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc)).
  *
  *     node research/rise-bench.mjs --builds default,skeleton-warrior,warrior --pushes back,front,side
  *

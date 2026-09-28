@@ -3,7 +3,7 @@
  *
  * **A person commands and does not puppet.** What a person, or an auto-commander on an AI side,
  * hands a body is an `Orders`: a target and a destination. The mind still drives the body -- its
- * arms, its trunk, its footwork -- and the orders bend only where it goes. `docs/analysis/2026-09-26-orders.md`
+ * arms, its trunk, its footwork -- and the orders bend only where it goes. `docs/analysis/2026-09-26-orders.md` (in git at c76ce6bc)
  * is the argument.
  *
  * - `target` is a body id, a point on the ground, or null. A body id is the enemy to fight: the

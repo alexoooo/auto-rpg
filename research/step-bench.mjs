@@ -2,7 +2,7 @@
 // ground point and a time, read for when it got there, how far past it went, where it stopped and
 // whether it stayed up, against the same body driven at the point by keys.
 //
-// The authority rule of `docs/plans/2026-09-25-skill-ceiling-06-commander-and-command-surface.md`:
+// The authority rule of `docs/plans/2026-09-25-skill-ceiling-06-commander-and-command-surface.md` (in git at c76ce6bc):
 // the channel names its actuator (`gaitChannels` in `src/body-command.ts`: the carrier, through
 // `stepTravel` in `src/step-target.ts`) and this measures what that actuator does with the command.
 //

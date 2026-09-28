@@ -1,4 +1,4 @@
-// The drills (skill ceiling session 03, `docs/analysis/2026-09-25-drills.md`),
+// The drills (skill ceiling session 03, `docs/analysis/2026-09-25-drills.md` (in git at c76ce6bc)),
 // on the odd morphology: a three-legged, one-armed body against a wheeled head-rammer with no hands.
 //
 // What is held here:

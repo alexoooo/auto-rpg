@@ -5,7 +5,7 @@
  *     node research/side-mirror.mjs --minds golem-duelist,golem-walker --blocks 64 --workers 12
  *
  * The table it writes (`mirror.md` beside `results.jsonl`) is recorded and explained in
- * `docs/analysis/2026-09-25-side-mirror.md`.
+ * `docs/analysis/2026-09-25-side-mirror.md` (in git at c76ce6bc).
  *
  * **What a mirror is.** One mind on both sides of one build, and nothing else different but the
  * side. The right body is the left one turned half a turn, so a left share away from 50 % is the

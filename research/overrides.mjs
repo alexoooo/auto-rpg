@@ -1,6 +1,6 @@
 /**
  * Counterfactual knobs for a research run: a constant moved for one run's bouts and put back after
- * each of them, never a retune (`docs/analysis/2026-09-26-release-2-questions.md`).
+ * each of them, never a retune (`docs/analysis/2026-09-26-release-2-questions.md` (in git at c76ce6bc)).
  *
  * A run names its knobs in its manifest (`manifest.overrides`, `{ knob: value }`), so the value a
  * run was played at is part of the identity `runJobs` checks on resume, and the worker applies them

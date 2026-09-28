@@ -1,7 +1,7 @@
 /**
  * The side-mirror gate (`research/side-mirror.mjs`), in the suite at a small n.
  *
- * The full-n row is the research script's (`docs/analysis/2026-09-25-side-mirror.md`). What runs
+ * The full-n row is the research script's (`docs/analysis/2026-09-25-side-mirror.md` (in git at c76ce6bc)). What runs
  * here is the instrument's arithmetic on fixtures, and then real mirrors: a shipped mind whose
  * mirror is inside its band, beside a control the gate must fail -- a mirror the side decides.
  */

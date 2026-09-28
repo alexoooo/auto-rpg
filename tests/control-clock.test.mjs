@@ -1,6 +1,6 @@
 // The control clock (`CONFIG.world.controlHz`): a mind decides every `physicsHz / controlHz`
 // substeps and the host re-applies its command in between. See
-// `docs/analysis/2026-09-25-rate-control-clock.md`.
+// `docs/analysis/2026-09-25-rate-control-clock.md` (in git at c76ce6bc).
 import test from "node:test";
 import assert from "node:assert/strict";
 

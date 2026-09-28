@@ -1,40 +1,27 @@
-# Active and deferred plans
+# Plans
 
-Reviewed 2026-09-28. The new direction and preparatory recommendations are in
-[next-phase consolidation](../analysis/2026-09-27-next-phase-consolidation.md).
-That proposal does not establish completion of the outstanding work below.
+Reviewed 2026-09-28. The primary workstream is the core foundation; the case for it is
+[the foundation audit](../analysis/2026-09-28-foundation-audit.md).
 
-| Plan set | Outstanding work |
+| Plan | Status |
 |---|---|
-| [Depths](2026-09-23-depths-00-overview.md) | Session 06: authored room set pieces; earlier implementation sessions have landed. |
-| [Skeleton art](2026-09-23-skeleton-art-00-overview.md) | Session 03: visual review and fit/performance questions; session 04: optional costume. |
-| [The core foundation](2026-09-28-core-foundation.md) | Active from 2026-09-28: a physically based core beside the old one, humans first. Stage 0 next. |
-| [Warrior, Rogue and the reptile](2026-09-27-warrior-rogue-reptile.md) | **Paused 2026-09-28** for the core foundation, which salvages it: Session 2 steps 1-5 landed, step 6 is parked on `wip/s2-step6-human-ranges`, and Sessions 3-5 become the core's stages 5 and 7. |
-| [Dungeon look](2026-09-24-dungeon-look-00-overview.md) | Session 06: optional pixel-look experiment; recorded visual/performance questions still need judgment. |
+| [The core foundation](2026-09-28-core-foundation.md) | **Active** from 2026-09-28: a physically based core beside the old one, humans first. |
+| [Warrior, Rogue and the reptile](2026-09-27-warrior-rogue-reptile.md) | **Paused** 2026-09-28 and salvaged by the core foundation: Session 2 steps 1-5 landed, step 6 is parked on `wip/s2-step6-human-ranges`, and Sessions 3-5 become the core's stages 5 and 7. |
+| [Depths](2026-09-23-depths-00-overview.md) | Dungeon workstream. Session 06, authored set pieces, is outstanding. |
+| [Dungeon look](2026-09-24-dungeon-look-00-overview.md) | Dungeon workstream. Session 06, an optional pixel-look experiment, is outstanding. |
+| [Skeleton art](2026-09-23-skeleton-art-00-overview.md) | Session 03, the visual review, and session 04, an optional costume, are outstanding. |
 
-## Closed without completion
+## Removed documents
 
-The [skill-ceiling](2026-09-25-skill-ceiling-00-overview.md) set was closed on 2026-09-27 by the
-next-phase cleanup. Sessions 06-09 will not be run. Its files stay because the analyses link them,
-and each opens with a banner saying what was kept and what was deleted.
-
-## Completed plans removed
-
-Seventeen completed plan files were removed on 2026-09-27:
-
-- Dungeon look sessions 01, 02, 03, 03b, 04 and 05. The ghosted-wall implementation was also
-  superseded by the completed bubble-and-flames feedback work.
-- Dungeon feedback overview and sessions 01-05; all five sessions record landed changes.
-- Skill-ceiling sessions 01-05, recorded complete in the handoff. Measurements remain in
-  `docs/analysis/` and `research/results/`.
-
-The retained overview files provide context for unfinished sessions. Historical checklists in
-removed implementation plans are not evidence of owner approval. In particular, the dungeon
-stone plan's normal-map orientation question is still recorded in the retained look overview.
-
-The full pre-cleanup plans are available in Git at
-`8ea28dc28fa2fece040262f6c8dad28c9aa36269`:
+Completed, closed and superseded plans and analyses are deleted rather than kept. A comment or
+note that cites one says which commit still has it, as "(in git at c76ce6bc)"; read it with
 
 ```powershell
-git show 8ea28dc28fa2fece040262f6c8dad28c9aa36269:docs/plans/<filename>
+git show <commit>:docs/<path>
 ```
+
+| Commit | What it still has |
+|---|---|
+| `c76ce6bc` | The skill-ceiling plan set (closed 2026-09-27), every dated analysis from 2026-09-22 to 2026-09-27 except the human strike reference, the next-phase consolidation, and the standing notes `docs/humanoids.md` and `docs/movement-stability.md`. |
+| `8ea28dc2` | Seventeen completed dungeon-look, dungeon-feedback and skill-ceiling session plans, removed 2026-09-27. |
+| `0517aaf5^` | `docs/measurements.md` and `docs/design.md`, which older comments still cite. |

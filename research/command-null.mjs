@@ -1,5 +1,5 @@
 // The command surface's null control (skill ceiling session 06, the command-surface half;
-// `docs/analysis/2026-09-26-command-surface.md`).
+// `docs/analysis/2026-09-26-command-surface.md` (in git at c76ce6bc)).
 //
 //   node research/command-null.mjs --tag base  [--lanes 6] [--flags stance,step]
 //   node research/command-null.mjs --compare research/runs/command-null-base research/runs/command-null-after

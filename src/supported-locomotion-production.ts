@@ -720,7 +720,7 @@ export class PhysicalSupportedLocomotionPort implements SupportedLocomotionPort,
    * the one read the instant before the fall, with the centre of mass on its edge: a rising body's
    * fall line had a median of about 0.02 m/s and any touch put it down again. 126 of stone's 259
    * falls began in a rise, and 3310 of the skeleton mirror's 7528 (Node research runner,
-   * `docs/analysis/2026-09-25-falls-and-rise.md`). Null without both readers, and for a body with no
+   * `docs/analysis/2026-09-25-falls-and-rise.md` (in git at c76ce6bc)). Null without both readers, and for a body with no
    * base.
    */
   private readTipping(bindings: readonly string[]): TippingGeometry | null {

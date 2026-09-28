@@ -246,7 +246,7 @@ export function createBout({
    * probe-mind mirror, Node bout runner, 120 Hz: damage in the first 0.5 s, settle 0 against 0.6,
    * stone default 0.000 / 0.351 (miser), 0.000 / 0.300 (duelist). A caller that asks for a settle
    * is asking for that, so it is refused by name rather than run.
-   * `docs/analysis/2026-09-25-arms-at-guard.md`.
+   * `docs/analysis/2026-09-25-arms-at-guard.md` (in git at c76ce6bc).
    */
   if (settleSeconds !== 0) {
     throw new Error("runBout settleSeconds must be 0: arms are built at guard, and a settle runs no control, so it only lets them droop");
