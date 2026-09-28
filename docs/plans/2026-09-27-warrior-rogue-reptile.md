@@ -143,6 +143,45 @@ Steps, in landing order. Each is its own commit, with a bout either side whereve
 3. **The trunk.** The human waist gets its own twist rate and range, set from swing data: the upper
    trunk turns at about 10-16 rad/s through about 100 degrees. Today it has stone's 4 rad/s and
    0.65 rad. `humanoidDuelist`'s x0.35 on the twist goes, or is argued for with a measurement.
+
+   **Done 2026-09-28** (`HUMAN_WAIST` and `HUMAN_TORSO` in `src/golem/humanoid/body.ts`).
+   - `twistMax` is 0.87 rad, 100 degrees from wind-up to follow-through, and `twistRate` is 8.
+   - The core's peak turn rate in a free-air swing, Node bout runner at 120 Hz:
+     - Warrior 11.0 rad/s, Rogue 9.7-10.4 rad/s, where both were 5.0 at the old rate.
+     - The servo carries the core past its command, so the rate is set on what the core achieves.
+       The elite band is reached at 10-12, and it belongs to step 6's arm speed.
+   - `twistTorque` stays 360. A trunk's own axial torque is 65-145 N m, but the pelvis does not
+     turn into a blow here, and at 145 the Warrior's core reaches only 9 rad/s. The table is at
+     `HUMAN_WAIST`.
+   - The x0.35 goes. It had no rationale, and nothing measured argues for it.
+   - Fights: 96-bout mirrors on the Node research runner, seed 20260923, before and after.
+     - Under the golem duelist and walker, the trunk is a power source now:
+
+       | build | damage a bout | real blows a bout | Delta ln s |
+       |---|---:|---:|---:|
+       | warrior-sword | 0.38 / 1.67 | 15 / 48 | -0.077 +- 0.013 |
+       | warrior | 0.15 / 0.51 | 46 / 58 | -0.018 +- 0.012 |
+       | warrior-club | 0.07 / 0.36 | 458 / 475 | -0.014 +- 0.006 |
+       | rogue-sword | 0.12 / 0.32 | 90 / 117 | -0.004 +- 0.010 |
+
+       Knockdowns do not move, except warrior-unarmed at -0.37 +- 0.27 a bout.
+     - `humanoid-duelist` mirrors, trunk and x0.35 removed together:
+       - warrior-sword goes from 1.8 to 10.6 real blows a bout;
+       - rogue-sword from 0.01 to 0.12 damage;
+       - warrior-club from 0 to 0.41 +- 0.13 knockdowns.
+       Every build keeps its length. With the trunk alone, the x0.35 left every column where it
+       was.
+   - **The human duelist's mirrors barely wound, before and after.**
+     - Every bout runs to the cap, at under 0.3 damage.
+     - The unarmed mirror files more than 800 contacts over the energy floor a bout, and none of
+       them wounds.
+     - What those contacts strike is Session 3's question.
+   - Screens: the chamber screen's warm-up is a duelist mirror, so its state moved.
+     - Its cell reads 0.866 J at edge alignment 0.880.
+     - Six of the twelve chambers reach the opponent, where three did before.
+   - `authored human policy closes and wounds` now reads the vitality threshold inside its loop, as
+     its comment says. 44/79 struck twice but moved the bar to 0.9994 only. Mutation-checked: a
+     primary hand held at neutral goes red.
 4. **Arm speed.**
    - Joint command rates move toward human joint speeds: elbow 22-41 rad/s, and a swing driven
      from the trunk.

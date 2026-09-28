@@ -16,7 +16,6 @@ export function humanoidDuelist(seed = (Math.random() * 0x100000000) >>> 0): Min
     const result = { ...source, primary: { ...source.primary }, secondary: { ...source.secondary },
       posture: { ...source.posture }, natural: { ...source.natural } };
     result.strafe *= .25;
-    result.posture.trunkTwist *= .35;
     for (const slot of ["primary", "secondary"] as HandName[]) {
       const cap = view.self.capabilities?.effectors[slot], hand = view.self.hands[slot];
       if (!cap?.fullOrientation || !cap.reachable || hand.lost) continue;

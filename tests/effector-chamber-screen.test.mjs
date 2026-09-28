@@ -18,17 +18,17 @@ test("a continuous chamber changes a real blade contact from the same warmed sta
   const b = await impactScreenCell({ terminal: "blade", plan: chamber });
   assert.equal(a.start.pose, b.start.pose);
   assert.deepEqual(b.targetHands, ["primary"]);
-  // On the Warrior at a typical adult's size and de Leva's masses (Node bout runner, 2026-09-28) the
-  // straight plan touches nothing and this chamber lands one weak contact of 2.038 J at edge
-  // alignment 0.892. On the 1.88 m, 107 kg Warrior it was 3.105 J at 0.661, read whole, and 0.974 J
-  // billed at 0.56 of its speed; on the legacy human, chamber/t0.3 at 6.0 to 6.5 J, billed. Three of
-  // the twelve chambers reach the opponent now: this one, a1.2 at t0.15 (5.8 J) and a1.2 at t0.3,
-  // which cuts at 50.7 J.
-  assert.ok(b.maxBodyEnergyJ > a.maxBodyEnergyJ + 1.5,
+  // On the Warrior with a human's trunk (Node bout runner, 2026-09-28) the straight plan touches
+  // nothing and this chamber lands one weak contact of 0.866 J at edge alignment 0.880. The warmed
+  // state is a duelist mirror's, so it moves with the trunk: before the trunk it was 2.038 J at
+  // 0.892; on the 1.88 m, 107 kg Warrior 3.105 J at 0.661, read whole, and 0.974 J billed at 0.56 of
+  // its speed; on the legacy human, chamber/t0.3 at 6.0 to 6.5 J, billed. Six of the twelve chambers
+  // reach the opponent now, where three did before the trunk; a1.2 at t0.3 cuts at 45.3 J.
+  assert.ok(b.maxBodyEnergyJ > a.maxBodyEnergyJ + 0.5,
     "the chamber must produce a measurably different body contact");
-  assert.ok(b.maxBodyEnergyJ > 1.9 && b.maxBodyEnergyJ < 2.2);
+  assert.ok(b.maxBodyEnergyJ > 0.78 && b.maxBodyEnergyJ < 0.95);
   assert.equal(b.strongestBodyContact.kind, "weak");
-  assert.ok(b.strongestBodyContact.edgeAlignment > .85 && b.strongestBodyContact.edgeAlignment < .93);
+  assert.ok(b.strongestBodyContact.edgeAlignment > .84 && b.strongestBodyContact.edgeAlignment < .92);
   assert.equal(b.preArmourDamage, 0);
 });
 

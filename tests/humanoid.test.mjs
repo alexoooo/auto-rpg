@@ -166,8 +166,15 @@ test("authored human policy closes and wounds an exposed opponent", async () => 
   // thrust dropped, which walks in and scrapes: 44/79 files 15 hits and no blow and is refused,
   // and 45/80 then fails on 2 hits. Dropping the thrust alone does not stop a strike -- the
   // tactics' strokes are pointer sweeps -- and the same 16 seeds still land 1.6 blows a bout.
+  //
+  // The wound is the bar's, and the loop reads it too (2026-09-28). With the human's trunk, 44/79
+  // lands 2 blows for 0.197 damage on parts that move the bar to 0.9994 only, so a pair that struck
+  // was taken before its wound was read. Node bout runner, damage by a from 44: 0.197, 0.275, 0.711,
+  // 0.376, 0.186, 0.466, 0, 0.455, where it was 0.126, 0.158, 0.074, 0.205, 0.152, 0.063, 0.073,
+  // 0.233 on stone's trunk.
   let result = null;
-  const struck = (bout) => bout && bout.left.alignments.length >= 2 && bout.left.damage > 0;
+  const struck = (bout) => bout && bout.left.alignments.length >= 2 && bout.left.damage > 0
+    && bout.behaviour.right.vitality < 0.999;
   for (let a = 44; a < 52 && !struck(result); a += 1) {
     result = runBout({ left: "humanoid-duelist", right: "idle", leftGolem: humanSetup(), rightGolem: humanSetup("fist", "fist"),
       locomotionMode: "supported", seeds: [a, a + 35], maxSeconds: 15, separation: 2.6, physics: await freshHavok() });

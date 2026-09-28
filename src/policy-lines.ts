@@ -18,7 +18,7 @@ const POLICY_LINES: Readonly<Record<string, string>> = Object.freeze({
   // src/golem/golem-policies.ts and src/golem/tactics.ts
   "golem-duelist": "Baseline fighter: circles and strikes when your guard drifts or after a short wait.",
   // src/golem/humanoid/policy.ts
-  "humanoid-duelist": "The golem duelist's tactics on a human body, with less sidestepping and twisting.",
+  "humanoid-duelist": "The golem duelist's tactics on a human body, with less sidestepping.",
   // src/golem/skeleton/policy.ts
   "skeleton-duelist": "The golem duelist's tactics on a skeleton body, not yet tuned for it.",
   // src/golem/walker.ts

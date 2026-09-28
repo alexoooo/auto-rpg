@@ -19,16 +19,44 @@ export const HUMAN_BIPED = { ...LOCOMOTION_BIPED,
   shoveImpulseNs: 200,
   carrier: { ...LOCOMOTION_BIPED.carrier, maxSpeedMps: 2.6 },
 };
+/**
+ * The human's trunk. `twistMax` is a swing's upper-trunk turn: about 100 degrees from wind-up to
+ * follow-through (`docs/analysis/2026-09-27-human-strike-reference.md`), so +-0.87 rad about the
+ * pelvis. Stone's 0.65 was a golem's. `HUMAN_WAIST.twistRate` has the table.
+ */
 export const HUMAN_TORSO = { ...TORSO_PLAIN, coreWidth: 0.36, coreHeight: 0.46, coreDepth: 0.23,
   coreMass: 37, coreArmour: 0.5, socketSide: 0.215, socketHeight: 0.15, neckHeight: 0.23,
-  leanMax: 0.35, twistMax: 0.65 };
+  leanMax: 0.35, twistMax: 0.87 };
 /**
  * The human's waist, the lumbar segment between the pelvis and the core: stone's waist with a
  * human's mass. 5.346 kg is what it weighed while it was stone's at `SHIPPED_MASS_SCALE`, pinned here
  * when the stone body went to its own density (physical contact session 04, 2026-09-24), so that the
- * human trunk stays where the anthropometry check in that session left it.
+ * human trunk stays where the anthropometry check in that session left it. A workshop model takes
+ * its own (`workshopSegmentKg`).
+ *
+ * **`twistRate` is a human's, not stone's 4.** A swing turns the upper trunk at 10-11 rad/s in a
+ * typical adult and 13-16 in an elite one (the reference above). The servo lags the command and
+ * then catches it up, so the core turns faster than the command's rate at its peak, and the rate is
+ * set on what the core achieves. Free-air swing, trunk wound from +1 to -1 with the hand, at x1;
+ * Node bout runner, supported locomotion, 120 Hz (`.review` swing bench, 2026-09-28). The core's
+ * peak yaw rate in rad/s, and its excursion peak to peak in degrees against the 100 commanded:
+ *
+ *     twistRate  twistTorque   Warrior club    Warrior fist    Rogue club     Rogue fist
+ *       4 (was)      360        5.0   103       4.9   102      4.6   101      4.6   101
+ *     **8**          360       11.0   109      11.1   111      9.7   103     10.4   104
+ *      10            360       14.0   111      14.3   111     12.6   104     12.8   106
+ *      12            360       16.0   109      17.6   111     15.4   104     16.2   109
+ *      10            145        9.0   100       9.1   100     11.2   100     14.7   111
+ *
+ * 8 puts both models in the typical band; the elite band is reached at 10-12, which is the arm
+ * speed attribute's to give (Session 2, step 6). The carry-past is 0.1 rad a side at most, inside
+ * `jointMargin`'s 0.20.
+ *
+ * `twistTorque` stays 360. A trunk's own axial strength is 65-145 N m, but in this body the pelvis
+ * does not turn into a blow, so the waist does the hips' work too; at 145 the Warrior's core no
+ * longer reaches the typical rate.
  */
-export const HUMAN_WAIST = { ...TORSO_WAIST, ballMass: 5.346, leanTorque: 600, twistTorque: 360 };
+export const HUMAN_WAIST = { ...TORSO_WAIST, ballMass: 5.346, leanTorque: 600, twistTorque: 360, twistRate: 8 };
 export const HUMAN_HEAD = { ...HEAD_NECK, neckLength: 0.095, neckRadius: 0.045, neckMass: 1,
   headWidth: 0.19, headHeight: 0.24, headDepth: 0.23, headMass: 6.5, headArmour: 0.5,
   browOffset: 0.115, pitchTorque: 100, yawTorque: 10 };
