@@ -321,30 +321,6 @@ const PARRY_LABEL: Record<WeaponKind, string> = {
 };
 
 /**
- * The share of its arrival that the shove a striker of `kind` files is read at under an
- * `"arrival"` reading: its row of `CONFIG.combat.shoveReadFractions`, or of `table` where a
- * `Combat` took that table at construction. Total over `Striker`: a kind added to the union
- * without a case here is a compile error, and a row that is not a fraction throws by name.
- */
-export function shoveReadFraction(kind: Striker,
-  table: Readonly<Record<Striker, number>> = CONFIG.combat.shoveReadFractions): number {
-  switch (kind) {
-    case "sword": case "axe": case "bow": case "shield": case "buckler": case "club": case "empty":
-    case "whip": case "arrow": case "bite": case "ram": {
-      const fraction = table[kind];
-      if (!(fraction > 0 && fraction <= 1)) {
-        throw new Error(`the shove fraction for a ${kind} is ${fraction}, which is not in (0, 1]`);
-      }
-      return fraction;
-    }
-    default: {
-      const unknown: never = kind;
-      throw new Error(`no shove fraction for a striker of kind ${String(unknown)}`);
-    }
-  }
-}
-
-/**
  * Turning a contact into a wound.
  *
  * Damage is computed from the blade's own speed at the contact point and how
@@ -452,8 +428,6 @@ export class Combat {
   private readonly massOptions: EffectiveMassOptions | undefined;
   /** `CONFIG.combat.jointHoldSeconds` as it stood when this was built. */
   private readonly holdSeconds: number;
-  /** `CONFIG.combat.shoveReadFractions` as it stood when this was built. */
-  private readonly shoveFractions: Readonly<Record<Striker, number>>;
 
   constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void,
     onRefusal?: (event: CombatRefusalEvent) => void) {
@@ -465,8 +439,6 @@ export class Combat {
       ? new StepStart(first.body.transformNode.getScene()) : null;
     this.massOptions = this.start ? { pose: this.start.poseOf } : undefined;
     this.holdSeconds = CONFIG.combat.jointHoldSeconds;
-    this.shoveFractions = { ...CONFIG.combat.shoveReadFractions };
-    if (this.start) for (const weapon of weapons) if (weapon) shoveReadFraction(weapon.kind, this.shoveFractions);
     try {
       // Projectiles are left to their own `velocityAt`, which already returns a cached free-flight
       // velocity, and to their own cached arrival pose (`impactTipPosition`, `impactBladeDirection`).
@@ -760,7 +732,7 @@ export class Combat {
     const closing = this.closingSpeedAt(velocity, event);
     const masses = normal ? this.massesAt(weapon, event.collidedAgainst, point, normal, closing) : null;
     const transferNs = normal && masses ? this.transfer(masses[0], masses[1],
-      closing * this.shoveShare(weapon), normal, velocity, event.collidedAgainst, weapon.body, point.y) : 0;
+      closing, normal, velocity, event.collidedAgainst, weapon.body, point.y) : 0;
     const report: HitReport = {
       ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
@@ -852,14 +824,6 @@ export class Combat {
   }
 
   /**
-   * The share of the arrival a striker's shove is filed at: its `shoveReadFraction` when its
-   * contacts are read on arrival, and all of it otherwise (a projectile, or a `"settled"` reading).
-   */
-  private shoveShare(weapon: Striking): number {
-    return this.startFor(weapon) ? shoveReadFraction(weapon.kind, this.shoveFractions) : 1;
-  }
-
-  /**
    * The striker's and the struck body's masses at one contact, kilograms: each side's chain as far
    * as its motors hold over `jointHoldSeconds` against the impulse the two pass between them
    * (`contactGive` in `src/golem/effective-mass.ts`), or each side's free chain with no hold.
@@ -908,6 +872,13 @@ export class Combat {
    * an x1 stone mirror all but never fell. Once a blow's height reached the ledger as its lever, the
    * stone mirror fell 0.49 [0.34, 0.66] times a body a bout with no gain at all (96 pairs, Node
    * research runner), and the gain went.
+   *
+   * **And it is the whole arrival's.** From 2026-09-25 an `"arrival"` reading billed every contact's
+   * velocity at a fraction of itself; scoring dropped that on 2026-09-27 and the shove kept it
+   * (`shoveReadFractions`), because read whole on masses with every joint free it doubled the maul
+   * mirror's falls. Those masses billed a slow push on a free chain and a hard blow the same way. With
+   * joint give (`CONFIG.combat.jointHoldSeconds`) the shove goes whole: Session 2 step 5 of
+   * `docs/plans/2026-09-27-warrior-rogue-reptile.md` has the falls either side.
    */
   private transfer(strikerMassKg: number, struckMassKg: number, closingSpeed: number, normal: Vector3,
     velocity: Vector3, struck: PhysicsBody, striker: PhysicsBody, atY: number): number {
@@ -1019,7 +990,7 @@ export class Combat {
     // for that reason: the momentum the contact moved, from the same pair of masses its energy is
     // priced on (physical contact session 06). A blade leaned on pushes by what it carries, as a
     // slap does, because the solver does not know which side of a blade arrived.
-    const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed * this.shoveShare(weapon), normal, velocity,
+    const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed, normal, velocity,
       event.collidedAgainst, weapon.body, point.y) : 0;
     if (!weapon.projectileImpact && energyJ < biteFloorJ(weapon.kind)
       && biteMechanism(weapon.kind) !== "blunt") {

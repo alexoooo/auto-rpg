@@ -10,7 +10,6 @@
  * Units are SI throughout -- metres, kilograms, seconds, radians.
  */
 
-import type { Striker } from "./hands.ts";
 
 /**
  * Which reading of the arena the camera is giving. The two names are also the
@@ -756,8 +755,8 @@ export const CONFIG = {
    * ram plate were at 0.56, the whip because its length hardly answered the fraction and the ram for
    * want of a mirror that fields one; each now pays 1.226 times what it did for a blow, and clears
    * the floor 10 % slower. A swung arrow or a bite, which no live striker produces today, is now read
-   * whole like a loosed arrow. The shove each contact files (`Combat.transfer`) keeps its fraction for
-   * now, as `shoveReadFractions`, which says why.
+   * whole like a loosed arrow. The shove each contact files (`Combat.transfer`) kept its fraction until
+   * joint give (`jointHoldSeconds`) landed, and is read whole since; `Combat.transfer` says why.
    *
    * **What retired, and why none of it is missed.** `damageScale`, `chopScale`, `crushScale`,
    * `fistScale` and `ramScale` were five ceilings each argued on its own day against a Warrior;
@@ -1063,35 +1062,6 @@ export const CONFIG = {
      * stone. The maul's whole-body share is its loop, not its motors, and a hold cannot change it.
      */
     jointHoldSeconds: 0.015,
-    /**
-     * The share of a contact's arrival that the shove it files is read at (`Combat.transfer`),
-     * under `contactReading: "arrival"`: the fractions the reading billed every quantity at from
-     * 2026-09-25 to 2026-09-27, kept on the shove alone. The stability ledger's lines were set
-     * against those impulses.
-     *
-     * **A step in waiting, not a rule.** The shove read whole is the contact's physical impulse. It
-     * was tried with the scoring change and moved falls a great deal. Node research runner,
-     * supported locomotion, duelist and walker, each build's mirror, 48 side-swapped blocks (96
-     * bouts), seed 20260923, knockdowns a body a bout, fraction then whole:
-     *
-     *     build            knockdowns     Delta (95 %)     Delta ln s
-     *     default          0.10 -> 0.10   +0.00            -0.001 +- 0.003
-     *     fists            1.13 -> 1.37   +0.25 +- 0.19    -0.003 +- 0.014
-     *     mace             0.53 -> 1.28   +0.76 +- 0.19    +0.054 +- 0.087
-     *     maul             4.02 -> 8.10   +4.08 +- 0.71    +0.209 +- 0.095
-     *     skeleton-warrior 9.07 -> 12.04  +2.97 +- 0.95    +0.121 +- 0.104
-     *     warrior-club     7.17 -> 9.30   +2.13 +- 0.81    -0.046 +- 0.066
-     *
-     * Most of that is heavy blunt heads with a whole body billed behind them, which is
-     * `effectiveMassAt` treating every joint as free. So the shove goes whole together with the
-     * joint give model, in Session 2 of `docs/plans/2026-09-27-warrior-rogue-reptile.md`, and its
-     * falls are measured there against masses that are right.
-     */
-    shoveReadFractions: {
-      sword: 0.56, axe: 0.56, bow: 0.56, shield: 0.56, buckler: 0.56,
-      club: 0.62, empty: 0.62, whip: 0.56,
-      arrow: 0.56, bite: 0.56, ram: 0.56,
-    } satisfies Record<Striker, number>,
 
     /**
      * **The breaking point**: how far below empty, as a fraction of the part's full health, a part
