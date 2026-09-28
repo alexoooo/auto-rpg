@@ -94,6 +94,17 @@ Each stage lands as commits behind tests. Measurements name their harness. Where
 - No import crosses the boundary.
 - The built body's inertia is anatomical, or its solver floor is named and measured.
 
+**Found while building (2026-09-28): Havok's 6-DoF limits** (Node stand, two rods, velocity motor
+into the limit for 1 s, range -0.2 to 0.6 rad; `tests/core-build.test.mjs` pins these figures).
+- A joint's first freedom, the constraint's X, stops exactly at both ends.
+- In a joint with three freedoms, the second passes its ends by about 0.01-0.02 rad, and turning
+  it drags the third about 0.22 rad; the third stops short, at 0.55 and -0.15.
+- A motor far above its load (1000 N m on a 1 kg rod) drives through a limit, by 0.05 rad on X.
+
+So a ball joint's range is only as exact as the freedom on X. Stage 1's human joints put the
+freedom whose range matters most first, and stage 2 reads the ranges again with muscle-sized
+motors.
+
 ### Stage 2: the muscle actuator
 
 - **What a muscle does:**

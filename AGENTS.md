@@ -43,7 +43,8 @@ development server running.
 **Headless harness: `tests/harness/`.** `bout-runner.mjs` exports `freshHavok`, `createBout` and
 `runBout`; tests and `research/` run bouts through it. `golem-headless-arena.mjs` is the physics
 arena without fighters; `golem-bench.mjs` and `golem-torso-bench.mjs` are the module benches
-(both also run directly under `node`).
+(both also run directly under `node`). `core-stand.mjs` is the core's stand: one spec, built by
+`buildBody` (`src/core/build/`) and nothing else, on a ground.
 
 ## The core (`src/core/`) and the old path
 
