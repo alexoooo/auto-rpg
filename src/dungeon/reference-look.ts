@@ -79,7 +79,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const floor=textured("crypt.floor", "#bdc7ce");
   new CryptDamp(floor);
   const rootMat=textured("reference.root","#756247"); rootMat.roughness=1;
-  const earth=flatStone(scene,"reference.earth","#343d28",1);
+  const earth=textured("reference.earth","#a5b275"); earth.roughness=1;
   const iron=flatStone(scene,"reference.iron","#444a4d",.4);iron.metallic=.8;
   const tomb=textured("crypt.tomb", "#ddd5c3");
   const wood=surface(scene,TEXTURED_SURFACES.weaponWood);
@@ -110,7 +110,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const lights=REFERENCE_TORCHES.map((torch,i)=>{
     const light=new SpotLight(`reference.shadow.${i}`,new Vector3(torch.light.x,2.45,torch.light.z),
       new Vector3(torch.facing.x,-.85,torch.facing.z).normalize(),Math.PI*.68,1.5,scene);
-    light.diffuse=Color3.FromHexString("#ffc078");light.intensity=65;light.range=12;
+    light.diffuse=Color3.FromHexString("#ffb665");light.intensity=85;light.range=12;
     light.shadowMinZ=.1;light.shadowMaxZ=18;
     const shadow=new ShadowGenerator(quality==="high"?2048:1024,light);
     shadow.usePercentageCloserFiltering=true;shadow.bias=.001;shadow.normalBias=.018;

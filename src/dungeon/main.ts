@@ -167,7 +167,9 @@ async function boot(): Promise<void> {
   const framing = () => {
     if (!run || !camera || !lighting) return;
     const hero = run.leader.body.feetPosition();
-    frameDungeon(camera, reference ? { x: 9.5 + (hero.x - 9.5) * .4, z: 9 + (hero.z - 9) * .4 } : hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
+    // Keep the composed room view when wide; centre the leader for close inspection.
+    const follow = .4 + .6 * Math.max(0, Math.min(1, (6.5 - zoom) / 3.5));
+    frameDungeon(camera, reference ? { x: 9.5 + (hero.x - 9.5) * follow, z: 9 + (hero.z - 9) * follow } : hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
     lighting.update(hero, zoom, pitch, toward); run.world.setHero(hero);
   };
   const rebuild = async (nextSeed: number) => {
@@ -361,7 +363,7 @@ async function boot(): Promise<void> {
   }, { signal });
   canvas.addEventListener("pointercancel", () => run?.commands.cancelPointer(), { signal });
   canvas.addEventListener("lostpointercapture", () => run?.commands.cancelPointer(), { signal });
-  canvas.addEventListener("wheel", event => { event.preventDefault(); zoom = Math.max(6, Math.min(18, zoom * Math.exp(event.deltaY * 0.001))); }, { passive: false, signal });
+  canvas.addEventListener("wheel", event => { event.preventDefault(); zoom = Math.max(2, Math.min(18, zoom * Math.exp(event.deltaY * 0.001))); }, { passive: false, signal });
   window.addEventListener("resize", () => engine.resize(), { signal });
   engine.runRenderLoop(() => meter.frame(() => {
     if (!scene || !run || launching) return;

@@ -156,3 +156,18 @@ test('reference geometry permits a real rogue shot against controlled non-attack
     assert.ok(shots()>0,'the encounter must exercise a bow release, not just its carry pose');
   } finally {run?.dispose();arena.dispose();}
 });
+
+
+test('flat moss patches face the room lights rather than the underside of the floor',()=>{
+  const {gltf,read}=exportedChamber();
+  const node=gltf.nodes.find(n=>n.name==='reference.earth'); let samples=0;
+  for(const p of gltf.meshes[node.mesh].primitives) {
+    const positions=read(p.attributes.POSITION),normals=read(p.attributes.NORMAL);
+    positions.forEach((v,i)=>{
+      if(Math.abs(v[1]-.005)<1e-6 || Math.abs(v[1]-2.856)<1e-6) {
+        samples++; assert.ok(normals[i][1]>.99,`downward patch at ${v}`);
+      }
+    });
+  }
+  assert.ok(samples>100,'must inspect actual exported surface patches');
+});

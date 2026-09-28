@@ -47,7 +47,13 @@ def finish(o,mat,shade=None):
 
 def mesh_object(name,verts,faces,mat,shade=None):
     mesh=bpy.data.meshes.new(name); mesh.from_pydata([pos(p) for p in verts],[],faces)
-    bm=bmesh.new(); bm.from_mesh(mesh); bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces)); bm.to_mesh(mesh); bm.free()
+    bm=bmesh.new(); bm.from_mesh(mesh); bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
+    # Open surface decals have no enclosed volume to establish outward orientation.
+    if name.startswith('moss.') or name=='paving.fracture':
+        bm.normal_update()
+        for face in bm.faces:
+            if face.normal.z<0: face.normal_flip()
+    bm.to_mesh(mesh); bm.free()
     o=bpy.data.objects.new(name,mesh); bpy.context.collection.objects.link(o)
     return finish(o,mat,shade)
 
@@ -85,6 +91,13 @@ def flagstone(x0,x1,z0,z1):
     faces=[tuple(reversed(range(8))),tuple(range(16,24))]
     for ring in [0,8]: faces += [(ring+i,ring+(i+1)%8,ring+(i+1)%8+8,ring+i+8) for i in range(8)]
     mesh_object('paving.chipped',verts,faces,'floor')
+    # Hairline fractures sit on the stone surface, not on a floating decal plane.
+    if rng.random()<.28:
+        start=(x0+.08,z0+.04); end=(x1-.08,z1-.04)
+        pts=[start,(cx+rng.uniform(-.12,.12),cz-.06),(cx+.04,cz+.07),end]
+        crack=[]
+        for x,z in pts: crack.extend([(x-.003,top+.0001,z),(x+.003,top+.0001,z)])
+        mesh_object('paving.fracture',crack,[(i,i+1,i+3,i+2) for i in range(0,6,2)],'earth',.32)
 
 # The visual paving is independent of the gameplay cell grid.
 for xmin,xmax,zmin,zmax in [(3.5,15.5,4.5,13.5),(7.5,10.5,1.5,4.5),(7.5,10.5,13.5,18.5)]:
@@ -203,6 +216,35 @@ for side,centres in [('left',LEFT_NICHES),('back',BACK_NICHES)]:
             t=centre+rng.uniform(-.62,.62); size=rng.uniform(.12,.24)
             px,pz=(3.25,t) if side=='left' else (t,13.75)
             box('niche.rubble',(px,.18+size*.25,pz),(size,.09+size*.3,size*.75),'trim',.03,rng.uniform(-.4,.4))
+
+
+# Flat surface scatter adds age without introducing unmodelled obstacles. Separate RNG
+# preserves the established architecture and its material variation when this pass changes.
+detail_rng=random.Random(314159)
+def patch(name,x,y,z,rx,rz):
+    ring=[]
+    for i in range(9):
+        a=i*math.tau/9; r=detail_rng.uniform(.65,1)
+        ring.append((x+math.cos(a)*rx*r,y,z+math.sin(a)*rz*r))
+    mesh_object(name,ring,[tuple(range(9))],'earth',detail_rng.uniform(.48,.84))
+for j in range(160):
+    left=j%2==0
+    t=detail_rng.uniform(5,13) if left else detail_rng.choice([(4.2,7),(11.2,15)])[0]+detail_rng.random()*.7
+    x,z=(detail_rng.uniform(3.52,4.05),t) if left else (t,detail_rng.uniform(13.05,13.48))
+    if j%3==0:
+        patch('moss.margin',x,.005,z,detail_rng.uniform(.035,.12),detail_rng.uniform(.045,.15))
+    else:
+        size=detail_rng.uniform(.025,.09)
+        # Thin, loose flakes: under 12 mm above the floor, not solid rubble piles.
+        box('stone.flake',(x,.006,z),(size,.010,size*.65),'wall',.004,detail_rng.random()*math.pi)
+for x,z in sorted(boundary):
+    if (x+z)%3: continue
+    for j in range(3):
+        patch('moss.coping',x+detail_rng.uniform(-.33,.33),2.856,z+detail_rng.uniform(-.33,.33),.12,.055)
+# Accumulated dirt at the tomb foot, with a few broad stone flakes.
+for j in range(36):
+    x=detail_rng.uniform(11.5,14.1); z=detail_rng.choice([5.98,7.22])+detail_rng.uniform(-.08,.08)
+    patch('moss.tomb.foot',x,.005,z,.10,.045)
 
 # Seamless authored limestone: periodic multiscale noise and pores, baked to ordinary PNG maps.
 N=1024

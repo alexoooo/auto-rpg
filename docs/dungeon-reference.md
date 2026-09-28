@@ -66,3 +66,11 @@ This isolates rendering cost; it is **not** a live-combat FPS measurement and is
 Browser verification covered fighter/High and rogue/Reduced, fixed-step combat, authoritative door opening, pause and wheel zoom, scene restart with stable mesh/light/body counts, and the ordinary generated dungeon. Close-up views exposed and led to fixes for exported colour corruption and rotated UV collapse. A production view at azimuth 225° also exposed the cutaway fittings and opposite-wall core issues; those were corrected and checked again. Local captures and raw reports are under `.review/crypt-*`.
 
 The full suite passed **960 tests**. After the final visual-only cutaway/core corrections, all eight chamber regressions passed again, and the production build (including TypeScript checking) passed again. Character assets, HUD layout, collision layout and combat tuning are unchanged.
+
+### Close inspection and surface detail (2026-09-27)
+
+Wheel zoom now reaches an orthographic half-height of 2 metres instead of 6, giving three times the previous maximum magnification. The reference room retains its initial composition at 6.5; between 6.5 and 3 the camera progressively centres the leader, so a close view follows the action. Paused zoom remains available, including in generated dungeons.
+
+The authored kit adds hairline paving fractures, thin stone flakes along the margins, and irregular moss on coping, at wall bases and around the tomb. These are surface details: collision layout, character assets and combat are unchanged. The room still uses seven material batches.
+
+The final kit contains 93,737 triangles (5,809 more than the previous pass), with warmer reference-only torch pools. Browser checks covered fighter/High, rogue/Reduced, generated dungeon, a four-second fixed-step combat segment, pause, the new minimum zoom with the leader centred, and restart returning to the same mesh/body/light counts. The full suite passed 960 tests; after the final surface-normal and lighting corrections, all nine chamber regressions and the production build passed again. The new normals regression was first run against the faulty export and failed, then passed against the rebuilt asset.
