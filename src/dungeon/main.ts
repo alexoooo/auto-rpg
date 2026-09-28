@@ -34,6 +34,9 @@ import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
 
+import { generateCryptRoom, type CryptRoomPlan } from "./crypt-room.ts";
+type DungeonScenario = "generated" | "reference" | "random-crypt";
+
 import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "./reference.ts";
 import { dressReference, type ReferenceQuality } from "./reference-look.ts";
 
@@ -120,11 +123,12 @@ heroAttributesPanel.addEventListener("click", event => { if (event.target instan
 renderHeroAttributes();
 heroPrimary.addEventListener("change", () => { heroSecondary.disabled = ["maul", "bow"].includes(heroPrimary.value); });
 const scenario = need<HTMLSelectElement>("dungeon-scene"), quality = need<HTMLSelectElement>("dungeon-quality");
-scenario.value = new URLSearchParams(location.search).get("scene") === "reference" ? "reference" : "generated";
+const requestedScene = new URLSearchParams(location.search).get("scene");
+scenario.value = requestedScene === "reference" || requestedScene === "random-crypt" ? requestedScene : "generated";
 quality.value = new URLSearchParams(location.search).get("quality") === "reduced" ? "reduced" : "high";
 const chooseScenario = () => {
-  quality.parentElement!.hidden = scenario.value !== "reference";
-  if (scenario.value === "reference") { companionCount.value = "0"; heroBuild.value = "workshop-fighter"; }
+  quality.parentElement!.hidden = scenario.value === "generated";
+  if (scenario.value !== "generated") { companionCount.value = "0"; heroBuild.value = "workshop-fighter"; }
   updateEquipment(); renderHeroAttributes();
 };
 scenario.addEventListener("change", chooseScenario);
@@ -139,6 +143,8 @@ async function boot(): Promise<void> {
   let scene: Scene | null = null, run: DungeonRun | null = null, camera: FreeCamera | null = null;
   let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default", companions: string[] = [];
   let selectedEquipment: GolemSetup | undefined;
+  let selectedScenario: DungeonScenario = "generated";
+  let cryptPlan: CryptRoomPlan | undefined;
   let reference = false, selectedQuality: ReferenceQuality = "high";
   let referenceLook: Awaited<ReturnType<typeof dressReference>> | null = null;
   let route: LinesMesh | null = null, routeSignature = "", lastUi = 0;
@@ -169,18 +175,31 @@ async function boot(): Promise<void> {
     const hero = run.leader.body.feetPosition();
     // Keep the composed room view when wide; centre the leader for close inspection.
     const follow = .4 + .6 * Math.max(0, Math.min(1, (6.5 - zoom) / 3.5));
-    frameDungeon(camera, reference ? { x: 9.5 + (hero.x - 9.5) * follow, z: 9 + (hero.z - 9) * follow } : hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
+    const centre=cryptPlan?{x:(cryptPlan.bounds.min.x+cryptPlan.bounds.max.x)/2,z:(cryptPlan.bounds.min.z+cryptPlan.bounds.max.z)/2}:{x:9.5,z:9};
+    frameDungeon(camera, reference ? { x: centre.x + (hero.x - centre.x) * follow, z: centre.z + (hero.z - centre.z) * follow } : hero, zoom, engine.getRenderWidth() / engine.getRenderHeight(), pitch, azimuth);
     lighting.update(hero, zoom, pitch, toward); run.world.setHero(hero);
   };
   const rebuild = async (nextSeed: number) => {
     audio.reset(); soundTorches = [];
     referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
     seed = nextSeed >>> 0;
+    cryptPlan = selectedScenario === "random-crypt" ? generateCryptRoom(seed) : undefined;
     if (reference) { meterParent.prepend(diagnostics); diagnostics.append(meterElement); }
     else { meterParent.prepend(meterElement); diagnostics.remove(); }
     pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : reference ? REFERENCE_CAMERA.pitch : CAMERA_PITCH;
     azimuth = Number.isFinite(azimuthQuery) ? azimuthQuery * Math.PI / 180 : reference ? REFERENCE_CAMERA.azimuth : CAMERA_AZIMUTH;
     toward = cameraToward(azimuth); zoom = reference ? REFERENCE_CAMERA.zoom : 10;
+    if (cryptPlan) {
+      // Fit both passages and the wall tops around the actual composed camera target.
+      const { map, bounds } = cryptPlan, aspect=engine.getRenderWidth()/engine.getRenderHeight();
+      const target={x:(bounds.min.x+bounds.max.x)*.3+map.start.x*.4,z:(bounds.min.z+bounds.max.z)*.3+map.start.z*.4};
+      for(let z=0;z<map.size;z++)for(let x=0;x<map.size;x++)if(map.floor[z*map.size+x])
+        for(const dx of [-1.5,1.5])for(const dz of [-1.5,1.5]) {
+          const rx=x+dx-target.x,rz=z+dz-target.z,vertical=-(rx*toward.x+rz*toward.z)*Math.sin(pitch);
+          zoom=Math.max(zoom,Math.abs(rx*toward.z-rz*toward.x)/aspect+.4,
+            Math.abs(vertical-Math.cos(pitch))+.4,Math.abs(vertical+1.86*Math.cos(pitch))+.4);
+        }
+    }
     engine.setHardwareScalingLevel(reference ? selectedQuality === "reduced" ? 1.4 : 1 : 1 / Math.min(devicePixelRatio, 1.5));
     scene = new Scene(engine);
     attachPhysics(scene, havok); scene.physicsEnabled = false; scene.getPhysicsEngine()!.setSubTimeStep(1000 / CONFIG.world.physicsHz);
@@ -188,7 +207,7 @@ async function boot(): Promise<void> {
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
     await loadWorkshopAssets(scene);
-    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry }, reference ? referenceChamber(seed) : undefined, selectedEquipment, companions, reference ? () => "skeleton-warrior" : undefined, (attacker, event) => {
+    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry }, cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), selectedEquipment, companions, reference ? () => "skeleton-warrior" : undefined, (attacker, event) => {
       if (!run || !run.visible.has(cellKey(run.map, event.report.point))) return;
       const target = run.actors.find(a => a.id === event.report.targetId);
       if (target) audio.report(event, attacker, bodyFamily(target === run.hero && selectedEquipment ? selectedEquipment : namedBuild(target.name)!.setup));
@@ -197,11 +216,11 @@ async function boot(): Promise<void> {
     // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
     // code no Node test loads, so the rule that it adds no body is held here, where it runs.
     const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
-    const torches = reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed); soundTorches = torches;
+    const torches = cryptPlan?.torches ?? (reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed)); soundTorches = torches;
     lighting = lightDungeon(scene, camera, run.map, torches, azimuth, reference ? REFERENCE_LIGHT : undefined); run.world.sconces(torches);
     if (!reference && stone.dressing) run.world.dress(dressingPlacements(run.map, seed, DRESSING, toward));
     if (reference) {
-      referenceLook = await dressReference(scene, run.world, selectedQuality, azimuth);
+      referenceLook = await dressReference(scene, run.world, selectedQuality, azimuth, cryptPlan);
       if (selectedQuality === "reduced") lighting.setLook({ ssao: false });
     }
     if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);
@@ -244,9 +263,9 @@ async function boot(): Promise<void> {
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) { seedInput.setCustomValidity("Enter a seed from 0 to 4294967295."); seedInput.reportValidity(); return; }
     seedInput.setCustomValidity(""); selectedBuild = heroBuild.value;
-    reference = scenario.value === "reference"; selectedQuality = quality.value === "reduced" ? "reduced" : "high";
+    selectedScenario = scenario.value as DungeonScenario; reference = selectedScenario !== "generated"; selectedQuality = quality.value === "reduced" ? "reduced" : "high";
     const url = new URL(location.href);
-    if (reference) { url.searchParams.set("scene", "reference"); url.searchParams.set("quality", selectedQuality); }
+    if (reference) { url.searchParams.set("scene", selectedScenario); url.searchParams.set("quality", selectedQuality); }
     else { url.searchParams.delete("scene"); url.searchParams.delete("quality"); }
     history.replaceState(null, "", url);
     companions = companionBuilds(selectedBuild, Number(companionCount.value));

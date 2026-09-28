@@ -1,0 +1,71 @@
+{
+  "generator": "scripts/dungeon/build-kit.py",
+  "pieces": {
+    "corner-left__wall": {
+      "triangles": 892
+    },
+    "corner-left__trim": {
+      "triangles": 528
+    },
+    "corner-right__wall": {
+      "triangles": 892
+    },
+    "corner-right__trim": {
+      "triangles": 528
+    },
+    "wall__wall": {
+      "triangles": 892
+    },
+    "wall__trim": {
+      "triangles": 176
+    },
+    "niche__wall": {
+      "triangles": 1244
+    },
+    "niche__trim": {
+      "triangles": 1256
+    },
+    "niche__iron": {
+      "triangles": 44
+    },
+    "portal__trim": {
+      "triangles": 132
+    },
+    "roots__root": {
+      "triangles": 1152
+    },
+    "scatter__wall": {
+      "triangles": 264
+    },
+    "scatter__earth": {
+      "triangles": 30
+    },
+    "paving0__floor": {
+      "triangles": 132
+    },
+    "paving0__earth": {
+      "triangles": 12
+    },
+    "paving1__floor": {
+      "triangles": 132
+    },
+    "paving1__earth": {
+      "triangles": 24
+    },
+    "paving2__floor": {
+      "triangles": 132
+    },
+    "paving2__earth": {
+      "triangles": 12
+    },
+    "paving3__floor": {
+      "triangles": 176
+    },
+    "paving3__earth": {
+      "triangles": 12
+    },
+    "tomb__tomb": {
+      "triangles": 3444
+    }
+  }
+}

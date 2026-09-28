@@ -1,3 +1,4 @@
+import { companionSpawn } from "./party-placement.ts";
 import type { GolemSetup } from "../bout.ts";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -91,19 +92,7 @@ const direction = (from: Point, to: Point): Point => {
   const d = Math.max(0.001, distance(from, to)); return { x: (to.x - from.x) / d, z: (to.z - from.z) / d };
 };
 const IDLE: Order = Object.freeze({ kind: "idle" });
-/**
- * Where a companion stands at the start: the first of twelve bearings on a ring about the start, then a
- * wider ring, whose floor clears a large body and lies at least 1.4 m from everybody already placed.
- * Fixed bearings rather than a draw, so a companion costs the enemies none of their seeds.
- */
-export function companionSpawn(map: DungeonMap, taken: readonly Point[]): Point | null {
-  for (const ring of [1.6, 2.4, 3.2]) for (let i = 0; i < 12; i++) {
-    const angle = Math.PI + i * Math.PI / 6;
-    const at = { x: map.start.x + Math.sin(angle) * ring, z: map.start.z + Math.cos(angle) * ring };
-    if (walkable(map, at, 0.7, true) && clearSegment(map, map.start, at, 0.7, true) && taken.every(other => distance(other, at) >= 1.4)) return at;
-  }
-  return null;
-}
+export { companionSpawn } from "./party-placement.ts";
 
 export class DungeonRun {
   readonly map: DungeonMap;

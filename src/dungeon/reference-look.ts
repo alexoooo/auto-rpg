@@ -18,19 +18,26 @@ import { flatStone } from "./stone.ts";
 import { REFERENCE_TORCHES } from "./reference.ts";
 import type { buildDungeonWorld } from "./world.ts";
 
+import type { CryptRoomPlan } from "./crypt-room.ts";
+import { assembleCryptKit } from "./crypt-kit.ts";
+
 export type ReferenceQuality = "high" | "reduced";
 /** Wetness belongs to the paving itself, so it cannot float, sort or z-fight. */
 class CryptDamp extends MaterialPluginBase {
-  constructor(material: Material) { super(material, "CryptDamp", 220, {}); this._enable(true); }
+  private readonly centres: readonly { x: number; z: number }[];
+  constructor(material: Material, centres = [{x:6.1,z:7},{x:11.6,z:11.3},{x:13.5,z:8.2}]) {
+    super(material, "CryptDamp", 220, {}); this.centres=centres; this._enable(true);
+  }
   override getClassName() { return "CryptDamp"; }
   override getCustomCode(shaderType: string) {
+    const centres=this.centres??[{x:6.1,z:7},{x:11.6,z:11.3},{x:13.5,z:8.2}];
     return shaderType === "fragment" ? {
       CUSTOM_FRAGMENT_DEFINITIONS: `
         float cryptDamp(vec2 p) {
           float edge = sin(p.x*8.1+sin(p.y*5.0)) * sin(p.y*9.3+p.x*2.0)*0.14;
-          float a = length((p-vec2(6.1,7.0))/vec2(1.6,0.9));
-          float b = length((p-vec2(11.6,11.3))/vec2(1.25,0.7));
-          float c = length((p-vec2(13.5,8.2))/vec2(0.8,1.3));
+          float a = length((p-vec2(${centres[0].x.toFixed(4)},${centres[0].z.toFixed(4)}))/vec2(1.6,0.9));
+          float b = length((p-vec2(${centres[1].x.toFixed(4)},${centres[1].z.toFixed(4)}))/vec2(1.25,0.7));
+          float c = length((p-vec2(${(centres[2]??centres[0]).x.toFixed(4)},${(centres[2]??centres[0]).z.toFixed(4)}))/vec2(0.8,1.3));
           return 1.0-smoothstep(0.60,1.05,min(a,min(b,c))+edge);
         }`,
       CUSTOM_FRAGMENT_BEFORE_LIGHTS: "surfaceAlbedo *= mix(1.0, 0.68, cryptDamp(vPositionW.xz));",
@@ -41,9 +48,9 @@ class CryptDamp extends MaterialPluginBase {
 /** The front walls remain as low sills: a cutaway, never a change to collision. */
 class CryptCutaway extends MaterialPluginBase {
   private readonly condition: string;
-  constructor(material: Material, azimuth: number) {
+  constructor(material: Material, azimuth: number, condition?: string) {
     super(material, "CryptCutaway", 210, {});
-    this.condition = `${Math.sin(azimuth) > 0 ? "vPositionW.x > 15.45" : "vPositionW.x < 3.55"} || ${Math.cos(azimuth) > 0 ? "vPositionW.z > 13.45" : "vPositionW.z < 4.55"}`;
+    this.condition = condition ?? `${Math.sin(azimuth) > 0 ? "vPositionW.x > 15.45" : "vPositionW.x < 3.55"} || ${Math.cos(azimuth) > 0 ? "vPositionW.z > 13.45" : "vPositionW.z < 4.55"}`;
     this._enable(true);
   }
   override getClassName() { return "CryptCutaway"; }
@@ -52,9 +59,13 @@ class CryptCutaway extends MaterialPluginBase {
   }
 }
 /** Visual-only owner: all solid props have already been built by the gameplay world. */
-export async function dressReference(scene: Scene, world: ReturnType<typeof buildDungeonWorld>, quality: ReferenceQuality, azimuth: number) {
-  const container=await LoadAssetContainerAsync(publicAssetUrl("/assets/dungeon-reference/chamber.glb"),scene);
+export async function dressReference(scene: Scene, world: ReturnType<typeof buildDungeonWorld>, quality: ReferenceQuality, azimuth: number, plan?: CryptRoomPlan) {
+  const container=await LoadAssetContainerAsync(publicAssetUrl(plan ? "/assets/crypt-kit/kit.glb" : "/assets/dungeon-reference/chamber.glb"),scene);
   container.addAllToScene();
+  if(plan) assembleCryptKit(container,plan);
+  const torches=plan?.torches??REFERENCE_TORCHES;
+  const bounds=plan?.bounds;
+  const cutaway=bounds?`${Math.sin(azimuth)>0?`vPositionW.x > ${bounds.max.x+.45}`:`vPositionW.x < ${bounds.min.x-.45}`} || ${Math.cos(azimuth)>0?`vPositionW.z > ${bounds.max.z+.45}`:`vPositionW.z < ${bounds.min.z-.45}`}`:undefined;
   const root=container.meshes.find(m=>m.name==="__root__");
   // The export uses game metre coordinates. Remove the loader's RH-to-LH root
   // conversion; glTF meshes retain their explicit clockwise face convention.
@@ -77,7 +88,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const trim=textured("crypt.trim", "#ece4d1");
   const wall=textured("crypt.wall", "#c7ced0");
   const floor=textured("crypt.floor", "#bdc7ce");
-  new CryptDamp(floor);
+  new CryptDamp(floor,plan?.damp);
   const rootMat=textured("reference.root","#756247"); rootMat.roughness=1;
   const earth=textured("reference.earth","#a5b275"); earth.roughness=1;
   const iron=flatStone(scene,"reference.iron","#444a4d",.4);iron.metallic=.8;
@@ -85,15 +96,15 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const wood=surface(scene,TEXTURED_SURFACES.weaponWood);
   const materials={wall,trim,floor,root:rootMat,earth,iron,tomb};
   wood.maxSimultaneousLights=6;world.fog?.attach(wood,null);
-  new CryptCutaway(wood, azimuth);
+  new CryptCutaway(wood, azimuth, cutaway);
   for(const door of world.doorVisuals) { door.wood.material=wood;door.iron.material=iron;door.wood.receiveShadows=door.iron.receiveShadows=true; }
   for(const [name,material] of Object.entries(materials)) {
     material.maxSimultaneousLights=6;world.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"?"wall":null);
-    if (["wall", "trim", "root", "earth", "iron"].includes(name)) new CryptCutaway(material, azimuth);
+    if (["wall", "trim", "root", "earth", "iron"].includes(name)) new CryptCutaway(material, azimuth, cutaway);
   }
   // Retain working doors and exit; replace only the old architectural skin.
   for(const mesh of world.surfaces)if(mesh.name.startsWith("wall.")||mesh.name.startsWith("floor."))mesh.setEnabled(false);
-  for(const mesh of container.meshes)if(mesh instanceof Mesh && mesh.getTotalVertices()) {
+  for(const mesh of container.meshes)if(mesh instanceof Mesh && mesh.getTotalVertices() && mesh.isEnabled()) {
     const name=mesh.name.replace("reference.","") as keyof typeof materials;
     if (!materials[name]) throw new Error(`Unbound reference material: ${mesh.name}`);
     mesh.material=materials[name];mesh.overrideMaterialSideOrientation = 0;mesh.receiveShadows=true;mesh.isPickable=false;
@@ -102,12 +113,12 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const shadows:ShadowGenerator[]=[];
   // A cut-away wall must take its elevated fittings with it. Keep its light contribution;
   // this is the same presentation-only cross-section as the wall, not an extinguished torch.
-  REFERENCE_TORCHES.forEach((torch, i) => {
-    const front = (Math.sin(azimuth) > 0 ? torch.cell.x > 15.45 : torch.cell.x < 3.55)
-      || (Math.cos(azimuth) > 0 ? torch.cell.z > 13.45 : torch.cell.z < 4.55);
+  torches.forEach((torch, i) => {
+    const front = (Math.sin(azimuth) > 0 ? torch.cell.x > (bounds?bounds.max.x+.45:15.45) : torch.cell.x < (bounds?bounds.min.x-.45:3.55))
+      || (Math.cos(azimuth) > 0 ? torch.cell.z > (bounds?bounds.max.z+.45:13.45) : torch.cell.z < (bounds?bounds.min.z-.45:4.55));
     if (front) for (const name of [`torch.flame.${i}`, `torch.sconce.${i}`]) scene.getMeshByName(name)?.setEnabled(false);
   });
-  const lights=REFERENCE_TORCHES.map((torch,i)=>{
+  const lights=torches.map((torch,i)=>{
     const light=new SpotLight(`reference.shadow.${i}`,new Vector3(torch.light.x,2.45,torch.light.z),
       new Vector3(torch.facing.x,-.85,torch.facing.z).normalize(),Math.PI*.68,1.5,scene);
     light.diffuse=Color3.FromHexString("#ffb665");light.intensity=85;light.range=12;
