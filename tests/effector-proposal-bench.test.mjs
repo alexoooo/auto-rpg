@@ -20,13 +20,13 @@ test("proposal diagnostic distinguishes target geometry from the physical motor 
     for (const name of ["requestError", "followingError", "totalError"]) assert.ok(Number.isFinite(sample[name]));
     assert.ok(sample.totalError <= sample.requestError + sample.followingError + 1e-9);
   }
-  for (const options of [{ kind: "cut" }, { terminal: "whip" }, { hand: "missing" }, { force: NaN }]) {
+  for (const options of [{ kind: "cut" }, { terminal: "whip" }, { hand: "missing" }, { force: NaN }, { hand: "secondary" }]) {
     await assert.rejects(proposalBench(options), /invalid proposal bench/);
   }
 });
 
 test("default proposal endpoints settle within a centimetre on both supported sockets", async () => {
-  for (const terminal of ["blade", "fist", "mace"]) for (const hand of ["primary", "secondary"])
+  for (const [terminal, hand] of [["blade", "primary"], ["fist", "primary"], ["fist", "secondary"]])
     for (const kind of ["sweep", "point", "soft"]) {
       const result = await proposalBench({ terminal, hand, kind });
       const label = `${terminal}/${hand}/${kind}`;

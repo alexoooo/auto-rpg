@@ -36,16 +36,12 @@ async function arena() {
  * The blade is sampled before the contact the way a solver step samples it
  * (`onBeforePhysicsObservable`, as `tests/contact-reading.test.mjs` does), because an `"arrival"`
  * reading (`CONFIG.combat.contactReading`) scores the velocity the step began with and would
- * otherwise read the bout's last step instead of this blow. It scores `arrivalReadFraction` of that
- * velocity, so the blade is moved at `velocity` over the fraction and the blow billed is `velocity`
- * under either reading.
+ * otherwise read the bout's last step instead of this blow. The blow billed is `velocity` under
+ * either reading.
  */
 async function strike(striker, body, velocity) {
   const { PhysicsEventType } = await import("@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js");
-  const { CONFIG } = await import("../src/config.ts");
-  const { arrivalReadFraction } = await import("../src/combat.ts");
-  const share = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction(striker.kind) : 1;
-  striker.body.setLinearVelocity(velocity.scale(1 / share));
+  striker.body.setLinearVelocity(velocity);
   striker.body.setAngularVelocity(velocity.scale(0));
   const scene = striker.body.transformNode.getScene();
   scene.onBeforePhysicsObservable.notifyObservers(scene);
@@ -54,6 +50,17 @@ async function strike(striker, body, velocity) {
   striker.body.getCollisionObservable().notifyObservers({ collider: striker.body, collidedAgainst: body,
     type: PhysicsEventType.COLLISION_STARTED, point, normal: normal.scale(-2), distance: 0, impulse: 0 });
   return { point, normal };
+}
+
+/**
+ * The share of the arrival a shove is filed at (`CONFIG.combat.shoveReadFractions`): the striker's
+ * row under an `"arrival"` reading, and the whole of it under `"settled"`. Scoring reads the arrival
+ * whole; the shove keeps the fraction until the joint give model lands.
+ */
+async function shoveShare(kind) {
+  const { CONFIG } = await import("../src/config.ts");
+  const { shoveReadFraction } = await import("../src/combat.ts");
+  return CONFIG.combat.contactReading === "arrival" ? shoveReadFraction(kind) : 1;
 }
 
 const filed = (event) => Math.hypot(event.horizontalShoveNs[0], event.verticalShoveNs ?? 0, event.horizontalShoveNs[1]);
@@ -71,7 +78,8 @@ test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into
     const report = combat.lastHit;
     assert.ok(report && report.damage > 0, "the control: the cut wounded");
     assert.equal(queued.length, 2, "one contact files one shove per Combat watching it");
-    const expected = contactImpulseNs(report.strikerMassKg, report.partMassKg, report.closingSpeed);
+    const share = await shoveShare(striker.kind);
+    const expected = contactImpulseNs(report.strikerMassKg, report.partMassKg, report.closingSpeed * share);
     near(report.transferNs, expected, 1e-9, "reported");
     for (const event of queued) near(filed(event), expected, 1e-9, "filed");
     // At the height it landed, which the ledger reads as a lever about the base (session 08).
@@ -79,7 +87,7 @@ test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into
     assert.ok(point.y > 0.5, `the control: a height worth reading, ${point.y}`);
     // Along the blow, whichever way round Havok handed the normal (it is reversed above).
     assert.ok(queued[0].horizontalShoveNs[1] > 0.99 * expected, `pushed the way the blade went: ${queued[0].horizontalShoveNs}`);
-    assert.ok(expected > report.strikerMassKg * 9 * 0.3,
+    assert.ok(expected > report.strikerMassKg * 9 * share * 0.3,
       `a blade arrives with its arm behind it: ${expected.toFixed(2)} N.s at 9 m/s`);
 
     // A blade leaned on bites nothing and still pushes by what it carries: under the edge's floor,
@@ -91,7 +99,7 @@ test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into
     const leaned = combat.lastHit;
     assert.equal(leaned.damage, 0, "the control: a lean does not wound");
     assert.equal(queued.length, 4, "and is still filed");
-    near(filed(queued[3]), contactImpulseNs(leaned.strikerMassKg, leaned.partMassKg, leaned.closingSpeed), 1e-9, "leaned");
+    near(filed(queued[3]), contactImpulseNs(leaned.strikerMassKg, leaned.partMassKg, leaned.closingSpeed * share), 1e-9, "leaned");
     assert.ok(queued[3].verticalShoveNs < -0.5 * filed(queued[3]), `and downward: ${queued[3].verticalShoveNs}`);
   } finally { bout.dispose(); }
 });
@@ -99,7 +107,9 @@ test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into
 test("a_parry_pushes_the_body_behind_the_guard_by_the_same_rule", async () => {
   const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
   const { contactImpulseNs } = await import("../src/scoring.ts");
-  const { effectiveMassAt } = await import("../src/body-inertia.ts");
+  const { contactGiveAt } = await import("../src/body-inertia.ts");
+  const { CONFIG } = await import("../src/config.ts");
+  const { actedMassKg, sharedImpulseNs } = await import("../src/golem/effective-mass.ts");
   const { bout, striker, combat, queued } = await arena();
   try {
     const guard = bout.right.strikers.find((s) => s.kind === "sword");
@@ -108,12 +118,16 @@ test("a_parry_pushes_the_body_behind_the_guard_by_the_same_rule", async () => {
     const report = combat.lastHit;
     assert.equal(report.damage, 0, "a parry wounds nothing");
     assert.ok(report.key.startsWith("block:"), `and is filed as a block: ${report.key}`);
-    const expected = contactImpulseNs(effectiveMassAt(striker.body, point, normal),
-      effectiveMassAt(guard.body, point, normal), 9);
+    // Both sides as far as their motors hold against what the whole 9 m/s passes between them.
+    const holdSeconds = CONFIG.combat.jointHoldSeconds;
+    const strikerGive = contactGiveAt(striker.body, point, normal, { holdSeconds });
+    const guardGive = contactGiveAt(guard.body, point, normal, { holdSeconds });
+    const passed = sharedImpulseNs(strikerGive, guardGive, 9);
+    const expected = contactImpulseNs(actedMassKg(strikerGive, passed), actedMassKg(guardGive, passed),
+      9 * await shoveShare(striker.kind));
     assert.equal(queued.length, 2, "the block files a shove on the guard's owner");
     // A part in a million, the width of Havok's float32 velocity: under an `"arrival"` reading the
-    // 9 m/s is the blade's 9 / `arrivalReadFraction` read back through the plugin and scaled, and
-    // comes back 1.7e-8 off. A block reports no closing speed to check the impulse against instead.
+    // 9 m/s is read back through the plugin. A block reports no closing speed to check the impulse against instead.
     near(report.transferNs, expected, 1e-6, "reported");
     for (const event of queued) near(filed(event), expected, 1e-6, "filed");
   } finally { bout.dispose(); }

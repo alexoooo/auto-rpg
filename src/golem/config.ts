@@ -2101,6 +2101,36 @@ export const TERMINAL_MACE = {
 };
 
 /**
+ * A wooden club, one-handed: the mace's bar in ash, for a human hand.
+ *
+ * **The unit of damage is priced on it.** The owner, 2026-09-27: the strongest hit with a club,
+ * "a club would be made of wood", is one point of damage, and a Warrior has six. So its numbers
+ * are a real club's rather than a tuning: a 0.45 m haft of 18 mm radius and a 0.25 m swell of 40
+ * mm, in ash at 670 kg/m3, is 0.00171 m3 and 1.15 kg, with the swell's 0.84 kg centred at 0.575 m
+ * and the haft's 0.31 kg at 0.225, which balances it at 0.48 m, 0.68 of its length. Not `kg()`,
+ * for the blade's reason: an item weighs what it weighs.
+ */
+export const TERMINAL_CLUB = {
+  id: "club" as const,
+  label: "Wooden club",
+  surface: "trim" as const,
+  length: 0.70,
+  /** The collider, one capsule for the whole bar, as the mace's is. */
+  haftRadius: 0.022,
+  headDiameter: 0.08,
+  mass: 1.15,
+  balanceFraction: 0.68,
+  /** Held equipment, as the mace's row says: a blow on it is a parry. */
+  health: 200,
+  vitalityWeight: 0,
+  /** The blade's pair: a club this light is swung like one. */
+  linearDamping: 0.5,
+  angularDamping: 2,
+  /** None: a human wrist holds 1.15 kg at the end of a hand, which is the bend the mace pins. */
+  limits: null,
+};
+
+/**
  * The maul terminal: one long, heavy bar, both hands on one grip, and both anchors pulling it.
  *
  * **The owner's specification, 2026-09-05:** "a maul where both hands connect at one point on

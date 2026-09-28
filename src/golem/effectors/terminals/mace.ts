@@ -3,8 +3,8 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 
 import { COLLIDES, LAYER } from "../../../physics.ts";
 import { capsulePart, joint } from "../../../rig.ts";
-import { TERMINAL_MACE } from "../../config.ts";
-import { materialForGolemRole } from "../../materials.ts";
+import { TERMINAL_MACE, TERMINAL_CLUB } from "../../config.ts";
+import { materialForGolemRole, type GolemSurfaceRole } from "../../materials.ts";
 import {
   defineTerminal,
   effectorSlot,
@@ -42,12 +42,22 @@ import { RigidStrike } from "../striker.ts";
  * shape itself and `sever` can rewrite them. The head is drawn by the shell, wider than the
  * collider, which is stated beside `TERMINAL_MACE.headDiameter` together with what it costs.
  */
-export const maceDefinition = (config: typeof TERMINAL_MACE & { gripFromButt?: number } = TERMINAL_MACE) => defineTerminal({
-  id: "mace",
+/** A rigid bar with a head: the mace's table, or the club's, which names its own id and surface. */
+export type BarTable = Omit<typeof TERMINAL_MACE, "limits"> & {
+  readonly limits: typeof TERMINAL_MACE.limits | typeof TERMINAL_CLUB.limits;
+  readonly id?: "mace" | "club";
+  readonly label?: string;
+  readonly surface?: GolemSurfaceRole;
+  readonly gripFromButt?: number;
+};
+
+export const maceDefinition = <Id extends "mace" | "club" = "mace">(
+  config: BarTable & { readonly id?: Id } = TERMINAL_MACE) => defineTerminal({
+  id: (config.id ?? "mace") as Id,
   rigidTip: true,
   sockets: 1,
   bite: "mass",
-  label: "mace",
+  label: config.label ?? "mace",
   // **A weapon, not a body**, like the whip's beads: a blow that finds the mace is a parry and
   // wounds nothing, so it can neither be beaten to nothing nor take the arm off with it. The owner,
   // 2026-09-23, asked whether a held blade, mace and maul should stop taking damage: "yes".
@@ -61,7 +71,7 @@ export const maceDefinition = (config: typeof TERMINAL_MACE & { gripFromButt?: n
 
   build(ctx: ModuleBuild, onto: ChainWeld): BuiltTerminal {
     const M = config;
-    const name = `${ctx.name}.mace`;
+    const name = `${ctx.name}.${config.id ?? "mace"}`;
     const half = M.length / 2;
     const gripFromButt = M.gripFromButt ?? 0;
     /** Where the drawn head sits along the bar's own +Y, from its centre. */
@@ -86,7 +96,7 @@ export const maceDefinition = (config: typeof TERMINAL_MACE & { gripFromButt?: n
       mass: M.mass,
       layer: ctx.layers.strike,
       collidesWith: ctx.layers.strikeCollidesWith,
-      material: materialForGolemRole(ctx.materials, "shell"),
+      material: materialForGolemRole(ctx.materials, config.surface ?? "shell"),
       // Out toward the head, which is the number that gives the weapon its character:
       // `CONFIG.club.balancePoint` makes the same argument in metres.
       centerOfMass: new Vector3(0, M.balanceFraction * M.length - half, 0),
@@ -158,3 +168,4 @@ export const maceDefinition = (config: typeof TERMINAL_MACE & { gripFromButt?: n
 });
 
 export const maceTerminal = maceDefinition();
+export const clubTerminal = maceDefinition(TERMINAL_CLUB);

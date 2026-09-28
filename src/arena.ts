@@ -1,4 +1,3 @@
-import { loadHumanAssets } from "./golem/humanoid/appearance.ts";
 import { loadWorkshopAssets } from "./golem/humanoid/workshop-appearance.ts";
 import { loadSkeletonAssets } from "./golem/skeleton/appearance.ts";
 import { publicAssetUrl } from "./asset-url.ts";
@@ -85,7 +84,7 @@ function plainSurface(
 }
 
 export async function buildArena(engine: Engine): Promise<Arena> {
-  await Promise.all([loadHumanAssets(), loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error))]);
+  await loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error));
   const scene = new Scene(engine);
   await loadWorkshopAssets(scene);
   scene.clearColor = new Color4(0.055, 0.062, 0.078, 1);

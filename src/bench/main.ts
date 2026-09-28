@@ -1,4 +1,3 @@
-import { loadHumanAssets, dressHumanoid, type HumanVisualPart } from "../golem/humanoid/appearance.ts";
 import { loadSkeletonAssets } from "../golem/skeleton/appearance.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { dressForgeRoom } from "../forge-room.ts";
@@ -131,7 +130,7 @@ function roomMaterials(scene: Scene): RoomMaterials {
 }
 
 async function main(): Promise<void> {
-  await Promise.all([loadHumanAssets(), loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error))]);
+  await loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error));
   const canvas = need<HTMLCanvasElement>("stage");
   const pickerPanel = need("picker");
   const readoutPanel = need("readout");
@@ -276,7 +275,6 @@ async function main(): Promise<void> {
    * order says nothing about what is jointed to what.
    */
   let carried: BenchModule | null = null;
-  let humanArt: ReturnType<typeof dressHumanoid> = null;
   /**
    * **The stand is rebuilt with the module, because which slot is filled decides what it is.**
    * For four of the five slots it is the fixed `ANIMATED` anchor Session 02 built; for locomotion
@@ -335,7 +333,6 @@ async function main(): Promise<void> {
 
   const teardown = (): void => {
     releaseWatchers();
-    humanArt?.dispose(); humanArt = null;
     for (const overlay of overlays.values()) overlay.dispose();
     overlays.clear();
     // **Down the way it was built up**, and that ordering is the whole of this function. Every
@@ -392,7 +389,6 @@ async function main(): Promise<void> {
     shadows.getShadowMap()!.renderList = [];
     shadows.addShadowCaster(rebuilt.block.mesh, false);
 
-    const visualParts: HumanVisualPart[] = [];
     for (const filling of filled) {
       const socket = rebuilt.socket(filling);
       const module = chosen[filling].build({
@@ -412,7 +408,6 @@ async function main(): Promise<void> {
       for (const part of module.parts) {
         watch(part.part.body);
         const visual = { slot: filling, moduleId: chosen[filling].id, id: part.id, host: part.part.mesh, shells: part.shell };
-        visualParts.push(visual);
         const shells = part.appearance === "human" ? part.shell : dressGolemPart(visual, rebuilt.materials);
         for (const mesh of shells) shadows.addShadowCaster(mesh, false);
       }
@@ -438,12 +433,9 @@ async function main(): Promise<void> {
       for (const part of carried.parts) {
         watch(part.part.body);
         const visual = { slot: "head", moduleId: chosen.head.id, id: part.id, host: part.part.mesh, shells: part.shell };
-        visualParts.push(visual);
         for (const mesh of part.appearance === "human" ? part.shell : dressGolemPart(visual, rebuilt.materials)) shadows.addShadowCaster(mesh, false);
       }
     }
-    humanArt = dressHumanoid(scene, visualParts, "left");
-    for (const mesh of humanArt?.meshes ?? []) shadows.addShadowCaster(mesh, false);
     renderPicker();
   };
 

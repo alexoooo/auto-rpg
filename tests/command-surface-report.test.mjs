@@ -13,10 +13,10 @@ function rows() {
   }));
 }
 function cell(run, cap, a = "expert-effector@c8,h1", b = "humanoid-duelist") {
-  return { run, name: `human-warrior|${b === RULER ? "h2h" : "vs-duelist"}|${a}`,
+  return { run, name: `warrior|${b === RULER ? "h2h" : "vs-duelist"}|${a}`,
     ...cellFigures(rows()), harness: HARNESS,
     protocol: { maxSeconds: cap, settleSeconds: 0, locomotionMode: "supported" },
-    meta: { a, b, body: "human-warrior" } };
+    meta: { a, b, body: "warrior" } };
 }
 
 test("channel summaries attribute targets to the swapped subject and retain unavailable effort", () => {
@@ -58,8 +58,8 @@ test("a run uses its own ruler and never picks an ambiguous external control", (
 test("reports retain repeated policy runs and never compare head-to-head cells across caps", () => {
   const screen = cell("screen", 6), full = cell("full", 150);
   const report = channelReport([screen, full, cell("screen", 6, RULER), cell("full", 150, RULER)]);
-  assert.match(report, /expert-effector@c8,h1 on human-warrior \(screen\)/);
-  assert.match(report, /expert-effector@c8,h1 on human-warrior \(full\)/);
+  assert.match(report, /expert-effector@c8,h1 on warrior \(screen\)/);
+  assert.match(report, /expert-effector@c8,h1 on warrior \(full\)/);
   assert.match(report, /cap 6 s/); assert.match(report, /cap 150 s/);
   assert.match(report, /targeted 30\.0 % \(speed 0\.600, force 0\.500\)/);
   const a = cell("screen", 6, "expert-effector@c8,h1", RULER);

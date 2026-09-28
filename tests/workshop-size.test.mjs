@@ -11,14 +11,14 @@ import { solveTaskEndpoint } from '../src/golem/humanoid/task-kinematics.ts';
 import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
 import { buildGolemStand, golemLayers } from '../src/golem/stand.ts';
 import { neutralIntent } from '../src/dungeon/commands.ts';
+import { workshopSegmentKg } from '../src/golem/humanoid/anthropometry.ts';
 
 const setup = (size = 1, primary = 'blade', secondary = 'plate') => ({ ...humanSetup(primary, secondary),
   human: { model: 'workshop-fighter', boots: true, armour: true }, attributes: { size } });
 const sizes = Array.from({ length: 7 }, (_, i) => Number((.8 + .05 * i).toFixed(2)));
 
-test('Size belongs to the workshop model and survives edits and URLs, but not a legacy switch', () => {
+test('Size belongs to the workshop model and survives edits and URLs', () => {
   assert.ok(!('size' in fixedAttributes(setup())));
-  assert.ok('size' in fixedAttributes(humanSetup()));
   for (const size of sizes) {
     const build = setup(size);
     assert.equal(golemSetupRefusal(build), null);
@@ -27,9 +27,6 @@ test('Size belongs to the workshop model and survives edits and URLs, but not a 
     assert.deepEqual(matchupFromQuery(matchupQuery(changed)).left.golem, changed.left.golem);
     const kit = withGolemBuild(changed, 'left', { ...setup(), attributes: undefined, human: { ...build.human, boots: false } }, 7);
     assert.equal(kit.left.golem.attributes?.size ?? 1, size);
-    const legacy = withGolemBuild(changed, 'left', humanSetup(), 7);
-    assert.equal(legacy.left.golem.attributes?.size ?? 1, 1);
-    if (size !== 1) assert.ok(golemSetupRefusal({ ...humanSetup(), attributes: { size } }));
   }
   for (const size of [.79, 1.11, NaN]) assert.ok(golemSetupRefusal(setup(size)));
 });
@@ -91,7 +88,8 @@ test('awake workshop arms scale physically and hold fixed-size equipment through
       try {
         for (const module of modules) {
           const upper = module.parts.find(p => p.id.endsWith('.upper')).part;
-          assert.ok(Math.abs(upper.body.getMassProperties().mass - 2.8 * size ** 3) < 1e-6);
+          // The size here is the size the module is built at, so the model's own upper arm times its cube.
+          assert.ok(Math.abs(upper.body.getMassProperties().mass - workshopSegmentKg('workshop-fighter').arm[0] * size ** 3) < 1e-6);
           assert.ok(Math.abs(module.envelope().reachable.reachMax - .65 * size) < 1e-6);
         }
         for (let frame = 0; frame < 360; frame++) { scene._renderId++; scene._advancePhysicsEngineStep(1000 / 60); }

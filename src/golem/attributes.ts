@@ -335,8 +335,14 @@ export const ATTRIBUTES: AttributeTable = Object.freeze({
    * How big the body is: every body table at the stat by its fields' laws (`withSize` below), on the
    * biological pair at constant density -- force s^2, torque s^3, so a drive's time goes as s and a
    * fall's as its root (`SIZE_LAW_POWER`). Items keep their size, so a larger body is also a
-   * relatively smaller weapon. The legacy human is fixed at x1; the workshop human supports this range. Sessions 12a
-   * and 12b, 2026-09-23; the biological law, skill ceiling session 01, 2026-09-25.
+   * relatively smaller weapon. Sessions 12a and 12b, 2026-09-23; the biological law, skill ceiling
+   * session 01, 2026-09-25.
+   *
+   * **A human's x1 is a typical adult** (2026-09-27): the Warrior 1.77 m and 79 kg, the Rogue, on its
+   * own proportions, 1.63 m and 57.6 kg. The stat multiplies the model's fit to that stature
+   * (`builtAttributes` in `src/golem/build.ts`, `WORKSHOP_FIT_SCALE`), so the row below is the same
+   * multiplier on a human as on stone. A human row of its own is Session 2, step 6 of
+   * `docs/plans/2026-09-27-warrior-rogue-reptile.md`.
    *
    * **The row is x0.8 to x1.1**, and the numbers that set it are the Node bench's
    * (`research/size-bench.mjs`, release-120 at 5ac61ce, 120 Hz), stroke stray in mm, the pitch

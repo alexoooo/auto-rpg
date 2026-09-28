@@ -22,7 +22,7 @@ const PROBE = PROBE_MINDS;
 export const LOOP_GROUPS = Object.freeze({
   stone: { build: "default", minds: PROBE },
   skeleton: { build: "skeleton-warrior", minds: ["skeleton-duelist"] },
-  human: { build: "human-warrior", minds: ["humanoid-duelist"] },
+  human: { build: "warrior", minds: ["humanoid-duelist"] },
   multileg: { build: "multileg", minds: ["golem-walker", "golem-duelist"] },
   wheel: { build: "wheel", minds: ["golem-walker", "golem-duelist"] },
 });

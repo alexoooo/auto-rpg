@@ -146,7 +146,7 @@ test('reference geometry permits a real rogue shot against controlled non-attack
   let run;
   try {
     const map=referenceChamber();map.spawns=[{x:map.start.x,z:map.start.z+3.8}];
-    run=new DungeonRun(arena.scene,271828,'workshop-rogue',false,map,undefined,[],()=> 'human-unarmed');
+    run=new DungeonRun(arena.scene,271828,'rogue',false,map,undefined,[],()=> 'warrior-unarmed');
     for(const enemy of run.enemies) enemy.policy={name:'idle',decide:()=>freshIntent()};
     run.commands.order={kind:'lock',target:'enemy-0'};run.commands.revision++;
     arena.scene.onBeforePhysicsObservable.add(()=>run.step(1/CONFIG.world.physicsHz));

@@ -11,16 +11,48 @@ import { HUMAN_MOUNT } from "./grip.ts";
 import { carryOrientation } from "./orientation.ts";
 import { solveTaskEndpoint } from "./task-kinematics.ts";
 import { humanEquipment } from "./equipment.ts";
-import { workshopArm } from "./workshop-profile.ts";
+import { workshopArm, type WorkshopModel } from "./workshop-profile.ts";
+import { workshopArmKg, workshopSegmentKg } from "./anthropometry.ts";
 import { LEGACY_ARM_GEOMETRY } from "./kinematics.ts";
 import type { HandIntent } from "../../mind.ts";
 import type { EffectorTarget } from "../../body-command.ts";
 
-// Three anatomical segments. The seven coordinates are virtual axes, never extra bodies.
+// Three anatomical segments. The seven coordinates are virtual axes, never extra bodies. These are
+// the bench arm's masses; a workshop human's are its model's (`workshopSegmentKg`).
 const MASSES = [2.8, 2.0, 1.1];
 // Constraint-axis budgets: shoulder X/Y/Z, elbow pronation/flexion, wrist deviation/bend.
+// Pronation stays 25 N m, twice a man's static peak (11.9 N m, the strike reference below). At 12
+// the forearm cannot hold a weapon's roll through a stroke; at 50 it holds it better and is four
+// times a man's. Stroke bench as in `RATES`, rates x2; peak driven tip m/s, Warrior / Rogue:
+//
+//     pronation   blade         club          fist
+//       12        11.6 / 10.6   10.5 /  7.7   6.3 / 6.8
+//     **25**      12.7 / 12.0   12.5 / 17.9   6.0 / 7.0
+//       50        14.1 / 13.7   13.6 / 14.7   5.9 / 6.3
 const TORQUES = [[100, 100, 65], [25, 75, 0], [20, 25, 0]];
-const RATES = [3, 3, 4, 4, 5, 5, 4];
+/**
+ * Command rates, rad/s, in `ARM_IDS` order, at x1 (`frequency` carries a size, `armSpeed` the
+ * attribute). Twice the first arm's [3, 3, 4, 4, 5, 5, 4] (Session 2 step 4, 2026-09-28). On the
+ * stand, the arm alone now drives a weapon at 12-13 m/s and a fist at 6-7. A novice's arm-only
+ * saber cut is 13-15 m/s (`docs/analysis/2026-09-27-human-strike-reference.md`), and the trunk
+ * adds the rest of a swing. Past x2 the torques bind: the tip gains little and the hand strays
+ * further. Node golem bench (`runStrokeBench`, `runParryBench`), 120 Hz, the workshop Warrior /
+ * Rogue; peak driven tip m/s, stroke stray mm (H64), parry overshoot mm and arrival s:
+ *
+ *              blade               club                fist               parry
+ *     x1 (was) 11.1 363/10.4 102    9.4 184/ 8.9  96   3.6  23/4.6  24    5/5  0.042
+ *     **x2**   12.7 310/12.0 178   12.5 302/17.9 276   6.0  81/7.0 138    1/7  0.025
+ *     x3       12.6 398/11.9 251   13.2 478/11.9 349   8.2 122/7.5 127    0/5  0.025
+ *     [10, 10, 10, 12, 22, 12, 12]
+ *              12.7 366/11.1 202   13.3 471/ 7.8 247   8.8 165/7.7 154    0/6  0.025
+ *
+ * **A free-air peak overstates a weapon.** A trunk-driven swing on the bout runner reads the club at
+ * 20-22 m/s at x2, but most of it is the club throwing the forearm's roll over to its stop as the arm
+ * stops (H64): with pronation at 50 N m the Warrior's reads 10.2. A human's speed comes from
+ * proximal-to-distal sequencing, not from pose-to-pose rates; step 6's strike search is where that
+ * is looked for. An acceleration-limited command profile was tried and changed neither.
+ */
+const RATES = [6, 6, 8, 8, 10, 10, 8];
 // Awake Node/Havok stand, 10 s loaded heater hold (human-arm-probe):
 // straight elbow constraint reference: 4â€“15 mm hand error, pronation oscillates >1 rad;
 // resting-bend reference + 10/s response: .783 mm error, <.001 mm final-window wander.
@@ -30,9 +62,11 @@ const RATES = [3, 3, 4, 4, 5, 5, 4];
 // the anatomical arm with its blade / mace (240 Hz; 120 on the shipped law; 120 as here):
 // stroke stray 76.0 / 136.1, 91.9 / 144.4, 78.7 / 130.0 mm; parry overshoot 113 / 180, 119 / 228,
 // 97 / 196 mm; peak stroke tip 11.24 / 9.26, 11.41 / 9.26, 11.11 / 9.21 m/s.
-// Per-axis servo target ceiling, rad/s. Kept at the original 8; the impact-bench
-// counterfactual varies this independently of command rates and motor force.
-export const HUMAN_ARM_DRIVE = { inertiaFloor: 0.015, response: 10, velocityLimit: 8 };
+// Per-axis servo target ceiling, rad/s, at x1. 24 is a typical man's elbow extension in a punch
+// (22 +- 5.6 rad/s, the strike reference), and clears `RATES`' 10 with the servo's correction on top;
+// the original 8 sat under the doubled rates. The impact-bench counterfactual varies it
+// independently of command rates and motor force (`research/human-arm-limits.mjs`).
+export const HUMAN_ARM_DRIVE = { inertiaFloor: 0.015, response: 10, velocityLimit: 24 };
 export const anatomicalChain = defineChain({
   id: "anatomical", fitTerminal: humanEquipment, label: "anatomical arm - full hand pose", axes: 7,
   strokes: ARM_STROKES, pointTarget: true, massKg: MASSES.reduce((a, b) => a + b), swingInertia: 0.8,
@@ -41,6 +75,7 @@ export const anatomicalChain = defineChain({
     const massScale = size ** SIZE_LAW_POWER.mass, torqueScale = size ** SIZE_LAW_POWER.torque;
     const frequency = size ** SIZE_LAW_POWER.frequency, inertiaScale = size ** SIZE_LAW_POWER.inertia;
     const geometry = ctx.human ? workshopArm(ctx.socket.outboard, size, ctx.human.model) : LEGACY_ARM_GEOMETRY;
+    const masses = ctx.human ? workshopSegmentKg(ctx.human.model).arm : MASSES;
     const equipmentMount = ctx.human ? { axis: Vector3.Up(), perp: Vector3.Forward() } : HUMAN_MOUNT;
     const forward = (angles: readonly number[]) => armForward(angles, geometry);
     const side = ctx.socket.outboard;
@@ -180,7 +215,7 @@ export const anatomicalChain = defineChain({
       const body = capsulePart(ctx.scene, { name: `${ctx.name}.${ids[i]}`,
         position: toWorld(Vector3.Center(proximal, distal)), rotation: ctx.socket.rotation.multiply(frame.rotation),
         height: lengths[i], radius: (i === 0 ? .055 : i === 1 ? .043 : .032) * size,
-        mass: MASSES[i] * weight * massScale, layer: ctx.layers.body, collidesWith: ctx.layers.bodyCollidesWith,
+        mass: masses[i] * weight * massScale, layer: ctx.layers.body, collidesWith: ctx.layers.bodyCollidesWith,
         material: materialForGolemRole(ctx.materials, "armour") });
       body.body.setLinearDamping(.1 * frequency); body.body.setAngularDamping(.2 * frequency);
       const properties = body.body.getMassProperties(), inertia = properties.inertia!;
@@ -316,3 +351,21 @@ export const anatomicalChain = defineChain({
     } as BuiltChain;
   },
 });
+
+/**
+ * The anatomical arm as a workshop model has it: its own links' mass (`workshopSegmentKg`) and the
+ * swing inertia that goes with it. The bench arm's 0.8 kg m2 is its 5.9 kg as a rod about the
+ * shoulder, so a model's is that times its mass over 5.9, the arm's length being the model's either
+ * way. One per model, so every world that fits a model holds the same definition.
+ */
+const WORKSHOP_CHAINS = new Map<WorkshopModel, typeof anatomicalChain>();
+export function workshopAnatomicalChain(model: WorkshopModel): typeof anatomicalChain {
+  let chain = WORKSHOP_CHAINS.get(model);
+  if (!chain) {
+    const massKg = workshopArmKg(model);
+    chain = Object.freeze({ ...anatomicalChain, massKg,
+      swingInertia: anatomicalChain.swingInertia * massKg / anatomicalChain.massKg });
+    WORKSHOP_CHAINS.set(model, chain);
+  }
+  return chain;
+}

@@ -54,7 +54,7 @@ export type ChainId = "none" | "pitch" | "reach" | "wrist" | "anatomical" | "ske
 
 /** The terminal shelf. `blade` is built in Session 02; `plate`, `mace` and `whip` are
  *  Session 04's; `fist` is Session 01 of the matchup set's. */
-export type TerminalId = "blade" | "plate" | "mace" | "whip" | "fist" | "maul" | "bow";
+export type TerminalId = "blade" | "plate" | "mace" | "club" | "whip" | "fist" | "maul" | "bow";
 
 /**
  * One severable piece of a module.

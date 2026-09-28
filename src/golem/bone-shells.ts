@@ -17,8 +17,8 @@ import { materialForGolemRecipe, materialForGolemRole, type GolemMaterialPalette
  *
  * **Each builder hides its host.** A carved shell dresses a collider that stays visible; a bone
  * shell is the whole drawing of its part, so the capsule or box underneath would show through
- * the gaps between the bones. The human skin treats its hosts the same way
- * (`src/golem/humanoid/appearance.ts`), and `forgeAppearance` skips a hidden source.
+ * the gaps between the bones. The human skin treats its hosts the same way (`dressWorkshopFighter`
+ * in `src/golem/humanoid/workshop-appearance.ts`), and `forgeAppearance` skips a hidden source.
  *
  * Everything is `carved-bone` except the skull's eyes, which are `rune` and are spheres: forge
  * art replaces a 24-vertex box in the rune material, so a rune box here would be swapped for a

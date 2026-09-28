@@ -28,7 +28,7 @@ import { parseChannelFlags } from "../src/body-command.ts";
 export const HARNESS = "Node bout runner, research runner (research/command-null-worker.mjs), supported locomotion, research PROTOCOL";
 
 export const NULL_MINDS = Object.freeze(["golem-duelist", "golem-walker"]);
-export const NULL_BUILDS = Object.freeze(["default", "human-warrior", "wheel", "skeleton-warrior", "multileg"]);
+export const NULL_BUILDS = Object.freeze(["default", "warrior", "wheel", "skeleton-warrior", "multileg"]);
 
 export function nullJobs() {
   const jobs = [];

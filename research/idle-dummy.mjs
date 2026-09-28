@@ -32,7 +32,7 @@ const PROBE = PROBE_MINDS;
 export const IDLE_BODIES = Object.freeze({
   stone: { build: "default", minds: PROBE },
   skeleton: { build: "skeleton-warrior", minds: ["skeleton-duelist"] },
-  human: { build: "human-warrior", minds: ["humanoid-duelist"] },
+  human: { build: "warrior", minds: ["humanoid-duelist"] },
   giant: { build: "default", preset: "max", minds: PROBE },
 });
 

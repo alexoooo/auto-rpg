@@ -42,6 +42,7 @@ import {
   golemLocomotion,
   golemTorso,
   golemUpperMassKg,
+  builtAttributes,
   type GolemEffectorOption,
 } from "./build.ts";
 import { GOLEM_ASSEMBLY } from "./config.ts";
@@ -50,7 +51,6 @@ import { GolemControlEndpoint } from "./golem-control.ts";
 import { gaitLocomotionCommand, hobble, type BuiltLocomotion } from "./locomotion.ts";
 import { stepTravel } from "../step-target.ts";
 import { dressGolemPart } from "./appearance.ts";
-import { dressHumanoid } from "./humanoid/appearance.ts";
 import { dressWorkshopFighter } from "./humanoid/workshop-appearance.ts";
 import { golemMaterials, type GolemMaterialPalette } from "./materials.ts";
 import {
@@ -303,7 +303,7 @@ interface GolemTopology {
 }
 
 export class Golem implements Combatant, Topological {
-  private humanAppearance: ReturnType<typeof dressHumanoid> = null;
+  private humanAppearance: ReturnType<typeof dressWorkshopFighter> = null;
   readonly actorId?: string;
   readonly kind = "golem" as const;
   /** Not a humanoid, and it does not pretend to be one. See `Combatant.articulated`. */
@@ -327,6 +327,11 @@ export class Golem implements Combatant, Topological {
    * reader drifts.
    */
   readonly attributes: Attributes;
+  /**
+   * The stats its modules were built at (`builtAttributes`): these, but a human's size carries its
+   * model's fit to a typical adult. Whatever sizes the built body reads this one.
+   */
+  private readonly built: Attributes;
   /**
    * This body's motor tone, handed to every module through `ModuleBuild.tone` and set once a
    * substep by `motorTone`.
@@ -411,6 +416,7 @@ export class Golem implements Combatant, Topological {
     this.actorId = options.actorId;
     const setup = options.setup;
     this.attributes = resolveAttributes(setup);
+    this.built = builtAttributes(setup);
     const name = options.actorId ? `${options.actorId}.golem` : `${options.side}.golem`;
     const layers = golemLayersFor(options.side);
     // **`procedural-pbr`, so that wear is visible at all.** The salvaged damage-wear shader is what
@@ -439,7 +445,7 @@ export class Golem implements Combatant, Topological {
     // collision mask of zero.
     // The definition states its stand at x1, and every length of a body goes with its size stat,
     // which its locomotion builds to (`withSize`): the waist is where the sized legs put it.
-    const standHeight = locomotionDefinition.heightRange.standM * this.attributes.size;
+    const standHeight = locomotionDefinition.heightRange.standM * this.built.size;
     const waist = new Vector3(options.origin.x, options.origin.y + standHeight, options.origin.z);
     const size = GOLEM_ASSEMBLY.baseSize;
     this.base = boxPart(scene, {
@@ -463,7 +469,7 @@ export class Golem implements Combatant, Topological {
       materials: this.materials,
       world: options.locomotionWorld,
       tone: this.tone,
-      attributes: this.attributes,
+      attributes: this.built,
       human: setup.human,
     });
 
@@ -609,7 +615,7 @@ export class Golem implements Combatant, Topological {
     });
     this.humanAppearance = setup.human ? dressWorkshopFighter(scene, this.visualBindings, this.side, setup.human,
       setup.primary.terminal === "bow" ? "bow" : setup.primary.terminal === "blade" ? setup.secondary.terminal === "plate" ? "sword-shield" : "sword"
-        : setup.secondary.terminal === "plate" ? "shield" : "empty", this.attributes.size) : dressHumanoid(scene, this.visualBindings, this.side);
+        : setup.secondary.terminal === "plate" ? "shield" : "empty", this.built.size) : null;
     for (const mesh of this.humanAppearance?.meshes ?? []) { this.owned.add(mesh); this.costume.push(mesh); }
 
     // Every part is watched, because a lift or a push can arrive on any of them: a blade under the

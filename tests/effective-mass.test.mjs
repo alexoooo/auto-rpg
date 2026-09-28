@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { effectiveMassKg, lumpLinks, principalInertia, worldInertia } from "../src/golem/effective-mass.ts";
+import { actedMassKg, contactGive, effectiveMassKg, lumpLinks, massGive, principalInertia, sharedImpulseNs,
+  worldInertia } from "../src/golem/effective-mass.ts";
 
 const IDENTITY = [0, 0, 0, 1];
 const diag = ([x, y, z]) => [x, 0, 0, 0, y, 0, 0, 0, z];
@@ -88,6 +89,107 @@ test("lumping_carries_each_inertia_to_the_common_centre_and_the_closed_forms_agr
 });
 
 /**
+ * **A held axis is locked until the contact asks more of it than it holds** (joint give, Session 2
+ * step 5 of `docs/plans/2026-09-27-warrior-rogue-reptile.md`). A rod on a ground ball joint, its Z
+ * held to `H`, struck across its tip at `L`: the pivot must supply `P L` of angular impulse, so below
+ * `P = H / L` nothing moves, and above it the rod turns on what is left, `(P L - H) / I_pivot`.
+ */
+test("a_held_axis_locks_its_joint_until_the_contact_asks_more_than_it_holds", () => {
+  const holdNms = 0.6;
+  const links = [GROUND, rod(2, 1, 0.5)];
+  const joints = [{ a: 0, b: 1, pivot: [0, 0, 0], lockedAngular: [], heldAngular: [{ axis: [0, 0, 1], holdNms }] }];
+  const contact = { link: 1, point: [1, 0, 0], normal: [0, 1, 0] };
+  const give = contactGive(links, joints, contact);
+  const pivotInertia = 2 / 3;
+  for (const p of [0.1, 0.59, 0.61, 1, 3, 10]) {
+    const expected = Math.max(0, (p * 1 - holdNms) * 1 / pivotInertia);
+    assert.ok(Math.abs(give(p).give - expected) <= 1e-6 * Math.max(1, expected), `at ${p} N s: ${give(p).give} against ${expected}`);
+  }
+  // With no hold asked for it reads the free rod, and a held axis at zero is no hold at all.
+  near(1 / (give(1e6).give / 1e6), effectiveMassKg(links, joints, contact), 1e-4, "a hard blow gives as the free rod");
+  const unheld = contactGive(links, [{ ...joints[0], heldAngular: [{ axis: [0, 0, 1], holdNms: 0 }] }], contact);
+  near(unheld(2).give, 2 / (2 / 3), 1e-7, "a zero hold");
+  // Against a lone mass closing at v: P / M + (P L - H) / I_p = v, once the joint has given.
+  const massKg = 5, closing = 4;
+  const p = sharedImpulseNs(give, massGive(massKg), closing);
+  near(p, (closing + holdNms / pivotInertia) / (1 / massKg + 1 / pivotInertia), 1e-7, "the shared impulse");
+  near(actedMassKg(give, p), p / ((p - holdNms) / pivotInertia), 1e-7, "the mass the rod acted as");
+  // A soft contact that the joint holds entirely: the rod is immovable and the whole impulse is the mass's.
+  near(sharedImpulseNs(give, massGive(massKg), 0.1), 0.5, 1e-7, "held throughout");
+  assert.equal(actedMassKg(give, 0.5), Infinity);
+});
+
+/**
+ * The active set against a reference that shares none of its code: the same contact's rows built
+ * here, and the box-constrained problem they pose solved by projected Gauss-Seidel. Floating chains
+ * of three rods on ball joints, each axis held at a random impulse, locked or free, struck at random.
+ * A held axis the solve released too early, or never released, moves the answer.
+ */
+test("joint_give_agrees_with_projected_gauss_seidel_on_random_chains", () => {
+  let state = 7;
+  const uniform = () => ((state = (state * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  let released = 0;
+  for (let trial = 0; trial < 12; trial++) {
+    const links = [0, 1, 2].map((k) => ({ massKg: 0.5 + 3 * uniform(), centre: [0.4 * k + 0.1 * uniform(), 0.3 * uniform(), 0.2 * uniform()],
+      inertia: diag([0.01 + 0.05 * uniform(), 0.01 + 0.05 * uniform(), 0.01 + 0.05 * uniform()]) }));
+    const joints = [0, 1].map((k) => ({ a: k, b: k + 1, pivot: [0.4 * k + 0.2, 0.3 * uniform(), 0.1 * uniform()], lockedAngular: [],
+      heldAngular: [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map((axis) => ({ axis, holdNms: [0, 0.05, 0.2, 1e9][Math.floor(4 * uniform())] })) }));
+    const contact = { link: 2, point: [1.0, 0.2 * uniform(), 0.1], normal: [uniform() - 0.5, 1, uniform() - 0.5] };
+    const give = contactGive(links, joints, contact);
+    // The reference: rows as velocity constraints, lambda minimising 1/2 l^T A l + l^T y P on the box.
+    const n = Math.hypot(...contact.normal);
+    const normal = contact.normal.map((x) => x / n);
+    const response = (link, linear, angular) => ({ link, v: linear.map((x) => x / links[link].massKg),
+      w: angular.map((x, i) => x / links[link].inertia[4 * i]) });
+    const rows = [];
+    for (const joint of joints) {
+      const ra = sub(joint.pivot, links[joint.a].centre), rb = sub(joint.pivot, links[joint.b].centre);
+      for (const e of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
+        rows.push({ hold: Infinity, terms: [{ link: joint.a, linear: e, angular: cross(ra, e) },
+          { link: joint.b, linear: e.map((x) => -x), angular: cross(rb, e).map((x) => -x) }] });
+      }
+      for (const { axis, holdNms } of joint.heldAngular) {
+        if (holdNms > 0) rows.push({ hold: holdNms, terms: [{ link: joint.a, linear: [0, 0, 0], angular: axis },
+          { link: joint.b, linear: [0, 0, 0], angular: axis.map((x) => -x) }] });
+      }
+    }
+    const probe = { terms: [{ link: 2, linear: normal, angular: cross(sub(contact.point, links[2].centre), normal) }] };
+    const product = (r, s) => {
+      let sum = 0;
+      for (const t of r.terms) for (const u of s.terms) {
+        if (t.link !== u.link) continue;
+        const m = response(u.link, u.linear, u.angular);
+        sum += dot(t.linear, m.v) + dot(t.angular, m.w);
+      }
+      return sum;
+    };
+    const a = rows.map((r) => rows.map((s) => product(r, s)));
+    const y = rows.map((r) => product(r, probe));
+    const free = product(probe, probe);
+    for (const p of [0.05, 0.5, 3, 20]) {
+      const lambda = new Array(rows.length).fill(0);
+      for (let sweep = 0; sweep < 40000; sweep++) {
+        for (let i = 0; i < rows.length; i++) {
+          let w = y[i] * p;
+          for (let j = 0; j < rows.length; j++) w += a[i][j] * lambda[j];
+          const next = lambda[i] - w / a[i][i];
+          lambda[i] = Math.max(-rows[i].hold, Math.min(rows[i].hold, next));
+        }
+      }
+      let expected = free * p;
+      for (let i = 0; i < rows.length; i++) expected += y[i] * lambda[i];
+      released += rows.some((row, i) => Number.isFinite(row.hold) && row.hold < 1e8 && Math.abs(lambda[i]) >= row.hold * (1 - 1e-9)) ? 1 : 0;
+      const got = give(p).give;
+      assert.ok(Math.abs(got - expected) <= 1e-4 * Math.max(expected, 1e-3), `trial ${trial} at ${p} N s: ${got} against ${expected}`);
+    }
+  }
+  assert.ok(released >= 16, `the control: some held axes gave (${released} of 48 cases)`);
+});
+
+/**
  * The walk against the solver. `effectiveMassAt` with the bench's keyframed stand pinned is the
  * quantity the tap measures, so the two must agree: measured to within
  * 3 % on every edge tap (physical contact session 05, the Node impact bench). A wrongly walked chain,
@@ -155,8 +257,9 @@ test("combat_reads_both_effective_masses_at_the_contact", async () => {
   const { PhysicsEventType } = await import("@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js");
   const { createBout, freshHavok } = await import("./harness/bout-runner.mjs");
   const { namedBuild } = await import("../src/golem/roster.ts");
-  const { effectiveMassAt } = await import("../src/body-inertia.ts");
+  const { contactGiveAt, effectiveMassAt } = await import("../src/body-inertia.ts");
   const { Combat } = await import("../src/combat.ts");
+  const { CONFIG } = await import("../src/config.ts");
   const { TERMINAL_BLADE } = await import("../src/golem/config.ts");
   Logger.LogLevels = Logger.ErrorLogLevel;
   const setup = namedBuild("default").setup;
@@ -172,12 +275,27 @@ test("combat_reads_both_effective_masses_at_the_contact", async () => {
     combat.attach(bout.right);
     const point = striker.centreOfMass().clone();
     const normal = striker.edgeDirection().clone().normalize();
+    // A cut at 9 m/s along the normal, sampled the way a solver step samples it (see `strike` in
+    // `tests/knockback.test.mjs`), so the joints are asked to hold something.
+    striker.body.setLinearVelocity(normal.scale(9));
+    striker.body.setAngularVelocity(Vector3.Zero());
+    const scene = striker.body.transformNode.getScene();
+    scene.onBeforePhysicsObservable.notifyObservers(scene);
     striker.body.getCollisionObservable().notifyObservers({ collider: striker.body, collidedAgainst: limb.part.body,
       type: PhysicsEventType.COLLISION_STARTED, point, normal: normal.scale(2), distance: 0, impulse: 0 });
     const report = combat.lastHit;
     assert.ok(report, "the contact reached the scorer");
-    near(report.strikerMassKg, effectiveMassAt(striker.body, point, normal), 1e-9, "striker");
-    near(report.partMassKg, effectiveMassAt(limb.part.body, point, normal), 1e-9, "part");
+    // Each side as far as its motors hold over the contact against the impulse the two pass.
+    const holdSeconds = CONFIG.combat.jointHoldSeconds;
+    assert.ok(holdSeconds > 0 && report.closingSpeed > 0, "the control: a contact that asks the joints to hold");
+    const strikerGive = contactGiveAt(striker.body, point, normal, { holdSeconds });
+    const partGive = contactGiveAt(limb.part.body, point, normal, { holdSeconds });
+    const impulseNs = sharedImpulseNs(strikerGive, partGive, report.closingSpeed);
+    near(report.strikerMassKg, actedMassKg(strikerGive, impulseNs), 1e-9, "striker");
+    near(report.partMassKg, actedMassKg(partGive, impulseNs), 1e-9, "part");
+    // Held joints couple more of the body than free ones, and never less.
+    assert.ok(report.strikerMassKg > effectiveMassAt(striker.body, point, normal) * 1.01,
+      `the striker's motors hold: ${report.strikerMassKg} kg against ${effectiveMassAt(striker.body, point, normal)} free`);
     assert.ok(report.strikerMassKg > TERMINAL_BLADE.mass * 1.1,
       `the arm behind the blade counts: ${report.strikerMassKg} kg against its own ${TERMINAL_BLADE.mass}`);
   } finally { bout.dispose(); }

@@ -7,7 +7,8 @@ import type { Observable } from "@babylonjs/core/Misc/observable.js";
 import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 
 import { CONFIG } from "./config.ts";
-import { effectiveMassAt, type EffectiveMassOptions } from "./body-inertia.ts";
+import { contactGiveAt, effectiveMassAt, type EffectiveMassOptions } from "./body-inertia.ts";
+import { actedMassKg, massGive, sharedImpulseNs } from "./golem/effective-mass.ts";
 import { StepStart } from "./step-start.ts";
 import type { Side } from "./physics.ts";
 import type { WeaponKind } from "./hands.ts";
@@ -83,6 +84,15 @@ export interface Striking {
   readonly body: PhysicsBody;
   /** Supported bodies may replace a solving striker contact with this sensor-only path. */
   readonly nonSolvingTrigger?: NonSolvingStrikeTrigger;
+  /**
+   * A striker that finds its own contacts publishes them here, and the solver's events for its body
+   * are then not read at all. A loosed arrow sweeps its shape along the step it is about to fly and
+   * reports what that finds. Havok's manifold for a 9 mm shaft at 46 m/s is not evidence: it
+   * reports a speculative contact while the point is still short of the target face, at a point that is
+   * nowhere on the shaft. Read as a blow, that contact spent every arrow the Rogue loosed in the
+   * dungeon for no damage (Node headless arena, 2026-09-27).
+   */
+  readonly contactEvents?: Observable<IPhysicsCollisionEvent>;
   /** Compound owners must prove the contact belongs to this semantic module leaf. */
   allowsSourceContact?(point: Vector3): boolean;
   /** Stateful effectors may accept at most one contact per target and action instance. */
@@ -311,25 +321,25 @@ const PARRY_LABEL: Record<WeaponKind, string> = {
 };
 
 /**
- * The share of its arrival velocity an `"arrival"` reading bills for a striker of `kind`: its row
- * of `CONFIG.combat.arrivalReadFractions`, or of `table` where a `Combat` took that table at
- * construction. Total over `Striker`: a kind added to the union without a case here is a compile
- * error, and a row that is not a fraction throws by name rather than billing nothing or double.
+ * The share of its arrival that the shove a striker of `kind` files is read at under an
+ * `"arrival"` reading: its row of `CONFIG.combat.shoveReadFractions`, or of `table` where a
+ * `Combat` took that table at construction. Total over `Striker`: a kind added to the union
+ * without a case here is a compile error, and a row that is not a fraction throws by name.
  */
-export function arrivalReadFraction(kind: Striker,
-  table: Readonly<Record<Striker, number>> = CONFIG.combat.arrivalReadFractions): number {
+export function shoveReadFraction(kind: Striker,
+  table: Readonly<Record<Striker, number>> = CONFIG.combat.shoveReadFractions): number {
   switch (kind) {
     case "sword": case "axe": case "bow": case "shield": case "buckler": case "club": case "empty":
     case "whip": case "arrow": case "bite": case "ram": {
       const fraction = table[kind];
       if (!(fraction > 0 && fraction <= 1)) {
-        throw new Error(`the arrival fraction for a ${kind} is ${fraction}, which is not in (0, 1]`);
+        throw new Error(`the shove fraction for a ${kind} is ${fraction}, which is not in (0, 1]`);
       }
       return fraction;
     }
     default: {
       const unknown: never = kind;
-      throw new Error(`no arrival fraction for a striker of kind ${String(unknown)}`);
+      throw new Error(`no shove fraction for a striker of kind ${String(unknown)}`);
     }
   }
 }
@@ -440,22 +450,23 @@ export class Combat {
   private readonly start: StepStart | null;
   /** `effectiveMassAt`'s options: the step's start under `"arrival"`, and nothing under `"settled"`. */
   private readonly massOptions: EffectiveMassOptions | undefined;
-  /** `CONFIG.combat.arrivalReadFractions` as it stood when this was built. */
-  private readonly arrivalFractions: Readonly<Record<Striker, number>>;
+  /** `CONFIG.combat.jointHoldSeconds` as it stood when this was built. */
+  private readonly holdSeconds: number;
+  /** `CONFIG.combat.shoveReadFractions` as it stood when this was built. */
+  private readonly shoveFractions: Readonly<Record<Striker, number>>;
 
   constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void,
     onRefusal?: (event: CombatRefusalEvent) => void) {
     this.side = side;
     this.onReport = onReport;
     this.onRefusal = onRefusal;
-    this.arrivalFractions = { ...CONFIG.combat.arrivalReadFractions };
-    if (CONFIG.combat.contactReading === "arrival") {
-      for (const weapon of weapons) if (weapon) arrivalReadFraction(weapon.kind, this.arrivalFractions);
-    }
     const first = weapons.find((weapon): weapon is Striking => weapon !== null);
     this.start = CONFIG.combat.contactReading === "arrival" && first
       ? new StepStart(first.body.transformNode.getScene()) : null;
     this.massOptions = this.start ? { pose: this.start.poseOf } : undefined;
+    this.holdSeconds = CONFIG.combat.jointHoldSeconds;
+    this.shoveFractions = { ...CONFIG.combat.shoveReadFractions };
+    if (this.start) for (const weapon of weapons) if (weapon) shoveReadFraction(weapon.kind, this.shoveFractions);
     try {
       // Projectiles are left to their own `velocityAt`, which already returns a cached free-flight
       // velocity, and to their own cached arrival pose (`impactTipPosition`, `impactBladeDirection`).
@@ -468,7 +479,7 @@ export class Combat {
           if (observer) this.watching.push({ weapon, remove: () => trigger.events.remove(observer) });
           continue;
         }
-        const observable = weapon.body.getCollisionObservable();
+        const observable = weapon.contactEvents ?? weapon.body.getCollisionObservable();
         const observer = observable.add((event) => this.onContact(weapon, event));
         if (observer) this.watching.push({ weapon, remove: () => observable.remove(observer) });
       }
@@ -493,19 +504,15 @@ export class Combat {
    *
    * `"settled"` is `velocityAt`: the body after the solver step that found the contact. `"arrival"`
    * is the rigid-body velocity at the same point from the linear and angular velocity sampled before
-   * that step, about the centre of mass *where it was then*, scaled by its kind's `arrivalReadFraction`. The
-   * point is Havok's, which is from before the step as well, so `r` is a lever the body had rather
+   * that step, about the centre of mass *where it was then*, whole. The point is Havok's, which is from before the step as well, so `r` is a lever the body had rather
    * than the distance it moved in one step.
    */
   private strikerVelocity(weapon: Striking, point: Vector3): Vector3 {
-    const arrival = this.arrivalVelocity(weapon, point);
-    return arrival
-      ? arrival.scaleInPlace(arrivalReadFraction(weapon.kind, this.arrivalFractions))
-      : this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    return this.arrivalVelocity(weapon, point) ?? this.scratch.velocity.copyFrom(weapon.velocityAt(point));
   }
 
   /**
-   * The striker's whole velocity at `point` as the step began, unscaled, or null when this striker
+   * The striker's whole velocity at `point` as the step began, or null when this striker
    * is not read on arrival. Written into the velocity scratch.
    */
   private arrivalVelocity(weapon: Striking, point: Vector3): Vector3 | null {
@@ -677,11 +684,10 @@ export class Combat {
     // are exempt because a loosed arrow's speed is authored by the bow.
     //
     // The speed checked is the one the reading bills: under `"arrival"` the striker's whole speed
-    // as the step began, before the fraction. Checking the settled speed there let a blade the
-    // solver had flung to 220 m/s in the step before through, because the step that found the
-    // contact had already slowed it, and billed it at the fraction of its fling.
-    const arriving = (this.arrivalVelocity(weapon, event.point as Vector3)
-      ?? weapon.velocityAt(event.point as Vector3)).length();
+    // as the step began. Checking the settled speed there let a blade the solver had flung to
+    // 220 m/s in the step before through, because the step that found the contact had already
+    // slowed it.
+    const arriving = this.strikerVelocity(weapon, event.point as Vector3).length();
     if (!weapon.projectileImpact && arriving > CONFIG.combat.impossibleSpeed) {
       this.onRefusal?.({ reason: "impossible-speed", effectorId: weapon.effectorId, at: this.clock });
       return;
@@ -751,9 +757,10 @@ export class Combat {
     // a blow makes, between the striker and whatever stopped it, each walked back to its own body.
     // A blade caught on a plate drives the plate's owner back by what the blade carried.
     const normal = this.contactNormal(velocity, event);
-    const transferNs = normal ? this.transfer(this.strikerMassAt(weapon, point, normal),
-      effectiveMassAt(event.collidedAgainst, point, normal, this.massOptions), this.closingSpeedAt(velocity, event),
-      normal, velocity, event.collidedAgainst, weapon.body, point.y) : 0;
+    const closing = this.closingSpeedAt(velocity, event);
+    const masses = normal ? this.massesAt(weapon, event.collidedAgainst, point, normal, closing) : null;
+    const transferNs = normal && masses ? this.transfer(masses[0], masses[1],
+      closing * this.shoveShare(weapon), normal, velocity, event.collidedAgainst, weapon.body, point.y) : 0;
     const report: HitReport = {
       ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
@@ -844,6 +851,34 @@ export class Combat {
     return speed > 1e-6 ? unit.copyFrom(strikerVelocity).scaleInPlace(1 / speed) : null;
   }
 
+  /**
+   * The share of the arrival a striker's shove is filed at: its `shoveReadFraction` when its
+   * contacts are read on arrival, and all of it otherwise (a projectile, or a `"settled"` reading).
+   */
+  private shoveShare(weapon: Striking): number {
+    return this.startFor(weapon) ? shoveReadFraction(weapon.kind, this.shoveFractions) : 1;
+  }
+
+  /**
+   * The striker's and the struck body's masses at one contact, kilograms: each side's chain as far
+   * as its motors hold over `jointHoldSeconds` against the impulse the two pass between them
+   * (`contactGive` in `src/golem/effective-mass.ts`), or each side's free chain with no hold.
+   */
+  private massesAt(weapon: Striking, struck: PhysicsBody, point: Vector3, normal: Vector3,
+    closingSpeed: number): [number, number] {
+    const free = (): [number, number] =>
+      [this.strikerMassAt(weapon, point, normal), effectiveMassAt(struck, point, normal, this.massOptions)];
+    if (!(this.holdSeconds > 0) || !(closingSpeed > 0)) return free();
+    const options: EffectiveMassOptions = { ...this.massOptions, holdSeconds: this.holdSeconds };
+    const striker = weapon.projectileImpact ? massGive(weapon.projectileImpact.massKg)
+      : contactGiveAt(weapon.body, point, normal, options);
+    const target = contactGiveAt(struck, point, normal, options);
+    const impulseNs = sharedImpulseNs(striker, target, closingSpeed);
+    // Two bodies nothing moves pass no finite impulse; each is then its own free chain.
+    if (!Number.isFinite(impulseNs)) return free();
+    return [actedMassKg(striker, impulseNs), actedMassKg(target, impulseNs)];
+  }
+
   /** What arrives behind the striker at the contact: a projectile's own mass, or its chain's. */
   private strikerMassAt(weapon: Striking, point: Vector3, normal: Vector3): number {
     return weapon.projectileImpact ? weapon.projectileImpact.massKg
@@ -902,9 +937,9 @@ export class Combat {
     // right answer for hitting something that cannot move, and the ceiling on every other answer.
     const closingSpeed = this.closingSpeedAt(velocity, event);
     const normal = this.contactNormal(velocity, event);
-    const partMassKg = normal ? effectiveMassAt(limb.part.body, point, normal, this.massOptions)
-      : bodyMassKg(limb.part.body);
-    const strikerMassKg = normal ? this.strikerMassAt(weapon, point, normal)
+    const masses = normal ? this.massesAt(weapon, limb.part.body, point, normal, closingSpeed) : null;
+    const partMassKg = masses ? masses[1] : bodyMassKg(limb.part.body);
+    const strikerMassKg = masses ? masses[0]
       : weapon.projectileImpact ? weapon.projectileImpact.massKg : bodyMassKg(weapon.body);
     // A stationary contact has no direction and therefore a zero shove. This
     // branch matters for the fist: its sub-floor contacts deliberately continue
@@ -984,7 +1019,7 @@ export class Combat {
     // for that reason: the momentum the contact moved, from the same pair of masses its energy is
     // priced on (physical contact session 06). A blade leaned on pushes by what it carries, as a
     // slap does, because the solver does not know which side of a blade arrived.
-    const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed, normal, velocity,
+    const transferNs = normal ? this.transfer(strikerMassKg, partMassKg, closingSpeed * this.shoveShare(weapon), normal, velocity,
       event.collidedAgainst, weapon.body, point.y) : 0;
     if (!weapon.projectileImpact && energyJ < biteFloorJ(weapon.kind)
       && biteMechanism(weapon.kind) !== "blunt") {

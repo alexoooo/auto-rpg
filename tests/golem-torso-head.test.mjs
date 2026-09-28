@@ -20,7 +20,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 
 import { PRIMARY, SECONDARY, applyButtonPose, poseFromButtons } from "../src/bench/buttons.ts";
-import { Combat, arrivalReadFraction } from "../src/combat.ts";
+import { Combat } from "../src/combat.ts";
 import { CONFIG } from "../src/config.ts";
 import { COLLIDES, LAYER } from "../src/physics.ts";
 import { boxPart } from "../src/rig.ts";
@@ -638,11 +638,12 @@ async function hammerBlow(torsoId, aim = "edge") {
   try {
     plugin.setActivationControl(stand.block.body, 1);
     for (const part of torso.parts) plugin.setActivationControl(part.part.body, 1);
-    // **8 m/s as billed.** An `"arrival"` reading scores `arrivalReadFraction` of the speed the
-    // hammer had as the step began (`CONFIG.combat.contactReading`), so under it the hammer is
-    // driven at 8 over that fraction; the blow `scoreHit` is handed is the same 8 m/s cut either
-    // way, which is what the armour comparison and the pure-scorer check below are about.
-    const speed = CONFIG.combat.contactReading === "arrival" ? 8 / arrivalReadFraction(striker.kind) : 8;
+    // **16 m/s as billed.** The blow `scoreHit` is handed is the same 16 m/s cut under either
+    // reading (`CONFIG.combat.contactReading`), which is what the armour comparison and the
+    // pure-scorer check below are about. It was 8 while an arrival reading billed a blade 0.56 of
+    // its speed, 10.8 J against a floor of 10.62: the contact is off the hammer's centre and
+    // bills 0.34 kg. Read whole, 16 m/s is 43 J against 33.86.
+    const speed = 16;
     const upright = benchIntent();
     for (let frame = 0; frame < 40 && reports.length === 0; frame += 1) {
       // A whole `Intent`, because a registered option adapts the command rather than being handed
@@ -704,7 +705,7 @@ test("the plated torso takes less of the same scored blow than the plain one", a
     `the two runs scored different blows: ${a.preArmourDamage} against ${b.preArmourDamage}`);
   assert.ok(b.preArmourDamage > a.preArmourDamage,
     "the heavier core has to be struck harder, not softer, by the same hammer");
-  assert.ok(a.preArmourDamage > 0, "a square cut at 8 m/s has to be worth something");
+  assert.ok(a.preArmourDamage > 0, "a square cut at 16 m/s has to be worth something");
 
   // The rule, applied: each core paid its own fraction, and the plated one paid less.
   assert.ok(Math.abs(a.postArmourDamage - a.preArmourDamage * (1 - TORSO_PLAIN.coreArmour)) < 1e-9);
@@ -721,8 +722,8 @@ test("the plated torso takes less of the same scored blow than the plain one", a
     partMassKg: a.partMassKg, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
   const raw = scoreHit(contact, "sword").damage;
   // A part in ten million, which is the width of the arena's own answer rather than a slack
-  // bound: the report's own columns are float32 round trips through the solver, so 8 m/s comes
-  // back a few parts in ten million off 8 and the two damages differ in the seventh decimal. Tighter than this is a
+  // bound: the report's own columns are float32 round trips through the solver, so 16 m/s comes
+  // back a few parts in ten million off 16 and the two damages differ in the seventh decimal. Tighter than this is a
   // test of Havok's float width; looser is a test of nothing.
   assert.ok(Math.abs(raw - a.preArmourDamage) < 1e-6,
     `the pure scorer says ${raw} and the arena says ${a.preArmourDamage}`);
@@ -909,12 +910,12 @@ test("the ram's lunge is filed on a post and the plain head files nothing on the
   // the carrier walks it in and what it meets is a body rather than a free post. The lever that
   // would make a lunge hurt on its own is `HEAD_RAM.lunge.driveTorque`, not a scoring row.
   //
-  // **The lower bound is on what arrived, and the price is on what is billed.** An `"arrival"`
-  // reading bills `arrivalReadFraction` of the speed the plate had as the step began, so the
-  // energy it reports is that fraction squared of the energy that arrived. The bound below
-  // (a quarter of the floor) is about the lunge -- a plate that crawls onto the post -- and not
-  // about the price, so it reads the energy before the fraction. Node lungeAtPost harness, the
-  // best report, 2026-09-25:
+  // **The lower bound is about the lunge** -- a plate that crawls onto the post -- and not about
+  // the price. From 2026-09-25 to 2026-09-27 an `"arrival"` reading billed a fraction of the speed
+  // the plate had as the step began, 0.56 for a ram, and this bound read the energy before it: a
+  // quarter of the floor as it then stood, 7.42 J. It is about that many joules still: a tenth of
+  // the floor restated for the arrival read whole, 7.72 J. Node lungeAtPost harness, the best report,
+  // 2026-09-25, "billed" at the fraction:
   //
   // | rate, reading | billed m/s | billed J | arrived m/s | arrived J |
   // |---------------|-----------:|---------:|------------:|----------:|
@@ -926,11 +927,9 @@ test("the ram's lunge is filed on a post and the plain head files nothing on the
   // Read against the billed energy the bound failed under the arrival reading at both rates.
   // Watched red on this line at 120 arrival with `HEAD_RAM.lunge.driveTorque` at half (1.7 J
   // billed, 5.5 J arrived); at 100 of its 146 it still passes, and at a tenth nothing is filed.
-  const billedShare = CONFIG.combat.contactReading === "arrival" ? arrivalReadFraction("ram") ** 2 : 1;
-  const arrivedJ = best.energyJ / billedShare;
   assert.equal(best.kind, "slap", `the lunge arrived with ${best.energyJ.toFixed(1)} J`);
-  assert.ok(best.energyJ < CONFIG.combat.crushFloorJ && arrivedJ > CONFIG.combat.crushFloorJ / 4,
-    `the lunge billed ${best.energyJ.toFixed(1)} J and arrived with ${arrivedJ.toFixed(1)} J against a floor of ${CONFIG.combat.crushFloorJ}`);
+  assert.ok(best.energyJ < CONFIG.combat.crushFloorJ && best.energyJ > CONFIG.combat.crushFloorJ / 10,
+    `the lunge arrived with ${best.energyJ.toFixed(1)} J against a floor of ${CONFIG.combat.crushFloorJ}`);
 
   assert.deepEqual(plain.reports, [],
     "a plain head has no striker, so `Combat` watches nothing and files nothing");

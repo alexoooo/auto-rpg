@@ -55,7 +55,7 @@ test('a real fighter traverses each furnished chamber through its working doors'
       const plan=generateCryptDungeon(0),map=plan.map;
       // Navigation fixture: retain every furnishing and door, omit enemies to isolate traversal.
       map.spawns=[];map.exit={...map.rooms[plan.archetypes.find(a=>a.kind===kind).room].centre};
-      run=new DungeonRun(arena.scene,0,'workshop-fighter',false,map);
+      run=new DungeonRun(arena.scene,0,'warrior',false,map);
       run.commands.order={kind:'force',points:[map.exit],drawing:false};run.commands.revision++;
       arena.scene.onBeforePhysicsObservable.add(()=>run.step(1/CONFIG.world.physicsHz));
       const remaining=()=>Math.hypot(run.hero.body.feetPosition().x-map.exit.x,run.hero.body.feetPosition().z-map.exit.z);

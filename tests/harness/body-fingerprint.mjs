@@ -71,7 +71,7 @@
  * `walk:`, `head:` and two single late bouts) agreed with the whole run, so no section's digest
  * depends on what ran before it. `CHAIN_REACH.foreMass` edited to 1.01 times itself in the file
  * moved all eleven bouts with a stone wrist or reach arm in them and left
- * `bout:human-warrior~human-maul` reading `same`.
+ * `bout:human-warrior~human-maul` reading `same` (rows since renamed).
  */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -80,7 +80,6 @@ import { performance } from "node:perf_hooks";
 import { pathToFileURL } from "node:url";
 
 import { defaultGolemSetup, golemSetupRefusal } from "../../src/golem/build.ts";
-import { humanSetup } from "../../src/golem/humanoid/presets.ts";
 import { skeletonSetup } from "../../src/golem/skeleton/presets.ts";
 import { GOLEM_MODULES } from "../../src/golem/registry.ts";
 import { namedBuild } from "../../src/golem/roster.ts";
@@ -140,18 +139,19 @@ const ROWS = [
     stone("reach-maul", ["reach", "maul"], ["reach", "maul"]), STONE],
   [stone("reach-mace", ["reach", "mace"], ["reach", "fist"]),
     stone("pitch-mace", ["pitch", "mace"], ["pitch", "fist"]), STONE],
-  [named("human-warrior"), named("human-maul"), HUMANS],
-  [named("human-unarmed"), named("mace"), HUMAN_STONE],
-  [named("human-dual-swords"), named("default"), HUMAN_STONE],
-  [inline("human-mace-whip", humanSetup("mace", "whip")), named("default"), HUMAN_STONE],
+  [named("warrior"), named("warrior-sword"), HUMANS],
+  [named("warrior-unarmed"), named("mace"), HUMAN_STONE],
+  [named("rogue-sword"), named("default"), HUMAN_STONE],
+  [named("warrior"), named("default"), HUMAN_STONE],
   [named("skeleton-warrior"), named("default"), SKELETON_STONE],
-  [named("skeleton-mace"), named("human-warrior"), SKELETON_HUMAN],
+  [named("skeleton-mace"), named("warrior"), SKELETON_HUMAN],
   [named("skeleton-maul"), inline("skeleton-whip-fist", skeletonSetup("whip", "fist")), SKELETONS],
-  [named("workshop-rogue"), named("human-warrior"), ["humanoid-archer", "humanoid-duelist"]],
+  [named("rogue"), named("warrior"), ["humanoid-archer", "humanoid-duelist"]],
+  [named("warrior-club"), named("warrior-unarmed"), HUMANS],
 ];
 
 /**
- * The fifteen bouts, in the order they were added. Seeds for bout `i` are
+ * The bouts, in the order they were added. Seeds for bout `i` are
  * `[0x5ce1e700 + 2 * i, 0x5ce1e701 + 2 * i]`, so a row appended later leaves every earlier row's
  * seeds -- and so its digest -- where they were.
  */

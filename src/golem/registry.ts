@@ -19,7 +19,7 @@ import { anatomicalChain } from "./humanoid/arm.ts";
 import { humanBiped, humanTorso, humanHead } from "./humanoid/body.ts";
 import { ribcageTorso, skeletalChain, skeletonBiped, skullHead } from "./skeleton/body.ts";
 import { bladeTerminal } from "./effectors/terminals/blade.ts";
-import { maceTerminal } from "./effectors/terminals/mace.ts";
+import { clubTerminal, maceTerminal } from "./effectors/terminals/mace.ts";
 import { maulTerminal } from "./effectors/terminals/maul.ts";
 import { plateTerminal } from "./effectors/terminals/plate.ts";
 import { fistTerminal } from "./effectors/terminals/fist.ts";
@@ -222,6 +222,14 @@ const handChannel = (intent: Intent, ctx: ModuleBuild): HandIntent => {
 };
 
 /**
+ * An effector definition as the bench drives it, bound to the hand channel of its socket like
+ * every registered effector. For a definition built elsewhere: a workshop model's fitted arm
+ * (`golemEffectorPlan`), which no registry entry carries.
+ */
+export const benchEffectorOption = (definition: Parameters<typeof benchOption<HandIntent>>[0]): GolemBenchOption =>
+  benchOption(definition, "effector", handChannel);
+
+/**
  * A trunk reads the posture channel, and only the two numbers of it that are its own.
  *
  * `Intent.posture` also carries `crouch`, which belongs to the locomotion module -- so this is a
@@ -270,6 +278,7 @@ export const EFFECTOR_TERMINALS = {
   blade: bladeTerminal,
   plate: plateTerminal,
   mace: maceTerminal,
+  club: clubTerminal,
   whip: whipTerminal,
   fist: fistTerminal,
   maul: maulTerminal,
@@ -342,7 +351,9 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(headPlain, "head", naturalChannel),
   benchOption(headRam, "head", naturalChannel),
   benchOption(anatomicalBow, "effector", handChannel),
-  ...Object.values(EFFECTOR_TERMINALS).filter(t => t.id !== "bow").map(terminal => benchOption(effectorModule(anatomicalChain, terminal), "effector", handChannel)),
+  // The Warrior and the Rogue carry a sword, a shield or nothing (`workshopEquipment`); the legacy
+  // human's mace, whip and maul went with it on 2026-09-27.
+  ...[bladeTerminal, clubTerminal, plateTerminal, fistTerminal].map(terminal => benchOption(effectorModule(anatomicalChain, terminal), "effector", handChannel)),
   benchOption(humanBiped, "locomotion", locomotionCommand, built => ({
     lines: () => formatLocomotion(built.readout(), built.evidence()), shove: () => built.shove(),
   })),
@@ -350,7 +361,7 @@ export const GOLEM_MODULES: readonly GolemBenchOption[] = Object.freeze([
   benchOption(humanHead, "head", naturalChannel),
   // The skeleton, appended so every index above stays where it was: `defaultGolemSetup` reads the
   // first of each list and the bench page lists in this order.
-  ...Object.values(EFFECTOR_TERMINALS).filter(t => t.id !== "bow").map(terminal => benchOption(effectorModule(skeletalChain, terminal), "effector", handChannel)),
+  ...Object.values(EFFECTOR_TERMINALS).filter(t => t.id !== "bow" && t.id !== "club").map(terminal => benchOption(effectorModule(skeletalChain, terminal), "effector", handChannel)),
   benchOption(skeletonBiped, "locomotion", locomotionCommand, built => ({
     lines: () => formatLocomotion(built.readout(), built.evidence()), shove: () => built.shove(),
   })),

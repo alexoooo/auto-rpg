@@ -16,7 +16,9 @@ export const PROPOSAL_BENCH = "Node/Havok bout runner, supported human, idle opp
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 
 export async function proposalBench({ kind = "sweep", terminal = "blade", hand = "primary", force = 1 } = {}) {
-  if (!["sweep", "point", "soft"].includes(kind) || !["blade", "fist", "mace"].includes(terminal)
+  // The Warrior holds a sword in the right hand alone; an empty hand is either.
+  if (!["sweep", "point", "soft"].includes(kind) || !["blade", "fist"].includes(terminal)
+    || (terminal === "blade" && hand !== "primary")
     || !["primary", "secondary"].includes(hand) || !Number.isFinite(force) || force < 0 || force > 1) {
     throw new Error("invalid proposal bench configuration");
   }
@@ -33,7 +35,7 @@ export async function proposalBench({ kind = "sweep", terminal = "blade", hand =
       return command;
     } };
     bout = createBout({ left: "idle", right: "idle", leftMind: mind, seeds: [11, 22],
-      leftGolem: humanSetup(terminal, terminal), rightGolem: humanSetup(), separation: 4,
+      leftGolem: humanSetup(terminal, terminal === "fist" ? "fist" : "plate"), rightGolem: humanSetup(), separation: 4,
       locomotionMode: "supported", maxSeconds: 5, physics: await freshHavok() });
     const module = bout.left.effectorModules[hand === "primary" ? 0 : 1].module;
     const plugin = bout.scene.getPhysicsEngine().getPhysicsPlugin();
@@ -60,7 +62,7 @@ export async function proposalBench({ kind = "sweep", terminal = "blade", hand =
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   console.log(PROPOSAL_BENCH);
-  for (const terminal of ["blade", "fist", "mace"]) for (const hand of ["primary", "secondary"])
+  for (const [terminal, hand] of [["blade", "primary"], ["fist", "primary"], ["fist", "secondary"]])
     for (const kind of ["sweep", "point", "soft"]) {
       const { samples, ...result } = await proposalBench({ kind, terminal, hand });
       console.log(JSON.stringify(result));

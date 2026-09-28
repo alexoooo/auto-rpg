@@ -104,7 +104,7 @@ test('the_refusal_names_every_family_by_its_label', () => {
   const human = FAMILY_SETUP.human();
   const mixed = { ...human, torso: FAMILY_SETUP.golem().torso };
   const refusal = golemSetupRefusal(mixed);
-  assert.ok(refusal.endsWith('Choose Human warrior, Stone golem or Skeleton to select a complete body.'), refusal);
+  assert.ok(refusal.endsWith('Choose Human, Stone golem or Skeleton to select a complete body.'), refusal);
 });
 
 // The button's policy has to be one the setup screen will let fight on the button's body: an

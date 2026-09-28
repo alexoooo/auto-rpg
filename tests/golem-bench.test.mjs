@@ -2011,7 +2011,7 @@ test("the_stroke_bench_hands_an_arm_the_capability_a_bout_publishes_for_it", asy
   // zero that no mind in a bout ever reads, and the human's stroke on the bench was not its stroke
   // in a fight. Every module a playable build carries is compared, on both hands.
   const bout = createBout({ left: "idle", right: "idle", seeds: [1, 2], locomotionMode: "supported",
-    leftGolem: PLAYABLE_BUILDS.find((b) => b.name === "human-warrior").setup,
+    leftGolem: PLAYABLE_BUILDS.find((b) => b.name === "warrior").setup,
     rightGolem: PLAYABLE_BUILDS.find((b) => b.name === "default").setup,
     maxSeconds: 1, physics: await freshHavok() });
   try {
@@ -2062,15 +2062,15 @@ test("an_arm_is_built_where_its_rest_command_holds_it", async () => {
     }
   }
   // Then every arm family, standing idle and alone: the stone wrist chain, the reach chain (the
-  // same core without a wrist), the pitch hinge, the anatomical arm holding a blade, a strapped
-  // plate and a second blade, and the skeletal chain.
+  // same core without a wrist), the pitch hinge, the Warrior with a sword and a strapped shield,
+  // the Rogue drawing a bow, and the skeletal chain.
   const stone = PLAYABLE_BUILDS.find((b) => b.name === "default").setup;
   const setups = [
     ["default", stone],
     ["reach", { ...stone, primary: { chain: "reach", terminal: "blade" }, secondary: { chain: "reach", terminal: "plate" } }],
     ["pitch-blade", PLAYABLE_BUILDS.find((b) => b.name === "pitch-blade").setup],
-    ["human-warrior", PLAYABLE_BUILDS.find((b) => b.name === "human-warrior").setup],
-    ["human-dual-swords", PLAYABLE_BUILDS.find((b) => b.name === "human-dual-swords").setup],
+    ["warrior", PLAYABLE_BUILDS.find((b) => b.name === "warrior").setup],
+    ["rogue", PLAYABLE_BUILDS.find((b) => b.name === "rogue").setup],
     ["skeleton-warrior", PLAYABLE_BUILDS.find((b) => b.name === "skeleton-warrior").setup],
   ];
   for (const [name, setup] of setups) {

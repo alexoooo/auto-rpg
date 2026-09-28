@@ -27,7 +27,8 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { HAND_REACH } from "../../src/hands.ts";
 import { reachFromButtons } from "../../src/bench/buttons.ts";
 import { CONFIG } from "../../src/config.ts";
-import { GOLEM_EFFECTORS } from "../../src/golem/build.ts";
+import { GOLEM_EFFECTORS, builtAttributes, golemEffectorPlan } from "../../src/golem/build.ts";
+import { humanSetup } from "../../src/golem/humanoid/presets.ts";
 import { resolveAttributes } from "../../src/golem/attributes.ts";
 import {
   BENCH_READOUT, BENCH_STAND_LOCOMOTION, CHAIN_PITCH, CHAIN_REACH, CHAIN_WRIST, LOCOMOTION_BIPED,
@@ -41,7 +42,7 @@ import { skeletonBiped } from "../../src/golem/skeleton/body.ts";
 import { buildLocomotionCourse, registerLocomotionCourse } from "../../src/golem/locomotion/course.ts";
 import { BenchReadout, blankSample, formatReadout } from "../../src/golem/readout.ts";
 import { effectorCapability } from "../../src/golem/module.ts";
-import { GOLEM_MODULES, golemModule } from "../../src/golem/registry.ts";
+import { GOLEM_MODULES, benchEffectorOption, golemModule } from "../../src/golem/registry.ts";
 import { buildGolemStand, golemLayers } from "../../src/golem/stand.ts";
 import {
   GOLEM_TACTICS, STROKE_SHAPES, strokeTimeScale, aimAt, canCover, canSwing, distance, reachForDistance,
@@ -399,6 +400,13 @@ export async function runGolemBench({
    * a grounded arm this way: the same arm on the same stand with its ceilings at a share.
    */
   tone = null,
+  /**
+   * A workshop model to fit an anatomical arm to (`"workshop-fighter"` or `"workshop-rogue"`), or
+   * null for the bench arm. The option is fitted as a build fits it (`golemEffectorPlan`) and built
+   * with the model in its context at the size a human is built at (`builtAttributes`), so the arm
+   * is the one that model fights with: its lengths, its masses and its equipment.
+   */
+  human = null,
 } = {}) {
   const option = golemModule(moduleId);
   if (!option) {
@@ -445,7 +453,14 @@ export async function runGolemBench({
   // The other socket, handed over whether or not the option wants it. A one-socket terminal
   // ignores it; a mace refuses to build without it, by name, in `effector.ts`.
   const companionSlot = slot === "primary" ? "secondary" : "primary";
-  const module = option.build({
+  const fitted = human === null ? null : (() => {
+    const [, chain, terminal] = moduleId.split(".");
+    if (chain !== "anatomical") throw new Error(`a workshop model fits only an anatomical arm, not "${moduleId}"`);
+    const pair = slot === "primary" ? [terminal, "fist"] : ["fist", terminal];
+    const setup = { ...humanSetup(pair[0], pair[1], human), ...(attributes ? { attributes } : {}) };
+    return { setup, definition: benchEffectorOption(golemEffectorPlan(setup)[slot].definition) };
+  })();
+  const module = (fitted?.definition ?? option).build({
     scene,
     side,
     name: `golem.${side}.${slot}`,
@@ -453,7 +468,8 @@ export async function runGolemBench({
     companion: stand.socket(companionSlot),
     layers: golemLayers(side),
     materials: stand.materials,
-    ...(attributes ? { attributes: resolveAttributes({ attributes }) } : {}),
+    ...(fitted ? { human: fitted.setup.human, attributes: builtAttributes(fitted.setup) }
+      : attributes ? { attributes: resolveAttributes({ attributes }) } : {}),
     ...(tone === null ? {} : { tone: { scale: tone } }),
   });
 
@@ -1220,6 +1236,8 @@ export async function runStrokeBench({
    * runs at the durations it was benched at, whatever the arm.
    */
   timed = false,
+  /** A workshop model the arm is fitted to, as `runGolemBench` takes it. */
+  human = null,
 }) {
   const kind = weaponOf(moduleId);
   let reader = null;
@@ -1230,6 +1248,7 @@ export async function runStrokeBench({
     overrides,
     attributes,
     tone,
+    human,
     probe: (payload) => reader?.probe(payload),
     sequence: ({ module, socket }) => {
       const cap = capabilityOf(module);
@@ -1299,6 +1318,8 @@ export async function runParryBench({
   holdSeconds = PARRY_HOLD_SECONDS,
   /** The motor tone the arm is built on, as `runGolemBench` takes it. */
   tone = null,
+  /** A workshop model the arm is fitted to, as `runGolemBench` takes it. */
+  human = null,
 }) {
   let reader = null;
   let travel = null;
@@ -1307,6 +1328,7 @@ export async function runParryBench({
     slot,
     overrides,
     tone,
+    human,
     probe: (payload) => reader?.probe(payload),
     sequence: ({ module, socket }) => {
       const cap = capabilityOf(module);

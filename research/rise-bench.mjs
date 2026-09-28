@@ -2,7 +2,7 @@
  * The rise, measured: a standing body knocked down by a shove and watched while it gets up and for
  * three seconds after (2026-09-25, `docs/analysis/2026-09-25-falls-and-rise.md`).
  *
- *     node research/rise-bench.mjs --builds default,skeleton-warrior,human-warrior --pushes back,front,side
+ *     node research/rise-bench.mjs --builds default,skeleton-warrior,warrior --pushes back,front,side
  *
  * Node headless arena (`tests/harness/golem-headless-arena.mjs`), a supported pair six metres apart,
  * the knocked body's mind idle or walking; the shove is queued on the ledger as `golem-knockdown`'s
@@ -230,7 +230,7 @@ export function readRises(rows) {
 
 async function main() {
   const { values } = parseArgs({ options: {
-    builds: { type: "string", default: "default,skeleton-warrior,human-warrior" },
+    builds: { type: "string", default: "default,skeleton-warrior,warrior" },
     pushes: { type: "string", default: "back,front,side" }, walk: { type: "string", default: "0" },
     trace: { type: "string" },
     /** Print the rise's speeds instead: the pelvis's peak turn rate and the items' speeds. */

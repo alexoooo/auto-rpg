@@ -1,17 +1,20 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { PhysicsMotionType, PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { PhysicsMotionType, PhysicsEventType, type IPhysicsCollisionEvent } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { ShapeCastResult } from "@babylonjs/core/Physics/shapeCastResult.js";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
-import type { Observer } from "@babylonjs/core/Misc/observable.js";
+import { Observable, type Observer } from "@babylonjs/core/Misc/observable.js";
 import type { Striking } from "../../combat.ts";
 import type { ProjectileView } from "../../mind.ts";
 import { CONFIG } from "../../config.ts";
 import { layersFor, type Side } from "../../physics.ts";
 import { boxPart, type Part } from "../../rig.ts";
 
-/** Preallocated real bodies. Sweeps and solver contacts share Combat's normal contact stream. */
+/**
+ * Preallocated real bodies. An arrow's contacts are its own sweep's, published on `contactEvents`:
+ * the solver still stops the body, but its speculative contacts end neither the flight nor a score.
+ */
 export class ArcherArrow implements Striking {
   readonly kind = "arrow" as const;
   readonly hand = null;
@@ -24,6 +27,7 @@ export class ArcherArrow implements Striking {
   spent = true;
   age = 0;
   private pending = false;
+  readonly contactEvents = new Observable<IPhysicsCollisionEvent>();
   private readonly velocity = Vector3.Zero();
   private readonly direction = Vector3.Forward();
   private readonly tip = Vector3.Zero();
@@ -40,10 +44,6 @@ export class ArcherArrow implements Striking {
       size: new Vector3(.009, .009, .95), mass: .035, layer: 0, collidesWith: this.layers.arrowCollides,
       material, motionType: PhysicsMotionType.STATIC });
     this.body = this.part.body;
-    this.body.setCollisionCallbackEnabled(true);
-    this.body.getCollisionObservable().add(event => {
-      if (!this.spent && event.type !== PhysicsEventType.COLLISION_FINISHED) this.pending = true;
-    });
     this.part.mesh.setEnabled(false);
   }
   launch(nock: Vector3, direction: Vector3, velocity: Vector3): void {
@@ -84,7 +84,8 @@ export class ArcherArrow implements Striking {
       ignoreBody: this.body }, this.input, this.hit);
     if (this.hit.hasHit && this.hit.body) {
       this.tip.addInPlace(this.velocity.scale(dt*this.hit.hitFraction));
-      this.body.getCollisionObservable().notifyObservers({ collider: this.body, collidedAgainst: this.hit.body,
+      this.pending = true;
+      this.contactEvents.notifyObservers({ collider: this.body, collidedAgainst: this.hit.body,
         colliderIndex: 0, collidedAgainstIndex: this.hit.bodyIndex ?? 0,
         type: PhysicsEventType.COLLISION_STARTED, point: this.hit.hitPoint.clone(), normal: this.hit.hitNormal.clone(),
         distance: 0, impulse: 0 });
@@ -97,7 +98,7 @@ export class ArcherArrow implements Striking {
   tipPosition(): Vector3 { return this.tip; }
   impactTipPosition(): Vector3 { return this.tip; }
   nearTip(point: Vector3): number { return Vector3.Distance(point, this.tip); }
-  dispose(): void { this.body.dispose(); this.part.shape.dispose(); this.part.mesh.dispose(false, false); }
+  dispose(): void { this.contactEvents.clear(); this.body.dispose(); this.part.shape.dispose(); this.part.mesh.dispose(false, false); }
 }
 
 export class ArcherQuiver {

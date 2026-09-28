@@ -401,7 +401,7 @@ test("arm speed multiplies the named rates of a copy, and x1 is the table it was
  * command actually travels. The second is the one that matters -- the wrist and the anatomical arm
  * each hold the rate in two places, the envelope and the slew, and an envelope that doubled over a
  * slew that did not would publish an arm the body cannot be. The travel is taken after one substep,
- * because the anatomical arm's first steps its command off the build pose, and over six more, far
+ * because the anatomical arm's first steps its command off the build pose, and over three more, far
  * short of any target. A point chain's swing, lift and reach are read off an anchor that moves in a
  * straight line, so they double to within a few per cent rather than exactly.
  *
@@ -429,7 +429,7 @@ test("arm speed multiplies every arm chain's published rates and the rate its co
           built.command(intent);
           built.step(1 / 240);
           const start = built.view().axes.map((axis) => axis.commanded);
-          for (let i = 0; i < 6; i += 1) built.step(1 / 240);
+          for (let i = 0; i < 3; i += 1) built.step(1 / 240);
           return { rates, travel: built.view().axes.map((axis, i) => [axis.id, axis.commanded - start[i]]) };
         } finally {
           built.dispose();
@@ -477,6 +477,8 @@ test("weight multiplies every body part's solver mass and no item's, and the car
     const mass = (limb) => limb.part.body.getMassProperties().mass;
     const items = new Set([...Object.keys(EFFECTOR_TERMINALS), "ram"]);
     const cast = new Set(["rollRing", "wrist"]);
+    // The Warrior's and the Rogue's empty hand is their own hand, and grows with them (`workshopEquipment`).
+    const isItem = (setup, segment) => items.has(segment) && !(segment === "fist" && setup.human);
     const seen = { item: 0, castFloor: 0, castLoad: 0, bodyBlow: 0 };
     const carried = (golem, setup) => {
       const legs = golem.limbs.filter((limb) => limb.key.includes(".legs.")).reduce((sum, limb) => sum + mass(limb), 0);
@@ -493,7 +495,7 @@ test("weight multiplies every body part's solver mass and no item's, and the car
         const was = mass(plain.limbs[i]);
         const now = mass(limb);
         const segments = key.split(".");
-        if (segments.some((segment) => items.has(segment))) {
+        if (segments.some((segment) => isItem(setup, segment))) {
           seen.item += 1;
           assert.ok(near(now, was), `${name} ${key}: an item keeps its ${was} kg, not ${now}`);
         } else if (cast.has(segments.at(-1))) {
@@ -876,24 +878,16 @@ test("size scales every golem and skeleton module's body parts by s^3 in mass an
   }
 });
 
-test("a human's size is fixed at x1: refused on its setup, not set on its corner, and dropped when a corner draws one", () => {
+test("a human takes Size like every other body: the Warrior and the Rogue are fitted at every size", () => {
   const human = FAMILY_SETUP.human();
   assert.equal(bodyFamily(human), "human");
-  assert.match(golemSetupRefusal({ ...human, attributes: { size: 1.1 } }), /Size is fixed at x1 on a human/);
-  assert.equal(golemSetupRefusal({ ...human, attributes: { size: 1 } }), null, "the control: x1 is a human's size");
-  assert.equal(golemSetupRefusal({ ...defaultGolemSetup(), attributes: { size: 1.1 } }), null,
-    "and a stone golem's is not");
-
+  assert.equal(golemSetupRefusal({ ...human, attributes: { size: 1.1 } }), null);
   const corner = withGolemBuild(golemMatchup(BUILD), "left", human, 3);
-  assert.equal(withGolemAttribute(corner, "left", "size", 1.1), corner, "a human corner refuses the stat");
-  assert.notEqual(withGolemAttribute(corner, "left", "movement", 1.2), corner, "the control: it takes another");
-
+  assert.notEqual(withGolemAttribute(corner, "left", "size", 1.1), corner, "a human corner takes the stat");
   const tuned = golemMatchup(BUILD);
   tuned.left.golem = { ...BUILD, attributes: { size: 1.1, movement: 1.2 } };
-  assert.deepEqual(withGolemBuild(tuned, "left", human, 4).left.golem.attributes, { movement: 1.2 },
-    "a corner that draws a human keeps its other stats and loses size");
-  assert.deepEqual(withGolemBuild(tuned, "left", skeletonSetup(), 4).left.golem.attributes, { size: 1.1, movement: 1.2 },
-    "the control: a skeleton keeps both");
+  assert.deepEqual(withGolemBuild(tuned, "left", human, 4).left.golem.attributes, { size: 1.1, movement: 1.2 },
+    "a corner that draws a human keeps its stats");
 });
 
 /**
@@ -1005,6 +999,8 @@ test("size grows a whole golem about its feet: body parts by s in place and s^3 
     const mass = (limb) => limb.part.body.getMassProperties().mass;
     const items = new Set([...Object.keys(EFFECTOR_TERMINALS), "ram"]);
     const cast = new Set(["rollRing", "wrist"]);
+    // The Warrior's and the Rogue's empty hand is their own hand, and grows with them (`workshopEquipment`).
+    const isItem = (setup, segment) => items.has(segment) && !(segment === "fist" && setup.human);
     const seen = { body: 0, item: 0, cast: 0, builds: 0, refused: [] };
     const carried = (golem, setup) => {
       const legs = golem.limbs.filter((limb) => limb.key.includes(".legs.")).reduce((sum, limb) => sum + mass(limb), 0);
@@ -1030,7 +1026,7 @@ test("size grows a whole golem about its feet: body parts by s in place and s^3 
           const was = mass(plain.limbs[i]);
           const now = mass(limb);
           const segments = key.split(".");
-          if (segments.some((segment) => items.has(segment))) {
+          if (segments.some((segment) => isItem(setup, segment))) {
             seen.item += 1;
             assert.ok(near(now, was), `${at}: an item keeps its ${was} kg, not ${now}`);
             continue;

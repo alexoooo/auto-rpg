@@ -27,7 +27,8 @@ test("an_armed_family_is_armed_from_what_its_own_chains_offer", () => {
     "a stone golem's weapons are its build, so it has no arming");
   for (const [family, arm] of Object.entries(ARMED_SETUP)) {
     const body = FAMILY_SETUP[family]();
-    for (const { id } of golemTerminalOptions(body.primary.chain)) {
+    // The Warrior's left hand holds the shield, so a human's right is armed from the rest.
+    for (const { id } of golemTerminalOptions(body.primary.chain).filter(({ id }) => family !== "human" || id !== "plate")) {
       const setup = arm(id, "plate");
       assert.equal(bodyFamily(setup), family, `${family} armed with ${id}`);
       assert.equal(golemSetupRefusal(setup), null, `${family} armed with ${id}`);

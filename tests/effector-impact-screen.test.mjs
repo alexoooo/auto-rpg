@@ -11,12 +11,20 @@ test("forced-plan screen compares the same warmed state and observes changed phy
   const flags = { ...CHANNEL_FLAGS };
   const control = await impactScreenCell({ terminal: "blade", plan: plans.find(p => p.label === "cut-mid") });
   const altered = await impactScreenCell({ terminal: "blade",
-    plan: plans.find(p => p.label === "sweep/t0.3/y-0.35/r0.95") });
+    plan: plans.find(p => p.label === "sweep/t0.3/y0.35/r0.95") });
   assert.equal(control.start.pose, altered.start.pose);
   assert.deepEqual(control.targetHands, []);
   assert.deepEqual(altered.targetHands, ["primary"]);
-  assert.equal(control.maxBodyEnergyJ, 0);
-  assert.ok(altered.maxBodyEnergyJ > 3 && altered.maxBodyEnergyJ < 3.6,
+  // The control is the duelist's own cut. Since the arm's rates doubled (Session 2 step 4) it lands,
+  // where it touched nothing before: 36.4 J at edge alignment 0.45, a slap of 0.038 damage. The forced
+  // sweep lands a single glancing contact of 2.15 J at 0.15 (Node bout runner, 2026-09-28). With
+  // every joint free (before joint give, Session 2 step 5) the same two contacts read 31.2 J, weak,
+  // and 0.572 J. Before the arm, the sweep read
+  // 0.946 J, five weak contacts, on the Warrior at a typical adult's size and de Leva's masses; on the
+  // 1.88 m, 107 kg Warrior 10.15 J with the arrival read whole and 3.183 J billed at 0.56 of its
+  // speed; sweep/t0.3/y-0.35/r0.95 read 3.0 to 3.6 J on the legacy human.
+  assert.ok(control.maxBodyEnergyJ > 34 && control.maxBodyEnergyJ < 39, "the duelist's own cut lands");
+  assert.ok(altered.maxBodyEnergyJ > 2.0 && altered.maxBodyEnergyJ < 2.3,
     "the changed trajectory must reach a body with the measured energy");
   assert.ok(altered.bodyContacts > 0);
   assert.equal(altered.strongestBodyContact.energyJ, altered.maxBodyEnergyJ,

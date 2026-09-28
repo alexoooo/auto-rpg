@@ -27,7 +27,7 @@ export function impactScreenPlans() {
 }
 
 export async function impactScreenCell({ terminal, plan, side = "left", seeds = [11, 22] }) {
-  if (!["blade", "mace", "fist"].includes(terminal) || !["left", "right"].includes(side)
+  if (!["blade", "club", "fist"].includes(terminal) || !["left", "right"].includes(side)
     || !plan?.segs?.length) throw new Error("invalid impact screen cell");
   const other = side === "left" ? "right" : "left";
   const flags = setChannelFlags({ effector: true });
@@ -72,7 +72,7 @@ export async function impactScreenCell({ terminal, plan, side = "left", seeds = 
 async function main() {
   Logger.LogLevels = Logger.ErrorLogLevel;
   const plans = impactScreenPlans(), rows = [];
-  for (const terminal of ["blade", "mace", "fist"]) {
+  for (const terminal of ["blade", "club", "fist"]) {
     let warmPose;
     for (const plan of plans) {
       const row = await impactScreenCell({ terminal, plan });

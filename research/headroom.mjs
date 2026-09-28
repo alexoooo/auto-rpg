@@ -136,7 +136,7 @@ export const EXPERIMENTS = {
    */
   idle(o) {
     const attackers = o.attackers ? list(o.attackers) : [...AUDIT_BUILDS.map((b) => b.name), "giant"];
-    const dummies = { stone: "default", skeleton: "skeleton-warrior", human: "human-warrior", giant: "giant" };
+    const dummies = { stone: "default", skeleton: "skeleton-warrior", human: "warrior", giant: "giant" };
     const jobs = [];
     for (let k = 0; k < o.pairs; k += 1) for (const attacker of attackers) for (const [family, dummy] of Object.entries(dummies)) {
       jobs.push(...swappedPair({ exp: "idle", cell: `${attacker}>${family}`, a: o.mind ?? RULER, b: "idle", aBuild: attacker,
@@ -246,7 +246,7 @@ export const EXPERIMENTS = {
     const subject = o.subject ?? `expert-${channel}@c8,h1`;
     const rival = o.rival ?? RULER;
     const bodies = o.bodies ? list(o.bodies) : channel.split("-").includes("effector")
-      ? ["human-warrior", "human-unarmed", "human-mace"] : ["default", "skeleton-warrior"];
+      ? ["warrior", "warrior-unarmed", "warrior-sword"] : ["default", "skeleton-warrior"];
     const jobs = [];
     for (let k = 0; k < o.pairs; k += 1) for (const body of bodies) {
       const duelist = familyDuelist(buildOf(body).setup);

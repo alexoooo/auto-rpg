@@ -9,7 +9,7 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 
 test("a continuous chamber changes a real blade contact from the same warmed state", async () => {
   const straight = orientationScreenPlans().find(p => p.label === "tilt0/roll0/to-0.5");
-  const chamber = chamberScreenPlans().find(p => p.label === "chamber/t0.3/r0.45/a0.8");
+  const chamber = chamberScreenPlans().find(p => p.label === "chamber/t0.3/r0.45/a1.2");
   const first = chamber.segs[0], second = chamber.segs[1];
   assert.equal(chamber.switchAt, first.duration);
   assert.equal(first.extend, second.retract, "the hand reaches the same distance at the boundary");
@@ -18,11 +18,20 @@ test("a continuous chamber changes a real blade contact from the same warmed sta
   const b = await impactScreenCell({ terminal: "blade", plan: chamber });
   assert.equal(a.start.pose, b.start.pose);
   assert.deepEqual(b.targetHands, ["primary"]);
-  assert.ok(b.maxBodyEnergyJ > a.maxBodyEnergyJ + 2,
+  // On the Warrior with a human's trunk and arm (Node bout runner, 2026-09-28) the straight plan
+  // slaps flat, 9.45 J at edge alignment 0.03, and this chamber turns the edge into line: one weak
+  // contact of 6.62 J at 0.919. With every joint free (before joint give, Session 2 step 5) the same
+  // two contacts read 7.23 and 4.91 J. Before the arm's rates doubled (Session 2 step 4), the straight plan
+  // touched nothing and chamber/t0.15/r0.45/a0.8 was the case, at 0.866 J and 0.880; that chamber now
+  // touches nothing. The warmed state is a duelist mirror's, so it moves with the body: on the 1.88 m,
+  // 107 kg Warrior that chamber read 3.105 J at 0.661, and on the legacy human chamber/t0.3 read
+  // 6.0 to 6.5 J, billed. Six of the twelve chambers reach the opponent, as before the arm.
+  assert.ok(a.strongestBodyContact.edgeAlignment < 0.1, "the straight plan lands flat");
+  assert.ok(b.strongestBodyContact.edgeAlignment > a.strongestBodyContact.edgeAlignment + 0.5,
     "the chamber must produce a measurably different body contact");
-  assert.ok(b.maxBodyEnergyJ > 6 && b.maxBodyEnergyJ < 6.5);
+  assert.ok(b.maxBodyEnergyJ > 6.2 && b.maxBodyEnergyJ < 7.0);
   assert.equal(b.strongestBodyContact.kind, "weak");
-  assert.ok(b.strongestBodyContact.edgeAlignment > .35 && b.strongestBodyContact.edgeAlignment < .45);
+  assert.ok(b.strongestBodyContact.edgeAlignment > .88 && b.strongestBodyContact.edgeAlignment < .95);
   assert.equal(b.preArmourDamage, 0);
 });
 
