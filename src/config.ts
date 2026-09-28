@@ -1034,6 +1034,36 @@ export const CONFIG = {
      */
     contactReading: "arrival" as "settled" | "arrival",
     /**
+     * **Joint give**: how long a contact lasts, s, and so how much angular impulse each motor on a
+     * free joint axis can hold its joint with -- its ceiling times this (`contactGive` in
+     * `src/golem/effective-mass.ts`, `Combat.massesAt`). A joint is locked until the blow asks more
+     * of it than that and gives past it, so a slow push reads the braced body behind it and a hard
+     * blow the free chain. 0 reads every free axis free, which is what every blow was priced on
+     * before 2026-09-28. Session 2 step 5 of `docs/plans/2026-09-27-warrior-rogue-reptile.md`.
+     *
+     * 15 ms sits in the contact times of `docs/analysis/2026-09-27-human-strike-reference.md`, 11 ms on
+     * a hard face and 27 ms on a padded wall. The strike search's best strikes (Node strike-eval
+     * harness, the Warrior at default attributes on an idle unarmed Warrior, each strike re-read at
+     * each hold) and the fast contacts of golem-duelist mirrors (Node bout runner, 4 bouts of 60 s,
+     * closing over 5 m/s, median striker kg):
+     *
+     *     hold          0       8 ms    15 ms   27 ms
+     *     best punch    1.45    1.70    1.91    2.24   kg, at 12.1 m/s (97 -> 124 J at 15 ms)
+     *     best club     1.90    1.98    2.05    2.16   kg, at 16.3 m/s (231 -> 247 J)
+     *     warrior-unarmed fists   0.62 -> 1.40 kg at 15 ms
+     *     warrior-club club       0.97 -> 1.10
+     *     warrior-sword sword     0.69 -> 0.81
+     *     fists (stone)           3.82 -> 7.55
+     *     skeleton-warrior sword  1.42 -> 2.59
+     *     maul                    17.8 -> 21.1
+     *
+     * A real punch is 2-4 kg (the reference's 3.35 kg on a braced wrist, 2.01 kg flexed), so the
+     * human punch sits at the flexed end. The club head, whose wrist cannot hold against its lever,
+     * barely moves, as it should. Stone bodies couple far more, because their motors are sized to
+     * stone. The maul's whole-body share is its loop, not its motors, and a hold cannot change it.
+     */
+    jointHoldSeconds: 0.015,
+    /**
      * The share of a contact's arrival that the shove it files is read at (`Combat.transfer`),
      * under `contactReading: "arrival"`: the fractions the reading billed every quantity at from
      * 2026-09-25 to 2026-09-27, kept on the shove alone. The stability ledger's lines were set

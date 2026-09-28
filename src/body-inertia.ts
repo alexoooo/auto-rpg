@@ -3,8 +3,9 @@ import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import type { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { jointsOf, partBodyOf, type PartBody, type PartJoint } from "./rig.ts";
 import type { PoseSource } from "./step-start.ts";
-import { effectiveMassKg, lumpLinks, principalInertia, worldInertia,
-  type LinkJoint, type RigidLink, type Vec3 } from "./golem/effective-mass.ts";
+import { PhysicsConstraintAxis, PhysicsConstraintMotorType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { contactGive, effectiveMassKg, lumpLinks, massGive, principalInertia, worldInertia,
+  type ContactQuery, type Give, type HeldAxis, type LinkJoint, type RigidLink, type Vec3 } from "./golem/effective-mass.ts";
 
 /**
  * **The effective mass of a live body at a contact** (physical contact session 05): the chain from
@@ -19,7 +20,9 @@ import { effectiveMassKg, lumpLinks, principalInertia, worldInertia,
  *   centre. Never the keyframed carrier, which would be infinitely heavy and make a thrust along a
  *   straight arm read as unbounded. With a floating base the answer is at most the whole body.
  * - **The joints on the chain are free** on the axes each was built to swing on, and locked on the
- *   rest; the loop a maul's second hand closes is kept as a second joint into the base.
+ *   rest; the loop a maul's second hand closes is kept as a second joint into the base. That is
+ *   `effectiveMassAt`. `contactGiveAt` holds each free axis whose motor is on, up to its ceiling
+ *   times `holdSeconds` (`CONFIG.combat.jointHoldSeconds`, joint give), and a bout reads that one.
  * - **Each part's mass properties are the ones the solver carries**, floors and all, and not its own
  *   solid's. The plan that introduced this said the opposite -- the chains' floors (`jointInertiaFloor`,
  *   `castToCarried`, the human arm's `inertiaFloor`) are conditioning rather than body -- and the
@@ -54,6 +57,12 @@ export interface EffectiveMassOptions {
    * it has no pose for is read where it stands. Absent: every part where it stands.
    */
   readonly pose?: PoseSource;
+  /**
+   * How long a contact lasts, s, for `contactGiveAt`: each motor on a free axis of the chain holds
+   * its joint up to its ceiling times this. Absent or 0: every free axis is free, as
+   * `effectiveMassAt` always reads it.
+   */
+  readonly holdSeconds?: number;
 }
 
 type Rotation = readonly [number, number, number, number];
@@ -96,8 +105,14 @@ function linkOf(entry: PartBody, options: EffectiveMassOptions): RigidLink {
     inertia: worldInertia(principalInertia(entry.shape, entry.massKg), rotation) };
 }
 
-/** The pivot and the locked angular axes of a joint, in world terms, from its child's pose. */
-function jointFrame(joint: PartJoint, options: EffectiveMassOptions): { pivot: Vec3; locked: Vec3[] } {
+const ANGULAR = [PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Y, PhysicsConstraintAxis.ANGULAR_Z];
+
+/**
+ * The pivot, the locked angular axes and the motor-held free ones of a joint, in world terms, from
+ * its child's pose. A free axis is held when its motor is on, at the ceiling it was last handed --
+ * tone and all -- for `holdSeconds`.
+ */
+function jointFrame(joint: PartJoint, options: EffectiveMassOptions): { pivot: Vec3; locked: Vec3[]; held: HeldAxis[] } {
   const at = options.pose?.(joint.child.body) ?? null;
   const rotation = rotationOf(at ? at.rotation : joint.child.mesh.rotationQuaternion);
   const pivot = add(vec(at ? at.position : joint.child.mesh.position), rotate(rotation, vec(joint.pivotChild)));
@@ -105,11 +120,23 @@ function jointFrame(joint: PartJoint, options: EffectiveMassOptions): { pivot: V
   const y = vec(joint.perpChild.clone().normalize());
   const z: Vec3 = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]];
   const locked: Vec3[] = [];
-  if (!joint.free.x) locked.push(rotate(rotation, x));
-  if (!joint.free.y) locked.push(rotate(rotation, y));
-  if (!joint.free.z) locked.push(rotate(rotation, z));
-  return { pivot, locked };
+  const held: HeldAxis[] = [];
+  const seconds = options.holdSeconds ?? 0;
+  const axes = [[joint.free.x, x], [joint.free.y, y], [joint.free.z, z]] as const;
+  axes.forEach(([free, local], k) => {
+    if (!free) { locked.push(rotate(rotation, local)); return; }
+    if (!(seconds > 0)) return;
+    const constraint = joint.constraint;
+    if ((constraint.getAxisMotorType(ANGULAR[k]) ?? PhysicsConstraintMotorType.NONE) === PhysicsConstraintMotorType.NONE) return;
+    const torque = constraint.getAxisMotorMaxForce(ANGULAR[k]) ?? 0;
+    if (torque > 0) held.push({ axis: rotate(rotation, local), holdNms: torque * seconds });
+  });
+  return { pivot, locked, held };
 }
+
+/** A chain as `effective-mass.ts` reads one, or the plain mass of a body no builder here made. */
+type Chain = { readonly links: RigidLink[]; readonly joints: LinkJoint[]; readonly contact: ContactQuery }
+  | { readonly massKg: number };
 
 /**
  * The effective mass of `body` at `point` along `normal`, kilograms. `Infinity` for a body nothing
@@ -119,10 +146,25 @@ function jointFrame(joint: PartJoint, options: EffectiveMassOptions): { pivot: V
  */
 export function effectiveMassAt(body: PhysicsBody, point: Vector3, normal: Vector3,
   options: EffectiveMassOptions = {}): number {
+  const chain = chainAt(body, point, normal, { ...options, holdSeconds: 0 });
+  return "massKg" in chain ? chain.massKg : effectiveMassKg(chain.links, chain.joints, chain.contact);
+}
+
+/**
+ * How `body` gives at `point` along `normal` (`contactGive`): its chain with each motor on a free
+ * axis holding for `options.holdSeconds`. With no hold it is `effectiveMassAt`'s free chain.
+ */
+export function contactGiveAt(body: PhysicsBody, point: Vector3, normal: Vector3,
+  options: EffectiveMassOptions = {}): Give {
+  const chain = chainAt(body, point, normal, options);
+  return "massKg" in chain ? massGive(chain.massKg) : contactGive(chain.links, chain.joints, chain.contact);
+}
+
+function chainAt(body: PhysicsBody, point: Vector3, normal: Vector3, options: EffectiveMassOptions): Chain {
   const own = partBodyOf(body);
   if (!own) {
     const mass = body.getMassProperties().mass ?? 0;
-    return mass > 0 ? mass : Infinity;
+    return { massKg: mass > 0 ? mass : Infinity };
   }
   // Everything joined to it, and every live joint among them.
   const parts = new Map<PhysicsBody, PartBody>([[body, own]]);
@@ -173,9 +215,9 @@ export function effectiveMassAt(body: PhysicsBody, point: Vector3, normal: Vecto
     const a = at(joint.parent.body);
     const b = at(joint.child.body);
     if (a === b) continue;
-    const { pivot, locked } = jointFrame(joint, options);
-    linkJoints.push({ a, b, pivot, lockedAngular: locked });
+    const { pivot, locked, held } = jointFrame(joint, options);
+    linkJoints.push({ a, b, pivot, lockedAngular: locked, ...(held.length > 0 ? { heldAngular: held } : {}) });
   }
-  return effectiveMassKg(links, linkJoints, { link: at(body), point: vec(point), normal: vec(normal) });
+  return { links, joints: linkJoints, contact: { link: at(body), point: vec(point), normal: vec(normal) } };
 }
 

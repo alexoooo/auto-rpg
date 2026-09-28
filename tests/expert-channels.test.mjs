@@ -186,7 +186,10 @@ class Witnessed extends ExpertMind {
 const PLUMB = { ...EXPERT_DEFAULTS, candidates: 6, rounds: 1, horizon: 0.5, decisionHz: 2, reseed: false, trace: true };
 
 async function channelBout(config) {
-  const expert = new Witnessed(config, 5);
+  // The search's seed is part of the fixture: it must pick a step plan for there to be a step to
+  // apply. Seed 5 did until joint give (Session 2 step 5) made a held arm's cut worth more, and then
+  // chose cut-mid at every decision; seed 9 picks step-out at its third.
+  const expert = new Witnessed(config, 9);
   const applied = { steps: 0, stances: 0, frames: 0 };
   await runExpertBout({ ...BASE, maxSeconds: 3.1, physics: await freshHavok() }, { experts: { left: expert },
     onFrame: (bout) => {

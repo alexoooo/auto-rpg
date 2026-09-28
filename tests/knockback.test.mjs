@@ -107,7 +107,9 @@ test("every_contact_files_the_inelastic_impulse_of_its_two_effective_masses_into
 test("a_parry_pushes_the_body_behind_the_guard_by_the_same_rule", async () => {
   const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
   const { contactImpulseNs } = await import("../src/scoring.ts");
-  const { effectiveMassAt } = await import("../src/body-inertia.ts");
+  const { contactGiveAt } = await import("../src/body-inertia.ts");
+  const { CONFIG } = await import("../src/config.ts");
+  const { actedMassKg, sharedImpulseNs } = await import("../src/golem/effective-mass.ts");
   const { bout, striker, combat, queued } = await arena();
   try {
     const guard = bout.right.strikers.find((s) => s.kind === "sword");
@@ -116,8 +118,13 @@ test("a_parry_pushes_the_body_behind_the_guard_by_the_same_rule", async () => {
     const report = combat.lastHit;
     assert.equal(report.damage, 0, "a parry wounds nothing");
     assert.ok(report.key.startsWith("block:"), `and is filed as a block: ${report.key}`);
-    const expected = contactImpulseNs(effectiveMassAt(striker.body, point, normal),
-      effectiveMassAt(guard.body, point, normal), 9 * await shoveShare(striker.kind));
+    // Both sides as far as their motors hold against what the whole 9 m/s passes between them.
+    const holdSeconds = CONFIG.combat.jointHoldSeconds;
+    const strikerGive = contactGiveAt(striker.body, point, normal, { holdSeconds });
+    const guardGive = contactGiveAt(guard.body, point, normal, { holdSeconds });
+    const passed = sharedImpulseNs(strikerGive, guardGive, 9);
+    const expected = contactImpulseNs(actedMassKg(strikerGive, passed), actedMassKg(guardGive, passed),
+      9 * await shoveShare(striker.kind));
     assert.equal(queued.length, 2, "the block files a shove on the guard's owner");
     // A part in a million, the width of Havok's float32 velocity: under an `"arrival"` reading the
     // 9 m/s is read back through the plugin. A block reports no closing speed to check the impulse against instead.

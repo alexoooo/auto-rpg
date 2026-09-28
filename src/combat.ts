@@ -7,7 +7,8 @@ import type { Observable } from "@babylonjs/core/Misc/observable.js";
 import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 
 import { CONFIG } from "./config.ts";
-import { effectiveMassAt, type EffectiveMassOptions } from "./body-inertia.ts";
+import { contactGiveAt, effectiveMassAt, type EffectiveMassOptions } from "./body-inertia.ts";
+import { actedMassKg, massGive, sharedImpulseNs } from "./golem/effective-mass.ts";
 import { StepStart } from "./step-start.ts";
 import type { Side } from "./physics.ts";
 import type { WeaponKind } from "./hands.ts";
@@ -449,6 +450,8 @@ export class Combat {
   private readonly start: StepStart | null;
   /** `effectiveMassAt`'s options: the step's start under `"arrival"`, and nothing under `"settled"`. */
   private readonly massOptions: EffectiveMassOptions | undefined;
+  /** `CONFIG.combat.jointHoldSeconds` as it stood when this was built. */
+  private readonly holdSeconds: number;
   /** `CONFIG.combat.shoveReadFractions` as it stood when this was built. */
   private readonly shoveFractions: Readonly<Record<Striker, number>>;
 
@@ -461,6 +464,7 @@ export class Combat {
     this.start = CONFIG.combat.contactReading === "arrival" && first
       ? new StepStart(first.body.transformNode.getScene()) : null;
     this.massOptions = this.start ? { pose: this.start.poseOf } : undefined;
+    this.holdSeconds = CONFIG.combat.jointHoldSeconds;
     this.shoveFractions = { ...CONFIG.combat.shoveReadFractions };
     if (this.start) for (const weapon of weapons) if (weapon) shoveReadFraction(weapon.kind, this.shoveFractions);
     try {
@@ -753,9 +757,10 @@ export class Combat {
     // a blow makes, between the striker and whatever stopped it, each walked back to its own body.
     // A blade caught on a plate drives the plate's owner back by what the blade carried.
     const normal = this.contactNormal(velocity, event);
-    const transferNs = normal ? this.transfer(this.strikerMassAt(weapon, point, normal),
-      effectiveMassAt(event.collidedAgainst, point, normal, this.massOptions),
-      this.closingSpeedAt(velocity, event) * this.shoveShare(weapon), normal, velocity, event.collidedAgainst, weapon.body, point.y) : 0;
+    const closing = this.closingSpeedAt(velocity, event);
+    const masses = normal ? this.massesAt(weapon, event.collidedAgainst, point, normal, closing) : null;
+    const transferNs = normal && masses ? this.transfer(masses[0], masses[1],
+      closing * this.shoveShare(weapon), normal, velocity, event.collidedAgainst, weapon.body, point.y) : 0;
     const report: HitReport = {
       ...(this.target?.actorId ? { targetId: this.target.actorId } : {}),
       by: this.side,
@@ -854,6 +859,26 @@ export class Combat {
     return this.startFor(weapon) ? shoveReadFraction(weapon.kind, this.shoveFractions) : 1;
   }
 
+  /**
+   * The striker's and the struck body's masses at one contact, kilograms: each side's chain as far
+   * as its motors hold over `jointHoldSeconds` against the impulse the two pass between them
+   * (`contactGive` in `src/golem/effective-mass.ts`), or each side's free chain with no hold.
+   */
+  private massesAt(weapon: Striking, struck: PhysicsBody, point: Vector3, normal: Vector3,
+    closingSpeed: number): [number, number] {
+    const free = (): [number, number] =>
+      [this.strikerMassAt(weapon, point, normal), effectiveMassAt(struck, point, normal, this.massOptions)];
+    if (!(this.holdSeconds > 0) || !(closingSpeed > 0)) return free();
+    const options: EffectiveMassOptions = { ...this.massOptions, holdSeconds: this.holdSeconds };
+    const striker = weapon.projectileImpact ? massGive(weapon.projectileImpact.massKg)
+      : contactGiveAt(weapon.body, point, normal, options);
+    const target = contactGiveAt(struck, point, normal, options);
+    const impulseNs = sharedImpulseNs(striker, target, closingSpeed);
+    // Two bodies nothing moves pass no finite impulse; each is then its own free chain.
+    if (!Number.isFinite(impulseNs)) return free();
+    return [actedMassKg(striker, impulseNs), actedMassKg(target, impulseNs)];
+  }
+
   /** What arrives behind the striker at the contact: a projectile's own mass, or its chain's. */
   private strikerMassAt(weapon: Striking, point: Vector3, normal: Vector3): number {
     return weapon.projectileImpact ? weapon.projectileImpact.massKg
@@ -912,9 +937,9 @@ export class Combat {
     // right answer for hitting something that cannot move, and the ceiling on every other answer.
     const closingSpeed = this.closingSpeedAt(velocity, event);
     const normal = this.contactNormal(velocity, event);
-    const partMassKg = normal ? effectiveMassAt(limb.part.body, point, normal, this.massOptions)
-      : bodyMassKg(limb.part.body);
-    const strikerMassKg = normal ? this.strikerMassAt(weapon, point, normal)
+    const masses = normal ? this.massesAt(weapon, limb.part.body, point, normal, closingSpeed) : null;
+    const partMassKg = masses ? masses[1] : bodyMassKg(limb.part.body);
+    const strikerMassKg = masses ? masses[0]
       : weapon.projectileImpact ? weapon.projectileImpact.massKg : bodyMassKg(weapon.body);
     // A stationary contact has no direction and therefore a zero shove. This
     // branch matters for the fist: its sub-floor contacts deliberately continue
