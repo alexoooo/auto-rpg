@@ -102,4 +102,5 @@ test("a segment's frame is square, right-handed in its components, and runs from
   assert.ok(frame.y[1] < 0 && frame.x[0] > 0.99, "a thigh's y runs down it and its x stays the body's right");
   assert.deepEqual(segmentFrame([0, 0, 0], [0, 1, 0]), { origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
   assert.throws(() => segmentFrame([0, 0, 0], [1, 0, 0]), "a segment along the body's right has no frame");
+  assert.deepEqual(segmentFrame([0, 0, 0], [0, -1, 0], [0, 0, 1]).x, [0, 0, 1], "a segment that names its right takes it");
 });

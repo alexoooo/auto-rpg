@@ -5,7 +5,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { FIT_SCALE, bodyMass, stature, WORKSHOP_SEX } from "../src/core/human/model.ts";
-import { WORKSHOP_MODELS } from "../src/core/human/rig.ts";
+import { rigPoint, WORKSHOP_MODELS } from "../src/core/human/rig.ts";
+import { frameOf, segmentFrame } from "../src/core/spec/body.ts";
+import { dot, normalize, sub } from "../src/core/spec/vec.ts";
 import { HUMAN_PARENTS, humanSegments } from "../src/core/human/segments.ts";
 import { TRUNK_SEGMENTS, workshopEnvelope } from "../src/core/human/envelope.ts";
 import { SIDES } from "../src/core/human/landmarks.ts";
@@ -138,6 +140,27 @@ test("every segment's inertia is a rigid body's", () => {
     for (const { name, inertia } of humanSegments(model)) {
       const [a, b, c] = inertia.value;
       assert.ok(a > 0 && b > 0 && c > 0 && a + b >= c && b + c >= a && c + a >= b, `${model} ${name}: ${inertia.value}`);
+    }
+  }
+});
+
+test("a hand's frame lies across its knuckles, thumb side to the body's right as in the anatomical position", () => {
+  for (const model of WORKSHOP_MODELS) {
+    const segments = new Map(humanSegments(model).map((segment) => [segment.name, segment]));
+    for (const side of SIDES) {
+      const hand = segments.get(`hand.${side}`);
+      const suffix = side === "left" ? "_l" : "_r";
+      const index = rigPoint(model, `index_01${suffix}`, "head").value, little = rigPoint(model, `pinky_01${suffix}`, "head").value;
+      const thumbward = normalize(sub(index, little));
+      const { x } = frameOf(hand);
+      const across = dot(x, thumbward);
+      assert.ok(side === "right" ? across > 0.95 : across < -0.95, `${model} ${side}: x.thumbward ${across}`);
+      // The control: the body's right lies far from a thumb-up hand's width, so the choice matters.
+      const byBody = segmentFrame(hand.proximal.value, hand.distal.value).x;
+      assert.ok(Math.abs(dot(byBody, thumbward)) < 0.6, `${model} ${side}: the body's right is not the hand's`);
+    }
+    for (const [name, segment] of segments) {
+      if (!name.startsWith("hand.")) assert.equal(segment.right, undefined, `${model} ${name} keeps the body's right`);
     }
   }
 });

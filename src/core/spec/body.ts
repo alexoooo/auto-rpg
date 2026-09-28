@@ -30,8 +30,8 @@ export interface BodySpec {
 /**
  * One rigid segment.
  *
- * Its **frame** follows from its two ends (`segmentFrame`): y along the segment from `proximal` to
- * `distal`, x the body's right made square to y, z = x cross y. Inertia is stated about the
+ * Its **frame** follows from its two ends and its right (`frameOf`): y along the segment from
+ * `proximal` to `distal`, x its right made square to y, z = x cross y. Inertia is stated about the
  * centre of mass along those axes, which are the axes a segment table's radii of gyration are
  * about: x transverse, y longitudinal, z sagittal.
  */
@@ -39,6 +39,12 @@ export interface SegmentSpec {
   readonly name: string;
   readonly proximal: Quantity<Vec3>;
   readonly distal: Quantity<Vec3>;
+  /**
+   * The segment's own right, when the reference pose has turned it away from the body's: the
+   * direction the body's right would have across this segment in the anatomical position. Absent,
+   * it is the body's right. A hand held thumb up has its own.
+   */
+  readonly right?: Quantity<Vec3>;
   readonly mass: Quantity<number>;
   /** In the body frame. */
   readonly centreOfMass: Quantity<Vec3>;
@@ -109,12 +115,16 @@ export interface SegmentFrame {
 const BODY_RIGHT: Vec3 = [1, 0, 0];
 
 /**
- * A segment's frame from its ends: origin at `proximal`, y toward `distal`, x the body's right
- * made square to y, and z = x cross y. A segment that runs along the body's right has no such
- * frame, and is refused rather than given another.
+ * A segment's frame from its ends: origin at `proximal`, y toward `distal`, x `right` made square
+ * to y, and z = x cross y. A segment that runs along its right has no such frame, and is refused
+ * rather than given another.
  */
-export function segmentFrame(proximal: Vec3, distal: Vec3): SegmentFrame {
+export function segmentFrame(proximal: Vec3, distal: Vec3, right: Vec3 = BODY_RIGHT): SegmentFrame {
   const y = normalize(sub(distal, proximal));
-  const x = orthogonalTo(BODY_RIGHT, y);
+  const x = orthogonalTo(right, y);
   return { origin: proximal, x, y, z: cross(x, y) };
 }
+
+/** A segment's frame, reference pose. */
+export const frameOf = (segment: SegmentSpec): SegmentFrame =>
+  segmentFrame(segment.proximal.value, segment.distal.value, segment.right?.value);

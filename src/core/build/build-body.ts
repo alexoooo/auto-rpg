@@ -5,7 +5,7 @@ import { Physics6DoFConstraint, type Physics6DoFLimit } from "@babylonjs/core/Ph
 import { PhysicsShapeBox, PhysicsShapeCapsule, PhysicsShapeSphere, type PhysicsShape } from "@babylonjs/core/Physics/v2/physicsShape.js";
 import { PhysicsConstraintAxis, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { segmentFrame, type BodySpec, type DofSpec, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { frameOf, type BodySpec, type DofSpec, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
 
@@ -13,7 +13,7 @@ import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
  * **`buildBody`: Havok bodies and joints from a spec, and from nothing else.**
  *
  * Each segment is a dynamic body whose node sits at the segment frame's origin, turned to its
- * frame (`segmentFrame`). Its mass, centre of mass and inertia are set from the spec explicitly,
+ * frame (`frameOf`). Its mass, centre of mass and inertia are set from the spec explicitly,
  * so the collision shape carries no mass. Each joint is a 6-DoF constraint at the joint's centre
  * whose free angular axes are the spec's freedoms, limited to their ranges; every other axis is
  * locked, and the two segments it joins do not collide with each other.
@@ -94,7 +94,7 @@ function makeShape(frame: SegmentFrame, spec: ShapeSpec, scene: Scene): PhysicsS
 }
 
 function buildSegment(spec: SegmentSpec, model: string, placement: Placement, scene: Scene): BuiltSegment {
-  const frame = segmentFrame(spec.proximal.value, spec.distal.value);
+  const frame = frameOf(spec);
   const node = new TransformNode(`${model}.${spec.name}`, scene);
   node.position = v3(frame.origin).addInPlace(v3(placement.position));
   node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z));

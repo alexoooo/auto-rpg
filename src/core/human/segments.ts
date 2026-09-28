@@ -27,6 +27,12 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  *
  * The rig's feet end in a boot, so the foot runs from the boot's heel to its toe, at the height of
  * the rig's ball.
+ *
+ * **A hand's right.** The rig holds each hand thumb up, a quarter turn from the anatomical
+ * position's palm forward, so a hand's frame takes its own right (`SegmentSpec.right`): across its
+ * knuckles toward the thumb on the right hand, toward the little finger on the left, as the body's
+ * right runs across a hand in the anatomical position. Its two transverse radii differ by a fifth
+ * in de Leva's table, so which way they lie matters.
  */
 type Shape =
   | { readonly kind: "capsule"; readonly density: DensitySegment }
@@ -42,6 +48,7 @@ interface Plan {
   readonly origin: Quantity<Vec3>;
   readonly end: Quantity<Vec3>;
   readonly shape: Shape;
+  readonly right?: Quantity<Vec3>;
 }
 
 /** A segment's name: the row's, and the side for a limb. */
@@ -77,7 +84,7 @@ function plans(model: WorkshopModel): Plan[] {
   const trunk = trunkLandmarks(model);
   const { VERT, CERV, XYPH, OMPH, MIDH } = trunk;
   const plan = (name: string, row: DeLevaSegment, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, shape: Shape,
-    origin = proximal, end = distal): Plan => ({ name, row, proximal, distal, origin, end, shape });
+    origin = proximal, end = distal, right?: Quantity<Vec3>): Plan => ({ name, row, proximal, distal, origin, end, shape, right });
   const out: Plan[] = [
     plan("head", "head", CERV, VERT, { kind: "capsule", density: "head" }, VERT, CERV),
     plan("upperTrunk", "upperTrunk", CERV, XYPH, { kind: "box in its own frame", extents: envelope.trunk.upper }),
@@ -95,13 +102,22 @@ function plans(model: WorkshopModel): Plan[] {
     out.push(
       plan(segmentName("upperArm", side), "upperArm", SJC, EJC, { kind: "capsule", density: "upperArm" }),
       plan(segmentName("forearm", side), "forearm", EJC, WJC, { kind: "capsule", density: "forearm" }),
-      plan(segmentName("hand", side), "hand", WJC, DAC3, { kind: "capsule", density: "hand" }),
+      plan(segmentName("hand", side), "hand", WJC, DAC3, { kind: "capsule", density: "hand" }, WJC, DAC3, handRight(model, side)),
       plan(segmentName("thigh", side), "thigh", HJC, KJC, { kind: "capsule", density: "thigh" }),
       plan(segmentName("shank", side), "shank", KJC, AJC, { kind: "capsule", density: "shank" }),
       plan(segmentName("foot", side), "foot", HEEL, TTIP, { kind: "box in the body frame", extents: foot }),
     );
   }
   return out;
+}
+
+/** A hand's right in the anatomical position: across its knuckles, thumb side on the right hand. */
+function handRight(model: WorkshopModel, side: Side): Quantity<Vec3> {
+  const index = rigPoint(model, `index_01${rigSuffix(side)}`, "head");
+  const little = rigPoint(model, `pinky_01${rigSuffix(side)}`, "head");
+  return side === "right"
+    ? derive("1", "from the little finger's knuckle to the index finger's", [little, index], (l, i) => normalize(sub(i, l)))
+    : derive("1", "from the index finger's knuckle to the little finger's", [index, little], (i, l) => normalize(sub(l, i)));
 }
 
 function shapeOf(plan: Plan, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, mass: Quantity<number>): ShapeSpec {
@@ -175,6 +191,7 @@ export function humanSegments(model: WorkshopModel): SegmentSpec[] {
         const l = distance(p, d);
         return [m * (transverse * l) ** 2, m * (longitudinal * l) ** 2, m * (sagittal * l) ** 2];
       });
-    return { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(plan, proximal, distal, mass) };
+    const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(plan, proximal, distal, mass) };
+    return plan.right ? { ...segment, right: plan.right } : segment;
   });
 }

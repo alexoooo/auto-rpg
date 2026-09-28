@@ -8,7 +8,7 @@
  * search along its axis. Two boxes are separated by the largest gap along any of their fifteen
  * separating axes, which is a lower bound on their distance.
  */
-import { segmentFrame } from "../../src/core/spec/body.ts";
+import { frameOf } from "../../src/core/spec/body.ts";
 import { add, cross, dot, length, scale, sub } from "../../src/core/spec/vec.ts";
 
 /** A shape as the measures below take it: a capsule (a sphere is one of length zero) or a box. */
@@ -18,7 +18,7 @@ export function solid(segment) {
     case "capsule": return { kind: "capsule", from: shape.from.value, to: shape.to.value, radius: shape.radius.value };
     case "sphere": return { kind: "capsule", from: shape.centre.value, to: shape.centre.value, radius: shape.radius.value };
     case "box": {
-      const frame = segmentFrame(segment.proximal.value, segment.distal.value);
+      const frame = frameOf(segment);
       return { kind: "box", centre: shape.centre.value, axes: [frame.x, frame.y, frame.z], half: shape.size.value.map((s) => s / 2) };
     }
     default: throw new Error(`unknown shape ${shape.kind}`);
