@@ -29,7 +29,7 @@ import { orderLabel } from "./commands.ts";
 import { cellKey, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
 import { DRESSING, dressingPlacements, torchPlacements } from "./dressing.ts";
-import { lightDungeon, type DungeonLighting } from "./lighting.ts";
+import { lightDungeon, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
 import { lookProbe } from "./look-probe.ts";
 import { frameMeter } from "./frame-meter.ts";
 import { dungeonStone, stoneQuery } from "./stone.ts";
@@ -196,11 +196,10 @@ async function boot(): Promise<void> {
     // code no Node test loads, so the rule that it adds no body is held here, where it runs.
     const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
     const torches = reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed); soundTorches = torches;
-    lighting = lightDungeon(scene, camera, run.map, torches, azimuth); run.world.sconces(torches);
+    lighting = lightDungeon(scene, camera, run.map, torches, azimuth, reference ? REFERENCE_LIGHT : undefined); run.world.sconces(torches);
     if (!reference && stone.dressing) run.world.dress(dressingPlacements(run.map, seed, DRESSING, toward));
     if (reference) {
       referenceLook = await dressReference(scene, run.world, selectedQuality, azimuth);
-      lighting.lantern.intensity = 9;
       if (selectedQuality === "reduced") lighting.setLook({ ssao: false });
     }
     if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);

@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { Ray } from '@babylonjs/core/Culling/ray.js';
+import { createHash } from 'node:crypto';
 import { referenceChamber } from '../src/dungeon/reference.ts';
 import { walkable, clearSegment, canSee, findPath } from '../src/dungeon/map.ts';
 import { buildDungeonWorld } from '../src/dungeon/world.ts';
@@ -9,6 +11,86 @@ import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
 import { DungeonRun } from '../src/dungeon/run.ts';
 import { freshIntent } from '../src/action-primitives.ts';
 import { CONFIG } from '../src/config.ts';
+
+function exportedChamber() {
+  const bytes=readFileSync(new URL('../public/assets/dungeon-reference/chamber.glb',import.meta.url));
+  const length=bytes.readUInt32LE(12),gltf=JSON.parse(bytes.subarray(20,20+length));
+  const read=index=>{
+    const a=gltf.accessors[index],view=gltf.bufferViews[a.bufferView],count={SCALAR:1,VEC2:2,VEC3:3,VEC4:4}[a.type];
+    const size=a.componentType===5123?2:4,offset=28+length+(view.byteOffset??0)+(a.byteOffset??0);
+    const method=a.componentType===5126?'readFloatLE':a.componentType===5123?'readUInt16LE':'readUInt32LE';
+    return Array.from({length:a.count},(_,i)=>Array.from({length:count},(_,c)=>bytes[method](offset+i*(view.byteStride??size*count)+c*size)));
+  };
+  return {gltf,read};
+}
+
+test('exported stone colours are valid greys and authored maps match their provenance hashes',()=>{
+  const {gltf,read}=exportedChamber();
+  for(const mesh of gltf.meshes) for(const p of mesh.primitives) {
+    assert.notEqual(p.attributes.COLOR_0,undefined,mesh.name);
+    for(const [r,g,b] of read(p.attributes.COLOR_0)) {
+      assert.ok(r>=0 && r<=1,`${mesh.name}: invalid colour ${r}`);
+      assert.equal(r,g);assert.equal(g,b); // Also catches Blender UV writes corrupting corner colours.
+    }
+  }
+  const manifest=JSON.parse(readFileSync(new URL('../assets/dungeon-reference/manifest.json',import.meta.url)));
+  assert.ok(manifest.triangles<130848,'art refinement must stay below the previous triangle count');
+  for(const map of manifest.textures) {
+    const bytes=readFileSync(new URL('../public/assets/dungeon-reference/'+map.file,import.meta.url));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'),map.sha256);
+  }
+});
+
+test('exported blind arches have actual depth and the working portal preserves its clearance',()=>{
+  const {gltf,read}=exportedChamber(),triangles=[];
+  for(const node of gltf.nodes) {
+    if(!['reference.wall','reference.trim','reference.iron'].includes(node.name))continue;
+    assert.equal(node.rotation,undefined);assert.equal(node.scale,undefined);
+    for(const p of gltf.meshes[node.mesh].primitives) {
+      const vertices=read(p.attributes.POSITION).map(v=>Vector3.FromArray(v.map((x,i)=>x+(node.translation?.[i]??0))));
+      const indices=read(p.indices).flat();
+      for(let i=0;i<indices.length;i+=3)triangles.push(indices.slice(i,i+3).map(j=>vertices[j]));
+    }
+  }
+  const distance=(origin,direction)=>{
+    const ray=new Ray(Vector3.FromArray(origin),Vector3.FromArray(direction));let nearest=Infinity;
+    for(const t of triangles){const hit=ray.intersectsTriangle(...t);if(hit && hit.distance>=0)nearest=Math.min(nearest,hit.distance);}
+    return nearest;
+  };
+  const recess=distance([4.5,1.15,6],[-1,0,0]),pier=distance([4.5,1.15,6.95],[-1,0,0]);
+  assert.ok(Number.isFinite(recess) && recess-pier>.3,`recess ${recess}, pier ${pier}`);
+  const eastFace=distance([15,1.195,7],[1,0,0]),eastJoint=distance([15,1.365,7],[1,0,0]);
+  assert.ok(eastJoint-eastFace>.03,'opposite-wall masonry must project in front of its mortar core');
+  // Cast short rays through the aperture: the far corridor wall is allowed, a false arch header is not.
+  for(const x of [7.55,9,10.45])for(const y of [.2,1.2,2.48])
+    assert.ok(distance([x,y,13.45],[0,0,1])>1.1,`portal obstruction at ${x}, ${y}`);
+});
+
+test('rotated arch stones retain two-dimensional texture coordinates',()=>{
+  const {gltf,read}=exportedChamber();
+  const node=gltf.nodes.find(n=>n.name==='reference.trim');
+  for(const p of gltf.meshes[node.mesh].primitives) {
+    const positions=read(p.attributes.POSITION).map(v=>Vector3.FromArray(v)),uvs=read(p.attributes.TEXCOORD_0),indices=read(p.indices).flat();
+    for(let i=0;i<indices.length;i+=3) {
+      const [a,b,c]=indices.slice(i,i+3),area=Vector3.Cross(positions[b].subtract(positions[a]),positions[c].subtract(positions[a])).length();
+      if(area<1e-7)continue;
+      const [u,v,w]=[uvs[a],uvs[b],uvs[c]],uvArea=Math.abs((v[0]-u[0])*(w[1]-u[1])-(w[0]-u[0])*(v[1]-u[1]));
+      assert.ok(uvArea>1e-10,`trim triangle ${i/3} collapses to a texture stripe`);
+    }
+  }
+});
+
+test('door presentation references are the meshes hidden by authoritative opening',async()=>{
+  const arena=await createHeadlessArena({populateDefaultGeometry:false});
+  try {
+    const map=referenceChamber(),world=buildDungeonWorld(arena.scene,map,true);
+    assert.equal(world.doorVisuals.length,1);
+    const {wood,iron}=world.doorVisuals[0];assert.ok(wood.isVisible && iron.isVisible);
+    world.openNearby([{x:9,z:13}]);assert.equal(map.doors[0].open,true);
+    assert.equal(wood.isVisible,false);assert.equal(iron.isVisible,false);
+    world.dispose();
+  }finally {arena.dispose();}
+});
 
 test('exported tomb fits its gameplay box and flagstone crowns stay on the support plane', () => {
   const bytes=readFileSync(new URL('../public/assets/dungeon-reference/chamber.glb',import.meta.url));

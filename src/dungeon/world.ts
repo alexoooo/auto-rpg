@@ -202,6 +202,8 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
   exitMaterial.emissiveColor = Color3.FromHexString("#42b998").toLinearSpace().scale(3); exit.material = exitMaterial;
   return {
     registry, fog, surfaces,
+    /** Materials may be dressed; visibility and collision remain owned by openNearby. */
+    doorVisuals: doors.flatMap(door => door.leaf.length ? [{ wood: door.leaf[0], iron: door.leaf[1] }] : []),
     openNearby(actors: readonly Point[]) {
       for (const door of map.doors) if (!door.open && actors.some(p => Math.hypot(p.x - door.point.x, p.z - door.point.z) < 2.5)) {
         door.open = true;

@@ -23,8 +23,7 @@ import { cellKey, type DungeonMap, type Point } from "./map.ts";
 import type { TorchPlacement } from "./dressing.ts";
 
 /**
- * The dungeon's light. Every number is a starting value set by eye against the concept art on the owner's
- * machine, which is where it is judged; my tab paints no frames.
+ * Generated-dungeon defaults. The reference chamber opts into its own visually verified profile.
  */
 export const DUNGEON_LOOK = Object.freeze({
   /** A cold, dim fill from above that leaves the torches to do the work. It was 0.85 of a pale blue before. */
@@ -55,6 +54,18 @@ export const lightRange = (intensity: number): number => Math.sqrt(intensity / D
 
 export interface LookSwitches { torches: boolean; ssao: boolean; post: boolean }
 
+export interface DungeonLightProfile {
+  ambientIntensity: number;
+  ambientColor: string;
+  environmentIntensity: number;
+  lanternIntensity: number;
+  lanternColor: string;
+}
+export const REFERENCE_LIGHT: Readonly<DungeonLightProfile> = Object.freeze({
+  ambientIntensity: .30, ambientColor: "#9aaecf", environmentIntensity: .58,
+  lanternIntensity: 5, lanternColor: "#dce5f5",
+});
+
 export interface DungeonLighting {
   readonly lantern: PointLight;
   /** Whether the torches are in a clustered container rather than plain lights. */
@@ -69,26 +80,26 @@ export interface DungeonLighting {
 }
 
 export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torches: readonly TorchPlacement[],
-  azimuth = CAMERA_AZIMUTH): DungeonLighting {
+  azimuth = CAMERA_AZIMUTH, profile?: Readonly<DungeonLightProfile>): DungeonLighting {
   const look: LookSwitches = { torches: true, ssao: true, post: true };
   scene.clearColor = new Color4(...DUNGEON_LOOK.clearColor, 1);
   // The sky's direction was chosen with the camera on the diagonal (azimuth pi/4), and turns with the camera so that
   // it keeps its relation to the view: Babylon's `RotationY` takes `cameraToward(PI / 4)` to `cameraToward(azimuth)`.
   const sky = Vector3.TransformNormal(new Vector3(0.3, 1, -0.4), Matrix.RotationY(azimuth - Math.PI / 4));
   const ambient = new HemisphericLight("dungeon ambient", sky, scene);
-  ambient.intensity = DUNGEON_LOOK.ambient.intensity;
-  ambient.diffuse = Color3.FromHexString(DUNGEON_LOOK.ambient.diffuse);
+  ambient.intensity = profile?.ambientIntensity ?? DUNGEON_LOOK.ambient.intensity;
+  ambient.diffuse = Color3.FromHexString(profile?.ambientColor ?? DUNGEON_LOOK.ambient.diffuse);
   ambient.groundColor = Color3.FromHexString(DUNGEON_LOOK.ambient.ground);
   // As `buildArena` does: without the file the scene still lights, only flatter.
   try {
     scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
-    scene.environmentIntensity = DUNGEON_LOOK.environmentIntensity;
+    scene.environmentIntensity = profile?.environmentIntensity ?? DUNGEON_LOOK.environmentIntensity;
   } catch {
     scene.environmentIntensity = 0;
   }
   const lantern = new PointLight("wanderer lantern", Vector3.Zero(), scene);
-  lantern.diffuse = Color3.FromHexString(DUNGEON_LOOK.lantern.color);
-  lantern.intensity = DUNGEON_LOOK.lantern.intensity;
+  lantern.diffuse = Color3.FromHexString(profile?.lanternColor ?? DUNGEON_LOOK.lantern.color);
+  lantern.intensity = profile?.lanternIntensity ?? DUNGEON_LOOK.lantern.intensity;
   lantern.range = lightRange(lantern.intensity);
 
   const flameLook = flameMaterial(scene), fire = flameLook.material;

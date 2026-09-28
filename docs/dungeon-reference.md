@@ -19,7 +19,13 @@ Run Blender 4.5 LTS with:
 blender --background --python scripts/dungeon/build-reference.py
 ```
 
-The generator uses seed 271828 and writes the editable Blender source, `assets/dungeon-reference/manifest.json`, and `public/assets/dungeon-reference/chamber.glb`. The geometry is authored in this repository; it contains no downloaded model. Textures reuse the existing Poly Haven CC0 floor and wall maps, with their original source URLs and SHA-256 hashes in `src/textures.json`. Runtime bindings provide albedo, normal and packed AO/roughness/metalness; Blender materials are export labels, not baked approximations of the runtime shader.
+The generator uses seed 271828 and writes the editable Blender source, `assets/dungeon-reference/manifest.json`, the GLB, and three 1024 px stone PNG maps under `public/assets/dungeon-reference/`. Geometry and stone textures are authored in this repository; there is no downloaded model. The periodic stone texture generator bakes albedo, OpenGL normal, and packed AO/roughness/metalness without tile seams. Its provenance and output hashes are recorded in the manifest. The working door reuses the registered Poly Haven CC0 wood maps from `src/textures.json`.
+
+The current kit has six blind memorial niches with actual recessed backing, layered arch stones and coping, and a shallow segmental arch above the working exit. Niche rubble and branching roots occupy existing rock footprints. The floor's staggered, chipped slabs are independent of the gameplay grid; their crowns remain within 4 mm of the flat physical support plane. A carved sword and laurel relief, inset panels, plinth and cornice all fit inside the sarcophagus's original collision box.
+
+Stone variation uses exported vertex colours. In Blender, adding a corner attribute reallocates mesh CustomData: acquire UV handles **after** adding the colour attribute, or UV writes corrupt the exported colours. Planar UV projection uses world-space face normals so rotated arch stones do not collapse to texture stripes. Both defects have binary-asset regression tests.
+
+`CryptDamp` varies the opaque paving's roughness and albedo in three localized patches; there are no floating transparent puddle planes. Reference-only lighting uses cooler fill, a subdued carried light, and two tighter amber shadow-casting torch lights. Generated dungeons keep their original lighting. `world.doorVisuals` exposes only the two existing visual meshes for material binding; the world's door-opening code continues to own visibility and collision.
 
 The authored layout and collision descriptors must be changed together when moving the tomb or walls. Shallow roots, chips and wetness are cosmetic. Never add physics bodies to the GLB dressing layer.
 
@@ -27,9 +33,9 @@ The authored layout and collision descriptors must be changed together when movi
 
 High uses 2048 px shadow maps and SSAO at native CSS resolution. Reduced uses 1024 px shadow maps, disables SSAO, and renders at 1/1.4 linear resolution. The Performance disclosure exposes the existing frame/physics/GPU meter; pause does not expand it.
 
-`tests/dungeon-reference.test.mjs` checks navigable spawn/exit points, routes around the tomb, independent low-obstacle sight behavior, closed-door sight, real Havok rays below/above the lid, identical physical bodies with visuals on/off, and disposal. The ordinary dungeon suites cover the unchanged maps without obstacle descriptors.
+`tests/dungeon-reference.test.mjs` checks actual GLB recess depth, portal clearance, colour data, UV area, texture hashes, tomb bounds and floor height, plus navigable spawn/exit points, routes around the tomb, independent low-obstacle sight behavior, door visual ownership, real Havok rays below/above the lid, identical physical bodies with visuals on/off, disposal, and a real rogue arrow release. The ordinary dungeon suites cover the unchanged maps without obstacle descriptors.
 
-### Browser measurements (2026-09-27)
+### First-pass browser measurements (2026-09-27, before art refinement)
 
 Edge headless, Windows, Intel Iris Xe / ANGLE D3D11, 1920x1080 CSS viewport. Each sample ran the real four-character dungeon for 60 seconds after restart; the first five frames were excluded. These are different hero workloads, not a controlled graphics-only comparison.
 
@@ -43,3 +49,20 @@ Edge headless, Windows, Intel Iris Xe / ANGLE D3D11, 1920x1080 CSS viewport. Eac
 Browser acceptance verified both imported character appearances, a four-second fixed-step combat segment, pause freezing the clock, and restart returning to the same body/light counts. No JavaScript exceptions occurred. A separate fixed-step regression requires an actual released arrow against the established stationary unarmed-target fixture in this room. Counting preallocated arrow meshes is not accepted as evidence of firing. Against all three rushing skeletons, the unchanged archer AI repeatedly cancels its draw to retreat; solo ranged encounter balance remains a limitation. High and Reduced screenshots and raw samples are retained locally under `.review/reference-*`.
 
 Validation: the full `npm test` run passed 955 tests; the subsequently added real-shot regression and all three room tests passed together. `npm run check` and `npm run build` passed. The production reference route loaded in Edge, and its served GLB matched the source asset hash.
+
+### Art refinement verification (2026-09-27)
+
+The refined GLB contains 87,928 triangles in seven material batches, versus 130,836 previously. The three authored stone maps are shared across the stone materials. No physics bodies were added. Cutaway walls now also remove elevated plaques, door fittings, sconces and flames, avoiding floating decoration when the camera bearing is reversed.
+
+Matched rendering-only comparison: Edge headless / Intel Iris Xe ANGLE D3D11, tab reporting `visible`, 1920×1080, High, fighter, seed 271828, identical default camera and frozen spawn state. Each sample waits for `requestAnimationFrame`, then measures `scene.render()` through `gl.finish()`; 20 warm-up frames are discarded and 120 frames retained. No test suite ran during either measurement.
+
+| Chamber | Median render | p95 render |
+| --- | --- | --- |
+| Before refinement | 42.2 ms | 60.9 ms |
+| Refined | 40.8 ms | 53.2 ms |
+
+This isolates rendering cost; it is **not** a live-combat FPS measurement and is not comparable to the older live-bout table above or the owner's gameplay screenshot. The measured change stays within the 10% regression budget.
+
+Browser verification covered fighter/High and rogue/Reduced, fixed-step combat, authoritative door opening, pause and wheel zoom, scene restart with stable mesh/light/body counts, and the ordinary generated dungeon. Close-up views exposed and led to fixes for exported colour corruption and rotated UV collapse. A production view at azimuth 225° also exposed the cutaway fittings and opposite-wall core issues; those were corrected and checked again. Local captures and raw reports are under `.review/crypt-*`.
+
+The full suite passed **960 tests**. After the final visual-only cutaway/core corrections, all eight chamber regressions passed again, and the production build (including TypeScript checking) passed again. Character assets, HUD layout, collision layout and combat tuning are unchanged.

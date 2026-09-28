@@ -10,9 +10,38 @@
     "root",
     "earth",
     "iron",
-    "wet",
     "tomb"
   ],
-  "textures": "Existing CC0 textures registered in src/textures.json",
-  "triangles": 130836
+  "textures": [
+    {
+      "file": "stone-albedo.png",
+      "provenance": "Authored periodic limestone noise; generator seed 271828",
+      "sha256": "3a05a93172c0540b5ab06aac149523df745ded8ed51b8822ec8ce87f7ca0cf01"
+    },
+    {
+      "file": "stone-normal.png",
+      "provenance": "Authored periodic limestone noise; generator seed 271828",
+      "sha256": "3a4bd6206ac35e3a61cb9929916075927be53e4c627b2bde871b10b5db6c913d"
+    },
+    {
+      "file": "stone-orm.png",
+      "provenance": "Authored periodic limestone noise; generator seed 271828",
+      "sha256": "e63050d1155afbec36d360cd12d3cdc066d0d648ab02c565d71d72ceb3d6a799"
+    }
+  ],
+  "triangles": 87928,
+  "recesses": {
+    "left": [
+      6,
+      9,
+      12
+    ],
+    "back": [
+      5,
+      12,
+      15
+    ],
+    "depthMetres": 0.4
+  },
+  "floorCrownMaxMetres": 0.004
 }
