@@ -51,8 +51,8 @@ import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 export const CONTACT_PRESS = Object.freeze({
   /**
    * The window a force is averaged over, seconds. The plan's starting point, kept: a single
-   * contact's impulse is dominated by how the solver resolved it, and a tenth of a second is 24
-   * solver steps at 240 Hz.
+   * contact's impulse is dominated by how the solver resolved it, and a tenth of a second is 12
+   * solver steps at 120 Hz.
    */
   WINDOW_S: 0.1,
   /**

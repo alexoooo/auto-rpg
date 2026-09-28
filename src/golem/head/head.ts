@@ -13,7 +13,7 @@ import type { Striking } from "../../combat.ts";
 import type { NaturalIntent } from "../../mind.ts";
 import { COLLIDES, LAYER } from "../../physics.ts";
 import { boxPart, capsulePart, joint, type Part } from "../../rig.ts";
-import { slewTowards } from "../anchor-drive.ts";
+import { slewTowards } from "../slew.ts";
 import { naturalChannel } from "../../body-command.ts";
 import { attributeOf, withSize, type SizeLaws } from "../attributes.ts";
 import { HEAD_NECK, HEAD_NECK_SIZE } from "../config.ts";

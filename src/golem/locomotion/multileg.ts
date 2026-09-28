@@ -30,7 +30,7 @@ import {
   type ConstructPostureEvidence,
   type StabilityAuthority,
 } from "../../supported-locomotion-state.ts";
-import { slewTowards } from "../anchor-drive.ts";
+import { slewTowards } from "../slew.ts";
 import { gaitChannels } from "../../body-command.ts";
 import {
   BENCH_STAND_LOCOMOTION, BENCH_STAND_LOCOMOTION_SIZE, LOCOMOTION_MULTILEG, LOCOMOTION_MULTILEG_SIZE,

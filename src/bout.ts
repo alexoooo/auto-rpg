@@ -273,34 +273,6 @@ export interface UnitSelectionRules {
   readonly defaultGolem?: GolemSetup;
 }
 
-/**
- * The units on offer.
- *
- * One of them, and it is still a list feeding a `select` rather than a label,
- * because the day there are two the control that has to change is the one that
- * already exists -- and because a label is a promise that the choice does not
- * matter, which is not what is meant here.
- */
-/**
- * What the screen opens on.
- *
- * The left side is yours. The plan's sketch of the screen draws both sides on
- * `mind`, and this deliberately differs: the page as it stands hands you the
- * left fighter the moment you press the button, and a session that adds a screen
- * should not also quietly take the sword away. Choosing `mind` on the left is one
- * click, and the idle-versus-idle pairing the plan asks for is two.
- */
-export function defaultMatchup(): Matchup {
-  return {
-    // A sword and an empty hand, which is what every fighter carried before
-    // there was a choice -- so the default matchup is the body every number in
-    // `docs/measurements.md` was taken from, and a bout opened without touching
-    // the pickers is still that measurement's bout.
-    left: { unit: "warrior", policy: "idle", control: "you", handA: "sword", handB: "empty" },
-    right: { unit: "warrior", policy: "idle", control: "mind", handA: "sword", handB: "empty" },
-  };
-}
-
 /** Which side the person is on, or null when two policies are fighting. */
 export function humanSide(matchup: Matchup): Side | null {
   if (matchup.left.control === "you") return "left";
@@ -476,10 +448,10 @@ export function withGolemBuild(
 /**
  * The showcase: two golems, both driven by their own mind.
  *
- * What the matchup screen opens on since the matchup set's Session 03, and it differs from
- * `defaultMatchup` in both of the ways that screen exists for. Golems on both sides, because the
- * screen is golem-only by the owner's decision and a Warrior is a regression cell rather than a
- * fighter to watch. Two minds rather than the left side yours, because the thing the screen is
+ * What the matchup screen opens on since the matchup set's Session 03, when it replaced the
+ * retired Warrior's opening in both of the ways that screen exists for. Golems on both sides,
+ * because a Warrior was a regression cell rather than a fighter to watch. Two minds rather than
+ * the left side yours, because the thing the screen is
  * for is *watching* -- "high level fighting for random body layout matchups" is the owner's
  * sentence -- and the box that hands you a body is one click away. The build is passed
  * in for the reason `withGolemBuild` gives; `unit` and `policy` are the registry's own ids,

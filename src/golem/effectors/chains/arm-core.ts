@@ -695,7 +695,7 @@ export function buildArmCore(
    * Walk the sent command toward the demanded one, by at most `metres` of hand travel.
    *
    * **The rate limit belongs here and not at the anchor, and 2026-09-05 is when that was
-   * measured rather than argued.** `AnchorDrive` slews its commanded *point* along the straight
+   * measured rather than argued.** The since-deleted `AnchorDrive` slewed its commanded *point* along the straight
    * line to the target, and a straight line between two poses on this chain's shell passes
    * *inside* the shell: swinging the hand from one side of the envelope to the other -- 1.8 rad
    * apart at 0.54 m -- cuts a chord whose closest approach to the socket is 0.335 m, so the

@@ -7,7 +7,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
  * The frame counter in the dungeon's top bar, which says where a frame goes:
  * - frames a second, and the mean interval between them;
  * - `physics`: the solver and the golems' control, which run in the fixed-step accumulator before every
- *   substep, with the substeps a frame took (x4 is 60 fps at 240 Hz; more means it is catching up);
+ *   substep, with the substeps a frame took (x2 is 60 fps at 120 Hz; more means it is catching up);
  * - `other`: the rest of the render callback -- framing, the HUD, fog, and submitting the draw. Input handlers, garbage
  *   collection and the engine's own frame bookkeeping fall outside it, so the interval less these two is not idle;
  * - `gpu`: the GPU's time per frame, where the browser exposes a timer query (Firefox does not by default).

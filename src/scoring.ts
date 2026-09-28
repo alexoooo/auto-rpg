@@ -453,7 +453,7 @@ const BITE: Record<Striker, Bite> = {
  *
  * Exported for exactly one caller and worth the export. `combat.ts` bails out
  * before computing a direction and three dot products for a contact too slight to
- * matter, which is a real saving at 240 Hz -- but it bailed out on
+ * matter, which is a real saving at 120 Hz -- but it bailed out on
  * `minCutSpeed`, hard-coded, which is the blade's number and not everyone's. So
  * a club at 2.5 m/s never reached `scoreHit` at all, and `minCrushSpeed` -- a
  * setting with a paragraph of config comment explaining why it is lower than the

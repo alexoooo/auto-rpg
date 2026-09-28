@@ -124,7 +124,7 @@ export function combatRecorder(recorder: BoutRecorder, striker: Side,
   return (event) => { recorder.combat(striker, event); observer?.(event); };
 }
 
-/** Sample both published views at the common 240 Hz control boundary. */
+/** Sample both published views at the common 120 Hz control boundary. */
 export function sampleBoutRecorder(recorder: BoutRecorder, left: RecordedBody, right: RecordedBody,
   dt: number, clock: number): void {
   void recorder;

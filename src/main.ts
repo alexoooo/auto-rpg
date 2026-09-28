@@ -1157,8 +1157,8 @@ async function boot(): Promise<void> {
   // prototype. Anything the solver caches natively -- a motor ceiling, chiefly --
   // does not move until something re-applies it. `__sword.left.applyTuning()` was
   // the humanoid fighter's way of doing that and went with it on 2026-09-18; a
-  // golem's `applyTuning` lives per arm chain on `AnchorDrive` and no one call
-  // reaches every chain, so a rebuild with `R` is the reliable way for now.
+  // golem has no such call -- its motor ceilings are set when it is built -- so a
+  // rebuild with `R` is the reliable way.
   //
   // `left` and `right` are getters rather than fields because `R` replaces
   // both fighters, and a console handle that quietly refers to a disposed body

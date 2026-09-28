@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { CONFIG } from '../src/config.ts';
 import { BODY_OVER_SHIPPED } from '../src/golem/config.ts';
 import { stepPair } from '../src/fighter.ts';
@@ -10,67 +10,8 @@ import { skeletonSetup } from '../src/golem/skeleton/presets.ts';
 import { idleMind } from '../src/mind.ts';
 import { flatSupportedWorldRegistry } from '../src/supported-locomotion-production.ts';
 import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
-import { boxPart } from '../src/rig.ts';
-import { AnchorDrive, DEFAULT_ANCHOR_AXES } from '../src/golem/anchor-drive.ts';
 
 const FIXED = 1 / CONFIG.world.physicsHz;
-
-test('a mounted arm drive starts in place, exchanges momentum, and releases its target', async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const { scene } = arena;
-  scene.getPhysicsEngine().setGravity(Vector3.Zero());
-  const rotation = Quaternion.RotationYawPitchRoll(0.7, 0.3, -0.2);
-  const origin = new Vector3(1, 2, 3);
-  const socket = new Vector3(0.2, 0, 0);
-  const local = new Vector3(0.8, 0, 0);
-  const world = () => local.rotateByQuaternionToRef(rotation, new Vector3()).add(origin);
-  const reference = boxPart(scene, { name: 'reference', position: origin, rotation,
-    size: new Vector3(0.2, 0.2, 0.2), mass: 20, layer: 0, collidesWith: 0 });
-  const target = boxPart(scene, { name: 'target', position: world(), rotation,
-    size: new Vector3(0.1, 0.1, 0.1), mass: 5, layer: 0, collidesWith: 0 });
-  const drive = new AnchorDrive(scene, { name: 'mounted', reference, referencePivot: socket,
-    target, position: world(), rotation,
-    parameters: { ...DEFAULT_ANCHOR_AXES, angular: [] } });
-  const step = () => { scene._renderId++; scene._advancePhysicsEngineStep(1000 * FIXED); };
-  const momentum = () => reference.body.getLinearVelocity().scale(20)
-    .add(target.body.getLinearVelocity().scale(5)).length();
-  try {
-    for (const part of [reference, target]) {
-      scene.getPhysicsEngine().getPhysicsPlugin().setActivationControl(part.body, 1);
-    }
-    const initial = target.mesh.position.clone();
-    for (let i = 0; i < 120; i++) step();
-    assert.ok(Vector3.Distance(initial, target.mesh.position) < 1e-5,
-      'construction must initialize the local motor target before the first solver step');
-    local.x += 0.2;
-    const wanted = world();
-    for (let i = 0; i < 120; i++) {
-      drive.drive(FIXED, wanted, rotation);
-      step();
-      if (i === 0) {
-        const applied = target.body.getLinearVelocity().length() * 5;
-        assert.ok(applied > 0.1, 'the first driven step must apply a measurable impulse');
-        assert.ok(momentum() < applied * 0.01,
-          'the initial arm impulse must have an opposite reaction within solver precision');
-      }
-    }
-    assert.ok(Vector3.Distance(initial, target.mesh.position) > 0.1, 'the arm must actually move');
-    assert.ok(Vector3.Distance(origin, reference.mesh.position) > 0.01, 'the reference must receive the reaction');
-    assert.ok(drive.stray() < 0.001, 'a rotated reference must reach the world command');
-    drive.release();
-    const freeVelocity = new Vector3(0, 0, 1);
-    target.body.setLinearVelocity(freeVelocity);
-    for (let i = 0; i < 60; i++) {
-      drive.drive(FIXED, initial, rotation);
-      step();
-    }
-    assert.ok(Vector3.Distance(target.body.getLinearVelocity(), freeVelocity) < 1e-5,
-      'a released drive must exert no force even if it receives another command');
-  } finally {
-    drive.dispose();
-    arena.dispose();
-  }
-});
 
 /**
  * Named setups rather than chain ids. The two stone rows overwrite the default body's chains, as

@@ -90,7 +90,7 @@ import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
  * have to edit the middle of this file.
  *
  * The bring-up order is the one `AGENTS.md` insists on and it is not negotiable: **physics
- * before any body**, then the fixed 240 Hz sub-step, then geometry. Creating a body first
+ * before any body**, then the fixed 120 Hz sub-step, then geometry. Creating a body first
  * fails with "No Physics Engine available", which names neither the cause nor the file.
  */
 
@@ -714,7 +714,7 @@ async function main(): Promise<void> {
 
     if (controls.isActive) {
       // Once per rendered frame, which is what a control boundary is: a button press and a
-      // cursor position are frame events. `step` above is what runs at 240 Hz.
+      // cursor position are frame events. `step` above is what runs at 120 Hz.
       //
       // **One command, handed to every module on the page.** Each module's registration says
       // which channel of it to read -- an effector takes the hand of the socket it was built

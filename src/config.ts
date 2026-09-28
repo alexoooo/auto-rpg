@@ -446,8 +446,7 @@ export const CONFIG = {
      * carrying a door at arm's length.
      *
      * **Halved, from 0.11.** 110 mm is a plate held clear of the arm on a bar,
-     * which is a buckler's hold and not this one's -- and `CONFIG.buckler` is
-     * where that now lives. Strapped means the forearm lies against the back of
+     * which is a buckler's hold and not this one's. Strapped means the forearm lies against the back of
      * the board, so what is left is the thickness of the enarmes and a wrist
      * inside them.
      */
@@ -551,41 +550,6 @@ export const CONFIG = {
      * `driveAnchor` has the argument at length.
      */
     minFace: 0.42,
-  },
-
-  /**
-   * The buckler: 340 mm of steel on a bar, punched out on a straight arm.
-   *
-   * The other half of the shield answer, and the easy half. Where a heater
-   * shield is strapped across the forearm and therefore cannot face forward
-   * while the arm does, a buckler is *held out* -- so it takes the blade's mount,
-   * its face normal runs along the arm, and it faces wherever the arm points.
-   * That is the owner's rule ("facing away from the holder, like the surface of
-   * a sphere") satisfied by geometry rather than by a seed.
-   *
-   * It buys that with area. A heater covers 0.26 m^2 and this covers 0.09, so it
-   * has to be *put* somewhere rather than merely held up -- which is the trade a
-   * buckler is, and it is the one that makes having two shields worth more than
-   * having a slider.
-   *
-   * Nothing here has been played with. The numbers are a real buckler's: a steel
-   * plate a third of a metre across, a couple of millimetres thick, with a domed
-   * boss deep enough for a fist behind it, coming out at about 1.2 kg.
-   */
-  buckler: {
-    diameter: 0.34,
-    thickness: 0.0045,
-    /**
-     * How far the plate stands off the fist, along the arm.
-     *
-     * The hand sits *inside* the boss, so this is the depth of the dome plus the
-     * bar behind it rather than an arbitrary gap. Too small and the fist is in
-     * front of the plate it is supposed to be behind.
-     */
-    standOff: 0.075,
-    bossDiameter: 0.115,
-    gripLength: 0.10,
-    mass: 1.2,
   },
 
   /**
@@ -1341,194 +1305,20 @@ export const CONFIG = {
   },
 
   /**
-   * The fighter, as something that can be hit.
+   * What is left of the retired Warrior's body: only the fields something still reads.
    *
-   * Eleven capsules: a keyframed torso and ten dynamic bodies hanging off it on
-   * motorised joints. This replaces the `dummy` block, and the geometry replaces
-   * the dummy's outright, because the dummy's was wrong in a way that is worth
-   * keeping a record of.
-   *
-   * **The pivot, and why every height in here is absolute.** `rig.ts`'s `joint()`
-   * locks all three linear axes, so a joint's two pivots are not a hint about
-   * where the parts should be -- they are an instruction, and the solver will
-   * drag a part across the arena to obey it. The dummy named a parent anchor at
-   * world 0.400 and a child anchor at world 0.850 for the same joint, and duly
-   * settled 450 mm lower than it was drawn; its head was authored at 1.700 and
-   * sat at 1.243, its legs folded until the shin was *above* the thigh. That was
-   * read as a stiffness problem for a long time and it was not: every angular
-   * motor in it set to 40 000 N.m -- over a thousand times the 34 below -- moved
-   * the head by exactly zero. So every joint here is written as an absolute
-   * height above the floor and both pivots are derived from it by subtracting the
-   * two parts' own centres, which makes the arithmetic checkable by eye:
-   *
-   *     part      centre   length   radius   mass     joint      at
-   *     torso      1.28     0.52     0.19     68      neck      1.55
-   *     head       1.66     0.24     0.105     5      waist     1.06
-   *     pelvis     0.96     0.26     0.16     12      shoulder  1.42
-   *     off upper  1.28     0.28     0.055    2.5     off elbow 1.14
-   *     off fore   1.01     0.26     0.048    1.6     hip       0.90
-   *     thigh      0.68     0.44     0.085     8      knee      0.46
-   *     shin       0.25     0.42     0.068     4
-   *
-   * Read the two columns together and every joint lands on the tip of both
-   * capsules it joins: the head's lower tip is 1.66 - 0.12 = 1.54 and the neck is
-   * at 1.55; the thigh runs 0.46 to 0.90 and the hip and knee are its two ends.
-   * The shin stops 40 mm above the floor on purpose -- the boot covers the gap,
-   * and a foot that touches would drag its friction against a torso that is
-   * driven by velocity and cannot be argued with.
-   *
-   * The torso's 68 kg is nominal. It is keyframed, so the solver treats it as
-   * infinitely massive and the number changes nothing; it is left at the figure
-   * the whole hero used to weigh rather than reduced to a chest's worth, because
-   * a mass that is ignored is not worth an argument.
+   * `vitalWeight` is `VITAL_WEIGHT` in `bout.ts`. The heights, radius, torso mass and part
+   * health are fixtures for `tests/minds.test.mjs` and `tests/scoring.test.mjs`. The Warrior's
+   * eleven-capsule geometry, joint strengths, `deadJointStrength` and `gaitDrivesLegs` had no
+   * reader and were deleted in stage 0 of the core foundation; the full block, with its tables,
+   * is in git at c76ce6bc.
    */
   body: {
     torsoCentre: 1.28,
-    torsoLength: 0.52,
-    torsoRadius: 0.19,
     torsoMass: 68,
-
-    neck: 1.55,
     headCentre: 1.66,
-    headLength: 0.24,
     headRadius: 0.105,
-    headMass: 5,
-
-    waist: 1.06,
-    pelvisCentre: 0.96,
-    pelvisLength: 0.26,
     pelvisRadius: 0.16,
-    pelvisMass: 12,
-
-    /** Anatomical trunk envelope about the waist. These are initial limits,
-     *  deliberately stated as geometry rather than as balance claims. */
-    trunkLeanMax: 0.35,
-    trunkTwistMax: 0.70,
-    /** Exponential response of the normalized posture command, per second. */
-    trunkResponse: 10,
-    /** Waist position-motor ceiling while alive, N.m. */
-    trunkMotorForce: 900,
-
-    /** Maximum vertical travel of the hip reference at a full squat, metres. */
-    crouchDepth: 0.34,
-    /** Motor targets stay just inside the physical stops below. */
-    hipTargetMin: -1.25,
-    hipTargetMax: 1.25,
-    kneeTargetMin: 0,
-    kneeTargetMax: 2.15,
-    hipLimitMin: -1.3,
-    hipLimitMax: 1.3,
-    kneeLimitMin: -0.15,
-    kneeLimitMax: 2.2,
-    /** Exponential response of the normalized crouch command, per second. */
-    crouchResponse: 10,
-    /** Fastest change of normalized crouch, per second. */
-    postureMaxRate: 3,
-
-    offUpperCentre: 1.28,
-    offUpperLength: 0.28,
-    offUpperRadius: 0.055,
-    offUpperMass: 2.5,
-    offElbow: 1.14,
-    offForeCentre: 1.01,
-    offForeLength: 0.26,
-    offForeRadius: 0.048,
-    offForeMass: 1.6,
-
-    hip: 0.90,
-    hipSide: 0.105,
-    thighCentre: 0.68,
-    thighLength: 0.44,
-    thighRadius: 0.085,
-    thighMass: 8,
-    knee: 0.46,
-    shinCentre: 0.25,
-    shinLength: 0.42,
-    shinRadius: 0.068,
-    shinMass: 4,
-
-    /**
-     * The joint springs, as one number and a multiplier each.
-     *
-     * 34 N.m and the six multipliers below are the dummy's, unchanged, and that
-     * is deliberate: this session merged two classes and was not allowed to
-     * retune anything on the way through. What they are worth is
-     * `jointStiffness x strength`, so the waist holds at 748 N.m and the neck at
-     * 204.
-     *
-     * They are not chosen against resting sag, and nobody should tune them
-     * against it. Sag is not what these numbers decide: every part hangs from an
-     * anchor with all three linear axes locked, so its position is held by the
-     * constraint whatever the motor does, and the only thing a motor can lose is
-     * an *angle*. Two arrangements make that visible -- the head sits above its
-     * neck joint and so is an inverted pendulum that a weak motor would let tip
-     * over, and everything else hangs below its anchor and so is a pendulum that
-     * would hold up on its own. What the numbers actually decide is how hard a
-     * blow rocks the figure and how quickly it comes back.
-     *
-     * That table is owed and is not here yet, because it needs a browser and a
-     * reference blow rather than arithmetic:
-     *
-     *     stiffness   head displacement at rest   peak swing from a 14 m/s cut   time to still
-     *     ...
-     *
-     * Take it by striking the right-hand fighter's head square at a measured tip
-     * speed with `body.jointStiffness` at 17, 34 and 68 -- rebuilding the bout
-     * with `R` after each change, which is what makes the edit reach the solver
-     * at all -- and write the three rows here. *(Was
-     * `__sword.right.applyTuning()`, which was the humanoid fighter's method and
-     * went with it on 2026-09-18. A golem's equivalent lives per chain on
-     * `AnchorDrive` and nothing yet reaches all of them at once.)*
-     */
-    jointStiffness: 34,
-    neckStrength: 6,
-    waistStrength: 22,
-    offShoulderStrength: 5,
-    offElbowStrength: 3,
-    hipStrength: 10,
-    kneeStrength: 6,
-
-    /**
-     * What is left of every joint ceiling once the fighter is dead, as a
-     * multiplier on the whole table above.
-     *
-     * Zero is wrong and it is worth saying why, because zero is the obvious
-     * first guess. A body whose joints carry no torque at all is a bag of
-     * capsules: the head-end of the spine folds through the pelvis, the knees
-     * hyperextend to their stops on the first bounce, and what lands on the
-     * floor reads as a dropped puppet rather than as a person who has just been
-     * killed. A little tone left in keeps the limbs roughly where limbs go while
-     * gravity does the rest.
-     *
-     * Not yet measured against a person's eye -- nobody has played this. Set at
-     * 0.08, which puts the waist at 60 N.m against its usual 748 and the neck at
-     * 16 against 204. If a corpse looks stiff, lower it; if it looks boneless,
-     * raise it, and write the two readings here. It was live-tunable on a body
-     * already on the floor through the humanoid fighter's `applyTuning`; on a
-     * golem it takes a rebuild, for the reason given at `jointStiffness` above.
-     */
-    deadJointStrength: 0.08,
-
-    /**
-     * Whether the stride drives the hips and knees.
-     *
-     * The legs are real bodies on motorised joints so that one can be cut off,
-     * and the walk feeds them joint targets where it used to write
-     * `TransformNode.rotation` on a costume. The risk that buys is a driven joint
-     * arguing with the solver, which shows up as a knee that chatters while the
-     * fighter walks; the plan for this session named reverting the legs to
-     * cosmetic as an acceptable outcome if it did.
-     *
-     * This is that fallback, kept as a switch rather than as a second code path.
-     * Turn it off and the legs stay exactly what they are -- hittable, severable,
-     * held straight by the same motors -- and only the stride stops arriving. A
-     * second code path would have rotted the first time nobody was using it.
-     *
-     * Watch the knee at a walk with `G` up and the shapes layer on. If it buzzes,
-     * set `__sword.config.body.gaitDrivesLegs = false` (no `applyTuning` needed,
-     * this one is read every step) and write here what you saw.
-     */
-    gaitDrivesLegs: true,
 
     partHealth: 5,
     /** The torso cannot be severed, so it wants more health than a limb: it is
@@ -1803,147 +1593,6 @@ export const CONFIG = {
     ringRadius: 0.62,
     /** Outline thickness on the limb under the cursor. */
     outlineWidth: 0.014,
-  },
-
-  /**
-   * The rig overlay, on `G`.
-   *
-   * What Havok is actually solving, drawn over the top of whatever the scene is
-   * wearing. The rig is this prototype's entire subject and it was the one thing
-   * in the scene that could not be looked at: the torso capsule has been hidden
-   * since the cosmetic figure landed, and both control anchors are massless,
-   * collide with nothing and are drawn by nobody. Every number in the `arm` block
-   * above was measured through a bench harness and console instrumentation
-   * because of that, and the two headline ones -- hand-to-anchor error and elbow
-   * drift -- are now readable live, in the page, from the same quantities.
-   *
-   * There is deliberately no `lineWidth` in here, and the absence is the point.
-   * Babylon's `LinesMesh` carries a colour and an alpha and nothing else, because
-   * WebGL rasterises every line at one pixel regardless of what is asked for. A
-   * width knob would therefore be a control that silently cannot be honoured,
-   * which is worse than no knob at all. What is tunable instead is how *long* the
-   * drawn glyphs are, which is the thing that actually decides whether the
-   * overlay can be read at the distance this camera sits at.
-   *
-   * Frame cost: not recorded yet, and owed. It cannot be taken from an automated
-   * or backgrounded tab -- Chrome does not paint WebGL in one at all, so any
-   * figure from there measures the wrong thing. Take it at a visible browser as
-   * the difference in the readout's `fps` and `physics N ms` figures with the
-   * overlay up and down on the same view, bracketed control-subject-control in
-   * one sitting rather than as best-of-N across sittings, and write it here.
-   */
-  rigView: {
-    /**
-     * Which layers are on.
-     *
-     * Booleans in this block rather than four more keys on the keyboard. The
-     * overlay is one instrument with parts, not four instruments; and a part is
-     * the sort of thing you switch off once while chasing something specific and
-     * then forget you own, which is a bad fit for a keybinding and a good fit for
-     * a line you can see in the config.
-     *
-     * `shapes` draws collision geometry from `body.getGeometry()` -- the shape
-     * the solver holds, not the mesh the renderer draws -- along with the sword's
-     * inertia box. `anchors` draws everything about *commands*: the hand anchor's
-     * frame, the error line to the hand, the solved elbow and its pole, and the
-     * shoulder-to-hand segment the arm is being asked for. `contacts` draws the
-     * recent entries of the combat log.
-     *
-     * `joints` draws joint frames, both fighters', and it now includes the four
-     * of the sword arm -- the grip, the shoulder, the elbow hinge and the elbow's
-     * pole drive -- which were the interesting ones and were missing. They were
-     * missing because a `Physics6DoFConstraint` registers itself nowhere, a
-     * `PhysicsBody` cannot be asked what constrains it, and the V2 engine keeps
-     * no constraint list, so the only handle on a constraint is whatever object
-     * holds the reference; `Hero` held those four privately and the overlay
-     * rightly stopped at the boundary rather than reaching in. `Fighter`
-     * publishes them, which is the fix, and it is a fix that had to happen in the
-     * class rather than in the instrument.
-     */
-    shapes: true,
-    anchors: true,
-    joints: true,
-    contacts: true,
-
-    /** Arm length of the hand anchor's axis cross, metres. About a third of the
-     *  forearm, which is long enough to read the wrist roll off and short enough
-     *  that it does not reach the blade and get confused with it. */
-    crossSize: 0.09,
-    /** How far the elbow's pole ray is drawn out from the shoulder, metres. It is
-     *  a direction, not a position, so the length says nothing -- it only has to
-     *  be long enough to compare against where the elbow actually went. */
-    poleLength: 0.34,
-    /** Diameter of the marker balls on the elbow point and on each contact. */
-    markerSize: 0.028,
-    /**
-     * Size scalar handed to Babylon's `PhysicsViewer`, which multiplies 0.4 into
-     * both the joint frame's axis length and its angular arc. 0.5 therefore draws
-     * a 0.2 m frame -- roughly a forearm bone here, and about as large as it can
-     * be before the frames on two adjacent joints overlap and stop being legible.
-     */
-    jointAxesScale: 0.5,
-
-    /** How many of the combat log's contacts to draw. The log itself keeps 24;
-     *  eight is about as many as can be told apart before they pile up on each
-     *  other, and a fight rarely lands more than that in one exchange. */
-    contactHistory: 8,
-    /** Metres of drawn arrow per metre per second of contact speed. A cut does
-     *  full damage at 11 m/s, so this puts a good one at 0.22 m -- a quarter of a
-     *  blade, which reads as a vector rather than as a smear. */
-    contactVelocityScale: 0.02,
-    /** Half-length of the edge-axis segment drawn at a contact, metres. Drawn
-     *  symmetrically because the blade is double-edged and the damage model makes
-     *  no distinction between -X and +X. */
-    contactEdgeLength: 0.10,
-
-    /**
-     * Where the error line goes fully red, in metres of anchor-to-hand distance.
-     *
-     * Measured, that distance is 0 mm across the whole aiming envelope at every
-     * pole force tried up to 70 N.m -- see `arm.elbowPoleForce` -- so anything
-     * visible on this line at all is news, and 30 mm of it is a serious
-     * regression rather than a slightly loose grip.
-     */
-    errorSpan: 0.03,
-    /**
-     * Seconds of elbow travel the drift number sums. One second, to match the
-     * window the pole-vector table's "drift while the hand is still" was taken
-     * over: 127 mm without a pole vector, 0 mm with one.
-     *
-     * Measured on the real elbow, not on the elbow anchor. `driveElbow` keyframes
-     * that anchor onto its analytic solution every step whether the arm follows
-     * or not, so an anchor-derived drift would read zero even at
-     * `elbowPoleForce: 0` -- which is the exact setting that produced the rope.
-     */
-    driftWindow: 1,
-
-    /** Colours as linear RGB triples, 0..1. */
-    colours: {
-      /** The anchor cross, in the usual X-red, Y-green, Z-blue convention, so
-       *  the frame can be read against Babylon's own gizmos without translation. */
-      axisX: [0.95, 0.32, 0.32],
-      axisY: [0.42, 0.92, 0.42],
-      axisZ: [0.38, 0.58, 0.98],
-      /** The error line ramps between these two over `errorSpan`. */
-      errorLow: [0.35, 0.95, 0.55],
-      errorHigh: [1.0, 0.28, 0.22],
-      /** The shoulder-to-hand segment, in the aim indicator's amber, because it
-       *  is the same command read at a different point along the blade. */
-      aim: [0.98, 0.72, 0.32],
-      /** Shoulder to elbow to hand, kinked through the elbow the inverse
-       *  kinematics asked for. */
-      chain: [0.55, 0.78, 1.0],
-      pole: [0.72, 0.45, 0.95],
-      /** The ball on the arm's *real* elbow -- the hinge -- which is a different
-       *  point from the chain's kink, and the gap between them is the reading. */
-      elbow: [0.62, 0.82, 1.0],
-      contact: [1.0, 0.86, 0.30],
-      contactVelocity: [1.0, 0.55, 0.20],
-      contactEdge: [0.40, 0.95, 0.90],
-    },
-    /** Line opacity. Not fully opaque, so a line crossing the blade still reads
-     *  as a line over the blade rather than as a mark on it. */
-    alpha: 0.85,
   },
 };
 

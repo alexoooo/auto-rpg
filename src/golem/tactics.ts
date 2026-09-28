@@ -88,7 +88,7 @@ import type { EffectorCapability, GolemCapabilities } from "./module.ts";
  * ```
  *
  * `approach` and `measure` both orbit; `chamber`, `commit` and `recover` are one exchange and run
- * to the end once started, which is what stops the mind changing its mind at 240 Hz. Every edge is
+ * to the end once started, which is what stops the mind changing its mind at 120 Hz. Every edge is
  * either a dwell expiring or a range crossing with its own hysteresis band, which is what stops it
  * flickering at a threshold. The three range gates are all fractions of a **published** reach, so a
  * whip and a capped socket are the same code at different distances -- the trap this session was
@@ -1571,7 +1571,7 @@ export function golemTactics(seed: number): GolemTactics {
    * How fast their point is getting further from my socket, m/s, low-passed.
    *
    * The only rate in the file, and the only thing it keeps between steps about the world. A raw
-   * frame-to-frame difference at 240 Hz is mostly solver noise; keeping this is keeping a memory of
+   * frame-to-frame difference at 120 Hz is mostly solver noise; keeping this is keeping a memory of
    * where a blade was a moment ago, which is what a person does with a blade.
    */
   let gapRate = 0;
@@ -1883,7 +1883,7 @@ export function golemTactics(seed: number): GolemTactics {
       // and the step buy, and it is *chosen* rather than reflexed: a body that can also strike
       // with a hand rams a seeded fraction of its openings, and a body that cannot rams every
       // time its cooldown allows, because a ram is the only exchange it has. The roll is made
-      // once per opening, here, and not once per step -- a per-step roll at 240 Hz is a
+      // once per opening, here, and not once per step -- a per-step roll at 120 Hz is a
       // certainty wearing a probability's name.
       const handCould = gap <= strike && canAttack(cap);
       const ramCould = natural !== null &&

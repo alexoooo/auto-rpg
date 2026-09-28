@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { begin, defaultMatchup, selectScreen } from "../src/bout.ts";
+import { begin, selectScreen } from "../src/bout.ts";
+import { plainMatchup } from "./fixtures/matchup.mjs";
 import { advanceActiveHostTimers, ArenaPresentation, pauseHost, presentRebuiltFrame, restartHost, resumeHost,
   runHostFrame, skimSteps, SKIM_SPEEDS } from "../src/host-run.ts";
 import { CONFIG } from "../src/config.ts";
@@ -102,7 +103,7 @@ test("a_rebuilt_bout_paints_one_camera_correct_frame_before_the_setup_curtain_ca
 test("restart_button_rebuilds_once_clears_the_verdict_and_resumes", () => {
   const f = fixture();
   pauseHost(f.host);
-  const fighting = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  const fighting = begin(selectScreen(plainMatchup()), plainMatchup());
   const over = { ...fighting, phase: "over", clock: 12, outcome: { text: "done" } };
   const fresh = restartHost(over, f.host, true);
   assert.equal(fresh.phase, "fight");
