@@ -401,7 +401,7 @@ test("arm speed multiplies the named rates of a copy, and x1 is the table it was
  * command actually travels. The second is the one that matters -- the wrist and the anatomical arm
  * each hold the rate in two places, the envelope and the slew, and an envelope that doubled over a
  * slew that did not would publish an arm the body cannot be. The travel is taken after one substep,
- * because the anatomical arm's first steps its command off the build pose, and over six more, far
+ * because the anatomical arm's first steps its command off the build pose, and over three more, far
  * short of any target. A point chain's swing, lift and reach are read off an anchor that moves in a
  * straight line, so they double to within a few per cent rather than exactly.
  *
@@ -429,7 +429,7 @@ test("arm speed multiplies every arm chain's published rates and the rate its co
           built.command(intent);
           built.step(1 / 240);
           const start = built.view().axes.map((axis) => axis.commanded);
-          for (let i = 0; i < 6; i += 1) built.step(1 / 240);
+          for (let i = 0; i < 3; i += 1) built.step(1 / 240);
           return { rates, travel: built.view().axes.map((axis, i) => [axis.id, axis.commanded - start[i]]) };
         } finally {
           built.dispose();

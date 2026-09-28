@@ -187,6 +187,70 @@ Steps, in landing order. Each is its own commit, with a bout either side whereve
      from the trunk.
    - Measure the arm bench's stroke stray and parry overshoot before and after (H64).
    - Torques stay human; pronation comes down to about 12 N m.
+
+   **Done 2026-09-28** (`RATES`, `TORQUES` and `HUMAN_ARM_DRIVE` in `src/golem/humanoid/arm.ts`,
+   each with its table).
+   - The command rates double, to [6, 6, 8, 8, 10, 10, 8] rad/s, and the servo ceiling goes from 8
+     to 24, a typical punch's elbow extension.
+   - On the stand (Node golem bench, 120 Hz), the arm alone now drives:
+     - a weapon at 12-13 m/s, against 9-11 before; a novice's arm-only saber cut is 13-15;
+     - a fist at 6-7 m/s, against 3.6-4.6 before.
+   - **Past x2 the torques bind.** x3 and a joint-by-joint human set gain under 1 m/s at the
+     tip, and the hand strays further.
+     - So the arm speed attribute above x1 no longer speeds the arm on the stand: x1.5 reads 13.1
+       m/s against 13.7 (Node impact bench).
+     - Step 6's elite end needs something other than rates.
+   - H64 before and after, Warrior / Rogue:
+     - Stroke stray: fist 23/24 mm to 81/138, club 184/96 to 302/276, blade 363/102 to 310/178.
+     - Parry: overshoot 5/5 mm to 1/7, and arrival 0.042 s to 0.025.
+   - **A free-air peak overstates a weapon.** A trunk-driven swing on the bout runner reads the club
+     at 20-22 m/s at x2, 90 % of a lay man's one-handed 1 kg rod.
+     - Most of that is the club throwing the forearm's roll to its stop as the arm stops.
+     - With pronation at 50 N m, the Warrior's club reads 10.2.
+     - A human reaches the rod's 24 m/s through proximal-to-distal sequencing, not pose-to-pose
+       rates. That is step 6's strike search.
+     - An acceleration-limited command profile was tried and helped neither the speed nor the
+       following.
+   - **Pronation stays 25 N m, not 12.**
+     - At 12 the driven weapon slows (Warrior club 12.5 to 10.5 m/s, Rogue club 17.9 to 7.7), and
+       the forearm loses the weapon's roll.
+     - At 50 it is faster, but four times a man's.
+     - After a full-speed stroke the Rogue's forearm swings from stop to stop and settles in about
+       1.5 s. The Warrior's comes off its stop in about 0.4 s. Both are there at x1 too, only
+       smaller.
+   - Fights: 96-bout mirrors on the Node research runner, seed 20260923, against step 3's sets.
+     - Golem duelist and walker:
+
+       | build | damage a bout | knockdowns a bout | Delta ln s |
+       |---|---:|---:|---:|
+       | warrior | 0.51 / 1.54 | 0.44 / 0.38 | -0.109 +- 0.036 |
+       | warrior-sword | 1.67 / 3.41 | 0.32 / 0.62 | -0.149 +- 0.040 |
+       | warrior-club | 0.36 / 0.47 | 6.94 / 7.85 | -0.003 +- 0.009 |
+       | rogue-sword | 0.32 / 0.55 | 0.33 / 0.76 | -0.027 +- 0.015 |
+
+       warrior-unarmed and rogue are inert before and after.
+     - `humanoid-duelist`:
+       - warrior-sword damage goes from 0.21 to 0.94 a bout;
+       - rogue-sword from 0.12 to 0.62;
+       - warrior from 0.13 to 0.53;
+       - warrior-club's real blows from 142 to 266, with its damage still 0.01.
+       Every duelist build still runs to the cap.
+   - `tests/human-arm-limits.test.mjs`:
+     - Its rate check now lowers the rate, and is mutation-checked: a rate that ignores
+       `armSpeed` goes red.
+     - Its two momenta are re-pinned.
+     - The overlap fixture moves to the fist at x0.5.
+   - The screens' warm-up is a duelist mirror, so their states moved:
+     - The impact screen's control, the duelist's own cut, now lands at 31.2 J, where it touched
+       nothing. The forced sweep lands 0.572 J.
+     - The chamber screen's straight plan now slaps flat at 7.23 J, edge alignment 0.03.
+       - chamber/t0.15/r0.45/a0.8 now touches nothing, so the test takes t0.3/r0.45/a1.2, which
+         cuts at 4.91 J with edge alignment 0.919.
+       - Six chambers of twelve still reach the opponent.
+   - The arm speed test's travel window is three substeps: at x2 the anatomical wrist reached its
+     target within six.
+   - `research/human-arm-limits.mjs` names a `mace` terminal that no longer exists (the club
+     replaced it); unchanged here.
 5. **Joint give.**
    - `effectiveMassAt` couples the chain to the body only as far as each joint's torque can hold
      over the contact.

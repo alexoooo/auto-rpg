@@ -9,7 +9,7 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 
 test("a continuous chamber changes a real blade contact from the same warmed state", async () => {
   const straight = orientationScreenPlans().find(p => p.label === "tilt0/roll0/to-0.5");
-  const chamber = chamberScreenPlans().find(p => p.label === "chamber/t0.15/r0.45/a0.8");
+  const chamber = chamberScreenPlans().find(p => p.label === "chamber/t0.3/r0.45/a1.2");
   const first = chamber.segs[0], second = chamber.segs[1];
   assert.equal(chamber.switchAt, first.duration);
   assert.equal(first.extend, second.retract, "the hand reaches the same distance at the boundary");
@@ -18,17 +18,19 @@ test("a continuous chamber changes a real blade contact from the same warmed sta
   const b = await impactScreenCell({ terminal: "blade", plan: chamber });
   assert.equal(a.start.pose, b.start.pose);
   assert.deepEqual(b.targetHands, ["primary"]);
-  // On the Warrior with a human's trunk (Node bout runner, 2026-09-28) the straight plan touches
-  // nothing and this chamber lands one weak contact of 0.866 J at edge alignment 0.880. The warmed
-  // state is a duelist mirror's, so it moves with the trunk: before the trunk it was 2.038 J at
-  // 0.892; on the 1.88 m, 107 kg Warrior 3.105 J at 0.661, read whole, and 0.974 J billed at 0.56 of
-  // its speed; on the legacy human, chamber/t0.3 at 6.0 to 6.5 J, billed. Six of the twelve chambers
-  // reach the opponent now, where three did before the trunk; a1.2 at t0.3 cuts at 45.3 J.
-  assert.ok(b.maxBodyEnergyJ > a.maxBodyEnergyJ + 0.5,
+  // On the Warrior with a human's trunk and arm (Node bout runner, 2026-09-28) the straight plan
+  // slaps flat, 7.23 J at edge alignment 0.03, and this chamber turns the edge into line: one weak
+  // contact of 4.91 J at 0.919. Before the arm's rates doubled (Session 2 step 4), the straight plan
+  // touched nothing and chamber/t0.15/r0.45/a0.8 was the case, at 0.866 J and 0.880; that chamber now
+  // touches nothing. The warmed state is a duelist mirror's, so it moves with the body: on the 1.88 m,
+  // 107 kg Warrior that chamber read 3.105 J at 0.661, and on the legacy human chamber/t0.3 read
+  // 6.0 to 6.5 J, billed. Six of the twelve chambers reach the opponent, as before the arm.
+  assert.ok(a.strongestBodyContact.edgeAlignment < 0.1, "the straight plan lands flat");
+  assert.ok(b.strongestBodyContact.edgeAlignment > a.strongestBodyContact.edgeAlignment + 0.5,
     "the chamber must produce a measurably different body contact");
-  assert.ok(b.maxBodyEnergyJ > 0.78 && b.maxBodyEnergyJ < 0.95);
+  assert.ok(b.maxBodyEnergyJ > 4.5 && b.maxBodyEnergyJ < 5.3);
   assert.equal(b.strongestBodyContact.kind, "weak");
-  assert.ok(b.strongestBodyContact.edgeAlignment > .84 && b.strongestBodyContact.edgeAlignment < .92);
+  assert.ok(b.strongestBodyContact.edgeAlignment > .88 && b.strongestBodyContact.edgeAlignment < .95);
   assert.equal(b.preArmourDamage, 0);
 });
 

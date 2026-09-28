@@ -15,12 +15,14 @@ test("forced-plan screen compares the same warmed state and observes changed phy
   assert.equal(control.start.pose, altered.start.pose);
   assert.deepEqual(control.targetHands, []);
   assert.deepEqual(altered.targetHands, ["primary"]);
-  assert.equal(control.maxBodyEnergyJ, 0);
-  // 0.946 J on the Warrior at a typical adult's size and de Leva's masses (Node bout runner,
-  // 2026-09-28), five weak contacts. On the 1.88 m, 107 kg Warrior it was 10.15 J with the arrival
-  // read whole and 3.183 J billed at 0.56 of its speed; the plan was sweep/t0.3/y-0.35/r0.95 at 3.0
-  // to 3.6 J on the legacy human, which on the Warrior touches nothing.
-  assert.ok(altered.maxBodyEnergyJ > 0.85 && altered.maxBodyEnergyJ < 1.05,
+  // The control is the duelist's own cut. Since the arm's rates doubled (Session 2 step 4) it lands,
+  // 31.2 J weak at edge alignment 0.45, where it touched nothing before; the forced sweep lands a
+  // single glancing contact of 0.572 J at 0.15 (Node bout runner, 2026-09-28). Before, the sweep read
+  // 0.946 J, five weak contacts, on the Warrior at a typical adult's size and de Leva's masses; on the
+  // 1.88 m, 107 kg Warrior 10.15 J with the arrival read whole and 3.183 J billed at 0.56 of its
+  // speed; sweep/t0.3/y-0.35/r0.95 read 3.0 to 3.6 J on the legacy human.
+  assert.ok(control.maxBodyEnergyJ > 28 && control.maxBodyEnergyJ < 34, "the duelist's own cut lands");
+  assert.ok(altered.maxBodyEnergyJ > 0.5 && altered.maxBodyEnergyJ < 0.65,
     "the changed trajectory must reach a body with the measured energy");
   assert.ok(altered.bodyContacts > 0);
   assert.equal(altered.strongestBodyContact.energyJ, altered.maxBodyEnergyJ,
