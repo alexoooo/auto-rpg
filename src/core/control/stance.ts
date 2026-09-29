@@ -128,6 +128,10 @@ export interface StanceReading {
   readonly asked: Vector3;
   /** Where the stance is in a step. */
   readonly phase: StancePhase;
+  /** The step the stance took to catch a push, while it is under way; else null. */
+  readonly recovery: SwingGoal | null;
+  /** How many such steps the stance has taken. */
+  readonly recoveries: number;
 }
 
 /**
@@ -149,6 +153,19 @@ export interface StanceTuning {
   readonly kneeBend?: number | null;
   /** The ankle's dorsiflexion left unused, rad; null holds the goal's height however far the ankles bend. */
   readonly ankleSpare?: number | null;
+  /** How a stance on both feet steps to catch a push (`STANCE_RECOVERY`); null never steps unasked. */
+  readonly recovery?: RecoveryTuning | null;
+}
+
+/** The settings of a step taken to catch a push. */
+export interface RecoveryTuning {
+  /** How far the capture point is outside the region the stance holds (`SUPPORT_INSET`) that sets a step off, m. */
+  readonly margin: number;
+  /** The swing's time, s, and its lift, m. */
+  readonly seconds: number;
+  readonly lift: number;
+  /** How far past the capture point the foot lands, as a fraction of its distance from the bearing sole's middle. */
+  readonly reach: number;
 }
 
 /**
@@ -219,6 +236,45 @@ export const STANCE_KNEE_BEND = 0.2;
 export const STANCE_ANKLE_SPARE = 0.01;
 
 /**
+ * **Control settings, from a sweep**: a stance on both feet steps to catch a push once its capture
+ * point is `margin` outside the region its soles hold (`SUPPORT_INSET`), swinging the foot over
+ * `seconds` lifted by `lift`, and landing it `reach` past where the capture point will be.
+ *
+ * Each human standing 3 cm under its reference height was shoved at the middle trunk's centre of
+ * mass by 10 to 60 N s in steps of 5, sixteen ways 22.5 degrees apart, and watched 4.5 s; it fell
+ * if its centre sank 25 cm. The table gives the shoves held of the 176, and the impulse held each
+ * way -- the largest below the first that fell -- as its mean over the ways and its least (Node
+ * stand, 120 Hz):
+ *
+ *     margin  reach   seconds  lift    Rogue held  mean  least    Warrior held  mean  least
+ *     no step                          47          19.4  10       73            27.5  15
+ *     0       0.15    0.25     0.03    116         40.0  30       163           53.8  25
+ *     0.02    0.15    0.25     0.03    113         37.2  20       161           49.7  20
+ *     0.01    0.15    0.25     0.03    112         37.5  15       160           50.0  20
+ *     0.01    0       0.25     0.03    90          23.1  10       154           47.8  25
+ *     0.01    0.075   0.25     0.03    109         36.6  15       163           48.8  15
+ *     0.01    0.3     0.25     0.03    107         36.3  20       158           49.7  25
+ *     0.01    0.45    0.25     0.03    104         35.6  20       153           50.3  20
+ *     0.01    0.15    0.25     0.05    112         37.8  15       165           50.6  20
+ *     0.01    0.15    0.3      0.03    105         34.1  15       165           55.0  30
+ *     0.01    0.15    0.15     0.03    115         40.6  35       169           54.7  30
+ *     0.01    0.15    0.2      0.03    114         40.0  30       168           56.3  35    chosen
+ *     0.01    0.075   0.2      0.03    106         36.6  25       165           52.8  15
+ *     0.01    0.3     0.2      0.03    110         39.4  30       165           55.3  15
+ *     0.01    0.15    0.2      0.05    113         38.8  30       170           55.3  15
+ *
+ * The margin is not for the shoves: at none, a place asked past the soles, held at the edge of what
+ * they hold, sets steps off as the capture point wanders a millimetre over it (at -x the Rogue's
+ * feet walked 25 cm); at 0.01 it stands. An outline of its own for the trigger, drawn in by 0.1 to
+ * 0.7, held best at 0.5, the held region's own; drawn in by 0.7 the stance stepped from where it
+ * stood unpushed and fell over its own feet. A 0.15 s swing holds as many as 0.2; 0.2 is the
+ * slower. Sideways each human holds least: the far foot steps out with no weight shifted first.
+ * Many held shoves take several steps: a long step leaves a wide stance whose soles hold a thin
+ * band, and a foot slips at the engine's default friction.
+ */
+export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.2, lift: 0.03, reach: 0.15 };
+
+/**
  * **Solver conditioning, not anatomy**: the factor a stance foot's rotational inertia is multiplied
  * by while it stands, restored when the foot leaves the stance.
  *
@@ -281,6 +337,8 @@ interface FootState {
   readonly middle: Vector3;
   /** The thigh's and the shank's lengths, hip to knee and knee to ankle, in the reference pose. */
   readonly lengths: readonly [number, number];
+  /** The sole's width across the foot, m. */
+  readonly width: number;
   /** The foot's own mass properties, and whether they are conditioned now. */
   readonly natural: PhysicsMassProperties;
   conditioned: boolean;
@@ -293,6 +351,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const gain = tuning.velocityGain ?? STANCE_VELOCITY_GAIN;
   const bend = tuning.kneeBend === undefined ? STANCE_KNEE_BEND : tuning.kneeBend;
   const spare = tuning.ankleSpare === undefined ? STANCE_ANKLE_SPARE : tuning.ankleSpare;
+  const recovery = tuning.recovery === undefined ? STANCE_RECOVERY : tuning.recovery;
   const pelvis = chainTo(built, built.segments.get("foot.left")!)[0]!.parent;
   const segments = [...built.segments.values()];
   const total = segments.reduce((sum, s) => sum + s.spec.mass.value, 0);
@@ -301,10 +360,11 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
     const sole = soleOf(segment), chain = chainTo(built, segment);
     return { side, segment, chain, sole, channels: [], corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
+      width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
       middle: new Vector3(), natural: segment.body.getMassProperties(), conditioned: false };
   });
   const reading = { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(), asked: new Vector3(),
-    phase: "stand" as StancePhase, soles: { left: feet[0]!.middle, right: feet[1]!.middle } };
+    phase: "stand" as StancePhase, soles: { left: feet[0]!.middle, right: feet[1]!.middle }, recovery: null as SwingGoal | null, recoveries: 0 };
   /** The step under way: its swing, the time since its foot left the ground, and where and how the foot left it. */
   const step = { swing: null as SwingGoal | null, lifted: false, time: 0, from: new Vector3(), turn: new Quaternion() };
   const path = new Vector3(), along = new Vector3(), sole = new Vector3(), carried = new Vector3();
@@ -363,7 +423,14 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       owned.fill(0);
       // The step: a swing unlike the last starts one, and the feet that bear the body are the goal's
       // but for a swinging foot.
-      const swing = goal?.swing ?? null;
+      // A stance on both feet whose capture point has left its soles steps to catch it, and the step
+      // runs to its landing unless the goal asks for one of its own.
+      if (goal?.swing || !goal || !(goal.feet.includes("left") && goal.feet.includes("right"))) reading.recovery = null;
+      else if (!reading.recovery && reading.phase === "stand" && recovery) {
+        reading.recovery = recoveryStep(feet, reading.centre, reading.velocity, gravity(), recovery, inset);
+        if (reading.recovery) reading.recoveries += 1;
+      }
+      const swing = goal?.swing ?? reading.recovery;
       if (!swing) {
         step.swing = null;
         reading.phase = "stand";
@@ -514,10 +581,45 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         along.subtractInPlace(carried).scaleInPlace(-1);
         turn.subtractInPlace(pelvisSpin).scaleInPlace(-1);
         drive(foot, legSpeeds(foot.chain, sole, along, turn));
-        if (tau >= 1) reading.phase = "stand";
+        if (tau >= 1) {
+          reading.phase = "stand";
+          reading.recovery = null;
+        }
       }
     },
   };
+}
+
+/**
+ * The step that catches a body whose capture point (Pratt et al. 2006) is further than
+ * `tuning.margin` outside the region both soles hold (their outline drawn in by `inset`), or null
+ * if it is not. The capture point xi = c + v / w
+ * (w = sqrt(g / height)), while the other foot bears the body about its sole's nearest point p to
+ * it, runs to p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001); the foot lands past
+ * that, by `tuning.reach` of its distance from the bearing sole's middle, and never across the
+ * bearing foot, a sole's width out from it at least. The foot whose sole is nearer the capture
+ * point bears the body, and the other steps: chosen by the shorter way to the landing instead, the
+ * far foot bore the body and it was flung across.
+ */
+function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, inset: number): SwingGoal | null {
+  const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
+  const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
+  const [hx, hz] = withinSupport(feet, xi, zi, inset);
+  if (Math.hypot(xi - hx, zi - hz) <= tuning.margin) return null;
+  // The foot nearer the capture point bears the body; the other steps.
+  const off = (foot: FootState) => { const [qx, qz] = withinSupport([foot], xi, zi, inset); return Math.hypot(xi - qx, zi - qz); };
+  const bearer = off(feet[0]!) <= off(feet[1]!) ? feet[0]! : feet[1]!, foot = feet.find((other) => other !== bearer)!, b = bearer.middle;
+  const [px, pz] = withinSupport([bearer], xi, zi, inset), grow = Math.exp(w * tuning.seconds);
+  let tx = px + (xi - px) * grow, tz = pz + (zi - pz) * grow;
+  tx += (tx - b.x) * tuning.reach;
+  tz += (tz - b.z) * tuning.reach;
+  // Not onto or across the bearing foot: a sole's width out from it, along the line between the soles.
+  const ox = foot.middle.x - b.x, oz = foot.middle.z - b.z, wide = Math.hypot(ox, oz), out = ((tx - b.x) * ox + (tz - b.z) * oz) / wide;
+  if (out < foot.width) {
+    tx += (foot.width - out) * ox / wide;
+    tz += (foot.width - out) * oz / wide;
+  }
+  return { foot: foot.side, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false };
 }
 
 /**

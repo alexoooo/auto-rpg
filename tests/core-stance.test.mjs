@@ -4,7 +4,9 @@
  * asked for a place, a height and a heading, it goes there; asked for a place its ankles cannot
  * reach, or one past its soles, it stops where it can and stands; and with its feet unconditioned
  * it does not stand still (the control). Asked for a step, it shifts its weight, swings the foot to
- * where it was asked, lands and stands. Node stand, both humans, on a ground, 120 Hz.
+ * where it was asked, lands and stands. Shoved at the trunk past what its soles hold, it steps to
+ * catch itself and stands, where without the step it falls (the control); shoved lightly, it does
+ * not step. Node stand, both humans, on a ground, 120 Hz.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -190,6 +192,59 @@ test("a place past the soles is held at the edge of what they hold, each way, an
     assert.ok(off < 0.015 && low < 0.005, `(${dx}, ${dz}): stood ${(1000 * off).toFixed(1)} mm from the held place, ${(1000 * low).toFixed(1)} mm off height`);
     // A foot left bearing a sixth of the weight at a sideways edge slips once, some 6 mm.
     assert.ok(r.travel < 0.01, `(${dx}, ${dz}): the feet moved ${(1000 * r.travel).toFixed(1)} mm`);
+  }
+});
+
+/**
+ * Stand `model` 1.5 s, 3 cm under its reference height, then shove the middle trunk at its centre
+ * of mass by `impulse` N s level, `degrees` about the vertical from forward (+z; 90 is +x), and
+ * watch 4.5 s. Returns the steps the stance took to catch it, whether it fell (its centre sank
+ * 25 cm under the goal's height), and its speed and height under the goal at the end.
+ */
+async function shoved(model, impulse, degrees, stance) {
+  const stand = await coreStand(humanSpec(model), { ground: true, hz: 120 });
+  const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance });
+  let goal = null;
+  body.drive((view) => {
+    const s = view.stance;
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
+    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal };
+  });
+  try {
+    stand.step(stand.seconds(1.5));
+    const trunk = stand.built.segments.get("middleTrunk"), turn = trunk.node.rotationQuaternion.multiply(Quaternion.Inverse(trunk.rest));
+    const com = trunk.spec.centreOfMass.value, o = trunk.frame.origin, way = degrees * Math.PI / 180;
+    const at = new Vector3(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternion(turn).add(trunk.node.position);
+    trunk.body.applyImpulse(new Vector3(impulse * Math.sin(way), 0, impulse * Math.cos(way)), at);
+    let low = -Infinity;
+    for (let i = 0; i < stand.seconds(4.5); i++) {
+      stand.step(1);
+      const s = body.view.stance;
+      low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+    }
+    const s = body.view.stance;
+    return { steps: s.recoveries, fell: low > 0.25, low: goal.height - (s.centre.y - s.support.y), speed: s.velocity.length() };
+  } finally { body.dispose(); stand.dispose(); }
+}
+
+test("shoved past its soles, each human steps to catch itself and stands, and without the step falls; shoved lightly, it does not step", async () => {
+  // The Rogue by 30 N s each of four ways and forward and right, the Warrior by 40 forward, right
+  // and back: each at most what STANCE_RECOVERY's sweep holds that way, and more than each holds
+  // unstepping. Forward and right, a step landed within a sole's width of the bearing foot falls.
+  const cases = [["workshop-rogue", 30, 0], ["workshop-rogue", 30, 90], ["workshop-rogue", 30, 180], ["workshop-rogue", 30, 270],
+    ["workshop-rogue", 30, 45], ["workshop-fighter", 40, 0], ["workshop-fighter", 40, 90], ["workshop-fighter", 40, 180]];
+  for (const [model, impulse, degrees] of cases) {
+    const caught = await shoved(model, impulse, degrees), free = await shoved(model, impulse, degrees, { recovery: null });
+    const at = `${model} ${impulse} N s at ${degrees}`;
+    console.log(`MUT stance recovery ${at}: ${caught.steps} steps, ${caught.fell ? "fell" : "stood"} ${(1000 * caught.low).toFixed(1)} mm low at ${(100 * caught.speed).toFixed(2)} cm/s;`
+      + ` unstepping ${free.fell ? "fell" : "stood"}`);
+    assert.ok(caught.steps >= 1 && !caught.fell, `${at}: ${caught.steps} steps, ${caught.fell ? "fell" : "stood"}`);
+    assert.ok(caught.speed < 0.01 && Math.abs(caught.low) < 0.02, `${at}: ended ${(1000 * caught.low).toFixed(1)} mm low at ${(100 * caught.speed).toFixed(2)} cm/s`);
+    assert.ok(free.fell, `the control: ${at} unstepping stood`);
+  }
+  for (const model of ["workshop-rogue", "workshop-fighter"]) for (const degrees of [0, 90, 180, 270]) {
+    const light = await shoved(model, 10, degrees);
+    assert.deepEqual([light.steps, light.fell], [0, false], `${model} 10 N s at ${degrees}: ${light.steps} steps, ${light.fell ? "fell" : "stood"}`);
   }
 });
 

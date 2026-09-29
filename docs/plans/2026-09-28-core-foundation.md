@@ -369,6 +369,38 @@ contradicts one; the eccentric ceiling is the owner's decision.
     and a halfway twist. The joints are read that way now (`anglesOf` in
     `src/core/build/joint-state.ts`), so ranges mean one thing to the solver, the readings and the
     search. That table is void (H63); the searches run again on the new reading.
+  - **The acceptance searches on the swing-and-twist reading** (2026-09-29; `research/core-strike-search.mjs`,
+    50 generations of 96, 4 trials a candidate, Node stand, pelvis carried still). The best blow's
+    fist speed at the sphere, m/s: the search's mean over its trials, then the blow as written
+    replayed at 120, 480 and 1920 Hz on the code of the stance's recovery commit (the replay at
+    120 Hz matches the search's own first trial to 0.01, so nothing since changed the blow); "miss"
+    is a fist that never reached the sphere. The time is the arrival after the blow starts, s.
+
+    | | seed | search | 120 | 480 | 1920 | arrives |
+    |---|---|---|---|---|---|---|
+    | Warrior from the guard | 1 | 8.77 | 8.79 | 8.22 | 8.04 | 0.33 |
+    | | 2 | 13.28 | 13.13 | miss | miss | 0.41 |
+    | | 3 | 13.60 | 13.54 | 13.31 | 13.70 | 0.39 |
+    | Warrior, free blow | 1 | 9.66 | 9.66 | 8.96 | miss | 0.17 |
+    | | 2 | 11.29 | 11.38 | 10.22 | 10.08 | 0.16 |
+    | | 3 | 10.44 | 10.40 | miss | miss | 0.17 |
+    | Rogue from the guard | 1 | 5.85 | 5.86 | miss | miss | 0.28 |
+    | | 2 | 7.27 | 7.17 | 7.13 | 7.04 | 0.39 |
+    | | 3 | 4.94 | 4.96 | 4.72 | 4.69 | 0.28 |
+    | Rogue, free blow | 1 | 8.43 | 8.41 | miss | miss | 0.16 |
+    | | 2 | 9.60 | 9.67 | miss | miss | 0.15 |
+    | | 3 | 8.57 | 8.57 | 7.93 | 7.85 | 0.15 |
+
+    **Read against the acceptance, it is not met.** The Warrior's blows from the guard reach 13.3
+    and 13.6 m/s on two seeds of three, past the elite's 9-11, and arrive 0.39-0.41 s after they
+    start: wound up, not straights. Free, it throws 9.7-11.4, in the elite's band rather than near
+    the typical 8. The Rogue's to the Warrior's, over the seeds' means, is 0.51 from the guard and
+    0.85 free; the seeds disagree too much for that ratio to be read against Miller's and
+    Muggenthaler's figures. Six of the twelve blows found at 120 Hz miss the sphere at a finer
+    rate: tuned at one rate, a blow follows another path at another (the 120 Hz servo agrees with
+    1920 Hz on the lab's straights to 1.5 %, but a searched blow rides the edge of what reaches
+    the sphere). What the search should hold a straight to -- its time, its path -- is an owner's
+    choice (stage 2's is on the morning list).
 
 ### Stage 3: one world, one body, one command
 
@@ -486,6 +518,12 @@ contradicts one; the eccentric ceiling is the owner's decision.
   at a 0.1 s constant, its turn held. In the swing the plan falls as an inverted pendulum about a
   pivot in the bearing sole, chosen by capture-point control (Englsberger et al. 2011) to bring the
   capture point to between the soles when the foot lands.
+- **A step to catch a push** (`STANCE_RECOVERY`). Standing on both feet, once the measured capture
+  point is 1 cm outside the region the soles hold, the foot away from it steps without a weight
+  shift, to where the capture point will be when it lands -- running away from the bearing sole
+  for the swing's 0.2 s -- and 15 % further, a sole's width out from the bearing foot at least. The
+  step runs to its landing, and the stance holds the new feet; if the capture point is still out,
+  it steps again. A goal that asks for its own step, or stands on one foot, takes none.
 - **Measured** (Node stand, 120 Hz):
   - Both humans stand 3 cm low for 5 s within 0.9 mm of the soles' middle, drifting under 0.6 mm
     over the last 2 s.
@@ -498,8 +536,17 @@ contradicts one; the eccentric ceiling is the owner's decision.
     15.3 mm of the asked place, and stands within 3.2 mm of its place; the bearing foot moves at most
     8.8 mm. Of the sweep's 48 steps, none fails; 30 cm forward and 25 back are marginal, and a 30 cm
     step from standing in 0.45 s cannot carry the capture point that far over one sole.
+  - Shoved level at the middle trunk's centre of mass by 10 to 60 N s, sixteen ways, from 3 cm
+    under the reference height: without steps the Rogue holds 47 of the 176 shoves, 19.4 N s on
+    average over the ways (10 the least), and the Warrior 73, 27.5 (15); stepping, 114, 40.0 (30)
+    and 168, 56.3 (35). Sideways is the weakest way: the far foot steps out with no weight shifted
+    first. Many held shoves take two or more steps: a long step leaves a wide stance whose soles
+    hold a thin band, and a foot slips at the engine's default friction (0.5, the lesser of the two
+    touching; contact materials are stage 5's).
+  - No human reference for these impulses is sourced yet, so the acceptance's "stated impulse" is
+    the table on `STANCE_RECOVERY`, not a comparison.
 - **Not yet:** the routine's carried pelvis is still a scaffold, and the stance is not yet in the
-  lab page; recovery steps under shoves; gaits; assistance.
+  lab page; gaits; assistance.
 
 ### Stage 5: the rulebook, the damage unit and the HP pool
 
