@@ -10,7 +10,8 @@ import { DE_LEVA_1996 } from "./tables/de-leva-1996.ts";
  * - Joint centres are the rig's bone heads: SJC the upper arm's, EJC the forearm's, WJC the hand's,
  *   HJC the thigh's, KJC the calf's, AJC the foot's, and CERV (the cervicale, where the head and
  *   neck meet the trunk) the neck's.
- * - DAC3, the tip of the middle finger, is that finger's last bone's tail.
+ * - DAC3, the tip of the middle finger, is that finger's last bone's tail; MET3, the head of the
+ *   third metacarpal (the middle finger's knuckle), is its first bone's head.
  * - VERT, the vertex, is the top of the skin above the head bone's tail.
  * - MIDH is between the hip joint centres, where de Leva ends the trunk.
  * - XYPH (the xiphoid) and OMPH (the navel) have no bone. They divide the rig's CERV-MIDH line in
@@ -37,6 +38,7 @@ export interface LimbLandmarks {
   readonly EJC: Quantity<Vec3>;
   readonly WJC: Quantity<Vec3>;
   readonly DAC3: Quantity<Vec3>;
+  readonly MET3: Quantity<Vec3>;
   readonly HJC: Quantity<Vec3>;
   readonly KJC: Quantity<Vec3>;
   readonly AJC: Quantity<Vec3>;
@@ -64,6 +66,7 @@ export function limbLandmarks(model: WorkshopModel, side: Side): LimbLandmarks {
     EJC: rigPoint(model, `lowerarm${s}`, "head"),
     WJC: rigPoint(model, `hand${s}`, "head"),
     DAC3: rigPoint(model, `middle_03${s}`, "tail"),
+    MET3: rigPoint(model, `middle_01${s}`, "head"),
     HJC: rigPoint(model, `thigh${s}`, "head"),
     KJC: rigPoint(model, `calf${s}`, "head"),
     AJC: rigPoint(model, `foot${s}`, "head"),

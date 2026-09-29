@@ -69,7 +69,7 @@ test("the mass matrix gives the chain's kinetic energy and gravity's term its po
   let seed = 7, tick = 0;
   const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
   // A new push on every freedom each tenth of a second, either way, at 30-80 % of its strength.
-  const driver = driveMuscles(stand.built, stand.scene, (d) => {
+  const driver = driveMuscles(stand.built, stand.world, (d) => {
     if (tick++ % stand.seconds(0.1) !== 0) return;
     for (let i = 0; i < d.channels.length; i++) { d.velocity[i] = random() > 0 ? 1e3 : -1e3; d.activation[i] = 0.3 + 0.5 * Math.abs(random()); }
   });
@@ -111,4 +111,64 @@ test("the mass matrix gives the chain's kinetic energy and gravity's term its po
   assert.ok(largest > 0.2 && bent > 0.3, `the chain moved: ${largest} J at most, the two-freedom joint's second angle to ${bent} rad`);
   assert.ok(worstEnergy < 0.02, `kinetic energy off by ${(100 * worstEnergy).toFixed(2)} %`);
   assert.ok(worstPower < 0.02, `gravity's power off by ${(100 * worstPower).toFixed(2)} %`);
+});
+
+/** Solve A x = b by elimination with partial pivoting; A is copied. */
+function solve(A, b) {
+  const n = b.length, M = A.map((row, i) => [...row, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+  }
+  return M.map((row, i) => row[n] / row[i]);
+}
+
+/**
+ * Let go turning, with no gravity, the chain's joints speed up and slow down only by the motion
+ * under way, M u' = -bias. At 1920 Hz a step's change of the joints' speeds (their median 51
+ * rad/s^2) reads 8.2 % off that at the median; the steps where a joint meets its limit or the chain
+ * meets itself read wholly off, and are why the median is taken. Averaging the accelerations at a
+ * step's two ends changes nothing. Dropping the parent's carrying of the joint axes reads 41 % off,
+ * the parent's own angular acceleration 20 %, the joint centre's swing with its parent 43 %, the
+ * child's centre's 56 %, the two-freedom joint's lean 12 % (15 % with its sign turned), and adding
+ * the gyroscopic torque Havok leaves out 11 %.
+ */
+test("the motion under way gives the chain's joint accelerations as Havok moves it, let go with no gravity", async () => {
+  const stand = await coreStand(chain(), { ground: false, gravity: false, pinned: "post", hz: 1920 });
+  let seed = 11, tick = 0;
+  const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+  const driver = driveMuscles(stand.built, stand.world, (d) => {
+    if (tick++ % stand.seconds(0.1) !== 0) return;
+    for (let i = 0; i < d.channels.length; i++) { d.velocity[i] = random() > 0 ? 1e3 : -1e3; d.activation[i] = 0.5 + 0.5 * Math.abs(random()); }
+  });
+  const dynamics = bodyDynamics(stand.built, [0, 0, 0]);
+  const trackers = [...stand.built.joints.values()].map(jointTracker);
+  const spin = new Map([...stand.built.segments.values()].map((s) => [s, new Vector3()]));
+  const motion = { speeds: trackers.map((tracker) => tracker.speeds), spin: (s) => spin.get(s) };
+  const read = () => {
+    for (const [s, w] of spin) s.body.getAngularVelocityToRef(w);
+    trackers.forEach((tracker) => tracker.update(motion.spin));
+    dynamics.update(trackers.map((tracker) => tracker.angles), motion);
+    return trackers.flatMap((tracker) => tracker.speeds);
+  };
+  const norm = (a) => Math.hypot(...a);
+  const errors = [], sizes = [];
+  try {
+    stand.step(stand.seconds(0.25));
+    driver.dispose();
+    let speeds = read();
+    for (let s = 0; s < stand.seconds(0.25); s++) {
+      const predicted = solve(dynamics.mass.map((row) => [...row]), [...dynamics.bias].map((b) => -b));
+      stand.step(1);
+      const next = read(), observed = next.map((u, i) => (u - speeds[i]) * stand.world.hz);
+      errors.push(norm(observed.map((o, i) => o - predicted[i])) / norm(observed));
+      sizes.push(norm(observed));
+      speeds = next;
+    }
+  } finally { stand.dispose(); }
+  const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  assert.ok(median(sizes) > 30, `the joints' speeds changed at ${median(sizes)} rad/s^2 at the median`);
+  assert.ok(median(errors) < 0.1, `a step's change of speed read ${(100 * median(errors)).toFixed(1)} % off at the median`);
 });

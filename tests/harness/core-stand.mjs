@@ -1,9 +1,9 @@
 /**
  * **The core's Node stand**: one body built from a spec, on a ground, in its own Havok world.
  *
- * The recipe is AGENTS.md's: a `NullEngine`, a `Scene`, Havok from bytes, and each step a render id
- * and one fixed physics step. The body is built through `buildBody` and nothing else, so what the
- * stand reads is what the spec states. Every segment is kept awake: a sleeping body reads a perfect
+ * The recipe is AGENTS.md's: a `NullEngine`, a `Scene` and Havok from bytes, stepped by the core's
+ * world (`createWorld`, `src/core/world.ts`), as the page is. The body is built through
+ * `buildBody` and nothing else, so what the stand reads is what the spec states. Every segment is kept awake: a sleeping body reads a perfect
  * zero (H08).
  *
  * Holding a pose is the stand's, not the core's: `holdReferencePose` brakes every freedom at a
@@ -19,7 +19,8 @@ import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import { PhysicsShapeBox } from "@babylonjs/core/Physics/v2/physicsShape.js";
 import { PhysicsActivationControl, PhysicsConstraintMotorType, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import HavokPhysics from "@babylonjs/havok";
-import { attachHavok, PHYSICS_HZ } from "../../src/core/engine/havok.ts";
+import { PHYSICS_HZ } from "../../src/core/engine/havok.ts";
+import { createWorld } from "../../src/core/world.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
 
 const wasmPath = new URL("../../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
@@ -38,9 +39,7 @@ export async function freshHavok() {
 export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned, hz = PHYSICS_HZ.value } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  attachHavok(scene, await freshHavok());
-  scene.getPhysicsEngine().setSubTimeStep(1000 / hz);
-  if (!gravity) scene.getPhysicsEngine().setGravity(new Vector3(0, 0, 0));
+  const world = createWorld(scene, await freshHavok(), { hz, gravity });
   let floor = null;
   if (ground) {
     const node = new TransformNode("stand.ground", scene);
@@ -58,22 +57,13 @@ export async function coreStand(spec, { gravity = true, ground = true, position 
     if (!segment) throw new Error(`no segment ${pinned} to pin`);
     segment.body.setMotionType(PhysicsMotionType.STATIC);
   }
-  const stepMs = 1000 / hz;
-  // Babylon steps the solver while its accumulator is strictly more than a sub-step
-  // (`_advancePhysicsEngineStep`), so a first call of one sub-step only fills it. Filling it here,
-  // before anything reads the stand, makes `step(n)` n solver steps from the first.
-  scene._advancePhysicsEngineStep(stepMs);
   return {
-    scene, built, floor,
-    /** Advance `n` solver steps, each preceded by the scene's before-physics observers. */
-    step(n = 1) {
-      for (let i = 0; i < n; i++) {
-        scene._renderId += 1;
-        scene._advancePhysicsEngineStep(stepMs);
-      }
-    },
+    scene, world, built, floor,
+    /** Take `n` of the world's steps. */
+    step: (n = 1) => world.step(n),
     seconds: (s) => Math.round(s * hz),
     dispose() {
+      world.dispose();
       built.dispose();
       scene.dispose();
       engine.dispose();

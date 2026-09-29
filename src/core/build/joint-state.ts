@@ -5,15 +5,22 @@ import type { BuiltJoint, BuiltSegment } from "./build-body.ts";
 /**
  * **Where a joint is, in the engine's own coordinates.**
  *
- * Havok measures a 6-DoF constraint's angles about the constraint's X, Y and Z, in an order that
- * depends on what is locked (Node stand, two rods, tilted axes, each freedom held at a target by a
- * stiff position motor):
- * - three freedoms: Rx(a) Ry(b) Rz(c), X fixed in the parent and Z carried by the child. Read back
- *   this way the target came to 0.0005 rad at (-0.7, 0.6, -0.5) rad, and no other order within
- *   0.29 rad;
- * - two, Z locked: Ry(b) Rx(a). Read as Rx Ry, (0.6, -0.3) held came back as (0.62, -0.25) with
- *   0.17 rad about the locked Z; read as Ry Rx it is within 0.0003 rad.
- * A limit acts on these angles, so a controller reads them too.
+ * Havok limits a 6-DoF constraint's angles as its ragdoll constraint measures them, as a swing and
+ * a twist: the swing is the shortest turn taking the constraint's X to the child's, and b and c are
+ * its rotation vector's parts along Y and Z; the twist a is the angle between the parent's Y and the
+ * child's about the axis halfway between the two X's (`anglesOf`, `twistAbout`). A limit on a
+ * freedom bounds its part of this (Node stand, two rods, one freedom limited to +-0.6 rad and
+ * driven to 1.2, the other two asked up to 1.4 rad: every limited freedom stopped within 0.008 rad
+ * of 0.6 so read, where the Euler angles Rx Ry Rz put it up to 1.03 rad off, and poses whose Euler
+ * angles lay within the limit stuck). Read other ways, the swing's part as twice the arcsine of the
+ * swing quaternion's stopped at 0.57 to 0.60, and the child's own turn about its X at 0.57 to 0.85.
+ * A joint of two freedoms, Z locked, is this with c held at zero. A limit acts on these angles, so
+ * a controller reads them too: ranges mean one thing to the solver, the body's readings and
+ * whoever sets a goal. The swing is regular to a half turn, so a shoulder raised past a quarter
+ * turn reads as well as one at its side.
+ *
+ * Havok's position motors hold a different measure, the Euler angles Rx(a) Ry(b) Rz(c) (held at
+ * (-0.7, 0.6, -0.5) rad they read back so within 0.0005 rad); the core drives no position motor.
  *
  * A velocity motor does not drive these angles' rates. It drives the relative angular velocity's
  * component along its axis as fixed in the parent: driven at a target on each freedom of a
@@ -32,8 +39,8 @@ import type { BuiltJoint, BuiltSegment } from "./build-body.ts";
  */
 
 const scratch = {
-  relative: new Quaternion(), inverse: new Quaternion(), t: new Quaternion(),
-  z: new Vector3(), x: new Vector3(), w: new Vector3(), relativeSpin: new Vector3(),
+  relative: new Quaternion(), inverse: new Quaternion(), t: new Quaternion(), turning: [] as number[][],
+  x: new Vector3(), w: new Vector3(), relativeSpin: new Vector3(),
 };
 
 /**
@@ -50,56 +57,76 @@ export function relativeRotationToRef(joint: BuiltJoint, out: Quaternion): Quate
   return out.multiplyToRef(scratch.inverse, out);
 }
 
-/** The two orders Havok composes a joint's angles in: see the module's note. */
-export type AngleOrder = "xyz" | "yxz";
-
 /**
  * The angles (a, b, c) of `rotation`, a relative rotation in the body frame, about the orthonormal
- * `axes`, composed in `order`:
- * - `xyz`, rotation = Rx(a) Ry(b) Rz(c): the child's Z lands on
- *   sin(b) X - cos(b) sin(a) Y + cos(b) cos(a) Z, and the parent's X, seen from the child, is
- *   cos(b) cos(c) X - cos(b) sin(c) Y + sin(b) Z;
- * - `yxz`, rotation = Ry(b) Rx(a) Rz(c): the child's Z lands on
- *   cos(a) sin(b) X - sin(a) Y + cos(a) cos(b) Z, and the child's X on
- *   (cos(b) X - sin(b) Z) cos(c) + (sin(a) sin(b) X + cos(a) Y + sin(a) cos(b) Z) sin(c).
+ * `axes`, as Havok's limits measure them (the module's note). The swing S is the shortest turn
+ * taking X to the child's X, and (b, c) its rotation vector's parts along Y and Z; the child is
+ * then turned about its own X by t, rotation = S Rx(t). With q's parts (w, x, y, z) along the axes,
+ * w >= 0, and h = hypot(x, w): t = 2 atan2(x, w), and S = q Rx(t)^-1 has parts
+ * (h, 0, (w y - x z) / h, (w z + x y) / h), whose vector part is sin(s / 2) along the swing's axis.
+ * The twist a is t seen about the halfway axis (`twistAbout`). A swing of a half turn leaves the
+ * twist undefined; it is read as none.
  */
-export function anglesOf(rotation: Quaternion, axes: BuiltJoint["axes"], order: AngleOrder,
-  out: [number, number, number]): [number, number, number] {
-  const { x, y, z } = axes;
-  const zc = setTo(scratch.z, z).applyRotationQuaternionInPlace(rotation);
-  switch (order) {
-    case "xyz": {
-      Quaternion.InverseToRef(rotation, scratch.inverse);
-      const xp = setTo(scratch.x, x).applyRotationQuaternionInPlace(scratch.inverse);
-      out[0] = Math.atan2(-along(zc, y), along(zc, z));
-      out[1] = Math.asin(clamp(along(zc, x)));
-      out[2] = Math.atan2(-along(xp, y), along(xp, x));
-      return out;
-    }
-    case "yxz": {
-      const a = Math.asin(clamp(-along(zc, y))), b = Math.atan2(along(zc, x), along(zc, z));
-      const xc = setTo(scratch.x, x).applyRotationQuaternionInPlace(rotation);
-      // The child's X against the two directions Rx(a) Ry(b) leaves in the plane square to its Z.
-      const cosX: Vec3 = [Math.cos(b), 0, -Math.sin(b)];
-      const sinX: Vec3 = [Math.sin(a) * Math.sin(b), Math.cos(a), Math.sin(a) * Math.cos(b)];
-      const inFrame: Vec3 = [along(xc, x), along(xc, y), along(xc, z)];
-      out[0] = a; out[1] = b;
-      out[2] = Math.atan2(dot3(inFrame, sinX), dot3(inFrame, cosX));
-      return out;
-    }
-    default: {
-      const never: never = order;
-      throw new Error(`unknown angle order ${String(never)}`);
-    }
-  }
+export function anglesOf(rotation: Quaternion, axes: BuiltJoint["axes"], out: [number, number, number]): [number, number, number] {
+  const flip = rotation.w < 0 ? -1 : 1, v = scratch.x.set(rotation.x, rotation.y, rotation.z);
+  const w = flip * rotation.w, x = flip * along(v, axes.x), y = flip * along(v, axes.y), z = flip * along(v, axes.z);
+  const h = Math.hypot(x, w);
+  const [sw, sy, sz] = h < SWING_HALF_TURN ? [0, y, z] : [h, (w * y - x * z) / h, (w * z + x * y) / h];
+  const sine = Math.hypot(sy, sz), swing = 2 * Math.atan2(sine, sw);
+  const perSine = sine < SWING_HALF_TURN ? 2 : swing / sine;
+  out[1] = perSine * sy;
+  out[2] = perSine * sz;
+  out[0] = h < SWING_HALF_TURN ? 0 : twistAbout(2 * Math.atan2(x, w), out[1], out[2], false);
+  return out;
 }
 
-/** The order Havok composes `joint`'s angles in: two freedoms lock Z and turn Y outermost. */
-export const angleOrder = (joint: BuiltJoint): AngleOrder => (joint.dofs.length === 2 ? "yxz" : "xyz");
+/**
+ * **The twist about the halfway axis.** Havok measures a joint's twist about the axis halfway
+ * between the parent's X and the child's, as the angle there between the parent's Y and the
+ * child's, each laid flat on the plane square to it (Node stand, two rods, the twist limited to
+ * +-0.6 rad and pressed against it at swings to 1.7 rad: this read 0.600 at each, the child's own
+ * turn t 0.57 to 0.85). Seen from the halfway frame, the parent and the child each lean half the
+ * swing, s / 2, about its axis n, and laying a vector of the plane square to X flat again scales its
+ * part square to n by cos(s / 2) and keeps its part along n: L = cos(s / 2) I + (1 - cos(s / 2)) n n'
+ * on the (Y, Z) plane. So a is the angle from L Y to L (cos t, sin t), and t is the direction of
+ * L^-1 turned by a from L Y. With p = (b, c) and K = (1 - cos(s / 2)) / s^2, L = cos(s / 2) I + K p p',
+ * and I - K p p' is L^-1 up to a positive factor. Returns a from t, or with `inverse` t from a.
+ */
+export function twistAbout(angle: number, b: number, c: number, inverse: boolean): number {
+  const s = Math.hypot(b, c), half = Math.cos(s / 2);
+  // Near no swing K is its series, 1/8 - s^2/384.
+  const K = s < SERIES_BELOW ? 1 / 8 - s * s / 384 : (1 - half) / (s * s);
+  // L Y, the parent's Y laid flat.
+  const uy = half + K * b * b, uz = K * b * c;
+  if (!inverse) {
+    const cy = Math.cos(angle), cz = Math.sin(angle), onto = K * (b * cy + c * cz);
+    const vy = half * cy + onto * b, vz = half * cz + onto * c;
+    return Math.atan2(uy * vz - uz * vy, uy * vy + uz * vz);
+  }
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const ry = cos * uy - sin * uz, rz = sin * uy + cos * uz, onto = K * (b * ry + c * rz);
+  return Math.atan2(rz - onto * c, ry - onto * b);
+}
+
+/** `anglesOf` undone: the rotation, body frame, of angles (a, b, c) about `axes`. */
+export function rotationOfToRef(axes: BuiltJoint["axes"], a: number, b: number, c: number, out: Quaternion): Quaternion {
+  const swing = Math.hypot(b, c), perAngle = swing < SWING_HALF_TURN ? 0.5 : Math.sin(swing / 2) / swing;
+  const sw = Math.cos(swing / 2), sy = perAngle * b, sz = perAngle * c, t = twistAbout(a, b, c, true);
+  const tw = Math.cos(t / 2), tx = Math.sin(t / 2);
+  // S Rx(t) in the axes' parts: (sw tw, sw tx, tw sy + tx sz, tw sz - tx sy).
+  const x = sw * tx, y = tw * sy + tx * sz, z = tw * sz - tx * sy, { x: X, y: Y, z: Z } = axes;
+  return out.copyFromFloats(x * X[0] + y * Y[0] + z * Z[0], x * X[1] + y * Y[1] + z * Z[1], x * X[2] + y * Y[2] + z * Z[2], sw * tw);
+}
+
+/**
+ * Below this the swing's sine, or the twist's share of a rotation (h in `anglesOf`), is taken for
+ * none: a numeric floor, far under any angle a reading resolves.
+ */
+const SWING_HALF_TURN = 1e-12;
 
 /** Each freedom's angle, in its own sense, from the reference pose: `out[k]` is `joint.dofs[k]`'s. */
 export function jointAngles(joint: BuiltJoint, out: number[] = []): number[] {
-  const angles = anglesOf(relativeRotationToRef(joint, scratch.relative), joint.axes, angleOrder(joint), abc);
+  const angles = anglesOf(relativeRotationToRef(joint, scratch.relative), joint.axes, abc);
   joint.dofs.forEach((dof, k) => { out[k] = dof.sign * angles[k]!; });
   out.length = joint.dofs.length;
   return out;
@@ -108,67 +135,89 @@ export function jointAngles(joint: BuiltJoint, out: number[] = []): number[] {
 const abc: [number, number, number] = [0, 0, 0];
 
 /**
- * **How a joint turns as its angles change.** Composed as `anglesOf` says, the relative angular
- * velocity is each angle's rate about the axis that angle turns about where it stands:
- * - `xyz`: a' about X, b' about Rx(a) Y = (0, cos a, sin a), c' about Rx(a) Ry(b) Z =
- *   (sin b, -sin a cos b, cos a cos b);
- * - `yxz`: b' about Y, a' about Ry(b) X = (cos b, 0, -sin b), and c, locked, not at all.
- * A motor drives the component along its own axis (the module's note), so freedom k's speed is
- * sum over j of `out[k][j]` times freedom j's rate, each freedom in its own sense. At no angles this
- * is the identity; at a shoulder flexed past a quarter turn the second freedom's axis has turned
- * past square to where its motor pushes, and a push on its motor turns its angle backward.
+ * **How a joint turns as its angles change.** With rotation = S(b, c) Rx(t) (`anglesOf`), the
+ * relative angular velocity is t' about S X, the child's X where the swing has put it, plus the
+ * swing's own, J(b Y + c Z) (b' Y + c' Z), J the rotation vector's left Jacobian,
+ * J(p) = I + (1 - cos s) / s^2 [p]x + (s - sin s) / s^3 [p]x^2 at s = |p|. Along the axes:
+ *
+ *     t' ( cos s,     c sin s / s,   -b sin s / s )
+ *     b' ( -A c,      1 - B c^2,     B b c )
+ *     c' ( A b,       B b c,         1 - B b^2 )
+ *
+ * with A = (1 - cos s) / s^2 and B = (s - sin s) / s^3; and t' is carried from the twist's and the
+ * swing's rates through `twistAbout`, differenced by `TWIST_STEP` in each angle. A motor drives the
+ * component along its own axis (the module's note), so freedom k's speed is sum over j of
+ * `out[k][j]` times freedom j's rate, each freedom in its own sense. At no angles this is the
+ * identity; a joint of two freedoms has c = 0 and reads the first two rows and columns.
  */
 export function turningToRef(joint: BuiltJoint, angles: readonly number[], out: number[][]): number[][] {
-  const { dofs } = joint, count = dofs.length;
-  const a = dofs[0]!.sign * angles[0]!, b = count > 1 ? dofs[1]!.sign * angles[1]! : 0;
-  const cosA = Math.cos(a), sinA = Math.sin(a), cosB = Math.cos(b), sinB = Math.sin(b);
-  // Column j, row k: the axis freedom j turns about, along freedom k's (Havok's senses).
-  const along = angleOrder(joint) === "xyz"
-    ? (k: number, j: number) => j === 0 ? (k === 0 ? 1 : 0)
-      : j === 1 ? [0, cosA, sinA][k]! : [sinB, -sinA * cosB, cosA * cosB][k]!
-    : (k: number, j: number) => j === 0 ? [cosB, 0][k]! : [0, 1][k]!;
+  const { dofs } = joint, count = dofs.length, m = turningMatrix(havokAngles(joint, angles));
   out.length = count;
   for (let k = 0; k < count; k++) {
     const row = (out[k] ??= []);
     row.length = count;
-    for (let j = 0; j < count; j++) row[j] = dofs[k]!.sign * dofs[j]!.sign * along(k, j);
+    for (let j = 0; j < count; j++) row[j] = dofs[k]!.sign * dofs[j]!.sign * m[k]![j]!;
   }
   return out;
 }
+
+/** Each of `angles` (own senses) in Havok's sense, a locked freedom at zero. */
+const havokAngles = (joint: BuiltJoint, angles: readonly number[]): [number, number, number] =>
+  [0, 1, 2].map((k) => (k < joint.dofs.length ? joint.dofs[k]!.sign * angles[k]! : 0)) as [number, number, number];
+
+/** The table in `turningToRef`'s note at angles (a, b, c), Havok's senses: row k the axis, column j the angle. */
+function turningMatrix([a, b, c]: readonly [number, number, number]): number[][] {
+  const s = Math.hypot(b, c), small = s < SERIES_BELOW;
+  // Near no swing the ratios are their series: sin s / s = 1 - s^2/6, A = 1/2 - s^2/24, B = 1/6 - s^2/120.
+  const S = small ? 1 - s * s / 6 : Math.sin(s) / s;
+  const A = small ? 0.5 - s * s / 24 : (1 - Math.cos(s)) / (s * s);
+  const B = small ? 1 / 6 - s * s / 120 : (s - Math.sin(s)) / (s * s * s);
+  const own = [Math.cos(s), S * c, -S * b];
+  const t = (da: number, db: number, dc: number) => twistAbout(a + da, b + db, c + dc, true);
+  const h = TWIST_STEP;
+  const rise = [(t(h, 0, 0) - t(-h, 0, 0)) / (2 * h), (t(0, h, 0) - t(0, -h, 0)) / (2 * h), (t(0, 0, h) - t(0, 0, -h)) / (2 * h)];
+  const swing = [[0, -A * c, A * b], [0, 1 - B * c * c, B * b * c], [0, B * b * c, 1 - B * b * b]];
+  return swing.map((row, k) => row.map((v, j) => v + own[k]! * rise[j]!));
+}
+
+/** Below this swing (rad) the ratios take their series, whose next terms are under 1e-12. */
+const SERIES_BELOW = 1e-3;
+
+/** The angle (rad) `turningMatrix` differences the twist by: a numeric setting, its error some 1e-10. */
+const TWIST_STEP = 1e-6;
 
 /**
  * Each freedom's angle rate (rad/s, its own sense) from its speeds, at `angles`: `turningToRef`
- * undone. Where the second angle is a quarter turn (xyz) or the first's outer turn is (yxz), two
- * freedoms turn about one axis and their rates are not separate; there the cosine is read as
- * `GIMBAL_COSINE`, not zero, which bounds the rates rather than choosing them.
+ * undone. Where two freedoms turn about one axis their rates are not separate -- a joint of two
+ * whose swing is a quarter turn, or of three whose swing is a half turn -- and the turning's
+ * determinant is read as `GIMBAL_COSINE`, not zero, which bounds the rates rather than choosing them.
  */
 export function ratesToRef(joint: BuiltJoint, angles: readonly number[], speeds: readonly number[], out: number[]): number[] {
-  const { dofs } = joint, count = dofs.length;
-  const s0 = dofs[0]!.sign, s1 = count > 1 ? dofs[1]!.sign : 1, s2 = count > 2 ? dofs[2]!.sign : 1;
-  const a = s0 * angles[0]!, b = count > 1 ? s1 * angles[1]! : 0;
-  const cosB = Math.cos(b), held = Math.abs(cosB) < GIMBAL_COSINE ? (cosB < 0 ? -GIMBAL_COSINE : GIMBAL_COSINE) : cosB;
+  const count = joint.dofs.length, m = turningToRef(joint, angles, scratch.turning);
   out.length = count;
-  if (count === 1) out[0] = speeds[0]!;
-  else if (angleOrder(joint) === "yxz") {
-    out[0] = s0 * (s0 * speeds[0]! / held);
-    out[1] = speeds[1]!;
+  if (count === 1) out[0] = speeds[0]! / held(m[0]![0]!);
+  else if (count === 2) {
+    const det = held(m[0]![0]! * m[1]![1]! - m[0]![1]! * m[1]![0]!);
+    out[0] = (speeds[0]! * m[1]![1]! - m[0]![1]! * speeds[1]!) / det;
+    out[1] = (m[0]![0]! * speeds[1]! - speeds[0]! * m[1]![0]!) / det;
   } else {
-    const wx = s0 * speeds[0]!, wy = s1 * speeds[1]!, wz = s2 * speeds[2]!;
-    const c = (-Math.sin(a) * wy + Math.cos(a) * wz) / held;
-    out[0] = s0 * (wx - Math.sin(b) * c);
-    out[1] = s1 * (Math.cos(a) * wy + Math.sin(a) * wz);
-    out[2] = s2 * c;
+    const det = held(determinant(m));
+    for (let j = 0; j < 3; j++) out[j] = determinant(m.map((row, k) => row.map((v, i) => (i === j ? speeds[k]! : v)))) / det;
   }
   return out;
 }
 
-/** The least cosine `ratesToRef` and `motionAxesToRef` divide by: a quarter turn short by a millionth of a radian. */
+const held = (x: number): number => Math.abs(x) < GIMBAL_COSINE ? (x < 0 ? -GIMBAL_COSINE : GIMBAL_COSINE) : x;
+const determinant = (m: number[][]): number => m[0]![0]! * (m[1]![1]! * m[2]![2]! - m[1]![2]! * m[2]![1]!)
+  - m[0]![1]! * (m[1]![0]! * m[2]![2]! - m[1]![2]! * m[2]![0]!) + m[0]![2]! * (m[1]![0]! * m[2]![1]! - m[1]![1]! * m[2]![0]!);
+
+/** The least cosine or determinant `ratesToRef` and `motionAxesToRef` divide by: a millionth. */
 export const GIMBAL_COSINE = 1e-6;
 
 /**
  * The axis, body frame, that each freedom's speed turns the child about: the relative angular
  * velocity is the sum over the freedoms of speed times axis. With one or three freedoms these are
- * the freedoms' own axes. With two (`yxz`, Z locked) the second's is Y, and the first's is
+ * the freedoms' own axes. With two (Z locked) the second's is Y, and the first's is
  * X - tan(b) Z: the first angle turns the child about Ry(b) X = (cos b, 0, -sin b), whose part
  * along X is what its motor drives.
  */
@@ -176,7 +225,7 @@ export function motionAxesToRef(joint: BuiltJoint, angles: readonly number[], ou
   const { dofs, axes } = joint;
   out.length = dofs.length;
   dofs.forEach((dof, k) => { out[k] = signed([axes.x, axes.y, axes.z][k]!, dof.sign); });
-  if (angleOrder(joint) === "yxz") {
+  if (dofs.length === 2) {
     const b = dofs[1]!.sign * angles[1]!, cosB = Math.cos(b);
     const held = Math.abs(cosB) < GIMBAL_COSINE ? (cosB < 0 ? -GIMBAL_COSINE : GIMBAL_COSINE) : cosB;
     const tan = Math.sin(b) / held, s = dofs[0]!.sign;
@@ -184,10 +233,7 @@ export function motionAxesToRef(joint: BuiltJoint, angles: readonly number[], ou
   }
   return out;
 }
-const setTo = (v: Vector3, a: Vec3): Vector3 => v.set(a[0], a[1], a[2]);
 const along = (v: Vector3, a: Vec3): number => v.x * a[0] + v.y * a[1] + v.z * a[2];
-const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const clamp = (s: number): number => Math.max(-1, Math.min(1, s));
 
 /** A joint's angles and speeds, one entry per freedom in its own sense, kept current by `update`. */
 export interface JointTracker {
@@ -229,7 +275,7 @@ export function jointTracker(joint: BuiltJoint): JointTracker {
     project(world, out) {
       Quaternion.InverseToRef(joint.parent.node.rotationQuaternion!, scratch.inverse);
       joint.parent.rest.multiplyToRef(scratch.inverse, scratch.t);
-      world.rotateByQuaternionToRef(scratch.t, scratch.w);
+      world.applyRotationQuaternionToRef(scratch.t, scratch.w);
       axes.forEach((axis, k) => { out[k] = along(scratch.w, axis); });
       out.length = axes.length;
       return out;

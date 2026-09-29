@@ -319,21 +319,34 @@ contradicts one; the eccentric ceiling is the owner's decision.
       power in `tests/core-dynamics.test.mjs`), solved around the pushed freedoms and around any
       the muscles cannot drive as asked, each given to the driver as a torque source.
   - On the Node stand, 120 Hz against 1920 Hz: the Rogue's return from a searched chamber, hand
-    peak 2.36 against 2.28 m/s (the velocity servo, 3.71 against 2.02); the lab's straights, the
-    Warrior's within 1.7 %, and the Rogue's within 2.2 % until the elbow meets its stop. There the
-    stop whips the Rogue's light hand at the wrist at up to 66 rad/s at 1920 Hz, and the fist gains up
-    to a fifth for a few milliseconds; at 120 Hz Havok takes the stop inside a step and the whip is
-    smaller and later (`src/core/muscle/driver.ts` has the table). The stop is recorded, not changed.
+    peak 2.36 against 2.28 m/s (the velocity servo, 3.71 against 2.02).
+  - **The motion under way, and the fist at its knuckles** (H74). The first acceptance searches
+    on this servo found blows of 11-14 m/s, and a replay split the fist's speed by joint. The fist
+    was read at the hand's far end, its fingertip, 0.2 m from the wrist, so a turn of the wrist
+    counted at more than twice a fist's lever; it is read at the knuckles now (`SegmentSpec.points`,
+    the third metacarpal's head). And the servo left out the part of the motion that goes as the
+    square of the speeds: a fast forearm flung the servoed hand about the wrist at up to 83 rad/s
+    while the servo asked the wrist for next to nothing. The body's dynamics now give that term
+    (`BodyDynamics.bias`, checked against Havok's joint accelerations on a free chain in
+    `tests/core-dynamics.test.mjs`), and the servo solves with it; the wrist turned at 7.7 rad/s on
+    the same blow. Havok has no gyroscopic torque, so the term leaves it out.
+  - The lab's straights now agree across 120, 480 and 1920 Hz to 1.5 %, the Warrior's peaking at
+    5.55-5.69 m/s and the Rogue's at 4.57-4.71 with the joints read as Havok's limits measure them
+    (H76; 5.7-6.0 and 4.7-4.9, to 2.5 %, in the Euler reading before it). `src/core/muscle/driver.ts`
+    has the table. The
+    Rogue's "elbow-stop whip", recorded here as a rate effect after the peak, was the missing term.
   - **Havok brakes slow bodies.** A body whose centre moves under about 0.12 m/s loses speed at a
     steady 0.3 m/s^2, at every rate and mass, whatever the world's limits, the joints' friction, the
     body's damping or the motor. A servo stops where its pull no longer beats it: the guard's
-    elbows and wrists 0.02-0.026 rad short at 0.1 s, a band that goes as the square of the time
-    constant. Recorded as the engine's, not compensated.
-  - **Open: the servo's stiffness at 120 Hz.** At 0.05 s the Rogue's wrists ring about pronation
-    at 7 rad/s at 120 Hz and hold at 960 Hz; at 0.1 s the dynamics give each step's torque to
-    0.05 N m. Stage 3 gets a factor of two in stiffness until that is understood.
+    wrists 0.03 rad short at 0.1 s, a band that goes as the square of the time constant. Recorded
+    as the engine's, not compensated.
+  - **A servo's time constant needs ten steps.** At nine the Rogue's wrists ring about pronation at
+    6-7 rad/s, at 120 Hz and 240 Hz alike, and at ten they hold; the reach is not the cause. At
+    120 Hz that is 0.083 s, against the lab's 0.1. Why ten is open; stage 3's motor control keeps
+    its time constants at ten steps or more.
   - The strike searches above ran on the velocity servo, which held every freedom not pushed. Their
-    table is void (H63); the argument about scoring several runs stands.
+    table is void (H63); the argument about scoring several runs stands. So are the first searches
+    on the torque servo, which found the wrist's whip and read it at the fingertip.
   - **Self-contact.** On the lab's routine (Node stand, 120, 480 and 1920 Hz) the only segments
     that met were each upper arm and the middle trunk, about 0.08 s into every straight. The trunk
     was a box on its stretch's extents, and the arm met its front upper corner 7-13 mm deep while
@@ -346,6 +359,48 @@ contradicts one; the eccentric ceiling is the owner's decision.
     arms on the trunk's sides, a hand on the head or on the other hand. Those are a body's own
     contacts, which the straights' corner was not.
     The club waits for a held weapon in the core.
+  - **The acceptance searches on the torque servo, and the joints' limits** (H76). Three seeds of
+    the strike search each for the Warrior and the Rogue, from the guard and free (Node stand, 120
+    Hz, then replayed at 480 and 1920 Hz), found mean fists of 6.8-9.5 m/s from the guard and
+    9.4-11.9 free for the Warrior, 6.0-8.7 and 9.5-10.7 for the Rogue. A replay split by joint showed
+    the blows breaking the arm's ranges by 0.5-1.7 rad about a quarter second in, with self-contact
+    off too, and the free ones swinging the arm overhead. The core had read a joint of three
+    freedoms as Euler angles, the measure Havok's position motors hold; its limits measure a swing
+    and a halfway twist. The joints are read that way now (`anglesOf` in
+    `src/core/build/joint-state.ts`), so ranges mean one thing to the solver, the readings and the
+    search. That table is void (H63); the searches run again on the new reading.
+  - **The acceptance searches on the swing-and-twist reading** (2026-09-29; `research/core-strike-search.mjs`,
+    50 generations of 96, 4 trials a candidate, Node stand, pelvis carried still). The best blow's
+    fist speed at the sphere, m/s: the search's mean over its trials, then the blow as written
+    replayed at 120, 480 and 1920 Hz on the code of the stance's recovery commit (the replay at
+    120 Hz matches the search's own first trial to 0.01, so nothing since changed the blow); "miss"
+    is a fist that never reached the sphere. The time is the arrival after the blow starts, s.
+
+    | | seed | search | 120 | 480 | 1920 | arrives |
+    |---|---|---|---|---|---|---|
+    | Warrior from the guard | 1 | 8.77 | 8.79 | 8.22 | 8.04 | 0.33 |
+    | | 2 | 13.28 | 13.13 | miss | miss | 0.41 |
+    | | 3 | 13.60 | 13.54 | 13.31 | 13.70 | 0.39 |
+    | Warrior, free blow | 1 | 9.66 | 9.66 | 8.96 | miss | 0.17 |
+    | | 2 | 11.29 | 11.38 | 10.22 | 10.08 | 0.16 |
+    | | 3 | 10.44 | 10.40 | miss | miss | 0.17 |
+    | Rogue from the guard | 1 | 5.85 | 5.86 | miss | miss | 0.28 |
+    | | 2 | 7.27 | 7.17 | 7.13 | 7.04 | 0.39 |
+    | | 3 | 4.94 | 4.96 | 4.72 | 4.69 | 0.28 |
+    | Rogue, free blow | 1 | 8.43 | 8.41 | miss | miss | 0.16 |
+    | | 2 | 9.60 | 9.67 | miss | miss | 0.15 |
+    | | 3 | 8.57 | 8.57 | 7.93 | 7.85 | 0.15 |
+
+    **Read against the acceptance, it is not met.** The Warrior's blows from the guard reach 13.3
+    and 13.6 m/s on two seeds of three, past the elite's 9-11, and arrive 0.39-0.41 s after they
+    start: wound up, not straights. Free, it throws 9.7-11.4, in the elite's band rather than near
+    the typical 8. The Rogue's to the Warrior's, over the seeds' means, is 0.51 from the guard and
+    0.85 free; the seeds disagree too much for that ratio to be read against Miller's and
+    Muggenthaler's figures. Six of the twelve blows found at 120 Hz miss the sphere at a finer
+    rate: tuned at one rate, a blow follows another path at another (the 120 Hz servo agrees with
+    1920 Hz on the lab's straights to 1.5 %, but a searched blow rides the edge of what reaches
+    the sphere). What the search should hold a straight to -- its time, its path -- is an owner's
+    choice (stage 2's is on the morning list).
 
 ### Stage 3: one world, one body, one command
 
@@ -362,6 +417,56 @@ contradicts one; the eccentric ceiling is the owner's decision.
   turns that into goals.
 - **Motor control** turns goals into muscle activation: IK plus servo, bounded by the muscles.
 
+**What landed (2026-09-29).**
+- **`World.step`** (`src/core/world.ts`, `tests/core-world.test.mjs`): the step hooks in the order
+  added, one solver step (Havok's own, never Babylon's accumulator), then the after-step hooks. The
+  clock is the count of steps. `advance` turns a frame's time into whole steps, carries the
+  remainder and drops what it cannot take, so a page that falls behind runs slow. The world turns
+  off the scene's own stepping. The muscle driver, the lab's routine and timeline, the core stand
+  and the strike research run on it; the lab page makes a world on each load, at the chosen rate.
+  Stepped whole or from uneven frames, the same steps give the same pose to the bit.
+- **Motor control, hands first** (`src/core/control/motor.ts`, `kinematics.ts`,
+  `tests/core-reach.test.mjs`):
+  - **Goals.** A posture (angles by freedom) and, for each hand, a place for its knuckles in the
+    body frame (the root's, so it moves with the pelvis) and a time to get there.
+  - **Path.** The knuckles travel a straight, minimum-jerk path.
+  - **Inverse kinematics.** Each step the path's point becomes the shoulder's and the elbow's
+    angles: damped least squares, with the redundant swing drawn toward the posture's through
+    the undamped null space, clamped to the joints' ranges, each pass's turn bounded. The trunk
+    and the wrist are held at the posture's angles.
+  - **Servo.** It follows those angles with rates and accelerations fed forward, differenced a
+    step either side along the path.
+  - **Measurements** (Warrior, lower trunk held, 0.2 m reaches over 0.4 s, Node stand, joints
+    read as Havok's limits measure them, H76):
+    - the knuckles keep within 8.3 mm of the path at 120 Hz and 1.5 mm at 1920 Hz;
+    - they end 0.6-1.4 mm from the goal at both rates, the rates' ends 4.0-4.2 mm apart;
+    - without the fed-forward acceleration they strayed 25-32 mm, and without the rates 110 mm
+      (in the Euler reading, before H76).
+    - A place out of reach leaves the arm stretched toward it (the Rogue, 0.3 m forward: 36 mm
+      short at both rates).
+  - **Precision and give** (H75). The kinematics had first gone through Babylon's float32
+    rotation, which ruined the differenced Jacobian; they now match the body to 0.05 mm with
+    gravity off. At 120 Hz, the elbow's hinge gives 0.7 deg under the forearm's weight, which is
+    most of the 120 Hz goal's extra 2 mm.
+  - **Not yet:** the hand's orientation and speed as goals; the trunk as a goal; the lab's
+    straights as hand goals.
+- **One body class, commanded and seen** (`src/core/body.ts`, `tests/core-body.test.mjs`).
+  `createBody(built, world)` is every core body: its muscles under motor control. Whatever drives
+  it -- a mind, the lab's routine, a test -- is handed its view each control step and returns a
+  command, and nothing else reaches the joints.
+  - **The command:** a posture by freedom, a place and a time for each hand's knuckles (a goal equal
+    to the last keeps its path, so a mind may restate it every step), and pushes: freedoms driven
+    flat out by their muscles, which the servo solves the rest around.
+  - **The view:** the clock, every freedom's angle, each fist's knuckles in the world with their
+    velocity, and the knuckles in the body frame, where hand goals are set.
+  - **The lab's routine is a driver of it**, its guard, chamber and legs a posture and its strikes
+    pushes. Moved, it gives the same world to the bit over 14 s of both humans (Node stand, 120 Hz).
+    Its carried pelvis stays a scaffold outside the command until stage 4 stands the body up.
+  - **Measured** (Warrior, lower trunk held, Node stand, 120 Hz): the posture held to 0.022 rad; a
+    hand goal restated each step reached to 1.5 mm; the pushed elbow opened from the guard to
+    0.08 rad from straight, the fist at 7.9 m/s; the released arm back on the posture to 0.006 rad;
+    the view's two readings of the knuckles one point.
+
 ### Stage 4: locomotion v2, force-bounded stepping, for the human
 
 - **The model.**
@@ -377,6 +482,106 @@ contradicts one; the eccentric ceiling is the owner's decision.
   - walk and run speeds and a reversal time against human references;
   - under calibrated shoves, it steps and then falls past a stated impulse;
   - the whole-shove table from 4350cb8e, re-run, does not multiply falls.
+
+**What landed (2026-09-29): the stance** (`src/core/control/stance.ts`, `tests/core-stance.test.mjs`).
+- **It departs from the model above, on a measurement.** The legs are not driven by the forces the
+  centre of mass needs. A torque source on an ankle rocks the foot on Havok's contact (10 N m lifts
+  the Rogue's settled foot 1.1 mm and spins it at 0.25 rad/s). A computed torque rooted at the foot
+  read that rocking as the body's turn and asked hundreds of newton metres to stop it; rooted at
+  the pelvis, the hips spun the light pelvis between legs and trunk. Re-rooting the servo's
+  dynamics at a pinned foot did match Havok's kinetic energy and gravity power, so the model was
+  right and the loop was not; the patch is kept outside the tree.
+- **The stance is kinematic.** It plans the centre of mass's way to its goal, critically damped,
+  and asks the pelvis for the plan's velocity plus the error from it. Each stance leg's speeds for
+  that pelvis motion, foot still, are its Jacobian undone by damped least squares. They go to the
+  muscles as speeds at full activation, so Havok's solver finds the torques with the ground's push.
+- **The two legs are a closed chain, and the solver leaves it soft**: after a step the Rogue's pelvis
+  moved at 21.6 cm/s when asked for 1.1. The pelvis is also asked for twice the centre of mass's
+  velocity error, the plan's less the body's (`STANCE_VELOCITY_GAIN`, from a sweep of 48 steps:
+  12 fail with none, none at 2). With it, the earlier share of the drive by the weight a leg bears and
+  the plan's speed limit are gone: neither changed a result.
+- **The height is what the legs reach.** No higher than each leg reaches with its knee bent by
+  0.2 rad (`STANCE_KNEE_BEND`; a straight knee is singular, and at its stop the Jacobian asked the
+  Warrior's for 2 to 4 rad/s more); no lower than each reaches with its ankle 0.01 rad short of its
+  dorsiflexion stop (`STANCE_ANKLE_SPARE`). Asked 5 cm under a stance 3 cm low, the Rogue's ankles met
+  their stop and it toppled backward; held above it, each human stands some 5 cm under its reference
+  height at the lowest. A lower stance needs the hip to hinge, or a larger ankle range.
+- **Solver conditioning, named and measured:** a stance foot's rotational inertia is raised 100
+  times while it stands. At its own inertia the solver stalls; the Warrior falls, and even at 480 Hz
+  the Rogue stops 3.25 cm behind. The table is on `STANCE_FOOT_CONDITIONING`.
+- **The held region:** the goal is held inside the soles' outline drawn halfway in
+  (`SUPPORT_INSET` 0.5). Nearer the edges, the everters (20-27 N m) saturate and the far foot bears
+  nothing; the sweep is on `SUPPORT_INSET`.
+- **A step** (`StanceGoal.swing`: the foot, where its sole's middle lands, the swing's time and
+  lift). The stance shifts its plan over the bearing sole, lifts the foot once the capture point
+  (Pratt et al. 2006) is over that sole, and carries it on a minimum-jerk path with a lift, tracked
+  at a 0.1 s constant, its turn held. In the swing the plan falls as an inverted pendulum about a
+  pivot in the bearing sole, chosen by capture-point control (Englsberger et al. 2011) to bring the
+  capture point to between the soles when the foot lands.
+- **A step to catch a push** (`STANCE_RECOVERY`). Standing on both feet, once the measured capture
+  point is 1 cm outside the region the soles hold, the foot away from it steps without a weight
+  shift, to where the capture point will be when it lands -- running away from the bearing sole
+  for the swing's 0.2 s -- and 15 % further, a sole's width out from the bearing foot at least. The
+  step runs to its landing, and the stance holds the new feet; if the capture point is still out,
+  it steps again. A goal that asks for its own step, or stands on one foot, takes none.
+- **Measured** (Node stand, 120 Hz):
+  - Both humans stand 3 cm low for 5 s within 0.9 mm of the soles' middle, drifting under 0.6 mm
+    over the last 2 s.
+  - The Rogue goes 2 and 3 cm across, 3 cm down and turns 0.2 rad, stopping 3.4 mm from the place.
+  - A place 30 cm out each way is held at the outline's edge within 6 mm; the far foot slips once,
+    6 mm, at -x.
+  - Asked 10 cm down and 3 cm forward, each human stops about 6 cm above the height, its ankles
+    inside their range, and stands; with no floor, each falls.
+  - Each human steps each foot 15 and 25 cm forward, 15 cm back and 10 cm out, landing within
+    15.3 mm of the asked place, and stands within 3.2 mm of its place; the bearing foot moves at most
+    8.8 mm. Of the sweep's 48 steps, none fails; 30 cm forward and 25 back are marginal, and a 30 cm
+    step from standing in 0.45 s cannot carry the capture point that far over one sole.
+  - Shoved level at the middle trunk's centre of mass by 10 to 60 N s, sixteen ways, from 3 cm
+    under the reference height: without steps the Rogue holds 47 of the 176 shoves, 19.4 N s on
+    average over the ways (10 the least), and the Warrior 73, 27.5 (15); stepping, 114, 40.0 (30)
+    and 168, 56.3 (35). Sideways is the weakest way: the far foot steps out with no weight shifted
+    first. Many held shoves take two or more steps: a long step leaves a wide stance whose soles
+    hold a thin band, and a foot slips at the engine's default friction (0.5, the lesser of the two
+    touching; contact materials are stage 5's).
+  - No human reference for these impulses is sourced yet, so the acceptance's "stated impulse" is
+    the table on `STANCE_RECOVERY`, not a comparison.
+
+**What landed (2026-09-29): walking** (`StanceGoal.walk`, `walkStep`, `STANCE_GAIT`).
+- **A walk is a velocity asked of the stance.** Its steps alternate; each lands where the measured
+  capture point says the next stance must be to carry the pace, the soles 20 cm apart across the
+  heading, and the pace goes toward the one asked at 1 m/s^2. Asked for none, a walk still under
+  way steps until its capture point is inside what the soles hold, then stands.
+- **Two findings shaped it.** A step fixed to fall about its bearing sole's middle multiplies a
+  landing's miss by exp(wT), about 3.7, each step: the steps widened until the feet could not
+  reach, so each step now chooses its pivot within the sole. A foot carried at the turn it left
+  the ground with drifted in yaw, step by step, to 50 degrees off; it now lands facing the heading.
+  A foot rolling onto its toe's edge before it lifts was built, cost 30 held shoves and did not help
+  the walk, and was taken out.
+- **Measured** (Node stand, 120 Hz; each human, 12 s at 0.2-0.7 m/s five ways, 1 and 3 cm low):
+  93 of 100 walks hold, every one up to 0.5 m/s; they go at about 0.84 of the speed asked. A
+  reversal reaches 0.9 of the new pace in 1.07 s on average; 51 of 60 stopped walks settle. On
+  this code 1 of the 48 steps fails (the Warrior's right foot 25 cm back, a marginal one), and the
+  shove table reads as before but for the Warrior, who falls to 20 N s from behind.
+- **Against the acceptance: not met.** A human's preferred walk is near 1.4 m/s; this one falls
+  above 0.5. The limits found are the ankle's dorsiflexion range (a deeper crouch is worse) and the
+  trailing foot's toe scuffing with its ankle at its stop: a faster walk needs a foot that rolls
+  over its ball, an anatomy change. Running (flight) is not attempted. No human reference for the
+  reversal time is sourced yet.
+- **A known defect: some stopped walks sway.** 9 of 60 sway from foot to foot, 2-4 cm either way at
+  about 0.12 m/s, and do not settle. The cause is the foot conditioning: a foot rocked onto its
+  edge does turn, and at 100 times its inertia it turns as a flywheel. Lower factors settle more
+  (19 still moving at 100, 4 at 30) but fail more steps and let a lean to the soles' edge set off
+  falling recovery steps; Havok exposes no solver iterations to raise instead. The table and the
+  choice are on `STANCE_FOOT_CONDITIONING`.
+- **Also found:** with recovery steps off, a sideways kick of 0.3 m/s or more rocks the body
+  harder each cycle until it falls, because a stance foot that lifts is still driven as if planted.
+  Driving a lifted foot back onto the ground held 30 of 32 kicks against 12 of 24, but with
+  recovery steps on it changed no shove cell and failed one or two more of the 48 steps, so it is
+  not in.
+- **Assistance:** none. Nothing but the legs' muscles holds the body up; the only non-anatomical
+  term is the foot conditioning, named as solver conditioning.
+- **Not yet:** the routine's carried pelvis is still a scaffold, and the stance is not yet in the
+  lab page; running, the dash, rolling and getting up.
 
 ### Stage 5: the rulebook, the damage unit and the HP pool
 

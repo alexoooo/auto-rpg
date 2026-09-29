@@ -13,7 +13,7 @@ a clean, physically based core beside the old game, humans first, argued in
 [docs/plans/README.md](docs/plans/README.md), which also says which commit holds a deleted document.
 
 **Rules below are short on purpose.** Each cites an entry in [docs/history.md](docs/history.md)
-(`H01`-`H73`) that holds the incident, the numbers and how it was found. Read the entry before
+(`H01`-`H76`) that holds the incident, the numbers and how it was found. Read the entry before
 arguing with a rule. History entries may name code that has since been deleted; the lesson stands.
 
 ## Commands
@@ -68,7 +68,8 @@ it blocks play, and it is not extended. `src/core/` has these rules:
   spreads another family's spec; families share code, not values.
 - **Tuning is immutable.** An experiment passes an override in; nothing mutates a global.
 - **One world step** owns physics, control, combat and the clock. The page, the harness and the
-  research runners all call it.
+  research runners all call it: `World.step` (`src/core/world.ts`), whose hooks replace scene
+  observers. A core world turns off the scene's own stepping, so `scene.render()` never advances it.
 - **Solver conditioning is not anatomy.** An inertia floor or damping term that exists for the
   solver is named as such, measured, and kept out of the body's numbers.
 - **The legacy human** (`humanBiped`, `humanTorso`, `humanHead` in `src/golem/humanoid/body.ts`,
@@ -102,6 +103,19 @@ it blocks play, and it is not extended. `src/core/` has these rules:
   builds its impulse over several steps, which at 120 Hz is the servo's own time scale; the core's
   servo gives torque sources. Havok also brakes any body whose centre moves under ~0.12 m/s at
   ~0.3 m/s^2, so a servo stops a little short. (H73)
+- **A controller of a fast chain must ask for the motion under way** (`BodyDynamics.bias`), or a
+  fast forearm throws the hand it holds. Havok has no gyroscopic torque (a free body keeps its
+  angular velocity), so a model of the engine leaves `w x I w` out. A lone body not held awake
+  sleeps within a step at fine rates while its velocity still reads. (H74)
+- **Turn a vector with `applyRotationQuaternionToRef`, never `rotateByQuaternionToRef`**, which
+  goes through a float32 `Matrix` (1e-8 m of noise, enough to ruin a differenced Jacobian);
+  `tests/core-boundary.test.mjs` refuses the float32 path in `src/core/`. At 120 Hz a hinge gives
+  0.7 deg about its locked axes under a forearm's weight, as the square of the step. (H75)
+- **Havok's limits measure a swing and a halfway twist**: the rotation vector of the shortest turn
+  of the constraint's X, and the twist about the axis halfway between the two X's. Its position
+  motors hold the Euler angles Rx Ry Rz instead. `jointAngles` reads the limits' measure; a range
+  and a goal mean nothing unless read the way the limit reads. Press a limit before trusting a
+  reading of it. (H76)
 - **Force a body awake before a rest measurement** (`setActivationControl(body, 1)`); a sleeping
   body reads a perfect zero. (H08)
 - **Build a welded body in the frame its weld demands.** A weld that disagrees at construction is

@@ -13,15 +13,18 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * drives (`src/core/build/joint-state.ts`). The change of rate each freedom asks for over the step
  * becomes a change of speed through the joint's turning (`turningToRef`). Asking each motor for its
  * own freedom's change, as this servo once did, is right only near the reference pose: with the
- * shoulder flexed past a quarter turn, abduction's motor axis has turned past square to the angle's,
- * and the servo pushed abduction away from its goal. The Rogue's right arm alone, upper trunk held,
+ * shoulder flexed past a quarter turn, in the Euler angles the joints were then read in,
+ * abduction's motor axis had turned past square to the angle's, and the servo pushed abduction away
+ * from its goal; in the reading now, a shoulder swung 1.9 rad parts its speeds from its rates as much. The Rogue's right arm alone, upper trunk held,
  * servoed to shoulder flexion 2.5, abduction 0.5 and elbow 1.6 rad for 0.8 s (Node stand, gravity,
  * self-contact off), ended with its shoulder at flexion -0.78, abduction 1.55 and internal rotation
  * -2.39 at 120 Hz, and 2.61, 1.41 and 0.96 at 960 Hz; this servo ends at 2.54, 0.49 and 0.01 at
- * both; `tests/core-servo.test.mjs` holds it to that at a nearby pose.
+ * both. Those angles are the Euler angles the joints were read in then; read as Havok's limits
+ * measure them (H76) the pose is another, and `tests/core-servo.test.mjs` holds the servo to it
+ * through a shoulder swung 1.9 rad.
  *
- * **As torques.** The servoed freedoms' torques are M a - gravity (`bodyDynamics`), where a is the
- * change of speed asked over the step, and each is given to the driver as a torque source: a speed
+ * **As torques.** The servoed freedoms' torques are M a + bias - gravity (`bodyDynamics`), where a
+ * is the change of speed asked over the step and bias what the motion under way asks, and each is given to the driver as a torque source: a speed
  * no joint reaches, at the activation that makes its ceiling that torque. Freedoms the goal leaves
  * be (a push) keep their command, whose torque the servo takes to be its ceiling toward its target,
  * and a servoed torque beyond what its muscles can give is held at their strength; the rest are
@@ -38,7 +41,7 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * Havok has no solver setting but the ideal step (`HP_World_SetIdealStepTime`), and holding that
  * below the step made the chain ring harder, and below half the step weakened every motor.
  *
- * Measured, the velocity servo against this one (Node stand, self-contact off): the arm above,
+ * Measured, the velocity servo against this one (Node stand, self-contact off, the Euler reading): the arm above,
  * returning to zero, hand peak 4.74 against 3.53 m/s at 120 Hz and 960 Hz, and 4.67 against 4.66;
  * the whole Rogue (lower trunk held, gravity), guard to a searched chamber and back, hand peak
  * 3.71 against 2.02 at 120 Hz and 1920 Hz, and 2.36 against 2.28. On the lab's straights the fist
@@ -58,9 +61,15 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *   arm it spun the wrist at up to 14 rad/s and never reached the chamber at 1920 Hz. Gravity is
  *   known, and is computed; contact is left to the angle's error.
  *
- * Not modelled: the part of the motion that goes as the square of the speeds, and the root's own
- * acceleration (the lab carries its pelvis). Both leave the motion off the damped one it asks for,
- * alike at every rate, and the goal's error takes them up.
+ * **The motion under way** (`BodyDynamics.bias`, the part that goes as the square of the speeds)
+ * was left out until a searched blow showed its size. Without it the servo holds a joint only
+ * through its angle's error, and the error builds too slowly for a light segment at the end of a
+ * fast chain: the Rogue's forearm, driven straight, threw her servoed hand about the wrist at 83
+ * rad/s while the servo asked the wrist for next to nothing, and the hand's whip made 4.6 m/s of
+ * her fist's 8.7 (Node stand, 120 Hz).
+ *
+ * Not modelled: the root's own acceleration (the lab carries its pelvis). It leaves the motion off
+ * the damped one it asks for, alike at every rate, and the goal's error takes it up.
  *
  * Havok's own residues, which no servo setting moves:
  * - **A slow body is braked.** A body whose centre moves under about 0.12 m/s loses speed at a
@@ -68,23 +77,33 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *   speed limits, the joint's friction, the body's damping or its motor; a pure spin about the
  *   centre is not touched. A rod pinned at one end and let fall under gravity began at 2.1 rad/s^2
  *   against 3.16. A servo stops where its pull no longer beats the brake: the whole Rogue, lower
- *   trunk held, servoed to the guard at 0.1 s, stood still with its elbows 0.022 rad and its wrists
- *   0.026 rad short, with gravity or without, at 120 Hz, and 0.020 and 0.021 at 960 Hz; at 0.05 s,
- *   0.005 and 0.006 (Node stand). The band goes as the square of the time constant.
+ *   trunk held, servoed to the guard at 0.1 s, stood still with its elbows 0.013 rad and its wrists
+ *   0.031 rad short at 120 Hz, and 0.011 and 0.029 at 960 Hz; at 0.05 s and 960 Hz, 0.003 and
+ *   0.008 (Node stand). Where in the band a joint stops depends on how it came: before the servo
+ *   asked for the motion under way the same hold read 0.022 and 0.026 at 120 Hz. The band goes as
+ *   the square of the time constant.
  * - **The wrist's pronation flickers at 120 Hz**: its solver speed turns over from step to step
  *   while its angle holds within 0.01 rad, and a joint coming back to a hold jolts it by 0.03 rad
- *   for a step. Stiffer, it rings: at 0.05 s the Rogue's wrists turned about pronation at 7 rad/s
- *   at 120 Hz, thrown by their other two freedoms' motors, and at 960 Hz held. At 0.1 s the torque
- *   the dynamics say each step's change took is the torque given, to 0.05 N m at an elbow given
- *   0.9 and 0.007 at a wrist given 0.13; at 0.05 s and 120 Hz a wrist's is 5 N m off, and it is
- *   not known whether the ring is the servo's or the solver's.
+ *   for a step.
+ * - **A time constant needs ten steps.** Stiffer, the wrists ring about pronation, thrown by their
+ *   other two freedoms' motors: at nine steps (0.075 s at 120 Hz, 0.0375 s at 240 Hz) the whole
+ *   Rogue's (lower trunk held, no ground, Node stand) turned at 6-7 rad/s, and at ten (0.083 s,
+ *   0.042 s) they held; six steps rang at 120, 240 and 480 Hz alike, and twelve held. Like the
+ *   motor's lag, it is counted in steps. At twelve steps the torque the dynamics say each step's
+ *   change took is the torque given, to 0.05 N m at an elbow given 0.9 and 0.007 at a wrist given
+ *   0.13; ringing, a wrist's is 5 N m off. Taking the driver's reach off the torque sources made
+ *   it worse (41 rad/s at six steps), so the reach bounds the ring rather than making it. Why ten
+ *   is not known.
  *
  * A goal that leaves a channel be (returns undefined) has set that channel's command before it
- * returns: the servo reads the command then, as the torque it solves around.
+ * returns: the servo reads the command then, as the torque it solves around. A goal that moves
+ * hands in its rate and acceleration (`ServoFeed`), and is followed with the error's damped motion
+ * about it.
  */
-export function servo(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number): void {
+export function servo(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number,
+  feed?: ServoFeed): void {
   const n = 1 / seconds, count = driver.channels.length;
-  const { mass, gravity } = driver.dynamics;
+  const { mass, gravity, bias } = driver.dynamics;
   let work = scratch.get(driver);
   if (!work) scratch.set(driver, (work = { change: new Float64Array(count), accel: new Float64Array(count),
     torque: new Float64Array(count), fixed: new Uint8Array(count) }));
@@ -95,7 +114,9 @@ export function servo(driver: MuscleDriver, goal: (channel: number) => number | 
   for (let i = 0; i < count; i++) {
     const g = goal(i);
     fixed[i] = g === undefined ? 1 : 0;
-    change[i] = g === undefined ? NaN : dt * (n * n * (g - driver.angle(i)) - 2 * n * driver.rate(i));
+    change[i] = g === undefined ? NaN : feed
+      ? dt * (feed.acceleration(i) + n * n * (g - driver.angle(i)) + 2 * n * (feed.rate(i) - driver.rate(i)))
+      : dt * (n * n * (g - driver.angle(i)) - 2 * n * driver.rate(i));
     if (g === undefined) {
       const push = driver.velocity[i]! - driver.speed(i), sense = push >= 0 ? 1 : -1;
       torque[i] = sense * Math.max(0, Math.min(1, driver.activation[i]!)) * driver.strength(i, sense);
@@ -115,7 +136,7 @@ export function servo(driver: MuscleDriver, goal: (channel: number) => number | 
   // The torques, solved around the fixed ones; a torque the muscles cannot give is held at their
   // strength and the rest solved again.
   for (let pass = 0; pass <= count; pass++) {
-    solveAround(mass, gravity, fixed, torque, accel, count);
+    solveAround(mass, gravity, bias, fixed, torque, accel, count);
     let clipped = false;
     for (let i = 0; i < count; i++) {
       if (fixed[i]) continue;
@@ -133,24 +154,34 @@ export function servo(driver: MuscleDriver, goal: (channel: number) => number | 
   }
 }
 
+/**
+ * A moving goal's rate (rad/s) and acceleration (rad/s^2) by channel, for a servoed channel: the
+ * servo then asks for the goal's own acceleration, plus the damped pull on the error in angle and
+ * in rate, so it follows a path rather than lagging it by a time constant.
+ */
+export interface ServoFeed {
+  rate(channel: number): number;
+  acceleration(channel: number): number;
+}
+
 interface Work { change: Float64Array; accel: Float64Array; torque: Float64Array; fixed: Uint8Array }
 const scratch = new WeakMap<MuscleDriver, Work>();
 
 /**
- * With M u' = torque + gravity: the fixed freedoms' accelerations from their torques and the free
- * ones' accelerations, then the free ones' torques. Writes `torque` for the free freedoms and
+ * With M u' + bias = torque + gravity: the fixed freedoms' accelerations from their torques and the
+ * free ones' accelerations, then the free ones' torques. Writes `torque` for the free freedoms and
  * `accel` for the fixed ones. M restricted to the fixed freedoms is positive definite (a mass
  * matrix), so it is solved by Cholesky.
  */
-function solveAround(mass: readonly Float64Array[], gravity: Float64Array, fixed: Uint8Array,
+function solveAround(mass: readonly Float64Array[], gravity: Float64Array, bias: Float64Array, fixed: Uint8Array,
   torque: Float64Array, accel: Float64Array, count: number): void {
   const F: number[] = [], S: number[] = [];
   for (let i = 0; i < count; i++) (fixed[i] ? F : S).push(i);
   if (F.length) {
-    // M_FF a_F = torque_F + gravity_F - M_FS a_S
+    // M_FF a_F = torque_F + gravity_F - bias_F - M_FS a_S
     const m = F.length, L = new Float64Array(m * m), b = new Float64Array(m);
     F.forEach((f, r) => {
-      let rhs = torque[f]! + gravity[f]!;
+      let rhs = torque[f]! + gravity[f]! - bias[f]!;
       for (const s of S) rhs -= mass[f]![s]! * accel[s]!;
       b[r] = rhs;
     });
@@ -164,7 +195,7 @@ function solveAround(mass: readonly Float64Array[], gravity: Float64Array, fixed
     F.forEach((f, r) => { accel[f] = b[r]!; });
   }
   for (const s of S) {
-    let sum = -gravity[s]!;
+    let sum = bias[s]! - gravity[s]!;
     for (let j = 0; j < count; j++) sum += mass[s]![j]! * accel[j]!;
     torque[s] = sum;
   }
