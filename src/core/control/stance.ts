@@ -4,7 +4,7 @@ import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts
 import { jointAngles, motionAxesToRef } from "../build/joint-state.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { chainTo } from "./kinematics.ts";
+import { chainTo, rotationAtToRef } from "./kinematics.ts";
 
 export type Foot = "left" | "right";
 
@@ -21,21 +21,55 @@ export interface StanceGoal {
   readonly height: number;
   /** The pelvis's heading, rad about the world's up: 0 faces it as in the reference pose. */
   readonly heading: number;
+  /** A foot not in `feet` carried to a landing place; none, and the other leg is left to the posture. */
+  readonly swing?: SwingGoal | null;
 }
 
 /**
+ * **A step's swing**: the foot lifted and carried to where its sole's middle lands, over the ground,
+ * on a minimum-jerk path lifted by `lift` at its middle, kept at the turn it had when it left the
+ * ground. A goal equal to the last keeps its path; a new one starts from where the foot is.
+ */
+export interface SwingGoal {
+  readonly foot: Foot;
+  /** The sole's middle's landing place, world (x, z), m. */
+  readonly to: readonly [number, number];
+  /** The swing's time, s. */
+  readonly seconds: number;
+  /** How high the sole's middle is lifted at the swing's middle, m. */
+  readonly lift: number;
+  /**
+   * Whether the weight is first shifted onto the other foot (the default): the foot leaves the
+   * ground once the planned capture point is over the other sole. A step to catch a fall lifts at
+   * once.
+   */
+  readonly shift?: boolean;
+}
+
+/**
+ * Where a stance is: standing (no step, or its foot landed), shifting its weight before a step, or
+ * swinging the step's foot.
+ */
+export type StancePhase = "stand" | "shift" | "swing";
+
+/**
  * **Standing: the pelvis carried by the legs, the feet where they are.** The stance plans its
- * centre of mass's way to the goal -- critically damped at a time constant (`STANCE_SECONDS`), no
- * faster than `STANCE_SPEED` across the ground, and toward a place the soles can hold
- * (`withinSupport`) -- and each step asks the pelvis for a motion: the plan's velocity, with the
- * centre of mass's error from the plan over the time constant, and a turn toward upright at the
- * goal's heading, its error over its own. It gives each stance leg's freedoms the speeds that make
- * that motion with the foot still: the leg's Jacobian, from the pelvis to the foot, undone
- * (`legSpeeds`) -- by a leg in proportion to the weight it bears, the rest of its speeds following
- * the pelvis as it moves. The muscles are asked for those speeds at full activation, so each
- * joint's motor pulls toward its speed with what strength it has at the speed (`driveMuscles`), and
- * Havok's solver finds the torques together with the ground's push and the other leg's, in the same
- * solve.
+ * centre of mass's way to the goal -- critically damped at a time constant (`STANCE_SECONDS`),
+ * toward a place the soles can hold (`withinSupport`), no higher than the legs reach with their
+ * knees bent (`STANCE_KNEE_BEND`) and no lower than they reach within their ankles' range
+ * (`STANCE_ANKLE_SPARE`) -- and each step asks the pelvis for a motion: the plan's
+ * velocity, with the centre of mass's error from the plan over the time constant and its velocity's
+ * error by a gain (`STANCE_VELOCITY_GAIN`), and a turn toward upright at the goal's heading, its
+ * error over its own. It gives each stance leg's freedoms the speeds that make that motion with the
+ * foot still: the leg's Jacobian, from the pelvis to the foot, undone (`legSpeeds`). The muscles
+ * are asked for those speeds at full activation, so each joint's motor pulls toward its speed with
+ * what strength it has at the speed (`driveMuscles`), and Havok's solver finds the torques together
+ * with the ground's push and the other leg's, in the same solve.
+ *
+ * **A step** (`SwingGoal`) shifts the weight onto the other foot until the body's capture point is
+ * over that sole, lifts the foot, and carries it on its path while the plan falls as an inverted
+ * pendulum about a point of the bearing sole chosen to bring the capture point to the middle of the
+ * stance the step lands in; the foot lands at the swing's end, and the stance holds the new feet.
  *
  * The plan is what makes a move settle. Asked straight for its error over the time constant, the
  * body read its own velocity a step late, overshot a place 2 and 3 cm away and fell by 3 s; asked
@@ -83,6 +117,8 @@ export interface StanceReading {
   readonly velocity: Vector3;
   /** The middle of the stance feet's soles, world; with no stance, of both feet. */
   readonly support: Vector3;
+  /** Each sole's middle, world. */
+  readonly soles: Readonly<Record<Foot, Vector3>>;
   /**
    * The place over the ground the stance holds the centre of mass toward, world (x, z; y unused):
    * the goal's, or the nearest the stance soles can hold (`withinSupport`).
@@ -90,61 +126,97 @@ export interface StanceReading {
   readonly place: Vector3;
   /** The velocity asked of the centre of mass, carried by the pelvis, world, m/s. */
   readonly asked: Vector3;
+  /** Where the stance is in a step. */
+  readonly phase: StancePhase;
 }
 
 /**
  * The time constants, s, of the centre of mass's pull across the ground and in height, critically
- * damped, and of the pelvis's turn, whose speed asked is its error over its constant.
+ * damped, of the pelvis's turn, and of a swinging foot's pull onto its path, each of whose speed
+ * asked is its error over its constant. The swing's is from a sweep: of `STANCE_VELOCITY_GAIN`'s 48
+ * steps, at 0.05 s 2 failed and the worst landing missed by 3.5 cm, the foot wandering 3 cm either
+ * side of its path; at 0.1, 2 and 1.7 cm; at 0.2, 3 and 1.6 cm (Node stand, 120 Hz).
  */
-export const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15 } as const;
+export const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.1 } as const;
 
 /** What an experiment may set in place of the stance's constants. */
 export interface StanceTuning {
-  readonly seconds?: { readonly across: number; readonly height: number; readonly turn: number };
+  readonly seconds?: { readonly across: number; readonly height: number; readonly turn: number; readonly swing: number };
   readonly footConditioning?: number;
-  readonly speed?: number;
   readonly supportInset?: number;
+  readonly velocityGain?: number;
+  /** The least knee bend the height is held for, rad; null holds the goal's height however far the legs reach. */
+  readonly kneeBend?: number | null;
+  /** The ankle's dorsiflexion left unused, rad; null holds the goal's height however far the ankles bend. */
+  readonly ankleSpare?: number | null;
 }
 
 /**
- * **A control setting, from a sweep**: the plan's fastest speed across the ground, m/s. The stance
- * is a shift of weight between feet that stay put; farther and faster is a step's work.
+ * **A control setting, from a sweep**: the gain on the centre of mass's velocity error across the
+ * ground, the plan's less the body's, added to the velocity asked of the pelvis.
  *
- * Two things give out toward the edge of the soles. Sideways, both feet flat, the ankles turn as
- * far as the hips, and the ankle's everters and invertors -- some 20 to 27 N m (`humanSpec`) -- are
- * what stop the body: a Rogue carried 30 cm sideways with no speed limit, the outline drawn in by
- * 0.2, was pulling 26.3 of its 26.9 N m, dragged at twice its asked speed, and fell. And a centre of
- * mass over one foot leaves the other bearing little, and a leg asked to carry the pelvis slides a
- * foot that bears nothing (hence the legs' shares in `command`). The centre of mass's stop from the
- * held place, cm, and the feet's furthest travel, mm, 6 s after it was asked for a place 30 cm away
- * across the ground each way (+x, -x, +z, -z; held at the edge of the outline drawn in by
- * `SUPPORT_INSET`), 3 cm under the reference height, by the inset and this speed (Node stand,
- * 120 Hz):
+ * The legs' motors do not hold the pelvis at the speed asked of it: joined through the ground, the
+ * two legs are a closed chain, and Havok's solver leaves it soft -- after a step, the Rogue's
+ * pelvis was moving at 21.6 cm/s when asked for 1.1, its legs' motors pulling a tenth of their
+ * ceilings. Without the gain, a stance staggered by a step swayed along the line between its feet,
+ * each swing larger (0.8 s apart, 3 then 22 then 41 cm/s), and fell by 6 s. The steps that failed
+ * of 48 -- both humans, each foot, 10, 15, 25 and 30 cm forward, 15 and 25 back, 5 and 10 out, 5 in,
+ * and 8 out and 10 forward, 5 out and 10 back, 5 in and 20 forward; standing 1 s, a 0.45 s swing
+ * lifted 5 cm, standing to 6 s; a failure falls, or ends more than 3 cm from its place or moving
+ * faster than 5 cm/s over its last 2 s -- and the worst miss of a landed sole's middle, cm, by the
+ * gain (Node stand, 120 Hz):
  *
- *     inset  speed   Rogue                            Warrior
- *     0.35   0.05    0.9/3   1.4/4   0.8/2   0.4/1    1.7/3   2.4/7   0.8/3   0.7/2
- *     0.35   0.1     0.8/8   1.2/6   0.9/2   0.4/1    1.7/4   2.2/9   0.9/3   0.7/2
- *     0.35   0.2     5.5/44  1.2/17  0.9/2   0.4/1    2.0/11  1.5/13  0.9/3   0.7/2
- *     0.35   none    5.5/44  1.2/17  0.9/2   0.4/1    2.0/10  fell    0.9/3   0.7/2
- *     0.4    0.05    0.4/2   0.3/2   0.8/2   0.3/1    0.7/2   1.4/2   0.7/3   0.6/2
- *     0.4    0.1     0.4/3   0.4/7   0.8/2   0.3/1    0.7/2   1.2/5   0.8/3   0.6/2
- *     0.4    0.2     fell    0.5/7   0.8/2   0.3/1    1.0/8   1.2/8   0.8/3   0.6/2
- *     0.4    none    fell    0.5/7   0.8/2   0.3/1    1.0/8   6.0/49  0.8/3   0.6/2
- *     0.45   0.05    0.3/2   0.2/2   0.7/2   0.2/1    0.1/2   0.3/3   0.7/3   0.6/2
- *     0.45   0.1     0.4/2   0.3/6   0.8/2   0.2/1    0.2/2   0.2/5   0.7/3   0.6/2
- *     0.45   0.2     0.5/3   0.4/6   0.7/2   0.2/1    0.3/5   0.4/7   0.6/3   0.6/2
- *     0.45   none    0.5/3   0.4/6   0.7/2   0.2/1    0.3/5   0.5/7   0.6/3   0.6/2
- *     0.5    0.05    0.3/2   0.3/3   0.7/2   0.2/1    0.0/2   0.3/3   0.6/2   0.5/2
- *     0.5    0.1     0.3/2   0.3/5   0.7/2   0.2/1    0.1/2   0.0/6   0.6/2   0.5/2
- *     0.5    0.2     0.2/2   0.5/6   0.7/2   0.2/1    0.3/2   0.1/7   0.5/2   0.5/2
- *     0.5    none    0.2/2   0.5/6   0.7/2   0.2/1    0.3/2   0.1/7   0.5/2   0.5/2
+ *     gain      0     0.5    1     1.5    2      3      4
+ *     failed    12    8      5     2      0      1      0
+ *     miss      2.0   4.2    3.5   2.1    1.7    1.6    1.9
  *
- * A place 6 cm away is held within 6 mm each way, the feet within 2 mm, at 0.1 and with no limit.
- * The 5 to 7 mm at -x is the far foot, left a sixth of the weight, slipping once. At 0.5 the limit
- * changes little; it is the margin around it: with no limit the stance falls at 0.4 and 0.35, and at
- * 0.1 it holds every place at every inset of the table within 2.4 cm and the feet within 9 mm.
+ * 2 is the least gain that fails none. The 30 cm forward steps and the 25 cm back steps are the
+ * marginal ones: from standing, in 0.45 s, the capture point can barely be carried 30 cm over one
+ * sole. The gain also holds the places the stance's region was
+ * drawn for with no limit on the plan's speed (`SUPPORT_INSET`), where before it needed one.
  */
-export const STANCE_SPEED = 0.1;
+export const STANCE_VELOCITY_GAIN = 2;
+
+/**
+ * **A control setting, from a sweep**: the least bend of a knee, rad from straight, that the
+ * stance's height is held for.
+ *
+ * A straight knee is a singular leg, and past straight, at its hyperextension stop, the leg's
+ * Jacobian shortens the leg by extending the knee further, which the stop refuses: the Warrior,
+ * stepping 10 cm out from its stance, landed on a knee at its stop and asked it for 2 to 4 rad/s
+ * more, while its pelvis spun. Held low enough for the legs' reach, the stance sinks as its feet
+ * spread. The steps that failed of `STANCE_VELOCITY_GAIN`'s 48, by the bend (Node stand, 120 Hz):
+ *
+ *     bend      none   0.1    0.2    0.3    0.4    0.5
+ *     failed    7      1      0      0      1      1
+ *
+ * Near straight a bend shortens the leg little (0.2 rad, 5 mm on the Warrior). 0.2 is the lesser
+ * of the two that fail none.
+ */
+export const STANCE_KNEE_BEND = 0.2;
+
+/**
+ * **A control setting, from a sweep**: the ankle's dorsiflexion, rad, that the stance's height
+ * leaves unused.
+ *
+ * With the feet flat and the pelvis upright, a lower stance tips the shanks further forward, and
+ * the ankle's range (`humanSpec`: 0.35 rad from the reference pose) ends it: standing 3 cm under
+ * the reference height, the Rogue's ankles are already at 0.26. Asked 5 cm lower still, its ankles
+ * met their stop 0.3 s later, the legs' Jacobian went on asking them for 0.4 to 0.6 rad/s, and the
+ * body toppled backward within a second; asked 40 cm lower, the same. Held above the ankles' reach,
+ * each human sank to it and stood, asked 10 or 40 cm lower at once, at every spare from 0 to 0.05
+ * (Node stand, 120 Hz), each some 5 cm under its reference height.
+ * The steps that failed of `STANCE_VELOCITY_GAIN`'s 48, by the spare (Node stand, 120 Hz):
+ *
+ *     spare     none   0      0.01   0.02   0.03   0.05   0.1
+ *     failed    2      1      0      1      1      2      6
+ *
+ * Those that fail from none to 0.05 are the marginal steps, 30 cm forward and 25 back, one side or
+ * another from run to run; a larger spare holds a stepping stance too high for its knees. A stance
+ * lower than this needs the hip to hinge -- the pelvis back, the trunk forward -- which the stance
+ * does not yet do; or an ankle range larger than the one measured.
+ */
+export const STANCE_ANKLE_SPARE = 0.01;
 
 /**
  * **Solver conditioning, not anatomy**: the factor a stance foot's rotational inertia is multiplied
@@ -159,10 +231,10 @@ export const STANCE_SPEED = 0.1;
  * standing 3 cm under the reference height, by the factor (Node stand, 120 Hz):
  *
  *     factor      1       3       10      30      100     300
- *     Rogue    -4.72   -3.58   -0.42   +0.03   +0.01   +0.01
- *     Warrior  falls   falls   -5.03   -0.63   -0.12   -0.04
+ *     Rogue    -4.23   -3.06   -0.52   -0.00   +0.01   +0.01
+ *     Warrior  falls   falls   -3.76   -0.66   -0.15   -0.04
  *
- * At 480 Hz and no factor the Warrior falls too, and the Rogue stops 3.25 cm behind: a finer step
+ * At 480 Hz and no factor the Warrior falls too, and the Rogue stops 2.70 cm behind: a finer step
  * does not cure it. 100 is the least factor of the table that holds both within 3 mm.
  */
 export const STANCE_FOOT_CONDITIONING = 100;
@@ -175,11 +247,24 @@ export const STANCE_FOOT_CONDITIONING = 100;
 export const LEG_DAMPING = 0.02;
 
 /**
- * **A control setting, from a sweep (`STANCE_SPEED`'s table)**: the fraction by which the outline
- * of the stance soles' corners (their convex hull, across the ground) is drawn toward its middle to
- * give the region the stance holds its centre of mass in. Not every centre of mass over the soles
- * is one the body can hold on both feet: short of their edges the ankles' muscles give out, and one
- * foot is left bearing nothing.
+ * **A control setting, from a sweep**: the fraction by which the outline of the stance soles'
+ * corners (their convex hull, across the ground) is drawn toward its middle to give the region the
+ * stance holds its centre of mass in. Not every centre of mass over the soles is one the body can
+ * hold on both feet: sideways, both feet flat, the ankles turn as far as the hips, and the ankle's
+ * everters and invertors -- some 20 to 27 N m (`humanSpec`) -- are what stop the body; and a centre
+ * of mass over one foot leaves the other bearing little, and a leg asked to carry the pelvis slides
+ * a foot that bears nothing. The centre of mass's stop from the held place, cm, and the feet's
+ * furthest travel, mm, 6 s after it was asked for a place 30 cm away across the ground each way
+ * (+x, -x, +z, -z; held at the edge of the drawn outline), 3 cm under the reference height, by the
+ * inset (Node stand, 120 Hz):
+ *
+ *     inset   Rogue                            Warrior
+ *     0.2     2.5/101 falls   1.0/3   0.5/1    5.3/218 falls   1.1/3   0.9/2
+ *     0.3     0.3/12  0.4/17  0.9/2   0.4/1    0.2/15  0.2/8   0.9/3   0.7/2
+ *     0.4     0.2/2   0.1/8   0.8/2   0.3/1    0.1/2   0.1/4   0.7/3   0.6/2
+ *     0.5     0.2/2   0.1/7   0.6/2   0.1/1    0.0/2   0.1/2   0.5/3   0.5/2
+ *
+ * The 7 mm at -x is the far foot, left a sixth of the weight, slipping once.
  */
 export const SUPPORT_INSET = 0.5;
 
@@ -191,9 +276,11 @@ interface FootState {
   readonly sole: readonly Vector3[];
   /** The stance leg's channels, the chain's freedoms in order. */
   channels: number[];
-  /** The sole's corners and middle, world, as last read. */
+  /** The sole's corners and middle, world, as last read (the reading's `soles`). */
   readonly corners: Vector3[];
   readonly middle: Vector3;
+  /** The thigh's and the shank's lengths, hip to knee and knee to ankle, in the reference pose. */
+  readonly lengths: readonly [number, number];
   /** The foot's own mass properties, and whether they are conditioned now. */
   readonly natural: PhysicsMassProperties;
   conditioned: boolean;
@@ -202,19 +289,25 @@ interface FootState {
 export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): StanceControl {
   const seconds = tuning.seconds ?? STANCE_SECONDS;
   const conditioning = tuning.footConditioning ?? STANCE_FOOT_CONDITIONING;
-  const speed = tuning.speed ?? STANCE_SPEED;
   const inset = tuning.supportInset ?? SUPPORT_INSET;
+  const gain = tuning.velocityGain ?? STANCE_VELOCITY_GAIN;
+  const bend = tuning.kneeBend === undefined ? STANCE_KNEE_BEND : tuning.kneeBend;
+  const spare = tuning.ankleSpare === undefined ? STANCE_ANKLE_SPARE : tuning.ankleSpare;
   const pelvis = chainTo(built, built.segments.get("foot.left")!)[0]!.parent;
   const segments = [...built.segments.values()];
   const total = segments.reduce((sum, s) => sum + s.spec.mass.value, 0);
   const feet = (["left", "right"] as const).map((side): FootState => {
     const segment = built.segments.get(`foot.${side}`);
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
-    const sole = soleOf(segment);
-    return { side, segment, chain: chainTo(built, segment), sole, channels: [], corners: sole.map(() => new Vector3()),
+    const sole = soleOf(segment), chain = chainTo(built, segment);
+    return { side, segment, chain, sole, channels: [], corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       middle: new Vector3(), natural: segment.body.getMassProperties(), conditioned: false };
   });
-  const reading = { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(), asked: new Vector3() };
+  const reading = { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(), asked: new Vector3(),
+    phase: "stand" as StancePhase, soles: { left: feet[0]!.middle, right: feet[1]!.middle } };
+  /** The step under way: its swing, the time since its foot left the ground, and where and how the foot left it. */
+  const step = { swing: null as SwingGoal | null, lifted: false, time: 0, from: new Vector3(), turn: new Quaternion() };
+  const path = new Vector3(), along = new Vector3(), sole = new Vector3(), carried = new Vector3();
   const scene = pelvis.node.getScene();
   let owned = new Uint8Array(0);
   let last: readonly Foot[] | null = null;
@@ -223,18 +316,24 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const v = new Vector3(), spin = new Vector3(), target = new Quaternion(), error = new Quaternion(), inverse = new Quaternion();
   const pelvisVelocity = new Vector3(), pelvisSpin = new Vector3(), turn = new Vector3();
   const p = new Vector3();
+  const hipAt = new Vector3(), ankleAt = new Vector3(), kneeAt = new Vector3(), shank = new Quaternion(), footTurn = new Quaternion();
   const gravity = (): number => -(scene.getPhysicsEngine()?.gravity.y ?? 0);
 
-  /** Each of `stance`'s soles read, and the middle of them into the reading. */
+  /** Ask `foot`'s leg's muscles for `speeds`, in its chain's order, at full activation. */
+  const drive = (foot: FootState, speeds: readonly number[]): void => {
+    foot.channels.forEach((i, k) => {
+      driver!.velocity[i] = speeds[k]!;
+      driver!.activation[i] = 1;
+      owned[i] = 1;
+    });
+  };
+  let driver: MuscleDriver | null = null;
+
+  /** Each sole read, and the middle of `stance`'s into the reading. */
   const supportOf = (stance: readonly FootState[]): void => {
+    for (const foot of feet) soleMiddleToRef(foot, foot.middle);
     reading.support.setAll(0);
-    for (const foot of stance) {
-      const turn = foot.segment.node.rotationQuaternion!, at = foot.segment.node.position;
-      foot.middle.setAll(0);
-      foot.sole.forEach((corner, k) => { foot.middle.addInPlace(corner.applyRotationQuaternionToRef(turn, foot.corners[k]!).addInPlace(at)); });
-      foot.middle.scaleInPlace(1 / foot.sole.length);
-      reading.support.addInPlace(foot.middle);
-    }
+    for (const foot of stance) reading.support.addInPlace(foot.middle);
     if (stance.length) reading.support.scaleInPlace(1 / stance.length);
   };
 
@@ -255,23 +354,36 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       const on = which ?? last;
       supportOf(on ? feet.filter((foot) => on.includes(foot.side)) : feet);
     },
-    command(driver, goal, dt) {
-      if (owned.length !== driver.channels.length) {
-        owned = new Uint8Array(driver.channels.length);
-        for (const foot of feet) foot.channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => driver.channel(`${joint.spec.name} ${dof.spec.positive}`)));
+    command(muscles, goal, dt) {
+      driver = muscles;
+      if (owned.length !== muscles.channels.length) {
+        owned = new Uint8Array(muscles.channels.length);
+        for (const foot of feet) foot.channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => muscles.channel(`${joint.spec.name} ${dof.spec.positive}`)));
       }
       owned.fill(0);
+      // The step: a swing unlike the last starts one, and the feet that bear the body are the goal's
+      // but for a swinging foot.
+      const swing = goal?.swing ?? null;
+      if (!swing) {
+        step.swing = null;
+        reading.phase = "stand";
+      } else if (!sameSwing(swing, step.swing)) {
+        step.swing = swing;
+        step.lifted = false;
+        reading.phase = swing.shift === false ? "swing" : "shift";
+      }
+      const bearing = !goal ? [] : reading.phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;
       for (const foot of feet) {
-        const standing = goal?.feet.includes(foot.side) ?? false;
+        const standing = bearing.includes(foot.side);
         if (standing === foot.conditioned) continue;
         const { inertia } = foot.natural;
         foot.segment.body.setMassProperties({ ...foot.natural, inertia: standing ? inertia!.scale(conditioning) : inertia!.clone() });
         foot.conditioned = standing;
       }
-      if (!goal || !last || goal.feet.length !== last.length || goal.feet.some((side) => !last!.includes(side))) plan.on = false;
-      last = goal?.feet ?? null;
+      if (!goal || !last || bearing.length !== last.length || bearing.some((side) => !last!.includes(side))) plan.on = false;
+      last = goal ? bearing : null;
       reading.asked.setAll(0);
-      const stance = goal ? feet.filter((foot) => goal.feet.includes(foot.side)) : [];
+      const stance = feet.filter((foot) => bearing.includes(foot.side));
       if (!goal || stance.length === 0) return;
       supportOf(stance);
       const c = reading.centre, vel = reading.velocity, g = gravity();
@@ -286,20 +398,78 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         plan.on = true;
       }
       const r = plan.at, u = plan.velocity;
-      // A place outside what the soles can hold is taken at the nearest point that they can.
-      const [gx, gz] = withinSupport(stance, goal.centre?.[0] ?? reading.support.x, goal.centre?.[1] ?? reading.support.z, inset);
-      reading.place.set(gx, 0, gz);
-      const n = 1 / seconds.across, k = 1 / seconds.height;
-      // No faster fall than gravity's: past it the feet would have to pull the body down.
-      u.addInPlaceFromFloats((n * n * (gx - r.x) - 2 * n * u.x) * dt,
-        Math.max(k * k * (goal.height - r.y) - 2 * k * u.y, -g) * dt, (n * n * (gz - r.z) - 2 * n * u.z) * dt);
-      const fast = Math.hypot(u.x, u.z) / speed;
-      if (fast > 1) { u.x /= fast; u.z /= fast; }
+      const n = 1 / seconds.across, k = 1 / seconds.height, pendulum = g / Math.max(r.y, 1e-3);
+      const bearer = swing ? stance.find((foot) => foot.side !== swing.foot) : undefined;
+      let ax: number, az: number;
+      if (reading.phase === "swing") {
+        // On one foot the plan falls as an inverted pendulum of its height about a point of the
+        // bearing sole (Kajita et al. 2001, "The 3D linear inverted pendulum mode", IROS), whose
+        // capture point runs away from that point exponentially. The point is chosen each step so
+        // that the capture point reaches the middle of the stance the step lands in as the foot
+        // lands (Englsberger et al. 2011, "Bipedal walking control based on Capture Point
+        // dynamics", IROS), within what the sole holds: the body falls toward its new stance.
+        const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.seconds - step.time, dt));
+        const tx = (bearer!.middle.x + swing!.to[0]) / 2, tz = (bearer!.middle.z + swing!.to[1]) / 2;
+        const [px, pz] = withinSupport([bearer!], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow), inset);
+        reading.place.set(px, 0, pz);
+        ax = pendulum * (r.x - px);
+        az = pendulum * (r.z - pz);
+      } else if (reading.phase === "shift") {
+        // Before a step the plan goes toward the bearing sole's middle, as fast as its constant
+        // takes it, past what a stance on both feet holds: the foot lifts before it gets there.
+        reading.place.set(bearer!.middle.x, 0, bearer!.middle.z);
+        ax = n * n * (bearer!.middle.x - r.x) - 2 * n * u.x;
+        az = n * n * (bearer!.middle.z - r.z) - 2 * n * u.z;
+      } else {
+        // A place outside what the soles can hold is taken at the nearest point that they can.
+        const [gx, gz] = withinSupport(stance, goal.centre?.[0] ?? reading.support.x, goal.centre?.[1] ?? reading.support.z, inset);
+        reading.place.set(gx, 0, gz);
+        ax = n * n * (gx - r.x) - 2 * n * u.x;
+        az = n * n * (gz - r.z) - 2 * n * u.z;
+      }
+      // No higher than each leg reaches with its knee bent by `STANCE_KNEE_BEND`, its hip carried as
+      // the plan carries the centre of mass: a stance leg from its ankle, a swinging leg from where
+      // its ankle will be when its sole lands.
+      // And no lower than each leg reaches with its ankle dorsiflexed to its range less
+      // `STANCE_ANKLE_SPARE`, its foot where it stands or will land: the knee's place is then fixed,
+      // and the hip is a thigh from it. Where the two disagree, the ankle's stop is the harder limit.
+      let high = goal.height, low = -Infinity;
+      for (const foot of reading.phase === "swing" ? feet : stance) {
+        const [hip, knee, ankle] = foot.chain;
+        pointOfToRef(hip!.parent, hip!.spec.centre.value, hipAt);
+        pointOfToRef(ankle!.parent, ankle!.spec.centre.value, ankleAt);
+        if (!stance.includes(foot)) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
+        const [a, b] = foot.lengths, hx = hipAt.x + r.x - c.x, hz = hipAt.z + r.z - c.z, rise = c.y - hipAt.y - reading.support.y;
+        if (bend !== null) {
+          const long = Math.sqrt(a * a + b * b + 2 * a * b * Math.cos(bend)), across = Math.hypot(hx - ankleAt.x, hz - ankleAt.z);
+          high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - across * across)) + rise);
+        }
+        if (spare !== null) {
+          // The shank's turn is the foot's with the ankle's own undone (rel = D_shank^-1 D_foot).
+          const dorsiflexion = ankle!.dofs[0]!.spec;
+          rotationAtToRef(ankle!, [dorsiflexion.max.value - spare, 0], shank);
+          turnOfToRef(foot.segment, footTurn).multiplyToRef(Quaternion.InverseToRef(shank, shank), shank);
+          const k = knee!.spec.centre.value, o = ankle!.spec.centre.value;
+          kneeAt.set(k[0] - o[0], k[1] - o[1], k[2] - o[2]).applyRotationQuaternionToRef(shank, kneeAt).addInPlace(ankleAt);
+          const across = Math.hypot(hx - kneeAt.x, hz - kneeAt.z);
+          if (across < a) low = Math.max(low, kneeAt.y + Math.sqrt(a * a - across * across) + rise);
+        }
+      }
+      high = Math.max(high, low);
+      u.addInPlaceFromFloats(ax * dt, (k * k * (high - r.y) - 2 * k * u.y) * dt, az * dt);
       r.addInPlace(u.scale(dt));
-      // Asked of the pelvis: the plan's velocity, and the centre of mass's error from the plan over
-      // the across constant.
-      const asked = reading.asked.set(u.x + (r.x - c.x) / seconds.across, u.y + (r.y - height) / seconds.across,
-        u.z + (r.z - c.z) / seconds.across);
+      // The weight is shifted once the body's capture point (Pratt et al. 2006, "Capture point: a step
+      // toward humanoid push recovery", Humanoids) is over the bearing sole: from there the body
+      // falls toward that foot, not away from it.
+      if (reading.phase === "shift") {
+        const w = Math.sqrt(g / Math.max(height, 1e-3)), cx = c.x + vel.x / w, cz = c.z + vel.z / w;
+        const [hx, hz] = withinSupport([bearer!], cx, cz, inset);
+        if (hx === cx && hz === cz) reading.phase = "swing";
+      }
+      // Asked of the pelvis: the plan's velocity, the centre of mass's error from the plan over the
+      // across constant, and across the ground its velocity's error from the plan's by the gain.
+      const asked = reading.asked.set(u.x + (r.x - c.x) / seconds.across + gain * (u.x - vel.x), u.y + (r.y - height) / seconds.across,
+        u.z + (r.z - c.z) / seconds.across + gain * (u.z - vel.z));
 
       // The pelvis's asked turn: toward upright at the heading, the error over the time constant.
       Quaternion.RotationAxisToRef(Vector3.UpReadOnly, goal.heading, target);
@@ -310,30 +480,41 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
       spin.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.turn : 0);
 
-      // Each stance leg's speeds for a motion of the pelvis, its foot still: the motion asked, by a
-      // leg bearing half the weight or more, and the pelvis's own motion by a leg bearing none, which
-      // otherwise its speeds would slide over the ground by the pelvis's error; between, a blend by
-      // the leg's share. The shares are the lever rule's, from the centre of mass along the line
-      // between the soles' middles.
+      // Each stance leg's speeds for the motion asked of the pelvis, its foot still.
       centreOfToRef(pelvis, p);
-      pelvis.body.getLinearVelocityToRef(pelvisVelocity);
-      pelvis.body.getAngularVelocityToRef(pelvisSpin);
-      for (const foot of stance) {
-        const other = stance.find((o) => o !== foot);
-        let share = 1;
-        if (other) {
-          const ex = other.middle.x - foot.middle.x, ez = other.middle.z - foot.middle.z;
-          share = 1 - Math.min(1, Math.max(0, ((c.x - foot.middle.x) * ex + (c.z - foot.middle.z) * ez) / (ex * ex + ez * ez)));
+      for (const foot of stance) drive(foot, legSpeeds(foot.chain, p, asked, spin));
+
+      // The swing: the foot's sole carried along its path, its turn held at the one it left the
+      // ground with, and its leg's speeds for that motion taken relative to the pelvis's own.
+      if (reading.phase === "swing" && swing) {
+        const foot = feet.find((f) => f.side === swing.foot)!;
+        soleMiddleToRef(foot, sole);
+        if (!step.lifted) {
+          step.lifted = true;
+          step.time = 0;
+          step.from.copyFrom(sole);
+          step.turn.copyFrom(foot.segment.node.rotationQuaternion!);
         }
-        const drive = Math.min(1, 2 * share);
-        Vector3.LerpToRef(pelvisVelocity, asked, drive, v);
-        Vector3.LerpToRef(pelvisSpin, spin, drive, turn);
-        const speeds = legSpeeds(foot.chain, p, v, turn);
-        foot.channels.forEach((i, k) => {
-          driver.velocity[i] = speeds[k]!;
-          driver.activation[i] = 1;
-          owned[i] = 1;
-        });
+        step.time += dt;
+        const tau = Math.min(1, step.time / swing.seconds), from = step.from;
+        // Minimum jerk across the ground, a lift of the same smoothness up and down.
+        const s = tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), ds = 30 * tau * tau * (1 - tau) * (1 - tau) / swing.seconds;
+        const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds;
+        path.set(from.x + (swing.to[0] - from.x) * s, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * s);
+        along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
+        along.addInPlace(path.subtractToRef(sole, v).scaleInPlace(1 / seconds.swing));
+        step.turn.multiplyToRef(Quaternion.InverseToRef(foot.segment.node.rotationQuaternion!, inverse), error);
+        if (error.w < 0) error.scaleInPlace(-1);
+        const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
+        turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
+        // Relative to the pelvis, and as the pelvis's motion from the foot: the negative.
+        pelvis.body.getLinearVelocityToRef(pelvisVelocity);
+        pelvis.body.getAngularVelocityToRef(pelvisSpin);
+        Vector3.CrossToRef(pelvisSpin, sole.subtractToRef(p, v), carried).addInPlace(pelvisVelocity);
+        along.subtractInPlace(carried).scaleInPlace(-1);
+        turn.subtractInPlace(pelvisSpin).scaleInPlace(-1);
+        drive(foot, legSpeeds(foot.chain, sole, along, turn));
+        if (tau >= 1) reading.phase = "stand";
       }
     },
   };
@@ -359,6 +540,20 @@ export function withinSupport(soles: readonly Sole[], x: number, z: number, inse
 
 /** A stance sole: its corners, world, the ground level, y up. */
 type Sole = { readonly corners: readonly Vector3[] };
+
+/** Whether two swings are the same step. */
+function sameSwing(a: SwingGoal, b: SwingGoal | null): boolean {
+  return b !== null && a.foot === b.foot && a.to[0] === b.to[0] && a.to[1] === b.to[1] && a.seconds === b.seconds
+    && a.lift === b.lift && (a.shift ?? true) === (b.shift ?? true);
+}
+
+/** The middle of `foot`'s sole's corners, world, now. */
+function soleMiddleToRef(foot: FootState, out: Vector3): Vector3 {
+  const turn = foot.segment.node.rotationQuaternion!, at = foot.segment.node.position;
+  out.setAll(0);
+  foot.sole.forEach((corner, k) => { out.addInPlace(corner.applyRotationQuaternionToRef(turn, foot.corners[k]!).addInPlace(at)); });
+  return out.scaleInPlace(1 / foot.sole.length);
+}
 
 /** The convex hull of `soles`' corners (x, z), drawn toward its vertices' middle by `inset`, anticlockwise. */
 function drawnOutline(soles: readonly Sole[], inset: number): [number, number][] {
@@ -425,6 +620,13 @@ export function legSpeeds(chain: readonly BuiltJoint[], at: Vector3, velocity: V
   const A = columns.map((ci, i) => columns.map((cj, j) => ci.reduce((sum, v, r) => sum + v * cj[r]!, i === j ? d2 : 0)));
   const y = columns.map((ci) => ci.reduce((sum, v, r) => sum + v * b[r]!, 0));
   return solveSymmetric(A, y);
+}
+
+/** The thigh's and the shank's lengths in the reference pose: hip to knee, and knee to ankle. */
+function lengthsOf(chain: readonly BuiltJoint[]): [number, number] {
+  const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
+  const distance = (p: Vec3, q: Vec3) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+  return [distance(hip!, knee!), distance(knee!, ankle!)];
 }
 
 /** Solve `A x = y`, `A` symmetric positive definite, by Cholesky. */

@@ -3,13 +3,14 @@
  * reference height, stands there without drifting, its centre of mass over the middle of its soles;
  * asked for a place, a height and a heading, it goes there; asked for a place its ankles cannot
  * reach, or one past its soles, it stops where it can and stands; and with its feet unconditioned
- * it does not stand still (the control). Node stand, both humans, on a ground, 120 Hz.
+ * it does not stand still (the control). Asked for a step, it shifts its weight, swings the foot to
+ * where it was asked, lands and stands. Node stand, both humans, on a ground, 120 Hz.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../src/core/body.ts";
-import { SUPPORT_INSET, STANCE_FOOT_CONDITIONING, STANCE_SPEED, withinSupport } from "../src/core/control/stance.ts";
+import { SUPPORT_INSET, STANCE_ANKLE_SPARE, STANCE_FOOT_CONDITIONING, STANCE_KNEE_BEND, STANCE_VELOCITY_GAIN, withinSupport } from "../src/core/control/stance.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -57,6 +58,49 @@ async function standing(model, seconds, ask, { posture = {}, footConditioning, s
 }
 
 const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+/**
+ * Stand `model` 1 s, 3 cm under its reference height, then step `foot`'s sole's middle by (dx, dz)
+ * over 0.45 s lifted 5 cm, and stand to 6 s. Returns the phases seen, where the sole landed against
+ * where it was asked to, how far the foot turned between leaving the ground and landing, the centre
+ * of mass's distance from its place and its height and speed at the end, and how far the other foot
+ * moved.
+ */
+async function stepping(model, foot, dx, dz, stance) {
+  const stand = await coreStand(humanSpec(model), { ground: true, hz: 120 });
+  const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance });
+  const other = foot === "left" ? "right" : "left";
+  const turnOf = () => stand.built.segments.get(`foot.${foot}`).node.rotationQuaternion.clone();
+  let goal = null, swing = null, to = null, bearing = null, lifted = null, turned = null;
+  body.drive((view) => {
+    const s = view.stance;
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
+    if (goal && !swing && view.time >= 1) {
+      to = [s.soles[foot].x + dx, s.soles[foot].z + dz];
+      bearing = s.soles[other].clone();
+      swing = { foot, to, seconds: 0.45, lift: 0.05 };
+    }
+    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, swing } };
+  });
+  try {
+    const phases = [];
+    let landed = null, drift = 0;
+    for (let i = 0; i < stand.seconds(6); i++) {
+      stand.step(1);
+      const s = body.view.stance;
+      if (phases.at(-1) !== s.phase) phases.push(s.phase);
+      if (s.phase === "swing" && !lifted) lifted = turnOf();
+      if (phases.at(-1) === "stand" && phases.at(-2) === "swing" && !landed) {
+        landed = s.soles[foot].clone();
+        turned = 2 * Math.acos(Math.min(1, Math.abs(Quaternion.Dot(turnOf(), lifted))));
+      }
+      if (bearing) drift = Math.max(drift, across(s.soles[other], bearing));
+    }
+    const s = body.view.stance;
+    return { phases, miss: landed ? Math.hypot(landed.x - to[0], landed.z - to[1]) : Infinity, turned, off: across(s.centre, s.place),
+      low: goal.height - (s.centre.y - s.support.y), speed: s.velocity.length(), drift };
+  } finally { body.dispose(); stand.dispose(); }
+}
 
 test("a place the soles cannot hold is taken at the nearest point of their drawn-in outline", () => {
   // Two soles 0.1 m by 0.2 m, 0.1 m apart in x: an outline 0.3 m by 0.2 m about the origin, drawn in
@@ -116,18 +160,22 @@ test("the stance goes where it is asked: a place, a height, a heading", async ()
   assert.ok(r.travel < 0.005, `the feet moved ${(1000 * r.travel).toFixed(1)} mm`);
 });
 
-test("a place beyond the ankles' range is not reached: the stance stops at the limit and stands", async () => {
-  // 6 cm lower and 3 cm further forward asks the Rogue's ankles for more dorsiflexion than their
-  // range (humanSpec) has, with the feet flat.
-  const r = await standing("workshop-rogue", 5, (first) => ({ feet: ["left", "right"],
-    centre: [first.support.x, first.support.z + 0.03], height: first.height - 0.06, heading: 0 }));
-  const short = r.goal.centre[1] - r.after.centre.z, low = Math.abs(r.after.height - r.goal.height);
-  const upper = humanSpec("workshop-rogue").joints.find((j) => j.name === "ankle.left").dofs.find((d) => d.positive === "dorsiflexion").max.value;
-  const ankle = r.angles["ankle.left dorsiflexion"];
-  console.log(`MUT stance beyond: ${(1000 * short).toFixed(1)} mm short, ${(1000 * low).toFixed(1)} mm off height, ankle ${ankle.toFixed(3)} of ${upper.toFixed(3)} rad, at ${(100 * r.after.speed).toFixed(2)} cm/s`);
-  assert.ok(short > 0.01, `the centre of mass reached within ${(1000 * short).toFixed(1)} mm of a place past the ankles' range`);
-  assert.ok(Math.abs(upper - ankle) < 0.01, `the ankle stopped at ${ankle.toFixed(3)} rad, not at its limit ${upper.toFixed(3)}`);
-  assert.ok(low < 0.005 && r.after.speed < 0.01, `it did not stand: ${(1000 * low).toFixed(1)} mm off height at ${(100 * r.after.speed).toFixed(2)} cm/s`);
+test("a height beyond the ankles' range is not reached: each human sinks to their reach less the spare and stands, and asked for it falls", async () => {
+  // 10 cm lower, and 3 cm further forward, asks the ankles for more dorsiflexion than their range
+  // (humanSpec) has, with the feet flat.
+  for (const model of ["workshop-rogue", "workshop-fighter"]) {
+    const ask = (first) => ({ feet: ["left", "right"], centre: [first.support.x, first.support.z + 0.03], height: first.height - 0.1, heading: 0 });
+    const r = await standing(model, 5, ask), control = await standing(model, 5, ask, { stance: { ankleSpare: null } });
+    const upper = humanSpec(model).joints.find((j) => j.name === "ankle.left").dofs.find((d) => d.positive === "dorsiflexion").max.value;
+    const ankle = Math.max(r.angles["ankle.left dorsiflexion"], r.angles["ankle.right dorsiflexion"]);
+    const above = r.after.height - r.goal.height, off = across(r.after.centre, r.place);
+    console.log(`MUT stance beyond ${model}: ${(1000 * above).toFixed(1)} mm above the asked height, ${(1000 * off).toFixed(1)} mm from the held place,`
+      + ` ankle ${ankle.toFixed(3)} of ${upper.toFixed(3)} rad, at ${(100 * r.after.speed).toFixed(2)} cm/s; with no floor, height ${control.after.height.toFixed(3)} of ${control.goal.height.toFixed(3)} m`);
+    assert.ok(above > 0.03, `${model} sank within ${(1000 * above).toFixed(1)} mm of a height past the ankles' range`);
+    assert.ok(ankle < upper - STANCE_ANKLE_SPARE + 0.01, `${model}'s ankle bent to ${ankle.toFixed(3)} rad, past its range ${upper.toFixed(3)} less the spare`);
+    assert.ok(off < 0.005 && r.after.speed < 0.01, `${model} did not stand: ${(1000 * off).toFixed(1)} mm off at ${(100 * r.after.speed).toFixed(2)} cm/s`);
+    assert.ok(control.after.height < control.goal.height - 0.1, `the control: asked past the ankles' range, ${model} stood`);
+  }
 });
 
 test("a place past the soles is held at the edge of what they hold, each way, and the body stands", async () => {
@@ -145,15 +193,45 @@ test("a place past the soles is held at the edge of what they hold, each way, an
   }
 });
 
-test("the plan's speed limit is the margin around the support's inset: at 0.4 the Rogue stands with it and falls without", async () => {
-  const edge = (speed) => standing("workshop-rogue", 6, (first) => ({ feet: ["left", "right"],
-    centre: [first.support.x + 0.3, first.support.z], height: first.height - 0.03, heading: 0 }), { stance: { supportInset: 0.4, speed } });
-  const limited = await edge(STANCE_SPEED), free = await edge(Infinity);
+test("the velocity gain holds a sideways edge: drawn in by 0.3, the Rogue stands at +x with it and falls without", async () => {
+  const edge = (velocityGain) => standing("workshop-rogue", 6, (first) => ({ feet: ["left", "right"],
+    centre: [first.support.x + 0.3, first.support.z], height: first.height - 0.03, heading: 0 }), { stance: { supportInset: 0.3, velocityGain } });
+  const held = await edge(STANCE_VELOCITY_GAIN), free = await edge(0);
   const off = (r) => Math.hypot(r.after.centre.x - r.place.x, r.after.centre.z - r.place.z);
-  console.log(`MUT stance speed limit: at ${STANCE_SPEED} m/s ${(1000 * off(limited)).toFixed(1)} mm from the held place, height ${limited.after.height.toFixed(3)} m;`
-    + ` with none ${(1000 * off(free)).toFixed(1)} mm, height ${free.after.height.toFixed(3)} m`);
-  assert.ok(off(limited) < 0.01 && Math.abs(limited.after.height - limited.goal.height) < 0.005, `limited, it stood ${(1000 * off(limited)).toFixed(1)} mm off`);
-  assert.ok(free.after.height < free.goal.height - 0.1, "the control: with no limit the Rogue stood at 0.4");
+  console.log(`MUT stance gain: at ${STANCE_VELOCITY_GAIN} ${(1000 * off(held)).toFixed(1)} mm from the held place, height ${held.after.height.toFixed(3)} m;`
+    + ` at none ${(1000 * off(free)).toFixed(1)} mm, height ${free.after.height.toFixed(3)} m`);
+  // Over one foot the other leg is spread, and the stance is held lower for its reach (STANCE_KNEE_BEND).
+  const low = held.goal.height - held.after.height;
+  assert.ok(off(held) < 0.01 && low > -0.005 && low < 0.02, `with the gain, it stood ${(1000 * off(held)).toFixed(1)} mm off, ${(1000 * low).toFixed(1)} mm low`);
+  assert.ok(free.after.height < free.goal.height - 0.1, "the control: with no gain the Rogue stood at 0.3");
+});
+
+test("each human steps each foot 15 and 25 cm forward, 15 cm back and 10 cm out, lands where asked and stands", async () => {
+  for (const model of ["workshop-rogue", "workshop-fighter"]) for (const foot of ["left", "right"]) {
+    const out = foot === "left" ? -0.1 : 0.1;
+    for (const [dx, dz] of [[0, 0.15], [0, 0.25], [0, -0.15], [out, 0]]) {
+      const r = await stepping(model, foot, dx, dz);
+      console.log(`MUT stance step ${model} ${foot} (${dx}, ${dz}): ${r.phases.join(" ")}; landed ${(1000 * r.miss).toFixed(1)} mm from the asked place, turned ${r.turned.toFixed(3)} rad;`
+        + ` ${(1000 * r.off).toFixed(1)} mm from the held place, ${(1000 * r.low).toFixed(1)} mm low, at ${(100 * r.speed).toFixed(2)} cm/s; the other foot moved ${(1000 * r.drift).toFixed(1)} mm`);
+      const at = `${model} ${foot} (${dx}, ${dz})`;
+      assert.deepEqual(r.phases, ["stand", "shift", "swing", "stand"], `${at}: phases ${r.phases.join(" ")}`);
+      // Carried on the path's speeds alone, with no pull onto it, a step back lands 18 to 23 mm off.
+      assert.ok(r.miss < 0.017, `${at}: landed ${(1000 * r.miss).toFixed(1)} mm from the asked place`);
+      assert.ok(r.turned < 0.05, `${at}: the foot turned ${r.turned.toFixed(3)} rad in the air`);
+      // A spread stance is held lower than asked, for the legs' reach (STANCE_KNEE_BEND).
+      assert.ok(r.off < 0.005 && r.low > -0.005 && r.low < 0.05 && r.speed < 0.01,
+        `${at}: stood ${(1000 * r.off).toFixed(1)} mm from the held place, ${(1000 * r.low).toFixed(1)} mm low, at ${(100 * r.speed).toFixed(2)} cm/s`);
+      assert.ok(r.drift < 0.01, `${at}: the other foot moved ${(1000 * r.drift).toFixed(1)} mm`);
+    }
+  }
+});
+
+test("the knee bend lets a stepping stance sink for its legs' reach: the Warrior's 10 cm step out stands with it and fails held at its height", async () => {
+  const bent = await stepping("workshop-fighter", "right", 0.1, 0), straight = await stepping("workshop-fighter", "right", 0.1, 0, { kneeBend: null });
+  console.log(`MUT stance bend: at ${STANCE_KNEE_BEND} rad ${(1000 * bent.off).toFixed(1)} mm from the held place, ${(1000 * bent.low).toFixed(1)} mm low;`
+    + ` with none ${(1000 * straight.off).toFixed(1)} mm, ${(1000 * straight.low).toFixed(1)} mm low, at ${(100 * straight.speed).toFixed(2)} cm/s`);
+  assert.ok(bent.off < 0.005 && bent.speed < 0.01, `with the bend, it stood ${(1000 * bent.off).toFixed(1)} mm off at ${(100 * bent.speed).toFixed(2)} cm/s`);
+  assert.ok(straight.off > 0.03 || straight.low > 0.1 || straight.speed > 0.05, "the control: held at its height the Warrior stood");
 });
 
 test("unconditioned feet stall the stance (the control)", async () => {

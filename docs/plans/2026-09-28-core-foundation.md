@@ -463,25 +463,43 @@ contradicts one; the eccentric ceiling is the owner's decision.
   and asks the pelvis for the plan's velocity plus the error from it. Each stance leg's speeds for
   that pelvis motion, foot still, are its Jacobian undone by damped least squares. They go to the
   muscles as speeds at full activation, so Havok's solver finds the torques with the ground's push.
-  A leg drives in proportion to the weight it bears (the lever rule between the soles' middles),
-  and otherwise follows the pelvis, so an unloaded foot is not slid.
+- **The two legs are a closed chain, and the solver leaves it soft**: after a step the Rogue's pelvis
+  moved at 21.6 cm/s when asked for 1.1. The pelvis is also asked for twice the centre of mass's
+  velocity error, the plan's less the body's (`STANCE_VELOCITY_GAIN`, from a sweep of 48 steps:
+  12 fail with none, none at 2). With it, the earlier share of the drive by the weight a leg bears and
+  the plan's speed limit are gone: neither changed a result.
+- **The height is what the legs reach.** No higher than each leg reaches with its knee bent by
+  0.2 rad (`STANCE_KNEE_BEND`; a straight knee is singular, and at its stop the Jacobian asked the
+  Warrior's for 2 to 4 rad/s more); no lower than each reaches with its ankle 0.01 rad short of its
+  dorsiflexion stop (`STANCE_ANKLE_SPARE`). Asked 5 cm under a stance 3 cm low, the Rogue's ankles met
+  their stop and it toppled backward; held above it, each human stands some 5 cm under its reference
+  height at the lowest. A lower stance needs the hip to hinge, or a larger ankle range.
 - **Solver conditioning, named and measured:** a stance foot's rotational inertia is raised 100
   times while it stands. At its own inertia the solver stalls; the Warrior falls, and even at 480 Hz
   the Rogue stops 3.25 cm behind. The table is on `STANCE_FOOT_CONDITIONING`.
 - **The held region:** the goal is held inside the soles' outline drawn halfway in
-  (`SUPPORT_INSET` 0.5), at no more than 0.1 m/s across the ground (`STANCE_SPEED`). Nearer the
-  edges, the everters (20-27 N m) saturate and the far foot bears nothing. The sweep behind both
-  numbers is on `STANCE_SPEED`.
+  (`SUPPORT_INSET` 0.5). Nearer the edges, the everters (20-27 N m) saturate and the far foot bears
+  nothing; the sweep is on `SUPPORT_INSET`.
+- **A step** (`StanceGoal.swing`: the foot, where its sole's middle lands, the swing's time and
+  lift). The stance shifts its plan over the bearing sole, lifts the foot once the capture point
+  (Pratt et al. 2006) is over that sole, and carries it on a minimum-jerk path with a lift, tracked
+  at a 0.1 s constant, its turn held. In the swing the plan falls as an inverted pendulum about a
+  pivot in the bearing sole, chosen by capture-point control (Englsberger et al. 2011) to bring the
+  capture point to between the soles when the foot lands.
 - **Measured** (Node stand, 120 Hz):
   - Both humans stand 3 cm low for 5 s within 0.9 mm of the soles' middle, drifting under 0.6 mm
     over the last 2 s.
   - The Rogue goes 2 and 3 cm across, 3 cm down and turns 0.2 rad, stopping 3.4 mm from the place.
   - A place 30 cm out each way is held at the outline's edge within 6 mm; the far foot slips once,
     6 mm, at -x.
-  - Asked 6 cm down and 3 cm forward, the Rogue stops at its ankle's dorsiflexion limit, 5.7 cm short,
-    and stands.
+  - Asked 10 cm down and 3 cm forward, each human stops about 6 cm above the height, its ankles
+    inside their range, and stands; with no floor, each falls.
+  - Each human steps each foot 15 and 25 cm forward, 15 cm back and 10 cm out, landing within
+    15.3 mm of the asked place, and stands within 3.2 mm of its place; the bearing foot moves at most
+    8.8 mm. Of the sweep's 48 steps, none fails; 30 cm forward and 25 back are marginal, and a 30 cm
+    step from standing in 0.45 s cannot carry the capture point that far over one sole.
 - **Not yet:** the routine's carried pelvis is still a scaffold, and the stance is not yet in the
-  lab page; stepping; gaits; assistance.
+  lab page; recovery steps under shoves; gaits; assistance.
 
 ### Stage 5: the rulebook, the damage unit and the HP pool
 
