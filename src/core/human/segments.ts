@@ -22,8 +22,11 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  *   fractions of this segment's own length. The inertia is about the segment frame's axes, which
  *   are his: x transverse, y longitudinal, z sagittal.
  * - **Shape.** The head and the limbs are capsules as long as the segment that hold its mass at
- *   Dempster's density. The trunk segments are boxes on the clothed envelope; a foot is a box on
- *   the boot. A shape carries no mass (`SegmentSpec.shape`).
+ *   Dempster's density. A trunk segment is the convex hull of its stretch of the clothed envelope;
+ *   a foot is a box on the boot. A shape carries no mass (`SegmentSpec.shape`). The trunk was a box
+ *   on the same stretch's extents until its corners stood out of the body: an upper arm driving a
+ *   straight met the middle trunk's front upper corner 7-13 mm deep while 11-23 mm clear of the
+ *   clothed surface (the lab routine, Node stand, self-contact off).
  *
  * The rig's feet end in a boot, so the foot runs from the boot's heel to its toe, at the height of
  * the rig's ball.
@@ -36,7 +39,7 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  */
 type Shape =
   | { readonly kind: "capsule"; readonly density: DensitySegment }
-  | { readonly kind: "box in its own frame"; readonly extents: Extents }
+  | { readonly kind: "hull"; readonly points: readonly Quantity<Vec3>[] }
   | { readonly kind: "box in the body frame"; readonly extents: Extents };
 
 interface Plan {
@@ -87,9 +90,9 @@ function plans(model: WorkshopModel): Plan[] {
     origin = proximal, end = distal, right?: Quantity<Vec3>): Plan => ({ name, row, proximal, distal, origin, end, shape, right });
   const out: Plan[] = [
     plan("head", "head", CERV, VERT, { kind: "capsule", density: "head" }, VERT, CERV),
-    plan("upperTrunk", "upperTrunk", CERV, XYPH, { kind: "box in its own frame", extents: envelope.trunk.upper }),
-    plan("middleTrunk", "middleTrunk", XYPH, OMPH, { kind: "box in its own frame", extents: envelope.trunk.middle }),
-    plan("lowerTrunk", "lowerTrunk", OMPH, MIDH, { kind: "box in its own frame", extents: envelope.trunk.lower }),
+    plan("upperTrunk", "upperTrunk", CERV, XYPH, { kind: "hull", points: envelope.trunk.upper }),
+    plan("middleTrunk", "middleTrunk", XYPH, OMPH, { kind: "hull", points: envelope.trunk.middle }),
+    plan("lowerTrunk", "lowerTrunk", OMPH, MIDH, { kind: "hull", points: envelope.trunk.lower }),
   ];
   for (const side of SIDES) {
     const { SJC, EJC, WJC, DAC3, HJC, KJC, AJC } = limbLandmarks(model, side);
@@ -133,19 +136,8 @@ function shapeOf(plan: Plan, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, m
         to: derive("m", "the distal end, in by the radius", [proximal, distal, radius], (p, d, r) => add(d, scale(normalize(sub(p, d)), r))),
       };
     }
-    case "box in its own frame": {
-      const { x, y, z } = shape.extents;
-      const ends = [x.min, x.max, y.min, y.max, z.min, z.max].map(lengthAtFit);
-      return {
-        kind: "box",
-        centre: derive("m", "the middle of the envelope's extents in the segment frame", [proximal, distal, ...ends],
-          (p, d, x0, x1, y0, y1, z0, z1) => {
-            const frame = segmentFrame(p, d);
-            return add(p, add(scale(frame.x, (x0 + x1) / 2), add(scale(frame.y, (y0 + y1) / 2), scale(frame.z, (z0 + z1) / 2))));
-          }),
-        size: derive("m", "the envelope's extents in the segment frame", ends, (x0, x1, y0, y1, z0, z1) => [x1 - x0, y1 - y0, z1 - z0]),
-      };
-    }
+    case "hull":
+      return { kind: "hull", points: shape.points.map(atFit) };
     case "box in the body frame": {
       const { x, y, z } = shape.extents;
       const ends = [x.min, x.max, y.min, y.max, z.min, z.max].map(lengthAtFit);

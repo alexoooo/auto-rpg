@@ -6,12 +6,16 @@
  * Every distance here is between convex sets. The distance from a point moving along a line to a
  * convex set is convex in where the point is, so a capsule's nearest approach is found by ternary
  * search along its axis. Two boxes are separated by the largest gap along any of their fifteen
- * separating axes, which is a lower bound on their distance.
+ * separating axes, which is a lower bound on their distance. A hull is measured by its faces' planes:
+ * a point's distance to it is at least its largest height over any of them, and two hulls' distance
+ * at least their largest gap along any face normal of either, both lower bounds (a box meeting a
+ * hull is taken as the hull of its corners).
  */
 import { frameOf } from "../../src/core/spec/body.ts";
+import { convexHull } from "../../src/core/spec/hull.ts";
 import { add, cross, dot, length, scale, sub } from "../../src/core/spec/vec.ts";
 
-/** A shape as the measures below take it: a capsule (a sphere is one of length zero) or a box. */
+/** A shape as the measures below take it: a capsule (a sphere is one of length zero), a box or a hull. */
 export function solid(segment) {
   const shape = segment.shape;
   switch (shape.kind) {
@@ -21,6 +25,7 @@ export function solid(segment) {
       const frame = frameOf(segment);
       return { kind: "box", centre: shape.centre.value, axes: [frame.x, frame.y, frame.z], half: shape.size.value.map((s) => s / 2) };
     }
+    case "hull": return hullOf(shape.points.map((p) => p.value));
     default: throw new Error(`unknown shape ${shape.kind}`);
   }
 }
@@ -66,12 +71,41 @@ function boxGap(a, b) {
   }));
 }
 
+/** The hull of `points`, with its faces' planes. */
+export function hullOf(points) {
+  const { vertices, planes } = convexHull(points);
+  return { kind: "hull", points: vertices.map((i) => points[i]), planes };
+}
+
+/** A box as the hull of its eight corners. */
+function boxHull(box) {
+  const corners = [];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+    corners.push([sx, sy, sz].reduce((p, sign, i) => add(p, scale(box.axes[i], sign * box.half[i])), box.centre));
+  }
+  return hullOf(corners);
+}
+
+const height = (hull, p) => Math.max(...hull.planes.map(({ normal, offset }) => dot(normal, p) - offset));
+
+function hullGap(a, b) {
+  const gap = (from, to) => Math.max(...from.planes.map(({ normal, offset }) =>
+    Math.min(...to.points.map((q) => dot(normal, q))) - offset));
+  return Math.max(gap(a, b), gap(b, a));
+}
+
 /**
- * The room between two shapes: their distance, negative when they overlap. For two boxes it is
- * a lower bound, exact when the boxes are separated along a face normal.
+ * The room between two shapes: their distance, negative when they overlap. For two boxes, and for
+ * anything meeting a hull, it is a lower bound, exact when the two are separated along a face
+ * normal.
  */
 export function clearance(a, b) {
   if (a.kind === "box" && b.kind === "box") return boxGap(a, b);
+  if (a.kind === "hull" || b.kind === "hull") {
+    if (a.kind === "capsule") return least((s) => height(b, along(a)(s))) - a.radius;
+    if (b.kind === "capsule") return clearance(b, a);
+    return hullGap(a.kind === "box" ? boxHull(a) : a, b.kind === "box" ? boxHull(b) : b);
+  }
   if (a.kind === "box") return clearance(b, a);
   const p = along(a);
   if (b.kind === "box") return least((s) => pointToBox(p(s), b)) - a.radius;
@@ -81,5 +115,6 @@ export function clearance(a, b) {
 /** The lowest point of a shape. */
 export function lowest(shape) {
   if (shape.kind === "capsule") return Math.min(shape.from[1], shape.to[1]) - shape.radius;
+  if (shape.kind === "hull") return Math.min(...shape.points.map((p) => p[1]));
   return shape.centre[1] - shape.axes.reduce((sum, edge, i) => sum + Math.abs(edge[1]) * shape.half[i], 0);
 }

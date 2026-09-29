@@ -166,3 +166,27 @@ test("a three-freedom joint holds its second and third freedoms to their ranges 
   }
   assert.deepEqual(reached, [0.62, -0.21, 0.55, -0.15, 0.55, -0.15]);
 });
+
+/**
+ * A hull is built from its points, in its segment's frame: Havok's bounds of the built shape are the
+ * points' extents along the frame's axes. Havok keeps a hull's faces on their planes and rounds its
+ * corners a little: a cube's hull holds a resting ball at the cube's face and its bounds read exact,
+ * while this sheared one's bounds, set by corners, read up to 0.4 mm inside them (Node stand).
+ */
+test("a hull shape is built from its points, in its segment's frame", async () => {
+  const spec = rods([["bend", [1, 0, 0]]]);
+  const corners = [];
+  for (const x of [-0.05, 0.12]) for (const y of [0.98, 0.6]) for (const z of [-0.04, 0.07]) corners.push([x + y / 10, y, z - x / 5]);
+  const points = [...corners, [0.02, 0.8, 0.01], [0.03, 0.7, 0.02]];
+  spec.segments[1] = { ...spec.segments[1], shape: { kind: "hull", points: points.map((p) => q(p)) } };
+  const stand = await coreStand(spec, { gravity: false, ground: false });
+  try {
+    const segment = stand.built.segments.get("lower"), frame = segment.frame;
+    const local = points.map((p) => [frame.x, frame.y, frame.z].map((e) => e.reduce((sum, c, i) => sum + c * (p[i] - frame.origin[i]), 0)));
+    const bounds = stand.scene.getPhysicsEngine().getPhysicsPlugin().getBoundingBox(segment.body.shape);
+    [0, 1, 2].forEach((i) => {
+      close(bounds.minimum.asArray()[i], Math.min(...local.map((p) => p[i])), 1e-3, `min ${i}`);
+      close(bounds.maximum.asArray()[i], Math.max(...local.map((p) => p[i])), 1e-3, `max ${i}`);
+    });
+  } finally { stand.dispose(); }
+});

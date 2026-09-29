@@ -11,6 +11,7 @@ import { SOURCES } from "../src/core/sources.ts";
 import { derive, si, sourced } from "../src/core/spec/quantity.ts";
 import { inventory, sourcesOf } from "../src/core/spec/provenance.ts";
 import { segmentFrame } from "../src/core/spec/body.ts";
+import { convexHull } from "../src/core/spec/hull.ts";
 import { claimsIn, specProvenanceFaults } from "./fixtures/spec.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
@@ -103,4 +104,39 @@ test("a segment's frame is square, right-handed in its components, and runs from
   assert.deepEqual(segmentFrame([0, 0, 0], [0, 1, 0]), { origin: [0, 0, 0], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
   assert.throws(() => segmentFrame([0, 0, 0], [1, 0, 0]), "a segment along the body's right has no frame");
   assert.deepEqual(segmentFrame([0, 0, 0], [0, -1, 0], [0, 0, 1]).x, [0, 0, 1], "a segment that names its right takes it");
+});
+
+/**
+ * `convexHull` keeps exactly the corners: every point lies inside or on every face's plane, every
+ * vertex is a point no face's plane passes beyond, and a point in a face, on an edge or inside is
+ * not one, whatever order the points come in. The cube's extra points come first in one order, so
+ * they are taken in before the corners around them.
+ */
+test("a convex hull keeps exactly the corners, whatever order its points come in", () => {
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const outside = (hull, points) => Math.max(...points.map((p) => Math.max(...hull.planes.map(({ normal, offset }) => dot(normal, p) - offset))));
+  const corners = [], extra = [];
+  for (const x of [-1, 0, 1]) for (const y of [-2, 0.5, 2]) for (const z of [-3, 0.25, 3]) {
+    ([x, y, z].every((c, i) => Math.abs(c) === [1, 2, 3][i]) ? corners : extra).push([x, y, z]);
+  }
+  for (const points of [[...extra, ...corners], [...corners, ...extra], [...extra.slice(9), ...corners, ...extra.slice(0, 9)]]) {
+    const hull = convexHull(points);
+    assert.deepEqual(new Set(hull.vertices.map((i) => points[i].join())), new Set(corners.map((c) => c.join())));
+    assert.equal(hull.faces.length, 12);
+    assert.ok(outside(hull, points) < 1e-9);
+  }
+  // Points on a sphere, one pseudo-random set, with a smaller copy inside: every outer one a corner, and
+  // a triangulated convex surface's 2V - 4 faces (Euler).
+  let state = 7;
+  const uniform = () => ((state = (state * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const sphere = Array.from({ length: 200 }, () => {
+    const z = 2 * uniform() - 1, a = 2 * Math.PI * uniform(), r = Math.sqrt(1 - z * z);
+    return [r * Math.cos(a), r * Math.sin(a), z];
+  });
+  const inner = sphere.map((p) => p.map((c) => c / 2));
+  const round = convexHull([...inner, ...sphere]);
+  assert.deepEqual(round.vertices, sphere.map((_, i) => inner.length + i));
+  assert.equal(round.faces.length, 2 * sphere.length - 4);
+  assert.ok(outside(round, [...inner, ...sphere]) < 1e-9);
+  assert.throws(() => convexHull([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [2, 3, 0]]), /plane/);
 });

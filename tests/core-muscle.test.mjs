@@ -10,6 +10,8 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { forceVelocityFactor, forceVelocityReach } from "../src/core/muscle/force-velocity.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";
+import { servoToward } from "../src/core/control/servo.ts";
+import { inertiaBeyond } from "../src/core/build/inertia-beyond.ts";
 import { frameOf } from "../src/core/spec/body.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -227,4 +229,146 @@ test("a light limb on a heavy one speeds up at 120 Hz as it does at a fine rate"
     const coarse = await handAt(120, delay, at), fine = await handAt(1920, delay, at);
     assert.ok(Math.abs(coarse / fine - 1) < 0.1, `hand started at ${delay} s, at ${at} s: ${coarse} m/s at 120 Hz, ${fine} at 1920 Hz`);
   }
+});
+
+/**
+ * The driver reads the torque each motor applied over the last step (`MuscleDriver.pulled`, from
+ * the constraint's applied impulse), positive when the positive muscles pulled. Driven flat out it
+ * is the ceiling the step was given, either way; holding the rod still it is its weight's moment
+ * about the pin, opposed, but only roughly: Havok's reading of a holding motor was -12 % to +14 %
+ * of the moment across six rods (`appliedAngularImpulseToRef`), and 1.327 times it on this one. The
+ * pairs are read in the controller, where `pulled` and `ceiling` both still belong to the step just
+ * run.
+ */
+test("the driver reads the torque its motor applied, and its sign is the side that pulled", async () => {
+  const peak = { positive: 6, negative: 4 };
+  const spec = rod(CURVES[0], peak);
+  const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });
+  let mode = "positive";
+  const seen = [];
+  const driver = driveMuscles(stand.built, stand.scene, (d, dt) => {
+    seen.push([d.pulled[0], d.ceiling[0]]);
+    if (mode === "hold") servoToward(d, 0, 0, 0.1, dt);
+    else { d.activation[0] = 1; d.velocity[0] = mode === "positive" ? 1e3 : -1e3; }
+  });
+  try {
+    for (const [m, sign] of [["positive", 1], ["negative", -1]]) {
+      mode = m;
+      seen.length = 0;
+      stand.step(4);
+      // From the second step of a mode on, the step before was driven the same way.
+      for (const [pulled, ceiling] of seen.slice(2)) {
+        assert.ok(ceiling > 0.5 * (sign > 0 ? peak.positive : peak.negative), `${m}: ceiling ${ceiling}`);
+        assert.ok(Math.abs(pulled - sign * ceiling) < 0.01 * ceiling, `${m}: pulled ${pulled} N m against a ceiling of ${ceiling}`);
+      }
+    }
+    mode = "hold";
+    stand.step(stand.seconds(1));
+    // The weight's moment about the pin's axis, from where the rod's centre of mass now is.
+    const s = spec.segments[1], frame = frameOf(s), axis = new Vector3(...spec.joints[0].dofs[0].axis.value).normalize();
+    const node = stand.built.segments.get("rod").node;
+    const offset = s.centreOfMass.value.map((x, i) => x - frame.origin[i]);
+    const local = new Vector3(...[frame.x, frame.y, frame.z].map((e) => e[0] * offset[0] + e[1] * offset[1] + e[2] * offset[2]));
+    const r = local.applyRotationQuaternion(node.rotationQuaternion).add(node.position).subtract(new Vector3(...spec.joints[0].centre.value));
+    const weight = Vector3.Dot(Vector3.Cross(r, new Vector3(0, -9.81 * s.mass.value, 0)), axis);
+    const [pulled] = seen.at(-1);
+    assert.ok(Math.abs(weight) > 0.1, `the weight's moment ${weight} N m`);
+    assert.ok(Math.abs(pulled + weight) < 0.4 * Math.abs(weight), `holding: pulled ${pulled} N m against the weight's ${weight}`);
+  } finally { driver.dispose(); stand.dispose(); }
+});
+
+/**
+ * A servo lowering a weight slowly asks for speed the way the weight turns it, but the muscles
+ * that pull are the ones braking. With the side read from the change asked (target minus speed),
+ * the ceiling was the weak side's: on the Rogue's servoed arm at 1920 Hz the motors pulled past the
+ * pulling side's ceiling on 1127 steps and were held short of it on 227. Here the rod's positive
+ * muscles are far weaker than its weight's moment and its negative ones hold it, so the ceiling
+ * each step must be the negative side's. Nor is the side the one that pulled last: asked then to
+ * speed up past what its weight gives, the weak side pulls from the first step.
+ */
+test("a servo lowering a weight is bounded by the muscles braking it, not those it turns toward", async () => {
+  const peak = { positive: 0.02, negative: 6 };
+  const spec = rod(CURVES[0], peak);
+  const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });
+  let goal = 0, timeConstant = 0.1;
+  const driver = driveMuscles(stand.built, stand.scene, (d, dt) => servoToward(d, 0, goal, timeConstant, dt));
+  try {
+    stand.step(stand.seconds(0.5));
+    assert.ok(driver.pulled[0] < -0.1, `held against its weight by the negative muscles: ${driver.pulled[0]} N m`);
+    // Lowered toward positive angles, the way its weight turns it, at a pace its weight outruns.
+    goal = 0.5; timeConstant = 1;
+    const sides = [];
+    for (let i = 0; i < stand.seconds(0.3); i++) {
+      stand.step(1);
+      const w = driver.speed(0), negative = peak.negative * forceVelocityFactor(-w, CURVES[0]);
+      sides.push(Math.abs(driver.ceiling[0] - negative) < 1e-9 * negative ? "negative" : `${driver.ceiling[0]} at ${w} rad/s`);
+    }
+    assert.deepEqual(sides, sides.map(() => "negative"));
+    assert.ok(driver.speed(0) > 0 && driver.angle(0) > 0.01, `lowered: ${driver.angle(0)} rad at ${driver.speed(0)} rad/s`);
+    // Then asked to speed up past what its weight gives, within a step's reach: from the first step
+    // the weak muscles pull, though the strong ones pulled the step before.
+    goal = 1.5; timeConstant = 0.3;
+    stand.step(1);
+    const w = driver.speed(0), positive = peak.positive * forceVelocityFactor(w, CURVES[0]);
+    assert.ok(driver.velocity[0] - w < forceVelocityReach(w, CURVES[0]) - w, `the ask ${driver.velocity[0]} rad/s is within reach from ${w}`);
+    assert.ok(Math.abs(driver.ceiling[0] - positive) < 1e-9, `turned toward the weak side: ceiling ${driver.ceiling[0]} N m, theirs ${positive}`);
+  } finally { driver.dispose(); stand.dispose(); }
+});
+
+/**
+ * The inertia the driver weighs a change of speed by (`inertiaBeyond`): the segments beyond a
+ * joint about its axis, at the pose as it stands. On the rod it is `inertiaAboutPin`, and stays so
+ * as the rod turns about the pin; on a forearm and hand the elbow's changes as the wrist bends, by
+ * the hand's centre moving about the elbow, and the wrist's does not.
+ */
+test("the inertia beyond a joint is its segments' about the axis, at the pose as it stands", async () => {
+  const spec = rod(CURVES[0], { positive: 6, negative: 6 });
+  const stand = await coreStand(spec, { gravity: false, ground: false, pinned: "post" });
+  const driver = driveMuscles(stand.built, stand.scene, (d, dt) => servoToward(d, 0, 1.2, 0.05, dt));
+  try {
+    const beyond = inertiaBeyond(stand.built), expected = inertiaAboutPin(spec);
+    beyond.update();
+    assert.ok(Math.abs(beyond.about[0][0] / expected - 1) < 1e-6, `at rest: ${beyond.about[0][0]} against ${expected}`);
+    stand.step(stand.seconds(0.5));
+    beyond.update();
+    assert.ok(Math.abs(driver.angle(0) - 1.2) < 0.02, `turned to ${driver.angle(0)} rad`);
+    assert.ok(Math.abs(beyond.about[0][0] / expected - 1) < 1e-5, `turned: ${beyond.about[0][0]} against ${expected}`);
+  } finally { driver.dispose(); stand.dispose(); }
+
+  const speed = { unloadedSpeed: q(12, "rad/s"), curvature: q(0.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") };
+  const muscle = { peakPositive: q(20, "N m"), peakNegative: q(20, "N m"), speedPositive: speed, speedNegative: speed };
+  const segment = (name, proximal, distal, mass, inertia) => ({ name, proximal: q(proximal), distal: q(distal), mass: q(mass, "kg"),
+    centreOfMass: q(proximal.map((p, i) => 0.4 * p + 0.6 * distal[i])), inertia: q(inertia, "kg m2"),
+    shape: { kind: "capsule", from: q(proximal), to: q(distal), radius: q(0.03) } });
+  const pin = (name, parent, child, centre) => ({ name, parent, child, centre: q(centre),
+    dofs: [{ positive: "flexion", negative: "extension", axis: q([0, 0, 1], "1"), min: q(-3, "rad"), max: q(3, "rad"), muscle }] });
+  const arm = { family: "test", model: "arm", mass: q(3, "kg"), stature: q(1.5),
+    segments: [segment("post", [0, 1.5, 0], [0, 1.2, 0], 2, [0.02, 0.004, 0.02]),
+      segment("forearm", [0, 1.2, 0], [0.19, 1.01, 0], 1.2, [0.0012, 0.0073, 0.0065]),
+      segment("hand", [0.19, 1.01, 0], [0.32, 0.88, 0], 0.45, [0.0004, 0.0013, 0.0011])],
+    joints: [pin("elbow", "post", "forearm", [0, 1.2, 0]), pin("wrist", "forearm", "hand", [0.19, 1.01, 0])] };
+  const armStand = await coreStand(arm, { gravity: false, ground: false, pinned: "post" });
+  const armDriver = driveMuscles(armStand.built, armStand.scene, (d, dt) => { servoToward(d, 0, 0.4, 0.05, dt); servoToward(d, 1, 1.2, 0.05, dt); });
+  try {
+    armStand.step(armStand.seconds(0.5));
+    const beyond = inertiaBeyond(armStand.built);
+    beyond.update();
+    // Each segment's own moment about z, which turning about z leaves alone, and its centre's
+    // distance from the axis, with the hand's centre turned about the wrist by the wrist's angle.
+    const own = (s) => { const f = frameOf(s); return s.inertia.value.reduce((sum, i, k) => sum + i * [f.x, f.y, f.z][k][2] ** 2, 0); };
+    const across = (v) => v[0] ** 2 + v[1] ** 2;
+    const [, forearm, hand] = arm.segments, elbow = arm.joints[0].centre.value, wrist = arm.joints[1].centre.value;
+    const bend = armDriver.angle(1), c = Math.cos(bend), s = Math.sin(bend);
+    const h = hand.centreOfMass.value.map((x, i) => x - wrist[i]);
+    const handFromElbow = [wrist[0] - elbow[0] + c * h[0] - s * h[1], wrist[1] - elbow[1] + s * h[0] + c * h[1]];
+    const handAboutWrist = own(hand) + hand.mass.value * across(h);
+    const forearmAboutElbow = own(forearm) + forearm.mass.value * across(forearm.centreOfMass.value.map((x, i) => x - elbow[i]));
+    assert.ok(Math.abs(bend - 1.2) < 0.05, `wrist at ${bend} rad`);
+    assert.ok(Math.abs(beyond.about[1][0] / handAboutWrist - 1) < 1e-6, `wrist: ${beyond.about[1][0]} against ${handAboutWrist}`);
+    const elbowExpected = forearmAboutElbow + own(hand) + hand.mass.value * across(handFromElbow);
+    // The joints give a little under load, so the bent chain is read to 1e-3, against the bend's 5 %.
+    assert.ok(Math.abs(beyond.about[0][0] / elbowExpected - 1) < 1e-3, `elbow: ${beyond.about[0][0]} against ${elbowExpected}`);
+    const straight = forearmAboutElbow + own(hand) + hand.mass.value * across(hand.centreOfMass.value.map((x, i) => x - elbow[i]));
+    assert.ok(Math.abs(elbowExpected / straight - 1) > 0.05, `the bend moves the elbow's inertia: ${elbowExpected} against ${straight} straight`);
+  } finally { armDriver.dispose(); armStand.dispose(); }
 });
