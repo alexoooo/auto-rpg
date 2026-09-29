@@ -261,20 +261,33 @@ contradicts one; the eccentric ceiling is the owner's decision.
     (Node stand), the hand at 120 Hz against 1920 Hz: 3.69 against 3.64 m/s at 0.025 s (4.71
     before); started 0.06 s late, 4.7 against 4.5 (5.3 before). The lab's straights read within 3 %
     of 1920 Hz at 120 Hz. The game stays at 120 Hz.
-  - The searched blows (below) on the fixed driver, the fist's peak speed with no target, Node core
-    stand, at 120, 480 and 1920 Hz: Warrior 13.75, 13.68, 13.20 and 14.11, 13.80, 14.28; Rogue 8.20,
-    8.90, 9.66 and 11.47, 11.60, 12.94. 480 Hz differs from 1920 Hz as much as 120 Hz does: a
-    searched blow's pushes start on step boundaries and its timing was tuned at one rate, so these
-    read the blow's sensitivity to timing, not the muscle's to the step.
-  - The search now holds the wrist (a punch lands on a fist in line with the forearm), and each best
-    is re-read at the other rates.
-  - On the driver before the fix, at 480 Hz: given a chamber, it found an overhand, the arm cocked
-    high, then elbow extension and shoulder internal rotation, like a throw (Warrior 10.21 m/s
-    forward at 1920 Hz, 11.27 at 480). From the guard (`--guard`), two seeds each, forward m/s at
-    480 Hz (1920 Hz): Warrior 5.51 and 8.95 (8.83), Rogue 6.56 and 9.79 (9.70). Seeds disagreed by
-    up to 60 %, each best landed 0.35 s after it started (a wound-up blow, not a straight), and the
-    Rogue out-struck the Warrior. These are void on the fixed driver and are rerun. The club waits
-    for a held weapon in the core.
+  - **One blow is chaotic, so a search scores several** (`perturbed` in `research/core-strike.mjs`
+    has the numbers). Random strikes read 1.9 % apart when every activation was scaled by 0.9999
+    (0.7 % with self-contact off), and 11-12 % apart between 1920 Hz and 3840 Hz; 120 Hz is not
+    biased on average (mean ratio 0.97-0.99 against 3840 Hz). Ten searches that took the best
+    single run each read higher at 120 Hz than at 1920 Hz, by up to 95 %. A candidate's score is now
+    its mean over four runs, each push moved within half a 120 Hz step and scaled within 2 %.
+  - **Searched at 120 Hz on the fixed driver** (Node core stand; 96 candidates, 50 generations, the
+    best read again as the mean of eight fresh trials), forward m/s at the target at 120 Hz, then
+    1920 Hz (a miss reads 0):
+
+    | | seed 1 | seed 2 | seed 3 |
+    |---|---|---|---|
+    | Warrior from the guard | 4.5, 0 | 10.2, 9.3 | 8.9, 7.0 |
+    | Rogue from the guard | 6.6, 0 | 10.4, 8.8 | 6.1, 0 |
+    | Warrior, free blow | 10.4, 1.1 | 12.6, 0 | |
+    | Rogue, free blow | 9.2, 0 | 9.7, 0 | |
+
+    Each blow is steady at 120 Hz across its trials, and most miss at 1920 Hz: a blow tuned at one
+    rate follows another path at another. Seeds still disagree by a factor of two, every blow from
+    the guard arrives 0.32-0.44 s after it starts (wound up, not a straight), and the Rogue matches
+    the Warrior. Nothing here is read against the acceptance above yet.
+  - **Where the rates part.** With no pushes at all, only the servo returning the arm from one
+    searched chamber to the guard, 120 Hz and 1920 Hz differ: at 1920 Hz the elbow was flung to its
+    stop at 9.7 rad/s. With self-contact off that goes (which segments met was not read), and a smaller difference remains (the shoulder lowered at 11 rad/s at 120 Hz, 6 at
+    1920 Hz), where at 120 Hz the servoed shoulder's ceiling switches between its flexors and
+    extensors from step to step. Open: self-contact and the servo on the whole body, across rates.
+    The club waits for a held weapon in the core.
 
 ### Stage 3: one world, one body, one command
 

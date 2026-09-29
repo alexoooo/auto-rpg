@@ -21,9 +21,21 @@
  * lands on a fist held in line with the forearm. A first search that could push the wrist found a
  * flick of the hand, and a fault in the muscle driver with it: at 120 Hz the wrist went from rest
  * to 23 rad/s in one step (16 at 480 Hz at the same moment), and the best strike read 11.66 m/s at
- * 120 Hz and 6.60 at 480 (Node core stand). The driver reads the force-velocity curve at the speed
- * a step begins with, so a light segment crosses the whole curve in one step at its isometric
- * torque. A search is therefore run at 480 Hz by default, and its best read at 120 Hz beside it.
+ * 120 Hz and 6.60 at 480 (Node core stand). The driver read the force-velocity curve at the speed
+ * a step began with, so a light segment crossed the whole curve in one step at its isometric
+ * torque; it now holds each motor's target to the curve's tangent (`src/core/muscle/driver.ts`),
+ * and a search runs at the game's 120 Hz.
+ *
+ * **One blow is chaotic; a search scores several.** Random strikes (Node core stand, the Warrior
+ * from the guard, 24 of them, 480 Hz) read a peak fist speed 1.9 % apart (standard deviation of the
+ * log ratio; up to 8 %) when every push's activation was scaled by 0.9999, and 0.7 % with the
+ * body's self-contact switched off: an arm that meets its own body turns a small difference into a
+ * large one. Strikes that met no joint stop scattered as much as those that did. The same strikes read 11-12 % apart between 1920 Hz and 3840 Hz and
+ * 17-31 % between 120 Hz and 3840 Hz, with mean ratios of 0.97-0.99 at 120 Hz: one rate does not
+ * reproduce another's single blow, but 120 Hz is not biased. A search that takes the best single
+ * run of thousands takes the luckiest: ten searches at 120 Hz each read higher at 120 Hz than at
+ * 1920 Hz, by up to 95 %. `perturbed` gives a strike the variation a mind cannot remove, and the
+ * search scores a candidate by its mean over several.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -82,13 +94,23 @@ export function decode(unit, spec, hand = "right", guard = false) {
 }
 
 /**
+ * `strike` with every push `shift` s later (none before the chamber's end) and its activation
+ * times `scale` (at most 1): what a mind cannot hold exactly from one blow to the next.
+ */
+export function perturbed(strike, { shift = 0, scale = 1 }) {
+  return { ...strike, pushes: strike.pushes.map((p) => ({ ...p, from: Math.max(0, p.from + shift), to: Math.max(0, p.to + shift),
+    level: Math.min(1, (p.level ?? 1) * scale) })) };
+}
+
+/**
  * Run a strike on `model` at `hz`: the one `unit` stands for, or a given `strike` at `distance`.
  * Returns the forward speed at the target (0 if the fist never arrives), when it arrived after the
  * chamber, and the fist's peak speed before it.
  */
-export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 480, hand = "right", guard = false, ...given }) {
+export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", guard = false, perturbation, ...given }) {
   const spec = humanSpec(model);
-  const { strike, distance } = unit ? decode(unit, spec, hand, guard) : given;
+  const decoded = unit ? decode(unit, spec, hand, guard) : given;
+  const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
   const chamber = strike.chamber ?? { seconds: 0 };
   const head = spec.segments.find((s) => s.name === "head");
   const radius = head.shape.radius.value;
