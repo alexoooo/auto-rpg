@@ -1,0 +1,216 @@
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=1 damping=default standing=false footSpinRms=24.6 footTiltMax=179 footTiltMaxLate=179 comDrift=261 comWander=514 footSlide=616 jointErrorMax=2.12 msPerStep=0.12 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=1 damping=default cond={"foot.left":30} standing=false footSpinRms=16.4 footTiltMax=180 footTiltMaxLate=180 comDrift=683 comWander=795 footSlide=1050 jointErrorMax=2.55 msPerStep=0.038 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=1 damping=default cond={"foot.left":100} standing=false footSpinRms=4.17 footTiltMax=155 footTiltMaxLate=155 comDrift=411 comWander=411 footSlide=1130 jointErrorMax=1.87 msPerStep=0.03 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=1 damping=default cond={"foot.left":300} standing=false footSpinRms=7.85 footTiltMax=177 footTiltMaxLate=177 comDrift=1090 comWander=1170 footSlide=605 jointErrorMax=2.23 msPerStep=0.0293 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=1 damping=default cond={"foot.left":1000} standing=false footSpinRms=5.28 footTiltMax=174 footTiltMaxLate=174 comDrift=833 comWander=833 footSlide=701 jointErrorMax=2.53 msPerStep=0.0264 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=1 damping=default handJitterRms=0.289 wristJitterRms=0.609 swingErrorMax=0.212 swingErrorRms=0.147 overshoot=0.221 ringRms=0.241 settle=1.35 msPerStep=0.0412 deviation=0.0388 today=true clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=1 damping=zero standing=false footSpinRms=27.3 footTiltMax=177 footTiltMaxLate=177 comDrift=1550 comWander=2130 footSlide=1430 jointErrorMax=2.1 msPerStep=0.0428 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=1 damping=zero cond={"foot.left":30} standing=false footSpinRms=17.2 footTiltMax=178 footTiltMaxLate=178 comDrift=1030 comWander=1130 footSlide=1270 jointErrorMax=2.43 msPerStep=0.0375 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=1 damping=zero cond={"foot.left":100} standing=false footSpinRms=6.37 footTiltMax=171 footTiltMaxLate=171 comDrift=301 comWander=355 footSlide=294 jointErrorMax=1.97 msPerStep=0.0328 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=1 damping=zero cond={"foot.left":300} standing=false footSpinRms=11.2 footTiltMax=179 footTiltMaxLate=179 comDrift=856 comWander=1170 footSlide=1200 jointErrorMax=2.09 msPerStep=0.0323 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=1 damping=zero cond={"foot.left":1000} standing=false footSpinRms=5.4 footTiltMax=179 footTiltMaxLate=179 comDrift=443 comWander=663 footSlide=1020 jointErrorMax=2.5 msPerStep=0.0346 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=1 damping=zero handJitterRms=0.289 wristJitterRms=0.609 swingErrorMax=0.211 swingErrorRms=0.146 overshoot=0.221 ringRms=0.241 settle=1.35 msPerStep=0.015 deviation=0.0392 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=2 damping=default standing=false footSpinRms=37.4 footTiltMax=179 footTiltMaxLate=179 comDrift=725 comWander=857 footSlide=1300 jointErrorMax=2.27 msPerStep=0.041 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=2 damping=default cond={"foot.left":30} standing=false footSpinRms=21.5 footTiltMax=179 footTiltMaxLate=179 comDrift=799 comWander=1300 footSlide=671 jointErrorMax=2.53 msPerStep=0.0421 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=2 damping=default cond={"foot.left":100} standing=false footSpinRms=14.4 footTiltMax=177 footTiltMaxLate=177 comDrift=344 comWander=892 footSlide=801 jointErrorMax=2.48 msPerStep=0.0401 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=2 damping=default cond={"foot.left":300} standing=false footSpinRms=9.34 footTiltMax=179 footTiltMaxLate=179 comDrift=547 comWander=667 footSlide=1500 jointErrorMax=2.09 msPerStep=0.0394 today=false clean=false
+BJS - [10:04:54]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=2 damping=default cond={"foot.left":1000} standing=false footSpinRms=3.84 footTiltMax=170 footTiltMaxLate=170 comDrift=1200 comWander=1230 footSlide=1690 jointErrorMax=2.18 msPerStep=0.0399 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=2 damping=default handJitterRms=0.146 wristJitterRms=0.309 swingErrorMax=0.223 swingErrorRms=0.145 overshoot=0.232 ringRms=0.145 settle=0.65 msPerStep=0.0224 deviation=0.0233 today=true clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=2 damping=zero standing=false footSpinRms=10.4 footTiltMax=167 footTiltMaxLate=160 comDrift=600 comWander=626 footSlide=995 jointErrorMax=1.77 msPerStep=0.0365 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=2 damping=zero cond={"foot.left":30} standing=false footSpinRms=18.6 footTiltMax=178 footTiltMaxLate=178 comDrift=1110 comWander=1120 footSlide=2130 jointErrorMax=2.46 msPerStep=0.0293 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=2 damping=zero cond={"foot.left":100} standing=false footSpinRms=10.4 footTiltMax=177 footTiltMaxLate=177 comDrift=552 comWander=557 footSlide=1460 jointErrorMax=2.52 msPerStep=0.0293 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=2 damping=zero cond={"foot.left":300} standing=false footSpinRms=6.16 footTiltMax=170 footTiltMaxLate=170 comDrift=1810 comWander=1820 footSlide=1920 jointErrorMax=2.51 msPerStep=0.0295 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=2 damping=zero cond={"foot.left":1000} standing=false footSpinRms=3.51 footTiltMax=175 footTiltMaxLate=175 comDrift=226 comWander=458 footSlide=1120 jointErrorMax=2.3 msPerStep=0.0299 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=2 damping=zero handJitterRms=0.146 wristJitterRms=0.309 swingErrorMax=0.223 swingErrorRms=0.145 overshoot=0.232 ringRms=0.145 settle=0.65 msPerStep=0.0209 deviation=0.0233 today=true clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=4 damping=default standing=false footSpinRms=18.4 footTiltMax=176 footTiltMaxLate=176 comDrift=228 comWander=471 footSlide=496 jointErrorMax=2.09 msPerStep=0.052 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=4 damping=default cond={"foot.left":30} standing=false footSpinRms=18.7 footTiltMax=178 footTiltMaxLate=178 comDrift=293 comWander=482 footSlide=910 jointErrorMax=2.5 msPerStep=0.0519 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=4 damping=default cond={"foot.left":100} standing=true footSpinRms=0.687 footTiltMax=2.24 footTiltMaxLate=2.24 comDrift=17.9 comWander=17.9 footSlide=17.5 jointErrorMax=0.147 msPerStep=0.0469 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=4 damping=default cond={"foot.left":300} standing=true footSpinRms=0.266 footTiltMax=0.507 footTiltMaxLate=0.33 comDrift=3.1 comWander=3.2 footSlide=0.0791 jointErrorMax=0.0231 msPerStep=0.0467 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=4 damping=default cond={"foot.left":1000} standing=true footSpinRms=0.127 footTiltMax=0.563 footTiltMaxLate=0.127 comDrift=4.21 comWander=4.26 footSlide=0.0872 jointErrorMax=0.023 msPerStep=0.0468 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=4 damping=default handJitterRms=0.074 wristJitterRms=0.156 swingErrorMax=0.235 swingErrorRms=0.147 overshoot=0.243 ringRms=0.103 settle=0.825 msPerStep=0.0338 deviation=0.0121 today=true clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=4 damping=zero standing=false footSpinRms=39.1 footTiltMax=177 footTiltMaxLate=177 comDrift=845 comWander=1150 footSlide=900 jointErrorMax=2.08 msPerStep=0.0496 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=4 damping=zero cond={"foot.left":30} standing=false footSpinRms=8.31 footTiltMax=172 footTiltMaxLate=172 comDrift=1030 comWander=1030 footSlide=920 jointErrorMax=2.02 msPerStep=0.0546 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=4 damping=zero cond={"foot.left":100} standing=true footSpinRms=0.568 footTiltMax=1.92 footTiltMaxLate=1.92 comDrift=7.56 comWander=9.26 footSlide=7.09 jointErrorMax=0.0914 msPerStep=0.0456 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=4 damping=zero cond={"foot.left":300} standing=true footSpinRms=0.262 footTiltMax=0.508 footTiltMaxLate=0.268 comDrift=2.58 comWander=2.88 footSlide=0.111 jointErrorMax=0.0227 msPerStep=0.0454 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=4 damping=zero cond={"foot.left":1000} standing=true footSpinRms=0.129 footTiltMax=0.564 footTiltMaxLate=0.122 comDrift=4.34 comWander=4.49 footSlide=0.0886 jointErrorMax=0.023 msPerStep=0.0445 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=4 damping=zero handJitterRms=0.0739 wristJitterRms=0.156 swingErrorMax=0.236 swingErrorRms=0.147 overshoot=0.243 ringRms=0.103 settle=0.825 msPerStep=0.034 deviation=0.0117 today=true clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=6 damping=default standing=false footSpinRms=34.5 footTiltMax=175 footTiltMaxLate=175 comDrift=72.3 comWander=394 footSlide=690 jointErrorMax=2.41 msPerStep=0.0751 today=false clean=false
+BJS - [10:04:55]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=6 damping=default cond={"foot.left":30} standing=false footSpinRms=9.82 footTiltMax=176 footTiltMaxLate=176 comDrift=567 comWander=572 footSlide=445 jointErrorMax=1.7 msPerStep=0.0714 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=6 damping=default cond={"foot.left":100} standing=true footSpinRms=0.039 footTiltMax=1.01 footTiltMaxLate=0.0951 comDrift=0.462 comWander=0.816 footSlide=0.0318 jointErrorMax=0.0115 msPerStep=0.0656 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=6 damping=default cond={"foot.left":300} standing=true footSpinRms=0.429 footTiltMax=0.299 footTiltMaxLate=0.243 comDrift=2.32 comWander=2.83 footSlide=0.643 jointErrorMax=0.0191 msPerStep=0.0659 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=6 damping=default cond={"foot.left":1000} standing=true footSpinRms=0.167 footTiltMax=0.325 footTiltMaxLate=0.0454 comDrift=2.29 comWander=2.38 footSlide=0.039 jointErrorMax=0.0138 msPerStep=0.066 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=6 damping=default handJitterRms=0.0486 wristJitterRms=0.104 swingErrorMax=0.24 swingErrorRms=0.149 overshoot=0.247 ringRms=0.0914 settle=0.975 msPerStep=0.0481 deviation=0.0127 today=true clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=6 damping=zero standing=false footSpinRms=45.3 footTiltMax=177 footTiltMaxLate=177 comDrift=347 comWander=792 footSlide=386 jointErrorMax=2.46 msPerStep=0.0669 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=6 damping=zero cond={"foot.left":30} standing=false footSpinRms=17.1 footTiltMax=179 footTiltMaxLate=179 comDrift=993 comWander=1020 footSlide=844 jointErrorMax=1.92 msPerStep=0.0674 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=6 damping=zero cond={"foot.left":100} standing=true footSpinRms=0.0382 footTiltMax=1.01 footTiltMaxLate=0.0845 comDrift=0.453 comWander=0.608 footSlide=0.0319 jointErrorMax=0.0112 msPerStep=0.0635 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=6 damping=zero cond={"foot.left":300} standing=true footSpinRms=0.384 footTiltMax=0.297 footTiltMaxLate=0.289 comDrift=3.62 comWander=4.15 footSlide=0.358 jointErrorMax=0.0205 msPerStep=0.0642 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=6 damping=zero cond={"foot.left":1000} standing=true footSpinRms=0.172 footTiltMax=0.326 footTiltMaxLate=0.0487 comDrift=2.3 comWander=2.47 footSlide=0.0429 jointErrorMax=0.0133 msPerStep=0.0647 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=6 damping=zero handJitterRms=0.0486 wristJitterRms=0.104 swingErrorMax=0.241 swingErrorRms=0.149 overshoot=0.248 ringRms=0.0913 settle=0.975 msPerStep=0.0467 deviation=0.0127 today=true clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=8 damping=default standing=false footSpinRms=55.4 footTiltMax=178 footTiltMaxLate=178 comDrift=873 comWander=873 footSlide=1190 jointErrorMax=2.07 msPerStep=0.0934 today=false clean=false
+BJS - [10:04:56]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=8 damping=default cond={"foot.left":30} standing=true footSpinRms=1.19 footTiltMax=3.15 footTiltMaxLate=3.15 comDrift=62.6 comWander=62.9 footSlide=64.9 jointErrorMax=0.154 msPerStep=0.085 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=8 damping=default cond={"foot.left":100} standing=true footSpinRms=0.0259 footTiltMax=0.479 footTiltMaxLate=0.0126 comDrift=0.677 comWander=0.728 footSlide=0.018 jointErrorMax=0.00734 msPerStep=0.0834 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=8 damping=default cond={"foot.left":300} standing=true footSpinRms=0.041 footTiltMax=0.133 footTiltMaxLate=0.0492 comDrift=2 comWander=2 footSlide=0.0188 jointErrorMax=0.00964 msPerStep=0.0847 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=8 damping=default cond={"foot.left":1000} standing=true footSpinRms=0.0583 footTiltMax=0.118 footTiltMaxLate=0.0319 comDrift=1.44 comWander=1.46 footSlide=0.0197 jointErrorMax=0.0107 msPerStep=0.0849 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=8 damping=default handJitterRms=0.0354 wristJitterRms=0.0771 swingErrorMax=0.243 swingErrorRms=0.15 overshoot=0.25 ringRms=0.0866 settle=1.09 msPerStep=0.0623 deviation=0.0139 today=true clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=8 damping=zero standing=false footSpinRms=54.6 footTiltMax=179 footTiltMaxLate=179 comDrift=276 comWander=526 footSlide=866 jointErrorMax=2.45 msPerStep=0.0878 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=8 damping=zero cond={"foot.left":30} standing=true footSpinRms=0.917 footTiltMax=2.89 footTiltMaxLate=2.89 comDrift=6.89 comWander=11.2 footSlide=12.9 jointErrorMax=0.147 msPerStep=0.0817 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=8 damping=zero cond={"foot.left":100} standing=true footSpinRms=0.0258 footTiltMax=0.508 footTiltMaxLate=0.0113 comDrift=1.43 comWander=1.44 footSlide=4.66 jointErrorMax=0.0262 msPerStep=0.0813 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=8 damping=zero cond={"foot.left":300} standing=true footSpinRms=0.0636 footTiltMax=0.134 footTiltMaxLate=0.112 comDrift=2.27 comWander=2.27 footSlide=0.391 jointErrorMax=0.00949 msPerStep=0.0809 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=8 damping=zero cond={"foot.left":1000} standing=true footSpinRms=0.0571 footTiltMax=0.117 footTiltMaxLate=0.03 comDrift=1.47 comWander=1.47 footSlide=0.026 jointErrorMax=0.0106 msPerStep=0.0824 today=false clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=8 damping=zero handJitterRms=0.0354 wristJitterRms=0.0771 swingErrorMax=0.243 swingErrorRms=0.15 overshoot=0.25 ringRms=0.0865 settle=1.09 msPerStep=0.0607 deviation=0.0138 today=true clean=false
+BJS - [10:04:57]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=12 damping=default standing=false footSpinRms=48.9 footTiltMax=177 footTiltMaxLate=177 comDrift=501 comWander=501 footSlide=742 jointErrorMax=1.76 msPerStep=0.135 today=false clean=false
+BJS - [10:04:58]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=12 damping=default cond={"foot.left":30} standing=true footSpinRms=0.266 footTiltMax=0.603 footTiltMaxLate=0.434 comDrift=1.13 comWander=1.46 footSlide=0.0224 jointErrorMax=0.0125 msPerStep=0.127 today=false clean=false
+BJS - [10:04:58]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=12 damping=default cond={"foot.left":100} standing=true footSpinRms=0.0186 footTiltMax=0.0405 footTiltMaxLate=0.00515 comDrift=0.966 comWander=0.977 footSlide=0.00803 jointErrorMax=0.00454 msPerStep=0.128 today=false clean=false
+BJS - [10:04:58]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=12 damping=default cond={"foot.left":300} standing=true footSpinRms=0.00661 footTiltMax=0.0286 footTiltMaxLate=0.00576 comDrift=1.39 comWander=1.39 footSlide=0.00847 jointErrorMax=0.00395 msPerStep=0.122 today=true clean=false
+BJS - [10:04:58]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=12 damping=default cond={"foot.left":1000} standing=true footSpinRms=0.0554 footTiltMax=0.0167 footTiltMaxLate=0.0167 comDrift=1.5 comWander=1.5 footSlide=0.0107 jointErrorMax=0.00725 msPerStep=0.124 today=false clean=false
+BJS - [10:04:58]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=12 damping=default handJitterRms=0.0227 wristJitterRms=0.0509 swingErrorMax=0.246 swingErrorRms=0.151 overshoot=0.253 ringRms=0.0826 settle=1.33 msPerStep=0.0911 deviation=0.0152 today=true clean=false
+BJS - [10:04:58]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=12 damping=zero standing=false footSpinRms=30.1 footTiltMax=177 footTiltMaxLate=177 comDrift=512 comWander=553 footSlide=142 jointErrorMax=2.08 msPerStep=0.145 today=false clean=false
+BJS - [10:04:58]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=12 damping=zero cond={"foot.left":30} standing=true footSpinRms=0.257 footTiltMax=0.588 footTiltMaxLate=0.398 comDrift=0.326 comWander=1.27 footSlide=0.0413 jointErrorMax=0.0137 msPerStep=0.128 today=false clean=false
+BJS - [10:04:59]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=12 damping=zero cond={"foot.left":100} standing=true footSpinRms=0.0186 footTiltMax=0.0156 footTiltMaxLate=0.00515 comDrift=0.958 comWander=0.97 footSlide=0.00799 jointErrorMax=0.00457 msPerStep=0.136 today=false clean=false
+BJS - [10:04:59]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=12 damping=zero cond={"foot.left":300} standing=true footSpinRms=0.00654 footTiltMax=0.0287 footTiltMaxLate=0.00391 comDrift=1.4 comWander=1.4 footSlide=0.00828 jointErrorMax=0.00393 msPerStep=0.129 today=true clean=false
+BJS - [10:04:59]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=12 damping=zero cond={"foot.left":1000} standing=true footSpinRms=0.0462 footTiltMax=0.0163 footTiltMaxLate=0.0163 comDrift=1.43 comWander=1.43 footSlide=0.00899 jointErrorMax=0.00754 msPerStep=0.135 today=false clean=false
+BJS - [10:04:59]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=12 damping=zero handJitterRms=0.0226 wristJitterRms=0.0508 swingErrorMax=0.246 swingErrorRms=0.151 overshoot=0.253 ringRms=0.0826 settle=1.33 msPerStep=0.0979 deviation=0.0152 today=true clean=false
+BJS - [10:04:59]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=16 damping=default standing=false footSpinRms=53.8 footTiltMax=175 footTiltMaxLate=175 comDrift=504 comWander=661 footSlide=706 jointErrorMax=2.07 msPerStep=0.19 today=false clean=false
+BJS - [10:04:59]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=16 damping=default cond={"foot.left":30} standing=true footSpinRms=0.0451 footTiltMax=0.259 footTiltMaxLate=0.00335 comDrift=0.301 comWander=0.349 footSlide=0.00416 jointErrorMax=0.00613 msPerStep=0.162 today=false clean=false
+BJS - [10:05:00]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=16 damping=default cond={"foot.left":100} standing=true footSpinRms=0.0143 footTiltMax=0.00242 footTiltMaxLate=0.00123 comDrift=1.06 comWander=1.06 footSlide=0.00454 jointErrorMax=0.00303 msPerStep=0.17 today=false clean=false
+BJS - [10:05:00]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=16 damping=default cond={"foot.left":300} standing=true footSpinRms=0.00495 footTiltMax=0.00228 footTiltMaxLate=0.00134 comDrift=1.31 comWander=1.31 footSlide=0.00512 jointErrorMax=0.0026 msPerStep=0.17 today=true clean=false
+BJS - [10:05:00]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=16 damping=default cond={"foot.left":1000} standing=true footSpinRms=0.0379 footTiltMax=0.0138 footTiltMaxLate=0.0138 comDrift=1.27 comWander=1.27 footSlide=0.00665 jointErrorMax=0.0171 msPerStep=0.161 today=false clean=false
+BJS - [10:05:00]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=16 damping=default handJitterRms=0.0167 wristJitterRms=0.038 swingErrorMax=0.248 swingErrorRms=0.151 overshoot=0.254 ringRms=0.0813 settle=1.35 msPerStep=0.117 deviation=0.0158 today=true clean=false
+BJS - [10:05:00]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=16 damping=zero standing=false footSpinRms=17.7 footTiltMax=174 footTiltMaxLate=174 comDrift=1060 comWander=1060 footSlide=1460 jointErrorMax=2.02 msPerStep=0.185 today=false clean=false
+BJS - [10:05:00]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=16 damping=zero cond={"foot.left":30} standing=true footSpinRms=0.0458 footTiltMax=0.273 footTiltMaxLate=0.0034 comDrift=0.199 comWander=0.401 footSlide=0.00561 jointErrorMax=0.00652 msPerStep=0.152 today=false clean=false
+BJS - [10:05:01]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=16 damping=zero cond={"foot.left":100} standing=true footSpinRms=0.0143 footTiltMax=0.00272 footTiltMaxLate=0.00272 comDrift=1.07 comWander=1.07 footSlide=0.00433 jointErrorMax=0.00302 msPerStep=0.152 today=false clean=false
+BJS - [10:05:01]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=16 damping=zero cond={"foot.left":300} standing=true footSpinRms=0.00495 footTiltMax=0.00228 footTiltMaxLate=0.00134 comDrift=1.32 comWander=1.32 footSlide=0.00458 jointErrorMax=0.00258 msPerStep=0.155 today=true clean=false
+BJS - [10:05:01]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=16 damping=zero cond={"foot.left":1000} standing=true footSpinRms=0.0325 footTiltMax=0.014 footTiltMaxLate=0.014 comDrift=1.31 comWander=1.32 footSlide=0.0066 jointErrorMax=0.0146 msPerStep=0.154 today=false clean=false
+BJS - [10:05:01]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=16 damping=zero handJitterRms=0.0168 wristJitterRms=0.038 swingErrorMax=0.248 swingErrorRms=0.151 overshoot=0.255 ringRms=0.081 settle=1.35 msPerStep=0.114 deviation=0.0159 today=true clean=false
+BJS - [10:05:01]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=24 damping=default standing=false footSpinRms=14.2 footTiltMax=177 footTiltMaxLate=177 comDrift=806 comWander=823 footSlide=771 jointErrorMax=2.45 msPerStep=0.259 today=false clean=false
+BJS - [10:05:02]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=24 damping=default cond={"foot.left":30} standing=true footSpinRms=0.0288 footTiltMax=0.0565 footTiltMaxLate=0.000886 comDrift=0.44 comWander=0.44 footSlide=0.00162 jointErrorMax=0.00325 msPerStep=0.235 today=false clean=false
+BJS - [10:05:02]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=24 damping=default cond={"foot.left":100} standing=true footSpinRms=0.0103 footTiltMax=0.000969 footTiltMaxLate=0.000569 comDrift=0.973 comWander=0.973 footSlide=0.00248 jointErrorMax=0.00188 msPerStep=0.235 today=false clean=false
+BJS - [10:05:02]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=24 damping=default cond={"foot.left":300} standing=true footSpinRms=0.00354 footTiltMax=0.00102 footTiltMaxLate=0.000606 comDrift=1.01 comWander=1.01 footSlide=0.00125 jointErrorMax=0.00156 msPerStep=0.238 today=true clean=false
+BJS - [10:05:02]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=24 damping=default cond={"foot.left":1000} standing=true footSpinRms=0.0266 footTiltMax=0.00549 footTiltMaxLate=0.00549 comDrift=1.14 comWander=1.15 footSlide=0.0021 jointErrorMax=0.00399 msPerStep=0.241 today=false clean=false
+BJS - [10:05:03]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=24 damping=default handJitterRms=0.0114 wristJitterRms=0.0256 swingErrorMax=0.249 swingErrorRms=0.152 overshoot=0.256 ringRms=0.0802 settle=1.35 msPerStep=0.182 deviation=0.0166 today=true clean=false
+BJS - [10:05:03]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=24 damping=zero standing=false footSpinRms=53 footTiltMax=178 footTiltMaxLate=178 comDrift=940 comWander=942 footSlide=784 jointErrorMax=1.7 msPerStep=0.254 today=false clean=false
+BJS - [10:05:03]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=24 damping=zero cond={"foot.left":30} standing=true footSpinRms=0.0286 footTiltMax=0.0581 footTiltMaxLate=0.000872 comDrift=0.44 comWander=0.44 footSlide=0.00155 jointErrorMax=0.00325 msPerStep=0.23 today=false clean=false
+BJS - [10:05:03]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=24 damping=zero cond={"foot.left":100} standing=true footSpinRms=0.0102 footTiltMax=0.00104 footTiltMaxLate=0.000574 comDrift=0.964 comWander=0.964 footSlide=0.00251 jointErrorMax=0.00189 msPerStep=0.257 today=false clean=false
+BJS - [10:05:04]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=24 damping=zero cond={"foot.left":300} standing=true footSpinRms=0.00358 footTiltMax=0.00108 footTiltMaxLate=0.000616 comDrift=1.01 comWander=1.01 footSlide=0.00132 jointErrorMax=0.00156 msPerStep=0.238 today=true clean=false
+BJS - [10:05:04]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=24 damping=zero cond={"foot.left":1000} standing=true footSpinRms=0.0247 footTiltMax=0.00578 footTiltMaxLate=0.00578 comDrift=1.15 comWander=1.15 footSlide=0.00236 jointErrorMax=0.0037 msPerStep=0.237 today=false clean=false
+BJS - [10:05:04]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=24 damping=zero handJitterRms=0.0114 wristJitterRms=0.0255 swingErrorMax=0.25 swingErrorRms=0.152 overshoot=0.256 ringRms=0.08 settle=1.35 msPerStep=0.169 deviation=0.0165 today=true clean=false
+BJS - [10:05:04]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=32 damping=default standing=false footSpinRms=48.7 footTiltMax=178 footTiltMaxLate=178 comDrift=1490 comWander=1490 footSlide=1080 jointErrorMax=2.09 msPerStep=0.351 today=false clean=false
+BJS - [10:05:05]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=32 damping=default cond={"foot.left":30} standing=true footSpinRms=0.0244 footTiltMax=0.000406 footTiltMaxLate=0.000401 comDrift=0.589 comWander=0.589 footSlide=0.00258 jointErrorMax=0.00294 msPerStep=0.331 today=false clean=false
+BJS - [10:05:05]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=32 damping=default cond={"foot.left":100} standing=true footSpinRms=0.008 footTiltMax=0.000364 footTiltMaxLate=0.000323 comDrift=0.757 comWander=0.757 footSlide=0.00106 jointErrorMax=0.00163 msPerStep=0.325 today=true clean=true
+BJS - [10:05:06]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=32 damping=default cond={"foot.left":300} standing=true footSpinRms=0.00296 footTiltMax=0.000613 footTiltMaxLate=0.000359 comDrift=0.712 comWander=0.712 footSlide=0.00299 jointErrorMax=0.00131 msPerStep=0.311 today=true clean=true
+BJS - [10:05:06]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=32 damping=default cond={"foot.left":1000} standing=true footSpinRms=0.0133 footTiltMax=0.0012 footTiltMaxLate=0.00112 comDrift=0.996 comWander=0.997 footSlide=0.00132 jointErrorMax=0.00272 msPerStep=0.317 today=false clean=false
+BJS - [10:05:06]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=32 damping=default handJitterRms=0.00915 wristJitterRms=0.0197 swingErrorMax=0.25 swingErrorRms=0.152 overshoot=0.256 ringRms=0.0798 settle=1.35 msPerStep=0.23 deviation=0.0169 today=true clean=false
+BJS - [10:05:06]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1 label=Havok substeps=32 damping=zero standing=false footSpinRms=52.5 footTiltMax=177 footTiltMaxLate=177 comDrift=2130 comWander=2140 footSlide=1700 jointErrorMax=2.43 msPerStep=0.316 today=false clean=false
+BJS - [10:05:07]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=30 label=Havok substeps=32 damping=zero cond={"foot.left":30} standing=true footSpinRms=0.0244 footTiltMax=0.000394 footTiltMaxLate=0.000343 comDrift=0.589 comWander=0.589 footSlide=0.00231 jointErrorMax=0.00296 msPerStep=0.305 today=false clean=false
+BJS - [10:05:07]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=100 label=Havok substeps=32 damping=zero cond={"foot.left":100} standing=true footSpinRms=0.00797 footTiltMax=0.000391 footTiltMaxLate=0.000329 comDrift=0.76 comWander=0.76 footSlide=0.000787 jointErrorMax=0.00163 msPerStep=0.298 today=true clean=true
+BJS - [10:05:08]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=300 label=Havok substeps=32 damping=zero cond={"foot.left":300} standing=true footSpinRms=0.00294 footTiltMax=0.000405 footTiltMaxLate=0.00036 comDrift=0.71 comWander=0.71 footSlide=0.00311 jointErrorMax=0.00128 msPerStep=0.301 today=true clean=true
+BJS - [10:05:08]: Babylon.js v9.18.1 - Null engine
+kind=A settings=[object Object] cond=1000 label=Havok substeps=32 damping=zero cond={"foot.left":1000} standing=true footSpinRms=0.0134 footTiltMax=0.00129 footTiltMaxLate=0.00115 comDrift=1.02 comWander=1.02 footSlide=0.00104 jointErrorMax=0.00271 msPerStep=0.315 today=false clean=false
+BJS - [10:05:08]: Babylon.js v9.18.1 - Null engine
+kind=B settings=[object Object] label=Havok substeps=32 damping=zero handJitterRms=0.00905 wristJitterRms=0.0196 swingErrorMax=0.251 swingErrorRms=0.153 overshoot=0.257 ringRms=0.0794 settle=1.35 msPerStep=0.219 deviation=0.0169 today=true clean=false

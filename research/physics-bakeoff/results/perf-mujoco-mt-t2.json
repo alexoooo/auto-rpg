@@ -1,0 +1,867 @@
+{
+ "engine": "mujoco-mt",
+ "tag": "mujoco-mt-t2",
+ "settings": {
+  "hz": 120,
+  "substeps": 2,
+  "threads": 2
+ },
+ "conditioning": {
+  "foot.left": 100,
+  "foot.right": 100
+ },
+ "real": false,
+ "initMs": 229.20180000000005,
+ "node": "v24.19.0",
+ "machineBusy": 0.1883935121280671,
+ "rows": [
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 1,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 0.1010999999998603,
+    "p95": 0.10779999999977008,
+    "mean": 0.1023680555555643
+   },
+   "solver": {
+    "median": 0.09290000000009968,
+    "p95": 0.09979999999995925
+   },
+   "read": {
+    "median": 0.0007000000000516593,
+    "p95": 0.0008000000002539309
+   },
+   "control": {
+    "median": 0.007399999999961437,
+    "p95": 0.008100000000013097
+   },
+   "allocPerStep": 2152.711111111111,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    1,
+    1,
+    1
+   ],
+   "maxSpeed": 0.010957008900319759,
+   "spread": [
+    0.10230000000001382,
+    0.1010999999998603,
+    0.09949999999980719
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 2,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 0.20240000000012515,
+    "p95": 0.22109999999975116,
+    "mean": 0.2142566666666855
+   },
+   "solver": {
+    "median": 0.18730000000050495,
+    "p95": 0.20650000000023283
+   },
+   "read": {
+    "median": 0.0007000000005064066,
+    "p95": 0.0007999999997991836
+   },
+   "control": {
+    "median": 0.013799999999719148,
+    "p95": 0.014799999999922875
+   },
+   "allocPerStep": 3099.7555555555555,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    2,
+    2,
+    2
+   ],
+   "maxSpeed": 0.011407772985524848,
+   "spread": [
+    0.20240000000012515,
+    0.16219999999975698,
+    0.2092000000002372
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 4,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 0.36190000000078726,
+    "p95": 0.45600000000013097,
+    "mean": 1.6069124999999986
+   },
+   "solver": {
+    "median": 0.334500000000844,
+    "p95": 0.4283000000004904
+   },
+   "read": {
+    "median": 0.0010000000002037268,
+    "p95": 0.0011999999996987754
+   },
+   "control": {
+    "median": 0.02639999999973952,
+    "p95": 0.028400000000146974
+   },
+   "allocPerStep": 4651.377777777778,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    4,
+    4,
+    4
+   ],
+   "maxSpeed": 0.011407772985524848,
+   "spread": [
+    0.3602999999993699,
+    0.3631999999997788,
+    0.36190000000078726
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 8,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 0.714799999999741,
+    "p95": 32.00240000000031,
+    "mean": 3.8323538888888455
+   },
+   "solver": {
+    "median": 0.661099999999351,
+    "p95": 31.887900000000627
+   },
+   "read": {
+    "median": 0.001900000000205182,
+    "p95": 0.002599999999802094
+   },
+   "control": {
+    "median": 0.05209999999988213,
+    "p95": 0.058400000001711305
+   },
+   "allocPerStep": 7985.955555555555,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    8,
+    8,
+    8
+   ],
+   "maxSpeed": 0.015461622235823496,
+   "spread": [
+    0.714799999999741,
+    0.7144000000007509,
+    0.7320999999992637
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 16,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 16.30240000000049,
+    "p95": 63.31029999999919,
+    "mean": 26.182489722222225
+   },
+   "solver": {
+    "median": 16.186699999998382,
+    "p95": 63.018599999999424
+   },
+   "read": {
+    "median": 0.0036000000000058208,
+    "p95": 0.006500000001324224
+   },
+   "control": {
+    "median": 0.10599999999976717,
+    "p95": 0.21710000000166474
+   },
+   "allocPerStep": 15665.955555555556,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    16,
+    16,
+    16
+   ],
+   "maxSpeed": 0.015461622235823496,
+   "spread": [
+    16.20180000000255,
+    16.30240000000049,
+    31.322000000000116
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 32,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 63.61269999999786,
+    "p95": 64.05999999999767,
+    "mean": 63.58310472222256
+   },
+   "solver": {
+    "median": 63.347600000000966,
+    "p95": 63.82099999998172
+   },
+   "read": {
+    "median": 0.007400000002235174,
+    "p95": 0.012899999986984767
+   },
+   "control": {
+    "median": 0.26019999999698484,
+    "p95": 0.4900999999954365
+   },
+   "allocPerStep": 2043.2,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    32,
+    32,
+    32
+   ],
+   "maxSpeed": 0.015461622235823496,
+   "spread": [
+    63.60660000000644,
+    63.65370000000985,
+    63.61269999999786
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 48,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 63.962899999984074,
+    "p95": 64.09940000000643,
+    "mean": 63.665742777777794
+   },
+   "solver": {
+    "median": 63.33239999998477,
+    "p95": 63.74559999999474
+   },
+   "read": {
+    "median": 0.01109999997424893,
+    "p95": 0.01620000001275912
+   },
+   "control": {
+    "median": 0.42610000001150183,
+    "p95": 0.7561999999743421
+   },
+   "allocPerStep": 2861.133333333333,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    48,
+    48,
+    48
+   ],
+   "maxSpeed": 0.015461622235823496,
+   "spread": [
+    63.962899999984074,
+    63.96479999998701,
+    63.59360000002198
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 64,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 63.91860000000452,
+    "p95": 64.09090000001015,
+    "mean": 63.63247111110977
+   },
+   "solver": {
+    "median": 63.0967000000237,
+    "p95": 63.54450000001816
+   },
+   "read": {
+    "median": 0.014599999994970858,
+    "p95": 0.020099999994272366
+   },
+   "control": {
+    "median": 0.6499000000185333,
+    "p95": 0.8998000000137836
+   },
+   "allocPerStep": 703.6,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    64,
+    64,
+    64
+   ],
+   "maxSpeed": 0.015461622235823496,
+   "spread": [
+    63.94740000000456,
+    63.91860000000452,
+    63.56440000003204
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 1,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 0.10700000001816079,
+    "p95": 0.10959999996703118,
+    "mean": 0.10799972222335377
+   },
+   "solver": {
+    "median": 0.0998000000254251,
+    "p95": 0.1023999999742955
+   },
+   "read": {
+    "median": 0.0003999999607913196,
+    "p95": 0.0004000000189989805
+   },
+   "control": {
+    "median": 0.0068999999784864485,
+    "p95": 0.00770000001648441
+   },
+   "allocPerStep": 1265.9555555555555,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    1,
+    1,
+    1
+   ],
+   "maxSpeed": 0.0003996606105950862,
+   "spread": [
+    0.11400000000139698,
+    0.10690000001341105,
+    0.10700000001816079
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 2,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 0.19130000000586733,
+    "p95": 0.2248000000254251,
+    "mean": 0.2036119444444517
+   },
+   "solver": {
+    "median": 0.17719999997643754,
+    "p95": 0.21070000005420297
+   },
+   "read": {
+    "median": 0.0006000000284984708,
+    "p95": 0.000699999975040555
+   },
+   "control": {
+    "median": 0.013600000005681068,
+    "p95": 0.014000000024680048
+   },
+   "allocPerStep": 2227.3777777777777,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    2,
+    2,
+    2
+   ],
+   "maxSpeed": 0.00039966061059518973,
+   "spread": [
+    0.17770000000018626,
+    0.2151999999769032,
+    0.19130000000586733
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 4,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 0.399100000038743,
+    "p95": 64.0006000000285,
+    "mean": 11.582651666667598
+   },
+   "solver": {
+    "median": 0.3724999999976717,
+    "p95": 63.95579999999609
+   },
+   "read": {
+    "median": 0.0010999999940395355,
+    "p95": 0.0025000000023283064
+   },
+   "control": {
+    "median": 0.02569999999832362,
+    "p95": 0.04749999998603016
+   },
+   "allocPerStep": 1265.8222222222223,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    4,
+    4,
+    4
+   ],
+   "maxSpeed": 0.00039966061059518973,
+   "spread": [
+    0.399100000038743,
+    0.332799999974668,
+    0.5156999999890104
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 8,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 0.7596000000485219,
+    "p95": 48.351399999985006,
+    "mean": 5.902922222220513
+   },
+   "solver": {
+    "median": 0.706899999990128,
+    "p95": 48.291199999977835
+   },
+   "read": {
+    "median": 0.0019000000320374966,
+    "p95": 0.002900000021327287
+   },
+   "control": {
+    "median": 0.05080000002635643,
+    "p95": 0.06320000003324822
+   },
+   "allocPerStep": 5084.688888888889,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    8,
+    8,
+    8
+   ],
+   "maxSpeed": 0.00039966061059518973,
+   "spread": [
+    0.7335000000311993,
+    0.7596000000485219,
+    0.7640999999712221
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 16,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 31.85720000002766,
+    "p95": 63.48430000001099,
+    "mean": 31.523684722223454
+   },
+   "solver": {
+    "median": 31.743300000031013,
+    "p95": 63.257100000046194
+   },
+   "read": {
+    "median": 0.003700000001117587,
+    "p95": 0.007299999997485429
+   },
+   "control": {
+    "median": 0.10599999997066334,
+    "p95": 0.22620000003371388
+   },
+   "allocPerStep": 1207.5555555555557,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    16,
+    16,
+    16
+   ],
+   "maxSpeed": 3.0251542810312286,
+   "spread": [
+    31.85720000002766,
+    31.789199999999255,
+    31.964800000016112
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 32,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 63.09129999997094,
+    "p95": 64.085699999996,
+    "mean": 60.07172249999874
+   },
+   "solver": {
+    "median": 62.67719999997644,
+    "p95": 63.70120000001043
+   },
+   "read": {
+    "median": 0.02790000004461035,
+    "p95": 0.10609999997541308
+   },
+   "control": {
+    "median": 1.0479999999515712,
+    "p95": 2.0852999999769963
+   },
+   "allocPerStep": 2130.8,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    32,
+    32,
+    32
+   ],
+   "maxSpeed": 3.596323243466109,
+   "spread": [
+    63.09129999997094,
+    121.82380000001285,
+    63.02980000001844
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 48,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 63.08230000000913,
+    "p95": 64.03760000003967,
+    "mean": 59.63863805555739
+   },
+   "solver": {
+    "median": 62.412000000011176,
+    "p95": 63.37709999992512
+   },
+   "read": {
+    "median": 0.013000000035390258,
+    "p95": 0.0276999999769032
+   },
+   "control": {
+    "median": 0.6608000000123866,
+    "p95": 1.0339000000385568
+   },
+   "allocPerStep": 2849.6444444444446,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    48,
+    48,
+    48
+   ],
+   "maxSpeed": 0.0817220833333988,
+   "spread": [
+    63.0631000000285,
+    63.09389999997802,
+    63.08230000000913
+   ]
+  },
+  {
+   "engine": "mujoco-mt",
+   "tag": "mujoco-mt-t2",
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "threads": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 64,
+   "repeats": 3,
+   "label": "MuJoCo substeps=2 threads=2",
+   "total": {
+    "median": 63.59510000003502,
+    "p95": 64.07850000006147,
+    "mean": 60.032023611108244
+   },
+   "solver": {
+    "median": 62.975800000014715,
+    "p95": 63.46199999994133
+   },
+   "read": {
+    "median": 0.0158000000519678,
+    "p95": 0.03680000000167638
+   },
+   "control": {
+    "median": 0.7776000000303611,
+    "p95": 1.0581000000238419
+   },
+   "allocPerStep": 15188.977777777778,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    64,
+    64,
+    64
+   ],
+   "maxSpeed": 0.0817220833333988,
+   "spread": [
+    63.55900000000838,
+    63.77650000003632,
+    63.59510000003502
+   ]
+  }
+ ]
+}

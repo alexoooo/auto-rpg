@@ -1,0 +1,236 @@
+{
+  "harness": "Node v24.19.0, win32",
+  "sizes": {
+    "havok": {
+      "files": [
+        "@babylonjs/havok/lib/esm/HavokPhysics_es.js",
+        "@babylonjs/havok/lib/esm/HavokPhysics.wasm"
+      ],
+      "raw": 2161963,
+      "gzip": 675471,
+      "brotli": 513315
+    },
+    "mujoco": {
+      "files": [
+        "@mujoco/mujoco/mujoco.js",
+        "@mujoco/mujoco/mujoco.wasm"
+      ],
+      "raw": 10606567,
+      "gzip": 2621040,
+      "brotli": 1961870
+    },
+    "mujoco-mt": {
+      "files": [
+        "@mujoco/mujoco/mt/mujoco.js",
+        "@mujoco/mujoco/mt/mujoco.wasm"
+      ],
+      "raw": 10732199,
+      "gzip": 2689017,
+      "brotli": 2012669
+    },
+    "rapier": {
+      "files": [
+        "@dimforge/rapier3d-compat/dist/rapier.mjs"
+      ],
+      "raw": 4340292,
+      "gzip": 1644109,
+      "brotli": 1196057
+    },
+    "rapier-simd": {
+      "files": [
+        "@dimforge/rapier3d-simd-compat/dist/rapier.mjs"
+      ],
+      "raw": 4620460,
+      "gzip": 1642548,
+      "brotli": 1177758
+    },
+    "rapier-wasm-only": {
+      "files": [
+        "@dimforge/rapier3d-compat/dist/rapier_wasm3d_bg.wasm"
+      ],
+      "raw": 3082103,
+      "gzip": 1175669,
+      "brotli": 852125
+    },
+    "rapier-simd-wasm-only": {
+      "files": [
+        "@dimforge/rapier3d-simd-compat/dist/rapier_wasm3d_bg.wasm"
+      ],
+      "raw": 3292228,
+      "gzip": 1151160,
+      "brotli": 836316
+    }
+  },
+  "cold": {
+    "havok": {
+      "initMs": 15.365700000000004,
+      "build32Ms": 64.4026,
+      "rssLoadedMB": 6.48046875,
+      "rss32MB": 64.91015625,
+      "arrayBuffers32MB": 2.513498306274414,
+      "wasmHeapMB": 16.125,
+      "runs": [
+        {
+          "initMs": 15.365700000000004,
+          "build32Ms": 64.4026,
+          "rssLoadedMB": 7.02734375,
+          "rss32MB": 66.015625,
+          "arrayBuffers32MB": 2.513498306274414,
+          "wasmHeapMB": 16.125
+        },
+        {
+          "initMs": 14.92009999999999,
+          "build32Ms": 67.49509999999998,
+          "rssLoadedMB": 6.48046875,
+          "rss32MB": 64.91015625,
+          "arrayBuffers32MB": 2.513498306274414,
+          "wasmHeapMB": 16.125
+        },
+        {
+          "initMs": 15.498199999999997,
+          "build32Ms": 61.37610000000001,
+          "rssLoadedMB": 5.765625,
+          "rss32MB": 53.45703125,
+          "arrayBuffers32MB": 2.513498306274414,
+          "wasmHeapMB": 16.125
+        }
+      ]
+    },
+    "mujoco": {
+      "initMs": 70.1979,
+      "build32Ms": 234.81409999999994,
+      "rssLoadedMB": 24.765625,
+      "rss32MB": 63.15234375,
+      "arrayBuffers32MB": 0.4349241256713867,
+      "wasmHeapMB": null,
+      "runs": [
+        {
+          "initMs": 66.89050000000003,
+          "build32Ms": 234.81409999999994,
+          "rssLoadedMB": 24.765625,
+          "rss32MB": 63.8828125,
+          "arrayBuffers32MB": 0.4349241256713867,
+          "wasmHeapMB": null
+        },
+        {
+          "initMs": 70.1979,
+          "build32Ms": 235.78420000000006,
+          "rssLoadedMB": 25.01171875,
+          "rss32MB": 63.15234375,
+          "arrayBuffers32MB": 0.4349241256713867,
+          "wasmHeapMB": null
+        },
+        {
+          "initMs": 87.3435,
+          "build32Ms": 230.59319999999997,
+          "rssLoadedMB": 24.1484375,
+          "rss32MB": 62.9921875,
+          "arrayBuffers32MB": 0.4349241256713867,
+          "wasmHeapMB": null
+        }
+      ]
+    },
+    "mujoco-mt": {
+      "initMs": 204.43190000000004,
+      "build32Ms": 225.00750000000005,
+      "rssLoadedMB": 491.44921875,
+      "rss32MB": 529.2265625,
+      "arrayBuffers32MB": 0.5013647079467773,
+      "wasmHeapMB": null,
+      "runs": [
+        {
+          "initMs": 202.23219999999998,
+          "build32Ms": 223.1621,
+          "rssLoadedMB": 489.640625,
+          "rss32MB": 524.15234375,
+          "arrayBuffers32MB": 0.43886470794677734,
+          "wasmHeapMB": null
+        },
+        {
+          "initMs": 205.5804,
+          "build32Ms": 228.98019999999997,
+          "rssLoadedMB": 491.44921875,
+          "rss32MB": 529.2265625,
+          "arrayBuffers32MB": 0.5638647079467773,
+          "wasmHeapMB": null
+        },
+        {
+          "initMs": 204.43190000000004,
+          "build32Ms": 225.00750000000005,
+          "rssLoadedMB": 492.3203125,
+          "rss32MB": 529.390625,
+          "arrayBuffers32MB": 0.5013647079467773,
+          "wasmHeapMB": null
+        }
+      ]
+    },
+    "rapier": {
+      "initMs": 83.68620000000004,
+      "build32Ms": 23.968799999999987,
+      "rssLoadedMB": 21.28125,
+      "rss32MB": 121.859375,
+      "arrayBuffers32MB": 0.49932384490966797,
+      "wasmHeapMB": null,
+      "runs": [
+        {
+          "initMs": 84.0625,
+          "build32Ms": 23.968799999999987,
+          "rssLoadedMB": 21.22265625,
+          "rss32MB": 121.859375,
+          "arrayBuffers32MB": 0.49932384490966797,
+          "wasmHeapMB": null
+        },
+        {
+          "initMs": 83.68620000000004,
+          "build32Ms": 25.58710000000002,
+          "rssLoadedMB": 21.30078125,
+          "rss32MB": 126.08984375,
+          "arrayBuffers32MB": 0.49932384490966797,
+          "wasmHeapMB": null
+        },
+        {
+          "initMs": 83.12510000000003,
+          "build32Ms": 23.74109999999996,
+          "rssLoadedMB": 21.28125,
+          "rss32MB": 111.765625,
+          "arrayBuffers32MB": 0.49932384490966797,
+          "wasmHeapMB": null
+        }
+      ]
+    },
+    "rapier-simd": {
+      "initMs": 90.65169999999995,
+      "build32Ms": 23.202200000000005,
+      "rssLoadedMB": 18.2890625,
+      "rss32MB": 121.78515625,
+      "arrayBuffers32MB": 0.49932384490966797,
+      "wasmHeapMB": null,
+      "runs": [
+        {
+          "initMs": 97.12810000000002,
+          "build32Ms": 22.409699999999987,
+          "rssLoadedMB": 18.2890625,
+          "rss32MB": 124.453125,
+          "arrayBuffers32MB": 0.49932384490966797,
+          "wasmHeapMB": null
+        },
+        {
+          "initMs": 90.65169999999995,
+          "build32Ms": 23.202200000000005,
+          "rssLoadedMB": 17.90625,
+          "rss32MB": 121.78515625,
+          "arrayBuffers32MB": 0.561823844909668,
+          "wasmHeapMB": null
+        },
+        {
+          "initMs": 87.05509999999998,
+          "build32Ms": 23.73670000000004,
+          "rssLoadedMB": 22.5546875,
+          "rss32MB": 118.671875,
+          "arrayBuffers32MB": 0.49932384490966797,
+          "wasmHeapMB": null
+        }
+      ]
+    }
+  }
+}

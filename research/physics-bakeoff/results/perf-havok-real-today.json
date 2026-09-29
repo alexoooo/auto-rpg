@@ -1,0 +1,850 @@
+{
+ "engine": "havok",
+ "tag": "havok-real-today",
+ "settings": {
+  "hz": 120,
+  "substeps": 1
+ },
+ "conditioning": {
+  "foot.left": 100,
+  "foot.right": 100
+ },
+ "real": true,
+ "initMs": 16.02389999999997,
+ "node": "v24.19.0",
+ "machineBusy": 0.047916432588910984,
+ "rows": [
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "spaced",
+   "humans": 1,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 0.08819999999991524,
+    "p95": 0.10159999999996217,
+    "mean": 0.08978138888888465
+   },
+   "solver": {
+    "median": 0.0667999999999438,
+    "p95": 0.07739999999989777
+   },
+   "read": {
+    "median": 0.01340000000004693,
+    "p95": 0.014800000000036562
+   },
+   "control": {
+    "median": 0.007699999999999818,
+    "p95": 0.008199999999987995
+   },
+   "allocPerStep": 24396.4,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 8.745454729775219,
+   "spread": [
+    0.09429999999997563,
+    0.08819999999991524,
+    0.08390000000008513
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "spaced",
+   "humans": 2,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 0.15050000000007913,
+    "p95": 0.16410000000007585,
+    "mean": 0.1505575000000012
+   },
+   "solver": {
+    "median": 0.11400000000003274,
+    "p95": 0.12749999999994088
+   },
+   "read": {
+    "median": 0.021299999999996544,
+    "p95": 0.022600000000011278
+   },
+   "control": {
+    "median": 0.014800000000036562,
+    "p95": 0.01520000000004984
+   },
+   "allocPerStep": 45978.26666666667,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 8.451686010161728,
+   "spread": [
+    0.15080000000000382,
+    0.15050000000007913,
+    0.1488000000000511
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "spaced",
+   "humans": 4,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 0.2849999999998545,
+    "p95": 0.30709999999999127,
+    "mean": 0.2838452777777731
+   },
+   "solver": {
+    "median": 0.21400000000016917,
+    "p95": 0.23630000000002838
+   },
+   "read": {
+    "median": 0.04179999999996653,
+    "p95": 0.04489999999987049
+   },
+   "control": {
+    "median": 0.028700000000071668,
+    "p95": 0.029899999999997817
+   },
+   "allocPerStep": 37381.933333333334,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 8.552668308863193,
+   "spread": [
+    0.2849999999998545,
+    0.282799999999952,
+    0.28569999999990614
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "spaced",
+   "humans": 8,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 0.5489999999999782,
+    "p95": 0.5958000000000538,
+    "mean": 0.549044722222229
+   },
+   "solver": {
+    "median": 0.40949999999998,
+    "p95": 0.45029999999997017
+   },
+   "read": {
+    "median": 0.08280000000013388,
+    "p95": 0.08960000000001855
+   },
+   "control": {
+    "median": 0.055899999999837746,
+    "p95": 0.05879999999979191
+   },
+   "allocPerStep": 82366.4,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 8.834410814713985,
+   "spread": [
+    0.5489999999999782,
+    0.5486000000000786,
+    0.5490000000004329
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "spaced",
+   "humans": 16,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 1.0794000000000779,
+    "p95": 1.1585000000000036,
+    "mean": 1.0766172222222028
+   },
+   "solver": {
+    "median": 0.7962999999995191,
+    "p95": 0.8622999999997774
+   },
+   "read": {
+    "median": 0.17180000000007567,
+    "p95": 0.1859999999996944
+   },
+   "control": {
+    "median": 0.1087999999999738,
+    "p95": 0.11540000000013606
+   },
+   "allocPerStep": 48688.86666666667,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 15.270984648688733,
+   "spread": [
+    1.066200000000208,
+    1.0794000000000779,
+    1.0888999999997395
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "spaced",
+   "humans": 32,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 2.1521999999995387,
+    "p95": 2.310099999999693,
+    "mean": 2.145031388888894
+   },
+   "solver": {
+    "median": 1.5817999999990207,
+    "p95": 1.738800000000083
+   },
+   "read": {
+    "median": 0.3441000000002532,
+    "p95": 0.3590999999996711
+   },
+   "control": {
+    "median": 0.21939999999995052,
+    "p95": 0.2294000000001688
+   },
+   "allocPerStep": 95750.75555555556,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 15.270984648688733,
+   "spread": [
+    2.056499999999687,
+    2.1521999999995387,
+    2.177099999999882
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "spaced",
+   "humans": 48,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 3.2888999999995576,
+    "p95": 3.5153000000009342,
+    "mean": 3.28170138888891
+   },
+   "solver": {
+    "median": 2.4222000000008848,
+    "p95": 2.6097999999983585
+   },
+   "read": {
+    "median": 0.5195000000003347,
+    "p95": 0.5485000000007858
+   },
+   "control": {
+    "median": 0.3364000000001397,
+    "p95": 0.3790000000008149
+   },
+   "allocPerStep": 49661.333333333336,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 15.270984648688733,
+   "spread": [
+    3.2888999999995576,
+    3.288799999998446,
+    3.313299999999799
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "spaced",
+   "humans": 64,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 4.600899999997637,
+    "p95": 5.163000000000466,
+    "mean": 4.598176944444276
+   },
+   "solver": {
+    "median": 3.342399999997724,
+    "p95": 3.7622000000010303
+   },
+   "read": {
+    "median": 0.7135999999991327,
+    "p95": 0.8135999999994965
+   },
+   "control": {
+    "median": 0.5069999999977881,
+    "p95": 0.6027999999987514
+   },
+   "allocPerStep": 3601.5333333333333,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 15.270984648688733,
+   "spread": [
+    4.5372000000006665,
+    4.6229999999995925,
+    4.600899999997637
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "pile",
+   "humans": 1,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 0.08079999999972642,
+    "p95": 0.08749999999781721,
+    "mean": 0.08163166666676666
+   },
+   "solver": {
+    "median": 0.06229999999777647,
+    "p95": 0.06880000000091968
+   },
+   "read": {
+    "median": 0.010699999998905696,
+    "p95": 0.011699999999109423
+   },
+   "control": {
+    "median": 0.007800000003044261,
+    "p95": 0.00810000000274158
+   },
+   "allocPerStep": 21958.266666666666,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 3.3374044510566034,
+   "spread": [
+    0.08090000000083819,
+    0.08060000000114087,
+    0.08079999999972642
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "pile",
+   "humans": 2,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 0.15049999999973807,
+    "p95": 0.1621999999988475,
+    "mean": 0.15190805555560777
+   },
+   "solver": {
+    "median": 0.1150999999990745,
+    "p95": 0.12669999999707215
+   },
+   "read": {
+    "median": 0.020400000001245644,
+    "p95": 0.021600000000034925
+   },
+   "control": {
+    "median": 0.014600000002246816,
+    "p95": 0.015199999998003477
+   },
+   "allocPerStep": 42374.688888888886,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 6.864512171936691,
+   "spread": [
+    0.15049999999973807,
+    0.15049999999973807,
+    0.14990000000034343
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "pile",
+   "humans": 4,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 0.2864000000008673,
+    "p95": 0.3025999999990745,
+    "mean": 0.28822527777792856
+   },
+   "solver": {
+    "median": 0.2168999999994412,
+    "p95": 0.23240000000077998
+   },
+   "read": {
+    "median": 0.040899999999965075,
+    "p95": 0.042399999998451676
+   },
+   "control": {
+    "median": 0.02839999999923748,
+    "p95": 0.029800000000250293
+   },
+   "allocPerStep": 83210.75555555556,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 7.373123823950209,
+   "spread": [
+    0.28629999999975553,
+    0.2864000000008673,
+    0.2864000000008673
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "pile",
+   "humans": 8,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 0.5692999999992026,
+    "p95": 0.5923000000002503,
+    "mean": 0.5713424999999713
+   },
+   "solver": {
+    "median": 0.43069999999715947,
+    "p95": 0.4521999999997206
+   },
+   "read": {
+    "median": 0.08290000000124564,
+    "p95": 0.08530000000246218
+   },
+   "control": {
+    "median": 0.05549999999857391,
+    "p95": 0.056899999999586726
+   },
+   "allocPerStep": 164879.11111111112,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 11.444321587151126,
+   "spread": [
+    0.571300000003248,
+    0.5685000000012224,
+    0.5692999999992026
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "pile",
+   "humans": 16,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 1.1700000000018917,
+    "p95": 1.2149000000026717,
+    "mean": 1.186656111111107
+   },
+   "solver": {
+    "median": 0.8796000000002095,
+    "p95": 0.913299999996525
+   },
+   "read": {
+    "median": 0.17919999999867287,
+    "p95": 0.18770000000222353
+   },
+   "control": {
+    "median": 0.11230000000068685,
+    "p95": 0.11799999999857391
+   },
+   "allocPerStep": 141828.97777777776,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 13.245731160675003,
+   "spread": [
+    1.1620999999977357,
+    1.1700000000018917,
+    1.1779999999998836
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "pile",
+   "humans": 32,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 2.5239000000001397,
+    "p95": 2.68579999999929,
+    "mean": 2.5899169444444547
+   },
+   "solver": {
+    "median": 1.9574000000029628,
+    "p95": 2.102600000001985
+   },
+   "read": {
+    "median": 0.35570000000006985,
+    "p95": 0.38550000000032014
+   },
+   "control": {
+    "median": 0.21919999999954598,
+    "p95": 0.23029999999926076
+   },
+   "allocPerStep": 95750.75555555556,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 11.348882529375402,
+   "spread": [
+    2.519800000001851,
+    2.5239000000001397,
+    2.547599999998056
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "pile",
+   "humans": 48,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 4.1349000000045635,
+    "p95": 4.613900000003923,
+    "mean": 4.194224166666542
+   },
+   "solver": {
+    "median": 3.253899999996065,
+    "p95": 3.639600000002247
+   },
+   "read": {
+    "median": 0.5325999999986379,
+    "p95": 0.5662999999985914
+   },
+   "control": {
+    "median": 0.34029999999620486,
+    "p95": 0.40019999999640277
+   },
+   "allocPerStep": 49661.333333333336,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 14.955575250695057,
+   "spread": [
+    4.144799999998213,
+    4.1349000000045635,
+    4.033799999997427
+   ]
+  },
+  {
+   "engine": "havok",
+   "tag": "havok-real-today",
+   "settings": {
+    "hz": 120,
+    "substeps": 1
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": true,
+   "kind": "pile",
+   "humans": 64,
+   "repeats": 3,
+   "label": "Havok real buildBody substeps=1 cond={\"foot.left\":100,\"foot.right\":100}",
+   "total": {
+    "median": 6.241200000004028,
+    "p95": 7.454799999999523,
+    "mean": 6.416077222222339
+   },
+   "solver": {
+    "median": 4.877599999999802,
+    "p95": 6.074399999997695
+   },
+   "read": {
+    "median": 0.765400000003865,
+    "p95": 0.9927999999999884
+   },
+   "control": {
+    "median": 0.5897000000040862,
+    "p95": 0.7172999999966123
+   },
+   "allocPerStep": 3601.5333333333333,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    3,
+    3,
+    3
+   ],
+   "maxSpeed": 16.747718915911797,
+   "spread": [
+    6.0812000000005355,
+    6.241200000004028,
+    6.361199999999371
+   ]
+  }
+ ]
+}

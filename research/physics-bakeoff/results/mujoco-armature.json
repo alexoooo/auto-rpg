@@ -1,0 +1,396 @@
+{
+ "harness": "Node v24.19.0",
+ "rows": [
+  {
+   "settings": {
+    "hz": 120,
+    "substeps": 2
+   },
+   "A": {
+    "footSpinRms": 9.213701500774945e-8,
+    "footTiltMaxLate": 0.000007294645231227028,
+    "comDrift": 0.0000612010701822235,
+    "today": true,
+    "clean": true
+   },
+   "B": {
+    "handJitterRms": 0.000053354911270188063,
+    "wristJitterRms": 0.0000493927825274333,
+    "ringRms": 0.07956582689042101,
+    "deviation": 0.024438463859028148,
+    "today": true,
+    "clean": false
+   },
+   "C": {
+    "label": "MuJoCo substeps=2",
+    "comAtHalf": 1.0156782890702405,
+    "comAtEnd": 1.0227616840537443,
+    "maxSpeedLate": 0.04099080698026729,
+    "comDrift": 15.786183424549051
+   },
+   "piles": [
+    {
+     "humans": 16,
+     "resets": 1,
+     "upright": 16,
+     "maxSpeed": 3.0251542810312286
+    },
+    {
+     "humans": 32,
+     "resets": 1,
+     "upright": 32,
+     "maxSpeed": 3.596323243466109
+    },
+    {
+     "humans": 64,
+     "resets": 1,
+     "upright": 64,
+     "maxSpeed": 0.0817220833333988
+    }
+   ]
+  },
+  {
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "armature": 0.0001
+   },
+   "A": {
+    "footSpinRms": 8.805843174432551e-8,
+    "footTiltMaxLate": 0.0000069884384818971375,
+    "comDrift": 0.00006087520773532745,
+    "today": true,
+    "clean": true
+   },
+   "B": {
+    "handJitterRms": 0.0000616584963142635,
+    "wristJitterRms": 0.00004316671770299642,
+    "ringRms": 0.08671293427718325,
+    "deviation": 0.02347899106749851,
+    "today": true,
+    "clean": false
+   },
+   "C": {
+    "label": "MuJoCo substeps=2 armature=0.0001",
+    "comAtHalf": 1.0156788628087183,
+    "comAtEnd": 1.0227378532829028,
+    "maxSpeedLate": 0.036610866810457006,
+    "comDrift": 15.868766932436666
+   },
+   "piles": [
+    {
+     "humans": 16,
+     "resets": 1,
+     "upright": 3,
+     "maxSpeed": 10.42838218640661
+    },
+    {
+     "humans": 32,
+     "resets": 1,
+     "upright": 32,
+     "maxSpeed": 9.74064373393625
+    },
+    {
+     "humans": 64,
+     "resets": 1,
+     "upright": 64,
+     "maxSpeed": 3.602801756413391
+    }
+   ]
+  },
+  {
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "armature": 0.001
+   },
+   "A": {
+    "footSpinRms": 6.30177357472013e-8,
+    "footTiltMaxLate": 0.0000050509930079323,
+    "comDrift": 0.00005804627472961012,
+    "today": true,
+    "clean": true
+   },
+   "B": {
+    "handJitterRms": 0.0009007382239768789,
+    "wristJitterRms": 0.0009496974910915267,
+    "ringRms": 0.18354232750791108,
+    "deviation": 0.0302364297079147,
+    "today": true,
+    "clean": false
+   },
+   "C": {
+    "label": "MuJoCo substeps=2 armature=0.001",
+    "comAtHalf": 1.0156839256548458,
+    "comAtEnd": 1.0227482247491422,
+    "maxSpeedLate": 0.03830376179165355,
+    "comDrift": 15.845056877757308
+   },
+   "piles": [
+    {
+     "humans": 16,
+     "resets": 0,
+     "upright": 1,
+     "maxSpeed": 13.653160655679448
+    },
+    {
+     "humans": 32,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 10.924005824600053
+    },
+    {
+     "humans": 64,
+     "resets": 1,
+     "upright": 54,
+     "maxSpeed": 35.71383753215977
+    }
+   ]
+  },
+  {
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "armature": 0.003
+   },
+   "A": {
+    "footSpinRms": 3.8142126525881886e-8,
+    "footTiltMaxLate": 0.0000030783246591999756,
+    "comDrift": 0.000053605353905215205,
+    "today": true,
+    "clean": true
+   },
+   "B": {
+    "handJitterRms": 0.01578329754124494,
+    "wristJitterRms": 0.01687730030607757,
+    "ringRms": 0.34311897595797336,
+    "deviation": 0.05920053170897754,
+    "today": false,
+    "clean": false
+   },
+   "C": {
+    "label": "MuJoCo substeps=2 armature=0.003",
+    "comAtHalf": 1.0156952167296234,
+    "comAtEnd": 1.0228220175834042,
+    "maxSpeedLate": 0.03624457313433957,
+    "comDrift": 15.605746653611314
+   },
+   "piles": [
+    {
+     "humans": 16,
+     "resets": 0,
+     "upright": 1,
+     "maxSpeed": 16.39245872123465
+    },
+    {
+     "humans": 32,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 12.774056171600428
+    },
+    {
+     "humans": 64,
+     "resets": 0,
+     "upright": 3,
+     "maxSpeed": 16.22688113831036
+    }
+   ]
+  },
+  {
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "armature": 0.01
+   },
+   "A": {
+    "footSpinRms": 1.9405979759323382e-8,
+    "footTiltMaxLate": 0.0000017075472925031877,
+    "comDrift": 0.000048307278366540725,
+    "today": true,
+    "clean": true
+   },
+   "B": {
+    "handJitterRms": 0.08769915543384807,
+    "wristJitterRms": 0.10211203924392982,
+    "ringRms": 0.4019436299474505,
+    "deviation": 0.10898800447715096,
+    "today": false,
+    "clean": false
+   },
+   "C": {
+    "label": "MuJoCo substeps=2 armature=0.01",
+    "comAtHalf": 1.015727082939534,
+    "comAtEnd": 1.0230571913879822,
+    "maxSpeedLate": 0.04481146670963242,
+    "comDrift": 15.221555215349076
+   },
+   "piles": [
+    {
+     "humans": 16,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 19.070801608713854
+    },
+    {
+     "humans": 32,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 12.700922375405657
+    },
+    {
+     "humans": 64,
+     "resets": 0,
+     "upright": 3,
+     "maxSpeed": 13.436394140056604
+    }
+   ]
+  },
+  {
+   "settings": {
+    "hz": 120,
+    "substeps": 4,
+    "armature": 0.001
+   },
+   "A": {
+    "footSpinRms": 6.451510123464187e-8,
+    "footTiltMaxLate": 0.000005193302344775284,
+    "comDrift": 0.000058563747370907743,
+    "today": true,
+    "clean": true
+   },
+   "B": {
+    "handJitterRms": 0.0011545520642350004,
+    "wristJitterRms": 0.0012052045892501624,
+    "ringRms": 0.19422009434365234,
+    "deviation": 0.025613785277473912,
+    "today": true,
+    "clean": false
+   },
+   "C": {
+    "label": "MuJoCo substeps=4 armature=0.001",
+    "comAtHalf": 1.0156867445381228,
+    "comAtEnd": 1.0228137305632632,
+    "maxSpeedLate": 0.03294918249562859,
+    "comDrift": 15.608167587291272
+   },
+   "piles": [
+    {
+     "humans": 16,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 14.193318957678215
+    },
+    {
+     "humans": 32,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 10.82924040145665
+    },
+    {
+     "humans": 64,
+     "resets": 0,
+     "upright": 1,
+     "maxSpeed": 11.885338931880147
+    }
+   ]
+  },
+  {
+   "settings": {
+    "hz": 120,
+    "substeps": 2,
+    "armature": 0.002
+   },
+   "A": {
+    "footSpinRms": 4.8286028866834025e-8,
+    "footTiltMaxLate": 0.000003818191820832846,
+    "comDrift": 0.000055517038476182287,
+    "today": true,
+    "clean": true
+   },
+   "B": {
+    "handJitterRms": 0.007011723099628435,
+    "wristJitterRms": 0.007250133905477572,
+    "ringRms": 0.27647905509761167,
+    "deviation": 0.046692914515310255,
+    "today": false,
+    "clean": false
+   },
+   "C": {
+    "label": "MuJoCo substeps=2 armature=0.002",
+    "comAtHalf": 1.0156900759243799,
+    "comAtEnd": 1.0228416088029992,
+    "maxSpeedLate": 0.03379705216251647,
+    "comDrift": 15.52217809525916
+   },
+   "piles": [
+    {
+     "humans": 16,
+     "resets": 0,
+     "upright": 1,
+     "maxSpeed": 15.977348148908117
+    },
+    {
+     "humans": 32,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 28.722201606830165
+    },
+    {
+     "humans": 64,
+     "resets": 0,
+     "upright": 2,
+     "maxSpeed": 17.826395630606306
+    }
+   ]
+  },
+  {
+   "settings": {
+    "hz": 120,
+    "substeps": 4,
+    "armature": 0.002
+   },
+   "A": {
+    "footSpinRms": 4.92695208429461e-8,
+    "footTiltMaxLate": 0.00000400455336570039,
+    "comDrift": 0.00005636268402352288,
+    "today": true,
+    "clean": true
+   },
+   "B": {
+    "handJitterRms": 0.008544690337789828,
+    "wristJitterRms": 0.00876564224261865,
+    "ringRms": 0.28583038832411806,
+    "deviation": 0.0423042887614307,
+    "today": false,
+    "clean": false
+   },
+   "C": {
+    "label": "MuJoCo substeps=4 armature=0.002",
+    "comAtHalf": 1.0156921618432537,
+    "comAtEnd": 1.0228070203053898,
+    "maxSpeedLate": 0.034082059276858645,
+    "comDrift": 15.64555299533612
+   },
+   "piles": [
+    {
+     "humans": 16,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 13.442327802389558
+    },
+    {
+     "humans": 32,
+     "resets": 0,
+     "upright": 0,
+     "maxSpeed": 13.403739843557382
+    },
+    {
+     "humans": 64,
+     "resets": 0,
+     "upright": 4,
+     "maxSpeed": 14.762648160979682
+    }
+   ]
+  }
+ ]
+}

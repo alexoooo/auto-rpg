@@ -1,0 +1,884 @@
+{
+ "engine": "rapier",
+ "tag": "rapier",
+ "settings": {
+  "hz": 120,
+  "substeps": 1,
+  "iterations": 16,
+  "pgs": 2
+ },
+ "conditioning": {
+  "foot.left": 100,
+  "foot.right": 100
+ },
+ "real": false,
+ "initMs": 119.28649999999999,
+ "node": "v24.19.0",
+ "machineBusy": 0.05409024446457178,
+ "rows": [
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 1,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 0.2840000000001055,
+    "p95": 0.32999999999992724,
+    "mean": 0.29453611111111083
+   },
+   "solver": {
+    "median": 0.25889999999992597,
+    "p95": 0.296100000000024
+   },
+   "read": {
+    "median": 0.0072000000000116415,
+    "p95": 0.008500000000026375
+   },
+   "control": {
+    "median": 0.017699999999877036,
+    "p95": 0.02390000000002601
+   },
+   "allocPerStep": 2000.4666666666667,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    1,
+    1,
+    1
+   ],
+   "maxSpeed": 0.010522271760656385,
+   "spread": [
+    0.28729999999995925,
+    0.28139999999996235,
+    0.2840000000001055
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 2,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 0.4877999999998792,
+    "p95": 0.5095999999998639,
+    "mean": 0.49051111111111506
+   },
+   "solver": {
+    "median": 0.4437000000000353,
+    "p95": 0.4632000000001426
+   },
+   "read": {
+    "median": 0.012199999999893407,
+    "p95": 0.01389999999992142
+   },
+   "control": {
+    "median": 0.035399999999981446,
+    "p95": 0.039800000000013824
+   },
+   "allocPerStep": 18699.62222222222,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    2,
+    2,
+    2
+   ],
+   "maxSpeed": 0.018508433130438817,
+   "spread": [
+    0.4937999999999647,
+    0.4877999999998792,
+    0.4860000000001037
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 4,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 0.955000000000382,
+    "p95": 1.1972000000000662,
+    "mean": 0.9859836111111122
+   },
+   "solver": {
+    "median": 0.8708999999998923,
+    "p95": 1.0828000000001339
+   },
+   "read": {
+    "median": 0.02430000000003929,
+    "p95": 0.028900000000248838
+   },
+   "control": {
+    "median": 0.04829999999992651,
+    "p95": 0.0826999999999316
+   },
+   "allocPerStep": 33826.311111111114,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    4,
+    4,
+    4
+   ],
+   "maxSpeed": 0.018508433130438817,
+   "spread": [
+    0.955000000000382,
+    0.9605999999998858,
+    0.9353000000000975
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 8,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 1.8603000000002794,
+    "p95": 2.091099999999642,
+    "mean": 1.9148955555555505
+   },
+   "solver": {
+    "median": 1.712800000000243,
+    "p95": 1.9224999999996726
+   },
+   "read": {
+    "median": 0.04750000000012733,
+    "p95": 0.05320000000028813
+   },
+   "control": {
+    "median": 0.09320000000025175,
+    "p95": 0.1423000000004322
+   },
+   "allocPerStep": 18859.88888888889,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    8,
+    8,
+    8
+   ],
+   "maxSpeed": 0.018508433130438817,
+   "spread": [
+    1.8609999999998763,
+    1.8603000000002794,
+    1.8443999999999505
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 16,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 4.550600000000486,
+    "p95": 4.901999999999134,
+    "mean": 4.61399083333334
+   },
+   "solver": {
+    "median": 4.267599999997401,
+    "p95": 4.567799999998897
+   },
+   "read": {
+    "median": 0.09619999999995343,
+    "p95": 0.1054999999996653
+   },
+   "control": {
+    "median": 0.1841999999996915,
+    "p95": 0.2723999999998341
+   },
+   "allocPerStep": 43260,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    16,
+    16,
+    16
+   ],
+   "maxSpeed": 0.01667934750591808,
+   "spread": [
+    4.492799999999988,
+    4.550600000000486,
+    4.587199999999939
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 32,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 9.215499999998428,
+    "p95": 11.047699999999168,
+    "mean": 9.514594999999938
+   },
+   "solver": {
+    "median": 8.633099999999104,
+    "p95": 9.672500000000582
+   },
+   "read": {
+    "median": 0.18989999999939755,
+    "p95": 0.21810000000004948
+   },
+   "control": {
+    "median": 0.3778999999994994,
+    "p95": 0.7608000000000175
+   },
+   "allocPerStep": 75951.51111111112,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    32,
+    32,
+    32
+   ],
+   "maxSpeed": 0.019200273064134295,
+   "spread": [
+    9.197200000000521,
+    9.316900000001624,
+    9.215499999998428
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 48,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 13.802599999995437,
+    "p95": 16.225800000000163,
+    "mean": 14.216723888888787
+   },
+   "solver": {
+    "median": 12.968000000000757,
+    "p95": 14.587400000003981
+   },
+   "read": {
+    "median": 0.28439999999682186,
+    "p95": 0.33220000000073924
+   },
+   "control": {
+    "median": 0.5506999999997788,
+    "p95": 0.9834000000046217
+   },
+   "allocPerStep": 116427.35555555555,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    48,
+    48,
+    48
+   ],
+   "maxSpeed": 0.019722168213002496,
+   "spread": [
+    13.719599999996717,
+    13.869599999998172,
+    13.802599999995437
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "spaced",
+   "humans": 64,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 18.494599999998172,
+    "p95": 20.82619999999588,
+    "mean": 18.936625833333224
+   },
+   "solver": {
+    "median": 17.355299999995623,
+    "p95": 19.263799999993353
+   },
+   "read": {
+    "median": 0.3767999999981839,
+    "p95": 0.41010000000096625
+   },
+   "control": {
+    "median": 0.7507000000041444,
+    "p95": 1.2131999999983236
+   },
+   "allocPerStep": 166704.64444444445,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    64,
+    64,
+    64
+   ],
+   "maxSpeed": 0.028016476599245874,
+   "spread": [
+    18.59939999999915,
+    18.494599999998172,
+    18.45760000000155
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 1,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 0.25729999999748543,
+    "p95": 0.28080000000773,
+    "mean": 0.2633122222223594
+   },
+   "solver": {
+    "median": 0.23870000001625158,
+    "p95": 0.2587000000057742
+   },
+   "read": {
+    "median": 0.006099999998696148,
+    "p95": 0.007100000002537854
+   },
+   "control": {
+    "median": 0.012300000002142042,
+    "p95": 0.016799999997601844
+   },
+   "allocPerStep": 21097.244444444445,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    1,
+    1,
+    1
+   ],
+   "maxSpeed": 0.01755979836120311,
+   "spread": [
+    0.2609000000084052,
+    0.2571999999927357,
+    0.25729999999748543
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 2,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 0.4817999999941094,
+    "p95": 0.5292999999946915,
+    "mean": 0.4904544444444279
+   },
+   "solver": {
+    "median": 0.44560000000637956,
+    "p95": 0.47690000000875443
+   },
+   "read": {
+    "median": 0.012100000007194467,
+    "p95": 0.013600000005681068
+   },
+   "control": {
+    "median": 0.02380000000994187,
+    "p95": 0.031100000007427298
+   },
+   "allocPerStep": 40849.177777777775,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    2,
+    2,
+    2
+   ],
+   "maxSpeed": 0.026433634705740578,
+   "spread": [
+    0.4840000000112923,
+    0.4753999999957159,
+    0.4817999999941094
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 4,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 0.9293000000034226,
+    "p95": 1.0169000000023516,
+    "mean": 0.9623044444442914
+   },
+   "solver": {
+    "median": 0.8588000000017928,
+    "p95": 0.9392000000079861
+   },
+   "read": {
+    "median": 0.02350000001024455,
+    "p95": 0.0268999999971129
+   },
+   "control": {
+    "median": 0.0458000000071479,
+    "p95": 0.06269999999494758
+   },
+   "allocPerStep": 80290.71111111112,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    4,
+    4,
+    4
+   ],
+   "maxSpeed": 0.026433634705740578,
+   "spread": [
+    0.9293000000034226,
+    0.9392999999981839,
+    0.9281999999948312
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 8,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 1.8383000000030734,
+    "p95": 1.90669999999227,
+    "mean": 1.8590255555551671
+   },
+   "solver": {
+    "median": 1.7001999999920372,
+    "p95": 1.7655999999988126
+   },
+   "read": {
+    "median": 0.04709999999613501,
+    "p95": 0.04940000000351574
+   },
+   "control": {
+    "median": 0.0904000000009546,
+    "p95": 0.1143000000010943
+   },
+   "allocPerStep": 158626.42222222223,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    8,
+    8,
+    8
+   ],
+   "maxSpeed": 0.031400828550428,
+   "spread": [
+    1.8287000000127591,
+    1.8383000000030734,
+    1.8418999999994412
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 16,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 4.696800000005169,
+    "p95": 5.029599999994389,
+    "mean": 4.7042027777773505
+   },
+   "solver": {
+    "median": 4.416700000001583,
+    "p95": 4.743900000001304
+   },
+   "read": {
+    "median": 0.09200000000419095,
+    "p95": 0.09940000000642613
+   },
+   "control": {
+    "median": 0.1857999999920139,
+    "p95": 0.2241000000067288
+   },
+   "allocPerStep": 137878,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 11.473640669401917,
+   "spread": [
+    4.7101999999867985,
+    4.690500000011525,
+    4.696800000005169
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 32,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 11.40559999999823,
+    "p95": 13.039300000004005,
+    "mean": 11.69293361111114
+   },
+   "solver": {
+    "median": 10.837599999998929,
+    "p95": 12.355600000009872
+   },
+   "read": {
+    "median": 0.18399999999383,
+    "p95": 0.20549999999639113
+   },
+   "control": {
+    "median": 0.37490000000980217,
+    "p95": 0.5980999999883352
+   },
+   "allocPerStep": 79876.13333333333,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    0,
+    0,
+    0
+   ],
+   "maxSpeed": 12.530650332077066,
+   "spread": [
+    11.457699999999022,
+    11.40559999999823,
+    11.376300000003539
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 48,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 18.06149999999616,
+    "p95": 20.708299999998417,
+    "mean": 18.49937166666625
+   },
+   "solver": {
+    "median": 17.187300000005052,
+    "p95": 19.821200000005774
+   },
+   "read": {
+    "median": 0.27730000000155997,
+    "p95": 0.3102000000071712
+   },
+   "control": {
+    "median": 0.5822000000043772,
+    "p95": 0.875899999999092
+   },
+   "allocPerStep": 215486.06666666668,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    1,
+    1,
+    1
+   ],
+   "maxSpeed": 14.772587307543315,
+   "spread": [
+    18.06149999999616,
+    18.101399999999558,
+    17.97720000000845
+   ]
+  },
+  {
+   "engine": "rapier",
+   "tag": "rapier",
+   "settings": {
+    "hz": 120,
+    "substeps": 1,
+    "iterations": 16,
+    "pgs": 2
+   },
+   "conditioning": {
+    "foot.left": 100,
+    "foot.right": 100
+   },
+   "real": false,
+   "kind": "pile",
+   "humans": 64,
+   "repeats": 3,
+   "label": "Rapier substeps=1 iterations=16 pgs=2",
+   "total": {
+    "median": 25.555500000016764,
+    "p95": 30.28039999998873,
+    "mean": 26.30194833333351
+   },
+   "solver": {
+    "median": 24.16689999998198,
+    "p95": 28.932399999990594
+   },
+   "read": {
+    "median": 0.37090000000898726,
+    "p95": 0.4459999999962747
+   },
+   "control": {
+    "median": 0.9843999999866355,
+    "p95": 1.2832000000053085
+   },
+   "allocPerStep": 175446.11111111112,
+   "gcCount": [
+    0,
+    0,
+    0
+   ],
+   "gcMs": 0,
+   "upright": [
+    3,
+    3,
+    3
+   ],
+   "maxSpeed": 10.52067305059762,
+   "spread": [
+    25.555500000016764,
+    25.775400000013178,
+    25.239300000015646
+   ]
+  }
+ ]
+}

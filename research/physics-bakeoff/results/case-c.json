@@ -1,0 +1,210 @@
+{
+  "harness": "Node v24.19.0",
+  "rows": [
+    {
+      "tag": "mujoco",
+      "settings": {
+        "hz": 120,
+        "substeps": 2
+      },
+      "conditioning": null,
+      "label": "MuJoCo substeps=2",
+      "comAtHalf": 1.1256100191519196,
+      "comAtEnd": 1.0183701061804284,
+      "maxSpeedLate": 116043.86362248623,
+      "comDrift": 955.7310053350674
+    },
+    {
+      "tag": "mujoco-1step",
+      "settings": {
+        "hz": 120,
+        "substeps": 1,
+        "timeconst": 0.03
+      },
+      "conditioning": null,
+      "label": "MuJoCo substeps=1 timeconst=0.03",
+      "comAtHalf": 1.022352114333958,
+      "comAtEnd": 1.0120559710469874,
+      "maxSpeedLate": 205940.21175269457,
+      "comDrift": 139062.4621077781
+    },
+    {
+      "tag": "rapier",
+      "settings": {
+        "hz": 120,
+        "substeps": 1,
+        "iterations": 16,
+        "pgs": 2
+      },
+      "conditioning": {
+        "foot.left": 100,
+        "foot.right": 100
+      },
+      "label": "Rapier substeps=1 iterations=16 pgs=2",
+      "comAtHalf": 1.0141318536900914,
+      "comAtEnd": 1.0142354463442222,
+      "maxSpeedLate": 0.01598385804120995,
+      "comDrift": 0.3700246330288104
+    },
+    {
+      "tag": "rapier-simd",
+      "settings": {
+        "hz": 120,
+        "substeps": 1,
+        "iterations": 16,
+        "pgs": 2
+      },
+      "conditioning": {
+        "foot.left": 100,
+        "foot.right": 100
+      },
+      "label": "Rapier substeps=1 iterations=16 pgs=2",
+      "comAtHalf": 1.0141673908490685,
+      "comAtEnd": 1.0141349513732825,
+      "maxSpeedLate": 0.017380718276481782,
+      "comDrift": 0.35084896179567854
+    },
+    {
+      "tag": "havok",
+      "settings": {
+        "hz": 120,
+        "substeps": 12,
+        "damping": "default"
+      },
+      "conditioning": {
+        "foot.left": 300,
+        "foot.right": 300
+      },
+      "label": "Havok substeps=12 damping=default cond={\"foot.left\":300,\"foot.right\":300}",
+      "comAtHalf": 1.0208870060507207,
+      "comAtEnd": 1.0215661384100092,
+      "maxSpeedLate": 0.003199416191922064,
+      "comDrift": 0.22475081890174606
+    },
+    {
+      "tag": "havok-today",
+      "settings": {
+        "hz": 120,
+        "substeps": 1,
+        "damping": "default"
+      },
+      "conditioning": {
+        "foot.left": 100,
+        "foot.right": 100
+      },
+      "label": "Havok substeps=1 damping=default cond={\"foot.left\":100,\"foot.right\":100}",
+      "comAtHalf": 1.016377699080668,
+      "comAtEnd": 0.2345927790313958,
+      "maxSpeedLate": 14.478724440317912,
+      "comDrift": 1470.5036686763233
+    },
+    {
+      "tag": "mujoco x100",
+      "settings": {
+        "hz": 120,
+        "substeps": 2
+      },
+      "conditioning": {
+        "foot.left": 100,
+        "foot.right": 100
+      },
+      "label": "MuJoCo substeps=2",
+      "comAtHalf": 1.0156782890702405,
+      "comAtEnd": 1.0227616840537443,
+      "maxSpeedLate": 0.04099080698026729,
+      "comDrift": 15.786183424549051
+    },
+    {
+      "tag": "mujoco-1step x100",
+      "settings": {
+        "hz": 120,
+        "substeps": 1,
+        "timeconst": 0.03
+      },
+      "conditioning": {
+        "foot.left": 100,
+        "foot.right": 100
+      },
+      "label": "MuJoCo substeps=1 timeconst=0.03",
+      "comAtHalf": 1.0142477278457842,
+      "comAtEnd": 1.0206071763237194,
+      "maxSpeedLate": 0.05939755300280391,
+      "comDrift": 18.731458085573475
+    },
+    {
+      "tag": "mujoco-16",
+      "settings": {
+        "hz": 120,
+        "substeps": 16
+      },
+      "conditioning": null,
+      "label": "MuJoCo substeps=16",
+      "comAtHalf": 1.1703050280853213,
+      "comAtEnd": 0.735771039327696,
+      "maxSpeedLate": 1289.4614869656102,
+      "comDrift": 926.8602522477695
+    },
+    {
+      "tag": "mujoco-16 x100",
+      "settings": {
+        "hz": 120,
+        "substeps": 16
+      },
+      "conditioning": {
+        "foot.left": 100,
+        "foot.right": 100
+      },
+      "label": "MuJoCo substeps=16",
+      "comAtHalf": 1.015682752987668,
+      "comAtEnd": 1.0227693067696932,
+      "maxSpeedLate": 0.03140295865284648,
+      "comDrift": 15.752353613217512
+    },
+    {
+      "tag": "rapier-16",
+      "settings": {
+        "hz": 120,
+        "substeps": 16
+      },
+      "conditioning": null,
+      "label": "Rapier substeps=16",
+      "comAtHalf": 0.9958759666975582,
+      "comAtEnd": 0.3034803151801228,
+      "maxSpeedLate": 23.796786331449603,
+      "comDrift": 2301.385200316842
+    },
+    {
+      "tag": "rapier-16 x100",
+      "settings": {
+        "hz": 120,
+        "substeps": 16
+      },
+      "conditioning": {
+        "foot.left": 100,
+        "foot.right": 100
+      },
+      "label": "Rapier substeps=16",
+      "comAtHalf": 1.0148257890446108,
+      "comAtEnd": 1.0157222657067693,
+      "maxSpeedLate": 0.025716304691355094,
+      "comDrift": 1.7645366438043664
+    },
+    {
+      "tag": "havok-16 x300",
+      "settings": {
+        "hz": 120,
+        "substeps": 16,
+        "damping": "default"
+      },
+      "conditioning": {
+        "foot.left": 300,
+        "foot.right": 300
+      },
+      "label": "Havok substeps=16 damping=default cond={\"foot.left\":300,\"foot.right\":300}",
+      "comAtHalf": 1.0208900592418384,
+      "comAtEnd": 1.0215869833257045,
+      "maxSpeedLate": 0.0024512235358552393,
+      "comDrift": 0.20636657695939756
+    }
+  ]
+}

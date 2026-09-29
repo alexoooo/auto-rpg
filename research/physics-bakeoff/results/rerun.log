@@ -1,0 +1,56 @@
+mujoco-pile: {"hz":120,"substeps":4,"armature":0.001} cond={"foot.left":100,"foot.right":100}, init 79.5 ms
+layout N | total med p95 | solver med p95 | read med | control med | alloc B/step gc | upright maxSpeed
+spaced 1 | 0.195 0.203 | 0.187 0.195 | 0.001 | 0.008 | 2500 0/0/0 | 1/1/1 0.011
+spaced 2 | 0.401 0.418 | 0.386 0.401 | 0.001 | 0.014 | 2596 0/0/0 | 2/2/2 0.012
+spaced 4 | 0.787 0.814 | 0.758 0.786 | 0.001 | 0.027 | 4146 0/0/0 | 4/4/4 0.012
+spaced 8 | 1.565 1.603 | 1.510 1.548 | 0.002 | 0.052 | 7986 0/0/0 | 8/8/8 0.012
+spaced 16 | 3.099 3.269 | 2.984 3.091 | 0.004 | 0.109 | 15666 0/0/0 | 16/16/16 0.012
+spaced 32 | 6.196 6.351 | 5.966 6.064 | 0.007 | 0.217 | 31026 0/0/0 | 32/32/32 0.013
+spaced 48 | 9.456 9.947 | 9.089 9.254 | 0.011 | 0.335 | 46386 0/0/0 | 48/48/48 0.013
+spaced 64 | 12.9 14.0 | 12.4 12.8 | 0.014 | 0.532 | 61746 0/0/0 | 64/64/64 0.013
+pile 1 | 0.192 0.199 | 0.185 0.191 | 0.000 | 0.007 | 1266 0/0/0 | 1/1/1 0.011
+pile 2 | 0.399 0.410 | 0.385 0.395 | 0.001 | 0.014 | 2227 0/0/0 | 2/2/2 0.011
+pile 4 | 0.782 0.812 | 0.754 0.782 | 0.001 | 0.027 | 4146 0/0/0 | 4/4/4 0.011
+pile 8 | 1.554 1.627 | 1.499 1.570 | 0.002 | 0.052 | 7986 0/0/0 | 8/8/8 0.011
+pile 16 | 4.564 5.478 | 4.423 5.277 | 0.004 | 0.123 | 15666 0/0/0 | 0/0/0 14.2
+pile 32 | 38.3 71.1 | 35.5 66.2 | 0.069 | 2.464 | 31026 0/0/0 | 0/0/0 10.8
+pile 48 | 39.7 116 | 38.8 115 | 0.012 | 0.713 | 46386 0/0/0 | 3/3/3 11.6
+pile 64 | 105 775 | 104 775 | 0.016 | 0.818 | 740 0/0/0 | 1/1/1 11.9
+machine busy over the run: 23 % of 32 logical CPUs
+mujoco-mt-t8: {"hz":120,"substeps":2,"threads":8} cond={"foot.left":100,"foot.right":100}, init 244 ms
+layout N | total med p95 | solver med p95 | read med | control med | alloc B/step gc | upright maxSpeed
+spaced 1 | 0.100 0.106 | 0.092 0.098 | 0.001 | 0.007 | 2153 0/0/0 | 1/1/1 0.011
+spaced 2 | 0.257 32.0 | 0.240 32.0 | 0.001 | 0.014 | 2730 0/0/0 | 2/2/2 0.011
+havok: raw 2.06 MB, gzip 0.64 MB, brotli 0.49 MB
+mujoco: raw 10.12 MB, gzip 2.50 MB, brotli 1.87 MB
+mujoco-mt: raw 10.24 MB, gzip 2.56 MB, brotli 1.92 MB
+rapier: raw 4.14 MB, gzip 1.57 MB, brotli 1.14 MB
+rapier-simd: raw 4.41 MB, gzip 1.57 MB, brotli 1.12 MB
+rapier-wasm-only: raw 2.94 MB, gzip 1.12 MB, brotli 0.81 MB
+rapier-simd-wasm-only: raw 3.14 MB, gzip 1.10 MB, brotli 0.80 MB
+havok: init 14.8 ms, 32 humans built in 63.9 ms, rss +6.0 MB loaded, +54.1 MB with 32 humans, arrayBuffers 2.5 MB, wasm heap 16.125 MB
+node:internal/errors:985
+  const err = new Error(message);
+              ^
+
+Error: Command failed: C:\Users\ostro\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v24.19.0-win-x64\node.exe C:\Users\ostro\RustroverProjects\auto-rpg\.claude\worktrees\agent-a485cba52af7e2674\research\physics-bakeoff\load-cost.mjs --one mujoco
+    at genericNodeError (node:internal/errors:985:15)
+    at wrappedFn (node:internal/errors:539:14)
+    at checkExecSyncError (node:child_process:942:11)
+    at execFileSync (node:child_process:978:15)
+    at file:///C:/Users/ostro/RustroverProjects/auto-rpg/.claude/worktrees/agent-a485cba52af7e2674/research/physics-bakeoff/load-cost.mjs:91:49
+    at Array.map (<anonymous>)
+    at file:///C:/Users/ostro/RustroverProjects/auto-rpg/.claude/worktrees/agent-a485cba52af7e2674/research/physics-bakeoff/load-cost.mjs:91:28
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  status: 1,
+  signal: null,
+  output: [ null, '', null ],
+  pid: 80564,
+  stdout: '',
+  stderr: null
+}
+
+Node.js v24.19.0
+RERUN-DONE

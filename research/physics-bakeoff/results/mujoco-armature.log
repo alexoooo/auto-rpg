@@ -1,0 +1,8 @@
+{} A today=true clean=true B dev=0.0244 hand=5.3e-5 today=true clean=false C drift=15.8 mm end=1.023 pile resets 16:1 32:1 64:1
+{"armature":0.0001} A today=true clean=true B dev=0.0235 hand=6.2e-5 today=true clean=false C drift=15.9 mm end=1.023 pile resets 16:1 32:1 64:1
+{"armature":0.001} A today=true clean=true B dev=0.0302 hand=9.0e-4 today=true clean=false C drift=15.8 mm end=1.023 pile resets 16:0 32:0 64:1
+{"armature":0.003} A today=true clean=true B dev=0.0592 hand=1.6e-2 today=false clean=false C drift=15.6 mm end=1.023 pile resets 16:0 32:0 64:0
+{"armature":0.01} A today=true clean=true B dev=0.1090 hand=8.8e-2 today=false clean=false C drift=15.2 mm end=1.023 pile resets 16:0 32:0 64:0
+{"substeps":4,"armature":0.001} A today=true clean=true B dev=0.0256 hand=1.2e-3 today=true clean=false C drift=15.6 mm end=1.023 pile resets 16:0 32:0 64:0
+{"substeps":2,"armature":0.002} A today=true clean=true B dev=0.0467 hand=7.0e-3 today=false clean=false C drift=15.5 mm end=1.023 pile resets 16:0 32:0 64:0
+{"substeps":4,"armature":0.002} A today=true clean=true B dev=0.0423 hand=8.5e-3 today=false clean=false C drift=15.6 mm end=1.023 pile resets 16:0 32:0 64:0
