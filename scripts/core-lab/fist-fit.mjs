@@ -14,7 +14,7 @@
 // and joints inside 60 (MCP) and 80 (IP) degrees; the best of three starts.
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { fistTurns } from "../../src/core-lab/fist.ts";
-import { loadGlb, penetration, restBones, skinHand, summary } from "./fist-probe.mjs";
+import { loadGlb, nelderMead, penetration, restBones, skinHand, summary } from "./fist-probe.mjs";
 import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
 import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };
 
@@ -85,25 +85,6 @@ function thumbCost(x) {
     const reach = Math.max(0, gap(of("thumb_03"), [...of("middle_02"), ...of("index_02")]) - 1);
     return sum + 100 * sunk + reach ** 2 + range;
   }, 0);
-}
-function nelderMead(f, x0, step, iterations) {
-  const n = x0.length;
-  let simplex = [x0, ...x0.map((_, i) => x0.map((v, j) => (i === j ? v + step : v)))].map((x) => ({ x, f: f(x) }));
-  for (let it = 0; it < iterations; it++) {
-    simplex.sort((a, b) => a.f - b.f);
-    const centroid = Array.from({ length: n }, (_, j) => simplex.slice(0, n).reduce((s, p) => s + p.x[j], 0) / n);
-    const worst = simplex[n], at = (t) => centroid.map((c, j) => c + t * (worst.x[j] - c));
-    const r = at(-1), fr = f(r);
-    if (fr < simplex[0].f) { const e = at(-2), fe = f(e); simplex[n] = fe < fr ? { x: e, f: fe } : { x: r, f: fr }; }
-    else if (fr < simplex[n - 1].f) simplex[n] = { x: r, f: fr };
-    else {
-      const c = at(0.5), fc = f(c);
-      if (fc < worst.f) simplex[n] = { x: c, f: fc };
-      else simplex = simplex.map((p, i) => (i === 0 ? p : { x: p.x.map((v, j) => simplex[0].x[j] + 0.5 * (v - simplex[0].x[j])) }))
-        .map((p) => ("f" in p ? p : { ...p, f: f(p.x) }));
-    }
-  }
-  return simplex.sort((a, b) => a.f - b.f)[0];
 }
 // Starts: the first fit, and that thumb turned further across and back toward the palm.
 const starts = [

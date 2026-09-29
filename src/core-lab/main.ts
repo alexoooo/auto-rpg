@@ -217,8 +217,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     showView();
     loadSkin(to.model, scene).then((container) => {
       if (current !== loaded) return;
-      // A hand that holds something is closed on it; an empty one as the scenario says.
-      loaded.skin = dressBody(built, container, scene, shown, (hand) => to[hand] === "empty" ? run.closure(hand) : 1);
+      loaded.skin = dressBody(built, container, scene, shown, (hand) => run.closure(hand));
       showView();
     }, (error: unknown) => console.error(`${to.model}: the skin did not load`, error));
     showLoadout();

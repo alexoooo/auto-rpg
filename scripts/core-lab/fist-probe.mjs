@@ -111,14 +111,18 @@ const parentOf = (name) => {
 const adjacent = (a, b) => a === b || parentOf(a) === b || parentOf(b) === a;
 const digit = (name) => /^[a-z]+/.exec(name)[0];
 
-/** Every pair's worst depth (mm) of a vertex inside the other part, deepest first. */
-export function penetration(verts, cap = 0.012) {
+/**
+ * Every pair's worst depth (mm) of a vertex inside the other part, deepest first; with `only`,
+ * the pairs with a part it accepts, and nothing else measured.
+ */
+export function penetration(verts, cap = 0.012, only = null) {
   const byPart = new Map();
   for (const v of verts) { if (!byPart.has(v.part)) byPart.set(v.part, []); byPart.get(v.part).push(v); }
   const worst = new Map();
   for (const v of verts) {
+    const mine = !only || only(v.part);
     for (const [other, list] of byPart) {
-      if (adjacent(v.part, other)) continue;
+      if (adjacent(v.part, other) || (!mine && !only(other))) continue;
       // The thumb's base is part of the palm.
       if ((/^thumb_01/.test(v.part) && /^hand/.test(other)) || (/^thumb_01/.test(other) && /^hand/.test(v.part))) continue;
       let best = null, bestD = cap * cap;
@@ -145,4 +149,25 @@ export function summary(pairs) {
   const out = {};
   for (const [pair, depth] of pairs) { const g = group(pair); if (!(g in out) || depth > out[g][1]) out[g] = [pair, depth]; }
   return out;
+}
+
+/** Nelder-Mead's simplex search for `f`'s least from `x0`, `step` apart, for `iterations` moves. */
+export function nelderMead(f, x0, step, iterations) {
+  const n = x0.length;
+  let simplex = [x0, ...x0.map((_, i) => x0.map((v, j) => (i === j ? v + step : v)))].map((x) => ({ x, f: f(x) }));
+  for (let it = 0; it < iterations; it++) {
+    simplex.sort((a, b) => a.f - b.f);
+    const centroid = Array.from({ length: n }, (_, j) => simplex.slice(0, n).reduce((s, p) => s + p.x[j], 0) / n);
+    const worst = simplex[n], at = (t) => centroid.map((c, j) => c + t * (worst.x[j] - c));
+    const r = at(-1), fr = f(r);
+    if (fr < simplex[0].f) { const e = at(-2), fe = f(e); simplex[n] = fe < fr ? { x: e, f: fe } : { x: r, f: fr }; }
+    else if (fr < simplex[n - 1].f) simplex[n] = { x: r, f: fr };
+    else {
+      const c = at(0.5), fc = f(c);
+      if (fc < worst.f) simplex[n] = { x: c, f: fc };
+      else simplex = simplex.map((p, i) => (i === 0 ? p : { x: p.x.map((v, j) => simplex[0].x[j] + 0.5 * (v - simplex[0].x[j])) }))
+        .map((p) => ("f" in p ? p : { ...p, f: f(p.x) }));
+    }
+  }
+  return simplex.sort((a, b) => a.f - b.f)[0];
 }

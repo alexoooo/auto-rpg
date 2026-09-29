@@ -586,8 +586,11 @@ contradicts one; the eccentric ceiling is the owner's decision.
   stance's own. On the ground are the centre of mass, the capture point and the held place. The
   last 10 s can be scrubbed. The Routine scenario is stage 2's routine. In both, the panel's loadout
   (`src/core-lab/loadout.ts`) puts the wooden club in either hand or both, and shows or hides the
-  model's boots and armour, which are its meshes alone. With a club in each hand, each human stands,
-  walks and stops in the Stance (`tests/core-lab-loadout.test.mjs`, Node stand, 120 Hz).
+  model's boots and armour, which are its meshes alone. A hand holding the club closes on its haft
+  (`CLUB_GRIP`, `src/core-lab/club-grip.ts`, fitted on the skin by `scripts/core-lab/haft-fit.mjs`
+  and held to it by `tests/core-lab-grip.test.mjs`); the skin's fingers only, the core's grip is
+  unchanged. With a club in each hand, each human stands, walks and stops in the Stance
+  (`tests/core-lab-loadout.test.mjs`, Node stand, 120 Hz).
 - **Found in the lab:** a 30 N s shove from the rest stance holds (one catching step, each human),
   but after a walk and a stop the stance is the gait's 0.2 m width, and the same shove can fall.
   Asked for a lower centre of mass (8-16 cm), the stance stands about 1 cm lower, and walking from

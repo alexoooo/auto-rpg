@@ -13,6 +13,7 @@ import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { FIT_SCALE } from "../core/human/model.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { visiblePart } from "../character-lab/catalog.ts";
+import { CLUB_GRIP } from "./club-grip.ts";
 import { fistTurns, type FistPose, type RestBone } from "./fist.ts";
 
 /**
@@ -25,8 +26,9 @@ import { fistTurns, type FistPose, type RestBone } from "./fist.ts";
  * held. The rig's bind pose is the spec's reference pose (the spec's segment ends are the rig's
  * bone ends), so at the reference pose the skin is its bind pose, scaled by the fit scale.
  * Finger bones hold a grip against their parents, between the relaxed hand and a fist as the
- * caller's closure says. The arm's twist helpers follow their own segment, with no share of the
- * next one's twist; a wrist turned far shows a pinch.
+ * caller's closure says; a hand that holds something is closed on it (`CLUB_GRIP`). The arm's
+ * twist helpers follow their own segment, with no share of the next one's twist; a wrist turned far
+ * shows a pinch.
  */
 export interface SkinView {
   setEnabled(enabled: boolean): void;
@@ -138,7 +140,9 @@ function trunkSegment(built: BuiltBody, point: Vector3): BuiltSegment {
 
 /**
  * Dress `built` in its model's skin from `container`, which `loadSkin` loaded into `scene`, wearing
- * `clothing`; no workshop weapon is ever shown. `closure` says, each frame, how far each hand is closed into a fist, 0 relaxed to 1 closed.
+ * `clothing`; no workshop weapon is ever shown. `closure` says, each frame, how far each empty
+ * hand is closed into a fist, 0 relaxed to 1 closed; a hand that holds something (`BodySpec.held`)
+ * is closed on its haft.
  */
 export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene, clothing: Clothing,
   closure: (hand: Hand) => number = () => 0): SkinView {
@@ -163,6 +167,11 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
 
   const fit = Matrix.Scaling(FIT_SCALE.value, FIT_SCALE.value, FIT_SCALE.value);
   const relaxed = rig.grips.empty;
+  // A hand closes into a fist, or on what it holds.
+  const holding = {
+    left: built.spec.held?.some((held) => held.segment === "hand.left") ?? false,
+    right: built.spec.held?.some((held) => held.segment === "hand.right") ?? false,
+  };
   const fist = new Map<string, Quaternion>();
   for (const side of ["r", "l"] as const) {
     const hand = nodes.find((node) => nameOf(node) === `hand_${side}`)!;
@@ -170,7 +179,8 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
     for (const node of hand.getDescendants(false) as TransformNode[]) {
       bones.set(nameOf(node), { parent: nameOf(node.parent as TransformNode), rotation: node.rotationQuaternion!.clone(), position: node.position.clone() });
     }
-    for (const [name, turn] of fistTurns(bones, side, FIST[model])) fist.set(name, turn);
+    const closed = holding[side === "r" ? "right" : "left"] ? CLUB_GRIP[model] : FIST[model];
+    for (const [name, turn] of fistTurns(bones, side, closed)) fist.set(name, turn);
   }
   // Parents come before children: `getDescendants` walks depth first.
   const rows = nodes.filter((node) => rig.bones[nameOf(node)]).map((node) => {
@@ -213,7 +223,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   const relative = new Matrix(), turn = new Quaternion(), curled = new Quaternion();
   const update = () => {
     achieved.clear();
-    const shut = { left: closure("left"), right: closure("right") };
+    const shut = { left: holding.left ? 1 : closure("left"), right: holding.right ? 1 : closure("right") };
     for (const row of rows) {
       if (row.finger) {
         const { hand, scaling, rotation, position, open, fist } = row.finger;
