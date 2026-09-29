@@ -43,7 +43,8 @@ development server running.
 **Headless harness: `tests/harness/`.** `bout-runner.mjs` exports `freshHavok`, `createBout` and
 `runBout`; tests and `research/` run bouts through it. `golem-headless-arena.mjs` is the physics
 arena without fighters; `golem-bench.mjs` and `golem-torso-bench.mjs` are the module benches
-(both also run directly under `node`).
+(both also run directly under `node`). `core-stand.mjs` is the core's stand: one spec, built by
+`buildBody` (`src/core/build/`) and nothing else, on a ground.
 
 ## The core (`src/core/`) and the old path
 
@@ -55,10 +56,16 @@ it blocks play, and it is not extended. `src/core/` has these rules:
 - **It imports nothing from `src/golem/`, `src/config.ts` or the old minds.** Engine glue with no
   body knowledge (`src/physics.ts`, and what it takes of `src/body-inertia.ts`,
   `src/golem/effective-mass.ts`, `src/tipping.ts`, `src/fork/`) is moved or re-exported through
-  `src/core/` when it is taken. A boundary test enforces this; it lands with the directory.
-- **Every number in a spec says where it came from**: a citation, a derivation from other spec
-  values, or a documented sweep with its table. A test reads every numeric leaf's provenance. A
-  spec never spreads another family's spec; families share code, not values.
+  `src/core/` when it is taken. `tests/core-boundary.test.mjs` walks the transitive imports: the
+  core reaches itself, `@babylonjs/*`, JSON under `assets/`, and the files its `TAKEN` list
+  names with a reason, whose own imports are held to the same rule. `src/physics.ts` cannot be
+  taken while it imports `src/config.ts`.
+- **Every number in a spec says where it came from.** It is a `Quantity`
+  (`src/core/spec/quantity.ts`): read from an entry of `SOURCES` (`src/core/sources.ts`: a paper,
+  the owner's decision, an asset, a measurement or a sweep's table), or derived from other
+  quantities by a named rule. A rule's code writes no factor; a factor is an input with a source.
+  `specProvenanceFaults` (`tests/fixtures/spec.mjs`) holds every spec to this. A spec never
+  spreads another family's spec; families share code, not values.
 - **Tuning is immutable.** An experiment passes an override in; nothing mutates a global.
 - **One world step** owns physics, control, combat and the clock. The page, the harness and the
   research runners all call it.
@@ -88,7 +95,7 @@ it blocks play, and it is not extended. `src/core/` has these rules:
   Physics and control both run at 120 Hz (`CONFIG.world.physicsHz`, `controlHz`). (H07)
 - **Read world transforms from `mesh.position` and `mesh.rotationQuaternion`.** `getWorldMatrix()`
   caches per render id and reading it stamps the id, so the first reader in a frame freezes every
-  later one. Code under `src/golem/` and `src/bench/` must not use `getWorldMatrix()`,
+  later one. Code under `src/golem/`, `src/bench/` and `src/core/` must not use `getWorldMatrix()`,
   `absolutePosition` or `absoluteRotationQuaternion`; `tests/golem-bench.test.mjs` enforces it.
   From a console, `computeWorldMatrix(true)` every node you read. (H24)
 - **Force a body awake before a rest measurement** (`setActivationControl(body, 1)`); a sleeping

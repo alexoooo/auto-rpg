@@ -121,6 +121,276 @@ Useful sums at 80 kg:
 | Golf: what predicts club and ball speed | Pelvis rotation velocity alone does not separate groups | Torso-pelvis separation (X-factor) and upper-torso rotation velocity correlate with ball velocity | Myers et al. 2008 |
 | Ground reaction force | -- | Lead-foot force 123 % of body weight in pro hitters; lead-leg ground reaction force correlates with punch hand velocity | Welch et al. 1995; Stanley et al. 2018 (as reported in reviews) |
 
+## 8. The workshop models
+
+Added 2026-09-28 for the core's human spec (`src/core/human/`). These are measurements of this
+repository's assets, not literature.
+
+**Stature.** Each model's stature is the top of its skin: the maximum y of `base__skin`'s
+positions in `public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0. Hair is not stature.
+
+| Model | Skin top at the authored size | At x1 (x 1.77 / 1.880) |
+|---|---|---|
+| Warrior (`workshop-fighter`) | 1.8805 m | 1.770 m |
+| Rogue (`workshop-rogue`) | 1.7305 m | 1.629 m |
+
+x1 is the owner's typical adult (2026-09-27): 1.77 m and 79 kg for a man. The Rogue takes the
+Warrior's factor, so she keeps her size against him.
+
+**Volume.** Each model's skin, feet, jacket, trousers, collar and belt were closed by voxel flood
+fill in the bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm; a finer grid
+leaks through a seam. What is enclosed, and what is not outside, bracket the volume (litres, at the
+authored size):
+
+| Model | Enclosed | Not outside | Taken |
+|---|---|---|---|
+| Warrior | 107.6 | 111.4 | 109.5 |
+| Rogue | 78.0 | 81.6 | 79.8 |
+
+The ratio is 0.729 on either bound to the third digit, and the clothes are the same garments on
+both. The Rogue's mass is the Warrior's 79 kg times this ratio, 57.6 kg: her own build's mass at
+the same density.
+
+## 9. Joint ranges and strengths for the core human
+
+Added 2026-09-28 for the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and
+`tables/`). Every figure here is from the Node harness on the spec alone (no engine), unless it
+says otherwise. Tables 9.2 and 9.4 are printed from the spec, not retyped.
+
+### 9.1 A model's torque comes from its muscle
+
+A muscle's force is its specific tension times its physiological cross-section, and a joint's
+torque is that force times a moment arm. Under geometric similarity torque therefore goes as muscle
+volume. Strength per unit of muscle cross-section does not differ between the sexes (Miller et al.
+1993, abstract: 8 men and 8 women). So:
+
+- torque = young men's measured torque × (the model's regional muscle / those men's);
+- regional muscle = body mass × (the region's muscle per kilogram of body mass, for the sex).
+
+For the Warrior the regional term cancels, and his torque is the men's times 79 kg over their mean
+mass. For the Rogue it carries the difference between women's and men's muscle per kilogram in the
+region that turns the joint. The women's measured columns are never an input. They are the check
+in 9.2.
+
+**Which muscle data.** Abe, Kearns & Fukunaga 2003 (Br J Sports Med 37:436, Table 1) measured
+skeletal muscle by whole-body MRI in 10 men and 10 women, lean and active Japanese students aged
+about 21. It splits the muscle four ways:
+
+| Region (Abe's cuts) | Men (63.5 kg) | Women (55.6 kg) | Women / men, per kg of body mass |
+|---|---|---|---|
+| Trunk: C1 to the femoral heads, less the arms. It holds the neck, the whole shoulder girdle proximal to the axillary fold, and the hip muscles above the femoral heads | 9.7 kg | 5.5 kg | 0.648 |
+| Arms, from just below the axillary fold | 2.3 | 1.2 | 0.596 |
+| Upper legs, femoral heads to knees | 8.0 | 5.0 | 0.714 |
+| Lower legs, knees to ankles | 2.4 | 1.8 | 0.857 |
+
+Each joint takes the region its prime movers lie in:
+- **Trunk:** the neck, both spine joints, and the shoulder, whose movers lie in Abe's trunk region.
+- **Arms:** the elbow, the forearm's turn and the wrist.
+- **Upper legs:** the hip and the knee. The hip's iliopsoas and upper gluteals lie above the
+  femoral head, in Abe's trunk region, so the hip's choice is the rougher one.
+- **Lower legs:** the ankle.
+
+**Three rules weighed** (the Rogue's predicted torque over the women's measured torque at her
+mass; the full list for the chosen rule is in 9.2):
+
+| Rule | Shoulder | Elbow and wrist | Hip and knee | Ankle | Trunk (Pan) | Neck |
+|---|---|---|---|---|---|---|
+| A. Janssen 2000's upper and lower body, 18-29 y | 1.19-1.46 | 0.80-1.25 | 0.82-1.28 | 1.04-1.26 | 0.76-0.87 | 1.28-1.60 |
+| B. Abe 2003 alone: how much muscle and where, from the same people | 1.02-1.24 | 0.63-0.98 | 0.69-1.09 | 1.06-1.28 | 0.65-0.75 | 1.09-1.37 |
+| C. Janssen's total muscle per kg, shared out by Abe's regional shares | 1.19-1.45 | 0.73-1.15 | 0.81-1.27 | 1.23-1.50 | 0.76-0.87 | 1.27-1.59 |
+
+The spec uses **B**. The reason is not its fit: both sexes' shares come from the same people in the
+same scanner, so their ratio carries no difference of method, which A and C cannot claim. That B
+also fits best was seen after the choice was argued, and is reported, not relied on.
+
+- **Janssen's upper body cannot be used as it is.** It mixes arms with trunk, and women's arms carry
+  less of their muscle than their trunks do. So A over-predicts the Rogue's shoulder by up to 46 %
+  (z = 2.0 and 2.1 in the women's SD, for internal rotation and adduction).
+- **What no rule explains: the trunk.** Every rule puts the Rogue's trunk at 0.65-0.87 of Pan's women.
+  Per kilogram of body mass:
+  - Pan's women turn the trunk with 87-99 % of the men's torque;
+  - Abe's women have 63-70 % of the men's muscle cross-section at the xiphoid, lumbar and iliac
+    crest levels.
+
+  A seated trunk test may recruit the hip extensors, and women's moment arms may differ. Neither
+  is established, and the finding stands open.
+- **Two smaller misses:**
+  - Anderson's hip flexion and extension: its 7 women's normalised peaks exceed its 7 men's.
+  - Peleg's ulnar deviation: 20 women, concentric.
+
+`tests/core-human.test.mjs` holds each Rogue ratio between 0.55 and 1.5 and the middle one between
+0.85 and 1.15. It reads 0.97. Scaling by mass alone moves the middle to 1.39. Leaving her mass out
+moves it to 1.25.
+
+### 9.2 Torque sources: the men's column read, the women's column checked
+
+**Why each source was taken.**
+- **Danneskiold-Samsøe et al. 2009** (DS2009) is the spine of the table. It is one laboratory on
+  one dynamometer (Lido Active Multi Joint II), dominant side, gravity-corrected, isometric, ages
+  20-29: 10 men (73.8 kg) and 18 women (62.8 kg). It is the only source found with isometric N m by
+  sex and age band for the shoulder, elbow, wrist, hip rotation, knee and ankle together. Its isometric
+  tables print "(N)" where its text gives N m; they are N m. For some rows it does not say which
+  of two test angles the tabulated value is.
+- **Hip flexion and extension:** Anderson, Madigan & Nussbaum 2007, Table 3, 18-25 y, 7 men and
+  7 women. Torque = C1 × body weight × height, with gn from CGPM 1901.
+- **Trunk:** Pan et al. 2025, isometric from neutral, seated, pelvis fixed, medians, 61 men and
+  61 women aged 20-35. The same exertion is given to both spine joints: in a chain held still, the
+  same moment crosses every level.
+- **Neck:** Vasavada, Li & Delp 2001, Table 2, isometric, neutral, resolved at C7-T1, 11 men and
+  5 women.
+- **The forearm's turn:** Axelsson 2018, Appendix E, isometric, right arm, 15-25 y. Body mass is
+  printed only for each sex's whole cohort (84 and 66 kg, ages 15-85), and it stands in for the band.
+- **The wrist's sideways bend:** Peleg et al. 2025, concentric at 90 deg/s. No isometric source by
+  sex was found, and a concentric peak understates the isometric one.
+- **The foot's roll:** da Fonseca et al. 2025, Table 6, concentric at 30 deg/s, both ankles pooled,
+  ages 20-60. Its one body mass, for both sexes together (77.1 kg), stands in for each.
+
+**Hip abduction and adduction.** DS2009 reads high against the only other isometric N m source:
+
+| Source | Posture | Abduction (N m) | Adduction (N m) |
+|---|---|---|---|
+| DS2009, men 20-29 | Side-lying | 185 | 217 |
+| DS2009, women 20-29 | Side-lying | 114 | 124 |
+| Gonçalves et al. 2021, sexes pooled (69.9 kg) | Custom rig, supine | 95 | 124 |
+| Gonçalves et al. 2021, sexes pooled (69.9 kg) | Biodex, side-lying | 117 | 90 |
+
+DS2009 is kept because it is the only source split by sex, and because it keeps the hip in the same
+laboratory as the knee and ankle. Stage 2's strike reads will show whether it is too strong.
+
+**All exertions.** Masses are each cohort's mean body mass, torques are N m, and the last column is
+the check.
+
+| Exertion | Region | Source | Men (kg) | Men | Women (kg) | Women | Warrior | Rogue | Rogue / women at her mass |
+|---|---|---|---|---|---|---|---|---|---|
+| shoulderFlexion | trunk | Danneskiold-Samsøe 2009 | 73.8 | 63.0 | 62.8 | 30.0 | 67.4 | 31.8 | 1.16 |
+| shoulderExtension | trunk | Danneskiold-Samsøe 2009 | 73.8 | 91.9 | 62.8 | 43.5 | 98.4 | 46.4 | 1.16 |
+| shoulderAbduction | trunk | Danneskiold-Samsøe 2009 | 73.8 | 60.2 | 62.8 | 30.9 | 64.4 | 30.4 | 1.07 |
+| shoulderAdduction | trunk | Danneskiold-Samsøe 2009 | 73.8 | 89.6 | 62.8 | 42.0 | 95.9 | 45.3 | 1.18 |
+| shoulderExternalRotation | trunk | Danneskiold-Samsøe 2009 | 73.8 | 35.9 | 62.8 | 19.4 | 38.4 | 18.1 | 1.02 |
+| shoulderInternalRotation | trunk | Danneskiold-Samsøe 2009 | 73.8 | 59.4 | 62.8 | 26.3 | 63.6 | 30.0 | 1.24 |
+| elbowFlexion | arms | Danneskiold-Samsøe 2009 | 73.8 | 70.3 | 62.8 | 36.2 | 75.3 | 32.7 | 0.98 |
+| elbowExtension | arms | Danneskiold-Samsøe 2009 | 73.8 | 53.2 | 62.8 | 28.2 | 56.9 | 24.7 | 0.96 |
+| forearmSupination | arms | Axelsson 2018 | 84 | 9.2 | 66 | 5.7 | 8.7 | 3.8 | 0.76 |
+| forearmPronation | arms | Axelsson 2018 | 84 | 7.8 | 66 | 4.4 | 7.3 | 3.2 | 0.83 |
+| wristFlexion | arms | Danneskiold-Samsøe 2009 | 73.8 | 23.9 | 62.8 | 14.3 | 25.6 | 11.1 | 0.85 |
+| wristExtension | arms | Danneskiold-Samsøe 2009 | 73.8 | 13.1 | 62.8 | 6.9 | 14.0 | 6.1 | 0.96 |
+| wristUlnarDeviation | arms | Peleg 2025 | 74.3 | 26.5 | 59.1 | 20.0 | 28.2 | 12.2 | 0.63 |
+| wristRadialDeviation | arms | Peleg 2025 | 74.3 | 14.9 | 59.1 | 8.5 | 15.8 | 6.9 | 0.83 |
+| hipFlexion | upperLegs | Anderson 2007 | 72.8 | 141.0 | 62.1 | 124.2 | 153.0 | 79.6 | 0.69 |
+| hipExtension | upperLegs | Anderson 2007 | 72.8 | 200.9 | 62.1 | 177.0 | 218.0 | 113.4 | 0.69 |
+| hipAbduction | upperLegs | Danneskiold-Samsøe 2009 | 73.8 | 185.0 | 62.8 | 114.0 | 198.0 | 103.0 | 0.99 |
+| hipAdduction | upperLegs | Danneskiold-Samsøe 2009 | 73.8 | 217.0 | 62.8 | 124.0 | 232.3 | 120.8 | 1.06 |
+| hipExternalRotation | upperLegs | Danneskiold-Samsøe 2009 | 73.8 | 49.7 | 62.8 | 36.6 | 53.2 | 27.7 | 0.82 |
+| hipInternalRotation | upperLegs | Danneskiold-Samsøe 2009 | 73.8 | 72.7 | 62.8 | 40.6 | 77.8 | 40.5 | 1.09 |
+| kneeExtension | upperLegs | Danneskiold-Samsøe 2009 | 73.8 | 242.0 | 62.8 | 160.0 | 259.1 | 134.8 | 0.92 |
+| kneeFlexion | upperLegs | Danneskiold-Samsøe 2009 | 73.8 | 132.0 | 62.8 | 88.6 | 141.3 | 73.5 | 0.90 |
+| ankleDorsiflexion | lowerLegs | Danneskiold-Samsøe 2009 | 73.8 | 40.2 | 62.8 | 25.4 | 43.0 | 26.9 | 1.15 |
+| anklePlantarflexion | lowerLegs | Danneskiold-Samsøe 2009 | 73.8 | 142.0 | 62.8 | 94.6 | 152.0 | 94.9 | 1.09 |
+| footInversion | lowerLegs | da Fonseca 2025 | 77.1 | 37.0 | 77.1 | 30.0 | 37.9 | 23.7 | 1.06 |
+| footEversion | lowerLegs | da Fonseca 2025 | 77.1 | 33.4 | 77.1 | 22.3 | 34.2 | 21.4 | 1.28 |
+| trunkFlexion | trunk | Pan 2025 | 73.4 | 87.3 | 55.1 | 56.9 | 94.0 | 44.3 | 0.75 |
+| trunkExtension | trunk | Pan 2025 | 73.4 | 118.1 | 55.1 | 88.1 | 127.1 | 60.0 | 0.65 |
+| trunkLateralFlexionRight | trunk | Pan 2025 | 73.4 | 63.2 | 55.1 | 46.2 | 68.0 | 32.1 | 0.66 |
+| trunkLateralFlexionLeft | trunk | Pan 2025 | 73.4 | 71.3 | 55.1 | 49.5 | 76.7 | 36.2 | 0.70 |
+| trunkRotationRight | trunk | Pan 2025 | 73.4 | 49.2 | 55.1 | 35.2 | 53.0 | 25.0 | 0.68 |
+| trunkRotationLeft | trunk | Pan 2025 | 73.4 | 47.7 | 55.1 | 34.1 | 51.3 | 24.2 | 0.68 |
+| neckFlexion | trunk | Vasavada 2001 | 77 | 30.0 | 65 | 15.0 | 30.8 | 14.5 | 1.09 |
+| neckExtension | trunk | Vasavada 2001 | 77 | 52.0 | 65 | 21.0 | 53.4 | 25.2 | 1.35 |
+| neckLateralFlexion | trunk | Vasavada 2001 | 77 | 36.0 | 65 | 16.0 | 36.9 | 17.4 | 1.23 |
+| neckRotation | trunk | Vasavada 2001 | 77 | 15.0 | 65 | 6.0 | 15.4 | 7.3 | 1.37 |
+
+### 9.3 Range-of-motion sources
+
+A joint's limit is where a push stops it, so the passive range is taken wherever a source measured it.
+
+| Joint | Source | Measure | Sample |
+|---|---|---|---|
+| Shoulder, elbow flexion and hyperextension, wrist flexion and extension, hip, knee, ankle bending | Moromizato et al. 2016, Table 1 | Passive, goniometer, AAOS neutral-zero start, mean of both sides | 42 men 20-29 y, 36 women 20-25 y |
+| Forearm pronation and supination | Zwerus et al. 2019, Table 3 | Passive, 18-29 y | 33 men, 57 women |
+| Wrist radial and ulnar deviation | Kitsoulis et al. 2010, Additional file 1 | Active, by side | 157 men, 143 women, 18-24 y |
+| Foot inversion and eversion | Hallaçeli et al. 2014, Table 4 | Passive | 513 men 19-30 y, 474 women 19-32 y |
+| Neck | Niewiadomski et al. 2019 | Active, head on thorax. Sexes pooled, since sex correlated with no range | 97 |
+| Thoracic flexion and extension | Jiang et al. 2025, Tables 1-3 | Active, standing, Vicon, natural neck, T1-T12 | 13 men, 15 women |
+| Thoracic lateral bending, rotation | Fujimori et al. 2014 and 2012, abstracts | In vivo CT, T1 on L1, one side | 15 men; 13 volunteers whose sex the abstract does not give |
+| Lumbar | Pearcy 1985, Table 4 | Active, standing, biplanar radiography, whole lumbar spine | Men only (n = 10-11) |
+
+Each model reads its own sex's column where a source splits one. A single sample is read by both.
+
+### 9.4 From the anatomical position to the reference pose
+
+A source measures its range from the anatomical position. A model's joints are zero in its bind
+pose. Each freedom's bind angle is read from the rig in the sense its source measures it:
+
+- **Shoulder and hip flexion and abduction:** the limb's line from the trunk segment's downward
+  line, about that segment's flexion or abduction axis, each projected onto the plane of the motion.
+- **Shoulder rotation:** the elbow's flexion axis (the upper arm's line crossed with the forearm's)
+  from the upper arm's -x, about the upper arm.
+- **Elbow:** the angle between the upper arm and forearm.
+- **Knee:** the shank's line from the thigh's, about the thigh's x.
+- **Ankle:** the foot's upward normal from the shank's line.
+- **Wrist:** the third metacarpal, from the hand's joint centre to the middle finger's knuckle,
+  from the forearm's line, about the wrist's two axes.
+- **Forearm turn:** the goniometer's zero is the thumb up with the elbow bent, so the bind is the
+  hand's own right (across the knuckles) from the way elbow flexion carries the wrist, about the
+  forearm.
+
+Limits are then min = -(range against the positive sense) - bind and max = (range with it) - bind.
+Every range contains the reference pose. Degrees:
+
+| Joint | Freedom (+ / -) | Warrior bind | Warrior range | Rogue bind | Rogue range |
+|---|---|---|---|---|---|
+| neck | flexion / extension | 0.0 | -60.9 to 65.3 | 0.0 | -60.9 to 65.3 |
+| neck | lateral flexion right / lateral flexion left | 0.0 | -45.3 to 43.3 | 0.0 | -45.3 to 43.3 |
+| neck | rotation right / rotation left | 0.0 | -74.5 to 71.2 | 0.0 | -74.5 to 71.2 |
+| thoracic | flexion / extension | 0.0 | -13.7 to 21.1 | 0.0 | -13.8 to 22.2 |
+| thoracic | lateral flexion right / lateral flexion left | 0.0 | -15.6 to 15.6 | 0.0 | -15.6 to 15.6 |
+| thoracic | rotation right / rotation left | 0.0 | -24.9 to 24.9 | 0.0 | -24.9 to 24.9 |
+| lumbar | flexion / extension | 0.0 | -16.0 to 51.0 | 0.0 | -16.0 to 51.0 |
+| lumbar | lateral flexion right / lateral flexion left | 0.0 | -18.0 to 17.0 | 0.0 | -18.0 to 17.0 |
+| lumbar | rotation right / rotation left | 0.0 | -5.0 to 4.0 | 0.0 | -5.0 to 4.0 |
+| shoulder | flexion / extension | 1.6 | -67.3 to 173.1 | -2.4 | -65.2 to 180.8 |
+| shoulder | abduction / adduction | 41.2 | -41.2 to 138.6 | 42.4 | -42.4 to 137.2 |
+| shoulder | internal rotation / external rotation | -5.2 | -86.3 to 63.6 | -1.5 | -93.0 to 68.9 |
+| elbow | flexion / hyperextension | 46.2 | -49.4 to 94.8 | 42.0 | -47.6 to 102.5 |
+| wrist | flexion / extension | 3.0 | -82.0 to 84.0 | 2.4 | -86.1 to 87.2 |
+| wrist | radial deviation / ulnar deviation | 4.4 | -52.7 to 23.9 | 5.9 | -51.4 to 21.4 |
+| wrist | pronation / supination | 3.8 | -97.8 to 82.2 | 2.0 | -98.0 to 87.0 |
+| hip | flexion / extension | 6.3 | -24.2 to 120.4 | 1.5 | -17.6 to 128.9 |
+| hip | abduction / adduction | 5.4 | -19.1 to 26.7 | 6.3 | -20.2 to 27.8 |
+| hip | internal rotation / external rotation | 0.0 | -46.7 to 37.1 | 0.0 | -40.6 to 47.9 |
+| knee | flexion / hyperextension | 6.3 | -8.3 to 140.8 | 7.8 | -13.1 to 141.1 |
+| ankle | dorsiflexion / plantar flexion | 1.8 | -51.9 to 20.5 | 4.0 | -58.1 to 19.9 |
+| ankle | inversion / eversion | 0.0 | -19.1 to 34.6 | 0.0 | -20.8 to 32.9 |
+
+The Warrior's elbows are bent 46 degrees. His arms are abducted 41 degrees, and turned out about
+5 degrees at the shoulder. His hands are held thumb forward, about 4 degrees prone of the
+goniometer's zero.
+
+### 9.5 Stated assumptions, for the owner to confirm (`stage1-assumptions`)
+
+- **Neck and spine:** neutral in the reference pose. The head measures 5.1 degrees (Warrior) and
+  9.3 (Rogue) from the trunk line, and the trunk line itself 1.8 degrees forward and 2.3 back. The
+  rig does not say how much of either is posture and how much is the geometry of its landmarks.
+- **Hip rotation and foot roll:** neutral in the reference pose. Nothing on the rig fixes either.
+- **Shoulder adduction beyond the anatomical position:** none, since the trunk is in the way. No
+  source measured it.
+
+### 9.6 Open, and what stage 2 reads
+
+- **Havok's middle constraint axis.** The shoulder's abduction is its second freedom, with a range
+  of about -41 to 138 degrees. The Node stand found that the second axis only roughly holds its ends
+  (plan, "Found while building"). A middle axis past 90 degrees may not be representable at all.
+  Stage 2 reads this with muscle-sized motors.
+- **The spine joints sit on the CERV-MIDH line**, at de Leva's trunk boundaries, not on the spine.
+- **The trunk's sex ratio** (9.1).
+- **Unconfirmed source details:**
+  - Fujimori 2012 and 2014 were read in their abstracts only.
+  - Axelsson and da Fonseca give no body mass for the band or sex taken.
+  - Peleg and da Fonseca are concentric.
+  - DS2009 does not say which isometric angle some rows are.
+- **No force-velocity data yet.** The unloaded speed, the curve's shape and the eccentric ceiling
+  join the muscle spec in stage 2, with their sources.
+
 ## Notes and caveats
 
 1. **Effective mass depends on its definition.**
