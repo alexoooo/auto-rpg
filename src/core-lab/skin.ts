@@ -12,7 +12,7 @@ import { publicAssetUrl } from "../asset-url.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { FIT_SCALE } from "../core/human/model.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
-import { CHARACTERS, visiblePart } from "../character-lab/catalog.ts";
+import { visiblePart } from "../character-lab/catalog.ts";
 import { fistTurns, type FistPose, type RestBone } from "./fist.ts";
 
 /**
@@ -29,10 +29,14 @@ import { fistTurns, type FistPose, type RestBone } from "./fist.ts";
  * next one's twist; a wrist turned far shows a pinch.
  */
 export interface SkinView {
-  readonly meshes: readonly Mesh[];
   setEnabled(enabled: boolean): void;
+  /** Wear `clothing`: the model's boots and armour meshes shown or hidden. */
+  wear(clothing: Clothing): void;
   dispose(): void;
 }
+
+/** What the skin wears. The core has no clothing: this is the model's meshes alone. */
+export interface Clothing { readonly boots: boolean; readonly armour: boolean }
 
 interface RigBone { readonly host: string; readonly head: readonly number[] }
 type Grip = Readonly<Record<string, readonly number[]>>;
@@ -41,8 +45,6 @@ const RIGS: Readonly<Record<WorkshopModel, Rig>> = {
   "workshop-fighter": fighterRig as Rig,
   "workshop-rogue": rogueRig as Rig,
 };
-/** The character workshop's entry for each model, whose default loadout sets boots and armour. */
-const CHARACTER = { "workshop-fighter": CHARACTERS.fighter, "workshop-rogue": CHARACTERS.rogue } as const;
 
 const TRUNK = ["upperTrunk", "middleTrunk", "lowerTrunk"] as const;
 
@@ -135,10 +137,11 @@ function trunkSegment(built: BuiltBody, point: Vector3): BuiltSegment {
 }
 
 /**
- * Dress `built` in its model's skin from `container`, which `loadSkin` loaded into `scene`.
- * `closure` says, each frame, how far each hand is closed into a fist, 0 relaxed to 1 closed.
+ * Dress `built` in its model's skin from `container`, which `loadSkin` loaded into `scene`, wearing
+ * `clothing`; no workshop weapon is ever shown. `closure` says, each frame, how far each hand is closed into a fist, 0 relaxed to 1 closed.
  */
-export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene, closure: (hand: Hand) => number = () => 0): SkinView {
+export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene, clothing: Clothing,
+  closure: (hand: Hand) => number = () => 0): SkinView {
   const model = built.spec.model as WorkshopModel, rig = RIGS[model], prefix = `${model}.skin.`;
   // Materials stay the container's: a body part never disposes materials (H59).
   const instance = container.instantiateModelsToScene((name) => prefix + name, false, { doNotInstantiate: true });
@@ -194,14 +197,17 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   });
 
   const meshes = nodes.filter((node): node is Mesh => node instanceof Mesh && node.getTotalVertices() > 0);
-  const loadout = { ...CHARACTER[model].defaults, weapon: "empty" as const };
-  const worn = meshes.filter((mesh) => visiblePart(nameOf(mesh), loadout));
+  let worn: Mesh[] = [], enabled = true;
+  const wear = (to: Clothing) => {
+    worn = meshes.filter((mesh) => visiblePart(nameOf(mesh), { ...to, weapon: "empty" }));
+    for (const mesh of meshes) mesh.setEnabled(enabled && worn.includes(mesh));
+  };
   for (const mesh of meshes) {
     mesh.isPickable = false;
     // The mesh's bounds are its bind pose's where it was authored; the body walks away from them.
     mesh.alwaysSelectAsActiveMesh = true;
-    mesh.setEnabled(worn.includes(mesh));
   }
+  wear(clothing);
 
   const achieved = new Map<TransformNode, Matrix>();
   const relative = new Matrix(), turn = new Quaternion(), curled = new Quaternion();
@@ -227,10 +233,11 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   update();
   const observer = scene.onBeforeRenderObservable.add(update);
   return {
-    meshes: worn,
-    setEnabled(enabled) {
+    setEnabled(to) {
+      enabled = to;
       for (const mesh of worn) mesh.setEnabled(enabled);
     },
+    wear,
     dispose() {
       scene.onBeforeRenderObservable.remove(observer);
       instance.dispose();

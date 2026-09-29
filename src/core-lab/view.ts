@@ -94,6 +94,7 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyView
   right.specularColor = left.specularColor;
   const meshes: Mesh[] = [];
   for (const segment of built.segments.values()) {
+    // Its own shape; what it holds is `drawHeld`'s.
     const mesh = shapeMesh(`${segment.node.name}.view`, segment.frame, segment.spec.shape, scene);
     mesh.parent = segment.node;
     mesh.material = segment.spec.name.endsWith(".right") ? right : left;
@@ -105,6 +106,36 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyView
       for (const mesh of meshes) mesh.dispose(false, false);
       left.dispose();
       right.dispose();
+    },
+  };
+}
+
+/** Wood, for what a hand holds. */
+const WOOD = new Color3(0.45, 0.3, 0.17);
+
+/**
+ * Draw what `built`'s hands hold, as the solver has it: each segment's rigid body is its own shape
+ * and then its held items' (`rigidOf`), so what follows the first is drawn, on the segment's node.
+ * The skin has no mesh for a held item, so World shows these too.
+ */
+export function drawHeld(built: BuiltBody, scene: Scene): BodyView {
+  const wood = new StandardMaterial(`${built.spec.model}.view.held`, scene);
+  wood.diffuseColor = WOOD;
+  wood.specularColor = new Color3(0.08, 0.08, 0.08);
+  const meshes: Mesh[] = [];
+  for (const segment of built.segments.values()) {
+    segment.rigid.shapes.slice(1).forEach((shape, i) => {
+      const mesh = shapeMesh(`${segment.node.name}.held.${i}`, segment.frame, shape, scene);
+      mesh.parent = segment.node;
+      mesh.material = wood;
+      meshes.push(mesh);
+    });
+  }
+  return {
+    meshes,
+    dispose() {
+      for (const mesh of meshes) mesh.dispose(false, false);
+      wood.dispose();
     },
   };
 }

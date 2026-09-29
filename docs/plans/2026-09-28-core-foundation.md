@@ -584,7 +584,10 @@ contradicts one; the eccentric ceiling is the owner's decision.
   a scenario menu. The Stance scenario (`src/core-lab/stance-mode.ts`, `tests/core-lab.test.mjs`): W A S D or the arrows walk the chosen human at 0.2-0.5 m/s, Q and E
   turn it while it walks, and the panel shoves its chest 10-60 N s four ways. The readout is the
   stance's own. On the ground are the centre of mass, the capture point and the held place. The
-  last 10 s can be scrubbed. The Routine scenario is stage 2's routine.
+  last 10 s can be scrubbed. The Routine scenario is stage 2's routine. In both, the panel's loadout
+  (`src/core-lab/loadout.ts`) puts the wooden club in either hand or both, and shows or hides the
+  model's boots and armour, which are its meshes alone. With a club in each hand, each human stands,
+  walks and stops in the Stance (`tests/core-lab-loadout.test.mjs`, Node stand, 120 Hz).
 - **Found in the lab:** a 30 N s shove from the rest stance holds (one catching step, each human),
   but after a walk and a stop the stance is the gait's 0.2 m width, and the same shove can fall.
   Asked for a lower centre of mass (8-16 cm), the stance stands about 1 cm lower, and walking from
