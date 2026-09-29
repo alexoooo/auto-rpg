@@ -3,6 +3,7 @@ import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
@@ -19,14 +20,17 @@ import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { attachHavok, PHYSICS_HZ } from "../core/engine/havok.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { humanSpec } from "../core/human/spec.ts";
+import { publicAssetUrl } from "../asset-url.ts";
 import { startRoutine, type Routine, type Step } from "./routine.ts";
+import { dressBody, loadSkin, type SkinView } from "./skin.ts";
 import { drawBody, type BodyView } from "./view.ts";
 
 /**
  * **The core lab**: a core human, chosen here, on the lab routine (`routine.ts`): walk forward,
  * strike three times, turn, walk back, turn. It shows stage 2's muscles at work; the readout is
  * the striking fist's speed, read from the hand's body each physics sub-step, at the game's rate
- * or a finer one.
+ * or a finer one. The body is drawn in one of two views: World, the workshop model's skin
+ * (`skin.ts`), or Tactical, the collision shapes themselves (`view.ts`).
  */
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
@@ -43,6 +47,9 @@ camera.attachControl(canvas, true);
 new HemisphericLight("lab.sky", new Vector3(0, 1, 0), scene).intensity = 0.75;
 const sun = new DirectionalLight("lab.sun", new Vector3(-0.4, -1, 0.3), scene);
 sun.intensity = 0.7;
+// The skin's materials are PBR, lit by the environment as in the arena; the shapes ignore it.
+scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
+scene.environmentIntensity = 0.85;
 
 // The ground: a static box for the solver, a plane with a grid of metre lines for the eye.
 const groundNode = new TransformNode("lab.ground", scene);
@@ -74,7 +81,9 @@ const TINT: Readonly<Record<WorkshopModel, Color3>> = {
   "workshop-rogue": new Color3(0.5, 0.62, 0.55),
 };
 
-let current: { built: BuiltBody; view: BodyView; routine: Routine } | null = null;
+type ViewKind = "world" | "tactical";
+let current: { built: BuiltBody; view: BodyView; skin: SkinView | null; routine: Routine } | null = null;
+let shownView: ViewKind = "world";
 let shownStrikes = -1;
 /** The physics and control rate: the game's, or a finer reference. */
 let hz = PHYSICS_HZ.value;
@@ -82,6 +91,7 @@ let hz = PHYSICS_HZ.value;
 function load(model: WorkshopModel): void {
   if (current) {
     current.routine.dispose();
+    current.skin?.dispose();
     current.view.dispose();
     current.built.dispose();
   }
@@ -91,13 +101,30 @@ function load(model: WorkshopModel): void {
   const plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
   // Keep every segment awake: a sleeping body reads a perfect zero (H08).
   for (const segment of built.segments.values()) plugin.setActivationControl(segment.body, PhysicsActivationControl.ALWAYS_ACTIVE);
-  current = { built, view: drawBody(built, scene, TINT[model]), routine: startRoutine(built, scene) };
+  const loaded = current = { built, view: drawBody(built, scene, TINT[model]), skin: null as SkinView | null, routine: startRoutine(built, scene) };
   shownStrikes = -1;
+  showView();
+  loadSkin(model, scene).then((container) => {
+    if (current !== loaded) return;
+    loaded.skin = dressBody(built, container, scene, (hand) => loaded.routine.closure(hand));
+    showView();
+  }, (error: unknown) => console.error(`${model}: the skin did not load`, error));
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
     button.setAttribute("aria-pressed", String(button.dataset.model === model));
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-hz]")) {
     button.setAttribute("aria-pressed", String(Number(button.dataset.hz) === hz));
+  }
+}
+
+/** Show `shownView`; until the skin has loaded, World shows the shapes. */
+function showView(): void {
+  if (!current) return;
+  const world = shownView === "world" && current.skin !== null;
+  for (const mesh of current.view.meshes) mesh.setEnabled(!world);
+  current.skin?.setEnabled(world);
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.view === shownView));
   }
 }
 
@@ -134,6 +161,9 @@ function readout(): void {
 
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
   button.addEventListener("click", () => { load(button.dataset.model as WorkshopModel); button.blur(); });
+}
+for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")) {
+  button.addEventListener("click", () => { shownView = button.dataset.view as ViewKind; showView(); button.blur(); });
 }
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-hz]")) {
   button.addEventListener("click", () => { hz = Number(button.dataset.hz); load(shownModel()); button.blur(); });

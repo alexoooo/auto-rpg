@@ -126,6 +126,11 @@ export interface Routine {
   fistSpeed(): number;
   /** Each strike thrown so far, most recent last. */
   readonly strikes: readonly StrikeReading[];
+  /**
+   * How far `hand` is closed into a fist, 0 relaxed to 1 closed, for the skin to draw. The routine
+   * owns the strike timing, so it says when; nothing physical reads this.
+   */
+  closure(hand: "left" | "right"): number;
   dispose(): void;
 }
 
@@ -260,9 +265,21 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
       const step = routine[stepIndex]!;
       return step.kind === "strike" ? speed[step.strike.hand] : Math.max(speed.left, speed.right);
     },
+    closure: (hand) => {
+      const step = routine[stepIndex]!, before = routine[(stepIndex + routine.length - 1) % routine.length]!;
+      if (step.kind === "strike" && step.strike.hand === hand) return Math.min(1, into / FIST_CLOSING);
+      if (before.kind === "strike" && before.strike.hand === hand) return Math.max(0, 1 - into / FIST_OPENING);
+      return 0;
+    },
     dispose: () => driver.dispose(),
   };
 }
+
+/**
+ * A striking hand closes over `FIST_CLOSING` seconds from its strike's start, before the elbow's
+ * push begins at 0.06 s, and opens over `FIST_OPENING` seconds of the step after. Chosen by eye.
+ */
+const FIST_CLOSING = 0.1, FIST_OPENING = 0.25;
 
 /** Rad/s beyond any joint's unloaded speed. */
 const UNREACHABLE = 1e3;
