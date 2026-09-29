@@ -6,7 +6,9 @@
  * it does not stand still (the control). Asked for a step, it shifts its weight, swings the foot to
  * where it was asked, lands and stands. Shoved at the trunk past what its soles hold, it steps to
  * catch itself and stands, where without the step it falls (the control); shoved lightly, it does
- * not step. Node stand, both humans, on a ground, 120 Hz.
+ * not step. Asked to walk, it steps of itself, goes the way and about the speed asked, and asked to
+ * walk nowhere, stops and stands; asked to walk nowhere from the start, it takes no step (the
+ * control). Node stand, both humans, on a ground, 120 Hz.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -294,4 +296,71 @@ test("unconditioned feet stall the stance (the control)", async () => {
   const off = across(r.after.centre, r.after.support);
   console.log(`MUT stance unconditioned: ${(1000 * off).toFixed(1)} mm off the soles' middle, height ${r.after.height.toFixed(3)} m`);
   assert.ok(off > 0.02 || r.after.height < r.goal.height - 0.1, `unconditioned, the Warrior stood ${(1000 * off).toFixed(1)} mm off`);
+});
+
+/**
+ * Stand `model` 1 s, 3 cm under its reference height, walk at `speed` m/s `degrees` about the
+ * vertical from forward (+z; 90 is +x) for 8 s, then walk nowhere for 4 s. Returns the strides,
+ * whether it fell (its centre sank 25 cm under the goal's height), the mean velocity along the walk
+ * and across it over the walk's last 3 s, the steps taken over the stop's last 2 s, and the speed,
+ * phase and the centre's distance from the place the stance holds at the end.
+ */
+async function walking(model, degrees, speed) {
+  const stand = await coreStand(humanSpec(model), { ground: true, hz: 120 });
+  const body = createBody(stand.built, stand.world, { servoSeconds: 0.1 });
+  const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way);
+  let goal = null, walk = null;
+  body.drive((view) => {
+    const s = view.stance;
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
+    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, walk } };
+  });
+  try {
+    stand.step(stand.seconds(1));
+    let low = -Infinity;
+    const run = (seconds) => {
+      for (let i = 0; i < stand.seconds(seconds); i++) {
+        stand.step(1);
+        const s = body.view.stance;
+        low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+      }
+    };
+    walk = [speed * ux, speed * uz];
+    run(5);
+    const from = body.view.stance.centre.clone();
+    run(3);
+    const to = body.view.stance.centre;
+    const along = ((to.x - from.x) * ux + (to.z - from.z) * uz) / 3, across = ((to.x - from.x) * uz - (to.z - from.z) * ux) / 3;
+    const strides = body.view.stance.strides;
+    walk = null;
+    run(2);
+    const settled = body.view.stance.strides;
+    run(2);
+    const s = body.view.stance;
+    return { strides, fell: low > 0.25, along, across, speed: s.velocity.length(), phase: s.phase,
+      stepped: s.strides - settled, off: Math.hypot(s.centre.x - s.place.x, s.centre.z - s.place.z) };
+  } finally { body.dispose(); stand.dispose(); }
+}
+
+test("asked to walk, each human steps of itself the way and about the speed asked, and asked to stop, stops and stands", async () => {
+  const speed = 0.3;
+  for (const model of ["workshop-rogue", "workshop-fighter"]) for (const degrees of [0, 90, 180]) {
+    const r = await walking(model, degrees, speed);
+    const at = `${model} at ${speed} m/s, ${degrees}`;
+    console.log(`MUT stance walk ${at}: ${r.strides} strides, ${r.fell ? "fell" : "stood"}; ${r.along.toFixed(3)} m/s along, ${r.across.toFixed(3)} across;`
+      + ` stopped at ${(100 * r.speed).toFixed(2)} cm/s, ${r.phase}, ${r.stepped} steps over its last 2 s, ${(100 * r.off).toFixed(1)} cm off its place`);
+    assert.ok(!r.fell && r.strides >= 8, `${at}: ${r.strides} strides, ${r.fell ? "fell" : "stood"}`);
+    // A walk goes at about 0.8 of the speed asked (STANCE_GAIT).
+    assert.ok(r.along > 0.7 * speed && r.along < 1.25 * speed && Math.abs(r.across) < 0.25 * speed,
+      `${at}: ${r.along.toFixed(3)} m/s along, ${r.across.toFixed(3)} across`);
+    // Stopped, it steps no more and stands over its place. It need not be still: some stopped walks
+    // sway from foot to foot, 2-4 cm either way, and do not settle (STANCE_FOOT_CONDITIONING), this
+    // Warrior walking back among them.
+    assert.ok(r.phase === "stand" && r.stepped === 0 && r.off < 0.05,
+      `${at}: stopped, ${r.phase}, ${r.stepped} steps over its last 2 s, ${(100 * r.off).toFixed(1)} cm off its place`);
+  }
+  // The control: walking nowhere, it takes no step and goes nowhere.
+  const still = await walking("workshop-rogue", 0, 0);
+  assert.ok(still.strides === 0 && !still.fell && Math.abs(still.along) < 0.01 && still.speed < 0.01,
+    `the control: walking nowhere, ${still.strides} strides, ${still.along.toFixed(3)} m/s`);
 });

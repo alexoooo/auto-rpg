@@ -23,6 +23,12 @@ export interface StanceGoal {
   readonly heading: number;
   /** A foot not in `feet` carried to a landing place; none, and the other leg is left to the posture. */
   readonly swing?: SwingGoal | null;
+  /**
+   * A walk: the centre of mass's velocity across the ground, world (x, z), m/s. With both feet in
+   * `feet` and no `swing`, the stance steps of itself, each foot in turn (`STANCE_GAIT`); walking
+   * nowhere, it steps only to catch a push (`STANCE_RECOVERY`).
+   */
+  readonly walk?: readonly [number, number] | null;
 }
 
 /**
@@ -44,6 +50,12 @@ export interface SwingGoal {
    * once.
    */
   readonly shift?: boolean;
+  /**
+   * Where the capture point is brought by the time the foot lands, world (x, z), m: the pivot the
+   * body falls about in the bearing sole is chosen for it. None, and the middle of the stance the
+   * step lands in.
+   */
+  readonly capture?: readonly [number, number];
 }
 
 /**
@@ -126,12 +138,16 @@ export interface StanceReading {
   readonly place: Vector3;
   /** The velocity asked of the centre of mass, carried by the pelvis, world, m/s. */
   readonly asked: Vector3;
+  /** The plan the centre of mass is held to: its place (x, height over the stance soles, z) and velocity, world. */
+  readonly plan: Vector3;
+  readonly planVelocity: Vector3;
   /** Where the stance is in a step. */
   readonly phase: StancePhase;
-  /** The step the stance took to catch a push, while it is under way; else null. */
-  readonly recovery: SwingGoal | null;
-  /** How many such steps the stance has taken. */
+  /** The step the stance is taking of itself -- to walk, or to catch a push -- while it is under way; else null. */
+  readonly own: SwingGoal | null;
+  /** How many steps the stance has taken to catch a push, and to walk. */
   readonly recoveries: number;
+  readonly strides: number;
 }
 
 /**
@@ -140,6 +156,19 @@ export interface StanceReading {
  * asked is its error over its constant. The swing's is from a sweep: of `STANCE_VELOCITY_GAIN`'s 48
  * steps, at 0.05 s 2 failed and the worst landing missed by 3.5 cm, the foot wandering 3 cm either
  * side of its path; at 0.1, 2 and 1.7 cm; at 0.2, 3 and 1.6 cm (Node stand, 120 Hz).
+ *
+ * The pull across the ground was swept against walks stopped and steps (Node stand, 120 Hz). Some
+ * walks stopped sway from foot to foot, 2-4 cm either way at about 0.12 m/s, and do not settle: the
+ * feet rock on their edges with their inertia conditioned (`STANCE_FOOT_CONDITIONING` has the
+ * numbers). Softer pulls settle more of those walks and fail more of `STANCE_VELOCITY_GAIN`'s 48
+ * steps, the 30 cm forward ones first; a step to close the stance, tried, settled none more. Each human walked 6 s at 0.2,
+ * 0.3 and 0.4 m/s five ways (forward, right, back, left, forward right), reversed for 6 s and
+ * stopped for 4 s, 1 and 3 cm under its reference height, with no closing step; "stopped" is under
+ * 5 cm/s and staying so by the end:
+ *
+ *     across           0.2    0.3    0.4    0.5    0.6    0.8
+ *     walks stopped    32     51     56     60     59     58     of 60
+ *     steps failed            1      2      3      7      48     of 48 (0.8: too slow to settle by 6 s)
  */
 export const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.1 } as const;
 
@@ -155,6 +184,21 @@ export interface StanceTuning {
   readonly ankleSpare?: number | null;
   /** How a stance on both feet steps to catch a push (`STANCE_RECOVERY`); null never steps unasked. */
   readonly recovery?: RecoveryTuning | null;
+  /** How a stance walks (`STANCE_GAIT`). */
+  readonly gait?: GaitTuning;
+}
+
+/** The settings of a walk's steps. */
+export interface GaitTuning {
+  /** Each step's swing time, s, and its lift, m. */
+  readonly seconds: number;
+  readonly lift: number;
+  /** The soles' middles' distance apart across the heading in a steady walk, m. */
+  readonly width: number;
+  /** The longest step, from the bearing sole's middle, as a fraction of the leg (thigh and shank). */
+  readonly longest: number;
+  /** How fast the walk's pace goes toward the one asked, m/s^2: a body does not reach a walk in one step. */
+  readonly accel: number;
 }
 
 /** The settings of a step taken to catch a push. */
@@ -187,7 +231,8 @@ export interface RecoveryTuning {
  *     failed    12    8      5     2      0      1      0
  *     miss      2.0   4.2    3.5   2.1    1.7    1.6    1.9
  *
- * 2 is the least gain that fails none. The 30 cm forward steps and the 25 cm back steps are the
+ * 2 is the least gain that fails none; with the walk in the code (the walking commit) 1 fails at 2,
+ * the Warrior's right foot 25 cm back. The 30 cm forward steps and the 25 cm back steps are the
  * marginal ones: from standing, in 0.45 s, the capture point can barely be carried 30 cm over one
  * sole. The gain also holds the places the stance's region was
  * drawn for with no limit on the plan's speed (`SUPPORT_INSET`), where before it needed one.
@@ -271,8 +316,55 @@ export const STANCE_ANKLE_SPARE = 0.01;
  * slower. Sideways each human holds least: the far foot steps out with no weight shifted first.
  * Many held shoves take several steps: a long step leaves a wide stance whose soles hold a thin
  * band, and a foot slips at the engine's default friction.
+ *
+ * The table was taken on the code of the recovery steps' commit. Read again with the walk (the
+ * walking commit), no step holds as before; the chosen settings 112, 39.4 and 30 for the Rogue, and
+ * 168, 55.6 and 15 for the Warrior, who now falls to 20 N s from behind and holds 25-50.
  */
 export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.2, lift: 0.03, reach: 0.15 };
+
+/**
+ * **Control settings, from a sweep**: a walk's steps swing over `seconds`, lifted by `lift`, the
+ * soles `width` apart across the heading, none longer than `longest` of the leg, the pace going
+ * toward the one asked at `accel`.
+ *
+ * Each human walked 12 s at 0.2, 0.3, 0.4, 0.5 and 0.7 m/s five ways (forward, right, back, left,
+ * forward right), at 1 and 3 cm under its reference height: 100 walks. Held is those that did not
+ * fall (the centre 25 cm under the goal's height); on pace is those whose centre went, over the
+ * last 2 s, 0.8 to 1.25 of the speed asked along the walk and under a quarter of it across; the
+ * ratio is the mean along over the speed asked, of those held (Node stand, 120 Hz, taken with
+ * `STANCE_SECONDS.across` at 0.5; at the final 0.3 the chosen row reads 93, 64 and 0.84, and 13 of
+ * 20 at 0.7 m/s):
+ *
+ *     seconds  lift   width  longest  accel   held  on pace  ratio   held at 0.7 m/s (of 20)
+ *     0.25     0.05   0.2    0.8      1       91    26       0.78    11
+ *     0.3      0.05   0.2    0.8      1       95    54       0.82    15     chosen
+ *     0.35     0.05   0.2    0.8      1       89    50       0.83     9
+ *     0.4      0.05   0.2    0.8      1       84    65       0.88     7
+ *     0.3      0.04   0.2    0.8      1       93    57       0.82
+ *     0.3      0.07   0.2    0.8      1       92    38       0.81
+ *     0.3      0.05   0.15   0.8      1       94    50       0.82
+ *     0.3      0.05   0.25   0.8      1       96    58       0.82
+ *     0.3      0.05   0.2    0.7      1       90    52
+ *     0.3      0.05   0.2    0.9      1       96    55
+ *     0.3      0.05   0.2    0.8      0.5     96    55
+ *     0.3      0.05   0.2    0.8      2       94    56
+ *
+ * At the chosen settings every walk up to 0.5 m/s holds. The rest lie within two walks of it and
+ * none is better on both counts; a walk goes at about 0.8 of the speed asked. A reversal of the
+ * walk takes 1.07 s on average to reach 0.9 of the new pace, and 51 of 60 walks stopped settle
+ * (`STANCE_FOOT_CONDITIONING` has why the rest sway). Above 0.5 m/s the stance falls; the limits found are the ankle's (below) and a trailing foot's toe that scuffs
+ * the ground with its ankle at its stop. A human's preferred walk is near 1.4 m/s.
+ *
+ * Two findings shaped the walk (`walkStep`). A step fixed to fall about its bearing sole's middle
+ * multiplies a landing's miss by exp(w T), about 3.7, at each step: the steps widened until the
+ * feet could not reach; each step now chooses its pivot within the sole. And a foot carried at the
+ * turn it left the ground with drifted in yaw, step by step, to 50 degrees off; it lands facing the
+ * heading. A foot that rolls onto its toe's edge before it lifts, and joints held back from their
+ * stops, were built and measured: they held fewer walks at 3 cm low (33 of 50 against 46) and 30
+ * fewer shoves, and were taken out.
+ */
+export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, accel: 1 };
 
 /**
  * **Solver conditioning, not anatomy**: the factor a stance foot's rotational inertia is multiplied
@@ -292,6 +384,22 @@ export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.2, lif
  *
  * At 480 Hz and no factor the Warrior falls too, and the Rogue stops 2.70 cm behind: a finer step
  * does not cure it. 100 is the least factor of the table that holds both within 3 mm.
+ *
+ * **It has a cost: a foot rocked onto its edge does turn**, and conditioned it turns as a flywheel.
+ * Walks stopped (`STANCE_SECONDS`' 60) that were still moving faster than 1 cm/s at the end, their
+ * bodies swaying from foot to foot, and `STANCE_VELOCITY_GAIN`'s 48 steps failed, by the factor
+ * (Node stand, 120 Hz):
+ *
+ *     factor          20     30     40     50     70     100
+ *     still moving    2      4      7      7      19     19     of 60
+ *     steps failed    6      4      2      1      1      1      of 48
+ *
+ * (The walks below 100 were taken with a step that closed a stopped stance, since removed; at 50 it
+ * moved the count by 2.) At 50 a place asked at the edge of what the soles hold (`SUPPORT_INSET`'s
+ * table) sets recovery steps off: one of the eight falls and two step 34-35 cm; at 100 none falls. Raising only the foot's pitch and yaw
+ * by 100 and its roll by 30 left 6 moving but failed 4 steps; its roll unraised, walks fell. Havok
+ * exposes no solver iterations to raise instead. The factor stays at 100 and the sway is a known
+ * defect: the owner's choice (the plan, stage 4).
  */
 export const STANCE_FOOT_CONDITIONING = 100;
 
@@ -352,6 +460,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const bend = tuning.kneeBend === undefined ? STANCE_KNEE_BEND : tuning.kneeBend;
   const spare = tuning.ankleSpare === undefined ? STANCE_ANKLE_SPARE : tuning.ankleSpare;
   const recovery = tuning.recovery === undefined ? STANCE_RECOVERY : tuning.recovery;
+  const gait = tuning.gait ?? STANCE_GAIT;
   const pelvis = chainTo(built, built.segments.get("foot.left")!)[0]!.parent;
   const segments = [...built.segments.values()];
   const total = segments.reduce((sum, s) => sum + s.spec.mass.value, 0);
@@ -364,9 +473,16 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       middle: new Vector3(), natural: segment.body.getMassProperties(), conditioned: false };
   });
   const reading = { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(), asked: new Vector3(),
-    phase: "stand" as StancePhase, soles: { left: feet[0]!.middle, right: feet[1]!.middle }, recovery: null as SwingGoal | null, recoveries: 0 };
+    plan: new Vector3(), planVelocity: new Vector3(),
+    phase: "stand" as StancePhase, soles: { left: feet[0]!.middle, right: feet[1]!.middle }, own: null as SwingGoal | null, recoveries: 0, strides: 0 };
+  /** The foot of the last step of a walk, while it steps on without standing between. */
+  let stride: Foot | null = null;
+  /** The walk the stance's step under way is for, if it is a walk's. */
+  let striding: readonly [number, number] | null = null;
+  /** The walk's pace, world (x, z), m/s: toward the goal's at the gait's acceleration, toward none standing. */
+  const pace: [number, number] = [0, 0];
   /** The step under way: its swing, the time since its foot left the ground, and where and how the foot left it. */
-  const step = { swing: null as SwingGoal | null, lifted: false, time: 0, from: new Vector3(), turn: new Quaternion() };
+  const step = { swing: null as SwingGoal | null, lifted: false, time: 0, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion() };
   const path = new Vector3(), along = new Vector3(), sole = new Vector3(), carried = new Vector3();
   const scene = pelvis.node.getScene();
   let owned = new Uint8Array(0);
@@ -377,6 +493,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const pelvisVelocity = new Vector3(), pelvisSpin = new Vector3(), turn = new Vector3();
   const p = new Vector3();
   const hipAt = new Vector3(), ankleAt = new Vector3(), kneeAt = new Vector3(), shank = new Quaternion(), footTurn = new Quaternion();
+  const level = new Quaternion();
   const gravity = (): number => -(scene.getPhysicsEngine()?.gravity.y ?? 0);
 
   /** Ask `foot`'s leg's muscles for `speeds`, in its chain's order, at full activation. */
@@ -423,14 +540,42 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       owned.fill(0);
       // The step: a swing unlike the last starts one, and the feet that bear the body are the goal's
       // but for a swinging foot.
-      // A stance on both feet whose capture point has left its soles steps to catch it, and the step
-      // runs to its landing unless the goal asks for one of its own.
-      if (goal?.swing || !goal || !(goal.feet.includes("left") && goal.feet.includes("right"))) reading.recovery = null;
-      else if (!reading.recovery && reading.phase === "stand" && recovery) {
-        reading.recovery = recoveryStep(feet, reading.centre, reading.velocity, gravity(), recovery, inset);
-        if (reading.recovery) reading.recoveries += 1;
+      // A stance on both feet steps of itself: walking, each foot in turn; walking nowhere, once its
+      // capture point has left what its soles hold, to catch it. Each step runs to its landing unless
+      // the goal asks for one of its own.
+      const both = !!goal && goal.feet.includes("left") && goal.feet.includes("right") && !goal.swing;
+      {
+        const wx = (both && goal!.walk?.[0]) || 0, wz = (both && goal!.walk?.[1]) || 0, dx = wx - pace[0], dz = wz - pace[1];
+        const most = gait.accel * dt, d = Math.hypot(dx, dz), k = d > most ? most / d : 1;
+        pace[0] += dx * k;
+        pace[1] += dz * k;
       }
-      const swing = goal?.swing ?? reading.recovery;
+      if (!both) {
+        reading.own = null;
+        stride = null;
+        striding = null;
+      } else if (!reading.own && reading.phase === "stand") {
+        const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null;
+        if (walk || (stride && recovery && outside(feet, reading.centre, reading.velocity, gravity(), inset) > recovery.margin)) {
+          // Walking, or stopping a walk still under way: its steps keep their alternation.
+          striding = pace;
+          reading.own = walkStep(feet, reading.centre, reading.velocity, gravity(), striding, goal.heading, gait, stride, undefined, inset);
+          reading.strides += 1;
+        } else if (recovery) {
+          striding = null;
+          reading.own = recoveryStep(feet, reading.centre, reading.velocity, gravity(), recovery, inset);
+          if (reading.own) reading.recoveries += 1;
+        }
+        stride = striding && reading.own ? reading.own.foot : null;
+      } else if (reading.own && striding && reading.phase === "swing" && step.lifted && step.swing === reading.own) {
+        // A walk's step under way lands where the body's capture point, measured, says it must: the
+        // body lags its plan, and a landing fixed at lift carries the lag into the next step.
+        const aimed = walkStep(feet, reading.centre, reading.velocity, gravity(), striding, goal.heading, gait, null,
+          { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time }, inset);
+        // (`striding` is the pace, read as it is now.)
+        reading.own = step.swing = { ...reading.own, to: aimed.to };
+      }
+      const swing = goal?.swing ?? reading.own;
       if (!swing) {
         step.swing = null;
         reading.phase = "stand";
@@ -447,7 +592,9 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         foot.segment.body.setMassProperties({ ...foot.natural, inertia: standing ? inertia!.scale(conditioning) : inertia!.clone() });
         foot.conditioned = standing;
       }
-      if (!goal || !last || bearing.length !== last.length || bearing.some((side) => !last!.includes(side))) plan.on = false;
+      if (!goal || !last || bearing.length !== last.length || bearing.some((side) => !last!.includes(side))) {
+        plan.on = false;
+      }
       last = goal ? bearing : null;
       reading.asked.setAll(0);
       const stance = feet.filter((foot) => bearing.includes(foot.side));
@@ -476,8 +623,9 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         // lands (Englsberger et al. 2011, "Bipedal walking control based on Capture Point
         // dynamics", IROS), within what the sole holds: the body falls toward its new stance.
         const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.seconds - step.time, dt));
-        const tx = (bearer!.middle.x + swing!.to[0]) / 2, tz = (bearer!.middle.z + swing!.to[1]) / 2;
-        const [px, pz] = withinSupport([bearer!], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow), inset);
+        const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
+        const [px, pz] = withinSupport([bearer!], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
+          inset);
         reading.place.set(px, 0, pz);
         ax = pendulum * (r.x - px);
         az = pendulum * (r.z - pz);
@@ -505,8 +653,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         const [hip, knee, ankle] = foot.chain;
         pointOfToRef(hip!.parent, hip!.spec.centre.value, hipAt);
         pointOfToRef(ankle!.parent, ankle!.spec.centre.value, ankleAt);
-        if (!stance.includes(foot)) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
         const [a, b] = foot.lengths, hx = hipAt.x + r.x - c.x, hz = hipAt.z + r.z - c.z, rise = c.y - hipAt.y - reading.support.y;
+        if (!stance.includes(foot)) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
         if (bend !== null) {
           const long = Math.sqrt(a * a + b * b + 2 * a * b * Math.cos(bend)), across = Math.hypot(hx - ankleAt.x, hz - ankleAt.z);
           high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - across * across)) + rise);
@@ -525,6 +673,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       high = Math.max(high, low);
       u.addInPlaceFromFloats(ax * dt, (k * k * (high - r.y) - 2 * k * u.y) * dt, az * dt);
       r.addInPlace(u.scale(dt));
+      reading.plan.copyFrom(r);
+      reading.planVelocity.copyFrom(u);
       // The weight is shifted once the body's capture point (Pratt et al. 2006, "Capture point: a step
       // toward humanoid push recovery", Humanoids) is over the bearing sole: from there the body
       // falls toward that foot, not away from it.
@@ -551,8 +701,9 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       centreOfToRef(pelvis, p);
       for (const foot of stance) drive(foot, legSpeeds(foot.chain, p, asked, spin));
 
-      // The swing: the foot's sole carried along its path, its turn held at the one it left the
-      // ground with, and its leg's speeds for that motion taken relative to the pelvis's own.
+      // The swing: the foot's sole carried along its path, its turn carried from the one it left the
+      // ground with to the one it lands with, and its leg's speeds for that motion taken relative to
+      // the pelvis's own.
       if (reading.phase === "swing" && swing) {
         const foot = feet.find((f) => f.side === swing.foot)!;
         soleMiddleToRef(foot, sole);
@@ -560,14 +711,19 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           step.lifted = true;
           step.time = 0;
           step.from.copyFrom(sole);
-          step.turn.copyFrom(foot.segment.node.rotationQuaternion!);
+          step.lift.copyFrom(foot.segment.node.rotationQuaternion!);
         }
+        // It lands flat, facing the heading: its reference-pose turn, turned about up by the heading.
+        // (Held at the turn it left with, a foot's yaw drifted step by step, to 50 degrees off.)
+        Quaternion.RotationAxisToRef(Vector3.UpReadOnly, goal.heading, level);
+        level.multiplyInPlace(foot.segment.rest);
         step.time += dt;
         const tau = Math.min(1, step.time / swing.seconds), from = step.from;
         // Minimum jerk across the ground, a lift of the same smoothness up and down.
         const s = tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), ds = 30 * tau * tau * (1 - tau) * (1 - tau) / swing.seconds;
         const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds;
         path.set(from.x + (swing.to[0] - from.x) * s, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * s);
+        Quaternion.SlerpToRef(step.lift, level, s, step.turn);
         along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
         along.addInPlace(path.subtractToRef(sole, v).scaleInPlace(1 / seconds.swing));
         step.turn.multiplyToRef(Quaternion.InverseToRef(foot.segment.node.rotationQuaternion!, inverse), error);
@@ -583,7 +739,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         drive(foot, legSpeeds(foot.chain, sole, along, turn));
         if (tau >= 1) {
           reading.phase = "stand";
-          reading.recovery = null;
+          reading.own = null;
         }
       }
     },
@@ -620,6 +776,68 @@ function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
     tz += (foot.width - out) * oz / wide;
   }
   return { foot: foot.side, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false };
+}
+
+/** How far the capture point of a body at `centre` moving at `velocity` is outside the region `feet`'s soles hold, m. */
+function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, inset: number): number {
+  const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
+  const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
+  const [hx, hz] = withinSupport(feet, xi, zi, inset);
+  return Math.hypot(xi - hx, zi - hz);
+}
+
+/**
+ * A walk's next step at the velocity `walk`, world (x, z), m/s: the foot other than `last`'s steps,
+ * or, starting, the one on the side the walk goes (the right, going straight).
+ *
+ * The capture point xi = c + v / w, while the other foot bears the body about a point p of its
+ * sole, runs to e = p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001). In a steady
+ * walk, each step about its sole's middle b, it lands ahead of the new foot by the walk's distance
+ * over a swing over exp(w T) - 1, and in from it by the width over exp(w T) + 1 (the capture
+ * point's steady cycle, as in Englsberger et al. 2011): the steady landing is b, the walk's distance
+ * over a swing on, the width out. The pivot p is the one that brings e to where the steady landing
+ * wants it, within what the bearing sole holds (drawn in by `inset`), and the foot lands at e less
+ * the steady offset: the step leaves the steady one only by what the sole cannot take. (With p
+ * fixed at b, the step takes it all: a landing a few centimetres off is exp(w T) times that off
+ * at the next step, and the steps widened until the feet could not reach.) The width is at least
+ * a sole's width and the walk's distance across the heading over a swing; the step is no further
+ * from the bearing sole than `longest` of the leg, and that width out to its own side at least.
+ * Walking nowhere, the steps stop a walk under way. `under` re-aims a step under way: its foot,
+ * the pivot the body falls about, and the swing's time left.
+ */
+function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
+  tuning: GaitTuning, last: Foot | null, under?: { readonly foot: Foot; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
+  // The pelvis's right across the ground at the heading: +x at heading 0.
+  const rx = Math.cos(heading), rz = -Math.sin(heading);
+  const side: Foot = under?.foot ?? (last ? (last === "left" ? "right" : "left") : walk[0] * rx + walk[1] * rz < 0 ? "left" : "right");
+  const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
+  const T = tuning.seconds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = Math.exp(w * T);
+  const clear = foot.width, W = Math.max(tuning.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
+  // Under way, the capture point runs from the pivot the body falls about for what is left of the swing.
+  const run = under ? Math.exp(w * Math.max(under.remaining, 0)) : grow, xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
+  // Ahead of the new foot by the walk's distance over a swing over exp(w T) - 1, and in from it by
+  // the width over exp(w T) + 1: along the walk each step goes the same way, across it they alternate.
+  const nx = walk[0] * T / (grow - 1) - sign * W * rx / (grow + 1), nz = walk[1] * T / (grow - 1) - sign * W * rz / (grow + 1);
+  // The steady landing.
+  const sx = b.x + walk[0] * T + sign * W * rx, sz = b.z + walk[1] * T + sign * W * rz;
+  let px = under ? under.pivot.x : b.x, pz = under ? under.pivot.z : b.z;
+  // (At the swing's end the capture point is where it is, wherever the pivot.)
+  if (run > 1 + 1e-6) [px, pz] = withinSupport([bearer], (sx + nx - xi * run) / (1 - run), (sz + nz - zi * run) / (1 - run), inset);
+  const ex = px + (xi - px) * run, ez = pz + (zi - pz) * run;
+  // Starting from a stand, the weight is shifted first and the foot lands where a steady walk puts it.
+  const steady = last || under;
+  let tx = steady ? ex - nx : sx, tz = steady ? ez - nz : sz;
+  const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = Math.hypot(tx - b.x, tz - b.z);
+  if (far > longest) {
+    tx = b.x + (tx - b.x) * longest / far;
+    tz = b.z + (tz - b.z) * longest / far;
+  }
+  const out = sign * ((tx - b.x) * rx + (tz - b.z) * rz);
+  if (out < clear) {
+    tx += sign * (clear - out) * rx;
+    tz += sign * (clear - out) * rz;
+  }
+  return { foot: side, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz] };
 }
 
 /**

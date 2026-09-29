@@ -545,8 +545,43 @@ contradicts one; the eccentric ceiling is the owner's decision.
     touching; contact materials are stage 5's).
   - No human reference for these impulses is sourced yet, so the acceptance's "stated impulse" is
     the table on `STANCE_RECOVERY`, not a comparison.
+
+**What landed (2026-09-29): walking** (`StanceGoal.walk`, `walkStep`, `STANCE_GAIT`).
+- **A walk is a velocity asked of the stance.** Its steps alternate; each lands where the measured
+  capture point says the next stance must be to carry the pace, the soles 20 cm apart across the
+  heading, and the pace goes toward the one asked at 1 m/s^2. Asked for none, a walk still under
+  way steps until its capture point is inside what the soles hold, then stands.
+- **Two findings shaped it.** A step fixed to fall about its bearing sole's middle multiplies a
+  landing's miss by exp(wT), about 3.7, each step: the steps widened until the feet could not
+  reach, so each step now chooses its pivot within the sole. A foot carried at the turn it left
+  the ground with drifted in yaw, step by step, to 50 degrees off; it now lands facing the heading.
+  A foot rolling onto its toe's edge before it lifts was built, cost 30 held shoves and did not help
+  the walk, and was taken out.
+- **Measured** (Node stand, 120 Hz; each human, 12 s at 0.2-0.7 m/s five ways, 1 and 3 cm low):
+  93 of 100 walks hold, every one up to 0.5 m/s; they go at about 0.84 of the speed asked. A
+  reversal reaches 0.9 of the new pace in 1.07 s on average; 51 of 60 stopped walks settle. On
+  this code 1 of the 48 steps fails (the Warrior's right foot 25 cm back, a marginal one), and the
+  shove table reads as before but for the Warrior, who falls to 20 N s from behind.
+- **Against the acceptance: not met.** A human's preferred walk is near 1.4 m/s; this one falls
+  above 0.5. The limits found are the ankle's dorsiflexion range (a deeper crouch is worse) and the
+  trailing foot's toe scuffing with its ankle at its stop: a faster walk needs a foot that rolls
+  over its ball, an anatomy change. Running (flight) is not attempted. No human reference for the
+  reversal time is sourced yet.
+- **A known defect: some stopped walks sway.** 9 of 60 sway from foot to foot, 2-4 cm either way at
+  about 0.12 m/s, and do not settle. The cause is the foot conditioning: a foot rocked onto its
+  edge does turn, and at 100 times its inertia it turns as a flywheel. Lower factors settle more
+  (19 still moving at 100, 4 at 30) but fail more steps and let a lean to the soles' edge set off
+  falling recovery steps; Havok exposes no solver iterations to raise instead. The table and the
+  choice are on `STANCE_FOOT_CONDITIONING`.
+- **Also found:** with recovery steps off, a sideways kick of 0.3 m/s or more rocks the body
+  harder each cycle until it falls, because a stance foot that lifts is still driven as if planted.
+  Driving a lifted foot back onto the ground held 30 of 32 kicks against 12 of 24, but with
+  recovery steps on it changed no shove cell and failed one or two more of the 48 steps, so it is
+  not in.
+- **Assistance:** none. Nothing but the legs' muscles holds the body up; the only non-anatomical
+  term is the foot conditioning, named as solver conditioning.
 - **Not yet:** the routine's carried pelvis is still a scaffold, and the stance is not yet in the
-  lab page; gaits; assistance.
+  lab page; running, the dash, rolling and getting up.
 
 ### Stage 5: the rulebook, the damage unit and the HP pool
 
