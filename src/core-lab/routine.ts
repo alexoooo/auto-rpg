@@ -36,7 +36,7 @@ export const SERVO_SECONDS = 0.1;
 export type { Fist, Pose };
 
 /** Fists up before the chin, elbows in. */
-const GUARD: Pose = {
+export const GUARD: Pose = {
   "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,
   "shoulder.left flexion": 0.5, "shoulder.left abduction": -0.2, "elbow.left flexion": 1.3,
 };
