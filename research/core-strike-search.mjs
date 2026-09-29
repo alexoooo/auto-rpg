@@ -6,9 +6,11 @@
  * Havok stand at a time. The search runs at `--hz` (the game's 120 by default).
  *
  * With `--guard` the strike is a straight: no chamber, thrown from the lab's guard. Without it the
- * search also chooses a chamber pose, and finds whatever blow is fastest.
+ * search also chooses a chamber pose, and finds whatever blow is fastest. With `--weapon club` the
+ * hand holds the wooden club and a blow is `core-club-strike.mjs`'s, scored by the energy it brings
+ * to the head (joules) instead of a fist's speed.
  *
- *   node research/core-strike-search.mjs [--model workshop-rogue] [--hand right] [--hz 120] [--guard]
+ *   node research/core-strike-search.mjs [--model workshop-rogue] [--hand right] [--hz 120] [--guard] [--weapon club]
  *     [--generations 30] [--population 64] [--elite 10] [--workers 14] [--seed 1] [--trials 4]
  *
  * A candidate's score is its mean over `--trials` runs (`perturbed` in `core-strike.mjs` says why):
@@ -19,16 +21,20 @@
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
+import { CORE_CLUB_HARNESS, clubDimensions, evaluateClubStrike } from "./core-club-strike.mjs";
 import { CORE_STRIKE_HARNESS, dimensions, evaluateStrike } from "./core-strike.mjs";
 
 const { values } = parseArgs({ options: {
   model: { type: "string", default: "workshop-fighter" }, hand: { type: "string", default: "right" }, hz: { type: "string", default: "120" },
-  guard: { type: "boolean", default: false },
+  guard: { type: "boolean", default: false }, weapon: { type: "string", default: "fist" },
   generations: { type: "string", default: "30" }, population: { type: "string", default: "64" },
   elite: { type: "string", default: "10" }, workers: { type: "string" }, seed: { type: "string", default: "1" },
   trials: { type: "string", default: "4" },
 } });
-const { model, hand, guard } = values, hz = Number(values.hz);
+const { model, hand, guard, weapon } = values, hz = Number(values.hz);
+if (weapon !== "fist" && weapon !== "club") throw new Error(`--weapon is fist or club, not ${weapon}`);
+if (weapon === "club" && guard) throw new Error("a club blow is chambered; --guard is for a straight");
+const evaluateOne = weapon === "club" ? evaluateClubStrike : evaluateStrike;
 const generations = Number(values.generations), population = Number(values.population), elite = Number(values.elite);
 const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), trials = Number(values.trials);
 /**
@@ -54,7 +60,7 @@ function run1(unit, perturbation) {
     const run = (worker) => {
       const id = nextId++;
       pending.set(id, { resolve: (r) => { release(worker); resolve(r); }, reject: (e) => { release(worker); reject(e); } });
-      worker.postMessage({ id, model, hand, guard, unit, hz, perturbation });
+      worker.postMessage({ id, weapon, model, hand, guard, unit, hz, perturbation });
     };
     idle.length ? run(idle.pop()) : waiting.push(run);
   });
@@ -69,7 +75,7 @@ const draw = () => Array.from({ length: trials }, (_, k) => k === 0 ? { shift: 0
   : { shift: TIMING * (2 * uniform() - 1), scale: 1 + LEVEL * (2 * uniform() - 1) });
 function release(worker) { const next = waiting.shift(); next ? next(worker) : idle.push(worker); }
 
-const n = dimensions(hand, guard);
+const n = weapon === "club" ? clubDimensions(hand) : dimensions(hand, guard);
 let mean = new Array(n).fill(0), sigma = new Array(n).fill(0.6);
 let best = null;
 const started = Date.now();
@@ -94,9 +100,10 @@ const fresh = [{ shift: 0, scale: 1 }, ...Array.from({ length: 7 }, () => ({ shi
 const readings = {};
 for (const rate of [120, 480, 1920]) {
   const runs = [];
-  for (const perturbation of fresh) runs.push(await evaluateStrike({ model, hand, guard, unit: best.unit, hz: rate, perturbation }));
+  for (const perturbation of fresh) runs.push(await evaluateOne({ model, hand, guard, unit: best.unit, hz: rate, perturbation }));
   readings[`at${rate}`] = { mean: +(runs.reduce((s, r) => s + r.score, 0) / runs.length).toFixed(2), runs: runs.map((r) => +r.score.toFixed(2)),
-    at: runs[0].at, peak: +runs[0].peak.toFixed(2) };
+    at: runs[0].at, peak: +runs[0].peak.toFixed(2),
+    ...(weapon === "club" ? { closing: +runs[0].closing.toFixed(3), clubKg: runs[0].clubKg && +runs[0].clubKg.toFixed(3), headKg: runs[0].headKg && +runs[0].headKg.toFixed(2), normal: runs[0].normal } : {}) };
 }
-console.log(JSON.stringify({ harness: CORE_STRIKE_HARNESS, model, hand, guard, seed: Number(values.seed), hz, trials,
+console.log(JSON.stringify({ harness: weapon === "club" ? CORE_CLUB_HARNESS : CORE_STRIKE_HARNESS, weapon, model, hand, guard, seed: Number(values.seed), hz, trials,
   searched: { mean: +best.score.toFixed(2), runs: best.runs }, ...readings, distance: +best.distance.toFixed(3), strike: best.strike, unit: best.unit }));

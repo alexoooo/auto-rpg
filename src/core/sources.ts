@@ -238,6 +238,25 @@ export const SOURCES = Object.freeze({
       + "stood in the game since.",
     record: "src/golem/config.ts",
   },
+  "owner-weapon-ratios": {
+    kind: "decision", date: "2026-09-27",
+    decided: "Rescale scoring so that the strongest club hit is worth 1: one unit constant, applied where scoring "
+      + "prices energy, and every weapon keeps its ratio to the club. The old game's prices, joules per point of "
+      + "wound: an edge 197.96 (cutJoulesPerDamage), an axe's edge 147.45 (chopJoulesPerDamage), blunt 1134.99 "
+      + "(crushJoulesPerDamage), in CONFIG.combat; a point 34 (PROJECTILE_PENETRATION_V1.joulesPerDamage in "
+      + "src/scoring.ts).",
+    record: "src/config.ts",
+  },
+  "core-club-unit": {
+    kind: "measurement",
+    how: "research/core-strike-search.mjs --weapon club: the Warrior's strongest one-handed blow with the wooden "
+      + "club into a head-sized sphere, by cross-entropy search (Node core stand, pelvis carried still, ground on), "
+      + "its energy 1/2 mu v^2 from the masses the contact meets. Three seeds searched at 120 Hz and three at 480 Hz; "
+      + "the strongest blow read again at 1920 Hz, where it agrees with 480 Hz to 1 %. Recorded, not asked: the "
+      + "unit is the rate-converged reading, not the 120 Hz one, since blows found at 120 Hz do not hold at a finer "
+      + "rate. The blow and its readings are research/core-club-unit.json; the table is in the plan's stage 5.",
+    record: "research/core-club-unit.json",
+  },
   "core-grip": {
     kind: "decision", date: "2026-09-29",
     decided: "Recorded, not asked (core stage 5): a hand holds a haft across its knuckles, from the little finger's "

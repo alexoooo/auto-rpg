@@ -34,7 +34,7 @@ export type Unit =
   | "rad/s" | "deg/s"
   | "m/s2"
   | "s" | "Hz"
-  | "J"
+  | "J" | "J/HP"
   /** Hit points: the rulebook's damage unit, one the strongest club hit. */
   | "HP";
 

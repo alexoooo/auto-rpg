@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
 import { createPool, partHitPoints } from "../src/core/rules/pool.ts";
-import { rulebook } from "../src/core/rules/rulebook.ts";
+import { blowDamage, MECHANISMS, rulebook } from "../src/core/rules/rulebook.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 
@@ -175,4 +175,34 @@ test("a blow's energy is its relative motion's, over the reduced mass of what ea
   for (const [m, M, v] of [[0, 6, 1], [-1, 6, 1], [Infinity, 6, 1], [1, 0, 1], [1, Number.NaN, 1], [1, 6, Number.NaN], [1, 6, Infinity]]) {
     assert.throws(() => impactEnergy(m, M, v), `${m} ${M} ${v}`);
   }
+});
+
+test("a blow is worth its energy in the unit, and every weapon keeps the old game's ratio to the club", () => {
+  const unit = RULES.unit.value;
+  // The unit's own blow, blunt, is one hit point; half its energy, half of one.
+  close(blowDamage(RULES, "blunt", unit), 1, "the unit's blow");
+  close(blowDamage(RULES, "blunt", unit / 2), 0.5, "half the unit");
+  assert.equal(blowDamage(RULES, "blunt", 0), 0);
+  // The old game's prices, joules per point of wound: blunt 1134.99, edge 197.96, axe 147.45, point 34.
+  const old = { blunt: 1134.99, edge: 197.96, axe: 147.45, point: 34 };
+  for (const mechanism of MECHANISMS) {
+    close(blowDamage(RULES, mechanism, 3 * old[mechanism]) / blowDamage(RULES, "blunt", 3 * old.blunt), 1, `${mechanism} against blunt`);
+  }
+  assert.deepEqual(Object.keys(RULES.worth).sort(), [...MECHANISMS].sort());
+  // An experiment's unit moves every price with it.
+  const dear = rulebook("arena", { unit: sourced(2 * unit, "J/HP", "core-club-unit", "an experiment") });
+  for (const mechanism of MECHANISMS) close(blowDamage(dear, mechanism, 7), blowDamage(RULES, mechanism, 7) / 2, `${mechanism} at twice the unit`);
+  for (const bad of [-1, NaN, Infinity]) assert.throws(() => blowDamage(RULES, "blunt", bad), String(bad));
+});
+
+test("the unit's own blow, replayed, is worth one hit point", async () => {
+  // The whole path: the stored blow on the core stand, its contact, the masses it meets, its energy, its price.
+  const { evaluateClubStrike } = await import("../research/core-club-strike.mjs");
+  const { readFile } = await import("node:fs/promises");
+  const blow = JSON.parse(await readFile(new URL("../research/core-club-unit.json", import.meta.url), "utf8"));
+  const result = await evaluateClubStrike({ model: blow.model, hand: blow.hand, strike: blow.strike, distance: blow.distance, hz: 480 });
+  assert.ok(result.at !== null, "the blow lands");
+  close(result.energy, impactEnergy(result.clubKg, result.headKg, result.closing), "its energy is its parts'");
+  const hp = blowDamage(RULES, "blunt", result.energy);
+  assert.ok(Math.abs(hp - 1) < 0.02, `the unit's blow at 480 Hz is worth ${hp} HP`);
 });
