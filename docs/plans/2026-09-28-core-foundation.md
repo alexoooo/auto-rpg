@@ -401,6 +401,35 @@ contradicts one; the eccentric ceiling is the owner's decision.
     1920 Hz on the lab's straights to 1.5 %, but a searched blow rides the edge of what reaches
     the sphere). What the search should hold a straight to -- its time, its path -- is an owner's
     choice (stage 2's is on the morning list).
+  - **The acceptance searches thrown standing, at 960 Hz** (2026-09-29, Havok; the same search, 40
+    generations of 96, 4 trials a candidate, Node stand, on its own feet under the stance, as the
+    club's unit was found: a standing blow converges from 960 Hz). The best blow's fist speed at the
+    sphere, m/s: the search's mean, then the blow replayed on 8 trials at each rate; the arrival
+    after the blow starts, s, at 1920 Hz.
+
+    | | seed | search | 120 | 480 | 960 | 1920 | 3840 | arrives |
+    |---|---|---|---|---|---|---|---|---|
+    | Warrior from the guard | 1 | 8.99 | 5.06 | 8.92 | 8.99 | 9.00 | 8.98 | 0.34 |
+    | | 2 | 8.95 | 6.96 | 8.71 | 8.97 | 9.05 | 9.07 | 0.36 |
+    | | 3 | 5.18 | 5.31 | 5.19 | 5.18 | 5.17 | 5.16 | 0.31 |
+    | Warrior, free blow | 1 | 8.67 | 8.36 | 8.66 | 8.67 | 8.67 | 8.67 | 0.16 |
+    | | 2 | 9.45 | miss | 9.48 | 9.44 | 9.45 | 9.45 | 0.15 |
+    | | 3 | 9.49 | 4.85 | 9.53 | 9.44 | 9.43 | 9.43 | 0.14 |
+    | Rogue from the guard | 1 | 8.17 | 7.43 | 7.90 | 8.14 | 8.20 | 8.21 | 0.34 |
+    | | 2 | 8.46 | 6.48 | 8.23 | 8.41 | 8.34 | 8.33 | 0.38 |
+    | | 3 | 7.81 | 2.64 | 7.50 | 7.81 | 7.83 | 7.83 | 0.32 |
+    | Rogue, free blow | 1 | 8.32 | 7.03 | 7.12 | 7.25 | 8.28 | 8.31 | 0.17 |
+    | | 2 | 8.95 | 8.70 | 8.91 | 8.94 | 8.95 | 8.96 | 0.15 |
+    | | 3 | 8.44 | miss | 8.37 | 8.41 | 8.42 | 8.41 | 0.16 |
+
+    Standing, the blows converge: from 960 to 3840 Hz within 0.2 % on eleven of twelve (the Rogue's
+    first free blow reads 7.25 at 960 Hz and 8.3 above it). At 120 Hz they read from none to 97 %
+    of it. **Read against the acceptance:** the Warrior's best from the guard is 9.0 m/s and free
+    9.4, at the elite's 9-11 lower edge and past the typical 8, with no wound-up 13 m/s blows now
+    that the pelvis is not carried; the Rogue's best, 8.3 and 9.0, is 0.93-0.95 of the Warrior's,
+    where the references have her slower by more. Seed 3 of the Warrior's guard (5.2) found a
+    local best. These readings are Havok's; on Rapier (branch `core-rapier`) they are to be taken
+    again.
 
 ### Stage 3: one world, one body, one command
 
