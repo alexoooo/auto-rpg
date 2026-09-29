@@ -214,13 +214,30 @@ the ground, every freedom braked by a zero-velocity motor).
     lab page alike. At 480 Hz the straights read 6.4, 6.4 and 7.5 m/s on the Node stand and 6.4 each
     on the page.
   - Self-collision is not the cause.
-  - The owner decides between a finer physics rate and a stage 3 servo that brakes without
-    overshoot. Until then the lab page offers 120 and 480 Hz.
-- **The servo.** An angle servo's time constant is steady at 0.1 s, and chatters at up to 3.9 rad/s
-  at 0.05 s (pinned Warrior, 120 Hz).
+  - **Owner, 2026-09-28: the game stays at 120 Hz and the servo is fixed.** Two servos failed.
+    - Asking for the goal's speed at once rang, as above.
+    - Asking for a torque (the limb's inertia times a damped acceleration, plus gravity's moment)
+      was steady on a chain of rods and chattered on the body: an explicit torque is stable only
+      against the lightest segment it acts on, and the middle trunk between two driven trunk
+      joints reversed at up to 12 rad/s every step.
+  - `servoToward` (`src/core/control/servo.ts`) asks the velocity motor for the speed a critically
+    damped motion reaches one step later. It needs no inertia, and it holds a limb's weight by
+    itself. On the lab routine (Node stand):
+
+    | peak fist, m/s | 120 Hz | 480 Hz |
+    |---|---|---|
+    | Warrior | 6.73, 6.59, 6.57 | 6.47, 6.56, 6.52 |
+    | Rogue | 5.03, 5.00, 5.04 | 5.02, 5.08, 5.07 |
+
+  - Havok's velocity motor still adds about a third to each change it is asked for, so a servoed
+    rod runs 3-4 % of its move ahead of the damped motion, at both rates.
+  - A straight's elbow meets its extension stop at about 35 rad/s and bounces back at 6 rad/s at
+    120 Hz and 2 at 480. That is the stop, after the fist's peak: recorded, not yet changed.
+- **The servo's time constant** is 0.1 s. Late in each settle no joint reverses by more than
+  0.02 rad/s a step, and the guard is held within 0.004 rad after a second, at both rates.
 - **The lab page.** `/core-lab.html` shows a chosen human walking forward, throwing three straights,
-  and walking back. Two scaffolds stand in until later stages: a carried pelvis until stage 4, and a
-  hand-set angle servo until stage 3. The ported strike search, and with it the acceptance above, is
+  and walking back. Two scaffolds stand in until later stages: a carried pelvis until stage 4, and
+  hand-set joint poses until stage 3. The ported strike search, and with it the acceptance above, is
   still to run.
 
 ### Stage 3: one world, one body, one command
