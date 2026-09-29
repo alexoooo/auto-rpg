@@ -182,6 +182,15 @@
           <button data-view="world" aria-pressed="true" title="The workshop model's skin, carried by the segments">World</button>
           <button data-view="tactical" aria-pressed="false" title="The collision shapes the solver moves">Tactical</button>
         </div>
+        <div class="models" role="group" aria-label="Camera">
+          <button data-camera="free" aria-pressed="true" title="Drag to orbit, right-drag to pan">Free</button>
+          <button data-camera="isometric" aria-pressed="false">Isometric</button>
+          <button data-camera="chase" aria-pressed="false" title="Behind the body, turning after it">Chase</button>
+        </div>
+        <div id="projection" class="models" role="group" aria-label="Isometric projection" hidden>
+          <button data-projection="orthographic" aria-pressed="true">Orthographic</button>
+          <button data-projection="perspective" aria-pressed="false">Perspective</button>
+        </div>
         <div class="models" role="group" aria-label="Physics rate">
           <button data-hz="120" aria-pressed="true" title="The game's rate">120 Hz</button>
           <button data-hz="480" aria-pressed="false" title="A finer step, where the readings converge">480 Hz</button>

@@ -21,10 +21,11 @@ import type { WorkshopModel } from "../core/human/rig.ts";
 import { humanSpec } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
+import { labCameraRig } from "./camera.ts";
 import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
 import { isPaused, type Playhead } from "./player.ts";
 import { routineScenario } from "./routine-scenario.ts";
-import { labHref, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
+import { labHref, SCENARIOS, type LabAddress, type LabCamera, type LabProjection, type ScenarioId } from "./scenarios.ts";
 import { dressBody, loadSkin, type SkinView } from "./skin.ts";
 import { stanceScenario } from "./stance-scenario.ts";
 import { drawBody, type BodyView } from "./view.ts";
@@ -35,7 +36,8 @@ import { drawBody, type BodyView } from "./view.ts";
  * what it does to the body, its panel section and its marks; the shell owns the rest.
  *
  * The body is drawn in one of two views: World, the workshop model's skin (`skin.ts`), or
- * Tactical, the collision shapes themselves (`view.ts`).
+ * Tactical, the collision shapes themselves (`view.ts`), and followed by a Free, an Isometric or a
+ * Chase camera (`camera.ts`).
  *
  * The world (`src/core/world.ts`) owns the clock, and the render only draws what its steps
  * produced. Loading a body or a new rate makes a new world, and starts the scenario on it anew.
@@ -92,6 +94,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   // The arrows walk the body; the camera orbits by the pointer alone.
   camera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
   camera.attachControl(canvas, true);
+  const rig = labCameraRig(camera);
   new HemisphericLight("lab.sky", new Vector3(0, 1, 0), scene).intensity = 0.75;
   const sun = new DirectionalLight("lab.sun", new Vector3(-0.4, -1, 0.3), scene);
   sun.intensity = 0.7;
@@ -125,7 +128,11 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   for (const element of document.querySelectorAll<HTMLElement>("[data-for]")) element.hidden = element.dataset.for !== address.scenario;
   timeline.setAttribute("aria-label", scenario.timelineLabel);
 
-  interface Loaded { readonly built: BuiltBody; readonly view: BodyView; skin: SkinView | null; readonly run: ScenarioRun }
+  interface Loaded {
+    readonly built: BuiltBody; readonly view: BodyView; skin: SkinView | null; readonly run: ScenarioRun;
+    /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
+    readonly rest: Quaternion;
+  }
   let current: Loaded | null = null;
   let shown: LabAddress = address;
   let shownView: ViewKind = "world";
@@ -147,6 +154,25 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     }
   }
 
+  /** Keep `to` in the address, and in the way back to the menu. */
+  function remember(to: LabAddress): void {
+    shown = to;
+    history.replaceState(null, "", labHref(to, location.search));
+    back.href = labHref({ ...to, scenario: null }, location.search);
+  }
+
+  /** Follow the body the way `shown` says. */
+  function showCamera(): void {
+    rig.choose(shown.camera, shown.projection);
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-camera]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.camera === shown.camera));
+    }
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-projection]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.projection === shown.projection));
+    }
+    $("projection").hidden = shown.camera !== "isometric";
+  }
+
   /** Load `to`'s character at `to`'s rate, in a new world, and start the scenario on it. */
   function load(to: LabAddress): void {
     if (current) {
@@ -158,20 +184,19 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     groundBody?.dispose();
     world?.dispose();
     scene.disablePhysicsEngine();
-    shown = to;
-    history.replaceState(null, "", labHref(to, location.search));
-    back.href = labHref({ ...to, scenario: null }, location.search);
+    remember(to);
     world = createWorld(scene, havok, { hz: to.hz });
     groundBody = new PhysicsBody(groundNode, PhysicsMotionType.STATIC, false, scene);
     groundBody.shape = new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(40, 1, 40), scene);
     const built = buildBody(humanSpec(to.model), scene, { position: [0, 0, 0] });
+    const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
     // Keep every segment awake: a sleeping body reads a perfect zero (H08).
     for (const segment of built.segments.values()) plugin.setActivationControl(segment.body, PhysicsActivationControl.ALWAYS_ACTIVE);
     const view = drawBody(built, scene, TINT[to.model]);
     // A new body starts live: nothing of the last one's recording is shown.
     const run = scenario.start({ scene, built, world, changed: showTransport, clock: () => performance.now() });
-    const loaded: Loaded = { built, view, skin: null, run };
+    const loaded: Loaded = { built, view, skin: null, run, rest };
     current = loaded;
     showView();
     loadSkin(to.model, scene).then((container) => {
@@ -230,6 +255,16 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-hz]")) {
     button.addEventListener("click", () => { load({ ...shown, hz: Number(button.dataset.hz) as LabAddress["hz"] }); button.blur(); });
   }
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-camera]")) {
+    button.addEventListener("click", () => { remember({ ...shown, camera: button.dataset.camera as LabCamera }); showCamera(); button.blur(); });
+  }
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-projection]")) {
+    button.addEventListener("click", () => {
+      remember({ ...shown, projection: button.dataset.projection as LabProjection });
+      showCamera();
+      button.blur();
+    });
+  }
   pauseButton.addEventListener("click", () => { togglePause(); pauseButton.blur(); });
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-nudge]")) {
     button.addEventListener("click", () => {
@@ -250,17 +285,15 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   });
 
   load(address);
-  const follow = new Vector3();
+  showCamera();
   engine.runRenderLoop(() => {
     current?.run.drive(held);
     current?.run.player.tick(engine.getDeltaTime(), performance.now() + SEEK_BUDGET_MS);
     readout();
     scene.render();
     if (current) {
-      // The camera follows the pelvis, softly.
-      const pelvis = current.built.segments.get("lowerTrunk")!.node.position;
-      follow.set(pelvis.x, 1.0, pelvis.z);
-      camera.target = Vector3.Lerp(camera.target, follow, 0.05);
+      const pelvis = current.built.segments.get("lowerTrunk")!.node;
+      rig.follow(pelvis.position, pelvis.rotationQuaternion!, current.rest, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
     }
   });
   window.addEventListener("resize", () => engine.resize());
