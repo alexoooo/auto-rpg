@@ -106,7 +106,7 @@ function load(model: WorkshopModel): void {
   showView();
   loadSkin(model, scene).then((container) => {
     if (current !== loaded) return;
-    loaded.skin = dressBody(built, container, scene);
+    loaded.skin = dressBody(built, container, scene, (hand) => loaded.routine.closure(hand));
     showView();
   }, (error: unknown) => console.error(`${model}: the skin did not load`, error));
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {

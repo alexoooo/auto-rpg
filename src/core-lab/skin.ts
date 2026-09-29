@@ -23,7 +23,8 @@ import { CHARACTERS, visiblePart } from "../character-lab/catalog.ts";
  * A bone follows one segment rigidly: its bind pose relative to the segment's reference frame is
  * held. The rig's bind pose is the spec's reference pose (the spec's segment ends are the rig's
  * bone ends), so at the reference pose the skin is its bind pose, scaled by the fit scale.
- * Finger bones keep the empty-hand grip against their parents. The arm's twist helpers follow
+ * Finger bones hold a grip against their parents, between the relaxed hand and a fist as the
+ * caller's closure says. The arm's twist helpers follow
  * their own segment, with no share of the next one's twist; a wrist turned far shows a pinch.
  */
 export interface SkinView {
@@ -33,7 +34,8 @@ export interface SkinView {
 }
 
 interface RigBone { readonly host: string; readonly head: readonly number[] }
-interface Rig { readonly bones: Readonly<Record<string, RigBone>>; readonly grips: { readonly empty: Readonly<Record<string, readonly number[]>> } }
+type Grip = Readonly<Record<string, readonly number[]>>;
+interface Rig { readonly bones: Readonly<Record<string, RigBone>>; readonly grips: { readonly empty: Grip; readonly "sword-shield": Grip } }
 const RIGS: Readonly<Record<WorkshopModel, Rig>> = {
   "workshop-fighter": fighterRig as Rig,
   "workshop-rogue": rogueRig as Rig,
@@ -42,6 +44,32 @@ const RIGS: Readonly<Record<WorkshopModel, Rig>> = {
 const CHARACTER = { "workshop-fighter": CHARACTERS.fighter, "workshop-rogue": CHARACTERS.rogue } as const;
 
 const TRUNK = ["upperTrunk", "middleTrunk", "lowerTrunk"] as const;
+
+/**
+ * **The fist.** The rig has no fist, but its closed grip (`sword-shield`, fitted around a handle by
+ * `scripts/character-lab/realistic/grip_fit.py`) turns each finger joint about one axis, the
+ * bone's own x within a few degrees. A fist is that turn carried on about the same axis: the
+ * knuckle (MCP, `_01`) to 90 degrees and the middle joint (PIP, `_02`) to 100, the normal active
+ * ranges (AAOS); the end joint (DIP, `_03`) to 0.65 of the PIP, the coupling `grip_fit.py` fits
+ * with. The thumb's turns are not about one axis, so it keeps the closed grip, wrapped as around
+ * a handle.
+ */
+const FIST_DEGREES: Readonly<Record<string, number>> = { "01": 90, "02": 100, "03": 0.65 * 100 };
+const FINGER = /^(index|middle|ring|pinky)_(0[123])_[lr]$/;
+
+/** A grip's turn, which the rig stores w first, as a Babylon quaternion. */
+const gripQuaternion = (pose: readonly number[]) => new Quaternion(pose[1]!, pose[2]!, pose[3]!, pose[0]!);
+
+/** `name`'s turn in a fist, from its turn in the closed grip. */
+function fistTurn(name: string, closed: readonly number[]): Quaternion {
+  const joint = FINGER.exec(name)?.[2];
+  const grip = gripQuaternion(closed);
+  if (!joint) return grip;
+  const axis = new Vector3(grip.x, grip.y, grip.z).normalize();
+  return Quaternion.RotationAxis(axis, (FIST_DEGREES[joint]! * Math.PI) / 180);
+}
+
+export type Hand = "left" | "right";
 /**
  * The rig's hosts, which name the old game's modules, as core segments. The rig's primary side is
  * its right. The trunk and pelvis hosts are split among the three trunk segments by `trunkSegment`;
@@ -87,8 +115,11 @@ function trunkSegment(built: BuiltBody, point: Vector3): BuiltSegment {
   return best!;
 }
 
-/** Dress `built` in its model's skin from `container`, which `loadSkin` loaded into `scene`. */
-export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene): SkinView {
+/**
+ * Dress `built` in its model's skin from `container`, which `loadSkin` loaded into `scene`.
+ * `closure` says, each frame, how far each hand is closed into a fist, 0 relaxed to 1 closed.
+ */
+export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene, closure: (hand: Hand) => number = () => 0): SkinView {
   const model = built.spec.model as WorkshopModel, rig = RIGS[model], prefix = `${model}.skin.`;
   // Materials stay the container's: a body part never disposes materials (H59).
   const instance = container.instantiateModelsToScene((name) => prefix + name, false, { doNotInstantiate: true });
@@ -109,16 +140,17 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   nodes.forEach(restOf);
 
   const fit = Matrix.Scaling(FIT_SCALE.value, FIT_SCALE.value, FIT_SCALE.value);
-  const grip = rig.grips.empty;
+  const relaxed = rig.grips.empty, closed = rig.grips["sword-shield"];
   // Parents come before children: `getDescendants` walks depth first.
   const rows = nodes.filter((node) => rig.bones[nameOf(node)]).map((node) => {
-    const name = nameOf(node), pose = grip[name];
-    if (pose) {
+    const name = nameOf(node), open = relaxed[name], shut = closed[name];
+    if (open && shut) {
       // A finger: its rest local, turned by the grip, on its parent as achieved.
       const scaling = new Vector3(), rotation = new Quaternion(), position = new Vector3();
       localMatrix(node).decompose(scaling, rotation, position);
-      const curled = Matrix.Compose(scaling, rotation.multiply(new Quaternion(pose[1]!, pose[2]!, pose[3]!, pose[0]!)), position);
-      return { node, segment: null, held: curled };
+      const finger = { hand: (name.endsWith("_r") ? "right" : "left") as Hand, scaling, rotation, position,
+        open: gripQuaternion(open), fist: fistTurn(name, shut) };
+      return { node, segment: null, held: new Matrix(), finger };
     }
     const host = HOSTS[rig.bones[name]!.host];
     if (!host) throw new Error(`${model}: bone ${name} has host ${rig.bones[name]!.host}, which names no core segment`);
@@ -130,7 +162,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
       Quaternion.RotationQuaternionFromAxis(Vector3.FromArray(frame.x), Vector3.FromArray(frame.y), Vector3.FromArray(frame.z)),
       Vector3.FromArray(frame.origin));
     // The bone at x1 in the segment's reference frame; times the segment as achieved, the bone.
-    return { node, segment, held: atFit.multiply(Matrix.Invert(reference)) };
+    return { node, segment, held: atFit.multiply(Matrix.Invert(reference)), finger: null };
   });
 
   const meshes = nodes.filter((node): node is Mesh => node instanceof Mesh && node.getTotalVertices() > 0);
@@ -144,10 +176,17 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   }
 
   const achieved = new Map<TransformNode, Matrix>();
-  const relative = new Matrix();
+  const relative = new Matrix(), turn = new Quaternion(), curled = new Quaternion();
   const update = () => {
     achieved.clear();
+    const shut = { left: closure("left"), right: closure("right") };
     for (const row of rows) {
+      if (row.finger) {
+        const { hand, scaling, rotation, position, open, fist } = row.finger;
+        Quaternion.SlerpToRef(open, fist, shut[hand], turn);
+        rotation.multiplyToRef(turn, curled);
+        Matrix.ComposeToRef(scaling, curled, position, row.held);
+      }
       const parent = row.node.parent as TransformNode;
       const parentMatrix = achieved.get(parent) ?? rest.get(parent) ?? Matrix.IdentityReadOnly;
       const world = row.segment ? row.held.multiply(segmentMatrix(row.segment.node)) : row.held.multiply(parentMatrix);
