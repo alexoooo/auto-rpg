@@ -5,6 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { impactEnergy } from "../src/core/rules/impact.ts";
 import { createPool, partHitPoints } from "../src/core/rules/pool.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
@@ -160,4 +161,18 @@ test("the body dies when its head is emptied or taken off, or its attached hit p
   pool = createPool(rogue, RULES);
   pool.wound({ part: "head", damage: max.get("head"), clean: true });
   assert.equal(pool.wound({ part: "lowerTrunk", damage: 9, clean: false }).ending, "severed");
+});
+
+test("a blow's energy is its relative motion's, over the reduced mass of what each side meets", () => {
+  // A 1.2 kg club meeting a 6 kg head at 20 m/s: mu = 1 kg, 200 J.
+  close(impactEnergy(1.2, 6, 20), 200, 1e-12, "club on head");
+  // The same the other way round: the rule does not know which side swung.
+  close(impactEnergy(6, 1.2, 20), 200, 1e-12, "head on club");
+  // Something nothing moves takes the striker's whole kinetic energy.
+  close(impactEnergy(1.2, Infinity, 20), 240, 1e-12, "a wall");
+  // A contact that is not closing is worth nothing.
+  for (const v of [0, -3]) assert.equal(impactEnergy(1.2, 6, v), 0);
+  for (const [m, M, v] of [[0, 6, 1], [-1, 6, 1], [Infinity, 6, 1], [1, 0, 1], [1, Number.NaN, 1], [1, 6, Number.NaN], [1, 6, Infinity]]) {
+    assert.throws(() => impactEnergy(m, M, v), `${m} ${M} ${v}`);
+  }
 });
