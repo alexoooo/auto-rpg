@@ -34,7 +34,8 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  * **A hand's knuckles** (`SegmentSpec.points`) are the head of its third metacarpal: where a
  * clenched fist strikes, and where a fist's speed is read. The hand segment runs on to the
  * fingertip, de Leva's alternative row, an open hand's length; a fist read at the fingertip reads
- * any turn of the wrist over more than twice the lever.
+ * any turn of the wrist over more than twice the lever. Its `little` is the little finger's
+ * knuckle, the head of its first bone, where a grip ends (`grip.ts`).
  *
  * **A hand's right.** The rig holds each hand thumb up, a quarter turn from the anatomical
  * position's palm forward, so a hand's frame takes its own right (`SegmentSpec.right`): across its
@@ -113,7 +114,7 @@ function plans(model: WorkshopModel): Plan[] {
       plan(segmentName("upperArm", side), "upperArm", SJC, EJC, { kind: "capsule", density: "upperArm" }),
       plan(segmentName("forearm", side), "forearm", EJC, WJC, { kind: "capsule", density: "forearm" }),
       plan(segmentName("hand", side), "hand", WJC, DAC3, { kind: "capsule", density: "hand" }, WJC, DAC3, handRight(model, side),
-        { knuckles: MET3 }),
+        { knuckles: MET3, little: rigPoint(model, `pinky_01${rigSuffix(side)}`, "head") }),
       plan(segmentName("thigh", side), "thigh", HJC, KJC, { kind: "capsule", density: "thigh" }),
       plan(segmentName("shank", side), "shank", KJC, AJC, { kind: "capsule", density: "shank" }),
       plan(segmentName("foot", side), "foot", HEEL, TTIP, { kind: "box in the body frame", extents: foot }),

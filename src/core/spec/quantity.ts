@@ -33,7 +33,10 @@ export type Unit =
   | "rad" | "deg"
   | "rad/s" | "deg/s"
   | "m/s2"
-  | "s" | "Hz";
+  | "s" | "Hz"
+  | "J" | "J/HP"
+  /** Hit points: the rulebook's damage unit, one the strongest club hit. */
+  | "HP";
 
 /** A number read from a source: `where` says where in it, as the source is cited. */
 export interface FromSource {
