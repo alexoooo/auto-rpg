@@ -46,3 +46,17 @@ function eccentric(r: number, curve: ForceVelocityCurve): number {
   const s = curve.eccentricSlopeRatio * (1 + 1 / curve.curvature) / (e - 1);
   return e - (e - 1) / (1 + s * r);
 }
+
+/**
+ * Where the curve's tangent at `shortening` reaches zero, rad/s: the fastest the muscles could turn
+ * the joint within a step if their torque fell along that tangent. The shortening branch is convex,
+ * so its tangent lies under it and reaches zero short of the unloaded speed; from rest, at
+ * w0 k / (1 + k). A joint turning against the muscles is braked through rest and then speeds up no
+ * further than from rest: the lengthening branch is concave, its own tangent lies over it, and
+ * reaches zero far past the unloaded speed.
+ */
+export function forceVelocityReach(shortening: number, curve: ForceVelocityCurve): number {
+  const w0 = curve.unloadedSpeed, k = curve.curvature, r = Math.max(0, shortening / w0);
+  if (r >= 1) return shortening;
+  return r * w0 + w0 * (1 - r) * (1 + r / k) / (1 + 1 / k);
+}

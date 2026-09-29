@@ -245,30 +245,36 @@ contradicts one; the eccentric ceiling is the owner's decision.
   fist's forward speed as it enters a head-sized sphere ahead).
   - **It found a fault in the driver before it found a strike.** Allowed to push the wrist, its best
     blow flicked the hand: the wrist went from rest to 23 rad/s in one step at 120 Hz, against 16 at
-    480 Hz at the same moment. The same blow's peak fist speed:
-
-    | rate | 120 Hz | 240 Hz | 480 Hz | 960 Hz | 1920 Hz |
-    |---|---|---|---|---|---|
-    | wrist flick, peak m/s | 11.71 | 9.51 | 9.25 | 8.58 | 8.56 |
-    | overhand (no wrist), peak m/s | 13.60 | | 12.94 | 12.21 | 12.06 |
-    | from the guard, peak m/s | 12.47 | | 11.09 | 10.65 | 10.68 |
-
-    The curve is read at the speed a step begins with, and the fastest freedoms' muscle time
-    constant (inertia beyond the joint times the unloaded speed, over the isometric peak times
-    1 + 1/curvature) is far shorter than a step: the Warrior's shoulder internal rotation 0.43 ms,
-    ankle 0.56, wrist 0.64; the Rogue's 0.54-0.71. A step is 8.3 ms at 120 Hz and 0.52 at 1920. A
-    light segment crosses its whole curve in one step at its isometric torque. The scripted straight
-    above (7 % high at 120 Hz) does not find this; a search does, and so will a searched or learned
-    mind in the game. **Open**: the muscle must read the same at 120 Hz as at a fine rate.
-  - The search now holds the wrist (a punch lands on a fist in line with the forearm), runs at
-    480 Hz, and each best is re-read at 960 and 1920 Hz.
-  - Given a chamber, it finds an overhand: the arm cocked high, then elbow extension and shoulder
-    internal rotation, like a throw. Warrior 10.21 m/s forward at 1920 Hz (11.27 at 480).
-  - From the guard (`--guard`), two seeds each, forward m/s at 480 Hz (1920 Hz): Warrior 5.51 and
-    8.95 (8.83), Rogue 6.56 and 9.79 (9.70). Seeds disagree by up to 60 %, so the search has not
-    converged; each best lands 0.35 s after it starts, a wound-up blow and not a straight; and the
-    Rogue out-strikes the Warrior. None of this is read against the acceptance above until the
-    driver is fixed and the search converges. The club waits for a held weapon in the core.
+    480 Hz at the same moment. The curve was read at the speed a step begins with, and the fastest
+    freedoms' muscle time constant (inertia beyond the joint times the unloaded speed, over the
+    isometric peak times 1 + 1/curvature) is far shorter than a step: the Warrior's shoulder internal
+    rotation 0.43 ms, ankle 0.56, wrist 0.64; the Rogue's 0.54-0.71. A step is 8.3 ms at 120 Hz. A
+    light segment crossed its whole curve in one step at its isometric torque. The scripted straights
+    did not show it; a search did, and so would a searched or learned mind in the game.
+  - A rate table of the searched blows' peaks, recorded here before, is withdrawn: the evaluator's
+    peak stops at contact, so a rate whose blow missed read a longer path than one whose blow hit.
+    Rates are compared on the fist's path with no target.
+  - **The fix** (`src/core/muscle/driver.ts` has the argument and the rejected alternatives): the
+    motor's target is held to where the curve's tangent at the step's speed reaches zero
+    (`forceVelocityReach`), which the convex shortening branch keeps under the curve, and a joint
+    the muscles are braking is held to the reach from rest. On a forearm and hand driven flat out
+    (Node stand), the hand at 120 Hz against 1920 Hz: 3.69 against 3.64 m/s at 0.025 s (4.71
+    before); started 0.06 s late, 4.7 against 4.5 (5.3 before). The lab's straights read within 3 %
+    of 1920 Hz at 120 Hz. The game stays at 120 Hz.
+  - The searched blows (below) on the fixed driver, the fist's peak speed with no target, Node core
+    stand, at 120, 480 and 1920 Hz: Warrior 13.75, 13.68, 13.20 and 14.11, 13.80, 14.28; Rogue 8.20,
+    8.90, 9.66 and 11.47, 11.60, 12.94. 480 Hz differs from 1920 Hz as much as 120 Hz does: a
+    searched blow's pushes start on step boundaries and its timing was tuned at one rate, so these
+    read the blow's sensitivity to timing, not the muscle's to the step.
+  - The search now holds the wrist (a punch lands on a fist in line with the forearm), and each best
+    is re-read at the other rates.
+  - On the driver before the fix, at 480 Hz: given a chamber, it found an overhand, the arm cocked
+    high, then elbow extension and shoulder internal rotation, like a throw (Warrior 10.21 m/s
+    forward at 1920 Hz, 11.27 at 480). From the guard (`--guard`), two seeds each, forward m/s at
+    480 Hz (1920 Hz): Warrior 5.51 and 8.95 (8.83), Rogue 6.56 and 9.79 (9.70). Seeds disagreed by
+    up to 60 %, each best landed 0.35 s after it started (a wound-up blow, not a straight), and the
+    Rogue out-struck the Warrior. These are void on the fixed driver and are rerun. The club waits
+    for a held weapon in the core.
 
 ### Stage 3: one world, one body, one command
 
