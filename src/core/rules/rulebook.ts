@@ -53,7 +53,7 @@ const OLD_PRICE: Readonly<Record<Mechanism, Quantity<number>>> = Object.freeze({
 
 const RULES: Omit<Rulebook, "mode"> = Object.freeze({
   severMargin: sourced(0.5, "1", "owner-hp-pool", "the old game's health below -0.5 x max"),
-  unit: sourced(109.89, "J/HP", "core-club-unit", "the best blow at 1920 Hz, mean of 8 trials: 109.89 J"),
+  unit: sourced(120.70, "J/HP", "core-club-unit", "the best blow at 1920 Hz, mean of 8 trials: 120.70 J"),
   worth: Object.freeze(Object.fromEntries(MECHANISMS.map((mechanism) => [mechanism,
     derive("1", "the old game's blunt price over this mechanism's", [OLD_PRICE.blunt, OLD_PRICE[mechanism]], (blunt, own) => blunt / own)],
   )) as Record<Mechanism, Quantity<number>>),

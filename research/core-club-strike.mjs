@@ -2,14 +2,15 @@
  * One club blow by a core human, scored by the energy it brings to an opponent's head: the damage
  * unit's reading (stage 5 of `docs/plans/2026-09-28-core-foundation.md`).
  *
- * The human holds the wooden club in one hand (`armed`, `woodenClub`) and stands on the core stand
- * with its pelvis carried still, as `core-strike.mjs`'s straights do: it settles into the lab's
- * guard, holds a chamber pose, then pushes a chosen set of freedoms, each from a chosen moment for
- * a chosen time at a chosen activation; every other freedom is servoed to the guard. The wrist is
- * pushed here, all three of its freedoms: a club is swung with it.
+ * The human holds the wooden club in one hand (`armed`, `woodenClub`), stands on its own feet on
+ * the core stand and throws the blow from there, as `core-strike.mjs`'s straights are thrown
+ * (`throwBlow` in `core-blow.mjs`): it stands in the lab's guard, holds a chamber pose, then pushes
+ * a chosen set of freedoms, each from a chosen moment for a chosen time at a chosen activation;
+ * every other freedom is servoed to the guard, and the legs are the stance's. The wrist is pushed
+ * here, all three of its freedoms: a club is swung with it.
  *
  * **The target is an opponent's head**: a sphere of the striker's head capsule's radius, at its own
- * head's centre moved straight ahead by a chosen distance. **The blow lands** where the club's
+ * head's centre, as it stands when the blow begins, moved straight ahead by a chosen distance. **The blow lands** where the club's
  * swell (its capsule, `woodenClub`) first touches the sphere, found within each step by carrying
  * the hand's pose between the step's ends (its origin in a line, its turn by slerp) at `SUB`
  * points. The closing speed is the club's velocity there along the contact's normal, from the
@@ -18,9 +19,9 @@
  * **Its energy** is `impactEnergy` of the two masses the contact meets (`contactMass`), joints free
  * and bodies floating: the club's at its contact point along the normal, with the striker's pose at
  * the end of the step it lands in; and the head's at the struck point, which is the Warrior's own
- * head as the guard left it at the end of the settle, turned to face the striker. A search's
- * `score` is that energy, or, for a club that never arrives, minus how far its swell passed from
- * the sphere.
+ * head as it stood when the blow began, turned to face the striker. A search's `score` is that
+ * energy, or, for a club that never arrives, minus how far its swell passed from the sphere, or,
+ * for a body that falls first, `FELL`.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -30,16 +31,16 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
-import { startRoutine } from "../src/core-lab/routine.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
-import { perturbed } from "./core-strike.mjs";
+import { centreNow, inFrameOf, STAND, throwBlow } from "./core-blow.mjs";
+import { FELL, perturbed } from "./core-strike.mjs";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
-export const CORE_CLUB_HARNESS = "Node core stand, pelvis carried still, ground on; a club blow into a head-sized sphere";
+export const CORE_CLUB_HARNESS = "Node core stand, standing on its feet as built, ground on; a club blow into a head-sized sphere";
 
-/** Seconds to settle into the guard, and to watch after the chamber. */
-const SETTLE = 0.6, WINDOW = 0.5;
+/** Seconds to watch after the chamber. */
+const WINDOW = 0.5;
 /** Points a step is read at between its ends. */
 const SUB = 16;
 
@@ -93,15 +94,10 @@ export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz 
   const decoded = unit ? decodeClub(unit, spec, hand) : given;
   const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
   const chamber = strike.chamber ?? { seconds: 0 };
-  const headSpec = spec.segments.find((s) => s.name === "head");
-  const R = headSpec.shape.radius.value;
-  const target = new Vector3(...headSpec.centreOfMass.value).addInPlaceFromFloats(0, 0, distance);
+  const R = spec.segments.find((s) => s.name === "head").shape.radius.value;
   const [held] = spec.held, swell = club.shapes[1], r = swell.radius.value;
   const stand = await coreStand(spec, { ground: true, hz });
-  const routine = startRoutine(stand.built, stand.world, [
-    { kind: "settle", seconds: SETTLE },
-    { kind: "strike", seconds: chamber.seconds + WINDOW, strike },
-  ], { legs: "carried" });
+  const blow = throwBlow(stand.built, stand.world, strike);
   const segment = stand.built.segments.get(`hand.${hand}`), head = stand.built.segments.get("head");
   // The swell's ends and the hand's centre, in the hand's own frame.
   const ends = [heldPoint(held, swell.from).value, heldPoint(held, swell.to).value].map((p) => inFrameOf(segment, p));
@@ -116,20 +112,20 @@ export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz 
     segment.body.getAngularVelocityToRef(into.spin);
   };
   const place = (position, rotation, local) => local.applyRotationQuaternion(rotation).addInPlace(position);
-  let landed = null, nearest = Infinity, peak = 0, watching = false, settled = false, headCentre = null;
+  let landed = null, nearest = Infinity, peak = 0, watching = false, headCentre = null, target = null, fell = false;
   const at = new Vector3(), q = new Quaternion(), p = new Vector3(), scratch = new Vector3();
   try {
-    for (let i = 0; i < stand.seconds(SETTLE + chamber.seconds + WINDOW); i++) {
+    for (let i = 0; i < stand.seconds(STAND + chamber.seconds + WINDOW); i++) {
       stand.step(1);
-      const s = routine.state();
-      if (!settled && s.stepIndex === 1) {
-        // The guard as the settle left it: the target's pose.
-        settled = true;
+      if (!headCentre && blow.time >= STAND) {
+        // The body as it stands when the blow begins: the target's pose, and where it is.
         struck.update();
-        headCentre = place(head.node.position, head.node.rotationQuaternion, inFrameOf(head, head.rigid.centre));
+        headCentre = centreNow(head);
+        target = headCentre.add(new Vector3(0, 0, distance));
       }
+      if (blow.fallen) { fell = true; break; }
       read(now);
-      const live = s.stepIndex === 1 && s.into >= chamber.seconds;
+      const live = blow.time >= blow.pushing;
       if (live && watching) {
         for (let k = 1; k <= SUB && !landed; k++) {
           const f = k / SUB;
@@ -159,7 +155,7 @@ export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz 
           const headKg = struck.along(head, headPoint, [-normal.x, normal.y, -normal.z]);
           landed = {
             energy: impactEnergy(clubKg, headKg, closing), closing, clubKg, headKg,
-            at: +(s.into - chamber.seconds - (1 - f) / stand.seconds(1)).toFixed(4),
+            at: +(blow.time - blow.pushing - (1 - f) / stand.seconds(1)).toFixed(4),
             normal: [normal.x, normal.y, normal.z].map((x) => +x.toFixed(3)), along: +Vector3.Distance(contact, a).toFixed(3),
           };
         }
@@ -175,13 +171,7 @@ export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz 
       last.position.copyFrom(now.position); last.rotation.copyFrom(now.rotation);
       last.velocity.copyFrom(now.velocity); last.spin.copyFrom(now.spin);
     }
-  } finally { routine.dispose(); stand.dispose(); }
-  const score = landed ? landed.energy : -nearest;
-  return { score, ...(landed ?? { energy: 0, closing: 0, at: null }), peak, distance, strike };
-}
-
-/** `point` (body frame, reference pose) in `segment`'s own frame. */
-function inFrameOf(segment, point) {
-  const d = point.map((x, i) => x - segment.frame.origin[i]);
-  return new Vector3(...["x", "y", "z"].map((a) => d[0] * segment.frame[a][0] + d[1] * segment.frame[a][1] + d[2] * segment.frame[a][2]));
+  } finally { blow.dispose(); stand.dispose(); }
+  const score = fell ? FELL : landed ? landed.energy : -nearest;
+  return { score, ...(landed ?? { energy: 0, closing: 0, at: null }), peak, distance, strike, fell };
 }

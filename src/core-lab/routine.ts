@@ -1,5 +1,4 @@
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, type BodyCommand, type CoreBody, type Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { MusclePush, Pose } from "../core/control/motor.ts";
@@ -15,9 +14,7 @@ import { stanceLegs } from "./legs.ts";
  * - **The legs are the stance's** (`legs.ts`): the body stands and walks on its own feet, and
  *   strikes standing. The stance turns only while it walks, so a turn is walked, on an arc, at
  *   `TURN_PACE`, and a walk steers its heading onto the path's line as a walker would (`STEER`),
- *   so the loop comes back to its start. An experiment that reads a strike alone passes
- *   `legs: "carried"`: the pelvis is carried along the path as a kinematic body instead, and the
- *   legs swing in its air (a scaffold kept for the strike search, whose figures were read so).
+ *   so the loop comes back to its start.
  * - **Its arms' commands are hand-set joint poses and pushes**, given to the body
  *   (`src/core/body.ts`) each step as a posture for the servo to hold around the pushes. A mind
  *   would give hand goals.
@@ -88,7 +85,7 @@ export type Step =
   | { readonly kind: "turn"; readonly seconds: number; readonly radians: number }
   /**
    * On the stance, a step into a stance to strike from: the right foot to `width` across the
-   * heading from the left and `behind` it, m. A carried pelvis stands still through it.
+   * heading from the left and `behind` it, m.
    */
   | { readonly kind: "set"; readonly seconds: number; readonly width: number; readonly behind: number }
   | { readonly kind: "strike"; readonly seconds: number; readonly strike: Strike };
@@ -136,13 +133,6 @@ export const STEER = { metres: 1, most: 0.35, rate: 0.5 } as const;
 /** A set step's swing: its time and lift, s and m, as the stance's steps were measured (`tests/core-stance.test.mjs`). */
 const SET_SWING = { seconds: 0.45, lift: 0.05 } as const;
 
-/** How the routine's legs move: on the stance, or swung in the air of a carried pelvis. */
-export type RoutineLegs = "stance" | "carried";
-
-/** The carried walk's scaffold: a stride, and how far each leg swings. */
-const STRIDE_METRES = 1.4;
-const HIP_SWING = 0.35, KNEE_SWING = 0.7;
-
 /** Where the routine is. */
 export interface RoutineState {
   /** Seconds since the routine began. */
@@ -175,18 +165,10 @@ export interface Routine {
   dispose(): void;
 }
 
-/**
- * Run `ROUTINE` on `built`, a human in its reference pose at the origin, facing +z: on its feet
- * on the ground, or with its pelvis carried (`legs`).
- */
-export function startRoutine(built: BuiltBody, world: World, routine: readonly Step[] = ROUTINE,
-  { legs = "stance" }: { readonly legs?: RoutineLegs } = {}): Routine {
-  const pelvis = built.segments.get("lowerTrunk");
-  if (!pelvis) throw new Error(`${built.spec.model} is not a human the routine knows`);
-  const carried = legs === "carried";
-  if (carried) pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
-  const stance = carried ? null : stanceLegs();
-  const pelvisOrigin = pelvis.node.position.clone(), pelvisRest = pelvis.rest.clone();
+/** Run `ROUTINE` on `built`, a human in its reference pose at the origin, facing +z, on its feet on the ground. */
+export function startRoutine(built: BuiltBody, world: World, routine: readonly Step[] = ROUTINE): Routine {
+  if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
+  const stance = stanceLegs();
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
@@ -194,37 +176,30 @@ export function startRoutine(built: BuiltBody, world: World, routine: readonly S
   const cycle = routine.reduce((sum, step) => sum + step.seconds, 0);
   let time = 0, stepIndex = 0, into = 0;
   // Where the walk has got to: the start of the current step, and the heading.
-  type Place = { at: Vector3; heading: number; walked: number };
-  const place: Place = { at: new Vector3(), heading: 0, walked: 0 };
-  const start: Place = { at: new Vector3(), heading: 0, walked: 0 };
-  // On the stance: where the body's centre of mass began the path (x, z), and the heading asked.
+  type Place = { at: Vector3; heading: number };
+  const place: Place = { at: new Vector3(), heading: 0 };
+  const start: Place = { at: new Vector3(), heading: 0 };
+  // Where the body's centre of mass began the path (x, z), and the heading asked.
   let home: readonly [number, number] | null = null, facing = 0;
   // A set step's swing, fixed where its step began.
   let setting: SwingGoal | null = null;
   const strikes: StrikeReading[] = [];
   let peak = 0;
 
-  const heading = new Quaternion(), target = new Vector3(), rotation = new Quaternion();
-  /**
-   * Where the path is `seconds` into the current step. A turn is on the spot for a carried pelvis,
-   * and on the stance an arc walked at `TURN_PACE`.
-   */
+  /** Where the path is `seconds` into the current step. A turn is an arc walked at `TURN_PACE`. */
   const locate = (seconds: number, out: Place = place) => {
     const step = routine[stepIndex]!;
     const f = Math.min(1, seconds / step.seconds);
     out.at.copyFrom(start.at);
     out.heading = start.heading;
-    out.walked = start.walked;
     switch (step.kind) {
       case "walk": {
         const d = step.metres * f;
         out.at.addInPlaceFromFloats(Math.sin(start.heading) * d, 0, Math.cos(start.heading) * d);
-        out.walked += d;
         break;
       }
       case "turn": {
-        if (carried) { out.heading += step.radians * f; break; }
-        // On the stance: straight for `TURN_LEAD`, then an arc whose radius is the pace over the
+        // Straight for `TURN_LEAD`, then an arc whose radius is the pace over the
         // turn's rate, its centre on the side turned to. The right of a heading h is (cos h, -sin h).
         const t = f * step.seconds, lead = Math.min(t, TURN_LEAD), rate = step.radians / (step.seconds - TURN_LEAD);
         out.at.addInPlaceFromFloats(Math.sin(start.heading) * TURN_PACE * lead, 0, Math.cos(start.heading) * TURN_PACE * lead);
@@ -252,61 +227,44 @@ export function startRoutine(built: BuiltBody, world: World, routine: readonly S
       peak = 0;
       start.at.copyFrom(place.at);
       start.heading = place.heading;
-      start.walked = place.walked;
       stepIndex = (stepIndex + 1) % routine.length;
       if (stepIndex === 0) time = time % cycle;
     }
     locate(into);
     const step = routine[stepIndex]!;
 
-    if (stance) {
-      // On the stance: a walk steered onto its line, a turn walked on its arc, else standing.
-      const c = view.stance.centre;
-      if (!home && view.time > 0) home = [c.x, c.z];
-      let walk: [number, number] | null = null;
-      if (home && step.kind === "walk") {
-        const h = start.heading, fx = Math.sin(h), fz = Math.cos(h);
-        const sx = home[0] + start.at.x, sz = home[1] + start.at.z;
-        const along = (c.x - sx) * fx + (c.z - sz) * fz + STEER.metres;
-        const aim = Math.atan2(sx + fx * along - c.x, sz + fz * along - c.z);
-        const off = Math.max(-STEER.most, Math.min(STEER.most, wrap(aim - h)));
-        facing += Math.max(-STEER.rate * dt, Math.min(STEER.rate * dt, wrap(h + off - facing)));
-        // The pace that ends the line on time, from where the body is along it.
-        const left = step.metres - (along - STEER.metres), time = Math.max(step.seconds - into, 1);
-        const pace = Math.max(0.1, Math.min(0.5, left / time));
-        walk = [pace, 0];
-      } else if (home && step.kind === "turn") {
-        if (into >= TURN_LEAD) facing += step.radians / (step.seconds - TURN_LEAD) * dt;
-        walk = [TURN_PACE, 0];
-      }
-      if (step.kind !== "set") setting = null;
-      else if (!setting) {
-        // The right foot to its place from the left: the right of a heading h is (cos h, -sin h).
-        const left = view.stance.soles.left, h = facing;
-        setting = { foot: "right", seconds: SET_SWING.seconds, lift: SET_SWING.lift,
-          to: [left.x + step.width * Math.cos(h) - step.behind * Math.sin(h), left.z - step.width * Math.sin(h) - step.behind * Math.cos(h)] };
-      }
-      const goal = stance.goal(view, facing, walk);
-      command.stance = goal && setting ? { ...goal, swing: setting } : goal;
-    } else {
-      // The carried pelvis (scaffold): the reference pose turned to the heading, at the path's point.
-      Quaternion.RotationYawPitchRollToRef(place.heading, 0, 0, heading);
-      pelvisOrigin.applyRotationQuaternionToRef(heading, target).addInPlace(place.at);
-      heading.multiplyToRef(pelvisRest, rotation);
-      pelvis.body.setTargetTransform(target, rotation);
+    // A walk steered onto its line, a turn walked on its arc, else standing.
+    const c = view.stance.centre;
+    if (!home && view.time > 0) home = [c.x, c.z];
+    let walk: [number, number] | null = null;
+    if (home && step.kind === "walk") {
+      const h = start.heading, fx = Math.sin(h), fz = Math.cos(h);
+      const sx = home[0] + start.at.x, sz = home[1] + start.at.z;
+      const along = (c.x - sx) * fx + (c.z - sz) * fz + STEER.metres;
+      const aim = Math.atan2(sx + fx * along - c.x, sz + fz * along - c.z);
+      const off = Math.max(-STEER.most, Math.min(STEER.most, wrap(aim - h)));
+      facing += Math.max(-STEER.rate * dt, Math.min(STEER.rate * dt, wrap(h + off - facing)));
+      // The pace that ends the line on time, from where the body is along it.
+      const left = step.metres - (along - STEER.metres), time = Math.max(step.seconds - into, 1);
+      const pace = Math.max(0.1, Math.min(0.5, left / time));
+      walk = [pace, 0];
+    } else if (home && step.kind === "turn") {
+      if (into >= TURN_LEAD) facing += step.radians / (step.seconds - TURN_LEAD) * dt;
+      walk = [TURN_PACE, 0];
     }
+    if (step.kind !== "set") setting = null;
+    else if (!setting) {
+      // The right foot to its place from the left: the right of a heading h is (cos h, -sin h).
+      const left = view.stance.soles.left, h = facing;
+      setting = { foot: "right", seconds: SET_SWING.seconds, lift: SET_SWING.lift,
+        to: [left.x + step.width * Math.cos(h) - step.behind * Math.sin(h), left.z - step.width * Math.sin(h) - step.behind * Math.cos(h)] };
+    }
+    const goal = stance.goal(view, facing, walk);
+    command.stance = goal && setting ? { ...goal, swing: setting } : goal;
 
     // The fists, as the last sub-step left them.
     for (const side of ["left", "right"] as const) speed[side] = fists[side].velocity.length();
     if (step.kind === "strike") peak = Math.max(peak, speed[step.strike.hand]);
-
-    // The carried legs' swing (scaffold), phased by the distance walked.
-    const phase = (2 * Math.PI * place.walked) / STRIDE_METRES;
-    const walking = carried && step.kind === "walk";
-    const legs: Record<string, number> = walking ? {
-      "hip.left flexion": HIP_SWING * Math.sin(phase), "hip.right flexion": -HIP_SWING * Math.sin(phase),
-      "knee.left flexion": KNEE_SWING * Math.max(0, Math.cos(phase)), "knee.right flexion": KNEE_SWING * Math.max(0, -Math.cos(phase)),
-    } : {};
 
     // A strike's chamber, then its pushes, timed from the chamber's end.
     const strike = step.kind === "strike" ? step.strike : undefined;
@@ -316,7 +274,7 @@ export function startRoutine(built: BuiltBody, world: World, routine: readonly S
     if (strike && !chambered) {
       for (const p of strike.pushes) if (since >= p.from && since < p.to) pushes.push({ channel: p.channel, sense: p.sense, level: p.level ?? 1 });
     }
-    command.posture = { ...GUARD, ...chambered, ...legs };
+    command.posture = { ...GUARD, ...chambered };
     return command;
   });
 

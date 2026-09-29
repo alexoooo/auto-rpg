@@ -200,9 +200,10 @@ test("the unit's own blow, replayed, is worth one hit point", async () => {
   const { evaluateClubStrike } = await import("../research/core-club-strike.mjs");
   const { readFile } = await import("node:fs/promises");
   const blow = JSON.parse(await readFile(new URL("../research/core-club-unit.json", import.meta.url), "utf8"));
-  const result = await evaluateClubStrike({ model: blow.model, hand: blow.hand, strike: blow.strike, distance: blow.distance, hz: 480 });
+  const result = await evaluateClubStrike({ model: blow.model, hand: blow.hand, strike: blow.strike, distance: blow.distance, hz: 960 });
   assert.ok(result.at !== null, "the blow lands");
   close(result.energy, impactEnergy(result.clubKg, result.headKg, result.closing), "its energy is its parts'");
   const hp = blowDamage(RULES, "blunt", result.energy);
-  assert.ok(Math.abs(hp - 1) < 0.02, `the unit's blow at 480 Hz is worth ${hp} HP`);
+  assert.ok(result.fell === false, "thrown standing");
+  assert.ok(Math.abs(hp - 1) < 0.02, `the unit's blow at 960 Hz is worth ${hp} HP`);
 });

@@ -1,21 +1,22 @@
 /**
  * One strike by a core human (`src/core/`), scored by how fast its fist closes on a target.
  *
- * The human stands on the core stand with its pelvis carried still (`startRoutine` in
- * `src/core-lab/routine.ts`): the legs cannot yet push on the ground (stage 4 of the plan), so this
- * is a strike of the arm and the trunk above the pelvis. It settles into the lab's guard, holds a
- * chamber pose, then pushes a chosen set of freedoms, each from a chosen moment for a chosen time
- * at a chosen activation; every other freedom is servoed to the guard. Every torque is its
+ * The human stands on its own feet on the core stand and throws the blow from there
+ * (`throwBlow` in `core-blow.mjs`): it stands in the lab's guard, holds a chamber pose, then pushes
+ * a chosen set of freedoms, each from a chosen moment for a chosen time at a chosen activation;
+ * every other freedom is servoed to the guard, and the legs are the stance's. Every torque is its
  * muscles'.
  *
  * The target is an opponent's head: a sphere of the striker's own head capsule's radius, at its
- * own head's centre of mass moved straight ahead by a chosen distance. The reading is the fist's
+ * own head's centre of mass, as it stands when the blow begins, moved straight ahead by a chosen
+ * distance. The reading is the fist's
  * forward speed, its knuckles' velocity along the line the target lies on, as it first enters the
  * sphere from outside after the chamber: a straight's speed as a punch's impact speed is measured
  * (Adamec 2021), so a blow chopped down from above scores only what it carries forward. No body
  * is struck, so nothing slows the fist before it arrives. A search's `score` is that speed, or,
  * for a fist that never arrives, minus how far it passed from the sphere, so any hit beats any
- * miss and a near miss beats a wide one.
+ * miss and a near miss beats a wide one. A body that falls before its fist arrives has thrown no
+ * blow, and scores below any miss (`FELL`).
  *
  * **The wrist is not pushed; it is servoed to the guard like every freedom not pushed.** A punch
  * lands on a fist held in line with the forearm. A first search that could push the wrist found a
@@ -38,20 +39,25 @@
  * search scores a candidate by its mean over several.
  *
  * The figures above were read with the velocity servo the computed-torque one replaced on
- * 2026-09-29 (`src/core/control/servo.ts`); every freedom not pushed moves differently now.
+ * 2026-09-29 (`src/core/control/servo.ts`); every freedom not pushed moves differently now. They,
+ * and the plan's acceptance searches, were read with the pelvis carried still, as a kinematic body,
+ * before the blow was thrown standing.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
-import { startRoutine } from "../src/core-lab/routine.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
+import { centreNow, STAND, throwBlow } from "./core-blow.mjs";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 
-export const CORE_STRIKE_HARNESS = "Node core stand, pelvis carried still, ground on; a strike into a sphere at head height";
+export const CORE_STRIKE_HARNESS = "Node core stand, standing on its feet as built, ground on; a strike into a sphere at head height";
 
-/** Seconds to settle into the guard, and to watch after the chamber. */
-const SETTLE = 0.6, WINDOW = 0.5;
+/** Seconds to watch after the chamber. */
+const WINDOW = 0.5;
+
+/** The score of a body that falls before its blow lands: below any miss, whose score is minus a distance within the stand. */
+export const FELL = -10;
 
 /** The freedoms a straight with `hand` may push, and those its chamber poses. */
 export const pushed = (hand) => [
@@ -115,24 +121,22 @@ export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 12
   const decoded = unit ? decode(unit, spec, hand, guard) : given;
   const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
   const chamber = strike.chamber ?? { seconds: 0 };
-  const head = spec.segments.find((s) => s.name === "head");
-  const radius = head.shape.radius.value;
-  // `given.centre` places the sphere anywhere, for a control; a search places it straight ahead.
-  const target = given.centre ? new Vector3(...given.centre) : new Vector3(...head.centreOfMass.value).addInPlaceFromFloats(0, 0, distance);
+  const radius = spec.segments.find((s) => s.name === "head").shape.radius.value;
   const forward = new Vector3(0, 0, 1);
   const stand = await coreStand(spec, { ground: true, hz });
-  const routine = startRoutine(stand.built, stand.world, [
-    { kind: "settle", seconds: SETTLE },
-    { kind: "strike", seconds: chamber.seconds + WINDOW, strike },
-  ], { legs: "carried" });
-  const fist = routine.fists[hand];
+  const blow = throwBlow(stand.built, stand.world, strike);
+  const fist = blow.body.view.fists[hand], head = stand.built.segments.get("head");
+  // `given.centre` places the sphere anywhere, for a control; a search places it straight ahead of
+  // the head as the body stands when the blow begins.
+  let target = given.centre ? new Vector3(...given.centre) : null;
   const last = { position: new Vector3(), velocity: new Vector3() }, path = new Vector3(), from = new Vector3();
-  let closing = 0, at = null, peak = 0, nearest = Infinity, watching = false;
+  let closing = 0, at = null, peak = 0, nearest = Infinity, watching = false, fell = false;
   try {
-    for (let i = 0; i < stand.seconds(SETTLE + chamber.seconds + WINDOW); i++) {
+    for (let i = 0; i < stand.seconds(STAND + chamber.seconds + WINDOW); i++) {
       stand.step(1);
-      const s = routine.state();
-      const live = s.stepIndex === 1 && s.into >= chamber.seconds;
+      if (!target && blow.time >= STAND) target = centreNow(head).addInPlaceFromFloats(0, 0, distance);
+      if (blow.fallen) { fell = true; break; }
+      const live = blow.time >= blow.pushing;
       if (live && watching) {
         // The fist's path over the step, a straight segment from where it was: where it first
         // crosses the sphere, if it does, and its velocity there, interpolated along the step.
@@ -145,7 +149,7 @@ export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 12
         nearest = Math.min(nearest, Math.sqrt(Math.max(0, from.lengthSquared() + 2 * along * b + along * along * a)));
         if (c > 0 && t >= 0 && t <= 1) {
           closing = Vector3.Dot(Vector3.Lerp(last.velocity, fist.velocity, t), forward);
-          at = +(s.into - chamber.seconds - (1 - t) / stand.seconds(1)).toFixed(4);
+          at = +(blow.time - blow.pushing - (1 - t) / stand.seconds(1)).toFixed(4);
           break;
         }
         peak = Math.max(peak, fist.velocity.length());
@@ -155,7 +159,8 @@ export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 12
       last.position.copyFrom(fist.position);
       last.velocity.copyFrom(fist.velocity);
     }
-  } finally { routine.dispose(); stand.dispose(); }
+  } finally { blow.dispose(); stand.dispose(); }
+  if (fell) return { score: FELL, closing: 0, at: null, peak, distance, strike, fell };
   const score = at !== null ? closing : -(nearest - radius);
-  return { score, closing, at, peak, distance, strike };
+  return { score, closing, at, peak, distance, strike, fell };
 }

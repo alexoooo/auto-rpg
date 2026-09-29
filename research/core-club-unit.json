@@ -1,159 +1,219 @@
 {
-  "harness": "Node core stand, pelvis carried still, ground on; a club blow into a head-sized sphere",
+  "harness": "Node core stand, standing on its feet as built, ground on; a club blow into a head-sized sphere",
   "model": "workshop-fighter",
   "hand": "right",
-  "found": "research/core-strike-search.mjs --weapon club --seed 1 --hz 480 --generations 40 --population 96, 4 trials a candidate",
+  "found": "research/core-strike-search.mjs --weapon club --seed 2 --hz 960 --generations 40 --population 96 --replay 120,480,960,1920,3840, 4 trials a candidate",
   "readings": {
     "at120": {
-      "mean": 89.48,
+      "mean": 19.16,
       "runs": [
-        86.62,
-        86.87,
-        85.41,
-        90.12,
-        95.32,
-        94.99,
-        91,
-        85.49
+        55.42,
+        63.76,
+        28.9,
+        2.86,
+        2.35,
+        0,
+        -0.01,
+        -0.01
       ],
-      "at": 0.2733,
-      "peak": 15.64,
-      "closing": 10.012,
-      "clubKg": 1.845,
-      "headKg": 27.18,
+      "at": 0.293,
+      "peak": 16.8,
+      "closing": 9.612,
+      "clubKg": 1.419,
+      "headKg": 7.77,
       "normal": [
-        0.392,
-        -0.919,
-        0.026
+        0.875,
+        -0.214,
+        0.435
       ]
     },
     "at480": {
-      "mean": 109.12,
+      "mean": 120.12,
       "runs": [
-        109.65,
-        107.54,
-        109.28,
-        108.92,
-        109.37,
-        109.22,
-        109.96,
-        108.99
+        121.73,
+        117.4,
+        115.14,
+        124.43,
+        122.22,
+        120.7,
+        116.86,
+        122.48
       ],
-      "at": 0.2739,
-      "peak": 16.38,
-      "closing": 11.728,
-      "clubKg": 1.653,
-      "headKg": 45.22,
+      "at": 0.3006,
+      "peak": 17.29,
+      "closing": 12.307,
+      "clubKg": 1.731,
+      "headKg": 22.43,
       "normal": [
-        0.212,
-        -0.962,
-        0.173
+        0.3,
+        -0.847,
+        0.438
+      ]
+    },
+    "at960": {
+      "mean": 120.79,
+      "runs": [
+        121.63,
+        119.43,
+        119.16,
+        121.66,
+        121.08,
+        121.75,
+        120.53,
+        121.08
+      ],
+      "at": 0.3002,
+      "peak": 17.31,
+      "closing": 12.365,
+      "clubKg": 1.717,
+      "headKg": 21.69,
+      "normal": [
+        0.133,
+        -0.883,
+        0.451
       ]
     },
     "at1920": {
-      "mean": 109.89,
+      "mean": 120.7,
       "runs": [
-        110.67,
-        109.55,
-        109.89,
-        109.16,
-        109.73,
-        108.86,
-        111.1,
-        110.17
+        121.64,
+        120.34,
+        119.67,
+        120.95,
+        120.59,
+        121.53,
+        120.82,
+        120.06
       ],
-      "at": 0.2757,
-      "peak": 16.53,
-      "closing": 11.812,
-      "clubKg": 1.631,
-      "headKg": 58.83,
+      "at": 0.3008,
+      "peak": 17.4,
+      "closing": 12.23,
+      "clubKg": 1.748,
+      "headKg": 23.43,
       "normal": [
-        0.073,
-        -0.985,
-        0.155
+        0.128,
+        -0.898,
+        0.422
+      ]
+    },
+    "at3840": {
+      "mean": 121.19,
+      "runs": [
+        121.83,
+        120.54,
+        120.31,
+        121.17,
+        121.48,
+        121.71,
+        121.48,
+        120.96
+      ],
+      "at": 0.3008,
+      "peak": 17.37,
+      "closing": 12.332,
+      "clubKg": 1.727,
+      "headKg": 22.18,
+      "normal": [
+        0.136,
+        -0.887,
+        0.44
       ]
     }
   },
-  "distance": 0.755,
+  "distance": 0.83,
   "strike": {
     "name": "searched right club blow",
     "hand": "right",
     "chamber": {
-      "seconds": 0.4767409854300595,
+      "seconds": 0.38563145783320407,
       "pose": {
-        "thoracic rotation right": 0.1470038206255962,
+        "thoracic rotation right": -0.01768767145137501,
         "shoulder.right flexion": 3.021680887024762,
-        "shoulder.right abduction": -0.7191159499508002,
-        "shoulder.right internal rotation": -0.23798230490825079,
-        "elbow.right flexion": 0.6307778723910329,
-        "wrist.right flexion": -0.5437728235037581,
-        "wrist.right radial deviation": -0.20724421580168295,
-        "wrist.right pronation": -0.3978501106429093
+        "shoulder.right abduction": 0.8714637961147316,
+        "shoulder.right internal rotation": -0.3001050797033158,
+        "elbow.right flexion": 1.094544338900571,
+        "wrist.right flexion": 0.8301999880331801,
+        "wrist.right radial deviation": -0.6232114007195446,
+        "wrist.right pronation": -0.12466540603018172
       }
     },
     "pushes": [
       {
         "channel": "thoracic rotation right",
-        "sense": 1,
-        "from": 0.1633767995065241,
-        "to": 0.23374517124104788,
-        "level": 0.9604386690344966
+        "sense": -1,
+        "from": 0.08789305674904013,
+        "to": 0.3125983068125573,
+        "level": 0.2917751495406348
       },
       {
         "channel": "lumbar rotation right",
         "sense": 1,
-        "from": 0.12721007749848856,
-        "to": 0.28255966303187463,
-        "level": 0.6073809198145839
+        "from": 0.11996515458979357,
+        "to": 0.1629808685923724,
+        "level": 0.36615213372098965
+      },
+      {
+        "channel": "thoracic flexion",
+        "sense": 1,
+        "from": 0.07520217378917247,
+        "to": 0.1985102533201124,
+        "level": 0.2626226654938408
       },
       {
         "channel": "thoracic lateral flexion right",
+        "sense": 1,
+        "from": 0.14365614437809748,
+        "to": 0.31256051903379106,
+        "level": 0.6152569208830108
+      },
+      {
+        "channel": "lumbar flexion",
+        "sense": 1,
+        "from": 0.03142046564454644,
+        "to": 0.2811379108001294,
+        "level": 1
+      },
+      {
+        "channel": "shoulder.right flexion",
         "sense": -1,
-        "from": 0.10823294723195666,
-        "to": 0.159258497692329,
-        "level": 0.35395358787565734
+        "from": 0.0010193924026568823,
+        "to": 0.16189667229747529,
+        "level": 0.4058260014712515
       },
       {
         "channel": "shoulder.right abduction",
-        "sense": 1,
-        "from": 0.09561346975024922,
-        "to": 0.16907810638914306,
-        "level": 0.5869376044845047
-      },
-      {
-        "channel": "shoulder.right internal rotation",
-        "sense": 1,
-        "from": 0.07371179329904397,
-        "to": 0.2864832696488319,
-        "level": 1
+        "sense": -1,
+        "from": 0.1392151005330601,
+        "to": 0.29302734233172933,
+        "level": 0.9847779173110994
       },
       {
         "channel": "elbow.right flexion",
         "sense": -1,
-        "from": 0.07214309223661093,
-        "to": 0.27620278027388623,
-        "level": 0.9494019007801198
+        "from": 0.09788495596340861,
+        "to": 0.32246742809195017,
+        "level": 0.9377141970850599
       },
       {
         "channel": "wrist.right flexion",
         "sense": 1,
-        "from": 0.06638319247899784,
-        "to": 0.13449985396343228,
-        "level": 0.24107822125655892
+        "from": 0.2306063099290711,
+        "to": 0.3926804408775763,
+        "level": 0.8664202324286687
       },
       {
         "channel": "wrist.right radial deviation",
         "sense": -1,
-        "from": 0.14316986027402273,
-        "to": 0.312586438070668,
-        "level": 0.48340533328257607
+        "from": 0.11861947954440899,
+        "to": 0.3271323481405356,
+        "level": 0.6059122926573044
       },
       {
         "channel": "wrist.right pronation",
         "sense": 1,
-        "from": 0.13764627504754223,
-        "to": 0.35665279509358017,
-        "level": 0.5334791020445185
+        "from": 0.2257465412508771,
+        "to": 0.4215106462308032,
+        "level": 0.3632814089619078
       }
     ]
   }

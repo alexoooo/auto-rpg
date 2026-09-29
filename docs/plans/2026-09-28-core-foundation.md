@@ -596,6 +596,15 @@ contradicts one; the eccentric ceiling is the owner's decision.
   each turn, and steers its walks back onto the line. At 120 Hz both humans stood 20 loops, each
   loop ending within 0.36 m of its start, with strike peaks of 5.44 (Warrior) and 4.66 m/s (Rogue)
   against 5.56 and 4.64 carried; at 480 Hz the Warrior fell in its first turn (Node stand).
+- **Found (2026-09-29): a step does not converge with the rate.** The Warrior's step that sets its
+  right foot 0.3 m across and 0.15 behind (the routine's `set`), from standing as built, in the
+  swing's last 60 ms: at 120 Hz the bearing foot held (x -0.199 m throughout); at 480 Hz it slid
+  4 cm toward the swinging foot, and at 1920 Hz 15 cm, lifting 1 cm, before the swinging foot came
+  down, and the body then staggered at up to 1.4 m/s. The weight shift before the swing took 0.28 s
+  at 120 Hz and 0.53 s at 480 and 1920 Hz. The swinging foot landed within 1 cm at every rate.
+  Standing as built converges (`research/core-blow.mjs` has the table), so the strike searches
+  throw from there. Every stance figure above was read at 120 Hz; the stance's constants are the
+  game rate's until this is understood.
 - **Not yet:** a stance that widens when it stops, a crouch and turning on the spot; running, the
   dash, rolling and getting up.
 
@@ -636,32 +645,43 @@ contradicts one; the eccentric ceiling is the owner's decision.
 - **The club blow** (`research/core-club-strike.mjs`; the search takes `--weapon club`): the
   swell's first touch of a head-sized sphere, read within each step, its closing speed along the
   normal, the club's mass there and the head's from the striker's own guard, turned to face it.
+- **Thrown standing** (`research/core-blow.mjs`, 2026-09-29): the strike searches drive the core
+  body directly, on its own feet under the stance, from where it was built; the fist's too
+  (`core-strike.mjs`). They had used the lab routine's carried pelvis, a kinematic body nothing
+  could move, which is gone from the routine. It does not step into a stance first: that step does
+  not converge with the rate (stage 4's finding).
 - **The damage unit** (`unit` in the rulebook, `core-club-unit`): the best blow's energy at
-  1920 Hz, **109.89 J per hit point**. Every mechanism keeps the old game's ratio to the club
+  1920 Hz, **120.70 J per hit point**. Every mechanism keeps the old game's ratio to the club
   (`worth`, `owner-weapon-ratios`): an edge's joule is worth 5.73 blunt ones, an axe's 7.70, a
-  point's 33.4. `blowDamage` prices a blow. The unit's own blow, replayed at 480 Hz, is worth 1 HP
+  point's 33.4. `blowDamage` prices a blow. The unit's own blow, replayed at 960 Hz, is worth 1 HP
   (`tests/core-rules.test.mjs`).
-- **The table** (Node core stand, pelvis carried still, ground on; 4 trials a candidate; the best
-  blow of each search read again on 8 trials, the mean in joules, then its closing speed, m/s, as
-  written at 1920 Hz). Searches at 120 Hz ran 50 generations of 96, at 480 Hz 40 of 96.
+- **The table** (Node core stand, ground on; 4 trials a candidate, 40 generations of 96; the best
+  blow of each search read again on 8 trials, the mean in joules, and its closing speed, m/s, at
+  1920 Hz). Standing, a blow converges from 960 Hz: blows found at 480 Hz read 10-31 % lower from
+  960 Hz up (and there spread up to 10 % between rates), while blows found at 960 Hz read the same
+  from 960 to 3840 Hz within 0.5 %. So the searches that set the unit ran at 960 Hz.
 
-  | searched at | seed | search | 120 | 480 | 1920 | closing |
-  |---|---|---|---|---|---|---|
-  | 120 Hz | 1 | 93.8 | 93.5 | 82.0 | 80.9 | 11.3 |
-  | | 2 | 40.4 | 40.5 | 29.0 | 30.1 | 6.7 |
-  | | 3 | 101.4 | 96.0 | 33.1 | 46.4 | 8.5 |
-  | 480 Hz | 1 | 109.3 | 89.5 | 109.1 | **109.9** | 11.8 |
-  | | 2 | 51.7 | 26.1 | 51.9 | 50.3 | 8.5 |
-  | | 3 | 104.1 | 8.3 | 103.4 | 103.3 | 13.1 |
+  | stood | searched at | seed | search | 120 | 480 | 960 | 1920 | 3840 | closing |
+  |---|---|---|---|---|---|---|---|---|---|
+  | carried pelvis | 480 Hz | 1 | 109.3 | 89.5 | 109.1 | | 109.9 | | 11.8 |
+  | | | 2 | 51.7 | 26.1 | 51.9 | | 50.3 | | 8.5 |
+  | | | 3 | 104.1 | 8.3 | 103.4 | | 103.3 | | 13.1 |
+  | on its feet | 480 Hz | 1 | 108.6 | miss | 109.0 | 75.7 | 75.0 | 75.3 | 11.5 |
+  | | | 2 | 100.1 | 76.6 | 100.0 | 83.7 | 90.4 | 82.3 | 12.8 |
+  | | | 3 | 113.3 | 66.5 | 112.5 | 90.1 | 90.7 | 93.9 | 12.8 |
+  | on its feet | 960 Hz | 1 | 100.1 | 101.5 | 96.0 | 100.0 | 100.0 | 100.5 | 12.6 |
+  | | | 2 | 121.3 | 19.2 | 120.1 | 120.8 | **120.7** | 121.2 | 12.2 |
+  | | | 3 | 107.0 | 56.5 | 105.5 | 106.5 | 106.7 | 106.8 | 12.3 |
 
-  Blows found at 480 Hz hold at 1920 Hz to 3 %; blows found at 120 Hz do not (seed 3 loses half).
-  So the unit is the converged reading (recorded, not asked). The same blow reads 89.5 J at the
-  game's 120 Hz, so the game's best blow is worth about 0.8 HP until the 120 Hz servo agrees with
-  the finer rates on a searched blow. The best blows are overhead: the shoulder flexed to its limit
-  in the chamber, the normal mostly down onto the head's crown. Muggenthaler's lay men swing a
-  1 kg, 0.65 m rod at 23.9 m/s at the tip, about 95 J; the club's 109.9 J is 1.63 kg met at the
-  swell at 11.8 m/s. Three seeds a rate found a best-of-six; a wider search may find a stronger
-  blow, and would move the unit with its table.
+  (The carried pelvis's searches at 120 Hz read 30-81 J at 1920 Hz; their rows are in this
+  document's history at cce3b403. The 960 and 3840 Hz columns of the rows found at 480 Hz were read in
+  a later replay, 8 trials each.) The unit is the converged reading (recorded, not asked). Thrown standing, the blow
+  meets 1.75 kg of club and arm at 12.2 m/s, overhead, the normal mostly down onto the crown;
+  Muggenthaler's lay men swing a 1 kg, 0.65 m rod at 23.9 m/s at the tip, about 95 J. **At the
+  game's 120 Hz the unit's blow mostly misses** (19.2 J over 8 trials), and the searched blows read
+  from 20 % to 100 % of their converged energy there: the game's physics rate does not reproduce a
+  standing blow. Three seeds found a best-of-three; a wider search may find a stronger blow, and
+  would move the unit with its table.
 - **Waiting:** which mechanism a contact is (cut, thrust, crush, clang) and the floors under which a
   blow only shoves come with the weapons that have edges and points.
 

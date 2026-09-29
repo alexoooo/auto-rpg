@@ -16,7 +16,7 @@
  * A candidate's score is its mean over `--trials` runs (`perturbed` in `core-strike.mjs` says why):
  * the strike as written, and the rest with every push moved and scaled by one draw, the same draws
  * for every candidate in a generation. Prints one JSON line per generation, then the best strike
- * read again on eight fresh trials at 120, 480 and 1920 Hz.
+ * read again on eight fresh trials at each of `--replay`'s rates (120, 480 and 1920 Hz unless given).
  */
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -29,7 +29,7 @@ const { values } = parseArgs({ options: {
   guard: { type: "boolean", default: false }, weapon: { type: "string", default: "fist" },
   generations: { type: "string", default: "30" }, population: { type: "string", default: "64" },
   elite: { type: "string", default: "10" }, workers: { type: "string" }, seed: { type: "string", default: "1" },
-  trials: { type: "string", default: "4" },
+  trials: { type: "string", default: "4" }, replay: { type: "string", default: "120,480,1920" },
 } });
 const { model, hand, guard, weapon } = values, hz = Number(values.hz);
 if (weapon !== "fist" && weapon !== "club") throw new Error(`--weapon is fist or club, not ${weapon}`);
@@ -98,7 +98,7 @@ await Promise.all(pool.map((w) => w.terminate()));
 // its runs, and the unperturbed run's arrival and peak.
 const fresh = [{ shift: 0, scale: 1 }, ...Array.from({ length: 7 }, () => ({ shift: TIMING * (2 * uniform() - 1), scale: 1 + LEVEL * (2 * uniform() - 1) }))];
 const readings = {};
-for (const rate of [120, 480, 1920]) {
+for (const rate of values.replay.split(",").map(Number)) {
   const runs = [];
   for (const perturbation of fresh) runs.push(await evaluateOne({ model, hand, guard, unit: best.unit, hz: rate, perturbation }));
   readings[`at${rate}`] = { mean: +(runs.reduce((s, r) => s + r.score, 0) / runs.length).toFixed(2), runs: runs.map((r) => +r.score.toFixed(2)),
