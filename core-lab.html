@@ -25,6 +25,15 @@
   td:last-child, th:last-child { text-align: right; }
   .note { color: var(--dim); font-size: 12px; margin: 8px 0 0; }
   #restart { width: 100%; }
+  #transport { position: absolute; left: 352px; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  #transport button { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 10px; cursor: pointer; font: inherit; min-width: 36px; }
+  #pause { min-width: 64px; }
+  #pause[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  #timeline { flex: 1; accent-color: var(--accent); }
+  #clock { font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; color: var(--dim); }
+  @media (max-width: 720px) { #transport { left: 16px; } }
 </style>
 </head>
 <body>
@@ -55,6 +64,14 @@
     poses are held by a joint servo. Strike timings are hand-set until the strike search chooses them.
     Figures are this page's, at the rate chosen above: 120 Hz is the game's, 480 Hz a finer check,
     and the two should read alike.</p>
+</div>
+<div id="transport" role="group" aria-label="Timeline">
+  <button id="pause" aria-pressed="false" title="Pause or play the world (Space)">Pause</button>
+  <button data-nudge="-1" title="Back one physics step">&#9664;</button>
+  <button data-nudge="1" title="Forward one physics step">&#9654;</button>
+  <input id="timeline" type="range" min="0" max="0" step="1" value="0"
+    aria-label="The routine's loop, one physics step a notch; dragging pauses. Arrow keys step once it has focus.">
+  <span id="clock">0.000 s</span>
 </div>
 <script type="module" src="/src/core-lab/main.ts"></script>
 </body>

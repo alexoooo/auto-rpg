@@ -23,6 +23,7 @@ import { humanSpec } from "../core/human/spec.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { startRoutine, type Routine, type Step } from "./routine.ts";
 import { dressBody, loadSkin, type SkinView } from "./skin.ts";
+import { recordTimeline, type FrameReading, type Timeline } from "./timeline.ts";
 import { drawBody, type BodyView } from "./view.ts";
 
 /**
@@ -30,7 +31,8 @@ import { drawBody, type BodyView } from "./view.ts";
  * strike three times, turn, walk back, turn. It shows stage 2's muscles at work; the readout is
  * the striking fist's speed, read from the hand's body each physics sub-step, at the game's rate
  * or a finer one. The body is drawn in one of two views: World, the workshop model's skin
- * (`skin.ts`), or Tactical, the collision shapes themselves (`view.ts`).
+ * (`skin.ts`), or Tactical, the collision shapes themselves (`view.ts`). The last loop is recorded
+ * (`timeline.ts`): pausing stops the world, and the timeline shows any physics step of that loop.
  */
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
@@ -82,7 +84,9 @@ const TINT: Readonly<Record<WorkshopModel, Color3>> = {
 };
 
 type ViewKind = "world" | "tactical";
-let current: { built: BuiltBody; view: BodyView; skin: SkinView | null; routine: Routine } | null = null;
+let current: { built: BuiltBody; view: BodyView; skin: SkinView | null; routine: Routine; timeline: Timeline } | null = null;
+/** While paused, the recorded frame shown and what was read there; null while the world runs. */
+let paused: { frame: number; reading: FrameReading | null } | null = null;
 let shownView: ViewKind = "world";
 let shownStrikes = -1;
 /** The physics and control rate: the game's, or a finer reference. */
@@ -90,6 +94,7 @@ let hz = PHYSICS_HZ.value;
 
 function load(model: WorkshopModel): void {
   if (current) {
+    current.timeline.dispose();
     current.routine.dispose();
     current.skin?.dispose();
     current.view.dispose();
@@ -101,12 +106,17 @@ function load(model: WorkshopModel): void {
   const plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
   // Keep every segment awake: a sleeping body reads a perfect zero (H08).
   for (const segment of built.segments.values()) plugin.setActivationControl(segment.body, PhysicsActivationControl.ALWAYS_ACTIVE);
-  const loaded = current = { built, view: drawBody(built, scene, TINT[model]), skin: null as SkinView | null, routine: startRoutine(built, scene) };
+  const routine = startRoutine(built, scene);
+  const loaded = current = { built, view: drawBody(built, scene, TINT[model]), skin: null as SkinView | null, routine,
+    timeline: recordTimeline(built, routine, scene) };
   shownStrikes = -1;
+  timeline.max = String(loaded.timeline.frames - 1);
+  setPaused(false);
   showView();
   loadSkin(model, scene).then((container) => {
     if (current !== loaded) return;
-    loaded.skin = dressBody(built, container, scene, (hand) => loaded.routine.closure(hand));
+    loaded.skin = dressBody(built, container, scene,
+      (hand) => paused ? paused.reading?.closure[hand] ?? 0 : loaded.routine.closure(hand));
     showView();
   }, (error: unknown) => console.error(`${model}: the skin did not load`, error));
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
@@ -143,11 +153,36 @@ const describe = (step: Step): string => {
 
 const doing = document.getElementById("doing")!, fist = document.getElementById("fist")!;
 const strikesBody = document.getElementById("strikes")!;
+const timeline = document.getElementById("timeline") as HTMLInputElement;
+const clock = document.getElementById("clock")!, pauseButton = document.getElementById("pause") as HTMLButtonElement;
+
+/** Stop or restart the world. Before it steps again, the live frame goes back on the nodes. */
+function setPaused(on: boolean): void {
+  if (!current) return;
+  if (on && !paused) paused = { frame: current.timeline.live(), reading: current.timeline.at(current.timeline.live()) };
+  if (!on && paused) { current.timeline.show(current.timeline.live()); paused = null; }
+  scene.physicsEnabled = !on;
+  pauseButton.textContent = on ? "Play" : "Pause";
+  pauseButton.setAttribute("aria-pressed", String(on));
+}
+
+/** Pause, and show recorded `frame` (or the nearest recorded). */
+function seek(frame: number): void {
+  if (!current) return;
+  setPaused(true);
+  const shown = current.timeline.show(frame);
+  if (shown >= 0) paused = { frame: shown, reading: current.timeline.at(shown) };
+}
+
 function readout(): void {
   if (!current) return;
   const { routine } = current;
-  doing.textContent = describe(routine.state().step);
-  fist.textContent = routine.fistSpeed().toFixed(1);
+  const frame = paused ? paused.frame : current.timeline.live();
+  const reading = paused ? paused.reading : null;
+  doing.textContent = describe(reading?.step ?? routine.state().step);
+  fist.textContent = (reading?.fist ?? routine.fistSpeed()).toFixed(1);
+  if (document.activeElement !== timeline) timeline.value = String(frame);
+  clock.textContent = `${(reading?.time ?? routine.state().time).toFixed(3)} s`;
   if (routine.strikes.length !== shownStrikes) {
     shownStrikes = routine.strikes.length;
     strikesBody.replaceChildren(...routine.strikes.slice(-6).map((s) => {
@@ -168,6 +203,22 @@ for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-hz]")) {
   button.addEventListener("click", () => { hz = Number(button.dataset.hz); load(shownModel()); button.blur(); });
 }
+pauseButton.addEventListener("click", () => { setPaused(!paused); pauseButton.blur(); });
+for (const button of document.querySelectorAll<HTMLButtonElement>("[data-nudge]")) {
+  button.addEventListener("click", () => {
+    // The loop wraps: back from its first step is its last.
+    const frames = current?.timeline.frames ?? 1;
+    if (current) seek(((paused?.frame ?? current.timeline.live()) + Number(button.dataset.nudge) + frames) % frames);
+    button.blur();
+  });
+}
+timeline.addEventListener("input", () => seek(Number(timeline.value)));
+// Space pauses and plays, unless a control has the key.
+document.addEventListener("keydown", (event) => {
+  if (event.code !== "Space" || event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
+  event.preventDefault();
+  setPaused(!paused);
+});
 document.getElementById("restart")!.addEventListener("click", (event) => {
   load(shownModel());
   (event.currentTarget as HTMLButtonElement).blur();
@@ -187,4 +238,4 @@ engine.runRenderLoop(() => {
 });
 window.addEventListener("resize", () => engine.resize());
 // For the console: a hidden tab does not render, so a check steps the scene by hand (H03).
-(window as unknown as { __coreLab: unknown }).__coreLab = { scene, engine, readout, current: () => current };
+(window as unknown as { __coreLab: unknown }).__coreLab = { scene, engine, readout, current: () => current, seek, setPaused };
