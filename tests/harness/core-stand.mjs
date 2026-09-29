@@ -32,12 +32,14 @@ export async function freshHavok() {
 /**
  * A stand for `spec`. `gravity: false` builds a world without it, for reading a joint alone;
  * `ground: false` leaves the body in the air; `pinned` names a segment the stand holds still, as a
- * mannequin's stand holds its pelvis.
+ * mannequin's stand holds its pelvis. `hz` runs physics and control at another rate than the
+ * game's, as a finer reference; a figure read at one names it.
  */
-export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned } = {}) {
+export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned, hz = PHYSICS_HZ.value } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachHavok(scene, await freshHavok());
+  scene.getPhysicsEngine().setSubTimeStep(1000 / hz);
   if (!gravity) scene.getPhysicsEngine().setGravity(new Vector3(0, 0, 0));
   let floor = null;
   if (ground) {
@@ -56,17 +58,21 @@ export async function coreStand(spec, { gravity = true, ground = true, position 
     if (!segment) throw new Error(`no segment ${pinned} to pin`);
     segment.body.setMotionType(PhysicsMotionType.STATIC);
   }
-  const stepMs = 1000 / PHYSICS_HZ.value;
+  const stepMs = 1000 / hz;
+  // Babylon steps the solver while its accumulator is strictly more than a sub-step
+  // (`_advancePhysicsEngineStep`), so a first call of one sub-step only fills it. Filling it here,
+  // before anything reads the stand, makes `step(n)` n solver steps from the first.
+  scene._advancePhysicsEngineStep(stepMs);
   return {
     scene, built, floor,
-    /** Advance `n` fixed steps. */
+    /** Advance `n` solver steps, each preceded by the scene's before-physics observers. */
     step(n = 1) {
       for (let i = 0; i < n; i++) {
         scene._renderId += 1;
         scene._advancePhysicsEngineStep(stepMs);
       }
     },
-    seconds: (s) => Math.round(s * PHYSICS_HZ.value),
+    seconds: (s) => Math.round(s * hz),
     dispose() {
       built.dispose();
       scene.dispose();

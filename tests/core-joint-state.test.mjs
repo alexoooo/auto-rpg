@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsConstraintMotorType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import { anglesOf, jointAngles, jointTracker } from "../src/core/build/joint-state.ts";
+import { anglesOf, jointAngles, jointTracker, relativeRotationToRef } from "../src/core/build/joint-state.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -116,10 +116,11 @@ test("a joint driven by velocity motors reads each driven freedom's target as it
       stand.built.segments.get("lower").body.applyImpulse(new Vector3(0.3, 0.1, -0.4), new Vector3(0.1, 0.55, 0.05));
       stand.step(stand.seconds(0.25));
       const tracker = jointTracker(joint);
+      const angularVelocity = (segment) => { const w = new Vector3(); segment.body.getAngularVelocityToRef(w); return w; };
       const seen = rates.map(() => 0);
       for (let i = 0; i < stand.seconds(0.25); i++) {
         stand.step(1);
-        tracker.update(1 / stand.seconds(1));
+        tracker.update(angularVelocity);
         tracker.speeds.forEach((speed, k) => { if (rates[k] !== null) seen[k] = Math.max(seen[k], Math.abs(speed - rates[k])); });
         // A limit met would stop a motor short of its target: stay clear of the rods' 1.5 rad.
         assert.ok(tracker.angles.every((angle) => Math.abs(angle) < 1.3), `${dofs.map((d) => d[0])} neared a limit at ${tracker.angles}`);
@@ -131,4 +132,48 @@ test("a joint driven by velocity motors reads each driven freedom's target as it
       }
     } finally { stand.dispose(); }
   }
+});
+
+/**
+ * With both rods tumbling free and no motor, Havok moves the nodes with the bodies' velocities, so
+ * the change of the joint's relative rotation across a step is its speed: the tracker, reading
+ * velocities, agrees with it. The parent turns and spins here, so a reading that ignored the
+ * parent's spin or read the axes in the world would not. Measured, 0.13 rad/s apart at 6 rad/s: a
+ * finite rotation of a tumbling pair is not quite its rate.
+ */
+test("a joint tumbling free reads the speed its relative rotation changes at", async () => {
+  const stand = await coreStand(rods([["x", X], ["y", Y], ["z", Z]]), { gravity: false, ground: false });
+  try {
+    const joint = stand.built.joints.get("middle");
+    const upper = stand.built.segments.get("upper").body, lower = stand.built.segments.get("lower").body;
+    upper.applyImpulse(new Vector3(0.9, -0.2, 0.5), new Vector3(0.05, 1.45, -0.03));
+    lower.applyImpulse(new Vector3(-0.3, 0.4, 0.6), new Vector3(0.1, 0.55, 0.05));
+    stand.step(stand.seconds(0.05));
+    const tracker = jointTracker(joint);
+    const angularVelocity = (segment) => { const w = new Vector3(); segment.body.getAngularVelocityToRef(w); return w; };
+    const dt = 1 / stand.seconds(1);
+    const axes = joint.dofs.map((dof, k) => [joint.axes.x, joint.axes.y, joint.axes.z][k].map((c) => c * dof.sign));
+    const relative = () => relativeRotationToRef(joint, new Quaternion());
+    let before = relative(), worst = 0, parentSpin = 0, largest = 0;
+    for (let i = 0; i < stand.seconds(0.08); i++) {
+      stand.step(1);
+      // Havok integrates positions with the velocity the step ends with, which the next step begins with.
+      tracker.update(angularVelocity);
+      const after = relative();
+      const change = after.multiply(Quaternion.Inverse(before));
+      if (change.w < 0) change.scaleInPlace(-1);
+      const s = Math.hypot(change.x, change.y, change.z), rate = 2 * Math.atan2(s, change.w) / (s * dt);
+      axes.forEach((axis, k) => {
+        const differenced = rate * (change.x * axis[0] + change.y * axis[1] + change.z * axis[2]);
+        worst = Math.max(worst, Math.abs(tracker.speeds[k] - differenced));
+        largest = Math.max(largest, Math.abs(differenced));
+      });
+      parentSpin = Math.max(parentSpin, angularVelocity(joint.parent).length());
+      // A limit's impulse, like a motor's, moves the nodes behind the velocity: stay clear of 1.5 rad.
+      assert.ok(tracker.angles.every((angle) => Math.abs(angle) < 1.4), `neared a limit at ${tracker.angles}`);
+      before = after;
+    }
+    assert.ok(parentSpin > 1 && largest > 1, `the pair tumbles: parent ${parentSpin}, joint ${largest} rad/s`);
+    assert.ok(worst < 0.03 * largest, `tracker against the differenced rotation: ${worst} rad/s off, at up to ${largest}`);
+  } finally { stand.dispose(); }
 });

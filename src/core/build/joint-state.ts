@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltJoint } from "./build-body.ts";
+import type { BuiltJoint, BuiltSegment } from "./build-body.ts";
 
 /**
  * **Where a joint is, in the engine's own coordinates.**
@@ -22,13 +22,18 @@ import type { BuiltJoint } from "./build-body.ts";
  * stand, two rods, tilted axes). That component is also what the motor's torque about the axis does
  * work against, so it is a joint's speed here: the speed a muscle's force-velocity relation reads.
  *
- * Reads the nodes' rotations and nothing else (H24), and no velocity (H50): a joint's speed is
- * the change of its relative rotation across a step.
+ * Angles are read from the nodes' rotations (H24). Speeds are read from the bodies' angular
+ * velocities, which the caller reads once per sub-step and hands in (H50). The change of the
+ * relative rotation across a step is not the speed: after a motor's impulse Havok moves the
+ * nodes behind the body's velocity. A rod given 6 rad/s by a saturated motor in one step had
+ * 6.07 rad/s, while its rotation changed at 4.03, then 5.83, 5.92, reaching 5.98 after five
+ * steps; given the same by an impulse, the two agree within a step (Node stand, 120 Hz). A
+ * controller reading the lagging rate pushes on a joint that is already at speed.
  */
 
 const scratch = {
-  relative: new Quaternion(), inverse: new Quaternion(), t: new Quaternion(), change: new Quaternion(),
-  z: new Vector3(), x: new Vector3(),
+  relative: new Quaternion(), inverse: new Quaternion(), t: new Quaternion(),
+  z: new Vector3(), x: new Vector3(), w: new Vector3(),
 };
 
 /**
@@ -113,29 +118,26 @@ export interface JointTracker {
   readonly angles: number[];
   /** Each freedom's speed (rad/s): the relative angular velocity along its parent-fixed axis. */
   readonly speeds: number[];
-  /** Reads the joint as it stands, `dt` seconds after the last read. */
-  update(dt: number): void;
+  /** Reads the joint as it stands, given each segment's angular velocity (world frame, rad/s). */
+  update(angularVelocity: (segment: BuiltSegment) => Vector3): void;
 }
 
+/**
+ * The relative rotation is `P0 P^-1 C C0^-1` (`relativeRotationToRef`), so its rate is
+ * `P0 P^-1 (wc - wp)` applied on the left: the relative angular velocity turned into the body frame.
+ */
 export function jointTracker(joint: BuiltJoint): JointTracker {
-  const previous = relativeRotationToRef(joint, new Quaternion());
-  const current = new Quaternion();
   const angles = jointAngles(joint, []);
   const speeds = joint.dofs.map(() => 0);
   const axes = joint.dofs.map((dof, k) => signed([joint.axes.x, joint.axes.y, joint.axes.z][k]!, dof.sign));
   return {
     joint, angles, speeds,
-    update(dt) {
-      relativeRotationToRef(joint, current);
-      // The change across the step, in the body frame with the parent held: current previous^-1.
-      Quaternion.InverseToRef(previous, scratch.inverse);
-      current.multiplyToRef(scratch.inverse, scratch.change);
-      const q = scratch.change;
-      if (q.w < 0) q.scaleInPlace(-1);
-      const s = Math.hypot(q.x, q.y, q.z);
-      const rate = s > 1e-12 ? (2 * Math.atan2(s, q.w)) / (s * dt) : 2 / dt;
-      axes.forEach((axis, k) => { speeds[k] = rate * (q.x * axis[0] + q.y * axis[1] + q.z * axis[2]); });
-      previous.copyFrom(current);
+    update(angularVelocity) {
+      const relative = angularVelocity(joint.child).subtractToRef(angularVelocity(joint.parent), scratch.w);
+      Quaternion.InverseToRef(joint.parent.node.rotationQuaternion!, scratch.inverse);
+      joint.parent.rest.multiplyToRef(scratch.inverse, scratch.t);
+      relative.rotateByQuaternionToRef(scratch.t, scratch.w);
+      axes.forEach((axis, k) => { speeds[k] = along(scratch.w, axis); });
       jointAngles(joint, angles);
     },
   };
