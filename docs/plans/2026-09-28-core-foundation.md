@@ -330,8 +330,10 @@ contradicts one; the eccentric ceiling is the owner's decision.
     (`BodyDynamics.bias`, checked against Havok's joint accelerations on a free chain in
     `tests/core-dynamics.test.mjs`), and the servo solves with it; the wrist turned at 7.7 rad/s on
     the same blow. Havok has no gyroscopic torque, so the term leaves it out.
-  - The lab's straights now agree across 120, 480 and 1920 Hz to 2.5 %, the Warrior's peaking at
-    5.7-6.0 m/s and the Rogue's at 4.7-4.9 (`src/core/muscle/driver.ts` has the table). The
+  - The lab's straights now agree across 120, 480 and 1920 Hz to 1.5 %, the Warrior's peaking at
+    5.55-5.69 m/s and the Rogue's at 4.57-4.71 with the joints read as Havok's limits measure them
+    (H76; 5.7-6.0 and 4.7-4.9, to 2.5 %, in the Euler reading before it). `src/core/muscle/driver.ts`
+    has the table. The
     Rogue's "elbow-stop whip", recorded here as a rate effect after the peak, was the missing term.
   - **Havok brakes slow bodies.** A body whose centre moves under about 0.12 m/s loses speed at a
     steady 0.3 m/s^2, at every rate and mass, whatever the world's limits, the joints' friction, the
@@ -416,6 +418,22 @@ contradicts one; the eccentric ceiling is the owner's decision.
     most of the 120 Hz goal's extra 2 mm.
   - **Not yet:** the hand's orientation and speed as goals; the trunk as a goal; the lab's
     straights as hand goals.
+- **One body class, commanded and seen** (`src/core/body.ts`, `tests/core-body.test.mjs`).
+  `createBody(built, world)` is every core body: its muscles under motor control. Whatever drives
+  it -- a mind, the lab's routine, a test -- is handed its view each control step and returns a
+  command, and nothing else reaches the joints.
+  - **The command:** a posture by freedom, a place and a time for each hand's knuckles (a goal equal
+    to the last keeps its path, so a mind may restate it every step), and pushes: freedoms driven
+    flat out by their muscles, which the servo solves the rest around.
+  - **The view:** the clock, every freedom's angle, each fist's knuckles in the world with their
+    velocity, and the knuckles in the body frame, where hand goals are set.
+  - **The lab's routine is a driver of it**, its guard, chamber and legs a posture and its strikes
+    pushes. Moved, it gives the same world to the bit over 14 s of both humans (Node stand, 120 Hz).
+    Its carried pelvis stays a scaffold outside the command until stage 4 stands the body up.
+  - **Measured** (Warrior, lower trunk held, Node stand, 120 Hz): the posture held to 0.022 rad; a
+    hand goal restated each step reached to 1.5 mm; the pushed elbow opened from the guard to
+    0.08 rad from straight, the fist at 7.9 m/s; the released arm back on the posture to 0.006 rad;
+    the view's two readings of the knuckles one point.
 
 ### Stage 4: locomotion v2, force-bounded stepping, for the human
 

@@ -11,6 +11,16 @@ export type Pose = Readonly<Record<string, number>>;
 export type Hand = "left" | "right";
 
 /**
+ * A freedom driven flat out: its muscles pull toward `sense` (+1 or -1) at activation `level`
+ * (0 to 1), a torque source at their ceiling, while the servo solves every other freedom around it.
+ */
+export interface MusclePush {
+  readonly channel: string;
+  readonly sense: 1 | -1;
+  readonly level: number;
+}
+
+/**
  * **Motor control: goals in, muscle commands out.** A body is given a posture (angles for the
  * freedoms, by name, the rest held at their reference angles) and, for each hand, a place for its
  * knuckles in the body frame (the root's frame, `kinematics.ts`) and the time to get there. The
@@ -22,6 +32,9 @@ export type Hand = "left" | "right";
  *
  * The rates and accelerations are the inverse kinematics differenced a step either side along the
  * path, each solved from the angles the last step found.
+ *
+ * A pushed freedom (`MusclePush`) is left to its muscles, whichever goal would own it, and the
+ * servo solves the others around the torque it gives.
  */
 export interface MotorControl {
   /** The controller for `driveMuscles`. */
@@ -32,6 +45,8 @@ export interface MotorControl {
   reach(hand: Hand, position: Vec3, seconds: number): void;
   /** Give `hand`'s arm back to the posture. */
   release(hand: Hand): void;
+  /** Drive `pushes` flat out from the next step, in place of those before. */
+  setPushes(pushes: readonly MusclePush[]): void;
   /** Where `hand`'s path stands now (body frame), or null with no goal. */
   path(hand: Hand): Vector3 | null;
   /** Where `hand`'s knuckles are now, body frame. */
@@ -61,6 +76,7 @@ interface HandState {
 /** Motor control of `built`, servoing at a time constant of `seconds`. */
 export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}): MotorControl {
   let pose = posture;
+  let pushes: readonly MusclePush[] = [];
   const root = chainTo(built, built.segments.get("hand.left")!)[0]!.parent;
   const names = (joint: BuiltJoint) => joint.dofs.map((dof) => `${joint.spec.name} ${dof.spec.positive}`);
   const hands = new Map<Hand, HandState>((["left", "right"] as const).map((side) => {
@@ -119,7 +135,14 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       for (const state of hands.values()) { const g = state.goals.get(name); if (g) return g; }
       return undefined;
     };
-    servo(driver, (i) => owned(i)?.[0] ?? pose[driver.channels[i]!.name] ?? 0, seconds, dt, {
+    servo(driver, (i) => {
+      const name = driver.channels[i]!.name;
+      const push = pushes.find((p) => p.channel === name);
+      if (!push) return owned(i)?.[0] ?? pose[name] ?? 0;
+      driver.velocity[i] = push.sense * UNREACHABLE;
+      driver.activation[i] = push.level;
+      return undefined;
+    }, seconds, dt, {
       rate: (i) => owned(i)?.[1] ?? 0,
       acceleration: (i) => owned(i)?.[2] ?? 0,
     });
@@ -134,7 +157,11 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       state.started = false;
     },
     release(hand) { hands.get(hand)!.goal = null; },
+    setPushes(next) { pushes = next; },
     path: (hand) => hands.get(hand)!.goal ? hands.get(hand)!.point : null,
     knucklesToRef: (hand, out) => { const state = hands.get(hand)!; return pointNowToRef(state.hand, root, state.knuckles, out); },
   };
 }
+
+/** Rad/s beyond any joint's unloaded speed: a pushed motor never reaches its target. */
+const UNREACHABLE = 1e3;

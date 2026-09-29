@@ -77,13 +77,14 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  *   1920 Hz to 5 % under for the Warrior and 15 % over for the Rogue.
  *
  * On the lab's three straights (Node stand, the computed-torque servo with the motion under way,
- * the fist read at the knuckles) the peak fist at 120 Hz, 480 Hz and 1920 Hz, and in brackets the
- * peak before the striking elbow meets its stop:
+ * the fist read at the knuckles, the joints read as Havok's limits measure them, H76) the peak fist
+ * at 120 Hz, 480 Hz and 1920 Hz, each before the striking elbow came within 0.01 rad of its stop:
  *
- *     Warrior  5.87 5.99 5.97 | 5.74 5.86 5.84 | 5.77 5.88 5.87   (the same)
- *     Rogue    4.79 4.86 4.84 | 4.76 4.77 4.79 | 4.85 4.78 4.91   (4.79 4.86 4.84 | 4.69 4.77 4.74 | 4.70 4.78 4.76)
+ *     Warrior  5.56 5.66 5.64 | 5.55 5.64 5.64 | 5.60 5.69 5.68
+ *     Rogue    4.64 4.71 4.71 | 4.57 4.65 4.65 | 4.58 4.67 4.67
  *
- * Every rate is within 2.5 % of the finest. Without the motion under way the servo let a fast
+ * Every rate is within 1.5 % of the finest. In the Euler reading before H76, without the motion
+ * under way, the servo let a fast
  * forearm throw the hand about the wrist: at the knuckles the Warrior's read 5.02-5.15, 4.92-5.05
  * and 5.21-5.27, the hand trailing, and read at the fingertips, as they were until 2026-09-29, the
  * Rogue's read 5.55-5.64, 6.00-6.63 and 6.36-6.78, the elbow's stop whipping her hand at up to 66

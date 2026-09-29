@@ -1,0 +1,72 @@
+/**
+ * The body (`src/core/body.ts`): commanded by goals and read through its view. A posture is held, a
+ * hand goal given afresh each step keeps its path and is reached, a push drives its freedom flat
+ * out, a released hand goes back to the posture, and the view's two readings of the knuckles, the
+ * world's and the body frame's, agree. Node stand: the Warrior, lower trunk held, gravity on, no
+ * ground, 120 Hz.
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { createBody } from "../src/core/body.ts";
+import { chainTo } from "../src/core/control/kinematics.ts";
+import { humanSpec } from "../src/core/human/spec.ts";
+import { coreStand } from "./harness/core-stand.mjs";
+
+const GUARD = {
+  "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,
+  "shoulder.left flexion": 0.5, "shoulder.left abduction": -0.2, "elbow.left flexion": 1.3,
+};
+
+test("a body obeys its command and shows what it does", async () => {
+  const spec = humanSpec("workshop-fighter");
+  const stand = await coreStand(spec, { ground: false, pinned: "lowerTrunk", hz: 120 });
+  const straight = spec.joints.find((j) => j.name === "elbow.left").dofs[0].min.value;
+  const body = createBody(stand.built, stand.world, { servoSeconds: 0.1 });
+  const root = chainTo(stand.built, stand.built.segments.get("hand.right"))[0].parent;
+  try {
+    // The phases, by the view's clock: the guard; the right hand sent forward and up; the left
+    // elbow pushed open; the right hand released.
+    const posture = { ...GUARD, "wrist.left flexion": 0.3 };
+    let goal = null, times = [], seen = { gap: 0, peak: 0 };
+    body.drive((view) => {
+      times.push(view.time);
+      // The view's knuckles in the body frame (the reference pose's world), carried to the world by
+      // the root's turn since then, against its fists.
+      for (const hand of ["left", "right"]) {
+        const turn = root.node.rotationQuaternion.multiply(Quaternion.Inverse(root.rest));
+        const world = view.knuckles[hand].subtract(Vector3.FromArray(root.frame.origin)).applyRotationQuaternion(turn).addInPlace(root.node.position);
+        seen.gap = Math.max(seen.gap, Vector3.Distance(world, view.fists[hand].position));
+      }
+      const t = view.time;
+      if (t >= 1 && !goal) goal = view.knuckles.right.add(new Vector3(0, 0.1, 0.25)).asArray();
+      // A goal equal to the last, made afresh each step, as a mind would.
+      const right = t >= 1 && t < 3 ? { position: [...goal], seconds: 0.4 } : null;
+      const pushing = t >= 2 && t < 2.15;
+      if (pushing) seen.peak = Math.max(seen.peak, view.fists.left.velocity.length());
+      return { posture, hands: { left: null, right },
+        pushes: pushing ? [{ channel: "elbow.left flexion", sense: -1, level: 1 }] : [] };
+    });
+    const angles = body.view.angles, off = (names) => Math.max(...names.map((n) => Math.abs(angles[n] - posture[n])));
+
+    stand.step(stand.seconds(1));
+    const held = off(Object.keys(posture));
+    stand.step(stand.seconds(1));
+    const reached = Vector3.Distance(body.view.knuckles.right, Vector3.FromArray(goal));
+    stand.step(stand.seconds(0.15));
+    const opened = angles["elbow.left flexion"] - straight;
+    stand.step(stand.seconds(1.85));
+    const released = off(["shoulder.right flexion", "shoulder.right abduction", "elbow.right flexion"]);
+
+    const steady = times.every((t, k) => k === 0 || Math.abs(t - times[k - 1] - 1 / 120) < 1e-9);
+    console.log(`MUT body held ${held.toFixed(3)} rad, reached ${(1000 * reached).toFixed(1)} mm, opened to ${opened.toFixed(2)} rad from straight`
+      + ` at ${seen.peak.toFixed(2)} m/s, released ${released.toFixed(3)} rad, knuckles read ${(1000 * seen.gap).toFixed(3)} mm apart, clock ${steady}`);
+    assert.ok(steady && times[0] === 0, "the view's clock is not the world's, a step apart");
+    assert.ok(held < 0.05, `the posture was held ${held.toFixed(3)} rad off`);
+    assert.ok(reached < 0.01, `the hand stopped ${(1000 * reached).toFixed(1)} mm from its goal`);
+    // Opened from the guard's 1.3 rad (2.2 from straight) to near its end, the fist fast.
+    assert.ok(opened < 0.2 && seen.peak > 5, `the pushed elbow stopped ${opened.toFixed(2)} rad from straight, the fist at ${seen.peak.toFixed(2)} m/s`);
+    assert.ok(released < 0.05, `the released arm was ${released.toFixed(3)} rad off the posture`);
+    assert.ok(seen.gap < 1e-6, `the view's knuckles were ${(1000 * seen.gap).toFixed(3)} mm apart`);
+  } finally { body.dispose(); stand.dispose(); }
+});
