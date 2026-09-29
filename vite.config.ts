@@ -18,6 +18,9 @@ export default defineConfig({
   },
   // Havok ships a .wasm beside its ESM bundle; Vite must not try to inline it.
   assetsInclude: ["**/*.wasm"],
+  // MuJoCo's threaded build starts its pthreads as module workers of its own ES module (top-level
+  // await included), which the default `iife` worker format cannot bundle. No other page makes a worker.
+  worker: { format: "es" },
   build: {
     target: "es2022",
     chunkSizeWarningLimit: 4096,
@@ -25,8 +28,9 @@ export default defineConfig({
     // fine in dev -- where every request is served from source -- and is simply absent from
     // `dist`, which is the failure that looks like a routing problem and is a config one.
     // `bench.html` is the golem effector bench.
+    // `physics-bench.html` is the physics bake-off (`research/physics-bakeoff/REPORT.md`).
     // `dungeon.html` and `core-lab.html` only forward to `./?play=dungeon` and `./?play=lab`; they
     // are kept so old links do not 404.
-    rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html", dungeon: "dungeon.html", characterLab: "character-lab.html", coreLab: "core-lab.html" } },
+    rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html", dungeon: "dungeon.html", characterLab: "character-lab.html", coreLab: "core-lab.html", physicsBench: "physics-bench.html" } },
   },
 });

@@ -16,7 +16,10 @@
   "dependencies": {
     "@babylonjs/core": "9.18.1",
     "@babylonjs/havok": "1.3.14",
-    "@babylonjs/loaders": "9.18.1"
+    "@babylonjs/loaders": "9.18.1",
+    "@dimforge/rapier3d-compat": "0.21.0",
+    "@dimforge/rapier3d-simd-compat": "0.21.0",
+    "@mujoco/mujoco": "3.14.0"
   },
   "devDependencies": {
     "typescript": "5.9.3",
