@@ -17,9 +17,10 @@ import HavokPhysics from "@babylonjs/havok";
 // A page entry may carry the `?url` import that Node rejects (H25); nothing Node loads imports this file.
 import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import { attachHavok, PHYSICS_HZ } from "../core/engine/havok.ts";
+import { PHYSICS_HZ } from "../core/engine/havok.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { humanSpec } from "../core/human/spec.ts";
+import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { startRoutine, type Routine, type Step } from "./routine.ts";
 import { dressBody, loadSkin, type SkinView } from "./skin.ts";
@@ -34,19 +35,25 @@ import { drawBody, type BodyView } from "./view.ts";
  * or a finer one. The body is drawn in one of two views: World, the workshop model's skin
  * (`skin.ts`), or Tactical, the collision shapes themselves (`view.ts`).
  *
+ * The world (`src/core/world.ts`) owns the clock, and the render only draws what its steps
+ * produced. Loading a body, or a new rate, makes a new world.
+ *
  * The timeline is the routine's current loop, one physics step a notch (`timeline.ts`). Behind the
  * live step is the recording; ahead of it is what the world has not done yet. Pausing stops the
  * world. Choosing a step behind the live one shows it from the recording, and playing from there
  * replays the recording at the world's pace until it reaches the live step, where the world runs
  * on. Choosing a step ahead runs the world there as fast as the page allows, and holds it there
- * (`player.ts`). The world is never rewound: what follows the live step is always its own.
+ * (`player.ts`), which is the only thing that steps the world. The world is never rewound: what
+ * follows the live step is always its own.
  */
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
 const engine = new Engine(canvas, true, { stencil: true });
 const scene = new Scene(engine);
 scene.clearColor = new Color4(0.082, 0.098, 0.11, 1);
-attachHavok(scene, await HavokPhysics({ locateFile: () => havokWasmUrl }));
+const havok = await HavokPhysics({ locateFile: () => havokWasmUrl });
+/** The world a body is loaded into; each load makes a new one, at the chosen rate. */
+let world: World | null = null;
 
 const camera = new ArcRotateCamera("lab.camera", -Math.PI / 2 - 0.9, 1.25, 4.8, new Vector3(0, 1, 1.5), scene);
 camera.lowerRadiusLimit = 1.5;
@@ -60,12 +67,12 @@ sun.intensity = 0.7;
 scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
 scene.environmentIntensity = 0.85;
 
-// The ground: a static box for the solver, a plane with a grid of metre lines for the eye.
+// The ground: a static box for the solver (made with each world, in `load`), a plane with a grid
+// of metre lines for the eye.
 const groundNode = new TransformNode("lab.ground", scene);
 groundNode.position = new Vector3(0, -0.5, 0);
 groundNode.rotationQuaternion = Quaternion.Identity();
-const groundBody = new PhysicsBody(groundNode, PhysicsMotionType.STATIC, false, scene);
-groundBody.shape = new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(40, 1, 40), scene);
+let groundBody: PhysicsBody | null = null;
 const floor = MeshBuilder.CreateGround("lab.floor", { width: 40, height: 40 }, scene);
 const floorMaterial = new StandardMaterial("lab.floor", scene);
 floorMaterial.diffuseColor = new Color3(0.16, 0.18, 0.19);
@@ -115,22 +122,20 @@ function load(model: WorkshopModel): void {
     current.view.dispose();
     current.built.dispose();
   }
-  // The driver reads its step from the engine when it starts, so the rate is set first.
-  scene.getPhysicsEngine()!.setSubTimeStep(1000 / hz);
+  groundBody?.dispose();
+  world?.dispose();
+  scene.disablePhysicsEngine();
+  world = createWorld(scene, havok, { hz });
+  groundBody = new PhysicsBody(groundNode, PhysicsMotionType.STATIC, false, scene);
+  groundBody.shape = new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(40, 1, 40), scene);
   const built = buildBody(humanSpec(model), scene, { position: [0, 0, 0] });
   const plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
   // Keep every segment awake: a sleeping body reads a perfect zero (H08).
   for (const segment of built.segments.values()) plugin.setActivationControl(segment.body, PhysicsActivationControl.ALWAYS_ACTIVE);
-  const routine = startRoutine(built, scene);
-  const recording = recordTimeline(built, routine, scene);
-  // The scene's own advance, handed a sub-step's time: it takes the fixed sub-steps then due.
-  const stepping = scene as unknown as { _advancePhysicsEngineStep(ms: number): void };
+  const routine = startRoutine(built, world);
+  const recording = recordTimeline(built, routine, world);
   // A new body starts live: nothing of the last one's recording is shown.
-  const player = createPlayer({
-    timeline: recording,
-    run: (running) => { scene.physicsEnabled = running; },
-    advance: () => stepping._advancePhysicsEngineStep(recording.seconds * 1000),
-  }, showTransport, () => performance.now());
+  const player = createPlayer({ world, timeline: recording }, showTransport, () => performance.now());
   const loaded = current = { built, view: drawBody(built, scene, TINT[model]), skin: null as SkinView | null, routine,
     timeline: recording, player };
   shownStrikes = -1;
@@ -258,5 +263,6 @@ engine.runRenderLoop(() => {
   readout();
 });
 window.addEventListener("resize", () => engine.resize());
-// For the console: a hidden tab does not render, so a check steps the scene by hand (H03).
-(window as unknown as { __coreLab: unknown }).__coreLab = { scene, engine, readout, current: () => current };
+// For the console: a hidden tab does not render, so a check steps the world by hand
+// (`__coreLab.world().step(n)`, then `scene.render()`; H03).
+(window as unknown as { __coreLab: unknown }).__coreLab = { scene, engine, readout, current: () => current, world: () => world };

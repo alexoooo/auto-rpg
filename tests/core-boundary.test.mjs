@@ -102,3 +102,24 @@ test("every file the core has taken exists and is outside it", () => {
     assert.ok(why.length > 0, `${file} says why it was taken`);
   }
 });
+
+test("the core turns vectors in double precision, never through Babylon's float32 matrices", () => {
+  // `Vector3.rotateByQuaternionToRef` builds a rotation `Matrix`, a Float32Array: a point turned
+  // through it carries 1e-8 m of noise, which made a Jacobian differenced by 1e-7 rad a quarter
+  // wrong and the inverse kinematics wander (H75). `applyRotationQuaternionToRef` is exact.
+  const banned = /rotateByQuaternion|toRotationMatrix|TransformCoordinates|TransformNormal|\bMatrix\b/;
+  const offenders = [];
+  const walk = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!entry.name.endsWith(".ts")) continue;
+      for (const [index, line] of fs.readFileSync(full, "utf8").split(/\r?\n/).entries()) {
+        const code = line.replace(/\/\/.*$/, "").replace(/^\s*\*.*$/, "");
+        if (banned.test(code)) offenders.push(`${path.relative(ROOT, full)}:${index + 1}`);
+      }
+    }
+  };
+  walk(path.join(ROOT, CORE));
+  assert.deepEqual(offenders, [], "a core file turns a vector through a float32 matrix");
+});

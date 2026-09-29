@@ -1,12 +1,11 @@
-import type { Observer } from "@babylonjs/core/Misc/observable.js";
-import type { Scene } from "@babylonjs/core/scene.js";
+import type { World } from "../core/world.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { ROUTINE, type Routine, type Step } from "./routine.ts";
 
 /**
- * **The lab's timeline**: the routine's current loop, recorded a physics sub-step at a time from
+ * **The lab's timeline**: the routine's current loop, recorded a world step at a time from
  * its start to the live frame, so a paused page can show any moment of it again. A frame is a
- * sub-step's place in the loop; frame 0 is the loop's start, the body as built on the first loop.
+ * step's place in the loop; frame 0 is the loop's start, the body as built on the first loop.
  * When the loop starts again, the last one is forgotten: frames after the live one are always
  * still to come. It records the body's segment transforms and what the readout and the skin read
  * (the step, the fist speed, each hand's closure); showing a frame writes those transforms onto
@@ -17,9 +16,9 @@ import { ROUTINE, type Routine, type Step } from "./routine.ts";
  * from them.
  */
 export interface Timeline {
-  /** Physics sub-steps in one loop of the routine. */
+  /** World steps in one loop of the routine. */
   readonly frames: number;
-  /** Seconds per frame: the physics sub-step. */
+  /** Seconds per frame: the world's step. */
   readonly seconds: number;
   /** The frame the world is at now: every frame up to it is recorded, none after it. */
   live(): number;
@@ -39,9 +38,9 @@ export interface FrameReading {
   readonly closure: { readonly left: number; readonly right: number };
 }
 
-/** Record `routine` on `built`, after every physics sub-step of `scene`. */
-export function recordTimeline(built: BuiltBody, routine: Routine, scene: Scene, steps: readonly Step[] = ROUTINE): Timeline {
-  const seconds = scene.getPhysicsEngine()!.getSubTimeStep() / 1000;
+/** Record `routine` on `built`, after every step of `world`. */
+export function recordTimeline(built: BuiltBody, routine: Routine, world: World, steps: readonly Step[] = ROUTINE): Timeline {
+  const seconds = world.dt;
   const frames = Math.round(steps.reduce((sum, step) => sum + step.seconds, 0) / seconds);
   const nodes = [...built.segments.values()].map((segment) => segment.node);
   const pose = new Float64Array(frames * nodes.length * 7);
@@ -67,7 +66,7 @@ export function recordTimeline(built: BuiltBody, routine: Routine, scene: Scene,
     }
     if (frame < live) {
       // A new loop: the last one's frames are not this one's past. The routine sums its clock in
-      // floating point, so a loop can begin a sub-step late; its first frame stands for the start.
+      // floating point, so a loop can begin a step late; its first frame stands for the start.
       stepOf.fill(-1, frame + 1);
       for (let early = 0; early < frame; early++) {
         time[early] = time[frame]!; stepOf[early] = stepOf[frame]!; fist[early] = fist[frame]!;
@@ -79,7 +78,7 @@ export function recordTimeline(built: BuiltBody, routine: Routine, scene: Scene,
   };
   // The body as built is the loop's start.
   record();
-  const observer: Observer<Scene> = scene.onAfterPhysicsObservable.add(record);
+  const hook = world.afterStep(record);
 
   return {
     frames,
@@ -98,6 +97,6 @@ export function recordTimeline(built: BuiltBody, routine: Routine, scene: Scene,
         k += 7;
       }
     },
-    dispose: () => scene.onAfterPhysicsObservable.remove(observer),
+    dispose: () => hook.dispose(),
   };
 }

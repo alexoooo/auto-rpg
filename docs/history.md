@@ -1,6 +1,6 @@
 # History: the incidents behind the rules in AGENTS.md
 
-`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H73`. This file
+`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H76`. This file
 keeps the full account: what broke, how it was found, and the measurements. It was split out of
 `AGENTS.md` on 2026-09-27 with the text unchanged apart from headings and numbering.
 
@@ -950,9 +950,96 @@ reaches, the ceiling the torque) is exact from the first step, so the servo now 
 the body's mass matrix, and the two rates read 2.36 against 2.28 (`src/core/control/servo.ts`).
 Separately, a body whose centre moves under about 0.12 m/s loses speed at a steady 0.3 m/s^2 until
 it stops, at every rate and mass, awake or not, whatever the world's speed limits, axis friction,
-body damping or motor type; a pure spin about the centre is untouched. It reads as a controller's
+body damping or motor type; a pure spin about the centre is untouched. It is not simply a speed
+threshold: a body falling from rest lost 0.3 m/s^2 over its first step and nothing over its second,
+at 0.08 m/s (Node stand, 120 Hz). It reads as a controller's
 deadband: a servo at 0.1 s leaves light joints 0.02-0.026 rad short, as the square of the time
 constant. A reading that a joint "stopped short" or "fell slower than gravity" is this first.
+
+### H74. A controller that ignores the motion under way lets a fast limb throw its end, and Havok has no gyroscopic torque
+
+The stage 2 acceptance search found blows of 11-14 m/s, over an elite punch, and a replay split
+the fist's speed by joint. Two faults made most of it. The lab read the fist at the hand
+segment's far end, which runs to the fingertip (de Leva's alternative row, 0.2 m from the wrist),
+so every turn of the wrist counted at more than twice a fist's lever; the knuckles (the third
+metacarpal's head) are now a named point on the hand. And the servo's computed torque, M a -
+gravity, left out the part of the motion that goes as the square of the speeds. It held a servoed
+joint only through its angle's error, which builds far too slowly for a light segment at the end
+of a fast chain: the Rogue's forearm, driven straight, flung her servoed hand about the wrist at 83
+rad/s while the servo asked the wrist for next to nothing, and the hand's whip made 4.6 m/s of her
+fist's 8.7 (Node stand, 120 Hz). With the motion under way in the solve (`BodyDynamics.bias`) the
+wrist turned at 7.7 rad/s on the same blow, and the lab's straights agreed across 120, 480 and
+1920 Hz to 2.5 %; the Rogue's "elbow-stop whip", recorded as a rate effect after the fist's
+peak, was this. The searched blows were void, having been found on the whip.
+
+Checking the new term against Havok showed Havok keeps a free body's angular velocity in the
+world, not its angular momentum: a box of inertia 0.010, 0.002 and 0.006 kg m2 spun at (3, 5, 1)
+rad/s with no gravity read (3, 5, 1) a second later at 120, 960 and 1920 Hz, while its angular
+momentum swung round. So the gyroscopic torque, w x I w, is not in the engine, and a model of the
+engine leaves it out; with it, the chain's predicted joint accelerations read 11 % off at the
+median against 8 %. And a lone body not held awake at 1920 Hz went to sleep after one step while
+spinning at 5.9 rad/s: it stopped turning, and its velocity went on reading the spin.
+
+### H75. Babylon turns a vector through a float32 matrix, and Havok's hinges give at 120 Hz
+
+The first hand goals (stage 3) failed at every rate: a reach of 0.2 m strayed 0.4 m from its path,
+and the inverse kinematics alone, off any physics, wandered 88 mm from a straight path of places
+it should have met exactly, pass after pass. The Jacobian was differenced by 1e-7 rad, and read
+at 1e-7, 1e-5 and 1e-3 its columns disagreed by a quarter: the forward kinematics carried about
+1e-8 m of noise, float32's grain on a point a metre and a half out. Babylon's quaternions are
+doubles, and `Vector3.rotateByQuaternionToRef` builds a rotation `Matrix`, a Float32Array, and
+turns the point through that. `applyRotationQuaternionToRef` is doubles throughout; with it the
+columns at 1e-7 and 1e-5 agree to 5e-6 and a solve converges in about ten passes. The core's
+joint axes, its projections of a world vector onto a joint and the kinematics had all gone
+through the float32 path; `tests/core-boundary.test.mjs` now refuses it in `src/core/`.
+
+Then the kinematics, now exact with gravity off (0.05 mm at the knuckles), put the Warrior's
+knuckles 3.8 mm from where his body had them with gravity on at 120 Hz. The elbow's hinge gave
+0.7 deg about its locked axes under the forearm's and hand's weight; at 480 Hz 0.037 deg, at 1920
+Hz none: as the square of the step, as a constraint solve's position correction does. Havok
+exposes no iteration count or constraint stiffness to change it. It is the engine's conditioning,
+not the arm's, so the kinematics are checked at 1920 Hz and a hand goal at 120 Hz ends 2 mm
+further from its target than at 1920 Hz.
+
+Two more rules of the inverse kinematics came out of the same run. A posture pull projected off
+the hand's motion with the damped pseudo-inverse leaks a share of itself into the hand's place,
+which left a millimetre on a far target; the undamped projector leaves none. And a target out of
+reach, taken in one damped step, throws the arm across the singularity at full stretch to the
+shoulder's far limits (a 2.9 rad jump between neighbouring places on a path); bounding each
+pass's turn keeps the arm stretched toward it.
+
+### H76. Havok's limits measure a swing and a halfway twist, not the Euler angles its motors hold
+
+The stage 2 acceptance searches (strikes found by search on the Warrior and the Rogue at 120 Hz,
+then replayed at 480 and 1920 Hz) threw fists by breaking the arm's ranges: at around a quarter
+second into a blow, shoulder internal rotation and wrist flexion read 0.5 to 1.7 rad past their
+ends, with self-contact off as well as on. The core read every joint of three freedoms as the Euler
+angles Rx Ry Rz, because Havok's position motors, held stiff, hold that measure (0.0005 rad at
+(-0.7, 0.6, -0.5)), and a note said a limit acts on the same angles. No test had pressed a limit.
+
+A rod on the Rogue's shoulder axes, one freedom limited, the others free, the servo asking poses
+whose limited Euler angle was zero, stuck on 14, 23 and 18 of 20 to 25 poses; an in-range pose, by
+that reading, of flexion 1, abduction 0 and internal rotation -1.2 stopped at (1.07, 0.17, -0.88).
+Fitting the stuck poses against candidate measures (every Euler order, swing and twist in both
+orders, arcsine, quarter-angle and rotation-vector swings, projections of the child's axes) left
+two: the swing's rotation vector along Y and Z, pressed against +-0.6 at 0.600 to 0.610 rad, and
+for the twist, whose quaternion part read 0.57 to 0.85 at its stop, the angle between the parent's
+and the child's Y about the axis halfway between their X's: 0.600 at all six stops. That is the
+ragdoll constraint's twist. Read that way (`anglesOf`, `twistAbout`), every limited freedom stops
+within 0.008 rad of its limit and poses within the limit are reached to 0.007 rad
+(`tests/core-joint-state.test.mjs`). A joint of two freedoms was already this measure with its Z
+locked; its Ry Rx reading had the twist as the child's own turn, which the halfway twist leaves
+once the joint swings.
+
+The Euler reading also put shoulder abduction, the middle angle, at its singularity inside the
+range (to 2.40 rad against a quarter turn at 1.57); asking abduction 2.0 was chaotic. The swing is
+regular to a half turn. Which anatomical axis is a joint's X, and so its twist, is the spec's: the
+shoulder and hip keep flexion first, since a long-axis twist would put flexion's 3.16 rad into the
+swing, past its half turn.
+
+Every angle, range and pose measured before this was in the Euler reading: the acceptance table,
+the servo's before-and-after figures, the lab's straights. The arguments stand; the numbers are
+void where a pose leaves the axes (H63).
 
 ## House rules and design notes, full text as of 2026-09-27
 

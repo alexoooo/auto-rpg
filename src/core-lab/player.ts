@@ -1,9 +1,11 @@
+import type { World } from "../core/world.ts";
 import type { Timeline } from "./timeline.ts";
 
 /**
  * **The lab's player**: where the page is on the timeline, and moving it. The timeline is the
  * routine's current loop (`timeline.ts`); behind its live frame is the recording, ahead of it is
- * what the world has not done yet. The world is never rewound, so the player has four places:
+ * what the world has not done yet. The player is the only thing that steps the page's world, and
+ * the world is never rewound, so the player has four places:
  *
  * - live: the world runs at its own pace and is shown;
  * - held: a recorded frame, paused;
@@ -21,13 +23,10 @@ export type Playhead =
 /** Paused, or on the way to a pause: Play resumes. */
 export const isPaused = (playhead: Playhead): boolean => playhead.kind === "held" || playhead.kind === "seeking";
 
-/** What the player drives. */
-export interface World {
-  readonly timeline: Pick<Timeline, "seconds" | "live" | "show">;
-  /** Let the world step by itself at its pace, or hold it. */
-  run(running: boolean): void;
-  /** Hand the held world one physics step's time; it takes the steps then due. */
-  advance(): void;
+/** What the player drives: the world, and its recording. */
+export interface Stage {
+  readonly world: Pick<World, "dt" | "step" | "advance">;
+  readonly timeline: Pick<Timeline, "live" | "show">;
 }
 
 export interface Player {
@@ -40,19 +39,23 @@ export interface Player {
   seek(frame: number): void;
   /** Pause where the player is, or play on from the frame shown. */
   setPaused(on: boolean): void;
-  /** Move on by `ms` of page time: a replay through the recording, a seek by running the world until `until` (clock ms). */
+  /**
+   * Move on by `ms` of page time: live, the world by the steps it owes; replaying, the recording;
+   * seeking, the world as many steps as fit before `until` (clock ms).
+   */
   tick(ms: number, until: number): void;
 }
 
 /**
- * A player on `world`, put live: the world runs. `changed` hears every change of place, this first
- * one too; `clock` is the time a seek's budget is read against, ms.
+ * A player on `stage`, put live. `changed` hears every change of place, this first one too;
+ * `clock` is the time a seek's budget is read against, ms.
  */
-export function createPlayer(world: World, changed: (playhead: Playhead) => void, clock: () => number): Player {
-  const { timeline } = world;
+export function createPlayer({ world, timeline }: Stage, changed: (playhead: Playhead) => void, clock: () => number): Player {
   let playhead: Playhead = { kind: "live" };
-  // A replay does not leap for a page that stalled: a hidden tab can hand over seconds at once.
-  const REPLAY_CATCH_UP_MS = 100;
+  const step = world.dt * 1000;
+  // Neither the world nor a replay leaps for a page that stalled: a hidden tab can hand over
+  // seconds at once. Behind by more, the page runs slow and the time is dropped.
+  const CATCH_UP_MS = 100;
 
   const shownFrame = (): number | null =>
     playhead.kind === "held" || playhead.kind === "replaying" ? playhead.frame : null;
@@ -60,7 +63,6 @@ export function createPlayer(world: World, changed: (playhead: Playhead) => void
   /** Go to `next`. A recorded frame goes on the nodes while shown; the live one goes back before the world steps. */
   const go = (next: Playhead): void => {
     playhead = next;
-    world.run(next.kind === "live");
     timeline.show(shownFrame() ?? timeline.live());
     changed(next);
   };
@@ -87,9 +89,9 @@ export function createPlayer(world: World, changed: (playhead: Playhead) => void
       }
     },
     tick(ms, until) {
-      if (playhead.kind === "replaying") {
-        const step = timeline.seconds * 1000;
-        const carry = Math.min(playhead.carry + ms, REPLAY_CATCH_UP_MS), whole = Math.floor(carry / step);
+      if (playhead.kind === "live") world.advance(ms / 1000, Math.ceil(CATCH_UP_MS / step));
+      else if (playhead.kind === "replaying") {
+        const carry = Math.min(playhead.carry + ms, CATCH_UP_MS), whole = Math.floor(carry / step);
         const frame = playhead.frame + whole;
         if (frame >= timeline.live()) go({ kind: "live" });
         else {
@@ -100,7 +102,7 @@ export function createPlayer(world: World, changed: (playhead: Playhead) => void
         const target = playhead.frame;
         let last = timeline.live();
         while (last < target && clock() < until) {
-          world.advance();
+          world.step();
           // Every frame of a loop comes before the next loop starts; if one did start, hold there.
           if (timeline.live() < last) break;
           last = timeline.live();

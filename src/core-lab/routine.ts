@@ -1,9 +1,9 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import type { Scene } from "@babylonjs/core/scene.js";
-import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
-import { servo } from "../core/control/servo.ts";
-import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
+import { createBody, type BodyCommand, type CoreBody, type Fist } from "../core/body.ts";
+import type { BuiltBody } from "../core/build/build-body.ts";
+import type { MusclePush, Pose } from "../core/control/motor.ts";
+import type { World } from "../core/world.ts";
 
 /**
  * **The core lab's routine**: a human walks forward, strikes three times, turns, walks back to
@@ -13,9 +13,8 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
  * - **The pelvis is carried** along the path as a kinematic body. Standing and walking are stage 4's
  *   (the plan's "standing on the feet"); until then the legs swing in the air of a carried pelvis
  *   and bear nothing.
- * - **Poses are held by the servo** (`servo`, `src/core/control/servo.ts`), every freedom at
- *   once, around the pushes. Stage 3's motor control builds its goals on the servo; hand-set joint poses are the
- *   scaffold.
+ * - **Its commands are hand-set joint poses and pushes**, given to the body (`src/core/body.ts`)
+ *   each step as a posture for the servo to hold around the pushes. A mind would give hand goals.
  *
  * Every torque comes from the muscle driver (`src/core/muscle/driver.ts`), so the strikes are as
  * fast as the muscles make them: that is what the page is for. The strikes are hand-set onsets
@@ -24,17 +23,17 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
 
 /**
  * The servo's time constant, s. At 0.1 s, on this routine, the Warrior and the Rogue at 120 Hz and
- * 480 Hz: late in each settle no joint's speed reversed by more than 0.005 rad/s from one step to
- * the next, and from the end of the first second the guard was held within 0.026 rad at 120 Hz and
- * 0.024 at 480 Hz, the worst at a wrist, an elbow or the neck (Node stand). That band is Havok's
- * brake on slow bodies (`servo`), and shrinks as the square of the time constant: at 0.05 s an
- * elbow's was 0.005 rad. But at 0.05 s and 120 Hz the wrists' pronation rang at 7 rad/s, which it
- * did not at 960 Hz (the whole Rogue, lower trunk held, no ground).
+ * 480 Hz: late in each settle no joint's speed reversed by more than 0.006 rad/s from one step to
+ * the next but the Rogue's wrists at 120 Hz, whose pronation flickered at 0.04 rad/s (`servo`) and
+ * radial deviation reversed once at 0.021; and from the end of the first second the guard was held
+ * within 0.032 rad at 120 Hz and 0.030 at 480 Hz, the worst at a wrist or the neck (Node stand).
+ * That band is Havok's brake on slow bodies (`servo`), and shrinks about as the square of the time
+ * constant: at 0.05 s and 960 Hz a wrist's was 0.008 rad. But a time constant needs ten steps (`servo`), 0.083 s at 120 Hz, and
+ * under that the wrists ring about pronation.
  */
 export const SERVO_SECONDS = 0.1;
 
-/** Joint angles, rad, by channel name; a freedom not named is held at its reference angle. */
-export type Pose = Readonly<Record<string, number>>;
+export type { Fist, Pose };
 
 /** Fists up before the chin, elbows in. */
 const GUARD: Pose = {
@@ -116,14 +115,8 @@ export interface StrikeReading {
   readonly peak: number;
 }
 
-/** Where a fist's far end is and how it moves, in the world, as the last sub-step left it. */
-export interface Fist {
-  readonly position: Vector3;
-  readonly velocity: Vector3;
-}
-
 export interface Routine {
-  readonly driver: MuscleDriver;
+  readonly body: CoreBody;
   readonly fists: { readonly left: Fist; readonly right: Fist };
   state(): RoutineState;
   /** The fist speed of the striking hand (or the right one), m/s, last sub-step. */
@@ -138,44 +131,15 @@ export interface Routine {
   dispose(): void;
 }
 
-/**
- * The speed of the hand's far end, from the hand body's velocity: its centre's, plus its spin
- * across the arm from the centre to the end (Havok's linear velocity is the centre of mass's,
- * H49). Not from the nodes: after a limit's impulse Havok moves them behind the body for several
- * steps (`src/core/build/joint-state.ts`), and a fist read from them jumped from 6.7 to 11.4 m/s
- * for one step as the elbow met its stop (Node stand, 120 Hz).
- */
-const fistOf = (hand: BuiltSegment) => {
-  const length = Math.hypot(...hand.spec.distal.value.map((v, i) => v - hand.spec.proximal.value[i]!));
-  const { origin, x, y, z } = hand.frame;
-  const offset = hand.spec.centreOfMass.value.map((c, i) => c - origin[i]!);
-  const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
-  // The centre of mass, and from it to the far end, in the hand's own frame.
-  const centre = new Vector3(dot(offset, x), dot(offset, y), dot(offset, z));
-  const arm = centre.scale(-1).addInPlaceFromFloats(0, length, 0);
-  const lever = new Vector3(), angular = new Vector3();
-  const fist: Fist = { position: new Vector3(), velocity: new Vector3() };
-  const update = (): number => {
-    const turn = hand.node.rotationQuaternion!;
-    arm.applyRotationQuaternionToRef(turn, lever);
-    centre.applyRotationQuaternionToRef(turn, fist.position).addInPlace(hand.node.position).addInPlace(lever);
-    hand.body.getLinearVelocityToRef(fist.velocity);
-    hand.body.getAngularVelocityToRef(angular);
-    return fist.velocity.addInPlace(Vector3.CrossToRef(angular, lever, angular)).length();
-  };
-  return { fist, update };
-};
-
 /** Run `ROUTINE` on `built`, a human in its reference pose at the origin, facing +z. */
-export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly Step[] = ROUTINE): Routine {
+export function startRoutine(built: BuiltBody, world: World, routine: readonly Step[] = ROUTINE): Routine {
   const pelvis = built.segments.get("lowerTrunk");
-  const hands = { left: built.segments.get("hand.left"), right: built.segments.get("hand.right") };
-  if (!pelvis || !hands.left || !hands.right) throw new Error(`${built.spec.model} is not a human the routine knows`);
+  if (!pelvis) throw new Error(`${built.spec.model} is not a human the routine knows`);
   pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
   const pelvisOrigin = pelvis.node.position.clone(), pelvisRest = pelvis.rest.clone();
-  const fist = { left: fistOf(hands.left), right: fistOf(hands.right) };
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+  const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
-  const fists = { left: fist.left.fist, right: fist.right.fist };
 
   const cycle = routine.reduce((sum, step) => sum + step.seconds, 0);
   let time = 0, stepIndex = 0, into = 0;
@@ -206,7 +170,9 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
     }
   };
 
-  const driver = driveMuscles(built, scene, (d, dt) => {
+  const pushes: MusclePush[] = [];
+  const command = { posture: {} as Pose, hands: { left: null, right: null }, pushes, stance: null } satisfies BodyCommand;
+  body.drive((_view, dt) => {
     time += dt;
     into += dt;
     while (into >= routine[stepIndex]!.seconds) {
@@ -231,7 +197,7 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
     pelvis.body.setTargetTransform(target, rotation);
 
     // The fists, as the last sub-step left them.
-    for (const side of ["left", "right"] as const) speed[side] = fist[side].update();
+    for (const side of ["left", "right"] as const) speed[side] = fists[side].velocity.length();
     if (step.kind === "strike") peak = Math.max(peak, speed[step.strike.hand]);
 
     // The legs' swing (scaffold), phased by the distance walked.
@@ -246,20 +212,16 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
     const strike = step.kind === "strike" ? step.strike : undefined;
     const chambered = strike?.chamber && into < strike.chamber.seconds ? strike.chamber.pose : undefined;
     const since = into - (strike?.chamber?.seconds ?? 0);
-    servo(d, (i) => {
-      const name = d.channels[i]!.name;
-      const push = strike && !chambered
-        ? strike.pushes.find((p) => p.channel === name && since >= p.from && since < p.to) : undefined;
-      if (!push) return legs[name] ?? chambered?.[name] ?? GUARD[name] ?? 0;
-      // A speed no joint reaches: the motor is a torque source at the muscles' ceiling.
-      d.velocity[i] = push.sense * UNREACHABLE;
-      d.activation[i] = push.level ?? 1;
-      return undefined;
-    }, SERVO_SECONDS, dt);
+    pushes.length = 0;
+    if (strike && !chambered) {
+      for (const p of strike.pushes) if (since >= p.from && since < p.to) pushes.push({ channel: p.channel, sense: p.sense, level: p.level ?? 1 });
+    }
+    command.posture = { ...GUARD, ...chambered, ...legs };
+    return command;
   });
 
   return {
-    driver,
+    body,
     fists,
     strikes,
     state: () => ({ time, step: routine[stepIndex]!, stepIndex, into }),
@@ -273,7 +235,7 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
       if (before.kind === "strike" && before.strike.hand === hand) return Math.max(0, 1 - into / FIST_OPENING);
       return 0;
     },
-    dispose: () => driver.dispose(),
+    dispose: () => body.dispose(),
   };
 }
 
@@ -282,6 +244,3 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
  * push begins at 0.06 s, and opens over `FIST_OPENING` seconds of the step after. Chosen by eye.
  */
 const FIST_CLOSING = 0.1, FIST_OPENING = 0.25;
-
-/** Rad/s beyond any joint's unloaded speed. */
-const UNREACHABLE = 1e3;

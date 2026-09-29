@@ -45,6 +45,11 @@ export interface SegmentSpec {
    * it is the body's right. A hand held thumb up has its own.
    */
   readonly right?: Quantity<Vec3>;
+  /**
+   * Named points the segment carries, in the body frame: where a reading or a goal is taken on it
+   * rather than at its ends. A hand's `knuckles` is where a fist strikes.
+   */
+  readonly points?: { readonly [name: string]: Quantity<Vec3> };
   readonly mass: Quantity<number>;
   /** In the body frame. */
   readonly centreOfMass: Quantity<Vec3>;
