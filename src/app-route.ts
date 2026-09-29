@@ -1,11 +1,11 @@
 /**
- * Which screen an address opens: the main menu, the arena or the dungeon.
+ * Which screen an address opens: the main menu, the arena, the dungeon or the lab.
  *
  * Pure and free of the DOM so `tests/app.test.mjs` can argue with it. `src/app.ts` reads it once
  * per document, because every screen change is a navigation.
  */
 
-export type Route = "menu" | "arena" | "dungeon";
+export type Route = "menu" | "arena" | "dungeon" | "lab";
 
 export const PLAY_PARAM = "play";
 
@@ -26,7 +26,7 @@ export const MENU_HREF = "./";
 export function routeFor(search: string): Route {
   const query = new URLSearchParams(search);
   const play = query.get(PLAY_PARAM);
-  if (play === "arena" || play === "dungeon") return play;
+  if (play === "arena" || play === "dungeon" || play === "lab") return play;
   return query.has(ARENA_LINK_PARAM) ? "arena" : "menu";
 }
 

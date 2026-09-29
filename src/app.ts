@@ -1,6 +1,6 @@
 /**
  * The game's one document. `index.html` holds each screen as a `<template>`; this mounts the one
- * the address asks for (the menu, the arena or the dungeon) with its own stylesheets.
+ * the address asks for (the menu, the arena, the dungeon or the lab) with its own stylesheets.
  *
  * Only one screen ever exists in a document. Moving between them is a navigation (`MENU_HREF`,
  * `playHref`), because the arena host has no teardown and a navigation is the one teardown
@@ -8,6 +8,7 @@
  */
 import "./menu.css";
 import { MENU_HREF, playHref, routeFor, type Route } from "./app-route.ts";
+import { labAddress } from "./core-lab/scenarios.ts";
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -33,9 +34,10 @@ async function open(route: Route): Promise<void> {
     case "menu": {
       document.title = "Auto-RPG";
       mount("menu-screen");
-      const go = (to: "arena" | "dungeon") => () => window.location.assign(playHref(to, window.location.search));
+      const go = (to: Exclude<Route, "menu">) => () => window.location.assign(playHref(to, window.location.search));
       need("menu-new-game").addEventListener("click", go("dungeon"));
       need("menu-arena").addEventListener("click", go("arena"));
+      need("menu-lab").addEventListener("click", go("lab"));
       need<HTMLButtonElement>("menu-new-game").focus();
       return;
     }
@@ -58,6 +60,20 @@ async function open(route: Route): Promise<void> {
       mount("dungeon-screen");
       const { bootDungeon } = await import("./dungeon/main.ts");
       return bootDungeon();
+    }
+    case "lab": {
+      document.title = "Lab · Auto-RPG";
+      await import("./core-lab/style.css");
+      // Without a scenario, the lab's menu, which loads neither Babylon nor Havok.
+      const address = labAddress(window.location.search);
+      if (address.scenario === null) {
+        mount("lab-select-screen");
+        const { showScenarios } = await import("./core-lab/setup.ts");
+        return showScenarios(address);
+      }
+      mount("lab-screen");
+      const { bootLab } = await import("./core-lab/main.ts");
+      return bootLab({ ...address, scenario: address.scenario });
     }
     default: {
       const unknown: never = route;

@@ -25,8 +25,8 @@ export default defineConfig({
     // fine in dev -- where every request is served from source -- and is simply absent from
     // `dist`, which is the failure that looks like a routing problem and is a config one.
     // `bench.html` is the golem effector bench.
-    // `core-lab.html` watches the core human (`src/core/`) on its muscles.
-    // `dungeon.html` only forwards to `./?play=dungeon`; it is kept so old links do not 404.
+    // `dungeon.html` and `core-lab.html` only forward to `./?play=dungeon` and `./?play=lab`; they
+    // are kept so old links do not 404.
     rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html", dungeon: "dungeon.html", characterLab: "character-lab.html", coreLab: "core-lab.html" } },
   },
 });

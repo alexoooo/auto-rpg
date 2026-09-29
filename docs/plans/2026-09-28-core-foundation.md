@@ -580,11 +580,11 @@ contradicts one; the eccentric ceiling is the owner's decision.
   not in.
 - **Assistance:** none. Nothing but the legs' muscles holds the body up; the only non-anatomical
   term is the foot conditioning, named as solver conditioning.
-- **The lab page** (2026-09-29): `/core-lab.html` opens in stance mode (`src/core-lab/stance-mode.ts`,
-  `tests/core-lab.test.mjs`). W A S D or the arrows walk the chosen human at 0.2-0.5 m/s, Q and E
+- **The lab** (2026-09-29): the game's Lab (`?play=lab`, which `/core-lab.html` forwards to) opens on
+  a scenario menu. The Stance scenario (`src/core-lab/stance-mode.ts`, `tests/core-lab.test.mjs`): W A S D or the arrows walk the chosen human at 0.2-0.5 m/s, Q and E
   turn it while it walks, and the panel shoves its chest 10-60 N s four ways. The readout is the
   stance's own. On the ground are the centre of mass, the capture point and the held place. The
-  last 10 s can be scrubbed. `?mode=routine` keeps stage 2's routine.
+  last 10 s can be scrubbed. The Routine scenario is stage 2's routine.
 - **Found in the lab:** a 30 N s shove from the rest stance holds (one catching step, each human),
   but after a walk and a stop the stance is the gait's 0.2 m width, and the same shove can fall.
   Asked for a lower centre of mass (8-16 cm), the stance stands about 1 cm lower, and walking from

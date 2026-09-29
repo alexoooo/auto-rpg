@@ -34,9 +34,10 @@ development server running.
 `index.html` alone, so a page missing there works in dev and is absent from `dist`.
 
 - `/` (`index.html`, entry `src/app.ts`) is the game: main menu, the arena at `?play=arena` (a
-  `?matchup=` link opens it directly) and the dungeon at `?play=dungeon`. Each screen is a
+  `?matchup=` link opens it directly), the dungeon at `?play=dungeon` and the lab at `?play=lab`
+  (its scenario menu; `&scenario=` runs one, `src/core-lab/scenarios.ts`). Each screen is a
   `<template>` mounted once per page load; changing screen is a navigation.
-- `/dungeon.html` forwards to `./?play=dungeon`.
+- `/dungeon.html` forwards to `./?play=dungeon`, and `/core-lab.html` to `./?play=lab`.
 - `/bench.html` is the module bench: one module on a stand, or an effector in each socket.
 - `/art-proof.html` is the golem art proof; `/character-lab.html` is the character workshop viewer.
 

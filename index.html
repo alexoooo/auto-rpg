@@ -10,14 +10,15 @@
     </style>
   </head>
   <body>
-    <!-- One document, three screens. src/app.ts mounts exactly one of these per page load, so
-         the arena and the dungeon may share ids (#help, #resume) and never meet. -->
+    <!-- One document, four screens. src/app.ts mounts exactly one of these per page load, so
+         the arena, the dungeon and the lab may share ids (#help, #resume, #stage) and never meet. -->
     <template id="menu-screen">
       <main id="title-screen">
         <h1>Auto-RPG</h1>
         <nav aria-label="Main menu">
           <button id="menu-new-game" type="button">New Game</button>
           <button id="menu-arena" type="button">Arena</button>
+          <button id="menu-lab" type="button">Lab</button>
         </nav>
       </main>
     </template>
@@ -158,6 +159,85 @@
         <p>Attacks and counters are always automatic. Brief dodges may adjust movement. Doors open on approach. Reach the green exit circle to escape.</p>
         <p><b>Wheel</b> zooms · <b>Space / Esc</b> pauses · <b>?</b> closes this help.</p><button id="close-help">Got it</button>
       </section>
+    </template>
+    <!-- The lab, in two templates: its scenario menu (`?play=lab`, src/core-lab/setup.ts) and a
+         scenario running (`?play=lab&scenario=...`, src/core-lab/main.ts). -->
+    <template id="lab-select-screen">
+      <main id="lab-select">
+        <h1>LAB</h1>
+        <nav id="lab-scenarios" aria-label="Scenarios"></nav>
+        <a href="./">&larr; Main menu</a>
+      </main>
+    </template>
+    <template id="lab-screen">
+      <canvas id="stage" tabindex="0" aria-label="The core human. Drag to orbit, scroll to zoom; in the Stance, W A S D or the arrows walk it."></canvas>
+      <div id="panel">
+        <a id="to-scenarios" href="?play=lab">&larr; Scenarios</a>
+        <h1 id="scenario-name">Lab</h1>
+        <div class="models" role="group" aria-label="Character">
+          <button data-model="workshop-fighter" aria-pressed="true">Warrior</button>
+          <button data-model="workshop-rogue" aria-pressed="false">Rogue</button>
+        </div>
+        <div class="models" role="group" aria-label="View">
+          <button data-view="world" aria-pressed="true" title="The workshop model's skin, carried by the segments">World</button>
+          <button data-view="tactical" aria-pressed="false" title="The collision shapes the solver moves">Tactical</button>
+        </div>
+        <div class="models" role="group" aria-label="Physics rate">
+          <button data-hz="120" aria-pressed="true" title="The game's rate">120 Hz</button>
+          <button data-hz="480" aria-pressed="false" title="A finer step, where the readings converge">480 Hz</button>
+        </div>
+        <div data-for="stance">
+          <p class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows walk &middot; <kbd>Q</kbd><kbd>E</kbd> turn while walking
+            &middot; <kbd>Space</kbd> pauses</p>
+          <p class="label">Walking speed, m/s</p>
+          <div class="models" role="group" aria-label="Walking speed">
+            <button data-speed="0.2" aria-pressed="false">0.2</button>
+            <button data-speed="0.3" aria-pressed="true">0.3</button>
+            <button data-speed="0.4" aria-pressed="false">0.4</button>
+            <button data-speed="0.5" aria-pressed="false">0.5</button>
+          </div>
+          <p class="label">Shove the chest toward</p>
+          <div class="models" role="group" aria-label="Shove">
+            <select id="impulse" aria-label="Impulse, N s" title="Impulse, N s">
+              <option value="10">10 N s</option><option value="20">20 N s</option><option value="30" selected>30 N s</option>
+              <option value="40">40 N s</option><option value="60">60 N s</option>
+            </select>
+            <button data-shove="0" title="Toward where it faces">Front</button>
+            <button data-shove="180" title="Toward its back">Back</button>
+            <button data-shove="270" title="Toward its left">Left</button>
+            <button data-shove="90" title="Toward its right">Right</button>
+          </div>
+          <dl>
+            <dt>Doing</dt><dd id="s-phase">-</dd>
+            <dt>State</dt><dd id="s-state">-</dd>
+            <dt>Walking steps</dt><dd id="s-strides">0</dd>
+            <dt>Catching steps</dt><dd id="s-recoveries">0</dd>
+            <dt>Speed</dt><dd><span id="s-speed">0.00</span> m/s</dd>
+            <dt>Height / goal</dt><dd><span id="s-height">-</span> m</dd>
+            <dt>Off its place</dt><dd><span id="s-off">0.0</span> cm</dd>
+            <dt>Heading</dt><dd><span id="s-heading">0</span>&deg;</dd>
+          </dl>
+          <p class="note"><span class="swatch" style="background:#f2bf66"></span>centre of mass
+            <span class="swatch" style="background:#e64d40"></span>capture point
+            <span class="swatch" style="background:#59a6e6"></span>the place it holds the centre toward</p>
+        </div>
+        <div data-for="routine" hidden>
+          <dl>
+            <dt>Doing</dt><dd id="doing">-</dd>
+            <dt>Fist</dt><dd><span id="fist">0.0</span> m/s</dd>
+          </dl>
+          <table><thead><tr><th>Strike</th><th>Peak fist, m/s</th></tr></thead><tbody id="strikes"></tbody></table>
+        </div>
+        <button id="restart">Restart</button>
+      </div>
+      <div id="transport" role="group" aria-label="Timeline">
+        <button id="pause" aria-pressed="false" title="Pause or play the world (Space)">Pause</button>
+        <button data-nudge="-1" title="Back one physics step">&#9664;</button>
+        <button data-nudge="1" title="Forward one physics step">&#9654;</button>
+        <input id="timeline" type="range" min="0" max="0" step="1" value="0"
+          aria-label="The recording, one physics step a notch; dragging pauses. Arrow keys step once it has focus.">
+        <span id="clock">0.000 s</span>
+      </div>
     </template>
     <script type="module" src="/src/app.ts"></script>
   </body>
