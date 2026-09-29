@@ -5,7 +5,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltDof, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import type { MuscleSpec } from "../spec/body.ts";
 import { jointTracker, type JointTracker } from "../build/joint-state.ts";
-import { inertiaBeyond } from "../build/inertia-beyond.ts";
+import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
 import { PHYSICS_HZ } from "../engine/havok.ts";
 import { appliedAngularImpulseToRef } from "../engine/constraint.ts";
 import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
@@ -29,11 +29,12 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * both directions, so the choice bounds the motor whichever way it then pushes. Toward a target the
  * step cannot reach (below), the side pushed toward. Otherwise, the sign of the torque the step
  * needs, taking the torque the motor last applied (`pulled`) to have held the joint's speed: that
- * torque, plus the inertia beyond the joint (`inertiaBeyond`) times the change of speed asked over
- * the step. With no torque either way, the side pushed toward, and with no push the weaker.
+ * torque, plus the inertia beyond the joint about its axis (the mass matrix's diagonal,
+ * `bodyDynamics`) times the change of speed asked over the step. With no torque either way, the side pushed toward, and with no push the weaker.
  * The side was the sign of target minus speed, the change asked, and that gave the braking
  * muscles' work to the other side whenever a load outweighed the change: a servo asks for small
- * changes, the smaller the finer the step. On the Rogue's servoed return (Node stand, steps where a
+ * changes, the smaller the finer the step. On the Rogue's return under the velocity servo of the
+ * time (Node stand, steps where a
  * joint was at a stop left out), the motors pulled past the pulling side's ceiling on 1127 steps at
  * 1920 Hz, 8.2 N m s in all, and were held short of it on 227 (1.3 N m s), against 1 and none at
  * 120 Hz; with the side so chosen, 73 (1.0 N m s, 72 of them at the shoulder) and none, and 4
@@ -77,17 +78,19 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  *   curve at 0.05 s at 120 Hz, and moved the lab's straights at 120 Hz from within a few per cent of
  *   1920 Hz to 5 % under for the Warrior and 15 % over for the Rogue.
  *
- * On the lab's three straights (Node stand) the peak fist at 120 Hz, 480 Hz and 1920 Hz:
+ * On the lab's three straights (Node stand, the computed-torque servo) the peak fist at 120 Hz,
+ * 480 Hz and 1920 Hz, and in brackets the peak before the striking elbow meets its stop:
  *
- *     Warrior  6.40 6.40 6.39 | 6.57 6.60 6.60 | 6.55 6.60 6.62
- *     Rogue    5.43 5.50 5.42 | 5.29 5.33 5.32 | 5.41 6.01 5.71
+ *     Warrior  6.22 6.23 6.27 | 6.12 6.12 6.18 | 6.20 6.25 6.22   (the same)
+ *     Rogue    5.55 5.64 5.57 | 6.00 6.63 6.12 | 6.36 6.78 6.50   (5.55 5.64 5.57 | 5.45 5.43 5.49 | 5.45 5.53 5.45)
  *
- * Nothing of the body meets itself on them at 120 Hz, and with self-contact off they read the same
- * but for the Rogue's at 1920 Hz. The Warrior's are within 3.5 % of the finest rate. The Rogue's at
- * 120 Hz are within 3.2 % of 480 Hz's and up to 8.5 % under 1920 Hz's, which are no steady
- * reference: with self-contact off, where the trunk meets nothing, making it a hull instead of a box
- * moved them from 5.58 6.16 5.84 to 5.41 5.86 5.88. One blow is a poor reading of a rate: random
- * strikes read 1.9 % apart when every activation was scaled by 0.9999 (the plan, stage 2).
+ * They read the same with self-contact off. The Warrior's are within 1.7 % of the finest rate. The
+ * Rogue's elbow reaches its stop opening at 32 rad/s, and the stop whips the light hand about the
+ * wrist, at up to 66 rad/s at 1920 Hz: the fist gains up to a fifth for a few milliseconds. At
+ * 120 Hz Havok takes the stop inside one step and the whip comes a step later and smaller (47 rad/s),
+ * with the fist already slowing. Driven, before the stop, the Rogue's are within 2.2 % of the finest
+ * rate. One blow is a poor reading of a rate: random strikes read 1.9 % apart when every activation
+ * was scaled by 0.9999 (the plan, stage 2).
  *
  * A heavy limb still gains a few per cent early at 120 Hz: a rod driven flat out from rest read
  * 5.8 % over the curve at 0.05 s, 2.1 % at 0.15 s (`tests/core-muscle.test.mjs`).
@@ -105,9 +108,9 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * expect the step it hands it (`HP_World_SetIdealStepTime`): told to expect 1/240 s or less while
  * stepping 1/120 s, the rod asked for 6 rad/s turned at 5.87, 6.29, 6.01 rad/s against 8.06, 5.87,
  * 5.63, 6.28, and at 1920 Hz the ring is the same, 8.07. Holding the two apart changes more than
- * the ring and is not done here (the plan, stage 2). So a controller asks for speeds near the one it reads:
- * a servo that asked for a joint's goal speed at once reversed a braked elbow in one step at
- * 120 Hz (`src/core/control/servo.ts` has the servo and the numbers).
+ * the ring and is not done here (the plan, stage 2). The ring and the lag behind it are counted in
+ * steps, so a controller that asks for speeds runs behind at 120 Hz; the servo asks for torques
+ * (`src/core/control/servo.ts` has the servo and the numbers).
  * The driver reads its step from the engine's sub-step, so a finer one is a setting, not a change.
  *
  * A freedom's ceiling bounds its own axis only: a ball joint turning about two axes at once can
@@ -139,9 +142,27 @@ export interface MuscleDriver {
   /** The command, by channel: activation 0-1, and the speed asked for (rad/s, the freedom's sense). */
   readonly activation: Float64Array;
   readonly velocity: Float64Array;
-  /** The channel's joint as last read: angle (rad) and speed (rad/s). */
+  /**
+   * The channel's joint as last read: angle (rad), its rate (rad/s), and speed (rad/s): the
+   * relative angular velocity along the axis its motor drives, which is the rate only at a
+   * joint's first freedom or a joint near its reference pose (`src/core/build/joint-state.ts`).
+   */
   angle(channel: number): number;
+  rate(channel: number): number;
   speed(channel: number): number;
+  /**
+   * The channel's speed per rad/s of the rate of freedom `k` of its joint, at its angles as last
+   * read (`turningToRef`). A joint's channels are consecutive, in its freedoms' order: freedom k
+   * of channel i's joint is channel `i - channels[i].index + k`.
+   */
+  turning(channel: number, k: number): number;
+  /**
+   * The body's mass matrix and gravity in the channels' speeds, as last read (`bodyDynamics`): a
+   * channel's index is its freedom's.
+   */
+  readonly dynamics: BodyDynamics;
+  /** The torque the channel's muscles toward `sense` (+1 or -1) can give at full activation at its speed, N m. */
+  strength(channel: number, sense: 1 | -1): number;
   /** The ceiling last given to the channel's motor, N m. */
   readonly ceiling: Float64Array;
   /**
@@ -166,8 +187,6 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
   // Each joint's last applied impulse along its freedoms, N m s, and each channel's joint's.
   const impulses: number[][] = [];
   const impulseOf: number[][] = [];
-  // Each channel's joint and freedom, by index into the joints.
-  const jointOf: number[] = [];
   for (const joint of built.joints.values()) {
     const tracker = jointTracker(joint);
     trackers.push(tracker);
@@ -175,7 +194,6 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
     impulses.push(along);
     joint.dofs.forEach((dof, index) => {
       impulseOf.push(along);
-      jointOf.push(trackers.length - 1);
       const muscle = dof.spec.muscle;
       channels.push({
         name: `${joint.spec.name} ${dof.spec.positive}`, joint, index, dof,
@@ -195,6 +213,9 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
   const n = channels.length;
   const subStep = scene.getPhysicsEngine()?.getSubTimeStep() ?? 0;
   const dt = subStep > 0 ? subStep / 1000 : 1 / PHYSICS_HZ.value;
+  const g = scene.getPhysicsEngine()?.gravity;
+  const dynamics = bodyDynamics(built, g ? [g.x, g.y, g.z] : [0, 0, 0]);
+  const angles = trackers.map((tracker) => tracker.angles);
   let observer: Observer<Scene> | null = null;
   const driver: MuscleDriver = {
     channels,
@@ -203,7 +224,14 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
     ceiling: new Float64Array(n),
     pulled: new Float64Array(n),
     angle: (i) => trackerOf[i]!.angles[channels[i]!.index]!,
+    rate: (i) => trackerOf[i]!.rates[channels[i]!.index]!,
     speed: (i) => trackerOf[i]!.speeds[channels[i]!.index]!,
+    turning: (i, k) => trackerOf[i]!.turning[channels[i]!.index]![k]!,
+    dynamics,
+    strength(i, sense) {
+      const c = channels[i]!, side = sense > 0 ? c.positive : c.negative;
+      return side.peak * forceVelocityFactor(sense * driver.speed(i), side.curve);
+    },
     channel(name) {
       const i = byName.get(name);
       if (i === undefined) throw new Error(`${built.spec.model} has no muscle channel "${name}"`);
@@ -216,7 +244,6 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
     },
   };
   const impulse = new Vector3();
-  const inertia = inertiaBeyond(built);
   observer = scene.onBeforePhysicsObservable.add(() => {
     for (const [segment, w] of spin) segment.body.getAngularVelocityToRef(w);
     trackers.forEach((tracker, j) => {
@@ -224,7 +251,7 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
       tracker.project(appliedAngularImpulseToRef(tracker.joint.constraint, impulse), impulses[j]!);
     });
     for (let i = 0; i < n; i++) driver.pulled[i] = impulseOf[i]![channels[i]!.index]! / dt;
-    inertia.update();
+    dynamics.update(angles);
     control?.(driver, dt);
     for (let i = 0; i < n; i++) {
       const c = channels[i]!;
@@ -237,10 +264,9 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
       const beyond = toward * target > reach;
       // The muscles that pull: toward a speed the step cannot reach, certainly; otherwise the sign of
       // the torque the step needs, taking the torque last applied to have held the joint's speed.
-      const needed = driver.pulled[i]! + inertia.about[jointOf[i]!]![c.index]! * push / dt;
-      const sense = beyond || needed === 0 ? toward : Math.sign(needed);
-      const side = sense > 0 ? c.positive : c.negative;
-      const ceiling = activation * side.peak * forceVelocityFactor(sense * speed, side.curve);
+      const needed = driver.pulled[i]! + dynamics.mass[i]![i]! * push / dt;
+      const sense = beyond || needed === 0 ? toward : needed > 0 ? 1 : -1;
+      const ceiling = activation * driver.strength(i, sense);
       driver.ceiling[i] = ceiling;
       c.joint.constraint.setAxisMotorTarget(c.dof.axis, c.dof.sign * (beyond ? toward * reach : target));
       c.joint.constraint.setAxisMotorMaxForce(c.dof.axis, ceiling);
