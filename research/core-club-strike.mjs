@@ -101,7 +101,7 @@ export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz 
   const routine = startRoutine(stand.built, stand.world, [
     { kind: "settle", seconds: SETTLE },
     { kind: "strike", seconds: chamber.seconds + WINDOW, strike },
-  ]);
+  ], { legs: "carried" });
   const segment = stand.built.segments.get(`hand.${hand}`), head = stand.built.segments.get("head");
   // The swell's ends and the hand's centre, in the hand's own frame.
   const ends = [heldPoint(held, swell.from).value, heldPoint(held, swell.to).value].map((p) => inFrameOf(segment, p));
