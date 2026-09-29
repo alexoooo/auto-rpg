@@ -259,8 +259,9 @@ contradicts one; the eccentric ceiling is the owner's decision.
     (`forceVelocityReach`), which the convex shortening branch keeps under the curve, and a joint
     the muscles are braking is held to the reach from rest. On a forearm and hand driven flat out
     (Node stand), the hand at 120 Hz against 1920 Hz: 3.69 against 3.64 m/s at 0.025 s (4.71
-    before); started 0.06 s late, 4.7 against 4.5 (5.3 before). The lab's straights read within 3 %
-    of 1920 Hz at 120 Hz. The game stays at 120 Hz.
+    before); started 0.06 s late, 4.7 against 4.5 (5.3 before). The lab's straights read within 3.3 %
+    of 1920 Hz at 120 Hz for the Warrior and within 9 % for the Rogue (11 % with self-contact off),
+    measured after the muscles' side was read from the torque needed. The game stays at 120 Hz.
   - **One blow is chaotic, so a search scores several** (`perturbed` in `research/core-strike.mjs`
     has the numbers). Random strikes read 1.9 % apart when every activation was scaled by 0.9999
     (0.7 % with self-contact off), and 11-12 % apart between 1920 Hz and 3840 Hz; 120 Hz is not
@@ -283,10 +284,28 @@ contradicts one; the eccentric ceiling is the owner's decision.
     the guard arrives 0.32-0.44 s after it starts (wound up, not a straight), and the Rogue matches
     the Warrior. Nothing here is read against the acceptance above yet.
   - **Where the rates part.** With no pushes at all, only the servo returning the arm from one
-    searched chamber to the guard, 120 Hz and 1920 Hz differ: at 1920 Hz the elbow was flung to its
-    stop at 9.7 rad/s. With self-contact off that goes (which segments met was not read), and a smaller difference remains (the shoulder lowered at 11 rad/s at 120 Hz, 6 at
-    1920 Hz), where at 120 Hz the servoed shoulder's ceiling switches between its flexors and
-    extensors from step to step. Open: self-contact and the servo on the whole body, across rates.
+    searched chamber to the guard, 120 Hz and 1920 Hz differ. At 1920 Hz the elbow was flung to its
+    stop at 9.7 rad/s. That was the driver bounding motors by the wrong muscles: it read the side
+    from the change of speed asked, which a servo keeps small, so wherever a load outweighed the
+    change the braking muscles' work went to the other side (1127 steps over the pulling side's
+    ceiling at 1920 Hz, 1 at 120 Hz). It now reads the side from the torque the step needs, and the
+    fling is gone (the driver's doc has the counts and the rules rejected).
+    What remains is the servo meeting Havok's motor. With self-contact off (Node stand, the Rogue's
+    return), 1920 Hz and 3840 Hz agree: the fist peaked at 2.52 and 2.48 m/s, and the two stayed
+    within 0.4 m/s. At 120 Hz it peaked at 5.0 m/s. Havok's velocity motor misses each target by about as much as it was
+    asked to change: RMS miss against RMS change asked, over the steps a motor had room, 0.119
+    against 0.108 rad/s at 120 Hz, 0.028 against 0.024 at 480 Hz, 0.008 against 0.006 at 1920 Hz. At a
+    fine rate that error comes and goes within a few milliseconds; at 120 Hz it lives at the servo's
+    own time scale.
+    Most of the miss is the ring the driver's doc describes, and the ring comes with the plugin
+    telling Havok to expect exactly the step it is handed. Told to expect 1/240 s while stepping
+    1/120 s, the rod's ring mostly goes, and the Rogue's return at 120 Hz follows 480 Hz's run: a
+    peak of 3.3 m/s against 2.9, and within 0.05 m/s from 0.23 s on. But 480 Hz is not the converged motion either, and the setting changes more than the
+    ring: told to expect 1/7680 s, the 1920 Hz run left 3840 Hz's. On random strikes (n=16 in each of
+    four cells, self-contact off) it moved 120 Hz's peaks no closer to 3840 Hz's (0.81-0.94 of them,
+    against 0.88-0.95 without it), for about a quarter more time a step (timed six runs at once). So it is not taken. Open: the
+    servo at 120 Hz, and self-contact on the whole body across rates. Which segments met was not
+    read.
     The club waits for a held weapon in the core.
 
 ### Stage 3: one world, one body, one command
