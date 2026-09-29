@@ -18,7 +18,7 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const CORE = "src/core/";
 
 /** Packages the core may import, by prefix. The browser runs the core, so no `node:` builtins. */
-const PACKAGES = ["@babylonjs/core/", "@babylonjs/havok"];
+const PACKAGES = ["@babylonjs/core/", "@dimforge/rapier3d-simd-compat"];
 
 /**
  * Files outside `src/core/` the core has taken, with why. Empty until the core takes one; each

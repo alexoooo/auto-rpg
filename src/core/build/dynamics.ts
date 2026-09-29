@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BuiltBody, BuiltSegment } from "./build-body.ts";
-import { GIMBAL_COSINE, motionAxesToRef } from "./joint-state.ts";
+import { motionAxesToRef } from "./joint-state.ts";
 import { hasProducts } from "./rigid.ts";
 
 /**
@@ -30,18 +30,15 @@ import { hasProducts } from "./rigid.ts";
  * contacts. It is the carried segments' inertial wrench about the joint's centre, along the
  * freedom's axis, with every joint's speeds held (u' = 0), found from the root out: a child turns
  * as its parent does plus its joint's relative spin, whose axes its parent carries round
- * (`w_p x w_rel`, and a two-freedom joint's first axis leaning as its second angle turns), and
- * each centre swings about the joint centre it hangs from. A fast forearm throws the hand at the
+ * (`w_p x w_rel`; a two-freedom joint's axes lean as its angles turn, but their leans cancel,
+ * `motionAxesToRef`), and each centre swings about the joint centre it hangs from. A fast forearm throws the hand at the
  * wrist through this term, which the angles and the mass matrix cannot see.
  *
- * It leaves out each segment's gyroscopic torque, w x I w, because Havok does: a free body keeps
- * its angular velocity in the world, not its angular momentum. A box of inertia 0.010, 0.002 and
- * 0.006 kg m2 spun at (3, 5, 1) rad/s, no gravity, read (3, 5, 1) a second later at 120, 960 and
- * 1920 Hz while its angular momentum swung from (0.030, 0.010, 0.006) to (-0.004, 0.032, -0.001)
- * N m s in half a second (Node, `createWorld`). On the dynamics test's chain, let go turning at up
- * to 20 rad/s with no gravity or damping, the joints' accelerations in the steps between contacts
- * read within a few per cent of -M^-1 bias without the term, and a step's error was 10 % of its
- * acceleration at the median against 18 % with it (1920 Hz).
+ * It includes each segment's gyroscopic torque, w x I w, because the engine does: a free body keeps
+ * its angular momentum. A box of inertia 0.010, 0.002 and 0.006 kg m2 spun at (3, 5, 1) rad/s, no
+ * gravity, turned its spin to (3.85, 1.55, 2.50) rad/s a second later while its angular momentum
+ * held (0.030, 0.010, 0.006) N m s within 0.2 % (Node, `research/core-rapier-probe.mjs`, 120 and
+ * 960 Hz). Havok, the core's engine until 2026-09-29, kept the spin instead and had no such torque.
  *
  * The root is taken to be held still: its spin enters the bias, but a root carried or pushed adds
  * its own acceleration to every segment, and that is left to whoever reads the dynamics.
@@ -58,15 +55,14 @@ export interface BodyDynamics {
   readonly bias: Float64Array;
   /**
    * Reads the pose as it stands; `angles` by joint, each its freedoms' (`jointAngles`), for the
-   * motion axes. With `motion`, the joints' speeds (by joint, each its freedoms') and each
-   * segment's angular velocity (world frame, rad/s), it reads `bias` too.
+   * motion axes. With `motion`, each segment's angular velocity (world frame, rad/s), it reads
+   * `bias` too.
    */
   update(angles: readonly (readonly number[])[], motion?: BodyMotion): void;
 }
 
 /** What `BodyDynamics.update` reads for `bias`. */
 export interface BodyMotion {
-  readonly speeds: readonly (readonly number[])[];
   readonly spin: (segment: BuiltSegment) => Vector3;
 }
 
@@ -94,7 +90,6 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
   const spins = segments.map((): Point => [0, 0, 0]);
   const alpha = segments.map((): Point => [0, 0, 0]), accel = segments.map((): Point => [0, 0, 0]);
   const force = segments.map((): Point => [0, 0, 0]), moment = segments.map((): Point => [0, 0, 0]);
-  const leanAxis = joints.map((): Point => [0, 0, 0]);
 
   const centreOfMass = segments.map((segment) => local(segment, segment.rigid.centre));
   const pivot = joints.map((joint) => local(joint.child, joint.spec.centre.value));
@@ -114,7 +109,7 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
   };
   const turned: Point[] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
-  const velocityProducts = (angles: readonly (readonly number[])[], { speeds, spin }: BodyMotion): void => {
+  const velocityProducts = ({ spin }: BodyMotion): void => {
     segments.forEach((segment, i) => {
       const w = spin(segment), o = spins[i]!;
       o[0] = w.x; o[1] = w.y; o[2] = w.z;
@@ -123,18 +118,10 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
     for (const j of outward) {
       const p = parentOf[j]!, c = childOf[j]!, P = pivots[j]!;
       const wp = spins[p]!, wc = spins[c]!;
-      // The child's spin changes as the parent carries the joint's axes round, and a two-freedom
-      // joint's first axis (X - tan b Z) leans as b turns: d/dt of -tan b is -b'/cos^2 b.
+      // The child's spin changes as the parent carries the joint's axes round.
       const turn = cross3(wp, sub3(wc, wp));
       const a = alpha[c]!, ap = alpha[p]!;
       a[0] = ap[0] + turn[0]; a[1] = ap[1] + turn[1]; a[2] = ap[2] + turn[2];
-      const { dofs } = joints[j]!;
-      if (dofs.length === 2) {
-        const b = dofs[1]!.sign * angles[j]![1]!, cos = Math.cos(b);
-        const held = Math.abs(cos) < GIMBAL_COSINE ? (cos < 0 ? -GIMBAL_COSINE : GIMBAL_COSINE) : cos;
-        const lean = -speeds[j]![0]! * dofs[1]!.sign * speeds[j]![1]! / (held * held), z = leanAxis[j]!;
-        a[0] += lean * z[0]; a[1] += lean * z[1]; a[2] += lean * z[2];
-      }
       // The joint centre as the parent swings it, then the child's centre about it.
       const fromParent = sub3(P, centres[p]!), toChild = sub3(centres[c]!, P);
       const at = add3(accel[p]!, add3(cross3(ap, fromParent), cross3(wp, cross3(wp, fromParent))));
@@ -145,9 +132,9 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
     segments.forEach((segment, i) => {
       const m = segment.rigid.mass, a = accel[i]!, F = force[i]!, N = moment[i]!;
       F[0] = m * a[0]; F[1] = m * a[1]; F[2] = m * a[2];
-      // Havok's bodies turn without the gyroscopic torque (w x I w), so it is not asked for.
-      const Ia = inertiaTimes(inertias[i]!, alpha[i]!);
-      N[0] = Ia[0]; N[1] = Ia[1]; N[2] = Ia[2];
+      // I a + w x I w: the engine's bodies keep their angular momentum.
+      const Ia = inertiaTimes(inertias[i]!, alpha[i]!), w = spins[i]!, gyro = cross3(w, inertiaTimes(inertias[i]!, w));
+      N[0] = Ia[0] + gyro[0]; N[1] = Ia[1] + gyro[1]; N[2] = Ia[2] + gyro[2];
     });
     for (let f = 0; f < n; f++) {
       const { joint: j, k } = freedoms[f]!, mf = axes[j]![k]!, P = pivots[j]!;
@@ -208,9 +195,8 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
         Quaternion.InverseToRef(joint.parent.rest, scratch.q);
         joint.parent.node.rotationQuaternion!.multiplyToRef(scratch.q, scratch.carry);
         motionAxesToRef(joint, angles[j]!, bodyAxes).forEach((a, k) => toWorld(scratch.carry, a, axes[j]![k]!));
-        if (motion && joint.dofs.length === 2) toWorld(scratch.carry, signed(joint.axes.z, joint.dofs[0]!.sign), leanAxis[j]!);
       });
-      if (motion) velocityProducts(angles, motion);
+      if (motion) velocityProducts(motion);
       else bias.fill(0);
       for (let f = 0; f < n; f++) {
         const { joint: a, k } = freedoms[f]!, mf = axes[a]![k]!, pf = pivots[a]!;
@@ -250,7 +236,6 @@ function local(segment: BuiltSegment, point: Vec3): Vec3 {
 }
 
 const add3 = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const signed = (a: Vec3, sign: number): Vec3 => [sign * a[0], sign * a[1], sign * a[2]];
 /** A symmetric inertia (xx, yy, zz, xy, xz, yz) times a vector. */
 const inertiaTimes = (I: Float64Array, v: Vec3): Vec3 => [
   I[0]! * v[0] + I[3]! * v[1] + I[4]! * v[2],

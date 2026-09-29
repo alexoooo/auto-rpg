@@ -108,8 +108,8 @@ export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz 
   const read = (into) => {
     into.position.copyFrom(segment.node.position);
     into.rotation.copyFrom(segment.node.rotationQuaternion);
-    segment.body.getLinearVelocityToRef(into.velocity);
-    segment.body.getAngularVelocityToRef(into.spin);
+    segment.body.linearVelocityToRef(into.velocity);
+    segment.body.angularVelocityToRef(into.spin);
   };
   const place = (position, rotation, local) => local.applyRotationQuaternion(rotation).addInPlace(position);
   let landed = null, nearest = Infinity, peak = 0, watching = false, headCentre = null, target = null, fell = false;

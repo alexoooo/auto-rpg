@@ -56,7 +56,7 @@ async function standing(model, seconds, ask, { posture = {}, footConditioning, s
     const turn = pelvis.node.rotationQuaternion.multiply(Quaternion.Inverse(pelvis.rest));
     const forward = new Vector3(0, 0, 1).applyRotationQuaternion(turn);
     const heading = Math.atan2(forward.x, forward.z);
-    const inertia = feet.map((foot) => foot.body.getMassProperties().inertia.x / humanSpec(model).segments.find((s) => s.name === foot.spec.name).inertia.value[0] * foot.spec.mass.value);
+    const inertia = feet.map((foot) => foot.body.massProperties.moments[0] / humanSpec(model).segments.find((s) => s.name === foot.spec.name).inertia.value[0]);
     return { goal, before, after, travel, heading, inertia, angles: { ...body.view.angles }, place: body.view.stance.place.clone() };
   } finally { body.dispose(); stand.dispose(); }
 }

@@ -7,15 +7,8 @@ import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTextur
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { PhysicsActivationControl, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
-import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
-import { PhysicsShapeBox } from "@babylonjs/core/Physics/v2/physicsShape.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import HavokPhysics from "@babylonjs/havok";
-// A page entry may carry the `?url` import that Node rejects (H25); nothing Node loads imports this file.
-import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
+import { loadRapier } from "../core/engine/rapier.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { humanSpec } from "../core/human/spec.ts";
@@ -83,7 +76,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   const engine = new Engine(canvas, true, { stencil: true });
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.082, 0.098, 0.11, 1);
-  const havok = await HavokPhysics({ locateFile: () => havokWasmUrl });
+  const rapier = await loadRapier();
   /** The world a body is loaded into; each load makes a new one, at the chosen rate. */
   let world: World | null = null;
 
@@ -102,12 +95,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
   scene.environmentIntensity = 0.85;
 
-  // The ground: a static box for the solver (made with each world, in `load`), a plane with a grid
+  // The ground: a fixed box for the solver (made with each world, in `load`), a plane with a grid
   // of metre lines for the eye.
-  const groundNode = new TransformNode("lab.ground", scene);
-  groundNode.position = new Vector3(0, -0.5, 0);
-  groundNode.rotationQuaternion = Quaternion.Identity();
-  let groundBody: PhysicsBody | null = null;
   const floor = MeshBuilder.CreateGround("lab.floor", { width: 40, height: 40 }, scene);
   const floorMaterial = new StandardMaterial("lab.floor", scene);
   floorMaterial.diffuseColor = new Color3(0.16, 0.18, 0.19);
@@ -181,18 +170,12 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       current.view.dispose();
       current.built.dispose();
     }
-    groundBody?.dispose();
     world?.dispose();
-    scene.disablePhysicsEngine();
     remember(to);
-    world = createWorld(scene, havok, { hz: to.hz });
-    groundBody = new PhysicsBody(groundNode, PhysicsMotionType.STATIC, false, scene);
-    groundBody.shape = new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(40, 1, 40), scene);
-    const built = buildBody(humanSpec(to.model), scene, { position: [0, 0, 0] });
+    world = createWorld(scene, rapier, { hz: to.hz });
+    world.physics.addGround([0, -0.5, 0], [40, 1, 40]);
+    const built = buildBody(humanSpec(to.model), world, { position: [0, 0, 0] });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
-    const plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
-    // Keep every segment awake: a sleeping body reads a perfect zero (H08).
-    for (const segment of built.segments.values()) plugin.setActivationControl(segment.body, PhysicsActivationControl.ALWAYS_ACTIVE);
     const view = drawBody(built, scene, TINT[to.model]);
     // A new body starts live: nothing of the last one's recording is shown.
     const run = scenario.start({ scene, built, world, changed: showTransport, clock: () => performance.now() });

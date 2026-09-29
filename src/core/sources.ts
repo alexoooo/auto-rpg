@@ -87,6 +87,18 @@ export const SOURCES = Object.freeze({
       + "share is its mass to the two-thirds over the sum of the same over the body.",
     record: "docs/plans/2026-09-28-core-foundation.md",
   },
+  "owner-physics-engine": {
+    kind: "decision", date: "2026-09-29",
+    decided: "Try Rapier (the SIMD build) for the core in place of Havok, on the physics bake-off's report; the old path "
+      + "stays on Havok.",
+    record: "research/physics-bakeoff/REPORT.md",
+  },
+  "physics-bakeoff": {
+    kind: "measurement",
+    how: "research/physics-bakeoff/: Havok, MuJoCo and Rapier driven by one torque servo at 120 Hz against a 1920 Hz "
+      + "reference (Node), each engine's cheapest setting that holds a standing human, a whole human and a pile.",
+    record: "research/physics-bakeoff/REPORT.md",
+  },
   "owner-physics-rate": {
     kind: "decision", date: "2026-09-25",
     decided: "Physics and control run at 120 Hz, from the release of 2026-09-25.",

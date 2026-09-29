@@ -4,7 +4,7 @@ import { labHref, SCENARIOS, type LabAddress } from "./scenarios.ts";
  * **The lab's scenario menu** (`?play=lab`): a card for each scenario, and a click opens it. The
  * character and the rate are chosen inside a scenario; the address carries them here and on, so
  * the next scenario keeps them. Built from `scenarios.ts`, so a card offered is a scenario the lab
- * has; it loads neither Babylon nor Havok.
+ * has; it loads neither Babylon nor Rapier.
  */
 export function showScenarios(address: LabAddress): void {
   const cards = SCENARIOS.map((scenario) => {

@@ -17,8 +17,6 @@ export interface Chosen {
   readonly tag: string;
   readonly settings: Settings;
   readonly conditioning?: Readonly<Record<string, number>>;
-  /** Havok's real human (`buildBody`) instead of the neutral one. */
-  readonly real?: boolean;
   readonly note: string;
 }
 
@@ -32,7 +30,6 @@ export const CHOSEN: readonly Chosen[] = [
   { engine: "rapier-simd", tag: "rapier-simd", settings: { hz: 120, substeps: 1, iterations: 16, pgs: 2 }, conditioning: FEET(100), note: "passes both; feet x100" },
   { engine: "havok", tag: "havok", settings: { hz: 120, substeps: 12, damping: "default" }, conditioning: FEET(300), note: "passes both; 1440 Hz, feet x300" },
   { engine: "havok", tag: "havok-today", settings: { hz: 120, substeps: 1, damping: "default" }, conditioning: FEET(100), note: "today; fails case A" },
-  { engine: "havok", tag: "havok-real-today", settings: { hz: 120, substeps: 1 }, conditioning: FEET(100), real: true, note: "today, the core's buildBody and world" },
 ];
 
 /**

@@ -8,7 +8,7 @@
  * by a `gc` performance observer. Node harness.
  *
  *     node --expose-gc --max-semi-space-size=64 research/physics-bakeoff/perf.mjs <engine> '<settings json>' \
- *       [--cond '{"foot.left":100,"foot.right":100}'] [--real] [--n 1,2,4,8,16,32] [--layouts spaced,pile] \
+ *       [--cond '{"foot.left":100,"foot.right":100}'] [--n 1,2,4,8,16,32] [--layouts spaced,pile] \
  *       [--repeats 3] [--tag name]
  *
  * Writes research/physics-bakeoff/results/perf-<tag>.json.
@@ -25,11 +25,10 @@ const engine = argv[0];
 const settings = { hz: 120, ...JSON.parse(argv[1] ?? "{}") };
 settings.substeps ??= 1;
 const conditioning = opt("cond") ? JSON.parse(opt("cond")) : undefined;
-const real = argv.includes("--real");
 const ns = opt("n", "1,2,4,8,16,32").split(",").map(Number);
 const layouts = opt("layouts", "spaced,pile").split(",");
 const repeats = Number(opt("repeats", "3"));
-const tag = opt("tag", `${engine}${real ? "-real" : ""}`);
+const tag = opt("tag", engine);
 if (typeof globalThis.gc !== "function") throw new Error("run with --expose-gc");
 
 const e = await load(engine);
@@ -47,7 +46,6 @@ function once(kind, humans) {
   gcCount = 0; gcMs = 0;
   const r = scaling(e.factory, settings, kind, humans, {
     conditioning,
-    build: real ? (offsets) => e.real(offsets, settings, conditioning ?? {}) : undefined,
     mark: (phase) => {
       if (phase === "start") { globalThis.gc(); heap0 = process.memoryUsage().heapUsed; gcCount = 0; gcMs = 0; counting = true; }
       else { heap1 = process.memoryUsage().heapUsed; counting = false; }
@@ -62,14 +60,14 @@ const rows = [];
 /** The whole machine's busy share over the run (every process, this one included), to say what the timings shared. */
 const cpuTimes = () => cpus().reduce((a, c) => ({ idle: a.idle + c.times.idle, total: a.total + Object.values(c.times).reduce((x, y) => x + y, 0) }), { idle: 0, total: 0 });
 const cpu0 = cpuTimes();
-console.log(`${e.module ? "" : ""}${tag}: ${JSON.stringify(settings)}${conditioning ? ` cond=${JSON.stringify(conditioning)}` : ""}${real ? " (real buildBody)" : ""}, init ${fmt(e.initMs)} ms`);
+console.log(`${e.module ? "" : ""}${tag}: ${JSON.stringify(settings)}${conditioning ? ` cond=${JSON.stringify(conditioning)}` : ""}, init ${fmt(e.initMs)} ms`);
 console.log("layout N | total med p95 | solver med p95 | read med | control med | alloc B/step gc | upright maxSpeed");
 for (const kind of layouts) for (const humans of ns) {
   const runs = [];
   for (let k = 0; k < repeats; k++) runs.push(once(kind, humans));
   const pick = (f) => median(runs.map(f));
   const row = {
-    engine, tag, settings, conditioning, real, kind, humans, repeats, label: runs[0].label,
+    engine, tag, settings, conditioning, kind, humans, repeats, label: runs[0].label,
     total: { median: pick((r) => r.total.median), p95: pick((r) => r.total.p95), mean: pick((r) => r.total.mean) },
     solver: { median: pick((r) => r.solver.median), p95: pick((r) => r.solver.p95) },
     read: { median: pick((r) => r.read.median), p95: pick((r) => r.read.p95) },
@@ -86,6 +84,6 @@ await mkdir(out, { recursive: true });
 const cpu1 = cpuTimes();
 const machineBusy = 1 - (cpu1.idle - cpu0.idle) / (cpu1.total - cpu0.total);
 console.log(`machine busy over the run: ${(100 * machineBusy).toFixed(0)} % of ${cpus().length} logical CPUs`);
-await writeFile(new URL(`perf-${tag}.json`, out), JSON.stringify({ engine, tag, settings, conditioning, real, initMs: e.initMs, node: process.version, machineBusy, rows }, null, 1));
+await writeFile(new URL(`perf-${tag}.json`, out), JSON.stringify({ engine, tag, settings, conditioning, initMs: e.initMs, node: process.version, machineBusy, rows }, null, 1));
 // The threaded MuJoCo build keeps its worker threads alive.
 process.exit(0);

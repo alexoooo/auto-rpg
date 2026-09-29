@@ -122,7 +122,7 @@ export function startStance(built: BuiltBody, world: World, { guard = true }: { 
       shove = new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a));
     },
     capturePointToRef(out) {
-      const g = -(world.scene.getPhysicsEngine()?.gravity.y ?? 0);
+      const g = -world.physics.gravity[1];
       const s = body.view.stance, w = Math.sqrt(g / Math.max(s.centre.y - s.support.y, 0.1));
       return out.set(s.centre.x + s.velocity.x / w, 0, s.centre.z + s.velocity.z / w);
     },

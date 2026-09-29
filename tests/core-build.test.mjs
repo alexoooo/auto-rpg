@@ -3,9 +3,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { PhysicsConstraintMotorType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { sourced } from "../src/core/spec/quantity.ts";
+import { jointAngles } from "../src/core/build/joint-state.ts";
 import { coreStand, relativeRotation, spinOnce } from "./harness/core-stand.mjs";
 
 const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "a stand-in leaf for the builder's tests");
@@ -35,13 +35,16 @@ test("a built segment's mass, centre of mass and inertia are the spec's, and its
   const stand = await coreStand(rods([["bend", [1, 0, 0]]]), { gravity: false, ground: false });
   try {
     for (const segment of stand.built.segments.values()) {
-      const props = segment.body.getMassProperties();
-      close(props.mass, segment.spec.mass.value, 1e-6, `${segment.spec.name} mass`);
-      // Havok carries inertia per kilogram (H49); the next test reads it by how the body turns.
-      const inertia = segment.spec.inertia.value;
-      ["x", "y", "z"].forEach((axis, i) => close(props.inertia[axis] * props.mass, inertia[i], 1e-6, `${segment.spec.name} I${axis}`));
+      const { rigid } = segment.body;
+      close(rigid.mass(), segment.spec.mass.value, 1e-6, `${segment.spec.name} mass`);
+      // Rapier's inertia is kg m2 about its principal axes, whose frame it reports; turned back to
+      // the body's own axes it is the spec's. The next test reads it by how the body turns.
+      const inertia = segment.spec.inertia.value, moments = rigid.principalInertia(), f = rigid.principalInertiaLocalFrame();
+      const frame = new Quaternion(f.x, f.y, f.z, f.w), principal = [Vector3.Right(), Vector3.Up(), Vector3.Forward()].map((a) => a.applyRotationQuaternion(frame));
+      const tensor = (i, j) => principal.reduce((sum, a, k) => sum + [moments.x, moments.y, moments.z][k] * a.asArray()[i] * a.asArray()[j], 0);
+      [0, 1, 2].forEach((i) => [0, 1, 2].forEach((j) => close(tensor(i, j), i === j ? inertia[i] : 0, 1e-6, `${segment.spec.name} I${i}${j}`)));
       // The centre of mass, carried to the world through the node, is where the spec put it.
-      const world = Vector3.TransformCoordinates(props.centerOfMass, segment.node.computeWorldMatrix(true));
+      const c = rigid.localCom(), world = new Vector3(c.x, c.y, c.z).applyRotationQuaternion(segment.node.rotationQuaternion).addInPlace(segment.node.position);
       segment.spec.centreOfMass.value.forEach((c, i) => close(world.asArray()[i], c, 1e-6, `${segment.spec.name} centre of mass`));
       // The node's y axis runs down the segment.
       const y = Vector3.Up().applyRotationQuaternion(segment.node.rotationQuaternion);
@@ -76,18 +79,14 @@ async function turnOne(dofs, index, { speed = 1, seconds = 0.25, range, force = 
   const stand = await coreStand(rods(dofs, range), { gravity: false, ground: false });
   try {
     const joint = stand.built.joints.get("middle");
-    stand.built.segments.get("upper").body.setMotionType(0 /* STATIC */);
-    joint.dofs.forEach((dof, k) => {
-      joint.constraint.setAxisMotorType(dof.axis, PhysicsConstraintMotorType.VELOCITY);
-      joint.constraint.setAxisMotorTarget(dof.axis, k === index ? dof.sign * speed : 0);
-      joint.constraint.setAxisMotorMaxForce(dof.axis, force);
-    });
+    stand.built.segments.get("upper").body.setFixed(true);
+    joint.dofs.forEach((dof, k) => joint.joint.setMotor(k, k === index ? dof.sign * speed : 0, force));
     stand.step(stand.seconds(seconds));
     const turned = relativeRotation(joint);
     const axis = new Vector3(...joint.dofs[index].spec.axis.value);
     const angle = 2 * Math.acos(Math.min(1, Math.abs(turned.w)));
     const about = new Vector3(turned.x, turned.y, turned.z).scale(Math.sign(turned.w));
-    return { angle, along: Vector3.Dot(about.normalize(), axis) };
+    return { angle, along: Vector3.Dot(about.normalize(), axis), angles: jointAngles(joint) };
   } finally { stand.dispose(); }
 }
 
@@ -117,61 +116,47 @@ test("the reference pose reads as no rotation at every joint", async () => {
 });
 
 /**
- * Limits, driven into by a motor of 10 N m, well above the rod's needs and not so far above them
- * that it drives through the limit (at 1000 N m it does, by 0.05 rad on an X axis, and a
- * one-freedom joint's locked axes give by more than a radian).
+ * Limits, driven into by a motor of 10 N m, well above the rod's needs. Pressed at 1000 N m the
+ * freedom still stops within 0.0015 rad of its bound, but in a joint of three the others are driven
+ * off: pressing the first to 0.6 took the second and third, their motors holding zero at 1000 N m,
+ * to their own 0.6 (Node stand, 120 Hz). Rapier's limit row pushes along the parent-fixed axis,
+ * not along its angle's gradient, and the two part once the other angles are off zero.
  */
 const LIMIT_TEST = { speed: 3, seconds: 1, range: [-0.2, 0.6], force: 10 };
 
 /**
- * The first freedom's axis is the constraint's X, so its sense never flips; a flipped third
- * freedom is the next test's minus z.
+ * Every freedom stops at its own range, read as the limit reads it (`jointAngles`, H76), on both
+ * sides of an asymmetric one, whichever way its axis runs. On Rapier each limited freedom stops
+ * within 0.0005 rad of its bound; on Havok the second and third freedoms of a three-freedom joint
+ * held only roughly (0.62 and -0.21, 0.55 and -0.15 against 0.6 and -0.2). The freedoms held at
+ * zero by their 10 N m motors give up to 0.08 rad to the pressed one (Node stand, 120 Hz).
  */
-test("a joint's first freedom stops at its own range, on both sides of an asymmetric one", async () => {
+test("every freedom stops at its own range, on both sides of an asymmetric one", async () => {
   const { range } = LIMIT_TEST;
+  const x = [["x", [1, 0, 0]]], three = [["x", [1, 0, 0]], ["y", [0, 1, 0]], ["z", [0, 0, 1]]];
   const cases = [
-    [[["x", [1, 0, 0]]], 0],
+    [x, 0],
     [[["minus x", [-1, 0, 0]]], 0],
-    [[["x", [1, 0, 0]], ["y", [0, 1, 0]], ["z", [0, 0, 1]]], 0],
+    [three, 0], [three, 1], [three, 2],
     [[["minus x", [-1, 0, 0]], ["y", [0, 1, 0]], ["z", [0, 0, -1]]], 0],
+    [[["x", [1, 0, 0]], ["y", [0, 1, 0]], ["minus z", [0, 0, -1]]], 2],
+    [[["z", [0, 0, 1]], ["x", [1, 0, 0]]], 0],
+    [[["z", [0, 0, 1]], ["x", [1, 0, 0]]], 1],
   ];
   for (const [dofs, index] of cases) {
     const name = `${dofs[index][0]} of ${dofs.length}`;
     const up = await turnOne(dofs, index, LIMIT_TEST);
-    close(up.angle * Math.sign(up.along), range[1], 0.005, `${name} driven past its maximum`);
+    close(up.angles[index], range[1], 0.001, `${name} driven past its maximum`);
     const down = await turnOne(dofs, index, { ...LIMIT_TEST, speed: -LIMIT_TEST.speed });
-    close(down.angle * Math.sign(down.along), range[0], 0.005, `${name} driven past its minimum`);
+    close(down.angles[index], range[0], 0.001, `${name} driven past its minimum`);
   }
 });
 
 /**
- * **A characterisation, not a wish.** In a joint with three freedoms, Havok holds the second and
- * third to their ranges only roughly (Node stand, 10 N m, 1 s, range -0.2 to 0.6 rad):
- * - the second passes its maximum to 0.618 and its minimum to -0.209, and turning it drags the
- *   third about 0.22 rad off zero against a motor holding it there;
- * - the third stops short, at 0.551 and -0.152, and a third freedom whose axis runs against the
- *   constraint's Z (minus z) does the same in its own sense, so its range was flipped right.
- * The first freedom is exact (the test above). If this test fails, the engine changed: read the
- * new numbers and rewrite the note in docs/plans/2026-09-28-core-foundation.md with them.
- */
-test("a three-freedom joint holds its second and third freedoms to their ranges only roughly", async () => {
-  const z = [["x", [1, 0, 0]], ["y", [0, 1, 0]], ["z", [0, 0, 1]]];
-  const minusZ = [["x", [1, 0, 0]], ["y", [0, 1, 0]], ["minus z", [0, 0, -1]]];
-  const reached = [];
-  for (const [dofs, index] of [[z, 1], [z, 2], [minusZ, 2]]) {
-    for (const sense of [1, -1]) {
-      const { angle, along } = await turnOne(dofs, index, { ...LIMIT_TEST, speed: sense * LIMIT_TEST.speed });
-      reached.push(Math.round(angle * along * 100) / 100);
-    }
-  }
-  assert.deepEqual(reached, [0.62, -0.21, 0.55, -0.15, 0.55, -0.15]);
-});
-
-/**
- * A hull is built from its points, in its segment's frame: Havok's bounds of the built shape are the
- * points' extents along the frame's axes. Havok keeps a hull's faces on their planes and rounds its
- * corners a little: a cube's hull holds a resting ball at the cube's face and its bounds read exact,
- * while this sheared one's bounds, set by corners, read up to 0.4 mm inside them (Node stand).
+ * A hull is built from its points, in its segment's frame: the built hull's vertices, read back
+ * from Rapier, span the points' extents along the frame's axes. Rapier keeps the hull's corners
+ * where the points put them, to 1.3e-8 m on this sheared one (float32; Node stand). Havok rounded
+ * a hull's corners a little, and its bounds read up to 0.4 mm inside the points'.
  */
 test("a hull shape is built from its points, in its segment's frame", async () => {
   const spec = rods([["bend", [1, 0, 0]]]);
@@ -183,10 +168,13 @@ test("a hull shape is built from its points, in its segment's frame", async () =
   try {
     const segment = stand.built.segments.get("lower"), frame = segment.frame;
     const local = points.map((p) => [frame.x, frame.y, frame.z].map((e) => e.reduce((sum, c, i) => sum + c * (p[i] - frame.origin[i]), 0)));
-    const bounds = stand.scene.getPhysicsEngine().getPhysicsPlugin().getBoundingBox(segment.body.shape);
+    // The hull's vertices, in its collider's frame, which is the body's.
+    const collider = segment.body.rigid.collider(0), vertices = collider.vertices();
+    assert.deepEqual(collider.translation(), segment.body.rigid.translation());
     [0, 1, 2].forEach((i) => {
-      close(bounds.minimum.asArray()[i], Math.min(...local.map((p) => p[i])), 1e-3, `min ${i}`);
-      close(bounds.maximum.asArray()[i], Math.max(...local.map((p) => p[i])), 1e-3, `max ${i}`);
+      const along = vertices.filter((_, k) => k % 3 === i);
+      close(Math.min(...along), Math.min(...local.map((p) => p[i])), 1e-6, `min ${i}`);
+      close(Math.max(...along), Math.max(...local.map((p) => p[i])), 1e-6, `max ${i}`);
     });
   } finally { stand.dispose(); }
 });

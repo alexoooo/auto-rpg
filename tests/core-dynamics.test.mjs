@@ -1,9 +1,9 @@
 /**
  * The body's dynamics in its joints' speeds (`src/core/build/dynamics.ts`), read against the
- * engine's own motion: half of u' M u is the kinetic energy of the bodies as Havok moves them, and
- * gravity's term times u is the rate gravity does work on them. Node stand at 960 Hz, a chain of a
- * three-, a two- and a one-freedom joint on tilted axes, hung from a static post and pushed about
- * by its muscles.
+ * engine's own motion: half of u' M u is the kinetic energy of the bodies as the engine moves them, and
+ * gravity's term times u is the rate gravity does work on them. Node stand, a chain of a
+ * three-, a two- and a one-freedom joint on tilted axes, hung from a fixed post and pushed about
+ * by its muscles. Rapier (until 2026-09-29, Havok).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -72,17 +72,17 @@ const spinEnergy = ([xx, yy, zz, xy, xz, yz], w) =>
   0.5 * (xx * w.x ** 2 + yy * w.y ** 2 + zz * w.z ** 2) + xy * w.x * w.y + xz * w.x * w.z + yz * w.y * w.z;
 
 /**
- * At 960 Hz and a quarter of these muscles' strength the joints hold to their freedoms, and the
- * energy agrees to 0.73 % and the power to 0.24 % of what gravity could do at those speeds. Harder
- * and coarser, the joints give: at 8 N m and 120 Hz the one-freedom joint turned 2.8 rad/s about
- * its locked axes at 15 rad/s, and the energy read 23 % off. Dropping the two-freedom joint's
- * tan b term reads 75 % off in energy and 9 % in power; a composite's parallel axis term, the
- * couplings between joints, or the parent's turn of the axes, 100 % or more; gravity's moment
- * about the wrong joint, 45 % in power.
+ * At 960 Hz and a quarter of these muscles' strength the energy agrees to 0.07 % (0.13 % holding
+ * the rod) and the power to 0.19 % (0.11 %) of what gravity could do at those speeds. On Havok the
+ * figures were 0.73 % and 0.24 %, and its joints gave when driven harder and coarser: at 8 N m and
+ * 120 Hz the one-freedom joint turned 2.8 rad/s about its locked axes at 15 rad/s, and the energy
+ * read 23 % off. There, dropping the two-freedom joint's lean read 75 % off in energy and 9 % in
+ * power; a composite's parallel axis term, the couplings between joints, or the parent's turn of
+ * the axes, 100 % or more; gravity's moment about the wrong joint, 45 % in power.
  */
-for (const [what, spec] of [["the chain", chain], ["the chain holding a rod", holding]]) test(`the mass matrix gives ${what}'s kinetic energy and gravity's term its power, as Havok moves it`, async () => {
+for (const [what, spec] of [["the chain", chain], ["the chain holding a rod", holding]]) test(`the mass matrix gives ${what}'s kinetic energy and gravity's term its power, as the engine moves it`, async () => {
   const stand = await coreStand(spec(), { ground: false, pinned: "post", hz: 960 });
-  const g = stand.scene.getPhysicsEngine().gravity;
+  const g = new Vector3(...stand.world.physics.gravity);
   let seed = 7, tick = 0;
   const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
   // A new push on every freedom each tenth of a second, either way, at 30-80 % of its strength.
@@ -90,10 +90,10 @@ for (const [what, spec] of [["the chain", chain], ["the chain holding a rod", ho
     if (tick++ % stand.seconds(0.1) !== 0) return;
     for (let i = 0; i < d.channels.length; i++) { d.velocity[i] = random() > 0 ? 1e3 : -1e3; d.activation[i] = 0.3 + 0.5 * Math.abs(random()); }
   });
-  const dynamics = bodyDynamics(stand.built, [g.x, g.y, g.z]);
+  const dynamics = bodyDynamics(stand.built, stand.world.physics.gravity);
   const joints = [...stand.built.joints.values()], trackers = joints.map(jointTracker);
   const segments = [...stand.built.segments.values()].filter((s) => s.spec.name !== "post");
-  const angularVelocity = (segment) => { const w = new Vector3(); segment.body.getAngularVelocityToRef(w); return w; };
+  const angularVelocity = (segment) => { const w = new Vector3(); segment.body.angularVelocityToRef(w); return w; };
   const v = new Vector3(), local = new Vector3(), inverse = new Quaternion();
   let worstEnergy = 0, worstPower = 0, largest = 0, bent = 0;
   try {
@@ -105,7 +105,7 @@ for (const [what, spec] of [["the chain", chain], ["the chain holding a rod", ho
       const speeds = trackers.flatMap((tracker) => tracker.speeds);
       let energy = 0, power = 0, scale = 0;
       for (const s of segments) {
-        s.body.getLinearVelocityToRef(v);
+        s.body.linearVelocityToRef(v);
         // The spin in the segment's frame, which its node carries and its inertia lies along.
         Quaternion.InverseToRef(s.node.rotationQuaternion, inverse);
         angularVelocity(s).rotateByQuaternionToRef(inverse, local);
@@ -145,16 +145,21 @@ function solve(A, b) {
 
 /**
  * Let go turning, with no gravity, the chain's joints speed up and slow down only by the motion
- * under way, M u' = -bias. At 1920 Hz a step's change of the joints' speeds (their median 51
- * rad/s^2) reads 8.2 % off that at the median; the steps where a joint meets its limit or the chain
- * meets itself read wholly off, and are why the median is taken. Averaging the accelerations at a
- * step's two ends changes nothing. Dropping the parent's carrying of the joint axes reads 41 % off,
- * the parent's own angular acceleration 20 %, the joint centre's swing with its parent 43 %, the
- * child's centre's 56 %, the two-freedom joint's lean 12 % (15 % with its sign turned), and adding
- * the gyroscopic torque Havok leaves out 11 %.
+ * under way, M u' = -bias. At 480 Hz a step's change of the joints' speeds reads 2.4 % off that at
+ * the median; the steps where a joint meets its limit or the chain meets itself read wholly off,
+ * and are why the median is taken.
+ *
+ * Rapier moves each step's speeds by a disturbance of its own that does not shrink with the step
+ * (about 0.007 rad/s a step on these joints), so a difference over one step reads it as an
+ * acceleration growing with the rate: 2.3 % off at 240 Hz, 2.4 % at 480, 6.7 % at 960, 25 % at 1920
+ * and 70 % at 3840, the same with the steps at a stop left out. Its cause is not established (the
+ * joints' drift correction is the suspect: their anchors part by under a micrometre). Leaving out
+ * the gyroscopic torque, which Rapier applies, read 25.9 % against 25.0 % at 1920 Hz. On Havok, at
+ * 1920 Hz, dropping the parent's carrying of the joint axes read 41 % off, the parent's own angular
+ * acceleration 20 %, the joint centre's swing with its parent 43 % and the child's centre's 56 %.
  */
-test("the motion under way gives the chain's joint accelerations as Havok moves it, let go with no gravity", async () => {
-  const stand = await coreStand(chain(), { ground: false, gravity: false, pinned: "post", hz: 1920 });
+test("the motion under way gives the chain's joint accelerations as the engine moves it, let go with no gravity", async () => {
+  const stand = await coreStand(chain(), { ground: false, gravity: false, pinned: "post", hz: 480 });
   let seed = 11, tick = 0;
   const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
   const driver = driveMuscles(stand.built, stand.world, (d) => {
@@ -164,9 +169,9 @@ test("the motion under way gives the chain's joint accelerations as Havok moves 
   const dynamics = bodyDynamics(stand.built, [0, 0, 0]);
   const trackers = [...stand.built.joints.values()].map(jointTracker);
   const spin = new Map([...stand.built.segments.values()].map((s) => [s, new Vector3()]));
-  const motion = { speeds: trackers.map((tracker) => tracker.speeds), spin: (s) => spin.get(s) };
+  const motion = { spin: (s) => spin.get(s) };
   const read = () => {
-    for (const [s, w] of spin) s.body.getAngularVelocityToRef(w);
+    for (const [s, w] of spin) s.body.angularVelocityToRef(w);
     trackers.forEach((tracker) => tracker.update(motion.spin));
     dynamics.update(trackers.map((tracker) => tracker.angles), motion);
     return trackers.flatMap((tracker) => tracker.speeds);

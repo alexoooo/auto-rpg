@@ -11,9 +11,9 @@ import type { Vec3 } from "../spec/quantity.ts";
  * The root's frame is the body frame carried by the root: a point is where it would be were the
  * root at its reference pose. A hand goal "in the body frame" is in this frame, so it moves with the
  * pelvis. Angles are each freedom's, in its own sense, as `jointAngles` reads them, and a joint's
- * rotation is theirs composed as Havok's limits measure them (`anglesOf`, `rotationOfToRef`): a
- * swing of the joint's X and a twist about the axis halfway between where X was and where it is, a
- * joint of two freedoms swinging about its Y alone. A child's turn from its reference pose is its
+ * rotation is theirs composed as the engine's limits measure them (`anglesOf`, `rotationOfToRef`):
+ * each angle is twice the atan2 of its axis's part of the rotation against the scalar part, a
+ * locked axis's part zero. A child's turn from its reference pose is its
  * parent's times its joint's (`relativeRotationToRef`: rel = D_parent^-1 D_child), and a point on it
  * swings about its joint's centre.
  */
@@ -30,8 +30,8 @@ const scratch = { a: new Quaternion(), b: new Quaternion(), d: new Quaternion(),
 
 /** `joint`'s rotation at `angles` (each freedom's, its own sense), body frame: `jointAngles` undone. */
 export function rotationAtToRef(joint: BuiltJoint, angles: readonly number[], out: Quaternion): Quaternion {
-  const { dofs } = joint, havok = (k: number) => (k < dofs.length ? dofs[k]!.sign * angles[k]! : 0);
-  return rotationOfToRef(joint.axes, havok(0), havok(1), havok(2), out);
+  const { dofs } = joint, engine = (k: number) => (k < dofs.length ? dofs[k]!.sign * angles[k]! : 0);
+  return rotationOfToRef(joint.axes, engine(0), engine(1), engine(2), out);
 }
 
 /**

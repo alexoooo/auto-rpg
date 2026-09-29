@@ -80,7 +80,7 @@ test("a human's hand holds the club across its knuckles, the haft at its palm, t
   }
 });
 
-test("held, the Warrior's hand is hand and club, and Havok holds both", async () => {
+test("held, the Warrior's hand is hand and club, and the engine holds both", async () => {
   const club = woodenClub(), spec = armed(humanSpec("workshop-fighter"), "right", club);
   const bare = humanSpec("workshop-fighter").segments.find((s) => s.name === "hand.right");
   const rigid = rigidOf(spec, spec.segments.find((s) => s.name === "hand.right"));
@@ -92,7 +92,7 @@ test("held, the Warrior's hand is hand and club, and Havok holds both", async ()
   const stand = await coreStand(spec, { gravity: false, ground: false });
   try {
     const hand = stand.built.segments.get("hand.right");
-    close(hand.body.getMassProperties().mass, rigid.mass, 1e-6, "Havok's mass");
+    close(hand.body.rigid.mass(), rigid.mass, 1e-6, "the engine's mass");
     assert.equal(hand.rigid, stand.built.segments.get("hand.right").rigid);
     assert.equal(stand.built.segments.get("hand.left").rigid.mass, humanSpec("workshop-fighter").segments.find((s) => s.name === "hand.left").mass.value);
   } finally { stand.dispose(); }

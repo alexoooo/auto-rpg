@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { PhysicsMassProperties } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import type { MassProperties } from "../engine/rapier.ts";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import { jointAngles, motionAxesToRef } from "../build/joint-state.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
@@ -448,7 +448,7 @@ interface FootState {
   /** The sole's width across the foot, m. */
   readonly width: number;
   /** The foot's own mass properties, and whether they are conditioned now. */
-  readonly natural: PhysicsMassProperties;
+  readonly natural: MassProperties;
   conditioned: boolean;
 }
 
@@ -470,7 +470,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
     const sole = soleOf(segment), chain = chainTo(built, segment);
     return { side, segment, chain, sole, channels: [], corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
-      middle: new Vector3(), natural: segment.body.getMassProperties(), conditioned: false };
+      middle: new Vector3(), natural: segment.body.massProperties, conditioned: false };
   });
   const reading = { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(), asked: new Vector3(),
     plan: new Vector3(), planVelocity: new Vector3(),
@@ -484,7 +484,6 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   /** The step under way: its swing, the time since its foot left the ground, and where and how the foot left it. */
   const step = { swing: null as SwingGoal | null, lifted: false, time: 0, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion() };
   const path = new Vector3(), along = new Vector3(), sole = new Vector3(), carried = new Vector3();
-  const scene = pelvis.node.getScene();
   let owned = new Uint8Array(0);
   let last: readonly Foot[] | null = null;
   /** The centre of mass's planned place (x, height over the soles, z) and velocity, since the stance began. */
@@ -494,7 +493,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const p = new Vector3();
   const hipAt = new Vector3(), ankleAt = new Vector3(), kneeAt = new Vector3(), shank = new Quaternion(), footTurn = new Quaternion();
   const level = new Quaternion();
-  const gravity = (): number => -(scene.getPhysicsEngine()?.gravity.y ?? 0);
+  const gravity = (): number => -built.physics.gravity[1];
 
   /** Ask `foot`'s leg's muscles for `speeds`, in its chain's order, at full activation. */
   const drive = (foot: FootState, speeds: readonly number[]): void => {
@@ -523,7 +522,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       for (const segment of segments) {
         const m = segment.rigid.mass;
         c.addInPlace(centreOfToRef(segment, p).scaleInPlace(m));
-        segment.body.getLinearVelocityToRef(v);
+        segment.body.linearVelocityToRef(v);
         vel.addInPlace(v.scaleInPlace(m));
       }
       c.scaleInPlace(1 / total);
@@ -588,8 +587,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       for (const foot of feet) {
         const standing = bearing.includes(foot.side);
         if (standing === foot.conditioned) continue;
-        const { inertia } = foot.natural;
-        foot.segment.body.setMassProperties({ ...foot.natural, inertia: standing ? inertia!.scale(conditioning) : inertia!.clone() });
+        const { moments } = foot.natural;
+        foot.segment.body.setMassProperties({ ...foot.natural, moments: standing ? [moments[0] * conditioning, moments[1] * conditioning, moments[2] * conditioning] : moments });
         foot.conditioned = standing;
       }
       if (!goal || !last || bearing.length !== last.length || bearing.some((side) => !last!.includes(side))) {
@@ -731,8 +730,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
         turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
         // Relative to the pelvis, and as the pelvis's motion from the foot: the negative.
-        pelvis.body.getLinearVelocityToRef(pelvisVelocity);
-        pelvis.body.getAngularVelocityToRef(pelvisSpin);
+        pelvis.body.linearVelocityToRef(pelvisVelocity);
+        pelvis.body.angularVelocityToRef(pelvisSpin);
         Vector3.CrossToRef(pelvisSpin, sole.subtractToRef(p, v), carried).addInPlace(pelvisVelocity);
         along.subtractInPlace(carried).scaleInPlace(-1);
         turn.subtractInPlace(pelvisSpin).scaleInPlace(-1);

@@ -2,7 +2,7 @@
  * The joint servo (`src/core/control/servo.ts`): a freedom pulled toward its goal follows the
  * critically damped motion it asks for, from rest and while braking a joint turning fast, at the
  * game's 120 Hz and at 480 Hz; and a chain does, alike at 120 Hz and 960 Hz. Node stand: one rod
- * hung from a static post, and the Rogue's arm on its held upper trunk, gravity on.
+ * hung from a fixed post, and the Rogue's arm on its held upper trunk, gravity on.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -71,8 +71,9 @@ const gapOf = ({ path, e0, w0 }, timeConstant = 0.1) =>
   Math.max(...path.map(([t, e]) => Math.abs(e - damped(e0, w0, 1 / timeConstant, t))));
 
 /**
- * The servo gives the torque the damped motion takes, and the rod follows it: within 0.018 rad at
- * 120 Hz and 0.0045 at 480 Hz, on moves of 1 and 0.8 rad. The servo before it asked Havok's
+ * The servo gives the torque the damped motion takes, and the rod follows it: within 0.020 rad at
+ * 120 Hz and 0.0049 at 480 Hz, on moves of 1 and 0.8 rad (Havok's were 0.018 and 0.0045). The
+ * servo before it asked Havok's
  * velocity motor for speeds, and the motor adds about a third to each change of speed it is asked
  * for and returns it over the next steps, so that rod ran 0.027-0.040 rad ahead at both rates.
  */
@@ -93,7 +94,7 @@ test("a joint servoed from rest follows the critically damped motion toward its 
  * acceleration, largest at the switch, and no step changes the speed by much more: 5.1 rad/s at
  * 120 Hz against 4.8 asked, 1.25 at 480 against 1.22. Asking a velocity motor for it, the servo
  * before this one got the motor's third on top (6.4 and 1.8). The two rates brake alike, 0.06 rad
- * apart.
+ * apart. Rapier's and Havok's readings agree to the figures given.
  */
 test("a joint turning fast is braked a step's acceleration at a time, alike at 120 Hz and 480 Hz", async () => {
   const runs = {};
@@ -112,13 +113,13 @@ test("a joint turning fast is braked a step's acceleration at a time, alike at 1
 
 /**
  * At 5 N m the rod cannot follow the damped motion toward 1 rad in 0.1 s; it lags and arrives, to
- * within 0.008 rad, where it stops: Havok brakes a body whose centre moves slower than about
- * 0.12 m/s at about 0.3 m/s2 (`servo.ts`), and near its goal the servo asks less than that.
+ * within 0.0001 rad. Havok, which brakes a body whose centre moves slower than about 0.12 m/s at
+ * about 0.3 m/s2, stopped it 0.008 rad short, where the servo asked less than that.
  */
 test("a servo asking for more than the muscles hold is bounded by them and gets there later", async () => {
   const weak = await servoRun(120, { goal: 1, peak: 5, seconds: 1.5 });
   assert.ok(gapOf(weak) > 0.1, `a weak rod kept up with the damped motion: ${gapOf(weak)} rad`);
-  assert.ok(Math.abs(weak.path.at(-1)[1]) < 0.015, `a weak rod did not arrive: ${weak.path.at(-1)[1]} rad short`);
+  assert.ok(Math.abs(weak.path.at(-1)[1]) < 0.002, `a weak rod did not arrive: ${weak.path.at(-1)[1]} rad short`);
   const slow = await servoRun(120, { goal: 1, peak: 5, seconds: 1.5, timeConstant: 0.4 });
   assert.ok(gapOf(slow, 0.4) < 0.05, `given 0.4 s it follows: ${gapOf(slow, 0.4)} rad`);
 });
@@ -127,8 +128,9 @@ test("a servo asking for more than the muscles hold is bounded by them and gets 
  * A chain, servoed through a pose where its joints' angles and speeds part: the Rogue's right arm
  * on its held upper trunk, gravity on, its shoulder swung 1.9 rad (abduction 1.8, internal
  * rotation 0.6, flexion 0.8) with the elbow bent, then servoed back to its reference pose. At
- * 120 Hz it moves as at 960 Hz: the hand peaks at 2.61 against 2.56 m/s on the way back, and its
- * path is never 8 mm from the finer one. The servo before this one asked each motor for its own
+ * 120 Hz it moves as at 960 Hz: the hand peaks at 2.00 against 1.96 m/s on the way back, and its
+ * path is never 5 mm from the finer one (on Havok, whose measure made these angles another pose,
+ * 2.61 against 2.56 m/s and 8 mm). The servo before this one asked each motor for its own
  * freedom's change (the angle-space mismatch, `servo.ts`) of a velocity motor (the step lag): at
  * 120 Hz, in the Euler reading the joints had then and through flexion 2.5 with abduction 0.5, the
  * arm never reached the pose and the hand's paths lay 89 mm apart. Raising the arm flings the
@@ -157,7 +159,7 @@ test("a servoed arm moves alike at 120 Hz and 960 Hz, through a pose where angle
       let peak = 0;
       for (let i = 1; i <= stand.seconds(0.5); i++) {
         stand.step(1);
-        hand.body.getLinearVelocityToRef(v);
+        hand.body.linearVelocityToRef(v);
         peak = Math.max(peak, v.length());
         if (i % stand.seconds(0.05) === 0) path.push(hand.node.position.clone());
       }
@@ -167,7 +169,7 @@ test("a servoed arm moves alike at 120 Hz and 960 Hz, through a pose where angle
   const { 120: coarse, 960: fine } = runs;
   const apart = Math.max(...coarse.path.map((p, k) => Vector3.Distance(p, fine.path[k])));
   console.log(`MUT arm peak ${coarse.peak.toFixed(2)} | ${fine.peak.toFixed(2)} m/s, paths ${(1000 * apart).toFixed(1)} mm apart`);
-  assert.ok(fine.peak > 2, `the hand came back at ${fine.peak} m/s`);
+  assert.ok(fine.peak > 1.5, `the hand came back at ${fine.peak} m/s`);
   assert.ok(Math.abs(coarse.peak / fine.peak - 1) < 0.03, `hand peak ${coarse.peak} m/s at 120 Hz against ${fine.peak}`);
   assert.ok(apart < 0.03, `the hand's paths ${apart} m apart`);
 });

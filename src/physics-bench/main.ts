@@ -17,10 +17,8 @@ import mujocoMtWasmUrl from "@mujoco/mujoco/mt/mujoco.wasm?url";
 import mujocoMtWorkerUrl from "@mujoco/mujoco/mt?worker&url";
 import { forearmChain, scaling, standingFoot, standingHuman, type Factory, type Layout, type ScalingResult } from "./cases.ts";
 import { CHOSEN, mujocoThreaded, type Chosen } from "./chosen.ts";
-import type { Sim } from "./engines/types.ts";
-import type { V3 } from "./math.ts";
 
-interface Loaded { readonly initMs: number; readonly factory: Factory; readonly real?: (offsets: readonly V3[], settings: Chosen["settings"], cond: Readonly<Record<string, number>>) => Sim }
+interface Loaded { readonly initMs: number; readonly factory: Factory }
 
 const loaded = new Map<string, Promise<Loaded>>();
 
@@ -28,10 +26,9 @@ async function loadEngine(name: Chosen["engine"]): Promise<Loaded> {
   const t0 = performance.now();
   switch (name) {
     case "havok": {
-      const [{ default: HavokPhysics }, { createHavok }, { createHavokReal }] = await Promise.all([
-        import("@babylonjs/havok"), import("./engines/havok.ts"), import("./engines/havok-real.ts")]);
+      const [{ default: HavokPhysics }, { createHavok }] = await Promise.all([import("@babylonjs/havok"), import("./engines/havok.ts")]);
       const hk = await HavokPhysics({ locateFile: () => havokWasmUrl });
-      return { initMs: performance.now() - t0, factory: (s, st) => createHavok(hk, s, st), real: (o, st, c) => createHavokReal(hk, o, st, c) };
+      return { initMs: performance.now() - t0, factory: (s, st) => createHavok(hk, s, st) };
     }
     case "mujoco": {
       const [{ default: loadMujoco }, { createMujoco }] = await Promise.all([import("@mujoco/mujoco"), import("./engines/mujoco.ts")]);
@@ -108,7 +105,7 @@ async function runChosen(c: Chosen, what: { fidelity: boolean; scaling: boolean 
   $("status").textContent = `${c.tag}: loading`;
   const e = await engineOf(c.engine);
   state.loads[c.engine] = { initMs: e.initMs };
-  if (what.fidelity && !c.real) {
+  if (what.fidelity) {
     $("status").textContent = `${c.tag}: case A`; await tick();
     const a = standingFoot(e.factory, c.settings, c.conditioning?.["foot.left"] ?? 1);
     show({ tag: c.tag, kind: "A", ...a }, [c.tag, "case A", a.standing ? "standing" : "FELL", `spin ${f(a.footSpinRms, 4)}`, `tilt ${f(a.footTiltMaxLate)}`, `drift ${f(a.comDrift)} mm`, `${f(a.msPerStep)} ms`]);
@@ -126,7 +123,6 @@ async function runChosen(c: Chosen, what: { fidelity: boolean; scaling: boolean 
     for (let k = 0; k < REPEATS; k++) {
       runs.push(scaling(e.factory, c.settings, kind, humans, {
         conditioning: c.conditioning,
-        build: c.real && e.real ? (offsets) => e.real!(offsets, c.settings, c.conditioning ?? {}) : undefined,
       }));
       await tick();
     }

@@ -13,7 +13,7 @@ import { dot, length, normalize, sub } from "../core/spec/vec.ts";
 
 /**
  * **The core body as the solver sees it**: each segment's collision shape, drawn on its node.
- * Nothing drawn here collides or decides anything; it is the shapes the spec gave Havok, so what
+ * Nothing drawn here collides or decides anything; it is the shapes the spec gave the engine, so what
  * the page shows is what moves.
  */
 export interface BodyView {

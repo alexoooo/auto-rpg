@@ -5,7 +5,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
-import { coreStand, holdReferencePose, relativeRotation, spinOnce } from "./harness/core-stand.mjs";
+import { servo } from "../src/core/control/servo.ts";
+import { driveMuscles } from "../src/core/muscle/driver.ts";
+import { coreStand, relativeRotation, spinOnce } from "./harness/core-stand.mjs";
 
 const MODELS = ["workshop-fighter", "workshop-rogue"];
 
@@ -26,31 +28,47 @@ test("each human's built segments turn under an impulse as their spec inertia sa
   }
 });
 
-/** Each joint's rotation from the reference pose, in degrees, after `seconds` on the stand. */
-async function heldOnAStand(model, seconds, ceiling) {
+/**
+ * `seconds` on the stand, each freedom servoed to the reference pose by its muscles, or with none:
+ * each joint's rotation from the pose (degrees), and each freedom's torque as a share of its weaker
+ * isometric peak.
+ */
+async function heldOnAStand(model, seconds, muscles = true) {
   const stand = await coreStand(humanSpec(model), { ground: false, position: [0, 0.5, 0], pinned: "lowerTrunk" });
+  const driver = muscles ? driveMuscles(stand.built, stand.world, (d, dt) => servo(d, () => 0, 0.1, dt)) : null;
   try {
-    holdReferencePose(stand.built, ceiling);
     stand.step(stand.seconds(seconds));
-    return Object.fromEntries([...stand.built.joints.values()].map((joint) =>
+    const degrees = Object.fromEntries([...stand.built.joints.values()].map((joint) =>
       [joint.spec.name, 2 * Math.acos(Math.min(1, Math.abs(relativeRotation(joint).w))) * 180 / Math.PI]));
-  } finally { stand.dispose(); }
+    const torques = driver ? driver.channels.map((c, i) => driver.ceiling[i]) : [];
+    const shares = driver ? Object.fromEntries(driver.channels.map((c, i) => [c.name, torques[i] / Math.min(c.positive.peak, c.negative.peak)])) : {};
+    return { degrees, shares, largest: Math.max(0, ...torques) };
+  } finally { driver?.dispose(); stand.dispose(); }
 }
 
 /**
  * The plan's stage 1 stand: each human, pinned at the pelvis as on a mannequin's stand, holds its
- * reference pose against gravity for 5 s with every freedom braked at its weaker isometric peak.
- * It read 0.5 degrees at worst for the Warrior and 1.0 for the Rogue, both elbows, settled in the
- * first second and still there at 10 s (Node stand, 120 Hz). The control: at 1 N m a freedom, both
- * slump -- a shoulder by 81-85 degrees.
+ * reference pose against gravity, its muscles servoing every freedom to it (time constant 0.1 s).
+ * At 10 s it read 0.023 degrees at worst for the Warrior (hips) and 0.021 for the Rogue (ankles),
+ * the largest torque 9.2 and 3.9 N m, 10 % and 13 % of a weaker peak (shoulder abduction), alike
+ * at 960 Hz (Node stand, 120 Hz). The control: with no muscles, both slump.
+ *
+ * This stand once braked each freedom at its weaker peak, a velocity motor asking for no motion.
+ * On Havok it held to 0.5 and 1.0 degrees. On Rapier a velocity motor under its ceiling holds only
+ * as far as the solver converges, and every braked freedom crept about 4.5 degrees a second at
+ * 120 Hz and 1.1 at 480. A 1 kg rod braked on a pin crept 1.74 degrees a second at 4 iterations,
+ * 0.46 at 16 and 0.12 at 64; at 16, 0.85 with one PGS pass, 0.46 with two and 0.03 with eight;
+ * whatever the ceiling or the motor model (`research/core-rapier-probe.mjs`, its brake). A saturated motor, a torque source, is exact, and the servo gives torque sources.
  *
  * Pinned, because the feet are a separate problem: see the plan, stage 1, "Found while building".
  */
-test("on a stand at the pelvis, each human holds its reference pose against gravity at its weaker peaks", async () => {
+test("on a stand at the pelvis, each human holds its reference pose against gravity within its weaker peaks", async () => {
   for (const model of MODELS) {
-    const held = await heldOnAStand(model, 5);
-    for (const [joint, degrees] of Object.entries(held)) assert.ok(degrees < 2, `${model} ${joint} gave ${degrees.toFixed(2)} degrees`);
-    const slumped = await heldOnAStand(model, 5, () => 1);
-    assert.ok(Math.max(...Object.values(slumped)) > 30, `${model} at 1 N m a freedom: ${JSON.stringify(slumped)}`);
+    const { degrees, shares, largest } = await heldOnAStand(model, 5);
+    for (const [joint, d] of Object.entries(degrees)) assert.ok(d < 0.2, `${model} ${joint} gave ${d.toFixed(3)} degrees`);
+    for (const [channel, share] of Object.entries(shares)) assert.ok(share < 0.5, `${model} ${channel} held at ${share.toFixed(2)} of its weaker peak`);
+    assert.ok(largest > 1, `${model} bore its weight at ${largest} N m at most`);
+    const slumped = (await heldOnAStand(model, 5, false)).degrees;
+    assert.ok(Math.max(...Object.values(slumped)) > 30, `${model} with no muscles: ${JSON.stringify(slumped)}`);
   }
 });

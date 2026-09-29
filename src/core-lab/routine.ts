@@ -25,14 +25,16 @@ import { stanceLegs } from "./legs.ts";
  */
 
 /**
- * The servo's time constant, s. At 0.1 s, on this routine, the Warrior and the Rogue at 120 Hz and
- * 480 Hz: late in each settle no joint's speed reversed by more than 0.006 rad/s from one step to
- * the next but the Rogue's wrists at 120 Hz, whose pronation flickered at 0.04 rad/s (`servo`) and
- * radial deviation reversed once at 0.021; and from the end of the first second the guard was held
- * within 0.032 rad at 120 Hz and 0.030 at 480 Hz, the worst at a wrist or the neck (Node stand).
- * That band is Havok's brake on slow bodies (`servo`), and shrinks about as the square of the time
- * constant: at 0.05 s and 960 Hz a wrist's was 0.008 rad. But a time constant needs ten steps (`servo`), 0.083 s at 120 Hz, and
- * under that the wrists ring about pronation.
+ * The servo's time constant, s. At 0.1 s, on this routine, over the second half of each settle and
+ * the freedoms the legs leave to the posture: no speed reversed by more than 0.010 rad/s from one
+ * step to the next on the Rogue at 120 Hz, 0.008 at 480 Hz, and 0.026 and 0.046 on the Warrior,
+ * the worst at a wrist's radial deviation or the lumbar spine; and the guard was held within 0.026
+ * and 0.029 rad on the Rogue, 0.039 and 0.022 on the Warrior, the worst at the trunk's flexion
+ * (Node stand, Rapier; the Warrior at 120 Hz read over the first two settles, since it fell in the
+ * third strike). That band is not the servo's: with the lower trunk held it ends within 0.0002 rad
+ * (`servo`); the standing body moves under it, and the servo leaves out the root's acceleration.
+ * On Havok the band was its brake on slow bodies (0.032 rad at 120 Hz), and a time constant
+ * needed ten steps; on Rapier two steps hold (`servo`), so 0.1 s is a choice, not a floor.
  */
 export const SERVO_SECONDS = 0.1;
 

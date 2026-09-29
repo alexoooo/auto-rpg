@@ -6,7 +6,6 @@
 import { readFile } from "node:fs/promises";
 import HavokPhysics from "@babylonjs/havok";
 import { createHavok } from "../../src/physics-bench/engines/havok.ts";
-import { createHavokReal } from "../../src/physics-bench/engines/havok-real.ts";
 import { createMujoco } from "../../src/physics-bench/engines/mujoco.ts";
 import { createRapier } from "../../src/physics-bench/engines/rapier.ts";
 
@@ -20,8 +19,7 @@ export async function load(name) {
   switch (name) {
     case "havok": {
       const hk = await HavokPhysics({ wasmBinary: await readFile(havokWasm) });
-      return { initMs: performance.now() - t0, module: hk, factory: (scene, settings) => createHavok(hk, scene, settings),
-        real: (offsets, settings, conditioning) => createHavokReal(hk, offsets, settings, conditioning) };
+      return { initMs: performance.now() - t0, module: hk, factory: (scene, settings) => createHavok(hk, scene, settings) };
     }
     case "mujoco":
     case "mujoco-mt": {

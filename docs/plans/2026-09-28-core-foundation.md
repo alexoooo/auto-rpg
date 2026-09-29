@@ -685,6 +685,94 @@ contradicts one; the eccentric ceiling is the owner's decision.
 - **Waiting:** which mechanism a contact is (cut, thrust, crush, clang) and the floors under which a
   blow only shoves come with the weapons that have edges and points.
 
+### The engine: Rapier (2026-09-29, branch `core-rapier`)
+
+The owner chose to try Rapier's SIMD build for the core (`owner-physics-engine`) on the bake-off's
+report (`research/physics-bakeoff/REPORT.md`); the old path stays on Havok. The core's engine glue
+is `src/core/engine/rapier.ts`: bodies with their nodes, the generic joint, fixed bodies, a ground,
+and the solver's settings (`SOLVER`: 16 iterations of 2 PGS passes, one step, from the bake-off).
+
+**What Rapier's joint does** (`research/core-rapier-probe.mjs`, Node, 120 and 960 Hz):
+- its angle about axis k is 2 atan2(q_k, w), and a limit holds that angle to 0.0005 rad;
+  `src/core/build/joint-state.ts` reads, turns and inverts it in closed form (the turning matrix,
+  the rates, and a two-freedom joint's motion axes X - tan(b/2) Z and Y + tan(a/2) Z);
+- a velocity motor drives the relative angular velocity along its axis as fixed in the parent,
+  and a saturated one is exact (a torque source);
+- a free body conserves its angular momentum (within 0.2 % over 1 s): Rapier applies the
+  gyroscopic torque Havok left out, and `bodyDynamics` now carries w x I w;
+- mass properties set on a body take effect at the next step unless recomputed at once.
+
+**What converges at the game's rate.**
+- The body's dynamics (`tests/core-dynamics.test.mjs`): kinetic energy within 0.13 % and gravity's
+  power within 0.19 % at 960 Hz (Havok 0.73 and 0.24); the motion under way, M u' = -bias, within
+  2.4 % at the median at 480 Hz. A step's change of speed carries a disturbance of Rapier's own
+  that does not shrink with the step, so the same reading is 25 % off at 1920 Hz and 70 % at 3840.
+- The servo (`tests/core-servo.test.mjs`): as on Havok, 0.020 and 0.0049 rad off the damped motion
+  at 120 and 480 Hz; the Rogue's servoed arm moves alike at 120 and 960 Hz, its hand's paths 5 mm
+  apart (Havok 8). A weak servo arrives within 0.0001 rad: Rapier has no brake on slow bodies.
+- **A club blow.** Searched at 120 Hz on Rapier (30 generations of 64, seeds 1-3), the best blows
+  read at 120 Hz against 3840: 76.5 against 75.6 J, 68.5 against 66.8, 89.4 against 81.5; Havok's
+  unit blow read 19 J at 120 Hz against 120.7 at 1920. A blow found on Havok does not carry over:
+  replayed on Rapier it goes another way (the shoulder's flexion reaches 3.02 rad).
+
+**The damage unit on Rapier** (Node core stand, ground on; 4 trials a candidate, 40 generations of
+96, searched at 120 Hz; the best blow of each search read again on 8 trials, the mean in joules):
+
+  | seed | search | 120 | 480 | 960 | 1920 | 3840 | closing at 1920 |
+  |---|---|---|---|---|---|---|---|
+  | 1 | 102.5 | 102.5 | 80.6 | 67.6 | 73.6 | 68.3 | 11.6 |
+  | 2 | 98.2 | 98.1 | 98.5 | 83.3 | 88.3 | 86.3 | 11.9 |
+  | 3 | 105.6 | 104.5 | 88.0 | 83.7 | 83.3 | 78.7 | 10.4 |
+
+With the search's full budget the blows found at 120 Hz read 10-30 % stronger there than from
+960 Hz up, and 4-8 % apart between 960, 1920 and 3840 Hz: a search finds what the coarse step
+gives, as it did on Havok at 480 Hz. The smaller searches above had stopped short of that. **The
+unit is not re-set yet**: it is the converged reading of a blow searched at a converged rate, and
+that search waits on the solver's settings (below), which move every blow. Until then the unit is
+Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.37 HP on Rapier.
+
+**What does not hold, and why.**
+- **A velocity motor under its ceiling holds only as far as the solver converges.** Rapier solves
+  joints and contacts by iteration; a motor asked for a speed it has the strength to hold leaves a
+  residue each step that does not shrink with the step. A 1 kg rod braked on a pin creeps 0.46
+  degrees a second at 16 iterations of 2 passes; 1.74 at 4 iterations, 0.12 at 64; 0.85 with one
+  pass, 0.03 with eight; whatever the ceiling or the motor model (the probe's brake). The whole
+  human braked on a stand crept 4.5 degrees a second at 120 Hz; the stand now holds it with the
+  servo, whose torque sources are exact (0.023 degrees at 10 s).
+- **So the stance does not stand still.** It asks the legs' motors for speeds, under their
+  ceilings, through the closed chain the ground makes. Standing 3 cm low (Node stand, 120 Hz), the
+  centre of mass stops 9-12 mm off the soles' middle and drifts 15 mm in 2 s, and the feet slide
+  33-51 mm in 5 s. The foot moves 0.087 mm a step while its velocity accounts for 0.0007: the
+  solver's correction of what it left unconverged moves the bodies within the step and takes the
+  velocity back out. Joints part by 10 micrometres, and a pushed box on the ground does not slide
+  at all, so neither the joints nor friction alone are the cause. The stance's drift, centre off /
+  drift in the last 2 s / feet's travel, mm, and the cost a step, by the solver (foot conditioning
+  100, both humans):
+
+      iterations  passes   Warrior             Rogue               ms a step
+      16          2        12.2 / 14.5 / 51    9.1 / 15.4 / 33     0.9
+      16          8        4.1 / 4.7 / 12      4.1 / 3.8 / 13      1.2-1.4
+      32          4        4.1 / 4.5 / 13      4.1 / 4.6 / 15      1.7-2.2
+      32          8        1.5 / 2.2 / 5       1.4 / 2.1 / 6       2.0
+      64          8        0.7 / 1.2 / 2.6     0.6 / 1.1 / 2.6     3.7-4.2
+
+  Havok stood the same stance within 3 mm, with its feet conditioned for the same reason.
+- **A limit pushes along its parent's axis, not along its angle's gradient**, so the other
+  freedoms' turning carries a pressed angle past its stop: by up to 0.046 rad
+  (`tests/core-joint-state.test.mjs`, a todo), and at 1000 N m a pressed first freedom dragged the
+  other two to their own stops.
+- **Rapier's JavaScript binding does not read a joint's impulses**, so the muscle driver chooses
+  the pulling side by the change asked again (`src/core/muscle/driver.ts` has the defect; two
+  muscle tests are todos). Its multibody joints, which would hold the joints exactly, cannot have
+  their motors set after they are made, and the bake-off found them unusable in 0.21.
+
+**Where the port stands**: 1080 of 1095 tests pass; three are todos (the limit and the two muscle
+impulse tests), and the twelve that fail are the stance's (standing, stepping, recovering, walking,
+the lab's routine) and the unit's replay. The lab routine falls at 120 Hz (the Warrior in its third
+strike, the Rogue in its first turn) and runs whole at 480 Hz. **Waiting on the owner**: whether
+the stance keeps its velocity motors under a stronger solver, moves to torque sources, or the core
+takes a patched Rapier build.
+
 ### Stage 6: the human fights in the game
 
 - **A mind** drives the core body through goals. First the existing duelist's decisions through an adapter, since it already aims by published reach; then minds layered as tactics, skills and motor goals.

@@ -1,12 +1,12 @@
 /**
  * **An item held in a segment is one rigid body with it** (`src/core/build/rigid.ts`): the two
  * masses, their centre, and their inertia about it with products, turned to principal axes for
- * Havok. Read against a sum written another way, and against Havok's own response to an impulse
- * (Node core stand).
+ * the engine. Read against a sum written another way, and against the engine's own response to an
+ * impulse (Node core stand, Rapier).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { heldFrame, heldPoint, principalOf, rigidOf } from "../src/core/build/rigid.ts";
 import { frameOf } from "../src/core/spec/body.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
@@ -87,40 +87,47 @@ test("held, the rigid body has both masses, their centre, and the angular moment
   assert.deepEqual(rigid.shapes[2].centre.value, heldPoint(held, held.item.points.head).value);
 });
 
-test("Havok holds the rigid body: its mass, centre and inertia, read back by an impulse on every axis", async () => {
+/**
+ * The engine keeps a free body's angular momentum, not its spin (`dynamics.ts`), so the momentum an
+ * impulse gives is read with the segment frame where the step left it.
+ */
+test("the engine holds the rigid body: its mass, centre and inertia, read back by an impulse on every axis", async () => {
   const spec = holder(), [segment] = spec.segments;
-  const rigid = rigidOf(spec, segment), own = frameOf(segment);
+  const rigid = rigidOf(spec, segment), rest = frameOf(segment);
   const T = matrix(rigid.tensor);
+  // The segment frame as the node carries it now.
+  const frameNow = (node) => {
+    const turn = node.rotationQuaternion.multiply(Quaternion.Inverse(Quaternion.RotationQuaternionFromAxis(...["x", "y", "z"].map((a) => new Vector3(...rest[a])))));
+    return Object.fromEntries(["x", "y", "z"].map((a) => [a, new Vector3(...rest[a]).applyRotationQuaternion(turn).asArray()]));
+  };
   for (const axis of [[1, 0, 0], [0, 1, 0], [0, 0, 1], [0.48, 0.6, -0.64]]) {
     const stand = await coreStand(spec, { gravity: false, ground: false });
     try {
-      const { body } = stand.built.segments.get("grip");
-      close(body.getMassProperties().mass, 1.7, 1e-6, "mass");
+      const { body, node } = stand.built.segments.get("grip");
+      close(body.rigid.mass(), 1.7, 1e-6, "mass");
       const impulse = 0.01;
-      body.applyAngularImpulse(new Vector3(...axis).scale(impulse));
+      body.rigid.applyTorqueImpulse(new Vector3(...axis).scale(impulse), true);
       stand.step(1);
       const w = new Vector3();
-      body.getAngularVelocityToRef(w);
-      // T w = L in the segment frame, which is the body frame's still (the body barely turned in a step).
+      body.angularVelocityToRef(w);
+      const own = frameNow(node);
       const wIn = [dot([w.x, w.y, w.z], own.x), dot([w.x, w.y, w.z], own.y), dot([w.x, w.y, w.z], own.z)];
       const L = times(T, wIn), want = [dot(axis, own.x), dot(axis, own.y), dot(axis, own.z)].map((a) => a * impulse);
       for (let k = 0; k < 3; k++) close(L[k], want[k], 2e-3 * impulse, `L ${k} about ${axis}`);
     } finally { stand.dispose(); }
   }
   // A push at the rod's head, off the centre: the centre moves at J / m and the body turns by
-  // (head - centre) x J, which only the right centre gives. Hard enough that the centre moves well
-  // over Havok's brake on slow bodies (H73); Havok keeps a free body's spin, so it is still the
-  // one the reference pose took from the push.
+  // (head - centre) x J, which only the right centre gives.
   const stand = await coreStand(spec, { gravity: false, ground: false });
   try {
-    const { body } = stand.built.segments.get("grip");
+    const { body, node } = stand.built.segments.get("grip");
     const head = heldPoint(spec.held[0], spec.held[0].item.points.head).value, J = [0.4, -1, 0.7];
     body.applyImpulse(new Vector3(...J), new Vector3(...head));
     stand.step(1);
     const v = new Vector3(), w = new Vector3();
-    body.getLinearVelocityToRef(v);
-    body.getAngularVelocityToRef(w);
-    // Havok reads this velocity back in steps of 1/256 m/s.
+    body.linearVelocityToRef(v);
+    body.angularVelocityToRef(w);
+    const own = frameNow(node);
     [v.x, v.y, v.z].forEach((c, k) => close(c, J[k] / 1.7, 1e-2 * Math.abs(J[1]) / 1.7, `v ${k}`));
     const wIn = [dot([w.x, w.y, w.z], own.x), dot([w.x, w.y, w.z], own.y), dot([w.x, w.y, w.z], own.z)];
     const moment = cross(sub(head, rigid.centre), J), L = times(T, wIn);

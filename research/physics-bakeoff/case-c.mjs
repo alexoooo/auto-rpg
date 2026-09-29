@@ -12,7 +12,7 @@ import { CHOSEN } from "../../src/physics-bench/chosen.ts";
 
 const FEET = (k) => ({ "foot.left": k, "foot.right": k });
 const rows = [
-  ...CHOSEN.filter((c) => !c.real),
+  ...CHOSEN,
   ...CHOSEN.filter((c) => c.engine === "mujoco").map((c) => ({ ...c, tag: `${c.tag} x100`, conditioning: FEET(100) })),
   { engine: "mujoco", tag: "mujoco-16", settings: { hz: 120, substeps: 16 } },
   { engine: "mujoco", tag: "mujoco-16 x100", settings: { hz: 120, substeps: 16 }, conditioning: FEET(100) },

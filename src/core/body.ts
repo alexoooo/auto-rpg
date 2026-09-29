@@ -138,13 +138,14 @@ const sameGoal = (a: HandGoal, b: HandGoal): boolean =>
 
 /**
  * The knuckles (`SegmentSpec.points`) of `hand`, where a fist strikes, and their velocity from the
- * hand body's: its centre's, plus its spin across the arm from the centre to the knuckles (Havok's
- * linear velocity is the centre of mass's, H49). The hand segment runs on to the fingertips, more
- * than twice as far from the wrist, and a fist read there took a whip of the wrist as a punch: a
- * searched blow's 11.6 m/s had 5.0 of its wrist's (Node stand, 120 Hz). Not from the nodes: after
- * a limit's impulse Havok moves them behind the body for several steps
- * (`src/core/build/joint-state.ts`), and a fist read from them jumped from 6.7 to 11.4 m/s for one
- * step as the elbow met its stop (Node stand, 120 Hz).
+ * hand body's: its centre's, plus its spin across the arm from the centre to the knuckles (the
+ * engine's linear velocity is the centre of mass's, Rapier's as Havok's, H49). The hand segment
+ * runs on to the fingertips, more than twice as far from the wrist, and a fist read there took a
+ * whip of the wrist as a punch: a searched blow's 11.6 m/s had 5.0 of its wrist's (Node stand,
+ * 120 Hz, Havok). Not from the nodes: the engine moves a body by more than its velocity when it
+ * corrects a constraint's error. On Havok, after a limit's impulse, a fist read from the nodes
+ * jumped from 6.7 to 11.4 m/s for one step as the elbow met its stop; on Rapier a standing
+ * Warrior's foot moved 0.087 mm a step while its velocity carried it 0.0007 (Node stand, 120 Hz).
  */
 function fistOf(built: BuiltBody, side: Hand): { fist: Fist; update(): void } {
   const hand: BuiltSegment | undefined = built.segments.get(`hand.${side}`);
@@ -164,8 +165,8 @@ function fistOf(built: BuiltBody, side: Hand): { fist: Fist; update(): void } {
       const turn = hand.node.rotationQuaternion!;
       arm.applyRotationQuaternionToRef(turn, lever);
       centre.applyRotationQuaternionToRef(turn, fist.position).addInPlace(hand.node.position).addInPlace(lever);
-      hand.body.getLinearVelocityToRef(fist.velocity);
-      hand.body.getAngularVelocityToRef(angular);
+      hand.body.linearVelocityToRef(fist.velocity);
+      hand.body.angularVelocityToRef(angular);
       fist.velocity.addInPlace(Vector3.CrossToRef(angular, lever, angular));
     },
   };

@@ -1,13 +1,13 @@
 /**
  * **The mass a contact meets** (`src/core/build/contact-mass.ts`), joints free and the body
- * floating: against the closed form for one body, and against Havok's own answer to an impulse
- * (Node core stand, 3840 Hz, no gravity, in the air).
+ * floating: against the closed form for one body, and against the engine's own answer to an
+ * impulse (Node core stand, Rapier, 3840 Hz, no gravity, in the air).
  *
- * Havok spreads an impulse through its joints over a few steps: on the chain's end, pushed at
- * 1.5 N s, its first step read 2.139 m/s along x against the model's 2.074, and the next three
- * 2.072, 2.086 and 2.088 at 3840 Hz (2.094-2.126 at 960 Hz, where the chain has moved further). A
- * push a tenth as hard reads the same, but loses 2-4 % of its momentum to Havok's brake on slow
- * bodies (H73); the hard push keeps it to 0.04 %.
+ * On the chain's end, pushed at 1.5 N s, Rapier's first step read 2.077 m/s along x against the
+ * model's 2.074, and the next three 2.081, 2.084 and 2.085 at 3840 Hz (2.086-2.118 at 960 Hz,
+ * where the chain has moved further). A push a tenth as hard reads 2.065-2.082, and neither loses
+ * any momentum (under 0.001 %). Havok spread an impulse through its joints over a few steps (2.139
+ * on the first) and braked the tenth push's slow bodies, losing 2-4 % of its momentum (H73).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -57,8 +57,8 @@ function chain() {
 /** The velocity of `point` (world) on `segment`'s body: its centre's plus its spin across. */
 function pointVelocity(segment, point) {
   const v = new Vector3(), w = new Vector3();
-  segment.body.getLinearVelocityToRef(v);
-  segment.body.getAngularVelocityToRef(w);
+  segment.body.linearVelocityToRef(v);
+  segment.body.angularVelocityToRef(w);
   const centre = new Vector3(...segment.rigid.centre.map((c, k) => c - segment.frame.origin[k]));
   const local = new Vector3(dot(centre.asArray(), segment.frame.x), dot(centre.asArray(), segment.frame.y), dot(centre.asArray(), segment.frame.z));
   const c = local.applyRotationQuaternion(segment.node.rotationQuaternion).addInPlace(segment.node.position);
@@ -102,7 +102,7 @@ test("one body meets a contact with its mass and its inertia about the contact",
   });
 });
 
-test("a floating chain meets an impulse as Havok moves it: every joint free, the rigid bodies held", async () => {
+test("a floating chain meets an impulse as the engine moves it: every joint free, the rigid bodies held", async () => {
   const club = woodenClub();
   const cases = [
     ["the chain's end", chain(), "end", [0.36, 0.7, 0.18], [0.5, 1.2, -0.8]],
@@ -121,7 +121,7 @@ test("a floating chain meets an impulse as Havok moves it: every joint free, the
   }
 });
 
-test("the Warrior floating: a blow on the head, the hand and the club moves them as Havok does", async () => {
+test("the Warrior floating: a blow on the head, the hand and the club moves them as the engine does", async () => {
   const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
   const stand = await coreStand(spec, { gravity: false, ground: false });
   let head, hand;

@@ -9,7 +9,7 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * taken one sub-step at a time, with the torques the body's dynamics say that motion takes
  * (computed torque), bounded by the muscles.
  *
- * **In the joints' angles.** A freedom's angle is Havok's, and its rate is not the speed its motor
+ * **In the joints' angles.** A freedom's angle is the engine's measure, and its rate is not the speed its motor
  * drives (`src/core/build/joint-state.ts`). The change of rate each freedom asks for over the step
  * becomes a change of speed through the joint's turning (`turningToRef`). Asking each motor for its
  * own freedom's change, as this servo once did, is right only near the reference pose: with the
@@ -19,8 +19,8 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * servoed to shoulder flexion 2.5, abduction 0.5 and elbow 1.6 rad for 0.8 s (Node stand, gravity,
  * self-contact off), ended with its shoulder at flexion -0.78, abduction 1.55 and internal rotation
  * -2.39 at 120 Hz, and 2.61, 1.41 and 0.96 at 960 Hz; this servo ends at 2.54, 0.49 and 0.01 at
- * both. Those angles are the Euler angles the joints were read in then; read as Havok's limits
- * measure them (H76) the pose is another, and `tests/core-servo.test.mjs` holds the servo to it
+ * both. Those angles are the Euler angles the joints were read in then, on Havok; read as the
+ * engine's limits measure them now the pose is another, and `tests/core-servo.test.mjs` holds the servo to it
  * through a shoulder swung 1.9 rad.
  *
  * **As torques.** The servoed freedoms' torques are M a + bias - gravity (`bodyDynamics`), where a
@@ -71,29 +71,33 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * Not modelled: the root's own acceleration (the lab carries its pelvis). It leaves the motion off
  * the damped one it asks for, alike at every rate, and the goal's error takes it up.
  *
- * Havok's own residues, which no servo setting moves:
- * - **A slow body is braked.** A body whose centre moves under about 0.12 m/s loses speed at a
- *   steady 0.3 m/s^2 until it stops, at every rate and mass, awake or not, whatever the world's
- *   speed limits, the joint's friction, the body's damping or its motor; a pure spin about the
- *   centre is not touched. A rod pinned at one end and let fall under gravity began at 2.1 rad/s^2
- *   against 3.16. A servo stops where its pull no longer beats the brake: the whole Rogue, lower
- *   trunk held, servoed to the guard at 0.1 s, stood still with its elbows 0.013 rad and its wrists
- *   0.031 rad short at 120 Hz, and 0.011 and 0.029 at 960 Hz; at 0.05 s and 960 Hz, 0.003 and
- *   0.008 (Node stand). Where in the band a joint stops depends on how it came: before the servo
- *   asked for the motion under way the same hold read 0.022 and 0.026 at 120 Hz. The band goes as
- *   the square of the time constant.
- * - **The wrist's pronation flickers at 120 Hz**: its solver speed turns over from step to step
- *   while its angle holds within 0.01 rad, and a joint coming back to a hold jolts it by 0.03 rad
- *   for a step.
- * - **A time constant needs ten steps.** Stiffer, the wrists ring about pronation, thrown by their
- *   other two freedoms' motors: at nine steps (0.075 s at 120 Hz, 0.0375 s at 240 Hz) the whole
- *   Rogue's (lower trunk held, no ground, Node stand) turned at 6-7 rad/s, and at ten (0.083 s,
- *   0.042 s) they held; six steps rang at 120, 240 and 480 Hz alike, and twelve held. Like the
- *   motor's lag, it is counted in steps. At twelve steps the torque the dynamics say each step's
- *   change took is the torque given, to 0.05 N m at an elbow given 0.9 and 0.007 at a wrist given
- *   0.13; ringing, a wrist's is 5 N m off. Taking the driver's reach off the torque sources made
- *   it worse (41 rad/s at six steps), so the reach bounds the ring rather than making it. Why ten
- *   is not known.
+ * The engine's own residues, which no servo setting moves, and those Havok had:
+ * - **No brake on a slow body.** Havok braked a body whose centre moved under about 0.12 m/s at a
+ *   steady 0.3 m/s^2, whatever its rate, mass, damping or motor (H73), and a servo stopped where
+ *   its pull no longer beat the brake: the whole Rogue, lower trunk held, servoed to the guard at
+ *   0.1 s, stood with its elbows 0.013 rad and its wrists 0.031 rad short at 120 Hz, 0.011 and
+ *   0.029 at 960 Hz, and 0.003 and 0.008 at 0.05 s and 960 Hz, a band going as the square of the
+ *   time constant. Rapier has none: a 1 kg rod 0.6 m long, pinned at one end and let fall from
+ *   level, began at 24.517 rad/s^2 against the rigid body's 24.525, and a free box slid at 0.05
+ *   m/s still slid at it a second on, at 120 and 960 Hz; the same Rogue ends within 0.0001 rad at
+ *   120 Hz, 0.0002 at 960 Hz and 0.0001 at 0.05 s and 960 Hz, the worst at a wrist or the neck
+ *   (Node stand, the third second of the hold).
+ * - **A held freedom's speed turns over from step to step, by thousandths.** Havok flickered the
+ *   Rogue's wrist pronation at 120 Hz, its angle within 0.01 rad, and a joint coming back to a
+ *   hold jolted it by 0.03 rad for a step. On Rapier, in these holds, a freedom's speed changes
+ *   sign on up to two steps in three at every rate, and no speed passes 0.004 rad/s at 120 Hz,
+ *   0.006 at 240, 0.014 at 480 or 0.024 at 960 Hz, the fastest at the right wrist's radial
+ *   deviation: the finer the step, the larger.
+ * - **A time constant no longer needs ten steps.** On Havok the wrists rang about pronation,
+ *   thrown by their other two freedoms' motors, under ten steps: at nine (0.075 s at 120 Hz,
+ *   0.0375 s at 240 Hz) the whole Rogue's (lower trunk held, no ground, Node stand) turned at 6-7
+ *   rad/s, six rang at 120, 240 and 480 Hz alike, and ten and twelve held; taking the driver's
+ *   reach off the torque sources made it worse (41 rad/s at six steps), and why ten was never
+ *   known. On Rapier the same hold rings at none of 2, 3, 4, 6, 9, 10 and 12 steps at 120 Hz, 6
+ *   and 10 at 240 Hz and 3, 6 and 10 at 480 Hz: in its third second no freedom passes the speeds
+ *   above, and none ends more than 0.0001 rad from its goal. The check that the torque each step
+ *   took is the torque given (to 0.05 N m at an elbow given 0.9, at twelve steps) was Havok's, and
+ *   is not re-run here.
  *
  * A goal that leaves a channel be (returns undefined) has set that channel's command before it
  * returns: the servo reads the command then, as the torque it solves around. A goal that moves

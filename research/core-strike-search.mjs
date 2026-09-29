@@ -3,7 +3,7 @@
  * hand: cross-entropy search over `decode`'s strikes (`core-strike.mjs`), a chamber pose and its
  * time, a push on each freedom that may push, and the target's distance, scored by the fist's
  * forward speed at a head-sized sphere (or, for a miss, how near it passed). Each worker runs one
- * Havok stand at a time. The search runs at `--hz` (the game's 120 by default).
+ * Rapier stand at a time. The search runs at `--hz` (the game's 120 by default).
  *
  * With `--guard` the strike is a straight: no chamber, thrown from the lab's guard. Without it the
  * search also chooses a chamber pose, and finds whatever blow is fastest. With `--weapon club` the

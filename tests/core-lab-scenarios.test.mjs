@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { routeFor } from "../src/app-route.ts";
-import { PHYSICS_HZ } from "../src/core/engine/havok.ts";
+import { PHYSICS_HZ } from "../src/core/engine/rapier.ts";
 import { labAddress, labHref, LAB_CAMERAS, LAB_PROJECTIONS, LAB_RATES, MODELS, SCENARIOS } from "../src/core-lab/scenarios.ts";
 
 const DEFAULTS = { scenario: null, model: "workshop-fighter", hz: 120, camera: "free", projection: "orthographic" };

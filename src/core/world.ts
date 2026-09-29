@@ -1,7 +1,5 @@
 import type { Scene } from "@babylonjs/core/scene.js";
-import type { HavokPhysicsWithBindings } from "@babylonjs/havok";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { attachHavok, PHYSICS_HZ } from "./engine/havok.ts";
+import { createPhysics, PHYSICS_HZ, type PhysicsWorld, type Rapier } from "./engine/rapier.ts";
 
 /**
  * **The world**: one fixed step that owns physics, control and the clock. The page, the Node stand
@@ -9,16 +7,17 @@ import { attachHavok, PHYSICS_HZ } from "./engine/havok.ts";
  * into whole steps), and nothing else moves its bodies or its clock.
  *
  * A step is: the step hooks, in the order they were added (sensing, minds, motor control, the
- * muscle driver), then one solver step of `dt`, then the after-step hooks (readings). The solver is
- * stepped directly, never through Babylon's accumulator, so a step is exactly one solver step, and
- * `scene.render()` never advances it: the world turns the scene's own stepping off
- * (`physicsEnabled`), and a page renders what the steps produced. The clock is the count of steps;
- * `time` is that count over the rate, not a sum of deltas.
+ * muscle driver), then one solver step of `dt`, which writes every body's node, then the after-step
+ * hooks (readings). The physics is Rapier's (`src/core/engine/rapier.ts`), beside the scene, which
+ * only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
+ * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
  *
  * A hook added while the world steps runs from the next step; one removed stops at once.
  */
 export interface World {
   readonly scene: Scene;
+  /** The physics: bodies, joints, ground and gravity. */
+  readonly physics: PhysicsWorld;
   /** Steps a second. */
   readonly hz: number;
   /** The step, s. */
@@ -56,16 +55,9 @@ export interface WorldOptions {
   readonly gravity?: boolean;
 }
 
-/**
- * The world on `scene`, with Havok brought up on it: make it before any body (H01). Havok is
- * handed in because a browser and Node load it differently (H25).
- */
-export function createWorld(scene: Scene, havok: HavokPhysicsWithBindings, { hz = PHYSICS_HZ.value, gravity = true }: WorldOptions = {}): World {
-  attachHavok(scene, havok);
-  const engine = scene.getPhysicsEngine()!;
-  engine.setSubTimeStep(1000 / hz);
-  if (!gravity) engine.setGravity(new Vector3(0, 0, 0));
-  scene.physicsEnabled = false;
+/** The world on `scene`, with a physics of its own: make it before any body. Rapier is loaded by the caller (`loadRapier`). */
+export function createWorld(scene: Scene, rapier: Rapier, { hz = PHYSICS_HZ.value, gravity = true }: WorldOptions = {}): World {
+  const physics = createPhysics(rapier, { hz, gravity });
   const dt = 1 / hz;
   const before: HookEntry[] = [], after: HookEntry[] = [];
   let steps = 0, owed = 0, disposed = false;
@@ -81,7 +73,7 @@ export function createWorld(scene: Scene, havok: HavokPhysicsWithBindings, { hz 
   };
 
   const world: World = {
-    scene, hz, dt,
+    scene, physics, hz, dt,
     get steps() { return steps; },
     get time() { return steps / hz; },
     beforeStep: (hook) => add(before, hook),
@@ -92,7 +84,7 @@ export function createWorld(scene: Scene, havok: HavokPhysicsWithBindings, { hz 
         // World transforms are cached per render id (H24); a step is a new moment.
         (scene as unknown as { _renderId: number })._renderId += 1;
         runAll(before);
-        engine._step(dt);
+        physics.step(dt);
         steps += 1;
         runAll(after);
       }
@@ -109,6 +101,7 @@ export function createWorld(scene: Scene, havok: HavokPhysicsWithBindings, { hz 
       disposed = true;
       before.length = 0;
       after.length = 0;
+      physics.dispose();
     },
   };
   return world;

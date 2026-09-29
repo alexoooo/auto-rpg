@@ -41,8 +41,9 @@ changed.
 mass, centre of mass, principal inertia, shapes, each joint's centre, freedoms, ranges and muscle
 peaks -- and hands every adapter the same neutral body. Two simplifications, the same for all: each
 body is built world-aligned at its centre of mass, and a trunk convex hull becomes its bounding box.
-Havok additionally runs the core's own `buildBody` (`havok-real.ts`) as the baseline of what the game
-does today.
+Havok additionally ran the core's own `buildBody` (`havok-real.ts`) as the baseline of what the game
+did then. The core moved to Rapier after this report, and that row was retired with its adapter; it
+is in eaa182e5.
 
 **One controller, every engine** (`control.ts`). No engine motor is used. At 120 Hz the page reads
 each segment's pose and velocity back, computes joint torques in JavaScript and hands them to the
