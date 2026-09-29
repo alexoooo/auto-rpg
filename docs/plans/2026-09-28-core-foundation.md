@@ -357,6 +357,16 @@ contradicts one; the eccentric ceiling is the owner's decision.
     arms on the trunk's sides, a hand on the head or on the other hand. Those are a body's own
     contacts, which the straights' corner was not.
     The club waits for a held weapon in the core.
+  - **The acceptance searches on the torque servo, and the joints' limits** (H76). Three seeds of
+    the strike search each for the Warrior and the Rogue, from the guard and free (Node stand, 120
+    Hz, then replayed at 480 and 1920 Hz), found mean fists of 6.8-9.5 m/s from the guard and
+    9.4-11.9 free for the Warrior, 6.0-8.7 and 9.5-10.7 for the Rogue. A replay split by joint showed
+    the blows breaking the arm's ranges by 0.5-1.7 rad about a quarter second in, with self-contact
+    off too, and the free ones swinging the arm overhead. The core had read a joint of three
+    freedoms as Euler angles, the measure Havok's position motors hold; its limits measure a swing
+    and a halfway twist. The joints are read that way now (`anglesOf` in
+    `src/core/build/joint-state.ts`), so ranges mean one thing to the solver, the readings and the
+    search. That table is void (H63); the searches run again on the new reading.
 
 ### Stage 3: one world, one body, one command
 
@@ -392,11 +402,13 @@ contradicts one; the eccentric ceiling is the owner's decision.
     and the wrist are held at the posture's angles.
   - **Servo.** It follows those angles with rates and accelerations fed forward, differenced a
     step either side along the path.
-  - **Measurements** (Warrior, lower trunk held, 0.2 m reaches over 0.4 s, Node stand):
-    - the knuckles keep within 8.6 mm of the path at 120 Hz and 2.8 mm at 1920 Hz;
-    - they end 2-4 mm from the goal at both rates, the rates' ends 4.4 mm apart;
-    - without the fed-forward acceleration they stray 25-32 mm, and without the rates 110 mm.
-    - A place out of reach leaves the arm stretched toward it (the Rogue, 0.3 m forward: 51 mm
+  - **Measurements** (Warrior, lower trunk held, 0.2 m reaches over 0.4 s, Node stand, joints
+    read as Havok's limits measure them, H76):
+    - the knuckles keep within 8.3 mm of the path at 120 Hz and 1.5 mm at 1920 Hz;
+    - they end 0.6-1.4 mm from the goal at both rates, the rates' ends 4.0-4.2 mm apart;
+    - without the fed-forward acceleration they strayed 25-32 mm, and without the rates 110 mm
+      (in the Euler reading, before H76).
+    - A place out of reach leaves the arm stretched toward it (the Rogue, 0.3 m forward: 36 mm
       short at both rates).
   - **Precision and give** (H75). The kinematics had first gone through Babylon's float32
     rotation, which ruined the differenced Jacobian; they now match the body to 0.05 mm with

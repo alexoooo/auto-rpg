@@ -1,6 +1,6 @@
 # History: the incidents behind the rules in AGENTS.md
 
-`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H75`. This file
+`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H76`. This file
 keeps the full account: what broke, how it was found, and the measurements. It was split out of
 `AGENTS.md` on 2026-09-27 with the text unchanged apart from headings and numbering.
 
@@ -1007,6 +1007,39 @@ which left a millimetre on a far target; the undamped projector leaves none. And
 reach, taken in one damped step, throws the arm across the singularity at full stretch to the
 shoulder's far limits (a 2.9 rad jump between neighbouring places on a path); bounding each
 pass's turn keeps the arm stretched toward it.
+
+### H76. Havok's limits measure a swing and a halfway twist, not the Euler angles its motors hold
+
+The stage 2 acceptance searches (strikes found by search on the Warrior and the Rogue at 120 Hz,
+then replayed at 480 and 1920 Hz) threw fists by breaking the arm's ranges: at around a quarter
+second into a blow, shoulder internal rotation and wrist flexion read 0.5 to 1.7 rad past their
+ends, with self-contact off as well as on. The core read every joint of three freedoms as the Euler
+angles Rx Ry Rz, because Havok's position motors, held stiff, hold that measure (0.0005 rad at
+(-0.7, 0.6, -0.5)), and a note said a limit acts on the same angles. No test had pressed a limit.
+
+A rod on the Rogue's shoulder axes, one freedom limited, the others free, the servo asking poses
+whose limited Euler angle was zero, stuck on 14, 23 and 18 of 20 to 25 poses; an in-range pose, by
+that reading, of flexion 1, abduction 0 and internal rotation -1.2 stopped at (1.07, 0.17, -0.88).
+Fitting the stuck poses against candidate measures (every Euler order, swing and twist in both
+orders, arcsine, quarter-angle and rotation-vector swings, projections of the child's axes) left
+two: the swing's rotation vector along Y and Z, pressed against +-0.6 at 0.600 to 0.610 rad, and
+for the twist, whose quaternion part read 0.57 to 0.85 at its stop, the angle between the parent's
+and the child's Y about the axis halfway between their X's: 0.600 at all six stops. That is the
+ragdoll constraint's twist. Read that way (`anglesOf`, `twistAbout`), every limited freedom stops
+within 0.008 rad of its limit and poses within the limit are reached to 0.007 rad
+(`tests/core-joint-state.test.mjs`). A joint of two freedoms was already this measure with its Z
+locked; its Ry Rx reading had the twist as the child's own turn, which the halfway twist leaves
+once the joint swings.
+
+The Euler reading also put shoulder abduction, the middle angle, at its singularity inside the
+range (to 2.40 rad against a quarter turn at 1.57); asking abduction 2.0 was chaotic. The swing is
+regular to a half turn. Which anatomical axis is a joint's X, and so its twist, is the spec's: the
+shoulder and hip keep flexion first, since a long-axis twist would put flexion's 3.16 rad into the
+swing, past its half turn.
+
+Every angle, range and pose measured before this was in the Euler reading: the acceptance table,
+the servo's before-and-after figures, the lab's straights. The arguments stand; the numbers are
+void where a pose leaves the axes (H63).
 
 ## House rules and design notes, full text as of 2026-09-27
 

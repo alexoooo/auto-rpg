@@ -113,7 +113,7 @@ test("the inverse kinematics find a reachable place, and stretch toward one out 
     stand.dispose();
     console.log(`MUT ik ${model} reachable ${(1000 * worst).toFixed(3)} mm; out of reach ${(1000 * left).toFixed(0)} mm left, largest turn between steps ${jump.toFixed(3)} rad`);
     assert.ok(worst < 0.5e-3, `${model}: a reachable place was missed by ${(1000 * worst).toFixed(2)} mm`);
-    // Near full stretch the elbow turns fast per millimetre of reach (0.45 rad over one step here);
+    // Near full stretch the elbow turns fast per millimetre of reach (0.41 rad over one step here);
     // crossing the singularity throws the shoulder to its far limits, some 3 rad.
     assert.ok(jump < 1, `${model}: the arm turned ${jump.toFixed(2)} rad between neighbouring places on a path`);
     assert.ok(left > 0.05 && left < 0.4, `${model}: the far end of the path was ${(1000 * left).toFixed(0)} mm off`);

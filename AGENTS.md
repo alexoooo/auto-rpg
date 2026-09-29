@@ -13,7 +13,7 @@ a clean, physically based core beside the old game, humans first, argued in
 [docs/plans/README.md](docs/plans/README.md), which also says which commit holds a deleted document.
 
 **Rules below are short on purpose.** Each cites an entry in [docs/history.md](docs/history.md)
-(`H01`-`H75`) that holds the incident, the numbers and how it was found. Read the entry before
+(`H01`-`H76`) that holds the incident, the numbers and how it was found. Read the entry before
 arguing with a rule. History entries may name code that has since been deleted; the lesson stands.
 
 ## Commands
@@ -111,6 +111,11 @@ it blocks play, and it is not extended. `src/core/` has these rules:
   goes through a float32 `Matrix` (1e-8 m of noise, enough to ruin a differenced Jacobian);
   `tests/core-boundary.test.mjs` refuses the float32 path in `src/core/`. At 120 Hz a hinge gives
   0.7 deg about its locked axes under a forearm's weight, as the square of the step. (H75)
+- **Havok's limits measure a swing and a halfway twist**: the rotation vector of the shortest turn
+  of the constraint's X, and the twist about the axis halfway between the two X's. Its position
+  motors hold the Euler angles Rx Ry Rz instead. `jointAngles` reads the limits' measure; a range
+  and a goal mean nothing unless read the way the limit reads. Press a limit before trusting a
+  reading of it. (H76)
 - **Force a body awake before a rest measurement** (`setActivationControl(body, 1)`); a sleeping
   body reads a perfect zero. (H08)
 - **Build a welded body in the frame its weld demands.** A weld that disagrees at construction is

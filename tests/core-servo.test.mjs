@@ -125,21 +125,21 @@ test("a servo asking for more than the muscles hold is bounded by them and gets 
 
 /**
  * A chain, servoed through a pose where its joints' angles and speeds part: the Rogue's right arm
- * on its held upper trunk, gravity on, raised past a quarter turn of shoulder flexion with the
- * elbow bent, then servoed back to its reference pose. At 120 Hz it moves as at 960 Hz: the hand
- * peaks at 4.76 against 4.73 m/s on the way back, and its path is never 7 mm from the finer one.
- * The servo before this one asked each motor for its own freedom's change (the angle-space
- * mismatch, `servo.ts`) of a velocity motor (the step lag): at 120 Hz the arm never reached the
- * pose, its shoulder abduction ending at -0.62 rad where 0.5 was asked, and the hand peaked at
- * 5.09 against 3.43 m/s on paths 89 mm apart. Raising the arm flings the elbow back to straight
- * for a moment, so the pose is held for 1.2 s.
+ * on its held upper trunk, gravity on, its shoulder swung 1.9 rad (abduction 1.8, internal
+ * rotation 0.6, flexion 0.8) with the elbow bent, then servoed back to its reference pose. At
+ * 120 Hz it moves as at 960 Hz: the hand peaks at 2.61 against 2.56 m/s on the way back, and its
+ * path is never 8 mm from the finer one. The servo before this one asked each motor for its own
+ * freedom's change (the angle-space mismatch, `servo.ts`) of a velocity motor (the step lag): at
+ * 120 Hz, in the Euler reading the joints had then and through flexion 2.5 with abduction 0.5, the
+ * arm never reached the pose and the hand's paths lay 89 mm apart. Raising the arm flings the
+ * elbow back to straight for a moment, so the pose is held for 1.2 s.
  */
 test("a servoed arm moves alike at 120 Hz and 960 Hz, through a pose where angles and speeds part", async () => {
   const full = humanSpec("workshop-rogue");
   const keep = ["upperTrunk", "upperArm.right", "forearm.right", "hand.right"];
   const spec = { ...full, segments: full.segments.filter((s) => keep.includes(s.name)),
     joints: full.joints.filter((j) => keep.includes(j.parent) && keep.includes(j.child)) };
-  const pose = { "shoulder.right flexion": 2.5, "shoulder.right abduction": 0.5, "elbow.right flexion": 1.4 };
+  const pose = { "shoulder.right flexion": 0.8, "shoulder.right abduction": 1.8, "shoulder.right internal rotation": 0.6, "elbow.right flexion": 1.4 };
   const runs = {};
   for (const hz of [120, 960]) {
     const stand = await coreStand(spec, { ground: false, pinned: "upperTrunk", hz });
@@ -165,9 +165,10 @@ test("a servoed arm moves alike at 120 Hz and 960 Hz, through a pose where angle
     } finally { driver.dispose(); stand.dispose(); }
   }
   const { 120: coarse, 960: fine } = runs;
-  assert.ok(fine.peak > 3, `the hand came back at ${fine.peak} m/s`);
-  assert.ok(Math.abs(coarse.peak / fine.peak - 1) < 0.03, `hand peak ${coarse.peak} m/s at 120 Hz against ${fine.peak}`);
   const apart = Math.max(...coarse.path.map((p, k) => Vector3.Distance(p, fine.path[k])));
+  console.log(`MUT arm peak ${coarse.peak.toFixed(2)} | ${fine.peak.toFixed(2)} m/s, paths ${(1000 * apart).toFixed(1)} mm apart`);
+  assert.ok(fine.peak > 2, `the hand came back at ${fine.peak} m/s`);
+  assert.ok(Math.abs(coarse.peak / fine.peak - 1) < 0.03, `hand peak ${coarse.peak} m/s at 120 Hz against ${fine.peak}`);
   assert.ok(apart < 0.03, `the hand's paths ${apart} m apart`);
 });
 

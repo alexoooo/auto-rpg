@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
-import { angleOrder } from "../build/joint-state.ts";
+import { rotationOfToRef } from "../build/joint-state.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 
 /**
@@ -11,10 +11,11 @@ import type { Vec3 } from "../spec/quantity.ts";
  * The root's frame is the body frame carried by the root: a point is where it would be were the
  * root at its reference pose. A hand goal "in the body frame" is in this frame, so it moves with the
  * pelvis. Angles are each freedom's, in its own sense, as `jointAngles` reads them, and a joint's
- * rotation is theirs composed as Havok composes them (`anglesOf`): Rx(a) Ry(b) Rz(c) about the
- * joint's axes, or Ry(b) Rx(a) for a joint of two freedoms. A child's turn from its reference pose
- * is its parent's times its joint's (`relativeRotationToRef`: rel = D_parent^-1 D_child), and a point
- * on it swings about its joint's centre.
+ * rotation is theirs composed as Havok's limits measure them (`anglesOf`, `rotationOfToRef`): a
+ * swing of the joint's X and a twist about the axis halfway between where X was and where it is, a
+ * joint of two freedoms swinging about its Y alone. A child's turn from its reference pose is its
+ * parent's times its joint's (`relativeRotationToRef`: rel = D_parent^-1 D_child), and a point on it
+ * swings about its joint's centre.
  */
 
 /** The joints from the root out to `segment`, root first. */
@@ -25,28 +26,12 @@ export function chainTo(built: BuiltBody, segment: BuiltSegment): BuiltJoint[] {
   return chain;
 }
 
-const scratch = { a: new Quaternion(), b: new Quaternion(), axis: new Vector3(), d: new Quaternion(), v: new Vector3() };
+const scratch = { a: new Quaternion(), b: new Quaternion(), d: new Quaternion(), v: new Vector3() };
 
 /** `joint`'s rotation at `angles` (each freedom's, its own sense), body frame: `jointAngles` undone. */
 export function rotationAtToRef(joint: BuiltJoint, angles: readonly number[], out: Quaternion): Quaternion {
-  const { dofs, axes } = joint;
-  const about = (axis: Vec3, angle: number, q: Quaternion) => Quaternion.RotationAxisToRef(scratch.axis.set(axis[0], axis[1], axis[2]), angle, q);
-  const a = dofs[0]!.sign * angles[0]!, order = angleOrder(joint);
-  switch (order) {
-    case "xyz": {
-      about(axes.x, a, out);
-      if (dofs.length > 1) out.multiplyInPlace(about(axes.y, dofs[1]!.sign * angles[1]!, scratch.a));
-      if (dofs.length > 2) out.multiplyInPlace(about(axes.z, dofs[2]!.sign * angles[2]!, scratch.a));
-      return out;
-    }
-    case "yxz":
-      about(axes.y, dofs[1]!.sign * angles[1]!, out);
-      return out.multiplyInPlace(about(axes.x, a, scratch.a));
-    default: {
-      const never: never = order;
-      throw new Error(`unknown angle order ${String(never)}`);
-    }
-  }
+  const { dofs } = joint, havok = (k: number) => (k < dofs.length ? dofs[k]!.sign * angles[k]! : 0);
+  return rotationOfToRef(joint.axes, havok(0), havok(1), havok(2), out);
 }
 
 /**

@@ -13,12 +13,15 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * drives (`src/core/build/joint-state.ts`). The change of rate each freedom asks for over the step
  * becomes a change of speed through the joint's turning (`turningToRef`). Asking each motor for its
  * own freedom's change, as this servo once did, is right only near the reference pose: with the
- * shoulder flexed past a quarter turn, abduction's motor axis has turned past square to the angle's,
- * and the servo pushed abduction away from its goal. The Rogue's right arm alone, upper trunk held,
+ * shoulder flexed past a quarter turn, in the Euler angles the joints were then read in,
+ * abduction's motor axis had turned past square to the angle's, and the servo pushed abduction away
+ * from its goal; in the reading now, a shoulder swung 1.9 rad parts its speeds from its rates as much. The Rogue's right arm alone, upper trunk held,
  * servoed to shoulder flexion 2.5, abduction 0.5 and elbow 1.6 rad for 0.8 s (Node stand, gravity,
  * self-contact off), ended with its shoulder at flexion -0.78, abduction 1.55 and internal rotation
  * -2.39 at 120 Hz, and 2.61, 1.41 and 0.96 at 960 Hz; this servo ends at 2.54, 0.49 and 0.01 at
- * both; `tests/core-servo.test.mjs` holds it to that at a nearby pose.
+ * both. Those angles are the Euler angles the joints were read in then; read as Havok's limits
+ * measure them (H76) the pose is another, and `tests/core-servo.test.mjs` holds the servo to it
+ * through a shoulder swung 1.9 rad.
  *
  * **As torques.** The servoed freedoms' torques are M a + bias - gravity (`bodyDynamics`), where a
  * is the change of speed asked over the step and bias what the motion under way asks, and each is given to the driver as a torque source: a speed
@@ -38,7 +41,7 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * Havok has no solver setting but the ideal step (`HP_World_SetIdealStepTime`), and holding that
  * below the step made the chain ring harder, and below half the step weakened every motor.
  *
- * Measured, the velocity servo against this one (Node stand, self-contact off): the arm above,
+ * Measured, the velocity servo against this one (Node stand, self-contact off, the Euler reading): the arm above,
  * returning to zero, hand peak 4.74 against 3.53 m/s at 120 Hz and 960 Hz, and 4.67 against 4.66;
  * the whole Rogue (lower trunk held, gravity), guard to a searched chamber and back, hand peak
  * 3.71 against 2.02 at 120 Hz and 1920 Hz, and 2.36 against 2.28. On the lab's straights the fist
