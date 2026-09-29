@@ -33,7 +33,7 @@ import type { BuiltJoint, BuiltSegment } from "./build-body.ts";
 
 const scratch = {
   relative: new Quaternion(), inverse: new Quaternion(), t: new Quaternion(),
-  z: new Vector3(), x: new Vector3(), w: new Vector3(),
+  z: new Vector3(), x: new Vector3(), w: new Vector3(), relativeSpin: new Vector3(),
 };
 
 /**
@@ -120,6 +120,11 @@ export interface JointTracker {
   readonly speeds: number[];
   /** Reads the joint as it stands, given each segment's angular velocity (world frame, rad/s). */
   update(angularVelocity: (segment: BuiltSegment) => Vector3): void;
+  /**
+   * `world`, a world-frame vector about the joint (an angular velocity, or an impulse the
+   * constraint applied), along each freedom's parent-fixed axis in its own sense, into `out`.
+   */
+  project(world: Vector3, out: number[]): number[];
 }
 
 /**
@@ -130,17 +135,22 @@ export function jointTracker(joint: BuiltJoint): JointTracker {
   const angles = jointAngles(joint, []);
   const speeds = joint.dofs.map(() => 0);
   const axes = joint.dofs.map((dof, k) => signed([joint.axes.x, joint.axes.y, joint.axes.z][k]!, dof.sign));
-  return {
+  const tracker: JointTracker = {
     joint, angles, speeds,
     update(angularVelocity) {
-      const relative = angularVelocity(joint.child).subtractToRef(angularVelocity(joint.parent), scratch.w);
-      Quaternion.InverseToRef(joint.parent.node.rotationQuaternion!, scratch.inverse);
-      joint.parent.rest.multiplyToRef(scratch.inverse, scratch.t);
-      relative.rotateByQuaternionToRef(scratch.t, scratch.w);
-      axes.forEach((axis, k) => { speeds[k] = along(scratch.w, axis); });
+      tracker.project(angularVelocity(joint.child).subtractToRef(angularVelocity(joint.parent), scratch.relativeSpin), speeds);
       jointAngles(joint, angles);
     },
+    project(world, out) {
+      Quaternion.InverseToRef(joint.parent.node.rotationQuaternion!, scratch.inverse);
+      joint.parent.rest.multiplyToRef(scratch.inverse, scratch.t);
+      world.rotateByQuaternionToRef(scratch.t, scratch.w);
+      axes.forEach((axis, k) => { out[k] = along(scratch.w, axis); });
+      out.length = axes.length;
+      return out;
+    },
   };
+  return tracker;
 }
 
 const signed = (a: Vec3, sign: number): Vec3 => [a[0] * sign, a[1] * sign, a[2] * sign];

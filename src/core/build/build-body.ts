@@ -1,8 +1,10 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import { Physics6DoFConstraint, type Physics6DoFLimit } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
-import { PhysicsShapeBox, PhysicsShapeCapsule, PhysicsShapeSphere, type PhysicsShape } from "@babylonjs/core/Physics/v2/physicsShape.js";
+import { PhysicsShapeBox, PhysicsShapeCapsule, PhysicsShapeConvexHull, PhysicsShapeSphere, type PhysicsShape } from "@babylonjs/core/Physics/v2/physicsShape.js";
 import { PhysicsConstraintAxis, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { frameOf, type BodySpec, type DofSpec, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
@@ -95,6 +97,15 @@ function makeShape(frame: SegmentFrame, spec: ShapeSpec, scene: Scene): PhysicsS
       return new PhysicsShapeBox(v3(local(frame, spec.centre.value)), Quaternion.Identity(), v3(spec.size.value), scene);
     case "sphere":
       return new PhysicsShapeSphere(v3(local(frame, spec.centre.value)), spec.radius.value, scene);
+    case "hull": {
+      // Havok takes a hull's points from a mesh's positions, in the mesh's own frame, and keeps a
+      // copy; the mesh is only the carrier.
+      const carrier = new Mesh("hull carrier", scene);
+      carrier.setVerticesData(VertexBuffer.PositionKind, spec.points.flatMap((p) => local(frame, p.value)));
+      const shape = new PhysicsShapeConvexHull(carrier, scene);
+      carrier.dispose();
+      return shape;
+    }
     default: {
       const never: never = spec;
       throw new Error(`unknown shape ${JSON.stringify(never)}`);

@@ -12,7 +12,7 @@ import { HUMAN_PARENTS, humanSegments } from "../src/core/human/segments.ts";
 import { TRUNK_SEGMENTS, workshopEnvelope } from "../src/core/human/envelope.ts";
 import { SIDES } from "../src/core/human/landmarks.ts";
 import { inventory, sourcesOf } from "../src/core/spec/provenance.ts";
-import { footprint, transcribed, trunkEnvelope } from "../scripts/core/workshop-envelope.mjs";
+import { footprint, transcribed, trunkHulls } from "../scripts/core/workshop-envelope.mjs";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { peakTorque } from "../src/core/human/muscle.ts";
 import { jointSpeed } from "../src/core/human/speed.ts";
@@ -20,7 +20,7 @@ import { forceVelocityFactor } from "../src/core/muscle/force-velocity.ts";
 import { EXERTIONS, measuredTorque, subjectMass } from "../src/core/human/tables/joint-torques.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { jointSenses } from "./fixtures/joint-senses.mjs";
-import { clearance, lowest, solid } from "./fixtures/shapes.mjs";
+import { clearance, hullOf, lowest, solid } from "./fixtures/shapes.mjs";
 
 const table = (model) => ({ mass: bodyMass(model), stature: stature(model), segments: humanSegments(model) });
 
@@ -88,8 +88,15 @@ test("the envelope the spec states is what the models measure", () => {
   const stated = (e) => ["x", "y", "z"].flatMap((axis) => [e[axis].min.value, e[axis].max.value]);
   for (const model of WORKSHOP_MODELS) {
     const envelope = workshopEnvelope(model);
-    const trunk = trunkEnvelope(model);
-    for (const segment of TRUNK_SEGMENTS) assert.deepEqual(stated(envelope.trunk[segment]), measured(trunk[segment]), `${model} ${segment} trunk`);
+    const trunk = trunkHulls(model);
+    for (const segment of TRUNK_SEGMENTS) assert.deepEqual(envelope.trunk[segment].map((p) => p.value), trunk[segment], `${model} ${segment} trunk`);
+    // Each trunk segment's shape is its stretch's hull, every corner at the fit scale.
+    const segments = new Map(humanSegments(model).map((s) => [s.name, s]));
+    for (const segment of TRUNK_SEGMENTS) {
+      const shape = segments.get(`${segment}Trunk`).shape;
+      assert.equal(shape.kind, "hull");
+      assert.deepEqual(shape.points.map((p) => p.value), trunk[segment].map((p) => p.map((c) => c * FIT_SCALE.value)), `${model} ${segment} trunk shape`);
+    }
     for (const side of SIDES) assert.deepEqual(stated(envelope.feet[side]), measured(footprint(model, side)), `${model} ${side} foot`);
   }
 });
@@ -179,6 +186,24 @@ test("the clearance measure finds an overlap and a gap it is shown", () => {
   assert.ok(Math.abs(clearance(capsule(1, 0.1), box(0)) - 0.4) < 1e-9);
   assert.ok(Math.abs(clearance(box(0), box(1.25)) - 0.25) < 1e-9);
   assert.ok(clearance(box(0), box(0.75)) < 0);
+  // The same unit cube as a hull, with points in its faces and edges and inside that are no corners.
+  const cube = (x) => {
+    const points = [];
+    for (const a of [-0.5, 0, 0.5]) for (const b of [-0.5, 0.25, 0.5]) for (const c of [-0.5, 0.1, 0.5]) points.push([x + a, b, c]);
+    return hullOf(points);
+  };
+  assert.equal(cube(0).points.length, 8);
+  assert.ok(Math.abs(clearance(capsule(1, 0.1), cube(0)) - 0.4) < 1e-9);
+  assert.ok(Math.abs(clearance(cube(0), capsule(0.3, 0.1)) + 0.3) < 1e-9);
+  assert.ok(Math.abs(clearance(cube(0), cube(1.25)) - 0.25) < 1e-9);
+  assert.ok(Math.abs(clearance(box(0), cube(1.25)) - 0.25) < 1e-9);
+  assert.ok(clearance(cube(0), box(0.75)) < 0);
+  assert.equal(lowest(cube(0)), -0.5);
+  // A tetrahedron whose slanted face faces the cube's corner: only its own face separates them, at
+  // the corner's distance from that face's plane.
+  const tetra = hullOf([[2, 0, 0], [0, 2, 0], [0, 0, 2], [3, 3, 3]]);
+  assert.ok(Math.abs(clearance(cube(0), tetra) - 0.5 / Math.sqrt(3)) < 1e-9);
+  assert.ok(Math.abs(clearance(tetra, cube(0)) - 0.5 / Math.sqrt(3)) < 1e-9);
 });
 
 test("every number in each model's whole spec, joints and muscle included, says where it came from", () => {

@@ -1,11 +1,13 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { SegmentFrame, ShapeSpec } from "../core/spec/body.ts";
+import { convexHull } from "../core/spec/hull.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { dot, length, normalize, sub } from "../core/spec/vec.ts";
 
@@ -50,6 +52,29 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
     case "sphere": {
       const mesh = MeshBuilder.CreateSphere(name, { diameter: 2 * shape.radius.value, segments: 16 }, scene);
       mesh.position = local(frame, shape.centre.value);
+      return mesh;
+    }
+    case "hull": {
+      // Each face with its own corners, so it is shaded flat, and its outward normal; laid down
+      // in both windings, so one of them faces out whatever the scene's handedness.
+      const points = shape.points.map((p) => local(frame, p.value));
+      const { faces, planes } = convexHull(points.map((p) => [p.x, p.y, p.z] as const));
+      const positions: number[] = [], normals: number[] = [], indices: number[] = [];
+      faces.forEach((corners, f) => {
+        for (const order of [[0, 1, 2], [0, 2, 1]]) {
+          const at = positions.length / 3;
+          for (const k of order) {
+            const p = points[corners[k]!]!;
+            positions.push(p.x, p.y, p.z);
+            normals.push(...planes[f]!.normal);
+          }
+          indices.push(at, at + 1, at + 2);
+        }
+      });
+      const data = new VertexData();
+      Object.assign(data, { positions, indices, normals });
+      const mesh = new Mesh(name, scene);
+      data.applyToMesh(mesh);
       return mesh;
     }
     default: {

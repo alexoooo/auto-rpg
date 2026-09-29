@@ -2,23 +2,28 @@
  * **The workshop models' clothed envelope**, measured from their GLBs: what the core's human spec
  * takes where the rig gives a joint but no surface.
  *
- * - The trunk: the extents of the vertices the trunk's bones weigh most on, in each trunk
- *   segment's own frame, over the stretch of the trunk line that segment holds.
+ * - The trunk: the corners of the convex hull (`src/core/spec/hull.ts`) of the vertices the trunk's
+ *   bones weigh most on, over the stretch of the trunk line each trunk segment holds, body frame.
  * - The feet: the boot's footprint, from the vertices the foot's bones weigh most on.
  *
  * The envelope is the skin where it shows and the clothes where they cover it; the skin mesh has
  * its covered faces removed, so the clothes are the surface there. Armour, weapons and hair are
- * not the body. Everything is in the body frame (`src/core/spec/body.ts`) at the authored size.
+ * not the body. Everything is in the body frame (`src/core/spec/body.ts`) at the authored size,
+ * rounded to 0.1 mm.
  *
- * `node scripts/core/workshop-envelope.mjs` prints what `src/core/human/envelope.ts` states,
- * rounded to 0.1 mm; `tests/core-human.test.mjs` measures it again and compares.
+ * `node scripts/core/workshop-envelope.mjs` prints the feet `src/core/human/envelope.ts` states and
+ * how many corners each trunk hull has; with `--write` it writes the hulls to
+ * `assets/humanoid/workshop-*-trunk-hull.json`. `tests/core-human.test.mjs` measures both again and
+ * compares.
  */
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readGlb, weightedVertices } from "./glb.mjs";
 import { segmentFrame } from "../../src/core/spec/body.ts";
 import { dot, sub } from "../../src/core/spec/vec.ts";
 import { trunkLandmarks } from "../../src/core/human/landmarks.ts";
+import { convexHull } from "../../src/core/spec/hull.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -55,31 +60,26 @@ function extent(points, axis) {
 const extents = (points) => ({ x: extent(points, 0), y: extent(points, 1), z: extent(points, 2) });
 
 /**
- * The trunk's envelope in `frame` (a segment frame, body frame at the authored size): the extents,
- * along the frame's axes, of the trunk's vertices whose coordinate along y lies in [from, to].
+ * The three trunk segments' surfaces: the hull corners of the trunk's vertices over each segment's
+ * stretch of the CERV-MIDH line (the upper trunk everything cranial of XYPH, the middle XYPH to
+ * OMPH, the lower everything caudal of OMPH), body frame, rounded to 0.1 mm.
  */
-export function trunkBand(model, frame, from, to) {
-  const points = envelope(model).filter(({ bone }) => TRUNK_BONES.includes(bone))
-    .map(({ position }) => { const d = sub(position, frame.origin); return [dot(d, frame.x), dot(d, frame.y), dot(d, frame.z)]; })
-    .filter((p) => p[1] >= from && p[1] <= to);
-  return { vertices: points.length, ...extents(points) };
-}
-
-/**
- * The three trunk segments' envelopes. Each holds its stretch of the CERV-MIDH line: the upper
- * trunk everything cranial of XYPH, the middle XYPH to OMPH, the lower everything caudal of OMPH.
- */
-export function trunkEnvelope(model) {
+export function trunkHulls(model) {
   const at = (q) => q.value;
   const { CERV, XYPH, OMPH, MIDH } = trunkLandmarks(model);
-  const frame = (origin) => ({ ...segmentFrame(at(CERV), at(MIDH)), origin: at(origin) });
-  const along = (from, point) => dot(sub(at(point), at(from)), segmentFrame(at(CERV), at(MIDH)).y);
+  const line = segmentFrame(at(CERV), at(MIDH)).y;
+  const along = (p, from) => dot(sub(p, at(from)), line);
+  const trunk = envelope(model).filter(({ bone }) => TRUNK_BONES.includes(bone)).map(({ position }) => position);
+  const hull = (points) => { const { vertices } = convexHull(points); return vertices.map((i) => points[i].map(transcribed)); };
   return {
-    upper: trunkBand(model, frame(CERV), -Infinity, along(CERV, XYPH)),
-    middle: trunkBand(model, frame(XYPH), 0, along(XYPH, OMPH)),
-    lower: trunkBand(model, frame(OMPH), 0, Infinity),
+    upper: hull(trunk.filter((p) => along(p, XYPH) < 0)),
+    middle: hull(trunk.filter((p) => along(p, XYPH) >= 0 && along(p, OMPH) <= 0)),
+    lower: hull(trunk.filter((p) => along(p, OMPH) > 0)),
   };
 }
+
+/** Where `model`'s trunk hulls are written. */
+export const trunkHullFile = (model) => path.join(ROOT, "assets", "humanoid", `${model}-trunk-hull.json`);
 
 /** One foot's footprint: its vertices' extents in the body frame. `side` is the model's own. */
 export function footprint(model, side) {
@@ -93,7 +93,17 @@ export const transcribed = (metres) => Math.round(metres * 1e4) / 1e4 + 0; // + 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const show = (what, e) => console.log(what, e.vertices, ["x", "y", "z"].map((a) => `${a} ${transcribed(e[a].min)} ${transcribed(e[a].max)}`).join("  "));
   for (const model of ["workshop-fighter", "workshop-rogue"]) {
-    for (const [segment, e] of Object.entries(trunkEnvelope(model))) show(`${model} ${segment} trunk`, e);
+    const hulls = trunkHulls(model);
+    for (const [segment, corners] of Object.entries(hulls)) console.log(`${model} ${segment} trunk: ${corners.length} corners`);
     for (const side of ["left", "right"]) show(`${model} ${side} foot`, footprint(model, side));
+    if (process.argv.includes("--write")) {
+      fs.writeFileSync(trunkHullFile(model), `${JSON.stringify({
+        about: `${model}'s trunk segments' surfaces: the convex hull corners of the clothed envelope's trunk vertices, `
+          + "body frame (+x right, +y up, +z front), metres at the authored size, rounded to 0.1 mm. "
+          + "Written by scripts/core/workshop-envelope.mjs --write.",
+        ...hulls,
+      })}
+`);
+    }
   }
 }

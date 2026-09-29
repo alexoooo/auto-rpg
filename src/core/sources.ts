@@ -31,7 +31,7 @@ export const SOURCES = Object.freeze({
   "workshop-envelope": {
     kind: "measurement",
     how: "scripts/core/workshop-envelope.mjs on public/assets/humanoid/workshop-*.glb: the extents of the "
-      + "clothed envelope's vertices that the named bones weigh most on, glTF frame, authored size, "
+      + "clothed envelope's vertices that a foot's bones weigh most on, body frame, authored size, "
       + "rounded to 0.1 mm. tests/core-human.test.mjs measures them again.",
     record: "scripts/core/workshop-envelope.mjs",
   },
@@ -43,6 +43,16 @@ export const SOURCES = Object.freeze({
   "workshop-rogue-rig": {
     kind: "asset", file: "assets/humanoid/workshop-rogue.json",
     what: "The Rogue's rig, as the Warrior's.",
+  },
+  "workshop-fighter-trunk-hull": {
+    kind: "asset", file: "assets/humanoid/workshop-fighter-trunk-hull.json",
+    what: "The Warrior's trunk segments' surfaces: the convex hull corners of the clothed envelope's "
+      + "vertices the trunk's bones weigh most on, body frame, authored size, rounded to 0.1 mm; written "
+      + "by scripts/core/workshop-envelope.mjs --write, and measured again by tests/core-human.test.mjs.",
+  },
+  "workshop-rogue-trunk-hull": {
+    kind: "asset", file: "assets/humanoid/workshop-rogue-trunk-hull.json",
+    what: "The Rogue's trunk segments' surfaces, as the Warrior's.",
   },
   "workshop-fighter-glb": {
     kind: "asset", file: "public/assets/humanoid/workshop-fighter.glb",
