@@ -107,7 +107,7 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
   const bodyAxes: Vec3[] = [];
   const scratch = { v: new Vector3(), q: new Quaternion(), carry: new Quaternion() };
   const toWorld = (rotation: Quaternion, a: Vec3, out: Point): Point => {
-    scratch.v.set(a[0], a[1], a[2]).rotateByQuaternionToRef(rotation, scratch.v);
+    scratch.v.set(a[0], a[1], a[2]).applyRotationQuaternionToRef(rotation, scratch.v);
     out[0] = scratch.v.x; out[1] = scratch.v.y; out[2] = scratch.v.z;
     return out;
   };

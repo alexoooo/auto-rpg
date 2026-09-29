@@ -93,9 +93,12 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *   is not known.
  *
  * A goal that leaves a channel be (returns undefined) has set that channel's command before it
- * returns: the servo reads the command then, as the torque it solves around.
+ * returns: the servo reads the command then, as the torque it solves around. A goal that moves
+ * hands in its rate and acceleration (`ServoFeed`), and is followed with the error's damped motion
+ * about it.
  */
-export function servo(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number): void {
+export function servo(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number,
+  feed?: ServoFeed): void {
   const n = 1 / seconds, count = driver.channels.length;
   const { mass, gravity, bias } = driver.dynamics;
   let work = scratch.get(driver);
@@ -108,7 +111,9 @@ export function servo(driver: MuscleDriver, goal: (channel: number) => number | 
   for (let i = 0; i < count; i++) {
     const g = goal(i);
     fixed[i] = g === undefined ? 1 : 0;
-    change[i] = g === undefined ? NaN : dt * (n * n * (g - driver.angle(i)) - 2 * n * driver.rate(i));
+    change[i] = g === undefined ? NaN : feed
+      ? dt * (feed.acceleration(i) + n * n * (g - driver.angle(i)) + 2 * n * (feed.rate(i) - driver.rate(i)))
+      : dt * (n * n * (g - driver.angle(i)) - 2 * n * driver.rate(i));
     if (g === undefined) {
       const push = driver.velocity[i]! - driver.speed(i), sense = push >= 0 ? 1 : -1;
       torque[i] = sense * Math.max(0, Math.min(1, driver.activation[i]!)) * driver.strength(i, sense);
@@ -144,6 +149,16 @@ export function servo(driver: MuscleDriver, goal: (channel: number) => number | 
       driver.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque[i]!) / strength) : 0;
     }
   }
+}
+
+/**
+ * A moving goal's rate (rad/s) and acceleration (rad/s^2) by channel, for a servoed channel: the
+ * servo then asks for the goal's own acceleration, plus the damped pull on the error in angle and
+ * in rate, so it follows a path rather than lagging it by a time constant.
+ */
+export interface ServoFeed {
+  rate(channel: number): number;
+  acceleration(channel: number): number;
 }
 
 interface Work { change: Float64Array; accel: Float64Array; torque: Float64Array; fixed: Uint8Array }

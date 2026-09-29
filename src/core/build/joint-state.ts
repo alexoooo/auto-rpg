@@ -229,7 +229,7 @@ export function jointTracker(joint: BuiltJoint): JointTracker {
     project(world, out) {
       Quaternion.InverseToRef(joint.parent.node.rotationQuaternion!, scratch.inverse);
       joint.parent.rest.multiplyToRef(scratch.inverse, scratch.t);
-      world.rotateByQuaternionToRef(scratch.t, scratch.w);
+      world.applyRotationQuaternionToRef(scratch.t, scratch.w);
       axes.forEach((axis, k) => { out[k] = along(scratch.w, axis); });
       out.length = axes.length;
       return out;

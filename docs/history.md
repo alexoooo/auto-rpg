@@ -1,6 +1,6 @@
 # History: the incidents behind the rules in AGENTS.md
 
-`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H74`. This file
+`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H75`. This file
 keeps the full account: what broke, how it was found, and the measurements. It was split out of
 `AGENTS.md` on 2026-09-27 with the text unchanged apart from headings and numbering.
 
@@ -979,6 +979,34 @@ momentum swung round. So the gyroscopic torque, w x I w, is not in the engine, a
 engine leaves it out; with it, the chain's predicted joint accelerations read 11 % off at the
 median against 8 %. And a lone body not held awake at 1920 Hz went to sleep after one step while
 spinning at 5.9 rad/s: it stopped turning, and its velocity went on reading the spin.
+
+### H75. Babylon turns a vector through a float32 matrix, and Havok's hinges give at 120 Hz
+
+The first hand goals (stage 3) failed at every rate: a reach of 0.2 m strayed 0.4 m from its path,
+and the inverse kinematics alone, off any physics, wandered 88 mm from a straight path of places
+it should have met exactly, pass after pass. The Jacobian was differenced by 1e-7 rad, and read
+at 1e-7, 1e-5 and 1e-3 its columns disagreed by a quarter: the forward kinematics carried about
+1e-8 m of noise, float32's grain on a point a metre and a half out. Babylon's quaternions are
+doubles, and `Vector3.rotateByQuaternionToRef` builds a rotation `Matrix`, a Float32Array, and
+turns the point through that. `applyRotationQuaternionToRef` is doubles throughout; with it the
+columns at 1e-7 and 1e-5 agree to 5e-6 and a solve converges in about ten passes. The core's
+joint axes, its projections of a world vector onto a joint and the kinematics had all gone
+through the float32 path; `tests/core-boundary.test.mjs` now refuses it in `src/core/`.
+
+Then the kinematics, now exact with gravity off (0.05 mm at the knuckles), put the Warrior's
+knuckles 3.8 mm from where his body had them with gravity on at 120 Hz. The elbow's hinge gave
+0.7 deg about its locked axes under the forearm's and hand's weight; at 480 Hz 0.037 deg, at 1920
+Hz none: as the square of the step, as a constraint solve's position correction does. Havok
+exposes no iteration count or constraint stiffness to change it. It is the engine's conditioning,
+not the arm's, so the kinematics are checked at 1920 Hz and a hand goal at 120 Hz ends 2 mm
+further from its target than at 1920 Hz.
+
+Two more rules of the inverse kinematics came out of the same run. A posture pull projected off
+the hand's motion with the damped pseudo-inverse leaks a share of itself into the hand's place,
+which left a millimetre on a far target; the undamped projector leaves none. And a target out of
+reach, taken in one damped step, throws the arm across the singularity at full stretch to the
+shoulder's far limits (a 2.9 rad jump between neighbouring places on a path); bounding each
+pass's turn keeps the arm stretched toward it.
 
 ## House rules and design notes, full text as of 2026-09-27
 

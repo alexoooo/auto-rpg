@@ -381,6 +381,29 @@ contradicts one; the eccentric ceiling is the owner's decision.
   off the scene's own stepping. The muscle driver, the lab's routine and timeline, the core stand
   and the strike research run on it; the lab page makes a world on each load, at the chosen rate.
   Stepped whole or from uneven frames, the same steps give the same pose to the bit.
+- **Motor control, hands first** (`src/core/control/motor.ts`, `kinematics.ts`,
+  `tests/core-reach.test.mjs`):
+  - **Goals.** A posture (angles by freedom) and, for each hand, a place for its knuckles in the
+    body frame (the root's, so it moves with the pelvis) and a time to get there.
+  - **Path.** The knuckles travel a straight, minimum-jerk path.
+  - **Inverse kinematics.** Each step the path's point becomes the shoulder's and the elbow's
+    angles: damped least squares, with the redundant swing drawn toward the posture's through
+    the undamped null space, clamped to the joints' ranges, each pass's turn bounded. The trunk
+    and the wrist are held at the posture's angles.
+  - **Servo.** It follows those angles with rates and accelerations fed forward, differenced a
+    step either side along the path.
+  - **Measurements** (Warrior, lower trunk held, 0.2 m reaches over 0.4 s, Node stand):
+    - the knuckles keep within 8.6 mm of the path at 120 Hz and 2.8 mm at 1920 Hz;
+    - they end 2-4 mm from the goal at both rates, the rates' ends 4.4 mm apart;
+    - without the fed-forward acceleration they stray 25-32 mm, and without the rates 110 mm.
+    - A place out of reach leaves the arm stretched toward it (the Rogue, 0.3 m forward: 51 mm
+      short at both rates).
+  - **Precision and give** (H75). The kinematics had first gone through Babylon's float32
+    rotation, which ruined the differenced Jacobian; they now match the body to 0.05 mm with
+    gravity off. At 120 Hz, the elbow's hinge gives 0.7 deg under the forearm's weight, which is
+    most of the 120 Hz goal's extra 2 mm.
+  - **Not yet:** the hand's orientation and speed as goals; the trunk as a goal; the lab's
+    straights as hand goals.
 
 ### Stage 4: locomotion v2, force-bounded stepping, for the human
 
