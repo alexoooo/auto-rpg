@@ -39,7 +39,7 @@ import { drawBody, type BodyView } from "./view.ts";
  *   the panel. The readout is the stance's own: its phase, its steps, the centre of mass. On the
  *   ground: the centre of mass over it, the capture point, the place the stance holds the centre
  *   toward, and the heading. The last ten seconds are recorded (`history.ts`).
- * - **Routine** (`?mode=routine`): the lab routine (`routine.ts`) with its pelvis carried -- walk
+ * - **Routine** (`?mode=routine`): the lab routine (`routine.ts`) on the stance's legs -- walk
  *   forward, strike three times, turn, walk back, turn -- to show the muscles; the readout is the
  *   striking fist's speed, read from the hand's body each physics sub-step. Its last loop is
  *   recorded (`timeline.ts`).
@@ -256,6 +256,7 @@ const describe = (step: Step): string => {
     case "settle": return "Settling";
     case "walk": return "Walking";
     case "turn": return "Turning";
+    case "set": return "Setting its stance";
     case "strike": return `Striking: ${step.strike.name}`;
     default: { const never: never = step; return String(never); }
   }

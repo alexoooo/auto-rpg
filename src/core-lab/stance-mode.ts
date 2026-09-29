@@ -1,9 +1,10 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, type BodyCommand, type CoreBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
-import type { StanceGoal, StancePhase } from "../core/control/stance.ts";
+import type { StancePhase } from "../core/control/stance.ts";
 import type { Pose } from "../core/control/motor.ts";
 import type { World } from "../core/world.ts";
+import { STANCE_LOWER, stanceLegs } from "./legs.ts";
 import { GUARD, SERVO_SECONDS } from "./routine.ts";
 
 /**
@@ -66,12 +67,8 @@ export interface StanceSession {
   dispose(): void;
 }
 
-/**
- * The orders a session starts with: standing, not turning, 3 cm under the reference height. The
- * page leaves the height there: asked 8, 12 or 16 cm lower, each human stood about 1 cm lower,
- * and walking and stopping from there fell (Node stand, 120 Hz), so a crouch is not the stance's yet.
- */
-export const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, lower: 0.03 });
+/** The orders a session starts with: standing, not turning, the lab's height (`STANCE_LOWER`). */
+export const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, lower: STANCE_LOWER });
 
 /**
  * How fast the heading turns while walking, rad/s: a lab setting, not the stance's. Walking at
@@ -86,19 +83,18 @@ export function startStance(built: BuiltBody, world: World, { guard = true }: { 
   const trunk = built.segments.get("middleTrunk");
   if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
   const orders = restOrders();
-  let reference: number | null = null, shove: Vector3 | null = null, fallen = false, heading = 0;
+  const legs = stanceLegs();
+  let shove: Vector3 | null = null, heading = 0;
   const posture: Pose = guard ? { ...GUARD } : {};
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
     { posture, hands: { left: null, right: null }, pushes: [], stance: null };
   const turn = new Quaternion(), at = new Vector3();
 
   body.drive((view, dt) => {
-    const s = view.stance;
-    // The reference height is read from the first view, when the body stands as built.
-    if (reference === null) {
-      if (view.time <= 0) return command;
-      reference = s.centre.y - s.support.y;
-    }
+    const walking = orders.forward !== 0 || orders.right !== 0;
+    if (walking && view.time > 0) heading += orders.turn * LAB_TURN_RATE * dt;
+    const goal = legs.goal(view, heading, walking ? [orders.forward, orders.right] : null, orders.lower);
+    if (!goal) return command;
     if (shove) {
       trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
       const com = trunk.spec.centreOfMass.value, o = trunk.frame.origin;
@@ -106,13 +102,6 @@ export function startStance(built: BuiltBody, world: World, { guard = true }: { 
       trunk.body.applyImpulse(shove, at);
       shove = null;
     }
-    const walking = orders.forward !== 0 || orders.right !== 0;
-    if (walking) heading += orders.turn * LAB_TURN_RATE * dt;
-    const h = heading, height = reference - orders.lower;
-    // Forward is (sin h, cos h) across the ground; the right, (cos h, -sin h).
-    const vx = orders.forward * Math.sin(h) + orders.right * Math.cos(h), vz = orders.forward * Math.cos(h) - orders.right * Math.sin(h);
-    const goal: StanceGoal = { feet: ["left", "right"], centre: null, height, heading: h, walk: walking ? [vx, vz] : null };
-    fallen ||= height - (s.centre.y - s.support.y) > 0.25;
     command.stance = goal;
     return command;
   });
@@ -121,8 +110,8 @@ export function startStance(built: BuiltBody, world: World, { guard = true }: { 
     const s = body.view.stance, height = s.centre.y - s.support.y;
     return {
       time: body.view.time, heading, phase: s.phase, strides: s.strides, recoveries: s.recoveries,
-      speed: Math.hypot(s.velocity.x, s.velocity.z), height, goal: reference === null ? height : reference - orders.lower,
-      off: Math.hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen,
+      speed: Math.hypot(s.velocity.x, s.velocity.z), height, goal: legs.reference === null ? height : legs.reference - orders.lower,
+      off: Math.hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen: legs.fallen,
     };
   };
 

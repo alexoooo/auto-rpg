@@ -124,7 +124,7 @@ export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 12
   const routine = startRoutine(stand.built, stand.world, [
     { kind: "settle", seconds: SETTLE },
     { kind: "strike", seconds: chamber.seconds + WINDOW, strike },
-  ]);
+  ], { legs: "carried" });
   const fist = routine.fists[hand];
   const last = { position: new Vector3(), velocity: new Vector3() }, path = new Vector3(), from = new Vector3();
   let closing = 0, at = null, peak = 0, nearest = Infinity, watching = false;

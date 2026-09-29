@@ -591,8 +591,13 @@ contradicts one; the eccentric ceiling is the owner's decision.
   there falls, so the page has no crouch. A sideways walk at 0.3 m/s reads 0.10 m/s on the Warrior.
   At 480 Hz, a shove after a sideways walk fell for both humans, where at 120 Hz it held
   (Node stand).
-- **Not yet:** the routine's carried pelvis is still a scaffold; a stance that widens when it stops,
-  a crouch and turning on the spot; running, the dash, rolling and getting up.
+- **The lab's routine walks on the stance** (`src/core-lab/routine.ts`; the strike search keeps the
+  carried pelvis). It sets its feet 0.3 m apart before the strikes, walks a second straight before
+  each turn, and steers its walks back onto the line. At 120 Hz both humans stood 20 loops, each
+  loop ending within 0.36 m of its start, with strike peaks of 5.44 (Warrior) and 4.66 m/s (Rogue)
+  against 5.56 and 4.64 carried; at 480 Hz the Warrior fell in its first turn (Node stand).
+- **Not yet:** a stance that widens when it stops, a crouch and turning on the spot; running, the
+  dash, rolling and getting up.
 
 ### Stage 5: the rulebook, the damage unit and the HP pool
 
