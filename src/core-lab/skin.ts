@@ -48,25 +48,57 @@ const TRUNK = ["upperTrunk", "middleTrunk", "lowerTrunk"] as const;
 /**
  * **The fist.** The rig has no fist, but its closed grip (`sword-shield`, fitted around a handle by
  * `scripts/character-lab/realistic/grip_fit.py`) turns each finger joint about one axis, the
- * bone's own x within a few degrees. A fist is that turn carried on about the same axis: the
- * knuckle (MCP, `_01`) to 90 degrees and the middle joint (PIP, `_02`) to 100, the normal active
- * ranges (AAOS); the end joint (DIP, `_03`) to 0.65 of the PIP, the coupling `grip_fit.py` fits
- * with. The thumb's turns are not about one axis, so it keeps the closed grip, wrapped as around
- * a handle.
+ * bone's own x within a few degrees. A fist is that turn carried on about the same axis, toward
+ * the knuckle's (MCP, `_01`) 90 degrees and the middle joint's (PIP, `_02`) 100, the normal active
+ * ranges (AAOS), with the end joint (DIP, `_03`) at 0.65 of the PIP, the coupling `grip_fit.py`
+ * fits with. The thumb's turns are not about one axis, so it keeps the closed grip, wrapped as
+ * around a handle.
+ *
+ * The full ranges drive the fingertips 30 mm and more through the palm: the rig's fingers are
+ * already bent at rest, and linear skinning thins a bent knuckle. So each finger closes only as
+ * far as `FIST_CLOSURE`, the fraction of those angles at which its tip meets the palm.
  */
 const FIST_DEGREES: Readonly<Record<string, number>> = { "01": 90, "02": 100, "03": 0.65 * 100 };
 const FINGER = /^(index|middle|ring|pinky)_(0[123])_[lr]$/;
+type Finger = "index" | "middle" | "ring" | "pinky";
+
+/**
+ * How far each finger closes, as a fraction of `FIST_DEGREES`: the largest, on a 0.05 grid, that
+ * leaves the finger's middle and end phalanges within 1 mm of the palm's surface. Measured on the
+ * core lab page (2026-09-28) on the skinned `base__skin`, in the hand's own frame: the palm is the
+ * height field of the vertices the hand bone carries, behind the knuckle line, in 4 mm cells, and
+ * a finger vertex behind that surface is in the palm. One finger closed at a time, the others
+ * relaxed. Left hands read the same as right. Depth into the palm, mm (negative: clear of it):
+ *
+ * | Warrior | 0.60 | 0.65 | 0.70 | 0.75 | 0.80 | 0.85 | 1.00 |
+ * | ------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+ * | index   | -4.4 | -1.0 |  7.0 | 14.4 | 20.8 | 26.8 | 33.7 |
+ * | middle  | -5.1 | -3.6 | -3.7 | -1.6 |  2.6 |  9.5 | 30.2 |
+ * | ring    | -6.8 | -4.3 | -1.4 |  1.1 | 14.8 | 21.7 | 38.7 |
+ * | pinky   | -8.8 | -5.3 | -4.1 | -3.0 | -0.8 |  0.8 |  5.5 |
+ *
+ * | Rogue   | 0.60 | 0.65 | 0.70 | 0.75 | 0.80 | 0.85 | 1.00 |
+ * | ------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+ * | index   | -5.0 |  1.4 |  8.4 | 12.5 | 19.3 | 21.8 | 26.9 |
+ * | middle  | -7.3 | -5.0 | -3.7 | -1.0 |  5.9 | 10.6 | 26.3 |
+ * | ring    | -4.6 | -1.0 |  1.4 |  6.2 | 13.4 | 18.7 |  --  |
+ * | pinky   | -3.3 | -1.8 |  0.1 |  1.0 |  2.2 |  3.4 |  --  |
+ */
+const FIST_CLOSURE: Readonly<Record<WorkshopModel, Readonly<Record<Finger, number>>>> = {
+  "workshop-fighter": { index: 0.65, middle: 0.75, ring: 0.7, pinky: 0.85 },
+  "workshop-rogue": { index: 0.6, middle: 0.75, ring: 0.65, pinky: 0.75 },
+};
 
 /** A grip's turn, which the rig stores w first, as a Babylon quaternion. */
 const gripQuaternion = (pose: readonly number[]) => new Quaternion(pose[1]!, pose[2]!, pose[3]!, pose[0]!);
 
-/** `name`'s turn in a fist, from its turn in the closed grip. */
-function fistTurn(name: string, closed: readonly number[]): Quaternion {
-  const joint = FINGER.exec(name)?.[2];
+/** `name`'s turn in `model`'s fist, from its turn in the closed grip. */
+function fistTurn(model: WorkshopModel, name: string, closed: readonly number[]): Quaternion {
+  const [, finger, joint] = FINGER.exec(name) ?? [];
   const grip = gripQuaternion(closed);
-  if (!joint) return grip;
+  if (!finger || !joint) return grip;
   const axis = new Vector3(grip.x, grip.y, grip.z).normalize();
-  return Quaternion.RotationAxis(axis, (FIST_DEGREES[joint]! * Math.PI) / 180);
+  return Quaternion.RotationAxis(axis, (FIST_CLOSURE[model][finger as Finger] * FIST_DEGREES[joint]! * Math.PI) / 180);
 }
 
 export type Hand = "left" | "right";
@@ -149,7 +181,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
       const scaling = new Vector3(), rotation = new Quaternion(), position = new Vector3();
       localMatrix(node).decompose(scaling, rotation, position);
       const finger = { hand: (name.endsWith("_r") ? "right" : "left") as Hand, scaling, rotation, position,
-        open: gripQuaternion(open), fist: fistTurn(name, shut) };
+        open: gripQuaternion(open), fist: fistTurn(model, name, shut) };
       return { node, segment: null, held: new Matrix(), finger };
     }
     const host = HOSTS[rig.bones[name]!.host];
