@@ -164,6 +164,65 @@ the ground, every freedom braked by a zero-velocity motor).
   - the club tip stays near the rod's 23.9 m/s;
   - the Rogue's ratios to the Warrior read against Miller's and Muggenthaler's figures, as a check, not a fit.
 
+**The stage 2 assumptions.** `src/core/human/speed.ts` cites these; each is an owner decision to confirm.
+
+- **Measured curves.** Hip, knee and ankle dorsiflexion go through Anderson's two printed points
+  (C4 at 75 % of isometric, C5 at 50 %), each sex its own. The elbow is fitted to Frey-Law's
+  65° columns by least squares at Thelen's curvature of 0.25. Fitted freely, those columns barely
+  pin the unloaded speed: curvatures from 0.05 to 0.8 fit about as well, with unloaded speeds from
+  80 down to 11 rad/s. At 0.25 the fit is within 5 % of isometric from 120 °/s up, and 7-14 % high at
+  60 °/s, where the paper's torque drops fast.
+- **Borrowed curves.**
+  - The shoulder, forearm and wrist take elbow flexion's curve.
+  - Hip ab/adduction and rotation, the trunk and the neck take hip flexion's, a near-linear curve with
+    an unloaded speed near 9 rad/s.
+  - Plantar flexion and the foot take dorsiflexion's. Anderson's plantar flexion gives no valid curve.
+  - A borrowed curve's rule string names the curve it takes.
+- **Eccentric side.** Thelen's ceiling is 1.4 × isometric, with a slope ratio of 2, everywhere.
+  It is a stimulated muscle's figure; voluntary lengthening reads nearer 1.2-1.3.
+- **Hip unloaded speed** is 6.5-9 rad/s. That may be too slow for sprinting: stage 4 reads it
+  against running.
+
+**Stage 2's findings** (Node stand unless named):
+
+- **Havok's nodes lag its bodies.**
+  - After a motor's or a limit's impulse, the nodes move behind the body's velocity for several
+    steps. A body given 6.07 rad/s turned its node 4.03, then 5.83, 5.92, 5.98 rad/s.
+  - Joint speed is therefore read from the bodies' angular velocities, and so is the lab's fist.
+  - A driver reading the nodes pushed joints already at speed: a rod capped at 12 rad/s reached 17.6.
+    With the velocity reading it peaks at 12.32.
+- **The velocity motor.**
+  - Saturated, it is exact.
+  - With room to spare, it rings about its target: asked for 6 rad/s, a rod read 5.97, 8.62, 6.26,
+    4.79, 5.76.
+- **Rejected: a ceiling read implicitly at the step's end.** It ignores every other torque on the
+  joint, and a muscle stretched by a steady load yielded four times too fast.
+- **The rate.**
+  - A pinned Warrior's scripted straight, on his sourced curves, peaks at these fist speeds. The
+    muscle model converges.
+
+    | rate | peak fist (m/s) |
+    |---|---|
+    | 120 Hz | 6.85 |
+    | 240 Hz | 6.47 |
+    | 480 Hz | 6.45 |
+    | 960 Hz | 6.40 |
+
+  - The angle servo that brakes a joint does not converge at 120 Hz. On the lab routine a Warrior's
+    elbow opening at 34 rad/s, braked by his flexors at 105 N m, reversed to 22 rad/s in one step,
+    and the fist read 12.2 m/s on each of the routine's three straights, on the Node stand and on the
+    lab page alike. At 480 Hz the straights read 6.4, 6.4 and 7.5 m/s on the Node stand and 6.4 each
+    on the page.
+  - Self-collision is not the cause.
+  - The owner decides between a finer physics rate and a stage 3 servo that brakes without
+    overshoot. Until then the lab page offers 120 and 480 Hz.
+- **The servo.** An angle servo's time constant is steady at 0.1 s, and chatters at up to 3.9 rad/s
+  at 0.05 s (pinned Warrior, 120 Hz).
+- **The lab page.** `/core-lab.html` shows a chosen human walking forward, throwing three straights,
+  and walking back. Two scaffolds stand in until later stages: a carried pelvis until stage 4, and a
+  hand-set angle servo until stage 3. The ported strike search, and with it the acceptance above, is
+  still to run.
+
 ### Stage 3: one world, one body, one command
 
 - **`src/core/world.ts`:** a fixed-step `World.step` owning physics, control and combat, with a deterministic clock. The harness is a thin caller.
@@ -174,6 +233,9 @@ the ground, every freedom braked by a zero-velocity motor).
   - locomotion goals with gait verbs.
 
   The mind sees a view and returns goals. `Intent`'s mouse-shaped hand becomes the player's input adapter only.
+- **A person never commands muscles** (owner, 2026-09-28). The arrow keys or WASD choose which way to
+  face and which way to attack, the attack is armed separately (as today), and the body's own mind
+  turns that into goals.
 - **Motor control** turns goals into muscle activation: IK plus servo, bounded by the muscles.
 
 ### Stage 4: locomotion v2, force-bounded stepping, for the human
@@ -202,6 +264,8 @@ the ground, every freedom braked by a zero-velocity motor).
 
 - **A mind** drives the core body through goals. First the existing duelist's decisions through an adapter, since it already aims by published reach; then minds layered as tactics, skills and motor goals.
 - **The arena** can field the core Warrior and Rogue, and the page runs `World.step`.
+- **The player** steers a core body through its mind, as stage 3 says: facing and attack direction,
+  never a joint.
 - **Parity check** against the old humans: bouts, eye gates, and the strike and locomotion references.
 
 ### Stage 7: port the rest, then the reptile
