@@ -74,6 +74,19 @@ export const SOURCES = Object.freeze({
       + "and on the definition of weight; conventional value of gn, 980.665 cm/s2.",
     link: "https://www.bipm.org/en/committees/cg/cgpm/3-1901/resolution-",
   },
+  "owner-hp-pool": {
+    kind: "decision", date: "2026-09-27",
+    decided: "Hit points: reptile 1, Rogue 4, Warrior 6. One HP pool per body; excess damage spreads to "
+      + "neighbouring parts, nearest and inward first; the body dies when its HP is gone or its head is "
+      + "emptied. A part severs on its overkill, as the old game's health below -0.5 x max.",
+    record: "docs/plans/2026-09-27-warrior-rogue-reptile.md",
+  },
+  "owner-part-hp-split": {
+    kind: "decision", date: "2026-09-29",
+    decided: "A core human's hit points are split over its segments by cross-section: each segment's "
+      + "share is its mass to the two-thirds over the sum of the same over the body.",
+    record: "docs/plans/2026-09-28-core-foundation.md",
+  },
   "owner-physics-rate": {
     kind: "decision", date: "2026-09-25",
     decided: "Physics and control run at 120 Hz, from the release of 2026-09-25.",

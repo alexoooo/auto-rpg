@@ -11,8 +11,9 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  * world that is a body standing at the origin facing +z. Every position and axis in a spec is in
  * this frame, in the reference pose.
  *
- * Contact surfaces and damageable parts join the spec with the rulebook (stage 5 of
- * `docs/plans/2026-09-28-core-foundation.md`), when a rule first reads them.
+ * What the rulebook wounds is `wounds`: the body's hit points, and which segments kill when they
+ * are emptied or lost and which never come off. Contact surfaces join the spec when a rule first
+ * reads them.
  */
 export interface BodySpec {
   /** The family's name, `human`; a spec never spreads another family's spec. */
@@ -25,6 +26,20 @@ export interface BodySpec {
   readonly segments: readonly SegmentSpec[];
   /** Each joint names a parent and a child segment; together they form a tree over the segments. */
   readonly joints: readonly JointSpec[];
+  readonly wounds: WoundSpec;
+}
+
+/**
+ * **What the rulebook wounds** (`src/core/rules/pool.ts`): one pool of hit points for the body,
+ * split over its segments by the rulebook's rule.
+ */
+export interface WoundSpec {
+  /** The body's hit points, in the rulebook's unit (one the strongest club hit). */
+  readonly hp: Quantity<number>;
+  /** Segments whose emptying, or loss, kills the body: a head. */
+  readonly vital: readonly string[];
+  /** Segments that never come off: a trunk. */
+  readonly whole: readonly string[];
 }
 
 /**
