@@ -101,7 +101,7 @@ export function startStance(built: BuiltBody, world: World, { guard = true }: { 
     }
     if (shove) {
       trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
-      const com = trunk.spec.centreOfMass.value, o = trunk.frame.origin;
+      const com = trunk.rigid.centre, o = trunk.frame.origin;
       at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.node.position);
       trunk.body.applyImpulse(shove, at);
       shove = null;

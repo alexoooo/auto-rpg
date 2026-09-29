@@ -2,6 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BuiltBody, BuiltSegment } from "./build-body.ts";
 import { GIMBAL_COSINE, motionAxesToRef } from "./joint-state.ts";
+import { hasProducts } from "./rigid.ts";
 
 /**
  * **The body's dynamics in its joints' speeds**, with its root held: the mass matrix and the
@@ -95,7 +96,7 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
   const force = segments.map((): Point => [0, 0, 0]), moment = segments.map((): Point => [0, 0, 0]);
   const leanAxis = joints.map((): Point => [0, 0, 0]);
 
-  const centreOfMass = segments.map((segment) => local(segment, segment.spec.centreOfMass.value));
+  const centreOfMass = segments.map((segment) => local(segment, segment.rigid.centre));
   const pivot = joints.map((joint) => local(joint.child, joint.spec.centre.value));
   // Each segment's centre and inertia (xx, yy, zz, xy, xz, yz) in the world; each joint's carried
   // mass, centre and inertia about that centre, its centre, and its freedoms' motion axes in the world.
@@ -111,7 +112,7 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
     out[0] = scratch.v.x; out[1] = scratch.v.y; out[2] = scratch.v.z;
     return out;
   };
-  const axis: Point = [0, 0, 0];
+  const turned: Point[] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
   const velocityProducts = (angles: readonly (readonly number[])[], { speeds, spin }: BodyMotion): void => {
     segments.forEach((segment, i) => {
@@ -142,7 +143,7 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
       out[0] = own[0]; out[1] = own[1]; out[2] = own[2];
     }
     segments.forEach((segment, i) => {
-      const m = segment.spec.mass.value, a = accel[i]!, F = force[i]!, N = moment[i]!;
+      const m = segment.rigid.mass, a = accel[i]!, F = force[i]!, N = moment[i]!;
       F[0] = m * a[0]; F[1] = m * a[1]; F[2] = m * a[2];
       // Havok's bodies turn without the gyroscopic torque (w x I w), so it is not asked for.
       const Ia = inertiaTimes(inertias[i]!, alpha[i]!);
@@ -168,25 +169,35 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
         const rotation = segment.node.rotationQuaternion!, p = segment.node.position;
         const c = toWorld(rotation, centreOfMass[i]!, centres[i]!);
         c[0] += p.x; c[1] += p.y; c[2] += p.z;
-        const moments = segment.spec.inertia.value, I = inertias[i]!;
+        // R T R' from the segment frame's axes as they are now: each entry's two axes' outer product.
+        const T = segment.rigid.tensor, I = inertias[i]!;
         I.fill(0);
+        for (let k = 0; k < 3; k++) toWorld(rotation, k === 0 ? X : k === 1 ? Y : Z, turned[k]!);
         for (let k = 0; k < 3; k++) {
-          const a = toWorld(rotation, k === 0 ? X : k === 1 ? Y : Z, axis), m = moments[k]!;
+          const a = turned[k]!, m = T[k]!;
           I[0] += m * a[0] * a[0]; I[1] += m * a[1] * a[1]; I[2] += m * a[2] * a[2];
           I[3] += m * a[0] * a[1]; I[4] += m * a[0] * a[2]; I[5] += m * a[1] * a[2];
+        }
+        if (hasProducts(T)) {
+          for (const [k, l, e] of PRODUCTS) {
+            const a = turned[k]!, b = turned[l]!, m = T[e]!;
+            // The entry and its mirror: m (a b' + b a').
+            I[0] += 2 * m * a[0] * b[0]; I[1] += 2 * m * a[1] * b[1]; I[2] += 2 * m * a[2] * b[2];
+            I[3] += m * (a[0] * b[1] + b[0] * a[1]); I[4] += m * (a[0] * b[2] + b[0] * a[2]); I[5] += m * (a[1] * b[2] + b[1] * a[2]);
+          }
         }
       });
       joints.forEach((joint, j) => {
         const body = composite[j]!, C = body.centre, I = body.inertia;
         body.mass = 0; C.fill(0); I.fill(0);
         for (const i of beyond[j]!) {
-          const m = segments[i]!.spec.mass.value, c = centres[i]!;
+          const m = segments[i]!.rigid.mass, c = centres[i]!;
           body.mass += m; C[0] += m * c[0]; C[1] += m * c[1]; C[2] += m * c[2];
         }
         C[0] /= body.mass; C[1] /= body.mass; C[2] /= body.mass;
         for (const i of beyond[j]!) {
           // Each segment's own inertia, and its mass at its centre's offset d: m (|d|^2 E - d d').
-          const m = segments[i]!.spec.mass.value, c = centres[i]!, own = inertias[i]!;
+          const m = segments[i]!.rigid.mass, c = centres[i]!, own = inertias[i]!;
           const d0 = c[0] - C[0], d1 = c[1] - C[1], d2 = c[2] - C[2], dd = d0 * d0 + d1 * d1 + d2 * d2;
           I[0] += own[0] + m * (dd - d0 * d0); I[1] += own[1] + m * (dd - d1 * d1); I[2] += own[2] + m * (dd - d2 * d2);
           I[3] += own[3] - m * d0 * d1; I[4] += own[4] - m * d0 * d2; I[5] += own[5] - m * d1 * d2;
@@ -228,6 +239,8 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
 type Point = [number, number, number];
 
 const X: Vec3 = [1, 0, 0], Y: Vec3 = [0, 1, 0], Z: Vec3 = [0, 0, 1];
+/** A tensor's products: the two axes each is between, and its entry (`Tensor`). */
+const PRODUCTS = [[0, 1, 3], [0, 2, 4], [1, 2, 5]] as const;
 
 /** `point`, body frame, in `segment`'s own coordinates: its frame at the reference pose. */
 function local(segment: BuiltSegment, point: Vec3): Vec3 {

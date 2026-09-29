@@ -600,6 +600,66 @@ contradicts one; the eccentric ceiling is the owner's decision.
 - **Session 3 of the paused plan.** The damage unit is set by the new human's strongest club hit, found by the strike search.
 - **Session 4 of the paused plan.** One HP pool per body (Warrior 6, Rogue 4), with overflow walking the part graph.
 
+**What landed (2026-09-29): the pool.**
+- **The rulebook** (`src/core/rules/rulebook.ts`): one frozen object per mode, sourced like a spec.
+  Overrides make a new one. It holds the sever margin today, and the arena and dungeon share it.
+- **The wounds on the spec** (`BodySpec.wounds`, `src/core/human/wounds.ts`): hit points
+  (Warrior 6, Rogue 4), the vital head, and the trunk that never comes off.
+- **The part split** is the owner's, chosen 2026-09-29 (`owner-part-hp-split`): by cross-section,
+  mass to the two-thirds. The Warrior's head holds 0.45, upper trunk 0.78, thigh 0.72, forearm
+  0.17 and hand 0.09.
+- **The pool** (`src/core/rules/pool.ts`, `tests/core-rules.test.mjs`):
+  - a part absorbs what it has left;
+  - an emptied part comes off to a clean blow, or to any blow past empty by half its full hit
+    points, taking everything beyond it;
+  - the excess walks the attached parts nearest first, parent before children;
+  - endings: `severed` (head off), `exhausted` (pool spent), `fatal` (head emptied with hit points
+    left). The first ending stands.
+- **Recorded, not asked:** only the struck part can come off; overflow empties parts but never
+  takes one off. A blow that spends the whole pool reads `exhausted`, not `fatal`.
+
+**What landed (2026-09-29): the club, the masses a blow meets, and the damage unit.**
+- **A held item is one rigid body with its segment** (`BodySpec.held`, `src/core/build/rigid.ts`):
+  the composite's mass, centre and full inertia tensor, principal axes to Havok. A body holding
+  nothing is bit-identical to before.
+- **The wooden club** (`src/core/items/club.ts`): two cylinders of ash (678 kg/m3, the Wood
+  Handbook), 1.163 kg, balanced 0.48 m from the butt. **The grip** (`src/core/human/grip.ts`,
+  recorded not asked as `core-grip`): the haft across the knuckles, butt at the little finger's.
+- **The mass a contact meets** (`src/core/build/contact-mass.ts`): 1 / (n' J M^-1 J' n), joints
+  free and the body floating, checked against Havok's answer to an impulse to 1.5 %.
+  `impactEnergy` (`src/core/rules/impact.ts`) is 1/2 mu v^2.
+- **The club blow** (`research/core-club-strike.mjs`; the search takes `--weapon club`): the
+  swell's first touch of a head-sized sphere, read within each step, its closing speed along the
+  normal, the club's mass there and the head's from the striker's own guard, turned to face it.
+- **The damage unit** (`unit` in the rulebook, `core-club-unit`): the best blow's energy at
+  1920 Hz, **109.89 J per hit point**. Every mechanism keeps the old game's ratio to the club
+  (`worth`, `owner-weapon-ratios`): an edge's joule is worth 5.73 blunt ones, an axe's 7.70, a
+  point's 33.4. `blowDamage` prices a blow. The unit's own blow, replayed at 480 Hz, is worth 1 HP
+  (`tests/core-rules.test.mjs`).
+- **The table** (Node core stand, pelvis carried still, ground on; 4 trials a candidate; the best
+  blow of each search read again on 8 trials, the mean in joules, then its closing speed, m/s, as
+  written at 1920 Hz). Searches at 120 Hz ran 50 generations of 96, at 480 Hz 40 of 96.
+
+  | searched at | seed | search | 120 | 480 | 1920 | closing |
+  |---|---|---|---|---|---|---|
+  | 120 Hz | 1 | 93.8 | 93.5 | 82.0 | 80.9 | 11.3 |
+  | | 2 | 40.4 | 40.5 | 29.0 | 30.1 | 6.7 |
+  | | 3 | 101.4 | 96.0 | 33.1 | 46.4 | 8.5 |
+  | 480 Hz | 1 | 109.3 | 89.5 | 109.1 | **109.9** | 11.8 |
+  | | 2 | 51.7 | 26.1 | 51.9 | 50.3 | 8.5 |
+  | | 3 | 104.1 | 8.3 | 103.4 | 103.3 | 13.1 |
+
+  Blows found at 480 Hz hold at 1920 Hz to 3 %; blows found at 120 Hz do not (seed 3 loses half).
+  So the unit is the converged reading (recorded, not asked). The same blow reads 89.5 J at the
+  game's 120 Hz, so the game's best blow is worth about 0.8 HP until the 120 Hz servo agrees with
+  the finer rates on a searched blow. The best blows are overhead: the shoulder flexed to its limit
+  in the chamber, the normal mostly down onto the head's crown. Muggenthaler's lay men swing a
+  1 kg, 0.65 m rod at 23.9 m/s at the tip, about 95 J; the club's 109.9 J is 1.63 kg met at the
+  swell at 11.8 m/s. Three seeds a rate found a best-of-six; a wider search may find a stronger
+  blow, and would move the unit with its table.
+- **Waiting:** which mechanism a contact is (cut, thrust, crush, clang) and the floors under which a
+  blow only shoves come with the weapons that have edges and points.
+
 ### Stage 6: the human fights in the game
 
 - **A mind** drives the core body through goals. First the existing duelist's decisions through an adapter, since it already aims by published reach; then minds layered as tactics, skills and motor goals.

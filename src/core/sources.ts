@@ -74,6 +74,19 @@ export const SOURCES = Object.freeze({
       + "and on the definition of weight; conventional value of gn, 980.665 cm/s2.",
     link: "https://www.bipm.org/en/committees/cg/cgpm/3-1901/resolution-",
   },
+  "owner-hp-pool": {
+    kind: "decision", date: "2026-09-27",
+    decided: "Hit points: reptile 1, Rogue 4, Warrior 6. One HP pool per body; excess damage spreads to "
+      + "neighbouring parts, nearest and inward first; the body dies when its HP is gone or its head is "
+      + "emptied. A part severs on its overkill, as the old game's health below -0.5 x max.",
+    record: "docs/plans/2026-09-27-warrior-rogue-reptile.md",
+  },
+  "owner-part-hp-split": {
+    kind: "decision", date: "2026-09-29",
+    decided: "A core human's hit points are split over its segments by cross-section: each segment's "
+      + "share is its mass to the two-thirds over the sum of the same over the body.",
+    record: "docs/plans/2026-09-28-core-foundation.md",
+  },
   "owner-physics-rate": {
     kind: "decision", date: "2026-09-25",
     decided: "Physics and control run at 120 Hz, from the release of 2026-09-25.",
@@ -209,6 +222,48 @@ export const SOURCES = Object.freeze({
       + "magnetic resonance imaging and its distribution in young Japanese adults. Br J Sports Med "
       + "37(5):436-440.",
     link: "https://doi.org/10.1136/bjsm.37.5.436",
+  },
+  "wood-handbook-2010": {
+    kind: "literature",
+    cite: "Forest Products Laboratory (2010). Wood Handbook: Wood as an Engineering Material. General Technical "
+      + "Report FPL-GTR-190, USDA Forest Service, Madison, WI. Chapter 4, Methods for Calculating Density: the "
+      + "worked example for white ash at 12 % moisture content (G12 0.605).",
+    link: "https://research.fs.usda.gov/download/treesearch/37440.pdf",
+  },
+  "owner-club": {
+    kind: "decision", date: "2026-09-27",
+    decided: "The damage unit is the strongest hit with a club, one-handed: \"a club would be made of wood\". The club "
+      + "is the game's wooden club: a 0.45 m haft of 18 mm radius and a 0.25 m swell of 40 mm radius, in ash. "
+      + "Its dimensions were set by the session that made it, as a real club's rather than a tuning, and have "
+      + "stood in the game since.",
+    record: "src/golem/config.ts",
+  },
+  "owner-weapon-ratios": {
+    kind: "decision", date: "2026-09-27",
+    decided: "Rescale scoring so that the strongest club hit is worth 1: one unit constant, applied where scoring "
+      + "prices energy, and every weapon keeps its ratio to the club. The old game's prices, joules per point of "
+      + "wound: an edge 197.96 (cutJoulesPerDamage), an axe's edge 147.45 (chopJoulesPerDamage), blunt 1134.99 "
+      + "(crushJoulesPerDamage), in CONFIG.combat; a point 34 (PROJECTILE_PENETRATION_V1.joulesPerDamage in "
+      + "src/scoring.ts).",
+    record: "src/config.ts",
+  },
+  "core-club-unit": {
+    kind: "measurement",
+    how: "research/core-strike-search.mjs --weapon club: the Warrior's strongest one-handed blow with the wooden "
+      + "club into a head-sized sphere, by cross-entropy search (Node core stand, pelvis carried still, ground on), "
+      + "its energy 1/2 mu v^2 from the masses the contact meets. Three seeds searched at 120 Hz and three at 480 Hz; "
+      + "the strongest blow read again at 1920 Hz, where it agrees with 480 Hz to 1 %. Recorded, not asked: the "
+      + "unit is the rate-converged reading, not the 120 Hz one, since blows found at 120 Hz do not hold at a finer "
+      + "rate. The blow and its readings are research/core-club-unit.json; the table is in the plan's stage 5.",
+    record: "research/core-club-unit.json",
+  },
+  "core-grip": {
+    kind: "decision", date: "2026-09-29",
+    decided: "Recorded, not asked (core stage 5): a hand holds a haft across its knuckles, from the little finger's "
+      + "to the index finger's, with the butt at the little finger's knuckle and the axis on the palm side of the "
+      + "middle finger's knuckle, the haft's surface at the palm: the hand's capsule radius from the knuckle. A "
+      + "real grip crosses the palm at a slant; this one does not.",
+    record: "docs/plans/2026-09-28-core-foundation.md",
   },
   "stage1-assumptions": {
     kind: "decision", date: "2026-09-28",
