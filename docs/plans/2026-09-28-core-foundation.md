@@ -259,9 +259,10 @@ contradicts one; the eccentric ceiling is the owner's decision.
     (`forceVelocityReach`), which the convex shortening branch keeps under the curve, and a joint
     the muscles are braking is held to the reach from rest. On a forearm and hand driven flat out
     (Node stand), the hand at 120 Hz against 1920 Hz: 3.69 against 3.64 m/s at 0.025 s (4.71
-    before); started 0.06 s late, 4.7 against 4.5 (5.3 before). The lab's straights read within 3.3 %
-    of 1920 Hz at 120 Hz for the Warrior and within 9 % for the Rogue (11 % with self-contact off),
-    measured after the muscles' side was read from the torque needed. The game stays at 120 Hz.
+    before); started 0.06 s late, 4.7 against 4.5 (5.3 before). The lab's straights at 120 Hz read within
+    3.5 % of 1920 Hz for the Warrior; the Rogue's are within 3.2 % of 480 Hz and up to 8.5 % under
+    1920 Hz, whose own straights are no steady reference (the driver's doc has the table). The game
+    stays at 120 Hz.
   - **One blow is chaotic, so a search scores several** (`perturbed` in `research/core-strike.mjs`
     has the numbers). Random strikes read 1.9 % apart when every activation was scaled by 0.9999
     (0.7 % with self-contact off), and 11-12 % apart between 1920 Hz and 3840 Hz; 120 Hz is not
@@ -304,8 +305,18 @@ contradicts one; the eccentric ceiling is the owner's decision.
     ring: told to expect 1/7680 s, the 1920 Hz run left 3840 Hz's. On random strikes (n=16 in each of
     four cells, self-contact off) it moved 120 Hz's peaks no closer to 3840 Hz's (0.81-0.94 of them,
     against 0.88-0.95 without it), for about a quarter more time a step (timed six runs at once). So it is not taken. Open: the
-    servo at 120 Hz, and self-contact on the whole body across rates. Which segments met was not
-    read.
+    servo at 120 Hz.
+  - **Self-contact.** On the lab's routine (Node stand, 120, 480 and 1920 Hz) the only segments
+    that met were each upper arm and the middle trunk, about 0.08 s into every straight. The trunk
+    was a box on its stretch's extents, and the arm met its front upper corner 7-13 mm deep while
+    11-23 mm clear of the clothed surface it was measured from (120 Hz, self-contact off). A trunk
+    segment is now the convex hull of that surface (`src/core/spec/hull.ts`,
+    `assets/humanoid/workshop-*-trunk-hull.json`), at no cost a step that could be read (0.14-0.15
+    ms either way). Nothing meets on the routine at 120 Hz now; at 1920 Hz the Rogue's arm touches
+    the middle trunk from 0.33 s into each straight, after its peak at 0.17 s. On random strikes (n=16 each,
+    Warrior and Rogue, guard and not, 120 Hz) 14-15 of 16 still meet themselves with either trunk:
+    arms on the trunk's sides, a hand on the head or on the other hand. Those are a body's own
+    contacts, which the straights' corner was not.
     The club waits for a held weapon in the core.
 
 ### Stage 3: one world, one body, one command

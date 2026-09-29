@@ -57,11 +57,15 @@ export interface SegmentSpec {
   readonly shape: ShapeSpec;
 }
 
-/** A collision shape in the body frame; a box's edges lie along its segment's frame. */
+/**
+ * A collision shape in the body frame; a box's edges lie along its segment's frame, and a hull is
+ * the convex hull of its points.
+ */
 export type ShapeSpec =
   | { readonly kind: "capsule"; readonly from: Quantity<Vec3>; readonly to: Quantity<Vec3>; readonly radius: Quantity<number> }
   | { readonly kind: "box"; readonly centre: Quantity<Vec3>; readonly size: Quantity<Vec3> }
-  | { readonly kind: "sphere"; readonly centre: Quantity<Vec3>; readonly radius: Quantity<number> };
+  | { readonly kind: "sphere"; readonly centre: Quantity<Vec3>; readonly radius: Quantity<number> }
+  | { readonly kind: "hull"; readonly points: readonly Quantity<Vec3>[] };
 
 /** A joint between two segments, at `centre` in the body frame. */
 export interface JointSpec {

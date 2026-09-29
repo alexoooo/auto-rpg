@@ -76,19 +76,18 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  *   ceiling held short of its target. It took a heavy rod from +5.8 % to +1.0 % of the fine
  *   curve at 0.05 s at 120 Hz, and moved the lab's straights at 120 Hz from within a few per cent of
  *   1920 Hz to 5 % under for the Warrior and 15 % over for the Rogue.
- * On the lab's three straights (Node stand) the peak fist at 120 Hz, 480 Hz and 1920 Hz, then with
- * self-contact off:
  *
- *     Warrior  6.53 6.25 6.26 | 6.46 6.55 6.56 | 6.45 6.09 6.47
- *     Rogue    5.00 5.23 5.09 | 5.05 5.10 5.07 | 4.89 4.80 4.87
- *     Warrior  6.40 6.40 6.39 | 6.57 6.60 6.61 | 6.55 6.59 6.59   self-contact off
- *     Rogue    5.43 5.50 5.42 | 5.29 5.33 5.32 | 5.58 6.16 5.84   self-contact off
+ * On the lab's three straights (Node stand) the peak fist at 120 Hz, 480 Hz and 1920 Hz:
  *
- * The Warrior's are within 3.3 % of the finest rate; the Rogue's at 120 Hz are up to 9 % over it
- * and, with self-contact off, up to 11 % under. Reading the muscles' side from the torque needed
- * (above) moved the fine rate and not the game's: before it, with self-contact off, the Rogue read
- * 5.44 5.50 5.42 at 120 Hz and 5.31 5.43 5.84 at 1920 Hz. One blow is a poor reading of a rate:
- * random strikes read 1.9 % apart when every activation was scaled by 0.9999 (the plan, stage 2).
+ *     Warrior  6.40 6.40 6.39 | 6.57 6.60 6.60 | 6.55 6.60 6.62
+ *     Rogue    5.43 5.50 5.42 | 5.29 5.33 5.32 | 5.41 6.01 5.71
+ *
+ * Nothing of the body meets itself on them at 120 Hz, and with self-contact off they read the same
+ * but for the Rogue's at 1920 Hz. The Warrior's are within 3.5 % of the finest rate. The Rogue's at
+ * 120 Hz are within 3.2 % of 480 Hz's and up to 8.5 % under 1920 Hz's, which are no steady
+ * reference: with self-contact off, where the trunk meets nothing, making it a hull instead of a box
+ * moved them from 5.58 6.16 5.84 to 5.41 5.86 5.88. One blow is a poor reading of a rate: random
+ * strikes read 1.9 % apart when every activation was scaled by 0.9999 (the plan, stage 2).
  *
  * A heavy limb still gains a few per cent early at 120 Hz: a rod driven flat out from rest read
  * 5.8 % over the curve at 0.05 s, 2.1 % at 0.15 s (`tests/core-muscle.test.mjs`).
