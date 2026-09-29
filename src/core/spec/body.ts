@@ -67,6 +67,11 @@ export interface ItemSpec {
   readonly shapes: readonly ItemShape[];
   /** Named points, in the item frame: where a reading is taken on it, such as where a club strikes. */
   readonly points: { readonly [name: string]: Quantity<Vec3> };
+  /**
+   * For an item a hand closes on: the radius it is held at, with the item frame's origin at the end
+   * of the grip and y along it (`src/core/human/grip.ts`).
+   */
+  readonly grip?: Quantity<number>;
 }
 
 export type ItemShape = Exclude<ShapeSpec, { readonly kind: "box" }>;

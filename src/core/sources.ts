@@ -223,6 +223,29 @@ export const SOURCES = Object.freeze({
       + "37(5):436-440.",
     link: "https://doi.org/10.1136/bjsm.37.5.436",
   },
+  "wood-handbook-2010": {
+    kind: "literature",
+    cite: "Forest Products Laboratory (2010). Wood Handbook: Wood as an Engineering Material. General Technical "
+      + "Report FPL-GTR-190, USDA Forest Service, Madison, WI. Chapter 4, Methods for Calculating Density: the "
+      + "worked example for white ash at 12 % moisture content (G12 0.605).",
+    link: "https://research.fs.usda.gov/download/treesearch/37440.pdf",
+  },
+  "owner-club": {
+    kind: "decision", date: "2026-09-27",
+    decided: "The damage unit is the strongest hit with a club, one-handed: \"a club would be made of wood\". The club "
+      + "is the game's wooden club: a 0.45 m haft of 18 mm radius and a 0.25 m swell of 40 mm radius, in ash. "
+      + "Its dimensions were set by the session that made it, as a real club's rather than a tuning, and have "
+      + "stood in the game since.",
+    record: "src/golem/config.ts",
+  },
+  "core-grip": {
+    kind: "decision", date: "2026-09-29",
+    decided: "Recorded, not asked (core stage 5): a hand holds a haft across its knuckles, from the little finger's "
+      + "to the index finger's, with the butt at the little finger's knuckle and the axis on the palm side of the "
+      + "middle finger's knuckle, the haft's surface at the palm: the hand's capsule radius from the knuckle. A "
+      + "real grip crosses the palm at a slant; this one does not.",
+    record: "docs/plans/2026-09-28-core-foundation.md",
+  },
   "stage1-assumptions": {
     kind: "decision", date: "2026-09-28",
     decided: "Proposed in core stage 1, for the owner to confirm: where no source or measurement gives an "
