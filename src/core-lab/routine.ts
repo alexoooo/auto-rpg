@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
-import { servoToward } from "../core/control/servo.ts";
+import { servo } from "../core/control/servo.ts";
 import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
 
 /**
@@ -13,8 +13,8 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
  * - **The pelvis is carried** along the path as a kinematic body. Standing and walking are stage 4's
  *   (the plan's "standing on the feet"); until then the legs swing in the air of a carried pelvis
  *   and bear nothing.
- * - **Poses are held joint by joint** (`servoToward`, `src/core/control/servo.ts`), each freedom
- *   on its own. Stage 3's motor control builds its goals on the servo; hand-set joint poses are the
+ * - **Poses are held by the servo** (`servo`, `src/core/control/servo.ts`), every freedom at
+ *   once, around the pushes. Stage 3's motor control builds its goals on the servo; hand-set joint poses are the
  *   scaffold.
  *
  * Every torque comes from the muscle driver (`src/core/muscle/driver.ts`), so the strikes are as
@@ -24,8 +24,12 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
 
 /**
  * The servo's time constant, s. At 0.1 s, on this routine, the Warrior and the Rogue at 120 Hz and
- * 480 Hz: late in each settle no joint's speed reversed by more than 0.02 rad/s from one step to
- * the next, and at the end of the first second the guard was held within 0.004 rad (Node stand).
+ * 480 Hz: late in each settle no joint's speed reversed by more than 0.005 rad/s from one step to
+ * the next, and from the end of the first second the guard was held within 0.026 rad at 120 Hz and
+ * 0.024 at 480 Hz, the worst at a wrist, an elbow or the neck (Node stand). That band is Havok's
+ * brake on slow bodies (`servo`), and shrinks as the square of the time constant: at 0.05 s an
+ * elbow's was 0.005 rad. But at 0.05 s and 120 Hz the wrists' pronation rang at 7 rad/s, which it
+ * did not at 960 Hz (the whole Rogue, lower trunk held, no ground).
  */
 export const SERVO_SECONDS = 0.1;
 
@@ -242,18 +246,16 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
     const strike = step.kind === "strike" ? step.strike : undefined;
     const chambered = strike?.chamber && into < strike.chamber.seconds ? strike.chamber.pose : undefined;
     const since = into - (strike?.chamber?.seconds ?? 0);
-    for (let i = 0; i < d.channels.length; i++) {
+    servo(d, (i) => {
       const name = d.channels[i]!.name;
       const push = strike && !chambered
         ? strike.pushes.find((p) => p.channel === name && since >= p.from && since < p.to) : undefined;
-      if (push) {
-        // A speed no joint reaches: the motor is a torque source at the muscles' ceiling.
-        d.velocity[i] = push.sense * UNREACHABLE;
-        d.activation[i] = push.level ?? 1;
-      } else {
-        servoToward(d, i, legs[name] ?? chambered?.[name] ?? GUARD[name] ?? 0, SERVO_SECONDS, dt);
-      }
-    }
+      if (!push) return legs[name] ?? chambered?.[name] ?? GUARD[name] ?? 0;
+      // A speed no joint reaches: the motor is a torque source at the muscles' ceiling.
+      d.velocity[i] = push.sense * UNREACHABLE;
+      d.activation[i] = push.level ?? 1;
+      return undefined;
+    }, SERVO_SECONDS, dt);
   });
 
   return {

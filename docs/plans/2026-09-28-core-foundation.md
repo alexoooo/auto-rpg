@@ -222,8 +222,8 @@ contradicts one; the eccentric ceiling is the owner's decision.
       was steady on a chain of rods and chattered on the body: an explicit torque is stable only
       against the lightest segment it acts on, and the middle trunk between two driven trunk
       joints reversed at up to 12 rad/s every step.
-  - `servoToward` (`src/core/control/servo.ts`) asks the velocity motor for the speed a critically
-    damped motion reaches one step later. It needs no inertia, and it holds a limb's weight by
+  - `servoToward` (`src/core/control/servo.ts`, replaced 2026-09-29, below) asked the velocity
+    motor for the speed a critically damped motion reaches one step later. It needs no inertia, and it holds a limb's weight by
     itself. On the lab routine (Node stand):
 
     | peak fist, m/s | 120 Hz | 480 Hz |
@@ -236,7 +236,8 @@ contradicts one; the eccentric ceiling is the owner's decision.
   - A straight's elbow meets its extension stop at about 35 rad/s and bounces back at 6 rad/s at
     120 Hz and 2 at 480. That is the stop, after the fist's peak: recorded, not yet changed.
 - **The servo's time constant** is 0.1 s. Late in each settle no joint reverses by more than
-  0.02 rad/s a step, and the guard is held within 0.004 rad after a second, at both rates.
+  0.005 rad/s a step, at 120 Hz and 480 Hz, and the guard is held within 0.026 rad from the first
+  second: Havok's brake on slow bodies, below (`SERVO_SECONDS` in `src/core-lab/routine.ts`).
 - **The lab page.** `/core-lab.html` shows a chosen human walking forward, throwing three straights,
   and walking back. Two scaffolds stand in until later stages: a carried pelvis until stage 4, and
   hand-set joint poses until stage 3.
@@ -304,8 +305,35 @@ contradicts one; the eccentric ceiling is the owner's decision.
     peak of 3.3 m/s against 2.9, and within 0.05 m/s from 0.23 s on. But 480 Hz is not the converged motion either, and the setting changes more than the
     ring: told to expect 1/7680 s, the 1920 Hz run left 3840 Hz's. On random strikes (n=16 in each of
     four cells, self-contact off) it moved 120 Hz's peaks no closer to 3840 Hz's (0.81-0.94 of them,
-    against 0.88-0.95 without it), for about a quarter more time a step (timed six runs at once). So it is not taken. Open: the
-    servo at 120 Hz.
+    against 0.88-0.95 without it), for about a quarter more time a step (timed six runs at once). So it is not taken.
+  - **The servo at 120 Hz (2026-09-29): computed torque** (`servo` in `src/core/control/servo.ts`
+    has the argument, the numbers and what was rejected). Two faults, both counted in steps:
+    - The servo asked each motor for its own freedom's change, but a freedom's angle is not the
+      speed its motor drives: past a quarter turn of shoulder flexion, abduction's motor axis has
+      turned past square to its angle's. The servo now asks for changes of the angles' rates and
+      turns them into speeds through the joint (`turningToRef` in `src/core/build/joint-state.ts`).
+    - Havok's velocity motor builds its impulse over several steps when what it turns carries
+      other bodies, and does so by step, not by time. A saturated motor is exact from the first
+      step. So the servo gives torques: the body's mass matrix and gravity's term over the joints'
+      speeds (`bodyDynamics`, `src/core/build/dynamics.ts`, checked against Havok's own energy and
+      power in `tests/core-dynamics.test.mjs`), solved around the pushed freedoms and around any
+      the muscles cannot drive as asked, each given to the driver as a torque source.
+  - On the Node stand, 120 Hz against 1920 Hz: the Rogue's return from a searched chamber, hand
+    peak 2.36 against 2.28 m/s (the velocity servo, 3.71 against 2.02); the lab's straights, the
+    Warrior's within 1.7 %, and the Rogue's within 2.2 % until the elbow meets its stop. There the
+    stop whips the Rogue's light hand at the wrist at up to 66 rad/s at 1920 Hz, and the fist gains up
+    to a fifth for a few milliseconds; at 120 Hz Havok takes the stop inside a step and the whip is
+    smaller and later (`src/core/muscle/driver.ts` has the table). The stop is recorded, not changed.
+  - **Havok brakes slow bodies.** A body whose centre moves under about 0.12 m/s loses speed at a
+    steady 0.3 m/s^2, at every rate and mass, whatever the world's limits, the joints' friction, the
+    body's damping or the motor. A servo stops where its pull no longer beats it: the guard's
+    elbows and wrists 0.02-0.026 rad short at 0.1 s, a band that goes as the square of the time
+    constant. Recorded as the engine's, not compensated.
+  - **Open: the servo's stiffness at 120 Hz.** At 0.05 s the Rogue's wrists ring about pronation
+    at 7 rad/s at 120 Hz and hold at 960 Hz; at 0.1 s the dynamics give each step's torque to
+    0.05 N m. Stage 3 gets a factor of two in stiffness until that is understood.
+  - The strike searches above ran on the velocity servo, which held every freedom not pushed. Their
+    table is void (H63); the argument about scoring several runs stands.
   - **Self-contact.** On the lab's routine (Node stand, 120, 480 and 1920 Hz) the only segments
     that met were each upper arm and the middle trunk, about 0.08 s into every straight. The trunk
     was a box on its stretch's extents, and the arm met its front upper corner 7-13 mm deep while

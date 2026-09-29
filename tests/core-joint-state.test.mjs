@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsConstraintMotorType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import { anglesOf, jointAngles, jointTracker, relativeRotationToRef } from "../src/core/build/joint-state.ts";
+import { anglesOf, jointAngles, jointTracker, motionAxesToRef, ratesToRef, relativeRotationToRef, turningToRef } from "../src/core/build/joint-state.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -30,6 +30,51 @@ test("a rotation composed in either of Havok's orders about a joint's axes reads
       angles.forEach((angle, k) => assert.ok(Math.abs(read[k] - angle) < 1e-6, `${order} ${angles} read as ${read}`));
     }
   }
+});
+
+/**
+ * A joint's angles change at rates its speeds do not equal once it is off its reference pose: the
+ * speeds are the relative angular velocity along the motors' fixed axes (`turningToRef`), and the
+ * angular velocity is the speeds along the motion axes (`motionAxesToRef`). Each is read against a
+ * rotation composed at the angles and again a moment on, in Havok's measure (the first test),
+ * with freedoms in both senses, at poses past a quarter turn.
+ */
+test("a joint's speeds are its angles' rates turned through where it stands, and turn it about its motion axes", () => {
+  const compose = {
+    xyz: ([a, b, c]) => R(X, a).multiply(R(Y, b)).multiply(R(Z, c)),
+    yxz: ([a, b]) => R(Y, b).multiply(R(X, a)),
+  };
+  const poses = [[0.5, 0.4, 0.3], [2.5, -1.2, 3], [-3, 1.3, -2.2], [0.1, -0.9, 0.7]];
+  const paces = [[0.7, -1.1, 0.4], [-0.3, 0.5, 1.6]];
+  const h = 1e-6;
+  let worst = 0, apart = 0;
+  for (const order of ["xyz", "yxz"]) {
+    for (const signs of [[1, 1, 1], [-1, 1, -1]]) {
+      const count = order === "xyz" ? 3 : 2;
+      const joint = { dofs: signs.slice(0, count).map((sign) => ({ sign })), axes: { x: X, y: Y, z: Z } };
+      for (const pose of poses) for (const pace of paces) {
+        // Own-sense angles and rates; Havok's are these times each freedom's sign.
+        const angles = pose.slice(0, count), rates = pace.slice(0, count);
+        const havok = (list) => list.map((x, k) => signs[k] * x);
+        const before = compose[order](havok(angles));
+        const after = compose[order](havok(angles.map((x, k) => x + h * rates[k])));
+        const change = after.multiply(Quaternion.Inverse(before));
+        if (change.w < 0) change.scaleInPlace(-1);
+        const sin = Math.hypot(change.x, change.y, change.z), scale = 2 * Math.atan2(sin, change.w) / (sin * h);
+        const spin = [change.x * scale, change.y * scale, change.z * scale];
+        const axes = [X, Y, Z].slice(0, count).map((axis, k) => axis.map((c) => c * signs[k]));
+        const speeds = axes.map((axis) => spin[0] * axis[0] + spin[1] * axis[1] + spin[2] * axis[2]);
+        const turning = turningToRef(joint, angles, []);
+        turning.forEach((row, k) => { worst = Math.max(worst, Math.abs(row.reduce((sum, t, j) => sum + t * rates[j], 0) - speeds[k])); });
+        ratesToRef(joint, angles, speeds, []).forEach((rate, k) => { worst = Math.max(worst, Math.abs(rate - rates[k])); });
+        const motion = motionAxesToRef(joint, angles, []);
+        for (let i = 0; i < 3; i++) worst = Math.max(worst, Math.abs(motion.reduce((sum, m, k) => sum + speeds[k] * m[i], 0) - spin[i]));
+        apart = Math.max(apart, ...speeds.map((speed, k) => Math.abs(speed - rates[k])));
+      }
+    }
+  }
+  assert.ok(apart > 1, `the poses turn speeds off the rates: at most ${apart} rad/s apart`);
+  assert.ok(worst < 1e-4, `turning, rates and motion axes against the composed rotation: ${worst} rad/s off`);
 });
 
 function rods(dofs) {

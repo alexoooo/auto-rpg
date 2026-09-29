@@ -36,6 +36,9 @@
  * run of thousands takes the luckiest: ten searches at 120 Hz each read higher at 120 Hz than at
  * 1920 Hz, by up to 95 %. `perturbed` gives a strike the variation a mind cannot remove, and the
  * search scores a candidate by its mean over several.
+ *
+ * The figures above were read with the velocity servo the computed-torque one replaced on
+ * 2026-09-29 (`src/core/control/servo.ts`); every freedom not pushed moves differently now.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";

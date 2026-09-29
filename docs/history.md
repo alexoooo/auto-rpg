@@ -1,6 +1,6 @@
 # History: the incidents behind the rules in AGENTS.md
 
-`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H72`. This file
+`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H73`. This file
 keeps the full account: what broke, how it was found, and the measurements. It was split out of
 `AGENTS.md` on 2026-09-27 with the text unchanged apart from headings and numbering.
 
@@ -936,6 +936,23 @@ investigation: in `tests/contact-press.test.mjs` (and anything else built the sa
 advances whole 1/60 s frames until its clock passes the target, so `run(FIXED)` is a frame and not a
 substep. A loop that meant to run 3 s ran 12, drove the body into the wall, and read as a push rule
 that tipped a body it should not have.
+
+### H73. Havok's velocity motor lags by steps, and it brakes slow bodies
+
+The core's joint servo asked each
+velocity motor for the speed a damped motion reaches one step on. Havok builds a motor's impulse
+over several solver steps when what it turns carries other bodies: a rod on a pin carrying a held
+rod five times its mass, asked for 1 rad/s from rest, turned at 0.08, 0.58, 1.19, 1.69, 1.94,
+1.86 rad/s on successive steps, the same at 120 Hz and 1920 Hz (Node stand). Counted in steps,
+the lag is 3 ms at 1920 Hz and 50 ms at 120 Hz, the servo's own time scale, and a returning Rogue's
+hand peaked at 3.71 m/s at 120 Hz against 2.02 at 1920 Hz. A saturated motor (a speed no joint
+reaches, the ceiling the torque) is exact from the first step, so the servo now gives torques from
+the body's mass matrix, and the two rates read 2.36 against 2.28 (`src/core/control/servo.ts`).
+Separately, a body whose centre moves under about 0.12 m/s loses speed at a steady 0.3 m/s^2 until
+it stops, at every rate and mass, awake or not, whatever the world's speed limits, axis friction,
+body damping or motor type; a pure spin about the centre is untouched. It reads as a controller's
+deadband: a servo at 0.1 s leaves light joints 0.02-0.026 rad short, as the square of the time
+constant. A reading that a joint "stopped short" or "fell slower than gravity" is this first.
 
 ## House rules and design notes, full text as of 2026-09-27
 
