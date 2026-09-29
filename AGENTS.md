@@ -68,7 +68,8 @@ it blocks play, and it is not extended. `src/core/` has these rules:
   spreads another family's spec; families share code, not values.
 - **Tuning is immutable.** An experiment passes an override in; nothing mutates a global.
 - **One world step** owns physics, control, combat and the clock. The page, the harness and the
-  research runners all call it.
+  research runners all call it: `World.step` (`src/core/world.ts`), whose hooks replace scene
+  observers. A core world turns off the scene's own stepping, so `scene.render()` never advances it.
 - **Solver conditioning is not anatomy.** An inertia floor or damping term that exists for the
   solver is named as such, measured, and kept out of the body's numbers.
 - **The legacy human** (`humanBiped`, `humanTorso`, `humanHead` in `src/golem/humanoid/body.ts`,

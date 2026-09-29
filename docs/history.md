@@ -950,7 +950,9 @@ reaches, the ceiling the torque) is exact from the first step, so the servo now 
 the body's mass matrix, and the two rates read 2.36 against 2.28 (`src/core/control/servo.ts`).
 Separately, a body whose centre moves under about 0.12 m/s loses speed at a steady 0.3 m/s^2 until
 it stops, at every rate and mass, awake or not, whatever the world's speed limits, axis friction,
-body damping or motor type; a pure spin about the centre is untouched. It reads as a controller's
+body damping or motor type; a pure spin about the centre is untouched. It is not simply a speed
+threshold: a body falling from rest lost 0.3 m/s^2 over its first step and nothing over its second,
+at 0.08 m/s (Node stand, 120 Hz). It reads as a controller's
 deadband: a servo at 0.1 s leaves light joints 0.02-0.026 rad short, as the square of the time
 constant. A reading that a joint "stopped short" or "fell slower than gravity" is this first.
 

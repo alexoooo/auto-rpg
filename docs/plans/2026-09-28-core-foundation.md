@@ -329,9 +329,10 @@ contradicts one; the eccentric ceiling is the owner's decision.
     body's damping or the motor. A servo stops where its pull no longer beats it: the guard's
     elbows and wrists 0.02-0.026 rad short at 0.1 s, a band that goes as the square of the time
     constant. Recorded as the engine's, not compensated.
-  - **Open: the servo's stiffness at 120 Hz.** At 0.05 s the Rogue's wrists ring about pronation
-    at 7 rad/s at 120 Hz and hold at 960 Hz; at 0.1 s the dynamics give each step's torque to
-    0.05 N m. Stage 3 gets a factor of two in stiffness until that is understood.
+  - **A servo's time constant needs ten steps.** At nine the Rogue's wrists ring about pronation at
+    6-7 rad/s, at 120 Hz and 240 Hz alike, and at ten they hold; the reach is not the cause. At
+    120 Hz that is 0.083 s, against the lab's 0.1. Why ten is open; stage 3's motor control keeps
+    its time constants at ten steps or more.
   - The strike searches above ran on the velocity servo, which held every freedom not pushed. Their
     table is void (H63); the argument about scoring several runs stands.
   - **Self-contact.** On the lab's routine (Node stand, 120, 480 and 1920 Hz) the only segments
@@ -361,6 +362,15 @@ contradicts one; the eccentric ceiling is the owner's decision.
   face and which way to attack, the attack is armed separately (as today), and the body's own mind
   turns that into goals.
 - **Motor control** turns goals into muscle activation: IK plus servo, bounded by the muscles.
+
+**What landed (2026-09-29).**
+- **`World.step`** (`src/core/world.ts`, `tests/core-world.test.mjs`): the step hooks in the order
+  added, one solver step (Havok's own, never Babylon's accumulator), then the after-step hooks. The
+  clock is the count of steps. `advance` turns a frame's time into whole steps, carries the
+  remainder and drops what it cannot take, so a page that falls behind runs slow. The world turns
+  off the scene's own stepping. The muscle driver, the lab's routine and timeline, the core stand
+  and the strike research run on it; the lab page makes a world on each load, at the chosen rate.
+  Stepped whole or from uneven frames, the same steps give the same pose to the bit.
 
 ### Stage 4: locomotion v2, force-bounded stepping, for the human
 

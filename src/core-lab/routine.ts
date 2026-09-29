@@ -1,8 +1,8 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import type { Scene } from "@babylonjs/core/scene.js";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { servo } from "../core/control/servo.ts";
+import type { World } from "../core/world.ts";
 import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
 
 /**
@@ -27,9 +27,9 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
  * 480 Hz: late in each settle no joint's speed reversed by more than 0.005 rad/s from one step to
  * the next, and from the end of the first second the guard was held within 0.026 rad at 120 Hz and
  * 0.024 at 480 Hz, the worst at a wrist, an elbow or the neck (Node stand). That band is Havok's
- * brake on slow bodies (`servo`), and shrinks as the square of the time constant: at 0.05 s an
- * elbow's was 0.005 rad. But at 0.05 s and 120 Hz the wrists' pronation rang at 7 rad/s, which it
- * did not at 960 Hz (the whole Rogue, lower trunk held, no ground).
+ * brake on slow bodies (`servo`), and shrinks about as the square of the time constant: at 0.05 s
+ * an elbow's was 0.005 rad. But a time constant needs ten steps (`servo`), 0.083 s at 120 Hz, and
+ * under that the wrists ring about pronation.
  */
 export const SERVO_SECONDS = 0.1;
 
@@ -167,7 +167,7 @@ const fistOf = (hand: BuiltSegment) => {
 };
 
 /** Run `ROUTINE` on `built`, a human in its reference pose at the origin, facing +z. */
-export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly Step[] = ROUTINE): Routine {
+export function startRoutine(built: BuiltBody, world: World, routine: readonly Step[] = ROUTINE): Routine {
   const pelvis = built.segments.get("lowerTrunk");
   const hands = { left: built.segments.get("hand.left"), right: built.segments.get("hand.right") };
   if (!pelvis || !hands.left || !hands.right) throw new Error(`${built.spec.model} is not a human the routine knows`);
@@ -206,7 +206,7 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
     }
   };
 
-  const driver = driveMuscles(built, scene, (d, dt) => {
+  const driver = driveMuscles(built, world, (d, dt) => {
     time += dt;
     into += dt;
     while (into >= routine[stepIndex]!.seconds) {

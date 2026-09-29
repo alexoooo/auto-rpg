@@ -73,11 +73,16 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *   0.005 and 0.006 (Node stand). The band goes as the square of the time constant.
  * - **The wrist's pronation flickers at 120 Hz**: its solver speed turns over from step to step
  *   while its angle holds within 0.01 rad, and a joint coming back to a hold jolts it by 0.03 rad
- *   for a step. Stiffer, it rings: at 0.05 s the Rogue's wrists turned about pronation at 7 rad/s
- *   at 120 Hz, thrown by their other two freedoms' motors, and at 960 Hz held. At 0.1 s the torque
- *   the dynamics say each step's change took is the torque given, to 0.05 N m at an elbow given
- *   0.9 and 0.007 at a wrist given 0.13; at 0.05 s and 120 Hz a wrist's is 5 N m off, and it is
- *   not known whether the ring is the servo's or the solver's.
+ *   for a step.
+ * - **A time constant needs ten steps.** Stiffer, the wrists ring about pronation, thrown by their
+ *   other two freedoms' motors: at nine steps (0.075 s at 120 Hz, 0.0375 s at 240 Hz) the whole
+ *   Rogue's (lower trunk held, no ground, Node stand) turned at 6-7 rad/s, and at ten (0.083 s,
+ *   0.042 s) they held; six steps rang at 120, 240 and 480 Hz alike, and twelve held. Like the
+ *   motor's lag, it is counted in steps. At twelve steps the torque the dynamics say each step's
+ *   change took is the torque given, to 0.05 N m at an elbow given 0.9 and 0.007 at a wrist given
+ *   0.13; ringing, a wrist's is 5 N m off. Taking the driver's reach off the torque sources made
+ *   it worse (41 rad/s at six steps), so the reach bounds the ring rather than making it. Why ten
+ *   is not known.
  *
  * A goal that leaves a channel be (returns undefined) has set that channel's command before it
  * returns: the servo reads the command then, as the torque it solves around.

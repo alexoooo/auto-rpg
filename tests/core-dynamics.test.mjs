@@ -69,7 +69,7 @@ test("the mass matrix gives the chain's kinetic energy and gravity's term its po
   let seed = 7, tick = 0;
   const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
   // A new push on every freedom each tenth of a second, either way, at 30-80 % of its strength.
-  const driver = driveMuscles(stand.built, stand.scene, (d) => {
+  const driver = driveMuscles(stand.built, stand.world, (d) => {
     if (tick++ % stand.seconds(0.1) !== 0) return;
     for (let i = 0; i < d.channels.length; i++) { d.velocity[i] = random() > 0 ? 1e3 : -1e3; d.activation[i] = 0.3 + 0.5 * Math.abs(random()); }
   });

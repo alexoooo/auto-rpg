@@ -1,5 +1,4 @@
-import type { Observer } from "@babylonjs/core/Misc/observable.js";
-import type { Scene } from "@babylonjs/core/scene.js";
+import type { World } from "../core/world.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { ROUTINE, type Routine, type Step } from "./routine.ts";
 
@@ -36,9 +35,9 @@ export interface FrameReading {
   readonly closure: { readonly left: number; readonly right: number };
 }
 
-/** Record `routine` on `built`, after every physics sub-step of `scene`. */
-export function recordTimeline(built: BuiltBody, routine: Routine, scene: Scene, steps: readonly Step[] = ROUTINE): Timeline {
-  const seconds = scene.getPhysicsEngine()!.getSubTimeStep() / 1000;
+/** Record `routine` on `built`, after every step of `world`. */
+export function recordTimeline(built: BuiltBody, routine: Routine, world: World, steps: readonly Step[] = ROUTINE): Timeline {
+  const seconds = world.dt;
   const frames = Math.round(steps.reduce((sum, step) => sum + step.seconds, 0) / seconds);
   const nodes = [...built.segments.values()].map((segment) => segment.node);
   const pose = new Float64Array(frames * nodes.length * 7);
@@ -47,7 +46,7 @@ export function recordTimeline(built: BuiltBody, routine: Routine, scene: Scene,
   const stepOf = new Int16Array(frames).fill(-1);
   let live = 0;
 
-  const observer: Observer<Scene> = scene.onAfterPhysicsObservable.add(() => {
+  const hook = world.afterStep(() => {
     const state = routine.state();
     const frame = Math.round(state.time / seconds) % frames;
     time[frame] = state.time;
@@ -91,6 +90,6 @@ export function recordTimeline(built: BuiltBody, routine: Routine, scene: Scene,
       }
       return shown;
     },
-    dispose: () => scene.onAfterPhysicsObservable.remove(observer),
+    dispose: () => hook.dispose(),
   };
 }

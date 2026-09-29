@@ -97,7 +97,7 @@ function inertiaAboutPin(spec) {
 
 async function onStand(spec, control, hz) {
   const stand = await coreStand(spec, { gravity: false, ground: false, pinned: "post", hz });
-  const driver = driveMuscles(stand.built, stand.scene, control);
+  const driver = driveMuscles(stand.built, stand.world, control);
   return { stand, driver };
 }
 
@@ -177,7 +177,7 @@ test("a muscle stretched past its peak yields at the speed its eccentric branch 
         const body = stand.built.segments.get("rod").body;
         const axis = new Vector3(...spec.joints[0].dofs[0].axis.value);
         const load = over * peak.positive;
-        stand.scene.onBeforePhysicsObservable.add(() => body.applyAngularImpulse(axis.scale(-load / hz)));
+        stand.world.beforeStep(() => body.applyAngularImpulse(axis.scale(-load / hz)));
         stand.step(stand.seconds(0.4));
         const expected = integrate(inertiaAboutPin(spec), (w) => load - peak.positive * forceVelocityFactor(-w, curve), 0.4 - 1 / hz);
         const read = -driver.speed(0);
@@ -213,7 +213,7 @@ test("a light limb on a heavy one speeds up at 120 Hz as it does at a fine rate"
   const handAt = async (hz, delay, seconds) => {
     const stand = await coreStand(spec, { gravity: false, ground: false, pinned: "post", hz });
     let t = 0;
-    const driver = driveMuscles(stand.built, stand.scene, (d, dt) => {
+    const driver = driveMuscles(stand.built, stand.world, (d, dt) => {
       d.activation[0] = 1; d.velocity[0] = 1e3;
       d.activation[1] = t + dt / 2 >= delay ? 1 : 0; d.velocity[1] = 1e3;
       t += dt;
@@ -246,7 +246,7 @@ test("the driver reads the torque its motor applied, and its sign is the side th
   const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });
   let mode = "positive";
   const seen = [];
-  const driver = driveMuscles(stand.built, stand.scene, (d, dt) => {
+  const driver = driveMuscles(stand.built, stand.world, (d, dt) => {
     seen.push([d.pulled[0], d.ceiling[0]]);
     if (mode === "hold") servo(d, () => 0, 0.1, dt);
     else { d.activation[0] = 1; d.velocity[0] = mode === "positive" ? 1e3 : -1e3; }
@@ -299,7 +299,7 @@ test("a command lowering a weight is bounded by the muscles braking it, not thos
     d.velocity[0] = speed + dt * (n * n * (goal - d.angle(0)) - 2 * n * speed);
     d.activation[0] = 1;
   };
-  const driver = driveMuscles(stand.built, stand.scene, ask);
+  const driver = driveMuscles(stand.built, stand.world, ask);
   try {
     stand.step(stand.seconds(0.5));
     assert.ok(driver.pulled[0] < -0.1, `held against its weight by the negative muscles: ${driver.pulled[0]} N m`);
@@ -332,7 +332,7 @@ test("a command lowering a weight is bounded by the muscles braking it, not thos
 test("the inertia beyond a joint is its segments' about the axis, at the pose as it stands", async () => {
   const spec = rod(CURVES[0], { positive: 6, negative: 6 });
   const stand = await coreStand(spec, { gravity: false, ground: false, pinned: "post" });
-  const driver = driveMuscles(stand.built, stand.scene, (d, dt) => servo(d, () => 1.2, 0.05, dt));
+  const driver = driveMuscles(stand.built, stand.world, (d, dt) => servo(d, () => 1.2, 0.05, dt));
   try {
     const dynamics = bodyDynamics(stand.built, [0, 0, 0]), expected = inertiaAboutPin(spec);
     dynamics.update([[driver.angle(0)]]);
@@ -356,7 +356,7 @@ test("the inertia beyond a joint is its segments' about the axis, at the pose as
       segment("hand", [0.19, 1.01, 0], [0.32, 0.88, 0], 0.45, [0.0004, 0.0013, 0.0011])],
     joints: [pin("elbow", "post", "forearm", [0, 1.2, 0]), pin("wrist", "forearm", "hand", [0.19, 1.01, 0])] };
   const armStand = await coreStand(arm, { gravity: false, ground: false, pinned: "post" });
-  const armDriver = driveMuscles(armStand.built, armStand.scene, (d, dt) => servo(d, (i) => [0.4, 1.2][i], 0.05, dt));
+  const armDriver = driveMuscles(armStand.built, armStand.world, (d, dt) => servo(d, (i) => [0.4, 1.2][i], 0.05, dt));
   try {
     armStand.step(armStand.seconds(0.5));
     const dynamics = bodyDynamics(armStand.built, [0, 0, 0]);

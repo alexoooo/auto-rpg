@@ -121,7 +121,7 @@ export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 12
   const target = given.centre ? new Vector3(...given.centre) : new Vector3(...head.centreOfMass.value).addInPlaceFromFloats(0, 0, distance);
   const forward = new Vector3(0, 0, 1);
   const stand = await coreStand(spec, { ground: true, hz });
-  const routine = startRoutine(stand.built, stand.scene, [
+  const routine = startRoutine(stand.built, stand.world, [
     { kind: "settle", seconds: SETTLE },
     { kind: "strike", seconds: chamber.seconds + WINDOW, strike },
   ]);

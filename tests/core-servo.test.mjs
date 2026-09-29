@@ -50,7 +50,7 @@ const damped = (e, w, n, t) => (e + (w + n * e) * t) * Math.exp(-n * t);
 async function servoRun(hz, { goal, swing = 0, seconds = 0.6, timeConstant = 0.1, peak }) {
   const stand = await coreStand(rod(peak), { ground: false, pinned: "post", hz });
   let time = 0;
-  const driver = driveMuscles(stand.built, stand.scene, (d, dt) => {
+  const driver = driveMuscles(stand.built, stand.world, (d, dt) => {
     if (time + dt / 2 < swing) { d.velocity[0] = Infinity; d.activation[0] = 0.1; } else servo(d, () => goal, timeConstant, dt);
     time += dt;
   });
@@ -144,7 +144,7 @@ test("a servoed arm moves alike at 120 Hz and 960 Hz, through a pose where angle
   for (const hz of [120, 960]) {
     const stand = await coreStand(spec, { ground: false, pinned: "upperTrunk", hz });
     let returning = false;
-    const driver = driveMuscles(stand.built, stand.scene, (d, dt) =>
+    const driver = driveMuscles(stand.built, stand.world, (d, dt) =>
       servo(d, (i) => (returning ? 0 : pose[d.channels[i].name] ?? 0), 0.1, dt));
     try {
       stand.step(stand.seconds(1.2));
@@ -206,7 +206,7 @@ test("a servo holds its joints around a push, and around a joint its muscles can
   for (const hz of [120, 960]) {
     const pushed = await coreStand(pair(60, 20), { ground: false, gravity: false, pinned: "post", hz });
     let time = 0, strayed = 0;
-    const holding = driveMuscles(pushed.built, pushed.scene, (d, dt) => {
+    const holding = driveMuscles(pushed.built, pushed.world, (d, dt) => {
       const pushing = time < 0.15;
       time += dt;
       servo(d, (i) => {
@@ -223,7 +223,7 @@ test("a servo holds its joints around a push, and around a joint its muscles can
 
     const weak = await coreStand(pair(3, 30), { ground: false, gravity: false, pinned: "post", hz });
     let moved = 0;
-    const lifting = driveMuscles(weak.built, weak.scene, (d, dt) => servo(d, (i) => (i === 0 ? 1 : 0), 0.1, dt));
+    const lifting = driveMuscles(weak.built, weak.world, (d, dt) => servo(d, (i) => (i === 0 ? 1 : 0), 0.1, dt));
     try {
       for (let i = 0; i < weak.seconds(0.4); i++) { weak.step(1); moved = Math.max(moved, Math.abs(lifting.angle(1))); }
       assert.ok(lifting.angle(0) > 0.3 && lifting.angle(0) < 0.6, `${hz} Hz: the weak rod lagged, at ${lifting.angle(0)} rad after 0.4 s`);

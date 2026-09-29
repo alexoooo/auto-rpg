@@ -1,12 +1,10 @@
-import type { Observer } from "@babylonjs/core/Misc/observable.js";
 import { PhysicsConstraintMotorType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import type { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltDof, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import type { MuscleSpec } from "../spec/body.ts";
 import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
-import { PHYSICS_HZ } from "../engine/havok.ts";
+import type { Hook, World } from "../world.ts";
 import { appliedAngularImpulseToRef } from "../engine/constraint.ts";
 import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
 
@@ -111,7 +109,7 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * the ring and is not done here (the plan, stage 2). The ring and the lag behind it are counted in
  * steps, so a controller that asks for speeds runs behind at 120 Hz; the servo asks for torques
  * (`src/core/control/servo.ts` has the servo and the numbers).
- * The driver reads its step from the engine's sub-step, so a finer one is a setting, not a change.
+ * The driver reads its step from the world (`src/core/world.ts`), so a finer one is a setting, not a change.
  *
  * A freedom's ceiling bounds its own axis only: a ball joint turning about two axes at once can
  * exceed either peak in the diagonal, by up to the root of the sum of their squares. Each peak was
@@ -172,15 +170,15 @@ export interface MuscleDriver {
   readonly pulled: Float64Array;
   /** The channel named `name`; throws if there is none. */
   channel(name: string): number;
-  /** Stop driving: the motors are released and the observer removed. */
+  /** Stop driving: the motors are released and its step hook removed. */
   dispose(): void;
 }
 
 /** Called before each sub-step, before the driver applies the command; `dt` is the sub-step, s. */
 export type MuscleController = (driver: MuscleDriver, dt: number) => void;
 
-/** Drive every freedom of `built` from its spec's muscles, each physics sub-step of `scene`. */
-export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleController): MuscleDriver {
+/** Drive every freedom of `built` from its spec's muscles, before each step of `world`. */
+export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController): MuscleDriver {
   const trackers: JointTracker[] = [];
   const channels: MuscleChannel[] = [];
   const trackerOf: JointTracker[] = [];
@@ -211,12 +209,11 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
   const angularVelocity = (segment: BuiltSegment): Vector3 => spin.get(segment)!;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
   const n = channels.length;
-  const subStep = scene.getPhysicsEngine()?.getSubTimeStep() ?? 0;
-  const dt = subStep > 0 ? subStep / 1000 : 1 / PHYSICS_HZ.value;
-  const g = scene.getPhysicsEngine()?.gravity;
+  const dt = world.dt;
+  const g = world.scene.getPhysicsEngine()?.gravity;
   const dynamics = bodyDynamics(built, g ? [g.x, g.y, g.z] : [0, 0, 0]);
   const angles = trackers.map((tracker) => tracker.angles);
-  let observer: Observer<Scene> | null = null;
+  let hook: Hook | null = null;
   const driver: MuscleDriver = {
     channels,
     activation: new Float64Array(n),
@@ -238,13 +235,13 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
       return i;
     },
     dispose() {
-      if (observer) scene.onBeforePhysicsObservable.remove(observer);
-      observer = null;
+      hook?.dispose();
+      hook = null;
       for (const c of channels) c.joint.constraint.setAxisMotorMaxForce(c.dof.axis, 0);
     },
   };
   const impulse = new Vector3();
-  observer = scene.onBeforePhysicsObservable.add(() => {
+  hook = world.beforeStep(() => {
     for (const [segment, w] of spin) segment.body.getAngularVelocityToRef(w);
     trackers.forEach((tracker, j) => {
       tracker.update(angularVelocity);

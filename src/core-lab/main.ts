@@ -17,9 +17,10 @@ import HavokPhysics from "@babylonjs/havok";
 // A page entry may carry the `?url` import that Node rejects (H25); nothing Node loads imports this file.
 import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import { attachHavok, PHYSICS_HZ } from "../core/engine/havok.ts";
+import { PHYSICS_HZ } from "../core/engine/havok.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { humanSpec } from "../core/human/spec.ts";
+import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { startRoutine, type Routine, type Step } from "./routine.ts";
 import { dressBody, loadSkin, type SkinView } from "./skin.ts";
@@ -33,13 +34,18 @@ import { drawBody, type BodyView } from "./view.ts";
  * or a finer one. The body is drawn in one of two views: World, the workshop model's skin
  * (`skin.ts`), or Tactical, the collision shapes themselves (`view.ts`). The last loop is recorded
  * (`timeline.ts`): pausing stops the world, and the timeline shows any physics step of that loop.
+ *
+ * The world (`src/core/world.ts`) owns the clock: each frame takes the whole steps the frame's time
+ * owes, and the render only draws them. Loading a body, or a new rate, makes a new world.
  */
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
 const engine = new Engine(canvas, true, { stencil: true });
 const scene = new Scene(engine);
 scene.clearColor = new Color4(0.082, 0.098, 0.11, 1);
-attachHavok(scene, await HavokPhysics({ locateFile: () => havokWasmUrl }));
+const havok = await HavokPhysics({ locateFile: () => havokWasmUrl });
+/** The world a body is loaded into; each load makes a new one, at the chosen rate. */
+let world: World | null = null;
 
 const camera = new ArcRotateCamera("lab.camera", -Math.PI / 2 - 0.9, 1.25, 4.8, new Vector3(0, 1, 1.5), scene);
 camera.lowerRadiusLimit = 1.5;
@@ -53,12 +59,12 @@ sun.intensity = 0.7;
 scene.environmentTexture = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
 scene.environmentIntensity = 0.85;
 
-// The ground: a static box for the solver, a plane with a grid of metre lines for the eye.
+// The ground: a static box for the solver (made with each world, in `load`), a plane with a grid
+// of metre lines for the eye.
 const groundNode = new TransformNode("lab.ground", scene);
 groundNode.position = new Vector3(0, -0.5, 0);
 groundNode.rotationQuaternion = Quaternion.Identity();
-const groundBody = new PhysicsBody(groundNode, PhysicsMotionType.STATIC, false, scene);
-groundBody.shape = new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(40, 1, 40), scene);
+let groundBody: PhysicsBody | null = null;
 const floor = MeshBuilder.CreateGround("lab.floor", { width: 40, height: 40 }, scene);
 const floorMaterial = new StandardMaterial("lab.floor", scene);
 floorMaterial.diffuseColor = new Color3(0.16, 0.18, 0.19);
@@ -100,15 +106,19 @@ function load(model: WorkshopModel): void {
     current.view.dispose();
     current.built.dispose();
   }
-  // The driver reads its step from the engine when it starts, so the rate is set first.
-  scene.getPhysicsEngine()!.setSubTimeStep(1000 / hz);
+  groundBody?.dispose();
+  world?.dispose();
+  scene.disablePhysicsEngine();
+  world = createWorld(scene, havok, { hz });
+  groundBody = new PhysicsBody(groundNode, PhysicsMotionType.STATIC, false, scene);
+  groundBody.shape = new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(40, 1, 40), scene);
   const built = buildBody(humanSpec(model), scene, { position: [0, 0, 0] });
   const plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
   // Keep every segment awake: a sleeping body reads a perfect zero (H08).
   for (const segment of built.segments.values()) plugin.setActivationControl(segment.body, PhysicsActivationControl.ALWAYS_ACTIVE);
-  const routine = startRoutine(built, scene);
+  const routine = startRoutine(built, world);
   const loaded = current = { built, view: drawBody(built, scene, TINT[model]), skin: null as SkinView | null, routine,
-    timeline: recordTimeline(built, routine, scene) };
+    timeline: recordTimeline(built, routine, world) };
   shownStrikes = -1;
   timeline.max = String(loaded.timeline.frames - 1);
   setPaused(false);
@@ -161,7 +171,6 @@ function setPaused(on: boolean): void {
   if (!current) return;
   if (on && !paused) paused = { frame: current.timeline.live(), reading: current.timeline.at(current.timeline.live()) };
   if (!on && paused) { current.timeline.show(current.timeline.live()); paused = null; }
-  scene.physicsEnabled = !on;
   pauseButton.textContent = on ? "Play" : "Pause";
   pauseButton.setAttribute("aria-pressed", String(on));
 }
@@ -227,6 +236,9 @@ document.getElementById("restart")!.addEventListener("click", (event) => {
 load("workshop-fighter");
 const follow = new Vector3();
 engine.runRenderLoop(() => {
+  // The steps this frame owes, at most a tenth of a second's: a page that falls behind (or a tab
+  // that comes back) runs slow rather than in a burst.
+  if (world && !paused) world.advance(engine.getDeltaTime() / 1000, Math.ceil(0.1 * world.hz));
   scene.render();
   if (current) {
     // The camera follows the pelvis, softly.
@@ -237,5 +249,6 @@ engine.runRenderLoop(() => {
   readout();
 });
 window.addEventListener("resize", () => engine.resize());
-// For the console: a hidden tab does not render, so a check steps the scene by hand (H03).
-(window as unknown as { __coreLab: unknown }).__coreLab = { scene, engine, readout, current: () => current, seek, setPaused };
+// For the console: a hidden tab does not render, so a check steps the world by hand
+// (`__coreLab.world().step(n)`, then `scene.render()`; H03).
+(window as unknown as { __coreLab: unknown }).__coreLab = { scene, engine, readout, current: () => current, world: () => world, seek, setPaused };
