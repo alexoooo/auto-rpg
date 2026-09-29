@@ -2,6 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
+import { servoToward } from "../core/control/servo.ts";
 import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
 
 /**
@@ -12,8 +13,9 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
  * - **The pelvis is carried** along the path as a kinematic body. Standing and walking are stage 4's
  *   (the plan's "standing on the feet"); until then the legs swing in the air of a carried pelvis
  *   and bear nothing.
- * - **Poses are held by a joint servo**, each freedom asked to turn at (target - angle) / tau under
- *   its muscles' ceiling. Stage 3's motor control replaces it.
+ * - **Poses are held joint by joint** (`servoToward`, `src/core/control/servo.ts`), each freedom
+ *   on its own. Stage 3's motor control builds its goals on the servo; hand-set joint poses are the
+ *   scaffold.
  *
  * Every torque comes from the muscle driver (`src/core/muscle/driver.ts`), so the strikes are as
  * fast as the muscles make them: that is what the page is for. The strikes are hand-set onsets
@@ -21,9 +23,9 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
  */
 
 /**
- * The servo's time constant, s. On the Node stand at 120 Hz a pinned Warrior's servo chattered at
- * up to 3.9 rad/s in its shoulders at 0.05 s and held within 0.21 rad/s at 0.1 s (sourced curves),
- * so the scaffold takes 0.1 s.
+ * The servo's time constant, s. At 0.1 s, on this routine, the Warrior and the Rogue at 120 Hz and
+ * 480 Hz: late in each settle no joint's speed reversed by more than 0.02 rad/s from one step to
+ * the next, and at the end of the first second the guard was held within 0.004 rad (Node stand).
  */
 export const SERVO_SECONDS = 0.1;
 
@@ -216,8 +218,7 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
         // A speed no joint reaches: the motor is a torque source at the muscles' ceiling.
         d.velocity[i] = push.sense * UNREACHABLE;
       } else {
-        const goal = legs[name] ?? GUARD[name] ?? 0;
-        d.velocity[i] = (goal - d.angle(i)) / SERVO_SECONDS;
+        servoToward(d, i, legs[name] ?? GUARD[name] ?? 0, SERVO_SECONDS, dt);
       }
     }
   });

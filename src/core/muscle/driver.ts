@@ -42,14 +42,11 @@ import { forceVelocityFactor, type ForceVelocityCurve } from "./force-velocity.t
  * hold. Havok's motor is exact when saturated (3 N m turned a 0.062 kg m2 rod 0.40 rad/s faster a
  * step), but with room to spare it rings about its target: asked for 6 rad/s from rest with
  * 2000 N m to spare, the rod's body turned at 5.97, 8.62, 6.26, 4.79, 5.76 rad/s on successive
- * steps. Its stiffness and damping settings do nothing to a velocity motor. So a servo on the
- * angle (target = error / time constant) that brakes a fast joint overshoots: at 120 Hz a
- * Warrior's elbow opening at 34 rad/s, braked by its flexors at 105 N m, reversed to 22 rad/s in
- * one step, against a target of 17, and threw the fist to 12.2 m/s; at 480 Hz it stopped in three
- * steps, and the routine's three straights peaked at 6.4, 6.4 and 7.5 (Node stand) and 6.4, 6.4 and
- * 6.4 (the lab page). A servo is steady at a time
- * constant of 0.1 s and chatters at 0.05 s, at up to 3.9 rad/s on a pinned Warrior at 120 Hz. The
- * servo is the controller's, not this file's (stage 3 of the plan).
+ * steps. Its stiffness and damping settings do nothing to a velocity motor. Asked for small
+ * changes, it adds about a third to each and returns it over the next steps (a rod asked for
+ * 0.83 rad/s from rest turned at 1.08). So a controller asks for speeds near the one it reads:
+ * a servo that asked for a joint's goal speed at once reversed a braked elbow in one step at
+ * 120 Hz (`src/core/control/servo.ts` has the servo and the numbers).
  * The driver reads its step from the engine's sub-step, so a finer one is a setting, not a change.
  *
  * A freedom's ceiling bounds its own axis only: a ball joint turning about two axes at once can
