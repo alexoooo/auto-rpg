@@ -26,8 +26,8 @@ import type { Exertion } from "./tables/joint-torques.ts";
  * - **Everything else** has no curve read. It takes a measured exertion's, named in `BORROWED`, as
  *   the stage 2 assumptions set out.
  * - **Lengthening** is Thelen's everywhere: a ceiling of 1.4 isometric, and a slope at rest twice
- *   the shortening one. It is the stimulated muscle's ceiling; a voluntary one is 1.0-1.3, and
- *   which one a fighter has is the owner's to choose (the stage 2 assumptions).
+ *   the shortening one. It is the stimulated muscle's ceiling; a voluntary one is 1.0-1.3, and the
+ *   owner kept 1.4 for fighters (the stage 2 assumptions).
  *
  * The workshop model's column is its sex's (`WORKSHOP_SEX`). Speed is not scaled to size: a
  * geometrically similar body turns its joints at the same rate.

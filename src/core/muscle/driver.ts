@@ -6,7 +6,7 @@ import type { BuiltBody, BuiltDof, BuiltJoint, BuiltSegment } from "../build/bui
 import type { MuscleSpec } from "../spec/body.ts";
 import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { PHYSICS_HZ } from "../engine/havok.ts";
-import { forceVelocityFactor, type ForceVelocityCurve } from "./force-velocity.ts";
+import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
 
 /**
  * **The muscle actuator**: each freedom's muscles as a Havok velocity motor whose ceiling is what
@@ -26,20 +26,50 @@ import { forceVelocityFactor, type ForceVelocityCurve } from "./force-velocity.t
  * servo. When target and speed agree exactly the direction is unknown, and the weaker peak is
  * taken.
  *
- * **The curve is read at the speed the step begins with.** On a light limb the muscles' own time
- * constant, the inertia over the curve's slope, can be shorter than a step, so a ceiling read at
- * the start of a step is too high for part of it. The motor's target is therefore held to the
- * pushing muscles' unloaded speed: a rod whose muscle could carry it from 7 to 24 rad/s in one step
- * peaked at 12.32 against an unloaded speed of 12 (17.6 without the hold). What is left is a fast
- * transient that reads high: a pinned Warrior's scripted straight, on his sourced curves, peaked at
- * 6.85 m/s at 120 Hz, 6.47 at 240, 6.45 at 480 and 6.40 at 960 (Node stand). A reading at the
- * step's end, solved with the inertia beyond the joint, ignores every other torque on the joint:
- * a muscle stretched by a steady load yielded four times too fast, so it is not used.
+ * **The curve is read at the speed the step begins with, and the motor's target is held to where
+ * the curve's tangent there reaches zero** (`forceVelocityReach`). On a light limb the muscles' own
+ * time constant, the inertia beyond the joint times the unloaded speed over the peak times
+ * (1 + 1/curvature), is far shorter than a step: 0.4-0.7 ms for the Warrior's shoulder rotation,
+ * ankle and wrist, against 8.3 ms at 120 Hz. A motor asked for the unloaded speed with the ceiling
+ * read at rest carried such a limb across its whole curve in one step at its isometric torque:
+ * on a forearm and hand driven flat out (Node stand), the hand read 4.71 m/s after 0.025 s at
+ * 120 Hz against 3.64 at 1920 Hz, and 5.3 against 4.5 two steps after a hand started 0.06 s after
+ * the forearm; a searched strike flicked the wrist from rest to 23 rad/s in one step. The shortening
+ * branch is convex, so its tangent lies under it: held to the tangent's zero, a push gains in a
+ * step no more speed than the curve allows (but for Havok's ring, below), and from rest reaches
+ * w0 k / (1 + k). A joint the muscles are braking is held to the reach from rest: the lengthening
+ * branch's own tangent reaches far past the unloaded speed, and with it the late hand's wrist,
+ * stretched at 28 rad/s when its muscles came on, was sent to 34 rad/s the other way in one step at
+ * 120 Hz. So held, the same hand read 3.69 against 3.64, and 4.7 against 4.5; peak speeds were
+ * within 2 % either way (6.31 against 6.34, 6.88 against 7.01).
+ * A heavy limb, which the ceiling saturates long before the tangent's zero, is unchanged.
+ * Rejected:
+ * - **A ceiling read implicitly at the step's end**, solved with the inertia beyond the joint: it
+ *   ignores every other torque on the joint, and a muscle stretched by a steady load yielded four
+ *   times too fast.
+ * - **Havok's spring motor as a damper along the tangent** (SPRING_FORCE, no stiffness, which
+ *   Babylon does not expose). Soft, its torque was damping x (2.5 x target - speed); stiff, it
+ *   turned a rod alike at dampings of 50 and 500, closing on 9.2 rad/s when asked for 8. Its law
+ *   is not one a muscle can be written in.
+ * - **Reading the curve half a step on**, by the speed a joint gained in the last step that its
+ *   ceiling held short of its target. It took a heavy rod from +5.8 % to +1.0 % of the fine
+ *   curve at 0.05 s at 120 Hz, and moved the lab's straights at 120 Hz from within a few per cent of
+ *   1920 Hz to 5 % under for the Warrior and 15 % over for the Rogue.
+ * On the lab's straights (Node stand) the peak fist at 120 Hz, 480 Hz and 1920 Hz:
+ *
+ *     Warrior  6.58 6.26 6.26 | 6.46 6.56 6.56 | 6.45 6.12 6.44
+ *     Rogue    5.02 5.06 5.06 | 5.07 5.11 5.02 | 4.94 4.93 4.93
+ *
+ * within 3 % of the finest rate throughout.
+ *
+ * A heavy limb still gains a few per cent early at 120 Hz: a rod driven flat out from rest read
+ * 5.8 % over the curve at 0.05 s, 2.1 % at 0.15 s (`tests/core-muscle.test.mjs`).
  *
  * **The speed is the body's, not the nodes'.** After a motor's or a limit's impulse Havok moves
  * the nodes behind the body's velocity for several steps (`joint-state.ts`), and a driver reading
- * the nodes' rate pushed on joints already at speed: the rod above reached 17.6 rad/s even with the
- * hold. Havok's motor is exact when saturated (3 N m turned a 0.062 kg m2 rod 0.40 rad/s faster a
+ * the nodes' rate pushed on joints already at speed: a rod whose muscle could carry it from 7 to
+ * 24 rad/s in one step reached 17.6 rad/s against an unloaded speed of 12, even with its target held
+ * to that speed. Havok's motor is exact when saturated (3 N m turned a 0.062 kg m2 rod 0.40 rad/s faster a
  * step), but with room to spare it rings about its target: asked for 6 rad/s from rest with
  * 2000 N m to spare, the rod's body turned at 5.97, 8.62, 6.26, 4.79, 5.76 rad/s on successive
  * steps. Its stiffness and damping settings do nothing to a velocity motor. Asked for small
@@ -151,11 +181,11 @@ export function driveMuscles(built: BuiltBody, scene: Scene, control?: MuscleCon
       const side = push > 0 ? c.positive : push < 0 ? c.negative
         : c.positive.peak <= c.negative.peak ? c.positive : c.negative;
       const shortening = push >= 0 ? speed : -speed;
+      // Within a step the muscles turn the joint no further than their curve's tangent reaches.
+      const reach = forceVelocityReach(shortening, side.curve);
       const ceiling = activation * side.peak * forceVelocityFactor(shortening, side.curve);
       driver.ceiling[i] = ceiling;
-      // The muscles cannot drive the joint past their unloaded speed.
-      const w0 = side.curve.unloadedSpeed;
-      const sent = push > 0 ? Math.min(target, w0) : push < 0 ? Math.max(target, -w0) : target;
+      const sent = push > 0 ? Math.min(target, reach) : push < 0 ? Math.max(target, -reach) : target;
       c.joint.constraint.setAxisMotorTarget(c.dof.axis, c.dof.sign * sent);
       c.joint.constraint.setAxisMotorMaxForce(c.dof.axis, ceiling);
     }

@@ -164,7 +164,8 @@ the ground, every freedom braked by a zero-velocity motor).
   - the club tip stays near the rod's 23.9 m/s;
   - the Rogue's ratios to the Warrior read against Miller's and Muggenthaler's figures, as a check, not a fit.
 
-**The stage 2 assumptions.** `src/core/human/speed.ts` cites these; each is an owner decision to confirm.
+**The stage 2 assumptions.** `src/core/human/speed.ts` cites these. They stand until a measurement
+contradicts one; the eccentric ceiling is the owner's decision.
 
 - **Measured curves.** Hip, knee and ankle dorsiflexion go through Anderson's two printed points
   (C4 at 75 % of isometric, C5 at 50 %), each sex its own. The elbow is fitted to Frey-Law's
@@ -179,7 +180,8 @@ the ground, every freedom braked by a zero-velocity motor).
   - Plantar flexion and the foot take dorsiflexion's. Anderson's plantar flexion gives no valid curve.
   - A borrowed curve's rule string names the curve it takes.
 - **Eccentric side.** Thelen's ceiling is 1.4 × isometric, with a slope ratio of 2, everywhere.
-  It is a stimulated muscle's figure; voluntary lengthening reads nearer 1.2-1.3.
+  It is a stimulated muscle's figure; voluntary lengthening reads nearer 1.2-1.3. **Owner,
+  2026-09-28: keep 1.4** for fighters' braking and blocking.
 - **Hip unloaded speed** is 6.5-9 rad/s. That may be too slow for sprinting: stage 4 reads it
   against running.
 
@@ -237,8 +239,55 @@ the ground, every freedom braked by a zero-velocity motor).
   0.02 rad/s a step, and the guard is held within 0.004 rad after a second, at both rates.
 - **The lab page.** `/core-lab.html` shows a chosen human walking forward, throwing three straights,
   and walking back. Two scaffolds stand in until later stages: a carried pelvis until stage 4, and
-  hand-set joint poses until stage 3. The ported strike search, and with it the acceptance above, is
-  still to run.
+  hand-set joint poses until stage 3.
+- **The strike search** (`research/core-strike-search.mjs`: cross-entropy search over a chamber and
+  timed pushes on the trunk and striking arm; Node core stand, pelvis carried still; the score is the
+  fist's forward speed as it enters a head-sized sphere ahead).
+  - **It found a fault in the driver before it found a strike.** Allowed to push the wrist, its best
+    blow flicked the hand: the wrist went from rest to 23 rad/s in one step at 120 Hz, against 16 at
+    480 Hz at the same moment. The curve was read at the speed a step begins with, and the fastest
+    freedoms' muscle time constant (inertia beyond the joint times the unloaded speed, over the
+    isometric peak times 1 + 1/curvature) is far shorter than a step: the Warrior's shoulder internal
+    rotation 0.43 ms, ankle 0.56, wrist 0.64; the Rogue's 0.54-0.71. A step is 8.3 ms at 120 Hz. A
+    light segment crossed its whole curve in one step at its isometric torque. The scripted straights
+    did not show it; a search did, and so would a searched or learned mind in the game.
+  - A rate table of the searched blows' peaks, recorded here before, is withdrawn: the evaluator's
+    peak stops at contact, so a rate whose blow missed read a longer path than one whose blow hit.
+    Rates are compared on the fist's path with no target.
+  - **The fix** (`src/core/muscle/driver.ts` has the argument and the rejected alternatives): the
+    motor's target is held to where the curve's tangent at the step's speed reaches zero
+    (`forceVelocityReach`), which the convex shortening branch keeps under the curve, and a joint
+    the muscles are braking is held to the reach from rest. On a forearm and hand driven flat out
+    (Node stand), the hand at 120 Hz against 1920 Hz: 3.69 against 3.64 m/s at 0.025 s (4.71
+    before); started 0.06 s late, 4.7 against 4.5 (5.3 before). The lab's straights read within 3 %
+    of 1920 Hz at 120 Hz. The game stays at 120 Hz.
+  - **One blow is chaotic, so a search scores several** (`perturbed` in `research/core-strike.mjs`
+    has the numbers). Random strikes read 1.9 % apart when every activation was scaled by 0.9999
+    (0.7 % with self-contact off), and 11-12 % apart between 1920 Hz and 3840 Hz; 120 Hz is not
+    biased on average (mean ratio 0.97-0.99 against 3840 Hz). Ten searches that took the best
+    single run each read higher at 120 Hz than at 1920 Hz, by up to 95 %. A candidate's score is now
+    its mean over four runs, each push moved within half a 120 Hz step and scaled within 2 %.
+  - **Searched at 120 Hz on the fixed driver** (Node core stand; 96 candidates, 50 generations, the
+    best read again as the mean of eight fresh trials), forward m/s at the target at 120 Hz, then
+    1920 Hz (a miss reads 0):
+
+    | | seed 1 | seed 2 | seed 3 |
+    |---|---|---|---|
+    | Warrior from the guard | 4.5, 0 | 10.2, 9.3 | 8.9, 7.0 |
+    | Rogue from the guard | 6.6, 0 | 10.4, 8.8 | 6.1, 0 |
+    | Warrior, free blow | 10.4, 1.1 | 12.6, 0 | |
+    | Rogue, free blow | 9.2, 0 | 9.7, 0 | |
+
+    Each blow is steady at 120 Hz across its trials, and most miss at 1920 Hz: a blow tuned at one
+    rate follows another path at another. Seeds still disagree by a factor of two, every blow from
+    the guard arrives 0.32-0.44 s after it starts (wound up, not a straight), and the Rogue matches
+    the Warrior. Nothing here is read against the acceptance above yet.
+  - **Where the rates part.** With no pushes at all, only the servo returning the arm from one
+    searched chamber to the guard, 120 Hz and 1920 Hz differ: at 1920 Hz the elbow was flung to its
+    stop at 9.7 rad/s. With self-contact off that goes (which segments met was not read), and a smaller difference remains (the shoulder lowered at 11 rad/s at 120 Hz, 6 at
+    1920 Hz), where at 120 Hz the servoed shoulder's ceiling switches between its flexors and
+    extensors from step to step. Open: self-contact and the servo on the whole body, across rates.
+    The club waits for a held weapon in the core.
 
 ### Stage 3: one world, one body, one command
 

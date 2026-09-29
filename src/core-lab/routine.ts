@@ -30,7 +30,7 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
 export const SERVO_SECONDS = 0.1;
 
 /** Joint angles, rad, by channel name; a freedom not named is held at its reference angle. */
-type Pose = Readonly<Record<string, number>>;
+export type Pose = Readonly<Record<string, number>>;
 
 /** Fists up before the chin, elbows in. */
 const GUARD: Pose = {
@@ -38,12 +38,23 @@ const GUARD: Pose = {
   "shoulder.left flexion": 0.5, "shoulder.left abduction": -0.2, "elbow.left flexion": 1.3,
 };
 
-/** One freedom pushed flat out: which way (+1 or -1), from when to when after the strike starts, s. */
-interface Push { readonly channel: string; readonly sense: 1 | -1; readonly from: number; readonly to: number }
+/**
+ * One freedom pushed toward a speed no joint reaches: which way (+1 or -1), from when to when after
+ * the chamber, s, and at what activation (1, flat out, when not given).
+ */
+export interface Push {
+  readonly channel: string;
+  readonly sense: 1 | -1;
+  readonly from: number;
+  readonly to: number;
+  readonly level?: number;
+}
 
 export interface Strike {
   readonly name: string;
   readonly hand: "left" | "right";
+  /** A pose held first, for `seconds`, before the pushes begin; the guard when not given. */
+  readonly chamber?: { readonly seconds: number; readonly pose: Pose };
   readonly pushes: readonly Push[];
 }
 
@@ -101,8 +112,15 @@ export interface StrikeReading {
   readonly peak: number;
 }
 
+/** Where a fist's far end is and how it moves, in the world, as the last sub-step left it. */
+export interface Fist {
+  readonly position: Vector3;
+  readonly velocity: Vector3;
+}
+
 export interface Routine {
   readonly driver: MuscleDriver;
+  readonly fists: { readonly left: Fist; readonly right: Fist };
   state(): RoutineState;
   /** The fist speed of the striking hand (or the right one), m/s, last sub-step. */
   fistSpeed(): number;
@@ -123,15 +141,20 @@ const fistOf = (hand: BuiltSegment) => {
   const { origin, x, y, z } = hand.frame;
   const offset = hand.spec.centreOfMass.value.map((c, i) => c - origin[i]!);
   const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
-  // From the centre of mass to the far end, in the hand's own frame.
-  const arm = new Vector3(dot(offset, x), dot(offset, y), dot(offset, z)).scaleInPlace(-1).addInPlaceFromFloats(0, length, 0);
-  const lever = new Vector3(), linear = new Vector3(), angular = new Vector3();
-  return (): number => {
-    arm.applyRotationQuaternionToRef(hand.node.rotationQuaternion!, lever);
-    hand.body.getLinearVelocityToRef(linear);
+  // The centre of mass, and from it to the far end, in the hand's own frame.
+  const centre = new Vector3(dot(offset, x), dot(offset, y), dot(offset, z));
+  const arm = centre.scale(-1).addInPlaceFromFloats(0, length, 0);
+  const lever = new Vector3(), angular = new Vector3();
+  const fist: Fist = { position: new Vector3(), velocity: new Vector3() };
+  const update = (): number => {
+    const turn = hand.node.rotationQuaternion!;
+    arm.applyRotationQuaternionToRef(turn, lever);
+    centre.applyRotationQuaternionToRef(turn, fist.position).addInPlace(hand.node.position).addInPlace(lever);
+    hand.body.getLinearVelocityToRef(fist.velocity);
     hand.body.getAngularVelocityToRef(angular);
-    return Vector3.CrossToRef(angular, lever, angular).addInPlace(linear).length();
+    return fist.velocity.addInPlace(Vector3.CrossToRef(angular, lever, angular)).length();
   };
+  return { fist, update };
 };
 
 /** Run `ROUTINE` on `built`, a human in its reference pose at the origin, facing +z. */
@@ -143,6 +166,7 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
   const pelvisOrigin = pelvis.node.position.clone(), pelvisRest = pelvis.rest.clone();
   const fist = { left: fistOf(hands.left), right: fistOf(hands.right) };
   const speed = { left: 0, right: 0 };
+  const fists = { left: fist.left.fist, right: fist.right.fist };
 
   const cycle = routine.reduce((sum, step) => sum + step.seconds, 0);
   let time = 0, stepIndex = 0, into = 0;
@@ -198,7 +222,7 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
     pelvis.body.setTargetTransform(target, rotation);
 
     // The fists, as the last sub-step left them.
-    for (const side of ["left", "right"] as const) speed[side] = fist[side]();
+    for (const side of ["left", "right"] as const) speed[side] = fist[side].update();
     if (step.kind === "strike") peak = Math.max(peak, speed[step.strike.hand]);
 
     // The legs' swing (scaffold), phased by the distance walked.
@@ -209,22 +233,27 @@ export function startRoutine(built: BuiltBody, scene: Scene, routine: readonly S
       "knee.left flexion": KNEE_SWING * Math.max(0, Math.cos(phase)), "knee.right flexion": KNEE_SWING * Math.max(0, -Math.cos(phase)),
     } : {};
 
+    // A strike's chamber, then its pushes, timed from the chamber's end.
+    const strike = step.kind === "strike" ? step.strike : undefined;
+    const chambered = strike?.chamber && into < strike.chamber.seconds ? strike.chamber.pose : undefined;
+    const since = into - (strike?.chamber?.seconds ?? 0);
     for (let i = 0; i < d.channels.length; i++) {
       const name = d.channels[i]!.name;
-      d.activation[i] = 1;
-      const push = step.kind === "strike"
-        ? step.strike.pushes.find((p) => p.channel === name && into >= p.from && into < p.to) : undefined;
+      const push = strike && !chambered
+        ? strike.pushes.find((p) => p.channel === name && since >= p.from && since < p.to) : undefined;
       if (push) {
         // A speed no joint reaches: the motor is a torque source at the muscles' ceiling.
         d.velocity[i] = push.sense * UNREACHABLE;
+        d.activation[i] = push.level ?? 1;
       } else {
-        servoToward(d, i, legs[name] ?? GUARD[name] ?? 0, SERVO_SECONDS, dt);
+        servoToward(d, i, legs[name] ?? chambered?.[name] ?? GUARD[name] ?? 0, SERVO_SECONDS, dt);
       }
     }
   });
 
   return {
     driver,
+    fists,
     strikes,
     state: () => ({ time, step: routine[stepIndex]!, stepIndex, into }),
     fistSpeed: () => {
