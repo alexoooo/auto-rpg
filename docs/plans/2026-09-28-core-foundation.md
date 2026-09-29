@@ -164,7 +164,8 @@ the ground, every freedom braked by a zero-velocity motor).
   - the club tip stays near the rod's 23.9 m/s;
   - the Rogue's ratios to the Warrior read against Miller's and Muggenthaler's figures, as a check, not a fit.
 
-**The stage 2 assumptions.** `src/core/human/speed.ts` cites these; each is an owner decision to confirm.
+**The stage 2 assumptions.** `src/core/human/speed.ts` cites these. They stand until a measurement
+contradicts one; the eccentric ceiling is the owner's decision.
 
 - **Measured curves.** Hip, knee and ankle dorsiflexion go through Anderson's two printed points
   (C4 at 75 % of isometric, C5 at 50 %), each sex its own. The elbow is fitted to Frey-Law's
@@ -179,7 +180,8 @@ the ground, every freedom braked by a zero-velocity motor).
   - Plantar flexion and the foot take dorsiflexion's. Anderson's plantar flexion gives no valid curve.
   - A borrowed curve's rule string names the curve it takes.
 - **Eccentric side.** Thelen's ceiling is 1.4 × isometric, with a slope ratio of 2, everywhere.
-  It is a stimulated muscle's figure; voluntary lengthening reads nearer 1.2-1.3.
+  It is a stimulated muscle's figure; voluntary lengthening reads nearer 1.2-1.3. **Owner,
+  2026-09-28: keep 1.4** for fighters' braking and blocking.
 - **Hip unloaded speed** is 6.5-9 rad/s. That may be too slow for sprinting: stage 4 reads it
   against running.
 
