@@ -23,6 +23,7 @@ import { humanSpec } from "../core/human/spec.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { startRoutine, type Routine, type Step } from "./routine.ts";
 import { dressBody, loadSkin, type SkinView } from "./skin.ts";
+import { createPlayer, isPaused, type Player, type Playhead } from "./player.ts";
 import { recordTimeline, type FrameReading, type Timeline } from "./timeline.ts";
 import { drawBody, type BodyView } from "./view.ts";
 
@@ -31,11 +32,14 @@ import { drawBody, type BodyView } from "./view.ts";
  * strike three times, turn, walk back, turn. It shows stage 2's muscles at work; the readout is
  * the striking fist's speed, read from the hand's body each physics sub-step, at the game's rate
  * or a finer one. The body is drawn in one of two views: World, the workshop model's skin
- * (`skin.ts`), or Tactical, the collision shapes themselves (`view.ts`). The last loop is recorded
- * (`timeline.ts`): pausing stops the world, and the timeline shows any physics step of that loop.
- * Playing from a step before the live one replays the recording from there at the world's pace;
- * when the replay reaches the live step, the world runs on from it. The world cannot be rewound,
- * so what follows the live step is always the world's own.
+ * (`skin.ts`), or Tactical, the collision shapes themselves (`view.ts`).
+ *
+ * The timeline is the routine's current loop, one physics step a notch (`timeline.ts`). Behind the
+ * live step is the recording; ahead of it is what the world has not done yet. Pausing stops the
+ * world. Choosing a step behind the live one shows it from the recording, and playing from there
+ * replays the recording at the world's pace until it reaches the live step, where the world runs
+ * on. Choosing a step ahead runs the world there as fast as the page allows, and holds it there
+ * (`player.ts`). The world is never rewound: what follows the live step is always its own.
  */
 
 const canvas = document.getElementById("stage") as HTMLCanvasElement;
@@ -87,12 +91,17 @@ const TINT: Readonly<Record<WorkshopModel, Color3>> = {
 };
 
 type ViewKind = "world" | "tactical";
-let current: { built: BuiltBody; view: BodyView; skin: SkinView | null; routine: Routine; timeline: Timeline } | null = null;
+let current: {
+  built: BuiltBody; view: BodyView; skin: SkinView | null; routine: Routine; timeline: Timeline; player: Player;
+} | null = null;
 /**
- * A recorded frame shown instead of the live world, and what was read there: held while paused,
- * advancing while replaying (`carry` is the replay's unspent time, ms). Null while the world runs.
+ * A seek runs the world for up to this long in each page frame, ms, then lets the page draw: with
+ * the draw's 6 ms it fits one frame of a 60 Hz display. Longer frames lose more than they gain.
+ * Measured on this page in the automation tab (2026-09-29, 120 Hz, a step 0.9 to 1.8 ms), steps a
+ * second through a 400-step seek against the budget: 16 ms, 140 to 214; 25 ms, 162; 40 ms, 92,
+ * with the page drawing 3 times a second. The browser held back frames that ran long.
  */
-let shown: { frame: number; reading: FrameReading | null; replaying: boolean; carry: number } | null = null;
+const SEEK_BUDGET_MS = 10;
 let shownView: ViewKind = "world";
 let shownStrikes = -1;
 /** The physics and control rate: the game's, or a finer reference. */
@@ -113,18 +122,23 @@ function load(model: WorkshopModel): void {
   // Keep every segment awake: a sleeping body reads a perfect zero (H08).
   for (const segment of built.segments.values()) plugin.setActivationControl(segment.body, PhysicsActivationControl.ALWAYS_ACTIVE);
   const routine = startRoutine(built, scene);
-  const loaded = current = { built, view: drawBody(built, scene, TINT[model]), skin: null as SkinView | null, routine,
-    timeline: recordTimeline(built, routine, scene) };
-  shownStrikes = -1;
-  timeline.max = String(loaded.timeline.frames - 1);
+  const recording = recordTimeline(built, routine, scene);
+  // The scene's own advance, handed a sub-step's time: it takes the fixed sub-steps then due.
+  const stepping = scene as unknown as { _advancePhysicsEngineStep(ms: number): void };
   // A new body starts live: nothing of the last one's recording is shown.
-  shown = null;
-  goLive();
+  const player = createPlayer({
+    timeline: recording,
+    run: (running) => { scene.physicsEnabled = running; },
+    advance: () => stepping._advancePhysicsEngineStep(recording.seconds * 1000),
+  }, showTransport, () => performance.now());
+  const loaded = current = { built, view: drawBody(built, scene, TINT[model]), skin: null as SkinView | null, routine,
+    timeline: recording, player };
+  shownStrikes = -1;
+  timeline.max = String(recording.frames - 1);
   showView();
   loadSkin(model, scene).then((container) => {
     if (current !== loaded) return;
-    loaded.skin = dressBody(built, container, scene,
-      (hand) => shown ? shown.reading?.closure[hand] ?? 0 : loaded.routine.closure(hand));
+    loaded.skin = dressBody(built, container, scene, (hand) => recorded()?.closure[hand] ?? loaded.routine.closure(hand));
     showView();
   }, (error: unknown) => console.error(`${model}: the skin did not load`, error));
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
@@ -164,74 +178,29 @@ const strikesBody = document.getElementById("strikes")!;
 const timeline = document.getElementById("timeline") as HTMLInputElement;
 const clock = document.getElementById("clock")!, pauseButton = document.getElementById("pause") as HTMLButtonElement;
 
-const isPaused = (): boolean => shown !== null && !shown.replaying;
+/** What was read at the frame shown, while a recorded one is. */
+function recorded(): FrameReading | null {
+  const frame = current?.player.shownFrame() ?? null;
+  return frame === null ? null : current!.timeline.at(frame);
+}
 
 /** Show the transport's state: Play while paused, Pause while the world runs or replays. */
-function showTransport(): void {
-  pauseButton.textContent = isPaused() ? "Play" : "Pause";
-  pauseButton.setAttribute("aria-pressed", String(isPaused()));
+function showTransport(playhead: Playhead): void {
+  pauseButton.textContent = isPaused(playhead) ? "Play" : "Pause";
+  pauseButton.setAttribute("aria-pressed", String(isPaused(playhead)));
 }
 
-/** Back to the live world: the live frame goes back on the nodes before it steps again. */
-function goLive(): void {
-  if (!current) return;
-  current.timeline.show(current.timeline.live());
-  shown = null;
-  scene.physicsEnabled = true;
-  showTransport();
-}
-
-/** Show recorded `frame` (or the nearest recorded), paused. */
-function seek(frame: number): void {
-  if (!current) return;
-  scene.physicsEnabled = false;
-  const at = current.timeline.show(frame);
-  shown = { frame: at >= 0 ? at : current.timeline.live(), reading: current.timeline.at(at), replaying: false, carry: 0 };
-  showTransport();
-}
-
-/** Pause where the page is, or play on from the frame shown. */
-function setPaused(on: boolean): void {
-  if (!current) return;
-  if (on) {
-    if (!shown) seek(current.timeline.live());
-    else { shown.replaying = false; showTransport(); }
-  } else if (shown) {
-    if (shown.frame === current.timeline.live()) goLive();
-    else { shown.replaying = true; shown.carry = 0; showTransport(); }
-  } else {
-    goLive();
-  }
-}
-
-/** Advance a replay by `ms` of page time, a recorded step per physics step, joining the world at the live step. */
-function replay(ms: number): void {
-  if (!current || !shown?.replaying) return;
-  const { timeline } = current, step = timeline.seconds * 1000;
-  // A hidden tab can hand over seconds at once; a replay does not leap for it.
-  shown.carry = Math.min(shown.carry + ms, 100);
-  let frame = shown.frame;
-  while (shown.carry >= step) {
-    shown.carry -= step;
-    frame = (frame + 1) % timeline.frames;
-    if (frame === timeline.live()) { goLive(); return; }
-  }
-  if (frame !== shown.frame) {
-    timeline.show(frame);
-    shown.frame = frame;
-    shown.reading = timeline.at(frame);
-  }
-}
+const togglePause = (): void => current?.player.setPaused(!current.player.isPaused());
 
 function readout(): void {
   if (!current) return;
-  const { routine } = current;
-  const frame = shown ? shown.frame : current.timeline.live();
-  const reading = shown ? shown.reading : null;
+  const { routine, player } = current;
+  const frame = player.shownFrame() ?? current.timeline.live();
+  const reading = recorded();
   doing.textContent = describe(reading?.step ?? routine.state().step);
   fist.textContent = (reading?.fist ?? routine.fistSpeed()).toFixed(1);
   if (document.activeElement !== timeline) timeline.value = String(frame);
-  clock.textContent = `${shown?.replaying ? "replay " : ""}${(reading?.time ?? routine.state().time).toFixed(3)} s`;
+  clock.textContent = `${player.playhead.kind === "replaying" ? "replay " : ""}${(reading?.time ?? routine.state().time).toFixed(3)} s`;
   if (routine.strikes.length !== shownStrikes) {
     shownStrikes = routine.strikes.length;
     strikesBody.replaceChildren(...routine.strikes.slice(-6).map((s) => {
@@ -252,21 +221,23 @@ for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-hz]")) {
   button.addEventListener("click", () => { hz = Number(button.dataset.hz); load(shownModel()); button.blur(); });
 }
-pauseButton.addEventListener("click", () => { setPaused(!isPaused()); pauseButton.blur(); });
+pauseButton.addEventListener("click", () => { togglePause(); pauseButton.blur(); });
 for (const button of document.querySelectorAll<HTMLButtonElement>("[data-nudge]")) {
   button.addEventListener("click", () => {
     // The loop wraps: back from its first step is its last.
-    const frames = current?.timeline.frames ?? 1;
-    if (current) seek(((shown?.frame ?? current.timeline.live()) + Number(button.dataset.nudge) + frames) % frames);
+    if (current) {
+      const { frames } = current.timeline, from = current.player.shownFrame() ?? current.timeline.live();
+      current.player.seek((from + Number(button.dataset.nudge) + frames) % frames);
+    }
     button.blur();
   });
 }
-timeline.addEventListener("input", () => seek(Number(timeline.value)));
+timeline.addEventListener("input", () => current?.player.seek(Number(timeline.value)));
 // Space pauses and plays, unless a control has the key.
 document.addEventListener("keydown", (event) => {
   if (event.code !== "Space" || event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) return;
   event.preventDefault();
-  setPaused(!isPaused());
+  togglePause();
 });
 document.getElementById("restart")!.addEventListener("click", (event) => {
   load(shownModel());
@@ -276,7 +247,7 @@ document.getElementById("restart")!.addEventListener("click", (event) => {
 load("workshop-fighter");
 const follow = new Vector3();
 engine.runRenderLoop(() => {
-  replay(engine.getDeltaTime());
+  current?.player.tick(engine.getDeltaTime(), performance.now() + SEEK_BUDGET_MS);
   scene.render();
   if (current) {
     // The camera follows the pelvis, softly.
@@ -288,4 +259,4 @@ engine.runRenderLoop(() => {
 });
 window.addEventListener("resize", () => engine.resize());
 // For the console: a hidden tab does not render, so a check steps the scene by hand (H03).
-(window as unknown as { __coreLab: unknown }).__coreLab = { scene, engine, readout, current: () => current, seek, setPaused };
+(window as unknown as { __coreLab: unknown }).__coreLab = { scene, engine, readout, current: () => current };
