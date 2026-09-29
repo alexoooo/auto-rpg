@@ -4,12 +4,13 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import { Physics6DoFConstraint, type Physics6DoFLimit } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
-import { PhysicsShapeBox, PhysicsShapeCapsule, PhysicsShapeConvexHull, PhysicsShapeSphere, type PhysicsShape } from "@babylonjs/core/Physics/v2/physicsShape.js";
+import { PhysicsShapeBox, PhysicsShapeCapsule, PhysicsShapeContainer, PhysicsShapeConvexHull, PhysicsShapeSphere, type PhysicsShape } from "@babylonjs/core/Physics/v2/physicsShape.js";
 import { PhysicsConstraintAxis, PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { frameOf, type BodySpec, type DofSpec, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
+import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
 
 /**
  * **`buildBody`: Havok bodies and joints from a spec, and from nothing else.**
@@ -17,7 +18,9 @@ import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
  * Each segment is a dynamic body whose node sits at the segment frame's origin, turned to its
  * frame (`frameOf`). Its mass, centre of mass and inertia are set from the spec explicitly,
  * so the collision shape carries no mass. Havok takes the inertia per kilogram of the body's mass
- * (H49), so the spec's kg m2 is divided by the segment's mass on the way in. Each joint is a 6-DoF
+ * (H49), so the spec's kg m2 is divided by the segment's mass on the way in. A segment that holds
+ * an item (`BodySpec.held`) is one body with it: its mass properties are the two together
+ * (`rigidOf`), turned to their principal axes, and its shape a compound of both. Each joint is a 6-DoF
  * constraint at the joint's centre whose free angular axes are the spec's freedoms, limited to
  * their ranges; every other axis is locked, and the two segments it joins do not collide with
  * each other.
@@ -39,6 +42,8 @@ export interface BuiltSegment {
   readonly shape: PhysicsShape;
   /** The node's rotation in the reference pose, from which a joint reads its angles. */
   readonly rest: Quaternion;
+  /** Its rigid body: the segment and what it holds (`rigid.ts`), whose mass properties the body has. */
+  readonly rigid: Rigid;
 }
 
 /** A spec freedom as the constraint has it: which angular axis, and whether its sense is flipped. */
@@ -113,21 +118,32 @@ function makeShape(frame: SegmentFrame, spec: ShapeSpec, scene: Scene): PhysicsS
   }
 }
 
-function buildSegment(spec: SegmentSpec, model: string, placement: Placement, scene: Scene): BuiltSegment {
+function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, scene: Scene): BuiltSegment & { readonly pieces: readonly PhysicsShape[] } {
   const frame = frameOf(spec);
-  const node = new TransformNode(`${model}.${spec.name}`, scene);
+  const rigid = rigidOf(body, spec);
+  const node = new TransformNode(`${body.model}.${spec.name}`, scene);
   node.position = v3(frame.origin).addInPlace(v3(placement.position));
   node.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(v3(frame.x), v3(frame.y), v3(frame.z));
-  const body = new PhysicsBody(node, PhysicsMotionType.DYNAMIC, false, scene);
-  const shape = makeShape(frame, spec.shape, scene);
-  body.shape = shape;
-  body.setMassProperties({
-    mass: spec.mass.value,
-    centerOfMass: v3(local(frame, spec.centreOfMass.value)),
-    inertia: v3(spec.inertia.value).scaleInPlace(1 / spec.mass.value),
-    inertiaOrientation: Quaternion.Identity(),
+  const physics = new PhysicsBody(node, PhysicsMotionType.DYNAMIC, false, scene);
+  const pieces = rigid.shapes.map((shape) => makeShape(frame, shape, scene));
+  let shape = pieces[0]!;
+  if (pieces.length > 1) {
+    const container = new PhysicsShapeContainer(scene);
+    for (const piece of pieces) container.addChild(piece);
+    shape = container;
+  }
+  physics.shape = shape;
+  const [xx, yy, zz] = rigid.tensor;
+  const principal = hasProducts(rigid.tensor) ? principalOf(rigid.tensor) : null;
+  physics.setMassProperties({
+    mass: rigid.mass,
+    centerOfMass: v3(local(frame, rigid.centre)),
+    inertia: v3(principal ? principal.moments : [xx, yy, zz]).scaleInPlace(1 / rigid.mass),
+    inertiaOrientation: principal
+      ? Quaternion.RotationQuaternionFromAxis(v3(principal.axes[0]), v3(principal.axes[1]), v3(principal.axes[2]))
+      : Quaternion.Identity(),
   });
-  return { spec, frame, node, body, shape, rest: node.rotationQuaternion.clone() };
+  return { spec, frame, node, body: physics, shape, rest: node.rotationQuaternion.clone(), rigid, pieces: pieces.length > 1 ? pieces : [] };
 }
 
 /**
@@ -181,10 +197,15 @@ function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, 
 /** Build `spec` in its reference pose at `placement`. */
 export function buildBody(spec: BodySpec, scene: Scene, placement: Placement): BuiltBody {
   const segments = new Map<string, BuiltSegment>();
+  const pieces: PhysicsShape[] = [];
   for (const segment of spec.segments) {
     if (segments.has(segment.name)) throw new Error(`${spec.model} names ${segment.name} twice`);
-    segments.set(segment.name, buildSegment(segment, spec.model, placement, scene));
+    const built = buildSegment(spec, segment, placement, scene);
+    pieces.push(...built.pieces);
+    const { pieces: _, ...rest } = built;
+    segments.set(segment.name, rest);
   }
+  for (const held of spec.held ?? []) if (!segments.has(held.segment)) throw new Error(`${spec.model} has no ${held.segment} to hold ${held.item.name}`);
   const joints = new Map<string, BuiltJoint>();
   for (const joint of spec.joints) {
     const parent = segments.get(joint.parent), child = segments.get(joint.child);
@@ -200,6 +221,7 @@ export function buildBody(spec: BodySpec, scene: Scene, placement: Placement): B
         segment.shape.dispose();
         segment.node.dispose();
       }
+      for (const piece of pieces) piece.dispose();
     },
   };
 }

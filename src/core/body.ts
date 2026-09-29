@@ -153,8 +153,8 @@ function fistOf(built: BuiltBody, side: Hand): { fist: Fist; update(): void } {
   const { origin, x, y, z } = hand.frame;
   const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
   const local = (p: readonly number[]) => { const o = p.map((c, i) => c - origin[i]!); return new Vector3(dot(o, x), dot(o, y), dot(o, z)); };
-  // The centre of mass, and from it to the knuckles, in the hand's own frame.
-  const centre = local(hand.spec.centreOfMass.value);
+  // The centre of mass (of the hand and what it holds), and from it to the knuckles, in the hand's own frame.
+  const centre = local(hand.rigid.centre);
   const arm = local(knuckles.value).subtractInPlace(centre);
   const lever = new Vector3(), angular = new Vector3();
   const fist: Fist = { position: new Vector3(), velocity: new Vector3() };

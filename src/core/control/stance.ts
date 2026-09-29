@@ -463,7 +463,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const gait = tuning.gait ?? STANCE_GAIT;
   const pelvis = chainTo(built, built.segments.get("foot.left")!)[0]!.parent;
   const segments = [...built.segments.values()];
-  const total = segments.reduce((sum, s) => sum + s.spec.mass.value, 0);
+  const total = segments.reduce((sum, s) => sum + s.rigid.mass, 0);
   const feet = (["left", "right"] as const).map((side): FootState => {
     const segment = built.segments.get(`foot.${side}`);
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
@@ -521,7 +521,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       // The centre of mass and its velocity (Havok's linear velocity is the centre of mass's, H49).
       const c = reading.centre.setAll(0), vel = reading.velocity.setAll(0);
       for (const segment of segments) {
-        const m = segment.spec.mass.value;
+        const m = segment.rigid.mass;
         c.addInPlace(centreOfToRef(segment, p).scaleInPlace(m));
         segment.body.getLinearVelocityToRef(v);
         vel.addInPlace(v.scaleInPlace(m));
@@ -912,7 +912,7 @@ function pointOfToRef(segment: BuiltSegment, point: Vec3, out: Vector3): Vector3
     .applyRotationQuaternionToRef(turnOfToRef(segment, scratch.b), out).addInPlace(segment.node.position);
 }
 
-const centreOfToRef = (segment: BuiltSegment, out: Vector3): Vector3 => pointOfToRef(segment, segment.spec.centreOfMass.value, out);
+const centreOfToRef = (segment: BuiltSegment, out: Vector3): Vector3 => pointOfToRef(segment, segment.rigid.centre, out);
 
 /**
  * The speeds of `chain`'s freedoms (pelvis to foot, each in its own sense, as a motor drives them)

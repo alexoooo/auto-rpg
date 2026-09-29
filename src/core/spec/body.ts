@@ -14,6 +14,12 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  * What the rulebook wounds is `wounds`: the body's hit points, and which segments kill when they
  * are emptied or lost and which never come off. Contact surfaces join the spec when a rule first
  * reads them.
+ *
+ * **What a body holds is not its anatomy.** A segment states the body's own numbers; an item held
+ * in it (`held`) is stated beside it, and the builder makes the two one rigid body
+ * (`src/core/build/rigid.ts`). What reads the anatomy -- the wounds' split, a segment table's
+ * check -- reads the segment; what reads the rigid body -- the solver, the dynamics, the centre of
+ * mass -- reads both.
  */
 export interface BodySpec {
   /** The family's name, `human`; a spec never spreads another family's spec. */
@@ -27,7 +33,43 @@ export interface BodySpec {
   /** Each joint names a parent and a child segment; together they form a tree over the segments. */
   readonly joints: readonly JointSpec[];
   readonly wounds: WoundSpec;
+  /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
+  readonly held?: readonly HeldSpec[];
 }
+
+/**
+ * **An item held rigidly in a segment**, as a club is in a closed hand: it moves with the segment
+ * as one rigid body. `origin`, `along` and `across` place the item's frame in the body frame, in
+ * the reference pose, as a segment's ends and right place its frame (`segmentFrame`): y along
+ * `along`, x `across` made square to it, z = x cross y.
+ */
+export interface HeldSpec {
+  /** The segment that holds it. */
+  readonly segment: string;
+  readonly item: ItemSpec;
+  readonly origin: Quantity<Vec3>;
+  readonly along: Quantity<Vec3>;
+  readonly across: Quantity<Vec3>;
+}
+
+/**
+ * **A rigid item, in its own frame**: metres, with its origin and axes its own, such as a club's
+ * butt with y up its haft. Held (`HeldSpec`), its frame is placed in the body frame.
+ */
+export interface ItemSpec {
+  readonly name: string;
+  readonly mass: Quantity<number>;
+  /** In the item frame. */
+  readonly centreOfMass: Quantity<Vec3>;
+  /** Principal moments about the centre of mass, kg m2, about the item frame's x, y and z. */
+  readonly inertia: Quantity<Vec3>;
+  /** What it collides as, in the item frame. A box is not one: its edges would need a frame of their own. */
+  readonly shapes: readonly ItemShape[];
+  /** Named points, in the item frame: where a reading is taken on it, such as where a club strikes. */
+  readonly points: { readonly [name: string]: Quantity<Vec3> };
+}
+
+export type ItemShape = Exclude<ShapeSpec, { readonly kind: "box" }>;
 
 /**
  * **What the rulebook wounds** (`src/core/rules/pool.ts`): one pool of hit points for the body,

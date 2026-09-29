@@ -55,6 +55,23 @@ function chain() {
 }
 
 /**
+ * The chain holding a rod in its last segment, turned off every axis: the rigid body's inertia has
+ * products (`src/core/build/rigid.ts`), which the model must turn with the segment.
+ */
+function holding() {
+  const spec = chain();
+  const rod = {
+    name: "rod", mass: q(0.9, "kg"), centreOfMass: q([0.004, 0.2, -0.006]), inertia: q([0.011, 0.0008, 0.013], "kg m2"),
+    shapes: [{ kind: "capsule", from: q([0, 0.03, 0]), to: q([0, 0.37, 0]), radius: q(0.02) }], points: {},
+  };
+  return { ...spec, held: [{ segment: "end", item: rod, origin: q([0.38, 0.66, 0.2]), along: q([0.3, -0.2, 0.9], "1"), across: q([1, 0.4, 0], "1") }] };
+}
+
+/** Half of w' T w, with T a rigid body's tensor in the frame `w` is given in. */
+const spinEnergy = ([xx, yy, zz, xy, xz, yz], w) =>
+  0.5 * (xx * w.x ** 2 + yy * w.y ** 2 + zz * w.z ** 2) + xy * w.x * w.y + xz * w.x * w.z + yz * w.y * w.z;
+
+/**
  * At 960 Hz and a quarter of these muscles' strength the joints hold to their freedoms, and the
  * energy agrees to 0.73 % and the power to 0.24 % of what gravity could do at those speeds. Harder
  * and coarser, the joints give: at 8 N m and 120 Hz the one-freedom joint turned 2.8 rad/s about
@@ -63,8 +80,8 @@ function chain() {
  * couplings between joints, or the parent's turn of the axes, 100 % or more; gravity's moment
  * about the wrong joint, 45 % in power.
  */
-test("the mass matrix gives the chain's kinetic energy and gravity's term its power, as Havok moves it", async () => {
-  const stand = await coreStand(chain(), { ground: false, pinned: "post", hz: 960 });
+for (const [what, spec] of [["the chain", chain], ["the chain holding a rod", holding]]) test(`the mass matrix gives ${what}'s kinetic energy and gravity's term its power, as Havok moves it`, async () => {
+  const stand = await coreStand(spec(), { ground: false, pinned: "post", hz: 960 });
   const g = stand.scene.getPhysicsEngine().gravity;
   let seed = 7, tick = 0;
   const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
@@ -92,10 +109,11 @@ test("the mass matrix gives the chain's kinetic energy and gravity's term its po
         // The spin in the segment's frame, which its node carries and its inertia lies along.
         Quaternion.InverseToRef(s.node.rotationQuaternion, inverse);
         angularVelocity(s).rotateByQuaternionToRef(inverse, local);
-        const [ix, iy, iz] = s.spec.inertia.value;
-        energy += 0.5 * s.spec.mass.value * v.lengthSquared() + 0.5 * (ix * local.x ** 2 + iy * local.y ** 2 + iz * local.z ** 2);
-        power += s.spec.mass.value * Vector3.Dot(g, v);
-        scale += s.spec.mass.value * g.length() * v.length();
+        // The rigid body's: the segment's own numbers, or with what it holds.
+        const m = s.rigid.mass;
+        energy += 0.5 * m * v.lengthSquared() + spinEnergy(s.rigid.tensor, local);
+        power += m * Vector3.Dot(g, v);
+        scale += m * g.length() * v.length();
       }
       let modelEnergy = 0, modelPower = 0;
       speeds.forEach((uf, f) => {
