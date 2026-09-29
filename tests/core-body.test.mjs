@@ -45,7 +45,7 @@ test("a body obeys its command and shows what it does", async () => {
       const pushing = t >= 2 && t < 2.15;
       if (pushing) seen.peak = Math.max(seen.peak, view.fists.left.velocity.length());
       return { posture, hands: { left: null, right },
-        pushes: pushing ? [{ channel: "elbow.left flexion", sense: -1, level: 1 }] : [] };
+        pushes: pushing ? [{ channel: "elbow.left flexion", sense: -1, level: 1 }] : [], stance: null };
     });
     const angles = body.view.angles, off = (names) => Math.max(...names.map((n) => Math.abs(angles[n] - posture[n])));
 

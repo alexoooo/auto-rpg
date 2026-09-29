@@ -171,7 +171,7 @@ export function startRoutine(built: BuiltBody, world: World, routine: readonly S
   };
 
   const pushes: MusclePush[] = [];
-  const command = { posture: {} as Pose, hands: { left: null, right: null }, pushes } satisfies BodyCommand;
+  const command = { posture: {} as Pose, hands: { left: null, right: null }, pushes, stance: null } satisfies BodyCommand;
   body.drive((_view, dt) => {
     time += dt;
     into += dt;

@@ -1,6 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import { motorControl, type Hand, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
+import type { StanceGoal, StanceReading, StanceTuning } from "./control/stance.ts";
 import { driveMuscles, type MuscleDriver } from "./muscle/driver.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
@@ -43,6 +44,8 @@ export interface BodyCommand {
   readonly hands: Readonly<Record<Hand, HandGoal | null>>;
   /** Freedoms driven by their muscles alone, whatever else would own them. */
   readonly pushes: readonly MusclePush[];
+  /** Stand on the ground so (`stance.ts`), or null to leave the legs to the posture. */
+  readonly stance: StanceGoal | null;
 }
 
 export interface HandGoal {
@@ -51,7 +54,7 @@ export interface HandGoal {
 }
 
 /** A command that holds the reference pose. */
-export const restCommand = (): BodyCommand => ({ posture: {}, hands: { left: null, right: null }, pushes: [] });
+export const restCommand = (): BodyCommand => ({ posture: {}, hands: { left: null, right: null }, pushes: [], stance: null });
 
 /** **What a body shows its driver**, read at the start of each control step from the step before. */
 export interface BodyView {
@@ -63,6 +66,8 @@ export interface BodyView {
   readonly fists: Readonly<Record<Hand, Fist>>;
   /** Each hand's knuckles in the body frame, where a hand goal is set. */
   readonly knuckles: Readonly<Record<Hand, Vector3>>;
+  /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
+  readonly stance: StanceReading;
 }
 
 /** Where a fist's knuckles are and how they move, in the world, as the last step left them. */
@@ -74,11 +79,13 @@ export interface Fist {
 export interface BodyOptions {
   /** The servo's time constant, s: ten steps or more (`servo`). */
   readonly servoSeconds: number;
+  /** An experiment's stance tuning in place of the stance's constants. */
+  readonly stance?: StanceTuning;
 }
 
 /** `built` in `world`, holding its reference pose until something drives it. */
-export function createBody(built: BuiltBody, world: World, { servoSeconds }: BodyOptions): CoreBody {
-  const motor: MotorControl = motorControl(built, servoSeconds);
+export function createBody(built: BuiltBody, world: World, { servoSeconds, stance }: BodyOptions): CoreBody {
+  const motor: MotorControl = motorControl(built, servoSeconds, {}, stance);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const angles: Record<string, number> = {};
   const view = {
@@ -86,6 +93,7 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds }: Bod
     angles,
     fists: { left: fists.left.fist, right: fists.right.fist },
     knuckles: { left: new Vector3(), right: new Vector3() },
+    stance: motor.stance.reading,
   };
   let driver: BodyDriver | null = null;
   const current: { command: BodyCommand } = { command: restCommand() };
@@ -95,6 +103,7 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds }: Bod
     current.command = command;
     motor.setPosture(command.posture);
     motor.setPushes(command.pushes);
+    motor.setStance(command.stance);
     for (const hand of ["left", "right"] as const) {
       const goal = command.hands[hand], was = goals[hand];
       if (!goal) { if (was) motor.release(hand); }
@@ -111,6 +120,7 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds }: Bod
       fists[hand].update();
       motor.knucklesToRef(hand, view.knuckles[hand]);
     }
+    motor.stance.read();
     const next = driver?.(view, dt);
     if (next) obey(next);
     motor.control(d, dt);

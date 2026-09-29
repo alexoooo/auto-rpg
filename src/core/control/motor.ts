@@ -4,6 +4,7 @@ import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { chainTo, pointNowToRef, solveReach } from "./kinematics.ts";
 import { servo } from "./servo.ts";
+import { stanceControl, type StanceControl, type StanceGoal, type StanceTuning } from "./stance.ts";
 
 /** Joint angles, rad, by channel name. */
 export type Pose = Readonly<Record<string, number>>;
@@ -35,6 +36,10 @@ export interface MusclePush {
  *
  * A pushed freedom (`MusclePush`) is left to its muscles, whichever goal would own it, and the
  * servo solves the others around the torque it gives.
+ *
+ * With a stance (`StanceGoal`), the stance legs carry the body on the ground (`stance.ts`) and the
+ * posture and the servo keep the rest; without one, the legs hold the posture from the pelvis, as a
+ * body carried or in the air.
  */
 export interface MotorControl {
   /** The controller for `driveMuscles`. */
@@ -47,6 +52,10 @@ export interface MotorControl {
   release(hand: Hand): void;
   /** Drive `pushes` flat out from the next step, in place of those before. */
   setPushes(pushes: readonly MusclePush[]): void;
+  /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from the next step. */
+  setStance(goal: StanceGoal | null): void;
+  /** The stance's readings, as its last step left them. */
+  readonly stance: StanceControl;
   /** Where `hand`'s path stands now (body frame), or null with no goal. */
   path(hand: Hand): Vector3 | null;
   /** Where `hand`'s knuckles are now, body frame. */
@@ -74,9 +83,11 @@ interface HandState {
 }
 
 /** Motor control of `built`, servoing at a time constant of `seconds`. */
-export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}): MotorControl {
+export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning): MotorControl {
   let pose = posture;
   let pushes: readonly MusclePush[] = [];
+  let standing: StanceGoal | null = null;
+  const stance = stanceControl(built, stanceTuning);
   const root = chainTo(built, built.segments.get("hand.left")!)[0]!.parent;
   const names = (joint: BuiltJoint) => joint.dofs.map((dof) => `${joint.spec.name} ${dof.spec.positive}`);
   const hands = new Map<Hand, HandState>((["left", "right"] as const).map((side) => {
@@ -135,10 +146,11 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       for (const state of hands.values()) { const g = state.goals.get(name); if (g) return g; }
       return undefined;
     };
+    stance.command(driver, standing, dt);
     servo(driver, (i) => {
       const name = driver.channels[i]!.name;
       const push = pushes.find((p) => p.channel === name);
-      if (!push) return owned(i)?.[0] ?? pose[name] ?? 0;
+      if (!push) return standing && stance.owned[i] ? undefined : owned(i)?.[0] ?? pose[name] ?? 0;
       driver.velocity[i] = push.sense * UNREACHABLE;
       driver.activation[i] = push.level;
       return undefined;
@@ -158,6 +170,8 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     },
     release(hand) { hands.get(hand)!.goal = null; },
     setPushes(next) { pushes = next; },
+    setStance(next) { standing = next; },
+    stance,
     path: (hand) => hands.get(hand)!.goal ? hands.get(hand)!.point : null,
     knucklesToRef: (hand, out) => { const state = hands.get(hand)!; return pointNowToRef(state.hand, root, state.knuckles, out); },
   };

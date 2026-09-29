@@ -451,6 +451,38 @@ contradicts one; the eccentric ceiling is the owner's decision.
   - under calibrated shoves, it steps and then falls past a stated impulse;
   - the whole-shove table from 4350cb8e, re-run, does not multiply falls.
 
+**What landed (2026-09-29): the stance** (`src/core/control/stance.ts`, `tests/core-stance.test.mjs`).
+- **It departs from the model above, on a measurement.** The legs are not driven by the forces the
+  centre of mass needs. A torque source on an ankle rocks the foot on Havok's contact (10 N m lifts
+  the Rogue's settled foot 1.1 mm and spins it at 0.25 rad/s). A computed torque rooted at the foot
+  read that rocking as the body's turn and asked hundreds of newton metres to stop it; rooted at
+  the pelvis, the hips spun the light pelvis between legs and trunk. Re-rooting the servo's
+  dynamics at a pinned foot did match Havok's kinetic energy and gravity power, so the model was
+  right and the loop was not; the patch is kept outside the tree.
+- **The stance is kinematic.** It plans the centre of mass's way to its goal, critically damped,
+  and asks the pelvis for the plan's velocity plus the error from it. Each stance leg's speeds for
+  that pelvis motion, foot still, are its Jacobian undone by damped least squares. They go to the
+  muscles as speeds at full activation, so Havok's solver finds the torques with the ground's push.
+  A leg drives in proportion to the weight it bears (the lever rule between the soles' middles),
+  and otherwise follows the pelvis, so an unloaded foot is not slid.
+- **Solver conditioning, named and measured:** a stance foot's rotational inertia is raised 100
+  times while it stands. At its own inertia the solver stalls; the Warrior falls, and even at 480 Hz
+  the Rogue stops 3.25 cm behind. The table is on `STANCE_FOOT_CONDITIONING`.
+- **The held region:** the goal is held inside the soles' outline drawn halfway in
+  (`SUPPORT_INSET` 0.5), at no more than 0.1 m/s across the ground (`STANCE_SPEED`). Nearer the
+  edges, the everters (20-27 N m) saturate and the far foot bears nothing. The sweep behind both
+  numbers is on `STANCE_SPEED`.
+- **Measured** (Node stand, 120 Hz):
+  - Both humans stand 3 cm low for 5 s within 0.9 mm of the soles' middle, drifting under 0.6 mm
+    over the last 2 s.
+  - The Rogue goes 2 and 3 cm across, 3 cm down and turns 0.2 rad, stopping 3.4 mm from the place.
+  - A place 30 cm out each way is held at the outline's edge within 6 mm; the far foot slips once,
+    6 mm, at -x.
+  - Asked 6 cm down and 3 cm forward, the Rogue stops at its ankle's dorsiflexion limit, 5.7 cm short,
+    and stands.
+- **Not yet:** the routine's carried pelvis is still a scaffold, and the stance is not yet in the
+  lab page; stepping; gaits; assistance.
+
 ### Stage 5: the rulebook, the damage unit and the HP pool
 
 - **The fight rules become one immutable rulebook** per mode: what counts as a cut, thrust, crush or clang, damage, severing, death and endings. `Ending` gains fatal and severed.
