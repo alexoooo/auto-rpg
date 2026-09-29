@@ -15,6 +15,8 @@ import { inventory, sourcesOf } from "../src/core/spec/provenance.ts";
 import { footprint, transcribed, trunkEnvelope } from "../scripts/core/workshop-envelope.mjs";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { peakTorque } from "../src/core/human/muscle.ts";
+import { jointSpeed } from "../src/core/human/speed.ts";
+import { forceVelocityFactor } from "../src/core/muscle/force-velocity.ts";
 import { EXERTIONS, measuredTorque, subjectMass } from "../src/core/human/tables/joint-torques.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { jointSenses } from "./fixtures/joint-senses.mjs";
@@ -222,11 +224,11 @@ test("each freedom's positive turn is the motion it is named for", () => {
 });
 
 /**
- * Each model reads its own sex's ranges where a source splits them, and only the men's torques: the
- * women's column is the check below, never an input. The control: the Rogue does read a women's
+ * Each model reads its own sex's ranges and speeds where a source splits them, and only the men's
+ * torques: the women's torque column is the check below, never an input. The control: the Rogue does read a women's
  * range, so the detector sees a column.
  */
-test("each model reads its own sex's ranges and only the men's torques", () => {
+test("each model reads its own sex's ranges and speeds, and only the men's torques", () => {
   const byColumn = new Set(["moromizato-2016", "zwerus-2019", "kitsoulis-2010", "hallaceli-2014", "jiang-2025"]);
   const torques = new Set(["ds-2009", "anderson-2007", "pan-2025", "vasavada-2001", "axelsson-2018", "peleg-2025", "da-fonseca-2025"]);
   const column = { male: "men", female: "women" };
@@ -235,9 +237,21 @@ test("each model reads its own sex's ranges and only the men's torques", () => {
     const ranges = read.filter((p) => byColumn.has(p.source));
     assert.ok(ranges.length > 20, model);
     for (const p of ranges) assert.match(p.where, new RegExp(`, ${column[WORKSHOP_SEX[model]]}(, (left|right))?$`), `${model} reads ${p.source} ${p.where}`);
-    const torque = read.filter((p) => torques.has(p.source));
+    const muscles = humanSpec(model).joints.flatMap((j) => j.dofs.map((d) => d.muscle));
+    const torque = muscles.flatMap((m) => [...sourcesOf(m.peakPositive), ...sourcesOf(m.peakNegative)]).map((leaf) => leaf.provenance)
+      .filter((p) => torques.has(p.source));
     assert.ok(torque.length >= EXERTIONS.length, model);
     for (const p of torque) assert.ok(!/women/.test(p.where), `${model} reads ${p.source} ${p.where}`);
+    // How torque falls with speed is read from the model's own sex's column.
+    const speed = muscles.flatMap((m) => [m.speedPositive, m.speedNegative])
+      .flatMap((curve) => Object.values(curve).flatMap((q) => [...sourcesOf(q)])).map((leaf) => leaf.provenance)
+      .filter((p) => p.source === "anderson-2007" || p.source === "frey-law-2012");
+    assert.ok(speed.length > 0, model);
+    for (const p of speed) {
+      assert.ok(/ (men|women)(,|$)/.test(p.where) ? new RegExp(` ${column[WORKSHOP_SEX[model]]}(,|$)`).test(p.where)
+        : !/(^|\W)(men|women)(\W|$)/.test(p.where), `${model} reads ${p.source} ${p.where}`);
+    }
+    assert.ok(speed.some((p) => new RegExp(` ${column[WORKSHOP_SEX[model]]}(,|$)`).test(p.where)), model);
   }
 });
 
@@ -258,4 +272,52 @@ test("the Rogue's torques, scaled from the men's by her muscle, land near the wo
   const sorted = ratios.map(([, ratio]) => ratio).sort((a, b) => a - b);
   const middle = (sorted[(sorted.length - 1) >> 1] + sorted[sorted.length >> 1]) / 2;
   assert.ok(middle > 0.85 && middle < 1.15, `middle ratio ${middle.toFixed(3)}`);
+});
+
+/**
+ * Each measured curve says what its source says: Anderson's through the two speeds at which his
+ * fits keep three quarters and half of isometric; Frey-Law's the least-squares unloaded speed at
+ * Thelen's curvature. That curve is within 5 % of isometric from 120 deg/s up, and 7-14 % high at
+ * 60 deg/s, where the paper says the elbow drops fast and no Hill curve through the rest follows.
+ * A borrowed curve is the one it names, and says it is borrowed. The control: the elbow's curve at
+ * 0.9 of its unloaded speed fits worse.
+ */
+test("each measured speed curve passes through its source, and a borrowed one names the curve it takes", () => {
+  const curveOf = (spec) => Object.fromEntries(Object.entries(spec).map(([k, q]) => [k, q.value]));
+  const anderson = {
+    male: { hipExtension: [1.578, 3.190], hipFlexion: [2.095, 4.267], kneeExtension: [1.517, 3.952], kneeFlexion: [2.008, 5.233], ankleDorsiflexion: [0.699, 1.940] },
+    female: { hipExtension: [1.567, 3.164], hipFlexion: [2.136, 4.349], kneeExtension: [1.393, 3.623], kneeFlexion: [1.698, 4.412], ankleDorsiflexion: [0.864, 2.399] },
+  };
+  const freyLaw = {
+    male: { elbowFlexion: [63.0, 44.7, 38.7, 33.1, 27.9, 25.7], elbowExtension: [52.8, 39.6, 35.6, 31.8, 26.1, 24.6] },
+    female: { elbowFlexion: [32.0, 21.4, 19.9, 17.9, 15.8, 14.1], elbowExtension: [29.2, 22.1, 20.0, 18.1, 15.9, 13.3] },
+  };
+  const speeds = [60, 120, 180, 240, 300].map((d) => d * Math.PI / 180);
+  const worst = (curve, torques) => Math.max(...speeds.slice(1).map((w, i) => Math.abs(forceVelocityFactor(w, curve) - torques[i + 2] / torques[0])));
+  const first = (curve, torques) => forceVelocityFactor(speeds[0], curve) - torques[1] / torques[0];
+  for (const model of WORKSHOP_MODELS) {
+    const sex = WORKSHOP_SEX[model];
+    for (const [exertion, [c4, c5]] of Object.entries(anderson[sex])) {
+      const curve = curveOf(jointSpeed(model, exertion));
+      assert.ok(Math.abs(forceVelocityFactor(c4, curve) - 0.75) < 1e-9, `${model} ${exertion} at C4`);
+      assert.ok(Math.abs(forceVelocityFactor(c5, curve) - 0.5) < 1e-9, `${model} ${exertion} at C5`);
+    }
+    for (const [exertion, torques] of Object.entries(freyLaw[sex])) {
+      const curve = curveOf(jointSpeed(model, exertion));
+      assert.equal(curve.curvature, 0.25);
+      const residual = (w0) => speeds.reduce((sum, w, i) => {
+        const f = torques[i + 1] / torques[0];
+        return sum + ((1 - f) * w0 - w * (1 + f / curve.curvature)) ** 2;
+      }, 0);
+      for (const nudge of [0.99, 1.01]) assert.ok(residual(curve.unloadedSpeed * nudge) > residual(curve.unloadedSpeed), `${model} ${exertion} least squares`);
+      assert.ok(worst(curve, torques) < 0.05, `${model} ${exertion} is within 5 % of isometric: ${worst(curve, torques)}`);
+      assert.ok(first(curve, torques) > 0.07 && first(curve, torques) < 0.14, `${model} ${exertion} at 60 deg/s: ${first(curve, torques)}`);
+      assert.ok(worst({ ...curve, unloadedSpeed: 0.9 * curve.unloadedSpeed }, torques) > worst(curve, torques));
+    }
+    const shoulder = jointSpeed(model, "shoulderFlexion"), elbow = jointSpeed(model, "elbowFlexion");
+    assert.equal(shoulder.unloadedSpeed.value, elbow.unloadedSpeed.value);
+    assert.match(shoulder.unloadedSpeed.provenance.rule, /elbowFlexion's, taken for shoulderFlexion/);
+    assert.equal(elbow.unloadedSpeed.provenance.kind, "derived");
+    assert.doesNotMatch(elbow.unloadedSpeed.provenance.rule, /taken for/);
+  }
 });

@@ -148,6 +148,19 @@ export const SOURCES = Object.freeze({
       + "Biomech 40(14):3105-3113.",
     link: "https://doi.org/10.1016/j.jbiomech.2007.03.022",
   },
+  "frey-law-2012": {
+    kind: "literature",
+    cite: "Frey-Law LA, Laake A, Avin KG, Heitsman J, Marler T, Abdel-Malek K (2012). Knee and elbow 3D "
+      + "strength surfaces: peak torque-angle-velocity relationships. J Appl Biomech 28(6):726-737. Read in "
+      + "the author manuscript.",
+    link: "https://pmc.ncbi.nlm.nih.gov/articles/PMC7050840/",
+  },
+  "thelen-2003": {
+    kind: "literature",
+    cite: "Thelen DG (2003). Adjustment of muscle mechanics model parameters to simulate dynamic "
+      + "contractions in older adults. J Biomech Eng 125(1):70-77.",
+    link: "https://nmbl.stanford.edu/publications/pdf/Thelen2003.pdf",
+  },
   "pan-2025": {
     kind: "literature",
     cite: "Pan F, Cheng J, Kong C, Wang W, Lu S (2025). Sex-specific characteristics of the trunk "

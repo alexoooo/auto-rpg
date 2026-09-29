@@ -90,15 +90,28 @@ export interface DofSpec {
 }
 
 /**
- * The muscles acting on one freedom, lumped: what the joint can do, not which muscle does it.
- * Stage 2 of the plan turns this into a torque ceiling at a speed, and adds the fields that curve
- * needs (the unloaded shortening speed, the curve's shape, the eccentric ceiling) with their
- * sources, when a rule first reads them.
+ * The muscles acting on one freedom, lumped: what the joint can do, not which muscle does it. The
+ * muscle actuator (`src/core/muscle/driver.ts`) makes it a torque ceiling at a speed.
  */
 export interface MuscleSpec {
   /** Peak isometric torque toward positive and toward negative angles, N m, as magnitudes. */
   readonly peakPositive: Quantity<number>;
   readonly peakNegative: Quantity<number>;
+  /** How the torque toward positive, and toward negative, falls with speed and rises when stretched. */
+  readonly speedPositive: ForceVelocitySpec;
+  readonly speedNegative: ForceVelocitySpec;
+}
+
+/** A force-velocity curve's inputs; `src/core/muscle/force-velocity.ts` says what each does. */
+export interface ForceVelocitySpec {
+  /** The joint speed at which the muscles hold no torque, rad/s. */
+  readonly unloadedSpeed: Quantity<number>;
+  /** Hill's a / T0. */
+  readonly curvature: Quantity<number>;
+  /** Torque at fast lengthening over the isometric peak. */
+  readonly eccentricCeiling: Quantity<number>;
+  /** The lengthening branch's slope at rest over the shortening branch's. */
+  readonly eccentricSlopeRatio: Quantity<number>;
 }
 
 export interface SegmentFrame {

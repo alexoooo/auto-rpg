@@ -1,4 +1,4 @@
-import { segmentFrame, type DofSpec, type JointSpec, type SegmentSpec } from "../spec/body.ts";
+import { segmentFrame, type DofSpec, type ForceVelocitySpec, type JointSpec, type SegmentSpec } from "../spec/body.ts";
 import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { angleAbout, cross, dot, normalize, orthogonalTo, scale, sub } from "../spec/vec.ts";
 import { limbLandmarks, rigSuffix, SIDES, type Side } from "./landmarks.ts";
@@ -34,9 +34,11 @@ import { rangeOfMotion, type RangeRow } from "./tables/range-of-motion.ts";
  * nothing gives the bind (neck, spine, hip rotation, foot roll), it is taken as neutral, and that
  * is a stated assumption (`stage1-assumptions`). Each model reads its own sex's ranges.
  *
- * **Muscle.** `strength` gives each exertion's peak torque (`muscle.ts`).
+ * **Muscle.** `strength` gives each exertion's peak torque (`muscle.ts`), and `speed` how that
+ * torque falls with speed (`speed.ts`).
  */
 export type Strength = (exertion: Exertion) => Quantity<number>;
+export type Speed = (exertion: Exertion) => ForceVelocitySpec;
 
 interface Freedom {
   readonly positive: string;
@@ -49,7 +51,7 @@ interface Freedom {
   readonly exertions: readonly [Exertion, Exertion];
 }
 
-function dof(joint: string, f: Freedom, strength: Strength): DofSpec {
+function dof(joint: string, f: Freedom, strength: Strength, speed: Speed): DofSpec {
   const min = derive("rad", "the range against the positive sense, from the reference pose", [si(f.reach[1]), f.bind], (n, b) => -n - b);
   const max = derive("rad", "the range in the positive sense, from the reference pose", [si(f.reach[0]), f.bind], (p, b) => p - b);
   if (!(min.value <= 0 && max.value >= 0)) {
@@ -57,7 +59,10 @@ function dof(joint: string, f: Freedom, strength: Strength): DofSpec {
   }
   return {
     positive: f.positive, negative: f.negative, axis: f.axis, min, max,
-    muscle: { peakPositive: strength(f.exertions[0]), peakNegative: strength(f.exertions[1]) },
+    muscle: {
+      peakPositive: strength(f.exertions[0]), peakNegative: strength(f.exertions[1]),
+      speedPositive: speed(f.exertions[0]), speedNegative: speed(f.exertions[1]),
+    },
   };
 }
 
@@ -81,7 +86,7 @@ const neutral = (what: string): Quantity<number> =>
   sourced(0, "rad", "stage1-assumptions", `the reference pose's ${what}, taken as neutral`);
 
 /** The humans' joints for `model`, on its `segments` (`humanSegments`). */
-export function humanJoints(model: WorkshopModel, segments: readonly SegmentSpec[], strength: Strength): JointSpec[] {
+export function humanJoints(model: WorkshopModel, segments: readonly SegmentSpec[], strength: Strength, speed: Speed): JointSpec[] {
   const sex = WORKSHOP_SEX[model];
   const at = new Map(segments.map((segment) => [segment.name, segment]));
   const get = (name: string): SegmentSpec => {
@@ -91,7 +96,7 @@ export function humanJoints(model: WorkshopModel, segments: readonly SegmentSpec
   };
   const rom = (row: RangeRow, side?: Side) => rangeOfMotion(row, sex, side);
   const joint = (name: string, parent: string, child: string, centre: Quantity<Vec3>, freedoms: readonly Freedom[]): JointSpec =>
-    ({ name, parent, child, centre, dofs: freedoms.map((f) => dof(name, f, strength)) });
+    ({ name, parent, child, centre, dofs: freedoms.map((f) => dof(name, f, strength, speed)) });
 
   const head = get("head"), upperTrunk = get("upperTrunk"), middleTrunk = get("middleTrunk"), lowerTrunk = get("lowerTrunk");
   const H = frame(head), U = frame(upperTrunk), M = frame(middleTrunk), L = frame(lowerTrunk);
