@@ -3,12 +3,12 @@ import test from "node:test";
 import { createPlayer } from "../src/core-lab/player.ts";
 
 /**
- * A scripted stage: a loop of `frames` frames, 10 ms a step, at `live`. `wrapAt` starts the loop
- * again early, which a real routine never does. `advance` takes the whole steps owed, up to its
- * most, and carries nothing. The clock reads a millisecond later every time it is read.
+ * A scripted stage: a loop of `frames` frames, 10 ms a step, at `live`; or, `rolling`, a recording
+ * whose live frame stays at its end, as a full history's does. `advance` takes the whole steps
+ * owed, up to its most, and carries nothing. The clock reads a millisecond later every time it is read.
  */
-function world({ frames = 100, live = 40, wrapAt = frames } = {}) {
-  const step = () => { w.steps++; live = live + 1 >= wrapAt ? 0 : live + 1; };
+function world({ frames = 100, live = 40, rolling = false } = {}) {
+  const step = () => { w.steps++; if (!rolling) live = (live + 1) % frames; };
   const w = {
     shown: [], changes: [], steps: 0, now: 0,
     world: {
@@ -20,7 +20,7 @@ function world({ frames = 100, live = 40, wrapAt = frames } = {}) {
         return n;
       },
     },
-    timeline: {
+    recording: {
       live: () => live,
       show: (frame) => { if (frame <= live) w.shown.push(frame); },
     },
@@ -35,7 +35,7 @@ test("a player starts live, with the world's own frame on the nodes, and steps i
   assert.deepEqual([w.shown, w.changes], [[40], [{ kind: "live" }]]);
   assert.equal(w.player.isPaused(), false);
   w.player.tick(35, w.now + 1000);
-  assert.deepEqual([w.player.playhead, w.steps, w.timeline.live()], [{ kind: "live" }, 3, 43]);
+  assert.deepEqual([w.player.playhead, w.steps, w.recording.live()], [{ kind: "live" }, 3, 43]);
 });
 
 test("the world does not leap for a stalled page: a tenth of a second at most", () => {
@@ -85,7 +85,7 @@ test("a frame ahead of the live one is reached by running the world there, then 
   w.player.seek(10);
   w.player.seek(70);
   assert.deepEqual([w.player.playhead, w.shown.at(-1), w.player.shownFrame(), w.player.isPaused()],
-    [{ kind: "seeking", frame: 70 }, 40, null, true], "the world's own frame goes back on before it steps");
+    [{ kind: "seeking", steps: 30 }, 40, null, true], "the world's own frame goes back on before it steps");
   w.player.tick(16, w.now + 1000);
   assert.deepEqual([w.player.playhead, w.steps, w.shown.at(-1)], [{ kind: "held", frame: 70 }, 30, 70]);
 });
@@ -95,7 +95,7 @@ test("a seek runs the world only within its budget, and goes on next frame", () 
   w.player.seek(70);
   // The clock reads once a step: a budget of 10 readings is 10 steps.
   w.player.tick(16, w.now + 10);
-  assert.deepEqual([w.player.playhead, w.steps], [{ kind: "seeking", frame: 70 }, 10]);
+  assert.deepEqual([w.player.playhead, w.steps], [{ kind: "seeking", steps: 20 }, 10]);
   w.player.tick(16, w.now + 1000);
   assert.deepEqual([w.player.playhead, w.steps], [{ kind: "held", frame: 70 }, 30]);
 });
@@ -115,11 +115,21 @@ test("pausing a seek holds where the world got to; playing one runs the world on
   assert.deepEqual([played.player.playhead, played.steps], [{ kind: "live" }, 12]);
 });
 
-test("a seek whose loop starts again before the frame holds where the new loop is", () => {
-  const w = world({ wrapAt: 60 });
-  w.player.seek(70);
+test("on a rolling recording, a frame past the live one is that many steps of the world, held at the live end", () => {
+  const w = world({ live: 99, rolling: true });
+  w.player.seek(101);
   w.player.tick(16, w.now + 1000);
-  assert.deepEqual([w.player.playhead, w.steps], [{ kind: "held", frame: 0 }, 20]);
+  assert.deepEqual([w.player.playhead, w.steps, w.shown.at(-1)], [{ kind: "held", frame: 99 }, 2, 99]);
+});
+
+test("going live leaves a recorded frame, a replay or a seek, and the world runs on from where it is", () => {
+  for (const place of [(p) => p.seek(10), (p) => { p.seek(10); p.setPaused(false); }, (p) => p.seek(70)]) {
+    const w = world();
+    place(w.player);
+    w.player.goLive();
+    w.player.tick(20, w.now + 1000);
+    assert.deepEqual([w.player.playhead, w.shown.at(-1), w.steps], [{ kind: "live" }, 40, 2]);
+  }
 });
 
 test("ticks move nothing while held", () => {
