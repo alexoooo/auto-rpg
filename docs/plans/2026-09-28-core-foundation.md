@@ -319,22 +319,32 @@ contradicts one; the eccentric ceiling is the owner's decision.
       power in `tests/core-dynamics.test.mjs`), solved around the pushed freedoms and around any
       the muscles cannot drive as asked, each given to the driver as a torque source.
   - On the Node stand, 120 Hz against 1920 Hz: the Rogue's return from a searched chamber, hand
-    peak 2.36 against 2.28 m/s (the velocity servo, 3.71 against 2.02); the lab's straights, the
-    Warrior's within 1.7 %, and the Rogue's within 2.2 % until the elbow meets its stop. There the
-    stop whips the Rogue's light hand at the wrist at up to 66 rad/s at 1920 Hz, and the fist gains up
-    to a fifth for a few milliseconds; at 120 Hz Havok takes the stop inside a step and the whip is
-    smaller and later (`src/core/muscle/driver.ts` has the table). The stop is recorded, not changed.
+    peak 2.36 against 2.28 m/s (the velocity servo, 3.71 against 2.02).
+  - **The motion under way, and the fist at its knuckles** (H74). The first acceptance searches
+    on this servo found blows of 11-14 m/s, and a replay split the fist's speed by joint. The fist
+    was read at the hand's far end, its fingertip, 0.2 m from the wrist, so a turn of the wrist
+    counted at more than twice a fist's lever; it is read at the knuckles now (`SegmentSpec.points`,
+    the third metacarpal's head). And the servo left out the part of the motion that goes as the
+    square of the speeds: a fast forearm flung the servoed hand about the wrist at up to 83 rad/s
+    while the servo asked the wrist for next to nothing. The body's dynamics now give that term
+    (`BodyDynamics.bias`, checked against Havok's joint accelerations on a free chain in
+    `tests/core-dynamics.test.mjs`), and the servo solves with it; the wrist turned at 7.7 rad/s on
+    the same blow. Havok has no gyroscopic torque, so the term leaves it out.
+  - The lab's straights now agree across 120, 480 and 1920 Hz to 2.5 %, the Warrior's peaking at
+    5.7-6.0 m/s and the Rogue's at 4.7-4.9 (`src/core/muscle/driver.ts` has the table). The
+    Rogue's "elbow-stop whip", recorded here as a rate effect after the peak, was the missing term.
   - **Havok brakes slow bodies.** A body whose centre moves under about 0.12 m/s loses speed at a
     steady 0.3 m/s^2, at every rate and mass, whatever the world's limits, the joints' friction, the
     body's damping or the motor. A servo stops where its pull no longer beats it: the guard's
-    elbows and wrists 0.02-0.026 rad short at 0.1 s, a band that goes as the square of the time
-    constant. Recorded as the engine's, not compensated.
+    wrists 0.03 rad short at 0.1 s, a band that goes as the square of the time constant. Recorded
+    as the engine's, not compensated.
   - **A servo's time constant needs ten steps.** At nine the Rogue's wrists ring about pronation at
     6-7 rad/s, at 120 Hz and 240 Hz alike, and at ten they hold; the reach is not the cause. At
     120 Hz that is 0.083 s, against the lab's 0.1. Why ten is open; stage 3's motor control keeps
     its time constants at ten steps or more.
   - The strike searches above ran on the velocity servo, which held every freedom not pushed. Their
-    table is void (H63); the argument about scoring several runs stands.
+    table is void (H63); the argument about scoring several runs stands. So are the first searches
+    on the torque servo, which found the wrist's whip and read it at the fingertip.
   - **Self-contact.** On the lab's routine (Node stand, 120, 480 and 1920 Hz) the only segments
     that met were each upper arm and the middle trunk, about 0.08 s into every straight. The trunk
     was a box on its stretch's extents, and the arm met its front upper corner 7-13 mm deep while

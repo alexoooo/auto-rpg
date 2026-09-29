@@ -13,7 +13,7 @@ a clean, physically based core beside the old game, humans first, argued in
 [docs/plans/README.md](docs/plans/README.md), which also says which commit holds a deleted document.
 
 **Rules below are short on purpose.** Each cites an entry in [docs/history.md](docs/history.md)
-(`H01`-`H73`) that holds the incident, the numbers and how it was found. Read the entry before
+(`H01`-`H74`) that holds the incident, the numbers and how it was found. Read the entry before
 arguing with a rule. History entries may name code that has since been deleted; the lesson stands.
 
 ## Commands
@@ -103,6 +103,10 @@ it blocks play, and it is not extended. `src/core/` has these rules:
   builds its impulse over several steps, which at 120 Hz is the servo's own time scale; the core's
   servo gives torque sources. Havok also brakes any body whose centre moves under ~0.12 m/s at
   ~0.3 m/s^2, so a servo stops a little short. (H73)
+- **A controller of a fast chain must ask for the motion under way** (`BodyDynamics.bias`), or a
+  fast forearm throws the hand it holds. Havok has no gyroscopic torque (a free body keeps its
+  angular velocity), so a model of the engine leaves `w x I w` out. A lone body not held awake
+  sleeps within a step at fine rates while its velocity still reads. (H74)
 - **Force a body awake before a rest measurement** (`setActivationControl(body, 1)`); a sleeping
   body reads a perfect zero. (H08)
 - **Build a welded body in the frame its weld demands.** A weld that disagrees at construction is

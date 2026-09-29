@@ -1,6 +1,6 @@
 # History: the incidents behind the rules in AGENTS.md
 
-`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H73`. This file
+`AGENTS.md` states each rule in a line or two and cites an entry here as `H01`-`H74`. This file
 keeps the full account: what broke, how it was found, and the measurements. It was split out of
 `AGENTS.md` on 2026-09-27 with the text unchanged apart from headings and numbering.
 
@@ -955,6 +955,30 @@ threshold: a body falling from rest lost 0.3 m/s^2 over its first step and nothi
 at 0.08 m/s (Node stand, 120 Hz). It reads as a controller's
 deadband: a servo at 0.1 s leaves light joints 0.02-0.026 rad short, as the square of the time
 constant. A reading that a joint "stopped short" or "fell slower than gravity" is this first.
+
+### H74. A controller that ignores the motion under way lets a fast limb throw its end, and Havok has no gyroscopic torque
+
+The stage 2 acceptance search found blows of 11-14 m/s, over an elite punch, and a replay split
+the fist's speed by joint. Two faults made most of it. The lab read the fist at the hand
+segment's far end, which runs to the fingertip (de Leva's alternative row, 0.2 m from the wrist),
+so every turn of the wrist counted at more than twice a fist's lever; the knuckles (the third
+metacarpal's head) are now a named point on the hand. And the servo's computed torque, M a -
+gravity, left out the part of the motion that goes as the square of the speeds. It held a servoed
+joint only through its angle's error, which builds far too slowly for a light segment at the end
+of a fast chain: the Rogue's forearm, driven straight, flung her servoed hand about the wrist at 83
+rad/s while the servo asked the wrist for next to nothing, and the hand's whip made 4.6 m/s of her
+fist's 8.7 (Node stand, 120 Hz). With the motion under way in the solve (`BodyDynamics.bias`) the
+wrist turned at 7.7 rad/s on the same blow, and the lab's straights agreed across 120, 480 and
+1920 Hz to 2.5 %; the Rogue's "elbow-stop whip", recorded as a rate effect after the fist's
+peak, was this. The searched blows were void, having been found on the whip.
+
+Checking the new term against Havok showed Havok keeps a free body's angular velocity in the
+world, not its angular momentum: a box of inertia 0.010, 0.002 and 0.006 kg m2 spun at (3, 5, 1)
+rad/s with no gravity read (3, 5, 1) a second later at 120, 960 and 1920 Hz, while its angular
+momentum swung round. So the gyroscopic torque, w x I w, is not in the engine, and a model of the
+engine leaves it out; with it, the chain's predicted joint accelerations read 11 % off at the
+median against 8 %. And a lone body not held awake at 1920 Hz went to sleep after one step while
+spinning at 5.9 rad/s: it stopped turning, and its velocity went on reading the spin.
 
 ## House rules and design notes, full text as of 2026-09-27
 

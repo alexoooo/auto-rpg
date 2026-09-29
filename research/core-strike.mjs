@@ -10,7 +10,7 @@
  *
  * The target is an opponent's head: a sphere of the striker's own head capsule's radius, at its
  * own head's centre of mass moved straight ahead by a chosen distance. The reading is the fist's
- * forward speed, its far end's velocity along the line the target lies on, as it first enters the
+ * forward speed, its knuckles' velocity along the line the target lies on, as it first enters the
  * sphere from outside after the chamber: a straight's speed as a punch's impact speed is measured
  * (Adamec 2021), so a blow chopped down from above scores only what it carries forward. No body
  * is struck, so nothing slows the fist before it arrives. A search's `score` is that speed, or,

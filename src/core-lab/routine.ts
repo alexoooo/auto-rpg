@@ -24,11 +24,12 @@ import { driveMuscles, type MuscleDriver } from "../core/muscle/driver.ts";
 
 /**
  * The servo's time constant, s. At 0.1 s, on this routine, the Warrior and the Rogue at 120 Hz and
- * 480 Hz: late in each settle no joint's speed reversed by more than 0.005 rad/s from one step to
- * the next, and from the end of the first second the guard was held within 0.026 rad at 120 Hz and
- * 0.024 at 480 Hz, the worst at a wrist, an elbow or the neck (Node stand). That band is Havok's
- * brake on slow bodies (`servo`), and shrinks about as the square of the time constant: at 0.05 s
- * an elbow's was 0.005 rad. But a time constant needs ten steps (`servo`), 0.083 s at 120 Hz, and
+ * 480 Hz: late in each settle no joint's speed reversed by more than 0.006 rad/s from one step to
+ * the next but the Rogue's wrists at 120 Hz, whose pronation flickered at 0.04 rad/s (`servo`) and
+ * radial deviation reversed once at 0.021; and from the end of the first second the guard was held
+ * within 0.032 rad at 120 Hz and 0.030 at 480 Hz, the worst at a wrist or the neck (Node stand).
+ * That band is Havok's brake on slow bodies (`servo`), and shrinks about as the square of the time
+ * constant: at 0.05 s and 960 Hz a wrist's was 0.008 rad. But a time constant needs ten steps (`servo`), 0.083 s at 120 Hz, and
  * under that the wrists ring about pronation.
  */
 export const SERVO_SECONDS = 0.1;
@@ -116,7 +117,7 @@ export interface StrikeReading {
   readonly peak: number;
 }
 
-/** Where a fist's far end is and how it moves, in the world, as the last sub-step left it. */
+/** Where a fist's knuckles are and how they move, in the world, as the last sub-step left it. */
 export interface Fist {
   readonly position: Vector3;
   readonly velocity: Vector3;
@@ -139,20 +140,23 @@ export interface Routine {
 }
 
 /**
- * The speed of the hand's far end, from the hand body's velocity: its centre's, plus its spin
- * across the arm from the centre to the end (Havok's linear velocity is the centre of mass's,
- * H49). Not from the nodes: after a limit's impulse Havok moves them behind the body for several
+ * The speed of the hand's knuckles (`SegmentSpec.points`), where a fist strikes, from the hand
+ * body's velocity: its centre's, plus its spin across the arm from the centre to the knuckles
+ * (Havok's linear velocity is the centre of mass's, H49). The hand segment runs on to the
+ * fingertips, more than twice as far from the wrist, and a fist read there took a whip of the
+ * wrist as a punch: a searched blow's 11.6 m/s had 5.0 of its wrist's (Node stand, 120 Hz). Not from the nodes: after a limit's impulse Havok moves them behind the body for several
  * steps (`src/core/build/joint-state.ts`), and a fist read from them jumped from 6.7 to 11.4 m/s
  * for one step as the elbow met its stop (Node stand, 120 Hz).
  */
 const fistOf = (hand: BuiltSegment) => {
-  const length = Math.hypot(...hand.spec.distal.value.map((v, i) => v - hand.spec.proximal.value[i]!));
+  const knuckles = hand.spec.points?.knuckles;
+  if (!knuckles) throw new Error(`${hand.spec.name} names no knuckles`);
   const { origin, x, y, z } = hand.frame;
-  const offset = hand.spec.centreOfMass.value.map((c, i) => c - origin[i]!);
   const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
-  // The centre of mass, and from it to the far end, in the hand's own frame.
-  const centre = new Vector3(dot(offset, x), dot(offset, y), dot(offset, z));
-  const arm = centre.scale(-1).addInPlaceFromFloats(0, length, 0);
+  const local = (p: readonly number[]) => { const o = p.map((c, i) => c - origin[i]!); return new Vector3(dot(o, x), dot(o, y), dot(o, z)); };
+  // The centre of mass, and from it to the knuckles, in the hand's own frame.
+  const centre = local(hand.spec.centreOfMass.value);
+  const arm = local(knuckles.value).subtractInPlace(centre);
   const lever = new Vector3(), angular = new Vector3();
   const fist: Fist = { position: new Vector3(), velocity: new Vector3() };
   const update = (): number => {

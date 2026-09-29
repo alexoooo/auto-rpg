@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BuiltBody, BuiltSegment } from "./build-body.ts";
-import { motionAxesToRef } from "./joint-state.ts";
+import { GIMBAL_COSINE, motionAxesToRef } from "./joint-state.ts";
 
 /**
  * **The body's dynamics in its joints' speeds**, with its root held: the mass matrix and the
@@ -24,9 +24,26 @@ import { motionAxesToRef } from "./joint-state.ts";
  * `mass[f][f]` is the inertia beyond a joint: the segments it carries about the freedom's axis,
  * the parent held.
  *
- * The root is taken to be held still. A root carried or pushed adds its own acceleration to every
- * segment, and that is left to whoever reads the dynamics, as is the part of the motion that goes
- * as the square of the speeds.
+ * **The part that goes as the square of the speeds** (`bias`), given the segments' spins: what
+ * the motion already under way asks of each freedom, so that M u' + bias = torques + gravity +
+ * contacts. It is the carried segments' inertial wrench about the joint's centre, along the
+ * freedom's axis, with every joint's speeds held (u' = 0), found from the root out: a child turns
+ * as its parent does plus its joint's relative spin, whose axes its parent carries round
+ * (`w_p x w_rel`, and a two-freedom joint's first axis leaning as its second angle turns), and
+ * each centre swings about the joint centre it hangs from. A fast forearm throws the hand at the
+ * wrist through this term, which the angles and the mass matrix cannot see.
+ *
+ * It leaves out each segment's gyroscopic torque, w x I w, because Havok does: a free body keeps
+ * its angular velocity in the world, not its angular momentum. A box of inertia 0.010, 0.002 and
+ * 0.006 kg m2 spun at (3, 5, 1) rad/s, no gravity, read (3, 5, 1) a second later at 120, 960 and
+ * 1920 Hz while its angular momentum swung from (0.030, 0.010, 0.006) to (-0.004, 0.032, -0.001)
+ * N m s in half a second (Node, `createWorld`). On the dynamics test's chain, let go turning at up
+ * to 20 rad/s with no gravity or damping, the joints' accelerations in the steps between contacts
+ * read within a few per cent of -M^-1 bias without the term, and a step's error was 10 % of its
+ * acceleration at the median against 18 % with it (1920 Hz).
+ *
+ * The root is taken to be held still: its spin enters the bias, but a root carried or pushed adds
+ * its own acceleration to every segment, and that is left to whoever reads the dynamics.
  *
  * Poses are read from the nodes (H24): each segment's spec inertia lies along its segment frame
  * (`build-body.ts`), which its node carries.
@@ -36,8 +53,20 @@ export interface BodyDynamics {
   readonly mass: readonly Float64Array[];
   /** By freedom, N m: the torque gravity puts on each freedom's motion. */
   readonly gravity: Float64Array;
-  /** Reads the pose as it stands; `angles` by joint, each its freedoms' (`jointAngles`), for the motion axes. */
-  update(angles: readonly (readonly number[])[]): void;
+  /** By freedom, N m: the torque the motion under way needs with no joint's speed changing; zero unless `update` is given `motion`. */
+  readonly bias: Float64Array;
+  /**
+   * Reads the pose as it stands; `angles` by joint, each its freedoms' (`jointAngles`), for the
+   * motion axes. With `motion`, the joints' speeds (by joint, each its freedoms') and each
+   * segment's angular velocity (world frame, rad/s), it reads `bias` too.
+   */
+  update(angles: readonly (readonly number[])[], motion?: BodyMotion): void;
+}
+
+/** What `BodyDynamics.update` reads for `bias`. */
+export interface BodyMotion {
+  readonly speeds: readonly (readonly number[])[];
+  readonly spin: (segment: BuiltSegment) => Vector3;
 }
 
 export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
@@ -53,6 +82,18 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
   const n = freedoms.length;
   const mass = freedoms.map(() => new Float64Array(n));
   const weight = new Float64Array(n);
+  const bias = new Float64Array(n);
+  // From the root out: each joint after the one its parent hangs from.
+  const byChild = new Map(joints.map((joint, j) => [joint.child, j]));
+  const depth = (j: number): number => { const up = byChild.get(joints[j]!.parent); return up === undefined ? 0 : 1 + depth(up); };
+  const outward = joints.map((_, j) => j).sort((a, b) => depth(a) - depth(b));
+  const parentOf = joints.map((joint) => index.get(joint.parent)!), childOf = joints.map((joint) => index.get(joint.child)!);
+  const roots = segments.map((_, i) => i).filter((i) => !childOf.includes(i));
+  // Each segment's spin, and its angular and linear acceleration and inertial wrench with every joint's speed held.
+  const spins = segments.map((): Point => [0, 0, 0]);
+  const alpha = segments.map((): Point => [0, 0, 0]), accel = segments.map((): Point => [0, 0, 0]);
+  const force = segments.map((): Point => [0, 0, 0]), moment = segments.map((): Point => [0, 0, 0]);
+  const leanAxis = joints.map((): Point => [0, 0, 0]);
 
   const centreOfMass = segments.map((segment) => local(segment, segment.spec.centreOfMass.value));
   const pivot = joints.map((joint) => local(joint.child, joint.spec.centre.value));
@@ -72,10 +113,57 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
   };
   const axis: Point = [0, 0, 0];
 
+  const velocityProducts = (angles: readonly (readonly number[])[], { speeds, spin }: BodyMotion): void => {
+    segments.forEach((segment, i) => {
+      const w = spin(segment), o = spins[i]!;
+      o[0] = w.x; o[1] = w.y; o[2] = w.z;
+    });
+    for (const i of roots) { alpha[i]!.fill(0); accel[i]!.fill(0); }
+    for (const j of outward) {
+      const p = parentOf[j]!, c = childOf[j]!, P = pivots[j]!;
+      const wp = spins[p]!, wc = spins[c]!;
+      // The child's spin changes as the parent carries the joint's axes round, and a two-freedom
+      // joint's first axis (X - tan b Z) leans as b turns: d/dt of -tan b is -b'/cos^2 b.
+      const turn = cross3(wp, sub3(wc, wp));
+      const a = alpha[c]!, ap = alpha[p]!;
+      a[0] = ap[0] + turn[0]; a[1] = ap[1] + turn[1]; a[2] = ap[2] + turn[2];
+      const { dofs } = joints[j]!;
+      if (dofs.length === 2) {
+        const b = dofs[1]!.sign * angles[j]![1]!, cos = Math.cos(b);
+        const held = Math.abs(cos) < GIMBAL_COSINE ? (cos < 0 ? -GIMBAL_COSINE : GIMBAL_COSINE) : cos;
+        const lean = -speeds[j]![0]! * dofs[1]!.sign * speeds[j]![1]! / (held * held), z = leanAxis[j]!;
+        a[0] += lean * z[0]; a[1] += lean * z[1]; a[2] += lean * z[2];
+      }
+      // The joint centre as the parent swings it, then the child's centre about it.
+      const fromParent = sub3(P, centres[p]!), toChild = sub3(centres[c]!, P);
+      const at = add3(accel[p]!, add3(cross3(ap, fromParent), cross3(wp, cross3(wp, fromParent))));
+      const own = add3(at, add3(cross3(a, toChild), cross3(wc, cross3(wc, toChild))));
+      const out = accel[c]!;
+      out[0] = own[0]; out[1] = own[1]; out[2] = own[2];
+    }
+    segments.forEach((segment, i) => {
+      const m = segment.spec.mass.value, a = accel[i]!, F = force[i]!, N = moment[i]!;
+      F[0] = m * a[0]; F[1] = m * a[1]; F[2] = m * a[2];
+      // Havok's bodies turn without the gyroscopic torque (w x I w), so it is not asked for.
+      const Ia = inertiaTimes(inertias[i]!, alpha[i]!);
+      N[0] = Ia[0]; N[1] = Ia[1]; N[2] = Ia[2];
+    });
+    for (let f = 0; f < n; f++) {
+      const { joint: j, k } = freedoms[f]!, mf = axes[j]![k]!, P = pivots[j]!;
+      let wx = 0, wy = 0, wz = 0;
+      for (const i of beyond[j]!) {
+        const rf = cross3(sub3(centres[i]!, P), force[i]!), N = moment[i]!;
+        wx += rf[0] + N[0]; wy += rf[1] + N[1]; wz += rf[2] + N[2];
+      }
+      bias[f] = mf[0] * wx + mf[1] * wy + mf[2] * wz;
+    }
+  };
+
   return {
     mass,
     gravity: weight,
-    update(angles) {
+    bias,
+    update(angles, motion) {
       segments.forEach((segment, i) => {
         const rotation = segment.node.rotationQuaternion!, p = segment.node.position;
         const c = toWorld(rotation, centreOfMass[i]!, centres[i]!);
@@ -109,7 +197,10 @@ export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
         Quaternion.InverseToRef(joint.parent.rest, scratch.q);
         joint.parent.node.rotationQuaternion!.multiplyToRef(scratch.q, scratch.carry);
         motionAxesToRef(joint, angles[j]!, bodyAxes).forEach((a, k) => toWorld(scratch.carry, a, axes[j]![k]!));
+        if (motion && joint.dofs.length === 2) toWorld(scratch.carry, signed(joint.axes.z, joint.dofs[0]!.sign), leanAxis[j]!);
       });
+      if (motion) velocityProducts(angles, motion);
+      else bias.fill(0);
       for (let f = 0; f < n; f++) {
         const { joint: a, k } = freedoms[f]!, mf = axes[a]![k]!, pf = pivots[a]!;
         const own = composite[a]!;
@@ -145,6 +236,14 @@ function local(segment: BuiltSegment, point: Vec3): Vec3 {
   return [dot3(d, x), dot3(d, y), dot3(d, z)];
 }
 
+const add3 = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const signed = (a: Vec3, sign: number): Vec3 => [sign * a[0], sign * a[1], sign * a[2]];
+/** A symmetric inertia (xx, yy, zz, xy, xz, yz) times a vector. */
+const inertiaTimes = (I: Float64Array, v: Vec3): Vec3 => [
+  I[0]! * v[0] + I[3]! * v[1] + I[4]! * v[2],
+  I[3]! * v[0] + I[1]! * v[1] + I[5]! * v[2],
+  I[4]! * v[0] + I[5]! * v[1] + I[2]! * v[2],
+];
 const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];

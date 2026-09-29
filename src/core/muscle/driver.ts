@@ -76,19 +76,19 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  *   curve at 0.05 s at 120 Hz, and moved the lab's straights at 120 Hz from within a few per cent of
  *   1920 Hz to 5 % under for the Warrior and 15 % over for the Rogue.
  *
- * On the lab's three straights (Node stand, the computed-torque servo) the peak fist at 120 Hz,
- * 480 Hz and 1920 Hz, and in brackets the peak before the striking elbow meets its stop:
+ * On the lab's three straights (Node stand, the computed-torque servo with the motion under way,
+ * the fist read at the knuckles) the peak fist at 120 Hz, 480 Hz and 1920 Hz, and in brackets the
+ * peak before the striking elbow meets its stop:
  *
- *     Warrior  6.22 6.23 6.27 | 6.12 6.12 6.18 | 6.20 6.25 6.22   (the same)
- *     Rogue    5.55 5.64 5.57 | 6.00 6.63 6.12 | 6.36 6.78 6.50   (5.55 5.64 5.57 | 5.45 5.43 5.49 | 5.45 5.53 5.45)
+ *     Warrior  5.87 5.99 5.97 | 5.74 5.86 5.84 | 5.77 5.88 5.87   (the same)
+ *     Rogue    4.79 4.86 4.84 | 4.76 4.77 4.79 | 4.85 4.78 4.91   (4.79 4.86 4.84 | 4.69 4.77 4.74 | 4.70 4.78 4.76)
  *
- * They read the same with self-contact off. The Warrior's are within 1.7 % of the finest rate. The
- * Rogue's elbow reaches its stop opening at 32 rad/s, and the stop whips the light hand about the
- * wrist, at up to 66 rad/s at 1920 Hz: the fist gains up to a fifth for a few milliseconds. At
- * 120 Hz Havok takes the stop inside one step and the whip comes a step later and smaller (47 rad/s),
- * with the fist already slowing. Driven, before the stop, the Rogue's are within 2.2 % of the finest
- * rate. One blow is a poor reading of a rate: random strikes read 1.9 % apart when every activation
- * was scaled by 0.9999 (the plan, stage 2).
+ * Every rate is within 2.5 % of the finest. Without the motion under way the servo let a fast
+ * forearm throw the hand about the wrist: at the knuckles the Warrior's read 5.02-5.15, 4.92-5.05
+ * and 5.21-5.27, the hand trailing, and read at the fingertips, as they were until 2026-09-29, the
+ * Rogue's read 5.55-5.64, 6.00-6.63 and 6.36-6.78, the elbow's stop whipping her hand at up to 66
+ * rad/s at 1920 Hz. One blow is a poor reading of a rate: random strikes read 1.9 % apart when
+ * every activation was scaled by 0.9999 (the plan, stage 2).
  *
  * A heavy limb still gains a few per cent early at 120 Hz: a rod driven flat out from rest read
  * 5.8 % over the curve at 0.05 s, 2.1 % at 0.15 s (`tests/core-muscle.test.mjs`).
@@ -213,6 +213,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   const g = world.scene.getPhysicsEngine()?.gravity;
   const dynamics = bodyDynamics(built, g ? [g.x, g.y, g.z] : [0, 0, 0]);
   const angles = trackers.map((tracker) => tracker.angles);
+  const motion = { speeds: trackers.map((tracker) => tracker.speeds), spin: angularVelocity };
   let hook: Hook | null = null;
   const driver: MuscleDriver = {
     channels,
@@ -248,7 +249,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       tracker.project(appliedAngularImpulseToRef(tracker.joint.constraint, impulse), impulses[j]!);
     });
     for (let i = 0; i < n; i++) driver.pulled[i] = impulseOf[i]![channels[i]!.index]! / dt;
-    dynamics.update(angles);
+    dynamics.update(angles, motion);
     control?.(driver, dt);
     for (let i = 0; i < n; i++) {
       const c = channels[i]!;

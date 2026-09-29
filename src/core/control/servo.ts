@@ -20,8 +20,8 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * -2.39 at 120 Hz, and 2.61, 1.41 and 0.96 at 960 Hz; this servo ends at 2.54, 0.49 and 0.01 at
  * both; `tests/core-servo.test.mjs` holds it to that at a nearby pose.
  *
- * **As torques.** The servoed freedoms' torques are M a - gravity (`bodyDynamics`), where a is the
- * change of speed asked over the step, and each is given to the driver as a torque source: a speed
+ * **As torques.** The servoed freedoms' torques are M a + bias - gravity (`bodyDynamics`), where a
+ * is the change of speed asked over the step and bias what the motion under way asks, and each is given to the driver as a torque source: a speed
  * no joint reaches, at the activation that makes its ceiling that torque. Freedoms the goal leaves
  * be (a push) keep their command, whose torque the servo takes to be its ceiling toward its target,
  * and a servoed torque beyond what its muscles can give is held at their strength; the rest are
@@ -58,9 +58,15 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *   arm it spun the wrist at up to 14 rad/s and never reached the chamber at 1920 Hz. Gravity is
  *   known, and is computed; contact is left to the angle's error.
  *
- * Not modelled: the part of the motion that goes as the square of the speeds, and the root's own
- * acceleration (the lab carries its pelvis). Both leave the motion off the damped one it asks for,
- * alike at every rate, and the goal's error takes them up.
+ * **The motion under way** (`BodyDynamics.bias`, the part that goes as the square of the speeds)
+ * was left out until a searched blow showed its size. Without it the servo holds a joint only
+ * through its angle's error, and the error builds too slowly for a light segment at the end of a
+ * fast chain: the Rogue's forearm, driven straight, threw her servoed hand about the wrist at 83
+ * rad/s while the servo asked the wrist for next to nothing, and the hand's whip made 4.6 m/s of
+ * her fist's 8.7 (Node stand, 120 Hz).
+ *
+ * Not modelled: the root's own acceleration (the lab carries its pelvis). It leaves the motion off
+ * the damped one it asks for, alike at every rate, and the goal's error takes it up.
  *
  * Havok's own residues, which no servo setting moves:
  * - **A slow body is braked.** A body whose centre moves under about 0.12 m/s loses speed at a
@@ -68,9 +74,11 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *   speed limits, the joint's friction, the body's damping or its motor; a pure spin about the
  *   centre is not touched. A rod pinned at one end and let fall under gravity began at 2.1 rad/s^2
  *   against 3.16. A servo stops where its pull no longer beats the brake: the whole Rogue, lower
- *   trunk held, servoed to the guard at 0.1 s, stood still with its elbows 0.022 rad and its wrists
- *   0.026 rad short, with gravity or without, at 120 Hz, and 0.020 and 0.021 at 960 Hz; at 0.05 s,
- *   0.005 and 0.006 (Node stand). The band goes as the square of the time constant.
+ *   trunk held, servoed to the guard at 0.1 s, stood still with its elbows 0.013 rad and its wrists
+ *   0.031 rad short at 120 Hz, and 0.011 and 0.029 at 960 Hz; at 0.05 s and 960 Hz, 0.003 and
+ *   0.008 (Node stand). Where in the band a joint stops depends on how it came: before the servo
+ *   asked for the motion under way the same hold read 0.022 and 0.026 at 120 Hz. The band goes as
+ *   the square of the time constant.
  * - **The wrist's pronation flickers at 120 Hz**: its solver speed turns over from step to step
  *   while its angle holds within 0.01 rad, and a joint coming back to a hold jolts it by 0.03 rad
  *   for a step.
@@ -89,7 +97,7 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  */
 export function servo(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number): void {
   const n = 1 / seconds, count = driver.channels.length;
-  const { mass, gravity } = driver.dynamics;
+  const { mass, gravity, bias } = driver.dynamics;
   let work = scratch.get(driver);
   if (!work) scratch.set(driver, (work = { change: new Float64Array(count), accel: new Float64Array(count),
     torque: new Float64Array(count), fixed: new Uint8Array(count) }));
@@ -120,7 +128,7 @@ export function servo(driver: MuscleDriver, goal: (channel: number) => number | 
   // The torques, solved around the fixed ones; a torque the muscles cannot give is held at their
   // strength and the rest solved again.
   for (let pass = 0; pass <= count; pass++) {
-    solveAround(mass, gravity, fixed, torque, accel, count);
+    solveAround(mass, gravity, bias, fixed, torque, accel, count);
     let clipped = false;
     for (let i = 0; i < count; i++) {
       if (fixed[i]) continue;
@@ -142,20 +150,20 @@ interface Work { change: Float64Array; accel: Float64Array; torque: Float64Array
 const scratch = new WeakMap<MuscleDriver, Work>();
 
 /**
- * With M u' = torque + gravity: the fixed freedoms' accelerations from their torques and the free
- * ones' accelerations, then the free ones' torques. Writes `torque` for the free freedoms and
+ * With M u' + bias = torque + gravity: the fixed freedoms' accelerations from their torques and the
+ * free ones' accelerations, then the free ones' torques. Writes `torque` for the free freedoms and
  * `accel` for the fixed ones. M restricted to the fixed freedoms is positive definite (a mass
  * matrix), so it is solved by Cholesky.
  */
-function solveAround(mass: readonly Float64Array[], gravity: Float64Array, fixed: Uint8Array,
+function solveAround(mass: readonly Float64Array[], gravity: Float64Array, bias: Float64Array, fixed: Uint8Array,
   torque: Float64Array, accel: Float64Array, count: number): void {
   const F: number[] = [], S: number[] = [];
   for (let i = 0; i < count; i++) (fixed[i] ? F : S).push(i);
   if (F.length) {
-    // M_FF a_F = torque_F + gravity_F - M_FS a_S
+    // M_FF a_F = torque_F + gravity_F - bias_F - M_FS a_S
     const m = F.length, L = new Float64Array(m * m), b = new Float64Array(m);
     F.forEach((f, r) => {
-      let rhs = torque[f]! + gravity[f]!;
+      let rhs = torque[f]! + gravity[f]! - bias[f]!;
       for (const s of S) rhs -= mass[f]![s]! * accel[s]!;
       b[r] = rhs;
     });
@@ -169,7 +177,7 @@ function solveAround(mass: readonly Float64Array[], gravity: Float64Array, fixed
     F.forEach((f, r) => { accel[f] = b[r]!; });
   }
   for (const s of S) {
-    let sum = -gravity[s]!;
+    let sum = bias[s]! - gravity[s]!;
     for (let j = 0; j < count; j++) sum += mass[s]![j]! * accel[j]!;
     torque[s] = sum;
   }
