@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { CONTACT_FRICTION, type ColliderShape, type Contact, type CoreJoint, type JointFrames, type MassProperties,
+import { CONTACT_FRICTION, type ColliderShape, type Contact, type CoreJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 
 /**
@@ -109,6 +109,13 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
     }
   };
 
+  /** A collider with no body: fixed in the world, under the contract's contact. */
+  const fixed = (desc: RAPIER.ColliderDesc): FixedCollider => {
+    const collider = raw.createCollider(contact(desc));
+    let gone = false;
+    return { dispose() { if (gone || freed) return; gone = true; raw.removeCollider(collider, false); } };
+  };
+
   const physics: RapierPhysics = {
     engine: "rapier", rapier: R, raw, gravity: g,
     addBody(node, shapes, mass) {
@@ -175,11 +182,10 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       };
     },
     addFixedBox(centre, size, turn = 0) {
-      const collider = raw.createCollider(contact(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre)
-        .setRotation({ x: 0, y: Math.sin(turn / 2), z: 0, w: Math.cos(turn / 2) })));
-      let gone = false;
-      return { dispose() { if (gone || freed) return; gone = true; raw.removeCollider(collider, false); } };
+      return fixed(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre)
+        .setRotation({ x: 0, y: Math.sin(turn / 2), z: 0, w: Math.cos(turn / 2) }));
     },
+    addFixedShape(shape) { return fixed(colliderOf(shape)); },
     contactsOf(segment) {
       const body = own(segment);
       const touched = new Map<RapierBody, { impulse: number; point: number[]; normal: number[] }>();

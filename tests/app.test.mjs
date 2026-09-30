@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { ARENA_LINK_PARAM, MENU_HREF, playHref, routeFor } from "../src/app-route.ts";
-import { MATCHUP_PARAM } from "../src/bout.ts";
+import { MATCHUP_PARAM } from "../src/arena/matchup.ts";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 const template = (html, id) => {
@@ -28,7 +28,7 @@ test("an_address_opens_the_menu_the_arena_the_dungeon_or_the_lab", () => {
   assert.equal(MENU_HREF, "./");
 });
 
-test("the_arena_link_parameter_is_the_one_bout_writes", () => {
+test("the_arena_link_parameter_is_the_one_the_arena_page_writes", () => {
   assert.equal(ARENA_LINK_PARAM, MATCHUP_PARAM);
 });
 
@@ -56,10 +56,10 @@ test("no_screen_boots_itself_when_it_is_imported", async () => {
   // A statement at column 0 that calls a boot function, however spelt: `boot()`, `void boot();`,
   // `bootArena();`. Calls inside `bootArena`'s body are indented and do not match.
   const selfBoot = /^(?:void\s+|await\s+)?boot\w*\(/m;
-  for (const [path, name] of [["../src/main.ts", "bootArena"], ["../src/dungeon/main.ts", "bootDungeon"]]) {
+  for (const [path, name] of [["../src/arena/main.ts", "bootArena"], ["../src/dungeon/main.ts", "bootDungeon"]]) {
     const source = await read(path);
     assert.doesNotMatch(source, selfBoot, `${path} boots on import`);
-    assert.match(source, new RegExp(`export function ${name}\\(\\): Promise<void>`));
+    assert.match(source, new RegExp(`export (?:async )?function ${name}\\(\\): Promise<void>`));
   }
   // The lab's shell does all its work in `bootLab`: nothing at column 0 but imports, declarations
   // and the function itself.
@@ -89,7 +89,7 @@ test("the_app_mounts_the_templates_index_html_holds_and_the_buttons_go_where_the
     assert.ok(at >= 0, `app.ts has ${mark}`);
     return at;
   }).every((at, i, all) => i === 0 || at > all[i - 1]);
-  assert.ok(order('await import("./style.css");', 'await import("./forge-ui.css");', 'mount("arena-screen");', 'await import("./main.ts");'),
+  assert.ok(order('await import("./style.css");', 'await import("./forge-ui.css");', 'mount("arena-screen");', 'await import("./arena/main.ts");'),
     "arena: style.css, forge-ui.css, mount, module");
   assert.ok(order('await import("./dungeon/style.css");', 'mount("dungeon-screen");', 'await import("./dungeon/main.ts");'),
     "dungeon: stylesheet, mount, module");
@@ -98,7 +98,7 @@ test("the_app_mounts_the_templates_index_html_holds_and_the_buttons_go_where_the
 });
 
 test("both_modes_lead_back_to_the_menu_and_the_old_address_forwards", async () => {
-  const [html, main, redirect, labRedirect] = await Promise.all([read("../index.html"), read("../src/main.ts"), read("../dungeon.html"),
+  const [html, main, redirect, labRedirect] = await Promise.all([read("../index.html"), read("../src/arena/main.ts"), read("../dungeon.html"),
     read("../core-lab.html")]);
   const arena = template(html, "arena-screen"), dungeon = template(html, "dungeon-screen");
   assert.match(arena, /id="to-menu"/);

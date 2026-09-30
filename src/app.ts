@@ -42,7 +42,7 @@ async function open(route: Route): Promise<void> {
       return;
     }
     case "arena": {
-      document.title = "Golem Duel · Auto-RPG";
+      document.title = "Arena · Auto-RPG";
       // Stylesheets first, so the screen is never shown unstyled, and one after the other:
       // forge-ui.css overrides style.css at equal specificity (`.action`, `#pause-menu`, the
       // `:root` colours), and in dev each sheet is inserted when its module runs, so two imports in
@@ -50,7 +50,7 @@ async function open(route: Route): Promise<void> {
       await import("./style.css");
       await import("./forge-ui.css");
       mount("arena-screen");
-      const { bootArena } = await import("./main.ts");
+      const { bootArena } = await import("./arena/main.ts");
       return bootArena();
     }
     case "dungeon": {

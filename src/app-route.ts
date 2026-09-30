@@ -10,9 +10,9 @@ export type Route = "menu" | "arena" | "dungeon" | "lab";
 export const PLAY_PARAM = "play";
 
 /**
- * The arena's link parameter, `MATCHUP_PARAM` in `src/bout.ts`, copied rather than imported so the
- * menu does not load the arena's module graph. `the_arena_link_parameter_is_the_one_bout_writes`
- * pins the two together.
+ * The arena's link parameter, `MATCHUP_PARAM` in `src/arena/matchup.ts`, copied rather than imported
+ * so the menu does not load the arena's module graph.
+ * `the_arena_link_parameter_is_the_one_the_arena_page_writes` pins the two together.
  */
 export const ARENA_LINK_PARAM = "matchup";
 

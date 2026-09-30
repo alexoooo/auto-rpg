@@ -24,30 +24,27 @@
     </template>
     <template id="arena-screen">
       <canvas id="stage"></canvas>
+      <!-- Each side's name and bar, and the bout's clock; filled by src/arena/main.ts. -->
       <div id="hud"></div>
-      <div id="mode"></div>
-      <!-- Setup replaces the arena because no bout exists yet. Pause does not:
-           its compact sibling below leaves the frozen arena visible. -->
-      <!-- One grid over the live arena: a title across the top, a contender panel at each edge, an
-           open centre where the two bodies stand, Fight under them and a footer. -->
+      <!-- Setup covers the arena because no bout exists yet. Pause does not: its compact sibling
+           below leaves the frozen arena visible. -->
+      <!-- One grid over the arena: a title across the top, a contender panel at each edge, an
+           open centre, Fight under it and a footer. -->
       <div id="curtain">
         <header class="duel-title">
-          <h1>Golem Duel</h1>
-          <p>Two bodies built from parts, and a fight that is only physics.</p>
+          <h1>Arena</h1>
+          <p>Two bodies, a club each, and a fight that is only physics.</p>
         </header>
-        <!-- Filled by src/setup.ts from the unit and policy registries, so an option that is
-             offered is one the code actually has. Its children are laid straight into this grid. -->
+        <!-- Filled by src/arena/main.ts from the core's models, so an option that is offered is
+             one the core has. Its children are laid straight into this grid. -->
         <div id="matchup"></div>
-        <button id="begin" class="action" type="button">Fight</button>
+        <button id="begin" class="action" type="button" disabled>Fight</button>
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
-          <p class="note" id="boot-note">Loading Havok&hellip;</p>
+          <p class="note" id="boot-note">Loading the physics&hellip;</p>
           <a href="./">&larr; Main menu</a>
         </footer>
       </div>
-      <!-- Real-time-with-pause mode: a control surface in the game view, not a
-           second screen. Focus loss (including a screenshot tool taking focus)
-           freezes the world and reveals this without covering the composition. -->
       <aside id="pause-menu" class="gone" aria-label="Game paused">
         <div class="pause-copy">
           <strong>PAUSED</strong>
@@ -62,47 +59,29 @@
         </div>
         <span class="pause-help"><b>?</b> controls</span>
       </aside>
-      <!-- The end of a bout: the same fight again, or the corner you do not drive redrawn. Its own
-           element, shown only while a bout is decided, and never the curtain or the pause menu. -->
+      <!-- The end of a bout: the verdict, then the same fight again or the right side redrawn. -->
       <aside id="bout-end" class="gone" aria-label="Bout over">
+        <strong id="bout-verdict"></strong>
         <button id="bout-end-replay" class="action" type="button">Replay</button>
         <button id="bout-end-random" class="action" type="button">Random replay</button>
         <button id="bout-end-leave" class="action quiet" type="button">Setup</button>
       </aside>
-      <!-- The controls, on their own overlay rather than on the curtain.
-           Seventeen rows above the Fight button pushed it off the bottom of a
-           laptop window and had to be scrolled past every time a bout was
-           chosen; `?` is where a key list belongs and it works mid-fight too. -->
       <div id="help" class="gone">
         <div class="panel">
           <h1>Controls</h1>
           <p class="lede">
-            You <b>command</b>; you do not puppet. The side you command is fought by its own
-            policy &mdash; arms, guard and footwork &mdash; and what you give it are orders:
-            whom to attack and where to go. It keeps defending itself while it goes.
+            You watch; each side is fought by its own mind, which walks at the other and swings
+            its club at the other&rsquo;s head. A side is out when its bar empties, its head goes,
+            or it falls; after two minutes the fuller bar wins.
           </p>
           <dl class="keys">
-            <dt>Command / Stand down</dt><dd>beside each fighter&rsquo;s name in the readout &mdash; give that side orders, or hand it back to its own orders, in a fight or a pause</dd>
-            <dt>Click the enemy</dt><dd>attack it &mdash; and drop any place to hold</dd>
-            <dt>Click the floor</dt><dd>go there and hold it, fighting from there</dd>
-            <dt>Right-click the floor</dt><dd>attack-move &mdash; walk there, and fight whatever comes near</dd>
-            <dt>W / A / S / D</dt><dd>steer, relative to the camera &mdash; let go to hold where you stopped</dd>
-            <dt>H</dt><dd>hold the ground you are standing on</dd>
-            <dt>X</dt><dd>no orders &mdash; fight the nearest, as a side with none does</dd>
-            <dt>Middle drag</dt><dd>orbit the camera; hold Shift to pan</dd>
-            <dt>Wheel</dt><dd>zoom &mdash; the camera only; no fighter is asked for anything</dd>
-            <dt>V</dt><dd>camera &mdash; Overhead behind the fighter, or Fixed on a world bearing</dd>
-            <dt>[ / ]</dt><dd>swing the Fixed camera round the arena</dd>
+            <dt>Middle or right drag</dt><dd>orbit the camera</dd>
+            <dt>Wheel</dt><dd>zoom</dd>
             <dt>Space / Esc</dt><dd>pause, and resume &mdash; the same key both ways</dd>
             <dt>R</dt><dd>this bout again</dd>
-            <dt>Random replay</dt><dd>at a verdict or in the pause menu &mdash; the side you are not commanding is redrawn</dd>
-            <dt>Tab</dt><dd>toggle the physics readout</dd>
+            <dt>Random replay</dt><dd>at a verdict or in the pause menu &mdash; the right side is redrawn</dd>
             <dt>?</dt><dd>this list</dd>
           </dl>
-          <h2>Policies</h2>
-          <!-- Filled by src/main.ts from `POLICIES` and `policyLine`, so the list is every policy
-               the pickers offer, in their order. -->
-          <dl class="keys policy-list" id="help-policies"></dl>
           <button id="help-close" class="action" type="button">Close</button>
         </div>
       </div>

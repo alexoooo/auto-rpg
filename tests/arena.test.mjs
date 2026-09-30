@@ -31,6 +31,8 @@ import {
   validateRoomPlacements,
   validateVisualColliderPairs,
 } from "../src/arena-room.ts";
+import { createWorld } from "../src/core/world.ts";
+import { freshEngine } from "./harness/core-stand.mjs";
 
 const havokWasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 
@@ -194,6 +196,21 @@ test("cosmetic_room_dressing_creates_no_physics_body", async (t) => {
   room.dispose();
   assert.equal(bodies(scene), before, "cosmetic disposal cannot disturb authoritative bodies");
   colliders.dispose();
+});
+
+test("the_arena_room_stands_on_a_core_world_whose_colliders_stand_behind_its_pairs", async (t) => {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  t.after(() => engine.dispose());
+  const core = createWorld(scene, await freshEngine());
+  const world = buildArenaWorld(scene, makeMaterials(scene), undefined, undefined, core.physics);
+  assert.equal(scene.getPhysicsEngine(), null, "no Havok on the scene");
+  const pairs = world.audit().visualColliderPairs;
+  assert.ok(pairs.length > 0);
+  assert.deepEqual(validateVisualColliderPairs(scene, pairs), [], "each pair names a mesh a core collider stands behind");
+  // The control: the same room with its collider meshes unmarked is refused.
+  for (const mesh of scene.meshes) if (mesh.metadata?.coreCollider) mesh.metadata = { ...mesh.metadata, coreCollider: false };
+  assert.match(validateVisualColliderPairs(scene, pairs).join("\n"), /which has no physics body/);
+  core.dispose();
 });
 
 test("every_reachable_solid_visual_names_an_existing_collider", async (t) => {

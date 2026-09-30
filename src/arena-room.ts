@@ -12,6 +12,8 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/core/Meshes/instancedMesh.js";
 
 import { COLLIDES, LAYER } from "./physics.ts";
+import type { FixedCollider, PhysicsWorld } from "./core/engine/engine.ts";
+import type { Vec3 } from "./core/spec/quantity.ts";
 import { applyObjectSurface, type ObjectMaterials } from "./object-surfaces.ts";
 import { ROOM_METRES } from "./materials.ts";
 
@@ -230,6 +232,9 @@ export function validateRoomPlacements(groups: readonly RoomGroup[], registeredC
   return failures;
 }
 
+/** Whether `mesh` stands for a collider: a Havok body on it, or a core world's fixed collider (`buildArenaColliders`). */
+export const isCollider = (mesh: AbstractMesh): boolean => Boolean(mesh.physicsBody || mesh.metadata?.coreCollider);
+
 /** Resolve pair names against live authority, not against the placement table. */
 export function validateVisualColliderPairs(
   scene: Scene,
@@ -247,7 +252,7 @@ export function validateVisualColliderPairs(
       failures.push(`${pair.visual} names missing collider ${pair.collider}`);
       continue;
     }
-    if (!collider.physicsBody) {
+    if (!isCollider(collider)) {
       failures.push(`${pair.visual} names ${pair.collider}, which has no physics body`);
       continue;
     }
@@ -354,51 +359,107 @@ export interface ArenaColliders {
   dispose(): void;
 }
 
+/** The ring of posts round the fighting floor: how many, the ring's radius, and each post's size and sides, m. */
+export const ARENA_POSTS = Object.freeze({ count: 14, ring: 9.5, height: 1.5, diameter: 0.17, sides: 8 });
+
+/** One of the arena's fixed colliders, world, m: a box by its centre and full size, or a post by its corners. */
+export type ArenaSolid =
+  | { readonly name: string; readonly kind: "box"; readonly centre: Vec3; readonly size: Vec3 }
+  | { readonly name: string; readonly kind: "hull"; readonly centre: Vec3; readonly points: readonly Vec3[] };
+
+/**
+ * What a body meets in the arena: the ground's slab, the four walls (`ROOM_WALL_COLLIDERS`) and the ring of posts
+ * (`ARENA_POSTS`). A post is the prism its mesh draws, `CreateCylinder` of `sides` sides, corner for corner.
+ */
+export function arenaSolids(): readonly ArenaSolid[] {
+  const solids: ArenaSolid[] = [{ name: "ground", kind: "box", centre: [0, -0.5, 0], size: [60, 1, 60] }];
+  for (const wall of ROOM_WALL_COLLIDERS) {
+    solids.push({ name: wall.name, kind: "box", centre: [...wall.position], size: [wall.width, wall.height, wall.depth] });
+  }
+  const { count, ring, height, diameter, sides } = ARENA_POSTS;
+  for (let index = 0; index < count; index += 1) {
+    const angle = (index / count) * Math.PI * 2;
+    const centre: Vec3 = [Math.sin(angle) * ring, height / 2, Math.cos(angle) * ring];
+    const points: Vec3[] = [];
+    for (const y of [0, height]) for (let side = 0; side < sides; side += 1) {
+      const a = (side / sides) * Math.PI * 2;
+      points.push([centre[0] + Math.cos(a) * diameter / 2, y, centre[2] + Math.sin(a) * diameter / 2]);
+    }
+    solids.push({ name: `post${index}`, kind: "hull", centre, points });
+  }
+  return solids;
+}
+
+/** The arena's solids as fixed colliders in a core world. */
+export function addArenaSolids(physics: PhysicsWorld, solids: readonly ArenaSolid[] = arenaSolids()): FixedCollider[] {
+  return solids.map((solid) => {
+    switch (solid.kind) {
+      case "box": return physics.addFixedBox(solid.centre, solid.size);
+      case "hull": return physics.addFixedShape({ kind: "hull", points: solid.points });
+      default: {
+        const never: never = solid;
+        throw new Error(`unknown solid ${JSON.stringify(never)}`);
+      }
+    }
+  });
+}
+
+export interface ArenaColliders {
+  readonly meshes: readonly Mesh[];
+  readonly pairs: readonly VisualColliderPair[];
+  dispose(): void;
+}
+
+/**
+ * The arena's solids (`arenaSolids`) as meshes: the ground and walls invisible, the posts drawn. With `physics` they
+ * are fixed colliders in that core world; without, Havok bodies on the meshes, as the module bench still has them.
+ */
 export function buildArenaColliders(
   scene: Scene,
   materials: RoomMaterials,
   shadows: ShadowRegistry = NO_SHADOWS,
+  physics?: PhysicsWorld,
 ): ArenaColliders {
   const meshes: Mesh[] = [];
   const aggregates: PhysicsAggregate[] = [];
   const pairs: VisualColliderPair[] = [];
-  const ground = MeshBuilder.CreateBox("ground", { width: 60, height: 1, depth: 60 }, scene);
-  ground.position.y = -0.5;
-  ground.material = materials.ground;
-  ground.isVisible = false;
-  const groundBody = new PhysicsAggregate(
-    ground, PhysicsShapeType.BOX, { mass: 0, friction: 0.9, restitution: 0.02 }, scene,
-  );
-  groundBody.shape.filterMembershipMask = LAYER.WORLD;
-  groundBody.shape.filterCollideMask = COLLIDES.WORLD;
-  meshes.push(ground); aggregates.push(groundBody);
-
-  for (const wall of ROOM_WALL_COLLIDERS) {
-    const collider = MeshBuilder.CreateBox(wall.name, {
-      width: wall.width, height: wall.height, depth: wall.depth,
-    }, scene);
-    collider.position.set(...wall.position);
-    collider.isVisible = false;
-    const body = new PhysicsAggregate(
-      collider, PhysicsShapeType.BOX, { mass: 0, friction: 0.3, restitution: 0.05 }, scene,
-    );
-    body.shape.filterMembershipMask = LAYER.WORLD;
-    body.shape.filterCollideMask = COLLIDES.WORLD;
-    meshes.push(collider); aggregates.push(body);
-  }
-
-  for (let index = 0; index < 14; index += 1) {
-    const angle = (index / 14) * Math.PI * 2;
-    const post = MeshBuilder.CreateCylinder(`post${index}`, { height: 1.5, diameter: 0.17, tessellation: 8 }, scene);
-    post.position.set(Math.sin(angle) * 9.5, 0.75, Math.cos(angle) * 9.5);
+  const solids = arenaSolids();
+  const fixed = physics ? addArenaSolids(physics, solids) : [];
+  // A mesh a core collider stands behind says so, for the checks that ask what is solid (`isCollider`).
+  const mark = (mesh: Mesh) => { if (physics) mesh.metadata = { ...mesh.metadata, coreCollider: true }; };
+  for (const solid of solids) {
+    if (solid.kind === "box") {
+      const box = MeshBuilder.CreateBox(solid.name, { width: solid.size[0], height: solid.size[1], depth: solid.size[2] }, scene);
+      box.position.set(...solid.centre);
+      box.isVisible = false;
+      if (solid.name === "ground") box.material = materials.ground;
+      mark(box);
+      meshes.push(box);
+      if (!physics) {
+        const ground = solid.name === "ground";
+        const body = new PhysicsAggregate(box, PhysicsShapeType.BOX,
+          ground ? { mass: 0, friction: 0.9, restitution: 0.02 } : { mass: 0, friction: 0.3, restitution: 0.05 }, scene);
+        body.shape.filterMembershipMask = LAYER.WORLD;
+        body.shape.filterCollideMask = COLLIDES.WORLD;
+        aggregates.push(body);
+      }
+      continue;
+    }
+    const { height, diameter, sides } = ARENA_POSTS;
+    const post = MeshBuilder.CreateCylinder(solid.name, { height, diameter, tessellation: sides }, scene);
+    post.position.set(...solid.centre);
+    mark(post);
     applyObjectSurface(post, "arena.post", materials);
     post.receiveShadows = true;
     shadows.add(post);
-    const body = new PhysicsAggregate(post, PhysicsShapeType.CYLINDER, { mass: 0 }, scene);
-    body.shape.filterMembershipMask = LAYER.WORLD;
-    body.shape.filterCollideMask = COLLIDES.WORLD;
-    meshes.push(post); aggregates.push(body);
+    meshes.push(post);
     pairs.push({ visual: post.name, collider: post.name });
+    if (!physics) {
+      const body = new PhysicsAggregate(post, PhysicsShapeType.CYLINDER, { mass: 0 }, scene);
+      body.shape.filterMembershipMask = LAYER.WORLD;
+      body.shape.filterCollideMask = COLLIDES.WORLD;
+      aggregates.push(body);
+    }
   }
   return {
     meshes,
@@ -408,6 +469,7 @@ export function buildArenaColliders(
         if (mesh.name.startsWith("post")) shadows.remove(mesh);
       }
       for (const aggregate of aggregates) aggregate.dispose();
+      for (const collider of fixed) collider.dispose();
       for (let index = meshes.length - 1; index >= 0; index -= 1) {
         if (!meshes[index].isDisposed()) meshes[index].dispose(false, false);
       }
@@ -485,8 +547,9 @@ export function buildArenaWorld(
   materials: RoomMaterials,
   shadows: ShadowRegistry = NO_SHADOWS,
   groups: readonly RoomGroup[] = ROOM_GROUPS,
+  physics?: PhysicsWorld,
 ): ArenaWorld {
-  const colliders = buildArenaColliders(scene, materials, shadows);
+  const colliders = buildArenaColliders(scene, materials, shadows, physics);
   const room = buildCosmeticRoom(scene, materials, shadows, groups);
   const visualColliderPairs = Object.freeze([...colliders.pairs, ...room.pairs].map((pair) => Object.freeze(pair)));
   const alignmentFailures = validateVisualColliderPairs(scene, visualColliderPairs);
@@ -519,7 +582,7 @@ export function buildArenaWorld(
       if (mesh.isDisposed()) continue;
       census.meshes += 1;
       if (mesh.getClassName() === "InstancedMesh") census.instances += 1;
-      if (mesh.physicsBody) census.bodies += 1;
+      if (isCollider(mesh)) census.bodies += 1;
       const material = mesh.material;
       if (material && !ownedMaterials.includes(material)) ownedMaterials.push(material);
     }

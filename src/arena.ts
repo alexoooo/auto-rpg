@@ -32,6 +32,7 @@ import { OBJECT_SURFACE_VARIANTS, TEXTURED_SURFACES } from "./materials";
 import { attachPhysics } from "./physics";
 import { sharedSurface, surfaceVariant } from "./surface";
 import { buildArenaWorld, type ArenaAudit, type RoomOcclusionTarget } from "./arena-room";
+import type { PhysicsWorld } from "./core/engine/engine.ts";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
 import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
@@ -83,23 +84,30 @@ function plainSurface(
   return material;
 }
 
-export async function buildArena(engine: Engine): Promise<Arena> {
-  await loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error));
+/**
+ * The arena's scene: its light, its room and its solids. Given `core`, the core's world is made on the
+ * scene (`createWorld`) and the solids are its fixed colliders; without, Havok and the old golems' art.
+ */
+export async function buildArena(engine: Engine, core?: (scene: Scene) => PhysicsWorld): Promise<Arena> {
+  if (!core) await loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error));
   const scene = new Scene(engine);
-  await loadWorkshopAssets(scene);
+  if (!core) await loadWorkshopAssets(scene);
   scene.clearColor = new Color4(0.055, 0.062, 0.078, 1);
   scene.ambientColor = new Color3(0.14, 0.15, 0.18);
 
   // Physics first. Every PhysicsAggregate below needs a live engine on the
   // scene, and building one before it exists fails with the singularly
   // unhelpful "No Physics Engine available".
-  attachPhysics(scene, await HavokPhysics({ locateFile: () => havokWasmUrl }));
+  const physics = core?.(scene);
+  if (!physics) {
+    attachPhysics(scene, await HavokPhysics({ locateFile: () => havokWasmUrl }));
 
-  // A fixed physics timestep, accumulated across frames. Babylon reads this in
-  // Scene._advancePhysicsEngineStep and steps the solver a whole number of times
-  // per frame, so the solver never sees a variable delta. The value is in
-  // milliseconds. Without it the sword shivers in the hand.
-  scene.getPhysicsEngine()?.setSubTimeStep(1000 / CONFIG.world.physicsHz);
+    // A fixed physics timestep, accumulated across frames. Babylon reads this in
+    // Scene._advancePhysicsEngineStep and steps the solver a whole number of times
+    // per frame, so the solver never sees a variable delta. The value is in
+    // milliseconds. Without it the sword shivers in the hand.
+    scene.getPhysicsEngine()?.setSubTimeStep(1000 / CONFIG.world.physicsHz);
+  }
 
   const camera = new FreeCamera("camera", new Vector3(0, 2, -4), scene);
   camera.fov = CONFIG.camera.fov;
@@ -176,7 +184,7 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   const world = buildArenaWorld(scene, materials, {
     add: (mesh) => shadows.addShadowCaster(mesh),
     remove: (mesh) => shadows.removeShadowCaster(mesh),
-  });
+  }, undefined, physics);
 
   paveForge(scene, forge.kit, forge.materials.pavement, forge.materials.lava);
   dressForgeRoom(scene, forge);

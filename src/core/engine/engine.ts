@@ -130,6 +130,8 @@ export interface PhysicsWorld {
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): CoreJoint;
   /** A fixed box, centre and full size, world, turned `turn` about up (rad; 0 unturned). */
   addFixedBox(centre: Vec3, size: Vec3, turn?: number): FixedCollider;
+  /** A fixed collider of any shape a body takes (`ColliderShape`), its coordinates world. */
+  addFixedShape(shape: ColliderShape): FixedCollider;
   /** Every other dynamic body `body` touched in the last step (`Contact`); fixed colliders are not bodies. */
   contactsOf(body: SegmentBody): readonly Contact[];
   /** One solver step of `dt`, then every body's node written from its body. */

@@ -135,3 +135,30 @@ test("a fixed box turned a quarter about up lies across where it lay", async () 
     } finally { b.dispose(); }
   }
 });
+
+test("a fixed hull stands where its points are in the world", async () => {
+  // An eight-sided post 0.4 m across and 1 m tall at x = 3, as the arena's are: a ball dropped on it rests on its top,
+  // and one dropped beside it falls. A ball, since a body is capsules and balls: a 0.2 m box on this post sinks 1.6 cm
+  // into its top and stays there (on eight or sixteen sides; not on four or six, nor on a fixed box), which Rapier
+  // does and the contract does not ask for (Node, Rapier, 120 Hz).
+  const post = Array.from({ length: 16 }, (_, i) => {
+    const a = (i % 8) * Math.PI / 4;
+    return [3 + 0.2 * Math.cos(a), i < 8 ? 0 : 1, 0.2 * Math.sin(a)];
+  });
+  const radius = SIDE / 2;
+  for (const [x, caught] of [[3, true], [2.5, false]]) {
+    const b = await box({ ground: false, height: 5 });
+    try {
+      b.physics.addFixedShape({ kind: "hull", points: post });
+      const node = new TransformNode("ball", b.node.getScene());
+      node.position.set(x, 1.5, 0); node.rotationQuaternion = Quaternion.Identity();
+      const moment = 0.4 * radius * radius;
+      b.physics.addBody(node, [{ kind: "sphere", centre: [0, 0, 0], radius }],
+        { mass: 1, centre: [0, 0, 0], moments: [moment, moment, moment], orientation: Quaternion.Identity() });
+      b.step(HZ);
+      const y = node.position.y;
+      if (caught) assert.ok(Math.abs(y - 1 - radius) < 0.002, `a ball dropped on the post rests on its top: ${y}`);
+      else assert.ok(y < 0, `a ball dropped beside the post falls past it: ${y}`);
+    } finally { b.dispose(); }
+  }
+});

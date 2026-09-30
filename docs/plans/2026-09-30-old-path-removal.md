@@ -121,6 +121,30 @@ skills more dynamically."
    the core's world, and its visible room stays. The setup offers core bodies; the bout is two
    minds, the core's rules (`src/core/rules/`) and a verdict. Acceptance: a bout runs to its end
    in the Node harness and on the page.
+   - **Landed (2026-09-30).** `arenaSolids` (`src/arena-room.ts`) lists what a body meets: the
+     ground's slab, the four walls and the fourteen posts, each post the eight-sided prism its
+     mesh draws, corner for corner; `addArenaSolids` puts them in a core world through the
+     engine's new `addFixedShape` (a fixed collider of any body shape). `buildArenaColliders`
+     and `buildArena` take the core's physics, and without it keep Havok for the module bench
+     until step 5; a collider mesh a core collider stands behind says so (`isCollider`), so the
+     room's visual-collider pairs are checked as before. The crypt's mind is now the core's
+     (`fighterMind`, `src/core/mind/fighter.ts`), with `ATTACK_METRES`. A bout (`Duel`,
+     `src/arena/duel.ts`) is two clubbed core bodies 4 m apart across the centre, both built
+     facing +z and each turning a quarter to the other (recorded, not asked), the arena's
+     rulebook, and a verdict: a side is out once its pool has ended or its body has fallen, both
+     out on one step draw, and at 120 s the fuller bar wins (recorded, not asked). The page
+     (`src/arena/main.ts`, the arena template rewritten) offers the Warrior, the Rogue and the
+     skeleton each side, skins them with their clubs, and has pause, replay, random replay (the
+     right side redrawn), setup and `?matchup=left,right` links; a person watches, since the core
+     has no orders for a side yet (recorded, not asked). The old arena (`src/main.ts` and what it
+     reaches) is no longer routed, and goes in step 5. Tests: `arena-core` (the posts are their
+     meshes' prisms; a ball rests on a post; Warrior against Rogue ends with the Warrior's fall
+     at 18.9 s, its bar the fuller at 0.99 to 0.70, after 31 blows, and a replay in the same
+     world stands where it was built), and the room on a core world in `arena` (Node, core world, Rapier,
+     120 Hz). A built preview, stepped by hand in a hidden tab, ran Warrior against Rogue to its
+     verdict (the Warrior by the Rogue's fall at 16.6 s, bars 0.99 and 0.86, 10 blows) and drew
+     the verdict bar; a `?matchup=` link opened a skeleton against the Warrior directly. 1150
+     tests, 1147 pass, 3 todo.
 5. **Delete the old path.** `src/golem/`, the old fight, minds, walking and scoring, `bench.html`,
    `art-proof.html` and their sources, the tests, harnesses, research and scripts that reach them,
    Havok (package, adapter, the `?url` import), and the page inputs and warmup entries they leave.

@@ -6,15 +6,13 @@ import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { armed } from "../core/human/grip.ts";
 import { modelSpec, type CoreModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
-import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { ATTACK_METRES, fighterMind } from "../core/mind/fighter.ts";
 import { driveBy, type Mind } from "../core/mind/mind.ts";
 import type { Skills } from "../core/skills/skills.ts";
-import { APPROACH } from "../core/skills/strike.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
 import { rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec } from "../core/spec/body.ts";
-import type { Vec3 } from "../core/spec/quantity.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, walkable,
   type DungeonMap, type Point } from "./map.ts";
@@ -34,13 +32,8 @@ import { companionSpawn } from "./party-placement.ts";
  *
  * - **The hero** is the Warrior, **the companions** Rogues, **the enemies** skeletons, each with the
  *   wooden club in the right hand, the one weapon the core has (recorded, not asked).
- * - **A mind** walks its plan's direction at its body's fastest walk (`CoreBody.envelope`), facing
- *   it, and within `ATTACK_METRES` of its target attacks the target's head with the club: the strike
- *   skill brings the body the rest of the way (`APPROACH` in `src/core/skills/strike.ts`). It holds
- *   the point it aims at while the head stays within `APPROACH.reach` of it, and aims again after
- *   each blow: the skill sets the feet for the point it is given, and a point that follows a swaying
- *   head moved each placing of the feet before it was done (two bodies aiming at each other in
- *   the crypt stood placing their feet for 25 s, Node, Rapier, 120 Hz).
+ * - **A mind** is a fighter's (`fighterMind`): it walks its plan's direction, and within
+ *   `ATTACK_METRES` of its target attacks the target's head with the club.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
  *   of the fight once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
  *   core has no rising yet, so a body down stays down (recorded, not asked). Nobody attacks it.
@@ -107,11 +100,7 @@ export const WAKE_METRES = SIGHT_METRES + 2;
  * are 0.46 m across) and a margin for the stance's sway.
  */
 const FOOTPRINT_METRES = 0.35;
-/**
- * How near a target a mind attacks it rather than walking to it, m, feet to feet: the club's reach
- * ahead of the head (1.05 m, `REPERTOIRE`) and a step, which the strike skill closes itself.
- */
-export const ATTACK_METRES = 1.8;
+export { ATTACK_METRES };
 /**
  * With the cursor steering its facing, the hero takes on what the cursor points at, and also any enemy nearer than
  * `metres` wherever it stands, turning to it for as long as it stays within `keepMetres`.
@@ -228,32 +217,14 @@ export class DungeonRun {
     this.options.onBuilt?.(actor);
   }
 
-  /** What carries out `actor`'s plan: walk its direction at the body's fastest walk, and attack its target's head when close. */
+  /** What carries out `actor`'s plan (`fighterMind`); a fighter out of the fight only looks. */
   private mind(actor: DungeonActor): Mind {
-    /** The point aimed at, whose head it was, and the blows thrown when it was chosen. */
-    let aim: { target: DungeonActor; point: Vec3; thrown: number } | null = null;
-    return {
-      name: `crypt ${actor.side}`,
-      decide: ({ report, envelope }): Intent => {
-        const { move, look, attack } = actor.plan;
-        const struck = actor.alive ? attack?.fighter : null;
-        if (attack && struck) {
-          const head = struck.body.view.head, thrown = report.strike.thrown.right;
-          if (!aim || aim.target !== attack || aim.thrown !== thrown
-            || Math.hypot(head.x - aim.point[0], head.y - aim.point[1], head.z - aim.point[2]) > APPROACH.reach) {
-            aim = { target: attack, point: [head.x, head.y, head.z], thrown };
-          }
-          return { move: null, face: report.heading, hands: { left: GUARD_ACTION, right: { kind: "attack", target: aim.point } } };
-        }
-        aim = null;
-        const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
-        if (!actor.alive || !move || !envelope) {
-          const face = look && Math.hypot(look.x, look.z) > 0.08 ? Math.atan2(look.x, look.z) : report.heading;
-          return { move: null, face, hands };
-        }
-        return { move: [envelope.walk.value, 0], face: Math.atan2(move.x, move.z), hands };
-      },
-    };
+    return fighterMind(`crypt ${actor.side}`, () => {
+      const { move, look, attack } = actor.plan;
+      return actor.alive
+        ? { move, look, attack: attack?.fighter?.body ?? null }
+        : { move: null, look, attack: null };
+    });
   }
 
   /** Build each enemy a standing party member has come within `WAKE_METRES` of. */
