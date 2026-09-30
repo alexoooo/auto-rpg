@@ -19,14 +19,14 @@ export const freshRapier = loadRapier;
 /**
  * A stand for `spec`. `gravity: false` builds a world without it, for reading a joint alone;
  * `ground: false` leaves the body in the air; `pinned` names a segment the stand holds still, as a
- * mannequin's stand holds its pelvis. `hz` runs physics and control at another rate than the
+ * mannequin's stand holds its pelvis. `groundSize` is the ground's side, m (the lab's is 40). `hz` runs physics and control at another rate than the
  * game's, as a finer reference; a figure read at one names it.
  */
-export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned, hz = PHYSICS_HZ.value } = {}) {
+export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned, groundSize = 20, hz = PHYSICS_HZ.value } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   const world = createWorld(scene, await freshRapier(), { hz, gravity });
-  const floor = ground ? world.physics.addGround([0, -0.5, 0], [20, 1, 20]) : null;
+  const floor = ground ? world.physics.addGround([0, -0.5, 0], [groundSize, 1, groundSize]) : null;
   const built = buildBody(spec, world, { position });
   if (pinned !== undefined) {
     const segment = built.segments.get(pinned);

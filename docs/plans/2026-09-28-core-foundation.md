@@ -935,7 +935,7 @@ Havok's.
   could move, which is gone from the routine. It does not step into a stance first: that step does
   not converge with the rate (stage 4's finding).
 - **The damage unit** (`unit` in the rulebook, `core-club-unit`): the best blow's energy at
-  1920 Hz, **120.70 J per hit point**. Every mechanism keeps the old game's ratio to the club
+  1920 Hz, **120.70 J per hit point** on Havok (138.26 on Rapier: the section on the engine). Every mechanism keeps the old game's ratio to the club
   (`worth`, `owner-weapon-ratios`): an edge's joule is worth 5.73 blunt ones, an axe's 7.70, a
   point's 33.4. `blowDamage` prices a blow. The unit's own blow, replayed at 960 Hz, is worth 1 HP
   (`tests/core-rules.test.mjs`).
@@ -1011,7 +1011,7 @@ and the solver's settings (`SOLVER`: 16 iterations of 2 PGS passes, one step, fr
 With the search's full budget the blows found at 120 Hz read 10-30 % stronger there than from
 960 Hz up, and 4-8 % apart between 960, 1920 and 3840 Hz: a search finds what the coarse step
 gives, as it did on Havok at 480 Hz. The smaller searches above had stopped short of that. **The
-unit is not re-set yet**: it is the converged reading of a blow searched at a converged rate, and
+unit was not re-set then** (it is below): it is the converged reading of a blow searched at a converged rate, and
 that search waits on the solver's settings (below), which move every blow. Until then the unit is
 Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.37 HP on Rapier
 (0.41 on the torque stance, 0.34 once the stance planned a strike's pushes).
@@ -1045,8 +1045,32 @@ because of what the contact meets: it comes in at 45 degrees and meets 1.36 kg o
 head, where the Havok blow came down (the normal's up -0.90) on 1.75 kg and 23.4 kg. Seed 1 comes
 down as Havok's did, onto 28.4 kg of head, but closes at 11.0 m/s. So the club moves as fast on
 Rapier; the energy differs with the line of the blow. Both searches were still climbing at their
-last generation (1-2 J a generation), and three go on (`--from`, spread 0.2, 30 generations): from
-seeds 1 and 3, and from the Havok unit's own search result.
+last generation (1-2 J a generation), and three went on (`--from`, spread 0.2, 30 generations of
+96): from seeds 1 and 3, and from the Havok unit's own search result:
+
+| from | search | 120 | 480 | 960 | 1920 | 3840 | at 1920: closing, club, head, normal's up |
+|---|---|---|---|---|---|---|---|
+| seed 1 | 108.87 | -0.32 | 90.59 | 105.09 | 100.58 | 105.86 | 11.99 m/s, 1.55 kg, 26.4 kg, -0.92 |
+| seed 3 | 105.39 | 84.86 | 102.06 | 105.17 | 106.04 | 106.15 | 12.36, 1.51, 18.3, -0.84 |
+| Havok's unit | 139.89 | 117.30 | 137.53 | 137.83 | **138.26** | 138.08 | 18.80, 0.85, 11.5, -0.67 |
+
+**The unit is re-set on Rapier: 138.26 J per hit point** (the best blow's mean at 1920 Hz, as on
+Havok; `research/core-club-unit.json`, Havok's blow kept as `research/core-club-havok.json`). The
+search from Havok's blow found another: it closes at 18.8 m/s, half again Havok's 12.2, and meets
+less of the arm (0.85 kg of club against 1.75) and of the head (11.5 kg against 23.4), coming in at
+48 degrees off the vertical. It is the one blow of the six that holds at the game's rate: 117.30 J
+at 120 Hz, 85 % of its converged energy, where seed 1's from-search blow misses. Muggenthaler's
+lay men swing a 1 kg rod at 23.9 m/s at its tip (about 95 J); the swell here closes at 18.8.
+Float noise that moves no step of its timing (the ground's size, `groundSize`) moves it little,
+where Havok's blow on Rapier read 27.6-45.9 J (Node core stand, the torque stance, J):
+
+| ground | 120 Hz | 240 | 480 | 960 | 1920 |
+|---|---|---|---|---|---|
+| 20 m (the search's) | 119.45 | 133.01 | 136.09 | 139.81 | 140.18 |
+| 30 m | 122.15 | 131.68 | 136.22 | 137.61 | 140.09 |
+| 40 m (the lab's) | 123.81 | 132.70 | 134.61 | 138.80 | 140.24 |
+
+The lab's Blow scenario throws it first and Havok's blow second, to compare by eye.
 
 **What does not hold, and why.**
 - **A velocity motor under its ceiling holds only as far as the solver converges.** Rapier solves

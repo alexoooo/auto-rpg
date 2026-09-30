@@ -263,11 +263,12 @@ export const SOURCES = Object.freeze({
     kind: "measurement",
     how: "research/core-strike-search.mjs --weapon club: the Warrior's strongest one-handed blow with the wooden "
       + "club into a head-sized sphere, thrown standing on its own feet (src/core-lab/blow.ts), by cross-entropy "
-      + "search (Node core stand, ground on), its energy 1/2 mu v^2 from the masses the contact meets. Three seeds "
-      + "searched at 960 Hz, the coarsest rate a standing blow converges at; the strongest read again at 1920 Hz, "
-      + "where it agrees with 960 and 3840 Hz to 0.5 %. Recorded, not asked: the unit is the rate-converged "
-      + "reading, not the game's 120 Hz one. The blow and its readings are research/core-club-unit.json; the table "
-      + "is in the plan's stage 5.",
+      + "search (Node core stand, ground on), its energy 1/2 mu v^2 from the masses the contact meets. On Rapier, "
+      + "three seeds searched at 960 Hz, the coarsest rate a standing blow converges at, then searched on from the "
+      + "best of two of them and from Havok's unit blow; the strongest, from Havok's, read again at 1920 Hz, where it "
+      + "agrees with 960 and 3840 Hz to 0.4 %. Recorded, not asked: the unit is the rate-converged reading, not the "
+      + "game's 120 Hz one (117.30 J there). The blow and its readings are research/core-club-unit.json; the table "
+      + "is in the plan's section on the engine.",
     record: "research/core-club-unit.json",
   },
   "core-stance-envelope": {

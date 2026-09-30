@@ -70,12 +70,12 @@ export function decodeClub(unit, spec, hand = "right") {
  * Returns the score, the energy and its parts, when it landed after the chamber, and the swell
  * end's peak speed before it.
  */
-export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", perturbation, ...given }) {
+export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", perturbation, groundSize, ...given }) {
   const spec = armed(humanSpec(model), hand, woodenClub());
   const decoded = unit ? decodeClub(unit, spec, hand) : given;
   const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
   const chamber = strike.chamber ?? { seconds: 0 };
-  const stand = await coreStand(spec, { ground: true, hz });
+  const stand = await coreStand(spec, { ground: true, groundSize, hz });
   const blow = throwBlow(stand.built, stand.world, strike);
   const watch = watchClubBlow(stand.built, stand.world, blow, distance, hand);
   try {
