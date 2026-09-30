@@ -37,7 +37,6 @@ test("the_labs_blow_on_the_loadouts_body_lands_as_the_search_reads_it", async ()
   } finally { watch.dispose(); blow.dispose(); stand.dispose(); }
   const record = JSON.parse(await readFile(new URL("../research/core-club-unit.json", import.meta.url), "utf8"));
   const search = await evaluateClubStrike({ model: record.model, hand: record.hand, strike: record.strike, distance: record.distance, hz: 120 });
-  console.log(`MUT lab blow: ${watch.landed?.energy.toFixed(2)} J at ${watch.landed?.at} s; the search's ${search.energy.toFixed(2)} J`);
   assert.ok(watch.landed, "the lab's blow lands");
   assert.equal(watch.landed.energy, search.energy);
   assert.equal(watch.landed.at, search.at);

@@ -61,7 +61,6 @@ test("the kinematics put the knuckles and the toes where the body has them, trun
         worst.push(Vector3.Distance(fk, body));
       }
     }
-    console.log(`MUT fk ${worst.map((w) => (1000 * w).toFixed(3)).join(" ")} mm`);
     // The first readings are taken while the limbs still move (0.5 mm), the others at rest.
     for (const w of worst) assert.ok(w < 0.001, `the kinematics put an end ${(1000 * w).toFixed(2)} mm from the body's`);
   } finally {
@@ -85,7 +84,6 @@ test("the kinematics are exact far below a millimetre: a Jacobian differenced by
     worst = Math.max(worst, fine.subtract(coarse).length() / coarse.length());
   }
   stand.dispose();
-  console.log(`MUT jacobian ${worst.toExponential(2)}`);
   // A float32 step anywhere in the chain reads 1e-8 m of noise: a quarter of a column at 1e-7 rad.
   assert.ok(worst < 1e-3, `the Jacobian's columns differ by ${worst.toExponential(2)} of themselves`);
 });
@@ -111,7 +109,6 @@ test("the inverse kinematics find a reachable place, and stretch toward one out 
       for (const f of arm.free) jump = Math.max(jump, Math.abs(angles[f.joint][f.k] - was[f.joint][f.k]));
     }
     stand.dispose();
-    console.log(`MUT ik ${model} reachable ${(1000 * worst).toFixed(3)} mm; out of reach ${(1000 * left).toFixed(0)} mm left, largest turn between steps ${jump.toFixed(3)} rad`);
     assert.ok(worst < 0.5e-3, `${model}: a reachable place was missed by ${(1000 * worst).toFixed(2)} mm`);
     // Near full stretch the elbow turns fast per millimetre of reach (0.41 rad over one step here);
     // crossing the singularity throws the shoulder to its far limits, some 3 rad.
@@ -146,7 +143,6 @@ test("a hand goal is followed and reached alike at 120 Hz and 1920 Hz", async ()
   for (const move of [[0, 0.05, 0.2], [0.15, -0.1, 0.1]]) {
     const slow = await reachRun(120, move), fast = await reachRun(1920, move);
     const apart = Vector3.Distance(slow.end, fast.end);
-    console.log(`MUT reach ${move.join(",")}: gap ${(1000 * slow.worst).toFixed(1)} | ${(1000 * fast.worst).toFixed(1)} mm; ends ${(1000 * slow.off).toFixed(1)} | ${(1000 * fast.off).toFixed(1)} mm off, ${(1000 * apart).toFixed(1)} mm apart`);
     // A goal angle a step ahead of the path strays 11 mm at 120 Hz.
     for (const [hz, run, bound] of [[120, slow, 0.010], [1920, fast, 0.004]]) {
       assert.ok(run.worst < bound, `${hz} Hz: the knuckles strayed ${(1000 * run.worst).toFixed(1)} mm from the path`);

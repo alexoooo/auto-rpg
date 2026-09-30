@@ -17,8 +17,6 @@ const q = (value, unit = "m") => sourced(value, unit, "de-leva-1996", "a stand-i
 /** Axes tilted off the world's, so a decomposition that forgot them cannot pass by accident. */
 const X = [0.8, 0.6, 0], Y = [-0.6, 0.8, 0], Z = [0, 0, 1];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const turned = (rotation, v) => new Vector3(...v).applyRotationQuaternion(rotation).asArray();
 
 /** A seeded generator in [0, 1). */
 const random = (seed) => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
@@ -43,7 +41,6 @@ test("a rotation reads as twice the atan2 of each axis's part against the scalar
     undone = Math.max(undone, 1 - Math.abs(Quaternion.Dot(back, rotation)));
     sineApart = Math.max(sineApart, ...[X, Y, Z].map((axis, k) => Math.abs(2 * Math.asin(s * dot(v, axis)) - want[k])));
   }
-  console.log(`MUT reading ${worst.toExponential(1)} rad off, turned back ${undone.toExponential(1)}; the sine reading apart ${sineApart.toFixed(2)} rad`);
   assert.ok(sineApart > 0.1, `the drawn rotations do not tell the atan2 reading from the sine's: ${sineApart}`);
   assert.ok(worst < 1e-12, `the angles read ${worst} rad off`);
   assert.ok(undone < 1e-12, `the angles turned back into a rotation ${undone} off`);
@@ -86,7 +83,6 @@ test("a joint's speeds are its angles' rates turned through where it stands, and
       }
     }
   }
-  console.log(`MUT turning ${worst.toExponential(1)} rad/s off; speeds and rates up to ${apart.toFixed(2)} apart`);
   assert.ok(apart > 1, `the poses turn speeds off the rates: at most ${apart} rad/s apart`);
   assert.ok(worst < 1e-4, `turning, rates and motion axes against the composed rotation: ${worst} rad/s off`);
 });
@@ -167,7 +163,6 @@ test("a joint pressed against its limit stops where its reading says the range e
       }
     }
   }
-  console.log(`MUT limit stopped ${stopped.toFixed(3)} off, Euler ${euler.toFixed(2)} off; within reached to ${reached.toFixed(3)}`);
   assert.ok(euler > 0.3, `the Euler angles would read these stops at the limit too: ${euler}`);
   assert.ok(stopped < 0.015, `a freedom stopped ${stopped} rad off its limit`);
   assert.ok(reached < 0.012, `a pose within the limit was missed by ${reached} rad`);

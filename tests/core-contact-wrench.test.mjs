@@ -51,7 +51,6 @@ test("every wrench a sole's corners can make inside the friction pyramid is give
     worst = Math.max(worst, miss.force.length() / force.length(), miss.moment.length() / (0.9 * force.length()));
     largestTwist = Math.max(largestTwist, Math.abs(shares[0].moment.y) / force.y);
   }
-  console.log(`MUT contact wrench corners: worst relative miss ${worst.toExponential(2)}, largest twist per newton ${largestTwist.toFixed(4)} m`);
   assert.ok(worst < 1e-4, `a wrench the corners made was missed by ${worst.toExponential(2)} of it`);
   assert.ok(largestTwist > 0.01, `the corners' wrenches twisted at most ${largestTwist} N m per newton: the case exercised no twist`);
 });
@@ -73,7 +72,6 @@ test("a twist, a centre of pressure or a pull past the sole is not given, and wh
     const shares = out(1), miss = missOf();
     shareGroundWrench([sole], sole.middle, force, moment, MU, 0.9, shares, miss);
     const missed = miss.force.length() + miss.moment.length() / 0.9, over = outside(sole, shares[0]);
-    console.log(`MUT contact wrench ${what}: missed ${missed.toFixed(3)}, outside the limits by ${over.toExponential(1)}`);
     assert.ok(over < 1e-6 * (1 + force.length()), `${what}: the share is outside the sole's limits by ${over}`);
     if (reachable) assert.ok(missed < 1e-3, `${what}: missed by ${missed}`);
     else assert.ok(missed > 0.5, `${what}: given, missed by only ${missed}`);
@@ -92,7 +90,6 @@ test("a sole that bears nothing gives nothing, twist included; a recorded share 
   const shares = out(2), miss = missOf();
   shareGroundWrench(soles, centre, force, moment, MU, 0.8895402691393058, shares, miss);
   const values = shares.flatMap((s) => [...s.force.asArray(), ...s.moment.asArray()]);
-  console.log(`MUT contact wrench recorded: ${shares.map((s) => `${s.force.y.toFixed(1)} N, twist ${s.moment.y.toFixed(3)}`).join("; ")}; missed ${miss.force.length().toFixed(1)} N`);
   assert.ok(values.every(Number.isFinite), `the share came back ${values}`);
   soles.forEach((sole, k) => assert.ok(outside(sole, shares[k]) < 1e-6 * force.length(), `sole ${k} is outside its limits by ${outside(sole, shares[k])}`));
   const light = shares.findIndex((s) => s.force.y < 1e-6 * force.length());
@@ -129,7 +126,6 @@ test("a share whose last step is rounding comes back finite, as do 20000 two-sol
     if (!given.flatMap((s) => [...s.force.asArray(), ...s.moment.asArray()]).every(Number.isFinite)) { broken++; continue; }
     pair.forEach((sole, k) => { worst = Math.max(worst, outside(sole, given[k]) / (1 + f.length())); });
   }
-  console.log(`MUT contact wrench random pairs: ${broken} of 20000 not finite, worst outside the limits ${worst.toExponential(1)} of the force`);
   assert.equal(broken, 0, `${broken} of 20000 shares came back not finite`);
   assert.ok(worst < 1e-6, `a share is outside its sole's limits by ${worst} of its force`);
 });

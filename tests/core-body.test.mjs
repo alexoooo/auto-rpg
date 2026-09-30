@@ -59,8 +59,6 @@ test("a body obeys its command and shows what it does", async () => {
     const released = off(["shoulder.right flexion", "shoulder.right abduction", "elbow.right flexion"]);
 
     const steady = times.every((t, k) => k === 0 || Math.abs(t - times[k - 1] - 1 / 120) < 1e-9);
-    console.log(`MUT body held ${held.toFixed(3)} rad, reached ${(1000 * reached).toFixed(1)} mm, opened to ${opened.toFixed(2)} rad from straight`
-      + ` at ${seen.peak.toFixed(2)} m/s, released ${released.toFixed(3)} rad, knuckles read ${(1000 * seen.gap).toFixed(3)} mm apart, clock ${steady}`);
     assert.ok(steady && times[0] === 0, "the view's clock is not the world's, a step apart");
     assert.ok(held < 0.05, `the posture was held ${held.toFixed(3)} rad off`);
     assert.ok(reached < 0.01, `the hand stopped ${(1000 * reached).toFixed(1)} mm from its goal`);

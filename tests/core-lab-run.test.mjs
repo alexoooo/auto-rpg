@@ -39,8 +39,6 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
           if (frame.time > 0.5) paces[frame.bending ? "bend" : "straight"].add(frame.pace);
         }
       } finally { run.dispose(); stand.dispose(); }
-      console.log(`MUT run ${model} ${id}: ${frame.fallen ? "fell" : "held"}, ${frame.travelled.toFixed(2)} m in ${frame.time.toFixed(1)} s,`
-        + ` mean ${frame.mean.toFixed(3)} m/s, farthest off ${(100 * off).toFixed(1)} cm`);
       assert.ok(!frame.fallen, `${model} ${id}: fell at ${frame.time.toFixed(1)} s`);
       assert.ok(frame.travelled > ROUND[id], `${model} ${id}: ${frame.travelled.toFixed(2)} m round, not past ${ROUND[id].toFixed(2)}`);
       // The walk off the bends; in them, what the turn carries round, where that is slower.

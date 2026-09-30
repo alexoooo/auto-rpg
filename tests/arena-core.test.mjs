@@ -87,8 +87,6 @@ test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
       assert.ok(verdict.ending === "time" ? left.pool.bar() === right.pool.bar() : !left.standing && !right.standing,
         `a draw is both down, or both even at the cap: ${JSON.stringify(verdict)}`);
     }
-    // Printed for the reader: which side, how, and when.
-    console.log(`verdict ${JSON.stringify(verdict)}; bars ${left.pool.bar().toFixed(2)} / ${right.pool.bar().toFixed(2)}; blows ${duel.blows.length}`);
     const time = duel.clock;
     world.step(world.hz);
     assert.deepEqual(duel.verdict, verdict, "and it stands once given");

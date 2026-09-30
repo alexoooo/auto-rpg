@@ -46,20 +46,17 @@ function breach({ A, y, lo, hi }, x) {
 }
 
 test("the bounded least squares meets its optimality conditions within the box, and y clipped does not", () => {
-  let clippedFails = 0, held = 0, worst = 0, clippedLeast = Infinity;
+  let clippedFails = 0, held = 0;
   for (let seed = 1; seed <= 200; seed++) {
     const p = problem(seed);
     const x = boundedLeastSquares(p.A, p.y, p.lo, p.hi);
     // The regularizer, 1e-6 of the largest diagonal, is charged on distances of some hundreds of
     // N m against gradients of some tens: it moves the answer by that order.
-    worst = Math.max(worst, breach(p, x));
     assert.ok(breach(p, x) < 1e-3, `seed ${seed}: breach ${breach(p, x)}`);
     held += x.filter((v, i) => v === p.lo[i] || v === p.hi[i]).length;
     const clipped = p.y.map((v, i) => Math.min(p.hi[i], Math.max(p.lo[i], v)));
     if (breach(p, clipped) > 1e-2) clippedFails++;
-    clippedLeast = Math.min(clippedLeast, breach(p, clipped));
   }
-  console.log(`MUT bounded least squares: 200 problems, ${held} bounds held, worst breach ${worst.toExponential(1)}; y clipped failed ${clippedFails}, least breach ${clippedLeast.toExponential(1)}`);
   assert.ok(held > 100, `only ${held} bounds held: the problems do not exercise the bounds`);
   assert.ok(clippedFails > 150, `the control: y clipped met the conditions in ${200 - clippedFails} of 200`);
 });

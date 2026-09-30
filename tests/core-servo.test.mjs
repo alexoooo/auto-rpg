@@ -159,7 +159,6 @@ test("a servoed arm moves alike at 120 Hz and 960 Hz, through a pose where angle
   }
   const { 120: coarse, 960: fine } = runs;
   const apart = Math.max(...coarse.path.map((p, k) => Vector3.Distance(p, fine.path[k])));
-  console.log(`MUT arm peak ${coarse.peak.toFixed(2)} | ${fine.peak.toFixed(2)} m/s, paths ${(1000 * apart).toFixed(1)} mm apart`);
   assert.ok(fine.peak > 1.5, `the hand came back at ${fine.peak} m/s`);
   assert.ok(Math.abs(coarse.peak / fine.peak - 1) < 0.03, `hand peak ${coarse.peak} m/s at 120 Hz against ${fine.peak}`);
   assert.ok(apart < 0.03, `the hand's paths ${apart} m apart`);

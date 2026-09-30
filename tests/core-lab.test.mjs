@@ -50,9 +50,6 @@ test("in the lab, each human stands with its guard up, catches a shove, turns on
       return { stood, shoved, held, turned, walked, stopped, lowered, dx: to.x - from.x, dz: to.z - from.z };
     });
     const at = `${model}`;
-    console.log(`MUT lab ${at}: stood ${r.stood.phase} ${r.stood.strides} strides ${(100 * r.stood.speed).toFixed(2)} cm/s;`
-      + ` walked ${r.dx.toFixed(2)}, ${r.dz.toFixed(2)} m in ${r.walked.strides} strides; stopped ${r.stopped.phase};`
-      + ` shoved: ${r.shoved.recoveries} catching steps, ${r.shoved.fallen ? "fell" : "stood"}`);
     assert.ok(r.stood.phase === "stand" && r.stood.strides === 0 && r.stood.recoveries === 0 && r.stood.speed < 0.01 && !r.stood.fallen
       && Math.abs(r.stood.height - r.stood.goal) < 0.005,
       `${at} standing: ${JSON.stringify(r.stood)}`);

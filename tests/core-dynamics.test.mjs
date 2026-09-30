@@ -223,7 +223,6 @@ test("the root's rows give a free chain's momentum as the engine moves it, and l
     const w = spin.get(R.segment);
     return [w.x, w.y, w.z, v.x, v.y, v.z, ...trackers.flatMap((tracker) => tracker.speeds)];
   };
-  const n = dynamics.mass.length;
   const full = () => [
     ...R.mass.map((row, r) => [...row, ...R.coupling[r]]),
     ...dynamics.mass.map((row, f) => [...R.coupling.map((c) => c[f]), ...row]),
@@ -248,7 +247,6 @@ test("the root's rows give a free chain's momentum as the engine moves it, and l
   };
   const norm = (a) => Math.hypot(...a);
   const momentumErrors = [], rootErrors = [], jointErrors = [], sizes = [];
-  let stopped = 0;
   try {
     stand.step(stand.seconds(0.1));
     driver.dispose();
@@ -258,7 +256,7 @@ test("the root's rows give a free chain's momentum as the engine moves it, and l
     const atStop = () => trackers.some((tracker) => tracker.angles.some((a) => Math.abs(a) > 1.3 - 0.02));
     let from = null, change = null, steps = 0;
     for (let s = 0; s < stand.seconds(0.5); s++) {
-      if (atStop()) { stand.step(1); x = read(); from = null; stopped += 1; continue; }
+      if (atStop()) { stand.step(1); x = read(); from = null; continue; }
       const A = full(), engine = momentum();
       const model = A.slice(0, 6).map((row) => row.reduce((sum, a, j) => sum + a * x[j], 0));
       momentumErrors.push(norm(model.map((m, i) => m - engine[i])) / norm(engine));
@@ -279,8 +277,6 @@ test("the root's rows give a free chain's momentum as the engine moves it, and l
     }
   } finally { stand.dispose(); }
   const median = (a) => [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)];
-  console.log(`MUT dynamics root: momentum off ${(100 * median(momentumErrors)).toFixed(3)} % at the median, ${(100 * Math.max(...momentumErrors)).toFixed(1)} % at worst; the root ${(100 * median(rootErrors)).toFixed(2)} %`
-    + ` and the joints ${(100 * median(jointErrors)).toFixed(2)} % off at the median (${n} freedoms, ${median(sizes).toFixed(0)} rad/s2; ${jointErrors.length} windows of 4 steps read, ${stopped} steps at a stop)`);
   assert.ok(jointErrors.length > 8, `only ${jointErrors.length} windows were read off every stop`);
   assert.ok(median(momentumErrors) < 0.001, `the root's rows gave the momentum ${(100 * median(momentumErrors)).toFixed(3)} % off at the median`);
   assert.ok(median(sizes) > 10, `the joints' speeds changed at ${median(sizes)} rad/s^2 at the median`);
