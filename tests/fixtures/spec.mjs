@@ -46,13 +46,23 @@ function json(file) {
   return files.get(file);
 }
 
+/** A Markdown heading's anchor, as GitHub makes it. */
+const anchorOf = (heading) => heading.trim().toLowerCase().replace(/[^\w\- ]/g, "").replace(/ /g, "-");
+
 /**
- * A record that looks like a repository path must exist, unless it names the commit that holds it
- * (`path@commit`, a file since deleted; a shallow clone cannot read it back, so its shape is all that is checked).
+ * A record that looks like a repository path must exist, and a `#anchor` into a Markdown file must
+ * name one of its headings, unless the record names the commit that holds it (`path@commit#anchor`,
+ * a file since deleted; a shallow clone cannot read it back, so its shape is all that is checked).
  */
-const recordExists = (record) => !/^(docs|src|tests|research|scripts|assets)\//.test(record)
-  || /^[^@#]+@[0-9a-f]{8,40}$/.test(record)
-  || fs.existsSync(path.join(ROOT, record.split("#")[0]));
+export const recordExists = (record) => {
+  if (!/^(docs|src|tests|research|scripts|assets)\//.test(record)) return true;
+  if (/^[^@#]+@[0-9a-f]{8,40}(#[\w-]+)?$/.test(record)) return true;
+  const [file, anchor] = record.split("#");
+  const where = path.join(ROOT, file);
+  if (!fs.existsSync(where)) return false;
+  if (anchor === undefined) return true;
+  return [...fs.readFileSync(where, "utf8").matchAll(/^#+ (.*)$/gm)].some((heading) => anchorOf(heading[1]) === anchor);
+};
 
 /** Every way `spec` breaks the provenance rule, as readable lines; empty when it keeps it. */
 export function specProvenanceFaults(spec) {

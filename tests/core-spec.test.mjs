@@ -12,7 +12,7 @@ import { derive, si, sourced } from "../src/core/spec/quantity.ts";
 import { inventory, sourcesOf } from "../src/core/spec/provenance.ts";
 import { segmentFrame } from "../src/core/spec/body.ts";
 import { convexHull } from "../src/core/spec/hull.ts";
-import { claimsIn, specProvenanceFaults } from "./fixtures/spec.mjs";
+import { claimsIn, recordExists, specProvenanceFaults } from "./fixtures/spec.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
@@ -86,13 +86,23 @@ test("every source is complete, and every file it names exists", () => {
   for (const [key, source] of Object.entries(SOURCES)) {
     switch (source.kind) {
       case "literature": assert.ok(source.cite && /^https?:\/\//.test(source.link), key); break;
-      case "decision": assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(source.date) && source.decided && source.record, key); break;
+      case "decision": assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(source.date) && source.decided && recordExists(source.record), key); break;
       // An asset's `where` is a JSON pointer, so the rule can read the number back from it.
       case "asset": assert.ok(fs.existsSync(path.join(ROOT, source.file)) && /.(json|glb)$/.test(source.file) && source.what, key); break;
-      case "measurement": assert.ok(source.how && source.record, key); break;
+      case "measurement": assert.ok(source.how && recordExists(source.record), key); break;
       default: assert.fail(`${key} has an unknown kind ${source.kind}`);
     }
   }
+});
+
+test("a record names a file that exists, a heading in it, or the commit that holds it", () => {
+  assert.ok(recordExists("docs/reference/human-strike-reference.md"));
+  assert.ok(recordExists("docs/reference/human-strike-reference.md#8-the-workshop-models"));
+  assert.ok(!recordExists("docs/reference/human-strike-reference.md#8-the-workshop-model"), "a heading it does not have");
+  assert.ok(!recordExists("docs/no-such-record.md"), "a file that is not there");
+  assert.ok(recordExists("docs/history.md@2e99105f#h66"));
+  assert.ok(!recordExists("docs/history.md@h66"), "a commit is hexadecimal");
+  assert.ok(recordExists("the owner, in conversation"), "a record that is not a path");
 });
 
 test("a segment's frame is square, right-handed in its components, and runs from its proximal end", () => {

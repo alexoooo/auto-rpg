@@ -31,7 +31,7 @@ import { rangeOfMotion, type RangeRow } from "./tables/range-of-motion.ts";
  * the sense its source measures it, and the joint's limits are the source's ranges less the bind:
  * min = -(the range against the positive sense) - bind, max = (the range with it) - bind. Where
  * nothing gives the bind (neck, spine, hip rotation, foot roll), it is taken as neutral, and that
- * is a stated assumption (`stage1-assumptions`). Each figure reads its own sex's ranges.
+ * is a stated assumption (`reference-pose-assumptions`). Each figure reads its own sex's ranges.
  *
  * **Muscle.** `strength` gives each exertion's peak torque (`muscle.ts`), and `speed` how that
  * torque falls with speed (`speed.ts`).
@@ -82,7 +82,7 @@ const mirrored = (axis: Quantity<Vec3>, what: string, side: Side, s = sign(side)
   derive("1", `${what}, mirrored for the ${side} side`, [axis], (a) => scale(a, s));
 
 const neutral = (what: string): Quantity<number> =>
-  sourced(0, "rad", "stage1-assumptions", `the reference pose's ${what}, taken as neutral`);
+  sourced(0, "rad", "reference-pose-assumptions", `the reference pose's ${what}, taken as neutral`);
 
 /** The human joints of `figure`, on its `segments` (`humanSegments`). */
 export function humanJoints(figure: HumanFigure, segments: readonly SegmentSpec[], strength: Strength, speed: Speed): JointSpec[] {
@@ -153,7 +153,7 @@ export function humanJoints(figure: HumanFigure, segments: readonly SegmentSpec[
         { positive: "abduction", negative: "adduction", axis: mirrored(negated(A.z, "the upper arm's frame z"), "the upper arm's -z", side),
           bind: derive("rad", `shoulder abduction in the reference pose: the upper arm's line from the trunk's downward line, about the trunk's -z mirrored for the ${side} side`,
             [U.z, U.y, upperArm.proximal, upperArm.distal], (z, y, p, d) => angleAbout(scale(z, -s), y, sub(d, p))),
-          reach: [rom("shoulderAbduction"), sourced(0, "deg", "stage1-assumptions", "shoulder adduction beyond the anatomical position: none, the trunk is in the way")],
+          reach: [rom("shoulderAbduction"), sourced(0, "deg", "reference-pose-assumptions", "shoulder adduction beyond the anatomical position: none, the trunk is in the way")],
           exertions: ["shoulderAbduction", "shoulderAdduction"] },
         { positive: "internal rotation", negative: "external rotation", axis: mirrored(A.y, "the upper arm's frame y", side),
           bind: derive("rad", `shoulder internal rotation in the reference pose: the elbow's axis from the upper arm's -x, about its y mirrored for the ${side} side`,

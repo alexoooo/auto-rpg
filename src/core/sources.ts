@@ -67,7 +67,7 @@ export const SOURCES = Object.freeze({
     kind: "decision", date: "2026-09-27",
     decided: "A human at x1 is a typical adult, about 1.76-1.78 m and 78-80 kg for a man; the Rogue "
       + "keeps its own proportions and its size against the Warrior's.",
-    record: "docs/plans/2026-09-27-warrior-rogue-reptile.md",
+    record: "docs/plans/2026-09-27-warrior-rogue-reptile.md@2e99105f",
   },
   "cgpm-1901": {
     kind: "literature",
@@ -77,10 +77,9 @@ export const SOURCES = Object.freeze({
   },
   "skeleton-bind": {
     kind: "asset", file: "assets/skeleton/bind.json",
-    what: "The old game's skeleton parts as the skeleton's art was fitted to them: for each build, each part's "
-      + "position and turn (x, y, z, w) in the body frame at x1, facing +z with the soles on 0, and its box's "
-      + "min and max in its own frame. Exported from an old skeleton by scripts/skeleton/export-bind.mjs, "
-      + "which goes with the old path; the file is now fixed, as the art is.",
+    what: "The skeleton's parts as its art was fitted to them: for each build, each part's position and turn "
+      + "(x, y, z, w) in the body frame at x1, facing +z with the soles on 0, and its box's min and max in its "
+      + "own frame. Fixed, as the art is; exported by scripts/skeleton/export-bind.mjs@77a0cd77.",
   },
   "skeleton-placeholders": {
     kind: "decision", date: "2026-09-30",
@@ -88,25 +87,24 @@ export const SOURCES = Object.freeze({
       + "just needs to fit the new core'), for the owner to confirm: until the crypt skeleton has numbers of "
       + "its own, it is a typical man in the skeleton's shape (men's tables, the typical man's 79 kg, the "
       + "Warrior's 6 HP), its fists held thumb up as its art's guard shows them.",
-    record: "docs/plans/2026-09-30-old-path-removal.md",
+    record: "docs/plans/2026-09-30-old-path-removal.md@2e99105f",
   },
   "owner-hp-pool": {
     kind: "decision", date: "2026-09-27",
     decided: "Hit points: reptile 1, Rogue 4, Warrior 6. One HP pool per body; excess damage spreads to "
       + "neighbouring parts, nearest and inward first; the body dies when its HP is gone or its head is "
-      + "emptied. A part severs on its overkill, as the old game's health below -0.5 x max.",
-    record: "docs/plans/2026-09-27-warrior-rogue-reptile.md",
+      + "emptied. A part severs once it is half its hit points past empty.",
+    record: "docs/plans/2026-09-27-warrior-rogue-reptile.md@2e99105f",
   },
   "owner-part-hp-split": {
     kind: "decision", date: "2026-09-29",
     decided: "A core human's hit points are split over its segments by cross-section: each segment's "
       + "share is its mass to the two-thirds over the sum of the same over the body.",
-    record: "docs/plans/2026-09-28-core-foundation.md",
+    record: "docs/plans/2026-09-28-core-foundation.md@2e99105f",
   },
   "owner-physics-engine": {
     kind: "decision", date: "2026-09-29",
-    decided: "Try Rapier (the SIMD build) for the core in place of Havok, on the physics bake-off's report; the old path "
-      + "stays on Havok.",
+    decided: "The core runs on Rapier (the SIMD build), chosen on the physics bake-off's report.",
     record: "research/physics-bakeoff/REPORT.md",
   },
   "physics-bakeoff": {
@@ -117,8 +115,8 @@ export const SOURCES = Object.freeze({
   },
   "owner-physics-rate": {
     kind: "decision", date: "2026-09-25",
-    decided: "Physics and control run at 120 Hz, from the release of 2026-09-25.",
-    record: "docs/history.md#h66",
+    decided: "Physics and control run at 120 Hz.",
+    record: "docs/history.md@2e99105f#h66",
   },
   "workshop-volumes": {
     kind: "measurement",
@@ -262,15 +260,14 @@ export const SOURCES = Object.freeze({
     kind: "decision", date: "2026-09-27",
     decided: "The damage unit is the strongest hit with a club, one-handed: \"a club would be made of wood\". The club "
       + "is the game's wooden club: a 0.45 m haft of 18 mm radius and a 0.25 m swell of 40 mm radius, in ash. "
-      + "Its dimensions were set by the session that made it, as a real club's rather than a tuning, and have "
-      + "stood in the game since.",
+      + "Its dimensions are a real club's, not a tuning.",
     record: "src/golem/config.ts@77a0cd77",
   },
   "owner-weapon-ratios": {
     kind: "decision", date: "2026-09-27",
     decided: "Rescale scoring so that the strongest club hit is worth 1: one unit constant, applied where scoring "
-      + "prices energy, and every weapon keeps its ratio to the club. The old game's prices, joules per point of "
-      + "wound: an edge 197.96 (cutJoulesPerDamage), an axe's edge 147.45 (chopJoulesPerDamage), blunt 1134.99 "
+      + "prices energy, and every weapon keeps its ratio to the club. The prices this rescales, joules per point "
+      + "of wound: an edge 197.96 (cutJoulesPerDamage), an axe's edge 147.45 (chopJoulesPerDamage), blunt 1134.99 "
       + "(crushJoulesPerDamage), in CONFIG.combat; a point 34 (PROJECTILE_PENETRATION_V1.joulesPerDamage in "
       + "src/scoring.ts).",
     record: "src/config.ts@77a0cd77",
@@ -281,10 +278,10 @@ export const SOURCES = Object.freeze({
       + "club into a head-sized sphere, thrown standing on its own feet (src/core-lab/blow.ts), by cross-entropy "
       + "search (Node core stand, ground on), its energy 1/2 mu v^2 from the masses the contact meets. On Rapier, "
       + "three seeds searched at 960 Hz, the coarsest rate a standing blow converges at, then searched on from the "
-      + "best of two of them and from Havok's unit blow; the strongest, from Havok's, read again at 1920 Hz, where it "
-      + "agrees with 960 and 3840 Hz to 0.4 %. Recorded, not asked: the unit is the rate-converged reading, not the "
-      + "game's 120 Hz one (117.30 J there). The blow and its readings are research/core-club-unit.json; the table "
-      + "is in the plan's section on the engine.",
+      + "best of two of them and from a blow found on another engine (research/core-club-havok.json@0d63a616); the "
+      + "strongest, from that one, read again at 1920 Hz, where it agrees with 960 and 3840 Hz to 0.4 %. Recorded, not asked: the unit is the rate-converged reading, not the "
+      + "game's 120 Hz one (117.30 J there). The blow and its readings are research/core-club-unit.json; the search's "
+      + "table is in docs/plans/2026-09-28-core-foundation.md@2e99105f.",
     record: "research/core-club-unit.json",
   },
   "core-stance-envelope": {
@@ -304,15 +301,15 @@ export const SOURCES = Object.freeze({
   },
   "core-grip": {
     kind: "decision", date: "2026-09-29",
-    decided: "Recorded, not asked (core stage 5): a hand holds a haft across its knuckles, from the little finger's "
+    decided: "Recorded, not asked: a hand holds a haft across its knuckles, from the little finger's "
       + "to the index finger's, with the butt at the little finger's knuckle and the axis on the palm side of the "
       + "middle finger's knuckle, the haft's surface at the palm: the hand's capsule radius from the knuckle. A "
       + "real grip crosses the palm at a slant; this one does not.",
-    record: "docs/plans/2026-09-28-core-foundation.md",
+    record: "docs/plans/2026-09-28-core-foundation.md@2e99105f",
   },
-  "stage1-assumptions": {
+  "reference-pose-assumptions": {
     kind: "decision", date: "2026-09-28",
-    decided: "Proposed in core stage 1, for the owner to confirm: where no source or measurement gives an "
+    decided: "Proposed, for the owner to confirm: where no source or measurement gives an "
       + "angle, the workshop models' reference pose is taken as neutral in neck and spine, hip rotation "
       + "and foot roll; and the shoulder has no adduction beyond the anatomical position, since the "
       + "trunk is in the way.",

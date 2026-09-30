@@ -23,7 +23,7 @@ import type { Exertion } from "./tables/joint-torques.ts";
  *   well, with w0 from 80 down to 11 rad/s. Thelen's curvature is taken, and w0 is fitted by least
  *   squares on the linear form, w0 = sum((1 - f)(w + f w / k)) / sum((1 - f)^2).
  * - **Everything else** has no curve read. It takes a measured exertion's, named in `BORROWED`, a
- *   stated assumption (`ASSUMPTIONS`).
+ *   stated assumption.
  * - **Lengthening** is Thelen's everywhere: a ceiling of 1.4 isometric, and a slope at rest twice
  *   the shortening one. It is the stimulated muscle's ceiling; a voluntary one is 1.0-1.3, and the
  *   owner chose 1.4 for fighters.
@@ -36,15 +36,13 @@ export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVeloci
   const measured = measuredFor(exertion);
   const own = shortening(measured, sex);
   const borrowed = (q: Quantity<number>) => measured === exertion ? q
-    : derive(q.unit, `${measured}'s, taken for ${exertion} by the stage 2 assumptions (${ASSUMPTIONS})`, [q], (v) => v);
+    : derive(q.unit, `${measured}'s, taken for ${exertion}: a stated assumption (BORROWED, src/core/human/speed.ts)`, [q], (v) => v);
   const unloadedSpeed = borrowed(own.unloadedSpeed), curvature = borrowed(own.curvature);
   return {
     unloadedSpeed, curvature,
     eccentricCeiling: THELEN_ECCENTRIC_CEILING, eccentricSlopeRatio: THELEN_ECCENTRIC_SLOPE_RATIO,
   };
 }
-
-const ASSUMPTIONS = "docs/plans/2026-09-28-core-foundation.md, stage 2";
 
 type Measured = AndersonDirection | FreyLawDirection;
 
