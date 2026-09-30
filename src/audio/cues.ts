@@ -1,4 +1,4 @@
-import type { LandedBlow } from "./core/rules/blows.ts";
+import type { LandedBlow } from "../core/rules/blows.ts";
 
 export type SoundKind = "stone" | "bone" | "body" | "metal" | "shield";
 export interface SoundPoint { x: number; z: number }

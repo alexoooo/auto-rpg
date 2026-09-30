@@ -1,4 +1,4 @@
-import { mulberry32 } from "../rng.ts";
+import { mulberry32 } from "./rng.ts";
 
 /**
  * The dungeon's dressing images, painted in code into one atlas: no download and no binary in the repository, as the

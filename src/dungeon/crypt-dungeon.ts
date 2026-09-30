@@ -1,5 +1,5 @@
 import { cryptFurniture, type CryptArchetype, type CryptRoomKind } from "./crypt-archetypes.ts";
-import { mulberry32 } from "../rng.ts";
+import { mulberry32 } from "./rng.ts";
 import { dressCryptMap, type CryptRoomPlan } from "./crypt-room.ts";
 import { findPath, walkable, type DungeonMap } from "./map.ts";
 import { companionSpawn } from "./party-placement.ts";

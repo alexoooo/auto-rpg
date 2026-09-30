@@ -1,4 +1,4 @@
-import { ImpactInbox, soundPlacement, type ImpactCue, type SoundKind, type SoundPoint } from "./audio-cues.ts";
+import { ImpactInbox, soundPlacement, type ImpactCue, type SoundKind, type SoundPoint } from "./cues.ts";
 
 const STORAGE = "auto-rpg-sound-v1";
 type Voice = { source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode };

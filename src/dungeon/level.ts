@@ -14,7 +14,7 @@
  * by construction, and every link holding keeps it so, which `tests/dungeon-level.test.mjs` checks
  * on the finished level with `standingComponents`.
  */
-import { mulberry32 } from "../rng.ts";
+import { mulberry32 } from "./rng.ts";
 import { distance, isFloor, walkable, type Door, type DungeonMap, type Point, type Room } from "./map.ts";
 
 /**

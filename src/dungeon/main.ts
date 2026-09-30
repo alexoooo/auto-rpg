@@ -14,8 +14,8 @@ import type { Clothing, SkinView } from "../render/skin.ts";
 import { loadSkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
-import { blowCue } from "../audio-cues.ts";
-import { GameAudio } from "../game-audio.ts";
+import { blowCue } from "../audio/cues.ts";
+import { GameAudio } from "../audio/game-audio.ts";
 import { EnemyHover } from "./hover.ts";
 import { DungeonRun, type DungeonActor } from "./run.ts";
 import { orderLabel } from "./commands.ts";
@@ -29,14 +29,12 @@ import { dungeonStone, stoneQuery } from "./stone.ts";
 
 import { type CryptRoomPlan } from "./crypt-room.ts";
 import { generateCryptDungeon } from "./crypt-dungeon.ts";
-type DungeonScenario = "generated" | "reference" | "random-crypt";
-
 import { referenceChamber, REFERENCE_CAMERA, REFERENCE_TORCHES } from "./reference.ts";
 import { dressReference, type ReferenceQuality } from "./reference-look.ts";
+import { need } from "../dom.ts";
 
-const need = <T extends HTMLElement>(id: string): T => {
-  const element = document.getElementById(id); if (!element) throw new Error(`Missing dungeon element ${id}`); return element as T;
-};
+type DungeonScenario = "generated" | "reference" | "random-crypt";
+
 const canvas = need<HTMLCanvasElement>("dungeon"), start = need<HTMLButtonElement>("start");
 const heroBuild = need<HTMLSelectElement>("hero-build"), seedInput = need<HTMLInputElement>("seed");
 const keyboard = need<HTMLInputElement>("keyboard"), facing = need<HTMLInputElement>("facing");

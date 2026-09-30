@@ -225,8 +225,8 @@ its collision shapes if the skin does not load; the skins (`skin.ts` for the hum
 `skeleton-skin.ts` for the skeleton, see [art/skeleton.md](art/skeleton.md)), which read only the
 segments' achieved transforms and own no collision, and the collision shapes drawn
 (`body-shapes.ts`). The arena and the crypt also share the post pipeline (`post.ts`), textured
-surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/game-audio.ts`,
-`src/audio-cues.ts`, which voices each landed blow).
+surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/game-audio.ts`,
+`src/audio/cues.ts`, which voices each landed blow).
 
 ## Standing decisions
 

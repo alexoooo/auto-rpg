@@ -1,4 +1,4 @@
-import { mulberry32 } from "../rng.ts";
+import { mulberry32 } from "./rng.ts";
 import { isFloor, type DungeonMap, type Point } from "./map.ts";
 import { boundary, doorCells, WALL_HEIGHT } from "./fog.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";

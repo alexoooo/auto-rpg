@@ -9,12 +9,7 @@
 import "./menu.css";
 import { MENU_HREF, playHref, routeFor, type Route } from "./app-route.ts";
 import { labAddress } from "./core-lab/scenarios.ts";
-
-const need = <T extends HTMLElement>(id: string): T => {
-  const element = document.getElementById(id);
-  if (!element) throw new Error(`missing #${id}`);
-  return element as T;
-};
+import { need } from "./dom.ts";
 
 const mount = (templateId: string): void => {
   const template = document.getElementById(templateId);

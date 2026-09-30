@@ -4,7 +4,7 @@
 // It serves tests about the *run* -- traversal, doors, fog, fights, force movement -- several of
 // which place bodies at coordinates only this layout has. A change to the level generator must never
 // read as a change to the run, so those tests do not use `generateLevel` (`src/dungeon/level.ts`).
-import { mulberry32 } from "../../src/rng.ts";
+import { mulberry32 } from "../../src/dungeon/rng.ts";
 import { distance, findPath } from "../../src/dungeon/map.ts";
 
 /** Rooms occupy separated slots, so every connection has a genuine three-metre corridor. */

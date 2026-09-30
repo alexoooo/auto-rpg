@@ -2,8 +2,9 @@ import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
-import { blowCue } from "../audio-cues.ts";
-import { GameAudio } from "../game-audio.ts";
+import { need } from "../dom.ts";
+import { blowCue } from "../audio/cues.ts";
+import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { CORE_MODELS, type CoreModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
@@ -26,11 +27,6 @@ import { ORBIT, orbitPosition } from "./orbit.ts";
 /** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst. */
 const CATCH_UP_SECONDS = 0.1;
 
-const need = <T extends HTMLElement>(id: string): T => {
-  const element = document.getElementById(id);
-  if (!element) throw new Error(`missing #${id}`);
-  return element as T;
-};
 const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
 
 export async function bootArena(): Promise<void> {

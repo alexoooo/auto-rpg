@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { mulberry32 } from "../src/rng.ts";
+import { mulberry32 } from "../src/dungeon/rng.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -36,7 +36,7 @@ test("every_seeded_generator_is_this_file_and_nothing_carries_a_copy", () => {
   // over every source file. The control: the level generator draws from this file, so the walk reads real users.
   const walk = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })
     .flatMap((entry) => entry.isDirectory() ? walk(`${dir}/${entry.name}`) : [`${dir}/${entry.name}`]);
-  const sources = walk("src").filter((rel) => rel.endsWith(".ts") && rel !== "src/rng.ts");
-  assert.ok(sources.includes("src/dungeon/level.ts") && read("src/dungeon/level.ts").includes('from "../rng.ts"'));
+  const sources = walk("src").filter((rel) => rel.endsWith(".ts") && rel !== "src/dungeon/rng.ts");
+  assert.ok(sources.includes("src/dungeon/level.ts") && read("src/dungeon/level.ts").includes('from "./rng.ts"'));
   for (const rel of sources) assert.ok(!/function mulberry32/.test(read(rel)), `${rel} carries its own mulberry32`);
 });

@@ -1,11 +1,14 @@
 /**
  * **The lab's camera** (`src/core-lab/camera.ts`): the isometric angle, the chase's bearing behind a
- * body, the short way round, and orthographic extents that frame what the perspective frames.
+ * body, the facing of a pelvis on its side, the short way round, and orthographic extents that frame
+ * what the perspective frames.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { behind, CHASE_BETA, easeAngle, facingOf, ISO_ALPHA, ISO_BETA, orthoExtents } from "../src/core-lab/camera.ts";
+import {
+  behind, CHASE_BETA, easeAngle, facingOf, horizontalForward, ISO_ALPHA, ISO_BETA, orthoExtents,
+} from "../src/core-lab/camera.ts";
 
 const close = (actual, expected, message, tolerance = 1e-9) =>
   assert.ok(Math.abs(actual - expected) <= tolerance, `${message}: ${actual} against ${expected}`);
@@ -63,4 +66,12 @@ test("orthographic_extents_frame_what_the_perspective_frames_at_the_target", () 
   close(e.right / e.top, aspect, "the width follows the aspect");
   close(e.left, -e.right, "left");
   close(orthoExtents(2 * radius, fov, aspect).top, 2 * e.top, "zooming out widens it in step");
+});
+
+test("a_facing_is_its_projection_on_the_floor_and_the_last_one_when_it_has_none", () => {
+  const projected = horizontalForward(0.3, 0.4, 1, 0);
+  assert.ok(Math.abs(projected.x - 0.6) < 1e-12);
+  assert.ok(Math.abs(projected.z - 0.8) < 1e-12);
+  assert.deepEqual(horizontalForward(0, 0, -0.8, 0.6), { x: -0.8, z: 0.6 });
+  assert.deepEqual(horizontalForward(0, 0, 0, 0), { x: 0, z: 1 });
 });

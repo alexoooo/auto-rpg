@@ -1,8 +1,8 @@
 import test from 'node:test';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import assert from 'node:assert/strict';
-import { blowCue, ImpactInbox, soundPlacement } from '../src/audio-cues.ts';
-import { GameAudio } from '../src/game-audio.ts';
+import { blowCue, ImpactInbox, soundPlacement } from '../src/audio/cues.ts';
+import { GameAudio } from '../src/audio/game-audio.ts';
 // A core blow (`LandedBlow`) of 15 J from the hero to the enemy's head.
 const blow = (patch = {}) => ({ time: 1, attacker: 'hero', target: 'enemy', striker: 'club', part: 'head', point: [1, 1.6, 2], normal: [0, 0, 1],
   closing: 4, strikerKg: 1, struckKg: 5, energy: 15, damage: 3, clash: false, wound: { taken: [{ part: 'head', hp: 3 }], severed: [], lost: 0, spent: 3, ending: null }, ...patch });

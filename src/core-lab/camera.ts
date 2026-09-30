@@ -1,7 +1,6 @@
 import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
 import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { horizontalForward } from "../camera.ts";
 import type { LabCamera, LabProjection } from "./scenarios.ts";
 
 /**
@@ -50,6 +49,18 @@ export function facingOf(rotation: Quaternion, rest: Quaternion, last: { x: numb
   const turn = rotation.multiply(Quaternion.Inverse(rest)), ahead = new Vector3();
   AHEAD.applyRotationQuaternionToRef(turn, ahead);
   return horizontalForward(ahead.x, ahead.z, last.x, last.z);
+}
+
+/**
+ * `(x, z)` made a unit bearing on the ground; when it is too short to name one (a pelvis pointing
+ * straight up or down), the fallback's bearing, and +z when that is too short as well.
+ */
+export function horizontalForward(x: number, z: number, fallbackX: number, fallbackZ: number): { x: number; z: number } {
+  const length = Math.hypot(x, z);
+  if (length > 1e-6) return { x: x / length, z: z / length };
+  const fallbackLength = Math.hypot(fallbackX, fallbackZ);
+  if (fallbackLength > 1e-6) return { x: fallbackX / fallbackLength, z: fallbackZ / fallbackLength };
+  return { x: 0, z: 1 };
 }
 
 /** The orbit camera's bearing (alpha) that stands it behind a body facing `facing`. */

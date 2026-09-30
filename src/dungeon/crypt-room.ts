@@ -1,6 +1,6 @@
 import { CRYPT_ROOM_LOOK, type CryptArchetype } from "./crypt-archetypes.ts";
 import { companionSpawn } from "./party-placement.ts";
-import { mulberry32 } from "../rng.ts";
+import { mulberry32 } from "./rng.ts";
 import { findPath, walkable, type DungeonMap, type Point } from "./map.ts";
 import type { TorchPlacement } from "./dressing.ts";
 
