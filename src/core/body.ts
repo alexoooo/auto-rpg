@@ -20,7 +20,7 @@ export interface CoreBody {
   readonly built: BuiltBody;
   /** The muscles, for readings (a view of the torques); a driver commands through `drive`. */
   readonly muscles: MuscleDriver;
-  /** The view as the last step left it. */
+  /** The view as the last step left it, or as built before the first. */
   readonly view: BodyView;
   /**
    * What the stance was measured to hold with this body (`stance-envelope.ts`), so a driver asks for
@@ -140,7 +140,8 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds, stanc
   };
   obey(current.command);
 
-  const muscles = driveMuscles(built, world, (d, dt) => {
+  /** Read the view from the body as it stands. */
+  const see = (d: MuscleDriver): void => {
     view.time = world.time;
     d.channels.forEach((c, i) => { angles[c.name] = d.angle(i); });
     for (const hand of ["left", "right"] as const) {
@@ -149,10 +150,15 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds, stanc
     }
     head.update();
     motor.stance.read();
+  };
+  const muscles = driveMuscles(built, world, (d, dt) => {
+    see(d);
     const next = driver?.(view, dt);
     if (next) obey(next);
     motor.control(d, dt);
   });
+  // Before its first step the view is the body as built, where a driver or a run first finds it.
+  see(muscles);
 
   return {
     built, muscles, view,
