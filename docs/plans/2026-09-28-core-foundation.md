@@ -963,6 +963,25 @@ Havok's.
   fix is a landing the leg can reach, from its range at the planned height, and a pace no faster
   than those landings can catch (a person walking back also bends the trunk forward, which moves
   the range).
+- **Tried (2026-09-30), not kept: the reachable landing and a whole-body solve.** (Node core
+  stand, Rapier, 120 Hz; the gait battery's 25 walks a family, the control Rogue 24/25, Warrior 25/25.)
+  - *The landing clamped onto the leg's reach, the pace capped by what the short steps lose.* Taken
+    from the pelvis as it stands, the reach closed to nothing: the swinging side's hip rides 2.5 cm
+    up late in a swing, and a straight leg barely reaches the ground under it. Taken from the pelvis
+    the stance asks for (upright, at the plan's height), the aims were within reach on the failing
+    walk and the clamp moved nothing that mattered: Rogue 23/25. The hip meets its stop because the
+    pelvis tilts about 0.1 rad into the walk and the hip stands 4 cm ahead of the centre of mass,
+    not because the plan aims out of reach; the landing is also 3 cm off the ground when the swing
+    ends on its clock.
+  - *The ground's miss taken where it changes the motion least* (Gauss's principle, the body's mass
+    matrix as the metric, the soles' limits as constraints), in place of the root taking it all.
+    Root alone: standing shoves better (Rogue 127 against 118, mean 44.7 against 41.9), walks
+    worse (Rogue 20/25, Warrior 23/25). The swinging leg free to change too: no difference. The
+    trunk, arms and neck free to change too: worse (Rogue 19/25, Warrior 22/25). The kinetic metric
+    says what the body would do if nothing held it, and counts an arm's swing as cheap; a posture
+    the controller must keep needs a task's own weight, which the metric does not give. The
+    pelvis's tilt is the lead: a controller that holds the pelvis against the moment the soles miss
+    (a trunk lean asked, as a person leans walking back) is next.
 - **Against the acceptance: not met.** Walks above 0.5 m/s every way still fall for the Rogue (the
   Warrior holds 0.7 every way); forward they hold to 1.0 m/s, under pace (a human's preferred walk is near 1.4); no human reference for the
   shoves or a reversal is sourced yet.
