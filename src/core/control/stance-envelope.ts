@@ -6,7 +6,8 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  * **What the stance can do with a body**, measured, so that a caller asks for "your fastest walk"
  * and not for a number that held on one engine. The numbers are
  * `assets/core/stance-envelope.json`, which `research/core-stance-envelope.mjs --write` writes from
- * the gait battery (`research/core-stance-trials.mjs`' walk, five ways at each speed) and which
+ * the gait battery (`research/core-stance-trials.mjs`' walk, five ways at each speed) and the turn
+ * battery (its turn: half round each way at each rate, walking at the fastest walk), and which
  * names the harness and rate it was measured on; `tests/core-stance-envelope.test.mjs` fails when
  * the harness it names is not the core's, so a change of engine or rate re-measures it.
  *
@@ -16,9 +17,14 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
 export interface StanceEnvelope {
   /** The fastest walk the stance held, m/s (`fastestHeld`). */
   readonly walk: Quantity<number>;
+  /** The fastest the heading turned while the body walked at `walk`, and held, rad/s (`fastestHeld`). */
+  readonly turn: Quantity<number>;
 }
 
-/** The gait battery's walks at each speed: how many ways of `ways` held (did not fall). */
+/**
+ * A battery's trials at each speed (a walk's, or a turn's rate): how many ways of `ways` held (did
+ * not fall).
+ */
 export interface GaitTable {
   readonly speeds: readonly number[];
   readonly ways: number;
@@ -40,8 +46,11 @@ export function fastestHeld({ speeds, ways, held }: GaitTable): number {
 
 /** The measured envelope of `spec`'s model. */
 export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
-  const models: Readonly<Record<string, { readonly walk: number }>> = measured.models;
+  const models: Readonly<Record<string, { readonly walk: number; readonly turn: number }>> = measured.models;
   const entry = models[spec.model];
   if (!entry) throw new Error(`the stance's envelope was not measured on ${spec.model}`);
-  return { walk: sourced(entry.walk, "m/s", "core-stance-envelope", `/models/${spec.model}/walk`) };
+  return {
+    walk: sourced(entry.walk, "m/s", "core-stance-envelope", `/models/${spec.model}/walk`),
+    turn: sourced(entry.turn, "rad/s", "core-stance-envelope", `/models/${spec.model}/turn`),
+  };
 }

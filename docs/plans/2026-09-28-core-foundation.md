@@ -645,9 +645,14 @@ Havok's.
   under the core's stance tuning; a body under another tuning carries none. Asked 0.5, the Warrior
   went 45.6 cm off the shuttle: the run sped up at a half-turn's end while its heading, lagging the
   track's, was still 0.9 rad short. The run now keeps a bend's pace `STEER.metres` past it as well
-  as before it, and each human's farthest off the shuttle is 31.4-31.9 cm over 30 and 70 s, the
-  circle's 13.4-13.6 cm (Node stand, 120 Hz). Not yet in the envelope: the turn rate
-  (`LAB_TURN_RATE`, measured on Havok) and the turn's pace (`TURN_PACE`).
+  as before it. The envelope also carries the fastest turn: the heading turned half round each way
+  at 0.25, 0.5, 1, 2 and 4 rad/s while walking at the fastest walk (`turn` in
+  `research/core-stance-trials.mjs`). The Warrior held 2,2,2,0,0 of two, so 1 rad/s; the Rogue
+  2,2,2,2,0, so 2. The Run turns at the body's turn and slows for a bend only where that cannot
+  carry its walk round: the Warrior takes the shuttle's 0.3 m half-turns at 0.3 m/s, the Rogue at
+  its walk. Farthest off the shuttle over 30 and 70 s, 31.7 cm (Warrior) and 26.7-31.0 (Rogue); off
+  the circle, 13.4-13.6 cm (Node stand, 120 Hz). The lab's `LAB_TURN_RATE` (the Stance's Q and E,
+  and the shuttle's radius) stays a lab setting, held inside every body's envelope by the test.
   The Blow scenario (`blow-scenario.ts`; its card puts the club in the right hand) throws a
   stored blow (`blows.ts`: today the damage unit's) standing, as the strike search throws it
   (`blow.ts`), into a head mark, and reads the landing as the search reads it (`club-blow.ts`):

@@ -4,14 +4,20 @@
   "measured": "2026-09-30",
   "speeds": [0.2, 0.3, 0.4, 0.5, 0.7],
   "ways": [0, 90, 180, 270, 45],
+  "rates": [0.25, 0.5, 1, 2, 4],
+  "senses": [1, -1],
   "models": {
     "workshop-fighter": {
       "held": [5, 5, 5, 5, 3],
-      "walk": 0.5
+      "walk": 0.5,
+      "turnHeld": [2, 2, 2, 0, 0],
+      "turn": 1
     },
     "workshop-rogue": {
       "held": [5, 5, 5, 4, 0],
-      "walk": 0.4
+      "walk": 0.4,
+      "turnHeld": [2, 2, 2, 2, 0],
+      "turn": 2
     }
   }
 }

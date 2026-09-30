@@ -71,9 +71,11 @@ export interface StanceSession {
 export const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, lower: STANCE_LOWER });
 
 /**
- * How fast the heading turns while walking, rad/s: a lab setting, not the stance's. Walking at
- * 0.3 m/s and turned half round at 0.25, 0.5, 1 and 2 rad/s, each human held every one and went the
- * new way (Node stand, 120 Hz).
+ * How fast the Stance scenario's Q and E turn the heading while walking, rad/s, and the shuttle's
+ * half-turns' radius with the Routine's pace (`track.ts`): a lab setting, not the stance's. It is
+ * inside every body's envelope (`CoreBody.envelope.turn`, `tests/core-stance-envelope.test.mjs`): on
+ * Rapier, walking at its fastest, the Warrior held half-turns at up to 1 rad/s and the Rogue 2. On
+ * Havok, walking at 0.3 m/s, each held 0.25-2 (Node stand, 120 Hz).
  */
 export const LAB_TURN_RATE = 1;
 

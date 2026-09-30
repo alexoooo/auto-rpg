@@ -162,4 +162,47 @@ export async function walk({ model, degrees, speed, stance, hz = 120 }) {
   } finally { b.dispose(); stand.dispose(); }
 }
 
-export const TRIALS = { stand, edge, step, shove, walk };
+/**
+ * Walk forward at `speed` m/s for 3 s after 1 s, then turn the heading half round at `rate` rad/s
+ * (`sense` 1 to the right, -1 to the left) still walking, walk on 3 s and stop for 2: whether it
+ * fell, and how far the walk's direction was off the new heading over the last second of walking, rad.
+ */
+export async function turn({ model, speed, rate, sense, stance, hz = 120 }) {
+  const { stand, body: b } = await body(model, stance, hz);
+  let goal = null, heading = 0, turning = false, walking = false, turned = 0;
+  b.drive((view, dt) => {
+    const s = view.stance;
+    if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03 };
+    if (turning && turned < Math.PI) {
+      const d = Math.min(rate * dt, Math.PI - turned);
+      turned += d;
+      heading += sense * d;
+    }
+    const walk = walking ? [speed * Math.sin(heading), speed * Math.cos(heading)] : null;
+    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, heading, walk } };
+  });
+  try {
+    let low = -Infinity;
+    const run = (seconds, each) => {
+      for (let i = 0; i < stand.seconds(seconds); i++) {
+        stand.step(1);
+        const s = b.view.stance;
+        if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+        each?.(s);
+      }
+    };
+    run(1);
+    walking = true;
+    run(3);
+    turning = true;
+    run(Math.PI / rate);
+    run(2);
+    let off = 0;
+    run(1, (s) => { if (s.velocity.length() > 0.05) off = Math.max(off, Math.abs(Math.atan2(Math.sin(Math.atan2(s.velocity.x, s.velocity.z) - heading), Math.cos(Math.atan2(s.velocity.x, s.velocity.z) - heading)))); });
+    walking = false;
+    run(2);
+    return { fell: low > 0.25 || !Number.isFinite(low), off, speed: b.view.stance.velocity.length(), phase: b.view.stance.phase };
+  } finally { b.dispose(); stand.dispose(); }
+}
+
+export const TRIALS = { stand, edge, step, shove, walk, turn };
