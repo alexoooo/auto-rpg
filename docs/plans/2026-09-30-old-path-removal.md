@@ -56,6 +56,15 @@ skills more dynamically."
    - **In the lab** as a third body, with the stance's envelope measured on it.
    - Acceptance: the skeleton's spec passes the provenance check, builds, and stands on the core
      stand; every piece sits on its segment. How it looks is the owner's eye gate.
+   - **Landed (2026-09-30).** `src/core/human/skeleton.ts`, `modelSpec` and `CORE_MODELS`
+     (`src/core/human/spec.ts`), `src/core-lab/skeleton-skin.ts`; tests `core-skeleton` and
+     `core-skeleton-skin`. The fist is a cube in the bind, so the little finger's knuckle, where the
+     club's grip ends, is its half-width below the middle one, and the skeleton holds the club.
+     In the lab (Node stand, Rapier, 120 Hz) every scenario runs on it: it stands and walks in
+     the Stance and goes round the Run's circle at 0.2 m/s; in the Routine it falls after its first
+     two strikes, which borrow the Warrior's recipes. Its hand's capsule runs to the fist box's far
+     side, about 7 cm past the art's knuckles. On the page (a built preview, drawn by hand in a
+     hidden tab) the pieces meet at the joints, the fists raised in the overbent guard.
 2. **The engine seam.** `src/core/engine/engine.ts` holds the interfaces (`PhysicsWorld`,
    `SegmentBody`, `CoreJoint`, shapes, mass properties) with no Rapier type; `engine/rapier.ts`
    implements them; `createWorld` takes an engine; the tests read masses through the interface.

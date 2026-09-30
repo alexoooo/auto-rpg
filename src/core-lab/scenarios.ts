@@ -1,6 +1,6 @@
 import { playHref } from "../app-route.ts";
 import { CHARACTERS } from "../character-lab/catalog.ts";
-import type { WorkshopModel } from "../core/human/rig.ts";
+import type { CoreModel } from "../core/human/spec.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -30,9 +30,10 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
 ];
 
-export const MODELS: readonly { readonly id: WorkshopModel; readonly name: string }[] = [
+export const MODELS: readonly { readonly id: CoreModel; readonly name: string }[] = [
   { id: "workshop-fighter", name: "Warrior" },
   { id: "workshop-rogue", name: "Rogue" },
+  { id: "crypt-skeleton", name: "Skeleton" },
 ];
 
 /**
@@ -43,10 +44,14 @@ export const LAB_HELD = ["empty", "club"] as const;
 export type LabHeld = (typeof LAB_HELD)[number];
 
 /**
- * The character workshop's own entry for each model, whose default loadout says whether it wears
- * boots and armour: the Warrior armoured, the Rogue not.
+ * What each body wears unless the address says: the character workshop's own default loadout for
+ * the humans, the Warrior armoured and the Rogue not; the skeleton wears nothing.
  */
-const WORKSHOP = { "workshop-fighter": CHARACTERS.fighter, "workshop-rogue": CHARACTERS.rogue } as const;
+const WORN: Readonly<Record<CoreModel, { readonly boots: boolean; readonly armour: boolean }>> = {
+  "workshop-fighter": CHARACTERS.fighter.defaults,
+  "workshop-rogue": CHARACTERS.rogue.defaults,
+  "crypt-skeleton": { boots: false, armour: false },
+};
 
 /**
  * **A loadout**: the body, what each hand holds, and what it wears. The body and the hands are
@@ -54,7 +59,7 @@ const WORKSHOP = { "workshop-fighter": CHARACTERS.fighter, "workshop-rogue": CHA
  * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
  */
 export interface LabLoadout {
-  readonly model: WorkshopModel;
+  readonly model: CoreModel;
   readonly right: LabHeld;
   readonly left: LabHeld;
   readonly boots: boolean;
@@ -92,7 +97,7 @@ const flag = (value: string | null, fallback: boolean): boolean => value === "1"
 export function labAddress(search: string): LabAddress {
   const query = new URLSearchParams(search);
   const model = MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id;
-  const worn = WORKSHOP[model].defaults;
+  const worn = WORN[model];
   return {
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,

@@ -1,7 +1,8 @@
 /**
  * The crypt skeleton on the core (`src/core/human/skeleton.ts`): every number says where it came
  * from; its joints sit where the art's bind (`assets/skeleton/bind.json`) joins its parts, read here
- * from the bind itself and not through the figure; its placeholders are named as such; and it
+ * from the bind itself and not through the figure; its placeholders are named as such; each fist
+ * holds the club; and it
  * stands on the core stand and walks at its measured envelope's pace. Node stand, Rapier, on a
  * ground, 120 Hz.
  */
@@ -9,6 +10,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createBody } from "../src/core/body.ts";
+import { armed } from "../src/core/human/grip.ts";
+import { woodenClub } from "../src/core/items/club.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { CORE_MODELS, modelSpec } from "../src/core/human/spec.ts";
 import { SKELETON_MODEL } from "../src/core/human/skeleton.ts";
@@ -61,6 +64,17 @@ test("what the art does not give is a named placeholder, and the rest is the bin
   assert.deepEqual(sources(spec.wounds.hp), ["skeleton-placeholders"]);
   assert.deepEqual(sources(spec.stature), ["skeleton-bind"]);
   assert.ok(Math.abs(spec.stature.value - (part("head.head").position[1] + part("head.head").max[1])) < 1e-9);
+});
+
+test("each fist holds the club, its grip ending at the little finger's knuckle half the fist below the middle one", () => {
+  for (const side of ["right", "left"]) {
+    const spec = armed(modelSpec(SKELETON_MODEL), side, woodenClub());
+    assert.deepEqual(specProvenanceFaults(spec), [], side);
+    const { knuckles, little } = spec.segments.find((s) => s.name === `hand.${side}`).points;
+    const drop = knuckles.value.map((k, i) => k - little.value[i]);
+    assert.ok(Math.abs(drop[0]) < 1e-12 && Math.abs(drop[1] - part(`${side === "right" ? "primary" : "secondary"}.fist`).max[0]) < 1e-12 && Math.abs(drop[2]) < 1e-12,
+      `${side}: ${drop}`);
+  }
 });
 
 test("every core model has a measured stance envelope, the skeleton among them", () => {

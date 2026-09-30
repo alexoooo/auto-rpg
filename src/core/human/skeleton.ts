@@ -16,8 +16,10 @@ import { dividedTrunk, type Side } from "./landmarks.ts";
  * - **Joint centres** are the parts' ends, along each part's y: the thigh's top the hip, its bottom
  *   the knee, the shank's bottom the ankle; the upper arm's top the shoulder, its bottom the elbow;
  *   the forearm and its roll ring the forearm, whose far end is the wrist; the wrist link the palm,
- *   whose far end is the knuckles; and the fist the fingers, whose far side ends the hand. The neck's
- *   bottom is the cervicale and the head box's top the vertex.
+ *   whose far end is the knuckles; and the fist the fingers, whose far side ends the hand. The fist
+ *   is a cube, so the little finger's knuckle, where a grip ends (`grip.ts`), is its half-width from
+ *   the middle one toward the little finger. The neck's bottom is the cervicale and the head box's
+ *   top the vertex.
  * - **The trunk** is the old trunk's boxes (the core and the pelvis), sliced at de Leva's trunk
  *   landmarks: each segment the hull of the boxes' corners within its span.
  * - **The feet** are the foot boxes; a foot runs from its box's back to its front, at its middle.
@@ -133,6 +135,8 @@ function limb(side: Side): LimbFigure {
   const thigh = part(`legs.thigh${legs}`), shin = part(`legs.shin${legs}`), foot = unturned(part(`legs.foot${legs}`));
   const upperArm = part(`${arm}.upperArm`), rollRing = part(`${arm}.rollRing`), wrist = part(`${arm}.wrist`), fist = part(`${arm}.fist`);
   const WJC = end(rollRing, -1, "WJC"), MET3 = end(wrist, -1, "MET3");
+  // Thumb up: toward the thumb on the right hand, toward the little finger (down) on the left.
+  const handRight = placeholder<Vec3>(side === "right" ? [0, 1, 0] : [0, -1, 0], "1", `the ${side} fist thumb up, as the bind's guard holds it`);
   const footEnd = (sign: 1 | -1, what: string) => derive("m", `${what}: ${foot.key}'s box, its middle across and up, its ${sign > 0 ? "front" : "back"}`,
     [foot.position, foot.min[0]!, foot.max[0]!, foot.min[1]!, foot.max[1]!, sign > 0 ? foot.max[2]! : foot.min[2]!],
     (at, x0, x1, y0, y1, z) => [at[0] + (x0 + x1) / 2, at[1] + (y0 + y1) / 2, at[2] + z]);
@@ -148,8 +152,12 @@ function limb(side: Side): LimbFigure {
       [fist.position, fist.max[1]!, WJC, MET3], (at, half, w, k) => add(at, scale(normalize(sub(k, w)), half))),
     HEEL: footEnd(-1, "HEEL"),
     TTIP: footEnd(1, "TTIP"),
-    // Thumb up: toward the thumb on the right hand, toward the little finger (down) on the left.
-    handRight: placeholder(side === "right" ? [0, 1, 0] : [0, -1, 0], "1", `the ${side} fist thumb up, as the bind's guard holds it`),
+    handRight,
+    little: side === "right"
+      ? derive("m", `the little finger's knuckle: ${fist.key}'s half-width from the middle knuckle, against the hand's right`,
+        [MET3, handRight, fist.max[0]!], (k, r, half) => sub(k, scale(r, half)))
+      : derive("m", `the little finger's knuckle: ${fist.key}'s half-width from the middle knuckle, along the hand's right`,
+        [MET3, handRight, fist.max[0]!], (k, r, half) => add(k, scale(r, half))),
   };
 }
 

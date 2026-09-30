@@ -31,6 +31,8 @@ test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherw
   assert.deepEqual(CHARACTERS.fighter.defaults, { boots: true, armour: true, weapon: "sword-shield" });
   assert.deepEqual(CHARACTERS.rogue.defaults, { boots: true, armour: false, weapon: "bow" });
   assert.deepEqual(labAddress("?model=workshop-rogue"), { ...DEFAULTS, ...ROGUE });
+  // The skeleton wears nothing.
+  assert.deepEqual(labAddress("?model=crypt-skeleton"), { ...DEFAULTS, model: "crypt-skeleton", boots: false, armour: false });
   // An explicit switch wins either way, for either body.
   assert.deepEqual(labAddress("?model=workshop-rogue&armour=1&boots=0"), { ...DEFAULTS, ...ROGUE, armour: true, boots: false });
   assert.deepEqual(labAddress("?armour=0&boots=1"), { ...DEFAULTS, armour: false });

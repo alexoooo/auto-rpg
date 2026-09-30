@@ -10,7 +10,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { loadRapier } from "../core/engine/rapier.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import type { WorkshopModel } from "../core/human/rig.ts";
+import type { CoreModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labCameraRig } from "./camera.ts";
@@ -21,6 +21,7 @@ import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { labHref, SCENARIOS, type LabAddress, type LabCamera, type LabHeld, type LabProjection, type ScenarioId } from "./scenarios.ts";
+import { dressSkeleton, loadSkeletonArt } from "./skeleton-skin.ts";
 import { dressBody, loadSkin, type SkinView } from "./skin.ts";
 import { stanceScenario } from "./stance-scenario.ts";
 import { drawBody, drawHeld, type BodyView } from "./view.ts";
@@ -47,9 +48,10 @@ import { drawBody, drawHeld, type BodyView } from "./view.ts";
  * always its own.
  */
 
-const TINT: Readonly<Record<WorkshopModel, Color3>> = {
+const TINT: Readonly<Record<CoreModel, Color3>> = {
   "workshop-fighter": new Color3(0.55, 0.6, 0.66),
   "workshop-rogue": new Color3(0.5, 0.62, 0.55),
+  "crypt-skeleton": new Color3(0.72, 0.68, 0.58),
 };
 
 const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
@@ -202,9 +204,13 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest };
     current = loaded;
     showView();
-    loadSkin(to.model, scene).then((container) => {
+    const model = to.model;
+    const dressed: Promise<(built: BuiltBody) => SkinView> = model === "crypt-skeleton"
+      ? loadSkeletonArt().then((art) => (b) => dressSkeleton(b, art, scene))
+      : loadSkin(model, scene).then((container) => (b) => dressBody(b, container, scene, shown, (hand) => run.closure(hand)));
+    dressed.then((dress) => {
       if (current !== loaded) return;
-      loaded.skin = dressBody(built, container, scene, shown, (hand) => run.closure(hand));
+      loaded.skin = dress(built);
       showView();
     }, (error: unknown) => console.error(`${to.model}: the skin did not load`, error));
     showLoadout();
@@ -248,7 +254,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   document.addEventListener("visibilitychange", () => held.clear());
 
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
-    button.addEventListener("click", () => { load({ ...shown, model: button.dataset.model as WorkshopModel }); button.blur(); });
+    button.addEventListener("click", () => { load({ ...shown, model: button.dataset.model as CoreModel }); button.blur(); });
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-held]")) {
     button.addEventListener("click", () => {
