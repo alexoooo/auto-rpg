@@ -701,7 +701,8 @@ Havok's.
   Over 24 runs of 20 loops at 120 Hz the Rogue completed 466 of 480 (22 through: one fell in a
   turn in its 13th loop, one in the settle after the strikes in its 15th, each after the share came
   back NaN in that loop's second strike) and the
-  Warrior all 480; with the share fixed, both complete all 480, and at 480 Hz both 60 of 60.
+  Warrior all 480; with the share fixed, both complete all 480, and at 480 Hz, over 12 runs of 20
+  loops, both all 240.
   The bound costs shoves: 117 and 202 held of 272, against 128 and 217 (`bear`'s note); with the
   turn's rate the Warrior holds 209.
 - **It converges with the rate.** At 480 Hz (the same batteries, shoves 10-60 N s) both humans
