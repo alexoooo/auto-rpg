@@ -657,8 +657,8 @@ Havok's.
     Warrior fell in its second loop's first walk and the Rogue in its ninth loop's walk back; at
     480 Hz the Warrior in its sixth loop's walk back and the Rogue in its third loop's second strike.
     The straights peak at 5.64-5.72 m/s (Warrior) and 4.80-4.90 (Rogue) at 120 Hz, against 5.44 and
-    4.66 on Havok's stance. Three causes are fixed (below); two falls in 48 runs of 20 loops are
-    left.
+    4.66 on Havok's stance. Four causes are fixed (below), and both humans now hold 20 loops from
+    every start.
 - **A swinging leg is solved within its strength, all its freedoms at once** (`boundedLeastSquares`
   in `bear`). Clipped one at a time, a hip at its strength left the knee's torque asking for the
   thigh's motion it did not get: the Warrior's foot dragged a whole step 1 cm up, landed 18 cm
@@ -678,6 +678,15 @@ Havok's.
   asked, dragged and landed short; on the walk back the right steps landed 9 to 30 cm short and the
   walk ran away to 0.9 m/s. A test steps each foot turned half a radian: it lands within 0.009 rad
   of the heading, and 0.224 off without the path's rate (the control).
+- **The ground's share never comes back NaN** (`shareGroundWrench`). Its active set took a limit
+  into the working set when the step moved toward it, the step's cosine with the limit's normal
+  deciding whether the limit was independent of the working ones. At a degenerate corner the step
+  fell to rounding (6e-9 N) and had rounding's direction, so a limit that was a combination of the
+  working ones seemed to block; the next solve was singular, and all twelve leg torques came back
+  NaN. A Rogue in its routine's fourteenth loop, striking, then flung its right foot at 6 m/s and
+  fell. A limit now blocks only if its normal has a part outside the working limits' span, which
+  is decided from the limits alone. Over 20000 random two-sole problems shaped like the stance's,
+  none comes back NaN, against 34 before (the control); the stance battery reads as it did.
 - **Measured** on the lab routine from seeded starts (`research/core-routine-battery.mjs`: a 3 N s
   push at 0.5 s in a direction the seed picks, up to 5 loops; Node core stand, Rapier), loops
   completed:
@@ -689,8 +698,10 @@ Havok's.
   | and the pushes planned | 84 (12) | 109 (20) | 56 (11) | 60 (12) |
   | and the swing's turn at its rate | 120 (24) | 120 (24) | 60 (12) | 60 (12) |
 
-  Over 24 runs of 20 loops at 120 Hz the Rogue completes 466 of 480 (22 through: one falls in a
-  turn in its 13th loop, one in the settle after the strikes in its 15th) and the Warrior all 480.
+  Over 24 runs of 20 loops at 120 Hz the Rogue completed 466 of 480 (22 through: one fell in a
+  turn in its 13th loop, one in the settle after the strikes in its 15th, each after the share came
+  back NaN in that loop's second strike) and the
+  Warrior all 480; with the share fixed, both complete all 480, and at 480 Hz both 60 of 60.
   The bound costs shoves: 117 and 202 held of 272, against 128 and 217 (`bear`'s note); with the
   turn's rate the Warrior holds 209.
 - **It converges with the rate.** At 480 Hz (the same batteries, shoves 10-60 N s) both humans
@@ -866,7 +877,7 @@ Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.3
 
 **Where the port stands**: the owner chose torque sources (2026-09-29: "go with (b), start with
 the real inertia"), and the stance stands, steps, walks and catches shoves on them (stage 4's torque
-stance). 1097 of 1101 tests pass; three are todos (the limit and the two muscle impulse tests), and
+stance). 1098 of 1102 tests pass; three are todos (the limit and the two muscle impulse tests), and
 the one that fails is the unit's replay, which waits on a search at a converged rate (above).
 
 ### Stage 6: the human fights in the game

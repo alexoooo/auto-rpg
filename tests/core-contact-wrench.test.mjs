@@ -3,8 +3,11 @@
  * wrench a sole's corners can make, each pushing inside the friction pyramid, is given with no
  * miss; a twist past what the corners' friction can give, a centre of pressure past the sole and a
  * pull are not, and what is given lies inside the limits; a sole that bears nothing gives nothing,
- * twist included; and the share that once came back NaN (a Rogue shoved 15 N s at 315 degrees, two
- * soles, friction limits meeting at a light sole) comes back finite.
+ * twist included; the shares that once came back NaN (a Rogue shoved 15 N s at 315 degrees, two
+ * soles, friction limits meeting at a light sole; a Rogue striking in its routine's fourteenth loop)
+ * come back finite; and so do 20000 random two-sole problems shaped like the stance's, each inside
+ * its soles' limits. The control, run by hand: with a blocking limit's dependence on the working set
+ * judged by its cosine with the step (the code before), 34 of those 20000 came back NaN.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -95,4 +98,38 @@ test("a sole that bears nothing gives nothing, twist included; the share that ca
   const light = shares.findIndex((s) => s.force.y < 1e-6 * force.length());
   assert.ok(light >= 0, "neither sole was unloaded: the case does not exercise a sole bearing nothing");
   assert.ok(shares[light].moment.length() < 1e-6 * force.length(), `a sole bearing nothing gave ${shares[light].moment.length()} N m`);
+});
+
+test("a share whose last step is rounding comes back finite, as do 20000 two-sole problems shaped like the stance's", () => {
+  // Recorded from a Rogue in its routine's fourteenth loop, striking (seed 24, Node stand, Rapier,
+  // 120 Hz): the active set's step fell to rounding (6e-9 N) at a degenerate corner, and a limit
+  // that is a combination of the working ones seemed to block it.
+  const soles = [
+    { middle: new Vector3(-0.093511201539401, -0.005475106883502039, 1.9189550655586372), along: new Vector3(-0.01792728309757968, 0, 0.9998392933470555) },
+    { middle: new Vector3(0.19453189860768572, -0.005219573794148877, 1.7896073784288162), along: new Vector3(-0.021872588459735602, 0, 0.9997607663206588) },
+  ].map((s) => ({ ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
+  const centre = new Vector3(0.03070985993772695, 0.882219516156343, 1.827376574952522);
+  const force = new Vector3(89.19496503463537, 559.2146823551765, -92.52064792619704), moment = new Vector3(-14.566345399287933, -26.90184635293252, 19.225789044201118);
+  const shares = out(2), miss = missOf();
+  shareGroundWrench(soles, centre, force, moment, MU, 0.8875668564951684, shares, miss);
+  const values = shares.flatMap((s) => [...s.force.asArray(), ...s.moment.asArray()]);
+  assert.ok(values.every(Number.isFinite), `the share came back ${values}`);
+  soles.forEach((sole, k) => assert.ok(outside(sole, shares[k]) < 1e-6 * force.length(), `sole ${k} is outside its limits by ${outside(sole, shares[k])}`));
+  let seed = 11, broken = 0, worst = 0;
+  const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let trial = 0; trial < 20000; trial++) {
+    const pair = [-1, 1].map((side) => {
+      const a = 0.6 * (random() - 0.5);
+      return { middle: new Vector3(0.15 * side + 0.1 * (random() - 0.5), -0.005 * random(), 0.4 * (random() - 0.5)), along: new Vector3(Math.sin(a), 0, Math.cos(a)), length: 0.1228, width: 0.0635 };
+    });
+    const at = new Vector3(0.1 * (random() - 0.5), 0.88, 0.1 * (random() - 0.5));
+    const f = new Vector3(300 * (random() - 0.5), 600 * random(), 300 * (random() - 0.5)), m = new Vector3(80 * (random() - 0.5), 60 * (random() - 0.5), 80 * (random() - 0.5));
+    const given = out(2);
+    shareGroundWrench(pair, at, f, m, MU, 0.88, given);
+    if (!given.flatMap((s) => [...s.force.asArray(), ...s.moment.asArray()]).every(Number.isFinite)) { broken++; continue; }
+    pair.forEach((sole, k) => { worst = Math.max(worst, outside(sole, given[k]) / (1 + f.length())); });
+  }
+  console.log(`MUT contact wrench random pairs: ${broken} of 20000 not finite, worst outside the limits ${worst.toExponential(1)} of the force`);
+  assert.equal(broken, 0, `${broken} of 20000 shares came back not finite`);
+  assert.ok(worst < 1e-6, `a share is outside its sole's limits by ${worst} of its force`);
 });

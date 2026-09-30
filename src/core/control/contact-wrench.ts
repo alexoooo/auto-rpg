@@ -128,7 +128,7 @@ export function shareGroundWrench(soles: readonly BearingSole[], centre: Vector3
 const REGULARIZER = 1e-6;
 /** A component of a sole's wrench in its own frame, as weights on its world columns. */
 type Term = readonly (readonly [number, number])[];
-/** The cosine, between a limit's normal and a step, below which the step is taken to run along the limit: rounding, a numeric setting. */
+/** The part of a limit's normal outside the working limits' span, relative to the normal, below which the limit is taken to depend on them: rounding, a numeric setting. */
 const DEPENDENT = 1e-9;
 /** The press each sole starts from, N: strictly inside every limit, and far below any share. */
 const START = 1e-3;
@@ -163,20 +163,53 @@ function activeSet(H: readonly number[][], g: readonly number[], C: readonly num
       continue;
     }
     // As far along p as the limits outside the working set allow. p lies in the working limits'
-    // null space, so a limit it moves toward is independent of them; one it moves toward only by
-    // rounding is not, and taken into the working set would make the next solve singular.
-    let step = 1, blocking = -1;
-    const length = Math.hypot(...p);
+    // null space, so in exact arithmetic a limit it moves toward is independent of them. A step of
+    // rounding's size has rounding's direction, and can seem to move toward a limit that is a
+    // combination of the working ones; taken into the working set, it makes the next solve
+    // singular. So a limit blocks only if it is independent of the working limits, which is
+    // decided from the limits alone, whatever the step's size.
+    let step = 1, blocking = -1, basis: number[][] | undefined;
     C.forEach((row, c) => {
       if (working.includes(c)) return;
-      let along = 0, at = 0, size = 0;
-      for (let j = 0; j < n; j++) { along += row[j]! * p[j]!; at += row[j]! * x[j]!; size += row[j]! * row[j]!; }
-      if (along < -DEPENDENT * Math.sqrt(size) * length) { const t = Math.max(0, -at / along); if (t < step) { step = t; blocking = c; } }
+      let along = 0, at = 0;
+      for (let j = 0; j < n; j++) { along += row[j]! * p[j]!; at += row[j]! * x[j]!; }
+      if (along >= 0) return;
+      const t = Math.max(0, -at / along);
+      if (t >= step) return;
+      basis ??= orthonormal(working.map((w) => C[w]!));
+      if (!independent(basis, row)) return;
+      step = t; blocking = c;
     });
     for (let j = 0; j < n; j++) x[j] = x[j]! + step * p[j]!;
     if (blocking >= 0) working.push(blocking);
     else settled = true;
   }
+}
+
+/** An orthonormal basis of the span of `rows` (modified Gram-Schmidt; a row dependent on those before adds nothing). */
+function orthonormal(rows: readonly (readonly number[])[]): number[][] {
+  const basis: number[][] = [];
+  for (const row of rows) {
+    const rest = remainder(basis, row), size = Math.hypot(...rest);
+    if (size > DEPENDENT * Math.hypot(...row)) basis.push(rest.map((v) => v / size));
+  }
+  return basis;
+}
+
+/** `row` less its projection on the orthonormal `basis`. */
+function remainder(basis: readonly (readonly number[])[], row: readonly number[]): number[] {
+  const rest = [...row];
+  for (const e of basis) {
+    let dot = 0;
+    for (let j = 0; j < rest.length; j++) dot += e[j]! * rest[j]!;
+    for (let j = 0; j < rest.length; j++) rest[j] = rest[j]! - dot * e[j]!;
+  }
+  return rest;
+}
+
+/** Whether `row` has a part outside the span of the orthonormal `basis`, beyond rounding. */
+function independent(basis: readonly (readonly number[])[], row: readonly number[]): boolean {
+  return Math.hypot(...remainder(basis, row)) > DEPENDENT * Math.hypot(...row);
 }
 
 /** Solve `A x = y` by elimination with partial pivoting; `A` and `y` are overwritten. */
