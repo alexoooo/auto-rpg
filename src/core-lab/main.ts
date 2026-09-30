@@ -17,6 +17,7 @@ import { labCameraRig } from "./camera.ts";
 import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
 import { loadoutSpec } from "./loadout.ts";
 import { isPaused, type Playhead } from "./player.ts";
+import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { labHref, SCENARIOS, type LabAddress, type LabCamera, type LabHeld, type LabProjection, type ScenarioId } from "./scenarios.ts";
@@ -55,6 +56,7 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
   stance: stanceScenario,
   routine: routineScenario,
   run: runScenario,
+  blow: blowScenario,
 };
 
 type ViewKind = "world" | "tactical";
@@ -294,6 +296,15 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     });
   }
   timeline.addEventListener("input", () => current?.run.player.seek(Number(timeline.value)));
+  // Slow motion: the player is given page time scaled down, so the world and a replay both run slower.
+  let speed = 1;
+  const showSpeed = (): void => {
+    for (const b of document.querySelectorAll<HTMLButtonElement>("[data-rate]")) b.setAttribute("aria-pressed", String(Number(b.dataset.rate) === speed));
+  };
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-rate]")) {
+    button.addEventListener("click", () => { speed = Number(button.dataset.rate); showSpeed(); button.blur(); });
+  }
+  showSpeed();
   $("restart").addEventListener("click", (event) => {
     load(shown);
     (event.currentTarget as HTMLButtonElement).blur();
@@ -303,7 +314,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   showCamera();
   engine.runRenderLoop(() => {
     current?.run.drive(held);
-    current?.run.player.tick(engine.getDeltaTime(), performance.now() + SEEK_BUDGET_MS);
+    current?.run.player.tick(engine.getDeltaTime() * speed, performance.now() + SEEK_BUDGET_MS);
     readout();
     scene.render();
     if (current) {

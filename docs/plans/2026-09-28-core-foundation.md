@@ -633,6 +633,14 @@ Havok's.
   fastest held walk is 0.4 m/s (the Rogue held four of five walks at 0.5); asked 0.5, the Rogue fell
   a quarter of the way round the circle. At 0.4 each human holds 70 s on either track at
   0.36-0.37 m/s, and the shuttle's half-turns take 39.6 cm of the test's 40.
+  The Blow scenario (`blow-scenario.ts`; its card puts the club in the right hand) throws a
+  stored blow (`blows.ts`: today the damage unit's) standing, as the strike search throws it
+  (`blow.ts`), into a head mark, and reads the landing as the search reads it (`club-blow.ts`):
+  closing speed, the masses met, energy and hit points; it pauses after the blow, and the transport
+  plays it at 1, 1/4 or 1/10 speed. On the Node stand at 120 Hz it lands with the search's
+  45.94 J to the digit (`tests/core-lab-blow.test.mjs`). The unit's blow lands glancing on
+  Rapier, and its energy follows float noise that moves no step of its timing: 37.6 J on a 20 m
+  ground and 27.6 J on the lab's 40 m ground, in the page.
 - **Found in the lab:** a 30 N s shove from the rest stance holds (one catching step, each human),
   but after a walk and a stop the stance is the gait's 0.2 m width, and the same shove can fall.
   Asked for a lower centre of mass (8-16 cm), the stance stands about 1 cm lower, and walking from
@@ -650,7 +658,7 @@ Havok's.
   4 cm toward the swinging foot, and at 1920 Hz 15 cm, lifting 1 cm, before the swinging foot came
   down, and the body then staggered at up to 1.4 m/s. The weight shift before the swing took 0.28 s
   at 120 Hz and 0.53 s at 480 and 1920 Hz. The swinging foot landed within 1 cm at every rate.
-  Standing as built converges (`research/core-blow.mjs` has the table), so the strike searches
+  Standing as built converges (`src/core-lab/blow.ts` has the table), so the strike searches
   throw from there. Every stance figure above was read at 120 Hz; the stance's constants are the
   game rate's until this is understood.
 - **Not yet:** a stance that widens when it stops, a crouch and turning on the spot; running, the
@@ -796,7 +804,7 @@ Havok's.
 - **The club blow** (`research/core-club-strike.mjs`; the search takes `--weapon club`): the
   swell's first touch of a head-sized sphere, read within each step, its closing speed along the
   normal, the club's mass there and the head's from the striker's own guard, turned to face it.
-- **Thrown standing** (`research/core-blow.mjs`, 2026-09-29): the strike searches drive the core
+- **Thrown standing** (`src/core-lab/blow.ts`, 2026-09-29; first `research/core-blow.mjs`): the strike searches drive the core
   body directly, on its own feet under the stance, from where it was built; the fist's too
   (`core-strike.mjs`). They had used the lab routine's carried pelvis, a kinematic body nothing
   could move, which is gone from the routine. It does not step into a stance first: that step does

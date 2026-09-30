@@ -262,7 +262,7 @@ export const SOURCES = Object.freeze({
   "core-club-unit": {
     kind: "measurement",
     how: "research/core-strike-search.mjs --weapon club: the Warrior's strongest one-handed blow with the wooden "
-      + "club into a head-sized sphere, thrown standing on its own feet (research/core-blow.mjs), by cross-entropy "
+      + "club into a head-sized sphere, thrown standing on its own feet (src/core-lab/blow.ts), by cross-entropy "
       + "search (Node core stand, ground on), its energy 1/2 mu v^2 from the masses the contact meets. Three seeds "
       + "searched at 960 Hz, the coarsest rate a standing blow converges at; the strongest read again at 1920 Hz, "
       + "where it agrees with 960 and 3840 Hz to 0.5 %. Recorded, not asked: the unit is the rate-converged "

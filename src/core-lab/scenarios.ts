@@ -12,12 +12,14 @@ import type { WorkshopModel } from "../core/human/rig.ts";
  * reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "routine" | "run";
+export type ScenarioId = "stance" | "routine" | "run" | "blow";
 
 export interface ScenarioInfo {
   readonly id: ScenarioId;
   readonly name: string;
   readonly line: string;
+  /** What the menu's card puts in the hands, where the scenario needs it; the panel can change it after. */
+  readonly holds?: Partial<Pick<LabLoadout, "right" | "left">>;
 }
 
 /** Every scenario, in the menu's order; the first is the default. */
@@ -25,6 +27,7 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, shove it from the panel." },
   { id: "routine", name: "Routine", line: "It walks out, strikes three times, turns and walks back." },
   { id: "run", name: "Run", line: "It goes round a track as fast as its walk holds: a big circle, or straight back and forth." },
+  { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
 ];
 
 export const MODELS: readonly { readonly id: WorkshopModel; readonly name: string }[] = [

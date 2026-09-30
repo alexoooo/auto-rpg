@@ -275,6 +275,24 @@
             <span class="swatch" style="background:#f2bf66"></span>centre of mass
             <span class="swatch" style="background:#59a6e6"></span>the point it aims at</p>
         </div>
+        <div data-for="blow" hidden>
+          <p class="label">Blow</p>
+          <div id="b-choice" class="models" role="group" aria-label="Blow"></div>
+          <p id="b-about" class="note"></p>
+          <dl>
+            <dt>Doing</dt><dd id="b-doing">-</dd>
+            <dt>Since the pushes</dt><dd><span id="b-since">-</span> s</dd>
+            <dt>Closing speed</dt><dd><span id="b-closing">-</span> m/s</dd>
+            <dt>Energy</dt><dd><span id="b-energy">-</span> J</dd>
+            <dt>Worth</dt><dd><span id="b-hp">-</span> HP</dd>
+            <dt>Club's mass met</dt><dd><span id="b-club">-</span> kg</dd>
+            <dt>Head's mass met</dt><dd><span id="b-head">-</span> kg</dd>
+            <dt>Swell's peak</dt><dd><span id="b-peak">0.0</span> m/s</dd>
+            <dt>Rate</dt><dd><span id="b-rate">-</span> Hz</dd>
+          </dl>
+          <p class="note"><span class="swatch" style="background:#d95a4d"></span>the head (a mark: the club passes through)
+            <span class="swatch" style="background:#ffd94d"></span>where it touched. It pauses after the blow; Restart throws it again.</p>
+        </div>
         <button id="restart">Restart</button>
       </div>
       <div id="transport" role="group" aria-label="Timeline">
@@ -283,6 +301,11 @@
         <button data-nudge="1" title="Forward one physics step">&#9654;</button>
         <input id="timeline" type="range" min="0" max="0" step="1" value="0"
           aria-label="The recording, one physics step a notch; dragging pauses. Arrow keys step once it has focus.">
+        <span class="speed" role="group" aria-label="Speed">
+          <button data-rate="1" aria-pressed="true" title="Real time">1&times;</button>
+          <button data-rate="0.25" aria-pressed="false" title="A quarter speed">&frac14;&times;</button>
+          <button data-rate="0.1" aria-pressed="false" title="A tenth speed">1/10&times;</button>
+        </span>
         <span id="clock">0.000 s</span>
       </div>
     </template>
