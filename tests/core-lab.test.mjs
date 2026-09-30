@@ -17,12 +17,14 @@ async function session(model, script) {
 }
 
 test("in the lab, each human stands with its guard up, catches a shove, turns only while it walks, walks the way it faces, and stops", async () => {
-  for (const model of ["workshop-fighter", "workshop-rogue"]) {
+  // Shoved toward where it faces, each human holds 20 (Rogue) or 30 N s (Warrior) without a step and
+  // these with one (`STANCE_RECOVERY`); to the side a step holds little more than standing does.
+  for (const [model, impulse] of [["workshop-fighter", 55], ["workshop-rogue", 35]]) {
     const r = await session(model, (stance, run) => {
       run(2);
       const stood = stance.frame();
-      // Shoved from its right, from the stance it was built in, it steps and stands.
-      stance.shove(30, 90);
+      // Shoved from behind, from the stance it was built in, it steps and stands.
+      stance.shove(impulse, 0);
       run(3);
       const shoved = stance.frame();
       // Asked to turn while standing, it holds its heading.

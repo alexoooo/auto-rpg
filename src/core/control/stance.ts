@@ -1,8 +1,8 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { MassProperties } from "../engine/rapier.ts";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
-import { jointAngles, motionAxesToRef } from "../build/joint-state.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
+import type { ServoWork } from "./servo.ts";
+import { shareGroundWrench, type BearingSole } from "./contact-wrench.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { chainTo, rotationAtToRef } from "./kinematics.ts";
 
@@ -65,44 +65,40 @@ export interface SwingGoal {
 export type StancePhase = "stand" | "shift" | "swing";
 
 /**
- * **Standing: the pelvis carried by the legs, the feet where they are.** The stance plans its
+ * **Standing: the body carried by the legs, the feet where they are.** The stance plans its
  * centre of mass's way to the goal -- critically damped at a time constant (`STANCE_SECONDS`),
  * toward a place the soles can hold (`withinSupport`), no higher than the legs reach with their
  * knees bent (`STANCE_KNEE_BEND`) and no lower than they reach within their ankles' range
- * (`STANCE_ANKLE_SPARE`) -- and each step asks the pelvis for a motion: the plan's
- * velocity, with the centre of mass's error from the plan over the time constant and its velocity's
- * error by a gain (`STANCE_VELOCITY_GAIN`), and a turn toward upright at the goal's heading, its
- * error over its own. It gives each stance leg's freedoms the speeds that make that motion with the
- * foot still: the leg's Jacobian, from the pelvis to the foot, undone (`legSpeeds`). The muscles
- * are asked for those speeds at full activation, so each joint's motor pulls toward its speed with
- * what strength it has at the speed (`driveMuscles`), and Havok's solver finds the torques together
- * with the ground's push and the other leg's, in the same solve.
+ * (`STANCE_ANKLE_SPARE`) -- and each step asks for accelerations: the centre of mass's, the plan's
+ * with its errors from the plan taken up at `STANCE_TRACK`; the pelvis's turn toward upright at the
+ * goal's heading; and each bearing foot's, none, what motion it has damped out.
+ *
+ * **The legs give those by torque, through the whole body's floating-base dynamics**
+ * (`BodyDynamics.root`). The root's six rows say what wrench the ground must give for the body's
+ * accelerations; each stance leg's freedoms' accelerations follow from the root's and its foot's
+ * (`carry`). The ground's wrench is shared among the bearing soles as nearly as a sole can give it
+ * (`shareGroundWrench`: no pull, the centre of pressure on the sole, friction, twist), and where
+ * the soles cannot give it all, the root is asked for the acceleration the wrench they can give
+ * makes: a body pushed past its feet is not asked to stand. The rest of the body is servoed around
+ * that root acceleration (`servoSolve`), and each stance leg's torques are its freedoms' inverse
+ * dynamics less the ground's wrench on its foot (`bear`), given to the muscles as torque sources.
+ * Every inertia is the body's own: a foot is 0.005 kg m2 (`humanSpec`), and nothing conditions it.
  *
  * **A step** (`SwingGoal`) shifts the weight onto the other foot until the body's capture point is
  * over that sole, lifts the foot, and carries it on its path while the plan falls as an inverted
  * pendulum about a point of the bearing sole chosen to bring the capture point to the middle of the
  * stance the step lands in; the foot lands at the swing's end, and the stance holds the new feet.
+ * The swinging foot is asked for its path's acceleration with its errors taken up at the swing's
+ * constant, through the same inverse dynamics, no ground under it.
  *
  * The plan is what makes a move settle. Asked straight for its error over the time constant, the
  * body read its own velocity a step late, overshot a place 2 and 3 cm away and fell by 3 s; asked
  * for a critically damped acceleration from its measured velocity, it coasted through the place,
- * each step's error riding on the next. Tracking a plan that is itself settled, it stops within
- * 3.4 mm (the Rogue, Node stand, 120 Hz).
+ * each step's error riding on the next (Havok, the speed stance this replaced). Tracking a plan that
+ * is itself settled, it stops within 0.1 mm (the Rogue and the Warrior, Node stand, Rapier, 120 Hz).
  *
- * The torque the servo would compute here (`servo.ts`) is not asked for: it treats its root as
- * held, and a stance foot is not held but stands. A torque source on an ankle rocks a foot on
- * Havok's contact -- 10 N m on the Rogue's settled foot lifts it 1.1 mm and spins it at 0.25 rad/s
- * (Node stand, 120 Hz) -- and a computed torque rooted at the foot read that rocking as the whole
- * body's turn about the ankle and asked hundreds of newton metres to stop it, which rocked the foot
- * harder; rooted at the pelvis instead, the hips' torques spun the light pelvis between the legs
- * and the trunk. A speed asked of a motor is met inside the solver, with the contact.
- *
- * A stance foot's rotational inertia is raised while it stands (`STANCE_FOOT_CONDITIONING`), as
- * solver conditioning: a foot flat on the ground does not turn, so its inertia takes no part in the
- * body's motion, but at its own it stalls the solver.
- *
- * Nothing here holds the body up that the legs' muscles do not: a speed the muscles cannot reach is
- * not reached, and a body asked for more than its feet can take tips or falls.
+ * Nothing here holds the body up that the legs' muscles do not: a torque past a muscle's strength is
+ * not given, and a body asked for more than its feet can take tips or falls.
  */
 export interface StanceControl {
   /**
@@ -112,11 +108,19 @@ export interface StanceControl {
    */
   read(feet?: readonly Foot[]): void;
   /**
-   * Ask the stance legs' muscles for `goal`'s speeds from the last reading; the channels asked are
-   * marked in `owned`, for the servo to leave. With no goal nothing is asked, and every foot has
-   * its own inertia back.
+   * Set `goal`'s aims from the last reading: the centre of mass's, the pelvis's turn's and each
+   * stance leg's foot's accelerations. The stance legs' channels are marked in `owned`, for the
+   * servo to leave. With no goal nothing is asked.
    */
   command(driver: MuscleDriver, goal: StanceGoal | null, dt: number): void;
+  /**
+   * The root's acceleration the last command asks for (angular, then its centre's, world), given
+   * the servo's asked accelerations of the freedoms the stance does not own (`servoAsk`); null if
+   * the stance carries nothing. The servo solves the rest of the body with it.
+   */
+  carry(driver: MuscleDriver, work: ServoWork): Float64Array | null;
+  /** The owned legs' torques, once the servo has solved the rest (`servoSolve`). */
+  bear(driver: MuscleDriver, work: ServoWork): void;
   /** Each channel the last command drove, 1, or 0. */
   readonly owned: Uint8Array;
   /** What the last reading and command found and asked. */
@@ -136,8 +140,6 @@ export interface StanceReading {
    * the goal's, or the nearest the stance soles can hold (`withinSupport`).
    */
   readonly place: Vector3;
-  /** The velocity asked of the centre of mass, carried by the pelvis, world, m/s. */
-  readonly asked: Vector3;
   /** The plan the centre of mass is held to: its place (x, height over the stance soles, z) and velocity, world. */
   readonly plan: Vector3;
   readonly planVelocity: Vector3;
@@ -152,32 +154,43 @@ export interface StanceReading {
 
 /**
  * The time constants, s, of the centre of mass's pull across the ground and in height, critically
- * damped, of the pelvis's turn, and of a swinging foot's pull onto its path, each of whose speed
- * asked is its error over its constant. The swing's is from a sweep: of `STANCE_VELOCITY_GAIN`'s 48
- * steps, at 0.05 s 2 failed and the worst landing missed by 3.5 cm, the foot wandering 3 cm either
- * side of its path; at 0.1, 2 and 1.7 cm; at 0.2, 3 and 1.6 cm (Node stand, 120 Hz).
+ * damped, of the pelvis's turn, and of a swinging foot's pull onto its path.
  *
- * The pull across the ground was swept against walks stopped and steps (Node stand, 120 Hz). Some
- * walks stopped sway from foot to foot, 2-4 cm either way at about 0.12 m/s, and do not settle: the
- * feet rock on their edges with their inertia conditioned (`STANCE_FOOT_CONDITIONING` has the
- * numbers). Softer pulls settle more of those walks and fail more of `STANCE_VELOCITY_GAIN`'s 48
- * steps, the 30 cm forward ones first; a step to close the stance, tried, settled none more. Each human walked 6 s at 0.2,
- * 0.3 and 0.4 m/s five ways (forward, right, back, left, forward right), reversed for 6 s and
- * stopped for 4 s, 1 and 3 cm under its reference height, with no closing step; "stopped" is under
- * 5 cm/s and staying so by the end:
+ * Each was moved alone, the rest at their values, against the stance's batteries
+ * (`research/core-stance-sweep.mjs`): 4 places 30 cm out, 8 steps, 25 walks from 0.2 to 0.7 m/s, and
+ * shoves of 10 to 90 N s sixteen ways (272), each human 3 cm under its reference height (Node core
+ * stand, Rapier, 120 Hz). The table gives the places and steps that failed their bars, the walks
+ * held, and the shoves held with the impulse held each way (the largest below the first that
+ * fell), its mean and least, N s:
  *
- *     across           0.2    0.3    0.4    0.5    0.6    0.8
- *     walks stopped    32     51     56     60     59     58     of 60
- *     steps failed            1      2      3      7      48     of 48 (0.8: too slow to settle by 6 s)
+ *                  Rogue                                  Warrior
+ *                  places  steps  walks  shoves           places  steps  walks  shoves
+ *     across 0.2   0       0      21     126  42.8  15    1       4      22     215  69.1  55
+ *     across 0.3   0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
+ *     across 0.4   0       0      18     130  45.3  35    0       0      22     214  68.8  55
+ *     height 0.1   0       0      19     128  44.4  35    0       0      20     223  74.1  55
+ *     height 0.2   0       0      19     126  44.4  35    0       0      21     212  67.5  55
+ *     swing 0.05   0       0      22     133  42.2  15    0       0      21     206  67.5  50
+ *     swing 0.2    0       0      19     112  38.4  15    0       0      21     193  62.2  50
+ *
+ * Pulled across at 0.2 s, the Warrior slid a foot 30 cm holding a place and failed four steps, and
+ * the Rogue fell to a shove of 20 N s from one way; at 0.4 each centre still drifts 0.2-0.3 mm in
+ * the last 2 s of a stand, where at 0.3 it is still. A height's 0.1 or 0.2 reads as 0.15. A swing
+ * of 0.2 lands 3 mm off and holds fewer shoves; one of 0.2 or 0.05 lets the Rogue fall to 20 N s
+ * from one way. The chosen row's Warrior falls to 50 N s from behind, and holds 55 and more
+ * (`STANCE_RECOVERY`). The pelvis's turn was not swept on this stance.
  */
 export const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.1 } as const;
 
 /** What an experiment may set in place of the stance's constants. */
 export interface StanceTuning {
   readonly seconds?: { readonly across: number; readonly height: number; readonly turn: number; readonly swing: number };
-  readonly footConditioning?: number;
+  /** `STANCE_TRACK`. */
+  readonly track?: number;
+  /** `SOLE_MARGIN`. */
+  readonly soleMargin?: number;
+  /** `SUPPORT_INSET`. */
   readonly supportInset?: number;
-  readonly velocityGain?: number;
   /** The least knee bend the height is held for, rad; null holds the goal's height however far the legs reach. */
   readonly kneeBend?: number | null;
   /** The ankle's dorsiflexion left unused, rad; null holds the goal's height however far the ankles bend. */
@@ -213,47 +226,27 @@ export interface RecoveryTuning {
 }
 
 /**
- * **A control setting, from a sweep**: the gain on the centre of mass's velocity error across the
- * ground, the plan's less the body's, added to the velocity asked of the pelvis.
- *
- * The legs' motors do not hold the pelvis at the speed asked of it: joined through the ground, the
- * two legs are a closed chain, and Havok's solver leaves it soft -- after a step, the Rogue's
- * pelvis was moving at 21.6 cm/s when asked for 1.1, its legs' motors pulling a tenth of their
- * ceilings. Without the gain, a stance staggered by a step swayed along the line between its feet,
- * each swing larger (0.8 s apart, 3 then 22 then 41 cm/s), and fell by 6 s. The steps that failed
- * of 48 -- both humans, each foot, 10, 15, 25 and 30 cm forward, 15 and 25 back, 5 and 10 out, 5 in,
- * and 8 out and 10 forward, 5 out and 10 back, 5 in and 20 forward; standing 1 s, a 0.45 s swing
- * lifted 5 cm, standing to 6 s; a failure falls, or ends more than 3 cm from its place or moving
- * faster than 5 cm/s over its last 2 s -- and the worst miss of a landed sole's middle, cm, by the
- * gain (Node stand, 120 Hz):
- *
- *     gain      0     0.5    1     1.5    2      3      4
- *     failed    12    8      5     2      0      1      0
- *     miss      2.0   4.2    3.5   2.1    1.7    1.6    1.9
- *
- * 2 is the least gain that fails none; with the walk in the code (the walking commit) 1 fails at 2,
- * the Warrior's right foot 25 cm back. The 30 cm forward steps and the 25 cm back steps are the
- * marginal ones: from standing, in 0.45 s, the capture point can barely be carried 30 cm over one
- * sole. The gain also holds the places the stance's region was
- * drawn for with no limit on the plan's speed (`SUPPORT_INSET`), where before it needed one.
- */
-export const STANCE_VELOCITY_GAIN = 2;
-
-/**
  * **A control setting, from a sweep**: the least bend of a knee, rad from straight, that the
- * stance's height is held for.
+ * stance's height is held for, and that a knee past straight is brought back to (`fixedSolve`).
  *
- * A straight knee is a singular leg, and past straight, at its hyperextension stop, the leg's
- * Jacobian shortens the leg by extending the knee further, which the stop refuses: the Warrior,
- * stepping 10 cm out from its stance, landed on a knee at its stop and asked it for 2 to 4 rad/s
- * more, while its pelvis spun. Held low enough for the legs' reach, the stance sinks as its feet
- * spread. The steps that failed of `STANCE_VELOCITY_GAIN`'s 48, by the bend (Node stand, 120 Hz):
+ * A straight knee is a singular leg, and past straight -- the knee hyperextends 2 to 5 degrees
+ * before its stop -- the leg's Jacobian shortens the leg by extending the knee further, which the
+ * stop refuses. Asked to stand higher than its legs reach, a stance held to the height asked
+ * presses its knees on their stops and wanders: over the last 2 s of a 5 s stand, the Rogue asked
+ * 10 cm over its reference height drifted 9.5 mm and the Warrior asked 5 cm over 52 mm (10 cm over,
+ * it fell); held for the bend, each drifted 0.03 mm (Node core stand, Rapier, 120 Hz). At 3 cm low
+ * the bend decides little; at 0.4 a step and two places fail (the batteries of `STANCE_SECONDS`):
  *
- *     bend      none   0.1    0.2    0.3    0.4    0.5
- *     failed    7      1      0      0      1      1
+ *                  Rogue                                  Warrior
+ *                  places  steps  walks  shoves           places  steps  walks  shoves
+ *     none         0       0      20     119  42.2  35    0       0      23     213  68.4  55
+ *     0.1          0       0      19     128  45.0  35    0       0      21     217  70.9  55
+ *     0.2          0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
+ *     0.3          0       0      21     130  45.3  35    0       0      21     217  70.9  55
+ *     0.4          0       1      21     127  44.4  35    2       0      22     215  70.6  55
  *
- * Near straight a bend shortens the leg little (0.2 rad, 5 mm on the Warrior). 0.2 is the lesser
- * of the two that fail none.
+ * 0.2 was chosen on the speed stance this replaced, as the least bend under which no step failed
+ * (commit eaa182e5); on this one 0.1 to 0.3 read alike, and it is kept.
  */
 export const STANCE_KNEE_BEND = 0.2;
 
@@ -263,20 +256,22 @@ export const STANCE_KNEE_BEND = 0.2;
  *
  * With the feet flat and the pelvis upright, a lower stance tips the shanks further forward, and
  * the ankle's range (`humanSpec`: 0.35 rad from the reference pose) ends it: standing 3 cm under
- * the reference height, the Rogue's ankles are already at 0.26. Asked 5 cm lower still, its ankles
- * met their stop 0.3 s later, the legs' Jacobian went on asking them for 0.4 to 0.6 rad/s, and the
- * body toppled backward within a second; asked 40 cm lower, the same. Held above the ankles' reach,
- * each human sank to it and stood, asked 10 or 40 cm lower at once, at every spare from 0 to 0.05
- * (Node stand, 120 Hz), each some 5 cm under its reference height.
- * The steps that failed of `STANCE_VELOCITY_GAIN`'s 48, by the spare (Node stand, 120 Hz):
+ * the reference height, the Rogue's ankles are already at 0.26. Asked lower than that, a stance held
+ * to the height asked presses its ankles on their stops and stands off its place, or falls
+ * (`tests/core-stance.test.mjs`); held above the ankles' reach, each human sinks to it and stands.
+ * Moved alone against the batteries of `STANCE_SECONDS` (Node core stand, Rapier, 120 Hz):
  *
- *     spare     none   0      0.01   0.02   0.03   0.05   0.1
- *     failed    2      1      0      1      1      2      6
+ *                  Rogue                                  Warrior
+ *                  places  steps  walks  shoves           places  steps  walks  shoves
+ *     none         0       0      20     111  39.7  30    0       0      21     183  60.6  50
+ *     0            0       0      18     127  44.4  35    0       0      21     213  70.6  55
+ *     0.01         0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
+ *     0.03         0       2      19     126  44.4  35    0       2      20     214  70.3  55
+ *     0.05         0       6      19     126  44.1  35    0       6      21     214  67.8  55
  *
- * Those that fail from none to 0.05 are the marginal steps, 30 cm forward and 25 back, one side or
- * another from run to run; a larger spare holds a stepping stance too high for its knees. A stance
- * lower than this needs the hip to hinge -- the pelvis back, the trunk forward -- which the stance
- * does not yet do; or an ankle range larger than the one measured.
+ * A larger spare holds a stepping stance too high for its knees, and the long steps fail first. A
+ * stance lower than this needs the hip to hinge -- the pelvis back, the trunk forward -- which the
+ * stance does not yet do; or an ankle range larger than the one measured.
  */
 export const STANCE_ANKLE_SPARE = 0.01;
 
@@ -286,127 +281,122 @@ export const STANCE_ANKLE_SPARE = 0.01;
  * `seconds` lifted by `lift`, and landing it `reach` past where the capture point will be.
  *
  * Each human standing 3 cm under its reference height was shoved at the middle trunk's centre of
- * mass by 10 to 60 N s in steps of 5, sixteen ways 22.5 degrees apart, and watched 4.5 s; it fell
- * if its centre sank 25 cm. The table gives the shoves held of the 176, and the impulse held each
+ * mass by 10 to 90 N s in steps of 5, sixteen ways 22.5 degrees apart, and watched 4.5 s; it fell
+ * if its centre sank 25 cm. The table gives the shoves held of the 272, and the impulse held each
  * way -- the largest below the first that fell -- as its mean over the ways and its least (Node
- * stand, 120 Hz):
+ * core stand, Rapier, 120 Hz):
  *
  *     margin  reach   seconds  lift    Rogue held  mean  least    Warrior held  mean  least
- *     no step                          47          19.4  10       73            27.5  15
- *     0       0.15    0.25     0.03    116         40.0  30       163           53.8  25
- *     0.02    0.15    0.25     0.03    113         37.2  20       161           49.7  20
- *     0.01    0.15    0.25     0.03    112         37.5  15       160           50.0  20
- *     0.01    0       0.25     0.03    90          23.1  10       154           47.8  25
- *     0.01    0.075   0.25     0.03    109         36.6  15       163           48.8  15
- *     0.01    0.3     0.25     0.03    107         36.3  20       158           49.7  25
- *     0.01    0.45    0.25     0.03    104         35.6  20       153           50.3  20
- *     0.01    0.15    0.25     0.05    112         37.8  15       165           50.6  20
- *     0.01    0.15    0.3      0.03    105         34.1  15       165           55.0  30
- *     0.01    0.15    0.15     0.03    115         40.6  35       169           54.7  30
- *     0.01    0.15    0.2      0.03    114         40.0  30       168           56.3  35    chosen
- *     0.01    0.075   0.2      0.03    106         36.6  25       165           52.8  15
- *     0.01    0.3     0.2      0.03    110         39.4  30       165           55.3  15
- *     0.01    0.15    0.2      0.05    113         38.8  30       170           55.3  15
+ *     no step                          76          28.8  20       129           45.3  30
+ *     0.01    0.2     0.3      0.05    128         44.7  35       217           66.9  45    chosen
+ *     0       0.2     0.3      0.05    128         44.7  35       170           56.3  40
+ *     0.02    0.2     0.3      0.05    127         44.4  35       217           66.9  45
+ *     0.01    0.1     0.3      0.05    128         44.4  35       213           69.7  55
+ *     0.01    0.3     0.3      0.05    126         43.8  35       216           71.3  55
+ *     0.01    0.2     0.2      0.05    100         35.6  30       182           59.1  35
+ *     0.01    0.2     0.25     0.05    122         42.8  35       207           65.0  40
+ *     0.01    0.2     0.35     0.05    121         42.2  30       203           62.2  35
+ *     0.01    0.2     0.3      0.03    129         45.3  35       219           70.6  55
  *
  * The margin is not for the shoves: at none, a place asked past the soles, held at the edge of what
- * they hold, sets steps off as the capture point wanders a millimetre over it (at -x the Rogue's
- * feet walked 25 cm); at 0.01 it stands. An outline of its own for the trigger, drawn in by 0.1 to
- * 0.7, held best at 0.5, the held region's own; drawn in by 0.7 the stance stepped from where it
- * stood unpushed and fell over its own feet. A 0.15 s swing holds as many as 0.2; 0.2 is the
- * slower. Sideways each human holds least: the far foot steps out with no weight shifted first.
- * Many held shoves take several steps: a long step leaves a wide stance whose soles hold a thin
- * band, and a foot slips at the engine's default friction.
- *
- * The table was taken on the code of the recovery steps' commit. Read again with the walk (the
- * walking commit), no step holds as before; the chosen settings 112, 39.4 and 30 for the Rogue, and
- * 168, 55.6 and 15 for the Warrior, who now falls to 20 N s from behind and holds 25-50.
+ * they hold, sets steps off as the capture point wanders a millimetre over it; each human's feet
+ * walked 30 cm or more, and the Warrior, standing unpushed, slid a foot 25 cm and failed every
+ * step. At 0.01 and 0.02 it stands; 0.01 is the lesser. The swing of 0.2 s the speed stance chose
+ * (commit eaa182e5) holds a fifth fewer here; 0.3 holds most. The rows within a few shoves of the
+ * chosen one differ by where single shoves first fall: the chosen Warrior falls to 50 N s from
+ * behind -- ten steps, its feet drawn within 5 cm of each other across -- and holds 55 and more.
+ * Straight to the side a step holds little more than standing does: the Rogue holds 35 N s to one
+ * side either way and 35 stepping against 30 to the other, and the Warrior 55 stepping against 60
+ * standing -- the far foot steps out with no weight shifted first. Many held shoves take several steps: a long step leaves a wide stance
+ * whose soles hold a thin band.
  */
-export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.2, lift: 0.03, reach: 0.15 };
+export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2 };
 
 /**
  * **Control settings, from a sweep**: a walk's steps swing over `seconds`, lifted by `lift`, the
  * soles `width` apart across the heading, none longer than `longest` of the leg, the pace going
  * toward the one asked at `accel`.
  *
- * Each human walked 12 s at 0.2, 0.3, 0.4, 0.5 and 0.7 m/s five ways (forward, right, back, left,
- * forward right), at 1 and 3 cm under its reference height: 100 walks. Held is those that did not
- * fall (the centre 25 cm under the goal's height); on pace is those whose centre went, over the
- * last 2 s, 0.8 to 1.25 of the speed asked along the walk and under a quarter of it across; the
- * ratio is the mean along over the speed asked, of those held (Node stand, 120 Hz, taken with
- * `STANCE_SECONDS.across` at 0.5; at the final 0.3 the chosen row reads 93, 64 and 0.84, and 13 of
- * 20 at 0.7 m/s):
+ * Each human walked at 0.2, 0.3, 0.4, 0.5 and 0.7 m/s five ways (forward, right, back, left,
+ * forward right) for 8 s from standing 3 cm under its reference height, then was asked to walk
+ * nowhere for 4 s: 25 walks each. Held is those that did not fall (the centre 25 cm under the goal's
+ * height); every walk held here went, over its last 3 s, 0.8 to 1.25 of the speed asked along and
+ * under a quarter of it across, and stopped. The ratio is the mean along over the speed asked, of
+ * those held (Node core stand, Rapier, 120 Hz):
  *
- *     seconds  lift   width  longest  accel   held  on pace  ratio   held at 0.7 m/s (of 20)
- *     0.25     0.05   0.2    0.8      1       91    26       0.78    11
- *     0.3      0.05   0.2    0.8      1       95    54       0.82    15     chosen
- *     0.35     0.05   0.2    0.8      1       89    50       0.83     9
- *     0.4      0.05   0.2    0.8      1       84    65       0.88     7
- *     0.3      0.04   0.2    0.8      1       93    57       0.82
- *     0.3      0.07   0.2    0.8      1       92    38       0.81
- *     0.3      0.05   0.15   0.8      1       94    50       0.82
- *     0.3      0.05   0.25   0.8      1       96    58       0.82
- *     0.3      0.05   0.2    0.7      1       90    52
- *     0.3      0.05   0.2    0.9      1       96    55
- *     0.3      0.05   0.2    0.8      0.5     96    55
- *     0.3      0.05   0.2    0.8      2       94    56
+ *     seconds  lift   width  longest  accel   Rogue held  ratio  at 0.7    Warrior held  ratio  at 0.7
+ *     0.3      0.05   0.2    0.8      1       19          0.94   0         21            0.93   1    chosen
+ *     0.25     0.05   0.2    0.8      1       18          0.91   0         20            0.92   1
+ *     0.35     0.05   0.2    0.8      1       18          0.96   0         20            0.95   0
+ *     0.4      0.05   0.2    0.8      1       19          0.92   0         20            0.92   0
+ *     0.3      0.04   0.2    0.8      1       20          0.93   1         22            0.93   2
+ *     0.3      0.07   0.2    0.8      1       19          0.95   0         21            0.93   2
+ *     0.3      0.05   0.15   0.8      1       19          0.94   0         21            0.93   2
+ *     0.3      0.05   0.25   0.8      1       19          0.94   0         21            0.93   1
+ *     0.3      0.05   0.2    0.7      1       19          0.94   0         21            0.93   1
+ *     0.3      0.05   0.2    0.9      1       19          0.94   0         23            0.93   3
+ *     0.3      0.05   0.2    0.8      0.5     22          0.94   2         23            0.93   3
+ *     0.3      0.05   0.2    0.8      2       18          0.94   0         22            0.93   2
  *
- * At the chosen settings every walk up to 0.5 m/s holds. The rest lie within two walks of it and
- * none is better on both counts; a walk goes at about 0.8 of the speed asked. A reversal of the
- * walk takes 1.07 s on average to reach 0.9 of the new pace, and 51 of 60 walks stopped settle
- * (`STANCE_FOOT_CONDITIONING` has why the rest sway). Above 0.5 m/s the stance falls; the limits found are the ankle's (below) and a trailing foot's toe that scuffs
- * the ground with its ankle at its stop. A human's preferred walk is near 1.4 m/s.
+ * At the chosen settings every walk up to 0.4 m/s holds, and all but one of the Rogue's at 0.5; at
+ * 0.7 almost none. The rows differ at 0.5 and 0.7 m/s alone. A slower start (`accel` 0.5) held five
+ * more of the fifty, the most of any row; at 25 walks a human, the best of twelve rows is expected
+ * to read that high by chance, and it waits for a replication on other speeds and heights. The limits found on the
+ * speed stance were the ankle's range and a trailing foot's toe that scuffs the ground with its
+ * ankle at its stop. A human's preferred walk is near 1.4 m/s.
  *
- * Two findings shaped the walk (`walkStep`). A step fixed to fall about its bearing sole's middle
- * multiplies a landing's miss by exp(w T), about 3.7, at each step: the steps widened until the
- * feet could not reach; each step now chooses its pivot within the sole. And a foot carried at the
- * turn it left the ground with drifted in yaw, step by step, to 50 degrees off; it lands facing the
- * heading. A foot that rolls onto its toe's edge before it lifts, and joints held back from their
- * stops, were built and measured: they held fewer walks at 3 cm low (33 of 50 against 46) and 30
- * fewer shoves, and were taken out.
+ * Two findings shaped the walk (`walkStep`), on the speed stance (commit eaa182e5). A step fixed to
+ * fall about its bearing sole's middle multiplies a landing's miss by exp(w T), about 3.7, at each
+ * step: the steps widened until the feet could not reach; each step now chooses its pivot within
+ * the sole. And a foot carried at the turn it left the ground with drifted in yaw, step by step, to
+ * 50 degrees off; it lands facing the heading. A foot that rolls onto its toe's edge before it
+ * lifts, and joints held back from their stops, were built and measured there: they held fewer walks
+ * at 3 cm low (33 of 50 against 46) and 30 fewer shoves, and were taken out.
  */
 export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, accel: 1 };
 
 /**
- * **Solver conditioning, not anatomy**: the factor a stance foot's rotational inertia is multiplied
- * by while it stands, restored when the foot leaves the stance.
+ * **A control setting, from a sweep**: the time constant, s, the centre of mass's errors from its
+ * plan are taken up in, critically damped, and a bearing foot's motion damped out in. Against the
+ * batteries of `STANCE_SECONDS` (Node core stand, Rapier, 120 Hz):
  *
- * The ankle's motor joins a foot of some 0.005 kg m2 (`humanSpec`) to a body that turns about the
- * ankle with some fifty; Havok's iterations hand the motor's impulse to the foot and the ground
- * back and forth and pass little of it to the body, and settle each step on the same answer, so the
- * stance stops short of its goal and does not creep on. A foot flat on the ground does not turn,
- * so its inertia takes no part in the motion; raised, the solver carries the impulse through.
- * The centre of mass's stop in front of (+) or behind the middle of the soles, cm, after 5 s
- * standing 3 cm under the reference height, by the factor (Node stand, 120 Hz):
+ *                  Rogue                                  Warrior
+ *                  places  steps  walks  shoves           places  steps  walks  shoves
+ *     0.1          0       0      22     120  42.2  35    0       0      23     201  65.9  55
+ *     0.15         0       0      21     123  43.1  35    0       0      23     219  72.5  55
+ *     0.2          0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
+ *     0.3          0       0      19     131  45.9  35    0       0      21     220  72.8  55
  *
- *     factor      1       3       10      30      100     300
- *     Rogue    -4.23   -3.06   -0.52   -0.00   +0.01   +0.01
- *     Warrior  falls   falls   -3.76   -0.66   -0.15   -0.04
- *
- * At 480 Hz and no factor the Warrior falls too, and the Rogue stops 2.70 cm behind: a finer step
- * does not cure it. 100 is the least factor of the table that holds both within 3 mm.
- *
- * **It has a cost: a foot rocked onto its edge does turn**, and conditioned it turns as a flywheel.
- * Walks stopped (`STANCE_SECONDS`' 60) that were still moving faster than 1 cm/s at the end, their
- * bodies swaying from foot to foot, and `STANCE_VELOCITY_GAIN`'s 48 steps failed, by the factor
- * (Node stand, 120 Hz):
- *
- *     factor          20     30     40     50     70     100
- *     still moving    2      4      7      7      19     19     of 60
- *     steps failed    6      4      2      1      1      1      of 48
- *
- * (The walks below 100 were taken with a step that closed a stopped stance, since removed; at 50 it
- * moved the count by 2.) At 50 a place asked at the edge of what the soles hold (`SUPPORT_INSET`'s
- * table) sets recovery steps off: one of the eight falls and two step 34-35 cm; at 100 none falls. Raising only the foot's pitch and yaw
- * by 100 and its roll by 30 left 6 moving but failed 4 steps; its roll unraised, walks fell. Havok
- * exposes no solver iterations to raise instead. The factor stays at 100 and the sway is a known
- * defect: the owner's choice (the plan, stage 4).
+ * Every setting stands still (off, drift and speed read 0.0 mm and mm/s) and lands its steps within
+ * 2.4 mm. A stiffer track holds two more walks at 0.7 m/s, and at 0.1 fewer shoves; 0.15 to 0.3
+ * read alike.
  */
-export const STANCE_FOOT_CONDITIONING = 100;
+export const STANCE_TRACK = 0.2;
 
 /**
- * The damping of the leg's Jacobian undone, as a least-squares solve (`legSpeeds`): a numeric
- * setting, not anatomy. A straight knee is a singular leg -- no speed of its freedoms lengthens it
- * -- and without damping a pelvis asked to rise over a straight knee is asked for unbounded speeds.
+ * **A control setting, from a sweep**: the fraction of a bearing sole's half-length and half-width
+ * its centre of pressure is kept from the sole's edges by (`shareGroundWrench`). A wrench whose
+ * centre of pressure is on the edge leaves the sole nothing to turn on but the edge; asked for a
+ * place 30 cm to the side, held at the edge of what the soles hold, each human with no margin slid
+ * its feet 19 cm (Rogue) and 23 cm (Warrior), where with 0.05 or more they held within 0.6 mm.
+ * Against the batteries of `STANCE_SECONDS` (Node core stand, Rapier, 120 Hz):
+ *
+ *                  Rogue                                  Warrior
+ *                  places  steps  walks  shoves           places  steps  walks  shoves
+ *     0            2       0      18     132  45.9  35    2       0      20     215  70.6  55
+ *     0.05         0       0      18     130  45.6  35    0       0      21     215  70.0  55
+ *     0.1          0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
+ *     0.2          0       0      20     127  44.4  35    0       0      22     212  68.8  55
+ *
+ * From 0.05 to 0.2 the settings read alike.
+ */
+export const SOLE_MARGIN = 0.1;
+
+/**
+ * The damping of the leg's Jacobian undone, as a least-squares solve (`dampedSolve`): a numeric
+ * setting, not anatomy. A straight knee is a singular leg -- no motion of its freedoms lengthens it
+ * -- and without damping a root asked to rise over a straight knee asks the leg for unbounded
+ * accelerations: a shoved Rogue's, on one straight leg, ran to 1e22 rad/s2.
  */
 export const LEG_DAMPING = 0.02;
 
@@ -416,19 +406,20 @@ export const LEG_DAMPING = 0.02;
  * stance holds its centre of mass in. Not every centre of mass over the soles is one the body can
  * hold on both feet: sideways, both feet flat, the ankles turn as far as the hips, and the ankle's
  * everters and invertors -- some 20 to 27 N m (`humanSpec`) -- are what stop the body; and a centre
- * of mass over one foot leaves the other bearing little, and a leg asked to carry the pelvis slides
- * a foot that bears nothing. The centre of mass's stop from the held place, cm, and the feet's
- * furthest travel, mm, 6 s after it was asked for a place 30 cm away across the ground each way
- * (+x, -x, +z, -z; held at the edge of the drawn outline), 3 cm under the reference height, by the
- * inset (Node stand, 120 Hz):
+ * of mass over one foot leaves the other bearing little. Moved alone against the batteries of
+ * `STANCE_SECONDS` (Node core stand, Rapier, 120 Hz):
  *
- *     inset   Rogue                            Warrior
- *     0.2     2.5/101 falls   1.0/3   0.5/1    5.3/218 falls   1.1/3   0.9/2
- *     0.3     0.3/12  0.4/17  0.9/2   0.4/1    0.2/15  0.2/8   0.9/3   0.7/2
- *     0.4     0.2/2   0.1/8   0.8/2   0.3/1    0.1/2   0.1/4   0.7/3   0.6/2
- *     0.5     0.2/2   0.1/7   0.6/2   0.1/1    0.0/2   0.1/2   0.5/3   0.5/2
+ *                  Rogue                                  Warrior
+ *                  places  steps  walks  shoves           places  steps  walks  shoves
+ *     0.3          2       0      20     127  44.7  35    2       0      21     221  73.4  55
+ *     0.4          0       0      20     130  45.3  35    0       0      22     220  72.5  55
+ *     0.5          0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
+ *     0.6          1       0      19     133  46.3  35    2       8      21     177  58.8  40
  *
- * The 7 mm at -x is the far foot, left a sixth of the weight, slipping once.
+ * At 0.3 a place to the side is held off its height; at 0.6 the held region is narrower than the
+ * stance the steps land in: the Rogue slid a foot 22 cm holding a place, and the Warrior, standing
+ * unpushed, 33 cm. 0.4 reads as 0.5, which was chosen on the speed stance (commit eaa182e5) and is
+ * kept.
  */
 export const SUPPORT_INSET = 0.5;
 
@@ -445,22 +436,23 @@ interface FootState {
   readonly middle: Vector3;
   /** The thigh's and the shank's lengths, hip to knee and knee to ankle, in the reference pose. */
   readonly lengths: readonly [number, number];
+  /** The knee's flexion, rad, at which the leg is straight: less its bend in the reference pose. */
+  readonly straight: number;
   /** The sole's width across the foot, m. */
   readonly width: number;
-  /** The foot's own mass properties, and whether they are conditioned now. */
-  readonly natural: MassProperties;
-  conditioned: boolean;
+  /** Half the sole's length, m. */
+  readonly reach: number;
 }
 
 export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): StanceControl {
   const seconds = tuning.seconds ?? STANCE_SECONDS;
-  const conditioning = tuning.footConditioning ?? STANCE_FOOT_CONDITIONING;
   const inset = tuning.supportInset ?? SUPPORT_INSET;
-  const gain = tuning.velocityGain ?? STANCE_VELOCITY_GAIN;
   const bend = tuning.kneeBend === undefined ? STANCE_KNEE_BEND : tuning.kneeBend;
   const spare = tuning.ankleSpare === undefined ? STANCE_ANKLE_SPARE : tuning.ankleSpare;
   const recovery = tuning.recovery === undefined ? STANCE_RECOVERY : tuning.recovery;
   const gait = tuning.gait ?? STANCE_GAIT;
+  const track = tuning.track ?? STANCE_TRACK;
+  const soleMargin = tuning.soleMargin ?? SOLE_MARGIN;
   const pelvis = chainTo(built, built.segments.get("foot.left")!)[0]!.parent;
   const segments = [...built.segments.values()];
   const total = segments.reduce((sum, s) => sum + s.rigid.mass, 0);
@@ -469,10 +461,23 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
     const sole = soleOf(segment), chain = chainTo(built, segment);
     return { side, segment, chain, sole, channels: [], corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
+      straight: -referenceBendOf(chain),
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
-      middle: new Vector3(), natural: segment.body.massProperties, conditioned: false };
+      // The rectangle's sides from one corner: the nearer two of the other three.
+      reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,
+      middle: new Vector3() };
   });
-  const reading = { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(), asked: new Vector3(),
+  /**
+   * The torque stance's aims for this step (`command`): the root's angular acceleration and the
+   * centre of mass's, and each leg's foot's, its sole's middle's and its spin's; then (`carry`) the
+   * root's acceleration and each leg's freedoms' accelerations.
+   */
+  const aim = { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) };
+  const tasks = feet.map(() => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(6) }));
+  const shares = [0, 1].map(() => ({ force: new Vector3(), moment: new Vector3() }));
+  const missed = { force: new Vector3(), moment: new Vector3() };
+  const idScratch = { lin: new Vector3(), ang: new Vector3(), at: new Vector3(), force: new Vector3(), moment: new Vector3(), soles: [] as Vector3[], reach: [] as number[] };
+  const reading = { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),
     plan: new Vector3(), planVelocity: new Vector3(),
     phase: "stand" as StancePhase, soles: { left: feet[0]!.middle, right: feet[1]!.middle }, own: null as SwingGoal | null, recoveries: 0, strides: 0 };
   /** The foot of the last step of a walk, while it steps on without standing between. */
@@ -483,27 +488,17 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const pace: [number, number] = [0, 0];
   /** The step under way: its swing, the time since its foot left the ground, and where and how the foot left it. */
   const step = { swing: null as SwingGoal | null, lifted: false, time: 0, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion() };
-  const path = new Vector3(), along = new Vector3(), sole = new Vector3(), carried = new Vector3();
+  const path = new Vector3(), along = new Vector3(), sole = new Vector3();
   let owned = new Uint8Array(0);
   let last: readonly Foot[] | null = null;
   /** The centre of mass's planned place (x, height over the soles, z) and velocity, since the stance began. */
   const plan = { on: false, at: new Vector3(), velocity: new Vector3() };
   const v = new Vector3(), spin = new Vector3(), target = new Quaternion(), error = new Quaternion(), inverse = new Quaternion();
-  const pelvisVelocity = new Vector3(), pelvisSpin = new Vector3(), turn = new Vector3();
+  const pelvisSpin = new Vector3(), turn = new Vector3();
   const p = new Vector3();
   const hipAt = new Vector3(), ankleAt = new Vector3(), kneeAt = new Vector3(), shank = new Quaternion(), footTurn = new Quaternion();
   const level = new Quaternion();
   const gravity = (): number => -built.physics.gravity[1];
-
-  /** Ask `foot`'s leg's muscles for `speeds`, in its chain's order, at full activation. */
-  const drive = (foot: FootState, speeds: readonly number[]): void => {
-    foot.channels.forEach((i, k) => {
-      driver!.velocity[i] = speeds[k]!;
-      driver!.activation[i] = 1;
-      owned[i] = 1;
-    });
-  };
-  let driver: MuscleDriver | null = null;
 
   /** Each sole read, and the middle of `stance`'s into the reading. */
   const supportOf = (stance: readonly FootState[]): void => {
@@ -513,11 +508,165 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
     if (stance.length) reading.support.scaleInPlace(1 / stance.length);
   };
 
+  /** Each active leg's Jacobian at its task's point, its drift, and the root's share, from `dynamics`. */
+  const legJacobian = (foot: FootState, point: Vector3, driver: MuscleDriver): number[][] => {
+    const dynamics = driver.dynamics;
+    return [0, 1, 2, 3, 4, 5].map((row) => foot.channels.map((i) => {
+      const m = dynamics.axis(i), p = dynamics.pivot(i);
+      if (row < 3) return m[row]!;
+      const d = [point.x - p[0], point.y - p[1], point.z - p[2]];
+      return row === 3 ? m[1] * d[2]! - m[2] * d[1]! : row === 4 ? m[2] * d[0]! - m[0] * d[2]! : m[0] * d[1]! - m[1] * d[0]!;
+    }));
+  };
+  /**
+   * The lever a missed moment of the ground's wrench is weighed against a missed force at
+   * (`shareGroundWrench`): the height of the root's centre, where the wrench is taken, over the
+   * soles, at least a sole's half-length. A moment the soles miss is a force they miss at the
+   * root's height. Other levers, fixed, were tried against the shoves (10 to 60 N s, sixteen ways:
+   * 176; Node core stand, Rapier, 120 Hz), the shoves held with the impulse held each way, mean and
+   * least, N s; taken before a knee past straight was brought back (`fixedSolve`), the first three
+   * rows with `STANCE_TRACK` 0.1 and the speed stance's recovery steps (margin 0.01, 0.2 s, lift
+   * 0.03, reach 0.15), the last two with this track and recovery:
+   *
+   *     lever              Rogue              Warrior
+   *     0.3 m              109  39.1  30      156  53.8  45
+   *     the root's height  91   33.1  30      165  56.6  50
+   *     3 m                78   29.4  25      148  49.7  40
+   *     0.5 m, track 0.2   101  36.3  30      157  54.1  40
+   *     the root's, 0.2    102  36.6  30      165  56.3  50
+   *
+   * No fixed lever is better for both; the root's height is the one the wrench's geometry gives.
+   */
+  const leverOf = (height: number): number => Math.max(feet[0]!.reach, height - reading.support.y);
+  const pointOf = (foot: FootState, task: (typeof tasks)[number], out: Vector3): Vector3 => task.bearing ? out.copyFrom(foot.middle) : soleMiddleToRef(foot, out);
+
   return {
     get owned() { return owned; },
     reading,
+    carry(muscles, work) {
+      if (!aim.on) return null;
+      const dynamics = muscles.dynamics, R = dynamics.root, p0 = R.centre, n = muscles.channels.length;
+      const { lin, ang, at } = idScratch, a = aim.spin;
+      // Each leg's freedoms' accelerations are y0 - Y a_root: its foot's asked motion, less its
+      // drift and what the root's motion gives it, through the leg.
+      const legs: { foot: FootState; task: (typeof tasks)[number]; y0: number[]; Y: number[][] }[] = [];
+      const inLeg = new Uint8Array(n);
+      feet.forEach((foot, s) => {
+        const task = tasks[s]!;
+        if (!task.on) return;
+        pointOf(foot, task, at);
+        const J = legJacobian(foot, at, muscles);
+        dynamics.driftToRef(foot.segment, at, lin, ang);
+        const r = [at.x - p0[0], at.y - p0[1], at.z - p0[2]];
+        const k0 = [task.angular.x - ang.x, task.angular.y - ang.y, task.angular.z - ang.z, task.linear.x - lin.x, task.linear.y - lin.y, task.linear.z - lin.z];
+        // B a_root: the foot's motion from the root's, its spin and a + alpha x r.
+        const B = [0, 1, 2, 3, 4, 5].map((row) => [0, 1, 2, 3, 4, 5].map((col) => {
+          if (row < 3) return col === row ? 1 : 0;
+          if (col >= 3) return col === row ? 1 : 0;
+          // (alpha x r)_i = -[r]x alpha
+          const i = row - 3, j = col;
+          return i === j ? 0 : [[0, r[2]!, -r[1]!], [-r[2]!, 0, r[0]!], [r[1]!, -r[0]!, 0]][i]![j]!;
+        }));
+        // A knee past straight is on the Jacobian's other branch, where the leg shortens by extending
+        // the knee further, into its stop: a Rogue that caught a push with a step stood on such a
+        // knee 13 mm over its plan, the knee asked for -15 rad/s2 and held by its stop. That knee is
+        // asked back toward `STANCE_KNEE_BEND`, critically damped at the height's constant, ahead
+        // of the foot's task, and the leg's other freedoms take the task (`fixedSolve`).
+        const fixed = new Array<number>(foot.channels.length).fill(NaN);
+        if (bend !== null) {
+          const k = foot.chain[0]!.dofs.length, i = foot.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;
+          if (flexed < 0) fixed[k] = m * m * (bend - flexed) - 2 * m * muscles.rate(i);
+        }
+        const y0 = fixedSolve(J, k0, fixed), still = fixed.map((v) => Number.isNaN(v) ? NaN : 0);
+        const columns = [0, 1, 2, 3, 4, 5].map((c) => fixedSolve(J, B.map((row) => row[c]!), still));
+        legs.push({ foot, task, y0, Y: [0, 1, 2, 3, 4, 5].map((row) => columns.map((col) => col[row]!)) });
+        for (const i of foot.channels) inLeg[i] = 1;
+      });
+      // The root's rows as the root accelerates: W = P a_root + w0, the wrench the ground gives about
+      // the root's centre, the other freedoms at the servo's asks.
+      const P = [0, 1, 2, 3, 4, 5].map((r) => [0, 1, 2, 3, 4, 5].map((c) => R.mass[r]![c]!));
+      const w0 = [0, 1, 2, 3, 4, 5].map((r) => R.bias[r]! - R.gravity[r]!);
+      for (const { foot, y0, Y } of legs) foot.channels.forEach((i, k) => {
+        for (let r = 0; r < 6; r++) {
+          const C = R.coupling[r]![i]!;
+          w0[r] = w0[r]! + C * y0[k]!;
+          for (let c = 0; c < 6; c++) P[r]![c] = P[r]![c]! - C * Y[k]![c]!;
+        }
+      });
+      for (let i = 0; i < n; i++) if (!inLeg[i]) for (let r = 0; r < 6; r++) w0[r] = w0[r]! + R.coupling[r]![i]! * work.accel[i]!;
+      // The aims: the root's angular acceleration, and the root centre's that gives the centre of
+      // mass its aim (the ground's force is M c'' less gravity's).
+      const root = aim.root;
+      root[0] = a.x; root[1] = a.y; root[2] = a.z;
+      const target = [aim.centre.x, aim.centre.y, aim.centre.z];
+      const lift = solveLinear([3, 4, 5].map((r) => [3, 4, 5].map((c) => P[r]![c]!)),
+        [3, 4, 5].map((r, k) => R.mass[3]![3]! * target[k]! - R.gravity[r]! - w0[r]! - P[r]![0]! * a.x - P[r]![1]! * a.y - P[r]![2]! * a.z));
+      root[3] = lift[0]!; root[4] = lift[1]!; root[5] = lift[2]!;
+      // What the bearing soles can give of the wrench that asks; where they cannot give it all, the
+      // root's acceleration is the one the wrench they can give makes.
+      const bearing = legs.filter((leg) => leg.task.bearing).map((leg) => leg.foot);
+      const W = [0, 1, 2, 3, 4, 5].map((r) => w0[r]! + P[r]!.reduce((sum, v, c) => sum + v * root[c]!, 0));
+      if (bearing.length) {
+        idScratch.force.set(W[3]!, W[4]!, W[5]!);
+        idScratch.moment.set(W[0]!, W[1]!, W[2]!);
+        shareGroundWrench(bearing.map((foot) => bearingSole(foot, 1 - soleMargin)), at.set(p0[0], p0[1], p0[2]), idScratch.force, idScratch.moment,
+          GROUND_FRICTION, leverOf(p0[1]), shares, missed);
+        if (missed.force.lengthSquared() + missed.moment.lengthSquared() > 1e-12) {
+          const given = [W[0]! + missed.moment.x, W[1]! + missed.moment.y, W[2]! + missed.moment.z, W[3]! + missed.force.x, W[4]! + missed.force.y, W[5]! + missed.force.z];
+          root.set(solveLinear(P, given.map((v, r) => v - w0[r]!)));
+        }
+      }
+      for (const { task, y0, Y } of legs) for (let k = 0; k < 6; k++) task.accel[k] = y0[k]! - Y[k]!.reduce((sum, v, c) => sum + v * root[c]!, 0);
+      return root;
+    },
+    bear(muscles, work) {
+      if (!aim.on) return;
+      const dynamics = muscles.dynamics, R = dynamics.root, n = muscles.channels.length, root = aim.root;
+      // Every freedom's acceleration: the legs' from their tasks, the rest as the servo solved them.
+      const accel = work.accel;
+      feet.forEach((foot, s) => { if (tasks[s]!.on) foot.channels.forEach((i, k) => { accel[i] = tasks[s]!.accel[k]!; }); });
+      // The wrench the ground must give, about the root's centre: what the whole body's motion
+      // asks of the root's rows, less gravity's.
+      const W = [0, 1, 2, 3, 4, 5].map((r) => {
+        let sum = R.bias[r]! - R.gravity[r]!;
+        for (let c = 0; c < 6; c++) sum += R.mass[r]![c]! * root[c]!;
+        for (let i = 0; i < n; i++) sum += R.coupling[r]![i]! * accel[i]!;
+        return sum;
+      });
+      const bearing = feet.filter((_, s) => tasks[s]!.on && tasks[s]!.bearing);
+      const { force, moment } = idScratch;
+      if (bearing.length) {
+        force.set(W[3]!, W[4]!, W[5]!);
+        moment.set(W[0]!, W[1]!, W[2]!);
+        const soles = bearing.map((foot) => bearingSole(foot, 1 - soleMargin));
+        const at = idScratch.at.set(R.centre[0], R.centre[1], R.centre[2]);
+        shareGroundWrench(soles, at, force, moment, GROUND_FRICTION, leverOf(at.y), shares, missed);
+      }
+      const { mass, gravity: weight, bias } = dynamics;
+      feet.forEach((foot, s) => {
+        const task = tasks[s]!;
+        if (!task.on) return;
+        const share = task.bearing ? shares[bearing.indexOf(foot)]! : null;
+        foot.channels.forEach((i) => {
+          let torque = bias[i]! - weight[i]!;
+          for (let r = 0; r < 6; r++) torque += R.coupling[r]![i]! * root[r]!;
+          for (let j = 0; j < n; j++) torque += mass[i]![j]! * accel[j]!;
+          if (share) {
+            // Less the ground's wrench on the foot, carried along the freedom's motion.
+            const m = dynamics.axis(i), p = dynamics.pivot(i), x = foot.middle;
+            const d = [x.x - p[0], x.y - p[1], x.z - p[2]];
+            const swept = [m[1] * d[2]! - m[2] * d[1]!, m[2] * d[0]! - m[0] * d[2]!, m[0] * d[1]! - m[1] * d[0]!];
+            torque -= m[0] * share.moment.x + m[1] * share.moment.y + m[2] * share.moment.z
+              + swept[0]! * share.force.x + swept[1]! * share.force.y + swept[2]! * share.force.z;
+          }
+          const sense = torque >= 0 ? 1 : -1, strength = muscles.strength(i, sense);
+          muscles.velocity[i] = sense * Infinity;
+          muscles.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
+        });
+      });
+    },
     read(which) {
-      // The centre of mass and its velocity (Havok's linear velocity is the centre of mass's, H49).
+      // The centre of mass and its velocity (a body's linear velocity is its centre of mass's).
       const c = reading.centre.setAll(0), vel = reading.velocity.setAll(0);
       for (const segment of segments) {
         const m = segment.rigid.mass;
@@ -531,12 +680,13 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       supportOf(on ? feet.filter((foot) => on.includes(foot.side)) : feet);
     },
     command(muscles, goal, dt) {
-      driver = muscles;
       if (owned.length !== muscles.channels.length) {
         owned = new Uint8Array(muscles.channels.length);
         for (const foot of feet) foot.channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => muscles.channel(`${joint.spec.name} ${dof.spec.positive}`)));
       }
       owned.fill(0);
+      aim.on = false;
+      for (const task of tasks) task.on = false;
       // The step: a swing unlike the last starts one, and the feet that bear the body are the goal's
       // but for a swinging foot.
       // A stance on both feet steps of itself: walking, each foot in turn; walking nowhere, once its
@@ -584,18 +734,10 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         reading.phase = swing.shift === false ? "swing" : "shift";
       }
       const bearing = !goal ? [] : reading.phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;
-      for (const foot of feet) {
-        const standing = bearing.includes(foot.side);
-        if (standing === foot.conditioned) continue;
-        const { moments } = foot.natural;
-        foot.segment.body.setMassProperties({ ...foot.natural, moments: standing ? [moments[0] * conditioning, moments[1] * conditioning, moments[2] * conditioning] : moments });
-        foot.conditioned = standing;
-      }
       if (!goal || !last || bearing.length !== last.length || bearing.some((side) => !last!.includes(side))) {
         plan.on = false;
       }
       last = goal ? bearing : null;
-      reading.asked.setAll(0);
       const stance = feet.filter((foot) => bearing.includes(foot.side));
       if (!goal || stance.length === 0) return;
       supportOf(stance);
@@ -670,7 +812,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         }
       }
       high = Math.max(high, low);
-      u.addInPlaceFromFloats(ax * dt, (k * k * (high - r.y) - 2 * k * u.y) * dt, az * dt);
+      const ay = k * k * (high - r.y) - 2 * k * u.y;
+      u.addInPlaceFromFloats(ax * dt, ay * dt, az * dt);
       r.addInPlace(u.scale(dt));
       reading.plan.copyFrom(r);
       reading.planVelocity.copyFrom(u);
@@ -682,11 +825,6 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         const [hx, hz] = withinSupport([bearer!], cx, cz, inset);
         if (hx === cx && hz === cz) reading.phase = "swing";
       }
-      // Asked of the pelvis: the plan's velocity, the centre of mass's error from the plan over the
-      // across constant, and across the ground its velocity's error from the plan's by the gain.
-      const asked = reading.asked.set(u.x + (r.x - c.x) / seconds.across + gain * (u.x - vel.x), u.y + (r.y - height) / seconds.across,
-        u.z + (r.z - c.z) / seconds.across + gain * (u.z - vel.z));
-
       // The pelvis's asked turn: toward upright at the heading, the error over the time constant.
       Quaternion.RotationAxisToRef(Vector3.UpReadOnly, goal.heading, target);
       target.multiplyInPlace(pelvis.rest);
@@ -696,13 +834,28 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
       spin.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.turn : 0);
 
-      // Each stance leg's speeds for the motion asked of the pelvis, its foot still.
-      centreOfToRef(pelvis, p);
-      for (const foot of stance) drive(foot, legSpeeds(foot.chain, p, asked, spin));
+      // The root's angular acceleration: toward upright at the heading, critically damped at the
+      // turn's constant (`spin` is the error's angle over it). The centre of mass's: the plan's,
+      // its errors taken up critically damped at `track`. Each bearing foot is held still, what
+      // motion it has damped out at `track`.
+      pelvis.body.angularVelocityToRef(pelvisSpin);
+      const q = 1 / seconds.turn, e = 1 / track;
+      aim.spin.copyFrom(spin).scaleInPlace(q).subtractInPlace(pelvisSpin.scaleInPlace(2 * q));
+      aim.centre.set(ax + e * e * (r.x - c.x) + 2 * e * (u.x - vel.x), ay + e * e * (r.y - height) + 2 * e * (u.y - vel.y),
+        az + e * e * (r.z - c.z) + 2 * e * (u.z - vel.z));
+      aim.on = true;
+      for (const foot of stance) {
+        const task = tasks[feet.indexOf(foot)]!;
+        footMotionToRef(foot, foot.middle, task.linear, task.angular);
+        task.linear.scaleInPlace(-e);
+        task.angular.scaleInPlace(-e);
+        task.on = true;
+        task.bearing = true;
+        for (const i of foot.channels) owned[i] = 1;
+      }
 
       // The swing: the foot's sole carried along its path, its turn carried from the one it left the
-      // ground with to the one it lands with, and its leg's speeds for that motion taken relative to
-      // the pelvis's own.
+      // ground with to the one it lands with.
       if (reading.phase === "swing" && swing) {
         const foot = feet.find((f) => f.side === swing.foot)!;
         soleMiddleToRef(foot, sole);
@@ -724,18 +877,22 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         path.set(from.x + (swing.to[0] - from.x) * s, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * s);
         Quaternion.SlerpToRef(step.lift, level, s, step.turn);
         along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
-        along.addInPlace(path.subtractToRef(sole, v).scaleInPlace(1 / seconds.swing));
         step.turn.multiplyToRef(Quaternion.InverseToRef(foot.segment.node.rotationQuaternion!, inverse), error);
         if (error.w < 0) error.scaleInPlace(-1);
         const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
         turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
-        // Relative to the pelvis, and as the pelvis's motion from the foot: the negative.
-        pelvis.body.linearVelocityToRef(pelvisVelocity);
-        pelvis.body.angularVelocityToRef(pelvisSpin);
-        Vector3.CrossToRef(pelvisSpin, sole.subtractToRef(p, v), carried).addInPlace(pelvisVelocity);
-        along.subtractInPlace(carried).scaleInPlace(-1);
-        turn.subtractInPlace(pelvisSpin).scaleInPlace(-1);
-        drive(foot, legSpeeds(foot.chain, sole, along, turn));
+        // The path's acceleration, and its errors in place and speed taken up critically damped at the
+        // swing's constant; its turn's likewise.
+        const task = tasks[feet.indexOf(foot)]!, w = 1 / seconds.swing, T = swing.seconds;
+        const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
+        footMotionToRef(foot, sole, task.linear, task.angular);
+        task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
+          swing.lift * ddbump + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),
+          (swing.to[1] - from.z) * dds + w * w * (path.z - sole.z) + 2 * w * (along.z - task.linear.z));
+        task.angular.scaleInPlace(-2 * w).addInPlace(turn.scale(w));
+        task.on = true;
+        task.bearing = false;
+        for (const i of foot.channels) owned[i] = 1;
         if (tau >= 1) {
           reading.phase = "stand";
           reading.own = null;
@@ -913,32 +1070,84 @@ function pointOfToRef(segment: BuiltSegment, point: Vec3, out: Vector3): Vector3
 
 const centreOfToRef = (segment: BuiltSegment, out: Vector3): Vector3 => pointOfToRef(segment, segment.rigid.centre, out);
 
+/** `foot`'s point `at` (world): its velocity into `linear`, and the foot's spin into `angular`. */
+function footMotionToRef(foot: FootState, at: Vector3, linear: Vector3, angular: Vector3): void {
+  const body = foot.segment.body, c = centreOfToRef(foot.segment, new Vector3());
+  body.linearVelocityToRef(linear);
+  body.angularVelocityToRef(angular);
+  linear.addInPlace(Vector3.Cross(angular, at.subtract(c)));
+}
+
+/** `foot`'s sole as it bears (`BearingSole`), its centre of pressure kept to `keep` of its half-length and half-width. */
+function bearingSole(foot: FootState, keep: number): BearingSole {
+  const [a, ...rest] = foot.corners, near = rest.map((q) => Vector3.Distance(a!, q)).map((d, k) => [d, k] as const).sort((p, q) => p[0] - q[0]);
+  // The corner a long side away from the first: the middle of the three distances.
+  const other = rest[near[1]![1]]!, along = other.subtract(a!);
+  along.y = 0;
+  return { middle: foot.middle, along: along.normalize(), length: keep * foot.reach, width: keep * foot.width / 2 };
+}
+
 /**
- * The speeds of `chain`'s freedoms (pelvis to foot, each in its own sense, as a motor drives them)
- * that move the pelvis at `velocity` (at its point `at`, world) turning at `spin`, with the foot
- * still. Each freedom's speed turns everything beyond it about its motion axis (`motionAxesToRef`)
- * through its joint's centre, so the foot moves against the pelvis by the sum of those turns; the
- * foot is still when that sum is the pelvis's motion reversed. The six equations are solved by
- * damped least squares (`LEG_DAMPING`).
+ * The friction the stance takes the ground to give, the coefficient: Rapier's default collider
+ * friction, 0.5, which the ground and the feet keep and which Rapier combines by their average
+ * (`src/core/engine/rapier.ts` sets neither).
  */
-export function legSpeeds(chain: readonly BuiltJoint[], at: Vector3, velocity: Vector3, spin: Vector3): number[] {
-  const columns: number[][] = [];
-  const turn = new Quaternion(), axis = new Vector3(), pivot = new Vector3(), lever = new Vector3(), sweep = new Vector3();
-  for (const joint of chain) {
-    turnOfToRef(joint.parent, turn);
-    pointOfToRef(joint.parent, joint.spec.centre.value, pivot);
-    for (const m of motionAxesToRef(joint, jointAngles(joint, []), [])) {
-      axis.set(m[0], m[1], m[2]).applyRotationQuaternionToRef(turn, axis);
-      Vector3.CrossToRef(axis, at.subtractToRef(pivot, lever), sweep);
-      columns.push([axis.x, axis.y, axis.z, sweep.x, sweep.y, sweep.z]);
+const GROUND_FRICTION = 0.5;
+
+/**
+ * The least-squares `x` of `J x = y`, damped by `LEG_DAMPING`: J' (J J' + d^2 E)^-1 y. A straight
+ * knee is a singular leg, and an undamped solve asks it for unbounded accelerations.
+ */
+function dampedSolve(J: readonly (readonly number[])[], y: readonly number[]): number[] {
+  const rows = J.length, cols = J[0]!.length, d2 = LEG_DAMPING * LEG_DAMPING;
+  const G = J.map((a, r) => J.map((b, s) => a.reduce((sum, v, k) => sum + v * b[k]!, 0) + (r === s ? d2 : 0)));
+  const z = solveSymmetric(G, [...y]);
+  return Array.from({ length: cols }, (_, k) => { let sum = 0; for (let r = 0; r < rows; r++) sum += J[r]![k]! * z[r]!; return sum; });
+}
+
+/**
+ * `dampedSolve` of `J x = y` with the freedoms `fixed` names (a number, not NaN) held to it: the
+ * others solve J_free x = y - J_fixed fixed. A freedom at a limit is a task above the rest, as in a
+ * prioritized solve (Siciliano and Slotine 1991, "A general framework for managing multiple tasks
+ * in highly redundant robotic systems", ICAR).
+ */
+function fixedSolve(J: readonly (readonly number[])[], y: readonly number[], fixed: readonly number[]): number[] {
+  if (fixed.every(Number.isNaN)) return dampedSolve(J, y);
+  const free = fixed.flatMap((v, k) => Number.isNaN(v) ? [k] : []);
+  const rest = dampedSolve(J.map((row) => free.map((k) => row[k]!)),
+    y.map((v, r) => v - fixed.reduce((sum, f, k) => Number.isNaN(f) ? sum : sum + J[r]![k]! * f, 0)));
+  const x = [...fixed];
+  free.forEach((k, c) => { x[k] = rest[c]!; });
+  return x;
+}
+
+/** Solve `A x = y` by elimination with partial pivoting; `A` is left as it was. */
+function solveLinear(A: readonly (readonly number[])[], y: readonly number[]): number[] {
+  const n = y.length, M = A.map((row, i) => [...row, y[i]!]);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r]![c]!) > Math.abs(M[p]![c]!)) p = r;
+    [M[c], M[p]] = [M[p]!, M[c]!];
+    for (let r = c + 1; r < n; r++) {
+      const f = M[r]![c]! / M[c]![c]!;
+      if (f !== 0) for (let k = c; k <= n; k++) M[r]![k] = M[r]![k]! - f * M[c]![k]!;
     }
   }
-  const b = [-spin.x, -spin.y, -spin.z, -velocity.x, -velocity.y, -velocity.z];
-  // (J' J + d^2 I) s = J' b.
-  const d2 = LEG_DAMPING * LEG_DAMPING;
-  const A = columns.map((ci, i) => columns.map((cj, j) => ci.reduce((sum, v, r) => sum + v * cj[r]!, i === j ? d2 : 0)));
-  const y = columns.map((ci) => ci.reduce((sum, v, r) => sum + v * b[r]!, 0));
-  return solveSymmetric(A, y);
+  const x = new Array<number>(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) {
+    let sum = M[r]![n]!;
+    for (let k = r + 1; k < n; k++) sum -= M[r]![k]! * x[k]!;
+    x[r] = sum / M[r]![r]!;
+  }
+  return x;
+}
+
+/** The knee's bend in the reference pose, rad: the shank's line (knee to ankle) from the thigh's (hip to knee). */
+function referenceBendOf(chain: readonly BuiltJoint[]): number {
+  const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
+  const t = [knee![0] - hip![0], knee![1] - hip![1], knee![2] - hip![2]], h = [ankle![0] - knee![0], ankle![1] - knee![1], ankle![2] - knee![2]];
+  const dot = t[0]! * h[0]! + t[1]! * h[1]! + t[2]! * h[2]!;
+  return Math.acos(Math.max(-1, Math.min(1, dot / (Math.hypot(t[0]!, t[1]!, t[2]!) * Math.hypot(h[0]!, h[1]!, h[2]!)))));
 }
 
 /** The thigh's and the shank's lengths in the reference pose: hip to knee, and knee to ankle. */

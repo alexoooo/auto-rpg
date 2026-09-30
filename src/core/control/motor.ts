@@ -3,7 +3,7 @@ import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts
 import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { chainTo, pointNowToRef, solveReach } from "./kinematics.ts";
-import { servo } from "./servo.ts";
+import { servoAsk, servoSolve } from "./servo.ts";
 import { stanceControl, type StanceControl, type StanceGoal, type StanceTuning } from "./stance.ts";
 
 /** Joint angles, rad, by channel name. */
@@ -147,7 +147,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       return undefined;
     };
     stance.command(driver, standing, dt);
-    servo(driver, (i) => {
+    const work = servoAsk(driver, (i) => {
       const name = driver.channels[i]!.name;
       const push = pushes.find((p) => p.channel === name);
       if (!push) return standing && stance.owned[i] ? undefined : owned(i)?.[0] ?? pose[name] ?? 0;
@@ -158,6 +158,11 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       rate: (i) => owned(i)?.[1] ?? 0,
       acceleration: (i) => owned(i)?.[2] ?? 0,
     });
+    // Standing by torque, the stance asks the root's acceleration, the servo carries the rest of the
+    // body with it, and the stance legs take what that leaves the ground to give.
+    const carried = standing ? stance.carry(driver, work) : null;
+    servoSolve(driver, work, carried ?? undefined);
+    if (carried) stance.bear(driver, work);
   };
 
   return {

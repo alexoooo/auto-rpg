@@ -483,6 +483,10 @@ contradicts one; the eccentric ceiling is the owner's decision.
   - under calibrated shoves, it steps and then falls past a stated impulse;
   - the whole-shove table from 4350cb8e, re-run, does not multiply falls.
 
+**On Rapier the stance is the model above** (branch `core-rapier`, the last part of this stage).
+The Havok stance that follows, down to the torque stance, is at commit eaa182e5; its figures are
+Havok's.
+
 **What landed (2026-09-29): the stance** (`src/core/control/stance.ts`, `tests/core-stance.test.mjs`).
 - **It departs from the model above, on a measurement.** The legs are not driven by the forces the
   centre of mass needs. A torque source on an ankle rocks the foot on Havok's contact (10 N m lifts
@@ -608,6 +612,62 @@ contradicts one; the eccentric ceiling is the owner's decision.
 - **Not yet:** a stance that widens when it stops, a crouch and turning on the spot; running, the
   dash, rolling and getting up.
 
+**What landed (2026-09-29, on Rapier): the torque stance** (`src/core/control/stance.ts`,
+`src/core/control/contact-wrench.ts`, `tests/core-stance.test.mjs`, `tests/core-contact-wrench.test.mjs`).
+- **The legs are driven by torques, through the whole body's floating-base dynamics.** The stance
+  plans the centre of mass as before and asks for accelerations: the centre of mass's, the pelvis's
+  turn, and each bearing foot's (none). The root's six rows of the body's dynamics
+  (`BodyDynamics.root`) say what wrench the ground must give; each stance leg's accelerations follow
+  from the root's and its foot's through its Jacobian; the wrench is shared among the bearing soles
+  by a small quadratic programme inside each sole's contact wrench cone -- no pull, the centre of
+  pressure on the sole, friction, twist (Caron et al. 2015; `shareGroundWrench`) -- and where the
+  soles cannot give it all, the root is asked for what they can give. The rest of the body is
+  servoed around that root; each leg's torques are its inverse dynamics less the ground's wrench on
+  its foot, given to the muscles as torque sources, none past a muscle's strength. This is the
+  stage's model: the centre of mass driven by the ground's reaction at the actual feet, within
+  friction and the legs' strength.
+- **Every inertia is the body's own.** A foot is 0.005 kg m2 and nothing conditions it;
+  `STANCE_FOOT_CONDITIONING` and `STANCE_VELOCITY_GAIN` are gone, and with them the sway of a
+  stopped walk.
+- **A centre of pressure is kept off the sole's edge** (`SOLE_MARGIN`, 0.1 of the sole's half-length
+  and half-width): at the edge, a place 30 cm to the side slid the feet 19 and 23 cm.
+- **A knee past straight is brought back first.** The knee hyperextends 2 to 5 degrees before its
+  stop, and past straight the leg's Jacobian shortens the leg by extending the knee into the stop:
+  a Rogue that caught a push stood 13 mm over its plan on such a knee. That knee is asked back
+  toward `STANCE_KNEE_BEND` ahead of the foot's task, the leg's other freedoms taking the task
+  (`fixedSolve`, a prioritized solve); 0.6 mm.
+- **Measured** (Node core stand, Rapier, 120 Hz; each constant's sweep is on its doc comment):
+  - Both humans stand 3 cm low for 5 s with the centre 0.0 mm off the soles' middle, 0.0 mm of
+    drift over the last 2 s, the feet sliding 0.4-0.5 mm (Havok's stance: within 0.9 mm, drift under
+    0.6).
+  - A place 30 cm out each of four ways is held at the edge of what the soles hold, 0.0 mm off, the
+    feet sliding at most 0.6 mm.
+  - Each human's 8 steps land within 1.8 mm, and none fails.
+  - Shoved level at the middle trunk's centre of mass by 10 to 90 N s, sixteen ways (272 shoves),
+    from 3 cm under the reference height: stepping, the Rogue holds 128, 44.7 N s on average over
+    the ways (35 the least), and the Warrior 217, 66.9 (45, from behind; 55 every other way);
+    without steps, 76, 28.8 (20) and 129, 45.3 (30). Havok's stance over 10 to 60 N s held 40.0 (30)
+    and 56.3 (35) stepping.
+  - Walking at 0.2-0.7 m/s five ways for 8 s, then stopping: 19 and 21 of 25 walks hold, every one
+    up to 0.4 m/s, going at 0.93-0.94 of the speed asked, and every held walk stops.
+  - The lab (`tests/core-lab.test.mjs`): shoved from behind, 35 and 55 N s, the Rogue catches
+    itself in 2 steps and the Warrior in 4.
+  - The lab's routine (`src/core-lab/routine.ts`; a loop of 26 s: a 2 m walk, a set step, three
+    straights, a turn, the walk back, a turn) is not held yet: run for 20 loops, at 120 Hz the
+    Warrior fell in its second loop's first walk and the Rogue in its ninth loop's walk back; at
+    480 Hz the Warrior in its sixth loop's walk back and the Rogue in its third loop's second strike.
+    The straights peak at 5.64-5.72 m/s (Warrior) and 4.80-4.90 (Rogue) at 120 Hz, against 5.44 and
+    4.66 on Havok's stance. The falls are the next work.
+- **It converges with the rate.** At 480 Hz (the same batteries, shoves 10-60 N s) both humans
+  stand as still, their steps land within 1.9 mm, and the shoves held read 46.6 (35) and
+  58.4 N s (55) against 44.7 (35) and 57.8 (45) at 120 Hz over the same range. On Havok a step
+  did not converge with the rate (above).
+- **Known:** with self-contact on, the Rogue shoved forward ends with its thighs pressed together at
+  16 N and 2 mm over its plan; the stance does not model the thighs' contact. Straight to the side
+  a step holds little more than standing: the far foot steps out with no weight shifted first.
+- **Against the acceptance: not met.** Walks above 0.5 m/s mostly fall (a human's preferred walk is
+  near 1.4); no human reference for the shoves or a reversal is sourced yet.
+
 ### Stage 5: the rulebook, the damage unit and the HP pool
 
 - **The fight rules become one immutable rulebook** per mode: what counts as a cut, thrust, crush or clang, damage, severing, death and endings. `Ending` gains fatal and severed.
@@ -729,7 +789,8 @@ With the search's full budget the blows found at 120 Hz read 10-30 % stronger th
 gives, as it did on Havok at 480 Hz. The smaller searches above had stopped short of that. **The
 unit is not re-set yet**: it is the converged reading of a blow searched at a converged rate, and
 that search waits on the solver's settings (below), which move every blow. Until then the unit is
-Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.37 HP on Rapier.
+Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.37 HP on Rapier
+(0.41 on the torque stance).
 
 **What does not hold, and why.**
 - **A velocity motor under its ceiling holds only as far as the solver converges.** Rapier solves
@@ -739,8 +800,8 @@ Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.3
   pass, 0.03 with eight; whatever the ceiling or the motor model (the probe's brake). The whole
   human braked on a stand crept 4.5 degrees a second at 120 Hz; the stand now holds it with the
   servo, whose torque sources are exact (0.023 degrees at 10 s).
-- **So the stance does not stand still.** It asks the legs' motors for speeds, under their
-  ceilings, through the closed chain the ground makes. Standing 3 cm low (Node stand, 120 Hz), the
+- **So the speed stance did not stand still** (the torque stance replaced it; stage 4). It asked
+  the legs' motors for speeds, under their ceilings, through the closed chain the ground makes. Standing 3 cm low (Node stand, 120 Hz), the
   centre of mass stops 9-12 mm off the soles' middle and drifts 15 mm in 2 s, and the feet slide
   33-51 mm in 5 s. The foot moves 0.087 mm a step while its velocity accounts for 0.0007: the
   solver's correction of what it left unconverged moves the bodies within the step and takes the
@@ -756,7 +817,9 @@ Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.3
       32          8        1.5 / 2.2 / 5       1.4 / 2.1 / 6       2.0
       64          8        0.7 / 1.2 / 2.6     0.6 / 1.1 / 2.6     3.7-4.2
 
-  Havok stood the same stance within 3 mm, with its feet conditioned for the same reason.
+  Havok stood the same stance within 3 mm, with its feet conditioned for the same reason. The
+  torque stance, driving the legs by torque sources, stands at 0.0 mm at 16 iterations of 2 passes,
+  with the feet at their own inertia.
 - **A limit pushes along its parent's axis, not along its angle's gradient**, so the other
   freedoms' turning carries a pressed angle past its stop: by up to 0.046 rad
   (`tests/core-joint-state.test.mjs`, a todo), and at 1000 N m a pressed first freedom dragged the
@@ -766,12 +829,10 @@ Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.3
   muscle tests are todos). Its multibody joints, which would hold the joints exactly, cannot have
   their motors set after they are made, and the bake-off found them unusable in 0.21.
 
-**Where the port stands**: 1080 of 1095 tests pass; three are todos (the limit and the two muscle
-impulse tests), and the twelve that fail are the stance's (standing, stepping, recovering, walking,
-the lab's routine) and the unit's replay. The lab routine falls at 120 Hz (the Warrior in its third
-strike, the Rogue in its first turn) and runs whole at 480 Hz. **Waiting on the owner**: whether
-the stance keeps its velocity motors under a stronger solver, moves to torque sources, or the core
-takes a patched Rapier build.
+**Where the port stands**: the owner chose torque sources (2026-09-29: "go with (b), start with
+the real inertia"), and the stance stands, steps, walks and catches shoves on them (stage 4's torque
+stance). 1094 of 1098 tests pass; three are todos (the limit and the two muscle impulse tests), and
+the one that fails is the unit's replay, which waits on a search at a converged rate (above).
 
 ### Stage 6: the human fights in the game
 

@@ -7,7 +7,12 @@
  * These anchor case A's pass marks: the shared torque law cannot stand Havok at all, so "as well
  * as today" is read off the core's own stance. Node stand (tests/harness/core-stand.mjs).
  *
- *     node research/physics-bakeoff/baseline-today.mjs
+ * **It reproduces only at commit eaa182e5.** The core has since moved to Rapier and its stance to
+ * torques through the body's floating-base dynamics, with no foot conditioning; here the
+ * `footConditioning` it passes is no longer read, and both runs stand the same stance. Its numbers
+ * in `REPORT.md` and `thresholds.mjs` are that commit's.
+ *
+ *     git checkout eaa182e5 && node research/physics-bakeoff/baseline-today.mjs
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../../src/core/body.ts";

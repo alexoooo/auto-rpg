@@ -106,11 +106,19 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  */
 export function servo(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number,
   feed?: ServoFeed): void {
+  servoSolve(driver, servoAsk(driver, goal, seconds, dt, feed));
+}
+
+/**
+ * The servo's first half: each servoed freedom's acceleration asked over the step, and each freedom
+ * the goal leaves be marked fixed at its command's torque (`ServoWork`).
+ */
+export function servoAsk(driver: MuscleDriver, goal: (channel: number) => number | undefined, seconds: number, dt: number,
+  feed?: ServoFeed): ServoWork {
   const n = 1 / seconds, count = driver.channels.length;
-  const { mass, gravity, bias } = driver.dynamics;
   let work = scratch.get(driver);
   if (!work) scratch.set(driver, (work = { change: new Float64Array(count), accel: new Float64Array(count),
-    torque: new Float64Array(count), fixed: new Uint8Array(count) }));
+    torque: new Float64Array(count), fixed: new Uint8Array(count), bias: new Float64Array(count) }));
   const { change, accel, torque, fixed } = work;
 
   // The change of each freedom's rate asked over the step; NaN where the goal leaves a channel be,
@@ -136,6 +144,27 @@ export function servo(driver: MuscleDriver, goal: (channel: number) => number | 
       if (!Number.isNaN(asked)) du += driver.turning(i, k) * asked;
     }
     accel[i] = du / dt;
+  }
+  return work;
+}
+
+/**
+ * The servo's second half: the torques that give the asked accelerations, solved around the fixed
+ * freedoms, and the commands. With `root`, the root's acceleration (`RootDynamics`' order: its
+ * angular acceleration and its centre's, world), each freedom carries its share of it; without, the
+ * root is taken to be held. `work.accel` is left with every freedom's acceleration: the asked, and
+ * the fixed freedoms' as their torques give them.
+ */
+export function servoSolve(driver: MuscleDriver, work: ServoWork, root?: ArrayLike<number>): void {
+  const count = driver.channels.length;
+  const { mass, gravity } = driver.dynamics;
+  const { change, accel, torque, fixed } = work;
+  // What the root's acceleration asks of each freedom goes with the motion under way.
+  const bias = work.bias;
+  bias.set(driver.dynamics.bias);
+  if (root) {
+    const coupling = driver.dynamics.root.coupling;
+    for (let r = 0; r < 6; r++) { const a = root[r]!, row = coupling[r]!; if (a !== 0) for (let i = 0; i < count; i++) bias[i] += row[i]! * a; }
   }
   // The torques, solved around the fixed ones; a torque the muscles cannot give is held at their
   // strength and the rest solved again.
@@ -168,8 +197,12 @@ export interface ServoFeed {
   acceleration(channel: number): number;
 }
 
-interface Work { change: Float64Array; accel: Float64Array; torque: Float64Array; fixed: Uint8Array }
-const scratch = new WeakMap<MuscleDriver, Work>();
+/**
+ * The servo's working state between its halves, by channel: the change of rate asked (NaN where the
+ * goal leaves the channel be), the acceleration, the torque, and whether it is fixed.
+ */
+export interface ServoWork { change: Float64Array; accel: Float64Array; torque: Float64Array; fixed: Uint8Array; bias: Float64Array }
+const scratch = new WeakMap<MuscleDriver, ServoWork>();
 
 /**
  * With M u' + bias = torque + gravity: the fixed freedoms' accelerations from their torques and the

@@ -195,3 +195,106 @@ test("the motion under way gives the chain's joint accelerations as the engine m
   assert.ok(median(sizes) > 30, `the joints' speeds changed at ${median(sizes)} rad/s^2 at the median`);
   assert.ok(median(errors) < 0.1, `a step's change of speed read ${(100 * median(errors)).toFixed(1)} % off at the median`);
 });
+
+/**
+ * The root's rows (`BodyDynamics.root`), the chain holding its rod free in the air, driven for a
+ * while and let go under gravity: the rows times the speeds (the root's spin, its centre's velocity,
+ * the joints') are the bodies' momentum about the root's centre, as the engine moves them; and the
+ * whole system [root.mass coupling; coupling' mass] a = [root.gravity; gravity] - [root.bias; bias]
+ * gives the root's and the joints' accelerations, the root's read as what gravity does not
+ * explain of it. The steps with a joint at its stop are left out: the model has no stop's force, and
+ * while a joint presses its stop the momentum reads 5 to 9 % off, 44 % the step one lands on it, as
+ * the engine moves a joint pressed on its stop in a way the joint's tracker does not read; off every
+ * stop it reads 0.01 to 0.05 % off (480 Hz). The accelerations are read as the change of speed
+ * over 4 steps, the model's summed step by step: 2.6 % off for the root and 1.8 % for the joints at
+ * the median; a step at a time, the engine's own disturbance of each step's speeds (above) reads 14
+ * and 8 % off on accelerations this size.
+ */
+test("the root's rows give a free chain's momentum as the engine moves it, and let go, its root's and joints' accelerations", async () => {
+  const stand = await coreStand(holding(), { ground: false, hz: 480, position: [0, 3, 0] });
+  let seed = 5, tick = 0;
+  const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647) * 2 - 1;
+  // Pushed gently enough that, let go, its joints swing mostly clear of their stops.
+  const driver = driveMuscles(stand.built, stand.world, (d) => {
+    if (tick++ % stand.seconds(0.1) !== 0) return;
+    for (let i = 0; i < d.channels.length; i++) { d.velocity[i] = random() > 0 ? 1e3 : -1e3; d.activation[i] = 0.15 + 0.15 * Math.abs(random()); }
+  });
+  const g = stand.world.physics.gravity;
+  const dynamics = bodyDynamics(stand.built, g), R = dynamics.root;
+  const trackers = [...stand.built.joints.values()].map(jointTracker);
+  const segments = [...stand.built.segments.values()];
+  const spin = new Map(segments.map((s) => [s, new Vector3()]));
+  const motion = { spin: (s) => spin.get(s) };
+  const v = new Vector3(), local = new Vector3(), inverse = new Quaternion();
+  const read = () => {
+    for (const [s, w] of spin) s.body.angularVelocityToRef(w);
+    trackers.forEach((tracker) => tracker.update(motion.spin));
+    dynamics.update(trackers.map((tracker) => tracker.angles), motion);
+    R.segment.body.linearVelocityToRef(v);
+    const w = spin.get(R.segment);
+    return [w.x, w.y, w.z, v.x, v.y, v.z, ...trackers.flatMap((tracker) => tracker.speeds)];
+  };
+  const n = dynamics.mass.length;
+  const full = () => [
+    ...R.mass.map((row, r) => [...row, ...R.coupling[r]]),
+    ...dynamics.mass.map((row, f) => [...R.coupling.map((c) => c[f]), ...row]),
+  ];
+  /** The bodies' momentum, angular about the root's centre, then linear, world. */
+  const momentum = () => {
+    const L = new Vector3(), P = new Vector3(), p0 = new Vector3(...R.centre);
+    for (const s of segments) {
+      const m = s.rigid.mass, w = spin.get(s);
+      s.body.linearVelocityToRef(v);
+      Quaternion.InverseToRef(s.node.rotationQuaternion, inverse);
+      w.applyRotationQuaternionToRef(inverse, local);
+      const [xx, yy, zz, xy, xz, yz] = s.rigid.tensor;
+      const Iw = new Vector3(xx * local.x + xy * local.y + xz * local.z, xy * local.x + yy * local.y + yz * local.z, xz * local.x + yz * local.y + zz * local.z)
+        .applyRotationQuaternion(s.node.rotationQuaternion);
+      const turn = s.node.rotationQuaternion.multiply(Quaternion.Inverse(s.rest)), o = s.frame.origin, c = s.rigid.centre;
+      const at = new Vector3(c[0] - o[0], c[1] - o[1], c[2] - o[2]).applyRotationQuaternion(turn).addInPlace(s.node.position);
+      L.addInPlace(Iw).addInPlace(Vector3.Cross(at.subtract(p0), v.scale(m)));
+      P.addInPlace(v.scale(m));
+    }
+    return [...L.asArray(), ...P.asArray()];
+  };
+  const norm = (a) => Math.hypot(...a);
+  const momentumErrors = [], rootErrors = [], jointErrors = [], sizes = [];
+  let stopped = 0;
+  try {
+    stand.step(stand.seconds(0.1));
+    driver.dispose();
+    let x = read();
+    // A joint within 0.02 rad of its stop (every stop here is 1.3 rad out) is pressed by a force the
+    // model leaves out; a window it touches is read no further.
+    const atStop = () => trackers.some((tracker) => tracker.angles.some((a) => Math.abs(a) > 1.3 - 0.02));
+    let from = null, change = null, steps = 0;
+    for (let s = 0; s < stand.seconds(0.5); s++) {
+      if (atStop()) { stand.step(1); x = read(); from = null; stopped += 1; continue; }
+      const A = full(), engine = momentum();
+      const model = A.slice(0, 6).map((row) => row.reduce((sum, a, j) => sum + a * x[j], 0));
+      momentumErrors.push(norm(model.map((m, i) => m - engine[i])) / norm(engine));
+      if (!from) { from = x; change = x.map(() => 0); steps = 0; }
+      const predicted = solve(A, [...R.gravity, ...dynamics.gravity].map((f, i) => f - [...R.bias, ...dynamics.bias][i]));
+      predicted.forEach((a, i) => { change[i] += a / stand.world.hz; });
+      stand.step(1);
+      x = read();
+      // Over 4 steps: the engine's own disturbance of a step's speeds does not grow with them (above).
+      if (++steps < 4) continue;
+      // Over the window: the change of speed the model gave step by step against the engine's; the
+      // root's less what gravity alone gives.
+      const observed = x.map((u, i) => u - from[i]), fall = (i) => (i >= 3 && i < 6 ? g[i - 3] * steps / stand.world.hz : 0);
+      rootErrors.push(norm(observed.slice(0, 6).map((o, i) => o - change[i])) / norm(observed.slice(0, 6).map((o, i) => o - fall(i))));
+      jointErrors.push(norm(observed.slice(6).map((o, i) => o - change[6 + i])) / norm(observed.slice(6)));
+      sizes.push(norm(observed.slice(6)) * stand.world.hz / steps);
+      from = null;
+    }
+  } finally { stand.dispose(); }
+  const median = (a) => [...a].sort((p, q) => p - q)[Math.floor(a.length / 2)];
+  console.log(`MUT dynamics root: momentum off ${(100 * median(momentumErrors)).toFixed(3)} % at the median, ${(100 * Math.max(...momentumErrors)).toFixed(1)} % at worst; the root ${(100 * median(rootErrors)).toFixed(2)} %`
+    + ` and the joints ${(100 * median(jointErrors)).toFixed(2)} % off at the median (${n} freedoms, ${median(sizes).toFixed(0)} rad/s2; ${jointErrors.length} windows of 4 steps read, ${stopped} steps at a stop)`);
+  assert.ok(jointErrors.length > 8, `only ${jointErrors.length} windows were read off every stop`);
+  assert.ok(median(momentumErrors) < 0.001, `the root's rows gave the momentum ${(100 * median(momentumErrors)).toFixed(3)} % off at the median`);
+  assert.ok(median(sizes) > 10, `the joints' speeds changed at ${median(sizes)} rad/s^2 at the median`);
+  assert.ok(median(rootErrors) < 0.05, `the root's acceleration read ${(100 * median(rootErrors)).toFixed(1)} % off at the median`);
+  assert.ok(median(jointErrors) < 0.05, `the joints' accelerations read ${(100 * median(jointErrors)).toFixed(1)} % off at the median`);
+});
