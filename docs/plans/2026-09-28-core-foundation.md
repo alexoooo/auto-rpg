@@ -835,6 +835,16 @@ Havok's.
   0.7 m/s take some 85 steps a minute with a fifth of the cycle on both feet. **What the walk
   needs is a double support**: both soles bearing while the weight goes from the trailing foot
   to the leading one, the walk's momentum kept, and a lift once the leading sole can hold the body.
+  Tried the same night, on the step chooser as it is, and taken out (none held 0.7 m/s; the lift
+  stayed near 1 cm): a transfer phase for each steady step, both soles bearing, the plan the
+  pendulum about a pivot of both soles chosen as the swing's is, 0.05-0.2 s long; its lift gated
+  first on the capture point over the leading sole (in a walk it is past that sole's toe, and the
+  gate never opened: the body ran forward on both feet), then on the swing's own pivot falling
+  within the leading sole, then with the landing re-aimed through the transfer. The next attempt
+  should plan the footsteps and their timing together -- the capture point's reference over a few
+  steps with a double support in each, as Englsberger et al. (2015, "Three-dimensional bipedal
+  walking control based on Divergent Component of Motion", IEEE T-RO) do -- with the cadence and
+  the double support's share taken from a human walking reference, rather than one step at a time.
 - **The bound's cost on shoves, re-measured (2026-09-30)** after the settle and the sideways catch
   (the battery to 90 N s): bounded, the Rogue holds 118 of 272 (mean 41.9) and the Warrior 213
   (71.3); clipped alone, 128 (44.7) and 221 (71.9). Traced, the Rogue shoved 55 N s from behind
