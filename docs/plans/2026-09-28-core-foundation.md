@@ -857,6 +857,15 @@ Havok's.
   plantarflexes instead. A flat, rigid foot cannot; the choice is to roll the rigid sole on its
   front edge (tried on the speed stance, commit eaa182e5's notes on `STANCE_GAIT`: it held fewer
   walks and shoves there, and was taken out) or to give the foot a toe joint.
+  The budget, read off the Rogue standing 3 cm low: its ankles stand at 0.26 rad of dorsiflexion
+  against a stop at 0.348, which lets the hip go some 7 cm ahead of where it stands over a flat
+  foot; the walk's steps take 0.3 s, so a walk that keeps the centre within 7 cm of the bearing
+  sole either way tops out near 0.14 / 0.3 = 0.47 m/s, where it does. Neither end of the height
+  window has room: at the built height the knees stand at 0.07 rad (straight is -0.23), and the
+  window's bent-knee ceiling is 4 mm under straight, less than the height servo's own error, so
+  the first weight shift puts a knee on its stop and the walk falls at 0.4 m/s. Heights between
+  (1-2.5 cm low) held no walk past 0.4; removing the ankle floor (`ankleSpare` null, or -0.05), or
+  0.2 s steps, held none at 0.5 (one walk each, 4 s, Node core stand, Rapier, 120 Hz).
 - **The bound's cost on shoves, re-measured (2026-09-30)** after the settle and the sideways catch
   (the battery to 90 N s): bounded, the Rogue holds 118 of 272 (mean 41.9) and the Warrior 213
   (71.3); clipped alone, 128 (44.7) and 221 (71.9). Traced, the Rogue shoved 55 N s from behind
