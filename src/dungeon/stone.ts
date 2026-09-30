@@ -1,8 +1,8 @@
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { surfaceMetresPerRepeat, TEXTURED_SURFACES, type SurfaceDescriptor } from "../materials.ts";
-import { surface, type TextureFactory } from "../surface.ts";
+import { surfaceMetresPerRepeat, TEXTURED_SURFACES, type SurfaceDescriptor } from "../render/materials.ts";
+import { surface, type TextureFactory } from "../render/surface.ts";
 
 /** The textured stone, or a flat colour: the control for what the maps cost. */
 export type StoneChoice = "stone" | "flat";

@@ -57,5 +57,5 @@ export function paveForge(scene: Scene, kit: Map<string, Mesh>, material: PBRMat
   if (floor) floor.position.y = -.015;
 }
 
-export { forgePost } from "./forge-post.ts";
+export { forgePost } from "./render/post.ts";
 

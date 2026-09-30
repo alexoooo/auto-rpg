@@ -1,4 +1,4 @@
-// Fits `FIST` in `src/core-lab/skin.ts`: each model's fist, measured on its skin with
+// Fits `FIST` in `src/render/skin.ts`: each model's fist, measured on its skin with
 // `fist-probe.mjs`, one pose for both hands.
 //
 //   node scripts/core-lab/fist-fit.mjs [workshop-fighter|workshop-rogue]

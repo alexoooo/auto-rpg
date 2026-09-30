@@ -21,10 +21,10 @@ import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { labHref, SCENARIOS, type LabAddress, type LabCamera, type LabHeld, type LabProjection, type ScenarioId } from "./scenarios.ts";
-import { dressSkeleton, loadSkeletonArt } from "./skeleton-skin.ts";
-import { dressBody, loadSkin, type SkinView } from "./skin.ts";
+import { dressSkeleton, loadSkeletonArt } from "../render/skeleton-skin.ts";
+import { dressBody, loadSkin, type SkinView } from "../render/skin.ts";
 import { stanceScenario } from "./stance-scenario.ts";
-import { drawBody, drawHeld, type BodyView } from "./view.ts";
+import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 
 /**
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
@@ -34,7 +34,7 @@ import { drawBody, drawHeld, type BodyView } from "./view.ts";
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. It is drawn in one
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
- * Tactical, the collision shapes themselves (`view.ts`); what a hand holds is drawn as its shapes
+ * Tactical, the collision shapes themselves (`src/render/body-shapes.ts`); what a hand holds is drawn as its shapes
  * in both. A Free, an Isometric or a Chase camera follows it (`camera.ts`).
  *
  * The world (`src/core/world.ts`) owns the clock, and the render only draws what its steps
@@ -124,7 +124,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   timeline.setAttribute("aria-label", scenario.timelineLabel);
 
   interface Loaded {
-    readonly built: BuiltBody; readonly view: BodyView; readonly held: BodyView; skin: SkinView | null; readonly run: ScenarioRun;
+    readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; skin: SkinView | null; readonly run: ScenarioRun;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
   }

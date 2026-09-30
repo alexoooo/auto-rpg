@@ -1,9 +1,9 @@
 import { Effect } from "@babylonjs/core/Materials/effect.js";
 
-Effect.ShadersStore.proofFireVertexShader = `precision highp float;
+Effect.ShadersStore.flameVertexShader = `precision highp float;
 attribute vec3 position; attribute vec2 uv; uniform mat4 worldViewProjection; varying vec2 vUV;
 void main(){vUV=uv;gl_Position=worldViewProjection*vec4(position,1.0);}`;
-Effect.ShadersStore.proofFireFragmentShader = `precision highp float;
+Effect.ShadersStore.flameFragmentShader = `precision highp float;
 varying vec2 vUV; uniform float time;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);

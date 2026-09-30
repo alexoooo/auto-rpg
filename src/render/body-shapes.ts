@@ -16,7 +16,7 @@ import { dot, length, normalize, sub } from "../core/spec/vec.ts";
  * Nothing drawn here collides or decides anything; it is the shapes the spec gave the engine, so what
  * the page shows is what moves.
  */
-export interface BodyView {
+export interface BodyShapes {
   readonly meshes: readonly Mesh[];
   dispose(): void;
 }
@@ -85,7 +85,7 @@ function shapeMesh(name: string, frame: SegmentFrame, shape: ShapeSpec, scene: S
 }
 
 /** Draw `built`'s shapes; `tint` colours the body, and the right side is drawn a shade warmer. */
-export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyView {
+export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShapes {
   const left = new StandardMaterial(`${built.spec.model}.view.left`, scene);
   left.diffuseColor = tint;
   left.specularColor = new Color3(0.08, 0.08, 0.08);
@@ -118,7 +118,7 @@ const WOOD = new Color3(0.45, 0.3, 0.17);
  * and then its held items' (`rigidOf`), so what follows the first is drawn, on the segment's node.
  * The skin has no mesh for a held item, so World shows these too.
  */
-export function drawHeld(built: BuiltBody, scene: Scene): BodyView {
+export function drawHeld(built: BuiltBody, scene: Scene): BodyShapes {
   const wood = new StandardMaterial(`${built.spec.model}.view.held`, scene);
   wood.diffuseColor = WOOD;
   wood.specularColor = new Color3(0.08, 0.08, 0.08);
@@ -138,18 +138,4 @@ export function drawHeld(built: BuiltBody, scene: Scene): BodyView {
       wood.dispose();
     },
   };
-}
-
-/** A flat disc on the ground at height `y`, for a mark drawn over the floor; it collides with nothing. */
-export function groundDisc(scene: Scene, name: string, radius: number, colour: Color3, alpha: number, y: number): Mesh {
-  const disc = MeshBuilder.CreateDisc(name, { radius, tessellation: 32 }, scene);
-  disc.rotation.x = Math.PI / 2;
-  disc.position.y = y;
-  const material = new StandardMaterial(name, scene);
-  material.diffuseColor = colour;
-  material.emissiveColor = colour.scale(0.5);
-  material.specularColor = Color3.Black();
-  material.alpha = alpha;
-  disc.material = material;
-  return disc;
 }

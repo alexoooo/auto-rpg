@@ -222,14 +222,14 @@ test("a_wall_in_front_ghosts_around_the_hero_and_the_opening_has_no_edge", () =>
 });
 
 test("a_dungeon_flame_is_the_forge_flame_times_its_fade_and_tint", () => {
-  const forge = Effect.ShadersStore.proofFireFragmentShader, own = Effect.ShadersStore.dungeonFireFragmentShader;
+  const forge = Effect.ShadersStore.flameFragmentShader, own = Effect.ShadersStore.dungeonFireFragmentShader;
   const expected = forge.replace("varying vec2 vUV; uniform float time;", "varying vec2 vUV; uniform float time; uniform float fade; uniform vec3 tint;")
     .replace("gl_FragColor=vec4(c,a*.82);}", "gl_FragColor=vec4(c*fade*tint,a*.82*fade);}");
   assert.notEqual(expected, forge);
   assert.equal(own, expected);
   assert.ok(own.includes("uniform float fade;") && own.includes("vec4(c*fade*tint,a*.82*fade)"));
-  assert.deepEqual({ ...DUNGEON_FIRE }, { vertex: "proofFire", fragment: "dungeonFire" });
-  assert.ok(Effect.ShadersStore.proofFireVertexShader, "the flame draws with the forge's vertex shader");
+  assert.deepEqual({ ...DUNGEON_FIRE }, { vertex: "flame", fragment: "dungeonFire" });
+  assert.ok(Effect.ShadersStore.flameVertexShader, "the flame draws with the forge's vertex shader");
 });
 
 test("each_flame_is_drawn_with_its_own_fade", async () => {

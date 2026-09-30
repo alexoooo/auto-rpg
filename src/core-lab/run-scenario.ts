@@ -9,7 +9,7 @@ import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { startRun, type RunFrame } from "./run-mode.ts";
 import { TRACK_IDS, TRACKS, trackOf, type Track, type TrackId } from "./track.ts";
-import { groundDisc } from "./view.ts";
+import { groundDisc } from "./ground-disc.ts";
 
 /**
  * **The Run scenario**: the human round a track as fast as the lab asks its walk to go

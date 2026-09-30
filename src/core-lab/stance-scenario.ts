@@ -6,7 +6,7 @@ import { recordHistory } from "./history.ts";
 import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { startStance, type StanceFrame } from "./stance-mode.ts";
-import { groundDisc } from "./view.ts";
+import { groundDisc } from "./ground-disc.ts";
 
 /**
  * **The Stance scenario**: the human on its own feet under the core stance, guard up, walked from

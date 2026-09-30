@@ -9,11 +9,11 @@ import type { LinesMesh } from "@babylonjs/core/Meshes/linesMesh.js";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import { loadEngine } from "../core/engine/engines.ts";
-import type { BuiltBody } from "../core/build/build-body.ts";
 import type { CoreModel } from "../core/human/spec.ts";
-import { dressBody, loadSkin, type Clothing, type SkinView } from "../core-lab/skin.ts";
-import { dressSkeleton, loadSkeletonArt } from "../core-lab/skeleton-skin.ts";
-import { drawBody, drawHeld, type BodyView } from "../core-lab/view.ts";
+import type { Clothing, SkinView } from "../render/skin.ts";
+import { loadSkeletonArt } from "../render/skeleton-skin.ts";
+import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
+import { dresserFor, type Dresser } from "../render/dress.ts";
 import { blowCue } from "../audio-cues.ts";
 import { GameAudio } from "../game-audio.ts";
 import { EnemyHover } from "./hover.ts";
@@ -91,8 +91,6 @@ updateEquipment();
 
 /** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst. */
 const CATCH_UP_SECONDS = 0.1;
-/** The body's colour when its skin did not load, and it is drawn as its shapes. */
-const SHAPES_TINT = Color3.FromHexString("#b9a58a");
 
 async function boot(): Promise<void> {
   const physicsEngine = await loadEngine();
@@ -105,7 +103,7 @@ async function boot(): Promise<void> {
   let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0;
   let selectedHero: CoreModel = "workshop-fighter", companions: CoreModel[] = [], clothing: Clothing = { boots: true, armour: true };
   /** What the page drew for the bodies: their skins or shapes, and their clubs. */
-  let drawn: (SkinView | BodyView)[] = [];
+  let drawn: (SkinView | BodyShapes)[] = [];
   let selectedScenario: DungeonScenario = "generated";
   let cryptPlan: CryptRoomPlan | undefined;
   let reference = false, selectedQuality: ReferenceQuality = "high";
@@ -159,13 +157,11 @@ async function boot(): Promise<void> {
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
     // Each model's skin, loaded once a scene; a body whose skin did not load is drawn as its shapes.
-    const dressers = new Map<CoreModel, (built: BuiltBody) => SkinView>();
+    const dressers = new Map<CoreModel, Dresser>();
     await Promise.all([...new Set<CoreModel>([selectedHero, ...companions, "crypt-skeleton"])].map(model =>
-      (model === "crypt-skeleton" ? skeletonArt.then(art => (b: BuiltBody) => dressSkeleton(b, art, shown))
-        : loadSkin(model, shown).then(container => (b: BuiltBody) => dressBody(b, container, shown, clothing)))
-        .then(dress => { dressers.set(model, dress); }, error => console.warn(`${model} is drawn as its shapes: its skin did not load`, error))));
+      dresserFor(model, shown, clothing, () => skeletonArt).then(dress => { dressers.set(model, dress); })));
     const dress = (actor: DungeonActor) => {
-      const built = actor.fighter!.built, skin = dressers.get(actor.model)?.(built) ?? drawBody(built, shown, SHAPES_TINT), club = drawHeld(built, shown);
+      const built = actor.fighter!.built, skin = dressers.get(actor.model)!(built), club = drawHeld(built, shown);
       drawn.push(skin, club); actor.meshes.push(...skin.meshes, ...club.meshes);
     };
     run = new DungeonRun(scene, { seed, engine: physicsEngine,

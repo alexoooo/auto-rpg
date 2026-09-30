@@ -12,8 +12,8 @@ import { MaterialPluginBase } from "@babylonjs/core/Materials/materialPluginBase
 import type { Material } from "@babylonjs/core/Materials/material.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
-import { surface } from "../surface.ts";
-import { TEXTURED_SURFACES } from "../materials.ts";
+import { surface } from "../render/surface.ts";
+import { TEXTURED_SURFACES } from "../render/materials.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { flatStone } from "./stone.ts";
 import { REFERENCE_TORCHES } from "./reference.ts";

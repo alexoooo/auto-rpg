@@ -13,13 +13,13 @@ import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { FIT_SCALE } from "../core/human/model.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { visiblePart } from "../character-lab/catalog.ts";
-import { CLUB_GRIP } from "./club-grip.ts";
-import { fistTurns, type FistPose, type RestBone } from "./fist.ts";
+import { CLUB_GRIP } from "../core-lab/club-grip.ts";
+import { fistTurns, type FistPose, type RestBone } from "../core-lab/fist.ts";
 
 /**
  * **The core body as the world sees it**: the workshop model's skinned mesh, each bone carried by
  * the core segment it belongs to. It reads the segments' achieved transforms and nothing else; it
- * owns no collision and decides nothing, so what it shows is a costume on the shapes `view.ts`
+ * owns no collision and decides nothing, so what it shows is a costume on the shapes `body-shapes.ts`
  * draws.
  *
  * A bone follows one segment rigidly: its bind pose relative to the segment's reference frame is

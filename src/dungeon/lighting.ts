@@ -14,7 +14,7 @@ import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
 import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent.js";
 import "@babylonjs/core/Rendering/prePassRendererSceneComponent.js";
 import "@babylonjs/core/Lights/Clustered/clusteredLightingSceneComponent.js";
-import { forgePost } from "../forge-post.ts";
+import { forgePost } from "../render/post.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { CAMERA_AZIMUTH, cameraDistance } from "./camera.ts";
 import { flameFade, flameMaterial } from "./fire.ts";

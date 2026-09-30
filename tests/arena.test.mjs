@@ -13,7 +13,7 @@ import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.
 
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 
-import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "../src/materials.ts";
+import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "../src/render/materials.ts";
 import {
   ROOM,
   ROOM_GROUPS,

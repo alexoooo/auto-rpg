@@ -11,8 +11,8 @@ import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
 import { dressForgeRoom } from "./forge-room";
 import { loadForgeStyle, paveForge, forgePost } from "./forge-style";
-import { TEXTURED_SURFACES } from "./materials";
-import { sharedSurface } from "./surface";
+import { TEXTURED_SURFACES } from "./render/materials";
+import { sharedSurface } from "./render/surface";
 import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./arena-room";
 import type { PhysicsWorld } from "./core/engine/engine.ts";
 

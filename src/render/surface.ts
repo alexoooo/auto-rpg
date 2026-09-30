@@ -1,4 +1,4 @@
-import { publicAssetUrl } from "./asset-url.ts";
+import { publicAssetUrl } from "../asset-url.ts";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";

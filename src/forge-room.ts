@@ -8,7 +8,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { ROOM, ROOM_GROUPS, validateRoomPlacements, validateVisualColliderPairs } from "./arena-room.ts";
 import type { ForgeStyle } from "./forge-style.ts";
-import "./forge-fire.ts";
+import "./render/fire.ts";
 
 /** Dress the arena as the forge: masonry fills the wall colliders' boxes, and flames burn on every other post. */
 export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {
@@ -54,7 +54,7 @@ export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {
     if (failures.length) throw new Error(failures.join("\n"));
   }
 
-  const fire = new ShaderMaterial("forge.fire", scene, "proofFire", {
+  const fire = new ShaderMaterial("forge.fire", scene, "flame", {
     attributes: ["position", "uv"], uniforms: ["worldViewProjection", "time"], needAlphaBlending: true,
   });
   fire.backFaceCulling = false; fire.disableDepthWrite = true;

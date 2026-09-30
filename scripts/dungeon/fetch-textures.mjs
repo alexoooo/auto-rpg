@@ -1,4 +1,4 @@
-// Registers Poly Haven texture sets for the dungeon in `src/textures.json`, downloading any it does not hold.
+// Registers Poly Haven texture sets for the dungeon in `src/render/textures.json`, downloading any it does not hold.
 //
 //   node scripts/dungeon/fetch-textures.mjs <asset>:<consumer>:<metresPerRepeat> ...
 //
@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const registryPath = join(root, "src", "textures.json");
+const registryPath = join(root, "src", "render", "textures.json");
 const textureDir = join(root, "public", "assets", "textures");
 const CC0 = { license: "CC0-1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/" };
 const CHANNELS = [
@@ -86,7 +86,7 @@ async function register(registry, asset, consumer, metresPerRepeat) {
 }
 
 const text = readFileSync(registryPath, "utf8").replace(/\r\n/g, "\n"), registry = JSON.parse(text);
-if (serialize(registry) !== text) throw new Error("src/textures.json is not in the layout this script writes; refusing to reformat it");
+if (serialize(registry) !== text) throw new Error("src/render/textures.json is not in the layout this script writes; refusing to reformat it");
 const specs = process.argv.slice(2);
 if (!specs.length) throw new Error("usage: node scripts/dungeon/fetch-textures.mjs <asset>:<consumer>:<metresPerRepeat> ...");
 for (const spec of specs) {

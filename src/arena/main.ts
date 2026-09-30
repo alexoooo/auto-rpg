@@ -1,17 +1,16 @@
 import { Engine } from "@babylonjs/core/Engines/engine.js";
-import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { buildArena } from "../arena.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { blowCue } from "../audio-cues.ts";
 import { GameAudio } from "../game-audio.ts";
-import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { CORE_MODELS, type CoreModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
-import { dressBody, loadSkin, type SkinView } from "../core-lab/skin.ts";
-import { dressSkeleton, loadSkeletonArt, type SkeletonArt } from "../core-lab/skeleton-skin.ts";
-import { drawBody, drawHeld, type BodyView } from "../core-lab/view.ts";
+import type { SkinView } from "../render/skin.ts";
+import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
+import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
+import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type Side, type Verdict } from "./duel.ts";
 import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readMatchup, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
@@ -26,8 +25,6 @@ import { ORBIT, orbitPosition } from "./orbit.ts";
 
 /** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst. */
 const CATCH_UP_SECONDS = 0.1;
-/** The body's colour when its skin did not load, and it is drawn as its shapes. */
-const SHAPES_TINT = Color3.FromHexString("#b9a58a");
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -35,8 +32,6 @@ const need = <T extends HTMLElement>(id: string): T => {
   return element as T;
 };
 const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
-
-type Dresser = (built: BuiltBody) => SkinView | BodyView;
 
 export async function bootArena(): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
@@ -74,20 +69,14 @@ export async function bootArena(): Promise<void> {
   const dresser = (model: CoreModel): Promise<Dresser> => {
     let found = dressers.get(model);
     if (!found) {
-      const skin: Promise<Dresser> = model === "crypt-skeleton"
-        ? (skeletonArt ??= loadSkeletonArt()).then((art) => (built: BuiltBody) => dressSkeleton(built, art, scene))
-        : loadSkin(model, scene).then((container) => (built: BuiltBody) => dressBody(built, container, scene, { boots: true, armour: true }));
-      found = skin.catch((error) => {
-        console.warn(`${model} is drawn as its shapes:`, error);
-        return (built: BuiltBody) => drawBody(built, scene, SHAPES_TINT);
-      });
+      found = dresserFor(model, scene, { boots: true, armour: true }, () => skeletonArt ??= loadSkeletonArt());
       dressers.set(model, found);
     }
     return found;
   };
 
   const audio = new GameAudio();
-  let duel: Duel | null = null, drawn: (SkinView | BodyView)[] = [], paused = false, shown: Verdict | null = null;
+  let duel: Duel | null = null, drawn: (SkinView | BodyShapes)[] = [], paused = false, shown: Verdict | null = null;
   const undraw = () => {
     for (const view of drawn) { for (const mesh of view.meshes) shadows.removeShadowCaster(mesh); view.dispose(); }
     drawn = [];

@@ -3,13 +3,13 @@ import { Effect } from "@babylonjs/core/Materials/effect.js";
 import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import "../forge-fire.ts";
+import "../render/fire.ts";
 import { cutAway } from "./fog.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 import type { Point } from "./map.ts";
 
 /**
- * The forge's flame (`proofFire` in `src/forge-fire.ts`) times a `fade`, so a torch inside the cut-away ghosts with
+ * The forge's flame (`flame` in `src/render/fire.ts`) times a `fade`, so a torch inside the cut-away ghosts with
  * the wall and sconce behind it rather than floating in front of a hole. Derived from the forge's text rather than
  * copied, and refused at load if that text has moved, so the arena's fire stays the one source of the flame.
  *
@@ -18,13 +18,13 @@ import type { Point } from "./map.ts";
  * it reads as dimmer rather than see-through. Scaling both fades it as the wall beside it fades.
  */
 const HEAD = "varying vec2 vUV; uniform float time;", TAIL = "gl_FragColor=vec4(c,a*.82);}";
-const forge = Effect.ShadersStore.proofFireFragmentShader;
-if (!forge.includes(HEAD) || !forge.endsWith(TAIL)) throw new Error("dungeon fire: proofFire has changed; derive the fade again");
+const forge = Effect.ShadersStore.flameFragmentShader;
+if (!forge.includes(HEAD) || !forge.endsWith(TAIL)) throw new Error("dungeon fire: flame has changed; derive the fade again");
 Effect.ShadersStore.dungeonFireFragmentShader = forge.replace(HEAD, `${HEAD} uniform float fade; uniform vec3 tint;`)
   .slice(0, -TAIL.length) + "gl_FragColor=vec4(c*fade*tint,a*.82*fade);}";
 
 /** Which shaders a dungeon flame draws with: the forge's vertex, the fading fragment. */
-export const DUNGEON_FIRE = Object.freeze({ vertex: "proofFire", fragment: "dungeonFire" });
+export const DUNGEON_FIRE = Object.freeze({ vertex: "flame", fragment: "dungeonFire" });
 
 /**
  * The one material every torch's flame draws with, and each flame's own fade. The fade is written as a flame binds:

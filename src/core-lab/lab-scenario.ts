@@ -2,7 +2,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { World } from "../core/world.ts";
 import type { Player, Playhead } from "./player.ts";
-import type { Hand } from "./skin.ts";
+import type { Hand } from "../render/skin.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,

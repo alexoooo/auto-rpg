@@ -1,5 +1,5 @@
 /**
- * The crypt skeleton's skin (`src/core-lab/skeleton-skin.ts`): every piece of `skeleton.glb` is
+ * The crypt skeleton's skin (`src/render/skeleton-skin.ts`): every piece of `skeleton.glb` is
  * shown on a segment or named as unshown; each shown piece sits on its segment at the reference pose
  * (its vertices' centre within the segment's span and near its line); dressed on a body just built,
  * each piece is exactly at its bind; and as the body moves, each follows its segment. Node, a
@@ -12,7 +12,7 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.j
 import { createBody } from "../src/core/body.ts";
 import { modelSpec } from "../src/core/human/spec.ts";
 import { SKELETON_MODEL } from "../src/core/human/skeleton.ts";
-import { bindMatrix, dressSkeleton, parseSkeletonArt, piecesOnSegments, SKELETON_PIECES, SKELETON_UNSHOWN } from "../src/core-lab/skeleton-skin.ts";
+import { bindMatrix, dressSkeleton, parseSkeletonArt, piecesOnSegments, SKELETON_PIECES, SKELETON_UNSHOWN } from "../src/render/skeleton-skin.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const bytes = await readFile(new URL("../public/assets/skeleton/skeleton.glb", import.meta.url));
