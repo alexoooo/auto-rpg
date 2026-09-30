@@ -10,7 +10,7 @@
  *   height or 10 mm of slide), the worst stop and slide.
  * - step: each foot 15 and 25 cm forward, 15 back and 10 out; failures by the tests' bars, worst miss.
  * - walk: 0.3 m/s forward, right and back, then stop; failures, the mean speed along.
- * - gait: 0.2, 0.3, 0.4, 0.5 and 0.7 m/s five ways (forward, right, back, left, forward right),
+ * - gait: 0.2, 0.3, 0.4, 0.5 and 0.7 m/s (`--speeds`) five ways (`--ways`: forward, right, back, left, forward right),
  *   then stop: held (not fallen), on pace (0.8 to 1.25 of the speed along over 3 s, under a quarter
  *   of it across), the mean ratio along of those held, those stopped (under 5 cm/s, standing, 4 s
  *   after), and those held at each speed.
@@ -27,6 +27,7 @@ const { values } = parseArgs({ options: {
   variants: { type: "string", default: "[{}]" }, batteries: { type: "string", default: "stand,edge,step,walk,shove" },
   hz: { type: "string", default: "120" }, workers: { type: "string" }, models: { type: "string", default: "workshop-rogue,workshop-fighter" },
   top: { type: "string", default: "60" }, walked: { type: "string", default: "0" },
+  speeds: { type: "string", default: "0.2,0.3,0.4,0.5,0.7" }, ways: { type: "string", default: "0,90,180,270,45" },
 } });
 const variants = JSON.parse(values.variants), batteries = values.batteries.split(","), hz = Number(values.hz), models = values.models.split(",");
 const top = Number(values.top);
@@ -39,7 +40,7 @@ variants.forEach((stance, v) => { for (const model of models) {
   if (batteries.includes("edge")) for (const degrees of [0, 90, 180, 270]) add("edge", { degrees });
   if (batteries.includes("step")) for (const foot of ["left", "right"]) for (const [dx, dz] of [[0, 0.15], [0, 0.25], [0, -0.15], [foot === "left" ? -0.1 : 0.1, 0]]) add("step", { foot, dx, dz });
   if (batteries.includes("walk")) for (const degrees of [0, 90, 180]) add("walk", { degrees, speed: 0.3 });
-  if (batteries.includes("gait")) for (const speed of [0.2, 0.3, 0.4, 0.5, 0.7]) for (const degrees of [0, 90, 180, 270, 45]) add("walk", { degrees, speed, gait: true });
+  if (batteries.includes("gait")) for (const speed of values.speeds.split(",").map(Number)) for (const degrees of values.ways.split(",").map(Number)) add("walk", { degrees, speed, gait: true });
   if (batteries.includes("shove")) for (let w = 0; w < 16; w++) for (let impulse = 10; impulse <= top; impulse += 5) add("shove", { degrees: 22.5 * w, impulse, walked: Number(values.walked) });
 } });
 
@@ -87,7 +88,8 @@ variants.forEach((stance, v) => { for (const model of models) {
     const held = gaits.filter((r) => !r.fell), pace = held.filter((r) => r.along > 0.8 * r.speed_ && r.along < 1.25 * r.speed_ && Math.abs(r.across) < 0.25 * r.speed_);
     const stopped = held.filter((r) => r.speed < 0.05 && r.phase === "stand");
     parts.push(`gait held ${held.length}/${gaits.length} on pace ${pace.length} ratio ${(held.reduce((a, r) => a + r.along / r.speed_, 0) / Math.max(1, held.length)).toFixed(2)} stopped ${stopped.length}`
-      + ` held by speed ${[0.2, 0.3, 0.4, 0.5, 0.7].map((s) => held.filter((r) => r.speed_ === s).length).join(",")}`);
+      + ` held by speed ${values.speeds.split(",").map(Number).map((s) => held.filter((r) => r.speed_ === s).length).join(",")}`
+      + ` ratio by speed ${values.speeds.split(",").map(Number).map((s) => { const h = held.filter((r) => r.speed_ === s); return h.length ? (h.reduce((a, r) => a + r.along / r.speed_, 0) / h.length).toFixed(2) : "-"; }).join(",")}`);
   }
   const shoves = of("shove");
   if (shoves.length) {
