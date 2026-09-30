@@ -1,7 +1,6 @@
 import type { ForceVelocitySpec } from "../spec/body.ts";
 import { derive, si, type Quantity } from "../spec/quantity.ts";
-import { WORKSHOP_SEX } from "./model.ts";
-import type { WorkshopModel } from "./rig.ts";
+import type { HumanFigure } from "./figure.ts";
 import type { Sex } from "./tables/de-leva-1996.ts";
 import {
   ANDERSON_C4_SHARE, ANDERSON_C5_SHARE, andersonPoints, freyLawColumn, THELEN_CURVATURE, THELEN_ECCENTRIC_CEILING,
@@ -29,11 +28,11 @@ import type { Exertion } from "./tables/joint-torques.ts";
  *   the shortening one. It is the stimulated muscle's ceiling; a voluntary one is 1.0-1.3, and the
  *   owner kept 1.4 for fighters (the stage 2 assumptions).
  *
- * The workshop model's column is its sex's (`WORKSHOP_SEX`). Speed is not scaled to size: a
+ * The figure's column is its sex's. Speed is not scaled to size: a
  * geometrically similar body turns its joints at the same rate.
  */
-export function jointSpeed(model: WorkshopModel, exertion: Exertion): ForceVelocitySpec {
-  const sex = WORKSHOP_SEX[model];
+export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVelocitySpec {
+  const { sex } = figure;
   const measured = measuredFor(exertion);
   const own = shortening(measured, sex);
   const borrowed = (q: Quantity<number>) => measured === exertion ? q

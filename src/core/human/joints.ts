@@ -1,9 +1,8 @@
 import { segmentFrame, type DofSpec, type ForceVelocitySpec, type JointSpec, type SegmentSpec } from "../spec/body.ts";
 import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { angleAbout, cross, dot, normalize, orthogonalTo, scale, sub } from "../spec/vec.ts";
-import { limbLandmarks, rigSuffix, SIDES, type Side } from "./landmarks.ts";
-import { WORKSHOP_SEX } from "./model.ts";
-import { rigPoint, type WorkshopModel } from "./rig.ts";
+import type { HumanFigure } from "./figure.ts";
+import { SIDES, type Side } from "./landmarks.ts";
 import { segmentName } from "./segments.ts";
 import type { Exertion } from "./tables/joint-torques.ts";
 import { rangeOfMotion, type RangeRow } from "./tables/range-of-motion.ts";
@@ -32,7 +31,7 @@ import { rangeOfMotion, type RangeRow } from "./tables/range-of-motion.ts";
  * the sense its source measures it, and the joint's limits are the source's ranges less the bind:
  * min = -(the range against the positive sense) - bind, max = (the range with it) - bind. Where
  * nothing gives the bind (neck, spine, hip rotation, foot roll), it is taken as neutral, and that
- * is a stated assumption (`stage1-assumptions`). Each model reads its own sex's ranges.
+ * is a stated assumption (`stage1-assumptions`). Each figure reads its own sex's ranges.
  *
  * **Muscle.** `strength` gives each exertion's peak torque (`muscle.ts`), and `speed` how that
  * torque falls with speed (`speed.ts`).
@@ -85,9 +84,9 @@ const mirrored = (axis: Quantity<Vec3>, what: string, side: Side, s = sign(side)
 const neutral = (what: string): Quantity<number> =>
   sourced(0, "rad", "stage1-assumptions", `the reference pose's ${what}, taken as neutral`);
 
-/** The humans' joints for `model`, on its `segments` (`humanSegments`). */
-export function humanJoints(model: WorkshopModel, segments: readonly SegmentSpec[], strength: Strength, speed: Speed): JointSpec[] {
-  const sex = WORKSHOP_SEX[model];
+/** The human joints of `figure`, on its `segments` (`humanSegments`). */
+export function humanJoints(figure: HumanFigure, segments: readonly SegmentSpec[], strength: Strength, speed: Speed): JointSpec[] {
+  const { sex, model } = figure;
   const at = new Map(segments.map((segment) => [segment.name, segment]));
   const get = (name: string): SegmentSpec => {
     const segment = at.get(name);
@@ -142,9 +141,8 @@ export function humanJoints(model: WorkshopModel, segments: readonly SegmentSpec
     // The wrist's frame: the hand's right made square to the forearm, and what is square to both.
     const across = derive("1", "the hand's right, made square to the forearm", [handRight, F.y], (r, y) => orthogonalTo(r, y));
     const palmar = derive("1", "the wrist's right cross the forearm's line", [across, F.y], (x, y) => cross(x, y));
-    // The third metacarpal, from the hand's joint centre to the middle finger's knuckle, in the rig.
-    const wrist = limbLandmarks(model, side).WJC;
-    const knuckle = rigPoint(model, `middle_01${rigSuffix(side)}`, "head");
+    // The third metacarpal, from the hand's joint centre to the middle finger's knuckle, in the figure.
+    const { WJC: wrist, MET3: knuckle } = figure.limbs[side];
 
     joints.push(
       joint(`shoulder.${side}`, upperTrunk.name, upperArm.name, upperArm.proximal, [

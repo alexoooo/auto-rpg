@@ -2,7 +2,7 @@ import { derive, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { lerp, midpoint } from "../spec/vec.ts";
 import { skinTop, WORKSHOP_SEX } from "./model.ts";
 import { rigPoint, type WorkshopModel } from "./rig.ts";
-import { DE_LEVA_1996 } from "./tables/de-leva-1996.ts";
+import { DE_LEVA_1996, type Sex } from "./tables/de-leva-1996.ts";
 
 /**
  * **de Leva's landmarks, found on a workshop rig**: body frame, metres at the authored size.
@@ -45,12 +45,20 @@ export interface LimbLandmarks {
 }
 
 export function trunkLandmarks(model: WorkshopModel): TrunkLandmarks {
-  const table = DE_LEVA_1996[WORKSHOP_SEX[model]];
   const CERV = rigPoint(model, "neck_01", "head");
   const VERT = derive("m", "the head bone's tail, raised to the skin top", [rigPoint(model, "head", "tail"), skinTop(model)],
     (tail, top) => [tail[0], top, tail[2]]);
   const MIDH = derive("m", "between the hip joint centres", [rigPoint(model, "thigh_l", "head"), rigPoint(model, "thigh_r", "head")],
     (left, right) => midpoint(left, right));
+  return dividedTrunk(WORKSHOP_SEX[model], VERT, CERV, MIDH);
+}
+
+/**
+ * The trunk's landmarks from its ends: XYPH and OMPH divide CERV-MIDH in the proportions of de
+ * Leva's upper, middle and lower trunk lengths for `sex`.
+ */
+export function dividedTrunk(sex: Sex, VERT: Quantity<Vec3>, CERV: Quantity<Vec3>, MIDH: Quantity<Vec3>): TrunkLandmarks {
+  const table = DE_LEVA_1996[sex];
   const lengths = [table.upperTrunk.length, table.middleTrunk.length, table.lowerTrunk.length] as const;
   const XYPH = derive("m", "CERV-MIDH, divided in de Leva's trunk lengths: the end of the upper trunk", [CERV, MIDH, ...lengths],
     (cerv, midh, upper, middle, lower) => lerp(cerv, midh, upper / (upper + middle + lower)));

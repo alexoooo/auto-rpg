@@ -16,13 +16,14 @@ import { footprint, transcribed, trunkHulls } from "../scripts/core/workshop-env
 import { humanSpec } from "../src/core/human/spec.ts";
 import { peakTorque } from "../src/core/human/muscle.ts";
 import { jointSpeed } from "../src/core/human/speed.ts";
+import { workshopFigure } from "../src/core/human/workshop.ts";
 import { forceVelocityFactor } from "../src/core/muscle/force-velocity.ts";
 import { EXERTIONS, measuredTorque, subjectMass } from "../src/core/human/tables/joint-torques.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { jointSenses } from "./fixtures/joint-senses.mjs";
 import { clearance, hullOf, lowest, solid } from "./fixtures/shapes.mjs";
 
-const table = (model) => ({ mass: bodyMass(model), stature: stature(model), segments: humanSegments(model) });
+const table = (model) => ({ mass: bodyMass(model), stature: stature(model), segments: humanSegments(workshopFigure(model)) });
 
 /** Every leaf a spec rests on. */
 function leaves(spec) {
@@ -39,7 +40,7 @@ test("each model's segments sum to its mass: the typical man's 79 kg, and the Ro
   assert.equal(bodyMass("workshop-fighter").value, 79);
   assert.ok(Math.abs(bodyMass("workshop-rogue").value - 79 * 79.8 / 109.5) < 1e-12);
   for (const model of WORKSHOP_MODELS) {
-    const segments = humanSegments(model);
+    const segments = humanSegments(workshopFigure(model));
     assert.equal(segments.length, 16, model);
     const sum = segments.reduce((total, segment) => total + segment.mass.value, 0);
     assert.ok(Math.abs(sum - bodyMass(model).value) < 1e-9, `${model}: segments ${sum} kg, body ${bodyMass(model).value} kg`);
@@ -76,7 +77,7 @@ test("the two models differ where their sources differ, and only there", () => {
   // Where the sexes' columns differ, the models' shares do: the lower trunk is 11.17 % of a man
   // and 12.47 % of a woman.
   const share = (model) => {
-    const segments = humanSegments(model);
+    const segments = humanSegments(workshopFigure(model));
     return segments.find((s) => s.name === "lowerTrunk").mass.value / bodyMass(model).value;
   };
   assert.ok(Math.abs(share("workshop-fighter") - 11.17 / 100.00) < 1e-4);
@@ -91,7 +92,7 @@ test("the envelope the spec states is what the models measure", () => {
     const trunk = trunkHulls(model);
     for (const segment of TRUNK_SEGMENTS) assert.deepEqual(envelope.trunk[segment].map((p) => p.value), trunk[segment], `${model} ${segment} trunk`);
     // Each trunk segment's shape is its stretch's hull, every corner at the fit scale.
-    const segments = new Map(humanSegments(model).map((s) => [s.name, s]));
+    const segments = new Map(humanSegments(workshopFigure(model)).map((s) => [s.name, s]));
     for (const segment of TRUNK_SEGMENTS) {
       const shape = segments.get(`${segment}Trunk`).shape;
       assert.equal(shape.kind, "hull");
@@ -103,7 +104,7 @@ test("the envelope the spec states is what the models measure", () => {
 
 test("the segment tree joins every segment to the lower trunk", () => {
   for (const model of WORKSHOP_MODELS) {
-    const names = new Set(humanSegments(model).map((segment) => segment.name));
+    const names = new Set(humanSegments(workshopFigure(model)).map((segment) => segment.name));
     assert.deepEqual(new Set([...HUMAN_PARENTS.keys(), "lowerTrunk"]), names, model);
     for (const name of names) {
       let at = name;
@@ -123,7 +124,7 @@ test("the segment tree joins every segment to the lower trunk", () => {
  */
 test("segments that share no joint have room between them in the reference pose", () => {
   for (const model of WORKSHOP_MODELS) {
-    const segments = humanSegments(model);
+    const segments = humanSegments(workshopFigure(model));
     const tight = [];
     for (let i = 0; i < segments.length; i++) {
       for (let j = i + 1; j < segments.length; j++) {
@@ -139,7 +140,7 @@ test("segments that share no joint have room between them in the reference pose"
 
 test("the soles are on y = 0 and nothing else reaches the ground", () => {
   for (const model of WORKSHOP_MODELS) {
-    for (const segment of humanSegments(model)) {
+    for (const segment of humanSegments(workshopFigure(model))) {
       const bottom = lowest(solid(segment));
       if (segment.name.startsWith("foot.")) assert.ok(Math.abs(bottom) < 1e-12, `${model} ${segment.name} at ${bottom}`);
       else assert.ok(bottom > 0.05, `${model} ${segment.name} reaches ${bottom} m`);
@@ -150,7 +151,7 @@ test("the soles are on y = 0 and nothing else reaches the ground", () => {
 /** A rigid body's principal moments obey the triangle inequality; one that does not is no body. */
 test("every segment's inertia is a rigid body's", () => {
   for (const model of WORKSHOP_MODELS) {
-    for (const { name, inertia } of humanSegments(model)) {
+    for (const { name, inertia } of humanSegments(workshopFigure(model))) {
       const [a, b, c] = inertia.value;
       assert.ok(a > 0 && b > 0 && c > 0 && a + b >= c && b + c >= a && c + a >= b, `${model} ${name}: ${inertia.value}`);
     }
@@ -159,7 +160,7 @@ test("every segment's inertia is a rigid body's", () => {
 
 test("a hand's frame lies across its knuckles, thumb side to the body's right as in the anatomical position", () => {
   for (const model of WORKSHOP_MODELS) {
-    const segments = new Map(humanSegments(model).map((segment) => [segment.name, segment]));
+    const segments = new Map(humanSegments(workshopFigure(model)).map((segment) => [segment.name, segment]));
     for (const side of SIDES) {
       const hand = segments.get(`hand.${side}`);
       const suffix = side === "left" ? "_l" : "_r";
@@ -291,7 +292,7 @@ test("the Rogue's torques, scaled from the men's by her muscle, land near the wo
   const mass = bodyMass("workshop-rogue").value;
   const ratios = EXERTIONS.map((exertion) => {
     const measured = measuredTorque(exertion, "female").value * mass / subjectMass(exertion, "female").value;
-    return [exertion, peakTorque("workshop-rogue", exertion).value / measured];
+    return [exertion, peakTorque(workshopFigure("workshop-rogue"), exertion).value / measured];
   });
   for (const [exertion, ratio] of ratios) assert.ok(ratio > 0.55 && ratio < 1.5, `${exertion}: ${ratio.toFixed(2)}`);
   const sorted = ratios.map(([, ratio]) => ratio).sort((a, b) => a - b);
@@ -323,12 +324,12 @@ test("each measured speed curve passes through its source, and a borrowed one na
   for (const model of WORKSHOP_MODELS) {
     const sex = WORKSHOP_SEX[model];
     for (const [exertion, [c4, c5]] of Object.entries(anderson[sex])) {
-      const curve = curveOf(jointSpeed(model, exertion));
+      const curve = curveOf(jointSpeed(workshopFigure(model), exertion));
       assert.ok(Math.abs(forceVelocityFactor(c4, curve) - 0.75) < 1e-9, `${model} ${exertion} at C4`);
       assert.ok(Math.abs(forceVelocityFactor(c5, curve) - 0.5) < 1e-9, `${model} ${exertion} at C5`);
     }
     for (const [exertion, torques] of Object.entries(freyLaw[sex])) {
-      const curve = curveOf(jointSpeed(model, exertion));
+      const curve = curveOf(jointSpeed(workshopFigure(model), exertion));
       assert.equal(curve.curvature, 0.25);
       const residual = (w0) => speeds.reduce((sum, w, i) => {
         const f = torques[i + 1] / torques[0];
@@ -339,7 +340,7 @@ test("each measured speed curve passes through its source, and a borrowed one na
       assert.ok(first(curve, torques) > 0.07 && first(curve, torques) < 0.14, `${model} ${exertion} at 60 deg/s: ${first(curve, torques)}`);
       assert.ok(worst({ ...curve, unloadedSpeed: 0.9 * curve.unloadedSpeed }, torques) > worst(curve, torques));
     }
-    const shoulder = jointSpeed(model, "shoulderFlexion"), elbow = jointSpeed(model, "elbowFlexion");
+    const shoulder = jointSpeed(workshopFigure(model), "shoulderFlexion"), elbow = jointSpeed(workshopFigure(model), "elbowFlexion");
     assert.equal(shoulder.unloadedSpeed.value, elbow.unloadedSpeed.value);
     assert.match(shoulder.unloadedSpeed.provenance.rule, /elbowFlexion's, taken for shoulderFlexion/);
     assert.equal(elbow.unloadedSpeed.provenance.kind, "derived");

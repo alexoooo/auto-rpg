@@ -1,6 +1,5 @@
 import { derive, type Quantity } from "../spec/quantity.ts";
-import { bodyMass, WORKSHOP_SEX } from "./model.ts";
-import type { WorkshopModel } from "./rig.ts";
+import type { HumanFigure } from "./figure.ts";
 import { abeBodyMass, abeRegionalMuscle, type MuscleRegion } from "./tables/abe-2003.ts";
 import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torques.ts";
 
@@ -25,12 +24,12 @@ import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torqu
  * `docs/analysis/2026-09-27-human-strike-reference.md` section 9 has the check, the two other rules
  * weighed, and what none of them explains (the trunk).
  */
-export function peakTorque(model: WorkshopModel, exertion: Exertion): Quantity<number> {
-  const sex = WORKSHOP_SEX[model];
+export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<number> {
+  const { sex } = figure;
   const region = REGION[exertion];
   return derive("N m", "the men's torque, times the model's regional muscle over the men's, each body mass times "
     + "the region's muscle per body mass for its sex",
-  [measuredTorque(exertion, "male"), bodyMass(model), abeRegionalMuscle(sex, region), abeBodyMass(sex),
+  [measuredTorque(exertion, "male"), figure.mass, abeRegionalMuscle(sex, region), abeBodyMass(sex),
     subjectMass(exertion, "male"), abeRegionalMuscle("male", region), abeBodyMass("male")],
   (torque, mass, muscle, muscleMass, menMass, menMuscle, menMuscleMass) =>
     torque * (mass * muscle / muscleMass) / (menMass * menMuscle / menMuscleMass));
