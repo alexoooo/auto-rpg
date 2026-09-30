@@ -889,8 +889,25 @@ Havok's.
   are, does not buy it back (Rogue 119, Warrior 206): the long step's reach, not its target, is
   what the clipped swing gets that the bounded one does not. Left as it is; the bound keeps the
   walks and the routine.
-- **Against the acceptance: not met.** Walks above 0.5 m/s mostly fall (a human's preferred walk is
-  near 1.4); no human reference for the shoves or a reversal is sourced yet.
+- **The double support and the pre-swing (2026-10-01).** Planned as the plan above asked -- a
+  double support before each steady step, the landing and the capture point's reference run back
+  over the next eight steps (Englsberger et al. 2015; `transferStep`) -- the double support alone
+  changed nothing past two walks of 25 or 18 at any length (0.03-0.2 s), and shorter swings with it
+  held fewer. What held the walks back was the swinging hip: from 0.5 m/s the swing asked its flexors
+  for 150-160 N m where Anderson 2007's curve left them 26-46 of 105, because the leg lifted still
+  extending (3.1 rad/s back at 0.7 m/s) and had to reverse. Through the double support the trailing
+  foot now rolls on its toes, when the body goes that way, and its knee flexes toward 35 degrees
+  (Simoneau 2010: the knee at toe-off), critically damped at 0.04 s from a sweep, the ankle free:
+  the hip leaves the ground turning forward. Forward, forward left and forward right at 0.4-1.0 m/s,
+  the Rogue holds 16 of 18 walks against 7 and the Warrior 17 against 12; the five ways at 0.2-0.7
+  m/s, 22 and 23 of 25 against 20 and 23; the shoves read alike. The envelope turns faster (the
+  Warrior 4 rad/s at 0.5 m/s against 1), and the lab's run takes the shuttle's half-turns at
+  0.5 m/s with the Warrior, which swings 40.8 cm off them (`tests/core-lab-run.test.mjs`'s bound
+  is now 45 cm). Still open: the fast walks run at 0.84-0.94 of the pace asked, and sideways and
+  back at 0.7 m/s still fall. `STANCE_GAIT`'s notes carry the table.
+- **Against the acceptance: not met.** Walks above 0.5 m/s every way still fall; forward they hold
+  to 0.8 m/s, a little under pace (a human's preferred walk is near 1.4); no human reference for the
+  shoves or a reversal is sourced yet.
 
 ### Stage 5: the rulebook, the damage unit and the HP pool
 
