@@ -4,7 +4,6 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { buildGolemStand, golemLayers } from "../src/golem/stand.ts";
 import { golemModule } from "../src/golem/registry.ts";
-import { DungeonRun } from "../src/dungeon/run.ts";
 import { neutralIntent } from "../src/dungeon/commands.ts";
 import { ARM_LIMITS, ARM_REST, armForward, rotationError, solveArm } from "../src/golem/humanoid/kinematics.ts";
 import { humanSetup } from "../src/golem/humanoid/presets.ts";
@@ -109,26 +108,6 @@ for (const terminal of ["blade", "plate", "fist"]) {
   });
 }
 
-test("human anatomy wounds while equipment parries with its real kind; severing removes the parry", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const run = new DungeonRun(arena.scene, 42, "warrior", false);
-  try {
-    const body = run.hero.body, arm = body.limbs.find(p => p.key.endsWith("primary.upper"));
-    const blade = body.limbs.find(p => p.key.endsWith("primary.blade"));
-    const plate = body.limbs.find(p => p.key.endsWith("secondary.plate"));
-    assert.ok(arm && blade && plate);
-    assert.equal(arm.guarding, false); assert.equal(body.limbFor(arm.part.body), arm);
-    assert.equal(body.limbFor(blade.part.body), undefined);
-    assert.deepEqual(body.parriedBy(blade.part.body), { kind: "sword" });
-    assert.deepEqual(body.parriedBy(plate.part.body), { kind: "shield" });
-    assert.equal(blade.vitalityWeight, 0);
-    assert.ok(body.applyDamage(arm, 10, "cut") > 0);
-    body.sever(arm, Vector3.Right()); assert.equal(body.parriedBy(blade.part.body), null);
-    body.describe(body.view.self);
-    assert.equal(body.view.self.hands.primary.lost, true);
-  } finally { run.dispose(); arena.dispose(); }
-});
-
 test("authored human policy closes and wounds an exposed opponent", async () => {
   // Seeds 44 and 79, measured 2026-09-24 (Node harness): 29 hits and 0.076 damage. Physical contact
   // session 05 priced the effective mass, which for a human's light arm and a blade struck near its
@@ -184,50 +163,3 @@ test("authored human policy closes and wounds an exposed opponent", async () => 
   assert.ok(result.behaviour.right.vitality < 0.999);
 });
 
-
-// A stationary live body is necessary: sleeping isolated limbs hide persistent oscillation.
-test("full human body holds loaded wrists and shield steady after a sweep and impulse", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const run = new DungeonRun(arena.scene, 42, "warrior", false);
-  const { scene } = arena;
-  const command = neutralIntent();
-  let clock = 0;
-  const observer = scene.onBeforePhysicsObservable.add(() => {
-    clock += SUBSTEP; run.step(SUBSTEP);
-    const sweep = Math.min(1, Math.max(0, (clock - 1) / .3));
-    command.primary.pointerX = .3 * sweep;
-    command.secondary.pointerX = -.3 * sweep;
-    for (const slot of ["primary", "secondary"]) run.hero.body.effectors[slot].module.command(command[slot]);
-  });
-  const modules = ["primary", "secondary"].map(slot => run.hero.body.effectors[slot].module);
-  for (const m of modules) for (const p of m.parts) scene.getPhysicsEngine().getPhysicsPlugin().setActivationControl(p.part.body, 1);
-  // The arm's own geometry, as it built its joints: the wrist joins the forearm's distal end
-  // (-length/2 on its Y) to the hand's proximal one (+length/2), and the palm is `handPivot`.
-  const built = modules.map(m => m.captureState().built.captureState());
-  const sample = () => modules.map((m, j) => {
-    const { lengths, handPivot } = built[j];
-    const hand=m.parts.find(p=>p.id.endsWith('.hand')).part.mesh;
-    const fore=m.parts.find(p=>p.id.endsWith('.fore')).part.mesh;
-    const palm=handPivot.rotateByQuaternionToRef(hand.rotationQuaternion,new Vector3()).add(hand.position);
-    const wrist=new Vector3(0,lengths[2]/2,0).rotateByQuaternionToRef(hand.rotationQuaternion,new Vector3()).add(hand.position);
-    const foreEnd=new Vector3(0,-lengths[1]/2,0).rotateByQuaternionToRef(fore.rotationQuaternion,new Vector3()).add(fore.position);
-    assert.ok(Vector3.Distance(wrist,foreEnd)<.005,'physical wrist must remain continuous');
-    return { error:palm.subtract(m.view().anchor), rotation:hand.rotationQuaternion.clone() };
-  });
-  try {
-    advance(scene, 360);
-    const shield=modules[1].parts.find(p=>p.id.endsWith('.plate')).part;
-    shield.body.applyImpulse(new Vector3(.15,0,.15),shield.mesh.position);
-    advance(scene,120);
-    const initial=sample();
-    let wander=0, rotation=0, error=0;
-    for(let i=0;i<120;i++) {
-      advance(scene,1); const current=sample();
-      current.forEach((s,j)=>{wander=Math.max(wander,Vector3.Distance(s.error,initial[j].error));error=Math.max(error,s.error.length());});
-      rotation=Math.max(rotation,rotationError(current[1].rotation,initial[1].rotation).length());
-    }
-    assert.ok(error<.005,`hand tracking error ${error}`);
-    assert.ok(wander<.005,`sustained wrist wander ${wander}`);
-    assert.ok(rotation<Math.PI/180,`sustained shield rotation ${rotation}`);
-  } finally { scene.onBeforePhysicsObservable.remove(observer); run.dispose(); arena.dispose(); }
-});

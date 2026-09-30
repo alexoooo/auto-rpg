@@ -1,5 +1,3 @@
-import { loadWorkshopAssets } from "../golem/humanoid/workshop-appearance.ts";
-import { loadSkeletonAssets } from "../golem/skeleton/appearance.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -10,21 +8,16 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { LinesMesh } from "@babylonjs/core/Meshes/linesMesh.js";
 import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
-import HavokPhysics from "@babylonjs/havok";
-import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
-import { attachPhysics } from "../physics.ts";
-import { CONFIG } from "../config.ts";
-import { bodyFamily, fixedAttributes, withoutFixedAttributes } from "../golem/family.ts";
-import { ARMED_SETUP } from "../golem/family-setup.ts";
-import { golemSetupRefusal, golemTerminalOptions } from "../golem/build.ts";
-import type { GolemSetup } from "../bout.ts";
-import { PLAYABLE_BUILDS } from "../golem/roster.ts";
-import { describeAttributes, withAttribute, withAttributeSetting, type AttributeSetting } from "../golem/attributes.ts";
-import { attributeAction, attributesPanel, followAttributeSlider, renderAttributes } from "../attributes-ui.ts";
+import { loadEngine } from "../core/engine/engines.ts";
+import type { BuiltBody } from "../core/build/build-body.ts";
+import type { CoreModel } from "../core/human/spec.ts";
+import { dressBody, loadSkin, type Clothing, type SkinView } from "../core-lab/skin.ts";
+import { dressSkeleton, loadSkeletonArt } from "../core-lab/skeleton-skin.ts";
+import { drawBody, drawHeld, type BodyView } from "../core-lab/view.ts";
+import { blowCue } from "../audio-cues.ts";
 import { GameAudio } from "../game-audio.ts";
-import { namedBuild } from "../golem/roster.ts";
 import { EnemyHover } from "./hover.ts";
-import { DungeonRun } from "./run.ts";
+import { DungeonRun, type DungeonActor } from "./run.ts";
 import { orderLabel } from "./commands.ts";
 import { cellKey, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
@@ -62,92 +55,57 @@ let toward = cameraToward(azimuth);
 // `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
 const stone = stoneQuery(location.search);
 seedInput.value = String(randomSeed());
-// Wheel locomotion cannot strafe; the hero picker offers bodies that can honor screen movement.
-const WALKERS = PLAYABLE_BUILDS.filter(b => b.setup.locomotion !== "locomotion.wheel");
-/** The companions for a hero: the next walkers on the list after the hero's own build, so none is its twin. */
-const companionBuilds = (hero: string, count: number): string[] => {
-  const at = Math.max(0, WALKERS.findIndex(b => b.name === hero));
-  return Array.from({ length: count }, (_, i) => WALKERS[(at + 1 + i) % WALKERS.length].name);
+/** The heroes a person can lead, in the order companions are drawn from: each is a core body, and each carries a club. */
+const HEROES: readonly { readonly model: CoreModel; readonly label: string }[] = [
+  { model: "workshop-fighter", label: "Warrior" }, { model: "workshop-rogue", label: "Rogue" }, { model: "crypt-skeleton", label: "Skeleton" }];
+/** The companions for a hero: the next heroes on the list after the hero's own, in turn. */
+const companionModels = (hero: CoreModel, count: number): CoreModel[] => {
+  const at = Math.max(0, HEROES.findIndex(h => h.model === hero));
+  return Array.from({ length: count }, (_, i) => HEROES[(at + 1 + i) % HEROES.length].model);
 };
-for (const build of WALKERS) {
-  const option = document.createElement("option"); option.value = build.name; option.textContent = build.name.replaceAll("-", " "); heroBuild.append(option);
+for (const hero of HEROES) {
+  const option = document.createElement("option"); option.value = hero.model; option.textContent = hero.label; heroBuild.append(option);
 }
 // The Warrior leads unless somebody picks another hero.
-heroBuild.value = "warrior";
+heroBuild.value = "workshop-fighter";
+const heroLabel = (model: CoreModel) => HEROES.find(h => h.model === model)?.label ?? model;
 
+// What a workshop hero's skin wears; the skin is appearance only.
 const heroEquipment = need("hero-equipment");
-const workshopAppearance=document.createElement("div");
-workshopAppearance.hidden=true;
-workshopAppearance.innerHTML='<label><input type="checkbox" data-workshop="boots" checked> Boots</label> <label><input type="checkbox" data-workshop="armour" checked> Armour</label><p>Appearance only; human protection is unchanged.</p>';
-heroEquipment.append(workshopAppearance);
-const heroPrimary = need<HTMLSelectElement>("hero-primary"), heroSecondary = need<HTMLSelectElement>("hero-secondary");
-const heroSetup = () => PLAYABLE_BUILDS.find(b => b.name === heroBuild.value)?.setup;
-/** How the chosen hero's hands are armed, or null for a family whose weapons are its build. */
-const heroArming = () => { const setup = heroSetup(); return setup ? ARMED_SETUP[bodyFamily(setup)] ?? null : null; };
-// Refilled on each change of hero from what the hero's own chains offer, which is what the arena
-// setup screen offers for those chains.
-const updateEquipment = () => {
-  const setup = heroSetup();
-  workshopAppearance.hidden=!setup?.human;
-  heroEquipment.hidden = !heroArming();
-  if (!setup || heroEquipment.hidden) return;
-  for (const [picker, hand] of [[heroPrimary, setup.primary], [heroSecondary, setup.secondary]] as const) {
-    picker.replaceChildren(...golemTerminalOptions(hand.chain).filter(option=>(!setup.human && option.id !== "bow")
-      || (picker===heroPrimary?(setup.human?.model==="workshop-rogue"?["bow","blade","fist"]:["blade","club","fist"]):(setup.human?.model==="workshop-rogue"?["plate","fist","bow"]:["plate","fist"])).includes(option.id)).map(({ id, label }) => {
-      const option = document.createElement("option"); option.value = id; option.textContent = label; return option;
-    }));
-    picker.value = hand.terminal;
-  }
-  heroSecondary.disabled = ["maul", "bow"].includes(heroPrimary.value);
-};
+const worn = (): Clothing => ({ boots: heroEquipment.querySelector<HTMLInputElement>('[data-workshop="boots"]')!.checked,
+  armour: heroEquipment.querySelector<HTMLInputElement>('[data-workshop="armour"]')!.checked });
+const updateEquipment = () => { heroEquipment.hidden = heroBuild.value === "crypt-skeleton"; };
 heroBuild.addEventListener("change", updateEquipment);
-heroBuild.addEventListener("change", () => {
-  const setup = heroSetup();
-  if (setup) heroAttributes = withoutFixedAttributes(heroAttributes, setup) ?? {};
-  renderHeroAttributes();
-});
-// The hero's attributes, held here until Start puts them on the hero's setup. Only the hero: every
-// enemy is built at x1. Nothing is remembered between visits, because the dungeon remembers nothing.
-const heroAttributesPanel = need("hero-attributes");
-let heroAttributes: AttributeSetting = {};
-heroAttributesPanel.innerHTML = attributesPanel("hero");
-// A stat the hero's family fixes is shown fixed, and left off the hero at Start (`FAMILY_FIXED_ATTRIBUTES`).
-const heroFixed = () => { const setup = heroSetup(); return setup ? fixedAttributes(setup) : {}; };
-const renderHeroAttributes = () => renderAttributes(heroAttributesPanel, "hero", heroAttributes, false, heroFixed());
-const editHeroAttributes = (event: Event) => {
-  const action = attributeAction(event.target);
-  if (!action) return;
-  heroAttributes = action.kind === "set" ? withAttribute(heroAttributes, action.id, action.value) : {};
-  renderHeroAttributes();
-};
-heroAttributesPanel.addEventListener("input", followAttributeSlider);
-heroAttributesPanel.addEventListener("change", editHeroAttributes);
-heroAttributesPanel.addEventListener("click", event => { if (event.target instanceof HTMLButtonElement) editHeroAttributes(event); });
-renderHeroAttributes();
-heroPrimary.addEventListener("change", () => { heroSecondary.disabled = ["maul", "bow"].includes(heroPrimary.value); });
 const scenario = need<HTMLSelectElement>("dungeon-scene"), quality = need<HTMLSelectElement>("dungeon-quality");
 const requestedScene = new URLSearchParams(location.search).get("scene");
 scenario.value = requestedScene === "reference" || requestedScene === "random-crypt" ? requestedScene : "generated";
 quality.value = new URLSearchParams(location.search).get("quality") === "reduced" ? "reduced" : "high";
 const chooseScenario = () => {
   quality.parentElement!.hidden = scenario.value === "generated";
-  if (scenario.value !== "generated") { companionCount.value = "0"; heroBuild.value = "warrior"; }
-  updateEquipment(); renderHeroAttributes();
+  if (scenario.value !== "generated") { companionCount.value = "0"; heroBuild.value = "workshop-fighter"; }
+  updateEquipment();
 };
 scenario.addEventListener("change", chooseScenario);
 chooseScenario();
 updateEquipment();
 
+/** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst. */
+const CATCH_UP_SECONDS = 0.1;
+/** The body's colour when its skin did not load, and it is drawn as its shapes. */
+const SHAPES_TINT = Color3.FromHexString("#b9a58a");
+
 async function boot(): Promise<void> {
-  await loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error));
-  const havok = await HavokPhysics({ locateFile: () => havokWasmUrl });
+  const physicsEngine = await loadEngine();
+  const skeletonArt = loadSkeletonArt();
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
   const hover = new EnemyHover();
   let hoverPointer: { clientX:number; clientY:number } | null = null;
   let scene: Scene | null = null, run: DungeonRun | null = null, camera: FreeCamera | null = null;
-  let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0, selectedBuild = "default", companions: string[] = [];
-  let selectedEquipment: GolemSetup | undefined;
+  let lighting: DungeonLighting | null = null, paused = false, zoom = 10, seed = 0;
+  let selectedHero: CoreModel = "workshop-fighter", companions: CoreModel[] = [], clothing: Clothing = { boots: true, armour: true };
+  /** What the page drew for the bodies: their skins or shapes, and their clubs. */
+  let drawn: (SkinView | BodyView)[] = [];
   let selectedScenario: DungeonScenario = "generated";
   let cryptPlan: CryptRoomPlan | undefined;
   let reference = false, selectedQuality: ReferenceQuality = "high";
@@ -166,7 +124,7 @@ async function boot(): Promise<void> {
   const setPaused = (value: boolean) => {
     if (!run || !scene) return;
     if (run.status !== "playing") value = true;
-    paused = value; audio.setActive(!value && run.status === "playing"); scene.physicsEnabled = !value && run.status === "playing";
+    paused = value; audio.setActive(!value && run.status === "playing");
     held.clear(); run.commands.right = run.commands.up = 0; run.commands.cancelPointer();
     need("pause-panel").hidden = !value;
     need("pause-title").textContent = run.status === "won" ? "You escaped." : run.status === "dead"
@@ -177,7 +135,7 @@ async function boot(): Promise<void> {
   };
   const framing = () => {
     if (!run || !camera || !lighting) return;
-    const hero = run.leader.body.feetPosition();
+    const hero = run.leader.feet();
     // Keep the composed room view when wide; centre the leader for close inspection.
     const follow = .4 + .6 * Math.max(0, Math.min(1, (6.5 - zoom) / 3.5));
     const centre=cryptPlan?{x:(cryptPlan.bounds.min.x+cryptPlan.bounds.max.x)/2,z:(cryptPlan.bounds.min.z+cryptPlan.bounds.max.z)/2}:{x:9.5,z:9};
@@ -186,7 +144,7 @@ async function boot(): Promise<void> {
   };
   const rebuild = async (nextSeed: number) => {
     audio.reset(); soundTorches = [];
-    hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
+    hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; undraw(); run?.dispose(); run = null; scene?.dispose(); scene = null; route = null; routeSignature = "";
     seed = nextSeed >>> 0;
     cryptPlan = selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
     if (reference) { meterParent.prepend(diagnostics); diagnostics.append(meterElement); }
@@ -196,21 +154,32 @@ async function boot(): Promise<void> {
     toward = cameraToward(azimuth); zoom = reference ? REFERENCE_CAMERA.zoom : 10;
     if (cryptPlan) zoom = 8; // Follow exploration at room scale, rather than fitting the entire dungeon.
     engine.setHardwareScalingLevel(reference ? selectedQuality === "reduced" ? 1.4 : 1 : 1 / Math.min(devicePixelRatio, 1.5));
-    scene = new Scene(engine);
-    attachPhysics(scene, havok); scene.physicsEnabled = false; scene.getPhysicsEngine()!.setSubTimeStep(1000 / CONFIG.world.physicsHz);
+    const shown = scene = new Scene(engine);
     scene.preventDefaultOnPointerDown = scene.preventDefaultOnPointerUp = false;
     camera = new FreeCamera("dungeon camera", new Vector3(0, 20, 0), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     camera.minZ = 0.1; camera.maxZ = 160;
-    await loadWorkshopAssets(scene);
-    run = new DungeonRun(scene, seed, selectedBuild, { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry }, cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), selectedEquipment, companions, reference ? () => "skeleton-warrior" : undefined, (attacker, event) => {
-      if (!run || !run.visible.has(cellKey(run.map, event.report.point))) return;
-      const target = run.actors.find(a => a.id === event.report.targetId);
-      if (target) audio.report(event, attacker, bodyFamily(target === run.hero && selectedEquipment ? selectedEquipment : namedBuild(target.name)!.setup));
-    }); run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
+    // Each model's skin, loaded once a scene; a body whose skin did not load is drawn as its shapes.
+    const dressers = new Map<CoreModel, (built: BuiltBody) => SkinView>();
+    await Promise.all([...new Set<CoreModel>([selectedHero, ...companions, "crypt-skeleton"])].map(model =>
+      (model === "crypt-skeleton" ? skeletonArt.then(art => (b: BuiltBody) => dressSkeleton(b, art, shown))
+        : loadSkin(model, shown).then(container => (b: BuiltBody) => dressBody(b, container, shown, clothing)))
+        .then(dress => { dressers.set(model, dress); }, error => console.warn(`${model} is drawn as its shapes: its skin did not load`, error))));
+    const dress = (actor: DungeonActor) => {
+      const built = actor.fighter!.built, skin = dressers.get(actor.model)?.(built) ?? drawBody(built, shown, SHAPES_TINT), club = drawHeld(built, shown);
+      drawn.push(skin, club); actor.meshes.push(...skin.meshes, ...club.meshes);
+    };
+    run = new DungeonRun(scene, { seed, engine: physicsEngine,
+      visuals: { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry },
+      layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), hero: selectedHero, companions, onBuilt: dress,
+      onBlow: blow => {
+        if (!run || !run.visible.has(cellKey(run.map, { x: blow.point[0], z: blow.point[2] }))) return;
+        const target = run.actors.find(a => a.id === blow.target);
+        if (target) audio.cue(blowCue(blow, target.model === "crypt-skeleton" ? "bone" : "body"));
+      } });
+    run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     run.pitch = pitch; run.toward = toward;
-    // After the run, so that no torch mesh is counted among a golem's own (`DungeonActor.meshes`). The look is page
-    // code no Node test loads, so the rule that it adds no body is held here, where it runs.
-    const bodies = () => scene!.meshes.filter(m => m.physicsBody).length, before = bodies();
+    // The look is page code no Node test loads, so the rule that it adds no collider is held here, where it runs.
+    const solids = run.world.solids.length;
     const torches = cryptPlan?.torches ?? (reference ? [...REFERENCE_TORCHES] : torchPlacements(run.map, seed)); soundTorches = torches;
     lighting = lightDungeon(scene, camera, run.map, torches, azimuth, reference ? REFERENCE_LIGHT : undefined); run.world.sconces(torches);
     if (!reference && stone.dressing) run.world.dress(dressingPlacements(run.map, seed, DRESSING, toward));
@@ -218,22 +187,15 @@ async function boot(): Promise<void> {
       referenceLook = await dressReference(scene, run.world, selectedQuality, azimuth, cryptPlan);
       if (selectedQuality === "reduced") lighting.setLook({ ssao: false });
     }
-    if (bodies() !== before) throw new Error(`The dungeon's look added ${bodies() - before} physics bodies; cosmetics carry none.`);
-    scene.onBeforePhysicsObservable.add(() => {
-      if (!run || paused) return;
-      run.step(1 / CONFIG.world.physicsHz);
-      if (run.status !== "playing") setPaused(true);
-    });
-    meter.watch(scene);
+    if (run.world.solids.length !== solids) throw new Error(`The dungeon's look added ${run.world.solids.length - solids} colliders; cosmetics carry none.`);
     need("start-panel").hidden = true; need("seed-label").textContent = `SEED ${seed}`;
-    need("hero-name").textContent = selectedBuild.replaceAll("-", " ");
-    // From the body that was built, not from the dialog, so the line is what is walking about.
-    need("hero-attributes-line").textContent = describeAttributes(run.hero.body.attributes);
+    need("hero-name").textContent = heroLabel(selectedHero);
     partyRows();
     setPaused(false); framing(); run.present(); lighting.refreshFog(run.explored); scene.render(); canvas.focus();
     Object.assign(window, { __dungeon: { get run() { return run; }, get scene() { return scene; }, get camera() { return camera; },
       get lighting() { return lighting; }, look: probe, engine } });
   };
+  const undraw = () => { for (const view of drawn) view.dispose(); drawn = []; };
   let launching=false;
   const launch = async (nextSeed: number) => {
     if(launching)return;
@@ -241,7 +203,7 @@ async function boot(): Promise<void> {
     try { await rebuild(nextSeed); }
     catch (error) {
       audio.setActive(false);
-      hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null;
+      hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; undraw(); run?.dispose(); run = null; scene?.dispose(); scene = null;
       need("start-panel").hidden = false; need("pause-panel").hidden = true;
       need("notice").textContent = `Could not build this dungeon: ${String(error)}`; console.error(error);
     } finally { launching=false;start.disabled=false; }
@@ -257,26 +219,13 @@ async function boot(): Promise<void> {
   start.disabled = false; start.textContent = "Enter the dungeon →";
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) { seedInput.setCustomValidity("Enter a seed from 0 to 4294967295."); seedInput.reportValidity(); return; }
-    seedInput.setCustomValidity(""); selectedBuild = heroBuild.value;
+    seedInput.setCustomValidity(""); selectedHero = heroBuild.value as CoreModel;
     selectedScenario = scenario.value as DungeonScenario; reference = selectedScenario !== "generated"; selectedQuality = quality.value === "reduced" ? "reduced" : "high";
     const url = new URL(location.href);
     if (reference) { url.searchParams.set("scene", selectedScenario); url.searchParams.set("quality", selectedQuality); }
     else { url.searchParams.delete("scene"); url.searchParams.delete("quality"); }
     history.replaceState(null, "", url);
-    companions = companionBuilds(selectedBuild, Number(companionCount.value));
-    const arm = heroArming();
-    selectedEquipment = arm ? arm(heroPrimary.value, heroSecondary.value) : undefined;
-    if(selectedEquipment && heroSetup()?.human) selectedEquipment.human={model:heroSetup()!.human!.model,
-      boots:workshopAppearance.querySelector<HTMLInputElement>('[data-workshop="boots"]')!.checked,
-      armour:workshopAppearance.querySelector<HTMLInputElement>('[data-workshop="armour"]')!.checked};
-    // A hero somebody tuned is handed over as a whole setup; one nobody tuned goes the way it always
-    // did, so a default run is the run it was.
-    const base = selectedEquipment ?? heroSetup();
-    const kept = base ? withoutFixedAttributes(heroAttributes, base) ?? {} : {};
-    if (base && Object.keys(kept).length > 0) selectedEquipment = withAttributeSetting(base, kept);
-    // Named here rather than thrown by the body's constructor from inside the run.
-    const refused = selectedEquipment ? golemSetupRefusal(selectedEquipment) : null;
-    if (refused) { need("notice").textContent = `This hero cannot be built: ${refused}.`; return; }
+    companions = companionModels(selectedHero, Number(companionCount.value)); clothing = worn();
     launch(Number(seedInput.value));
   }, { signal });
   seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });
@@ -302,9 +251,9 @@ async function boot(): Promise<void> {
     for (const button of partyList.querySelectorAll<HTMLButtonElement>("button[data-member]")) {
       const member = run.party.find(m => m.id === button.dataset.member); if (!member) continue;
       button.setAttribute("aria-pressed", String(run.selected.has(member.id)));
-      button.classList.toggle("fallen", !member.body.alive);
-      button.querySelector("progress")!.value = member.body.vitality;
-      button.querySelector("small")!.textContent = member.body.alive ? `· ${orderLabel(member.order, member.post, member === run.hero)}` : "· fallen";
+      button.classList.toggle("fallen", !member.alive);
+      button.querySelector("progress")!.value = member.vitality;
+      button.querySelector("small")!.textContent = member.alive ? `· ${orderLabel(member.order, member.post, member === run.hero)}` : "· fallen";
     }
   };
   const selectMember = (id: string, add: boolean) => {
@@ -384,21 +333,26 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", () => engine.resize(), { signal });
   engine.runRenderLoop(() => meter.frame(() => {
     if (!scene || !run || launching) return;
+    if (!paused && run.status === "playing") {
+      const going = run;
+      meter.physics(() => going.advance(engine.getDeltaTime() / 1000, Math.ceil(CATCH_UP_SECONDS * going.core.hz)));
+      if (run.status !== "playing") setPaused(true);
+    }
     framing();
-    audio.setView(run.leader.body.feetPosition(), toward, soundTorches.filter(t => run!.visible.has(cellKey(run!.map, { x: t.cell.x + t.facing.x, z: t.cell.z + t.facing.z }))).map(t => t.flame));
+    audio.setView(run.leader.feet(), toward, soundTorches.filter(t => run!.visible.has(cellKey(run!.map, { x: t.cell.x + t.facing.x, z: t.cell.z + t.facing.z }))).map(t => t.flame));
     audio.update();
     if (performance.now() - lastUi > 100) {
       lastUi = performance.now(); run.present(); lighting?.refreshFog(run.explored);
-      need<HTMLProgressElement>("hero-hp").value = run.hero.body.vitality;
-      need("hp-label").textContent = `${Math.ceil(run.hero.body.vitality * 100)}% HP`;
+      need<HTMLProgressElement>("hero-hp").value = run.hero.vitality;
+      need("hp-label").textContent = `${Math.ceil(run.hero.vitality * 100)}% HP`;
       partyStatus();
-      const target = run.leader.target; need("target-panel").hidden = !target || !target.body.alive;
-      if (target) { need("target-name").textContent = target.name.replaceAll("-", " "); need<HTMLProgressElement>("target-hp").value = target.body.vitality; }
+      const target = run.leader.target; need("target-panel").hidden = !target || !target.alive;
+      if (target) { need("target-name").textContent = target.name.replaceAll("-", " "); need<HTMLProgressElement>("target-hp").value = target.vitality; }
       need("notice").textContent = run.notice;
       // Every standing member's route, from its feet: the rest of a drawn route after the point it is on.
-      const walks = run.party.filter(m => m.body.alive).map(m => {
+      const walks = run.party.filter(m => m.alive).map(m => {
         const order = m.order;
-        return { force: order.kind === "force", from: m.body.feetPosition(),
+        return { force: order.kind === "force", from: m.feet(),
           points: (order.kind === "force" ? [...m.route, ...order.points.slice(m.next + 1)] : m.route) as Point[] };
       }).filter(walk => walk.points.length);
       const signature = JSON.stringify(walks.map(w => [w.force, w.points]));
@@ -422,11 +376,11 @@ async function boot(): Promise<void> {
     scene.render();
   }));
   const dispose = () => {
-    audio.dispose(); abort.abort(); engine.stopRenderLoop(); hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
+    audio.dispose(); abort.abort(); engine.stopRenderLoop(); hover.dispose(); hoverPointer=null; referenceLook?.dispose(); referenceLook = null; lighting?.dispose(); lighting = null; undraw(); run?.dispose(); run = null; scene?.dispose(); scene = null; engine.dispose();
   };
   window.addEventListener("pagehide", dispose, { once: true, signal });
   import.meta.hot?.dispose(dispose);
-  need("notice").textContent = "Choose your golem and enter the depths.";
+  need("notice").textContent = "Choose your hero and enter the depths.";
 }
 /** Called by `src/app.ts` after the dungeon's screen is mounted: this module's top level reads it. */
 export function bootDungeon(): Promise<void> {

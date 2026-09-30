@@ -200,6 +200,7 @@ export function dressSkeleton(built: BuiltBody, art: SkeletonArt, scene: Scene):
   update();
   const observer = scene.onBeforeRenderObservable.add(update);
   return {
+    meshes,
     setEnabled(enabled) { for (const mesh of meshes) mesh.setEnabled(enabled); },
     wear() { /* The skeleton wears nothing. */ },
     dispose() {

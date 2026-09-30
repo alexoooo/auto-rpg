@@ -100,6 +100,10 @@ export class GameAudio {
     const cue = impactCue(event, attacker, family);
     if (cue) this.inbox.add(cue, performance.now());
   }
+  /** Queue a cue the page read itself (`blowCue`). */
+  cue(cue: ImpactCue | null): void {
+    if (cue && this.ready()) this.inbox.add(cue, performance.now());
+  }
   private ready(): boolean { return this.active && !this.muted && this.volume > 0 && !this.failed && this.context?.state === "running"; }
   setView(listener: SoundPoint, toward: SoundPoint, torches: readonly SoundPoint[] = []): void {
     // Babylon Vector3 stores coordinates behind prototype getters; spread drops them.

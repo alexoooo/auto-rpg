@@ -81,11 +81,11 @@ test('generated crypt doors open and decorative surfaces add no physics bodies',
     const counts=[];
     for(const visuals of [false,true]){
       const map=generateCryptRoom(12).map,world=buildDungeonWorld(arena.scene,map,visuals);
-      counts.push(arena.scene.meshes.filter(m=>m.physicsBody).length);
+      counts.push(world.solids.map(s=>[s.name,...s.centre,...s.size].join(' ')));
       world.openNearby([map.doors[0].point]);assert.equal(map.doors[0].open,true);
       for(const leaf of world.doorVisuals)assert.equal(leaf.wood.isVisible,false);
       world.dispose();
     }
-    assert.equal(counts[0],counts[1]);
+    assert.ok(counts[0].length>0);assert.deepEqual(counts[1],counts[0]);
   }finally{arena.dispose();}
 });

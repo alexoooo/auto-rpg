@@ -117,7 +117,7 @@
       <section id="target-panel" hidden aria-label="Selected enemy"><span id="target-name"></span><progress id="target-hp" max="1" value="1"></progress></section>
       <div id="notice" role="status">Preparing the dungeon…</div>
       <footer class="bottom-bar">
-        <section class="hero-panel"><span class="eyebrow">YOUR GOLEM</span><strong id="hero-name">Stone wanderer</strong><small id="hero-attributes-line"></small>
+        <section class="hero-panel"><span class="eyebrow">YOUR HERO</span><strong id="hero-name">Warrior</strong>
           <div class="health"><progress id="hero-hp" max="1" value="1"></progress><span id="hp-label">100% HP</span></div>
         </section>
         <section class="control-panel"><span class="eyebrow">TAKE CONTROL</span>
@@ -130,19 +130,15 @@
         <button id="help-button" type="button" aria-expanded="false">Controls <kbd>?</kbd></button>
       </footer>
       <section id="start-panel" class="dialog" aria-labelledby="start-title">
-        <span class="eyebrow">A GOLEM DUNGEON RUN</span><h1 id="start-title">Into the depths.</h1>
+        <span class="eyebrow">A DUNGEON RUN</span><h1 id="start-title">Into the depths.</h1>
         <p>Stone corridors. Unfamiliar enemies.<br />One way out. Your hero fights — you choose the way.</p>
         <label class="field">Dungeon <select id="dungeon-scene"><option value="generated">Generated depths</option><option value="reference">The Rootbound Crypt</option><option value="random-crypt">Random Crypt</option></select></label>
         <label class="field" hidden>Quality <select id="dungeon-quality"><option value="high">High</option><option value="reduced">Reduced</option></select></label>
         <label class="field">Your hero <select id="hero-build"></select></label>
-        <div id="hero-equipment" hidden>
-          <label class="field">Main hand <select id="hero-primary"></select></label>
-          <label class="field">Other hand <select id="hero-secondary"></select></label>
-        </div>
-        <div id="hero-attributes"></div>
+        <div id="hero-equipment"><label><input type="checkbox" data-workshop="boots" checked> Boots</label> <label><input type="checkbox" data-workshop="armour" checked> Armour</label><p>Appearance only. Every body carries a club.</p></div>
         <label class="field">Companions <select id="companions"><option value="0">None</option><option value="1">One</option><option value="2" selected>Two</option><option value="3">Three</option></select></label>
         <label class="field">Dungeon seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
-        <button id="start" class="primary" disabled>Preparing Havok…</button>
+        <button id="start" class="primary" disabled>Preparing…</button>
         <small>Physical combat · one floor · no upgrades or saved progress</small>
         <a class="back" href="./">← Main menu</a>
       </section>

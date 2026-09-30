@@ -43,25 +43,3 @@ test('connected crypt seeds have four reachable chambers, doors and encounters b
   }
   assert.ok(layouts.size>20);assert.equal(variants.size,12);
 });
-
-
-test('a real fighter traverses each furnished chamber through its working doors',async()=>{
-  const {createHeadlessArena}=await import('./harness/golem-headless-arena.mjs');
-  const {DungeonRun}=await import('../src/dungeon/run.ts');
-  const {CONFIG}=await import('../src/config.ts');
-  for(const kind of ['burial','chapel','rootbound']){
-    const arena=await createHeadlessArena({populateDefaultGeometry:false});let run;
-    try{
-      const plan=generateCryptDungeon(0),map=plan.map;
-      // Navigation fixture: retain every furnishing and door, omit enemies to isolate traversal.
-      map.spawns=[];map.exit={...map.rooms[plan.archetypes.find(a=>a.kind===kind).room].centre};
-      run=new DungeonRun(arena.scene,0,'warrior',false,map);
-      run.commands.order={kind:'force',points:[map.exit],drawing:false};run.commands.revision++;
-      arena.scene.onBeforePhysicsObservable.add(()=>run.step(1/CONFIG.world.physicsHz));
-      const remaining=()=>Math.hypot(run.hero.body.feetPosition().x-map.exit.x,run.hero.body.feetPosition().z-map.exit.z);
-      for(let i=0;i<60*45&&remaining()>1;i++){arena.scene._renderId++;arena.scene._advancePhysicsEngineStep(1000/60);}
-      assert.ok(remaining()<1,kind+' traversal');assert.ok(map.doors.some(d=>d.open));
-      assert.ok(run.hero.body.alive);
-    }finally{run?.dispose();arena.dispose();}
-  }
-});

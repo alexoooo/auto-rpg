@@ -5,12 +5,9 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Constants } from "@babylonjs/core/Engines/constants.js";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture.js";
-import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
-import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { StandableWorldRegistry } from "../supported-locomotion-runtime.ts";
-import { LAYER, COLLIDES } from "../physics.ts";
-import { cellKey, isFloor, walkable, type DungeonMap, type Point } from "./map.ts";
+import type { FixedCollider, PhysicsWorld } from "../core/engine/engine.ts";
+import { cellKey, isFloor, type DungeonMap, type Point } from "./map.ts";
 import { boundary, WALL_HEIGHT, wallSurface, type WallFace } from "./fog.ts";
 import { dungeonFog } from "./fog-plugin.ts";
 import { dungeonStone, flatStone, type DungeonSurfaces } from "./stone.ts";
@@ -98,69 +95,40 @@ function fitting(name: string, pieces: Mesh[], x: number, z: number, turn: numbe
   return mesh;
 }
 
-/** `visuals` is false for a world with no drawn floor or walls, true for the flat colours, and otherwise the page's
- * chosen stone (`dungeonStone` in `stone.ts`). The colliders are the same in every case, and none is drawn. */
-export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolean | DungeonSurfaces = true) {
-  const registry = new StandableWorldRegistry();
-  const up = [0, 1, 0] as const;
-  registry.register({ id: "dungeon-ground", category: "standable-world", ownerPartId: null, upwardNormal: up,
-    support: at => isFloor(map, Math.round(at.x), Math.round(at.z))
-      ? { colliderId: "dungeon-ground", fraction: 1, point: { x: at.x, y: 0, z: at.z }, upwardNormal: up } : null,
-    sweep: () => null });
-  registry.register({ id: "dungeon-solid", category: "wall", ownerPartId: null, upwardNormal: up,
-    support: () => null,
-    sweep: (from, to, footprint) => {
-      // Substeps are short, but sample the entire sweep for callers proposing a longer move.
-      const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.z - from.z) / 0.15));
-      let safe = 0;
-      // A footprint that starts inside the solid -- a body that fell against a wall -- may leave it:
-      // the path is clear once it is clear, and must end clear (physical contact session 02).
-      let cleared = walkable(map, from, footprint.radiusM, true);
-      for (let i = 1; i <= steps; i++) {
-        const at = i / steps;
-        if (walkable(map, { x: from.x + (to.x - from.x) * at, z: from.z + (to.z - from.z) * at }, footprint.radiusM, true)) { safe = at; cleared = true; continue; }
-        if (!cleared) {
-          if (i < steps) continue;
-          return { colliderId: "dungeon-solid", fraction: 0,
-            point: { x: from.x, y: from.y, z: from.z }, upwardNormal: up };
-        }
-        let low = safe, high = at;
-        for (let j = 0; j < 10; j++) {
-          const middle = (low + high) / 2;
-          if (walkable(map, { x: from.x + (to.x - from.x) * middle, z: from.z + (to.z - from.z) * middle }, footprint.radiusM, true)) low = middle;
-          else high = middle;
-        }
-        return { colliderId: "dungeon-solid", fraction: low,
-          point: { x: from.x + (to.x - from.x) * low, y: from.y, z: from.z + (to.z - from.z) * low }, upwardNormal: up };
-      }
-      return null;
-    } });
+/** A fixed box the level puts in the physics world: its name, and its centre and full size, world, m. */
+export interface DungeonSolid {
+  readonly name: string;
+  readonly centre: readonly [number, number, number];
+  readonly size: readonly [number, number, number];
+}
+
+/**
+ * `visuals` is false for a world with no drawn floor or walls, true for the flat colours, and otherwise the page's
+ * chosen stone (`dungeonStone` in `stone.ts`). The colliders are fixed boxes in `physics` (`solids`), the same in
+ * every case, and none is drawn: the floor's slab, each obstacle, the walls in runs of up to four cells, and each door
+ * until it opens. With no `physics` the level is only drawn, and `solids` still says what it would have put there.
+ */
+export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolean | DungeonSurfaces = true, physics?: PhysicsWorld) {
   const wood = flatStone(scene, "ironbound doors", "#806044", 0.8);
-  const bodies: PhysicsAggregate[] = [];
-  const box = (name: string, x: number, y: number, z: number, width: number, height: number, depth: number) => {
-    const mesh = MeshBuilder.CreateBox(name, { width, height, depth }, scene); mesh.position.set(x, y, z);
-    const body = new PhysicsAggregate(mesh, PhysicsShapeType.BOX, { mass: 0, friction: 0.8, restitution: 0.02 }, scene);
-    body.shape.filterMembershipMask = LAYER.WORLD; body.shape.filterCollideMask = COLLIDES.WORLD;
-    bodies.push(body); return { mesh, body };
+  const colliders: FixedCollider[] = [], solids: DungeonSolid[] = [];
+  const box = (name: string, x: number, y: number, z: number, width: number, height: number, depth: number): FixedCollider | null => {
+    solids.push({ name, centre: [x, y, z], size: [width, height, depth] });
+    if (!physics) return null;
+    const collider = physics.addFixedBox([x, y, z], [width, height, depth]);
+    colliders.push(collider); return collider;
   };
-  const floor = box("dungeon slab", (map.size - 1) / 2, -0.5, (map.size - 1) / 2, map.size, 1, map.size);
-  floor.mesh.isVisible = false;
-  for (const o of map.obstacles ?? []) {
-    const prop=box(o.id,o.x,o.height/2,o.z,o.width,o.height,o.depth);
-    prop.mesh.isVisible=false;prop.mesh.isPickable=false;
-  }
-  // The colliders are what they always were, and none is drawn: `wallSurface` draws their outer skin instead.
+  box("dungeon slab", (map.size - 1) / 2, -0.5, (map.size - 1) / 2, map.size, 1, map.size);
+  for (const o of map.obstacles ?? []) box(o.id, o.x, o.height / 2, o.z, o.width, o.height, o.depth);
+  // `wallSurface` draws the walls' outer skin; these are what a body meets.
   for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size;) {
     if (!boundary(map, x, z)) { x++; continue; }
     const start = x; while (x < map.size && x - start < 4 && boundary(map, x, z)) x++;
-    const wall = box(`wall.${z}.${start}`, (start + x - 1) / 2, WALL_HEIGHT / 2, z, x - start, WALL_HEIGHT, 1);
-    wall.mesh.isVisible = false; wall.mesh.isPickable = false;
+    box(`wall.${z}.${start}`, (start + x - 1) / 2, WALL_HEIGHT / 2, z, x - start, WALL_HEIGHT, 1);
   }
   const iron = flatStone(scene, "door and sconce iron", "#3b3734", 0.5); iron.metallic = 0.7;
   const doors = map.doors.map(d => {
-    const object = box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3);
-    object.mesh.material = wood; object.mesh.isPickable = false; object.mesh.isVisible = false;
-    if (visuals === false) return { ...object, leaf: [] as Mesh[] };
+    const collider = box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3);
+    if (visuals === false) return { collider, leaf: [] as Mesh[] };
     const L = DOOR_LEAF, width = (3 - L.gap * (L.planks + 1)) / L.planks, turn = d.axis === "x" ? Math.PI / 2 : 0;
     const planks = Array.from({ length: L.planks }, (_, i) => {
       const plank = MeshBuilder.CreateBox("plank", { width, height: L.height, depth: L.depths[i % 2] }, scene);
@@ -176,7 +144,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     });
     const leaf = [fitting(`door.${d.id}.leaf`, planks, d.point.x, d.point.z, turn), fitting(`door.${d.id}.iron`, [...bands, ...rings], d.point.x, d.point.z, turn)];
     leaf[0].material = wood; leaf[1].material = iron;
-    return { ...object, leaf };
+    return { collider, leaf };
   });
   // Fog is a mask the surfaces read (`fog-plugin.ts`), so nothing here is shown or hidden cell by cell.
   const look = visuals === true ? dungeonStone(scene) : visuals || null;
@@ -201,14 +169,15 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
   const exitMaterial = flatStone(scene, "exit light", "#93edcf");
   exitMaterial.emissiveColor = Color3.FromHexString("#42b998").toLinearSpace().scale(3); exit.material = exitMaterial;
   return {
-    registry, fog, surfaces,
+    fog, surfaces,
+    /** Every fixed box the level put in the physics world, in the order it was built; an opened door's stays listed. */
+    solids: solids as readonly DungeonSolid[],
     /** Materials may be dressed; visibility and collision remain owned by openNearby. */
     doorVisuals: doors.flatMap(door => door.leaf.length ? [{ wood: door.leaf[0], iron: door.leaf[1] }] : []),
     openNearby(actors: readonly Point[]) {
       for (const door of map.doors) if (!door.open && actors.some(p => Math.hypot(p.x - door.point.x, p.z - door.point.z) < 2.5)) {
         door.open = true;
-        doors[door.id].body.shape.filterCollideMask = 0;
-        doors[door.id].body.shape.filterMembershipMask = 0;
+        doors[door.id].collider?.dispose();
         for (const mesh of doors[door.id].leaf) mesh.isVisible = false;
       }
     },
@@ -304,6 +273,6 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     },
     /** Where the walls in front of the hero open. The page calls it every frame; `present` runs every 100 ms. */
     setHero(hero: Point) { fog?.setHero(hero); },
-    dispose() { for (const body of bodies) body.dispose(); fog?.dispose(); },
+    dispose() { for (const collider of colliders) collider.dispose(); fog?.dispose(); },
   };
 }

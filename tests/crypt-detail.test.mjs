@@ -62,11 +62,11 @@ test('hover highlights visible costume only and releases its layer on teardown',
   const engine=new NullEngine(),scene=new Scene(engine);
   try{const a=MeshBuilder.CreateBox('body',{},scene),b=MeshBuilder.CreateBox('hidden',{},scene),hover=new EnemyHover();
     b.isVisible=false;const material=a.material;
-    hover.show({meshes:[{mesh:a,visible:true},{mesh:b,visible:false}]});
+    hover.show({meshes:[a,b]});
     const layer=scene.getHighlightLayerByName('dungeon.enemy-hover');
     assert.ok(layer.hasMesh(a));assert.equal(layer.hasMesh(b),false);assert.equal(a.material,material);
-    a.isVisible=false;hover.show({meshes:[{mesh:a,visible:true}]});assert.equal(layer.hasMesh(a),false);assert.equal(layer.isEnabled,false);
-    a.isVisible=true;hover.show({meshes:[{mesh:a,visible:true}]});hover.clear();
+    a.isVisible=false;hover.show({meshes:[a]});assert.equal(layer.hasMesh(a),false);assert.equal(layer.isEnabled,false);
+    a.isVisible=true;hover.show({meshes:[a]});hover.clear();
     assert.equal(layer.hasMesh(a),false);assert.equal(layer.isEnabled,false);
     hover.dispose();assert.equal(scene.getHighlightLayerByName('dungeon.enemy-hover'),null);
   }finally{scene.dispose();engine.dispose();}

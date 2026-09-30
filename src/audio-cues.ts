@@ -1,5 +1,6 @@
 import type { CombatReportEvent } from "./combat.ts";
 import type { BodyFamily } from "./golem/family.ts";
+import type { LandedBlow } from "./core/rules/blows.ts";
 
 export type SoundKind = "stone" | "bone" | "body" | "metal" | "shield";
 export interface SoundPoint { x: number; z: number }
@@ -18,6 +19,17 @@ export function impactCue(event: CombatReportEvent, attacker: string, family: Bo
       : r.key === "block:shield" || r.key === "block:buckler" ? "shield" : "metal" : surfaces[family],
     strength: Math.min(1, strength), severed: r.severed,
     point: { x: r.point.x, z: r.point.z } };
+}
+
+/**
+ * The cue for a core blow (`LandedBlow`) on a body of `struck`'s surface: its strength read from its energy as a
+ * report's is. A clash is two clubs meeting, wood on wood, the shield's knock (recorded, not asked).
+ */
+export function blowCue(blow: LandedBlow, struck: SoundKind): ImpactCue | null {
+  const strength = Math.sqrt(Math.max(0, blow.energy) / 60);
+  if (!Number.isFinite(strength) || strength < .035) return null;
+  return { key: `${blow.attacker}:${blow.target}`, kind: blow.clash ? "shield" : struck, strength: Math.min(1, strength),
+    severed: (blow.wound?.severed.length ?? 0) > 0, point: { x: blow.point[0], z: blow.point[2] } };
 }
 
 /** A bounded wall-clock inbox: a fast simulation cannot flood the audio clock. */

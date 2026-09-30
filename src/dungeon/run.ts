@@ -1,38 +1,81 @@
-import { companionSpawn } from "./party-placement.ts";
-import type { GolemSetup } from "../bout.ts";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
-import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
-import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin.js";
-import { PhysicsActivationControl } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
-import { Combat, type CombatReportEvent } from "../combat.ts";
-import { Golem } from "../golem/golem.ts";
-import { bodyFamily, FAMILY_POLICY } from "../golem/family.ts";
-import { namedBuild } from "../golem/roster.ts";
-import { drawEnemy } from "./enemies.ts";
-import { unitDefinition } from "../units.ts";
-import { isCommandMind, type Intent, type Mind } from "../mind.ts";
-import { freshBodyCommand, intentToCommand, type BodyCommand } from "../body-command.ts";
-import { mulberry32 } from "../rng.ts";
+import { createBody, SERVO_SECONDS, type CoreBody } from "../core/body.ts";
+import { buildBody } from "../core/build/build-body.ts";
+import type { PhysicsEngine } from "../core/engine/engine.ts";
+import { armed } from "../core/human/grip.ts";
+import { modelSpec, type CoreModel } from "../core/human/spec.ts";
+import { woodenClub } from "../core/items/club.ts";
+import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { driveBy, type Mind } from "../core/mind/mind.ts";
+import type { Skills } from "../core/skills/skills.ts";
+import { APPROACH } from "../core/skills/strike.ts";
+import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
+import { createPool } from "../core/rules/pool.ts";
+import { rulebook } from "../core/rules/rulebook.ts";
+import type { BodySpec } from "../core/spec/body.ts";
+import type { Vec3 } from "../core/spec/quantity.ts";
+import { createWorld, type Hook, type World } from "../core/world.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, walkable,
   type DungeonMap, type Point } from "./map.ts";
 import { generateLevel } from "./level.ts";
-import { composeIntent, DungeonCommands, neutralIntent, screenMovement, type Order } from "./commands.ts";
-import { resolveDungeonLocomotion } from "./locomotion.ts";
+import { DungeonCommands, screenMovement, type Order } from "./commands.ts";
 import { buildDungeonWorld } from "./world.ts";
 import type { DungeonSurfaces } from "./stone.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
+import { companionSpawn } from "./party-placement.ts";
+
+/**
+ * **A crypt run on the core**: the level's colliders are fixed boxes in a core world
+ * (`buildDungeonWorld`), and the party and the enemies are core bodies (`src/core/`), each driven
+ * by a mind that carries out what the run plans for it. The run plans with the map: who sees whom,
+ * whom each fights, and the path each walks (`findPath`); the person's orders reach the party only
+ * through that plan (`DungeonCommands`), and a mind reaches its body only through its intent.
+ *
+ * - **The hero** is the Warrior, **the companions** Rogues, **the enemies** skeletons, each with the
+ *   wooden club in the right hand, the one weapon the core has (recorded, not asked).
+ * - **A mind** walks its plan's direction at its body's fastest walk (`CoreBody.envelope`), facing
+ *   it, and within `ATTACK_METRES` of its target attacks the target's head with the club: the strike
+ *   skill brings the body the rest of the way (`APPROACH` in `src/core/skills/strike.ts`). It holds
+ *   the point it aims at while the head stays within `APPROACH.reach` of it, and aims again after
+ *   each blow: the skill sets the feet for the point it is given, and a point that follows a swaying
+ *   head moved each placing of the feet before it was done (two bodies aiming at each other in
+ *   the crypt stood placing their feet for 25 s, Node, Rapier, 120 Hz).
+ * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
+ *   of the fight once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
+ *   core has no rising yet, so a body down stays down (recorded, not asked). Nobody attacks it.
+ * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
+ *   beyond its sight, and is never taken out again: a core body costs about 0.55 ms a step (Node
+ *   core stand, Rapier, 120 Hz), so a level's worth of skeletons from the start is several times
+ *   slower than real time.
+ *
+ * The run is lost when the whole party has fallen and won when a standing member reaches the exit.
+ */
+
+/** Who stands for each model in the party list and the target panel. */
+const NAMES: Readonly<Record<CoreModel, string>> = Object.freeze({
+  "workshop-fighter": "warrior", "workshop-rogue": "rogue", "crypt-skeleton": "skeleton",
+});
 
 export interface DungeonActor {
-  id: string; name: string; body: Golem; combat: Combat; policy: Mind; intent: Intent; command: BodyCommand;
+  readonly id: string;
+  readonly name: string;
+  readonly model: CoreModel;
+  readonly side: "party" | "enemy";
+  /** The body and its pool, once built; an enemy waits unbuilt until the party is near (`WAKE_METRES`). */
+  fighter: (Fighter & { readonly body: CoreBody; readonly skills: Skills }) | null;
+  /** Where the body stands on the ground: its centre of mass over the floor, or where it waits unbuilt. */
+  feet(): Point;
+  /** Whether it still fights: unbuilt, or built with its pool not ended and its body not fallen. */
+  readonly alive: boolean;
+  /** Its pool's bar: 1 whole, 0 spent. */
+  readonly vitality: number;
+  /** What the page drew for it (its skin), shown while it is in sight, and picked to select or lock it. */
+  readonly meshes: AbstractMesh[];
   target: DungeonActor | null; home: Point; lastSeen: Point | null; alertedUntil: number;
-  route: Point[]; goal: Point | null; nextPlan: number; radius: number;
+  route: Point[]; goal: Point | null; nextPlan: number; readonly radius: number;
   /** Where the body last made progress along its route, and when. */
   progress: { at: Point; since: number };
-  meshes: { mesh: AbstractMesh; visible: boolean }[]; stopped: boolean;
-  /** Every physics body the golem was built with, and whether they are held asleep (`DORMANCY`). */
-  bodies: PhysicsBody[]; dormant: boolean;
   /**
    * A party member's standing order, and for a drawn route the index of the next point on it. A force
    * order is shared by reference with `DungeonCommands.order`, whose route grows while it is drawn, so
@@ -43,75 +86,81 @@ export interface DungeonActor {
   post: Point | null;
   /** The order was dropped by the run rather than replaced by the person, and the member replans next step. */
   replan: boolean;
+  /** What its mind carries out this step: a direction to walk (unit, world) or null to stand, a way to face, and whom to attack. */
+  plan: { move: Point | null; look: Point | null; attack: DungeonActor | null };
 }
+
 /** How far behind the hero an unposted companion trails before it walks after it, metres: clear of the hero's reach. */
 const TRAIL_METRES = 2.5;
 /**
- * A body with a route that has not moved 50 mm, in any direction, in half a second has the route
- * replanned from where it is. The slowest carrier in `src/golem/config.ts` (the multileg: 0.8 m/s
- * backing, 6.5 m/s2) covers 50 mm from rest in about 0.13 s, and in about 0.15 s at the lowest
- * movement stat (x0.75, which scales both; size leaves acceleration alone), so a body that has not
- * is usually stuck -- typically on a corner its leg cleared from where it was planned. Anything
- * else that holds a body still, a knockdown or another actor in the way, replans it too, which is
- * harmless: a replan that finds no route keeps the one it had, and the step to the cell's middle in
- * `follow` is taken only by a body standing on rock's clearance. Node headless harness: seed 2's
- * explorer sat on a room corner for 93 s without this, and needed exactly one replan with it.
+ * A body with a route that has not moved 50 mm in a second has the route replanned from where it
+ * is. The slowest walker, the skeleton, walks at 0.2 m/s (`stance-envelope.json`), so a body that
+ * has not is stuck or held up; a replan that finds no route keeps the one it had.
  */
-const STALL = { seconds: 0.5, metres: 0.05 } as const;
-/** How far an enemy sees the hero along a clear line (`canSee`). */
+const STALL = { seconds: 1, metres: 0.05 } as const;
+/** How far an enemy sees the party along a clear line (`canSee`). */
 const SIGHT_METRES = 14;
+/** How near a standing party member comes before an enemy is built: beyond its sight, so it is standing when it can first see. */
+export const WAKE_METRES = SIGHT_METRES + 2;
+/**
+ * The clearance a body's path keeps from rock, m: half a human's shoulders' breadth (the Warrior's
+ * are 0.46 m across) and a margin for the stance's sway.
+ */
+const FOOTPRINT_METRES = 0.35;
+/**
+ * How near a target a mind attacks it rather than walking to it, m, feet to feet: the club's reach
+ * ahead of the head (1.05 m, `REPERTOIRE`) and a step, which the strike skill closes itself.
+ */
+export const ATTACK_METRES = 1.8;
 /**
  * With the cursor steering its facing, the hero takes on what the cursor points at, and also any enemy nearer than
- * `metres` wherever it stands, turning to it for as long as it stays within `keepMetres` -- whichever way the cursor
- * then points, so a hero walked away from an enemy on it backs off facing it. An enemy upon the hero comes before
- * one further off, and among either the one the cursor points at comes first (`aimRank`). An enemy that came from
- * behind the cursor used to be nobody's target: the hero walked on into it, was stopped by its body, and stood being
- * hit, over a minute and a half in all across seeds 1-10 (Node headless harness).
+ * `metres` wherever it stands, turning to it for as long as it stays within `keepMetres`.
  */
 const SET_UPON = { metres: 2.5, keepMetres: 3.5 } as const;
 /** The cone about the cursor's direction the hero picks targets from, as the cosine of its half-angle (73 degrees). */
 const AIM_COSINE = 0.3;
-/**
- * An enemy standing at home, unalerted and far from everybody awake, is taken out of the simulation:
- * its bodies are held asleep in Havok, and the run neither observes, decides for nor drives it, which
- * pauses that one body where it stands. It wakes before it could see the hero -- `wakeMetres` is
- * beyond `SIGHT_METRES` -- and before a body walking up to it could reach it (`companyMetres`, about
- * two arm reaches). The gap up to `sleepMetres` keeps a body on the boundary from toggling, and
- * nothing sleeps in the first second, while bodies built in their bind pose settle onto their feet.
- *
- * What it buys, per 4.17 ms physics substep (Node headless harness, whole runs on generated levels
- * 1-13 with 8 enemies and the hero exploring alone, each against the same run with this switched
- * off): 0.58-2.98 ms against 1.30-3.90, a median of 0.57 of the cost. The owner's Firefox took
- * 2.3-3.3 ms a substep before this, over half of real time, and a page that far behind falls further
- * behind. Four of those runs end identically; the rest part in a fight, by a tenth of a micrometre at
- * first, once a woken enemy joins it -- as they do when far enemies are merely nudged by 1e-4 N s.
- */
-const DORMANCY = { sleepMetres: SIGHT_METRES + 4, wakeMetres: SIGHT_METRES + 2, companyMetres: 4,
-  homeMetres: 0.5, settleSeconds: 1 } as const;
 const direction = (from: Point, to: Point): Point => {
   const d = Math.max(0.001, distance(from, to)); return { x: (to.x - from.x) / d, z: (to.z - from.z) / d };
 };
 const IDLE: Order = Object.freeze({ kind: "idle" });
 export { companionSpawn } from "./party-placement.ts";
 
+export interface DungeonRunOptions {
+  /** The level's seed (`generateLevel`), unless `layout` is given. */
+  readonly seed: number;
+  readonly engine: PhysicsEngine;
+  /** The level's look (`buildDungeonWorld`); false draws nothing. */
+  readonly visuals?: boolean | DungeonSurfaces;
+  readonly layout?: DungeonMap;
+  readonly hero?: CoreModel;
+  readonly companions?: readonly CoreModel[];
+  /** Each spawn's model; the skeleton unless given. */
+  readonly enemy?: (i: number) => CoreModel;
+  /** Hears each blow as it lands. */
+  readonly onBlow?: (blow: LandedBlow) => void;
+  /** Called with each actor as its body is built, before it first steps: the page dresses it. */
+  readonly onBuilt?: (actor: DungeonActor) => void;
+}
+
+/** A model with the club in its right hand. */
+const clubbed = (model: CoreModel): BodySpec => armed(modelSpec(model), "right", woodenClub());
+
 export class DungeonRun {
   readonly map: DungeonMap;
   readonly commands = new DungeonCommands();
+  readonly core: World;
   readonly world: ReturnType<typeof buildDungeonWorld>;
   readonly actors: DungeonActor[] = [];
   readonly hero: DungeonActor;
-  /**
-   * The bodies one person orders: the hero first, then the companions. `actors` holds the hero, then the
-   * enemies, then the companions, so that a run with no companions builds, seeds and steps exactly the
-   * bodies it did before there was a party.
-   */
+  /** The bodies one person orders: the hero first, then the companions. */
   readonly party: DungeonActor[] = [];
   readonly enemies: DungeonActor[] = [];
+  /** Every blow and clash so far. */
+  readonly blows: LandedBlow[] = [];
   /** Which party members the person's next mouse order goes to, by id. Everybody, until the person picks. */
   selected: ReadonlySet<string>;
   readonly explored = new Set<number>();
   visible = new Set<number>();
-  clock = 0;
   status: "playing" | "won" | "dead" = "playing";
   notice = "Find the exit. Click to move; drag to keep moving through danger.";
   /** The camera's elevation, which decides where on a wall in front of the hero the cut-away falls. The page sets it. */
@@ -120,66 +169,97 @@ export class DungeonRun {
    * cut-away opens. The page sets it from its azimuth. */
   toward: Point = cameraToward(CAMERA_AZIMUTH);
   private nextPerception = 0;
-  private readonly plugin: HavokPlugin;
-  /** The bodies of each sleeper whose transform Babylon was copying back from Havok every step. */
-  private readonly unsynced = new Map<DungeonActor, PhysicsBody[]>();
   private commandRevision = -1;
-  private dodgeUntil = 0;
-  private dodgeCooldown = 0;
-  private dodgeStart: Point = { x: 0, z: 0 };
-  private dodgeVector: Point = { x: 0, z: 0 };
+  private watch: BlowWatch | null = null;
+  private readonly planning: Hook;
+  private readonly rules = rulebook("dungeon");
+  private readonly options: DungeonRunOptions;
 
-  /** `enemies` overrides each spawn build for tests about one family. */
-  constructor(scene: Scene, seed: number, heroBuild = "default", visuals: boolean | DungeonSurfaces = true, layout?: DungeonMap,
-    heroSetup?: GolemSetup, companions: readonly string[] = [], enemies?: (i: number) => string,
-    onReport?: (attacker: string, event: CombatReportEvent) => void) {
-    this.map = layout ?? generateLevel(seed).map;
-    this.world = buildDungeonWorld(scene, this.map, visuals);
-    this.plugin = scene.getPhysicsEngine()!.getPhysicsPlugin() as HavokPlugin;
-    const definition = unitDefinition("golem"), random = mulberry32(seed ^ 0x9e3779b9);
-    const create = (id: string, buildName: string, at: Point, side: "left" | "right") => {
-      const build = namedBuild(buildName);
-      if (!build) throw new Error(`Unknown dungeon golem: ${buildName}`);
-      const setup = id === "hero" && heroSetup ? heroSetup : build.setup;
-      const policy = definition.createPolicy!(setup.primary.terminal === "bow" ? "humanoid-archer" : FAMILY_POLICY[bodyFamily(setup)], Math.floor(random() * 0xffffffff));
-      let intent = neutralIntent();
-      let command=freshBodyCommand();
-      const source = { name: "dungeon", decide: () => intent, command: () => command };
-      const priorMeshes = new Set(scene.meshes);
-      const body = new Golem(scene, { actorId: id, side, origin: new Vector3(at.x, 0, at.z), facing: side === "left" ? 0 : Math.PI,
-        setup, mind: source, controlPolicies: definition.driverOptions, locomotionWorld: this.world.registry });
-      const combat = new Combat(side, body.strikers, onReport ? event => onReport(id, event) : undefined);
-      const made = scene.meshes.filter(mesh => !priorMeshes.has(mesh));
-      const actor: DungeonActor = { id, name: buildName, body, combat, policy,
-        get intent() { return intent; }, set intent(value) { intent = value; },
-        get command() { return command; }, set command(value) { command = value; }, target: null,
-        home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
-        progress: { at: { ...at }, since: 0 },
-        radius: body.locomotion.footprint.radiusM,
-        meshes: made.map(mesh => ({ mesh, visible: mesh.isVisible })), stopped: false,
-        bodies: made.flatMap(mesh => mesh.physicsBody ? [mesh.physicsBody] : []), dormant: false,
-        order: IDLE, next: 0, post: null, replan: false };
+  constructor(scene: Scene, options: DungeonRunOptions) {
+    this.options = options;
+    this.map = options.layout ?? generateLevel(options.seed).map;
+    this.core = createWorld(scene, options.engine);
+    this.world = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.core.physics);
+    // Before any body's own hooks, so each mind reads this step's plan.
+    this.planning = this.core.beforeStep(() => this.plan());
+    const create = (id: string, model: CoreModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
+      const actor: DungeonActor = {
+        id, name: NAMES[model], model, side, fighter: null, meshes: [],
+        feet() {
+          if (!this.fighter) return { x: this.home.x, z: this.home.z };
+          const c = this.fighter.body.view.stance.centre; return { x: c.x, z: c.z };
+        },
+        get alive() { return this.fighter === null || this.fighter.pool.ending() === null && !this.fighter.skills.report.fallen; },
+        get vitality() { return this.fighter?.pool.bar() ?? 1; },
+        target: null, home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
+        radius: FOOTPRINT_METRES, progress: { at: { ...at }, since: 0 },
+        order: IDLE, next: 0, post: null, replan: false, plan: { move: null, look: null, attack: null },
+      };
       this.actors.push(actor); return actor;
     };
-    this.hero = create("hero", heroBuild, this.map.start, "left");
+    this.hero = create("hero", options.hero ?? "workshop-fighter", this.map.start, "party");
     this.party.push(this.hero);
-    this.map.spawns.forEach((at, i) => this.enemies.push(
-      create(`enemy-${i}`, enemies?.(i) ?? drawEnemy(random), at, "right")));
-    // After the enemies, so the enemies' seeds are the ones they always drew.
+    this.map.spawns.forEach((at, i) => this.enemies.push(create(`enemy-${i}`, options.enemy?.(i) ?? "crypt-skeleton", at, "enemy")));
     const taken: Point[] = [this.map.start];
-    companions.forEach((build, i) => {
+    (options.companions ?? []).forEach((model, i) => {
       const at = companionSpawn(this.map, taken);
       if (!at) throw new Error(`No floor beside the start for companion ${i + 1}`);
-      taken.push(at); this.party.push(create(`ally-${i}`, build, at, "left"));
+      taken.push(at); this.party.push(create(`ally-${i}`, model, at, "party"));
     });
     this.selected = new Set(this.party.map(member => member.id));
-    // One lookup per body, independent of which enemy the player has selected.
-    const owners = new Map(this.actors.flatMap(actor => actor.body.limbs.map(limb => [limb.part.body, actor] as const)));
-    for (const actor of this.actors) actor.combat.attachResolver(body => {
-      const hit = owners.get(body);
-      return hit && hit !== actor && hit.body.side !== actor.body.side && hit.body.alive ? hit.body : null;
-    });
+    for (const member of this.party) this.build(member);
+    this.wake();
     this.visible = this.sight(this.party.map(member => member.home));
+  }
+
+  /** Seconds since the run began: the core world's clock. */
+  get clock(): number { return this.core.time; }
+
+  /** Build `actor`'s body where it waits, hand it its mind, and watch its blows with everybody's. */
+  private build(actor: DungeonActor): void {
+    const spec = clubbed(actor.model);
+    const built = buildBody(spec, this.core, { position: [actor.home.x, 0, actor.home.z] });
+    const body = createBody(built, this.core, { servoSeconds: SERVO_SECONDS });
+    const skills = driveBy(body, this.mind(actor));
+    actor.fighter = { id: actor.id, side: actor.side, built, pool: createPool(spec, this.rules), body, skills };
+    this.watch?.dispose();
+    const fighters = this.actors.flatMap((a) => a.fighter ? [a.fighter] : []);
+    this.watch = watchBlows(this.core, fighters, this.rules, (blow) => { this.blows.push(blow); this.options.onBlow?.(blow); });
+    this.options.onBuilt?.(actor);
+  }
+
+  /** What carries out `actor`'s plan: walk its direction at the body's fastest walk, and attack its target's head when close. */
+  private mind(actor: DungeonActor): Mind {
+    /** The point aimed at, whose head it was, and the blows thrown when it was chosen. */
+    let aim: { target: DungeonActor; point: Vec3; thrown: number } | null = null;
+    return {
+      name: `crypt ${actor.side}`,
+      decide: ({ report, envelope }): Intent => {
+        const { move, look, attack } = actor.plan;
+        const struck = actor.alive ? attack?.fighter : null;
+        if (attack && struck) {
+          const head = struck.body.view.head, thrown = report.strike.thrown.right;
+          if (!aim || aim.target !== attack || aim.thrown !== thrown
+            || Math.hypot(head.x - aim.point[0], head.y - aim.point[1], head.z - aim.point[2]) > APPROACH.reach) {
+            aim = { target: attack, point: [head.x, head.y, head.z], thrown };
+          }
+          return { move: null, face: report.heading, hands: { left: GUARD_ACTION, right: { kind: "attack", target: aim.point } } };
+        }
+        aim = null;
+        const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
+        if (!actor.alive || !move || !envelope) {
+          const face = look && Math.hypot(look.x, look.z) > 0.08 ? Math.atan2(look.x, look.z) : report.heading;
+          return { move: null, face, hands };
+        }
+        return { move: [envelope.walk.value, 0], face: Math.atan2(move.x, move.z), hands };
+      },
+    };
+  }
+
+  /** Build each enemy a standing party member has come within `WAKE_METRES` of. */
+  private wake(): void {
+    const standing = this.party.filter(member => member.alive).map(member => member.feet());
+    for (const enemy of this.enemies) if (!enemy.fighter && standing.some(at => distance(at, enemy.home) < WAKE_METRES)) this.build(enemy);
   }
 
   /** What the party sees from where its members stand: every member's cells, one set. */
@@ -192,8 +272,7 @@ export class DungeonRun {
   /**
    * The point itself for the first member sent to it, then the first of eight bearings on a 1.4 m ring,
    * and a 2.8 m one, that is floor within sight of it and clear of every slot already given. Each slot
-   * is recorded in `taken`. The first member's order is the person's own point, so a party of one walks
-   * exactly where it always did.
+   * is recorded in `taken`.
    */
   private slot(point: Point, radius: number, taken: Point[]): Point {
     const free = (at: Point) => taken.every(other => distance(other, at) >= 1.3);
@@ -207,7 +286,7 @@ export class DungeonRun {
   }
 
   /** The party member the camera follows and the page reports: the hero while it stands, then the first companion that does. */
-  get leader(): DungeonActor { return this.party.find(member => member.body.alive) ?? this.hero; }
+  get leader(): DungeonActor { return this.party.find(member => member.alive) ?? this.hero; }
 
   /** Sends the person's next mouse order to these party members, or to everybody when `ids` is null. Unknown ids are dropped. */
   select(ids: readonly string[] | null): void {
@@ -222,19 +301,12 @@ export class DungeonRun {
   }
 
   private follow(actor: DungeonActor, goal: Point): Point {
-    const at = actor.body.feetPosition();
-    if (!actor.route.length || distance(at, actor.progress.at) > STALL.metres) actor.progress = { at: { x: at.x, z: at.z }, since: this.clock };
+    const at = actor.feet();
+    if (!actor.route.length || distance(at, actor.progress.at) > STALL.metres) actor.progress = { at, since: this.clock };
     else if (this.clock - actor.progress.since > STALL.seconds) {
-      let route = findPath(this.map, at, goal, actor.radius);
-      // A body wedged on the clearance arc of a rock corner is handed the same leg again: clear at
-      // `clearSegment`'s 0.2 m samples, blocked within a millimetre. The middle of its own cell is
-      // away from that corner, so it goes there first and plans on from it. Only a body standing on
-      // rock's clearance does: one held up by another body, a mid-fight stall, keeps its leg.
-      const middle = { x: Math.round(at.x), z: Math.round(at.z) };
-      if (route.length && distance(route[0], actor.route[0]) < 0.01 && !walkable(this.map, at, actor.radius + 0.02) &&
-        distance(at, middle) > 0.3 && walkable(this.map, middle, actor.radius)) route = [middle, ...findPath(this.map, middle, goal, actor.radius)];
+      const route = findPath(this.map, at, goal, actor.radius);
       if (route.length) { actor.goal = { x: goal.x, z: goal.z }; actor.route = route; actor.nextPlan = this.clock + 0.5; }
-      actor.progress = { at: { x: at.x, z: at.z }, since: this.clock };
+      actor.progress = { at, since: this.clock };
     }
     if (!actor.goal || distance(goal, actor.goal) > 0.65 || this.clock >= actor.nextPlan && !actor.route.length) {
       actor.goal = { x: goal.x, z: goal.z }; actor.route = findPath(this.map, at, goal, actor.radius);
@@ -246,13 +318,13 @@ export class DungeonRun {
   }
 
   private perceive(): void {
-    const members = this.party.filter(member => member.body.alive);
-    const places = members.map(member => member.body.feetPosition());
+    const members = this.party.filter(member => member.alive);
+    const places = members.map(member => member.feet());
     this.visible = this.sight(places);
-    // An enemy goes for the nearest party member it can see. Alone, that is the hero whenever it is seen.
+    // An enemy goes for the nearest party member it can see.
     for (const actor of this.enemies) {
-      if (!actor.body.alive) { actor.target = null; continue; }
-      const at = actor.body.feetPosition();
+      if (!actor.fighter || !actor.alive) { actor.target = null; continue; }
+      const at = actor.feet();
       let seen = -1, best = Infinity;
       for (let i = 0; i < members.length; i++) {
         const d = distance(at, places[i]);
@@ -269,53 +341,48 @@ export class DungeonRun {
   /** Which enemy a party member fights: the one its order locks, or the nearest it can see. */
   private choose(member: DungeonActor, at: Point): void {
     const order = member.order;
+    const fighting = (a: DungeonActor) => a.fighter !== null && a.alive;
     if (order.kind === "lock") {
       const locked = this.enemies.find(a => a.id === order.target);
-      if (locked?.body.alive && canSee(this.map, at, locked.body.feetPosition(), 12)) {
-        const position = locked.body.feetPosition();
-        member.target = locked; member.lastSeen = { x: position.x, z: position.z }; return;
+      if (locked && fighting(locked) && canSee(this.map, at, locked.feet(), 12)) {
+        member.target = locked; member.lastSeen = locked.feet(); return;
       }
       // Pursue the last observed position, never a hidden moving actor.
-      if (locked?.body.alive && member.lastSeen && distance(at, member.lastSeen) > 0.5 &&
+      if (locked && fighting(locked) && member.lastSeen && distance(at, member.lastSeen) > 0.5 &&
         findPath(this.map, at, member.lastSeen, member.radius).length) { member.target = null; return; }
       member.order = IDLE; member.next = 0; member.replan = true; member.lastSeen = null;
     }
     const hero = member === this.hero, current = member.target;
     const rank = (actor: DungeonActor) => hero ? this.aimRank(actor) : 0;
-    const candidates = this.enemies.filter(a => a.body.alive && canSee(this.map, at, a.body.feetPosition(), 8))
-      .filter(a => !hero || this.aimedAt(a) || distance(at, a.body.feetPosition()) < (a === current ? SET_UPON.keepMetres : SET_UPON.metres))
-      .sort((a, b) => rank(a) - rank(b) || distance(a.body.feetPosition(), at) - distance(b.body.feetPosition(), at));
-    const keep = current && candidates.includes(current) && distance(current.body.feetPosition(), at) < 5
-      && rank(current) <= rank(candidates[0]);
+    const candidates = this.enemies.filter(a => fighting(a) && canSee(this.map, at, a.feet(), 8))
+      .filter(a => !hero || this.aimedAt(a) || distance(at, a.feet()) < (a === current ? SET_UPON.keepMetres : SET_UPON.metres))
+      .sort((a, b) => rank(a) - rank(b) || distance(a.feet(), at) - distance(b.feet(), at));
+    const keep = current && candidates.includes(current) && distance(current.feet(), at) < 5 && rank(current) <= rank(candidates[0]);
     member.target = keep ? current : candidates[0] ?? null;
   }
 
-  /**
-   * Which the hero takes on first, lowest first: an enemy upon it that the cursor points at, one upon it, one the cursor
-   * points at, then the rest. Every enemy ranks alike unless the cursor steers the hero's facing. The hero's own target
-   * stays upon it out to `keepMetres`, or one circling at about `metres` would swap it for another at every perception.
-   */
+  /** Which the hero takes on first, lowest first: an enemy upon it that the cursor points at, one upon it, one the cursor points at, then the rest. */
   private aimRank(actor: DungeonActor): number {
     if (!this.commands.mode.facing || !this.commands.cursor) return 0;
     const reach = actor === this.hero.target ? SET_UPON.keepMetres : SET_UPON.metres;
-    const upon = distance(this.hero.body.feetPosition(), actor.body.feetPosition()) < reach;
+    const upon = distance(this.hero.feet(), actor.feet()) < reach;
     return (upon ? 0 : 2) + (this.aimedAt(actor) ? 0 : 1);
   }
 
   /** Whether the cursor points the hero at `actor`: always, unless the cursor steers the hero's facing. */
   private aimedAt(actor: DungeonActor): boolean {
-    const heroAt = this.hero.body.feetPosition();
+    const heroAt = this.hero.feet();
     if (!this.commands.mode.facing || !this.commands.cursor) return true;
-    const look = direction(heroAt, this.commands.cursor), toward = direction(heroAt, actor.body.feetPosition());
+    const look = direction(heroAt, this.commands.cursor), toward = direction(heroAt, actor.feet());
     return toward.x * look.x + toward.z * look.z > AIM_COSINE;
   }
 
   /**
-   * Where a party member walks this step, or null when its combat policy owns close-range positioning.
+   * Where a party member walks this step, or null when it is close enough to its target to fight.
    * The person's keyboard and mouse facing drive the hero alone; a mouse order is each selected member's.
    */
-  private memberMovement(actor: DungeonActor): Point | null {
-    const { mode } = this.commands, order = actor.order, at = actor.body.feetPosition(), hero = actor === this.hero;
+  memberMovement(actor: DungeonActor): Point | null {
+    const { mode } = this.commands, order = actor.order, at = actor.feet(), hero = actor === this.hero;
     if (hero && mode.keyboard) return screenMovement(this.commands.right, this.commands.up, this.toward);
     if (order.kind === "force") {
       while (actor.next < order.points.length && distance(at, order.points[actor.next]) < 0.4) { actor.next++; actor.goal = null; }
@@ -331,9 +398,8 @@ export class DungeonRun {
       return move;
     }
     if (actor.target) {
-      const targetAt = actor.target.body.feetPosition();
-      if (distance(at, targetAt) > (actor.policy.name === "humanoid-archer" ? 7 : 3.5)) return this.follow(actor, targetAt);
-      return null; // Combat policy owns close-range positioning unless the player owns movement.
+      const targetAt = actor.target.feet();
+      return distance(at, targetAt) > ATTACK_METRES ? this.follow(actor, targetAt) : null;
     }
     if (order.kind === "lock" && actor.lastSeen) return this.follow(actor, actor.lastSeen);
     if (order.kind === "attack-move") {
@@ -347,54 +413,37 @@ export class DungeonRun {
     }
     if (!hero) {
       // A companion with nothing to do holds where it was sent, or walks after the hero.
-      const post = actor.post, heroAlive = this.hero.body.alive;
+      const post = actor.post;
       if (post) return distance(at, post) > 0.6 ? this.follow(actor, post) : { x: 0, z: 0 };
-      if (!heroAlive) return { x: 0, z: 0 };
-      const heroAt = this.hero.body.feetPosition();
+      if (!this.hero.alive) return { x: 0, z: 0 };
+      const heroAt = this.hero.feet();
       return distance(at, heroAt) > TRAIL_METRES ? this.follow(actor, heroAt) : { x: 0, z: 0 };
     }
     if (mode.facing) {
       if (!actor.goal || distance(at, actor.goal) < 0.5 || !actor.route.length) {
         actor.goal = null;
         const goal = explorationGoal(this.map, at, this.explored, actor.radius);
-        if (goal) return this.follow(actor, goal);
-        return { x: 0, z: 0 };
+        return goal ? this.follow(actor, goal) : { x: 0, z: 0 };
       }
       return this.follow(actor, actor.goal);
     }
     return { x: 0, z: 0 };
   }
 
-  private evade(move: Point): Point {
-    if (Math.hypot(move.x, move.z) < 0.1) return move;
-    const at = this.hero.body.feetPosition();
-    if (this.clock >= this.dodgeCooldown && this.clock > 0.6) {
-      const danger = this.enemies.some(a => a.body.alive && distance(at, a.body.feetPosition()) < 4 &&
-        Object.values(a.body.view.self.hands).some(hand => {
-          if (hand.lost || hand.tipSpeed < 3) return false;
-          const x = hand.tip.x - at.x, z = hand.tip.z - at.z;
-          const vx = hand.tipVelocity.x, vz = hand.tipVelocity.z;
-          const t = Math.max(0, Math.min(0.2, -(x * vx + z * vz) / Math.max(0.01, vx * vx + vz * vz)));
-          return t > 0 && Math.hypot(x + vx * t, z + vz * t) < this.hero.radius + 0.3;
-        }));
-      if (danger) for (const sign of [1, -1]) {
-        const side = { x: -move.z * sign, z: move.x * sign };
-        if (!walkable(this.map, { x: at.x + side.x * 0.35, z: at.z + side.z * 0.35 }, this.hero.radius, true)) continue;
-        this.dodgeVector = side; this.dodgeStart = { x: at.x, z: at.z };
-        this.dodgeUntil = this.clock + 0.25; this.dodgeCooldown = this.clock + 1; break;
-      }
-    }
-    if (this.clock >= this.dodgeUntil || distance(at, this.dodgeStart) >= 0.35) return move;
-    const x = move.x + this.dodgeVector.x * 0.65, z = move.z + this.dodgeVector.z * 0.65;
-    const length = Math.max(1, Math.hypot(x, z)); return { x: x / length, z: z / length };
+  /** Where an enemy walks this step, or null when it is close enough to its target to fight: after what it saw, else home. */
+  private enemyMovement(actor: DungeonActor): Point | null {
+    const at = actor.feet();
+    if (actor.target && distance(at, actor.target.feet()) <= ATTACK_METRES) return null;
+    const goal = actor.target?.feet() ?? (actor.alertedUntil > this.clock ? actor.lastSeen : actor.home);
+    return goal && distance(at, goal) > 0.4 ? this.follow(actor, goal) : { x: 0, z: 0 };
   }
 
   /** Paths route around walls; local steering lets a route pass an occupied floor point. */
   private avoidCrowd(actor: DungeonActor, move: Point): Point {
     if (Math.hypot(move.x, move.z) < 0.1) return move;
-    const at = actor.body.feetPosition();
-    const obstruction = this.actors.filter(other => other !== actor && other.body.alive).map(other => {
-      const p = other.body.feetPosition(), dx = p.x - at.x, dz = p.z - at.z;
+    const at = actor.feet();
+    const obstruction = this.actors.filter(other => other !== actor && other.fighter && other.alive).map(other => {
+      const p = other.feet(), dx = p.x - at.x, dz = p.z - at.z;
       return { other, dx, dz, forward: dx * move.x + dz * move.z,
         lateral: -dx * move.z + dz * move.x, clearance: actor.radius + other.radius + 0.15 };
     }).filter(p => p.forward > 0 && p.forward < p.clearance + 1 && Math.abs(p.lateral) < p.clearance)
@@ -406,64 +455,17 @@ export class DungeonRun {
       const candidate = { x: move.x * c - move.z * s, z: move.x * s + move.z * c };
       const endpoint = { x: at.x + candidate.x * 0.65, z: at.z + candidate.z * 0.65 };
       if (walkable(this.map, endpoint, actor.radius, true) &&
-        distance(endpoint, obstruction.other.body.feetPosition()) > Math.hypot(obstruction.dx, obstruction.dz) - 0.05) return candidate;
+        distance(endpoint, obstruction.other.feet()) > Math.hypot(obstruction.dx, obstruction.dz) - 0.05) return candidate;
     }
     return move;
   }
 
-  /**
-   * Puts to sleep, and wakes, the enemies nobody is near (`DORMANCY`). Company is a body going
-   * somewhere: a party member, or an enemy that is not resting at home. Two resting neighbours are none to
-   * each other, so a pair sleeps together rather than holding each other awake, and one that arrives
-   * home beside a sleeper does not wake it and fall asleep in the same step, over and over. The distance
-   * that wakes and sleeps an enemy is to the nearest party member standing, since each one can see.
-   */
-  private rest(): void {
-    if (this.clock < DORMANCY.settleSeconds) return;
-    const resting = (actor: DungeonActor) => {
-      const state = actor.body.locomotion.state;
-      return !this.party.includes(actor) && !actor.target && actor.alertedUntil <= this.clock && state !== "fallen" &&
-        state !== "rising" && distance(actor.body.feetPosition(), actor.home) < DORMANCY.homeMetres;
-    };
-    const company = this.actors.filter(a => a.body.alive && !a.dormant && !resting(a)).map(a => a.body.feetPosition());
-    const near = (at: Point, metres: number) => company.some(other => distance(other, at) < metres);
-    const standing = this.party.filter(member => member.body.alive).map(member => member.body.feetPosition());
-    // Alone and fallen, the hero is still the one measured from, as it always was.
-    if (!standing.length) standing.push(this.hero.body.feetPosition());
-    for (const actor of this.enemies) {
-      if (!actor.body.alive) continue;
-      const at = actor.body.feetPosition(), fromHero = Math.min(...standing.map(p => distance(at, p)));
-      if (actor.dormant) {
-        if (fromHero < DORMANCY.wakeMetres || near(at, DORMANCY.companyMetres)) this.setDormant(actor, false);
-      } else if (fromHero > DORMANCY.sleepMetres && resting(actor) && !near(at, DORMANCY.companyMetres + 1)) this.setDormant(actor, true);
+  /** The run's part of a step, before the bodies': orders, doors, who is built, who sees whom, and each actor's plan. */
+  private plan(): void {
+    if (this.status !== "playing") {
+      for (const actor of this.actors) actor.plan = { move: null, look: null, attack: null };
+      return;
     }
-  }
-
-  /**
-   * A body held asleep cannot move, and Babylon would still copy its transform back from Havok on every step. So
-   * its sync is off while it sleeps, and back to what it was on waking. Measured in the Node headless harness, with
-   * most enemies asleep, that cut 12-28 % from each substep on four generated levels, and runs on levels 1-6 ended
-   * exactly as with the sync left on.
-   */
-  private setDormant(actor: DungeonActor, dormant: boolean): void {
-    // A second call would overwrite the list of bodies to restore with an empty one.
-    if (actor.dormant === dormant) return;
-    actor.dormant = dormant;
-    const mode = dormant ? PhysicsActivationControl.ALWAYS_INACTIVE : PhysicsActivationControl.SIMULATION_CONTROLLED;
-    for (const body of actor.bodies) this.plugin.setActivationControl(body, mode);
-    if (dormant) {
-      const synced = actor.bodies.filter(body => !body.disableSync);
-      for (const body of synced) body.disableSync = true;
-      this.unsynced.set(actor, synced);
-    } else {
-      for (const body of this.unsynced.get(actor) ?? []) body.disableSync = false;
-      this.unsynced.delete(actor);
-    }
-  }
-
-  step(dt: number): void {
-    if (this.status !== "playing") return;
-    this.clock += dt;
     if (this.commands.revision !== this.commandRevision) {
       // The person's new order goes to the selected members, and replaces whatever each was doing.
       this.commandRevision = this.commands.revision;
@@ -475,100 +477,61 @@ export class DungeonRun {
         member.next = 0; member.replan = true;
         if (order.kind !== "idle") member.post = null;
       }
-      this.notice = this.commands.order.kind === "force" ? "Force move — following your drawn route" : "Find the illuminated exit.";
+      this.notice = order.kind === "force" ? "Force move — following your drawn route" : "Find the illuminated exit.";
     }
     for (const member of this.party) if (member.replan) {
       member.replan = false; member.route = []; member.goal = null; member.target = null; member.lastSeen = null;
       this.nextPerception = 0;
       if (member.order.kind === "idle" && member === this.hero) this.notice = "Find the illuminated exit.";
     }
-    this.world.openNearby(this.actors.filter(a => a.body.alive).map(a => a.body.feetPosition()));
-    this.rest();
+    this.world.openNearby(this.actors.filter(a => a.fighter && a.alive).map(a => a.feet()));
+    this.wake();
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + 0.2; }
-    const live = this.actors.filter(actor => !actor.dormant);
-    // Observe everybody before deciding or driving anybody. No fake opponent for exploration.
-    for (const actor of live) actor.body.observe(actor.target?.body ?? null, this.clock);
-    // What each body's neighbours press on it with, before any boundary reads it. The dungeon's group
-    // resolver has no pair push (`resolvePhysicalSupportedPair` has), so a body walked into here
-    // is stopped rather than shoved; an arm's press reaches it all the same.
-    const sources = live.map((actor) => actor.body.pressSource());
-    live.forEach((actor, i) => actor.body.sampleContactPress(sources.filter((_, j) => j !== i)));
-    for (const actor of live) actor.body.locomotion.beginControlStep();
-    for (const actor of live) {
-      if (!actor.body.alive) {
-        if (!actor.stopped) { actor.combat.stop(true); actor.body.stopFighting(); actor.stopped = true; }
-        actor.combat.advance(dt);
-        continue;
-      }
-      const at = actor.body.feetPosition();
-      const base = actor.target?.body.alive ? actor.policy.decide(actor.body.view, dt) : neutralIntent();
-      let move: Point | null, look: Point | null = null;
-      if (actor === this.hero) {
-        move = this.memberMovement(actor);
-        if (move) move = this.evade(move);
-        // A target outside the cursor's cone, which only one set upon the hero can be, is fought as the policy turns to it.
-        if (this.commands.mode.facing && !(actor.target && !this.aimedAt(actor.target))) look = this.commands.cursor
-          ? { x: this.commands.cursor.x - at.x, z: this.commands.cursor.z - at.z }
-          : { x: Math.sin(actor.body.view.self.facing), z: Math.cos(actor.body.view.self.facing) };
-      } else if (this.party.includes(actor)) move = this.memberMovement(actor);
-      else if (actor.target && distance(at, actor.target.body.feetPosition()) <= (actor.policy.name === "humanoid-archer" ? 7 : 3.5)) move = null;
-      else {
-        const goal = actor.target?.body.feetPosition() ?? (actor.alertedUntil > this.clock ? actor.lastSeen : actor.home);
-        move = goal && distance(at, goal) > 0.4 ? this.follow(actor, goal) : { x: 0, z: 0 };
-      }
+    for (const actor of this.actors) {
+      if (!actor.fighter || !actor.alive) { actor.plan = { move: null, look: null, attack: null }; continue; }
+      let move = actor.side === "party" ? this.memberMovement(actor) : this.enemyMovement(actor);
       if (move && !(actor === this.hero && this.commands.mode.keyboard)) move = this.avoidCrowd(actor, move);
-      if (!look && move && Math.hypot(move.x, move.z) > 0.1 && (!actor.target || distance(at, actor.target.body.feetPosition()) > 3.5)) look = move;
-      if (actor === this.hero && this.commands.mode.facing && this.commands.cursor && look && Math.hypot(look.x, look.z) <= 0.08)
-        look = { x: Math.sin(actor.body.view.self.facing), z: Math.cos(actor.body.view.self.facing) };
-      actor.intent = composeIntent(base, actor.body.view.self.facing, move, look);
-      actor.command = intentToCommand(actor.intent);
-      if (isCommandMind(actor.policy)) {
-        const ranged = actor.target?.body.alive ? actor.policy.command(actor.body.view,dt) : freshBodyCommand();
-        if (move && Math.hypot(move.x,move.z)>.1) {
-          ranged.gait.forward=actor.command.gait.forward;ranged.gait.strafe=actor.command.gait.strafe;
-          ranged.gait.turn=actor.command.gait.turn;delete ranged.effectors.primary.ranged;
-        }
-        // Party members obstruct the line even though friendly collisions are excluded.
-        const mark=actor.target?.body.view.self.vitalPoint, start=actor.body.view.self.shoulder;
-        if(mark) for(const ally of this.party.includes(actor)?this.party:this.enemies) {
-          if(ally===actor || !ally.body.alive)continue;
-          const p=ally.body.view.self.vitalPoint, dx=mark.x-start.x,dz=mark.z-start.z;
-          const t=((p.x-start.x)*dx+(p.z-start.z)*dz)/(dx*dx+dz*dz);
-          if(t>0 && t<1 && Math.hypot(p.x-start.x-t*dx,p.z-start.z-t*dz)<ally.radius+.15) delete ranged.effectors.primary.ranged;
-        }
-        actor.command=ranged;
-      }
-      actor.body.control.driver.step(dt);
-      actor.combat.advance(dt);
+      const walking = move !== null && Math.hypot(move.x, move.z) > 0.1;
+      const at = actor.feet(), target = actor.target;
+      const look = target ? direction(at, target.feet())
+        : actor === this.hero && this.commands.mode.facing && this.commands.cursor ? direction(at, this.commands.cursor) : null;
+      actor.plan = { move: walking ? move : null, look, attack: move === null && target?.fighter && target.alive ? target : null };
     }
-    // A sleeper's combat clock keeps time: a limb's hit cooldown is stamped with its attacker's clock
-    // and read against the next attacker's, so every clock must read the same.
-    for (const actor of this.actors) if (actor.dormant) actor.combat.advance(dt);
-    resolveDungeonLocomotion(live.map(a => a.body.locomotion), dt, live.map(a => this.party.includes(a) ? "party" : null));
-    for (const actor of live) actor.body.afterLocomotion(dt);
     // The run is lost when the whole party has fallen, and won when anybody still standing reaches the exit.
-    const standing = this.party.filter(member => member.body.alive);
+    const standing = this.party.filter(member => member.alive);
     if (!standing.length) this.status = "dead";
-    else if (standing.some(member => distance(member.body.feetPosition(), this.map.exit) < 1.1)) this.status = "won";
+    else if (standing.some(member => distance(member.feet(), this.map.exit) < 1.1)) this.status = "won";
   }
 
+  /** `n` steps of the core world, each running the run's plan and then every body. */
+  step(n = 1): void { this.core.step(n); }
+
+  /** The steps owed after `seconds` of real time, no more than `most` (`World.advance`); none once the run is over. */
+  advance(seconds: number, most?: number): number { return this.status === "playing" ? this.core.advance(seconds, most) : 0; }
+
   present(): void {
-    this.world.present(this.visible, this.explored, this.leader.body.feetPosition(), this.pitch, this.toward);
+    this.world.present(this.visible, this.explored, this.leader.feet(), this.pitch, this.toward);
     for (const actor of this.actors) {
-      const shown = this.party.includes(actor) || this.visible.has(cellKey(this.map, actor.body.feetPosition()));
-      for (const { mesh, visible } of actor.meshes) mesh.isVisible = shown && visible;
+      const shown = actor.side === "party" || this.visible.has(cellKey(this.map, actor.feet()));
+      for (const mesh of actor.meshes) mesh.isVisible = shown;
     }
   }
 
   targetAt(mesh: AbstractMesh): DungeonActor | null {
-    return this.enemies.find(a => a.body.alive && a.body.owns(mesh) &&
-      this.visible.has(cellKey(this.map, a.body.feetPosition()))) ?? null;
+    return this.enemies.find(a => a.fighter && a.alive && a.meshes.includes(mesh) &&
+      this.visible.has(cellKey(this.map, a.feet()))) ?? null;
   }
 
-  /** The party member whose body this mesh belongs to, alive, or null: a click on one selects it. */
+  /** The party member whose body this mesh belongs to, standing, or null: a click on one selects it. */
   memberAt(mesh: AbstractMesh): DungeonActor | null {
-    return this.party.find(a => a.body.alive && a.body.owns(mesh)) ?? null;
+    return this.party.find(a => a.alive && a.meshes.includes(mesh)) ?? null;
   }
 
-  dispose(): void { for (const a of this.actors) a.combat.dispose(); for (const a of this.actors) a.body.dispose(); this.world.dispose(); }
+  dispose(): void {
+    this.watch?.dispose();
+    this.planning.dispose();
+    for (const actor of this.actors) actor.fighter?.body.dispose();
+    this.world.dispose();
+    this.core.dispose();
+  }
 }

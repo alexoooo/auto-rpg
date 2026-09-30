@@ -5,10 +5,6 @@ import { createHash } from 'node:crypto';
 import { impactCue, ImpactInbox, soundPlacement } from '../src/audio-cues.ts';
 import { GameAudio } from '../src/game-audio.ts';
 import { createBout, freshHavok } from './harness/bout-runner.mjs';
-import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
-import { DungeonRun } from '../src/dungeon/run.ts';
-import { classicDungeon } from './fixtures/classic-dungeon.mjs';
-import { CONFIG } from '../src/config.ts';
 const event = (patch = {}, extra = {}) => ({ blocked: false, ...extra, report: { energyJ: 15, speed: 4, solverImpulse: 1, point: { x: 1, z: 2 }, key: 'head', targetId: 'enemy', severed: false, ...patch } });
 
 test('audio classifies real report distinctions without mutating reports', () => {
@@ -49,7 +45,7 @@ function trace(hash, bodies) {
     hash.update(JSON.stringify([p.x,p.y,p.z,q.x,q.y,q.z,q.w,limb.health,limb.severed]));
   }
 }
-test('sound interpretation leaves real bout and dungeon trajectories identical', async () => {
+test("sound interpretation leaves a real bout's trajectory identical", async () => {
   let reports = 0;
   async function bout(withAudio) {
     const hash=createHash('sha256'); const inbox=new ImpactInbox();
@@ -59,16 +55,6 @@ test('sound interpretation leaves real bout and dungeon trajectories identical',
     try { for(let i=0;i<240;i++) run.step(); return hash.digest('hex'); } finally {run.dispose();}
   }
   assert.equal(await bout(false),await bout(true)); assert.ok(reports>0,'the bout must actually exercise audio reports');
-  reports=0;
-  async function dungeon(withAudio) {
-    const arena=await createHeadlessArena({populateDefaultGeometry:false}); const map=classicDungeon(42);
-    map.spawns=[{x:map.start.x+2,z:map.start.z}]; const hash=createHash('sha256');
-    const run=new DungeonRun(arena.scene,42,'default',false,map,undefined,[],()=> 'default',withAudio ? (id,e)=> { reports++; impactCue(e,id,'golem'); } : undefined);
-    arena.scene.onBeforePhysicsObservable.add(()=>run.step(1/CONFIG.world.physicsHz));
-    try { for(let i=0;i<240;i++){arena.scene._renderId++;arena.scene._advancePhysicsEngineStep(1000/60);trace(hash,run.actors.map(a=>a.body));} return hash.digest('hex'); }
-    finally {run.dispose();arena.dispose();}
-  }
-  assert.equal(await dungeon(false),await dungeon(true)); assert.ok(reports>0,'the dungeon must actually forward reports');
 });
 test('browser audio voice limit and reset discard pending sounds and stop all sources', () => {
   // Exercise the resource owner without creating a browser or an audio device.

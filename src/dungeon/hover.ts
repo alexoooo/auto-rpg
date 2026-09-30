@@ -14,7 +14,7 @@ export class EnemyHover {
   private scene: Scene | null = null;
   private meshes = new Set<Mesh>();
   show(actor: DungeonActor | null): void {
-    const meshes=new Set(actor?.meshes.filter(p=>p.visible&&p.mesh.isVisible&&p.mesh.isEnabled()&&p.mesh instanceof Mesh&&p.mesh.getTotalVertices()>0).map(p=>p.mesh as Mesh)??[]);
+    const meshes=new Set(actor?.meshes.filter((m): m is Mesh=>m.isVisible&&m.isEnabled()&&m instanceof Mesh&&m.getTotalVertices()>0)??[]);
     const scene=meshes.values().next().value?.getScene();
     if(scene&&scene!==this.scene){this.dispose();this.scene=scene;
       this.layer=new HighlightLayer("dungeon.enemy-hover",scene,{mainTextureRatio:1,blurTextureSizeRatio:1,blurHorizontalSize:1,blurVerticalSize:1});

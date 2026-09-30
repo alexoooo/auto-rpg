@@ -95,6 +95,28 @@ skills more dynamically."
    placed as today; the party takes the player's orders through a mind, and an enemy's mind walks
    to its target and attacks it. Acceptance: a seeded crypt loads, the bodies stand in it, and a
    fight starts and ends in the Node harness.
+   - **Landed (2026-09-30).** `DungeonRun` (`src/dungeon/run.ts`) is a core world: the party and
+     the enemies are `createBody` bodies driven by a mind each (`driveBy`), every one carrying a
+     club (recorded, not asked), wounded by `watchBlows` (`src/core/rules/blows.ts`, blows read
+     from the engine's contacts) under the dungeon's rulebook. The orders, sight, routes and
+     doors are the old run's, read from the body's centre of mass over the floor. The strike
+     skill's aim is held while the target's head stays within the approach's reach: re-aimed at
+     the swaying head every step, two bodies stood placing their feet for 25 s. A fallen body is
+     out of the fight, since the core cannot rise yet (recorded, not asked), and an enemy is
+     built only once a standing party member is within `WAKE_METRES`, each body costing about
+     0.55 ms a step. `buildDungeonWorld` puts its boxes in the core's world and lists them
+     (`solids`): the same 832 boxes, name, centre and size, as the Havok bodies they replaced,
+     on seeds 1, 2 and 4, crypt room 12 and the reference chamber. `createBody` now reads its view
+     at creation, so a body's feet are where it was built before its first step. Tests:
+     `crypt-core` (generated seed 1 loads, the enemies within the wake line are built and the
+     rest are not, and every body stands; with the start moved 4 m from the first spawn, blows
+     land both ways and wound, and the fight ends at 11.2 s with the skeleton knocked down, its
+     bar at 0.95; a ball rests on a closed door and falls once it opens), and `dungeon-party`
+     ported (Node, core world, Rapier, 120 Hz). The golem-only dungeon tests, the enemy roster
+     and `scripts/dungeon/sweep.mjs` are deleted. The page (`src/dungeon/main.ts`) offers the
+     Warrior, the Rogue and the skeleton, dresses each body in the lab's skins with its club, and
+     steps the world from its render loop; a built preview, stepped by hand in a hidden tab,
+     built, skinned and stood them. 1144 tests, 1141 pass, 3 todo.
 4. **The Arena on the core.** The room's colliders (`buildArenaColliders`) become fixed shapes in
    the core's world, and its visible room stays. The setup offers core bodies; the bout is two
    minds, the core's rules (`src/core/rules/`) and a verdict. Acceptance: a bout runs to its end

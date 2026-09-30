@@ -247,15 +247,17 @@ test("a_door_leaf_is_drawn_inside_its_collider_and_goes_when_the_door_opens", as
     const map = generateLevel(3).map, world = buildDungeonWorld(arena.scene, map, true);
     assert.ok(map.doors.length > 1, "a level with doors");
     for (const door of map.doors) {
-      const box = arena.scene.getMeshByName(`door.${door.id}`), leaf = arena.scene.meshes.filter(m => m.name.startsWith(`door.${door.id}.`));
-      assert.equal(box.isVisible, false, "a door's collider is drawn");
+      const box = world.solids.find(s => s.name === `door.${door.id}`), leaf = arena.scene.meshes.filter(m => m.name.startsWith(`door.${door.id}.`));
+      assert.equal(arena.scene.getMeshByName(`door.${door.id}`), null, "a door's collider is drawn");
       assert.deepEqual(leaf.map(m => m.name).sort(), [`door.${door.id}.iron`, `door.${door.id}.leaf`]);
-      const half = door.axis === "x" ? [0.175, 1.5] : [1.5, 0.175];
+      assert.deepEqual([box.centre[0], box.centre[2]], [door.point.x, door.point.z]);
+      const half = [box.size[0] / 2, box.size[2] / 2], top = box.centre[1] + box.size[1] / 2;
+      assert.ok(Math.min(...half) < 0.2 && Math.max(...half) === 1.5, `door ${door.id}'s collider is a leaf across its opening`);
       let across = 0;
       for (const mesh of leaf) {
         assert.ok(mesh.isVisible && !mesh.physicsBody, `${mesh.name} is hidden or has a body`);
         for (const [x, y, z] of vertices(mesh)) {
-          assert.ok(Math.abs(x - door.point.x) <= half[0] + 1e-6 && Math.abs(z - door.point.z) <= half[1] + 1e-6 && y >= -1e-6 && y <= 2.5 + 1e-6,
+          assert.ok(Math.abs(x - door.point.x) <= half[0] + 1e-6 && Math.abs(z - door.point.z) <= half[1] + 1e-6 && y >= -1e-6 && y <= top + 1e-6,
             `${mesh.name} leaves its collider at (${x}, ${y}, ${z})`);
           across = Math.max(across, Math.abs(door.axis === "x" ? z - door.point.z : x - door.point.x));
         }
@@ -267,7 +269,7 @@ test("a_door_leaf_is_drawn_inside_its_collider_and_goes_when_the_door_opens", as
     assert.ok(arena.scene.meshes.filter(m => m.name.startsWith(`door.${first.id}.`)).every(m => !m.isVisible), "an open door's leaf is drawn");
     assert.ok(arena.scene.meshes.filter(m => m.name.startsWith(`door.${map.doors[1].id}.`)).every(m => m.isVisible), "a closed door's leaf went");
     world.dispose();
-    // `dispose` takes down bodies, not meshes, so the first world's leaves are still in the scene: count the new ones.
+    // `dispose` takes down colliders, not meshes, so the first world's leaves are still in the scene: count the new ones.
     const leaves = () => arena.scene.meshes.filter(m => /^door\.\d+\./.test(m.name)).length, before = leaves();
     const none = buildDungeonWorld(arena.scene, map, false);
     assert.equal(leaves(), before, "a world with no visuals draws leaves");
@@ -280,8 +282,8 @@ test("a_sconce_is_set_into_the_wall_under_its_flame_and_is_fogged", async () => 
   try {
     for (const seed of [1, 4]) {
       const map = levels.get(seed), world = buildDungeonWorld(arena.scene, map, true), torches = torchPlacements(map, seed);
-      const bodies = arena.scene.meshes.filter(m => m.physicsBody).length, meshes = world.sconces(torches);
-      assert.equal(arena.scene.meshes.filter(m => m.physicsBody).length, bodies, "a sconce has a body");
+      const solids = world.solids.length, meshes = world.sconces(torches);
+      assert.equal(world.solids.length, solids, "a sconce has a collider");
       assert.equal(meshes.length, torches.length, "a torch has no sconce");
       for (const mesh of meshes)
         assert.ok(world.surfaces.includes(mesh) && mesh.material.pluginManager.getPlugin("DungeonFog").view.texture === world.fog.texture);

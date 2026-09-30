@@ -4,7 +4,7 @@ import { SKELETON_BUILDS } from "./skeleton/presets.ts";
 import { defaultGolemSetup, describeGolemSetup, golemSetupRefusal } from "./build.ts";
 
 /**
- * The named golems: the research pool, and the golems the dungeon draws its enemies from.
+ * The named golems: the research pool.
  *
  * A golem has no equipment: its weapons are its body, so picking an opponent is picking a build.
  * These twelve are the standing pool -- one slot moved at a time from the default where that is
@@ -51,9 +51,8 @@ export const NAMED_BUILDS: readonly NamedBuild[] = Object.freeze([
 /**
  * Every build a person can pick: the research pool above and the builds of the other families.
  *
- * `NAMED_BUILDS` is the research pool, and the research tests schedule over it. The dungeon draws
- * its enemies from `DUNGEON_ENEMIES` in `src/dungeon/enemies.ts`, which includes the other
- * families.
+ * `NAMED_BUILDS` is the research pool, and the research tests schedule over it. The dungeon's
+ * bodies are the core's (`src/dungeon/run.ts`), not these.
  */
 export const PLAYABLE_BUILDS: readonly NamedBuild[] = Object.freeze([...NAMED_BUILDS, ...HUMAN_BUILDS,
   ...SKELETON_BUILDS]);

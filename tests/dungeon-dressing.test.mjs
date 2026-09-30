@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
+import { Scene } from "@babylonjs/core/scene.js";
 import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
 import { DRESSING, FACING_MIN, FLOOR_DECALS, FLOOR_TOP, WALL_ALLOWANCE, dressingPlacements, hungCentre, muralHeight, torchPlacements, validateDressing } from "../src/dungeon/dressing.ts";
 import { ATLAS, DECAL_KINDS, MURAL_ASPECT, WALL_PIECES, atlasRect, decalAtlas, muralRect } from "../src/dungeon/decals.ts";
@@ -57,39 +59,36 @@ test("torch_placements_are_a_function_of_the_seed", () => {
   assert.notDeepEqual(torchPlacements(map, 1), torchPlacements(map, 2), "the seed draws the torches, on the same walls");
 });
 
-/** Every body the world builds, as a row a hash can hold: name, where and how big (to 0.1 mm), what it hits, its
- * shape, and its friction and restitution. */
-function colliderRows(scene) {
+/** Every fixed box the world puts in the physics world (`solids`), as a row a hash can hold: name, and where and how
+ * big (to 0.1 mm). What a box is made of is the engine's (`addFixedBox`), the same for every box. */
+function colliderRows(world) {
   const round = v => Math.round(v * 1e4) / 1e4;
-  return scene.meshes.filter(m => m.physicsBody).map(m => {
-    const e = m.getBoundingInfo().boundingBox.extendSize, shape = m.physicsBody.shape;
-    return [m.name, round(m.position.x), round(m.position.y), round(m.position.z), round(e.x), round(e.y), round(e.z),
-      shape.filterMembershipMask, shape.filterCollideMask, m.physicsBody.getMotionType(),
-      shape.type, round(shape.material.friction), round(shape.material.restitution)].join(" ");
-  }).sort();
+  return world.solids.map(s => [s.name, ...s.centre.map(round), ...s.size.map(round)].join(" ")).sort();
 }
 
 // Seeds 1 and 2, with and without visuals, pinned from a run of the level as the generator lays it now. Nothing a look
-// session adds may add, move or re-layer a body; this is what says so. A change to the generator moves the level and
-// is re-pinned only once the level tests are green.
+// session adds may add or move a box; this is what says so. A change to the generator moves the level and is
+// re-pinned only once the level tests are green. Re-pinned when the colliders moved from Havok to the core world: the
+// same 208 and 269 boxes, name, centre and size, as the Havok bodies they replaced (compared box by box on seeds 1, 2
+// and 4, crypt room 12 and the reference chamber).
 const PINNED = {
-  1: { count: 208, sha256: "0da39aab989cfbaf3674b072cf7183d614aa156e6c3416829415ff8ba04a63bd" },
-  2: { count: 269, sha256: "2abcd71c319e7978f2f3992d5f753ba941ee4e31b89a06dac4689a9153e03668" },
+  1: { count: 208, sha256: "7a2e2dd313690b3cccc5314682eb3d3755217accf0ce6ff0abeb0a2b70405dd0" },
+  2: { count: 269, sha256: "ee5f8f3e6c5c27c610b9583752c91b991b8c2e048d7459bd81d81a0767a20eff" },
 };
 
 test("the_dungeon_builds_the_same_colliders_with_or_without_visuals", async () => {
   // Flat colours, and textured stone with a texture factory that loads nothing.
   for (const seed of [1, 2]) for (const visuals of [false, true, "stone"]) {
-    const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+    const scene = new Scene(new NullEngine());
     try {
-      const world = buildDungeonWorld(arena.scene, generateLevel(seed).map,
-        visuals === "stone" ? dungeonStone(arena.scene, "stone", "stone", () => null) : visuals);
-      const rows = colliderRows(arena.scene);
+      const world = buildDungeonWorld(scene, generateLevel(seed).map,
+        visuals === "stone" ? dungeonStone(scene, "stone", "stone", () => null) : visuals);
+      const rows = colliderRows(world);
       const sha256 = createHash("sha256").update(rows.join("\n")).digest("hex");
       assert.deepEqual({ count: rows.length, sha256 }, PINNED[seed], `seed ${seed}, visuals ${visuals}`);
       world.dispose();
     } finally {
-      arena.dispose();
+      scene.dispose();
     }
   }
 });
@@ -311,8 +310,8 @@ test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body
   try {
     for (const azimuth of AZIMUTHS) for (const seed of [1, 4]) {
       const map = levels.get(seed), dressing = dressedFor.get(azimuth).get(seed), world = buildDungeonWorld(arena.scene, map, true);
-      const bodies = arena.scene.meshes.filter(m => m.physicsBody).length, meshes = world.dress(dressing);
-      assert.equal(arena.scene.meshes.filter(m => m.physicsBody).length, bodies, `seed ${seed}: dressing added a body`);
+      const solids = world.solids.length, meshes = world.dress(dressing);
+      assert.equal(world.solids.length, solids, `seed ${seed}: dressing added a collider`);
       const named = prefix => meshes.filter(m => m.name.startsWith(prefix));
       for (const mesh of meshes) {
         const { material } = mesh, plugin = material.pluginManager.getPlugin("DungeonFog");

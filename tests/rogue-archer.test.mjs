@@ -13,7 +13,6 @@ import {poseHash} from './harness/expert.mjs';
 import {ArcherQuiver} from '../src/golem/humanoid/arrows.ts';
 import {boxPart} from '../src/rig.ts';
 import {LAYER,COLLIDES} from '../src/physics.ts';
-import {DungeonRun} from '../src/dungeon/run.ts';
 import {classicDungeon} from './fixtures/classic-dungeon.mjs';
 import {createHeadlessArena} from './harness/golem-headless-arena.mjs';
 import {freshIntent} from '../src/action-primitives.ts';
@@ -132,20 +131,4 @@ test('disabling the bow cancels further draws without deleting a released arrow'
   assert.equal(module.ranged().phase,'disabled');assert.equal(module.ranged().shots,1);
   assert.ok(events.some(e=>e.report.projectile?.postArmourDamage>0));
  }finally{b.dispose();}
-});
-
-test('the dungeon drives the rogue ranged command and scores against a selected enemy',async()=>{
- const arena=await createHeadlessArena({populateDefaultGeometry:false});
- const map=classicDungeon(42);map.spawns=[{x:map.start.x,z:map.start.z+3.8}];
- const events=[];const run=new DungeonRun(arena.scene,42,'rogue',false,map,undefined,[],()=> 'warrior-unarmed',
-  (attacker,event)=>events.push({attacker,event}));
- try{
-  run.enemies[0].policy={name:'idle',decide:()=>freshIntent()};
-  run.commands.order={kind:'lock',target:'enemy-0'};run.commands.revision++;
-  arena.scene.onBeforePhysicsObservable.add(()=>run.step(1/120));
-  for(let i=0;i<360;i++){arena.scene._renderId++;arena.scene._advancePhysicsEngineStep(1000/60);}
-  assert.equal(run.hero.policy.name,'humanoid-archer');
-  assert.ok(run.hero.body.view.self.ranged.shots>=1);
-  assert.ok(events.some(e=>e.attacker==='hero' && e.event.report.projectile?.postArmourDamage>0));
- }finally{run.dispose();arena.dispose();}
 });

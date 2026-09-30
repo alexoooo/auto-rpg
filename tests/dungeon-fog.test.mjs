@@ -18,6 +18,7 @@ const onView = (hero, toward, along, across, y) =>
   ({ x: hero.x + along * toward.x + across * toward.z, y, z: hero.z + along * toward.z - across * toward.x });
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { DungeonRun } from "../src/dungeon/run.ts";
+import { freshEngine } from "./harness/core-stand.mjs";
 import { frameDungeon } from "../src/dungeon/camera.ts";
 import { screenMovement } from "../src/dungeon/commands.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
@@ -394,9 +395,9 @@ test("a_visual_world_draws_few_meshes_and_every_one_is_fogged", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
   try {
     const map = generateLevel(1).map, world = buildDungeonWorld(arena.scene, map, true);
-    const colliders = arena.scene.meshes.filter(m => m.physicsBody && !m.name.startsWith("door."));
+    const colliders = world.solids.filter(s => !s.name.startsWith("door."));
     assert.ok(colliders.length > 170, `${colliders.length} colliders: the filter did not find the walls`); // 199 measured
-    assert.ok(colliders.every(m => !m.isVisible), "a wall collider or the slab is drawn");
+    assert.ok(colliders.every(s => arena.scene.getMeshByName(s.name) === null), "a wall collider or the slab is drawn");
     const drawn = arena.scene.meshes.filter(m => m.isVisible && !m.name.startsWith("door.") && m.name !== "exit sigil");
     assert.deepEqual(drawn.map(m => m.name).sort(), world.surfaces.map(m => m.name).sort(), "only the merged surfaces are drawn");
     const chunks = Math.ceil(map.size / VISUAL_CHUNK) ** 2;
@@ -415,26 +416,31 @@ test("a_visual_world_draws_few_meshes_and_every_one_is_fogged", async () => {
   } finally { arena.dispose(); }
 });
 
-test("presenting_a_run_writes_its_fog_mask_and_no_golem_is_fogged", async () => {
+test("presenting_a_run_writes_its_fog_mask_and_no_body_is_fogged", async () => {
   const arena = await createHeadlessArena({ populateDefaultGeometry: false });
-  const run = new DungeonRun(arena.scene, 3, "default", true);
+  // A stand-in skin for each body as it is built, as the page dresses one: the fog is the level's, never a body's.
+  const run = new DungeonRun(arena.scene, { seed: 3, engine: await freshEngine(), visuals: true, onBuilt: actor => {
+    const skin = MeshBuilder.CreateBox(`${actor.id}.skin`, { size: 0.3 }, arena.scene);
+    skin.material = new PBRMaterial(`${actor.id}.skin`, arena.scene); actor.meshes.push(skin);
+  } });
   try {
     run.present();
     const { fog } = run.world;
     const before = new Set(run.explored);
-    const scenery = revealScenery(run.map, run.hero.body.feetPosition(), run.visible, run.explored, new Set());
+    const scenery = revealScenery(run.map, run.hero.feet(), run.visible, run.explored, new Set());
     assert.deepEqual(fog.bytes, fogMask(run.map, run.visible, scenery));
     assert.deepEqual(run.explored,before);
     assert.equal(fog.bytes[run.map.start.z * run.map.size + run.map.start.x], FOG.visible);
     assert.ok(fog.bytes.some(b => b === 0), "the level is not all explored at the start");
-    for (const actor of run.actors) for (const { mesh } of actor.meshes)
+    const skins = run.actors.flatMap(actor => actor.meshes);
+    assert.ok(skins.length > 0, "no body was dressed");
+    for (const mesh of skins)
       assert.equal(mesh.material?.pluginManager?.getPlugin("DungeonFog") ?? null, null, `${mesh.name} carries the dungeon's fog`);
     // The run hands on the view the page gives it, not the default one: to the fog, and to the keys.
     const diagonal = cameraToward(Math.PI / 4);
     run.toward = diagonal; run.present();
     assert.deepEqual(run.world.surfaces[0].material.pluginManager.getPlugin("DungeonFog").view.toward, diagonal);
     run.commands.setMode({ keyboard: true, facing: false }); run.commands.right = 1;
-    // `memberMovement` is private to TypeScript alone.
     assert.deepEqual(run.memberMovement(run.hero), screenMovement(1, 0, diagonal));
   } finally { run.dispose(); arena.dispose(); }
 });

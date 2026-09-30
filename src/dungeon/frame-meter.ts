@@ -1,13 +1,12 @@
 import "@babylonjs/core/Engines/AbstractEngine/abstractEngine.timeQuery.js";
 import "@babylonjs/core/Engines/Extensions/engine.query.js";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine.js";
-import type { Scene } from "@babylonjs/core/scene.js";
 
 /**
  * The frame counter in the dungeon's top bar, which says where a frame goes:
  * - frames a second, and the mean interval between them;
- * - `physics`: the solver and the golems' control, which run in the fixed-step accumulator before every
- *   substep, with the substeps a frame took (x2 is 60 fps at 120 Hz; more means it is catching up);
+ * - `physics`: the core world's steps a frame took -- the run's plan, the bodies' control and the solver
+ *   (`World.advance`) -- with how many (x2 is 60 fps at 120 Hz; more means it is catching up);
  * - `other`: the rest of the render callback -- framing, the HUD, fog, and submitting the draw. Input handlers, garbage
  *   collection and the engine's own frame bookkeeping fall outside it, so the interval less these two is not idle;
  * - `gpu`: the GPU's time per frame, where the browser exposes a timer query (Firefox does not by default).
@@ -37,12 +36,11 @@ export function frameMeter(engine: AbstractEngine, element: HTMLElement) {
     if (gpu) { gpuTotal = gpu.total; gpuCount = gpu.count; }
   };
   return {
-    /** Times the substeps of one scene; the returned function stops watching it. */
-    watch(scene: Scene): () => void {
-      let started = 0;
-      const before = scene.onBeforePhysicsObservable.add(() => { started = performance.now(); }, undefined, true);
-      const after = scene.onAfterPhysicsObservable.add(() => { physics += performance.now() - started; substeps += 1; });
-      return () => { scene.onBeforePhysicsObservable.remove(before); scene.onAfterPhysicsObservable.remove(after); };
+    /** Times `steps`, which steps the world and returns how many steps it took; inside `frame`. */
+    physics(steps: () => number): void {
+      const started = performance.now();
+      substeps += steps();
+      physics += performance.now() - started;
     },
     /** Runs one frame's work and counts it. */
     frame(work: () => void): void {

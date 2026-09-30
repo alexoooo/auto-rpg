@@ -31,6 +31,8 @@ import { fistTurns, type FistPose, type RestBone } from "./fist.ts";
  * shows a pinch.
  */
 export interface SkinView {
+  /** Every mesh it draws, worn or not: what a page picks or hides. */
+  readonly meshes: readonly Mesh[];
   setEnabled(enabled: boolean): void;
   /** Wear `clothing`: the model's boots and armour meshes shown or hidden. */
   wear(clothing: Clothing): void;
@@ -243,6 +245,7 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
   update();
   const observer = scene.onBeforeRenderObservable.add(update);
   return {
+    meshes,
     setEnabled(to) {
       enabled = to;
       for (const mesh of worn) mesh.setEnabled(enabled);
