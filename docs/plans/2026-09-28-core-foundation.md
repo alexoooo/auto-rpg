@@ -905,8 +905,24 @@ Havok's.
   0.5 m/s with the Warrior, which swings 40.8 cm off them (`tests/core-lab-run.test.mjs`'s bound
   is now 45 cm). Still open: the fast walks run at 0.84-0.94 of the pace asked, and sideways and
   back at 0.7 m/s still fall. `STANCE_GAIT`'s notes carry the table.
-- **Against the acceptance: not met.** Walks above 0.5 m/s every way still fall; forward they hold
-  to 0.8 m/s, a little under pace (a human's preferred walk is near 1.4); no human reference for the
+- **The height at the landing (2026-10-01).** Traced at 0.8 m/s, the plan dropped the body as each
+  long step lifted and raised it again on both feet, 2 cm a step (the reverse of a person's, who is
+  highest over the bearing foot): a swinging leg's knee-bend ceiling was taken from the hip where
+  it was, behind the bearing foot, to a landing well ahead of it, and at the lift the ground pushed
+  with 260 N of the Rogue's 540. Taken from where the plan's pendulum will have the hip at the
+  landing, the height stays level; forward, the Rogue holds 18 of 18 walks against 16 and the
+  Warrior 18 against 17. The gait re-swept on it chose a double support of 0.08 s against 0.05:
+  the Warrior now walks 0.7 m/s every way and the Rogue four of five (the envelope: the Warrior
+  0.7, the Rogue 0.5, each turning faster), at the price of the forward pace (the Rogue 0.82 of the
+  pace asked). The lab's run follows the envelope: the Warrior goes round at 0.544 m/s and the
+  Rogue at 0.389 (0.438 before), and the widest off the shuttle is 28.2 cm, so the run test's bound
+  is 40 cm again. What still slows a fast walk is a moment: late in the swing the leg's braking asks
+  the ground for some 100 N m of pitch that the bearing sole cannot give with the push the plan
+  asks, the push is what the ground's share misses, and the step under way is shortened to catch
+  the body that fell behind. The next fix is there (a plan that knows the moment the swing needs,
+  or a pelvis let to pitch), not in the gait's numbers.
+- **Against the acceptance: not met.** Walks above 0.5 m/s every way still fall for the Rogue (the
+  Warrior holds 0.7 every way); forward they hold to 1.0 m/s, under pace (a human's preferred walk is near 1.4); no human reference for the
   shoves or a reversal is sourced yet.
 
 ### Stage 5: the rulebook, the damage unit and the HP pool

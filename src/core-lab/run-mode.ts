@@ -19,9 +19,9 @@ import type { Track } from "./track.ts";
  * weight shift fell. Its pace is the body's fastest walk, but no faster than its turn carries it
  * round the tightest bend within `STEER.metres` either way. Both are the body's own
  * (`CoreBody.envelope`, what the stance was measured to hold with it, its turn at each speed of
- * walk, `turnAt` and `paceRound`): on Rapier each human walks 0.5 m/s; the Warrior turns 4 rad/s at
- * 0.2, 0.3 and 0.5 m/s and 2 at 0.4, the Rogue 4 at 0.2, 2 at 0.3 and 0.4, and 1 at 0.5; the
- * Warrior takes the shuttle's 0.3 m half-turns at 0.5 m/s and the Rogue at 0.4, where its turn
+ * walk, `turnAt` and `paceRound`): on Rapier the Warrior walks 0.7 m/s and the Rogue 0.5; the
+ * Warrior turns 4 rad/s to 0.4 m/s and 2 at 0.5 and 0.7, the Rogue 4 to 0.4 and 2 at 0.5; the
+ * Warrior takes the shuttle's 0.3 m half-turns at 0.6 m/s and the Rogue at 0.5, where its turn
  * carries it round.
  * It slows before a bend and keeps the bend's pace a metre past it, for its heading lags the
  * track's: sped up at the arc's end, the Warrior asked 0.5 m/s was still 0.9 rad short of the way

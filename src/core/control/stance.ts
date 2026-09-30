@@ -429,16 +429,39 @@ export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lif
  *     0.05      1.0   0.04       22/22  5,5,5,5,2  16/14      25/25    5,5,5,5,5  17/16
  *     0.07      0.6   0.06       25/24  5,5,5,5,5  16/12      25/25    5,5,5,5,5  16/14
  *     0.04      0.6   0.04       24/23  5,5,5,5,4  16/13      25/25    5,5,5,5,5  16/15
- *     0.05      0.61  0.04       22/21  5,5,5,5,2  16/13      23/23    5,5,5,5,3  17/16   chosen
+ *     0.05      0.61  0.04       22/21  5,5,5,5,2  16/13      23/23    5,5,5,5,3  17/16
  *
  * (The rows but the last rolled the trailing foot whichever way the body went; walking back the
  * Rogue fell at 0.5 m/s on its heel, and the roll now waits for the body to go the toes' way.) The
- * knee's angle matters little at 0.04 s; the time constant and the double support's length do. The
- * forward walks now hold to 0.8 m/s but go 0.84-0.94 of the pace asked. Stand, edge, step, the 0.3
- * m/s walks and the shoves at rest read the same; shoved walking at 0.3 m/s, the Rogue holds 119 of
- * 176 either way and the Warrior 173 against 174.
+ * knee's angle matters little at 0.04 s; the time constant and the double support's length do.
+ * Stand, edge, step, the 0.3 m/s walks and the shoves at rest read the same; shoved walking at 0.3
+ * m/s, the Rogue holds 119 of 176 either way and the Warrior 173 against 174.
+ *
+ * **Re-swept once a swinging leg's ceiling was taken at the landing** (the height's rule in the
+ * stance's step: before it, the plan dropped the body as each long step lifted, the ground's
+ * push fell to half the body's weight, and the height swung 2 cm a step, highest on both feet).
+ * The knee at 0.61 rad and 0.04 s; the batteries as above (Node core stand, Rapier, 120 Hz):
+ *
+ *     seconds  transfer    Rogue  by speed   forward    Warrior  by speed   forward
+ *     0.25     0.05        19/14  5,5,5,2,2  14/10      22/21    5,5,5,5,2  15/15
+ *     0.25     0.08        20/16  5,5,5,3,2  14/9       22/20    5,5,5,5,2  16/14
+ *     0.3      0.05        22/21  5,5,5,4,3  18/15      23/23    5,5,5,5,3  18/17
+ *     0.3      0.08        24/22  5,5,5,5,4  18/11      25/24    5,5,5,5,5  18/15   chosen
+ *     0.3      0.1         24/21  5,5,5,5,4  18/8       24/22    5,5,5,5,4  18/13
+ *     0.35     0.05        23/23  5,5,5,4,4  16/14      24/24    5,5,5,5,4  18/18
+ *     0.35     0.08        23/22  5,5,5,5,3  17/12      25/24    5,5,5,5,5  18/16
+ *     0.4      0.05        22/22  5,5,5,5,2  16/15      24/24    5,5,5,5,4  18/18
+ *
+ * Chosen for the walks held, then those on pace: at 0.3 s and 0.08 the Warrior walks 0.7 m/s every
+ * way and the Rogue four of five, and none of the 36 forward walks falls; the price is the forward
+ * pace (the Rogue 0.82 of the pace asked on average, against 0.90 at 0.05). Stand, edge, step and
+ * the shoves at rest read the same; shoved walking at 0.3 m/s the Rogue holds 116 of 176 against
+ * 120 and the Warrior 174 either way. What still slows the fast walks: late in each swing the leg's
+ * braking asks the ground for a pitching moment the bearing sole cannot give with the push the plan
+ * asks (the Rogue at 0.8 m/s, 100 N m with 55 N forward), the push is what is missed, the body falls
+ * behind its plan, and the step under way is shortened to catch it.
  */
-export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, accel: 1, transfer: 0.05,
+export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, accel: 1, transfer: 0.08,
   preswing: { knee: 0.61, seconds: 0.04 } };
 
 /**
@@ -1037,18 +1060,31 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       }
       // No higher than each leg reaches with its knee bent by `STANCE_KNEE_BEND`, its hip carried as
       // the plan carries the centre of mass: a stance leg from its ankle, a swinging leg from where
-      // its ankle will be when its sole lands.
+      // its ankle will be when its sole lands, its hip where the plan will have it then (the
+      // pendulum about the place, over the swing's time left). Taken from the hip where it is, a
+      // long step's leg reached from behind the bearing foot to a landing ahead of it, and the plan
+      // dropped the body as the foot lifted: the Rogue at 0.8 m/s pushed on the ground with 260 N of
+      // its 540 at the lift and rose again on both feet, 2 cm a step. Taken at the landing, forward
+      // at 0.4-1.0 m/s the Rogue holds 18 of 18 walks (15 on pace) against 16 (13), and the Warrior
+      // 18 (17) against 17 (16); the other batteries read the same (Node core stand, Rapier, 120 Hz).
       // And no lower than each leg reaches with its ankle dorsiflexed to its range less
       // `STANCE_ANKLE_SPARE`, its foot where it stands or will land: the knee's place is then fixed,
       // and the hip is a thigh from it. Where the two disagree, the ankle's stop is the harder limit.
       let high = goal.height, low = -Infinity;
       const floors: [FootState, number][] = [];
+      let landX = r.x, landZ = r.z;
+      if (reading.phase === "swing") {
+        const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - step.time, 0), ch = Math.cosh(w * left), sh = Math.sinh(w * left);
+        landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh;
+        landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh;
+      }
       for (const foot of reading.phase === "swing" ? feet : stance) {
         const [hip, knee, ankle] = foot.chain;
         pointOfToRef(hip!.parent, hip!.spec.centre.value, hipAt);
         pointOfToRef(ankle!.parent, ankle!.spec.centre.value, ankleAt);
-        const [a, b] = foot.lengths, hx = hipAt.x + r.x - c.x, hz = hipAt.z + r.z - c.z, rise = c.y - hipAt.y - reading.support.y;
-        if (!stance.includes(foot)) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
+        const swinging = !stance.includes(foot);
+        const [a, b] = foot.lengths, hx = hipAt.x + (swinging ? landX : r.x) - c.x, hz = hipAt.z + (swinging ? landZ : r.z) - c.z, rise = c.y - hipAt.y - reading.support.y;
+        if (swinging) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
         if (bend !== null) {
           const long = Math.sqrt(a * a + b * b + 2 * a * b * Math.cos(bend)), across = Math.hypot(hx - ankleAt.x, hz - ankleAt.z);
           high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - across * across)) + rise);
