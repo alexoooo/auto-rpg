@@ -591,6 +591,12 @@ contradicts one; the eccentric ceiling is the owner's decision.
   and held to it by `tests/core-lab-grip.test.mjs`); the skin's fingers only, the core's grip is
   unchanged. With a club in each hand, each human stands, walks and stops in the Stance
   (`tests/core-lab-loadout.test.mjs`, Node stand, 120 Hz).
+  The Run scenario (`run-scenario.ts`, `run-mode.ts`) sends the body round a track (`track.ts`),
+  a 4 m circle or 6 m back and forth round 0.3 m half-turns, asking the stance for 0.5 m/s, its
+  fastest held walk, and the Routine's 0.3 m/s into a half-turn. Each human holds 30 s on either
+  track and goes 0.26-0.29 m/s along it (`tests/core-lab-run.test.mjs`, Node stand, 120 Hz); a
+  straight walk asked 0.3 or 0.5 m/s goes the same 0.25-0.29 m/s, so the walk's own pace, not the
+  track, sets the speed.
 - **Found in the lab:** a 30 N s shove from the rest stance holds (one catching step, each human),
   but after a walk and a stop the stance is the gait's 0.2 m width, and the same shove can fall.
   Asked for a lower centre of mass (8-16 cm), the stance stands about 1 cm lower, and walking from

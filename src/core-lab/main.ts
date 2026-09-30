@@ -21,10 +21,11 @@ import type { WorkshopModel } from "../core/human/rig.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labCameraRig } from "./camera.ts";
-import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
+import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
 import { loadoutSpec } from "./loadout.ts";
 import { isPaused, type Playhead } from "./player.ts";
 import { routineScenario } from "./routine-scenario.ts";
+import { runScenario } from "./run-scenario.ts";
 import { labHref, SCENARIOS, type LabAddress, type LabCamera, type LabHeld, type LabProjection, type ScenarioId } from "./scenarios.ts";
 import { dressBody, loadSkin, type SkinView } from "./skin.ts";
 import { stanceScenario } from "./stance-scenario.ts";
@@ -57,9 +58,10 @@ const TINT: Readonly<Record<WorkshopModel, Color3>> = {
   "workshop-rogue": new Color3(0.5, 0.62, 0.55),
 };
 
-const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene) => LabScenario>> = {
+const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
   stance: stanceScenario,
   routine: routineScenario,
+  run: runScenario,
 };
 
 type ViewKind = "world" | "tactical";
@@ -121,7 +123,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
-  const scenario = SCENARIO[address.scenario](scene);
+  const scenario = SCENARIO[address.scenario](scene, { restart: () => load(shown) });
   const timeline = $("timeline") as HTMLInputElement;
   const clock = $("clock"), pauseButton = $("pause") as HTMLButtonElement;
   const back = $("to-scenarios") as HTMLAnchorElement;

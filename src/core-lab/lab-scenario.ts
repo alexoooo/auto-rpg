@@ -21,6 +21,12 @@ export interface LabScenario {
   start(context: ScenarioContext): ScenarioRun;
 }
 
+/** What the shell offers a scenario's own controls. */
+export interface LabShell {
+  /** Start the scenario again on a new body in a new world, as Restart does. */
+  restart(): void;
+}
+
 export interface ScenarioContext {
   readonly scene: Scene;
   /** A body in its reference pose at the origin, facing +z, on the ground. */

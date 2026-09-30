@@ -12,7 +12,7 @@ import type { WorkshopModel } from "../core/human/rig.ts";
  * reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "routine";
+export type ScenarioId = "stance" | "routine" | "run";
 
 export interface ScenarioInfo {
   readonly id: ScenarioId;
@@ -24,6 +24,7 @@ export interface ScenarioInfo {
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, shove it from the panel." },
   { id: "routine", name: "Routine", line: "It walks out, strikes three times, turns and walks back." },
+  { id: "run", name: "Run", line: "It goes round a track as fast as its walk holds: a big circle, or straight back and forth." },
 ];
 
 export const MODELS: readonly { readonly id: WorkshopModel; readonly name: string }[] = [
