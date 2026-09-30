@@ -74,6 +74,21 @@ export const SOURCES = Object.freeze({
       + "and on the definition of weight; conventional value of gn, 980.665 cm/s2.",
     link: "https://www.bipm.org/en/committees/cg/cgpm/3-1901/resolution-",
   },
+  "skeleton-bind": {
+    kind: "asset", file: "assets/skeleton/bind.json",
+    what: "The old game's skeleton parts as the skeleton's art was fitted to them: for each build, each part's "
+      + "position and turn (x, y, z, w) in the body frame at x1, facing +z with the soles on 0, and its box's "
+      + "min and max in its own frame. Exported from an old skeleton by scripts/skeleton/export-bind.mjs, "
+      + "which goes with the old path; the file is now fixed, as the art is.",
+  },
+  "skeleton-placeholders": {
+    kind: "decision", date: "2026-09-30",
+    decided: "Proposed under the owner's ask of 2026-09-30 (the skeleton 'doesn't need to work properly, it "
+      + "just needs to fit the new core'), for the owner to confirm: until the crypt skeleton has numbers of "
+      + "its own, it is a typical man in the skeleton's shape (men's tables, the typical man's 79 kg, the "
+      + "Warrior's 6 HP), its fists held thumb up as its art's guard shows them.",
+    record: "docs/plans/2026-09-30-old-path-removal.md",
+  },
   "owner-hp-pool": {
     kind: "decision", date: "2026-09-27",
     decided: "Hit points: reptile 1, Rogue 4, Warrior 6. One HP pool per body; excess damage spreads to "

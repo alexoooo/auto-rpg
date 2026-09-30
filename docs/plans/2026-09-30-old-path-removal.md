@@ -38,9 +38,16 @@ skills more dynamically."
    - **The skeleton's figure is read from its art's bind** (`assets/skeleton/bind.json`, the old
      skeleton's parts as the art was fitted to them). The joint centres are the parts' ends; the
      trunk is the old trunk boxes sliced at de Leva's trunk landmarks; the feet are the foot boxes.
-     The arms are turned about the body's x to hang, as the humans' reference pose holds them, so a
-     posture in joint angles (`GUARD`) means the same on every body. Its mass, strength and hit
-     points are placeholders the owner's ask allows, each stated as one.
+     Its mass, strength and hit points are placeholders the owner's ask allows, each stated as one
+     (`skeleton-placeholders`), and so is the fists' thumb-up turn.
+     *As built (2026-09-30):* the reference pose is the bind itself, elbows at a right angle with the
+     forearms forward, not arms turned to hang. The body-plan code reads the elbow's axis from the
+     bend between upper arm and forearm, which a straight arm does not have, and the art then rides
+     its segments with no turn. The cost: a posture in joint angles is measured from each body's own
+     reference, so `GUARD`'s elbow flexion of 1.3 presses the skeleton's elbows into their stop.
+     Its envelope (`assets/core/stance-envelope.json`, Node core stand, Rapier, 120 Hz): it walks
+     0.2 m/s every way, and at 0.3 to 0.7 m/s holds 2 of the 5 ways; it turns 2 rad/s both ways
+     at 0.2 m/s. Standing in the guard 3 cm low its feet slide 5.7 cm (the Warrior's 0.5 mm).
    - **The art rides the core segments.** Each rigid piece of `skeleton.glb` is parented to the
      segment that carries its part, at its bind transform in that segment's bind frame; the neck
      rides the head, the ribcage and collars the upper trunk, the lumbar spine the middle trunk,

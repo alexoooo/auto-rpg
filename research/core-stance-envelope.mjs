@@ -1,7 +1,7 @@
 /**
  * The core stance's envelope (`src/core/control/stance-envelope.ts`): the gait battery's walks, at
  * each speed five ways (forward, right, back, left, forward right) for 8 s and then a stop
- * (`walk` in `core-stance-trials.mjs`), on each human unarmed at the game's rate, each trial on a
+ * (`walk` in `core-stance-trials.mjs`), on each core body unarmed at the game's rate, each trial on a
  * worker of its own stand; how many held at each speed and the fastest held by the envelope's rule.
  * Then the turn battery, walking at each speed up to that fastest walk: the heading turned half
  * round at each rate both ways (`turn`), how many held at each rate and the fastest held by the
@@ -19,7 +19,7 @@ import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
 export const SPEEDS = [0.2, 0.3, 0.4, 0.5, 0.7];
 export const WAYS = [0, 90, 180, 270, 45];
-export const MODELS = ["workshop-fighter", "workshop-rogue"];
+export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 export const RATES = [0.25, 0.5, 1, 2, 4];
 export const SENSES = [1, -1];
 

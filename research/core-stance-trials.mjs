@@ -5,7 +5,7 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../src/core/body.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/human/spec.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 export const CORE_STANCE_HARNESS = "Node core stand (tests/harness/core-stand.mjs), Rapier";
@@ -17,8 +17,8 @@ const GUARD = {
 const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 async function body(model, stance, hz) {
-  const stand = await coreStand(humanSpec(model), { ground: true, hz });
-  const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance });
+  const stand = await coreStand(modelSpec(model), { ground: true, hz });
+  const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: true });
   return { stand, body: built, feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
 }
 

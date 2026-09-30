@@ -25,7 +25,7 @@ export interface CoreBody {
   /**
    * What the stance was measured to hold with this body (`stance-envelope.ts`), so a driver asks for
    * its fastest walk and not a number; null under a stance tuning other than the core's, which the
-   * measurement did not see.
+   * measurement did not see, or while the envelope is being measured (`BodyOptions.measuring`).
    */
   readonly envelope: StanceEnvelope | null;
   /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
@@ -104,10 +104,12 @@ export interface BodyOptions {
   readonly servoSeconds: number;
   /** An experiment's stance tuning in place of the stance's constants. */
   readonly stance?: StanceTuning;
+  /** The envelope's own measurement (`research/core-stance-envelope.mjs`): the body has none to read yet. */
+  readonly measuring?: boolean;
 }
 
 /** `built` in `world`, holding its reference pose until something drives it. */
-export function createBody(built: BuiltBody, world: World, { servoSeconds, stance }: BodyOptions): CoreBody {
+export function createBody(built: BuiltBody, world: World, { servoSeconds, stance, measuring }: BodyOptions): CoreBody {
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreOf(built, "head");
@@ -154,7 +156,7 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds, stanc
 
   return {
     built, muscles, view,
-    envelope: Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
+    envelope: !measuring && Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
     drive(next) { driver = next; },
     dispose() { muscles.dispose(); },
   };

@@ -1,9 +1,9 @@
 /**
  * **The stance's envelope** (`src/core/control/stance-envelope.ts`, `assets/core/stance-envelope.json`):
  * the asset was measured on the core's own harness at the game's rate, so a change of engine or rate
- * fails here until `research/core-stance-envelope.mjs --write` measures it again; each human's fastest
+ * fails here until `research/core-stance-envelope.mjs --write` measures it again; each body's fastest
  * walk and its turn at each speed are the rule's reading of its own tables; the rules, sampled both
- * sides; a body carries its envelope, and none under another stance tuning; the lab's turn rate is
+ * sides; a body carries its envelope, and none under another stance tuning or while it is measured; the lab's turn rate is
  * inside every body's at the Routine's pace; and at its fastest walk each human holds all five ways
  * again, and its fastest turn there both ways (Node core stand, Rapier, 120 Hz). The control, run by
  * hand: the Rogue's last turn set to 1 in the asset fails the rule's check, and walking 0.5 m/s it
@@ -15,7 +15,7 @@ import { readFile } from "node:fs/promises";
 import { createBody } from "../src/core/body.ts";
 import { fastestHeld, paceRound, stanceEnvelope, turnAt } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/engine/rapier.ts";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { LAB_TURN_RATE } from "../src/core-lab/stance-mode.ts";
 import { TURN_PACE } from "../src/core-lab/track.ts";
 import { CORE_STANCE_HARNESS, turn, walk } from "../research/core-stance-trials.mjs";
@@ -28,7 +28,7 @@ test("the_envelope_was_measured_on_the_cores_harness_at_the_games_rate", () => {
   assert.equal(asset.hz, PHYSICS_HZ.value);
 });
 
-test("each_humans_fastest_walk_and_its_turns_are_the_rules_reading_of_its_tables", () => {
+test("each_bodys_fastest_walk_and_its_turns_are_the_rules_reading_of_its_tables", () => {
   for (const [model, entry] of Object.entries(asset.models)) {
     assert.equal(entry.walk, fastestHeld({ speeds: asset.speeds, ways: asset.ways.length, held: entry.held }), model);
     // A turn at every speed up to the fastest walk, and none past it.
@@ -36,7 +36,7 @@ test("each_humans_fastest_walk_and_its_turns_are_the_rules_reading_of_its_tables
     assert.equal(entry.turnHeld.length, upTo.length, model);
     assert.deepEqual(entry.turns, entry.turnHeld.map((held) => fastestHeld({ speeds: asset.rates, ways: asset.senses.length, held })), model);
     const at = (where) => ({ kind: "source", source: "core-stance-envelope", where });
-    assert.deepEqual(stanceEnvelope(humanSpec(model)), {
+    assert.deepEqual(stanceEnvelope(modelSpec(model)), {
       walk: { value: entry.walk, unit: "m/s", provenance: at(`/models/${model}/walk`) },
       turns: upTo.map((speed, i) => ({
         speed: { value: speed, unit: "m/s", provenance: at(`/speeds/${i}`) },
@@ -65,7 +65,7 @@ test("a_turn_is_the_slowest_listed_speeds_at_or_above_the_walk_and_a_bends_pace_
 
 test("the_labs_turn_rate_is_inside_every_bodys_envelope_at_the_routines_pace", () => {
   for (const model of Object.keys(asset.models)) {
-    const held = turnAt(stanceEnvelope(humanSpec(model)), TURN_PACE);
+    const held = turnAt(stanceEnvelope(modelSpec(model)), TURN_PACE);
     assert.ok(LAB_TURN_RATE <= held, `${model}: ${LAB_TURN_RATE} over ${held} rad/s at ${TURN_PACE} m/s`);
   }
 });
@@ -87,6 +87,9 @@ test("a_body_carries_its_envelope_and_none_under_another_tuning", async () => {
     const tuned = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance: { track: 0.15 } });
     assert.equal(tuned.envelope, null);
     tuned.dispose();
+    const measuring = createBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true });
+    assert.equal(measuring.envelope, null);
+    measuring.dispose();
   } finally { stand.dispose(); }
 });
 
