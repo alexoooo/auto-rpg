@@ -1,5 +1,9 @@
 # Roadmap
 
+Where the game is going, and what is open. A figure here with no record of its own is from the
+plans this replaces, which commit 2e99105f holds under `docs/plans/`; measure it again before
+building on it.
+
 ## Where the game is going
 
 - **The Arena**: a bout of two bodies to a verdict. A person watches today; a person will give a

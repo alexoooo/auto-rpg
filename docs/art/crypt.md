@@ -134,8 +134,8 @@ three holds two enemies placed away from the doors. The camera follows the leade
   dead, or the run restarts.
 
 The Random Crypt shares the Rootbound Crypt's presentation: its spot lights, cutaways and damp
-(`dressReference`), and the Quality setting. High renders at native resolution with 2048 px
-shadow maps and SSAO; Reduced renders at 1/1.4 with 1024 px shadow maps and no SSAO.
+(`dressReference`), and the Quality setting. High renders at a hardware scaling of 1 (CSS pixels)
+with 2048 px shadow maps and SSAO; Reduced renders at 1/1.4 with 1024 px shadow maps and no SSAO.
 
 ### Rebuilding the kit
 

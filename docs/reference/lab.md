@@ -1,7 +1,7 @@
 # The lab's tuning
 
 The readings behind the lab's constants and fitted poses: the hand poses the skin draws
-(`src/core-lab/club-grip.ts`, `src/core-lab/skin.ts`), the page's seek budget
+(`src/core-lab/club-grip.ts`, `src/render/skin.ts`), the page's seek budget
 (`src/core-lab/main.ts`), the Routine's gait (`src/core-lab/routine.ts`, `src/core-lab/track.ts`),
 how far ahead a walker on a track faces (`src/core-lab/run-mode.ts`), and how far off the track
 the run test lets a walker go (`tests/core-lab-run.test.mjs`).

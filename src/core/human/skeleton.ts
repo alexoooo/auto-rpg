@@ -11,7 +11,7 @@ import { dividedTrunk, type Side } from "./landmarks.ts";
  * `assets/skeleton/bind.json` holds (the fist build: each part's position and turn, body frame at
  * x1, and its box in its own frame). Its reference pose is that bind: standing, the
  * elbows bent at a right angle with the forearms forward and the fists thumb up, so each piece of
- * the art rides its segment exactly (`src/core-lab/skeleton-skin.ts`).
+ * the art rides its segment exactly (`src/render/skeleton-skin.ts`).
  *
  * - **Joint centres** are the parts' ends, along each part's y: the thigh's top the hip, its bottom
  *   the knee, the shank's bottom the ankle; the upper arm's top the shoulder, its bottom the elbow;

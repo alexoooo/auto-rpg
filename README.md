@@ -43,7 +43,7 @@ bell the fuller bar wins, and equal bars draw. You watch: there are no orders fo
 | --- | --- |
 | Middle or right drag | orbit the camera |
 | Wheel | zoom |
-| Space / Esc | pause and resume a bout |
+| Space / Esc | pause and resume a bout (leaving the window pauses too) |
 | R | this bout again |
 | Random replay | at a verdict or in the pause menu: the right side is redrawn |
 | ? | the controls |

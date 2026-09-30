@@ -12,13 +12,15 @@ only the core itself, `@babylonjs/core`, the engine's package and JSON under `as
 
 ## The layers
 
-Each layer depends only on the ones below it.
+Each layer imports only the layers listed before it, except that skills and minds share a
+vocabulary: the `Intent` a mind returns (`src/core/mind/intent.ts`) and the `SkillReport` it
+reads (`src/core/skills/skills.ts`).
 
 | Layer | Where | What it does |
 |---|---|---|
 | Spec | `src/core/spec/`, `src/core/human/` | a body as data: segments, joints, muscles, wounds, every number sourced |
-| Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
 | Engine seam | `src/core/engine/` | the one contract the core needs from a physics engine |
+| Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
 | Muscles | `src/core/muscle/` | torque bounded by strength and by speed |
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
@@ -138,8 +140,9 @@ where a strike is).
 ### Minds
 
 A `Mind` (`src/core/mind/mind.ts`) is `decide(sight, dt)`: from its `Sight` (its body's view, the
-skills' report and the body's envelope) it returns an `Intent` (`intent.ts`): a velocity across
-the ground or none, a way to face, and for each hand guard or attack a point. It names no joint,
+skills' report and the body's envelope) it returns an `Intent` (`intent.ts`): a velocity forward
+and to the right of the body's heading, or none; a way to face; how low to stand; and for each hand
+guard or attack a point. It names no joint,
 pose or push. `driveBy(body, mind)` hands the body to the mind through the skills, and nothing
 reaches past that to pose a joint; camera state never reaches a mind.
 
@@ -202,9 +205,9 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 - **The Arena** (`src/arena/`): two clubbed core bodies in the Forge (`src/arena.ts`,
   `src/arena-room.ts`), each driven by `fighterMind` under a `Duel`, to a verdict. The room's
   solids (`arenaSolids`) are what bodies meet; the visible room is dressed from the forge kit
-  (`src/forge-style.ts`, `src/forge-room.ts`) and `validateRoomPlacements` refuses a solid-looking
-  piece within reach (below `ROOM.maxReachHeight`) that names no collider, or that names one the
-  arena lacks.
+  (`src/forge-style.ts`, `src/forge-room.ts`). `validateRoomPlacements` refuses a piece that names
+  a collider the arena lacks, or one of the wrong role, and a solid-looking piece within reach
+  (below `ROOM.maxReachHeight`) that names none.
 - **The Crypt** (`src/dungeon/`): a party in a generated dungeon (`DungeonRun`, `run.ts`). The
   map's walls, doors and obstacles are fixed boxes in the core world (`buildDungeonWorld`); every
   body is a core body driven by a mind; a person's orders reach the party only through the run's

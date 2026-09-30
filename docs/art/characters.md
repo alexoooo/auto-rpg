@@ -40,7 +40,7 @@ nothing into the user's Blender preferences. MPFB is pinned to commit
 generated output are CC0 (see [its licence](https://github.com/makehumancommunity/mpfb2/blob/3edf9df0551765be43563d047888cf7877eb89b4/LICENSE.md)
 and `assets/character-lab/MAKEHUMAN-CC0.txt`). The asset archive is
 [MakeHuman's system assets](https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html),
-downloaded by the wrapper as `makehuman_system_assets_cc0.zip` and checked against SHA256 `B542127A8E25547C7C29C19F2D1D2ADB9A664C80396ECD694095DBC8028A0107`. The
+downloaded by the wrapper (`makehuman_system_assets_cc0.zip`, saved as `.tools/mpfb/assets.zip`) and checked against SHA256 `B542127A8E25547C7C29C19F2D1D2ADB9A664C80396ECD694095DBC8028A0107`. The
 models use the middle-aged Caucasian male and young Caucasian female skins, low-poly eyes,
 eyebrow001, eyelashes01, teeth_base, and the short02 and ponytail01 hair, all from that CC0 pack.
 The maps are packed into the Blender files and GLBs, so nothing depends on `.tools` at runtime.

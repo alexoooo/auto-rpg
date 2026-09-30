@@ -52,8 +52,8 @@ screens build on it; it never imports them.
   `World.advance`. The scene has no physics of its own (the core's engine is not Babylon's
   plugin), so `scene.render()` never advances the world, and a test never steps by rendering.
 - **Solver conditioning is not anatomy.** An iteration count, inertia floor or damping term that
-  exists for the solver is named as such (`SOLVER` in `src/core/engine/rapier.ts`) and kept out of
-  the body's numbers.
+  exists for the solver is named as such (`SOLVER` in `src/core/engine/rapier.ts`), measured, and
+  kept out of the body's numbers.
 - **No strength is raised for feel.** A muscle's strength and speed come from their source; a
   change to one carries its measured before/after table.
 - **A mind drives a body only through its command.** `Mind.decide` returns an `Intent`, which the
@@ -61,15 +61,16 @@ screens build on it; it never imports them.
   joint, and camera state never reaches a mind. A person gives orders; a body's own mind carries
   them out while it defends itself.
 - **Cosmetics never carry authority**: nothing decorative collides or decides a hit. The visible
-  room is not the collision arena; `validateRoomPlacements` (`src/arena-room.ts`) refuses a solid
-  cosmetic within reach that names no collider, or names one the arena lacks.
+  room is not the collision arena; `validateRoomPlacements` (`src/arena-room.ts`) refuses a piece
+  naming a collider the arena lacks, and a solid-looking piece within reach that names none.
 
 ## Babylon and Rapier
 
 - **Side-effect imports are load-bearing.** The tree-shaken build omits prototype patches, so an
   "unused" import removed here compiles and breaks at runtime, sometimes silently: the shadow,
-  depth-renderer and post-process imports in `src/arena.ts` and `src/render/post.ts`, the shader
-  imports in `src/forge-style.ts`, `Culling/ray.js` for `scene.pick`, the glTF loader imports.
+  depth-renderer, post-process and HDR-loader imports in `src/arena.ts` and `src/render/post.ts`,
+  the shader imports in `src/forge-style.ts`, `Culling/ray.js` for `scene.pick`, the glTF loader
+  imports.
   When a feature works in the playground and not here, suspect this first.
 - **Read world transforms from `mesh.position` and `mesh.rotationQuaternion`.** `getWorldMatrix()`
   caches per render id and reading it stamps the id, so the first reader in a frame freezes every
@@ -95,13 +96,18 @@ screens build on it; it never imports them.
   only its own materials.
 - **Use pointer events.** Babylon cancels `pointerdown`, which suppresses every compatibility mouse
   event of that gesture. Button state is a level: read `event.buttons`, since release events are
-  not guaranteed.
+  not guaranteed. A DOM control over the canvas stops `pointerdown` and `pointermove`, lets
+  `pointerup` through, and blurs on click, or a focused button swallows the keys.
+- **Observers are removed asynchronously**: count the active ones, not the calls to remove.
 
 ## Checking in a browser
 
 - **A hidden tab does not render**: no WebGL paint, no `requestAnimationFrame`, `scene.pick`
-  misses. Check `document.visibilityState`. From a background tab, step the world by hand and call
+  misses. Check `document.visibilityState`, and that `engine.frameId` moves across a wait. From a
+  background tab, step the world by hand (on the arena, `__arena.world.step()`) and call
   `scene.render()` yourself.
+- **Killing `npx` leaves `vite` running**: kill a server by the PID that holds its port
+  (`netstat -ano | findstr :<port>`).
 - **Look at it before probing it.** `Material.isReady(mesh)` is false outside a render pass;
   `scene.materials` is incomplete (reach a material through `mesh.material`); after a hot reload
   the old scene lingers, so navigate rather than reload.
@@ -130,6 +136,8 @@ screens build on it; it never imports them.
   slower one's spacing.
 - **Believe the stand over the fight**: a flung weapon improves every bout column while the arm
   has stopped following its command.
+- **A conclusion is void once its reference is corrected**, even if its number was right: keep the
+  argument, and measure again.
 - **Counts over a bout are not scale-free.** Prefer a rate or more bouts; never pin a
   distributional claim to one seed.
 
@@ -142,6 +150,7 @@ screens build on it; it never imports them.
 - **A tuned constant's comment says what it does and where its value came from**: a `SOURCES` entry
   or a record under `docs/reference/`. The sweep table lives in the record, not the code.
 - **Name the construct, not a line number.**
+- **A comment about a code path is a hypothesis until the path has run.**
 - **Switch on a union with a `never` default**; a ternary chain with a default branch silently
   substitutes.
 - **A module that owns a rule exports its predicate**; a caller's private copy drifts.
