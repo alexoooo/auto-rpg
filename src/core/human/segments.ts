@@ -22,10 +22,9 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  *   are his: x transverse, y longitudinal, z sagittal.
  * - **Shape.** The head and the limbs are capsules as long as the segment that hold its mass at
  *   Dempster's density. A trunk segment is the convex hull of its stretch of the figure (a workshop
- *   model's clothed envelope); a foot is a box on its extents (the boot). A shape carries no mass (`SegmentSpec.shape`). The trunk was a box
- *   on the same stretch's extents until its corners stood out of the body: an upper arm driving a
- *   straight met the middle trunk's front upper corner 7-13 mm deep while 11-23 mm clear of the
- *   clothed surface (the lab routine, Node stand, self-contact off).
+ *   model's clothed envelope), not a box on its extents, whose corners stand out of the body where
+ *   a driven upper arm passes. A foot is a box on its extents (the boot). A shape carries no mass
+ *   (`SegmentSpec.shape`).
  *
  * A foot runs from the figure's heel to its toe.
  *

@@ -249,17 +249,14 @@ const LEG = /^(hip|knee|ankle)\.(left|right)$/;
  * of the body above the hips, through its own hip, and none of the other leg (`Placement.share`,
  * `shareAt`); the trunk, head and arms held from the lower trunk. Gravity fed forward everywhere.
  *
- * Three rejected placements, measured on one human in MuJoCo at 16 sub-steps (Node):
- * - legs from their feet at full share, gravity off the legs: the pelvis counted twice in the
- *   joint-space inertia (each leg also held the other); the body flailed and fell in every engine,
- *   MuJoCo resetting itself on a diverged acceleration about once a second;
- * - one tree from the left foot: the whole body's roll moment on that ankle, which saturated at its
- *   34 N m peak from the first 0.1 s; fell by 0.5 s;
- * - half shares with the shared weight left at its own centre: each leg fed forward half the body
- *   cantilevered off its own side, the legs squeezed the pelvis between them, both ankles' roll sat
- *   at the peak, and Rapier slid 0.4 m and sank.
- * With the load through each hip it stands still at the core's servo constant in Rapier and Havok,
- * and in MuJoCo once its feet carry the same inertia conditioning (case C, REPORT.md).
+ * Rejected:
+ * - legs from their feet at full share, gravity off the legs: each leg also holds the other, so the
+ *   pelvis counts twice in the joint-space inertia, and the body flails and falls;
+ * - one tree from the left foot: the whole body's roll moment lands on that ankle, which saturates;
+ * - half shares with the shared weight left at its own centre: each leg carries half the body
+ *   cantilevered off its own side, and the legs squeeze the pelvis between them.
+ * With the load through each hip the human stands still in Rapier, and in MuJoCo once its feet
+ * carry the inertia conditioning (case C, REPORT.md).
  */
 export function humanPlacement(model: Model, base: number, prefix = ""): Placement {
   const index = (name: string): number => model.segments.findIndex((s) => s.name === name);
@@ -314,9 +311,9 @@ export interface ScalingOptions {
   readonly warmup?: number;
   readonly measure?: number;
   readonly now?: () => number;
-  /** Build the sim yourself (Havok's real human); given the offsets. */
+  /** Build the sim yourself, given the offsets (to wrap an engine's step, say). */
   readonly build?: (offsets: readonly V3[]) => Sim;
-  /** Rotational-inertia factors by segment name, every human (Havok's feet). */
+  /** Rotational-inertia factors by segment name, every human (the feet's: `FEET`, `chosen.ts`). */
   readonly conditioning?: Readonly<Record<string, number>>;
   /** Called as the timed steps start and after they end (allocation and GC counting). */
   readonly mark?: (phase: "start" | "end") => void;
@@ -392,9 +389,8 @@ export interface HumanResult {
 
 /**
  * **Case C, an observation and no bar: one whole human on both feet** (the scaling load), held in
- * its reference pose by the controller for `seconds`. It was added after the bars
- * were written, when the scaling humans were found falling, so it judges nothing; it says what the
- * scaling tables timed.
+ * its reference pose by the controller for `seconds`. It judges nothing; it says whether the humans
+ * the scaling tables time are standing.
  */
 export function standingHuman(make: Factory, settings: Settings, conditioning?: Readonly<Record<string, number>>, seconds = 4): HumanResult {
   const human = humanModel();

@@ -25,7 +25,7 @@ test("every_block_quad_stands_on_or_behind_its_collider_face_and_inside_rock", (
       const sign = OUT[block.face][0] + OUT[block.face][1];
       assert.ok(block.inset >= 0 && block.inset <= MASONRY.relief, `seed ${seed}: a block is set ${block.inset} m back`);
       for (const quad of blockQuads(block, 2, map.seed)) for (const corner of quad.corners) {
-        // Never proud of the collider: what a golem touches is what it sees.
+        // Never proud of the collider: what a body touches is what it sees.
         assert.ok(sign * (acrossOf(block.face, corner) - block.plane) <= 1e-12, `seed ${seed}: a block stands proud of its face`);
         assert.ok(corner[1] >= 0 && corner[1] <= WALL_HEIGHT, `seed ${seed}: a block leaves [0, ${WALL_HEIGHT}]`);
       }
@@ -214,7 +214,7 @@ test("walls_draw_in_blocks_over_dark_mortar_and_masonry_zero_is_the_flat_skin", 
       const p = m.getVerticesData(VertexBuffer.PositionKind), uv = m.getVerticesData(VertexBuffer.UVKind);
       return Array.from({ length: p.length / 3 }, (_, v) => vertex(p.slice(v * 3, v * 3 + 3), uv.slice(v * 2, v * 2 + 2)));
     }).sort();
-    // Counted rather than `deepEqual`: a failing deepEqual diffs 130,000 strings, which took 33 GB and a quarter hour.
+    // Counted rather than `deepEqual`: a failing deepEqual diffs 130,000 strings, which costs gigabytes and minutes.
     const differ = built.length === expected.length ? built.filter((v, i) => v !== expected[i]).length : Infinity;
     assert.equal(differ, 0, `${differ} of ${expected.length} wall vertices are not the masonry's quads and UVs`);
     const colours = blocks.surfaces.filter(m => m.name.startsWith("wall.visual")).flatMap(m => [...m.getVerticesData(VertexBuffer.ColorKind)]);
@@ -287,7 +287,7 @@ test("a_sconce_is_set_into_the_wall_under_its_flame_and_is_fogged", async () => 
       assert.equal(meshes.length, torches.length, "a torch has no sconce");
       for (const mesh of meshes)
         assert.ok(world.surfaces.includes(mesh) && mesh.material.pluginManager.getPlugin("DungeonFog").view.texture === world.fog.texture);
-      // Hidden until the floor it faces is explored, and shown then: the fog alone drew half of one at the frontier.
+      // Hidden until the floor it faces is explored, and shown then: the fog alone would draw half of one at the frontier.
       const floorOf = t => t.cell.z * map.size + t.cell.x + t.facing.z * map.size + t.facing.x;
       assert.ok(meshes.every(m => !m.isVisible), `seed ${seed}: a sconce shows before anything is explored`);
       world.present(new Set(), new Set([floorOf(torches[0])]), { x: 0, z: 0 }, Math.PI / 6, cameraToward(CAMERA_AZIMUTH));
@@ -386,11 +386,12 @@ function hit(origin, dir, [a, b, c, d]) {
 }
 
 test("the_camera_never_sees_into_the_rock", () => {
-  // Rays along the camera's view, at session 01's default pitch and the concepts' steeper one, from the page's bearing
-  // square to the walls and from the old diagonal, aimed at the colliders' skin wherever the camera can see it -- densely at cell edges, where corners and joints meet. The first quad a ray
-  // meets faces it, and before it meets one the ray is never deeper into the rock than the cap: a slit in the masonry
-  // would show the void inside. Back faces are culled, as the renderer culls them. The cap is the deepest thing meant to be seen: at pitch 30 the view runs edge-on down
-  // an inner corner's notch at the coping and meets it about 0.09 m in.
+  // Rays along the camera's view, at pitch 30 and at the concept art's steeper 45, from the page's bearing square to
+  // the walls and from a diagonal, aimed at the colliders' skin wherever the camera can see it -- densely at cell
+  // edges, where corners and joints meet. The first quad a ray meets faces it, and before it meets one the ray is never
+  // deeper into the rock than the cap: a slit in the masonry would show the void inside. Back faces are culled, as the
+  // renderer culls them. The cap is the deepest thing meant to be seen: at pitch 30 the view runs edge-on down an inner
+  // corner's notch at the coping and meets it about 0.09 m in.
   const offsets = [0.01, 0.04, 0.5, 0.96, 0.99];
   const rays = new Map();
   for (const seed of [1, 3]) {

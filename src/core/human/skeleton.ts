@@ -7,9 +7,9 @@ import { dividedTrunk, type Side } from "./landmarks.ts";
 
 /**
  * **The crypt skeleton as a human figure.** Its shape is its art's: Blender Studio's realistic
- * human skeleton (`public/assets/skeleton/README.md`), fitted onto the old game's skeleton parts,
- * whose places `assets/skeleton/bind.json` holds (the fist build: each part's position and turn,
- * body frame at x1, and its box in its own frame). Its reference pose is that bind: standing, the
+ * human skeleton (`public/assets/skeleton/README.md`), fitted onto a set of box parts whose places
+ * `assets/skeleton/bind.json` holds (the fist build: each part's position and turn, body frame at
+ * x1, and its box in its own frame). Its reference pose is that bind: standing, the
  * elbows bent at a right angle with the forearms forward and the fists thumb up, so each piece of
  * the art rides its segment exactly (`src/core-lab/skeleton-skin.ts`).
  *
@@ -20,7 +20,7 @@ import { dividedTrunk, type Side } from "./landmarks.ts";
  *   is a cube, so the little finger's knuckle, where a grip ends (`grip.ts`), is its half-width from
  *   the middle one toward the little finger. The neck's bottom is the cervicale and the head box's
  *   top the vertex.
- * - **The trunk** is the old trunk's boxes (the core and the pelvis), sliced at de Leva's trunk
+ * - **The trunk** is the bind's trunk boxes (the core and the pelvis), sliced at de Leva's trunk
  *   landmarks: each segment the hull of the boxes' corners within its span.
  * - **The feet** are the foot boxes; a foot runs from its box's back to its front, at its middle.
  * - **What the art does not give** is a placeholder (`skeleton-placeholders`): a typical man in the

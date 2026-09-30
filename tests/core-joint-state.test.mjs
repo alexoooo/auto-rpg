@@ -137,17 +137,16 @@ async function pressed(limited, limit, goal) {
 /**
  * Each freedom in turn limited to +-0.6 rad and driven to 1.2, the other two asked to swing or
  * twist the joint well off its axes: the limited freedom stops at 0.6 as this reading has it,
- * where the Euler angles Rx Ry Rz, the reading before this one, put it up to 1.03 rad off it;
- * and a pose within the limit, at 0.5, is reached. The servo stays within its measure of the limit:
- * a goal past it drives the other freedoms off theirs, since the limit's push leans on them.
+ * where the Euler angles Rx Ry Rz would put it up to a radian off; and a pose within the limit, at
+ * 0.5, is reached. The servo stays within its measure of the limit: a goal past it drives the other
+ * freedoms off theirs, since the limit's push leans on them.
  *
- * On Havok the limited freedom stopped within 0.015 rad of its limit. On Rapier it passes it by up
- * to 0.046 rad: Rapier's limit pushes along its axis as fixed in the parent, where the angle
- * 2 atan2(q_k, w) grows along row k of (E - [t]x + t t') / (1 + t_k^2) (`ratesToRef`), so the other
- * freedoms' turning carries the limited angle past its stop while the limit sees no motion. A todo
- * until the limit's row is the angle's gradient (the plan's Rapier stage).
+ * Rapier passes the limit by up to 0.046 rad: its limit pushes along its axis as fixed in the
+ * parent, while the angle 2 atan2(q_k, w) grows along row k of (E - [t]x + t t') / (1 + t_k^2)
+ * (`ratesToRef`), so the other freedoms' turning carries the limited angle past its stop while the
+ * limit sees no motion.
  */
-test("a joint pressed against its limit stops where its reading says the range ends", { todo: "Rapier's limit pushes along the parent's axis, not the angle's gradient (the plan's Rapier stage)" }, async () => {
+test("a joint pressed against its limit stops where its reading says the range ends", { todo: "Rapier's limit pushes along the parent's axis, not the angle's gradient, so a freedom turned off its axes passes its limit" }, async () => {
   const limit = 0.6;
   let stopped = 0, euler = 0, reached = 0;
   for (const limited of [0, 1, 2]) {
@@ -224,8 +223,8 @@ test("a joint driven by velocity motors reads each driven freedom's target as it
  * With both rods tumbling free and no motor, the engine moves the nodes with the bodies' velocities,
  * so the change of the joint's relative rotation across a step is its speed: the tracker, reading
  * velocities, agrees with it. The parent turns and spins here, so a reading that ignored the
- * parent's spin or read the axes in the world would not. Measured on Rapier, 0.19 rad/s apart at
- * 8.6 rad/s (Havok, 0.13 at 6): a finite rotation of a tumbling pair is not quite its rate.
+ * parent's spin or read the axes in the world would not. A finite rotation of a tumbling pair is
+ * not quite its rate, so the two agree to a few per cent, not exactly.
  */
 test("a joint tumbling free reads the speed its relative rotation changes at", async () => {
   const stand = await coreStand(rods([["x", X], ["y", Y], ["z", Z]]), { gravity: false, ground: false });

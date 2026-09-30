@@ -120,7 +120,7 @@ test("the segment tree joins every segment to the lower trunk", () => {
 /**
  * Segments that share no joint collide with each other (`buildBody`), so in the reference pose
  * every such pair must have room: measured geometrically, since nothing in the engine would show
- * an overlap it forbids (H55, H57).
+ * an overlap it forbids.
  */
 test("segments that share no joint have room between them in the reference pose", () => {
   for (const model of WORKSHOP_MODELS) {
@@ -251,8 +251,8 @@ test("each freedom's positive turn is the motion it is named for", () => {
 
 /**
  * Each model reads its own sex's ranges and speeds where a source splits them, and only the men's
- * torques: the women's torque column is the check below, never an input. The control: the Rogue does read a women's
- * range, so the detector sees a column.
+ * torques: the women's torque column is the check below, never an input. The control: the Rogue
+ * does read a women's range, so the detector sees a column.
  */
 test("each model reads its own sex's ranges and speeds, and only the men's torques", () => {
   const byColumn = new Set(["moromizato-2016", "zwerus-2019", "kitsoulis-2010", "hallaceli-2014", "jiang-2025"]);
@@ -283,10 +283,9 @@ test("each model reads its own sex's ranges and speeds, and only the men's torqu
 
 /**
  * The muscle rule predicts the Rogue from the men; the women's measured column, at her mass, is
- * what it should land near (`docs/analysis/2026-09-27-human-strike-reference.md` section 9). The
- * band holds the spread that table shows (0.63 to 1.37, the trunk and the wrist's ulnar deviation
- * lowest) and a middle near 0.97; scaled by mass alone the middle ratio is 1.39, and with her mass
- * left out 1.25 (Node, pure spec).
+ * what it should land near (`docs/reference/human-strike-reference.md` section 9). The band holds
+ * that table's spread (0.63 to 1.37, the trunk and the wrist's ulnar deviation lowest) and its
+ * middle, near 0.97; scaling by mass alone would put the middle at 1.39.
  */
 test("the Rogue's torques, scaled from the men's by her muscle, land near the women's measured column", () => {
   const mass = bodyMass("workshop-rogue").value;

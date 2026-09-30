@@ -1,5 +1,5 @@
 /**
- * Clearance between a spec's collision shapes, measured geometrically (H55, H57): a collision
+ * Clearance between a spec's collision shapes, measured geometrically: a collision
  * layer that forbids a pair also hides whether it has room, so a spec's shapes are measured before
  * any engine sees them.
  *

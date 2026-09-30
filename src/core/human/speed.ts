@@ -22,14 +22,14 @@ import type { Exertion } from "./tables/joint-torques.ts";
  *   bend near rest but hardly its end: fitted freely, curvatures from 0.05 to 0.8 fit about as
  *   well, with w0 from 80 down to 11 rad/s. Thelen's curvature is taken, and w0 is fitted by least
  *   squares on the linear form, w0 = sum((1 - f)(w + f w / k)) / sum((1 - f)^2).
- * - **Everything else** has no curve read. It takes a measured exertion's, named in `BORROWED`, as
- *   the stage 2 assumptions set out.
+ * - **Everything else** has no curve read. It takes a measured exertion's, named in `BORROWED`, a
+ *   stated assumption (`ASSUMPTIONS`).
  * - **Lengthening** is Thelen's everywhere: a ceiling of 1.4 isometric, and a slope at rest twice
  *   the shortening one. It is the stimulated muscle's ceiling; a voluntary one is 1.0-1.3, and the
- *   owner kept 1.4 for fighters (the stage 2 assumptions).
+ *   owner chose 1.4 for fighters.
  *
- * The figure's column is its sex's. Speed is not scaled to size: a
- * geometrically similar body turns its joints at the same rate.
+ * The figure's column is its sex's. Speed is not scaled to size: a geometrically similar body turns
+ * its joints at the same rate.
  */
 export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVelocitySpec {
   const { sex } = figure;
@@ -108,7 +108,7 @@ function fittedAtCurvature(direction: FreyLawDirection, sex: Sex): Pick<ForceVel
 }
 
 /**
- * Which measured exertion's curve each unmeasured one takes (the stage 2 assumptions): the rest of
+ * Which measured exertion's curve each unmeasured one takes (a stated assumption): the rest of
  * the arm the elbow flexors', whose fibre length over moment arm is like theirs (Holzbaur 2005);
  * the hip's other freedoms, the trunk and the neck the hip flexors'; the foot's the dorsiflexors'.
  */

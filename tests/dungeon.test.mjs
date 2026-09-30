@@ -44,7 +44,7 @@ test("screen movement is normalized", () => {
   const is = (v, x, z) => Math.abs(v.x - x) < 1e-12 && Math.abs(v.z - z) < 1e-12;
   // Square to the walls, each key walks along one axis: right is +x and up is +z.
   assert.ok(is(screenMovement(1, 0), 1, 0) && is(screenMovement(0, 1), 0, 1), "a key walks along an axis");
-  // On the old diagonal, right is toward -x +z and up toward -x -z.
+  // On the diagonal at azimuth pi/4, right is toward -x +z and up toward -x -z.
   const diagonal = cameraToward(Math.PI / 4), h = Math.SQRT1_2;
   assert.ok(is(screenMovement(1, 0, diagonal), -h, h) && is(screenMovement(0, 1, diagonal), -h, -h), "the diagonal's keys");
   for (const toward of [cameraToward(CAMERA_AZIMUTH), diagonal, cameraToward(1)])
@@ -55,7 +55,7 @@ test("keyboard directions project onto screen axes and HiDPI picking is scaled e
   const engine = new NullEngine({ renderWidth: 1200, renderHeight: 800 }); const scene = new Scene(engine);
   try {
     const camera = new FreeCamera("dungeon", new Vector3(), scene); camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
-    // The default, the old diagonal, and a bearing that is neither.
+    // The default, a diagonal, and a bearing that is neither.
     for (const azimuth of [CAMERA_AZIMUTH, Math.PI / 4, 1]) {
       frameDungeon(camera, { x: 9, z: 9 }, 10, 1.5, CAMERA_PITCH, azimuth); scene.render();
       const viewport = camera.viewport.toGlobal(1200, 800);

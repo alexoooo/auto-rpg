@@ -31,7 +31,7 @@ import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from 
 
 export type { Fist };
 
-/** The Routine's straights, m: its first version's walk out. */
+/** The Routine's straights, m. */
 export const ROUTINE_METRES = 2;
 
 /** The Routine's path: out, a half-turn to the right, back, and a half-turn to its start. */
@@ -53,14 +53,9 @@ export const POST_BEYOND = 0.45;
  * **How the Routine walks and turns**: at `TURN_PACE` (m/s) and `LAB_TURN_RATE` (rad/s), the pair
  * whose ratio is its half-turns' radius (`SHUTTLE_TURN_RADIUS`). The Run takes the same half-turns
  * at the body's fastest walk and turn, but it comes to them walking. The Routine sets off into its
- * turn from standing at the post, and there the fastest turn fell: the envelope's turns were
- * measured on a walk under way, and one second after setting off (`TURN_LEAD`) the walk is not
- * (0.1 m/s). At the Rogue's fastest walk, 0.5 m/s, and 2 rad/s, it fell in the second loop of
- * every run; at 0.3 m/s and the envelope's 4 rad/s there, the Warrior pivoted half round nearly
- * where it stood and ran away sideways after it, in 1 run of 6 at 120 Hz and 1 of 6 at 480, 10
- * loops each, pushed 3 N s at the start (`research/core-routine-battery.mjs`, Node stand). At this
- * gait each human held all 60 loops of that battery at 120 and 480 Hz. Standing still after each
- * strike before walking on was tried too, and changed nothing: the turn was the cause.
+ * turn from standing at the post, where the envelope's turns, measured on a walk under way, do not
+ * hold: a second after setting off (`TURN_LEAD`) the walk is barely moving, and the fastest turn
+ * falls. Battery: `docs/reference/lab.md#routine-gait`.
  */
 export const ROUTINE_GAIT = { pace: TURN_PACE, turn: LAB_TURN_RATE } as const;
 

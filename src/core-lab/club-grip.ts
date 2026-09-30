@@ -4,21 +4,14 @@ import type { FistPose } from "./fist.ts";
 /**
  * **A hand closed on the club's haft**, built by `fist.ts` as the fist is: finger angles are the
  * joints' flexion from a straight finger, degrees, and the thumb's phalanges point along the palm's
- * axes. Fitted on the skin by `scripts/core-lab/haft-fit.mjs` (2026-09-29; its header gives the
- * rule) around the haft where the core's grip puts it (`inHand`, `src/core/human/grip.ts`): each
- * finger wraps it, its phalanges as near it as they lie without sinking in, and the thumb's pad
- * rests on it. One pose for both hands.
+ * axes. Fitted on the skin by `scripts/core-lab/haft-fit.mjs` (its header gives the rule) around
+ * the haft where the core's grip puts it (`inHand`, `src/core/human/grip.ts`): each finger wraps
+ * it, its phalanges as near it as they lie without sinking in, and the thumb's pad rests on it.
+ * One pose for both hands. The fit's gaps: `docs/reference/lab.md#club-grip`.
  *
  * It is the wooden club's grip (`woodenClub`, an 18 mm haft), not a grip on anything held: the fit
  * reads the haft's radius and place. The skin is a costume; the hand's collision shape and the
  * club's are the core's, whatever the fingers show.
- *
- * Measured by the fit (both hands alike), each finger's nearest gap to the haft, proximal to end
- * phalanx, mm (negative inside):
- * - Warrior: index 0.9, 0.1, 0.1; middle 0.1, 1.1, 4.4; ring 2.2, 0, 2.1; pinky 2.4, 0.5, 2.7;
- *   the thumb's pad 0.8.
- * - Rogue: index 0.6, -0.8, 3.8; middle 1.6, 3.0, -0.9; ring 1.7, -0.2, 4.7; pinky 3.1, -0.9, -0.3;
- *   the thumb's pad -0.9.
  */
 export const CLUB_GRIP: Readonly<Record<WorkshopModel, FistPose>> = {
   "workshop-fighter": {

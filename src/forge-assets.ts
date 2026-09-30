@@ -18,8 +18,8 @@ export function prepareTemplate(mesh: Mesh): void {
   mesh.bakeTransformIntoVertices(mesh.computeWorldMatrix(true).clone());
   mesh.parent = null;
   mesh.position.setAll(0); mesh.scaling.setAll(1); mesh.rotationQuaternion = Quaternion.Identity();
-  // All proof templates are opaque. glTF COLOR_0 otherwise opts even alpha=1 colors into blending,
-  // which omits the bronze covers from the depth and shadow passes.
+  // Every forge template is opaque. glTF COLOR_0 otherwise opts even alpha=1 colors into blending,
+  // which leaves the bronze covers out of the depth and shadow passes.
   mesh.hasVertexAlpha = false;
   mesh.setEnabled(false); mesh.isPickable = false;
 }

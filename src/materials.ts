@@ -49,8 +49,8 @@ const BASE = {
   // Banners are deliberately quieter than either side's surcoat. The image
   // carries weave and checks, but the room never gets the fighters' saturation.
   "room.banner": { name: "roomBanner", albedo: [0.25, 0.19, 0.16], metallic: 0, roughness: 0.96 },
-  // The owner's choice of two candidates each. The colour is session 01's flat stone in linear light, which shows
-  // until the maps decode, and the roughness is 1 because the packed map's green channel is multiplied by it.
+  // The owner's choice of two candidates each. The colour is a flat stone in linear light, shown until
+  // the maps decode; the roughness is 1 because the packed map's green channel is multiplied by it.
   "dungeon.floor": { name: "dungeonFloor", albedo: [0.184, 0.177, 0.194], metallic: 0, roughness: 1 },
   "dungeon.wall": { name: "dungeonWall", albedo: [0.066, 0.070, 0.090], metallic: 0, roughness: 1 },
 } as const;

@@ -28,12 +28,10 @@ import type { V3 } from "./math.ts";
  * (`SERVO_SECONDS`, 0.1 s: twelve steps at 120 Hz).
  *
  * Why M and not a gain a joint: a joint servo whose gains are sized to the inertia each joint holds
- * up (kp = I/T^2, kd = 2I/T) was tried first. At 120 Hz it rang on every light segment between two
- * heavy joints, in every engine: case A's shank, between an ankle of kd 1540 N m s/rad and a knee of
- * 604, flipped the ankle's torque between +155 and -45 N m every step from the second step, and the
- * leg fell within 0.8 s in MuJoCo at 16 sub-steps (1920 Hz), in Havok at 4 and 16, and in Rapier.
- * The core rejected the same law for the same reason (`servo.ts`, "each joint's torque from its own
- * inertia"). Given through M, each mode of the chain moves at its own inertia.
+ * up (kp = I/T^2, kd = 2I/T) ignores the coupling between joints. At 120 Hz it rings on every light
+ * segment between two heavy joints, in every engine (case A's shank flips the ankle's torque every
+ * step, and the leg falls); the core's servo (`servo.ts`) avoids it the same way. Given through M,
+ * each mode of the chain moves at its own inertia.
  *
  * A stance foot is read as the ground (`Placement.grounded`): at its reference orientation and still.
  * Read as itself, the ankle's torque answers the foot's own rocking, which is the engine's to show.

@@ -165,7 +165,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
   const exit = MeshBuilder.CreateTorus("exit sigil", { diameter: 2, thickness: 0.12, tessellation: 40 }, scene);
   exit.position.set(map.exit.x, 0.06, map.exit.z); exit.isPickable = false; exit.isVisible = false;
   // #42b998 in linear light has a luminance of 0.381; bloom extracts what exceeds its 1.1 threshold after the 1.15
-  // exposure, so x3 (0.381 x 3 x 1.15 = 1.32) glows and the x2.2 first written (0.965) did not.
+  // exposure, so x3 (0.381 x 3 x 1.15 = 1.32) glows, and anything under about x2.5 would not.
   const exitMaterial = flatStone(scene, "exit light", "#93edcf");
   exitMaterial.emissiveColor = Color3.FromHexString("#42b998").toLinearSpace().scale(3); exit.material = exitMaterial;
   return {
@@ -183,7 +183,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     },
     /** An iron sconce under each torch's flame, hidden until the floor it faces is explored, as its flame is. The fog
      * reads a fitting's top and underside from that floor cell and its front from the wall, which shows as soon as a
-     * diagonal neighbour is explored: without the gate, the front of a sconce was drawn without its top. */
+     * diagonal neighbour is explored: without the gate, the front of a sconce would be drawn without its top. */
     sconces(torches: readonly TorchPlacement[]): Mesh[] {
       if (!fog) return [];
       const S = SCONCE;

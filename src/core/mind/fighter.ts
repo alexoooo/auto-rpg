@@ -25,13 +25,13 @@ export interface FighterPlan {
 }
 
 /**
- * **A fighter's mind**: it walks its plan's direction at its body's fastest walk (`CoreBody.envelope`),
- * facing it, and given a body to attack attacks its head with what the right hand holds: the strike
- * skill brings the body the rest of the way (`APPROACH` in `src/core/skills/strike.ts`). It holds the
- * point it aims at while the head stays within `APPROACH.reach` of it, and aims again after each
- * blow: the skill sets the feet for the point it is given, and a point that follows a swaying head
- * moved each placing of the feet before it was done (two bodies aiming at each other in the crypt
- * stood placing their feet for 25 s, Node, Rapier, 120 Hz). `plan` is read every control step.
+ * **A fighter's mind**: it walks its plan's direction at its body's fastest walk
+ * (`CoreBody.envelope`), facing it, and given a body to attack attacks its head with what the right
+ * hand holds: the strike skill brings the body the rest of the way (`APPROACH` in
+ * `src/core/skills/strike.ts`). It holds the point it aims at while the head stays within
+ * `APPROACH.reach` of it, and aims again after each blow, since the skill sets the feet for the
+ * point it is given and a point that followed a swaying head would move under every placing.
+ * `plan` is read every control step.
  */
 export function fighterMind(name: string, plan: () => FighterPlan): Mind {
   /** The point aimed at, whose head it was, and the blows thrown when it was chosen. */

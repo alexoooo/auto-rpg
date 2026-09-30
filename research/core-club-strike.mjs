@@ -1,6 +1,6 @@
 /**
  * One club blow by a core human, scored by the energy it brings to an opponent's head: the damage
- * unit's reading (stage 5 of `docs/plans/2026-09-28-core-foundation.md`).
+ * unit's reading (`Rulebook.unit`, `src/core/rules/rulebook.ts`).
  *
  * The human holds the wooden club in one hand (`armed`, `woodenClub`), stands on its own feet on
  * the core stand and throws the blow from there, as `core-strike.mjs`'s straights are thrown

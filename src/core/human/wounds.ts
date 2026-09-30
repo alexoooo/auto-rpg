@@ -5,8 +5,7 @@ import type { WorkshopModel } from "./rig.ts";
 
 /**
  * **What a human figure's wounds are**: its hit points (the figure's); its head, whose emptying or
- * loss kills it; and its trunk, which never comes off, as in the old game, where a torso was not
- * severed and a limb or the head was.
+ * loss kills it; and its trunk, which is never severed, though a limb or the head may be.
  */
 export function humanWounds(figure: HumanFigure): WoundSpec {
   return { hp: figure.hp, vital: ["head"], whole: ["upperTrunk", "middleTrunk", "lowerTrunk"] };

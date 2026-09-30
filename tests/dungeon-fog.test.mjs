@@ -10,7 +10,7 @@ import { buildDungeonWorld, VISUAL_CHUNK } from "../src/dungeon/world.ts";
 import { DungeonFogPlugin, dungeonFog } from "../src/dungeon/fog-plugin.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "../src/dungeon/camera.ts";
 
-/** Azimuths every cut-away test runs at: the page's, square to the walls, and the old diagonal. */
+/** Azimuths every cut-away test runs at: the page's, square to the walls, and a diagonal. */
 const AZIMUTHS = [CAMERA_AZIMUTH, Math.PI / 4];
 /** A point `along` metres toward a camera standing `toward` of `hero`, and `across` metres to the side, on the screen's
  * horizontal: the axes `cutAway` measures in. */
@@ -33,7 +33,8 @@ import { DUNGEON_LOOK, lightDungeon } from "../src/dungeon/lighting.ts";
 
 const levels = new Map(Array.from({ length: 50 }, (_, i) => [i + 1, generateLevel(i + 1).map]));
 
-/** The wall runs the colliders are built from, and the floor cells each used to be shown by (before session 02). */
+/** The wall runs the colliders are built from, and the floor cells beside each: a coarser rule for when a wall shows,
+ * which the mask must never be looser than. */
 function oldWallRuns(map) {
   const runs = [];
   for (let z = 0; z < map.size; z++) for (let x = 0; x < map.size;) {
@@ -67,12 +68,12 @@ test("the_fog_mask_shows_each_wall_cell_beside_explored_ground", () => {
       if (mask[key] > 0) shownRock++;
       if (mask[key] === FOG.visible) litRock++;
     }
-    // Stricter than the boxes, never looser: a wall cell the mask shows was in a run the old rule showed.
+    // Stricter than the runs, never looser: a wall cell the mask shows is in a run beside explored floor.
     for (const run of oldWallRuns(map)) {
       const shown = run.cells.some(k => explored.has(k));
       for (let x = run.start; x < run.end; x++) {
         const key = run.z * map.size + x;
-        if (!shown) assert.equal(mask[key], 0, `seed ${seed}: (${x}, ${run.z}) shows in a run the boxes hid`);
+        if (!shown) assert.equal(mask[key], 0, `seed ${seed}: (${x}, ${run.z}) shows in a run beside no explored floor`);
         else if (mask[key] === 0) darkerThanTheRun++;
       }
     }
@@ -83,8 +84,8 @@ test("the_fog_mask_shows_each_wall_cell_beside_explored_ground", () => {
 
 test("the_shader_draws_no_pixel_of_unexplored_ground_and_lights_a_door_beside_the_hero", () => {
   // `fogSample` is the shader's rule on the CPU (`FOG_SAMPLE`). A closed door's own cells are the exception:
-  // their floor is drawn with the door (`fogMask`). Bilinear sampling alone drew the edge of
-  // unexplored tiles, past thin walls too, and left every closed door in the remembered tint.
+  // their floor is drawn with the door (`fogMask`). Bilinear sampling alone would draw the edge of
+  // unexplored tiles, past thin walls too, and leave every closed door in the remembered tint.
   let tiles = 0, deciding = 0, doorFaces = 0;
   const across = [-0.49, -0.25, 0, 0.25, 0.49];
   for (const seed of Array.from({ length: 10 }, (_, i) => i + 1)) {
@@ -140,8 +141,8 @@ test("the_fog_shader_samples_as_fogSample_does", () => {
 });
 
 test("the_heart_of_the_bubble_keeps_half_the_wall_as_a_checkerboard", () => {
-  // The owner: with 13 of 16 pixels gone the bubble was "almost a bit too transparent"; Diablo's wall stays plainly
-  // there, half of it drawn. The shader's own dither, `dungeonBayer4`, at the heart's share over one 4x4 tile.
+  // As in Diablo, the wall stays plainly there, half of it drawn. The shader's own dither, `dungeonBayer4`, at the
+  // heart's share over one 4x4 tile.
   const bayer2 = (x, y) => { x = Math.floor(x); y = Math.floor(y); const v = 0.5 * x + y * y * 0.75; return v - Math.floor(v); };
   const bayer4 = (x, y) => bayer2(0.5 * x, 0.5 * y) * 0.25 + bayer2(x, y);
   for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++)
@@ -152,7 +153,7 @@ test("the_heart_of_the_bubble_keeps_half_the_wall_as_a_checkerboard", () => {
 });
 
 test("a_wall_in_front_ghosts_around_the_hero_and_the_opening_has_no_edge", () => {
-  // The cut-away was a world-space box, 13 of 16 pixels dropped inside it and none outside: a square hole on screen.
+  // The opening is an oval on screen that fades to its rim, not a hole with an edge.
   const hero = { x: 20, z: 20 };
   const steps = (from, to) => Array.from({ length: Math.round((to - from) / 0.02) + 1 }, (_, i) => from + i * 0.02);
   for (const azimuth of AZIMUTHS) for (const pitch of [CAMERA_PITCH, Math.PI / 4]) {

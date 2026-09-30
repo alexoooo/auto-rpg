@@ -9,10 +9,10 @@ export type Rapier = typeof RAPIER_NS;
 /**
  * **Rapier** (`@dimforge/rapier3d-compat`, or the SIMD build; the same API). Two joint kinds:
  *
- * - `joints: "impulse"` (the default): maximal coordinates, like Havok. Each joint is a generic
- *   joint whose frame's X, Y, Z are the spec's freedom axes, linear axes and unused angular axes
- *   locked, every free axis limited to its range (`jointSetLimits` on the raw set; the typed API
- *   limits only one-axis joints).
+ * - `joints: "impulse"` (the default): maximal coordinates. Each joint is a generic joint whose
+ *   frame's X, Y, Z are the spec's freedom axes, linear axes and unused angular axes locked, every
+ *   free axis limited to its range (`jointSetLimits` on the raw set; the typed API limits only
+ *   one-axis joints).
  * - `joints: "multibody"`: reduced coordinates (Featherstone). Rapier's JS API gives multibody
  *   joints no limits at all, so this kind is unlimited; a joint of two freedoms is only built when
  *   its axes are the world's x and z (the ankle), since the generic joint's frame cannot be set.

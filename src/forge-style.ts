@@ -15,8 +15,8 @@ export async function loadForgeStyle(scene: Scene) {
   // Hold the render budget at a 1920x1080 viewport. High-DPI displays otherwise silently quadruple the
   // shaded pixels (3840×2160 for a 1920×1080 CSS viewport), including every post-process.
   const engine = scene.getEngine();
-  // Decode image maps to bitmaps before upload. HTMLImageElement uploads forced
-  // seconds of synchronous pixel conversion on the integrated GPU at startup.
+  // Decode image maps to bitmaps before upload: an HTMLImageElement upload converts its
+  // pixels synchronously, which costs seconds at startup on an integrated GPU.
   if (typeof createImageBitmap === "function") engine._features.forceBitmapOverHTMLImageElement = true;
   const resize = () => {
     const canvas = engine.getRenderingCanvas();
@@ -32,7 +32,7 @@ export async function loadForgeStyle(scene: Scene) {
 }
 export type ForgeStyle = Awaited<ReturnType<typeof loadForgeStyle>>;
 
-/** Shallow paving lies on the existing slab. No new solid obstacle or collision body. */
+/** Lay the forge's paving and its glowing seams on the ground slab; they add no collider. */
 export function paveForge(scene: Scene, kit: Map<string, Mesh>, material: PBRMaterial, ember: PBRMaterial): void {
   const template = kit.get("pavement")!;
   template.material = material;
@@ -52,7 +52,7 @@ export function paveForge(scene: Scene, kit: Map<string, Mesh>, material: PBRMat
     glow.setEnabled(true); glow.isVisible = true; glow.isPickable = false;
     glow.metadata = { forgeNoShadow: true };
   }
-  // Existing underlay extends to the collision slab's perimeter, beneath the modeled joints.
+  // The underlay reaches the slab's edge; it sits just below the paving and its modelled joints.
   const floor = scene.getMeshByName("room.floor") ?? scene.getMeshByName("bench.floor");
   if (floor) floor.position.y = -.015;
 }

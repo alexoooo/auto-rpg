@@ -3,11 +3,8 @@
  * floating: against the closed form for one body, and against the engine's own answer to an
  * impulse (Node core stand, Rapier, 3840 Hz, no gravity, in the air).
  *
- * On the chain's end, pushed at 1.5 N s, Rapier's first step read 2.077 m/s along x against the
- * model's 2.074, and the next three 2.081, 2.084 and 2.085 at 3840 Hz (2.086-2.118 at 960 Hz,
- * where the chain has moved further). A push a tenth as hard reads 2.065-2.082, and neither loses
- * any momentum (under 0.001 %). Havok spread an impulse through its joints over a few steps (2.139
- * on the first) and braked the tenth push's slow bodies, losing 2-4 % of its momentum (H73).
+ * The engine's answer is read over three steps at 3840 Hz, before the pushed chain has moved far
+ * from the pose the model was taken at; a coarser step reads the chain further along.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

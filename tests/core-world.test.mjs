@@ -24,8 +24,7 @@ test("a step is one solver step, with the step hooks before it and the after hoo
   const { world } = stand, head = stand.built.segments.get("head").body, v = new Vector3();
   const seen = [];
   try {
-    // Three steps of falling first, so the head is moving well clear of zero when the hooks read it
-    // (Havok braked a body slower than 0.12 m/s, H73; Rapier does not, and the steps cost nothing).
+    // Three steps of falling first, so the head is moving well clear of zero when the hooks read it.
     world.step(3);
     world.beforeStep(() => { head.linearVelocityToRef(v); seen.push(["before 1", world.steps, v.y]); });
     world.beforeStep(() => seen.push(["before 2", world.steps]));

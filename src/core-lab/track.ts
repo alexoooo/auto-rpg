@@ -86,15 +86,15 @@ export function trackOf(pieces: readonly Piece[]): Track {
 }
 
 /**
- * The big circle's radius, m: the owner's "big circle", about 25 m a lap; at the humans' fastest
- * walk (0.5 m/s, `assets/core/stance-envelope.json`) it asks the heading to turn 0.125 rad/s,
- * inside the turn each body held walking at its fastest (`CoreBody.envelope`).
+ * The big circle's radius, m: the owner's "big circle", about 25 m a lap. Walked at 0.5 m/s it
+ * asks the heading to turn 0.125 rad/s, inside the turn each body holds walking at its fastest
+ * (`CoreBody.envelope`, `assets/core/stance-envelope.json`).
  */
 export const CIRCLE_RADIUS = 4;
 /**
- * The walking pace of a turn on the stance, m/s. Walking at 0.3 m/s and turned half round at 0.25,
- * 0.5, 1 and 2 rad/s, each human held every one and went the new way (`LAB_TURN_RATE` in
- * `stance-mode.ts`, Node stand, 120 Hz).
+ * The walking pace of a turn on the stance, m/s: slow enough that `LAB_TURN_RATE`
+ * (`stance-mode.ts`) is inside every body's envelope, and that each human takes the Routine's
+ * half-turns from standing (`docs/reference/lab.md#routine-gait`).
  */
 export const TURN_PACE = 0.3;
 

@@ -1,16 +1,15 @@
 /**
  * One strike by a core human (`src/core/`), scored by how fast its fist closes on a target.
  *
- * The human stands on its own feet on the core stand and throws the blow from there
- * (`throwBlow` in `src/core-lab/blow.ts`): it stands in the lab's guard, holds a chamber pose, then pushes
- * a chosen set of freedoms, each from a chosen moment for a chosen time at a chosen activation;
+ * The human stands on its own feet on the core stand and throws the blow from there (`throwBlow` in
+ * `src/core-lab/blow.ts`): it stands in the lab's guard, holds a chamber pose, then pushes a chosen
+ * set of freedoms, each from a chosen moment for a chosen time at a chosen activation;
  * every other freedom is servoed to the guard, and the legs are the stance's. Every torque is its
  * muscles'.
  *
  * The target is an opponent's head: a sphere of the striker's own head capsule's radius, at its
  * own head's centre of mass, as it stands when the blow begins, moved straight ahead by a chosen
- * distance. The reading is the fist's
- * forward speed, its knuckles' velocity along the line the target lies on, as it first enters the
+ * distance. The reading is the fist's forward speed, its knuckles' velocity along the line the target lies on, as it first enters the
  * sphere from outside after the chamber: a straight's speed as a punch's impact speed is measured
  * (Adamec 2021), so a blow chopped down from above scores only what it carries forward. No body
  * is struck, so nothing slows the fist before it arrives. A search's `score` is that speed, or,
@@ -19,29 +18,14 @@
  * blow, and scores below any miss (`FELL`).
  *
  * **The wrist is not pushed; it is servoed to the guard like every freedom not pushed.** A punch
- * lands on a fist held in line with the forearm. A first search that could push the wrist found a
- * flick of the hand, and a fault in the muscle driver with it: at 120 Hz the wrist went from rest
- * to 23 rad/s in one step (16 at 480 Hz at the same moment), and the best strike read 11.66 m/s at
- * 120 Hz and 6.60 at 480 (Node core stand). The driver read the force-velocity curve at the speed
- * a step began with, so a light segment crossed the whole curve in one step at its isometric
- * torque; it now holds each motor's target to the curve's tangent (`src/core/muscle/driver.ts`),
- * and a search runs at the game's 120 Hz.
+ * lands on a fist held in line with the forearm; a search free to push the wrist finds a flick of
+ * the hand instead.
  *
- * **One blow is chaotic; a search scores several.** Random strikes (Node core stand, the Warrior
- * from the guard, 24 of them, 480 Hz) read a peak fist speed 1.9 % apart (standard deviation of the
- * log ratio; up to 8 %) when every push's activation was scaled by 0.9999, and 0.7 % with the
- * body's self-contact switched off: an arm that meets its own body turns a small difference into a
- * large one. Strikes that met no joint stop scattered as much as those that did. The same strikes read 11-12 % apart between 1920 Hz and 3840 Hz and
- * 17-31 % between 120 Hz and 3840 Hz, with mean ratios of 0.97-0.99 at 120 Hz: one rate does not
- * reproduce another's single blow, but 120 Hz is not biased. A search that takes the best single
- * run of thousands takes the luckiest: ten searches at 120 Hz each read higher at 120 Hz than at
- * 1920 Hz, by up to 95 %. `perturbed` gives a strike the variation a mind cannot remove, and the
- * search scores a candidate by its mean over several.
- *
- * The figures above were read with the velocity servo the computed-torque one replaced on
- * 2026-09-29 (`src/core/control/servo.ts`); every freedom not pushed moves differently now. They,
- * and the plan's acceptance searches, were read with the pelvis carried still, as a kinematic body,
- * before the blow was thrown standing.
+ * **One blow is chaotic; a search scores several.** Scaling every push's activation by 0.9999
+ * moves a strike's peak fist speed by percents, mostly through the arm meeting its own body, and
+ * one physics rate does not reproduce another's single blow, though 120 Hz is not biased. A search
+ * that takes the best single run of thousands takes the luckiest. `perturbed` gives a strike the
+ * variation a mind cannot remove, and the search scores a candidate by its mean over several.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";

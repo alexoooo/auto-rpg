@@ -21,8 +21,8 @@ import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torqu
  * women's muscle per kilogram over the men's in the region. The women's measured column is never an
  * input: `tests/core-human.test.mjs` holds it against the prediction.
  *
- * `docs/analysis/2026-09-27-human-strike-reference.md` section 9 has the check, the two other rules
- * weighed, and what none of them explains (the trunk).
+ * `docs/reference/human-strike-reference.md` section 9 has the check, the two other rules weighed,
+ * and what none of them explains (the trunk).
  */
 export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<number> {
   const { sex } = figure;

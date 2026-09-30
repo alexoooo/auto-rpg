@@ -1,4 +1,4 @@
-// One person orders a party in the dungeon (session 06, orders). The hero and its companions are
+// One person orders a party in the dungeon. The hero and its companions are
 // core bodies on one side (`src/dungeon/run.ts`); a mouse order goes to the selected members only,
 // a companion with none holds where it was sent or walks after the hero, and enemies go for
 // whichever member they see nearest (Node, core world, Rapier, 120 Hz).
@@ -54,7 +54,7 @@ test("a_party_order_goes_to_the_selected_member_and_a_companion_regroups_on_call
     const post = floorAway(map, 3);
     run.select(["ally-0"]);
     run.commands.order = { kind: "attack-move", destination: post }; run.commands.revision++;
-    // About 4.5 m of route round the hero at a Rogue's 0.4 m/s made good: arrived by 12.5 s (Node, core world, Rapier, 120 Hz).
+    // About 4.5 m of route round the hero at a Rogue's 0.4 m/s: there by 12.5 s (Node, core world, Rapier, 120 Hz).
     seconds(run, 16);
     const ally0 = run.party[1], ally1 = run.party[2];
     assert.ok(distance(ally0.feet(), post) < 0.6, `ally-0 is at the post: ${distance(ally0.feet(), post)}`);

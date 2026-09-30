@@ -13,17 +13,17 @@ import type { Skills } from "../core/skills/skills.ts";
 import type { Hook, World } from "../core/world.ts";
 
 /**
- * **A bout in the arena on the core**: two core bodies, each with the wooden club in its right hand
- * (the one weapon the core has), each driven by a fighter's mind (`fighterMind`), wounded by the
- * core's blows under the arena's rulebook, and judged.
+ * **A bout in the arena**: two core bodies, each with the wooden club in its right hand, each driven
+ * by a fighter's mind (`fighterMind`), wounded by the core's blows under the arena's rulebook, and
+ * judged.
  *
  * - **They stand** `GAP_METRES` apart across the arena's centre, both facing +z as every core body is
- *   built; each turns a quarter to the other, so neither starts ahead (recorded, not asked).
+ *   built; each turns a quarter to the other, so neither starts ahead.
  * - **A mind** walks at the other until within `ATTACK_METRES` of it, then attacks its head.
  * - **A side is out** once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
- *   core has no rising yet, so a body down stays down, as in the crypt. The other side wins; both out
- *   on one step is a draw.
- * - **At the cap** (`CAP_SECONDS`) the fuller bar wins, and equal bars draw (recorded, not asked).
+ *   core has no rising, so a body down stays down. The other side wins; both out on one step is a
+ *   draw.
+ * - **At the cap** (`CAP_SECONDS`) the fuller bar wins, and equal bars draw.
  *
  * The world is the caller's, with the arena's solids already in it (`addArenaSolids`); the bout adds
  * its bodies and hooks, and takes them away again on `dispose`, so a replay is a new bout in the same world.

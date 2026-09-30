@@ -88,8 +88,8 @@ test("held, the rigid body has both masses, their centre, and the angular moment
 });
 
 /**
- * The engine keeps a free body's angular momentum, not its spin (`dynamics.ts`), so the momentum an
- * impulse gives is read with the segment frame where the step left it.
+ * The engine keeps a free body's angular momentum, not its spin (`src/core/build/dynamics.ts`), so
+ * the momentum an impulse gives is read with the segment frame where the step left it.
  */
 test("the engine holds the rigid body: its mass, centre and inertia, read back by an impulse on every axis", async () => {
   const spec = holder(), [segment] = spec.segments;

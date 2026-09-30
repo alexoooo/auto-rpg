@@ -17,8 +17,7 @@ export const FOG_SAMPLE = Object.freeze({ pull: 0.2, drawnFrom: 0.02 });
 /**
  * One byte per cell, row-major like `map.floor`, for the fog shader to sample. A floor cell is visible,
  * remembered or unexplored. A rock cell shows as much as the brightest floor cell among its eight
- * neighbours, so a wall appears cell by cell beside explored ground -- not a whole run of wall at once, as
- * the boxes did when any floor cell along them was explored.
+ * neighbours, so a wall appears cell by cell beside explored ground.
  */
 export function fogMask(map: DungeonMap, visible: ReadonlySet<number>, explored: ReadonlySet<number>,
   into = new Uint8Array(map.size * map.size)): Uint8Array {
@@ -80,13 +79,12 @@ export function fogSample(map: DungeonMap, mask: Uint8Array, x: number, z: numbe
 export const WALL_HEIGHT = 2.8;
 
 /**
- * How a wall between the hero and the camera ghosts away, set by eye and judged on the owner's machine. The shader
- * drops a share of a wall's pixels by a 4x4 ordered dither; the share is greatest where the wall covers the hero's
- * body on screen and falls smoothly to none at the rim of an oval around it, so the opening has no edge. The owner
- * asked for a bubble that shows the hero and a bit of the room around them, and that reads plainly as a see-through
- * bubble: so it is wide and most of its radius is the fade. Its heart keeps half the wall, as a checkerboard, as
- * Diablo's did: with 13 of 16 pixels dropped the owner found it "almost a bit too transparent", where only partly
- * transparent makes it obvious the hero is behind a wall.
+ * How a wall between the hero and the camera ghosts away, set by eye. The shader drops a share of a wall's pixels
+ * by a 4x4 ordered dither; the share is greatest where the wall covers the hero's body on screen and falls smoothly
+ * to none at the rim of an oval around it, so the opening has no edge. The bubble shows the hero and a bit of the
+ * room around them and reads plainly as see-through, so it is wide and most of its radius is the fade. Its heart
+ * keeps half the wall, as a checkerboard, as Diablo's did: a wall only partly transparent makes it obvious the hero
+ * is behind it, where one nearly gone reads as no wall.
  */
 export const CUT_AWAY = Object.freeze({
   /** The oval's centre above the hero's feet: the middle of the body. */
@@ -100,10 +98,9 @@ export const CUT_AWAY = Object.freeze({
   /** The share dropped at the oval's heart: 8 of 16 pixels, which the dither draws as a checkerboard. */
   most: 0.5,
   /** A wall behind the hero hides nothing: the drop rises from none to full over this far toward the camera. A wall
-   * the hero is pressed against has its face 0.28 m off a human's centre: 0.28 m toward a camera square to it, 0.4 m
-   * toward one on the diagonal. At 0.32 the square case is 0.957 of the full drop, which the 4x4 dither draws as the
-   * full 8 of 16 pixels (past about 0.36 it is 7). A 2 cm step changes the share by at most
-   * 0.03 / `ahead` of `most`, which reaches a tenth at 0.30. */
+   * the hero is pressed against has its face 0.28 m off a human's centre, toward a camera square to it: at 0.32 that
+   * is 0.957 of the full drop, which the 4x4 dither draws as the full 8 of 16 pixels. A 2 cm step changes the share by
+   * at most 0.03 / `ahead` of `most`: a tenth of it at 0.30. */
   ahead: 0.32,
   /** A wall's foot stays whole below the first height and is fully in the cut above the second: the footprint reads. */
   foot: Object.freeze([0.1, 0.5] as const),
@@ -139,8 +136,8 @@ export const SIDE_FACES = Object.freeze([
 
 /**
  * The outer skin of the wall colliders, one quad at a time: a top on every boundary cell, and a side on each face
- * that does not meet another boundary cell. Faces into solid rock are kept, as the boxes had them: rock beyond
- * the boundary is drawn as nothing, so such a face can be seen past it.
+ * that does not meet another boundary cell. Faces into solid rock are kept: rock beyond the boundary is drawn as
+ * nothing, so such a face can be seen past it.
  */
 export function wallSurface(map: DungeonMap): WallQuad[] {
   const quads: WallQuad[] = [];

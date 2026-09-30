@@ -12,9 +12,9 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  * `tests/core-stance-envelope.test.mjs` fails when the harness it names is not the core's, so a
  * change of engine or rate re-measures it.
  *
- * A turn is read at each speed because it depends on it: with the heel-off (`STANCE_GAIT`'s notes)
- * the Rogue walks 0.5 m/s, but turns 0.5 rad/s there and 2 rad/s at 0.4. One turn at the fastest
- * walk made a run crawl round a bend it could take a little slower at four times the turn.
+ * A turn is read at each speed because it depends on it: a body may turn several times faster a
+ * little below its fastest walk than at it, so one turn for all speeds would make a run crawl round
+ * a bend.
  *
  * Measured on the body unarmed, at the rate the asset names: a held club, or another rate, is a
  * body the table did not see.

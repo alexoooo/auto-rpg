@@ -120,7 +120,7 @@ test("a_door_shuts_its_corridor_across_its_whole_width_and_opens", () => {
     }
   }
   assert.ok(long > 0, "a corridor long enough for its door's end to matter");
-  assert.ok(doors >= 96, `${doors} doors over ${SEEDS.length} levels`); // 115 on the prototype
+  assert.ok(doors >= 96, `${doors} doors over ${SEEDS.length} levels`);
 });
 
 test("eight_spawns_stand_apart_and_away_from_the_start", () => {
@@ -190,9 +190,7 @@ test("a_level_prints_square_with_one_start_and_one_exit", () => {
 test("every_level_loops_and_each_loop_saves_a_real_walk", () => {
   const k = LEVEL.block;
   // Every candidate, not only the chosen levels: the score passes over most of the loops that only
-  // just clear the floor, so the chosen 24 cannot show a loop under it (with the floor lowered by
-  // four blocks, 13 of the 719 loops in 288 candidates fall under the measure below, and none of
-  // the 68 in the chosen levels).
+  // just clear the floor, so the chosen 24 cannot show a loop under it.
   const levels = SEEDS.flatMap((seed) => levelCandidates(seed));
   let chosenLoops = 0, fewest = Infinity, loopDoors = 0;
   for (const { map, links, metrics } of levels) {
@@ -207,7 +205,7 @@ test("every_level_loops_and_each_loop_saves_a_real_walk", () => {
       if (l.door !== null) loopDoors++;
     }
     // Every loop shut at once, so no loop is measured against another's shortcut. `addLoops`
-    // added them greedily, each against the ones before it; with all of them shut, each one's
+    // adds them greedily, each against the ones before it; with all of them shut, each one's
     // saving is at least what it was when it was chosen.
     const shut = { ...map, floor: map.floor.slice() };
     for (const { corridor: c } of loopLinks)

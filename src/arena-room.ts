@@ -60,11 +60,11 @@ export interface ShadowRegistry {
 
 export interface RoomOcclusionTarget {
   readonly point: { x: number; y: number; z: number };
-  /** Pooled arrows remain present while parked; only their live trace protects a ray. */
+  /** Whether the target counts now; an inactive target keeps no sight line clear. */
   readonly active?: () => boolean;
 }
 
-/** Rebuild the live caster list without teaching a visual scrim to look solid. */
+/** Rebuild the shadow caster list from the scene, leaving out floors, non-solid scrims and effects. */
 export function refreshShadowCasters(scene: Scene, shadows: ShadowGenerator): void {
   const list = shadows.getShadowMap()?.renderList;
   if (!list) return;
@@ -73,9 +73,8 @@ export function refreshShadowCasters(scene: Scene, shadows: ShadowGenerator): vo
     if (mesh.name === "ground" || mesh.metadata?.forgeNoShadow) continue;
     const roomPlacement = mesh.metadata?.roomPlacement as { role?: string; solid?: boolean } | undefined;
     if (roomPlacement?.role === "floor" || roomPlacement?.solid === false) continue;
-    // A temporarily culled beam remains a caster. Otherwise refresh removes it
-    // from the list and revealing the instance on the next frame cannot restore
-    // its shadow without another full-scene refresh.
+    // A beam hidden for a sight line stays a caster; dropped here, it would get its
+    // shadow back only at the next full refresh.
     if (!mesh.isVisible && !roomPlacement?.solid) continue;
     if (
       mesh.name.startsWith("aim.")
@@ -95,13 +94,13 @@ const CARTESIAN_AXES = Object.freeze(["x", "y", "z"] as const);
 
 export const ROOM = Object.freeze({
   groundHalfExtent: 30,
-  /** Conservative crown + raised arm + longest carried object envelope. */
+  /** The highest a fighter can reach, m: crown, raised arm and the longest carried object, with margin. */
   maxReachHeight: 3.6,
   floorSize: 60,
   floorMetresPerRepeat: ROOM_METRES.floor,
   wallWidth: 26.24,
   wallHeight: 4.2,
-  /** Depth of the authoritative boxes whose inner faces meet the wall scrims. */
+  /** Depth of the wall colliders, whose inner faces meet the scrims, m. */
   wallThickness: 0.24,
   wallHalfExtent: 13,
   wallMetresPerRepeat: ROOM_METRES.wall,
@@ -111,8 +110,8 @@ export const ROOM = Object.freeze({
 
 const wall = (name: string, x: number, z: number, rotationY: number, halfExtent: readonly [number, number, number]): RoomPlacement => ({
   name, role: "wall", position: [x, ROOM.wallHeight / 2, z], rotationY, halfExtent,
-  // These are translucent textile-like scrims, not masonry silhouettes. Their
-  // non-solidity is visible and is asserted beside the PBR opacity contract.
+  // A drawn wall is a translucent scrim, not solid; its collider is a box behind it
+  // (`ROOM_WALL_COLLIDERS`).
   solid: false, collider: `${name}.collider`,
 });
 
@@ -128,7 +127,7 @@ const roomWalls = (): readonly RoomPlacement[] => {
   ];
 };
 
-/** One immutable authority table shared by browser and headless bouts. */
+/** The walls' colliders, boxes whose inner faces meet the scrims; the page and headless bouts share them. */
 export const ROOM_WALL_COLLIDERS = Object.freeze(roomWalls().map((placement) => {
   const northSouth = placement.name.endsWith("north") || placement.name.endsWith("south");
   const depth = ROOM.wallThickness; const centre = ROOM.wallHalfExtent + depth / 2;
@@ -151,10 +150,10 @@ const placed = (
 ): RoomPlacement => ({ name, role, position, rotationY, halfExtent, solid, collider: null });
 
 /**
- * The placement table is also the refusal boundary. Nothing solid is admitted
- * below the conservative reach ceiling unless it names a collider already in
- * the authoritative arena. A dynamic fighter can keep moving beyond the slab,
- * so distance is not an admission rule; only overhead solids are body-free.
+ * The room's cosmetic placements. Nothing solid is admitted below the reach
+ * ceiling (`ROOM.maxReachHeight`) unless it names one of the arena's colliders
+ * (`validateRoomPlacements`). A fighter can move beyond the slab, so distance
+ * admits nothing; only overhead solids may go without a collider.
  */
 export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
   {
@@ -233,7 +232,10 @@ export function validateRoomPlacements(groups: readonly RoomGroup[], registeredC
 /** Whether `mesh` stands for a collider: a fixed collider in the core's world stands behind it (`buildArenaColliders`). */
 export const isCollider = (mesh: AbstractMesh): boolean => mesh.metadata?.coreCollider === true;
 
-/** Resolve pair names against live authority, not against the placement table. */
+/**
+ * Check each pair against the scene's meshes, not the placement table: its collider exists, has a
+ * physics body, and overlaps its visual.
+ */
 export function validateVisualColliderPairs(
   scene: Scene,
   pairs: readonly VisualColliderPair[],

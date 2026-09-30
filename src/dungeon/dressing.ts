@@ -8,19 +8,17 @@ import { MURAL_ASPECT, WALL_PIECES, type WallPiece } from "./decals.ts";
  * wall's top. Its height is its width over its tile's aspect (`MURAL_ASPECT` in `decals.ts`, which paints it). */
 interface MuralSpec { weight: number; width: readonly [number, number]; y: "top" | readonly [number, number] }
 
-/** Where the dungeon's body-free decoration goes. Every number here is a starting value set by eye; the owner
- * judges density in play (docs/plans/2026-09-24-dungeon-look-00-overview.md). */
+/** Where the dungeon's body-free decoration goes. Every number here is set by eye, and density is judged in play. */
 export const DRESSING = Object.freeze({
   /** No two torches closer than this, in metres. */
   torchSpacing: 7,
   /** The flame's centre height, and how far proud of the wall face it stands. A flame is translucent light and owns
-   * no body -- the body-free case AGENTS.md names for scrims -- so it may hang over the floor. */
+   * no body, so it may hang over the floor. */
   torchHeight: 2.05, torchProud: 0.12,
   /** How far off the wall face the torch's light stands. A light at the flame would sit 0.12 m from the stone, and an
    * inverse-square light that close burns a hot spot into the wall; this one lights the floor the flame looks at. */
   torchLightProud: 0.4,
-  /** Flat markings: a whole number of them in each room, drawn between these, and a chance for each corridor cell.
-   * The owner asked for more clutter; these were [3, 6] and 0.02. */
+  /** Flat markings: a whole number of them in each room, drawn between these, and a chance for each corridor cell. */
   decalsPerRoom: Object.freeze([7, 12] as const), corridorDecalsPerCell: 0.06,
   /** How often each kind is drawn, and the side of its square in metres. A size is the whole tile's, rim included. */
   decals: Object.freeze({
@@ -37,21 +35,20 @@ export const DRESSING = Object.freeze({
   /** No marking comes within this of the start or the exit, where the eye goes first. */
   keepClear: 1.2,
   /** Roots hang from a wall's top: at most this many a level, no two closer, this wide, and reaching this far down.
-   * The cap is what binds (6 a level at both azimuths, seeds 1-50), so it is what moved for more wall decoration. */
+   * The cap is the rule that binds, so it sets how many roots a level has. */
   rootsPerLevel: 12, rootSpacing: 4, rootWidth: Object.freeze([0.5, 0.9] as const), rootDrop: Object.freeze([0.9, 1.7] as const),
   /** How far off the wall's face a hung piece stands. */
   hungProud: 0.01,
   /** The chance of a web in each inner corner of a room that faces the camera, how far along each wall it reaches, and
-   * how far down it hangs. With the camera square to the walls two corners of a room face it, where one did on the
-   * diagonal, so the chance is about half what it was: 0.5 on the diagonal and 0.28 square to the walls give 2.84 and
-   * 2.86 webs a level (seeds 1-50). */
+   * how far down it hangs. With the camera square to the walls, two corners of a room face it; 0.28 gives about three
+   * webs a level (seeds 1-50). */
   cobwebsPerRoomCorner: 0.28, cobwebSpan: Object.freeze([0.35, 0.55] as const), cobwebDrop: Object.freeze([0.45, 0.7] as const),
   /** Pieces on the walls the camera sees: a whole number of them for each room, drawn between these, each with a few
    * tries at a face. */
   muralsPerRoom: Object.freeze([2, 4] as const),
   /** Each piece's draw (`MuralSpec`). Every draw fits between `MURAL_FLOOR` and the wall's top: the tallest is a
-   * 0.9 m stain, 2.0 m high, and the lowest bottom a fissure's, 0.12 m. Lichen's middle is drawn from [0.6, 1.1]
-   * because at [0.4, 1.0] a 0.9 m patch reached below the floor. */
+   * 0.9 m stain, 2.0 m high, and the lowest bottom a fissure's, 0.12 m. Lichen's middle starts at 0.6 so that a
+   * 0.9 m patch stays above `MURAL_FLOOR`. */
   murals: Object.freeze({
     stain: Object.freeze({ weight: 0.25, width: Object.freeze([0.5, 0.9] as const), y: "top" }),
     lichen: Object.freeze({ weight: 0.25, width: Object.freeze([0.5, 0.9] as const), y: Object.freeze([0.6, 1.1] as const) }),
@@ -61,9 +58,9 @@ export const DRESSING = Object.freeze({
   } satisfies Record<WallPiece, MuralSpec>),
 });
 
-/** The top of everything hung on a wall: a centimetre under the coping, as the roots have always hung. */
+/** The top of everything hung on a wall: a centimetre under the coping. */
 export const HUNG_TOP = WALL_HEIGHT - 0.01;
-/** No wall piece comes lower than this: under it the floor's tiles and a golem's feet are in front of it. */
+/** No wall piece comes lower than this: under it the floor's tiles and a body's feet are in front of it. */
 export const MURAL_FLOOR = 0.1;
 /** A wall piece's height: its width over its tile's aspect, so its painting is not stretched. */
 export const muralHeight = (m: { piece: WallPiece; width: number }): number => m.width / MURAL_ASPECT[m.piece];
@@ -72,9 +69,8 @@ export const muralHeight = (m: { piece: WallPiece; width: number }): number => m
  * How squarely a hung piece's face must look toward the camera, as the ground dot product of its normal with the unit
  * step toward the camera (`cameraToward`). A hung piece is one face, culled from behind as the walls are, so it hangs
  * only where the camera sees that face. The facing tests ask 0.3 of the face's normal against the camera's view,
- * which is `cos(pitch)` of the ground dot: 0.3 / cos 30 = 0.346. A bare `> 0` would hang roots on a face nearly
- * edge-on at `?azimuth=170`, where the side walls score 0.17. On the diagonal every face toward the camera scores
- * 0.707; square to the walls, the face looking at the camera scores 1 and the side faces 0.
+ * which is `cos(pitch)` of the ground dot: 0.3 / cos 30 = 0.346. A bare `> 0` would hang pieces on faces nearly
+ * edge-on to the camera. Square to the walls, the face looking at the camera scores 1 and the side faces 0.
  */
 export const FACING_MIN = 0.35;
 const facesCamera = (p: Point, toward: Point) => p.x * toward.x + p.z * toward.z >= FACING_MIN;
@@ -121,7 +117,7 @@ export type DressingTable = typeof DRESSING;
 
 /** The top of the floor's tiles, which every marking lies on. `world.ts` builds its tiles to this. */
 export const FLOOR_TOP = 0.015;
-/** How far a piece may stand off a wall's face: the allowance the masonry session gave the sconces. */
+/** How far a piece may stand off a wall's face: the sconces' allowance (`SCONCE.proud` in `world.ts`). */
 export const WALL_ALLOWANCE = 0.08;
 /** Markings that overlap are lifted apart by a layer each, so that no two share a depth; there are this many. */
 export const DECAL_LAYERS = 3;
@@ -185,9 +181,8 @@ function roomAt(map: DungeonMap, x: number, z: number): number {
  * are rock inside a room -- facing an axis neighbour that is floor inside a room. A rock cell with any floor
  * outside every room among its eight neighbours is the jamb of a corridor mouth, where a door hangs, and
  * carries none. Candidates are shuffled by a stream of their own and taken greedily while no two flames are
- * closer than `torchSpacing`, the one density rule: it puts at most five in a room on seeds 1-300, and a cap of
- * four per room changed no level on seeds 1-50, so it went. The result is sorted only so that its order does not
- * depend on the draw.
+ * closer than `torchSpacing`, the one density rule. The result is sorted only so that its order does not depend on
+ * the draw.
  */
 export function torchPlacements(map: DungeonMap, seed: number): TorchPlacement[] {
   const candidates: { cell: Point; facing: Point; room: number }[] = [];
@@ -407,8 +402,8 @@ export function validateDressing(map: DungeonMap, dressing: readonly Dressing[],
         || isFloor(map, floor.x - into.x, floor.z - into.z)) problems.push(`${name} is not in an inner corner`);
       if (!webFacesCamera(into, toward)) problems.push(`${name} faces away from the camera`);
       // Silk: alpha-tested, so each strand is opaque, but too thin to look solid, and a blade that passes through a web
-      // is what a web allows. Kept within its corner's cell and at least 2 m up, clear of a golem's head. A raised
-      // weapon still reaches it (the arena's reach ceiling is 3.6 m), which a web allows too.
+      // is what a web allows. Kept within its corner's cell and at least 2 m up, clear of a standing body's head. A
+      // raised weapon still reaches it (`ROOM.maxReachHeight` in `src/arena-room.ts`), which a web allows too.
       if (!(d.span > 0 && d.span <= 0.6)) problems.push(`${name} spans ${d.span} m`);
       if (!(d.drop > 0 && WALL_HEIGHT - d.drop >= 2)) problems.push(`${name} hangs down to ${(WALL_HEIGHT - d.drop).toFixed(2)} m`);
       if (torches.some(t => Math.hypot(t.flame.x - corner.x, t.flame.z - corner.z) < WEB_TORCH_CLEARANCE)) problems.push(`${name} hangs at a torch`);

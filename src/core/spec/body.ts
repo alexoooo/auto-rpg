@@ -2,7 +2,7 @@ import type { Quantity, Vec3 } from "./quantity.ts";
 import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
 
 /**
- * **What a body is built from**, and nothing else: `buildBody` (stage 1's builder) reads a
+ * **What a body is built from**, and nothing else: `buildBody` reads a
  * `BodySpec` and makes the bodies and joints it states. Every number in it is a `Quantity`, so it
  * says where it came from.
  *

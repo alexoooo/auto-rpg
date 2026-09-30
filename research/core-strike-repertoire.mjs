@@ -11,16 +11,17 @@
  * `--write` it prints the asset. It writes no recipe's window: `research/core-strike-window.mjs
  * --write` measures them, and is run after it.
  *
- * The repertoire of 2026-09-30 (the searches' outputs are kept outside the repository, in the
- * owner's `.review/rapier/`; each entry's `found` says how it was searched):
+ * The asset's repertoire was written with the command below (the searches' outputs are kept
+ * outside the repository, in the owner's `.review/rapier/`; each entry's `found` says how it was
+ * searched):
  *
  *   node research/core-strike-repertoire.mjs --write \
  *     fist=../auto-rpg/.review/rapier/fist-rapier-workshop-fighter-guard-s2.txt \
  *     fist=../auto-rpg/.review/rapier/fist-rapier-workshop-rogue-guard-s1.txt \
  *     "wooden club=research/core-club-unit.json"
  *
- * Of three seeds each from the guard (plan: "the fist acceptance searches taken again on Rapier"),
- * the Warrior's best is seed 2's (9.50 m/s at 960 Hz) and the Rogue's seed 1's (8.08).
+ * Each fist recipe is the best of three seeds searched from the guard: the Warrior's seed 2
+ * (9.50 m/s at 960 Hz) and the Rogue's seed 1 (8.08).
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";

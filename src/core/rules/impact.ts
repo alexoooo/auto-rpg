@@ -3,8 +3,7 @@
  * meets**, joules. Two bodies meeting at a closing speed v, each moving at the contact as a mass
  * that the contact meets (`src/core/build/contact-mass.ts`), lose at most the kinetic energy of
  * their relative motion, 1/2 mu v^2 with mu = m M / (m + M), and lose all of it when the contact
- * does not bounce. That is the old game's measure too (`impactEnergyJ` in `src/scoring.ts`), whose
- * contacts in Havok were read perfectly inelastic.
+ * does not bounce.
  *
  * A struck mass of `Infinity` is something nothing moves, and the blow gives up all its own
  * kinetic energy. A contact that is not closing (v <= 0) is worth nothing.

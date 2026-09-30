@@ -15,9 +15,8 @@ import { CONTACT_FRICTION, type ColliderShape, type Contact, type CoreJoint, typ
  * `jointAngles` reads it (`src/core/build/joint-state.ts`), and its velocity motor with infinite
  * damping and a maximum force is the contract's motor.
  *
- * **Solver conditioning** (`SOLVER`): the solver's iteration counts, which Havok did not expose, are
- * named here and nowhere else, and come from the bake-off's table. Bodies never sleep: a sleeping
- * body reads a perfect zero (H08).
+ * **Solver conditioning** (`SOLVER`): the solver's iteration counts are named here and nowhere
+ * else, and come from the bake-off's table. Bodies never sleep: a sleeping body reads a perfect zero.
  */
 export type Rapier = typeof RAPIER;
 

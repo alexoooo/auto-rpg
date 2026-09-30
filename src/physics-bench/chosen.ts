@@ -3,17 +3,14 @@ import type { Settings } from "./engines/types.ts";
 /**
  * **Each engine's cheapest setting that passes both fidelity cases** at the `today` bar
  * (`research/physics-bakeoff/fidelity.mjs`, `thresholds.mjs`), ranked by cost on 8 humans spaced and
- * piled (`candidates.mjs`), and the rows kept for the record. Node harness chose them; the page
- * runs the same. The feet's inertia factor is the one the whole human needs to stand (case C,
+ * piled (`candidates.mjs`), and the rows kept for the record. Chosen on the Node harness; the page
+ * runs the same rows. The feet's inertia factor is the one the whole human needs to stand (case C,
  * `standingHuman`): MuJoCo passes cases A and B without one and diverges on the whole human.
  *
  * Neither MuJoCo row survives the pile: when the second layer lands, a light freedom runs away and
  * MuJoCo resets the whole world (BADQVEL), with or without control. `mujoco-pile` is the cheapest
  * setting found that passes both cases and holds piles of 16, 32 and 64: rotor inertia on every
  * hinge (`armature`, solver conditioning) and 4 sub-steps (`research/physics-bakeoff/mujoco-armature.mjs`).
- *
- * Havok's rows (passing both at 12 sub-steps, 1440 Hz, feet x300; at 120 Hz failing case A) went with
- * Havok on 2026-09-30 (`docs/plans/2026-09-30-old-path-removal.md`); the bake-off's report keeps them.
  */
 export interface Chosen {
   readonly engine: "mujoco" | "mujoco-mt" | "rapier" | "rapier-simd";

@@ -18,12 +18,10 @@ import type { BuiltJoint, BuiltSegment } from "./build-body.ts";
  * is a joint's speed here: the speed a muscle's force-velocity relation reads, and the one its
  * torque does work against.
  *
- * Angles are read from the nodes' rotations (H24), which Rapier's step writes from the bodies
- * (`PhysicsWorld.step`). Speeds are read from the bodies' angular velocities, which the caller
- * reads once per sub-step and hands in (H50).
- *
- * On Havok (until 2026-09-29) the limits measured a swing and a halfway twist and its position
- * motors Euler angles (H76); nothing of that measure remains here.
+ * Angles are read from the nodes' `rotationQuaternion`, which the engine's step writes from the
+ * bodies (`PhysicsWorld.step`), not from a world matrix, which Babylon caches per render id. Speeds
+ * are read from the bodies' angular velocities, which the caller reads once per step and hands in:
+ * each read crosses into the engine.
  */
 
 const scratch = {

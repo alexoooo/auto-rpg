@@ -1,9 +1,8 @@
 /**
  * The muscle actuator (`src/core/muscle/`): the force-velocity curve as written, and the driver
- * making Havok's motors follow it. Node stand, at the game's 120 Hz and at finer rates as a
+ * making the engine's motors follow it. Node stand, at the game's 120 Hz and at finer rates as a
  * reference: the driver sets each sub-step's ceiling from the speed at its start and holds its
- * target to where the curve's tangent there reaches zero, so its error shrinks with the step (the
- * driver's doc comment has the tables).
+ * target to where the curve's tangent there reaches zero, so its error shrinks with the step.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -112,9 +111,8 @@ function integrate(inertia, torque, seconds) {
 /**
  * Driven flat out from rest, the rod's speed follows I dw/dt = activation T0 fv(w), integrated here
  * finely. The driver reads a joint at the start of each sub-step, so after n steps its reading is
- * the speed after n - 1. Measured, as the rod's speed over the curve's at 0.05, 0.15 and 0.4 s for
- * the two cases: 120 Hz reads +5.8, +2.1, -1.0 and +2.1, +1.2, -0.3 %; 480 Hz +1.1, +0.3, -0.6 and
- * -0.3, -0.1, -0.5 %; 960 Hz within 0.7 %.
+ * the speed after n - 1. The rod runs at most 5.8 % over the curve at 120 Hz and 1.1 % at 480 Hz,
+ * the most at 0.05 s.
  */
 test("a rod driven flat out speeds up as its muscles' curve says, closer as the step shrinks", async () => {
   for (const [hz, tolerance] of [[120, 0.07], [480, 0.015]]) {
@@ -139,12 +137,9 @@ test("a rod driven flat out speeds up as its muscles' curve says, closer as the 
 });
 
 /**
- * Held flat out, the rod closes on its unloaded speed and passes it only by Havok's ring: the motor
- * is never asked for more than the tangent's zero, short of the unloaded speed, but asked with room
- * to spare it overshoots what it is asked for. At the game's rate, where the ring is largest: the
- * rod was asked for 2.77, 6.52 and 10.82 rad/s and turned at 2.76, 7.72 and 12.55, peaking at
- * 12.63 against 12. With the target held only to the unloaded speed it peaked at 12.32; with no
- * hold, 17.6.
+ * Held flat out, the rod closes on its unloaded speed: the motor is never asked for more than the
+ * tangent's zero, short of the unloaded speed. The bound leaves room for a motor's overshoot of its
+ * target.
  */
 test("a rod held flat out closes on its unloaded speed and never passes it", async () => {
   const curve = CURVES[0], peak = { positive: 2000, negative: 1500 };
@@ -192,10 +187,9 @@ test("a muscle stretched past its peak yields at the speed its eccentric branch 
  * A hand on a forearm, a forearm on a static post, both driven flat out: the forearm is heavy for
  * its muscles and the hand light for its own (its muscles' time constant, inertia x unloaded speed
  * over peak x (1 + 1/k), is 1.6 ms against a step of 8.3 ms at 120 Hz). A motor asked for the
- * unloaded speed carried the hand across its whole curve in one step: the hand read 4.71 m/s at
- * 0.025 s at 120 Hz against 3.64 at 1920 Hz, and 5.3 against 4.5 at 0.083 s when the hand started
- * 0.06 s after the forearm, its wrist then being stretched at 28 rad/s. Held to the tangent's zero,
- * and to the reach from rest while braked: 3.69 and 4.7.
+ * unloaded speed would carry the hand across its whole curve in one step; held to the tangent's
+ * zero, and to the reach from rest while braked, the hand at 120 Hz keeps with the hand at 1920 Hz,
+ * both when it starts with the forearm and when it starts 0.06 s later, its wrist then stretched.
  */
 test("a light limb on a heavy one speeds up at 120 Hz as it does at a fine rate", async () => {
   const q2 = (w0) => ({ unloadedSpeed: q(w0, "rad/s"), curvature: q(0.25, "1"), eccentricCeiling: q(1.4, "1"), eccentricSlopeRatio: q(2, "1") });
@@ -232,15 +226,13 @@ test("a light limb on a heavy one speeds up at 120 Hz as it does at a fine rate"
 });
 
 /**
- * The driver reads the torque each motor applied over the last step (`MuscleDriver.pulled`, from
- * the constraint's applied impulse), positive when the positive muscles pulled. Driven flat out it
- * is the ceiling the step was given, either way; holding the rod still it is its weight's moment
- * about the pin, opposed, but only roughly: Havok's reading of a holding motor was -12 % to +14 %
- * of the moment across six rods (`appliedAngularImpulseToRef`), and 1.327 times it on this one. The
+ * The torque each motor applied over the last step (`pulled`, from the joint's applied impulse),
+ * positive when the positive muscles pulled. Driven flat out it is the ceiling the step was given,
+ * either way; holding the rod still it is its weight's moment about the pin, opposed, roughly. The
  * pairs are read in the controller, where `pulled` and `ceiling` both still belong to the step just
- * run. Rapier keeps the impulse and its binding does not read it: a todo until it can.
+ * run. A todo: Rapier keeps each motor's impulse, but its JavaScript binding does not read it.
  */
-test("the driver reads the torque its motor applied, and its sign is the side that pulled", { todo: "Rapier's binding does not read a joint's impulses (the plan's Rapier stage; `MuscleDriver.pulled` is gone)" }, async () => {
+test("the driver reads the torque its motor applied, and its sign is the side that pulled", { todo: "Rapier's JavaScript binding does not read a joint's impulses, so the driver has no `pulled`" }, async () => {
   const peak = { positive: 6, negative: 4 };
   const spec = rod(CURVES[0], peak);
   const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });
@@ -280,17 +272,16 @@ test("the driver reads the torque its motor applied, and its sign is the side th
 /**
  * A command lowering a weight slowly asks for speed the way the weight turns it, but the muscles
  * that pull are the ones braking. With the side read from the change asked (target minus speed),
- * the ceiling was the weak side's: on the Rogue's servoed arm at 1920 Hz the motors pulled past the
- * pulling side's ceiling on 1127 steps and were held short of it on 227. Here the rod's positive
- * muscles are far weaker than its weight's moment and its negative ones hold it, so the ceiling
- * each step must be the negative side's. Nor is the side the one that pulled last: asked then to
- * speed up past what its weight gives, the weak side pulls from the first step.
+ * the ceiling is the weak side's. Here the rod's positive muscles are far weaker than its weight's
+ * moment and its negative ones hold it, so the ceiling each step must be the negative side's. Nor
+ * is the side the one that pulled last: asked then to speed up past what its weight gives, the weak
+ * side pulls from the first step.
  *
- * The command is a speed within a step's reach, each step a damped move toward a goal (`ask`), as
- * the servo once gave; the servo now gives torques (`servo.ts`), so it is written out here. A todo
- * on Rapier: the driver chooses by the change asked again (`driver.ts` has the defect).
+ * The command is a speed within a step's reach, each step a damped move toward a goal (`ask`),
+ * written out here since the servo gives torques (`servo.ts`). A todo: the driver chooses by the
+ * change asked (`driver.ts` has the defect).
  */
-test("a command lowering a weight is bounded by the muscles braking it, not those it turns toward", { todo: "Rapier's binding does not read a joint's impulses (the plan's Rapier stage; `MuscleDriver.pulled` is gone)" }, async () => {
+test("a command lowering a weight is bounded by the muscles braking it, not those it turns toward", { todo: "Rapier's JavaScript binding does not read a joint's impulses, so the driver has no `pulled`" }, async () => {
   const peak = { positive: 0.02, negative: 6 };
   const spec = rod(CURVES[0], peak);
   const stand = await coreStand(spec, { gravity: true, ground: false, pinned: "post", hz: 120 });

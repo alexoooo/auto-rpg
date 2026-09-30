@@ -19,87 +19,37 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  *
  * The muscle shortens when the joint turns the way it pulls: the force-velocity relation reads the
  * speed in that direction (`forceVelocityFactor`). A speed the joint cannot reach makes the motor a
- * torque source at its ceiling; a speed of zero is a hold; a speed toward a pose is a servo.
+ * torque source at its ceiling; a speed of zero is a hold; a speed toward a pose is a servo. The
+ * driver reads its step from the world (`src/core/world.ts`).
  *
  * **Which muscles pull is chosen before the step**, and a motor's ceiling is one number for both
  * directions, so the choice bounds the motor whichever way it then pushes: the side pushed toward
  * (the sign of target minus speed), and with no push the weaker. **A known defect:** that gives the
  * braking muscles' work to the other side whenever a load outweighs the change asked, and a servo
- * asks for small changes, the smaller the finer the step. On Havok the driver chose instead by the
- * sign of the torque the step needs, taking the torque the motor last applied to have held the
- * joint's speed, plus the inertia beyond the joint times the change asked; on the Rogue's return
- * under the velocity servo of the time (Node stand, 1920 Hz, steps at a stop left out) that took
- * the steps pulling past the pulling side's ceiling from 1127 (8.2 N m s) to 73 (1.0 N m s). Rapier
- * keeps each motor's impulse (`ImpulseJoint.impulses`, and each motor's) but its JavaScript binding
- * does not read them, so the torque last applied is not known here (the plan's Rapier stage).
+ * asks for small changes, the smaller the finer the step. The right choice is the sign of the
+ * torque the step needs, which takes the torque the motor last applied; Rapier keeps each motor's
+ * impulse, but its JavaScript binding does not read it. `tests/core-muscle.test.mjs` holds the
+ * choice as a todo.
  *
  * **The curve is read at the speed the step begins with, and the motor's target is held to where
  * the curve's tangent there reaches zero** (`forceVelocityReach`). On a light limb the muscles' own
  * time constant, the inertia beyond the joint times the unloaded speed over the peak times
- * (1 + 1/curvature), is far shorter than a step: 0.4-0.7 ms for the Warrior's shoulder rotation,
- * ankle and wrist, against 8.3 ms at 120 Hz. A motor asked for the unloaded speed with the ceiling
- * read at rest carried such a limb across its whole curve in one step at its isometric torque:
- * on a forearm and hand driven flat out (Node stand), the hand read 4.71 m/s after 0.025 s at
- * 120 Hz against 3.64 at 1920 Hz, and 5.3 against 4.5 two steps after a hand started 0.06 s after
- * the forearm; a searched strike flicked the wrist from rest to 23 rad/s in one step. The shortening
- * branch is convex, so its tangent lies under it: held to the tangent's zero, a push gains in a
- * step no more speed than the curve allows (but for Havok's ring, below), and from rest reaches
- * w0 k / (1 + k). A joint the muscles are braking is held to the reach from rest: the lengthening
- * branch's own tangent reaches far past the unloaded speed, and with it the late hand's wrist,
- * stretched at 28 rad/s when its muscles came on, was sent to 34 rad/s the other way in one step at
- * 120 Hz. So held, the same hand read 3.69 against 3.64, and 4.7 against 4.5; peak speeds were
- * within 2 % either way (6.31 against 6.34, 6.88 against 7.01).
- * A heavy limb, which the ceiling saturates long before the tangent's zero, is unchanged.
+ * (1 + 1/curvature), is far shorter than a step (under a millisecond at a wrist, against 8.3 ms at
+ * 120 Hz), and a motor asked for the unloaded speed with the ceiling read at rest carries such a
+ * limb across its whole curve in one step at its isometric torque. The shortening branch is convex,
+ * so its tangent lies under it: held to the tangent's zero, a push gains in a step no more speed
+ * than the curve allows, and from rest reaches w0 k / (1 + k). A joint the muscles are braking is
+ * held to the reach from rest, since the lengthening branch's own tangent reaches far past the
+ * unloaded speed and would throw the joint the other way in one step. A heavy limb, which the
+ * ceiling saturates long before the tangent's zero, is unchanged, and still gains a few per cent
+ * early at 120 Hz. `tests/core-muscle.test.mjs` holds the rates to each other.
+ *
  * Rejected:
  * - **A ceiling read implicitly at the step's end**, solved with the inertia beyond the joint: it
- *   ignores every other torque on the joint, and a muscle stretched by a steady load yielded four
- *   times too fast.
- * - **Havok's spring motor as a damper along the tangent** (SPRING_FORCE, no stiffness, which
- *   Babylon does not expose). Soft, its torque was damping x (2.5 x target - speed); stiff, it
- *   turned a rod alike at dampings of 50 and 500, closing on 9.2 rad/s when asked for 8. Its law
- *   is not one a muscle can be written in.
+ *   ignores every other torque on the joint, and a muscle stretched by a steady load yields too fast.
  * - **Reading the curve half a step on**, by the speed a joint gained in the last step that its
- *   ceiling held short of its target. It took a heavy rod from +5.8 % to +1.0 % of the fine
- *   curve at 0.05 s at 120 Hz, and moved the lab's straights at 120 Hz from within a few per cent of
- *   1920 Hz to 5 % under for the Warrior and 15 % over for the Rogue.
- *
- * On the lab's three straights (Node stand, the computed-torque servo with the motion under way,
- * the fist read at the knuckles, the joints read as Havok's limits measure them, H76) the peak fist
- * at 120 Hz, 480 Hz and 1920 Hz, each before the striking elbow came within 0.01 rad of its stop:
- *
- *     Warrior  5.56 5.66 5.64 | 5.55 5.64 5.64 | 5.60 5.69 5.68
- *     Rogue    4.64 4.71 4.71 | 4.57 4.65 4.65 | 4.58 4.67 4.67
- *
- * Every rate is within 1.5 % of the finest. In the Euler reading before H76, without the motion
- * under way, the servo let a fast
- * forearm throw the hand about the wrist: at the knuckles the Warrior's read 5.02-5.15, 4.92-5.05
- * and 5.21-5.27, the hand trailing, and read at the fingertips, as they were until 2026-09-29, the
- * Rogue's read 5.55-5.64, 6.00-6.63 and 6.36-6.78, the elbow's stop whipping her hand at up to 66
- * rad/s at 1920 Hz. One blow is a poor reading of a rate: random strikes read 1.9 % apart when
- * every activation was scaled by 0.9999 (the plan, stage 2).
- *
- * A heavy limb still gains a few per cent early at 120 Hz: a rod driven flat out from rest read
- * 5.8 % over the curve at 0.05 s, 2.1 % at 0.15 s (`tests/core-muscle.test.mjs`).
- *
- * **On Havok** (until 2026-09-29), with the numbers of that engine:
- *
- * **The speed is the body's, not the nodes'.** After a motor's or a limit's impulse Havok moves
- * the nodes behind the body's velocity for several steps (`joint-state.ts`), and a driver reading
- * the nodes' rate pushed on joints already at speed: a rod whose muscle could carry it from 7 to
- * 24 rad/s in one step reached 17.6 rad/s against an unloaded speed of 12, even with its target held
- * to that speed. Havok's motor is exact when saturated (3 N m turned a 0.062 kg m2 rod 0.40 rad/s faster a
- * step), but with room to spare it rings about its target: asked for 6 rad/s from rest with
- * 2000 N m to spare, the rod's body turned at 5.97, 8.62, 6.26, 4.79, 5.76 rad/s on successive
- * steps. Its stiffness and damping settings do nothing to a velocity motor. Asked for small
- * changes, it adds about a third to each and returns it over the next steps (a rod asked for
- * 0.83 rad/s from rest turned at 1.08). The ring comes with Babylon's plugin telling Havok to
- * expect the step it hands it (`HP_World_SetIdealStepTime`): told to expect 1/240 s or less while
- * stepping 1/120 s, the rod asked for 6 rad/s turned at 5.87, 6.29, 6.01 rad/s against 8.06, 5.87,
- * 5.63, 6.28, and at 1920 Hz the ring is the same, 8.07. Holding the two apart changes more than
- * the ring and is not done here (the plan, stage 2). The ring and the lag behind it are counted in
- * steps, so a controller that asks for speeds runs behind at 120 Hz; the servo asks for torques
- * (`src/core/control/servo.ts` has the servo and the numbers).
- * The driver reads its step from the world (`src/core/world.ts`), so a finer one is a setting, not a change.
+ *   ceiling held short of its target: it corrects a heavy limb's early gain but parts whole-body
+ *   strikes at 120 Hz from those at fine rates.
  *
  * A freedom's ceiling bounds its own axis only: a ball joint turning about two axes at once can
  * exceed either peak in the diagonal, by up to the root of the sum of their squares. Each peak was
@@ -181,7 +131,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       joint.joint.setMotor(index, 0, 0);
     });
   }
-  // Each segment's angular velocity, read once per sub-step: a velocity read allocates (H50).
+  // Each segment's angular velocity, read once per sub-step: a velocity read allocates.
   const spin = new Map([...built.segments.values()].map((segment) => [segment, new Vector3()]));
   const angularVelocity = (segment: BuiltSegment): Vector3 => spin.get(segment)!;
   const byName = new Map(channels.map((c, i) => [c.name, i]));

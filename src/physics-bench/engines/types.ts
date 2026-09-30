@@ -13,7 +13,7 @@ import type { Model } from "../model.ts";
 export interface SceneSpec {
   readonly models: readonly Model[];
   readonly ground: boolean;
-  /** Rotational-inertia factor by segment name: solver conditioning, not anatomy (Havok's foot). */
+  /** Rotational-inertia factor by segment name: solver conditioning, not anatomy (the feet's: `FEET`, `chosen.ts`). */
   readonly conditioning?: Readonly<Record<string, number>>;
   /** Friction coefficient of every shape and the ground. */
   readonly friction?: number;

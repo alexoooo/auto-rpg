@@ -24,12 +24,9 @@ import { createPlayer } from "./player.ts";
  * or replay; Restart throws it again.
  *
  * **The page's reading is not the search's to the digit.** Float noise that moves no step of a
- * blow's timing moves its energy: Havok's unit blow, which lands glancing on Rapier, landed 0.2915 s
- * after the pushes began every time, but with 37.6 J on a 20 m ground and 27.6 J on the lab's 40 m
- * one in the page, and 45.9 J on the 20 m ground in Node. The unit's blow, found on Rapier, lands
- * square and moves less: on a 20, 40 and 30 m ground in Node, 119.45, 123.81 and 122.15 J at
- * 120 Hz, and 139.81, 138.80 and 137.61 J at 960 Hz (`research/core-club-strike.mjs`'s
- * `groundSize`). `tests/core-lab-blow.test.mjs` holds the Node reading on the 20 m ground.
+ * blow's timing still moves its energy by a few percent, with the ground's size (the lab's is 40 m;
+ * `research/core-club-strike.mjs`'s `groundSize`) and the physics rate.
+ * `tests/core-lab-blow.test.mjs` holds the Node reading on a 20 m ground.
  */
 
 /** What the history holds of each step. */

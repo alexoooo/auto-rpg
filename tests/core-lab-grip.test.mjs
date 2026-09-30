@@ -2,8 +2,7 @@
  * **A hand closed on the club** (`src/core-lab/club-grip.ts`): on each model's skin, CPU-skinned
  * from its GLB as `scripts/core-lab/fist-probe.mjs` does, both hands posed with `CLUB_GRIP` around
  * the haft where the core's grip puts it (`scripts/core-lab/haft.mjs`). Nothing of the hand is in
- * the haft, and every finger and the thumb touch it. The fist, which the hand closed into before,
- * sinks into it.
+ * the haft, and every finger and the thumb touch it. The control: the fist sinks into it.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -41,7 +40,7 @@ test("each_hand_closes_on_the_club_without_sinking_into_it", async () => {
 });
 
 test("the_control_the_fist_sinks_into_the_haft", async () => {
-  // Closed into a fist, as the loadout first drew it, the fingers run through the haft.
+  // Closed into a fist, the fingers run through the haft.
   const fist = {
     fingers: Object.fromEntries(["index", "middle", "ring", "pinky"].map((f) => [f, { mcp: 65, pip: 85, dip: 55 }])),
     thumb: CLUB_GRIP["workshop-fighter"].thumb,

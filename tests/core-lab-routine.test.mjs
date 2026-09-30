@@ -1,17 +1,12 @@
 /**
  * **The core lab's Routine** (`src/core-lab/routine.ts`), on the Node stand as the page runs it: a
  * mind on the core's skills, each human for two loops at 120 Hz: the second sets off from the post
- * into the turn, where the fastest turn fell (`ROUTINE_GAIT`). It stays on its feet,
- * completes the loops, and at the post throws the right hand's strike, the left's and the right's
- * again, each from
- * where its feet were set (`Locomotion.place`), with the head inside the recipe's window, turned over
- * for the left hand, and the fist as fast as the recipe was searched to go.
- *
- * Measured with this test's harness (Node stand, Rapier, 120 Hz, 2026-09-30): six loops each held,
- * 18 strikes, none set twice; a loop about 28 s. The peak fist speed through the pushes (the Routine
- * reads it in the air, to the pushes' end) was 9.9 to 10.3 m/s for the Warrior's right straight and
- * 10.5 for its left, 10.6 to 11.5 for the Rogue's; each recipe's searched peak to its landing was
- * 9.28 and 7.95.
+ * into the turn, where a faster turn falls (`ROUTINE_GAIT`). It stays on its feet, completes the
+ * loops, and at the post throws the right hand's strike, the left's and the right's again, each
+ * from where its feet were set (`Locomotion.place`), with the head inside the recipe's window,
+ * turned over for the left hand, and the fist as fast as the recipe was searched to go. The
+ * Routine reads the fist's peak in the air, to the pushes' end, so it is above the recipe's peak to
+ * its landing.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +16,7 @@ import { ROUTINE_HANDS, startRoutine } from "../src/core-lab/routine.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const LOOPS = 2;
-/** Seconds allowed for the loops: about 28 s each measured. */
+/** Seconds allowed for the loops: a loop takes about 28 s. */
 const SECONDS = 40 * LOOPS;
 
 for (const model of ["workshop-fighter", "workshop-rogue"]) {

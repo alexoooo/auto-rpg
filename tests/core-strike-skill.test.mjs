@@ -4,8 +4,8 @@
  * trunk's sided turns reversed; a hand throws the recipe for what it holds, its body's own or
  * another's, with its window turned over for the other hand; the club blow in the repertoire is the
  * damage unit's; and an attack walks toward its place, sets the feet there, stands `STAND` s, asks
- * the window of the head as it stands, chambers, pushes and is counted. That a blow thrown through the skill reads as
- * the old driver's did, to the digit, is `tests/core-lab-blow.test.mjs`'s.
+ * the window of the head as it stands, chambers, pushes and is counted. That a blow thrown through
+ * the skill reads as its search read it, to the digit, is `tests/core-lab-blow.test.mjs`'s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

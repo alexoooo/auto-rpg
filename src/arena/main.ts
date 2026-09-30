@@ -17,10 +17,9 @@ import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readMatchup, type Matchup }
 import { ORBIT, orbitPosition } from "./orbit.ts";
 
 /**
- * **The arena page on the core**: the arena's scene with its solids in a core world (`buildArena`),
- * and a bout of two core bodies in it (`Duel`). Setup picks the two models; a bout runs to its
- * verdict, and can be run again, or again with the right side redrawn. A person watches: the core
- * has no orders for a person to give a side yet (recorded, not asked).
+ * **The arena page**: the arena's scene with its solids in a core world (`buildArena`), and a bout
+ * of two core bodies in it (`Duel`). Setup picks the two models; a bout runs to its verdict, and can
+ * be run again, or again with the right side redrawn. A person watches and gives no orders.
  *
  * Setup owns `#curtain`, pause owns `#pause-menu`, the verdict is `#bout-end`.
  */
@@ -154,7 +153,7 @@ export async function bootArena(): Promise<void> {
     if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!duel.verdict) setPaused(!paused); }
     else if (event.key === "r" || event.key === "R") void begin(matchup);
   });
-  // Focus loss freezes the world, as it always has.
+  // Losing focus pauses the bout.
   window.addEventListener("blur", () => { if (duel && !duel.verdict) setPaused(true); });
 
   // The orbit camera: middle or right drag turns it, the wheel brings it in and out.

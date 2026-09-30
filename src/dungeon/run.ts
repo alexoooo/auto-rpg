@@ -30,17 +30,16 @@ import { companionSpawn } from "./party-placement.ts";
  * whom each fights, and the path each walks (`findPath`); the person's orders reach the party only
  * through that plan (`DungeonCommands`), and a mind reaches its body only through its intent.
  *
- * - **The hero** is the Warrior, **the companions** Rogues, **the enemies** skeletons, each with the
- *   wooden club in the right hand, the one weapon the core has (recorded, not asked).
+ * - **The hero** is the Warrior unless the page picks another, **the companions** whom the page names,
+ *   **the enemies** skeletons, each with the wooden club in the right hand, the one weapon the core has.
  * - **A mind** is a fighter's (`fighterMind`): it walks its plan's direction, and within
  *   `ATTACK_METRES` of its target attacks the target's head with the club.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
  *   of the fight once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
- *   core has no rising yet, so a body down stays down (recorded, not asked). Nobody attacks it.
+ *   core has no rising, so a body down stays down. Nobody attacks it.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
- *   beyond its sight, and is never taken out again: a core body costs about 0.55 ms a step (Node
- *   core stand, Rapier, 120 Hz), so a level's worth of skeletons from the start is several times
- *   slower than real time.
+ *   beyond its sight, and is never taken out again: a core body is costly to step, and a level's
+ *   worth of skeletons built from the start runs slower than real time.
  *
  * The run is lost when the whole party has fallen and won when a standing member reaches the exit.
  */
@@ -87,7 +86,7 @@ export interface DungeonActor {
 const TRAIL_METRES = 2.5;
 /**
  * A body with a route that has not moved 50 mm in a second has the route replanned from where it
- * is. The slowest walker, the skeleton, walks at 0.2 m/s (`stance-envelope.json`), so a body that
+ * is. The slowest walker, the skeleton, walks at 0.2 m/s (`assets/core/stance-envelope.json`), so a body that
  * has not is stuck or held up; a replan that finds no route keeps the one it had.
  */
 const STALL = { seconds: 1, metres: 0.05 } as const;

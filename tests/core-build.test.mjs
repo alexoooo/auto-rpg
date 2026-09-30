@@ -56,9 +56,8 @@ test("a built segment's mass, centre of mass and inertia are the spec's, and its
 /**
  * **Read the inertia by what it does, not by what it reads back**: a segment built alone, weightless,
  * given an angular impulse of its spec inertia times 1 rad/s about each frame axis, turns at 1 rad/s
- * about that axis. A read-back returns whatever was written, in whatever unit: the build that gave
- * Havok kg m2 where it takes kg m2 per kilogram (H49) passed a read-back and turned the 2 kg rod
- * here at half the rate.
+ * about that axis. A read-back returns whatever was written, in whatever unit, so it cannot catch
+ * an inertia handed to the engine in the wrong unit; the spin can.
  */
 test("a built segment turns under an impulse as its spec's inertia says", async () => {
   const spec = rods([["bend", [1, 0, 0]]]);
@@ -116,20 +115,17 @@ test("the reference pose reads as no rotation at every joint", async () => {
 });
 
 /**
- * Limits, driven into by a motor of 10 N m, well above the rod's needs. Pressed at 1000 N m the
- * freedom still stops within 0.0015 rad of its bound, but in a joint of three the others are driven
- * off: pressing the first to 0.6 took the second and third, their motors holding zero at 1000 N m,
- * to their own 0.6 (Node stand, 120 Hz). Rapier's limit row pushes along the parent-fixed axis,
- * not along its angle's gradient, and the two part once the other angles are off zero.
+ * Limits, driven into by a motor of 10 N m, well above the rod's needs. A far stronger motor
+ * still stops at the bound, but in a joint of three it drives the other freedoms off their holds:
+ * Rapier's limit row pushes along the parent-fixed axis, not along its angle's gradient, and the
+ * two part once the other angles are off zero.
  */
 const LIMIT_TEST = { speed: 3, seconds: 1, range: [-0.2, 0.6], force: 10 };
 
 /**
- * Every freedom stops at its own range, read as the limit reads it (`jointAngles`, H76), on both
- * sides of an asymmetric one, whichever way its axis runs. On Rapier each limited freedom stops
- * within 0.0005 rad of its bound; on Havok the second and third freedoms of a three-freedom joint
- * held only roughly (0.62 and -0.21, 0.55 and -0.15 against 0.6 and -0.2). The freedoms held at
- * zero by their 10 N m motors give up to 0.08 rad to the pressed one (Node stand, 120 Hz).
+ * Every freedom stops at its own range, read as the limit reads it (`jointAngles`), on both sides
+ * of an asymmetric one, whichever way its axis runs. The freedoms held at zero by their 10 N m
+ * motors give a little to the pressed one; that is not what this reads.
  */
 test("every freedom stops at its own range, on both sides of an asymmetric one", async () => {
   const { range } = LIMIT_TEST;
@@ -154,9 +150,8 @@ test("every freedom stops at its own range, on both sides of an asymmetric one",
 
 /**
  * A hull is built from its points, in its segment's frame: the built hull's vertices, read back
- * from Rapier, span the points' extents along the frame's axes. Rapier keeps the hull's corners
- * where the points put them, to 1.3e-8 m on this sheared one (float32; Node stand). Havok rounded
- * a hull's corners a little, and its bounds read up to 0.4 mm inside the points'.
+ * from Rapier, span the points' extents along the frame's axes. Rapier keeps a hull's corners where
+ * the points put them, to float32 precision.
  */
 test("a hull shape is built from its points, in its segment's frame", async () => {
   const spec = rods([["bend", [1, 0, 0]]]);

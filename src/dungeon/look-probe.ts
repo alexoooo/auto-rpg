@@ -19,8 +19,8 @@ function drawnReady(scene: Scene): boolean {
 }
 
 /**
- * `__dungeon.look` on the page: switches that remove render work, and a frame-cost reading, so the owner can
- * measure on their own machine what each piece of the look costs. A hidden tab renders nothing, and the reading
+ * `__dungeon.look` on the page: switches that remove render work, and a frame-cost reading, so that what each
+ * piece of the look costs can be measured on the machine that draws it. A hidden tab renders nothing, and the reading
  * rejects rather than waits for ever.
  */
 export function lookProbe(engine: AbstractEngine, current: () => { scene: Scene; lighting: DungeonLighting } | null) {

@@ -4,7 +4,7 @@
  * naming. A 1 kg box slid on the ground slows at the contract's friction times g; dropped, it does
  * not bounce; the engine holds the mass the core set, and a box is no hull; a ground taken out from
  * under a box lets it fall, and a body from another world is refused a joint; a box drifting at a
- * millimetre a second keeps drifting, where a sleeping one would stop and read zero (H08); a box
+ * millimetre a second keeps drifting, where a sleeping one would stop and read zero; a box
  * resting on another touches it, pushed with its weight, and the ground is no body; and a fixed box
  * turns about up.
  * Node, a NullEngine scene, 120 Hz.
@@ -138,9 +138,8 @@ test("a fixed box turned a quarter about up lies across where it lay", async () 
 
 test("a fixed hull stands where its points are in the world", async () => {
   // An eight-sided post 0.4 m across and 1 m tall at x = 3, as the arena's are: a ball dropped on it rests on its top,
-  // and one dropped beside it falls. A ball, since a body is capsules and balls: a 0.2 m box on this post sinks 1.6 cm
-  // into its top and stays there (on eight or sixteen sides; not on four or six, nor on a fixed box), which Rapier
-  // does and the contract does not ask for (Node, Rapier, 120 Hz).
+  // and one dropped beside it falls. A ball, since a body is capsules and balls: Rapier lets a 0.2 m box sink about
+  // 1.6 cm into this post's top and stay there, which the contract does not ask about.
   const post = Array.from({ length: 16 }, (_, i) => {
     const a = (i % 8) * Math.PI / 4;
     return [3 + 0.2 * Math.cos(a), i < 8 ? 0 : 1, 0.2 * Math.sin(a)];

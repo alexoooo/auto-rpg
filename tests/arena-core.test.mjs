@@ -1,6 +1,5 @@
-// The Arena on the core (`src/arena/duel.ts`, docs/plans/2026-09-30-old-path-removal.md step 4): the
-// arena's solids are fixed colliders in a core world, and a bout of two core bodies runs to its
-// verdict (Node, core world, Rapier, 120 Hz).
+// The arena (`src/arena/duel.ts`): its solids are fixed colliders in a core world, and a bout of two
+// core bodies runs to its verdict (Node, core world, Rapier, 120 Hz).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
@@ -22,7 +21,7 @@ async function arena() {
   return { scene, world, dispose: () => { world.dispose(); scene.dispose(); } };
 }
 
-test("an_arena_link_names_its_matchup_and_an_old_one_falls_back", () => {
+test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
   assert.deepEqual(readMatchup("?play=arena&matchup=crypt-skeleton,workshop-fighter"), { left: "crypt-skeleton", right: "workshop-fighter" });
   assert.deepEqual(readMatchup("?matchup=workshop-rogue"), { left: "workshop-rogue", right: DEFAULT_MATCHUP.right });
   assert.deepEqual(readMatchup("?matchup=%7B%22left%22%3A1%7D"), DEFAULT_MATCHUP, "a malformed link");
@@ -88,7 +87,7 @@ test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
       assert.ok(verdict.ending === "time" ? left.pool.bar() === right.pool.bar() : !left.standing && !right.standing,
         `a draw is both down, or both even at the cap: ${JSON.stringify(verdict)}`);
     }
-    // Recorded for the plan: which side, how, and when.
+    // Printed for the reader: which side, how, and when.
     console.log(`verdict ${JSON.stringify(verdict)}; bars ${left.pool.bar().toFixed(2)} / ${right.pool.bar().toFixed(2)}; blows ${duel.blows.length}`);
     const time = duel.clock;
     world.step(world.hz);

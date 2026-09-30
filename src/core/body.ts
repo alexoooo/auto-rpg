@@ -86,21 +86,17 @@ export interface Fist {
 }
 
 /**
- * The servo's time constant, s. At 0.1 s, on the lab's scripted Routine (`src/core-lab/routine.ts` at d29d8231), over the second half of each settle and
- * the freedoms the legs leave to the posture: no speed reversed by more than 0.010 rad/s from one
- * step to the next on the Rogue at 120 Hz, 0.008 at 480 Hz, and 0.026 and 0.046 on the Warrior,
- * the worst at a wrist's radial deviation or the lumbar spine; and the guard was held within 0.026
- * and 0.029 rad on the Rogue, 0.039 and 0.022 on the Warrior, the worst at the trunk's flexion
- * (Node stand, Rapier; the Warrior at 120 Hz read over the first two settles, since it fell in the
- * third strike). That band is not the servo's: with the lower trunk held it ends within 0.0002 rad
- * (`servo`); the standing body moves under it, and the servo leaves out the root's acceleration.
- * On Havok the band was its brake on slow bodies (0.032 rad at 120 Hz), and a time constant
- * needed ten steps; on Rapier two steps hold (`servo`), so 0.1 s is a choice, not a floor.
+ * The joint servo's time constant, s (`servo`). 0.1 s is a choice, not a floor: the servo holds at
+ * time constants down to two steps (`docs/reference/servo-and-muscle.md#holding-a-pose`). Readings
+ * at 0.1 s on the lab's routine: `docs/reference/body-and-engine.md#servo-time-constant`.
  */
 export const SERVO_SECONDS = 0.1;
 
 export interface BodyOptions {
-  /** The servo's time constant, s: ten steps or more (`servo`). */
+  /**
+   * The joint servo's time constant, s (`servo`): a goal's error decays as a critically damped
+   * motion with natural frequency 1 / servoSeconds.
+   */
   readonly servoSeconds: number;
   /** An experiment's stance tuning in place of the stance's constants. */
   readonly stance?: StanceTuning;
@@ -187,14 +183,10 @@ function centreOf(built: BuiltBody, name: string): { centre: Vector3; update(): 
 
 /**
  * The knuckles (`SegmentSpec.points`) of `hand`, where a fist strikes, and their velocity from the
- * hand body's: its centre's, plus its spin across the arm from the centre to the knuckles (the
- * engine's linear velocity is the centre of mass's, Rapier's as Havok's, H49). The hand segment
- * runs on to the fingertips, more than twice as far from the wrist, and a fist read there took a
- * whip of the wrist as a punch: a searched blow's 11.6 m/s had 5.0 of its wrist's (Node stand,
- * 120 Hz, Havok). Not from the nodes: the engine moves a body by more than its velocity when it
- * corrects a constraint's error. On Havok, after a limit's impulse, a fist read from the nodes
- * jumped from 6.7 to 11.4 m/s for one step as the elbow met its stop; on Rapier a standing
- * Warrior's foot moved 0.087 mm a step while its velocity carried it 0.0007 (Node stand, 120 Hz).
+ * hand body's: its centre's (the engine's linear velocity is the centre of mass's), plus its spin
+ * across the arm from the centre to the knuckles. Not the segment's far end: the hand segment runs
+ * on to the fingertips, where a whip of the wrist would read as a punch. Not differenced from the
+ * nodes: the engine moves a body by more than its velocity when it corrects a constraint's error.
  */
 function fistOf(built: BuiltBody, side: Hand): { fist: Fist; update(): void } {
   const hand: BuiltSegment | undefined = built.segments.get(`hand.${side}`);

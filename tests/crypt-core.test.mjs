@@ -1,6 +1,6 @@
-// The Crypt on the core (`src/dungeon/run.ts`, docs/plans/2026-09-30-old-path-removal.md step 3): a
-// seeded crypt loads, its bodies stand in it, and a fight starts and ends; its doors are fixed boxes
-// in the core world until they open (Node, core world, Rapier, 120 Hz).
+// The Crypt on the core (`src/dungeon/run.ts`): a seeded crypt loads, its bodies stand in it, and a
+// fight starts and ends; its doors are fixed boxes in the core world until they open (Node, core
+// world, Rapier, 120 Hz).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
@@ -57,8 +57,8 @@ test("a_fight_in_the_crypt_starts_and_ends", async () => {
     const wounds = (from, to) => run.blows.filter(b => !b.clash && b.attacker === from.id && b.target === to.id)
       .reduce((sum, b) => sum + b.damage, 0);
     assert.ok(wounds(run.hero, enemy) > 0 && wounds(enemy, run.hero) > 0, "blows land both ways, and wound");
-    // It ended at 11.2 s with the skeleton knocked down, its bar at 0.95: a fallen body is out of the fight
-    // until the core can rise (`DungeonRun`), and an emptied pool ends one too (`dungeon-party`).
+    // A fallen body is out of the fight until the core can rise (`DungeonRun`), and an emptied pool ends
+    // one too (`dungeon-party`).
     assert.equal(enemy.alive, false, `and the fight ends inside 30 s: ${run.clock.toFixed(1)} s`);
     assert.ok(run.hero.alive, "with the hero standing");
     assert.equal(run.status, "playing", "the rest of the crypt is still to come");

@@ -9,7 +9,7 @@
  * spaces rather than as boxes. A layout that comes out too small is thrown away and drawn again, as
  * `L5GetArea` does.
  *
- * Anything drawn inside a room after carving -- a wall here, a set piece later -- is taken back
+ * Anything drawn inside a room after carving, such as a dividing wall, is taken back
  * unless every corridor into that room is still a way through (`linksHold`). Carving is connected
  * by construction, and every link holding keeps it so, which `tests/dungeon-level.test.mjs` checks
  * on the finished level with `standingComponents`.
@@ -19,7 +19,6 @@ import { distance, isFloor, walkable, type Door, type DungeonMap, type Point, ty
 
 /**
  * The generator's table, frozen: a level rule is not a console dial.
- * The overview (`docs/plans/2026-09-23-depths-00-overview.md`) gives each value's reason.
  */
 export const LEVEL = Object.freeze({
   blocks: 17,
@@ -36,16 +35,16 @@ export const LEVEL = Object.freeze({
   attempts: 4,
   dividerChance: 0.6,
   /** A room this many blocks long, or longer, may be divided. At four, the only wall that leaves no side a
-   * one-block strip is the middle one, which splits the room 6 | 5 cells. At three, every wall left a strip three
-   * cells deep beside the arch, and one in five of those had no other way in (seeds 1-50: 202 strips in 244 walls,
-   * 41 of them pockets). */
+   * one-block strip is the middle one, which splits the room 6 | 5 cells. At three, nearly every wall leaves a strip
+   * three cells deep beside the arch, and about one in five such strips has no other way in. */
   dividerMinBlocks: 4,
   doorChance: 0.6,
   spawnCount: 8,
-  /** Metres from the start a spawn must be, as the old generator's test asked. */
+  /** Metres from the start a spawn must be. */
   spawnFromStart: 10,
   spawnSpacing: 2,
-  /** Metres walked cell to cell (`walkField`). The shortest measured over seeds 0-23 is 50. */
+  /** Metres walked cell to cell (`walkField`): a floor for a degenerate layout, well under the 50 m or more that
+   * levels on seeds 0-23 walk. */
   minExitPath: 24,
   /**
    * Layouts drawn per candidate: `levelCandidates` stops after `tries` x `candidates` of them, and
@@ -60,7 +59,7 @@ export const LEVEL = Object.freeze({
   /** Levels drawn per seed; the best by `levelScore` is kept. */
   candidates: 12,
   /**
-   * `levelScore`'s weights. Starting values, to be judged by eye with the print script: a loop is
+   * `levelScore`'s weights, set by eye with `scripts/dungeon/print-level.mjs`: a loop is
    * worth three dead ends, and 20 m more between start and exit is worth one loop.
    */
   score: Object.freeze({ loop: 3, deadEnd: 1, exitMetre: 0.15, room: 0.5 }),
@@ -289,8 +288,8 @@ export function standingMask(map: DungeonMap, clearance = LEVEL.clearance, cells
  * `findPath` also asks `clearSegment` of each step. Between two standing cells a unit step apart
  * that is always true, so it is not asked here: the distance from a point on an axis-aligned unit
  * step to an integer-centred cell is least at one of the step's ends, and both ends stand.
- * `standing_neighbours_need_no_sweep` pins that, because this function is 25 times faster without
- * the sweep and its callers run it hundreds of times per seed.
+ * `standing_neighbours_need_no_sweep` pins that. Skipping the sweep matters: callers run this
+ * hundreds of times per seed.
  */
 export function standingComponents(map: DungeonMap, clearance = LEVEL.clearance, inside?: readonly BlockRect[]): number {
   const n = map.size, k = LEVEL.block, seen = new Uint8Array(n * n);
@@ -320,7 +319,7 @@ export function standingComponents(map: DungeonMap, clearance = LEVEL.clearance,
 
 /**
  * Whether every corridor into `room` is still a way through: its two rooms and the corridor are
- * one standing region. A wall or a set piece in a room is kept only if this holds.
+ * one standing region. Anything drawn in a room is kept only if this holds.
  */
 function linksHold(layout: Layout, map: DungeonMap, room: number): boolean {
   return layout.links.every((l) => (l.a !== room && l.b !== room) ||
@@ -380,9 +379,8 @@ function hang(links: RoomLink[], random: () => number): Door[] {
 /**
  * Steps on foot from `from` to every fine cell for a body of `clearance`, searched as `findPath`
  * searches (four neighbours, one metre each), and -1 where it cannot go. Doors are ignored, as
- * they open. It is one search where asking `findPath` for each room was ten, and `findPath`'s open
- * list is a linear scan: over a scratch prototype of session 03, the per-room `findPath` calls
- * were 1.8 s of 2.9 s of generation. `findPath` also pulls its route straight afterwards, so a
+ * they open. One search serves every room, where `findPath` would be asked once per room with an
+ * open list that is a linear scan. `findPath` also pulls its route straight afterwards, so a
  * hero walks a little less than this.
  */
 export function walkField(map: DungeonMap, from: Point, clearance = LEVEL.clearance): Int32Array {

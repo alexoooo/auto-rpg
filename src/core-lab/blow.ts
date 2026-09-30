@@ -27,9 +27,8 @@ import type { World } from "../core/world.ts";
 /**
  * **A mind that attacks once**: `hand` attacks `target` (world) until the skills report the strike
  * thrown, then guards. `target` is read from the head each step until `STAND`, then held: the
- * searches place their target from the head as the body stands then, after it has settled from
- * the pose it was built in (its head 3.1 cm forward and 5.2 cm down, the Warrior's; 1.7 and 4.8,
- * the Rogue's, by 1.5 s: Node core stand, Rapier, 120 and 480 Hz alike).
+ * searches place their target from the head as the body stands then, after it has settled a few
+ * centimetres forward and down from the pose it was built in.
  */
 export function attackOnce(hand: Hand, target: (head: Vector3) => Vec3): Mind & { readonly time: number } {
   let aim: Vec3 | null = null, time = 0;

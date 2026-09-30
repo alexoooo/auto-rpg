@@ -7,37 +7,21 @@ import { PLACING, type Footing } from "./locomotion.ts";
 import { recipeFor, type Chosen, type Repertoire } from "./strikes.ts";
 
 /**
- * **Seconds stood still in the guard before a strike is thrown**: a recipe was searched from a body
- * that had stood that long where it was built. The body settles by then: the centre of mass's
- * speed, mm/s, by the seconds stood (Node core stand), converged with the rate:
- *
- *     seconds                0.5   1    1.5   2
- *     Warrior 120 Hz          62   19    5    1
- *             480 Hz          66   20    5    1
- *             1920 Hz         67   20    5    1
- *     Rogue   120 Hz          43   14    3    0
- *             480 Hz          52   15    3    1
- *             1920 Hz         52   15    3    0
- *
- * `STAND` is the first of the table's at which each human is at 5 mm/s or less. A step into a
- * stance first (the old Routine set its right foot 0.3 m across and 0.15 behind) does not converge
- * with the rate: at 1920 Hz the bearing foot slid 15 cm toward the swinging one in the swing's last
- * 60 ms and the body staggered at up to 1.4 m/s; 4 cm at 480 Hz; none at 120 Hz (the Warrior).
+ * **Seconds stood still in the guard before a strike is thrown**: the start every recipe was
+ * searched from, the body standing where it was built. By then each human's centre of mass has
+ * settled to 5 mm/s or less. A step into a stance before the strike is not used: its landing does
+ * not converge with the physics rate. Table: `docs/reference/human-and-strikes.md#stand-time`.
  */
 export const STAND = 1.5;
 
 /**
  * **How the body comes to a recipe's place**: its centre of mass walks toward the place at the
  * error over `seconds`, no faster than `pace` (m/s), until it is within `reach` (m); then the feet
- * are set there (`Locomotion.place`). A walk alone does not stand a body where it stops: a walk's
- * feet are the gait's 20 cm apart, and stopped, the stance steps one foot out to the 39 cm it was
- * built standing at, which moves the feet's middle, and the body settling over it, some 10 cm to
- * one side; a slow walk asked for a few centimetres leans the body without stepping, and the lean
- * comes back. So stopped by its head, the Warrior settled out of the recipe's window each time and
- * walked again, round and round the post (the Routine, Node stand, 120 Hz). With its feet set, each of
- * the 360 strikes each human threw in the Routine stood inside its window, at 120 and 480 Hz
- * (`research/core-routine-battery.mjs`). The pace is the Routine's for its turns, which each human
- * held.
+ * are set there (`Locomotion.place`). A walk alone does not stand a body where it stops: stopped,
+ * the stance steps a foot out from the gait's width to the width it was built at, which moves the
+ * body some 10 cm to one side, out of the recipe's window; and a slow walk asked for a few
+ * centimetres leans the body without stepping. The pace is one each human holds while turning.
+ * Evidence: `docs/reference/human-and-strikes.md#approach`.
  */
 export const APPROACH = { pace: 0.3, seconds: 1, reach: 0.25 } as const;
 
@@ -76,12 +60,12 @@ export interface StrikeCommand {
 }
 
 /**
- * **The strike skill**: a hand's attack carried out with a recipe (`strikes.ts`, option A of the
- * plan). It chooses the recipe for what the hand holds; walks the body toward the place where its
- * feet stand square for the target to be at the middle of the recipe's window for the hand (`Chosen.window`)
- * about its distance straight ahead of the head, and sets its feet there (`APPROACH`); stands still
- * in the guard `STAND` seconds and asks the window of the head as it then stands, setting the feet
- * again if it is out; holds the chamber; and pushes. While it works it has the legs (a recipe is
+ * **The strike skill**: a hand's attack carried out with a recipe (`strikes.ts`). It chooses the
+ * recipe for what the hand holds; walks the body toward the place where its feet stand square for
+ * the target to be at the middle of the recipe's window for the hand (`Chosen.window`) about its
+ * distance straight ahead of the head, and sets its feet there (`APPROACH`); stands still in the
+ * guard `STAND` seconds and asks the window of the head as it then stands, setting the feet again
+ * if it is out; holds the chamber; and pushes. While it works it has the legs (a recipe is
  * thrown standing) and the trunk; the other hand guards. One strike at a time: the right hand's
  * first when both attack. An attack given up before its chamber is dropped; one chambered is thrown
  * to the end of its pushes.

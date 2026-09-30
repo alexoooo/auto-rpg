@@ -14,9 +14,8 @@ import type { Point } from "./map.ts";
  * copied, and refused at load if that text has moved, so the arena's fire stays the one source of the flame.
  *
  * The fade scales the colour as well as the alpha. The flame's core is HDR, about (5, 2, 0.28), and blending adds
- * colour times alpha: a fifth of the alpha alone still tone-maps to a red core at about 80 % of its whole brightness,
- * and only loses its bloom, so it reads as dimmer rather than see-through. Scaling both leaves a twenty-fifth of the
- * light at the bubble's heart, beside a wall that keeps 3 of its 16 pixels.
+ * colour times alpha: a flame faded by its alpha alone still tone-maps to a bright core and only loses its bloom, so
+ * it reads as dimmer rather than see-through. Scaling both fades it as the wall beside it fades.
  */
 const HEAD = "varying vec2 vUV; uniform float time;", TAIL = "gl_FragColor=vec4(c,a*.82);}";
 const forge = Effect.ShadersStore.proofFireFragmentShader;

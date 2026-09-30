@@ -16,7 +16,7 @@ import { sourced, type Quantity } from "../../spec/quantity.ts";
  * so. Rows marked * in the paper ("not adjusted values") are the head (VERT-CERV), the upper trunk
  * (CERV-XYPH), the middle trunk and the foot.
  *
- * `docs/analysis/2026-09-27-human-strike-reference.md` section 6 discusses the table.
+ * `docs/reference/human-strike-reference.md` section 6 discusses the table.
  */
 export type Sex = "male" | "female";
 

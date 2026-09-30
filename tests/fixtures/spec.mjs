@@ -1,6 +1,6 @@
 /**
- * The provenance rule for any spec in `src/core/` (`docs/plans/2026-09-28-core-foundation.md`:
- * "Every number in a spec says where it came from"). `specProvenanceFaults` lists what breaks it;
+ * The provenance rule for any spec in `src/core/`: every number in a spec says where it came from.
+ * `specProvenanceFaults` lists what breaks it;
  * a spec's own test asserts the list is empty, and `tests/core-spec.test.mjs` shows each fault
  * being found.
  */

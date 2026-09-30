@@ -85,8 +85,8 @@ test("the boundary check finds a crossing where there is one", () => {
 
 test("the core turns vectors in double precision, never through Babylon's float32 matrices", () => {
   // `Vector3.rotateByQuaternionToRef` builds a rotation `Matrix`, a Float32Array: a point turned
-  // through it carries 1e-8 m of noise, which made a Jacobian differenced by 1e-7 rad a quarter
-  // wrong and the inverse kinematics wander. `applyRotationQuaternionToRef` is exact.
+  // through it carries 1e-8 m of noise, enough to make a Jacobian differenced by 1e-7 rad a quarter
+  // wrong. `applyRotationQuaternionToRef` is exact.
   const banned = /rotateByQuaternion|toRotationMatrix|TransformCoordinates|TransformNormal|\bMatrix\b/;
   const offenders = [];
   const walk = (directory) => {

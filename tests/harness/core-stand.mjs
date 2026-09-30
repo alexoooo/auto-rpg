@@ -74,7 +74,8 @@ export async function spinOnce(spec, name, axisName, impulse) {
 /**
  * The child's rotation relative to its parent since the reference pose, in the body frame: the
  * rotation that, applied to the child in the reference pose with the parent held there, gives the
- * joint's present angle. Read from the nodes (H24). Babylon's `a.multiply(b)` applies b, then a.
+ * joint's present angle. Read from the nodes' `rotationQuaternion`, not a world matrix, which
+ * Babylon caches per render id. Babylon's `a.multiply(b)` applies b, then a.
  */
 export function relativeRotation(joint) {
   const parentRest = restRotation(joint.parent.frame), childRest = restRotation(joint.child.frame);

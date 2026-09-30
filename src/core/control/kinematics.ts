@@ -53,7 +53,8 @@ export function pointAtToRef(chain: readonly BuiltJoint[], angles: readonly (rea
 
 /**
  * Where `point` (body frame, reference pose, on `segment`) stands now, in `root`'s frame, from the
- * nodes (H24): a segment's node carries its reference pose by its turn since then, node times rest^-1.
+ * nodes' `position` and `rotationQuaternion` (never the world matrix, which caches per frame): a
+ * segment's node carries its reference pose by its turn since then, node times rest^-1.
  */
 export function pointNowToRef(segment: BuiltSegment, root: BuiltSegment, point: Vec3, out: Vector3): Vector3 {
   const origin = segment.frame.origin;

@@ -34,11 +34,9 @@ import { hasProducts } from "./rigid.ts";
  * `motionAxesToRef`), and each centre swings about the joint centre it hangs from. A fast forearm throws the hand at the
  * wrist through this term, which the angles and the mass matrix cannot see.
  *
- * It includes each segment's gyroscopic torque, w x I w, because the engine does: a free body keeps
- * its angular momentum. A box of inertia 0.010, 0.002 and 0.006 kg m2 spun at (3, 5, 1) rad/s, no
- * gravity, turned its spin to (3.85, 1.55, 2.50) rad/s a second later while its angular momentum
- * held (0.030, 0.010, 0.006) N m s within 0.2 % (Node, `research/core-rapier-probe.mjs`, 120 and
- * 960 Hz). Havok, the core's engine until 2026-09-29, kept the spin instead and had no such torque.
+ * It includes each segment's gyroscopic torque, w x I w, because the engine does: Rapier keeps a
+ * free body's angular momentum, not its spin (`research/core-rapier-probe.mjs` spins a box to show
+ * it).
  *
  * The joints' rows take the root to be held still: its spin enters the bias, but a root carried or
  * pushed adds its own acceleration to every segment. **The root's own rows** (`root`) carry that:
@@ -55,7 +53,8 @@ import { hasProducts } from "./rigid.ts";
  * f at a point x of a segment, and a moment n on it, f and (x - c_root) x f + n on the root's rows,
  * and m . n + (m x (x - p)) . f on a freedom that moves the segment (motion axis m, centre p).
  *
- * Poses are read from the nodes (H24): each segment's spec inertia lies along its segment frame
+ * Poses are read from the nodes' `position` and `rotationQuaternion`, not a world matrix, which
+ * Babylon caches per render id: each segment's spec inertia lies along its segment frame
  * (`build-body.ts`), which its node carries.
  */
 export interface BodyDynamics {

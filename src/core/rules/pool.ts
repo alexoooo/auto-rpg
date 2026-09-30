@@ -3,10 +3,10 @@ import { derive, type Quantity } from "../spec/quantity.ts";
 import type { Rulebook } from "./rulebook.ts";
 
 /**
- * **One pool of hit points per body** (the owner's, 2026-09-27; `owner-hp-pool` in
+ * **One pool of hit points per body** (the owner's decision, `owner-hp-pool` in
  * `src/core/sources.ts`), spread over its segments, which are its parts.
  *
- * - **A part's share** is its cross-section's (the owner's, 2026-09-29): its mass to the
+ * - **A part's share** is its cross-section's (`owner-part-hp-split`): its mass to the
  *   two-thirds, over the sum of the same over the body, times the body's hit points
  *   (`partHitPoints`). For the Warrior's 6: head 0.45, upper trunk 0.78, thigh 0.72, forearm 0.17,
  *   hand 0.09.

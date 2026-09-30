@@ -55,12 +55,11 @@ const TRUNK = ["upperTrunk", "middleTrunk", "lowerTrunk"] as const;
 /**
  * **The fist**, built by `fist.ts` from each hand's geometry: finger angles are the joints' flexion
  * from a straight finger, degrees, and the thumb's phalanges point along the palm's axes. Fitted
- * on the skin by `scripts/core-lab/fist-fit.mjs` (2026-09-29; its header gives the rule), one pose
- * for both hands: every knuckle at one angle, each middle joint as far closed as it goes, the
- * thumb across the index and middle fingers. The fit leaves no part deeper in another than 2 mm or
- * than the relaxed hand already is, except the thumb's first phalanx in the ball of the thumb
- * (the Warrior 5.0 mm against 3.5 relaxed; the Rogue 5.6 against 5.5). The thumb's pad rests
- * 3.8 mm (Warrior) and 1.1 mm (Rogue) from the fingers.
+ * on the skin by `scripts/core-lab/fist-fit.mjs` (its header gives the rule), one pose for both
+ * hands: every knuckle at one angle, each middle joint as far closed as it goes, the thumb across
+ * the index and middle fingers. The fit leaves no part deeper in another than 2 mm or than the
+ * relaxed hand already is, except the thumb's first phalanx in the ball of the thumb. Its readings:
+ * `docs/reference/lab.md#fist`.
  */
 const FIST: Readonly<Record<WorkshopModel, FistPose>> = {
   "workshop-fighter": {
@@ -96,9 +95,9 @@ const gripQuaternion = (pose: readonly number[]) => new Quaternion(pose[1]!, pos
 
 export type Hand = "left" | "right";
 /**
- * The rig's hosts, which name the old game's modules, as core segments. The rig's primary side is
- * its right. The trunk and pelvis hosts are split among the three trunk segments by `trunkSegment`;
- * the neck goes with the head, as de Leva's head runs to the cervicale.
+ * The rig's hosts, the asset's own names for the body's parts, as core segments. The rig's primary
+ * side is its right. The trunk and pelvis hosts are split among the three trunk segments by
+ * `trunkSegment`; the neck goes with the head, as de Leva's head runs to the cervicale.
  */
 const HOSTS: Readonly<Record<string, string>> = {
   "torso.core": "trunk", "locomotion.pelvis": "trunk", "head.neck": "head", "head.head": "head",
@@ -149,13 +148,15 @@ function trunkSegment(built: BuiltBody, point: Vector3): BuiltSegment {
 export function dressBody(built: BuiltBody, container: AssetContainer, scene: Scene, clothing: Clothing,
   closure: (hand: Hand) => number = () => 0): SkinView {
   const model = built.spec.model as WorkshopModel, rig = RIGS[model], prefix = `${model}.skin.`;
-  // Materials stay the container's: a body part never disposes materials (H59).
+  // Materials stay the container's, which the scene owns and other bodies share: a body part never
+  // disposes them.
   const instance = container.instantiateModelsToScene((name) => prefix + name, false, { doNotInstantiate: true });
   const nodes = instance.rootNodes.flatMap((root) => [root, ...root.getDescendants(false)]) as TransformNode[];
   const nameOf = (node: TransformNode) => node.name.slice(prefix.length);
 
-  // Rest world matrices from the nodes' own transforms (H24): the loader's root turns glTF's frame
-  // into Babylon's, which is the body frame, at the authored size.
+  // Rest world matrices from the nodes' own transforms, never `getWorldMatrix()`, whose per-frame
+  // cache the first reader freezes: the loader's root turns glTF's frame into Babylon's, which is
+  // the body frame, at the authored size.
   const rest = new Map<TransformNode, Matrix>();
   const restOf = (node: TransformNode): Matrix => {
     let matrix = rest.get(node);

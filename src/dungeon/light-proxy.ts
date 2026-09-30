@@ -12,10 +12,8 @@ export const PROXY_ORTHOGRAPHIC =
  * A `ClusteredLightContainer` finds the screen tiles a light reaches by drawing a rectangle per light, and fits
  * that rectangle for a perspective camera: it takes the sphere's angular size, sin = range / distance, and turns
  * the light's view position by it, which is right only after a divide by w. Under the dungeon's orthographic
- * camera w is 1, so the rectangle comes out short by an amount that depends on the light's depth. Reviewed with
- * `frameDungeon`'s own matrices at pitch 30 and zoom 10, it cut 260 of 1428 on-screen lights short, one at 2.1 m
- * from the light, where it still gave four times the ambient. No single margin on `range` repairs a
- * depth-dependent error.
+ * camera w is 1, so the rectangle comes out short by an amount that depends on the light's depth, and cuts off
+ * lights well inside their range. No single margin on `range` repairs a depth-dependent error.
  *
  * Under an orthographic projection the exact rectangle is the view position plus and minus the range, projected,
  * and this adds that branch. The depth slices need nothing: the container assigns them from view depth plus and

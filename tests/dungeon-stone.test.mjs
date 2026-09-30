@@ -15,7 +15,7 @@ const DUNGEON = ["dungeon.floor", "dungeon.wall"];
 const noImages = () => null;
 
 test("dungeon_textures_are_registered_with_provenance", () => {
-  // Every row, not only the dungeon's: a file that no longer matches its row is the same defect wherever it is.
+  // Every row, not only the dungeon's: a file that does not match its row is the same defect wherever it is.
   for (const row of registry.textures) {
     const bytes = readFileSync(new URL(`../public${row.localUrl}`, import.meta.url));
     assert.equal(createHash("sha256").update(bytes).digest("hex"), row.sha256, `${row.file} is not the registered file`);
@@ -37,7 +37,7 @@ test("stone_is_the_default_and_flat_is_the_control", () => {
   assert.deepEqual(stoneQuery("?wall=flat"), { ...dressed, wall: "flat" });
   assert.deepEqual(stoneQuery("?masonry=0"), { ...dressed, masonry: false });
   assert.deepEqual(stoneQuery("?dressing=0"), { ...dressed, dressing: false });
-  // A link from before the choice still draws the stone, and anything but 0 draws the blocks and the clutter.
+  // An unknown value draws the stone, and anything but 0 draws the blocks and the clutter.
   assert.deepEqual(stoneQuery("?floor=b&wall=a&masonry=1&dressing=1"), dressed);
 });
 

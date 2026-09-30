@@ -124,7 +124,7 @@ export const SOURCES = Object.freeze({
     kind: "measurement",
     how: "Each model's skin, feet, jacket, trousers, collar and belt, closed by voxel flood fill in the "
       + "bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm, at the authored size.",
-    record: "docs/analysis/2026-09-27-human-strike-reference.md#8-the-workshop-models",
+    record: "docs/reference/human-strike-reference.md#8-the-workshop-models",
   },
   "moromizato-2016": {
     kind: "literature",
@@ -316,7 +316,7 @@ export const SOURCES = Object.freeze({
       + "angle, the workshop models' reference pose is taken as neutral in neck and spine, hip rotation "
       + "and foot roll; and the shoulder has no adduction beyond the anatomical position, since the "
       + "trunk is in the way.",
-    record: "docs/analysis/2026-09-27-human-strike-reference.md#9-joint-ranges-and-strengths-for-the-core-human",
+    record: "docs/reference/human-strike-reference.md#9-joint-ranges-and-strengths-for-the-core-human",
   },
 } as const satisfies Readonly<Record<string, Source>>);
 

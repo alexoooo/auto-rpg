@@ -1,10 +1,9 @@
-// The generator the dungeon shipped with until 2026-09: seven rooms on a 3 x 3 lattice, 16 m apart,
-// joined by 3 m corridors with a door at each end. It left `src/dungeon/map.ts` when the run moved
-// onto `generateLevel` (src/dungeon/level.ts).
+// A fixed layout: seven rooms on a 3 x 3 lattice, 16 m apart, joined by 3 m corridors with a door
+// at each end.
 //
-// Kept only as a fixed layout for tests about the *run* -- traversal, doors, fog, fights, force
-// movement -- several of which place bodies at coordinates only this layout has. A change to the
-// level generator must never read as a change to the run, so those tests do not use `generateLevel`.
+// It serves tests about the *run* -- traversal, doors, fog, fights, force movement -- several of
+// which place bodies at coordinates only this layout has. A change to the level generator must never
+// read as a change to the run, so those tests do not use `generateLevel` (`src/dungeon/level.ts`).
 import { mulberry32 } from "../../src/rng.ts";
 import { distance, findPath } from "../../src/dungeon/map.ts";
 

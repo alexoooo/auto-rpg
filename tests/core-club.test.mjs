@@ -39,7 +39,8 @@ test("the club says where each number came from, and is two cylinders of ash, su
   close(club.inertia.value[0], across, 1e-6, "across");
   close(club.inertia.value[2], across, 1e-6, "across, z");
   close(club.inertia.value[1], along, 1e-9, "along");
-  // The game's club, which the old path carries: 1.15 kg at 670 kg m-3, balanced at 0.48 m.
+  // The same club's figures in its record (`owner-club`): 1.15 kg at 670 kg m-3, balanced at
+  // 0.48 m; the mass is scaled here to ash's 678.
   close(club.mass.value, 1.15 * 678 / 670, 0.01, "the game's club at ash's density");
   close(club.centreOfMass.value[1], 0.48, 0.005, "the game's balance");
   // Its swell, where a blow lands: the capsule spanning the swell's length.

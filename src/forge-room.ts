@@ -10,7 +10,7 @@ import { ROOM, ROOM_GROUPS, validateRoomPlacements, validateVisualColliderPairs 
 import type { ForgeStyle } from "./forge-style.ts";
 import "./forge-fire.ts";
 
-/** Masonry fills the existing wall colliders; flames decorate existing posts. */
+/** Dress the arena as the forge: masonry fills the wall colliders' boxes, and flames burn on every other post. */
 export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {
   const wall = scene.getMeshByName("room.wall.north");
   if (wall instanceof Mesh) {

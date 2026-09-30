@@ -15,11 +15,10 @@
  *
  * A candidate's score is its mean over `--trials` runs (`perturbed` in `core-strike.mjs` says why):
  * the strike as written, and the rest with every push moved and scaled by one draw, the same draws
- * for every candidate in a generation. With `--grounds 20,30,40,25` trial k stands on the k-th ground's
- * size, m (20 alone unless given): the size moves nothing a blow meets, only the float state the
- * world steps in, which moves a fragile blow's energy by several percent (the plan's section on the
- * engine: a club blow searched on from seed 1 read 105.9 J on the search's 20 m ground and 97.6 on
- * 30 and 40), so no trial is scored in the one float state the search found it in. Prints one JSON
+ * for every candidate in a generation. With `--grounds 20,30,40,25` trial k stands on the k-th
+ * ground's size, m (20 alone unless given): the size moves nothing a blow meets, only the float
+ * state the world steps in, which moves a fragile blow's energy by several percent, so no trial is
+ * scored in the one float state the search found it in. Prints one JSON
  * line per generation, then the best strike read again on eight fresh trials at each of `--replay`'s
  * rates (120, 480 and 1920 Hz unless given), and as written on a 20, 30 and 40 m ground (`noise`).
  *

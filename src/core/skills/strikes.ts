@@ -8,10 +8,9 @@ import type { BodySpec } from "../spec/body.ts";
  * for one body, one thing held and the right hand, thrown from standing in the guard. The strike
  * skill (`strike.ts`) chooses one by what the hand holds and throws it.
  *
- * A recipe is valid from the start it was searched from, standing still in the guard `STAND`
- * seconds, with the target `distance` straight ahead of the head (the owner's option A,
- * 2026-09-30, `docs/plans/2026-09-30-minds-and-skills.md`); a strike from anywhere else is option
- * B's, next.
+ * A recipe is valid only from the start it was searched from: standing still in the guard `STAND`
+ * seconds, with the target `distance` straight ahead of the head. The strike skill brings the body
+ * to that start before it throws.
  */
 
 /** A push of a strike: `channel` driven its `sense` way at `level`, from `from` to `to` s after the chamber. */
@@ -117,7 +116,7 @@ const otherSide = (channel: string): string =>
  * arm's freedoms are anatomical, so its twin's positive way is the mirror of its own,
  * `src/core/human/joints.ts`), and the trunk's rotation and lateral flexion, whose positive way is
  * to the right, are turned over. The body is taken as its own mirror; how the left's strike reads
- * is measured, not assumed (the plan's step 3).
+ * is measured, not assumed (`tests/core-lab-routine.test.mjs`).
  */
 export function mirrored(strike: Strike): Strike {
   const sided = (channel: string): boolean => SIDED.some((s) => channel.endsWith(s));

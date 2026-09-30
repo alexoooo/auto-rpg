@@ -3,11 +3,11 @@
  * wrench a sole's corners can make, each pushing inside the friction pyramid, is given with no
  * miss; a twist past what the corners' friction can give, a centre of pressure past the sole and a
  * pull are not, and what is given lies inside the limits; a sole that bears nothing gives nothing,
- * twist included; the shares that once came back NaN (a Rogue shoved 15 N s at 315 degrees, two
- * soles, friction limits meeting at a light sole; a Rogue striking in its routine's fourteenth loop)
- * come back finite; and so do 20000 random two-sole problems shaped like the stance's, each inside
- * its soles' limits. The control, run by hand: with a blocking limit's dependence on the working set
- * judged by its cosine with the step (the code before), 34 of those 20000 came back NaN.
+ * twist included; two recorded shares at degenerate corners (a Rogue shoved 15 N s at 315 degrees,
+ * friction limits meeting at a light sole; a Rogue striking in its routine's fourteenth loop) come
+ * back finite; and so do 20000 random two-sole problems shaped like the stance's, each inside its
+ * soles' limits. The control, run by hand: with a blocking limit's dependence on the working set
+ * judged by its cosine with the step, 34 of those 20000 come back NaN.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -80,7 +80,7 @@ test("a twist, a centre of pressure or a pull past the sole is not given, and wh
   }
 });
 
-test("a sole that bears nothing gives nothing, twist included; the share that came back NaN is finite", () => {
+test("a sole that bears nothing gives nothing, twist included; a recorded share at a light sole's friction limits is finite", () => {
   // Recorded from a Rogue shoved 15 N s at 315 degrees, 0.1 s after (Node stand, Rapier, 120 Hz):
   // more level force than friction gives, the friction limits of a light sole meeting at once.
   const soles = [

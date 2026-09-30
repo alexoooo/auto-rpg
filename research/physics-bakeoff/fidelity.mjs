@@ -6,8 +6,8 @@
  *     node research/physics-bakeoff/fidelity.mjs reference       # the fine references
  *     node research/physics-bakeoff/fidelity.mjs mujoco|rapier|rapier-simd
  *
- * Havok went with the old path on 2026-09-30 (docs/plans/2026-09-30-old-path-removal.md); its runs' results stay in results/ and REPORT.md.
- * A reference run keeps the recorded "Havok today" row of reference.json.
+ * A reference run rewrites its own engines' rows of reference.json and keeps the rest as recorded,
+ * the `today` baseline among them.
  *
  * Writes research/physics-bakeoff/results/fidelity-<engine>.json and prints one line a run.
  */
@@ -64,7 +64,7 @@ if (which === "reference") {
   }
   const ref = results.mujoco.B.elbow;
   for (const name of ["rapier"]) console.log(`${name} 1920 Hz elbow deviation from MuJoCo 1920 Hz: ${fmt(deviation(results[name].B.elbow, ref, HZ))} rad`);
-  // Havok today (120 Hz, one step, default damping, foot x100) was measured with Havok; its row is kept as recorded.
+  // Rows this run does not measure, the `today` baseline among them, are kept as recorded.
   const recorded = JSON.parse(await readFile(new URL("reference.json", out), "utf8"));
   await writeFile(new URL("reference.json", out), JSON.stringify({ settings: REFERENCE, elbow: ref, results: {
     ...recorded.results, ...Object.fromEntries(Object.entries(results).map(([k, v]) => [k, { A: v.A, B: { ...v.B, elbow: undefined } }])) },

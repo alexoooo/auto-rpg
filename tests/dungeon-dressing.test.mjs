@@ -66,11 +66,9 @@ function colliderRows(world) {
   return world.solids.map(s => [s.name, ...s.centre.map(round), ...s.size.map(round)].join(" ")).sort();
 }
 
-// Seeds 1 and 2, with and without visuals, pinned from a run of the level as the generator lays it now. Nothing a look
-// session adds may add or move a box; this is what says so. A change to the generator moves the level and is
-// re-pinned only once the level tests are green. Re-pinned when the colliders moved from Havok to the core world: the
-// same 208 and 269 boxes, name, centre and size, as the Havok bodies they replaced (compared box by box on seeds 1, 2
-// and 4, crypt room 12 and the reference chamber).
+// Seeds 1 and 2, with and without visuals, pinned from the levels the generator lays. Nothing the look adds may add
+// or move a box; this is what says so. A change to the generator moves the level and is re-pinned only once the level
+// tests are green.
 const PINNED = {
   1: { count: 208, sha256: "7a2e2dd313690b3cccc5314682eb3d3755217accf0ce6ff0abeb0a2b70405dd0" },
   2: { count: 269, sha256: "ee5f8f3e6c5c27c610b9583752c91b991b8c2e048d7459bd81d81a0767a20eff" },
@@ -104,7 +102,7 @@ test("the_orthographic_light_proxy_patch_finds_its_anchor", () => {
 
 const dressings = new Map(SEEDS.map(seed => [seed, dressingPlacements(levels.get(seed), seed)]));
 const ofKind = (list, kind) => list.filter(d => d.kind === kind);
-/** The page's azimuth, square to the walls, and the old diagonal: hung dressing is placed for the view it is seen from. */
+/** The page's azimuth, square to the walls, and a diagonal: hung dressing is placed for the view it is seen from. */
 const AZIMUTHS = [CAMERA_AZIMUTH, Math.PI / 4];
 const dressedFor = new Map(AZIMUTHS.map(azimuth => [azimuth, azimuth === CAMERA_AZIMUTH ? dressings
   : new Map(SEEDS.map(seed => [seed, dressingPlacements(levels.get(seed), seed, DRESSING, cameraToward(azimuth))]))]));
@@ -126,8 +124,7 @@ test("dressing_is_flat_on_the_floor_or_hung_on_a_wall", () => {
       }
       for (const d of dressing) seen.add(d.kind === "decal" ? d.decal : d.kind === "mural" ? d.piece : d.kind);
     }
-    // A piece on the walls of 96.7 % of rooms square to the walls and all of them on the diagonal, and 26.6 and 29.5 of
-    // them a level (seeds 1-50): the owner asked for more on the walls, not one piece a room.
+    // Nearly every room has a piece on its walls, and a level has well over twenty: more than one piece a room.
     const murals = [...levels.keys()].reduce((n, seed) => n + ofKind(dressedFor.get(azimuth).get(seed), "mural").length, 0) / levels.size;
     assert.ok(muralled >= 0.9 * rooms, `azimuth ${azimuth}: ${muralled} of ${rooms} rooms have a piece on a wall`);
     assert.ok(murals >= 22, `azimuth ${azimuth}: ${murals.toFixed(1)} wall pieces a level`);
@@ -246,8 +243,8 @@ test("dressing_density_is_what_the_table_asks", () => {
     const once = count(DRESSING, kind), twice = count(doubled, kind);
     assert.ok(twice >= 1.6 * once, `${kind}: ${once} at the table's density, ${twice} at twice it`);
   }
-  // Murals alone: with the roots doubled too, the extra roots take the walls first (1.39 times as many murals). On
-  // their own, a room's camera-facing walls start to fill: 1.58 times as many (seeds 1-10).
+  // Murals alone: doubled with the roots, the extra roots take the walls first. Doubled on their own they still
+  // begin to fill a room's camera-facing walls, which is why the bound is looser than the others'.
   const once = count(DRESSING, "mural"), twice = count({ ...DRESSING, muralsPerRoom: DRESSING.muralsPerRoom.map(n => n * 2) }, "mural");
   assert.ok(twice >= 1.5 * once, `mural: ${once} at the table's density, ${twice} at twice it`);
 });
@@ -406,7 +403,7 @@ test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body
       }
       assert.equal(drawn, murals.length);
       camera.dispose();
-      // Webs: one mesh each, over their corner's floor cell and above a golem's head, hidden until that floor is explored.
+      // Webs: one mesh each, over their corner's floor cell and above a body's head, hidden until that floor is explored.
       const webs = ofKind(dressing, "cobweb"), webMeshes = named("dressing.web.");
       assert.equal(webMeshes.length, webs.length, `seed ${seed}: webs drawn`);
       for (const [i, mesh] of webMeshes.entries()) for (const [x, y, z] of worldVertices(mesh)) {

@@ -3,7 +3,7 @@
  * engine's own motion: half of u' M u is the kinetic energy of the bodies as the engine moves them, and
  * gravity's term times u is the rate gravity does work on them. Node stand, a chain of a
  * three-, a two- and a one-freedom joint on tilted axes, hung from a fixed post and pushed about
- * by its muscles. Rapier (until 2026-09-29, Havok).
+ * by its muscles.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -72,13 +72,10 @@ const spinEnergy = ([xx, yy, zz, xy, xz, yz], w) =>
   0.5 * (xx * w.x ** 2 + yy * w.y ** 2 + zz * w.z ** 2) + xy * w.x * w.y + xz * w.x * w.z + yz * w.y * w.z;
 
 /**
- * At 960 Hz and a quarter of these muscles' strength the energy agrees to 0.07 % (0.13 % holding
- * the rod) and the power to 0.19 % (0.11 %) of what gravity could do at those speeds. On Havok the
- * figures were 0.73 % and 0.24 %, and its joints gave when driven harder and coarser: at 8 N m and
- * 120 Hz the one-freedom joint turned 2.8 rad/s about its locked axes at 15 rad/s, and the energy
- * read 23 % off. There, dropping the two-freedom joint's lean read 75 % off in energy and 9 % in
- * power; a composite's parallel axis term, the couplings between joints, or the parent's turn of
- * the axes, 100 % or more; gravity's moment about the wrong joint, 45 % in power.
+ * At 960 Hz the energy agrees to about 0.1 % and the power to about 0.2 % of what gravity could do
+ * at those speeds, so the 2 % bound is loose against the model and tight against a missing term:
+ * the two-freedom joint's lean, a composite's parallel-axis term, the couplings between joints, the
+ * parent's turn of the axes and gravity's moment about the right joint each matter by far more.
  */
 for (const [what, spec] of [["the chain", chain], ["the chain holding a rod", holding]]) test(`the mass matrix gives ${what}'s kinetic energy and gravity's term its power, as the engine moves it`, async () => {
   const stand = await coreStand(spec(), { ground: false, pinned: "post", hz: 960 });
@@ -145,18 +142,13 @@ function solve(A, b) {
 
 /**
  * Let go turning, with no gravity, the chain's joints speed up and slow down only by the motion
- * under way, M u' = -bias. At 480 Hz a step's change of the joints' speeds reads 2.4 % off that at
- * the median; the steps where a joint meets its limit or the chain meets itself read wholly off,
- * and are why the median is taken.
+ * under way, M u' = -bias. The steps where a joint meets its limit or the chain meets itself read
+ * wholly off, so the median is taken.
  *
- * Rapier moves each step's speeds by a disturbance of its own that does not shrink with the step
- * (about 0.007 rad/s a step on these joints), so a difference over one step reads it as an
- * acceleration growing with the rate: 2.3 % off at 240 Hz, 2.4 % at 480, 6.7 % at 960, 25 % at 1920
- * and 70 % at 3840, the same with the steps at a stop left out. Its cause is not established (the
- * joints' drift correction is the suspect: their anchors part by under a micrometre). Leaving out
- * the gyroscopic torque, which Rapier applies, read 25.9 % against 25.0 % at 1920 Hz. On Havok, at
- * 1920 Hz, dropping the parent's carrying of the joint axes read 41 % off, the parent's own angular
- * acceleration 20 %, the joint centre's swing with its parent 43 % and the child's centre's 56 %.
+ * Rapier moves each step's speeds by a small disturbance of its own that does not shrink with the
+ * step, so a difference over one step reads it as an acceleration that grows with the rate; 480 Hz
+ * keeps it small against the motion. Readings by rate:
+ * `docs/reference/body-and-engine.md#rapiers-per-step-disturbance`.
  */
 test("the motion under way gives the chain's joint accelerations as the engine moves it, let go with no gravity", async () => {
   const stand = await coreStand(chain(), { ground: false, gravity: false, pinned: "post", hz: 480 });
@@ -202,13 +194,10 @@ test("the motion under way gives the chain's joint accelerations as the engine m
  * the joints') are the bodies' momentum about the root's centre, as the engine moves them; and the
  * whole system [root.mass coupling; coupling' mass] a = [root.gravity; gravity] - [root.bias; bias]
  * gives the root's and the joints' accelerations, the root's read as what gravity does not
- * explain of it. The steps with a joint at its stop are left out: the model has no stop's force, and
- * while a joint presses its stop the momentum reads 5 to 9 % off, 44 % the step one lands on it, as
- * the engine moves a joint pressed on its stop in a way the joint's tracker does not read; off every
- * stop it reads 0.01 to 0.05 % off (480 Hz). The accelerations are read as the change of speed
- * over 4 steps, the model's summed step by step: 2.6 % off for the root and 1.8 % for the joints at
- * the median; a step at a time, the engine's own disturbance of each step's speeds (above) reads 14
- * and 8 % off on accelerations this size.
+ * explain of it. The steps with a joint at its stop are left out: the model has no stop's force,
+ * and the engine moves a joint pressed on its stop in a way the joint's tracker does not read. The
+ * accelerations are read as the change of speed over 4 steps, the model's summed step by step, so
+ * the engine's own disturbance of each step's speeds (above) is small against them.
  */
 test("the root's rows give a free chain's momentum as the engine moves it, and let go, its root's and joints' accelerations", async () => {
   const stand = await coreStand(holding(), { ground: false, hz: 480, position: [0, 3, 0] });

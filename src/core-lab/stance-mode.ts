@@ -18,7 +18,7 @@ import { STANCE_LOWER } from "../core/skills/locomotion.ts";
  * **It turns only while it walks**, at `LAB_TURN_RATE`, and not for `TURN_LEAD` after it sets
  * off, as the locomotion skill turns any body: each step of a walk lands its foot facing the
  * heading, so the feet come round with the pelvis. Standing, the heading holds: the stance has no
- * step that turns it on the spot, and a pelvis turned a quarter over planted feet fell.
+ * step that turns it on the spot, and a pelvis turned a quarter over planted feet falls.
  *
  * A shove is the page's instrument, not a command: an impulse at the middle trunk's centre of
  * mass, level, as the shove sweep gives it (`STANCE_RECOVERY`), applied before the next solver step.
@@ -76,7 +76,7 @@ export const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, 
  * half-turns' radius with the Routine's pace (`track.ts`): a lab setting, not the stance's. It is
  * inside every body's envelope at the Routine's pace (`turnAt`, `CoreBody.envelope`,
  * `tests/core-stance-envelope.test.mjs`); walking faster, Q and E turn no faster than the body held
- * at that walk. On Havok, walking at 0.3 m/s, each human held 0.25-2 (Node stand, 120 Hz).
+ * at that walk.
  */
 export const LAB_TURN_RATE = 1;
 

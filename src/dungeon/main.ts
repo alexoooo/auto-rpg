@@ -45,7 +45,7 @@ const randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0];
 // `?pitch=` in degrees, to compare the camera's elevation against the concept art's steeper view.
 const pitchQuery = Number(new URLSearchParams(location.search).get("pitch"));
 let pitch = Number.isFinite(pitchQuery) && pitchQuery > 0 ? Math.max(25, Math.min(65, pitchQuery)) * Math.PI / 180 : CAMERA_PITCH;
-// `?azimuth=` in degrees, any finite value, to compare the camera's bearing: 45 is the old diagonal. An absent or
+// `?azimuth=` in degrees, any finite value, to compare the camera's bearing: 45 is a diagonal. An absent or
 // empty parameter is the default, not 0, which `Number` would make of it.
 const azimuthText = new URLSearchParams(location.search).get("azimuth")?.trim();
 const azimuthQuery = azimuthText ? Number(azimuthText) : NaN;

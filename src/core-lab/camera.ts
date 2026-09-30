@@ -14,8 +14,9 @@ import type { LabCamera, LabProjection } from "./scenarios.ts";
  * - **Chase**: behind the body's facing, a little above it, turning after it.
  *
  * In Isometric and Chase the pointer does not turn or pan the camera; the wheel zooms in all three.
- * The body is read from the pelvis node's position and rotation, never a world matrix (H24), so a
- * replay, which poses the nodes, is followed like the live body.
+ * The body is read from the pelvis node's position and rotation, never a world matrix, whose cache
+ * the first reader in a frame freezes; and a replay, which poses the nodes, is followed like the
+ * live body.
  */
 
 /** Isometric's bearing: the camera stands behind the body's start and to its left. */

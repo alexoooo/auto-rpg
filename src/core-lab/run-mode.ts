@@ -18,15 +18,12 @@ import type { Track } from "./track.ts";
  * the pace it walks, and not for its first `TURN_LEAD`. Its pace is the body's fastest walk, but no
  * faster than its turn carries it round the tightest bend within `AIM_AHEAD` either way. Both
  * are the body's own (`CoreBody.envelope`, what the stance was measured to hold with it, its turn
- * at each speed of walk, `turnAt` and `paceRound`): on Rapier the Warrior walks 0.7 m/s and the Rogue 0.5; the
- * Warrior turns 4 rad/s to 0.4 m/s and 2 at 0.5 and 0.7, the Rogue 4 to 0.4 and 2 at 0.5; the
- * Warrior takes the shuttle's 0.3 m half-turns at 0.6 m/s and the Rogue at 0.5, where its turn
- * carries it round.
+ * at each speed of walk, `turnAt` and `paceRound`).
+ *
  * It slows before a bend and keeps the bend's pace a metre past it, for its heading lags the
- * track's: sped up at the arc's end, the Warrior asked 0.5 m/s was still 0.9 rad short of the way
- * back and went 45.6 cm off the shuttle; kept slow, 31.7 cm. The stance's own acceleration takes it
- * from one pace to the other. Nothing here names a pace that held
- * on one engine: a change of engine re-measures the envelope, and the run asks for what it says.
+ * track's: sped up at the arc's end, it leaves the bend short of the way back and drifts off the
+ * track. The stance's own acceleration takes it from one pace to the other. Nothing here names a
+ * pace: a change of engine re-measures the envelope, and the run asks for what it says.
  *
  * This module has no page-only imports, so the Node stand can run it (`tests/core-lab-run.test.mjs`).
  */
@@ -64,11 +61,10 @@ export interface RunSession {
 }
 
 /**
- * **How far along a track a walker faces**, m: the point its heading turns toward. The lab's first
- * Routine walked on the path's heading alone and each loop ended some 0.4 m further from where it
- * began, each human; facing this far ahead, it came back (Node stand, 120 Hz). Asked instead for
- * the velocity toward where the path would be a second on, sideways and faster to catch up, it fell
- * in three runs of four.
+ * **How far along a track a walker faces**, m: the point its heading turns toward, so a walker
+ * that has drifted off the track steers back onto it. Walking on the path's own heading lets the
+ * drift add up loop after loop; asking for a sideways velocity toward the path instead falls.
+ * Readings: `docs/reference/lab.md#aim-ahead`.
  */
 export const AIM_AHEAD = 1;
 

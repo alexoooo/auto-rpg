@@ -177,13 +177,14 @@ test("a blow's energy is its relative motion's, over the reduced mass of what ea
   }
 });
 
-test("a blow is worth its energy in the unit, and every weapon keeps the old game's ratio to the club", () => {
+test("a blow is worth its energy in the unit, and every weapon keeps the owner's ratio to the club", () => {
   const unit = RULES.unit.value;
   // The unit's own blow, blunt, is one hit point; half its energy, half of one.
   close(blowDamage(RULES, "blunt", unit), 1, "the unit's blow");
   close(blowDamage(RULES, "blunt", unit / 2), 0.5, "half the unit");
   assert.equal(blowDamage(RULES, "blunt", 0), 0);
-  // The old game's prices, joules per point of wound: blunt 1134.99, edge 197.96, axe 147.45, point 34.
+  // The owner's prices (`owner-weapon-ratios`), joules per point of wound: blunt 1134.99, edge 197.96,
+  // axe 147.45, point 34.
   const old = { blunt: 1134.99, edge: 197.96, axe: 147.45, point: 34 };
   for (const mechanism of MECHANISMS) {
     close(blowDamage(RULES, mechanism, 3 * old[mechanism]) / blowDamage(RULES, "blunt", 3 * old.blunt), 1, `${mechanism} against blunt`);

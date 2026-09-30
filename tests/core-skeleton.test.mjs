@@ -2,9 +2,8 @@
  * The crypt skeleton on the core (`src/core/human/skeleton.ts`): every number says where it came
  * from; its joints sit where the art's bind (`assets/skeleton/bind.json`) joins its parts, read here
  * from the bind itself and not through the figure; its placeholders are named as such; each fist
- * holds the club; and it
- * stands on the core stand and walks at its measured envelope's pace. Node stand, Rapier, on a
- * ground, 120 Hz.
+ * holds the club; and it stands on the core stand and walks at its measured envelope's pace. Node
+ * stand, Rapier, on a ground, 120 Hz.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

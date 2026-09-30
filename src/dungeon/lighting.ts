@@ -26,17 +26,16 @@ import type { TorchPlacement } from "./dressing.ts";
  * Generated-dungeon defaults. The reference chamber opts into its own visually verified profile.
  */
 export const DUNGEON_LOOK = Object.freeze({
-  /** A cold, dim fill from above that leaves the torches to do the work. It was 0.85 of a pale blue before. */
+  /** A cold, dim fill from above that leaves the torches to do the work. */
   ambient: Object.freeze({ intensity: 0.18, diffuse: "#7d8fb3", ground: "#1a1614" }),
   /** The arena's HDRI, kept low underground: enough to give bronze and wet stone a reflection. */
   environmentIntensity: 0.22,
   /** Carried at `height`, `behind` metres from the hero toward the camera, so the faces the camera sees are lit.
-   * A PBR point light falls off by inverse square, so the old 1.8 at 5 m lit almost nothing on a PBR golem. */
+   * A PBR point light falls off by inverse square, so it stands close and bright. */
   lantern: Object.freeze({ color: "#ffcf8f", intensity: 9, height: 2.6, behind: 0.8 }),
   /** A torch, and how far its flicker swings the intensity either way. */
   torch: Object.freeze({ color: "#ff8a3d", intensity: 6, flicker: 0.6 }),
-  /** Contact shadow at the foot of walls and bodies. The art proof's radius 0.16 and strength 0.8 are for a
-   * close perspective view; this camera stands 30 m off. */
+  /** Contact shadow at the foot of walls and bodies, sized for a camera that stands 30 m off. */
   ssao: Object.freeze({ ratio: 0.5, radius: 0.35, totalStrength: 1.1, samples: 8 }),
   clearColor: Object.freeze([0.008, 0.010, 0.016] as const),
   /** Torch lights kept on when the clustered container is not supported: the ones nearest the hero. Materials
@@ -83,8 +82,8 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   azimuth = CAMERA_AZIMUTH, profile?: Readonly<DungeonLightProfile>): DungeonLighting {
   const look: LookSwitches = { torches: true, ssao: true, post: true };
   scene.clearColor = new Color4(...DUNGEON_LOOK.clearColor, 1);
-  // The sky's direction was chosen with the camera on the diagonal (azimuth pi/4), and turns with the camera so that
-  // it keeps its relation to the view: Babylon's `RotationY` takes `cameraToward(PI / 4)` to `cameraToward(azimuth)`.
+  // The sky's direction is given for a camera at azimuth pi/4, and turns with the camera so that it keeps its
+  // relation to the view: Babylon's `RotationY` takes `cameraToward(PI / 4)` to `cameraToward(azimuth)`.
   const sky = Vector3.TransformNormal(new Vector3(0.3, 1, -0.4), Matrix.RotationY(azimuth - Math.PI / 4));
   const ambient = new HemisphericLight("dungeon ambient", sky, scene);
   ambient.intensity = profile?.ambientIntensity ?? DUNGEON_LOOK.ambient.intensity;
@@ -129,7 +128,7 @@ export function lightDungeon(scene: Scene, camera: Camera, map: DungeonMap, torc
   // beyond the target and `1 / sin` below it -- has to sit short of that.
   const setMaxZ = () => { if (ao) ao.maxZ = (cameraDistance(pitch) + 1 / Math.sin(pitch) + zoom / Math.tan(pitch)) / 0.75 + 1; };
   // Always rebuilt whole and in this order: a pipeline detached and re-attached appends its passes to the end of
-  // the camera's list, and a control row taken after that is not the baseline.
+  // the camera's list, and a frame-cost reading taken after that does not compare with one taken before.
   const buildPost = () => {
     ao?.dispose(true); post?.dispose(); ao = post = null;
     if (look.ssao) {

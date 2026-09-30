@@ -1,4 +1,4 @@
-// npm exec --yes --package=playwright -- node scripts/character-lab/browser-check.mjs [URL]
+// npm exec --yes --package=playwright -- node scripts/character-lab/anatomy-review.mjs [URL]
 // Playwright is a disposable verification tool, not a game dependency.
 import assert from 'node:assert/strict';
 import { access, mkdir, writeFile } from 'node:fs/promises';

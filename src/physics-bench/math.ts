@@ -1,7 +1,7 @@
 /**
  * Double-precision vector and quaternion helpers for the physics bake-off. Quaternions are
- * [x, y, z, w] (Babylon's, Havok's and Rapier's order; MuJoCo's w-first order is converted in its
- * adapter). Every engine is read through these, so no reading goes through a float32 matrix (H75).
+ * [x, y, z, w] (Babylon's and Rapier's order; MuJoCo's w-first order is converted in its adapter).
+ * Every engine is read through these, so no reading goes through a float32 matrix.
  */
 export type V3 = [number, number, number];
 export type Q4 = [number, number, number, number];

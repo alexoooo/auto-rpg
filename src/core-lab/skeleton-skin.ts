@@ -16,7 +16,7 @@ import type { SkinView } from "./skin.ts";
  * its bone belongs to. Like the humans' skin (`skin.ts`) it reads the segments' achieved transforms
  * and nothing else, owns no collision and decides nothing.
  *
- * The file holds one piece per part of the old skeleton, its vertices in that part's frame, in the
+ * The file holds one piece per part of the skeleton, its vertices in that part's frame, in the
  * game's left-handed coordinates, which are the body frame's: nothing is converted. A part's place
  * in the body is its bind (`assets/skeleton/bind.json`, the fist build), which is the skeleton
  * spec's reference pose (`src/core/human/skeleton.ts`), so a piece holds its bind relative to its
@@ -138,9 +138,9 @@ export function piecesOnSegments(built: BuiltBody): Map<string, { readonly segme
   return out;
 }
 
-/** The old game's left-side bone and rune tints: ivory, and amber eyes. */
+/** The bone and rune tints: ivory, and amber eyes. */
 const BONE = new Color3(0.80, 0.74, 0.62), RUNE = new Color3(0.72, 0.35, 0.12);
-/** The eye's diameter, m: the old head's (a fifth of its 0.16 m width), at the old art's 0.7. */
+/** The eye's diameter, m: a fifth of a 0.16 m head's width, scaled by 0.7. */
 const EYE = 0.16 * 0.2 * 0.7;
 
 /** Dress `built`, the crypt skeleton, in `art`. The meshes and their materials are this view's own. */

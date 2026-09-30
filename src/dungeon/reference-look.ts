@@ -103,7 +103,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
     material.maxSimultaneousLights=6;world.fog?.attach(material,name==="wall"||name==="trim"||name==="root"||name==="earth"||(name==="wood"&&!!plan?.archetypes)?"wall":null);
     if (["wall", "trim", "root", "earth", "iron", "cloth"].includes(name)) new CryptCutaway(material, azimuth, cutaway);
   }
-  // Retain working doors and exit; replace only the old architectural skin.
+  // Retain working doors and exit; replace only the generated architectural skin.
   for(const mesh of world.surfaces)if(mesh.name.startsWith("wall.")||mesh.name.startsWith("floor."))mesh.setEnabled(false);
   for(const mesh of container.meshes)if(mesh instanceof Mesh && mesh.getTotalVertices() && mesh.isEnabled()) {
     const name=mesh.name.replace("reference.","") as keyof typeof materials;

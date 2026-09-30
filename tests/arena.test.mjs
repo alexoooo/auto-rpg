@@ -267,11 +267,11 @@ test("room_instances_share_materials_and_textures", async (t) => {
   let visibleBeamReadings = 0;
   const crossing = { point: new Vector3(-5, 1, 15), active: () => true };
   world.updateOcclusion(new Vector3(-5, 8, 10), [{ ...crossing, active: () => false }]);
-  assert.equal(scene.getMeshByName("room.beam.n1").isVisible, true, "a parked pooled-arrow point protects no ray");
+  assert.equal(scene.getMeshByName("room.beam.n1").isVisible, true, "an inactive target protects no ray");
   world.updateOcclusion(new Vector3(-5, 8, 10), [crossing]);
   assert.equal(
     scene.getMeshByName("room.beam.n1").isVisible, false,
-    "an overhead beam crossing a protected fighter/arrow ray is actually culled",
+    "an overhead beam crossing a protected sight line is actually culled",
   );
   let culledBeamReadings = 1;
   // The page's orbit camera at both ends of its elevation and distance, on eight bearings.
@@ -281,8 +281,8 @@ test("room_instances_share_materials_and_textures", async (t) => {
         for (const focusZ of [-25, -15, 0, 15, 25]) {
           for (const bearing of Array.from({ length: 8 }, (_, index) => index * Math.PI / 4)) {
             const camera = orbitPosition({ x: focusX, y: 1, z: focusZ }, bearing, pitch, distance);
-            // These stand for actual live body centres and projectile points,
-            // including an opponent and arrow well outside the old +/-2 m stencil.
+            // Points of a body at the focus, and targets well away from it: an opponent 6 m off
+            // and a raised point 9 m off.
             const targets = [
               { point: new Vector3(focusX, 0.0, focusZ) },
               { point: new Vector3(focusX, 0.9, focusZ) },
@@ -357,7 +357,7 @@ test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => 
     assert.equal(shadowAdds, (cycle + 1) * 22, "each owned caster is registered exactly once");
     const beam = scene.getMeshByName("room.beam.n1");
     world.updateOcclusion(new Vector3(-5, 8, 10), [{ point: new Vector3(-5, 1, 15) }]);
-    assert.equal(beam.isVisible, false, "the proof beam begins culled");
+    assert.equal(beam.isVisible, false, "the beam begins culled");
     refreshShadowCasters(scene, shadowGenerator);
     assert.equal(
       shadowGenerator.getShadowMap().renderList.length, shadowBaseline + 22,

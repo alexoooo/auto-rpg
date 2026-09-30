@@ -4,19 +4,19 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { surfaceMetresPerRepeat, TEXTURED_SURFACES, type SurfaceDescriptor } from "../materials.ts";
 import { surface, type TextureFactory } from "../surface.ts";
 
-/** The textured stone, or session 01's flat colour: the control for what the maps cost. */
+/** The textured stone, or a flat colour: the control for what the maps cost. */
 export type StoneChoice = "stone" | "flat";
 
 /** A floor or wall material, and the metres its maps span, which its UVs are divided by. */
 export interface StoneSurface { material: PBRMaterial; metresPerRepeat: number; textured: boolean }
-/** `masonry` is false for session 02's flat wall skin, the control for what the blocks cost; it is on otherwise. */
+/** `masonry` is false for a flat wall skin, the control for what the blocks cost; it is on otherwise. */
 export interface DungeonSurfaces { floor: StoneSurface; wall: StoneSurface; masonry?: boolean }
 
 const STONE: Record<"floor" | "wall", SurfaceDescriptor> = { floor: TEXTURED_SURFACES.dungeonFloor, wall: TEXTURED_SURFACES.dungeonWall };
-/** Session 01's colours, authored in sRGB. */
+/** The flat colours, authored in sRGB. */
 const FLAT = Object.freeze({ floor: { name: "worn flagstones", colour: "#77747a" }, wall: { name: "dungeon basalt", colour: "#494b55" } });
 
-/** One dungeon material, lit as the golems are: PBR, so that the torches and the lantern fall off here as there. */
+/** One dungeon material, PBR like the bodies' skins, so that the torches and the lantern fall off on it as on them. */
 export function flatStone(scene: Scene, name: string, colour: string, roughness = 0.92): PBRMaterial {
   const material = new PBRMaterial(name, scene);
   material.albedoColor = Color3.FromHexString(colour).toLinearSpace();
@@ -37,7 +37,7 @@ export function dungeonStone(scene: Scene, floor: StoneChoice = "flat", wall: St
   return { floor: stoneSurface(scene, "floor", floor, textures), wall: stoneSurface(scene, "wall", wall, textures) };
 }
 
-/** `?floor=flat` and `?wall=flat` draw session 01's colours, `?masonry=0` the flat wall skin, and `?dressing=0` no
+/** `?floor=flat` and `?wall=flat` draw the flat colours, `?masonry=0` the flat wall skin, and `?dressing=0` no
  * clutter; anything else, or nothing, draws the stone in blocks, dressed. */
 export function stoneQuery(search: string): { floor: StoneChoice; wall: StoneChoice; masonry: boolean; dressing: boolean } {
   const params = new URLSearchParams(search);

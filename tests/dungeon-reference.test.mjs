@@ -31,7 +31,7 @@ test('exported stone colours are valid greys and authored maps match their prove
     }
   }
   const manifest=JSON.parse(readFileSync(new URL('../assets/dungeon-reference/manifest.json',import.meta.url)));
-  assert.ok(manifest.triangles<130848,'art refinement must stay below the previous triangle count');
+  assert.ok(manifest.triangles<130848,'the chamber stays under its triangle budget');
   for(const map of manifest.textures) {
     const bytes=readFileSync(new URL('../public/assets/dungeon-reference/'+map.file,import.meta.url));
     assert.equal(createHash('sha256').update(bytes).digest('hex'),map.sha256);

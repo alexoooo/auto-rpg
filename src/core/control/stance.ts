@@ -89,7 +89,7 @@ export type StancePhase = "stand" | "shift" | "swing";
  * makes: a body pushed past its feet is not asked to stand. The rest of the body is servoed around
  * that root acceleration (`servoSolve`), and each stance leg's torques are its freedoms' inverse
  * dynamics less the ground's wrench on its foot (`bear`), given to the muscles as torque sources.
- * Every inertia is the body's own: a foot is 0.005 kg m2 (`humanSpec`), and nothing conditions it.
+ * Every inertia is the body's own (`humanSpec`), and nothing conditions it.
  *
  * **A step** (`SwingGoal`) shifts the weight onto the other foot until the body's capture point is
  * over that sole, lifts the foot, and carries it on its path while the plan falls as an inverted
@@ -98,11 +98,8 @@ export type StancePhase = "stand" | "shift" | "swing";
  * The swinging foot is asked for its path's acceleration with its errors taken up at the swing's
  * constant, through the same inverse dynamics, no ground under it.
  *
- * The plan is what makes a move settle. Asked straight for its error over the time constant, the
- * body read its own velocity a step late, overshot a place 2 and 3 cm away and fell by 3 s; asked
- * for a critically damped acceleration from its measured velocity, it coasted through the place,
- * each step's error riding on the next (Havok, the speed stance this replaced). Tracking a plan that
- * is itself settled, it stops within 0.1 mm (the Rogue and the Warrior, Node stand, Rapier, 120 Hz).
+ * The plan is what makes a move settle: the body tracks a path that is itself settled, rather than
+ * chasing its goal from a velocity it reads a step late, which overshoots or coasts through the place.
  *
  * Nothing here holds the body up that the legs' muscles do not: a torque past a muscle's strength is
  * not given, and a body asked for more than its feet can take tips or falls.
@@ -160,32 +157,9 @@ export interface StanceReading {
 }
 
 /**
- * The time constants, s, of the centre of mass's pull across the ground and in height, critically
- * damped, of the pelvis's turn, and of a swinging foot's pull onto its path.
- *
- * Each was moved alone, the rest at their values, against the stance's batteries
- * (`research/core-stance-sweep.mjs`): 4 places 30 cm out, 8 steps, 25 walks from 0.2 to 0.7 m/s, and
- * shoves of 10 to 90 N s sixteen ways (272), each human 3 cm under its reference height (Node core
- * stand, Rapier, 120 Hz). The table gives the places and steps that failed their bars, the walks
- * held, and the shoves held with the impulse held each way (the largest below the first that
- * fell), its mean and least, N s:
- *
- *                  Rogue                                  Warrior
- *                  places  steps  walks  shoves           places  steps  walks  shoves
- *     across 0.2   0       0      21     126  42.8  15    1       4      22     215  69.1  55
- *     across 0.3   0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
- *     across 0.4   0       0      18     130  45.3  35    0       0      22     214  68.8  55
- *     height 0.1   0       0      19     128  44.4  35    0       0      20     223  74.1  55
- *     height 0.2   0       0      19     126  44.4  35    0       0      21     212  67.5  55
- *     swing 0.05   0       0      22     133  42.2  15    0       0      21     206  67.5  50
- *     swing 0.2    0       0      19     112  38.4  15    0       0      21     193  62.2  50
- *
- * Pulled across at 0.2 s, the Warrior slid a foot 30 cm holding a place and failed four steps, and
- * the Rogue fell to a shove of 20 N s from one way; at 0.4 each centre still drifts 0.2-0.3 mm in
- * the last 2 s of a stand, where at 0.3 it is still. A height's 0.1 or 0.2 reads as 0.15. A swing
- * of 0.2 lands 3 mm off and holds fewer shoves; one of 0.2 or 0.05 lets the Rogue fall to 20 N s
- * from one way. The chosen row's Warrior falls to 50 N s from behind, and holds 55 and more
- * (`STANCE_RECOVERY`). The pelvis's turn was not swept on this stance.
+ * The time constants, s, all critically damped: the centre of mass's pull across the ground and in
+ * height, the pelvis's turn, and a swinging foot's pull onto its path.
+ * Sweep: `docs/reference/stance-tuning.md#time-constants`.
  */
 export const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.1 } as const;
 
@@ -250,286 +224,72 @@ export interface RecoveryTuning {
 }
 
 /**
- * **A control setting, from a sweep**: the least bend of a knee, rad from straight, that the
- * stance's height is held for, and that a knee past straight is brought back to (`fixedSolve`).
- *
- * A straight knee is a singular leg, and past straight -- the knee hyperextends 2 to 5 degrees
- * before its stop -- the leg's Jacobian shortens the leg by extending the knee further, which the
- * stop refuses. Asked to stand higher than its legs reach, a stance held to the height asked
- * presses its knees on their stops and wanders: over the last 2 s of a 5 s stand, the Rogue asked
- * 10 cm over its reference height drifted 9.5 mm and the Warrior asked 5 cm over 52 mm (10 cm over,
- * it fell); held for the bend, each drifted 0.03 mm (Node core stand, Rapier, 120 Hz). At 3 cm low
- * the bend decides little; at 0.4 a step and two places fail (the batteries of `STANCE_SECONDS`):
- *
- *                  Rogue                                  Warrior
- *                  places  steps  walks  shoves           places  steps  walks  shoves
- *     none         0       0      20     119  42.2  35    0       0      23     213  68.4  55
- *     0.1          0       0      19     128  45.0  35    0       0      21     217  70.9  55
- *     0.2          0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
- *     0.3          0       0      21     130  45.3  35    0       0      21     217  70.9  55
- *     0.4          0       1      21     127  44.4  35    2       0      22     215  70.6  55
- *
- * 0.2 was chosen on the speed stance this replaced, as the least bend under which no step failed
- * (commit eaa182e5); on this one 0.1 to 0.3 read alike, and it is kept.
+ * The least knee bend, rad from straight, the stance holds its height for, and the bend a knee past
+ * straight is brought back to (`fixedSolve`). A straight knee is a singular leg: past it the leg's
+ * Jacobian shortens the leg by extending the knee further, into its stop.
+ * Sweep: `docs/reference/stance-tuning.md#knee-bend`.
  */
 export const STANCE_KNEE_BEND = 0.2;
 
 /**
- * **A control setting, from a sweep**: the ankle's dorsiflexion, rad, that the stance's height
- * leaves unused.
- *
- * With the feet flat and the pelvis upright, a lower stance tips the shanks further forward, and
- * the ankle's range (`humanSpec`: 0.35 rad from the reference pose) ends it: standing 3 cm under
- * the reference height, the Rogue's ankles are already at 0.26. Asked lower than that, a stance held
- * to the height asked presses its ankles on their stops and stands off its place, or falls
- * (`tests/core-stance.test.mjs`); held above the ankles' reach, each human sinks to it and stands.
- * Moved alone against the batteries of `STANCE_SECONDS` (Node core stand, Rapier, 120 Hz):
- *
- *                  Rogue                                  Warrior
- *                  places  steps  walks  shoves           places  steps  walks  shoves
- *     none         0       0      20     111  39.7  30    0       0      21     183  60.6  50
- *     0            0       0      18     127  44.4  35    0       0      21     213  70.6  55
- *     0.01         0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
- *     0.03         0       2      19     126  44.4  35    0       2      20     214  70.3  55
- *     0.05         0       6      19     126  44.1  35    0       6      21     214  67.8  55
- *
- * A larger spare holds a stepping stance too high for its knees, and the long steps fail first. A
- * stance lower than this needs the hip to hinge -- the pelvis back, the trunk forward -- which the
- * stance does not yet do; or an ankle range larger than the one measured.
+ * The ankle dorsiflexion, rad, the stance's height leaves unused. With the feet flat and the pelvis
+ * upright, a lower stance tips the shanks forward until the ankle's range (`humanSpec`) ends it;
+ * asked lower, the stance sinks only as far as the ankles reach less this spare, where held to the
+ * height asked it would press its ankles on their stops (`tests/core-stance.test.mjs`). A lower
+ * stance needs the hip to hinge, which the stance does not do.
+ * Sweep: `docs/reference/stance-tuning.md#ankle-spare`.
  */
 export const STANCE_ANKLE_SPARE = 0.01;
 
 /**
- * **Control settings, from a sweep**: a stance on both feet steps to catch a push once its capture
- * point is `margin` outside the region its soles hold (`SUPPORT_INSET`), swinging the foot over
- * `seconds` lifted by `lift`, and landing it `reach` past where the capture point will be.
- *
- * Each human standing 3 cm under its reference height was shoved at the middle trunk's centre of
- * mass by 10 to 90 N s in steps of 5, sixteen ways 22.5 degrees apart, and watched 4.5 s; it fell
- * if its centre sank 25 cm. The table gives the shoves held of the 272, and the impulse held each
- * way -- the largest below the first that fell -- as its mean over the ways and its least (Node
- * core stand, Rapier, 120 Hz):
- *
- *     margin  reach   seconds  lift    Rogue held  mean  least    Warrior held  mean  least
- *     no step                          76          28.8  20       129           45.3  30
- *     0.01    0.2     0.3      0.05    128         44.7  35       217           66.9  45    chosen
- *     0       0.2     0.3      0.05    128         44.7  35       170           56.3  40
- *     0.02    0.2     0.3      0.05    127         44.4  35       217           66.9  45
- *     0.01    0.1     0.3      0.05    128         44.4  35       213           69.7  55
- *     0.01    0.3     0.3      0.05    126         43.8  35       216           71.3  55
- *     0.01    0.2     0.2      0.05    100         35.6  30       182           59.1  35
- *     0.01    0.2     0.25     0.05    122         42.8  35       207           65.0  40
- *     0.01    0.2     0.35     0.05    121         42.2  30       203           62.2  35
- *     0.01    0.2     0.3      0.03    129         45.3  35       219           70.6  55
- *
- * The margin is not for the shoves: at none, a place asked past the soles, held at the edge of what
- * they hold, sets steps off as the capture point wanders a millimetre over it; each human's feet
- * walked 30 cm or more, and the Warrior, standing unpushed, slid a foot 25 cm and failed every
- * step. At 0.01 and 0.02 it stands; 0.01 is the lesser. The swing of 0.2 s the speed stance chose
- * (commit eaa182e5) holds a fifth fewer here; 0.3 holds most. The rows within a few shoves of the
- * chosen one differ by where single shoves first fall: the chosen Warrior falls to 50 N s from
- * behind -- ten steps, its feet drawn within 5 cm of each other across -- and holds 55 and more.
- * Straight to the side a step held little more than standing did (the Warrior 55 N s), the far foot
- * stepping in beside the near one again and again; with the near foot stepping out once the far one
- * is in (`recoveryStep`), the Warrior holds 65 N s to either side and the Rogue 40 to its left, 35
- * to its right, and no way of the sixteen holds less (to 90 N s: Rogue 118 of 272 against 117,
- * Warrior 213 against 209, Node core stand, Rapier, 120 Hz). Many held shoves take several
- * steps: a long step leaves a wide stance whose soles hold a thin band.
+ * A stance on both feet steps to catch a push (`recoveryStep`) once its capture point is `margin` m
+ * outside the region its soles hold (`SUPPORT_INSET`), swinging the foot over `seconds` lifted
+ * `lift` m, and landing it `reach` past where the capture point will be. The margin keeps a place
+ * held at the edge of that region from setting steps off as the capture point wanders over it.
+ * Sweep: `docs/reference/stance-tuning.md#recovery-step`.
  */
 export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2 };
 
 /**
- * **Control settings, from a sweep**: a walk's steps swing over `seconds`, lifted by `lift`, the
- * soles `width` apart across the heading, none longer than `longest` of the leg, the pace going
- * toward the one asked at `accel`.
- *
- * Each human walked at 0.2, 0.3, 0.4, 0.5 and 0.7 m/s five ways (forward, right, back, left,
- * forward right) for 8 s from standing 3 cm under its reference height, then was asked to walk
- * nowhere for 4 s: 25 walks each. Held is those that did not fall (the centre 25 cm under the goal's
- * height); every walk held here went, over its last 3 s, 0.8 to 1.25 of the speed asked along and
- * under a quarter of it across, and stopped. The ratio is the mean along over the speed asked, of
- * those held (Node core stand, Rapier, 120 Hz):
- *
- *     seconds  lift   width  longest  accel   Rogue held  ratio  at 0.7    Warrior held  ratio  at 0.7
- *     0.3      0.05   0.2    0.8      1       19          0.94   0         21            0.93   1    chosen
- *     0.25     0.05   0.2    0.8      1       18          0.91   0         20            0.92   1
- *     0.35     0.05   0.2    0.8      1       18          0.96   0         20            0.95   0
- *     0.4      0.05   0.2    0.8      1       19          0.92   0         20            0.92   0
- *     0.3      0.04   0.2    0.8      1       20          0.93   1         22            0.93   2
- *     0.3      0.07   0.2    0.8      1       19          0.95   0         21            0.93   2
- *     0.3      0.05   0.15   0.8      1       19          0.94   0         21            0.93   2
- *     0.3      0.05   0.25   0.8      1       19          0.94   0         21            0.93   1
- *     0.3      0.05   0.2    0.7      1       19          0.94   0         21            0.93   1
- *     0.3      0.05   0.2    0.9      1       19          0.94   0         23            0.93   3
- *     0.3      0.05   0.2    0.8      0.5     22          0.94   2         23            0.93   3
- *     0.3      0.05   0.2    0.8      2       18          0.94   0         22            0.93   2
- *
- * At the chosen settings every walk up to 0.4 m/s holds, and all but one of the Rogue's at 0.5; at
- * 0.7 almost none. The rows differ at 0.5 and 0.7 m/s alone. A slower start (`accel` 0.5) held five
- * more of the fifty, the most of any row; at 25 walks a human, the best of twelve rows is expected
- * to read that high by chance, and it waits for a replication on other speeds and heights. The limits found on the
- * speed stance were the ankle's range and a trailing foot's toe that scuffs the ground with its
- * ankle at its stop. A human's preferred walk is near 1.4 m/s.
- *
- * Two findings shaped the walk (`walkStep`), on the speed stance (commit eaa182e5). A step fixed to
- * fall about its bearing sole's middle multiplies a landing's miss by exp(w T), about 3.7, at each
- * step: the steps widened until the feet could not reach; each step now chooses its pivot within
- * the sole. And a foot carried at the turn it left the ground with drifted in yaw, step by step, to
- * 50 degrees off; it lands facing the heading. A foot that rolls onto its toe's edge before it
- * lifts, and joints held back from their stops, were built and measured there: they held fewer walks
- * at 3 cm low (33 of 50 against 46) and 30 fewer shoves, and were taken out.
- *
- * The heel-off (`StanceTuning.heelOff`) came back narrower: only a walk's bearing foot, only while
- * the other swings, and only once its ankle's floor is over the knees' ceiling -- the ankle at its
- * stop is what held the walks back. Which point must be past the edge before it rolls decides what
- * it costs. Keyed on the capture point, the foot rolled on every step of the lab's run, in the
- * guard, with the centre still behind the edge its pressure sat on, and the walk braked. Keyed on
- * the centre of mass, the rule taken, it rolls in the fast walks that need it and the run seldom
- * (the Rogue once in 15 s, still a tenth slower round the circle). The battery above, and forward, forward left and forward right at 0.4, 0.5, 0.6, 0.7, 0.8
- * and 1.0 m/s; held, and on pace, of 25 and 18; and the run's mean speed round the circle over
- * 15 s, asked 0.5 m/s (Node core stand, Rapier, 120 Hz):
- *
- *     heel-off            Rogue  by speed    forward  circle    Warrior  by speed    forward  circle
- *     none (the control)  19/19  5,5,5,4,0   5/5      0.500     23/23    5,5,5,5,3   10/10    0.448
- *     on capture point    20/20  5,5,5,5,0   7/6      0.330     24/22    5,5,5,5,4   14/9     0.323
- *     on centre of mass   20/20  5,5,5,5,0   7/7      0.451     23/23    5,5,5,5,3   12/12    0.448
- *
- * With it the Rogue walks 0.5 m/s every way. Stand, edge, step and the 0.3 m/s walks read the same
- * with it and without, and so do the shoves at rest (Rogue 118 of 176, Warrior 174). Rolled, a
- * foot's pressure is on its edge, so a rolled foot cannot brake a walk as a flat one does; a walk
- * that must slow does it on its next step.
- *
- * **The double support and the pre-swing** (`transfer`, `preswing`, `transferStep`). Above 0.4 m/s
- * the swinging hip ran out of strength: the Rogue walking forward, Node core stand, Rapier, 120 Hz,
- * 2-6 s in, its swing asked more torque than the muscles hold (`boundedLeastSquares` clipping) on
- * none of 481 ticks at 0.3 and 0.4 m/s, 78 at 0.5 and 141 at 0.7, the hip's flexion every time --
- * asked 150-160 N m where it held 26-46 of its 105, its speed near the 9 rad/s where Anderson 2007's
- * curve gives none. The leg lifted still extending: the hip turning back at 0.46 rad/s as the foot
- * left the ground at 0.3 m/s, 1.8 at 0.5 and 3.1 at 0.7 (7.3 the worst), the swing then peaking at
- * 4.7 and 5.8 rad/s (9.2); the knee 0.2 rad bent. People flex the hip and knee before the toe leaves
- * the ground: the knee is at about 35 degrees at toe-off (Simoneau, "Kinesiology of Walking", in
- * Neumann, "Kinesiology of the Musculoskeletal System", 2nd ed., 2010, ch. 15), and a fifth to a
- * quarter of the cycle is on both feet. With a double support alone -- the steps and the capture
- * point planned over the next eight (Englsberger et al. 2015), 0.03-0.2 s on both feet -- no row
- * held more than two walks of 25 or 18 above the control, and shorter swings with it fewer. With the
- * trailing foot rolled on its toes through it while the body goes that way, its knee flexing toward
- * 0.61 rad (35 degrees) critically damped at 0.04 s and the ankle free, the hip lifts turning
- * forward 0.54 rad/s at 0.5 m/s and back 0.46 at 0.7 (1.2 the worst), and the swing peaks at 3.5
- * and 4.2 rad/s (6.4). The
- * batteries above, and forward, forward left and forward right at 0.4-1.0 m/s: held, and on pace,
- * of 25 and 18 (Node core stand, Rapier, 120 Hz):
- *
- *     transfer  knee  seconds    Rogue  by speed   forward    Warrior  by speed   forward
- *     none (the control)         20/20  5,5,5,5,0  7/7        23/23    5,5,5,5,3  12/12
- *     0.05      none             21/21  5,5,5,5,1  9/9        23/23    5,5,5,5,3  12/12
- *     0.1       none             19/17  5,5,5,3,1  10/4       22/22    5,5,5,5,2  11/11
- *     0.05      0.6   0.015      19/19  5,5,5,4,0  10/8       24/24    5,5,5,5,4  13/12
- *     0.05      0.6   0.04       24/23  5,5,5,5,4  16/13      25/25    5,5,5,5,5  17/16
- *     0.05      0.6   0.1        23/22  5,5,5,5,3  11/8       25/25    5,5,5,5,5  13/13
- *     0.05      0.8   0.04       22/21  5,5,5,5,2  16/13      24/24    5,5,5,5,4  18/17
- *     0.05      1.0   0.04       22/22  5,5,5,5,2  16/14      25/25    5,5,5,5,5  17/16
- *     0.07      0.6   0.06       25/24  5,5,5,5,5  16/12      25/25    5,5,5,5,5  16/14
- *     0.04      0.6   0.04       24/23  5,5,5,5,4  16/13      25/25    5,5,5,5,5  16/15
- *     0.05      0.61  0.04       22/21  5,5,5,5,2  16/13      23/23    5,5,5,5,3  17/16
- *
- * (The rows but the last rolled the trailing foot whichever way the body went; walking back the
- * Rogue fell at 0.5 m/s on its heel, and the roll now waits for the body to go the toes' way.) The
- * knee's angle matters little at 0.04 s; the time constant and the double support's length do.
- * Stand, edge, step, the 0.3 m/s walks and the shoves at rest read the same; shoved walking at 0.3
- * m/s, the Rogue holds 119 of 176 either way and the Warrior 173 against 174.
- *
- * **Re-swept once a swinging leg's ceiling was taken at the landing** (the height's rule in the
- * stance's step: before it, the plan dropped the body as each long step lifted, the ground's
- * push fell to half the body's weight, and the height swung 2 cm a step, highest on both feet).
- * The knee at 0.61 rad and 0.04 s; the batteries as above (Node core stand, Rapier, 120 Hz):
- *
- *     seconds  transfer    Rogue  by speed   forward    Warrior  by speed   forward
- *     0.25     0.05        19/14  5,5,5,2,2  14/10      22/21    5,5,5,5,2  15/15
- *     0.25     0.08        20/16  5,5,5,3,2  14/9       22/20    5,5,5,5,2  16/14
- *     0.3      0.05        22/21  5,5,5,4,3  18/15      23/23    5,5,5,5,3  18/17
- *     0.3      0.08        24/22  5,5,5,5,4  18/11      25/24    5,5,5,5,5  18/15   chosen
- *     0.3      0.1         24/21  5,5,5,5,4  18/8       24/22    5,5,5,5,4  18/13
- *     0.35     0.05        23/23  5,5,5,4,4  16/14      24/24    5,5,5,5,4  18/18
- *     0.35     0.08        23/22  5,5,5,5,3  17/12      25/24    5,5,5,5,5  18/16
- *     0.4      0.05        22/22  5,5,5,5,2  16/15      24/24    5,5,5,5,4  18/18
- *
- * Chosen for the walks held, then those on pace: at 0.3 s and 0.08 the Warrior walks 0.7 m/s every
- * way and the Rogue four of five, and none of the 36 forward walks falls; the price is the forward
- * pace (the Rogue 0.82 of the pace asked on average, against 0.90 at 0.05). Stand, edge, step and
- * the shoves at rest read the same; shoved walking at 0.3 m/s the Rogue holds 116 of 176 against
- * 120 and the Warrior 174 either way. What still slows the fast walks: late in each swing the leg's
- * braking asks the ground for a pitching moment the bearing sole cannot give with the push the plan
- * asks (the Rogue at 0.8 m/s, 100 N m with 55 N forward), the push is what is missed, the body falls
- * behind its plan, and the step under way is shortened to catch it.
+ * A walk's steps: each swings over `seconds` lifted `lift` m, the soles `width` m apart across the
+ * heading, none longer than `longest` of the leg, the pace going toward the one asked at `accel`.
+ * A double support of `transfer` s precedes each steady step's lift, through which the trailing
+ * foot rolls onto its toes and its knee flexes toward `preswing.knee`, the 35 degrees of a
+ * person's knee at toe-off (Simoneau, "Kinesiology of Walking", in Neumann, "Kinesiology of the
+ * Musculoskeletal System", 2nd ed., 2010, ch. 15): a leg that lifts still extending asks its hip
+ * for more than its strength in a fast walk.
+ * Sweeps: `docs/reference/stance-tuning.md#gait`.
  */
 export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, accel: 1, transfer: 0.08,
   preswing: { knee: 0.61, seconds: 0.04 } };
 
 /**
- * **A control setting, from a sweep**: the time constant, s, the centre of mass's errors from its
- * plan are taken up in, critically damped, and a bearing foot's motion damped out in. Against the
- * batteries of `STANCE_SECONDS` (Node core stand, Rapier, 120 Hz):
- *
- *                  Rogue                                  Warrior
- *                  places  steps  walks  shoves           places  steps  walks  shoves
- *     0.1          0       0      22     120  42.2  35    0       0      23     201  65.9  55
- *     0.15         0       0      21     123  43.1  35    0       0      23     219  72.5  55
- *     0.2          0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
- *     0.3          0       0      19     131  45.9  35    0       0      21     220  72.8  55
- *
- * Every setting stands still (off, drift and speed read 0.0 mm and mm/s) and lands its steps within
- * 2.4 mm. A stiffer track holds two more walks at 0.7 m/s, and at 0.1 fewer shoves; 0.15 to 0.3
- * read alike.
+ * The time constant, s, critically damped, at which the centre of mass's errors from its plan are
+ * taken up, and a bearing foot's motion damped out. Sweep: `docs/reference/stance-tuning.md#track`.
  */
 export const STANCE_TRACK = 0.2;
 
 /**
- * **A control setting, from a sweep**: the fraction of a bearing sole's half-length and half-width
- * its centre of pressure is kept from the sole's edges by (`shareGroundWrench`). A wrench whose
- * centre of pressure is on the edge leaves the sole nothing to turn on but the edge; asked for a
- * place 30 cm to the side, held at the edge of what the soles hold, each human with no margin slid
- * its feet 19 cm (Rogue) and 23 cm (Warrior), where with 0.05 or more they held within 0.6 mm.
- * Against the batteries of `STANCE_SECONDS` (Node core stand, Rapier, 120 Hz):
- *
- *                  Rogue                                  Warrior
- *                  places  steps  walks  shoves           places  steps  walks  shoves
- *     0            2       0      18     132  45.9  35    2       0      20     215  70.6  55
- *     0.05         0       0      18     130  45.6  35    0       0      21     215  70.0  55
- *     0.1          0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
- *     0.2          0       0      20     127  44.4  35    0       0      22     212  68.8  55
- *
- * From 0.05 to 0.2 the settings read alike.
+ * The fraction of a bearing sole's half-length and half-width its centre of pressure is kept from the
+ * sole's edges by (`shareGroundWrench`). A centre of pressure on the edge leaves the sole nothing to
+ * turn on but the edge, and the feet slide. Sweep: `docs/reference/stance-tuning.md#sole-margin`.
  */
 export const SOLE_MARGIN = 0.1;
 
 /**
- * The damping of the leg's Jacobian undone, as a least-squares solve (`dampedSolve`): a numeric
- * setting, not anatomy. A straight knee is a singular leg -- no motion of its freedoms lengthens it
- * -- and without damping a root asked to rise over a straight knee asks the leg for unbounded
- * accelerations: a shoved Rogue's, on one straight leg, ran to 1e22 rad/s2.
+ * The damping of the leg's least-squares Jacobian solve (`dampedSolve`): a numeric setting, not
+ * anatomy. A straight knee is a singular leg -- no motion of its freedoms lengthens it -- and
+ * without damping a root asked to rise over a straight knee asks the leg for unbounded accelerations.
  */
 export const LEG_DAMPING = 0.02;
 
 /**
- * **A control setting, from a sweep**: the fraction by which the outline of the stance soles'
- * corners (their convex hull, across the ground) is drawn toward its middle to give the region the
- * stance holds its centre of mass in. Not every centre of mass over the soles is one the body can
- * hold on both feet: sideways, both feet flat, the ankles turn as far as the hips, and the ankle's
- * everters and invertors -- some 20 to 27 N m (`humanSpec`) -- are what stop the body; and a centre
- * of mass over one foot leaves the other bearing little. Moved alone against the batteries of
- * `STANCE_SECONDS` (Node core stand, Rapier, 120 Hz):
- *
- *                  Rogue                                  Warrior
- *                  places  steps  walks  shoves           places  steps  walks  shoves
- *     0.3          2       0      20     127  44.7  35    2       0      21     221  73.4  55
- *     0.4          0       0      20     130  45.3  35    0       0      22     220  72.5  55
- *     0.5          0       0      19     128  44.7  35    0       0      21     217  66.9  45   chosen
- *     0.6          1       0      19     133  46.3  35    2       8      21     177  58.8  40
- *
- * At 0.3 a place to the side is held off its height; at 0.6 the held region is narrower than the
- * stance the steps land in: the Rogue slid a foot 22 cm holding a place, and the Warrior, standing
- * unpushed, 33 cm. 0.4 reads as 0.5, which was chosen on the speed stance (commit eaa182e5) and is
- * kept.
+ * The fraction by which the outline of the stance soles' corners (their convex hull, across the
+ * ground) is drawn toward its middle to give the region the stance holds its centre of mass in. Not
+ * every centre of mass over the soles can be held on both feet: sideways, both feet flat, the ankles
+ * turn as far as the hips, and only the ankles' everters and invertors (some 20 to 27 N m,
+ * `humanSpec`) stop the body; and a centre of mass over one foot leaves the other bearing little.
+ * Sweep: `docs/reference/stance-tuning.md#support-inset`.
  */
 export const SUPPORT_INSET = 0.5;
 
@@ -663,20 +423,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
    * The lever a missed moment of the ground's wrench is weighed against a missed force at
    * (`shareGroundWrench`): the height of the root's centre, where the wrench is taken, over the
    * soles, at least a sole's half-length. A moment the soles miss is a force they miss at the
-   * root's height. Other levers, fixed, were tried against the shoves (10 to 60 N s, sixteen ways:
-   * 176; Node core stand, Rapier, 120 Hz), the shoves held with the impulse held each way, mean and
-   * least, N s; taken before a knee past straight was brought back (`fixedSolve`), the first three
-   * rows with `STANCE_TRACK` 0.1 and the speed stance's recovery steps (margin 0.01, 0.2 s, lift
-   * 0.03, reach 0.15), the last two with this track and recovery:
-   *
-   *     lever              Rogue              Warrior
-   *     0.3 m              109  39.1  30      156  53.8  45
-   *     the root's height  91   33.1  30      165  56.6  50
-   *     3 m                78   29.4  25      148  49.7  40
-   *     0.5 m, track 0.2   101  36.3  30      157  54.1  40
-   *     the root's, 0.2    102  36.6  30      165  56.3  50
-   *
-   * No fixed lever is better for both; the root's height is the one the wrench's geometry gives.
+   * root's height. No fixed lever serves both humans better: `docs/reference/stance-tuning.md#wrench-lever`.
    */
   const leverOf = (height: number): number => Math.max(feet[0]!.reach, height - reading.support.y);
   const pointOf = (foot: FootState, task: (typeof tasks)[number], out: Vector3): Vector3 =>
@@ -710,10 +457,9 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           return i === j ? 0 : [[0, r[2]!, -r[1]!], [-r[2]!, 0, r[0]!], [r[1]!, -r[0]!, 0]][i]![j]!;
         }));
         // A knee past straight is on the Jacobian's other branch, where the leg shortens by extending
-        // the knee further, into its stop: a Rogue that caught a push with a step stood on such a
-        // knee 13 mm over its plan, the knee asked for -15 rad/s2 and held by its stop. That knee is
-        // asked back toward `STANCE_KNEE_BEND`, critically damped at the height's constant, ahead
-        // of the foot's task, and the leg's other freedoms take the task (`fixedSolve`).
+        // the knee further, into its stop. That knee is asked back toward `STANCE_KNEE_BEND`,
+        // critically damped at the height's constant, ahead of the foot's task, and the leg's other
+        // freedoms take the task (`fixedSolve`).
         const fixed = new Array<number>(foot.channels.length).fill(NaN);
         if (bend !== null) {
           const k = foot.chain[0]!.dofs.length, i = foot.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;
@@ -756,12 +502,9 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       });
       // The freedoms held at a torque (`ServoWork.fixed` outside the legs: a strike's pushes) move as
       // that torque moves them, and the root's acceleration changes how: from M_FF q''_F = torque_F -
-      // bias_F + gravity_F - C_F' a_root - M_F,rest q''_rest, q''_F = z0 + Z a_root. Taken at rest, a
-      // straight's arm and trunk were carried by a ground that gave the whole body their momentum.
-      // The lab routine as `bear`'s swing has it, the swing bounded: at 120 Hz over 24 runs the Rogue
-      // 84 of 120 loops (12 runs through all five), the Warrior 109 (20), against 69 (8) and 100 (18);
-      // at 480 Hz over 12, 56 of 60 (11) and 60 (12), against 23 (2) and 54 (9). No run fell in a
-      // strike or the settle after one.
+      // bias_F + gravity_F - C_F' a_root - M_F,rest q''_rest, q''_F = z0 + Z a_root. Taken as at
+      // rest, a strike's arm and trunk would be carried by a ground that gave the whole body their
+      // momentum.
       const { mass, gravity: weight, bias } = dynamics;
       const F: number[] = [];
       for (let i = 0; i < n; i++) if (work.fixed[i] && !inLeg[i]) F.push(i);
@@ -829,27 +572,11 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       held.channels.forEach((i, k) => { accel[i] = held.z0[k]! + held.Z[k]!.reduce((sum, v, c) => sum + v * root[c]!, 0); });
       const { mass, gravity: weight, bias } = dynamics;
       // A swinging leg's accelerations are the nearest to its task that its muscles can give, all its
-      // freedoms at once (`boundedLeastSquares`): clipped one at a time, a hip at its strength left
-      // the knee's torque asking for the thigh's motion it did not get, and the knee drove the foot
-      // into the ground (the Warrior, walking in the lab's routine: its foot dragged a whole step
-      // 1 cm up, landed 18 cm short, and the walk ran away). A hip turning faster than its muscles
-      // shorten has no strength that way at all. The lab routine from seeded starts
-      // (`research/core-routine-battery.mjs`: 3 N s at 0.5 s, up to 5 loops; Node core stand,
-      // Rapier), loops completed of those possible, runs through all five, and falls while walking:
-      //
-      //                        Rogue              Warrior
-      //     120 Hz, 24 runs    69/120  8   3      100/120  18  0    bounded
-      //                        43/120  2  11      33/120    2  18   clipped alone
-      //     480 Hz, 12 runs    23/60   2   0      54/60     9   0    bounded
-      //                        23/60   2   4      36/60     5   0    clipped alone
-      //
-      // (Both before the freedoms held at a torque were planned, in `carry`: the falls left were in
-      // the strikes.) Only some 1 % of swinging steps ask past strength, but those are the steps that
-      // decide a walk. On the stance's batteries (`STANCE_SECONDS`; Node core stand, Rapier, 120 Hz)
-      // the bound costs shoves: 117 held, 41.6 N s (35 the least) against 128, 44.7 (35) for the
-      // Rogue, and 202, 67.8 (55) against 217, 66.9 (45) for the Warrior; walks 19 and 22 of 25
-      // against 19 and 21; places, steps and stands read alike. The constants' tables were read
-      // clipped alone.
+      // freedoms at once (`boundedLeastSquares`): clipped one at a time, a hip at its strength leaves
+      // the knee's torque asking for thigh motion it does not get, and the knee drives the foot into
+      // the ground. A hip turning faster than its muscles shorten has no strength that way at all.
+      // Few swings ask past strength, but those decide a walk.
+      // Measured: `docs/reference/stance-tuning.md#bounded-swing`.
       feet.forEach((foot, s) => {
         const task = tasks[s]!;
         if (!boundedSwing || !task.on || task.bearing) return;
@@ -1063,11 +790,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       // the plan carries the centre of mass: a stance leg from its ankle, a swinging leg from where
       // its ankle will be when its sole lands, its hip where the plan will have it then (the
       // pendulum about the place, over the swing's time left). Taken from the hip where it is, a
-      // long step's leg reached from behind the bearing foot to a landing ahead of it, and the plan
-      // dropped the body as the foot lifted: the Rogue at 0.8 m/s pushed on the ground with 260 N of
-      // its 540 at the lift and rose again on both feet, 2 cm a step. Taken at the landing, forward
-      // at 0.4-1.0 m/s the Rogue holds 18 of 18 walks (15 on pace) against 16 (13), and the Warrior
-      // 18 (17) against 17 (16); the other batteries read the same (Node core stand, Rapier, 120 Hz).
+      // long step's leg reaches from behind the bearing foot to a landing ahead of it, and the plan
+      // drops the body as the foot lifts.
       // And no lower than each leg reaches with its ankle dorsiflexed to its range less
       // `STANCE_ANKLE_SPARE`, its foot where it stands or will land: the knee's place is then fixed,
       // and the hip is a thigh from it. Where the two disagree, the ankle's stop is the harder limit.
@@ -1105,9 +829,9 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       // its front edge instead (Perry 1992, "Gait Analysis", terminal stance: the heel rises as the
       // body passes over the forefoot), once the plan's centre of mass is past that edge: rolled,
       // the foot's pressure is on the edge, and one rolled with the centre behind it brakes the walk
-      // (keyed on the capture point instead, the Warrior's run went 0.323 m/s against 0.448 flat).
-      // The height keeps the knees bent, and the ankle its range. The foot rolls back once its heel
-      // is down with the centre behind the edge, and is flat again whenever it leaves the ground.
+      // (`docs/reference/stance-tuning.md#heel-off`). The height keeps the knees bent, and the ankle
+      // its range. The foot rolls back once its heel is down with the centre behind the edge, and is
+      // flat again whenever it leaves the ground.
       for (const foot of feet) if (!stance.includes(foot)) foot.rolled = false;
       for (const [foot, floor] of floors) {
         if (!stance.includes(foot)) continue;
@@ -1181,7 +905,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           step.lift.copyFrom(foot.segment.node.rotationQuaternion!);
         }
         // It lands flat, facing the heading: its reference-pose turn, turned about up by the heading.
-        // (Held at the turn it left with, a foot's yaw drifted step by step, to 50 degrees off.)
+        // (Held at the turn it left with, a foot's yaw drifts step by step.)
         Quaternion.RotationAxisToRef(Vector3.UpReadOnly, goal.heading, level);
         level.multiplyInPlace(foot.segment.rest);
         step.time += dt;
@@ -1203,17 +927,9 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         const wholeHalf = Math.hypot(whole.x, whole.y, whole.z), wholeAngle = 2 * Math.atan2(wholeHalf, whole.w);
         wholeAxis.set(whole.x, whole.y, whole.z).scaleInPlace(wholeHalf > 1e-12 ? wholeAngle / wholeHalf : 0);
         // The path's acceleration, and its errors in place and speed taken up critically damped at the
-        // swing's constant; its turn's likewise. Without the turn's own rate and acceleration, its
-        // damping held the foot back from the turn: at the swing's constant it lags a turn by twice its
-        // rate over 1/0.1 s, and a foot turning 60 degrees over a swing lagged the whole of it. In the
-        // lab routine's turns the feet landed 30 to 75 degrees off the heading, the pelvis turned the
-        // bearing inside hip onto its stop, and the inside foot's swing dragged. With its rate, the lab
-        // routine from seeded starts (`research/core-routine-battery.mjs`; Node core stand, Rapier):
-        // at 120 Hz over 24 runs of 5 loops the Rogue 120 of 120 and the Warrior 120 (all runs
-        // through), against 84 and 109; at 480 Hz over 12 runs, 60 of 60 each, against 56 and 60; over
-        // 24 runs of 20 loops at 120 Hz, 466 of 480 (22 through) and 480. On the stance's batteries
-        // (`STANCE_SECONDS`) the Rogue reads alike and the Warrior walks 23 of 25 and holds 209 shoves,
-        // 70.0 N s (55 the least), against 22 and 202, 67.8 (55).
+        // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping
+        // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
+        // swing lands off the heading (`tests/core-stance.test.mjs`).
         const task = tasks[feet.indexOf(foot)]!, w = 1 / seconds.swing, T = swing.seconds;
         const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
         footMotionToRef(foot, sole, task.linear, task.angular);
@@ -1253,21 +969,20 @@ function settleStep(feet: readonly FootState[], last: Foot, heading: number, wid
 /**
  * The step that catches a body whose capture point (Pratt et al. 2006) is further than
  * `tuning.margin` outside the region both soles hold (their outline drawn in by `inset`), or null
- * if it is not. The capture point xi = c + v / w
- * (w = sqrt(g / height)), while the other foot bears the body about its sole's nearest point p to
- * it, runs to p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001); the foot lands past
- * that, by `tuning.reach` of its distance from the bearing sole's middle, and never across the
- * bearing foot, a sole's width out from it at least. The foot whose sole is nearer the capture
- * point bears the body, and the other steps: chosen by the shorter way to the landing instead, the
- * far foot bore the body and it was flung across.
+ * if it is not. The capture point xi = c + v / w (w = sqrt(g / height)), while the other foot
+ * bears the body about its sole's nearest point p to it, runs to p + (xi - p) exp(w T) by the
+ * swing's end T (Kajita et al. 2001); the foot lands past that, by `tuning.reach` of its distance
+ * from the bearing sole's middle, and never across the bearing foot, a sole's width out from it at
+ * least. The foot whose sole is nearer the capture point bears the body, and the other steps: the
+ * far foot bearing it would fling the body across.
  *
  * Pushed beyond the nearer foot, to its side, the far foot's step can only come in beside it, and
- * stepping in again and again the body fell off the nearer foot's outer edge. Once the far foot's
+ * stepping in again and again the body falls off the nearer foot's outer edge. Once the far foot's
  * step would move it less than its sole's width (it has stepped in already), the nearer foot steps
  * out instead, the far one bearing the body, no further from the far sole than `longest` of the leg.
  * This is the sideways catch people make: the unloaded foot steps in, and the other steps out (Maki
- * and McIlroy 1997). Taken whenever it was within reach, the step out came where a short step of
- * the far foot would have done, and a push from behind and to the side held 20 N s less.
+ * and McIlroy 1997). The step out waits for that: taken whenever within reach, it replaces short
+ * steps of the far foot that hold more.
  */
 function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, longest: number, inset: number): SwingGoal | null {
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
@@ -1324,10 +1039,10 @@ function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3,
  * over a swing on, the width out. The pivot p is the one that brings e to where the steady landing
  * wants it, within what the bearing sole holds (drawn in by `inset`), and the foot lands at e less
  * the steady offset: the step leaves the steady one only by what the sole cannot take. (With p
- * fixed at b, the step takes it all: a landing a few centimetres off is exp(w T) times that off
- * at the next step, and the steps widened until the feet could not reach.) The width is at least
- * a sole's width and the walk's distance across the heading over a swing; the step is no further
- * from the bearing sole than `longest` of the leg, and that width out to its own side at least.
+ * fixed at b, the step takes it all: a landing's miss grows by exp(w T) at each step, and the steps
+ * widen until the feet cannot reach.) The width is at least a sole's width and the walk's distance
+ * across the heading over a swing; the step is no further from the bearing sole than `longest` of
+ * the leg, and that width out to its own side at least.
  * Walking nowhere, the steps stop a walk under way. `under` re-aims a step under way: its foot,
  * the pivot the body falls about, and the swing's time left.
  */
@@ -1496,7 +1211,7 @@ function outline(points: [number, number][]): [number, number][] {
 
 const scratch = { a: new Quaternion(), b: new Quaternion() };
 
-/** `segment`'s turn since its reference pose, node times rest^-1 (H24). */
+/** `segment`'s turn since its reference pose, node times rest^-1. */
 function turnOfToRef(segment: BuiltSegment, out: Quaternion): Quaternion {
   Quaternion.InverseToRef(segment.rest, scratch.a);
   return segment.node.rotationQuaternion!.multiplyToRef(scratch.a, out);

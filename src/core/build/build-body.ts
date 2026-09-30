@@ -19,11 +19,10 @@ import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
  * the two segments it joins do not collide with each other (`src/core/engine/engine.ts`).
  *
  * The body is built in its reference pose, where every joint's angle is zero, so no joint disagrees
- * with its bodies at construction (H09).
+ * with its bodies at construction; a joint that disagrees is cleared by flinging the body.
  *
- * Nothing here drives a joint: the muscles do (stage 2 of the plan). Collision layers against other
- * bodies, and contact materials, join when the spec states contact; until then a segment has the
- * engine's default material and collides with everything but its joint partners.
+ * Nothing here drives a joint: the muscles do (`src/core/muscle/driver.ts`). A segment has the
+ * engine's default contact material and collides with everything but its joint partners.
  */
 
 export interface BuiltSegment {

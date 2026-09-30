@@ -15,7 +15,7 @@ import { MASONRY } from "./masonry.ts";
 import type { DungeonMap, Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
-/** Set by eye, and judged on the owner's machine. */
+/** Set by eye. */
 export const FOG_LOOK = Object.freeze({
   /** What remembered ground and walls darken toward, in linear light: a cold near-black, plus a share of the
    * surface's own lit brightness so that remembered stone stays readable. */
@@ -24,7 +24,7 @@ export const FOG_LOOK = Object.freeze({
 });
 
 /**
- * What a textured floor or wall does to its own albedo, set by eye and judged on the owner's machine. A 1k map
+ * What a textured floor or wall does to its own albedo, set by eye. A 1k map
  * repeats every 2 or 3 m, and at the widest zoom that is a grid the eye finds at once: a two-octave value noise of
  * world position, at spans that share no multiple with the map's, varies the brightness under it. A per-cell UV
  * rotation would do it too, and would put a mip seam on every cell edge.
@@ -52,7 +52,7 @@ interface FogView { size: number; hero: Point; pitch: number; toward: Point; tex
 const f = (v: number) => v.toFixed(3);
 
 // The uniforms are **not** declared here: `getUniforms` puts them in the material's uniform buffer, and Babylon
-// declares that itself; a second declaration is a GLSL redefinition (see `procedural-surface.ts`). Its `fragment`
+// declares that itself; a second declaration is a GLSL redefinition. Its `fragment`
 // declarations are used only where there are no uniform buffers. A sampler is not in the buffer, so it is
 // declared. The discards come first in `main`, before any lighting is paid for, and before the prepass writes, so
 // an unexplored or cut-away pixel leaves no trace in the ambient occlusion either.
@@ -136,7 +136,7 @@ finalColor.rgb *= smoothstep(0.50, 0.90, dungeonCoverage);
 /**
  * Fog-of-war on a dungeon surface, read from a mask texture of one byte per cell (`fogMask`), and the cut-away
  * of walls in front of the hero. Attached to each dungeon material by `dungeonFog`, never registered globally,
- * so no golem ever carries it. Node loads this file with `world.ts`: no parameter properties, nothing page-only.
+ * so no body's material ever carries it. Node loads this file with `world.ts`: no parameter properties, nothing page-only.
  */
 export class DungeonFogPlugin extends MaterialPluginBase {
   readonly view: FogView;

@@ -1,6 +1,5 @@
 /**
  * Loads each candidate engine in Node and hands out a factory per engine (`src/physics-bench/`).
- * Havok went with the old path on 2026-09-30 (docs/plans/2026-09-30-old-path-removal.md); its runs' results stay in results/ and REPORT.md.
  */
 import { createMujoco } from "../../src/physics-bench/engines/mujoco.ts";
 import { createRapier } from "../../src/physics-bench/engines/rapier.ts";

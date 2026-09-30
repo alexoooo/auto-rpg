@@ -11,10 +11,11 @@ import type { Vec3 } from "../spec/quantity.ts";
  *
  * The contract, which an engine meets or converts to:
  * - **The step is fixed.** `PhysicsWorld.step` takes the world's step and nothing else, and after it
- *   every body's node holds its body's pose, so everything that reads a pose reads the nodes (H24).
- * - **Bodies never sleep**: a sleeping body reads a perfect zero (H08).
+ *   every body's node holds its body's pose in `position` and `rotationQuaternion`, and everything
+ *   that reads a pose reads those, never a world matrix, which Babylon caches per render id.
+ * - **Bodies never sleep**: a sleeping body reads a perfect zero.
  * - **Mass is the spec's.** A body's colliders carry none; its mass properties are set whole.
- * - **Velocities are the centre of mass's** (H49).
+ * - **Velocities are the centre of mass's**, not the node's.
  * - **Every contact's friction is `CONTACT_FRICTION`**, whichever two colliders meet, and no contact
  *   bounces: what the stance takes the ground to give (`src/core/control/stance.ts`).
  * - **A joint's freedom k is angular axis k of the joint's frame**, fixed in the parent, its angle

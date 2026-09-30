@@ -4,17 +4,17 @@ import type { DungeonMap, Point } from "./map.ts";
 /**
  * The walls' masonry: courses of bevelled blocks on every side of the wall colliders, a coping course on top, and
  * dressed quoins at every outer corner -- which is also every jamb of a door, a corridor mouth and a divider's gap.
- * Set by eye, and judged on the owner's machine.
+ * Set by eye.
  *
  * **No block stands proud of its collider.** A block's face is the collider's face or set back from it, and its
- * bevels and joints go into the rock, so what a golem touches is what it sees and nothing drawn over the floor has
- * no body (AGENTS.md, "The visible room is not the collision arena"). The session 02 skin stays behind the blocks as
- * a backing, set back further than any joint, so that no seam can show the void inside the rock.
+ * bevels and joints go into the rock, so what a body touches is what it sees and nothing drawn over the floor has
+ * no collider. A flat skin stays behind the blocks as a backing, set back further than any joint, so that no seam can
+ * show the void inside the rock.
  */
 export const MASONRY = Object.freeze({
   /** Courses below the coping, of equal height. */
   courses: 5,
-  /** The coping course's height, and the bevel on its every edge, whose top is the concepts' lit top edge. */
+  /** The coping course's height, and the bevel on its every edge, whose top is the concept art's lit top edge. */
   coping: 0.36, copingBevel: 0.07,
   /** A block's length along the wall, drawn between these and then fitted to the run. */
   length: Object.freeze([0.5, 1.05] as const),
@@ -27,7 +27,7 @@ export const MASONRY = Object.freeze({
   /** How far behind the collider's face the backing skin stands, deeper than any block's relief and bevel together
    * and than the coping's bevel; and how far below the wall top its cap, deeper than the coping's bevel. */
   backing: 0.08, cap: 0.12,
-  /** The backing's albedo, as a share of the stone's: the joints read as the concepts' dark mortar. */
+  /** The backing's albedo, as a share of the stone's: the joints read as the concept art's dark mortar. */
   mortar: 0.15,
 });
 
@@ -172,7 +172,7 @@ export function blockQuads(block: Block, metresPerRepeat: number, seed: number):
   return quads;
 }
 
-/** The backing skin behind a side: the session 02 quad, set back into the rock by `MASONRY.backing`, in mortar. At
+/** The backing skin behind a side: the side's flat quad, set back into the rock by `MASONRY.backing`, in mortar. At
  * the end of a run that is not an outer corner it runs on by as much again, to meet the backing of the face that
  * turns there and close the rock behind the joint at the inner corner. */
 function backingQuads(cell: Point, face: SideFace, metresPerRepeat: number, has: (c: Point, f: WallFace) => boolean): Quad[] {
@@ -183,7 +183,7 @@ function backingQuads(cell: Point, face: SideFace, metresPerRepeat: number, has:
   // It stops at the cap, which closes it: any higher and it would rise through the coping's bevel where a face turns.
   const lid = WALL_HEIGHT - MASONRY.cap, points: [number, number][] = [[a0, 0], [a0, lid], [a1, lid], [a1, 0]];
   // The sill closes it at the floor, under the notch each joint's end bevels cut down to the bottom course's foot:
-  // the floor's tiles stop at the face, and without it the camera looked down a joint to under the level. Where two
+  // the floor's tiles stop at the face, and without it the camera would look down a joint to under the level. Where two
   // sills meet at a corner the face running along z takes the square they share, as it takes the arris.
   const short = (turn: WallFace) => has(cell, turn) ? -d : 0;
   const [s0, s1] = along === "z" ? [a0, a1] : [centre - 0.5 - short(low), centre + 0.5 + short(high)];

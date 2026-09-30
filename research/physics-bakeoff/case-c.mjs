@@ -1,7 +1,7 @@
 /**
  * **Case C: one whole human on both feet, 10 s** (`standingHuman`), under each chosen setting
- * (`src/physics-bench/chosen.ts`) and the 16-sub-step references. An observation, no bar: it was
- * added once the scaling humans were found falling, after the bars were written. Node harness.
+ * (`src/physics-bench/chosen.ts`) and the 16-sub-step references. An observation with no bar: it
+ * says whether the humans the scaling tables time are standing. Node harness.
  *
  *     node research/physics-bakeoff/case-c.mjs
  */

@@ -28,8 +28,9 @@ import { drawBody, drawHeld, type BodyView } from "./view.ts";
 
 /**
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
- * scenario -- the Stance (`stance-scenario.ts`) or the Routine (`routine-scenario.ts`) -- owns
- * what it does to the body, its panel section and its marks; the shell owns the rest.
+ * scenario -- the Stance (`stance-scenario.ts`), the Routine (`routine-scenario.ts`), the Run
+ * (`run-scenario.ts`) or the Blow (`blow-scenario.ts`) -- owns what it does to the body, its panel
+ * section and its marks; the shell owns the rest.
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. It is drawn in one
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
@@ -65,10 +66,8 @@ type ViewKind = "world" | "tactical";
 
 /**
  * A seek runs the world for up to this long in each page frame, ms, then lets the page draw: with
- * the draw's 6 ms it fits one frame of a 60 Hz display. Longer frames lose more than they gain.
- * Measured on this page in the automation tab (2026-09-29, 120 Hz, a step 0.9 to 1.8 ms), steps a
- * second through a 400-step seek against the budget: 16 ms, 140 to 214; 25 ms, 162; 40 ms, 92,
- * with the page drawing 3 times a second. The browser held back frames that ran long.
+ * the draw's 6 ms it fits one frame of a 60 Hz display. Longer frames lose more than they gain,
+ * since the browser holds back frames that run long: `docs/reference/lab.md#seek-budget`.
  */
 const SEEK_BUDGET_MS = 10;
 
@@ -232,8 +231,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   const togglePause = (): void => current?.run.player.setPaused(!current.run.player.isPaused());
 
-  // The scenario's keys, held: a key held is a level (H16), what is down now, cleared whenever the
-  // page may miss a release.
+  // The scenario's keys, held: a key held is a level, what is down now, cleared whenever the page
+  // may miss a release, since a release is not guaranteed to arrive.
   const held = new Set<string>();
   document.addEventListener("keydown", (event) => {
     if (forAControl(event)) return;
@@ -328,7 +327,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   });
   window.addEventListener("resize", () => engine.resize());
   // For the console: a hidden tab does not render, so a check steps the world by hand
-  // (`__coreLab.drive()`, `__coreLab.world().step(n)`, then `scene.render()`; H03).
+  // (`__coreLab.drive()`, `__coreLab.world().step(n)`, then `scene.render()`).
   (window as unknown as { __coreLab: unknown }).__coreLab = {
     scene, engine, readout, drive: () => current?.run.drive(held), current: () => current, world: () => world, held,
   };

@@ -5,10 +5,10 @@
 //
 // Fingers: every knuckle (MCP) at one angle, as the first phalanges of a fist make one flat face,
 // on a 5-degree grid. At each, every finger's middle joint (PIP) as far closed as it goes, with the
-// end joint at 0.65 of it (the coupling `grip_fit.py` fits with), sinking the finger no deeper into
-// any part it shares no joint with than 2 mm, or than the relaxed hand already does if that is
-// deeper (0.5 mm over it); three rounds, so each finger is refitted around its neighbours. The
-// most closed fist wins. Thumb: its three phalanges' directions in the palm's axes, by
+// end joint at 0.65 of it (the coupling `scripts/character-lab/realistic/grip_fit.py` fits with),
+// sinking the finger no deeper into any part it shares no joint with than 2 mm, or than the
+// relaxed hand already does if that is deeper (0.5 mm over it); three rounds, so each finger is
+// refitted around its neighbours. The most closed fist wins. Thumb: its three phalanges' directions in the palm's axes, by
 // Nelder-Mead from a thumb across the fingers, for a pad on the index or middle finger's middle
 // phalanx (within 1 mm), nothing sunk deeper than 1.5 mm or than the relaxed hand already is,
 // and joints inside 60 (MCP) and 80 (IP) degrees; the best of three starts.
@@ -29,7 +29,7 @@ const hands = ["r", "l"].map((side) => {
 });
 const posed = (hand, pose) => skinHand(glb, hand.side, fistTurns(hand.bones, hand.side, pose));
 
-// The thumb while the fingers are fitted: across the fingers, as a first fit found it.
+// The thumb while the fingers are fitted: across the fingers.
 let thumb = [
   { forward: 0.45, palmar: 0.781, radial: 0.433 },
   { forward: 0.428, palmar: 0.636, radial: -0.641 },
@@ -86,7 +86,7 @@ function thumbCost(x) {
     return sum + 100 * sunk + reach ** 2 + range;
   }, 0);
 }
-// Starts: the first fit, and that thumb turned further across and back toward the palm.
+// Starts: that thumb, and that thumb turned further across and back toward the palm.
 const starts = [
   [0.45, 0.781, 0.433, 0.428, 0.636, -0.641, 0.64, 0.093, -0.763],
   [0.45, 0.781, 0.433, 0.3, 0.8, -0.5, 0.3, 0.3, -0.9],

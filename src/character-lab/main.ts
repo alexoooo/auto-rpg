@@ -140,8 +140,8 @@ async function start() {
       for (const animation of asset.animationGroups) animation.stop();
       for (const mesh of asset.meshes) {
         if (mesh.name !== '__root__') {
-          // The small skinned parts move outside their bind-pose bounds. Keep them
-          // eligible for rendering when inspecting a posed wrist at close range.
+          // The skin is drawn opaque. The small skinned parts move outside their bind-pose bounds,
+          // so they are kept eligible for rendering when a posed wrist is inspected close up.
           if (mesh.name === 'base__skin' && mesh.material) mesh.material.transparencyMode = 0;
           mesh.alwaysSelectAsActiveMesh = true;
           mesh.setEnabled(false); mesh.receiveShadows = false; shadow.addShadowCaster(mesh);
@@ -151,6 +151,6 @@ async function start() {
     sync(); ready = true; el<HTMLFieldSetElement>('kit').disabled = false; el('loading').hidden = true;
   } catch (error) { console.error(error); el('loading').textContent = `The workshop could not load. ${error instanceof Error ? error.message : String(error)}. Reload to retry.`; }
 }
-// Readable diagnostics for the isolated asset/interaction acceptance harness.
+// The page's state for the console and the browser checks (`scripts/character-lab/browser-check.mjs`).
 Object.assign(window, { __characterLab: { scene, camera, assets, loadouts, get current() { return current; }, get pose() { return pose; }, get ready() { return ready; }, get seconds() { return seconds; }, sample: (t: number) => { playing = false; sample(t); scene.render(); }, render: () => scene.render() } });
 void start();

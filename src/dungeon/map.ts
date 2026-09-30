@@ -44,11 +44,9 @@ export function canSee(map: DungeonMap, a: Point, b: Point, range = 12): boolean
 /**
  * A* plans through openable doors. The world sweep still stops at a door until it opens. The search
  * steps from the middle of each cell, and out of the first cell from `from` itself as well: at a
- * 0.5 m radius the middle of a cell beside rock is not walkable, so a body standing in one had no
- * route at all. Only as well: every step the search took before is still taken. Leaving from
- * `from` alone changed the routes enough that the default biped's exploration lost seeds 0, 8 and 9
- * of the classic twelve (Node headless harness), though over 25,000 sampled starts it returned no
- * route nowhere the middle found one.
+ * 0.5 m radius the middle of a cell beside rock is not walkable, so a body standing in one would
+ * have no route at all. The first cell's middle is still tried, since stepping from `from` alone
+ * changes the routes that the middle finds.
  */
 export function findPath(map: DungeonMap, from: Point, to: Point, radius: number): Point[] {
   if (!walkable(map, to, radius)) return [];

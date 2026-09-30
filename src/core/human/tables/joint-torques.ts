@@ -7,8 +7,8 @@ import type { Sex } from "./de-leva-1996.ts";
  * **How hard young adults turn each joint**: peak torque in newton metres, men's and women's
  * columns, with the mean body mass of the people who produced it. `humanSpec` reads the men's
  * column and scales it by muscle (`src/core/human/muscle.ts`); the women's column is the check on
- * that scaling, never an input to a spec. `docs/analysis/2026-09-27-human-strike-reference.md`
- * section 9 says why each source was taken over the others.
+ * that scaling, never an input to a spec. `docs/reference/human-strike-reference.md` section 9
+ * says why each source was taken over the others.
  *
  * - **Danneskiold-Samsøe 2009** (DS2009) is the spine of the table: one laboratory, one dynamometer
  *   (Lido Active Multi Joint II), the dominant side, gravity-corrected, isometric, 20-29 y, 10 men

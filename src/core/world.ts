@@ -86,7 +86,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
     step(n = 1) {
       if (disposed) throw new Error("the world was disposed");
       for (let i = 0; i < n; i++) {
-        // World transforms are cached per render id (H24); a step is a new moment.
+        // Babylon caches a node's world matrix per render id; a step is a new moment, so a new id.
         (scene as unknown as { _renderId: number })._renderId += 1;
         runAll(before);
         physics.step(dt);

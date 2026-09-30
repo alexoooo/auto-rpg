@@ -2,9 +2,9 @@ import type { World } from "../core/world.ts";
 
 /**
  * **The lab's player**: where the page is on a recording, and moving it. The recording is a
- * scenario's last seconds (`history.ts`); up to its
- * live frame is what was recorded, and after it is what the world has not done yet. The player is the only thing that steps the page's world, and
- * the world is never rewound, so the player has four places:
+ * scenario's last seconds (`history.ts`); up to its live frame is what was recorded, and after it
+ * is what the world has not done yet. The player is the only thing that steps the page's world,
+ * and the world is never rewound, so the player has four places:
  *
  * - live: the world runs at its own pace and is shown;
  * - held: a recorded frame, paused;

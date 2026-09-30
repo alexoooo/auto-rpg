@@ -12,9 +12,8 @@ import { coreStand, relativeRotation, spinOnce } from "./harness/core-stand.mjs"
 const MODELS = ["workshop-fighter", "workshop-rogue"];
 
 /**
- * The plan's stage 1 test, "the built body's inertia is anatomical": each segment, built alone and
- * spun by its spec inertia times 1 rad/s about each frame axis, turns at 1 rad/s. No solver floor
- * is applied. Measured 0.37 % at worst (Node stand, 120 Hz, one step).
+ * The built body's inertia is anatomical: each segment, built alone and spun by its spec inertia
+ * times 1 rad/s about each frame axis, turns at 1 rad/s. No solver floor is applied.
  */
 test("each human's built segments turn under an impulse as their spec inertia says", async () => {
   for (const model of MODELS) {
@@ -47,20 +46,15 @@ async function heldOnAStand(model, seconds, muscles = true) {
 }
 
 /**
- * The plan's stage 1 stand: each human, pinned at the pelvis as on a mannequin's stand, holds its
- * reference pose against gravity, its muscles servoing every freedom to it (time constant 0.1 s).
- * At 10 s it read 0.023 degrees at worst for the Warrior (hips) and 0.021 for the Rogue (ankles),
- * the largest torque 9.2 and 3.9 N m, 10 % and 13 % of a weaker peak (shoulder abduction), alike
- * at 960 Hz (Node stand, 120 Hz). The control: with no muscles, both slump.
+ * Each human, pinned at the pelvis as on a mannequin's stand, holds its reference pose against
+ * gravity, its muscles servoing every freedom to it (time constant 0.1 s). The control: with no
+ * muscles, both slump.
  *
- * This stand once braked each freedom at its weaker peak, a velocity motor asking for no motion.
- * On Havok it held to 0.5 and 1.0 degrees. On Rapier a velocity motor under its ceiling holds only
- * as far as the solver converges, and every braked freedom crept about 4.5 degrees a second at
- * 120 Hz and 1.1 at 480. A 1 kg rod braked on a pin crept 1.74 degrees a second at 4 iterations,
- * 0.46 at 16 and 0.12 at 64; at 16, 0.85 with one PGS pass, 0.46 with two and 0.03 with eight;
- * whatever the ceiling or the motor model (`research/core-rapier-probe.mjs`, its brake). A saturated motor, a torque source, is exact, and the servo gives torque sources.
+ * The servo gives torque sources (saturated motors), which the engine delivers exactly. A velocity
+ * motor asked for no motion under its ceiling holds only as far as the solver converges, and
+ * creeps (`research/core-rapier-probe.mjs`, its brake), so it is no way to hold a pose.
  *
- * Pinned, because the feet are a separate problem: see the plan, stage 1, "Found while building".
+ * Pinned, so this reads the joints and muscles alone, not balance on the feet.
  */
 test("on a stand at the pelvis, each human holds its reference pose against gravity within its weaker peaks", async () => {
   for (const model of MODELS) {

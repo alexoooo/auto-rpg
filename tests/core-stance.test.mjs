@@ -15,8 +15,7 @@
  * feet back at the width the body was built standing at, and holds a sideways shove there that the
  * gait's width did not (`shove` in `research/core-stance-trials.mjs`). Shoved hard straight to the
  * side, the Warrior catches itself with the near foot stepping out once the far one has come in.
- * Node stand, Rapier, both
- * humans, on a ground, 120 Hz.
+ * Node core stand, Rapier, both humans, on a ground, 120 Hz.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -309,8 +308,8 @@ test("each human steps each foot 15 and 25 cm forward, 15 cm back and 10 cm out,
 });
 
 test("each human steps each foot 15 cm forward turned half a radian its own way, and lands facing the heading", async () => {
-  // Turned without its own rate, only pulled onto its path at the swing's constant, a foot lagged the
-  // whole of its turn: in the lab routine's turns the feet landed 30 to 75 degrees off the heading.
+  // Turned without its own rate, only pulled onto its path at the swing's constant, a foot lags the
+  // whole of its turn and lands off the heading.
   for (const model of ["workshop-rogue", "workshop-fighter"]) for (const foot of ["left", "right"]) {
     const heading = foot === "right" ? 0.5 : -0.5, r = await stepping(model, foot, 0, 0.15, undefined, heading);
     console.log(`MUT stance turned step ${model} ${foot}: ${r.phases.join(" ")}; turned ${r.turned.toFixed(3)} rad in the air, landed ${r.faced.toFixed(3)} rad off the heading,`
@@ -326,8 +325,7 @@ test("each human steps each foot 15 cm forward turned half a radian its own way,
 test("asked higher than the legs reach with their knees bent, each human stands at that reach, and held to the height asked wanders", async () => {
   // The Rogue 10 cm higher, the Warrior 5: past the reach of legs bent by STANCE_KNEE_BEND, where a
   // leg is near straight and its Jacobian near singular. Held to the height asked, a human wanders on
-  // its feet: read over the last 2 s, the Warrior drifted 372 mm until its steps landed facing the
-  // heading (the swing's turn at its rate), and now wanders 33 cm and comes to rest.
+  // its feet (the control).
   for (const [model, rise] of [["workshop-rogue", 0.1], ["workshop-fighter", 0.05]]) {
     const ask = (first) => ({ feet: ["left", "right"], centre: null, height: first.height + rise, heading: 0 });
     const bent = await standing(model, 5, ask), straight = await standing(model, 5, ask, { stance: { kneeBend: null } });
@@ -407,8 +405,9 @@ test("asked to walk, each human steps of itself the way and about the speed aske
 });
 
 test("a walk stopped settles its feet to the body's own width, and holds a sideways shove as the built stance does", async () => {
-  // The impulse each human held sideways standing and not after a walk on the gait's width (the
-  // sweep's shove battery at rest and `--walked 0.3`, before the settle step: Rogue 25, Warrior 35 N s at 90).
+  // An impulse each human holds sideways at its built width and not on the gait's narrower one (the
+  // sweep's shove battery at rest, and with `--walked 0.3` without the settle step: Rogue 25, Warrior
+  // 35 N s at 90).
   for (const [model, impulse] of [["workshop-rogue", 30], ["workshop-fighter", 45]]) {
     const rest = await shove({ model, impulse, degrees: 90 }), walked = await shove({ model, impulse, degrees: 90, walked: 0.3 });
     console.log(`MUT stance settle ${model}: apart ${(1000 * rest.apart).toFixed(1)} mm built, ${(1000 * walked.apart).toFixed(1)} after a walk;`
@@ -419,8 +418,8 @@ test("a walk stopped settles its feet to the body's own width, and holds a sidew
 });
 
 test("shoved hard to the side, the Warrior brings its far foot in and steps out with the near one, and stands", async () => {
-  // 60 N s straight to each side: past the 55 the sweep's shove battery held there when only the far
-  // foot stepped (it came in beside the near foot again and again, and the body fell off its edge).
+  // 60 N s straight to each side: past the 55 the shove battery holds there when only the far foot
+  // steps (`docs/reference/stance-tuning.md#recovery-step`).
   for (const degrees of [90, 270]) {
     const r = await shove({ model: "workshop-fighter", impulse: 60, degrees });
     console.log(`MUT stance side catch at ${degrees}: ${r.fell ? "fell" : "held"} in ${r.steps} steps, ${(100 * r.speed).toFixed(2)} cm/s at the end`);

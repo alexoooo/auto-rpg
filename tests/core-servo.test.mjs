@@ -72,10 +72,7 @@ const gapOf = ({ path, e0, w0 }, timeConstant = 0.1) =>
 
 /**
  * The servo gives the torque the damped motion takes, and the rod follows it: within 0.020 rad at
- * 120 Hz and 0.0049 at 480 Hz, on moves of 1 and 0.8 rad (Havok's were 0.018 and 0.0045). The
- * servo before it asked Havok's
- * velocity motor for speeds, and the motor adds about a third to each change of speed it is asked
- * for and returns it over the next steps, so that rod ran 0.027-0.040 rad ahead at both rates.
+ * 120 Hz and 0.0049 at 480 Hz, on moves of 1 and 0.8 rad.
  */
 test("a joint servoed from rest follows the critically damped motion toward its goal, holding its weight", async () => {
   for (const hz of [120, 480]) {
@@ -89,12 +86,11 @@ test("a joint servoed from rest follows the critically damped motion toward its 
 });
 
 /**
- * Asked for (goal - angle) / t, a rod swung to 1.7 rad at 21 rad/s changed speed by 47 rad/s in
- * one step at 120 Hz (12 at 480), reversing. The servo asks for one step of the damped motion's
- * acceleration, largest at the switch, and no step changes the speed by much more: 5.1 rad/s at
- * 120 Hz against 4.8 asked, 1.25 at 480 against 1.22. Asking a velocity motor for it, the servo
- * before this one got the motor's third on top (6.4 and 1.8). The two rates brake alike, 0.06 rad
- * apart. Rapier's and Havok's readings agree to the figures given.
+ * A rod swung to 1.7 rad at 21 rad/s, then servoed to 0. The servo asks for one step of the damped
+ * motion's acceleration, largest at the switch, and no step changes the speed by much more: 5.1
+ * rad/s at 120 Hz against 4.8 asked, 1.25 at 480 against 1.22. The two rates brake alike, 0.06 rad
+ * apart. Asked for (goal - angle) / t instead, the rod changes speed by 47 rad/s in one step at
+ * 120 Hz, reversing.
  */
 test("a joint turning fast is braked a step's acceleration at a time, alike at 120 Hz and 480 Hz", async () => {
   const runs = {};
@@ -113,8 +109,7 @@ test("a joint turning fast is braked a step's acceleration at a time, alike at 1
 
 /**
  * At 5 N m the rod cannot follow the damped motion toward 1 rad in 0.1 s; it lags and arrives, to
- * within 0.0001 rad. Havok, which brakes a body whose centre moves slower than about 0.12 m/s at
- * about 0.3 m/s2, stopped it 0.008 rad short, where the servo asked less than that.
+ * within 0.0001 rad.
  */
 test("a servo asking for more than the muscles hold is bounded by them and gets there later", async () => {
   const weak = await servoRun(120, { goal: 1, peak: 5, seconds: 1.5 });
@@ -129,12 +124,8 @@ test("a servo asking for more than the muscles hold is bounded by them and gets 
  * on its held upper trunk, gravity on, its shoulder swung 1.9 rad (abduction 1.8, internal
  * rotation 0.6, flexion 0.8) with the elbow bent, then servoed back to its reference pose. At
  * 120 Hz it moves as at 960 Hz: the hand peaks at 2.00 against 1.96 m/s on the way back, and its
- * path is never 5 mm from the finer one (on Havok, whose measure made these angles another pose,
- * 2.61 against 2.56 m/s and 8 mm). The servo before this one asked each motor for its own
- * freedom's change (the angle-space mismatch, `servo.ts`) of a velocity motor (the step lag): at
- * 120 Hz, in the Euler reading the joints had then and through flexion 2.5 with abduction 0.5, the
- * arm never reached the pose and the hand's paths lay 89 mm apart. Raising the arm flings the
- * elbow back to straight for a moment, so the pose is held for 1.2 s.
+ * path is never 5 mm from the finer one. Raising the arm flings the elbow back to straight for a
+ * moment, so the pose is held for 1.2 s.
  */
 test("a servoed arm moves alike at 120 Hz and 960 Hz, through a pose where angles and speeds part", async () => {
   const full = humanSpec("workshop-rogue");
@@ -198,9 +189,7 @@ function pair(upperPeak, lowerPeak) {
  * The servo solves its torques around the joints it does not servo and the ones its muscles
  * cannot drive as asked, since what those do turns the rest. A lower rod pushed flat out for
  * 0.15 s, the upper servoed to hold, strays 0.084 rad at 120 Hz and 0.083 at 960 Hz; taking the
- * push to give nothing, 0.22 and 0.21. What strays is the part of the motion that goes as the
- * square of the speeds, which the servo neglects: pushed at half and a quarter, 0.027 and 0.006 rad.
- * A weak upper rod (3 N m) servoed toward 1 rad, the lower held, moves the lower 0.003 rad at both
+ * push to give nothing, 0.22 and 0.21. A weak upper rod (3 N m) servoed toward 1 rad, the lower held, moves the lower 0.003 rad at both
  * rates; solving the lower's torque for the upper's asked motion instead of what its muscles give,
  * 1.3 rad.
  * The push is set in the goal callback, before the servo reads it.

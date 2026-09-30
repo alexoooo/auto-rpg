@@ -160,8 +160,8 @@ export class GameAudio {
           + Math.sin(t * 2 * Math.PI * 145) * .3 * Math.exp(-t * 35)
           + Math.sin(t * 2 * Math.PI * 273) * .13 * Math.exp(-t * 45)
           + Math.sin(t * 2 * Math.PI * 527) * .055 * Math.exp(-t * 65); break;
-        // Weapon guards also appear as BLOCKED. Keep their attack bright, but make the
-        // sound mostly a broad clack: sustained pure high tones read as loose tinware.
+        // A bright attack over a mostly broad clack: sustained pure high tones read as loose
+        // tinware.
         case "metal": value = (noise - low) * .3 * Math.exp(-t * 130)
           + low * .85 * Math.exp(-t * 38)
           + Math.sin(2 * Math.PI * (430 * t - 100 * t * t)) * .18 * Math.exp(-t * 42)

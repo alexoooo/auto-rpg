@@ -12,14 +12,14 @@ import { jointAngles, motionAxesToRef } from "./joint-state.ts";
  * **The joints are free and the body floats.** A blow lasts a few milliseconds, less than a muscle
  * takes to answer it, so no joint resists within its freedoms; nothing holds the body's root, so a
  * blow on the trunk moves the whole body, and one on a hand moves the hand, and the arm and trunk
- * as far as the joints couple them. The old game read its masses the same way
- * (`src/golem/effective-mass.ts` at 77a0cd77, physical contact session 05). A joint at its limit is taken as
- * free too, and the ground is not there.
+ * as far as the joints couple them. A joint at its limit is taken as free too, and the ground is
+ * not there.
  *
  * The speeds are the root's velocity and spin, then every freedom's (`dynamics.ts` has how a
  * freedom's speed turns what its joint carries, about its motion axis through the joint's centre).
- * Each segment's rigid body (`rigid.ts`) is read as it stands (H24): its centre from its node, its
- * inertia turned with it.
+ * Each segment's rigid body (`rigid.ts`) is read as it stands, from its node's `position` and
+ * `rotationQuaternion` (Babylon's world matrix is cached per render id): its centre from its node,
+ * its inertia turned with it.
  *
  * `update` takes the pose; every answer after it is for that pose, until the next `update`, so one
  * pose can be asked about while the body moves on.

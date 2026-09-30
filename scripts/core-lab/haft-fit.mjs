@@ -10,7 +10,7 @@
 // no vertex of it deeper in the haft than 1 mm, nor in any part it shares no joint with than
 // `fist-fit` allows (2 mm, or 0.5 mm past the relaxed hand); three rounds, so each finger is
 // refitted around its neighbours. (The most closed pose, the fist's measure, hooks the fingers
-// over the haft at a straight knuckle, the middle phalanx 20 mm off it.) Thumb: its three
+// over the haft at a straight knuckle, the middle phalanx well off it.) Thumb: its three
 // phalanges' directions in the palm's axes, by Nelder-Mead from the fist's thumb, for a pad on the
 // haft or on the index or middle finger's middle phalanx (within 1 mm), nothing deeper in the haft
 // than 1 mm nor in the hand than the fist allows, and joints inside the fist's 60 (MCP) and 80

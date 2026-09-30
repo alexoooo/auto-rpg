@@ -4,8 +4,8 @@
  * hand (`throwBlow`, `watchClubBlow`), lands with the energy the club search's evaluation gives
  * the unit's record itself (`research/core-club-strike.mjs`, `research/core-club-unit.json`), to
  * the digit; and the menu's Blow card puts the club in that hand. Node core stand, Rapier, 120 Hz.
- * The control, run by hand: the lab's copy of the blow moved 1 cm farther lands with 120.63 J
- * against the record's 119.45, and fails.
+ * The control, run by hand: the lab's copy of the blow moved 1 cm farther lands with another
+ * energy, and fails.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

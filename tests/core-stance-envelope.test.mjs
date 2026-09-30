@@ -3,9 +3,10 @@
  * the asset was measured on the core's own harness at the game's rate, so a change of engine or rate
  * fails here until `research/core-stance-envelope.mjs --write` measures it again; each body's fastest
  * walk and its turn at each speed are the rule's reading of its own tables; the rules, sampled both
- * sides; a body carries its envelope, and none under another stance tuning or while it is measured; the lab's turn rate is
- * inside every body's at the Routine's pace; and at its fastest walk each human holds all five ways
- * again, and its fastest turn there both ways (Node core stand, Rapier, 120 Hz). The control, run by
+ * sides; a body carries its envelope, and none under another stance tuning or while it is measured;
+ * the lab's turn rate is inside every body's at the Routine's pace; and at its fastest walk each
+ * human holds all five ways again, and its fastest turn there both ways (Node core stand, Rapier,
+ * 120 Hz). The control, run by
  * hand: the Rogue's last turn set to 1 in the asset fails the rule's check, and walking 0.5 m/s it
  * falls turning 1 rad/s.
  */

@@ -5,8 +5,8 @@ import type { Sex } from "./de-leva-1996.ts";
 
 /**
  * **How far each joint turns, from the anatomical position**: degrees, as each source prints them,
- * for young adults. `docs/analysis/2026-09-27-human-strike-reference.md` section 9 says why each
- * source was taken.
+ * for young adults. `docs/reference/human-strike-reference.md` section 9 says why each source was
+ * taken.
  *
  * - **Limbs: Moromizato 2016**, one table for every limb joint but the forearm's turn, the wrist's
  *   sideways bend and the foot's roll: passive range by goniometer from the neutral-zero start, 42

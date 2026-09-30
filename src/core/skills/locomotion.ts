@@ -3,9 +3,9 @@ import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
 import { STANCE_GAIT, type Foot, type StanceGoal, type SwingGoal } from "../control/stance.ts";
 
 /**
- * How far under its reference height a body's centre of mass is held, m. Asked 8, 12 or 16 cm
- * lower, each human stood about 1 cm lower, and walking and stopping from there fell (Node stand,
- * 120 Hz), so a crouch is not the stance's yet.
+ * How far under its reference height a body's centre of mass is held, m. A crouch is beyond the
+ * stance: asked 8 cm or more lower, a human settles only about 1 cm lower, and falls walking or
+ * stopping from there.
  */
 export const STANCE_LOWER = 0.03;
 
@@ -13,11 +13,9 @@ export const STANCE_LOWER = 0.03;
 const FALLEN = 0.25;
 
 /**
- * How long a walk goes straight after it sets off from standing before its heading turns, s.
- * Turned from its first moment, the heading turned over feet still planted for the walk's first
- * weight shift, and the shift ran away sideways until the Warrior fell, at the first turn after the
- * Routine's strikes in most runs (Node stand, 120 Hz); the envelope's turn rates were measured on a
- * walk already under way.
+ * How long a walk goes straight after it sets off from standing before its heading turns, s. A
+ * heading turned over feet still planted for the walk's first weight shift runs the shift away
+ * sideways until the body falls; the envelope's turn rates are a walk's already under way.
  */
 export const TURN_LEAD = 1;
 
@@ -81,7 +79,7 @@ export const PLACING = { near: 0.02 } as const;
  *   speed capped at the envelope's fastest walk. None stands.
  * - **The heading** turns toward the intent's facing only while the body walks, as the stance
  *   turns (each step lands its foot facing the heading; standing, a pelvis turned a quarter over
- *   planted feet fell), no faster than the envelope turns at the pace the body was last asked to
+ *   planted feet falls), no faster than the envelope turns at the pace the body was last asked to
  *   walk (`turnAt`), and not for `TURN_LEAD` after it sets off.
  *
  * Without an envelope (a body under an experiment's stance tuning, which the envelope did not

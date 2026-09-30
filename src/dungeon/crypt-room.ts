@@ -60,7 +60,7 @@ export function generateCryptRoom(seed: number): CryptRoomPlan {
   return dressCryptMap(map,art);
 }
 
-/** The same masonry kit dresses both the proof room and connected gameplay maps. */
+/** The same masonry kit dresses both the single room (`generateCryptRoom`) and connected gameplay maps. */
 export function dressCryptMap(map: DungeonMap, art: () => number, archetypes?: CryptArchetype[], furniture?: CryptPlacement[]): CryptRoomPlan {
   const {size,floor}=map;
   const min={x:Math.min(...map.rooms.map(r=>r.min.x)),z:Math.min(...map.rooms.map(r=>r.min.z))};
