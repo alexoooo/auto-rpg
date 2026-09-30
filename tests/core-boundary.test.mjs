@@ -147,16 +147,16 @@ function seamCrossings(files) {
 }
 
 test("the core and its lab reach an engine only through the seam: engine.ts's contract and engines.ts's list", () => {
-  const files = [...filesUnder(CORE), ...filesUnder("src/core-lab/")].filter((file) => file.endsWith(".ts"))
+  const files = [...filesUnder(CORE), ...filesUnder("src/lab/")].filter((file) => file.endsWith(".ts"))
     .map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
   assert.ok(files.some(([file]) => isEngineModule(file)), "no engine module, so this test would pass on nothing");
   assert.deepEqual(seamCrossings(files), []);
   // The control: the lab loading Rapier itself, and the build reaching Rapier's package, are found.
   assert.deepEqual(seamCrossings([
-    ["src/core-lab/main.ts", `import { loadRapier } from "../core/engine/rapier.ts";`],
+    ["src/lab/main.ts", `import { loadRapier } from "../core/engine/rapier.ts";`],
     ["src/core/build/build-body.ts", `import RAPIER from "@dimforge/rapier3d-simd-compat";`],
   ]), [
-    "src/core-lab/main.ts imports the engine module src/core/engine/rapier.ts",
+    "src/lab/main.ts imports the engine module src/core/engine/rapier.ts",
     `src/core/build/build-body.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
   ]);
 });

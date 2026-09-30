@@ -21,7 +21,7 @@ import { blowDamage, type Rulebook } from "./rulebook.ts";
  *   A touch that was not closing lands nothing.
  * - **Its energy** is `impactEnergy` of the masses the contact meets on each side (`contactMass`,
  *   joints free and each body floating), as the damage unit's blow was read
- *   (`src/core-lab/club-blow.ts`).
+ *   (`src/lab/club-blow.ts`).
  * - **Its damage** is `blowDamage` of that energy. Every blow is blunt until the weapons that cut
  *   and pierce come, and a blunt blow is never clean, so it takes a part off only past empty by
  *   the rulebook's margin (`src/core/rules/pool.ts`).

@@ -1,5 +1,5 @@
 /**
- * The lab routine (`src/core-lab/routine.ts`) run from seeded starts, per stance tuning: each run
+ * The lab routine (`src/lab/routine.ts`) run from seeded starts, per stance tuning: each run
  * pushes the middle trunk at 0.5 s by `--impulse` N s (default 3) in a direction the seed picks (the
  * golden angle times the seed), then runs up to `--loops` loops (default 5), a fall (the lower
  * trunk under 0.5 m) or `LOOP_SECONDS` a loop. Each run on a worker of its own stand (Node core
@@ -69,7 +69,7 @@ if (isMainThread) {
 } else {
   const [{ Logger }, { Vector3 }, { humanSpec }, { startRoutine }, { coreStand }] = await Promise.all([
     import("@babylonjs/core/Misc/logger.js"), import("@babylonjs/core/Maths/math.vector.js"), import("../src/core/human/spec.ts"),
-    import("../src/core-lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
+    import("../src/lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
   Logger.LogLevels = Logger.ErrorLogLevel;
   parentPort.on("message", async ({ model, seed, stance, loops, impulse, hz }) => {
     try {

@@ -1,5 +1,5 @@
 /**
- * **The lab's scenarios and its address** (`src/core-lab/scenarios.ts`): what `?play=lab&…` opens,
+ * **The lab's scenarios and its address** (`src/lab/scenarios.ts`): what `?play=lab&…` opens,
  * the loadout it holds, and the address each choice writes.
  */
 import test from "node:test";
@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { routeFor } from "../src/app-route.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
-import { labAddress, labHref, LAB_CAMERAS, LAB_HELD, LAB_PROJECTIONS, LAB_RATES, MODELS, SCENARIOS } from "../src/core-lab/scenarios.ts";
+import { labAddress, labHref, LAB_CAMERAS, LAB_HELD, LAB_PROJECTIONS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
 const DEFAULTS = { scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, hz: 120,
   camera: "free", projection: "orthographic" };

@@ -3,7 +3,7 @@
  * walk is capped at the envelope's fastest, the heading turns only while walking, not for
  * `TURN_LEAD` after the body sets off, and then no faster than the envelope turns at the pace it
  * walked the step before; and placed, the feet step to a footing each once, the farther first. The
- * whole path, mind to body, is `tests/core-lab-run.test.mjs`'s and `tests/core-lab-routine.test.mjs`'s.
+ * whole path, mind to body, is `tests/lab-run.test.mjs`'s and `tests/lab-routine.test.mjs`'s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

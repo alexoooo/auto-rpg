@@ -4,7 +4,7 @@
  * lab's: 0 faces +z and it grows to the right, the right of a heading h being (cos h, -sin h); an
  * arc of positive curvature turns right.
  *
- * Free of the page, so `tests/core-lab-track.test.mjs` can argue with it.
+ * Free of the page, so `tests/lab-track.test.mjs` can argue with it.
  */
 import { LAB_TURN_RATE } from "./stance-mode.ts";
 

@@ -17,8 +17,8 @@ import { createBody } from "../src/core/body.ts";
 import { fastestHeld, paceRound, stanceEnvelope, turnAt } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
-import { LAB_TURN_RATE } from "../src/core-lab/stance-mode.ts";
-import { TURN_PACE } from "../src/core-lab/track.ts";
+import { LAB_TURN_RATE } from "../src/lab/stance-mode.ts";
+import { TURN_PACE } from "../src/lab/track.ts";
 import { CORE_STANCE_HARNESS, turn, walk } from "../research/core-stance-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 

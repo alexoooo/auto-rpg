@@ -2,7 +2,7 @@
  * One strike by a core human (`src/core/`), scored by how fast its fist closes on a target.
  *
  * The human stands on its own feet on the core stand and throws the blow from there (`throwBlow` in
- * `src/core-lab/blow.ts`): it stands in the lab's guard, holds a chamber pose, then pushes a chosen
+ * `src/lab/blow.ts`): it stands in the lab's guard, holds a chamber pose, then pushes a chosen
  * set of freedoms, each from a chosen moment for a chosen time at a chosen activation;
  * every other freedom is servoed to the guard, and the legs are the stance's. Every torque is its
  * muscles'.
@@ -32,7 +32,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { STAND } from "../src/core/skills/strike.ts";
-import { centreNow, throwBlow } from "../src/core-lab/blow.ts";
+import { centreNow, throwBlow } from "../src/lab/blow.ts";
 
 Logger.LogLevels = Logger.ErrorLogLevel;
 

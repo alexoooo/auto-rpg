@@ -4,12 +4,12 @@
  *
  * The human holds the wooden club in one hand (`armed`, `woodenClub`), stands on its own feet on
  * the core stand and throws the blow from there, as `core-strike.mjs`'s straights are thrown
- * (`throwBlow` in `src/core-lab/blow.ts`): it stands in the lab's guard, holds a chamber pose, then
+ * (`throwBlow` in `src/lab/blow.ts`): it stands in the lab's guard, holds a chamber pose, then
  * pushes a chosen set of freedoms, each from a chosen moment for a chosen time at a chosen
  * activation; every other freedom is servoed to the guard, and the legs are the stance's. The wrist
  * is pushed here, all three of its freedoms: a club is swung with it.
  *
- * The blow is read as it lands by `watchClubBlow` (`src/core-lab/club-blow.ts`), which the lab's
+ * The blow is read as it lands by `watchClubBlow` (`src/lab/club-blow.ts`), which the lab's
  * Blow scenario reads too: the target, where the club's swell first touches it, the closing speed,
  * the masses the contact meets and the energy. A search's `score` is that energy, or, for a club
  * that never arrives, minus how far its swell passed from the sphere, or, for a body that falls
@@ -20,8 +20,8 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { STAND } from "../src/core/skills/strike.ts";
-import { throwBlow } from "../src/core-lab/blow.ts";
-import { watchClubBlow } from "../src/core-lab/club-blow.ts";
+import { throwBlow } from "../src/lab/blow.ts";
+import { watchClubBlow } from "../src/lab/club-blow.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { FELL, perturbed } from "./core-strike.mjs";
 

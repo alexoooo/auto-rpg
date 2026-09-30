@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createPlayer } from "../src/core-lab/player.ts";
+import { createPlayer } from "../src/lab/player.ts";
 
 /**
  * A scripted stage: a loop of `frames` frames, 10 ms a step, at `live`; or, `rolling`, a recording

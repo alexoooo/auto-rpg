@@ -8,7 +8,7 @@ import type { World } from "../core/world.ts";
 import { STANCE_LOWER } from "../core/skills/locomotion.ts";
 
 /**
- * **The core lab's stance mode**: a human on its own feet under the core stance
+ * **The lab's stance mode**: a human on its own feet under the core stance
  * (`src/core/control/stance.ts`), commanded live from the page. The page's keys are a mind
  * (`ordersMind`): what a person gives it is an intent, as any mind's -- a walk (a velocity across
  * the ground, in the body's own frame), a turn and a height, the hands guarding -- which the skills
@@ -23,7 +23,7 @@ import { STANCE_LOWER } from "../core/skills/locomotion.ts";
  * A shove is the page's instrument, not a command: an impulse at the middle trunk's centre of
  * mass, level, as the shove sweep gives it (`STANCE_RECOVERY`), applied before the next solver step.
  *
- * This module has no page-only imports, so the Node stand can run it (`tests/core-lab.test.mjs`).
+ * This module has no page-only imports, so the Node stand can run it (`tests/lab-stance.test.mjs`).
  */
 
 /** What the page asks of the stance; the page writes it, the stance reads it every control step. */

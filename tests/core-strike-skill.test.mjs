@@ -5,7 +5,7 @@
  * another's, with its window turned over for the other hand; the club blow in the repertoire is the
  * damage unit's; and an attack walks toward its place, sets the feet there, stands `STAND` s, asks
  * the window of the head as it stands, chambers, pushes and is counted. That a blow thrown through
- * the skill reads as its search read it, to the digit, is `tests/core-lab-blow.test.mjs`'s.
+ * the skill reads as its search read it, to the digit, is `tests/lab-blow.test.mjs`'s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

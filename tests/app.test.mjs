@@ -59,11 +59,11 @@ test("no_screen_boots_itself_when_it_is_imported", async () => {
   }
   // The lab's shell does all its work in `bootLab`: nothing at column 0 but imports, declarations
   // and the function itself.
-  const lab = await read("../src/core-lab/main.ts");
+  const lab = await read("../src/lab/main.ts");
   assert.doesNotMatch(lab, selfBoot, "the lab boots on import");
   assert.match(lab, /^export async function bootLab\(address: [^)]*\): Promise<void> \{$/m);
   const topLevel = /^(?!import |export |const |type |interface |\/\/|\/\*\*| \*|\}|$)\S/m;
-  assert.doesNotMatch(lab, topLevel, "src/core-lab/main.ts runs a statement on import");
+  assert.doesNotMatch(lab, topLevel, "src/lab/main.ts runs a statement on import");
   assert.match("engine.runRenderLoop(() => {});", topLevel, "the control: a bare statement at column 0 is found");
   assert.match("void boot();", selfBoot, "the control: the pattern finds a self-boot when there is one");
 });
@@ -89,8 +89,8 @@ test("the_app_mounts_the_templates_index_html_holds_and_the_buttons_go_where_the
     "arena: style.css, forge-ui.css, mount, module");
   assert.ok(order('await import("./dungeon/style.css");', 'mount("dungeon-screen");', 'await import("./dungeon/main.ts");'),
     "dungeon: stylesheet, mount, module");
-  assert.ok(order('await import("./core-lab/style.css");', 'mount("lab-select-screen");', 'await import("./core-lab/setup.ts");',
-    'mount("lab-screen");', 'await import("./core-lab/main.ts");'), "lab: stylesheet, then the menu's markup and module, or the scenario's");
+  assert.ok(order('await import("./lab/style.css");', 'mount("lab-select-screen");', 'await import("./lab/setup.ts");',
+    'mount("lab-screen");', 'await import("./lab/main.ts");'), "lab: stylesheet, then the menu's markup and module, or the scenario's");
 });
 
 test("every_screen_leads_back_to_the_menu", async () => {

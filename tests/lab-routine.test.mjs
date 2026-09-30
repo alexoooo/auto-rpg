@@ -1,5 +1,5 @@
 /**
- * **The core lab's Routine** (`src/core-lab/routine.ts`), on the Node stand as the page runs it: a
+ * **The lab's Routine** (`src/lab/routine.ts`), on the Node stand as the page runs it: a
  * mind on the core's skills, each human for two loops at 120 Hz: the second sets off from the post
  * into the turn, where a faster turn falls (`ROUTINE_GAIT`). It stays on its feet, completes the
  * loops, and at the post throws the right hand's strike, the left's and the right's again, each
@@ -12,7 +12,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { mirroredWindow, recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
-import { ROUTINE_HANDS, startRoutine } from "../src/core-lab/routine.ts";
+import { ROUTINE_HANDS, startRoutine } from "../src/lab/routine.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const LOOPS = 2;

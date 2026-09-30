@@ -1,5 +1,5 @@
 /**
- * **The core lab's stance mode** (`src/core-lab/stance-mode.ts`), run on the Node stand as the page
+ * **The lab's stance mode** (`src/lab/stance-mode.ts`), run on the Node stand as the page
  * runs it: the page's orders, made an intent by the keys' mind and carried out by the skills, and a
  * shove at the middle trunk. What the page shows is what these read.
  */
@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { TURN_LEAD } from "../src/core/skills/locomotion.ts";
-import { startStance } from "../src/core-lab/stance-mode.ts";
+import { startStance } from "../src/lab/stance-mode.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 async function session(model, script) {

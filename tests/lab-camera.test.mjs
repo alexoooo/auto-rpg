@@ -1,5 +1,5 @@
 /**
- * **The lab's camera** (`src/core-lab/camera.ts`): the isometric angle, the chase's bearing behind a
+ * **The lab's camera** (`src/lab/camera.ts`): the isometric angle, the chase's bearing behind a
  * body, the facing of a pelvis on its side, the short way round, and orthographic extents that frame
  * what the perspective frames.
  */
@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import {
   behind, CHASE_BETA, easeAngle, facingOf, horizontalForward, ISO_ALPHA, ISO_BETA, orthoExtents,
-} from "../src/core-lab/camera.ts";
+} from "../src/lab/camera.ts";
 
 const close = (actual, expected, message, tolerance = 1e-9) =>
   assert.ok(Math.abs(actual - expected) <= tolerance, `${message}: ${actual} against ${expected}`);

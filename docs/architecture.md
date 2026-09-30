@@ -6,7 +6,7 @@ body carries into another body, and it wounds by the energy it brings. There is 
 animation and no hit box: the pages draw what the physics did.
 
 Babylon.js 9 draws; Rapier (its SIMD build, WebAssembly) simulates. Everything that fights is the
-core's (`src/core/`). The screens (`src/arena/`, `src/dungeon/`, `src/core-lab/`) build on the core
+core's (`src/core/`). The screens (`src/arena/`, `src/dungeon/`, `src/lab/`) build on the core
 and the core never imports them: `tests/core-boundary.test.mjs` walks the core's imports and allows
 only the core itself, `@babylonjs/core`, the engine's package and JSON under `assets/`.
 
@@ -213,7 +213,7 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   body is a core body driven by a mind; a person's orders reach the party only through the run's
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
   Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md).
-- **The lab** (`src/core-lab/`): one core body at a time in the Stance, Routine, Run and Blow
+- **The lab** (`src/lab/`): one core body at a time in the Stance, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).

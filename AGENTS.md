@@ -25,7 +25,7 @@ works in dev and is absent from `dist`.
 
 - `/` (`index.html`, `src/app.ts`): the main menu; the arena at `?play=arena`
   (`&matchup=left,right` opens a bout, `src/arena/`); the crypt at `?play=dungeon`
-  (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/core-lab/scenarios.ts`).
+  (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/lab/scenarios.ts`).
   Each screen is a `<template>` mounted once per page load; changing screen is a navigation.
 - `/character-lab.html`: the character workshop viewer.
 - `/physics-bench.html`: the physics bake-off's cases on MuJoCo and Rapier (`src/physics-bench/`,

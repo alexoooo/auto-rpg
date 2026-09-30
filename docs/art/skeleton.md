@@ -65,7 +65,7 @@ frame, so at the reference pose every piece is exactly where it was authored. `d
 builds the meshes with their own bone and rune materials, sets each piece from its segment's
 `position` and `rotationQuaternion` before every render, and places small rune spheres in the eye
 sockets. The arena (`src/arena/main.ts`), the crypt (`src/dungeon/main.ts`) and the lab
-(`src/core-lab/main.ts`) all dress the skeleton this way.
+(`src/lab/main.ts`) all dress the skeleton this way.
 
 `bind.json` is fixed: nothing in the repository regenerates it, and both the art and the core
 skeleton read it. Moving a joint means refitting the art as well.

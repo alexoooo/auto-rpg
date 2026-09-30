@@ -13,8 +13,8 @@ import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { FIT_SCALE } from "../core/human/model.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 import { visiblePart } from "../character-lab/catalog.ts";
-import { CLUB_GRIP } from "../core-lab/club-grip.ts";
-import { fistTurns, type FistPose, type RestBone } from "../core-lab/fist.ts";
+import { CLUB_GRIP } from "../lab/club-grip.ts";
+import { fistTurns, type FistPose, type RestBone } from "../lab/fist.ts";
 
 /**
  * **The core body as the world sees it**: the workshop model's skinned mesh, each bone carried by
@@ -55,7 +55,7 @@ const TRUNK = ["upperTrunk", "middleTrunk", "lowerTrunk"] as const;
 /**
  * **The fist**, built by `fist.ts` from each hand's geometry: finger angles are the joints' flexion
  * from a straight finger, degrees, and the thumb's phalanges point along the palm's axes. Fitted
- * on the skin by `scripts/core-lab/fist-fit.mjs` (its header gives the rule), one pose for both
+ * on the skin by `scripts/lab/fist-fit.mjs` (its header gives the rule), one pose for both
  * hands: every knuckle at one angle, each middle joint as far closed as it goes, the thumb across
  * the index and middle fingers. The fit leaves no part deeper in another than 2 mm or than the
  * relaxed hand already is, except the thumb's first phalanx in the ball of the thumb. Its readings:

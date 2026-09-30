@@ -1,5 +1,5 @@
 /**
- * **The lab's loadout** (`src/core-lab/loadout.ts`): the body a loadout makes. Clothing is the
+ * **The lab's loadout** (`src/lab/loadout.ts`): the body a loadout makes. Clothing is the
  * skin's and changes nothing here; a club in a hand is one rigid body with it. Run on the Node
  * core stand.
  */
@@ -7,8 +7,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { loadoutSpec } from "../src/core-lab/loadout.ts";
-import { startStance } from "../src/core-lab/stance-mode.ts";
+import { loadoutSpec } from "../src/lab/loadout.ts";
+import { startStance } from "../src/lab/stance-mode.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 

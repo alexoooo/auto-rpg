@@ -11,7 +11,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createWorld } from "../src/core/world.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
-import { startRoutine } from "../src/core-lab/routine.ts";
+import { startRoutine } from "../src/lab/routine.ts";
 import { coreStand, freshEngine } from "./harness/core-stand.mjs";
 
 /** A stand whose world holds the Warrior in the air, falling freely: no ground, no motors. */

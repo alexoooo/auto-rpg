@@ -1,14 +1,14 @@
 # The lab's tuning
 
 The readings behind the lab's constants and fitted poses: the hand poses the skin draws
-(`src/core-lab/club-grip.ts`, `src/render/skin.ts`), the page's seek budget
-(`src/core-lab/main.ts`), the Routine's gait (`src/core-lab/routine.ts`, `src/core-lab/track.ts`),
-how far ahead a walker on a track faces (`src/core-lab/run-mode.ts`), and how far off the track
-the run test lets a walker go (`tests/core-lab-run.test.mjs`).
+(`src/lab/club-grip.ts`, `src/render/skin.ts`), the page's seek budget
+(`src/lab/main.ts`), the Routine's gait (`src/lab/routine.ts`, `src/lab/track.ts`),
+how far ahead a walker on a track faces (`src/lab/run-mode.ts`), and how far off the track
+the run test lets a walker go (`tests/lab-run.test.mjs`).
 
 ## Club grip
 
-`CLUB_GRIP` was fitted by `scripts/core-lab/haft-fit.mjs` on each model's skin, CPU-skinned from
+`CLUB_GRIP` was fitted by `scripts/lab/haft-fit.mjs` on each model's skin, CPU-skinned from
 its GLB, around the wooden club's haft where the core's grip puts it. Each finger's nearest gap
 to the haft, proximal to end phalanx, mm (negative inside); both hands read alike:
 
@@ -18,11 +18,11 @@ to the haft, proximal to end phalanx, mm (negative inside); both hands read alik
 | Rogue   | 0.6, -0.8, 3.8  | 1.6, 3.0, -0.9  | 1.7, -0.2, 4.7  | 3.1, -0.9, -0.3  | -0.9        |
 
 The fit: each finger as near the haft as it lies without sinking in more than 1 mm, and the
-thumb's pad on it. `tests/core-lab-grip.test.mjs` holds the pose to 1.5 mm in and 2 mm off.
+thumb's pad on it. `tests/lab-grip.test.mjs` holds the pose to 1.5 mm in and 2 mm off.
 
 ## Fist
 
-`FIST` was fitted by `scripts/core-lab/fist-fit.mjs` on each model's skin, CPU-skinned from its
+`FIST` was fitted by `scripts/lab/fist-fit.mjs` on each model's skin, CPU-skinned from its
 GLB. The fit leaves no part deeper in another than 2 mm, or than the relaxed hand already is,
 except the thumb's first phalanx in the ball of the thumb:
 
@@ -80,7 +80,7 @@ A walker round the Routine's path, each human (Node core stand, 120 Hz):
 
 ## Run tolerance
 
-`tests/core-lab-run.test.mjs`: each human round each track for 30 s, asked its fastest walk
+`tests/lab-run.test.mjs`: each human round each track for 30 s, asked its fastest walk
 (Warrior 0.7 m/s, Rogue 0.5) and round the shuttle's 0.3 m half-turns at what its turn carries
 (`paceRound`: 0.6 and 0.5). Node core stand, Rapier, 120 Hz. None fell.
 

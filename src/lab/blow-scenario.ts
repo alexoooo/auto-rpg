@@ -26,7 +26,7 @@ import { createPlayer } from "./player.ts";
  * **The page's reading is not the search's to the digit.** Float noise that moves no step of a
  * blow's timing still moves its energy by a few percent, with the ground's size (the lab's is 40 m;
  * `research/core-club-strike.mjs`'s `groundSize`) and the physics rate.
- * `tests/core-lab-blow.test.mjs` holds the Node reading on a 20 m ground.
+ * `tests/lab-blow.test.mjs` holds the Node reading on a 20 m ground.
  */
 
 /** What the history holds of each step. */

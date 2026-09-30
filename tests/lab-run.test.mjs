@@ -1,5 +1,5 @@
 /**
- * **The core lab's run mode** (`src/core-lab/run-mode.ts`), on the Node stand as the page runs it:
+ * **The lab's run mode** (`src/lab/run-mode.ts`), on the Node stand as the page runs it:
  * each human round each track for 30 s, at 120 Hz. It stays on its feet, gets round -- past the
  * shuttle's first half-turn, a quarter of the way round the circle -- and stays near the track. It
  * asks for the body's fastest walk (`CoreBody.envelope`) except where its turns cannot carry that
@@ -10,8 +10,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { paceRound } from "../src/core/control/stance-envelope.ts";
-import { startRun } from "../src/core-lab/run-mode.ts";
-import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACKS, trackOf } from "../src/core-lab/track.ts";
+import { startRun } from "../src/lab/run-mode.ts";
+import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const SECONDS = 30;

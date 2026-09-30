@@ -10,7 +10,7 @@ export default defineConfig({
     watch: { ignored: ["**/research/runs/**", "**/.review/**"] },
     // Transform the browser entry graphs at server startup, before navigation
     // has to discover and wait on each level of their imports.
-    warmup: { clientFiles: ["./src/app.ts", "./src/arena/main.ts", "./src/dungeon/main.ts", "./src/core-lab/main.ts"] },
+    warmup: { clientFiles: ["./src/app.ts", "./src/arena/main.ts", "./src/dungeon/main.ts", "./src/lab/main.ts"] },
   },
   // MuJoCo ships its .wasm beside its ESM bundle; Vite must not try to inline it.
   assetsInclude: ["**/*.wasm"],

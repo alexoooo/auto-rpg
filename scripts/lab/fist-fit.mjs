@@ -1,7 +1,7 @@
 // Fits `FIST` in `src/render/skin.ts`: each model's fist, measured on its skin with
 // `fist-probe.mjs`, one pose for both hands.
 //
-//   node scripts/core-lab/fist-fit.mjs [workshop-fighter|workshop-rogue]
+//   node scripts/lab/fist-fit.mjs [workshop-fighter|workshop-rogue]
 //
 // Fingers: every knuckle (MCP) at one angle, as the first phalanges of a fist make one flat face,
 // on a 5-degree grid. At each, every finger's middle joint (PIP) as far closed as it goes, with the
@@ -13,7 +13,7 @@
 // phalanx (within 1 mm), nothing sunk deeper than 1.5 mm or than the relaxed hand already is,
 // and joints inside 60 (MCP) and 80 (IP) degrees; the best of three starts.
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { fistTurns } from "../../src/core-lab/fist.ts";
+import { fistTurns } from "../../src/lab/fist.ts";
 import { loadGlb, nelderMead, penetration, restBones, skinHand, summary } from "./fist-probe.mjs";
 import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
 import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };

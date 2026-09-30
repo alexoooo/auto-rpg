@@ -113,7 +113,7 @@ export function standingFoot(make: Factory, settings: Settings, conditioning = 1
 // Case B: the forearm chain.
 // ---------------------------------------------------------------------------------------------
 
-/** The guard, the core lab's (`GUARD`, `src/core/skills/guard.ts`), in the controller's measure. */
+/** The guard, the lab's (`GUARD`, `src/core/skills/guard.ts`), in the controller's measure. */
 export const ARM_GUARD = { shoulder: [0.5, -0.2, 0], elbow: 1.3, wrist: [0, 0, 0] } as const;
 /** The elbow's swing: from the guard's 1.3 rad to `ELBOW_TO`, minimum jerk over `SWING_SECONDS`, from `SWING_AT`. */
 export const ELBOW_TO = 0.2;

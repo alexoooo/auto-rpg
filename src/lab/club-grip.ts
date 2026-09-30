@@ -4,7 +4,7 @@ import type { FistPose } from "./fist.ts";
 /**
  * **A hand closed on the club's haft**, built by `fist.ts` as the fist is: finger angles are the
  * joints' flexion from a straight finger, degrees, and the thumb's phalanges point along the palm's
- * axes. Fitted on the skin by `scripts/core-lab/haft-fit.mjs` (its header gives the rule) around
+ * axes. Fitted on the skin by `scripts/lab/haft-fit.mjs` (its header gives the rule) around
  * the haft where the core's grip puts it (`inHand`, `src/core/human/grip.ts`): each finger wraps
  * it, its phalanges as near it as they lie without sinking in, and the thumb's pad rests on it.
  * One pose for both hands. The fit's gaps: `docs/reference/lab.md#club-grip`.

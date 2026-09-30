@@ -90,8 +90,8 @@ authored finger poses.
   rigidly on the core segment it belongs to, reading only the segments' achieved transforms. It
   owns no collision and decides nothing. Boots and armour are shown or hidden by `visiblePart`
   (`src/character-lab/catalog.ts`); a hand that holds the club closes on it (`CLUB_GRIP`,
-  `src/core-lab/club-grip.ts`), and a free hand's fingers take a pose between relaxed and a fist
-  (`src/core-lab/fist.ts`).
+  `src/lab/club-grip.ts`), and a free hand's fingers take a pose between relaxed and a fist
+  (`src/lab/fist.ts`).
 
 ## The character workshop page
 

@@ -8,7 +8,7 @@ import type { World } from "../core/world.ts";
 import type { Track } from "./track.ts";
 
 /**
- * **The core lab's run mode**: a human on its own feet under the core stance, going round a
+ * **The lab's run mode**: a human on its own feet under the core stance, going round a
  * `Track` as fast as it can walk, guard up, driven by a mind (`trackMind`). The core has no run
  * gait: this is the stance's walk at its fastest.
  *
@@ -25,7 +25,7 @@ import type { Track } from "./track.ts";
  * track. The stance's own acceleration takes it from one pace to the other. Nothing here names a
  * pace: a change of engine re-measures the envelope, and the run asks for what it says.
  *
- * This module has no page-only imports, so the Node stand can run it (`tests/core-lab-run.test.mjs`).
+ * This module has no page-only imports, so the Node stand can run it (`tests/lab-run.test.mjs`).
  */
 
 /** What the page shows of a run, as the last control step left it. */

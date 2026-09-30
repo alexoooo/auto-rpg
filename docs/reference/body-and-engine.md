@@ -6,7 +6,7 @@ against the engine. `SERVO_SECONDS` in `src/core/body.ts` cites the servo's time
 
 ## Servo time constant
 
-The joint servo was run at 0.1 s on the lab's scripted routine (`src/core-lab/routine.ts`), and read
+The joint servo was run at 0.1 s on the lab's scripted routine (`src/lab/routine.ts`), and read
 over the second half of each settle, on the freedoms the legs leave to the posture. Harness: Node
 core stand, Rapier. The Warrior at 120 Hz was read over the first two settles, since it fell in the
 third strike.

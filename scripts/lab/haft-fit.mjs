@@ -1,8 +1,8 @@
-// Fits `CLUB_GRIP` in `src/core-lab/club-grip.ts`: each model's hand closed on the club's haft
+// Fits `CLUB_GRIP` in `src/lab/club-grip.ts`: each model's hand closed on the club's haft
 // where the core's grip puts it (`haft.mjs`), measured on its skin with `fist-probe.mjs`, one pose
 // for both hands.
 //
-//   node scripts/core-lab/haft-fit.mjs [workshop-fighter|workshop-rogue]
+//   node scripts/lab/haft-fit.mjs [workshop-fighter|workshop-rogue]
 //
 // Fingers: each finger's knuckle (MCP) and middle joint (PIP) on a 5-degree grid, the end joint
 // at 0.65 of the middle (the coupling `fist-fit.mjs` fits with). Each finger wraps the haft: it
@@ -16,7 +16,7 @@
 // than 1 mm nor in the hand than the fist allows, and joints inside the fist's 60 (MCP) and 80
 // (IP) degrees; the best of three starts.
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { fistTurns } from "../../src/core-lab/fist.ts";
+import { fistTurns } from "../../src/lab/fist.ts";
 import { loadGlb, nelderMead, penetration, restBones, skinHand, summary } from "./fist-probe.mjs";
 import { haftGaps, haftOf } from "./haft.mjs";
 import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };

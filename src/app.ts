@@ -8,7 +8,7 @@
  */
 import "./menu.css";
 import { MENU_HREF, playHref, routeFor, type Route } from "./app-route.ts";
-import { labAddress } from "./core-lab/scenarios.ts";
+import { labAddress } from "./lab/scenarios.ts";
 import { need } from "./dom.ts";
 
 const mount = (templateId: string): void => {
@@ -58,16 +58,16 @@ async function open(route: Route): Promise<void> {
     }
     case "lab": {
       document.title = "Lab · Auto-RPG";
-      await import("./core-lab/style.css");
+      await import("./lab/style.css");
       // Without a scenario, the lab's menu, which loads neither Babylon nor a physics engine.
       const address = labAddress(window.location.search);
       if (address.scenario === null) {
         mount("lab-select-screen");
-        const { showScenarios } = await import("./core-lab/setup.ts");
+        const { showScenarios } = await import("./lab/setup.ts");
         return showScenarios(address);
       }
       mount("lab-screen");
-      const { bootLab } = await import("./core-lab/main.ts");
+      const { bootLab } = await import("./lab/main.ts");
       return bootLab({ ...address, scenario: address.scenario });
     }
     default: {

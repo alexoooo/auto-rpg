@@ -1,12 +1,12 @@
 /**
- * **The Run scenario's tracks** (`src/core-lab/track.ts`): closed paths from the origin facing +z,
+ * **The Run scenario's tracks** (`src/lab/track.ts`): closed paths from the origin facing +z,
  * continuous, of the length their pieces say, and found again from a point on them -- on the
  * shuttle, from the straight the body is on, not the one 0.6 m across.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACK_IDS, TRACKS, trackOf, TURN_PACE } from "../src/core-lab/track.ts";
-import { LAB_TURN_RATE } from "../src/core-lab/stance-mode.ts";
+import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACK_IDS, TRACKS, trackOf, TURN_PACE } from "../src/lab/track.ts";
+import { LAB_TURN_RATE } from "../src/lab/stance-mode.ts";
 
 const near = (a, b, within, what) => assert.ok(Math.abs(a - b) <= within, `${what}: ${a} against ${b}`);
 const wrap = (a) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));

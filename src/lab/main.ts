@@ -327,8 +327,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   });
   window.addEventListener("resize", () => engine.resize());
   // For the console: a hidden tab does not render, so a check steps the world by hand
-  // (`__coreLab.drive()`, `__coreLab.world().step(n)`, then `scene.render()`).
-  (window as unknown as { __coreLab: unknown }).__coreLab = {
+  // (`__lab.drive()`, `__lab.world().step(n)`, then `scene.render()`).
+  (window as unknown as { __lab: unknown }).__lab = {
     scene, engine, readout, drive: () => current?.run.drive(held), current: () => current, world: () => world, held,
   };
 }

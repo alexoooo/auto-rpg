@@ -114,7 +114,7 @@ Arena, weapons beyond the club, and the AI above a single fighter's mind. See
 | Path | What it holds |
 | --- | --- |
 | `src/core/` | the core: specs, bodies, muscles, motor control, skills, minds and the rules of a fight |
-| `src/arena/`, `src/dungeon/`, `src/core-lab/` | the Arena, the Crypt and the Lab |
+| `src/arena/`, `src/dungeon/`, `src/lab/` | the Arena, the Crypt and the Lab |
 | `src/character-lab/`, `src/physics-bench/` | the character workshop and the physics bench |
 | `src/app.ts`, `index.html` | the main menu and the screens' routing |
 | `tests/` | `node --test` suites; `tests/harness/` stands a core body headless |

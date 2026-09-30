@@ -1,5 +1,5 @@
 /**
- * **The lab's Blow scenario reads what the search reads** (`src/core-lab/blow-scenario.ts`): the
+ * **The lab's Blow scenario reads what the search reads** (`src/lab/blow-scenario.ts`): the
  * stored blow (`LAB_BLOWS`), thrown on the body the lab's loadout makes with the club in the right
  * hand (`throwBlow`, `watchClubBlow`), lands with the energy the club search's evaluation gives
  * the unit's record itself (`research/core-club-strike.mjs`, `research/core-club-unit.json`), to
@@ -14,11 +14,11 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { STAND } from "../src/core/skills/strike.ts";
-import { throwBlow } from "../src/core-lab/blow.ts";
-import { LAB_BLOWS } from "../src/core-lab/blows.ts";
-import { watchClubBlow } from "../src/core-lab/club-blow.ts";
-import { loadoutSpec } from "../src/core-lab/loadout.ts";
-import { labAddress, labHref, SCENARIOS } from "../src/core-lab/scenarios.ts";
+import { throwBlow } from "../src/lab/blow.ts";
+import { LAB_BLOWS } from "../src/lab/blows.ts";
+import { watchClubBlow } from "../src/lab/club-blow.ts";
+import { loadoutSpec } from "../src/lab/loadout.ts";
+import { labAddress, labHref, SCENARIOS } from "../src/lab/scenarios.ts";
 import { evaluateClubStrike } from "../research/core-club-strike.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
