@@ -128,7 +128,8 @@ Each step lands on its own, with the gates green.
    and 4 cm across of before). The test now also lowers the stopped
    body 3 cm, which it follows only in part (1 cm), as `STANCE_LOWER` records.
 5. **Option B**, planned when 1-4 are in: speed goals for a hand, then the strike search in their
-   form.
+   form. *Waits (2026-09-30)* on [old path removal](2026-09-30-old-path-removal.md), which the
+   owner put first.
 
 ## Not in this plan
 

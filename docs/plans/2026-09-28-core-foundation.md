@@ -1219,6 +1219,10 @@ the one that fails is the unit's replay, which waits on a search at a converged 
 
 ### Stage 6: the human fights in the game
 
+*Reshaped 2026-09-30 by [old path removal](2026-09-30-old-path-removal.md):* the Arena and the
+Crypt move onto the core with humans and a skeleton, the old path is deleted, and no parity check
+against the old humans is run.
+
 - **A mind** drives the core body through goals. First the existing duelist's decisions through an adapter, since it already aims by published reach; then minds layered as tactics, skills and motor goals.
   The mind and its skills are built first on the lab: [minds and skills](2026-09-30-minds-and-skills.md).
 - **The arena** can field the core Warrior and Rogue, and the page runs `World.step`.
@@ -1227,6 +1231,9 @@ the one that fails is the unit's replay, which waits on a search at a converged 
 - **Parity check** against the old humans: bouts, eye gates, and the strike and locomotion references.
 
 ### Stage 7: port the rest, then the reptile
+
+*Reshaped 2026-09-30:* stone is not ported; the skeleton moves onto the core in
+[old path removal](2026-09-30-old-path-removal.md), built by the human body-plan code.
 
 - **Stone and skeleton** each get a spec with their own numbers and reasons, and move onto the core. The old path is deleted when the last family has moved.
 - **The reptile** (Session 5 of the paused plan) is built directly on the core.

@@ -6,6 +6,7 @@ Reviewed 2026-09-28. The primary workstream is the core foundation; the case for
 | Plan | Status |
 |---|---|
 | [The core foundation](2026-09-28-core-foundation.md) | **Active** from 2026-09-28: a physically based core beside the old one, humans first. |
+| [Old path removal](2026-09-30-old-path-removal.md) | **Active** from 2026-09-30, part of the core foundation: the Arena, the Crypt and the skeleton onto the core, then the old path deleted; Havok goes. |
 | [Minds and skills](2026-09-30-minds-and-skills.md) | **Active** from 2026-09-30, part of the core foundation: the lab's scenarios driven by minds through skills; strikes as searched recipes now, hand goals next. |
 | [Warrior, Rogue and the reptile](2026-09-27-warrior-rogue-reptile.md) | **Paused** 2026-09-28 and salvaged by the core foundation: Session 2 steps 1-5 landed, step 6 is parked on `wip/s2-step6-human-ranges`, and Sessions 3-5 become the core's stages 5 and 7. |
 | [Depths](2026-09-23-depths-00-overview.md) | Dungeon workstream. Session 06, authored set pieces, is outstanding. |
