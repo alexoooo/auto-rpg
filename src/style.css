@@ -53,10 +53,6 @@ body {
   transition: opacity 160ms ease;
 }
 
-#hud.hidden {
-  opacity: 0;
-}
-
 .hud-col {
   display: flex;
   flex-direction: column;
@@ -64,57 +60,7 @@ body {
   min-width: 210px;
 }
 
-/* ---------- last hit ---------- */
-
-.hit {
-  background: var(--panel);
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-  padding: 10px 11px;
-  min-height: 96px;
-  backdrop-filter: blur(7px);
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-}
-
-.hit.fresh {
-  border-color: rgba(232, 180, 90, 0.55);
-  box-shadow: 0 0 22px rgba(232, 180, 90, 0.14);
-}
-
-.sever {
-  color: var(--bad);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-}
-
-/* ---------- limbs ---------- */
-
-.limbs {
-  background: var(--panel);
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-  padding: 9px 11px;
-  backdrop-filter: blur(7px);
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.limb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10.5px;
-}
-
-.perf {
-  color: var(--dim);
-  font-size: 10.5px;
-  opacity: 0.75;
-}
-
 /* ---------- panels and actions, shared by setup, pause and help ---------- */
-
 
 .panel {
   max-width: 470px;
@@ -212,35 +158,6 @@ body {
   color: var(--bad);
 }
 
-/* ---------- mode line ---------- */
-
-#mode {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 26px;
-  text-align: center;
-  pointer-events: none;
-  font-size: 11.5px;
-  letter-spacing: 0.14em;
-  color: var(--hot);
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-
-#mode.on {
-  opacity: 0.92;
-}
-
-#mode.locked {
-  color: var(--bad);
-}
-
-#mode.decided {
-  color: var(--ink);
-  opacity: 1;
-}
-
 /* ---------- the setup screen ---------- */
 
 /* One grid over the live arena: the title across the top, a contender panel at each edge, and
@@ -274,10 +191,9 @@ body {
   visibility: hidden;
 }
 
-/* No bout exists behind setup, so the fight's readouts are hidden while it is up, by the
+/* No bout exists behind setup, so the fight's readout is hidden while it is up, by the
    curtain's own state. */
-body:has(#curtain:not(.gone)) #hud,
-body:has(#curtain:not(.gone)) #mode {
+body:has(#curtain:not(.gone)) #hud {
   visibility: hidden;
 }
 
@@ -388,71 +304,6 @@ body:has(#curtain:not(.gone)) #mode {
   color: #f1dfbc;
 }
 
-/* A folding heading: gold small caps, a rule running out to the panel's edge, and a disclosure
-   mark. */
-#curtain .attributes > summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0 5px;
-  color: var(--gold);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-#curtain .attributes > summary::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(to right, rgba(176, 138, 78, 0.6), transparent);
-}
-
-#curtain .attributes > summary {
-  list-style: none;
-  cursor: pointer;
-}
-
-#curtain .attributes > summary::-webkit-details-marker {
-  display: none;
-}
-
-#curtain .attributes > summary::before {
-  content: "\25B8";
-  font-size: 10px;
-}
-
-#curtain .attributes[open] > summary::before {
-  content: "\25BE";
-}
-
-/* A segmented control: one button per choice, the chosen one gold. */
-
-#curtain .segment {
-  padding: 6px 4px;
-  font: inherit;
-  font-size: 12px;
-  color: #cfc6b4;
-  background: #13171b;
-  border: 0;
-  border-left: 1px solid rgba(142, 113, 63, 0.45);
-  cursor: pointer;
-}
-
-#curtain .segment:first-child {
-  border-left: 0;
-}
-
-#curtain .segment:hover {
-  color: #fff1cc;
-  background: #1d2227;
-}
-
-#curtain .segment.active {
-  color: #1d150b;
-  background: linear-gradient(#e2bb72, #a87b3b);
-}
-
 /* A picker: its label, then its select, on one row. */
 
 #curtain .field {
@@ -486,10 +337,6 @@ body:has(#curtain:not(.gone)) #mode {
   border: 1px solid rgba(142, 113, 63, 0.45);
   border-radius: 2px;
   cursor: pointer;
-}
-
-#curtain .attributes[hidden] {
-  display: none;
 }
 
 #begin {
@@ -551,10 +398,6 @@ body:has(#curtain:not(.gone)) #mode {
   white-space: nowrap;
 }
 
-#curtain .duel-footer .note.notice {
-  white-space: normal;
-}
-
 #curtain .duel-footer .note.error {
   color: var(--bad);
   white-space: normal;
@@ -580,9 +423,6 @@ body:has(#curtain:not(.gone)) #mode {
 }
 
 @media (max-height: 740px) {
-  #curtain .attributes > summary {
-    margin: 7px 0 4px;
-  }
 
   #curtain .contender {
     padding: 11px 14px;

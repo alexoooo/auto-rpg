@@ -32,9 +32,3 @@ h1, .panel h1 {
 .action.quiet:hover { background: #3b4248; }
 .action:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #f0c97c; outline-offset: 3px; }
 select { border: 1px solid #8e713f70; border-radius: 2px; background-color: #13171b; color: #e7dfd0; }
-#picker b { color: #e8bc70; letter-spacing: .1em; text-transform: uppercase; }
-#picker, #readout { padding: 16px 18px; }
-#keys { color: #c4b9a5; }
-@media (max-width: 700px) {
-  #picker, #readout { font-size: 10px; padding: 8px; }
-}
