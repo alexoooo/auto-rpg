@@ -13,7 +13,7 @@ import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.
 
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 
-import { ROOM_METRES, TEXTURED_SURFACES } from "../src/materials.ts";
+import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "../src/materials.ts";
 import {
   ROOM,
   ROOM_GROUPS,
@@ -43,7 +43,6 @@ const makeMaterials = (scene) => {
   const wall = makeMaterial(scene, "proof.wall", [0.20, 0.19, 0.17]);
   const timber = makeMaterial(scene, "proof.timber", [0.20, 0.12, 0.065]);
   const banner = makeMaterial(scene, "proof.banner", [0.25, 0.19, 0.16]);
-  wall.alpha = TEXTURED_SURFACES.roomWall.opacity;
   return {
     ground, wall, timber, banner, wood: timber,
   };
@@ -251,18 +250,14 @@ test("room_instances_share_materials_and_textures", async (t) => {
       assert.ok(Math.abs(density - expected) < 1e-5, `${group.role}: UVs are measured in physical metres`);
     }
   }
-  assert.equal(ROOM.floorMetresPerRepeat, ROOM_METRES.floor);
-  assert.equal(ROOM.wallMetresPerRepeat, ROOM_METRES.wall);
-  assert.equal(ROOM.timberMetresPerRepeat, ROOM_METRES.timber);
-  assert.equal(ROOM.bannerMetresPerRepeat, ROOM_METRES.banner);
+  assert.equal(ROOM.timberMetresPerRepeat, surfaceMetresPerRepeat(TEXTURED_SURFACES.roomTimber), "the timber is laid out at its texture's span");
   const floor = scene.getMeshByName("room.floor");
   for (const density of edgeDensities(floor)) {
     assert.ok(Math.abs(density - 1 / ROOM.floorMetresPerRepeat) < 1e-5, "floor metre scale");
   }
 
   const walls = ROOM_GROUPS.find((group) => group.role === "wall").placements;
-  assert.ok(walls.every((placement) => !placement.solid), "translucent scrims never advertise collision");
-  assert.ok(materials.wall.alpha <= 0.25, "the wall fallback remains visibly translucent");
+  assert.ok(walls.every((placement) => !placement.solid), "a wall's mesh never advertises collision");
   const opaque = ROOM_GROUPS.flatMap((group) => group.placements).filter((placement) => placement.solid);
   let visibleBeamReadings = 0;
   const crossing = { point: new Vector3(-5, 1, 15), active: () => true };

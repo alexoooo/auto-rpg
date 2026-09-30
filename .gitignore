@@ -2,7 +2,6 @@
 node_modules/
 dist/
 .vite/
-.test-build/
 
 # Legacy Rust build output and generated diagnostics.
 /target/

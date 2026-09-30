@@ -11,7 +11,7 @@ import "@babylonjs/core/Meshes/instancedMesh.js";
 
 import type { FixedCollider, PhysicsWorld } from "./core/engine/engine.ts";
 import type { Vec3 } from "./core/spec/quantity.ts";
-import { ROOM_METRES } from "./materials.ts";
+import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "./materials.ts";
 
 export interface RoomMaterials {
   ground: Material;
@@ -97,15 +97,16 @@ export const ROOM = Object.freeze({
   /** The highest a fighter can reach, m: crown, raised arm and the longest carried object, with margin. */
   maxReachHeight: 3.6,
   floorSize: 60,
-  floorMetresPerRepeat: ROOM_METRES.floor,
+  /** Metres one image repeat spans on the floor, walls, timber and banners; the timber's is its texture's. */
+  floorMetresPerRepeat: 2.4,
   wallWidth: 26.24,
   wallHeight: 4.2,
   /** Depth of the wall colliders, whose inner faces meet the scrims, m. */
   wallThickness: 0.24,
   wallHalfExtent: 13,
-  wallMetresPerRepeat: ROOM_METRES.wall,
-  timberMetresPerRepeat: ROOM_METRES.timber,
-  bannerMetresPerRepeat: ROOM_METRES.banner,
+  wallMetresPerRepeat: 2.1,
+  timberMetresPerRepeat: surfaceMetresPerRepeat(TEXTURED_SURFACES.roomTimber),
+  bannerMetresPerRepeat: 0.4,
 });
 
 const wall = (name: string, x: number, z: number, rotationY: number, halfExtent: readonly [number, number, number]): RoomPlacement => ({

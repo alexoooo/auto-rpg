@@ -1,34 +1,12 @@
 {
   "schema": 1,
   "sources": [
-    { "sourceUrl": "https://polyhaven.com/a/slab_tiles", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/fine_grained_wood", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
-    { "sourceUrl": "https://polyhaven.com/a/stone_wall_05", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/wooden_planks", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
-    { "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
     { "sourceUrl": "https://polyhaven.com/a/old_stone_wall", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" }
   ],
   "textures": [
-    {
-      "name": "slab-tiles-albedo", "file": "slab_tiles_diff_1k.jpg", "localUrl": "/assets/textures/slab_tiles_diff_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/slab_tiles/slab_tiles_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/slab_tiles",
-      "sha256": "e92e60c242e6de1c758419ff04eae005524a09ca0ea4e574fd911586a35e796c", "channel": "albedo", "colourSpace": "srgb",
-      "family": "stone-floor", "consumers": ["palette.ground"], "scale": 1, "invertY": false, "metresPerRepeat": 2.4
-    },
-    {
-      "name": "slab-tiles-normal", "file": "slab_tiles_nor_gl_1k.jpg", "localUrl": "/assets/textures/slab_tiles_nor_gl_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/slab_tiles/slab_tiles_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/slab_tiles",
-      "sha256": "5b22a5800d9ecf607c9287cb2b7cb2fc845d76101b407829dbfe72f0a6307705", "channel": "normal", "colourSpace": "linear",
-      "family": "stone-floor", "consumers": ["palette.ground"], "scale": 1, "invertY": false, "metresPerRepeat": 2.4,
-      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
-    },
-    {
-      "name": "slab-tiles-orm", "file": "slab_tiles_arm_1k.jpg", "localUrl": "/assets/textures/slab_tiles_arm_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/slab_tiles/slab_tiles_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/slab_tiles",
-      "sha256": "f5cf32dba3caf095f181f79e659a9a9e99c86b179fc6fb6ad630b8dd3b15c1bc", "channel": "orm", "colourSpace": "linear",
-      "family": "stone-floor", "consumers": ["palette.ground"], "scale": 1, "invertY": false, "metresPerRepeat": 2.4
-    },
     {
       "name": "fine-wood-albedo", "file": "fine_grained_wood_col_1k.jpg", "localUrl": "/assets/textures/fine_grained_wood_col_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fine_grained_wood/fine_grained_wood_col_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fine_grained_wood",
@@ -49,25 +27,6 @@
       "family": "fine-grained-wood", "consumers": ["wood"], "scale": 3, "invertY": false
     },
     {
-      "name": "stone-wall-albedo", "file": "stone_wall_05_diff_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_diff_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
-      "sha256": "0dbdc815a88f3f4365254fa5a927dfcac46031a28a9b6bdc01654b34a1d4ac7a", "channel": "albedo", "colourSpace": "srgb",
-      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1
-    },
-    {
-      "name": "stone-wall-normal", "file": "stone_wall_05_nor_gl_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_nor_gl_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
-      "sha256": "e726242629e27941f0027d059ac14328d094664616ebd0b7edc629d9ac4dc100", "channel": "normal", "colourSpace": "linear",
-      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1,
-      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
-    },
-    {
-      "name": "stone-wall-orm", "file": "stone_wall_05_arm_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_arm_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
-      "sha256": "51dc391cc9897c22376b01d1d40dced68276d76d42ed72bb349d4296cfcccdc2", "channel": "orm", "colourSpace": "linear",
-      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1
-    },
-    {
       "name": "room-timber-albedo", "file": "wooden_planks_diff_1k.jpg", "localUrl": "/assets/textures/wooden_planks_diff_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
       "sha256": "1273876d6f92fb1a1d29c1bb28f548a9256154187531e84f993b56e347f1d17b", "channel": "albedo", "colourSpace": "srgb",
@@ -85,25 +44,6 @@
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
       "sha256": "4f4201d86653299329a8f743b9b4962359cbcc2d5c306e64e6eaab4e27f05c77", "channel": "orm", "colourSpace": "linear",
       "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
-    },
-    {
-      "name": "banner-cloth-albedo", "file": "fabric_pattern_07_col_1_1k.jpg", "localUrl": "/assets/textures/fabric_pattern_07_col_1_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fabric_pattern_07/fabric_pattern_07_col_1_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07",
-      "sha256": "aeb7a1487b77aec55e39de662def4d371f5c7c617f62d1f291d7f9932ffebdc9", "channel": "albedo", "colourSpace": "srgb",
-      "family": "banner-cloth", "consumers": ["room.banner"], "scale": 1, "invertY": false, "metresPerRepeat": 0.4
-    },
-    {
-      "name": "banner-cloth-normal", "file": "fabric_pattern_07_nor_gl_1k.jpg", "localUrl": "/assets/textures/fabric_pattern_07_nor_gl_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fabric_pattern_07/fabric_pattern_07_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07",
-      "sha256": "f6955bbdead9f023f2357f6f8808ed49627d10882cd2a3cb6b5a5ace155abc45", "channel": "normal", "colourSpace": "linear",
-      "family": "banner-cloth", "consumers": ["room.banner"], "scale": 1, "invertY": false, "metresPerRepeat": 0.4,
-      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
-    },
-    {
-      "name": "banner-cloth-orm", "file": "fabric_pattern_07_arm_1k.jpg", "localUrl": "/assets/textures/fabric_pattern_07_arm_1k.jpg",
-      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fabric_pattern_07/fabric_pattern_07_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07",
-      "sha256": "57520f1383a41ea9d69a3f9c1d2a2b0cdc6ba85c579935c44a1281845ec11030", "channel": "orm", "colourSpace": "linear",
-      "family": "banner-cloth", "consumers": ["room.banner"], "scale": 1, "invertY": false, "metresPerRepeat": 0.4
     },
     {
       "name": "large-floor-tiles-02-albedo", "file": "large_floor_tiles_02_diff_1k.jpg", "localUrl": "/assets/textures/large_floor_tiles_02_diff_1k.jpg",

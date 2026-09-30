@@ -65,59 +65,6 @@ body {
   min-width: 210px;
 }
 
-.hud-right {
-  align-items: stretch;
-  text-align: right;
-}
-
-.gauge {
-  background: var(--panel);
-  border: 1px solid var(--edge);
-  border-radius: 5px;
-  padding: 9px 11px 10px;
-  backdrop-filter: blur(7px);
-}
-
-.gauge-label {
-  color: var(--dim);
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  font-size: 10px;
-}
-
-.gauge-label .unit {
-  opacity: 0.6;
-}
-
-.gauge-track {
-  margin: 7px 0 5px;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.gauge-fill {
-  height: 100%;
-  width: 0;
-  background: var(--flat);
-  border-radius: 3px;
-  transition: width 60ms linear;
-}
-
-.gauge-fill.hot {
-  background: var(--hot);
-}
-
-.gauge-fill.edge {
-  background: var(--cut);
-}
-
-.gauge-value {
-  font-size: 19px;
-  font-variant-numeric: tabular-nums;
-}
-
 /* ---------- last hit ---------- */
 
 .hit {
@@ -135,59 +82,15 @@ body {
   box-shadow: 0 0 22px rgba(232, 180, 90, 0.14);
 }
 
-.hit-kind {
-  font-size: 15px;
-  letter-spacing: 0.13em;
-}
-
-.kind-cut {
-  color: var(--cut);
-}
-
-.kind-thrust {
-  color: var(--hot);
-}
-
 /* A crush, which is what a club scores. This rule has been missing since the
    day the club landed: `HitKind` is typed and a stylesheet is not, so `hud.ts`
    gained its CRUSH label under `tsc`'s eye while the colour it is drawn in was
    simply never written. It has read in the default ink ever since. */
-.kind-crush {
-  color: var(--bad);
-}
-
-.kind-slap,
-.kind-weak {
-  color: var(--dim);
-}
 
 .sever {
   color: var(--bad);
   font-size: 11px;
   letter-spacing: 0.1em;
-}
-
-.hit-target {
-  color: var(--dim);
-  margin-bottom: 5px;
-}
-
-.hit-rows {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-}
-
-.hit-rows th {
-  text-align: left;
-  font-weight: 400;
-  color: var(--dim);
-  padding: 1px 0;
-}
-
-.hit-rows td {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- limbs ---------- */
@@ -205,129 +108,18 @@ body {
 
 /* One heading per side. The bout has two bodies and the lists are otherwise
    eleven identical rows followed by eleven more. */
-.limbs-title {
-  color: var(--hot);
-  text-transform: uppercase;
-  letter-spacing: 0.11em;
-  font-size: 9.5px;
-  opacity: 0.75;
-  text-align: left;
-  margin: 2px 0 1px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.limbs-title:first-child {
-  margin-top: 0;
-}
 
 /* Take or Let go, beside a side's name. The one control in the readout that the fight itself
    needs, so it alone takes the pointer back from `#hud`'s `pointer-events: none`. */
-.limbs-title .drive {
-  pointer-events: auto;
-  cursor: pointer;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
-  color: var(--hot);
-  background: #1a1d21;
-  border: 1px solid #8e713f99;
-  border-radius: 2px;
-  padding: 1px 7px;
-}
 
 /* `Tab` hides the readout by opacity alone, and an invisible button that still takes a click
    would let go of your body under a click meant for the arena. */
-#hud.hidden .limbs-title .drive {
-  pointer-events: none;
-}
-
-.limbs-title .drive:hover {
-  color: #fff1cc;
-  border-color: #e8bc70;
-}
-
-.vitality-track {
-  height: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
-  overflow: hidden;
-}
-
-.vitality-fill {
-  display: block;
-  height: 100%;
-  width: 100%;
-  background: var(--cut);
-  transition: width 120ms ease;
-}
-
-.vitality-fill.critical {
-  background: var(--hot);
-}
-
-.vitality-value {
-  color: var(--dim);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  text-align: left;
-}
-
-.injuries {
-  margin-top: 4px;
-  color: var(--dim);
-  font-size: 10px;
-  text-align: left;
-}
-
-.injuries summary {
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 
 .limb {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 10.5px;
-}
-
-.limb-name {
-  flex: 1;
-  text-align: left;
-  color: var(--dim);
-  white-space: nowrap;
-}
-
-.limb-track {
-  width: 74px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.limb-fill {
-  display: block;
-  height: 100%;
-  background: var(--cut);
-  transition: width 120ms ease;
-}
-
-.limb.critical .limb-fill {
-  background: var(--hot);
-}
-
-.limb.severed .limb-name {
-  color: var(--bad);
-  text-decoration: line-through;
-}
-
-.limb.severed .limb-fill {
-  background: var(--bad);
 }
 
 .perf {
@@ -616,17 +408,8 @@ body:has(#curtain:not(.gone)) #mode {
   color: #f1dfbc;
 }
 
-#curtain .seed-note {
-  margin: 0;
-  min-height: 0;
-  color: var(--dim);
-  font-family: var(--font);
-  font-size: 10px;
-}
-
 /* Gold small caps with a rule running out to the panel's edge. The attributes' summary wears the
    same head, with a disclosure mark, because it is the same kind of heading that happens to fold. */
-#curtain .section-head,
 #curtain .attributes > summary {
   display: flex;
   align-items: center;
@@ -638,7 +421,6 @@ body:has(#curtain:not(.gone)) #mode {
   text-transform: uppercase;
 }
 
-#curtain .section-head::after,
 #curtain .attributes > summary::after {
   content: "";
   flex: 1;
@@ -665,11 +447,6 @@ body:has(#curtain:not(.gone)) #mode {
 }
 
 /* The body family, as one control of three segments. */
-#curtain .segmented {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border: 1px solid rgba(142, 113, 63, 0.7);
-}
 
 #curtain .segment {
   padding: 6px 4px;
@@ -696,56 +473,7 @@ body:has(#curtain:not(.gone)) #mode {
   background: linear-gradient(#e2bb72, #a87b3b);
 }
 
-#curtain .build-rows {
-  display: grid;
-  gap: 3px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-#curtain .build-rows li {
-  display: grid;
-  grid-template-columns: 16px 82px minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-}
-
-#curtain .build-rows li > .build-text:only-child {
-  grid-column: 1 / -1;
-}
-
-#curtain .glyph {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 1.3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-#curtain .build-slot {
-  white-space: nowrap;
-  color: var(--dim);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-#curtain .build-text {
-  overflow: hidden;
-  color: var(--ink);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* The nine slot pickers, one per row with the label beside it, in place of the build rows. */
-#curtain .customize {
-  display: grid;
-  gap: 2px;
-}
 
 #curtain .field {
   display: grid;
@@ -786,170 +514,10 @@ body:has(#curtain:not(.gone)) #mode {
   display: none;
 }
 
-#curtain .attribute-row {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) 3.3em auto;
-  align-items: center;
-  gap: 6px;
-  margin-top: 1px;
-  font-size: 12px;
-}
-
-#curtain .attribute-row input[type="range"] {
-  min-width: 0;
-  width: 100%;
-  height: 14px;
-  margin: 0;
-  accent-color: var(--gold);
-}
-
-#curtain .attribute-value {
-  color: var(--ink);
-  font-family: var(--font);
-  font-size: 11px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-#curtain .attribute-row.pending {
-  color: var(--dim);
-  opacity: 0.5;
-}
-
-#curtain .attribute-pending {
-  grid-column: 2 / -1;
-  font-size: 11px;
-  font-style: italic;
-}
-
-#curtain .attribute-reset {
-  padding: 0 5px;
-  font: inherit;
-  font-size: 10px;
-  color: var(--dim);
-  background: transparent;
-  border: 1px solid rgba(142, 113, 63, 0.4);
-  border-radius: 2px;
-  cursor: pointer;
-}
-
-#curtain .attribute-reset:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-#curtain .attribute-reset.all {
-  margin-top: 4px;
-}
-
-#curtain .policy-select {
-  padding: 5px 6px;
-  font-size: 13px;
-}
-
-#curtain .policy-line {
-  min-height: 2.7em;
-  margin: 5px 0 0;
-  color: #cfc6b4;
-  font-size: 12.5px;
-  font-style: italic;
-  line-height: 1.35;
-}
-
-#curtain .policy-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
-}
-
 /* The rating, with everything else the league knows about it in the tooltip; red when the policy
    cannot drive this body, with the reason in the same place. */
-#curtain .rating-badge {
-  padding: 1px 8px;
-  color: #f1dfbc;
-  font-family: var(--font);
-  font-size: 10.5px;
-  letter-spacing: 0.05em;
-  background: #2a2217;
-  border: 1px solid var(--gold-line);
-  cursor: help;
-}
-
-#curtain .rating-badge::before {
-  content: "\25C6  ";
-  color: var(--gold);
-}
-
-#curtain .rating-badge.warn {
-  color: #ffd9cf;
-  background: #3a1a14;
-  border-color: var(--bad);
-}
-
-#curtain .rating-badge.warn::before {
-  color: var(--bad);
-}
-
-#curtain .show-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--dim);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-#curtain .show-all input {
-  margin: 0;
-  accent-color: var(--gold);
-}
-
-#curtain .contender-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: auto;
-  padding-top: 12px;
-}
-
-#curtain .contender-actions .action {
-  margin: 0;
-  padding: 8px 6px;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
 
 /* The parts bin, over the foot of the open centre and only while a panel is customizing. */
-#curtain .bin-row {
-  grid-column: 2;
-  grid-row: 2;
-  align-self: end;
-  justify-self: center;
-  width: min(520px, 100%);
-  margin-bottom: 10px;
-  padding: 8px 14px 10px;
-  text-align: center;
-  background: rgba(14, 17, 20, 0.9);
-  border: 1px solid var(--gold-line);
-}
-
-#curtain .bin-row .section-head {
-  margin-top: 0;
-}
-
-#curtain .bin-row .note {
-  margin: 0 0 8px;
-  font-size: 12px;
-}
-
-#curtain .bin-row .action {
-  width: auto;
-  padding: 6px 14px;
-  font-size: 11px;
-}
 
 #begin {
   grid-column: 2;
@@ -985,16 +553,6 @@ body:has(#curtain:not(.gone)) #mode {
 }
 
 /* Why Fight is disabled, in one line under it, rather than only in the greyed button's title. */
-#curtain .refusal {
-  grid-column: 2;
-  grid-row: 4;
-  justify-self: center;
-  max-width: 560px;
-  margin: 6px 0 0;
-  color: #f0a896;
-  font-size: 12px;
-  text-align: center;
-}
 
 #curtain .duel-footer {
   grid-column: 2;
@@ -1049,7 +607,6 @@ body:has(#curtain:not(.gone)) #mode {
 }
 
 @media (max-height: 740px) {
-  #curtain .section-head,
   #curtain .attributes > summary {
     margin: 7px 0 4px;
   }
@@ -1076,9 +633,7 @@ body:has(#curtain:not(.gone)) #mode {
 
   #curtain .duel-title,
   #curtain .contender[data-side],
-  #curtain .bin-row,
   #begin,
-  #curtain .refusal,
   #curtain .duel-footer {
     grid-column: 1;
     grid-row: auto;
@@ -1249,9 +804,6 @@ body:has(#pause-menu:not(.gone)) #bout-end {
 }
 
 /* A policy's name is longer than a key's, so its column is wider; both wrap rather than overrun. */
-#help .policy-list {
-  grid-template-columns: 150px 1fr;
-}
 
 #help .keys dt {
   white-space: normal;

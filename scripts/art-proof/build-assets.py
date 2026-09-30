@@ -1,10 +1,10 @@
 """Blender 4.5 LTS: --background --python scripts/art-proof/build-assets.py
 
-Original assets, deterministically generated from the game's exported shell geometry.
+The Forge's kit (public/assets/art-proof/forge-kit.glb) and its textures, generated deterministically.
 Babylon (x,y,z) -> Blender (x,z,y); the glTF importer restores left handedness.
 Procedural textures are baked to ordinary images, never exported as Blender shader nodes.
 """
-import bpy, bmesh, json, math, random
+import bpy, bmesh, math, random
 from pathlib import Path
 import numpy as np
 from mathutils import Vector
@@ -12,7 +12,6 @@ from mathutils import Vector
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'public/assets/art-proof'
 OUT.mkdir(parents=True, exist_ok=True)
-SOURCE = json.loads((ROOT / 'assets/art-proof/source.json').read_text())
 random.seed(713)
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
@@ -86,7 +85,6 @@ def refined_textures():
     cracks=np.exp(-edge*105)*np.clip((noise(n,7,29)-.25)*2.5,0,1)
     pores=np.clip((.27-fine)*4,0,.4)
     value=.59+mineral*.016+(medium-.5)*.05+(grain-.5)*.035-cracks*.12-pores*.055
-    save_image('carved-color',np.stack([value*1.025,value,value*.94],axis=-1))
     height=mineral*.002+medium*.016+grain*.013-cracks*.055-pores*.018
     dx=(np.roll(height,-1,1)-np.roll(height,1,1))*4
     dy=(np.roll(height,-1,0)-np.roll(height,1,0))*4
@@ -94,13 +92,6 @@ def refined_textures():
     normal/=np.linalg.norm(normal,axis=-1)[:,:,None]
     save_image('carved-normal',normal*.5+.5,True)
     save_image('carved-orm',np.stack([1-cracks*.22,.64+medium*.19+cracks*.12,np.zeros_like(value)],axis=-1),True)
-    # Fine directional tooling remains subtle; geometric rims carry the large highlights.
-    scratches=noise(n,700,30)*.7+noise(n,90,31)*.3
-    brushed=np.sin(xx*math.tau*420+noise(n,8,32)*4)*.012
-    metal=.72+(medium-.5)*.035+(scratches-.5)*.035+brushed
-    save_image('joint-color',np.stack([metal,metal*.82,metal*.57],axis=-1))
-    save_image('joint-orm',np.stack([np.ones_like(value),.28+scratches*.14,np.ones_like(value)],axis=-1),True)
-    save_image('steel-orm',np.stack([np.ones_like(value),.24+scratches*.13+brushed,np.ones_like(value)],axis=-1),True)
 
 refined_textures()
 
@@ -113,9 +104,7 @@ def mat(name, color, metallic=0, rough=.8):
     p.inputs['Roughness'].default_value = rough
     return m
 
-MATS = {'carvedStone':mat('stone',(.64,.58,.47)), 'functionalMetal':mat('bronze',(.55,.31,.10),1,.32),
-        'steel':mat('steel',(.58,.64,.70),1,.24), 'rune':mat('rune',(.85,.44,.10),.3,.4),
-        'golemWood':mat('wood',(.21,.10,.04)), 'basalt':mat('basalt',(.12,.14,.17)),
+MATS = {'functionalMetal':mat('bronze',(.55,.31,.10),1,.32), 'basalt':mat('basalt',(.12,.14,.17)),
         'banner':mat('banner',(.23,.025,.018))}
 
 def finish(obj, material, bevel, segments=3, uv_offset=(0,0)):
@@ -145,76 +134,6 @@ def finish(obj, material, bevel, segments=3, uv_offset=(0,0)):
     obj.data.materials.clear(); obj.data.materials.append(material)
     obj.select_set(False)
     return obj
-
-body = []
-for row in SOURCE['parts']:
-    p = row['positions']; indices = row['indices']
-    vertices = [(p[i],p[i+2],p[i+1]) for i in range(0,len(p),3)]
-    faces = [(indices[i],indices[i+2],indices[i+1]) for i in range(0,len(indices),3)]
-    joint=row['family']=='functionalMetal' and len(p)==210
-    if joint:
-        # Closed turned cover, inside the source cylinder. Caps are recessed, rims stepped.
-        radius=row['extents'][0]/2; half=row['extents'][1]/2
-        rings=[(.70,-.988),(.73,-.988),(.75,-.999),(.91,-.999),(.98,-.994),
-               (1,-.80),(.96,-.73),(.96,.73),(1,.80),(.98,.994),
-               (.91,.999),(.75,.999),(.73,.988),(.70,.988)]
-        count=24
-        vertices=[(radius*r*math.cos(i*math.tau/count),radius*r*math.sin(i*math.tau/count),half*z)
-                  for r,z in rings for i in range(count)]
-        faces=[tuple(range(count-1,-1,-1)),tuple((len(rings)-1)*count+i for i in range(count))]
-        for j in range(len(rings)-1):
-            for i in range(count):faces.append((j*count+i,j*count+(i+1)%count,(j+1)*count+(i+1)%count,(j+1)*count+i))
-    if row['family']=='steel':
-        # Forged diamond section and pointed tip, inside the original blade's hit envelope.
-        w,h,d=row['extents']; vertices=[]
-        for height,scale in [(-h/2,.80),(h*.34,1),(h/2,.015)]:
-            vertices.extend([(x*scale,z*scale,height) for x,z in [(-w/2,0),(0,d/2),(w/2,0),(0,-d/2)]])
-        faces=[(3,2,1,0),(8,9,10,11)]
-        for j in range(2):
-            for i in range(4):faces.append((j*4+i,j*4+(i+1)%4,(j+1)*4+(i+1)%4,(j+1)*4+i))
-    if row['family']=='rune':
-        # An angular inlaid glyph, replacing the flat rectangular badge.
-        w,h,d=row['extents'];vertices=[];faces=[]
-        path=[(-.40,.43),(.35,.43),(-.34,-.05),(.34,-.43),(-.35,-.43)]
-        for start,end in zip(path,path[1:]):
-            a=Vector((start[0]*w,start[1]*h));b=Vector((end[0]*w,end[1]*h))
-            direction=(b-a).normalized();normal=Vector((-direction.y,direction.x))*min(w,h)*.085
-            corners=[a+normal,b+normal,b-normal,a-normal];k=len(vertices)
-            vertices.extend([(v.x,z,v.y) for z in [-d/2,d/2] for v in corners])
-            faces.extend([tuple(k+i for i in f) for f in [(3,2,1,0),(4,5,6,7),(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7)]])
-    mesh = bpy.data.meshes.new(row['asset']); mesh.from_pydata(vertices,[],faces); mesh.update()
-    obj = bpy.data.objects.new(row['asset'],mesh); bpy.context.collection.objects.link(obj)
-    dims=row['extents']; family=row['family']; bevel=min(dims)*(.035 if family=='carvedStone' else .035)
-    if joint: bevel=0
-    if family=='steel': bevel=min(dims)*.025
-    # Cut a few corners inward before beveling. No silhouette expands past the source envelope.
-    if family=='carvedStone' and len(vertices)<=24 and min(dims)>.06:
-        bm=bmesh.new(); bm.from_mesh(mesh)
-        bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00001)
-        rng=random.Random(713+int(row['asset'].split('_')[1]))
-        corners=sorted(list(bm.verts),key=lambda v:tuple(v.co));rng.shuffle(corners)
-        for corner in corners[:4]:
-            direction=Vector([math.copysign(rng.uniform(.6,1.4),c) for c in corner.co]).normalized()
-            point=corner.co-direction*min(dims)*rng.uniform(.04,.115)
-            cut=bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),
-                plane_co=point,plane_no=direction,clear_outer=True,clear_inner=False)
-            edges=[e for e in cut['geom_cut'] if isinstance(e,bmesh.types.BMEdge)]
-            if edges: bmesh.ops.holes_fill(bm,edges=edges,sides=0)
-        bm.to_mesh(mesh); bm.free()
-    number=int(row['asset'].split('_')[1])
-    body.append(finish(obj,MATS.get(family,MATS['carvedStone']),bevel,1 if family in ['carvedStone','steel'] else 2,
-                       ((number*.381966)%1,(number*.618034)%1)))
-    if joint:
-        # Baked recess shading keeps the narrow cap grooves readable without extra materials.
-        colors=obj.data.color_attributes.new(name='Recess wear',type='FLOAT_COLOR',domain='CORNER')
-        obj.data.color_attributes.active_color=colors
-        for poly in obj.data.polygons:
-            cap=abs(poly.normal.z)>.99 and poly.area>math.pi*radius*radius*.3
-            for li in poly.loop_indices:
-                vertex=obj.data.vertices[obj.data.loops[li].vertex_index]
-                r=math.hypot(vertex.co.x,vertex.co.y)/radius
-                value=.95 if cap else .48 if .725<r<.76 else .88 if r<.725 else .85 if .95<r<.97 else 1
-                colors.data[li].color=(value,value,value,1)
 
 def box(name, size, material, bevel=.04):
     bpy.ops.mesh.primitive_cube_add()
@@ -308,10 +227,8 @@ def export(objects,filename):
         export_apply=True,export_yup=True,export_normals=True,export_texcoords=True,export_materials='EXPORT',
         export_vertex_color='ACTIVE')
     for o in objects:o.select_set(False)
-# The golem's pieces are still built, for the .blend's shelf; the golem itself, its GLB and manifest,
-# went with the old path (docs/plans/2026-09-30-old-path-removal.md, step 5), and only the kit ships.
 export(kit,'forge-kit.glb')
 # Editable source arranged as an asset shelf; GLBs above keep each template at its local origin.
-for i,o in enumerate(body+kit):o.location=((i%10)*1.5,(i//10)*1.8,0)
+for i,o in enumerate(kit):o.location=((i%10)*1.5,(i//10)*1.8,0)
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'assets/art-proof/forge.blend'))
-print('Art proof assets exported:',len(body),'golem pieces;',len(kit),'environment templates')
+print('Forge kit exported:',len(kit),'templates')

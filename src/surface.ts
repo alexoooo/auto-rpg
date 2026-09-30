@@ -64,10 +64,6 @@ export function surface(
   material.albedoColor = Color3.FromArray(descriptor.albedo);
   material.metallic = descriptor.metallic;
   material.roughness = descriptor.roughness;
-  if (descriptor.opacity !== undefined) {
-    material.alpha = descriptor.opacity;
-    material.transparencyMode = PBRMaterial.PBRMATERIAL_ALPHABLEND;
-  }
   // How to read the maps is known before any of them decodes.
   if (descriptor.textures.normal) {
     material.invertNormalMapX = descriptor.textures.normal.tangentBasis === "gltf-rh-imported";

@@ -20,8 +20,6 @@ export interface SurfaceDescriptor {
   albedo: readonly [number, number, number];
   metallic: number;
   roughness: number;
-  /** Less than one only for explicitly non-solid visual scrims. */
-  opacity?: number;
   textures: Partial<Record<TextureChannel, TextureDescriptor>>;
 }
 
@@ -42,13 +40,8 @@ interface RegistryRow {
 interface RuntimeRegistry { textures: RegistryRow[] }
 
 const BASE = {
-  "palette.ground": { name: "ground", albedo: [0.15, 0.14, 0.12], metallic: 0, roughness: 0.96 },
   wood: { name: "wood", albedo: [0.34, 0.20, 0.09], metallic: 0, roughness: 0.72 },
-  "room.wall": { name: "roomWall", albedo: [0.20, 0.19, 0.17], metallic: 0, roughness: 0.94, opacity: 0.22 },
   "room.timber": { name: "roomTimber", albedo: [0.20, 0.12, 0.065], metallic: 0, roughness: 0.88 },
-  // Banners are deliberately quieter than either side's surcoat. The image
-  // carries weave and checks, but the room never gets the fighters' saturation.
-  "room.banner": { name: "roomBanner", albedo: [0.25, 0.19, 0.16], metallic: 0, roughness: 0.96 },
   // The owner's choice of two candidates each. The colour is a flat stone in linear light, shown until
   // the maps decode; the roughness is 1 because the packed map's green channel is multiplied by it.
   "dungeon.floor": { name: "dungeonFloor", albedo: [0.184, 0.177, 0.194], metallic: 0, roughness: 1 },
@@ -120,11 +113,3 @@ export function surfaceMetresPerRepeat(surface: SurfaceDescriptor): number {
   if (spans.some((span) => span !== first)) throw new Error(`${surface.name} has inconsistent physical repeats`);
   return first;
 }
-
-/** Registry-derived values; room geometry has no second copy of these numbers. */
-export const ROOM_METRES = Object.freeze({
-  floor: surfaceMetresPerRepeat(TEXTURED_SURFACES.ground),
-  wall: surfaceMetresPerRepeat(TEXTURED_SURFACES.roomWall),
-  timber: surfaceMetresPerRepeat(TEXTURED_SURFACES.roomTimber),
-  banner: surfaceMetresPerRepeat(TEXTURED_SURFACES.roomBanner),
-});

@@ -7,7 +7,7 @@
   --panel: #101419ed;
   --hot: #e8bc70;
 }
-.panel, #pause-menu, .hud-col > div, #direct-controls {
+.panel, #pause-menu, .hud-col > div {
   border-color: var(--edge);
   border-radius: 3px;
   background: linear-gradient(125deg, #1e2227f5, #101317f5 55%, #181a1cf5);
