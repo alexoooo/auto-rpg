@@ -428,8 +428,32 @@ contradicts one; the eccentric ceiling is the owner's decision.
     9.4, at the elite's 9-11 lower edge and past the typical 8, with no wound-up 13 m/s blows now
     that the pelvis is not carried; the Rogue's best, 8.3 and 9.0, is 0.93-0.95 of the Warrior's,
     where the references have her slower by more. Seed 3 of the Warrior's guard (5.2) found a
-    local best. These readings are Havok's; on Rapier (branch `core-rapier`) they are to be taken
-    again.
+    local best. These readings are Havok's.
+
+    **Taken again on Rapier** (2026-09-30; the same search, seeds and settings, Node core stand on
+    its own feet under the stance):
+
+    | | seed | search | 120 | 480 | 960 | 1920 | 3840 | arrives |
+    |---|---|---|---|---|---|---|---|---|
+    | Warrior from the guard | 1 | 7.95 | 6.02 | 6.88 | 7.91 | 7.96 | 7.98 | 0.34 |
+    | | 2 | 9.50 | 8.21 | 9.32 | 9.48 | 9.44 | 9.57 | 0.33 |
+    | | 3 | 6.71 | miss | 6.58 | 6.67 | 6.62 | 6.59 | 0.28 |
+    | Warrior, free blow | 1 | 8.88 | 8.77 | 8.88 | 8.87 | 8.87 | 8.85 | 0.14 |
+    | | 2 | 9.10 | 9.35 | 9.09 | 9.10 | 9.05 | 9.05 | 0.20 |
+    | | 3 | 9.79 | 1.27 | 9.83 | 9.77 | 9.78 | 9.75 | 0.12 |
+    | Rogue from the guard | 1 | 8.08 | 7.78 | 8.06 | 8.05 | 8.13 | 8.12 | 0.32 |
+    | | 2 | 7.88 | miss | 2.89 | 6.87 | 6.83 | 7.70 | 0.46 |
+    | | 3 | 7.51 | miss | 5.61 | 7.49 | 7.50 | 7.47 | 0.29 |
+    | Rogue, free blow | 1 | 7.58 | 3.17 | 7.58 | 7.57 | 7.52 | 7.51 | 0.15 |
+    | | 2 | 7.46 | 3.81 | 7.49 | 7.45 | 7.44 | 7.42 | 0.14 |
+    | | 3 | 7.82 | miss | 7.83 | 7.80 | 7.74 | 7.74 | 0.16 |
+
+    From 960 to 3840 Hz they agree within 1.5 % on eleven of twelve (the Rogue's second blow from
+    the guard reads 6.87 at 960 Hz and 7.70 at 3840); at 120 Hz five of twelve miss or nearly do.
+    **Read against the acceptance:** the Warrior's best is 9.4-9.6 m/s from the guard and 9.8 free,
+    as on Havok (9.0 and 9.4), at the elite's 9-11 lower edge; the Rogue's is 8.1 and 7.8, 0.86 and
+    0.80 of the Warrior's where on Havok it was 0.93-0.95, nearer the references, which have women
+    slower by more. Seed 3 of the Warrior's guard (6.6) found a local best again.
 
 ### Stage 3: one world, one body, one command
 
