@@ -17,9 +17,14 @@
  * the strike as written, and the rest with every push moved and scaled by one draw, the same draws
  * for every candidate in a generation. Prints one JSON line per generation, then the best strike
  * read again on eight fresh trials at each of `--replay`'s rates (120, 480 and 1920 Hz unless given).
+ *
+ * `--from <file>` goes on from a finished search's output (its last line): the search starts centred
+ * on that best strike, which is its first generation's first candidate, with every spread `--sigma`
+ * (0.6, the fresh search's, unless given). The weapon, model and hand must be the file's.
  */
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
+import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { CORE_CLUB_HARNESS, clubDimensions, evaluateClubStrike } from "./core-club-strike.mjs";
 import { CORE_STRIKE_HARNESS, dimensions, evaluateStrike } from "./core-strike.mjs";
@@ -30,6 +35,7 @@ const { values } = parseArgs({ options: {
   generations: { type: "string", default: "30" }, population: { type: "string", default: "64" },
   elite: { type: "string", default: "10" }, workers: { type: "string" }, seed: { type: "string", default: "1" },
   trials: { type: "string", default: "4" }, replay: { type: "string", default: "120,480,1920" },
+  from: { type: "string" }, sigma: { type: "string", default: "0.6" },
 } });
 const { model, hand, guard, weapon } = values, hz = Number(values.hz);
 if (weapon !== "fist" && weapon !== "club") throw new Error(`--weapon is fist or club, not ${weapon}`);
@@ -76,12 +82,17 @@ const draw = () => Array.from({ length: trials }, (_, k) => k === 0 ? { shift: 0
 function release(worker) { const next = waiting.shift(); next ? next(worker) : idle.push(worker); }
 
 const n = weapon === "club" ? clubDimensions(hand) : dimensions(hand, guard);
-let mean = new Array(n).fill(0), sigma = new Array(n).fill(0.6);
+const from = values.from ? JSON.parse(readFileSync(values.from, "utf8").trim().split("\n").at(-1)) : null;
+if (from && (from.weapon !== weapon || from.model !== model || from.hand !== hand || from.unit.length !== n)) {
+  throw new Error(`--from ${values.from} is a ${from.weapon} search on ${from.model}'s ${from.hand} hand`);
+}
+let mean = from ? [...from.unit] : new Array(n).fill(0), sigma = new Array(n).fill(Number(values.sigma));
 let best = null;
 const started = Date.now();
 for (let g = 0; g < generations; g++) {
   const candidates = Array.from({ length: population }, () => mean.map((m, i) => Math.max(-1, Math.min(1, m + sigma[i] * normal()))));
   if (best) candidates[0] = best.unit;
+  else if (from) candidates[0] = from.unit;
   const perturbations = draw();
   const results = await Promise.all(candidates.map(async (unit) => ({ unit, ...(await evaluate(unit, perturbations)) })));
   results.sort((a, b) => b.score - a.score);
@@ -106,4 +117,5 @@ for (const rate of values.replay.split(",").map(Number)) {
     ...(weapon === "club" ? { closing: +runs[0].closing.toFixed(3), clubKg: runs[0].clubKg && +runs[0].clubKg.toFixed(3), headKg: runs[0].headKg && +runs[0].headKg.toFixed(2), normal: runs[0].normal } : {}) };
 }
 console.log(JSON.stringify({ harness: weapon === "club" ? CORE_CLUB_HARNESS : CORE_STRIKE_HARNESS, weapon, model, hand, guard, seed: Number(values.seed), hz, trials,
+  ...(from ? { from: values.from, sigma: Number(values.sigma) } : {}),
   searched: { mean: +best.score.toFixed(2), runs: best.runs }, ...readings, distance: +best.distance.toFixed(3), strike: best.strike, unit: best.unit }));
