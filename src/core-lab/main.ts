@@ -8,7 +8,7 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { loadRapier } from "../core/engine/rapier.ts";
+import { loadEngine } from "../core/engine/engines.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { CoreModel } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
@@ -83,7 +83,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   const engine = new Engine(canvas, true, { stencil: true });
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.082, 0.098, 0.11, 1);
-  const rapier = await loadRapier();
+  const physicsEngine = await loadEngine();
   /** The world a body is loaded into; each load makes a new one, at the chosen rate. */
   let world: World | null = null;
 
@@ -194,7 +194,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     }
     world?.dispose();
     remember(to);
-    world = createWorld(scene, rapier, { hz: to.hz });
+    world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addGround([0, -0.5, 0], [40, 1, 40]);
     const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();

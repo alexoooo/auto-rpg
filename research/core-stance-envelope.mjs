@@ -14,7 +14,7 @@ import { availableParallelism } from "node:os";
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { fastestHeld } from "../src/core/control/stance-envelope.ts";
-import { PHYSICS_HZ } from "../src/core/engine/rapier.ts";
+import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
 export const SPEEDS = [0.2, 0.3, 0.4, 0.5, 0.7];

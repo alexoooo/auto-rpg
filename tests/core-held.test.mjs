@@ -104,9 +104,9 @@ test("the engine holds the rigid body: its mass, centre and inertia, read back b
     const stand = await coreStand(spec, { gravity: false, ground: false });
     try {
       const { body, node } = stand.built.segments.get("grip");
-      close(body.rigid.mass(), 1.7, 1e-6, "mass");
+      close(body.engineMass(), 1.7, 1e-6, "mass");
       const impulse = 0.01;
-      body.rigid.applyTorqueImpulse(new Vector3(...axis).scale(impulse), true);
+      body.applyTorqueImpulse(new Vector3(...axis).scale(impulse));
       stand.step(1);
       const w = new Vector3();
       body.angularVelocityToRef(w);

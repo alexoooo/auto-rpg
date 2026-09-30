@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createBody } from "../src/core/body.ts";
 import { fastestHeld, paceRound, stanceEnvelope, turnAt } from "../src/core/control/stance-envelope.ts";
-import { PHYSICS_HZ } from "../src/core/engine/rapier.ts";
+import { PHYSICS_HZ } from "../src/core/world.ts";
 import { humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { LAB_TURN_RATE } from "../src/core-lab/stance-mode.ts";
 import { TURN_PACE } from "../src/core-lab/track.ts";

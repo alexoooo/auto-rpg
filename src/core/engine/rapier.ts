@@ -2,16 +2,18 @@ import RAPIER from "@dimforge/rapier3d-simd-compat";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
-import { sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { sourced, type Vec3 } from "../spec/quantity.ts";
+import { CONTACT_FRICTION, type ColliderShape, type CoreJoint, type JointFrames, type MassProperties, type PhysicsEngine,
+  type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 
 /**
  * **The core's physics engine: Rapier**, the SIMD build of its WebAssembly (`@dimforge/rapier3d-simd-compat`,
- * the owner's choice after the bake-off, `owner-physics-engine`). The compat build carries its wasm
- * inline, so a browser and Node load it alike (`loadRapier`); Havok stays with the old path.
+ * the owner's choice after the bake-off, `owner-physics-engine`), meeting the contract of `engine.ts`.
+ * The compat build carries its wasm inline, so a browser and Node load it alike (`loadRapier`).
  *
- * The core never hands the engine a variable step: `PhysicsWorld.step` takes the world's fixed step
- * (`src/core/world.ts`), and Rapier's own clock is set to it. After each step every body's node is
- * written from its body, so everything that reads a pose reads the nodes (H24), as before.
+ * Rapier's clock is set to the world's fixed step. Its generic joint measures a limited angle as
+ * `jointAngles` reads it (`src/core/build/joint-state.ts`), and its velocity motor with infinite
+ * damping and a maximum force is the contract's motor.
  *
  * **Solver conditioning** (`SOLVER`): the solver's iteration counts, which Havok did not expose, are
  * named here and nowhere else, and come from the bake-off's table. Bodies never sleep: a sleeping
@@ -20,14 +22,16 @@ import { sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 export type Rapier = typeof RAPIER;
 
 /** Load Rapier's wasm; once per realm is enough, and later calls return at once. */
-export async function loadRapier(): Promise<Rapier> {
+export async function rapierModule(): Promise<Rapier> {
   await RAPIER.init();
   return RAPIER;
 }
 
-/** The fixed step's rate: physics and control run at 120 Hz. */
-export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-rate",
-  "physics and control at 120 Hz from the release of 2026-09-25");
+/** **Rapier as the core's engine**, its wasm loaded. */
+export async function loadRapier(): Promise<PhysicsEngine> {
+  const R = await rapierModule();
+  return { name: "rapier", createPhysics: (options) => createRapierPhysics(R, options) };
+}
 
 /**
  * The solver's iterations a step (`numSolverIterations`) and the PGS passes within each
@@ -40,100 +44,41 @@ export const SOLVER = {
   pgs: sourced(2, "1", "physics-bakeoff", "with 2 internal PGS iterations"),
 } as const;
 
-export interface PhysicsOptions {
-  /** Steps a second. */
-  readonly hz: number;
-  /** Standard gravity, or none. */
-  readonly gravity: boolean;
-}
-
-/** Mass properties as the spec gives them: kg, the centre in the body's frame, principal moments (kg m2) and their axes. */
-export interface MassProperties {
-  readonly mass: number;
-  readonly centre: Vec3;
-  readonly moments: Vec3;
-  readonly orientation: Quaternion;
-}
-
-/**
- * **A dynamic body with its node**: what the core reads of a body and does to it. Velocities are the
- * centre of mass's (Rapier's `linvel`, as Havok's, H49) and are read into a caller's vector.
- */
-export interface SegmentBody {
-  readonly node: TransformNode;
+/** A Rapier body: the contract's, and Rapier's own for a probe of Rapier (`research/core-rapier-probe.mjs`). */
+export interface RapierBody extends SegmentBody {
   readonly rigid: RAPIER.RigidBody;
-  linearVelocityToRef(out: Vector3): Vector3;
-  angularVelocityToRef(out: Vector3): Vector3;
-  /** An impulse (N s, world) at a point (world). */
-  applyImpulse(impulse: Vector3, at: Vector3): void;
-  readonly massProperties: MassProperties;
-  setMassProperties(properties: MassProperties): void;
-  /** Hold the body still where it is, or let it go again. */
-  setFixed(fixed: boolean): void;
 }
-
-/** A body's shape, in its own frame: what `PhysicsWorld.addBody` gives it colliders for. */
-export type ColliderShape =
-  | { readonly kind: "capsule"; readonly from: Vec3; readonly to: Vec3; readonly radius: number }
-  | { readonly kind: "box"; readonly centre: Vec3; readonly size: Vec3 }
-  | { readonly kind: "sphere"; readonly centre: Vec3; readonly radius: number }
-  | { readonly kind: "hull"; readonly points: readonly Vec3[] };
-
-/**
- * **A joint between two bodies**: a generic joint whose frame's X, Y and Z are the joint's
- * constraint axes (`BuiltJoint.axes`), set in each body's own frame, with every linear axis locked
- * and each angular axis past the freedoms locked. Freedom k is angular axis k, limited to its range
- * as Rapier's limit measures it (`src/core/build/joint-state.ts`), and driven by a velocity motor
- * on the same axis. The two bodies do not collide with each other.
- */
-export interface JointFrames {
-  readonly anchorParent: Vec3;
-  readonly anchorChild: Vec3;
-  /** The constraint axes in each body's frame. */
-  readonly frameParent: Quaternion;
-  readonly frameChild: Quaternion;
-  /** Each freedom's range, rad, about its constraint axis: freedom k's is `limits[k]`. */
-  readonly limits: readonly (readonly [number, number])[];
-}
-
-export interface CoreJoint {
+export interface RapierJoint extends CoreJoint {
   readonly raw: RAPIER.ImpulseJoint;
-  /**
-   * Freedom k's motor: turn the child relative to the parent about the parent-fixed axis at `speed`
-   * (rad/s), with at most `ceiling` (N m) either way. The motor is a hard velocity constraint
-   * (infinite damping, so no softness), bounded by the ceiling times the step.
-   */
-  setMotor(k: number, speed: number, ceiling: number): void;
 }
-
-export interface PhysicsWorld {
+/** A Rapier world: the contract's, and Rapier's own. The core sees only `PhysicsWorld`. */
+export interface RapierPhysics extends PhysicsWorld {
   readonly rapier: Rapier;
   readonly raw: RAPIER.World;
-  readonly gravity: Vec3;
-  /** A dynamic body at its node's pose, its colliders massless: its mass is `mass`. */
-  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): SegmentBody;
-  addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): CoreJoint;
-  /** A fixed box, centre and full size, world. */
-  addGround(centre: Vec3, size: Vec3): RAPIER.Collider;
-  /** One solver step of `dt`, then every body's node written from its body. */
-  step(dt: number): void;
-  /** Remove a body, its colliders and its joints; nothing once the world is disposed. */
-  removeBody(body: SegmentBody): void;
-  /** Free the world and everything in it; again is nothing. */
-  dispose(): void;
+  addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): RapierBody;
+  addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): RapierJoint;
 }
 
 /** A Rapier world with the core's gravity and solver settings. */
-export function createPhysics(R: Rapier, { hz, gravity }: PhysicsOptions): PhysicsWorld {
+export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions): RapierPhysics {
   const g: Vec3 = gravity ? [0, -STANDARD_GRAVITY.value, 0] : [0, 0, 0];
   const raw = new R.World({ x: g[0], y: g[1], z: g[2] });
   raw.timestep = 1 / hz;
   raw.numSolverIterations = SOLVER.iterations.value;
   raw.numInternalPgsIterations = SOLVER.pgs.value;
-  const bodies = new Set<SegmentBody>();
+  const bodies = new Set<RapierBody>();
   let freed = false;
   const xyz = (v: Vec3) => ({ x: v[0], y: v[1], z: v[2] });
   const xyzw = (q: Quaternion) => ({ x: q.x, y: q.y, z: q.z, w: q.w });
+  /** The contract's contact: its friction, averaged, and no bounce. */
+  const contact = (desc: RAPIER.ColliderDesc): RAPIER.ColliderDesc => desc
+    .setFriction(CONTACT_FRICTION).setFrictionCombineRule(R.CoefficientCombineRule.Average)
+    .setRestitution(0).setRestitutionCombineRule(R.CoefficientCombineRule.Average);
+  /** A body of this world's: another engine's, or another world's, is a caller's mistake. */
+  const own = (body: SegmentBody): RapierBody => {
+    if (!bodies.has(body as RapierBody)) throw new Error("that body is not in this Rapier world");
+    return body as RapierBody;
+  };
 
   const colliderOf = (shape: ColliderShape): RAPIER.ColliderDesc => {
     switch (shape.kind) {
@@ -162,15 +107,15 @@ export function createPhysics(R: Rapier, { hz, gravity }: PhysicsOptions): Physi
     }
   };
 
-  const physics: PhysicsWorld = {
-    rapier: R, raw, gravity: g,
+  const physics: RapierPhysics = {
+    engine: "rapier", rapier: R, raw, gravity: g,
     addBody(node, shapes, mass) {
       const q = node.rotationQuaternion ?? Quaternion.Identity();
       const rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
         .setTranslation(node.position.x, node.position.y, node.position.z)
         .setRotation(xyzw(q))
         .setCanSleep(false));
-      for (const shape of shapes) raw.createCollider(colliderOf(shape).setDensity(0), rigid);
+      for (const shape of shapes) raw.createCollider(contact(colliderOf(shape)).setDensity(0), rigid);
       let properties = mass;
       const setMass = (m: MassProperties) => {
         properties = m;
@@ -179,19 +124,30 @@ export function createPhysics(R: Rapier, { hz, gravity }: PhysicsOptions): Physi
         rigid.recomputeMassPropertiesFromColliders();
       };
       setMass(mass);
-      const body: SegmentBody = {
+      const body: RapierBody = {
         node, rigid,
         linearVelocityToRef(out) { const v = rigid.linvel(); return out.set(v.x, v.y, v.z); },
         angularVelocityToRef(out) { const w = rigid.angvel(); return out.set(w.x, w.y, w.z); },
         applyImpulse(impulse, at) { rigid.applyImpulseAtPoint(impulse, at, true); },
+        applyTorqueImpulse(impulse) { rigid.applyTorqueImpulse(impulse, true); },
         get massProperties() { return properties; },
         setMassProperties: setMass,
+        engineMass: () => rigid.mass(),
+        hullVertices(k) {
+          const collider = rigid.collider(k);
+          if (collider.shape.type !== R.ShapeType.ConvexPolyhedron) return null;
+          // A hull's collider sits at the body's origin, unturned (`colliderOf`), so its own frame is the body's.
+          const vertices = collider.vertices(), out: Vec3[] = [];
+          for (let i = 0; i < vertices.length; i += 3) out.push([vertices[i]!, vertices[i + 1]!, vertices[i + 2]!]);
+          return out;
+        },
         setFixed(fixed) { rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
       };
       bodies.add(body);
       return body;
     },
-    addJoint(parent, child, frames) {
+    addJoint(parentBody, childBody, frames) {
+      const parent = own(parentBody), child = own(childBody);
       const M = R.JointAxesMask, n = frames.limits.length;
       if (n < 1 || n > 3) throw new Error(`a joint has one to three freedoms, not ${n}`);
       const locked = M.LinX | M.LinY | M.LinZ | (n < 2 ? M.AngY : 0) | (n < 3 ? M.AngZ : 0);
@@ -216,7 +172,9 @@ export function createPhysics(R: Rapier, { hz, gravity }: PhysicsOptions): Physi
       };
     },
     addGround(centre, size) {
-      return raw.createCollider(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre));
+      const collider = raw.createCollider(contact(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre)));
+      let gone = false;
+      return { dispose() { if (gone || freed) return; gone = true; raw.removeCollider(collider, false); } };
     },
     step(dt) {
       raw.timestep = dt;
@@ -227,8 +185,9 @@ export function createPhysics(R: Rapier, { hz, gravity }: PhysicsOptions): Physi
         (node.rotationQuaternion ??= new Quaternion()).set(r.x, r.y, r.z, r.w);
       }
     },
-    removeBody(body) {
+    removeBody(segment) {
       // After the world is freed its bodies went with it.
+      const body = segment as RapierBody;
       if (!bodies.delete(body) || freed) return;
       raw.removeRigidBody(body.rigid);
     },

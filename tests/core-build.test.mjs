@@ -168,11 +168,11 @@ test("a hull shape is built from its points, in its segment's frame", async () =
   try {
     const segment = stand.built.segments.get("lower"), frame = segment.frame;
     const local = points.map((p) => [frame.x, frame.y, frame.z].map((e) => e.reduce((sum, c, i) => sum + c * (p[i] - frame.origin[i]), 0)));
-    // The hull's vertices, in its collider's frame, which is the body's.
-    const collider = segment.body.rigid.collider(0), vertices = collider.vertices();
-    assert.deepEqual(collider.translation(), segment.body.rigid.translation());
+    // The hull's vertices as the engine built them, in the body's frame.
+    const vertices = segment.body.hullVertices(0);
+    assert.ok(vertices && vertices.length >= 8, "a hull");
     [0, 1, 2].forEach((i) => {
-      const along = vertices.filter((_, k) => k % 3 === i);
+      const along = vertices.map((v) => v[i]);
       close(Math.min(...along), Math.min(...local.map((p) => p[i])), 1e-6, `min ${i}`);
       close(Math.max(...along), Math.max(...local.map((p) => p[i])), 1e-6, `max ${i}`);
     });

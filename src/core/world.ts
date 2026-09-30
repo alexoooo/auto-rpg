@@ -1,5 +1,10 @@
 import type { Scene } from "@babylonjs/core/scene.js";
-import { createPhysics, PHYSICS_HZ, type PhysicsWorld, type Rapier } from "./engine/rapier.ts";
+import type { PhysicsEngine, PhysicsWorld } from "./engine/engine.ts";
+import { sourced, type Quantity } from "./spec/quantity.ts";
+
+/** The fixed step's rate: physics and control run at 120 Hz. */
+export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-rate",
+  "physics and control at 120 Hz from the release of 2026-09-25");
 
 /**
  * **The world**: one fixed step that owns physics, control and the clock. The page, the Node stand
@@ -8,8 +13,8 @@ import { createPhysics, PHYSICS_HZ, type PhysicsWorld, type Rapier } from "./eng
  *
  * A step is: the step hooks, in the order they were added (sensing, minds, motor control, the
  * muscle driver), then one solver step of `dt`, which writes every body's node, then the after-step
- * hooks (readings). The physics is Rapier's (`src/core/engine/rapier.ts`), beside the scene, which
- * only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
+ * hooks (readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
+ * beside the scene, which only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
  * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
  *
  * A hook added while the world steps runs from the next step; one removed stops at once.
@@ -55,9 +60,9 @@ export interface WorldOptions {
   readonly gravity?: boolean;
 }
 
-/** The world on `scene`, with a physics of its own: make it before any body. Rapier is loaded by the caller (`loadRapier`). */
-export function createWorld(scene: Scene, rapier: Rapier, { hz = PHYSICS_HZ.value, gravity = true }: WorldOptions = {}): World {
-  const physics = createPhysics(rapier, { hz, gravity });
+/** The world on `scene`, with a physics of `engine`'s own: make it before any body. The caller loads the engine (`loadEngine`). */
+export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_HZ.value, gravity = true }: WorldOptions = {}): World {
+  const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
   const before: HookEntry[] = [], after: HookEntry[] = [];
   let steps = 0, owed = 0, disposed = false;

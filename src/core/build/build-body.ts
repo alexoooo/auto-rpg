@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import type { ColliderShape, CoreJoint, PhysicsWorld, SegmentBody } from "../engine/rapier.ts";
+import type { ColliderShape, CoreJoint, PhysicsWorld, SegmentBody } from "../engine/engine.ts";
 import type { World } from "../world.ts";
 import { frameOf, type BodySpec, type DofSpec, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -16,7 +16,7 @@ import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
  * mass properties are the two together (`rigidOf`), turned to their principal axes, and it has a
  * collider for each shape of both. Each joint is a generic joint at the joint's centre whose free
  * angular axes are the spec's freedoms, limited to their ranges; every other axis is locked, and
- * the two segments it joins do not collide with each other (`src/core/engine/rapier.ts`).
+ * the two segments it joins do not collide with each other (`src/core/engine/engine.ts`).
  *
  * The body is built in its reference pose, where every joint's angle is zero, so no joint disagrees
  * with its bodies at construction (H09).

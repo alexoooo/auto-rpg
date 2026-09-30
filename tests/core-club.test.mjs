@@ -92,7 +92,7 @@ test("held, the Warrior's hand is hand and club, and the engine holds both", asy
   const stand = await coreStand(spec, { gravity: false, ground: false });
   try {
     const hand = stand.built.segments.get("hand.right");
-    close(hand.body.rigid.mass(), rigid.mass, 1e-6, "the engine's mass");
+    close(hand.body.engineMass(), rigid.mass, 1e-6, "the engine's mass");
     assert.equal(hand.rigid, stand.built.segments.get("hand.right").rigid);
     assert.equal(stand.built.segments.get("hand.left").rigid.mass, humanSpec("workshop-fighter").segments.find((s) => s.name === "hand.left").mass.value);
   } finally { stand.dispose(); }

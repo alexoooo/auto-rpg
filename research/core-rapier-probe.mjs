@@ -22,11 +22,11 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { createPhysics, loadRapier } from "../src/core/engine/rapier.ts";
+import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
 
 const argv = process.argv.slice(2);
 const hz = Number(argv[argv.indexOf("--hz") + 1] || 120);
-const R = await loadRapier();
+const R = await rapierModule();
 const scene = new Scene(new NullEngine());
 
 // The joint's axes: an orthonormal frame turned off the world's.
@@ -35,7 +35,7 @@ const axisOf = (v) => v.applyRotationQuaternion(frame);
 const axes = [axisOf(new Vector3(1, 0, 0)), axisOf(new Vector3(0, 1, 0)), axisOf(new Vector3(0, 0, 1))];
 
 function rig({ limits, mass = 2, moments = [0.02, 0.005, 0.02] }) {
-  const physics = createPhysics(R, { hz, gravity: false });
+  const physics = createRapierPhysics(R, { hz, gravity: false });
   const nodeOf = (name) => { const n = new TransformNode(name, scene); n.rotationQuaternion = Quaternion.Identity(); return n; };
   const parentNode = nodeOf("parent"), childNode = nodeOf("child");
   const box = { kind: "box", centre: [0, 0, 0], size: [0.1, 0.1, 0.1] };
@@ -116,7 +116,7 @@ const out = { hz };
 
 // Gyroscope.
 {
-  const physics = createPhysics(R, { hz, gravity: false });
+  const physics = createRapierPhysics(R, { hz, gravity: false });
   const node = new TransformNode("box", scene);
   node.rotationQuaternion = Quaternion.Identity();
   const body = physics.addBody(node, [{ kind: "box", centre: [0, 0, 0], size: [0.1, 0.2, 0.3] }],
@@ -139,7 +139,7 @@ const out = { hz };
 // Brake.
 {
   const creep = ({ iterations = 16, pgs = 2, ceiling = 50, model }) => {
-    const physics = createPhysics(R, { hz, gravity: true });
+    const physics = createRapierPhysics(R, { hz, gravity: true });
     physics.raw.numSolverIterations = iterations;
     physics.raw.numInternalPgsIterations = pgs;
     const nodeOf = (name) => { const n = new TransformNode(name, scene); n.rotationQuaternion = Quaternion.Identity(); return n; };

@@ -1,20 +1,26 @@
 /**
- * **The core's Node stand**: one body built from a spec, on a ground, in its own Rapier world.
+ * **The core's Node stand**: one body built from a spec, on a ground, in a world of its own on the
+ * engine `CORE_ENGINE` names (Rapier unless named: `CORE_ENGINE=<name> npm test`).
  *
  * A `NullEngine` and a `Scene` hold the nodes; the core's world (`createWorld`,
- * `src/core/world.ts`) steps Rapier, as the page does. The body is built through `buildBody` and
- * nothing else, so what the stand reads is what the spec states. Rapier's bodies never sleep here
- * (`src/core/engine/rapier.ts`).
+ * `src/core/world.ts`) steps the engine, as the page does. The body is built through `buildBody`
+ * and nothing else, so what the stand reads is what the spec states. Bodies never sleep: the
+ * engine contract says so (`src/core/engine/engine.ts`), and `tests/core-engine.test.mjs` holds
+ * the engine to it.
  */
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { loadRapier, PHYSICS_HZ } from "../../src/core/engine/rapier.ts";
+import { DEFAULT_ENGINE, isEngineName, loadEngine } from "../../src/core/engine/engines.ts";
+import { PHYSICS_HZ } from "../../src/core/world.ts";
 import { createWorld } from "../../src/core/world.ts";
 import { buildBody } from "../../src/core/build/build-body.ts";
 
-/** Rapier, loaded. Each stand is a world of its own; worlds in one realm do not share state. */
-export const freshRapier = loadRapier;
+/** The engine `CORE_ENGINE` names, or the game's. */
+export const CORE_ENGINE = process.env.CORE_ENGINE || DEFAULT_ENGINE;
+if (!isEngineName(CORE_ENGINE)) throw new Error(`CORE_ENGINE names no engine: ${CORE_ENGINE}`);
+/** The stand's engine, loaded. Each stand is a world of its own; worlds in one realm do not share state. */
+export const freshEngine = () => loadEngine(CORE_ENGINE);
 
 /**
  * A stand for `spec`. `gravity: false` builds a world without it, for reading a joint alone;
@@ -25,7 +31,7 @@ export const freshRapier = loadRapier;
 export async function coreStand(spec, { gravity = true, ground = true, position = [0, 0, 0], pinned, groundSize = 20, hz = PHYSICS_HZ.value } = {}) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  const world = createWorld(scene, await freshRapier(), { hz, gravity });
+  const world = createWorld(scene, await freshEngine(), { hz, gravity });
   const floor = ground ? world.physics.addGround([0, -0.5, 0], [groundSize, 1, groundSize]) : null;
   const built = buildBody(spec, world, { position });
   if (pinned !== undefined) {
@@ -57,7 +63,7 @@ export async function spinOnce(spec, name, axisName, impulse) {
   try {
     const { body, frame } = stand.built.segments.get(name);
     const axis = new Vector3(...frame[axisName]);
-    body.rigid.applyTorqueImpulse(axis.scale(impulse), true);
+    body.applyTorqueImpulse(axis.scale(impulse));
     stand.step(1);
     const w = body.angularVelocityToRef(Vector3.Zero());
     const along = Vector3.Dot(w, axis);

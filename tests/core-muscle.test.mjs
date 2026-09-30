@@ -177,7 +177,7 @@ test("a muscle stretched past its peak yields at the speed its eccentric branch 
         const body = stand.built.segments.get("rod").body;
         const axis = new Vector3(...spec.joints[0].dofs[0].axis.value);
         const load = over * peak.positive;
-        stand.world.beforeStep(() => body.rigid.applyTorqueImpulse(axis.scale(-load / hz), true));
+        stand.world.beforeStep(() => body.applyTorqueImpulse(axis.scale(-load / hz)));
         stand.step(stand.seconds(0.4));
         const expected = integrate(inertiaAboutPin(spec), (w) => load - peak.positive * forceVelocityFactor(-w, curve), 0.4 - 1 / hz);
         const read = -driver.speed(0);

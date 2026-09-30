@@ -46,7 +46,7 @@ test("a_club_makes_its_hand_heavier_by_the_club_and_leaves_the_other", async () 
   try {
     const left = stand.built.segments.get("hand.left"), right = stand.built.segments.get("hand.right");
     assert.ok(Math.abs(left.rigid.mass - (hand("workshop-rogue", "left") + kg)) < 1e-12, `left ${left.rigid.mass}`);
-    assert.ok(Math.abs(left.body.rigid.mass() - left.rigid.mass) < 1e-6, "Rapier's mass is the rigid body's");
+    assert.ok(Math.abs(left.body.engineMass() - left.rigid.mass) < 1e-6, "the engine's mass is the rigid body's");
     assert.equal(right.rigid.mass, hand("workshop-rogue", "right"));
     // Its club is drawn from the rigid body's shapes after its own (`drawHeld`, `view.ts`).
     assert.equal(left.rigid.shapes.length, 1 + woodenClub().shapes.length);

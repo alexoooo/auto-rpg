@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { routeFor } from "../src/app-route.ts";
-import { PHYSICS_HZ } from "../src/core/engine/rapier.ts";
+import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
 import { labAddress, labHref, LAB_CAMERAS, LAB_HELD, LAB_PROJECTIONS, LAB_RATES, MODELS, SCENARIOS } from "../src/core-lab/scenarios.ts";
 

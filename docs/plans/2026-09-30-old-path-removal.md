@@ -69,6 +69,26 @@ skills more dynamically."
    `SegmentBody`, `CoreJoint`, shapes, mass properties) with no Rapier type; `engine/rapier.ts`
    implements them; `createWorld` takes an engine; the tests read masses through the interface.
    Acceptance: every core test passes unchanged in its numbers.
+   - **Landed (2026-09-30).** `engine.ts` is the contract, written out in its doc comment: a fixed
+     step that writes the nodes, bodies that never sleep, the spec's mass, the centre of mass's
+     velocities, `CONTACT_FRICTION` (0.5) on every contact and no bounce, a joint's freedom k as
+     axis k of its frame, and a motor as a torque-bounded velocity constraint. `engines.ts` lists
+     the engines (Rapier alone, the default) and is the only importer of an engine's module;
+     `PHYSICS_HZ` moved to `src/core/world.ts`, and the stance's ground friction is the contract's.
+     `tests/core-boundary.test.mjs` holds the seam: an engine package (`@dimforge/`) is imported
+     only by its engine's module, and that module only by `engines.ts`, with a control that finds
+     both crossings. `tests/core-engine.test.mjs` holds an engine to the clauses the other tests
+     lean on without naming: a slid box slows at 0.5 g within 2 %, a dropped one rises under 2 mm,
+     a box drifting at 1 mm/s in free space still drifts after 5 s (Rapier wakes a body when a
+     motor is set, so a drift is where sleep shows), the engine holds the mass the core set, a
+     removed ground lets a box fall, and a body from another world is refused a joint. Each of
+     those clauses turned the tests red when it was broken in `rapier.ts`, one at a time
+     (friction 0.3 or combined by product, restitution 0.5, sleep allowed, mass not given, the
+     ground not removed, a foreign body joined, every collider read as a hull). All 1157 tests
+     pass as before (3 todo), and no number in a core test changed.
+     **Trying another engine** (Box3D, Jolt, ...): once it has passed the physics bench
+     (`src/physics-bench/`), write `src/core/engine/<name>.ts` implementing `PhysicsEngine`, add it
+     to `ENGINES`, and run `CORE_ENGINE=<name> npm test`; the lab still loads the default.
 3. **The Crypt on the core.** The level's layout, look, light and fog stay as they are. Its
    colliders (the floor, walls, obstacles and doors, Havok boxes in `src/dungeon/world.ts`) become
    fixed boxes in the core's world. The party and the enemies are core humans and skeletons,

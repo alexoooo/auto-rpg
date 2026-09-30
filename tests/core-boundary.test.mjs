@@ -123,3 +123,43 @@ test("the core turns vectors in double precision, never through Babylon's float3
   walk(path.join(ROOT, CORE));
   assert.deepEqual(offenders, [], "a core file turns a vector through a float32 matrix");
 });
+
+/** Packages that are a physics engine: only that engine's module in `src/core/engine/` imports one. */
+const ENGINE_PACKAGES = ["@dimforge/"];
+/** The contract and the list of engines; every other module in `src/core/engine/` is an engine's. */
+const SEAM = new Set(["src/core/engine/engine.ts", "src/core/engine/engines.ts"]);
+const isEngineModule = (file) => file.startsWith("src/core/engine/") && !SEAM.has(file);
+
+/**
+ * The crossings of the engine seam among `files` ([file, source] pairs): an engine package imported
+ * outside its engine's module, and an engine's module imported by anything but the list of engines.
+ */
+function seamCrossings(files) {
+  const out = [];
+  for (const [file, source] of files) {
+    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
+      if (!specifier.startsWith(".")) {
+        if (ENGINE_PACKAGES.some((prefix) => specifier.startsWith(prefix)) && !isEngineModule(file)) out.push(`${file} imports the engine package "${specifier}"`);
+        continue;
+      }
+      const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
+      if (isEngineModule(target) && file !== "src/core/engine/engines.ts" && !isEngineModule(file)) out.push(`${file} imports the engine module ${target}`);
+    }
+  }
+  return out;
+}
+
+test("the core and its lab reach an engine only through the seam: engine.ts's contract and engines.ts's list", () => {
+  const files = [...filesUnder(CORE), ...filesUnder("src/core-lab/")].filter((file) => file.endsWith(".ts"))
+    .map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
+  assert.ok(files.some(([file]) => isEngineModule(file)), "no engine module, so this test would pass on nothing");
+  assert.deepEqual(seamCrossings(files), []);
+  // The control: the lab loading Rapier itself, and the build reaching Rapier's package, are found.
+  assert.deepEqual(seamCrossings([
+    ["src/core-lab/main.ts", `import { loadRapier } from "../core/engine/rapier.ts";`],
+    ["src/core/build/build-body.ts", `import RAPIER from "@dimforge/rapier3d-simd-compat";`],
+  ]), [
+    "src/core-lab/main.ts imports the engine module src/core/engine/rapier.ts",
+    `src/core/build/build-body.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
+  ]);
+});

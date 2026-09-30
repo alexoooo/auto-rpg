@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { CONTACT_FRICTION } from "../engine/engine.ts";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { ServoWork } from "./servo.ts";
@@ -1554,11 +1555,10 @@ function edgeOf(foot: FootState): void {
 }
 
 /**
- * The friction the stance takes the ground to give, the coefficient: Rapier's default collider
- * friction, 0.5, which the ground and the feet keep and which Rapier combines by their average
- * (`src/core/engine/rapier.ts` sets neither).
+ * The friction the stance takes the ground to give, the coefficient: every collider's, which the
+ * engine combines by their average (`CONTACT_FRICTION`, `src/core/engine/engine.ts`).
  */
-const GROUND_FRICTION = 0.5;
+const GROUND_FRICTION = CONTACT_FRICTION;
 
 /**
  * The least-squares `x` of `J x = y`, damped by `LEG_DAMPING`: J' (J J' + d^2 E)^-1 y. A straight

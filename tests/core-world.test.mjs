@@ -12,7 +12,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createWorld } from "../src/core/world.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { startRoutine } from "../src/core-lab/routine.ts";
-import { coreStand, freshRapier } from "./harness/core-stand.mjs";
+import { coreStand, freshEngine } from "./harness/core-stand.mjs";
 
 /** A stand whose world holds the Warrior in the air, falling freely: no ground, no motors. */
 async function airborne(hz = 120) {
@@ -86,7 +86,7 @@ test("elapsed time becomes whole steps, the remainder is carried, and a page tha
 test("rendering the scene advances neither the world nor its bodies", async () => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  const world = createWorld(scene, await freshRapier());
+  const world = createWorld(scene, await freshEngine());
   new FreeCamera("camera", new Vector3(0, 1, -5), scene);
   const { buildBody } = await import("../src/core/build/build-body.ts");
   const built = buildBody(humanSpec("workshop-rogue"), world, { position: [0, 2, 0] });
