@@ -817,6 +817,24 @@ Havok's.
   No way holds less. The other batteries read as before, and the routine battery (24 starts, 5
   loops) completes every loop. The forward diagonals to the side (67.5 and 292.5 degrees) still
   hold 55 on the Warrior, and the Rogue's right side 35: the next place to look.
+- **Found (2026-09-30): why the walk tops out at 0.4-0.5 m/s.** The walk has no double support:
+  each swing starts the tick the last one lands, so its cadence is the swing's, 0.3 s a step
+  (200 steps a minute), and speed comes only from longer steps. The Rogue walking forward at
+  0.7 m/s (Node core stand, Rapier, 120 Hz): at 0.3 m/s every swing lifts its sole's middle
+  3.4 cm of the 5 asked; at 0.7 the steps grow to 28-49 cm and the lift to 1.8, 1.1, then none.
+  The trailing knee starts each swing on its hyperextension stop (-0.23 rad) and does not bend
+  past -0.06: the foot slides 34 cm along the ground, the step lands 25 cm short, and the walk
+  runs away to 1.2 m/s and falls. The leg is loaded: the new foot lands so far ahead that the
+  centre of mass is 14 cm behind its sole's middle, and the one bearing sole the plan counts on
+  misses 140-200 N and up to 237 N m of the wrench it asks for most of the swing (at 0.3 m/s the
+  miss is 12 N at lift and none 0.1 s later). The ground holds the trailing foot down. Neither the
+  swing's time (0.3-0.5 s), a lower stance (5 and 8 cm), the swing unbounded, nor the swing's
+  vertical weighed 3 to 30 times over its other rows gives the lift back. Gating every step on
+  the shift (lift once the capture point is over the bearing sole) lifts 4.1 cm at 0.3 m/s and
+  falls sooner above it: the shift's plan brakes the walk toward the bearing sole. People at
+  0.7 m/s take some 85 steps a minute with a fifth of the cycle on both feet. **What the walk
+  needs is a double support**: both soles bearing while the weight goes from the trailing foot
+  to the leading one, the walk's momentum kept, and a lift once the leading sole can hold the body.
 - **The bound's cost on shoves, re-measured (2026-09-30)** after the settle and the sideways catch
   (the battery to 90 N s): bounded, the Rogue holds 118 of 272 (mean 41.9) and the Warrior 213
   (71.3); clipped alone, 128 (44.7) and 221 (71.9). Traced, the Rogue shoved 55 N s from behind
