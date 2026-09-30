@@ -82,7 +82,7 @@ export function stanceScenario(scene: Scene): LabScenario {
       const player = createPlayer({ world, recording: history }, changed, clock);
       const run = {
         player,
-        recording: () => ({ frames: history.frames, live: history.live(), wraps: false }),
+        recording: () => ({ frames: history.frames, live: history.live() }),
         drive(held: ReadonlySet<string>): void {
           let forward = 0, right = 0, turn = 0;
           for (const code of held) {

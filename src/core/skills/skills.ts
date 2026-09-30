@@ -57,10 +57,10 @@ export function createSkills(body: CoreBody, { repertoire = REPERTOIRE }: SkillO
   return {
     report,
     command(view, intent, dt) {
-      const strike = strikes.command(view, intent.hands, legs.heading, dt);
+      const strike = strikes.command(view, intent.hands, legs.heading, legs.placed, dt);
       if (!strike) strikes.idle(intent.move !== null, dt);
-      const goal = strike
-        ? legs.goal(view, strike.walk, strike.face, dt, intent.lower)
+      const goal = strike?.footing ? legs.place(view, strike.footing, intent.lower)
+        : strike ? legs.goal(view, strike.walk, strike.face, dt, intent.lower)
         : legs.goal(view, intent.move, intent.face, dt, intent.lower);
       if (goal) command.stance = goal;
       command.posture = strike?.posture ?? GUARD;

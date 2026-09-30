@@ -6,7 +6,6 @@
  *
  * Free of the page, so `tests/core-lab-track.test.mjs` can argue with it.
  */
-import { TURN_PACE } from "./routine.ts";
 import { LAB_TURN_RATE } from "./stance-mode.ts";
 
 /** A piece of a track: a straight, or an arc turning at `curvature` (1/m, positive to the right). */
@@ -92,10 +91,17 @@ export function trackOf(pieces: readonly Piece[]): Track {
  * inside the turn each body held walking at its fastest (`CoreBody.envelope`).
  */
 export const CIRCLE_RADIUS = 4;
+/**
+ * The walking pace of a turn on the stance, m/s. Walking at 0.3 m/s and turned half round at 0.25,
+ * 0.5, 1 and 2 rad/s, each human held every one and went the new way (`LAB_TURN_RATE` in
+ * `stance-mode.ts`, Node stand, 120 Hz).
+ */
+export const TURN_PACE = 0.3;
+
 /** The shuttle's straight, m. */
 export const SHUTTLE_METRES = 6;
 /**
- * The shuttle's half-turn's radius, m: the arc the Routine's turns walk, `TURN_PACE` at
+ * The shuttle's half-turn's radius, m: the Run's and the Routine's, `TURN_PACE` at
  * `LAB_TURN_RATE` (0.3 m/s at 1 rad/s).
  */
 export const SHUTTLE_TURN_RADIUS = TURN_PACE / LAB_TURN_RATE;

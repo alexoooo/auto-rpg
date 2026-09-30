@@ -5,6 +5,7 @@ import { heldPoint } from "../core/build/rigid.ts";
 import { impactEnergy } from "../core/rules/impact.ts";
 import type { World } from "../core/world.ts";
 import { STAND } from "../core/skills/strike.ts";
+import type { StandOff } from "../core/skills/strikes.ts";
 import { centreNow, inFrameOf, type ThrownBlow } from "./blow.ts";
 
 /**
@@ -71,8 +72,8 @@ function nearestOn(a: Vector3, b: Vector3, c: Vector3, out: Vector3): Vector3 {
   return out.copyFrom(a).addInPlace(ab.scaleInPlace(t));
 }
 
-/** Watch `blow`, a club blow by `built` with the club in `hand`, into a head `distance` ahead. */
-export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, distance: number, hand: "left" | "right"): ClubBlowWatch {
+/** Watch `blow`, a club blow by `built` with the club in `hand`, into a head `distance` ahead, stood `off` that. */
+export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, distance: number, hand: "left" | "right", off?: StandOff): ClubBlowWatch {
   const headSpec = built.spec.segments.find((s) => s.name === "head")!;
   if (headSpec.shape.kind !== "capsule") throw new Error(`the head is a ${headSpec.shape.kind}, not a capsule`);
   const R = headSpec.shape.radius.value;
@@ -104,7 +105,7 @@ export function watchClubBlow(built: BuiltBody, world: World, blow: ThrownBlow, 
       // The body as it stands when the blow begins: the target's pose, and where it is.
       struck.update();
       headCentre = centreNow(head);
-      target = headCentre.add(new Vector3(0, 0, distance));
+      target = headCentre.add(new Vector3(off?.across ?? 0, 0, distance + (off?.along ?? 0)));
     }
     if (blow.fallen) { fell = true; return; }
     read(now);

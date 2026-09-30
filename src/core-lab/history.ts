@@ -2,9 +2,8 @@ import type { BuiltBody } from "../core/build/build-body.ts";
 import type { World } from "../core/world.ts";
 
 /**
- * **The lab's history**: the last few seconds of a body that is not on a loop, recorded a physics
- * sub-step at a time, so a paused page can show any moment of them again. Beside the routine's
- * timeline (`timeline.ts`), which records one loop; this one rolls. It records the segments'
+ * **The lab's history**: the last few seconds of a body, recorded a physics sub-step at a time, so
+ * a paused page can show any moment of them again. It rolls, and records the segments'
  * transforms and whatever `read` returns after each step; showing a frame writes those transforms
  * onto the segments' nodes and nothing else.
  *

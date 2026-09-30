@@ -113,7 +113,7 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
       head.scaling.setAll(2 * (watch?.radius ?? 0));
       return {
         player,
-        recording: () => ({ frames: history.frames, live: history.live(), wraps: false }),
+        recording: () => ({ frames: history.frames, live: history.live() }),
         drive: () => {},
         readout(frame: number | null): number | null {
           const moment = history.at(frame ?? history.live());

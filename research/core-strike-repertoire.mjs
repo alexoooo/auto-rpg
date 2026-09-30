@@ -8,7 +8,8 @@
  *
  * `held` is what the hand holds: `fist`, or an item's name (`wooden club`). Each file's model and
  * hand are its own; a recipe is the right hand's, the left's mirrored from it by the skill. Without
- * `--write` it prints the asset.
+ * `--write` it prints the asset. It writes no recipe's window: `research/core-strike-window.mjs
+ * --write` measures them, and is run after it.
  *
  * The repertoire of 2026-09-30 (the searches' outputs are kept outside the repository, in the
  * owner's `.review/rapier/`; each entry's `found` says how it was searched):

@@ -35,8 +35,9 @@ will not use.
      turned toward the intent's no faster than the body's envelope turns at its pace
      (`turnAt`), not at all for `TURN_LEAD` after it sets off, and the pace capped at the
      envelope's walk.
-   - **Strike:** chooses the recipe from what the hand holds; walks the body to the recipe's range
-     of the target; stands `STAND` seconds; throws the chamber and the pushes. While it works it
+   - **Strike:** chooses the recipe from what the hand holds; walks the body toward where its feet
+     must stand for the target to be in the recipe's window, and sets them there
+     (`Locomotion.place`); stands `STAND` seconds; throws the chamber and the pushes. While it works it
      owns the legs and the trunk; the other hand guards.
    - **Guard:** the arms' posture when nothing owns them.
 3. **Motor control** (unchanged): the stance solves the legs through the whole body's dynamics,
@@ -80,6 +81,39 @@ Each step lands on its own, with the gates green.
    converge with the rate, `blow.ts`). Acceptance: measured, not matched: each strike's fist
    speed at 120 and 480 Hz against the recipe's own reading, how far from the recipe's range the
    body stood, and whether the loop holds its feet over ten loops of each human.
+   *Landed 2026-09-30.* The Routine is `routineMind`: the Run's track mind out and back, and at the
+   post an attack with each hand in turn, which the strike skill carries out. Measured with
+   `research/core-routine-battery.mjs` (Node core stand, Rapier; 6 starts pushed 3 N s, 10 loops
+   each): each human held all 60 loops at 120 and at 480 Hz, and every strike stood inside its
+   window. Peak fist speed, mean (least), m/s, right and left:
+
+   | | 120 Hz | 480 Hz | recipe's searched peak, 120 / 480 |
+   |---|---|---|---|
+   | Warrior | 10.10 (9.81), 10.47 (10.40) | 11.50 (10.81), 11.52 (10.96) | 9.28 / 10.84 |
+   | Rogue | 11.29 (10.75), 11.09 (10.33) | 11.87 (11.26), 12.09 (11.63) | 7.95 / 8.64 |
+
+   The Routine reads its peak in the air, to the pushes' end; the search's is to the landing, so
+   the columns are not like for like. Where the head stood from each recipe's place, cm: the
+   Warrior -1 to 7 along, and for its right straight 0 to 8 to the left of it; the Rogue -8 to -5
+   along, and 3 to 4 to the right; the left hand's mirrored. Found on the way:
+   - **A recipe lands over a window, not at a point** (`Recipe.window`,
+     `research/core-strike-window.mjs`: where it still lands at 95 % of its reading at 120 and
+     480 Hz). The Warrior's straight: -2 to 8 cm along, 14 cm to 0 across, to its left; the Rogue's
+     -8 to 2 and -2 to 8; the club blow -2 to 8 and -4 to 0. The Warrior's straight misses a target
+     4 cm nearer, the fist starting inside it. The club blow lands harder 6-8 cm further out than
+     its place (131.7 J against 119.45 at 120 Hz): the damage unit was not thrown from its best
+     distance.
+   - **A walk does not stand a body where it stops.** Stopped, the stance steps a foot out from
+     the gait's 20 cm to the 39 cm it was built at, which moves the body 10 cm sideways, and the
+     body walked round and round the post trying to stand in range. The skill now chooses where the
+     feet stand for the target to be mid-window, and sets them there (`Locomotion.place`).
+   - **The envelope does not cover setting off into a turn.** Its turns were measured on a walk
+     under way; a second after setting off from standing the walk is not (0.1 m/s). At the Rogue's
+     fastest walk it fell in every run's second loop setting off from the post into the half-turn,
+     and at 0.3 m/s and the envelope's 4 rad/s the Warrior pivoted half round where it stood and
+     ran away sideways, 1 run in 6 at each rate. The Routine walks and turns at 0.3 m/s and 1 rad/s
+     (`ROUTINE_GAIT`). Standing still after each strike before setting off changed nothing (60 of
+     60 loops each way at both rates). A turn from standing is for the envelope to measure.
 4. **The Stance scenario through the player's intent.** Acceptance: the lab test's walks and
    shoves read as before.
 5. **Option B**, planned when 1-4 are in: speed goals for a hand, then the strike search in their

@@ -115,9 +115,10 @@ export function perturbed(strike, { shift = 0, scale = 1 }) {
 /**
  * Run a strike on `model` at `hz`: the one `unit` stands for, or a given `strike` at `distance`.
  * Returns the forward speed at the target (0 if the fist never arrives), when it arrived after the
- * chamber, and the fist's peak speed before it.
+ * chamber, and the fist's peak speed before it. `off` moves the sphere from the place the blow is
+ * thrown at, m: `along`, farther ahead, and `across`, to the right (+x), as a body stands off it.
  */
-export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", guard = false, perturbation, groundSize, ...given }) {
+export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", guard = false, perturbation, groundSize, off, ...given }) {
   const spec = humanSpec(model);
   const decoded = unit ? decode(unit, spec, hand, guard) : given;
   const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
@@ -135,7 +136,7 @@ export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 12
   try {
     for (let i = 0; i < stand.seconds(STAND + chamber.seconds + WINDOW); i++) {
       stand.step(1);
-      if (!target && blow.time >= STAND) target = centreNow(head).addInPlaceFromFloats(0, 0, distance);
+      if (!target && blow.time >= STAND) target = centreNow(head).addInPlaceFromFloats(off?.across ?? 0, 0, distance + (off?.along ?? 0));
       if (blow.fallen) { fell = true; break; }
       const live = blow.time >= blow.pushing;
       if (live && watching) {

@@ -1,15 +1,20 @@
 /**
  * The lab routine (`src/core-lab/routine.ts`) run from seeded starts, per stance tuning: each run
  * pushes the middle trunk at 0.5 s by `--impulse` N s (default 3) in a direction the seed picks (the
- * golden angle times the seed), then runs up to `--loops` loops (default 5) or a fall (the lower
- * trunk under 0.5 m). Each run on a worker of its own stand (Node core stand, Rapier). Prints, per
- * tuning and human, the loops completed of those possible, the runs that stood through, and where
- * the falls came (the routine's step index and kind).
+ * golden angle times the seed), then runs up to `--loops` loops (default 5), a fall (the lower
+ * trunk under 0.5 m) or `LOOP_SECONDS` a loop. Each run on a worker of its own stand (Node core
+ * stand, Rapier). Prints, per tuning and human, the loops completed of those possible, the runs
+ * that stood through, where the falls came (what the routine was doing), and each strike's peak
+ * fist speed (mean and least, m/s) and where the head stood from its recipe's place (least and
+ * most, cm, each way).
  *
- *   node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]' [--seeds 12] [--loops 5] [--hz 120] [--workers 14] [--list]
+ *   node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]' [--seeds 12] [--loops 5] [--hz 120] [--impulse 3] [--workers 14] [--list]
  *
  * `--list` prints each run's seed, loops and fall too.
  */
+
+/** Seconds a loop may take before the run is called stuck: a loop is about 28 s. */
+const LOOP_SECONDS = 60;
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
@@ -46,36 +51,47 @@ if (isMainThread) {
   variants.forEach((stance, v) => {
     for (const model of models) {
       const mine = jobs.filter((job) => job.v === v && job.model === model), runs = mine.map((job) => job.result);
-      if (values.list) console.log(mine.map((job) => `  seed ${job.seed}: ${job.result.loops}${job.result.fell ? ` fell ${job.result.fell}` : ""}`).join("\n"));
+      if (values.list) console.log(mine.map((job) => `  seed ${job.seed}: ${job.result.loops}${job.result.fell ? ` fell ${job.result.fell}` : ""}${job.result.stuck ? " stuck" : ""}`).join("\n"));
       const falls = new Map();
       for (const run of runs) if (run.fell) falls.set(run.fell, (falls.get(run.fell) ?? 0) + 1);
       console.log(`${JSON.stringify(stance)} ${model}: ${runs.reduce((sum, run) => sum + run.loops, 0)} of ${runs.length * loops} loops, `
-        + `${runs.filter((run) => !run.fell).length} of ${runs.length} stood through; falls ${[...falls].map(([at, n]) => `${at} ${n}`).join(", ") || "none"}`);
+        + `${runs.filter((run) => !run.fell).length} of ${runs.length} stood through; falls ${[...falls].map(([at, n]) => `${at} ${n}`).join(", ") || "none"}`
+        + `; stuck ${runs.filter((run) => run.stuck).length}`);
+      const strikes = Map.groupBy(runs.flatMap((run) => run.strikes), (s) => s.name);
+      for (const [name, all] of strikes) {
+        const peaks = all.map((s) => s.peak);
+        const range = (way) => `${(100 * Math.min(...all.map((s) => s.off[way]))).toFixed(1)} to ${(100 * Math.max(...all.map((s) => s.off[way]))).toFixed(1)}`;
+        console.log(`    ${name}: ${all.length} thrown, peak ${(peaks.reduce((a, b) => a + b, 0) / peaks.length).toFixed(2)} mean, `
+          + `${Math.min(...peaks).toFixed(2)} least; off ${range("along")} along, ${range("across")} across`);
+      }
     }
   });
 } else {
-  const [{ Logger }, { Vector3 }, { humanSpec }, { startRoutine, ROUTINE }, { coreStand }] = await Promise.all([
+  const [{ Logger }, { Vector3 }, { humanSpec }, { startRoutine }, { coreStand }] = await Promise.all([
     import("@babylonjs/core/Misc/logger.js"), import("@babylonjs/core/Maths/math.vector.js"), import("../src/core/human/spec.ts"),
     import("../src/core-lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
   Logger.LogLevels = Logger.ErrorLogLevel;
   parentPort.on("message", async ({ model, seed, stance, loops, impulse, hz }) => {
     try {
       const stand = await coreStand(humanSpec(model), { ground: true, hz });
-      const routine = startRoutine(stand.built, stand.world, ROUTINE, stance);
+      const routine = startRoutine(stand.built, stand.world, stance);
       const lower = stand.built.segments.get("lowerTrunk"), middle = stand.built.segments.get("middleTrunk");
-      const way = (seed * 2.399963) % (2 * Math.PI), push = stand.seconds(0.5);
-      let loop = 0, last = 0, fell = null;
-      for (let t = 0; loop < loops; t++) {
+      const way = (seed * 2.399963) % (2 * Math.PI), push = stand.seconds(0.5), most = stand.seconds(LOOP_SECONDS * loops);
+      let fell = null, doing = routine.doing();
+      for (let t = 0; routine.mind.loops < loops && t < most; t++) {
         if (t === push) middle.body.applyImpulse(new Vector3(impulse * Math.sin(way), 0, impulse * Math.cos(way)), middle.node.position);
         stand.step(1);
-        const s = routine.state();
-        if (s.stepIndex < last) loop++;
-        last = s.stepIndex;
-        if (lower.node.position.y < 0.5) { fell = `${s.stepIndex}:${s.step.kind}`; break; }
+        // What it was doing as it began to fall.
+        if (!routine.report.fallen) doing = routine.doing();
+        if (lower.node.position.y < 0.5) { fell = `${doing} at ${routine.time().toFixed(1)} s`; break; }
       }
+      const result = {
+        loops: routine.mind.loops, fell, stuck: !fell && routine.mind.loops < loops,
+        strikes: routine.strikes.map((s) => ({ name: s.name, peak: s.peak, off: { ...s.off } })),
+      };
       routine.dispose();
       stand.dispose();
-      parentPort.postMessage({ result: { loops: loop, fell } });
+      parentPort.postMessage({ result });
     } catch (error) { parentPort.postMessage({ error: String(error?.stack ?? error) }); }
   });
 }

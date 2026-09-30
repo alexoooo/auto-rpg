@@ -32,6 +32,23 @@ export interface Strike {
   readonly pushes: readonly StrikePush[];
 }
 
+/** Where a target stands from a recipe's place, m: `along` the heading, farther ahead, and `across` it, to the right. */
+export interface StandOff {
+  readonly along: number;
+  readonly across: number;
+}
+
+/**
+ * **Where a recipe lands**: each way, the stand-offs (m) from its place at which it was measured to
+ * land at nearly its full reading (`research/core-strike-window.mjs`, whose rule and harness
+ * `assets/core/strikes.json` names). A strike does not land evenly about its place: the Warrior's
+ * straight lands to the left of it.
+ */
+export interface StrikeWindow {
+  readonly along: readonly [number, number];
+  readonly across: readonly [number, number];
+}
+
 /** A searched strike and where it lands: the target's centre `distance` m straight ahead of the striker's head. */
 export interface Recipe {
   /** The body it was searched on. */
@@ -43,6 +60,8 @@ export interface Recipe {
   readonly distance: number;
   /** How it was searched. */
   readonly found: string;
+  /** Where about its place it lands. */
+  readonly window: StrikeWindow;
 }
 
 export type Repertoire = readonly Recipe[];
@@ -58,10 +77,11 @@ export function heldIn(spec: BodySpec, hand: Hand): string {
   return spec.held?.find((h) => h.segment === `hand.${hand}`)?.item.name ?? FIST;
 }
 
-/** A strike chosen for a hand: the recipe, the strike for that hand, and whether the recipe was searched on another body. */
+/** A strike chosen for a hand: the recipe, the strike and its window for that hand, and whether the recipe was searched on another body. */
 export interface Chosen {
   readonly recipe: Recipe;
   readonly strike: Strike;
+  readonly window: StrikeWindow;
   readonly borrowed: boolean;
 }
 
@@ -75,8 +95,15 @@ export function recipeFor(repertoire: Repertoire, spec: BodySpec, hand: Hand): C
   const fitting = repertoire.filter((r) => r.held === held);
   const recipe = fitting.find((r) => r.model === spec.model) ?? fitting[0];
   if (!recipe) return null;
-  return { recipe, strike: hand === recipe.strike.hand ? recipe.strike : mirrored(recipe.strike), borrowed: recipe.model !== spec.model };
+  const own = hand === recipe.strike.hand;
+  return {
+    recipe, strike: own ? recipe.strike : mirrored(recipe.strike), window: own ? recipe.window : mirroredWindow(recipe.window),
+    borrowed: recipe.model !== spec.model,
+  };
 }
+
+/** A recipe's window for the other hand: the same along the heading, turned over across it. */
+export const mirroredWindow = (window: StrikeWindow): StrikeWindow => ({ along: window.along, across: [-window.across[1], -window.across[0]] });
 
 /** The trunk's freedoms whose positive way is to one side: mirrored, their sense and angle turn over. */
 const SIDED = [" rotation right", " lateral flexion right"];

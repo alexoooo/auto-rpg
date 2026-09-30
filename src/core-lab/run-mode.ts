@@ -2,9 +2,9 @@ import { createBody, SERVO_SECONDS, type CoreBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { paceRound, type StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { wrap } from "../core/skills/locomotion.ts";
 import { driveBy, type Mind } from "../core/mind/mind.ts";
 import type { World } from "../core/world.ts";
-import { STEER } from "./routine.ts";
 import type { Track } from "./track.ts";
 
 /**
@@ -13,10 +13,10 @@ import type { Track } from "./track.ts";
  * gait: this is the stance's walk at its fastest.
  *
  * Each control step the mind finds itself on the track (`Track.nearest`, from where it last was),
- * faces the track's point `STEER.metres` ahead of that, and walks forward. The locomotion skill
+ * faces the track's point `AIM_AHEAD` ahead of that, and walks forward. The locomotion skill
  * (`src/core/skills/locomotion.ts`) turns the heading toward it no faster than the body turns at
  * the pace it walks, and not for its first `TURN_LEAD`. Its pace is the body's fastest walk, but no
- * faster than its turn carries it round the tightest bend within `STEER.metres` either way. Both
+ * faster than its turn carries it round the tightest bend within `AIM_AHEAD` either way. Both
  * are the body's own (`CoreBody.envelope`, what the stance was measured to hold with it, its turn
  * at each speed of walk, `turnAt` and `paceRound`): on Rapier the Warrior walks 0.7 m/s and the Rogue 0.5; the
  * Warrior turns 4 rad/s to 0.4 m/s and 2 at 0.5 and 0.7, the Rogue 4 to 0.4 and 2 at 0.5; the
@@ -63,6 +63,15 @@ export interface RunSession {
   dispose(): void;
 }
 
+/**
+ * **How far along a track a walker faces**, m: the point its heading turns toward. The lab's first
+ * Routine walked on the path's heading alone and each loop ended some 0.4 m further from where it
+ * began, each human; facing this far ahead, it came back (Node stand, 120 Hz). Asked instead for
+ * the velocity toward where the path would be a second on, sideways and faster to catch up, it fell
+ * in three runs of four.
+ */
+export const AIM_AHEAD = 1;
+
 /** The tightest radius of `track` within `metres` of `s` either way, m (Infinity on a straight). */
 function tightest(track: Track, s: number, metres: number): number {
   let most = 0;
@@ -71,20 +80,22 @@ function tightest(track: Track, s: number, metres: number): number {
 }
 
 /**
- * **The Run's mind**: round `track` as fast as the body's walk and turns take it.
+ * **The Run's mind**: round `track` as fast as the body's walk and turns take it; given a `gait`,
+ * walking no faster than its `pace` (m/s) and turning no faster than its `turn` (rad/s: it asks to
+ * face no further round than that from the heading it has).
  */
 export interface TrackMind extends Mind {
   frame(time: number): Omit<RunFrame, "speed" | "off" | "time" | "heading" | "fallen">;
 }
 
-export function trackMind(track: Track, envelope: StanceEnvelope): TrackMind {
-  const fastest = envelope.walk.value;
+export function trackMind(track: Track, envelope: StanceEnvelope, gait?: { readonly pace: number; readonly turn: number }): TrackMind {
+  const fastest = Math.min(envelope.walk.value, gait?.pace ?? Infinity), turn = gait?.turn ?? Infinity;
   let along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
   let pace = 0, bending = false, aim: [number, number] = [0, 0], face = 0, setOff: number | null = null;
   const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
   return {
     name: "track",
-    decide({ view }): Intent {
+    decide({ view, report }, dt): Intent {
       const c = view.stance.centre;
       if (view.time > 0) {
         setOff ??= view.time;
@@ -100,10 +111,11 @@ export function trackMind(track: Track, envelope: StanceEnvelope): TrackMind {
           lastLap = view.time - lapFrom;
           lapFrom = view.time;
         }
-        const to = track.at(along + STEER.metres);
+        const to = track.at(along + AIM_AHEAD);
         aim = [to.x, to.z];
         face = Math.atan2(to.x - c.x, to.z - c.z);
-        const bend = paceRound(envelope, tightest(track, along, STEER.metres));
+        if (gait) face = report.heading + Math.max(-turn * dt, Math.min(turn * dt, wrap(face - report.heading)));
+        const radius = tightest(track, along, AIM_AHEAD), bend = Math.min(paceRound(envelope, radius), turn * radius);
         bending = bend < fastest;
         pace = Math.min(fastest, bend);
       }

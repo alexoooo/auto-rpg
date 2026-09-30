@@ -86,7 +86,7 @@ export interface Fist {
 }
 
 /**
- * The servo's time constant, s. At 0.1 s, on the lab's Routine (`src/core-lab/routine.ts`), over the second half of each settle and
+ * The servo's time constant, s. At 0.1 s, on the lab's scripted Routine (`src/core-lab/routine.ts` at d29d8231), over the second half of each settle and
  * the freedoms the legs leave to the posture: no speed reversed by more than 0.010 rad/s from one
  * step to the next on the Rogue at 120 Hz, 0.008 at 480 Hz, and 0.026 and 0.046 on the Warrior,
  * the worst at a wrist's radial deviation or the lumbar spine; and the guard was held within 0.026

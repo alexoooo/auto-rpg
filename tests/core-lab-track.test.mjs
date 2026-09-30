@@ -5,8 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACK_IDS, TRACKS, trackOf } from "../src/core-lab/track.ts";
-import { TURN_PACE } from "../src/core-lab/routine.ts";
+import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACK_IDS, TRACKS, trackOf, TURN_PACE } from "../src/core-lab/track.ts";
 import { LAB_TURN_RATE } from "../src/core-lab/stance-mode.ts";
 
 const near = (a, b, within, what) => assert.ok(Math.abs(a - b) <= within, `${what}: ${a} against ${b}`);

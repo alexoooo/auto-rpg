@@ -30,7 +30,7 @@ const HISTORY_SECONDS = 10;
 const LANE = 0.08;
 
 /** A flat strip along `track` on the ground, for the eye; it collides with nothing. */
-function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
+export function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
   const left: Vector3[] = [], right: Vector3[] = [];
   const pieces = Math.ceil(track.length / 0.05);
   for (let i = 0; i <= pieces; i++) {
@@ -95,7 +95,7 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
       const player = createPlayer({ world, recording: history }, changed, clock);
       return {
         player,
-        recording: () => ({ frames: history.frames, live: history.live(), wraps: false }),
+        recording: () => ({ frames: history.frames, live: history.live() }),
         drive: () => {},
         readout(frame: number | null): number | null {
           const moment = history.at(frame ?? history.live());

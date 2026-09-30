@@ -286,11 +286,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-nudge]")) {
     button.addEventListener("click", () => {
       if (current) {
-        // The routine's loop wraps: back from its first step is its last. The history stops at its
-        // start; on from its end is a step of the world.
+        // The history stops at its start; on from its end is a step of the world.
         const { player } = current.run, r = current.run.recording();
-        const to = (player.shownFrame() ?? r.live) + Number(button.dataset.nudge);
-        player.seek(r.wraps ? (to + r.frames) % r.frames : Math.max(0, to));
+        player.seek(Math.max(0, (player.shownFrame() ?? r.live) + Number(button.dataset.nudge)));
       }
       button.blur();
     });

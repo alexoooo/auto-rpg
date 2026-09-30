@@ -131,6 +131,16 @@
           "at": 0.3287,
           "peak": 10.57
         }
+      },
+      "window": {
+        "along": [
+          -0.02,
+          0.08
+        ],
+        "across": [
+          -0.14,
+          0
+        ]
       }
     },
     {
@@ -269,6 +279,16 @@
           "at": 0.315,
           "peak": 8.85
         }
+      },
+      "window": {
+        "along": [
+          -0.08,
+          0.02
+        ],
+        "across": [
+          -0.02,
+          0.08
+        ]
       }
     },
     {
@@ -488,7 +508,18 @@
             0.683
           ]
         }
+      },
+      "window": {
+        "along": [
+          -0.02,
+          0.08
+        ],
+        "across": [
+          -0.04,
+          0
+        ]
       }
     }
-  ]
+  ],
+  "windows": "research/core-strike-window.mjs --hz 120,480 --step 0.02 --most 0.16 --keep 0.95: each recipe's window, where it landed at 0.95 of its reading at its place or better at every rate (Node core stand, Rapier, standing on its feet as built, ground on; each recipe thrown from standing in the guard)"
 }

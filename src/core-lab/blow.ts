@@ -5,7 +5,7 @@ import type { Hand } from "../core/control/motor.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import { driveBy, type Mind } from "../core/mind/mind.ts";
 import { STAND } from "../core/skills/strike.ts";
-import { heldIn, type Strike } from "../core/skills/strikes.ts";
+import { heldIn, type Strike, type StrikeWindow } from "../core/skills/strikes.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import type { World } from "../core/world.ts";
 
@@ -58,13 +58,19 @@ export interface ThrownBlow {
 }
 
 /**
+ * An experiment's window: its target is read from the head until the blow begins, so it stands at
+ * the recipe's place but for rounding, which a centimetre each way holds.
+ */
+const AT_ITS_PLACE: StrikeWindow = { along: [-0.01, 0.01], across: [-0.01, 0.01] };
+
+/**
  * Throw `strike` with `built`, a human in its reference pose at the origin facing +z, in `world`,
  * at a target `distance` straight ahead of its head. `time` counts the control steps taken, s; the
  * chamber begins at `STAND` and the pushes at `pushing`.
  */
 export function throwBlow(built: BuiltBody, world: World, strike: Strike, distance: number): ThrownBlow {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
-  const recipe = { model: built.spec.model, held: heldIn(built.spec, strike.hand), strike, distance, found: "an experiment's" };
+  const recipe = { model: built.spec.model, held: heldIn(built.spec, strike.hand), strike, distance, found: "an experiment's", window: AT_ITS_PLACE };
   const mind = attackOnce(strike.hand, (head) => [head.x, head.y, head.z + distance]);
   const skills = driveBy(body, mind, { repertoire: [recipe] });
   return {

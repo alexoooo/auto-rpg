@@ -1,286 +1,246 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS, type BodyCommand, type CoreBody, type Fist } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type CoreBody, type Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
-import type { MusclePush, Pose } from "../core/control/motor.ts";
-import type { StanceTuning, SwingGoal } from "../core/control/stance.ts";
+import type { Hand } from "../core/control/motor.ts";
+import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
+import type { StanceTuning } from "../core/control/stance.ts";
+import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { driveBy, type Mind, type Sight } from "../core/mind/mind.ts";
+import type { SkillReport } from "../core/skills/skills.ts";
+import { APPROACH } from "../core/skills/strike.ts";
 import type { World } from "../core/world.ts";
-import { GUARD } from "../core/skills/guard.ts";
-import { stanceLegs, TURN_LEAD } from "../core/skills/locomotion.ts";
+import { trackMind } from "./run-mode.ts";
+import { LAB_TURN_RATE } from "./stance-mode.ts";
+import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from "./track.ts";
 
 /**
- * **The core lab's routine**: a human walks forward, strikes three times, turns, walks back to
- * where it started and turns again, on a loop. It is an instrument for watching stage 2's muscles,
- * not a mind:
+ * **The core lab's routine**: a human walks out, strikes at a post three times, turns, walks back
+ * to where it started and turns again, on a loop. It is driven by a mind (`routineMind`), as any
+ * core body is: the mind asks for a walk and a facing and gives each hand an action, and the
+ * skills (`src/core/skills/skills.ts`) carry them out.
  *
- * - **The legs are the stance's** (`stanceLegs`, `src/core/skills/locomotion.ts`): the body
- *   stands and walks on its own feet, and strikes standing. The stance turns only while it walks, so a turn is walked, on an arc, at
- *   `TURN_PACE`, and a walk steers its heading onto the path's line as a walker would (`STEER`),
- *   so the loop comes back to its start.
- * - **Its arms' commands are hand-set joint poses and pushes**, given to the body
- *   (`src/core/body.ts`) each step as a posture for the servo to hold around the pushes. A mind
- *   would give hand goals.
+ * - **The walk is the Run's** (`trackMind`, `run-mode.ts`): round a shuttle of `ROUTINE_METRES`
+ *   straights, at the pace and turn of `ROUTINE_GAIT`.
+ * - **The strikes are the strike skill's** (`src/core/skills/strike.ts`): the mind attacks the post
+ *   with each hand of `ROUTINE_HANDS` in turn, and the skill throws the searched recipe for what
+ *   that hand holds (`assets/core/strikes.json`), the left's mirrored from the right's. It brings
+ *   the body to the recipe's place, sets its feet there and stands it still `STAND` s before each.
  *
  * Every torque comes from the muscle driver (`src/core/muscle/driver.ts`), so the strikes are as
- * fast as the muscles make them: that is what the page is for. The strikes are hand-set onsets
- * until the strike search chooses them.
+ * fast as the muscles make them: that is what the page is for.
  */
 
+export type { Fist };
 
-export type { Fist, Pose };
+/** The Routine's straights, m: its first version's walk out. */
+export const ROUTINE_METRES = 2;
 
-/**
- * One freedom pushed toward a speed no joint reaches: which way (+1 or -1), from when to when after
- * the chamber, s, and at what activation (1, flat out, when not given).
- */
-export interface Push {
-  readonly channel: string;
-  readonly sense: 1 | -1;
-  readonly from: number;
-  readonly to: number;
-  readonly level?: number;
-}
-
-export interface Strike {
-  readonly name: string;
-  readonly hand: "left" | "right";
-  /** A pose held first, for `seconds`, before the pushes begin; the guard when not given. */
-  readonly chamber?: { readonly seconds: number; readonly pose: Pose };
-  readonly pushes: readonly Push[];
-}
-
-/** A straight from `hand`: the trunk turns away from it, the shoulder drives forward, the elbow opens. */
-export function straight(hand: "left" | "right"): Strike {
-  const turn = hand === "right" ? -1 : 1;
-  return {
-    name: `${hand} straight`, hand,
-    pushes: [
-      { channel: "lumbar rotation right", sense: turn, from: 0, to: 0.2 },
-      { channel: "thoracic rotation right", sense: turn, from: 0, to: 0.2 },
-      { channel: `shoulder.${hand} flexion`, sense: 1, from: 0.03, to: 0.18 },
-      { channel: `elbow.${hand} flexion`, sense: -1, from: 0.06, to: 0.16 },
-    ],
-  };
-}
-
-/** A step of the routine, `seconds` long. */
-export type Step =
-  | { readonly kind: "settle"; readonly seconds: number }
-  | { readonly kind: "walk"; readonly seconds: number; readonly metres: number }
-  | { readonly kind: "turn"; readonly seconds: number; readonly radians: number }
-  /**
-   * On the stance, a step into a stance to strike from: the right foot to `width` across the
-   * heading from the left and `behind` it, m.
-   */
-  | { readonly kind: "set"; readonly seconds: number; readonly width: number; readonly behind: number }
-  | { readonly kind: "strike"; readonly seconds: number; readonly strike: Strike };
-
-/**
- * The walking pace of a turn on the stance, m/s. Walking at 0.3 m/s and turned half round at 0.25,
- * 0.5, 1 and 2 rad/s, each human held every one and went the new way (`LAB_TURN_RATE` in
- * `stance-mode.ts`, Node stand, 120 Hz).
- */
-export const TURN_PACE = 0.3;
-
-export const ROUTINE: readonly Step[] = [
-  { kind: "settle", seconds: 1 },
-  { kind: "walk", seconds: 5, metres: 2 },
-  { kind: "settle", seconds: 1.5 },
-  { kind: "set", seconds: 1.5, width: 0.3, behind: 0.15 },
-  { kind: "strike", seconds: 0.8, strike: straight("right") },
-  { kind: "strike", seconds: 0.8, strike: straight("left") },
-  { kind: "strike", seconds: 0.8, strike: straight("right") },
-  { kind: "settle", seconds: 1.5 },
-  { kind: "turn", seconds: TURN_LEAD + Math.PI, radians: Math.PI },
-  { kind: "walk", seconds: 5, metres: 2 },
-  { kind: "turn", seconds: TURN_LEAD + Math.PI, radians: Math.PI },
+/** The Routine's path: out, a half-turn to the right, back, and a half-turn to its start. */
+export const ROUTINE_TRACK: readonly Piece[] = [
+  { kind: "straight", metres: ROUTINE_METRES },
+  { kind: "arc", metres: Math.PI * SHUTTLE_TURN_RADIUS, curvature: 1 / SHUTTLE_TURN_RADIUS },
+  { kind: "straight", metres: ROUTINE_METRES },
+  { kind: "arc", metres: Math.PI * SHUTTLE_TURN_RADIUS, curvature: 1 / SHUTTLE_TURN_RADIUS },
 ];
 
 /**
- * **How a walk on the stance steers**: at its pace, straight ahead, its heading turned toward the
- * point of the path's line `metres` further on than the body is, no more than `most` off the
- * line (rad) and at no more than `rate` (rad/s, inside the turn rates the stance held walking,
- * `LAB_TURN_RATE`). Walked on the path's heading alone, the stance does not end a turn where the
- * path does, and each loop of `ROUTINE` ended some 0.4 m further from where it began, each human
- * (Node stand, 120 Hz). Asked instead for the velocity toward where the path would be a second on,
- * sideways and faster to catch up, it fell in three runs of four.
+ * The post, m beyond the end of the walk out, at the head's standing height: where the fists'
+ * recipes (0.40 and 0.48 m ahead of the head) stand the body at about the straight's end. A point
+ * to aim at, drawn and not solid: the strikes are read in the air.
  */
-export const STEER = { metres: 1, most: 0.35, rate: 0.5 } as const;
+export const POST_BEYOND = 0.45;
 
-/** A set step's swing: its time and lift, s and m, as the stance's steps were measured (`tests/core-stance.test.mjs`). */
-const SET_SWING = { seconds: 0.45, lift: 0.05 } as const;
+/**
+ * **How the Routine walks and turns**: at `TURN_PACE` (m/s) and `LAB_TURN_RATE` (rad/s), the pair
+ * whose ratio is its half-turns' radius (`SHUTTLE_TURN_RADIUS`). The Run takes the same half-turns
+ * at the body's fastest walk and turn, but it comes to them walking. The Routine sets off into its
+ * turn from standing at the post, and there the fastest turn fell: the envelope's turns were
+ * measured on a walk under way, and one second after setting off (`TURN_LEAD`) the walk is not
+ * (0.1 m/s). At the Rogue's fastest walk, 0.5 m/s, and 2 rad/s, it fell in the second loop of
+ * every run; at 0.3 m/s and the envelope's 4 rad/s there, the Warrior pivoted half round nearly
+ * where it stood and ran away sideways after it, in 1 run of 6 at 120 Hz and 1 of 6 at 480, 10
+ * loops each, pushed 3 N s at the start (`research/core-routine-battery.mjs`, Node stand). At this
+ * gait each human held all 60 loops of that battery at 120 and 480 Hz. Standing still after each
+ * strike before walking on was tried too, and changed nothing: the turn was the cause.
+ */
+export const ROUTINE_GAIT = { pace: TURN_PACE, turn: LAB_TURN_RATE } as const;
 
-/** Where the routine is. */
-export interface RoutineState {
-  /** Seconds since the routine began. */
-  readonly time: number;
-  readonly step: Step;
-  readonly stepIndex: number;
-  /** Seconds into the step. */
-  readonly into: number;
+/** The hands that strike at the post, in turn. */
+export const ROUTINE_HANDS: readonly Hand[] = ["right", "left", "right"];
+
+/** Where the routine's mind is: walking out, at the post, or walking back. */
+export type Leg = "out" | "post" | "back";
+
+export interface RoutineMind extends Mind {
+  readonly leg: Leg;
+  /** Loops done: back at the start. */
+  readonly loops: number;
+  /** The post (world), once the mind has seen its head's height; null before. */
+  readonly post: readonly [number, number, number] | null;
+}
+
+/**
+ * **The Routine's mind**: round `track` as the Run goes (`trackMind`), and at the post, each hand
+ * of `hands` that has a blow attacks it in turn. It hands its walk to the attack once the post is
+ * within the hand's reach (`StrikeReport.reach`) and the distance the strike skill closes at its
+ * own fastest (`APPROACH`'s pace over its seconds), and takes it back when the last blow is thrown.
+ */
+export function routineMind(track: Track, envelope: StanceEnvelope, hands: readonly Hand[] = ROUTINE_HANDS): RoutineMind {
+  const walk = trackMind(track, envelope, ROUTINE_GAIT);
+  let leg: Leg = "out", loops = 0, next = 0, counted = 0;
+  let post: [number, number, number] | null = null;
+  let order: readonly Hand[] | null = null;
+  const closing = APPROACH.pace * APPROACH.seconds;
+  return {
+    name: "routine",
+    get leg() { return leg; },
+    get loops() { return loops; },
+    get post() { return post; },
+    decide(sight: Sight, dt: number): Intent {
+      const { view, report } = sight;
+      const walked = walk.decide(sight, dt);
+      const laps = walk.frame(view.time).laps;
+      const end = track.at(ROUTINE_METRES);
+      post ??= [end.x + POST_BEYOND * Math.sin(end.heading), view.head.y, end.z + POST_BEYOND * Math.cos(end.heading)];
+      order ??= hands.filter((hand) => report.strike.reach[hand] !== null);
+      if (laps > loops) { loops = laps; leg = "out"; next = 0; }
+      if (leg === "post") {
+        const thrown = report.strike.thrown.left + report.strike.thrown.right;
+        if (thrown > counted) { counted = thrown; next += 1; }
+        if (next >= order.length) leg = "back";
+      }
+      if (leg === "out" && next < order.length) {
+        if (Math.hypot(post[0] - view.head.x, post[2] - view.head.z) <= report.strike.reach[order[next]!]! + closing) {
+          leg = "post";
+          counted = report.strike.thrown.left + report.strike.thrown.right;
+        }
+      }
+      // Out, it faces the post: the straight's own line, and not the turn beyond it the walk would face.
+      if (leg === "out") return { ...walked, face: Math.atan2(post[0] - view.stance.centre.x, post[2] - view.stance.centre.z) };
+      if (leg !== "post") return walked;
+      const hand = order[next]!;
+      return {
+        move: null,
+        face: Math.atan2(post[0] - view.head.x, post[2] - view.head.z),
+        hands: { left: GUARD_ACTION, right: GUARD_ACTION, [hand]: { kind: "attack", target: post } },
+      };
+    },
+  };
 }
 
 export interface StrikeReading {
   readonly name: string;
-  /** Peak fist speed in the world, m/s, over the strike's window. */
+  readonly hand: Hand;
+  /** Peak speed of the striking fist in the world, m/s, from its chamber to the end of its pushes. */
   readonly peak: number;
+  /**
+   * Where the head stood as the strike began, from the recipe's place, m: along the heading
+   * (positive, the post was beyond the recipe's distance) and across it (positive, to the right).
+   */
+  readonly off: { readonly along: number; readonly across: number };
 }
 
 export interface Routine {
   readonly body: CoreBody;
   readonly fists: { readonly left: Fist; readonly right: Fist };
-  state(): RoutineState;
-  /** The fist speed of the striking hand (or the right one), m/s, last sub-step. */
+  readonly mind: RoutineMind;
+  readonly report: SkillReport;
+  /** Seconds since the routine began. */
+  time(): number;
+  /** What it is doing, in words. */
+  doing(): string;
+  /** The fist speed of the striking hand (or the faster one), m/s, last sub-step. */
   fistSpeed(): number;
   /** Each strike thrown so far, most recent last. */
   readonly strikes: readonly StrikeReading[];
-  /**
-   * How far `hand` is closed into a fist, 0 relaxed to 1 closed, for the skin to draw. The routine
-   * owns the strike timing, so it says when; nothing physical reads this.
-   */
-  closure(hand: "left" | "right"): number;
+  /** How far `hand` is closed into a fist, 0 relaxed to 1 closed, for the skin to draw; nothing physical reads it. */
+  closure(hand: Hand): number;
   dispose(): void;
 }
 
 /**
- * Run `ROUTINE` on `built`, a human in its reference pose at the origin, facing +z, on its feet on the
- * ground; `tuning` tunes its stance, as an experiment's override.
+ * Run the routine on `built`, a human in its reference pose at the origin, facing +z, on its feet on
+ * the ground; `tuning` tunes its stance, as an experiment's override.
  */
-export function startRoutine(built: BuiltBody, world: World, routine: readonly Step[] = ROUTINE, tuning?: StanceTuning): Routine {
+export function startRoutine(built: BuiltBody, world: World, tuning?: StanceTuning): Routine {
   if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
-  const stance = stanceLegs();
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, stance: tuning });
+  const mind = routineMind(trackOf(ROUTINE_TRACK), body.envelope!);
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
-
-  const cycle = routine.reduce((sum, step) => sum + step.seconds, 0);
-  let time = 0, stepIndex = 0, into = 0;
-  // Where the walk has got to: the start of the current step, and the heading.
-  type Place = { at: Vector3; heading: number };
-  const place: Place = { at: new Vector3(), heading: 0 };
-  const start: Place = { at: new Vector3(), heading: 0 };
-  // Where the body's centre of mass began the path (x, z), and the heading asked.
-  let home: readonly [number, number] | null = null, facing = 0;
-  // A set step's swing, fixed where its step began.
-  let setting: SwingGoal | null = null;
   const strikes: StrikeReading[] = [];
-  let peak = 0;
+  let time = 0, thrown = 0;
+  let current: { name: string; hand: Hand; peak: number; off: StrikeReading["off"] } | null = null;
+  // When each hand began to close for a strike, and when it began to open after one.
+  const closedAt: Record<Hand, number | null> = { left: null, right: null };
+  const openedAt: Record<Hand, number | null> = { left: null, right: null };
 
-  /** Where the path is `seconds` into the current step. A turn is an arc walked at `TURN_PACE`. */
-  const locate = (seconds: number, out: Place = place) => {
-    const step = routine[stepIndex]!;
-    const f = Math.min(1, seconds / step.seconds);
-    out.at.copyFrom(start.at);
-    out.heading = start.heading;
-    switch (step.kind) {
-      case "walk": {
-        const d = step.metres * f;
-        out.at.addInPlaceFromFloats(Math.sin(start.heading) * d, 0, Math.cos(start.heading) * d);
-        break;
+  // The instrument: it reads what the mind sees, before the mind decides, and changes nothing.
+  const read = ({ view, report }: Sight): void => {
+    time = view.time;
+    for (const side of ["left", "right"] as const) speed[side] = fists[side].velocity.length();
+    const { strike } = report;
+    const striking = strike.hand !== null && (strike.phase === "chamber" || strike.phase === "swing");
+    if (striking && !current && strike.chosen && mind.post) {
+      const h = report.heading, dx = mind.post[0] - view.head.x, dz = mind.post[2] - view.head.z;
+      current = {
+        name: strike.chosen.strike.name, hand: strike.hand!, peak: 0,
+        off: { along: dx * Math.sin(h) + dz * Math.cos(h) - strike.chosen.recipe.distance, across: dx * Math.cos(h) - dz * Math.sin(h) },
+      };
+      closedAt[current.hand] = time;
+      openedAt[current.hand] = null;
+    }
+    if (current) current.peak = Math.max(current.peak, speed[current.hand]);
+    if (strike.thrown.left + strike.thrown.right > thrown) {
+      thrown = strike.thrown.left + strike.thrown.right;
+      if (current) {
+        strikes.push({ ...current });
+        closedAt[current.hand] = null;
+        openedAt[current.hand] = time;
       }
-      case "turn": {
-        // Straight for `TURN_LEAD`, then an arc whose radius is the pace over the
-        // turn's rate, its centre on the side turned to. The right of a heading h is (cos h, -sin h).
-        const t = f * step.seconds, lead = Math.min(t, TURN_LEAD), rate = step.radians / (step.seconds - TURN_LEAD);
-        out.at.addInPlaceFromFloats(Math.sin(start.heading) * TURN_PACE * lead, 0, Math.cos(start.heading) * TURN_PACE * lead);
-        const from = out.heading, side = TURN_PACE / rate;
-        out.heading += rate * Math.max(0, t - TURN_LEAD);
-        out.at.addInPlaceFromFloats(side * (Math.cos(from) - Math.cos(out.heading)), 0, side * (Math.sin(out.heading) - Math.sin(from)));
-        break;
-      }
-      case "settle": case "strike": case "set": break;
-      default: { const never: never = step; throw new Error(`unknown step ${JSON.stringify(never)}`); }
+      current = null;
     }
   };
-
-  const pushes: MusclePush[] = [];
-  const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
-    { posture: {}, hands: { left: null, right: null }, pushes, stance: null };
-  body.drive((view, dt) => {
-    time += dt;
-    into += dt;
-    while (into >= routine[stepIndex]!.seconds) {
-      const done = routine[stepIndex]!;
-      locate(done.seconds);
-      into -= done.seconds;
-      if (done.kind === "strike") strikes.push({ name: done.strike.name, peak });
-      peak = 0;
-      start.at.copyFrom(place.at);
-      start.heading = place.heading;
-      stepIndex = (stepIndex + 1) % routine.length;
-      if (stepIndex === 0) time = time % cycle;
-    }
-    locate(into);
-    const step = routine[stepIndex]!;
-
-    // A walk steered onto its line, a turn walked on its arc, else standing.
-    const c = view.stance.centre;
-    if (!home && view.time > 0) home = [c.x, c.z];
-    let walk: [number, number] | null = null;
-    if (home && step.kind === "walk") {
-      const h = start.heading, fx = Math.sin(h), fz = Math.cos(h);
-      const sx = home[0] + start.at.x, sz = home[1] + start.at.z;
-      const along = (c.x - sx) * fx + (c.z - sz) * fz + STEER.metres;
-      const aim = Math.atan2(sx + fx * along - c.x, sz + fz * along - c.z);
-      const off = Math.max(-STEER.most, Math.min(STEER.most, wrap(aim - h)));
-      facing += Math.max(-STEER.rate * dt, Math.min(STEER.rate * dt, wrap(h + off - facing)));
-      // The pace that ends the line on time, from where the body is along it.
-      const left = step.metres - (along - STEER.metres), time = Math.max(step.seconds - into, 1);
-      const pace = Math.max(0.1, Math.min(0.5, left / time));
-      walk = [pace, 0];
-    } else if (home && step.kind === "turn") {
-      if (into >= TURN_LEAD) facing += step.radians / (step.seconds - TURN_LEAD) * dt;
-      walk = [TURN_PACE, 0];
-    }
-    if (step.kind !== "set") setting = null;
-    else if (!setting) {
-      // The right foot to its place from the left: the right of a heading h is (cos h, -sin h).
-      const left = view.stance.soles.left, h = facing;
-      setting = { foot: "right", seconds: SET_SWING.seconds, lift: SET_SWING.lift,
-        to: [left.x + step.width * Math.cos(h) - step.behind * Math.sin(h), left.z - step.width * Math.sin(h) - step.behind * Math.cos(h)] };
-    }
-    const goal = stance.goal(view, facing, walk);
-    command.stance = goal && setting ? { ...goal, swing: setting } : goal;
-
-    // The fists, as the last sub-step left them.
-    for (const side of ["left", "right"] as const) speed[side] = fists[side].velocity.length();
-    if (step.kind === "strike") peak = Math.max(peak, speed[step.strike.hand]);
-
-    // A strike's chamber, then its pushes, timed from the chamber's end.
-    const strike = step.kind === "strike" ? step.strike : undefined;
-    const chambered = strike?.chamber && into < strike.chamber.seconds ? strike.chamber.pose : undefined;
-    const since = into - (strike?.chamber?.seconds ?? 0);
-    pushes.length = 0;
-    if (strike && !chambered) {
-      for (const p of strike.pushes) if (since >= p.from && since < p.to) pushes.push({ channel: p.channel, sense: p.sense, level: p.level ?? 1 });
-    }
-    command.posture = { ...GUARD, ...chambered };
-    return command;
-  });
+  const { report } = driveBy(body, { name: mind.name, decide: (sight, dt) => { read(sight); return mind.decide(sight, dt); } });
 
   return {
     body,
     fists,
+    mind,
+    report,
     strikes,
-    state: () => ({ time, step: routine[stepIndex]!, stepIndex, into }),
-    fistSpeed: () => {
-      const step = routine[stepIndex]!;
-      return step.kind === "strike" ? speed[step.strike.hand] : Math.max(speed.left, speed.right);
+    time: () => time,
+    doing() {
+      if (report.fallen) return "Fallen";
+      switch (mind.leg) {
+        case "out": return "Walking out";
+        case "back": return "Walking back";
+        case "post": {
+          const name = report.strike.chosen?.strike.name;
+          switch (report.strike.phase) {
+            case "approach": return "Closing on the post";
+            case "place": return "Setting its feet";
+            case "chamber": return `Chambering: ${name}`;
+            case "swing": return `Striking: ${name}`;
+            case "settle": case null: return "Standing in guard";
+            default: { const never: never = report.strike.phase; return String(never); }
+          }
+        }
+        default: { const never: never = mind.leg; return String(never); }
+      }
     },
-    closure: (hand) => {
-      const step = routine[stepIndex]!, before = routine[(stepIndex + routine.length - 1) % routine.length]!;
-      if (step.kind === "strike" && step.strike.hand === hand) return Math.min(1, into / FIST_CLOSING);
-      if (before.kind === "strike" && before.strike.hand === hand) return Math.max(0, 1 - into / FIST_OPENING);
+    fistSpeed: () => current ? speed[current.hand] : Math.max(speed.left, speed.right),
+    closure(hand) {
+      const closed = closedAt[hand], opened = openedAt[hand];
+      if (closed !== null) return Math.min(1, (time - closed) / FIST_CLOSING);
+      if (opened !== null) return Math.max(0, 1 - (time - opened) / FIST_OPENING);
       return 0;
     },
     dispose: () => body.dispose(),
   };
 }
 
-/** `a` turned into (-pi, pi]. */
-const wrap = (a: number): number => a - 2 * Math.PI * Math.ceil((a - Math.PI) / (2 * Math.PI));
-
 /**
- * A striking hand closes over `FIST_CLOSING` seconds from its strike's start, before the elbow's
- * push begins at 0.06 s, and opens over `FIST_OPENING` seconds of the step after. Chosen by eye.
+ * A striking hand closes over `FIST_CLOSING` seconds from its chamber (or its pushes, if it has
+ * none), and opens over `FIST_OPENING` seconds after the pushes end. Chosen by eye.
  */
 const FIST_CLOSING = 0.1, FIST_OPENING = 0.25;

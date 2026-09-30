@@ -40,8 +40,8 @@ export interface ScenarioContext {
 export interface ScenarioRun {
   /** The only thing that steps the world. */
   readonly player: Player;
-  /** What the transport steps through: its length, its live frame, and whether it wraps. */
-  recording(): { readonly frames: number; readonly live: number; readonly wraps: boolean };
+  /** What the transport steps through: its length and its live frame. */
+  recording(): { readonly frames: number; readonly live: number };
   /** Each page frame, before the player ticks: what the keys held now ask of the body. */
   drive(held: ReadonlySet<string>): void;
   /** Write the panel and the marks for the frame shown (null: live), and return its time, s. */

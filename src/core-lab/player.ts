@@ -1,8 +1,8 @@
 import type { World } from "../core/world.ts";
 
 /**
- * **The lab's player**: where the page is on a recording, and moving it. The recording is the
- * routine's current loop (`timeline.ts`) or the stance's last seconds (`history.ts`); up to its
+ * **The lab's player**: where the page is on a recording, and moving it. The recording is a
+ * scenario's last seconds (`history.ts`); up to its
  * live frame is what was recorded, and after it is what the world has not done yet. The player is the only thing that steps the page's world, and
  * the world is never rewound, so the player has four places:
  *
@@ -29,7 +29,7 @@ export interface Stage {
   readonly recording: Recording;
 }
 
-/** A recording of the world: `timeline.ts`'s and `history.ts`'s both are. */
+/** A recording of the world: `history.ts`'s is. */
 export interface Recording {
   /** The frame the world is at now; every frame up to it is recorded. */
   live(): number;

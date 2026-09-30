@@ -237,7 +237,7 @@ contradicts one; the eccentric ceiling is the owner's decision.
     120 Hz and 2 at 480. That is the stop, after the fist's peak: recorded, not yet changed.
 - **The servo's time constant** is 0.1 s. Late in each settle no joint reverses by more than
   0.005 rad/s a step, at 120 Hz and 480 Hz, and the guard is held within 0.026 rad from the first
-  second: Havok's brake on slow bodies, below (`SERVO_SECONDS` in `src/core-lab/routine.ts`).
+  second: Havok's brake on slow bodies, below (`SERVO_SECONDS` in `src/core/body.ts`).
 - **The lab page.** `/core-lab.html` shows a chosen human walking forward, throwing three straights,
   and walking back. Two scaffolds stand in until later stages: a carried pelvis until stage 4, and
   hand-set joint poses until stage 3.
@@ -475,7 +475,7 @@ contradicts one; the eccentric ceiling is the owner's decision.
   added, one solver step (Havok's own, never Babylon's accumulator), then the after-step hooks. The
   clock is the count of steps. `advance` turns a frame's time into whole steps, carries the
   remainder and drops what it cannot take, so a page that falls behind runs slow. The world turns
-  off the scene's own stepping. The muscle driver, the lab's routine and timeline, the core stand
+  off the scene's own stepping. The muscle driver, the lab's routine, the core stand
   and the strike research run on it; the lab page makes a world on each load, at the chosen rate.
   Stepped whole or from uneven frames, the same steps give the same pose to the bit.
 - **Motor control, hands first** (`src/core/control/motor.ts`, `kinematics.ts`,
@@ -641,7 +641,7 @@ Havok's.
   a scenario menu. The Stance scenario (`src/core-lab/stance-mode.ts`, `tests/core-lab.test.mjs`): W A S D or the arrows walk the chosen human at 0.2-0.5 m/s, Q and E
   turn it while it walks, and the panel shoves its chest 10-60 N s four ways. The readout is the
   stance's own. On the ground are the centre of mass, the capture point and the held place. The
-  last 10 s can be scrubbed. The Routine scenario is stage 2's routine. In both, the panel's loadout
+  last 10 s can be scrubbed. The Routine scenario is a mind on the core's skills (`docs/plans/2026-09-30-minds-and-skills.md`). In both, the panel's loadout
   (`src/core-lab/loadout.ts`) puts the wooden club in either hand or both, and shows or hides the
   model's boots and armour, which are its meshes alone. A hand holding the club closes on its haft
   (`CLUB_GRIP`, `src/core-lab/club-grip.ts`, fitted on the skin by `scripts/core-lab/haft-fit.mjs`

@@ -69,16 +69,16 @@ export function decodeClub(unit, spec, hand = "right") {
 /**
  * Run a club blow on `model` at `hz`: the one `unit` stands for, or a given `strike` at `distance`.
  * Returns the score, the energy and its parts, when it landed after the chamber, and the swell
- * end's peak speed before it.
+ * end's peak speed before it. `off` moves the head struck, as `evaluateStrike`'s does.
  */
-export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", perturbation, groundSize, ...given }) {
+export async function evaluateClubStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", perturbation, groundSize, off, ...given }) {
   const spec = armed(humanSpec(model), hand, woodenClub());
   const decoded = unit ? decodeClub(unit, spec, hand) : given;
   const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
   const chamber = strike.chamber ?? { seconds: 0 };
   const stand = await coreStand(spec, { ground: true, groundSize, hz });
   const blow = throwBlow(stand.built, stand.world, strike, distance);
-  const watch = watchClubBlow(stand.built, stand.world, blow, distance, hand);
+  const watch = watchClubBlow(stand.built, stand.world, blow, distance, hand, off);
   try {
     for (let i = 0; i < stand.seconds(STAND + chamber.seconds + WINDOW) && !watch.landed && !watch.fell; i++) stand.step(1);
   } finally { watch.dispose(); blow.dispose(); stand.dispose(); }

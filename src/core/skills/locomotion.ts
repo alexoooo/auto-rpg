@@ -1,6 +1,6 @@
 import type { BodyView } from "../body.ts";
 import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
-import type { StanceGoal } from "../control/stance.ts";
+import { STANCE_GAIT, type Foot, type StanceGoal, type SwingGoal } from "../control/stance.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m. Asked 8, 12 or 16 cm
@@ -62,6 +62,17 @@ export function stanceLegs(): StanceLegs {
   };
 }
 
+/** Where each sole's middle goes, world (x, z), m: a stance taken at a place. */
+export type Footing = Readonly<Record<Foot, readonly [number, number]>>;
+
+/**
+ * **How the feet are placed** (`Locomotion.place`): a foot further than `near` (m) from its place
+ * steps there, as a walk's step is taken (`STANCE_GAIT`'s swing time and lift, the weight shifted
+ * off it first); one step a foot for each footing asked. Provisional, until the Routine measures
+ * where the placed feet land.
+ */
+export const PLACING = { near: 0.02 } as const;
+
 /**
  * **The locomotion skill**: an intent's walk and facing made a stance goal, within what the stance
  * holds with the body (`StanceEnvelope`, `CoreBody.envelope`).
@@ -85,17 +96,56 @@ export interface Locomotion {
   readonly pace: number;
   readonly reference: number | null;
   readonly fallen: boolean;
+  /**
+   * The stance goal that sets the feet at `footing`, standing, facing the heading it has: once no
+   * step is under way, the foot further from its place steps there, then the other, each once for
+   * this footing; one within `PLACING.near` of its place stays. Null before the body's first step.
+   */
+  place(view: BodyView, footing: Footing, lower?: number): StanceGoal | null;
+  /** Whether the feet have been placed at the footing last asked, and stand: set by `place`, cleared by `goal`. */
+  readonly placed: boolean;
 }
 
 export function locomotion(envelope: StanceEnvelope | null): Locomotion {
   const legs = stanceLegs();
   let heading = 0, pace = 0, setOff: number | null = null;
+  // The footing being placed, the feet that have stepped to it, and the step under way.
+  let placing: { footing: Footing; stepped: Record<Foot, boolean>; step: SwingGoal | null; lifted: boolean } | null = null;
+  let placed = false;
+  const apart = (a: readonly [number, number], b: readonly [number, number]): number => Math.hypot(a[0] - b[0], a[1] - b[1]);
   return {
     get heading() { return heading; },
     get pace() { return pace; },
     get reference() { return legs.reference; },
     get fallen() { return legs.fallen; },
+    get placed() { return placed; },
+    place(view, footing, lower) {
+      setOff = null;
+      pace = 0;
+      const base = legs.goal(view, heading, null, lower);
+      if (!base) return null;
+      const s = view.stance;
+      if (placing && (apart(placing.footing.left, footing.left) > PLACING.near || apart(placing.footing.right, footing.right) > PLACING.near)) placing = null;
+      placing ??= { footing, stepped: { left: false, right: false }, step: null, lifted: false };
+      if (placing.step) {
+        // A step is over when the stance, having taken it, stands again.
+        if (s.phase !== "stand") placing.lifted = true;
+        else if (placing.lifted) { placing.stepped[placing.step.foot] = true; placing.step = null; }
+        if (placing.step) return { ...base, swing: placing.step };
+      }
+      placed = false;
+      // A step of the stance's own under way is finished first.
+      if (s.phase !== "stand") return base;
+      const off = (foot: Foot): number => placing!.stepped[foot] ? 0 : apart([s.soles[foot].x, s.soles[foot].z], placing!.footing[foot]);
+      const foot: Foot = off("left") >= off("right") ? "left" : "right";
+      if (off(foot) <= PLACING.near) { placed = true; return base; }
+      placing.step = { foot, to: placing.footing[foot], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift, shift: true };
+      placing.lifted = false;
+      return { ...base, swing: placing.step };
+    },
     goal(view, walk, face, dt, lower) {
+      placing = null;
+      placed = false;
       if (!walk) {
         setOff = null;
         pace = 0;
