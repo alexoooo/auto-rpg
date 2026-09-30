@@ -919,8 +919,16 @@ Havok's.
   is 40 cm again. What still slows a fast walk is a moment: late in the swing the leg's braking asks
   the ground for some 100 N m of pitch that the bearing sole cannot give with the push the plan
   asks, the push is what the ground's share misses, and the step under way is shortened to catch
-  the body that fell behind. The next fix is there (a plan that knows the moment the swing needs,
-  or a pelvis let to pitch), not in the gait's numbers.
+  the body that fell behind. The next fix is there, not in the gait's numbers. Two tries that did
+  not hold (Node core stand, Rapier, 120 Hz): weighing a missed moment less than the share does
+  (its lever, the root's height, times 1.5, 2 and 3) brings the Rogue's forward walks up (on pace
+  12, 13 and 12 of 18 against 11, 0.85-0.92 of pace against 0.82) and costs its shoves at rest
+  (106, 98 and 93 of 176 against 118), so no one lever serves both; and moving the plan's pivot by
+  the moment the last step's asks put about the centre of mass (the centroidal moment pivot, fed
+  back a tick) slowed the walk at 0.8 m/s to 0.52 (0.40 with the sign turned) against 0.61, for
+  that moment holds the root's own posture terms, which answer the plan. What is left is to solve
+  the centre of mass's, the root's and the swing's accelerations together under the soles' limits
+  (a whole-body problem, as a momentum-based controller poses it), rather than one after another.
 - **Against the acceptance: not met.** Walks above 0.5 m/s every way still fall for the Rogue (the
   Warrior holds 0.7 every way); forward they hold to 1.0 m/s, under pace (a human's preferred walk is near 1.4); no human reference for the
   shoves or a reversal is sourced yet.
