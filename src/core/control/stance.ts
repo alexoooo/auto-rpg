@@ -502,7 +502,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const pelvisSpin = new Vector3(), turn = new Vector3();
   const p = new Vector3();
   const hipAt = new Vector3(), ankleAt = new Vector3(), kneeAt = new Vector3(), shank = new Quaternion(), footTurn = new Quaternion();
-  const level = new Quaternion();
+  const level = new Quaternion(), whole = new Quaternion(), wholeAxis = new Vector3();
   const gravity = (): number => -built.physics.gravity[1];
 
   /** Each sole read, and the middle of `stance`'s into the reading. */
@@ -976,15 +976,31 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         if (error.w < 0) error.scaleInPlace(-1);
         const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
         turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
+        // The whole turn from lift to landing, world: the path's turn goes about its axis at its angle
+        // times the path's rate.
+        level.multiplyToRef(Quaternion.InverseToRef(step.lift, whole), whole);
+        if (whole.w < 0) whole.scaleInPlace(-1);
+        const wholeHalf = Math.hypot(whole.x, whole.y, whole.z), wholeAngle = 2 * Math.atan2(wholeHalf, whole.w);
+        wholeAxis.set(whole.x, whole.y, whole.z).scaleInPlace(wholeHalf > 1e-12 ? wholeAngle / wholeHalf : 0);
         // The path's acceleration, and its errors in place and speed taken up critically damped at the
-        // swing's constant; its turn's likewise.
+        // swing's constant; its turn's likewise. Without the turn's own rate and acceleration, its
+        // damping held the foot back from the turn: at the swing's constant it lags a turn by twice its
+        // rate over 1/0.1 s, and a foot turning 60 degrees over a swing lagged the whole of it. In the
+        // lab routine's turns the feet landed 30 to 75 degrees off the heading, the pelvis turned the
+        // bearing inside hip onto its stop, and the inside foot's swing dragged. With its rate, the lab
+        // routine from seeded starts (`research/core-routine-battery.mjs`; Node core stand, Rapier):
+        // at 120 Hz over 24 runs of 5 loops the Rogue 120 of 120 and the Warrior 120 (all runs
+        // through), against 84 and 109; at 480 Hz over 12 runs, 60 of 60 each, against 56 and 60; over
+        // 24 runs of 20 loops at 120 Hz, 466 of 480 (22 through) and 480. On the stance's batteries
+        // (`STANCE_SECONDS`) the Rogue reads alike and the Warrior walks 23 of 25 and holds 209 shoves,
+        // 70.0 N s (55 the least), against 22 and 202, 67.8 (55).
         const task = tasks[feet.indexOf(foot)]!, w = 1 / seconds.swing, T = swing.seconds;
         const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
         footMotionToRef(foot, sole, task.linear, task.angular);
         task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
           swing.lift * ddbump + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),
           (swing.to[1] - from.z) * dds + w * w * (path.z - sole.z) + 2 * w * (along.z - task.linear.z));
-        task.angular.scaleInPlace(-2 * w).addInPlace(turn.scale(w));
+        task.angular.scaleInPlace(-2 * w).addInPlace(turn.scale(w)).addInPlace(wholeAxis.scale(dds + 2 * w * ds));
         task.on = true;
         task.bearing = false;
         for (const i of foot.channels) owned[i] = 1;

@@ -5,7 +5,9 @@
  * there; asked for a place its ankles cannot reach, one its knees cannot, or one past its soles, it
  * stops where it can and stands, and without the limit that stops it does not (the controls); a
  * place at a sideways edge holds with the sole margin and slides a foot without it (the control).
- * Asked for a step, it shifts its weight, swings the foot to where it was asked, lands and stands.
+ * Asked for a step, it shifts its weight, swings the foot to where it was asked, lands and stands;
+ * asked to turn as it steps, the foot lands facing the new heading, and without the turn's own rate
+ * it does not (the control, run by hand).
  * Shoved at the trunk past what its soles hold, it steps to catch itself and stands, where without
  * the step it falls (the control); shoved lightly, it does not step. Asked to walk, it steps of
  * itself, goes the way and about the speed asked, and asked to walk nowhere, stops and stands;
@@ -70,17 +72,17 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 /**
  * Stand `model` 1 s, 3 cm under its reference height, then step `foot`'s sole's middle by (dx, dz)
- * over 0.45 s lifted 5 cm, and stand to 6 s. Returns the phases seen, where the sole landed against
- * where it was asked to, how far the foot turned between leaving the ground and landing, the centre
- * of mass's distance from its place and its height and speed at the end, and how far the other foot
- * moved.
+ * over 0.45 s lifted 5 cm, the heading turned to `heading` as it steps, and stand to 6 s. Returns the
+ * phases seen, where the sole landed against where it was asked to, how far the foot turned between
+ * leaving the ground and landing and how far off the heading it landed, the centre of mass's distance
+ * from its place and its height and speed at the end, and how far the other foot moved.
  */
-async function stepping(model, foot, dx, dz, stance) {
+async function stepping(model, foot, dx, dz, stance, heading = 0) {
   const stand = await coreStand(humanSpec(model), { ground: true, hz: 120 });
   const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance });
   const other = foot === "left" ? "right" : "left";
   const turnOf = () => stand.built.segments.get(`foot.${foot}`).node.rotationQuaternion.clone();
-  let goal = null, swing = null, to = null, bearing = null, lifted = null, turned = null;
+  let goal = null, swing = null, to = null, bearing = null, lifted = null, turned = null, faced = null;
   body.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
@@ -88,6 +90,7 @@ async function stepping(model, foot, dx, dz, stance) {
       to = [s.soles[foot].x + dx, s.soles[foot].z + dz];
       bearing = s.soles[other].clone();
       swing = { foot, to, seconds: 0.45, lift: 0.05 };
+      goal = { ...goal, heading };
     }
     return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, swing } };
   });
@@ -102,11 +105,13 @@ async function stepping(model, foot, dx, dz, stance) {
       if (phases.at(-1) === "stand" && phases.at(-2) === "swing" && !landed) {
         landed = s.soles[foot].clone();
         turned = 2 * Math.acos(Math.min(1, Math.abs(Quaternion.Dot(turnOf(), lifted))));
+        const level = Quaternion.RotationAxis(Vector3.Up(), heading).multiply(stand.built.segments.get(`foot.${foot}`).rest);
+        faced = 2 * Math.acos(Math.min(1, Math.abs(Quaternion.Dot(turnOf(), level))));
       }
       if (bearing) drift = Math.max(drift, across(s.soles[other], bearing));
     }
     const s = body.view.stance;
-    return { phases, miss: landed ? Math.hypot(landed.x - to[0], landed.z - to[1]) : Infinity, turned, off: across(s.centre, s.place),
+    return { phases, miss: landed ? Math.hypot(landed.x - to[0], landed.z - to[1]) : Infinity, turned, faced, off: across(s.centre, s.place),
       low: goal.height - (s.centre.y - s.support.y), speed: s.velocity.length(), drift };
   } finally { body.dispose(); stand.dispose(); }
 }
@@ -298,18 +303,36 @@ test("each human steps each foot 15 and 25 cm forward, 15 cm back and 10 cm out,
   }
 });
 
-test("asked higher than the legs reach with their knees bent, each human stands at that reach, and held to the height asked does not stand still", async () => {
+test("each human steps each foot 15 cm forward turned half a radian its own way, and lands facing the heading", async () => {
+  // Turned without its own rate, only pulled onto its path at the swing's constant, a foot lagged the
+  // whole of its turn: in the lab routine's turns the feet landed 30 to 75 degrees off the heading.
+  for (const model of ["workshop-rogue", "workshop-fighter"]) for (const foot of ["left", "right"]) {
+    const heading = foot === "right" ? 0.5 : -0.5, r = await stepping(model, foot, 0, 0.15, undefined, heading);
+    console.log(`MUT stance turned step ${model} ${foot}: ${r.phases.join(" ")}; turned ${r.turned.toFixed(3)} rad in the air, landed ${r.faced.toFixed(3)} rad off the heading,`
+      + ` ${(1000 * r.miss).toFixed(1)} mm from the asked place; the other foot moved ${(1000 * r.drift).toFixed(1)} mm`);
+    const at = `${model} ${foot}`;
+    assert.deepEqual(r.phases, ["stand", "shift", "swing", "stand"], `${at}: phases ${r.phases.join(" ")}`);
+    assert.ok(r.faced < 0.05, `${at}: landed ${r.faced.toFixed(3)} rad off the heading`);
+    assert.ok(r.miss < 0.017, `${at}: landed ${(1000 * r.miss).toFixed(1)} mm from the asked place`);
+    assert.ok(r.drift < 0.01, `${at}: the other foot moved ${(1000 * r.drift).toFixed(1)} mm`);
+  }
+});
+
+test("asked higher than the legs reach with their knees bent, each human stands at that reach, and held to the height asked wanders", async () => {
   // The Rogue 10 cm higher, the Warrior 5: past the reach of legs bent by STANCE_KNEE_BEND, where a
-  // leg is near straight and its Jacobian near singular.
+  // leg is near straight and its Jacobian near singular. Held to the height asked, a human wanders on
+  // its feet: read over the last 2 s, the Warrior drifted 372 mm until its steps landed facing the
+  // heading (the swing's turn at its rate), and now wanders 33 cm and comes to rest.
   for (const [model, rise] of [["workshop-rogue", 0.1], ["workshop-fighter", 0.05]]) {
     const ask = (first) => ({ feet: ["left", "right"], centre: null, height: first.height + rise, heading: 0 });
     const bent = await standing(model, 5, ask), straight = await standing(model, 5, ask, { stance: { kneeBend: null } });
     const drift = (r) => Vector3.Distance(r.after.centre, r.before.centre);
     console.log(`MUT stance bend ${model}: at ${STANCE_KNEE_BEND} rad drifted ${(1000 * drift(bent)).toFixed(2)} mm in the last 2 s, ${(1000 * (bent.goal.height - bent.after.height)).toFixed(1)} mm under the asked height;`
-      + ` with none ${(1000 * drift(straight)).toFixed(2)} mm, at ${(100 * straight.after.speed).toFixed(2)} cm/s`);
-    assert.ok(drift(bent) < 0.0005 && bent.after.speed < 0.001, `${model}: with the bend, it drifted ${(1000 * drift(bent)).toFixed(2)} mm in 2 s`);
+      + ` with none ${(1000 * drift(straight)).toFixed(2)} mm, at ${(100 * straight.after.speed).toFixed(2)} cm/s; the feet travelled ${(1000 * bent.slide).toFixed(1)} mm with the bend, ${(1000 * straight.slide).toFixed(1)} with none`);
+    assert.ok(drift(bent) < 0.0005 && bent.after.speed < 0.001 && bent.slide < 0.002,
+      `${model}: with the bend, it drifted ${(1000 * drift(bent)).toFixed(2)} mm in 2 s, its feet ${(1000 * bent.slide).toFixed(1)} mm`);
     assert.ok(bent.after.height < bent.goal.height - 0.02, `${model}: with the bend, it rose to within ${(1000 * (bent.goal.height - bent.after.height)).toFixed(1)} mm of a height past the legs' reach`);
-    assert.ok(drift(straight) > 0.005, `the control: ${model}, held to the height asked, drifted only ${(1000 * drift(straight)).toFixed(2)} mm in 2 s`);
+    assert.ok(straight.slide > 0.02, `the control: ${model}, held to the height asked, its feet travelled only ${(1000 * straight.slide).toFixed(1)} mm`);
   }
 });
 

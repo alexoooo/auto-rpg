@@ -6,7 +6,9 @@
  * tuning and human, the loops completed of those possible, the runs that stood through, and where
  * the falls came (the routine's step index and kind).
  *
- *   node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]' [--seeds 12] [--loops 5] [--hz 120] [--workers 14]
+ *   node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]' [--seeds 12] [--loops 5] [--hz 120] [--workers 14] [--list]
+ *
+ * `--list` prints each run's seed, loops and fall too.
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -16,7 +18,7 @@ if (isMainThread) {
   const { values } = parseArgs({ options: {
     variants: { type: "string", default: "[{}]" }, seeds: { type: "string", default: "12" }, loops: { type: "string", default: "5" },
     impulse: { type: "string", default: "3" }, hz: { type: "string", default: "120" }, workers: { type: "string" },
-    models: { type: "string", default: "workshop-rogue,workshop-fighter" },
+    models: { type: "string", default: "workshop-rogue,workshop-fighter" }, list: { type: "boolean", default: false },
   } });
   const variants = JSON.parse(values.variants), models = values.models.split(","), seeds = Number(values.seeds);
   const loops = Number(values.loops), impulse = Number(values.impulse), hz = Number(values.hz);
@@ -43,7 +45,8 @@ if (isMainThread) {
   console.log(`Lab routine from ${seeds} seeded starts (${impulse} N s at 0.5 s), up to ${loops} loops; Node core stand, Rapier, ${hz} Hz`);
   variants.forEach((stance, v) => {
     for (const model of models) {
-      const runs = jobs.filter((job) => job.v === v && job.model === model).map((job) => job.result);
+      const mine = jobs.filter((job) => job.v === v && job.model === model), runs = mine.map((job) => job.result);
+      if (values.list) console.log(mine.map((job) => `  seed ${job.seed}: ${job.result.loops}${job.result.fell ? ` fell ${job.result.fell}` : ""}`).join("\n"));
       const falls = new Map();
       for (const run of runs) if (run.fell) falls.set(run.fell, (falls.get(run.fell) ?? 0) + 1);
       console.log(`${JSON.stringify(stance)} ${model}: ${runs.reduce((sum, run) => sum + run.loops, 0)} of ${runs.length * loops} loops, `

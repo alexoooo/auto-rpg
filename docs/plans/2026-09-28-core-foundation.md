@@ -657,7 +657,8 @@ Havok's.
     Warrior fell in its second loop's first walk and the Rogue in its ninth loop's walk back; at
     480 Hz the Warrior in its sixth loop's walk back and the Rogue in its third loop's second strike.
     The straights peak at 5.64-5.72 m/s (Warrior) and 4.80-4.90 (Rogue) at 120 Hz, against 5.44 and
-    4.66 on Havok's stance. Two causes are fixed (below); the falls left are the next work.
+    4.66 on Havok's stance. Three causes are fixed (below); two falls in 48 runs of 20 loops are
+    left.
 - **A swinging leg is solved within its strength, all its freedoms at once** (`boundedLeastSquares`
   in `bear`). Clipped one at a time, a hip at its strength left the knee's torque asking for the
   thigh's motion it did not get: the Warrior's foot dragged a whole step 1 cm up, landed 18 cm
@@ -668,6 +669,15 @@ Havok's.
   when the root's acceleration was chosen, and solved only after: the ground gave the whole body
   the arm's and trunk's momentum. `carry` now has them move as their torque moves them, linear in
   the root's acceleration, as the legs are.
+- **A swinging foot turns at its path's rate.** Its place followed a minimum-jerk path with the
+  path's speed and acceleration fed forward, but its turn was only pulled onto its path at the
+  swing's constant, and the pull's damping held it back: a foot turning 60 degrees over a swing
+  lagged the whole of it. Walking straight, nothing showed. In the routine's turns (1 rad/s) the feet
+  landed 30 to 75 degrees off the heading, the pelvis turned the bearing inside hip onto its
+  internal-rotation stop (48 degrees, the Rogue), and that foot's swings lifted 0.5 to 2 cm of the 5
+  asked, dragged and landed short; on the walk back the right steps landed 9 to 30 cm short and the
+  walk ran away to 0.9 m/s. A test steps each foot turned half a radian: it lands within 0.009 rad
+  of the heading, and 0.224 off without the path's rate (the control).
 - **Measured** on the lab routine from seeded starts (`research/core-routine-battery.mjs`: a 3 N s
   push at 0.5 s in a direction the seed picks, up to 5 loops; Node core stand, Rapier), loops
   completed:
@@ -677,11 +687,12 @@ Havok's.
   | legs clipped alone | 43 of 120 (2 through) | 33 (2) | 23 of 60 (2) | 36 (5) |
   | the swing bounded | 69 (8) | 100 (18) | 23 (2) | 54 (9) |
   | and the pushes planned | 84 (12) | 109 (20) | 56 (11) | 60 (12) |
+  | and the swing's turn at its rate | 120 (24) | 120 (24) | 60 (12) | 60 (12) |
 
-  No run falls in a strike now. At 120 Hz the Rogue falls in walks (8 of 12 falls), in the settle
-  after one (2), in a turn and at a loop's start; the Warrior 4 times in 24 (two at a loop's start,
-  a turn, a walk). The bound costs shoves: 117 and 202 held of 272,
-  against 128 and 217 (`bear`'s note).
+  Over 24 runs of 20 loops at 120 Hz the Rogue completes 466 of 480 (22 through: one falls in a
+  turn in its 13th loop, one in the settle after the strikes in its 15th) and the Warrior all 480.
+  The bound costs shoves: 117 and 202 held of 272, against 128 and 217 (`bear`'s note); with the
+  turn's rate the Warrior holds 209.
 - **It converges with the rate.** At 480 Hz (the same batteries, shoves 10-60 N s) both humans
   stand as still, their steps land within 1.9 mm, and the shoves held read 46.6 (35) and
   58.4 N s (55) against 44.7 (35) and 57.8 (45) at 120 Hz over the same range. On Havok a step
@@ -855,7 +866,7 @@ Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.3
 
 **Where the port stands**: the owner chose torque sources (2026-09-29: "go with (b), start with
 the real inertia"), and the stance stands, steps, walks and catches shoves on them (stage 4's torque
-stance). 1096 of 1100 tests pass; three are todos (the limit and the two muscle impulse tests), and
+stance). 1097 of 1101 tests pass; three are todos (the limit and the two muscle impulse tests), and
 the one that fails is the unit's replay, which waits on a search at a converged rate (above).
 
 ### Stage 6: the human fights in the game
