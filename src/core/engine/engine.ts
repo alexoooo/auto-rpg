@@ -22,6 +22,8 @@ import type { Vec3 } from "../spec/quantity.ts";
  *   other axis, linear and angular, is locked, and the two bodies it joins do not collide.
  * - **A motor is a velocity constraint bounded by a torque**: freedom k driven at a speed, with at
  *   most a ceiling of torque either way, as a hard constraint (no softness) the step enforces.
+ * - **A contact is one the step pushed on**: `contactsOf` names another body only if the solver
+ *   gave the touch between them an impulse in the last step, so a blow is read in the step it lands.
  * - Solver settings that exist for the solver are the engine module's, named and sourced there, and
  *   kept out of the body's numbers.
  */
@@ -99,6 +101,20 @@ export interface CoreJoint {
   setMotor(k: number, speed: number, ceiling: number): void;
 }
 
+/**
+ * **A body's touch with another dynamic body**, as the last step left it: one for each body it
+ * touched, whatever colliders met.
+ */
+export interface Contact {
+  readonly other: SegmentBody;
+  /** Where they touch, world, m: the solver's contact points, weighted by the impulse at each. */
+  readonly point: Vec3;
+  /** The touch's normal, world, unit, from this body into the other. */
+  readonly normal: Vec3;
+  /** The impulse the solver pushed them apart with in the last step, N s, along the normal. */
+  readonly impulse: number;
+}
+
 /** Something fixed in the world: the ground, a wall. */
 export interface FixedCollider {
   /** Take it out of the world; nothing once the world is disposed. */
@@ -112,8 +128,10 @@ export interface PhysicsWorld {
   /** A dynamic body at its node's pose, its colliders massless: its mass is `mass`. */
   addBody(node: TransformNode, shapes: readonly ColliderShape[], mass: MassProperties): SegmentBody;
   addJoint(parent: SegmentBody, child: SegmentBody, frames: JointFrames): CoreJoint;
-  /** A fixed box, centre and full size, world. */
-  addGround(centre: Vec3, size: Vec3): FixedCollider;
+  /** A fixed box, centre and full size, world, turned `turn` about up (rad; 0 unturned). */
+  addFixedBox(centre: Vec3, size: Vec3, turn?: number): FixedCollider;
+  /** Every other dynamic body `body` touched in the last step (`Contact`); fixed colliders are not bodies. */
+  contactsOf(body: SegmentBody): readonly Contact[];
   /** One solver step of `dt`, then every body's node written from its body. */
   step(dt: number): void;
   /** Remove a body, its colliders and its joints; nothing once the world is disposed. */

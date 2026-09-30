@@ -32,7 +32,7 @@ export async function coreStand(spec, { gravity = true, ground = true, position 
   const engine = new NullEngine();
   const scene = new Scene(engine);
   const world = createWorld(scene, await freshEngine(), { hz, gravity });
-  const floor = ground ? world.physics.addGround([0, -0.5, 0], [groundSize, 1, groundSize]) : null;
+  const floor = ground ? world.physics.addFixedBox([0, -0.5, 0], [groundSize, 1, groundSize]) : null;
   const built = buildBody(spec, world, { position });
   if (pinned !== undefined) {
     const segment = built.segments.get(pinned);

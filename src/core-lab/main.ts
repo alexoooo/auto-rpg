@@ -195,7 +195,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     world?.dispose();
     remember(to);
     world = createWorld(scene, physicsEngine, { hz: to.hz });
-    world.physics.addGround([0, -0.5, 0], [40, 1, 40]);
+    world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
     const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);

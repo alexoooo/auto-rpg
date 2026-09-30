@@ -3,8 +3,8 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { CONTACT_FRICTION, type ColliderShape, type CoreJoint, type JointFrames, type MassProperties, type PhysicsEngine,
-  type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
+import { CONTACT_FRICTION, type ColliderShape, type Contact, type CoreJoint, type JointFrames, type MassProperties,
+  type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 
 /**
  * **The core's physics engine: Rapier**, the SIMD build of its WebAssembly (`@dimforge/rapier3d-simd-compat`,
@@ -67,6 +67,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
   raw.numSolverIterations = SOLVER.iterations.value;
   raw.numInternalPgsIterations = SOLVER.pgs.value;
   const bodies = new Set<RapierBody>();
+  /** Each body by its rigid body's handle, for a contact's other side. */
+  const byHandle = new Map<number, RapierBody>();
   let freed = false;
   const xyz = (v: Vec3) => ({ x: v[0], y: v[1], z: v[2] });
   const xyzw = (q: Quaternion) => ({ x: q.x, y: q.y, z: q.z, w: q.w });
@@ -144,6 +146,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         setFixed(fixed) { rigid.setBodyType(fixed ? R.RigidBodyType.Fixed : R.RigidBodyType.Dynamic, true); },
       };
       bodies.add(body);
+      byHandle.set(rigid.handle, body);
       return body;
     },
     addJoint(parentBody, childBody, frames) {
@@ -171,10 +174,48 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         },
       };
     },
-    addGround(centre, size) {
-      const collider = raw.createCollider(contact(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre)));
+    addFixedBox(centre, size, turn = 0) {
+      const collider = raw.createCollider(contact(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre)
+        .setRotation({ x: 0, y: Math.sin(turn / 2), z: 0, w: Math.cos(turn / 2) })));
       let gone = false;
       return { dispose() { if (gone || freed) return; gone = true; raw.removeCollider(collider, false); } };
+    },
+    contactsOf(segment) {
+      const body = own(segment);
+      const touched = new Map<RapierBody, { impulse: number; point: number[]; normal: number[] }>();
+      for (let k = 0; k < body.rigid.numColliders(); k++) {
+        const mine = body.rigid.collider(k);
+        raw.contactPairsWith(mine, (theirs) => {
+          // Rapier pairs no two colliders of one body; a fixed collider has no body of ours.
+          const parent = theirs.parent(), other = parent ? byHandle.get(parent.handle) : undefined;
+          if (!other) return;
+          raw.contactPair(mine, theirs, (manifold, flipped) => {
+            let impulse = 0;
+            for (let i = 0; i < manifold.numContacts(); i++) impulse += manifold.contactImpulse(i);
+            const points = manifold.numSolverContacts();
+            if (!(impulse > 0) || points === 0) return;
+            // The manifold's normal runs from its first collider into its second; flipped, the first is theirs.
+            const n = manifold.normal(), sign = flipped ? -1 : 1;
+            const at = [0, 0, 0];
+            for (let i = 0; i < points; i++) {
+              const p = manifold.solverContactPoint(i)!;
+              at[0] += p.x / points; at[1] += p.y / points; at[2] += p.z / points;
+            }
+            const sum = touched.get(other) ?? { impulse: 0, point: [0, 0, 0], normal: [0, 0, 0] };
+            sum.impulse += impulse;
+            for (let c = 0; c < 3; c++) sum.point[c]! += at[c]! * impulse;
+            sum.normal[0]! += sign * n.x * impulse; sum.normal[1]! += sign * n.y * impulse; sum.normal[2]! += sign * n.z * impulse;
+            touched.set(other, sum);
+          });
+        });
+      }
+      const out: Contact[] = [];
+      for (const [other, { impulse, point, normal }] of touched) {
+        const length = Math.hypot(normal[0]!, normal[1]!, normal[2]!);
+        out.push({ other, impulse, point: [point[0]! / impulse, point[1]! / impulse, point[2]! / impulse],
+          normal: [normal[0]! / length, normal[1]! / length, normal[2]! / length] });
+      }
+      return out;
     },
     step(dt) {
       raw.timestep = dt;
@@ -189,12 +230,14 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       // After the world is freed its bodies went with it.
       const body = segment as RapierBody;
       if (!bodies.delete(body) || freed) return;
+      byHandle.delete(body.rigid.handle);
       raw.removeRigidBody(body.rigid);
     },
     dispose() {
       if (freed) return;
       freed = true;
       bodies.clear();
+      byHandle.clear();
       raw.free();
     },
   };
