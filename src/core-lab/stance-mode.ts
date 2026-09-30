@@ -1,27 +1,27 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS, type BodyCommand, type CoreBody } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type CoreBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
-import type { Pose } from "../core/control/motor.ts";
-import { turnAt } from "../core/control/stance-envelope.ts";
+import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
+import { driveBy, type Mind } from "../core/mind/mind.ts";
 import type { World } from "../core/world.ts";
-import { GUARD } from "../core/skills/guard.ts";
-import { STANCE_LOWER, stanceLegs } from "../core/skills/locomotion.ts";
+import { STANCE_LOWER } from "../core/skills/locomotion.ts";
 
 /**
  * **The core lab's stance mode**: a human on its own feet under the core stance
- * (`src/core/control/stance.ts`), commanded live from the page. What a person gives it is what a
- * mind would: a walk (a velocity across the ground, in the body's own frame), a turn and a height.
- * The stance does the rest -- its steps, and the steps that catch a push. The arms are held at the
- * guard.
+ * (`src/core/control/stance.ts`), commanded live from the page. The page's keys are a mind
+ * (`ordersMind`): what a person gives it is an intent, as any mind's -- a walk (a velocity across
+ * the ground, in the body's own frame), a turn and a height, the hands guarding -- which the skills
+ * carry out (`src/core/skills/skills.ts`). The stance does the rest: its steps, and the steps that
+ * catch a push.
  *
- * **It turns only while it walks**, at `LAB_TURN_RATE`: each step of a walk lands its foot facing
- * the heading, so the feet come round with the pelvis. Standing, the heading holds: the stance has
- * no step that turns it on the spot, and a pelvis turned a quarter over planted feet fell.
+ * **It turns only while it walks**, at `LAB_TURN_RATE`, and not for `TURN_LEAD` after it sets
+ * off, as the locomotion skill turns any body: each step of a walk lands its foot facing the
+ * heading, so the feet come round with the pelvis. Standing, the heading holds: the stance has no
+ * step that turns it on the spot, and a pelvis turned a quarter over planted feet fell.
  *
  * A shove is the page's instrument, not a command: an impulse at the middle trunk's centre of
- * mass, level, as the shove sweep gives it (`STANCE_RECOVERY`), applied at the start of the next
- * control step.
+ * mass, level, as the shove sweep gives it (`STANCE_RECOVERY`), applied before the next solver step.
  *
  * This module has no page-only imports, so the Node stand can run it (`tests/core-lab.test.mjs`).
  */
@@ -80,51 +80,60 @@ export const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, 
  */
 export const LAB_TURN_RATE = 1;
 
-/** Stand `built`, a human in its reference pose on the ground, facing +z, on its feet. */
-export function startStance(built: BuiltBody, world: World, { guard = true }: { readonly guard?: boolean } = {}): StanceSession {
+/**
+ * **The page's keys as a mind**: `orders`, as the page last wrote them, made an intent each
+ * control step. Walking, it asks to face `LAB_TURN_RATE` a second further round than the body's
+ * heading, the way the keys turn; the locomotion skill turns no faster than the body's envelope at
+ * its walk, and not for `TURN_LEAD` after it sets off.
+ */
+export function ordersMind(orders: StanceOrders): Mind {
+  const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
+  return {
+    name: "keys",
+    decide({ report }, dt): Intent {
+      const walking = orders.forward !== 0 || orders.right !== 0;
+      return {
+        move: walking ? [orders.forward, orders.right] : null,
+        face: report.heading + orders.turn * LAB_TURN_RATE * dt,
+        hands,
+        lower: orders.lower,
+      };
+    },
+  };
+}
+
+/** Stand `built`, a human in its reference pose on the ground, facing +z, on its feet, driven by the page's orders. */
+export function startStance(built: BuiltBody, world: World): StanceSession {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
   const trunk = built.segments.get("middleTrunk");
   if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
   const orders = restOrders();
-  const legs = stanceLegs();
-  let shove: Vector3 | null = null, heading = 0;
-  const posture: Pose = guard ? { ...GUARD } : {};
-  const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
-    { posture, hands: { left: null, right: null }, pushes: [], stance: null };
+  const { report } = driveBy(body, ordersMind(orders));
+  let shove: Vector3 | null = null;
   const turn = new Quaternion(), at = new Vector3();
-
-  body.drive((view, dt) => {
-    const walking = orders.forward !== 0 || orders.right !== 0;
-    if (walking && view.time > 0) {
-      const rate = body.envelope ? Math.min(LAB_TURN_RATE, turnAt(body.envelope, Math.hypot(orders.forward, orders.right))) : LAB_TURN_RATE;
-      heading += orders.turn * rate * dt;
-    }
-    const goal = legs.goal(view, heading, walking ? [orders.forward, orders.right] : null, orders.lower);
-    if (!goal) return command;
-    if (shove) {
-      trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
-      const com = trunk.rigid.centre, o = trunk.frame.origin;
-      at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.node.position);
-      trunk.body.applyImpulse(shove, at);
-      shove = null;
-    }
-    command.stance = goal;
-    return command;
+  // After the body's control, before the solver: the page's hand on the world, not the mind's.
+  const shoving = world.beforeStep(() => {
+    if (!shove) return;
+    trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
+    const com = trunk.rigid.centre, o = trunk.frame.origin;
+    at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.node.position);
+    trunk.body.applyImpulse(shove, at);
+    shove = null;
   });
 
   const frame = (): StanceFrame => {
     const s = body.view.stance, height = s.centre.y - s.support.y;
     return {
-      time: body.view.time, heading, phase: s.phase, strides: s.strides, recoveries: s.recoveries,
-      speed: Math.hypot(s.velocity.x, s.velocity.z), height, goal: legs.reference === null ? height : legs.reference - orders.lower,
-      off: Math.hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen: legs.fallen,
+      time: body.view.time, heading: report.heading, phase: s.phase, strides: s.strides, recoveries: s.recoveries,
+      speed: Math.hypot(s.velocity.x, s.velocity.z), height, goal: report.reference === null ? height : report.reference - orders.lower,
+      off: Math.hypot(s.centre.x - s.place.x, s.centre.z - s.place.z), fallen: report.fallen,
     };
   };
 
   return {
     body, orders, frame,
     shove(impulse, degrees) {
-      const a = heading + degrees * Math.PI / 180;
+      const a = report.heading + degrees * Math.PI / 180;
       shove = new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a));
     },
     capturePointToRef(out) {
@@ -132,6 +141,9 @@ export function startStance(built: BuiltBody, world: World, { guard = true }: { 
       const s = body.view.stance, w = Math.sqrt(g / Math.max(s.centre.y - s.support.y, 0.1));
       return out.set(s.centre.x + s.velocity.x / w, 0, s.centre.z + s.velocity.z / w);
     },
-    dispose: () => body.dispose(),
+    dispose() {
+      shoving.dispose();
+      body.dispose();
+    },
   };
 }

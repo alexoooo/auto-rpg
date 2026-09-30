@@ -116,6 +116,17 @@ Each step lands on its own, with the gates green.
      60 loops each way at both rates). A turn from standing is for the envelope to measure.
 4. **The Stance scenario through the player's intent.** Acceptance: the lab test's walks and
    shoves read as before.
+   *Landed 2026-09-30.* The keys are a mind (`ordersMind` in `src/core-lab/stance-mode.ts`) driving
+   the body through `driveBy`, the hands guarding; the shove is a `World.beforeStep` hook. Traced
+   on the Node core stand (Rapier) at 120 and 480 Hz, the standing, shoved and held readings of
+   each human are the same to the last digit as before. The turn is the one change: the locomotion
+   skill turns a walk only after `TURN_LEAD`, where the old driver turned from the first step, so
+   the lab test walks a second longer before reading the quarter turn. With that second, the turn
+   reaches the same heading (1.5667 rad at 120 Hz, 1.5708 at 480) and the walk after it goes the
+   same way, over its 4 s at 120 Hz: the Warrior 1.19 m along +x and 0.01 m across in 10 strides,
+   as before in 11; the Rogue 1.20 and 0.03 against 1.21 and 0.01 (at 480 Hz, within 1.5 cm along
+   and 4 cm across of before). The test now also lowers the stopped
+   body 3 cm, which it follows only in part (1 cm), as `STANCE_LOWER` records.
 5. **Option B**, planned when 1-4 are in: speed goals for a hand, then the strike search in their
    form.
 
