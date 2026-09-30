@@ -1,6 +1,7 @@
 import type { BodyView } from "../body.ts";
 import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
-import { STANCE_GAIT, type Foot, type StanceGoal, type SwingGoal } from "../control/stance.ts";
+import type { Foot, StanceGoal, SwingGoal } from "../control/stance.ts";
+import { STANCE_GAIT } from "../control/stance-tuning.ts";
 
 /**
  * How far under its reference height a body's centre of mass is held, m. A crouch is beyond the

@@ -2,7 +2,7 @@ import { createBody, SERVO_SECONDS, type CoreBody, type Fist } from "../core/bod
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Hand } from "../core/control/motor.ts";
 import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
-import type { StanceTuning } from "../core/control/stance.ts";
+import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { GUARD_ACTION, type Intent } from "../core/mind/intent.ts";
 import { driveBy, type Mind, type Sight } from "../core/mind/mind.ts";
 import type { SkillReport } from "../core/skills/skills.ts";

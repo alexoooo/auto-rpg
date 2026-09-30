@@ -17,7 +17,8 @@ import type { Vec3 } from "../spec/quantity.ts";
  * - **Mass is the spec's.** A body's colliders carry none; its mass properties are set whole.
  * - **Velocities are the centre of mass's**, not the node's.
  * - **Every contact's friction is `CONTACT_FRICTION`**, whichever two colliders meet, and no contact
- *   bounces: what the stance takes the ground to give (`src/core/control/stance.ts`).
+ *   bounces: what the stance takes the ground to give (`GROUND_FRICTION`,
+ *   `src/core/control/support.ts`).
  * - **A joint's freedom k is angular axis k of the joint's frame**, fixed in the parent, its angle
  *   measured as `jointAngles` reads it (`src/core/build/joint-state.ts`) and limited there; every
  *   other axis, linear and angular, is locked, and the two bodies it joins do not collide.

@@ -4,7 +4,8 @@ import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { chainTo, pointNowToRef, solveReach } from "./kinematics.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
-import { stanceControl, type StanceControl, type StanceGoal, type StanceTuning } from "./stance.ts";
+import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
+import type { StanceTuning } from "./stance-tuning.ts";
 
 /** Joint angles, rad, by channel name. */
 export type Pose = Readonly<Record<string, number>>;

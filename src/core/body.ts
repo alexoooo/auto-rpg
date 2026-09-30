@@ -1,7 +1,8 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import { motorControl, type Hand, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
-import type { StanceGoal, StanceReading, StanceTuning } from "./control/stance.ts";
+import type { StanceGoal, StanceReading } from "./control/stance.ts";
+import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
 import { driveMuscles, type MuscleDriver } from "./muscle/driver.ts";
 import type { Vec3 } from "./spec/quantity.ts";

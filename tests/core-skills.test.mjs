@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { stanceEnvelope, turnAt } from "../src/core/control/stance-envelope.ts";
-import { STANCE_GAIT } from "../src/core/control/stance.ts";
+import { STANCE_GAIT } from "../src/core/control/stance-tuning.ts";
 import { locomotion, PLACING, TURN_LEAD, wrap } from "../src/core/skills/locomotion.ts";
 
 const DT = 1 / 120;

@@ -1,7 +1,7 @@
 # Stance tuning
 
 The measurements behind the stance controller's tuned constants and settings in
-`src/core/control/stance.ts`: `STANCE_SECONDS`, `STANCE_KNEE_BEND`, `STANCE_ANKLE_SPARE`,
+`src/core/control/stance-tuning.ts`: `STANCE_SECONDS`, `STANCE_KNEE_BEND`, `STANCE_ANKLE_SPARE`,
 `STANCE_RECOVERY`, `STANCE_GAIT`, `STANCE_TRACK`, `SOLE_MARGIN`, `SUPPORT_INSET`, the ground
 wrench's lever (`leverOf`), the bounded swing (`StanceTuning.boundedSwing`) and the heel-off
 (`StanceTuning.heelOff`). Each constant's doc comment links to its section here. Every table was
