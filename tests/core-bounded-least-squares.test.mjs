@@ -1,5 +1,5 @@
 /**
- * `boundedLeastSquares` (`src/core/control/stance.ts`), the solve that keeps a swinging leg's torques
+ * `boundedLeastSquares` (`src/core/math/linalg.ts`), the solve that keeps a swinging leg's torques
  * within its strength: on random coupled problems its answer is within the bounds and meets the
  * optimality conditions of the least of (x - y)' A (x - y) there -- each free component's gradient
  * zero, each held one's pointing out of the box -- and y itself is returned where it is inside. The
@@ -7,7 +7,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { boundedLeastSquares } from "../src/core/control/stance.ts";
+import { boundedLeastSquares } from "../src/core/math/linalg.ts";
 
 /** A seeded uniform generator (mulberry32). */
 function random(seed) {

@@ -6,6 +6,7 @@ import type { ServoWork } from "./servo.ts";
 import { shareGroundWrench, type BearingSole } from "./contact-wrench.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { chainTo, rotationAtToRef } from "./kinematics.ts";
+import { boundedLeastSquares, fixedSolve, solveLinear } from "../math/linalg.ts";
 
 export type Foot = "left" | "right";
 
@@ -277,7 +278,7 @@ export const STANCE_TRACK = 0.2;
 export const SOLE_MARGIN = 0.1;
 
 /**
- * The damping of the leg's least-squares Jacobian solve (`dampedSolve`): a numeric setting, not
+ * The damping of the leg's least-squares Jacobian solve (`fixedSolve`): a numeric setting, not
  * anatomy. A straight knee is a singular leg -- no motion of its freedoms lengthens it -- and
  * without damping a root asked to rise over a straight knee asks the leg for unbounded accelerations.
  */
@@ -484,8 +485,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
             fixed[k] = m * m * (foot.chain[2]!.dofs[0]!.spec.max.value - spare - muscles.angle(i)) - 2 * m * muscles.rate(i);
           }
         }
-        const y0 = fixedSolve(rows, y, fixed), still = fixed.map((v) => Number.isNaN(v) ? NaN : 0);
-        const columns = [0, 1, 2, 3, 4, 5].map((c) => fixedSolve(rows, Bs.map((row) => row[c]!), still));
+        const y0 = fixedSolve(rows, y, fixed, LEG_DAMPING), still = fixed.map((v) => Number.isNaN(v) ? NaN : 0);
+        const columns = [0, 1, 2, 3, 4, 5].map((c) => fixedSolve(rows, Bs.map((row) => row[c]!), still, LEG_DAMPING));
         legs.push({ foot, task, y0, Y: [0, 1, 2, 3, 4, 5].map((row) => columns.map((col) => col[row]!)) });
         for (const i of foot.channels) inLeg[i] = 1;
       });
@@ -1275,96 +1276,6 @@ function edgeOf(foot: FootState): void {
  */
 const GROUND_FRICTION = CONTACT_FRICTION;
 
-/**
- * The least-squares `x` of `J x = y`, damped by `LEG_DAMPING`: J' (J J' + d^2 E)^-1 y. A straight
- * knee is a singular leg, and an undamped solve asks it for unbounded accelerations.
- */
-function dampedSolve(J: readonly (readonly number[])[], y: readonly number[]): number[] {
-  const rows = J.length, cols = J[0]!.length, d2 = LEG_DAMPING * LEG_DAMPING;
-  const G = J.map((a, r) => J.map((b, s) => a.reduce((sum, v, k) => sum + v * b[k]!, 0) + (r === s ? d2 : 0)));
-  const z = solveSymmetric(G, [...y]);
-  return Array.from({ length: cols }, (_, k) => { let sum = 0; for (let r = 0; r < rows; r++) sum += J[r]![k]! * z[r]!; return sum; });
-}
-
-/**
- * `dampedSolve` of `J x = y` with the freedoms `fixed` names (a number, not NaN) held to it: the
- * others solve J_free x = y - J_fixed fixed. A freedom at a limit is a task above the rest, as in a
- * prioritized solve (Siciliano and Slotine 1991, "A general framework for managing multiple tasks
- * in highly redundant robotic systems", ICAR).
- */
-function fixedSolve(J: readonly (readonly number[])[], y: readonly number[], fixed: readonly number[]): number[] {
-  if (fixed.every(Number.isNaN)) return dampedSolve(J, y);
-  const free = fixed.flatMap((v, k) => Number.isNaN(v) ? [k] : []);
-  const rest = dampedSolve(J.map((row) => free.map((k) => row[k]!)),
-    y.map((v, r) => v - fixed.reduce((sum, f, k) => Number.isNaN(f) ? sum : sum + J[r]![k]! * f, 0)));
-  const x = [...fixed];
-  free.forEach((k, c) => { x[k] = rest[c]!; });
-  return x;
-}
-
-/**
- * The least of (x - y)' A (x - y) over lo <= x <= hi, A symmetric and positive semidefinite: a
- * primal active-set method on the bounds (Nocedal and Wright 2006, "Numerical Optimization", 16.5),
- * from y clipped. A direction A does not weigh stays at y's, clipped.
- */
-export function boundedLeastSquares(A: readonly (readonly number[])[], y: readonly number[], lo: readonly number[], hi: readonly number[]): number[] {
-  const n = y.length, x = y.map((v, i) => Math.min(hi[i]!, Math.max(lo[i]!, v)));
-  const held = x.map((v, i) => v !== y[i]);
-  const scale = Math.max(...A.map((row, i) => row[i]!)), e = REGULARIZER * scale;
-  const gradient = () => x.map((_, i) => A[i]!.reduce((sum, v, j) => sum + v * (x[j]! - y[j]!), 0) + e * (x[i]! - y[i]!));
-  for (let iteration = 0; iteration < 4 * n + 4; iteration++) {
-    const g = gradient(), free = x.flatMap((_, i) => (held[i] ? [] : [i]));
-    // The free ones' step to the least with the held ones where they are.
-    const p = free.length ? solveLinear(free.map((i) => free.map((j) => A[i]![j]! + (i === j ? e : 0))), free.map((i) => -g[i]!)) : [];
-    let step = 1, blocking = -1;
-    free.forEach((i, c) => {
-      const d = p[c]!, t = d > 0 ? (hi[i]! - x[i]!) / d : d < 0 ? (lo[i]! - x[i]!) / d : Infinity;
-      if (t < step) { step = Math.max(0, t); blocking = i; }
-    });
-    free.forEach((i, c) => { x[i] = x[i]! + step * p[c]!; });
-    if (blocking >= 0) {
-      x[blocking] = p[free.indexOf(blocking)]! > 0 ? hi[blocking]! : lo[blocking]!;
-      held[blocking] = true;
-      continue;
-    }
-    // At the least with these held: release the one held against the way it would go.
-    const after = gradient();
-    let worst = -1, most = 1e-12 * (1 + scale);
-    x.forEach((v, i) => {
-      if (!held[i]) return;
-      const against = v <= lo[i]! ? -after[i]! : after[i]!;
-      if (against > most) { most = against; worst = i; }
-    });
-    if (worst < 0) return x;
-    held[worst] = false;
-  }
-  return x;
-}
-
-/** The regularizer's weight against the problem's largest, a numeric setting, as `shareGroundWrench`'s. */
-const REGULARIZER = 1e-6;
-
-/** Solve `A x = y` by elimination with partial pivoting; `A` is left as it was. */
-function solveLinear(A: readonly (readonly number[])[], y: readonly number[]): number[] {
-  const n = y.length, M = A.map((row, i) => [...row, y[i]!]);
-  for (let c = 0; c < n; c++) {
-    let p = c;
-    for (let r = c + 1; r < n; r++) if (Math.abs(M[r]![c]!) > Math.abs(M[p]![c]!)) p = r;
-    [M[c], M[p]] = [M[p]!, M[c]!];
-    for (let r = c + 1; r < n; r++) {
-      const f = M[r]![c]! / M[c]![c]!;
-      if (f !== 0) for (let k = c; k <= n; k++) M[r]![k] = M[r]![k]! - f * M[c]![k]!;
-    }
-  }
-  const x = new Array<number>(n).fill(0);
-  for (let r = n - 1; r >= 0; r--) {
-    let sum = M[r]![n]!;
-    for (let k = r + 1; k < n; k++) sum -= M[r]![k]! * x[k]!;
-    x[r] = sum / M[r]![r]!;
-  }
-  return x;
-}
-
 /** The knee's bend in the reference pose, rad: the shank's line (knee to ankle) from the thigh's (hip to knee). */
 function referenceBendOf(chain: readonly BuiltJoint[]): number {
   const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
@@ -1378,20 +1289,6 @@ function lengthsOf(chain: readonly BuiltJoint[]): [number, number] {
   const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
   const distance = (p: Vec3, q: Vec3) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
   return [distance(hip!, knee!), distance(knee!, ankle!)];
-}
-
-/** Solve `A x = y`, `A` symmetric positive definite, by Cholesky. */
-function solveSymmetric(A: number[][], y: number[]): number[] {
-  const n = y.length, L = A.map(() => new Array<number>(n).fill(0));
-  for (let i = 0; i < n; i++) for (let j = 0; j <= i; j++) {
-    let sum = A[i]![j]!;
-    for (let k = 0; k < j; k++) sum -= L[i]![k]! * L[j]![k]!;
-    L[i]![j] = i === j ? Math.sqrt(sum) : sum / L[j]![j]!;
-  }
-  const z = new Array<number>(n).fill(0), x = new Array<number>(n).fill(0);
-  for (let i = 0; i < n; i++) { let sum = y[i]!; for (let k = 0; k < i; k++) sum -= L[i]![k]! * z[k]!; z[i] = sum / L[i]![i]!; }
-  for (let i = n - 1; i >= 0; i--) { let sum = z[i]!; for (let k = i + 1; k < n; k++) sum -= L[k]![i]! * x[k]!; x[i] = sum / L[i]![i]!; }
-  return x;
 }
 
 /**

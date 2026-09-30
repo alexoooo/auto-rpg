@@ -2,6 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import { rotationOfToRef } from "../build/joint-state.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import { solve3 } from "../math/linalg.ts";
 
 /**
  * **A body's kinematics in its joints' angles**, in the root's frame: where a point on a segment is
@@ -140,13 +141,3 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
  */
 const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_STEP = 1e-7, IK_DAMPING = 0.01, IK_POSTURE_PULL = 0.5, IK_TURN = 0.2;
 
-function solve3(A: number[][], b: number[]): number[] {
-  const [a, bb, c] = A as [number[], number[], number[]];
-  const det = a[0]! * (bb[1]! * c[2]! - bb[2]! * c[1]!) - a[1]! * (bb[0]! * c[2]! - bb[2]! * c[0]!) + a[2]! * (bb[0]! * c[1]! - bb[1]! * c[0]!);
-  const col = (i: number) => {
-    const m = A.map((row, r) => row.map((v, k) => (k === i ? b[r]! : v)));
-    return (m[0]![0]! * (m[1]![1]! * m[2]![2]! - m[1]![2]! * m[2]![1]!) - m[0]![1]! * (m[1]![0]! * m[2]![2]! - m[1]![2]! * m[2]![0]!)
-      + m[0]![2]! * (m[1]![0]! * m[2]![1]! - m[1]![1]! * m[2]![0]!)) / det;
-  };
-  return [col(0), col(1), col(2)];
-}

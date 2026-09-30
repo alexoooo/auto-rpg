@@ -1,4 +1,5 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { solveLinear } from "../math/linalg.ts";
 
 /**
  * A flat sole on level ground (y up), bearing: where its middle is, which way it lies, and how far
@@ -153,7 +154,7 @@ function activeSet(H: readonly number[][], g: readonly number[], C: readonly num
       rhs[i] = -q;
       working.forEach((c, r) => { K[i]![n + r] = -C[c]![i]!; K[n + r]![i] = C[c]![i]!; });
     }
-    const solution = solveDense(K, rhs), p = solution.slice(0, n), multipliers = solution.slice(n);
+    const solution = solveLinear(K, rhs), p = solution.slice(0, n), multipliers = solution.slice(n);
     if (settled || Math.hypot(...p) <= 1e-12 * (1 + Math.hypot(...x))) {
       settled = false;
       let worst = -1, least = -1e-12;
@@ -210,28 +211,4 @@ function remainder(basis: readonly (readonly number[])[], row: readonly number[]
 /** Whether `row` has a part outside the span of the orthonormal `basis`, beyond rounding. */
 function independent(basis: readonly (readonly number[])[], row: readonly number[]): boolean {
   return Math.hypot(...remainder(basis, row)) > DEPENDENT * Math.hypot(...row);
-}
-
-/** Solve `A x = y` by elimination with partial pivoting; `A` and `y` are overwritten. */
-function solveDense(A: number[][], y: number[]): number[] {
-  const n = y.length;
-  for (let c = 0; c < n; c++) {
-    let p = c;
-    for (let r = c + 1; r < n; r++) if (Math.abs(A[r]![c]!) > Math.abs(A[p]![c]!)) p = r;
-    [A[c], A[p]] = [A[p]!, A[c]!];
-    [y[c], y[p]] = [y[p]!, y[c]!];
-    for (let r = c + 1; r < n; r++) {
-      const f = A[r]![c]! / A[c]![c]!;
-      if (f === 0) continue;
-      for (let j = c; j < n; j++) A[r]![j] = A[r]![j]! - f * A[c]![j]!;
-      y[r] = y[r]! - f * y[c]!;
-    }
-  }
-  const x = new Array<number>(n).fill(0);
-  for (let r = n - 1; r >= 0; r--) {
-    let sum = y[r]!;
-    for (let j = r + 1; j < n; j++) sum -= A[r]![j]! * x[j]!;
-    x[r] = sum / A[r]![r]!;
-  }
-  return x;
 }
