@@ -845,6 +845,18 @@ Havok's.
   steps with a double support in each, as Englsberger et al. (2015, "Three-dimensional bipedal
   walking control based on Divergent Component of Motion", IEEE T-RO) do -- with the cadence and
   the double support's share taken from a human walking reference, rather than one step at a time.
+  **Why the trailing leg is straight (found after):** the stance's height window. The height is no
+  higher than each leg reaches with its knee bent 0.2 rad and no lower than each reaches with its
+  ankle short of its dorsiflexion stop, the ankle winning where they disagree. With its foot flat,
+  a trailing leg the body has moved ahead of dorsiflexes toward its stop, and the stop's floor on
+  the height rises past the bent knee's ceiling: from the middle of each single support at 0.7 m/s
+  the floor sets the height, and the bearing knee straightens from 0.46 rad to -0.23, its
+  hyperextension stop, by the time that foot lifts. The least bearing knee over 2-3 s of walking
+  (the Rogue, forward): 0.37 rad at 0.3 m/s, 0.32 at 0.4, on its stop at 0.5 -- where the envelope
+  ends. People lift the trailing heel and roll onto the toes in late stance, and the ankle then
+  plantarflexes instead. A flat, rigid foot cannot; the choice is to roll the rigid sole on its
+  front edge (tried on the speed stance, commit eaa182e5's notes on `STANCE_GAIT`: it held fewer
+  walks and shoves there, and was taken out) or to give the foot a toe joint.
 - **The bound's cost on shoves, re-measured (2026-09-30)** after the settle and the sideways catch
   (the battery to 90 N s): bounded, the Rogue holds 118 of 272 (mean 41.9) and the Warrior 213
   (71.3); clipped alone, 128 (44.7) and 221 (71.9). Traced, the Rogue shoved 55 N s from behind
