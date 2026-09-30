@@ -889,7 +889,7 @@ Havok's.
   are, does not buy it back (Rogue 119, Warrior 206): the long step's reach, not its target, is
   what the clipped swing gets that the bounded one does not. Left as it is; the bound keeps the
   walks and the routine.
-- **The double support and the pre-swing (2026-10-01).** Planned as the plan above asked -- a
+- **The double support and the pre-swing (2026-09-30).** Planned as the plan above asked -- a
   double support before each steady step, the landing and the capture point's reference run back
   over the next eight steps (Englsberger et al. 2015; `transferStep`) -- the double support alone
   changed nothing past two walks of 25 or 18 at any length (0.03-0.2 s), and shorter swings with it
@@ -905,7 +905,7 @@ Havok's.
   0.5 m/s with the Warrior, which swings 40.8 cm off them (`tests/core-lab-run.test.mjs`'s bound
   is now 45 cm). Still open: the fast walks run at 0.84-0.94 of the pace asked, and sideways and
   back at 0.7 m/s still fall. `STANCE_GAIT`'s notes carry the table.
-- **The height at the landing (2026-10-01).** Traced at 0.8 m/s, the plan dropped the body as each
+- **The height at the landing (2026-09-30).** Traced at 0.8 m/s, the plan dropped the body as each
   long step lifted and raised it again on both feet, 2 cm a step (the reverse of a person's, who is
   highest over the bearing foot): a swinging leg's knee-bend ceiling was taken from the hip where
   it was, behind the bearing foot, to a landing well ahead of it, and at the lift the ground pushed
@@ -929,6 +929,16 @@ Havok's.
   that moment holds the root's own posture terms, which answer the plan. What is left is to solve
   the centre of mass's, the root's and the swing's accelerations together under the soles' limits
   (a whole-body problem, as a momentum-based controller poses it), rather than one after another.
+- **Found (2026-09-30): why the Rogue falls walking back at 0.7 m/s.** The re-aim lengthens each
+  backward step as the body falls behind its plan, and the foot lands 18-35 cm short of the aim
+  it has at the landing: the swinging hip lands at -0.30 rad of flexion, on its extension limit
+  (16.1 degrees, 0.28 rad, Moromizato's women; the limit gives a little), and on the steps before
+  the fall both hips are there. The pace then runs away (-0.66 to -1.88 m/s) and the body falls at
+  5.8 s. The Warrior's limit is 17.9 degrees (0.31 rad); it lands at -0.21 to -0.24 and holds (Node
+  core stand, Rapier, 120 Hz). `longest` reaches as far every way; the hip's range does not. The
+  fix is a landing the leg can reach, from its range at the planned height, and a pace no faster
+  than those landings can catch (a person walking back also bends the trunk forward, which moves
+  the range).
 - **Against the acceptance: not met.** Walks above 0.5 m/s every way still fall for the Rogue (the
   Warrior holds 0.7 every way); forward they hold to 1.0 m/s, under pace (a human's preferred walk is near 1.4); no human reference for the
   shoves or a reversal is sourced yet.
