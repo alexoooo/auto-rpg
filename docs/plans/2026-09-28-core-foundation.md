@@ -866,6 +866,20 @@ Havok's.
   the first weight shift puts a knee on its stop and the walk falls at 0.4 m/s. Heights between
   (1-2.5 cm low) held no walk past 0.4; removing the ankle floor (`ankleSpare` null, or -0.05), or
   0.2 s steps, held none at 0.5 (one walk each, 4 s, Node core stand, Rapier, 120 Hz).
+- **The heel-off (2026-09-30).** The rigid sole now rolls on its front edge, narrowly: a walk's
+  bearing foot, while the other swings, once its ankle's floor is over the knees' ceiling and the
+  plan's centre of mass is past the edge; its ankle is then held at its stop less the spare, its
+  turn about the edge is free, and its pressure is on the edge. It is flat again when its heel is
+  down with the centre behind the edge, or when it lifts (`STANCE_GAIT`'s notes carry the tables).
+  Keyed first on the capture point, it rolled on every step of the lab's run in the guard and the
+  run went a third slower (Warrior 0.323 m/s round the circle against 0.448 flat): a rolled foot
+  with the centre behind its edge brakes the walk. Keyed on the centre of mass, the Rogue holds
+  0.5 m/s every way (19 of 25 walks to 20, every one on pace) and both humans' envelopes read
+  0.5 m/s. The envelope's turn is now read at each speed of walk
+  (`assets/core/stance-envelope.json`'s `turns`, `turnAt`, `paceRound`): at 0.5 the Rogue turns
+  0.5 rad/s and the Warrior 1, at 0.4 and slower each turns 2, and the run takes a bend at the
+  fastest pace some speed's turn carries round it. Still open: a rolled foot cannot brake, and
+  the walks above 0.5 m/s mostly fall; double support planned with the steps is the deeper fix.
 - **The bound's cost on shoves, re-measured (2026-09-30)** after the settle and the sideways catch
   (the battery to 90 N s): bounded, the Rogue holds 118 of 272 (mean 41.9) and the Warrior 213
   (71.3); clipped alone, 128 (44.7) and 221 (71.9). Traced, the Rogue shoved 55 N s from behind

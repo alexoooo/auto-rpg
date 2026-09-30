@@ -2,20 +2,21 @@
  * **The stance's envelope** (`src/core/control/stance-envelope.ts`, `assets/core/stance-envelope.json`):
  * the asset was measured on the core's own harness at the game's rate, so a change of engine or rate
  * fails here until `research/core-stance-envelope.mjs --write` measures it again; each human's fastest
- * walk and turn are the rule's reading of its own tables; the rule, sampled both sides; a body carries
- * its envelope, and none under another stance tuning; the lab's turn rate is inside every body's; and
- * at its fastest walk each human holds all five ways again, and its fastest turn both ways (Node core
- * stand, Rapier, 120 Hz). The control, run by hand: the Rogue's `walk` set to
- * 0.5 in the asset fails the rule's check, and at 0.5 its forward walk falls; the Warrior's `turn`
- * set to 2 fails it too, and walking 0.5 m/s it falls turning 2 rad/s.
+ * walk and its turn at each speed are the rule's reading of its own tables; the rules, sampled both
+ * sides; a body carries its envelope, and none under another stance tuning; the lab's turn rate is
+ * inside every body's at the Routine's pace; and at its fastest walk each human holds all five ways
+ * again, and its fastest turn there both ways (Node core stand, Rapier, 120 Hz). The control, run by
+ * hand: the Rogue's last turn set to 1 in the asset fails the rule's check, and walking 0.5 m/s it
+ * falls turning 1 rad/s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createBody } from "../src/core/body.ts";
-import { fastestHeld, stanceEnvelope } from "../src/core/control/stance-envelope.ts";
+import { fastestHeld, paceRound, stanceEnvelope, turnAt } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/engine/rapier.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { TURN_PACE } from "../src/core-lab/routine.ts";
 import { LAB_TURN_RATE } from "../src/core-lab/stance-mode.ts";
 import { CORE_STANCE_HARNESS, turn, walk } from "../research/core-stance-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -27,20 +28,46 @@ test("the_envelope_was_measured_on_the_cores_harness_at_the_games_rate", () => {
   assert.equal(asset.hz, PHYSICS_HZ.value);
 });
 
-test("each_humans_fastest_walk_and_turn_are_the_rules_reading_of_its_tables", () => {
+test("each_humans_fastest_walk_and_its_turns_are_the_rules_reading_of_its_tables", () => {
   for (const [model, entry] of Object.entries(asset.models)) {
     assert.equal(entry.walk, fastestHeld({ speeds: asset.speeds, ways: asset.ways.length, held: entry.held }), model);
-    assert.equal(entry.turn, fastestHeld({ speeds: asset.rates, ways: asset.senses.length, held: entry.turnHeld }), model);
-    const from = (key) => ({ kind: "source", source: "core-stance-envelope", where: `/models/${model}/${key}` });
+    // A turn at every speed up to the fastest walk, and none past it.
+    const upTo = asset.speeds.filter((speed) => speed <= entry.walk);
+    assert.equal(entry.turnHeld.length, upTo.length, model);
+    assert.deepEqual(entry.turns, entry.turnHeld.map((held) => fastestHeld({ speeds: asset.rates, ways: asset.senses.length, held })), model);
+    const at = (where) => ({ kind: "source", source: "core-stance-envelope", where });
     assert.deepEqual(stanceEnvelope(humanSpec(model)), {
-      walk: { value: entry.walk, unit: "m/s", provenance: from("walk") },
-      turn: { value: entry.turn, unit: "rad/s", provenance: from("turn") },
+      walk: { value: entry.walk, unit: "m/s", provenance: at(`/models/${model}/walk`) },
+      turns: upTo.map((speed, i) => ({
+        speed: { value: speed, unit: "m/s", provenance: at(`/speeds/${i}`) },
+        turn: { value: entry.turns[i], unit: "rad/s", provenance: at(`/models/${model}/turns/${i}`) },
+      })),
     });
   }
 });
 
-test("the_labs_turn_rate_is_inside_every_bodys_envelope", () => {
-  for (const [model, entry] of Object.entries(asset.models)) assert.ok(LAB_TURN_RATE <= entry.turn, `${model}: ${LAB_TURN_RATE} over ${entry.turn} rad/s`);
+test("a_turn_is_the_slowest_listed_speeds_at_or_above_the_walk_and_a_bends_pace_the_most_any_speed_carries_round", () => {
+  const q = (value) => ({ value, unit: "", provenance: { kind: "source", source: "core-stance-envelope", where: "" } });
+  const envelope = { walk: q(0.5), turns: [[0.2, 2], [0.3, 2], [0.4, 2], [0.5, 0.5]].map(([speed, turn]) => ({ speed: q(speed), turn: q(turn) })) };
+  assert.equal(turnAt(envelope, 0), 2);
+  assert.equal(turnAt(envelope, 0.4), 2);
+  assert.equal(turnAt(envelope, 0.41), 0.5);
+  assert.equal(turnAt(envelope, 0.5), 0.5);
+  assert.equal(turnAt(envelope, 0.7), 0.5);
+  // A 0.3 m bend: 0.4 m/s turning 2 carries 0.6 round it, so 0.4; 0.5 turning 0.5 carries 0.15.
+  assert.equal(paceRound(envelope, 0.3), 0.4);
+  // A 0.1 m bend: 0.2 m/s at 2 carries exactly 0.2.
+  assert.equal(paceRound(envelope, 0.1), 0.2);
+  // A wide bend, or none: the fastest walk.
+  assert.equal(paceRound(envelope, 4), 0.5);
+  assert.equal(paceRound(envelope, Infinity), 0.5);
+});
+
+test("the_labs_turn_rate_is_inside_every_bodys_envelope_at_the_routines_pace", () => {
+  for (const model of Object.keys(asset.models)) {
+    const held = turnAt(stanceEnvelope(humanSpec(model)), TURN_PACE);
+    assert.ok(LAB_TURN_RATE <= held, `${model}: ${LAB_TURN_RATE} over ${held} rad/s at ${TURN_PACE} m/s`);
+  }
 });
 
 test("the_rule_takes_the_fastest_speed_held_every_way_and_at_every_slower_one", () => {
@@ -71,8 +98,8 @@ for (const model of Object.keys(asset.models)) {
     assert.deepEqual(fell, [], `${model} at ${speed} m/s`);
   });
 
-  test(`${model}_turns_both_ways_at_its_fastest_turn`, async () => {
-    const { walk: speed, turn: rate } = asset.models[model];
+  test(`${model}_turns_both_ways_at_its_fastest_turn_at_its_fastest_walk`, async () => {
+    const { walk: speed, turns } = asset.models[model], rate = turns[turns.length - 1];
     const fell = [];
     for (const sense of asset.senses) if ((await turn({ model, speed, rate, sense, stance: {}, hz: asset.hz })).fell) fell.push(sense);
     assert.deepEqual(fell, [], `${model} walking ${speed} m/s, turning ${rate} rad/s`);

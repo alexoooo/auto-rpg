@@ -3,6 +3,7 @@ import { createBody, type BodyCommand, type CoreBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
 import type { Pose } from "../core/control/motor.ts";
+import { turnAt } from "../core/control/stance-envelope.ts";
 import type { World } from "../core/world.ts";
 import { STANCE_LOWER, stanceLegs } from "./legs.ts";
 import { GUARD, SERVO_SECONDS } from "./routine.ts";
@@ -73,9 +74,9 @@ export const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, 
 /**
  * How fast the Stance scenario's Q and E turn the heading while walking, rad/s, and the shuttle's
  * half-turns' radius with the Routine's pace (`track.ts`): a lab setting, not the stance's. It is
- * inside every body's envelope (`CoreBody.envelope.turn`, `tests/core-stance-envelope.test.mjs`): on
- * Rapier, walking at its fastest, the Warrior held half-turns at up to 1 rad/s and the Rogue 2. On
- * Havok, walking at 0.3 m/s, each held 0.25-2 (Node stand, 120 Hz).
+ * inside every body's envelope at the Routine's pace (`turnAt`, `CoreBody.envelope`,
+ * `tests/core-stance-envelope.test.mjs`); walking faster, Q and E turn no faster than the body held
+ * at that walk. On Havok, walking at 0.3 m/s, each human held 0.25-2 (Node stand, 120 Hz).
  */
 export const LAB_TURN_RATE = 1;
 
@@ -94,7 +95,10 @@ export function startStance(built: BuiltBody, world: World, { guard = true }: { 
 
   body.drive((view, dt) => {
     const walking = orders.forward !== 0 || orders.right !== 0;
-    if (walking && view.time > 0) heading += orders.turn * LAB_TURN_RATE * dt;
+    if (walking && view.time > 0) {
+      const rate = body.envelope ? Math.min(LAB_TURN_RATE, turnAt(body.envelope, Math.hypot(orders.forward, orders.right))) : LAB_TURN_RATE;
+      heading += orders.turn * rate * dt;
+    }
     const goal = legs.goal(view, heading, walking ? [orders.forward, orders.right] : null, orders.lower);
     if (!goal) return command;
     if (shove) {

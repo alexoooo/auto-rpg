@@ -201,6 +201,8 @@ export interface StanceTuning {
   readonly gait?: GaitTuning;
   /** A swinging leg's torques solved within its strength together; false clips each freedom alone (the control). */
   readonly boundedSwing?: boolean;
+  /** A bearing foot whose ankle would pass its stop rolls onto its front edge; false holds it flat (the control). */
+  readonly heelOff?: boolean;
 }
 
 /** The settings of a walk's steps. */
@@ -356,6 +358,26 @@ export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lif
  * 50 degrees off; it lands facing the heading. A foot that rolls onto its toe's edge before it
  * lifts, and joints held back from their stops, were built and measured there: they held fewer walks
  * at 3 cm low (33 of 50 against 46) and 30 fewer shoves, and were taken out.
+ *
+ * The heel-off (`StanceTuning.heelOff`) came back narrower: only a walk's bearing foot, only while
+ * the other swings, and only once its ankle's floor is over the knees' ceiling -- the ankle at its
+ * stop is what held the walks back. Which point must be past the edge before it rolls decides what
+ * it costs. Keyed on the capture point, the foot rolled on every step of the lab's run, in the
+ * guard, with the centre still behind the edge its pressure sat on, and the walk braked. Keyed on
+ * the centre of mass, the rule taken, it rolls in the fast walks that need it and the run seldom
+ * (the Rogue once in 15 s, still a tenth slower round the circle). The battery above, and forward, forward left and forward right at 0.4, 0.5, 0.6, 0.7, 0.8
+ * and 1.0 m/s; held, and on pace, of 25 and 18; and the run's mean speed round the circle over
+ * 15 s, asked 0.5 m/s (Node core stand, Rapier, 120 Hz):
+ *
+ *     heel-off            Rogue  by speed    forward  circle    Warrior  by speed    forward  circle
+ *     none (the control)  19/19  5,5,5,4,0   5/5      0.500     23/23    5,5,5,5,3   10/10    0.448
+ *     on capture point    20/20  5,5,5,5,0   7/6      0.330     24/22    5,5,5,5,4   14/9     0.323
+ *     on centre of mass   20/20  5,5,5,5,0   7/7      0.451     23/23    5,5,5,5,3   12/12    0.448
+ *
+ * With it the Rogue walks 0.5 m/s every way. Stand, edge, step and the 0.3 m/s walks read the same
+ * with it and without, and so do the shoves at rest (Rogue 118 of 176, Warrior 174). Rolled, a
+ * foot's pressure is on its edge, so a rolled foot cannot brake a walk as a flat one does; a walk
+ * that must slow does it on its next step.
  */
 export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, accel: 1 };
 
@@ -446,6 +468,20 @@ interface FootState {
   readonly width: number;
   /** Half the sole's length, m. */
   readonly reach: number;
+  /**
+   * Whether the foot bears on its sole's front edge, its heel lifted: its ankle held short of its
+   * dorsiflexion stop, the leg pivots about that edge.
+   */
+  rolled: boolean;
+  /** The sole's front edge (the two corners farthest ahead of the ankle), world, as last read. */
+  readonly toe: Vector3[];
+  /** The front edge's middle, and its line's direction, level, unit; world, as last read. */
+  readonly edge: Vector3;
+  readonly edgeAxis: Vector3;
+  /** How far the heel's edge stands over the front edge, m, as last read. */
+  heel: number;
+  /** `heel` as the body was built, flat on the ground, m. */
+  flat: number;
 }
 
 export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): StanceControl {
@@ -458,6 +494,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const track = tuning.track ?? STANCE_TRACK;
   const soleMargin = tuning.soleMargin ?? SOLE_MARGIN;
   const boundedSwing = tuning.boundedSwing ?? true;
+  const heelOff = tuning.heelOff ?? true;
   const pelvis = chainTo(built, built.segments.get("foot.left")!)[0]!.parent;
   const segments = [...built.segments.values()];
   const total = segments.reduce((sum, s) => sum + s.rigid.mass, 0);
@@ -470,8 +507,13 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
       // The rectangle's sides from one corner: the nearer two of the other three.
       reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,
-      middle: new Vector3() };
+      middle: new Vector3(), rolled: false, toe: [new Vector3(), new Vector3()], edge: new Vector3(), edgeAxis: new Vector3(), heel: 0, flat: 0 };
   });
+  for (const foot of feet) {
+    soleMiddleToRef(foot, foot.middle);
+    edgeOf(foot);
+    foot.flat = foot.heel;
+  }
   /**
    * The torque stance's aims for this step (`command`): the root's angular acceleration and the
    * centre of mass's, and each leg's foot's, its sole's middle's and its spin's; then (`carry`) the
@@ -514,7 +556,10 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
 
   /** Each sole read, and the middle of `stance`'s into the reading. */
   const supportOf = (stance: readonly FootState[]): void => {
-    for (const foot of feet) soleMiddleToRef(foot, foot.middle);
+    for (const foot of feet) {
+      soleMiddleToRef(foot, foot.middle);
+      edgeOf(foot);
+    }
     reading.support.setAll(0);
     for (const foot of stance) reading.support.addInPlace(foot.middle);
     if (stance.length) reading.support.scaleInPlace(1 / stance.length);
@@ -550,7 +595,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
    * No fixed lever is better for both; the root's height is the one the wrench's geometry gives.
    */
   const leverOf = (height: number): number => Math.max(feet[0]!.reach, height - reading.support.y);
-  const pointOf = (foot: FootState, task: (typeof tasks)[number], out: Vector3): Vector3 => task.bearing ? out.copyFrom(foot.middle) : soleMiddleToRef(foot, out);
+  const pointOf = (foot: FootState, task: (typeof tasks)[number], out: Vector3): Vector3 =>
+    task.bearing ? out.copyFrom(foot.rolled ? foot.edge : foot.middle) : soleMiddleToRef(foot, out);
 
   return {
     get owned() { return owned; },
@@ -589,8 +635,21 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           const k = foot.chain[0]!.dofs.length, i = foot.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;
           if (flexed < 0) fixed[k] = m * m * (bend - flexed) - 2 * m * muscles.rate(i);
         }
-        const y0 = fixedSolve(J, k0, fixed), still = fixed.map((v) => Number.isNaN(v) ? NaN : 0);
-        const columns = [0, 1, 2, 3, 4, 5].map((c) => fixedSolve(J, B.map((row) => row[c]!), still));
+        let rows: readonly (readonly number[])[] = J, y: readonly number[] = k0, Bs: readonly (readonly number[])[] = B;
+        if (task.bearing && foot.rolled && spare !== null) {
+          // Rolled, the foot's turn about its front edge is free and the ankle is held at its stop
+          // less the spare, critically damped at the height's constant: the leg pivots on the edge.
+          const e = foot.edgeAxis, w = Vector3.Cross(e, Vector3.UpReadOnly);
+          const keep = (m: readonly (readonly number[])[]) => [
+            m[0]!.map((_, c) => w.x * m[0]![c]! + w.y * m[1]![c]! + w.z * m[2]![c]!), m[1]!, m[3]!, m[4]!, m[5]!];
+          rows = keep(J);
+          Bs = keep(B);
+          y = [w.x * k0[0]! + w.y * k0[1]! + w.z * k0[2]!, k0[1]!, k0[3]!, k0[4]!, k0[5]!];
+          const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.channels[k]!, m = 1 / seconds.height;
+          fixed[k] = m * m * (foot.chain[2]!.dofs[0]!.spec.max.value - spare - muscles.angle(i)) - 2 * m * muscles.rate(i);
+        }
+        const y0 = fixedSolve(rows, y, fixed), still = fixed.map((v) => Number.isNaN(v) ? NaN : 0);
+        const columns = [0, 1, 2, 3, 4, 5].map((c) => fixedSolve(rows, Bs.map((row) => row[c]!), still));
         legs.push({ foot, task, y0, Y: [0, 1, 2, 3, 4, 5].map((row) => columns.map((col) => col[row]!)) });
         for (const i of foot.channels) inLeg[i] = 1;
       });
@@ -755,7 +814,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           for (let j = 0; j < n; j++) torque += mass[i]![j]! * accel[j]!;
           if (share) {
             // Less the ground's wrench on the foot, carried along the freedom's motion.
-            const m = dynamics.axis(i), p = dynamics.pivot(i), x = foot.middle;
+            const m = dynamics.axis(i), p = dynamics.pivot(i), x = foot.rolled ? foot.edge : foot.middle;
             const d = [x.x - p[0], x.y - p[1], x.z - p[2]];
             const swept = [m[1] * d[2]! - m[2] * d[1]!, m[2] * d[0]! - m[0] * d[2]!, m[0] * d[1]! - m[1] * d[0]!];
             torque -= m[0] * share.moment.x + m[1] * share.moment.y + m[2] * share.moment.z
@@ -872,7 +931,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         // dynamics", IROS), within what the sole holds: the body falls toward its new stance.
         const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.seconds - step.time, dt));
         const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
-        const [px, pz] = withinSupport([bearer!], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
+        const [px, pz] = withinSupport([bearingOf(bearer!)], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
           inset);
         reading.place.set(px, 0, pz);
         ax = pendulum * (r.x - px);
@@ -897,6 +956,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       // `STANCE_ANKLE_SPARE`, its foot where it stands or will land: the knee's place is then fixed,
       // and the hip is a thigh from it. Where the two disagree, the ankle's stop is the harder limit.
       let high = goal.height, low = -Infinity;
+      const floors: [FootState, number][] = [];
       for (const foot of reading.phase === "swing" ? feet : stance) {
         const [hip, knee, ankle] = foot.chain;
         pointOfToRef(hip!.parent, hip!.spec.centre.value, hipAt);
@@ -915,9 +975,25 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           const k = knee!.spec.centre.value, o = ankle!.spec.centre.value;
           kneeAt.set(k[0] - o[0], k[1] - o[1], k[2] - o[2]).applyRotationQuaternionToRef(shank, kneeAt).addInPlace(ankleAt);
           const across = Math.hypot(hx - kneeAt.x, hz - kneeAt.z);
-          if (across < a) low = Math.max(low, kneeAt.y + Math.sqrt(a * a - across * across) + rise);
+          if (across < a) floors.push([foot, kneeAt.y + Math.sqrt(a * a - across * across) + rise]);
         }
       }
+      // A walk's bearing foot whose ankle's floor is over the knees' ceiling on one foot rolls onto
+      // its front edge instead (Perry 1992, "Gait Analysis", terminal stance: the heel rises as the
+      // body passes over the forefoot), once the plan's centre of mass is past that edge: rolled,
+      // the foot's pressure is on the edge, and one rolled with the centre behind it brakes the walk
+      // (keyed on the capture point instead, the Warrior's run went 0.323 m/s against 0.448 flat).
+      // The height keeps the knees bent, and the ankle its range. The foot rolls back once its heel
+      // is down with the centre behind the edge, and is flat again whenever it leaves the ground.
+      for (const foot of feet) if (!stance.includes(foot)) foot.rolled = false;
+      for (const [foot, floor] of floors) {
+        if (!stance.includes(foot)) continue;
+        const ex = r.x - foot.edge.x, ez = r.z - foot.edge.z;
+        const past = ex * (foot.edge.x - foot.middle.x) + ez * (foot.edge.z - foot.middle.z) >= 0;
+        if (heelOff && striding && past && !foot.rolled && floor > high && reading.phase === "swing") foot.rolled = true;
+        else if (foot.rolled && !past && foot.heel <= foot.flat) foot.rolled = false;
+      }
+      for (const [foot, floor] of floors) if (!foot.rolled) low = Math.max(low, floor);
       high = Math.max(high, low);
       const ay = k * k * (high - r.y) - 2 * k * u.y;
       u.addInPlaceFromFloats(ax * dt, ay * dt, az * dt);
@@ -953,7 +1029,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       aim.on = true;
       for (const foot of stance) {
         const task = tasks[feet.indexOf(foot)]!;
-        footMotionToRef(foot, foot.middle, task.linear, task.angular);
+        footMotionToRef(foot, foot.rolled ? foot.edge : foot.middle, task.linear, task.angular);
         task.linear.scaleInPlace(-e);
         task.angular.scaleInPlace(-e);
         task.on = true;
@@ -1140,7 +1216,7 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   const sx = b.x + walk[0] * T + sign * W * rx, sz = b.z + walk[1] * T + sign * W * rz;
   let px = under ? under.pivot.x : b.x, pz = under ? under.pivot.z : b.z;
   // (At the swing's end the capture point is where it is, wherever the pivot.)
-  if (run > 1 + 1e-6) [px, pz] = withinSupport([bearer], (sx + nx - xi * run) / (1 - run), (sz + nz - zi * run) / (1 - run), inset);
+  if (run > 1 + 1e-6) [px, pz] = withinSupport([bearingOf(bearer)], (sx + nx - xi * run) / (1 - run), (sz + nz - zi * run) / (1 - run), inset);
   const ex = px + (xi - px) * run, ez = pz + (zi - pz) * run;
   // Starting from a stand, the weight is shifted first and the foot lands where a steady walk puts it.
   const steady = last || under;
@@ -1246,7 +1322,33 @@ function bearingSole(foot: FootState, keep: number): BearingSole {
   // The corner a long side away from the first: the middle of the three distances.
   const other = rest[near[1]![1]]!, along = other.subtract(a!);
   along.y = 0;
+  // Rolled, the centre of pressure is on the front edge: kept within the margin's band of it.
+  if (foot.rolled) return { middle: foot.edge, along: along.normalize(), length: (1 - keep) * foot.reach, width: keep * foot.width / 2 };
   return { middle: foot.middle, along: along.normalize(), length: keep * foot.reach, width: keep * foot.width / 2 };
+}
+
+/** The sole a foot bears on, for the region the stance holds: its front edge when rolled. */
+function bearingOf(foot: FootState): Sole {
+  return foot.rolled ? { corners: foot.toe } : foot;
+}
+
+const edgeScratch = { ankle: new Vector3() };
+
+/**
+ * `foot`'s front edge, read into it from its corners (`soleMiddleToRef` reads them): the two
+ * farthest ahead of the ankle, their middle, their line's direction, level, and how far the heel's
+ * two stand over them.
+ */
+function edgeOf(foot: FootState): void {
+  const ankle = foot.chain[2]!, at = pointOfToRef(ankle.parent, ankle.spec.centre.value, edgeScratch.ankle);
+  const fx = foot.middle.x - at.x, fz = foot.middle.z - at.z;
+  const order = foot.corners.map((q, k) => [(q.x - at.x) * fx + (q.z - at.z) * fz, k] as const).sort((a, b) => b[0] - a[0]);
+  const a = foot.corners[order[0]![1]]!, b = foot.corners[order[1]![1]]!;
+  foot.toe[0]!.copyFrom(a);
+  foot.toe[1]!.copyFrom(b);
+  foot.edge.copyFrom(a).addInPlace(b).scaleInPlace(0.5);
+  foot.edgeAxis.set(b.x - a.x, 0, b.z - a.z).normalize();
+  foot.heel = (foot.corners[order[2]![1]]!.y + foot.corners[order[3]![1]]!.y) / 2 - foot.edge.y;
 }
 
 /**

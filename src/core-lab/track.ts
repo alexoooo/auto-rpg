@@ -88,15 +88,15 @@ export function trackOf(pieces: readonly Piece[]): Track {
 
 /**
  * The big circle's radius, m: the owner's "big circle", about 25 m a lap; at the humans' fastest
- * walks (0.4-0.5 m/s, `assets/core/stance-envelope.json`) it asks the heading to turn 0.10-0.125
- * rad/s, inside the turn each body held walking at its fastest (`CoreBody.envelope`).
+ * walk (0.5 m/s, `assets/core/stance-envelope.json`) it asks the heading to turn 0.125 rad/s,
+ * inside the turn each body held walking at its fastest (`CoreBody.envelope`).
  */
 export const CIRCLE_RADIUS = 4;
 /** The shuttle's straight, m. */
 export const SHUTTLE_METRES = 6;
 /**
  * The shuttle's half-turn's radius, m: the arc the Routine's turns walk, `TURN_PACE` at
- * `LAB_TURN_RATE` (0.3 m/s at 1 rad/s), the only turn measured on the stance.
+ * `LAB_TURN_RATE` (0.3 m/s at 1 rad/s).
  */
 export const SHUTTLE_TURN_RADIUS = TURN_PACE / LAB_TURN_RATE;
 

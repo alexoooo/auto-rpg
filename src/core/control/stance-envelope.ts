@@ -7,9 +7,14 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  * and not for a number that held on one engine. The numbers are
  * `assets/core/stance-envelope.json`, which `research/core-stance-envelope.mjs --write` writes from
  * the gait battery (`research/core-stance-trials.mjs`' walk, five ways at each speed) and the turn
- * battery (its turn: half round each way at each rate, walking at the fastest walk), and which
- * names the harness and rate it was measured on; `tests/core-stance-envelope.test.mjs` fails when
- * the harness it names is not the core's, so a change of engine or rate re-measures it.
+ * battery (its turn: half round each way at each rate, walking at each of the gait battery's speeds
+ * up to the fastest walk), and which names the harness and rate it was measured on;
+ * `tests/core-stance-envelope.test.mjs` fails when the harness it names is not the core's, so a
+ * change of engine or rate re-measures it.
+ *
+ * A turn is read at each speed because it depends on it: with the heel-off (`STANCE_GAIT`'s notes)
+ * the Rogue walks 0.5 m/s, but turns 0.5 rad/s there and 2 rad/s at 0.4. One turn at the fastest
+ * walk made a run crawl round a bend it could take a little slower at four times the turn.
  *
  * Measured on the body unarmed, at the rate the asset names: a held club, or another rate, is a
  * body the table did not see.
@@ -17,8 +22,11 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
 export interface StanceEnvelope {
   /** The fastest walk the stance held, m/s (`fastestHeld`). */
   readonly walk: Quantity<number>;
-  /** The fastest the heading turned while the body walked at `walk`, and held, rad/s (`fastestHeld`). */
-  readonly turn: Quantity<number>;
+  /**
+   * At each speed of the gait battery up to `walk`, slowest first: the fastest the heading turned
+   * while the body walked at that speed, and held, rad/s (`fastestHeld`).
+   */
+  readonly turns: readonly { readonly speed: Quantity<number>; readonly turn: Quantity<number> }[];
 }
 
 /**
@@ -44,13 +52,35 @@ export function fastestHeld({ speeds, ways, held }: GaitTable): number {
   return fastest;
 }
 
+/**
+ * The fastest turn `envelope` holds walking at `speed`, rad/s: that of the slowest speed of its table
+ * at or above `speed`, taking a turn held at a walk as held at any slower one; past its fastest walk,
+ * the fastest walk's.
+ */
+export function turnAt(envelope: StanceEnvelope, speed: number): number {
+  const turns = envelope.turns;
+  return (turns.find((t) => t.speed.value >= speed) ?? turns[turns.length - 1]!).turn.value;
+}
+
+/**
+ * The fastest pace at which `envelope`'s turns carry the body round a bend of `radius` m, m/s: over
+ * its table, the most of each speed or what its turn carries round the bend, whichever is less
+ * (walking no faster than a speed, the body turns as fast as it turned there: `turnAt`).
+ */
+export function paceRound(envelope: StanceEnvelope, radius: number): number {
+  return Math.max(0, ...envelope.turns.map((t) => Math.min(t.speed.value, t.turn.value * radius)));
+}
+
 /** The measured envelope of `spec`'s model. */
 export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
-  const models: Readonly<Record<string, { readonly walk: number; readonly turn: number }>> = measured.models;
+  const models: Readonly<Record<string, { readonly walk: number; readonly turns: readonly number[] }>> = measured.models;
   const entry = models[spec.model];
   if (!entry) throw new Error(`the stance's envelope was not measured on ${spec.model}`);
   return {
     walk: sourced(entry.walk, "m/s", "core-stance-envelope", `/models/${spec.model}/walk`),
-    turn: sourced(entry.turn, "rad/s", "core-stance-envelope", `/models/${spec.model}/turn`),
+    turns: entry.turns.map((turn, i) => ({
+      speed: sourced(measured.speeds[i]!, "m/s", "core-stance-envelope", `/speeds/${i}`),
+      turn: sourced(turn, "rad/s", "core-stance-envelope", `/models/${spec.model}/turns/${i}`),
+    })),
   };
 }

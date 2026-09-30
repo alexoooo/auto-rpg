@@ -1,6 +1,7 @@
 import { createBody, type BodyCommand, type CoreBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Pose } from "../core/control/motor.ts";
+import { paceRound, turnAt } from "../core/control/stance-envelope.ts";
 import type { World } from "../core/world.ts";
 import { stanceLegs } from "./legs.ts";
 import { GUARD, SERVO_SECONDS, STEER, TURN_LEAD } from "./routine.ts";
@@ -17,9 +18,10 @@ import type { Track } from "./track.ts";
  * `TURN_LEAD`: the Routine found that a turn begun over feet still planted for the walk's first
  * weight shift fell. Its pace is the body's fastest walk, but no faster than its turn carries it
  * round the tightest bend within `STEER.metres` either way. Both are the body's own
- * (`CoreBody.envelope`, what the stance was measured to hold with it): on Rapier the Warrior walks
- * 0.5 m/s and turns 1 rad/s, so it takes the shuttle's 0.3 m half-turns at 0.3 m/s; the Rogue walks
- * 0.4 and turns 2, and takes them at its walk.
+ * (`CoreBody.envelope`, what the stance was measured to hold with it, its turn at each speed of
+ * walk, `turnAt` and `paceRound`): on Rapier each human walks 0.5 m/s, turning 2 rad/s at 0.4 m/s
+ * and slower, and at 0.5 the Warrior 1 and the Rogue 0.5; each takes the shuttle's 0.3 m
+ * half-turns at 0.4 m/s, where its turn carries it round.
  * It slows before a bend and keeps the bend's pace a metre past it, for its heading lags the
  * track's: sped up at the arc's end, the Warrior asked 0.5 m/s was still 0.9 rad short of the way
  * back and went 45.6 cm off the shuttle; kept slow, 31.7 cm. The stance's own acceleration takes it
@@ -73,7 +75,7 @@ function tightest(track: Track, s: number, metres: number): number {
 /** Run `built`, a human in its reference pose at the track's start facing along it, round `track`. */
 export function startRun(built: BuiltBody, world: World, track: Track): RunSession {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
-  const fastest = body.envelope!.walk.value, turnRate = body.envelope!.turn.value;
+  const envelope = body.envelope!, fastest = envelope.walk.value;
   const legs = stanceLegs();
   const posture: Pose = { ...GUARD };
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
@@ -100,10 +102,10 @@ export function startRun(built: BuiltBody, world: World, track: Track): RunSessi
       const to = track.at(along + STEER.metres);
       aim = [to.x, to.z];
       if (view.time - setOff >= TURN_LEAD) {
-        const rate = turnRate * dt;
+        const rate = turnAt(envelope, pace) * dt;
         heading += Math.max(-rate, Math.min(rate, wrap(Math.atan2(to.x - c.x, to.z - c.z) - heading)));
       }
-      const bend = turnRate * tightest(track, along, STEER.metres);
+      const bend = paceRound(envelope, tightest(track, along, STEER.metres));
       bending = bend < fastest;
       pace = Math.min(fastest, bend);
     }
