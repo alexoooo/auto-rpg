@@ -2,6 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import { motorControl, type Hand, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading, StanceTuning } from "./control/stance.ts";
+import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
 import { driveMuscles, type MuscleDriver } from "./muscle/driver.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
@@ -21,6 +22,12 @@ export interface CoreBody {
   readonly muscles: MuscleDriver;
   /** The view as the last step left it. */
   readonly view: BodyView;
+  /**
+   * What the stance was measured to hold with this body (`stance-envelope.ts`), so a driver asks for
+   * its fastest walk and not a number; null under a stance tuning other than the core's, which the
+   * measurement did not see.
+   */
+  readonly envelope: StanceEnvelope | null;
   /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
   drive(driver: BodyDriver | null): void;
   dispose(): void;
@@ -128,6 +135,7 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds, stanc
 
   return {
     built, muscles, view,
+    envelope: Object.keys(stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
     drive(next) { driver = next; },
     dispose() { muscles.dispose(); },
   };

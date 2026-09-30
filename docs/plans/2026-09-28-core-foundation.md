@@ -633,6 +633,21 @@ Havok's.
   fastest held walk is 0.4 m/s (the Rogue held four of five walks at 0.5); asked 0.5, the Rogue fell
   a quarter of the way round the circle. At 0.4 each human holds 70 s on either track at
   0.36-0.37 m/s, and the shuttle's half-turns take 39.6 cm of the test's 40.
+- **The stance's envelope** (2026-09-30, `src/core/control/stance-envelope.ts`): a body carries
+  what the stance was measured to hold with it (`CoreBody.envelope`), and the Run asks for the
+  body's fastest walk instead of a lab number that held on one engine. The measurement is the
+  gait battery, written to `assets/core/stance-envelope.json` by
+  `research/core-stance-envelope.mjs --write` with the harness and rate it ran on;
+  `tests/core-stance-envelope.test.mjs` fails when those are not the core's, so a change of engine
+  or rate re-measures it, and walks each human at its figure again. The rule is the fastest speed
+  at which every way held, and every slower one: on Rapier at 120 Hz the Warrior held 5,5,5,5,3 of
+  five at 0.2, 0.3, 0.4, 0.5 and 0.7 m/s, so 0.5; the Rogue 5,5,5,4,0, so 0.4. Measured unarmed
+  under the core's stance tuning; a body under another tuning carries none. Asked 0.5, the Warrior
+  went 45.6 cm off the shuttle: the run sped up at a half-turn's end while its heading, lagging the
+  track's, was still 0.9 rad short. The run now keeps a bend's pace `STEER.metres` past it as well
+  as before it, and each human's farthest off the shuttle is 31.4-31.9 cm over 30 and 70 s, the
+  circle's 13.4-13.6 cm (Node stand, 120 Hz). Not yet in the envelope: the turn rate
+  (`LAB_TURN_RATE`, measured on Havok) and the turn's pace (`TURN_PACE`).
   The Blow scenario (`blow-scenario.ts`; its card puts the club in the right hand) throws a
   stored blow (`blows.ts`: today the damage unit's) standing, as the strike search throws it
   (`blow.ts`), into a head mark, and reads the landing as the search reads it (`club-blow.ts`):

@@ -16,22 +16,17 @@ import type { Track } from "./track.ts";
  * the track's point `STEER.metres` ahead of that, and turns its heading toward the aim no faster
  * than `LAB_TURN_RATE`, as the stance turns only while it walks. It turns not at all for its first
  * `TURN_LEAD`: the Routine found that a turn begun over feet still planted for the walk's first
- * weight shift fell. Its pace is `RUN_PACE`, but no faster than the turn rate carries it round the
- * tightest bend of the next `STEER.metres`: on the shuttle's half-turns that is the Routine's
- * `TURN_PACE`. The stance's own acceleration takes it from one pace to the other.
+ * weight shift fell. Its pace is the body's fastest walk (`CoreBody.envelope`, what the stance was
+ * measured to hold with it), but no faster than the turn rate carries it round the tightest bend
+ * within `STEER.metres` either way: on the shuttle's half-turns that is the Routine's `TURN_PACE`.
+ * It slows before a bend and keeps the bend's pace a metre past it, for its heading lags the
+ * track's: sped up at the arc's end, the Warrior asked 0.5 m/s was still 0.9 rad short of the way
+ * back and went 45.6 cm off the shuttle; kept slow, 31.7 cm. The stance's own acceleration takes it
+ * from one pace to the other. Nothing here names a pace that held
+ * on one engine: a change of engine re-measures the envelope, and the run asks for what it says.
  *
  * This module has no page-only imports, so the Node stand can run it (`tests/core-lab-run.test.mjs`).
  */
-
-/**
- * The pace the run asks for, m/s: the fastest walk the stance held. Each human walked at 0.2, 0.3,
- * 0.4, 0.5 and 0.7 m/s five ways (`research/core-stance-sweep.mjs`'s gait battery, Node stand,
- * Rapier, 120 Hz), and every walk up to 0.4 m/s held: at 0.5 the Warrior held all five and the Rogue
- * four, and at 0.7 three and none. A walk goes 0.93-0.94 of the pace asked. The lab's ceiling, not
- * the body's. On Havok's stance the same rule gave 0.5, its walk going about 0.8 of the pace asked;
- * asked 0.5 on Rapier's, the Rogue fell a quarter of the way round the circle.
- */
-export const RUN_PACE = 0.4;
 
 /** What the page shows of a run, as the last control step left it. */
 export interface RunFrame {
@@ -67,16 +62,17 @@ export interface RunSession {
 
 const wrap = (a: number): number => a - 2 * Math.PI * Math.ceil((a - Math.PI) / (2 * Math.PI));
 
-/** The tightest radius of `track` over `metres` from `s`, m (Infinity on a straight). */
+/** The tightest radius of `track` within `metres` of `s` either way, m (Infinity on a straight). */
 function tightest(track: Track, s: number, metres: number): number {
   let most = 0;
-  for (let d = 0; d <= metres; d += 0.05) most = Math.max(most, Math.abs(track.at(s + d).curvature));
+  for (let d = -metres; d <= metres; d += 0.05) most = Math.max(most, Math.abs(track.at(s + d).curvature));
   return most === 0 ? Infinity : 1 / most;
 }
 
 /** Run `built`, a human in its reference pose at the track's start facing along it, round `track`. */
 export function startRun(built: BuiltBody, world: World, track: Track): RunSession {
   const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+  const fastest = body.envelope!.walk.value;
   const legs = stanceLegs();
   const posture: Pose = { ...GUARD };
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
@@ -107,8 +103,8 @@ export function startRun(built: BuiltBody, world: World, track: Track): RunSessi
         heading += Math.max(-rate, Math.min(rate, wrap(Math.atan2(to.x - c.x, to.z - c.z) - heading)));
       }
       const bend = LAB_TURN_RATE * tightest(track, along, STEER.metres);
-      bending = bend < RUN_PACE;
-      pace = Math.min(RUN_PACE, bend);
+      bending = bend < fastest;
+      pace = Math.min(fastest, bend);
     }
     const goal = legs.goal(view, heading, [pace, 0]);
     if (!goal) return command;

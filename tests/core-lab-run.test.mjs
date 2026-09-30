@@ -2,23 +2,22 @@
  * **The core lab's run mode** (`src/core-lab/run-mode.ts`), on the Node stand as the page runs it:
  * each human round each track for 30 s, at 120 Hz. It stays on its feet, gets round -- past the
  * shuttle's first half-turn, a quarter of the way round the circle -- and stays near the track. It
- * asks for `RUN_PACE` except into the shuttle's half-turns, where it asks for the Routine's
- * `TURN_PACE`, the only pace a turn was measured at.
+ * asks for the body's fastest walk (`CoreBody.envelope`) except in the shuttle's half-turns, where
+ * it asks for the Routine's `TURN_PACE`, the only pace a turn was measured at.
  *
- * Measured by this test (Node stand, Rapier, 120 Hz, 2026-09-29), Warrior and Rogue: none fell;
- * the mean speed along the track was 0.365 and 0.367 m/s on the circle and 0.358 and 0.360 on the
- * shuttle, asked 0.4; the farthest off the track after the first second was 13.4 cm on the circle
- * for each (the pursuit of a point 1 m on cuts inside a 4 m circle by about 1 / (2 * 4) m, 12 cm)
- * and 37.7 and 39.2 cm on the shuttle, at its half-turns of 0.3 m radius. Run 70 s, none fell, and
- * the shuttle's farthest was 39.6 and 39.2 cm: within 1 % of `OFF`, the farthest the test allows.
- * On Havok's stance, whose walk went slower than asked, the shuttle's half-turns were cut within
- * 29.0 and 32.1 cm; on Rapier's the walk goes the pace asked, which the turn rate carries round a
- * half-turn with nothing to spare.
+ * Measured by this test (Node stand, Rapier, 120 Hz, 2026-09-30), Warrior and Rogue, asked their
+ * fastest walks of 0.5 and 0.4 m/s: none fell; the mean speed along the track was 0.464 and 0.367
+ * m/s on the circle and 0.397 and 0.339 on the shuttle; the farthest off the track after the first
+ * second was 13.6 and 13.4 cm on the circle (the pursuit of a point 1 m on cuts inside a 4 m circle
+ * by about 1 / (2 * 4) m, 12 cm) and 31.7 and 31.4 cm on the shuttle, at its half-turns of 0.3 m
+ * radius. Run 70 s, none fell, and the shuttle's farthest was 31.7 and 31.9 cm. Before the run kept
+ * a bend's pace past it, the Warrior at 0.5 m/s went 45.6 cm off the shuttle, and the Rogue at 0.4
+ * went 39.6 cm in 70 s, within 1 % of `OFF`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
-import { RUN_PACE, startRun } from "../src/core-lab/run-mode.ts";
+import { startRun } from "../src/core-lab/run-mode.ts";
 import { TURN_PACE } from "../src/core-lab/routine.ts";
 import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACKS, trackOf } from "../src/core-lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -50,7 +49,7 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
       assert.ok(!frame.fallen, `${model} ${id}: fell at ${frame.time.toFixed(1)} s`);
       assert.ok(frame.travelled > ROUND[id], `${model} ${id}: ${frame.travelled.toFixed(2)} m round, not past ${ROUND[id].toFixed(2)}`);
       // The circle is all one pace; the shuttle slows to the turn's pace into its first half-turn.
-      assert.deepEqual([...paces.straight], [RUN_PACE], `${model} ${id}: paces off the bends`);
+      assert.deepEqual([...paces.straight], [run.body.envelope.walk.value], `${model} ${id}: paces off the bends`);
       assert.deepEqual([...paces.bend], id === "shuttle" ? [TURN_PACE] : [], `${model} ${id}: paces in the bends`);
       assert.ok(off < OFF, `${model} ${id}: ${(100 * off).toFixed(1)} cm off the track`);
     });
