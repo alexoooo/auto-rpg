@@ -653,11 +653,35 @@ Havok's.
   - The lab (`tests/core-lab.test.mjs`): shoved from behind, 35 and 55 N s, the Rogue catches
     itself in 2 steps and the Warrior in 4.
   - The lab's routine (`src/core-lab/routine.ts`; a loop of 26 s: a 2 m walk, a set step, three
-    straights, a turn, the walk back, a turn) is not held yet: run for 20 loops, at 120 Hz the
+    straights, a turn, the walk back, a turn) was not held: run for 20 loops, at 120 Hz the
     Warrior fell in its second loop's first walk and the Rogue in its ninth loop's walk back; at
     480 Hz the Warrior in its sixth loop's walk back and the Rogue in its third loop's second strike.
     The straights peak at 5.64-5.72 m/s (Warrior) and 4.80-4.90 (Rogue) at 120 Hz, against 5.44 and
-    4.66 on Havok's stance. The falls are the next work.
+    4.66 on Havok's stance. Two causes are fixed (below); the falls left are the next work.
+- **A swinging leg is solved within its strength, all its freedoms at once** (`boundedLeastSquares`
+  in `bear`). Clipped one at a time, a hip at its strength left the knee's torque asking for the
+  thigh's motion it did not get: the Warrior's foot dragged a whole step 1 cm up, landed 18 cm
+  short, and the walk ran away. The weight check that found it read each foot's ground force from
+  Rapier's contacts: the "bearing" foot bore the body on its toe, its heel 9 cm up, the plan's centre
+  of pressure at the sole's front margin, and the leg's torques flipped step by step.
+- **A strike's pushes are planned.** The freedoms a strike drives at a set torque were taken at rest
+  when the root's acceleration was chosen, and solved only after: the ground gave the whole body
+  the arm's and trunk's momentum. `carry` now has them move as their torque moves them, linear in
+  the root's acceleration, as the legs are.
+- **Measured** on the lab routine from seeded starts (`research/core-routine-battery.mjs`: a 3 N s
+  push at 0.5 s in a direction the seed picks, up to 5 loops; Node core stand, Rapier), loops
+  completed:
+
+  | | Rogue, 120 Hz (24 runs) | Warrior, 120 Hz | Rogue, 480 Hz (12 runs) | Warrior, 480 Hz |
+  |---|---|---|---|---|
+  | legs clipped alone | 43 of 120 (2 through) | 33 (2) | 23 of 60 (2) | 36 (5) |
+  | the swing bounded | 69 (8) | 100 (18) | 23 (2) | 54 (9) |
+  | and the pushes planned | 84 (12) | 109 (20) | 56 (11) | 60 (12) |
+
+  No run falls in a strike now. At 120 Hz the Rogue falls in walks (8 of 12 falls), in the settle
+  after one (2), in a turn and at a loop's start; the Warrior 4 times in 24 (two at a loop's start,
+  a turn, a walk). The bound costs shoves: 117 and 202 held of 272,
+  against 128 and 217 (`bear`'s note).
 - **It converges with the rate.** At 480 Hz (the same batteries, shoves 10-60 N s) both humans
   stand as still, their steps land within 1.9 mm, and the shoves held read 46.6 (35) and
   58.4 N s (55) against 44.7 (35) and 57.8 (45) at 120 Hz over the same range. On Havok a step
@@ -790,7 +814,7 @@ gives, as it did on Havok at 480 Hz. The smaller searches above had stopped shor
 unit is not re-set yet**: it is the converged reading of a blow searched at a converged rate, and
 that search waits on the solver's settings (below), which move every blow. Until then the unit is
 Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.37 HP on Rapier
-(0.41 on the torque stance).
+(0.41 on the torque stance, 0.34 once the stance planned a strike's pushes).
 
 **What does not hold, and why.**
 - **A velocity motor under its ceiling holds only as far as the solver converges.** Rapier solves
@@ -831,7 +855,7 @@ Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.3
 
 **Where the port stands**: the owner chose torque sources (2026-09-29: "go with (b), start with
 the real inertia"), and the stance stands, steps, walks and catches shoves on them (stage 4's torque
-stance). 1094 of 1098 tests pass; three are todos (the limit and the two muscle impulse tests), and
+stance). 1096 of 1100 tests pass; three are todos (the limit and the two muscle impulse tests), and
 the one that fails is the unit's replay, which waits on a search at a converged rate (above).
 
 ### Stage 6: the human fights in the game

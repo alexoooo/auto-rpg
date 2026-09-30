@@ -199,6 +199,8 @@ export interface StanceTuning {
   readonly recovery?: RecoveryTuning | null;
   /** How a stance walks (`STANCE_GAIT`). */
   readonly gait?: GaitTuning;
+  /** A swinging leg's torques solved within its strength together; false clips each freedom alone (the control). */
+  readonly boundedSwing?: boolean;
 }
 
 /** The settings of a walk's steps. */
@@ -453,6 +455,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const gait = tuning.gait ?? STANCE_GAIT;
   const track = tuning.track ?? STANCE_TRACK;
   const soleMargin = tuning.soleMargin ?? SOLE_MARGIN;
+  const boundedSwing = tuning.boundedSwing ?? true;
   const pelvis = chainTo(built, built.segments.get("foot.left")!)[0]!.parent;
   const segments = [...built.segments.values()];
   const total = segments.reduce((sum, s) => sum + s.rigid.mass, 0);
@@ -473,6 +476,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
    * root's acceleration and each leg's freedoms' accelerations.
    */
   const aim = { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) };
+  // The freedoms held at a torque as `carry` found them, and their accelerations, z0 + Z a_root.
+  const held = { channels: [] as number[], z0: [] as number[], Z: [] as number[][] };
   const tasks = feet.map(() => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(6) }));
   const shares = [0, 1].map(() => ({ force: new Vector3(), moment: new Vector3() }));
   const missed = { force: new Vector3(), moment: new Vector3() };
@@ -593,7 +598,46 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           for (let c = 0; c < 6; c++) P[r]![c] = P[r]![c]! - C * Y[k]![c]!;
         }
       });
-      for (let i = 0; i < n; i++) if (!inLeg[i]) for (let r = 0; r < 6; r++) w0[r] = w0[r]! + R.coupling[r]![i]! * work.accel[i]!;
+      // The freedoms held at a torque (`ServoWork.fixed` outside the legs: a strike's pushes) move as
+      // that torque moves them, and the root's acceleration changes how: from M_FF q''_F = torque_F -
+      // bias_F + gravity_F - C_F' a_root - M_F,rest q''_rest, q''_F = z0 + Z a_root. Taken at rest, a
+      // straight's arm and trunk were carried by a ground that gave the whole body their momentum.
+      // The lab routine as `bear`'s swing has it, the swing bounded: at 120 Hz over 24 runs the Rogue
+      // 84 of 120 loops (12 runs through all five), the Warrior 109 (20), against 69 (8) and 100 (18);
+      // at 480 Hz over 12, 56 of 60 (11) and 60 (12), against 23 (2) and 54 (9). No run fell in a
+      // strike or the settle after one.
+      const { mass, gravity: weight, bias } = dynamics;
+      const F: number[] = [];
+      for (let i = 0; i < n; i++) if (work.fixed[i] && !inLeg[i]) F.push(i);
+      held.channels = F;
+      if (F.length) {
+        const legOf = new Map<number, { y0: number; Y: readonly number[] }>();
+        for (const { foot, y0, Y } of legs) foot.channels.forEach((i, k) => legOf.set(i, { y0: y0[k]!, Y: Y[k]! }));
+        const MFF = F.map((i) => F.map((j) => mass[i]![j]!));
+        held.z0 = solveLinear(MFF, F.map((i) => {
+          let t = work.torque[i]! - bias[i]! + weight[i]!;
+          for (let j = 0; j < n; j++) {
+            if (work.fixed[j] && !inLeg[j]) continue;
+            const leg = legOf.get(j);
+            t -= mass[i]![j]! * (leg ? leg.y0 : work.accel[j]!);
+          }
+          return t;
+        }));
+        const columns = [0, 1, 2, 3, 4, 5].map((c) => solveLinear(MFF, F.map((i) => {
+          let t = -R.coupling[c]![i]!;
+          for (const [j, leg] of legOf) t += mass[i]![j]! * leg.Y[c]!;
+          return t;
+        })));
+        held.Z = F.map((_, k) => columns.map((column) => column[k]!));
+        F.forEach((i, k) => {
+          for (let r = 0; r < 6; r++) {
+            const C = R.coupling[r]![i]!;
+            w0[r] = w0[r]! + C * held.z0[k]!;
+            for (let c = 0; c < 6; c++) P[r]![c] = P[r]![c]! + C * held.Z[k]![c]!;
+          }
+        });
+      }
+      for (let i = 0; i < n; i++) if (!inLeg[i] && !(work.fixed[i])) for (let r = 0; r < 6; r++) w0[r] = w0[r]! + R.coupling[r]![i]! * work.accel[i]!;
       // The aims: the root's angular acceleration, and the root centre's that gives the centre of
       // mass its aim (the ground's force is M c'' less gravity's).
       const root = aim.root;
@@ -625,6 +669,58 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       // Every freedom's acceleration: the legs' from their tasks, the rest as the servo solved them.
       const accel = work.accel;
       feet.forEach((foot, s) => { if (tasks[s]!.on) foot.channels.forEach((i, k) => { accel[i] = tasks[s]!.accel[k]!; }); });
+      // The freedoms held at a torque, as the plan has them move at this root.
+      held.channels.forEach((i, k) => { accel[i] = held.z0[k]! + held.Z[k]!.reduce((sum, v, c) => sum + v * root[c]!, 0); });
+      const { mass, gravity: weight, bias } = dynamics;
+      // A swinging leg's accelerations are the nearest to its task that its muscles can give, all its
+      // freedoms at once (`boundedLeastSquares`): clipped one at a time, a hip at its strength left
+      // the knee's torque asking for the thigh's motion it did not get, and the knee drove the foot
+      // into the ground (the Warrior, walking in the lab's routine: its foot dragged a whole step
+      // 1 cm up, landed 18 cm short, and the walk ran away). A hip turning faster than its muscles
+      // shorten has no strength that way at all. The lab routine from seeded starts
+      // (`research/core-routine-battery.mjs`: 3 N s at 0.5 s, up to 5 loops; Node core stand,
+      // Rapier), loops completed of those possible, runs through all five, and falls while walking:
+      //
+      //                        Rogue              Warrior
+      //     120 Hz, 24 runs    69/120  8   3      100/120  18  0    bounded
+      //                        43/120  2  11      33/120    2  18   clipped alone
+      //     480 Hz, 12 runs    23/60   2   0      54/60     9   0    bounded
+      //                        23/60   2   4      36/60     5   0    clipped alone
+      //
+      // (Both before the freedoms held at a torque were planned, in `carry`: the falls left were in
+      // the strikes.) Only some 1 % of swinging steps ask past strength, but those are the steps that
+      // decide a walk. On the stance's batteries (`STANCE_SECONDS`; Node core stand, Rapier, 120 Hz)
+      // the bound costs shoves: 117 held, 41.6 N s (35 the least) against 128, 44.7 (35) for the
+      // Rogue, and 202, 67.8 (55) against 217, 66.9 (45) for the Warrior; walks 19 and 22 of 25
+      // against 19 and 21; places, steps and stands read alike. The constants' tables were read
+      // clipped alone.
+      feet.forEach((foot, s) => {
+        const task = tasks[s]!;
+        if (!boundedSwing || !task.on || task.bearing) return;
+        const channels = foot.channels;
+        // Each freedom's torque with the leg's own accelerations at zero, and the leg's mass matrix.
+        const still = channels.map((i) => {
+          let torque = bias[i]! - weight[i]!;
+          for (let r = 0; r < 6; r++) torque += R.coupling[r]![i]! * root[r]!;
+          for (let j = 0; j < n; j++) if (!channels.includes(j)) torque += mass[i]![j]! * accel[j]!;
+          return torque;
+        });
+        const M = channels.map((i) => channels.map((j) => mass[i]![j]!));
+        const asked = channels.map((_, a) => still[a]! + channels.reduce((sum, _j, b) => sum + M[a]![b]! * task.accel[b]!, 0));
+        const lo = channels.map((i) => -muscles.strength(i, -1)), hi = channels.map((i) => muscles.strength(i, 1));
+        if (asked.every((t, a) => t >= lo[a]! && t <= hi[a]!)) return;
+        // The foot's task missed, weighed: its sole's middle's acceleration, and its turn's at the
+        // sole's end (half its length), for a torque's miss through M^-1.
+        const J = legJacobian(foot, soleMiddleToRef(foot, idScratch.at), muscles);
+        const inverse = channels.map((_, c) => solveLinear(M, channels.map((_i, r) => (r === c ? 1 : 0))));
+        const G = J.map((row, r) => inverse.map((column) => row.reduce((sum, v, b) => sum + v * column[b]!, 0) * (r < 3 ? foot.reach : 1)));
+        const A = channels.map((_, a) => channels.map((_b, b) => G.reduce((sum, row) => sum + row[a]! * row[b]!, 0)));
+        const torque = boundedLeastSquares(A, asked, lo, hi);
+        channels.forEach((i, a) => {
+          accel[i] = inverse.reduce((sum, column, b) => sum + column[a]! * (torque[b]! - still[b]!), 0);
+          task.accel[a] = accel[i]!;
+        });
+      });
       // The wrench the ground must give, about the root's centre: what the whole body's motion
       // asks of the root's rows, less gravity's.
       const W = [0, 1, 2, 3, 4, 5].map((r) => {
@@ -642,7 +738,6 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         const at = idScratch.at.set(R.centre[0], R.centre[1], R.centre[2]);
         shareGroundWrench(soles, at, force, moment, GROUND_FRICTION, leverOf(at.y), shares, missed);
       }
-      const { mass, gravity: weight, bias } = dynamics;
       feet.forEach((foot, s) => {
         const task = tasks[s]!;
         if (!task.on) return;
@@ -1120,6 +1215,48 @@ function fixedSolve(J: readonly (readonly number[])[], y: readonly number[], fix
   free.forEach((k, c) => { x[k] = rest[c]!; });
   return x;
 }
+
+/**
+ * The least of (x - y)' A (x - y) over lo <= x <= hi, A symmetric and positive semidefinite: a
+ * primal active-set method on the bounds (Nocedal and Wright 2006, "Numerical Optimization", 16.5),
+ * from y clipped. A direction A does not weigh stays at y's, clipped.
+ */
+export function boundedLeastSquares(A: readonly (readonly number[])[], y: readonly number[], lo: readonly number[], hi: readonly number[]): number[] {
+  const n = y.length, x = y.map((v, i) => Math.min(hi[i]!, Math.max(lo[i]!, v)));
+  const held = x.map((v, i) => v !== y[i]);
+  const scale = Math.max(...A.map((row, i) => row[i]!)), e = REGULARIZER * scale;
+  const gradient = () => x.map((_, i) => A[i]!.reduce((sum, v, j) => sum + v * (x[j]! - y[j]!), 0) + e * (x[i]! - y[i]!));
+  for (let iteration = 0; iteration < 4 * n + 4; iteration++) {
+    const g = gradient(), free = x.flatMap((_, i) => (held[i] ? [] : [i]));
+    // The free ones' step to the least with the held ones where they are.
+    const p = free.length ? solveLinear(free.map((i) => free.map((j) => A[i]![j]! + (i === j ? e : 0))), free.map((i) => -g[i]!)) : [];
+    let step = 1, blocking = -1;
+    free.forEach((i, c) => {
+      const d = p[c]!, t = d > 0 ? (hi[i]! - x[i]!) / d : d < 0 ? (lo[i]! - x[i]!) / d : Infinity;
+      if (t < step) { step = Math.max(0, t); blocking = i; }
+    });
+    free.forEach((i, c) => { x[i] = x[i]! + step * p[c]!; });
+    if (blocking >= 0) {
+      x[blocking] = p[free.indexOf(blocking)]! > 0 ? hi[blocking]! : lo[blocking]!;
+      held[blocking] = true;
+      continue;
+    }
+    // At the least with these held: release the one held against the way it would go.
+    const after = gradient();
+    let worst = -1, most = 1e-12 * (1 + scale);
+    x.forEach((v, i) => {
+      if (!held[i]) return;
+      const against = v <= lo[i]! ? -after[i]! : after[i]!;
+      if (against > most) { most = against; worst = i; }
+    });
+    if (worst < 0) return x;
+    held[worst] = false;
+  }
+  return x;
+}
+
+/** The regularizer's weight against the problem's largest, a numeric setting, as `shareGroundWrench`'s. */
+const REGULARIZER = 1e-6;
 
 /** Solve `A x = y` by elimination with partial pivoting; `A` is left as it was. */
 function solveLinear(A: readonly (readonly number[])[], y: readonly number[]): number[] {

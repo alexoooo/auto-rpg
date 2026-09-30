@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, type BodyCommand, type CoreBody, type Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { MusclePush, Pose } from "../core/control/motor.ts";
-import type { SwingGoal } from "../core/control/stance.ts";
+import type { StanceTuning, SwingGoal } from "../core/control/stance.ts";
 import type { World } from "../core/world.ts";
 import { stanceLegs } from "./legs.ts";
 
@@ -167,11 +167,14 @@ export interface Routine {
   dispose(): void;
 }
 
-/** Run `ROUTINE` on `built`, a human in its reference pose at the origin, facing +z, on its feet on the ground. */
-export function startRoutine(built: BuiltBody, world: World, routine: readonly Step[] = ROUTINE): Routine {
+/**
+ * Run `ROUTINE` on `built`, a human in its reference pose at the origin, facing +z, on its feet on the
+ * ground; `tuning` tunes its stance, as an experiment's override.
+ */
+export function startRoutine(built: BuiltBody, world: World, routine: readonly Step[] = ROUTINE, tuning?: StanceTuning): Routine {
   if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
   const stance = stanceLegs();
-  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, stance: tuning });
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
 
