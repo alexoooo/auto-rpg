@@ -868,6 +868,20 @@ that search waits on the solver's settings (below), which move every blow. Until
 Havok's 120.70 J, and `tests/core-rules.test.mjs`'s replay of its blow reads 0.37 HP on Rapier
 (0.41 on the torque stance, 0.34 once the stance planned a strike's pushes).
 
+The solver's settings no longer decide it. The unit's blow replayed on the torque stance, J (Node
+core stand, Rapier; the solver's iterations and PGS passes patched in for the reading):
+
+| iterations, passes | 960 Hz | 1920 Hz | 3840 Hz |
+|---|---|---|---|
+| 16, 2 (the setting) | 41.25 | 43.29 | 41.36 |
+| 32, 8 | 39.15 | | |
+| 64, 8 | 37.34 | 40.10 | 40.45 |
+| 128, 16 | 39.53 | 38.78 | 41.28 |
+
+The readings scatter within 37-43 J, with no trend in the rate or the solver, against the 120.70 J
+the blow read on Havok: this blow is Havok's, and the unit is re-set by searching on Rapier at the
+setting, as it was set on Havok (three seeds at 960 Hz, the best read at 1920 Hz).
+
 **What does not hold, and why.**
 - **A velocity motor under its ceiling holds only as far as the solver converges.** Rapier solves
   joints and contacts by iteration; a motor asked for a speed it has the strength to hold leaves a
