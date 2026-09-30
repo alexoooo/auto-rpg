@@ -202,12 +202,12 @@ both out on one step is a draw; at 120 s the fuller bar wins.
 arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, each a
 `<template>` mounted once per page load. Changing screen is a navigation.
 
-- **The Arena** (`src/arena/`): two clubbed core bodies in the Forge (`src/arena.ts`,
-  `src/arena-room.ts`), each driven by `fighterMind` under a `Duel`, to a verdict. The room's
+- **The Arena** (`src/arena/`): two clubbed core bodies in the Forge (`src/arena/scene.ts`,
+  `src/arena/room.ts`), each driven by `fighterMind` under a `Duel`, to a verdict. The room's
   solids (`arenaSolids`) are what bodies meet; the visible room is dressed from the forge kit
-  (`src/forge-style.ts`, `src/forge-room.ts`). `validateRoomPlacements` refuses a piece that names
-  a collider the arena lacks, or one of the wrong role, and a solid-looking piece within reach
-  (below `ROOM.maxReachHeight`) that names none.
+  (`src/arena/forge-style.ts`, `src/arena/forge-room.ts`). `validateRoomPlacements` refuses a
+  piece that names a collider the arena lacks, or one of the wrong role, and a solid-looking piece
+  within reach (below `ROOM.maxReachHeight`) that names none.
 - **The Crypt** (`src/dungeon/`): a party in a generated dungeon (`DungeonRun`, `run.ts`). The
   map's walls, doors and obstacles are fixed boxes in the core world (`buildDungeonWorld`); every
   body is a core body driven by a mind; a person's orders reach the party only through the run's

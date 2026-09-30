@@ -153,7 +153,7 @@ test("the_guard_reads_comments_and_only_comments", () => {
 });
 
 test("the_guard_reads_every_source", () => {
-  for (const expected of ["src/core/world.ts", "tests/comments.test.mjs", "research/core-strike-search.mjs", "src/style.css",
+  for (const expected of ["src/core/world.ts", "tests/comments.test.mjs", "research/core-strike-search.mjs", "src/arena/style.css",
     "scripts/art-proof/build-assets.py", "research/physics-bakeoff/run-perf.sh", "index.html", "vite.config.ts"]) {
     assert.ok(SOURCES.includes(expected), `${expected} is read`);
   }

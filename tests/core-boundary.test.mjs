@@ -75,9 +75,9 @@ test("nothing the core reaches leaves the core, its packages or its data", () =>
 
 test("the boundary check finds a crossing where there is one", () => {
   // The control: the arena's page, held to the core's rule as if `src/arena/` were a core, reaches
-  // the arena's scene and the core. If the walk stopped finding these, the test above would prove nothing.
+  // the page's routes and the core. If the walk stopped finding these, the test above would prove nothing.
   const violations = boundaryViolations(["src/arena/main.ts"], (file) => file.startsWith("src/arena/"));
-  assert.ok(violations.some((line) => line.endsWith(" imports src/arena.ts")), violations.join("\n"));
+  assert.ok(violations.includes("src/arena/main.ts imports src/app-route.ts"), violations.join("\n"));
   // And transitively, through the bout the page imports.
   assert.ok(violations.some((line) => line.startsWith("src/arena/main.ts -> src/arena/duel.ts imports src/core/")),
     violations.join("\n"));

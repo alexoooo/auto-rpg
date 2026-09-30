@@ -47,8 +47,8 @@ async function open(route: Route): Promise<void> {
       // forge-ui.css overrides style.css at equal specificity (`.action`, `#pause-menu`, the
       // `:root` colours), and in dev each sheet is inserted when its module runs, so two imports in
       // one `Promise.all` would cascade in whichever order their fetches finished.
-      await import("./style.css");
-      await import("./forge-ui.css");
+      await import("./arena/style.css");
+      await import("./arena/forge-ui.css");
       mount("arena-screen");
       const { bootArena } = await import("./arena/main.ts");
       return bootArena();

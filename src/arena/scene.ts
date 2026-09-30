@@ -1,4 +1,4 @@
-import { publicAssetUrl } from "./asset-url.ts";
+import { publicAssetUrl } from "../asset-url.ts";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
@@ -11,10 +11,10 @@ import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
 import { dressForgeRoom } from "./forge-room";
 import { loadForgeStyle, paveForge, forgePost } from "./forge-style";
-import { TEXTURED_SURFACES } from "./render/materials";
-import { sharedSurface } from "./render/surface";
-import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./arena-room";
-import type { PhysicsWorld } from "./core/engine/engine.ts";
+import { TEXTURED_SURFACES } from "../render/materials";
+import { sharedSurface } from "../render/surface";
+import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room";
+import type { PhysicsWorld } from "../core/engine/engine.ts";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
 import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";

@@ -9,9 +9,9 @@ import type { Scene } from "@babylonjs/core/scene.js";
 // `Mesh.createInstance` is registered by this module rather than by Mesh itself.
 import "@babylonjs/core/Meshes/instancedMesh.js";
 
-import type { FixedCollider, PhysicsWorld } from "./core/engine/engine.ts";
-import type { Vec3 } from "./core/spec/quantity.ts";
-import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "./render/materials.ts";
+import type { FixedCollider, PhysicsWorld } from "../core/engine/engine.ts";
+import type { Vec3 } from "../core/spec/quantity.ts";
+import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "../render/materials.ts";
 
 export interface RoomMaterials {
   ground: Material;

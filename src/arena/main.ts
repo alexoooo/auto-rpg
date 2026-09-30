@@ -1,6 +1,6 @@
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { buildArena } from "../arena.ts";
+import { buildArena } from "./scene.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { blowCue } from "../audio-cues.ts";
 import { GameAudio } from "../game-audio.ts";

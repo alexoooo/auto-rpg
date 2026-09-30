@@ -85,7 +85,7 @@ test("the_app_mounts_the_templates_index_html_holds_and_the_buttons_go_where_the
     assert.ok(at >= 0, `app.ts has ${mark}`);
     return at;
   }).every((at, i, all) => i === 0 || at > all[i - 1]);
-  assert.ok(order('await import("./style.css");', 'await import("./forge-ui.css");', 'mount("arena-screen");', 'await import("./arena/main.ts");'),
+  assert.ok(order('await import("./arena/style.css");', 'await import("./arena/forge-ui.css");', 'mount("arena-screen");', 'await import("./arena/main.ts");'),
     "arena: style.css, forge-ui.css, mount, module");
   assert.ok(order('await import("./dungeon/style.css");', 'mount("dungeon-screen");', 'await import("./dungeon/main.ts");'),
     "dungeon: stylesheet, mount, module");

@@ -1,4 +1,4 @@
-import { publicAssetUrl } from "./asset-url.ts";
+import { publicAssetUrl } from "../asset-url.ts";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 import "@babylonjs/loaders/glTF/glTFFileLoader.js";

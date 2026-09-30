@@ -8,7 +8,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena-room.ts";
+import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
 import { DEFAULT_MATCHUP, matchupSearch, readMatchup } from "../src/arena/matchup.ts";
 import { createWorld } from "../src/core/world.ts";

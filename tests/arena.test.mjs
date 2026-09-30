@@ -24,7 +24,7 @@ import {
   refreshShadowCasters,
   validateRoomPlacements,
   validateVisualColliderPairs,
-} from "../src/arena-room.ts";
+} from "../src/arena/room.ts";
 import { createWorld } from "../src/core/world.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { freshEngine } from "./harness/core-stand.mjs";

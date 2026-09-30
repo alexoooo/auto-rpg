@@ -403,7 +403,7 @@ export function validateDressing(map: DungeonMap, dressing: readonly Dressing[],
       if (!webFacesCamera(into, toward)) problems.push(`${name} faces away from the camera`);
       // Silk: alpha-tested, so each strand is opaque, but too thin to look solid, and a blade that passes through a web
       // is what a web allows. Kept within its corner's cell and at least 2 m up, clear of a standing body's head. A
-      // raised weapon still reaches it (`ROOM.maxReachHeight` in `src/arena-room.ts`), which a web allows too.
+      // raised weapon still reaches it (`ROOM.maxReachHeight` in `src/arena/room.ts`), which a web allows too.
       if (!(d.span > 0 && d.span <= 0.6)) problems.push(`${name} spans ${d.span} m`);
       if (!(d.drop > 0 && WALL_HEIGHT - d.drop >= 2)) problems.push(`${name} hangs down to ${(WALL_HEIGHT - d.drop).toFixed(2)} m`);
       if (torches.some(t => Math.hypot(t.flame.x - corner.x, t.flame.z - corner.z) < WEB_TORCH_CLEARANCE)) problems.push(`${name} hangs at a torch`);

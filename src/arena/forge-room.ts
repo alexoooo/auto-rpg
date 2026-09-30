@@ -6,9 +6,9 @@ import { PointLight } from "@babylonjs/core/Lights/pointLight.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { ROOM, ROOM_GROUPS, validateRoomPlacements, validateVisualColliderPairs } from "./arena-room.ts";
+import { ROOM, ROOM_GROUPS, validateRoomPlacements, validateVisualColliderPairs } from "./room.ts";
 import type { ForgeStyle } from "./forge-style.ts";
-import "./render/fire.ts";
+import "../render/fire.ts";
 
 /** Dress the arena as the forge: masonry fills the wall colliders' boxes, and flames burn on every other post. */
 export function dressForgeRoom(scene: Scene, forge: ForgeStyle): void {

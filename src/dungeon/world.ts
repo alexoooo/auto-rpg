@@ -38,7 +38,7 @@ function faceCorners(x: number, z: number, face: WallFace): Omit<Quad, "cell"> {
 /**
  * Quads merged into one mesh per chunk of `VISUAL_CHUNK` cells, named `${prefix}.${cx}.${cz}`. A quad's own UVs are
  * used where it has them; otherwise UVs are world metres over the span one image repeat covers, by the rule
- * `mapUvsInMetres` in `src/arena-room.ts` applies: x and z on a face looking up, the horizontal along the face and
+ * `mapUvsInMetres` in `src/arena/room.ts` applies: x and z on a face looking up, the horizontal along the face and
  * the height on a side. If any quad has a `shade`, every quad gets a grey vertex colour, which multiplies the
  * albedo. Babylon's front face winds so that the right-handed cross product of its first two edges points away
  * from the normal, and each quad is ordered to match.

@@ -61,17 +61,17 @@ screens build on it; it never imports them.
   joint, and camera state never reaches a mind. A person gives orders; a body's own mind carries
   them out while it defends itself.
 - **Cosmetics never carry authority**: nothing decorative collides or decides a hit. The visible
-  room is not the collision arena; `validateRoomPlacements` (`src/arena-room.ts`) refuses a piece
+  room is not the collision arena; `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece
   naming a collider the arena lacks, and a solid-looking piece within reach that names none.
 
 ## Babylon and Rapier
 
 - **Side-effect imports are load-bearing.** The tree-shaken build omits prototype patches, so an
   "unused" import removed here compiles and breaks at runtime, sometimes silently: the shadow,
-  depth-renderer, post-process and HDR-loader imports in `src/arena.ts` and `src/render/post.ts`,
-  the shader imports in `src/forge-style.ts`, `Culling/ray.js` for `scene.pick`, the glTF loader
-  imports.
-  When a feature works in the playground and not here, suspect this first.
+  depth-renderer, post-process and HDR-loader imports in `src/arena/scene.ts` and
+  `src/render/post.ts`, the shader imports in `src/arena/forge-style.ts`, `Culling/ray.js` for
+  `scene.pick`, the glTF loader imports. When a feature works in the playground and not here,
+  suspect this first.
 - **Read world transforms from `mesh.position` and `mesh.rotationQuaternion`.** `getWorldMatrix()`
   caches per render id and reading it stamps the id, so the first reader in a frame freezes every
   later one. The core may not use `getWorldMatrix()`, `absolutePosition` or
