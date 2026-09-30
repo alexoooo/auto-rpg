@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { ARENA_LINK_PARAM, MENU_HREF, playHref, routeFor } from "../src/app-route.ts";
+import { MENU_HREF, playHref, routeFor } from "../src/app-route.ts";
 import { MATCHUP_PARAM } from "../src/arena/matchup.ts";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
@@ -18,18 +18,14 @@ test("an_address_opens_the_menu_the_arena_the_dungeon_or_the_lab", () => {
   assert.equal(routeFor("?play=dungeon"), "dungeon");
   assert.equal(routeFor("?play=lab"), "lab");
   assert.equal(routeFor("?play=elsewhere"), "menu");
-  assert.equal(routeFor("?drawFraction=0.5"), "menu", "a dial alone is not an arena link");
-  assert.equal(routeFor(`?${MATCHUP_PARAM}=%7B%7D`), "arena", "a link from before the menu opens the arena");
-  assert.equal(routeFor(`?play=dungeon&${MATCHUP_PARAM}=%7B%7D`), "dungeon", "an explicit screen wins");
+  assert.equal(routeFor("?quality=reduced"), "menu", "a screen's setting alone names no screen");
+  assert.equal(routeFor(`?${MATCHUP_PARAM}=workshop-rogue,crypt-skeleton`), "menu", "nor does a matchup");
+  assert.equal(routeFor(`?play=dungeon&${MATCHUP_PARAM}=workshop-rogue,crypt-skeleton`), "dungeon");
   for (const to of ["arena", "dungeon", "lab"]) assert.equal(routeFor(playHref(to)), to);
-  // A dial opens the menu, and choosing a screen from there keeps it.
-  assert.equal(playHref("arena", "?drawFraction=0.5"), "?drawFraction=0.5&play=arena");
+  // Choosing a screen keeps the rest of the address.
+  assert.equal(playHref("dungeon", "?quality=reduced"), "?quality=reduced&play=dungeon");
   assert.equal(playHref("dungeon", "?play=arena"), "?play=dungeon", "the screen is replaced, not repeated");
   assert.equal(MENU_HREF, "./");
-});
-
-test("the_arena_link_parameter_is_the_one_the_arena_page_writes", () => {
-  assert.equal(ARENA_LINK_PARAM, MATCHUP_PARAM);
 });
 
 test("index_html_is_one_document_holding_four_screens", async () => {
@@ -97,17 +93,14 @@ test("the_app_mounts_the_templates_index_html_holds_and_the_buttons_go_where_the
     'mount("lab-screen");', 'await import("./core-lab/main.ts");'), "lab: stylesheet, then the menu's markup and module, or the scenario's");
 });
 
-test("both_modes_lead_back_to_the_menu_and_the_old_address_forwards", async () => {
-  const [html, main, redirect, labRedirect] = await Promise.all([read("../index.html"), read("../src/arena/main.ts"), read("../dungeon.html"),
-    read("../core-lab.html")]);
+test("every_screen_leads_back_to_the_menu", async () => {
+  const [html, main] = await Promise.all([read("../index.html"), read("../src/arena/main.ts")]);
   const arena = template(html, "arena-screen"), dungeon = template(html, "dungeon-screen");
   assert.match(arena, /id="to-menu"/);
   assert.match(main, /need<HTMLButtonElement>\("to-menu"\)\.addEventListener\("click", \(\) => window\.location\.assign\(MENU_HREF\)\)/);
   assert.match(arena, /<a href="\.\/">&larr; Main menu<\/a>/);
   assert.ok((dungeon.match(/href="\.\/"/g) ?? []).length >= 3, "brand, pause and start panel");
-  assert.doesNotMatch(html, /href="\.\/(index|dungeon)\.html"/, "no link to the old pages");
-  assert.match(redirect, /url=\.\/\?play=dungeon/);
-  assert.match(labRedirect, /url=\.\/\?play=lab"/);
+  assert.doesNotMatch(html, /href="\.\/(index|dungeon)\.html"/, "the screens link to the menu, not to another page");
   assert.match(template(html, "lab-select-screen"), /<a href="\.\/">&larr; Main menu<\/a>/);
   assert.match(template(html, "lab-screen"), /<a id="to-scenarios" href="\?play=lab">/);
 });

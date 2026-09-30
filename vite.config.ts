@@ -22,12 +22,9 @@ export default defineConfig({
   build: {
     target: "es2022",
     chunkSizeWarningLimit: 4096,
-    // Both entries have to be named. Vite's default is `index.html` alone, so a second page builds
-    // fine in dev -- where every request is served from source -- and is simply absent from
-    // `dist`, which is the failure that looks like a routing problem and is a config one.
+    // Every page is named here: Vite's default is `index.html` alone, so another page works in dev,
+    // where every request is served from source, and is absent from `dist`.
     // `physics-bench.html` is the physics bake-off (`research/physics-bakeoff/REPORT.md`).
-    // `dungeon.html` and `core-lab.html` only forward to `./?play=dungeon` and `./?play=lab`; they
-    // are kept so old links do not 404.
-    rollupOptions: { input: { index: "index.html", dungeon: "dungeon.html", characterLab: "character-lab.html", coreLab: "core-lab.html", physicsBench: "physics-bench.html" } },
+    rollupOptions: { input: { index: "index.html", characterLab: "character-lab.html", physicsBench: "physics-bench.html" } },
   },
 });

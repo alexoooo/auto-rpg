@@ -45,9 +45,7 @@ const makeMaterials = (scene) => {
   const banner = makeMaterial(scene, "proof.banner", [0.25, 0.19, 0.16]);
   wall.alpha = TEXTURED_SURFACES.roomWall.opacity;
   return {
-    ground, wall, timber, banner,
-    steel: timber, edge: timber, brass: timber, leather: timber, wood: timber,
-    paintedWood: timber, bowString: timber, arrowAccent: banner,
+    ground, wall, timber, banner, wood: timber,
   };
 };
 

@@ -1,12 +1,8 @@
 /**
- * The core's boundary: `src/core/` reaches nothing but itself, the engine packages, data files
- * under `assets/`, and the engine glue it has taken on purpose.
- *
- * The rule is the plan's first (`docs/plans/2026-09-28-core-foundation.md`, "Rules for the
- * core"). It is checked on the **transitive** closure, because the old path's coupling ran through
- * files that looked harmless: `src/physics.ts` held no body knowledge and still imported
- * `src/config.ts`. So an outside file is admitted by name, with its reason, and its own imports
- * are held to the same rule.
+ * The core's boundary: `src/core/` reaches nothing but itself, its packages and data files under
+ * `assets/`, checked over the transitive closure of its imports. The pages build on the core,
+ * never the reverse. Also here: the core's bans on float32 rotations and cached world matrices, and
+ * the engine seam.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -19,12 +15,6 @@ const CORE = "src/core/";
 
 /** Packages the core may import, by prefix. The browser runs the core, so no `node:` builtins. */
 const PACKAGES = ["@babylonjs/core/", "@dimforge/rapier3d-simd-compat"];
-
-/**
- * Files outside `src/core/` the core has taken, with why. Empty until the core takes one; each
- * entry is engine glue that holds no body knowledge, and its imports must pass this same check.
- */
-const TAKEN = new Map([]);
 
 const isData = (file) => file.startsWith("assets/") && file.endsWith(".json");
 
@@ -67,7 +57,7 @@ function boundaryViolations(entries, inside) {
         violations.push(`${route} imports "${specifier}", which is no file (Node needs the extension)`);
         continue;
       }
-      if (inside(target) || TAKEN.has(target) || isData(target)) visit(target, [...chain, file]);
+      if (inside(target) || isData(target)) visit(target, [...chain, file]);
       else violations.push(`${route} imports ${target}`);
     }
   };
@@ -77,7 +67,7 @@ function boundaryViolations(entries, inside) {
 
 const inCore = (file) => file.startsWith(CORE);
 
-test("nothing the core reaches leaves the core, its packages, its data or the glue it has taken", () => {
+test("nothing the core reaches leaves the core, its packages or its data", () => {
   const sources = filesUnder(CORE).filter((file) => file.endsWith(".ts"));
   assert.ok(sources.length > 0, "src/core/ has no modules, so this test would pass on nothing");
   assert.deepEqual(boundaryViolations(sources, inCore), []);
@@ -93,18 +83,10 @@ test("the boundary check finds a crossing where there is one", () => {
     violations.join("\n"));
 });
 
-test("every file the core has taken exists and is outside it", () => {
-  for (const [file, why] of TAKEN) {
-    assert.ok(fs.existsSync(path.join(ROOT, file)), file);
-    assert.ok(!inCore(file), `${file} is inside the core and needs no entry`);
-    assert.ok(why.length > 0, `${file} says why it was taken`);
-  }
-});
-
 test("the core turns vectors in double precision, never through Babylon's float32 matrices", () => {
   // `Vector3.rotateByQuaternionToRef` builds a rotation `Matrix`, a Float32Array: a point turned
   // through it carries 1e-8 m of noise, which made a Jacobian differenced by 1e-7 rad a quarter
-  // wrong and the inverse kinematics wander (H75). `applyRotationQuaternionToRef` is exact.
+  // wrong and the inverse kinematics wander. `applyRotationQuaternionToRef` is exact.
   const banned = /rotateByQuaternion|toRotationMatrix|TransformCoordinates|TransformNormal|\bMatrix\b/;
   const offenders = [];
   const walk = (directory) => {
@@ -124,7 +106,7 @@ test("the core turns vectors in double precision, never through Babylon's float3
 
 test("the core reads world transforms from its nodes, never through a cached world matrix", () => {
   // `getWorldMatrix()` short-circuits on the render id, and reading it stamps that id: every later
-  // reader in the frame, a person at the console among them, reads the first sample (H24). The core
+  // reader in the frame, a person at the console among them, reads the first sample. The core
   // reads `position` and `rotationQuaternion`; read out of the source, as no scene catches it cheaply.
   const banned = /\.getWorldMatrix\(|\.absolutePosition|\.absoluteRotationQuaternion|computeWorldMatrix\(/;
   const offenders = [];

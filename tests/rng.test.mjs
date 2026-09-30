@@ -1,10 +1,4 @@
-// The one seeded generator, pinned.
-//
-// `src/rng.ts` exists so that everything seeded -- once the old minds and harnesses, now the crypt's
-// levels and dressing -- draws from the same stream without importing each other. The stream is pinned
-// here by value, from a run of the function as it stood in `src/policies.ts` on 2026-09-05, so
-// that "moved, not changed" is a test rather than a claim: every seeded bout, sweep and measurement
-// recorded before the move is reproducible after it.
+// The one seeded generator, pinned by value: a changed stream changes every seeded level.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { mulberry32, randomSeed } from "../src/rng.ts";
+import { mulberry32 } from "../src/rng.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -21,8 +15,7 @@ const three = (seed) => {
   return [random(), random(), random()];
 };
 
-test("the_stream_is_the_one_the_policies_drew_from_before_the_move", () => {
-  // Taken from the function as `src/policies.ts` carried it, 2026-09-05.
+test("the_stream_is_pinned", () => {
   assert.deepEqual(three(1), [0.6270739405881613, 0.002735721180215478, 0.5274470399599522]);
   assert.deepEqual(three(0xdeadbeef), [0.9413696140982211, 0.26719574979506433, 0.772033357527107]);
 });
@@ -36,13 +29,6 @@ test("the_same_seed_repeats_and_a_different_seed_does_not", () => {
   assert.deepEqual(three(7), three(7));
   assert.notDeepEqual(three(7), three(8));
   for (const value of three(7)) assert.ok(value >= 0 && value < 1);
-});
-
-test("a_random_seed_is_an_unsigned_thirty_two_bit_integer", () => {
-  for (let i = 0; i < 100; i++) {
-    const seed = randomSeed();
-    assert.equal(seed, seed >>> 0);
-  }
 });
 
 test("every_seeded_generator_is_this_file_and_nothing_carries_a_copy", () => {

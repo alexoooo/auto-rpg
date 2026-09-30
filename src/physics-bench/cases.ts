@@ -1,5 +1,5 @@
 import { createController, dofAngle, STRIDE, type Controller, type Placement } from "./control.ts";
-import { armModel, humanModel, legModel, lowest, placed, soleMiddle, type Model } from "./model.ts";
+import { armModel, humanModel, legModel, lowest, placed, type Model } from "./model.ts";
 import { mean, median, percentile, qRotate, type V3 } from "./math.ts";
 import { massesOf, type SceneSpec, type Settings, type Sim } from "./engines/types.ts";
 
@@ -425,6 +425,3 @@ export function standingHuman(make: Factory, settings: Settings, conditioning?: 
   sim.dispose();
   return { label, comAtHalf, comAtEnd, maxSpeedLate, comDrift };
 }
-
-/** The sole middle of the case A leg, reference pose, for the record. */
-export const legSole = (): V3 => soleMiddle(legModel(), "foot.left");

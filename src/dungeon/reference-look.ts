@@ -94,7 +94,7 @@ export async function dressReference(scene: Scene, world: ReturnType<typeof buil
   const earth=textured("reference.earth","#a5b275"); earth.roughness=1;
   const iron=flatStone(scene,"reference.iron","#444a4d",.4);iron.metallic=.8;
   const tomb=textured("crypt.tomb", "#ddd5c3");
-  const wood=surface(scene,TEXTURED_SURFACES.weaponWood);
+  const wood=surface(scene,TEXTURED_SURFACES.wood);
   const cloth=flatStone(scene,"crypt.cloth","#752c25",.95);
   const materials={wall,trim,floor,root:rootMat,earth,iron,tomb,wood,cloth};
   new CryptCutaway(wood, azimuth, cutaway);

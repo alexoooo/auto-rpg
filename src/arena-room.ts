@@ -11,14 +11,15 @@ import "@babylonjs/core/Meshes/instancedMesh.js";
 
 import type { FixedCollider, PhysicsWorld } from "./core/engine/engine.ts";
 import type { Vec3 } from "./core/spec/quantity.ts";
-import { applyObjectSurface, type ObjectMaterials } from "./object-surfaces.ts";
 import { ROOM_METRES } from "./materials.ts";
 
-export interface RoomMaterials extends ObjectMaterials {
+export interface RoomMaterials {
   ground: Material;
   wall: Material;
   timber: Material;
   banner: Material;
+  /** The posts. */
+  wood: Material;
 }
 
 export interface VisualColliderPair {
@@ -431,7 +432,7 @@ export function buildArenaColliders(
     const post = MeshBuilder.CreateCylinder(solid.name, { height, diameter, tessellation: sides }, scene);
     post.position.set(...solid.centre);
     mark(post);
-    applyObjectSurface(post, "arena.post", materials);
+    post.material = materials.wood;
     post.receiveShadows = true;
     shadows.add(post);
     meshes.push(post);

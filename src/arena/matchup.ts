@@ -16,7 +16,7 @@ export const MODEL_LABELS: Readonly<Record<CoreModel, string>> = Object.freeze({
 
 const isModel = (text: string | undefined): text is CoreModel => CORE_MODELS.includes(text as CoreModel);
 
-/** The matchup an address names; a side it does not name, or names wrongly (an old arena link), is the default's. */
+/** The matchup an address names; a side it does not name, or names wrongly, is the default's. */
 export function readMatchup(search: string): Matchup {
   const [left, right] = (new URLSearchParams(search).get(MATCHUP_PARAM) ?? "").split(",");
   return { left: isModel(left) ? left : DEFAULT_MATCHUP.left, right: isModel(right) ? right : DEFAULT_MATCHUP.right };

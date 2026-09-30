@@ -16,18 +16,6 @@ export const cross = (a: readonly number[], b: readonly number[]): V3 =>
 export const norm = (a: readonly number[]): number => Math.hypot(a[0]!, a[1]!, a[2]!);
 export const normalize = (a: readonly number[]): V3 => scale(a, 1 / norm(a));
 
-export const qIdentity = (): Q4 => [0, 0, 0, 1];
-export const qMul = (a: readonly number[], b: readonly number[]): Q4 => [
-  a[3]! * b[0]! + a[0]! * b[3]! + a[1]! * b[2]! - a[2]! * b[1]!,
-  a[3]! * b[1]! - a[0]! * b[2]! + a[1]! * b[3]! + a[2]! * b[0]!,
-  a[3]! * b[2]! + a[0]! * b[1]! - a[1]! * b[0]! + a[2]! * b[3]!,
-  a[3]! * b[3]! - a[0]! * b[0]! - a[1]! * b[1]! - a[2]! * b[2]!,
-];
-export const qConj = (q: readonly number[]): Q4 => [-q[0]!, -q[1]!, -q[2]!, q[3]!];
-export const qAxisAngle = (axis: readonly number[], angle: number): Q4 => {
-  const s = Math.sin(angle / 2);
-  return [axis[0]! * s, axis[1]! * s, axis[2]! * s, Math.cos(angle / 2)];
-};
 /** `v` turned by `q`. */
 export function qRotate(q: readonly number[], v: readonly number[]): V3 {
   const [x, y, z, w] = q as Q4;

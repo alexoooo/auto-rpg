@@ -43,18 +43,7 @@ interface RuntimeRegistry { textures: RegistryRow[] }
 
 const BASE = {
   "palette.ground": { name: "ground", albedo: [0.15, 0.14, 0.12], metallic: 0, roughness: 0.96 },
-  "figure.steel": { name: "figureSteel", albedo: [0.62, 0.65, 0.70], metallic: 1, roughness: 0.22 },
-  "figure.leather": { name: "figureLeather", albedo: [0.16, 0.11, 0.08], metallic: 0, roughness: 0.78 },
-  // The decoded Terlenka albedo is deliberately near-neutral. `Figure` derives
-  // this surface and supplies only the team tint; the image carries weave, not
-  // a second opinion about whether the fighter is crimson or blue.
-  "figure.cloth": { name: "figureCloth", albedo: [0.72, 0.68, 0.58], metallic: 0, roughness: 0.92 },
-  "figure.flesh": { name: "figureFlesh", albedo: [0.68, 0.48, 0.38], metallic: 0, roughness: 0.68 },
-  "weapon.steel": { name: "weaponSteel", albedo: [0.62, 0.65, 0.70], metallic: 1, roughness: 0.24 },
-  "weapon.brass": { name: "weaponBrass", albedo: [0.72, 0.50, 0.16], metallic: 1, roughness: 0.30 },
-  "weapon.leather": { name: "weaponLeather", albedo: [0.18, 0.11, 0.065], metallic: 0, roughness: 0.76 },
-  "weapon.wood": { name: "weaponWood", albedo: [0.34, 0.20, 0.09], metallic: 0, roughness: 0.72 },
-  "weapon.paintedWood": { name: "paintedShieldBoard", albedo: [0.34, 0.08, 0.065], metallic: 0, roughness: 0.66 },
+  wood: { name: "wood", albedo: [0.34, 0.20, 0.09], metallic: 0, roughness: 0.72 },
   "room.wall": { name: "roomWall", albedo: [0.20, 0.19, 0.17], metallic: 0, roughness: 0.94, opacity: 0.22 },
   "room.timber": { name: "roomTimber", albedo: [0.20, 0.12, 0.065], metallic: 0, roughness: 0.88 },
   // Banners are deliberately quieter than either side's surcoat. The image
@@ -139,9 +128,3 @@ export const ROOM_METRES = Object.freeze({
   timber: surfaceMetresPerRepeat(TEXTURED_SURFACES.roomTimber),
   banner: surfaceMetresPerRepeat(TEXTURED_SURFACES.roomBanner),
 });
-
-/** Scalar/tint variants borrow maps from the named primary object surface. */
-export const OBJECT_SURFACE_VARIANTS = {
-  edge: { name: "weaponEdge", albedo: [0.92, 0.95, 1.0], metallic: 1, roughness: 0.12, textures: {} },
-  bowString: { name: "bowString", albedo: [0.78, 0.70, 0.46], metallic: 0, roughness: 0.92, textures: {} },
-} as const satisfies Record<string, SurfaceDescriptor>;

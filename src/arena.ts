@@ -4,7 +4,6 @@ import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
-import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -12,9 +11,9 @@ import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
 import { dressForgeRoom } from "./forge-room";
 import { loadForgeStyle, paveForge, forgePost } from "./forge-style";
-import { OBJECT_SURFACE_VARIANTS, TEXTURED_SURFACES } from "./materials";
-import { sharedSurface, surfaceVariant } from "./surface";
-import { buildArenaWorld, type ArenaAudit, type RoomOcclusionTarget } from "./arena-room";
+import { TEXTURED_SURFACES } from "./materials";
+import { sharedSurface } from "./surface";
+import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./arena-room";
 import type { PhysicsWorld } from "./core/engine/engine.ts";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
@@ -23,48 +22,15 @@ import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
 import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineManagerSceneComponent.js";
 
-export interface Palette {
-  steel: PBRMaterial;
-  edge: PBRMaterial;
-  brass: PBRMaterial;
-  leather: PBRMaterial;
-  cloth: PBRMaterial;
-  flesh: PBRMaterial;
-  hide: PBRMaterial;
-  wood: PBRMaterial;
-  paintedWood: PBRMaterial;
-  bowString: PBRMaterial;
-  straw: PBRMaterial;
-  ground: PBRMaterial;
-  wall: PBRMaterial;
-  timber: PBRMaterial;
-  banner: PBRMaterial;
-  arrowAccent: PBRMaterial;
-}
-
 export interface Arena {
   scene: Scene;
   camera: FreeCamera;
-  materials: Palette;
+  materials: RoomMaterials;
   shadows: ShadowGenerator;
   /** A read-only scene census; calling it creates no Babylon object. */
   audit(): ArenaAudit;
   /** Hide an overhead prop only while it crosses the protected combat sight lines. */
   updateRoomOcclusion(targets: readonly RoomOcclusionTarget[]): void;
-}
-
-function plainSurface(
-  scene: Scene,
-  name: string,
-  albedo: Color3,
-  metallic: number,
-  roughness: number,
-): PBRMaterial {
-  const material = new PBRMaterial(name, scene);
-  material.albedoColor = albedo;
-  material.metallic = metallic;
-  material.roughness = roughness;
-  return material;
 }
 
 /**
@@ -80,14 +46,13 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
   const physics = physicsFor(scene);
 
   const camera = new FreeCamera("camera", new Vector3(0, 2, -4), scene);
-  // Vertical field of view, rad: the old arena's.
+  // Vertical field of view, rad.
   camera.fov = 0.95;
   camera.minZ = 0.05;
   camera.maxZ = 220;
 
-  // Image-based lighting is what makes a steel blade read as steel rather than
-  // as a grey box. If the HDRI has not been fetched, the scene still lights --
-  // just flatter -- so a fresh clone runs before anyone downloads anything.
+  // Image-based lighting gives metal and stone their reflections. Without the HDRI the scene still
+  // lights, only flatter, so a fresh clone runs before anyone downloads it.
   try {
     const env = new HDRCubeTexture(publicAssetUrl("/assets/env.hdr"), scene, 256, false, true, false, true);
     scene.environmentTexture = env;
@@ -114,44 +79,16 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
 
   const forge = await loadForgeStyle(scene);
 
-  // The two textured parents. Steel and leather have the same decoded image and Babylon-LH
-  // tangent basis on every geometry family that uses them, so the scene owns one wrapper for each
-  // image file and the weapon materials below are scalar variants of it.
-  const figureSteel = sharedSurface(scene, TEXTURED_SURFACES.figureSteel);
-  const figureLeather = sharedSurface(scene, TEXTURED_SURFACES.figureLeather);
-  const weaponSteel = surfaceVariant(scene, { ...TEXTURED_SURFACES.weaponSteel, textures: {} }, figureSteel);
-  const weaponLeather = surfaceVariant(scene, { ...TEXTURED_SURFACES.weaponLeather, textures: {} }, figureLeather);
-  const weaponWood = sharedSurface(scene, TEXTURED_SURFACES.weaponWood);
-  const materials: Palette = {
-    steel: weaponSteel,
-    edge: surfaceVariant(scene, OBJECT_SURFACE_VARIANTS.edge, figureSteel),
-    brass: sharedSurface(scene, TEXTURED_SURFACES.weaponBrass),
-    leather: weaponLeather,
-    cloth: plainSurface(scene, "cloth", new Color3(0.29, 0.10, 0.12), 0.0, 0.92),
-    flesh: plainSurface(scene, "flesh", new Color3(0.68, 0.48, 0.38), 0.0, 0.68),
-    hide: plainSurface(scene, "hide", new Color3(0.55, 0.44, 0.30), 0.0, 0.85),
-    wood: weaponWood,
-    paintedWood: sharedSurface(scene, TEXTURED_SURFACES.paintedShieldBoard),
-    bowString: surfaceVariant(scene, OBJECT_SURFACE_VARIANTS.bowString, figureLeather),
-    straw: plainSurface(scene, "straw", new Color3(0.68, 0.57, 0.30), 0.0, 0.9),
+  const materials: RoomMaterials = {
     ground: forge.materials.basalt,
     wall: forge.materials.basalt,
     timber: sharedSurface(scene, TEXTURED_SURFACES.roomTimber),
     banner: forge.materials.banner,
-    arrowAccent: plainSurface(
-      scene,
-      "arrow-accent",
-      new Color3(1.0, 0.46, 0.08),
-      0.0,
-      1.0,
-    ),
+    wood: sharedSurface(scene, TEXTURED_SURFACES.wood),
   };
-  materials.arrowAccent.unlit = true;
-  materials.arrowAccent.emissiveColor.copyFrom(materials.arrowAccent.albedoColor);
 
-  // The invisible authoritative slab and fourteen post colliders retain their
-  // session-09 dimensions. The visible floor and room dressing are a separate
-  // owner with no body, so art can be removed without changing the solver.
+  // The floor slab and the posts are colliders; the visible floor and the room's dressing are
+  // separate meshes with no body, so the art can change without touching the physics.
   const world = buildArenaWorld(scene, physics, materials, {
     add: (mesh) => shadows.addShadowCaster(mesh),
     remove: (mesh) => shadows.removeShadowCaster(mesh),

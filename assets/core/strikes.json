@@ -391,7 +391,7 @@
         ]
       },
       "distance": 1.05,
-      "found": "On Rapier: research/core-strike-search.mjs --weapon club --seed 12 --hz 960 --generations 30 --population 96 --replay 120,480,960,1920,3840 --sigma 0.2 --from Havok's unit blow's search (its blow is research/core-club-havok.json), 4 trials a candidate",
+      "found": "On Rapier: research/core-strike-search.mjs --weapon club --seed 12 --hz 960 --generations 30 --population 96 --replay 120,480,960,1920,3840 --sigma 0.2 --from research/core-club-havok.json@0d63a6162e123720faccc625ce93a4e24686ea66, 4 trials a candidate",
       "readings": {
         "at120": {
           "mean": 117.3,

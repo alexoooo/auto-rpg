@@ -5,7 +5,7 @@ the physics engines' bake-off. Every figure names its harness.
 
 - `core-strike*.mjs`, `core-club-strike.mjs`: strikes by a core human, searched and scored; the
   repertoire they write is `assets/core/strikes.json`. `core-club-unit.json` is the club blow that
-  sets the damage unit; `core-club-havok.json` is that blow as Havok threw it, kept as the record.
+  sets the damage unit.
 - `core-stance-*.mjs`, `core-routine-battery.mjs`: the stance's trials, sweeps and envelope, and
   the lab routine from seeded starts.
 - `core-rapier-probe.mjs`: what Rapier's generic joint does, read on a stand.

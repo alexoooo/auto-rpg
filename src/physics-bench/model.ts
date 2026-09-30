@@ -2,7 +2,7 @@ import { humanSpec } from "../core/human/spec.ts";
 import { frameOf, type SegmentSpec } from "../core/spec/body.ts";
 import { STANDARD_GRAVITY } from "../core/spec/constants.ts";
 import {
-  add, cross, dot, qFromBasis, qMatrix, qRotate, scale, sub, symmetricEigen, type Q4, type V3,
+  add, dot, qFromBasis, qMatrix, qRotate, scale, sub, symmetricEigen, type Q4, type V3,
 } from "./math.ts";
 
 /**
@@ -152,7 +152,7 @@ function composite(name: string, parts: readonly Segment[], shape: (com: V3) => 
 }
 
 /** The foot's sole middle, world (x, z), reference pose: the bottom face's centre of its box. */
-export function soleMiddle(model: Model, foot: string): V3 {
+function soleMiddle(model: Model, foot: string): V3 {
   const s = model.segments.find((x) => x.name === foot)!;
   if (s.shape.kind !== "box") throw new Error(`${foot} is not a box`);
   const c = add(s.com, s.shape.centre);
@@ -233,10 +233,6 @@ export function lowestOf(s: Segment): number {
 
 export const lowest = (m: Model): number => Math.min(...m.segments.map(lowestOf));
 
-/** Whole-model centre of mass, reference pose. */
-export const modelCom = (m: Model): V3 =>
-  scale(m.segments.reduce<V3>((c, s) => add(c, scale(s.com, s.mass)), [0, 0, 0]), 1 / m.segments.reduce((a, s) => a + s.mass, 0));
-
 /**
  * The segments on the side of joint `j` away from `root` (a segment index): the ones its torque
  * holds up. With `root` on the child's side, the parent's side.
@@ -257,18 +253,4 @@ export function sideAway(m: Model, j: number, root: number): { readonly segments
   const childSide = [...seen];
   if (joint.parent < 0 || !seen.has(root)) return { segments: childSide, onParent: false };
   return { segments: m.segments.map((_, i) => i).filter((i) => !seen.has(i)), onParent: true };
-}
-
-/** Inertia of `segments` locked together, about the line through `centre` along unit `axis`, reference pose. */
-export function inertiaAbout(m: Model, segments: readonly number[], centre: V3, axis: V3): number {
-  let sum = 0;
-  for (const i of segments) {
-    const s = m.segments[i]!;
-    const t = worldInertia(s);
-    let own = 0;
-    for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) own += axis[a]! * t[a * 3 + b]! * axis[b]!;
-    const r = cross(axis, sub(s.com, centre));
-    sum += own + s.mass * dot(r, r);
-  }
-  return sum;
 }

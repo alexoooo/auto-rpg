@@ -66,9 +66,9 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
 
 test("the_lab_address_keeps_the_rest_of_the_query_and_replaces_its_own", () => {
   const href = labHref({ ...DEFAULTS, ...ROGUE, right: "club", hz: 480 },
-    "?play=lab&scenario=routine&model=workshop-fighter&right=empty&armour=1&hz=120&drawFraction=0.5");
+    "?play=lab&scenario=routine&model=workshop-fighter&right=empty&armour=1&hz=120&quality=reduced");
   const query = new URLSearchParams(href);
-  assert.equal(query.get("drawFraction"), "0.5");
+  assert.equal(query.get("quality"), "reduced");
   assert.equal(query.has("scenario"), false, "going back to the menu drops the scenario");
   assert.deepEqual(query.getAll("play"), ["lab"]);
   assert.deepEqual(query.getAll("model"), ["workshop-rogue"]);

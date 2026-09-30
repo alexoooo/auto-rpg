@@ -25,7 +25,7 @@ async function arena() {
 test("an_arena_link_names_its_matchup_and_an_old_one_falls_back", () => {
   assert.deepEqual(readMatchup("?play=arena&matchup=crypt-skeleton,workshop-fighter"), { left: "crypt-skeleton", right: "workshop-fighter" });
   assert.deepEqual(readMatchup("?matchup=workshop-rogue"), { left: "workshop-rogue", right: DEFAULT_MATCHUP.right });
-  assert.deepEqual(readMatchup("?matchup=%7B%22left%22%3A1%7D"), DEFAULT_MATCHUP, "a link from the old arena");
+  assert.deepEqual(readMatchup("?matchup=%7B%22left%22%3A1%7D"), DEFAULT_MATCHUP, "a malformed link");
   assert.deepEqual(readMatchup(""), DEFAULT_MATCHUP);
   const written = matchupSearch("?play=arena&matchup=x", { left: "workshop-rogue", right: "crypt-skeleton" });
   assert.equal(written, "?play=arena&matchup=workshop-rogue,crypt-skeleton");
