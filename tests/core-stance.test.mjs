@@ -13,7 +13,9 @@
  * itself, goes the way and about the speed asked, and asked to walk nowhere, stops and stands;
  * asked to walk nowhere from the start, it takes no step (the control). A walk stopped ends with its
  * feet back at the width the body was built standing at, and holds a sideways shove there that the
- * gait's width did not (`shove` in `research/core-stance-trials.mjs`). Node stand, Rapier, both
+ * gait's width did not (`shove` in `research/core-stance-trials.mjs`). Shoved hard straight to the
+ * side, the Warrior catches itself with the near foot stepping out once the far one has come in.
+ * Node stand, Rapier, both
  * humans, on a ground, 120 Hz.
  */
 import test from "node:test";
@@ -413,5 +415,15 @@ test("a walk stopped settles its feet to the body's own width, and holds a sidew
       + ` ${impulse} N s at 90: ${rest.fell ? "fell" : "held"} built, ${walked.fell ? "fell" : "held"} after a walk`);
     assert.ok(Math.abs(walked.apart - rest.apart) < 0.01, `${model}: apart ${walked.apart.toFixed(3)} m after a walk, ${rest.apart.toFixed(3)} built`);
     assert.ok(!rest.fell && !walked.fell, `${model}: ${impulse} N s at 90 ${rest.fell ? "fell" : "held"} built, ${walked.fell ? "fell" : "held"} after a walk`);
+  }
+});
+
+test("shoved hard to the side, the Warrior brings its far foot in and steps out with the near one, and stands", async () => {
+  // 60 N s straight to each side: past the 55 the sweep's shove battery held there when only the far
+  // foot stepped (it came in beside the near foot again and again, and the body fell off its edge).
+  for (const degrees of [90, 270]) {
+    const r = await shove({ model: "workshop-fighter", impulse: 60, degrees });
+    console.log(`MUT stance side catch at ${degrees}: ${r.fell ? "fell" : "held"} in ${r.steps} steps, ${(100 * r.speed).toFixed(2)} cm/s at the end`);
+    assert.ok(!r.fell && r.steps >= 2 && r.speed < 0.05, `at ${degrees}: ${r.fell ? "fell" : "held"} in ${r.steps} steps at ${r.speed.toFixed(3)} m/s`);
   }
 });

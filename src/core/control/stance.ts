@@ -307,10 +307,12 @@ export const STANCE_ANKLE_SPARE = 0.01;
  * (commit eaa182e5) holds a fifth fewer here; 0.3 holds most. The rows within a few shoves of the
  * chosen one differ by where single shoves first fall: the chosen Warrior falls to 50 N s from
  * behind -- ten steps, its feet drawn within 5 cm of each other across -- and holds 55 and more.
- * Straight to the side a step holds little more than standing does: the Rogue holds 35 N s to one
- * side either way and 35 stepping against 30 to the other, and the Warrior 55 stepping against 60
- * standing -- the far foot steps out with no weight shifted first. Many held shoves take several steps: a long step leaves a wide stance
- * whose soles hold a thin band.
+ * Straight to the side a step held little more than standing did (the Warrior 55 N s), the far foot
+ * stepping in beside the near one again and again; with the near foot stepping out once the far one
+ * is in (`recoveryStep`), the Warrior holds 65 N s to either side and the Rogue 40 to its left, 35
+ * to its right, and no way of the sixteen holds less (to 90 N s: Rogue 118 of 272 against 117,
+ * Warrior 213 against 209, Node core stand, Rapier, 120 Hz). Many held shoves take several
+ * steps: a long step leaves a wide stance whose soles hold a thin band.
  */
 export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2 };
 
@@ -817,7 +819,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           reading.own = settleStep(feet, stride, goal.heading, rest, gait);
         } else if (recovery) {
           striding = null;
-          reading.own = recoveryStep(feet, reading.centre, reading.velocity, gravity(), recovery, inset);
+          reading.own = recoveryStep(feet, reading.centre, reading.velocity, gravity(), recovery, gait.longest, inset);
           if (reading.own) reading.recoveries += 1;
         }
         stride = striding && reading.own ? reading.own.foot : null;
@@ -1050,26 +1052,48 @@ function settleStep(feet: readonly FootState[], last: Foot, heading: number, wid
  * bearing foot, a sole's width out from it at least. The foot whose sole is nearer the capture
  * point bears the body, and the other steps: chosen by the shorter way to the landing instead, the
  * far foot bore the body and it was flung across.
+ *
+ * Pushed beyond the nearer foot, to its side, the far foot's step can only come in beside it, and
+ * stepping in again and again the body fell off the nearer foot's outer edge. Once the far foot's
+ * step would move it less than its sole's width (it has stepped in already), the nearer foot steps
+ * out instead, the far one bearing the body, no further from the far sole than `longest` of the leg.
+ * This is the sideways catch people make: the unloaded foot steps in, and the other steps out (Maki
+ * and McIlroy 1997). Taken whenever it was within reach, the step out came where a short step of
+ * the far foot would have done, and a push from behind and to the side held 20 N s less.
  */
-function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, inset: number): SwingGoal | null {
+function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, longest: number, inset: number): SwingGoal | null {
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
   const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(feet, xi, zi, inset);
   if (Math.hypot(xi - hx, zi - hz) <= tuning.margin) return null;
+  const grow = Math.exp(w * tuning.seconds);
+  // Where a step of the foot other than `bearer` lands, the capture point run about the bearing sole.
+  const landing = (bearer: FootState): [number, number] => {
+    const b = bearer.middle, [px, pz] = withinSupport([bearer], xi, zi, inset);
+    const tx = px + (xi - px) * grow, tz = pz + (zi - pz) * grow;
+    return [tx + (tx - b.x) * tuning.reach, tz + (tz - b.z) * tuning.reach];
+  };
   // The foot nearer the capture point bears the body; the other steps.
   const off = (foot: FootState) => { const [qx, qz] = withinSupport([foot], xi, zi, inset); return Math.hypot(xi - qx, zi - qz); };
-  const bearer = off(feet[0]!) <= off(feet[1]!) ? feet[0]! : feet[1]!, foot = feet.find((other) => other !== bearer)!, b = bearer.middle;
-  const [px, pz] = withinSupport([bearer], xi, zi, inset), grow = Math.exp(w * tuning.seconds);
-  let tx = px + (xi - px) * grow, tz = pz + (zi - pz) * grow;
-  tx += (tx - b.x) * tuning.reach;
-  tz += (tz - b.z) * tuning.reach;
+  const near = off(feet[0]!) <= off(feet[1]!) ? feet[0]! : feet[1]!, far = feet.find((other) => other !== near)!, b = near.middle;
+  let [tx, tz] = landing(near);
   // Not onto or across the bearing foot: a sole's width out from it, along the line between the soles.
-  const ox = foot.middle.x - b.x, oz = foot.middle.z - b.z, wide = Math.hypot(ox, oz), out = ((tx - b.x) * ox + (tz - b.z) * oz) / wide;
-  if (out < foot.width) {
-    tx += (foot.width - out) * ox / wide;
-    tz += (foot.width - out) * oz / wide;
+  const ox = far.middle.x - b.x, oz = far.middle.z - b.z, wide = Math.hypot(ox, oz), out = ((tx - b.x) * ox + (tz - b.z) * oz) / wide;
+  if (out < far.width) {
+    tx += (far.width - out) * ox / wide;
+    tz += (far.width - out) * oz / wide;
+    // Beyond the nearer foot: it steps out, if the far one can bear the body there.
+    let [ux, uz] = landing(far);
+    const reach = longest * (near.lengths[0] + near.lengths[1]), long = Math.hypot(ux - far.middle.x, uz - far.middle.z);
+    if (Math.hypot(tx - far.middle.x, tz - far.middle.z) < far.width) {
+      if (long > reach) {
+        ux = far.middle.x + (ux - far.middle.x) * reach / long;
+        uz = far.middle.z + (uz - far.middle.z) * reach / long;
+      }
+      return { foot: near.side, to: [ux, uz], seconds: tuning.seconds, lift: tuning.lift, shift: false };
+    }
   }
-  return { foot: foot.side, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false };
+  return { foot: far.side, to: [tx, tz], seconds: tuning.seconds, lift: tuning.lift, shift: false };
 }
 
 /** How far the capture point of a body at `centre` moving at `velocity` is outside the region `feet`'s soles hold, m. */

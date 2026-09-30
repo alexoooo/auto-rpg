@@ -796,8 +796,27 @@ Havok's.
   58.4 N s (55) against 44.7 (35) and 57.8 (45) at 120 Hz over the same range. On Havok a step
   did not converge with the rate (above).
 - **Known:** with self-contact on, the Rogue shoved forward ends with its thighs pressed together at
-  16 N and 2 mm over its plan; the stance does not model the thighs' contact. Straight to the side
-  a step holds little more than standing: the far foot steps out with no weight shifted first.
+  16 N and 2 mm over its plan; the stance does not model the thighs' contact.
+- **Fixed (2026-09-30): the sideways catch.** Shoved straight to the side, the far foot stepped in
+  beside the near one and then stepped in again, a centimetre or two each time, while the body
+  fell off the near foot's outer edge (the Warrior at 60 N s: 15 steps, then down). Once the far
+  foot's step would move it less than its sole's width, the near foot now steps out, the far one
+  bearing the body, no further than the gait's longest step: the unloaded foot steps in and the
+  other steps out, as people do (Maki and McIlroy 1997). Taken whenever it was within reach, the
+  step out came where a short step of the far foot would have done, and the Warrior pushed from
+  behind and to the side held 65 N s against 85. The shove battery to 90 N s (Node core stand,
+  Rapier, 120 Hz), the impulse held before the first fall, by way from forward, clockwise:
+
+  | | held of 272 | mean | least | the sixteen ways |
+  |---|---|---|---|---|
+  | Rogue, before | 117 | 41.6 | 35 | 40,45,40,35,35,40,50,45,35,50,50,40,35,40,45,40 |
+  | Rogue, after | 118 | 41.9 | 35 | 40,45,40,35,35,40,50,45,35,50,50,40,40,40,45,40 |
+  | Warrior, before | 209 | 70.0 | 55 | 65,75,65,55,55,70,85,90,85,80,85,70,55,55,65,65 |
+  | Warrior, after | 213 | 71.3 | 55 | 65,75,65,55,65,70,85,90,85,80,85,70,65,55,65,65 |
+
+  No way holds less. The other batteries read as before, and the routine battery (24 starts, 5
+  loops) completes every loop. The forward diagonals to the side (67.5 and 292.5 degrees) still
+  hold 55 on the Warrior, and the Rogue's right side 35: the next place to look.
 - **Against the acceptance: not met.** Walks above 0.5 m/s mostly fall (a human's preferred walk is
   near 1.4); no human reference for the shoves or a reversal is sourced yet.
 
