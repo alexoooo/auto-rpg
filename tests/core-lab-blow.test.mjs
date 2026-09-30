@@ -13,7 +13,8 @@ import { readFile } from "node:fs/promises";
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { STAND, throwBlow } from "../src/core-lab/blow.ts";
+import { STAND } from "../src/core/skills/strike.ts";
+import { throwBlow } from "../src/core-lab/blow.ts";
 import { LAB_BLOWS } from "../src/core-lab/blows.ts";
 import { watchClubBlow } from "../src/core-lab/club-blow.ts";
 import { loadoutSpec } from "../src/core-lab/loadout.ts";
@@ -29,7 +30,7 @@ test("the_labs_blow_on_the_loadouts_body_lands_as_the_search_reads_it", async ()
   // The lab's body is the search's: the model's human with the club in the right hand.
   assert.deepEqual(plain(loadoutSpec(loadout)), plain(armed(humanSpec(stored.model), stored.hand, woodenClub())));
   const stand = await coreStand(loadoutSpec(loadout), { ground: true, hz: 120 });
-  const blow = throwBlow(stand.built, stand.world, stored.strike);
+  const blow = throwBlow(stand.built, stand.world, stored.strike, stored.distance);
   const watch = watchClubBlow(stand.built, stand.world, blow, stored.distance, stored.hand);
   try {
     for (let i = 0; i < stand.seconds(STAND + stored.strike.chamber.seconds + 0.5) && !watch.landed && !watch.fell; i++) stand.step(1);

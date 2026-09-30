@@ -3,7 +3,8 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { blowDamage, rulebook } from "../core/rules/rulebook.ts";
-import { STAND, throwBlow } from "./blow.ts";
+import { STAND } from "../core/skills/strike.ts";
+import { throwBlow } from "./blow.ts";
 import { LAB_BLOWS, type StoredBlow } from "./blows.ts";
 import { watchClubBlow, type ClubLanding } from "./club-blow.ts";
 import { recordHistory } from "./history.ts";
@@ -98,7 +99,7 @@ export function blowScenario(scene: Scene, shell: LabShell): LabScenario {
       const stored = chosen;
       const holds = built.spec.held?.some((h) => h.segment === `hand.${stored.hand}`) ?? false;
       // Without the club, the body stands in guard: the same rig with no blow to throw.
-      const blow = throwBlow(built, world, holds ? stored.strike : { name: "guard", hand: stored.hand, pushes: [] });
+      const blow = throwBlow(built, world, holds ? stored.strike : { name: "guard", hand: stored.hand, pushes: [] }, stored.distance);
       const watch = holds ? watchClubBlow(built, world, blow, stored.distance, stored.hand) : null;
       const history = recordHistory(built, world, HISTORY_SECONDS, (): BlowMoment => {
         const t = watch?.target;

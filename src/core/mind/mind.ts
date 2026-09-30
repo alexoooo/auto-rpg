@@ -1,6 +1,6 @@
 import type { BodyView, CoreBody } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
-import { createSkills, type SkillReport, type Skills } from "../skills/skills.ts";
+import { createSkills, type SkillOptions, type SkillReport, type Skills } from "../skills/skills.ts";
 import type { Intent } from "./intent.ts";
 
 /**
@@ -24,10 +24,11 @@ export interface Sight {
 
 /**
  * Hand `body` to `mind`: each control step the mind decides on the body's view and the skills'
- * report, and the skills make the command. Returns the skills, for their report.
+ * report, and the skills make the command; `options` are an experiment's. Returns the skills, for
+ * their report.
  */
-export function driveBy(body: CoreBody, mind: Mind): Skills {
-  const skills = createSkills(body);
+export function driveBy(body: CoreBody, mind: Mind, options?: SkillOptions): Skills {
+  const skills = createSkills(body, options);
   const sight: Sight = { view: body.view, report: skills.report, envelope: body.envelope };
   body.drive((view, dt) => skills.command(view, mind.decide(sight, dt), dt));
   return skills;

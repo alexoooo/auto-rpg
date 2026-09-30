@@ -73,6 +73,8 @@ export interface BodyView {
   readonly fists: Readonly<Record<Hand, Fist>>;
   /** Each hand's knuckles in the body frame, where a hand goal is set. */
   readonly knuckles: Readonly<Record<Hand, Vector3>>;
+  /** The head's centre of mass, world: where a strike's range is measured from (`src/core/skills/strike.ts`). */
+  readonly head: Vector3;
   /** The centre of mass, the stance's support, and what the stance last asked (`StanceReading`). */
   readonly stance: StanceReading;
 }
@@ -108,12 +110,14 @@ export interface BodyOptions {
 export function createBody(built: BuiltBody, world: World, { servoSeconds, stance }: BodyOptions): CoreBody {
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
+  const head = centreOf(built, "head");
   const angles: Record<string, number> = {};
   const view = {
     time: 0,
     angles,
     fists: { left: fists.left.fist, right: fists.right.fist },
     knuckles: { left: new Vector3(), right: new Vector3() },
+    head: head.centre,
     stance: motor.stance.reading,
   };
   let driver: BodyDriver | null = null;
@@ -141,6 +145,7 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds, stanc
       fists[hand].update();
       motor.knucklesToRef(hand, view.knuckles[hand]);
     }
+    head.update();
     motor.stance.read();
     const next = driver?.(view, dt);
     if (next) obey(next);
@@ -157,6 +162,20 @@ export function createBody(built: BuiltBody, world: World, { servoSeconds, stanc
 
 const sameGoal = (a: HandGoal, b: HandGoal): boolean =>
   a.seconds === b.seconds && a.position.every((v, k) => v === b.position[k]);
+
+/** Where `name`'s rigid body's centre of mass is, world, as the last step left it. */
+function centreOf(built: BuiltBody, name: string): { centre: Vector3; update(): void } {
+  const segment = built.segments.get(name);
+  if (!segment) throw new Error(`${built.spec.model} has no ${name}`);
+  const { origin, x, y, z } = segment.frame, c = segment.rigid.centre;
+  const d = [c[0] - origin[0], c[1] - origin[1], c[2] - origin[2]];
+  const local = new Vector3(...[x, y, z].map((a) => d[0]! * a[0]! + d[1]! * a[1]! + d[2]! * a[2]!) as [number, number, number]);
+  const centre = new Vector3();
+  return {
+    centre,
+    update() { local.applyRotationQuaternionToRef(segment.node.rotationQuaternion!, centre).addInPlace(segment.node.position); },
+  };
+}
 
 /**
  * The knuckles (`SegmentSpec.points`) of `hand`, where a fist strikes, and their velocity from the

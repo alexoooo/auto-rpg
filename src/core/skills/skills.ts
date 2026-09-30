@@ -1,7 +1,10 @@
 import type { BodyCommand, BodyView, CoreBody } from "../body.ts";
 import type { Intent } from "../mind/intent.ts";
+import type { MusclePush } from "../control/motor.ts";
 import { GUARD } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
+import { strikeSkill, type StrikeReport } from "./strike.ts";
+import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 
 /**
  * **The skills**: the one place a mind's intent (`src/core/mind/intent.ts`) becomes the command a
@@ -11,6 +14,8 @@ import { locomotion } from "./locomotion.ts";
  * physics: the stance balances whatever the arms and trunk do.
  *
  * - **Locomotion** (`locomotion.ts`): the walk and the facing, within the body's envelope.
+ * - **Strike** (`strike.ts`): a hand's attack, with the recipe for what it holds (`strikes.ts`).
+ *   It outranks the walk: while it works it has the legs, and the mind's walk waits.
  * - **Guard** (`guard.ts`): the arms' posture when nothing owns them.
  */
 export interface Skills {
@@ -29,10 +34,17 @@ export interface SkillReport {
   readonly reference: number | null;
   /** Whether the body has fallen (its centre of mass well under the stance's height) at any step since. */
   readonly fallen: boolean;
+  readonly strike: StrikeReport;
 }
 
-export function createSkills(body: CoreBody): Skills {
-  const legs = locomotion(body.envelope);
+export interface SkillOptions {
+  /** An experiment's strikes in place of the searched repertoire (`REPERTOIRE`): a search's candidate. */
+  readonly repertoire?: Repertoire;
+}
+
+export function createSkills(body: CoreBody, { repertoire = REPERTOIRE }: SkillOptions = {}): Skills {
+  const legs = locomotion(body.envelope), strikes = strikeSkill(body.built.spec, repertoire);
+  const none: readonly MusclePush[] = [];
   const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
     { posture: GUARD, hands: { left: null, right: null }, pushes: [], stance: null };
   const report: SkillReport = {
@@ -40,16 +52,19 @@ export function createSkills(body: CoreBody): Skills {
     get pace() { return legs.pace; },
     get reference() { return legs.reference; },
     get fallen() { return legs.fallen; },
+    strike: strikes.report,
   };
   return {
     report,
     command(view, intent, dt) {
-      for (const hand of ["left", "right"] as const) {
-        const action = intent.hands[hand];
-        if (action.kind !== "guard") throw new Error(`the ${hand} hand's ${action.kind} has no skill yet`);
-      }
-      const goal = legs.goal(view, intent.move, intent.face, dt, intent.lower);
+      const strike = strikes.command(view, intent.hands, legs.heading, dt);
+      if (!strike) strikes.idle(intent.move !== null, dt);
+      const goal = strike
+        ? legs.goal(view, strike.walk, strike.face, dt, intent.lower)
+        : legs.goal(view, intent.move, intent.face, dt, intent.lower);
       if (goal) command.stance = goal;
+      command.posture = strike?.posture ?? GUARD;
+      command.pushes = strike?.pushes ?? none;
       return command;
     },
   };

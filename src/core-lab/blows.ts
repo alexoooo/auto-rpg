@@ -1,7 +1,7 @@
 import havokBlow from "../../research/core-club-havok.json" with { type: "json" };
 import unitBlow from "../../research/core-club-unit.json" with { type: "json" };
 import type { WorkshopModel } from "../core/human/rig.ts";
-import type { Strike } from "./blow.ts";
+import type { Strike } from "../core/skills/strikes.ts";
 
 /**
  * **The blows the lab's Blow scenario throws** (`blow-scenario.ts`): each a strike found by the

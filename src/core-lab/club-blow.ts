@@ -4,7 +4,8 @@ import { contactMass } from "../core/build/contact-mass.ts";
 import { heldPoint } from "../core/build/rigid.ts";
 import { impactEnergy } from "../core/rules/impact.ts";
 import type { World } from "../core/world.ts";
-import { centreNow, inFrameOf, STAND, type ThrownBlow } from "./blow.ts";
+import { STAND } from "../core/skills/strike.ts";
+import { centreNow, inFrameOf, type ThrownBlow } from "./blow.ts";
 
 /**
  * **A club blow read as it lands**: the damage unit's reading (stage 5 of

@@ -279,6 +279,13 @@ export const SOURCES = Object.freeze({
       + "src/core/control/stance-envelope.ts; written by research/core-stance-envelope.mjs --write, whose "
       + "harness it names, and held to the rule by tests/core-stance-envelope.test.mjs.",
   },
+  "core-strikes": {
+    kind: "asset", file: "assets/core/strikes.json",
+    what: "The strike skill's repertoire (src/core/skills/strikes.ts): for each body and thing held, the right "
+      + "hand's strike found by search, thrown from standing in the guard, with the target's distance ahead of "
+      + "the head, how it was searched and what it read on replay; written by "
+      + "research/core-strike-repertoire.mjs --write from the searches' outputs, whose harness it names.",
+  },
   "core-grip": {
     kind: "decision", date: "2026-09-29",
     decided: "Recorded, not asked (core stage 5): a hand holds a haft across its knuckles, from the little finger's "

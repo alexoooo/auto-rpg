@@ -70,6 +70,11 @@ Each step lands on its own, with the gates green.
    searches throw through the skill. Acceptance: the unit blow's reading is the same to the bit
    as `throwBlow`'s (`tests/core-lab-blow.test.mjs`), and a fist search of one generation gives
    the same scores as before.
+   *Landed 2026-09-30:* the same to the digit (Node core stand, Rapier): eight blows at 120 and
+   480 Hz (both humans' searched straights, a third seed's, the unit club blow), and a fist search
+   of one generation from the Warrior's straight (best 8.11 m/s, three hitting). A recipe is
+   thrown once the head has stood `STAND` s: the head settles 3 to 6 cm from where it was built, so
+   the Blow reads its target from the head until then, as the searches do.
 3. **The Routine as a mind.** Its straights become the searched ones, left mirrored from right
    (the channels' sides swapped and the trunk's turns reversed); the set step goes (it does not
    converge with the rate, `blow.ts`). Acceptance: measured, not matched: each strike's fist
