@@ -266,6 +266,258 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const pointOf = (foot: FootState, task: (typeof tasks)[number], out: Vector3): Vector3 =>
     task.bearing ? out.copyFrom(foot.rolled ? foot.edge : foot.middle) : soleMiddleToRef(foot, out);
 
+  /** The walk's pace toward `walk` (none: toward standing) at the gait's acceleration. */
+  const paceToward = (walk: readonly [number, number] | null | undefined, dt: number): void => {
+    const wx = walk?.[0] || 0, wz = walk?.[1] || 0, dx = wx - pace[0], dz = wz - pace[1];
+    const most = gait.accel * dt, d = Math.hypot(dx, dz), k = d > most ? most / d : 1;
+    pace[0] += dx * k;
+    pace[1] += dz * k;
+  };
+
+  /**
+   * The step a stance on both feet takes of itself (`reading.own`), facing `heading`. Standing, it
+   * steps to walk, each foot in turn; to settle a walk's end at its own stance; or, walking nowhere,
+   * once its capture point has left what its soles hold, to catch it. A walk's step under way is
+   * re-aimed each step. Each step runs to its landing unless the goal asks for one of its own.
+   */
+  const ownStep = (heading: number): void => {
+    if (!reading.own && reading.phase === "stand") {
+      const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null;
+      if (walk || (stride && recovery && outside(feet, reading.centre, reading.velocity, gravity(), inset) > recovery.margin)) {
+        // Walking, or stopping a walk still under way: its steps keep their alternation.
+        striding = pace;
+        reading.own = gait.transfer && stride
+          ? transferStep(feet, reading.centre, reading.velocity, gravity(), striding, heading, gait, stride, undefined, inset)
+          : walkStep(feet, reading.centre, reading.velocity, gravity(), striding, heading, gait, stride, undefined, inset);
+        reading.strides += 1;
+      } else if (stride && across(feet, heading) < rest) {
+        // A walk has ended on the gait's width, narrower than the body's own stance: one step
+        // puts the feet back at the width it was built standing at.
+        striding = null;
+        reading.own = settleStep(feet, stride, heading, rest, gait);
+      } else if (recovery) {
+        striding = null;
+        reading.own = recoveryStep(feet, reading.centre, reading.velocity, gravity(), recovery, gait.longest, inset);
+        if (reading.own) reading.recoveries += 1;
+      }
+      stride = striding && reading.own ? reading.own.foot : null;
+    } else if (reading.own && striding && reading.phase === "swing" && step.lifted && step.swing === reading.own) {
+      // A walk's step under way lands where the body's capture point, measured, says it must: the
+      // body lags its plan, and a landing fixed at lift carries the lag into the next step.
+      const under = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time };
+      // (`striding` is the pace, read as it is now.)
+      if (reading.own.transfer) {
+        const aimed = transferStep(feet, reading.centre, reading.velocity, gravity(), striding, heading, gait, null, under, inset);
+        reading.own = step.swing = { ...reading.own, to: aimed.to, capture: aimed.capture! };
+      } else {
+        const aimed = walkStep(feet, reading.centre, reading.velocity, gravity(), striding, heading, gait, null, under, inset);
+        reading.own = step.swing = { ...reading.own, to: aimed.to };
+      }
+    }
+  };
+
+  /**
+   * The plan's acceleration across the ground (x, z) by the stance's phase, and the place it is
+   * held toward, into the reading. `pendulum` is g over the plan's height.
+   */
+  const planAcross = (goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, bearer: FootState | undefined,
+    pendulum: number, dt: number): [number, number] => {
+    const r = plan.at, u = plan.velocity, n = 1 / seconds.across;
+    if (reading.phase === "swing") {
+      // On one foot the plan falls as an inverted pendulum of its height about a point of the
+      // bearing sole (Kajita et al. 2001, "The 3D linear inverted pendulum mode", IROS), whose
+      // capture point runs away from that point exponentially. The point is chosen each step so
+      // that the capture point reaches the middle of the stance the step lands in as the foot
+      // lands (Englsberger et al. 2011, "Bipedal walking control based on Capture Point
+      // dynamics", IROS), within what the sole holds: the body falls toward its new stance.
+      const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.seconds - step.time, dt));
+      const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
+      const [px, pz] = withinSupport([bearingOf(bearer!)], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
+        inset);
+      reading.place.set(px, 0, pz);
+      return [pendulum * (r.x - px), pendulum * (r.z - pz)];
+    }
+    if (reading.phase === "shift" && swing!.transfer) {
+      // A walk's double support: both soles bear, and the plan falls as the pendulum about a
+      // point of them chosen, as a swing's is, to bring its capture point to the step's handover
+      // as the foot lifts (Englsberger et al. 2015, "Three-dimensional bipedal walking control
+      // based on Divergent Component of Motion", IEEE T-RO): the walk keeps its momentum.
+      const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.transfer - step.held, dt));
+      const [tx, tz] = swing!.handover!;
+      const [px, pz] = withinSupport(stance.map(bearingOf), (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
+        inset);
+      reading.place.set(px, 0, pz);
+      return [pendulum * (r.x - px), pendulum * (r.z - pz)];
+    }
+    if (reading.phase === "shift") {
+      // Before a step the plan goes toward the bearing sole's middle, as fast as its constant
+      // takes it, past what a stance on both feet holds: the foot lifts before it gets there.
+      reading.place.set(bearer!.middle.x, 0, bearer!.middle.z);
+      return [n * n * (bearer!.middle.x - r.x) - 2 * n * u.x, n * n * (bearer!.middle.z - r.z) - 2 * n * u.z];
+    }
+    // A place outside what the soles can hold is taken at the nearest point that they can.
+    const [gx, gz] = withinSupport(stance, goal.centre?.[0] ?? reading.support.x, goal.centre?.[1] ?? reading.support.z, inset);
+    reading.place.set(gx, 0, gz);
+    return [n * n * (gx - r.x) - 2 * n * u.x, n * n * (gz - r.z) - 2 * n * u.z];
+  };
+
+  /**
+   * The plan's height limits. No higher than each leg reaches with its knee bent by
+   * `STANCE_KNEE_BEND`, its hip carried as the plan carries the centre of mass: a stance leg from its
+   * ankle, a swinging leg from where its ankle will be when its sole lands, its hip where the plan
+   * will have it then (the pendulum about the place, over the swing's time left). Taken from the hip
+   * where it is, a long step's leg reaches from behind the bearing foot to a landing ahead of it, and
+   * the plan drops the body as the foot lifts. And no lower than each leg reaches with its ankle
+   * dorsiflexed to its range less `STANCE_ANKLE_SPARE`, its foot where it stands or will land: the
+   * knee's place is then fixed, and the hip is a thigh from it; each leg's such floor is in `floors`.
+   */
+  const heightLimits = (goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, pendulum: number):
+    { high: number; floors: [FootState, number][] } => {
+    const r = plan.at, u = plan.velocity, c = reading.centre;
+    let high = goal.height;
+    const floors: [FootState, number][] = [];
+    let landX = r.x, landZ = r.z;
+    if (reading.phase === "swing") {
+      const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - step.time, 0), ch = Math.cosh(w * left), sh = Math.sinh(w * left);
+      landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh;
+      landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh;
+    }
+    for (const foot of reading.phase === "swing" ? feet : stance) {
+      const [hip, knee, ankle] = foot.chain;
+      pointOfToRef(hip!.parent, hip!.spec.centre.value, hipAt);
+      pointOfToRef(ankle!.parent, ankle!.spec.centre.value, ankleAt);
+      const swinging = !stance.includes(foot);
+      const [a, b] = foot.lengths, hx = hipAt.x + (swinging ? landX : r.x) - c.x, hz = hipAt.z + (swinging ? landZ : r.z) - c.z, rise = c.y - hipAt.y - reading.support.y;
+      if (swinging) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
+      if (bend !== null) {
+        const long = Math.sqrt(a * a + b * b + 2 * a * b * Math.cos(bend)), across = Math.hypot(hx - ankleAt.x, hz - ankleAt.z);
+        high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - across * across)) + rise);
+      }
+      if (spare !== null) {
+        // The shank's turn is the foot's with the ankle's own undone (rel = D_shank^-1 D_foot).
+        const dorsiflexion = ankle!.dofs[0]!.spec;
+        rotationAtToRef(ankle!, [dorsiflexion.max.value - spare, 0], shank);
+        turnOfToRef(foot.segment, footTurn).multiplyToRef(Quaternion.InverseToRef(shank, shank), shank);
+        const k = knee!.spec.centre.value, o = ankle!.spec.centre.value;
+        kneeAt.set(k[0] - o[0], k[1] - o[1], k[2] - o[2]).applyRotationQuaternionToRef(shank, kneeAt).addInPlace(ankleAt);
+        const across = Math.hypot(hx - kneeAt.x, hz - kneeAt.z);
+        if (across < a) floors.push([foot, kneeAt.y + Math.sqrt(a * a - across * across) + rise]);
+      }
+    }
+    return { high, floors };
+  };
+
+  /**
+   * Which feet bear on their front edges. A walk's bearing foot whose ankle's floor is over the
+   * knees' ceiling (`high`) on one foot rolls onto its front edge instead (Perry 1992, "Gait
+   * Analysis", terminal stance: the heel rises as the body passes over the forefoot), once the plan's
+   * centre of mass is past that edge: rolled, the foot's pressure is on the edge, and one rolled with
+   * the centre behind it brakes the walk (`docs/reference/stance-tuning.md#heel-off`). The height
+   * keeps the knees bent, and the ankle its range. The foot rolls back once its heel is down with the
+   * centre behind the edge, and is flat again whenever it leaves the ground. Through a walk's double
+   * support the trailing foot rolls for its pre-swing.
+   */
+  const rollFeet = (stance: readonly FootState[], swing: SwingGoal | null, floors: readonly [FootState, number][], high: number): void => {
+    const r = plan.at, u = plan.velocity;
+    for (const foot of feet) if (!stance.includes(foot)) foot.rolled = false;
+    for (const [foot, floor] of floors) {
+      if (!stance.includes(foot)) continue;
+      const ex = r.x - foot.edge.x, ez = r.z - foot.edge.z;
+      const past = ex * (foot.edge.x - foot.middle.x) + ez * (foot.edge.z - foot.middle.z) >= 0;
+      if (heelOff && striding && past && !foot.rolled && floor > high && reading.phase === "swing") foot.rolled = true;
+      else if (foot.rolled && !past && foot.heel <= foot.flat) foot.rolled = false;
+    }
+    if (gait.preswing !== undefined && reading.phase === "shift" && swing?.transfer) {
+      // Only while the body goes the foot's way: it walks off its toes, not its heel.
+      const trailing = feet.find((f) => f.side === swing.foot)!;
+      if (stance.includes(trailing) && u.x * (trailing.edge.x - trailing.middle.x) + u.z * (trailing.edge.z - trailing.middle.z) > 0) trailing.rolled = true;
+    }
+  };
+
+  /**
+   * The weight shift before a step ends, and the foot lifts, once the body's capture point (Pratt et
+   * al. 2006, "Capture point: a step toward humanoid push recovery", Humanoids) is over the bearing
+   * sole: from there the body falls toward that foot, not away from it. A walk's double support ends
+   * on its time.
+   */
+  const shiftWeight = (swing: SwingGoal | null, bearer: FootState | undefined, height: number, dt: number): void => {
+    if (reading.phase === "shift" && swing!.transfer) {
+      step.held += dt;
+      if (step.held >= swing!.transfer) reading.phase = "swing";
+    } else if (reading.phase === "shift") {
+      const c = reading.centre, vel = reading.velocity, g = gravity();
+      const w = Math.sqrt(g / Math.max(height, 1e-3)), cx = c.x + vel.x / w, cz = c.z + vel.z / w;
+      const [hx, hz] = withinSupport([bearer!], cx, cz, inset);
+      if (hx === cx && hz === cz) reading.phase = "swing";
+    }
+  };
+
+  /** The pelvis's asked turn, into `spin`: toward upright at `heading`, the error over the time constant. */
+  const pelvisTurn = (heading: number): void => {
+    Quaternion.RotationAxisToRef(Vector3.UpReadOnly, heading, target);
+    target.multiplyInPlace(pelvis.rest);
+    Quaternion.InverseToRef(pelvis.node.rotationQuaternion!, inverse);
+    target.multiplyToRef(inverse, error);
+    if (error.w < 0) error.scaleInPlace(-1);
+    const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
+    spin.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.turn : 0);
+  };
+
+  /**
+   * The swing: `swing`'s foot's sole carried along its path, its turn carried from the one it left
+   * the ground with to flat and facing `heading` as it lands; the step ends as it lands.
+   */
+  const swingFoot = (swing: SwingGoal, heading: number, dt: number): void => {
+    const foot = feet.find((f) => f.side === swing.foot)!;
+    soleMiddleToRef(foot, sole);
+    if (!step.lifted) {
+      step.lifted = true;
+      step.time = 0;
+      step.from.copyFrom(sole);
+      step.lift.copyFrom(foot.segment.node.rotationQuaternion!);
+    }
+    // It lands flat, facing the heading: its reference-pose turn, turned about up by the heading.
+    // (Held at the turn it left with, a foot's yaw drifts step by step.)
+    Quaternion.RotationAxisToRef(Vector3.UpReadOnly, heading, level);
+    level.multiplyInPlace(foot.segment.rest);
+    step.time += dt;
+    const tau = Math.min(1, step.time / swing.seconds), from = step.from;
+    // Minimum jerk across the ground, a lift of the same smoothness up and down.
+    const s = tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), ds = 30 * tau * tau * (1 - tau) * (1 - tau) / swing.seconds;
+    const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds;
+    path.set(from.x + (swing.to[0] - from.x) * s, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * s);
+    Quaternion.SlerpToRef(step.lift, level, s, step.turn);
+    along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
+    step.turn.multiplyToRef(Quaternion.InverseToRef(foot.segment.node.rotationQuaternion!, inverse), error);
+    if (error.w < 0) error.scaleInPlace(-1);
+    const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
+    turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
+    // The whole turn from lift to landing, world: the path's turn goes about its axis at its angle
+    // times the path's rate.
+    level.multiplyToRef(Quaternion.InverseToRef(step.lift, whole), whole);
+    if (whole.w < 0) whole.scaleInPlace(-1);
+    const wholeHalf = Math.hypot(whole.x, whole.y, whole.z), wholeAngle = 2 * Math.atan2(wholeHalf, whole.w);
+    wholeAxis.set(whole.x, whole.y, whole.z).scaleInPlace(wholeHalf > 1e-12 ? wholeAngle / wholeHalf : 0);
+    // The path's acceleration, and its errors in place and speed taken up critically damped at the
+    // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping
+    // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
+    // swing lands off the heading (`tests/core-stance.test.mjs`).
+    const task = tasks[feet.indexOf(foot)]!, w = 1 / seconds.swing, T = swing.seconds;
+    const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
+    footMotionToRef(foot, sole, task.linear, task.angular);
+    task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
+      swing.lift * ddbump + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),
+      (swing.to[1] - from.z) * dds + w * w * (path.z - sole.z) + 2 * w * (along.z - task.linear.z));
+    task.angular.scaleInPlace(-2 * w).addInPlace(turn.scale(w)).addInPlace(wholeAxis.scale(dds + 2 * w * ds));
+    task.on = true;
+    task.bearing = false;
+    for (const i of foot.channels) owned[i] = 1;
+    if (tau >= 1) {
+      reading.phase = "stand";
+      reading.own = null;
+    }
+  };
+
   return {
     get owned() { return owned; },
     reading,
@@ -495,62 +747,23 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       supportOf(on ? feet.filter((foot) => on.includes(foot.side)) : feet);
     },
     command(muscles, goal, dt) {
-            if (owned.length !== muscles.channels.length) {
+      if (owned.length !== muscles.channels.length) {
         owned = new Uint8Array(muscles.channels.length);
         for (const foot of feet) foot.channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => muscles.channel(`${joint.spec.name} ${dof.spec.positive}`)));
       }
       owned.fill(0);
       aim.on = false;
       for (const task of tasks) task.on = false;
-      // The step: a swing unlike the last starts one, and the feet that bear the body are the goal's
-      // but for a swinging foot.
-      // A stance on both feet steps of itself: walking, each foot in turn; walking nowhere, once its
-      // capture point has left what its soles hold, to catch it. Each step runs to its landing unless
-      // the goal asks for one of its own.
       const both = !!goal && goal.feet.includes("left") && goal.feet.includes("right") && !goal.swing;
-      {
-        const wx = (both && goal!.walk?.[0]) || 0, wz = (both && goal!.walk?.[1]) || 0, dx = wx - pace[0], dz = wz - pace[1];
-        const most = gait.accel * dt, d = Math.hypot(dx, dz), k = d > most ? most / d : 1;
-        pace[0] += dx * k;
-        pace[1] += dz * k;
-      }
-      if (!both) {
+      paceToward(both ? goal!.walk : null, dt);
+      if (both) ownStep(goal!.heading);
+      else {
         reading.own = null;
         stride = null;
         striding = null;
-      } else if (!reading.own && reading.phase === "stand") {
-        const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null;
-        if (walk || (stride && recovery && outside(feet, reading.centre, reading.velocity, gravity(), inset) > recovery.margin)) {
-          // Walking, or stopping a walk still under way: its steps keep their alternation.
-          striding = pace;
-          reading.own = gait.transfer && stride
-            ? transferStep(feet, reading.centre, reading.velocity, gravity(), striding, goal.heading, gait, stride, undefined, inset)
-            : walkStep(feet, reading.centre, reading.velocity, gravity(), striding, goal.heading, gait, stride, undefined, inset);
-          reading.strides += 1;
-        } else if (stride && across(feet, goal.heading) < rest) {
-          // A walk has ended on the gait's width, narrower than the body's own stance: one step
-          // puts the feet back at the width it was built standing at.
-          striding = null;
-          reading.own = settleStep(feet, stride, goal.heading, rest, gait);
-        } else if (recovery) {
-          striding = null;
-          reading.own = recoveryStep(feet, reading.centre, reading.velocity, gravity(), recovery, gait.longest, inset);
-          if (reading.own) reading.recoveries += 1;
-        }
-        stride = striding && reading.own ? reading.own.foot : null;
-      } else if (reading.own && striding && reading.phase === "swing" && step.lifted && step.swing === reading.own) {
-        // A walk's step under way lands where the body's capture point, measured, says it must: the
-        // body lags its plan, and a landing fixed at lift carries the lag into the next step.
-        const under = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time };
-        // (`striding` is the pace, read as it is now.)
-        if (reading.own.transfer) {
-          const aimed = transferStep(feet, reading.centre, reading.velocity, gravity(), striding, goal.heading, gait, null, under, inset);
-          reading.own = step.swing = { ...reading.own, to: aimed.to, capture: aimed.capture! };
-        } else {
-          const aimed = walkStep(feet, reading.centre, reading.velocity, gravity(), striding, goal.heading, gait, null, under, inset);
-          reading.own = step.swing = { ...reading.own, to: aimed.to };
-        }
       }
+      // The step: a swing unlike the last starts one, and the feet that bear the body are the goal's
+      // but for a swinging foot.
       const swing = goal?.swing ?? reading.own;
       if (!swing) {
         step.swing = null;
@@ -580,135 +793,22 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         plan.velocity.copyFrom(vel);
         plan.on = true;
       }
-      const r = plan.at, u = plan.velocity;
-      const n = 1 / seconds.across, k = 1 / seconds.height, pendulum = g / Math.max(r.y, 1e-3);
+      const r = plan.at, u = plan.velocity, pendulum = g / Math.max(r.y, 1e-3);
       const bearer = swing ? stance.find((foot) => foot.side !== swing.foot) : undefined;
-      let ax: number, az: number;
-      if (reading.phase === "swing") {
-        // On one foot the plan falls as an inverted pendulum of its height about a point of the
-        // bearing sole (Kajita et al. 2001, "The 3D linear inverted pendulum mode", IROS), whose
-        // capture point runs away from that point exponentially. The point is chosen each step so
-        // that the capture point reaches the middle of the stance the step lands in as the foot
-        // lands (Englsberger et al. 2011, "Bipedal walking control based on Capture Point
-        // dynamics", IROS), within what the sole holds: the body falls toward its new stance.
-        const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.seconds - step.time, dt));
-        const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
-        const [px, pz] = withinSupport([bearingOf(bearer!)], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
-          inset);
-        reading.place.set(px, 0, pz);
-        ax = pendulum * (r.x - px);
-        az = pendulum * (r.z - pz);
-      } else if (reading.phase === "shift" && swing!.transfer) {
-        // A walk's double support: both soles bear, and the plan falls as the pendulum about a
-        // point of them chosen, as a swing's is, to bring its capture point to the step's handover
-        // as the foot lifts (Englsberger et al. 2015, "Three-dimensional bipedal walking control
-        // based on Divergent Component of Motion", IEEE T-RO): the walk keeps its momentum.
-        const w = Math.sqrt(pendulum), grow = Math.exp(w * Math.max(swing!.transfer - step.held, dt));
-        const [tx, tz] = swing!.handover!;
-        const [px, pz] = withinSupport(stance.map(bearingOf), (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
-          inset);
-        reading.place.set(px, 0, pz);
-        ax = pendulum * (r.x - px);
-        az = pendulum * (r.z - pz);
-      } else if (reading.phase === "shift") {
-        // Before a step the plan goes toward the bearing sole's middle, as fast as its constant
-        // takes it, past what a stance on both feet holds: the foot lifts before it gets there.
-        reading.place.set(bearer!.middle.x, 0, bearer!.middle.z);
-        ax = n * n * (bearer!.middle.x - r.x) - 2 * n * u.x;
-        az = n * n * (bearer!.middle.z - r.z) - 2 * n * u.z;
-      } else {
-        // A place outside what the soles can hold is taken at the nearest point that they can.
-        const [gx, gz] = withinSupport(stance, goal.centre?.[0] ?? reading.support.x, goal.centre?.[1] ?? reading.support.z, inset);
-        reading.place.set(gx, 0, gz);
-        ax = n * n * (gx - r.x) - 2 * n * u.x;
-        az = n * n * (gz - r.z) - 2 * n * u.z;
-      }
-      // No higher than each leg reaches with its knee bent by `STANCE_KNEE_BEND`, its hip carried as
-      // the plan carries the centre of mass: a stance leg from its ankle, a swinging leg from where
-      // its ankle will be when its sole lands, its hip where the plan will have it then (the
-      // pendulum about the place, over the swing's time left). Taken from the hip where it is, a
-      // long step's leg reaches from behind the bearing foot to a landing ahead of it, and the plan
-      // drops the body as the foot lifts.
-      // And no lower than each leg reaches with its ankle dorsiflexed to its range less
-      // `STANCE_ANKLE_SPARE`, its foot where it stands or will land: the knee's place is then fixed,
-      // and the hip is a thigh from it. Where the two disagree, the ankle's stop is the harder limit.
-      let high = goal.height, low = -Infinity;
-      const floors: [FootState, number][] = [];
-      let landX = r.x, landZ = r.z;
-      if (reading.phase === "swing") {
-        const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - step.time, 0), ch = Math.cosh(w * left), sh = Math.sinh(w * left);
-        landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh;
-        landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh;
-      }
-      for (const foot of reading.phase === "swing" ? feet : stance) {
-        const [hip, knee, ankle] = foot.chain;
-        pointOfToRef(hip!.parent, hip!.spec.centre.value, hipAt);
-        pointOfToRef(ankle!.parent, ankle!.spec.centre.value, ankleAt);
-        const swinging = !stance.includes(foot);
-        const [a, b] = foot.lengths, hx = hipAt.x + (swinging ? landX : r.x) - c.x, hz = hipAt.z + (swinging ? landZ : r.z) - c.z, rise = c.y - hipAt.y - reading.support.y;
-        if (swinging) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);
-        if (bend !== null) {
-          const long = Math.sqrt(a * a + b * b + 2 * a * b * Math.cos(bend)), across = Math.hypot(hx - ankleAt.x, hz - ankleAt.z);
-          high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - across * across)) + rise);
-        }
-        if (spare !== null) {
-          // The shank's turn is the foot's with the ankle's own undone (rel = D_shank^-1 D_foot).
-          const dorsiflexion = ankle!.dofs[0]!.spec;
-          rotationAtToRef(ankle!, [dorsiflexion.max.value - spare, 0], shank);
-          turnOfToRef(foot.segment, footTurn).multiplyToRef(Quaternion.InverseToRef(shank, shank), shank);
-          const k = knee!.spec.centre.value, o = ankle!.spec.centre.value;
-          kneeAt.set(k[0] - o[0], k[1] - o[1], k[2] - o[2]).applyRotationQuaternionToRef(shank, kneeAt).addInPlace(ankleAt);
-          const across = Math.hypot(hx - kneeAt.x, hz - kneeAt.z);
-          if (across < a) floors.push([foot, kneeAt.y + Math.sqrt(a * a - across * across) + rise]);
-        }
-      }
-      // A walk's bearing foot whose ankle's floor is over the knees' ceiling on one foot rolls onto
-      // its front edge instead (Perry 1992, "Gait Analysis", terminal stance: the heel rises as the
-      // body passes over the forefoot), once the plan's centre of mass is past that edge: rolled,
-      // the foot's pressure is on the edge, and one rolled with the centre behind it brakes the walk
-      // (`docs/reference/stance-tuning.md#heel-off`). The height keeps the knees bent, and the ankle
-      // its range. The foot rolls back once its heel is down with the centre behind the edge, and is
-      // flat again whenever it leaves the ground.
-      for (const foot of feet) if (!stance.includes(foot)) foot.rolled = false;
-      for (const [foot, floor] of floors) {
-        if (!stance.includes(foot)) continue;
-        const ex = r.x - foot.edge.x, ez = r.z - foot.edge.z;
-        const past = ex * (foot.edge.x - foot.middle.x) + ez * (foot.edge.z - foot.middle.z) >= 0;
-        if (heelOff && striding && past && !foot.rolled && floor > high && reading.phase === "swing") foot.rolled = true;
-        else if (foot.rolled && !past && foot.heel <= foot.flat) foot.rolled = false;
-      }
-      if (gait.preswing !== undefined && reading.phase === "shift" && swing?.transfer) {
-        // Only while the body goes the foot's way: it walks off its toes, not its heel.
-        const trailing = feet.find((f) => f.side === swing.foot)!;
-        if (stance.includes(trailing) && u.x * (trailing.edge.x - trailing.middle.x) + u.z * (trailing.edge.z - trailing.middle.z) > 0) trailing.rolled = true;
-      }
-      for (const [foot, floor] of floors) if (!foot.rolled) low = Math.max(low, floor);
-      high = Math.max(high, low);
+      const [ax, az] = planAcross(goal, stance, swing, bearer, pendulum, dt);
+      // Where the ceiling and a floor disagree, the ankle's stop is the harder limit.
+      const limits = heightLimits(goal, stance, swing, pendulum);
+      rollFeet(stance, swing, limits.floors, limits.high);
+      let low = -Infinity;
+      for (const [foot, floor] of limits.floors) if (!foot.rolled) low = Math.max(low, floor);
+      const high = Math.max(limits.high, low), k = 1 / seconds.height;
       const ay = k * k * (high - r.y) - 2 * k * u.y;
       u.addInPlaceFromFloats(ax * dt, ay * dt, az * dt);
       r.addInPlace(u.scale(dt));
       reading.plan.copyFrom(r);
       reading.planVelocity.copyFrom(u);
-      // The weight is shifted once the body's capture point (Pratt et al. 2006, "Capture point: a step
-      // toward humanoid push recovery", Humanoids) is over the bearing sole: from there the body
-      // falls toward that foot, not away from it.
-      // A walk's double support ends on its time.
-      if (reading.phase === "shift" && swing!.transfer) {
-        step.held += dt;
-        if (step.held >= swing!.transfer) reading.phase = "swing";
-      } else if (reading.phase === "shift") {
-        const w = Math.sqrt(g / Math.max(height, 1e-3)), cx = c.x + vel.x / w, cz = c.z + vel.z / w;
-        const [hx, hz] = withinSupport([bearer!], cx, cz, inset);
-        if (hx === cx && hz === cz) reading.phase = "swing";
-      }
-      // The pelvis's asked turn: toward upright at the heading, the error over the time constant.
-      Quaternion.RotationAxisToRef(Vector3.UpReadOnly, goal.heading, target);
-      target.multiplyInPlace(pelvis.rest);
-      Quaternion.InverseToRef(pelvis.node.rotationQuaternion!, inverse);
-      target.multiplyToRef(inverse, error);
-      if (error.w < 0) error.scaleInPlace(-1);
-      const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
-      spin.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.turn : 0);
+      shiftWeight(swing, bearer, height, dt);
+      pelvisTurn(goal.heading);
 
       // The root's angular acceleration: toward upright at the heading, critically damped at the
       // turn's constant (`spin` is the error's angle over it). The centre of mass's: the plan's,
@@ -729,59 +829,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
         task.bearing = true;
         for (const i of foot.channels) owned[i] = 1;
       }
-
-      // The swing: the foot's sole carried along its path, its turn carried from the one it left the
-      // ground with to the one it lands with.
-      if (reading.phase === "swing" && swing) {
-        const foot = feet.find((f) => f.side === swing.foot)!;
-        soleMiddleToRef(foot, sole);
-        if (!step.lifted) {
-          step.lifted = true;
-          step.time = 0;
-          step.from.copyFrom(sole);
-          step.lift.copyFrom(foot.segment.node.rotationQuaternion!);
-        }
-        // It lands flat, facing the heading: its reference-pose turn, turned about up by the heading.
-        // (Held at the turn it left with, a foot's yaw drifts step by step.)
-        Quaternion.RotationAxisToRef(Vector3.UpReadOnly, goal.heading, level);
-        level.multiplyInPlace(foot.segment.rest);
-        step.time += dt;
-        const tau = Math.min(1, step.time / swing.seconds), from = step.from;
-        // Minimum jerk across the ground, a lift of the same smoothness up and down.
-        const s = tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), ds = 30 * tau * tau * (1 - tau) * (1 - tau) / swing.seconds;
-        const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds;
-        path.set(from.x + (swing.to[0] - from.x) * s, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * s);
-        Quaternion.SlerpToRef(step.lift, level, s, step.turn);
-        along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
-        step.turn.multiplyToRef(Quaternion.InverseToRef(foot.segment.node.rotationQuaternion!, inverse), error);
-        if (error.w < 0) error.scaleInPlace(-1);
-        const half = Math.hypot(error.x, error.y, error.z), angle = 2 * Math.atan2(half, error.w);
-        turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
-        // The whole turn from lift to landing, world: the path's turn goes about its axis at its angle
-        // times the path's rate.
-        level.multiplyToRef(Quaternion.InverseToRef(step.lift, whole), whole);
-        if (whole.w < 0) whole.scaleInPlace(-1);
-        const wholeHalf = Math.hypot(whole.x, whole.y, whole.z), wholeAngle = 2 * Math.atan2(wholeHalf, whole.w);
-        wholeAxis.set(whole.x, whole.y, whole.z).scaleInPlace(wholeHalf > 1e-12 ? wholeAngle / wholeHalf : 0);
-        // The path's acceleration, and its errors in place and speed taken up critically damped at the
-        // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping
-        // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
-        // swing lands off the heading (`tests/core-stance.test.mjs`).
-        const task = tasks[feet.indexOf(foot)]!, w = 1 / seconds.swing, T = swing.seconds;
-        const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
-        footMotionToRef(foot, sole, task.linear, task.angular);
-        task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
-          swing.lift * ddbump + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),
-          (swing.to[1] - from.z) * dds + w * w * (path.z - sole.z) + 2 * w * (along.z - task.linear.z));
-        task.angular.scaleInPlace(-2 * w).addInPlace(turn.scale(w)).addInPlace(wholeAxis.scale(dds + 2 * w * ds));
-        task.on = true;
-        task.bearing = false;
-        for (const i of foot.channels) owned[i] = 1;
-        if (tau >= 1) {
-          reading.phase = "stand";
-          reading.own = null;
-        }
-      }
+      if (reading.phase === "swing" && swing) swingFoot(swing, goal.heading, dt);
     },
   };
 }
