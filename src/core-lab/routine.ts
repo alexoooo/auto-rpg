@@ -1,18 +1,19 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, type BodyCommand, type CoreBody, type Fist } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type BodyCommand, type CoreBody, type Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { MusclePush, Pose } from "../core/control/motor.ts";
 import type { StanceTuning, SwingGoal } from "../core/control/stance.ts";
 import type { World } from "../core/world.ts";
-import { stanceLegs } from "./legs.ts";
+import { GUARD } from "../core/skills/guard.ts";
+import { stanceLegs, TURN_LEAD } from "../core/skills/locomotion.ts";
 
 /**
  * **The core lab's routine**: a human walks forward, strikes three times, turns, walks back to
  * where it started and turns again, on a loop. It is an instrument for watching stage 2's muscles,
  * not a mind:
  *
- * - **The legs are the stance's** (`legs.ts`): the body stands and walks on its own feet, and
- *   strikes standing. The stance turns only while it walks, so a turn is walked, on an arc, at
+ * - **The legs are the stance's** (`stanceLegs`, `src/core/skills/locomotion.ts`): the body
+ *   stands and walks on its own feet, and strikes standing. The stance turns only while it walks, so a turn is walked, on an arc, at
  *   `TURN_PACE`, and a walk steers its heading onto the path's line as a walker would (`STEER`),
  *   so the loop comes back to its start.
  * - **Its arms' commands are hand-set joint poses and pushes**, given to the body
@@ -24,27 +25,8 @@ import { stanceLegs } from "./legs.ts";
  * until the strike search chooses them.
  */
 
-/**
- * The servo's time constant, s. At 0.1 s, on this routine, over the second half of each settle and
- * the freedoms the legs leave to the posture: no speed reversed by more than 0.010 rad/s from one
- * step to the next on the Rogue at 120 Hz, 0.008 at 480 Hz, and 0.026 and 0.046 on the Warrior,
- * the worst at a wrist's radial deviation or the lumbar spine; and the guard was held within 0.026
- * and 0.029 rad on the Rogue, 0.039 and 0.022 on the Warrior, the worst at the trunk's flexion
- * (Node stand, Rapier; the Warrior at 120 Hz read over the first two settles, since it fell in the
- * third strike). That band is not the servo's: with the lower trunk held it ends within 0.0002 rad
- * (`servo`); the standing body moves under it, and the servo leaves out the root's acceleration.
- * On Havok the band was its brake on slow bodies (0.032 rad at 120 Hz), and a time constant
- * needed ten steps; on Rapier two steps hold (`servo`), so 0.1 s is a choice, not a floor.
- */
-export const SERVO_SECONDS = 0.1;
 
 export type { Fist, Pose };
-
-/** Fists up before the chin, elbows in. */
-export const GUARD: Pose = {
-  "shoulder.right flexion": 0.5, "shoulder.right abduction": -0.2, "elbow.right flexion": 1.3,
-  "shoulder.left flexion": 0.5, "shoulder.left abduction": -0.2, "elbow.left flexion": 1.3,
-};
 
 /**
  * One freedom pushed toward a speed no joint reaches: which way (+1 or -1), from when to when after
@@ -98,14 +80,6 @@ export type Step =
  * `stance-mode.ts`, Node stand, 120 Hz).
  */
 export const TURN_PACE = 0.3;
-
-/**
- * How long a turn on the stance walks straight before it turns, s. Turned from its first moment,
- * the heading turned over feet still planted for the walk's first weight shift, and the shift ran
- * away sideways until the Warrior fell, at the first turn after the strikes in most runs (Node
- * stand, 120 Hz); the lab's turn rates were measured on a walk already under way.
- */
-export const TURN_LEAD = 1;
 
 export const ROUTINE: readonly Step[] = [
   { kind: "settle", seconds: 1 },

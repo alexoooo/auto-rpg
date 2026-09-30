@@ -1,18 +1,18 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, type BodyCommand, type CoreBody } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type BodyCommand, type CoreBody } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import type { MusclePush, Pose } from "../core/control/motor.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import type { World } from "../core/world.ts";
-import { stanceLegs } from "./legs.ts";
-import { GUARD, SERVO_SECONDS } from "./routine.ts";
+import { GUARD } from "../core/skills/guard.ts";
+import { stanceLegs } from "../core/skills/locomotion.ts";
 
 /**
  * **One blow, thrown standing**: the rig the strike searches throw their blows on
  * (`research/core-strike.mjs`, `research/core-club-strike.mjs`), and the lab's Blow scenario
  * (`blow-scenario.ts`) with them. A core human (`src/core/body.ts`) stands on its own feet under
- * the stance (`stanceLegs` in `legs.ts`), facing +z, on both feet where it was built. Its arms are
- * servoed to the lab's guard for `STAND` seconds, then it throws the blow: the strike's chamber
+ * the stance (`stanceLegs`, `src/core/skills/locomotion.ts`), facing +z, on both feet where it
+ * was built. Its arms are servoed to the guard for `STAND` seconds, then it throws the blow: the strike's chamber
  * pose, held for its time, then its pushes, timed from the chamber's end. Every freedom not pushed
  * is servoed to the guard or the chamber, and the legs stay the stance's throughout. Every torque
  * is a muscle's, the legs' included, so a blow is thrown from the feet: the trunk turns against a

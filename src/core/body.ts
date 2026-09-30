@@ -83,6 +83,20 @@ export interface Fist {
   readonly velocity: Vector3;
 }
 
+/**
+ * The servo's time constant, s. At 0.1 s, on the lab's Routine (`src/core-lab/routine.ts`), over the second half of each settle and
+ * the freedoms the legs leave to the posture: no speed reversed by more than 0.010 rad/s from one
+ * step to the next on the Rogue at 120 Hz, 0.008 at 480 Hz, and 0.026 and 0.046 on the Warrior,
+ * the worst at a wrist's radial deviation or the lumbar spine; and the guard was held within 0.026
+ * and 0.029 rad on the Rogue, 0.039 and 0.022 on the Warrior, the worst at the trunk's flexion
+ * (Node stand, Rapier; the Warrior at 120 Hz read over the first two settles, since it fell in the
+ * third strike). That band is not the servo's: with the lower trunk held it ends within 0.0002 rad
+ * (`servo`); the standing body moves under it, and the servo leaves out the root's acceleration.
+ * On Havok the band was its brake on slow bodies (0.032 rad at 120 Hz), and a time constant
+ * needed ten steps; on Rapier two steps hold (`servo`), so 0.1 s is a choice, not a floor.
+ */
+export const SERVO_SECONDS = 0.1;
+
 export interface BodyOptions {
   /** The servo's time constant, s: ten steps or more (`servo`). */
   readonly servoSeconds: number;

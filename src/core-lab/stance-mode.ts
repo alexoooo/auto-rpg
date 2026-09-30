@@ -1,12 +1,12 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, type BodyCommand, type CoreBody } from "../core/body.ts";
+import { createBody, SERVO_SECONDS, type BodyCommand, type CoreBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
 import type { Pose } from "../core/control/motor.ts";
 import { turnAt } from "../core/control/stance-envelope.ts";
 import type { World } from "../core/world.ts";
-import { STANCE_LOWER, stanceLegs } from "./legs.ts";
-import { GUARD, SERVO_SECONDS } from "./routine.ts";
+import { GUARD } from "../core/skills/guard.ts";
+import { STANCE_LOWER, stanceLegs } from "../core/skills/locomotion.ts";
 
 /**
  * **The core lab's stance mode**: a human on its own feet under the core stance
