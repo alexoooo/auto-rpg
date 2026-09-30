@@ -99,17 +99,28 @@ export async function step({ model, foot, dx, dz, stance, hz = 120 }) {
   } finally { b.dispose(); stand.dispose(); }
 }
 
-/** Shoved at the middle trunk's centre of mass by `impulse` N s level `degrees` from forward after 1.5 s, watched 4.5 s (`shoved` in the tests). */
-export async function shove({ model, impulse, degrees, stance, hz = 120 }) {
-  const { stand, body: b } = await body(model, stance, hz);
-  let goal = null;
+/**
+ * Shoved at the middle trunk's centre of mass by `impulse` N s level `degrees` from forward after 1.5 s, watched 4.5 s
+ * (`shoved` in the tests). With `walked` (m/s) it first walks forward 3 s at that pace and stops, and is shoved 3 s
+ * after the stop is asked: the lab's shove after a walk. `apart` is the soles' middles' distance across when shoved, m.
+ */
+export async function shove({ model, impulse, degrees, stance, hz = 120, walked = 0 }) {
+  const { stand, body: b, feet } = await body(model, stance, hz);
+  let goal = null, pace = null;
   b.drive((view) => {
     const s = view.stance;
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: s.centre.y - s.support.y - 0.03, heading: 0 };
-    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal };
+    return { posture: {}, hands: { left: null, right: null }, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
   try {
     stand.step(stand.seconds(1.5));
+    if (walked) {
+      pace = [0, walked];
+      stand.step(stand.seconds(3));
+      pace = null;
+      stand.step(stand.seconds(3));
+    }
+    const apart = Math.abs(feet[0].node.position.x - feet[1].node.position.x);
     const trunk = stand.built.segments.get("middleTrunk"), turn = trunk.node.rotationQuaternion.multiply(Quaternion.Inverse(trunk.rest));
     const com = trunk.spec.centreOfMass.value, o = trunk.frame.origin, way = degrees * Math.PI / 180;
     const at = new Vector3(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternion(turn).add(trunk.node.position);
@@ -121,7 +132,7 @@ export async function shove({ model, impulse, degrees, stance, hz = 120 }) {
       low = Math.max(low, goal.height - (s.centre.y - s.support.y));
     }
     const s = b.view.stance;
-    return { steps: s.recoveries, fell: low > 0.25 || !Number.isFinite(low), low: goal.height - (s.centre.y - s.support.y), speed: s.velocity.length() };
+    return { steps: s.recoveries, fell: low > 0.25 || !Number.isFinite(low), low: goal.height - (s.centre.y - s.support.y), speed: s.velocity.length(), apart };
   } finally { b.dispose(); stand.dispose(); }
 }
 

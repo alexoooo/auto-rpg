@@ -15,7 +15,8 @@
  *   of it across), the mean ratio along of those held, those stopped (under 5 cm/s, standing, 4 s
  *   after), and those held at each speed.
  * - shove: 10 to 60 N s (`--top`) by 5, sixteen ways; the shoves held, and the impulse held each way
- *   (the largest below the first that fell): mean and least.
+ *   (the largest below the first that fell): mean and least. With `--walked 0.3` each shove comes 3 s
+ *   after a 3 s walk forward at that pace stops; `apart` is the soles' mean distance across, mm.
  */
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -25,7 +26,7 @@ import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 const { values } = parseArgs({ options: {
   variants: { type: "string", default: "[{}]" }, batteries: { type: "string", default: "stand,edge,step,walk,shove" },
   hz: { type: "string", default: "120" }, workers: { type: "string" }, models: { type: "string", default: "workshop-rogue,workshop-fighter" },
-  top: { type: "string", default: "60" },
+  top: { type: "string", default: "60" }, walked: { type: "string", default: "0" },
 } });
 const variants = JSON.parse(values.variants), batteries = values.batteries.split(","), hz = Number(values.hz), models = values.models.split(",");
 const top = Number(values.top);
@@ -39,7 +40,7 @@ variants.forEach((stance, v) => { for (const model of models) {
   if (batteries.includes("step")) for (const foot of ["left", "right"]) for (const [dx, dz] of [[0, 0.15], [0, 0.25], [0, -0.15], [foot === "left" ? -0.1 : 0.1, 0]]) add("step", { foot, dx, dz });
   if (batteries.includes("walk")) for (const degrees of [0, 90, 180]) add("walk", { degrees, speed: 0.3 });
   if (batteries.includes("gait")) for (const speed of [0.2, 0.3, 0.4, 0.5, 0.7]) for (const degrees of [0, 90, 180, 270, 45]) add("walk", { degrees, speed, gait: true });
-  if (batteries.includes("shove")) for (let w = 0; w < 16; w++) for (let impulse = 10; impulse <= top; impulse += 5) add("shove", { degrees: 22.5 * w, impulse });
+  if (batteries.includes("shove")) for (let w = 0; w < 16; w++) for (let impulse = 10; impulse <= top; impulse += 5) add("shove", { degrees: 22.5 * w, impulse, walked: Number(values.walked) });
 } });
 
 const pool = Array.from({ length: Math.min(lanes, jobs.length) }, () => new Worker(new URL("./core-stance-worker.mjs", import.meta.url)));
@@ -96,7 +97,7 @@ variants.forEach((stance, v) => { for (const model of models) {
       const first = way.find((r) => r.fell);
       ways.push(first ? first.impulse - 5 : top);
     }
-    parts.push(`shove held ${held}/${shoves.length} mean ${(ways.reduce((a, b) => a + b, 0) / 16).toFixed(1)} least ${Math.min(...ways)} by way ${ways.join(",")}`);
+    parts.push(`shove apart ${mm(shoves.reduce((a, r) => a + r.apart, 0) / shoves.length)} held ${held}/${shoves.length} mean ${(ways.reduce((a, b) => a + b, 0) / 16).toFixed(1)} least ${Math.min(...ways)} by way ${ways.join(",")}`);
   }
   console.log(`${JSON.stringify(stance)} ${model}: ${parts.join(" | ")}`);
 } });

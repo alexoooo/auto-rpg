@@ -504,6 +504,11 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const hipAt = new Vector3(), ankleAt = new Vector3(), kneeAt = new Vector3(), shank = new Quaternion(), footTurn = new Quaternion();
   const level = new Quaternion(), whole = new Quaternion(), wholeAxis = new Vector3();
   const gravity = (): number => -built.physics.gravity[1];
+  /**
+   * How far apart the soles' middles stand as the body was built, m: its own stance, which a walk's
+   * end returns to (`settleStep`).
+   */
+  const rest = ((a: Vector3, b: Vector3): number => Math.hypot(b.x - a.x, b.z - a.z))(soleMiddleToRef(feet[0]!, new Vector3()), soleMiddleToRef(feet[1]!, new Vector3()));
 
   /** Each sole read, and the middle of `stance`'s into the reading. */
   const supportOf = (stance: readonly FootState[]): void => {
@@ -805,6 +810,11 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
           striding = pace;
           reading.own = walkStep(feet, reading.centre, reading.velocity, gravity(), striding, goal.heading, gait, stride, undefined, inset);
           reading.strides += 1;
+        } else if (stride && across(feet, goal.heading) < rest) {
+          // A walk has ended on the gait's width, narrower than the body's own stance: one step
+          // puts the feet back at the width it was built standing at.
+          striding = null;
+          reading.own = settleStep(feet, stride, goal.heading, rest, gait);
         } else if (recovery) {
           striding = null;
           reading.own = recoveryStep(feet, reading.centre, reading.velocity, gravity(), recovery, inset);
@@ -1011,6 +1021,23 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       }
     },
   };
+}
+
+/** The soles' middles' distance apart across `heading` (rad about up, 0 facing +z), m. */
+function across(feet: readonly FootState[], heading: number): number {
+  const [a, b] = feet;
+  return Math.abs((b!.middle.x - a!.middle.x) * Math.cos(heading) - (b!.middle.z - a!.middle.z) * Math.sin(heading));
+}
+
+/**
+ * The step that ends a walk at the body's own stance: the foot that did not take the walk's last
+ * step (`last`) lands `width` from the other's sole's middle across the heading, beside it, after
+ * the weight has shifted off it, as a walk's first step does.
+ */
+function settleStep(feet: readonly FootState[], last: Foot, heading: number, width: number, tuning: GaitTuning): SwingGoal {
+  const side: Foot = last === "left" ? "right" : "left", b = feet.find((f) => f.side === last)!.middle, sign = side === "right" ? 1 : -1;
+  const rx = Math.cos(heading), rz = -Math.sin(heading);
+  return { foot: side, to: [b.x + sign * width * rx, b.z + sign * width * rz], seconds: tuning.seconds, lift: tuning.lift, shift: true };
 }
 
 /**

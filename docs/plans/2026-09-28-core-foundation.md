@@ -662,7 +662,21 @@ Havok's.
   Rapier, and its energy follows float noise that moves no step of its timing: 37.6 J on a 20 m
   ground and 27.6 J on the lab's 40 m ground, in the page.
 - **Found in the lab:** a 30 N s shove from the rest stance holds (one catching step, each human),
-  but after a walk and a stop the stance is the gait's 0.2 m width, and the same shove can fall.
+  but after a walk and a stop the stance was the gait's 0.2 m width, and the same shove could fall.
+  **Fixed (2026-09-30): a stopped walk settles.** Once a walk has stopped and its capture point is
+  held, one more step, of the foot that did not take the last, sets the soles back at the width the
+  body was built standing at (`settleStep`; the width is read from the built pose, no new number).
+  The sweep's shove battery (sixteen ways, 10-60 N s by 5, Node stand, Rapier, 120 Hz):
+
+  | | Rogue apart | held | mean | least | Warrior apart | held | mean | least |
+  |---|---|---|---|---|---|---|---|---|
+  | built, at rest | 337.7 mm | 117/176 | 41.6 | 35 | 396.3 mm | 172/176 | 58.8 | 55 |
+  | after 3 s at 0.3 m/s, before | 199.4 mm | 95/176 | 34.7 | 25 | 199.6 mm | 139/176 | 48.1 | 30 |
+  | after 3 s at 0.3 m/s, settled | 338.1 mm | 118/176 | 41.9 | 35 | 397.2 mm | 172/176 | 58.8 | 55 |
+
+  The stand, edge, step, walk and gait batteries and the stance envelope read the same to the digit
+  before and after; `tests/core-stance.test.mjs` holds the width and a sideways shove past what
+  each held at 90 degrees before (Rogue 30 N s, first fall 30; Warrior 45 N s, first fall 40).
   Asked for a lower centre of mass (8-16 cm), the stance stands about 1 cm lower, and walking from
   there falls, so the page has no crouch. A sideways walk at 0.3 m/s reads 0.10 m/s on the Warrior.
   At 480 Hz, a shove after a sideways walk fell for both humans, where at 120 Hz it held
@@ -681,7 +695,7 @@ Havok's.
   Standing as built converges (`src/core-lab/blow.ts` has the table), so the strike searches
   throw from there. Every stance figure above was read at 120 Hz; the stance's constants are the
   game rate's until this is understood.
-- **Not yet:** a stance that widens when it stops, a crouch and turning on the spot; running, the
+- **Not yet:** a crouch and turning on the spot; running, the
   dash, rolling and getting up.
 
 **What landed (2026-09-29, on Rapier): the torque stance** (`src/core/control/stance.ts`,

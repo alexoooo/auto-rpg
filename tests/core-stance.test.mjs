@@ -11,7 +11,9 @@
  * Shoved at the trunk past what its soles hold, it steps to catch itself and stands, where without
  * the step it falls (the control); shoved lightly, it does not step. Asked to walk, it steps of
  * itself, goes the way and about the speed asked, and asked to walk nowhere, stops and stands;
- * asked to walk nowhere from the start, it takes no step (the control). Node stand, Rapier, both
+ * asked to walk nowhere from the start, it takes no step (the control). A walk stopped ends with its
+ * feet back at the width the body was built standing at, and holds a sideways shove there that the
+ * gait's width did not (`shove` in `research/core-stance-trials.mjs`). Node stand, Rapier, both
  * humans, on a ground, 120 Hz.
  */
 import test from "node:test";
@@ -20,6 +22,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../src/core/body.ts";
 import { SOLE_MARGIN, SUPPORT_INSET, STANCE_ANKLE_SPARE, STANCE_KNEE_BEND, withinSupport } from "../src/core/control/stance.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { shove } from "../research/core-stance-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const GUARD = {
@@ -399,4 +402,16 @@ test("asked to walk, each human steps of itself the way and about the speed aske
   const still = await walking("workshop-rogue", 0, 0);
   assert.ok(still.strides === 0 && !still.fell && Math.abs(still.along) < 0.01 && still.speed < 0.01,
     `the control: walking nowhere, ${still.strides} strides, ${still.along.toFixed(3)} m/s`);
+});
+
+test("a walk stopped settles its feet to the body's own width, and holds a sideways shove as the built stance does", async () => {
+  // The impulse each human held sideways standing and not after a walk on the gait's width (the
+  // sweep's shove battery at rest and `--walked 0.3`, before the settle step: Rogue 25, Warrior 35 N s at 90).
+  for (const [model, impulse] of [["workshop-rogue", 30], ["workshop-fighter", 45]]) {
+    const rest = await shove({ model, impulse, degrees: 90 }), walked = await shove({ model, impulse, degrees: 90, walked: 0.3 });
+    console.log(`MUT stance settle ${model}: apart ${(1000 * rest.apart).toFixed(1)} mm built, ${(1000 * walked.apart).toFixed(1)} after a walk;`
+      + ` ${impulse} N s at 90: ${rest.fell ? "fell" : "held"} built, ${walked.fell ? "fell" : "held"} after a walk`);
+    assert.ok(Math.abs(walked.apart - rest.apart) < 0.01, `${model}: apart ${walked.apart.toFixed(3)} m after a walk, ${rest.apart.toFixed(3)} built`);
+    assert.ok(!rest.fell && !walked.fell, `${model}: ${impulse} N s at 90 ${rest.fell ? "fell" : "held"} built, ${walked.fell ? "fell" : "held"} after a walk`);
+  }
 });
