@@ -43,7 +43,8 @@ export interface Rulebook {
 export type RulebookOverride = Partial<Omit<Rulebook, "mode">>;
 
 /**
- * Each mechanism's price, joules per point of wound, as the owner gave them (`owner-weapon-ratios`).
+ * Each mechanism's price, joules per point of wound: the prices whose ratios the owner keeps
+ * (`owner-weapon-ratios`).
  * Only their ratios to the blunt price are read; the unit sets the scale.
  */
 const MECHANISM_PRICE: Readonly<Record<Mechanism, Quantity<number>>> = Object.freeze({

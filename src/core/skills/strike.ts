@@ -39,7 +39,10 @@ export interface StrikeReport {
   readonly since: number;
   /** Strikes thrown to the end of their pushes, each hand. */
   readonly thrown: Readonly<Record<Hand, number>>;
-  /** Seconds stood still, not walking and not striking. */
+  /**
+   * Seconds since the body last walked, set its feet or finished a strike: the stand before a
+   * strike, and, counting on through the chamber and the pushes, the strike's clock.
+   */
   readonly still: number;
   /**
    * How far ahead of the head each hand strikes, m: its recipe's distance, or null if it has none.

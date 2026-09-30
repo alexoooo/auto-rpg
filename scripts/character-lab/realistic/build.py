@@ -1,5 +1,5 @@
 """Character workshop: customized CC0 MPFB anatomy and authored equipment/motion.
-Run Blender from the experiment worktree. Tool downloads live under .tools/mpfb.
+Run through rebuild.ps1, which downloads MPFB under .tools/mpfb and runs Blender from the repository root.
 """
 import bpy, bmesh, sys, math, json, hashlib
 from pathlib import Path

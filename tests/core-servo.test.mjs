@@ -71,8 +71,8 @@ const gapOf = ({ path, e0, w0 }, timeConstant = 0.1) =>
   Math.max(...path.map(([t, e]) => Math.abs(e - damped(e0, w0, 1 / timeConstant, t))));
 
 /**
- * The servo gives the torque the damped motion takes, and the rod follows it: within 0.020 rad at
- * 120 Hz and 0.0049 at 480 Hz, on moves of 1 and 0.8 rad.
+ * The servo gives the torque the damped motion takes, and the rod follows it without overshoot, at
+ * 120 Hz and 480 Hz, toward goals either side.
  */
 test("a joint servoed from rest follows the critically damped motion toward its goal, holding its weight", async () => {
   for (const hz of [120, 480]) {
@@ -86,11 +86,9 @@ test("a joint servoed from rest follows the critically damped motion toward its 
 });
 
 /**
- * A rod swung to 1.7 rad at 21 rad/s, then servoed to 0. The servo asks for one step of the damped
- * motion's acceleration, largest at the switch, and no step changes the speed by much more: 5.1
- * rad/s at 120 Hz against 4.8 asked, 1.25 at 480 against 1.22. The two rates brake alike, 0.06 rad
- * apart. Asked for (goal - angle) / t instead, the rod changes speed by 47 rad/s in one step at
- * 120 Hz, reversing.
+ * A rod swung fast, then servoed to 0. The servo asks for one step of the damped motion's
+ * acceleration at a time, so no step changes the speed by much more than that, and 120 Hz and
+ * 480 Hz brake alike. Asked for (goal - angle) / t instead, the rod would reverse within a step.
  */
 test("a joint turning fast is braked a step's acceleration at a time, alike at 120 Hz and 480 Hz", async () => {
   const runs = {};
@@ -108,8 +106,8 @@ test("a joint turning fast is braked a step's acceleration at a time, alike at 1
 });
 
 /**
- * At 5 N m the rod cannot follow the damped motion toward 1 rad in 0.1 s; it lags and arrives, to
- * within 0.0001 rad.
+ * At 5 N m the rod cannot follow the damped motion toward 1 rad in 0.1 s: it lags and still
+ * arrives, and given 0.4 s it follows.
  */
 test("a servo asking for more than the muscles hold is bounded by them and gets there later", async () => {
   const weak = await servoRun(120, { goal: 1, peak: 5, seconds: 1.5 });
@@ -120,12 +118,10 @@ test("a servo asking for more than the muscles hold is bounded by them and gets 
 });
 
 /**
- * A chain, servoed through a pose where its joints' angles and speeds part: the Rogue's right arm
- * on its held upper trunk, gravity on, its shoulder swung 1.9 rad (abduction 1.8, internal
- * rotation 0.6, flexion 0.8) with the elbow bent, then servoed back to its reference pose. At
- * 120 Hz it moves as at 960 Hz: the hand peaks at 2.00 against 1.96 m/s on the way back, and its
- * path is never 5 mm from the finer one. Raising the arm flings the elbow back to straight for a
- * moment, so the pose is held for 1.2 s.
+ * A chain servoed through a pose where its joints' angles and speeds part: the Rogue's right arm on
+ * its held upper trunk, gravity on, its shoulder swung 1.9 rad with the elbow bent, then servoed back
+ * to its reference pose. On the way back the hand's path and peak speed at 120 Hz match 960 Hz. The
+ * pose is held 1.2 s, since raising the arm flings the elbow straight for a moment.
  */
 test("a servoed arm moves alike at 120 Hz and 960 Hz, through a pose where angles and speeds part", async () => {
   const full = humanSpec("workshop-rogue");
@@ -185,13 +181,11 @@ function pair(upperPeak, lowerPeak) {
 }
 
 /**
- * The servo solves its torques around the joints it does not servo and the ones its muscles
- * cannot drive as asked, since what those do turns the rest. A lower rod pushed flat out for
- * 0.15 s, the upper servoed to hold, strays 0.084 rad at 120 Hz and 0.083 at 960 Hz; taking the
- * push to give nothing, 0.22 and 0.21. A weak upper rod (3 N m) servoed toward 1 rad, the lower held, moves the lower 0.003 rad at both
- * rates; solving the lower's torque for the upper's asked motion instead of what its muscles give,
- * 1.3 rad.
- * The push is set in the goal callback, before the servo reads it.
+ * The servo solves its torques around the joints it does not servo and the ones its muscles cannot
+ * drive as asked, since what those do turns the rest: a rod held while the one below it is pushed
+ * flat out barely strays, and a rod held below a weak one servoed toward 1 rad barely moves. Taking
+ * the push to give nothing, or the weak rod to give the torque its motion asks, fails each. The
+ * push is set in the goal callback, before the servo reads it.
  */
 test("a servo holds its joints around a push, and around a joint its muscles cannot drive as asked", async () => {
   for (const hz of [120, 960]) {

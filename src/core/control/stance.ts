@@ -35,8 +35,9 @@ export interface StanceGoal {
 
 /**
  * **A step's swing**: the foot lifted and carried to where its sole's middle lands, over the ground,
- * on a minimum-jerk path lifted by `lift` at its middle, kept at the turn it had when it left the
- * ground. A goal equal to the last keeps its path; a new one starts from where the foot is.
+ * on a minimum-jerk path lifted by `lift` at its middle, its turn carried from the one it left the
+ * ground with to flat and facing the heading as it lands. A goal equal to the last keeps its path;
+ * a new one starts from where the foot is.
  */
 export interface SwingGoal {
   readonly foot: Foot;
@@ -288,7 +289,7 @@ export const LEG_DAMPING = 0.02;
  * The fraction by which the outline of the stance soles' corners (their convex hull, across the
  * ground) is drawn toward its middle to give the region the stance holds its centre of mass in. Not
  * every centre of mass over the soles can be held on both feet: sideways, both feet flat, the ankles
- * turn as far as the hips, and only the ankles' everters and invertors (some 20 to 27 N m,
+ * turn as far as the hips, and only the ankles' invertors and evertors (a few tens of N m,
  * `humanSpec`) stop the body; and a centre of mass over one foot leaves the other bearing little.
  * Sweep: `docs/reference/stance-tuning.md#support-inset`.
  */
@@ -968,22 +969,20 @@ function settleStep(feet: readonly FootState[], last: Foot, heading: number, wid
 }
 
 /**
- * The step that catches a body whose capture point (Pratt et al. 2006) is further than
- * `tuning.margin` outside the region both soles hold (their outline drawn in by `inset`), or null
- * if it is not. The capture point xi = c + v / w (w = sqrt(g / height)), while the other foot
- * bears the body about its sole's nearest point p to it, runs to p + (xi - p) exp(w T) by the
- * swing's end T (Kajita et al. 2001); the foot lands past that, by `tuning.reach` of its distance
- * from the bearing sole's middle, and never across the bearing foot, a sole's width out from it at
- * least. The foot whose sole is nearer the capture point bears the body, and the other steps: the
- * far foot bearing it would fling the body across.
+ * The step that catches a body whose capture point (Pratt et al. 2006) is more than `tuning.margin`
+ * outside the region both soles hold (drawn in by `inset`), or null if it is not. The capture point
+ * xi = c + v / w (w = sqrt(g / height)), the body falling about the bearing sole's nearest point p,
+ * runs to p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001); the foot lands past that
+ * by `tuning.reach` of its distance from the bearing sole's middle, and at least a sole's width out
+ * from the bearing foot. The foot nearer the capture point bears the body: the far one would fling
+ * it across.
  *
- * Pushed beyond the nearer foot, to its side, the far foot's step can only come in beside it, and
- * stepping in again and again the body falls off the nearer foot's outer edge. Once the far foot's
- * step would move it less than its sole's width (it has stepped in already), the nearer foot steps
- * out instead, the far one bearing the body, no further from the far sole than `longest` of the leg.
- * This is the sideways catch people make: the unloaded foot steps in, and the other steps out (Maki
- * and McIlroy 1997). The step out waits for that: taken whenever within reach, it replaces short
- * steps of the far foot that hold more.
+ * Pushed sideways past the nearer foot, the far foot can only step in beside it, and stepping in
+ * again and again the body falls off that foot's outer edge. So once the far foot has stepped in
+ * (its step would move it less than a sole's width), the nearer foot steps out instead, no further
+ * from the far sole than `longest` of the leg: the sideways catch people make (Maki and McIlroy
+ * 1997). Not before, since a step out whenever within reach would replace the far foot's short
+ * steps, which hold more.
  */
 function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, longest: number, inset: number): SwingGoal | null {
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
@@ -1032,20 +1031,19 @@ function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3,
  * A walk's next step at the velocity `walk`, world (x, z), m/s: the foot other than `last`'s steps,
  * or, starting, the one on the side the walk goes (the right, going straight).
  *
- * The capture point xi = c + v / w, while the other foot bears the body about a point p of its
- * sole, runs to e = p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001). In a steady
- * walk, each step about its sole's middle b, it lands ahead of the new foot by the walk's distance
- * over a swing over exp(w T) - 1, and in from it by the width over exp(w T) + 1 (the capture
- * point's steady cycle, as in Englsberger et al. 2011): the steady landing is b, the walk's distance
- * over a swing on, the width out. The pivot p is the one that brings e to where the steady landing
- * wants it, within what the bearing sole holds (drawn in by `inset`), and the foot lands at e less
- * the steady offset: the step leaves the steady one only by what the sole cannot take. (With p
- * fixed at b, the step takes it all: a landing's miss grows by exp(w T) at each step, and the steps
- * widen until the feet cannot reach.) The width is at least a sole's width and the walk's distance
- * across the heading over a swing; the step is no further from the bearing sole than `longest` of
- * the leg, and that width out to its own side at least.
- * Walking nowhere, the steps stop a walk under way. `under` re-aims a step under way: its foot,
- * the pivot the body falls about, and the swing's time left.
+ * The capture point xi = c + v / w, the body falling about a point p of the bearing sole, runs to
+ * e = p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001). In a steady walk, each step
+ * about its sole's middle b, e is ahead of the new foot by the walk's distance over a swing over
+ * exp(w T) - 1 and in from it by the width over exp(w T) + 1 (Englsberger et al. 2011). The pivot p
+ * is chosen, within what the bearing sole holds (drawn in by `inset`), to bring e to where the
+ * steady landing wants it, and the foot lands at e less that offset. A pivot fixed at b would let a
+ * landing's miss grow by exp(w T) each step, until the feet cannot reach.
+ *
+ * The width is the gait's, or a sole's width plus the walk's distance across the heading over a
+ * swing if that is more; the step is no further from the bearing sole than `longest` of the leg,
+ * and at least a sole's width out to its own side. Walking nowhere, the steps stop a walk under
+ * way. `under` re-aims a step under way: its foot, the pivot the body falls about, and the swing's
+ * time left.
  */
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
   tuning: GaitTuning, last: Foot | null, under?: { readonly foot: Foot; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {

@@ -108,7 +108,10 @@ export interface CoreJoint {
  */
 export interface Contact {
   readonly other: SegmentBody;
-  /** Where they touch, world, m: the solver's contact points, weighted by the impulse at each. */
+  /**
+   * Where they touch, world, m: each touching pair of colliders' solver contact points averaged,
+   * and the pairs weighted by their impulse.
+   */
   readonly point: Vec3;
   /** The touch's normal, world, unit, from this body into the other. */
   readonly normal: Vec3;

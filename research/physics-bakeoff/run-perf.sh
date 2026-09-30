@@ -9,7 +9,6 @@ $P mujoco '{"substeps":2}' --cond "$FEET100" --tag mujoco $N
 $P mujoco '{"substeps":1,"timeconst":0.03}' --cond "$FEET100" --tag mujoco-1step $N
 $P rapier '{"substeps":1,"iterations":16,"pgs":2}' --cond "$FEET100" --tag rapier $N
 $P rapier-simd '{"substeps":1,"iterations":16,"pgs":2}' --cond "$FEET100" --tag rapier-simd $N
-# The Havok runs (havok, havok-today, havok-real-today) went with Havok on 2026-09-30; their results stay in results/.
 # MuJoCo's threaded build (@mujoco/mujoco/mt) at the chosen MuJoCo setting, with a pool of T threads.
 for T in 1 2 4 8; do
   $P mujoco-mt "{\"substeps\":2,\"threads\":$T}" --cond "$FEET100" --tag mujoco-mt-t$T $N

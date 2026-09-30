@@ -1,11 +1,12 @@
 import type { Settings } from "./engines/types.ts";
 
 /**
- * **Each engine's cheapest setting that passes both fidelity cases** at the `today` bar
- * (`research/physics-bakeoff/fidelity.mjs`, `thresholds.mjs`), ranked by cost on 8 humans spaced and
- * piled (`candidates.mjs`), and the rows kept for the record. Chosen on the Node harness; the page
- * runs the same rows. The feet's inertia factor is the one the whole human needs to stand (case C,
- * `standingHuman`): MuJoCo passes cases A and B without one and diverges on the whole human.
+ * **Each engine's cheapest setting that passes both fidelity cases** at the `today` bar, the
+ * incumbent engine's readings rounded up (`research/physics-bakeoff/fidelity.mjs`,
+ * `thresholds.mjs`), ranked by cost on 8 humans spaced and piled (`candidates.mjs`), and the rows
+ * kept for the record. Chosen on the Node harness; the page runs the same rows. The feet's
+ * inertia factor is the one the whole human needs to stand (case C, `standingHuman`): MuJoCo
+ * passes cases A and B without one and diverges on the whole human.
  *
  * Neither MuJoCo row survives the pile: when the second layer lands, a light freedom runs away and
  * MuJoCo resets the whole world (BADQVEL), with or without control. `mujoco-pile` is the cheapest

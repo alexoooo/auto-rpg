@@ -1,4 +1,4 @@
-/* Shared forge theme. Controls and diagnostics retain their existing layout and behavior. */
+/* The arena's forge theme, loaded after `style.css`: colour, border and type over its layout. */
 :root {
   color-scheme: dark;
   --ink: #e8e1d2;

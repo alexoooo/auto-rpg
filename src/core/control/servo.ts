@@ -6,7 +6,7 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *
  *     angle'' = n^2 (goal - angle) - 2 n angle',   n = 1 / (time constant)
  *
- * taken one sub-step at a time, with the torques the body's dynamics say that motion takes
+ * taken one world step at a time, with the torques the body's dynamics say that motion takes
  * (computed torque), bounded by the muscles.
  *
  * **In the joints' angles.** A freedom's angle is the engine's measure, and its rate is not the
@@ -18,11 +18,12 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *
  * **As torques.** The servoed freedoms' torques are M a + bias - gravity (`bodyDynamics`), where a
  * is the change of speed asked over the step and bias what the motion under way asks, and each is
- * given to the driver as a torque source: a speed no joint reaches, at the activation that makes
- * its ceiling that torque. Freedoms the goal leaves be (a push) keep their command, whose torque
- * the servo takes to be its ceiling toward its target, and a servoed torque beyond what its muscles
- * can give is held at their strength; the rest are solved around both, so a servoed joint is not
- * flung by what the others do.
+ * given to the driver as a torque source: an unbounded speed, which the driver holds to the
+ * muscles' reach (`forceVelocityReach`), at the activation that makes its ceiling that torque.
+ * Freedoms the goal leaves be (a push) keep their command, whose torque the servo takes to be its
+ * ceiling toward its target, and a servoed torque beyond what its muscles can give is held at
+ * their strength; the rest are solved around both, so a servoed joint is not flung by what the
+ * others do.
  *
  * **The motion under way** (`BodyDynamics.bias`, the part that goes as the square of the speeds) is
  * needed at the end of a fast chain: without it the servo holds a joint only through its angle's
@@ -42,9 +43,8 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  *
  * `servo` takes the root to be held; `servoSolve` with the root's acceleration carries it. What is
  * left out leaves the motion off the damped one it asks for, alike at every rate, and the goal's
- * error takes it up. Held, a freedom settles within 0.0001 rad of its goal, its speed flickering in
- * sign by thousandths of a rad/s, and a time constant as short as two steps does not ring
- * (`docs/reference/servo-and-muscle.md#holding-a-pose`).
+ * error takes it up. A held freedom settles to within a few 1e-4 rad of its goal, and a time
+ * constant as short as two steps does not ring (`docs/reference/servo-and-muscle.md#holding-a-pose`).
  *
  * A goal that leaves a channel be (returns undefined) has set that channel's command before it
  * returns: the servo reads the command then, as the torque it solves around. A goal that moves

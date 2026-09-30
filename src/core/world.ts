@@ -17,7 +17,8 @@ export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-ra
  * beside the scene, which only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
  * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
  *
- * A hook added while the world steps runs from the next step; one removed stops at once.
+ * A hook added while its own list runs waits for the next step, but an after-step hook added by a
+ * step hook runs in the same step. A hook removed stops at once.
  */
 export interface World {
   readonly scene: Scene;
@@ -73,7 +74,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
     return { dispose: () => { entry.live = false; const i = list.indexOf(entry); if (i >= 0) list.splice(i, 1); } };
   };
   const runAll = (list: HookEntry[]) => {
-    // A snapshot, so a hook added now waits for the next step; one removed now is skipped.
+    // A snapshot, so a hook added to this list now waits for the next step; one removed now is skipped.
     for (const entry of list.slice()) if (entry.live) entry.run(dt);
   };
 

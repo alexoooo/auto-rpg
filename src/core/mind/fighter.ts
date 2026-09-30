@@ -5,8 +5,9 @@ import { GUARD_ACTION, type Intent } from "./intent.ts";
 import type { Mind } from "./mind.ts";
 
 /**
- * How near a target a fighter attacks it rather than walking to it, m, feet to feet: the club's reach
- * ahead of the head (1.05 m, `REPERTOIRE`) and a step, which the strike skill closes itself.
+ * How near a target a fighter attacks it rather than walking to it, m, between the two centres of
+ * mass across the ground: the club's reach ahead of the head (1.05 m, `REPERTOIRE`) and a step,
+ * which the strike skill closes itself.
  */
 export const ATTACK_METRES = 1.8;
 

@@ -21,7 +21,7 @@ export type Value = number | Vec3;
 
 /**
  * The units a spec states. The source's own units are kept at the leaf, so a leaf reads as its
- * source prints it, and `convert` makes the SI quantity from it.
+ * source prints it, and `si` makes the SI quantity from it.
  */
 export type Unit =
   | "1" | "%"

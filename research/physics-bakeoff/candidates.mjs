@@ -17,7 +17,7 @@ const CANDIDATES = {
     [{ substeps: 2, solver: "Newton", iterations: 4, ls_iterations: 8 }],
     [{ substeps: 2, iterations: 1, ls_iterations: 4, timeconst: 0.04 }],
     [{ substeps: 2 }],
-    // Fails case B's deviation mark only (0.052 against 0.039): for the record.
+    // Fails case B's deviation mark; kept for comparison.
     [{ substeps: 1, timeconst: 0.03 }],
   ],
   rapier: [

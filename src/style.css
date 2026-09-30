@@ -26,8 +26,7 @@ body {
 }
 
 #stage {
-  /* A drag that starts on the canvas must not become a text selection, or the
-     arm looks frozen for as long as a button is held. */
+  /* A drag that starts on the canvas orbits the camera and must not select text too. */
   user-select: none;
   -webkit-user-select: none;
   position: fixed;
@@ -82,11 +81,6 @@ body {
   box-shadow: 0 0 22px rgba(232, 180, 90, 0.14);
 }
 
-/* A crush, which is what a club scores. This rule has been missing since the
-   day the club landed: `HitKind` is typed and a stylesheet is not, so `hud.ts`
-   gained its CRUSH label under `tsc`'s eye while the colour it is drawn in was
-   simply never written. It has read in the default ink ever since. */
-
 .sever {
   color: var(--bad);
   font-size: 11px;
@@ -105,15 +99,6 @@ body {
   flex-direction: column;
   gap: 3px;
 }
-
-/* One heading per side. The bout has two bodies and the lists are otherwise
-   eleven identical rows followed by eleven more. */
-
-/* Take or Let go, beside a side's name. The one control in the readout that the fight itself
-   needs, so it alone takes the pointer back from `#hud`'s `pointer-events: none`. */
-
-/* `Tab` hides the readout by opacity alone, and an invisible button that still takes a click
-   would let go of your body under a click meant for the arena. */
 
 .limb {
   display: flex;
@@ -171,8 +156,7 @@ body {
   color: var(--dim);
 }
 
-/* Setup and the compact pause overlay share this control language. The id is
-   only an address; `.quiet` marks a secondary action. */
+/* A button of setup, pause, the bout's end and help; `.quiet` marks a secondary action. */
 .action {
   width: 100%;
   padding: 11px;
@@ -228,7 +212,7 @@ body {
   color: var(--bad);
 }
 
-/* ---------- targeting banner ---------- */
+/* ---------- mode line ---------- */
 
 #mode {
   position: fixed;
@@ -260,11 +244,10 @@ body {
 /* ---------- the setup screen ---------- */
 
 /* One grid over the live arena: the title across the top, a contender panel at each edge, and
-   the middle column left open -- the two bodies the panels describe are standing there -- with
-   Fight, the refusal line and a small footer at its foot. `#matchup` is `display: contents`, so
-   the panels and rows `src/setup.ts` builds are placed in this grid directly. Georgia throughout,
-   stone and gold; everything here is scoped to `#curtain`, because `#help` shares `.panel`,
-   `.keys` and `.action`. It has to fit a 1366x768 window without scrolling. */
+   the middle column left open for the two bodies, with Fight and a footer at its foot.
+   `#matchup` is `display: contents`, so the panels `src/arena/main.ts` builds are placed in this
+   grid directly. Scoped to `#curtain`, because `#help` shares `.panel`, `.keys` and `.action`. It
+   fits a 1366x768 window without scrolling. */
 #curtain {
   --gold: #d8b26a;
   --gold-line: #b08a4e99;
@@ -291,11 +274,8 @@ body {
   visibility: hidden;
 }
 
-/* The fight's readouts -- tip speed, edge alignment, the vitality bars and the mode line -- are
-   about a fight, and behind the sheet there is none yet. They
-   showed through the moment the curtain stopped being a wall, reading 0.0 over two golems
-   nobody had started. Hidden while the sheet is up, by the sheet's own state, so nothing in
-   `src/main.ts` has to know the HUD exists. */
+/* No bout exists behind setup, so the fight's readouts are hidden while it is up, by the
+   curtain's own state. */
 body:has(#curtain:not(.gone)) #hud,
 body:has(#curtain:not(.gone)) #mode {
   visibility: hidden;
@@ -346,8 +326,8 @@ body:has(#curtain:not(.gone)) #mode {
 }
 
 /* A contender: a stone panel with a gold hairline, a darker inner line, and four gold corner
-   brackets drawn by the pseudo-element. As tall as the grid allows, with its two buttons pushed to
-   the foot, and scrolling inside itself -- never the page -- when Customize makes it taller. */
+   brackets drawn by `::before`. As tall as the grid allows, it scrolls inside itself, never the
+   page, when its content is taller. */
 #curtain .contender {
   position: relative;
   display: flex;
@@ -408,8 +388,8 @@ body:has(#curtain:not(.gone)) #mode {
   color: #f1dfbc;
 }
 
-/* Gold small caps with a rule running out to the panel's edge. The attributes' summary wears the
-   same head, with a disclosure mark, because it is the same kind of heading that happens to fold. */
+/* A folding heading: gold small caps, a rule running out to the panel's edge, and a disclosure
+   mark. */
 #curtain .attributes > summary {
   display: flex;
   align-items: center;
@@ -446,7 +426,7 @@ body:has(#curtain:not(.gone)) #mode {
   content: "\25BE";
 }
 
-/* The body family, as one control of three segments. */
+/* A segmented control: one button per choice, the chosen one gold. */
 
 #curtain .segment {
   padding: 6px 4px;
@@ -473,7 +453,7 @@ body:has(#curtain:not(.gone)) #mode {
   background: linear-gradient(#e2bb72, #a87b3b);
 }
 
-/* The nine slot pickers, one per row with the label beside it, in place of the build rows. */
+/* A picker: its label, then its select, on one row. */
 
 #curtain .field {
   display: grid;
@@ -508,16 +488,9 @@ body:has(#curtain:not(.gone)) #mode {
   cursor: pointer;
 }
 
-/* The attribute rows (`src/attributes-ui.ts`): name, slider, x-value and reset on one line, and a
-   stat nobody has measured yet as one dim line naming itself. */
 #curtain .attributes[hidden] {
   display: none;
 }
-
-/* The rating, with everything else the league knows about it in the tooltip; red when the policy
-   cannot drive this body, with the reason in the same place. */
-
-/* The parts bin, over the foot of the open centre and only while a panel is customizing. */
 
 #begin {
   grid-column: 2;
@@ -552,7 +525,7 @@ body:has(#curtain:not(.gone)) #mode {
   text-shadow: none;
 }
 
-/* Why Fight is disabled, in one line under it, rather than only in the greyed button's title. */
+/* The footer under Fight: the help link, the loading note and the way back to the menu. */
 
 #curtain .duel-footer {
   grid-column: 2;
@@ -644,10 +617,9 @@ body:has(#curtain:not(.gone)) #mode {
   }
 }
 
-/* The help sheet is taller than a laptop window now that it lists the policies
-   too. The panel scrolls rather than its overlay, because a grid with
-   `place-items: center` clips its child at the *top* once the child is taller
-   than the cell, so scrolling the overlay would hide the title instead. */
+/* A panel taller than the window scrolls itself rather than its overlay: a grid with
+   `place-items: center` clips a child taller than its cell at the *top*, so scrolling the overlay
+   would hide the title. */
 .panel {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
@@ -659,10 +631,8 @@ body:has(#curtain:not(.gone)) #mode {
 
 /* ---------- pause inside the arena ---------- */
 
-/* Bottom-left stays clear of the centred fighters, the top HUD and the direct
-   controls at bottom-right. This is deliberately not `inset: 0`: pause must
-   leave the frame visible so focus-loss screenshots can show the thing that
-   caused the report. */
+/* Bottom left, clear of the fighters at the centre and the readout along the top. Not
+   `inset: 0`: a paused bout stays in view. */
 #pause-menu {
   position: fixed;
   left: 18px;
@@ -731,8 +701,8 @@ body:has(#curtain:not(.gone)) #mode {
 
 /* ---------- the end of a bout ---------- */
 
-/* Bottom centre, just above the verdict line in `#mode`, and no wider than its three buttons: a
-   decided bout is still worth looking at, so this covers none of it that it does not need. */
+/* Bottom centre, and no wider than the verdict and its three buttons: a decided bout is still
+   worth looking at, so the bar covers as little of it as it can. */
 #bout-end {
   position: fixed;
   left: 50%;
@@ -750,8 +720,8 @@ body:has(#curtain:not(.gone)) #mode {
   transition: opacity 140ms ease, visibility 140ms;
 }
 
-/* Paused, the pause menu carries the same three actions, and on a window under about 1100 px the
-   two overlap -- so the bar steps aside rather than sit half under it. */
+/* Hidden under setup, and while paused: the pause menu carries the same actions, and on a
+   narrow window the two would overlap. */
 #bout-end.gone,
 body:has(#curtain:not(.gone)) #bout-end,
 body:has(#pause-menu:not(.gone)) #bout-end {
@@ -771,8 +741,7 @@ body:has(#pause-menu:not(.gone)) #bout-end {
 
 /* ---------- the controls, on their own overlay ---------- */
 
-/* Above setup and the pause overlay, because `?` is meant to work in every mode
-   and a help sheet that opens behind its caller is a help sheet nobody can read. */
+/* Above setup and the pause menu, because `?` opens it over either. */
 #help {
   position: fixed;
   inset: 0;
@@ -803,8 +772,7 @@ body:has(#pause-menu:not(.gone)) #bout-end {
   color: #f1dfbc;
 }
 
-/* A policy's name is longer than a key's, so its column is wider; both wrap rather than overrun. */
-
+/* A name longer than its column wraps rather than overruns. */
 #help .keys dt {
   white-space: normal;
 }

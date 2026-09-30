@@ -44,15 +44,15 @@ export interface MusclePush {
 export interface MotorControl {
   /** The controller for `driveMuscles`. */
   readonly control: MuscleController;
-  /** Hold `pose` for every freedom no hand goal owns, from the next step. */
+  /** Hold `pose` for every freedom no hand goal owns, from `control`'s next call. */
   setPosture(pose: Pose): void;
-  /** Take `hand`'s knuckles to `position` (body frame, m) over `seconds`, from the next step. */
+  /** Take `hand`'s knuckles to `position` (body frame, m) over `seconds`, from `control`'s next call. */
   reach(hand: Hand, position: Vec3, seconds: number): void;
   /** Give `hand`'s arm back to the posture. */
   release(hand: Hand): void;
-  /** Drive `pushes` flat out from the next step, in place of those before. */
+  /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
   setPushes(pushes: readonly MusclePush[]): void;
-  /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from the next step. */
+  /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from `control`'s next call. */
   setStance(goal: StanceGoal | null): void;
   /** The stance's readings, as its last step left them. */
   readonly stance: StanceControl;
@@ -182,5 +182,8 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
   };
 }
 
-/** Rad/s beyond any joint's unloaded speed: a pushed motor never reaches its target. */
+/**
+ * Rad/s beyond any joint's unloaded speed: a pushed motor's target, which the driver holds to the
+ * muscles' reach (`forceVelocityReach`), so the motor pushes at its ceiling until the joint gets there.
+ */
 const UNREACHABLE = 1e3;

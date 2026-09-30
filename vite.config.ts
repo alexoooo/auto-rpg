@@ -1,14 +1,12 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  // strictPort matters more than it looks. Without it Vite silently moves to
-  // 5181 when 5180 is taken -- usually by an earlier dev server nobody noticed
-  // was still alive -- and you end up reading a stale build while editing a live
-  // one. Failing loudly is the whole point.
+  // strictPort: when 5180 is taken, usually by a forgotten dev server, fail rather than move to
+  // 5181 and leave the old server's stale build on the address you are reading.
   server: {
     port: 5180, strictPort: true,
-    // Research logs and isolated regression archives are not browser source. Besides needless
-    // invalidations, watching a Windows archive while it is extracted can fail with EBUSY.
+    // Research runs and review archives are not browser source. Watching them costs needless
+    // invalidations, and on Windows an archive being extracted can fail the watcher with EBUSY.
     watch: { ignored: ["**/research/runs/**", "**/.review/**"] },
     // Transform the browser entry graphs at server startup, before navigation
     // has to discover and wait on each level of their imports.

@@ -11,16 +11,16 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * (`CoreJoint.setMotor`) whose ceiling is what the muscles can do at the speed the joint is turning.
  *
  * A controller commands, for each freedom, an activation (0-1) and a speed it would like the joint
- * to turn at. Before every solver sub-step the driver reads each joint (`jointTracker`: angles
- * from the nodes, speeds from the bodies' angular velocities, each read once), and sets each
- * motor's target to the commanded speed and its ceiling to
+ * to turn at. Every world step the driver reads each joint (`jointTracker`: angles from the
+ * nodes, speeds from the bodies' angular velocities, each read once), and sets each motor's target
+ * to the commanded speed, held to the curve's reach (below), and its ceiling to
  *
  *     activation x peak isometric torque (the side that pulls) x force-velocity(speed)
  *
  * The muscle shortens when the joint turns the way it pulls: the force-velocity relation reads the
- * speed in that direction (`forceVelocityFactor`). A speed the joint cannot reach makes the motor a
- * torque source at its ceiling; a speed of zero is a hold; a speed toward a pose is a servo. The
- * driver reads its step from the world (`src/core/world.ts`).
+ * speed in that direction (`forceVelocityFactor`). A speed past the reach makes the motor push at
+ * its ceiling until the joint gets there; a speed of zero is a hold; a speed toward a pose is a
+ * servo. The driver reads its step from the world (`src/core/world.ts`).
  *
  * **Which muscles pull is chosen before the step**, and a motor's ceiling is one number for both
  * directions, so the choice bounds the motor whichever way it then pushes: the side pushed toward
@@ -32,24 +32,21 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * choice as a todo.
  *
  * **The curve is read at the speed the step begins with, and the motor's target is held to where
- * the curve's tangent there reaches zero** (`forceVelocityReach`). On a light limb the muscles' own
- * time constant, the inertia beyond the joint times the unloaded speed over the peak times
- * (1 + 1/curvature), is far shorter than a step (under a millisecond at a wrist, against 8.3 ms at
- * 120 Hz), and a motor asked for the unloaded speed with the ceiling read at rest carries such a
- * limb across its whole curve in one step at its isometric torque. The shortening branch is convex,
- * so its tangent lies under it: held to the tangent's zero, a push gains in a step no more speed
- * than the curve allows, and from rest reaches w0 k / (1 + k). A joint the muscles are braking is
- * held to the reach from rest, since the lengthening branch's own tangent reaches far past the
- * unloaded speed and would throw the joint the other way in one step. A heavy limb, which the
- * ceiling saturates long before the tangent's zero, is unchanged, and still gains a few per cent
- * early at 120 Hz. `tests/core-muscle.test.mjs` holds the rates to each other.
+ * the curve's tangent there reaches zero** (`forceVelocityReach`). A light limb's own time
+ * constant, the inertia beyond the joint times the unloaded speed over the peak times
+ * (1 + 1/curvature), is far shorter than a step, so a motor asked for the unloaded speed with its
+ * ceiling read at rest would carry it across its whole curve in one step at its isometric torque.
+ * The shortening branch is convex, so its tangent lies under it: held to the tangent's zero, a push
+ * gains no more speed in a step than the curve allows, and from rest reaches w0 k / (1 + k). A
+ * joint the muscles are braking is held to the reach from rest, since the lengthening branch's
+ * tangent reaches far past the unloaded speed. A heavy limb saturates its ceiling long before the
+ * tangent's zero. `tests/core-muscle.test.mjs` holds the rates to each other.
  *
  * Rejected:
  * - **A ceiling read implicitly at the step's end**, solved with the inertia beyond the joint: it
  *   ignores every other torque on the joint, and a muscle stretched by a steady load yields too fast.
- * - **Reading the curve half a step on**, by the speed a joint gained in the last step that its
- *   ceiling held short of its target: it corrects a heavy limb's early gain but parts whole-body
- *   strikes at 120 Hz from those at fine rates.
+ * - **Reading the curve half a step on**, from the speed the last step's ceiling held a joint short
+ *   of its target: it makes whole-body strikes depend on the physics rate.
  *
  * A freedom's ceiling bounds its own axis only: a ball joint turning about two axes at once can
  * exceed either peak in the diagonal, by up to the root of the sum of their squares. Each peak was
@@ -82,8 +79,9 @@ export interface MuscleDriver {
   readonly velocity: Float64Array;
   /**
    * The channel's joint as last read: angle (rad), its rate (rad/s), and speed (rad/s): the
-   * relative angular velocity along the axis its motor drives, which is the rate only at a
-   * joint's first freedom or a joint near its reference pose (`src/core/build/joint-state.ts`).
+   * relative angular velocity along the axis its motor drives. Speed and rate are equal at a joint
+   * of one freedom and at the reference pose; elsewhere `turning` relates them
+   * (`src/core/build/joint-state.ts`).
    */
   angle(channel: number): number;
   rate(channel: number): number;
@@ -109,7 +107,7 @@ export interface MuscleDriver {
   dispose(): void;
 }
 
-/** Called before each sub-step, before the driver applies the command; `dt` is the sub-step, s. */
+/** Called every world step, before the driver applies the command; `dt` is the step, s. */
 export type MuscleController = (driver: MuscleDriver, dt: number) => void;
 
 /** Drive every freedom of `built` from its spec's muscles, before each step of `world`. */
@@ -131,7 +129,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       joint.joint.setMotor(index, 0, 0);
     });
   }
-  // Each segment's angular velocity, read once per sub-step: a velocity read allocates.
+  // Each segment's angular velocity, read once per step: a velocity read allocates.
   const spin = new Map([...built.segments.values()].map((segment) => [segment, new Vector3()]));
   const angularVelocity = (segment: BuiltSegment): Vector3 => spin.get(segment)!;
   const byName = new Map(channels.map((c, i) => [c.name, i]));

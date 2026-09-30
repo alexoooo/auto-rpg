@@ -1,4 +1,4 @@
-"""Build the preserved Rootbound Crypt reference using the shared authored kit helpers."""
+"""Build the Rootbound Crypt reference chamber from the shared authored kit helpers."""
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
@@ -52,7 +52,7 @@ for x,z in sorted(boundary):
 
 for z in LEFT_NICHES: arch(3.25,z,math.pi/2)
 for x in BACK_NICHES: arch(x,13.75,math.pi)
-# Shallow segmental arch ABOVE the unchanged three-metre working door clearance.
+# Shallow segmental arch ABOVE the three-metre working door clearance.
 for x in [7.32,10.68]:
     for k in range(7): box('portal.pier',(x,.18+k*.35,14),(.30,.33,.90),'trim',.025)
     box('portal.capital',(x,2.47,14),(.34,.06,.94),'trim',.012)
@@ -112,8 +112,8 @@ for side,centres in [('left',LEFT_NICHES),('back',BACK_NICHES)]:
             box('niche.rubble',(px,.18+size*.25,pz),(size,.09+size*.3,size*.75),'trim',.03,rng.uniform(-.4,.4))
 
 
-# Flat surface scatter adds age without introducing unmodelled obstacles. Separate RNG
-# preserves the established architecture and its material variation when this pass changes.
+# Flat surface scatter adds age without introducing unmodelled obstacles. Its own RNG keeps
+# the architecture and its material variation fixed when the scatter changes.
 detail_rng=random.Random(314159)
 def patch(name,x,y,z,rx,rz):
     ring=[]

@@ -44,7 +44,7 @@ export function stanceLegs(): StanceLegs {
     get fallen() { return fallen; },
     goal(view, heading, walk, lower = STANCE_LOWER) {
       const s = view.stance;
-      // The reference height is read from the first view, when the body stands as built.
+      // The reference height is read from the first view after a step, the body standing as built.
       if (reference === null) {
         if (view.time <= 0) return null;
         reference = s.centre.y - s.support.y;
