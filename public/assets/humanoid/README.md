@@ -1,9 +1,12 @@
-# Warrior and Rogue
+# The Warrior and the Rogue
 
-`workshop-fighter.glb` (the Warrior) and `workshop-rogue.glb` (the Rogue) are exported from the
-character-lab sources by `scripts/humanoid/export-workshop.py`. Their anatomy comes from CC0
-MakeHuman/MPFB assets; the clothing, equipment and fitting are project work. How they are built
-and fitted is in `docs/workshop-fighter-integration.md` and `docs/rogue-archer.md`.
+`workshop-fighter.glb` (the Warrior) and `workshop-rogue.glb` (the Rogue) are the character
+workshop's models without their preview motion, exported from `assets/character-lab/fighter.blend`
+and `rogue.blend` by `scripts/humanoid/export-workshop.py`, which also writes
+`assets/humanoid/workshop-*.json`. Their anatomy comes from CC0 MakeHuman/MPFB assets; the
+clothing, equipment and fitting are this project's work.
 
-The legacy armoured human (`warrior.glb`, adapted from crownjoshua's CC0 Knight) was retired on
-2026-09-27; the tag `pre-next-phase-cleanup` keeps it.
+The skins (`src/render/skin.ts`) wear them on core bodies, and the core measures them: the
+envelope (`scripts/core/workshop-envelope.mjs`) and the stature (`SKIN_TOP` in
+`src/core/human/model.ts`). How they are built, exported and rebuilt:
+[docs/art/characters.md](../../../docs/art/characters.md).

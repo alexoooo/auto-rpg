@@ -1,6 +1,8 @@
-# Original character workshop assets
+# The character workshop's models
 
-Geometry and materials are authored for this experiment by `scripts/character-lab/build.py`.
-No third-party mesh, texture, or animation is incorporated. No external attribution is required for these generated assets.
-
-Editable Blender sources are in `assets/character-lab`. The runtime GLBs include skinned base clothing, separately fitted equipment, and inspection/holding/fit-check poses. See `docs/character-lab/README.md` for rebuilding, ownership, and limitations.
+`fighter.glb` and `rogue.glb` are the workshop models with their authored preview motion and every
+loadout, shown by `/character-lab.html` (`src/character-lab/main.ts`) and checked by
+`tests/character-lab.test.mjs` and `tests/character-motion.test.mjs`. They are built with their
+Blender sources (`assets/character-lab/`) by `scripts/character-lab/realistic/build.py`, from
+customized MakeHuman/MPFB CC0 anatomy with clothing, equipment and motion authored here. How to
+rebuild them: [docs/art/characters.md](../../../docs/art/characters.md).

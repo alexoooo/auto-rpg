@@ -1,6 +1,6 @@
 # Human striking biomechanics: reference values for calibrating a simulated fighter
 
-Compiled 2026-09-27. All units are SI. Angular velocities were converted at 1 deg/s = 0.01745 rad/s; the original deg/s value is given in brackets. "Typical" means an untrained or recreational adult male where such data exist; otherwise the lowest-skill group studied, which is named. Values are mean ± SD unless marked otherwise. **Derived** marks a number computed here from the cited inputs, not reported by the source.
+All units are SI. Angular velocities were converted at 1 deg/s = 0.01745 rad/s; the original deg/s value is given in brackets. "Typical" means an untrained or recreational adult male where such data exist; otherwise the lowest-skill group studied, which is named. Values are mean ± SD unless marked otherwise. **Derived** marks a number computed here from the cited inputs, not reported by the source.
 
 ## 1. Punches (straight jab/cross, hook)
 
@@ -123,8 +123,8 @@ Useful sums at 80 kg:
 
 ## 8. The workshop models
 
-Added 2026-09-28 for the core's human spec (`src/core/human/`). These are measurements of this
-repository's assets, not literature.
+For the core's human spec (`src/core/human/`). These are measurements of this repository's
+assets, not literature.
 
 **Stature.** Each model's stature is the top of its skin: the maximum y of `base__skin`'s
 positions in `public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0. Hair is not stature.
@@ -134,7 +134,7 @@ positions in `public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0. Hai
 | Warrior (`workshop-fighter`) | 1.8805 m | 1.770 m |
 | Rogue (`workshop-rogue`) | 1.7305 m | 1.629 m |
 
-x1 is the owner's typical adult (2026-09-27): 1.77 m and 79 kg for a man. The Rogue takes the
+x1 is the owner's typical adult: 1.77 m and 79 kg for a man. The Rogue takes the
 Warrior's factor, so she keeps her size against him.
 
 **Volume.** Each model's skin, feet, jacket, trousers, collar and belt were closed by voxel flood
@@ -153,8 +153,7 @@ the same density.
 
 ## 9. Joint ranges and strengths for the core human
 
-Added 2026-09-28 for the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and
-`tables/`). Every figure here is from the Node harness on the spec alone (no engine), unless it
+For the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and `tables/`). Every figure here is from the Node harness on the spec alone (no engine), unless it
 says otherwise. Tables 9.2 and 9.4 are printed from the spec, not retyped.
 
 ### 9.1 A model's torque comes from its muscle
@@ -255,7 +254,7 @@ moves it to 1.25.
 | Gonçalves et al. 2021, sexes pooled (69.9 kg) | Biodex, side-lying | 117 | 90 |
 
 DS2009 is kept because it is the only source split by sex, and because it keeps the hip in the same
-laboratory as the knee and ankle. Stage 2's strike reads will show whether it is too strong.
+laboratory as the knee and ankle.
 
 **All exertions.** Masses are each cohort's mean body mass, torques are N m, and the last column is
 the check.
@@ -366,7 +365,7 @@ The Warrior's elbows are bent 46 degrees. His arms are abducted 41 degrees, and 
 5 degrees at the shoulder. His hands are held thumb forward, about 4 degrees prone of the
 goniometer's zero.
 
-### 9.5 Stated assumptions, for the owner to confirm (`stage1-assumptions`)
+### 9.5 Stated assumptions (`reference-pose-assumptions`)
 
 - **Neck and spine:** neutral in the reference pose. The head measures 5.1 degrees (Warrior) and
   9.3 (Rogue) from the trunk line, and the trunk line itself 1.8 degrees forward and 2.3 back. The
@@ -375,12 +374,8 @@ goniometer's zero.
 - **Shoulder adduction beyond the anatomical position:** none, since the trunk is in the way. No
   source measured it.
 
-### 9.6 Open, and what stage 2 reads
+### 9.6 Open
 
-- **Havok's middle constraint axis.** The shoulder's abduction is its second freedom, with a range
-  of about -41 to 138 degrees. The Node stand found that the second axis only roughly holds its ends
-  (plan, "Found while building"). A middle axis past 90 degrees may not be representable at all.
-  Stage 2 reads this with muscle-sized motors.
 - **The spine joints sit on the CERV-MIDH line**, at de Leva's trunk boundaries, not on the spine.
 - **The trunk's sex ratio** (9.1).
 - **Unconfirmed source details:**
@@ -388,8 +383,6 @@ goniometer's zero.
   - Axelsson and da Fonseca give no body mass for the band or sex taken.
   - Peleg and da Fonseca are concentric.
   - DS2009 does not say which isometric angle some rows are.
-- **No force-velocity data yet.** The unloaded speed, the curve's shape and the eccentric ceiling
-  join the muscle spec in stage 2, with their sources.
 
 ## Notes and caveats
 

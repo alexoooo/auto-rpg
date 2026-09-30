@@ -46,8 +46,9 @@ through a 400-step seek, against the budget.
 | 25         | 162            |
 | 40         | 92, the page drawing 3 times a second |
 
-The browser holds back frames that run long, so a longer budget loses more than it gains. 10 ms:
-with the draw's 6 ms, one frame of a 60 Hz display.
+The browser holds back frames that run long, so a longer budget loses more than it gains. The
+budget is 10 ms, chosen rather than measured: with the draw's 6 ms it fits one frame of a 60 Hz
+display (16.7 ms), where every budget above ran over.
 
 ## Routine gait
 

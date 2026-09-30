@@ -1,23 +1,25 @@
-# Session 06: authored rooms
+# Set pieces: authored rooms in Generated depths
 
 ## Goal
 
 Diablo's levels are remembered for their hand-made rooms: the Butcher's room, the Skeleton King's
-lair. This session adds the mechanism, a room drawn as text and stamped into a generated room of
-the right size, and three pieces that change how a fight goes:
+lair. This plan adds the mechanism, a room drawn as text and stamped into a generated room of the
+right size, and three pieces that change how a fight goes:
 
 1. **Pillared hall** (4 x 3 blocks): four one-cell pillars to fight around.
 2. **Pier** (3 x 3 blocks): a solid block in the middle, and a ring 3 m wide to circle it.
 3. **Four chambers** (4 x 4 blocks): two crossing walls with four arches, so four rooms in one.
 
-A stamped room gets no divider. A stamp is taken back unless session 02's `linksHold` holds for
-its room: every corridor into it is still a way through. The draft of this plan checked only that
-the level stayed one region, and four chambers then cut corridor mouths in 18 levels of 100, 29
-dead links, with the level still connected the long way round.
+A stamped room gets no divider. A stamp is taken back unless `linksHold` (`src/dungeon/level.ts`)
+holds for its room: every corridor into it is still a way through. Checking only that the level
+stays one region is not enough: four chambers then cuts corridor mouths while the level stays
+connected the long way round.
 
-This session is written last because it is the one most likely to change after the owner has
-played session 05. If the arches of session 02 already give the fights the owner wants, it may
-shrink to one piece.
+It changes only the Generated depths layout (`generateLevel`, the crypt's default dungeon), not
+the Random Crypt, which has its own furnishings (`CRYPT_FURNITURE`). `LEVEL` has fields this plan
+does not touch (`tries`, `spawnFromStart`, `minLoops` among them). The arches that `divide`
+already cuts may give the fights the owner wants on their own; if so, the plan shrinks to one
+piece.
 
 ## Files
 
@@ -26,7 +28,7 @@ shrink to one piece.
 | `src/dungeon/set-pieces.ts` | New. Node-loadable. The pieces as text, and `pieceCells`. |
 | `src/dungeon/level.ts` | `stampPieces`, run before `divide`; `Room.piece`; `LEVEL.setPieces`, `LEVEL.setPieceChance`; `metrics.setPieces`. |
 | `src/dungeon/map.ts` | `Room` gains `piece?: string`. |
-| `scripts/dungeon/print-level.mjs` | Names the pieces in the header. |
+| `scripts/dungeon/print-level.mjs` | No change: it prints every metric, so `setPieces` appears in its header. |
 | `tests/dungeon-level.test.mjs` | Three tests. |
 
 ## `src/dungeon/set-pieces.ts`
@@ -149,8 +151,8 @@ function stampPieces(layout: Layout, map: DungeonMap, random: () => number): (st
 - `divide` skips any room with `pieces[index]` set. It takes `pieces` as a fourth parameter.
 - `roomsOf` sets `piece: pieces[id]` when defined.
 - The metrics gain `setPieces`, counted as `pieces.filter(Boolean).length`.
-- Session 02's `every_link_is_a_way_through` and `every_floor_cell_is_next_to_a_place_to_stand`
-  now cover stamped rooms too, with no change. On the scratch prototype both hold over 100 levels
+- `every_link_is_a_way_through` and `every_floor_cell_is_next_to_a_place_to_stand` then cover
+  stamped rooms too, with no change. On a prototype of this stamping both hold over 100 levels
   with pieces in them.
 - `walls_cross_the_long_rooms_and_the_count_is_the_walls_that_stand` counts rooms with rock inside
   their bounds, which now includes stamped rooms. Change its filter to rooms with no `piece`.
@@ -196,35 +198,36 @@ test("set_pieces_appear_in_levels_and_are_where_they_say", () => {
     }
     stamped += named.length;
   }
-  assert.ok(stamped >= 14, `${stamped} set pieces over 24 levels`); // 19, in 12 levels, on the prototype
+  assert.ok(stamped >= 14, `${stamped} set pieces over 24 levels`); // a prototype gives 19, in 12 levels
 });
 ```
 
-On the scratch prototype, 24 levels carry 19 pieces in 12 levels, and 100 levels carry 103 in 73:
+On a prototype of this stamping, 24 levels carry 19 pieces in 12 levels, and 100 levels carry 103 in 73:
 56 pillared halls, 33 piers and 14 four chambers. Four chambers is the rarest twice over: a 4 x 4
 room is one room in nine, and 154 stamps were refused over those 100 seeds' candidates, most of
 them for a wall end in a corridor mouth. If a piece is too rare to be seen in play, raise
 `setPieceChance` rather than bias the room sizes.
 
-**Mutations, each must go red.** All but the pier's were run against the scratch prototype with
-these exact tests, and went red as written:
+**Mutations, each must go red.** All but the pier's go red against a prototype with these exact
+tests:
 
 - Close both arches into four chambers' low quadrant to two cells (make row 3 of column 6 and
   column 3 of row 6 rock): `every_set_piece_alone_in_rock_is_one_place...` goes red. Closing one
-  arch does not, and should not: the quadrant is still reached through the other. The draft's
-  mutation closed one, and stayed green.
+  arch does not, and should not: the quadrant is still reached through the other.
 - Make `stampPieces` keep a stamp without asking `linksHold`: `every_link_is_a_way_through` goes
   red.
 - Drop a character from one row of the pier: `every_set_piece_is_the_size...` goes red.
 - Stamp at `r.x * k + 1`: `set_pieces_appear_in_levels...` goes red, and so does
   `every_floor_cell_is_next_to_a_place_to_stand`.
 - Let `divide` ignore `pieces`: `walls_cross...` goes red, since its count of walls then disagrees
-  with `metrics.dividers`, and on the prototype `set_pieces_appear...` did too.
+  with `metrics.dividers`, and on the prototype `set_pieces_appear...` does too.
 
 ## Verification
 
 - `npm test`, `npm run check`, `npm run build`.
 - `node scripts/dungeon/print-level.mjs` with seeds that contain each piece. Show the owner.
+  `setPieces` appears in its header with no change to the script, since it prints every metric.
 - The owner plays a seed with each piece. Is a pillar or the pier something to fight around, or
-  only in the way? Does the automatic hero use it, or get stuck on it? `avoidCrowd` and `findPath`
-  in `src/dungeon/run.ts` and `src/dungeon/map.ts` are the suspects if it gets stuck.
+  only in the way? Does a core body walking by `findPath` use it, or get stuck on it? `avoidCrowd`
+  and `findPath` in `src/dungeon/run.ts` and `src/dungeon/map.ts` are the suspects if it gets
+  stuck.

@@ -1,5 +1,9 @@
 # Physics bake-off: Havok, MuJoCo, Rapier
 
+The live adapters are MuJoCo and Rapier (`research/physics-bakeoff/engines.mjs`, and the
+`physics-bench` page). Havok's results below are records of the comparison that chose Rapier; its
+adapter is not in the repository.
+
 2026-09-29. The question: for this game in a browser, is MuJoCo or Rapier better than Havok on
 fidelity **and** on speed? Jolt was optional and was not run (see the end).
 
@@ -95,9 +99,9 @@ until the ankles saturated.
 
 - **today**: at least as good as Havok does today.
   - A is read off the core's own stance: the Warrior, velocity motors in the solver, feet ×100,
-    120 Hz (`baseline-today.mjs`), which stands with foot spin 0.00037 rad/s, tilt 0.39°, drift
-    6.6 mm. The marks are spin 0.01 rad/s, tilt 0.4°, drift 7 mm. The shared torque law cannot
-    stand Havok at one sub-step at any conditioning tried.
+    120 Hz (`research/physics-bakeoff/baseline-today.mjs@0d63a616`), which stands with foot spin
+    0.00037 rad/s, tilt 0.39°, drift 6.6 mm. The marks are spin 0.01 rad/s, tilt 0.4°, drift 7 mm.
+    The shared torque law cannot stand Havok at one sub-step at any conditioning tried.
   - B is Havok today under the shared law: hand jitter 0.289 rad/s, wrist 0.609, ringing 0.242,
     deviation 0.039 rad.
 - **clean**: what the fine reference reaches, within floors no player could see.

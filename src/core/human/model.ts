@@ -15,7 +15,7 @@ import type { WorkshopModel } from "./rig.ts";
 
 /**
  * Which column of a sex-specific table a model reads. The models were built from MakeHuman's male
- * and female bases ("The male fighter and female rogue", `docs/character-lab/README.md`).
+ * and female bases ("The male fighter and female rogue", `docs/art/characters.md`).
  */
 export const WORKSHOP_SEX: Readonly<Record<WorkshopModel, Sex>> = Object.freeze({
   "workshop-fighter": "male",

@@ -1,18 +1,56 @@
 # Research
 
-Node scripts that measure the core (`src/core/`) on its stand (`tests/harness/core-stand.mjs`), and
-the physics engines' bake-off. Every figure names its harness.
+Node scripts that measure the core (`src/core/`), most on its stand
+(`tests/harness/core-stand.mjs`), and the physics engines' bake-off. They import `src/` directly
+and run from the repository root; the batteries spread their trials over worker threads
+(`--workers`), one stand per trial. A figure is read with its harness: Node, the stand or the
+module it drives, the engine and the rate.
 
-- `core-strike*.mjs`, `core-club-strike.mjs`: strikes by a core human, searched and scored; the
-  repertoire they write is `assets/core/strikes.json`. `core-club-unit.json` is the club blow that
-  sets the damage unit.
-- `core-stance-*.mjs`, `core-routine-battery.mjs`: the stance's trials, sweeps and envelope, and
-  the lab routine from seeded starts.
-- `core-rapier-probe.mjs`: what Rapier's generic joint does, read on a stand.
-- `physics-bakeoff/`: MuJoCo and Rapier on the bake-off's cases (`src/physics-bench/`), with
-  `REPORT.md`. Havok's runs, and its adapter, went with Havok on 2026-09-30; their results stay in
-  `physics-bakeoff/results/` and the report.
+Some write the data files the core reads, and only with `--write`; without it they print.
 
-The old league, its rating, schedule and minds, the laboratory's notes and the published results
-under `lab/` and `results/` were deleted with the old path on 2026-09-30
-(`docs/plans/2026-09-30-old-path-removal.md`, step 5); commit 77a0cd77 holds them.
+## The core
+
+| Script | What it measures | Writes |
+|---|---|---|
+| `core-stance-envelope.mjs` | each core body's walks (five ways, at each speed) and turns; the fastest each holds | `assets/core/stance-envelope.json` |
+| `core-stance-sweep.mjs` | the stance's batteries (stand, edge, step, walk, shove) over stance tunings (`--variants`) | |
+| `core-stance-trials.mjs`, `core-stance-worker.mjs` | the trials the sweep and envelope run, and their worker | |
+| `core-routine-battery.mjs` | the lab's Routine from seeded pushed starts, per tuning: loops held, falls, each strike's peak | |
+| `core-strike.mjs`, `core-club-strike.mjs` | modules the searches and workers call, with no entry point of their own: one fist strike scored by the fist's speed, one club blow by the energy it brings to a head | |
+| `core-strike-search.mjs`, `core-strike-worker.mjs` | a cross-entropy search for a body's fastest strike (`--guard` for a straight from guard, `--weapon club`) | |
+| `core-strike-window.mjs` | where each recipe still lands, along and across its heading | the windows, into `assets/core/strikes.json` |
+| `core-strike-repertoire.mjs` | builds the repertoire from searches' best strikes | `assets/core/strikes.json` |
+| `core-rapier-probe.mjs` | on the core's engine module alone, off the stand: what Rapier's generic joint does: its limits' measure, motor axes, saturation, gyroscopic spin | |
+
+`core-club-unit.json` is the club blow that sets the damage unit (`core-club-unit` in `SOURCES`).
+
+For example:
+
+```powershell
+node research/core-stance-envelope.mjs --workers 14
+node research/core-strike-search.mjs --model workshop-rogue --hand right --guard
+node research/core-strike-window.mjs --hz 120,480
+node research/core-routine-battery.mjs --variants '[{}]' --seeds 12
+```
+
+Each script's doc comment gives its options, what it prints and the rule it reads by.
+
+## The physics bake-off
+
+`physics-bakeoff/` compares engines under one controller on the same cases: a standing foot and a
+forearm chain for fidelity, a standing human observed with no bar, and many humans spaced or piled for speed. The
+live adapters are MuJoCo and Rapier (`physics-bakeoff/engines.mjs`); the `physics-bench.html` page
+runs the same cases in a browser (`src/physics-bench/`). `REPORT.md` holds the results and the
+choice of Rapier; `results/` holds the raw runs.
+
+```powershell
+node research/physics-bakeoff/fidelity.mjs reference
+node research/physics-bakeoff/fidelity.mjs rapier-simd
+node research/physics-bakeoff/summarize-fidelity.mjs
+sh research/physics-bakeoff/run-perf.sh
+node research/physics-bakeoff/summarize-perf.mjs
+```
+
+`case-c.mjs` (a whole human standing), `candidates.mjs` (passing settings ranked by cost),
+`load-cost.mjs` (download, start-up and memory) and `mujoco-armature.mjs` (MuJoCo's conditioning
+for piles) answer narrower questions; `thresholds.mjs` holds the pass bars.

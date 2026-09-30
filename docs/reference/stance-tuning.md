@@ -7,7 +7,8 @@ wrench's lever (`leverOf`), the bounded swing (`StanceTuning.boundedSwing`) and 
 (`StanceTuning.heelOff`). Each constant's doc comment links to its section here. Every table was
 measured on the Node core stand (`tests/harness/core-stand.mjs`), Rapier, 120 Hz, each human standing
 3 cm under its reference height, with `research/core-stance-sweep.mjs` unless a section says
-otherwise.
+otherwise. Each table was read on the controller as it stood when its constant was chosen, so
+counts in different tables are not comparable row for row.
 
 **The batteries.** Most sections move one setting at a time, the rest at their values, against
 four batteries (`research/core-stance-trials.mjs`):
@@ -108,8 +109,8 @@ a thin band.
 Straight to the side, with only the far foot stepping, a step holds little more than standing (the
 Warrior 55 N s): the far foot steps in beside the near one again and again. With the near foot
 stepping out once the far one is in (`recoveryStep`), the Warrior holds 65 N s to either side and
-the Rogue 40 to its left, 35 to its right, and no way of the sixteen holds less (Rogue 118 of 272
-against 117, Warrior 213 against 209).
+the Rogue 40 to its left, 35 to its right, and no way of the sixteen holds less (on a later
+battery than the table's: Rogue 118 of 272 against 117, Warrior 213 against 209).
 
 Chosen: margin 0.01 (the lesser of the two that stand), reach 0.2, seconds 0.3, lift 0.05.
 

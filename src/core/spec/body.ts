@@ -22,7 +22,7 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  * mass -- reads both.
  */
 export interface BodySpec {
-  /** The family's name, `human`; a spec never spreads another family's spec. */
+  /** The family's name, such as `human` or `skeleton`; a spec never spreads another family's spec. */
   readonly family: string;
   /** Which body of the family, such as `workshop-fighter`. */
   readonly model: string;
