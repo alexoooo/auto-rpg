@@ -1220,6 +1220,7 @@ the one that fails is the unit's replay, which waits on a search at a converged 
 ### Stage 6: the human fights in the game
 
 - **A mind** drives the core body through goals. First the existing duelist's decisions through an adapter, since it already aims by published reach; then minds layered as tactics, skills and motor goals.
+  The mind and its skills are built first on the lab: [minds and skills](2026-09-30-minds-and-skills.md).
 - **The arena** can field the core Warrior and Rogue, and the page runs `World.step`.
 - **The player** steers a core body through its mind, as stage 3 says: facing and attack direction,
   never a joint.
