@@ -920,6 +920,24 @@ The readings scatter within 37-43 J, with no trend in the rate or the solver, ag
 the blow read on Havok: this blow is Havok's, and the unit is re-set by searching on Rapier at the
 setting, as it was set on Havok (three seeds at 960 Hz, the best read at 1920 Hz).
 
+**Searched on Rapier at 960 Hz** (2026-09-30; 40 generations of 96, 4 trials a candidate, seeds
+1-3; the best read again on 8 trials, J; Node core stand, the torque stance):
+
+| seed | search | 120 | 480 | 960 | 1920 | 3840 | at 1920: closing, club, head, normal's up |
+|---|---|---|---|---|---|---|---|
+| 1 | 88.88 | 80.63 | 86.83 | 88.51 | 89.06 | 89.02 | 11.04 m/s, 1.55 kg, 28.4 kg, -0.92 |
+| 2 | 38.60 | 0.89 | 35.96 | 38.45 | 37.38 | 26.56 | 7.97, 1.31, 12.2, -0.69 |
+| 3 | 93.22 | 60.27 | 82.94 | 91.49 | 92.33 | 92.57 | 12.37, 1.36, 11.8, -0.69 |
+
+Searched at 960 Hz the blows converge: 960, 1920 and 3840 Hz within 1 % for seeds 1 and 3. Seed 3
+closes at the Havok unit's speed (12.37 against 12.23 m/s at 1920 Hz) and brings 92 J, not 121,
+because of what the contact meets: it comes in at 45 degrees and meets 1.36 kg of club and 11.8 of
+head, where the Havok blow came down (the normal's up -0.90) on 1.75 kg and 23.4 kg. Seed 1 comes
+down as Havok's did, onto 28.4 kg of head, but closes at 11.0 m/s. So the club moves as fast on
+Rapier; the energy differs with the line of the blow. Both searches were still climbing at their
+last generation (1-2 J a generation), and three go on (`--from`, spread 0.2, 30 generations): from
+seeds 1 and 3, and from the Havok unit's own search result.
+
 **What does not hold, and why.**
 - **A velocity motor under its ceiling holds only as far as the solver converges.** Rapier solves
   joints and contacts by iteration; a motor asked for a speed it has the strength to hold leaves a
