@@ -817,6 +817,15 @@ Havok's.
   No way holds less. The other batteries read as before, and the routine battery (24 starts, 5
   loops) completes every loop. The forward diagonals to the side (67.5 and 292.5 degrees) still
   hold 55 on the Warrior, and the Rogue's right side 35: the next place to look.
+- **The bound's cost on shoves, re-measured (2026-09-30)** after the settle and the sideways catch
+  (the battery to 90 N s): bounded, the Rogue holds 118 of 272 (mean 41.9) and the Warrior 213
+  (71.3); clipped alone, 128 (44.7) and 221 (71.9). Traced, the Rogue shoved 55 N s from behind
+  and to the side is asked for a second step some 0.95 m from its bearing foot, past what its leg
+  reaches; bounded, the swing lands 33 cm short and the bearing leg sinks 12 cm, where clipped
+  alone it lands within 1 cm. Holding a catching step to the gait's longest step, as the walk's
+  are, does not buy it back (Rogue 119, Warrior 206): the long step's reach, not its target, is
+  what the clipped swing gets that the bounded one does not. Left as it is; the bound keeps the
+  walks and the routine.
 - **Against the acceptance: not met.** Walks above 0.5 m/s mostly fall (a human's preferred walk is
   near 1.4); no human reference for the shoves or a reversal is sourced yet.
 
