@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
+import { headlessScene } from "./harness/scene.mjs";
 import { DRESSING, FACING_MIN, FLOOR_DECALS, FLOOR_TOP, WALL_ALLOWANCE, dressingPlacements, hungCentre, muralHeight, torchPlacements, validateDressing } from "../src/dungeon/dressing.ts";
 import { ATLAS, DECAL_KINDS, MURAL_ASPECT, WALL_PIECES, atlasRect, decalAtlas, muralRect } from "../src/dungeon/decals.ts";
 import { WALL_HEIGHT, doorCells } from "../src/dungeon/fog.ts";
@@ -306,7 +306,7 @@ function worldVertices(mesh) {
 }
 
 test("dressing_is_drawn_where_it_was_placed_alpha_tested_fogged_and_owns_no_body", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const arena = headlessScene();
   try {
     for (const azimuth of AZIMUTHS) for (const seed of [1, 4]) {
       const map = levels.get(seed), dressing = dressedFor.get(azimuth).get(seed), world = buildDungeonWorld(arena.scene, map, true);

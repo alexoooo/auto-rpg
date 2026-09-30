@@ -308,9 +308,9 @@ def export(objects,filename):
         export_apply=True,export_yup=True,export_normals=True,export_texcoords=True,export_materials='EXPORT',
         export_vertex_color='ACTIVE')
     for o in objects:o.select_set(False)
-export(body,'golem.glb');export(kit,'forge-kit.glb')
-(OUT/'manifest.json').write_text(json.dumps({'version':1,'parts':[
-    {k:r[k] for k in ['key','asset','family','extents']} for r in SOURCE['parts']]},indent=2))
+# The golem's pieces are still built, for the .blend's shelf; the golem itself, its GLB and manifest,
+# went with the old path (docs/plans/2026-09-30-old-path-removal.md, step 5), and only the kit ships.
+export(kit,'forge-kit.glb')
 # Editable source arranged as an asset shelf; GLBs above keep each template at its local origin.
 for i,o in enumerate(body+kit):o.location=((i%10)*1.5,(i//10)*1.8,0)
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'assets/art-proof/forge.blend'))

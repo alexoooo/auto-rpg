@@ -1,6 +1,4 @@
-import type { CombatReportEvent } from "./combat.ts";
-import type { BodyFamily } from "./golem/family.ts";
-import { impactCue, ImpactInbox, soundPlacement, type ImpactCue, type SoundKind, type SoundPoint } from "./audio-cues.ts";
+import { ImpactInbox, soundPlacement, type ImpactCue, type SoundKind, type SoundPoint } from "./audio-cues.ts";
 
 const STORAGE = "auto-rpg-sound-v1";
 type Voice = { source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode };
@@ -94,11 +92,6 @@ export class GameAudio {
     this.active = active;
     if (!active) this.reset();
     this.refreshGain();
-  }
-  report(event: CombatReportEvent, attacker: string, family: BodyFamily): void {
-    if (!this.ready()) return;
-    const cue = impactCue(event, attacker, family);
-    if (cue) this.inbox.add(cue, performance.now());
   }
   /** Queue a cue the page read itself (`blowCue`). */
   cue(cue: ImpactCue | null): void {

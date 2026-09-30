@@ -1,29 +1,11 @@
-import type { CombatReportEvent } from "./combat.ts";
-import type { BodyFamily } from "./golem/family.ts";
 import type { LandedBlow } from "./core/rules/blows.ts";
 
 export type SoundKind = "stone" | "bone" | "body" | "metal" | "shield";
 export interface SoundPoint { x: number; z: number }
 export interface ImpactCue { key: string; kind: SoundKind; strength: number; severed: boolean; point: SoundPoint }
-const surfaces: Record<BodyFamily, SoundKind> = { golem: "stone", skeleton: "bone", human: "body" };
-/** Cosmetic interpretation only: never changes the report or consumes a simulation random draw. */
-export function impactCue(event: CombatReportEvent, attacker: string, family: BodyFamily): ImpactCue | null {
-  const r = event.report;
-  const blocked = event.blocked || event.guarded;
-  const energy = Math.max(0, r.energyJ || 0);
-  const strength = energy > 0 ? Math.sqrt(energy / 60)
-    : Math.max(Math.abs(r.solverImpulse || 0) / 8, Math.abs(r.speed || 0) / 12);
-  if (!Number.isFinite(strength) || strength < .035) return null;
-  return { key: `${attacker}:${r.targetId ?? "opponent"}`, kind: blocked
-    ? r.key === "block:empty" ? "body"
-      : r.key === "block:shield" || r.key === "block:buckler" ? "shield" : "metal" : surfaces[family],
-    strength: Math.min(1, strength), severed: r.severed,
-    point: { x: r.point.x, z: r.point.z } };
-}
-
 /**
- * The cue for a core blow (`LandedBlow`) on a body of `struck`'s surface: its strength read from its energy as a
- * report's is. A clash is two clubs meeting, wood on wood, the shield's knock (recorded, not asked).
+ * The cue for a core blow (`LandedBlow`) on a body of `struck`'s surface: its strength the square root of its
+ * energy over 60 J, as the old fight read its reports. A clash is two clubs meeting, wood on wood, the shield's knock (recorded, not asked).
  */
 export function blowCue(blow: LandedBlow, struck: SoundKind): ImpactCue | null {
   const strength = Math.sqrt(Math.max(0, blow.energy) / 60);

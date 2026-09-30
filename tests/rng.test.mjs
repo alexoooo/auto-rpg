@@ -1,7 +1,7 @@
 // The one seeded generator, pinned.
 //
-// `src/rng.ts` exists so that a Warrior policy, the golem mind, the random build generator and the
-// tournament harness draw from the same stream without importing each other. The stream is pinned
+// `src/rng.ts` exists so that everything seeded -- once the old minds and harnesses, now the crypt's
+// levels and dressing -- draws from the same stream without importing each other. The stream is pinned
 // here by value, from a run of the function as it stood in `src/policies.ts` on 2026-09-05, so
 // that "moved, not changed" is a test rather than a claim: every seeded bout, sweep and measurement
 // recorded before the move is reproducible after it.
@@ -45,20 +45,12 @@ test("a_random_seed_is_an_unsigned_thirty_two_bit_integer", () => {
   }
 });
 
-test("every_seeded_mind_draws_from_this_file_and_carries_no_copy", () => {
-  // The duplication this file replaced. A second copy is exactly what a byte-identical pin above
-  // cannot see, so the absence is checked as text.
-  // `src/policies.ts` was the second entry here until the four hand-written humanoid minds went
-  // with the Warrior. It carries no seeded mind any more, so it carries no generator either, and
-  // the half of the claim that still applies to it -- that it has no copy -- is checked below.
-  for (const [rel, spelling] of [
-    ["src/golem/tactics.ts", 'from "../rng.ts"'],
-  ]) {
-    const source = read(rel);
-    assert.ok(source.includes(spelling), `${rel} does not import ${spelling}`);
-    assert.ok(!/function mulberry32/.test(source), `${rel} still carries its own mulberry32`);
-  }
-  for (const rel of ["src/policies.ts", "src/mind.ts"]) {
-    assert.ok(!/function mulberry32/.test(read(rel)), `${rel} carries its own mulberry32`);
-  }
+test("every_seeded_generator_is_this_file_and_nothing_carries_a_copy", () => {
+  // A second copy is exactly what a byte-identical pin above cannot see, so the absence is checked as text,
+  // over every source file. The control: the level generator draws from this file, so the walk reads real users.
+  const walk = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })
+    .flatMap((entry) => entry.isDirectory() ? walk(`${dir}/${entry.name}`) : [`${dir}/${entry.name}`]);
+  const sources = walk("src").filter((rel) => rel.endsWith(".ts") && rel !== "src/rng.ts");
+  assert.ok(sources.includes("src/dungeon/level.ts") && read("src/dungeon/level.ts").includes('from "../rng.ts"'));
+  for (const rel of sources) assert.ok(!/function mulberry32/.test(read(rel)), `${rel} carries its own mulberry32`);
 });

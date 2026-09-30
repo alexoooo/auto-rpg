@@ -11,7 +11,6 @@
  * isolation, which GitHub Pages cannot give), so a step's median and 95th percentile are rounded to
  * it; the mean is exact over the run.
  */
-import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 import mujocoWasmUrl from "@mujoco/mujoco/mujoco.wasm?url";
 import mujocoMtWasmUrl from "@mujoco/mujoco/mt/mujoco.wasm?url";
 import mujocoMtWorkerUrl from "@mujoco/mujoco/mt?worker&url";
@@ -25,11 +24,6 @@ const loaded = new Map<string, Promise<Loaded>>();
 async function loadEngine(name: Chosen["engine"]): Promise<Loaded> {
   const t0 = performance.now();
   switch (name) {
-    case "havok": {
-      const [{ default: HavokPhysics }, { createHavok }] = await Promise.all([import("@babylonjs/havok"), import("./engines/havok.ts")]);
-      const hk = await HavokPhysics({ locateFile: () => havokWasmUrl });
-      return { initMs: performance.now() - t0, factory: (s, st) => createHavok(hk, s, st) };
-    }
     case "mujoco": {
       const [{ default: loadMujoco }, { createMujoco }] = await Promise.all([import("@mujoco/mujoco"), import("./engines/mujoco.ts")]);
       // Emscripten's `locateFile`: the bundler's URL for the wasm, which Vite's pre-bundling moves.
@@ -139,7 +133,7 @@ async function runChosen(c: Chosen, what: { fidelity: boolean; scaling: boolean 
 
 function resourceSizes(): Record<string, unknown> {
   return Object.fromEntries((performance.getEntriesByType("resource") as PerformanceResourceTiming[])
-    .filter((r) => /wasm|havok|mujoco|rapier/i.test(r.name))
+    .filter((r) => /wasm|mujoco|rapier/i.test(r.name))
     .map((r) => [r.name.replace(location.origin, ""), { transfer: r.transferSize, encoded: r.encodedBodySize, decoded: r.decodedBodySize, ms: r.duration }]));
 }
 

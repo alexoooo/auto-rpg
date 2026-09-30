@@ -4,7 +4,7 @@
  *
  * The rule is the plan's first (`docs/plans/2026-09-28-core-foundation.md`, "Rules for the
  * core"). It is checked on the **transitive** closure, because the old path's coupling ran through
- * files that looked harmless: `src/physics.ts` holds no body knowledge and still imports
+ * files that looked harmless: `src/physics.ts` held no body knowledge and still imported
  * `src/config.ts`. So an outside file is admitted by name, with its reason, and its own imports
  * are held to the same rule.
  */
@@ -84,15 +84,13 @@ test("nothing the core reaches leaves the core, its packages, its data or the gl
 });
 
 test("the boundary check finds a crossing where there is one", () => {
-  // The control: the legacy human's body, held to the core's rule, reaches the golem tables and
-  // the old global tuning. If the walk stopped finding these, the test above would prove nothing.
-  const violations = boundaryViolations(["src/golem/humanoid/body.ts"],
-    (file) => file.startsWith("src/golem/humanoid/"));
-  assert.ok(violations.some((line) => line.endsWith(" imports src/golem/config.ts")), violations.join("\n"));
-  // And transitively: `src/physics.ts` holds no body knowledge but imports `src/config.ts`, so
-  // taking it would carry the old tuning in.
-  const glue = boundaryViolations(["src/physics.ts"], (file) => file === "src/physics.ts");
-  assert.ok(glue.some((line) => line.endsWith(" imports src/config.ts")), glue.join("\n"));
+  // The control: the arena's page, held to the core's rule as if `src/arena/` were a core, reaches
+  // the arena's scene and the core. If the walk stopped finding these, the test above would prove nothing.
+  const violations = boundaryViolations(["src/arena/main.ts"], (file) => file.startsWith("src/arena/"));
+  assert.ok(violations.some((line) => line.endsWith(" imports src/arena.ts")), violations.join("\n"));
+  // And transitively, through the bout the page imports.
+  assert.ok(violations.some((line) => line.startsWith("src/arena/main.ts -> src/arena/duel.ts imports src/core/")),
+    violations.join("\n"));
 });
 
 test("every file the core has taken exists and is outside it", () => {
@@ -122,6 +120,23 @@ test("the core turns vectors in double precision, never through Babylon's float3
   };
   walk(path.join(ROOT, CORE));
   assert.deepEqual(offenders, [], "a core file turns a vector through a float32 matrix");
+});
+
+test("the core reads world transforms from its nodes, never through a cached world matrix", () => {
+  // `getWorldMatrix()` short-circuits on the render id, and reading it stamps that id: every later
+  // reader in the frame, a person at the console among them, reads the first sample (H24). The core
+  // reads `position` and `rotationQuaternion`; read out of the source, as no scene catches it cheaply.
+  const banned = /\.getWorldMatrix\(|\.absolutePosition|\.absoluteRotationQuaternion|computeWorldMatrix\(/;
+  const offenders = [];
+  for (const file of filesUnder(CORE).filter((name) => name.endsWith(".ts"))) {
+    for (const [index, line] of fs.readFileSync(path.join(ROOT, file), "utf8").split(/\r?\n/).entries()) {
+      const code = line.replace(/\/\/.*$/, "").replace(/^\s*\*.*$/, "");
+      if (banned.test(code)) offenders.push(`${file}:${index + 1}`);
+    }
+  }
+  assert.deepEqual(offenders, [], "a core file reads a world matrix");
+  // The control: the rule finds a reader where there is one.
+  assert.ok(banned.test("const at = mesh.getWorldMatrix().getTranslation();"));
 });
 
 /** Packages that are a physics engine: only that engine's module in `src/core/engine/` imports one. */

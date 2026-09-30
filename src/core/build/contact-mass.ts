@@ -13,7 +13,7 @@ import { jointAngles, motionAxesToRef } from "./joint-state.ts";
  * takes to answer it, so no joint resists within its freedoms; nothing holds the body's root, so a
  * blow on the trunk moves the whole body, and one on a hand moves the hand, and the arm and trunk
  * as far as the joints couple them. The old game read its masses the same way
- * (`src/golem/effective-mass.ts`, physical contact session 05). A joint at its limit is taken as
+ * (`src/golem/effective-mass.ts` at 77a0cd77, physical contact session 05). A joint at its limit is taken as
  * free too, and the ground is not there.
  *
  * The speeds are the root's velocity and spin, then every freedom's (`dynamics.ts` has how a

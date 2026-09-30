@@ -18,7 +18,7 @@ import { mulberry32 } from "../rng.ts";
 import { distance, isFloor, walkable, type Door, type DungeonMap, type Point, type Room } from "./map.ts";
 
 /**
- * The generator's table. A level rule is not a console dial, so this is not in `src/config.ts`.
+ * The generator's table, frozen: a level rule is not a console dial.
  * The overview (`docs/plans/2026-09-23-depths-00-overview.md`) gives each value's reason.
  */
 export const LEVEL = Object.freeze({

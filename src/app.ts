@@ -64,7 +64,7 @@ async function open(route: Route): Promise<void> {
     case "lab": {
       document.title = "Lab · Auto-RPG";
       await import("./core-lab/style.css");
-      // Without a scenario, the lab's menu, which loads neither Babylon nor Havok.
+      // Without a scenario, the lab's menu, which loads neither Babylon nor a physics engine.
       const address = labAddress(window.location.search);
       if (address.scenario === null) {
         mount("lab-select-screen");

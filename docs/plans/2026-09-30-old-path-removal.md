@@ -150,4 +150,25 @@ skills more dynamically."
    Havok (package, adapter, the `?url` import), and the page inputs and warmup entries they leave.
    AGENTS.md is rewritten for one engine; `docs/history.md` stays, since its lessons stand.
    Acceptance: the gates, and nothing under `src/` imports what was deleted.
+   - **Landed (2026-09-30).** 378 files went, commit 77a0cd77 holding them: 140 under `src/` (the
+     golem, the bench, the art proof, the old fight, its minds, orders, policies, walking, scoring,
+     config and physics glue, and Havok's bake-off adapter), 101 tests and harnesses, 108 under
+     `research/` (the old league with its rating, runner and workers, the laboratory's notes and
+     published results), the golem's GLB and manifest, the art proof's review captures, the old
+     humanoid's grip fits, their exporters, and the two pages. `@babylonjs/havok` is uninstalled.
+     What stayed was fitted to the core: the room's colliders are the core world's only
+     (`buildArena` takes a function that makes the core's physics for the scene), the forge keeps
+     only its kit and materials (`src/forge-assets.ts`), a blow's sound is `blowCue` alone, the
+     crypt's order labels switch on its own orders, the arena's orbit camera is shared with its
+     test (`src/arena/orbit.ts`), and the bake-off runs MuJoCo and Rapier, Havok's results kept
+     beside `REPORT.md`. Tests that reached the old path were rewritten where their subject stays
+     (the arena room on a core world, the crypt's scenes on a bare `NullEngine`, sound on core
+     blows, the boundary check's control on the arena page) and deleted where it went. Two owner
+     decisions whose records were deleted now name the commit that has them (`path@commit`, which
+     the provenance check accepts), and the world-matrix guard the golem bench's test held moved
+     to `tests/core-boundary.test.mjs`. AGENTS.md is rewritten for the core and Rapier, the
+     README for the game as it stands, and `docs/history.md` notes the removal. The skeleton's
+     and the forge kit's Blender scripts stay; their exporters from the old bodies
+     (`scripts/skeleton/export-bind.mjs`, `scripts/art-proof/export-source.mjs`) went, and the
+     committed `bind.json` and `source.json` are their inputs now. 329 tests, 326 pass, 3 todo.
 6. **Then** minds and skills step 5.

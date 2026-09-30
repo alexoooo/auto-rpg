@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { referenceChamber } from '../src/dungeon/reference.ts';
 import { walkable, clearSegment, canSee, findPath } from '../src/dungeon/map.ts';
 import { buildDungeonWorld } from '../src/dungeon/world.ts';
-import { createHeadlessArena } from './harness/golem-headless-arena.mjs';
+import { headlessScene } from './harness/scene.mjs';
 
 function exportedChamber() {
   const bytes=readFileSync(new URL('../public/assets/dungeon-reference/chamber.glb',import.meta.url));
@@ -78,7 +78,7 @@ test('rotated arch stones retain two-dimensional texture coordinates',()=>{
 });
 
 test('door presentation references are the meshes hidden by authoritative opening',async()=>{
-  const arena=await createHeadlessArena({populateDefaultGeometry:false});
+  const arena=headlessScene();
   try {
     const map=referenceChamber(),world=buildDungeonWorld(arena.scene,map,true);
     assert.equal(world.doorVisuals.length,1);
@@ -120,7 +120,7 @@ test('reference chamber routes around its tomb, sees over it, and keeps the exit
 });
 
 test('reference tomb blocks a line below its lid and not above, equally with and without visual surfaces', async () => {
-  const arena=await createHeadlessArena({populateDefaultGeometry:false});
+  const arena=headlessScene();
   try {
     let expected;
     for(const visuals of [false,true]) {

@@ -1,5 +1,3 @@
-import { loadWorkshopAssets } from "./golem/humanoid/workshop-appearance.ts";
-import { loadSkeletonAssets } from "./golem/skeleton/appearance.ts";
 import { publicAssetUrl } from "./asset-url.ts";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -12,24 +10,9 @@ import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
-import HavokPhysics from "@babylonjs/havok";
-// Havok's solver is a WebAssembly module shipped beside its ESM bundle. Vite
-// will not find it on its own, so hand it the resolved URL explicitly.
-//
-// This lives here rather than beside `attachPhysics` in `src/physics.ts`
-// because it is the one line in the whole bring-up that only a bundler can
-// resolve: Node's ESM resolver rejects the `?url` subpath outright, and a
-// module that carries it takes every one of its importers -- `fighter.ts` and
-// `combat.ts` among them -- out of reach of a headless harness. `arena.ts` is
-// already the browser's half of the directory and imports HDR textures and a
-// post-processing pipeline, so it is where a browser-only import belongs.
-import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
-
 import { dressForgeRoom } from "./forge-room";
 import { loadForgeStyle, paveForge, forgePost } from "./forge-style";
-import { CONFIG } from "./config";
 import { OBJECT_SURFACE_VARIANTS, TEXTURED_SURFACES } from "./materials";
-import { attachPhysics } from "./physics";
 import { sharedSurface, surfaceVariant } from "./surface";
 import { buildArenaWorld, type ArenaAudit, type RoomOcclusionTarget } from "./arena-room";
 import type { PhysicsWorld } from "./core/engine/engine.ts";
@@ -85,32 +68,20 @@ function plainSurface(
 }
 
 /**
- * The arena's scene: its light, its room and its solids. Given `core`, the core's world is made on the
- * scene (`createWorld`) and the solids are its fixed colliders; without, Havok and the old golems' art.
+ * The arena's scene: its light, its room and its solids, which are fixed colliders in the physics
+ * `physicsFor` makes on the scene (the core's world, `createWorld`).
  */
-export async function buildArena(engine: Engine, core?: (scene: Scene) => PhysicsWorld): Promise<Arena> {
-  if (!core) await loadSkeletonAssets().catch(error => console.warn("Skeleton bones fall back to primitives:", error));
+export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => PhysicsWorld): Promise<Arena> {
   const scene = new Scene(engine);
-  if (!core) await loadWorkshopAssets(scene);
   scene.clearColor = new Color4(0.055, 0.062, 0.078, 1);
   scene.ambientColor = new Color3(0.14, 0.15, 0.18);
 
-  // Physics first. Every PhysicsAggregate below needs a live engine on the
-  // scene, and building one before it exists fails with the singularly
-  // unhelpful "No Physics Engine available".
-  const physics = core?.(scene);
-  if (!physics) {
-    attachPhysics(scene, await HavokPhysics({ locateFile: () => havokWasmUrl }));
-
-    // A fixed physics timestep, accumulated across frames. Babylon reads this in
-    // Scene._advancePhysicsEngineStep and steps the solver a whole number of times
-    // per frame, so the solver never sees a variable delta. The value is in
-    // milliseconds. Without it the sword shivers in the hand.
-    scene.getPhysicsEngine()?.setSubTimeStep(1000 / CONFIG.world.physicsHz);
-  }
+  // Physics first: the room's solids go into it as they are built.
+  const physics = physicsFor(scene);
 
   const camera = new FreeCamera("camera", new Vector3(0, 2, -4), scene);
-  camera.fov = CONFIG.camera.fov;
+  // Vertical field of view, rad: the old arena's.
+  camera.fov = 0.95;
   camera.minZ = 0.05;
   camera.maxZ = 220;
 
@@ -170,7 +141,7 @@ export async function buildArena(engine: Engine, core?: (scene: Scene) => Physic
     arrowAccent: plainSurface(
       scene,
       "arrow-accent",
-      new Color3(CONFIG.arrow.visual.emissive.r, CONFIG.arrow.visual.emissive.g, CONFIG.arrow.visual.emissive.b),
+      new Color3(1.0, 0.46, 0.08),
       0.0,
       1.0,
     ),
@@ -181,10 +152,10 @@ export async function buildArena(engine: Engine, core?: (scene: Scene) => Physic
   // The invisible authoritative slab and fourteen post colliders retain their
   // session-09 dimensions. The visible floor and room dressing are a separate
   // owner with no body, so art can be removed without changing the solver.
-  const world = buildArenaWorld(scene, materials, {
+  const world = buildArenaWorld(scene, physics, materials, {
     add: (mesh) => shadows.addShadowCaster(mesh),
     remove: (mesh) => shadows.removeShadowCaster(mesh),
-  }, undefined, physics);
+  });
 
   paveForge(scene, forge.kit, forge.materials.pavement, forge.materials.lava);
   dressForgeRoom(scene, forge);

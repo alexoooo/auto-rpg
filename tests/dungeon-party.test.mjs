@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { companionSpawn, DungeonRun } from "../src/dungeon/run.ts";
-import { asOrders, orderLabel } from "../src/dungeon/commands.ts";
+import { orderLabel } from "../src/dungeon/commands.ts";
 import { clearSegment, distance, walkable } from "../src/dungeon/map.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { freshEngine } from "./harness/core-stand.mjs";
@@ -31,14 +31,8 @@ function floorAway(map, metres, bearing = 0) {
   throw new Error("no floor");
 }
 
-test("a_dungeon_order_reads_as_the_arena_s_orders", () => {
+test("a_dungeon_order_reads_as_its_label", () => {
   // Every kind, so a missing or swapped case fails, and `never` makes a new kind a compile error.
-  assert.equal(asOrders({ kind: "idle" }), null);
-  assert.deepEqual(asOrders({ kind: "lock", target: "enemy-3" }), { target: "enemy-3", destination: null });
-  assert.deepEqual(asOrders({ kind: "attack-move", destination: { x: 4, z: 5 } }), { target: { x: 4, z: 5 }, destination: null });
-  assert.deepEqual(asOrders({ kind: "force", points: [{ x: 1, z: 2 }, { x: 6, z: 7 }], drawing: false }),
-    { target: null, destination: { x: 6, z: 7 } });
-  assert.equal(asOrders({ kind: "force", points: [], drawing: true }), null);
   assert.equal(orderLabel({ kind: "idle" }, null, true), "standing");
   assert.equal(orderLabel({ kind: "idle" }, null, false), "with you");
   assert.equal(orderLabel({ kind: "idle" }, { x: 1, z: 1 }, false), "holding");

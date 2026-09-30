@@ -1,8 +1,6 @@
 import { defineConfig } from "vite";
-import { ratingFingerprintPlugin } from "./research/vite-plugin.mjs";
 
 export default defineConfig({
-  plugins: [ratingFingerprintPlugin()],
   // strictPort matters more than it looks. Without it Vite silently moves to
   // 5181 when 5180 is taken -- usually by an earlier dev server nobody noticed
   // was still alive -- and you end up reading a stale build while editing a live
@@ -14,9 +12,9 @@ export default defineConfig({
     watch: { ignored: ["**/research/runs/**", "**/.review/**"] },
     // Transform the browser entry graphs at server startup, before navigation
     // has to discover and wait on each level of their imports.
-    warmup: { clientFiles: ["./src/app.ts", "./src/main.ts", "./src/dungeon/main.ts", "./src/bench/main.ts", "./src/art-proof/main.ts"] },
+    warmup: { clientFiles: ["./src/app.ts", "./src/arena/main.ts", "./src/dungeon/main.ts", "./src/core-lab/main.ts"] },
   },
-  // Havok ships a .wasm beside its ESM bundle; Vite must not try to inline it.
+  // MuJoCo ships its .wasm beside its ESM bundle; Vite must not try to inline it.
   assetsInclude: ["**/*.wasm"],
   // MuJoCo's threaded build starts its pthreads as module workers of its own ES module (top-level
   // await included), which the default `iife` worker format cannot bundle. No other page makes a worker.
@@ -27,10 +25,9 @@ export default defineConfig({
     // Both entries have to be named. Vite's default is `index.html` alone, so a second page builds
     // fine in dev -- where every request is served from source -- and is simply absent from
     // `dist`, which is the failure that looks like a routing problem and is a config one.
-    // `bench.html` is the golem effector bench.
     // `physics-bench.html` is the physics bake-off (`research/physics-bakeoff/REPORT.md`).
     // `dungeon.html` and `core-lab.html` only forward to `./?play=dungeon` and `./?play=lab`; they
     // are kept so old links do not 404.
-    rollupOptions: { input: { index: "index.html", bench: "bench.html", artProof: "art-proof.html", dungeon: "dungeon.html", characterLab: "character-lab.html", coreLab: "core-lab.html", physicsBench: "physics-bench.html" } },
+    rollupOptions: { input: { index: "index.html", dungeon: "dungeon.html", characterLab: "character-lab.html", coreLab: "core-lab.html", physicsBench: "physics-bench.html" } },
   },
 });

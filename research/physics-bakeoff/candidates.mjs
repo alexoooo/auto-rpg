@@ -11,13 +11,6 @@ import { scaling } from "../../src/physics-bench/cases.ts";
 const FEET = (k) => ({ "foot.left": k, "foot.right": k });
 /** The settings that passed both cases at the `today` bar (`fidelity.mjs`), cheapest first by case A's cost. */
 const CANDIDATES = {
-  havok: [
-    [{ substeps: 12, damping: "default" }, FEET(300)],
-    [{ substeps: 16, damping: "default" }, FEET(300)],
-    [{ substeps: 32, damping: "default" }, FEET(100)],
-    // Today, which fails case A: for the record.
-    [{ substeps: 1, damping: "default" }, FEET(100)],
-  ],
   mujoco: [
     [{ substeps: 2, timeconst: 0.03 }],
     [{ substeps: 2, cone: "elliptic" }],

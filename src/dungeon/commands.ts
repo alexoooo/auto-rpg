@@ -1,5 +1,3 @@
-import { NEUTRAL, type Intent } from "../mind.ts";
-import type { Orders } from "../orders.ts";
 import { distance, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
 
@@ -8,53 +6,22 @@ export type Order = { kind: "idle" } | { kind: "attack-move"; destination: Point
   | { kind: "lock"; target: string } | { kind: "force"; points: Point[]; drawing: boolean };
 export const mouseOrdersEnabled = (mode: ControlMode): boolean => !mode.keyboard && !mode.facing;
 
-/**
- * A dungeon order in the arena's vocabulary (`Orders` in `src/orders.ts`). A lock fights a body; the
- * dungeon's attack-move is the arena's too, a point to fight toward; a drawn route is a destination
- * that ignores who is in the way, named by its last point. The dungeon walks each by its own path
- * finder rather than by `OrderFollower`, whose straight line would walk into a wall.
- */
-export function asOrders(order: Order): Orders | null {
+/** One line for a party member's row: what it was told, or what it does untold. */
+export function orderLabel(order: Order, post: Point | null, hero: boolean): string {
   switch (order.kind) {
-    case "idle": return null;
-    case "lock": return { target: order.target, destination: null };
-    case "attack-move": return { target: { x: order.destination.x, z: order.destination.z }, destination: null };
-    case "force": {
-      const last = order.points[order.points.length - 1];
-      return last ? { target: null, destination: { x: last.x, z: last.z } } : null;
-    }
-    default: { const unknown: never = order; throw new Error(`No orders for ${JSON.stringify(unknown)}`); }
+    case "idle": return post ? "holding" : hero ? "standing" : "with you";
+    case "lock": return "fighting";
+    case "attack-move": return "attack-moving";
+    case "force": return order.points.length ? "force-moving" : post ? "holding" : hero ? "standing" : "with you";
+    default: { const unknown: never = order; throw new Error(`No label for ${JSON.stringify(unknown)}`); }
   }
 }
-
-/** One line for a party member's row: what it was told, read through `asOrders`, or what it does untold. */
-export function orderLabel(order: Order, post: Point | null, hero: boolean): string {
-  const orders = asOrders(order);
-  if (orders === null) return post ? "holding" : hero ? "standing" : "with you";
-  if (typeof orders.target === "string") return "fighting";
-  return orders.target ? "attack-moving" : "force-moving";
-}
-export const wrapAngle = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
-export const neutralIntent = (): Intent => ({ ...NEUTRAL, primary: { ...NEUTRAL.primary }, secondary: { ...NEUTRAL.secondary },
-  natural: { ...NEUTRAL.natural }, posture: { ...NEUTRAL.posture } });
 
 /** Keys on the screen's axes as a step on the ground, for a camera standing `toward` of the hero: screen up is
  * `-toward`, away from the camera, and screen right is `(-toward.z, toward.x)`. At `CAMERA_AZIMUTH` they are +z and +x. */
 export function screenMovement(right: number, up: number, toward: Point = cameraToward(CAMERA_AZIMUTH)): Point {
   const norm = Math.max(1, Math.hypot(right, up));
   return { x: (-right * toward.z - up * toward.x) / norm, z: (right * toward.x - up * toward.z) / norm };
-}
-
-export function composeIntent(base: Intent, facing: number, move: Point | null, look: Point | null): Intent {
-  const result = { ...base, primary: { ...base.primary }, secondary: { ...base.secondary },
-    natural: { ...base.natural }, posture: { ...base.posture } };
-  if (move) {
-    result.forward = Math.max(-1, Math.min(1, move.x * Math.sin(facing) + move.z * Math.cos(facing)));
-    result.strafe = Math.max(-1, Math.min(1, move.x * Math.cos(facing) - move.z * Math.sin(facing)));
-  }
-  if (look && Math.hypot(look.x, look.z) > 0.08)
-    result.turn = Math.max(-1, Math.min(1, wrapAngle(Math.atan2(look.x, look.z) - facing) * 2));
-  return result;
 }
 
 /** Pointer state lives outside the DOM so cancellation and click/drag arbitration are testable. */

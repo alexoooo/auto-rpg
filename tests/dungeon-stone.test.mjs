@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
-import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
+import { headlessScene } from "./harness/scene.mjs";
 import registry from "../src/textures.json" with { type: "json" };
 import { surfaceMetresPerRepeat, TEXTURED_SURFACES } from "../src/materials.ts";
 import { dungeonStone, stoneQuery } from "../src/dungeon/stone.ts";
@@ -42,7 +42,7 @@ test("stone_is_the_default_and_flat_is_the_control", () => {
 });
 
 test("a_textured_world_spans_its_maps_meets_edge_to_edge_and_varies_only_stone", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const arena = headlessScene();
   try {
     const map = generateLevel(1).map;
     for (const [floor, wall] of [["stone", "stone"], ["stone", "flat"], ["flat", "stone"]]) {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
+import { headlessScene } from "./harness/scene.mjs";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { MASONRY, blockQuads, masonry, masonryQuads } from "../src/dungeon/masonry.ts";
 import { WALL_HEIGHT, boundary, wallSurface } from "../src/dungeon/fog.ts";
@@ -201,7 +201,7 @@ test("the_masonry_keeps_to_its_triangle_budget_and_the_stone_rule_can_tell_its_f
 });
 
 test("walls_draw_in_blocks_over_dark_mortar_and_masonry_zero_is_the_flat_skin", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const arena = headlessScene();
   try {
     const map = levels.get(2);
     const count = (world, kind) => world.surfaces.filter(m => m.name.startsWith("wall.visual"))
@@ -242,7 +242,7 @@ function vertices(mesh) {
 }
 
 test("a_door_leaf_is_drawn_inside_its_collider_and_goes_when_the_door_opens", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const arena = headlessScene();
   try {
     const map = generateLevel(3).map, world = buildDungeonWorld(arena.scene, map, true);
     assert.ok(map.doors.length > 1, "a level with doors");
@@ -255,7 +255,7 @@ test("a_door_leaf_is_drawn_inside_its_collider_and_goes_when_the_door_opens", as
       assert.ok(Math.min(...half) < 0.2 && Math.max(...half) === 1.5, `door ${door.id}'s collider is a leaf across its opening`);
       let across = 0;
       for (const mesh of leaf) {
-        assert.ok(mesh.isVisible && !mesh.physicsBody, `${mesh.name} is hidden or has a body`);
+        assert.ok(mesh.isVisible, `${mesh.name} is hidden`);
         for (const [x, y, z] of vertices(mesh)) {
           assert.ok(Math.abs(x - door.point.x) <= half[0] + 1e-6 && Math.abs(z - door.point.z) <= half[1] + 1e-6 && y >= -1e-6 && y <= top + 1e-6,
             `${mesh.name} leaves its collider at (${x}, ${y}, ${z})`);
@@ -278,7 +278,7 @@ test("a_door_leaf_is_drawn_inside_its_collider_and_goes_when_the_door_opens", as
 });
 
 test("a_sconce_is_set_into_the_wall_under_its_flame_and_is_fogged", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const arena = headlessScene();
   try {
     for (const seed of [1, 4]) {
       const map = levels.get(seed), world = buildDungeonWorld(arena.scene, map, true), torches = torchPlacements(map, seed);

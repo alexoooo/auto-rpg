@@ -1,13 +1,8 @@
-import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
-import { ASSET_ROOT, loadTemplates, proofMaterials, type ProofManifest } from "./art-proof/assets.ts";
-import { forgeAppearance } from "./forge-models.ts";
-import { installGolemAppearance } from "./golem/appearance.ts";
-import type { GolemMaterialPalette } from "./golem/materials.ts";
-import { attachGolemProceduralSurface } from "./golem/procedural-surface.ts";
+import { loadTemplates, proofMaterials } from "./forge-assets.ts";
 // These materials are always on screen. Register their shaders with the initial
 // module graph instead of discovering a second import waterfall on first render.
 import "@babylonjs/core/Shaders/pbr.vertex.js";
@@ -15,24 +10,9 @@ import "@babylonjs/core/Shaders/pbr.fragment.js";
 import "@babylonjs/core/Shaders/default.vertex.js";
 import "@babylonjs/core/Shaders/default.fragment.js";
 
-/** Copy maps onto the game's own materials, preserving their live damage/wear plugins. */
-function surface(target: PBRMaterial, source: PBRMaterial): void {
-  target.albedoTexture = source.albedoTexture;
-  target.bumpTexture = source.bumpTexture;
-  target.metallicTexture = source.metallicTexture;
-  target.albedoColor.copyFrom(source.albedoColor);
-  target.emissiveColor.copyFrom(source.emissiveColor);
-  target.metallic = source.metallic;
-  target.roughness = source.roughness;
-  target.useRoughnessFromMetallicTextureAlpha = false;
-  target.useRoughnessFromMetallicTextureGreen = true;
-  target.useMetallnessFromMetallicTextureBlue = true;
-  target.useAmbientOcclusionFromMetallicTextureRed = source.useAmbientOcclusionFromMetallicTextureRed;
-  target.maxSimultaneousLights = 4;
-}
-
+/** The forge's look: its kit of models (`forge-kit.glb`) and its materials. */
 export async function loadForgeStyle(scene: Scene) {
-  // Match the proof's render budget. High-DPI displays otherwise silently quadruple the
+  // Hold the render budget at a 1920x1080 viewport. High-DPI displays otherwise silently quadruple the
   // shaded pixels (3840×2160 for a 1920×1080 CSS viewport), including every post-process.
   const engine = scene.getEngine();
   // Decode image maps to bitmaps before upload. HTMLImageElement uploads forced
@@ -47,27 +27,8 @@ export async function loadForgeStyle(scene: Scene) {
   resize();
   window.addEventListener("resize", resize);
   scene.onDisposeObservable.addOnce(() => window.removeEventListener("resize", resize));
-  const [templates, kit, materials, response] = await Promise.all([
-    loadTemplates(scene, "golem.glb"), loadTemplates(scene, "forge-kit.glb"), proofMaterials(scene),
-    fetch(ASSET_ROOT + "manifest.json"),
-  ]);
-  if (!response.ok) throw new Error(`Forge manifest: ${response.status}`);
-  const manifest = await response.json() as ProofManifest;
-  const configured = new WeakSet<GolemMaterialPalette>();
-  const configure = (palette: GolemMaterialPalette) => {
-    if (configured.has(palette)) return;
-    surface(palette.carvedStone, materials.stone);
-    if (palette.faction === "right") palette.carvedStone.albedoColor = Color3.FromHexString("#a9bfd3").toLinearSpace();
-    surface(palette.functionalMetal, materials.bronze);
-    surface(palette.golemWood, materials.wood);
-    surface(palette.rune, materials.rune);
-    if (palette.faction === "right") palette.rune.emissiveColor.set(.06, 1.4, 3);
-    configured.add(palette);
-  };
-  materials.steel.metadata = { golemSurfaceFamily: "functionalMetal" };
-  attachGolemProceduralSurface(materials.steel, "bronze", "procedural-pbr");
-  installGolemAppearance(scene, forgeAppearance(templates, manifest, configure, materials.steel));
-  return { materials, kit, configure };
+  const [kit, materials] = await Promise.all([loadTemplates(scene, "forge-kit.glb"), proofMaterials(scene)]);
+  return { materials, kit };
 }
 export type ForgeStyle = Awaited<ReturnType<typeof loadForgeStyle>>;
 

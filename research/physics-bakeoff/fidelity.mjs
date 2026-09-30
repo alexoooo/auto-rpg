@@ -3,8 +3,11 @@
  * `src/physics-bench/cases.ts` over a grid of each engine's settings, judged against
  * `thresholds.mjs`. Node, one engine a process, the shared controller at 120 Hz.
  *
- *     node research/physics-bakeoff/fidelity.mjs reference       # the fine references and Havok today
- *     node research/physics-bakeoff/fidelity.mjs havok|mujoco|rapier|rapier-simd
+ *     node research/physics-bakeoff/fidelity.mjs reference       # the fine references
+ *     node research/physics-bakeoff/fidelity.mjs mujoco|rapier|rapier-simd
+ *
+ * Havok went with the old path on 2026-09-30 (docs/plans/2026-09-30-old-path-removal.md); its runs' results stay in results/ and REPORT.md.
+ * A reference run keeps the recorded "Havok today" row of reference.json.
  *
  * Writes research/physics-bakeoff/results/fidelity-<engine>.json and prints one line a run.
  */
@@ -22,9 +25,6 @@ function grid(engine) {
   const runs = [];
   const both = (s, cond = [1]) => { for (const c of cond) runs.push(["A", s, c]); runs.push(["B", s]); };
   switch (engine) {
-    case "havok":
-      for (const substeps of [1, 2, 4, 6, 8, 12, 16, 24, 32]) for (const damping of ["default", "zero"]) both({ hz: HZ, substeps, damping }, [1, 30, 100, 300, 1000]);
-      break;
     case "mujoco":
       for (const substeps of [1, 2, 4]) {
         for (const solver of ["Newton", "CG", "PGS"]) for (const iterations of [1, 2, 4, 10, 100]) {
@@ -56,21 +56,19 @@ const which = process.argv[2];
 if (which === "reference") {
   // The references: every engine at 16 sub-steps (1920 Hz); MuJoCo's is the reference elbow series.
   const results = {};
-  for (const name of ["mujoco", "rapier", "havok"]) {
+  for (const name of ["mujoco", "rapier"]) {
     const e = await load(name);
     const s = { hz: HZ, substeps: 16 };
     results[name] = { A: standingFoot(e.factory, s), B: forearmChain(e.factory, s) };
     console.log(line(results[name].A)); console.log(line(results[name].B));
   }
   const ref = results.mujoco.B.elbow;
-  for (const name of ["rapier", "havok"]) console.log(`${name} 1920 Hz elbow deviation from MuJoCo 1920 Hz: ${fmt(deviation(results[name].B.elbow, ref, HZ))} rad`);
-  // Havok today: 120 Hz, one step, Havok's default damping; foot x100 for case A.
-  const hv = await load("havok");
-  const today = { hz: HZ, substeps: 1, damping: "default" };
-  const a = standingFoot(hv.factory, today, 100), b = forearmChain(hv.factory, today);
-  console.log("Havok today:", line(a)); console.log("Havok today:", line(b), `deviation=${fmt(deviation(b.elbow, ref, HZ))}`);
-  await writeFile(new URL("reference.json", out), JSON.stringify({ settings: REFERENCE, elbow: ref, results: Object.fromEntries(Object.entries(results).map(([k, v]) => [k, { A: v.A, B: { ...v.B, elbow: undefined } }])),
-    today: { A: a, B: { ...b, elbow: undefined, deviation: deviation(b.elbow, ref, HZ) } } }, null, 1));
+  for (const name of ["rapier"]) console.log(`${name} 1920 Hz elbow deviation from MuJoCo 1920 Hz: ${fmt(deviation(results[name].B.elbow, ref, HZ))} rad`);
+  // Havok today (120 Hz, one step, default damping, foot x100) was measured with Havok; its row is kept as recorded.
+  const recorded = JSON.parse(await readFile(new URL("reference.json", out), "utf8"));
+  await writeFile(new URL("reference.json", out), JSON.stringify({ settings: REFERENCE, elbow: ref, results: {
+    ...recorded.results, ...Object.fromEntries(Object.entries(results).map(([k, v]) => [k, { A: v.A, B: { ...v.B, elbow: undefined } }])) },
+    today: recorded.today }, null, 1));
 } else {
   const ref = JSON.parse(await readFile(new URL("reference.json", out), "utf8")).elbow;
   const e = await load(which);

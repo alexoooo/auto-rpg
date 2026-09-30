@@ -14,6 +14,7 @@ import { dressSkeleton, loadSkeletonArt, type SkeletonArt } from "../core-lab/sk
 import { drawBody, drawHeld, type BodyView } from "../core-lab/view.ts";
 import { Duel, SIDES, type Side, type Verdict } from "./duel.ts";
 import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readMatchup, type Matchup } from "./matchup.ts";
+import { ORBIT, orbitPosition } from "./orbit.ts";
 
 /**
  * **The arena page on the core**: the arena's scene with its solids in a core world (`buildArena`),
@@ -28,8 +29,6 @@ import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readMatchup, type Matchup }
 const CATCH_UP_SECONDS = 0.1;
 /** The body's colour when its skin did not load, and it is drawn as its shapes. */
 const SHAPES_TINT = Color3.FromHexString("#b9a58a");
-/** The orbit camera: its bearing and elevation, rad, and its distance, m, with the distance's limits. */
-const ORBIT = { azimuth: 0, pitch: 0.32, distance: 7, nearest: 2.5, farthest: 16, lowest: 0.05, highest: 1.35 } as const;
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -176,8 +175,7 @@ export async function bootArena(): Promise<void> {
       const a = duel.duelists.left.body.view.stance.centre, b = duel.duelists.right.body.view.stance.centre;
       target.set((a.x + b.x) / 2, 1, (a.z + b.z) / 2);
     }
-    const along = Math.cos(pitch) * distance;
-    camera.position.set(target.x - Math.sin(azimuth) * along, target.y + Math.sin(pitch) * distance, target.z - Math.cos(azimuth) * along);
+    camera.position.set(...orbitPosition(target, azimuth, pitch, distance));
     camera.setTarget(target);
     audio.setView({ x: camera.position.x, z: camera.position.z }, { x: Math.sin(azimuth), z: Math.cos(azimuth) });
     arena.updateRoomOcclusion(duel ? SIDES.map((side) => ({ point: duel!.duelists[side].body.view.head })) : []);

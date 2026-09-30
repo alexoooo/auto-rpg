@@ -10,6 +10,11 @@ and the tactics v2-v4 minds retired in the 2026-09-27 cleanup (tag `pre-next-pha
 The lesson in such an entry still holds; the file and function names in it may not exist. Figures
 name the harness they were taken in, because page and Node readings are not comparable (H60).
 
+On 2026-09-30 the rest of the old path went too: the stone golem, its minds, walking and scoring,
+the module bench, the art proof and Havok (`docs/plans/2026-09-30-old-path-removal.md`, step 5;
+commit 77a0cd77 holds them). The game now runs on the core (`src/core/`) and Rapier. Entries about
+Havok describe an engine the game no longer uses; `AGENTS.md` keeps the lessons that carry over.
+
 ## The repository before 2026-09-18
 
 Until 2026-09-18 the repository held a Rust client and crates, a separate warrior prototype, and

@@ -26,5 +26,5 @@ __pycache__/
 # Scratch review output.
 .review/
 
-# Resumable AI runs contain per-bout records; compact published evidence is in research/results.
+# Resumable research runs.
 /research/runs/

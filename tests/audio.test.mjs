@@ -1,29 +1,27 @@
 import test from 'node:test';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { impactCue, ImpactInbox, soundPlacement } from '../src/audio-cues.ts';
+import { blowCue, ImpactInbox, soundPlacement } from '../src/audio-cues.ts';
 import { GameAudio } from '../src/game-audio.ts';
-import { createBout, freshHavok } from './harness/bout-runner.mjs';
-const event = (patch = {}, extra = {}) => ({ blocked: false, ...extra, report: { energyJ: 15, speed: 4, solverImpulse: 1, point: { x: 1, z: 2 }, key: 'head', targetId: 'enemy', severed: false, ...patch } });
+// A core blow (`LandedBlow`) of 15 J from the hero to the enemy's head.
+const blow = (patch = {}) => ({ time: 1, attacker: 'hero', target: 'enemy', striker: 'club', part: 'head', point: [1, 1.6, 2], normal: [0, 0, 1],
+  closing: 4, strikerKg: 1, struckKg: 5, energy: 15, damage: 3, clash: false, wound: { taken: [{ part: 'head', hp: 3 }], severed: [], lost: 0, spent: 3, ending: null }, ...patch });
 
-test('audio classifies real report distinctions without mutating reports', () => {
-  const hit = event(); const before = structuredClone(hit);
-  assert.equal(impactCue(hit, 'hero', 'golem').kind, 'stone');
-  assert.equal(impactCue(hit, 'hero', 'skeleton').kind, 'bone');
-  assert.equal(impactCue(hit, 'hero', 'human').kind, 'body');
-  assert.equal(impactCue(event({}, { guarded: true }), 'hero', 'human').kind, 'metal');
-  for (const key of ['block:shield','block:buckler'])
-    assert.equal(impactCue(event({key,energyJ:0,damage:0},{blocked:true}),'hero','golem').kind,'shield');
-  const blocked = impactCue(event({ energyJ: 0, damage: 0 }, { blocked: true }), 'hero', 'golem');
-  assert.equal(blocked.kind, 'metal'); assert.ok(blocked.strength > 0);
-  assert.equal(impactCue(event({ key: 'block:empty' }, { blocked: true }), 'hero', 'human').kind, 'body');
-  assert.equal(impactCue(event({ severed: true }), 'hero', 'golem').severed, true);
-  assert.equal(impactCue(event({ energyJ: 0, speed: 0, solverImpulse: 0 }), 'hero', 'golem'), null);
+test('a blow sounds as the surface it struck, a clash as wood on wood, and a graze not at all', () => {
+  const hit = blow(); const before = structuredClone(hit);
+  assert.deepEqual(blowCue(hit, 'bone'), { key: 'hero:enemy', kind: 'bone', strength: .5, severed: false, point: { x: 1, z: 2 } });
+  assert.equal(blowCue(hit, 'body').kind, 'body');
+  assert.equal(blowCue(blow({ clash: true, damage: 0, wound: null }), 'body').kind, 'shield');
+  assert.equal(blowCue(blow({ wound: { ...hit.wound, severed: ['head'] } }), 'body').severed, true);
+  assert.equal(blowCue(blow({ energy: 240 }), 'body').strength, 1);
+  // Just under and just over the quietest cue.
+  assert.equal(blowCue(blow({ energy: 60 * .034 ** 2 }), 'body'), null);
+  assert.ok(blowCue(blow({ energy: 60 * .036 ** 2 }), 'body'));
+  assert.equal(blowCue(blow({ energy: 0 }), 'body'), null);
   assert.deepEqual(hit, before);
 });
 test('impact windows retain the strongest, distinguish attackers, bound bursts and drop stale events', () => {
-  const inbox = new ImpactInbox(), cue = impactCue(event(), 'a', 'golem');
+  const inbox = new ImpactInbox(), cue = blowCue(blow(), 'stone');
   inbox.add(cue, 0); inbox.add({ ...cue, strength: .9 }, 30); inbox.add({ ...cue, strength: .1 }, 40);
   inbox.add({ ...cue, key: 'b' }, 0);
   assert.deepEqual(inbox.drain(59), []);
@@ -39,30 +37,13 @@ test('camera bearings reverse sound pan and distant dungeon events are silent', 
   assert.equal(soundPlacement(p, origin, {x:0,z:-1}, false).pan, .5);
   assert.equal(soundPlacement({x:18,z:0}, origin, {x:0,z:1}, true).gain, 0);
 });
-function trace(hash, bodies) {
-  for(const body of bodies) for(const limb of body.limbs) {
-    const p=limb.part.mesh.position, q=limb.part.mesh.rotationQuaternion;
-    hash.update(JSON.stringify([p.x,p.y,p.z,q.x,q.y,q.z,q.w,limb.health,limb.severed]));
-  }
-}
-test("sound interpretation leaves a real bout's trajectory identical", async () => {
-  let reports = 0;
-  async function bout(withAudio) {
-    const hash=createHash('sha256'); const inbox=new ImpactInbox();
-    const run=createBout({ left:'golem-duelist',right:'golem-duelist',seeds:[7,11],maxSeconds:4, locomotionMode:'supported', physics:await freshHavok(),
-      onSample: ({left,right}) => trace(hash,[left,right]),
-      onEvent: withAudio ? e => { reports++; const c=impactCue(e,e.side,'golem');if(c) inbox.add(c,e.report.at*1000); inbox.drain(e.report.at*1000); } : null });
-    try { for(let i=0;i<240;i++) run.step(); return hash.digest('hex'); } finally {run.dispose();}
-  }
-  assert.equal(await bout(false),await bout(true)); assert.ok(reports>0,'the bout must actually exercise audio reports');
-});
 test('browser audio voice limit and reset discard pending sounds and stop all sources', () => {
   // Exercise the resource owner without creating a browser or an audio device.
   const audio=Object.create(GameAudio.prototype); let stops=0;
   audio.listener={x:0,z:0};audio.toward={x:0,z:1};audio.dungeon=false;
   const voice=()=>({source:{stop(){stops++;}},gain:{gain:{cancelScheduledValues(){},setTargetAtTime(){}}}});
   audio.voices=new Set(Array.from({length:12},voice));audio.ambience=[voice(),voice()];audio.context={currentTime:0};audio.inbox=new ImpactInbox();
-  const cue=impactCue(event(),'hero','golem');audio.inbox.add(cue,0);
+  const cue=blowCue(blow(),'stone');audio.inbox.add(cue,0);
   audio.play=()=>assert.fail('voice cap must refuse a thirteenth source');audio.impact(cue);
   audio.reset();assert.equal(stops,14);assert.equal(audio.voices.size,0);assert.deepEqual(audio.ambience,[]);assert.deepEqual(audio.inbox.drain(100),[]);
 });
@@ -90,7 +71,7 @@ test('audio copies Babylon vector coordinates before positioning arena and dunge
     audio.setView(listener,toward);
     listener.x=999; toward.z=-1; // The audio view is a snapshot, not a reference.
     const played=[]; audio.play=(kind,gain,pan)=>played.push({kind,gain,pan});
-    audio.impact({...impactCue(event(),'hero','golem'), point:{x:15,z:20}});
+    audio.impact({...blowCue(blow(),'stone'), point:{x:15,z:20}});
     assert.deepEqual(played,[{kind:'stone',gain:(.08+.5*.5)*(dungeon?(1-5/18)**2:1),pan:-.5}]);
   }
 });

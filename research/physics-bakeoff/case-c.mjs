@@ -18,7 +18,6 @@ const rows = [
   { engine: "mujoco", tag: "mujoco-16 x100", settings: { hz: 120, substeps: 16 }, conditioning: FEET(100) },
   { engine: "rapier", tag: "rapier-16", settings: { hz: 120, substeps: 16 } },
   { engine: "rapier", tag: "rapier-16 x100", settings: { hz: 120, substeps: 16 }, conditioning: FEET(100) },
-  { engine: "havok", tag: "havok-16 x300", settings: { hz: 120, substeps: 16, damping: "default" }, conditioning: FEET(300) },
 ];
 const engines = new Map();
 const out = [];

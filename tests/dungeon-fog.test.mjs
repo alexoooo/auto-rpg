@@ -2,7 +2,7 @@ import {revealScenery} from "../src/dungeon/scenery-visibility.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHeadlessArena } from "./harness/golem-headless-arena.mjs";
+import { headlessScene } from "./harness/scene.mjs";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { CUT_AWAY, FOG, WALL_HEIGHT, boundary, cutAway, doorCells, fogMask, fogSample, validateDungeonVisuals, wallSurface, SIDE_FACES } from "../src/dungeon/fog.ts";
@@ -233,7 +233,7 @@ test("a_dungeon_flame_is_the_forge_flame_times_its_fade_and_tint", () => {
 
 test("each_flame_is_drawn_with_its_own_fade", async () => {
   // One material draws every flame, so a fade set on the material would be one fade for all of them.
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false }), scene = arena.scene;
+  const arena = headlessScene(), scene = arena.scene;
   try {
     const camera = new FreeCamera("probe", new Vector3(0, 0, -10), scene); camera.setTarget(Vector3.Zero());
     const look = flameMaterial(scene), fades = { a: 0.2, b: 0.9, whole: undefined };
@@ -292,7 +292,7 @@ test("the_lantern_the_sky_and_the_flames_turn_with_the_camera", async () => {
   const map = levels.get(1), torches = torchPlacements(map, 1), { behind, height } = DUNGEON_LOOK.lantern;
   const viewed = new Map();
   for (const azimuth of [...AZIMUTHS, 1]) {
-    const arena = await createHeadlessArena({ populateDefaultGeometry: false }), where = `azimuth ${azimuth}`;
+    const arena = headlessScene(), where = `azimuth ${azimuth}`;
     try {
       const toward = cameraToward(azimuth), camera = new FreeCamera("probe", Vector3.Zero(), arena.scene);
       // The hero stands where the first torch's flame is over the body toward the camera: the heart of the cut-away.
@@ -345,7 +345,7 @@ test("the_cut_away_shader_is_cutAway_and_is_handed_the_pitch", async () => {
     `${f(CUT_AWAY.up)}))))
   * smoothstep(0.0, ${f(CUT_AWAY.ahead)}, dungeonAlong) * smoothstep(${f(CUT_AWAY.foot[0])}, ${f(CUT_AWAY.foot[1])}, vPositionW.y);`,
     "dungeonBayer4(gl_FragCoord.xy) < dungeonCut) discard"]) assert.ok(source.includes(piece), `the shader no longer reads ${piece}`);
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false }), map = levels.get(1);
+  const arena = headlessScene(), map = levels.get(1);
   try {
     const fog = dungeonFog(arena.scene, map), plugin = fog.attach(new PBRMaterial("probe", arena.scene), "wall");
     const uniforms = plugin.getUniforms();
@@ -392,7 +392,7 @@ test("validateDungeonVisuals_refuses_a_quad_off_the_colliders_and_a_quad_drawn_t
 });
 
 test("a_visual_world_draws_few_meshes_and_every_one_is_fogged", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const arena = headlessScene();
   try {
     const map = generateLevel(1).map, world = buildDungeonWorld(arena.scene, map, true);
     const colliders = world.solids.filter(s => !s.name.startsWith("door."));
@@ -417,7 +417,7 @@ test("a_visual_world_draws_few_meshes_and_every_one_is_fogged", async () => {
 });
 
 test("presenting_a_run_writes_its_fog_mask_and_no_body_is_fogged", async () => {
-  const arena = await createHeadlessArena({ populateDefaultGeometry: false });
+  const arena = headlessScene();
   // A stand-in skin for each body as it is built, as the page dresses one: the fog is the level's, never a body's.
   const run = new DungeonRun(arena.scene, { seed: 3, engine: await freshEngine(), visuals: true, onBuilt: actor => {
     const skin = MeshBuilder.CreateBox(`${actor.id}.skin`, { size: 0.3 }, arena.scene);

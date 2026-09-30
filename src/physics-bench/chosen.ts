@@ -11,9 +11,12 @@ import type { Settings } from "./engines/types.ts";
  * MuJoCo resets the whole world (BADQVEL), with or without control. `mujoco-pile` is the cheapest
  * setting found that passes both cases and holds piles of 16, 32 and 64: rotor inertia on every
  * hinge (`armature`, solver conditioning) and 4 sub-steps (`research/physics-bakeoff/mujoco-armature.mjs`).
+ *
+ * Havok's rows (passing both at 12 sub-steps, 1440 Hz, feet x300; at 120 Hz failing case A) went with
+ * Havok on 2026-09-30 (`docs/plans/2026-09-30-old-path-removal.md`); the bake-off's report keeps them.
  */
 export interface Chosen {
-  readonly engine: "havok" | "mujoco" | "mujoco-mt" | "rapier" | "rapier-simd";
+  readonly engine: "mujoco" | "mujoco-mt" | "rapier" | "rapier-simd";
   readonly tag: string;
   readonly settings: Settings;
   readonly conditioning?: Readonly<Record<string, number>>;
@@ -28,8 +31,6 @@ export const CHOSEN: readonly Chosen[] = [
   { engine: "mujoco", tag: "mujoco-pile", settings: { hz: 120, substeps: 4, armature: 0.001 }, conditioning: FEET(100), note: "passes both and holds the pile; armature 0.001 kg m2" },
   { engine: "rapier", tag: "rapier", settings: { hz: 120, substeps: 1, iterations: 16, pgs: 2 }, conditioning: FEET(100), note: "passes both; feet x100" },
   { engine: "rapier-simd", tag: "rapier-simd", settings: { hz: 120, substeps: 1, iterations: 16, pgs: 2 }, conditioning: FEET(100), note: "passes both; feet x100" },
-  { engine: "havok", tag: "havok", settings: { hz: 120, substeps: 12, damping: "default" }, conditioning: FEET(300), note: "passes both; 1440 Hz, feet x300" },
-  { engine: "havok", tag: "havok-today", settings: { hz: 120, substeps: 1, damping: "default" }, conditioning: FEET(100), note: "today; fails case A" },
 ];
 
 /**

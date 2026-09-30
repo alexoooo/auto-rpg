@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
@@ -11,15 +10,9 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
-import HavokPhysics from "@babylonjs/havok";
 
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 
-import { CONFIG } from "../src/config.ts";
-import { CAMERA_ZOOM_NOTCHES, orbitFraming, slewCameraZoom } from "../src/camera.ts";
-import { blankIntent } from "../src/policies.ts";
-import { BoutRecorder } from "../src/recorder.ts";
-import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { ROOM_METRES, TEXTURED_SURFACES } from "../src/materials.ts";
 import {
   ROOM,
@@ -27,14 +20,14 @@ import {
   buildArenaColliders,
   buildArenaWorld,
   buildCosmeticRoom,
+  isCollider,
   refreshShadowCasters,
   validateRoomPlacements,
   validateVisualColliderPairs,
 } from "../src/arena-room.ts";
 import { createWorld } from "../src/core/world.ts";
+import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
-
-const havokWasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 
 const makeMaterial = (scene, name, colour) => {
   const material = new StandardMaterial(name, scene);
@@ -58,143 +51,56 @@ const makeMaterials = (scene) => {
   };
 };
 
+// A core world whose physics counts the fixed colliders standing in it: the arena adds nothing else.
 const setup = async () => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(havokWasm) }));
-  return { engine, scene, materials: makeMaterials(scene) };
+  const core = createWorld(scene, await freshEngine());
+  let live = 0;
+  const counted = (collider) => {
+    live += 1;
+    let gone = false;
+    return { dispose: () => { if (!gone) { gone = true; live -= 1; } collider.dispose(); } };
+  };
+  const physics = Object.create(core.physics, {
+    addFixedBox: { value: (...args) => counted(core.physics.addFixedBox(...args)) },
+    addFixedShape: { value: (...args) => counted(core.physics.addFixedShape(...args)) },
+  });
+  scene.onDisposeObservable.add(() => core.dispose());
+  return { engine, scene, physics, bodies: () => live, materials: makeMaterials(scene) };
 };
-
-const bodies = (scene) => scene.getPhysicsEngine().getBodies().length;
 const rounded = (values) => values.map((value) => Math.round(value * 1e6) / 1e6);
 
-test("restart_resets_both_engagement_records_to_a_fresh_bout", async () => {
-  const source = await readFile(new URL("../src/main.ts", import.meta.url), "utf8");
-  const build = source.slice(source.indexOf("const buildBout"), source.indexOf("let bout = buildBout"));
-  const rebuild = source.slice(source.indexOf("const rebuild"), source.indexOf("const handOver"));
-  assert.match(build, /const recorder = new BoutRecorder\(\)/);
-  assert.match(build, /wireBoutRecorder\(recorder, left, right\)/,
-    "the page attaches both bodies to the shared intent adapter");
-  assert.match(build, /combatRecorder\(recorder, "left",/,
-    "the page records left-side combat through the shared adapter");
-  assert.match(build, /combatRecorder\(recorder, "right",/,
-    "the page records right-side combat through the shared adapter");
-  assert.match(build, /return \{ left, right, sides, recorder,/);
-  assert.match(rebuild, /bout = buildBout\(state\.matchup\)/,
-    "restart replaces the recorder with the rest of the bout");
-  // The ordered gate rows and the human-facing table went with `src/learning/gates.ts` on
-  // 2026-09-04. The instrument itself is salvaged to `src/engagement.ts` and the console
-  // handle still reads the same per-side record the bench does.
-  assert.match(source, /left: bout\.recorder\.records\.left, right: bout\.recorder\.records\.right/,
-    "the console handle exposes both sides' raw engagement record");
-  assert.match(source, /sampleBoutRecorder\(bout\.recorder, bout\.left, bout\.right, FIXED_STEP, clock\)/,
-    "the page samples both published views at the shared control boundary");
-
-  let bout = { recorder: new BoutRecorder() };
-  const previous = bout.recorder;
-  previous.records.left.engagement.viableOpportunities = 7;
-  previous.records.right.engagement.attacksInWindow = 3;
-  bout = { recorder: new BoutRecorder() };
-  assert.notStrictEqual(bout.recorder, previous);
-  assert.deepEqual(bout.recorder.engagement, {
-    left: { viableOpportunities: 0, attacksInWindow: 0, damagingContactsInWindow: 0,
-      firstAttackSeconds: null, nearRangeStallSeconds: 0, longestProgressDroughtSeconds: 0,
-      radialClosingMetres: 0, tangentialTravelMetres: 0, accumulatedBearingRadians: 0,
-      retreatOutsideReachSeconds: 0 },
-    right: { viableOpportunities: 0, attacksInWindow: 0, damagingContactsInWindow: 0,
-      firstAttackSeconds: null, nearRangeStallSeconds: 0, longestProgressDroughtSeconds: 0,
-      radialClosingMetres: 0, tangentialTravelMetres: 0, accumulatedBearingRadians: 0,
-      retreatOutsideReachSeconds: 0 },
-  });
-});
-
-/**
- * The wheel, end to end, and the thing it is not allowed to touch.
- *
- * `Controls` itself cannot be loaded here -- it is the DOM side of the tree and
- * its imports carry no `.ts` extensions, which is exactly why the wheel had no
- * test at all before session 15. So the two halves it wires are tested where they
- * now live: `slewCameraZoom` is the whole of what `Controls.sample` does with
- * `zoomNotches`, and `orbitFraming` is the whole of what `main.ts` does with the
- * result. What is left in either caller is one call with no arithmetic in it.
- *
- * Both clamps, because a limit reached from one side is not a limit: the notch
- * envelope has to be wide enough to *arrive* at `zoomMin` and `zoomMax`, and a
- * `CAMERA_ZOOM_NOTCHES` too small for the configured band would leave one end of
- * `config.ts` unreachable with nothing to say so.
- */
-test("wheel_zoom_reaches_both_limits_without_mutating_the_human_intent", () => {
-  const C = CONFIG.camera;
-  const gesture = { mode: "none", pointerId: null, yaw: 0, pitch: 0, panX: 0, panZ: 0, zoom: 1 };
-  const settle = (notches) => {
-    for (let frame = 0; frame < 600; frame += 1) slewCameraZoom(gesture, notches, 1 / 60, C);
-    return gesture.zoom;
-  };
-
-  // One frame of the wheel wound fully out is on the way, not there: the target
-  // is approached at `zoomResponse` rather than jumped to.
-  const oneFrame = slewCameraZoom(gesture, CAMERA_ZOOM_NOTCHES, 1 / 60, C);
-  assert.ok(oneFrame > 1 && oneFrame < C.zoomMax, `one frame of smoothing landed at ${oneFrame}`);
-
-  assert.ok(Math.abs(settle(CAMERA_ZOOM_NOTCHES) - C.zoomMax) < 1e-9, `far limit ${gesture.zoom}`);
-  const far = orbitFraming(gesture, C.fixed.distance, C.fixed.height);
-  assert.ok(Math.abs(far.distance - C.fixed.distance * C.zoomMax) < 1e-9, `far distance ${far.distance}`);
-  assert.ok(Math.abs(far.height - C.fixed.height * C.zoomMax) < 1e-9, `far height ${far.height}`);
-
-  assert.ok(Math.abs(settle(-CAMERA_ZOOM_NOTCHES) - C.zoomMin) < 1e-9, `near limit ${gesture.zoom}`);
-  const near = orbitFraming(gesture, C.overhead.distance, C.overhead.height);
-  assert.ok(Math.abs(near.distance - C.overhead.distance * C.zoomMin) < 1e-9, `near distance ${near.distance}`);
-  assert.ok(Math.abs(near.height - C.overhead.height * C.zoomMin) < 1e-9, `near height ${near.height}`);
-
-  // An orbit drag tilts the sight line, and the zoom still scales the whole of
-  // it -- this is the formula `main.ts` frames every shot with, in one place.
-  gesture.pitch = 0.4;
-  const tilted = orbitFraming(gesture, C.fixed.distance, C.fixed.height);
-  assert.ok(Math.abs(tilted.distance - C.fixed.distance * Math.cos(0.4) * C.zoomMin) < 1e-9);
-  assert.ok(Math.abs(tilted.height
-    - (C.fixed.height + Math.sin(0.4) * C.fixed.distance) * C.zoomMin) < 1e-9);
-
-  // And the thing the wheel must never reach: the command every mind owns
-  // carries no camera state.
-  const intent = blankIntent();
-  assert.equal("zoom" in intent, false);
-});
-
 test("cosmetic_room_dressing_creates_no_physics_body", async (t) => {
-  const { engine, scene, materials } = await setup();
+  const { engine, scene, physics, bodies, materials } = await setup();
   t.after(() => engine.dispose());
-  const colliders = buildArenaColliders(scene, materials);
-  assert.equal(bodies(scene), 19, "ground, fourteen posts and four outer walls are the whole world");
+  const colliders = buildArenaColliders(scene, physics, materials);
+  assert.equal(bodies(), 19, "ground, fourteen posts and four outer walls are the whole world");
   const ground = scene.getMeshByName("ground");
   assert.deepEqual(rounded(ground.getBoundingInfo().boundingBox.minimum.asArray()), [-30, -0.5, -30]);
   assert.deepEqual(rounded(ground.getBoundingInfo().boundingBox.maximum.asArray()), [30, 0.5, 30]);
   assert.deepEqual(rounded(ground.position.asArray()), [0, -0.5, 0]);
   for (let index = 0; index < 14; index += 1) {
     const post = scene.getMeshByName(`post${index}`);
-    const shape = post.physicsBody.shape;
     const angle = index / 14 * Math.PI * 2;
     assert.deepEqual(rounded(post.position.asArray()), rounded([
       Math.sin(angle) * 9.5, 0.75, Math.cos(angle) * 9.5,
     ]));
     assert.deepEqual(rounded(post.getBoundingInfo().boundingBox.minimum.asArray()), [-0.085, -0.75, -0.085]);
     assert.deepEqual(rounded(post.getBoundingInfo().boundingBox.maximum.asArray()), [0.085, 0.75, 0.085]);
-    assert.equal(post.physicsBody.getMassProperties().mass, 0);
-    assert.equal(shape.filterMembershipMask, LAYER.WORLD);
-    assert.equal(shape.filterCollideMask, COLLIDES.WORLD);
+    assert.ok(isCollider(post), `${post.name} stands for its collider`);
   }
   for (const side of ["north", "south", "east", "west"]) {
     const visual = scene.getMeshByName(`room.wall.${side}`);
     const collider = scene.getMeshByName(`room.wall.${side}.collider`);
-    assert.equal(collider.physicsBody.getMassProperties().mass, 0);
-    assert.equal(collider.physicsBody.shape.filterMembershipMask, LAYER.WORLD);
-    assert.equal(collider.physicsBody.shape.filterCollideMask, COLLIDES.WORLD);
+    assert.ok(isCollider(collider), `${collider.name} stands for its collider`);
     if (visual) assert.fail("cosmetic room should not exist before its own build");
   }
-  const before = bodies(scene);
+  const before = bodies();
   const room = buildCosmeticRoom(scene, materials);
-  assert.equal(bodies(scene), before, "floor, walls, beams, banners, racks and debris add no body");
+  assert.equal(bodies(), before, "floor, walls, beams, banners, racks and debris add no body");
   room.dispose();
-  assert.equal(bodies(scene), before, "cosmetic disposal cannot disturb authoritative bodies");
+  assert.equal(bodies(), before, "cosmetic disposal cannot disturb authoritative bodies");
   colliders.dispose();
 });
 
@@ -202,8 +108,7 @@ test("the_arena_room_stands_on_a_core_world_whose_colliders_stand_behind_its_pai
   const engine = new NullEngine(), scene = new Scene(engine);
   t.after(() => engine.dispose());
   const core = createWorld(scene, await freshEngine());
-  const world = buildArenaWorld(scene, makeMaterials(scene), undefined, undefined, core.physics);
-  assert.equal(scene.getPhysicsEngine(), null, "no Havok on the scene");
+  const world = buildArenaWorld(scene, core.physics, makeMaterials(scene));
   const pairs = world.audit().visualColliderPairs;
   assert.ok(pairs.length > 0);
   assert.deepEqual(validateVisualColliderPairs(scene, pairs), [], "each pair names a mesh a core collider stands behind");
@@ -225,9 +130,9 @@ test("every_reachable_solid_visual_names_an_existing_collider", async (t) => {
   beam.position = [beam.position[0], 2, beam.position[2]];
   assert.match(validateRoomPlacements(lowered).join("\n"), /room\.beam\.n1 is an opaque solid below reach clearance/);
 
-  const { engine, scene, materials } = await setup();
+  const { engine, scene, physics, bodies, materials } = await setup();
   t.after(() => engine.dispose());
-  const world = buildArenaWorld(scene, materials);
+  const world = buildArenaWorld(scene, physics, materials);
   assert.deepEqual(validateVisualColliderPairs(scene, world.audit().visualColliderPairs), []);
   assert.match(validateVisualColliderPairs(scene, [{ visual: "room.floor", collider: "missing" }]).join("\n"), /missing collider/);
   assert.match(
@@ -244,7 +149,7 @@ test("every_reachable_solid_visual_names_an_existing_collider", async (t) => {
   pairedRack.solid = true;
   pairedRack.collider = "post0";
   assert.throws(
-    () => buildArenaWorld(scene, materials, undefined, dishonestPair),
+    () => buildArenaWorld(scene, physics, materials, undefined, dishonestPair),
     /room\.rack\.ne does not geometrically overlap collider post0/,
     "a collider declaration is emitted automatically and validated on the ordinary build path",
   );
@@ -268,17 +173,15 @@ test("every_reachable_solid_visual_names_an_existing_collider", async (t) => {
 });
 
 test("the_four_room_walls_are_world_colliders_aligned_with_their_visuals", async (t) => {
-  const { engine, scene, materials } = await setup();
+  const { engine, scene, physics, bodies, materials } = await setup();
   t.after(() => engine.dispose());
-  const world = buildArenaWorld(scene, materials);
+  const world = buildArenaWorld(scene, physics, materials);
   const pairs = ROOM_GROUPS.find((group) => group.role === "wall").placements;
   assert.equal(pairs.length, 4);
   for (const placement of pairs) {
     const visual = scene.getMeshByName(placement.name);
     const collider = scene.getMeshByName(placement.collider);
-    assert.ok(visual && collider?.physicsBody, `${placement.name}: visual and authority both exist`);
-    assert.equal(collider.physicsBody.shape.filterMembershipMask, LAYER.WORLD);
-    assert.equal(collider.physicsBody.shape.filterCollideMask, COLLIDES.WORLD);
+    assert.ok(visual && collider && isCollider(collider), `${placement.name}: visual and authority both exist`);
     assert.deepEqual(validateVisualColliderPairs(scene, [{
       visual: placement.name, collider: placement.collider,
     }]), []);
@@ -329,9 +232,9 @@ const segmentIntersectsPlacement = (from, to, placement) => {
 };
 
 test("room_instances_share_materials_and_textures", async (t) => {
-  const { engine, scene, materials } = await setup();
+  const { engine, scene, physics, bodies, materials } = await setup();
   t.after(() => engine.dispose());
-  const world = buildArenaWorld(scene, materials);
+  const world = buildArenaWorld(scene, physics, materials);
   const audit = world.audit();
   assert.equal(Object.isFrozen(audit), true, "the stable audit view is caller-read-only");
   assert.throws(() => { audit.meshes = 0; }, TypeError);
@@ -359,13 +262,6 @@ test("room_instances_share_materials_and_textures", async (t) => {
     assert.ok(Math.abs(density - 1 / ROOM.floorMetresPerRepeat) < 1e-5, "floor metre scale");
   }
 
-  const luminance = ([r, g, b]) => r * 0.2126 + g * 0.7152 + b * 0.0722;
-  const arrow = CONFIG.arrow.visual.emissive;
-  assert.ok(luminance([arrow.r, arrow.g, arrow.b]) > Math.max(
-    ...[TEXTURED_SURFACES.ground, TEXTURED_SURFACES.roomWall, TEXTURED_SURFACES.roomTimber, TEXTURED_SURFACES.roomBanner]
-      .map((surface) => luminance(surface.albedo)),
-  ), "unlit arrow accent remains the brightest declared moving mark");
-
   const walls = ROOM_GROUPS.find((group) => group.role === "wall").placements;
   assert.ok(walls.every((placement) => !placement.solid), "translucent scrims never advertise collision");
   assert.ok(materials.wall.alpha <= 0.25, "the wall fallback remains visibly translucent");
@@ -380,20 +276,13 @@ test("room_instances_share_materials_and_textures", async (t) => {
     "an overhead beam crossing a protected fighter/arrow ray is actually culled",
   );
   let culledBeamReadings = 1;
-  for (const mode of ["overhead", "fixed"]) {
-    const preset = CONFIG.camera[mode];
-    const bearings = mode === "fixed"
-      ? Array.from({ length: 8 }, (_, index) => CONFIG.camera.fixedBearing + index * CONFIG.camera.bearingStep)
-      : Array.from({ length: 8 }, (_, index) => index * Math.PI / 4);
-    for (const zoom of [CONFIG.camera.zoomMin, CONFIG.camera.zoomMax]) {
+  // The page's orbit camera at both ends of its elevation and distance, on eight bearings.
+  for (const pitch of [ORBIT.lowest, ORBIT.pitch, ORBIT.highest]) {
+    for (const distance of [ORBIT.nearest, ORBIT.farthest]) {
       for (const focusX of [-25, -15, 0, 15, 25]) {
         for (const focusZ of [-25, -15, 0, 15, 25]) {
-          for (const bearing of bearings) {
-            const camera = [
-              focusX - Math.sin(bearing) * preset.distance * zoom,
-              preset.height * zoom,
-              focusZ - Math.cos(bearing) * preset.distance * zoom,
-            ];
+          for (const bearing of Array.from({ length: 8 }, (_, index) => index * Math.PI / 4)) {
+            const camera = orbitPosition({ x: focusX, y: 1, z: focusZ }, bearing, pitch, distance);
             // These stand for actual live body centres and projectile points,
             // including an opponent and arrow well outside the old +/-2 m stencil.
             const targets = [
@@ -412,7 +301,7 @@ test("room_instances_share_materials_and_textures", async (t) => {
               if (!mesh.isVisible) culledBeamReadings += 1;
               else {
                 visibleBeamReadings += 1;
-                assert.equal(intersects, false, `${mode}/${zoom}/${focusX},${focusZ}/${bearing}: visible beam clears combat rays`);
+                assert.equal(intersects, false, `${pitch}/${distance}/${focusX},${focusZ}/${bearing}: visible beam clears combat rays`);
               }
             }
           }
@@ -439,7 +328,7 @@ test("room_instances_share_materials_and_textures", async (t) => {
 });
 
 test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => {
-  const { engine, scene, materials } = await setup();
+  const { engine, scene, physics, bodies, materials } = await setup();
   t.after(() => engine.dispose());
   const light = new DirectionalLight("proof.sun", new Vector3(-1, -2, 1), scene);
   const shadowGenerator = new ShadowGenerator(256, light);
@@ -451,10 +340,10 @@ test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => 
   };
   const shadowBaseline = shadowGenerator.getShadowMap().renderList.length;
   const baseline = {
-    meshes: scene.meshes.length, bodies: bodies(scene), materials: scene.materials.length, textures: scene.textures.length,
+    meshes: scene.meshes.length, bodies: bodies(), materials: scene.materials.length, textures: scene.textures.length,
   };
   for (let cycle = 0; cycle < 10; cycle += 1) {
-    const world = buildArenaWorld(scene, materials, shadowRegistry);
+    const world = buildArenaWorld(scene, physics, materials, shadowRegistry);
     const audit = world.audit();
     assert.deepEqual({
       meshes: audit.meshes, bodies: audit.bodies, instances: audit.instances,
@@ -480,17 +369,17 @@ test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => 
     world.updateOcclusion(new Vector3(-5, 8, 10), [{ point: Vector3.Zero() }]);
     assert.equal(beam.isVisible, true, "the beam is revealed after its ray clears");
     assert.ok(shadowGenerator.getShadowMap().renderList.includes(beam), "reveal does not leave the beam shadowless");
-    const beforeAudit = [scene.meshes.length, scene.materials.length, scene.textures.length, bodies(scene)];
+    const beforeAudit = [scene.meshes.length, scene.materials.length, scene.textures.length, bodies()];
     for (let reading = 0; reading < 20; reading += 1) assert.strictEqual(world.audit(), audit);
     assert.deepEqual(
-      [scene.meshes.length, scene.materials.length, scene.textures.length, bodies(scene)], beforeAudit,
+      [scene.meshes.length, scene.materials.length, scene.textures.length, bodies()], beforeAudit,
       "the console audit creates no scene resource",
     );
     world.dispose();
     assert.equal(shadowRemoves, (cycle + 1) * 22, "each owned caster is explicitly unregistered exactly once");
     assert.equal(shadowGenerator.getShadowMap().renderList.length, shadowBaseline, "disposed room leaves no shadow caster");
     assert.deepEqual({
-      meshes: scene.meshes.length, bodies: bodies(scene), materials: scene.materials.length, textures: scene.textures.length,
+      meshes: scene.meshes.length, bodies: bodies(), materials: scene.materials.length, textures: scene.textures.length,
     }, baseline, `cycle ${cycle + 1}`);
   }
   shadowGenerator.dispose();

@@ -46,8 +46,12 @@ function json(file) {
   return files.get(file);
 }
 
-/** A record that looks like a repository path must exist. */
+/**
+ * A record that looks like a repository path must exist, unless it names the commit that holds it
+ * (`path@commit`, a file since deleted; a shallow clone cannot read it back, so its shape is all that is checked).
+ */
 const recordExists = (record) => !/^(docs|src|tests|research|scripts|assets)\//.test(record)
+  || /^[^@#]+@[0-9a-f]{8,40}$/.test(record)
   || fs.existsSync(path.join(ROOT, record.split("#")[0]));
 
 /** Every way `spec` breaks the provenance rule, as readable lines; empty when it keeps it. */

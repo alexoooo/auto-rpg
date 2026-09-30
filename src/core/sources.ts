@@ -5,7 +5,8 @@
  *
  * - `literature`: a published measurement, cited so it can be found.
  * - `decision`: the owner's choice, with the date and the record that holds it. A design target is
- *   a decision, not a measurement, and is said to be one.
+ *   a decision, not a measurement, and is said to be one. A record since deleted is named with the
+ *   commit that still has it, `path@commit`.
  * - `asset`: a file in this repository; `where` is a JSON pointer into it.
  * - `measurement`: a number measured from an asset or a run, with how and where the table is.
  */
@@ -263,7 +264,7 @@ export const SOURCES = Object.freeze({
       + "is the game's wooden club: a 0.45 m haft of 18 mm radius and a 0.25 m swell of 40 mm radius, in ash. "
       + "Its dimensions were set by the session that made it, as a real club's rather than a tuning, and have "
       + "stood in the game since.",
-    record: "src/golem/config.ts",
+    record: "src/golem/config.ts@77a0cd77",
   },
   "owner-weapon-ratios": {
     kind: "decision", date: "2026-09-27",
@@ -272,7 +273,7 @@ export const SOURCES = Object.freeze({
       + "wound: an edge 197.96 (cutJoulesPerDamage), an axe's edge 147.45 (chopJoulesPerDamage), blunt 1134.99 "
       + "(crushJoulesPerDamage), in CONFIG.combat; a point 34 (PROJECTILE_PENETRATION_V1.joulesPerDamage in "
       + "src/scoring.ts).",
-    record: "src/config.ts",
+    record: "src/config.ts@77a0cd77",
   },
   "core-club-unit": {
     kind: "measurement",

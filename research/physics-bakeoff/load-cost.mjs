@@ -18,7 +18,6 @@ const nm = (p) => fileURLToPath(new URL(`../../node_modules/${p}`, import.meta.u
 
 /** What a page fetches for each engine: the files its browser build loads. */
 const FILES = {
-  havok: ["@babylonjs/havok/lib/esm/HavokPhysics_es.js", "@babylonjs/havok/lib/esm/HavokPhysics.wasm"],
   mujoco: ["@mujoco/mujoco/mujoco.js", "@mujoco/mujoco/mujoco.wasm"],
   "mujoco-mt": ["@mujoco/mujoco/mt/mujoco.js", "@mujoco/mujoco/mt/mujoco.wasm"],
   // The compat builds inline the wasm as base64 in the JS; the non-compat package ships the .wasm.
@@ -89,7 +88,7 @@ if (process.argv[2] === "--one") {
     if (s.missing) console.log(`${name}: missing ${s.missing}`);
     else console.log(`${name}: raw ${mb(s.raw)} MB, gzip ${mb(s.gzip)} MB, brotli ${mb(s.brotli)} MB`);
   }
-  for (const engine of ["havok", "mujoco", "mujoco-mt", "rapier", "rapier-simd"]) {
+  for (const engine of ["mujoco", "mujoco-mt", "rapier", "rapier-simd"]) {
     const runs = [0, 1, 2].map(() => JSON.parse(execFileSync(process.execPath, [fileURLToPath(import.meta.url), "--one", engine], { cwd: here, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).split("\n").filter((l) => l.startsWith("{")).pop()));
     const pick = (k) => (runs[0][k] === null ? null : median(runs.map((r) => r[k])));
     const row = Object.fromEntries(Object.keys(runs[0]).map((k) => [k, pick(k)]));

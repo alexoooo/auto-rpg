@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {companionSpawn} from '../src/dungeon/party-placement.ts';
 import {CRYPT_PAVING,generateCryptRoom} from '../src/dungeon/crypt-room.ts';
 import {walkable,findPath} from '../src/dungeon/map.ts';
-import {createHeadlessArena} from './harness/golem-headless-arena.mjs';
+import { headlessScene } from './harness/scene.mjs';
 import {buildDungeonWorld} from '../src/dungeon/world.ts';
 
 const manifest=JSON.parse(readFileSync(new URL('../assets/crypt-kit/manifest.json',import.meta.url)));
@@ -76,7 +76,7 @@ test('crypt kit has baked origins, valid normals, colours and a bounded tomb',()
 });
 
 test('generated crypt doors open and decorative surfaces add no physics bodies',async()=>{
-  const arena=await createHeadlessArena({populateDefaultGeometry:false});
+  const arena=headlessScene();
   try{
     const counts=[];
     for(const visuals of [false,true]){
