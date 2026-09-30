@@ -1072,6 +1072,15 @@ where Havok's blow on Rapier read 27.6-45.9 J (Node core stand, the torque stanc
 
 The lab's Blow scenario throws it first and Havok's blow second, to compare by eye.
 
+The other five blows at 960 Hz on the 20, 30 and 40 m ground, J: seed 1 88.93, 89.22, 88.82; seed
+2 38.40, 38.41, 38.79; seed 3 92.43, 92.76, 92.61; from seed 3 105.61, 105.57, 105.89; **from seed
+1 105.94, 97.85, 97.56**. One blow in six was fitted to the search's float state, 8 % above its
+reading in any other; its eight replayed trials spread 102-111 J, where the unit's spread 135-140,
+so the trials see some of it but score the strike as written in the state it was found in. The
+search now reads every best on the three grounds (`noise` in its output), and `--grounds 20,30,40,25`
+stands each trial on its own ground, so no trial is scored in that one state (not yet run on a
+full search).
+
 **What does not hold, and why.**
 - **A velocity motor under its ceiling holds only as far as the solver converges.** Rapier solves
   joints and contacts by iteration; a motor asked for a speed it has the strength to hold leaves a

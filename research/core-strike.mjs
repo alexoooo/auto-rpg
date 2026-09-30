@@ -116,14 +116,14 @@ export function perturbed(strike, { shift = 0, scale = 1 }) {
  * Returns the forward speed at the target (0 if the fist never arrives), when it arrived after the
  * chamber, and the fist's peak speed before it.
  */
-export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", guard = false, perturbation, ...given }) {
+export async function evaluateStrike({ model = "workshop-fighter", unit, hz = 120, hand = "right", guard = false, perturbation, groundSize, ...given }) {
   const spec = humanSpec(model);
   const decoded = unit ? decode(unit, spec, hand, guard) : given;
   const strike = perturbation ? perturbed(decoded.strike, perturbation) : decoded.strike, distance = decoded.distance;
   const chamber = strike.chamber ?? { seconds: 0 };
   const radius = spec.segments.find((s) => s.name === "head").shape.radius.value;
   const forward = new Vector3(0, 0, 1);
-  const stand = await coreStand(spec, { ground: true, hz });
+  const stand = await coreStand(spec, { ground: true, groundSize, hz });
   const blow = throwBlow(stand.built, stand.world, strike);
   const fist = blow.body.view.fists[hand], head = stand.built.segments.get("head");
   // `given.centre` places the sphere anywhere, for a control; a search places it straight ahead of
