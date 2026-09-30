@@ -1,17 +1,18 @@
 import { playHref } from "../app-route.ts";
+import { CHARACTERS } from "../character-lab/catalog.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
- * (`setup.ts`); `?play=lab&scenario=…&model=…&hz=…&camera=…&projection=…` runs that scenario
- * (`main.ts`), where the character, the rate and the camera are chosen. Choosing a scenario, or going back to the menu, is a
- * navigation, as every change of screen in the game is.
+ * (`setup.ts`); `?play=lab&scenario=…` runs that scenario (`main.ts`), where the loadout, the
+ * rate and the camera are chosen, and the address keeps them. Choosing a scenario, or going back to
+ * the menu, is a navigation, as every change of screen in the game is.
  *
  * Pure and free of the DOM, so `tests/core-lab-scenarios.test.mjs` can argue with it; the menu
  * reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "routine";
+export type ScenarioId = "stance" | "routine" | "run";
 
 export interface ScenarioInfo {
   readonly id: ScenarioId;
@@ -23,12 +24,39 @@ export interface ScenarioInfo {
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, shove it from the panel." },
   { id: "routine", name: "Routine", line: "It walks out, strikes three times, turns and walks back." },
+  { id: "run", name: "Run", line: "It goes round a track as fast as its walk holds: a big circle, or straight back and forth." },
 ];
 
 export const MODELS: readonly { readonly id: WorkshopModel; readonly name: string }[] = [
   { id: "workshop-fighter", name: "Warrior" },
   { id: "workshop-rogue", name: "Rogue" },
 ];
+
+/**
+ * What a hand may hold: nothing, or the wooden club (`woodenClub`, `src/core/items/club.ts`),
+ * which becomes one rigid body with the hand. The core has no two-handed grip yet.
+ */
+export const LAB_HELD = ["empty", "club"] as const;
+export type LabHeld = (typeof LAB_HELD)[number];
+
+/**
+ * The character workshop's own entry for each model, whose default loadout says whether it wears
+ * boots and armour: the Warrior armoured, the Rogue not.
+ */
+const WORKSHOP = { "workshop-fighter": CHARACTERS.fighter, "workshop-rogue": CHARACTERS.rogue } as const;
+
+/**
+ * **A loadout**: the body, what each hand holds, and what it wears. The body and the hands are
+ * physical: they make the spec (`loadout.ts`). Boots and armour are the skin's meshes alone; the
+ * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
+ */
+export interface LabLoadout {
+  readonly model: WorkshopModel;
+  readonly right: LabHeld;
+  readonly left: LabHeld;
+  readonly boots: boolean;
+  readonly armour: boolean;
+}
 
 /**
  * The physics and control rates on offer, Hz: the game's (`PHYSICS_HZ`, which the test pins
@@ -44,23 +72,31 @@ export type LabCamera = (typeof LAB_CAMERAS)[number];
 export const LAB_PROJECTIONS = ["orthographic", "perspective"] as const;
 export type LabProjection = (typeof LAB_PROJECTIONS)[number];
 
-export interface LabAddress {
+export interface LabAddress extends LabLoadout {
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
-  readonly model: WorkshopModel;
   readonly hz: LabRate;
   readonly camera: LabCamera;
   readonly projection: LabProjection;
 }
 
-const KEYS = ["scenario", "model", "hz", "camera", "projection"] as const;
+const KEYS = ["scenario", "model", "right", "left", "boots", "armour", "hz", "camera", "projection"] as const;
+
+/** A switch in the address: `1` on, `0` off, anything else `fallback`. */
+const flag = (value: string | null, fallback: boolean): boolean => value === "1" ? true : value === "0" ? false : fallback;
 
 /** Read the lab's address; anything missing or unknown is the default. */
 export function labAddress(search: string): LabAddress {
   const query = new URLSearchParams(search);
+  const model = MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id;
+  const worn = WORKSHOP[model].defaults;
   return {
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
-    model: MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id,
+    model,
+    right: LAB_HELD.find((h) => h === query.get("right")) ?? LAB_HELD[0],
+    left: LAB_HELD.find((h) => h === query.get("left")) ?? LAB_HELD[0],
+    boots: flag(query.get("boots"), worn.boots),
+    armour: flag(query.get("armour"), worn.armour),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     camera: LAB_CAMERAS.find((c) => c === query.get("camera")) ?? LAB_CAMERAS[0],
     projection: LAB_PROJECTIONS.find((p) => p === query.get("projection")) ?? LAB_PROJECTIONS[0],
@@ -68,7 +104,7 @@ export function labAddress(search: string): LabAddress {
 }
 
 /**
- * The address of `address`, keeping whatever else `search` holds. The menu keeps the character,
+ * The address of `address`, keeping whatever else `search` holds. The menu keeps the loadout,
  * the rate and the camera, so going back to it and on to another scenario keeps them too.
  */
 export function labHref(address: LabAddress, search = ""): string {
@@ -76,6 +112,10 @@ export function labHref(address: LabAddress, search = ""): string {
   for (const key of KEYS) query.delete(key);
   if (address.scenario) query.set("scenario", address.scenario);
   query.set("model", address.model);
+  query.set("right", address.right);
+  query.set("left", address.left);
+  query.set("boots", address.boots ? "1" : "0");
+  query.set("armour", address.armour ? "1" : "0");
   query.set("hz", String(address.hz));
   query.set("camera", address.camera);
   query.set("projection", address.projection);

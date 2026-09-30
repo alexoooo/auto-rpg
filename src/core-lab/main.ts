@@ -11,26 +11,28 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { loadRapier } from "../core/engine/rapier.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
-import { humanSpec } from "../core/human/spec.ts";
 import { createWorld, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labCameraRig } from "./camera.ts";
-import type { LabScenario, ScenarioRun } from "./lab-scenario.ts";
+import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
+import { loadoutSpec } from "./loadout.ts";
 import { isPaused, type Playhead } from "./player.ts";
 import { routineScenario } from "./routine-scenario.ts";
-import { labHref, SCENARIOS, type LabAddress, type LabCamera, type LabProjection, type ScenarioId } from "./scenarios.ts";
+import { runScenario } from "./run-scenario.ts";
+import { labHref, SCENARIOS, type LabAddress, type LabCamera, type LabHeld, type LabProjection, type ScenarioId } from "./scenarios.ts";
 import { dressBody, loadSkin, type SkinView } from "./skin.ts";
 import { stanceScenario } from "./stance-scenario.ts";
-import { drawBody, type BodyView } from "./view.ts";
+import { drawBody, drawHeld, type BodyView } from "./view.ts";
 
 /**
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
  * scenario -- the Stance (`stance-scenario.ts`) or the Routine (`routine-scenario.ts`) -- owns
  * what it does to the body, its panel section and its marks; the shell owns the rest.
  *
- * The body is drawn in one of two views: World, the workshop model's skin (`skin.ts`), or
- * Tactical, the collision shapes themselves (`view.ts`), and followed by a Free, an Isometric or a
- * Chase camera (`camera.ts`).
+ * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. It is drawn in one
+ * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
+ * Tactical, the collision shapes themselves (`view.ts`); what a hand holds is drawn as its shapes
+ * in both. A Free, an Isometric or a Chase camera follows it (`camera.ts`).
  *
  * The world (`src/core/world.ts`) owns the clock, and the render only draws what its steps
  * produced. Loading a body or a new rate makes a new world, and starts the scenario on it anew.
@@ -49,9 +51,10 @@ const TINT: Readonly<Record<WorkshopModel, Color3>> = {
   "workshop-rogue": new Color3(0.5, 0.62, 0.55),
 };
 
-const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene) => LabScenario>> = {
+const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
   stance: stanceScenario,
   routine: routineScenario,
+  run: runScenario,
 };
 
 type ViewKind = "world" | "tactical";
@@ -109,7 +112,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
-  const scenario = SCENARIO[address.scenario](scene);
+  const scenario = SCENARIO[address.scenario](scene, { restart: () => load(shown) });
   const timeline = $("timeline") as HTMLInputElement;
   const clock = $("clock"), pauseButton = $("pause") as HTMLButtonElement;
   const back = $("to-scenarios") as HTMLAnchorElement;
@@ -118,7 +121,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   timeline.setAttribute("aria-label", scenario.timelineLabel);
 
   interface Loaded {
-    readonly built: BuiltBody; readonly view: BodyView; skin: SkinView | null; readonly run: ScenarioRun;
+    readonly built: BuiltBody; readonly view: BodyView; readonly held: BodyView; skin: SkinView | null; readonly run: ScenarioRun;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
   }
@@ -143,6 +146,20 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     }
   }
 
+  /** Show the loadout `shown` holds. */
+  function showLoadout(): void {
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
+      button.setAttribute("aria-pressed", String(button.dataset.model === shown.model));
+    }
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-held]")) {
+      const hand = button.dataset.hand as "right" | "left";
+      button.setAttribute("aria-pressed", String(button.dataset.held === shown[hand]));
+    }
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-wear]")) {
+      button.setAttribute("aria-pressed", String(shown[button.dataset.wear as "boots" | "armour"]));
+    }
+  }
+
   /** Keep `to` in the address, and in the way back to the menu. */
   function remember(to: LabAddress): void {
     shown = to;
@@ -162,34 +179,33 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     $("projection").hidden = shown.camera !== "isometric";
   }
 
-  /** Load `to`'s character at `to`'s rate, in a new world, and start the scenario on it. */
+  /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
   function load(to: LabAddress): void {
     if (current) {
       current.run.dispose();
       current.skin?.dispose();
       current.view.dispose();
+      current.held.dispose();
       current.built.dispose();
     }
     world?.dispose();
     remember(to);
     world = createWorld(scene, rapier, { hz: to.hz });
     world.physics.addGround([0, -0.5, 0], [40, 1, 40]);
-    const built = buildBody(humanSpec(to.model), world, { position: [0, 0, 0] });
+    const built = buildBody(loadoutSpec(to), world, { position: [0, 0, 0] });
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
-    const view = drawBody(built, scene, TINT[to.model]);
+    const view = drawBody(built, scene, TINT[to.model]), heldView = drawHeld(built, scene);
     // A new body starts live: nothing of the last one's recording is shown.
     const run = scenario.start({ scene, built, world, changed: showTransport, clock: () => performance.now() });
-    const loaded: Loaded = { built, view, skin: null, run, rest };
+    const loaded: Loaded = { built, view, held: heldView, skin: null, run, rest };
     current = loaded;
     showView();
     loadSkin(to.model, scene).then((container) => {
       if (current !== loaded) return;
-      loaded.skin = dressBody(built, container, scene, (hand) => run.closure(hand));
+      loaded.skin = dressBody(built, container, scene, shown, (hand) => run.closure(hand));
       showView();
     }, (error: unknown) => console.error(`${to.model}: the skin did not load`, error));
-    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
-      button.setAttribute("aria-pressed", String(button.dataset.model === to.model));
-    }
+    showLoadout();
     for (const button of document.querySelectorAll<HTMLButtonElement>("[data-hz]")) {
       button.setAttribute("aria-pressed", String(Number(button.dataset.hz) === to.hz));
     }
@@ -231,6 +247,22 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-model]")) {
     button.addEventListener("click", () => { load({ ...shown, model: button.dataset.model as WorkshopModel }); button.blur(); });
+  }
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-held]")) {
+    button.addEventListener("click", () => {
+      load({ ...shown, [button.dataset.hand as "right" | "left"]: button.dataset.held as LabHeld });
+      button.blur();
+    });
+  }
+  // Clothing is the skin's alone: it changes no body, so nothing is rebuilt.
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-wear]")) {
+    button.addEventListener("click", () => {
+      const part = button.dataset.wear as "boots" | "armour";
+      remember({ ...shown, [part]: !shown[part] });
+      current?.skin?.wear(shown);
+      showLoadout();
+      button.blur();
+    });
   }
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-view]")) {
     button.addEventListener("click", () => { shownView = button.dataset.view as ViewKind; showView(); button.blur(); });

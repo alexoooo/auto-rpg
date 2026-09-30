@@ -617,7 +617,22 @@ Havok's.
   a scenario menu. The Stance scenario (`src/core-lab/stance-mode.ts`, `tests/core-lab.test.mjs`): W A S D or the arrows walk the chosen human at 0.2-0.5 m/s, Q and E
   turn it while it walks, and the panel shoves its chest 10-60 N s four ways. The readout is the
   stance's own. On the ground are the centre of mass, the capture point and the held place. The
-  last 10 s can be scrubbed. The Routine scenario is stage 2's routine.
+  last 10 s can be scrubbed. The Routine scenario is stage 2's routine. In both, the panel's loadout
+  (`src/core-lab/loadout.ts`) puts the wooden club in either hand or both, and shows or hides the
+  model's boots and armour, which are its meshes alone. A hand holding the club closes on its haft
+  (`CLUB_GRIP`, `src/core-lab/club-grip.ts`, fitted on the skin by `scripts/core-lab/haft-fit.mjs`
+  and held to it by `tests/core-lab-grip.test.mjs`); the skin's fingers only, the core's grip is
+  unchanged. With a club in each hand, each human stands, walks and stops in the Stance
+  (`tests/core-lab-loadout.test.mjs`, Node stand, 120 Hz).
+  The Run scenario (`run-scenario.ts`, `run-mode.ts`) sends the body round a track (`track.ts`),
+  a 4 m circle or 6 m back and forth round 0.3 m half-turns, asking the stance for 0.5 m/s, its
+  fastest held walk, and the Routine's 0.3 m/s into a half-turn. Each human holds 30 s on either
+  track and goes 0.26-0.29 m/s along it (`tests/core-lab-run.test.mjs`, Node stand, 120 Hz); a
+  straight walk asked 0.3 or 0.5 m/s goes the same 0.25-0.29 m/s, so the walk's own pace, not the
+  track, sets the speed. On Rapier's stance a walk goes the pace asked, and by the same rule its
+  fastest held walk is 0.4 m/s (the Rogue held four of five walks at 0.5); asked 0.5, the Rogue fell
+  a quarter of the way round the circle. At 0.4 each human holds 70 s on either track at
+  0.36-0.37 m/s, and the shuttle's half-turns take 39.6 cm of the test's 40.
 - **Found in the lab:** a 30 N s shove from the rest stance holds (one catching step, each human),
   but after a walk and a stop the stance is the gait's 0.2 m width, and the same shove can fall.
   Asked for a lower centre of mass (8-16 cm), the stance stands about 1 cm lower, and walking from

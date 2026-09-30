@@ -1,0 +1,130 @@
+import { createBody, type BodyCommand, type CoreBody } from "../core/body.ts";
+import type { BuiltBody } from "../core/build/build-body.ts";
+import type { Pose } from "../core/control/motor.ts";
+import type { World } from "../core/world.ts";
+import { stanceLegs } from "./legs.ts";
+import { GUARD, SERVO_SECONDS, STEER, TURN_LEAD } from "./routine.ts";
+import { LAB_TURN_RATE } from "./stance-mode.ts";
+import type { Track } from "./track.ts";
+
+/**
+ * **The core lab's run mode**: a human on its own feet under the core stance, going round a
+ * `Track` as fast as the lab asks a walk to go, guard up. The core has no run gait: this is the
+ * stance's walk at its fastest.
+ *
+ * Each control step it finds itself on the track (`Track.nearest`, from where it last was), aims at
+ * the track's point `STEER.metres` ahead of that, and turns its heading toward the aim no faster
+ * than `LAB_TURN_RATE`, as the stance turns only while it walks. It turns not at all for its first
+ * `TURN_LEAD`: the Routine found that a turn begun over feet still planted for the walk's first
+ * weight shift fell. Its pace is `RUN_PACE`, but no faster than the turn rate carries it round the
+ * tightest bend of the next `STEER.metres`: on the shuttle's half-turns that is the Routine's
+ * `TURN_PACE`. The stance's own acceleration takes it from one pace to the other.
+ *
+ * This module has no page-only imports, so the Node stand can run it (`tests/core-lab-run.test.mjs`).
+ */
+
+/**
+ * The pace the run asks for, m/s: the fastest walk the stance held. Each human walked at 0.2, 0.3,
+ * 0.4, 0.5 and 0.7 m/s five ways (`research/core-stance-sweep.mjs`'s gait battery, Node stand,
+ * Rapier, 120 Hz), and every walk up to 0.4 m/s held: at 0.5 the Warrior held all five and the Rogue
+ * four, and at 0.7 three and none. A walk goes 0.93-0.94 of the pace asked. The lab's ceiling, not
+ * the body's. On Havok's stance the same rule gave 0.5, its walk going about 0.8 of the pace asked;
+ * asked 0.5 on Rapier's, the Rogue fell a quarter of the way round the circle.
+ */
+export const RUN_PACE = 0.4;
+
+/** What the page shows of a run, as the last control step left it. */
+export interface RunFrame {
+  readonly time: number;
+  /** The pelvis's heading, rad about up: 0 faces +z, and it grows to the right. */
+  readonly heading: number;
+  /** Where it is along the track, m from its start, and how far it has gone round since it set off. */
+  readonly along: number;
+  readonly travelled: number;
+  /** Laps done, and the last one's time, s (null before the first). */
+  readonly laps: number;
+  readonly lastLap: number | null;
+  /** The pace asked, m/s; whether a bend has slowed it. */
+  readonly pace: number;
+  readonly bending: boolean;
+  /** The centre of mass's speed across the ground, m/s, and the mean speed along the track since it set off. */
+  readonly speed: number;
+  readonly mean: number;
+  /** The centre of mass's distance from the track, m. */
+  readonly off: number;
+  /** The point it aims at, across the ground (x, z). */
+  readonly aim: readonly [number, number];
+  /** Whether it has fallen (`StanceLegs.fallen`). */
+  readonly fallen: boolean;
+}
+
+export interface RunSession {
+  readonly body: CoreBody;
+  readonly track: Track;
+  frame(): RunFrame;
+  dispose(): void;
+}
+
+const wrap = (a: number): number => a - 2 * Math.PI * Math.ceil((a - Math.PI) / (2 * Math.PI));
+
+/** The tightest radius of `track` over `metres` from `s`, m (Infinity on a straight). */
+function tightest(track: Track, s: number, metres: number): number {
+  let most = 0;
+  for (let d = 0; d <= metres; d += 0.05) most = Math.max(most, Math.abs(track.at(s + d).curvature));
+  return most === 0 ? Infinity : 1 / most;
+}
+
+/** Run `built`, a human in its reference pose at the track's start facing along it, round `track`. */
+export function startRun(built: BuiltBody, world: World, track: Track): RunSession {
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
+  const legs = stanceLegs();
+  const posture: Pose = { ...GUARD };
+  const command: { -readonly [K in keyof BodyCommand]: BodyCommand[K] } =
+    { posture, hands: { left: null, right: null }, pushes: [], stance: null };
+  let heading = 0, along = 0, travelled = 0, laps = 0, lapFrom = 0, lastLap: number | null = null;
+  let pace = 0, bending = false, aim: [number, number] = [0, 0], setOff: number | null = null;
+
+  body.drive((view, dt) => {
+    const c = view.stance.centre;
+    if (view.time > 0) {
+      setOff ??= view.time;
+      const s = track.nearest(c.x, c.z, along);
+      // How far round it went this step: the change in `s`, across the track's wrap.
+      let ds = s - along;
+      if (ds < -track.length / 2) ds += track.length;
+      if (ds > track.length / 2) ds -= track.length;
+      travelled += ds;
+      along = s;
+      if (travelled >= (laps + 1) * track.length) {
+        laps++;
+        lastLap = view.time - lapFrom;
+        lapFrom = view.time;
+      }
+      const to = track.at(along + STEER.metres);
+      aim = [to.x, to.z];
+      if (view.time - setOff >= TURN_LEAD) {
+        const rate = LAB_TURN_RATE * dt;
+        heading += Math.max(-rate, Math.min(rate, wrap(Math.atan2(to.x - c.x, to.z - c.z) - heading)));
+      }
+      const bend = LAB_TURN_RATE * tightest(track, along, STEER.metres);
+      bending = bend < RUN_PACE;
+      pace = Math.min(RUN_PACE, bend);
+    }
+    const goal = legs.goal(view, heading, [pace, 0]);
+    if (!goal) return command;
+    command.stance = goal;
+    return command;
+  });
+
+  const frame = (): RunFrame => {
+    const s = body.view.stance, on = track.at(along), time = body.view.time;
+    const running = setOff === null ? 0 : time - setOff;
+    return {
+      time, heading, along, travelled, laps, lastLap, pace, bending,
+      speed: Math.hypot(s.velocity.x, s.velocity.z), mean: running > 0 ? travelled / running : 0,
+      off: Math.hypot(s.centre.x - on.x, s.centre.z - on.z), aim, fallen: legs.fallen,
+    };
+  };
+
+  return { body, track, frame, dispose: () => body.dispose() };
+}

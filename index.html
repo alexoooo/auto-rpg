@@ -170,13 +170,31 @@
       </main>
     </template>
     <template id="lab-screen">
-      <canvas id="stage" tabindex="0" aria-label="The core human. Drag to orbit, scroll to zoom; in the Stance, W A S D or the arrows walk it."></canvas>
+      <canvas id="stage" tabindex="0" aria-label="The core human. Drag to orbit, scroll to zoom; in the Stance, W A S D or the arrows walk it; in the Run, it goes round its track."></canvas>
       <div id="panel">
         <a id="to-scenarios" href="?play=lab">&larr; Scenarios</a>
         <h1 id="scenario-name">Lab</h1>
-        <div class="models" role="group" aria-label="Character">
-          <button data-model="workshop-fighter" aria-pressed="true">Warrior</button>
-          <button data-model="workshop-rogue" aria-pressed="false">Rogue</button>
+        <div class="loadout" role="group" aria-label="Loadout">
+          <span>Body</span>
+          <div class="models" role="group" aria-label="Body">
+            <button data-model="workshop-fighter" aria-pressed="true">Warrior</button>
+            <button data-model="workshop-rogue" aria-pressed="false">Rogue</button>
+          </div>
+          <span>Right hand</span>
+          <div class="models" role="group" aria-label="Right hand">
+            <button data-hand="right" data-held="empty" aria-pressed="true">Empty</button>
+            <button data-hand="right" data-held="club" aria-pressed="false">Club</button>
+          </div>
+          <span>Left hand</span>
+          <div class="models" role="group" aria-label="Left hand">
+            <button data-hand="left" data-held="empty" aria-pressed="true">Empty</button>
+            <button data-hand="left" data-held="club" aria-pressed="false">Club</button>
+          </div>
+          <span>Wears</span>
+          <div class="models" role="group" aria-label="Clothing">
+            <button data-wear="boots" aria-pressed="true" title="Appearance only">Boots</button>
+            <button data-wear="armour" aria-pressed="true" title="Appearance only">Armour</button>
+          </div>
         </div>
         <div class="models" role="group" aria-label="View">
           <button data-view="world" aria-pressed="true" title="The workshop model's skin, carried by the segments">World</button>
@@ -236,6 +254,26 @@
             <dt>Fist</dt><dd><span id="fist">0.0</span> m/s</dd>
           </dl>
           <table><thead><tr><th>Strike</th><th>Peak fist, m/s</th></tr></thead><tbody id="strikes"></tbody></table>
+        </div>
+        <div data-for="run" hidden>
+          <p class="label">Track</p>
+          <div class="models" role="group" aria-label="Track">
+            <button data-track="circle" aria-pressed="true">Big circle</button>
+            <button data-track="shuttle" aria-pressed="false">Back and forth</button>
+          </div>
+          <dl>
+            <dt>Doing</dt><dd id="r-doing">-</dd>
+            <dt>State</dt><dd id="r-state">-</dd>
+            <dt>Laps</dt><dd id="r-laps">0</dd>
+            <dt>Last lap</dt><dd><span id="r-lap">-</span> s</dd>
+            <dt>Speed</dt><dd><span id="r-speed">0.00</span> m/s</dd>
+            <dt>Mean speed</dt><dd><span id="r-mean">0.00</span> m/s</dd>
+            <dt>Pace asked</dt><dd><span id="r-pace">0.00</span> m/s</dd>
+            <dt>Off the track</dt><dd><span id="r-off">0.0</span> cm</dd>
+          </dl>
+          <p class="note"><span class="swatch" style="background:#d9a35c"></span>the track
+            <span class="swatch" style="background:#f2bf66"></span>centre of mass
+            <span class="swatch" style="background:#59a6e6"></span>the point it aims at</p>
         </div>
         <button id="restart">Restart</button>
       </div>
