@@ -182,6 +182,15 @@ coverage of 0.50 and 0.90.
 | `ahead` | the drop rises from none to full over 0.32 m toward the camera |
 | `foot` | a wall is whole below 0.1 m and fully in the cut above 0.5 m |
 
+`SCENERY` (`src/dungeon/scenery-visibility.ts`), what the scenery remembers having been seen, which
+is the look's own memory and never the run's:
+
+| Field | Value |
+|---|---|
+| `reach` | the hero sees scenery to 12 m, which is as far as `canSee` sees by default |
+| `corner` | a floor cell is seen when any of four points 0.35 m from its middle, toward its corners, is in sight |
+| `gap` | an unseen pocket inside a room is filled when it is enclosed and no larger than 4 cells |
+
 ## Crypt stone
 
 The crypt's walls, floor and doors. `WALL_HEIGHT` (`src/dungeon/fog.ts`) is 2.8 m, the wall's
