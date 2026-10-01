@@ -1,4 +1,5 @@
 import type { BodySpec } from "../spec/body.ts";
+import { humanAttributes } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
 import { humanJoints } from "./joints.ts";
 import { peakTorque } from "./muscle.ts";
@@ -9,7 +10,7 @@ import { jointSpeed } from "./speed.ts";
 import { workshopFigure } from "./workshop.ts";
 import { humanWounds } from "./wounds.ts";
 
-/** **A workshop human, whole**: its segments, the joints and muscle between them, and its wounds, at x1. */
+/** **A workshop human, whole**: its segments, the joints and muscle between them, its wounds and its attributes, at x1. */
 export const humanSpec = (model: WorkshopModel): BodySpec => figureSpec(workshopFigure(model));
 
 /** The core's bodies by model: the workshop humans and the crypt skeleton. */
@@ -28,5 +29,6 @@ function figureSpec(figure: HumanFigure): BodySpec {
     family: figure.family, model: figure.model, mass: figure.mass, stature: figure.stature, segments,
     joints: humanJoints(figure, segments, (exertion) => peakTorque(figure, exertion), (exertion) => jointSpeed(figure, exertion)),
     wounds: humanWounds(figure),
+    attributes: humanAttributes(figure),
   };
 }

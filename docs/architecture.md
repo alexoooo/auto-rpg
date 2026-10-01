@@ -22,7 +22,7 @@ read (`src/core/skills/skills.ts`).
 | Engine seam | `src/core/engine/` | the one contract the core needs from a physics engine |
 | Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
 | Muscles | `src/core/muscle/` | torque bounded by strength and by speed |
-| Mind seam | `src/core/mind/mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command |
+| Mind seam | `src/core/mind/mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask |
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
 | Tactics | `src/core/mind/tactics.ts`, `fighter.ts` | what the body should do, decided from what it sees |
@@ -89,7 +89,8 @@ free axes are the spec's freedoms. The body is built in the pose its joints dema
 writes each node's `position` and `rotationQuaternion`; bodies that never sleep; the spec's mass,
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
 every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
-by a torque; and the contacts the solver pushed on in the last step. `rapier.ts` implements it,
+by a torque; a force and a moment on a body through one step, integrated as gravity is, beside
+the impulse that is whole before it; and the contacts the solver pushed on in the last step. `rapier.ts` implements it,
 with the solver's own settings in `SOLVER`, which are conditioning and not anatomy. `engines.ts`
 lists the engines and is the only module in `src/core/` or the lab that imports one. A candidate
 is tried on the physics bench (`src/physics-bench/engines/`) first, then added to `ENGINES` and run
@@ -116,10 +117,16 @@ braking and blocking). A muscle can never exceed its source's strength at its sp
   the centre of mass inside the support, asks the root's rows for the wrench that needs, shares it
   among the bearing soles within friction, no pull and the centre of pressure on the sole
   (`shareGroundWrench`, `contact-wrench.ts`), asks the root for less where the soles fall short,
-  and gives each stance leg its inverse dynamics minus the ground's force at its foot. The swing
+  and gives each stance leg its inverse dynamics minus the ground's force at its foot. What the
+  soles miss is published (`StanceReading.shortfall`), and it is what the stance asks its assist
+  for: the root is asked for what the soles and the assist give together. The swing
   leg is solved within its strength (`boundedLeastSquares`). Steps (to recover, to walk, to shift
   weight) are placed from the capture point. `stanceEnvelope` (`stance-envelope.ts`) reads what
   each body was measured to hold (`assets/core/stance-envelope.json`).
+- **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
+  shortened to a ceiling in the body's own weight, given through the solver step, and metered. Its
+  ceiling is the fight's to set from the character's balance, and none unless given
+  ([reference/assist.md](reference/assist.md)).
 
 ### Skills
 
@@ -144,12 +151,13 @@ where a strike is).
 
 A `Mind` (`src/core/mind/mind.ts`) is `step(senses, dt)`: a stateful function from what its body
 senses to what its muscles are asked. `embody(built, world, make)` makes it with its own body
-(`OwnBody`: the spec, the built segments and joints, the muscles) and steps it before every solver
+(`OwnBody`: the spec, the built segments and joints, the muscles, the assist) and steps it before every solver
 step, after the muscles have read the joints. It reads its `Senses` (`senses.ts`) and
 that body, and writes each freedom's activation and the speed asked of it
 (`MuscleDriver.activation`, `.velocity`): a speed beyond the muscles' reach is a torque at the
-ceiling the activation sets, and a speed of zero holds. That command is the whole of what a mind
-does to the world; camera state never reaches one. The seam names no hand and no foot, so a body of
+ceiling the activation sets, and a speed of zero holds. It may also ask its assist for a force
+and a moment on the root (`Assist.ask`), which gives none unless the fight gave it a ceiling. That
+command and that ask are the whole of what a mind does to the world; camera state never reaches one. The seam names no hand and no foot, so a body of
 another shape takes a mind through the same call. `tests/core-boundary.test.mjs` holds that
 nothing else under `src/` drives muscles.
 
@@ -198,8 +206,8 @@ has tactics of its own:
 (`PHYSICS_HZ`) that owns physics, control, combat and the clock. A step runs the sensing hooks (a fight's senses, `createSenses`), the before-step hooks
 in the order they were added, one solver step, which writes every node, and the after-step hooks
 (readings, blows); the clock is the count of steps. Each body adds one before-step hook
-(`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`) and the
-motors are set; for a game body the mind is `commandMind`, which reads the view (`look`), runs the
+(`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`), its
+assist gives what the mind asked of it and the motors are set; for a game body the mind is `commandMind`, which reads the view (`look`), runs the
 tactics and the skills, and runs motor control; a page may add its own (the crypt's
 `DungeonRun.plan`, the lab's shove). The pages, the Node stand and the research all call
 `World.step`; a page advances by real time with `World.advance`, which caps the steps a frame may
@@ -228,6 +236,13 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   inward first. A part emptied by a clean blow, or hit far enough past empty, comes off, except the
   trunk's; no blow is clean today. A body's pool ends when it is empty, or when a vital part (the
   head, for every body today) is emptied or comes off; which parts are vital is the spec's `wounds`.
+- **Balance**: a character has a number of points of balance beside its hit points
+  (`AttributeSpec.balance`), and the rulebook says what a point is worth (`Rulebook.balance`):
+  0.05 of the body's weight of force and 0.013 of its weight times a metre of moment, the most its
+  assist gives it (`balanceCeiling`). A fight sets each body's ceiling from its character's points,
+  or a recipe's (`DuelRecipe.balance`, `&balance=left,right` in an arena link), and withdraws the
+  assist when the body is out of the fight. Every character's balance is 0, and at 0 there is no
+  assist.
 
 A body that falls (`SkillReport.fallen`) is out of the fight: rising is not built yet. The arena's
 verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its pool ends or its body falls;

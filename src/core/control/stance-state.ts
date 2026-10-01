@@ -4,6 +4,7 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
+import type { Assist } from "./assist.ts";
 import type { Foot, StanceReading, SwingGoal } from "./stance.ts";
 import { resolveStance, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, restWidth, type FootMemory, type FootState } from "./support.ts";
@@ -58,6 +59,8 @@ interface StanceState {
    * root's acceleration and each leg's freedoms' accelerations.
    */
   readonly aim: { on: boolean; readonly spin: Vector3; readonly centre: Vector3; readonly root: Float64Array };
+  /** What the assist is asked this step: the soles' shortfall, within its ceiling. */
+  readonly helped: { readonly force: Vector3; readonly moment: Vector3 };
   /** The freedoms held at a torque as `carry` found them, and their accelerations, z0 + Z a_root. */
   readonly held: { channels: number[]; z0: number[]; Z: number[][] };
   /** Each foot's task, in the feet's order. */
@@ -95,10 +98,12 @@ interface StanceScratch {
 
 /**
  * **A stance**, as its functions are handed it: what the body and the tuning fix when it is made,
- * its memory (`state`) and its working values (`scratch`).
+ * its assist, its memory (`state`) and its working values (`scratch`).
  */
 export interface Stance {
   readonly built: BuiltBody;
+  /** What gives the root what the soles miss, within its ceiling (`Assist`); null, nothing does. */
+  readonly assist: Assist | null;
   readonly tuning: ResolvedStance;
   /** The segment the legs hang from. */
   readonly pelvis: BuiltSegment;
@@ -116,11 +121,11 @@ export interface Stance {
   readonly scratch: StanceScratch;
 }
 
-export function makeStance(built: BuiltBody, tuning: StanceTuning): Stance {
+export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assist | null): Stance {
   const feet = footStatesOf(built);
   const segments = [...built.segments.values()];
   return {
-    built, tuning: resolveStance(tuning), pelvis: feet[0]!.chain[0]!.parent, segments,
+    built, assist, tuning: resolveStance(tuning), pelvis: feet[0]!.chain[0]!.parent, segments,
     total: segments.reduce((sum, segment) => sum + segment.rigid.mass, 0),
     feet, rest: restWidth(feet),
     state: {
@@ -132,6 +137,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning): Stance {
         phase: "stand", soles: { left: feet[0]!.middle, right: feet[1]!.middle }, own: null, recoveries: 0, strides: 0,
         shortfall: { force: new Vector3(), moment: new Vector3() } },
       aim: { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) },
+      helped: { force: new Vector3(), moment: new Vector3() },
       held: { channels: [], z0: [], Z: [] },
       tasks: feet.map((): FootTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(6) })),
       feet: feet.map((foot) => foot.memory),

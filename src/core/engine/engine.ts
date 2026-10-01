@@ -63,6 +63,10 @@ export interface SegmentBody {
   applyImpulse(impulse: Vector3, at: Vector3): void;
   /** An angular impulse (N m s, world). */
   applyTorqueImpulse(impulse: Vector3): void;
+  /** A force (N, world) at a point (world) through the next step and no longer: the solver integrates it as it does gravity. */
+  applyForce(force: Vector3, at: Vector3): void;
+  /** A moment (N m, world) through the next step and no longer. */
+  applyTorque(torque: Vector3): void;
   /** The mass properties the core set. */
   readonly massProperties: MassProperties;
   setMassProperties(properties: MassProperties): void;

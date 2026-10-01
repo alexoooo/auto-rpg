@@ -103,6 +103,8 @@ given nothing, and the stance's ask after a fall is on the roadmap as a defect o
 
 ## Chunk A: what the soles miss, published
 
+Landed.
+
 Lands by itself, changes no motion, and is read by `research/assist-need.mjs`.
 
 `src/core/control/stance.ts`, in `StanceReading`:
@@ -140,6 +142,13 @@ fall the ask has no bound.
 Verification of the chunk: `node research/bout-trace.mjs` prints the digest it printed before.
 
 ## Chunk B: the effector
+
+Landed, with three changes from what follows, each in `docs/reference/assist.md` or the code:
+the assist is a force through the solver step (`SegmentBody.applyForce`, `applyTorque`), not an
+impulse before it, which crept a body given its own weight 19 mm in 60 steps; a withdrawn assist
+clips to none itself and says so (`Assist.withdrawn`); and the pull's test also holds each part
+of the ceiling alone, which is what shows `bear` taking the assist's part from the ground's
+wrench.
 
 ### `src/core/control/assist.ts`
 
@@ -210,15 +219,15 @@ export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: Assi
       assist.clipToRef(asked.force, asked.moment, given.force, given.moment);
       asked.force.setAll(0); asked.moment.setAll(0);
       meter.steps += 1; meter.force += given.force.length(); meter.moment += given.moment.length();
-      if (given.force.lengthSquared() > 0) root.body.applyImpulse(impulse.copyFrom(given.force).scaleInPlace(dt), centreOfToRef(root, at));
-      if (given.moment.lengthSquared() > 0) root.body.applyTorqueImpulse(impulse.copyFrom(given.moment).scaleInPlace(dt));
+      if (given.force.lengthSquared() > 0) root.body.applyForce(given.force, centreOfToRef(root, at));
+      if (given.moment.lengthSquared() > 0) root.body.applyTorque(given.moment);
     },
   };
 }
 ```
 
-An impulse of the force over one step, at the centre of mass, before the solver's step: the
-solver then treats it with the motors' torques. An explicit righting torque computed from the
+The force at the centre of mass and the moment, through the solver's step: the solver then
+treats them with the motors' torques. An explicit righting torque computed from the
 root's tilt and applied the same way went unstable at 120 Hz
 ([the design](2026-09-30-minds-00-design.md#what-was-measured-before-this-was-written)); this one
 is a share of a wrench the stance already solved for, and the table above is its test.

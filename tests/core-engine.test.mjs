@@ -4,9 +4,9 @@
  * naming. A 1 kg box slid on the ground slows at the contract's friction times g; dropped, it does
  * not bounce; the engine holds the mass the core set, and a box is no hull; a ground taken out from
  * under a box lets it fall, and a body from another world is refused a joint; a box drifting at a
- * millimetre a second keeps drifting, where a sleeping one would stop and read zero; a box
- * resting on another touches it, pushed with its weight, and the ground is no body; and a fixed box
- * turns about up.
+ * millimetre a second keeps drifting, where a sleeping one would stop and read zero; a force
+ * through a step is integrated as gravity is and lasts that step alone; a box resting on another
+ * touches it, pushed with its weight, and the ground is no body; and a fixed box turns about up.
  * Node, a NullEngine scene, 120 Hz.
  */
 import test from "node:test";
@@ -102,6 +102,42 @@ test("a box drifting at a millimetre a second in free space keeps drifting: noth
     assert.ok(Math.abs(speed(b.body) - drift) < 0.01 * drift, `${speed(b.body)} m/s after 5 s, from ${drift}`);
     assert.ok(Math.abs(b.node.position.x - 5 * drift) < 0.01 * 5 * drift, `${b.node.position.x} m in 5 s`);
   } finally { b.dispose(); }
+});
+
+test("a force through a step is integrated as gravity is, and lasts that step alone", async () => {
+  const weight = new Vector3(0, MASS.mass * STANDARD_GRAVITY.value, 0), inertia = MASS.moments[1];
+  // Its weight upward at its centre each step holds a box where it is; an impulse before the step would lead gravity through the solver's sub-steps.
+  const held = await box({ height: 1, ground: false });
+  try {
+    for (let i = 0; i < 60; i++) { held.body.applyForce(weight, held.node.position); held.step(1); }
+    assert.ok(Math.abs(held.node.position.y - 1) < 1e-6 && speed(held.body) < 1e-6, `held at ${held.node.position.y} m, ${speed(held.body)} m/s`);
+    // Not given again, it is gone: the box falls from rest, half of g over 0.5 s squared.
+    held.step(60);
+    const fell = 1 - held.node.position.y;
+    assert.ok(fell > 1.2 && fell < 1.26, `fell ${fell} m in 0.5 s`);
+  } finally { held.dispose(); }
+  // A moment through one step turns the box at the moment times the step over its inertia, and no faster after.
+  const turned = await box({ ground: false, gravity: false });
+  try {
+    turned.body.applyTorque(new Vector3(0, 0.01, 0));
+    turned.step(1);
+    const after = turned.body.angularVelocityToRef(new Vector3()).y;
+    assert.ok(Math.abs(after - 0.01 / HZ / inertia) < 1e-6, `${after} rad/s after a step of 0.01 N m`);
+    turned.step(10);
+    assert.ok(Math.abs(turned.body.angularVelocityToRef(new Vector3()).y - after) < 1e-6, "and the same ten steps on");
+    assert.ok(speed(turned.body) < 1e-9, "a moment moves nothing");
+  } finally { turned.dispose(); }
+  // A force off the centre is the force and its moment about the centre.
+  const pushed = await box({ ground: false, gravity: false });
+  try {
+    pushed.body.applyForce(new Vector3(0, 0, 1), pushed.node.position.add(new Vector3(0.1, 0, 0)));
+    pushed.step(1);
+    const v = pushed.body.linearVelocityToRef(new Vector3()), w = pushed.body.angularVelocityToRef(new Vector3());
+    assert.ok(Math.abs(v.z - 1 / HZ / MASS.mass) < 1e-6 && Math.hypot(v.x, v.y) < 1e-9, `moving at ${v}`);
+    assert.ok(Math.abs(w.y + 0.1 / HZ / inertia) < 1e-5 && Math.hypot(w.x, w.z) < 1e-9, `turning at ${w}`);
+    pushed.step(10);
+    assert.ok(Math.abs(pushed.body.linearVelocityToRef(new Vector3()).z - v.z) < 1e-6, "and no faster ten steps on");
+  } finally { pushed.dispose(); }
 });
 
 test("a box resting on another touches it, pushed down on it with its weight each step, and the ground is no body", async () => {

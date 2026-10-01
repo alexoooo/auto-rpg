@@ -1,5 +1,6 @@
 import { createBody, SERVO_SECONDS, type Body } from "../core/body.ts";
 import { buildBody } from "../core/build/build-body.ts";
+import type { AssistCeiling } from "../core/control/assist.ts";
 import { armed } from "../core/human/grip.ts";
 import { modelSpec, type BodyModel } from "../core/human/spec.ts";
 import { woodenClub } from "../core/items/club.ts";
@@ -9,7 +10,7 @@ import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { driveBy } from "../core/mind/tactics.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool, type Ending } from "../core/rules/pool.ts";
-import { rulebook, type Rulebook } from "../core/rules/rulebook.ts";
+import { balanceCeiling, balancePoint, rulebook, type Rulebook } from "../core/rules/rulebook.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import type { Hook, World } from "../core/world.ts";
@@ -33,6 +34,9 @@ import type { Hook, World } from "../core/world.ts";
  *   core has no rising, so a body down stays down. The other side wins; both out on one step is a
  *   draw.
  * - **At the cap** (`CAP_SECONDS`) the fuller bar wins, and equal bars draw.
+ * - **Each side's assist** (`Assist`) has the ceiling its balance buys: its character's points
+ *   (`AttributeSpec.balance`), or the recipe's, at the rulebook's worth of a point, or the recipe's.
+ *   It is withdrawn at the verdict.
  *
  * The world is the caller's, with the arena's solids already in it (`addArenaSolids`); the bout adds
  * its bodies and hooks, and takes them away again on `dispose`, so a replay is a new bout in the same world.
@@ -79,6 +83,10 @@ interface DuelRecipe {
   readonly capSeconds?: number;
   /** How many steps old what each side sees of the other is; none unless given (`createSenses`). */
   readonly senseDelay?: number;
+  /** Each side's balance, points, in place of its character's (`AttributeSpec.balance`): an experiment's, or a link's. */
+  readonly balance?: { readonly left: number; readonly right: number };
+  /** What a point of balance is worth, in place of the rulebook's (`Rulebook.balance`): a sweep's. */
+  readonly balancePoint?: AssistCeiling;
 }
 
 /** An order given: before which of the bout's steps, to which side, and what. Null hands the side back to itself. */
@@ -145,7 +153,8 @@ export class Duel {
       const pool = createPool(spec, this.rules);
       // Out to the other side once the bout is decided, its pool has ended or it has fallen.
       const senses = this.senses.add({ id: side, side, built, out: () => this.verdict !== null || !duelists[side].standing });
-      const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses });
+      const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePoint ?? balancePoint(this.rules));
+      const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses, assist });
       const skills = driveBy(body, fighterTactics(`arena ${side}`, (sight) => {
         const orders = this.given[side];
         // Out of the fight it stands, as a side nobody orders does.
@@ -193,6 +202,12 @@ export class Duel {
 
   private judge(): void {
     if (this.verdict) return;
+    this.decide();
+    // A body that is down still has a stance that asks, and an assist that answered it would throw the body about.
+    if (this.verdict) for (const side of SIDES) this.duelists[side].body.assist.withdraw();
+  }
+
+  private decide(): void {
     const out = SIDES.filter((side) => !this.duelists[side].standing);
     if (out.length === 2) {
       this.verdict = { winner: null, ending: this.ending("left"), time: this.clock };

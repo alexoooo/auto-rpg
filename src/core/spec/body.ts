@@ -12,8 +12,8 @@ import { cross, normalize, orthogonalTo, sub } from "./vec.ts";
  * this frame, in the reference pose.
  *
  * What the rulebook wounds is `wounds`: the body's hit points, and which segments kill when they
- * are emptied or lost and which never come off. Contact surfaces join the spec when a rule first
- * reads them.
+ * are emptied or lost and which never come off. What else a fight's rules read of the character is
+ * `attributes`. Contact surfaces join the spec when a rule first reads them.
  *
  * **What a body holds is not its anatomy.** A segment states the body's own numbers; an item held
  * in it (`held`) is stated beside it, and the builder makes the two one rigid body
@@ -33,6 +33,7 @@ export interface BodySpec {
   /** Each joint names a parent and a child segment; together they form a tree over the segments. */
   readonly joints: readonly JointSpec[];
   readonly wounds: WoundSpec;
+  readonly attributes: AttributeSpec;
   /** Items held rigidly in a segment, such as a club in a hand; absent, nothing. */
   readonly held?: readonly HeldSpec[];
 }
@@ -87,6 +88,18 @@ export interface WoundSpec {
   readonly vital: readonly string[];
   /** Segments that never come off: a trunk. */
   readonly whole: readonly string[];
+}
+
+/**
+ * **What a fight's rules read of a character beyond its anatomy and its wounds.** Each is the
+ * owner's number for that character, in points; the rulebook says what a point is worth.
+ */
+export interface AttributeSpec {
+  /**
+   * How far the character may be held up beyond what its legs give: its assist's ceiling
+   * (`Rulebook.balance`, `Assist`). At 0 nothing holds it up that its muscles do not.
+   */
+  readonly balance: Quantity<number>;
 }
 
 /**

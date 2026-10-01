@@ -60,6 +60,9 @@ test("a_fight_in_the_crypt_starts_and_ends", async () => {
     // A fall or an emptied pool ends a body's fight (`DungeonActor.alive`).
     assert.equal(enemy.alive, false, `and the fight ends inside 30 s: ${run.clock.toFixed(1)} s`);
     assert.ok(run.hero.alive, "with the hero standing");
+    // A body out of the fight has its assist withdrawn at the next step; one still in it keeps its own.
+    run.step();
+    assert.deepEqual([enemy.fighter.body.assist.withdrawn, run.hero.fighter.body.assist.withdrawn], [true, false]);
     assert.equal(run.status, "playing", "the rest of the crypt is still to come");
   } finally { dispose(); }
 });

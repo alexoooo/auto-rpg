@@ -11,7 +11,7 @@ import { driveBy, type Tactics } from "../core/mind/tactics.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
-import { rulebook } from "../core/rules/rulebook.ts";
+import { balanceCeiling, balancePoint, rulebook } from "../core/rules/rulebook.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, walkable,
@@ -210,7 +210,8 @@ export class DungeonRun {
   private build(actor: DungeonActor): void {
     const spec = clubbed(actor.model);
     const built = buildBody(spec, this.world, { position: [actor.home.x, 0, actor.home.z] });
-    const body = createBody(built, this.world, { servoSeconds: SERVO_SECONDS });
+    const assist = balanceCeiling(spec.attributes.balance.value, balancePoint(this.rules));
+    const body = createBody(built, this.world, { servoSeconds: SERVO_SECONDS, assist });
     const skills = driveBy(body, this.tactics(actor));
     actor.fighter = { id: actor.id, side: actor.side, built, pool: createPool(spec, this.rules), body, skills };
     this.watch?.dispose();
@@ -465,7 +466,12 @@ export class DungeonRun {
     this.wake();
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + 0.2; }
     for (const actor of this.actors) {
-      if (!actor.fighter || !actor.alive) { actor.plan = { move: null, face: null, attack: null }; continue; }
+      if (!actor.fighter || !actor.alive) {
+        // Out of the fight its assist is withdrawn: a body that is down still has a stance that asks.
+        actor.fighter?.body.assist.withdraw();
+        actor.plan = { move: null, face: null, attack: null };
+        continue;
+      }
       let move = actor.side === "party" ? this.memberMovement(actor) : this.enemyMovement(actor);
       if (move && !(actor === this.hero && this.commands.mode.keyboard)) move = this.avoidCrowd(actor, move);
       const walking = move !== null && Math.hypot(move.x, move.z) > 0.1;

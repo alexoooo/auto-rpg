@@ -1,6 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
+import type { Assist } from "./assist.ts";
 import type { ServoWork } from "./servo.ts";
 import { shareGroundWrench } from "./contact-wrench.ts";
 import { rotationAtToRef } from "./kinematics.ts";
@@ -110,8 +111,9 @@ export type StancePhase = "stand" | "shift" | "swing";
  * The plan is what makes a move settle: the body tracks a path that is itself settled, rather than
  * chasing its goal from a velocity it reads a step late, which overshoots or coasts through the place.
  *
- * Nothing here holds the body up that the legs' muscles do not: a torque past a muscle's strength is
- * not given, and a body asked for more than its feet can take tips or falls.
+ * A torque past a muscle's strength is not given, and a body asked for more than its feet can take
+ * tips or falls. With an assist (`Assist`) the root may be given what the soles miss, up to the
+ * fight's ceiling; with none, nothing holds the body up that the legs' muscles do not.
  */
 export interface StanceControl {
   /**
@@ -167,7 +169,7 @@ export interface StanceReading {
    * What the last command asked of the ground and the bearing soles could not give
    * (`shareGroundWrench`): a force, and a moment about the root's centre of mass, world, N and N m.
    * None with no stance, or no sole bearing. The root was asked for the motion that the wrench
-   * the soles can give makes.
+   * the soles can give makes, with whatever of this the assist supplies (`Assist`).
    */
   readonly shortfall: { readonly force: Vector3; readonly moment: Vector3 };
 }
@@ -480,8 +482,8 @@ function holdStance(s: Stance, stance: readonly FootState[], e: number): void {
   }
 }
 
-export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): StanceControl {
-  const s = makeStance(built, tuning);
+export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assist: Assist | null = null): StanceControl {
+  const s = makeStance(built, tuning, assist);
   return {
     get owned() { return s.state.owned; },
     reading: s.state.reading,
@@ -508,7 +510,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       return root;
     },
     bear(muscles, work) {
-      const { feet } = s, { aim, held, tasks } = s.state, { boundedSwing, soleMargin } = s.tuning, { idScratch, shares, missed } = s.scratch;
+      const { feet, assist } = s, { aim, held, tasks, helped } = s.state, { boundedSwing, soleMargin } = s.tuning, { idScratch, shares, missed } = s.scratch;
       if (!aim.on) return;
       const R = muscles.dynamics.root, n = muscles.channels.length, root = aim.root;
       // Every freedom's acceleration: the legs' from their tasks, the rest as the servo solved them.
@@ -527,11 +529,14 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       if (bearing.length) {
         force.set(W[3]!, W[4]!, W[5]!);
         moment.set(W[0]!, W[1]!, W[2]!);
+        // The ground is asked for the wrench less what the assist gives.
+        if (assist?.on) { force.subtractInPlace(helped.force); moment.subtractInPlace(helped.moment); }
         const soles = bearing.map((foot) => bearingSole(foot, 1 - soleMargin));
         const at = idScratch.at.set(R.centre[0], R.centre[1], R.centre[2]);
         shareGroundWrench(soles, at, force, moment, GROUND_FRICTION, leverOf(s, at.y), shares, missed);
       }
       legTorques(s, muscles, accel, bearing);
+      if (assist?.on) assist.ask(helped.force, helped.moment);
     },
     read(which) {
       const { feet, segments, total } = s, { reading } = s.state, { p, v } = s.scratch;
@@ -555,6 +560,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       state.aim.on = false;
       reading.shortfall.force.setAll(0);
       reading.shortfall.moment.setAll(0);
+      state.helped.force.setAll(0);
+      state.helped.moment.setAll(0);
       for (const task of state.tasks) task.on = false;
       paceToward(s, stepsOfItself(goal) ? goal.walk : null, dt);
       const swing = chooseStep(s, goal);

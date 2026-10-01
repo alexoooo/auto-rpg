@@ -68,6 +68,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
   const bodies = new Set<RapierBody>();
   /** Each body by its rigid body's handle, for a contact's other side. */
   const byHandle = new Map<number, RapierBody>();
+  /** The bodies given a force or a moment for the next step: Rapier keeps one until it is reset. */
+  const forced = new Set<RapierBody>();
   let freed = false;
   const xyz = (v: Vec3) => ({ x: v[0], y: v[1], z: v[2] });
   const xyzw = (q: Quaternion) => ({ x: q.x, y: q.y, z: q.z, w: q.w });
@@ -138,6 +140,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
         angularVelocityToRef(out) { const w = rigid.angvel(); return out.set(w.x, w.y, w.z); },
         applyImpulse(impulse, at) { rigid.applyImpulseAtPoint(impulse, at, true); },
         applyTorqueImpulse(impulse) { rigid.applyTorqueImpulse(impulse, true); },
+        applyForce(force, at) { rigid.addForceAtPoint(force, at, true); forced.add(body); },
+        applyTorque(torque) { rigid.addTorque(torque, true); forced.add(body); },
         get massProperties() { return properties; },
         setMassProperties: setMass,
         engineMass: () => rigid.mass(),
@@ -225,6 +229,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
     step(dt) {
       raw.timestep = dt;
       raw.step();
+      for (const { rigid } of forced) { rigid.resetForces(false); rigid.resetTorques(false); }
+      forced.clear();
       for (const { node, rigid } of bodies) {
         const t = rigid.translation(), r = rigid.rotation();
         node.position.set(t.x, t.y, t.z);
@@ -236,6 +242,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       const body = segment as RapierBody;
       if (!bodies.delete(body) || freed) return;
       byHandle.delete(body.rigid.handle);
+      forced.delete(body);
       raw.removeRigidBody(body.rigid);
     },
     dispose() {
@@ -243,6 +250,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions):
       freed = true;
       bodies.clear();
       byHandle.clear();
+      forced.clear();
       raw.free();
     },
   };

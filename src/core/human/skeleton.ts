@@ -181,5 +181,6 @@ export function skeletonFigure(): HumanFigure {
     },
     feet: { left: boxExtents(part("legs.footL"), "the left foot"), right: boxExtents(part("legs.footR"), "the right foot") },
     hp: placeholder(6, "HP", "the Warrior's hit points"),
+    balance: placeholder(0, "1", "the Warrior's balance"),
   };
 }

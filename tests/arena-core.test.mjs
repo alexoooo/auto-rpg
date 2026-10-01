@@ -10,7 +10,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
-import { DEFAULT_MATCHUP, matchupSearch, readMatchup, readYou, youSearch } from "../src/arena/matchup.ts";
+import { DEFAULT_MATCHUP, matchupSearch, readBalance, readMatchup, readYou, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -37,6 +37,11 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
   assert.deepEqual(["?you=left", "?play=arena&you=right", "?you=both", "?you=", ""].map(readYou), ["left", "right", null, null, null]);
   assert.equal(youSearch(written, "right"), "?play=arena&matchup=workshop-rogue,crypt-skeleton&you=right");
   assert.equal(youSearch("?play=arena&you=left&matchup=a,b", null), "?play=arena&matchup=a,b");
+  // Each side's balance: left then right, one number for both, or the characters' own.
+  assert.deepEqual(["?balance=5,2", "?play=arena&balance=5", "?balance=0,20.5", "?balance=%205%20,%202"].map(readBalance),
+    [{ left: 5, right: 2 }, { left: 5, right: 5 }, { left: 0, right: 20.5 }, { left: 5, right: 2 }]);
+  assert.deepEqual(["", "?balance=", "?balance=5,", "?balance=,5", "?balance=-1", "?balance=5,-1", "?balance=1,2,3", "?balance=many", "?balance=Infinity"].map(readBalance),
+    Array(9).fill(undefined));
 });
 
 test("each_arena_post_is_the_prism_its_mesh_draws", () => {
@@ -251,6 +256,40 @@ test("a_side_out_of_the_fight_is_no_longer_under_its_orders", async () => {
     assert.equal(left.skills.report.pace, 0, "and stands once it is out");
     assert.equal(duel.tape.length, 1, "its orders were not taken back: it is the tactics that set them aside");
   } finally { duel.dispose(); dispose(); }
+});
+
+test("a_side's_assist_is_its_balance_in_its_own_weight_and_none_at_zero", async () => {
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
+  const weight = (duelist) => [...duelist.built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0) * 9.80665;
+  const none = await playBout({ ...recipe, balance: { left: 0, right: 0 } }, 10);
+  assert.deepEqual(none.assist, [[0, 0], [0, 0]]);
+  const helped = await playBout({ ...recipe, balance: { left: 5, right: 2 } }, 10);
+  assert.notEqual(helped.digest, none.digest);
+  for (const [force, moment] of helped.assist) assert.ok(force > 0 && moment > 0, `each side is given some: ${force}, ${moment}`);
+  const { world, dispose } = await arena();
+  const built = [];
+  try {
+    // With no balance in the recipe, each side's is its character's.
+    const own = new Duel(world, recipe);
+    built.push(own);
+    for (const duelist of Object.values(own.duelists)) {
+      const points = duelist.built.spec.attributes.balance.value;
+      assert.ok(Math.abs(duelist.body.assist.most.force / weight(duelist) - points * 0.05) < 1e-9, `${duelist.model}'s own ${points} points`);
+    }
+  } finally { for (const duel of built) duel.dispose(); dispose(); }
+  const second = await arena();
+  const duel = new Duel(second.world, { ...recipe, balance: { left: 5, right: 2 }, balancePoint: { force: 0.1, moment: 0.02 } });
+  try {
+    // Each side's own points, at the recipe's worth of a point, in its own weight.
+    for (const [side, points] of [["left", 5], ["right", 2]]) {
+      const duelist = duel.duelists[side], most = duelist.body.assist.most;
+      assert.ok(Math.abs(most.force / weight(duelist) - points * 0.1) < 1e-9, `${side}'s force`);
+      assert.ok(Math.abs(most.moment / weight(duelist) - points * 0.02) < 1e-9, `${side}'s moment`);
+      assert.ok(duelist.body.assist.on);
+    }
+    duel.run();
+    for (const duelist of Object.values(duel.duelists)) assert.equal(duelist.body.assist.on, false, "withdrawn at the verdict");
+  } finally { duel.dispose(); second.dispose(); }
 });
 
 test("keys_and_a_pointer_make_orders_in_the_world's_frame", () => {

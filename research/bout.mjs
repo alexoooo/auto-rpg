@@ -23,6 +23,9 @@ function weightOf(built, world) {
   return [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * Math.hypot(...world.physics.gravity);
 }
 
+/** An assist's meter as its means, [N, N m]; none metered, none given. */
+const meanOf = ({ steps, force, moment }) => steps ? [force / steps, moment / steps] : [0, 0];
+
 /** How many steps the last second of a bout is, and what counts as the soles missing: over this force, in weights, or this moment, N m. */
 const LAST_STEPS = 120, OVER = { force: 0.05, moment: 5 };
 
@@ -50,7 +53,7 @@ function shortfallMeter(duelist, world) {
 
 /**
  * Play `recipe` to its verdict, or `seconds`, giving `tape`'s orders as it steps (`Duel.play`): how
- * it ended, what landed, the orders it was given, and its trace's digest. With `shortfall`, the row
+ * it ended, what landed, the orders it was given, each side's mean assist, and its trace's digest. With `shortfall`, the row
  * gains what each side's soles missed (`shortfallMeter`).
  */
 export async function playBout(recipe, seconds = Infinity, tape = [], { shortfall = false } = {}) {
@@ -72,6 +75,8 @@ export async function playBout(recipe, seconds = Infinity, tape = [], { shortfal
       bars: SIDES.map((side) => duel.duelists[side].pool.bar()),
       fallen: SIDES.filter((side) => duel.duelists[side].skills.report.fallen),
       tape: duel.tape, digest: trace.digest(),
+      // Each side's mean assist over its metered steps, [N, N m].
+      assist: SIDES.map((side) => meanOf(duel.duelists[side].body.assist.meter)),
       ...(missed ? { shortfall: missed.map((meter) => meter.row()) } : {}),
     };
   } finally { dispose(); }

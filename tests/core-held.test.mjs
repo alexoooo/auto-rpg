@@ -30,7 +30,7 @@ function holder() {
   };
   return {
     family: "test", model: "holder", mass: q(1.7, "kg"), stature: q(1), segments: [segment], joints: [],
-    wounds: { hp: q(1, "1"), vital: [], whole: [] },
+    wounds: { hp: q(1, "1"), vital: [], whole: [] }, attributes: { balance: q(0, "1") },
     held: [{ segment: "grip", item: rod, origin: q([0.2, 0.93, 0.15]), along: q([0.2, 0.9, -0.4], "1"), across: q([1, -0.1, 0.3], "1") }],
   };
 }

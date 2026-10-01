@@ -32,6 +32,8 @@ export interface HumanFigure {
   readonly feet: Readonly<Record<Side, Extents>>;
   /** The body's hit points, in the rulebook's unit. */
   readonly hp: Quantity<number>;
+  /** The body's balance, points (`AttributeSpec`). */
+  readonly balance: Quantity<number>;
 }
 
 /**

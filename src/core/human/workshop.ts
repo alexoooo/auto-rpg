@@ -5,12 +5,13 @@ import type { HumanFigure, LimbFigure } from "./figure.ts";
 import { limbLandmarks, rigSuffix, trunkLandmarks, type Side } from "./landmarks.ts";
 import { bodyMass, FIT_SCALE, stature, WORKSHOP_SEX } from "./model.ts";
 import { rigPoint, type WorkshopModel } from "./rig.ts";
+import { workshopBalance } from "./attributes.ts";
 import { workshopHitPoints } from "./wounds.ts";
 
 /**
  * **A workshop model as a human figure**: its rig's landmarks (`landmarks.ts`), its clothed
  * envelope's trunk hulls and boots (`envelope.ts`), its sex, size and mass (`model.ts`), and the
- * owner's hit points, all at the authored size with the fit scale to take them to x1.
+ * owner's hit points and balance, all at the authored size with the fit scale to take them to x1.
  *
  * The rig's feet end in a boot, so the foot runs from the boot's heel to its toe, at the height of
  * the rig's ball. The rig holds each hand thumb up, a quarter turn from the anatomical position's
@@ -22,6 +23,7 @@ export function workshopFigure(model: WorkshopModel): HumanFigure {
   return {
     family: "human", model, sex: WORKSHOP_SEX[model], scale: FIT_SCALE, mass: bodyMass(model), stature: stature(model),
     trunk: trunkLandmarks(model), limbs, hulls: envelope.trunk, feet: envelope.feet, hp: workshopHitPoints(model),
+    balance: workshopBalance(model),
   };
 }
 

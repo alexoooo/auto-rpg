@@ -15,7 +15,7 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { Duel, SIDES, type DuelEnding, type Side, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readMatchup, readYou, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, MODEL_LABELS, matchupSearch, readBalance, readMatchup, readYou, youSearch, type Matchup } from "./matchup.ts";
 import { ORBIT, orbitPosition } from "./orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
 
@@ -119,7 +119,8 @@ export async function bootArena(): Promise<void> {
     const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side])] as const)));
     end();
     audio.reset();
-    duel = new Duel(world, { left: matchup.left, right: matchup.right }, {
+    const balance = readBalance(location.search);
+    duel = new Duel(world, { left: matchup.left, right: matchup.right, ...(balance ? { balance } : {}) }, {
       onBuilt: (duelist, built) => {
         for (const view of [dress.get(duelist.side)!(built), drawHeld(built, scene)]) {
           for (const mesh of view.meshes) shadows.addShadowCaster(mesh);
@@ -224,7 +225,10 @@ export async function bootArena(): Promise<void> {
   const readout = () => {
     if (!duel) return;
     for (const row of rows) row.bar.value = duel.duelists[row.side].pool.bar();
-    clock.textContent = `${duel.clock.toFixed(1)} s`;
+    // While either side is helped, each side's balance, points: the link's, or its character's.
+    const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
+    const points = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
+    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${points.join(" / ")}` : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       shown = duel.verdict;
       const { winner, ending, time } = shown;

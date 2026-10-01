@@ -2,6 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import type { Assist } from "./assist.ts";
 import { chainTo, pointNowToRef, solveReach } from "./kinematics.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
@@ -83,12 +84,12 @@ interface HandState {
   readonly goals: Map<string, [number, number, number]>;
 }
 
-/** Motor control of `built`, servoing at a time constant of `seconds`. */
-export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning): MotorControl {
+/** Motor control of `built`, servoing at a time constant of `seconds`; its stance asks `assist` for what the soles miss. */
+export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null): MotorControl {
   let pose = posture;
   let pushes: readonly MusclePush[] = [];
   let standing: StanceGoal | null = null;
-  const stance = stanceControl(built, stanceTuning);
+  const stance = stanceControl(built, stanceTuning, assist);
   const root = chainTo(built, built.segments.get("hand.left")!)[0]!.parent;
   const names = (joint: BuiltJoint) => joint.dofs.map((dof) => `${joint.spec.name} ${dof.spec.positive}`);
   const hands = new Map<Hand, HandState>((["left", "right"] as const).map((side) => {

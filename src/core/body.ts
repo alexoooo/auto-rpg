@@ -1,5 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
+import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { motorControl, type Hand, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
@@ -32,6 +33,8 @@ export interface Body {
    * measurement did not see, or while the envelope is being measured (`BodyOptions.measuring`).
    */
   readonly envelope: StanceEnvelope | null;
+  /** Its assist (`Assist`), for its meter; the fight that set its ceiling withdraws it. */
+  readonly assist: Assist;
   /** Hand the body to `driver`, asked for a command each control step; null keeps the last command. */
   drive(driver: BodyDriver | null): void;
   dispose(): void;
@@ -110,6 +113,8 @@ interface BodyOptions {
   readonly measuring?: boolean;
   /** What this body senses (`SensesHub.add`); the clock alone unless given. */
   readonly senses?: () => Senses;
+  /** The most its assist gives it (`balanceCeiling`, `src/core/rules/rulebook.ts`); none unless given: it stands on its muscles. */
+  readonly assist?: AssistCeiling;
 }
 
 /**
@@ -128,7 +133,7 @@ interface CommandMind extends Mind {
 /** The command layers over `own`, holding its reference pose until something drives them. */
 export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions): CommandMind {
   const { built, muscles } = own;
-  const motor: MotorControl = motorControl(built, servoSeconds, {}, stance);
+  const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };
   const head = centreOf(built, "head");
   const angles: Record<string, number> = {};
@@ -186,11 +191,11 @@ export function commandMind(own: OwnBody, { servoSeconds, stance }: BodyOptions)
 /** `built` in `world`, holding its reference pose until something drives it. */
 export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
   const sense = options.senses ?? clockSenses(world);
-  const { own, mind, dispose } = embody(built, world, (body) => commandMind(body, options), sense);
+  const { own, mind, dispose } = embody(built, world, (body) => commandMind(body, options), sense, options.assist);
   // Before its first step the view is the body as built, where a driver or a run first finds it.
   mind.look(sense());
   return {
-    built, muscles: own.muscles, view: mind.view,
+    built, muscles: own.muscles, view: mind.view, assist: own.assist,
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
     drive: (next) => mind.drive(next),
     dispose,

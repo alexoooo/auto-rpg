@@ -44,3 +44,19 @@ export function youSearch(search: string, you: Side | null): string {
   if (you) query.set(YOU_PARAM, you); else query.delete(YOU_PARAM);
   return `?${query.toString().replace(/%2C/g, ",")}`;
 }
+
+/** The arena link's parameter for each side's balance, points: `&balance=left,right`, or one number for both. */
+const BALANCE_PARAM = "balance";
+
+/**
+ * The balance an address gives each side (`DuelRecipe.balance`): two numbers, each finite and not
+ * negative, left then right, or one number for both; undefined for anything else, and each side's
+ * is then its character's.
+ */
+export function readBalance(search: string): Readonly<Record<Side, number>> | undefined {
+  const text = new URLSearchParams(search).get(BALANCE_PARAM);
+  if (text === null) return undefined;
+  const points = text.split(",").map((part) => part.trim() === "" ? NaN : Number(part));
+  if (points.length < 1 || points.length > 2 || !points.every((p) => Number.isFinite(p) && p >= 0)) return undefined;
+  return { left: points[0]!, right: points[points.length - 1]! };
+}

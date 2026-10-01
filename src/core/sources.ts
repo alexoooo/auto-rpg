@@ -96,6 +96,14 @@ export const SOURCES = Object.freeze({
       + "emptied. A part severs once it is half its hit points past empty.",
     record: "docs/plans/2026-09-27-warrior-rogue-reptile.md@2e99105f",
   },
+  "owner-balance": {
+    kind: "decision", date: "2026-09-30",
+    decided: "How strongly a body is held up beyond its legs is an attribute of its character (the owner: "
+      + "'i want that to be an attribute'). Proposed, for the owner to confirm: the attribute's name, balance; "
+      + "a point is worth 0.05 of the body's weight and 0.013 weight-metres, so that 5 points is the ceiling "
+      + "measured at a quarter of a weight; and every character starts at 0.",
+    record: "docs/reference/assist.md#balance",
+  },
   "owner-part-hp-split": {
     kind: "decision", date: "2026-09-29",
     decided: "A core human's hit points are split over its segments by cross-section: each segment's "

@@ -1,3 +1,4 @@
+import type { AssistCeiling } from "../control/assist.ts";
 import { derive, sourced, type Quantity } from "../spec/quantity.ts";
 
 /**
@@ -37,6 +38,12 @@ export interface Rulebook {
    * (`MECHANISM_PRICE`), so every weapon keeps its ratio to the club. An edge's is 5.7.
    */
   readonly worth: Readonly<Record<Mechanism, Quantity<number>>>;
+  /**
+   * **What a point of balance is worth** (`AttributeSpec.balance`): the most an assist gives a
+   * body for each point, a force in the body's own weights and a moment in its weights times a
+   * metre. What each worth does to how bouts end: `docs/reference/assist.md`.
+   */
+  readonly balance: { readonly force: Quantity<number>; readonly moment: Quantity<number> };
 }
 
 /** What an experiment may set in place of a mode's rules. */
@@ -60,6 +67,10 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
   worth: Object.freeze(Object.fromEntries(MECHANISMS.map((mechanism) => [mechanism,
     derive("1", "the blunt price over this mechanism's", [MECHANISM_PRICE.blunt, MECHANISM_PRICE[mechanism]], (blunt, own) => blunt / own)],
   )) as Record<Mechanism, Quantity<number>>),
+  balance: Object.freeze({
+    force: sourced(0.05, "1", "owner-balance", "a point is 0.05 of the body's weight"),
+    moment: sourced(0.013, "m", "owner-balance", "and 0.013 weight-metres"),
+  }),
 });
 
 /**
@@ -70,6 +81,17 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
 export function blowDamage(rules: Rulebook, mechanism: Mechanism, energy: number): number {
   if (!(energy >= 0) || !Number.isFinite(energy)) throw new Error(`a blow's energy is a finite joules >= 0, not ${energy}`);
   return energy * rules.worth[mechanism].value / rules.unit.value;
+}
+
+/** What a point of balance is worth under `rules`, as a ceiling. */
+export function balancePoint(rules: Rulebook): AssistCeiling {
+  return { force: rules.balance.force.value, moment: rules.balance.moment.value };
+}
+
+/** The most an assist gives a body of `balance` points, each worth `point`. */
+export function balanceCeiling(balance: number, point: AssistCeiling): AssistCeiling {
+  if (!(balance >= 0) || !Number.isFinite(balance)) throw new Error(`a balance is a finite number of points >= 0, not ${balance}`);
+  return { force: balance * point.force, moment: balance * point.moment };
 }
 
 /** The rules of `mode`, with `override` in place of any of them. */

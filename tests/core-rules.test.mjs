@@ -4,10 +4,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { BODY_MODELS, humanSpec, modelSpec } from "../src/core/human/spec.ts";
 import { impactEnergy } from "../src/core/rules/impact.ts";
 import { createPool, partHitPoints } from "../src/core/rules/pool.ts";
-import { blowDamage, MECHANISMS, rulebook } from "../src/core/rules/rulebook.ts";
+import { balanceCeiling, balancePoint, blowDamage, MECHANISMS, rulebook } from "../src/core/rules/rulebook.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 
@@ -27,6 +27,28 @@ test("the rulebook says where each number came from, is frozen, and an override 
   assert.equal(loose.severMargin.value, 1);
   assert.equal(rulebook("arena").severMargin.value, 0.5);
   assert.throws(() => rulebook("siege"));
+});
+
+test("a_point_of_balance_is_worth_the_rulebook's_and_a_character's_points_are_its_spec's", () => {
+  const five = balanceCeiling(5, balancePoint(RULES));
+  close(five.force, 0.25, "5 points' force, weights");
+  close(five.moment, 0.065, "5 points' moment, weight-metres");
+  assert.deepEqual(balanceCeiling(0, balancePoint(RULES)), { force: 0, moment: 0 });
+  // The worth is the rulebook's, not the function's: at twice the force a point, the same points are twice the force.
+  const dear = rulebook("arena", { balance: { force: sourced(0.1, "1", "owner-balance", "a test's"), moment: sourced(0.013, "m", "owner-balance", "a test's") } });
+  const dearFive = balanceCeiling(5, balancePoint(dear));
+  close(dearFive.force, 0.5, "5 points' force at 0.1 a point");
+  close(dearFive.moment, 0.065, "and the moment as it was");
+  for (const bad of [-1, NaN, Infinity]) assert.throws(() => balanceCeiling(bad, balancePoint(RULES)), /a balance is/, `${bad}`);
+  // A character's points are a quantity of its spec, with a source, walked with the rest.
+  for (const model of BODY_MODELS) {
+    const spec = modelSpec(model), { balance } = spec.attributes;
+    assert.equal(balance.unit, "1", model);
+    assert.ok(["owner-balance", "skeleton-placeholders"].includes(balance.provenance.source), `${model}'s balance is from ${balance.provenance.source}`);
+    assert.ok(Number.isFinite(balance.value) && balance.value >= 0, `${model}'s balance is ${balance.value}`);
+    assert.deepEqual(specProvenanceFaults(spec), [], model);
+    assert.equal(specProvenanceFaults({ attributes: { balance: { ...balance, provenance: { ...balance.provenance, source: "nowhere" } } } }).length, 1, "a balance from nowhere is a fault");
+  }
 });
 
 test("a human's hit points are the owner's, split over its segments by cross-section, with provenance", () => {

@@ -182,10 +182,11 @@ export function rootAim(s: Stance, R: BodyDynamics["root"], P: number[][], w0: n
 
 /**
  * What the bearing soles can give of the wrench the root's acceleration asks; where they cannot
- * give it all, the root's acceleration is the one the wrench they can give makes.
+ * give it all, the root's acceleration is the one the wrench they can give makes, with what the
+ * assist gives of the rest.
  */
 export function limitToSoles(s: Stance, legs: readonly Leg[], P: number[][], w0: number[], p0: readonly [number, number, number]): void {
-  const { root } = s.state.aim, { reading } = s.state, { soleMargin } = s.tuning, { idScratch, shares, missed } = s.scratch, { at } = idScratch;
+  const { assist } = s, { root } = s.state.aim, { reading, helped } = s.state, { soleMargin } = s.tuning, { idScratch, shares, missed } = s.scratch, { at } = idScratch;
   const bearing = legs.filter((leg) => leg.task.bearing).map((leg) => leg.foot);
   const W = [0, 1, 2, 3, 4, 5].map((r) => w0[r]! + P[r]!.reduce((sum, v, c) => sum + v * root[c]!, 0));
   if (bearing.length) {
@@ -196,6 +197,13 @@ export function limitToSoles(s: Stance, legs: readonly Leg[], P: number[][], w0:
     // `missed` is what the soles give beyond what was asked; the shortfall is its opposite.
     reading.shortfall.force.copyFrom(missed.force).scaleInPlace(-1);
     reading.shortfall.moment.copyFrom(missed.moment).scaleInPlace(-1);
+    // What the soles cannot give, the assist may, up to its ceiling: the root is then asked
+    // for the motion the two give together.
+    if (assist?.on) {
+      assist.clipToRef(reading.shortfall.force, reading.shortfall.moment, helped.force, helped.moment);
+      missed.force.addInPlace(helped.force);
+      missed.moment.addInPlace(helped.moment);
+    }
     if (missed.force.lengthSquared() + missed.moment.lengthSquared() > 1e-12) {
       const given = [W[0]! + missed.moment.x, W[1]! + missed.moment.y, W[2]! + missed.moment.z, W[3]! + missed.force.x, W[4]! + missed.force.y, W[5]! + missed.force.z];
       root.set(solveLinear(P, given.map((v, r) => v - w0[r]!)));
