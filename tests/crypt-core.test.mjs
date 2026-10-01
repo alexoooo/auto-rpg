@@ -60,9 +60,18 @@ test("a_fight_in_the_crypt_starts_and_ends", async () => {
     // A fall or an emptied pool ends a body's fight (`DungeonActor.alive`).
     assert.equal(enemy.alive, false, `and the fight ends inside 30 s: ${run.clock.toFixed(1)} s`);
     assert.ok(run.hero.alive, "with the hero standing");
-    // A body out of the fight has its assist withdrawn at the next step; one still in it keeps its own.
+    // A body out of the fight goes limp at the next step: its assist withdrawn, and nothing driving it from then on.
+    // One still in the fight keeps its own.
     run.step();
     assert.deepEqual([enemy.fighter.body.assist.withdrawn, run.hero.fighter.body.assist.withdrawn], [true, false]);
+    assert.deepEqual([enemy.limp, run.hero.limp], [true, false]);
+    const views = () => [enemy, run.hero].map(a => a.fighter.body.view.time), [left, then] = views();
+    seconds(run, 2);
+    assert.equal(views()[0], left, "its control takes no step again");
+    assert.ok(views()[1] > then + 1.9, "while the hero's goes on");
+    const head = enemy.fighter.built.segments.get("head").node.position, root = enemy.fighter.body.muscles.dynamics.root.segment.node.position;
+    assert.ok(head.y < 0.6, `it lies on the floor: its head at ${head.y} m`);
+    assert.deepEqual(enemy.feet(), { x: root.x, z: root.z }, "and it is where its root lies");
     assert.equal(run.status, "playing", "the rest of the crypt is still to come");
   } finally { dispose(); }
 });

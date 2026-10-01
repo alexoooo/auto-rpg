@@ -36,7 +36,8 @@ import { companionSpawn } from "./party-placement.ts";
  *   `ATTACK_METRES` of its target attacks the target's head with the club.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
  *   of the fight once its pool has ended, or once its body has fallen (`SkillReport.fallen`): the
- *   core has no rising, so a body down stays down. Nobody attacks it.
+ *   core has no rising, so a body down stays down. Nobody attacks it, and its body goes limp:
+ *   nothing drives its muscles again, and a step costs it only what the solver takes.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
  *   beyond its sight, and is never taken out again: a body is costly to step, and a level's
  *   worth of skeletons built from the start runs slower than real time.
@@ -56,10 +57,12 @@ export interface DungeonActor {
   readonly side: "party" | "enemy";
   /** The body and its pool, once built; an enemy waits unbuilt until the party is near (`WAKE_METRES`). */
   fighter: (Fighter & { readonly body: Body; readonly skills: Skills }) | null;
-  /** Where the body stands on the ground: its centre of mass over the floor, or where it waits unbuilt. */
+  /** Where the body stands on the ground: its centre of mass over the floor; where its root lies, limp; or where it waits unbuilt. */
   feet(): Point;
   /** Whether it still fights: unbuilt, or built with its pool not ended and its body not fallen. */
   readonly alive: boolean;
+  /** Whether its body lies limp: out of the fight, with nothing driving its muscles (`DungeonRun.drop`). */
+  limp: boolean;
   /** Its pool's bar: 1 whole, 0 spent. */
   readonly vitality: number;
   /** What the page drew for it (its skin), shown while it is in sight, and picked to select or lock it. */
@@ -213,10 +216,12 @@ export class DungeonRun {
     this.planning = this.world.beforeStep(() => this.plan());
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
       const actor: DungeonActor = {
-        id, name: NAMES[model], model, side, fighter: null, meshes: [],
+        id, name: NAMES[model], model, side, fighter: null, meshes: [], limp: false,
         feet() {
           if (!this.fighter) return { x: this.home.x, z: this.home.z };
-          const c = this.fighter.body.view.stance.centre; return { x: c.x, z: c.z };
+          // A limp body's view is of the step its control left at; its root is where it lies now.
+          const c = this.limp ? this.fighter.body.muscles.dynamics.root.segment.node.position : this.fighter.body.view.stance.centre;
+          return { x: c.x, z: c.z };
         },
         get alive() { return this.fighter === null || this.fighter.pool.ending() === null && !this.fighter.skills.report.fallen; },
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
@@ -260,16 +265,26 @@ export class DungeonRun {
 
   /**
    * What carries out `actor`'s plan (`fighterTactics`), which the run hands over as `Orders`: the
-   * plan's facing is for a fighter that stands, and one that walks faces its walk. A fighter out of
-   * the fight only faces.
+   * plan's facing is for a fighter that stands, and one that walks faces its walk. They are asked
+   * only while the fighter is in the fight (`drop`).
    */
   private tactics(actor: DungeonActor): Tactics {
     return fighterTactics(`crypt ${actor.side}`, () => {
       const { move, face, attack } = actor.plan, head = attack?.fighter?.body.view.head;
-      return actor.alive
-        ? { move, face: move ? null : face, attack: head ? [head.x, head.y, head.z] : null }
-        : { move: null, face, attack: null };
+      return { move, face: move ? null : face, attack: head ? [head.x, head.y, head.z] : null };
     });
+  }
+
+  /**
+   * `actor` is out of the fight, for good: its assist is withdrawn and its muscles are released, so
+   * its body lies as the blow or the fall left it and nothing asks its stance for a ground it
+   * cannot have. A stance still solving for a body that is down costs more than one standing
+   * (`docs/reference/play.md#bodies-in-the-step`).
+   */
+  private drop(actor: DungeonActor): void {
+    actor.fighter!.body.assist.withdraw();
+    actor.fighter!.body.dispose();
+    actor.limp = true;
   }
 
   /** Build each enemy a standing party member has come within `WAKE_METRES` of. */
@@ -478,6 +493,7 @@ export class DungeonRun {
 
   /** The run's part of a step, before the bodies': orders, doors, who is built, who sees whom, and each actor's plan. */
   private plan(): void {
+    for (const actor of this.actors) if (actor.fighter && !actor.limp && !actor.alive) this.drop(actor);
     if (this.status !== "playing") {
       for (const actor of this.actors) actor.plan = { move: null, face: null, attack: null };
       return;
@@ -505,8 +521,6 @@ export class DungeonRun {
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + RUN_TIMING.perceive; }
     for (const actor of this.actors) {
       if (!actor.fighter || !actor.alive) {
-        // Out of the fight its assist is withdrawn: a body that is down still has a stance that asks.
-        actor.fighter?.body.assist.withdraw();
         actor.plan = { move: null, face: null, attack: null };
         continue;
       }

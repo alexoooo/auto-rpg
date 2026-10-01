@@ -214,7 +214,8 @@ its senses it picks the nearest body of another side still in the fight, walks a
 its head once their centres are within `ATTACK_METRES` (1.8 m). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
-hands each its plan as orders, with its target's head; its bodies sense the clock alone. The lab
+hands each its plan as orders, with its target's head; its bodies sense the clock alone, and one
+out of the fight goes limp, its muscles released. The lab
 has tactics of its own:
 `stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
 

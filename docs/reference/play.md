@@ -6,7 +6,7 @@ Each section names its constants, where they live, their values, and whose choic
 
 None of these is measured on the core. Each is **set**: chosen while the rule was written. Two
 were once backed by a measurement on a body and an engine that are gone, and are named below as
-set, with the measurement to make again on the [roadmap](../roadmap.md). Unless a line says the
+set; what is still to measure is on the [roadmap](../roadmap.md). Unless a line says the
 owner chose it, every value here is **kept as found; the owner to confirm**.
 
 ## The bout
@@ -29,11 +29,76 @@ the distance given.
 - `SIGHT_METRES`: an enemy sees a party member within 14 m.
 - `WAKE_METRES`: an enemy's body is built once a standing party member comes within 16 m of
   where it waits, 2 m beyond its sight, so that it is standing when it can first see. **Set, not
-  measured.** The margin came with a rule that put far enemies to sleep, whose cost was measured
-  on an engine that is gone (`src/dungeon/run.ts@e029c1e7`). What a level's unbuilt enemies save a
-  step on the core is a measurement to make.
+  measured.** The margin came with a rule that put far enemies to sleep
+  (`src/dungeon/run.ts@e029c1e7`). An enemy not yet built saves the step what a standing body
+  costs it ([Bodies in the step](#bodies-in-the-step)).
 - `PARTY_SIGHT`: a party member sees the enemy its order locks within 12 m, picks one for itself
   within 8 m, and keeps the one it fights while it is within 5 m and nothing ranks above it.
+
+## Bodies in the step
+
+`src/dungeon/run.ts`. A run steps every body it has built, and a body costs a step what its
+control and the solver take for it.
+
+Harness: Node, the core world (`src/core/world.ts`), Rapier, 120 Hz, one thread of the development
+host; skeletons with the club, 3 m apart on a ground, each under the command layers with an order
+to stand. Read standing; then felled by a shove at the root and still driven; then limp, their
+muscles released (`Body.dispose`). A row is the mean of 600 steps. The step is 8.33 ms of the
+run's time, so a step of 8.33 ms is real time with nothing drawn.
+
+```powershell
+node research/body-cost.mjs
+```
+
+| Bodies | State | Down | A step, ms | The solver, ms | The rest, ms | A body, ms | Of real time, % |
+|---|---|---|---|---|---|---|---|
+| 1 | standing, driven | 0 | 0.68 | 0.32 | 0.37 | 0.68 | 8 |
+| 1 | down, driven | 1 | 0.78 | 0.33 | 0.45 | 0.78 | 9 |
+| 1 | down, limp | 1 | 0.27 | 0.27 | 0.00 | 0.27 | 3 |
+| 4 | standing, driven | 0 | 2.17 | 0.98 | 1.18 | 0.54 | 26 |
+| 4 | down, driven | 4 | 2.82 | 1.15 | 1.66 | 0.70 | 34 |
+| 4 | down, limp | 4 | 1.10 | 1.10 | 0.00 | 0.27 | 13 |
+| 8 | standing, driven | 0 | 4.22 | 1.94 | 2.28 | 0.53 | 51 |
+| 8 | down, driven | 8 | 5.62 | 2.34 | 3.28 | 0.70 | 67 |
+| 8 | down, limp | 8 | 2.21 | 2.21 | 0.00 | 0.28 | 26 |
+
+A standing body costs 0.53 ms a step, over half of it control. A body that is down and still
+driven costs more than one standing, 0.70 ms: its stance goes on solving for a ground its soles
+cannot give. Limp, it costs the solver's 0.28 ms and nothing else.
+
+So a body out of the fight goes limp (`DungeonRun.drop`): its assist is withdrawn and its muscles
+released at the next step. In the crypt the stance of a body that is down cost more than under an
+order to stand. Read at `69549c6c`, before the rule, with a script that is not kept (Node, a crypt
+run of seed 42 with no visuals, every enemy built by hand at its home and seven of the nine bodies
+felled by a shove): 12.5 ms a step, 9.8 of it outside the solver, where the nine standing took
+5.2 ms. With the rule the same nine take 3.3 ms, 0.7 of it outside the solver.
+
+Over a run: the hero explores a generated level with three Warriors following, for 180 s or to
+the run's end. The rule changes a fight's course, so the two tables are not the same runs.
+
+```powershell
+node research/crypt-step.mjs --seeds 1,2,3,4 --seconds 180 --companions 3
+```
+
+At `69549c6c`, a body out of the fight still driven:
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 180 | 8 | 9 | 9 | 3 | 5.09 | 6.77 | 81 |
+| 2 | playing | 180 | 8 | 7 | 7 | 2 | 4.50 | 5.09 | 61 |
+| 3 | playing | 180 | 8 | 8 | 8 | 2 | 4.66 | 5.55 | 67 |
+| 4 | playing | 180 | 8 | 8 | 8 | 5 | 5.63 | 6.36 | 76 |
+
+With a body out of the fight limp:
+
+| Seed | The run | Seconds | Enemies | Bodies built at the end | The most built | Out of the fight | A step, ms | In its slowest second, ms | Of real time, % |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | playing | 180 | 8 | 8 | 8 | 2 | 3.98 | 5.18 | 62 |
+| 2 | playing | 180 | 8 | 7 | 7 | 2 | 3.69 | 5.26 | 63 |
+| 3 | playing | 180 | 8 | 8 | 8 | 2 | 3.88 | 4.97 | 60 |
+| 4 | dead | 51 | 8 | 8 | 8 | 4 | 4.33 | 5.16 | 62 |
+
+Four runs a table, on one machine: the mean step is 3.7 to 4.3 ms where it was 4.5 to 5.6.
 
 ## Targets
 

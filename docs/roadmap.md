@@ -164,9 +164,12 @@ All of it on a physically based core, humans first ([architecture](architecture.
   run does not, since its bodies are built as they wake.
 - The run plans for its fighters with the map and hands each its orders; its bodies sense the
   clock alone. A crypt on senses, and a hero that walks one way and faces another, are not built.
-- Set, and to measure on the core ([reference/play.md](reference/play.md)): what a level's
-  unbuilt enemies save a step, which is what `WAKE_METRES` buys; and how long a hero facing the
-  cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
+- Set, and to measure on the core ([reference/play.md](reference/play.md)): how long a hero
+  facing the cursor stands being hit from behind, with `SET_UPON` and `AIM_COSINE` and without.
+- The crypt's step ([reference/play.md](reference/play.md#bodies-in-the-step)): an enemy once
+  built stays in the step, at 0.53 ms a step standing, though the party has left it far behind and
+  it rests at home; and a body out of the fight lies limp and still costs the solver 0.28 ms a
+  step, where an engine that let it rest would take none until something touched it.
 - The generator keeps 0.65 m clear about every place a body stands (`LEVEL.clearance`), written
   for a body that is gone; a walker's path keeps 0.35 m (`FOOTPRINT_METRES`), less than the
   0.38 m the Warrior's elbows stand out in the pose its spec writes. Both are the owner's to
