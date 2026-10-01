@@ -21,7 +21,7 @@ test('a blow sounds as the surface it struck, a clash as wood on wood, and a gra
   assert.deepEqual(hit, before);
 });
 test('impact windows retain the strongest, distinguish attackers, bound bursts and drop stale events', () => {
-  const inbox = new ImpactInbox(), cue = blowCue(blow(), 'stone');
+  const inbox = new ImpactInbox(), cue = blowCue(blow(), 'bone');
   inbox.add(cue, 0); inbox.add({ ...cue, strength: .9 }, 30); inbox.add({ ...cue, strength: .1 }, 40);
   inbox.add({ ...cue, key: 'b' }, 0);
   assert.deepEqual(inbox.drain(59), []);
@@ -43,7 +43,7 @@ test('browser audio voice limit and reset discard pending sounds and stop all so
   audio.listener={x:0,z:0};audio.toward={x:0,z:1};audio.dungeon=false;
   const voice=()=>({source:{stop(){stops++;}},gain:{gain:{cancelScheduledValues(){},setTargetAtTime(){}}}});
   audio.voices=new Set(Array.from({length:12},voice));audio.ambience=[voice(),voice()];audio.context={currentTime:0};audio.inbox=new ImpactInbox();
-  const cue=blowCue(blow(),'stone');audio.inbox.add(cue,0);
+  const cue=blowCue(blow(),'body');audio.inbox.add(cue,0);
   audio.play=()=>assert.fail('voice cap must refuse a thirteenth source');audio.impact(cue);
   audio.reset();assert.equal(stops,14);assert.equal(audio.voices.size,0);assert.deepEqual(audio.ambience,[]);assert.deepEqual(audio.inbox.drain(100),[]);
 });
@@ -52,7 +52,7 @@ test('synthesized buffers are finite, bounded, cached and have silent seams', ()
   const audio=Object.create(GameAudio.prototype); audio.buffers=new Map(); let seed=123;
   audio.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   audio.context={sampleRate:48000,createBuffer:(_,n)=>{const data=new Float32Array(n);return {getChannelData:()=>data};}};
-  for(const kind of ['stone','bone','body','metal','shield','debris','air','fire','drip']){
+  for(const kind of ['bone','body','shield','debris','air','fire','drip']){
     const buffer=audio.buffer(kind), data=buffer.getChannelData(0);
     assert.equal(audio.buffer(kind),buffer,'buffers are reused');
     assert.ok(data.every(Number.isFinite));
@@ -71,7 +71,7 @@ test('audio copies Babylon vector coordinates before positioning arena and dunge
     audio.setView(listener,toward);
     listener.x=999; toward.z=-1; // The audio view is a snapshot, not a reference.
     const played=[]; audio.play=(kind,gain,pan)=>played.push({kind,gain,pan});
-    audio.impact({...blowCue(blow(),'stone'), point:{x:15,z:20}});
-    assert.deepEqual(played,[{kind:'stone',gain:(.08+.5*.5)*(dungeon?(1-5/18)**2:1),pan:-.5}]);
+    audio.impact({...blowCue(blow(),'bone'), point:{x:15,z:20}});
+    assert.deepEqual(played,[{kind:'bone',gain:(.08+.5*.5)*(dungeon?(1-5/18)**2:1),pan:-.5}]);
   }
 });

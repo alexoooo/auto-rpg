@@ -46,8 +46,11 @@ export interface RoomPlacement {
   collider: string | null;
 }
 
+/** What a piece of the room is: its mesh and its material follow from it. */
+type RoomRole = RoomPlacement["role"];
+
 export interface RoomGroup {
-  role: RoomPlacement["role"];
+  role: RoomRole;
   metresPerRepeat: number;
   placements: readonly RoomPlacement[];
 }
@@ -120,7 +123,7 @@ export const ROOM_WALL_COLLIDERS = Object.freeze(roomWalls().map((placement) => 
 }));
 const placed = (
   name: string,
-  role: RoomPlacement["role"],
+  role: RoomRole,
   position: readonly [number, number, number],
   halfExtent: readonly [number, number, number],
   solid = true,
@@ -267,19 +270,20 @@ function mapUvsInMetres(mesh: Mesh, metresPerRepeat: number): void {
 }
 
 function roomSource(scene: Scene, group: RoomGroup): Mesh {
+  const name = group.placements[0].name;
   let mesh: Mesh;
-  if (group.role === "wall") {
-    mesh = MeshBuilder.CreatePlane(group.placements[0].name, {
-      width: ROOM.wallWidth, height: ROOM.wallHeight, sideOrientation: 2,
-    }, scene);
-  } else if (group.role === "beam") {
-    mesh = MeshBuilder.CreateBox(group.placements[0].name, { width: 4.2, height: 0.24, depth: 0.24 }, scene);
-  } else if (group.role === "banner") {
-    mesh = MeshBuilder.CreatePlane(group.placements[0].name, { width: 1.2, height: 1.8, sideOrientation: 2 }, scene);
-  } else if (group.role === "rack") {
-    mesh = MeshBuilder.CreateGround(group.placements[0].name, { width: 1.6, height: 0.4 }, scene);
-  } else {
-    mesh = MeshBuilder.CreateGround(group.placements[0].name, { width: 0.8, height: 0.26 }, scene);
+  switch (group.role) {
+    case "wall":
+      mesh = MeshBuilder.CreatePlane(name, { width: ROOM.wallWidth, height: ROOM.wallHeight, sideOrientation: 2 }, scene);
+      break;
+    case "beam": mesh = MeshBuilder.CreateBox(name, { width: 4.2, height: 0.24, depth: 0.24 }, scene); break;
+    case "banner": mesh = MeshBuilder.CreatePlane(name, { width: 1.2, height: 1.8, sideOrientation: 2 }, scene); break;
+    case "rack": mesh = MeshBuilder.CreateGround(name, { width: 1.6, height: 0.4 }, scene); break;
+    case "debris": mesh = MeshBuilder.CreateGround(name, { width: 0.8, height: 0.26 }, scene); break;
+    default: {
+      const never: never = group.role;
+      throw new Error(`unknown room role ${JSON.stringify(never)}`);
+    }
   }
   mapUvsInMetres(mesh, group.metresPerRepeat);
   return mesh;
@@ -310,11 +314,12 @@ function segmentIntersectsMesh(
 ): boolean {
   mesh.computeWorldMatrix(true);
   const bounds = mesh.getBoundingInfo().boundingBox;
+  const to = { x: toX, y: toY, z: toZ };
   let first = 0;
   let last = 1;
   for (const axis of CARTESIAN_AXES) {
     const start = from[axis];
-    const end = axis === "x" ? toX : axis === "y" ? toY : toZ;
+    const end = to[axis];
     const low = bounds.minimumWorld[axis];
     const high = bounds.maximumWorld[axis];
     const delta = end - start;
@@ -457,10 +462,12 @@ export function buildCosmeticRoom(
   meshes.push(floor);
   const pairs: VisualColliderPair[] = [{ visual: floor.name, collider: "ground" }];
 
+  const dressed: Readonly<Record<RoomRole, Material>> = {
+    wall: materials.wall, banner: materials.banner, beam: materials.timber, rack: materials.timber, debris: materials.timber,
+  };
   for (const group of groups) {
     const source = roomSource(scene, group);
-    source.material = group.role === "wall" ? materials.wall
-      : group.role === "banner" ? materials.banner : materials.timber;
+    source.material = dressed[group.role];
     place(source, group.placements[0]);
     meshes.push(source);
     if (group.placements[0].collider) {

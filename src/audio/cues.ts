@@ -1,6 +1,11 @@
+import type { BodyModel } from "../core/human/spec.ts";
 import type { LandedBlow } from "../core/rules/blows.ts";
 
-export type SoundKind = "stone" | "bone" | "body" | "metal" | "shield";
+export type SoundKind = "bone" | "body" | "shield";
+/** What each body sounds like when struck. */
+export const SURFACE_SOUND: Readonly<Record<BodyModel, SoundKind>> = Object.freeze({
+  "workshop-fighter": "body", "workshop-rogue": "body", "crypt-skeleton": "bone",
+});
 export interface SoundPoint { x: number; z: number }
 export interface ImpactCue { key: string; kind: SoundKind; strength: number; severed: boolean; point: SoundPoint }
 /**

@@ -2,12 +2,16 @@ import { ImpactInbox, soundPlacement, type ImpactCue, type SoundKind, type Sound
 
 const STORAGE = "auto-rpg-sound-v1";
 type Voice = { source: AudioBufferSourceNode; gain: GainNode; pan: StereoPannerNode };
+/** Everything the page synthesizes: a blow's surface, what a severed part scatters, and the crypt's air, fire and drips. */
+type Sound = SoundKind | "air" | "fire" | "drip" | "debris";
+/** Each sound's length, s; a loop's is its period. */
+const SOUND_SECONDS: Readonly<Record<Sound, number>> = { bone: .26, body: .26, shield: .26, debris: .4, drip: .26, air: 6, fire: 6 };
 /** One owner per browser page. No import from a body, mind or headless harness. */
 export class GameAudio {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private reverb: ConvolverNode | null = null;
-  private buffers = new Map<string, AudioBuffer>();
+  private buffers = new Map<Sound, AudioBuffer>();
   private voices = new Set<Voice>();
   private ambience: Voice[] = [];
   private inbox = new ImpactInbox();
@@ -131,7 +135,7 @@ export class GameAudio {
     this.play(cue.kind, (.08 + cue.strength * .5) * place.gain, place.pan);
     if (cue.severed && this.voices.size < 12) this.play("debris", cue.strength * .18 * place.gain, place.pan);
   }
-  private play(kind: SoundKind | "air" | "fire" | "drip" | "debris", volume: number, pan: number, loop = false): Voice {
+  private play(kind: Sound, volume: number, pan: number, loop = false): Voice {
     const ctx = this.context!, source = ctx.createBufferSource(), gain = ctx.createGain(), panner = ctx.createStereoPanner();
     source.buffer = this.buffer(kind); source.loop = loop; source.playbackRate.value = loop ? .94 + this.random() * .12 : .9 + this.random() * .2;
     gain.gain.value = volume; panner.pan.value = pan;
@@ -142,10 +146,10 @@ export class GameAudio {
     source.start(0, loop ? this.random() * source.buffer.duration : 0);
     return voice;
   }
-  private buffer(kind: string): AudioBuffer {
+  private buffer(kind: Sound): AudioBuffer {
     const cached = this.buffers.get(kind); if (cached) return cached;
     const ctx = this.context!, loop = kind === "air" || kind === "fire";
-    const duration = loop ? 6 : kind === "metal" ? .22 : kind === "debris" ? .4 : .26;
+    const duration = SOUND_SECONDS[kind];
     const buffer = ctx.createBuffer(1, Math.ceil(duration * ctx.sampleRate), ctx.sampleRate), data = buffer.getChannelData(0);
     let low = 0;
     for (let i = 0; i < data.length; i++) {
@@ -160,21 +164,13 @@ export class GameAudio {
           + Math.sin(t * 2 * Math.PI * 145) * .3 * Math.exp(-t * 35)
           + Math.sin(t * 2 * Math.PI * 273) * .13 * Math.exp(-t * 45)
           + Math.sin(t * 2 * Math.PI * 527) * .055 * Math.exp(-t * 65); break;
-        // A bright attack over a mostly broad clack: sustained pure high tones read as loose
-        // tinware.
-        case "metal": value = (noise - low) * .3 * Math.exp(-t * 130)
-          + low * .85 * Math.exp(-t * 38)
-          + Math.sin(2 * Math.PI * (430 * t - 100 * t * t)) * .18 * Math.exp(-t * 42)
-          + Math.sin(t * 2 * Math.PI * 783) * .085 * Math.exp(-t * 58)
-          + Math.sin(t * 2 * Math.PI * 1231) * .035 * Math.exp(-t * 85); break;
-        case "stone": value = low * 2 * Math.exp(-t * 28) + Math.sin(t * 2 * Math.PI * 115) * .35 * Math.exp(-t * 40); break;
         case "bone": value = noise * .55 * Math.exp(-t * 65) + Math.sin(t * 2 * Math.PI * 360) * .25 * Math.exp(-t * 32); break;
         case "body": value = low * Math.exp(-t * 35) + Math.sin(t * 2 * Math.PI * 85) * .5 * Math.exp(-t * 32); break;
         case "debris": value = noise * .3 * Math.exp(-t * 12) * (.5 + .5 * Math.sin(t * 170)); break;
         case "drip": value = Math.sin(2 * Math.PI * (650 * t + 1800 * t * t)) * .3 * Math.exp(-t * 28); break;
         case "air": value = low * 2; break;
         case "fire": value = low * .35 + (this.random() > .997 ? noise * .6 : 0); break;
-        default: value = 0;
+        default: { const never: never = kind; throw new Error(`no sound ${String(never)}`); }
       }
       data[i] = value * (loop ? 1 : attack * tail);
     }

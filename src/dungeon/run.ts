@@ -113,6 +113,9 @@ const direction = (from: Point, to: Point): Point => {
 const IDLE: Order = Object.freeze({ kind: "idle" });
 export { companionSpawn } from "./party-placement.ts";
 
+/** A run goes on until its party has fallen or one of it stands at the exit. */
+export type RunStatus = "playing" | "won" | "dead";
+
 export interface DungeonRunOptions {
   /** The level's seed (`generateLevel`), unless `layout` is given. */
   readonly seed: number;
@@ -151,7 +154,7 @@ export class DungeonRun {
   selected: ReadonlySet<string>;
   readonly explored = new Set<number>();
   visible = new Set<number>();
-  status: "playing" | "won" | "dead" = "playing";
+  status: RunStatus = "playing";
   notice = "Find the exit. Click to move; drag to keep moving through danger.";
   /** The camera's elevation, which decides where on a wall in front of the hero the cut-away falls. The page sets it. */
   pitch = CAMERA_PITCH;

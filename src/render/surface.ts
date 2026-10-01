@@ -13,9 +13,15 @@ export type TextureFactory = (
 ) => Texture;
 
 function attachMap(material: PBRMaterial, channel: TextureChannel, texture: Texture): void {
-  if (channel === "albedo") material.albedoTexture = texture;
-  else if (channel === "normal") material.bumpTexture = texture;
-  else material.metallicTexture = texture;
+  switch (channel) {
+    case "albedo": material.albedoTexture = texture; break;
+    case "normal": material.bumpTexture = texture; break;
+    case "orm": material.metallicTexture = texture; break;
+    default: {
+      const never: never = channel;
+      throw new Error(`unknown texture channel ${JSON.stringify(never)}`);
+    }
+  }
 }
 
 /** Apply every sampling fact that is independent of image decoding. */

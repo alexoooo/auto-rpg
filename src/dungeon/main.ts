@@ -14,10 +14,10 @@ import type { Clothing, SkinView } from "../render/skin.ts";
 import { loadSkeletonArt } from "../render/skeleton-skin.ts";
 import { drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
-import { blowCue } from "../audio/cues.ts";
+import { blowCue, SURFACE_SOUND } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { EnemyHover } from "./hover.ts";
-import { DungeonRun, type DungeonActor } from "./run.ts";
+import { DungeonRun, type DungeonActor, type RunStatus } from "./run.ts";
 import { orderLabel } from "./commands.ts";
 import { cellKey, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
@@ -34,6 +34,37 @@ import { dressReference, type ReferenceQuality } from "./reference-look.ts";
 import { need } from "../dom.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
+
+/** The scenario `text` names, as the scene's menu and the address write it. */
+function scenarioOf(text: string): DungeonScenario {
+  if (text === "generated" || text === "reference" || text === "random-crypt") return text;
+  throw new Error(`unknown crypt scenario ${JSON.stringify(text)}`);
+}
+
+/** Whether a scenario is drawn with the reference chamber's look, in place of the generated level's. */
+function usesReferenceLook(scenario: DungeonScenario): boolean {
+  switch (scenario) {
+    case "generated": return false;
+    case "reference": case "random-crypt": return true;
+    default: {
+      const never: never = scenario;
+      throw new Error(`unknown crypt scenario ${JSON.stringify(never)}`);
+    }
+  }
+}
+
+/** The pause panel's title for a run of `party` bodies. */
+function pauseTitle(status: RunStatus, party: number): string {
+  switch (status) {
+    case "playing": return "Paused";
+    case "won": return "You escaped.";
+    case "dead": return party > 1 ? "Your party has fallen." : "Your hero has fallen.";
+    default: {
+      const never: never = status;
+      throw new Error(`unknown run status ${JSON.stringify(never)}`);
+    }
+  }
+}
 
 const canvas = need<HTMLCanvasElement>("dungeon"), start = need<HTMLButtonElement>("start");
 const heroBuild = need<HTMLSelectElement>("hero-build"), seedInput = need<HTMLInputElement>("seed");
@@ -79,8 +110,9 @@ const requestedScene = new URLSearchParams(location.search).get("scene");
 scenario.value = requestedScene === "reference" || requestedScene === "random-crypt" ? requestedScene : "generated";
 quality.value = new URLSearchParams(location.search).get("quality") === "reduced" ? "reduced" : "high";
 const chooseScenario = () => {
-  quality.parentElement!.hidden = scenario.value === "generated";
-  if (scenario.value !== "generated") { companionCount.value = "0"; heroBuild.value = "workshop-fighter"; }
+  const reference = usesReferenceLook(scenarioOf(scenario.value));
+  quality.parentElement!.hidden = !reference;
+  if (reference) { companionCount.value = "0"; heroBuild.value = "workshop-fighter"; }
   updateEquipment();
 };
 scenario.addEventListener("change", chooseScenario);
@@ -123,8 +155,7 @@ async function boot(): Promise<void> {
     paused = value; audio.setActive(!value && run.status === "playing");
     held.clear(); run.commands.right = run.commands.up = 0; run.commands.cancelPointer();
     need("pause-panel").hidden = !value;
-    need("pause-title").textContent = run.status === "won" ? "You escaped." : run.status === "dead"
-      ? run.party.length > 1 ? "Your party has fallen." : "Your hero has fallen." : "Paused";
+    need("pause-title").textContent = pauseTitle(run.status, run.party.length);
     need("pause-copy").textContent = run.status === "playing" ? "Your run is frozen. Wheel zoom remains available." : `Seed ${seed} · ${Math.floor(run.clock)} seconds in the depths.`;
     need("resume").hidden = run.status !== "playing";
     need("pause-button").textContent = value ? "Resume · Esc" : "Pause · Esc";
@@ -168,7 +199,7 @@ async function boot(): Promise<void> {
       onBlow: blow => {
         if (!run || !run.visible.has(cellKey(run.map, { x: blow.point[0], z: blow.point[2] }))) return;
         const target = run.actors.find(a => a.id === blow.target);
-        if (target) audio.cue(blowCue(blow, target.model === "crypt-skeleton" ? "bone" : "body"));
+        if (target) audio.cue(blowCue(blow, SURFACE_SOUND[target.model]));
       } });
     run.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     run.pitch = pitch; run.toward = toward;
@@ -214,7 +245,7 @@ async function boot(): Promise<void> {
   start.addEventListener("click", () => {
     if (!/^\d{1,10}$/.test(seedInput.value) || Number(seedInput.value) > 0xffffffff) { seedInput.setCustomValidity("Enter a seed from 0 to 4294967295."); seedInput.reportValidity(); return; }
     seedInput.setCustomValidity(""); selectedHero = heroBuild.value as BodyModel;
-    selectedScenario = scenario.value as DungeonScenario; reference = selectedScenario !== "generated"; selectedQuality = quality.value === "reduced" ? "reduced" : "high";
+    selectedScenario = scenarioOf(scenario.value); reference = usesReferenceLook(selectedScenario); selectedQuality = quality.value === "reduced" ? "reduced" : "high";
     const url = new URL(location.href);
     if (reference) { url.searchParams.set("scene", selectedScenario); url.searchParams.set("quality", selectedQuality); }
     else { url.searchParams.delete("scene"); url.searchParams.delete("quality"); }
