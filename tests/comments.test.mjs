@@ -95,8 +95,11 @@ function sourcesUnder(directory, extension, skip = []) {
   return out;
 }
 
-/** The bake-off's results are records of runs, not code. */
-const RESULTS = ["research/physics-bakeoff/results/"];
+/**
+ * Records of runs, not code: the bake-off's results, and the runs' outputs, which the repository
+ * does not hold (`.gitignore`), so the guard would read whatever a working copy has left there.
+ */
+const RESULTS = ["research/physics-bakeoff/results/", "research/runs/"];
 
 const SOURCES = [
   ...[".ts", ".css"].flatMap((extension) => sourcesUnder("src/", extension)),
@@ -158,6 +161,7 @@ test("the_guard_reads_every_source", () => {
     assert.ok(SOURCES.includes(expected), `${expected} is read`);
   }
   assert.ok(!SOURCES.some((file) => file.includes("/results/")), "the bake-off's results are records, not code");
+  assert.ok(!SOURCES.some((file) => file.startsWith("research/runs/")), "a run's outputs are not the repository's");
 });
 
 test("no_comment_is_a_journal_entry", () => {
