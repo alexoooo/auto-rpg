@@ -21,8 +21,8 @@ export const STAND = 1.5;
  * are set there (`Locomotion.place`). A walk alone does not stand a body where it stops: stopped,
  * the stance steps a foot out from the gait's width to the width it was built at, which moves the
  * body some 10 cm to one side, out of the recipe's window; and a slow walk asked for a few
- * centimetres leans the body without stepping. The pace is one each human holds while turning.
- * Evidence: `docs/reference/human-and-strikes.md#approach`.
+ * centimetres leans the body without stepping. The pace is one each human holds while turning;
+ * `seconds` and `reach` are set. Evidence: `docs/reference/human-and-strikes.md#approach`.
  */
 export const APPROACH = { pace: 0.3, seconds: 1, reach: 0.25 } as const;
 

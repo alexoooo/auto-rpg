@@ -25,6 +25,27 @@ four batteries (`research/core-stance-trials.mjs`):
   centre of mass, watched 4.5 s (272 shoves); the count held, then the impulse held each way (the
   largest below the first that fell) as its mean over the ways and its least, N s.
 
+## Stance height
+
+`STANCE_LOWER` (`src/core/skills/locomotion.ts`) is 0.03 m: how far under its reference height
+the skills hold a body's centre of mass. It is the height every table of this record was
+measured at, and was not itself swept, so a change to it voids them. A crouch is beyond the
+stance: asked 8 cm or more lower, a human settles only about 1 cm lower, and falls walking or
+stopping from there (the lab's Stance).
+
+## Fallen
+
+`FALLEN` (`src/core/skills/locomotion.ts`) is 0.25 m: a body has fallen once its centre of mass
+is that far under the height its stance is asked, at any step since. It is the bar the batteries
+above count a fall by (`research/core-stance-trials.mjs`), and is set, not swept.
+
+## Friction
+
+Every table of this record was measured with every contact at one friction coefficient, 0.5
+(`CONTACT_FRICTION`, `src/core/engine/engine.ts`), which is Rapier's default
+(`rapier-default-friction` in `SOURCES`). The stance's limits on what a sole gives are read from
+it, so another friction voids the tables.
+
 ## Time constants
 
 `STANCE_SECONDS`: each time constant moved alone against the batteries.

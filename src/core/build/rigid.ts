@@ -95,7 +95,8 @@ export const hasProducts = (tensor: Tensor): boolean => tensor[3] !== 0 || tenso
 /**
  * `tensor`'s principal moments and their axes, in the tensor's frame, by Jacobi's rotations: the
  * axes are right-handed (z = x cross y) and the tensor is the sum of each moment times its axis's
- * outer product.
+ * outer product. It sweeps until the products are rounding beside the moments, 64 times at most:
+ * a numeric setting.
  */
 export function principalOf(tensor: Tensor): { readonly moments: Vec3; readonly axes: readonly [Vec3, Vec3, Vec3] } {
   const a = [[tensor[0], tensor[3], tensor[4]], [tensor[3], tensor[1], tensor[5]], [tensor[4], tensor[5], tensor[2]]];

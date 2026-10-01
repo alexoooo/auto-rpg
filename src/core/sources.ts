@@ -122,6 +122,11 @@ export const SOURCES = Object.freeze({
     decided: "The core runs on Rapier (the SIMD build), chosen on the physics bake-off's report.",
     record: "research/physics-bakeoff/REPORT.md",
   },
+  "rapier-default-friction": {
+    kind: "literature",
+    cite: "Rapier user guide, Colliders, Friction: a collider's friction coefficient is 0.5 unless it is set.",
+    link: "https://rapier.rs/docs/user_guides/javascript/colliders#friction",
+  },
   "physics-bakeoff": {
     kind: "measurement",
     how: "research/physics-bakeoff/: Havok, MuJoCo and Rapier driven by one torque servo at 120 Hz against a 1920 Hz "

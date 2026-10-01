@@ -11,7 +11,7 @@ import { sin, cos, atan2, hypot } from "../math/real.ts";
 /**
  * How near a target a fighter attacks it rather than walking to it, m, between the two centres of
  * mass across the ground: the club's reach ahead of the head (1.05 m, `REPERTOIRE`) and a step,
- * which the strike skill closes itself.
+ * which the strike skill closes itself. Set (`docs/reference/human-and-strikes.md#attack-distance`).
  */
 export const ATTACK_METRES = 1.8;
 
@@ -53,6 +53,7 @@ export function fighterTactics(name: string, orders: (sight: Sight) => Orders, s
       }
       state.aim = null;
       const hands = { left: GUARD_ACTION, right: GUARD_ACTION };
+      // A facing under 8 cm long names no direction: the point to face is over the body itself.
       const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
       if (!move || !envelope) return { move: null, face: facing ?? report.heading, hands };
       const bearing = atan2(move.x, move.z), walk = envelope.walk.value;

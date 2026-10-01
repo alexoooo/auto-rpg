@@ -312,6 +312,7 @@ function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | und
     if (step.held >= swing!.transfer) reading.phase = "swing";
   } else if (reading.phase === "shift") {
     const c = reading.centre, vel = reading.velocity, g = gravityOf(s);
+    // The height's floor, 1 mm, is a numeric setting.
     const w = Math.sqrt(g / Math.max(height, 1e-3)), cx = c.x + vel.x / w, cz = c.z + vel.z / w;
     const [hx, hz] = withinSupport([bearer!], cx, cz, inset);
     if (hx === cx && hz === cz) reading.phase = "swing";
@@ -326,6 +327,7 @@ function pelvisTurn(s: Stance, heading: number): void {
   Quaternion.InverseToRef(pelvis.node.rotationQuaternion!, inverse);
   target.multiplyToRef(inverse, error);
   if (error.w < 0) error.scaleInPlace(-1);
+  // A turn under 1e-12 has no axis to divide by: a numeric setting.
   const half = hypot(error.x, error.y, error.z), angle = 2 * atan2(half, error.w);
   spin.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.turn : 0);
 }
@@ -359,6 +361,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
   step.turn.multiplyToRef(Quaternion.InverseToRef(foot.segment.node.rotationQuaternion!, inverse), error);
   if (error.w < 0) error.scaleInPlace(-1);
+  // A turn under 1e-12 has no axis to divide by, here and for the whole turn below: a numeric setting.
   const half = hypot(error.x, error.y, error.z), angle = 2 * atan2(half, error.w);
   turn.set(error.x, error.y, error.z).scaleInPlace(half > 1e-12 ? angle / half / seconds.swing : 0);
   // The whole turn from lift to landing, world: the path's turn goes about its axis at its angle
@@ -585,7 +588,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
         plan.velocity.copyFrom(vel);
         plan.on = true;
       }
-      // The pendulum is the plan's as this step finds it, before the plan goes on.
+      // The pendulum is the plan's as this step finds it, before the plan goes on. Its height's
+      // floor, 1 mm, is a numeric setting.
       const pendulum = g / Math.max(plan.at.y, 1e-3);
       const bearer = swing ? stance.find((foot) => foot.side !== swing.foot) : undefined;
       const planned = advancePlan(s, goal, stance, swing, bearer, pendulum, dt);

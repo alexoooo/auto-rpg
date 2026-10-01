@@ -46,6 +46,7 @@ function settleStep(feet: readonly FootState[], last: Foot, heading: number, wid
  */
 function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, longest: number, inset: number): SwingGoal | null {
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
+  // The height's floor, 1 mm, is a numeric setting: a centre at its feet has no pendulum.
   const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(feet, xi, zi, inset);
   if (hypot(xi - hx, zi - hz) <= tuning.margin) return null;
@@ -82,6 +83,7 @@ function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
 /** How far the capture point of a body at `centre` moving at `velocity` is outside the region `feet`'s soles hold, m. */
 function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, inset: number): number {
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
+  // The height's floor, 1 mm, is a numeric setting.
   const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(feet, xi, zi, inset);
   return hypot(xi - hx, zi - hz);
@@ -111,6 +113,7 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   const rx = cos(heading), rz = -sin(heading);
   const side: Foot = under?.foot ?? (last ? (last === "left" ? "right" : "left") : walk[0] * rx + walk[1] * rz < 0 ? "left" : "right");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
+  // The height's floor, 1 mm, is a numeric setting.
   const T = tuning.seconds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = exp(w * T);
   const clear = foot.width, W = Math.max(tuning.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
   // Under way, the capture point runs from the pivot the body falls about for what is left of the swing.
@@ -121,7 +124,8 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   // The steady landing.
   const sx = b.x + walk[0] * T + sign * W * rx, sz = b.z + walk[1] * T + sign * W * rz;
   let px = under ? under.pivot.x : b.x, pz = under ? under.pivot.z : b.z;
-  // (At the swing's end the capture point is where it is, wherever the pivot.)
+  // (At the swing's end the capture point is where it is, wherever the pivot; how near the end, 1e-6
+  // of the run, is a numeric setting.)
   if (run > 1 + 1e-6) [px, pz] = withinSupport([bearingOf(bearer)], (sx + nx - xi * run) / (1 - run), (sz + nz - zi * run) / (1 - run), inset);
   const ex = px + (xi - px) * run, ez = pz + (zi - pz) * run;
   // Starting from a stand, the weight is shifted first and the foot lands where a steady walk puts it.
@@ -165,6 +169,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   const rx = cos(heading), rz = -sin(heading);
   const side: Foot = under?.foot ?? (last === "left" ? "right" : "left");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
+  // The height's floor, 1 mm, is a numeric setting.
   const Tss = tuning.seconds, Tds = tuning.transfer!, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));
   const clear = foot.width, W = Math.max(tuning.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
   const E = exp(-w * Tss), F = exp(-w * Tds), G = (1 - F) / (w * Tds) - F;
@@ -191,6 +196,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
     const [cx, cz] = reference(tx, tz), run = exp(w * Math.max(under.remaining, 0));
     const xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
     let px = under.pivot.x, pz = under.pivot.z;
+    // At the swing's end the pivot is kept: how near the end, 1e-6 of the run, is a numeric setting.
     if (run > 1 + 1e-6) [px, pz] = withinSupport([bearingOf(bearer)], (cx - xi * run) / (1 - run), (cz - zi * run) / (1 - run), inset);
     const ex = px + (xi - px) * run, ez = pz + (zi - pz) * run;
     tx += (ex - cx) / (F + G);

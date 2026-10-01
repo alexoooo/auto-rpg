@@ -135,10 +135,14 @@ export function solveReach(chain: readonly BuiltJoint[], angles: number[][], fre
 }
 
 /**
- * The solver's settings, which are numerics, not anatomy: passes at most, the largest change of an
- * angle it stops at (rad), the angle it differences by (rad), its damping (m), the share of the
- * way to the preferred angles each pass asks in the null space, and the most any angle turns in
- * one pass (rad).
+ * The solver's numeric settings, which are not anatomy: passes at most, the largest change of an
+ * angle it stops at (rad), the angle it differences by (rad), and its damping (m).
  */
-const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_STEP = 1e-7, IK_DAMPING = 0.01, IK_POSTURE_PULL = 0.5, IK_TURN = 0.2;
+const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_STEP = 1e-7, IK_DAMPING = 0.01;
+/**
+ * What shapes the path an arm takes to a place: the share of the way to the preferred angles each
+ * pass asks in the null space, and the most any angle turns in one pass (rad). Set
+ * (`docs/reference/human-and-strikes.md#ik`).
+ */
+const IK_POSTURE_PULL = 0.5, IK_TURN = 0.2;
 

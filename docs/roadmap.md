@@ -105,6 +105,11 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - A two-handed grip: a hand holds its own item and nothing holds one item with both.
 - The envelope does not measure a turn from standing; the Routine walks and turns at 0.3 m/s and
   1 rad/s to stay up.
+- Set and not swept, each said so in its record: the least lead a walk needs before it turns
+  (`TURN_LEAD`), where a placed foot lands beside its place (`PLACING.near`), how near a fighter
+  attacks (`ATTACK_METRES`) and the shaping of an arm's path (`IK_POSTURE_PULL`, `IK_TURN`)
+  ([human and strikes](reference/human-and-strikes.md)); the stance's height and its fall bar
+  (`STANCE_LOWER`, `FALLEN`, [stance tuning](reference/stance-tuning.md#stance-height)).
 - Shoves: the least impulse held from any way is 55 N s on the Warrior and 35 on the Rogue.
   Bounding the swing costs 15 held shoves on the Warrior and 11 on the Rogue
   ([stance tuning](reference/stance-tuning.md#bounded-swing)). No sourced human reference exists

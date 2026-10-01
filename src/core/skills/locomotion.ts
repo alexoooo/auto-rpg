@@ -5,19 +5,24 @@ import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 
 /**
- * How far under its reference height a body's centre of mass is held, m. A crouch is beyond the
- * stance: asked 8 cm or more lower, a human settles only about 1 cm lower, and falls walking or
- * stopping from there.
+ * How far under its reference height a body's centre of mass is held, m: the height every table
+ * of the stance's record was measured at (`docs/reference/stance-tuning.md#stance-height`). A
+ * crouch is beyond the stance: asked 8 cm or more lower, a human settles only about 1 cm lower,
+ * and falls walking or stopping from there.
  */
 export const STANCE_LOWER = 0.03;
 
-/** How far under the goal's height the centre of mass has fallen when the body has, m. */
+/**
+ * How far under the goal's height the centre of mass has fallen when the body has, m: the bar the
+ * stance's batteries count a fall by (`docs/reference/stance-tuning.md#fallen`).
+ */
 const FALLEN = 0.25;
 
 /**
  * How long a walk goes straight after it sets off from standing before its heading turns, s. A
  * heading turned over feet still planted for the walk's first weight shift runs the shift away
- * sideways until the body falls; the envelope's turn rates are a walk's already under way.
+ * sideways until the body falls; the envelope's turn rates are a walk's already under way. Set,
+ * not swept (`docs/reference/human-and-strikes.md#turn-lead`).
  */
 export const TURN_LEAD = 1;
 
@@ -68,8 +73,8 @@ export type Footing = Readonly<Record<Foot, readonly [number, number]>>;
 /**
  * **How the feet are placed** (`Locomotion.place`): a foot further than `near` (m) from its place
  * steps there, as a walk's step is taken (`STANCE_GAIT`'s swing time and lift, the weight shifted
- * off it first); one step a foot for each footing asked. Provisional, until the Routine measures
- * where the placed feet land.
+ * off it first); one step a foot for each footing asked. `near` is set, not measured
+ * (`docs/reference/human-and-strikes.md#placing`).
  */
 export const PLACING = { near: 0.02 } as const;
 
