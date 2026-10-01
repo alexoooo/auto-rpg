@@ -70,6 +70,15 @@ export interface Pool {
   bar(): number;
   ending(): Ending | null;
   wound(blow: Blow): Wound;
+  /** Its memory (`src/core/state.ts`). */
+  readonly state: object;
+}
+
+/** **What a pool remembers**: each part's hit points, the parts still attached, and how the fight ended, once it has. */
+interface PoolState {
+  readonly hp: Map<string, number>;
+  readonly attached: Set<string>;
+  ending: Ending | null;
 }
 
 /** Each segment's full hit points: its cross-section's share of the body's. */
@@ -86,36 +95,34 @@ export function createPool(spec: BodySpec, rules: Rulebook): Pool {
   const shares = partHitPoints(spec);
   const names = spec.segments.map((segment) => segment.name);
   const max = new Map([...shares].map(([name, q]) => [name, q.value]));
-  const hp = new Map(max);
-  const attached = new Set(names);
+  const state: PoolState = { hp: new Map(max), attached: new Set(names), ending: null };
   const parent = new Map<string, string>(), children = new Map<string, string[]>(names.map((name) => [name, []]));
   for (const joint of spec.joints) {
     parent.set(joint.child, joint.parent);
     children.get(joint.parent)!.push(joint.child);
   }
   const vital = spec.wounds.vital, whole = new Set(spec.wounds.whole);
-  for (const name of [...vital, ...whole]) if (!attached.has(name)) throw new Error(`${spec.model} has no segment ${name} to wound`);
+  for (const name of [...vital, ...whole]) if (!max.has(name)) throw new Error(`${spec.model} has no segment ${name} to wound`);
   const total = spec.wounds.hp.value;
   // Sums of the parts' shares differ from the total in the last bit; below this the pool is empty.
   const empty = total * Number.EPSILON * names.length;
   /** Every part's full hit points, summed as `attachedHp` sums: the total, but for its last bit. */
   const full = names.reduce((sum, name) => sum + max.get(name)!, 0);
-  let ending: Ending | null = null;
 
   const part = (name: string): string => {
     if (!max.has(name)) throw new Error(`${spec.model} has no part ${name}`);
     return name;
   };
-  const attachedHp = (): number => names.reduce((sum, name) => sum + (attached.has(name) ? hp.get(name)! : 0), 0);
+  const attachedHp = (): number => names.reduce((sum, name) => sum + (state.attached.has(name) ? state.hp.get(name)! : 0), 0);
   /** `name` and every attached part beyond it, outward. */
-  const beyond = (name: string): string[] => [name, ...children.get(name)!.filter((c) => attached.has(c)).flatMap(beyond)];
+  const beyond = (name: string): string[] => [name, ...children.get(name)!.filter((c) => state.attached.has(c)).flatMap(beyond)];
   /** The attached parts from `from` outward, nearest first; at each, its parent before its children. */
   const walk = (from: string): string[] => {
     const order: string[] = [], seen = new Set([from]), queue = [from];
     while (queue.length) {
       const at = queue.shift()!, up = parent.get(at);
       for (const next of [...(up === undefined ? [] : [up]), ...children.get(at)!]) {
-        if (seen.has(next) || !attached.has(next)) continue;
+        if (seen.has(next) || !state.attached.has(next)) continue;
         seen.add(next);
         order.push(next);
         queue.push(next);
@@ -124,49 +131,49 @@ export function createPool(spec: BodySpec, rules: Rulebook): Pool {
     return order;
   };
   const judge = (): Ending | null => {
-    if (vital.some((name) => !attached.has(name))) return "severed";
+    if (vital.some((name) => !state.attached.has(name))) return "severed";
     if (attachedHp() <= empty) return "exhausted";
-    return vital.some((name) => hp.get(name)! <= empty) ? "fatal" : null;
+    return vital.some((name) => state.hp.get(name)! <= empty) ? "fatal" : null;
   };
 
   return {
-    total,
+    total, state,
     max: (name) => max.get(part(name))!,
-    hp: (name) => hp.get(part(name))!,
-    attached: (name) => attached.has(part(name)),
+    hp: (name) => state.hp.get(part(name))!,
+    attached: (name) => state.attached.has(part(name)),
     attachedHp,
     bar: () => attachedHp() / full,
-    ending: () => ending,
+    ending: () => state.ending,
     wound({ part: struck, damage, clean }) {
       part(struck);
-      if (!attached.has(struck) || !(damage > 0)) return { taken: [], severed: [], lost: 0, spent: 0, ending };
+      if (!state.attached.has(struck) || !(damage > 0)) return { taken: [], severed: [], lost: 0, spent: 0, ending: state.ending };
       const taken: { part: string; hp: number }[] = [];
       const absorb = (name: string, arriving: number): number => {
         // A part left holding no more than the pool's rounding is empty.
-        const has = hp.get(name)!, take = has - arriving <= empty ? has : arriving;
+        const has = state.hp.get(name)!, take = has - arriving <= empty ? has : arriving;
         if (take > 0) {
-          hp.set(name, has - take);
+          state.hp.set(name, has - take);
           taken.push({ part: name, hp: take });
         }
         return arriving - take;
       };
-      const had = hp.get(struck)!;
+      const had = state.hp.get(struck)!;
       let excess = absorb(struck, damage);
       let severed: string[] = [], lost = 0;
-      const emptied = hp.get(struck)! <= empty;
+      const emptied = state.hp.get(struck)! <= empty;
       if (emptied && !whole.has(struck) && (clean || damage - had >= rules.severMargin.value * max.get(struck)!)) {
         severed = beyond(struck);
         for (const name of severed) {
-          lost += hp.get(name)!;
-          attached.delete(name);
+          lost += state.hp.get(name)!;
+          state.attached.delete(name);
         }
       }
       for (const name of walk(struck)) {
         if (!(excess > 0)) break;
         excess = absorb(name, excess);
       }
-      ending ??= judge();
-      return { taken, severed, lost, spent: Math.max(0, excess), ending };
+      state.ending ??= judge();
+      return { taken, severed, lost, spent: Math.max(0, excess), ending: state.ending };
     },
   };
 }

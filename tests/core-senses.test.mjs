@@ -55,6 +55,9 @@ test("a mind sees the others as the last step left them, whenever the senses wer
     assert.deepEqual(told(sense()), [["b", "right", true, false]]);
     assert.deepEqual(told(b()), [["a", "left", true, false]]);
     assert.deepEqual([sense().side, sense().out, b().side], ["left", false, "right"]);
+    // A body is carried by its id, once.
+    assert.throws(() => hub.add({ id: "a", side: "right", built: second, out: () => false }), /a body called a already/);
+    assert.deepEqual(Object.keys(hub.state), ["a", "b"]);
     // Before any step each is shown as it was added.
     assert.deepEqual(sensed(sense().others[0]), standing(second));
     assert.deepEqual([...sense().others[0].segments.keys()], [...second.segments.keys()]);

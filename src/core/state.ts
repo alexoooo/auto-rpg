@@ -17,7 +17,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
  */
 
 /** A saved state: plain data sharing nothing with what it was saved from, good for `loadState` and for another thread. */
-type Saved = unknown;
+export type Saved = unknown;
 
 /** The key that marks a saved vector or turn, which a thread boundary would strip of its class. */
 const TAG = "~";

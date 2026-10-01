@@ -64,6 +64,14 @@ export interface SensesHub {
    * it or after. Until the next step the others see it as it stands now, in the fight.
    */
   add(sensed: Sensed): () => Senses;
+  /** Its memory (`src/core/state.ts`): each body's frames and which of them is shown, by the body's id. */
+  readonly state: object;
+  /**
+   * Show every body again from its frames. What the others are shown of a body is written each
+   * step from its frames; after a load of the state it would show the step before the load until
+   * the next step, so whoever loads the state calls this.
+   */
+  show(): void;
   dispose(): void;
 }
 
@@ -86,11 +94,12 @@ type Frame = { [index: number]: number };
  * sees another through its view.
  *
  * `delay` is whole steps, 0 unless given. The frames a body's delay holds are its memory
- * (`Carried.at`, `.frames`), plain numbers.
+ * (`Remembered`), plain numbers, and the hub's state.
  */
 export function createSenses(world: World, delay = 0): SensesHub {
   if (!Number.isInteger(delay) || delay < 0) throw new Error(`a delay is whole steps, not ${delay}`);
   const carried: Carried[] = [];
+  const state: Record<string, Remembered> = {};
   const p = new Vector3(), v = new Vector3(), w = new Vector3();
 
   /** `entry`'s body as it stands, into `frame`: each segment, then the whole body's centre, its velocity, and whether it is out. */
@@ -131,14 +140,23 @@ export function createSenses(world: World, delay = 0): SensesHub {
   const hook = world.sense(() => {
     for (const entry of carried) {
       // The newest frame goes where the oldest was; the one after it is now `delay` steps old.
-      read(entry, entry.frames[entry.at]!, entry.sensed.out());
-      entry.at = (entry.at + 1) % entry.frames.length;
-      show(entry, entry.frames[entry.at]!);
+      const memory = state[entry.sensed.id]!;
+      read(entry, memory.frames[memory.at]!, entry.sensed.out());
+      memory.at = (memory.at + 1) % memory.frames.length;
+      show(entry, memory.frames[memory.at]!);
     }
   });
 
   return {
+    state,
+    show() {
+      for (const entry of carried) {
+        const memory = state[entry.sensed.id]!;
+        show(entry, memory.frames[memory.at]!);
+      }
+    },
     add(sensed) {
+      if (sensed.id in state) throw new Error(`the senses carry a body called ${sensed.id} already`);
       const segments = [...sensed.built.segments.values()];
       const shown = {
         id: sensed.id, side: sensed.side, spec: sensed.built.spec, out: false,
@@ -147,13 +165,14 @@ export function createSenses(world: World, delay = 0): SensesHub {
           { position: new Vector3(), rotation: new Quaternion(), centre: new Vector3(), velocity: new Vector3(), spin: new Vector3() }])),
       };
       const entry: Carried = {
-        sensed, segments, shown, others: [], at: 0, frames: [],
+        sensed, segments, shown, others: [],
         mass: segments.reduce((sum, s) => sum + s.rigid.mass, 0),
       };
       // Every frame starts as the body stands, in the fight: `out` is first asked at the next step.
-      const standing: number[] = [];
+      const standing: number[] = [], memory: Remembered = { at: 0, frames: [] };
       read(entry, standing, false);
-      for (let i = 0; i <= delay; i++) entry.frames.push(Float64Array.from(standing));
+      for (let i = 0; i <= delay; i++) memory.frames.push(Float64Array.from(standing));
+      state[sensed.id] = memory;
       show(entry, standing);
       for (const other of carried) { other.others.push(shown); entry.others.push(other.shown); }
       carried.push(entry);
@@ -177,7 +196,10 @@ interface Carried {
   readonly shown: { -readonly [K in keyof BodySense]: BodySense[K] };
   /** What it is shown: the others' `shown`. */
   readonly others: BodySense[];
-  /** `delay + 1` frames, and the one shown. */
+}
+
+/** **What the senses remember of a body**: `delay + 1` frames, and the one shown. The newest is the one before it. */
+interface Remembered {
   readonly frames: Float64Array[];
   at: number;
 }

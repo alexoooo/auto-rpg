@@ -13,6 +13,7 @@ import { createPool, type Ending } from "../core/rules/pool.ts";
 import { balanceCeiling, balancePoint, rulebook, type Rulebook } from "../core/rules/rulebook.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { Skills } from "../core/skills/skills.ts";
+import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
 
 /**
@@ -40,6 +41,10 @@ import type { Hook, World } from "../core/world.ts";
  *
  * The world is the caller's, with the arena's solids already in it (`addArenaSolids`); the bout adds
  * its bodies and hooks, and takes them away again on `dispose`, so a replay is a new bout in the same world.
+ *
+ * Everything of a bout that a step changes is the physics' and one state (`Duel.state`,
+ * `src/core/state.ts`): `Duel.save` gives both, and `Duel.load` puts a bout of the same recipe
+ * there, in this world or another, to go on as the saved bout went on.
  */
 
 /** Where the two stand, m apart across the centre, along x. */
@@ -89,11 +94,50 @@ interface DuelRecipe {
   readonly balancePoint?: AssistCeiling;
 }
 
+/** A recipe as JSON with every object's keys in order: two recipes that say the same in it are one bout's, however each was written. */
+const recipeKey = (recipe: DuelRecipe): string => JSON.stringify(recipe, (_, value: unknown) =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
+
 /** An order given: before which of the bout's steps, to which side, and what. Null hands the side back to itself. */
 export interface OrdersEntry {
   readonly step: number;
   readonly side: Side;
   readonly orders: Orders | null;
+}
+
+/** A bout at a step, whole: whose bout it is, the physics' bytes and every module's memory. Plain data. */
+interface DuelSave {
+  readonly recipe: DuelRecipe;
+  readonly physics: Uint8Array;
+  readonly state: Saved;
+}
+
+/**
+ * **What a bout remembers**, and the root every module's memory hangs on: the world's, the senses',
+ * the blow watch's, and each side's body's, skills' and pool's.
+ */
+interface DuelState {
+  /** The world's clock and step when the bout began. */
+  readonly start: number;
+  readonly startStep: number;
+  verdict: Verdict | null;
+  /** What each side is ordered; null leaves it to its own tactics (`seekFoe`). */
+  readonly given: Record<Side, Orders | null>;
+  readonly tape: OrdersEntry[];
+  /** Orders still to give (`play`), in the order of their steps. */
+  readonly queued: OrdersEntry[];
+  readonly world: object;
+  readonly senses: object;
+  readonly watch: object;
+  readonly left: SideState;
+  readonly right: SideState;
+}
+
+interface SideState {
+  readonly body: object;
+  readonly skills: object;
+  readonly pool: object;
 }
 
 /** What a page hears of a bout. */
@@ -110,17 +154,8 @@ export class Duel {
   readonly recipe: DuelRecipe;
   readonly rules: Rulebook;
   readonly duelists: Readonly<Record<Side, Duelist>>;
-  readonly blows: LandedBlow[] = [];
-  /** Null while the bout is on. */
-  verdict: Verdict | null = null;
-  /** Every order given, in the order given: with the recipe, the whole of what made this bout. */
-  readonly tape: OrdersEntry[] = [];
-  /** What each side is ordered; null leaves it to its own tactics (`seekFoe`). */
-  private readonly given: Record<Side, Orders | null> = { left: null, right: null };
-  /** Orders still to give (`play`), in the order of their steps. */
-  private readonly queued: OrdersEntry[] = [];
-  private readonly start: number;
-  private readonly startStep: number;
+  /** Its memory, and every module's under it: what `save` copies and `load` fills. */
+  readonly state: DuelState;
   private readonly cap: number;
   private readonly senses: SensesHub;
   private readonly feeding: Hook;
@@ -131,16 +166,17 @@ export class Duel {
     this.world = world;
     this.recipe = Object.freeze({ ...recipe });
     this.rules = rulebook("arena");
-    this.start = world.time;
-    this.startStep = world.steps;
+    const start = world.time, startStep = world.steps;
+    const given: Record<Side, Orders | null> = { left: null, right: null };
     this.cap = recipe.capSeconds ?? CAP_SECONDS;
     const gap = recipe.gap ?? GAP_METRES;
     this.senses = createSenses(world, recipe.senseDelay ?? 0);
     // In the step's sensing phase, after the senses and before every mind: a taped order is given
     // before the step it names.
     this.feeding = world.sense(() => {
-      while (this.queued.length > 0 && this.queued[0]!.step <= this.steps) {
-        const { side, orders } = this.queued.shift()!;
+      const { queued } = this.state;
+      while (queued.length > 0 && queued[0]!.step <= this.steps) {
+        const { side, orders } = queued.shift()!;
         this.order(side, orders);
       }
     });
@@ -156,7 +192,7 @@ export class Duel {
       const assist = balanceCeiling(recipe.balance?.[side] ?? spec.attributes.balance.value, recipe.balancePoint ?? balancePoint(this.rules));
       const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses, assist });
       const skills = driveBy(body, fighterTactics(`arena ${side}`, (sight) => {
-        const orders = this.given[side];
+        const orders = given[side];
         // Out of the fight it stands, as a side nobody orders does.
         return orders && !sight.view.senses.out ? orders : seekFoe(sight);
       }));
@@ -166,35 +202,66 @@ export class Duel {
       };
     }
     this.duelists = duelists;
-    this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, (blow) => {
-      this.blows.push(blow);
-      hooks.onBlow?.(blow);
-    });
+    this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, hooks.onBlow);
+    const sideState = ({ body, skills, pool }: Duelist): SideState => ({ body: body.state, skills: skills.state, pool: pool.state });
+    this.state = {
+      start, startStep, verdict: null, given, tape: [], queued: [],
+      world: world.state, senses: this.senses.state, watch: this.watch.state,
+      left: sideState(duelists.left), right: sideState(duelists.right),
+    };
     this.judging = world.afterStep(() => this.judge());
     for (const side of SIDES) hooks.onBuilt?.(duelists[side], duelists[side].built);
   }
 
+  /** Null while the bout is on. */
+  get verdict(): Verdict | null { return this.state.verdict; }
+
+  /** Every blow and clash so far, in the order they landed. */
+  get blows(): readonly LandedBlow[] { return this.watch.blows; }
+
+  /** Every order given, in the order given: with the recipe, the whole of what made this bout. */
+  get tape(): readonly OrdersEntry[] { return this.state.tape; }
+
   /** Seconds since the bout began. */
-  get clock(): number { return this.world.time - this.start; }
+  get clock(): number { return this.world.time - this.state.start; }
 
   /** Steps the bout has taken. */
-  get steps(): number { return this.world.steps - this.startStep; }
+  get steps(): number { return this.world.steps - this.state.startStep; }
 
   /** Order `side` from its next step on, or with null hand it back to itself. An order that repeats the last is not recorded. */
   order(side: Side, orders: Orders | null): void {
-    if (sameOrders(this.given[side], orders)) return;
+    if (sameOrders(this.state.given[side], orders)) return;
     // The side is given its orders as JSON carries them (a negative zero is zero there), so a tape
     // that has been through a file or a link gives the orders this bout gave.
     const given = JSON.parse(JSON.stringify(orders)) as Orders | null;
-    this.given[side] = given;
-    this.tape.push({ step: this.steps, side, orders: given });
+    this.state.given[side] = given;
+    this.state.tape.push({ step: this.steps, side, orders: given });
   }
 
   /**
    * Give `tape`'s orders as the bout steps, each before the step it was given before, in place
    * of any tape still queued: with the bout's recipe, the same bout again, whoever steps the world.
+   * The bout queues its own copies: a load writes into what is queued, and never into `tape`.
    */
-  play(tape: readonly OrdersEntry[]): void { this.queued.splice(0, this.queued.length, ...tape); }
+  play(tape: readonly OrdersEntry[]): void {
+    const { queued } = this.state;
+    queued.splice(0, queued.length, ...tape.map(({ step, side, orders }) => ({ step, side, orders: JSON.parse(JSON.stringify(orders)) as Orders | null })));
+  }
+
+  /** The bout as the last step left it: what `load` puts back, here or in any bout of this recipe. */
+  save(): DuelSave { return { recipe: this.recipe, physics: this.world.physics.save(), state: saveState(this.state) }; }
+
+  /**
+   * Put the bout where `saved` left one of this recipe: the next step is the step that followed
+   * the save. The page's hooks hear nothing of it.
+   */
+  load(saved: DuelSave): void {
+    // Two bouts of different bodies can have worlds of the same counts, which the physics would take.
+    if (recipeKey(saved.recipe) !== recipeKey(this.recipe)) throw new Error("that save is of another bout's recipe");
+    this.world.physics.load(saved.physics);
+    loadState(this.state, saved.state);
+    this.senses.show();
+  }
 
   /** Step the world until the verdict, or `seconds` more; returns the verdict, if there is one. */
   run(seconds = Infinity): Verdict | null {
@@ -205,22 +272,22 @@ export class Duel {
 
   private judge(): void {
     if (this.verdict) return;
-    this.decide();
+    this.state.verdict = this.decide();
     // A body that is down still has a stance that asks, and an assist that answered it would throw the body about.
     if (this.verdict) for (const side of SIDES) this.duelists[side].body.assist.withdraw();
   }
 
-  private decide(): void {
+  /** The verdict, if this step decides the bout: frozen, so one a page holds is a record no load writes into. */
+  private decide(): Verdict | null {
     const out = SIDES.filter((side) => !this.duelists[side].standing);
-    if (out.length === 2) {
-      this.verdict = { winner: null, ending: this.ending("left"), time: this.clock };
-    } else if (out.length === 1) {
+    if (out.length === 2) return Object.freeze({ winner: null, ending: this.ending("left"), time: this.clock });
+    if (out.length === 1) {
       const loser = out[0];
-      this.verdict = { winner: loser === "left" ? "right" : "left", ending: this.ending(loser), time: this.clock };
-    } else if (this.clock >= this.cap) {
-      const left = this.duelists.left.pool.bar(), right = this.duelists.right.pool.bar();
-      this.verdict = { winner: left > right ? "left" : right > left ? "right" : null, ending: "time", time: this.clock };
+      return Object.freeze({ winner: loser === "left" ? "right" : "left", ending: this.ending(loser), time: this.clock });
     }
+    if (this.clock < this.cap) return null;
+    const left = this.duelists.left.pool.bar(), right = this.duelists.right.pool.bar();
+    return Object.freeze({ winner: left > right ? "left" : right > left ? "right" : null, ending: "time", time: this.clock });
   }
 
   private ending(side: Side): DuelEnding {

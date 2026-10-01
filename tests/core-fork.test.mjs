@@ -29,23 +29,9 @@ import { REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { deepFreeze } from "../src/core/state.ts";
 import { createWorld } from "../src/core/world.ts";
 import { coreStand, freshEngine } from "./harness/core-stand.mjs";
-import { fieldsOf, forgetting, forks, PHYSICS_ALONE, STATE_ALONE, unsorted } from "./harness/fork.mjs";
+import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 
 const fighter = armed(humanSpec("workshop-fighter"), "right", woodenClub());
-
-/**
- * What a body's readers show: its view, its muscles' readings and its assist's. Its senses aside:
- * on a stand they are the clock's, an object the step writes as it reads it, so between a load
- * and a step they tell the time of whatever step that stand took last.
- */
-const shows = ({ view, muscles, assist }) => ({
-  view: { ...view, senses: null },
-  muscles: {
-    activation: muscles.activation, velocity: muscles.velocity, ceiling: muscles.ceiling,
-    joints: muscles.channels.map((_, i) => [muscles.angle(i), muscles.rate(i), muscles.speed(i), muscles.turning(i, 0), muscles.turning(i, 1), muscles.turning(i, 2)]),
-  },
-  assist: { on: assist.on, withdrawn: assist.withdrawn, given: assist.given, meter: assist.meter },
-});
 
 const BOTH = Object.freeze(["left", "right"]);
 const NO_PUSHES = Object.freeze([]);
@@ -265,13 +251,6 @@ const NOT_MEMORY = {
   "skills > strikes > pushes": "each command of a strike clears it and fills it before the body reads it",
 };
 
-/** `run` (a `forks`) forks without a difference, and differs under each of its controls. */
-function assertForks(run, controls) {
-  assert.deepEqual(run.differences, run.differences.map(() => null));
-  assert.deepEqual(Object.keys(run.under), controls);
-  assert.deepEqual(controls.filter((name) => run.under[name] === null), [], "a fork loaded without each of these differs somewhere");
-}
-
 test("a_standing_and_a_walking_body_fork", async () => {
   const run = await forks(walker, 25, 50, 36, { physics: PHYSICS_ALONE, state: STATE_ALONE, ...forgetting(NEEDED.walker) });
   assertForks(run, ["physics", "state", ...NEEDED.walker]);
@@ -318,7 +297,7 @@ test("a_body_forks_in_the_middle_of_a_blow", async () => {
 test("every_field_of_a_bodys_state_is_sorted", async () => {
   const stand = await walker(), struck = await striker();
   try {
-    const fields = [...fieldsOf(stand.world, stand.states), ...fieldsOf(struck.world, { skills: struck.states.skills }).filter((field) => field.startsWith("skills"))];
+    const fields = [...fieldsOf({ world: stand.world.state, ...stand.states }), ...fieldsOf({ skills: struck.states.skills })];
     assert.deepEqual(unsorted(fields, Object.values(NEEDED).flat(), Object.keys(NOT_MEMORY)), []);
   } finally { stand.dispose(); struck.dispose(); }
 });

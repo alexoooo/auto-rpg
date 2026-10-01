@@ -1,7 +1,8 @@
 /**
  * **Forking a stand**: the fixture the fork tests share. A stand that was saved (`saveStand`,
- * `core-stand.mjs`) and a twin loaded with the save are compared in three things: the saved states
- * (`src/core/state.ts`), every segment's pose, velocity and spin, and what the stand's readers show.
+ * `core-stand.mjs`; a bout, `Duel.save`) and a twin loaded with the save are compared in three
+ * things: the saved states (`src/core/state.ts`), every segment's pose, velocity and spin, and what
+ * the stand's readers show.
  *
  * The engine's bytes are not compared: a world that was loaded saves two bytes other than one run
  * straight to the same poses and velocities.
@@ -20,6 +21,20 @@ function motionOf(builts) {
     [...body.linearVelocityToRef(v).asArray(), ...body.angularVelocityToRef(w).asArray()]));
   return `${trace.digest()} ${speeds.join(",")}`;
 }
+
+/**
+ * What a body's readers show: its view, its muscles' readings and its assist's. Its senses aside:
+ * on a stand they are the clock's, an object the step writes as it reads it, so between a load
+ * and a step they tell the time of whatever step that stand took last.
+ */
+export const shows = ({ view, muscles, assist }) => ({
+  view: { ...view, senses: null },
+  muscles: {
+    activation: muscles.activation, velocity: muscles.velocity, ceiling: muscles.ceiling,
+    joints: muscles.channels.map((_, i) => [muscles.angle(i), muscles.rate(i), muscles.speed(i), muscles.turning(i, 0), muscles.turning(i, 1), muscles.turning(i, 2)]),
+  },
+  assist: { on: assist.on, withdrawn: assist.withdrawn, given: assist.given, meter: assist.meter },
+});
 
 /**
  * What a stand's readers show (`read`: plain values, vectors and turns), copied as it stands. Two
@@ -51,38 +66,58 @@ function firstDifference(a, b, path = "state") {
 }
 
 /**
+ * A stand as the fixture takes it: the root of its state, and how it is saved and loaded. A stand
+ * that says none of the three is the world's state with its `states`', saved and loaded as a stand
+ * is (`saveStand`); a bout gives its own (`Duel.state`, `save`, `load`).
+ */
+const whole = (stand) => ({
+  root: { world: stand.world.state, ...stand.states },
+  save: () => saveStand(stand.world, stand.states),
+  load: (saved) => loadStand(stand.world, stand.states, saved),
+  ...stand,
+});
+
+/**
  * **The fixture.** `make` builds a stand: `{ world, builts, states, advance, read, watch?, seen?,
- * dispose }`. `advance` takes one step, or one frame of a clock of the stand's own, with whatever
+ * dispose }`, or with `root`, `save` and `load` in place of `states` (`whole`). `advance` takes
+ * one step, or one frame of a clock of the stand's own, with whatever
  * the stand does to its bodies from outside as a function of the world's step; `read` gives what
- * its readers show; `watch` is called on the trunk before every advance, to fill `seen`.
+ * its readers show; `watch` is called on the trunk before every advance, to fill `seen`. `make` is
+ * told which it builds, `"trunk"` or `"twin"`: a twin may be built otherwise in what a load puts right.
  *
- * A trunk runs `from` advances, then `count * every + ahead` more, saved every `every`. A twin is
- * then loaded with each of the first `count` saves in turn and advanced `ahead`: it should stand
+ * A trunk runs `from` advances, then `count * every + ahead` more, saved every `every`; `count`
+ * given as a function of the trunk, its last save forked is the first at which the function holds.
+ * A twin is then loaded with each of the first `count` saves in turn and advanced `ahead`: it should stand
  * as the trunk stood then. The twin is wherever the fork before left it, so each load is under controllers at
  * another step, ahead or behind.
  *
  * Returns each fork's difference from the trunk, null where there is none, and what the trunk saw;
  * and, `under` the name of each of `controls`, the first difference a fork under that control
  * shows, or null if none shows one. A control is another way to load: `{ load, changes? }`, given
- * the stand, the save, and a save beside it (the one after, then the one before); a fork it says
- * it does not change is not run.
+ * the stand, the save, and a save beside it (the one after, then the one before, then the twin's
+ * as it was built); a fork it says it does not change is not run.
  */
 export async function forks(make, every, ahead, count, controls = {}, from = 0) {
   assert.equal(ahead % every, 0);
-  const trunk = await make(), twin = await make();
+  const trunk = whole(await make("trunk")), twin = whole(await make("twin"));
   try {
-    const marks = [], total = from + count * every + ahead;
+    const marks = [], built = { save: twin.save() };
+    let total = typeof count === "number" ? from + count * every + ahead : Infinity;
     for (let step = 0; step <= total; step++) {
-      if (step >= from && (step - from) % every === 0) marks.push({ step, save: saveStand(trunk.world, trunk.states), motion: motionOf(trunk.builts), shown: shown(trunk.read) });
+      if (step >= from && (step - from) % every === 0) {
+        marks.push({ step, save: trunk.save(), motion: motionOf(trunk.builts), shown: shown(trunk.read) });
+        if (total === Infinity && count(trunk)) total = step + ahead;
+      }
       trunk.watch?.();
       if (step < total) trunk.advance();
     }
+    const forked = typeof count === "number" ? count : marks.length - ahead / every;
     const fork = (load, from, to) => {
       load();
       let found = motionOf(twin.builts) === from.motion ? null : "at the load, the bodies are not where they were saved";
       found ??= firstDifference(shown(twin.read), from.shown, "at the load, shown");
       for (let i = 0; i < ahead; i++) twin.advance();
-      found ??= firstDifference(saveStand(twin.world, twin.states).state, to.save.state);
+      found ??= firstDifference(twin.save().state, to.save.state);
       found ??= motionOf(twin.builts) === to.motion ? null : "the bodies stand or move otherwise";
       return found ?? firstDifference(shown(twin.read), to.shown, "shown");
     };
@@ -90,25 +125,34 @@ export async function forks(make, every, ahead, count, controls = {}, from = 0) 
     const one = (load, k, beside) => {
       const from = marks[k], to = marks[k + ahead / every];
       let found;
-      try { found = fork(() => load(twin.world, twin.states, from.save, beside.save), from, to); } catch (error) { found = `it throws: ${error.message}`; }
+      try { found = fork(() => load(twin, from.save, beside.save), from, to); } catch (error) { found = `it throws: ${error.message}`; }
       return found && `from ${from.step} to ${to.step}: ${found}`;
     };
-    const differences = marks.slice(0, count).map((_, k) => one(loadStand, k, marks[k + 1])), under = {};
+    const differences = marks.slice(0, forked).map((_, k) => one(WHOLE.load, k, marks[k + 1])), under = {};
     for (const [name, { load, changes = () => true }] of Object.entries(controls)) {
       under[name] = null;
-      for (let k = 0; k < count; k++) {
-        for (const beside of k > 0 ? [marks[k + 1], marks[k - 1]] : [marks[k + 1]]) {
+      for (let k = 0; k < forked; k++) {
+        for (const beside of [marks[k + 1], ...(k > 0 ? [marks[k - 1]] : []), built]) {
           if (!under[name] && changes(marks[k].save, beside.save)) under[name] = one(load, k, beside);
         }
       }
     }
-    return { differences, seen: trunk.seen, under };
+    return { differences, seen: trunk.seen, under, steps: marks.slice(0, forked).map((mark) => mark.step) };
   } finally { trunk.dispose(); twin.dispose(); }
 }
 
+/** `run` (a `forks`) forks without a difference, and differs under each of its controls. */
+export function assertForks(run, controls) {
+  assert.deepEqual(run.differences, run.differences.map(() => null));
+  assert.deepEqual(Object.keys(run.under), controls);
+  assert.deepEqual(controls.filter((name) => run.under[name] === null), [], "a fork loaded without each of these differs somewhere");
+}
+
+/** A fork: the stand loaded with the save, whole. */
+const WHOLE = { load: (stand, saved) => stand.load(saved) };
 /** The physics alone, and no module's state; and the states alone: what a fork is not. */
-export const PHYSICS_ALONE = { load: (world, _states, saved) => world.physics.load(saved.physics) };
-export const STATE_ALONE = { load: (world, states, saved) => loadState({ world: world.state, ...states }, saved.state) };
+export const PHYSICS_ALONE = { load: (stand, saved) => stand.world.physics.load(saved.physics) };
+export const STATE_ALONE = { load: (stand, saved) => loadState(stand.root, saved.state) };
 
 /** The separator of a field's path as it is written: a channel's name holds dots and spaces. */
 const STEP = " > ";
@@ -131,9 +175,9 @@ function written(live, value) {
 
 /**
  * **A fork without a field**, for each of `paths` (a field of the stand's state: its keys from
- * `world` or a name of `states`, joined by ` > `), by its path: `loadStand`, but the field holds
+ * the state's root, joined by ` > `), by its path: the stand loaded, but the field holds
  * what it held at the save beside, as it would if it were kept outside the state and the stand had
- * been at that step. The values are written into the loaded objects, so what the state shares it
+ * been at that step, or were as it was built. The values are written into the loaded objects, so what the state shares it
  * shares still. Only a fork from a save where the field then differs is run.
  *
  * No fork differing under it, the fixture does not reach the field, or every step writes the
@@ -143,25 +187,25 @@ export const forgetting = (paths) => Object.fromEntries(paths.map((path) => {
   const keys = path.split(STEP), last = keys.pop(), held = (saved) => into(saved.state, keys)[last];
   return [path, {
     changes: (saved, beside) => firstDifference(held(saved), held(beside)) !== null,
-    load(world, states, saved, beside) {
+    load(stand, saved, beside) {
       const kept = { at: null };
       loadState(kept, { at: held(beside) });
-      loadStand(world, states, saved);
-      const holder = into({ world: world.state, ...states }, keys);
+      stand.load(saved);
+      const holder = into(stand.root, keys);
       holder[last] = written(holder[last], kept.at);
     },
   }];
 }));
 
-/** The path of every field of a stand's state: each value that is not a plain object with keys, by the keys down to it. */
-export function fieldsOf(world, states) {
+/** The path of every field of the state under `root`: each value that is not a plain object with keys, by the keys down to it. */
+export function fieldsOf(root) {
   const fields = [];
   const walk = (value, path) => {
     const record = typeof value === "object" && value !== null && Object.getPrototypeOf(value) === Object.prototype && Object.keys(value).length > 0;
     if (!record) fields.push(path.join(STEP));
     else for (const [key, item] of Object.entries(value)) walk(item, [...path, key]);
   };
-  walk({ world: world.state, ...states }, []);
+  walk(root, []);
   return fields;
 }
 
