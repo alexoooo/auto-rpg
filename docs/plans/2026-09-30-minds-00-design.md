@@ -77,7 +77,7 @@ as they wake, is not in this set.
 | 02 | the mind at the muscles: landed | `Mind`, `OwnBody`, `embody`; `Tactics`; every body driven through `Mind` (`commandMind`) | | |
 | 03 | senses: landed | the bout's senses (`createSenses`, in `World.sense`'s phase); the arena's tactics pick their foe from what they see (`seekFoe`); the bouts read again (`docs/reference/bouts.md`, With senses) | | |
 | 04 | orders: landed, its eye gate open | `Orders` (`src/core/mind/orders.ts`), carried out by `fighterTactics` (`STRAFE`, `docs/reference/orders.md`); the tape (`Duel.order`, `.tape`, `.play`); WASD and the pointer in the arena (`&you=left`) | | the owner fights a bout: `?play=arena&matchup=workshop-fighter,workshop-rogue&you=left` |
-| 05 | [assist](2026-09-30-minds-05-assist.md) | what the soles miss, published and measured; the assist effector; its sweep | 02 | the owner watches assisted bouts |
+| 05 | assist: landed, its eye gate open | what the soles miss (`StanceReading.shortfall`); the assist (`Assist`, `src/core/control/assist.ts`), its ceiling a character's balance (`AttributeSpec.balance`, `Rulebook.balance`); its tables (`docs/reference/assist.md`) | | the owner watches bouts with balance, against none: `?play=arena&matchup=workshop-fighter,workshop-fighter&balance=5`, `&balance=20`, `&balance=5,0` |
 | 06 | [oracle](2026-09-30-minds-06-oracle.md) | forks by replay on worker threads; the oracle; its first table; a tape in a link | 04 | the owner watches an oracle's bout |
 | 07 | [engine save](2026-09-30-minds-07-engine-save.md) | `PhysicsWorld.save` and `load` | | |
 | 08 | [fork](2026-09-30-minds-08-fork.md) | `saveState`/`loadState`; every module's memory as data; `Duel.save`/`load`; forks by a load | 05, 06, 07 | |
@@ -94,7 +94,7 @@ Every plan ends with `npm test`, `npm run check` and `npm run build`, the line-e
 **Beside the clean-up.** [The clean-up](2026-09-30-finish-the-clean-up.md) is carried out with
 this set, and says the order under "Beside the minds set". Two of its chunks are needed here: its
 fingerprint (chunk 0) hashes with the bout's trace (`traceOf`), and its split of `stanceControl` (chunk 11)
-lands before plan 05, which names the split's constructs (`StanceState`, `limitToSoles`).
+landed before plan 05, which names the split's constructs (`StanceState`, `limitToSoles`).
 
 ## The rules this changes
 
@@ -107,7 +107,7 @@ Each is changed by the plan that makes it true, in the same commit.
   > muscles' command and nothing else (`Mind.step`, `src/core/mind/mind.ts`). Camera state never
   > reaches a mind. A person gives orders (`Orders`); a body's own mind carries them out while it
   > defends itself.
-- `AGENTS.md` gains, beside "Solver conditioning is not anatomy" (plan 05):
+- `AGENTS.md` gained, beside "Solver conditioning is not anatomy" (plan 05):
   > **An assist is not anatomy.** A force or moment no muscle gives is an assist (`Assist`,
   > `src/core/control/assist.ts`). Its ceiling is the character's balance (`AttributeSpec`,
   > `src/core/spec/body.ts`) at the worth the rulebook gives a point (`Rulebook.balance`), in
@@ -215,8 +215,8 @@ A mean of about a hundredth of a body's weight takes falls down ninefold, and th
 most of it. A body that falls misses half its weight and 240 to 420 N m in its last second; one
 that does not, a tenth and 63 N m at most. On the stand, a steady pull of a tenth of the
 Warrior's weight at its root fells it in 1.4 m and eleven recovery steps; with the assist it
-holds within 0.05 m and takes none, on 2 N and 2 N m. [Plan 05](2026-09-30-minds-05-assist.md)
-has the whole tables.
+holds within 0.05 m and takes none, on 2 N and 2 N m. `docs/reference/assist.md` has the tables
+as the landed code reads them.
 
 **Past a fall the stance's ask has no bound** (over 1e50 N within 3 s, on the stand). Nothing
 reads it in a bout, which ends at the fall; the assist refuses an ask that is not finite and is
@@ -243,7 +243,7 @@ None of these is a decision now; each is a value in a recipe or a constant with 
 - **Walking while facing elsewhere**: half the fastest walk across the heading or backward, and
   until the body has turned to within 0.3 rad of its facing (`STRAFE`, `src/core/mind/fighter.ts`).
 - **A point of balance**: 0.05 of the body's weight and 0.013 weight-metres (`Rulebook.balance`,
-  or `DuelRecipe.balancePoint`; plan 05), so that 5 points is the ceiling measured at a quarter
+  or `DuelRecipe.balancePoint`), so that 5 points is the ceiling measured at a quarter
   of a weight. A side's points for one bout: `DuelRecipe.balance`, or `&balance=` in a link.
 - **The oracle's search**: its responses, its period (0.5 s), its horizon (2 s), and whether it
   is blind, named in each run (plan 06).
@@ -252,13 +252,13 @@ None of these is a decision now; each is a value in a recipe or a constant with 
 
 Three, each with what it changes in play. None blocks a plan; each plan lands the default.
 
-1. **Each character's balance** (plan 05), after watching bouts with it. *Default:* 0 for every
+1. **Each character's balance** (`workshopBalance`, and the skeleton's placeholder), after watching bouts with it. *Default:* 0 for every
    character: a body stands on its muscles alone, and most bouts end by a fall inside 20 s.
    *Or:* 5 for every character: falls drop ninefold, bouts run about four times longer and most
    end by a wound or at the cap, on a help of about a hundredth of a body's weight. *Or:*
-   different points for each, which makes it a trait that tells characters apart; plan 05's
-   uneven table says what a difference of points buys in bouts won.
-2. **The attribute's name** (plan 05). *Default:* Balance, which says what it buys. *Or:*
+   different points for each, which makes it a trait that tells characters apart; the uneven
+   table (`docs/reference/assist.md`) says what a difference of points buys in bouts won.
+2. **The attribute's name** (`AttributeSpec.balance`, a rename of one field). *Default:* Balance, which says what it buys. *Or:*
    Stability, Poise or Footing, which say the same. Agility, Dexterity or Movement would promise
    speed or precision, which this number does not give.
 3. **What the pointer does while a person stands still**. The stance turns only while

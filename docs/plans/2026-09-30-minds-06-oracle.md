@@ -267,7 +267,7 @@ npm run build
 node research/oracle.mjs --seconds 2 --workers 14               # a smoke: 4 decisions, no throw
 node research/oracle.mjs --all --side both --workers 14 --out research/runs/oracle
 node research/oracle.mjs --all --side both --blind 4 --workers 14
-node research/oracle.mjs --all --side both --balance 5,5 --workers 14   # if plan 05 has landed
+node research/oracle.mjs --all --side both --balance 5,5 --workers 14
 ```
 
 Into `docs/reference/oracle.md`, read so:
@@ -280,7 +280,7 @@ Into `docs/reference/oracle.md`, read so:
 - The clairvoyant and the blind tables side by side: the gap between them is how much of the
   ceiling is knowing the opponent's exact future.
 - While bouts end by falls (`docs/reference/bouts.md`), an oracle's gain is mostly "do not fall, and be
-  standing when the other does". Read it with plan 05's assisted table beside it before calling
+  standing when the other does". Read it with the assist's even table (`docs/reference/assist.md`) beside it before calling
   any of it fencing skill.
 
 **Eye gate: the owner watches one oracle bout** from its printed link, beside the same matchup

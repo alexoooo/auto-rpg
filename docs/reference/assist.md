@@ -14,7 +14,8 @@ same help to a light body and a heavy one. A fight gives each body the ceiling i
 (`balanceCeiling`) and withdraws the assist when the body is out of the fight. At 0 points the
 assist is absent, and a bout is step for step the bout without it.
 
-All three are the owner's (`owner-balance` in `SOURCES`), proposed and not yet confirmed:
+All three are the owner's (`owner-balance` in `SOURCES`), proposed and not yet confirmed; what
+each buys in bouts is in "What balance does to a bout" below:
 
 | What | Value | Where |
 |---|---|---|
@@ -104,6 +105,96 @@ twice the mean. A part alone holds only because the legs are asked for the groun
 what the assist gives (`bear`, `src/core/control/stance.ts`): asked for all of it, the body
 under the moment alone travels 0.42 m and takes five recovery steps. This is one body and one
 pull, and says nothing of a rate in a fight.
+
+## What balance does to a bout
+
+Harness: Node, the core world (`src/core/world.ts`), Rapier, 120 Hz; the nine matchups at eleven
+starting gaps from 3 to 5 m, each bout to its verdict or the 120 s cap, in a world of its own.
+1485 bouts. A cell of the first two tables is 99 bouts, and of the third 198.
+
+```powershell
+node research/assist-sweep.mjs --workers 14
+```
+
+**Even**: both sides at the same balance, at the rulebook's worth of a point. Falls and wounding
+blows are for each minute of the cell's bout time; the mean given is a side's, over its steps
+until the verdict.
+
+| Balance, points | Bouts | End by a fall | By a wound | At the cap | Bout time, s | Falls a minute | Wounding blows a minute | At the cap, % | Mean given a side, N | Mean given, N m |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 99 | 80 | 19 | 0 | 1392 | 3.45 | 9.05 | 0 | 0.0 | 0.0 |
+| 2 | 99 | 53 | 42 | 4 | 3028 | 1.05 | 18.68 | 4 | 8.2 | 4.5 |
+| 5 | 99 | 19 | 56 | 24 | 5453 | 0.21 | 18.23 | 24 | 9.3 | 6.7 |
+| 10 | 99 | 11 | 58 | 30 | 5905 | 0.11 | 18.74 | 30 | 10.4 | 9.0 |
+| 20 | 99 | 11 | 58 | 30 | 5705 | 0.12 | 16.78 | 30 | 9.1 | 9.1 |
+| 40 | 99 | 11 | 55 | 33 | 6180 | 0.11 | 17.35 | 33 | 8.9 | 9.3 |
+
+By model: a model's sides are every side it fought on, and its bout time those bouts' (a mirror
+counts twice).
+
+| Balance, points | Model | Sides | Its bout time, s | Its falls | Its falls a minute | Mean given, N | Mean given, N m |
+|---|---|---|---|---|---|---|---|
+| 0 | workshop-fighter | 66 | 746 | 17 | 1.37 | 0.0 | 0.0 |
+| 0 | workshop-rogue | 66 | 921 | 29 | 1.89 | 0.0 | 0.0 |
+| 0 | crypt-skeleton | 66 | 1118 | 34 | 1.83 | 0.0 | 0.0 |
+| 2 | workshop-fighter | 66 | 1257 | 5 | 0.24 | 10.7 | 5.9 |
+| 2 | workshop-rogue | 66 | 2379 | 23 | 0.58 | 5.9 | 3.3 |
+| 2 | crypt-skeleton | 66 | 2421 | 25 | 0.62 | 7.9 | 4.2 |
+| 5 | workshop-fighter | 66 | 1935 | 0 | 0.00 | 11.1 | 9.2 |
+| 5 | workshop-rogue | 66 | 4249 | 9 | 0.13 | 6.4 | 4.5 |
+| 5 | crypt-skeleton | 66 | 4721 | 10 | 0.13 | 10.4 | 6.4 |
+| 10 | workshop-fighter | 66 | 1619 | 0 | 0.00 | 11.2 | 11.3 |
+| 10 | workshop-rogue | 66 | 4853 | 4 | 0.05 | 6.4 | 5.8 |
+| 10 | crypt-skeleton | 66 | 5339 | 7 | 0.08 | 13.7 | 9.9 |
+| 20 | workshop-fighter | 66 | 1424 | 0 | 0.00 | 10.6 | 12.2 |
+| 20 | workshop-rogue | 66 | 4945 | 5 | 0.06 | 6.2 | 6.2 |
+| 20 | crypt-skeleton | 66 | 5040 | 6 | 0.07 | 10.6 | 8.8 |
+| 40 | workshop-fighter | 66 | 1911 | 1 | 0.03 | 11.4 | 13.3 |
+| 40 | workshop-rogue | 66 | 4985 | 7 | 0.08 | 7.3 | 7.2 |
+| 40 | crypt-skeleton | 66 | 5463 | 3 | 0.03 | 8.1 | 7.4 |
+
+**Shapes**: both sides at 20 points, at another worth of a point.
+
+| Balance, points | A point's force, weights | A point's moment, weight-metres | Bouts | End by a fall | By a wound | At the cap | Bout time, s | Falls a minute | Wounding blows a minute | At the cap, % | Mean given a side, N | Mean given, N m |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 20 | 0.05 | 0.026 | 99 | 12 | 55 | 32 | 6094 | 0.12 | 16.59 | 32 | 8.9 | 9.3 |
+| 20 | 0 | 0.013 | 99 | 28 | 53 | 18 | 4989 | 0.34 | 19.07 | 18 | 0.0 | 12.8 |
+| 20 | 0.05 | 0 | 99 | 44 | 27 | 28 | 5127 | 0.51 | 14.16 | 28 | 16.2 | 0.0 |
+
+**Uneven**: one side at the greater balance and the other at the lesser, each matchup both ways
+round. Every bout was decided: at the cap the fuller bar wins.
+
+| More, points | Less, points | Bouts | Decided | Won by the side with more | Its share of the decided, % | Falls a minute: the side with more | The side with less | At the cap | Mean given the side with more, N | N m | The side with less, N | N m |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 5 | 0 | 198 | 198 | 165 | 83 | 0.05 | 2.57 | 0 | 8.6 | 7.2 | 0.0 | 0.0 |
+| 5 | 2 | 198 | 198 | 122 | 62 | 0.14 | 0.40 | 24 | 8.7 | 6.5 | 7.7 | 4.1 |
+| 10 | 5 | 198 | 198 | 101 | 51 | 0.06 | 0.10 | 58 | 11.0 | 9.3 | 9.1 | 6.5 |
+
+What the tables carry, and what they do not:
+
+- **Balance takes the falls out of a bout.** With none, 80 of 99 bouts end by a fall, at 3.45
+  falls a minute; at 2 points 53, at 1.05; at 5 points 19, at 0.21. The wounding blows a minute
+  double, since a bout that no fall ends goes on to be decided by its blows.
+- **The attribute is spent by about 5 points, at this worth of a point.** From 10 points on the
+  rows are one row (11 bouts ending by a fall in each), and the mean given stays near 9 N and
+  9 N m however high the ceiling: the stance asks for no more. Nothing between 10 and 40 points is
+  read from 99 bouts.
+- **Bouts get long.** The mean bout is 14 s with no balance, 31 s at 2 points and 55 s at 5, and
+  from 5 points on a quarter to a third of the bouts reach the 120 s cap.
+- **The models differ.** At 5 points and above the Warrior fell once in 264 sides; the Rogue and
+  the skeleton still fall, at 0.03 to 0.13 falls a minute.
+- **Both parts of a point do work.** At 20 points the moment alone leaves 0.34 falls a minute and
+  the force alone 0.51, against 0.12 for both; twice the moment beside the force changes nothing
+  (0.12).
+- **A difference in points buys bouts only where the lesser side still falls.** 5 points against
+  none wins 83 % of bouts, 5 against 2 wins 62 %, and 10 against 5 wins 51 %, which is no
+  difference: a share over 198 bouts is read to about 7 points either way.
+
+On the page (Rapier, 120 Hz, the tab hidden and the world stepped by hand; one bout each, a count
+and not a rate): Warrior against Warrior at `&balance=5` showed "balance 5 / 5" beside the clock,
+each side's ceiling 196.5 N and 51.1 N m, and ended at 19.9 s by a fatal wound after 17 wounding
+blows and no fall, on means of 8.7 and 12.6 N and 8.1 and 9.7 N m; with no balance it showed no
+readout and ended by a fall at 28.5 s after 6 wounding blows.
 
 ## A force through the step, not an impulse before it
 
