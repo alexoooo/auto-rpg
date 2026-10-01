@@ -9,11 +9,13 @@ feet. It is scored on the battery (plan 01) beside the body that lies (plan 02),
 it. The game's default does not change here: `FIGHTER` still lies, and a fall still takes a body
 out. Plan 05 changes both.
 
-What is fixed here is the structure: the patches, the limbs, the two kinds of stage, the player,
-its state, its tests. What is found on the battery is the stage table's numbers, and the table may
-change shape (a stage added, split or reordered) without the player changing. The prototype
-(design file) carries the first three stages for both humans; everything after them is untried,
-and the roll most of all.
+What is fixed here is the structure: the patches, the two kinds of limb, the two kinds of stage,
+the player, its state, its tests. What a body bears on and what it does are the recipe's, data:
+its limbs and its stages. What is found on the battery is the recipe's numbers, and the recipe may
+change shape (a limb or a stage added, split or reordered) without the player changing; another
+body's rise, or a rise with a hand kept off the ground for what it holds, is another recipe. The
+prototype (design file) carries the first three stages for both humans; everything after them is
+untried, and the roll most of all.
 
 It lands in four chunks, each green:
 
@@ -32,9 +34,9 @@ It lands in four chunks, each green:
 | `src/core/control/support.ts` | `bearingSole` returns `kind: "sole"`; `footMotionToRef` becomes `motionAtToRef(segment, ...)`; `rolledRows`. | A, C |
 | `src/core/control/ground.ts` | `Uprightness.lowest`; `farEndToRef`. | B |
 | `src/core/mind/config.ts`, `sub-minds.ts` | `StagedRiseConfig`; its case. | B |
-| `src/core/mind/rise/stages.ts` | New: `Stage`, `Recipe`, `RISE`, `stageFaults`. | B, C, D |
+| `src/core/mind/rise/stages.ts` | New: `Stage`, `LimbSpec`, `Recipe`, `RISE`, `stageFaults`. | B, C, D |
 | `src/core/mind/rise/staged.ts` | New: `stagedRise`. | B, C, D |
-| `src/core/mind/rise/limbs.ts` | New: `riseLimbs`, `LimbName`. | C |
+| `src/core/mind/rise/limbs.ts` | New: `riseLimbs`: a recipe's limbs, made of a body. | C |
 | `src/core/control/bearing.ts` | `Limb.stem`; `LimbWork.patch` is a `Patch`. | C |
 | `src/core/math/turn.ts` | `turnErrorToRef`, lifted from the stance. | C |
 | `src/core/control/stance.ts` | Calls `turnErrorToRef`, `rolledRows`, `motionAtToRef`; passes `stem: []`. | C |
@@ -109,8 +111,9 @@ export interface StagedRiseConfig { readonly kind: "staged-rise" }
 export type SubMindConfig = LieConfig | StagedRiseConfig;
 ```
 
-`subMind` gains `case "staged-rise": return stagedRise(own);`. The config has no field: it gains
-one when a second recipe exists and something chooses between them.
+`subMind` gains `case "staged-rise": return stagedRise(own, view);`. The config has no field: it
+gains one, which recipe, when a second recipe exists and something chooses between them (a body's
+family, a loadout, a search's result).
 
 ### `src/core/control/ground.ts`
 
@@ -140,8 +143,17 @@ export interface BearStage { readonly kind: "bear"; /* below */ }
 
 export type Stage = PoseStage | BearStage;
 
-/** **A rise, as data**: the stages that turn a body onto its front from each other way it lies, and the stages that stand it up from its front. */
+/** **A limb a rise may bear on** (chunk C). */
+export type LimbSpec = SoleLimb | EndLimb;
+
+/**
+ * **A rise, as data**: the limbs the body may bear on, the stages that turn it onto its front from
+ * each other way it lies, and the stages that stand it up from its front. It names segments,
+ * joints and channels of the body it is for, and nothing in the player does.
+ */
 export interface Recipe {
+  /** The limbs a bearing stage may name, in the order the riser's memory keeps them. */
+  readonly limbs: readonly LimbSpec[];
   readonly roll: Readonly<Record<Exclude<Lie, "front">, readonly PoseStage[]>>;
   readonly rise: readonly Stage[];
 }
@@ -172,8 +184,13 @@ range; a stage of no time. `stagedRise` throws them when it is made.
  * lie's roll and lies slack again; on its front, plays the rise. A stage that fails ends the
  * attempt: it lies slack and begins again, from the body as it is, as often as it takes.
  */
-export function stagedRise(own: OwnBody, recipe: Recipe = RISE): SubMind
+export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind
 ```
+
+What its host reads of the body each step it reads from the host's `view`, which is of this step
+(`hosting`): whether it is down (`view.down`), the centre of mass and its velocity
+(`view.stance.centre`, `velocity`), the way it faces (`view.stance.facing`). What only a rise
+needs it reads itself: how it lies, the ground's level, its limbs' points.
 
 Its state, plain data:
 
@@ -189,13 +206,13 @@ Its state, plain data:
 }
 ```
 
-- `wants: () => state.phase !== "idle" || upright.down()`.
+- `wants: () => state.phase !== "idle" || view.down`: the host's reading, so a body its host
+  holds low on purpose is not taken from it.
 - `begin()`: `phase = "settle"`, `still = 0`, `tries = 0`, `furthest = -1`. `end()`: `phase = "idle"`.
 - `step`, by `phase`, a switch with a `never` default:
-  - `settle`: every activation and speed 0. The centre of mass's speed is read (the segments'
-    `linearVelocityToRef`, weighed by mass, as `StanceControl.read` does); `still` counts the time
-    it has been under `SLOW`, and at `STILL_SECONDS` the lie is read, `tries` goes up, and the
-    phase is `roll` (not on its front) or `rise`, at stage 0.
+  - `settle`: every activation and speed 0. `still` counts the time the centre of mass
+    (`view.stance.velocity`) has been under `SLOW`, and at `STILL_SECONDS` the lie is read,
+    `tries` goes up, and the phase is `roll` (not on its front) or `rise`, at stage 0.
   - `roll`, `rise`, a pose stage: each channel `i` with goal `g = posture[name] ?? 0`:
     `velocity[i] = clamp((g - angle(i)) / POSE_SECONDS, -POSE_SPEED, POSE_SPEED)`,
     `activation[i] = 1`. After its `seconds`, the next stage; after a roll's last, `settle`; after
@@ -237,8 +254,9 @@ gains a line for each way of lying, over all the shoves of a model.
 2. **`how a body lies is read from its pelvis`**: the Warrior shoved forward, backward, and to
    each side, slack until still: `lieOf` is `front`, `back`, and the side it fell to.
 3. **`fallen forward, a human draws its knees under and props itself`**: each human under
-   `{ kind: "fighter", subs: [{ kind: "staged-rise" }] }` with a recipe of `tuck` and `prop` alone,
-   shoved forward. At the end of `prop` the pelvis is over 0.30 m and the head over 0.15 m (the
+   `createBody` with the sub-mind `(own, view) => stagedRise(own, view, recipe)`
+   (`BodyOptions.subs`), `recipe` being `tuck` and `prop` alone, shoved forward. (A test's recipe
+   goes in this way throughout; the config names the game's.) At the end of `prop` the pelvis is over 0.30 m and the head over 0.15 m (the
    prototype: Warrior 0.41 and 0.45, Rogue 0.37 and 0.19; lying, 0.16 and 0.12); `body.has` is
    `"staged-rise"` from the fall to the last stage's end; the state's `furthest` is 1.
 4. **`a riser that is taken from begins again`**: a written sub-mind of higher rank wants the body
@@ -270,38 +288,72 @@ lumbar and thoracic joints, which both arms share and neither can own.
   on is a stage's, the check is `stageFaults`': a stage that bears on a knee and on that leg's foot
   is a fault.
 
-### The limbs (`src/core/mind/rise/limbs.ts`)
+### The limbs (`stages.ts`, `src/core/mind/rise/limbs.ts`)
+
+A limb is data in the recipe, of one of two kinds; the player knows the kinds and no limb.
 
 ```ts
-export type LimbName = "foot.left" | "foot.right" | "knee.left" | "knee.right" | "hand.left" | "hand.right";
+/** **A foot, bearing on its sole**: one of the feet the stance stands on (`footStatesOf`). */
+export interface SoleLimb {
+  readonly kind: "sole";
+  /** What the stages call it. */
+  readonly name: string;
+  /** The foot's segment. */
+  readonly segment: string;
+}
 
-/** The six limbs a rise bears on, in `LimbName`'s order, made of `own`'s body, and each limb's part of a step (`aim`). */
-export function riseLimbs(own: OwnBody, memory: RiseLimbMemory): RiseLimbs
+/** **A capsule segment, bearing on its far end** (`farEndToRef`): a point. */
+export interface EndLimb {
+  readonly kind: "end";
+  readonly name: string;
+  readonly segment: string;
+  /** The joint its own chain begins at; the joints before it, from the root, are its stem. */
+  readonly from: string;
+  /** The three channels of its chain that take its point's rows; the chain's others are asked toward the stage's posture ahead of the task. */
+  readonly takes: readonly [string, string, string];
+}
 ```
 
-| Limb | Segment | Chain | Stem | Point | Patch |
-|---|---|---|---|---|---|
-| foot | `foot.<side>` | hip, knee, ankle | | the front edge's middle while the heel is up, the sole's middle once it is down | the sole, drawn in as the stance draws it (`bearingSole`) |
-| knee | `thigh.<side>` | hip | | `farEndToRef(thigh)` | a point there |
-| hand | `hand.<side>` | shoulder, elbow, wrist | lumbar, thoracic | `farEndToRef(hand)` | a point there |
+```ts
+/** `recipe`'s limbs made of `own`'s body, in the recipe's order, and each limb's part of a step (`aim`). `memory` is the riser's, a limb's by its place. */
+export function riseLimbs(own: OwnBody, recipe: Recipe, memory: RiseLimbMemory): RiseLimbs
+```
 
-- **A foot** is read as the stance reads it (`footStatesOf`, `readSupport`), in feet of the
-  riser's own. It bears on its front edge while its heel is off the ground and on its sole once
-  down: `rolled` is set when `foot.heel > foot.flat + HEEL_UP` and cleared when
+A limb's chain and stem are read off the body: `chainTo(built, segment)`
+(`src/core/control/kinematics.ts`) from `from` on is its chain, what comes before is its stem. A
+sole's chain is all of it. `riseLimbs` switches on `kind` with a `never` default.
+
+`RISE.limbs`, the humans' and the skeleton's (they share their segments' and joints' names):
+
+| Name | Kind | Segment | From | Takes | So its chain, and stem |
+|---|---|---|---|---|---|
+| `foot.<side>` | sole | `foot.<side>` | | | hip, knee, ankle |
+| `knee.<side>` | end | `thigh.<side>` | `hip.<side>` | the hip's three | hip |
+| `hand.<side>` | end | `hand.<side>` | `shoulder.<side>` | shoulder flexion, shoulder abduction, elbow flexion | shoulder, elbow, wrist; lumbar, thoracic |
+
+- **A sole** is read as the stance reads it (`footStatesOf`, `readSupport`), in feet of the
+  riser's own, found by segment. It bears on its front edge while its heel is off the ground and on
+  its sole once down: `rolled` is set when `foot.heel > foot.flat + HEEL_UP` and cleared when
   `foot.heel <= foot.flat`, the stance's own test for coming down. On its edge its rows are the
   rolled foot's (`rolledRows(foot)`, lifted from `aimLimb` into `support.ts`, which the stance now
   calls) and its ankle is asked toward its stop less `STANCE_ANKLE_SPARE` ahead of the task, as
-  the stance asks it.
-- **A knee and a hand** ask their point's three rows (`[[3, 1]], [[4, 1]], [[5, 1]]`): the segment
-  turns about its point as the body moves. A knee's three hip freedoms take the three rows. A
-  hand's chain has seven freedoms: its wrist's three and its shoulder's rotation are asked toward
-  the stage's posture ahead of the task (`work.ahead`, critically damped at the stage's time), and
-  the shoulder's flexion and abduction and the elbow take the rows.
+  the stance asks it. Its patch is the sole, drawn in as the stance draws it (`bearingSole`).
+- **An end** asks its point's three rows (`[[3, 1]], [[4, 1]], [[5, 1]]`): the segment turns
+  about its point as the body moves. Its `takes` take the rows; the rest of its chain (a hand's
+  wrist and its shoulder's rotation) is asked toward the stage's posture ahead of the task
+  (`work.ahead`, critically damped at the stage's time). Its patch is a point at its far end.
 - A bearing limb's task is its point held still, its motion damped at the stage's rate, as
   `holdStance` does (`motionAtToRef`).
-- What a hand holds is not read: a hand with a club in it bears as an empty one.
+- What a hand holds is not read: a hand with a club in it bears as an empty one. A recipe for a
+  hand that must not bear (a bow in it) leaves that hand's limb out of its stages.
 - `HEEL_UP`: the height a heel is taken to be off the ground from, m; a tolerance on a reading,
   cited to `rising.md#stages`.
+
+`stageFaults` gains the limbs': a name used twice; a segment or a joint the body lacks; a sole
+whose segment is not one of the stance's feet; an end whose segment is not a capsule, whose
+`from` is not on the way from the root to it, or whose `takes` are not three channels of its
+chain; a stage that bears on a limb the recipe does not have, or on two that share a channel; and
+shares that do not sum to 1.
 
 ### The stage
 
@@ -310,8 +362,8 @@ export function riseLimbs(own: OwnBody, memory: RiseLimbMemory): RiseLimbs
 export interface BearStage {
   readonly kind: "bear";
   readonly name: string;
-  /** The limbs that bear, each with its share of the place the centre of mass is held over; the shares sum to 1. */
-  readonly on: readonly { readonly limb: LimbName; readonly share: number }[];
+  /** The limbs that bear, by the recipe's names, each with its share of the place the centre of mass is held over; the shares sum to 1. */
+  readonly on: readonly { readonly limb: string; readonly share: number }[];
   /** The centre of mass's height over the ground, as a part of its standing height (`Uprightness.standing`). */
   readonly height: number;
   /** The pelvis's pitch forward from upright, about the level axis across the way it faces, rad. */
@@ -326,8 +378,8 @@ export interface BearStage {
 
 A step of a bear stage, in `motorControl`'s order:
 
-1. Read: the centre of mass and its velocity; the ground's level (`upright.lowest()`); the feet
-   (`readSupport`); each limb's point.
+1. Read: the centre of mass and its velocity (`view.stance`); the ground's level
+   (`upright.lowest()`); the feet (`readSupport`); each limb's point.
 2. The limbs: those of `on` are on and bearing, their work aimed (`riseLimbs.aim`); the rest off.
 3. The aim. `centre`: toward the place (the bearing points' middle, weighed by their shares; the
    stage's `height` times `standing` over the ground), critically damped at `seconds`, from the
@@ -348,8 +400,9 @@ phase is `idle`; the body is not down, so `wants` is false and the host has it b
 its axis times its angle, world, into `out`." It is the four lines `pelvisTurn` and `swingFoot`
 each end their error with; both call it, and the digest holds.
 
-The riser's state gains the solve's records (`tasks`, six `LimbTask`s; `aim`, with `root`;
-`helped`; `held`; `shortfall`) and the feet's memory (`channels`, `rolled`). `ServoWork` is the
+The riser's state gains the solve's records (`tasks`, a `LimbTask` for each of the recipe's
+limbs, in its order; `aim`, with `root`; `helped`; `held`; `shortfall`) and the feet's memory
+(`channels`, `rolled`). `ServoWork` is the
 servo's scratch, written by `servoAsk` before it is read, whichever mind asks.
 
 The first table's bearing stages. The shares and the pitch are geometry (which limbs, and a trunk
@@ -368,8 +421,8 @@ is found on the stand:
 5. **`a body on its knees and hands holds itself there`**: each human, fallen forward, through
    `tuck`, `prop` and `fours` alone. Two seconds after `fours` is done the centre of mass has not
    moved 2 cm, the shortfall's force is under a twentieth of the weight, each bearing point is
-   within 2 cm of the ground, and the trunk joints' torques are not zero. The control: the same
-   with the hands' stems empty, where the trunk sags (the upper trunk's centre drops 5 cm).
+   within 2 cm of the ground, the upper trunk's centre has not dropped 2 cm, and the trunk joints'
+   torques are not zero. Its control is its first mutation: the stems left out, the trunk sags.
 6. **`fallen forward, a human stands up`**: each human, unarmed, shoved forward, under the whole
    rise. Within `WATCH_SECONDS` `body.view.down` is false for `UP_SECONDS` running, `body.has` is
    back to `"command"`, and 3 s later it stands in guard: not down, its centre of mass over its
@@ -380,8 +433,14 @@ is found on the stand:
 8. `tests/core-fork.test.mjs`, **`a_body_forks_mid_rise`**: test 6's Warrior, forked every tenth
    step from the fall to the hand-back; the paths under `mind > subs` are sorted as needed.
 
-Mutations: `limbTorques` leaves the stem's torques as the servo's (test 5: the trunk sags as its
-control's does); a knee's rows all six (test 5: the thigh cannot turn about its knee as the body
+Test 1 gains the limbs' faults, a recipe for each: a limb named twice; an end on `foot.left` (a
+box); a hand whose `from` is `hip.left`; a `takes` naming a wrist channel twice; a stage on
+`"tail"`; a stage on `knee.left` and `foot.left`; shares summing to 0.9. And its control: `RISE`
+has none, for each of `BODY_MODELS`.
+
+Mutations: `riseLimbs` takes a hand's stem as empty whatever `from` says (test 5: the trunk
+sags); `stageFaults` skips the limbs (test 1); `limbTorques` leaves the stem's torques as the
+servo's (test 5: the trunk sags); a knee's rows all six (test 5: the thigh cannot turn about its knee as the body
 moves); `rolled` never cleared (test 6: it stands on its toes and `stand` fails); the
 `limit` ignored (test 7); the aim's place taken as the first limb's point (test 5's drift);
 `state.stage` kept in a closure (test 8); `turnErrorToRef` with the product reversed
@@ -410,8 +469,8 @@ the roll of the lie it finds.
 `node research/core-rise.mjs --mind '{"kind":"fighter","subs":[{"kind":"staged-rise"}]}'`, beside
 `#lying`'s table. The bar, set and not swept, written in `rising.md#staged` with the table:
 
-- each human, club and empty: risen within the watch in at least three falls of four of the
-  sixteen shoves;
+- each human, each loadout (`LOADOUTS`: club and empty today): risen within the watch in at least
+  three falls of four of the sixteen shoves;
 - no way of lying under half, either human;
 - the bout falls: at least half risen;
 - the skeleton: reported, not held to the bar;
@@ -456,7 +515,11 @@ human: the owner watches it get up.
   through a half-kneel: one foot planted from `fours`, which needs a limb moved to a place, a
   third kind of task the stage would then name.
 - **A club in the hand.** The hand's point is the hand's; a club under it is not known. The
-  battery's club row shows what that costs.
+  battery's club row shows what that costs. If it costs the bar, the armed hand's limb is an end
+  on the forearm (its far end, the wrist), which is a row of the recipe, and which recipe a body
+  plays is then `StagedRiseConfig`'s field, chosen where the mind's config is written.
+- **The skeleton.** It plays the humans' recipe, its names being theirs, and its numbers may not
+  suit it; its recipe is then its own, chosen the same way.
 
 ## Documents
 
@@ -465,8 +528,8 @@ human: the owner watches it get up.
   the harness line; each side's balance, 0 %).
 - `docs/architecture.md`: the Minds section's sub-minds gain the riser; the Motor control section
   says a limb may hang from a stem and a patch may be a point; the lab's Character section.
-- `docs/roadmap.md`: "Rising after a fall" reads as built, for the lab, with what plan 05 waits
-  on; the searched and the learned riser are the open items.
+- `docs/roadmap.md`: "Rising after a fall" reads as built, for the lab; the fights take it up once
+  the bar is met (plan 05); the searched and the learned riser are the open items.
 - `README.md`: the lab's "Down" choice.
 
 ## Verification

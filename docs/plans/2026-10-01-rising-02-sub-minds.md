@@ -17,19 +17,22 @@ the crypt drops the body). A bout's trace to its verdict is the one plan 01 left
 | `src/core/mind/sub-mind.ts` | New: `SubMind`, `HostMind`, `Hosted`, `hosting`. |
 | `src/core/mind/config.ts` | New: `MindConfig`, `FighterMindConfig`, `SubMindConfig`, `LieConfig`, `FIGHTER`. |
 | `src/core/mind/lie.ts` | New: `lying`. |
-| `src/core/mind/sub-minds.ts` | New: `subMind`, `subMindsOf`. |
-| `src/core/mind/minds.ts` | New: `MindWiring`, `Fighter`, `createMind`. |
-| `src/core/body.ts` | `BodyOptions.subs`; `Body.has`; `BodyView.resumed`; `commandMind` is a `HostMind`. |
+| `src/core/mind/sub-minds.ts` | New: `SubMindMaker`, `subMind`, `subMindsOf`. |
+| `src/core/mind/minds.ts` | New: `MindWiring`, `FighterMind`, `Minded`, `createMind`. |
+| `src/core/body.ts` | `BodyOptions.subs`; `Body.has`; `BodyView.resumed`; `commandMind` is a `HostMind`: `look`, `act`, `resume`. |
 | `src/core/control/stance.ts`, `stance-state.ts` | `StanceControl.reset`; `StanceReading.facing`. |
 | `src/core/control/motor.ts` | `MotorControl.reset`. |
-| `src/core/skills/locomotion.ts`, `strike.ts`, `skills.ts` | `Locomotion.resume`, `StrikeSkill.drop`; the skills start again on `view.resumed`. |
+| `src/core/skills/skill.ts` | New: `Skill`. |
+| `src/core/skills/locomotion.ts`, `strike.ts`, `skills.ts` | Each skill's `resume`; the skills resume every one of them on `view.resumed`. |
 | `src/core/mind/fighter.ts` | `fighterTactics` forgets its aim on `view.resumed`. |
-| `src/arena/duel.ts` | `DuelRecipe.minds`; the body is made by `createMind`. |
-| `src/dungeon/run.ts` | `drive` makes the body by `createMind`. |
+| `src/arena/duel.ts` | `DuelRecipe.minds`; a side is a `Minded`, made by `createMind`; `SideState.mind`. |
+| `src/dungeon/run.ts` | `drive` makes a `Minded` by `createMind`. |
 | `src/lab/actor.ts`, `mind-log.ts`, `main.ts` | The actor's body takes `FIGHTER`'s sub-minds; the log notes who has the body. |
 | `research/core-rise-trials.mjs` | `mind` is a `MindConfig`, made by `createMind`. |
 | `tests/core-sub-mind.test.mjs` | New: four tests. |
 | `tests/core-fork.test.mjs`, `arena-fork.test.mjs`, `arena-core.test.mjs`, `lab-mind-log.test.mjs` | See Tests. |
+| `tests/core-ground.test.mjs` | Plan 01's test 4 runs under `FIGHTER`'s sub-minds. |
+| `research/bout.mjs` and whatever else reads a duelist's or a crypt actor's `skills` | The `Minded`'s, narrowed on its kind. |
 | `AGENTS.md`, `docs/architecture.md`, `docs/roadmap.md`, `docs/reference/rising.md`, `docs/reference/play.md` | See Documents. |
 
 ## `src/core/mind/sub-mind.ts`
@@ -51,10 +54,15 @@ export interface SubMind extends Mind {
   end(): void;
 }
 
-/** **A mind that hands its body over** (`hosting`). */
+/**
+ * **A mind that hands its body over** (`hosting`). Its step is in two halves, so that what it
+ * reads of its body is of this step whoever drives, and a sub-mind may read it too.
+ */
 export interface HostMind extends Mind {
-  /** Read the body on `senses` and command nothing: its part of a step in which a sub-mind has the body. */
+  /** Read the body on `senses`, and command nothing. */
   look(senses: Senses): void;
+  /** Command the body on what `look` read: the rest of its step. */
+  act(dt: number): void;
   /** The body is its own again from this step: what it was in the middle of is over, and it goes on from the body as it is. */
   resume(): void;
 }
@@ -66,9 +74,9 @@ export interface Hosted extends Mind {
 }
 
 /**
- * `host` with `subs`, in rank order: each step the first sub-mind that wants the body steps in
- * the host's place, and the host looks on. Its memory is who has the body (the sub-mind's place
- * in `subs`, or -1), the host's, and each sub-mind's.
+ * `host` with `subs`, in rank order: each step the host looks, then the first sub-mind that wants
+ * the body steps in the host's place, or the host acts. Its memory is who has the body (the
+ * sub-mind's place in `subs`, or -1), the host's, and each sub-mind's.
  */
 export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
   const state = { has: -1, host: host.state ?? null, subs: subs.map((sub) => sub.state ?? null) };
@@ -76,6 +84,7 @@ export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
     name: host.name, state,
     get has() { return state.has < 0 ? host.name : subs[state.has]!.name; },
     step(senses, dt) {
+      host.look(senses);
       const want = subs.findIndex((sub) => sub.wants(senses));
       if (want !== state.has) {
         if (state.has >= 0) subs[state.has]!.end();
@@ -83,9 +92,8 @@ export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
         else host.resume();
         state.has = want;
       }
-      if (want < 0) { host.step(senses, dt); return; }
-      host.look(senses);
-      subs[want]!.step(senses, dt);
+      if (want < 0) host.act(dt);
+      else subs[want]!.step(senses, dt);
     },
   };
 }
@@ -93,6 +101,12 @@ export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
 
 `begin`, `end` and `resume` change only state: a load mid-way puts `has` and each mind's memory
 back, and calls none of them.
+
+The hand-over is of the whole body, because every sub-mind in this set wants all of it. Nothing
+here stands in the way of one that wants a part: it would say which channels it claims, and
+`hosting` would let the host act and then the sub-mind write its own channels, as a push does
+(the stance already carries freedoms held at a torque, `heldFreedoms`). That is added with the
+first sub-mind that needs it, and no sub-mind here changes when it is.
 
 ## `src/core/mind/config.ts`
 
@@ -125,12 +139,11 @@ export const FIGHTER: FighterMindConfig = deepFreeze({ kind: "fighter", subs: [{
 ## `src/core/mind/lie.ts`
 
 ```ts
-/** **Lying still**: while its body is down (`uprightness`), it asks its muscles for nothing. */
-export function lying(own: OwnBody): SubMind {
-  const upright = uprightness(own.built);
+/** **Lying still**: while its body is down (`BodyView.down`), it asks its muscles for nothing. */
+export function lying(own: OwnBody, view: BodyView): SubMind {
   return {
     name: "lie",
-    wants: () => upright.down(),
+    wants: () => view.down,
     begin() {},
     end() {},
     step() { own.muscles.activation.fill(0); own.muscles.velocity.fill(0); },
@@ -138,23 +151,28 @@ export function lying(own: OwnBody): SubMind {
 }
 ```
 
-It asks its assist nothing, so the assist gives nothing (`createAssist`'s `apply` gives the step's
-ask and clears it).
+It reads `down` from its host's view, which the host has read this step before it is asked
+(`hosting`): one reading, the host's, so a body its host holds low on purpose is not taken from
+it. It asks its assist nothing, so the assist gives nothing (`createAssist`'s `apply` gives the
+step's ask and clears it).
 
 ## `src/core/mind/sub-minds.ts`
 
 ```ts
-/** The sub-mind `config` names, made with `own`. */
-export function subMind(own: OwnBody, config: SubMindConfig): SubMind {
+/** What makes a sub-mind for a body: its own body, and its host's view of it, read each step before the sub-mind is asked anything. */
+export type SubMindMaker = (own: OwnBody, view: BodyView) => SubMind;
+
+/** The sub-mind `config` names. */
+export function subMind(own: OwnBody, view: BodyView, config: SubMindConfig): SubMind {
   switch (config.kind) {
-    case "lie": return lying(own);
+    case "lie": return lying(own, view);
     default: return unknownKind(config);
   }
 }
 
 /** `configs`' sub-minds as a body takes them (`BodyOptions.subs`). */
-export const subMindsOf = (configs: readonly SubMindConfig[]): readonly ((own: OwnBody) => SubMind)[] =>
-  configs.map((config) => (own: OwnBody) => subMind(own, config));
+export const subMindsOf = (configs: readonly SubMindConfig[]): readonly SubMindMaker[] =>
+  configs.map((config) => (own: OwnBody, view: BodyView) => subMind(own, view, config));
 
 /** A config's kind no maker knows: a compile error where the union is known, and a thrown one for a config read from a save or a link. */
 function unknownKind(config: never): never {
@@ -176,25 +194,43 @@ export interface MindWiring {
   readonly assist?: AssistCeiling;
 }
 
-/** A body under a fighter's mind, as a fight holds it. */
-export interface Fighter {
+/** What every kind of mind gives the fight that made it. */
+interface MindedBody {
   readonly body: Body;
+  /** The mind's memory above its body's (`src/core/state.ts`), saved and loaded with it. */
+  readonly state: object;
+}
+
+/** A body under a fighter's mind: its skills, for whoever knows it is a fighter and reads their report. */
+export interface FighterMind extends MindedBody {
+  readonly kind: "fighter";
   readonly skills: Skills;
 }
 
+/**
+ * **A body under a mind, by the mind's kind.** A fight holds one and reads what every kind gives,
+ * the body and the memory; a reader that needs a kind's own narrows on `kind`.
+ */
+export type Minded = FighterMind;
+
 /** `built` under the mind `config` names, wired to its fight. */
-export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Fighter {
+export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
   switch (config.kind) {
-    case "fighter": {
-      const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, subs: subMindsOf(config.subs) });
-      return { body, skills: driveBy(body, fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight))) };
-    }
+    case "fighter": return createFighter(built, world, config, wiring);
     default: return unknownKind(config);
   }
 }
+
+function createFighter(built: BuiltBody, world: World, config: FighterMindConfig, wiring: MindWiring): FighterMind {
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, subs: subMindsOf(config.subs) });
+  const skills = driveBy(body, fighterTactics(wiring.name, (sight) => wiring.orders(sight.view.senses) ?? seekFoe(sight)));
+  return { kind: "fighter", body, skills, state: skills.state };
+}
 ```
 
-`unknownKind` is this module's own, worded for a mind.
+`unknownKind` is this module's own, worded for a mind. What a fighter does when it has no orders
+(`seekFoe`) is the one conduct there is; when there is a second (an archer's), which one is a
+field of `FighterMindConfig`, a nested config by kind as its sub-minds are.
 
 ## `src/core/body.ts`
 
@@ -202,7 +238,7 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
 
   ```ts
     /** The sub-minds the command layers hand the body to, in rank order (`hosting`): what its mind's config names (`subMindsOf`). */
-    readonly subs?: readonly ((own: OwnBody) => SubMind)[];
+    readonly subs?: readonly SubMindMaker[];
   ```
 
 - `createBody` embodies the host:
@@ -211,7 +247,7 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
   let command!: CommandMind;
   const { own, mind, state, dispose } = embody(built, world, (body) => {
     command = commandMind(body, options);
-    return hosting(command, (options.subs ?? []).map((make) => make(body)));
+    return hosting(command, (options.subs ?? []).map((make) => make(body, command.view)));
   }, sense, options.assist);
   command.look(sense());
   ```
@@ -219,17 +255,27 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
   and returns `view: command.view`, `drive: (next) => command.drive(next)`, and `get has() { return mind.has; }`.
   The body's `state.mind` is `hosting`'s: `{ has, host, subs }`, the command layers' under `host`.
 - `Body` gains `readonly has: string` ("The name of the mind that has the body").
-- `CommandMind extends HostMind`. Its `resume`:
+- `CommandMind extends HostMind`. Its step is its two halves, as it is written today:
+  `look` as it is, and
 
   ```ts
+  act(dt) {
+    const next = driver?.(view, dt);
+    if (next) obey(next);
+    motor.control(muscles, dt);
+    state.resumed = false;
+  },
+  step(senses, dt) { look(senses); this.act(dt); },
   resume() {
     motor.reset();
     goals.left = null; goals.right = null;
+    state.asked = null;
     state.resumed = true;
   },
   ```
 
-  and `step` ends with `state.resumed = false`, so the driver's first call after a hand-back sees it.
+  so the driver's first call after a hand-back sees `resumed`, and `down` is read against the
+  body's standing height until a command asks another.
 - `BodyView` gains
 
   ```ts
@@ -252,11 +298,22 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
 
 ## The skills and the tactics
 
-- `Locomotion.resume(facing: number)`: the heading is `facing`; `setOff = null`, `pace = 0`,
-  `placing = null`, `placed = false`. The reference height stays.
-- `StrikeSkill.drop()`: "End the strike in hand, unthrown, and count stillness from nothing":
-  `if (state.hand) end(); state.still = 0;`.
-- `Skills.command` begins `if (view.resumed) { legs.resume(view.stance.facing); strikes.drop(); }`.
+Every skill can be told the body is back, by one name, and the skills tell every one of them from
+one list, so a skill added later (a bow's) cannot be left out of it:
+
+```ts
+/** What every skill answers to: the body was another mind's, and is back as `view` shows it. Whatever the skill had under way is over. */
+export interface Skill {
+  resume(view: BodyView): void;
+}
+```
+
+- `Locomotion extends Skill`: `resume(view)` takes the heading from `view.stance.facing`;
+  `setOff = null`, `pace = 0`, `placing = null`, `placed = false`. The reference height stays.
+- `StrikeSkill extends Skill`: `resume()` ends the strike in hand, unthrown, and counts stillness
+  from nothing: `if (state.hand) end(); state.still = 0;`.
+- `createSkills` keeps `const all: readonly Skill[] = [legs, strikes]`, and `Skills.command` begins
+  `if (view.resumed) for (const skill of all) skill.resume(view);`.
 - `fighterTactics`' `decide` begins `if (sight.view.resumed) state.aim = null;`.
 
 ## The fights
@@ -271,21 +328,27 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
   and the constructor makes each side by
 
   ```ts
-  const { body, skills } = createMind(built, world, recipe.minds?.[side] ?? FIGHTER, {
+  const minded = createMind(built, world, recipe.minds?.[side] ?? FIGHTER, {
     name: `arena ${side}`, senses, assist,
     // Out of the fight it stands, as a side nobody orders does.
     orders: (sensed) => sensed.out ? null : given[side],
   });
   ```
 
+  A `Duelist` is the rules' `Fighter` with `{ side, model, minded, body: minded.body, standing }`: the bout reads the
+  body and saves the mind's memory, whatever kind the mind is. `SideState.skills` becomes
+  `SideState.mind` (`minded.state`), and `Duelist.skills` goes; the tests that read a duelist's
+  skills' report narrow first (`left.minded.kind === "fighter"`, then `left.minded.skills.report`).
   `recipeKey` is the recipe's JSON, so a save of one mind does not load into a bout of another.
   The verdict's `assist.withdraw()` stays: it is the fight's, and for both sides. Its comment in
   `judge` reads "The bout is over: neither body is given anything more."; the class comment's
   "the core has no rising, so a body down stays down" reads "a body down lies where it fell".
 - `run.ts`: `drive` returns `createMind(built, this.world, FIGHTER, { name: \`crypt ${actor.side}\`, assist, orders: () => ... })`,
-  the orders being what `tactics(actor)` hands `fighterTactics` today; `tactics` goes. `drop` and
-  `alive` stay: a body that is down is dropped, and `drop`'s comment says its mind had already let
-  go.
+  the orders being what `tactics(actor)` hands `fighterTactics` today; `tactics` goes. An actor's
+  `fighter` is `Fighter & { minded: Minded; body: Body }` (`Fighter` the rules', `blows.ts`) where
+  it is `Fighter & { body; skills }`.
+  `drop` and `alive` stay: a body that is down is dropped, and `drop`'s comment says its mind had
+  already let go.
 - `actor.ts`: `createBody(built, world, { servoSeconds: SERVO_SECONDS, assist, stance, subs: subMindsOf(FIGHTER.subs) })`.
 - `mind-log.ts`: `watchHas(world: World, body: Body, log: MindLog): Hook`, an `afterStep` hook that
   notes `` `${body.has} has the body` `` whenever `body.has` is no longer what it last noted;
@@ -298,10 +361,11 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
 
 1. **`the first sub-mind that wants the body has it, and the host looks on`**: a written host and
    two written sub-minds under `embody(built, world, () => hosting(host, [a, b]))`, each recording
-   its calls; `a` wants steps 10 to 19, `b` wants steps 5 to 29. The whole record: the host steps
-   0 to 4; `b.begin`; `b` steps 5 to 9 with `host.look` each; `b.end`, `a.begin`; `a` steps 10 to
-   19; `a.end`, `b.begin`; `b` steps 20 to 29; `b.end`, `host.resume`; the host steps from 30.
-   `has` names each in turn.
+   its calls, `wants` among them; `a` wants steps 10 to 19, `b` wants steps 5 to 29. The whole
+   record: every step opens with `host.look`, and then the sub-minds' `wants` in rank order, as
+   far as the first that does; the host acts steps 0 to 4; `b.begin`; `b` steps 5 to 9, and the
+   host does not act; `b.end`, `a.begin`; `a` steps 10 to 19; `a.end`, `b.begin`; `b` steps 20 to
+   29; `b.end`, `host.resume`; the host acts from 30. `has` names each in turn.
 2. **`a body that is down lies still`**: the Warrior under `createMind` and `FIGHTER`, shoved as
    plan 01's test 3. From the step it is down: `body.has` is `"lie"`, every activation is 0, the
    stance's shortfall is zero, and 3 s on no segment's centre moves faster than 0.05 m/s. The
@@ -313,41 +377,58 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
    handed back: `view.resumed` is true for that step alone, the strike's phase is null, the legs'
    heading is `view.stance.facing`; 4 s on it has not gone down, and has thrown a strike begun
    after the hand-back.
-4. **`a sub-mind's config names its kind`**: `subMind(own, { kind: "lie" })` is named `"lie"`;
-   `subMind(own, { kind: "nap" })` throws, naming `nap`.
+4. **`a sub-mind's config names its kind`**: `subMind(own, view, { kind: "lie" })` is named
+   `"lie"`; `subMind(own, view, { kind: "nap" })` throws, naming `nap`.
+5. **`a sub-mind reads its host's view of this step`**: a written host whose `look` counts the
+   steps into a view, and a written sub-mind made with that view whose `wants` records the count
+   it reads: each step it reads that step's count, not the one before.
 
 Elsewhere:
 
-5. `tests/arena-core.test.mjs`, **`a_bout's_minds_are_its_recipe's`**: a recipe with
+6. `tests/arena-core.test.mjs`, **`a_bout's_minds_are_its_recipe's`**: a recipe with
    `minds: { left: { kind: "fighter", subs: [] }, right: FIGHTER }` builds; after the left falls,
    `duelists.left.body.has` is `"command"`; in the same bout without `minds`, `"lie"`.
    `a_load_is_of_the_same_recipe` (`arena-fork`) gains a save of the one refused by the other.
-6. `tests/core-fork.test.mjs`, **`a_body_forks_as_it_goes_down_and_lying`**: `pulled`'s body,
+7. `tests/core-fork.test.mjs`, **`a_body_forks_as_it_goes_down_and_lying`**: `pulled`'s body,
    pulled until it falls, under `FIGHTER`'s sub-minds; forks every step across the hand-over and
-   after. `mind > has` is sorted as needed under it; the paths under `mind` gain `host`.
-7. `tests/lab-mind-log.test.mjs`: `watchHas` notes `lie has the body` once, at the fall.
+   after. `mind > has` is sorted as needed under it; the paths under `mind` gain `host`. In
+   `arena-fork` a side's `skills` paths are under `mind`.
+8. `tests/core-ground.test.mjs`, plan 01's test 4: its body takes `FIGHTER`'s sub-minds
+   (`subMindsOf(FIGHTER.subs)`), and `body.has` is `"command"` throughout the low hold; in its
+   control, `"lie"` from the step `view.down` turns true.
+9. `tests/lab-mind-log.test.mjs`: `watchHas` notes `lie has the body` once, at the fall.
 
 ## Mutations, each must go red
 
 - `hosting` skips `host.look` while a sub-mind has the body: test 1's record; the arena never
   reaches a verdict by a fall (`a_bout_in_the_arena_runs_to_its_verdict` on a bout that ends by one).
+- `hosting` asks `wants` before the host looks: tests 1 and 5.
+- `hosting` lets the host act as well while a sub-mind has the body: test 1's record, test 2's
+  activations.
 - `hosting` takes the last sub-mind that wants the body: test 1.
 - `hosting` does not call `resume`: tests 1 and 3.
-- `hosting` keeps `has` outside its state: test 6.
+- `hosting` keeps `has` outside its state: test 7.
+- `lying` reads an `uprightness` of its own in place of the view: test 8.
 - `lying.step` leaves the arrays as they were: test 2.
 - `resume` does not reset the stance (`motor.reset` without `stance.reset`): test 3's last bar.
-- `Skills.command` ignores `view.resumed`: test 3's phase and heading.
+- `Skills.command` ignores `view.resumed`: test 3's phase and heading. `all` lacks the strikes:
+  test 3's phase; lacks the legs: its heading.
 - `state.resumed` is never cleared: test 3's "for that step alone".
-- `createMind` ignores `config.subs`: tests 2 and 5.
+- `createMind` ignores `config.subs`: tests 2 and 6.
+- A fighter's `state` is a copy of its skills' and not theirs: `arena-fork`'s fork of a bout.
 - The arena's `orders` drops the `sensed.out` test: `a_side_out_of_the_fight_is_no_longer_under_its_orders`.
 
 ## Documents
 
 - `AGENTS.md`, in the core's rules, after "A mind reaches the world only through its body":
-  "**A mind hands over its whole body, or keeps it.** A sub-mind (`SubMind`,
-  `src/core/mind/sub-mind.ts`) is a mind that says when it wants the body; its host looks on and
-  is told when the body is its own again. What a mind is made of is its config, plain data by kind
-  (`MindConfig`, `src/core/mind/config.ts`): a fight passes it through and reads nothing in it."
+  "**A mind may hand its body to a sub-mind.** A sub-mind (`SubMind`,
+  `src/core/mind/sub-mind.ts`) is a mind that says when it wants the body; its host reads the body
+  every step, acts when the body is its own, and is told when it is its own again. A sub-mind
+  reads whether its body is down from its host's view, never by a bar of its own. What a mind is
+  made of is its config, plain data by kind (`MindConfig`, `src/core/mind/config.ts`): a fight
+  passes it through, reads nothing in it, and holds what it gets by what every kind gives
+  (`Minded`, `src/core/mind/minds.ts`). A skill answers `Skill.resume` and is in the one list
+  the skills resume."
 - `docs/architecture.md`: the Mind seam's row names sub-minds; the Minds section says how a host
   hands over and what `FIGHTER` holds; "is out of the fight: rising is not built yet" says the
   body lies still.
