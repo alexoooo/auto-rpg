@@ -401,6 +401,44 @@ of its own, one draw against each of these odds where a chamber's kind gives non
 | `flameOut`, `height` | the flame stands 0.65 m out from its rock cell's centre, 2.05 m up; the light a whole cell out at the same height |
 | `dampOut` | the damp under a torch of a damp chamber lies 1.4 m beyond its light |
 
+## Workshop
+
+The character workshop page (`src/character-lab/main.ts`) shows a model in a studio of its own,
+apart from the game's scenes. Its values are kept as they were set with the page; none was swept.
+
+`STAGE`:
+
+| Field | Value |
+|---|---|
+| `pixelRatio` | the page draws one pixel for every 1.5 of the device's, and never finer than the page's own |
+| `backdrop` | the clear colour and the fog's, (0.155, 0.202, 0.198) |
+| `fog` | linear, from 5 m to 15 m |
+| `environmentSize` | `assets/env.hdr` at 256 px a face |
+| `ambient` | (0.24, 0.27, 0.25) |
+| `exposure`, `contrast` | 1.05, 1.12 |
+| `fill` | a hemisphere toward (0, 1, -0.6), intensity 0.85, sky (0.75, 0.85, 0.86), ground (0.26, 0.28, 0.24) |
+| `key` | a sun at (-3, 5, 4) shining along (0.7, -1, -0.65), intensity 1.7, colour (1, 0.88, 0.70); its shadow reads from 0.1 m to 12 m of depth, and its frustum's sides follow the casters |
+| `rim` | a sun shining along (-0.6, -0.4, 0.8), intensity 1.4, colour (0.6, 0.78, 0.85); it casts no shadow |
+| `shadow` | the key's map, 2048 px, a blurred exponential map with a kernel of 24 and a darkness of 0.25 |
+| `floor` | 200 m a side, (0.065, 0.088, 0.08), no gloss |
+| `plinth` | a disc 1.55 m across and 0.055 m thick, its top at the floor (centre at y = -0.028 m), of the floor's material, 96 sides |
+| `inlay` | a ring 1.46 m across and 0.004 m thick at y = 0.002 m, (0.53, 0.45, 0.29), 96 sides |
+
+`VIEW`:
+
+| Field | Value |
+|---|---|
+| `home` | where the camera starts and **Reset view** returns it: bearing π/2 + 0.22, pitch 1.39, 5.7 m from (0, 1.02, 0.65) |
+| `fov`, `near` | 0.57 rad; 0.01 m |
+| `radius`, `beta` | the camera may stand from 0.2 m to 9 m off, at a pitch from 0.45 to 1.65 |
+| `wheel`, `pinch`, `panning` | Babylon's `wheelDeltaPercentage` 0.015, `pinchDeltaPercentage` 0.008 and `panningSensibility` 1200 |
+| `grip` | **Inspect grip** stands 0.85 m from the holding hand's middle knuckle, at a bearing of π/2 + 0.3 and a pitch of 1.1; a shield's grip is behind its board, and is seen from a bearing of 0.4 and a pitch of 0.45 |
+| `keys` | an arrow turns the camera 0.12 rad or raises its target 0.08 m, between 0.15 m and 1.9 m; `+` and `-` move it 0.15 m, no nearer than `radius`'s least and no farther by key than 5 m |
+
+`MOTION`: the authored loop is 12 s long, its clips are keyed at 60 frames a second
+(`scripts/character-lab/realistic/motion.py`), and a drawn frame advances it by 100 ms at most,
+so that a stalled page does not jump.
+
 ## Materials
 
 `BASE` (`src/render/materials.ts`), each plain surface's colour in linear light, with no

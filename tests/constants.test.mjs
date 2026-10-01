@@ -17,7 +17,7 @@ import { recordSection } from "./fixtures/spec.mjs";
 import { ROOT, sourcesUnder } from "./harness/program.mjs";
 
 /** Where a tuned number decides how the game plays, looks or sounds. */
-const SCOPE = ["src/core", "src/arena", "src/dungeon", "src/render", "src/audio"];
+const SCOPE = ["src/core", "src/arena", "src/dungeon", "src/render", "src/audio", "src/character-lab"];
 
 const READ = { sources: Object.keys(SOURCES), sectionOf: recordSection };
 
