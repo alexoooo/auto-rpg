@@ -34,11 +34,10 @@ import { parseArgs } from "node:util";
 import { CAP_SECONDS, SIDES } from "../src/arena/duel.ts";
 import { tapeHash } from "../src/arena/matchup.ts";
 import { BODY_MODELS } from "../src/core/human/spec.ts";
-import { mulberry32 } from "../src/dungeon/rng.ts";
 import { BOUT_HARNESS, buildBout } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { rolloutPool } from "./rollout-pool.mjs";
-import { chooseResponse, poseDigest, responsesAt, valueOf } from "./rollouts.mjs";
+import { chooseResponse, nudgesOf, poseDigest, responsesAt, valueOf } from "./rollouts.mjs";
 
 const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
@@ -57,14 +56,6 @@ const lanes = Number(values.workers ?? defaultLanes());
 const mean = (numbers) => numbers.reduce((sum, n) => sum + n, 0) / numbers.length;
 /** Who a bout's verdict put out: nobody at the cap, both in a draw before it, else the loser. */
 const outOf = ({ winner, ending }) => ending === "time" || ending === "none" ? [] : winner === null ? [...SIDES] : SIDES.filter((side) => side !== winner);
-/** A fork's nudges: one for each side's root, `nudge` N s in a level direction, the same for every response of the decision at `from`. */
-function nudgesOf(from, trial) {
-  const random = mulberry32(from * 65536 + trial);
-  return SIDES.map((side) => {
-    const angle = 2 * Math.PI * random();
-    return { side, impulse: [nudge * Math.cos(angle), 0, nudge * Math.sin(angle)] };
-  });
-}
 
 /** `side`'s oracle bout of `recipe`: its row, its tape and its decisions. */
 async function oracleBout(recipe, side, pool) {
@@ -75,7 +66,7 @@ async function oracleBout(recipe, side, pool) {
     const decisions = [], cost = { rollouts: 0, steps: 0 };
     while (!duel.verdict) {
       const from = duel.steps, at = poseDigest(builts), responses = responsesAt(duel, side);
-      const trials = blind > 0 ? Array.from({ length: blind }, (_, trial) => nudgesOf(from, trial)) : [[]];
+      const trials = blind > 0 ? Array.from({ length: blind }, (_, trial) => nudgesOf(from, trial, nudge)) : [[]];
       const fork = values.replay ? { tape: [...duel.tape] } : { save: duel.save() };
       const jobs = responses.flatMap(({ orders }) => trials.map((nudges) => ({
         recipe, ...fork, from, steps: horizon, nudges,

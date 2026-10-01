@@ -4,6 +4,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
+import { mulberry32 } from "../src/dungeon/rng.ts";
 import { traceOf } from "../tests/harness/trace.mjs";
 import { buildBout } from "./bout.mjs";
 
@@ -66,6 +67,18 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
       centres: SIDES.map((side) => duel.duelists[side].body.view.stance.centre.asArray()),
     };
   } finally { if (!save) dispose(); }
+}
+
+/**
+ * A blind fork's nudges: one for each side's root, `nudge` N s in a level direction drawn for the
+ * decision at step `from` and its trial `trial`, so the same for every response of the decision.
+ */
+export function nudgesOf(from, trial, nudge) {
+  const random = mulberry32(from * 65536 + trial);
+  return SIDES.map((side) => {
+    const angle = 2 * Math.PI * random();
+    return { side, impulse: [nudge * Math.cos(angle), 0, nudge * Math.sin(angle)] };
+  });
 }
 
 /** What `side` has of a bout as `row` left it: its bar less its foe's, a point more with its foe out, a point less out itself. */
