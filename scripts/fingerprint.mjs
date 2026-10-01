@@ -43,9 +43,9 @@ import { startRoutine } from "../src/lab/routine.ts";
 import { startRun } from "../src/lab/run-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { buildBout } from "../research/bout.mjs";
-import { gripGap, surface } from "./character-lab/contact.mjs";
+import { surface } from "./character-lab/contact.mjs";
 import {
-  contactPatch, forearmExpansion, gripDistances, skinPart, skinRegions, surfaceIndex, wristAreaRatio,
+  contactPatch, forearmExpansion, gripDistances, gripGap, skinPart, skinRegions, surfaceIndex, wristAreaRatio,
 } from "./character-lab/validation.mjs";
 import { coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../tests/harness/trace.mjs";

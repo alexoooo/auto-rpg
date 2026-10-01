@@ -6,8 +6,8 @@ import { Scene } from '@babylonjs/core/scene.js';
 import { LoadAssetContainerAsync } from '@babylonjs/core/Loading/sceneLoader.js';
 import '@babylonjs/loaders/glTF/index.js';
 import {visiblePart,clipFor} from '../src/character-lab/catalog.ts';
-import {surface,gripGap} from '../scripts/character-lab/contact.mjs';
-import {skinRegions,gripDistances,contactPatch} from '../scripts/character-lab/validation.mjs';
+import {surface} from '../scripts/character-lab/contact.mjs';
+import {skinRegions,gripDistances,gripGap,contactPatch} from '../scripts/character-lab/validation.mjs';
 import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 for(const id of ['fighter','rogue']) test(`character workshop: ${id} loadouts and real motion`,async()=>{
  const engine=new NullEngine();const scene=new Scene(engine);

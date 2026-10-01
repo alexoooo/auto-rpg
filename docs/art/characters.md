@@ -116,11 +116,37 @@ open `http://127.0.0.1:5183/character-lab.html`, and stop the server when done.
 `npm test` loads the real GLBs. `tests/character-lab.test.mjs` checks every loadout, real
 forward-and-return displacement, the stance foot, the attacks and the bow's flex; samples every
 loop for wrist collapse, and the bow's for hands entering the torso; and, on each loop's first
-frame, that the palm and finger pads lie on the sword's, shield's and bow's grips.
+frame, that the palm and finger pads lie on the sword's, shield's and bow's grips (`gripDistances`,
+`contactPatch` and `gripGap`).
 `tests/character-motion.test.mjs` checks that the bow turns continuously between authored poses and
 that the sword-and-shield and bow attacks clear the head, body and opposite arm.
 These are sampled surface checks, not proof of clearance between samples, and they do not judge
 anatomy or art: a person looks as well.
+
+### What the checks read
+
+The checks find their regions on the skin in the rest pose (`skinRegions`,
+`scripts/character-lab/validation.mjs`), by the numbers of `SKIN`:
+
+| Field | Value |
+|---|---|
+| `hand` | 0.1209 m, the fighter's wrist to middle knuckle (0.12086 m at rest; the rogue's is 0.09919 m). The generator authors the grips on this hand and scales them to each model's (`handScale`, `scripts/character-lab/realistic/motion.py`); the checks scale their lengths along the hand the same way |
+| `palm` | the skin bound to the hand by more than 0.6, from 0.055 to 0.115 m along the hand from the wrist, whose normal has a cosine above 0.25 with the palm's. A grip's line crosses the palm 0.095 m from the wrist, with a radius of 0.018 m (`point(s, x, .095, .046)` in `motion.py`) |
+| `pad` | a digit's pad is the skin bound to its two outer bones by more than 0.65, whose normal has a cosine above 0.05 with the palm's |
+| `wrist` | the skin from 0.72 to 1.02 of the way from the elbow to the wrist, within 0.07 m of the forearm's axis. Its area is read at 0.77, 0.84, 0.91 and 0.98, over the skin within 0.027 of each |
+| `forearm` | the skin from 0.2 to 0.75 of the way from the elbow to the wrist, between 0.015 and 0.065 m from the axis |
+| `patch` | a pad's contact is read at the distance a tenth of the way up its order from the nearest (`contactPatch`) |
+| `part` | a triangle belongs to a part of the body when each corner is bound to the part's bones by more than 0.65 (`skinPart`) |
+
+The values are kept as they were set with the grips; none was swept. Four of the bounds are
+looser than either model: the skin of the wrist stands within 0.06 m of the axis, and the
+forearm's bare skin lies between 0.025 and 0.040 m from it, beyond 0.25 of the way down (Node,
+`NullEngine`, both GLBs). The surface index's cell is `CELL`, 0.12 m, which changes how fast it
+answers and not what.
+
+`node scripts/fingerprint.mjs --character` prints a hash of what these checks measure on both
+models, at three frames of every clip: a change to the checks that is meant to change nothing
+leaves it as it was.
 
 With a server running, and Playwright fetched for the run (it is not a dependency); every script
 launches Microsoft Edge (`channel: 'msedge'`):
