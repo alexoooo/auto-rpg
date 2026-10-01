@@ -96,6 +96,9 @@ screens build on it; it never imports them.
   limit before trusting a reading.
 - **Bodies never sleep**: a sleeping body reads a perfect zero. `tests/core-engine.test.mjs` holds
   the engine to it.
+- **Rapier's wasm loads once a realm**, through `rapierModule` (`src/core/engine/rapier.ts`) and
+  nothing else. Rapier's own `init` asked twice at once makes two instances, and a world made in
+  the first is read out of the second's memory: two worlds that step as one, until one is disposed.
 - **Build a jointed body in the pose its joints demand.** A joint that disagrees at construction is
   cleared by flinging the body.
 - **An engine's linear velocity is the centre of mass's**, not the node's.

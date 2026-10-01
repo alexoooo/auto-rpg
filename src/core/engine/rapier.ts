@@ -23,10 +23,17 @@ import { CONTACT_FRICTION, type ColliderShape, type Contact, type EngineJoint, t
  */
 type Rapier = typeof RAPIER;
 
-/** Load Rapier's wasm; once per realm is enough, and later calls return at once. */
-export async function rapierModule(): Promise<Rapier> {
-  await RAPIER.init();
-  return RAPIER;
+/**
+ * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
+ * its first call is still loading makes a second instance and turns the module to it, and a world
+ * made in the first is from then on read out of the second's memory.
+ */
+let loading: Promise<Rapier> | null = null;
+
+/** Load Rapier's wasm, once a realm: every caller waits on the one load. */
+export function rapierModule(): Promise<Rapier> {
+  loading ??= RAPIER.init().then(() => RAPIER);
+  return loading;
 }
 
 /** **Rapier as the core's engine**, its wasm loaded. */
