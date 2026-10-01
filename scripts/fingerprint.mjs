@@ -1,9 +1,10 @@
 /**
  * A fingerprint of what the game does: fights in the arena and the crypt, the lab's run and
- * routine, the generated levels and what a walk through one reveals. A structural change, one
- * that moves code without changing what it computes, leaves every line as it was; read the output
- * before the change and compare after, on the same machine. It is not a test: a change that means
- * to change how a fight plays changes its lines, and says so.
+ * routine, the generated levels, what a walk through one reveals, and the shader code the crypt's
+ * look writes from a level. A structural change, one that moves code without changing what it
+ * computes, leaves every line as it was; read the output before the change and compare after, on
+ * the same machine. It is not a test: a change that means to change how a fight plays changes its
+ * lines, and says so.
  *
  *   node scripts/fingerprint.mjs [--workers 12]
  *
@@ -18,11 +19,13 @@ import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
+import { CryptWeathering } from "../src/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
 import { clearSegment, distance, findPath, reveal, walkable } from "../src/dungeon/map.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
@@ -113,6 +116,19 @@ function levels(seeds) {
   return digestOf(hash);
 }
 
+/** The fragment code the paving's weathering writes for each crypt of `seeds`: a stain for every room. */
+function weathering(seeds) {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  try {
+    const hash = createHash("sha256");
+    for (const seed of seeds) {
+      const plugin = new CryptWeathering(new PBRMaterial(`paving.${seed}`, scene), generateCryptDungeon(seed));
+      hash.update(written(plugin.getCustomCode("fragment")));
+    }
+    return digestOf(hash);
+  } finally { scene.dispose(); engine.dispose(); }
+}
+
 /** How far apart the sight case reads along its walk, m. */
 const SIGHT_STRIDE = 0.5;
 
@@ -152,6 +168,7 @@ const CASES = [
   { name: "crypts, seeds 0-99 and 2124530852", run: () => crypts([...range(100), 2124530852]) },
   { name: "levels, seeds 0-19", run: () => levels(range(20)) },
   ...range(8).map((i) => i + 1).map((seed) => ({ name: `sight, crypt ${seed}`, run: () => sight(seed) })),
+  { name: "weathering, crypts 1-3", run: () => weathering([1, 2, 3]) },
 ];
 
 if (isMainThread) {
