@@ -163,6 +163,13 @@ export interface StanceReading {
   /** How many steps the stance has taken to catch a push, and to walk. */
   readonly recoveries: number;
   readonly strides: number;
+  /**
+   * What the last command asked of the ground and the bearing soles could not give
+   * (`shareGroundWrench`): a force, and a moment about the root's centre of mass, world, N and N m.
+   * None with no stance, or no sole bearing. The root was asked for the motion that the wrench
+   * the soles can give makes.
+   */
+  readonly shortfall: { readonly force: Vector3; readonly moment: Vector3 };
 }
 
 /**
@@ -546,6 +553,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       bindChannels(s, muscles);
       state.owned.fill(0);
       state.aim.on = false;
+      reading.shortfall.force.setAll(0);
+      reading.shortfall.moment.setAll(0);
       for (const task of state.tasks) task.on = false;
       paceToward(s, stepsOfItself(goal) ? goal.walk : null, dt);
       const swing = chooseStep(s, goal);

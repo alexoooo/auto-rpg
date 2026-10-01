@@ -185,7 +185,7 @@ export function rootAim(s: Stance, R: BodyDynamics["root"], P: number[][], w0: n
  * give it all, the root's acceleration is the one the wrench they can give makes.
  */
 export function limitToSoles(s: Stance, legs: readonly Leg[], P: number[][], w0: number[], p0: readonly [number, number, number]): void {
-  const { root } = s.state.aim, { soleMargin } = s.tuning, { idScratch, shares, missed } = s.scratch, { at } = idScratch;
+  const { root } = s.state.aim, { reading } = s.state, { soleMargin } = s.tuning, { idScratch, shares, missed } = s.scratch, { at } = idScratch;
   const bearing = legs.filter((leg) => leg.task.bearing).map((leg) => leg.foot);
   const W = [0, 1, 2, 3, 4, 5].map((r) => w0[r]! + P[r]!.reduce((sum, v, c) => sum + v * root[c]!, 0));
   if (bearing.length) {
@@ -193,6 +193,9 @@ export function limitToSoles(s: Stance, legs: readonly Leg[], P: number[][], w0:
     idScratch.moment.set(W[0]!, W[1]!, W[2]!);
     shareGroundWrench(bearing.map((foot) => bearingSole(foot, 1 - soleMargin)), at.set(p0[0], p0[1], p0[2]), idScratch.force, idScratch.moment,
       GROUND_FRICTION, leverOf(s, p0[1]), shares, missed);
+    // `missed` is what the soles give beyond what was asked; the shortfall is its opposite.
+    reading.shortfall.force.copyFrom(missed.force).scaleInPlace(-1);
+    reading.shortfall.moment.copyFrom(missed.moment).scaleInPlace(-1);
     if (missed.force.lengthSquared() + missed.moment.lengthSquared() > 1e-12) {
       const given = [W[0]! + missed.moment.x, W[1]! + missed.moment.y, W[2]! + missed.moment.z, W[3]! + missed.force.x, W[4]! + missed.force.y, W[5]! + missed.force.z];
       root.set(solveLinear(P, given.map((v, r) => v - w0[r]!)));
