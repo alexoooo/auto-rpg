@@ -191,6 +191,29 @@ is the look's own memory and never the run's:
 | `corner` | a floor cell is seen when any of four points 0.35 m from its middle, toward its corners, is in sight |
 | `gap` | an unseen pocket inside a room is filled when it is enclosed and no larger than 4 cells |
 
+## Crypt cut-away
+
+The Rootbound Crypt and the Random Crypt are drawn with the walls on the camera's side cut down
+to a low sill (`src/dungeon/reference-look.ts`; `cutawayCondition`).
+
+`CUTAWAY`:
+
+| Field | Value |
+|---|---|
+| `sill` | a cut wall is drawn up to 0.85 m |
+| `facing` | a wall piece, or a torch, has its back to the camera when the cosine between its facing and the camera's bearing is below -0.1: 5.7 degrees past side-on |
+| `along`, `through` | the box cut about a piece of the Random Crypt is 1.55 m either way along its wall, which reaches over its neighbours, and 0.55 m through it |
+
+`REFERENCE_CHAMBER`: the Rootbound Crypt's walls lie beyond x = 3.55 and 15.45 and z = 4.55 and
+13.45, m: 0.45 m beyond the middles of the floor's outer cells. The two on the camera's side are
+cut, and a torch whose rock cell lies beyond one is hidden with its wall.
+
+`REFERENCE_DAMP`: the Rootbound Crypt's floor is wet about (6.1, 7), (11.6, 11.3) and
+(13.5, 8.2), m. The Random Crypt's is wet under the torches of its damp chambers (`CRYPT_TORCH`).
+
+A torch's shadow map is 2048 px a side at high quality and 1024 px at reduced
+(`shadowMapSize`; [the crypt's art](../art/crypt.md#random-crypt)).
+
 ## Crypt stone
 
 The crypt's walls, floor and doors. `WALL_HEIGHT` (`src/dungeon/fog.ts`) is 2.8 m, the wall's

@@ -19,19 +19,41 @@ import { flatStone } from "./stone.ts";
 import { REFERENCE_TORCHES } from "./reference.ts";
 import type { buildDungeonWorld } from "./world.ts";
 
-import type { CryptRoomPlan } from "./crypt-plan.ts";
+import type { CryptPlacement, CryptRoomPlan } from "./crypt-plan.ts";
 import { assembleCryptKit } from "./crypt-kit.ts";
+import type { TorchPlacement } from "./dressing.ts";
 
 export type ReferenceQuality = "high" | "reduced";
+
+/** Where the reference chamber's floor is wet: the middle of each patch, m
+ * (`docs/reference/look.md#crypt-cut-away`). */
+const REFERENCE_DAMP: readonly { x: number; z: number }[] = [{x:6.1,z:7},{x:11.6,z:11.3},{x:13.5,z:8.2}];
+/** The reference chamber's walls: what lies beyond these in x or z, m, is wall, and is cut away on the camera's
+ * side (`docs/reference/look.md#crypt-cut-away`). */
+const REFERENCE_CHAMBER = Object.freeze({ min: Object.freeze({ x: 3.55, z: 4.55 }), max: Object.freeze({ x: 15.45, z: 13.45 }) });
+/** How the near walls are cut away (`docs/reference/look.md#crypt-cut-away`). */
+const CUTAWAY = Object.freeze({
+  /** A wall is cut above this height, m: what is left is a low sill. */
+  sill: 0.85,
+  /** A piece faces away from the camera when the cosine between its facing and the camera's bearing is below
+   * this. */
+  facing: -.1,
+  /** Half the box cut about a piece, m: along its wall, which reaches over its neighbours, and through it. */
+  along: 1.55,
+  through: 0.55,
+});
+/** The pieces of the kit that stand in a wall, which the cut takes. */
+const WALL_PIECES: readonly string[] = ["wall","wall-pier","wall-panel","wall-repair","corner-left","corner-right","niche","roots","portal"];
+
 /** Wetness belongs to the paving itself, so it cannot float, sort or z-fight. */
 class CryptDamp extends MaterialPluginBase {
   private readonly centres: readonly { x: number; z: number }[];
-  constructor(material: Material, centres = [{x:6.1,z:7},{x:11.6,z:11.3},{x:13.5,z:8.2}]) {
+  constructor(material: Material, centres = REFERENCE_DAMP) {
     super(material, "CryptDamp", 220, {}); this.centres=centres; this._enable(true);
   }
   override getClassName() { return "CryptDamp"; }
   override getCustomCode(shaderType: string) {
-    const centres=this.centres??[{x:6.1,z:7},{x:11.6,z:11.3},{x:13.5,z:8.2}];
+    const centres=this.centres??REFERENCE_DAMP;
     return shaderType === "fragment" ? {
       CUSTOM_FRAGMENT_DEFINITIONS: `
         float cryptDamp(vec2 p) {
@@ -49,8 +71,41 @@ class CryptDamp extends MaterialPluginBase {
  * and the floor: every wall piece of `plan` that faces away from the camera, or the reference chamber's two near
  * walls. */
 export function cutawayCondition(azimuth: number, plan?: CryptRoomPlan): string {
-  return plan ? plan.placements.filter(p=>["wall","wall-pier","wall-panel","wall-repair","corner-left","corner-right","niche","roots","portal"].includes(p.piece) && Math.sin(p.turn)*Math.sin(azimuth)+Math.cos(p.turn)*Math.cos(azimuth)<-.1).map(p=>`(abs(vPositionW.x-${p.x.toFixed(3)}) < ${Math.abs(Math.cos(p.turn))>.5?"1.55":"0.55"} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${Math.abs(Math.sin(p.turn))>.5?"1.55":"0.55"})`).join(" || ")
-    : `${Math.sin(azimuth) > 0 ? "vPositionW.x > 15.45" : "vPositionW.x < 3.55"} || ${Math.cos(azimuth) > 0 ? "vPositionW.z > 13.45" : "vPositionW.z < 4.55"}`;
+  if (!plan) {
+    const { min, max } = REFERENCE_CHAMBER;
+    const nearX = Math.sin(azimuth) > 0 ? `vPositionW.x > ${max.x}` : `vPositionW.x < ${min.x}`;
+    const nearZ = Math.cos(azimuth) > 0 ? `vPositionW.z > ${max.z}` : `vPositionW.z < ${min.z}`;
+    return `${nearX} || ${nearZ}`;
+  }
+  // A piece turned to face along z runs along x, and the other way about.
+  const box = (p: CryptPlacement): string => {
+    const halfX = Math.abs(Math.cos(p.turn)) > .5 ? CUTAWAY.along : CUTAWAY.through;
+    const halfZ = Math.abs(Math.sin(p.turn)) > .5 ? CUTAWAY.along : CUTAWAY.through;
+    return `(abs(vPositionW.x-${p.x.toFixed(3)}) < ${halfX} && abs(vPositionW.z-${p.z.toFixed(3)}) < ${halfZ})`;
+  };
+  return plan.placements
+    .filter(p => WALL_PIECES.includes(p.piece) && facesAway(Math.sin(p.turn), Math.cos(p.turn), azimuth))
+    .map(box).join(" || ");
+}
+/** Whether what faces along the unit `(x, z)` has its back to the camera at `azimuth`. */
+function facesAway(x: number, z: number, azimuth: number): boolean {
+  return x * Math.sin(azimuth) + z * Math.cos(azimuth) < CUTAWAY.facing;
+}
+/** Whether `torch` hangs on a wall the cut takes: a wall of `plan` with its back to the camera, or one of the
+ * reference chamber's two near walls. */
+function frontTorch(torch: TorchPlacement, azimuth: number, plan?: CryptRoomPlan): boolean {
+  if (plan) return facesAway(torch.facing.x, torch.facing.z, azimuth);
+  const { min, max } = REFERENCE_CHAMBER;
+  return (Math.sin(azimuth) > 0 ? torch.cell.x > max.x : torch.cell.x < min.x)
+    || (Math.cos(azimuth) > 0 ? torch.cell.z > max.z : torch.cell.z < min.z);
+}
+/** The side of a torch's shadow map at each quality, px. */
+function shadowMapSize(quality: ReferenceQuality): number {
+  switch (quality) {
+    case "high": return 2048;
+    case "reduced": return 1024;
+    default: { const never: never = quality; throw new Error(`Unknown quality: ${String(never)}`); }
+  }
 }
 /** The front walls remain as low sills: a cutaway, never a change to collision. */
 class CryptCutaway extends MaterialPluginBase {
@@ -62,7 +117,7 @@ class CryptCutaway extends MaterialPluginBase {
   }
   override getClassName() { return "CryptCutaway"; }
   override getCustomCode(shaderType: string) {
-    return shaderType === "fragment" ? { CUSTOM_FRAGMENT_MAIN_BEGIN: `if (vPositionW.y > 0.85 && (${this.condition})) discard;` } : null;
+    return shaderType === "fragment" ? { CUSTOM_FRAGMENT_MAIN_BEGIN: `if (vPositionW.y > ${CUTAWAY.sill} && (${this.condition})) discard;` } : null;
   }
 }
 /** Visual-only owner: all solid props have already been built by the level (`buildDungeonWorld`). */
@@ -121,16 +176,14 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   // A cut-away wall must take its elevated fittings with it. Keep its light contribution;
   // this is the same presentation-only cross-section as the wall, not an extinguished torch.
   torches.forEach((torch, i) => {
-    const front = plan ? torch.facing.x*Math.sin(azimuth)+torch.facing.z*Math.cos(azimuth)<-.1 : (Math.sin(azimuth) > 0 ? torch.cell.x > 15.45 : torch.cell.x < 3.55)
-      || (Math.cos(azimuth) > 0 ? torch.cell.z > 13.45 : torch.cell.z < 4.55);
-    if (front) for (const name of [`torch.flame.${i}`, `torch.sconce.${i}`]) scene.getMeshByName(name)?.setEnabled(false);
+    if (frontTorch(torch, azimuth, plan)) for (const name of [`torch.flame.${i}`, `torch.sconce.${i}`]) scene.getMeshByName(name)?.setEnabled(false);
   });
   const lights=torches.map((torch,i)=>{
     const light=new SpotLight(`reference.shadow.${i}`,new Vector3(torch.light.x,2.45,torch.light.z),
       new Vector3(torch.facing.x,-.85,torch.facing.z).normalize(),Math.PI*.68,1.5,scene);
     light.diffuse=Color3.FromHexString(torch.color??"#ffb665");light.intensity=torch.shadowIntensity??85;light.range=12;
     light.shadowMinZ=.1;light.shadowMaxZ=18;
-    const shadow=new ShadowGenerator(quality==="high"?2048:1024,light);
+    const shadow=new ShadowGenerator(shadowMapSize(quality),light);
     shadow.usePercentageCloserFiltering=true;shadow.bias=.001;shadow.normalBias=.018;
     for(const mesh of scene.meshes)if(mesh instanceof Mesh && mesh.getTotalVertices() && mesh.isEnabled() && mesh.isVisible
       && mesh.name !== "reference.floor" && mesh.name !== "reference.earth" && !mesh.name.includes("flame"))shadow.addShadowCaster(mesh);
