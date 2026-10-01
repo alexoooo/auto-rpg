@@ -3,16 +3,13 @@ import type { BuiltBody } from "../build/build-body.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { ServoWork } from "./servo.ts";
 import { shareGroundWrench } from "./contact-wrench.ts";
-import { chainTo, rotationAtToRef } from "./kinematics.ts";
+import { rotationAtToRef } from "./kinematics.ts";
 import { boundedLeastSquares, fixedSolve, solveLinear } from "../math/linalg.ts";
-import {
-  LEG_DAMPING, SOLE_MARGIN, STANCE_ANKLE_SPARE, STANCE_GAIT, STANCE_KNEE_BEND, STANCE_RECOVERY, STANCE_SECONDS, STANCE_TRACK,
-  SUPPORT_INSET, type StanceTuning,
-} from "./stance-tuning.ts";
+import { LEG_DAMPING, resolveStance, type StanceTuning } from "./stance-tuning.ts";
 import { across, outside, recoveryStep, settleStep, transferStep, walkStep } from "./gait.ts";
 import {
-  GROUND_FRICTION, bearingOf, bearingSole, centreOfToRef, edgeOf, footMotionToRef, lengthsOf, pointOfToRef, referenceBendOf,
-  soleMiddleToRef, soleOf, turnOfToRef, withinSupport, type FootState,
+  GROUND_FRICTION, bearingOf, bearingSole, centreOfToRef, footMotionToRef, footStatesOf, pointOfToRef, readSupport, restWidth,
+  soleMiddleToRef, turnOfToRef, withinSupport, type FootState,
 } from "./support.ts";
 
 export type Foot = "left" | "right";
@@ -165,36 +162,40 @@ export interface StanceReading {
   readonly strides: number;
 }
 
+/**
+ * A foot's task for a step: whether the stance drives its leg, and whether it bears; its sole's
+ * point's asked acceleration and its spin's (`command`), and its leg's freedoms' (`carry`).
+ */
+interface FootTask {
+  on: boolean;
+  bearing: boolean;
+  readonly linear: Vector3;
+  readonly angular: Vector3;
+  readonly accel: Float64Array;
+}
+
+/** `foot`'s leg's Jacobian at `point`, world: its spin's rows, then the point's velocity's, a column a freedom. */
+function legJacobian(foot: FootState, point: Vector3, driver: MuscleDriver): number[][] {
+  const dynamics = driver.dynamics;
+  return [0, 1, 2, 3, 4, 5].map((row) => foot.channels.map((i) => {
+    const axis = dynamics.axis(i), pivot = dynamics.pivot(i);
+    if (row < 3) return axis[row]!;
+    const d = [point.x - pivot[0], point.y - pivot[1], point.z - pivot[2]];
+    return row === 3 ? axis[1] * d[2]! - axis[2] * d[1]! : row === 4 ? axis[2] * d[0]! - axis[0] * d[2]! : axis[0] * d[1]! - axis[1] * d[0]!;
+  }));
+}
+
+/** The point of `foot` its task is asked at, into `out`: bearing, where it bears, as last read; swinging, its sole's middle, now. */
+function pointOf(foot: FootState, task: FootTask, out: Vector3): Vector3 {
+  return task.bearing ? out.copyFrom(foot.rolled ? foot.edge : foot.middle) : soleMiddleToRef(foot, out);
+}
+
 export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): StanceControl {
-  const seconds = tuning.seconds ?? STANCE_SECONDS;
-  const inset = tuning.supportInset ?? SUPPORT_INSET;
-  const bend = tuning.kneeBend === undefined ? STANCE_KNEE_BEND : tuning.kneeBend;
-  const spare = tuning.ankleSpare === undefined ? STANCE_ANKLE_SPARE : tuning.ankleSpare;
-  const recovery = tuning.recovery === undefined ? STANCE_RECOVERY : tuning.recovery;
-  const gait = tuning.gait ?? STANCE_GAIT;
-  const track = tuning.track ?? STANCE_TRACK;
-  const soleMargin = tuning.soleMargin ?? SOLE_MARGIN;
-  const boundedSwing = tuning.boundedSwing ?? true;
-  const heelOff = tuning.heelOff ?? true;
-  const pelvis = chainTo(built, built.segments.get("foot.left")!)[0]!.parent;
+  const { seconds, inset, bend, spare, recovery, gait, track, soleMargin, boundedSwing, heelOff } = resolveStance(tuning);
+  const feet = footStatesOf(built);
+  const pelvis = feet[0]!.chain[0]!.parent;
   const segments = [...built.segments.values()];
   const total = segments.reduce((sum, s) => sum + s.rigid.mass, 0);
-  const feet = (["left", "right"] as const).map((side): FootState => {
-    const segment = built.segments.get(`foot.${side}`);
-    if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
-    const sole = soleOf(segment), chain = chainTo(built, segment);
-    return { side, segment, chain, sole, channels: [], corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
-      straight: -referenceBendOf(chain),
-      width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
-      // The rectangle's sides from one corner: the nearer two of the other three.
-      reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,
-      middle: new Vector3(), rolled: false, toe: [new Vector3(), new Vector3()], edge: new Vector3(), edgeAxis: new Vector3(), heel: 0, flat: 0 };
-  });
-  for (const foot of feet) {
-    soleMiddleToRef(foot, foot.middle);
-    edgeOf(foot);
-    foot.flat = foot.heel;
-  }
   /**
    * The torque stance's aims for this step (`command`): the root's angular acceleration and the
    * centre of mass's, and each leg's foot's, its sole's middle's and its spin's; then (`carry`) the
@@ -203,7 +204,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
   const aim = { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) };
   // The freedoms held at a torque as `carry` found them, and their accelerations, z0 + Z a_root.
   const held = { channels: [] as number[], z0: [] as number[], Z: [] as number[][] };
-  const tasks = feet.map(() => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(6) }));
+  const tasks = feet.map((): FootTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(6) }));
   const shares = [0, 1].map(() => ({ force: new Vector3(), moment: new Vector3() }));
   const missed = { force: new Vector3(), moment: new Vector3() };
   const idScratch = { lin: new Vector3(), ang: new Vector3(), at: new Vector3(), force: new Vector3(), moment: new Vector3(), soles: [] as Vector3[], reach: [] as number[] };
@@ -233,29 +234,8 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
    * How far apart the soles' middles stand as the body was built, m: its own stance, which a walk's
    * end returns to (`settleStep`).
    */
-  const rest = ((a: Vector3, b: Vector3): number => Math.hypot(b.x - a.x, b.z - a.z))(soleMiddleToRef(feet[0]!, new Vector3()), soleMiddleToRef(feet[1]!, new Vector3()));
+  const rest = restWidth(feet);
 
-  /** Each sole read, and the middle of `stance`'s into the reading. */
-  const supportOf = (stance: readonly FootState[]): void => {
-    for (const foot of feet) {
-      soleMiddleToRef(foot, foot.middle);
-      edgeOf(foot);
-    }
-    reading.support.setAll(0);
-    for (const foot of stance) reading.support.addInPlace(foot.middle);
-    if (stance.length) reading.support.scaleInPlace(1 / stance.length);
-  };
-
-  /** Each active leg's Jacobian at its task's point, its drift, and the root's share, from `dynamics`. */
-  const legJacobian = (foot: FootState, point: Vector3, driver: MuscleDriver): number[][] => {
-    const dynamics = driver.dynamics;
-    return [0, 1, 2, 3, 4, 5].map((row) => foot.channels.map((i) => {
-      const m = dynamics.axis(i), p = dynamics.pivot(i);
-      if (row < 3) return m[row]!;
-      const d = [point.x - p[0], point.y - p[1], point.z - p[2]];
-      return row === 3 ? m[1] * d[2]! - m[2] * d[1]! : row === 4 ? m[2] * d[0]! - m[0] * d[2]! : m[0] * d[1]! - m[1] * d[0]!;
-    }));
-  };
   /**
    * The lever a missed moment of the ground's wrench is weighed against a missed force at
    * (`shareGroundWrench`): the height of the root's centre, where the wrench is taken, over the
@@ -263,8 +243,6 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
    * root's height. No fixed lever serves both humans better: `docs/reference/stance-tuning.md#wrench-lever`.
    */
   const leverOf = (height: number): number => Math.max(feet[0]!.reach, height - reading.support.y);
-  const pointOf = (foot: FootState, task: (typeof tasks)[number], out: Vector3): Vector3 =>
-    task.bearing ? out.copyFrom(foot.rolled ? foot.edge : foot.middle) : soleMiddleToRef(foot, out);
 
   /** The walk's pace toward `walk` (none: toward standing) at the gait's acceleration. */
   const paceToward = (walk: readonly [number, number] | null | undefined, dt: number): void => {
@@ -527,7 +505,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       const { lin, ang, at } = idScratch, a = aim.spin;
       // Each leg's freedoms' accelerations are y0 - Y a_root: its foot's asked motion, less its
       // drift and what the root's motion gives it, through the leg.
-      const legs: { foot: FootState; task: (typeof tasks)[number]; y0: number[]; Y: number[][] }[] = [];
+      const legs: { foot: FootState; task: FootTask; y0: number[]; Y: number[][] }[] = [];
       const inLeg = new Uint8Array(n);
       feet.forEach((foot, s) => {
         const task = tasks[s]!;
@@ -744,7 +722,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       c.scaleInPlace(1 / total);
       vel.scaleInPlace(1 / total);
       const on = which ?? last;
-      supportOf(on ? feet.filter((foot) => on.includes(foot.side)) : feet);
+      readSupport(feet, on ? feet.filter((foot) => on.includes(foot.side)) : feet, reading.support);
     },
     command(muscles, goal, dt) {
       if (owned.length !== muscles.channels.length) {
@@ -781,7 +759,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}): Stan
       last = goal ? bearing : null;
       const stance = feet.filter((foot) => bearing.includes(foot.side));
       if (!goal || stance.length === 0) return;
-      supportOf(stance);
+      readSupport(feet, stance, reading.support);
       const c = reading.centre, vel = reading.velocity, g = gravity();
 
       // The plan: where the centre of mass should be, moving critically damped toward the goal

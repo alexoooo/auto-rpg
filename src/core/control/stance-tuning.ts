@@ -8,7 +8,7 @@
  * height, the pelvis's turn, and a swinging foot's pull onto its path.
  * Sweep: `docs/reference/stance-tuning.md#time-constants`.
  */
-export const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.1 } as const;
+const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.1 } as const;
 
 /** What an experiment may set in place of the stance's constants. */
 export interface StanceTuning {
@@ -76,7 +76,7 @@ export interface RecoveryTuning {
  * Jacobian shortens the leg by extending the knee further, into its stop.
  * Sweep: `docs/reference/stance-tuning.md#knee-bend`.
  */
-export const STANCE_KNEE_BEND = 0.2;
+const STANCE_KNEE_BEND = 0.2;
 
 /**
  * The ankle dorsiflexion, rad, the stance's height leaves unused. With the feet flat and the pelvis
@@ -95,7 +95,7 @@ export const STANCE_ANKLE_SPARE = 0.01;
  * held at the edge of that region from setting steps off as the capture point wanders over it.
  * Sweep: `docs/reference/stance-tuning.md#recovery-step`.
  */
-export const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2 };
+const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2 };
 
 /**
  * A walk's steps: each swings over `seconds` lifted `lift` m, the soles `width` m apart across the
@@ -114,7 +114,7 @@ export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, l
  * The time constant, s, critically damped, at which the centre of mass's errors from its plan are
  * taken up, and a bearing foot's motion damped out. Sweep: `docs/reference/stance-tuning.md#track`.
  */
-export const STANCE_TRACK = 0.2;
+const STANCE_TRACK = 0.2;
 
 /**
  * The fraction of a bearing sole's half-length and half-width its centre of pressure is kept from the
@@ -140,3 +140,33 @@ export const LEG_DAMPING = 0.02;
  * Sweep: `docs/reference/stance-tuning.md#support-inset`.
  */
 export const SUPPORT_INSET = 0.5;
+
+/** The stance's settings as it reads them: each one `StanceTuning`'s, or the constant it stands in for. */
+interface ResolvedStance {
+  readonly seconds: NonNullable<StanceTuning["seconds"]>;
+  readonly inset: number;
+  /** Null where the tuning turns the limit, or the step, off. */
+  readonly bend: number | null;
+  readonly spare: number | null;
+  readonly recovery: RecoveryTuning | null;
+  readonly gait: GaitTuning;
+  readonly track: number;
+  readonly soleMargin: number;
+  readonly boundedSwing: boolean;
+  readonly heelOff: boolean;
+}
+
+export function resolveStance(tuning: StanceTuning): ResolvedStance {
+  return {
+    seconds: tuning.seconds ?? STANCE_SECONDS,
+    inset: tuning.supportInset ?? SUPPORT_INSET,
+    bend: tuning.kneeBend === undefined ? STANCE_KNEE_BEND : tuning.kneeBend,
+    spare: tuning.ankleSpare === undefined ? STANCE_ANKLE_SPARE : tuning.ankleSpare,
+    recovery: tuning.recovery === undefined ? STANCE_RECOVERY : tuning.recovery,
+    gait: tuning.gait ?? STANCE_GAIT,
+    track: tuning.track ?? STANCE_TRACK,
+    soleMargin: tuning.soleMargin ?? SOLE_MARGIN,
+    boundedSwing: tuning.boundedSwing ?? true,
+    heelOff: tuning.heelOff ?? true,
+  };
+}

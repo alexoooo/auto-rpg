@@ -4,8 +4,9 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { CONTACT_FRICTION } from "../engine/engine.ts";
-import type { BuiltJoint, BuiltSegment } from "../build/build-body.ts";
+import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import type { BearingSole } from "./contact-wrench.ts";
+import { chainTo } from "./kinematics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Foot } from "./stance.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
@@ -44,6 +45,44 @@ export interface FootState {
   heel: number;
   /** `heel` as the body was built, flat on the ground, m. */
   flat: number;
+}
+
+/** `built`'s two feet as a stance reads them, left then right, each read as the body stands built. */
+export function footStatesOf(built: BuiltBody): FootState[] {
+  const feet = (["left", "right"] as const).map((side): FootState => {
+    const segment = built.segments.get(`foot.${side}`);
+    if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
+    const sole = soleOf(segment), chain = chainTo(built, segment);
+    return { side, segment, chain, sole, channels: [], corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
+      straight: -referenceBendOf(chain),
+      width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
+      // The rectangle's sides from one corner: the nearer two of the other three.
+      reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,
+      middle: new Vector3(), rolled: false, toe: [new Vector3(), new Vector3()], edge: new Vector3(), edgeAxis: new Vector3(), heel: 0, flat: 0 };
+  });
+  for (const foot of feet) {
+    soleMiddleToRef(foot, foot.middle);
+    edgeOf(foot);
+    foot.flat = foot.heel;
+  }
+  return feet;
+}
+
+/** How far apart `feet`'s soles' middles stand across the ground, m, read now. */
+export function restWidth(feet: readonly FootState[]): number {
+  const a = soleMiddleToRef(feet[0]!, new Vector3()), b = soleMiddleToRef(feet[1]!, new Vector3());
+  return Math.hypot(b.x - a.x, b.z - a.z);
+}
+
+/** Each of `feet`'s soles read into it, and the middle of `stance`'s into `out`. */
+export function readSupport(feet: readonly FootState[], stance: readonly FootState[], out: Vector3): void {
+  for (const foot of feet) {
+    soleMiddleToRef(foot, foot.middle);
+    edgeOf(foot);
+  }
+  out.setAll(0);
+  for (const foot of stance) out.addInPlace(foot.middle);
+  if (stance.length) out.scaleInPlace(1 / stance.length);
 }
 
 /**
@@ -145,7 +184,7 @@ const edgeScratch = { ankle: new Vector3() };
  * farthest ahead of the ankle, their middle, their line's direction, level, and how far the heel's
  * two stand over them.
  */
-export function edgeOf(foot: FootState): void {
+function edgeOf(foot: FootState): void {
   const ankle = foot.chain[2]!, at = pointOfToRef(ankle.parent, ankle.spec.centre.value, edgeScratch.ankle);
   const fx = foot.middle.x - at.x, fz = foot.middle.z - at.z;
   const order = foot.corners.map((q, k) => [(q.x - at.x) * fx + (q.z - at.z) * fz, k] as const).sort((a, b) => b[0] - a[0]);
@@ -164,7 +203,7 @@ export function edgeOf(foot: FootState): void {
 export const GROUND_FRICTION = CONTACT_FRICTION;
 
 /** The knee's bend in the reference pose, rad: the shank's line (knee to ankle) from the thigh's (hip to knee). */
-export function referenceBendOf(chain: readonly BuiltJoint[]): number {
+function referenceBendOf(chain: readonly BuiltJoint[]): number {
   const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
   const t = [knee![0] - hip![0], knee![1] - hip![1], knee![2] - hip![2]], h = [ankle![0] - knee![0], ankle![1] - knee![1], ankle![2] - knee![2]];
   const dot = t[0]! * h[0]! + t[1]! * h[1]! + t[2]! * h[2]!;
@@ -172,7 +211,7 @@ export function referenceBendOf(chain: readonly BuiltJoint[]): number {
 }
 
 /** The thigh's and the shank's lengths in the reference pose: hip to knee, and knee to ankle. */
-export function lengthsOf(chain: readonly BuiltJoint[]): [number, number] {
+function lengthsOf(chain: readonly BuiltJoint[]): [number, number] {
   const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
   const distance = (p: Vec3, q: Vec3) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
   return [distance(hip!, knee!), distance(knee!, ankle!)];
@@ -182,7 +221,7 @@ export function lengthsOf(chain: readonly BuiltJoint[]): [number, number] {
  * The corners of `foot`'s sole, in the segment's own frame: the four corners of its box lowest in
  * the reference pose.
  */
-export function soleOf(foot: BuiltSegment): Vector3[] {
+function soleOf(foot: BuiltSegment): Vector3[] {
   const shape = foot.spec.shape;
   if (shape.kind !== "box") throw new Error(`${foot.spec.name} is a ${shape.kind}; a stance reads a box's sole`);
   const { origin, x, y, z } = foot.frame, centre = shape.centre.value, size = shape.size.value;
