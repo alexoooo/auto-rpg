@@ -133,7 +133,7 @@ that imports another worker module answers every job twice.
 ```
 node research/oracle.mjs [--left workshop-fighter] [--right workshop-rogue] [--all] [--gap 4]
   [--side left|right|both] [--every 0.5] [--horizon 2] [--seconds 30] [--blind 0] [--nudge 0.5]
-  [--assist force,moment] [--workers 14] [--out research/runs/oracle]
+  [--balance left,right] [--workers 14] [--out research/runs/oracle]
 ```
 
 One oracle bout, for one side of one recipe (`capSeconds` is `--seconds`):
@@ -156,8 +156,8 @@ One oracle bout, for one side of one recipe (`capSeconds` is `--seconds`):
    the decision's step and the trial's index. Every response of a decision meets the same `n`
    nudges, so the comparison is paired. The trunk is not nudged.
 
-It prints `BOUT_HARNESS`, the search (the responses, the period, the horizon, blind or not, the
-assist's ceiling) and, for each bout, two rows: the tactics' own bout (`playBout(recipe, seconds)`)
+It prints `BOUT_HARNESS`, the search (the responses, the period, the horizon, blind or not, each
+side's balance) and, for each bout, two rows: the tactics' own bout (`playBout(recipe, seconds)`)
 and the oracle's (winner, ending, seconds, each bar, the side's value at the end), then the
 decisions taken, the share that left the side's own tactics, the count of each response chosen,
 the mean over decisions of the best value less `own`'s (what the search believed it gained), and
@@ -196,7 +196,7 @@ export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=
 `isEntry` checks a whole number `step`, a `side` of `SIDES`, and `orders` null or an object.
 `src/arena/main.ts`, where it makes a bout: `duel.play(readTape(location.hash))`; a bout with a
 tape takes no orders from a person (`you` is ignored, and the clock's cell ends ` · replay`). The
-oracle prints `?play=arena&matchup=<left>,<right>&gap=<gap>`, with `&assist=` if the recipe has
+oracle prints `?play=arena&matchup=<left>,<right>&gap=<gap>`, with `&balance=` if the recipe has
 one, then `tapeHash(tape)`.
 
 `matchup.ts` gains `GAP_PARAM = "gap"` and `readGap(search): number | undefined` (a finite
@@ -249,7 +249,7 @@ deep-equals `tape` for a tape with a null order and an attack point; `readTape("
 ## Documents
 
 - `docs/reference/oracle.md`: the harness; the search in a sentence (responses, period,
-  horizon, clairvoyant or the blind count and nudge, the assist's ceiling); the table; what it
+  horizon, clairvoyant or the blind count and nudge, each side's balance); the table; what it
   does and does not show, as below.
 - `docs/architecture.md`: a paragraph under "Minds": a bout forks by replay
   (`research/rollouts.mjs`), and the oracle is an instrument outside the core that reads the
@@ -267,7 +267,7 @@ npm run build
 node research/oracle.mjs --seconds 2 --workers 14               # a smoke: 4 decisions, no throw
 node research/oracle.mjs --all --side both --workers 14 --out research/runs/oracle
 node research/oracle.mjs --all --side both --blind 4 --workers 14
-node research/oracle.mjs --all --side both --assist 0.25,0.065 --workers 14   # if plan 05 has landed
+node research/oracle.mjs --all --side both --balance 5,5 --workers 14   # if plan 05 has landed
 ```
 
 Into `docs/reference/oracle.md`, read so:

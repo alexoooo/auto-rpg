@@ -32,10 +32,11 @@ Each plan lands green by itself; this file is deleted with the last of them.
    step to step -- the physics, each controller's memory, each mind's, the rules' -- is plain data
    that saves and loads whole. A fork is a load; a replay is the recipe and the orders given.
 7. **An assist is a declared effector, not anatomy.** A force and a moment on the root, which a
-   mind asks for as it asks its muscles, with a ceiling that belongs to the bout's recipe, the
-   same for both sides in each body's own weight, metered every step. It is a dial, not a
-   decision: at none it is absent, and it can be turned at any time, at the cost of measuring
-   again what was measured without it.
+   mind asks for as it asks its muscles, metered every step. Its ceiling is an attribute of the
+   character, its balance (a working name): points in its spec beside its hit points, each worth
+   what the rulebook says, in the body's own weight. It is a dial, not a decision: at 0 it is
+   absent, and it can be turned at any time, at the cost of measuring again what was measured
+   without it.
 8. **A person gives orders.** WASD and the pointer become `Orders` (walk this way, face there,
    attack that) on the orders port of a layered mind, in place of its tactics. The page turns the
    camera's view into world directions, so the camera never reaches a mind, and the orders are
@@ -58,7 +59,7 @@ Each plan lands green by itself; this file is deleted with the last of them.
 | the left side sees the right a step late | both see the same step (`createSenses`, in `World.sense`'s phase) |
 | a person watches the arena | a person may take a side (`Orders`), walking one way and facing another |
 | a bout is gone once fought | its recipe and its tape play it again, from a link (`Duel.play`) |
-| nothing but its muscles holds a body up, and 8 bouts of 9 end by a fall | an assist with a ceiling in the bout's recipe (`Assist`), none unless it says otherwise |
+| nothing but its muscles holds a body up, and 8 bouts of 9 end by a fall | an assist (`Assist`) whose ceiling is the character's balance (`AttributeSpec`), 0 until the owner sets it |
 | a bout cannot be forked | by replay (`research/rollouts.mjs`), then by a load (`Duel.save`, `Duel.load`) |
 | no instrument for a skill ceiling | `research/oracle.mjs` |
 
@@ -106,9 +107,10 @@ Each is changed by the plan that makes it true, in the same commit.
   > defends itself.
 - `AGENTS.md` gains, beside "Solver conditioning is not anatomy" (plan 05):
   > **An assist is not anatomy.** A force or moment no muscle gives is an assist (`Assist`,
-  > `src/core/control/assist.ts`): its ceiling is the fight's (`ASSIST`, `src/arena/duel.ts`),
-  > the same for every side in each body's own weight, metered every step, and kept out of the
-  > body's numbers. A figure measured under an assist names its ceiling.
+  > `src/core/control/assist.ts`). Its ceiling is the character's balance (`AttributeSpec`,
+  > `src/core/spec/body.ts`) at the worth the rulebook gives a point (`Rulebook.balance`), in
+  > the body's own weight; it is metered every step, and kept out of the body's anatomy. A
+  > figure measured under an assist names each side's balance.
 - `AGENTS.md` gains, under Code (plan 08):
   > **What changes from step to step is plain data in one `state` object** per module
   > (`src/core/state.ts`), hung on the bout's; `tests/arena-fork.test.mjs` forks a bout to prove
@@ -237,21 +239,26 @@ None of these is a decision now; each is a value in a recipe or a constant with 
   velocities, and whether it is out. Not its hit points.
 - **Walking while facing elsewhere**: half the fastest walk across the heading or backward, and
   until the body has turned to within 0.3 rad of its facing (`STRAFE`, plan 04).
-- **The assist's ceiling**: none (`ASSIST`, or `DuelRecipe.assist`, or `&assist=` in a link;
-  plan 05). A force in the body's weights and a moment in its weights times a metre.
+- **A point of balance**: 0.05 of the body's weight and 0.013 weight-metres (`Rulebook.balance`,
+  or `DuelRecipe.balancePoint`; plan 05), so that 5 points is the ceiling measured at a quarter
+  of a weight. A side's points for one bout: `DuelRecipe.balance`, or `&balance=` in a link.
 - **The oracle's search**: its responses, its period (0.5 s), its horizon (2 s), and whether it
   is blind, named in each run (plan 06).
 
 ## The owner's choices
 
-Two, each with what it changes in play. Neither blocks a plan; each plan lands the default.
+Three, each with what it changes in play. None blocks a plan; each plan lands the default.
 
-1. **The arena's assist** (plan 05), after watching bouts with it. *Default:* none: a body
-   stands on its muscles alone, and most bouts end by a fall inside 20 s. *Or:* a quarter of a
-   body's weight and 0.065 weight-metres (50 N m on the Warrior): falls drop ninefold, bouts run
-   about four times longer and most end by a wound or at the cap, on a help of about a
-   hundredth of a body's weight. It is a constant, and can be turned again whenever.
-2. **What the pointer does while a person stands still** (plan 04). The stance turns only while
+1. **Each character's balance** (plan 05), after watching bouts with it. *Default:* 0 for every
+   character: a body stands on its muscles alone, and most bouts end by a fall inside 20 s.
+   *Or:* 5 for every character: falls drop ninefold, bouts run about four times longer and most
+   end by a wound or at the cap, on a help of about a hundredth of a body's weight. *Or:*
+   different points for each, which makes it a trait that tells characters apart; plan 05's
+   uneven table says what a difference of points buys in bouts won.
+2. **The attribute's name** (plan 05). *Default:* Balance, which says what it buys. *Or:*
+   Stability, Poise or Footing, which say the same. Agility, Dexterity or Movement would promise
+   speed or precision, which this number does not give.
+3. **What the pointer does while a person stands still** (plan 04). The stance turns only while
    it walks. *Default:* a standing body does not turn to the pointer; the person walks to turn.
    *Or:* a pointer more than a quarter turn off makes the body take a slow step toward its own
    heading so it can turn, which moves it without being asked.

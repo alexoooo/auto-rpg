@@ -3,9 +3,16 @@
 ## Goal
 
 A second effector beside the muscles: a force and a moment on a body's root that no muscle
-gives, with a ceiling that is a rule of the bout, the same for both sides, metered every step,
-and zero unless the bout's recipe says otherwise. At zero it is absent and every digest is
-unchanged.
+gives, metered every step. How much a body may be given is **an attribute of its character**,
+its **balance**: a number of points in its spec, beside its hit points, the owner's for each
+character. The rulebook says what a point is worth, in the body's own weight. At a balance of 0
+the assist is absent and every digest is unchanged, and every character starts there.
+
+**Balance is a working name.** It says what the number buys: staying on one's feet. The owner
+named Movement, Agility, Dexterity and Stability as candidates; the first three promise speed or
+precision, which this number does not give (no limb moves faster for it), and Stability and
+Poise say the same thing as Balance. The name is one of the owner's choices at this plan's eye
+gate, and a rename of one field.
 
 The stance is its first user. Each step the stance works out the wrench the ground must give for
 the accelerations it asks, shares it among the soles as far as soles can give it, and where they
@@ -13,14 +20,17 @@ cannot give it all it settles for the motion the lesser wrench makes
 (`shareGroundWrench`, in `carry`). That shortfall is what the assist supplies, up to its ceiling,
 inside the same solve: the root is then asked for what the soles and the assist give together.
 
-This is a dial, not a decision. The plan lands it at zero with its table; turning it is a field
-of a recipe, or two numbers in a link.
+How strong it is is a dial, not a decision. The plan lands every character at 0 with its
+tables; turning it is a number in a character's spec, a field of a recipe, or two numbers in a
+link.
 
 ## What was measured
 
 Harness for all of it: Node, the core world, Rapier, 120 Hz, on a copy of `src/` at `144961d4`
 patched as this plan describes; force ceilings in body weights, moment ceilings in N m for every
-body (the Warrior and the skeleton weigh 775 N, the Rogue 565 N).
+body (the Warrior and the skeleton weigh 775 N, the Rogue 565 N). The prototype gave both sides
+one ceiling; at this plan's worth of a point (0.05 weights and 0.013 weight-metres) the tables'
+0.1, 0.25, 0.5 and 1 weights are 2, 5, 10 and 20 points of balance on both sides.
 
 **What the soles miss, with no assist** (the nine matchups at 4 m). Over a whole bout a body's
 stance misses 0.01 to 0.10 of its weight and 6 to 79 N m on average, and asks more than the
@@ -73,16 +83,21 @@ given nothing, and the stance's ask after a fall is on the roadmap as a defect o
 | File | Change |
 |---|---|
 | `src/core/control/assist.ts` | New: `AssistCeiling`, `NO_ASSIST`, `Assist`, `createAssist`. |
+| `src/core/spec/body.ts` | `AttributeSpec`; `BodySpec.attributes`. |
+| `src/core/human/attributes.ts`, `figure.ts`, `workshop.ts`, `skeleton.ts`, `spec.ts` | New: `workshopBalance`, `humanAttributes`; `HumanFigure.balance`, each character's. |
+| `src/core/rules/rulebook.ts`, `src/core/sources.ts` | `Rulebook.balance` (a point's worth), `balancePoint`, `balanceCeiling`; the `owner-balance` source. |
 | `src/core/mind/mind.ts` | `OwnBody.assist`; `embody` takes a ceiling and applies the assist after the mind's step. |
 | `src/core/control/stance.ts`, `stance-dynamics.ts` | `StanceReading.shortfall`; `stanceControl(built, tuning, assist)` asks the assist for it. |
 | `src/core/control/motor.ts` | Hands the assist to the stance. |
 | `src/core/body.ts` | `BodyOptions.assist`; `Body.assist`. |
-| `src/arena/duel.ts` | `ASSIST`; `DuelRecipe.assist`; withdrawn at the verdict. |
-| `src/arena/matchup.ts`, `src/arena/main.ts` | `&assist=force,moment` in a link. |
+| `src/arena/duel.ts` | `DuelRecipe.balance`, `.balancePoint`; each side's ceiling from its balance; withdrawn at the verdict. |
+| `src/dungeon/run.ts` | Each actor's ceiling from its balance; withdrawn when it is out. |
+| `src/arena/matchup.ts`, `src/arena/main.ts` | `&balance=left,right` in a link. |
 | `research/bout.mjs` | The row gains each side's mean assist. |
 | `research/assist-need.mjs`, `research/assist-sweep.mjs` | New. |
 | `docs/reference/assist.md` | New: the three tables, read on the landed code. |
 | `tests/core-assist.test.mjs` | New: three tests. |
+| `tests/core-rules.test.mjs` | One test. |
 | `tests/arena-core.test.mjs` | One test. |
 | `AGENTS.md`, `docs/architecture.md`, `docs/roadmap.md` | The rule; the effector; the walk's line. |
 
@@ -144,10 +159,11 @@ export const NO_ASSIST: AssistCeiling = Object.freeze({ force: 0, moment: 0 });
 
 /**
  * **The assist: a force and a moment on a body's root that no muscle gives.** It is not anatomy:
- * its ceiling is a rule of the fight the body is in, the same for every side, and everything it
- * gives is metered. A mind asks it for a wrench each step as it asks its muscles; what it is
- * given is the ask shortened to the ceiling, applied at the root's centre of mass in the solver
- * step that follows, with the muscles' torques. Asked for nothing, it gives nothing.
+ * its ceiling is the fight's to set, from the character's balance (`balanceCeiling`,
+ * `src/core/rules/rulebook.ts`), and everything it gives is metered. A mind asks it for a wrench
+ * each step as it asks its muscles; what it is
+ * given is the ask shortened to the ceiling, applied at the root's centre of mass in the solver step
+ * that follows, with the muscles' torques. Asked for nothing, it gives nothing.
  */
 export interface Assist {
   /** Whether it gives anything: a ceiling above none, and not withdrawn. */
@@ -269,43 +285,165 @@ that the legs' muscles do not."
 `motorControl` takes the assist as its last argument and hands it to `stanceControl`;
 `commandMind` passes `own.assist`.
 
-### `src/core/body.ts`, `src/arena/duel.ts`, the page
+### The attribute: `src/core/spec/body.ts`, the human's files, `src/core/rules/rulebook.ts`
 
-- `BodyOptions.assist?: AssistCeiling` (passed to `embody`); `Body.assist: Assist`, "for its
-  meter; the fight that set its ceiling withdraws it".
-- `src/arena/duel.ts`:
+The control layer above knows only a ceiling. Where the ceiling comes from is the rules': a
+character's attribute, and the worth of a point.
+
+`src/core/spec/body.ts`, and `BodySpec` gains `readonly attributes: AttributeSpec` after
+`wounds`:
 
 ```ts
 /**
- * The arena's assist: none. A bout's recipe may name another (`DuelRecipe.assist`), which both
- * sides get. What each ceiling does to how bouts end: `docs/reference/assist.md`.
+ * **What a fight's rules read of a character beyond its anatomy and its wounds.** Each is the
+ * owner's number for that character, in points; the rulebook says what a point is worth.
  */
-export const ASSIST: AssistCeiling = NO_ASSIST;
+export interface AttributeSpec {
+  /**
+   * How far the character may be held up beyond what its legs give: its assist's ceiling
+   * (`Rulebook.balance`, `Assist`). At 0 nothing holds it up that its muscles do not.
+   */
+  readonly balance: Quantity<number>;
+}
 ```
 
-  `DuelRecipe.assist?: AssistCeiling`; each side's `createBody` is given
-  `assist: this.recipe.assist ?? ASSIST`; and `judge`, on the step it sets the verdict, calls
-  `body.assist.withdraw()` on both sides: a body that is down still has a stance that asks, and
-  an assist that answered it would throw the body about.
-- `src/arena/matchup.ts`: `ASSIST_PARAM = "assist"`, `readAssist(search): AssistCeiling | undefined`
-  (two numbers, each finite and not negative, else undefined). `src/arena/main.ts` puts it in the
-  recipe, and while a bout has one the clock's cell ends ` · assisted`.
+`src/core/human/attributes.ts` (new), as `wounds.ts` gives the hit points:
+
+```ts
+import type { AttributeSpec } from "../spec/body.ts";
+import { sourced, type Quantity } from "../spec/quantity.ts";
+import type { HumanFigure } from "./figure.ts";
+import type { WorkshopModel } from "./rig.ts";
+
+/** A human figure's attributes: the figure's. */
+export function humanAttributes(figure: HumanFigure): AttributeSpec {
+  return { balance: figure.balance };
+}
+
+/** A workshop model's balance, points, the owner's. */
+export function workshopBalance(model: WorkshopModel): Quantity<number> {
+  switch (model) {
+    case "workshop-fighter": return sourced(0, "1", "owner-balance", "Warrior 0");
+    case "workshop-rogue": return sourced(0, "1", "owner-balance", "Rogue 0");
+    default: { const never: never = model; throw new Error(`no balance for ${String(never)}`); }
+  }
+}
+```
+
+`HumanFigure` gains `readonly balance: Quantity<number>` beside `hp` ("The body's balance,
+points (`AttributeSpec`)"); the workshop's figure sets it from `workshopBalance(model)` where it
+sets `hp`, the skeleton's as `placeholder(0, "1", "the Warrior's balance")`, and each spec that
+calls `humanWounds(figure)` sets `attributes: humanAttributes(figure)` beside it.
+
+`src/core/sources.ts`, after `owner-hp-pool`:
+
+```ts
+  "owner-balance": {
+    kind: "decision", date: "2026-09-30",
+    decided: "How strongly a body is held up beyond its legs is an attribute of its character (the owner: "
+      + "'i want that to be an attribute'). Proposed, for the owner to confirm: the attribute's name, balance; "
+      + "a point is worth 0.05 of the body's weight and 0.013 weight-metres, so that 5 points is the ceiling "
+      + "measured at a quarter of a weight; and every character starts at 0.",
+    record: "docs/reference/assist.md#balance",
+  },
+```
+
+`src/core/rules/rulebook.ts`: `Rulebook` gains
+
+```ts
+  /**
+   * **What a point of balance is worth** (`AttributeSpec.balance`): the most an assist gives a
+   * body for each point, a force in the body's own weights and a moment in its weights times a
+   * metre. What each worth does to how bouts end: `docs/reference/assist.md`.
+   */
+  readonly balance: { readonly force: Quantity<number>; readonly moment: Quantity<number> };
+```
+
+`RULES` gains
+
+```ts
+  balance: Object.freeze({
+    force: sourced(0.05, "1", "owner-balance", "a point is 0.05 of the body's weight"),
+    moment: sourced(0.013, "m", "owner-balance", "and 0.013 weight-metres"),
+  }),
+```
+
+and the module exports
+
+```ts
+/** What a point of balance is worth under `rules`, as a ceiling. */
+export function balancePoint(rules: Rulebook): AssistCeiling {
+  return { force: rules.balance.force.value, moment: rules.balance.moment.value };
+}
+
+/** The most an assist gives a body of `balance` points, each worth `point`. */
+export function balanceCeiling(balance: number, point: AssistCeiling): AssistCeiling {
+  if (!(balance >= 0) || !Number.isFinite(balance)) throw new Error(`a balance is a finite number of points >= 0, not ${balance}`);
+  return { force: balance * point.force, moment: balance * point.moment };
+}
+```
+
+A point's worth is a rule, so an experiment that changes it passes its own (`RulebookOverride`,
+or the recipe's `balancePoint` below); a character's points are its spec's.
+
+### `src/core/body.ts`, `src/arena/duel.ts`, `src/dungeon/run.ts`, the page
+
+- `BodyOptions.assist?: AssistCeiling` (passed to `embody`); `Body.assist: Assist`, "for its
+  meter; the fight that set its ceiling withdraws it". A body made with no ceiling has none: the
+  lab's bodies stand on their muscles.
+- `src/arena/duel.ts`: `DuelRecipe` gains
+
+```ts
+  /** Each side's balance, points, in place of its character's (`AttributeSpec.balance`): an experiment's, or a link's. */
+  readonly balance?: { readonly left: number; readonly right: number };
+  /** What a point of balance is worth, in place of the rulebook's (`Rulebook.balance`): a sweep's. */
+  readonly balancePoint?: AssistCeiling;
+```
+
+  Each side's `createBody` is given
+  `assist: balanceCeiling(this.recipe.balance?.[side] ?? spec.attributes.balance.value, this.recipe.balancePoint ?? balancePoint(this.rules))`;
+  and `judge`, on the step it sets the verdict, calls `body.assist.withdraw()` on both sides: a
+  body that is down still has a stance that asks, and an assist that answered it would throw the
+  body about.
+- `src/dungeon/run.ts`: the crypt's rules are the arena's, so each actor's `createBody` is given
+  `assist: balanceCeiling(spec.attributes.balance.value, balancePoint(this.rules))`, and the run
+  withdraws an actor's assist on the step it finds the actor out of the fight (where its
+  `alive` turns false).
+- `src/arena/matchup.ts`: `BALANCE_PARAM = "balance"`,
+  `readBalance(search): { left: number; right: number } | undefined` (two numbers, each finite
+  and not negative, left then right; one number is both sides'; else undefined).
+  `src/arena/main.ts` puts it in the recipe, and while either side's assist is on the clock's
+  cell ends ` · balance <left> / <right>`.
 - `research/bout.mjs`: the row gains
   `assist: SIDES.map((side) => meanOf(duel.duelists[side].body.assist.meter))`, each `[N, N m]`.
 
 ## Chunk C: the sweep
 
 `research/assist-sweep.mjs`:
-`node research/assist-sweep.mjs [--cells "0,0;0.1,0.03;0.25,0.065;0.5,0.13;1,0.26;1,0.52;2,1.03;0,0.26;1,0"] [--gaps 3,3.2,3.4,3.6,3.8,4,4.2,4.4,4.6,4.8,5] [--workers 14]`.
-Each cell is a ceiling (force in weights, moment in weight-metres: 0.065 is 50 N m on the
-Warrior); its bouts are every matchup at every gap, 99 by default, through `bout-worker.mjs`.
-For each cell it prints the bouts by ending, the bout time, **falls a minute of bout time**,
-wounding blows a minute, the share of bouts at the cap, and the mean assist given; then the same
-by model. Each worker writes nothing: rows come back as messages, so no two share a file.
+`node research/assist-sweep.mjs [--even 0,2,5,10,20,40] [--shapes "0.05,0.026;0,0.013;0.05,0"] [--uneven "5:0,5:2,10:5"] [--gaps 3,3.2,3.4,3.6,3.8,4,4.2,4.4,4.6,4.8,5] [--workers 14]`.
+A cell's bouts are every matchup at every gap, 99 by default, through `bout-worker.mjs`; each
+worker writes nothing: rows come back as messages, so no two share a file. Three tables:
+
+- **Even** (`--even`): both sides at the same balance, at the rulebook's worth of a point. For
+  each cell: the bouts by ending, the bout time, **falls a minute of bout time**, wounding blows
+  a minute, the share of bouts at the cap, and the mean assist given; then the same by model.
+  This is the prototype's diagonal: 5 points is its 0.25 weights.
+- **Shapes** (`--shapes`): both sides at 20 points, at another worth of a point
+  (`DuelRecipe.balancePoint`, force in weights and moment in weight-metres a point): twice the
+  moment, the moment alone, the force alone. The same columns. It says whether a point's two
+  parts are in a proportion worth keeping.
+- **Uneven** (`--uneven`, each `more:less`): one side at the greater balance and the other at
+  the lesser, each matchup played both ways round (198 bouts a cell). For each cell: the share
+  of decided bouts the side with more wins, with its count, and each side's falls a minute.
+  This is what the attribute buys a character against another, which is what makes it an
+  attribute.
 
 `docs/reference/assist.md`: the harness line, the commit, `assist-need.mjs`'s table, the pull
-(read by the test below), and the sweep's table. It says of each cell how many bouts it is, and
-that a difference between two cells under about 0.3 falls a minute is not read at 99 bouts.
+(read by the test below), and the sweep's three tables, under `## Balance`: what the attribute
+is, each character's points, what a point is worth, and that all three are the owner's
+(`owner-balance`). It says of each cell how many bouts it is, that a difference between two
+cells under about 0.3 falls a minute is not read at 99 bouts, and that a share of wins at 198
+bouts is read to about 7 points either way.
 
 ## Tests
 
@@ -341,31 +479,56 @@ that a difference between two cells under about 0.3 falls a minute is not read a
    lesser size, within 1e-9), likewise the moment; at some step each is at its ceiling, and at
    some step under it.
 
+`tests/core-rules.test.mjs`: `a_point_of_balance_is_worth_the_rulebook's_and_a_character's_points_are_its_spec's`.
+- `balanceCeiling(5, balancePoint(rulebook("arena")))` is `{ force: 0.25, moment: 0.065 }` within
+  1e-12, and `balanceCeiling(0, …)` is `{ force: 0, moment: 0 }`.
+- Under `rulebook("arena", { balance: { force: sourced(0.1, "1", "owner-balance", "a test's"), moment: … } })`
+  the same 5 points are worth twice the force: the worth is the rulebook's, not the function's.
+- `balanceCeiling` throws on -1, `NaN` and `Infinity`.
+- For every model of `BODY_MODELS`, `modelSpec(model).attributes.balance` is a `Quantity` in
+  `"1"` from `owner-balance` or `skeleton-placeholders`, and `specProvenanceFaults` finds no
+  fault in the spec (the attribute is walked with the rest).
+
 `tests/arena-core.test.mjs`:
 
 ```js
-test("a_bout's_assist_is_its_recipe's_the_same_for_both_sides_and_none_unless_given", async () => {
+test("a_side's_assist_is_its_balance_in_its_own_weight_and_none_at_zero", async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
-  const plain = await playBout(recipe, 10), none = await playBout({ ...recipe, assist: { force: 0, moment: 0 } }, 10);
-  assert.equal(none.digest, plain.digest);
-  assert.deepEqual(plain.assist, [[0, 0], [0, 0]]);
-  const helped = await playBout({ ...recipe, assist: { force: 0.25, moment: 0.065 } }, 10);
-  assert.notEqual(helped.digest, plain.digest);
+  const weight = (duelist) => [...duelist.built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0) * 9.80665;
+  const none = await playBout({ ...recipe, balance: { left: 0, right: 0 } }, 10);
+  assert.deepEqual(none.assist, [[0, 0], [0, 0]]);
+  const helped = await playBout({ ...recipe, balance: { left: 5, right: 2 } }, 10);
+  assert.notEqual(helped.digest, none.digest);
   for (const [force, moment] of helped.assist) assert.ok(force > 0 && moment > 0, `each side is given some: ${force}, ${moment}`);
-  // One ceiling for both, in each body's own weight.
   const { world, dispose } = await arena();
-  const duel = new Duel(world, { ...recipe, assist: { force: 0.25, moment: 0.065 } });
+  const built = [];
   try {
-    const weight = (duelist) => [...duelist.built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0) * 9.80665;
-    for (const duelist of Object.values(duel.duelists)) {
-      assert.ok(Math.abs(duelist.body.assist.most.force / weight(duelist) - 0.25) < 1e-9);
+    // With no balance in the recipe, each side's is its character's.
+    const own = new Duel(world, recipe);
+    built.push(own);
+    for (const duelist of Object.values(own.duelists)) {
+      const points = duelist.built.spec.attributes.balance.value;
+      assert.ok(Math.abs(duelist.body.assist.most.force / weight(duelist) - points * 0.05) < 1e-9, `${duelist.model}'s own ${points} points`);
+    }
+  } finally { for (const duel of built) duel.dispose(); dispose(); }
+  const second = await arena();
+  const duel = new Duel(second.world, { ...recipe, balance: { left: 5, right: 2 }, balancePoint: { force: 0.1, moment: 0.02 } });
+  try {
+    // Each side's own points, at the recipe's worth of a point, in its own weight.
+    for (const [side, points] of [["left", 5], ["right", 2]]) {
+      const duelist = duel.duelists[side], most = duelist.body.assist.most;
+      assert.ok(Math.abs(most.force / weight(duelist) - points * 0.1) < 1e-9, `${side}'s force`);
+      assert.ok(Math.abs(most.moment / weight(duelist) - points * 0.02) < 1e-9, `${side}'s moment`);
       assert.ok(duelist.body.assist.on);
     }
     duel.run();
     for (const duelist of Object.values(duel.duelists)) assert.equal(duelist.body.assist.on, false, "withdrawn at the verdict");
-  } finally { duel.dispose(); dispose(); }
+  } finally { duel.dispose(); second.dispose(); }
 });
 ```
+
+That a balance of 0 leaves a bout as it was is not a test's to say (a test has no bout from
+before the change): it is `bout-trace.mjs`'s digest, in the verification below.
 
 ## Mutations, each must go red
 
@@ -378,8 +541,13 @@ test("a_bout's_assist_is_its_recipe's_the_same_for_both_sides_and_none_unless_gi
   it): test 2's assisted body takes recovery steps.
 - `bear` does not take `helped` from the ground's wrench (the soles and the assist both give
   it): test 2's assisted travel.
-- `stanceControl` ignores `assist.on`: the arena test's first bar, and `bout-trace.mjs`'s digest.
-- `Duel` gives the ceiling to one side: the arena test's loop.
+- `stanceControl` ignores `assist.on`: `bout-trace.mjs`'s digest.
+- `Duel` gives the left's balance to both sides: the arena test's loop (5 and 2 points).
+- `Duel` reads the rulebook's worth and ignores `recipe.balancePoint`: the same loop (0.1, not
+  0.05).
+- `Duel` ignores the spec's balance when the recipe has none: set the Warrior's to 3 in a
+  scratch copy and the arena test's first loop must still pass, and fail if `Duel` reads 0.
+- `balanceCeiling` multiplies by a number of its own, not the point's: the rules test's override.
 - `judge` does not withdraw: the arena test's last bar.
 - `clip` passes a `NaN`: test 1's third case.
 
@@ -388,8 +556,8 @@ test("a_bout's_assist_is_its_recipe's_the_same_for_both_sides_and_none_unless_gi
 - `AGENTS.md`: "An assist is not anatomy", as in
   [the design](2026-09-30-minds-00-design.md#the-rules-this-changes).
 - `docs/architecture.md`: the mind seam's effectors are the muscles and the assist; the stance
-  section says what it asks the assist for; "Rules and wounds" says a bout's ceiling is its
-  recipe's and none by default.
+  section says what it asks the assist for; "Rules and wounds" says a character has a balance
+  beside its hit points, what a point is worth, and that every character's is 0.
 - `docs/roadmap.md`, "Body and motor control", under "Walking", after the next step: "The assist
   supplies the moment the soles miss, as a cheat with a ceiling (`docs/reference/assist.md`)."
   The line on the stance's ask past a fall is there already.
@@ -400,19 +568,28 @@ test("a_bout's_assist_is_its_recipe's_the_same_for_both_sides_and_none_unless_gi
 npm test
 npm run check
 npm run build
-node research/bout-trace.mjs                       # the digest of the plan before: the arena's ceiling is none
+node research/bout-trace.mjs                       # the digest of the plan before: every character's balance is 0
 node research/assist-need.mjs --workers 14
-node research/assist-sweep.mjs --workers 14        # 891 bouts; the long cells run to the cap
+node research/assist-sweep.mjs --workers 14        # 1485 bouts; the long cells run to the cap
 npm run preview -- --port 5181                     # then kill it by the PID that holds the port
 ```
 
-- Read the sweep against the prototype's table: falls a minute at none near 3.3, and at
-  `0.25,0.065` under 1. If the landed code does not show that drop, the stance is not asking the
-  assist what the prototype asked: find that before anything is tuned.
+- Read the even table against the prototype's: falls a minute at 0 points near 3.3, and at 5
+  under 1. If the landed code does not show that drop, the stance is not asking the assist what
+  the prototype asked: find that before anything is tuned.
 - In the browser, with the tab visible:
-  `?play=arena&matchup=workshop-fighter,workshop-fighter&assist=0.25,0.065` runs past 8 s, where
-  the same bout with no assist ends by a fall before any blow.
+  `?play=arena&matchup=workshop-fighter,workshop-fighter&balance=5` runs past 8 s, where the
+  same bout at 0 ends by a fall before any blow.
 
-**Eye gate: the owner watches assisted bouts**, at `&assist=0.25,0.065` and `&assist=1,0.26`,
-against none: whether bodies that are helped still read as bodies standing on their own feet. The
-arena's ceiling (`ASSIST`) stays none until the owner turns it.
+**Eye gate: the owner watches bouts with balance**, at `&balance=5`, `&balance=20` and
+`&balance=5,0`, against none: whether bodies that are helped still read as bodies standing on
+their own feet, and whether a difference in balance reads as a difference between characters.
+With the uneven table beside them the owner then chooses:
+
+1. **The attribute's name.** Balance (the working name), Stability, Poise or Footing say what it
+   does; Agility, Dexterity or Movement would fit only if the same number later also buys speed
+   or precision.
+2. **Each character's points** (`workshopBalance`, and the skeleton's placeholder). All stay 0
+   until the owner sets them.
+3. **A point's worth** (`Rulebook.balance`), if the shapes table says the proportion is wrong
+   or the owner wants another scale.
