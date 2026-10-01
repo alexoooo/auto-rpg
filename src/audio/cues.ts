@@ -5,8 +5,9 @@ export interface SoundPoint { x: number; z: number }
 export interface ImpactCue { key: string; kind: SoundKind; strength: number; severed: boolean; point: SoundPoint }
 /**
  * The cue for a blow (`LandedBlow`) on a body of `struck`'s surface. Its strength is the
- * square root of the blow's energy over 60 J, capped at 1. A clash (two weapons meeting) plays the
- * shield's knock.
+ * square root of the blow's energy over 60 J, capped at 1. A clash, a hand or what it holds meeting
+ * another (`src/core/rules/blows.ts`), plays the `shield` knock whatever the bodies are made of: a
+ * wooden club on a wooden club.
  */
 export function blowCue(blow: LandedBlow, struck: SoundKind): ImpactCue | null {
   const strength = Math.sqrt(Math.max(0, blow.energy) / 60);

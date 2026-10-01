@@ -18,6 +18,7 @@ const LOOP_SECONDS = 60;
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
+import { BODY_MODELS } from "../src/core/human/spec.ts";
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
@@ -26,6 +27,7 @@ if (isMainThread) {
     models: { type: "string", default: "workshop-rogue,workshop-fighter" }, list: { type: "boolean", default: false },
   } });
   const variants = JSON.parse(values.variants), models = values.models.split(","), seeds = Number(values.seeds);
+  for (const model of models) if (!BODY_MODELS.includes(model)) throw new Error(`--models names no body: ${model} (one of ${BODY_MODELS.join(", ")})`);
   const loops = Number(values.loops), impulse = Number(values.impulse), hz = Number(values.hz);
   const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
   const jobs = [];
@@ -67,13 +69,13 @@ if (isMainThread) {
     }
   });
 } else {
-  const [{ Logger }, { Vector3 }, { humanSpec }, { startRoutine }, { coreStand }] = await Promise.all([
+  const [{ Logger }, { Vector3 }, { modelSpec }, { startRoutine }, { coreStand }] = await Promise.all([
     import("@babylonjs/core/Misc/logger.js"), import("@babylonjs/core/Maths/math.vector.js"), import("../src/core/human/spec.ts"),
     import("../src/lab/routine.ts"), import("../tests/harness/core-stand.mjs")]);
   Logger.LogLevels = Logger.ErrorLogLevel;
   parentPort.on("message", async ({ model, seed, stance, loops, impulse, hz }) => {
     try {
-      const stand = await coreStand(humanSpec(model), { ground: true, hz });
+      const stand = await coreStand(modelSpec(model), { ground: true, hz });
       const routine = startRoutine(stand.built, stand.world, stance);
       const lower = stand.built.segments.get("lowerTrunk"), middle = stand.built.segments.get("middleTrunk");
       const way = (seed * 2.399963) % (2 * Math.PI), push = stand.seconds(0.5), most = stand.seconds(LOOP_SECONDS * loops);

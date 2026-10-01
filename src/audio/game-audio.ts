@@ -154,8 +154,8 @@ export class GameAudio {
       const attack = Math.min(1, t / .002), tail = Math.min(1, (duration - t) / .02);
       let value: number;
       switch (kind) {
-        // A held shield is damped by its grip and the body behind it: a broad crack and low
-        // panel thump, not the long, high partials of two small bare metal objects.
+        // What a clash plays (`blowCue`): held wood on held wood, damped by the grips and the
+        // bodies behind them. A broad crack and a low thump, with no long, high partials.
         case "shield": value = noise * .38 * Math.exp(-t * 150) + low * 1.1 * Math.exp(-t * 32)
           + Math.sin(t * 2 * Math.PI * 145) * .3 * Math.exp(-t * 35)
           + Math.sin(t * 2 * Math.PI * 273) * .13 * Math.exp(-t * 45)

@@ -3,9 +3,6 @@ node_modules/
 dist/
 .vite/
 
-# Legacy Rust build output and generated diagnostics.
-/target/
-
 # Downloaded toolchains -- Blender and friends, fetched by the asset scripts. Large, and
 # reproducible from the fetchers rather than from the repository.
 .tools/

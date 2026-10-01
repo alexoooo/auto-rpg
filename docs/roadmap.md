@@ -65,6 +65,7 @@ All of it on a physically based core, humans first ([architecture](architecture.
 - Running (a flight phase), a dash or lunge, a roll, a crouch, and turning on the spot. A lower
   stance also needs the hip to hinge; in the lab's Stance a lower centre of mass stands only about
   1 cm lower, and walking from there falls.
+- A two-handed grip: a hand holds its own item and nothing holds one item with both.
 - The envelope does not measure a turn from standing; the Routine walks and turns at 0.3 m/s and
   1 rad/s to stay up.
 - Shoves: the least impulse held from any way is 55 N s on the Warrior and 35 on the Rogue.

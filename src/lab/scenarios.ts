@@ -38,7 +38,7 @@ export const MODELS: readonly { readonly id: BodyModel; readonly name: string }[
 
 /**
  * What a hand may hold: nothing, or the wooden club (`woodenClub`, `src/core/items/club.ts`),
- * which becomes one rigid body with the hand. The core has no two-handed grip yet.
+ * which becomes one rigid body with the hand.
  */
 export const LAB_HELD = ["empty", "club"] as const;
 export type LabHeld = (typeof LAB_HELD)[number];

@@ -41,7 +41,6 @@ const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !
 export async function bootArena(): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
-  engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
   const physicsEngine = await loadEngine();
   let made: World | null = null;
   const arena = await buildArena(engine, (scene) => (made = createWorld(scene, physicsEngine)).physics);

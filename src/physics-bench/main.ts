@@ -93,7 +93,8 @@ function show(row: Row, cells: string[]): void {
   $("rows").append(tr);
 }
 
-const median = (xs: number[]): number => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
+/** The middle value, or the mean of the two middle ones: not `median` (`math.ts`), which is the 50th percentile. */
+const midMean = (xs: number[]): number => { const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 
 async function runChosen(c: Chosen, what: { fidelity: boolean; scaling: boolean }): Promise<void> {
   $("status").textContent = `${c.tag}: loading`;
@@ -120,7 +121,7 @@ async function runChosen(c: Chosen, what: { fidelity: boolean; scaling: boolean 
       }));
       await tick();
     }
-    const pick = (g: (r: ScalingResult) => number): number => median(runs.map(g));
+    const pick = (g: (r: ScalingResult) => number): number => midMean(runs.map(g));
     const row = {
       tag: c.tag, kind, humans,
       totalMean: pick((r) => r.total.mean), totalMedian: pick((r) => r.total.median), totalP95: pick((r) => r.total.p95),

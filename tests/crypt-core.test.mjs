@@ -57,8 +57,7 @@ test("a_fight_in_the_crypt_starts_and_ends", async () => {
     const wounds = (from, to) => run.blows.filter(b => !b.clash && b.attacker === from.id && b.target === to.id)
       .reduce((sum, b) => sum + b.damage, 0);
     assert.ok(wounds(run.hero, enemy) > 0 && wounds(enemy, run.hero) > 0, "blows land both ways, and wound");
-    // A fallen body is out of the fight until the core can rise (`DungeonRun`), and an emptied pool ends
-    // one too (`dungeon-party`).
+    // A fall or an emptied pool ends a body's fight (`DungeonActor.alive`).
     assert.equal(enemy.alive, false, `and the fight ends inside 30 s: ${run.clock.toFixed(1)} s`);
     assert.ok(run.hero.alive, "with the hero standing");
     assert.equal(run.status, "playing", "the rest of the crypt is still to come");
